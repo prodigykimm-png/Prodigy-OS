@@ -22,7 +22,12 @@
   "showShortcuts": true,
   "markdownOnly": false,
   "unresolvedLinks": false,
-  "recentFilesStore": [],
+  "recentFilesStore": [
+    {
+      "filepath": "docs/02_Core_Concepts.md",
+      "timestamp": 1783343115673
+    }
+  ],
   "bookmarkedFileStore": [
     {
       "filepath": "HUB/Homepage.md"

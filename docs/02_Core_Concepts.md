@@ -1,4 +1,4 @@
-# Prodigy OS Core Concepts v1.1
+# Prodigy OS Core Concepts v1.2
 
 > "Every concept has one meaning, and every meaning has one name."
 
@@ -518,11 +518,11 @@ Asset으로 성장한다.
 
 ---
 
-**Version:** 1.1
+**Version:** 1.2
 
 **Status:** Active
 
-**Supersedes:** Core Concepts v1.0
+**Supersedes:** Core Concepts v1.1
 
 **Depends on:**
 - PROJECT_IDENTITY.md

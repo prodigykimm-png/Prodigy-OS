@@ -282,13 +282,48 @@ UX가 먼저다.
 - 기존 Plugin으로 가능한가?
 - 정말 직접 개발이 필요한가?
 
+
+---
+
+# Article 14 — Simplicity First
+
+새로운 개념을 만들기 전에
+
+기존 개념을 개선할 수 있는지 먼저 검토한다.
+
+새로운 문서를 만들기 전에
+
+기존 문서를 확장할 수 있는지 먼저 검토한다.
+
+새로운 Layer를 만들기 전에
+
+기존 Layer를 재사용할 수 있는지 먼저 검토한다.
+
+Prodigy OS는
+
+추상화보다
+
+실사용을 우선한다.
+
+---
+
+# Article 15 — Real Usage Drives Architecture
+
+Architecture는
+
+실제 사용을 통해 성장한다.
+
+미래를 위해
+
+현재를 복잡하게 만들지 않는다.
+
+필요성이 검증된 후에만
+
+새로운 Layer, Concept, Property, Object, Architecture를 추가한다.
+
 ---
 
 # Final Principle
-
-채팅은 임시다.
-
-문서는 공식이다.
 
 모든 중요한 설계는 문서에 기록한다.
 

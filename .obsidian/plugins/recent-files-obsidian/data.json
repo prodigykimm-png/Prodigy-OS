@@ -1,6 +1,10 @@
 {
   "recentFiles": [
     {
+      "basename": "02_Core_Concepts",
+      "path": "docs/02_Core_Concepts.md"
+    },
+    {
       "basename": "ADR-005-documentation-first",
       "path": "docs/ADR/ADR-005-documentation-first.md"
     },

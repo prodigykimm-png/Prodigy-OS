@@ -234,9 +234,21 @@ Dataview가
 
 Folder는
 
-최소 개수만 유지한다.
+Architecture가 아니다.
 
----
+Folder는
+
+사용자 편의를 위한 구현체이다.
+
+현재 MVP에서는
+
+Dusk의 Folder 구조를 최대한 유지한다.
+
+Folder는
+
+AI가 추천할 수 있지만
+
+Architecture를 결정하지 않는다.
 
 # Rule 9 — Naming Convention
 

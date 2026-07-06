@@ -442,6 +442,26 @@ Asset을 성장시키며,
 
 Core System이다.
 
+AI는
+
+새로운 구조를 만들지 않는다.
+
+AI는
+
+기존 구조 안에서
+
+분류하고
+
+Property를 채우고
+
+Review를 생성하고
+
+추천한다.
+
+AI는
+
+Architecture를 복잡하게 만들지 않는다.
+
 ---
 
 **Version:** 1.0

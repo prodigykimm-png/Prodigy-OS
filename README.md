@@ -38,6 +38,22 @@ AI와 함께
 Personal Operating System이다.
 
 ---
+
+Prodigy OS는
+
+Dusk를 대체하지 않는다.
+
+Dusk를 기반으로 발전한다.
+
+우리는
+
+Dusk의 PARA 구조와 Zettelkasten 철학을 존중한다.
+
+그러나 AI 시대에 맞게
+
+Capture, Review, Object, Decision Support를 확장한다.
+
+---
 # What is Prodigy OS?
 
 Prodigy OS는 단순한 Obsidian Vault가 아니다.
