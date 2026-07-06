@@ -133,63 +133,22 @@ View는
 
 ---
 
-# 3. Object Categories
+# 3. Object Examples
 
-Prodigy OS의 모든 Object는 아래 카테고리 중 하나에 속한다.
-
-## Investment
-
-예)
+Prodigy OS에서 관리하는 대표 Object 유형이다.
+Object는 굳이 Domain으로 분류하지 않으며, Folder, Property, AI 추천을 통해 충분히 관리 가능하다.
 
 - Auction Case
 - Onbid Case
-
----
-
-## Knowledge
-
-예)
-
-- 공부
-- 독서
-- 개념
-- 아이디어
-
----
-
-## Project
-
-예)
-
-- AI 프로젝트
-- 웨딩 사업
-- 자동화 개발
-
----
-
-## Personal
-
-예)
-
+- Reading
+- Study
+- Concept
+- Project
 - Workout
-- Health
 - Habit
-
----
-
-## Journal
-
-예)
-
 - Daily Note
 - Reflection
 - Review
-
----
-
-향후 새로운 Object가 생기더라도
-
-기존 Category를 최대한 재사용한다.
 
 ---
 
