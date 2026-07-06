@@ -22,16 +22,7 @@
   "showShortcuts": true,
   "markdownOnly": false,
   "unresolvedLinks": false,
-  "recentFilesStore": [
-    {
-      "filepath": "04_Capture_System.md",
-      "timestamp": 1783340967862
-    },
-    {
-      "filepath": "03_Object_Model.md",
-      "timestamp": 1783340953903
-    }
-  ],
+  "recentFilesStore": [],
   "bookmarkedFileStore": [
     {
       "filepath": "HUB/Homepage.md"

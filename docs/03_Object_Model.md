@@ -610,6 +610,6 @@ Object를 Asset으로 축적하여
 **Status:** Active
 
 **Depends on:**
-- Constitution.md
-- Architecture.md
-- Core_Concepts.md
+- 00_Constitution.md
+- 01_Architecture.md
+- 02_Core_Concepts.md

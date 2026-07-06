@@ -202,39 +202,43 @@ Prodigy OS는 문서를 중심으로 개발된다.
 읽는 순서
 
 ```text
-00_Constitution.md
+docs/PROJECT_IDENTITY.md
 
 ↓
 
-01_Architecture.md
+docs/00_Constitution.md
 
 ↓
 
-02_Core_Concepts.md
+docs/01_Architecture.md
 
 ↓
 
-03_Object_Model.md
+docs/02_Core_Concepts.md
 
 ↓
 
-04_Capture_System.md
+docs/03_Object_Model.md
 
 ↓
 
-05_Home.md
+docs/04_Capture_System.md
 
 ↓
 
-06_AI_System.md
+docs/05_Home.md
 
 ↓
 
-07_Implementation_Guide.md
+docs/06_AI_System.md
 
 ↓
 
-ADR/
+docs/07_Implementation_Guide.md
+
+↓
+
+docs/ADR/
 
 ↓
 

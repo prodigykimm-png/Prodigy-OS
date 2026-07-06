@@ -1,12 +1,24 @@
 {
   "recentFiles": [
     {
-      "basename": "04_Capture_System",
-      "path": "04_Capture_System.md"
+      "basename": "ADR-005-documentation-first",
+      "path": "docs/ADR/ADR-005-documentation-first.md"
     },
     {
-      "basename": "03_Object_Model",
-      "path": "03_Object_Model.md"
+      "basename": "ADR-002-object-first",
+      "path": "docs/ADR/ADR-002-object-first.md"
+    },
+    {
+      "basename": "ADR-003-ai-capture",
+      "path": "docs/ADR/ADR-003-ai-capture.md"
+    },
+    {
+      "basename": "ADR-001-why-prodigy-os",
+      "path": "docs/ADR/ADR-001-why-prodigy-os.md"
+    },
+    {
+      "basename": "ADR",
+      "path": "docs/ADR/ADR.md"
     },
     {
       "basename": "AUC-2026-002",
