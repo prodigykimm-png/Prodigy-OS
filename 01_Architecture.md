@@ -1,4 +1,4 @@
-# Youngjae OS Architecture v1.1
+# Prodigy OS Architecture v1.1
 
 > "Object is the center. Everything else exists to create, understand, or use Objects."
 
@@ -6,7 +6,7 @@
 
 # Purpose
 
-이 문서는 Youngjae OS의 전체 시스템 구조를 정의한다.
+이 문서는 Prodigy OS의 전체 시스템 구조를 정의한다.
 
 Architecture는 기술이나 Plugin을 설명하지 않는다.
 
@@ -14,7 +14,7 @@ Architecture는
 
 **정보가 어떻게 흐르고, Object가 어떻게 성장하며, AI가 어떻게 이를 활용하는지**를 정의한다.
 
-Youngjae OS의 모든 구현은 이 문서를 따른다.
+Prodigy OS의 모든 구현은 이 문서를 따른다.
 
 ---
 
@@ -55,7 +55,7 @@ Youngjae OS의 모든 구현은 이 문서를 따른다.
 
 # Core Principle
 
-Youngjae OS는
+Prodigy OS는
 
 Object 중심 시스템이다.
 
@@ -118,7 +118,7 @@ Object를 직접 수정하지 않는다.
 
 ## 3. Object Layer
 
-Youngjae OS의 핵심.
+Prodigy OS의 핵심.
 
 Object는
 
@@ -222,7 +222,7 @@ View는
 
 ## 8. AI Consumers
 
-Youngjae OS는
+Prodigy OS는
 
 하나의 AI가 아니라
 
@@ -267,7 +267,7 @@ Object를 삭제하지 않는다.
 
 ## 10. Decision Support
 
-Youngjae OS의 최종 목적.
+Prodigy OS의 최종 목적.
 
 모든 정보는
 
@@ -386,7 +386,7 @@ Architecture는 다음을 정의하지 않는다.
 
 # Final Statement
 
-Youngjae OS는
+Prodigy OS는
 
 Capture를 통해 정보를 받아들이고,
 

@@ -1,4 +1,4 @@
-# Youngjae OS AI System v1.0
+# Prodigy OS AI System v1.0
 
 > "AI는 기록하지 않는다. AI는 이해한다."
 
@@ -6,9 +6,9 @@
 
 # Purpose
 
-이 문서는 Youngjae OS에서 AI의 역할과 책임을 정의한다.
+이 문서는 Prodigy OS에서 AI의 역할과 책임을 정의한다.
 
-Youngjae OS는 AI를 단순한 챗봇으로 사용하지 않는다.
+Prodigy OS는 AI를 단순한 챗봇으로 사용하지 않는다.
 
 AI는
 
@@ -23,7 +23,7 @@ System Component이다.
 
 # AI Philosophy
 
-Youngjae OS에서 AI는
+Prodigy OS에서 AI는
 
 기록자가 아니다.
 
@@ -404,7 +404,7 @@ AI는
 
 # Future Vision
 
-향후 Youngjae OS는
+향후 Prodigy OS는
 
 여러 AI가 협업하는 구조를 목표로 한다.
 
@@ -428,7 +428,7 @@ Automation Agent
 
 # Final Statement
 
-Youngjae OS에서
+Prodigy OS에서
 
 AI는 기능이 아니다.
 

@@ -1,28 +1,28 @@
-# Youngjae OS Constitution v1.0
+# Prodigy OS Constitution v1.0
 
-> "Youngjae OS는 AI와 함께 성장하는 Personal Operating System이다."
+> "Prodigy OS는 AI와 함께 성장하는 Personal Operating System이다."
 
 ---
 
 # Preamble
 
-Youngjae OS는 단순한 Obsidian Vault가 아니다.
+Prodigy OS는 단순한 Obsidian Vault가 아니다.
 
-Youngjae OS는 나의 지식, 투자, 프로젝트, 건강, 경험, 기록을 하나의 시스템으로 연결하여 **더 나은 의사결정을 지원하는 Personal Operating System**이다.
+Prodigy OS는 나의 지식, 투자, 프로젝트, 건강, 경험, 기록을 하나의 시스템으로 연결하여 **더 나은 의사결정을 지원하는 Personal Operating System**이다.
 
-Obsidian는 현재 사용하는 플랫폼일 뿐이며, Youngjae OS의 핵심은 데이터 구조와 시스템 설계이다.
+Obsidian는 현재 사용하는 플랫폼일 뿐이며, Prodigy OS의 핵심은 데이터 구조와 시스템 설계이다.
 
 앞으로 Python, MCP, PostgreSQL, n8n, OpenAI API, Claude, Gemini, AI Agent 등 어떤 기술이 추가되더라도 이 헌법은 변하지 않는다.
 
-이 문서는 Youngjae OS의 최상위 설계 원칙이며, 모든 Architecture, Schema, Automation, AI, UX는 이 문서를 따른다.
+이 문서는 Prodigy OS의 최상위 설계 원칙이며, 모든 Architecture, Schema, Automation, AI, UX는 이 문서를 따른다.
 
 ---
 
 # Article 1 — Purpose
 
-Youngjae OS의 목적은 기록이 아니다.
+Prodigy OS의 목적은 기록이 아니다.
 
-Youngjae OS의 목적은
+Prodigy OS의 목적은
 
 **더 좋은 의사결정을 지원하는 것이다.**
 
@@ -36,7 +36,7 @@ Youngjae OS의 목적은
 
 # Article 2 — Human First, AI Assist
 
-Youngjae OS는 AI를 중심으로 설계하지만,
+Prodigy OS는 AI를 중심으로 설계하지만,
 
 운영체제의 주인은 항상 사람이다.
 
@@ -99,7 +99,7 @@ AI는 입력된 정보를 분석하여 Property를 자동 생성한다.
 
 # Article 5 — Object First
 
-Youngjae OS의 기본 단위는 Note가 아니다.
+Prodigy OS의 기본 단위는 Note가 아니다.
 
 기본 단위는 Object이다.
 
@@ -168,7 +168,7 @@ Homepage에서는
 
 # Article 9 — Simplicity
 
-Youngjae OS는 단순함을 최우선으로 한다.
+Prodigy OS는 단순함을 최우선으로 한다.
 
 새로운 기능보다
 
@@ -188,7 +188,7 @@ Template는 최소화한다.
 
 # Article 10 — Long-term First
 
-Youngjae OS는
+Prodigy OS는
 
 5년, 10년 동안 유지 가능한 구조를 선택한다.
 
@@ -234,7 +234,7 @@ Youngjae OS는
 
 # Article 13 — Product over Technology
 
-Youngjae OS는 기술 프로젝트가 아니다.
+Prodigy OS는 기술 프로젝트가 아니다.
 
 하나의 Product이다.
 
@@ -294,7 +294,7 @@ UX가 먼저다.
 
 모든 Architecture 변경은 ADR(Architecture Decision Record)에 남긴다.
 
-Youngjae OS는 문서를 중심으로 발전하는 프로젝트이다.
+Prodigy OS는 문서를 중심으로 발전하는 프로젝트이다.
 
 ---
 

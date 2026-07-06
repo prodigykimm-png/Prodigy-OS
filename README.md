@@ -1,4 +1,4 @@
-# Youngjae OS
+# Prodigy OS
 
 > **Transforming everyday experience into lifelong decision assets.**
 >
@@ -6,11 +6,43 @@
 
 ---
 
-# What is Youngjae OS?
 
-Youngjae OS는 단순한 Obsidian Vault가 아니다.
+Prodigy는
 
-Youngjae OS는 AI와 함께 성장하는 **Personal Operating System**이다.
+"타고난 천재"를 의미하지 않는다.
+
+Prodigy는
+
+지식
+
+경험
+
+실패
+
+성공
+
+의사결정을
+
+오랫동안 축적하여
+
+비범한 결과를 만드는 사람을 의미한다.
+
+Prodigy OS는
+
+AI와 함께
+
+사용자의 경험을
+
+장기적인 의사결정 자산으로 성장시키는
+
+Personal Operating System이다.
+
+---
+# What is Prodigy OS?
+
+Prodigy OS는 단순한 Obsidian Vault가 아니다.
+
+Prodigy OS는 AI와 함께 성장하는 **Personal Operating System**이다.
 
 지식, 투자, 프로젝트, 건강, 경험을 하나의 시스템으로 연결하여
 
@@ -18,13 +50,13 @@ Youngjae OS는 AI와 함께 성장하는 **Personal Operating System**이다.
 
 Obsidian는 현재 사용하는 플랫폼일 뿐이며,
 
-Youngjae OS의 핵심은 **데이터 구조, AI, 그리고 의사결정 시스템**이다.
+Prodigy OS의 핵심은 **데이터 구조, AI, 그리고 의사결정 시스템**이다.
 
 ---
 
 # Vision
 
-Youngjae OS는 기록을 위한 시스템이 아니다.
+Prodigy OS는 기록을 위한 시스템이 아니다.
 
 모든 경험은
 
@@ -50,7 +82,7 @@ Youngjae OS는 기록을 위한 시스템이 아니다.
 
 # Philosophy
 
-Youngjae OS는 다음 철학을 따른다.
+Prodigy OS는 다음 철학을 따른다.
 
 - Human First
 - AI Assist
@@ -72,7 +104,7 @@ AI의 이해를 높이며
 
 # Core Concept
 
-Youngjae OS의 기본 단위는 **Note**가 아니다.
+Prodigy OS의 기본 단위는 **Note**가 아니다.
 
 기본 단위는 **Object**이다.
 
@@ -119,7 +151,7 @@ Youngjae OS의 기본 단위는 **Note**가 아니다.
             Decision Support
 ```
 
-Youngjae OS는
+Prodigy OS는
 
 **Capture → Structure → Manage → Analyze → Decide**
 
@@ -129,7 +161,7 @@ Youngjae OS는
 
 # Core Principles
 
-Youngjae OS는 다음 원칙을 항상 따른다.
+Prodigy OS는 다음 원칙을 항상 따른다.
 
 ### Capture Less
 
@@ -165,7 +197,7 @@ AI가 이해하기 쉬운 구조를 가진다.
 
 # Documentation
 
-Youngjae OS는 문서를 중심으로 개발된다.
+Prodigy OS는 문서를 중심으로 개발된다.
 
 읽는 순서
 
@@ -296,13 +328,13 @@ Future Stack
 - Gemini
 - AI Agents
 
-Youngjae OS는 특정 플랫폼이나 특정 AI에 종속되지 않는다.
+Prodigy OS는 특정 플랫폼이나 특정 AI에 종속되지 않는다.
 
 ---
 
 # Final Statement
 
-Youngjae OS는
+Prodigy OS는
 
 노트를 관리하는 프로젝트가 아니다.
 

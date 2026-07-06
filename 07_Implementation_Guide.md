@@ -1,4 +1,4 @@
-# Youngjae OS Implementation Guide v1.0
+# Prodigy OS Implementation Guide v1.0
 
 > "구현은 철학을 실현하는 수단이다."
 
@@ -6,7 +6,7 @@
 
 # Purpose
 
-이 문서는 Youngjae OS를 구현할 때 따라야 하는 개발 원칙과 구현 규칙을 정의한다.
+이 문서는 Prodigy OS를 구현할 때 따라야 하는 개발 원칙과 구현 규칙을 정의한다.
 
 Constitution과 Architecture가
 
@@ -331,7 +331,7 @@ AI가
 
 # Rule 12 — Search First
 
-Youngjae OS는
+Prodigy OS는
 
 Folder보다
 
@@ -463,7 +463,7 @@ ADR를 함께 작성한다.
 
 # Rule 18 — AI Collaboration
 
-Youngjae OS는
+Prodigy OS는
 
 특정 AI에 종속되지 않는다.
 
@@ -532,7 +532,7 @@ AI는
 
 # Final Statement
 
-Youngjae OS는
+Prodigy OS는
 
 기술을 위한 프로젝트가 아니다.
 

@@ -1,4 +1,4 @@
-# Youngjae OS Core Concepts v1.0
+# Prodigy OS Core Concepts v1.0
 
 > "같은 단어는 항상 같은 의미를 가진다."
 
@@ -6,7 +6,7 @@
 
 # Purpose
 
-이 문서는 Youngjae OS에서 사용하는 핵심 용어를 정의한다.
+이 문서는 Prodigy OS에서 사용하는 핵심 용어를 정의한다.
 
 모든 문서, 코드, Template, Automation, AI는
 이 문서의 정의를 따른다.
@@ -20,9 +20,9 @@
 
 ## 정의
 
-Youngjae OS의 기본 단위.
+Prodigy OS의 기본 단위.
 
-Youngjae OS에는 "노트(Note)"가 존재하지 않는다.
+Prodigy OS에는 "노트(Note)"가 존재하지 않는다.
 
 모든 정보는 Object이다.
 
@@ -257,7 +257,7 @@ QuickAdd
 
 Capture는
 
-Youngjae OS의 시작점이다.
+Prodigy OS의 시작점이다.
 
 사람은
 
@@ -425,7 +425,7 @@ Object를 되돌아보는 과정이다.
 
 Review는
 
-Youngjae OS의 핵심 자산이다.
+Prodigy OS의 핵심 자산이다.
 
 결과보다
 
@@ -441,7 +441,7 @@ Decision은
 
 Object의 최종 목적이다.
 
-Youngjae OS의 모든 Object는
+Prodigy OS의 모든 Object는
 
 최종적으로
 
@@ -523,7 +523,7 @@ Review Reminder
 
 AI Assistant는
 
-Youngjae OS의 Co-pilot이다.
+Prodigy OS의 Co-pilot이다.
 
 AI는
 
@@ -617,7 +617,7 @@ View
 
 # Final Principle
 
-Youngjae OS는
+Prodigy OS는
 
 노트를 관리하는 시스템이 아니다.
 

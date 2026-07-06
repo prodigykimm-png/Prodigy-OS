@@ -1,4 +1,4 @@
-# Youngjae OS Capture System v1.0
+# Prodigy OS Capture System v1.0
 
 > "Capture는 빠르게, 구조화는 AI가, 결정은 사람이."
 
@@ -6,9 +6,9 @@
 
 # Purpose
 
-Capture System은 Youngjae OS의 모든 입력 방식을 정의한다.
+Capture System은 Prodigy OS의 모든 입력 방식을 정의한다.
 
-Youngjae OS에서 Capture의 목적은 기록이 아니다.
+Prodigy OS에서 Capture의 목적은 기록이 아니다.
 
 Object를 생성하기 위한 시작점이다.
 
@@ -18,7 +18,7 @@ Capture는 가능한 한 빠르고 단순해야 한다.
 
 # Capture Philosophy
 
-Youngjae OS는
+Prodigy OS는
 
 "입력을 최소화하고,
 
@@ -64,7 +64,7 @@ Review
 
 # Capture Sources
 
-Youngjae OS는 다양한 입력을 지원한다.
+Prodigy OS는 다양한 입력을 지원한다.
 
 - URL
 - PDF
@@ -205,7 +205,7 @@ Capture는 사용자의 흐름을 끊지 않는다.
 
 # Final Statement
 
-Youngjae OS에서
+Prodigy OS에서
 
 Capture는 기록이 아니다.
 

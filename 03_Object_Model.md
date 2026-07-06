@@ -1,14 +1,14 @@
-# Youngjae OS Object Model v1.0
+# Prodigy OS Object Model v1.0
 
-> "Youngjae OS의 모든 것은 Object이며, 모든 Object는 시간이 지날수록 Asset으로 성장한다."
+> "Prodigy OS의 모든 것은 Object이며, 모든 Object는 시간이 지날수록 Asset으로 성장한다."
 
 ---
 
 # Purpose
 
-이 문서는 Youngjae OS에서 사용하는 Object의 정의와 구조를 설명한다.
+이 문서는 Prodigy OS에서 사용하는 Object의 정의와 구조를 설명한다.
 
-Object는 Youngjae OS의 가장 기본적인 단위이며,
+Object는 Prodigy OS의 가장 기본적인 단위이며,
 모든 데이터, 프로젝트, 지식, 기록은 Object로 관리된다.
 
 이 문서는
@@ -36,7 +36,7 @@ Object는
 
 을 가진다.
 
-Youngjae OS에서는
+Prodigy OS에서는
 
 노트를 만들지 않는다.
 
@@ -135,7 +135,7 @@ View는
 
 # 3. Object Categories
 
-Youngjae OS의 모든 Object는 아래 카테고리 중 하나에 속한다.
+Prodigy OS의 모든 Object는 아래 카테고리 중 하나에 속한다.
 
 ## Investment
 
@@ -259,7 +259,7 @@ Historical 상태를 우선한다.
 
 # 5. Object as an Asset
 
-Youngjae OS에서
+Prodigy OS에서
 
 모든 Object는
 
@@ -567,7 +567,7 @@ Property와 Content를 함께 가진다.
 
 Object는
 
-Youngjae OS의 가장 작은 단위이며,
+Prodigy OS의 가장 작은 단위이며,
 
 모든 기능은 Object를 중심으로 설계한다.
 
@@ -591,7 +591,7 @@ Youngjae OS의 가장 작은 단위이며,
 
 # Final Statement
 
-Youngjae OS는
+Prodigy OS는
 
 노트를 관리하는 시스템이 아니다.
 

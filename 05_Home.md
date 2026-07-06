@@ -1,4 +1,4 @@
-# Youngjae OS Home v1.0
+# Prodigy OS Home v1.0
 
 > "Home은 정보를 보여주는 화면이 아니라, 행동을 시작하는 화면이다."
 
@@ -6,9 +6,9 @@
 
 # Purpose
 
-Home은 Youngjae OS의 시작 화면이다.
+Home은 Prodigy OS의 시작 화면이다.
 
-사용자가 Youngjae OS를 열었을 때
+사용자가 Prodigy OS를 열었을 때
 
 가장 먼저 보는 화면이며,
 
@@ -122,7 +122,7 @@ Home은
 
 Home은
 
-Youngjae OS의 출발점이다.
+Prodigy OS의 출발점이다.
 
 Home은
 
