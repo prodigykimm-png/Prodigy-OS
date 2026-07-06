@@ -1,0 +1,269 @@
+{
+  "templater-obsidian:SYSTEM/TEMPLATE/CODE/toggle_todo.md": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": " "
+    }
+  ],
+  "obsidian-hotkeys-for-specific-files:SYSTEM/TEMPLATE/CODE/toggle_todo_revert.md-new-tab": [
+    {
+      "modifiers": [
+        "Alt",
+        "Mod"
+      ],
+      "key": "0"
+    }
+  ],
+  "editor:swap-line-down": [
+    {
+      "modifiers": [
+        "Shift"
+      ],
+      "key": "ArrowDown"
+    }
+  ],
+  "editor:swap-line-up": [
+    {
+      "modifiers": [
+        "Shift"
+      ],
+      "key": "ArrowUp"
+    }
+  ],
+  "obsidian-hotkeys-for-specific-files:HUB/Map of Contents.md": [
+    {
+      "modifiers": [
+        "Alt"
+      ],
+      "key": "0"
+    }
+  ],
+  "obsidian-hotkeys-for-specific-files:HUB/Inbox.md": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "I"
+    }
+  ],
+  "quickadd:choice:a019f4b7-7f8e-4937-8069-7a9ad8c4b10e": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "Q"
+    }
+  ],
+  "homepage:open-homepage": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "W"
+    }
+  ],
+  "workspace:close-window": [],
+  "journals:journal:calendar:open-day": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "E"
+    }
+  ],
+  "quickadd:choice:4aab0e52-b2ef-4027-ab42-ee9187fab029": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "R"
+    }
+  ],
+  "omnisearch:show-modal": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "A"
+    }
+  ],
+  "editing-toolbar:workplace-fullscreen-focus": [],
+  "editing-toolbar:fullscreen-focus": [],
+  "global-search:open": [],
+  "garble-text:toggle-garble-text": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "G"
+    }
+  ],
+  "editing-toolbar:format-eraser": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "Z"
+    }
+  ],
+  "highlightr-plugin:Red": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "C"
+    }
+  ],
+  "highlightr-plugin:Green": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "V"
+    }
+  ],
+  "quickadd:choice:9a4a8c3c-5e7a-4261-bd7f-85f2891948a7": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": "N"
+    }
+  ],
+  "file-explorer:new-file": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "N"
+    }
+  ],
+  "file-explorer:new-file-in-new-pane": [],
+  "switcher:open": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "S"
+    }
+  ],
+  "templater-obsidian:insert-SYSTEM/TEMPLATE/CODE/toggle_todo.md": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": " "
+    }
+  ],
+  "app:open-settings": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": "."
+    }
+  ],
+  "quickadd:choice:a85c5c66-ebb5-4da7-901e-51752f5e2d07": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": "M"
+    }
+  ],
+  "quickadd:choice:1d743cd7-f1bc-44f1-be65-bda74e4f3640": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": ","
+    }
+  ],
+  "workspace:undo-close-pane": [],
+  "quick-explorer:browse-vault": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "D"
+    }
+  ],
+  "workspaces-plus:save-workspace": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "9"
+    }
+  ],
+  "workspaces:save": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "8"
+    }
+  ],
+  "obsidian-projects:show-projects": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "P"
+    }
+  ],
+  "obsidian-hotkeys-for-specific-files:HUB/Map of Content.md": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "O"
+    }
+  ],
+  "obsidian-hotkeys-for-specific-files:HUB/Mail Box.md": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "I"
+    }
+  ],
+  "quickadd:choice:c8c7588f-71bc-4aef-97d4-6c34a9e5d554": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "F"
+    }
+  ],
+  "highlightr-plugin:unhighlight": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "X"
+    }
+  ]
+}

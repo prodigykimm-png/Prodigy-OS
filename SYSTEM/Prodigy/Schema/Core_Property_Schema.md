@@ -1,0 +1,184 @@
+# Prodigy OS — Core Property Schema
+
+> 모든 Prodigy Object가 공통으로 사용하는 최소 Property 정의.
+> Version: 0.1 (Sprint 3)
+
+---
+
+## 필수 공통 Property
+
+### `id`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Object의 고유 식별자. 파일명과 동일하게 사용. |
+| 입력 주체 | 시스템 (Templater가 파일명에서 자동 추출) |
+| Homepage Card 사용 | 아니오 |
+| Dataview 조회 | 보조적으로 사용 (주로 file.link로 충분) |
+
+### `type`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Object의 종류. 분류와 아이콘/색상 매핑의 기준. |
+| 입력 주체 | 템플릿 (고정값) |
+| Homepage Card 사용 | **예** — Type 라벨 + 아이콘 + 색상 |
+| Dataview 조회 | **예** — 필터/그룹화의 1순위 |
+
+허용값: `auction_case` · `wedding` · `study` · `project_family` · `project_note` · `workout` · `reading` · `area_family` · `area_note` · `meeting` · `contact` · `fleeting_note` · `permanent_note` · `literature_note` · `workstation_note` · `documentation_note`
+
+### `status`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Object의 현재 라이프사이클 단계. |
+| 입력 주체 | 사용자 (Meta Bind 인라인 선택기) |
+| Homepage Card 사용 | **예** — Status 텍스트 + dot |
+| Dataview 조회 | **예** — 미완료 필터의 핵심 |
+
+status는 Object type마다 별도의 enum을 가진다. (Auction Case enum은 `Auction_Case_Schema.md` 참조)
+
+공통 규칙: `completed` / `review_completed` / `archived` 는 모든 type에서 "종료" 상태로 취급한다.
+
+### `next_action`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | "지금 당장 무엇을 해야 하는가"에 대한 한 줄 답. |
+| 입력 주체 | 사용자 (자유 텍스트) |
+| Homepage Card 사용 | **예** — "→ " 접두어로 표시 |
+| Dataview 조회 | **예** — Today/Continue 필터의 핵심 |
+
+원칙: `next_action`이 비어 있으면 Homepage에 나타나지 않는다. Object에 다음 행동이 없으면 Homepage에서 사라진다.
+
+### `due_date`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 마감일. 시급성(D-N) 계산의 기준. |
+| 입력 주체 | 사용자 (날짜 입력기) |
+| Homepage Card 사용 | **예** — D-N 배지 |
+| Dataview 조회 | **예** — Today 필터 (7일 이내) |
+
+포맷: ISO date (`YYYY-MM-DD`). Dataview 날짜 연산 안정성을 위해.
+
+### `priority`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 같은 due_date 안에서의 순위. |
+| 입력 주체 | 사용자 (정수 1~5) |
+| Homepage Card 사용 | 아니오 (정렬에만 사용) |
+| Dataview 조회 | **예** — 정렬 키 |
+
+값: `1`(최우선) ~ `5`(최후순). 숫자가 작을수록 우선.
+
+### `review_status`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 복기 필요 여부. |
+| 입력 주체 | 사용자 또는 시스템 (status 전이 시 자동) |
+| Homepage Card 사용 | 아니오 (Needs Review 섹션에서 사용) |
+| Dataview 조회 | **예** — Needs Review 필터 |
+
+허용값: `pending` · `done` · null
+
+`pending`이면 Needs Review 섹션에 표시. `won`/`lost` status와 조합하여 사용.
+
+### `connections`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 다른 Object와의 명시적 관계. 백링크 대체. |
+| 입력 주체 | 사용자 (Meta Bind inlineListSuggester) |
+| Homepage Card 사용 | 아니오 |
+| Dataview 조회 | **예** — 역방향 관계 조회 |
+
+원칙: Dusk의 "의도적 연결" 철학을 계승. 타입 기반 추천으로 도메인 분리.
+
+### `created`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 생성 시점. |
+| 입력 주체 | 시스템 (Templater 자동) |
+| Homepage Card 사용 | 아니오 |
+| Dataview 조회 | 보조 (정렬용) |
+
+### `updated`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 최종 수정 시점. |
+| 입력 주체 | 시스템 (Templater 또는 수동) |
+| Homepage Card 사용 | 아니오 |
+| Dataview 조회 | 보조 |
+
+---
+
+## Property 원칙
+
+### 1. Property First
+
+분류는 태그가 아니라 Property로 한다.
+
+**예:**
+```yaml
+region_sido: 인천          # ✅ Property
+property_type: 오피스텔     # ✅ Property
+```
+
+태그(`#region/인천`)는 상태/분류용으로 사용하지 않는다. 태그는 보조 메타데이터(예: `auction_case`)로만 제한적으로 사용한다.
+
+### 2. Derived Property Rule
+
+계산 가능한 값은 저장하지 않는다.
+
+**저장하지 않는 것:**
+- `building_age` (building_year로 계산)
+- `annual_rent` (monthly_rent × 12로 계산)
+- `annual_interest` (loan_amount × interest_rate로 계산)
+- `bid_gap` (minimum_bid / appraisal_price로 계산)
+- `my_bid_rate` (expected_bid / appraisal_price로 계산)
+- `winning_rate` (actual_bid / minimum_bid로 계산)
+
+이 값들은 DataviewJS에서 실시간 계산한다.
+
+### 3. Single Source of Truth
+
+같은 데이터는 한 번만 저장한다.
+
+**예:**
+- `building_year`가 있으면 `building_age`는 저장하지 않는다.
+- `auction_date`가 있으면 `days_until_auction`은 저장하지 않는다.
+- `appraisal_price`와 `minimum_bid`가 있으면 `bid_rate`는 저장하지 않는다.
+
+---
+
+## 4. Internal / Display Layer 분리
+
+Prodigy OS는 Internal Property(영어 snake_case)와 Display Label(한국어 자연어)을 분리한다.
+
+**원칙:**
+- Property는 영어 snake_case로 저장한다. (시스템·AI가 이해)
+- UI는 한국어 자연어로 표시한다. (사람이 이해)
+- 이 매핑은 `view.js`의 Display Layer에서 처리한다. Property 자체는 변경하지 않는다.
+
+**구현 위치:** `SYSTEM/Views/ObjectCards/view.js`
+- `TYPE_DISPLAY` — type → { icon, display(한국어), color }
+- `STATUS_DISPLAY` — status → 한국어 display label
+
+Homepage에서 Internal Enum(`auction_case`, `market_analysis`)은 절대 노출하지 않는다.
+
+---
+
+## 5. Status는 State Engine
+
+`status`는 단순한 표시값이 아니다. Prodigy OS 전체(Homepage, QuickAdd, Dashboard, AI)가 공유하는 핵심 State Engine이다.
+
+**State Engine 원칙:**
+1. Status는 OS 전체가 공유하는 State Engine이다.
+2. Status는 UI를 위해 변경하지 않는다. UI 변경은 Display Layer에서 처리한다.
+3. Status Enum의 추가/변경은 Workflow Pattern을 따라야 한다.
+4. Homepage, QuickAdd, Dashboard, AI — 모든 모듈이 동일한 Status를 참조한다.

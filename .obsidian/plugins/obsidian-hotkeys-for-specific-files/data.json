@@ -1,0 +1,30 @@
+{
+  "files": [
+    {
+      "useMoment": false,
+      "file": "SYSTEM/GETTING STARTED/Getting Started.md"
+    },
+    {
+      "useMoment": false,
+      "file": "SYSTEM/MOBILE HUB/Mobile Homepage.md"
+    },
+    {
+      "useMoment": false,
+      "file": "SYSTEM/MOBILE HUB/Mobile Map of Content.md"
+    },
+    {
+      "useMoment": false,
+      "file": "SYSTEM/MOBILE HUB/Mobile Mail Box.md"
+    },
+    {
+      "useMoment": false,
+      "file": "HUB/Map of Content.md"
+    },
+    {
+      "useMoment": false,
+      "file": "HUB/Mail Box.md"
+    }
+  ],
+  "useExistingPane": true,
+  "useHoverEditor": false
+}

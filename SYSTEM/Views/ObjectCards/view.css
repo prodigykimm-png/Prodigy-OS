@@ -1,0 +1,84 @@
+/* ===== Prodigy OS — Object Card Styles ===== */
+/* Version: 0.4 */
+
+.prodigy-object-card {
+  border-left: 3px solid var(--card-accent, #6b7280);
+  border-top: 1px solid var(--background-modifier-border);
+  border-right: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  background: var(--background-primary);
+  transition: border-left-width 0.12s ease;
+}
+
+.prodigy-object-card:hover {
+  border-left-width: 5px;
+}
+
+.prodigy-card-type {
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--card-accent, var(--text-muted));
+  margin-bottom: 4px;
+}
+
+.prodigy-card-name {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.prodigy-card-name a {
+  text-decoration: none;
+}
+
+.prodigy-card-divider {
+  border: none;
+  border-top: 1px solid var(--background-modifier-border);
+  margin: 0 0 8px 0;
+}
+
+.prodigy-card-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.prodigy-card-status-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.prodigy-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--card-accent, var(--text-muted));
+  display: inline-block;
+}
+
+.prodigy-due-badge {
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.prodigy-card-action {
+  font-size: 0.95em;
+  font-weight: 500;
+  color: var(--text-normal);
+}
+
+/* Good Morning */
+.prodigy-good-morning {
+  padding: 16px 0;
+  font-size: 0.95em;
+  line-height: 1.6;
+}

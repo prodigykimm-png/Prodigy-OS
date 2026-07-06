@@ -1,0 +1,161 @@
+{
+  "biggerIcons": "on",
+  "clickableIcons": "off",
+  "showAllFileIcons": false,
+  "showAllFolderIcons": false,
+  "minimalFolderIcons": true,
+  "showMarkdownTabIcons": true,
+  "showTitleIcons": true,
+  "showTagPillIcons": false,
+  "showMenuActions": true,
+  "showSuggestionIcons": false,
+  "showQuickSwitcherIcons": true,
+  "showMoveFileIcons": true,
+  "showItemName": "on",
+  "biggerSearchResults": "on",
+  "maxSearchResults": 50,
+  "colorPicker1": "list",
+  "colorPicker2": "rgb",
+  "uncolorHover": false,
+  "uncolorDrag": false,
+  "uncolorSelect": false,
+  "uncolorQuick": false,
+  "maxBackups": 2,
+  "dialogState": {
+    "iconMode": true,
+    "emojiMode": false,
+    "rulePage": "file"
+  },
+  "appIcons": {},
+  "tabIcons": {},
+  "fileIcons": {
+    "DAILY": {
+      "icon": "lucide-calendar-days",
+      "unsynced": [
+        "2c7aa49875209a3b",
+        "d030f7a43485680e",
+        "0f99cc85922a25fb",
+        "2bd4bfe2dea78798",
+        "c6bdae0e6107b209",
+        "295731f742b5e764",
+        "c244bb041cc80850",
+        "6978bbb83ae24958"
+      ]
+    },
+    "HUB": {
+      "icon": "lucide-globe",
+      "unsynced": [
+        "2c7aa49875209a3b",
+        "d030f7a43485680e",
+        "0f99cc85922a25fb",
+        "2bd4bfe2dea78798",
+        "c6bdae0e6107b209",
+        "295731f742b5e764",
+        "c244bb041cc80850",
+        "6978bbb83ae24958"
+      ]
+    },
+    "PARA": {
+      "icon": "lucide-land-plot",
+      "unsynced": [
+        "2c7aa49875209a3b",
+        "d030f7a43485680e",
+        "0f99cc85922a25fb",
+        "2bd4bfe2dea78798",
+        "c6bdae0e6107b209",
+        "295731f742b5e764",
+        "c244bb041cc80850",
+        "6978bbb83ae24958"
+      ]
+    },
+    "PARA/PROJECTS/Auction/AUC-2026-002.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/PROJECTS/Auction/_samples/AUC-TEST-001.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/PROJECTS/Autonomous Vehicle AI Ethics/1. Autonomous Vehicle AI Ethics.md": {
+      "icon": "lucide-check-circle"
+    },
+    "PARA/PROJECTS/Autonomous Vehicle AI Ethics/AI Transparency and Explainability.md": {
+      "icon": "lucide-check-circle"
+    },
+    "PARA/PROJECTS/Autonomous Vehicle AI Ethics/Bias Mitigation and Fairness Auditing.md": {
+      "icon": "lucide-check-circle"
+    },
+    "PARA/PROJECTS/Space Tourism Feasibility Assessment/1. Space Tourism Feasibility Assessment.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/PROJECTS/Space Tourism Feasibility Assessment/Orbital Hotel Design and Feasibility Study.md": {
+      "icon": "lucide-check-circle"
+    },
+    "PARA/PROJECTS/Space Tourism Feasibility Assessment/Spacecraft Compatibility Optimization.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/PROJECTS/Sustainable Data Center Strategy Development/1. Sustainable Data Center Strategy Development.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/PROJECTS/Sustainable Data Center Strategy Development/Carbon Footprint Reduction Program.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/RESOURCES/MEETINGS/GENERAL/11-12 - Artificial Intelligence in Autonomous Vehicles.md": {
+      "icon": "lucide-check-circle"
+    },
+    "PARA/RESOURCES/MEETINGS/GENERAL/11-12 - Space Tourism Collaboration.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/RESOURCES/MEETINGS/GENERAL/11-12 - Sustainable Energy for Corporate Data Centers.md": {
+      "icon": "lucide-circle"
+    },
+    "STICKY": {
+      "icon": "lucide-component",
+      "unsynced": [
+        "2c7aa49875209a3b",
+        "d030f7a43485680e",
+        "0f99cc85922a25fb",
+        "2bd4bfe2dea78798",
+        "c6bdae0e6107b209",
+        "295731f742b5e764",
+        "c244bb041cc80850",
+        "6978bbb83ae24958"
+      ]
+    },
+    "SYSTEM": {
+      "icon": "lucide-settings-2",
+      "unsynced": [
+        "2c7aa49875209a3b",
+        "d030f7a43485680e",
+        "0f99cc85922a25fb",
+        "2bd4bfe2dea78798",
+        "c6bdae0e6107b209",
+        "295731f742b5e764",
+        "c244bb041cc80850",
+        "6978bbb83ae24958"
+      ]
+    },
+    "ZETA": {
+      "icon": "lucide-library-big",
+      "unsynced": [
+        "2c7aa49875209a3b",
+        "d030f7a43485680e",
+        "0f99cc85922a25fb",
+        "2bd4bfe2dea78798",
+        "c6bdae0e6107b209",
+        "295731f742b5e764",
+        "c244bb041cc80850",
+        "6978bbb83ae24958"
+      ]
+    }
+  },
+  "bookmarkIcons": {},
+  "tagIcons": {},
+  "propertyIcons": {},
+  "ribbonIcons": {
+    "obsidian-custom-frames:Open Spotify": {
+      "icon": "lucide-music"
+    }
+  },
+  "fileRules": [],
+  "folderRules": [],
+  "rememberDeletedItems": false
+}
