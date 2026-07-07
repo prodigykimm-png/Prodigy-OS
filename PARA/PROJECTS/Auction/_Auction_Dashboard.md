@@ -15,9 +15,9 @@ filter_type: all
 
 ## 필터
 
-`INPUT[select(option(진행중, all), option(전체), option(낙찰), option(패찰)):filter_status]`
-`INPUT[select(option(전체지역, all), option(인천), option(경기), option(서울)):filter_region]`
-`INPUT[select(option(전체종류, all), option(오피스텔), option(아파트)):filter_type]`
+`INPUT[select(option(전체), option(진행중), option(낙찰), option(패찰)):filter_status]`
+`INPUT[select(option(전체지역), option(인천), option(경기), option(서울)):filter_region]`
+`INPUT[select(option(전체종류), option(오피스텔), option(아파트)):filter_type]`
 
 ---
 
@@ -25,9 +25,13 @@ filter_type: all
 
 ```dataviewjs
 const p = dv.current();
-const filterStatus = p.filter_status || "all";
-const filterRegion = p.filter_region || "all";
-const filterType = p.filter_type || "all";
+let filterStatus = p.filter_status || "전체";
+let filterRegion = p.filter_region || "전체지역";
+let filterType = p.filter_type || "전체종류";
+// Meta Bind SELECT value 처리
+if (filterStatus === "전체" || filterStatus === "all") filterStatus = "전체";
+if (filterRegion === "전체지역" || filterRegion === "all") filterRegion = "전체지역";
+if (filterType === "전체종류" || filterType === "all") filterType = "전체종류";
 
 let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 
@@ -39,13 +43,13 @@ if (filterStatus === "진행중") {
 } else if (filterStatus === "패찰") {
   pages = pages.where(p => p.status === "lost");
 }
-// "all" 또는 "전체" → 필터 없음
+// 전체 → 필터 없음
 
-if (filterRegion !== "all" && filterRegion !== "전체지역") {
+if (filterRegion !== "전체지역") {
   pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
 }
 
-if (filterType !== "all" && filterType !== "전체종류") {
+if (filterType !== "전체종류") {
   pages = pages.where(p => (p.property_type || "").includes(filterType));
 }
 
@@ -138,9 +142,12 @@ if (pages.length === 0) {
 
 ```dataviewjs
 const p = dv.current();
-const filterStatus = p.filter_status || "all";
-const filterRegion = p.filter_region || "all";
-const filterType = p.filter_type || "all";
+let filterStatus = p.filter_status || "전체";
+let filterRegion = p.filter_region || "전체지역";
+let filterType = p.filter_type || "전체종류";
+if (filterStatus === "전체" || filterStatus === "all") filterStatus = "전체";
+if (filterRegion === "전체지역" || filterRegion === "all") filterRegion = "전체지역";
+if (filterType === "전체종류" || filterType === "all") filterType = "전체종류";
 
 let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 
@@ -152,11 +159,11 @@ if (filterStatus === "진행중") {
   pages = pages.where(p => p.status === "lost");
 }
 
-if (filterRegion !== "all" && filterRegion !== "전체지역") {
+if (filterRegion !== "전체지역") {
   pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
 }
 
-if (filterType !== "all" && filterType !== "전체종류") {
+if (filterType !== "전체종류") {
   pages = pages.where(p => (p.property_type || "").includes(filterType));
 }
 
@@ -206,7 +213,7 @@ const avgProfit = profitCount > 0 ? (profitSum / profitCount / 10000).toFixed(0)
 const winRate = (wonCount + lostCount) > 0 ? (wonCount / (wonCount + lostCount) * 100).toFixed(0) + "%" : "-";
 const avgGap = gapCount > 0 ? (gapSum / gapCount / 10000).toFixed(0) : "-";
 
-dv.span(`**필터: ${filterStatus === "all" ? "전체" : filterStatus} / ${filterRegion === "all" ? "전체지역" : filterRegion} / ${filterType === "all" ? "전체종류" : filterType}**\n`);
+dv.span(`**필터: ${filterStatus} / ${filterRegion} / ${filterType}**\n`);
 dv.paragraph(`총 ${total}건`);
 dv.paragraph(`---`);
 dv.table(
