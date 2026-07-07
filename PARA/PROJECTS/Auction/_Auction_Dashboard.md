@@ -12,110 +12,15 @@ filter_type: 전체종류
 
 ## 필터
 
-**상태:**
-```meta-bind-button
-label: 전체
-hidden: false
-id: filter_all
-actions:
-  - type: update
-    key: filter_status
-    value: 전체
-```
-```meta-bind-button
-label: 진행중
-hidden: false
-id: filter_active
-actions:
-  - type: update
-    key: filter_status
-    value: 진행중
-```
-```meta-bind-button
-label: 낙찰
-hidden: false
-id: filter_won
-actions:
-  - type: update
-    key: filter_status
-    value: 낙찰
-```
-```meta-bind-button
-label: 패찰
-hidden: false
-id: filter_lost
-actions:
-  - type: update
-    key: filter_status
-    value: 패찰
-```
+상단 **Properties**에서 직접 값을 변경하세요.
 
-**지역:**
-```meta-bind-button
-label: 전체지역
-hidden: false
-id: region_all
-actions:
-  - type: update
-    key: filter_region
-    value: 전체지역
-```
-```meta-bind-button
-label: 인천
-hidden: false
-id: region_incheon
-actions:
-  - type: update
-    key: filter_region
-    value: 인천
-```
-```meta-bind-button
-label: 경기
-hidden: false
-id: region_gyeonggi
-actions:
-  - type: update
-    key: filter_region
-    value: 경기
-```
-```meta-bind-button
-label: 서울
-hidden: false
-id: region_seoul
-actions:
-  - type: update
-    key: filter_region
-    value: 서울
-```
+| 필터 | 값 |
+|------|-----|
+| `filter_status` | `전체` / `진행중` / `낙찰` / `패찰` |
+| `filter_region` | `전체지역` / `인천` / `경기` / `서울` |
+| `filter_type` | `전체종류` / `오피스텔` / `아파트` |
 
-**종류:**
-```meta-bind-button
-label: 전체종류
-hidden: false
-id: type_all
-actions:
-  - type: update
-    key: filter_type
-    value: 전체종류
-```
-```meta-bind-button
-label: 오피스텔
-hidden: false
-id: type_officetel
-actions:
-  - type: update
-    key: filter_type
-    value: 오피스텔
-```
-```meta-bind-button
-label: 아파트
-hidden: false
-id: type_apartment
-actions:
-  - type: update
-    key: filter_type
-    value: 아파트
-```
+변경 후 즉시 반영됩니다.
 
 ---
 
