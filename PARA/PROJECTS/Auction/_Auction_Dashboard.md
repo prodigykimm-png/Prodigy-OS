@@ -28,10 +28,6 @@ const p = dv.current();
 let filterStatus = p.filter_status || "전체";
 let filterRegion = p.filter_region || "전체지역";
 let filterType = p.filter_type || "전체종류";
-// Meta Bind SELECT value 처리
-if (filterStatus === "전체" || filterStatus === "all") filterStatus = "전체";
-if (filterRegion === "전체지역" || filterRegion === "all") filterRegion = "전체지역";
-if (filterType === "전체종류" || filterType === "all") filterType = "전체종류";
 
 let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 
@@ -43,7 +39,6 @@ if (filterStatus === "진행중") {
 } else if (filterStatus === "패찰") {
   pages = pages.where(p => p.status === "lost");
 }
-// 전체 → 필터 없음
 
 if (filterRegion !== "전체지역") {
   pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
@@ -145,9 +140,6 @@ const p = dv.current();
 let filterStatus = p.filter_status || "전체";
 let filterRegion = p.filter_region || "전체지역";
 let filterType = p.filter_type || "전체종류";
-if (filterStatus === "전체" || filterStatus === "all") filterStatus = "전체";
-if (filterRegion === "전체지역" || filterRegion === "all") filterRegion = "전체지역";
-if (filterType === "전체종류" || filterType === "all") filterType = "전체종류";
 
 let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 
