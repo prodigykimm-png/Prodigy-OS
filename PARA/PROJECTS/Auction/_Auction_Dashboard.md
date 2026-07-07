@@ -1,6 +1,4 @@
 ---
-cssclasses:
-  - hide-properties_reading
 filter_status: 전체
 filter_region: 전체지역
 filter_type: 전체종류
@@ -261,7 +259,7 @@ if (review.length === 0) {
 
 ```meta-bind-button
 label: 전체
-hidden: true
+hidden: false
 id: filter_all
 actions:
   - type: update
@@ -271,7 +269,7 @@ actions:
 
 ```meta-bind-button
 label: 진행중
-hidden: true
+hidden: false
 id: filter_active
 actions:
   - type: update
@@ -281,7 +279,7 @@ actions:
 
 ```meta-bind-button
 label: 낙찰
-hidden: true
+hidden: false
 id: filter_won
 actions:
   - type: update
@@ -291,7 +289,7 @@ actions:
 
 ```meta-bind-button
 label: 패찰
-hidden: true
+hidden: false
 id: filter_lost
 actions:
   - type: update
@@ -301,7 +299,7 @@ actions:
 
 ```meta-bind-button
 label: 전체
-hidden: true
+hidden: false
 id: region_all
 actions:
   - type: update
@@ -311,7 +309,7 @@ actions:
 
 ```meta-bind-button
 label: 인천
-hidden: true
+hidden: false
 id: region_incheon
 actions:
   - type: update
@@ -321,7 +319,7 @@ actions:
 
 ```meta-bind-button
 label: 경기
-hidden: true
+hidden: false
 id: region_gyeonggi
 actions:
   - type: update
@@ -331,7 +329,7 @@ actions:
 
 ```meta-bind-button
 label: 서울
-hidden: true
+hidden: false
 id: region_seoul
 actions:
   - type: update
@@ -341,7 +339,7 @@ actions:
 
 ```meta-bind-button
 label: 전체
-hidden: true
+hidden: false
 id: type_all
 actions:
   - type: update
@@ -351,7 +349,7 @@ actions:
 
 ```meta-bind-button
 label: 오피스텔
-hidden: true
+hidden: false
 id: type_officetel
 actions:
   - type: update
@@ -361,7 +359,7 @@ actions:
 
 ```meta-bind-button
 label: 아파트
-hidden: true
+hidden: false
 id: type_apartment
 actions:
   - type: update
