@@ -71,73 +71,44 @@ attachments:
 > **입찰 마감:** `INPUT[date:due_date]`
 
 ```dataviewjs
-const thisFile = dv.current();
-if (!thisFile || thisFile.type !== "auction_case") {
-  dv.paragraph("🚫 Object가 로드되지 않았습니다.");
-  return;
-}
+const p = dv.current();
+if (!p || p.type !== "auction_case") { dv.paragraph("🚫 Object 로드 실패"); return; }
 
-const p = thisFile;
 const base = p.expected_bid || p.minimum_bid || 0;
-const loan = base * (p.loan_ratio || 0);
-const annualInterest = loan * (p.interest_rate || 0);
-const annualRent = (p.monthly_rent || 0) * 12;
-const covers = annualRent >= annualInterest;
+const lr = p.loan_ratio || 0.8;
+const ir = p.interest_rate || 0.06;
+const mr = p.monthly_rent || 0;
+const loan = base * lr;
+const annualInterest = loan * ir;
+const annualRent = mr * 12;
+const netProfit = annualRent - annualInterest;
 const minRate = p.appraisal_price ? (p.minimum_bid / p.appraisal_price * 100).toFixed(1) : "-";
 const expRate = p.appraisal_price && p.expected_bid ? (p.expected_bid / p.appraisal_price * 100).toFixed(1) : "-";
-const vsRecent = p.expected_bid && p.market_sale_recent ? (p.expected_bid / p.market_sale_recent * 100).toFixed(1) : "-";
-const vsLow = p.expected_bid && p.market_sale_low ? (p.expected_bid / p.market_sale_low * 100).toFixed(1) : "-";
 const dDay = p.auction_date ? Math.ceil((dv.date(p.auction_date) - dv.date("today")) / (1000*60*60*24)) : null;
-const dueOverdue = p.due_date ? (dv.date(p.due_date) < dv.date("today") ? "⚠️ 기한 초과" : "여유 있음") : "-";
+const dDayStr = dDay !== null ? (dDay > 0 ? "D-" + dDay : dDay === 0 ? "D-Day 🚨" : "D+" + Math.abs(dDay)) : "-";
 
-dv.span("### 📊 수익성\n");
-dv.table(
-  ["항목", "금액"],
-  [
-    ["대출금", "₩" + dv.func.round(loan / 10000) + "만"],
-    ["연 이자", "₩" + dv.func.round(annualInterest / 10000) + "만"],
-    ["연 월세", "₩" + dv.func.round(annualRent / 10000) + "만"],
-    ["월세 커버 여부", covers ? "✅ 커버됨" : "❌ 미달"]
-  ]
-);
-
-dv.span("### 📍 가격 위치\n");
-dv.table(
-  ["항목", "비율"],
-  [
-    ["최저가율", minRate + "%"],
-    ["예상입찰가율", expRate + "%"],
-    ["실거래 대비", vsRecent + "%"],
-    ["호가하단 대비", vsLow + "%"]
-  ]
-);
-
-dv.span("### 📅 일정\n");
-dv.table(
-  ["항목", "값"],
-  [
-    ["입찰일", p.auction_date ? dv.date(p.auction_date).toFormat("yyyy-MM-dd") : "-"],
-    ["D-Day", dDay !== null ? (dDay > 0 ? "D-" + dDay : dDay === 0 ? "D-Day 🚨" : "D+" + Math.abs(dDay)) : "-"],
-    ["다음 Action 기한", p.due_date ? dv.date(p.due_date).toFormat("yyyy-MM-dd") : "-"],
-    ["기한 상태", dueOverdue]
-  ]
-);
-
-dv.span("### ⚠️ 리스크\n");
-const flags = p.risk_flags || [];
-if (flags.length > 0) {
-  dv.list(flags.map(f => "⚠️ " + f));
+dv.span("#### 📊 수익성\n");
+if (mr) {
+  const sign = netProfit >= 0 ? "+" : "";
+  dv.paragraph(`**${sign}${dv.func.round(netProfit / 10000)}만/년** — 월세 ${dv.func.round(annualRent / 10000)}만 - 이자 ${dv.func.round(annualInterest / 10000)}만`);
 } else {
-  dv.paragraph("리스크 플래그 없음");
+  dv.paragraph(`월세없음 — 이자 ${dv.func.round(annualInterest / 10000)}만 (대출 ${dv.func.round(loan / 10000)}만)`);
 }
 
-const reviewStatus = p.review_status || "-";
-const bidResult = p.bid_result || "-";
-dv.span("### 🔁 복기 상태\n");
-dv.paragraph("복기 상태: " + reviewStatus + " | 입찰 결과: " + bidResult);
+dv.span("#### 📍 가격 위치\n");
+dv.paragraph(`최저가율 ${minRate}% / 예상입찰가율 ${expRate}%`);
+
+dv.span("#### 📅 일정\n");
+dv.paragraph(`입찰일 ${p.auction_date ? dv.date(p.auction_date).toFormat("yyyy-MM-dd") : "-"} | ${dDayStr}`);
+
+dv.span("#### ⚠️ 리스크\n");
+const flags = p.risk_flags || [];
+flags.length > 0 ? dv.list(flags.map(f => "⚠️ " + f)) : dv.paragraph("없음");
+
+dv.span("#### 🔁 복기 상태\n");
+dv.paragraph(`복기 ${p.review_status === "done" ? "✅ 완료" : p.review_status === "pending" ? "⚠️ 미작성" : "-"} | 결과 ${p.bid_result === "won" ? "✅ 낙찰" : p.bid_result === "lost" ? "❌ 패찰" : "미정"}`);
 ```
 
----
 ---
 # Collected Facts
 ## 기본 정보
