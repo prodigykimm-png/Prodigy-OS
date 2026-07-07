@@ -1,6 +1,5 @@
 ---
 cssclasses:
-  - hide-properties_editing
   - hide-properties_reading
 filter_status: 전체
 filter_region: 전체지역
@@ -13,52 +12,25 @@ filter_type: 전체종류
 
 ---
 
+## 필터
+
+**상태:** `BUTTON[filter_all]` `BUTTON[filter_active]` `BUTTON[filter_won]` `BUTTON[filter_lost]`
+
+**지역:** `BUTTON[region_all]` `BUTTON[region_incheon]` `BUTTON[region_gyeonggi]` `BUTTON[region_seoul]`
+
+**종류:** `BUTTON[type_all]` `BUTTON[type_officetel]` `BUTTON[type_apartment]`
+
+---
+
 ## 카드 뷰
 
 ```dataviewjs
 const thisFile = dv.current();
-const currentPath = thisFile.file.path;
 
 let filterStatus = thisFile.filter_status || "전체";
 let filterRegion = thisFile.filter_region || "전체지역";
 let filterType = thisFile.filter_type || "전체종류";
 
-// 필터 버튼 렌더링
-const statusOptions = ["전체", "진행중", "낙찰", "패찰"];
-const regionOptions = ["전체지역", "인천", "경기", "서울"];
-const typeOptions = ["전체종류", "오피스텔", "아파트"];
-
-dv.span("**상태:** ");
-for (let opt of statusOptions) {
-  const isActive = filterStatus === opt;
-  const style = isActive
-    ? "background:#4077b4;color:white;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;"
-    : "background:#333;color:#ccc;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;";
-  dv.span(`<span style="${style}" class="filter-btn" data-path="${currentPath}" data-field="filter_status" data-value="${opt}">${opt}</span> `);
-}
-dv.span("\n\n");
-
-dv.span("**지역:** ");
-for (let opt of regionOptions) {
-  const isActive = filterRegion === opt;
-  const style = isActive
-    ? "background:#4077b4;color:white;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;"
-    : "background:#333;color:#ccc;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;";
-  dv.span(`<span style="${style}" class="filter-btn" data-path="${currentPath}" data-field="filter_region" data-value="${opt}">${opt}</span> `);
-}
-dv.span("\n\n");
-
-dv.span("**종류:** ");
-for (let opt of typeOptions) {
-  const isActive = filterType === opt;
-  const style = isActive
-    ? "background:#4077b4;color:white;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;"
-    : "background:#333;color:#ccc;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;";
-  dv.span(`<span style="${style}" class="filter-btn" data-path="${currentPath}" data-field="filter_type" data-value="${opt}">${opt}</span> `);
-}
-dv.span("\n\n---\n\n");
-
-// 필터 적용
 let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 
 if (filterStatus === "진행중") {
@@ -287,25 +259,112 @@ if (review.length === 0) {
 }
 ```
 
-<script>
-// 필터 버튼 클릭 이벤트
-document.addEventListener('click', function(e) {
-  const btn = e.target.closest('.filter-btn');
-  if (!btn) return;
-  
-  const path = btn.getAttribute('data-path');
-  const field = btn.getAttribute('data-field');
-  const value = btn.getAttribute('data-value');
-  
-  // Obsidian API로 frontmatter 수정
-  const file = app.vault.getAbstractFileByPath(path);
-  if (file) {
-    app.fileManager.processFrontMatter(file, (fm) => {
-      fm[field] = value;
-    }).then(() => {
-      // 강제 리로드
-      app.workspace.activeLeaf.rebuildView();
-    });
-  }
-});
-</script>
+```meta-bind-button
+label: 전체
+hidden: true
+id: filter_all
+actions:
+  - type: update
+    key: filter_status
+    value: 전체
+```
+
+```meta-bind-button
+label: 진행중
+hidden: true
+id: filter_active
+actions:
+  - type: update
+    key: filter_status
+    value: 진행중
+```
+
+```meta-bind-button
+label: 낙찰
+hidden: true
+id: filter_won
+actions:
+  - type: update
+    key: filter_status
+    value: 낙찰
+```
+
+```meta-bind-button
+label: 패찰
+hidden: true
+id: filter_lost
+actions:
+  - type: update
+    key: filter_status
+    value: 패찰
+```
+
+```meta-bind-button
+label: 전체
+hidden: true
+id: region_all
+actions:
+  - type: update
+    key: filter_region
+    value: 전체지역
+```
+
+```meta-bind-button
+label: 인천
+hidden: true
+id: region_incheon
+actions:
+  - type: update
+    key: filter_region
+    value: 인천
+```
+
+```meta-bind-button
+label: 경기
+hidden: true
+id: region_gyeonggi
+actions:
+  - type: update
+    key: filter_region
+    value: 경기
+```
+
+```meta-bind-button
+label: 서울
+hidden: true
+id: region_seoul
+actions:
+  - type: update
+    key: filter_region
+    value: 서울
+```
+
+```meta-bind-button
+label: 전체
+hidden: true
+id: type_all
+actions:
+  - type: update
+    key: filter_type
+    value: 전체종류
+```
+
+```meta-bind-button
+label: 오피스텔
+hidden: true
+id: type_officetel
+actions:
+  - type: update
+    key: filter_type
+    value: 오피스텔
+```
+
+```meta-bind-button
+label: 아파트
+hidden: true
+id: type_apartment
+actions:
+  - type: update
+    key: filter_type
+    value: 아파트
+```
