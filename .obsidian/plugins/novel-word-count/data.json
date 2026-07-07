@@ -5999,40 +5999,6 @@
         "journal-section": "day"
       }
     },
-    "HUB/Homepage_Prodigy.md": {
-      "isCountable": true,
-      "targetNodeType": "file",
-      "noteCount": 1,
-      "wordCount": 223,
-      "wordCountTowardGoal": 0,
-      "wordGoal": null,
-      "pageCount": 0.7433333333333333,
-      "characterCount": 2374,
-      "nonWhitespaceCharacterCount": 2042,
-      "newlineCount": 118,
-      "readingTimeInMinutes": 0.8184528301886793,
-      "linkCount": 6,
-      "embedCount": 0,
-      "aliases": null,
-      "createdDate": 1783334085111,
-      "modifiedDate": 1783338679762,
-      "sizeInBytes": 2519,
-      "sessionStart": {
-        "noteCount": 0,
-        "pageCount": 0,
-        "wordCount": 0,
-        "characterCount": 0,
-        "nonWhitespaceCharacterCount": 0,
-        "newlineCount": 0
-      },
-      "frontmatter": {
-        "cssclasses": [
-          "hide-properties_editing",
-          "hide-properties_reading",
-          "prodigy-object-cards"
-        ]
-      }
-    },
     "SYSTEM/Views/ObjectCards/view.js": {
       "isCountable": false,
       "targetNodeType": "file",
@@ -6049,8 +6015,8 @@
       "embedCount": 0,
       "aliases": [],
       "createdDate": 1783335510104,
-      "modifiedDate": 1783338669496,
-      "sizeInBytes": 9464,
+      "modifiedDate": 1783390581651,
+      "sizeInBytes": 9584,
       "sessionStart": {
         "noteCount": 0,
         "pageCount": 0,
@@ -7214,20 +7180,20 @@
       "isCountable": true,
       "targetNodeType": "file",
       "noteCount": 1,
-      "wordCount": 1112,
+      "wordCount": 1083,
       "wordCountTowardGoal": 0,
       "wordGoal": null,
-      "pageCount": 3.7066666666666666,
-      "characterCount": 3730,
-      "nonWhitespaceCharacterCount": 2748,
-      "newlineCount": 616,
-      "readingTimeInMinutes": 2.660301886792453,
+      "pageCount": 3.61,
+      "characterCount": 3609,
+      "nonWhitespaceCharacterCount": 2677,
+      "newlineCount": 575,
+      "readingTimeInMinutes": 2.6023018867924526,
       "linkCount": 0,
       "embedCount": 0,
       "aliases": null,
       "createdDate": 1783342168177,
-      "modifiedDate": 1783342719366,
-      "sizeInBytes": 5552,
+      "modifiedDate": 1783344184711,
+      "sizeInBytes": 5373,
       "sessionStart": {
         "noteCount": 0,
         "pageCount": 0,
@@ -7397,6 +7363,40 @@
         "characterCount": 0,
         "nonWhitespaceCharacterCount": 0,
         "newlineCount": 0
+      }
+    },
+    "HUB/Home.md": {
+      "isCountable": true,
+      "targetNodeType": "file",
+      "noteCount": 1,
+      "wordCount": 223,
+      "wordCountTowardGoal": 0,
+      "wordGoal": null,
+      "pageCount": 0.7433333333333333,
+      "characterCount": 2374,
+      "nonWhitespaceCharacterCount": 2042,
+      "newlineCount": 118,
+      "readingTimeInMinutes": 0.8184528301886793,
+      "linkCount": 6,
+      "embedCount": 0,
+      "aliases": null,
+      "createdDate": 1783334085111,
+      "modifiedDate": 1783371346364,
+      "sizeInBytes": 2519,
+      "sessionStart": {
+        "noteCount": 0,
+        "pageCount": 0,
+        "wordCount": 0,
+        "characterCount": 0,
+        "nonWhitespaceCharacterCount": 0,
+        "newlineCount": 0
+      },
+      "frontmatter": {
+        "cssclasses": [
+          "hide-properties_editing",
+          "hide-properties_reading",
+          "prodigy-object-cards"
+        ]
       }
     }
   }

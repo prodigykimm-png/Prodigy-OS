@@ -6,7 +6,7 @@ cssclasses:
 ---
 # Prodigy OS
 
-> [!abstract]+ Object Dashboard v0.6
+> [!abstract]+ Object Dashboard v0.7
 > 5초 안에 오늘 관리할 Object를 파악한다.
 
 ## ☀️ Good Morning

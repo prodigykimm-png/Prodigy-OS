@@ -1,5 +1,5 @@
 // ===== Prodigy OS — Object Card View =====
-// Version: 0.7 — Data / Behavior / View layer separation
+// Version: 0.8 — MVP cleanup: filter Review/Done statuses from active
 // Modes: greeting | today | continue
 
 // ╔══════════════════════════════════════════════════╗
@@ -105,7 +105,11 @@ function getActiveObjects() {
       p.next_action &&
       p.status != "completed" &&
       p.status != "review_completed" &&
-      p.status != "archived"
+      p.status != "archived" &&
+      p.status != "won" &&
+      p.status != "lost" &&
+      p.status != "finished" &&
+      p.status != "reviewing"
     );
 }
 

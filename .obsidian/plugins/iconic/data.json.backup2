@@ -68,8 +68,14 @@
         "6978bbb83ae24958"
       ]
     },
-    "PARA/PROJECTS/Autonomous Vehicle AI Ethics/1. Autonomous Vehicle AI Ethics.md": {
+    "PARA/PROJECTS/Auction/AUC-2026-002.md": {
       "icon": "lucide-circle"
+    },
+    "PARA/PROJECTS/Auction/_samples/AUC-TEST-001.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/PROJECTS/Autonomous Vehicle AI Ethics/1. Autonomous Vehicle AI Ethics.md": {
+      "icon": "lucide-check-circle"
     },
     "PARA/PROJECTS/Autonomous Vehicle AI Ethics/AI Transparency and Explainability.md": {
       "icon": "lucide-check-circle"
