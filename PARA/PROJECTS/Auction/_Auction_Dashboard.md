@@ -17,25 +17,37 @@ filter_type: 전체종류
 label: 전체
 hidden: false
 id: filter_all
-actions: [{type:update,key:filter_status,value:전체}]
+actions:
+  - type: update
+    key: filter_status
+    value: 전체
 ```
 ```meta-bind-button
 label: 진행중
 hidden: false
 id: filter_active
-actions: [{type:update,key:filter_status,value:진행중}]
+actions:
+  - type: update
+    key: filter_status
+    value: 진행중
 ```
 ```meta-bind-button
 label: 낙찰
 hidden: false
 id: filter_won
-actions: [{type:update,key:filter_status,value:낙찰}]
+actions:
+  - type: update
+    key: filter_status
+    value: 낙찰
 ```
 ```meta-bind-button
 label: 패찰
 hidden: false
 id: filter_lost
-actions: [{type:update,key:filter_status,value:패찰}]
+actions:
+  - type: update
+    key: filter_status
+    value: 패찰
 ```
 
 **지역:**
@@ -43,25 +55,37 @@ actions: [{type:update,key:filter_status,value:패찰}]
 label: 전체지역
 hidden: false
 id: region_all
-actions: [{type:update,key:filter_region,value:전체지역}]
+actions:
+  - type: update
+    key: filter_region
+    value: 전체지역
 ```
 ```meta-bind-button
 label: 인천
 hidden: false
 id: region_incheon
-actions: [{type:update,key:filter_region,value:인천}]
+actions:
+  - type: update
+    key: filter_region
+    value: 인천
 ```
 ```meta-bind-button
 label: 경기
 hidden: false
 id: region_gyeonggi
-actions: [{type:update,key:filter_region,value:경기}]
+actions:
+  - type: update
+    key: filter_region
+    value: 경기
 ```
 ```meta-bind-button
 label: 서울
 hidden: false
 id: region_seoul
-actions: [{type:update,key:filter_region,value:서울}]
+actions:
+  - type: update
+    key: filter_region
+    value: 서울
 ```
 
 **종류:**
@@ -69,19 +93,28 @@ actions: [{type:update,key:filter_region,value:서울}]
 label: 전체종류
 hidden: false
 id: type_all
-actions: [{type:update,key:filter_type,value:전체종류}]
+actions:
+  - type: update
+    key: filter_type
+    value: 전체종류
 ```
 ```meta-bind-button
 label: 오피스텔
 hidden: false
 id: type_officetel
-actions: [{type:update,key:filter_type,value:오피스텔}]
+actions:
+  - type: update
+    key: filter_type
+    value: 오피스텔
 ```
 ```meta-bind-button
 label: 아파트
 hidden: false
 id: type_apartment
-actions: [{type:update,key:filter_type,value:아파트}]
+actions:
+  - type: update
+    key: filter_type
+    value: 아파트
 ```
 
 ---
