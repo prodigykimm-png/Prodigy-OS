@@ -2,6 +2,9 @@
 cssclasses:
   - hide-properties_editing
   - hide-properties_reading
+filter_status: all
+filter_region: all
+filter_type: all
 ---
 
 # 🏛 Auction Dashboard
@@ -10,18 +13,49 @@ cssclasses:
 
 ---
 
-## 진행 물건
+## 필터
+
+`INPUT[select(option(진행중, all), option(전체), option(낙찰), option(패찰)):filter_status]`
+`INPUT[select(option(전체지역, all), option(인천), option(경기), option(서울)):filter_region]`
+`INPUT[select(option(전체종류, all), option(오피스텔), option(아파트)):filter_type]`
+
+---
+
+## 카드 뷰
 
 ```dataviewjs
-const all = dv.pages('"PARA/PROJECTS/Auction"')
-  .where(p => p.type === "auction_case")
-  .where(p => p.status !== "archived" && p.status !== "review_completed")
-  .sort(p => p.auction_date, 'asc');
+const p = dv.current();
+const filterStatus = p.filter_status || "all";
+const filterRegion = p.filter_region || "all";
+const filterType = p.filter_type || "all";
 
-if (all.length === 0) {
-  dv.paragraph("진행 중인 물건이 없습니다.");
+let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+
+// 필터 적용
+if (filterStatus === "진행중") {
+  pages = pages.where(p => p.status !== "archived" && p.status !== "review_completed");
+} else if (filterStatus === "낙찰") {
+  pages = pages.where(p => p.status === "won");
+} else if (filterStatus === "패찰") {
+  pages = pages.where(p => p.status === "lost");
+}
+// "all" 또는 "전체" → 필터 없음
+
+if (filterRegion !== "all" && filterRegion !== "전체지역") {
+  pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
+}
+
+if (filterType !== "all" && filterType !== "전체종류") {
+  pages = pages.where(p => (p.property_type || "").includes(filterType));
+}
+
+pages = pages.sort(p => p.auction_date, 'asc');
+
+if (pages.length === 0) {
+  dv.paragraph("조건에 맞는 물건이 없습니다.");
 } else {
-  for (let p of all) {
+  dv.span(`**총 ${pages.length}건**\n\n`);
+  for (let p of pages) {
     const base = p.expected_bid || p.minimum_bid || 0;
     const lr = p.loan_ratio || 0.8;
     const ir = p.interest_rate || 0.06;
@@ -51,7 +85,6 @@ if (all.length === 0) {
     else if (isLost) badge = "💔 ";
     else if (isUrgent) badge = "🚨 ";
 
-    // 수익성 문자열
     let profitLine = "";
     if (mr) {
       const sign = netProfit >= 0 ? "+" : "";
@@ -65,7 +98,6 @@ if (all.length === 0) {
       }
     }
 
-    // D-Day 배지
     let dDayBadge = "";
     if (isUrgent) {
       dDayBadge = `<span style="background: #ef4444; color: white; padding: 1px 6px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">${dDayStr}</span>`;
@@ -75,9 +107,9 @@ if (all.length === 0) {
       dDayBadge = `<span style="color: #888; font-size: 0.85em;">-</span>`;
     }
 
-const linkStr = p.case_number ? `[[${p.file.name}|${p.case_number}]]` : `[[${p.file.name}]]`;
+    const linkStr = p.case_number ? `[[${p.file.name}|${p.case_number}]]` : `[[${p.file.name}]]`;
 
-dv.paragraph(`
+    dv.paragraph(`
 <div style="border:1px solid #444;border-radius:8px;padding:10px 14px;margin-bottom:10px;">
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <span style="font-weight:bold;font-size:1em;">${badge}${linkStr}</span>
@@ -97,6 +129,97 @@ dv.paragraph(`
 </div>
 `);
   }
+}
+```
+
+---
+
+## 집계
+
+```dataviewjs
+const p = dv.current();
+const filterStatus = p.filter_status || "all";
+const filterRegion = p.filter_region || "all";
+const filterType = p.filter_type || "all";
+
+let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+
+if (filterStatus === "진행중") {
+  pages = pages.where(p => p.status !== "archived" && p.status !== "review_completed");
+} else if (filterStatus === "낙찰") {
+  pages = pages.where(p => p.status === "won");
+} else if (filterStatus === "패찰") {
+  pages = pages.where(p => p.status === "lost");
+}
+
+if (filterRegion !== "all" && filterRegion !== "전체지역") {
+  pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
+}
+
+if (filterType !== "all" && filterType !== "전체종류") {
+  pages = pages.where(p => (p.property_type || "").includes(filterType));
+}
+
+pages = pages.sort(p => p.auction_date, 'asc');
+
+const total = pages.length;
+const withAppraisal = pages.filter(p => p.appraisal_price && p.minimum_bid);
+const avgMinRate = withAppraisal.length > 0
+  ? (withAppraisal.reduce((s, p) => s + p.minimum_bid / p.appraisal_price, 0) / withAppraisal.length * 100).toFixed(1) + "%"
+  : "-";
+const withExp = pages.filter(p => p.appraisal_price && p.expected_bid);
+const avgExpRate = withExp.length > 0
+  ? (withExp.reduce((s, p) => s + p.expected_bid / p.appraisal_price, 0) / withExp.length * 100).toFixed(1) + "%"
+  : "-";
+const withProfit = pages.filter(p => p.monthly_rent && (p.expected_bid || p.minimum_bid));
+const avgProfit = withProfit.length > 0
+  ? (withProfit.reduce((s, p) => {
+      const base = p.expected_bid || p.minimum_bid || 0;
+      const lr = p.loan_ratio || 0.8;
+      const ir = p.interest_rate || 0.06;
+      return s + (p.monthly_rent * 12 - base * lr * ir);
+    }, 0) / withProfit.length / 10000).toFixed(0)
+  : "-";
+const won = pages.filter(p => p.status === "won");
+const lost = pages.filter(p => p.status === "lost");
+const winRate = (won.length + lost.length) > 0
+  ? (won.length / (won.length + lost.length) * 100).toFixed(0) + "%"
+  : "-";
+const avgGap = lost.filter(p => p.actual_bid && p.winning_bid).length > 0
+  ? (lost.filter(p => p.actual_bid && p.winning_bid).reduce((s, p) => s + Math.abs(p.actual_bid - p.winning_bid), 0) / lost.filter(p => p.actual_bid && p.winning_bid).length / 10000).toFixed(0)
+  : "-";
+
+dv.span(`**필터 조건: ${filterStatus === "all" ? "전체" : filterStatus} / ${filterRegion === "all" ? "전체지역" : filterRegion} / ${filterType === "all" ? "전체종류" : filterType}**\n`);
+dv.paragraph(`총 ${total}건\n`);
+dv.table(
+  ["항목", "값"],
+  [
+    ["평균 최저가율", avgMinRate],
+    ["평균 예상입찰가율", avgExpRate],
+    ["평균 수익성", avgProfit !== "-" ? avgProfit + "만/년" : "-"],
+    ["낙찰 성공률", winRate + (won.length + lost.length > 0 ? ` (${won.length}승 ${lost.length}패)` : "")],
+    ["평균 패찰 차이", avgGap !== "-" ? avgGap + "만원" : "-"]
+  ]
+);
+
+if (total > 0) {
+  dv.span("**목록**\n");
+  dv.table(
+    ["사건", "위치", "종류", "최저가율", "예상입찰가율", "수익성", "결과"],
+    pages.map(p => {
+      const base = p.expected_bid || p.minimum_bid || 0;
+      const lr = p.loan_ratio || 0.8;
+      const ir = p.interest_rate || 0.06;
+      const mr = p.monthly_rent || 0;
+      const netProfit = mr * 12 - base * lr * ir;
+      const minRate = p.appraisal_price ? (p.minimum_bid / p.appraisal_price * 100).toFixed(1) + "%" : "-";
+      const expRate = p.appraisal_price && p.expected_bid ? (p.expected_bid / p.appraisal_price * 100).toFixed(1) + "%" : "-";
+      const profitStr = mr ? (netProfit >= 0 ? "+" : "") + dv.func.round(netProfit / 10000) + "만/년" : "월세없음";
+      const region = [p.region_sido, p.region_sigungu, p.region_dong].filter(Boolean).join(" ");
+      const result = p.status === "won" ? "✅ 낙찰" : p.status === "lost" ? "❌ 패찰" : "진행중";
+      return [p.file.link, region, p.property_type || "-", minRate, expRate, profitStr, result];
+    })
+  );
 }
 ```
 
