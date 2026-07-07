@@ -2,9 +2,9 @@
 cssclasses:
   - hide-properties_editing
   - hide-properties_reading
-filter_status: all
-filter_region: all
-filter_type: all
+filter_status: 전체
+filter_region: 전체지역
+filter_type: 전체종류
 ---
 
 # 🏛 Auction Dashboard
@@ -13,25 +13,54 @@ filter_type: all
 
 ---
 
-## 필터
-
-`INPUT[select(option(전체), option(진행중), option(낙찰), option(패찰)):filter_status]`
-`INPUT[select(option(전체지역), option(인천), option(경기), option(서울)):filter_region]`
-`INPUT[select(option(전체종류), option(오피스텔), option(아파트)):filter_type]`
-
----
-
 ## 카드 뷰
 
 ```dataviewjs
-const p = dv.current();
-let filterStatus = p.filter_status || "전체";
-let filterRegion = p.filter_region || "전체지역";
-let filterType = p.filter_type || "전체종류";
+const thisFile = dv.current();
+const currentPath = thisFile.file.path;
 
-let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+let filterStatus = thisFile.filter_status || "전체";
+let filterRegion = thisFile.filter_region || "전체지역";
+let filterType = thisFile.filter_type || "전체종류";
+
+// 필터 버튼 렌더링
+const statusOptions = ["전체", "진행중", "낙찰", "패찰"];
+const regionOptions = ["전체지역", "인천", "경기", "서울"];
+const typeOptions = ["전체종류", "오피스텔", "아파트"];
+
+dv.span("**상태:** ");
+for (let opt of statusOptions) {
+  const isActive = filterStatus === opt;
+  const style = isActive
+    ? "background:#4077b4;color:white;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;"
+    : "background:#333;color:#ccc;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;";
+  dv.span(`<span style="${style}" class="filter-btn" data-path="${currentPath}" data-field="filter_status" data-value="${opt}">${opt}</span> `);
+}
+dv.span("\n\n");
+
+dv.span("**지역:** ");
+for (let opt of regionOptions) {
+  const isActive = filterRegion === opt;
+  const style = isActive
+    ? "background:#4077b4;color:white;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;"
+    : "background:#333;color:#ccc;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;";
+  dv.span(`<span style="${style}" class="filter-btn" data-path="${currentPath}" data-field="filter_region" data-value="${opt}">${opt}</span> `);
+}
+dv.span("\n\n");
+
+dv.span("**종류:** ");
+for (let opt of typeOptions) {
+  const isActive = filterType === opt;
+  const style = isActive
+    ? "background:#4077b4;color:white;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;"
+    : "background:#333;color:#ccc;padding:2px 8px;border-radius:4px;margin-right:4px;cursor:pointer;font-size:0.85em;";
+  dv.span(`<span style="${style}" class="filter-btn" data-path="${currentPath}" data-field="filter_type" data-value="${opt}">${opt}</span> `);
+}
+dv.span("\n\n---\n\n");
 
 // 필터 적용
+let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+
 if (filterStatus === "진행중") {
   pages = pages.where(p => p.status !== "archived" && p.status !== "review_completed");
 } else if (filterStatus === "낙찰") {
@@ -136,10 +165,11 @@ if (pages.length === 0) {
 ## 집계
 
 ```dataviewjs
-const p = dv.current();
-let filterStatus = p.filter_status || "전체";
-let filterRegion = p.filter_region || "전체지역";
-let filterType = p.filter_type || "전체종류";
+const thisFile = dv.current();
+
+let filterStatus = thisFile.filter_status || "전체";
+let filterRegion = thisFile.filter_region || "전체지역";
+let filterType = thisFile.filter_type || "전체종류";
 
 let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 
@@ -163,17 +193,11 @@ pages = pages.sort(p => p.auction_date, 'asc');
 
 const total = pages.length;
 
-// DataArray는 reduce가 없으므로 수동 계산
-let minRateSum = 0;
-let minRateCount = 0;
-let expRateSum = 0;
-let expRateCount = 0;
-let profitSum = 0;
-let profitCount = 0;
-let wonCount = 0;
-let lostCount = 0;
-let gapSum = 0;
-let gapCount = 0;
+let minRateSum = 0, minRateCount = 0;
+let expRateSum = 0, expRateCount = 0;
+let profitSum = 0, profitCount = 0;
+let wonCount = 0, lostCount = 0;
+let gapSum = 0, gapCount = 0;
 
 for (let p of pages) {
   if (p.appraisal_price && p.minimum_bid) {
@@ -208,6 +232,7 @@ const avgGap = gapCount > 0 ? (gapSum / gapCount / 10000).toFixed(0) : "-";
 dv.span(`**필터: ${filterStatus} / ${filterRegion} / ${filterType}**\n`);
 dv.paragraph(`총 ${total}건`);
 dv.paragraph(`---`);
+
 dv.table(
   ["항목", "값"],
   [
@@ -261,3 +286,26 @@ if (review.length === 0) {
   ]));
 }
 ```
+
+<script>
+// 필터 버튼 클릭 이벤트
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  
+  const path = btn.getAttribute('data-path');
+  const field = btn.getAttribute('data-field');
+  const value = btn.getAttribute('data-value');
+  
+  // Obsidian API로 frontmatter 수정
+  const file = app.vault.getAbstractFileByPath(path);
+  if (file) {
+    app.fileManager.processFrontMatter(file, (fm) => {
+      fm[field] = value;
+    }).then(() => {
+      // 강제 리로드
+      app.workspace.activeLeaf.rebuildView();
+    });
+  }
+});
+</script>
