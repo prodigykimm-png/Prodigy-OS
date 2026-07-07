@@ -163,41 +163,59 @@ if (filterType !== "all" && filterType !== "전체종류") {
 pages = pages.sort(p => p.auction_date, 'asc');
 
 const total = pages.length;
-const withAppraisal = pages.filter(p => p.appraisal_price && p.minimum_bid);
-const avgMinRate = withAppraisal.length > 0
-  ? (withAppraisal.reduce((s, p) => s + p.minimum_bid / p.appraisal_price, 0) / withAppraisal.length * 100).toFixed(1) + "%"
-  : "-";
-const withExp = pages.filter(p => p.appraisal_price && p.expected_bid);
-const avgExpRate = withExp.length > 0
-  ? (withExp.reduce((s, p) => s + p.expected_bid / p.appraisal_price, 0) / withExp.length * 100).toFixed(1) + "%"
-  : "-";
-const withProfit = pages.filter(p => p.monthly_rent && (p.expected_bid || p.minimum_bid));
-const avgProfit = withProfit.length > 0
-  ? (withProfit.reduce((s, p) => {
-      const base = p.expected_bid || p.minimum_bid || 0;
-      const lr = p.loan_ratio || 0.8;
-      const ir = p.interest_rate || 0.06;
-      return s + (p.monthly_rent * 12 - base * lr * ir);
-    }, 0) / withProfit.length / 10000).toFixed(0)
-  : "-";
-const won = pages.filter(p => p.status === "won");
-const lost = pages.filter(p => p.status === "lost");
-const winRate = (won.length + lost.length) > 0
-  ? (won.length / (won.length + lost.length) * 100).toFixed(0) + "%"
-  : "-";
-const avgGap = lost.filter(p => p.actual_bid && p.winning_bid).length > 0
-  ? (lost.filter(p => p.actual_bid && p.winning_bid).reduce((s, p) => s + Math.abs(p.actual_bid - p.winning_bid), 0) / lost.filter(p => p.actual_bid && p.winning_bid).length / 10000).toFixed(0)
-  : "-";
 
-dv.span(`**필터 조건: ${filterStatus === "all" ? "전체" : filterStatus} / ${filterRegion === "all" ? "전체지역" : filterRegion} / ${filterType === "all" ? "전체종류" : filterType}**\n`);
-dv.paragraph(`총 ${total}건\n`);
+// DataArray는 reduce가 없으므로 수동 계산
+let minRateSum = 0;
+let minRateCount = 0;
+let expRateSum = 0;
+let expRateCount = 0;
+let profitSum = 0;
+let profitCount = 0;
+let wonCount = 0;
+let lostCount = 0;
+let gapSum = 0;
+let gapCount = 0;
+
+for (let p of pages) {
+  if (p.appraisal_price && p.minimum_bid) {
+    minRateSum += p.minimum_bid / p.appraisal_price;
+    minRateCount++;
+  }
+  if (p.appraisal_price && p.expected_bid) {
+    expRateSum += p.expected_bid / p.appraisal_price;
+    expRateCount++;
+  }
+  if (p.monthly_rent && (p.expected_bid || p.minimum_bid)) {
+    const base = p.expected_bid || p.minimum_bid || 0;
+    const lr = p.loan_ratio || 0.8;
+    const ir = p.interest_rate || 0.06;
+    profitSum += p.monthly_rent * 12 - base * lr * ir;
+    profitCount++;
+  }
+  if (p.status === "won") wonCount++;
+  if (p.status === "lost") lostCount++;
+  if (p.actual_bid && p.winning_bid && (p.status === "lost" || p.status === "won")) {
+    gapSum += Math.abs(p.actual_bid - p.winning_bid);
+    gapCount++;
+  }
+}
+
+const avgMinRate = minRateCount > 0 ? (minRateSum / minRateCount * 100).toFixed(1) + "%" : "-";
+const avgExpRate = expRateCount > 0 ? (expRateSum / expRateCount * 100).toFixed(1) + "%" : "-";
+const avgProfit = profitCount > 0 ? (profitSum / profitCount / 10000).toFixed(0) : "-";
+const winRate = (wonCount + lostCount) > 0 ? (wonCount / (wonCount + lostCount) * 100).toFixed(0) + "%" : "-";
+const avgGap = gapCount > 0 ? (gapSum / gapCount / 10000).toFixed(0) : "-";
+
+dv.span(`**필터: ${filterStatus === "all" ? "전체" : filterStatus} / ${filterRegion === "all" ? "전체지역" : filterRegion} / ${filterType === "all" ? "전체종류" : filterType}**\n`);
+dv.paragraph(`총 ${total}건`);
+dv.paragraph(`---`);
 dv.table(
   ["항목", "값"],
   [
     ["평균 최저가율", avgMinRate],
     ["평균 예상입찰가율", avgExpRate],
     ["평균 수익성", avgProfit !== "-" ? avgProfit + "만/년" : "-"],
-    ["낙찰 성공률", winRate + (won.length + lost.length > 0 ? ` (${won.length}승 ${lost.length}패)` : "")],
+    ["낙찰 성공률", winRate + (wonCount + lostCount > 0 ? ` (${wonCount}승 ${lostCount}패)` : "")],
     ["평균 패찰 차이", avgGap !== "-" ? avgGap + "만원" : "-"]
   ]
 );
