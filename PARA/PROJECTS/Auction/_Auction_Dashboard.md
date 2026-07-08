@@ -1,9 +1,12 @@
 ---
 cssclasses:
   - hide-properties_reading
-filter_status: 낙찰
-filter_region: 경기
-filter_type: 전체종류
+card_status: 전체
+card_region: 전체지역
+card_type: 전체종류
+agg_status: 전체
+agg_region: 전체지역
+agg_type: 전체종류
 ---
 
 # 🏛 Auction Dashboard
@@ -17,46 +20,37 @@ filter_type: 전체종류
 ```js-engine
 const file = app.workspace.getActiveFile();
 if (!file) return;
-
 if (!container) return;
 container.empty();
 
 const cache = app.metadataCache.getFileCache(file);
-const currentFm = cache?.frontmatter ?? {};
+const fm = cache?.frontmatter ?? {};
 
 const setFilter = async (field, value) => {
   await app.fileManager.processFrontMatter(file, (fm) => { fm[field] = value; });
 };
 
-const activeStyle = 'background:#4077b4;color:white;padding:2px 10px;border-radius:4px;border:none;cursor:pointer;font-size:0.85em;margin-right:4px;margin-bottom:4px;';
-const idleStyle = 'background:#333;color:#ccc;padding:2px 10px;border-radius:4px;border:none;cursor:pointer;font-size:0.85em;margin-right:4px;margin-bottom:4px;';
-
-const makeBtn = (label, active, onClick) => {
-  const b = container.createEl('button', {
-    text: label,
-    attr: { style: active ? activeStyle : idleStyle }
+const makeSelect = (label, field, options, current) => {
+  const row = container.createEl('div', { attr: { style: 'display:inline-flex;align-items:center;margin-right:12px;' } });
+  row.createEl('span', { text: label + ' ', attr: { style: 'font-weight:bold;font-size:0.85em;margin-right:4px;' } });
+  const sel = row.createEl('select', { attr: { style: 'font-size:0.85em;padding:2px 6px;border-radius:4px;background:#2a2a2a;color:#ccc;border:1px solid #555;' } });
+  options.forEach(o => {
+    const opt = sel.createEl('option', { text: o, value: o });
+    if (o === (current || options[0])) opt.selected = true;
   });
-  b.onclick = onClick;
+  sel.onchange = () => setFilter(field, sel.value);
+  return sel;
 };
 
-container.createEl('span', { text: '상태: ', attr: { style: 'font-weight:bold;margin-right:6px;' } });
-makeBtn('전체', (currentFm.filter_status || '전체') === '전체', () => setFilter('filter_status', '전체'));
-makeBtn('진행중', (currentFm.filter_status || '전체') === '진행중', () => setFilter('filter_status', '진행중'));
-makeBtn('낙찰', (currentFm.filter_status || '전체') === '낙찰', () => setFilter('filter_status', '낙찰'));
-makeBtn('패찰', (currentFm.filter_status || '전체') === '패찰', () => setFilter('filter_status', '패찰'));
+makeSelect('카드 상태', 'card_status', ['전체', '진행중', '낙찰', '패찰'], fm.card_status);
+makeSelect('카드 지역', 'card_region', ['전체지역', '서울', '경기', '인천', '부산'], fm.card_region);
+makeSelect('카드 종류', 'card_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.card_type);
 
 container.createEl('br');
-container.createEl('span', { text: '지역: ', attr: { style: 'font-weight:bold;margin-right:6px;' } });
-makeBtn('전체지역', (currentFm.filter_region || '전체지역') === '전체지역', () => setFilter('filter_region', '전체지역'));
-makeBtn('인천', (currentFm.filter_region || '전체지역') === '인천', () => setFilter('filter_region', '인천'));
-makeBtn('경기', (currentFm.filter_region || '전체지역') === '경기', () => setFilter('filter_region', '경기'));
-makeBtn('서울', (currentFm.filter_region || '전체지역') === '서울', () => setFilter('filter_region', '서울'));
 
-container.createEl('br');
-container.createEl('span', { text: '종류: ', attr: { style: 'font-weight:bold;margin-right:6px;' } });
-makeBtn('전체종류', (currentFm.filter_type || '전체종류') === '전체종류', () => setFilter('filter_type', '전체종류'));
-makeBtn('오피스텔', (currentFm.filter_type || '전체종류') === '오피스텔', () => setFilter('filter_type', '오피스텔'));
-makeBtn('아파트', (currentFm.filter_type || '전체종류') === '아파트', () => setFilter('filter_type', '아파트'));
+makeSelect('집계 상태', 'agg_status', ['전체', '진행중', '낙찰', '패찰'], fm.agg_status);
+makeSelect('집계 지역', 'agg_region', ['전체지역', '서울', '경기', '인천', '부산'], fm.agg_region);
+makeSelect('집계 종류', 'agg_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.agg_type);
 ```
 
 ---
@@ -65,9 +59,9 @@ makeBtn('아파트', (currentFm.filter_type || '전체종류') === '아파트', 
 
 ```dataviewjs
 const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
-let filterStatus = thisFile.filter_status || "전체";
-let filterRegion = thisFile.filter_region || "전체지역";
-let filterType = thisFile.filter_type || "전체종류";
+let filterStatus = thisFile.card_status || "전체";
+let filterRegion = thisFile.card_region || "전체지역";
+let filterType = thisFile.card_type || "전체종류";
 
 let allPages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 let pages = allPages;
@@ -153,9 +147,9 @@ if (pages.length === 0) {
 
 ```dataviewjs
 const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
-let filterStatus = thisFile.filter_status || "전체";
-let filterRegion = thisFile.filter_region || "전체지역";
-let filterType = thisFile.filter_type || "전체종류";
+let filterStatus = thisFile.agg_status || "전체";
+let filterRegion = thisFile.agg_region || "전체지역";
+let filterType = thisFile.agg_type || "전체종류";
 
 let allPages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 let pages = allPages;
