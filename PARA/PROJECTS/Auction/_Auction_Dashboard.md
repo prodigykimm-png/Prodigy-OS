@@ -14,18 +14,18 @@ filter_type: 전체종류
 
 상단 Properties에서 아래 값을 직접 변경하세요.
 
-| 필터 | 값 |
-|------|-----|
-| `filter_status` | `전체` / `진행중` / `낙찰` / `패찰` |
-| `filter_region` | `전체지역` / `인천` / `경기` / `서울` |
-| `filter_type` | `전체종류` / `오피스텔` / `아파트` |
+| 필터              | 값                       |
+| --------------- | ----------------------- |
+| `filter_status` | `전체'                    |
+| `filter_region` | 인천                      |
+| `filter_type`   | `전체종류` / `오피스텔` / `아파트` |
 
 ---
 
 ## 카드 뷰
 
 ```dataviewjs
-const thisFile = dv.current();
+const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
 
 let filterStatus = thisFile.filter_status || "전체";
 let filterRegion = thisFile.filter_region || "전체지역";
@@ -137,7 +137,7 @@ if (pages.length === 0) {
 ## 집계
 
 ```dataviewjs
-const thisFile = dv.current();
+const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
 
 let filterStatus = thisFile.filter_status || "전체";
 let filterRegion = thisFile.filter_region || "전체지역";
