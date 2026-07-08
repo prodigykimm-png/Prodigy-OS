@@ -1,8 +1,8 @@
 ---
 cssclasses:
   - hide-properties_reading
-filter_status: 전체
-filter_region: 전체지역
+filter_status: 낙찰
+filter_region: 경기
 filter_type: 전체종류
 ---
 
