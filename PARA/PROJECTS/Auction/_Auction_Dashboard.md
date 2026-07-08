@@ -12,99 +12,13 @@ filter_type: 전체종류
 
 ## 필터
 
-**상태:**
-```meta-bind-button
-label: 전체
-hidden: false
-id: filter_all
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_status_all.md
-```
-```meta-bind-button
-label: 진행중
-hidden: false
-id: filter_active
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_status_active.md
-```
-```meta-bind-button
-label: 낙찰
-hidden: false
-id: filter_won
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_status_won.md
-```
-```meta-bind-button
-label: 패찰
-hidden: false
-id: filter_lost
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_status_lost.md
-```
+상단 Properties에서 아래 값을 직접 변경하세요.
 
-**지역:**
-```meta-bind-button
-label: 전체지역
-hidden: false
-id: region_all
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_region_all.md
-```
-```meta-bind-button
-label: 인천
-hidden: false
-id: region_incheon
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_region_incheon.md
-```
-```meta-bind-button
-label: 경기
-hidden: false
-id: region_gyeonggi
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_region_gyeonggi.md
-```
-```meta-bind-button
-label: 서울
-hidden: false
-id: region_seoul
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_region_seoul.md
-```
-
-**종류:**
-```meta-bind-button
-label: 전체종류
-hidden: false
-id: type_all
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_type_all.md
-```
-```meta-bind-button
-label: 오피스텔
-hidden: false
-id: type_officetel
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_type_officetel.md
-```
-```meta-bind-button
-label: 아파트
-hidden: false
-id: type_apartment
-actions:
-  - type: templater
-    template: SYSTEM/TEMPLATE/CODE/filter_type_apartment.md
-```
+| 필터 | 값 |
+|------|-----|
+| `filter_status` | `전체` / `진행중` / `낙찰` / `패찰` |
+| `filter_region` | `전체지역` / `인천` / `경기` / `서울` |
+| `filter_type` | `전체종류` / `오피스텔` / `아파트` |
 
 ---
 
