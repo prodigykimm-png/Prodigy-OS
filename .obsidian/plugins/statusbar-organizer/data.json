@@ -51,6 +51,10 @@
       "plugin-janitor;1": {
         "position": 12,
         "visible": true
+      },
+      "plugin-editing-toolbar-editingToolbar-statusbar-button;1": {
+        "position": 13,
+        "visible": true
       }
     }
   },

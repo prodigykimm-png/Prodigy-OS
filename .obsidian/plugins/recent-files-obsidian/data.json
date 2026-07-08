@@ -1,6 +1,90 @@
 {
   "recentFiles": [
     {
+      "basename": "_Auction_Dashboard",
+      "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
+    },
+    {
+      "basename": "AUC-TEST-001",
+      "path": "PARA/PROJECTS/Auction/_samples/AUC-TEST-001.md"
+    },
+    {
+      "basename": "Homepage",
+      "path": "HUB/Homepage.md"
+    },
+    {
+      "basename": "2026-07-08",
+      "path": "DAILY/DAILY/2026-07-08.md"
+    },
+    {
+      "basename": "Mail Box",
+      "path": "HUB/Mail Box.md"
+    },
+    {
+      "basename": "2025타경34274_template",
+      "path": "PARA/PROJECTS/Auction/2025타경34274_template.md"
+    },
+    {
+      "basename": "2025타경1144_인천남동구구월동_오피스텔",
+      "path": "PARA/PROJECTS/Auction/_samples/2025타경1144_인천남동구구월동_오피스텔.md"
+    },
+    {
+      "basename": "README",
+      "path": "README.md"
+    },
+    {
+      "basename": "2025타경1144_인천남동구구월동_오피스텔",
+      "path": "PARA/PROJECTS/Auction/2025타경1144_인천남동구구월동_오피스텔.md"
+    },
+    {
+      "basename": "AUC-2026-003",
+      "path": "PARA/PROJECTS/Auction/AUC-2026-003.md"
+    },
+    {
+      "basename": "template_auction_case",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md"
+    },
+    {
+      "basename": "Home",
+      "path": "HUB/Home.md"
+    },
+    {
+      "basename": "AUC-2026-002",
+      "path": "PARA/PROJECTS/Auction/AUC-2026-002.md"
+    },
+    {
+      "basename": "AUC-2026-001",
+      "path": "PARA/PROJECTS/Auction/AUC-2026-001.md"
+    },
+    {
+      "basename": "1. Autonomous Vehicle AI Ethics",
+      "path": "PARA/PROJECTS/Autonomous Vehicle AI Ethics/1. Autonomous Vehicle AI Ethics.md"
+    },
+    {
+      "basename": "template_area",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_area.md"
+    },
+    {
+      "basename": "template_area_note",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_area_note.md"
+    },
+    {
+      "basename": "template_daily_note",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_daily_note.md"
+    },
+    {
+      "basename": "template_meeting_general",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_meeting_general.md"
+    },
+    {
+      "basename": "template_monthly_note",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_monthly_note.md"
+    },
+    {
+      "basename": "template_workstation_note",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_workstation_note.md"
+    },
+    {
       "basename": "02_Core_Concepts",
       "path": "docs/02_Core_Concepts.md"
     },
@@ -25,14 +109,6 @@
       "path": "docs/ADR/ADR.md"
     },
     {
-      "basename": "AUC-2026-002",
-      "path": "PARA/PROJECTS/Auction/AUC-2026-002.md"
-    },
-    {
-      "basename": "AUC-TEST-001",
-      "path": "PARA/PROJECTS/Auction/_samples/AUC-TEST-001.md"
-    },
-    {
       "basename": "2024-11-14",
       "path": "DAILY/DAILY/2024-11-14.md"
     },
@@ -43,14 +119,6 @@
     {
       "basename": "2024-11-12",
       "path": "DAILY/DAILY/2024-11-12.md"
-    },
-    {
-      "basename": "Mail Box",
-      "path": "HUB/Mail Box.md"
-    },
-    {
-      "basename": "Homepage",
-      "path": "HUB/Homepage.md"
     },
     {
       "basename": "Bias Mitigation and Fairness Auditing",

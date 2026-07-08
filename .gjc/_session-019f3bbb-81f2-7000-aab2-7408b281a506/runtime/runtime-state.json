@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "session_id": "019f3bbb-81f2-7000-aab2-7408b281a506",
+  "state": "running",
+  "ready_for_input": false,
+  "updated_at": "2026-07-08T04:18:11.161Z",
+  "current_turn_id": null,
+  "last_turn_id": null,
+  "live": true,
+  "reason": null,
+  "source": "agent_session_event",
+  "event": "turn_start",
+  "cwd": "/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk",
+  "workdir": "/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk",
+  "branch": null,
+  "session_file": "/Users/prodigykim/.gjc/agent/sessions/-Library-Mobile Documents-iCloud~md~obsidian-Documents-Dusk/2026-07-07T08-39-32-082Z_019f3bbb-81f2-7000-aab2-7408b281a506.jsonl"
+}
