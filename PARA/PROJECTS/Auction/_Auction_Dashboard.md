@@ -106,7 +106,7 @@ if (pages.length === 0) {
     let recommendLine = "";
     if (p.recommend === true) {
       const level = p.recommend_level || "추천";
-      const icon = level === "강력추천" ? "🔥" : level === "추천" ? "👍" : "👌";
+      const icon = level === "강추" ? "🔥" : level === "추천" ? "👍" : level === "보통" ? "👌" : "✨";
       const note = p.recommend_note ? ` · ${p.recommend_note}` : "";
       recommendLine = `<div style="margin-top:6px;"><span style="font-size:0.9em;">${icon} <b>${level}</b>${note}</span></div>`;
     }

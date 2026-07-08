@@ -24,12 +24,16 @@
   "unresolvedLinks": false,
   "recentFilesStore": [
     {
-      "filepath": "PARA/PROJECTS/Auction/_Auction_Dashboard.md",
-      "timestamp": 1783491647044
+      "filepath": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md",
+      "timestamp": 1783493902126
     },
     {
-      "filepath": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md",
-      "timestamp": 1783490728069
+      "filepath": "SYSTEM/TEMPLATE/FORMAT/template_daily_note.md",
+      "timestamp": 1783493901161
+    },
+    {
+      "filepath": "PARA/PROJECTS/Auction/_Auction_Dashboard.md",
+      "timestamp": 1783491647044
     },
     {
       "filepath": "PARA/PROJECTS/Auction/_samples/AUC-TEST-001.md",
@@ -38,10 +42,6 @@
     {
       "filepath": "HUB/Homepage.md",
       "timestamp": 1783483298487
-    },
-    {
-      "filepath": "DAILY/DAILY/2026-07-08.md",
-      "timestamp": 1783468046696
     }
   ],
   "bookmarkedFileStore": [

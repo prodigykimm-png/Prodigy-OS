@@ -1,12 +1,16 @@
 {
   "recentFiles": [
     {
-      "basename": "_Auction_Dashboard",
-      "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
-    },
-    {
       "basename": "template_auction_case",
       "path": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md"
+    },
+    {
+      "basename": "template_daily_note",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_daily_note.md"
+    },
+    {
+      "basename": "_Auction_Dashboard",
+      "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
     },
     {
       "basename": "AUC-TEST-001",
@@ -67,10 +71,6 @@
     {
       "basename": "template_area_note",
       "path": "SYSTEM/TEMPLATE/FORMAT/template_area_note.md"
-    },
-    {
-      "basename": "template_daily_note",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_daily_note.md"
     },
     {
       "basename": "template_meeting_general",
