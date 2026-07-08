@@ -251,6 +251,11 @@ UX가 먼저다.
 # Design Guardrails
 
 새로운 기능을 추가하기 전에 반드시 아래 질문을 확인한다.
+### ADR
+
+- ADR가 구현보다 앞서는가?
+- Architecture 변경에만 ADR을 사용하는가?
+- Issue가 반복되어 Architecture 변경이 필요한가?
 
 ## UX
 

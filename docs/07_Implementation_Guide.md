@@ -28,6 +28,16 @@ Constitution과 Architecture를 우선한다.
 
 # Priority Order
 
+
+# Rule 0 — Implementation First
+
+구현은 ADR 없이 진행할 수 있다.
+
+Architecture 변경이 필요한 경우에만 ADR을 작성한다.
+
+이 원칙은
+
+Prodigy OS의 실사용 기반 개발을 보장한다.
 구현 시 항상 아래 우선순위를 따른다.
 
 ```
