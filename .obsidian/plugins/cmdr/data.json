@@ -9,12 +9,6 @@
   "titleBar": [],
   "statusBar": [
     {
-      "id": "omnisearch:show-modal",
-      "icon": "lucide-search",
-      "name": "Omnisearch: Vault search",
-      "mode": "any"
-    },
-    {
       "id": "quickadd:choice:c8c7588f-71bc-4aef-97d4-6c34a9e5d554",
       "icon": "lucide-fullscreen",
       "name": "Focus Mode",

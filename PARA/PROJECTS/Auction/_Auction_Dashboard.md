@@ -3,13 +3,13 @@ cssclasses:
   - hide-properties_reading
 card_status: 전체
 card_region: 전체지역
-card_type: 전체종류
+card_type: 오피스텔
 card_recommend: 전체
 agg_status: 전체
 agg_region: 전체지역
 agg_type: 전체종류
 ---
-
+ㅁ
 # 🏛 Auction Dashboard
 
 > Object Property만 계산. 본문 미사용. Property에 저장하지 않음.
@@ -115,7 +115,7 @@ if (pages.length === 0) {
       ? `<span style="background:#ef4444;color:white;padding:1px 6px;border-radius:4px;font-size:0.8em;font-weight:bold;">${dDayStr}</span>`
       : `<span style="color:#888;font-size:0.85em;">${dDayStr}</span>`;
 
-    const linkStr = `[[${p.file.name}]]`;
+    const linkStr = `<a class="internal-link" data-href="${p.file.name}" href="${p.file.name}">${p.file.name}</a>`;
 
     dv.paragraph(`<div style="border:1px solid #444;border-radius:8px;padding:10px 14px;margin-bottom:10px;">
   <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -129,6 +129,9 @@ if (pages.length === 0) {
   ${recommendLine}
   <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
     <span style="font-size:0.9em;">감정 <b>${toEok(p.appraisal_price)}</b> · 최저 <b>${toEok(p.minimum_bid)}</b> · 예상 <b>${toEok(p.expected_bid)}</b></span>
+  </div>
+  <div style="margin-top:4px;font-size:0.85em;color:#888;">
+    월수익 <b>${dv.func.round((p.monthly_rent||0)*12/10000)}만</b> − 이자 <b>${dv.func.round((p.expected_bid||0)*(p.loan_ratio||0.8)*(p.interest_rate||0.06)/10000)}만</b> = <b style="color:${((p.monthly_rent||0)*12 - (p.expected_bid||0)*(p.loan_ratio||0.8)*(p.interest_rate||0.06)) >= 0 ? '#22c55e' : '#ef4444'}">${dv.func.round(((p.monthly_rent||0)*12 - (p.expected_bid||0)*(p.loan_ratio||0.8)*(p.interest_rate||0.06))/10000)}만/년</b>
   </div>
   <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;font-size:0.85em;">
     <span style="color:#888;">가격율: ${minRate} / ${expRate}</span>

@@ -92,8 +92,7 @@
     "startup-help-view": true,
     "startup-help-welcome": true
   },
-  "ribbonAction": "item-suggester",
-  "ribbonToolbar": null,
+  "ribbon": [],
   "rules": [],
   "scriptingEnabled": false,
   "showEditInFabMenu": false,
@@ -4231,7 +4230,7 @@
       "updated": "2024-10-08T14:04:52.012Z"
     }
   ],
-  "version": 20260428.1,
+  "version": 20260703.1,
   "webviewerToolbar": null,
   "whatsnew_version": 1.14
 }

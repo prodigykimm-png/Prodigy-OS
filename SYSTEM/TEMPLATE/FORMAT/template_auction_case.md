@@ -92,6 +92,7 @@ attachments:
 ## 주요 리스크
 -
 
+## 추천인 코멘트
 ---
 
 <!-- USER AREA -->
