@@ -24,6 +24,10 @@
   "unresolvedLinks": false,
   "recentFilesStore": [
     {
+      "filepath": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md",
+      "timestamp": 1783490728069
+    },
+    {
       "filepath": "PARA/PROJECTS/Auction/_Auction_Dashboard.md",
       "timestamp": 1783483305225
     },
@@ -38,10 +42,6 @@
     {
       "filepath": "DAILY/DAILY/2026-07-08.md",
       "timestamp": 1783468046696
-    },
-    {
-      "filepath": "HUB/Mail Box.md",
-      "timestamp": 1783466794558
     }
   ],
   "bookmarkedFileStore": [

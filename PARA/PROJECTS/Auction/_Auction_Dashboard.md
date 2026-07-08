@@ -1,13 +1,13 @@
 ---
 cssclasses:
   - hide-properties_reading
-card_status: 진행중
-card_region: 인천
-card_type: 오피스텔
-agg_status: 낙찰
+card_status: 전체
+card_region: 전체지역
+card_type: 전체종류
+card_recommend: 전체
+agg_status: 전체
 agg_region: 전체지역
 agg_type: 전체종류
-filter_type: 오피스텔
 ---
 
 # 🏛 Auction Dashboard
@@ -46,6 +46,7 @@ const makeSelect = (label, field, options, current) => {
 makeSelect('카드 상태', 'card_status', ['전체', '진행중', '낙찰', '패찰'], fm.card_status);
 makeSelect('카드 지역', 'card_region', ['전체지역', '서울', '경기', '인천', '부산'], fm.card_region);
 makeSelect('카드 종류', 'card_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.card_type);
+makeSelect('추천', 'card_recommend', ['전체', '추천만'], fm.card_recommend);
 
 container.createEl('br');
 
@@ -63,6 +64,7 @@ const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] ||
 let filterStatus = thisFile.card_status || "전체";
 let filterRegion = thisFile.card_region || "전체지역";
 let filterType = thisFile.card_type || "전체종류";
+let filterRecommend = thisFile.card_recommend || "전체";
 
 let allPages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 let pages = allPages;
@@ -78,6 +80,9 @@ if (filterRegion !== "전체지역") {
 }
 if (filterType !== "전체종류") {
   pages = pages.where(p => (p.property_type || "").includes(filterType));
+}
+if (filterRecommend === "추천만") {
+  pages = pages.where(p => p.recommend === true);
 }
 pages = pages.sort(p => p.auction_date, 'asc');
 
@@ -98,6 +103,14 @@ if (pages.length === 0) {
     const isUrgent = dDay !== null && dDay <= 7 && dDay >= 0;
     const badge = p.status === "won" ? "🏆 " : p.status === "lost" ? "💔 " : isUrgent ? "🚨 " : "";
 
+    let recommendLine = "";
+    if (p.recommend === true) {
+      const level = p.recommend_level || "추천";
+      const icon = level === "강력추천" ? "🔥" : level === "추천" ? "👍" : "👌";
+      const note = p.recommend_note ? ` · ${p.recommend_note}` : "";
+      recommendLine = `<div style="margin-top:6px;"><span style="font-size:0.9em;">${icon} <b>${level}</b>${note}</span></div>`;
+    }
+
     const dDayBadge = isUrgent
       ? `<span style="background:#ef4444;color:white;padding:1px 6px;border-radius:4px;font-size:0.8em;font-weight:bold;">${dDayStr}</span>`
       : `<span style="color:#888;font-size:0.85em;">${dDayStr}</span>`;
@@ -113,7 +126,8 @@ if (pages.length === 0) {
     <span style="color:#aaa;font-size:0.85em;">${propType} · ${statusKor}</span>
     ${dDayBadge}
   </div>
-  <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">
+  ${recommendLine}
+  <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
     <span style="font-size:0.9em;">감정 <b>${toEok(p.appraisal_price)}</b> · 최저 <b>${toEok(p.minimum_bid)}</b> · 예상 <b>${toEok(p.expected_bid)}</b></span>
   </div>
   <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;font-size:0.85em;">

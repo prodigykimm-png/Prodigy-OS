@@ -43,6 +43,11 @@ rent_deposit:
 monthly_rent:
 loan_ratio: 0.8
 interest_rate: 0.06
+# ---------- Recommendation ----------
+recommend: false
+recommend_level:
+recommend_note:
+recommend_sources:
 # ---------- Market ----------
 market_sale_low:
 market_sale_high:

@@ -1,6 +1,10 @@
 {
   "recentFiles": [
     {
+      "basename": "template_auction_case",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md"
+    },
+    {
       "basename": "_Auction_Dashboard",
       "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
     },
@@ -39,10 +43,6 @@
     {
       "basename": "AUC-2026-003",
       "path": "PARA/PROJECTS/Auction/AUC-2026-003.md"
-    },
-    {
-      "basename": "template_auction_case",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md"
     },
     {
       "basename": "Home",
