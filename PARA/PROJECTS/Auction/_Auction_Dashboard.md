@@ -1,12 +1,13 @@
 ---
 cssclasses:
   - hide-properties_reading
-card_status: 전체
-card_region: 전체지역
-card_type: 전체종류
-agg_status: 전체
+card_status: 진행중
+card_region: 인천
+card_type: 오피스텔
+agg_status: 낙찰
 agg_region: 전체지역
 agg_type: 전체종류
+filter_type: 오피스텔
 ---
 
 # 🏛 Auction Dashboard
@@ -85,34 +86,17 @@ if (pages.length === 0) {
 } else {
   dv.span(`**총 ${pages.length}건**\n\n`);
   for (let p of pages) {
-    const base = p.expected_bid || p.minimum_bid || 0;
-    const lr = p.loan_ratio || 0.8;
-    const ir = p.interest_rate || 0.06;
-    const mr = p.monthly_rent || 0;
-    const loan = base * lr;
-    const annualInterest = loan * ir;
-    const annualRent = mr * 12;
-    const netProfit = annualRent - annualInterest;
     const region = [p.region_sido, p.region_sigungu, p.region_dong].filter(Boolean).join(" ");
     const propType = p.property_type || "-";
     const dDay = p.auction_date ? Math.ceil((dv.date(p.auction_date) - dv.date("today")) / (1000*60*60*24)) : null;
     const dDayStr = dDay !== null ? (dDay > 0 ? "D-" + dDay : dDay === 0 ? "D-Day" : "D+" + Math.abs(dDay)) : "-";
-    const minRate = p.appraisal_price ? (p.minimum_bid / p.appraisal_price * 100).toFixed(1) + "%" : "-";
-    const expRate = p.appraisal_price && p.expected_bid ? (p.expected_bid / p.appraisal_price * 100).toFixed(1) + "%" : "-";
+    const toEok = (v) => v ? (v / 100000000).toFixed(1) + "억" : "-";
+    const minRate = p.appraisal_price ? (p.minimum_bid / p.appraisal_price * 100).toFixed(0) + "%" : "-";
+    const expRate = p.appraisal_price && p.expected_bid ? (p.expected_bid / p.appraisal_price * 100).toFixed(0) + "%" : "-";
     const action = p.next_action || "⚠️ 설정 필요";
     const statusKor = { watching: "관심", rights_analysis: "권리분석", market_analysis: "시세분석", profitability: "수익성", site_visit: "임장", ready_to_bid: "입찰준비", bid_submitted: "입찰완료", won: "낙찰", lost: "패찰", review_completed: "복기완료", archived: "보관" }[p.status] || p.status;
     const isUrgent = dDay !== null && dDay <= 7 && dDay >= 0;
     const badge = p.status === "won" ? "🏆 " : p.status === "lost" ? "💔 " : isUrgent ? "🚨 " : "";
-
-    let profitLine = "";
-    if (mr) {
-      const sign = netProfit >= 0 ? "+" : "";
-      const color = netProfit >= 0 ? "color:#22c55e" : "color:#ef4444";
-      profitLine = `<span style="font-size:1.2em;font-weight:bold;${color}">${sign}${dv.func.round(netProfit / 10000)}만/년</span><br><span style="font-size:0.85em;color:#888">월세 ${dv.func.round(annualRent / 10000)}만 - 이자 ${dv.func.round(annualInterest / 10000)}만</span>`;
-    } else {
-      profitLine = `<span style="color:#888">월세없음</span>`;
-      if (annualInterest > 0) profitLine += `<br><span style="font-size:0.85em;color:#888">이자 ${dv.func.round(annualInterest / 10000)}만</span>`;
-    }
 
     const dDayBadge = isUrgent
       ? `<span style="background:#ef4444;color:white;padding:1px 6px;border-radius:4px;font-size:0.8em;font-weight:bold;">${dDayStr}</span>`
@@ -129,11 +113,11 @@ if (pages.length === 0) {
     <span style="color:#aaa;font-size:0.85em;">${propType} · ${statusKor}</span>
     ${dDayBadge}
   </div>
-  <div style="margin-top:8px;">
-    ${profitLine}
+  <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:0.9em;">감정 <b>${toEok(p.appraisal_price)}</b> · 최저 <b>${toEok(p.minimum_bid)}</b> · 예상 <b>${toEok(p.expected_bid)}</b></span>
   </div>
   <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;font-size:0.85em;">
-    <span style="color:#888;">가격: ${minRate} / ${expRate}</span>
+    <span style="color:#888;">가격율: ${minRate} / ${expRate}</span>
     <span style="color:#aaa;">→ ${action}</span>
   </div>
 </div>`);
@@ -210,11 +194,19 @@ const review = dv.pages('"PARA/PROJECTS/Auction"')
 if (review.length === 0) {
   dv.paragraph("복기할 물건이 없습니다.");
 } else {
-  dv.table(["사건", "결과", "Action", "낙찰가"], review.map(p => [
-    p.file.link,
-    p.bid_result === "won" ? "✅ 낙찰" : "❌ 패찰",
-    p.next_action || "-",
-    p.actual_bid ? "₩" + dv.func.round(p.actual_bid / 10000) + "만" : "-"
-  ]));
+  dv.table(["사건", "결과", "내 입찰가", "낙찰가", "차이", "Action"], review.map(p => {
+    const mine = p.expected_bid || 0;
+    const winner = p.actual_bid || 0;
+    const gap = (mine && winner) ? mine - winner : 0;
+    const gapStr = gap !== 0 ? (gap > 0 ? "▲" + dv.func.round(gap / 10000) + "만" : "▼" + dv.func.round(Math.abs(gap) / 10000) + "만") : "-";
+    return [
+      p.file.link,
+      p.bid_result === "won" ? "✅ 낙찰" : "❌ 패찰",
+      mine ? "₩" + dv.func.round(mine / 10000) + "만" : "-",
+      winner ? "₩" + dv.func.round(winner / 10000) + "만" : "-",
+      gapStr,
+      p.next_action || "-"
+    ];
+  }));
 }
 ```

@@ -6530,20 +6530,20 @@
       "isCountable": true,
       "targetNodeType": "file",
       "noteCount": 1,
-      "wordCount": 1019,
+      "wordCount": 912,
       "wordCountTowardGoal": 0,
       "wordGoal": null,
-      "pageCount": 3.3966666666666665,
-      "characterCount": 10646,
-      "nonWhitespaceCharacterCount": 9043,
-      "newlineCount": 220,
-      "readingTimeInMinutes": 3.166,
+      "pageCount": 3.04,
+      "characterCount": 9143,
+      "nonWhitespaceCharacterCount": 7750,
+      "newlineCount": 194,
+      "readingTimeInMinutes": 2.824301886792453,
       "linkCount": 0,
       "embedCount": 0,
       "aliases": null,
       "createdDate": 1783420585223,
-      "modifiedDate": 1783486232035,
-      "sizeInBytes": 11554,
+      "modifiedDate": 1783488876230,
+      "sizeInBytes": 10073,
       "sessionStart": {
         "noteCount": 1,
         "pageCount": 2.486666666666667,
@@ -6556,9 +6556,13 @@
         "cssclasses": [
           "hide-properties_reading"
         ],
-        "filter_status": "낙찰",
-        "filter_region": "경기",
-        "filter_type": "전체종류"
+        "card_status": "진행중",
+        "card_region": "인천",
+        "card_type": "오피스텔",
+        "agg_status": "낙찰",
+        "agg_region": "전체지역",
+        "agg_type": "전체종류",
+        "filter_type": "오피스텔"
       }
     },
     "PARA/PROJECTS/Auction/AUC-2026-003.md": {
