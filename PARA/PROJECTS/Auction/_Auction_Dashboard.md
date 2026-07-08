@@ -8,14 +8,124 @@ cssclasses:
 > Object Property만 계산. 본문 미사용. Property에 저장하지 않음.
 
 ---
+filter_status: 전체
+filter_region: 전체지역
+filter_type: 전체종류
+---
+
+## 필터
+
+**상태:** `BUTTON[filter_all]` `BUTTON[filter_active]` `BUTTON[filter_won]` `BUTTON[filter_lost]`
+
+**지역:** `BUTTON[region_all]` `BUTTON[region_incheon]` `BUTTON[region_gyeonggi]` `BUTTON[region_seoul]`
+
+**종류:** `BUTTON[type_all]` `BUTTON[type_officetel]` `BUTTON[type_apartment]`
+
+---
+
+```button
+name 전체
+id filter_all
+type template
+action SYSTEM/TEMPLATE/CODE/filter_status_all.md
+```
+
+```button
+name 진행중
+id filter_active
+type template
+action SYSTEM/TEMPLATE/CODE/filter_status_active.md
+```
+
+```button
+name 낙찰
+id filter_won
+type template
+action SYSTEM/TEMPLATE/CODE/filter_status_won.md
+```
+
+```button
+name 패찰
+id filter_lost
+type template
+action SYSTEM/TEMPLATE/CODE/filter_status_lost.md
+```
+
+```button
+name 전체지역
+id region_all
+type template
+action SYSTEM/TEMPLATE/CODE/filter_region_all.md
+```
+
+```button
+name 인천
+id region_incheon
+type template
+action SYSTEM/TEMPLATE/CODE/filter_region_incheon.md
+```
+
+```button
+name 경기
+id region_gyeonggi
+type template
+action SYSTEM/TEMPLATE/CODE/filter_region_gyeonggi.md
+```
+
+```button
+name 서울
+id region_seoul
+type template
+action SYSTEM/TEMPLATE/CODE/filter_region_seoul.md
+```
+
+```button
+name 전체종류
+id type_all
+type template
+action SYSTEM/TEMPLATE/CODE/filter_type_all.md
+```
+
+```button
+name 오피스텔
+id type_officetel
+type template
+action SYSTEM/TEMPLATE/CODE/filter_type_officetel.md
+```
+
+```button
+name 아파트
+id type_apartment
+type template
+action SYSTEM/TEMPLATE/CODE/filter_type_apartment.md
+```
+
+---
 
 ## 진행중인 물건
 
 ```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Auction"')
-  .where(p => p.type === "auction_case")
-  .where(p => p.status !== "archived" && p.status !== "review_completed")
-  .sort(p => p.auction_date, 'asc');
+const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
+let filterStatus = thisFile.filter_status || "전체";
+let filterRegion = thisFile.filter_region || "전체지역";
+let filterType = thisFile.filter_type || "전체종류";
+
+let allPages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+let pages = allPages;
+if (filterStatus === "진행중") {
+  pages = allPages.where(p => p.status !== "archived" && p.status !== "review_completed");
+} else if (filterStatus === "낙찰") {
+  pages = allPages.where(p => p.status === "won");
+} else if (filterStatus === "패찰") {
+  pages = allPages.where(p => p.status === "lost");
+}
+if (filterRegion !== "전체지역") {
+  pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
+}
+if (filterType !== "전체종류") {
+  pages = pages.where(p => (p.property_type || "").includes(filterType));
+}
+pages = pages.sort(p => p.auction_date, 'asc');
 
 if (pages.length === 0) {
   dv.paragraph("진행 중인 물건이 없습니다.");
@@ -103,7 +213,28 @@ if (pages.length === 0) {
 ## 전체 집계
 
 ```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case").sort(p => p.auction_date, 'asc');
+
+const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
+let filterStatus = thisFile.filter_status || "전체";
+let filterRegion = thisFile.filter_region || "전체지역";
+let filterType = thisFile.filter_type || "전체종류";
+
+let allPages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+let pages = allPages;
+if (filterStatus === "진행중") {
+  pages = allPages.where(p => p.status !== "archived" && p.status !== "review_completed");
+} else if (filterStatus === "낙찰") {
+  pages = allPages.where(p => p.status === "won");
+} else if (filterStatus === "패찰") {
+  pages = allPages.where(p => p.status === "lost");
+}
+if (filterRegion !== "전체지역") {
+  pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
+}
+if (filterType !== "전체종류") {
+  pages = pages.where(p => (p.property_type || "").includes(filterType));
+}
+pages = pages.sort(p => p.auction_date, 'asc');
 const total = pages.length;
 
 let minRateSum = 0, minRateCount = 0;
