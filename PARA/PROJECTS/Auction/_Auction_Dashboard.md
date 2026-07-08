@@ -115,7 +115,7 @@ if (pages.length === 0) {
       ? `<span style="background:#ef4444;color:white;padding:1px 6px;border-radius:4px;font-size:0.8em;font-weight:bold;">${dDayStr}</span>`
       : `<span style="color:#888;font-size:0.85em;">${dDayStr}</span>`;
 
-    const linkStr = p.case_number ? `[[${p.file.name}|${p.case_number}]]` : `[[${p.file.name}]]`;
+    const linkStr = `[[${p.file.name}]]`;
 
     dv.paragraph(`<div style="border:1px solid #444;border-radius:8px;padding:10px 14px;margin-bottom:10px;">
   <div style="display:flex;justify-content:space-between;align-items:center;">
