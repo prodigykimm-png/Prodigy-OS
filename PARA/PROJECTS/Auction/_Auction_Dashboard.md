@@ -1,7 +1,6 @@
 ---
-filter_status: 전체
-filter_region: 전체지역
-filter_type: 전체종류
+cssclasses:
+  - hide-properties_reading
 ---
 
 # 🏛 Auction Dashboard
@@ -10,49 +9,16 @@ filter_type: 전체종류
 
 ---
 
-## 필터
-
-상단 Properties에서 아래 값을 직접 변경하세요.
-
-| 필터              | 값                       |
-| --------------- | ----------------------- |
-| `filter_status` | `전체'                    |
-| `filter_region` | 인천                      |
-| `filter_type`   | `전체종류` / `오피스텔` / `아파트` |
-
----
-
-## 카드 뷰
+## 진행중인 물건
 
 ```dataviewjs
-const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
-
-let filterStatus = thisFile.filter_status || "전체";
-let filterRegion = thisFile.filter_region || "전체지역";
-let filterType = thisFile.filter_type || "전체종류";
-
-let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
-
-if (filterStatus === "진행중") {
-  pages = pages.where(p => p.status !== "archived" && p.status !== "review_completed");
-} else if (filterStatus === "낙찰") {
-  pages = pages.where(p => p.status === "won");
-} else if (filterStatus === "패찰") {
-  pages = pages.where(p => p.status === "lost");
-}
-
-if (filterRegion !== "전체지역") {
-  pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
-}
-
-if (filterType !== "전체종류") {
-  pages = pages.where(p => (p.property_type || "").includes(filterType));
-}
-
-pages = pages.sort(p => p.auction_date, 'asc');
+const pages = dv.pages('"PARA/PROJECTS/Auction"')
+  .where(p => p.type === "auction_case")
+  .where(p => p.status !== "archived" && p.status !== "review_completed")
+  .sort(p => p.auction_date, 'asc');
 
 if (pages.length === 0) {
-  dv.paragraph("조건에 맞는 물건이 없습니다.");
+  dv.paragraph("진행 중인 물건이 없습니다.");
 } else {
   dv.span(`**총 ${pages.length}건**\n\n`);
   for (let p of pages) {
@@ -134,35 +100,10 @@ if (pages.length === 0) {
 
 ---
 
-## 집계
+## 전체 집계
 
 ```dataviewjs
-const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
-
-let filterStatus = thisFile.filter_status || "전체";
-let filterRegion = thisFile.filter_region || "전체지역";
-let filterType = thisFile.filter_type || "전체종류";
-
-let pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
-
-if (filterStatus === "진행중") {
-  pages = pages.where(p => p.status !== "archived" && p.status !== "review_completed");
-} else if (filterStatus === "낙찰") {
-  pages = pages.where(p => p.status === "won");
-} else if (filterStatus === "패찰") {
-  pages = pages.where(p => p.status === "lost");
-}
-
-if (filterRegion !== "전체지역") {
-  pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
-}
-
-if (filterType !== "전체종류") {
-  pages = pages.where(p => (p.property_type || "").includes(filterType));
-}
-
-pages = pages.sort(p => p.auction_date, 'asc');
-
+const pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case").sort(p => p.auction_date, 'asc');
 const total = pages.length;
 
 let minRateSum = 0, minRateCount = 0;
@@ -173,46 +114,34 @@ let gapSum = 0, gapCount = 0;
 
 for (let p of pages) {
   if (p.appraisal_price && p.minimum_bid) {
-    minRateSum += p.minimum_bid / p.appraisal_price;
-    minRateCount++;
+    minRateSum += p.minimum_bid / p.appraisal_price; minRateCount++;
   }
   if (p.appraisal_price && p.expected_bid) {
-    expRateSum += p.expected_bid / p.appraisal_price;
-    expRateCount++;
+    expRateSum += p.expected_bid / p.appraisal_price; expRateCount++;
   }
   if (p.monthly_rent && (p.expected_bid || p.minimum_bid)) {
     const base = p.expected_bid || p.minimum_bid || 0;
     const lr = p.loan_ratio || 0.8;
     const ir = p.interest_rate || 0.06;
-    profitSum += p.monthly_rent * 12 - base * lr * ir;
-    profitCount++;
+    profitSum += p.monthly_rent * 12 - base * lr * ir; profitCount++;
   }
   if (p.status === "won") wonCount++;
   if (p.status === "lost") lostCount++;
   if (p.actual_bid && p.winning_bid && (p.status === "lost" || p.status === "won")) {
-    gapSum += Math.abs(p.actual_bid - p.winning_bid);
-    gapCount++;
+    gapSum += Math.abs(p.actual_bid - p.winning_bid); gapCount++;
   }
 }
 
-const avgMinRate = minRateCount > 0 ? (minRateSum / minRateCount * 100).toFixed(1) + "%" : "-";
-const avgExpRate = expRateCount > 0 ? (expRateSum / expRateCount * 100).toFixed(1) + "%" : "-";
-const avgProfit = profitCount > 0 ? (profitSum / profitCount / 10000).toFixed(0) : "-";
-const winRate = (wonCount + lostCount) > 0 ? (wonCount / (wonCount + lostCount) * 100).toFixed(0) + "%" : "-";
-const avgGap = gapCount > 0 ? (gapSum / gapCount / 10000).toFixed(0) : "-";
-
-dv.span(`**필터: ${filterStatus} / ${filterRegion} / ${filterType}**\n`);
 dv.paragraph(`총 ${total}건`);
-dv.paragraph(`---`);
 
 dv.table(
   ["항목", "값"],
   [
-    ["평균 최저가율", avgMinRate],
-    ["평균 예상입찰가율", avgExpRate],
-    ["평균 수익성", avgProfit !== "-" ? avgProfit + "만/년" : "-"],
-    ["낙찰 성공률", winRate + (wonCount + lostCount > 0 ? ` (${wonCount}승 ${lostCount}패)` : "")],
-    ["평균 패찰 차이", avgGap !== "-" ? avgGap + "만원" : "-"]
+    ["평균 최저가율", minRateCount > 0 ? (minRateSum / minRateCount * 100).toFixed(1) + "%" : "-"],
+    ["평균 예상입찰가율", expRateCount > 0 ? (expRateSum / expRateCount * 100).toFixed(1) + "%" : "-"],
+    ["평균 수익성", profitCount > 0 ? (profitSum / profitCount / 10000).toFixed(0) + "만/년" : "-"],
+    ["낙찰 성공률", (wonCount + lostCount) > 0 ? (wonCount / (wonCount + lostCount) * 100).toFixed(0) + "%" + ` (${wonCount}승 ${lostCount}패)` : "-"],
+    ["평균 패찰 차이", gapCount > 0 ? (gapSum / gapCount / 10000).toFixed(0) + "만원" : "-"]
   ]
 );
 
