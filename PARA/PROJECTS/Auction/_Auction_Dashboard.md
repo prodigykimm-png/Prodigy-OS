@@ -273,7 +273,86 @@ if (review.length === 0) {
 
 ## 입찰 일정
 
-```dataviewjs
+```js-engine
+const allPages = app.metadataCache.getCachedFiles()
+  .filter(f => f.startsWith("PARA/PROJECTS/Auction/"))
+  .map(f => app.metadataCache.getCache(f))
+  .filter(c => c?.frontmatter?.type === "auction_case" && c?.frontmatter?.auction_date);
+
+const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const dayNames = ["일","월","화","수","목","금","토"];
+
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+
+function renderCalendar(year, month) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const eventsByDate = {};
+  allPages.forEach(c => {
+    const d = new Date(c.frontmatter.auction_date);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      const key = d.getDate();
+      if (!eventsByDate[key]) eventsByDate[key] = [];
+      const fileName = c.frontmatter.id || Object.keys(app.metadataCache.getCache).find(k => app.metadataCache.getCache(k) === c) || "?";
+      eventsByDate[key].push(c.frontmatter.id || fileName);
+    }
+  });
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">`;
+
+  html += `<button class="cal-prev" data-month="${month-1}" data-year="${year}" style="background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;">◀</button>`;
+  html += `<span style="font-weight:bold;font-size:1.1em;">${year}년 ${monthNames[month]}</span>`;
+  html += `<button class="cal-next" data-month="${month+1}" data-year="${year}" style="background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;">▶</button>`;
+  html += `</div>`;
+
+  html += `<table style="width:100%;border-collapse:collapse;font-size:0.85em;">`;
+  html += `<tr>${dayNames.map(n => `<th style="padding:4px;color:#888;text-align:center;width:14.28%;">${n}</th>`).join("")}</tr>`;
+
+  let dayCount = 0;
+  for (let w = 0; w < 6; w++) {
+    html += `<tr>`;
+    for (let d = 0; d < 7; d++) {
+      const dayNum = dayCount - firstDay + 1;
+      if (dayCount < firstDay || dayNum > daysInMonth) {
+        html += `<td style="padding:4px;text-align:center;color:#333;"></td>`;
+      } else {
+        const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === dayNum;
+        const bg = isToday ? '#4077b4' : '#1a1a1a';
+        const color = isToday ? 'white' : '#ccc';
+        let cell = `<td style="padding:4px;text-align:center;vertical-align:top;background:${bg};color:${color};border-radius:4px;min-height:50px;width:14.28%;">`;
+        cell += `<div style="font-weight:bold;">${dayNum}</div>`;
+        (eventsByDate[dayNum] || []).forEach(name => {
+          cell += `<div style="font-size:0.7em;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">[[${name}]]</div>`;
+        });
+        cell += `</td>`;
+        html += cell;
+      }
+      dayCount++;
+    }
+    html += `</tr>`;
+    if (dayCount - firstDay >= daysInMonth) break;
+  }
+  html += `</table>`;
+  return html;
+}
+
+container.empty();
+container.innerHTML = renderCalendar(currentYear, currentMonth);
+
+container.querySelector('.cal-prev')?.addEventListener('click', (e) => {
+  const month = parseInt(e.target.dataset.month);
+  const year = parseInt(e.target.dataset.year);
+  container.innerHTML = renderCalendar(year < 0 ? 0 : (month < 0 ? year - 1 : year), month < 0 ? 11 : month);
+  // Re-attach events
+  container.querySelector('.cal-prev')?.addEventListener('click', arguments.callee);
+  container.querySelector('.cal-next')?.addEventListener('click', arguments.callee);
+});
+```
 const pages = dv.pages('"PARA/PROJECTS/Auction"')
   .where(p => p.type === "auction_case" && p.auction_date)
   .sort(p => p.auction_date, 'asc');
