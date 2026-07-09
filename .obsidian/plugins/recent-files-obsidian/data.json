@@ -1,6 +1,10 @@
 {
   "recentFiles": [
     {
+      "basename": "2026-07-09",
+      "path": "DAILY/DAILY/2026-07-09.md"
+    },
+    {
       "basename": "_Auction_Dashboard",
       "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
     },
@@ -195,10 +199,6 @@
     {
       "basename": "Vault Onboarding Part 2 - Structure Concept",
       "path": "SYSTEM/GETTING STARTED/Vault Onboarding Part 2 - Structure Concept.md"
-    },
-    {
-      "basename": "Vault Onboarding Part 3 - Main Features",
-      "path": "SYSTEM/GETTING STARTED/Vault Onboarding Part 3 - Main Features.md"
     }
   ],
   "omittedPaths": [],

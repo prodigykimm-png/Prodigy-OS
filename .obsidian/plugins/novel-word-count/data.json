@@ -9114,6 +9114,43 @@
         "market_price_basis": "목연정M팰리스 내 월세 매물 없음. 인근 전포동 유사 오피스텔(2017년식, 50~60㎡) 월세 1000/70 추정. 탈출구 1.3억 (보수적, 인근 소형 오피스텔 기준, 역세권 감안)",
         "risk_flags": "정보 없음"
       }
+    },
+    "DAILY/DAILY/2026-07-09.md": {
+      "isCountable": true,
+      "targetNodeType": "file",
+      "noteCount": 1,
+      "wordCount": 275,
+      "wordCountTowardGoal": 0,
+      "wordGoal": null,
+      "pageCount": 0.9166666666666666,
+      "characterCount": 2857,
+      "nonWhitespaceCharacterCount": 2348,
+      "newlineCount": 107,
+      "readingTimeInMinutes": 1.0377358490566038,
+      "linkCount": 0,
+      "embedCount": 0,
+      "aliases": null,
+      "createdDate": 1783579663747,
+      "modifiedDate": 1783579664434,
+      "sizeInBytes": 3041,
+      "sessionStart": {
+        "noteCount": 0,
+        "pageCount": 0,
+        "wordCount": 0,
+        "characterCount": 0,
+        "nonWhitespaceCharacterCount": 0,
+        "newlineCount": 0
+      },
+      "frontmatter": {
+        "cssclasses": [
+          "hide-properties_editing",
+          "hide-properties_reading"
+        ],
+        "journal": "personal daily",
+        "journal-date": "2026-07-09",
+        "journal-start-date": "2026-07-09",
+        "journal-end-date": "2026-07-09"
+      }
     }
   }
 }
