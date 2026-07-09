@@ -10,6 +10,7 @@ agg_sido: 전체
 agg_sigungu: 전체
 agg_dong: 전체
 agg_type: 전체종류
+_cal_ym: 2026-7
 ---
 
 # 🏛 Auction Dashboard
@@ -327,13 +328,13 @@ function renderCalendar() {
     let m = currentMonth - 1;
     let y = currentYear;
     if (m < 0) { m = 11; y--; }
-    app.fileManager.processFrontMatter(file, (fm) => { fm._cal_ym = `${y}-${m}`; });
+    app.fileManager.processFrontMatter(file, (fm) => { fm._cal_ym = `${y}-${m}`; }).then(() => { app.workspace.getLeaf().rebuildView(); });
   };
   nextBtn.onclick = () => {
     let m = currentMonth + 1;
     let y = currentYear;
     if (m > 11) { m = 0; y++; }
-    app.fileManager.processFrontMatter(file, (fm) => { fm._cal_ym = `${y}-${m}`; });
+    app.fileManager.processFrontMatter(file, (fm) => { fm._cal_ym = `${y}-${m}`; }).then(() => { app.workspace.getLeaf().rebuildView(); });
   };
 
   const table = container.createEl('table', { attr: { style: 'width:100%;border-collapse:collapse;font-size:0.85em;' } });

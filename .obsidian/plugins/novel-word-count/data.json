@@ -7834,20 +7834,20 @@
       "isCountable": true,
       "targetNodeType": "file",
       "noteCount": 1,
-      "wordCount": 1508,
+      "wordCount": 1548,
       "wordCountTowardGoal": 0,
       "wordGoal": null,
-      "pageCount": 5.026666666666666,
-      "characterCount": 16333,
-      "nonWhitespaceCharacterCount": 13719,
-      "newlineCount": 350,
-      "readingTimeInMinutes": 4.810867924528302,
+      "pageCount": 5.16,
+      "characterCount": 16808,
+      "nonWhitespaceCharacterCount": 14114,
+      "newlineCount": 356,
+      "readingTimeInMinutes": 4.961811320754717,
       "linkCount": 0,
       "embedCount": 0,
       "aliases": null,
       "createdDate": 1783420585223,
-      "modifiedDate": 1783593208044,
-      "sizeInBytes": 17617,
+      "modifiedDate": 1783595146226,
+      "sizeInBytes": 18108,
       "sessionStart": {
         "noteCount": 1,
         "pageCount": 3.776666666666667,
@@ -7868,7 +7868,8 @@
         "agg_sido": "전체",
         "agg_sigungu": "전체",
         "agg_dong": "전체",
-        "agg_type": "전체종류"
+        "agg_type": "전체종류",
+        "_cal_ym": "2026-7"
       }
     },
     "PARA/AREAS/Autonomous Vehicle AI Ethics/User Trust and Adoption Strategy.md": {
