@@ -50,7 +50,8 @@ const urgent = allPages.where(p => {
 
 const cards = allPages.where(p => p.recommend === true && p.status !== "archived" && p.status !== "review_completed");
 
-dv.paragraph(`> **이번 주 입찰 예정:** ${thisWeek.length}건 · **복기 필요:** ${needReview.length}건 · **임박 (D-7):** ${urgent.length}건 · **추천 매물:** ${cards.length}건`);
+dv.paragraph("> **이번 주 입찰 예정:** " + thisWeek.length + "건 · **복기 필요:** " + needReview.length + "건 · **임박 (D-7):** " + urgent.length + "건 · **추천 매물:** " + cards.length + "건");
+```
 
 
 ## 🔥 Today
