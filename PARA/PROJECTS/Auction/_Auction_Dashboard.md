@@ -3,7 +3,7 @@ cssclasses:
   - hide-properties_reading
 card_status: 전체
 card_region: 전체지역
-card_type: 오피스텔
+card_type: 전체종류
 card_recommend: 전체
 agg_status: 전체
 agg_region: 전체지역
@@ -12,7 +12,8 @@ agg_type: 전체종류
 
 # 🏛 Auction Dashboard
 
-> Object Property만 계산. 본문 미사용. Property에 
+> Object Property만 계산. 본문 미사용. Property에 저장하지 않음.
+
 ---
 
 ## 필터
@@ -46,17 +47,7 @@ makeSelect('카드 상태', 'card_status', ['전체', '진행중', '낙찰', '�
 makeSelect('카드 지역', 'card_region', ['전체지역', '서울', '경기', '인천', '부산'], fm.card_region);
 makeSelect('카드 종류', 'card_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.card_type);
 makeSelect('추천', 'card_recommend', ['전체', '추천만'], fm.card_recommend);
-
-container.createEl('br');
-
-makeSelect('집계 상태', 'agg_status', ['전체', '진행중', '낙찰', '패찰'], fm.agg_status);
-makeSelect('집계 지역', 'agg_region', ['전체지역', '서울', '경기', '인천', '부산'], fm.agg_region);
-makeSelect('집계 종류', 'agg_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.agg_type);
 ```
-
----
-
-## 전체 집계
 
 ---
 
@@ -151,6 +142,40 @@ if (pages.length === 0) {
 </div>`);
   }
 }
+```
+
+---
+
+## 집계 필터
+
+```js-engine
+const file = app.workspace.getActiveFile();
+if (!file) return;
+if (!container) return;
+container.empty();
+
+const cache = app.metadataCache.getFileCache(file);
+const fm = cache?.frontmatter ?? {};
+
+const setFilter = async (field, value) => {
+  await app.fileManager.processFrontMatter(file, (fm) => { fm[field] = value; });
+};
+
+const makeSelect = (label, field, options, current) => {
+  const row = container.createEl('div', { attr: { style: 'display:inline-flex;align-items:center;margin-right:12px;' } });
+  row.createEl('span', { text: label + ' ', attr: { style: 'font-weight:bold;font-size:0.85em;margin-right:4px;' } });
+  const sel = row.createEl('select', { attr: { style: 'font-size:0.85em;padding:2px 6px;border-radius:4px;background:#2a2a2a;color:#ccc;border:1px solid #555;' } });
+  options.forEach(o => {
+    const opt = sel.createEl('option', { text: o, value: o });
+    if (o === (current || options[0])) opt.selected = true;
+  });
+  sel.onchange = () => setFilter(field, sel.value);
+  return sel;
+};
+
+makeSelect('집계 상태', 'agg_status', ['전체', '진행중', '낙찰', '패찰'], fm.agg_status);
+makeSelect('집계 지역', 'agg_region', ['전체지역', '서울', '경기', '인천', '부산'], fm.agg_region);
+makeSelect('집계 종류', 'agg_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.agg_type);
 ```
 
 ---

@@ -5,12 +5,16 @@
       "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
     },
     {
-      "basename": "Home",
-      "path": "HUB/Home.md"
-    },
-    {
       "basename": "인천-2025타경1144",
       "path": "PARA/PROJECTS/Auction/인천-2025타경1144.md"
+    },
+    {
+      "basename": "인천-2025타경509369",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경509369.md"
+    },
+    {
+      "basename": "Home",
+      "path": "HUB/Home.md"
     },
     {
       "basename": "부산-2024타경61331",
@@ -195,10 +199,6 @@
     {
       "basename": "Vault Onboarding Part 3 - Main Features",
       "path": "SYSTEM/GETTING STARTED/Vault Onboarding Part 3 - Main Features.md"
-    },
-    {
-      "basename": "Vault Onboarding Part 4 - Setting up on Mobile",
-      "path": "SYSTEM/GETTING STARTED/Vault Onboarding Part 4 - Setting up on Mobile.md"
     }
   ],
   "omittedPaths": [],
