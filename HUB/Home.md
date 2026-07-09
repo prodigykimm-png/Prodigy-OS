@@ -32,6 +32,7 @@ const allPages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auct
 const thisWeek = allPages.where(p => {
   if (!p.auction_date) return false;
   const d = new Date(p.auction_date);
+  if (isNaN(d.getTime())) return false;
   return d >= weekStart && d <= weekEnd;
 });
 
@@ -42,6 +43,7 @@ const needReview = allPages.where(p =>
 const urgent = allPages.where(p => {
   if (!p.auction_date) return false;
   const d = new Date(p.auction_date);
+  if (isNaN(d.getTime())) return false;
   const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
   return diff >= 0 && diff <= 7;
 });
