@@ -2,8 +2,8 @@
 cssclasses:
   - hide-properties_reading
 card_status: 전체
-card_region: 전체지역
-card_type: 전체종류
+card_region: 부산
+card_type: 오피스텔
 card_recommend: 전체
 agg_status: 진행중
 agg_sido: 전체
@@ -122,7 +122,7 @@ if (pages.length === 0) {
 
     dv.paragraph(`<div style="border:1px solid #444;border-radius:8px;padding:10px 14px;margin-bottom:10px;">
   <div style="display:flex;justify-content:space-between;align-items:center;">
-    <span style="font-weight:bold;font-size:2em;">${badge}${linkStr}</span>
+    <span style="font-weight:bold;font-size:1.2em;">${badge}${linkStr}</span>
     <span style="color:#888;font-size:0.9em;">${region}</span>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
@@ -345,16 +345,20 @@ function renderCalendar() {
         const isToday = today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === dayNum;
         const bg = isToday ? '#4077b4' : '#1a1a1a';
         const color = isToday ? 'white' : '#ccc';
-        const td = tr.createEl('td', { attr: { style: `padding:4px;text-align:center;vertical-align:top;background:${bg};color:${color};border-radius:4px;min-height:50px;width:14.28%;` } });
+        const td = tr.createEl('td', { attr: { style: `padding:4px;text-align:center;vertical-align:top;background:${bg};color:${color};border-radius:4px;min-height:60px;width:14.28%;` } });
         td.createEl('div', { text: String(dayNum), attr: { style: 'font-weight:bold;' } });
         (events[dayNum] || []).forEach(f => {
-          const link = td.createEl('div', { text: f.name.replace('.md',''), attr: { style: 'font-size:0.7em;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;' } });
+          const cache = app.metadataCache.getFileCache(f);
+          const fm = cache?.frontmatter;
+          const status = fm?.status || "";
+          const color = status === "won" ? "#22c55e" : status === "lost" ? "#ef4444" : "#eab308";
+          const link = td.createEl('div', { text: f.name.replace('.md',''), attr: { style: `font-size:0.7em;color:${color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;` } });
           link.onclick = () => app.workspace.openLinkText(f.name.replace('.md',''), f.path);
         });
       }
       dayCount++;
     }
-    if (dayCount - firstDay >= daysInMonth) break;
+    if (dayCount - firstDay > daysInMonth) break;
   }
 }
 
