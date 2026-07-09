@@ -180,6 +180,7 @@ makeSelect('집계 시', 'agg_sido', ['전체', '서울', '경기', '인천', '�
 makeSelect('집계 구', 'agg_sigungu', ['전체', '남동구', '구월동', '부평구', '연수구', '서구', '중구', '동구', '미추홀구', '강화군', '옹진군'], fm.agg_sigungu);
 makeSelect('집계 동', 'agg_dong', ['전체', '구월동', '간석동', '만수동', '부평동', '청라동', '송도동', '가좌동', '숭의동', '도화동', '주안동', '논현동', '작전동', '계산동'], fm.agg_dong);
 makeSelect('집계 종류', 'agg_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.agg_type);
+```
 
 ---
 
@@ -271,200 +272,93 @@ if (review.length === 0) {
 }
 ```
 
+---
+
 ## 입찰 일정
 
 ```js-engine
-const allPages = app.metadataCache.getCachedFiles()
-  .filter(f => f.startsWith("PARA/PROJECTS/Auction/"))
-  .map(f => app.metadataCache.getCache(f))
-  .filter(c => c?.frontmatter?.type === "auction_case" && c?.frontmatter?.auction_date);
+const file = app.workspace.getActiveFile();
+if (!file) return;
+if (!container) return;
+container.empty();
 
 const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const dayNames = ["일","월","화","수","목","금","토"];
 
-let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
+let currentMonth = new Date().getMonth();
 
-function renderCalendar(year, month) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const eventsByDate = {};
-  allPages.forEach(c => {
-    const d = new Date(c.frontmatter.auction_date);
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      const key = d.getDate();
-      if (!eventsByDate[key]) eventsByDate[key] = [];
-      const fileName = c.frontmatter.id || Object.keys(app.metadataCache.getCache).find(k => app.metadataCache.getCache(k) === c) || "?";
-      eventsByDate[key].push(c.frontmatter.id || fileName);
+function getEvents() {
+  const events = {};
+  const files = app.vault.getFiles().filter(f => f.path.startsWith("PARA/PROJECTS/Auction/") && f.extension === "md");
+  files.forEach(f => {
+    const cache = app.metadataCache.getFileCache(f);
+    const fm = cache?.frontmatter;
+    if (fm?.type === "auction_case" && fm?.auction_date) {
+      const d = new Date(fm.auction_date);
+      if (d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
+        const key = d.getDate();
+        if (!events[key]) events[key] = [];
+        events[key].push(f);
+      }
     }
   });
+  return events;
+}
 
+function renderCalendar() {
+  container.empty();
+
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const events = getEvents();
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
 
-  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">`;
+  // Header
+  const header = container.createEl('div', { attr: { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;' } });
+  const prevBtn = header.createEl('button', { text: '◀', attr: { style: 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;' } });
+  header.createEl('span', { text: `${currentYear}년 ${monthNames[currentMonth]}`, attr: { style: 'font-weight:bold;font-size:1.1em;' } });
+  const nextBtn = header.createEl('button', { text: '▶', attr: { style: 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;' } });
 
-  html += `<button class="cal-prev" data-month="${month-1}" data-year="${year}" style="background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;">◀</button>`;
-  html += `<span style="font-weight:bold;font-size:1.1em;">${year}년 ${monthNames[month]}</span>`;
-  html += `<button class="cal-next" data-month="${month+1}" data-year="${year}" style="background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;">▶</button>`;
-  html += `</div>`;
+  prevBtn.onclick = () => {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderCalendar();
+  };
+  nextBtn.onclick = () => {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderCalendar();
+  };
 
-  html += `<table style="width:100%;border-collapse:collapse;font-size:0.85em;">`;
-  html += `<tr>${dayNames.map(n => `<th style="padding:4px;color:#888;text-align:center;width:14.28%;">${n}</th>`).join("")}</tr>`;
+  // Table
+  const table = container.createEl('table', { attr: { style: 'width:100%;border-collapse:collapse;font-size:0.85em;' } });
+  const thead = table.createEl('tr');
+  dayNames.forEach(n => thead.createEl('th', { text: n, attr: { style: 'padding:4px;color:#888;text-align:center;width:14.28%;' } }));
 
   let dayCount = 0;
   for (let w = 0; w < 6; w++) {
-    html += `<tr>`;
+    const tr = table.createEl('tr');
     for (let d = 0; d < 7; d++) {
       const dayNum = dayCount - firstDay + 1;
       if (dayCount < firstDay || dayNum > daysInMonth) {
-        html += `<td style="padding:4px;text-align:center;color:#333;"></td>`;
+        tr.createEl('td', { attr: { style: 'padding:4px;text-align:center;color:#333;' } });
       } else {
-        const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === dayNum;
+        const isToday = today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === dayNum;
         const bg = isToday ? '#4077b4' : '#1a1a1a';
         const color = isToday ? 'white' : '#ccc';
-        let cell = `<td style="padding:4px;text-align:center;vertical-align:top;background:${bg};color:${color};border-radius:4px;min-height:50px;width:14.28%;">`;
-        cell += `<div style="font-weight:bold;">${dayNum}</div>`;
-        (eventsByDate[dayNum] || []).forEach(name => {
-          cell += `<div style="font-size:0.7em;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">[[${name}]]</div>`;
+        const td = tr.createEl('td', { attr: { style: `padding:4px;text-align:center;vertical-align:top;background:${bg};color:${color};border-radius:4px;min-height:50px;width:14.28%;` } });
+        td.createEl('div', { text: String(dayNum), attr: { style: 'font-weight:bold;' } });
+        (events[dayNum] || []).forEach(f => {
+          const link = td.createEl('div', { text: f.name.replace('.md',''), attr: { style: 'font-size:0.7em;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;' } });
+          link.onclick = () => app.workspace.openLinkText(f.name.replace('.md',''), f.path);
         });
-        cell += `</td>`;
-        html += cell;
       }
       dayCount++;
     }
-    html += `</tr>`;
     if (dayCount - firstDay >= daysInMonth) break;
   }
-  html += `</table>`;
-  return html;
 }
 
-container.empty();
-container.innerHTML = renderCalendar(currentYear, currentMonth);
-
-container.querySelector('.cal-prev')?.addEventListener('click', (e) => {
-  const month = parseInt(e.target.dataset.month);
-  const year = parseInt(e.target.dataset.year);
-  container.innerHTML = renderCalendar(year < 0 ? 0 : (month < 0 ? year - 1 : year), month < 0 ? 11 : month);
-  // Re-attach events
-  container.querySelector('.cal-prev')?.addEventListener('click', arguments.callee);
-  container.querySelector('.cal-next')?.addEventListener('click', arguments.callee);
-});
-```
-const pages = dv.pages('"PARA/PROJECTS/Auction"')
-  .where(p => p.type === "auction_case" && p.auction_date)
-  .sort(p => p.auction_date, 'asc');
-
-const today = dv.date("today");
-let currentMonth = today.month;
-let currentYear = today.year;
-
-const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-const dayNames = ["일","월","화","수","목","금","일"];
-
-function renderCalendar(year, month) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const days = [];
-
-  for (let i = 0; i < firstDay; i++) days.push(null);
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const events = pages.filter(p => {
-      const pd = p.auction_date;
-      return pd && pd.year === year && pd.month === month+1 && pd.day === d;
-    });
-    days.push({ day: d, dateStr, events });
-  }
-
-  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-    <button onclick="document.querySelector('#cal-container').setAttribute('data-month', '${month-1}');document.querySelector('#cal-container').setAttribute('data-year', '${year}');location.reload()" style="background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;">◀</button>
-    <span style="font-weight:bold;font-size:1.1em;">${year}년 ${monthNames[month]}</span>
-    <button onclick="document.querySelector('#cal-container').setAttribute('data-month', '${month+1}');document.querySelector('#cal-container').setAttribute('data-year', '${year}');location.reload()" style="background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;">▶</button>
-  </div>`;
-  html += `<table style="width:100%;border-collapse:collapse;font-size:0.85em;">`;
-  html += `<tr>${dayNames.map(n => `<th style="padding:4px;color:#888;text-align:center;width:14.28%;">${n}</th>`).join("")}</tr>`;
-
-  for (let w = 0; w < days.length; w += 7) {
-    html += `<tr>`;
-    for (let d = w; d < w + 7; d++) {
-      const day = days[d];
-      if (!day) { html += `<td style="padding:4px;text-align:center;color:#333;"></td>`; continue; }
-      const isToday = day.dateStr === today.toFormat("yyyy-MM-dd");
-      const bg = isToday ? '#4077b4' : '#1a1a1a';
-      const color = isToday ? 'white' : '#ccc';
-      let cell = `<td style="padding:4px;text-align:center;vertical-align:top;background:${bg};color:${color};border-radius:4px;min-height:50px;width:14.28%;">`;
-      cell += `<div style="font-weight:bold;">${day.day}</div>`;
-      day.events.forEach(ev => {
-        cell += `<div style="font-size:0.7em;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">[[${ev.file.name}]]</div>`;
-      });
-      cell += `</td>`;
-      html += cell;
-    }
-    html += `</tr>`;
-  }
-  html += `</table>`;
-  return html;
-}
-
-dv.paragraph(`<div id="cal-container">${renderCalendar(currentYear, currentMonth)}</div>`);
-dv.span("\n<small>입찰일이 있는 물건이 초록색으로 표시됩니다. ◀ ▶ 버튼으로 월 이동.</small>");
-```
-const pages = dv.pages('"PARA/PROJECTS/Auction"')
-  .where(p => p.type === "auction_case" && p.auction_date)
-  .sort(p => p.auction_date, 'asc');
-
-const today = dv.date("today");
-const currentMonth = today.month;
-const currentYear = today.year;
-
-const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
-const dayNames = ["일","월","화","수","목","금","일"];
-
-function renderCalendar(year, month) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const days = [];
-
-  for (let i = 0; i < firstDay; i++) days.push(null);
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const events = pages.filter(p => {
-      const pd = p.auction_date;
-      return pd && pd.year === year && pd.month === month+1 && pd.day === d;
-    });
-    days.push({ day: d, dateStr, events });
-  }
-
-  let html = `<table style="width:100%;border-collapse:collapse;font-size:0.85em;">`;
-  html += `<caption style="font-weight:bold;font-size:1.1em;margin-bottom:6px;">${year}년 ${monthNames[month]}</caption>`;
-  html += `<tr>${dayNames.map(n => `<th style="padding:4px;color:#888;text-align:center;width:14.28%;">${n}</th>`).join("")}</tr>`;
-
-  for (let w = 0; w < days.length; w += 7) {
-    html += `<tr>`;
-    for (let d = w; d < w + 7; d++) {
-      const day = days[d];
-      if (!day) { html += `<td style="padding:4px;text-align:center;color:#333;"></td>`; continue; }
-      const isToday = day.dateStr === today.toFormat("yyyy-MM-dd");
-      const bg = isToday ? '#4077b4' : '#1a1a1a';
-      const color = isToday ? 'white' : '#ccc';
-      let cell = `<td style="padding:4px;text-align:center;vertical-align:top;background:${bg};color:${color};border-radius:4px;min-height:60px;">`;
-      cell += `<div style="font-weight:bold;">${day.day}</div>`;
-      day.events.forEach(ev => {
-        const name = ev.file.name;
-        cell += `<div style="font-size:0.75em;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" onclick="app.workspace.openLinkText('${name}','${ev.file.path}')">● ${name}</div>`;
-      });
-      cell += `</td>`;
-      html += cell;
-    }
-    html += `</tr>`;
-  }
-  html += `</table>`;
-  return html;
-}
-
-dv.paragraph(renderCalendar(currentYear, currentMonth));
-dv.span("\n\n---\n\n<small>● = 입찰일이 있는 물건. 클릭하면 해당 파일로 이동합니다.</small>");
+renderCalendar();
 ```
