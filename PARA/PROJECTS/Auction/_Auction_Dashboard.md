@@ -122,7 +122,7 @@ if (pages.length === 0) {
 
     dv.paragraph(`<div style="border:1px solid #444;border-radius:8px;padding:10px 14px;margin-bottom:10px;">
   <div style="display:flex;justify-content:space-between;align-items:center;">
-    <span style="font-weight:bold;font-size:1.2em;">${badge}${linkStr}</span>
+    <span style="font-weight:bold;font-size:1.35em;">${badge}${linkStr}</span>
     <span style="color:#888;font-size:0.9em;">${region}</span>
   </div>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
