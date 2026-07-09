@@ -115,6 +115,12 @@ if (pages.length === 0) {
       recommendLine = `<div style="margin-top:6px;"><span style="font-size:0.9em;">${icon} <b>${level}</b>${note}</span></div>`;
     }
 
+    let riskLine = "";
+    if (p.risk_flags && p.risk_flags.length > 0) {
+      const flags = Array.isArray(p.risk_flags) ? p.risk_flags : [p.risk_flags];
+      riskLine = `<div style="margin-top:4px;font-size:0.85em;color:#ef4444;">⚠️ ${flags.join(' · ')}</div>`;
+    }
+
     const dDayBadge = isUrgent
       ? `<span style="background:#ef4444;color:white;padding:1px 6px;border-radius:4px;font-size:0.8em;font-weight:bold;">${dDayStr}</span>`
       : `<span style="color:#888;font-size:0.85em;">${dDayStr}</span>`;
@@ -130,6 +136,7 @@ if (pages.length === 0) {
     <span style="color:#aaa;font-size:0.85em;">${propType} · ${statusKor}</span>
     ${dDayBadge}
   </div>
+  ${riskLine}
   ${recommendLine}
   <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
     <span style="font-size:0.9em;">감정 <b>${toEok(p.appraisal_price)}</b> · 최저 <b>${toEok(p.minimum_bid)}</b> · 예상 <b>${toEok(p.expected_bid)}</b></span>
