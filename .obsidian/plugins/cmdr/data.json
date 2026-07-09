@@ -7,14 +7,7 @@
   "leftRibbon": [],
   "rightRibbon": [],
   "titleBar": [],
-  "statusBar": [
-    {
-      "id": "quickadd:choice:c8c7588f-71bc-4aef-97d4-6c34a9e5d554",
-      "icon": "lucide-fullscreen",
-      "name": "Focus Mode",
-      "mode": "any"
-    }
-  ],
+  "statusBar": [],
   "pageHeader": [],
   "macros": [],
   "explorer": [],

@@ -8,33 +8,18 @@
         "type": "tabs",
         "children": [
           {
-            "id": "5e3d5fbf1e6bd27e",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "PARA/PROJECTS/Auction/인천-2025타경508465.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": false
-              },
-              "icon": "lucide-file",
-              "title": "인천-2025타경508465"
-            }
-          },
-          {
             "id": "885d9549763deac0",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "HUB/Home.md",
-                "mode": "preview",
+                "file": "PARA/PROJECTS/Auction/_Auction_Dashboard.md",
+                "mode": "source",
                 "source": false,
                 "backlinks": false
               },
               "icon": "lucide-file",
-              "title": "Home"
+              "title": "_Auction_Dashboard"
             }
           }
         ]
@@ -114,7 +99,7 @@
         "state": {
           "type": "outline",
           "state": {
-            "file": "PARA/PROJECTS/Auction/인천-2025타경508465.md",
+            "file": "PARA/PROJECTS/Auction/_Auction_Dashboard.md",
             "followCursor": false,
             "showSearch": false,
             "searchQuery": ""
@@ -167,12 +152,17 @@
       "obsidian-trash-explorer:Open trash explorer": false
     }
   },
-  "active": "5e3d5fbf1e6bd27e",
+  "active": "885d9549763deac0",
   "lastOpenFiles": [
     "HUB/Home.md",
-    "PARA/PROJECTS/Auction/인천-2025타경508465.md",
     "PARA/PROJECTS/Auction/_Auction_Dashboard.md",
     "PARA/PROJECTS/Auction/인천-2025타경1144.md",
+    "PARA/PROJECTS/Auction/부산-2024타경61331.md",
+    "PARA/PROJECTS/Auction/인천-2025타경508465.md",
+    "PARA/PROJECTS/Auction/부산-2024타경61720.md",
+    "PARA/PROJECTS/Auction/인천-2025타경921.md",
+    "PARA/PROJECTS/Auction/부산-2025타경2391_1.md",
+    "PARA/PROJECTS/Auction/인천-2024타경15348.md",
     "PARA/PROJECTS/Auction/인천-2025타경509560.md"
   ]
 }

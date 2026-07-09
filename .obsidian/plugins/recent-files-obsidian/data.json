@@ -1,20 +1,36 @@
 {
   "recentFiles": [
     {
-      "basename": "인천-2025타경508465",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경508465.md"
+      "basename": "_Auction_Dashboard",
+      "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
     },
     {
       "basename": "Home",
       "path": "HUB/Home.md"
     },
     {
-      "basename": "_Auction_Dashboard",
-      "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
-    },
-    {
       "basename": "인천-2025타경1144",
       "path": "PARA/PROJECTS/Auction/인천-2025타경1144.md"
+    },
+    {
+      "basename": "부산-2024타경61331",
+      "path": "PARA/PROJECTS/Auction/부산-2024타경61331.md"
+    },
+    {
+      "basename": "인천-2025타경508465",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경508465.md"
+    },
+    {
+      "basename": "부산-2024타경61720",
+      "path": "PARA/PROJECTS/Auction/부산-2024타경61720.md"
+    },
+    {
+      "basename": "인천-2025타경921",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경921.md"
+    },
+    {
+      "basename": "Imagination as a Foundation of Discovery",
+      "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Imagination as a Foundation of Discovery.md"
     },
     {
       "basename": "인천-2025타경509560",
@@ -57,10 +73,6 @@
       "path": "SYSTEM/TEMPLATE/FORMAT/template_monthly_note.md"
     },
     {
-      "basename": "인천-2025타경921",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경921.md"
-    },
-    {
       "basename": "인천-2025타경1095_1",
       "path": "PARA/PROJECTS/Auction/인천-2025타경1095_1.md"
     },
@@ -79,10 +91,6 @@
     {
       "basename": "인천-2024타경557712",
       "path": "PARA/PROJECTS/Auction/인천-2024타경557712.md"
-    },
-    {
-      "basename": "Imagination as a Foundation of Discovery",
-      "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Imagination as a Foundation of Discovery.md"
     },
     {
       "basename": "Mail Box",
@@ -191,14 +199,6 @@
     {
       "basename": "Vault Onboarding Part 4 - Setting up on Mobile",
       "path": "SYSTEM/GETTING STARTED/Vault Onboarding Part 4 - Setting up on Mobile.md"
-    },
-    {
-      "basename": "Vault Walkthrough - Concept Map",
-      "path": "SYSTEM/GETTING STARTED/Vault Walkthrough - Concept Map.md"
-    },
-    {
-      "basename": "Concept Inspiration and Reference",
-      "path": "SYSTEM/GETTING STARTED/Concept Inspiration and Reference.md"
     }
   ],
   "omittedPaths": [],

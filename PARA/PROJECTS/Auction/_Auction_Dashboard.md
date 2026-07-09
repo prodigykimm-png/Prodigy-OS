@@ -9,7 +9,7 @@ agg_status: 전체
 agg_region: 전체지역
 agg_type: 전체종류
 ---
-ㅁ
+
 # 🏛 Auction Dashboard
 
 > Object Property만 계산. 본문 미사용. Property에 저장하지 않음.
@@ -54,6 +54,10 @@ makeSelect('집계 상태', 'agg_status', ['전체', '진행중', '낙찰', '패
 makeSelect('집계 지역', 'agg_region', ['전체지역', '서울', '경기', '인천', '부산'], fm.agg_region);
 makeSelect('집계 종류', 'agg_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.agg_type);
 ```
+
+---
+
+## 전체 집계
 
 ---
 
