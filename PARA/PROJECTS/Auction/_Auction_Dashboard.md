@@ -12,8 +12,7 @@ agg_type: 전체종류
 
 # 🏛 Auction Dashboard
 
-> Object Property만 계산. 본문 미사용. Property에 저장하지 않음.
-
+> Object Property만 계산. 본문 미사용. Property에 
 ---
 
 ## 필터
@@ -116,8 +115,9 @@ if (pages.length === 0) {
     }
 
     let riskLine = "";
-    if (p.risk_flags && p.risk_flags.length > 0) {
-      const flags = Array.isArray(p.risk_flags) ? p.risk_flags : [p.risk_flags];
+    const rawFlags = p.risk_flags;
+    if (rawFlags && rawFlags !== "정보 없음" && rawFlags !== "" && rawFlags !== null) {
+      const flags = Array.isArray(rawFlags) ? rawFlags : [rawFlags];
       riskLine = `<div style="margin-top:4px;font-size:0.85em;color:#ef4444;">⚠️ ${flags.join(' · ')}</div>`;
     }
 
