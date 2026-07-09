@@ -10,7 +10,6 @@ agg_sido: 전체
 agg_sigungu: 전체
 agg_dong: 전체
 agg_type: 전체종류
-_cal_ym: 2026-7
 ---
 
 # 🏛 Auction Dashboard
@@ -286,12 +285,8 @@ container.empty();
 const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const dayNames = ["일","월","화","수","목","금","토"];
 
-const cache = app.metadataCache.getFileCache(file);
-const fm = cache?.frontmatter ?? {};
-let calYM = fm._cal_ym || "";
-let parts = calYM.split("-");
-let currentYear = parts.length === 2 ? parseInt(parts[0]) : new Date().getFullYear();
-let currentMonth = parts.length === 2 ? parseInt(parts[1]) : new Date().getMonth();
+let currentYear = new Date().getFullYear();
+let currentMonth = new Date().getMonth();
 
 function getEvents() {
   const events = {};
@@ -319,22 +314,20 @@ function renderCalendar() {
   const events = getEvents();
   const today = new Date();
 
-  const header = container.createEl('div', { attr: { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;' } });
-  const prevBtn = header.createEl('button', { text: '◀', attr: { style: 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;' } });
+  const header = container.createEl('div', { attr: { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;margin-top:12px;' } });
+  const prevBtn = header.createEl('button', { text: '◀', attr: { style: 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;margin-top:4px;' } });
   header.createEl('span', { text: `${currentYear}년 ${monthNames[currentMonth]}`, attr: { style: 'font-weight:bold;font-size:1.1em;' } });
-  const nextBtn = header.createEl('button', { text: '▶', attr: { style: 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;' } });
+  const nextBtn = header.createEl('button', { text: '▶', attr: { style: 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;margin-top:4px;' } });
 
   prevBtn.onclick = () => {
-    let m = currentMonth - 1;
-    let y = currentYear;
-    if (m < 0) { m = 11; y--; }
-    app.fileManager.processFrontMatter(file, (fm) => { fm._cal_ym = `${y}-${m}`; }).then(() => { app.workspace.getLeaf().rebuildView(); });
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderCalendar();
   };
   nextBtn.onclick = () => {
-    let m = currentMonth + 1;
-    let y = currentYear;
-    if (m > 11) { m = 0; y++; }
-    app.fileManager.processFrontMatter(file, (fm) => { fm._cal_ym = `${y}-${m}`; }).then(() => { app.workspace.getLeaf().rebuildView(); });
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderCalendar();
   };
 
   const table = container.createEl('table', { attr: { style: 'width:100%;border-collapse:collapse;font-size:0.85em;' } });
