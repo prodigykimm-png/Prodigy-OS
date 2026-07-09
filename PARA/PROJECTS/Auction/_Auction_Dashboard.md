@@ -10,6 +10,8 @@ agg_sido: 전체
 agg_sigungu: 전체
 agg_dong: 전체
 agg_type: 전체종류
+card_sort: dday
+agg_sort: dday
 ---
 
 # 🏛 Auction Dashboard
@@ -53,7 +55,219 @@ makeSelect('추천', 'card_recommend', ['전체', '추천만'], fm.card_recommen
 
 ---
 
+## 차트
+
+```js-engine
+const file = app.workspace.getActiveFile();
+if (!file) return;
+if (!container) return;
+container.empty();
+
+const cache = app.metadataCache.getFileCache(file);
+const fm = cache?.frontmatter ?? {};
+
+// 필터 값 읽기
+const cardStatus = fm.card_status || "전체";
+const cardRegion = fm.card_region || "전체지역";
+const cardType = fm.card_type || "전체종류";
+
+// CDN에서 Chart.js 로드
+const script = container.createEl('script', {
+  attr: { src: 'https://cdn.jsdelivr.net/npm/chart.js' }
+});
+
+script.onload = () => {
+  // 데이터 수집
+  const files = app.vault.getFiles().filter(f =>
+    f.path.startsWith("PARA/PROJECTS/Auction/") && f.extension === "md"
+  );
+  const cases = [];
+  files.forEach(f => {
+    const c = app.metadataCache.getFileCache(f);
+    const fm2 = c?.frontmatter;
+    if (fm2?.type === "auction_case") {
+      // 필터 적용
+      if (cardStatus !== "전체") {
+        if (cardStatus === "진행중" && (fm2.status === "archived" || fm2.status === "review_completed")) return;
+        else if (cardStatus === "낙찰" && fm2.status !== "won") return;
+        else if (cardStatus === "패찰" && fm2.status !== "lost") return;
+      }
+      if (cardRegion !== "전체지역" && !(fm2.region_sido || "").includes(cardRegion)) return;
+      if (cardType !== "전체종류" && !(fm2.property_type || "").includes(cardType)) return;
+      cases.push(fm2);
+    }
+  });
+
+  // 차트 컨테이너
+  const chartRow = container.createEl('div', {
+    attr: { style: 'display:flex;flex-wrap:wrap;gap:16px;margin-bottom:16px;' }
+  });
+
+  // 1. 지역별 분포 (파이 차트)
+  const regionCanvas = chartRow.createEl('canvas', {
+    attr: { style: 'width:32%;max-height:220px;' }
+  });
+  const regionData = {};
+  cases.forEach(c => {
+    const r = c.region_sido || "기타";
+    regionData[r] = (regionData[r] || 0) + 1;
+  });
+  const regionLabels = Object.keys(regionData);
+  const regionValues = Object.values(regionData);
+  const regionColors = ['#3b82f6','#22c55e','#eab308','#ef4444','#a855f7','#ec4899'];
+
+  const regionChart = new Chart(regionCanvas, {
+    type: 'pie',
+    data: {
+      labels: regionLabels,
+      datasets: [{
+        data: regionValues,
+        backgroundColor: regionColors.slice(0, regionLabels.length),
+        borderColor: '#1a1a1a',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        title: { display: true, text: '지역별 분포', color: '#ccc', font: { size: 12 } },
+        legend: { position: 'bottom', labels: { color: '#ccc', font: { size: 10 } } }
+      }
+    }
+  });
+
+  // 파이 차트 클릭 연동
+  regionCanvas.onclick = (evt) => {
+    const points = regionChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+    if (points.length > 0) {
+      const idx = points[0].index;
+      const region = regionLabels[idx];
+      if (region !== cardRegion) {
+        app.fileManager.processFrontMatter(file, (fm) => { fm.card_region = region; });
+      }
+    }
+  };
+
+  // 2. 월별 추이 (라인 차트)
+  const monthCanvas = chartRow.createEl('canvas', {
+    attr: { style: 'width:32%;max-height:220px;' }
+  });
+  const monthData = {};
+  cases.forEach(c => {
+    if (c.auction_date) {
+      const d = new Date(c.auction_date);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      monthData[key] = (monthData[key] || 0) + 1;
+    }
+  });
+  const monthLabels = Object.keys(monthData).sort();
+  const monthValues = monthLabels.map(k => monthData[k]);
+
+  new Chart(monthCanvas, {
+    type: 'line',
+    data: {
+      labels: monthLabels,
+      datasets: [{
+        label: '입찰 수',
+        data: monthValues,
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59,130,246,0.1)',
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: '#3b82f6',
+        pointRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        title: { display: true, text: '월별 추이', color: '#ccc', font: { size: 12 } },
+        legend: { display: false }
+      },
+      scales: {
+        x: { ticks: { color: '#888', font: { size: 9 } }, grid: { color: '#333' } },
+        y: { ticks: { color: '#888', font: { size: 9 } }, grid: { color: '#333' }, beginAtZero: true }
+      }
+    }
+  });
+
+  // 3. 가격대별 분포 (히스토그램)
+  const priceCanvas = chartRow.createEl('canvas', {
+    attr: { style: 'width:32%;max-height:220px;' }
+  });
+  const priceRanges = ['0~1억','1~3억','3~5억','5~10억','10억+'];
+  const priceCount = [0,0,0,0,0];
+  cases.forEach(c => {
+    const v = c.appraisal_price || c.minimum_bid || 0;
+    const eok = v / 100000000;
+    if (eok <= 1) priceCount[0]++;
+    else if (eok <= 3) priceCount[1]++;
+    else if (eok <= 5) priceCount[2]++;
+    else if (eok <= 10) priceCount[3]++;
+    else priceCount[4]++;
+  });
+
+  new Chart(priceCanvas, {
+    type: 'bar',
+    data: {
+      labels: priceRanges,
+      datasets: [{
+        label: '물건 수',
+        data: priceCount,
+        backgroundColor: ['#3b82f6','#22c55e','#eab308','#f97316','#ef4444'],
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        title: { display: true, text: '가격대별 분포 (감정가)', color: '#ccc', font: { size: 12 } },
+        legend: { display: false }
+      },
+      scales: {
+        x: { ticks: { color: '#888', font: { size: 9 } }, grid: { color: '#333' } },
+        y: { ticks: { color: '#888', font: { size: 9 } }, grid: { color: '#333' }, beginAtZero: true }
+      }
+    }
+  });
+};
+```
+
 ## 진행중인 물건
+
+```js-engine
+const file = app.workspace.getActiveFile();
+if (!file) return;
+if (!container) return;
+container.empty();
+
+const cache = app.metadataCache.getFileCache(file);
+const fm = cache?.frontmatter ?? {};
+const currentSort = fm.card_sort || "dday";
+
+const sortOpts = [
+  { key: "dday", label: "D-Day" },
+  { key: "min_rate", label: "최저가율" },
+  { key: "profit", label: "수익성" }
+];
+
+const row = container.createEl('div', { attr: { style: 'display:flex;gap:6px;margin-bottom:8px;' } });
+row.createEl('span', { text: '정렬:', attr: { style: 'font-weight:bold;font-size:0.85em;color:#888;margin-right:4px;' } });
+sortOpts.forEach(({ key, label }) => {
+  const btn = row.createEl('button', {
+    text: label + (key === currentSort ? ' ▼' : ''),
+    attr: {
+      style: `font-size:0.85em;padding:2px 10px;border-radius:4px;cursor:pointer;background:${key === currentSort ? '#4077b4' : '#333'};color:${key === currentSort ? 'white' : '#ccc'};border:1px solid ${key === currentSort ? '#4077b4' : '#555'};`
+    }
+  });
+  btn.onclick = async () => {
+    await app.fileManager.processFrontMatter(file, (fm) => { fm.card_sort = key; });
+  };
+});
+```
 
 ```dataviewjs
 const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
@@ -80,7 +294,21 @@ if (filterType !== "전체종류") {
 if (filterRecommend === "추천만") {
   pages = pages.where(p => p.recommend === true);
 }
-pages = pages.sort(p => p.auction_date, 'asc');
+
+// 정렬
+const cardSort = thisFile.card_sort || "dday";
+if (cardSort === "dday") {
+  pages = pages.sort(p => p.auction_date, 'asc');
+} else if (cardSort === "min_rate") {
+  pages = pages.sort(p => p.appraisal_price ? (p.minimum_bid / p.appraisal_price) : 999, 'asc');
+} else if (cardSort === "profit") {
+  pages = pages.sort(p => {
+    const base = p.expected_bid || p.minimum_bid || 0;
+    return -(p.monthly_rent * 12 - base * 0.8 * 0.06);
+  });
+} else {
+  pages = pages.sort(p => p.auction_date, 'asc');
+}
 
 if (pages.length === 0) {
   dv.paragraph("조건에 맞는 물건이 없습니다.");
@@ -146,7 +374,90 @@ if (pages.length === 0) {
 }
 ```
 
+
+## 📊 입찰 전략
+
+```dataviewjs
+const pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+const won = pages.where(p => p.status === "won");
+const lost = pages.where(p => p.status === "lost");
+const totalDecided = won.length + lost.length;
+const winRate = totalDecided > 0 ? (won.length / totalDecided * 100).toFixed(0) : 0;
+
+// 평균 최저가율 (낙찰 성공 기준)
+let avgWinMinRate = 0, avgWinMinCount = 0;
+won.forEach(p => {
+  if (p.appraisal_price && p.minimum_bid) {
+    avgWinMinRate += p.minimum_bid / p.appraisal_price;
+    avgWinMinCount++;
+  }
+});
+const avgWinMinRateStr = avgWinMinCount > 0 ? (avgWinMinRate / avgWinMinCount * 100).toFixed(0) + "%" : "데이터 부족";
+
+// 평균 예상입찰가율 (낙찰 성공 기준)
+let avgWinExpRate = 0, avgWinExpCount = 0;
+won.forEach(p => {
+  if (p.appraisal_price && p.expected_bid) {
+    avgWinExpRate += p.expected_bid / p.appraisal_price;
+    avgWinExpCount++;
+  }
+});
+const avgWinExpRateStr = avgWinExpCount > 0 ? (avgWinExpRate / avgWinExpCount * 100).toFixed(0) + "%" : "데이터 부족";
+
+dv.paragraph(`**📊 입찰 전략 요약**
+- 전체 낙찰 성공률: **${winRate}%** (${won.length}승 / ${totalDecided}전)
+- 낙찰 성공 평균 최저가율: **${avgWinMinRateStr}**
+- 낙찰 성공 평균 예상입찰가율: **${avgWinExpRateStr}**
+- **추천:** 최저가율 ${avgWinMinCount > 0 ? (avgWinMinRate / avgWinMinCount * 100).toFixed(0) : 70}~${avgWinMinCount > 0 ? ((avgWinMinRate / avgWinMinCount + 0.1) * 100).toFixed(0) : 80}% 구간에서 입찰 검토`);
+```
+
 ---
+
+## 📈 낙찰 성공 패턴
+
+```dataviewjs
+const pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+
+// 지역별 낙찰 성공률
+const regionStats = {};
+pages.forEach(p => {
+  const r = p.region_sido || "기타";
+  if (!regionStats[r]) regionStats[r] = { total: 0, won: 0 };
+  regionStats[r].total++;
+  if (p.status === "won") regionStats[r].won++;
+});
+
+// 종류별 낙찰 성공률
+const typeStats = {};
+pages.forEach(p => {
+  const t = p.property_type || "기타";
+  if (!typeStats[t]) typeStats[t] = { total: 0, won: 0 };
+  typeStats[t].total++;
+  if (p.status === "won") typeStats[t].won++;
+});
+
+// 가격대별 (최저가율 기준)
+const rateStats = { "~70%": { total: 0, won: 0 }, "70~80%": { total: 0, won: 0 }, "80~90%": { total: 0, won: 0 }, "90%~": { total: 0, won: 0 } };
+pages.forEach(p => {
+  if (p.appraisal_price && p.minimum_bid) {
+    const rate = p.minimum_bid / p.appraisal_price;
+    const key = rate <= 0.7 ? "~70%" : rate <= 0.8 ? "70~80%" : rate <= 0.9 ? "80~90%" : "90%~";
+    rateStats[key].total++;
+    if (p.status === "won") rateStats[key].won++;
+  }
+});
+
+const toRate = (s) => s.total > 0 ? (s.won / s.total * 100).toFixed(0) + "%" : "-";
+
+dv.paragraph("**지역별 성공률**");
+dv.table(["지역", "건수", "낙찰", "성공률"], Object.keys(regionStats).map(r => [r, String(regionStats[r].total), String(regionStats[r].won), toRate(regionStats[r])]));
+
+dv.paragraph("\n**종류별 성공률**");
+dv.table(["종류", "건수", "낙찰", "성공률"], Object.keys(typeStats).map(t => [t, String(typeStats[t].total), String(typeStats[t].won), toRate(typeStats[t])]));
+
+dv.paragraph("\n**최저가율별 성공률**");
+dv.table(["최저가율", "건수", "낙찰", "성공률"], Object.keys(rateStats).map(k => [k, String(rateStats[k].total), String(rateStats[k].won), toRate(rateStats[k])]));
+```
 
 ## 집계 필터
 
@@ -186,6 +497,37 @@ makeSelect('집계 종류', 'agg_type', ['전체종류', '오피스텔', '아파
 
 ## 전체 집계
 
+```js-engine
+const file = app.workspace.getActiveFile();
+if (!file) return;
+if (!container) return;
+container.empty();
+
+const cache = app.metadataCache.getFileCache(file);
+const fm = cache?.frontmatter ?? {};
+const currentSort = fm.agg_sort || "dday";
+
+const sortOpts = [
+  { key: "dday", label: "D-Day" },
+  { key: "min_rate", label: "최저가율" },
+  { key: "profit", label: "수익성" }
+];
+
+const row = container.createEl('div', { attr: { style: 'display:flex;gap:6px;margin-bottom:8px;' } });
+row.createEl('span', { text: '정렬:', attr: { style: 'font-weight:bold;font-size:0.85em;color:#888;margin-right:4px;' } });
+sortOpts.forEach(({ key, label }) => {
+  const btn = row.createEl('button', {
+    text: label + (key === currentSort ? ' ▼' : ''),
+    attr: {
+      style: `font-size:0.85em;padding:2px 10px;border-radius:4px;cursor:pointer;background:${key === currentSort ? '#4077b4' : '#333'};color:${key === currentSort ? 'white' : '#ccc'};border:1px solid ${key === currentSort ? '#4077b4' : '#555'};`
+    }
+  });
+  btn.onclick = async () => {
+    await app.fileManager.processFrontMatter(file, (fm) => { fm.agg_sort = key; });
+  };
+});
+```
+
 ```dataviewjs
 const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
 let filterStatus = thisFile.agg_status || "전체";
@@ -203,7 +545,21 @@ if (filterSido !== "전체") { pages = pages.where(p => (p.region_sido || "").in
 if (filterSigungu !== "전체") { pages = pages.where(p => (p.region_sigungu || "").includes(filterSigungu)); }
 if (filterDong !== "전체") { pages = pages.where(p => (p.region_dong || "").includes(filterDong)); }
 if (filterType !== "전체종류") { pages = pages.where(p => (p.property_type || "").includes(filterType)); }
-pages = pages.sort(p => p.auction_date, 'asc');
+
+// 정렬
+const aggSort = thisFile.agg_sort || "dday";
+if (aggSort === "dday") {
+  pages = pages.sort(p => p.auction_date, 'asc');
+} else if (aggSort === "min_rate") {
+  pages = pages.sort(p => p.appraisal_price ? (p.minimum_bid / p.appraisal_price) : 999, 'asc');
+} else if (aggSort === "profit") {
+  pages = pages.sort(p => {
+    const base = p.expected_bid || p.minimum_bid || 0;
+    return -(p.monthly_rent * 12 - base * 0.8 * 0.06);
+  });
+} else {
+  pages = pages.sort(p => p.auction_date, 'asc');
+}
 
 const total = pages.length;
 let minRateSum = 0, minRateCount = 0, expRateSum = 0, expRateCount = 0, profitSum = 0, profitCount = 0, wonCount = 0, lostCount = 0, gapSum = 0, gapCount = 0;
