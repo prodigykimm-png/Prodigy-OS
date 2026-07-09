@@ -5,8 +5,10 @@ card_status: 전체
 card_region: 전체지역
 card_type: 전체종류
 card_recommend: 전체
-agg_status: 전체
-agg_region: 전체지역
+agg_status: 진행중
+agg_sido: 전체
+agg_sigungu: 전체
+agg_dong: 전체
 agg_type: 전체종류
 ---
 
@@ -174,9 +176,10 @@ const makeSelect = (label, field, options, current) => {
 };
 
 makeSelect('집계 상태', 'agg_status', ['전체', '진행중', '낙찰', '패찰'], fm.agg_status);
-makeSelect('집계 지역', 'agg_region', ['전체지역', '서울', '경기', '인천', '부산'], fm.agg_region);
+makeSelect('집계 시', 'agg_sido', ['전체', '서울', '경기', '인천', '부산'], fm.agg_sido);
+makeSelect('집계 구', 'agg_sigungu', ['전체', '남동구', '구월동', '부평구', '연수구', '서구', '중구', '동구', '미추홀구', '강화군', '옹진군'], fm.agg_sigungu);
+makeSelect('집계 동', 'agg_dong', ['전체', '구월동', '간석동', '만수동', '부평동', '청라동', '송도동', '가좌동', '숭의동', '도화동', '주안동', '논현동', '작전동', '계산동'], fm.agg_dong);
 makeSelect('집계 종류', 'agg_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.agg_type);
-```
 
 ---
 
@@ -185,7 +188,9 @@ makeSelect('집계 종류', 'agg_type', ['전체종류', '오피스텔', '아파
 ```dataviewjs
 const thisFile = dv.pages('"PARA/PROJECTS/Auction/_Auction_Dashboard.md"')[0] || dv.current();
 let filterStatus = thisFile.agg_status || "전체";
-let filterRegion = thisFile.agg_region || "전체지역";
+let filterSido = thisFile.agg_sido || "전체";
+let filterSigungu = thisFile.agg_sigungu || "전체";
+let filterDong = thisFile.agg_dong || "전체";
 let filterType = thisFile.agg_type || "전체종류";
 
 let allPages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
@@ -193,7 +198,9 @@ let pages = allPages;
 if (filterStatus === "진행중") { pages = allPages.where(p => p.status !== "archived" && p.status !== "review_completed"); }
 else if (filterStatus === "낙찰") { pages = allPages.where(p => p.status === "won"); }
 else if (filterStatus === "패찰") { pages = allPages.where(p => p.status === "lost"); }
-if (filterRegion !== "전체지역") { pages = pages.where(p => (p.region_sido || "").includes(filterRegion)); }
+if (filterSido !== "전체") { pages = pages.where(p => (p.region_sido || "").includes(filterSido)); }
+if (filterSigungu !== "전체") { pages = pages.where(p => (p.region_sigungu || "").includes(filterSigungu)); }
+if (filterDong !== "전체") { pages = pages.where(p => (p.region_dong || "").includes(filterDong)); }
 if (filterType !== "전체종류") { pages = pages.where(p => (p.property_type || "").includes(filterType)); }
 pages = pages.sort(p => p.auction_date, 'asc');
 
@@ -264,9 +271,68 @@ if (review.length === 0) {
 }
 ```
 
-## 입찰 일정 (캘린더)
+## 입찰 일정
 
 ```dataviewjs
+const pages = dv.pages('"PARA/PROJECTS/Auction"')
+  .where(p => p.type === "auction_case" && p.auction_date)
+  .sort(p => p.auction_date, 'asc');
+
+const today = dv.date("today");
+let currentMonth = today.month;
+let currentYear = today.year;
+
+const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const dayNames = ["일","월","화","수","목","금","일"];
+
+function renderCalendar(year, month) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const days = [];
+
+  for (let i = 0; i < firstDay; i++) days.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const events = pages.filter(p => {
+      const pd = p.auction_date;
+      return pd && pd.year === year && pd.month === month+1 && pd.day === d;
+    });
+    days.push({ day: d, dateStr, events });
+  }
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <button onclick="document.querySelector('#cal-container').setAttribute('data-month', '${month-1}');document.querySelector('#cal-container').setAttribute('data-year', '${year}');location.reload()" style="background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;">◀</button>
+    <span style="font-weight:bold;font-size:1.1em;">${year}년 ${monthNames[month]}</span>
+    <button onclick="document.querySelector('#cal-container').setAttribute('data-month', '${month+1}');document.querySelector('#cal-container').setAttribute('data-year', '${year}');location.reload()" style="background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;">▶</button>
+  </div>`;
+  html += `<table style="width:100%;border-collapse:collapse;font-size:0.85em;">`;
+  html += `<tr>${dayNames.map(n => `<th style="padding:4px;color:#888;text-align:center;width:14.28%;">${n}</th>`).join("")}</tr>`;
+
+  for (let w = 0; w < days.length; w += 7) {
+    html += `<tr>`;
+    for (let d = w; d < w + 7; d++) {
+      const day = days[d];
+      if (!day) { html += `<td style="padding:4px;text-align:center;color:#333;"></td>`; continue; }
+      const isToday = day.dateStr === today.toFormat("yyyy-MM-dd");
+      const bg = isToday ? '#4077b4' : '#1a1a1a';
+      const color = isToday ? 'white' : '#ccc';
+      let cell = `<td style="padding:4px;text-align:center;vertical-align:top;background:${bg};color:${color};border-radius:4px;min-height:50px;width:14.28%;">`;
+      cell += `<div style="font-weight:bold;">${day.day}</div>`;
+      day.events.forEach(ev => {
+        cell += `<div style="font-size:0.7em;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">[[${ev.file.name}]]</div>`;
+      });
+      cell += `</td>`;
+      html += cell;
+    }
+    html += `</tr>`;
+  }
+  html += `</table>`;
+  return html;
+}
+
+dv.paragraph(`<div id="cal-container">${renderCalendar(currentYear, currentMonth)}</div>`);
+dv.span("\n<small>입찰일이 있는 물건이 초록색으로 표시됩니다. ◀ ▶ 버튼으로 월 이동.</small>");
+```
 const pages = dv.pages('"PARA/PROJECTS/Auction"')
   .where(p => p.type === "auction_case" && p.auction_date)
   .sort(p => p.auction_date, 'asc');
