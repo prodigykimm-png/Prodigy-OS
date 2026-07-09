@@ -285,8 +285,12 @@ container.empty();
 const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const dayNames = ["일","월","화","수","목","금","토"];
 
-let currentYear = new Date().getFullYear();
-let currentMonth = new Date().getMonth();
+const cache = app.metadataCache.getFileCache(file);
+const fm = cache?.frontmatter ?? {};
+let calYM = fm._cal_ym || "";
+let parts = calYM.split("-");
+let currentYear = parts.length === 2 ? parseInt(parts[0]) : new Date().getFullYear();
+let currentMonth = parts.length === 2 ? parseInt(parts[1]) : new Date().getMonth();
 
 function getEvents() {
   const events = {};
@@ -320,14 +324,16 @@ function renderCalendar() {
   const nextBtn = header.createEl('button', { text: '▶', attr: { style: 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;' } });
 
   prevBtn.onclick = () => {
-    currentMonth--;
-    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    renderCalendar();
+    let m = currentMonth - 1;
+    let y = currentYear;
+    if (m < 0) { m = 11; y--; }
+    app.fileManager.processFrontMatter(file, (fm) => { fm._cal_ym = `${y}-${m}`; });
   };
   nextBtn.onclick = () => {
-    currentMonth++;
-    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-    renderCalendar();
+    let m = currentMonth + 1;
+    let y = currentYear;
+    if (m > 11) { m = 0; y++; }
+    app.fileManager.processFrontMatter(file, (fm) => { fm._cal_ym = `${y}-${m}`; });
   };
 
   const table = container.createEl('table', { attr: { style: 'width:100%;border-collapse:collapse;font-size:0.85em;' } });
