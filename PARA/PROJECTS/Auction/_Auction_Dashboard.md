@@ -314,7 +314,6 @@ function renderCalendar() {
   const events = getEvents();
   const today = new Date();
 
-  // Header
   const header = container.createEl('div', { attr: { style: 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;' } });
   const prevBtn = header.createEl('button', { text: '◀', attr: { style: 'background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:2px 10px;cursor:pointer;' } });
   header.createEl('span', { text: `${currentYear}년 ${monthNames[currentMonth]}`, attr: { style: 'font-weight:bold;font-size:1.1em;' } });
@@ -331,7 +330,6 @@ function renderCalendar() {
     renderCalendar();
   };
 
-  // Table
   const table = container.createEl('table', { attr: { style: 'width:100%;border-collapse:collapse;font-size:0.85em;' } });
   const thead = table.createEl('tr');
   dayNames.forEach(n => thead.createEl('th', { text: n, attr: { style: 'padding:4px;color:#888;text-align:center;width:14.28%;' } }));
