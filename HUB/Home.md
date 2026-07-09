@@ -18,15 +18,20 @@ await dv.view("SYSTEM/Views/ObjectCards", { mode: "greeting" });
 ## 📋 이번 주 경매 요약
 
 ```dataviewjs
-const today = dv.date("today");
-const weekStart = today.startOf("week");
-const weekEnd = weekStart.plus({ days: 6 });
+const today = new Date();
+const dayOfWeek = today.getDay();
+const weekStart = new Date(today);
+weekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+weekStart.setHours(0, 0, 0, 0);
+const weekEnd = new Date(weekStart);
+weekEnd.setDate(weekStart.getDate() + 6);
+weekEnd.setHours(23, 59, 59, 999);
 
 const allPages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 
 const thisWeek = allPages.where(p => {
   if (!p.auction_date) return false;
-  const d = dv.date(p.auction_date);
+  const d = new Date(p.auction_date);
   return d >= weekStart && d <= weekEnd;
 });
 
@@ -36,15 +41,15 @@ const needReview = allPages.where(p =>
 
 const urgent = allPages.where(p => {
   if (!p.auction_date) return false;
-  const d = dv.date(p.auction_date);
-  const diff = d.diff(today, "days");
+  const d = new Date(p.auction_date);
+  const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
   return diff >= 0 && diff <= 7;
 });
 
 const cards = allPages.where(p => p.recommend === true && p.status !== "archived" && p.status !== "review_completed");
 
 dv.paragraph(`> **이번 주 입찰 예정:** ${thisWeek.length}건 · **복기 필요:** ${needReview.length}건 · **임박 (D-7):** ${urgent.length}건 · **추천 매물:** ${cards.length}건`);
-```
+
 
 ## 🔥 Today
 
