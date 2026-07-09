@@ -263,3 +263,63 @@ if (review.length === 0) {
   }));
 }
 ```
+
+## 입찰 일정 (캘린더)
+
+```dataviewjs
+const pages = dv.pages('"PARA/PROJECTS/Auction"')
+  .where(p => p.type === "auction_case" && p.auction_date)
+  .sort(p => p.auction_date, 'asc');
+
+const today = dv.date("today");
+const currentMonth = today.month;
+const currentYear = today.year;
+
+const monthNames = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const dayNames = ["일","월","화","수","목","금","일"];
+
+function renderCalendar(year, month) {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const days = [];
+
+  for (let i = 0; i < firstDay; i++) days.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const events = pages.filter(p => {
+      const pd = p.auction_date;
+      return pd && pd.year === year && pd.month === month+1 && pd.day === d;
+    });
+    days.push({ day: d, dateStr, events });
+  }
+
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:0.85em;">`;
+  html += `<caption style="font-weight:bold;font-size:1.1em;margin-bottom:6px;">${year}년 ${monthNames[month]}</caption>`;
+  html += `<tr>${dayNames.map(n => `<th style="padding:4px;color:#888;text-align:center;width:14.28%;">${n}</th>`).join("")}</tr>`;
+
+  for (let w = 0; w < days.length; w += 7) {
+    html += `<tr>`;
+    for (let d = w; d < w + 7; d++) {
+      const day = days[d];
+      if (!day) { html += `<td style="padding:4px;text-align:center;color:#333;"></td>`; continue; }
+      const isToday = day.dateStr === today.toFormat("yyyy-MM-dd");
+      const bg = isToday ? '#4077b4' : '#1a1a1a';
+      const color = isToday ? 'white' : '#ccc';
+      let cell = `<td style="padding:4px;text-align:center;vertical-align:top;background:${bg};color:${color};border-radius:4px;min-height:60px;">`;
+      cell += `<div style="font-weight:bold;">${day.day}</div>`;
+      day.events.forEach(ev => {
+        const name = ev.file.name;
+        cell += `<div style="font-size:0.75em;color:#22c55e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" onclick="app.workspace.openLinkText('${name}','${ev.file.path}')">● ${name}</div>`;
+      });
+      cell += `</td>`;
+      html += cell;
+    }
+    html += `</tr>`;
+  }
+  html += `</table>`;
+  return html;
+}
+
+dv.paragraph(renderCalendar(currentYear, currentMonth));
+dv.span("\n\n---\n\n<small>● = 입찰일이 있는 물건. 클릭하면 해당 파일로 이동합니다.</small>");
+```

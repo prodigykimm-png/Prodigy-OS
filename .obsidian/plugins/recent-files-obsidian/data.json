@@ -1,48 +1,84 @@
 {
   "recentFiles": [
     {
-      "basename": "2026-07-09",
-      "path": "DAILY/DAILY/2026-07-09.md"
-    },
-    {
       "basename": "_Auction_Dashboard",
       "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
-    },
-    {
-      "basename": "인천-2025타경1144",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경1144.md"
-    },
-    {
-      "basename": "인천-2025타경509369",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경509369.md"
-    },
-    {
-      "basename": "Home",
-      "path": "HUB/Home.md"
-    },
-    {
-      "basename": "부산-2024타경61331",
-      "path": "PARA/PROJECTS/Auction/부산-2024타경61331.md"
-    },
-    {
-      "basename": "인천-2025타경508465",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경508465.md"
-    },
-    {
-      "basename": "부산-2024타경61720",
-      "path": "PARA/PROJECTS/Auction/부산-2024타경61720.md"
     },
     {
       "basename": "인천-2025타경921",
       "path": "PARA/PROJECTS/Auction/인천-2025타경921.md"
     },
     {
-      "basename": "Imagination as a Foundation of Discovery",
-      "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Imagination as a Foundation of Discovery.md"
+      "basename": "인천-2025타경508465",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경508465.md"
+    },
+    {
+      "basename": "인천-2025타경507804",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경507804.md"
+    },
+    {
+      "basename": "인천-2025타경1144",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경1144.md"
+    },
+    {
+      "basename": "부산-2024타경61331",
+      "path": "PARA/PROJECTS/Auction/부산-2024타경61331.md"
+    },
+    {
+      "basename": "부산-2025타경2391_1",
+      "path": "PARA/PROJECTS/Auction/부산-2025타경2391_1.md"
+    },
+    {
+      "basename": "인천-2024타경557712",
+      "path": "PARA/PROJECTS/Auction/인천-2024타경557712.md"
+    },
+    {
+      "basename": "인천-2025타경829",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경829.md"
+    },
+    {
+      "basename": "인천-2025타경1095_2",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경1095_2.md"
+    },
+    {
+      "basename": "인천-2025타경503330",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경503330.md"
+    },
+    {
+      "basename": "인천-2025타경508940",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경508940.md"
+    },
+    {
+      "basename": "인천-2025타경509369",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경509369.md"
     },
     {
       "basename": "인천-2025타경509560",
       "path": "PARA/PROJECTS/Auction/인천-2025타경509560.md"
+    },
+    {
+      "basename": "2026-07-09",
+      "path": "DAILY/DAILY/2026-07-09.md"
+    },
+    {
+      "basename": "2026-07-08",
+      "path": "DAILY/DAILY/2026-07-08.md"
+    },
+    {
+      "basename": "Home",
+      "path": "HUB/Home.md"
+    },
+    {
+      "basename": "Homepage",
+      "path": "HUB/Homepage.md"
+    },
+    {
+      "basename": "부산-2024타경61720",
+      "path": "PARA/PROJECTS/Auction/부산-2024타경61720.md"
+    },
+    {
+      "basename": "Imagination as a Foundation of Discovery",
+      "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Imagination as a Foundation of Discovery.md"
     },
     {
       "basename": "template_auction_case",
@@ -61,14 +97,6 @@
       "path": "SYSTEM/TEMPLATE/FORMAT/template_daily_note.md"
     },
     {
-      "basename": "인천-2025타경508940",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경508940.md"
-    },
-    {
-      "basename": "인천-2025타경1095_2",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경1095_2.md"
-    },
-    {
       "basename": "template_project",
       "path": "SYSTEM/TEMPLATE/FORMAT/template_project.md"
     },
@@ -85,22 +113,6 @@
       "path": "PARA/PROJECTS/Auction/인천-2025타경1095_1.md"
     },
     {
-      "basename": "인천-2025타경503330",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경503330.md"
-    },
-    {
-      "basename": "인천-2025타경507804",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경507804.md"
-    },
-    {
-      "basename": "인천-2025타경829",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경829.md"
-    },
-    {
-      "basename": "인천-2024타경557712",
-      "path": "PARA/PROJECTS/Auction/인천-2024타경557712.md"
-    },
-    {
       "basename": "Mail Box",
       "path": "HUB/Mail Box.md"
     },
@@ -111,14 +123,6 @@
     {
       "basename": "Hope as a Psychological Driver",
       "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Hope as a Psychological Driver.md"
-    },
-    {
-      "basename": "Homepage",
-      "path": "HUB/Homepage.md"
-    },
-    {
-      "basename": "2026-07-08",
-      "path": "DAILY/DAILY/2026-07-08.md"
     },
     {
       "basename": "README",
@@ -195,10 +199,6 @@
     {
       "basename": "Vault Onboarding Part 1  - Very Important Setup",
       "path": "SYSTEM/GETTING STARTED/Vault Onboarding Part 1  - Very Important Setup.md"
-    },
-    {
-      "basename": "Vault Onboarding Part 2 - Structure Concept",
-      "path": "SYSTEM/GETTING STARTED/Vault Onboarding Part 2 - Structure Concept.md"
     }
   ],
   "omittedPaths": [],
