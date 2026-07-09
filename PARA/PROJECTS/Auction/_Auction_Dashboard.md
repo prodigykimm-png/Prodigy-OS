@@ -236,6 +236,8 @@ script.onload = () => {
 };
 ```
 
+---
+
 ## 진행중인 물건
 
 ```js-engine
@@ -374,90 +376,7 @@ if (pages.length === 0) {
 }
 ```
 
-
-## 📊 입찰 전략
-
-```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
-const won = pages.where(p => p.status === "won");
-const lost = pages.where(p => p.status === "lost");
-const totalDecided = won.length + lost.length;
-const winRate = totalDecided > 0 ? (won.length / totalDecided * 100).toFixed(0) : 0;
-
-// 평균 최저가율 (낙찰 성공 기준)
-let avgWinMinRate = 0, avgWinMinCount = 0;
-won.forEach(p => {
-  if (p.appraisal_price && p.minimum_bid) {
-    avgWinMinRate += p.minimum_bid / p.appraisal_price;
-    avgWinMinCount++;
-  }
-});
-const avgWinMinRateStr = avgWinMinCount > 0 ? (avgWinMinRate / avgWinMinCount * 100).toFixed(0) + "%" : "데이터 부족";
-
-// 평균 예상입찰가율 (낙찰 성공 기준)
-let avgWinExpRate = 0, avgWinExpCount = 0;
-won.forEach(p => {
-  if (p.appraisal_price && p.expected_bid) {
-    avgWinExpRate += p.expected_bid / p.appraisal_price;
-    avgWinExpCount++;
-  }
-});
-const avgWinExpRateStr = avgWinExpCount > 0 ? (avgWinExpRate / avgWinExpCount * 100).toFixed(0) + "%" : "데이터 부족";
-
-dv.paragraph(`**📊 입찰 전략 요약**
-- 전체 낙찰 성공률: **${winRate}%** (${won.length}승 / ${totalDecided}전)
-- 낙찰 성공 평균 최저가율: **${avgWinMinRateStr}**
-- 낙찰 성공 평균 예상입찰가율: **${avgWinExpRateStr}**
-- **추천:** 최저가율 ${avgWinMinCount > 0 ? (avgWinMinRate / avgWinMinCount * 100).toFixed(0) : 70}~${avgWinMinCount > 0 ? ((avgWinMinRate / avgWinMinCount + 0.1) * 100).toFixed(0) : 80}% 구간에서 입찰 검토`);
-```
-
 ---
-
-## 📈 낙찰 성공 패턴
-
-```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
-
-// 지역별 낙찰 성공률
-const regionStats = {};
-pages.forEach(p => {
-  const r = p.region_sido || "기타";
-  if (!regionStats[r]) regionStats[r] = { total: 0, won: 0 };
-  regionStats[r].total++;
-  if (p.status === "won") regionStats[r].won++;
-});
-
-// 종류별 낙찰 성공률
-const typeStats = {};
-pages.forEach(p => {
-  const t = p.property_type || "기타";
-  if (!typeStats[t]) typeStats[t] = { total: 0, won: 0 };
-  typeStats[t].total++;
-  if (p.status === "won") typeStats[t].won++;
-});
-
-// 가격대별 (최저가율 기준)
-const rateStats = { "~70%": { total: 0, won: 0 }, "70~80%": { total: 0, won: 0 }, "80~90%": { total: 0, won: 0 }, "90%~": { total: 0, won: 0 } };
-pages.forEach(p => {
-  if (p.appraisal_price && p.minimum_bid) {
-    const rate = p.minimum_bid / p.appraisal_price;
-    const key = rate <= 0.7 ? "~70%" : rate <= 0.8 ? "70~80%" : rate <= 0.9 ? "80~90%" : "90%~";
-    rateStats[key].total++;
-    if (p.status === "won") rateStats[key].won++;
-  }
-});
-
-const toRate = (s) => s.total > 0 ? (s.won / s.total * 100).toFixed(0) + "%" : "-";
-
-dv.paragraph("**지역별 성공률**");
-dv.table(["지역", "건수", "낙찰", "성공률"], Object.keys(regionStats).map(r => [r, String(regionStats[r].total), String(regionStats[r].won), toRate(regionStats[r])]));
-
-dv.paragraph("\n**종류별 성공률**");
-dv.table(["종류", "건수", "낙찰", "성공률"], Object.keys(typeStats).map(t => [t, String(typeStats[t].total), String(typeStats[t].won), toRate(typeStats[t])]));
-
-dv.paragraph("\n**최저가율별 성공률**");
-dv.table(["최저가율", "건수", "낙찰", "성공률"], Object.keys(rateStats).map(k => [k, String(rateStats[k].total), String(rateStats[k].won), toRate(rateStats[k])]));
-```
 
 ## 집계 필터
 
@@ -600,36 +519,6 @@ if (total > 0) {
 
 ---
 
-## 복기 필요한 물건
-
-```dataviewjs
-const review = dv.pages('"PARA/PROJECTS/Auction"')
-  .where(p => p.type === "auction_case")
-  .where(p => (p.bid_result === "won" || p.bid_result === "lost") && p.review_status === "pending")
-  .sort(p => p.auction_date, 'desc');
-
-if (review.length === 0) {
-  dv.paragraph("복기할 물건이 없습니다.");
-} else {
-  dv.table(["사건", "결과", "내 입찰가", "낙찰가", "차이", "Action"], review.map(p => {
-    const mine = p.expected_bid || 0;
-    const winner = p.actual_bid || 0;
-    const gap = (mine && winner) ? mine - winner : 0;
-    const gapStr = gap !== 0 ? (gap > 0 ? "▲" + dv.func.round(gap / 10000) + "만" : "▼" + dv.func.round(Math.abs(gap) / 10000) + "만") : "-";
-    return [
-      p.file.link,
-      p.bid_result === "won" ? "✅ 낙찰" : "❌ 패찰",
-      mine ? "₩" + dv.func.round(mine / 10000) + "만" : "-",
-      winner ? "₩" + dv.func.round(winner / 10000) + "만" : "-",
-      gapStr,
-      p.next_action || "-"
-    ];
-  }));
-}
-```
-
----
-
 ## 입찰 일정
 
 ```js-engine
@@ -719,4 +608,120 @@ function renderCalendar() {
 }
 
 renderCalendar();
+```
+
+---
+
+## 📊 입찰 전략
+
+```dataviewjs
+const pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+const won = pages.where(p => p.status === "won");
+const lost = pages.where(p => p.status === "lost");
+const totalDecided = won.length + lost.length;
+const winRate = totalDecided > 0 ? (won.length / totalDecided * 100).toFixed(0) : 0;
+
+// 평균 최저가율 (낙찰 성공 기준)
+let avgWinMinRate = 0, avgWinMinCount = 0;
+won.forEach(p => {
+  if (p.appraisal_price && p.minimum_bid) {
+    avgWinMinRate += p.minimum_bid / p.appraisal_price;
+    avgWinMinCount++;
+  }
+});
+const avgWinMinRateStr = avgWinMinCount > 0 ? (avgWinMinRate / avgWinMinCount * 100).toFixed(0) + "%" : "데이터 부족";
+
+// 평균 예상입찰가율 (낙찰 성공 기준)
+let avgWinExpRate = 0, avgWinExpCount = 0;
+won.forEach(p => {
+  if (p.appraisal_price && p.expected_bid) {
+    avgWinExpRate += p.expected_bid / p.appraisal_price;
+    avgWinExpCount++;
+  }
+});
+const avgWinExpRateStr = avgWinExpCount > 0 ? (avgWinExpRate / avgWinExpCount * 100).toFixed(0) + "%" : "데이터 부족";
+
+dv.paragraph(`**📊 입찰 전략 요약**
+- 전체 낙찰 성공률: **${winRate}%** (${won.length}승 / ${totalDecided}전)
+- 낙찰 성공 평균 최저가율: **${avgWinMinRateStr}**
+- 낙찰 성공 평균 예상입찰가율: **${avgWinExpRateStr}**
+- **추천:** 최저가율 ${avgWinMinCount > 0 ? (avgWinMinRate / avgWinMinCount * 100).toFixed(0) : 70}~${avgWinMinCount > 0 ? ((avgWinMinRate / avgWinMinCount + 0.1) * 100).toFixed(0) : 80}% 구간에서 입찰 검토`);
+```
+
+---
+
+## 📈 낙찰 성공 패턴
+
+```dataviewjs
+const pages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+
+// 지역별 낙찰 성공률
+const regionStats = {};
+pages.forEach(p => {
+  const r = p.region_sido || "기타";
+  if (!regionStats[r]) regionStats[r] = { total: 0, won: 0 };
+  regionStats[r].total++;
+  if (p.status === "won") regionStats[r].won++;
+});
+
+// 종류별 낙찰 성공률
+const typeStats = {};
+pages.forEach(p => {
+  const t = p.property_type || "기타";
+  if (!typeStats[t]) typeStats[t] = { total: 0, won: 0 };
+  typeStats[t].total++;
+  if (p.status === "won") typeStats[t].won++;
+});
+
+// 가격대별 (최저가율 기준)
+const rateStats = { "~70%": { total: 0, won: 0 }, "70~80%": { total: 0, won: 0 }, "80~90%": { total: 0, won: 0 }, "90%~": { total: 0, won: 0 } };
+pages.forEach(p => {
+  if (p.appraisal_price && p.minimum_bid) {
+    const rate = p.minimum_bid / p.appraisal_price;
+    const key = rate <= 0.7 ? "~70%" : rate <= 0.8 ? "70~80%" : rate <= 0.9 ? "80~90%" : "90%~";
+    rateStats[key].total++;
+    if (p.status === "won") rateStats[key].won++;
+  }
+});
+
+const toRate = (s) => s.total > 0 ? (s.won / s.total * 100).toFixed(0) + "%" : "-";
+
+dv.paragraph("**지역별 성공률**");
+dv.table(["지역", "건수", "낙찰", "성공률"], Object.keys(regionStats).map(r => [r, String(regionStats[r].total), String(regionStats[r].won), toRate(regionStats[r])]));
+
+dv.paragraph("\n**종류별 성공률**");
+dv.table(["종류", "건수", "낙찰", "성공률"], Object.keys(typeStats).map(t => [t, String(typeStats[t].total), String(typeStats[t].won), toRate(typeStats[t])]));
+
+dv.paragraph("\n**최저가율별 성공률**");
+dv.table(["최저가율", "건수", "낙찰", "성공률"], Object.keys(rateStats).map(k => [k, String(rateStats[k].total), String(rateStats[k].won), toRate(rateStats[k])]));
+```
+
+---
+
+## 복기 필요한 물건
+
+```dataviewjs
+const review = dv.pages('"PARA/PROJECTS/Auction"')
+  .where(p => p.type === "auction_case")
+  .where(p => (p.bid_result === "won" || p.bid_result === "lost") && p.review_status === "pending")
+  .sort(p => p.auction_date, 'desc');
+
+if (review.length === 0) {
+  dv.paragraph("복기할 물건이 없습니다.");
+} else {
+  dv.table(["사건", "결과", "내 입찰가", "낙찰가", "차이", "Action"], review.map(p => {
+    const mine = p.expected_bid || 0;
+    const winner = p.actual_bid || 0;
+    const gap = (mine && winner) ? mine - winner : 0;
+    const gapStr = gap !== 0 ? (gap > 0 ? "▲" + dv.func.round(gap / 10000) + "만" : "▼" + dv.func.round(Math.abs(gap) / 10000) + "만") : "-";
+    return [
+      p.file.link,
+      p.bid_result === "won" ? "✅ 낙찰" : "❌ 패찰",
+      mine ? "₩" + dv.func.round(mine / 10000) + "만" : "-",
+      winner ? "₩" + dv.func.round(winner / 10000) + "만" : "-",
+      gapStr,
+      p.next_action || "-"
+    ];
+  }));
+}
 ```
