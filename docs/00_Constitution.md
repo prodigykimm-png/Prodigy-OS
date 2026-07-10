@@ -18,6 +18,50 @@ Obsidian는 현재 사용하는 플랫폼일 뿐이며, Prodigy OS의 핵심은 
 
 ---
 
+# Core Concepts
+
+## Execution & Knowledge Lifecycle
+
+Prodigy OS는 실행(Execution)과 지식(Knowledge)의 상호작용을 통해 가치를 축적하는 생명주기(Lifecycle)를 가집니다. 이 둘은 서로 다른 폴더 레이어에서 관리되며, 시스템 전체의 데이터 흐름을 규정하는 최상위 원칙입니다.
+
+### 1. Execution (실행)
+Execution은 실제 업무가 수행되고 종결되는 영역으로, **PARA(PROJECTS, AREAS)**가 관리합니다.
+- **상태 및 워크플로우**: 모든 Execution Object(사건, 프로젝트 등)는 고유한 `status`와 제한된 단방향 `Workflow`를 가집니다.
+- **작업 공간**: 각 도메인의 전용 **Dashboard**에서 관리되며, 업무가 직접 수행되는 공간입니다.
+- **종결성**: 일시적이며 최종 단계(`completed`, `archived`)에 도달하면 종료(종결)됩니다.
+- **대표 예시**: Auction(경매), Reading(독서), Workout(운동), Projects(프로젝트), Personal(개인 업무)
+
+### 2. Knowledge (지식)
+Knowledge는 경험과 기록에서 추출된 영구적인 지식 자산으로, **ZETA**가 관리합니다.
+- **무한성**: 종료의 개념이 없으며, 영구적으로 보관 및 확장됩니다.
+- **연결성**: 단독으로 존재하지 않고 끊임없이 다른 지식과 연결(Link)됩니다. AI는 노트를 분석하여 지식 간의 유기적인 관계를 사용자에게 추천합니다.
+- **자산화**: 장기적으로 축적되며 사용자의 의사결정을 돕는 지적 자산이 됩니다.
+- **대표 예시**: Photography(사진학), Business(비즈니스), Health(건강/의학), AI(인공지능), Economics(경제학)
+
+### 3. Data Lifecycle (데이터 생명주기)
+모든 정보는 아래의 흐름을 통해 실행에서 지식으로 정제되고 자산화됩니다.
+
+```text
+Capture ➔ PARA ➔ Review ➔ AI Reflection ➔ ZETA
+```
+
+1. **Capture**: Inbox를 통해 날것의 아이디어나 임시 정보를 기록합니다.
+2. **PARA**: 해당 정보를 바탕으로 실행 Object(Execution)를 생성하여 프로젝트나 태스크를 직접 수행합니다.
+3. **Review**: 실행이 완료되면(예: 낙찰/패찰, 독서 완료, 운동 종료), 결과와 의사결정 과정을 복기(Review)합니다.
+4. **AI Reflection**: AI가 사용자의 복기(Review) 및 수집된 팩트 데이터를 분석하여 장기적으로 보존할 만한 인사이트나 핵심 지식을 도출 및 정제합니다.
+5. **ZETA**: 정제된 지식을 영구 지식(Knowledge) 레이어로 이관하여 장기 자산으로 축적하고 다른 지식과 연결합니다.
+
+### 4. Dashboard & Hub
+- **Dashboard**: 각 도메인(Auction, Reading 등)의 실제 Operational Workspace로, 실행(Execution) 과정을 직접 제어하고 관리합니다.
+- **Home**: 여러 Dashboard들을 유기적으로 연결하고 오늘 해야 할 행동의 지표만 요약해 보여주는 최상위 Navigation Hub입니다.
+
+### 5. AI Principle (AI 협업 원칙)
+- AI는 정보를 **판단하지 않으며**, 어떠한 데이터도 사용자의 명시적 승인 없이 **삭제하지 않습니다**.
+- AI의 역할은 사용자가 작성한 Review와 팩트 데이터를 분석하여, **ZETA 레이어로 발전(자산화)시킬 지식 후보를 추천**하는 것입니다.
+- 지식의 이관, 최종 결정 및 의사결정의 주체는 오직 **사용자(Human)**입니다.
+
+---
+
 # Article 1 — Purpose
 
 Prodigy OS의 목적은 기록이 아니다.

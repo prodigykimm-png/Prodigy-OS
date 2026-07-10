@@ -4,7 +4,6 @@ type: auction_case
 status: watching
 priority:
 next_action:
-due_date:
 connections:
 created: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
 updated: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
@@ -22,7 +21,6 @@ recommend_sources:
 case_number:
 court:
 auction_dept:
-auction_date:
 auction_datetime:
 # ---------- Location ----------
 region_sido:
@@ -77,7 +75,7 @@ attachments:
 | 최저매각가 | `= this.minimum_bid` |
 | 최저가율 | `= this.minimum_bid_rate` |
 | 예상 입찰가 | `= this.expected_bid` |
-| 입찰일 | `= this.auction_date` |
+| 입찰일시 | `= this.auction_datetime` |
 | 상태 | `= this.status` |
 | next_action | `= this.next_action` |
 | 추천 | `= this.recommendation` |
@@ -88,7 +86,6 @@ attachments:
 
 ---
 
-<!-- STATUS CONTROL -->
 # Status Control
 
 ```meta-bind-button

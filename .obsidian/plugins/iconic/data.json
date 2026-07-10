@@ -55,6 +55,9 @@
         "6978bbb83ae24958"
       ]
     },
+    "HUB/Auction_Dashboard.md": {
+      "icon": "lucide-circle"
+    },
     "PARA": {
       "icon": "lucide-land-plot",
       "unsynced": [
@@ -67,9 +70,6 @@
         "c244bb041cc80850",
         "6978bbb83ae24958"
       ]
-    },
-    "PARA/PROJECTS/Auction/_Auction_Dashboard.md": {
-      "icon": "lucide-circle"
     },
     "PARA/PROJECTS/Auction/_samples/PERMANENT/Hope as a Psychological Driver.md": {
       "icon": "lucide-circle"
@@ -84,6 +84,12 @@
       "icon": "lucide-circle"
     },
     "PARA/PROJECTS/Auction/부산-2025타경2391_1.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/PROJECTS/Auction/울산-2025타경12628_1.md": {
+      "icon": "lucide-circle"
+    },
+    "PARA/PROJECTS/Auction/인천-2024타경15348.md": {
       "icon": "lucide-circle"
     },
     "PARA/PROJECTS/Auction/인천-2024타경557712.md": {

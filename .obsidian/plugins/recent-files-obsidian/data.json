@@ -1,12 +1,144 @@
 {
   "recentFiles": [
     {
-      "basename": "_Auction_Dashboard",
-      "path": "PARA/PROJECTS/Auction/_Auction_Dashboard.md"
+      "basename": "Home",
+      "path": "HUB/Home.md"
+    },
+    {
+      "basename": "Inbox",
+      "path": "HUB/Inbox.md"
+    },
+    {
+      "basename": "Auction_Dashboard",
+      "path": "HUB/Auction_Dashboard.md"
+    },
+    {
+      "basename": "Mobile Homepage",
+      "path": "SYSTEM/MOBILE HUB/Mobile Homepage.md"
+    },
+    {
+      "basename": "Mobile Map of Content",
+      "path": "SYSTEM/MOBILE HUB/Mobile Map of Content.md"
+    },
+    {
+      "basename": "Mobile Mail Box",
+      "path": "SYSTEM/MOBILE HUB/Mobile Mail Box.md"
+    },
+    {
+      "basename": "Vault Onboarding Part 4 - Setting up on Mobile",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/Vault Onboarding Part 4 - Setting up on Mobile.png"
+    },
+    {
+      "basename": "Vault Onboarding Part 3 - Main Features-9",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/Vault Onboarding Part 3 - Main Features-9.png"
+    },
+    {
+      "basename": "Vault Onboarding Part 3 - Main Features",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/Vault Onboarding Part 3 - Main Features.png"
+    },
+    {
+      "basename": "Vault Onboarding Part 1-1",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/Vault Onboarding Part 1-1.png"
+    },
+    {
+      "basename": "keyboard",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/keyboard.png"
+    },
+    {
+      "basename": "image_29",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/image_29.png"
+    },
+    {
+      "basename": "image_21",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/image_21.png"
+    },
+    {
+      "basename": "image_6",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/image_6.png"
+    },
+    {
+      "basename": "Getting Started-3",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/Getting Started-3.png"
+    },
+    {
+      "basename": "Getting Started-2",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/Getting Started-2.png"
+    },
+    {
+      "basename": "Getting Started-1",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/Getting Started-1.png"
+    },
+    {
+      "basename": "Getting Started",
+      "path": "SYSTEM/GETTING STARTED/Onboarding Media/Getting Started.png"
+    },
+    {
+      "basename": "2024-11-14",
+      "path": "DAILY/DAILY/2024-11-14.md"
+    },
+    {
+      "basename": "2026-07-04",
+      "path": "DAILY/DAILY/2026-07-04.md"
+    },
+    {
+      "basename": "2026-07-06",
+      "path": "DAILY/DAILY/2026-07-06.md"
+    },
+    {
+      "basename": "2026-07-08",
+      "path": "DAILY/DAILY/2026-07-08.md"
     },
     {
       "basename": "2026-07-09",
       "path": "DAILY/DAILY/2026-07-09.md"
+    },
+    {
+      "basename": "2026-07-01",
+      "path": "DAILY/DAILY/2026-07-01.md"
+    },
+    {
+      "basename": "2024-11-13",
+      "path": "DAILY/DAILY/2024-11-13.md"
+    },
+    {
+      "basename": "인천-2024타경557712",
+      "path": "PARA/PROJECTS/Auction/인천-2024타경557712.md"
+    },
+    {
+      "basename": "Resilience as an Adaptive Response",
+      "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Resilience as an Adaptive Response.md"
+    },
+    {
+      "basename": "울산-2025타경12628_1",
+      "path": "PARA/PROJECTS/Auction/울산-2025타경12628_1.md"
+    },
+    {
+      "basename": "인천-2025타경1144",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경1144.md"
+    },
+    {
+      "basename": "인천-2024타경15348",
+      "path": "PARA/PROJECTS/Auction/인천-2024타경15348.md"
+    },
+    {
+      "basename": "부산-2025타경2391_1",
+      "path": "PARA/PROJECTS/Auction/부산-2025타경2391_1.md"
+    },
+    {
+      "basename": "template_documentation_note",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_documentation_note.md"
+    },
+    {
+      "basename": "template_auction_case",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md"
+    },
+    {
+      "basename": "인천-2025타경921",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경921.md"
+    },
+    {
+      "basename": "인천-2025타경829",
+      "path": "PARA/PROJECTS/Auction/인천-2025타경829.md"
     },
     {
       "basename": "부산-2024타경61331",
@@ -17,32 +149,8 @@
       "path": "PARA/PROJECTS/Auction/인천-2025타경507804.md"
     },
     {
-      "basename": "Home",
-      "path": "HUB/Home.md"
-    },
-    {
-      "basename": "인천-2024타경557712",
-      "path": "PARA/PROJECTS/Auction/인천-2024타경557712.md"
-    },
-    {
-      "basename": "인천-2025타경921",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경921.md"
-    },
-    {
       "basename": "인천-2025타경508465",
       "path": "PARA/PROJECTS/Auction/인천-2025타경508465.md"
-    },
-    {
-      "basename": "인천-2025타경1144",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경1144.md"
-    },
-    {
-      "basename": "부산-2025타경2391_1",
-      "path": "PARA/PROJECTS/Auction/부산-2025타경2391_1.md"
-    },
-    {
-      "basename": "인천-2025타경829",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경829.md"
     },
     {
       "basename": "인천-2025타경1095_2",
@@ -65,24 +173,12 @@
       "path": "PARA/PROJECTS/Auction/인천-2025타경509560.md"
     },
     {
-      "basename": "2026-07-08",
-      "path": "DAILY/DAILY/2026-07-08.md"
-    },
-    {
-      "basename": "Homepage",
-      "path": "HUB/Homepage.md"
-    },
-    {
       "basename": "부산-2024타경61720",
       "path": "PARA/PROJECTS/Auction/부산-2024타경61720.md"
     },
     {
       "basename": "Imagination as a Foundation of Discovery",
       "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Imagination as a Foundation of Discovery.md"
-    },
-    {
-      "basename": "template_auction_case",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md"
     },
     {
       "basename": "template_contact",
@@ -99,106 +195,6 @@
     {
       "basename": "template_project",
       "path": "SYSTEM/TEMPLATE/FORMAT/template_project.md"
-    },
-    {
-      "basename": "template_area_note_sub",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_area_note_sub.md"
-    },
-    {
-      "basename": "template_monthly_note",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_monthly_note.md"
-    },
-    {
-      "basename": "인천-2025타경1095_1",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경1095_1.md"
-    },
-    {
-      "basename": "Mail Box",
-      "path": "HUB/Mail Box.md"
-    },
-    {
-      "basename": "Resilience as an Adaptive Response",
-      "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Resilience as an Adaptive Response.md"
-    },
-    {
-      "basename": "Hope as a Psychological Driver",
-      "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Hope as a Psychological Driver.md"
-    },
-    {
-      "basename": "README",
-      "path": "README.md"
-    },
-    {
-      "basename": "1. Autonomous Vehicle AI Ethics",
-      "path": "PARA/PROJECTS/Autonomous Vehicle AI Ethics/1. Autonomous Vehicle AI Ethics.md"
-    },
-    {
-      "basename": "template_area",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_area.md"
-    },
-    {
-      "basename": "template_area_note",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_area_note.md"
-    },
-    {
-      "basename": "template_meeting_general",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_meeting_general.md"
-    },
-    {
-      "basename": "template_workstation_note",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_workstation_note.md"
-    },
-    {
-      "basename": "02_Core_Concepts",
-      "path": "docs/02_Core_Concepts.md"
-    },
-    {
-      "basename": "ADR-005-documentation-first",
-      "path": "docs/ADR/ADR-005-documentation-first.md"
-    },
-    {
-      "basename": "ADR-002-object-first",
-      "path": "docs/ADR/ADR-002-object-first.md"
-    },
-    {
-      "basename": "ADR-003-ai-capture",
-      "path": "docs/ADR/ADR-003-ai-capture.md"
-    },
-    {
-      "basename": "ADR-001-why-prodigy-os",
-      "path": "docs/ADR/ADR-001-why-prodigy-os.md"
-    },
-    {
-      "basename": "ADR",
-      "path": "docs/ADR/ADR.md"
-    },
-    {
-      "basename": "2024-11-14",
-      "path": "DAILY/DAILY/2024-11-14.md"
-    },
-    {
-      "basename": "2024-11-13",
-      "path": "DAILY/DAILY/2024-11-13.md"
-    },
-    {
-      "basename": "2024-11-12",
-      "path": "DAILY/DAILY/2024-11-12.md"
-    },
-    {
-      "basename": "Bias Mitigation and Fairness Auditing",
-      "path": "PARA/PROJECTS/Autonomous Vehicle AI Ethics/Bias Mitigation and Fairness Auditing.md"
-    },
-    {
-      "basename": "Map of Content",
-      "path": "HUB/Map of Content.md"
-    },
-    {
-      "basename": "Getting Started",
-      "path": "SYSTEM/GETTING STARTED/Getting Started.md"
-    },
-    {
-      "basename": "Vault Onboarding Part 1  - Very Important Setup",
-      "path": "SYSTEM/GETTING STARTED/Vault Onboarding Part 1  - Very Important Setup.md"
     }
   ],
   "omittedPaths": [],

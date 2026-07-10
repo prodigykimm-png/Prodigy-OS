@@ -37,7 +37,8 @@
               "title": "Home"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -114,7 +115,7 @@
         "state": {
           "type": "outline",
           "state": {
-            "file": "PARA/PROJECTS/Auction/_Auction_Dashboard.md",
+            "file": "HUB/Home.md",
             "followCursor": false,
             "showSearch": false,
             "searchQuery": ""
@@ -167,12 +168,12 @@
       "obsidian-trash-explorer:Open trash explorer": false
     }
   },
-  "active": "885d9549763deac0",
+  "active": "1312e317270984e1",
   "lastOpenFiles": [
-    "PARA/PROJECTS/Auction/인천-2025타경1144.md",
     "PARA/PROJECTS/Auction/_Auction_Dashboard.md",
-    "PARA/PROJECTS/Auction/인천-2025타경509369.md",
     "HUB/Home.md",
+    "PARA/PROJECTS/Auction/인천-2025타경1144.md",
+    "PARA/PROJECTS/Auction/인천-2025타경509369.md",
     "PARA/PROJECTS/Auction/부산-2024타경61331.md",
     "PARA/PROJECTS/Auction/인천-2025타경508465.md",
     "PARA/PROJECTS/Auction/부산-2024타경61720.md",

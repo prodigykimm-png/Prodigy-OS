@@ -168,7 +168,7 @@ Home에서 버튼 클릭으로 새 Object 생성:
 
 ## 5. Auction Dashboard 사용법
 
-Auction Dashboard (`PARA/PROJECTS/Auction/_Auction_Dashboard.md`)는 경매 물건을 한눈에 관리하는 화면이다.
+Auction Dashboard (`HUB/Auction_Dashboard.md`)는 경매 물건을 한눈에 관리하는 화면이다.
 
 ### 5.1 섹션 구성
 
@@ -305,10 +305,10 @@ Auction Dashboard (`PARA/PROJECTS/Auction/_Auction_Dashboard.md`)는 경매 물�
 
 ### 7.1 Dashboard 접근
 
-**경로:** `PARA/PROJECTS/Auction/_Auction_Dashboard.md`
+**경로:** `HUB/Auction_Dashboard.md`
 
-- 브라우저 사이드바에서 `PARA → PROJECTS → Auction → _Auction_Dashboard` 클릭
-- 또는 검색 (`Cmd+O`)에서 `_Auction_Dashboard` 검색
+- 브라우저 사이드바에서 `HUB → Auction_Dashboard` 클릭
+- 또는 검색 (`Cmd+O`)에서 `Auction_Dashboard` 검색
 
 ### 7.2 Home 접근
 

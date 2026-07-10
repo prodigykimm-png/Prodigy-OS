@@ -2,160 +2,111 @@
 cssclasses:
   - hide-properties_editing
   - hide-properties_reading
-  - prodigy-object-cards
 ---
-# Prodigy OS
+# ☀️ Welcome to Prodigy OS
 
-> [!abstract]+ Object Dashboard v0.7
-> 5초 안에 오늘 관리할 Object를 파악한다.
+> **AI Assisted Personal Operating System**
+> 오늘 할 일을 확인하고 필요한 Dashboard로 즉시 이동하는 네비게이션 허브입니다.
 
-## ☀️ Good Morning
+---
 
-```dataviewjs
-await dv.view("SYSTEM/Views/ObjectCards", { mode: "greeting" });
-```
-
-## 📋 이번 주 경매 요약
+# 🎯 Today
 
 ```dataviewjs
-const today = new Date();
-const dayOfWeek = today.getDay();
-const weekStart = new Date(today);
-weekStart.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-weekStart.setHours(0, 0, 0, 0);
-const weekEnd = new Date(weekStart);
-weekEnd.setDate(weekStart.getDate() + 6);
-weekEnd.setHours(23, 59, 59, 999);
+const auctionCount = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case" && p.status === "bidding").length;
+const readingCount = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading").length;
+const workoutCount = dv.pages('"PARA/PROJECTS/Workout"').where(p => p.type === "workout" && p.status === "doing").length;
+const projectCount = dv.pages('"PARA/PROJECTS"').where(p => p.type === "project_family" && (p.Status === "2 In Progress" || p.Status === "1 To Do" || p.Status === "3 Testing")).length;
 
-const allPages = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
-
-const thisWeek = allPages.where(p => {
-  if (!p.auction_date) return false;
-  const d = new Date(p.auction_date);
-  if (isNaN(d.getTime())) return false;
-  return d >= weekStart && d <= weekEnd;
+const grid = this.container.createEl('div', {
+  attr: { style: 'display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px;' }
 });
 
-const needReview = allPages.where(p =>
-  (p.bid_result === "won" || p.bid_result === "lost") && p.review_status === "pending"
-);
+const addStat = (parent, title, subtitle, count, unit, color) => {
+  const box = parent.createEl('div', {
+    attr: { style: 'background:#1a1a1c; border:1px solid #333; border-radius:8px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:2px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);' }
+  });
+  box.createEl('span', { text: title, attr: { style: 'font-weight:bold; font-size:0.9em; color:#fff;' } });
+  box.createEl('span', { text: subtitle, attr: { style: 'font-size:0.75em; color:#8e8e93;' } });
+  box.createEl('span', { text: `${count}${unit}`, attr: { style: `font-size:1.4em; font-weight:bold; color:${color}; margin-top:2px;` } });
+};
 
-const urgent = allPages.where(p => {
-  if (!p.auction_date) return false;
-  const d = new Date(p.auction_date);
-  if (isNaN(d.getTime())) return false;
-  const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
-  return diff >= 0 && diff <= 7;
+addStat(grid, '🏛 Auction', '입찰 예정', auctionCount, '건', '#3b82f6');
+addStat(grid, '📚 Reading', '오늘 읽을 책', readingCount, '권', '#22c55e');
+addStat(grid, '💪 Workout', '오늘 운동', workoutCount, '건', '#ef4444');
+addStat(grid, '📁 Project', '진행 중', projectCount, '개', '#f97316');
+```
+
+---
+
+# 🔍 Quick Navigation
+
+```dataviewjs
+const auctionCount = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case" && p.status === "bidding").length;
+const readingCount = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading").length;
+const workoutCount = dv.pages('"PARA/PROJECTS/Workout"').where(p => p.type === "workout" && p.status === "doing").length;
+const projectCount = dv.pages('"PARA/PROJECTS"').where(p => p.type === "project_family" && (p.Status === "2 In Progress" || p.Status === "1 To Do" || p.Status === "3 Testing")).length;
+
+const navContainer = this.container.createEl('div', {
+  attr: { style: 'display:flex; flex-direction:column; gap:8px; margin-bottom:12px;' }
 });
 
-const cards = allPages.where(p => p.recommend === true && p.status !== "archived" && p.status !== "review_completed");
+const addNavLink = (parent, title, subtext, path, color) => {
+  const row = parent.createEl('div', {
+    attr: { style: 'display:flex; justify-content:space-between; align-items:center; background:#1c1c1e; border:1px solid #333; border-left: 4px solid ' + color + '; border-radius:6px; padding:8px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' }
+  });
+  
+  const left = row.createEl('div', { attr: { style: 'display:flex; flex-direction:column; gap:1px;' } });
+  left.createEl('strong', { text: title, attr: { style: 'color:#fff; font-size:0.9em;' } });
+  left.createEl('span', { text: subtext, attr: { style: 'font-size:0.75em; color:#8e8e93;' } });
+  
+  const right = row.createEl('a', {
+    text: '→ Open',
+    attr: {
+      class: 'internal-link',
+      style: `font-size:0.8em; font-weight:bold; color:${color}; text-decoration:none; cursor:pointer; background:#2c2c2e; padding:3px 8px; border-radius:4px; transition: background 0.2s;`
+    }
+  });
+  
+  right.onclick = () => app.workspace.openLinkText(path, path);
+};
 
-dv.paragraph("> **이번 주 입찰 예정:** " + thisWeek.length + "건 · **복기 필요:** " + needReview.length + "건 · **임박 (D-7):** " + urgent.length + "건 · **추천 매물:** " + cards.length + "건");
+addNavLink(navContainer, '📥 Inbox', '임시 저장 및 빠른 캡처 대기 공간', 'HUB/Inbox.md', '#eab308');
+addNavLink(navContainer, '🏛 Auction Dashboard', `현재 입찰 예정 ${auctionCount}건`, 'HUB/Auction_Dashboard.md', '#3b82f6');
+addNavLink(navContainer, '📚 Reading Dashboard', `오늘 읽을 책 ${readingCount}권`, 'PARA/PROJECTS/Reading', '#22c55e');
+addNavLink(navContainer, '💪 Workout Dashboard', `오늘 운동 ${workoutCount}건`, 'PARA/PROJECTS/Workout', '#ef4444');
+addNavLink(navContainer, '📁 Project Dashboard', `진행중 ${projectCount}개`, 'PARA/PROJECTS', '#f97316');
+addNavLink(navContainer, '🧠 Knowledge Dashboard', '지식 허브 및 연구 자료', 'ZETA', '#a855f7');
 ```
 
+---
 
-## 🔥 Today
+# 🕒 Recent Objects
 
 ```dataviewjs
-await dv.view("SYSTEM/Views/ObjectCards", { mode: "today", days: 7, limit: 10 });
-```
+let recentPages = dv.pages()
+  .where(p => p.type && p.type !== "fleeting_note" && !p.file.path.startsWith("SYSTEM/") && !p.file.path.startsWith("HUB/"))
+  .sort(p => p.file.mtime, 'desc')
+  .limit(7);
 
-## 📥 Capture
+const listContainer = this.container.createEl('div', {
+  attr: { style: 'background:#1a1a1c; border:1px solid #333; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;' }
+});
 
-> [!tip]+ Create Object
-> `BUTTON[prodigy_auction_case]` `BUTTON[prodigy_knowledge]` `BUTTON[prodigy_project]` `BUTTON[prodigy_journal]` `BUTTON[prodigy_quick_note]`
-
-## ▶ Continue
-
-```dataviewjs
-await dv.view("SYSTEM/Views/ObjectCards", { mode: "continue", days: 7, limit: 10 });
-```
-
-## 📊 Needs Review
-
-```dataview
-TABLE WITHOUT ID
-  type AS "Type",
-  file.link AS "Object",
-  status AS "Status",
-  review_status AS "Review",
-  dateformat(due_date, "MM-dd") AS "Due"
-WHERE !contains(file.folder, "SYSTEM")
-AND !contains(file.folder, "HUB")
-AND (
-  review_status = "pending"
-  OR status = "won"
-  OR status = "lost"
-)
-SORT due_date ASC
-```
-
-## 🔍 Navigation
-
-> [!abstract]+ Navigation
-> **[[Map of Content|Home]]** · **[[Daily Note|Daily]]** · **[[PARA/PROJECTS|Projects]]** · **[[ZETA|Knowledge]]** · **[[Omnisearch|Search]]** · **[[SYSTEM|System]]**
-
-```meta-bind-button
-label: Quick Note
-icon: lucide-sticky-note
-hidden: true
-class: ""
-tooltip: Create a quick disposable note
-id: prodigy_quick_note
-style: primary
-actions:
-  - type: command
-    command: quickadd:choice:9a4a8c3c-5e7a-4261-bd7f-85f2891948a7
-```
-
-```meta-bind-button
-label: Auction
-icon: lucide-gavel
-hidden: true
-class: ""
-tooltip: Create a new auction case
-id: prodigy_auction_case
-style: primary
-actions:
-  - type: command
-    command: file-explorer:new-file
-```
-
-```meta-bind-button
-label: Knowledge
-icon: lucide-brain
-hidden: true
-class: ""
-tooltip: Create a knowledge note
-id: prodigy_knowledge
-style: primary
-actions:
-  - type: command
-    command: quickadd:choice:a019f4b7-7f8e-4937-8069-7a9ad8c4b10e
-```
-
-```meta-bind-button
-label: Project
-icon: lucide-folder-kanban
-hidden: true
-class: ""
-tooltip: Create a new project
-id: prodigy_project
-style: primary
-actions:
-  - type: command
-    command: quickadd:choice:e4613d75-73bb-4923-8c77-fd39102a8b9a
-```
-
-```meta-bind-button
-label: Journal
-icon: lucide-calendar
-hidden: true
-class: ""
-tooltip: Open today's daily note
-id: prodigy_journal
-style: primary
-actions:
-  - type: command
-    command: journals:journal:calendar:open-day
+recentPages.forEach(p => {
+  const row = listContainer.createEl('div', {
+    attr: { style: 'display:flex; justify-content:space-between; align-items:center; font-size:0.82em; padding:4px 6px; border-bottom:1px solid #222;' }
+  });
+  
+  const linkEl = row.createEl('a', {
+    text: p.file.name,
+    attr: { class: 'internal-link', style: 'color:#3b82f6; font-weight:bold; cursor:pointer; text-decoration:none;' }
+  });
+  linkEl.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
+  
+  const typeBadge = row.createEl('span', {
+    text: String(p.type).toUpperCase(),
+    attr: { style: 'font-size:0.7em; background:#2c2c2e; color:#ccc; padding:1px 5px; border-radius:3px;' }
+  });
+});
 ```
