@@ -88,12 +88,12 @@ attachments:
 
 ---
 
-
 <!-- STATUS CONTROL -->
 # Status Control
 
-
 ```meta-bind-button
+id: watching
+hidden: true
 style: default
 label: 👀 보는 중
 actions:
@@ -104,6 +104,8 @@ actions:
 ```
 
 ```meta-bind-button
+id: bidding
+hidden: true
 style: default
 label: ⚖️ 입찰 예정
 actions:
@@ -114,6 +116,8 @@ actions:
 ```
 
 ```meta-bind-button
+id: skipped
+hidden: true
 style: default
 label: ❌ 입찰 포기
 actions:
@@ -124,6 +128,8 @@ actions:
 ```
 
 ```meta-bind-button
+id: won
+hidden: true
 style: default
 label: 🏆 낙찰
 actions:
@@ -134,6 +140,8 @@ actions:
 ```
 
 ```meta-bind-button
+id: lost
+hidden: true
 style: default
 label: 💔 패찰
 actions:
@@ -144,6 +152,8 @@ actions:
 ```
 
 ```meta-bind-button
+id: reviewing
+hidden: true
 style: default
 label: 🔄 복기 중
 actions:
@@ -154,6 +164,8 @@ actions:
 ```
 
 ```meta-bind-button
+id: archived
+hidden: true
 style: default
 label: 📦 보관
 actions:
@@ -162,6 +174,8 @@ actions:
     evaluate: false
     value: archived
 ```
+
+`BUTTON[watching, bidding, skipped, won, lost, reviewing, archived]`
 
 ---
 
