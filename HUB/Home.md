@@ -24,10 +24,10 @@ const grid = this.container.createEl('div', {
 
 const addStat = (parent, title, subtitle, count, unit, color) => {
   const box = parent.createEl('div', {
-    attr: { style: 'background:#1a1a1c; border:1px solid #333; border-radius:8px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:2px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);' }
+    attr: { style: 'background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:2px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);' }
   });
-  box.createEl('span', { text: title, attr: { style: 'font-weight:bold; font-size:0.9em; color:#fff;' } });
-  box.createEl('span', { text: subtitle, attr: { style: 'font-size:0.75em; color:#8e8e93;' } });
+  box.createEl('span', { text: title, attr: { style: 'font-weight:bold; font-size:0.9em; color:var(--text-normal);' } });
+  box.createEl('span', { text: subtitle, attr: { style: 'font-size:0.75em; color:var(--text-muted);' } });
   box.createEl('span', { text: `${count}${unit}`, attr: { style: `font-size:1.4em; font-weight:bold; color:${color}; margin-top:2px;` } });
 };
 
@@ -53,18 +53,18 @@ const navContainer = this.container.createEl('div', {
 
 const addNavLink = (parent, title, subtext, path, color) => {
   const row = parent.createEl('div', {
-    attr: { style: 'display:flex; justify-content:space-between; align-items:center; background:#1c1c1e; border:1px solid #333; border-left: 4px solid ' + color + '; border-radius:6px; padding:8px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' }
+    attr: { style: 'display:flex; justify-content:space-between; align-items:center; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-left: 4px solid ' + color + '; border-radius:6px; padding:8px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' }
   });
   
   const left = row.createEl('div', { attr: { style: 'display:flex; flex-direction:column; gap:1px;' } });
-  left.createEl('strong', { text: title, attr: { style: 'color:#fff; font-size:0.9em;' } });
-  left.createEl('span', { text: subtext, attr: { style: 'font-size:0.75em; color:#8e8e93;' } });
+  left.createEl('strong', { text: title, attr: { style: 'color:var(--text-normal); font-size:0.9em;' } });
+  left.createEl('span', { text: subtext, attr: { style: 'font-size:0.75em; color:var(--text-muted);' } });
   
   const right = row.createEl('a', {
     text: '→ Open',
     attr: {
       class: 'internal-link',
-      style: `font-size:0.8em; font-weight:bold; color:${color}; text-decoration:none; cursor:pointer; background:#2c2c2e; padding:3px 8px; border-radius:4px; transition: background 0.2s;`
+      style: `font-size:0.8em; font-weight:bold; color:${color}; text-decoration:none; cursor:pointer; background:var(--background-modifier-hover); padding:3px 8px; border-radius:4px; transition: background 0.2s;`
     }
   });
   
@@ -90,23 +90,23 @@ let recentPages = dv.pages()
   .limit(7);
 
 const listContainer = this.container.createEl('div', {
-  attr: { style: 'background:#1a1a1c; border:1px solid #333; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;' }
+  attr: { style: 'background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;' }
 });
 
 recentPages.forEach(p => {
   const row = listContainer.createEl('div', {
-    attr: { style: 'display:flex; justify-content:space-between; align-items:center; font-size:0.82em; padding:4px 6px; border-bottom:1px solid #222;' }
+    attr: { style: 'display:flex; justify-content:space-between; align-items:center; font-size:0.82em; padding:4px 6px; border-bottom:1px solid var(--background-modifier-border);' }
   });
   
   const linkEl = row.createEl('a', {
     text: p.file.name,
-    attr: { class: 'internal-link', style: 'color:#3b82f6; font-weight:bold; cursor:pointer; text-decoration:none;' }
+    attr: { class: 'internal-link', style: 'color:var(--text-accent); font-weight:bold; cursor:pointer; text-decoration:none;' }
   });
   linkEl.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
   
   const typeBadge = row.createEl('span', {
     text: String(p.type).toUpperCase(),
-    attr: { style: 'font-size:0.7em; background:#2c2c2e; color:#ccc; padding:1px 5px; border-radius:3px;' }
+    attr: { style: 'font-size:0.7em; background:var(--background-modifier-hover); color:var(--text-muted); padding:1px 5px; border-radius:3px;' }
   });
 });
 ```

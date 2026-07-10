@@ -25,7 +25,7 @@ let pages = dv.pages('"ZETA/FLEETING"')
   .sort(p => p.file.mtime, 'desc');
 
 if (pages.length === 0) {
-  dv.paragraph("<span style='color:#8e8e93;font-style:italic;font-size:0.9em;'>대기 중인 임시 기록이 없습니다.</span>");
+  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>대기 중인 임시 기록이 없습니다.</span>");
 } else {
   const tableData = [];
   pages.forEach(p => {
@@ -46,7 +46,7 @@ let pages = dv.pages('"PARA/PROJECTS/Auction"')
   .where(p => !p.next_action || p.next_action === "정보 없음" || !p.expected_bid || p.expected_bid === "정보 없음");
 
 if (pages.length === 0) {
-  dv.paragraph("<span style='color:#8e8e93;font-style:italic;font-size:0.9em;'>보완이 필요한 경매 물건이 없습니다.</span>");
+  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>보완이 필요한 경매 물건이 없습니다.</span>");
 } else {
   const tableData = [];
   pages.forEach(p => {

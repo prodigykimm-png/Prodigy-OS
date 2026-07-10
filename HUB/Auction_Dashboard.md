@@ -31,7 +31,7 @@ window.renderAuctionCard = function(p, container) {
   
   const card = container.createEl('div', {
     attr: {
-      style: `border: 1px solid #2c2c2e; border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: #1c1c1e; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);`
+      style: `border: 1px solid var(--background-modifier-border); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);`
     }
   });
   
@@ -43,7 +43,7 @@ window.renderAuctionCard = function(p, container) {
     text: p.file.name,
     attr: {
       class: 'internal-link',
-      style: 'font-weight: bold; font-size: 0.95em; color: #ffffff; text-decoration: none; cursor: pointer;'
+      style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer;'
     }
   });
   title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
@@ -83,7 +83,7 @@ window.renderAuctionCard = function(p, container) {
     ddayContainer.createEl('span', {
       text: ddayStr,
       attr: {
-        style: `background: ${isUrgent ? '#ef4444' : '#2a2a2a'}; color: #fff; font-size: 0.72em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
+        style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.72em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
       }
     });
   }
@@ -91,7 +91,7 @@ window.renderAuctionCard = function(p, container) {
   if (p.auction_datetime) {
     ddayContainer.createEl('span', {
       text: String(p.auction_datetime).replace('T', ' '),
-      attr: { style: 'font-size: 0.75em; color: #8e8e93;' }
+      attr: { style: 'font-size: 0.75em; color: var(--text-muted);' }
     });
   }
   
@@ -108,7 +108,7 @@ window.renderAuctionCard = function(p, container) {
   
   // Prices Row
   const prices = card.createEl('div', {
-    attr: { style: 'display: flex; gap: 12px; font-size: 0.8em; color: #ccc; background: #2c2c2e; padding: 3px 6px; border-radius: 4px;' }
+    attr: { style: 'display: flex; gap: 12px; font-size: 0.8em; color: var(--text-normal); background: var(--background-modifier-hover); padding: 3px 6px; border-radius: 4px;' }
   });
   
   const toEok = (v) => {
@@ -122,9 +122,9 @@ window.renderAuctionCard = function(p, container) {
     ? ` (${(Number(p.minimum_bid) / Number(p.appraisal_price) * 100).toFixed(0)}%)` 
     : "";
     
-  prices.createEl('div', { html: `감정가: <strong style="color:#fff;">${toEok(p.appraisal_price)}</strong>` });
-  prices.createEl('div', { html: `최저가: <strong style="color:#fff;">${toEok(p.minimum_bid)}${minRateStr}</strong>` });
-  prices.createEl('div', { html: `예상가: <strong style="color:#3b82f6;">${toEok(p.expected_bid)}</strong>` });
+  prices.createEl('div', { html: `감정가: <strong style="color:var(--text-normal);">${toEok(p.appraisal_price)}</strong>` });
+  prices.createEl('div', { html: `최저가: <strong style="color:var(--text-normal);">${toEok(p.minimum_bid)}${minRateStr}</strong>` });
+  prices.createEl('div', { html: `예상가: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>` });
   
   // Recommendation & Next Action
   const detailRow = card.createEl('div', {
@@ -136,14 +136,14 @@ window.renderAuctionCard = function(p, container) {
     const note = p.recommend_note && p.recommend_note !== "정보 없음" ? ` · ${p.recommend_note}` : "";
     const icon = level === "강추" ? "🔥" : level === "추천" ? "👍" : "✨";
     detailRow.createEl('div', {
-      html: `<span style="color:#eab308; font-weight:bold;">${icon} 추천등급: ${level}</span>${note}`,
-      attr: { style: 'color:#ccc;' }
+      html: `<span style="color:var(--text-accent); font-weight:bold;">${icon} 추천등급: ${level}</span>${note}`,
+      attr: { style: 'color:var(--text-muted);' }
     });
   }
   
   detailRow.createEl('div', {
-    html: `→ <strong style="color:#f97316;">Next Action:</strong> ${p.next_action || "⚠️ 설정 필요"}`,
-    attr: { style: 'color:#fff;' }
+    html: `→ <strong style="color:var(--text-accent); font-weight:bold;">Next Action:</strong> ${p.next_action || "⚠️ 설정 필요"}`,
+    attr: { style: 'color:var(--text-normal);' }
   });
   
   // Transition status buttons
@@ -181,19 +181,19 @@ window.renderAuctionCard = function(p, container) {
   
   if (buttons.length > 0) {
     const buttonContainer = card.createEl('div', {
-      attr: { style: 'display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; border-top: 1px solid #2c2c2e; padding-top: 4px;' }
+      attr: { style: 'display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; border-top: 1px solid var(--background-modifier-border); padding-top: 4px;' }
     });
     
     buttonContainer.createEl('span', {
       text: '상태 변경:',
-      attr: { style: 'font-size: 0.72em; color: #8e8e93; display: flex; align-items: center; margin-right: 4px;' }
+      attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; align-items: center; margin-right: 4px;' }
     });
     
     buttons.forEach(opt => {
       const btn = buttonContainer.createEl('button', {
         text: opt.label,
         attr: {
-          style: `font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #2a2a2a; color: #ccc; border: 1px solid ${opt.color}; cursor: pointer;`
+          style: `font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid ${opt.color}; cursor: pointer;`
         }
       });
       
@@ -280,13 +280,13 @@ const mainBox = container.createEl('div', {
 
 // Left Column: Stats Box
 const statsBox = mainBox.createEl('div', {
-  attr: { style: 'background:#1a1a1c;border:1px solid #333;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.2);' }
+  attr: { style: 'background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.2);' }
 });
-statsBox.createEl('div', { text: '🎯 Today 현황', attr: { style: 'font-weight:bold;font-size:0.95em;color:#eab308;border-bottom:1px solid #333;padding-bottom:4px;' } });
+statsBox.createEl('div', { text: '🎯 Today 현황', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
 
 const addStatItem = (parent, label, count, color, isHighlight) => {
   const row = parent.createEl('div', { attr: { style: 'display:flex;justify-content:space-between;align-items:center;font-size:0.85em;' } });
-  row.createEl('span', { text: label, attr: { style: 'color:#8e8e93;' } });
+  row.createEl('span', { text: label, attr: { style: 'color:var(--text-muted);' } });
   row.createEl('span', {
     text: `${count}건`,
     attr: {
@@ -301,25 +301,25 @@ addStatItem(statsBox, '⚠️ Next Action 미작성', missingNextActionCount, '#
 
 // Right Column: Next Action Box
 const actionBox = mainBox.createEl('div', {
-  attr: { style: 'background:#1a1a1c;border:1px solid #333;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.2);' }
+  attr: { style: 'background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.2);' }
 });
-actionBox.createEl('div', { text: '⚡ 다음 Action', attr: { style: 'font-weight:bold;font-size:0.95em;color:#ef4444;border-bottom:1px solid #333;padding-bottom:4px;' } });
+actionBox.createEl('div', { text: '⚡ 다음 Action', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
 
 if (nextCase) {
   const linkRow = actionBox.createEl('div', { attr: { style: 'margin-top:2px;' } });
   linkRow.createEl('span', { text: '→ ', attr: { style: 'color:#ef4444;font-weight:bold;' } });
   const linkEl = linkRow.createEl('a', {
     text: nextCase.file.name.replace('.md',''),
-    attr: { class: 'internal-link', style: 'color:#3b82f6;font-weight:bold;text-decoration:underline;cursor:pointer;font-size:0.9em;' }
+    attr: { class: 'internal-link', style: 'color:var(--text-accent);font-weight:bold;text-decoration:underline;cursor:pointer;font-size:0.9em;' }
   });
   linkEl.onclick = () => app.workspace.openLinkText(nextCase.file.name.replace('.md',''), nextCase.file.path);
   
   actionBox.createEl('div', {
     text: nextCase.fm.next_action || "지정된 액션이 없습니다.",
-    attr: { style: 'font-size:0.85em;color:#ccc;background:#2a2a2c;padding:6px 8px;border-radius:6px;border-left:3px solid #ef4444;margin-top:4px;' }
+    attr: { style: 'font-size:0.85em;color:var(--text-normal);background:var(--background-modifier-hover);padding:6px 8px;border-radius:6px;border-left:3px solid #ef4444;margin-top:4px;' }
   });
 } else {
-  actionBox.createEl('div', { text: '진행 중인 사건이 없습니다.', attr: { style: 'font-size:0.85em;color:#8e8e93;text-align:center;margin-top:12px;' } });
+  actionBox.createEl('div', { text: '진행 중인 사건이 없습니다.', attr: { style: 'font-size:0.85em;color:var(--text-muted);text-align:center;margin-top:12px;' } });
 }
 ```
 
@@ -349,14 +349,14 @@ files.forEach(f => {
 });
 
 const pipelineBox = container.createEl('div', {
-  attr: { style: 'display: flex; gap: 8px; justify-content: space-around; align-items: center; background: #1a1a1c; padding: 12px; border-radius: 10px; border: 1px solid #333; overflow-x: auto;' }
+  attr: { style: 'display: flex; gap: 8px; justify-content: space-around; align-items: center; background: var(--background-secondary); padding: 12px; border-radius: 10px; border: 1px solid var(--background-modifier-border); overflow-x: auto;' }
 });
 
 const makeStep = (parent, label, count, color) => {
   const step = parent.createEl('div', {
-    attr: { style: `display: flex; flex-direction: column; align-items: center; background: #222; border: 1px solid ${color}; border-radius: 6px; padding: 6px 12px; min-width: 80px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);` }
+    attr: { style: `display: flex; flex-direction: column; align-items: center; background: var(--background-modifier-hover); border: 1px solid ${color}; border-radius: 6px; padding: 6px 12px; min-width: 80px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);` }
   });
-  step.createEl('span', { text: label, attr: { style: 'font-size: 0.8em; color: #8e8e93; font-weight: bold;' } });
+  step.createEl('span', { text: label, attr: { style: 'font-size: 0.8em; color: var(--text-muted); font-weight: bold;' } });
   step.createEl('span', { text: String(count), attr: { style: `font-size: 1.25em; font-weight: bold; color: ${color};` } });
   return step;
 };
@@ -370,7 +370,7 @@ const makeGroup = (parent) => {
 const makeArrow = (parent) => {
   parent.createEl('div', {
     text: '→',
-    attr: { style: 'font-size: 1.2em; color: #555; font-weight: bold;' }
+    attr: { style: 'font-size: 1.2em; color: var(--text-muted); font-weight: bold;' }
   });
 };
 
@@ -412,7 +412,7 @@ const setFilter = async (field, value) => {
 const makeSelect = (label, field, options, current) => {
   const row = container.createEl('div', { attr: { style: 'display:inline-flex;align-items:center;margin-right:12px;' } });
   row.createEl('span', { text: label + ' ', attr: { style: 'font-weight:bold;font-size:0.85em;margin-right:4px;' } });
-  const sel = row.createEl('select', { attr: { style: 'font-size:0.85em;padding:2px 6px;border-radius:4px;background:#2a2a2a;color:#ccc;border:1px solid #555;' } });
+  const sel = row.createEl('select', { attr: { style: 'font-size:0.85em;padding:2px 6px;border-radius:4px;background:var(--background-modifier-hover);color:var(--text-normal);border:1px solid var(--background-modifier-border);' } });
   options.forEach(o => {
     const opt = sel.createEl('option', { text: o, value: o });
     if (o === (current || options[0])) opt.selected = true;
@@ -447,7 +447,7 @@ if (filterType !== "전체종류") {
 pages = pages.sort(p => p.auction_datetime || "", 'asc');
 
 if (pages.length === 0) {
-  dv.paragraph("<span style='color:#8e8e93;font-style:italic;font-size:0.9em;'>해당 조건의 입찰 예정 물건이 없습니다.</span>");
+  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>해당 조건의 입찰 예정 물건이 없습니다.</span>");
 } else {
   if (window.renderAuctionCard) {
     pages.forEach(p => window.renderAuctionCard(p, this.container));
@@ -479,7 +479,7 @@ if (filterType !== "전체종류") {
 pages = pages.sort(p => p.auction_datetime || "", 'asc');
 
 if (pages.length === 0) {
-  dv.paragraph("<span style='color:#8e8e93;font-style:italic;font-size:0.9em;'>해당 조건의 검토 중인 물건이 없습니다.</span>");
+  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>해당 조건의 검토 중인 물건이 없습니다.</span>");
 } else {
   if (window.renderAuctionCard) {
     pages.forEach(p => window.renderAuctionCard(p, this.container));
@@ -511,7 +511,7 @@ if (filterType !== "전체종류") {
 pages = pages.sort(p => p.auction_datetime || "", 'desc');
 
 if (pages.length === 0) {
-  dv.paragraph("<span style='color:#8e8e93;font-style:italic;font-size:0.9em;'>해당 조건의 복기 중인 물건이 없습니다.</span>");
+  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>해당 조건의 복기 중인 물건이 없습니다.</span>");
 } else {
   if (window.renderAuctionCard) {
     pages.forEach(p => window.renderAuctionCard(p, this.container));
@@ -543,7 +543,7 @@ if (filterType !== "전체종류") {
 pages = pages.sort(p => p.auction_datetime || "", 'desc');
 
 const details = this.container.createEl("details", {
-  attr: { style: "margin-bottom:12px; background:#18181a; border:1px solid #333; border-radius:8px; padding:10px; width: 100%;" }
+  attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
 });
 details.createEl("summary", {
   text: "🏆 낙찰 물건 목록",
@@ -556,7 +556,7 @@ const contentDiv = details.createEl("div", {
 if (pages.length === 0) {
   contentDiv.createEl("span", {
     text: "해당 조건의 낙찰 물건이 없습니다.",
-    attr: { style: "color:#8e8e93; font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
   });
 } else {
   if (window.renderAuctionCard) {
@@ -587,7 +587,7 @@ if (filterType !== "전체종류") {
 pages = pages.sort(p => p.auction_datetime || "", 'desc');
 
 const details = this.container.createEl("details", {
-  attr: { style: "margin-bottom:12px; background:#18181a; border:1px solid #333; border-radius:8px; padding:10px; width: 100%;" }
+  attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
 });
 details.createEl("summary", {
   text: "💔 패찰 물건 목록",
@@ -600,7 +600,7 @@ const contentDiv = details.createEl("div", {
 if (pages.length === 0) {
   contentDiv.createEl("span", {
     text: "해당 조건의 패찰 물건이 없습니다.",
-    attr: { style: "color:#8e8e93; font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
   });
 } else {
   if (window.renderAuctionCard) {
@@ -631,7 +631,7 @@ if (filterType !== "전체종류") {
 pages = pages.sort(p => p.auction_datetime || "", 'desc');
 
 const details = this.container.createEl("details", {
-  attr: { style: "margin-bottom:12px; background:#18181a; border:1px solid #333; border-radius:8px; padding:10px; width: 100%;" }
+  attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
 });
 details.createEl("summary", {
   text: "❌ 입찰 포기 물건 목록",
@@ -644,7 +644,7 @@ const contentDiv = details.createEl("div", {
 if (pages.length === 0) {
   contentDiv.createEl("span", {
     text: "해당 조건의 입찰 포기 물건이 없습니다.",
-    attr: { style: "color:#8e8e93; font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
   });
 } else {
   if (window.renderAuctionCard) {
@@ -675,11 +675,11 @@ if (filterType !== "전체종류") {
 pages = pages.sort(p => p.auction_datetime || "", 'desc');
 
 const details = this.container.createEl("details", {
-  attr: { style: "margin-bottom:12px; background:#18181a; border:1px solid #333; border-radius:8px; padding:10px; width: 100%;" }
+  attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
 });
 details.createEl("summary", {
   text: "📦 보관 물건 목록",
-  attr: { style: "font-weight:bold; cursor:pointer; color:#8e8e93; font-size:1.1em;" }
+  attr: { style: "font-weight:bold; cursor:pointer; color:var(--text-muted); font-size:1.1em;" }
 });
 const contentDiv = details.createEl("div", {
   attr: { style: "margin-top:10px;" }
@@ -688,7 +688,7 @@ const contentDiv = details.createEl("div", {
 if (pages.length === 0) {
   contentDiv.createEl("span", {
     text: "해당 조건의 보관 물건이 없습니다.",
-    attr: { style: "color:#8e8e93; font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
   });
 } else {
   if (window.renderAuctionCard) {
