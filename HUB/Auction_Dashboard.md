@@ -31,7 +31,7 @@ window.renderAuctionCard = function(p, container) {
   
   const card = container.createEl('div', {
     attr: {
-      style: `border: 1px solid var(--background-modifier-border); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);`
+      style: `border: 1px solid var(--background-modifier-border-hover); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-primary-alt); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.15);`
     }
   });
   
