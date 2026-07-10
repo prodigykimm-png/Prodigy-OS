@@ -24,7 +24,7 @@ const grid = this.container.createEl('div', {
 
 const addStat = (parent, title, subtitle, count, unit, color) => {
   const box = parent.createEl('div', {
-    attr: { style: 'background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:2px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);' }
+    attr: { style: 'background:linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25)), var(--background-primary-alt); border:1px solid var(--background-modifier-border-focus); border-radius:8px; padding:10px; display:flex; flex-direction:column; align-items:center; gap:2px; box-shadow: 0 4px 10px rgba(0,0,0,0.25);' }
   });
   box.createEl('span', { text: title, attr: { style: 'font-weight:bold; font-size:0.9em; color:var(--text-normal);' } });
   box.createEl('span', { text: subtitle, attr: { style: 'font-size:0.75em; color:var(--text-muted);' } });
@@ -53,7 +53,7 @@ const navContainer = this.container.createEl('div', {
 
 const addNavLink = (parent, title, subtext, path, color) => {
   const row = parent.createEl('div', {
-    attr: { style: 'display:flex; justify-content:space-between; align-items:center; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-left: 4px solid ' + color + '; border-radius:6px; padding:8px 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' }
+    attr: { style: 'display:flex; justify-content:space-between; align-items:center; background:linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25)), var(--background-primary-alt); border:1px solid var(--background-modifier-border-focus); border-left: 4px solid ' + color + '; border-radius:6px; padding:8px 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.25);' }
   });
   
   const left = row.createEl('div', { attr: { style: 'display:flex; flex-direction:column; gap:1px;' } });
@@ -90,7 +90,7 @@ let recentPages = dv.pages()
   .limit(7);
 
 const listContainer = this.container.createEl('div', {
-  attr: { style: 'background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px;' }
+  attr: { style: 'background:linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25)), var(--background-primary-alt); border:1px solid var(--background-modifier-border-focus); border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:6px; box-shadow: 0 4px 10px rgba(0,0,0,0.25);' }
 });
 
 recentPages.forEach(p => {
