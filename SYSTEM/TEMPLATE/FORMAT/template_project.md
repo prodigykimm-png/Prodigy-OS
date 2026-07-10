@@ -1,39 +1,48 @@
 ---
-Priority_Level: 
-Status: 
-Date_Created: 
-Due_Date: 
-connections: 
+type: project
+status: idea
+priority: 보통
+start_date: 
+due_date: 
+next_action: 
+review_date: 
+category: 
 tags:
   - project
-type: project_family
 cssclasses:
   - hide-properties_editing
   - hide-properties_reading
 ---
-# <% tp.file.title %>
+# 프로젝트 개요
 
-<!-- PROPERTY-DRIVEN SUMMARY -->
-## Object Summary
-
-| Property | Value |
-|----------|-------|
-| 상태 | `= this.Status` |
-| 우선순위 | `= this.Priority_Level` |
-| 마감일 | `= this.Due_Date` |
-| 생성일 | `= this.Date_Created` |
-
-**Connections:** `INPUT[inlineListSuggester(optionQuery(#area)):connections]`
+* **카테고리**: `= this.category`
+* **우선순위**: `= this.priority`
+* **시작일**: `= this.start_date` | **목표완료일**: `= this.due_date`
+* **Next Action**: `= this.next_action`
 
 ---
 
-## Description
+## 🎯 목표 및 세부 계획
 
 
-## Notes
+## ✍️ 메모 및 진행 상황
 
 
-## Definition of Done
+---
 
+## 🔄 복기 (Review)
 
-<%* tp.hooks.on_all_templates_executed(async () => { const file = tp.file.find_tfile(tp.file.path(true)); const folder_name = tp.file.folder().toLowerCase().replace(/ /g, "_"); await app.fileManager.processFrontMatter(file, (frontmatter) => { frontmatter["tags"] = [`#project/${folder_name}`]; }); }); -%>
+### 결과
+- 
+
+### 잘한 점
+- 
+
+### 아쉬운 점
+- 
+
+### 다음 프로젝트에서는
+- 
+
+### AI에게 남기는 메모
+- 
