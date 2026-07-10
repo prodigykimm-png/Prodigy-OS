@@ -1,4 +1,4 @@
-# Prodigy OS Capture System v1.0
+# Prodigy OS Capture System v2.0
 
 > "Capture는 빠르게, 구조화는 AI가, 결정은 사람이."
 
@@ -6,112 +6,86 @@
 
 # Purpose
 
-Capture System은 Prodigy OS의 모든 입력 방식을 정의한다.
+Capture System은 Prodigy OS의 입력 방식을 정의한다.
 
 Prodigy OS에서 Capture의 목적은 기록이 아니다.
 
-Object를 생성하기 위한 시작점이다.
+**Auction Object를 생성하기 위한 시작점**이다.
 
 Capture는 가능한 한 빠르고 단순해야 한다.
-
----
-
-# Capture Philosophy
-
-Prodigy OS는
-
-"입력을 최소화하고,
-
-정보를 최대화한다."
-
-사람은 최소한만 입력한다.
-
-AI는 가능한 많은 정보를 자동으로 구조화한다.
-
-사람은 생성된 결과를 확인하고 승인한다.
 
 ---
 
 # Capture Flow
 
 ```
-
-Capture
-
-↓
-
-AI Parsing
-
-↓
-
-Human Confirmation
-
-↓
-
-Object Created
-
-↓
-
-Enrichment
-
-↓
-
-Review
-
+Web Sources
+    │
+    ▼
+Aside Capture
+    │
+    ▼
+Auction Object
+├── YAML Property
+├── Summary
+└── Collected Facts
+    │
+    ▼
+Dashboard
+    │
+    ▼
+Decision (Human Only)
+    │
+    ▼
+Review (Human Only)
 ```
 
 ---
 
-# Capture Sources
+# Aside Capture
 
-Prodigy OS는 다양한 입력을 지원한다.
+Aside는 LLM을 활용하여
 
-- URL
-- PDF
-- Image
-- Plain Text
-- Voice
-- Drag & Drop
+**Auction Object를 직접 생성**한다.
 
-모든 입력은 동일한 Capture Flow를 따른다.
+Aside는 다음을 생성한다.
+
+- YAML Property
+- Summary
+- Collected Facts
+- Source URL
+- Recommendation (Standardized)
+
+Aside는 아래 작업을 수행하지 않는다.
+
+- 예상 입찰가 계산
+- ROI 계산
+- 투자 판단
+- 입찰 여부
+- Decision 작성
+- Review 작성
+
+Decision과 Review는
+
+항상 사용자 영역으로 유지한다.
 
 ---
 
-# Progressive Disclosure
+# YAML Rule
 
-Capture에서는 모든 정보를 한 번에 입력하지 않는다.
+Capture 단계에서는
 
-필요한 시점에 필요한 정보만 요청한다.
+Auction Template의 YAML Property를 반드시 생성한다.
 
-예)
+Property 이름은 변경하지 않는다.
 
-Auction
+Property를 임의로 추가하지 않는다.
 
-Step 1
+확인 가능한 값만 입력한다.
 
-PDF 업로드
+확인되지 않은 값은 비워둔다.
 
-↓
-
-AI Parsing
-
-↓
-
-Step 2
-
-예상 입찰가 입력
-
-↓
-
-Step 3
-
-입찰 결과 입력
-
-↓
-
-Step 4
-
-Review
+추론하여 작성하지 않는다.
 
 ---
 
@@ -129,6 +103,8 @@ AI 입력
 - 면적
 - 감정가
 - 사건번호
+- 입찰일
+- 법원정보
 
 사람 입력
 
@@ -157,49 +133,13 @@ AI가 생성한 정보는
 
 ---
 
-# Capture Levels
+# Capture Principles
 
-Level 1
-
-Quick Capture
-
-↓
-
-Level 2
-
-AI Parsing
-
-↓
-
-Level 3
-
-Human Confirmation
-
-↓
-
-Level 4
-
-Enrichment
-
-↓
-
-Level 5
-
-Review
-
----
-
-# Design Principles
-
-Capture는 3초 안에 시작할 수 있어야 한다.
-
-Capture는 Property를 요구하지 않는다.
-
-Capture는 Folder를 요구하지 않는다.
-
-Capture는 Tag를 요구하지 않는다.
-
-Capture는 사용자의 흐름을 끊지 않는다.
+1. Capture는 3초 안에 시작할 수 있어야 한다.
+2. Capture 결과물은 Dashboard가 즉시 사용할 수 있는 Object이다.
+3. Capture는 Property를 요구하지 않는다. AI가 구조화한다.
+4. Capture는 Folder를 요구하지 않는다.
+5. Capture는 사용자의 흐름을 끊지 않는다.
 
 ---
 
@@ -213,14 +153,19 @@ Capture는
 
 미래의 Asset을 만드는 시작점이다.
 
+Aside는 이 시작점에서
+
+완성된 Auction Object를 생성한다.
+
 ---
 
-**Version:** 1.0
+**Version:** 2.0
 
 **Status:** Active
+
+**Supersedes:** Capture System v1.0
 
 **Depends on:**
 - 00_Constitution.md
 - 01_Architecture.md
-- 02_Core_Concepts.md
 - 03_Object_Model.md

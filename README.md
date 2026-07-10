@@ -1,11 +1,10 @@
 # Prodigy OS
 
 > **Transforming everyday experience into lifelong decision assets.**
->
+
 > **일상의 경험을 평생의 의사결정 자산으로 만든다.**
 
 ---
-
 
 Prodigy는
 
@@ -54,6 +53,7 @@ Dusk의 PARA 구조와 Zettelkasten 철학을 존중한다.
 Capture, Review, Object, Decision Support를 확장한다.
 
 ---
+
 # What is Prodigy OS?
 
 Prodigy OS는 단순한 Obsidian Vault가 아니다.
@@ -118,66 +118,42 @@ AI의 이해를 높이며
 
 ---
 
-# Core Concept
-
-Prodigy OS의 기본 단위는 **Note**가 아니다.
-
-기본 단위는 **Object**이다.
-
-대표 Object
-
-- Auction Case
-- Project
-- Knowledge
-- Reading
-- Workout
-- Journal
-
-모든 Object는
-
-시간이 지나며
-
-하나의 **Asset**으로 성장한다.
-
----
-
 # Architecture
 
 ```text
-                 Human
-                    │
-                    ▼
-             Capture Layer
-                    │
-                    ▼
-            AI Parsing Layer
-                    │
-                    ▼
-              Object Layer
-                    │
-     ┌──────────────┼──────────────┐
-     ▼              ▼              ▼
- Property        Content        Workflow
-                    │
-                    ▼
-               View Layer
-                    │
-        AI / Automation Layer
-                    ▼
-            Decision Support
+Web Sources
+    │
+    ▼
+Aside Capture
+    │
+    ▼
+Auction Object
+├── YAML Property
+├── Summary
+└── Collected Facts
+    │
+    ▼
+Dashboard
+    │
+    ▼
+Decision (Human Only)
+    │
+    ▼
+Review (Human Only)
 ```
 
-Prodigy OS는
+핵심 원칙:
 
-**Capture → Structure → Manage → Analyze → Decide**
-
-라는 하나의 흐름으로 동작한다.
+```
+Object stores data.
+Dashboard calculates.
+AI assists.
+Humans decide.
+```
 
 ---
 
 # Core Principles
-
-Prodigy OS는 다음 원칙을 항상 따른다.
 
 ### Capture Less
 
@@ -219,45 +195,27 @@ Prodigy OS는 문서를 중심으로 개발된다.
 
 ```text
 docs/PROJECT_IDENTITY.md
-
-↓
-
+    ↓
 docs/00_Constitution.md
-
-↓
-
+    ↓
 docs/01_Architecture.md
-
-↓
-
+    ↓
 docs/02_Core_Concepts.md
-
-↓
-
+    ↓
 docs/03_Object_Model.md
-
-↓
-
+    ↓
 docs/04_Capture_System.md
-
-↓
-
+    ↓
 docs/05_Home.md
-
-↓
-
+    ↓
 docs/06_AI_System.md
-
-↓
-
+    ↓
 docs/07_Implementation_Guide.md
-
-↓
-
+    ↓
 docs/ADR/
-
-↓
-
+    ↓
+docs/09_Obsidian_Manual.md
+    ↓
 Roadmap.md
 ```
 
@@ -269,111 +227,30 @@ Roadmap.md
 
 ```text
 Idea
-
-↓
-
+    ↓
 Discussion
-
-↓
-
+    ↓
 Documentation
-
-↓
-
-ADR
-
-↓
-
+    ↓
+ADR (Architecture 변경 시)
+    ↓
 Implementation
-
-↓
-
+    ↓
 Real Usage
-
-↓
-
+    ↓
 Reflection
-
-↓
-
+    ↓
 Documentation Update
 ```
 
-채팅은 브레인스토밍이다.
-
-문서는 공식이다.
-
 ---
 
-# Current Status
-
-## Phase 1 — Foundation ✅
-
-- Constitution
-- Architecture
-- Core Concepts
-- Object Model
-- Capture System
-- Home
-- AI System
-- Implementation Guide
-
----
-
-## Next Phase
-
-- ADR 작성
-- Roadmap 작성
-- Auction MVP
-- Home MVP
-- AI Capture MVP
-- 첫 번째 실제 Object 검증
-
----
-
-# Technology
-
-Current Platform
-
-- Obsidian
-
-Future Stack
-
-- Python
-- MCP
-- PostgreSQL
-- n8n
-- OpenAI API
-- Claude
-- Gemini
-- AI Agents
-
-Prodigy OS는 특정 플랫폼이나 특정 AI에 종속되지 않는다.
-
----
-
-# Final Statement
-
-Prodigy OS는
-
-노트를 관리하는 프로젝트가 아니다.
-
-AI와 함께
-
-**일상의 경험을 평생의 의사결정 자산으로 성장시키는 Personal Operating System**이다.
-
----
-
-## Motto
-
-> **Capture Less.**
->
-> **Think Better.**
->
-> **Decide Smarter.**
-
----
+**Version:** 1.0
 
 **Status:** Active
 
-**Version:** v0.1 Foundation
+**Depends on:**
+- docs/00_Constitution.md
+- docs/01_Architecture.md
+- docs/02_Core_Concepts.md
+- docs/03_Object_Model.md

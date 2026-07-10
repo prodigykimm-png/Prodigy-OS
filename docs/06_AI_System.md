@@ -1,4 +1,4 @@
-# Prodigy OS AI System v1.0
+# Prodigy OS AI System v2.0
 
 > "AI는 기록하지 않는다. AI는 이해한다."
 
@@ -51,11 +51,7 @@ PDF
 
 ↓
 
-주소 추출
-
-↓
-
-사건번호 추출
+주소/사건번호 추출
 
 ↓
 
@@ -73,18 +69,6 @@ Property 생성
 
 ↓
 
-Knowledge Object
-
-사진
-
-↓
-
-Workout Object
-
-URL
-
-↓
-
 Auction Object
 
 ---
@@ -99,15 +83,11 @@ Auction Object
 
 ↓
 
-네이버 시세
+네이버 시세 / 과거 거래
 
 ↓
 
-과거 거래
-
-↓
-
-예상 수익률 계산
+Dashboard 계산 설명
 
 ---
 
@@ -121,67 +101,32 @@ Auction
 
 ↓
 
-세법
-
-↓
-
-감정평가
-
-↓
-
-투자 전략
+세법 / 감정평가 / 투자 전략
 
 ---
 
-## 5. Recommend
+## 5. Assist Decision
 
-다음 행동을 추천한다.
+데이터를 제시한다.
 
 예)
 
-시장조사를 진행하세요.
+- "이 물건의 예상 적정가: X억~Y억"
+- "유사 물건 최저가율: 평균 X%"
+- "당신의 낙찰 성공률이 가장 높은 구간: 최저가율 XX~YY%"
 
-복기가 필요합니다.
-
-예상 입찰가를 입력하세요.
+AI는 최종 결정을 내리지 않는다.
 
 ---
 
-## 6. Review
+## 6. Review Support
 
-Review를 생성한다.
-
-예)
-
-패찰 원인
-
-↓
-
-패턴 분석
-
-↓
-
-다음 전략 제안
-
----
-
-## 7. Learn
-
-사용자의 데이터를 기반으로
-
-개인화된 추천을 수행한다.
+복기 데이터를 기반으로 패턴을 제시한다.
 
 예)
 
-인천 오피스텔
-
-↓
-
-낙찰 성공률
-
-↓
-
-추천 입찰가
+- "최저가율 80% 이상에서 패찰률 80%"
+- "인천 오피스텔 낙찰 성공률: 45%"
 
 ---
 
@@ -199,6 +144,8 @@ AI는
 - 투자 결정을 대신하지 않는다.
 - 데이터를 임의로 삭제하지 않는다.
 - Property를 사용자 승인 없이 변경하지 않는다.
+- Decision을 자동으로 작성하지 않는다.
+- Review를 자동으로 작성하지 않는다.
 
 ---
 
@@ -216,6 +163,7 @@ AI는
 - 수정
 - 삭제
 - 의사결정
+- Review 작성
 
 을 담당한다.
 
@@ -224,41 +172,23 @@ AI는
 # AI Pipeline
 
 ```
-
 Capture
-
-↓
-
+    ↓
 Parse
-
-↓
-
+    ↓
 Structure
-
-↓
-
+    ↓
 Enrich
-
-↓
-
-Recommend
-
-↓
-
+    ↓
+Assist Decision
+    ↓
 Human Confirm
-
-↓
-
+    ↓
 Object Updated
-
-↓
-
-Review
-
-↓
-
+    ↓
+Review Support
+    ↓
 Knowledge Asset
-
 ```
 
 ---
@@ -273,11 +203,9 @@ Confidence를 가진다.
 
 예)
 
-High
-
-Medium
-
-Low
+- High
+- Medium
+- Low
 
 Confidence가 낮으면
 
@@ -287,190 +215,29 @@ Confidence가 낮으면
 
 ---
 
-# AI Memory
-
-AI는
-
-Property를 기억한다.
-
-AI는
-
-과거 Review를 기억한다.
-
-AI는
-
-Object 간 연결을 기억한다.
-
-AI는
-
-사용자의 패턴을 학습한다.
-
----
-
-# AI Interaction Rules
-
-AI는
-
-질문보다
-
-제안을 우선한다.
-
-예)
-
-❌
-
-이걸 입력하시겠습니까?
-
-⭕
-
-PDF를 분석했습니다.
-
-예상 입찰가만 입력하면 분석을 완료할 수 있습니다.
-
----
-
-AI는
-
-긴 설명보다
-
-행동(Action)을 제안한다.
-
----
-
-# AI Trigger
-
-AI는 다음 상황에서 동작한다.
-
-- Capture
-- Object 생성
-- Property 변경
-- Review 작성
-- Dashboard 요청
-- 검색 결과 분석
-
-AI는
-
-항상 필요할 때만 호출한다.
-
----
-
-# AI Output
-
-AI는
-
-항상
-
-구조화된 결과를 반환한다.
-
-예)
-
-Property
-
-Summary
-
-Recommendation
-
-Confidence
-
-Reason
-
-Next Action
-
----
-
-# Design Principles
-
-AI는
-
-정보를 이해한다.
-
-AI는
-
-사람의 시간을 절약한다.
-
-AI는
-
-반복 작업을 자동화한다.
-
-AI는
-
-사용자를 대신하지 않는다.
-
-AI는
-
-항상 사람을 지원한다.
-
----
-
-# Future Vision
-
-향후 Prodigy OS는
-
-여러 AI가 협업하는 구조를 목표로 한다.
-
-예)
-
-Parsing Agent
-
-Investment Agent
-
-Knowledge Agent
-
-Review Agent
-
-Automation Agent
-
-모든 AI는
-
-동일한 Object와 Property를 공유한다.
-
----
-
 # Final Statement
 
-Prodigy OS에서
+Prodigy OS에서 AI는
 
-AI는 기능이 아니다.
+사용자의 입력을 줄이고,
 
-AI는
+Object 생성을 지원하며,
 
-Object를 이해하고,
+Dashboard 계산을 설명하고,
 
-Asset을 성장시키며,
+의사결정을 보조한다.
 
-더 나은 의사결정을 지원하는
-
-Core System이다.
-
-AI는
-
-새로운 구조를 만들지 않는다.
-
-AI는
-
-기존 구조 안에서
-
-분류하고
-
-Property를 채우고
-
-Review를 생성하고
-
-추천한다.
-
-AI는
-
-Architecture를 복잡하게 만들지 않는다.
+최종 결정은 사람이 수행한다.
 
 ---
 
-**Version:** 1.0
+**Version:** 2.0
 
 **Status:** Active
+
+**Supersedes:** AI System v1.0
 
 **Depends on:**
 - 00_Constitution.md
 - 01_Architecture.md
-- 02_Core_Concepts.md
 - 03_Object_Model.md
-- 04_Capture_System.md
