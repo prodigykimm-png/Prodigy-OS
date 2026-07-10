@@ -78,6 +78,7 @@ attachments:
 | 감정가 | `= this.appraisal_price` |
 | 최저매각가 | `= this.minimum_bid` |
 | 최저가율 | `= this.minimum_bid_rate` |
+| 예상 입찰가 | `= this.expected_bid` |
 | 입찰일 | `= this.auction_date` |
 | 상태 | `= this.status` |
 | next_action | `= this.next_action` |
