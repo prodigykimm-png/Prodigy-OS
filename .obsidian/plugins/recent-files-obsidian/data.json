@@ -5,12 +5,12 @@
       "path": "HUB/Auction_Dashboard.md"
     },
     {
-      "basename": "Home",
-      "path": "HUB/Home.md"
-    },
-    {
       "basename": "Inbox",
       "path": "HUB/Inbox.md"
+    },
+    {
+      "basename": "Home",
+      "path": "HUB/Home.md"
     },
     {
       "basename": "Mobile Homepage",
