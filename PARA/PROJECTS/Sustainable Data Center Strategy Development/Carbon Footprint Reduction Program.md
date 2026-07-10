@@ -32,4 +32,9 @@ This task entails conducting a detailed analysis of current emissions from data 
 
 # Definition of Done
 
-Task is complete when an emissions reduction plan with quantifiable goals and timelines is approved and set for execution.
+
+---
+
+## 🇰🇷 개요
+
+이 작업은 데이터 센터 운영의 현재 배출량에 대한 상세 분석을 수행하고, 감축 기회를 식별하며, 탄소 배출을 줄이기 위한 측정 가능한 목표를 설정하는 것을 포함한다. 여기에는 Scope 1(직접), Scope 2(간접), Scope 3(공급망) 배출이 포함된다.

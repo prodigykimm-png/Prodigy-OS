@@ -10,7 +10,7 @@ cssclasses:
   - hide-properties_editing
   - hide-properties_reading
 _previous_status: 3 Testing
-closed: 2024-11-12T18:48
+closed: 2026-07-10T10:54
 connections:
   - "[[2. Space Tourism Initiatives|2. Space Tourism Initiatives]]"
 ---
@@ -34,4 +34,9 @@ This task evaluates the technical and financial feasibility of designing an orbi
 
 # Definition of Done
 
-The task is complete when the feasibility study and initial designs are approved by stakeholders, and budget estimates are aligned with financial goals.
+
+---
+
+## 🇰🇷 개요
+
+이 작업은 단기 체류를 위한 궤도 호텔 설계의 기술적, 재정적 타당성을 평가한다. 역 설계 요구사항, 비용 예측, 잠재적 게스트 수용 인원이 포함되며, 업계 안전 표준과의 정렬을 보장한다.

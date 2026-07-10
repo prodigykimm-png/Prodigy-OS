@@ -33,4 +33,9 @@ This task involves regular auditing of AI algorithms to detect and correct poten
 
 # Definition of Done
 
-Task is complete when AI models are adjusted, bias is minimized, and a process is in place for periodic re-audits.
+
+---
+
+## 🇰🇷 개요
+
+이 작업은 잠재적 편향을 탐지하고 수정하기 위해 AI 알고리즘을 정기적으로 감사하는 것을 포함한다. 다양한 주행 시나리오의 데이터 수집, 편향 분석, 모든 인구 통계와 환경에서 공정한 의사결정을 보장하기 위한 조정이 포함된다.

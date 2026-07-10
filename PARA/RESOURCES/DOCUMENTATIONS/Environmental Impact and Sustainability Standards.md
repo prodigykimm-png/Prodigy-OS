@@ -33,4 +33,9 @@ This document establishes **sustainability standards** and protocols to minimize
 5. **Community and Environmental Impact Assessments**
     
     - **Impact Studies**: Requirements for conducting environmental impact studies before expansion projects to assess potential harm to local ecosystems and communities.
-    - **Community Engagement**: Sets protocols for involving local communities in sustainability efforts, including education and awareness programs.
+
+---
+
+## 🇰🇷 개요
+
+이 문서는 우주 관광과 데이터 센터 모두의 환경 영향을 최소화하기 위한 **지속 가능성 표준**과 프로토콜을 확립한다. 이 산업들이 확장됨에 따라 자원 사용을 제한하고 생태계를 보호하기 위한 강력한 프레임워크를 만드는 것이 필수적이다.

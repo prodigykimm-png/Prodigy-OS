@@ -29,4 +29,9 @@ This documentation establishes detailed safety protocols designed for **high-ris
     - **Public Safety Standards**: Establishes guidelines for customer safety education, ensuring that both vehicle passengers and space tourists are aware of system limitations and emergency protocols.
 4. **Documentation and Public Accountability**
     
-    - **Incident Reporting**: Details requirements for transparent incident reporting and public accountability, which includes quarterly safety reports, performance audits, and detailed documentation of any major incidents.
+
+---
+
+## 🇰🇷 개요
+
+이 문서는 우주 관광과 자율주행차 AI 모두에서 **고위험, 최첨단 기술**을 위해 설계된 상세 안전 프로토콜을 확립한다. 통합 안전 프로토콜을 개발함으로써, 인간의 생명이 AI 기반 또는 고기술 시스템에 직접적으로 영향을 받는 산업 전반에 걸쳐 안전 관행을 표준화하는 것을 목표로 한다.

@@ -32,4 +32,9 @@ This task focuses on developing and testing methods for optimizing compatibility
 
 # Definition of Done
 
-Task is complete when a compatibility testing report, detailing successful integration methods and recommendations, is finalized and approved by engineering leads.
+
+---
+
+## 🇰🇷 개요
+
+이 작업은 SpaceX와 Blue Origin 우주선 간의 호환성을 최적화하기 위한 방법을 개발하고 테스트하는 데 초점을 맞춘다. 공동 임무 중 원활한 운영을 위한 도킹 시스템, 생명 유지 통합, 통신 프로토콜 분석을 포함한다.

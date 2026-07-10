@@ -2,7 +2,7 @@
 cssclasses:
   - hide-properties_reading
 card_status: 전체
-card_region: 부산
+card_region: 인천
 card_type: 오피스텔
 card_recommend: 전체
 agg_status: 진행중

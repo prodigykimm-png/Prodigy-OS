@@ -33,4 +33,9 @@ To outline regulatory requirements and ethical standards necessary to navigate *
 5. **Environmental Compliance in Data Centers**
     
     - **Green Certifications**: Provides guidance on acquiring green certifications for data centers, ensuring they meet standards for energy efficiency.
-    - **Compliance Monitoring**: Establishes a compliance monitoring schedule with bi-annual audits to review adherence to environmental and ethical standards.
+
+---
+
+## 🇰🇷 개요
+
+이 문서는 자율주행차와 데이터 센터에서의 **AI 및 데이터 규정 준수**에 필요한 규제 요구사항과 윤리 표준을 개요화한다. 법적 준수를 보장하고, 사용자 개인정보를 보호하며, 투명한 프로세스를 수립하는 것을 목표로 한다.

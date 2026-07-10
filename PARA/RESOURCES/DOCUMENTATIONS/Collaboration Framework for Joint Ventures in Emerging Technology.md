@@ -33,4 +33,9 @@ This framework provides a **structured approach to collaboration** between major
 5. **Long-Term Partnership Goals**
     
     - **Innovation Goals**: Focus on sustainable tech innovations, such as low-emission rocket fuels and renewable energy for data centers.
-    - **Public Good**: Commits to the development of shared standards that benefit society, such as open-source safety technology for use across both sectors.
+
+---
+
+## 🇰🇷 개요
+
+이 프레임워크는 신흥 기술 부문의 주요 기업 간의 **구조화된 협업 접근 방식**을 제공한다. 특히 우주 관광과 그린 기술 이니셔티브에 관여된 기업들을 대상으로 한다. 지속 가능성과 안전이라는 공유 목표가 부각됨에 따라, 효율적인 협업과 투명한 파트너십을 장려하는 모델을 개발하는 것이 중요하다.

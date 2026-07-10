@@ -13,3 +13,9 @@ This document reviews **potential renewable energy providers**, particularly sol
 - **Provider Profiles**: Lists potential partners and their renewable energy offerings.
 - **Geographical Fit**: Analysis of location-based energy availability to optimize efficiency.
 - **Next Actions**: Tim Cook will initiate discussions with select providers based on this shortlist.
+
+---
+
+## 🇰🇷 개요
+
+이 문서는 장기 데이터 센터 운영에 적합한 잠재적 **재생 에너지 공급업체**를 검토하며, 특히 태양광 및 풍력 에너지원에 초점을 맞춘다.

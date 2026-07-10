@@ -19,3 +19,9 @@ This document provides a comprehensive set of **safety and redundancy protocols*
 - **Crash Avoidance Algorithms**:
     - **Real-Time Decision-Making**: Details the need for advanced algorithms that can make split-second decisions to avoid collisions.
     - **Predictive Analysis**: Algorithms should anticipate potential hazards, allowing for smoother and safer navigation.
+
+---
+
+## 🇰🇷 개요
+
+이 문서는 자율주행차량과 관련된 위험을 최소화하기 위해 설계된 포괄적인 **안전 및 중복 프로토콜**을 제공한다. 프로토콜은 다계층 안전 접근 방식을 강조하여, 하나의 시스템이 실패하더라도 사고를 방지하기 위한 백업 메커니즘이 마련되어 있도록 보장한다.

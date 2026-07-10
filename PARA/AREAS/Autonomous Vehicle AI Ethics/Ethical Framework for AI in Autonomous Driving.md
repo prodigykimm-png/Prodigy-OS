@@ -16,3 +16,9 @@ This document lays out the **ethical framework** for the design, development, an
     - **Equity**: Ensures that AI in autonomous vehicles serves diverse populations without bias in data or design.
 - **Guidelines for Development**: AI models must be tested across diverse demographics and driving environments to ensure robustness and inclusivity.
 - **Public Disclosure Requirements**: Recommendations for regular public disclosures on AI system updates and safety improvements to build and maintain trust among users.
+
+---
+
+## 🇰🇷 개요
+
+이 문서는 자율주행차량의 AI 시스템 설계, 개발, 배포를 위한 **윤리적 프레임워크**를 수립한다. 이 프레임워크의 목표는 AI가 정의된 도덕적, 윤리적 경계 내에서 운영되도록 하여 **인간 안전, 공정성, 책임성**을 우선시하는 것이다.

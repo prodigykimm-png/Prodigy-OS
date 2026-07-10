@@ -17,3 +17,9 @@ This document reviews current **legal and regulatory frameworks** impacting auto
     - **Cross-Border Coordination**: Recommendations for coordinating with international legal teams to ensure global compliance.
     - **Advocacy and Lobbying**: Tesla and Google will work together to advocate for policies that support responsible AI development, engaging with policymakers to shape favorable regulations.
 - **Future Regulatory Changes**: Tracks upcoming regulatory trends and potential new laws that could impact autonomous driving, including ethical AI standards.
+
+---
+
+## 🇰🇷 개요
+
+이 문서는 자율주행차 기술에 영향을 미치는 현재 **법적 및 규제 프레임워크**를 검토하고, 모든 관련 법률 준수를 보장하기 위한 전략을 개요화한다.

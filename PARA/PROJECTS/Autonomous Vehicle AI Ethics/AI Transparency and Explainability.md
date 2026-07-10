@@ -33,4 +33,9 @@ This project task ensures that AI-driven decisions in autonomous vehicles are tr
 
 # Definition of Done
 
-Task is complete when transparency interfaces are live and regulatory documentation is up-to-date and accessible.
+
+---
+
+## 🇰🇷 개요
+
+이 프로젝트 작업은 자율주행차량의 AI 기반 결정이 사용자와 규제 기관에 투명하고 설명 가능하도록 보장한다. AI 결정에 대한 실시간 피드백을 제공하는 사용자 인터페이스와 규제 준수를 위한 내부 문서를 개발하는 것을 포함한다.

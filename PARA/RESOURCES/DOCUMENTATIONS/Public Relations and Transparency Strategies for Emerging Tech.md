@@ -34,4 +34,9 @@ This document outlines a **comprehensive strategy for public relations** across 
 5. **Engaging with Policy Makers**
     
     - **Advocacy Efforts**: Includes proactive engagement with regulatory bodies to shape policies favorably while advocating for ethical and environmental standards.
-    - **Collaboration with Regulators**: Collaborates with regulatory bodies to ensure compliance while sharing industry insights on safety and ethics in autonomous and space technology.
+
+---
+
+## 🇰🇷 개요
+
+이 문서는 투명한 커뮤니케이션을 통해 대중의 신뢰를 구축하는 데 초점을 맞춘 우주 관광, 자율주행차, 그린 기술 이니셔티브 전반에 걸친 **종합적인 홍보 전략**을 개요화한다. 대중의 수용과 신뢰는 이 혁신적이지만 익숙하지 않은 기술에 필수적이다.
