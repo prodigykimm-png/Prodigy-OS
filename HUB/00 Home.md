@@ -72,11 +72,13 @@ const addNavLink = (parent, title, subtext, path, color) => {
 };
 
 addNavLink(navContainer, '📥 Inbox', '임시 저장 및 빠른 캡처 대기 공간', 'HUB/Inbox.md', '#eab308');
-addNavLink(navContainer, '🏛 Auction Dashboard', `현재 입찰 예정 ${auctionCount}건`, 'HUB/Auction_Dashboard.md', '#3b82f6');
-addNavLink(navContainer, '📚 Reading Dashboard', `오늘 읽을 책 ${readingCount}권`, 'PARA/PROJECTS/Reading', '#22c55e');
-addNavLink(navContainer, '💪 Workout Dashboard', `오늘 운동 ${workoutCount}건`, 'PARA/PROJECTS/Workout', '#ef4444');
-addNavLink(navContainer, '📁 Project Dashboard', `진행중 ${projectCount}개`, 'PARA/PROJECTS', '#f97316');
-addNavLink(navContainer, '🧠 Knowledge Dashboard', '지식 허브 및 연구 자료', 'ZETA', '#a855f7');
+addNavLink(navContainer, '🏛 Auction', `현재 입찰 예정 ${auctionCount}건`, 'HUB/10 Auction.md', '#3b82f6');
+addNavLink(navContainer, '📚 Reading', `오늘 읽을 책 ${readingCount}권`, 'HUB/20 Reading.md', '#22c55e');
+addNavLink(navContainer, '💪 Workout', `오늘 운동 ${workoutCount}건`, 'HUB/30 Workout.md', '#ef4444');
+addNavLink(navContainer, '📁 Project', `진행중 ${projectCount}개`, 'HUB/40 Project.md', '#f97316');
+addNavLink(navContainer, '🧠 Knowledge', '지식 허브 및 연구 자료', 'HUB/50 Knowledge.md', '#a855f7');
+addNavLink(navContainer, '👤 Personal', '개인 업무 및 리마인더', 'HUB/60 Personal.md', '#06b6d4');
+addNavLink(navContainer, '📅 Journal', '일지 작성 및 정기 회고', 'HUB/70 Journal.md', '#ec4899');
 ```
 
 ---

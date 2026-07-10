@@ -62,10 +62,17 @@ Decision (Human Action)
 ```text
 Dusk/ (Vault Root)
 ├── HUB/
-│   ├── Home.md       ← 네비게이션 허브 (오늘 할 일 및 대시보드 빠른 이동)
+│   ├── 00 Home.md    ← 네비게이션 허브 (워크스페이스 런처)
+│   ├── 10 Auction.md ← 경매 도메인 작업 공간 (Operational Workspace)
+│   ├── 20 Reading.md ← 독서 도메인 작업 공간
+│   ├── 30 Workout.md ← 운동 도메인 작업 공간
+│   ├── 40 Project.md ← 프로젝트 도메인 작업 공간
+│   ├── 50 Knowledge.md ← 지식 탐색 작업 공간
+│   ├── 60 Personal.md ← 개인 라이프/할 일 관리 공간
+│   ├── 70 Journal.md  ← 일일 일지 및 정기 회고 공간
 │   └── Inbox.md      ← 임시 저장소 및 빠른 캡처 공간 (FLEETING 노트 수집)
 ├── PARA/
-│   ├── PROJECTS/     ← 진행 중인 프로젝트 도메인 (Auction, Reading, Workout 등)
+│   ├── PROJECTS/     ← 진행 중인 프로젝트 단위의 실존 Object들 (사건번호.md 등)
 │   ├── AREAS/        ← 지속적 관리 영역 (건강, 자산 등)
 │   ├── RESOURCES/    ← 참고용 정적 자료
 │   └── ARCHIVES/     ← 완료되어 보관된 문서들

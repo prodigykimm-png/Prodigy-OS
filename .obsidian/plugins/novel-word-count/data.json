@@ -8481,39 +8481,6 @@
         "created": "2024-11-12 05:21"
       }
     },
-    "HUB/Home.md": {
-      "isCountable": true,
-      "targetNodeType": "file",
-      "noteCount": 1,
-      "wordCount": 457,
-      "wordCountTowardGoal": 0,
-      "wordGoal": null,
-      "pageCount": 1.5233333333333334,
-      "characterCount": 5668,
-      "nonWhitespaceCharacterCount": 4951,
-      "newlineCount": 109,
-      "readingTimeInMinutes": 1.5595849056603772,
-      "linkCount": 0,
-      "embedCount": 0,
-      "aliases": null,
-      "createdDate": 1783334085111,
-      "modifiedDate": 1783693780298,
-      "sizeInBytes": 5961,
-      "sessionStart": {
-        "noteCount": 1,
-        "pageCount": 0.7433333333333333,
-        "wordCount": 223,
-        "characterCount": 2374,
-        "nonWhitespaceCharacterCount": 2042,
-        "newlineCount": 118
-      },
-      "frontmatter": {
-        "cssclasses": [
-          "hide-properties_editing",
-          "hide-properties_reading"
-        ]
-      }
-    },
     "DAILY/WEEKLY/2024-November-W46.md": {
       "isCountable": true,
       "targetNodeType": "file",
@@ -9242,24 +9209,57 @@
         ]
       }
     },
-    "HUB/Auction_Dashboard.md": {
+    "HUB/00 Home.md": {
       "isCountable": true,
       "targetNodeType": "file",
       "noteCount": 1,
-      "wordCount": 2078,
+      "wordCount": 485,
       "wordCountTowardGoal": 0,
       "wordGoal": null,
-      "pageCount": 6.926666666666667,
-      "characterCount": 24908,
-      "nonWhitespaceCharacterCount": 20650,
+      "pageCount": 1.6166666666666667,
+      "characterCount": 5802,
+      "nonWhitespaceCharacterCount": 5064,
+      "newlineCount": 111,
+      "readingTimeInMinutes": 1.633320754716981,
+      "linkCount": 0,
+      "embedCount": 0,
+      "aliases": null,
+      "createdDate": 1783334085111,
+      "modifiedDate": 1783694211457,
+      "sizeInBytes": 6135,
+      "sessionStart": {
+        "noteCount": 0,
+        "pageCount": 0,
+        "wordCount": 0,
+        "characterCount": 0,
+        "nonWhitespaceCharacterCount": 0,
+        "newlineCount": 0
+      },
+      "frontmatter": {
+        "cssclasses": [
+          "hide-properties_editing",
+          "hide-properties_reading"
+        ]
+      }
+    },
+    "HUB/10 Auction.md": {
+      "isCountable": true,
+      "targetNodeType": "file",
+      "noteCount": 1,
+      "wordCount": 2085,
+      "wordCountTowardGoal": 0,
+      "wordGoal": null,
+      "pageCount": 6.95,
+      "characterCount": 24851,
+      "nonWhitespaceCharacterCount": 20586,
       "newlineCount": 696,
-      "readingTimeInMinutes": 7.034528301886793,
+      "readingTimeInMinutes": 7.060943396226415,
       "linkCount": 0,
       "embedCount": 0,
       "aliases": null,
       "createdDate": 1783691011322,
-      "modifiedDate": 1783693903009,
-      "sizeInBytes": 26013,
+      "modifiedDate": 1783694238608,
+      "sizeInBytes": 25956,
       "sessionStart": {
         "noteCount": 0,
         "pageCount": 0,
@@ -9274,6 +9274,204 @@
         ],
         "card_region": "전체지역",
         "card_type": "전체종류"
+      }
+    },
+    "HUB/20 Reading.md": {
+      "isCountable": true,
+      "targetNodeType": "file",
+      "noteCount": 1,
+      "wordCount": 151,
+      "wordCountTowardGoal": 0,
+      "wordGoal": null,
+      "pageCount": 0.5033333333333333,
+      "characterCount": 1335,
+      "nonWhitespaceCharacterCount": 1116,
+      "newlineCount": 49,
+      "readingTimeInMinutes": 0.424377358490566,
+      "linkCount": 0,
+      "embedCount": 0,
+      "aliases": null,
+      "createdDate": 1783694105924,
+      "modifiedDate": 1783694106451,
+      "sizeInBytes": 1580,
+      "sessionStart": {
+        "noteCount": 0,
+        "pageCount": 0,
+        "wordCount": 0,
+        "characterCount": 0,
+        "nonWhitespaceCharacterCount": 0,
+        "newlineCount": 0
+      },
+      "frontmatter": {
+        "cssclasses": [
+          "hide-properties_editing",
+          "hide-properties_reading"
+        ]
+      }
+    },
+    "HUB/30 Workout.md": {
+      "isCountable": true,
+      "targetNodeType": "file",
+      "noteCount": 1,
+      "wordCount": 166,
+      "wordCountTowardGoal": 0,
+      "wordGoal": null,
+      "pageCount": 0.5533333333333333,
+      "characterCount": 1288,
+      "nonWhitespaceCharacterCount": 1085,
+      "newlineCount": 47,
+      "readingTimeInMinutes": 0.44550943396226417,
+      "linkCount": 0,
+      "embedCount": 0,
+      "aliases": null,
+      "createdDate": 1783694116647,
+      "modifiedDate": 1783694117104,
+      "sizeInBytes": 1579,
+      "sessionStart": {
+        "noteCount": 0,
+        "pageCount": 0,
+        "wordCount": 0,
+        "characterCount": 0,
+        "nonWhitespaceCharacterCount": 0,
+        "newlineCount": 0
+      },
+      "frontmatter": {
+        "cssclasses": [
+          "hide-properties_editing",
+          "hide-properties_reading"
+        ]
+      }
+    },
+    "HUB/40 Project.md": {
+      "isCountable": true,
+      "targetNodeType": "file",
+      "noteCount": 1,
+      "wordCount": 172,
+      "wordCountTowardGoal": 0,
+      "wordGoal": null,
+      "pageCount": 0.5733333333333334,
+      "characterCount": 1303,
+      "nonWhitespaceCharacterCount": 1097,
+      "newlineCount": 47,
+      "readingTimeInMinutes": 0.47347169811320755,
+      "linkCount": 0,
+      "embedCount": 0,
+      "aliases": null,
+      "createdDate": 1783694121534,
+      "modifiedDate": 1783694122012,
+      "sizeInBytes": 1582,
+      "sessionStart": {
+        "noteCount": 0,
+        "pageCount": 0,
+        "wordCount": 0,
+        "characterCount": 0,
+        "nonWhitespaceCharacterCount": 0,
+        "newlineCount": 0
+      },
+      "frontmatter": {
+        "cssclasses": [
+          "hide-properties_editing",
+          "hide-properties_reading"
+        ]
+      }
+    },
+    "HUB/50 Knowledge.md": {
+      "isCountable": true,
+      "targetNodeType": "file",
+      "noteCount": 1,
+      "wordCount": 144,
+      "wordCountTowardGoal": 0,
+      "wordGoal": null,
+      "pageCount": 0.48,
+      "characterCount": 906,
+      "nonWhitespaceCharacterCount": 755,
+      "newlineCount": 33,
+      "readingTimeInMinutes": 0.367811320754717,
+      "linkCount": 0,
+      "embedCount": 0,
+      "aliases": null,
+      "createdDate": 1783694162321,
+      "modifiedDate": 1783694162825,
+      "sizeInBytes": 1189,
+      "sessionStart": {
+        "noteCount": 0,
+        "pageCount": 0,
+        "wordCount": 0,
+        "characterCount": 0,
+        "nonWhitespaceCharacterCount": 0,
+        "newlineCount": 0
+      },
+      "frontmatter": {
+        "cssclasses": [
+          "hide-properties_editing",
+          "hide-properties_reading"
+        ]
+      }
+    },
+    "HUB/60 Personal.md": {
+      "isCountable": true,
+      "targetNodeType": "file",
+      "noteCount": 1,
+      "wordCount": 180,
+      "wordCountTowardGoal": 0,
+      "wordGoal": null,
+      "pageCount": 0.6,
+      "characterCount": 1207,
+      "nonWhitespaceCharacterCount": 1014,
+      "newlineCount": 45,
+      "readingTimeInMinutes": 0.4628679245283019,
+      "linkCount": 0,
+      "embedCount": 0,
+      "aliases": null,
+      "createdDate": 1783694184915,
+      "modifiedDate": 1783694185449,
+      "sizeInBytes": 1538,
+      "sessionStart": {
+        "noteCount": 0,
+        "pageCount": 0,
+        "wordCount": 0,
+        "characterCount": 0,
+        "nonWhitespaceCharacterCount": 0,
+        "newlineCount": 0
+      },
+      "frontmatter": {
+        "cssclasses": [
+          "hide-properties_editing",
+          "hide-properties_reading"
+        ]
+      }
+    },
+    "HUB/70 Journal.md": {
+      "isCountable": true,
+      "targetNodeType": "file",
+      "noteCount": 1,
+      "wordCount": 164,
+      "wordCountTowardGoal": 0,
+      "wordGoal": null,
+      "pageCount": 0.5466666666666666,
+      "characterCount": 756,
+      "nonWhitespaceCharacterCount": 626,
+      "newlineCount": 32,
+      "readingTimeInMinutes": 0.39362264150943393,
+      "linkCount": 0,
+      "embedCount": 0,
+      "aliases": null,
+      "createdDate": 1783694197393,
+      "modifiedDate": 1783694197942,
+      "sizeInBytes": 1093,
+      "sessionStart": {
+        "noteCount": 0,
+        "pageCount": 0,
+        "wordCount": 0,
+        "characterCount": 0,
+        "nonWhitespaceCharacterCount": 0,
+        "newlineCount": 0
+      },
+      "frontmatter": {
+        "cssclasses": [
+          "hide-properties_editing",
+          "hide-properties_reading"
+        ]
       }
     }
   }

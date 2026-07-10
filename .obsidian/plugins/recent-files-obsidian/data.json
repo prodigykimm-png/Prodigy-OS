@@ -1,16 +1,36 @@
 {
   "recentFiles": [
     {
-      "basename": "Auction_Dashboard",
-      "path": "HUB/Auction_Dashboard.md"
+      "basename": "10 Auction",
+      "path": "HUB/10 Auction.md"
+    },
+    {
+      "basename": "70 Journal",
+      "path": "HUB/70 Journal.md"
+    },
+    {
+      "basename": "60 Personal",
+      "path": "HUB/60 Personal.md"
+    },
+    {
+      "basename": "50 Knowledge",
+      "path": "HUB/50 Knowledge.md"
+    },
+    {
+      "basename": "40 Project",
+      "path": "HUB/40 Project.md"
+    },
+    {
+      "basename": "30 Workout",
+      "path": "HUB/30 Workout.md"
+    },
+    {
+      "basename": "20 Reading",
+      "path": "HUB/20 Reading.md"
     },
     {
       "basename": "Inbox",
       "path": "HUB/Inbox.md"
-    },
-    {
-      "basename": "Home",
-      "path": "HUB/Home.md"
     },
     {
       "basename": "Mobile Homepage",
@@ -179,22 +199,6 @@
     {
       "basename": "Imagination as a Foundation of Discovery",
       "path": "PARA/PROJECTS/Auction/_samples/PERMANENT/Imagination as a Foundation of Discovery.md"
-    },
-    {
-      "basename": "template_contact",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_contact.md"
-    },
-    {
-      "basename": "template_fleeting_note",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_fleeting_note.md"
-    },
-    {
-      "basename": "template_daily_note",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_daily_note.md"
-    },
-    {
-      "basename": "template_project",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_project.md"
     }
   ],
   "omittedPaths": [],

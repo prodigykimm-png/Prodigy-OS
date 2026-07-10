@@ -430,7 +430,7 @@ makeSelect('종류 필터', 'card_type', ['전체종류', '오피스텔', '아�
 ## ⚖️ 입찰 예정
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/Auction_Dashboard.md"')[0] || dv.current();
+const thisFile = dv.pages('"HUB/10 Auction.md"')[0] || dv.current();
 const filterRegion = thisFile.card_region || "전체지역";
 const filterType = thisFile.card_type || "전체종류";
 
@@ -462,7 +462,7 @@ if (pages.length === 0) {
 ## 👀 검토 중
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/Auction_Dashboard.md"')[0] || dv.current();
+const thisFile = dv.pages('"HUB/10 Auction.md"')[0] || dv.current();
 const filterRegion = thisFile.card_region || "전체지역";
 const filterType = thisFile.card_type || "전체종류";
 
@@ -494,7 +494,7 @@ if (pages.length === 0) {
 ## 🔄 복기 중
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/Auction_Dashboard.md"')[0] || dv.current();
+const thisFile = dv.pages('"HUB/10 Auction.md"')[0] || dv.current();
 const filterRegion = thisFile.card_region || "전체지역";
 const filterType = thisFile.card_type || "전체종류";
 
@@ -526,7 +526,7 @@ if (pages.length === 0) {
 ## 🏆 낙찰
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/Auction_Dashboard.md"')[0] || dv.current();
+const thisFile = dv.pages('"HUB/10 Auction.md"')[0] || dv.current();
 const filterRegion = thisFile.card_region || "전체지역";
 const filterType = thisFile.card_type || "전체종류";
 
@@ -570,7 +570,7 @@ if (pages.length === 0) {
 ## 💔 패찰
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/Auction_Dashboard.md"')[0] || dv.current();
+const thisFile = dv.pages('"HUB/10 Auction.md"')[0] || dv.current();
 const filterRegion = thisFile.card_region || "전체지역";
 const filterType = thisFile.card_type || "전체종류";
 
@@ -614,7 +614,7 @@ if (pages.length === 0) {
 ## ❌ 입찰 포기
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/Auction_Dashboard.md"')[0] || dv.current();
+const thisFile = dv.pages('"HUB/10 Auction.md"')[0] || dv.current();
 const filterRegion = thisFile.card_region || "전체지역";
 const filterType = thisFile.card_type || "전체종류";
 
@@ -658,7 +658,7 @@ if (pages.length === 0) {
 ## 📦 보관
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/Auction_Dashboard.md"')[0] || dv.current();
+const thisFile = dv.pages('"HUB/10 Auction.md"')[0] || dv.current();
 const filterRegion = thisFile.card_region || "전체지역";
 const filterType = thisFile.card_type || "전체종류";
 
