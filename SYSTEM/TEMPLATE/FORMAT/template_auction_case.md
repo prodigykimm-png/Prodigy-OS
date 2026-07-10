@@ -91,12 +91,14 @@ attachments:
 <!-- STATUS CONTROL -->
 # Status Control
 
+
 ```meta-bind-button
 style: default
 label: 👀 보는 중
 actions:
-  - type: set-property
-    property: status
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
     value: watching
 ```
 
@@ -104,8 +106,9 @@ actions:
 style: default
 label: ⚖️ 입찰 예정
 actions:
-  - type: set-property
-    property: status
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
     value: bidding
 ```
 
@@ -113,8 +116,9 @@ actions:
 style: default
 label: ❌ 입찰 포기
 actions:
-  - type: set-property
-    property: status
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
     value: skipped
 ```
 
@@ -122,8 +126,9 @@ actions:
 style: default
 label: 🏆 낙찰
 actions:
-  - type: set-property
-    property: status
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
     value: won
 ```
 
@@ -131,8 +136,9 @@ actions:
 style: default
 label: 💔 패찰
 actions:
-  - type: set-property
-    property: status
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
     value: lost
 ```
 
@@ -140,8 +146,9 @@ actions:
 style: default
 label: 🔄 복기 중
 actions:
-  - type: set-property
-    property: status
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
     value: reviewing
 ```
 
@@ -149,8 +156,9 @@ actions:
 style: default
 label: 📦 보관
 actions:
-  - type: set-property
-    property: status
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
     value: archived
 ```
 
