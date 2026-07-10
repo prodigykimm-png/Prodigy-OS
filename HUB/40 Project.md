@@ -1,8 +1,6 @@
 ---
 cssclasses:
   - hide-properties_reading
-card_category: 전체
-card_status: 전체
 ---
 ```js-engine
 const file = app.workspace.getActiveFile();
@@ -190,52 +188,6 @@ const rowBlocked = splitGroup.createEl('div', {
 });
 makeStep(rowBlocked, '🚧 지연', counts.blocked, '#ef4444');
 ```
-
----
-
-# Filter
-
-```js-engine
-const file = app.workspace.getActiveFile();
-if (!file) return;
-if (!container) return;
-container.empty();
-
-const cache = app.metadataCache.getFileCache(file);
-const fm = cache?.frontmatter ?? {};
-
-const setFilter = async (field, value) => {
-  await app.fileManager.processFrontMatter(file, (fm) => { fm[field] = value; });
-};
-
-const files = app.vault.getFiles();
-const categoriesSet = new Set(["전체"]);
-files.forEach(f => {
-  const c = app.metadataCache.getFileCache(f);
-  if (c?.frontmatter?.type === "project" && c?.frontmatter?.category) {
-    categoriesSet.add(c.frontmatter.category);
-  }
-});
-const categories = Array.from(categoriesSet);
-
-const statuses = ["전체", "idea", "planning", "doing", "blocked", "completed", "reviewing", "archived"];
-
-const makeSelect = (label, field, options, current) => {
-  const row = container.createEl('div', { attr: { style: 'display:inline-flex;align-items:center;margin-right:12px;' } });
-  row.createEl('span', { text: label + ' ', attr: { style: 'font-weight:bold;font-size:0.85em;margin-right:4px;' } });
-  const sel = row.createEl('select', { attr: { style: 'font-size:0.85em;padding:2px 6px;border-radius:4px;background:var(--background-modifier-hover);color:var(--text-normal);border:1px solid var(--background-modifier-border);' } });
-  options.forEach(o => {
-    const opt = sel.createEl('option', { text: o, value: o });
-    if (o === (current || options[0])) opt.selected = true;
-  });
-  sel.onchange = () => setFilter(field, sel.value);
-  return sel;
-};
-
-makeSelect('카테고리 필터', 'card_category', categories, fm.card_category);
-makeSelect('상태 필터', 'card_status', statuses, fm.card_status);
-```
-
 ---
 
 ## 🚀 Doing

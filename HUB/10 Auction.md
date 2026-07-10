@@ -1,8 +1,6 @@
 ---
 cssclasses:
   - hide-properties_reading
-card_region: 전체지역
-card_type: 전체종류
 ---
 ```js-engine
 const file = app.workspace.getActiveFile();
@@ -193,40 +191,6 @@ const grp2 = makeGroup(pipelineBox);
 makeStep(grp2, '❌ 포기', counts.skipped, '#666');
 makeStep(grp2, '📦 보관', counts.archived, '#555');
 ```
-
----
-
-# Filter
-
-```js-engine
-const file = app.workspace.getActiveFile();
-if (!file) return;
-if (!container) return;
-container.empty();
-
-const cache = app.metadataCache.getFileCache(file);
-const fm = cache?.frontmatter ?? {};
-
-const setFilter = async (field, value) => {
-  await app.fileManager.processFrontMatter(file, (fm) => { fm[field] = value; });
-};
-
-const makeSelect = (label, field, options, current) => {
-  const row = container.createEl('div', { attr: { style: 'display:inline-flex;align-items:center;margin-right:12px;' } });
-  row.createEl('span', { text: label + ' ', attr: { style: 'font-weight:bold;font-size:0.85em;margin-right:4px;' } });
-  const sel = row.createEl('select', { attr: { style: 'font-size:0.85em;padding:2px 6px;border-radius:4px;background:var(--background-modifier-hover);color:var(--text-normal);border:1px solid var(--background-modifier-border);' } });
-  options.forEach(o => {
-    const opt = sel.createEl('option', { text: o, value: o });
-    if (o === (current || options[0])) opt.selected = true;
-  });
-  sel.onchange = () => setFilter(field, sel.value);
-  return sel;
-};
-
-makeSelect('지역 필터', 'card_region', ['전체지역', '서울', '경기', '인천', '부산'], fm.card_region);
-makeSelect('종류 필터', 'card_type', ['전체종류', '오피스텔', '아파트', '상가', '지식산업센터'], fm.card_type);
-```
-
 ---
 
 ## ⚖️ 입찰 예정
