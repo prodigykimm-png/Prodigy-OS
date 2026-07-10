@@ -4,8 +4,6 @@ cssclasses:
 card_category: 전체
 card_status: 전체
 ---
-# 🎯 Today
-
 ```js-engine
 const file = app.workspace.getActiveFile();
 if (!file) return;
@@ -23,7 +21,11 @@ const loadProdigyScript = async (path) => {
 
 await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
 await loadProdigyScript("SYSTEM/Views/project-card.js");
+```
 
+# 🎯 Today
+
+```dataviewjs
 const now = new Date();
 const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -102,11 +104,9 @@ actionBox.createEl('div', { text: '⚡ 다음 Action', attr: { style: 'font-weig
 if (nextProj) {
   const linkRow = actionBox.createEl('div', { attr: { style: 'margin-top:2px;' } });
   linkRow.createEl('span', { text: '→ ', attr: { style: 'color:#ef4444;font-weight:bold;' } });
-  const linkEl = linkRow.createEl('a', {
-    text: nextProj.file.name,
-    attr: { class: 'internal-link', style: 'color:var(--text-accent);font-weight:bold;text-decoration:underline;cursor:pointer;font-size:0.9em;' }
-  });
-  linkEl.onclick = () => app.workspace.openLinkText(nextProj.file.name, nextProj.file.path);
+  
+  const linkSpan = linkRow.createEl('span', { attr: { style: 'font-size:0.9em;font-weight:bold;' } });
+  dv.api.renderValue(nextProj.file.link, linkSpan, dv.component, nextProj.file.path, true);
   
   actionBox.createEl('div', {
     text: nextProj.next_action || "지정된 액션이 없습니다.",
@@ -148,10 +148,10 @@ const pipelineBox = container.createEl('div', {
 
 const makeStep = (parent, label, count, color) => {
   const step = parent.createEl('div', {
-    attr: { style: `display: flex; flex-direction: column; align-items: center; background: var(--background-modifier-hover); border: 1px solid ${color}; border-radius: 6px; padding: 6px 12px; min-width: 80px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);` }
+    attr: { style: `display: flex; flex-direction: column; align-items: center; background: var(--background-modifier-hover); border: 1px solid ${color}; border-radius: 6px; padding: 4px 8px; min-width: 70px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); flex-shrink: 0;` }
   });
-  step.createEl('span', { text: label, attr: { style: 'font-size: 0.8em; color: var(--text-muted); font-weight: bold;' } });
-  step.createEl('span', { text: String(count), attr: { style: `font-size: 1.25em; font-weight: bold; color: ${color};` } });
+  step.createEl('span', { text: label, attr: { style: 'font-size: 0.75em; color: var(--text-muted); font-weight: bold; white-space: nowrap;' } });
+  step.createEl('span', { text: String(count), attr: { style: `font-size: 1.1em; font-weight: bold; color: ${color};` } });
   return step;
 };
 
@@ -164,17 +164,17 @@ const makeArrow = (parent) => {
 
 makeStep(pipelineBox, '💡 아이디어', counts.idea, '#a855f7');
 makeArrow(pipelineBox);
-makeStep(pipelineBox, '📋 기획중', counts.planning, '#3b82f6');
+makeStep(pipelineBox, '📋 기획', counts.planning, '#3b82f6');
 makeArrow(pipelineBox);
-makeStep(pipelineBox, '🚀 진행중', counts.doing, '#22c55e');
+makeStep(pipelineBox, '🚀 진행', counts.doing, '#22c55e');
 makeArrow(pipelineBox);
-makeStep(pipelineBox, '🚧 지연됨', counts.blocked, '#ef4444');
+makeStep(pipelineBox, '🚧 지연', counts.blocked, '#ef4444');
 makeArrow(pipelineBox);
-makeStep(pipelineBox, '✅ 완료됨', counts.completed, '#06b6d4');
+makeStep(pipelineBox, '✅ 완료', counts.completed, '#06b6d4');
 makeArrow(pipelineBox);
-makeStep(pipelineBox, '🔄 복기중', counts.reviewing, '#f97316');
+makeStep(pipelineBox, '🔄 복기', counts.reviewing, '#f97316');
 makeArrow(pipelineBox);
-makeStep(pipelineBox, '📦 보관됨', counts.archived, '#8e8e93');
+makeStep(pipelineBox, '📦 보관', counts.archived, '#8e8e93');
 ```
 
 ---

@@ -4,8 +4,6 @@ cssclasses:
 card_region: 전체지역
 card_type: 전체종류
 ---
-# 🎯 Today
-
 ```js-engine
 const file = app.workspace.getActiveFile();
 if (!file) return;
@@ -23,11 +21,11 @@ const loadProdigyScript = async (path) => {
 
 await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
 await loadProdigyScript("SYSTEM/Views/auction-card.js");
+```
 
-const files = app.vault.getFiles().filter(f =>
-  f.path.startsWith("PARA/PROJECTS/Auction/") && f.extension === "md"
-);
+# 🎯 Today
 
+```dataviewjs
 // Calculate counts and action stats
 let ddayCount = 0;
 let missingExpectedCount = 0;
@@ -37,43 +35,41 @@ const activeCases = [];
 const now = new Date();
 const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-files.forEach(f => {
-  const c = app.metadataCache.getFileCache(f);
-  const fm = c?.frontmatter;
-  if (fm?.type === "auction_case") {
-    if (["watching", "bidding", "reviewing"].includes(fm.status) && fm.auction_datetime) {
-      const cleanStr = String(fm.auction_datetime).split(' ')[0].split('T')[0];
-      if (cleanStr === todayStr) {
-        ddayCount++;
-      }
+const cases = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+
+cases.forEach(p => {
+  if (["watching", "bidding", "reviewing"].includes(p.status) && p.auction_datetime) {
+    const cleanStr = String(p.auction_datetime).split(' ')[0].split('T')[0];
+    if (cleanStr === todayStr) {
+      ddayCount++;
     }
-    
-    if (["watching", "bidding"].includes(fm.status)) {
-      const exp = fm.expected_bid;
-      if (!exp || exp === "정보 없음" || String(exp).trim() === "") {
-        missingExpectedCount++;
-      }
+  }
+  
+  if (["watching", "bidding"].includes(p.status)) {
+    const exp = p.expected_bid;
+    if (!exp || exp === "정보 없음" || String(exp).trim() === "") {
+      missingExpectedCount++;
     }
-    
-    if (["watching", "bidding", "reviewing"].includes(fm.status)) {
-      const act = fm.next_action;
-      if (!act || act === "정보 없음" || String(act).trim() === "") {
-        missingNextActionCount++;
-      }
+  }
+  
+  if (["watching", "bidding", "reviewing"].includes(p.status)) {
+    const act = p.next_action;
+    if (!act || act === "정보 없음" || String(act).trim() === "") {
+      missingNextActionCount++;
     }
-    
-    if (["watching", "bidding", "reviewing"].includes(fm.status)) {
-      activeCases.push({ file: f, fm: fm });
-    }
+  }
+  
+  if (["watching", "bidding", "reviewing"].includes(p.status)) {
+    activeCases.push(p);
   }
 });
 
 activeCases.sort((a, b) => {
-  if (a.fm.status === 'bidding' && b.fm.status !== 'bidding') return -1;
-  if (a.fm.status !== 'bidding' && b.fm.status === 'bidding') return 1;
+  if (a.status === 'bidding' && b.status !== 'bidding') return -1;
+  if (a.status !== 'bidding' && b.status === 'bidding') return 1;
   
-  const dtA = a.fm.auction_datetime ? new Date(a.fm.auction_datetime.replace('T', ' ')) : null;
-  const dtB = b.fm.auction_datetime ? new Date(b.fm.auction_datetime.replace('T', ' ')) : null;
+  const dtA = a.auction_datetime ? new Date(a.auction_datetime.replace('T', ' ')) : null;
+  const dtB = b.auction_datetime ? new Date(b.auction_datetime.replace('T', ' ')) : null;
   
   if (dtA && dtB) return dtA - dtB;
   if (dtA) return -1;
@@ -83,7 +79,7 @@ activeCases.sort((a, b) => {
 
 const nextCase = activeCases[0];
 
-const mainBox = container.createEl('div', {
+const mainBox = this.container.createEl('div', {
   attr: { style: 'display:grid;grid-template-columns: 1fr 1fr;gap:12px;margin-bottom:8px;' }
 });
 
@@ -115,14 +111,12 @@ actionBox.createEl('div', { text: '⚡ 다음 Action', attr: { style: 'font-weig
 if (nextCase) {
   const linkRow = actionBox.createEl('div', { attr: { style: 'margin-top:2px;' } });
   linkRow.createEl('span', { text: '→ ', attr: { style: 'color:#ef4444;font-weight:bold;' } });
-  const linkEl = linkRow.createEl('a', {
-    text: nextCase.file.name.replace('.md',''),
-    attr: { class: 'internal-link', style: 'color:var(--text-accent);font-weight:bold;text-decoration:underline;cursor:pointer;font-size:0.9em;' }
-  });
-  linkEl.onclick = () => app.workspace.openLinkText(nextCase.file.name.replace('.md',''), nextCase.file.path);
+  
+  const linkSpan = linkRow.createEl('span', { attr: { style: 'font-size:0.9em;font-weight:bold;' } });
+  dv.api.renderValue(nextCase.file.link, linkSpan, dv.component, nextCase.file.path, true);
   
   actionBox.createEl('div', {
-    text: nextCase.fm.next_action || "지정된 액션이 없습니다.",
+    text: nextCase.next_action || "지정된 액션이 없습니다.",
     attr: { style: 'font-size:0.85em;color:var(--text-normal);background:var(--background-modifier-hover);padding:6px 8px;border-radius:6px;border-left:3px solid #ef4444;margin-top:4px;' }
   });
 } else {
@@ -162,10 +156,10 @@ const pipelineBox = container.createEl('div', {
 
 const makeStep = (parent, label, count, color) => {
   const step = parent.createEl('div', {
-    attr: { style: `display: flex; flex-direction: column; align-items: center; background: var(--background-modifier-hover); border: 1px solid ${color}; border-radius: 6px; padding: 6px 12px; min-width: 80px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);` }
+    attr: { style: `display: flex; flex-direction: column; align-items: center; background: var(--background-modifier-hover); border: 1px solid ${color}; border-radius: 6px; padding: 4px 8px; min-width: 70px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); flex-shrink: 0;` }
   });
-  step.createEl('span', { text: label, attr: { style: 'font-size: 0.8em; color: var(--text-muted); font-weight: bold;' } });
-  step.createEl('span', { text: String(count), attr: { style: `font-size: 1.25em; font-weight: bold; color: ${color};` } });
+  step.createEl('span', { text: label, attr: { style: 'font-size: 0.75em; color: var(--text-muted); font-weight: bold; white-space: nowrap;' } });
+  step.createEl('span', { text: String(count), attr: { style: `font-size: 1.1em; font-weight: bold; color: ${color};` } });
   return step;
 };
 

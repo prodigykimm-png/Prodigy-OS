@@ -16,7 +16,7 @@ cssclasses:
 const auctionCount = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case" && p.status === "bidding").length;
 const readingCount = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading").length;
 const workoutCount = dv.pages('"PARA/PROJECTS/Workout"').where(p => p.type === "workout" && p.status === "doing").length;
-const projectCount = dv.pages('"PARA/PROJECTS"').where(p => p.type === "project_family" && (p.Status === "2 In Progress" || p.Status === "1 To Do" || p.Status === "3 Testing")).length;
+const projectCount = dv.pages('"PARA/PROJECTS"').where(p => p.type === "project" && (p.status === "doing" || p.status === "planning")).length;
 
 const grid = this.container.createEl('div', {
   attr: { style: 'display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px;' }
@@ -45,7 +45,7 @@ addStat(grid, '📁 Project', '진행 중', projectCount, '개', '#f97316');
 const auctionCount = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case" && p.status === "bidding").length;
 const readingCount = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading").length;
 const workoutCount = dv.pages('"PARA/PROJECTS/Workout"').where(p => p.type === "workout" && p.status === "doing").length;
-const projectCount = dv.pages('"PARA/PROJECTS"').where(p => p.type === "project_family" && (p.Status === "2 In Progress" || p.Status === "1 To Do" || p.Status === "3 Testing")).length;
+const projectCount = dv.pages('"PARA/PROJECTS"').where(p => p.type === "project" && (p.status === "doing" || p.status === "planning")).length;
 
 const navContainer = this.container.createEl('div', {
   attr: { style: 'display:flex; flex-direction:column; gap:8px; margin-bottom:12px;' }
@@ -60,15 +60,8 @@ const addNavLink = (parent, title, subtext, path, color) => {
   left.createEl('strong', { text: title, attr: { style: 'color:var(--text-normal); font-size:0.9em;' } });
   left.createEl('span', { text: subtext, attr: { style: 'font-size:0.75em; color:var(--text-muted);' } });
   
-  const right = row.createEl('a', {
-    text: '→ Open',
-    attr: {
-      class: 'internal-link',
-      style: `font-size:0.8em; font-weight:bold; color:${color}; text-decoration:none; cursor:pointer; background:var(--background-modifier-hover); padding:3px 8px; border-radius:4px; transition: background 0.2s;`
-    }
-  });
-  
-  right.onclick = () => app.workspace.openLinkText(path, path);
+  const right = row.createEl('span', { attr: { style: 'font-size:0.8em; font-weight:bold;' } });
+  dv.api.renderValue(dv.fileLink(path, false, "→ Open"), right, dv.component, path, true);
 };
 
 addNavLink(navContainer, '📥 Inbox', '임시 저장 및 빠른 캡처 대기 공간', 'HUB/Inbox.md', '#eab308');
@@ -100,11 +93,8 @@ recentPages.forEach(p => {
     attr: { style: 'display:flex; justify-content:space-between; align-items:center; font-size:0.82em; padding:4px 6px; border-bottom:1px solid var(--background-modifier-border);' }
   });
   
-  const linkEl = row.createEl('a', {
-    text: p.file.name,
-    attr: { class: 'internal-link', style: 'color:var(--text-accent); font-weight:bold; cursor:pointer; text-decoration:none;' }
-  });
-  linkEl.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
+  const linkSpan = row.createEl('span', { attr: { style: 'font-size:0.92em; font-weight:bold;' } });
+  dv.api.renderValue(p.file.link, linkSpan, dv.component, p.file.path, true);
   
   const typeBadge = row.createEl('span', {
     text: String(p.type).toUpperCase(),

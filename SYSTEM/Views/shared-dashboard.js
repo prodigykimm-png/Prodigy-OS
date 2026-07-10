@@ -12,23 +12,27 @@ window.renderDashboardSection = function(options) {
     sortOrder = "asc"
   } = options;
   
-  // 1. Get active file frontmatter filters
-  const file = app.workspace.getActiveFile();
-  if (!file) return;
-  const cache = app.metadataCache.getFileCache(file);
-  const fm = cache?.frontmatter ?? {};
+  // Dataview API is passed from the DataviewJS block or retrieved globally
+  const dataviewInstance = options.dv || window.dv || (typeof dv !== 'undefined' ? dv : null);
+  if (!dataviewInstance) {
+    container.createEl("span", { text: "Error: Dataview API not found." });
+    return;
+  }
+  
+  // Get active file frontmatter filters from dataviewInstance
+  const fm = dataviewInstance.current() || {};
   
   const filterCategory = fm.card_category || "전체";
   const filterStatus = fm.card_status || "전체";
   const filterRegion = fm.card_region || "전체지역";
   const filterType = fm.card_type || "전체종류";
   
-  // 2. Status filtering check
+  // Status filtering check
   if (filterStatus !== "전체" && filterStatus !== status) {
     return;
   }
   
-  // 3. Query pages based on type
+  // Query pages based on type
   let folderPath = "";
   if (type === "auction_case") {
     folderPath = "PARA/PROJECTS/Auction";
@@ -40,21 +44,9 @@ window.renderDashboardSection = function(options) {
     folderPath = "PARA/PROJECTS";
   }
   
-  // Dataview global API is accessible as a global variable "dv" inside DataviewJS execution
-  // In our external script context, "dv" can be accessed via window.DataviewAPI or passed explicitly.
-  // Wait, Dataview exposes a global variable "dv" when running a DataviewJS block.
-  // Since we execute this via new Function("dv", content)(dv), or let it evaluate in global scope,
-  // we can use "window.DataviewAPI" or simply pass the "dv" instance.
-  // Let's use options.dv (passed from the DataviewJS block) to make it 100% robust and reliable!
-  const dataviewInstance = options.dv || window.dv || (typeof dv !== 'undefined' ? dv : null);
-  if (!dataviewInstance) {
-    container.createEl("span", { text: "Error: Dataview API not found." });
-    return;
-  }
-  
   let pages = dataviewInstance.pages(`"${folderPath}"`).where(p => p.type === type && p.status === status);
   
-  // 4. Filters
+  // Filters
   if (type === "project" && filterCategory !== "전체") {
     pages = pages.where(p => p.category === filterCategory);
   }
@@ -67,10 +59,10 @@ window.renderDashboardSection = function(options) {
     }
   }
   
-  // 5. Sort
+  // Sort
   pages = pages.sort(p => p[sortField] || "", sortOrder);
   
-  // 6. Setup container
+  // Setup container
   let targetContainer = container;
   if (isCollapsed) {
     const details = container.createEl("details", {
@@ -85,7 +77,7 @@ window.renderDashboardSection = function(options) {
     });
   }
   
-  // 7. Render
+  // Render
   if (pages.length === 0) {
     if (isCollapsed) {
       targetContainer.createEl("span", {

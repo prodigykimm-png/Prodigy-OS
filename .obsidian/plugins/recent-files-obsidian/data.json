@@ -9,6 +9,10 @@
       "path": "HUB/30 Workout.md"
     },
     {
+      "basename": "10 Auction",
+      "path": "HUB/10 Auction.md"
+    },
+    {
       "basename": "50 Knowledge",
       "path": "HUB/50 Knowledge.md"
     },
@@ -19,10 +23,6 @@
     {
       "basename": "60 Personal",
       "path": "HUB/60 Personal.md"
-    },
-    {
-      "basename": "10 Auction",
-      "path": "HUB/10 Auction.md"
     },
     {
       "basename": "20 Reading",
