@@ -168,13 +168,27 @@ makeStep(pipelineBox, '📋 기획', counts.planning, '#3b82f6');
 makeArrow(pipelineBox);
 makeStep(pipelineBox, '🚀 진행', counts.doing, '#22c55e');
 makeArrow(pipelineBox);
-makeStep(pipelineBox, '🚧 지연', counts.blocked, '#ef4444');
-makeArrow(pipelineBox);
-makeStep(pipelineBox, '✅ 완료', counts.completed, '#06b6d4');
-makeArrow(pipelineBox);
-makeStep(pipelineBox, '🔄 복기', counts.reviewing, '#f97316');
-makeArrow(pipelineBox);
-makeStep(pipelineBox, '📦 보관', counts.archived, '#8e8e93');
+
+// Split group container (vertical stack)
+const splitGroup = pipelineBox.createEl('div', {
+  attr: { style: 'display: flex; flex-direction: column; gap: 8px; align-items: flex-start;' }
+});
+
+// Row 1: Blocked step
+const rowBlocked = splitGroup.createEl('div', {
+  attr: { style: 'display: flex; align-items: center;' }
+});
+makeStep(rowBlocked, '🚧 지연', counts.blocked, '#ef4444');
+
+// Row 2: Completed -> Reviewing -> Archived
+const rowSuccess = splitGroup.createEl('div', {
+  attr: { style: 'display: flex; align-items: center; gap: 8px;' }
+});
+makeStep(rowSuccess, '✅ 완료', counts.completed, '#06b6d4');
+makeArrow(rowSuccess);
+makeStep(rowSuccess, '🔄 복기', counts.reviewing, '#f97316');
+makeArrow(rowSuccess);
+makeStep(rowSuccess, '📦 보관', counts.archived, '#8e8e93');
 ```
 
 ---
