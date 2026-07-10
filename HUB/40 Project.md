@@ -12,115 +12,18 @@ if (!file) return;
 if (!container) return;
 container.empty();
 
-// Define global project card renderer
-window.renderProjectCard = function(p, container) {
-  const statusColors = {
-    idea: '#a855f7',
-    planning: '#3b82f6',
-    doing: '#22c55e',
-    blocked: '#ef4444',
-    completed: '#06b6d4',
-    reviewing: '#f97316',
-    archived: '#8e8e93'
-  };
-  const color = statusColors[p.status] || '#555';
-  
-  const card = container.createEl('div', {
-    attr: {
-      style: `border: 1px solid var(--background-modifier-border); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);`
-    }
-  });
-  
-  // Header
-  const header = card.createEl('div', {
-    attr: { style: 'display: flex; justify-content: space-between; align-items: center;' }
-  });
-  const title = header.createEl('a', {
-    text: p.file.name,
-    attr: {
-      class: 'internal-link',
-      style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer;'
-    }
-  });
-  title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
-  
-  // Priority Badge
-  const rightHeader = header.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 6px;' } });
-  const priColor = p.priority === '높음' ? '#ef4444' : p.priority === '낮음' ? '#8e8e93' : 'var(--text-accent)';
-  rightHeader.createEl('span', {
-    text: p.priority || '보통',
-    attr: { style: `font-size: 0.72em; font-weight: bold; color: ${priColor}; background: ${priColor}15; padding: 1px 4px; border-radius: 4px;` }
-  });
-  
-  // Category & Dates
-  const subHeader = card.createEl('div', {
-    attr: { style: 'font-size: 0.8em; color: var(--text-muted); display: flex; gap: 6px; align-items: center;' }
-  });
-  subHeader.createEl('span', { text: p.category || "미지정" });
-  if (p.due_date) {
-    subHeader.createEl('span', { text: '·', attr: { style: 'color: var(--text-muted);' } });
-    subHeader.createEl('span', { text: `마감일: ${p.due_date}` });
-  }
-  
-  // Next Action
-  const actionRow = card.createEl('div', {
-    attr: { style: 'font-size: 0.85em; color: var(--text-normal); margin-top: 2px;' }
-  });
-  actionRow.createEl('strong', { text: '→ Next Action: ', attr: { style: 'color: var(--text-accent);' } });
-  actionRow.createEl('span', { text: p.next_action || "⚠️ 설정 필요" });
-  
-  // Buttons
-  const getTransitions = (currentStatus) => {
-    const trans = {
-      idea: [{ key: 'planning', label: '📋 기획', color: 'var(--text-accent)' }],
-      planning: [
-        { key: 'doing', label: '🚀 진행', color: '#22c55e' },
-        { key: 'blocked', label: '🚧 지연', color: '#ef4444' }
-      ],
-      doing: [
-        { key: 'completed', label: '✅ 완료', color: '#06b6d4' },
-        { key: 'blocked', label: '🚧 지연', color: '#ef4444' }
-      ],
-      blocked: [
-        { key: 'doing', label: '🚀 진행', color: '#22c55e' },
-        { key: 'planning', label: '📋 기획', color: 'var(--text-accent)' }
-      ],
-      completed: [{ key: 'reviewing', label: '🔄 복기', color: '#f97316' }],
-      reviewing: [{ key: 'archived', label: '📦 보관', color: '#555' }],
-      archived: []
-    };
-    return trans[currentStatus] || [];
-  };
-  
-  const buttons = getTransitions(p.status || 'idea');
-  if (buttons.length > 0) {
-    const btnBox = card.createEl('div', {
-      attr: { style: 'display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; border-top: 1px solid var(--background-modifier-border); padding-top: 4px;' }
-    });
-    btnBox.createEl('span', { text: '상태 변경:', attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; align-items: center; margin-right: 4px;' } });
-    buttons.forEach(opt => {
-      const btn = btnBox.createEl('button', {
-        text: opt.label,
-        attr: { style: `font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid ${opt.color}; cursor: pointer;` }
-      });
-      btn.onclick = async (e) => {
-        e.preventDefault();
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-        const tFile = app.vault.getAbstractFileByPath(p.file.path);
-        if (tFile) {
-          await app.fileManager.processFrontMatter(tFile, (fm) => {
-            fm.status = opt.key;
-            fm.updated = new Date().toISOString().split('T')[0];
-          });
-        }
-      };
-    });
+// Dynamic script loader helper
+const loadProdigyScript = async (path) => {
+  const tFile = app.vault.getAbstractFileByPath(path);
+  if (tFile) {
+    const content = await app.vault.read(tFile);
+    (new Function(content))();
   }
 };
-```
 
-```dataviewjs
+await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
+await loadProdigyScript("SYSTEM/Views/project-card.js");
+
 const now = new Date();
 const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -137,24 +40,20 @@ allProjects.forEach(p => {
   if (!isCompletedOrArchived) {
     activeProjects.push(p);
     
-    // Due today
     if (p.due_date === todayStr) {
       dueTodayCount++;
     }
     
-    // Missing next action
     if (!p.next_action || String(p.next_action).trim() === "" || p.next_action === "정보 없음") {
       missingActionCount++;
     }
     
-    // Blocked
     if (p.status === "blocked") {
       blockedCount++;
     }
   }
 });
 
-// Sort active projects for Next Action Target
 activeProjects.sort((a, b) => {
   const statusWeight = { doing: 1, planning: 2, idea: 3, blocked: 4 };
   const wA = statusWeight[a.status] || 99;
@@ -171,12 +70,10 @@ activeProjects.sort((a, b) => {
 
 const nextProj = activeProjects[0];
 
-// Render Today Card
 const mainBox = this.container.createEl('div', {
   attr: { style: 'display:grid;grid-template-columns: 1fr 1fr;gap:12px;margin-bottom:8px;' }
 });
 
-// Left Column: Stats Box
 const statsBox = mainBox.createEl('div', {
   attr: { style: 'background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.1);' }
 });
@@ -197,7 +94,6 @@ addStatItem(statsBox, '🔥 Due Today', dueTodayCount, '#ef4444', dueTodayCount 
 addStatItem(statsBox, '⚠️ Next Action 없음', missingActionCount, '#f97316', missingActionCount > 0);
 addStatItem(statsBox, '🚧 지연(Blocked) 프로젝트', blockedCount, '#ef4444', blockedCount > 0);
 
-// Right Column: Next Action Box
 const actionBox = mainBox.createEl('div', {
   attr: { style: 'background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.1);' }
 });
@@ -298,7 +194,6 @@ const setFilter = async (field, value) => {
   await app.fileManager.processFrontMatter(file, (fm) => { fm[field] = value; });
 };
 
-// Dynamic Categories
 const files = app.vault.getFiles();
 const categoriesSet = new Set(["전체"]);
 files.forEach(f => {
@@ -332,24 +227,17 @@ makeSelect('상태 필터', 'card_status', statuses, fm.card_status);
 ## 🚀 Doing
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
-const filterCategory = thisFile.card_category || "전체";
-const filterStatus = thisFile.card_status || "전체";
-
-if (filterStatus === "전체" || filterStatus === "doing") {
-  let pages = dv.pages().where(p => p.type === "project" && p.status === "doing");
-  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-  pages = pages.sort(p => p.due_date || "", 'asc');
-
-  if (pages.length === 0) {
-    dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>진행 중인 프로젝트가 없습니다.</span>");
-  } else {
-    if (window.renderProjectCard) {
-      pages.forEach(p => window.renderProjectCard(p, this.container));
-    } else {
-      dv.paragraph("로딩 중...");
-    }
-  }
+if (window.renderDashboardSection) {
+  window.renderDashboardSection({
+    dv: dv,
+    status: "doing",
+    type: "project",
+    container: this.container,
+    renderer: window.renderProjectCard,
+    emptyMessage: "진행 중인 프로젝트가 없습니다.",
+    sortField: "due_date",
+    sortOrder: "asc"
+  });
 }
 ```
 
@@ -358,24 +246,17 @@ if (filterStatus === "전체" || filterStatus === "doing") {
 ## 📋 Planning
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
-const filterCategory = thisFile.card_category || "전체";
-const filterStatus = thisFile.card_status || "전체";
-
-if (filterStatus === "전체" || filterStatus === "planning") {
-  let pages = dv.pages().where(p => p.type === "project" && p.status === "planning");
-  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-  pages = pages.sort(p => p.due_date || "", 'asc');
-
-  if (pages.length === 0) {
-    dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>기획 중인 프로젝트가 없습니다.</span>");
-  } else {
-    if (window.renderProjectCard) {
-      pages.forEach(p => window.renderProjectCard(p, this.container));
-    } else {
-      dv.paragraph("로딩 중...");
-    }
-  }
+if (window.renderDashboardSection) {
+  window.renderDashboardSection({
+    dv: dv,
+    status: "planning",
+    type: "project",
+    container: this.container,
+    renderer: window.renderProjectCard,
+    emptyMessage: "기획 중인 프로젝트가 없습니다.",
+    sortField: "due_date",
+    sortOrder: "asc"
+  });
 }
 ```
 
@@ -384,24 +265,17 @@ if (filterStatus === "전체" || filterStatus === "planning") {
 ## 💡 Idea
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
-const filterCategory = thisFile.card_category || "전체";
-const filterStatus = thisFile.card_status || "전체";
-
-if (filterStatus === "전체" || filterStatus === "idea") {
-  let pages = dv.pages().where(p => p.type === "project" && p.status === "idea");
-  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-  pages = pages.sort(p => p.due_date || "", 'asc');
-
-  if (pages.length === 0) {
-    dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>아이디어 단계의 프로젝트가 없습니다.</span>");
-  } else {
-    if (window.renderProjectCard) {
-      pages.forEach(p => window.renderProjectCard(p, this.container));
-    } else {
-      dv.paragraph("로딩 중...");
-    }
-  }
+if (window.renderDashboardSection) {
+  window.renderDashboardSection({
+    dv: dv,
+    status: "idea",
+    type: "project",
+    container: this.container,
+    renderer: window.renderProjectCard,
+    emptyMessage: "아이디어 단계의 프로젝트가 없습니다.",
+    sortField: "due_date",
+    sortOrder: "asc"
+  });
 }
 ```
 
@@ -410,151 +284,79 @@ if (filterStatus === "전체" || filterStatus === "idea") {
 ## 🚧 Blocked
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
-const filterCategory = thisFile.card_category || "전체";
-const filterStatus = thisFile.card_status || "전체";
-
-if (filterStatus === "전체" || filterStatus === "blocked") {
-  let pages = dv.pages().where(p => p.type === "project" && p.status === "blocked");
-  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-  pages = pages.sort(p => p.due_date || "", 'asc');
-
-  const details = this.container.createEl("details", {
-    attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
+if (window.renderDashboardSection) {
+  window.renderDashboardSection({
+    dv: dv,
+    status: "blocked",
+    type: "project",
+    container: this.container,
+    renderer: window.renderProjectCard,
+    emptyMessage: "해당 조건의 지연된 프로젝트가 없습니다.",
+    isCollapsed: true,
+    summaryText: "🚧 지연된 프로젝트 목록",
+    summaryColor: "#ef4444",
+    sortField: "due_date",
+    sortOrder: "asc"
   });
-  details.createEl("summary", {
-    text: "🚧 지연된 프로젝트 목록",
-    attr: { style: "font-weight:bold; cursor:pointer; color:#ef4444; font-size:1.1em;" }
-  });
-  const contentDiv = details.createEl("div", {
-    attr: { style: "margin-top:10px;" }
-  });
-
-  if (pages.length === 0) {
-    contentDiv.createEl("span", {
-      text: "해당 조건의 지연된 프로젝트가 없습니다.",
-      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
-    });
-  } else {
-    if (window.renderProjectCard) {
-      pages.forEach(p => window.renderProjectCard(p, contentDiv));
-    } else {
-      contentDiv.createEl("span", { text: "로딩 중..." });
-    }
-  }
 }
 ```
 
 ## ✅ Completed
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
-const filterCategory = thisFile.card_category || "전체";
-const filterStatus = thisFile.card_status || "전체";
-
-if (filterStatus === "전체" || filterStatus === "completed") {
-  let pages = dv.pages().where(p => p.type === "project" && p.status === "completed");
-  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-  pages = pages.sort(p => p.due_date || "", 'desc');
-
-  const details = this.container.createEl("details", {
-    attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
+if (window.renderDashboardSection) {
+  window.renderDashboardSection({
+    dv: dv,
+    status: "completed",
+    type: "project",
+    container: this.container,
+    renderer: window.renderProjectCard,
+    emptyMessage: "해당 조건의 완료된 프로젝트가 없습니다.",
+    isCollapsed: true,
+    summaryText: "✅ 완료된 프로젝트 목록",
+    summaryColor: "#06b6d4",
+    sortField: "due_date",
+    sortOrder: "desc"
   });
-  details.createEl("summary", {
-    text: "✅ 완료된 프로젝트 목록",
-    attr: { style: "font-weight:bold; cursor:pointer; color:#06b6d4; font-size:1.1em;" }
-  });
-  const contentDiv = details.createEl("div", {
-    attr: { style: "margin-top:10px;" }
-  });
-
-  if (pages.length === 0) {
-    contentDiv.createEl("span", {
-      text: "해당 조건의 완료된 프로젝트가 없습니다.",
-      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
-    });
-  } else {
-    if (window.renderProjectCard) {
-      pages.forEach(p => window.renderProjectCard(p, contentDiv));
-    } else {
-      contentDiv.createEl("span", { text: "로딩 중..." });
-    }
-  }
 }
 ```
 
 ## 📝 Reviewing
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
-const filterCategory = thisFile.card_category || "전체";
-const filterStatus = thisFile.card_status || "전체";
-
-if (filterStatus === "전체" || filterStatus === "reviewing") {
-  let pages = dv.pages().where(p => p.type === "project" && p.status === "reviewing");
-  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-  pages = pages.sort(p => p.due_date || "", 'desc');
-
-  const details = this.container.createEl("details", {
-    attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
+if (window.renderDashboardSection) {
+  window.renderDashboardSection({
+    dv: dv,
+    status: "reviewing",
+    type: "project",
+    container: this.container,
+    renderer: window.renderProjectCard,
+    emptyMessage: "해당 조건의 복기 중인 프로젝트가 없습니다.",
+    isCollapsed: true,
+    summaryText: "📝 복기 중인 프로젝트 목록",
+    summaryColor: "#f97316",
+    sortField: "due_date",
+    sortOrder: "desc"
   });
-  details.createEl("summary", {
-    text: "📝 복기 중인 프로젝트 목록",
-    attr: { style: "font-weight:bold; cursor:pointer; color:#f97316; font-size:1.1em;" }
-  });
-  const contentDiv = details.createEl("div", {
-    attr: { style: "margin-top:10px;" }
-  });
-
-  if (pages.length === 0) {
-    contentDiv.createEl("span", {
-      text: "해당 조건의 복기 중인 프로젝트가 없습니다.",
-      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
-    });
-  } else {
-    if (window.renderProjectCard) {
-      pages.forEach(p => window.renderProjectCard(p, contentDiv));
-    } else {
-      contentDiv.createEl("span", { text: "로딩 중..." });
-    }
-  }
 }
 ```
 
 ## 📦 Archived
 
 ```dataviewjs
-const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
-const filterCategory = thisFile.card_category || "전체";
-const filterStatus = thisFile.card_status || "전체";
-
-if (filterStatus === "전체" || filterStatus === "archived") {
-  let pages = dv.pages().where(p => p.type === "project" && p.status === "archived");
-  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-  pages = pages.sort(p => p.due_date || "", 'desc');
-
-  const details = this.container.createEl("details", {
-    attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
+if (window.renderDashboardSection) {
+  window.renderDashboardSection({
+    dv: dv,
+    status: "archived",
+    type: "project",
+    container: this.container,
+    renderer: window.renderProjectCard,
+    emptyMessage: "해당 조건의 보관된 프로젝트가 없습니다.",
+    isCollapsed: true,
+    summaryText: "📦 보관된 프로젝트 목록",
+    summaryColor: "var(--text-muted)",
+    sortField: "due_date",
+    sortOrder: "desc"
   });
-  details.createEl("summary", {
-    text: "📦 보관된 프로젝트 목록",
-    attr: { style: "font-weight:bold; cursor:pointer; color:var(--text-muted); font-size:1.1em;" }
-  });
-  const contentDiv = details.createEl("div", {
-    attr: { style: "margin-top:10px;" }
-  });
-
-  if (pages.length === 0) {
-    contentDiv.createEl("span", {
-      text: "해당 조건의 보관된 프로젝트가 없습니다.",
-      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
-    });
-  } else {
-    if (window.renderProjectCard) {
-      pages.forEach(p => window.renderProjectCard(p, contentDiv));
-    } else {
-      contentDiv.createEl("span", { text: "로딩 중..." });
-    }
-  }
 }
 ```
