@@ -174,13 +174,7 @@ const splitGroup = pipelineBox.createEl('div', {
   attr: { style: 'display: flex; flex-direction: column; gap: 8px; align-items: flex-start;' }
 });
 
-// Row 1: Blocked step
-const rowBlocked = splitGroup.createEl('div', {
-  attr: { style: 'display: flex; align-items: center;' }
-});
-makeStep(rowBlocked, '🚧 지연', counts.blocked, '#ef4444');
-
-// Row 2: Completed -> Reviewing -> Archived
+// Row 1: Completed -> Reviewing -> Archived
 const rowSuccess = splitGroup.createEl('div', {
   attr: { style: 'display: flex; align-items: center; gap: 8px;' }
 });
@@ -189,6 +183,12 @@ makeArrow(rowSuccess);
 makeStep(rowSuccess, '🔄 복기', counts.reviewing, '#f97316');
 makeArrow(rowSuccess);
 makeStep(rowSuccess, '📦 보관', counts.archived, '#8e8e93');
+
+// Row 2: Blocked step
+const rowBlocked = splitGroup.createEl('div', {
+  attr: { style: 'display: flex; align-items: center;' }
+});
+makeStep(rowBlocked, '🚧 지연', counts.blocked, '#ef4444');
 ```
 
 ---
