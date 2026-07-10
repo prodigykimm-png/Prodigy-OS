@@ -91,70 +91,68 @@ attachments:
 <!-- STATUS CONTROL -->
 # Status Control
 
-
-````meta-bind-button
+```meta-bind-button
 style: default
 label: 👀 보는 중
-action:
-  type: set-property
-  property: status
-  value: watching
-````
+actions:
+  - type: set-property
+    property: status
+    value: watching
+```
 
-````meta-bind-button
+```meta-bind-button
 style: default
 label: ⚖️ 입찰 예정
-action:
-  type: set-property
-  property: status
-  value: bidding
-````
+actions:
+  - type: set-property
+    property: status
+    value: bidding
+```
 
-````meta-bind-button
+```meta-bind-button
 style: default
 label: ❌ 입찰 포기
-action:
-  type: set-property
-  property: status
-  value: skipped
-````
+actions:
+  - type: set-property
+    property: status
+    value: skipped
+```
 
-````meta-bind-button
+```meta-bind-button
 style: default
 label: 🏆 낙찰
-action:
-  type: set-property
-  property: status
-  value: won
-````
+actions:
+  - type: set-property
+    property: status
+    value: won
+```
 
-````meta-bind-button
+```meta-bind-button
 style: default
 label: 💔 패찰
-action:
-  type: set-property
-  property: status
-  value: lost
-````
+actions:
+  - type: set-property
+    property: status
+    value: lost
+```
 
-````meta-bind-button
+```meta-bind-button
 style: default
 label: 🔄 복기 중
-action:
-  type: set-property
-  property: status
-  value: reviewing
-````
+actions:
+  - type: set-property
+    property: status
+    value: reviewing
+```
 
-````meta-bind-button
+```meta-bind-button
 style: default
 label: 📦 보관
-action:
-  type: set-property
-  property: status
-  value: archived
-````
-````
+actions:
+  - type: set-property
+    property: status
+    value: archived
+```
 
 ---
 
@@ -188,8 +186,12 @@ action:
 ## 예상 입찰가
 -
 
+---
+
 ## 입찰 여부
 -
+
+---
 
 ## 입찰 전략
 -
