@@ -5,7 +5,6 @@ status: watching
 priority:
 next_action:
 due_date:
-review_status: pending
 connections:
 created: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
 updated: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
@@ -43,7 +42,6 @@ recommendation: 보통
 expected_bid:
 actual_bid:
 winning_bid:
-bid_result:
 # ---------- Investment ----------
 rent_deposit:
 monthly_rent:
@@ -90,6 +88,97 @@ attachments:
 
 ---
 
+<!-- STATUS CONTROL -->
+# Status Control
+
+현재 상태를 버튼으로 변경한다.
+
+````meta-bind
+button:
+  class: status-watching
+  style: default
+  tooltip: 보는 중
+  value: 
+  actions:
+    - type: set-property
+      property: status
+      value: watching
+````
+
+````meta-bind
+button:
+  class: status-bidding
+  style: default
+  tooltip: 입찰 예정
+  value: 
+  actions:
+    - type: set-property
+      property: status
+      value: bidding
+````
+
+````meta-bind
+button:
+  class: status-skipped
+  style: default
+  tooltip: 입찰 포기
+  value: 
+  actions:
+    - type: set-property
+      property: status
+      value: skipped
+````
+
+````meta-bind
+button:
+  class: status-won
+  style: default
+  tooltip: 낙찰
+  value: 
+  actions:
+    - type: set-property
+      property: status
+      value: won
+````
+
+````meta-bind
+button:
+  class: status-lost
+  style: default
+  tooltip: 패찰
+  value: 
+  actions:
+    - type: set-property
+      property: status
+      value: lost
+````
+
+````meta-bind
+button:
+  class: status-reviewing
+  style: default
+  tooltip: 복기 중
+  value: 
+  actions:
+    - type: set-property
+      property: status
+      value: reviewing
+````
+
+````meta-bind
+button:
+  class: status-archived
+  style: default
+  tooltip: 보관
+  value: 
+  actions:
+    - type: set-property
+      property: status
+      value: archived
+````
+
+---
+
 <!-- COLLECTED FACTS -->
 # Collected Facts
 
@@ -115,23 +204,15 @@ attachments:
 ---
 
 <!-- USER AREA -->
-
 # Decision
 
 ## 예상 입찰가
-
 -
-
----
 
 ## 입찰 여부
-
 -
 
----
-
 ## 입찰 전략
-
 -
 
 ---
