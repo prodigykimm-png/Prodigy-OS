@@ -7,10 +7,12 @@ journal-start-date: {{week_start_date}}
 journal-end-date: {{week_end_date}}
 journal-section: week
 ---
-# Weekly Notes
+# <% tp.file.title %>
+
 ```calendar-timeline
 mode: week
 ```
+
 ````tabs
 tab: Due This Week
 ```dataviewjs
@@ -46,19 +48,20 @@ dv.taskList(dv.pages().file.tasks
 );
 ```
 ````
+
 # Weekly Goals
-<%tp.file.cursor()%>
+
 
 # Summary of the Week
 
 
 # Notes & Reflections
 
-  
+
 # Plan for Next Week
 
-
 # Overview
+
 ````tabs
 tab: Meetings
 ```dataviewjs
@@ -86,7 +89,6 @@ dv.table(
     ])
 );
 ```
-
 tab: Projects
 ```dataviewjs
 let startDate = dv.current().file.frontmatter["journal-start-date"];
@@ -126,7 +128,6 @@ dv.table(
     ])
 );
 ```
-
 tab: Areas
 ```dataview
 table area_category as "Area Category", created as "Date Created" from "PARA/AREAS"

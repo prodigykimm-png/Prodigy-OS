@@ -66,12 +66,30 @@ attachments:
 ---
 # <% tp.file.title %>
 
-# Summary
+<!-- PROPERTY-DRIVEN SUMMARY -->
+## Object Summary
+
+| Property | Value |
+|----------|-------|
+| 사건번호 | `= this.case_number` |
+| 법원 | `= this.court` |
+| 물건종류 | `= this.property_type` |
+| 주소 | `= this.address` |
+| 감정가 | `= this.appraisal_price` |
+| 최저매각가 | `= this.minimum_bid` |
+| 최저가율 | `= this.minimum_bid_rate` |
+| 입찰일 | `= this.auction_date` |
+| 상태 | `= this.status` |
+| next_action | `= this.next_action` |
+| 추천 | `= this.recommendation` |
+
+**AI Summary**
 
 > AI가 이 사건을 3~5줄 정도로 요약한다.
 
 ---
 
+<!-- COLLECTED FACTS -->
 # Collected Facts
 
 ## 기본 정보
@@ -96,7 +114,6 @@ attachments:
 ---
 
 <!-- USER AREA -->
-
 # Decision
 
 ## 예상 입찰가

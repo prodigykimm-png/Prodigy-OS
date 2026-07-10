@@ -5,11 +5,28 @@ summary:
 tags: 
 type: area_family
 created: <% tp.file.creation_date() %>
+cssclasses:
+  - hide-properties_editing
+  - hide-properties_reading
 ---
-# [[2. <%tp.file.folder() %>]] 
-# Overview
+# <% tp.file.folder() %>
 
-<%tp.file.cursor()%>
+<!-- PROPERTY-DRIVEN SUMMARY -->
+## Area Summary
+
+| Property | Value |
+|----------|-------|
+| Area | `= this.area` |
+| Category | `= this.area_category` |
+| Summary | `= this.summary` |
+
+**Connections:** `INPUT[inlineListSuggester(optionQuery(#area)):connections]`
+
+---
+
+## Overview
+
+
 ````tabs
 tab: Components
 ```dataview
@@ -37,6 +54,7 @@ where type = "documentation_note" OR type = "workstation_note"
 sort type ASC
 ```
 ````
+
 ````tabs
 tab: Scheduled Meetings
 ```dataview
@@ -51,7 +69,7 @@ tab: Ongoing Task
 ```tasks
 not done
 tags include #area/<% tp.file.folder().toLowerCase().split(" ").join("_") %>
-path does not include "SYSTEM"
+path does not include SYSTEM
 sort by due date
 ```
 ````
@@ -60,7 +78,7 @@ tab: Completed Tasks
 ```tasks
 done
 tags include #area/<% tp.file.folder().toLowerCase().split(" ").join("_") %>
-path does not include "SYSTEM"
+path does not include SYSTEM
 sort by due date
 ```
 ````

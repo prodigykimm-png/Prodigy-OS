@@ -23,9 +23,24 @@ mood:
 notes:
 review_summary:
 ---
-
 # <% tp.file.title %>
 
+<!-- PROPERTY-DRIVEN SUMMARY -->
+## Object Summary
+
+| Property | Value |
+|----------|-------|
+| 운동 | `= this.exercise` |
+| 날짜 | `= this.date` |
+| 시간 | `= this.duration` |
+| 강도 | `= this.intensity` |
+| 세트 | `= this.sets` |
+| 상태 | `= this.status` |
+| next_action | `= this.next_action` |
+
+---
+
+<!-- HUMAN WORKING AREA -->
 ## Record
 
 ### Exercise
@@ -39,6 +54,8 @@ review_summary:
 | 1   |        |      |       |
 | 2   |        |      |       |
 | 3   |        |      |       |
+
+---
 
 ## Review
 

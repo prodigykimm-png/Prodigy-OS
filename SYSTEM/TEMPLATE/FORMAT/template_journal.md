@@ -19,6 +19,14 @@ reflection:
 
 # <% tp.file.title %>
 
+<!-- PROPERTY-DRIVEN SUMMARY (minimal — Journal is writing-first) -->
+
+| 기분 | `= this.mood` | 에너지 | `= this.energy` |
+|------|--------------|--------|----------------|
+
+---
+
+<!-- HUMAN WRITING AREA -->
 ## Today
 
 ### What happened today?
@@ -32,6 +40,8 @@ reflection:
 ### What could be better?
 
 -
+
+---
 
 ## Reflection
 

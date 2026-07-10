@@ -4,4 +4,6 @@ tags:
   - new_note
 created: <% tp.file.creation_date() %>
 ---
+# <% tp.file.title %>
+
 <%tp.file.cursor()%>

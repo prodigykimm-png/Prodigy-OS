@@ -7,10 +7,12 @@ journal-start-date: {{month_start_date}}
 journal-end-date: {{month_end_date}}
 journal-section: month
 ---
-# Monthly Notes
+# <% tp.file.title %>
+
 ```calendar-timeline
 mode: month
 ```
+
 ````tabs
 tab: Overview
 ```dataviewjs
@@ -125,8 +127,9 @@ table area_category as "Area Category", created as "Date Created" from "PARA/ARE
 WHERE type = "area_family"
 ```
 ````
+
 # Monthly Goals
-<%tp.file.cursor()%>
+
 
 # Summary of the Month
 
@@ -135,4 +138,3 @@ WHERE type = "area_family"
 
 
 # Plan for Next Month
-

@@ -3,9 +3,11 @@ cssclasses:
   - hide-properties_editing
   - hide-properties_reading
 ---
-# Daily Note
+# <% tp.file.title %>
+
 ```calendar-nav
 ```
+
 ````tabs
 tab: Due Today
 ```tasks
@@ -31,12 +33,10 @@ hide due date
 limit 10
 ```
 ````
-# New Tasks
-
 
 # Daily Notes
 
-<%tp.file.cursor()%>
+
 # Overview
 
 ````tabs
@@ -74,7 +74,7 @@ let pages = dv.pages('"PARA/PROJECTS"')
 
 // Separate pages with and without due dates
 let withDueDates = pages.where(p => p.Due_Date != null);
-let withoutDueDates = pages.where(p => p.Due_Date == null);
+let withoutDueDates = pages.where(p => !p.Due_Date);
 
 // Sort pages with due dates by: Due Date -> Priority Level (A-Z) -> Status (Z-A)
 withDueDates = withDueDates.sort(p => p.Due_Date)
@@ -92,8 +92,8 @@ let allPages = withDueDates.concat(withoutDueDates);
 dv.table(
     ["Days", "Project", "Priority Level", "Status", "Due Date"],
     allPages.map(p => [
-        p.Due_Date ? Math.floor(dv.date(p.Due_Date).diff(dv.date("today"), 'days').days) : "-", // Display whole number of days
-        p.file.link, // Use p.file.link to render the project name as a clickable link
+        p.Due_Date ? Math.floor(dv.date(p.Due_Date).diff(dv.date("today"), 'days').days) : "-",
+        p.file.link,
         p.Priority_Level || "-",
         p.Status || "-",
         p.Due_Date ? dv.date(p.Due_Date).toFormat("MM-dd") : "-"
@@ -106,5 +106,3 @@ table area_category as "Area Category", created as "Date Created" from "PARA/ARE
 WHERE type = "area_family"
 ```
 ````
-
-

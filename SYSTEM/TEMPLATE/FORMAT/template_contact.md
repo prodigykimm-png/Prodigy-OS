@@ -8,6 +8,23 @@ aliases:
 tags: 
 type: contact
 ---
+# <% tp.file.title %>
+
+<!-- PROPERTY-DRIVEN SUMMARY -->
+## Object Summary
+
+| Property | Value |
+|----------|-------|
+| 회사 | `= this.company` |
+| 위치 | `= this.location` |
+| 직함 | `= this.title` |
+| 이메일 | `= this.email` |
+| 전화 | `= this.phone` |
+
+**Aliases:** `= this.aliases`
+
+---
+
 # Personal Notes
 
 
