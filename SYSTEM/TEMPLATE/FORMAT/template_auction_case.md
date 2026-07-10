@@ -91,90 +91,69 @@ attachments:
 <!-- STATUS CONTROL -->
 # Status Control
 
-현재 상태를 버튼으로 변경한다.
 
-````meta-bind
-button:
-  class: status-watching
-  style: default
-  tooltip: 보는 중
-  value: 
-  actions:
-    - type: set-property
-      property: status
-      value: watching
+````meta-bind-button
+style: default
+label: 👀 보는 중
+action:
+  type: set-property
+  property: status
+  value: watching
 ````
 
-````meta-bind
-button:
-  class: status-bidding
-  style: default
-  tooltip: 입찰 예정
-  value: 
-  actions:
-    - type: set-property
-      property: status
-      value: bidding
+````meta-bind-button
+style: default
+label: ⚖️ 입찰 예정
+action:
+  type: set-property
+  property: status
+  value: bidding
 ````
 
-````meta-bind
-button:
-  class: status-skipped
-  style: default
-  tooltip: 입찰 포기
-  value: 
-  actions:
-    - type: set-property
-      property: status
-      value: skipped
+````meta-bind-button
+style: default
+label: ❌ 입찰 포기
+action:
+  type: set-property
+  property: status
+  value: skipped
 ````
 
-````meta-bind
-button:
-  class: status-won
-  style: default
-  tooltip: 낙찰
-  value: 
-  actions:
-    - type: set-property
-      property: status
-      value: won
+````meta-bind-button
+style: default
+label: 🏆 낙찰
+action:
+  type: set-property
+  property: status
+  value: won
 ````
 
-````meta-bind
-button:
-  class: status-lost
-  style: default
-  tooltip: 패찰
-  value: 
-  actions:
-    - type: set-property
-      property: status
-      value: lost
+````meta-bind-button
+style: default
+label: 💔 패찰
+action:
+  type: set-property
+  property: status
+  value: lost
 ````
 
-````meta-bind
-button:
-  class: status-reviewing
-  style: default
-  tooltip: 복기 중
-  value: 
-  actions:
-    - type: set-property
-      property: status
-      value: reviewing
+````meta-bind-button
+style: default
+label: 🔄 복기 중
+action:
+  type: set-property
+  property: status
+  value: reviewing
 ````
 
-````meta-bind
-button:
-  class: status-archived
-  style: default
-  tooltip: 보관
-  value: 
-  actions:
-    - type: set-property
-      property: status
-      value: archived
+````meta-bind-button
+style: default
+label: 📦 보관
+action:
+  type: set-property
+  property: status
+  value: archived
+````
 ````
 
 ---
