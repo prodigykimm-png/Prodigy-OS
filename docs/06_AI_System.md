@@ -9,31 +9,9 @@
 이 문서는 Prodigy OS에서 AI의 역할과 책임을 정의한다.
 
 Prodigy OS는 AI를 단순한 챗봇으로 사용하지 않는다.
+AI는 **사용자의 경험을 구조화된 Asset으로 성장시키는 엔진**이다.
 
-AI는
-
-- 정보를 이해하고
-- 데이터를 구조화하며
-- 연결을 제안하고
-- 의사결정을 지원하는
-
-System Component이다.
-
----
-
-# AI Philosophy
-
-Prodigy OS에서 AI는
-
-기록자가 아니다.
-
-비서도 아니다.
-
-AI는
-
-사용자의 경험을
-
-구조화된 Asset으로 성장시키는 엔진이다.
+> 상세 원칙: [docs/00_Constitution.md](docs/00_Constitution.md) (Article 2)
 
 ---
 
@@ -42,137 +20,70 @@ AI는
 AI는 다음 역할을 수행한다.
 
 ## 1. Parse
-
 입력된 정보를 이해한다.
-
-예)
-
-PDF
-
-↓
-
-주소/사건번호 추출
-
-↓
-
-Property 생성
-
----
+예: PDF → 주소/사건번호 추출 → Property 생성
 
 ## 2. Structure
-
 정보를 Object 형태로 변환한다.
-
-예)
-
-텍스트
-
-↓
-
-Auction Object
-
----
+예: 텍스트 → Auction Object
 
 ## 3. Enrich
-
 추가 정보를 보완한다.
-
-예)
-
-경매
-
-↓
-
-네이버 시세 / 과거 거래
-
-↓
-
-Dashboard 계산 설명
-
----
+예: 경매 → 네이버 시세/과거 거래 → Dashboard 계산 설명
 
 ## 4. Connect
-
 Object와 Object를 연결한다.
-
-예)
-
-Auction
-
-↓
-
-세법 / 감정평가 / 투자 전략
-
----
+예: Auction → 세법/감정평가/투자 전략
 
 ## 5. Assist Decision
-
 데이터를 제시한다.
-
-예)
-
 - "이 물건의 예상 적정가: X억~Y억"
 - "유사 물건 최저가율: 평균 X%"
 - "당신의 낙찰 성공률이 가장 높은 구간: 최저가율 XX~YY%"
 
 AI는 최종 결정을 내리지 않는다.
 
----
-
 ## 6. Review Support
-
 복기 데이터를 기반으로 패턴을 제시한다.
-
-예)
-
 - "최저가율 80% 이상에서 패찰률 80%"
 - "인천 오피스텔 낙찰 성공률: 45%"
 
 ---
 
-# AI Never Does
+# AI Boundaries
 
-AI는
+## AI MAY
+- Analyze
+- Review
+- Recommend
+- Generate Properties
+- Assist Organization
 
-절대
-
-최종 결정을 내리지 않는다.
-
-AI는
-
-- 낙찰 여부를 결정하지 않는다.
-- 투자 결정을 대신하지 않는다.
-- 데이터를 임의로 삭제하지 않는다.
-- Property를 사용자 승인 없이 변경하지 않는다.
-- Decision을 자동으로 작성하지 않는다.
-- Review를 자동으로 작성하지 않는다.
+## AI MUST NOT
+- Make final decisions
+- Delete Objects automatically
+- Rewrite important Object data without explicit approval
+- Change system architecture
+- Write Decision or Review content automatically
 
 ---
 
 # Human Responsibilities
 
-사람은
-
-항상
-
-최종 책임을 가진다.
-
-사람은
-
+사람은 항상 최종 책임을 가진다.
+사람은 다음을 담당한다.
 - 승인
 - 수정
 - 삭제
 - 의사결정
 - Review 작성
 
-을 담당한다.
-
 ---
 
 # AI Pipeline
 
 ```
-Capture
+Aside Capture
     ↓
 Parse
     ↓
@@ -193,38 +104,12 @@ Knowledge Asset
 
 ---
 
-# AI Confidence
-
-AI는
-
-모든 결과에
-
-Confidence를 가진다.
-
-예)
-
-- High
-- Medium
-- Low
-
-Confidence가 낮으면
-
-반드시
-
-사용자 확인을 요청한다.
-
----
-
 # Final Statement
 
 Prodigy OS에서 AI는
-
 사용자의 입력을 줄이고,
-
 Object 생성을 지원하며,
-
 Dashboard 계산을 설명하고,
-
 의사결정을 보조한다.
 
 최종 결정은 사람이 수행한다.
@@ -232,12 +117,8 @@ Dashboard 계산을 설명하고,
 ---
 
 **Version:** 2.0
-
 **Status:** Active
-
 **Supersedes:** AI System v1.0
-
 **Depends on:**
 - 00_Constitution.md
 - 01_Architecture.md
-- 03_Object_Model.md
