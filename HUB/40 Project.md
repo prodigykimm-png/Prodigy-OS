@@ -336,19 +336,19 @@ const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
 const filterCategory = thisFile.card_category || "전체";
 const filterStatus = thisFile.card_status || "전체";
 
-if (filterStatus !== "전체" && filterStatus !== "doing") return;
+if (filterStatus === "전체" || filterStatus === "doing") {
+  let pages = dv.pages().where(p => p.type === "project" && p.status === "doing");
+  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
+  pages = pages.sort(p => p.due_date || "", 'asc');
 
-let pages = dv.pages().where(p => p.type === "project" && p.status === "doing");
-if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-pages = pages.sort(p => p.due_date || "", 'asc');
-
-if (pages.length === 0) {
-  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>진행 중인 프로젝트가 없습니다.</span>");
-} else {
-  if (window.renderProjectCard) {
-    pages.forEach(p => window.renderProjectCard(p, this.container));
+  if (pages.length === 0) {
+    dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>진행 중인 프로젝트가 없습니다.</span>");
   } else {
-    dv.paragraph("로딩 중...");
+    if (window.renderProjectCard) {
+      pages.forEach(p => window.renderProjectCard(p, this.container));
+    } else {
+      dv.paragraph("로딩 중...");
+    }
   }
 }
 ```
@@ -362,19 +362,19 @@ const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
 const filterCategory = thisFile.card_category || "전체";
 const filterStatus = thisFile.card_status || "전체";
 
-if (filterStatus !== "전체" && filterStatus !== "planning") return;
+if (filterStatus === "전체" || filterStatus === "planning") {
+  let pages = dv.pages().where(p => p.type === "project" && p.status === "planning");
+  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
+  pages = pages.sort(p => p.due_date || "", 'asc');
 
-let pages = dv.pages().where(p => p.type === "project" && p.status === "planning");
-if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-pages = pages.sort(p => p.due_date || "", 'asc');
-
-if (pages.length === 0) {
-  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>기획 중인 프로젝트가 없습니다.</span>");
-} else {
-  if (window.renderProjectCard) {
-    pages.forEach(p => window.renderProjectCard(p, this.container));
+  if (pages.length === 0) {
+    dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>기획 중인 프로젝트가 없습니다.</span>");
   } else {
-    dv.paragraph("로딩 중...");
+    if (window.renderProjectCard) {
+      pages.forEach(p => window.renderProjectCard(p, this.container));
+    } else {
+      dv.paragraph("로딩 중...");
+    }
   }
 }
 ```
@@ -388,19 +388,19 @@ const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
 const filterCategory = thisFile.card_category || "전체";
 const filterStatus = thisFile.card_status || "전체";
 
-if (filterStatus !== "전체" && filterStatus !== "idea") return;
+if (filterStatus === "전체" || filterStatus === "idea") {
+  let pages = dv.pages().where(p => p.type === "project" && p.status === "idea");
+  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
+  pages = pages.sort(p => p.due_date || "", 'asc');
 
-let pages = dv.pages().where(p => p.type === "project" && p.status === "idea");
-if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-pages = pages.sort(p => p.due_date || "", 'asc');
-
-if (pages.length === 0) {
-  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>아이디어 단계의 프로젝트가 없습니다.</span>");
-} else {
-  if (window.renderProjectCard) {
-    pages.forEach(p => window.renderProjectCard(p, this.container));
+  if (pages.length === 0) {
+    dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>아이디어 단계의 프로젝트가 없습니다.</span>");
   } else {
-    dv.paragraph("로딩 중...");
+    if (window.renderProjectCard) {
+      pages.forEach(p => window.renderProjectCard(p, this.container));
+    } else {
+      dv.paragraph("로딩 중...");
+    }
   }
 }
 ```
@@ -414,33 +414,33 @@ const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
 const filterCategory = thisFile.card_category || "전체";
 const filterStatus = thisFile.card_status || "전체";
 
-if (filterStatus !== "전체" && filterStatus !== "blocked") return;
+if (filterStatus === "전체" || filterStatus === "blocked") {
+  let pages = dv.pages().where(p => p.type === "project" && p.status === "blocked");
+  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
+  pages = pages.sort(p => p.due_date || "", 'asc');
 
-let pages = dv.pages().where(p => p.type === "project" && p.status === "blocked");
-if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-pages = pages.sort(p => p.due_date || "", 'asc');
-
-const details = this.container.createEl("details", {
-  attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
-});
-details.createEl("summary", {
-  text: "🚧 지연된 프로젝트 목록",
-  attr: { style: "font-weight:bold; cursor:pointer; color:#ef4444; font-size:1.1em;" }
-});
-const contentDiv = details.createEl("div", {
-  attr: { style: "margin-top:10px;" }
-});
-
-if (pages.length === 0) {
-  contentDiv.createEl("span", {
-    text: "해당 조건의 지연된 프로젝트가 없습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+  const details = this.container.createEl("details", {
+    attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
   });
-} else {
-  if (window.renderProjectCard) {
-    pages.forEach(p => window.renderProjectCard(p, contentDiv));
+  details.createEl("summary", {
+    text: "🚧 지연된 프로젝트 목록",
+    attr: { style: "font-weight:bold; cursor:pointer; color:#ef4444; font-size:1.1em;" }
+  });
+  const contentDiv = details.createEl("div", {
+    attr: { style: "margin-top:10px;" }
+  });
+
+  if (pages.length === 0) {
+    contentDiv.createEl("span", {
+      text: "해당 조건의 지연된 프로젝트가 없습니다.",
+      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+    });
   } else {
-    contentDiv.createEl("span", { text: "로딩 중..." });
+    if (window.renderProjectCard) {
+      pages.forEach(p => window.renderProjectCard(p, contentDiv));
+    } else {
+      contentDiv.createEl("span", { text: "로딩 중..." });
+    }
   }
 }
 ```
@@ -452,33 +452,33 @@ const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
 const filterCategory = thisFile.card_category || "전체";
 const filterStatus = thisFile.card_status || "전체";
 
-if (filterStatus !== "전체" && filterStatus !== "completed") return;
+if (filterStatus === "전체" || filterStatus === "completed") {
+  let pages = dv.pages().where(p => p.type === "project" && p.status === "completed");
+  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
+  pages = pages.sort(p => p.due_date || "", 'desc');
 
-let pages = dv.pages().where(p => p.type === "project" && p.status === "completed");
-if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-pages = pages.sort(p => p.due_date || "", 'desc');
-
-const details = this.container.createEl("details", {
-  attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
-});
-details.createEl("summary", {
-  text: "✅ 완료된 프로젝트 목록",
-  attr: { style: "font-weight:bold; cursor:pointer; color:#06b6d4; font-size:1.1em;" }
-});
-const contentDiv = details.createEl("div", {
-  attr: { style: "margin-top:10px;" }
-});
-
-if (pages.length === 0) {
-  contentDiv.createEl("span", {
-    text: "해당 조건의 완료된 프로젝트가 없습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+  const details = this.container.createEl("details", {
+    attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
   });
-} else {
-  if (window.renderProjectCard) {
-    pages.forEach(p => window.renderProjectCard(p, contentDiv));
+  details.createEl("summary", {
+    text: "✅ 완료된 프로젝트 목록",
+    attr: { style: "font-weight:bold; cursor:pointer; color:#06b6d4; font-size:1.1em;" }
+  });
+  const contentDiv = details.createEl("div", {
+    attr: { style: "margin-top:10px;" }
+  });
+
+  if (pages.length === 0) {
+    contentDiv.createEl("span", {
+      text: "해당 조건의 완료된 프로젝트가 없습니다.",
+      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+    });
   } else {
-    contentDiv.createEl("span", { text: "로딩 중..." });
+    if (window.renderProjectCard) {
+      pages.forEach(p => window.renderProjectCard(p, contentDiv));
+    } else {
+      contentDiv.createEl("span", { text: "로딩 중..." });
+    }
   }
 }
 ```
@@ -490,33 +490,33 @@ const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
 const filterCategory = thisFile.card_category || "전체";
 const filterStatus = thisFile.card_status || "전체";
 
-if (filterStatus !== "전체" && filterStatus !== "reviewing") return;
+if (filterStatus === "전체" || filterStatus === "reviewing") {
+  let pages = dv.pages().where(p => p.type === "project" && p.status === "reviewing");
+  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
+  pages = pages.sort(p => p.due_date || "", 'desc');
 
-let pages = dv.pages().where(p => p.type === "project" && p.status === "reviewing");
-if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-pages = pages.sort(p => p.due_date || "", 'desc');
-
-const details = this.container.createEl("details", {
-  attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
-});
-details.createEl("summary", {
-  text: "📝 복기 중인 프로젝트 목록",
-  attr: { style: "font-weight:bold; cursor:pointer; color:#f97316; font-size:1.1em;" }
-});
-const contentDiv = details.createEl("div", {
-  attr: { style: "margin-top:10px;" }
-});
-
-if (pages.length === 0) {
-  contentDiv.createEl("span", {
-    text: "해당 조건의 복기 중인 프로젝트가 없습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+  const details = this.container.createEl("details", {
+    attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
   });
-} else {
-  if (window.renderProjectCard) {
-    pages.forEach(p => window.renderProjectCard(p, contentDiv));
+  details.createEl("summary", {
+    text: "📝 복기 중인 프로젝트 목록",
+    attr: { style: "font-weight:bold; cursor:pointer; color:#f97316; font-size:1.1em;" }
+  });
+  const contentDiv = details.createEl("div", {
+    attr: { style: "margin-top:10px;" }
+  });
+
+  if (pages.length === 0) {
+    contentDiv.createEl("span", {
+      text: "해당 조건의 복기 중인 프로젝트가 없습니다.",
+      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+    });
   } else {
-    contentDiv.createEl("span", { text: "로딩 중..." });
+    if (window.renderProjectCard) {
+      pages.forEach(p => window.renderProjectCard(p, contentDiv));
+    } else {
+      contentDiv.createEl("span", { text: "로딩 중..." });
+    }
   }
 }
 ```
@@ -528,33 +528,33 @@ const thisFile = dv.pages('"HUB/40 Project.md"')[0] || dv.current();
 const filterCategory = thisFile.card_category || "전체";
 const filterStatus = thisFile.card_status || "전체";
 
-if (filterStatus !== "전체" && filterStatus !== "archived") return;
+if (filterStatus === "전체" || filterStatus === "archived") {
+  let pages = dv.pages().where(p => p.type === "project" && p.status === "archived");
+  if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
+  pages = pages.sort(p => p.due_date || "", 'desc');
 
-let pages = dv.pages().where(p => p.type === "project" && p.status === "archived");
-if (filterCategory !== "전체") pages = pages.where(p => p.category === filterCategory);
-pages = pages.sort(p => p.due_date || "", 'desc');
-
-const details = this.container.createEl("details", {
-  attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
-});
-details.createEl("summary", {
-  text: "📦 보관된 프로젝트 목록",
-  attr: { style: "font-weight:bold; cursor:pointer; color:var(--text-muted); font-size:1.1em;" }
-});
-const contentDiv = details.createEl("div", {
-  attr: { style: "margin-top:10px;" }
-});
-
-if (pages.length === 0) {
-  contentDiv.createEl("span", {
-    text: "해당 조건의 보관된 프로젝트가 없습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+  const details = this.container.createEl("details", {
+    attr: { style: "margin-bottom:12px; background:var(--background-secondary); border:1px solid var(--background-modifier-border); border-radius:8px; padding:10px; width: 100%;" }
   });
-} else {
-  if (window.renderProjectCard) {
-    pages.forEach(p => window.renderProjectCard(p, contentDiv));
+  details.createEl("summary", {
+    text: "📦 보관된 프로젝트 목록",
+    attr: { style: "font-weight:bold; cursor:pointer; color:var(--text-muted); font-size:1.1em;" }
+  });
+  const contentDiv = details.createEl("div", {
+    attr: { style: "margin-top:10px;" }
+  });
+
+  if (pages.length === 0) {
+    contentDiv.createEl("span", {
+      text: "해당 조건의 보관된 프로젝트가 없습니다.",
+      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em; display:block; margin: 4px 0;" }
+    });
   } else {
-    contentDiv.createEl("span", { text: "로딩 중..." });
+    if (window.renderProjectCard) {
+      pages.forEach(p => window.renderProjectCard(p, contentDiv));
+    } else {
+      contentDiv.createEl("span", { text: "로딩 중..." });
+    }
   }
 }
 ```
