@@ -312,19 +312,42 @@ Prodigy OS는
 
 ---
 
+
 # Article 15 — Real Usage Drives Architecture
 
-Architecture는
+Architecture는 실제 사용을 통해 성장한다.
 
-실제 사용을 통해 성장한다.
+미래를 위해 현재를 복잡하게 만들지 않는다.
 
-미래를 위해
+필요성이 검증된 후에만 새로운 Layer, Concept, Property, Object, Architecture를 추가한다.
 
-현재를 복잡하게 만들지 않는다.
+## Early Improvement Exception
 
-필요성이 검증된 후에만
+초기 개발 단계에서는
 
-새로운 Layer, Concept, Property, Object, Architecture를 추가한다.
+실제 사용 데이터가 충분히 쌓이지 않았더라도
+
+**명확한 아키텍처적 개선**이 발견된 경우 변경을 고려할 수 있다.
+
+Architecture가 비효율적인 구조를 보존해야만 하는 것은 아니다.
+
+다만 변경은 반드시 문서화하고,
+ADR을 통해 검증한다.
+
+## Architecture Change Criteria
+
+아래 조건을 모두 만족해야 Architecture 변경을 제안할 수 있다.
+
+1. 새로운 설계가 현재보다 단순한가?
+2. 유지보수성이 향상되는가?
+3. 기존 Object와 호환되는가?
+4. AI 추론이 단순해지는가?
+5. 반복되는 실사용에서 구조적 약점이 드러났는가?
+6. 변경의 이익이 도입 비용보다 명확히 큰가?
+
+조건을 만족하지 않는 변경은
+실행하지 않는다.
+
 
 ---
 
