@@ -1,4 +1,4 @@
-# Prodigy OS Operating Guide v1.0
+# Prodigy OS Operating Guide v1.1
 
 > "폴더를 고민하지 말고, '이게 무엇인가?'를 생각하라."
 
@@ -30,11 +30,26 @@ Home은 시작점이다.
 Home을 열면 오늘 해야 할 일, 진행 중인 Object, Capture, Review가 보인다.
 폴더부터 열지 않는다. Home을 먼저 연다.
 
-## 2.2 Capture is Temporary
+## 2.2 Capture Postpones Decisions
 
-Capture는 임시 보관함이다.
-입력한 정보는 가능한 빨리 Object로 변환한다.
-Capture가 쌓이면 검토한다.
+Capture는 단순한 임시 보관함이 아니다.
+Capture는 **결정을 미루는 공간**이다.
+
+사용자는 정보가 들어왔을 때 즉시 분류하지 않는다.
+대신 정보를 보존한 뒤 나중에 결정한다.
+
+- 흥미로운 글
+- 떠오른 아이디어
+- 스크린샷
+- 이메일
+- 빠른 메모
+- 웹 페이지
+
+이 모든 것은 언제든지 Capture에 남을 수 있다.
+사용자가 나중에 "이게 무엇인지" 결정할 때까지 기다린다.
+
+Capture에 있는 정보는 가능한 빨리 Object로 변환한다.
+Capture가 쌓이면 정기적으로 검토한다.
 
 ## 2.3 Object is the Source of Truth
 
@@ -65,10 +80,15 @@ Project가 계속되면 Knowledge Object로 전환을 고려한다.
 Investment Object는 사람이 최종 결정을 내린다.
 AI는 분석하고 추천하지만, 입찰 여부는 사람이 결정한다.
 
-## 2.8 AI Assists But Does Not Decide
+## 2.8 AI Recommends, Humans Decide
 
 AI는 분류, 요약, 연결, 제안을 한다.
+AI는 Object 생성을 자동으로 실행하지 않는다.
 AI는 최종 결정, 삭제, 중요한 데이터 변경을 하지 않는다.
+
+**모든 Object는 사람의 소유이다.**
+AI는 Object 생성을 추천할 뿐이다.
+사람이 확인한 후에만 Object가 생성되거나 업데이트된다.
 
 ---
 
@@ -87,7 +107,7 @@ Home 열기
 ▶ Continue 확인 (진행 중인 Object)
   │
   ▼
-📥 Capture 확인 (처리되지 않은 입력)
+📥 Capture 확인 (미결정 정보 검토)
   │
   ▼
 Object 작업 (읽기, 업데이트, 결정)
@@ -114,55 +134,103 @@ next_action 설정
 
 | 상황 | 생성 / 업데이트 |
 |------|----------------|
-| 경매 물건 발견 | Investment Object 생성 |
-| 글, 개념, 아이디어 발견 | Knowledge Object 생성 또는 업데이트 |
-| 끝이 있는 작업 시작 | Project Object 생성 |
-| 운동, 건강 데이터 기록 | Personal Object 업데이트 |
+| 새로운 정보 발견 | Capture에 저장 → 나중에 결정 |
+| 공부 / 학습 | Knowledge Object 생성 또는 업데이트 |
+| 새로운 프로젝트 / 아이디어 | Project Object 생성 |
+| 운동 / 건강 데이터 | Personal Object 업데이트 |
+| 투자 대상 발견 | Investment Object 생성 |
 | 하루 돌아보기 | Journal 생성 |
-| 아직 분류되지 않은 정보 저장 | Capture |
 | 기존 주제의 새로운 내용 | 기존 Object 업데이트 |
 
 ---
 
 # 5. Scenario-Based Workflows
 
-## Scenario 1 — 경매 물건을 발견했다
+## Scenario 1 — 새로운 정보를 발견했다
 
 ```text
-1. Capture: URL 또는 PDF를 Capture에 저장
-2. AI가 Investment Object 자동 생성
-3. Property 검토 (감정가, 주소, 입찰일 등)
-4. 권리분석: Knowledge Object 참조
-5. 현장 방문 (선택)
-6. 의사결정: 입찰 / 포기
-7. 입찰 실행
-8. Review: 결과 복기, 패턴 축적
+1. Capture: URL, PDF, 스크린샷, 메모를 Capture에 저장
+2. AI가 정보를 분석하여 Object Type 추천
+3. 사람이 Object Type 확인
+4. AI가 Object 생성 추천
+5. 사람이 확인 → Object 생성 또는 업데이트
+6. Property 검토
+7. 필요시 Knowledge Object 연결
 ```
 
-- Investment Object는 하나의 경매 건을 관리한다.
-- Knowledge Object는 권리분석, 법정지상권 등 재사용 가능한 지식이다.
-- AI는 Property를 생성하지만, 입찰 여부는 사람이 결정한다.
+- 새로운 정보는 무조건 Capture에 먼저 저장한다.
+- 분류는 나중에 한다. 지금 당장 분류하지 않아도 된다.
+- AI는 Object 생성을 추천할 뿐, 자동으로 생성하지 않는다.
+- 사람이 "이게 뭐야?"를 결정한 후에야 Object가 생긴다.
+
+**핵심:** 정보가 들어오면 먼저 Capture. 나중에 분류.
 
 ---
 
-## Scenario 2 — 유용한 글을 읽었다
+## Scenario 2 — 공부 / 학습
 
 ```text
-1. Capture: 링크 또는 요약을 Capture에 저장
+1. Capture: 읽은 내용, 필기, 링크를 Capture에 저장
 2. AI가 기존 Knowledge Object와의 중복 확인
 3. 기존 Knowledge가 있으면 → Content에 추가 (업데이트)
-4. 기존 Knowledge가 없으면 → 새 Knowledge Object 생성
-5. 관련 Object와 연결
-6. 나중에 Project 또는 Investment에서 재사용
+4. 기존 Knowledge가 없으면 → 새 Knowledge Object 생성 추천
+5. 사람이 확인 → Object 생성 또는 업데이트
+6. 관련 Knowledge Object와 연결
+7. 나중에 Project나 Investment에서 재사용
 ```
 
 - Knowledge Object는 시간이 지나며 성장한다.
 - 새로운 Knowledge를 만들기 전에 기존 Knowledge를 확인한다.
 - Knowledge는 재사용 가능해야 한다.
+- AI는 업데이트를 추천할 뿐, 자동으로 실행하지 않는다.
+
+**핵심:** 기존 Knowledge가 있으면 업데이트. 없으면 새로 생성.
 
 ---
 
-## Scenario 3 — 오늘 운동했다
+## Scenario 3 — 새로운 프로젝트 / 아이디어
+
+```text
+1. Capture: 아이디어를 Capture에 저장
+2. AI가 Project Object 생성 가능성 추천
+3. 사람이 확인 → Project Object 생성
+4. 관련 Knowledge Object 연결
+5. next_action 설정
+6. Home에서 추적
+7. 완료되면 Archive
+```
+
+- 프로젝트는 끝이 있다. 완료 조건을 명확히 한다.
+- 프로젝트가 지속적인 활동이라면 Knowledge Object로 전환한다.
+- 프로젝트 결과물 중 재사용 가능한 지식은 Knowledge Object로 남긴다.
+
+**핵심:** 프로젝트는 끝이 있다. Knowledge는 계속 성장한다.
+
+---
+
+## Scenario 4 — 투자 대상 발견
+
+```text
+1. Capture: URL 또는 PDF를 Capture에 저장
+2. AI가 Investment Object 생성 추천
+3. 사람이 확인 → Investment Object 생성
+4. Property 검토 (감정가, 주소, 입찰일 등)
+5. 권리분석: Knowledge Object 참조
+6. 현장 방문 (선택)
+7. 의사결정: 입찰 / 포기 ← 사람이 결정
+8. 입찰 실행
+9. Review: 결과 복기, 패턴 축적
+```
+
+- Investment Object는 하나의 경매 건을 관리한다.
+- Knowledge Object는 권리분석, 법정지상권 등 재사용 가능한 지식이다.
+- AI는 Property를 생성하고, 낙찰 가능성을 분석하지만, 입찰 여부는 사람이 결정한다.
+
+**핵심:** Investment Object의 모든 결정은 사람의 소유이다.
+
+---
+
+## Scenario 5 — 개인 활동 (운동, 건강)
 
 ```text
 1. Personal Object 열기 (Workout)
@@ -180,49 +248,14 @@ next_action 설정
 
 ---
 
-## Scenario 4 — 새로운 프로젝트 아이디어가 떠올랐다
+## Scenario 6 — 사진 촬영 / 창작 작업
 
 ```text
-1. Capture: 아이디어를 Capture에 저장
-2. Project Object 생성 (끝이 있는 작업)
-3. 관련 Knowledge Object 연결
-4. next_action 설정
-5. Home에서 추적
-6. 완료되면 Archive
-```
-
-- 프로젝트는 끝이 있다. 완료 조건을 명확히 한다.
-- 프로젝트가 지속적인 활동이라면 Knowledge Object로 전환한다.
-- 프로젝트 결과물 중 재사용 가능한 지식은 Knowledge Object로 남긴다.
-
-**Knowledge vs Project:**
-- Knowledge = 재사용 가능한 개념 (끝이 없음)
-- Project = 끝이 있는 작업 (완료 → Archive)
-
----
-
-## Scenario 5 — 공부한 내용을 정리한다
-
-```text
-1. Knowledge Object 생성 (새 개념인 경우)
-2. 또는 기존 Knowledge Object 업데이트 (기존 개념 확장)
-3. Content에 학습 내용 추가
-4. 관련 Knowledge Object와 연결
-5. Project나 Investment에서 활용
-```
-
-- 하나의 Knowledge Object는 하나의 개념을 나타낸다.
-- 같은 개념의 새로운 내용은 기존 Object에 추가한다.
-- 연결은 단순한 링크가 아니라, "왜 연결되었는지"를 설명한다.
-
----
-
-## Scenario 6 — 사진 촬영을 했다
-
-```text
-1. Project Object 생성 (이번 촬영 건)
-2. Knowledge Object로 촬영 팁, 노하우 저장 (재사용 가능)
-3. Journal에 촬영 후기, 감정 기록 (회고)
+1. Capture: 촬영 계획, 영감, 참고 자료 저장
+2. Project Object 생성 (이번 촬영 건)
+3. AI가 Knowledge Object 생성 가능성 추천 (재사용 가능한 노하우)
+4. 사람이 확인 → Knowledge Object 생성 또는 업데이트
+5. Journal에 촬영 후기, 감정 기록 (회고)
 ```
 
 - 유한한 촬영 작업 → Project Object
@@ -256,7 +289,7 @@ next_action 설정
 | 폴더 | 용도 |
 |------|------|
 | HUB | 시작 화면. Home, Dashboard, Mail Box |
-| CAPTURE | 임시 보관함. 아직 처리되지 않은 입력 |
+| CAPTURE | 결정 미룸 보관함. 아직 분류되지 않은 정보 |
 | OBJECTS/Investment | 실제 투자 대상과 결정 |
 | OBJECTS/Knowledge | 재사용 가능한 개념과 지식 |
 | OBJECTS/Projects | 끝이 있는 작업 |
@@ -272,20 +305,24 @@ next_action 설정
 ## AI MAY
 
 AI는 다음을 할 수 있다:
-- 분류: 입력된 정보의 Object Type 결정
+- 분류: 입력된 정보의 Object Type 추천
 - 요약: 3~5문장 요약 생성
 - Property 제안: 구조화된 데이터 생성
 - 연결 제안: 관련 Object 발견
 - 품질 검토: Object 완전성 확인
 - next_action 추천: 다음 행동 제안
+- Object 생성 추천: 새 Object 또는 업데이트 제안
 
 ## AI MUST NOT
 
 AI는 다음을 해서는 안 된다:
 - 최종 투자 결정
-- Object 자동 삭제
+- Object 자동 생성 또는 삭제
 - 중요한 데이터 임의 변경
 - Decision 또는 Review 자동 작성
+- 사람의 확인 없이 Object 업데이트 실행
+
+**AI는 추천한다. 사람이 확인한다.**
 
 ---
 
@@ -332,11 +369,11 @@ AI는 다음을 해서는 안 된다:
 
 | 구분 | Capture | Object |
 |------|---------|--------|
-| 상태 | 임시, 미처리 | 영구, 구조화 |
-| 위치 | CAPTURE 폴더 | Type별 폴더 |
+| 상태 | 미결정, 보류 | 결정됨, 구조화 |
+| 목적 | 정보 보존, 결정 미루기 | 작업 소스 |
 | AI 역할 | 구조화 대기 | Property, 연결, 요약 |
 
-**쉬운 규칙:** 아직 무엇인지 모르겠다면 Capture. 무엇인지 알겠다면 Object.
+**쉬운 규칙:** 아직 결정하지 않았다면 Capture. 결정했다면 Object.
 
 ---
 
@@ -348,23 +385,25 @@ AI는 다음을 해서는 안 된다:
 2. **새 Object를 만들기 전에 기존 Object를 먼저 확인한다.**
    특히 Knowledge Object는 업데이트가 우선이다.
 
-3. **next_action을 일관되게 설정한다.**
+3. **Object는 업데이트로 성장시킨다.**
+   새로운 정보가 들어왔을 때 무조건 새 Object를 만들지 않는다.
+   기존 Object에 Content를 추가하고, Property를 정제하고, 연결을 확장한다.
+   Object 생성은 의도적인 행동이다.
+
+4. **next_action을 일관되게 설정한다.**
    Home에서 바로 오늘 할 일을 확인할 수 있다.
 
-4. **Home에서 시작한다.**
+5. **Home에서 시작한다.**
    폴더부터 열지 않는다. Home이 모든 시작점이다.
 
-5. **Knowledge를 과도하게 생성하지 않는다.**
+6. **Knowledge를 과도하게 생성하지 않는다.**
    하나의 Knowledge Object는 하나의 개념. 같은 개념은 업데이트로 처리한다.
-
-6. **Knowledge는 성장하게 둔다.**
-   한 번에 완벽할 필요 없다. 시간이 지나며 Content를 추가한다.
 
 7. **완료된 Project는 Archive한다.**
    삭제하지 않는다. Historical 상태로 보관한다.
 
 8. **AI 제안은 검토 후 수용한다.**
-   AI는 틀릴 수 있다. Property, 연결, 분류는 사람이 최종 확인한다.
+   AI는 틀릴 수 있다. Property, 연결, 분류, Object 생성 제안은 사람이 최종 확인한다.
 
 9. **Journal은 억지로 쓰지 않는다.**
    중요한 날, 배움이 있었던 날, 결정을 내린 날에만 쓴다.
@@ -381,12 +420,14 @@ Prodigy OS는 매일 사용하는 개인 운영체제이다.
 
 Home에서 시작한다.
 Object를 중심으로 작업한다.
-Capture를 거쳐 Object로 만든다.
+Capture에 정보를 보존하고, 나중에 Object로 만든다.
 AI의 도움을 받되, 최종 결정은 사람이 내린다.
+
+모든 Object는 사람의 소유이다.
 
 ---
 
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Active
 **Depends on:**
 - docs/00_Constitution.md
