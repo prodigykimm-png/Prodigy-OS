@@ -81,41 +81,6 @@ AI 파이프라인은 특정 LLM이나 벤더에 종속되지 않는다.
 
 # 3. High-Level Pipeline
 
-```text
-Input
-  │
-  ▼
-Capture
-  │
-  ▼
-Parse
-  │
-  ▼
-Classify
-  │
-  ▼
-Context Search
-  │
-  ▼
-Duplicate Detection
-  │
-  ▼
-Object Generator / Object Updater
-  │
-  ▼
-Property Generator
-  │
-  ▼
-Relationship Generator
-  │
-  ▼
-Human Review
-  │
-  ▼
-Vault Save
-  │
-  ▼
-Dashboard Update
 ```
 
 ## Stage Summary
@@ -881,11 +846,7 @@ faiss, Pinecone, Weaviate 등을 이용한 저장 및 검색.
 
 어떤 구현을 선택하든:
 - Architecture를 변경하지 않는다.
-- Object Model을 변경하지 않는다.
-- Folder 구조를 변경하지 않는다.
-- 이 사양을 준수한다.
-
----
+- 
 
 # Final Statement
 
