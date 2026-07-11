@@ -73,6 +73,10 @@
     {
       "folder": "STICKY",
       "template": "SYSTEM/TEMPLATE/FORMAT/template_new_note.md"
+    },
+    {
+      "folder": "PARA/PROJECTS/Reading",
+      "template": ""
     }
   ],
   "enable_file_templates": false,
@@ -87,5 +91,11 @@
   "enabled_templates_hotkeys": [
     "SYSTEM/TEMPLATE/CODE/toggle_todo.md"
   ],
-  "startup_templates": []
+  "startup_templates": [],
+  "intellisense_render": 1,
+  "ignore_folders_on_creation": [
+    {
+      "folder": "PARA/PROJECTS/Reading"
+    }
+  ]
 }
