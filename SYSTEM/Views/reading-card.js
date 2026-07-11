@@ -8,7 +8,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
   
   // Helper to render book cover
   const renderBookCover = (parentEl) => {
-    const coverPath = p.cover || p.cover_image;
+    const coverPath = p.cover || p.cover_image || p.cover_url || p.book_cover || p.image;
     if (coverPath) {
       let src = coverPath;
       if (!coverPath.startsWith("http://") && !coverPath.startsWith("https://") && !coverPath.startsWith("app://")) {
