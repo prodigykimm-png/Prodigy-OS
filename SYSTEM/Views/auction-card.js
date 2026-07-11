@@ -68,7 +68,7 @@ window.renderAuctionCard = function(p, container) {
   let ddayStr = "-";
   let isUrgent = false;
   if (p.auction_datetime) {
-    const targetDate = new Date(p.auction_datetime.split('T')[0]);
+    const targetDate = new Date(String(p.auction_datetime).split(' ')[0].split('T')[0]);
     const today = new Date();
     today.setHours(0,0,0,0);
     targetDate.setHours(0,0,0,0);
