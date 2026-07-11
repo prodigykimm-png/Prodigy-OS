@@ -19,6 +19,49 @@ const loadProdigyScript = async (path) => {
 
 await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
 await loadProdigyScript("SYSTEM/Views/reading-card.js");
+
+// Render "+ 새 책 추가" button
+const btn = container.createEl('button', {
+  text: '＋ 새 책 추가',
+  attr: { style: 'font-size:0.8em; font-weight:bold; padding:5px 12px; border-radius:6px; background:var(--text-accent); color:#ffffff; border:none; cursor:pointer; margin-bottom:16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' }
+});
+
+btn.onclick = async (e) => {
+  e.preventDefault();
+  const folderPath = "PARA/PROJECTS/Reading";
+  const folder = app.vault.getAbstractFileByPath(folderPath);
+  if (!folder) {
+    new Notice("Error: PARA/PROJECTS/Reading 폴더가 존재하지 않습니다.");
+    return;
+  }
+  
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hour = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  
+  let baseName = `새 책 ${year}-${month}-${day} ${hour}${min}`;
+  let fileName = `${baseName}.md`;
+  let filePath = `${folderPath}/${fileName}`;
+  
+  let counter = 1;
+  while (app.vault.getAbstractFileByPath(filePath)) {
+    fileName = `${baseName}_${counter}.md`;
+    filePath = `${folderPath}/${fileName}`;
+    counter++;
+  }
+  
+  try {
+    const newFile = await app.vault.create(filePath, "");
+    new Notice(`새 책 노트가 생성되었습니다: ${fileName}`);
+    const leaf = app.workspace.getLeaf(false);
+    await leaf.openFile(newFile);
+  } catch (err) {
+    new Notice(`파일 생성 중 오류가 발생했습니다: ${err.message}`);
+  }
+};
 ```
 
 # 📖 Continue Reading
