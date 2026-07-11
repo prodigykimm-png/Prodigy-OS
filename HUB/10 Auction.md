@@ -2,7 +2,7 @@
 cssclasses:
   - hide-properties_reading
 card_region: 전체지역
-card_type: 전체종류
+card_type: 오피스텔
 ---
 ```js-engine
 const file = app.workspace.getActiveFile();
@@ -68,8 +68,8 @@ activeCases.sort((a, b) => {
   if (a.status === 'bidding' && b.status !== 'bidding') return -1;
   if (a.status !== 'bidding' && b.status === 'bidding') return 1;
   
-  const dtA = a.auction_datetime ? new Date(a.auction_datetime.replace('T', ' ')) : null;
-  const dtB = b.auction_datetime ? new Date(b.auction_datetime.replace('T', ' ')) : null;
+  const dtA = a.auction_datetime ? new Date(String(a.auction_datetime).replace('T', ' ')) : null;
+  const dtB = b.auction_datetime ? new Date(String(b.auction_datetime).replace('T', ' ')) : null;
   
   if (dtA && dtB) return dtA - dtB;
   if (dtA) return -1;
