@@ -1,7 +1,7 @@
 ---
 id: <% tp.file.title %>
 type: reading
-status: to_read
+status: queue
 next_action: 읽기 시작
 due_date:
 priority:
@@ -37,6 +37,72 @@ review_summary:
 | 상태 | `= this.status` |
 | 평점 | `= this.rating` |
 | next_action | `= this.next_action` |
+
+---
+
+# Status Control
+
+```meta-bind-button
+id: r_queue
+hidden: true
+style: default
+label: 📚 읽기 전
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: queue
+```
+
+```meta-bind-button
+id: r_reading
+hidden: true
+style: default
+label: 📖 읽는 중
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: reading
+```
+
+```meta-bind-button
+id: r_reviewing
+hidden: true
+style: default
+label: 📝 복기 중
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: reviewing
+```
+
+```meta-bind-button
+id: r_completed
+hidden: true
+style: default
+label: ✅ 복기 완료
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: completed
+```
+
+```meta-bind-button
+id: r_archived
+hidden: true
+style: default
+label: 📦 보관
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: archived
+```
+
+`BUTTON[r_queue, r_reading, r_reviewing, r_completed, r_archived]`
 
 ---
 

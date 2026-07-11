@@ -1,8 +1,10 @@
 window.renderReadingCard = function(p, container, mode = "simple") {
   const statusColors = {
+    queue: '#3b82f6',
     reading: '#22c55e',
-    to_read: '#3b82f6',
-    finished: '#06b6d4'
+    reviewing: '#f97316',
+    completed: '#06b6d4',
+    archived: '#8e8e93'
   };
   const color = statusColors[p.status] || 'var(--text-accent)';
   
@@ -60,6 +62,39 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       cover.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
     }
   };
+
+  // Helper to render next action button
+  const renderNextActionButton = (parentEl, currentStatus) => {
+    const transitions = {
+      queue: { key: 'reading', label: '📖 읽기 시작', color: '#22c55e' },
+      reading: { key: 'reviewing', label: '📝 복기 시작', color: '#f97316' },
+      reviewing: { key: 'completed', label: '✅ 복기 완료', color: '#06b6d4' },
+      completed: { key: 'archived', label: '📦 보관', color: '#8e8e93' }
+    };
+    
+    const target = transitions[currentStatus];
+    if (!target) return;
+    
+    const btn = parentEl.createEl('button', {
+      text: target.label,
+      attr: {
+        style: `font-size: 0.72em; padding: 3px 8px; border-radius: 4px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid ${target.color}; cursor: pointer; font-weight: bold; transition: opacity 0.2s;`
+      }
+    });
+    
+    btn.onclick = async (e) => {
+      e.preventDefault();
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      const tFile = app.vault.getAbstractFileByPath(p.file.path);
+      if (tFile) {
+        await app.fileManager.processFrontMatter(tFile, (fm) => {
+          fm.status = target.key;
+          fm.updated = new Date().toISOString().split('T')[0];
+        });
+      }
+    };
+  };
   
   if (mode === "hero") {
     // 📖 Continue Reading Layout
@@ -101,11 +136,19 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     });
     purposeRow.createEl('span', { text: `🎯 목적: ${purpose}` });
     
-    // Progress
+    // Progress & Action Row
+    const bottomRow = contentBox.createEl('div', {
+      attr: { style: 'display: flex; justify-content: space-between; align-items: flex-end; margin-top: 4px;' }
+    });
+    
+    const progressContainer = bottomRow.createEl('div', {
+      attr: { style: 'flex-grow: 1; margin-right: 16px;' }
+    });
+    
     if (p.current_page && p.total_page) {
       const rate = ((p.current_page / p.total_page) * 100).toFixed(0);
-      const progressBox = contentBox.createEl('div', {
-        attr: { style: 'display: flex; flex-direction: column; gap: 4px; margin-top: 2px;' }
+      const progressBox = progressContainer.createEl('div', {
+        attr: { style: 'display: flex; flex-direction: column; gap: 4px;' }
       });
       
       const textRow = progressBox.createEl('div', {
@@ -123,17 +166,14 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       });
     }
     
-    // Next Reading Point (next_action)
-    if (p.next_action) {
-      const actionRow = contentBox.createEl('div', {
-        attr: { style: 'font-size: 0.85em; color: var(--text-normal); margin-top: 4px;' }
-      });
-      actionRow.createEl('strong', { text: '→ Next Reading Point: ', attr: { style: 'color: var(--text-accent);' } });
-      actionRow.createEl('span', { text: p.next_action });
-    }
+    // Action button
+    const actionBox = bottomRow.createEl('div', {
+      attr: { style: 'flex-shrink: 0;' }
+    });
+    renderNextActionButton(actionBox, p.status);
     
   } else if (mode === "simple") {
-    // 📝 Review Needed Layout (Simple Card)
+    // Simple Card Layout (for Reviewing or Completed)
     const card = container.createEl('div', {
       attr: {
         style: `border: 1px solid var(--background-modifier-border); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-secondary); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.06);`
@@ -155,13 +195,13 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       attr: { style: 'font-size: 0.78em; color: var(--text-muted);' }
     });
     
-    const right = card.createEl('span', {
-      text: '리뷰 대기',
-      attr: { style: 'font-size: 0.72em; font-weight: bold; color: #f97316; background: #f9731615; padding: 2px 6px; border-radius: 4px;' }
+    const right = card.createEl('div', {
+      attr: { style: 'display: flex; align-items: center;' }
     });
+    renderNextActionButton(right, p.status);
     
   } else if (mode === "grid") {
-    // 📚 Reading Queue (Library-style grid element)
+    // 📚 Reading Queue Grid Layout
     const gridItem = container.createEl('div', {
       attr: {
         style: 'display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100px; text-align: center;'
@@ -179,14 +219,10 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     });
     title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
     
-  } else if (mode === "cover_only") {
-    // ✅ Recently Finished (Covers only)
-    const item = container.createEl('div', {
-      attr: {
-        style: 'position: relative; width: 90px; height: 130px; cursor: pointer;',
-        title: `${p.book_title || p.file.name} - ${p.author || "저자 미상"}`
-      }
+    // Action button
+    const actionBox = gridItem.createEl('div', {
+      attr: { style: 'margin-top: 2px;' }
     });
-    renderBookCover(item);
+    renderNextActionButton(actionBox, p.status);
   }
 };

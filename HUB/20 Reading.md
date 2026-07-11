@@ -87,7 +87,7 @@ if (pages.length === 0) {
 # 📝 Review Needed
 
 ```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "finished" && p.review_status === "pending");
+const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reviewing");
 if (pages.length === 0) {
   this.container.createEl("span", {
     text: "리뷰 대기 중인 책이 없습니다.",
@@ -107,7 +107,7 @@ if (pages.length === 0) {
 # 📚 Reading Queue
 
 ```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "to_read");
+const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "queue");
 if (pages.length === 0) {
   this.container.createEl("span", {
     text: "독서 대기열이 비어 있습니다.",
@@ -130,18 +130,15 @@ if (pages.length === 0) {
 # ✅ Recently Finished
 
 ```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "finished").sort(p => p.finish_date || p.file.mtime, "desc");
+const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "completed").sort(p => p.file.mtime, "desc");
 if (pages.length === 0) {
   this.container.createEl("span", {
     text: "최근 완독한 책이 없습니다.",
     attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
   });
 } else {
-  const grid = this.container.createEl("div", {
-    attr: { style: "display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;" }
-  });
   if (window.renderReadingCard) {
-    pages.forEach(p => window.renderReadingCard(p, grid, "cover_only"));
+    pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
   } else {
     this.container.createEl("span", { text: "로딩 중..." });
   }
