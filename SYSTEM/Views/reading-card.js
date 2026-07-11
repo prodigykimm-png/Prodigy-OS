@@ -20,6 +20,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       const img = parentEl.createEl('img', {
         attr: {
           src: src,
+          referrerpolicy: 'no-referrer',
           style: 'width: 90px; height: 130px; object-fit: cover; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.15); cursor: pointer;'
         }
       });
