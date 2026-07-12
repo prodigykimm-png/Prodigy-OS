@@ -194,10 +194,15 @@ window.renderAuctionCard = function(p, container) {
       btn.onclick = async (e) => {
         e.preventDefault();
         
+        let expectedBid = p.expected_bid || "";
         let actualBid = p.actual_bid || "";
         let winningBid = p.winning_bid || "";
 
-        if (opt.key === 'won' || opt.key === 'lost') {
+        if (opt.key === 'bidding') {
+          const inputExpected = await window.obsidianPrompt(`[${p.case_number}] 입찰 준비`, "예상 입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):", String(expectedBid));
+          if (inputExpected === null) return;
+          expectedBid = inputExpected.trim();
+        } else if (opt.key === 'won' || opt.key === 'lost') {
           const inputActual = await window.obsidianPrompt(`[${p.case_number}] 실제 입찰가 입력`, "실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):", String(actualBid));
           if (inputActual === null) return;
           actualBid = inputActual.trim();
@@ -213,8 +218,12 @@ window.renderAuctionCard = function(p, container) {
         if (tFile) {
           await app.fileManager.processFrontMatter(tFile, (fm) => {
             fm.status = opt.key;
-            if (actualBid) fm.actual_bid = Number(actualBid) || actualBid;
-            if (winningBid) fm.winning_bid = Number(winningBid) || winningBid;
+            if (opt.key === 'bidding') {
+              if (expectedBid) fm.expected_bid = Number(expectedBid) || expectedBid;
+            } else if (opt.key === 'won' || opt.key === 'lost') {
+              if (actualBid) fm.actual_bid = Number(actualBid) || actualBid;
+              if (winningBid) fm.winning_bid = Number(winningBid) || winningBid;
+            }
             fm.updated = new Date().toISOString().split('T')[0];
           });
           new Notice(`상태가 ${opt.label}(으)로 변경되고 정보가 기록되었습니다.`);
