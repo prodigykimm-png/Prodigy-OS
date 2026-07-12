@@ -89,11 +89,11 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       let keyTakeaway = p.key_takeaway || "";
 
       if (target.key === 'completed') {
-        const inputRating = prompt(`[${p.book_title || p.file.name}] 평점을 입력해주세요 (1 ~ 5):`, rating);
+        const inputRating = await window.obsidianPrompt(`[${p.book_title || p.file.name}] 완독 기록`, "평점을 입력해주세요 (1 ~ 5):", String(rating));
         if (inputRating === null) return;
         rating = Math.min(5, Math.max(1, Number(inputRating) || 5));
 
-        const inputTakeaway = prompt(`[${p.book_title || p.file.name}] 책의 핵심 한 줄 요약(Key Takeaway)을 기록해주세요:`, keyTakeaway);
+        const inputTakeaway = await window.obsidianPrompt(`[${p.book_title || p.file.name}] 완독 기록`, "핵심 한 줄 요약(Key Takeaway)을 기록해주세요:", keyTakeaway);
         if (inputTakeaway === null) return;
         keyTakeaway = inputTakeaway.trim();
       }

@@ -1,3 +1,60 @@
+window.obsidianPrompt = function(title, placeholder, value = "") {
+  return new Promise((resolve) => {
+    try {
+      const { Modal, Setting } = require("obsidian");
+      
+      class PromptModal extends Modal {
+        constructor(app) {
+          super(app);
+        }
+        onOpen() {
+          const { contentEl } = this;
+          contentEl.createEl("h3", { text: title, attr: { style: "margin-bottom: 12px; font-size: 1.2em;" } });
+          
+          let inputVal = value;
+          new Setting(contentEl)
+            .setName(placeholder)
+            .addText((text) => {
+              text.setValue(value);
+              text.onChange((val) => {
+                inputVal = val;
+              });
+              setTimeout(() => {
+                text.inputEl.focus();
+                text.inputEl.select();
+              }, 50);
+            });
+            
+          new Setting(contentEl)
+            .addButton((btn) => {
+              btn.setButtonText("확인")
+                 .setCta()
+                 .onClick(() => {
+                   this.close();
+                   resolve(inputVal);
+                 });
+            })
+            .addButton((btn) => {
+              btn.setButtonText("취소")
+                 .onClick(() => {
+                   this.close();
+                   resolve(null);
+                 });
+            });
+        }
+        onClose() {
+          this.contentEl.empty();
+        }
+      }
+      
+      new PromptModal(app).open();
+    } catch (e) {
+      const input = prompt(title + "\\n" + placeholder, value);
+      resolve(input);
+    }
+  });
+};
+
 window.renderDashboardSection = function(options) {
   const {
     status,

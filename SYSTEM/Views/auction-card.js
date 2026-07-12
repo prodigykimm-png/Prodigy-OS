@@ -198,11 +198,11 @@ window.renderAuctionCard = function(p, container) {
         let winningBid = p.winning_bid || "";
 
         if (opt.key === 'won' || opt.key === 'lost') {
-          const inputActual = prompt(`[${p.case_number}] 실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):`, actualBid);
+          const inputActual = await window.obsidianPrompt(`[${p.case_number}] 실제 입찰가 입력`, "실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):", String(actualBid));
           if (inputActual === null) return;
           actualBid = inputActual.trim();
 
-          const inputWinning = prompt(`[${p.case_number}] 최종 낙찰가를 입력해주세요 (원 단위):`, winningBid || actualBid);
+          const inputWinning = await window.obsidianPrompt(`[${p.case_number}] 최종 낙찰가 입력`, "최종 낙찰가를 입력해주세요 (원 단위):", String(winningBid || actualBid));
           if (inputWinning === null) return;
           winningBid = inputWinning.trim();
         }
