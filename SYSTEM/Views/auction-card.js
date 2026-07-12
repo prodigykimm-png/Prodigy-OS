@@ -136,9 +136,9 @@ window.renderAuctionCard = function(p, container) {
   meta.createEl('span', { text: '·' });
   meta.createEl('span', { text: p.property_type || "용도 미정" });
   
-  // D-Day & Date Row
-  const ddayContainer = card.createEl('div', {
-    attr: { style: 'display: flex; align-items: center; gap: 6px; margin-top: 1px;' }
+  // D-Day & Date & Finance Row
+  const financeRow = card.createEl('div', {
+    attr: { style: 'display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
   });
   
   // Calculate D-Day
@@ -167,36 +167,39 @@ window.renderAuctionCard = function(p, container) {
   }
   
   if (ddayStr !== "-") {
-    ddayContainer.createEl('span', {
+    financeRow.createEl('span', {
       text: ddayStr,
       attr: {
-        style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.72em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
+        style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.9em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
       }
     });
   }
   
   if (p.auction_datetime) {
-    ddayContainer.createEl('span', {
+    financeRow.createEl('span', {
       text: dateStr,
-      attr: { style: 'font-size: 0.75em; color: var(--text-muted); font-weight: bold;' }
+      attr: { style: 'color: var(--text-muted); font-weight: bold;' }
     });
   }
   
-  // Prices & Profit Row
-  const prices = card.createEl('div', {
-    attr: { style: 'display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.8em; color: var(--text-normal); background: var(--background-modifier-hover); padding: 4px 8px; border-radius: 4px; margin-top: 3px; align-items: center;' }
-  });
+  if (p.auction_datetime) {
+    financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+  }
   
   const minRateStr = (p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") 
     ? ` (${(Number(p.minimum_bid) / Number(p.appraisal_price) * 100).toFixed(0)}%)` 
     : "";
     
-  prices.createEl('div', { html: `감정: <strong>${toEok(p.appraisal_price)}</strong>` });
-  prices.createEl('div', { html: `최저: <strong>${toEok(p.minimum_bid)}${minRateStr}</strong>` });
-  prices.createEl('div', { html: `예상: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>` });
+  financeRow.createEl('div', { html: `최저: <strong>${toEok(p.minimum_bid)}${minRateStr}</strong>` });
+  
+  financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+  
+  financeRow.createEl('div', { html: `예상: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>` });
+  
+  financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
   
   const profitInfo = calcMonthlyProfit(p);
-  prices.createEl('div', { html: `월수익: ${formatProfit(profitInfo)}` });
+  financeRow.createEl('div', { html: `월수익: ${formatProfit(profitInfo)}` });
   
   // Recommendation & Next Action
   const detailRow = card.createEl('div', {
