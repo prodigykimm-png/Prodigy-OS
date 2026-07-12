@@ -55,102 +55,94 @@ try {
 # 🎯 Today
 
 ```dataviewjs
-// Calculate counts and action stats
-let ddayCount = 0;
+// Calculate counts and progress stats
+let todayBiddingCount = 0;
+let pendingSiteVisitsCount = 0;
 let missingExpectedCount = 0;
-let missingNextActionCount = 0;
-const activeCases = [];
+let wonThisMonthCount = 0;
+let reviewsCompletedThisMonthCount = 0;
 
 const now = new Date();
-const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+const currentYear = now.getFullYear();
+const currentMonth = now.getMonth(); // 0-11
+const todayStr = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
 const cases = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
 
 cases.forEach(p => {
-  if (["watching", "bidding", "reviewing"].includes(p.status) && p.auction_datetime) {
+  // 1. Today Bidding
+  if (p.status === "bidding" && p.auction_datetime) {
     const cleanStr = String(p.auction_datetime).split(' ')[0].split('T')[0];
     if (cleanStr === todayStr) {
-      ddayCount++;
+      todayBiddingCount++;
     }
   }
   
-  if (["watching", "bidding"].includes(p.status)) {
+  // 2. Today's Site Visits (Watching status and site_visit_completed !== true)
+  if (p.status === "watching") {
+    if (p.site_visit_completed !== true && p.site_visit_completed !== "true") {
+      pendingSiteVisitsCount++;
+    }
+  }
+  
+  // 3. Missing Expected Bid (Bidding status and expected_bid is missing)
+  if (p.status === "bidding") {
     const exp = p.expected_bid;
     if (!exp || exp === "정보 없음" || String(exp).trim() === "") {
       missingExpectedCount++;
     }
   }
   
-  if (["watching", "bidding", "reviewing"].includes(p.status)) {
-    const act = p.next_action;
-    if (!act || act === "정보 없음" || String(act).trim() === "") {
-      missingNextActionCount++;
+  // 4. Won This Month (Won status updated in the current month)
+  if (p.status === "won" && p.updated) {
+    const date = new Date(p.updated);
+    if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
+      wonThisMonthCount++;
     }
   }
   
-  if (["watching", "bidding", "reviewing"].includes(p.status)) {
-    activeCases.push(p);
+  // 5. Reviews Completed This Month (Archived status updated in the current month)
+  if (p.status === "archived" && p.updated) {
+    const date = new Date(p.updated);
+    if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
+      reviewsCompletedThisMonthCount++;
+    }
   }
 });
-
-activeCases.sort((a, b) => {
-  if (a.status === 'bidding' && b.status !== 'bidding') return -1;
-  if (a.status !== 'bidding' && b.status === 'bidding') return 1;
-  
-  const dtA = a.auction_datetime ? new Date(String(a.auction_datetime).replace('T', ' ')) : null;
-  const dtB = b.auction_datetime ? new Date(String(b.auction_datetime).replace('T', ' ')) : null;
-  
-  if (dtA && dtB) return dtA - dtB;
-  if (dtA) return -1;
-  if (dtB) return 1;
-  return 0;
-});
-
-const nextCase = activeCases[0];
 
 const mainBox = this.container.createEl('div', {
   attr: { style: 'display:grid;grid-template-columns: 1fr 1fr;gap:12px;margin-bottom:8px;' }
 });
 
+// Left Box: Actions Needed
 const statsBox = mainBox.createEl('div', {
   attr: { style: 'background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.2);' }
 });
-statsBox.createEl('div', { text: '🎯 Today 현황', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
+statsBox.createEl('div', { text: '🎯 Today 할 일 (Actions Needed)', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
 
 const addStatItem = (parent, label, count, color, isHighlight) => {
   const row = parent.createEl('div', { attr: { style: 'display:flex;justify-content:space-between;align-items:center;font-size:0.85em;' } });
-  row.createEl('span', { text: label, attr: { style: 'color:var(--text-muted);' } });
+  row.createEl('span', { text: label, attr: { style: 'color:var(--text-normal); font-weight: 550;' } });
   row.createEl('span', {
     text: `${count}건`,
     attr: {
-      style: `font-weight:bold;color:${color};background:${isHighlight ? color+'15' : 'transparent'};padding:${isHighlight ? '1px 6px' : '0'};border-radius:4px;`
+      style: `font-weight:bold;color:${color};background:${isHighlight ? color+'15' : 'transparent'};padding:${isHighlight ? '2px 6px' : '0'};border-radius:4px;`
     }
   });
 };
 
-addStatItem(statsBox, '🔥 D-Day', ddayCount, '#ef4444', ddayCount > 0);
-addStatItem(statsBox, '⚠️ 예상입찰가 미작성', missingExpectedCount, '#eab308', missingExpectedCount > 0);
-addStatItem(statsBox, '⚠️ Next Action 미작성', missingNextActionCount, '#f97316', missingNextActionCount > 0);
+addStatItem(statsBox, '🔥 오늘 입찰 (Today Bidding)', todayBiddingCount, '#ef4444', todayBiddingCount > 0);
+addStatItem(statsBox, '🏃 미완료 임장 (Site Visits)', pendingSiteVisitsCount, '#3b82f6', pendingSiteVisitsCount > 0);
+addStatItem(statsBox, '⚠️ 예상입찰가 누락', missingExpectedCount, '#eab308', missingExpectedCount > 0);
 
-const actionBox = mainBox.createEl('div', {
+// Right Box: Monthly Progress
+const progressBox = mainBox.createEl('div', {
   attr: { style: 'background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.2);' }
 });
-actionBox.createEl('div', { text: '⚡ 다음 Action', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
+progressBox.createEl('div', { text: '✨ 이번 달 진행 현황 (Monthly Progress)', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
 
-if (nextCase) {
-  const linkRow = actionBox.createEl('div', { attr: { style: 'margin-top:2px;' } });
-  linkRow.createEl('span', { text: '→ ', attr: { style: 'color:#ef4444;font-weight:bold;' } });
-  
-  const linkSpan = linkRow.createEl('span', { attr: { style: 'font-size:0.9em;font-weight:bold;' } });
-  dv.api.renderValue(nextCase.file.link, linkSpan, dv.component, nextCase.file.path, true);
-  
-  actionBox.createEl('div', {
-    text: nextCase.next_action || "지정된 액션이 없습니다.",
-    attr: { style: 'font-size:0.85em;color:var(--text-normal);background:var(--background-modifier-hover);padding:6px 8px;border-radius:6px;border-left:3px solid #ef4444;margin-top:4px;' }
-  });
-} else {
-  actionBox.createEl('div', { text: '진행 중인 사건이 없습니다.', attr: { style: 'font-size:0.85em;color:var(--text-muted);text-align:center;margin-top:12px;' } });
-}
+addStatItem(progressBox, '🏆 이번 달 낙찰 (Won)', wonThisMonthCount, '#22c55e', wonThisMonthCount > 0);
+addStatItem(progressBox, '🔄 복기 완료 (Reviews Done)', reviewsCompletedThisMonthCount, '#f97316', reviewsCompletedThisMonthCount > 0);
 ```
 
 ---

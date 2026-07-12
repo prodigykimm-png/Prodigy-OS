@@ -217,11 +217,45 @@ window.renderAuctionCard = function(p, container) {
     const profitEl = financeRow.createEl('div');
     profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
     
-    // Next Action Row
-    const actionEl = card.createEl('div', {
-      attr: { style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
-    });
-    actionEl.innerHTML = `→ <strong style="color:var(--text-accent); font-weight:bold;">Next Action:</strong> ${p.next_action || "⚠️ 설정 필요"}`;
+    // 임장 완료 Checkbox (only for watching status)
+    if (p.status === "watching") {
+      const checkboxRow = card.createEl('div', {
+        attr: { style: 'display: flex; align-items: center; gap: 6px; font-size: 0.78em; margin-top: 1px;' }
+      });
+      
+      const checkbox = checkboxRow.createEl('input', {
+        attr: { 
+          type: 'checkbox',
+          style: 'cursor: pointer; margin: 0;'
+        }
+      });
+      
+      if (p.site_visit_completed === true || p.site_visit_completed === "true") {
+        checkbox.checked = true;
+      }
+      
+      const label = checkboxRow.createEl('label', {
+        text: '🏃 임장 완료',
+        attr: { style: 'cursor: pointer; font-weight: bold; color: var(--text-normal);' }
+      });
+      
+      const handleCheckChange = async () => {
+        const tFile = app.vault.getAbstractFileByPath(p.file.path);
+        if (tFile) {
+          await app.fileManager.processFrontMatter(tFile, (fm) => {
+            fm.site_visit_completed = checkbox.checked;
+            fm.updated = new Date().toISOString().split('T')[0];
+          });
+          new Notice(checkbox.checked ? "임장 완료로 표시되었습니다." : "임장 미완료로 표시되었습니다.");
+        }
+      };
+      
+      checkbox.onchange = handleCheckChange;
+      label.onclick = () => {
+        checkbox.checked = !checkbox.checked;
+        handleCheckChange();
+      };
+    }
     
     // Memo Row (below Next Action)
     const memoEl = card.createEl('div', {
