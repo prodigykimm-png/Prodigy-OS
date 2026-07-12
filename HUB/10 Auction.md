@@ -11,6 +11,7 @@ if (!container) return;
 container.empty();
 
 // Expose globals for external scripts
+// Last reload: 2026-07-12T14:52:00
 window.obsidian = obsidian;
 window.app = app;
 
