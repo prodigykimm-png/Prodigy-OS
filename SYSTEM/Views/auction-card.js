@@ -233,7 +233,7 @@ window.renderAuctionCard = function(p, container) {
     if (rawNote && rawNote !== "정보 없음" && rawNote !== "메모 없음" && String(rawNote).trim() !== "") {
       memoText = String(rawNote).trim();
     }
-    memoEl.innerHTML = `📝 <strong style="color:var(--text-accent); font-weight:bold;">옥션원 메모:</strong> ${memoText}`;
+    memoEl.innerHTML = `📝 <strong style="color:var(--text-accent); font-weight:bold;">참고사항:</strong> ${memoText}`;
     
     // Transition status buttons
     const getTransitionButtons = (currentStatus) => {
