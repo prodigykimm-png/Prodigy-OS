@@ -2,6 +2,7 @@
 cssclasses:
   - hide-properties_reading
 sort_completed_by: rating
+filter_rating: 
 ---
 ```js-engine
 const file = app.workspace.getActiveFile();
@@ -159,12 +160,19 @@ const current = dv.current();
 const sortBy = current.sort_completed_by || "date";
 const sortLabel = sortBy === "rating" ? "⭐ 평점 높은 순" : "📅 최근 완독 순";
 
+const filterRating = Number(current.filter_rating);
+const filterLabel = filterRating ? `⭐ ${filterRating}.0점 이상` : "전체";
+
 this.container.createEl("div", {
-  text: `정렬: ${sortLabel}`,
+  text: `필터: ${filterLabel} | 정렬: ${sortLabel}`,
   attr: { style: "font-size: 0.78em; color: var(--text-muted); text-align: right; margin-bottom: 6px; font-style: italic;" }
 });
 
 let pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "completed");
+
+if (filterRating) {
+  pages = pages.where(p => p.rating && Number(p.rating) >= filterRating);
+}
 
 if (sortBy === "rating") {
   pages = pages.sort(p => p.rating || 0, "desc");
@@ -174,7 +182,7 @@ if (sortBy === "rating") {
 
 if (pages.length === 0) {
   this.container.createEl("span", {
-    text: "최근 완독한 책이 없습니다.",
+    text: "조건에 맞는 완독 도서가 없습니다.",
     attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
   });
 } else {
