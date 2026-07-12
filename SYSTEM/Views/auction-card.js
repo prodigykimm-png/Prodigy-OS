@@ -108,13 +108,6 @@ window.renderAuctionCard = function(p, container) {
       attr: { style: 'display: flex; align-items: center; gap: 6px; font-size: 0.75em;' }
     });
     
-    if (p.court) {
-      rightHeader.createEl('span', {
-        text: p.court,
-        attr: { style: 'color: var(--text-muted); font-weight: bold;' }
-      });
-    }
-    
     const level = p.recommendation || p.recommend_level || "보통";
     const levelColors = {
       '강강추': { bg: '#ef444420', text: '#ef4444' },
@@ -128,6 +121,13 @@ window.renderAuctionCard = function(p, container) {
       text: level,
       attr: { style: `background: ${colors.bg}; color: ${colors.text}; font-weight: bold; padding: 1px 4px; border-radius: 4px;` }
     });
+
+    if (p.court) {
+      rightHeader.createEl('span', {
+        text: p.court,
+        attr: { style: 'color: var(--text-muted); font-weight: bold;' }
+      });
+    }
     
     // Object Details Line (물건명 -> 지역 -> 종류)
     const meta = card.createEl('div', {
