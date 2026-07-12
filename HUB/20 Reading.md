@@ -151,6 +151,47 @@ if (pages.length === 0) {
 }
 ```
 
+# 🔍 Filter
+
+```js-engine
+const file = app.workspace.getActiveFile();
+if (!file) return;
+if (!container) return;
+container.empty();
+
+const cache = app.metadataCache.getFileCache(file);
+const fm = cache?.frontmatter ?? {};
+
+const setFilter = async (field, value) => {
+  await app.fileManager.processFrontMatter(file, (fm) => { fm[field] = value; });
+};
+
+const makeSelect = (label, field, options, current) => {
+  const row = container.createEl('div', { attr: { style: 'display:inline-flex;align-items:center;margin-right:12px;margin-bottom:8px;' } });
+  row.createEl('span', { text: label + ' ', attr: { style: 'font-weight:bold;font-size:0.85em;margin-right:4px;' } });
+  const sel = row.createEl('select', { attr: { style: 'font-size:0.85em;padding:2px 6px;border-radius:4px;background:var(--background-modifier-hover);color:var(--text-normal);border:1px solid var(--background-modifier-border);cursor:pointer;' } });
+  options.forEach(o => {
+    const val = o.value;
+    const opt = sel.createEl('option', { text: o.text, value: val });
+    if (val === String(current !== undefined ? current : o.value)) opt.selected = true;
+  });
+  sel.onchange = () => setFilter(field, sel.value);
+  return sel;
+};
+
+makeSelect('평점 필터', 'filter_rating', [
+  { text: '전체', value: '' },
+  { text: '⭐ 5점', value: '5' },
+  { text: '⭐ 4점 이상', value: '4' },
+  { text: '⭐ 3점 이상', value: '3' }
+], fm.filter_rating);
+
+makeSelect('정렬 기준', 'sort_completed_by', [
+  { text: '📅 최근 완독 순', value: 'date' },
+  { text: '⭐ 평점 높은 순', value: 'rating' }
+], fm.sort_completed_by);
+```
+
 ---
 
 # ✅ Recently Finished
