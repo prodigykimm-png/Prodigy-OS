@@ -96,6 +96,58 @@ window.renderDashboardSection = function(options) {
   if (filterStatus !== "전체" && filterStatus !== status) {
     return;
   }
+
+  // Render inline filters for Auction cases
+  if (type === "auction_case") {
+    const filterContainer = container.createEl("div", {
+      attr: { style: "display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px;" }
+    });
+
+    const makeSelectInline = (parent, label, field, options, currentVal) => {
+      const wrapper = parent.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 4px; font-size: 0.78em; color: var(--text-muted);' } });
+      wrapper.createEl('span', { text: label, attr: { style: 'font-weight: bold;' } });
+      
+      const sel = wrapper.createEl('select', { 
+        attr: { 
+          style: 'font-size: 0.95em; padding: 1px 4px; border-radius: 4px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid var(--background-modifier-border); cursor: pointer;' 
+        } 
+      });
+      
+      options.forEach(o => {
+        const opt = sel.createEl('option', { text: o.text, value: o.value });
+        if (o.value === String(currentVal !== undefined && currentVal !== null ? currentVal : o.value)) {
+          opt.selected = true;
+        }
+      });
+      
+      sel.onchange = async () => {
+        const file = app.workspace.getActiveFile();
+        if (file) {
+          await app.fileManager.processFrontMatter(file, (fm) => {
+            fm[field] = sel.value;
+          });
+        }
+      };
+    };
+
+    makeSelectInline(filterContainer, '지역:', 'card_region', [
+      { text: '전체', value: '전체지역' },
+      { text: '서울', value: '서울' },
+      { text: '경기', value: '경기' },
+      { text: '인천', value: '인천' },
+      { text: '부산', value: '부산' }
+    ], fm.card_region);
+
+    filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
+
+    makeSelectInline(filterContainer, '종류:', 'card_type', [
+      { text: '전체', value: '전체종류' },
+      { text: '오피스텔', value: '오피스텔' },
+      { text: '아파트', value: '아파트' },
+      { text: '상가', value: '상가' },
+      { text: '지식산업센터', value: '지식산업센터' }
+    ], fm.card_type);
+  }
   
   // Query pages based on type
   let folderPath = "";
