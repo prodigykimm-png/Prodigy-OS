@@ -36,7 +36,7 @@ window.renderAuctionCard = function(p, container) {
     const loanRatio = p.loan_ratio !== undefined && !isNaN(Number(p.loan_ratio)) ? Number(p.loan_ratio) : 0.8;
     const interestRate = p.interest_rate !== undefined && !isNaN(Number(p.interest_rate)) ? Number(p.interest_rate) : 0.06;
     
-    if (isNaN(expected) || isNaN(rent) || expected <= 0 || rent <= 0) return null;
+    if (isNaN(expected) || isNaN(rent) || !isFinite(expected) || !isFinite(rent) || expected <= 0 || rent <= 0) return null;
     
     const loanAmount = expected * loanRatio;
     const annualInterest = loanAmount * interestRate;
@@ -46,7 +46,7 @@ window.renderAuctionCard = function(p, container) {
   };
 
   const formatProfit = (pInfo) => {
-    if (!pInfo) return "-";
+    if (!pInfo || !isFinite(pInfo.profit)) return "-";
     const { profit, loanRatio, interestRate } = pInfo;
     const man = Math.round(profit / 10000);
     const sign = man > 0 ? "+" : "";
@@ -57,7 +57,7 @@ window.renderAuctionCard = function(p, container) {
   const toEok = (v) => {
     if (!v || v === "정보 없음") return "-";
     const num = Number(v);
-    if (isNaN(num)) return v;
+    if (isNaN(num) || !isFinite(num)) return v;
     return (num / 100000000).toFixed(2) + "억";
   };
 
@@ -186,9 +186,14 @@ window.renderAuctionCard = function(p, container) {
     financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
   }
   
-  const minRateStr = (p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") 
-    ? ` (${(Number(p.minimum_bid) / Number(p.appraisal_price) * 100).toFixed(0)}%)` 
-    : "";
+  let minRateStr = "";
+  if (p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") {
+    const appraisal = Number(p.appraisal_price);
+    const minimum = Number(p.minimum_bid);
+    if (!isNaN(appraisal) && !isNaN(minimum) && isFinite(appraisal) && isFinite(minimum) && appraisal > 0) {
+      minRateStr = ` (${(minimum / appraisal * 100).toFixed(0)}%)`;
+    }
+  }
     
   financeRow.createEl('div', { html: `최저: <strong>${toEok(p.minimum_bid)}${minRateStr}</strong>` });
   
