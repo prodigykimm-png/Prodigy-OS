@@ -10,6 +10,10 @@ if (!file) return;
 if (!container) return;
 container.empty();
 
+// Expose globals for external scripts
+window.obsidian = obsidian;
+window.app = app;
+
 // Dynamic script loader helper
 const loadProdigyScript = async (path) => {
   const tFile = app.vault.getAbstractFileByPath(path);

@@ -1,9 +1,11 @@
 window.obsidianPrompt = function(title, placeholder, value = "") {
   return new Promise((resolve) => {
     try {
-      const obsidianModule = window.obsidian || (typeof obsidian !== 'undefined' ? obsidian : null);
-      if (!obsidianModule) {
-        throw new Error("Obsidian API not found globally.");
+      const obsidianModule = window.obsidian;
+      const appInstance = window.app;
+      
+      if (!obsidianModule || !appInstance) {
+        throw new Error("Obsidian global variables (window.obsidian / window.app) not initialized.");
       }
       
       const { Modal, Setting } = obsidianModule;
@@ -52,11 +54,10 @@ window.obsidianPrompt = function(title, placeholder, value = "") {
         }
       }
       
-      new PromptModal(app).open();
+      new PromptModal(appInstance).open();
     } catch (e) {
-      console.error("obsidianPrompt error, falling back:", e);
-      const input = prompt(title + "\\n" + placeholder, value);
-      resolve(input);
+      console.error("obsidianPrompt error:", e);
+      resolve(null);
     }
   });
 };
