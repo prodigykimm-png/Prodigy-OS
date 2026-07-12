@@ -57,6 +57,7 @@ window.obsidianPrompt = function(title, placeholder, value = "") {
       new PromptModal(appInstance).open();
     } catch (e) {
       console.error("obsidianPrompt error:", e);
+      new Notice("obsidianPrompt 에러 발생: " + e.message + "\n" + e.stack, 10000);
       resolve(null);
     }
   });
