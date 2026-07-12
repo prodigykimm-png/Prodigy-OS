@@ -86,100 +86,6 @@ attachments:
 
 ---
 
-# Status Control
-
-<div style="display: none;">
-<style>
-.block-language-meta-bind-button {
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 0 !important;
-  min-height: 0 !important;
-}
-</style>
-</div>
-```meta-bind-button
-id: watching
-hidden: true
-style: default
-label: 👀 보는 중
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: watching
-```
-```meta-bind-button
-id: bidding
-hidden: true
-style: default
-label: ⚖️ 입찰 예정
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: bidding
-```
-```meta-bind-button
-id: skipped
-hidden: true
-style: default
-label: ❌ 입찰 포기
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: skipped
-```
-```meta-bind-button
-id: won
-hidden: true
-style: default
-label: 🏆 낙찰
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: won
-```
-```meta-bind-button
-id: lost
-hidden: true
-style: default
-label: 💔 패찰
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: lost
-```
-```meta-bind-button
-id: reviewing
-hidden: true
-style: default
-label: 🔄 복기 중
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: reviewing
-```
-```meta-bind-button
-id: archived
-hidden: true
-style: default
-label: 📦 보관
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: archived
-```
-
-`BUTTON[watching, bidding, skipped, won, lost, reviewing, archived]`
-
----
-
 <!-- COLLECTED FACTS -->
 # Collected Facts
 
@@ -202,6 +108,107 @@ actions:
 -
 
 ## 추천인 코멘트
+---
+
+# Status Control
+
+<div style="display: none;">
+<style>
+div.block-language-meta-bind-button:has(.hidden-button-fix) {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+}
+</style>
+</div>
+```meta-bind-button
+id: watching
+hidden: true
+class: hidden-button-fix
+style: default
+label: 👀 보는 중
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: watching
+```
+```meta-bind-button
+id: bidding
+hidden: true
+class: hidden-button-fix
+style: default
+label: ⚖️ 입찰 예정
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: bidding
+```
+```meta-bind-button
+id: skipped
+hidden: true
+class: hidden-button-fix
+style: default
+label: ❌ 입찰 포기
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: skipped
+```
+```meta-bind-button
+id: won
+hidden: true
+class: hidden-button-fix
+style: default
+label: 🏆 낙찰
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: won
+```
+```meta-bind-button
+id: lost
+hidden: true
+class: hidden-button-fix
+style: default
+label: 💔 패찰
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: lost
+```
+```meta-bind-button
+id: reviewing
+hidden: true
+class: hidden-button-fix
+style: default
+label: 🔄 복기 중
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: reviewing
+```
+```meta-bind-button
+id: archived
+hidden: true
+class: hidden-button-fix
+style: default
+label: 📦 보관
+actions:
+  - type: updateMetadata
+    bindTarget: status
+    evaluate: false
+    value: archived
+```
+
+`BUTTON[watching, bidding, skipped, won, lost, reviewing, archived]`
+
 ---
 
 <!-- USER AREA -->
