@@ -324,12 +324,6 @@ window.renderAuctionCard = function(p, container) {
       
       // If status is bidding, display the site visit button/badge to the right of status buttons
       if (p.status === "bidding") {
-        // Add a small divider separator
-        buttonContainer.createEl('span', {
-          text: ' | ',
-          attr: { style: 'font-size: 0.72em; color: var(--background-modifier-border); display: flex; align-items: center; margin: 0 2px;' }
-        });
- 
         const svd = p.site_visit_date;
         const isCompleted = svd && svd !== "정보 없음" && String(svd).trim() !== "";
         
@@ -337,7 +331,7 @@ window.renderAuctionCard = function(p, container) {
           const svBtn = buttonContainer.createEl('button', {
             text: '☐ 임장 완료',
             attr: {
-              style: 'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid #3b82f6; cursor: pointer; font-weight: bold;'
+              style: 'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid #3b82f6; cursor: pointer; font-weight: bold; margin-left: auto;'
             }
           });
           
@@ -357,7 +351,7 @@ window.renderAuctionCard = function(p, container) {
           const svBadge = buttonContainer.createEl('button', {
             text: `☑ 임장 완료 (${svd})`,
             attr: {
-              style: 'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #3b82f615; color: #3b82f6; border: 1px solid #3b82f6; cursor: pointer; font-weight: bold;'
+              style: 'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #3b82f615; color: #3b82f6; border: 1px solid #3b82f6; cursor: pointer; font-weight: bold; margin-left: auto;'
             }
           });
           
