@@ -217,12 +217,23 @@ window.renderAuctionCard = function(p, container) {
     const profitEl = financeRow.createEl('div');
     profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
     
-    // Next Action & Note
-    const noteStr = p.recommend_note && p.recommend_note !== "정보 없음" ? ` <span style="color:var(--text-muted); font-style:italic;">(${p.recommend_note})</span>` : "";
+    // Next Action Row
     const actionEl = card.createEl('div', {
       attr: { style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
     });
-    actionEl.innerHTML = `→ <strong style="color:var(--text-accent); font-weight:bold;">Next Action:</strong> ${p.next_action || "⚠️ 설정 필요"}${noteStr}`;
+    actionEl.innerHTML = `→ <strong style="color:var(--text-accent); font-weight:bold;">Next Action:</strong> ${p.next_action || "⚠️ 설정 필요"}`;
+    
+    // Memo Row (below Next Action)
+    const memoEl = card.createEl('div', {
+      attr: { style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
+    });
+    
+    const rawNote = p.recommend_note;
+    let memoText = "메모 없음";
+    if (rawNote && rawNote !== "정보 없음" && rawNote !== "메모 없음" && String(rawNote).trim() !== "") {
+      memoText = String(rawNote).trim();
+    }
+    memoEl.innerHTML = `📝 <strong style="color:var(--text-accent); font-weight:bold;">옥션원 메모:</strong> ${memoText}`;
     
     // Transition status buttons
     const getTransitionButtons = (currentStatus) => {
