@@ -27,6 +27,10 @@ const loadProdigyScript = async (path) => {
 try {
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
   await loadProdigyScript("SYSTEM/Views/auction-card.js");
+  
+  const codeStr = window.renderAuctionCard ? window.renderAuctionCard.toString() : "undefined";
+  const hasFinanceRow = codeStr.includes("financeRow");
+  new Notice(`[Debug] renderAuctionCard 로드완료. 코드길이: ${codeStr.length}, financeRow 존재: ${hasFinanceRow}`, 10000);
 } catch (err) {
   container.empty();
   const errCard = container.createEl("div", {
