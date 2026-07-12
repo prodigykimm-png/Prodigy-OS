@@ -217,18 +217,15 @@ window.renderAuctionCard = function(p, container) {
     const profitEl = financeRow.createEl('div');
     profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
     
-    if (p.status === "skipped") {
-      const skipEl = card.createEl('div', {
+    if (["won", "lost", "skipped"].includes(p.status)) {
+      const decisionEl = card.createEl('div', {
         attr: { style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
       });
       
-      const reason = p.skip_reason || "미지정";
-      const note = p.skip_note;
-      const noteStr = (note && note !== "정보 없음" && String(note).trim() !== "") 
-        ? ` <span style="color:var(--text-muted); font-style:italic;">(${String(note).trim().substring(0, 30)}${String(note).length > 30 ? "..." : ""})</span>`
-        : "";
+      const reason = p.decision_reason || "미지정";
+      const icon = p.status === "won" ? "🏆" : p.status === "lost" ? "❌" : "🚫";
       
-      skipEl.innerHTML = `🚫 <strong style="color:var(--text-accent); font-weight:bold;">포기 사유:</strong> ${reason}${noteStr}`;
+      decisionEl.innerHTML = `${icon} <strong style="color:var(--text-accent); font-weight:bold;">결정 사유:</strong> ${reason}`;
     }
     
     // Memo Row (below Next Action)
@@ -305,18 +302,34 @@ window.renderAuctionCard = function(p, container) {
             const inputExpected = await window.obsidianPrompt(`[${p.case_number}] 입찰 준비`, "예상 입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):", String(expectedBid));
             if (inputExpected === null) return;
             expectedBid = inputExpected.trim();
-          } else if (opt.key === 'won' || opt.key === 'lost') {
-            const inputActual = await window.obsidianPrompt(`[${p.case_number}] 실제 입찰가 입력`, "실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):", String(actualBid));
-            if (inputActual === null) return;
-            actualBid = inputActual.trim();
+
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            const tFile = app.vault.getAbstractFileByPath(p.file.path);
+            if (tFile) {
+              await app.fileManager.processFrontMatter(tFile, (fm) => {
+                fm.status = opt.key;
+                if (expectedBid) fm.expected_bid = Number(expectedBid) || expectedBid;
+                fm.updated = new Date().toISOString().split('T')[0];
+              });
+              new Notice(`상태가 ${opt.label}(으)로 변경되고 예상 입찰가가 기록되었습니다.`);
+            }
+          } else if (opt.key === 'won' || opt.key === 'lost' || opt.key === 'skipped') {
+            if (opt.key === 'won' || opt.key === 'lost') {
+              const inputActual = await window.obsidianPrompt(`[${p.case_number}] 실제 입찰가 입력`, "실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):", String(actualBid));
+              if (inputActual === null) return;
+              actualBid = inputActual.trim();
  
-            const inputWinning = await window.obsidianPrompt(`[${p.case_number}] 최종 낙찰가 입력`, "최종 낙찰가를 입력해주세요 (원 단위):", String(winningBid || actualBid));
-            if (inputWinning === null) return;
-            winningBid = inputWinning.trim();
-          } else if (opt.key === 'skipped') {
-            class SkipReasonModal extends window.obsidian.Modal {
-              constructor(appInstance, onSave) {
+              const inputWinning = await window.obsidianPrompt(`[${p.case_number}] 최종 낙찰가 입력`, "최종 낙찰가를 입력해주세요 (원 단위):", String(winningBid || actualBid));
+              if (inputWinning === null) return;
+              winningBid = inputWinning.trim();
+            }
+
+            // Open Decision Capture Modal
+            class DecisionCaptureModal extends window.obsidian.Modal {
+              constructor(appInstance, statusKey, onSave) {
                 super(appInstance);
+                this.statusKey = statusKey;
                 this.onSave = onSave;
                 this.selectedReason = "";
               }
@@ -324,13 +337,34 @@ window.renderAuctionCard = function(p, container) {
                 const { contentEl } = this;
                 contentEl.empty();
                 
-                contentEl.createEl("h3", { text: "입찰을 포기한 이유", attr: { style: "margin-bottom: 16px; font-size: 1.15em;" } });
+                let title = "";
+                let question = "";
+                let reasons = [];
+                let placeholderText = "";
+                
+                if (this.statusKey === 'won') {
+                  title = "🏆 낙찰";
+                  question = "이번 입찰의 핵심 이유는 무엇인가?";
+                  reasons = ["수익성 우수", "시세 대비 저렴", "희소성", "장기 투자", "기타"];
+                  placeholderText = "입찰 판단 메모";
+                } else if (this.statusKey === 'lost') {
+                  title = "❌ 패찰";
+                  question = "패찰 원인은 무엇인가?";
+                  reasons = ["경쟁 과열", "예상가 부족", "전략적 패찰", "기타"];
+                  placeholderText = "패찰 메모";
+                } else if (this.statusKey === 'skipped') {
+                  title = "🚫 입찰 포기";
+                  question = "입찰을 포기한 이유는 무엇인가?";
+                  reasons = ["수익성 부족", "권리 문제", "임장 결과", "자금 부족", "전략적 포기", "기타"];
+                  placeholderText = "포기 메모";
+                }
+                
+                contentEl.createEl("h3", { text: title, attr: { style: "margin-bottom: 12px; font-size: 1.15em;" } });
+                contentEl.createEl("p", { text: question, attr: { style: "font-size: 0.9em; color: var(--text-muted); margin-bottom: 12px;" } });
                 
                 const reasonsContainer = contentEl.createEl("div", {
                   attr: { style: "display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;" }
                 });
-                
-                const reasons = ["수익성 부족", "권리 문제", "임장 결과", "경쟁 과열", "자금 부족", "전략적 포기", "기타"];
                 
                 reasons.forEach((reason, index) => {
                   const label = reasonsContainer.createEl("label", {
@@ -338,7 +372,7 @@ window.renderAuctionCard = function(p, container) {
                   });
                   
                   const radio = label.createEl("input", {
-                    attr: { type: "radio", name: "skip_reason", value: reason }
+                    attr: { type: "radio", name: "decision_reason", value: reason }
                   });
                   if (index === 0) {
                     radio.checked = true;
@@ -360,7 +394,7 @@ window.renderAuctionCard = function(p, container) {
                 
                 const noteInput = noteContainer.createEl("textarea", {
                   attr: { 
-                    placeholder: "추가 메모 (선택)",
+                    placeholder: placeholderText + " (선택)",
                     style: "width: 100%; height: 60px; padding: 6px; border-radius: 4px; border: 1px solid var(--background-modifier-border); font-size: 0.85em; color: var(--text-normal); background: var(--background-primary); resize: none;"
                   }
                 });
@@ -382,7 +416,7 @@ window.renderAuctionCard = function(p, container) {
                 
                 saveBtn.onclick = () => {
                   if (!this.selectedReason) {
-                    new Notice("포기 사유를 선택해주세요.");
+                    new Notice("이유를 선택해주세요.");
                     return;
                   }
                   this.onSave(this.selectedReason, noteInput.value.trim());
@@ -394,40 +428,75 @@ window.renderAuctionCard = function(p, container) {
               }
             }
             
-            new SkipReasonModal(app, async (reason, note) => {
+            new DecisionCaptureModal(app, opt.key, async (reason, note) => {
               btn.disabled = true;
               btn.style.opacity = '0.5';
               const tFile = app.vault.getAbstractFileByPath(p.file.path);
               if (tFile) {
+                const todayStr = new Date().toISOString().split('T')[0];
+                
+                // 1. Update frontmatter
                 await app.fileManager.processFrontMatter(tFile, (fm) => {
                   fm.status = opt.key;
-                  fm.skip_reason = reason;
-                  fm.skip_note = note;
-                  fm.updated = new Date().toISOString().split('T')[0];
+                  fm.decision_reason = reason;
+                  fm.decision_date = todayStr;
+                  fm.updated = todayStr;
+                  
+                  if (opt.key === 'won' || opt.key === 'lost') {
+                    if (actualBid) fm.actual_bid = Number(actualBid) || actualBid;
+                    if (winningBid) fm.winning_bid = Number(winningBid) || winningBid;
+                  }
                 });
-                new Notice(`상태가 입찰 포기로 변경되고 포기 사유가 기록되었습니다.`);
+                
+                // 2. Update note body H1 Decision section
+                let content = await app.vault.read(tFile);
+                const decisionHeader = "# Decision";
+                const decisionIndex = content.indexOf(decisionHeader);
+                if (decisionIndex !== -1) {
+                  const nextH1Match = content.slice(decisionIndex + decisionHeader.length).match(/\n#[^#\n]/);
+                  let endIndex = content.length;
+                  if (nextH1Match) {
+                    endIndex = decisionIndex + decisionHeader.length + nextH1Match.index + 1;
+                  }
+                  
+                  const statusLabel = { won: 'Won', lost: 'Lost', skipped: 'Skipped' }[opt.key] || opt.key;
+                  const newDecisionSection = `# Decision
+
+Status
+${statusLabel}
+
+Decision Date
+${todayStr}
+
+Reason
+${reason}
+
+Notes
+${note || "추가 메모 없음"}
+
+`;
+                  const updatedContent = content.substring(0, decisionIndex) + newDecisionSection + content.substring(endIndex);
+                  await app.vault.modify(tFile, updatedContent);
+                }
+                
+                new Notice(`결정 내용이 성공적으로 포착되고 기록되었습니다.`);
               }
             }).open();
             return;
+          } else {
+            // Normal status update flow (for other statuses like reviewing, archived, etc.)
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            const tFile = app.vault.getAbstractFileByPath(p.file.path);
+            if (tFile) {
+              await app.fileManager.processFrontMatter(tFile, (fm) => {
+                fm.status = opt.key;
+                fm.updated = new Date().toISOString().split('T')[0];
+              });
+              new Notice(`상태가 ${opt.label}(으)로 변경되었습니다.`);
+            }
           }
- 
-          btn.disabled = true;
-          btn.style.opacity = '0.5';
-          const tFile = app.vault.getAbstractFileByPath(p.file.path);
-          if (tFile) {
-            await app.fileManager.processFrontMatter(tFile, (fm) => {
-              fm.status = opt.key;
-              if (opt.key === 'bidding') {
-                if (expectedBid) fm.expected_bid = Number(expectedBid) || expectedBid;
-              } else if (opt.key === 'won' || opt.key === 'lost') {
-                if (actualBid) fm.actual_bid = Number(actualBid) || actualBid;
-                if (winningBid) fm.winning_bid = Number(winningBid) || winningBid;
-              }
-              fm.updated = new Date().toISOString().split('T')[0];
-            });
-            new Notice(`상태가 ${opt.label}(으)로 변경되고 정보가 기록되었습니다.`);
-          }
-        };
+        }
       });
       
       // If status is bidding, display the site visit button/badge to the right of status buttons
