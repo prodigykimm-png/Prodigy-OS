@@ -151,63 +151,58 @@ if (pages.length === 0) {
 }
 ```
 
-# 🔍 Filter
-
-```js-engine
-const file = app.workspace.getActiveFile();
-if (!file) return;
-if (!container) return;
-container.empty();
-
-const cache = app.metadataCache.getFileCache(file);
-const fm = cache?.frontmatter ?? {};
-
-const setFilter = async (field, value) => {
-  await app.fileManager.processFrontMatter(file, (fm) => { fm[field] = value; });
-};
-
-const makeSelect = (label, field, options, current) => {
-  const row = container.createEl('div', { attr: { style: 'display:inline-flex;align-items:center;margin-right:12px;margin-bottom:8px;' } });
-  row.createEl('span', { text: label + ' ', attr: { style: 'font-weight:bold;font-size:0.85em;margin-right:4px;' } });
-  const sel = row.createEl('select', { attr: { style: 'font-size:0.85em;padding:2px 6px;border-radius:4px;background:var(--background-modifier-hover);color:var(--text-normal);border:1px solid var(--background-modifier-border);cursor:pointer;' } });
-  options.forEach(o => {
-    const val = o.value;
-    const opt = sel.createEl('option', { text: o.text, value: val });
-    if (val === String(current !== undefined ? current : o.value)) opt.selected = true;
-  });
-  sel.onchange = () => setFilter(field, sel.value);
-  return sel;
-};
-
-makeSelect('평점 필터', 'filter_rating', [
-  { text: '전체', value: '' },
-  { text: '⭐ 5점', value: '5' },
-  { text: '⭐ 4점 이상', value: '4' },
-  { text: '⭐ 3점 이상', value: '3' }
-], fm.filter_rating);
-
-makeSelect('정렬 기준', 'sort_completed_by', [
-  { text: '📅 최근 완독 순', value: 'date' },
-  { text: '⭐ 평점 높은 순', value: 'rating' }
-], fm.sort_completed_by);
-```
-
----
-
 # ✅ Recently Finished
 
 ```dataviewjs
 const current = dv.current();
 const sortBy = current.sort_completed_by || "date";
-const sortLabel = sortBy === "rating" ? "⭐ 평점 높은 순" : "📅 최근 완독 순";
-
 const filterRating = Number(current.filter_rating);
-const filterLabel = filterRating ? `⭐ ${filterRating}.0점 이상` : "전체";
 
-this.container.createEl("div", {
-  text: `필터: ${filterLabel} | 정렬: ${sortLabel}`,
-  attr: { style: "font-size: 0.78em; color: var(--text-muted); text-align: right; margin-bottom: 6px; font-style: italic;" }
+// Render inline filter and sort controls floated to the right
+const filterContainer = this.container.createEl("div", {
+  attr: { style: "display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px;" }
 });
+
+const makeSelectInline = (parent, label, field, options, currentVal) => {
+  const wrapper = parent.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 4px; font-size: 0.78em; color: var(--text-muted);' } });
+  wrapper.createEl('span', { text: label, attr: { style: 'font-weight: bold;' } });
+  
+  const sel = wrapper.createEl('select', { 
+    attr: { 
+      style: 'font-size: 0.95em; padding: 1px 4px; border-radius: 4px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid var(--background-modifier-border); cursor: pointer;' 
+    } 
+  });
+  
+  options.forEach(o => {
+    const opt = sel.createEl('option', { text: o.text, value: o.value });
+    if (o.value === String(currentVal !== undefined && currentVal !== null ? currentVal : o.value)) {
+      opt.selected = true;
+    }
+  });
+  
+  sel.onchange = async () => {
+    const file = app.workspace.getActiveFile();
+    if (file) {
+      await app.fileManager.processFrontMatter(file, (fm) => {
+        fm[field] = sel.value;
+      });
+    }
+  };
+};
+
+makeSelectInline(filterContainer, '필터:', 'filter_rating', [
+  { text: '전체', value: '' },
+  { text: '⭐ 5점', value: '5' },
+  { text: '⭐ 4점 이상', value: '4' },
+  { text: '⭐ 3점 이상', value: '3' }
+], current.filter_rating);
+
+filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
+
+makeSelectInline(filterContainer, '정렬:', 'sort_completed_by', [
+  { text: '📅 최근 완독 순', value: 'date' },
+  { text: '⭐ 평점 높은 순', value: 'rating' }
+], current.sort_completed_by);
 
 let pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "completed");
 
