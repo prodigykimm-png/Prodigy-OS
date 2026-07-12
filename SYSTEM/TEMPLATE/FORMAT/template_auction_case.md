@@ -88,6 +88,16 @@ attachments:
 
 # Status Control
 
+<div style="display: none;">
+<style>
+.block-language-meta-bind-button {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+</style>
+</div>
 ```meta-bind-button
 id: watching
 hidden: true
@@ -99,7 +109,6 @@ actions:
     evaluate: false
     value: watching
 ```
-
 ```meta-bind-button
 id: bidding
 hidden: true
@@ -111,7 +120,6 @@ actions:
     evaluate: false
     value: bidding
 ```
-
 ```meta-bind-button
 id: skipped
 hidden: true
@@ -123,7 +131,6 @@ actions:
     evaluate: false
     value: skipped
 ```
-
 ```meta-bind-button
 id: won
 hidden: true
@@ -135,7 +142,6 @@ actions:
     evaluate: false
     value: won
 ```
-
 ```meta-bind-button
 id: lost
 hidden: true
@@ -147,7 +153,6 @@ actions:
     evaluate: false
     value: lost
 ```
-
 ```meta-bind-button
 id: reviewing
 hidden: true
@@ -159,7 +164,6 @@ actions:
     evaluate: false
     value: reviewing
 ```
-
 ```meta-bind-button
 id: archived
 hidden: true

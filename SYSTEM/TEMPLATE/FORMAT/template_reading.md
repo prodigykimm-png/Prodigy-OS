@@ -42,6 +42,16 @@ review_summary:
 
 # Status Control
 
+<div style="display: none;">
+<style>
+.block-language-meta-bind-button {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+</style>
+</div>
 ```meta-bind-button
 id: r_queue
 hidden: true
@@ -53,7 +63,6 @@ actions:
     evaluate: false
     value: queue
 ```
-
 ```meta-bind-button
 id: r_reading
 hidden: true
@@ -65,7 +74,6 @@ actions:
     evaluate: false
     value: reading
 ```
-
 ```meta-bind-button
 id: r_reviewing
 hidden: true
@@ -77,7 +85,6 @@ actions:
     evaluate: false
     value: reviewing
 ```
-
 ```meta-bind-button
 id: r_completed
 hidden: true
@@ -89,7 +96,6 @@ actions:
     evaluate: false
     value: completed
 ```
-
 ```meta-bind-button
 id: r_archived
 hidden: true
