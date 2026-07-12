@@ -1,6 +1,7 @@
 ---
 cssclasses:
   - hide-properties_reading
+sort_completed_by: rating
 ---
 ```js-engine
 const file = app.workspace.getActiveFile();
@@ -17,8 +18,28 @@ const loadProdigyScript = async (path) => {
   }
 };
 
-await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
-await loadProdigyScript("SYSTEM/Views/reading-card.js");
+try {
+  await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
+  await loadProdigyScript("SYSTEM/Views/reading-card.js");
+} catch (err) {
+  container.empty();
+  const errCard = container.createEl("div", {
+    attr: { style: "background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 16px; margin: 12px 0; color: #ef4444;" }
+  });
+  errCard.createEl("h4", { text: "⚠️ 대시보드 스크립트 로드 실패" });
+  errCard.createEl("p", { 
+    text: "공통 뷰 렌더러 파일을 읽어오는 중 에러가 발생했습니다. 자바스크립트 소스 코드나 경로를 확인해주세요.",
+    attr: { style: "font-size: 0.85em; color: var(--text-normal);" }
+  });
+  
+  const details = errCard.createEl("details", { attr: { style: "margin-top: 8px; cursor: pointer;" } });
+  details.createEl("summary", { text: "에러 로그 자세히 보기", attr: { style: "font-size: 0.8em; font-weight: bold;" } });
+  details.createEl("pre", { 
+    text: err.stack || err.message, 
+    attr: { style: "font-size: 0.75em; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; overflow-x: auto; margin-top: 4px;" } 
+  });
+  return;
+}
 
 // Render "+ 새 책 추가" button
 const btn = container.createEl('button', {
@@ -59,7 +80,7 @@ btn.onclick = async (e) => {
     const leaf = app.workspace.getLeaf(false);
     await leaf.openFile(newFile);
   } catch (err) {
-    new Notice(`파일 생성 중 오류가 발생했습니다: ${err.message}`);
+    new Notice("파일 생성 중 오류가 발생했습니다: " + err.message);
   }
 };
 ```
@@ -130,7 +151,23 @@ if (pages.length === 0) {
 # ✅ Recently Finished
 
 ```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "completed").sort(p => p.file.mtime, "desc");
+const current = dv.current();
+const sortBy = current.sort_completed_by || "date";
+const sortLabel = sortBy === "rating" ? "⭐ 평점 높은 순" : "📅 최근 완독 순";
+
+this.container.createEl("div", {
+  text: `정렬: ${sortLabel}`,
+  attr: { style: "font-size: 0.78em; color: var(--text-muted); text-align: right; margin-bottom: 6px; font-style: italic;" }
+});
+
+let pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "completed");
+
+if (sortBy === "rating") {
+  pages = pages.sort(p => p.rating || 0, "desc");
+} else {
+  pages = pages.sort(p => p.file.mtime, "desc");
+}
+
 if (pages.length === 0) {
   this.container.createEl("span", {
     text: "최근 완독한 책이 없습니다.",

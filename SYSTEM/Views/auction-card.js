@@ -193,14 +193,31 @@ window.renderAuctionCard = function(p, container) {
       
       btn.onclick = async (e) => {
         e.preventDefault();
+        
+        let actualBid = p.actual_bid || "";
+        let winningBid = p.winning_bid || "";
+
+        if (opt.key === 'won' || opt.key === 'lost') {
+          const inputActual = prompt(`[${p.case_number}] 실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):`, actualBid);
+          if (inputActual === null) return;
+          actualBid = inputActual.trim();
+
+          const inputWinning = prompt(`[${p.case_number}] 최종 낙찰가를 입력해주세요 (원 단위):`, winningBid || actualBid);
+          if (inputWinning === null) return;
+          winningBid = inputWinning.trim();
+        }
+
         btn.disabled = true;
         btn.style.opacity = '0.5';
         const tFile = app.vault.getAbstractFileByPath(p.file.path);
         if (tFile) {
           await app.fileManager.processFrontMatter(tFile, (fm) => {
             fm.status = opt.key;
+            if (actualBid) fm.actual_bid = Number(actualBid) || actualBid;
+            if (winningBid) fm.winning_bid = Number(winningBid) || winningBid;
             fm.updated = new Date().toISOString().split('T')[0];
           });
+          new Notice(`상태가 ${opt.label}(으)로 변경되고 정보가 기록되었습니다.`);
         }
       };
     });

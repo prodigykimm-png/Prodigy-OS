@@ -19,8 +19,28 @@ const loadProdigyScript = async (path) => {
   }
 };
 
-await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
-await loadProdigyScript("SYSTEM/Views/auction-card.js");
+try {
+  await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
+  await loadProdigyScript("SYSTEM/Views/auction-card.js");
+} catch (err) {
+  container.empty();
+  const errCard = container.createEl("div", {
+    attr: { style: "background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 16px; margin: 12px 0; color: #ef4444;" }
+  });
+  errCard.createEl("h4", { text: "⚠️ 대시보드 스크립트 로드 실패" });
+  errCard.createEl("p", { 
+    text: "공통 뷰 렌더러 파일을 읽어오는 중 에러가 발생했습니다. 자바스크립트 소스 코드나 경로를 확인해주세요.",
+    attr: { style: "font-size: 0.85em; color: var(--text-normal);" }
+  });
+  
+  const details = errCard.createEl("details", { attr: { style: "margin-top: 8px; cursor: pointer;" } });
+  details.createEl("summary", { text: "에러 로그 자세히 보기", attr: { style: "font-size: 0.8em; font-weight: bold;" } });
+  details.createEl("pre", { 
+    text: err.stack || err.message, 
+    attr: { style: "font-size: 0.75em; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; overflow-x: auto; margin-top: 4px;" } 
+  });
+  return;
+}
 ```
 
 # 🎯 Today

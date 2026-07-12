@@ -84,14 +84,31 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     
     btn.onclick = async (e) => {
       e.preventDefault();
+      
+      let rating = p.rating || "";
+      let keyTakeaway = p.key_takeaway || "";
+
+      if (target.key === 'completed') {
+        const inputRating = prompt(`[${p.book_title || p.file.name}] 평점을 입력해주세요 (1 ~ 5):`, rating);
+        if (inputRating === null) return;
+        rating = Math.min(5, Math.max(1, Number(inputRating) || 5));
+
+        const inputTakeaway = prompt(`[${p.book_title || p.file.name}] 책의 핵심 한 줄 요약(Key Takeaway)을 기록해주세요:`, keyTakeaway);
+        if (inputTakeaway === null) return;
+        keyTakeaway = inputTakeaway.trim();
+      }
+
       btn.disabled = true;
       btn.style.opacity = '0.5';
       const tFile = app.vault.getAbstractFileByPath(p.file.path);
       if (tFile) {
         await app.fileManager.processFrontMatter(tFile, (fm) => {
           fm.status = target.key;
+          if (rating) fm.rating = rating;
+          if (keyTakeaway) fm.key_takeaway = keyTakeaway;
           fm.updated = new Date().toISOString().split('T')[0];
         });
+        new Notice(`완독 상태와 별점/요약이 기록되었습니다.`);
       }
     };
   };
@@ -190,10 +207,16 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     });
     title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
     
-    left.createEl('div', {
-      text: p.author || "저자 미상",
-      attr: { style: 'font-size: 0.78em; color: var(--text-muted);' }
+    const authorRow = left.createEl('div', {
+      attr: { style: 'font-size: 0.78em; color: var(--text-muted); display: flex; align-items: center; gap: 6px;' }
     });
+    authorRow.createEl('span', { text: p.author || "저자 미상" });
+    if (p.rating) {
+      authorRow.createEl('span', {
+        text: `⭐ ${p.rating}.0`,
+        attr: { style: 'color: #eab308; font-weight: bold;' }
+      });
+    }
     
     const right = card.createEl('div', {
       attr: { style: 'display: flex; align-items: center;' }
