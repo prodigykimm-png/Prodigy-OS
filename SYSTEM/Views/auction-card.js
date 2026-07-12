@@ -16,11 +16,61 @@ window.renderAuctionCard = function(p, container) {
     }
   });
   
+  // Helpers
+  const getPropertyName = (addr) => {
+    if (!addr || addr === "정보 없음") return "물건명 미지정";
+    const parts = addr.split(',');
+    if (parts.length > 1) {
+      return parts[1].trim();
+    }
+    const words = addr.trim().split(/\s+/);
+    if (words.length > 3) {
+      return words.slice(-2).join(' ');
+    }
+    return addr;
+  };
+
+  const calcMonthlyProfit = (p) => {
+    const expected = Number(p.expected_bid);
+    const rent = Number(p.monthly_rent);
+    const loanRatio = p.loan_ratio !== undefined && !isNaN(Number(p.loan_ratio)) ? Number(p.loan_ratio) : 0.8;
+    const interestRate = p.interest_rate !== undefined && !isNaN(Number(p.interest_rate)) ? Number(p.interest_rate) : 0.06;
+    
+    if (isNaN(expected) || isNaN(rent) || expected <= 0 || rent <= 0) return null;
+    
+    const loanAmount = expected * loanRatio;
+    const annualInterest = loanAmount * interestRate;
+    const monthlyInterest = annualInterest / 12;
+    const profit = rent - monthlyInterest;
+    return { profit, loanRatio, interestRate };
+  };
+
+  const formatProfit = (pInfo) => {
+    if (!pInfo) return "-";
+    const { profit, loanRatio, interestRate } = pInfo;
+    const man = Math.round(profit / 10000);
+    const sign = man > 0 ? "+" : "";
+    const color = man > 0 ? "var(--text-accent)" : "var(--text-error)";
+    return `<span style="color: ${color}; font-weight: bold;">${sign}${man.toLocaleString()}만</span> <span style="font-size:0.85em; color:var(--text-muted);">(${Math.round(loanRatio*100)}%대출, ${(interestRate*100).toFixed(1)}%금리)</span>`;
+  };
+  
+  const toEok = (v) => {
+    if (!v || v === "정보 없음") return "-";
+    const num = Number(v);
+    if (isNaN(num)) return v;
+    return (num / 100000000).toFixed(2) + "억";
+  };
+
   // Header
   const header = card.createEl('div', {
     attr: { style: 'display: flex; justify-content: space-between; align-items: center;' }
   });
-  const title = header.createEl('a', {
+
+  const leftHeader = header.createEl('div', {
+    attr: { style: 'display: flex; align-items: center; gap: 8px;' }
+  });
+  
+  const title = leftHeader.createEl('a', {
     text: p.file.name,
     attr: {
       class: 'internal-link',
@@ -28,6 +78,29 @@ window.renderAuctionCard = function(p, container) {
     }
   });
   title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
+  
+  // Quick Links
+  const naverLink = p.source && p.source.naver && p.source.naver !== "정보 없음" && String(p.source.naver).startsWith("http") ? p.source.naver : null;
+  const cafeLink = p.source && p.source.cafe && p.source.cafe !== "정보 없음" && String(p.source.cafe).startsWith("http") ? p.source.cafe : null;
+  
+  if (naverLink) {
+    leftHeader.createEl('a', {
+      text: '🌐 네이버',
+      href: naverLink,
+      attr: { 
+        style: 'font-size: 0.72em; background: #22c55e20; color: #22c55e; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
+      }
+    });
+  }
+  if (cafeLink) {
+    leftHeader.createEl('a', {
+      text: '💬 카페',
+      href: cafeLink,
+      attr: { 
+        style: 'font-size: 0.72em; background: #3b82f620; color: #3b82f6; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
+      }
+    });
+  }
   
   // Right header (recommend level & court)
   const rightHeader = header.createEl('div', {
@@ -48,16 +121,20 @@ window.renderAuctionCard = function(p, container) {
     });
   }
   
-  // Meta line (case no, type, region)
+  // Object Details Line (물건명 -> 지역 -> 종류)
   const meta = card.createEl('div', {
-    attr: { style: 'font-size: 0.8em; color: var(--text-muted); display: flex; gap: 6px; align-items: center;' }
+    attr: { style: 'font-size: 0.8em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap;' }
   });
   
-  meta.createEl('span', { text: p.case_number || "사건번호 없음", attr: { style: 'font-weight: bold; color: var(--text-normal);' } });
+  const regionText = (p.region_sigungu || p.region_dong) 
+    ? `${p.region_sigungu || ""} ${p.region_dong || ""}`.trim() 
+    : "지역 미정";
+    
+  meta.createEl('span', { text: `🏢 ${getPropertyName(p.address)}`, attr: { style: 'font-weight: bold; color: var(--text-normal);' } });
   meta.createEl('span', { text: '·' });
-  meta.createEl('span', { text: p.property_type || "용도 미지정" });
+  meta.createEl('span', { text: `📍 ${regionText}` });
   meta.createEl('span', { text: '·' });
-  meta.createEl('span', { text: p.region_sido || "지역 미지정" });
+  meta.createEl('span', { text: p.property_type || "용도 미정" });
   
   // D-Day & Date Row
   const ddayContainer = card.createEl('div', {
@@ -67,6 +144,7 @@ window.renderAuctionCard = function(p, container) {
   // Calculate D-Day
   let ddayStr = "-";
   let isUrgent = false;
+  let dateStr = "-";
   if (p.auction_datetime) {
     const targetDate = new Date(String(p.auction_datetime).split(' ')[0].split('T')[0]);
     const today = new Date();
@@ -84,6 +162,8 @@ window.renderAuctionCard = function(p, container) {
     } else {
       ddayStr = `D+${Math.abs(diffDays)}`;
     }
+    
+    dateStr = String(p.auction_datetime).split(' ')[0].split('T')[0];
   }
   
   if (ddayStr !== "-") {
@@ -97,30 +177,26 @@ window.renderAuctionCard = function(p, container) {
   
   if (p.auction_datetime) {
     ddayContainer.createEl('span', {
-      text: String(p.auction_datetime).replace('T', ' '),
-      attr: { style: 'font-size: 0.75em; color: var(--text-muted);' }
+      text: dateStr,
+      attr: { style: 'font-size: 0.75em; color: var(--text-muted); font-weight: bold;' }
     });
   }
   
-  // Prices Row
+  // Prices & Profit Row
   const prices = card.createEl('div', {
-    attr: { style: 'display: flex; gap: 12px; font-size: 0.8em; color: var(--text-normal); background: var(--background-modifier-hover); padding: 3px 6px; border-radius: 4px;' }
+    attr: { style: 'display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.8em; color: var(--text-normal); background: var(--background-modifier-hover); padding: 4px 8px; border-radius: 4px; margin-top: 3px; align-items: center;' }
   });
-  
-  const toEok = (v) => {
-    if (!v || v === "정보 없음") return "-";
-    const num = Number(v);
-    if (isNaN(num)) return v;
-    return (num / 100000000).toFixed(2) + "억";
-  };
   
   const minRateStr = (p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") 
     ? ` (${(Number(p.minimum_bid) / Number(p.appraisal_price) * 100).toFixed(0)}%)` 
     : "";
     
-  prices.createEl('div', { html: `감정가: <strong style="color:var(--text-normal);">${toEok(p.appraisal_price)}</strong>` });
-  prices.createEl('div', { html: `최저가: <strong style="color:var(--text-normal);">${toEok(p.minimum_bid)}${minRateStr}</strong>` });
-  prices.createEl('div', { html: `예상가: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>` });
+  prices.createEl('div', { html: `감정: <strong>${toEok(p.appraisal_price)}</strong>` });
+  prices.createEl('div', { html: `최저: <strong>${toEok(p.minimum_bid)}${minRateStr}</strong>` });
+  prices.createEl('div', { html: `예상: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>` });
+  
+  const profitInfo = calcMonthlyProfit(p);
+  prices.createEl('div', { html: `월수익: ${formatProfit(profitInfo)}` });
   
   // Recommendation & Next Action
   const detailRow = card.createEl('div', {
