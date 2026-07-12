@@ -217,7 +217,19 @@ window.renderAuctionCard = function(p, container) {
     const profitEl = financeRow.createEl('div');
     profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
     
-
+    if (p.status === "skipped") {
+      const skipEl = card.createEl('div', {
+        attr: { style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
+      });
+      
+      const reason = p.skip_reason || "미지정";
+      const note = p.skip_note;
+      const noteStr = (note && note !== "정보 없음" && String(note).trim() !== "") 
+        ? ` <span style="color:var(--text-muted); font-style:italic;">(${String(note).trim().substring(0, 30)}${String(note).length > 30 ? "..." : ""})</span>`
+        : "";
+      
+      skipEl.innerHTML = `🚫 <strong style="color:var(--text-accent); font-weight:bold;">포기 사유:</strong> ${reason}${noteStr}`;
+    }
     
     // Memo Row (below Next Action)
     const memoEl = card.createEl('div', {
@@ -301,6 +313,102 @@ window.renderAuctionCard = function(p, container) {
             const inputWinning = await window.obsidianPrompt(`[${p.case_number}] 최종 낙찰가 입력`, "최종 낙찰가를 입력해주세요 (원 단위):", String(winningBid || actualBid));
             if (inputWinning === null) return;
             winningBid = inputWinning.trim();
+          } else if (opt.key === 'skipped') {
+            class SkipReasonModal extends window.obsidian.Modal {
+              constructor(appInstance, onSave) {
+                super(appInstance);
+                this.onSave = onSave;
+                this.selectedReason = "";
+              }
+              onOpen() {
+                const { contentEl } = this;
+                contentEl.empty();
+                
+                contentEl.createEl("h3", { text: "입찰을 포기한 이유", attr: { style: "margin-bottom: 16px; font-size: 1.15em;" } });
+                
+                const reasonsContainer = contentEl.createEl("div", {
+                  attr: { style: "display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;" }
+                });
+                
+                const reasons = ["수익성 부족", "권리 문제", "임장 결과", "경쟁 과열", "자금 부족", "전략적 포기", "기타"];
+                
+                reasons.forEach((reason, index) => {
+                  const label = reasonsContainer.createEl("label", {
+                    attr: { style: "display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9em;" }
+                  });
+                  
+                  const radio = label.createEl("input", {
+                    attr: { type: "radio", name: "skip_reason", value: reason }
+                  });
+                  if (index === 0) {
+                    radio.checked = true;
+                    this.selectedReason = reason;
+                  }
+                  
+                  radio.onchange = () => {
+                    if (radio.checked) {
+                      this.selectedReason = reason;
+                    }
+                  };
+                  
+                  label.createEl("span", { text: reason });
+                });
+                
+                const noteContainer = contentEl.createEl("div", {
+                  attr: { style: "margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px;" }
+                });
+                
+                const noteInput = noteContainer.createEl("textarea", {
+                  attr: { 
+                    placeholder: "추가 메모 (선택)",
+                    style: "width: 100%; height: 60px; padding: 6px; border-radius: 4px; border: 1px solid var(--background-modifier-border); font-size: 0.85em; color: var(--text-normal); background: var(--background-primary); resize: none;"
+                  }
+                });
+                
+                const btnRow = contentEl.createEl("div", {
+                  attr: { style: "display: flex; justify-content: flex-end; gap: 8px;" }
+                });
+                
+                const cancelBtn = btnRow.createEl("button", {
+                  text: "취소",
+                  attr: { style: "background: var(--background-modifier-hover); color: var(--text-normal); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;" }
+                });
+                cancelBtn.onclick = () => this.close();
+                
+                const saveBtn = btnRow.createEl("button", {
+                  text: "저장",
+                  attr: { style: "background: var(--text-accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;" }
+                });
+                
+                saveBtn.onclick = () => {
+                  if (!this.selectedReason) {
+                    new Notice("포기 사유를 선택해주세요.");
+                    return;
+                  }
+                  this.onSave(this.selectedReason, noteInput.value.trim());
+                  this.close();
+                };
+              }
+              onClose() {
+                this.contentEl.empty();
+              }
+            }
+            
+            new SkipReasonModal(app, async (reason, note) => {
+              btn.disabled = true;
+              btn.style.opacity = '0.5';
+              const tFile = app.vault.getAbstractFileByPath(p.file.path);
+              if (tFile) {
+                await app.fileManager.processFrontMatter(tFile, (fm) => {
+                  fm.status = opt.key;
+                  fm.skip_reason = reason;
+                  fm.skip_note = note;
+                  fm.updated = new Date().toISOString().split('T')[0];
+                });
+                new Notice(`상태가 입찰 포기로 변경되고 포기 사유가 기록되었습니다.`);
+              }
+            }).open();
+            return;
           }
  
           btn.disabled = true;

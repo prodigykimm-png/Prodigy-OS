@@ -40,6 +40,8 @@ recommendation: 보통
 expected_bid:
 actual_bid:
 winning_bid:
+skip_reason:
+skip_note:
 # ---------- Investment ----------
 rent_deposit:
 monthly_rent:
