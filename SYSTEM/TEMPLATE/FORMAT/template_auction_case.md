@@ -3,7 +3,7 @@ id: <% tp.file.title %>
 type: auction_case
 status: watching
 priority:
-site_visit_completed: false
+site_visit_date:
 connections:
 created: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
 updated: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
@@ -77,7 +77,7 @@ attachments:
 | 예상 입찰가 | `= this.expected_bid` |
 | 입찰일시 | `= this.auction_datetime` |
 | 상태 | `= this.status` |
-| 임장 완료 | `= this.site_visit_completed` |
+| 임장 기일 | `= this.site_visit_date` |
 | 추천 | `= this.recommendation` |
 
 **AI Summary**

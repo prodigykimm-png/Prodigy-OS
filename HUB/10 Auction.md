@@ -11,7 +11,7 @@ if (!container) return;
 container.empty();
 
 // Expose globals for external scripts
-// Last reload: 2026-07-12T15:45:00
+// Last reload: 2026-07-12T16:00:00
 window.obsidian = obsidian;
 window.app = app;
 
@@ -78,9 +78,10 @@ cases.forEach(p => {
     }
   }
   
-  // 2. Today's Site Visits (Watching status and site_visit_completed !== true)
-  if (p.status === "watching") {
-    if (p.site_visit_completed !== true && p.site_visit_completed !== "true") {
+  // 2. Today's Site Visits (Bidding status and site_visit_date is empty)
+  if (p.status === "bidding") {
+    const svd = p.site_visit_date;
+    if (!svd || svd === "정보 없음" || String(svd).trim() === "") {
       pendingSiteVisitsCount++;
     }
   }
@@ -132,7 +133,7 @@ const addStatItem = (parent, label, count, color, isHighlight) => {
 };
 
 addStatItem(statsBox, '🔥 오늘 입찰 (Today Bidding)', todayBiddingCount, '#ef4444', todayBiddingCount > 0);
-addStatItem(statsBox, '🏃 미완료 임장 (Site Visits)', pendingSiteVisitsCount, '#3b82f6', pendingSiteVisitsCount > 0);
+addStatItem(statsBox, '⚠️ 임장 미완료', pendingSiteVisitsCount, '#3b82f6', pendingSiteVisitsCount > 0);
 addStatItem(statsBox, '⚠️ 예상입찰가 누락', missingExpectedCount, '#eab308', missingExpectedCount > 0);
 
 // Right Box: Monthly Progress
