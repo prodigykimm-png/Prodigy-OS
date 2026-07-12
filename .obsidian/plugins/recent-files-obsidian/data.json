@@ -1,20 +1,40 @@
 {
   "recentFiles": [
     {
-      "basename": "template_auction_case",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md"
+      "basename": "부산-2024타경61720",
+      "path": "PARA/PROJECTS/Auction/부산-2024타경61720.md"
     },
     {
-      "basename": "template_area_note_sub",
-      "path": "SYSTEM/TEMPLATE/FORMAT/template_area_note_sub.md"
+      "basename": "경기-2024타경53957",
+      "path": "PARA/PROJECTS/Auction/경기-2024타경53957.md"
     },
     {
       "basename": "경기-2022타경8466",
       "path": "PARA/PROJECTS/Auction/경기-2022타경8466.md"
     },
     {
-      "basename": "경기-2024타경53957",
-      "path": "PARA/PROJECTS/Auction/경기-2024타경53957.md"
+      "basename": "경기-2024타경88879_1",
+      "path": "PARA/PROJECTS/Auction/경기-2024타경88879_1.md"
+    },
+    {
+      "basename": "인천-2024타경557712",
+      "path": "PARA/PROJECTS/Auction/인천-2024타경557712.md"
+    },
+    {
+      "basename": "서울-2025타경13178",
+      "path": "PARA/PROJECTS/Auction/서울-2025타경13178.md"
+    },
+    {
+      "basename": "울산-2025타경12628_1",
+      "path": "PARA/PROJECTS/Auction/울산-2025타경12628_1.md"
+    },
+    {
+      "basename": "template_auction_case",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_auction_case.md"
+    },
+    {
+      "basename": "template_area_note_sub",
+      "path": "SYSTEM/TEMPLATE/FORMAT/template_area_note_sub.md"
     },
     {
       "basename": "Resilience as an Adaptive Response",
@@ -89,10 +109,6 @@
       "path": "PARA/PROJECTS/Auction/서울-2026타경3705.md"
     },
     {
-      "basename": "울산-2025타경12628_1",
-      "path": "PARA/PROJECTS/Auction/울산-2025타경12628_1.md"
-    },
-    {
       "basename": "서울-2026타경10176",
       "path": "PARA/PROJECTS/Auction/서울-2026타경10176.md"
     },
@@ -111,10 +127,6 @@
     {
       "basename": "인천-2024타경505827",
       "path": "PARA/PROJECTS/Auction/인천-2024타경505827.md"
-    },
-    {
-      "basename": "인천-2024타경557712",
-      "path": "PARA/PROJECTS/Auction/인천-2024타경557712.md"
     },
     {
       "basename": "인천-2024타경579583_2",
@@ -187,18 +199,6 @@
     {
       "basename": "인천-2025타경513260",
       "path": "PARA/PROJECTS/Auction/인천-2025타경513260.md"
-    },
-    {
-      "basename": "인천-2025타경512795",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경512795.md"
-    },
-    {
-      "basename": "인천-2025타경1095_1",
-      "path": "PARA/PROJECTS/Auction/인천-2025타경1095_1.md"
-    },
-    {
-      "basename": "경기-2025타경53384",
-      "path": "PARA/PROJECTS/Auction/경기-2025타경53384.md"
     }
   ],
   "omittedPaths": [],
