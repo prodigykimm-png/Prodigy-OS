@@ -267,8 +267,69 @@ window.renderAuctionCard = function(p, container) {
         attr: { style: 'display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; border-top: 1px solid var(--background-modifier-border); padding-top: 4px; align-items: center;' }
       });
       
-      // If status is bidding, we display the site visit button/badge next to the status buttons
+      if (buttons.length > 0) {
+        buttonContainer.createEl('span', {
+          text: '상태 변경:',
+          attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; align-items: center; margin-right: 4px;' }
+        });
+      }
+      
+      buttons.forEach(opt => {
+        const btn = buttonContainer.createEl('button', {
+          text: opt.label,
+          attr: {
+            style: `font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid ${opt.color}; cursor: pointer;`
+          }
+        });
+        
+        btn.onclick = async (e) => {
+          e.preventDefault();
+          
+          let expectedBid = p.expected_bid || "";
+          let actualBid = p.actual_bid || "";
+          let winningBid = p.winning_bid || "";
+ 
+          if (opt.key === 'bidding') {
+            const inputExpected = await window.obsidianPrompt(`[${p.case_number}] 입찰 준비`, "예상 입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):", String(expectedBid));
+            if (inputExpected === null) return;
+            expectedBid = inputExpected.trim();
+          } else if (opt.key === 'won' || opt.key === 'lost') {
+            const inputActual = await window.obsidianPrompt(`[${p.case_number}] 실제 입찰가 입력`, "실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):", String(actualBid));
+            if (inputActual === null) return;
+            actualBid = inputActual.trim();
+ 
+            const inputWinning = await window.obsidianPrompt(`[${p.case_number}] 최종 낙찰가 입력`, "최종 낙찰가를 입력해주세요 (원 단위):", String(winningBid || actualBid));
+            if (inputWinning === null) return;
+            winningBid = inputWinning.trim();
+          }
+ 
+          btn.disabled = true;
+          btn.style.opacity = '0.5';
+          const tFile = app.vault.getAbstractFileByPath(p.file.path);
+          if (tFile) {
+            await app.fileManager.processFrontMatter(tFile, (fm) => {
+              fm.status = opt.key;
+              if (opt.key === 'bidding') {
+                if (expectedBid) fm.expected_bid = Number(expectedBid) || expectedBid;
+              } else if (opt.key === 'won' || opt.key === 'lost') {
+                if (actualBid) fm.actual_bid = Number(actualBid) || actualBid;
+                if (winningBid) fm.winning_bid = Number(winningBid) || winningBid;
+              }
+              fm.updated = new Date().toISOString().split('T')[0];
+            });
+            new Notice(`상태가 ${opt.label}(으)로 변경되고 정보가 기록되었습니다.`);
+          }
+        };
+      });
+      
+      // If status is bidding, display the site visit button/badge to the right of status buttons
       if (p.status === "bidding") {
+        // Add a small divider separator
+        buttonContainer.createEl('span', {
+          text: ' | ',
+          attr: { style: 'font-size: 0.72em; color: var(--background-modifier-border); display: flex; align-items: center; margin: 0 2px;' }
+        });
+ 
         const svd = p.site_visit_date;
         const isCompleted = svd && svd !== "정보 없음" && String(svd).trim() !== "";
         
@@ -371,68 +432,7 @@ window.renderAuctionCard = function(p, container) {
             new SiteVisitActionModal(window.app).open();
           };
         }
-        
-        // Add a small divider separator between Site Visit and Status Change buttons
-        buttonContainer.createEl('span', {
-          text: ' | ',
-          attr: { style: 'font-size: 0.72em; color: var(--background-modifier-border); display: flex; align-items: center; margin: 0 2px;' }
-        });
       }
-      
-      if (buttons.length > 0) {
-        buttonContainer.createEl('span', {
-          text: '상태 변경:',
-          attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; align-items: center; margin-right: 4px;' }
-        });
-      }
-      
-      buttons.forEach(opt => {
-        const btn = buttonContainer.createEl('button', {
-          text: opt.label,
-          attr: {
-            style: `font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid ${opt.color}; cursor: pointer;`
-          }
-        });
-        
-        btn.onclick = async (e) => {
-          e.preventDefault();
-          
-          let expectedBid = p.expected_bid || "";
-          let actualBid = p.actual_bid || "";
-          let winningBid = p.winning_bid || "";
-
-          if (opt.key === 'bidding') {
-            const inputExpected = await window.obsidianPrompt(`[${p.case_number}] 입찰 준비`, "예상 입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):", String(expectedBid));
-            if (inputExpected === null) return;
-            expectedBid = inputExpected.trim();
-          } else if (opt.key === 'won' || opt.key === 'lost') {
-            const inputActual = await window.obsidianPrompt(`[${p.case_number}] 실제 입찰가 입력`, "실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):", String(actualBid));
-            if (inputActual === null) return;
-            actualBid = inputActual.trim();
-
-            const inputWinning = await window.obsidianPrompt(`[${p.case_number}] 최종 낙찰가 입력`, "최종 낙찰가를 입력해주세요 (원 단위):", String(winningBid || actualBid));
-            if (inputWinning === null) return;
-            winningBid = inputWinning.trim();
-          }
-
-          btn.disabled = true;
-          btn.style.opacity = '0.5';
-          const tFile = app.vault.getAbstractFileByPath(p.file.path);
-          if (tFile) {
-            await app.fileManager.processFrontMatter(tFile, (fm) => {
-              fm.status = opt.key;
-              if (opt.key === 'bidding') {
-                if (expectedBid) fm.expected_bid = Number(expectedBid) || expectedBid;
-              } else if (opt.key === 'won' || opt.key === 'lost') {
-                if (actualBid) fm.actual_bid = Number(actualBid) || actualBid;
-                if (winningBid) fm.winning_bid = Number(winningBid) || winningBid;
-              }
-              fm.updated = new Date().toISOString().split('T')[0];
-            });
-            new Notice(`상태가 ${opt.label}(으)로 변경되고 정보가 기록되었습니다.`);
-          }
-        };
-      });
     }
   } catch (e) {
     console.error("renderAuctionCard error:", e);
