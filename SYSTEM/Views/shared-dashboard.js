@@ -1,7 +1,12 @@
 window.obsidianPrompt = function(title, placeholder, value = "") {
   return new Promise((resolve) => {
     try {
-      const { Modal, Setting } = require("obsidian");
+      const obsidianModule = window.obsidian || (typeof obsidian !== 'undefined' ? obsidian : null);
+      if (!obsidianModule) {
+        throw new Error("Obsidian API not found globally.");
+      }
+      
+      const { Modal, Setting } = obsidianModule;
       
       class PromptModal extends Modal {
         constructor(app) {
@@ -49,6 +54,7 @@ window.obsidianPrompt = function(title, placeholder, value = "") {
       
       new PromptModal(app).open();
     } catch (e) {
+      console.error("obsidianPrompt error, falling back:", e);
       const input = prompt(title + "\\n" + placeholder, value);
       resolve(input);
     }
