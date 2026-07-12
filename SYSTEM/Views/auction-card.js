@@ -103,17 +103,10 @@ window.renderAuctionCard = function(p, container) {
       });
     }
     
-    // Right header (recommend level & court)
+    // Right header (court & recommend level badge)
     const rightHeader = header.createEl('div', {
       attr: { style: 'display: flex; align-items: center; gap: 6px; font-size: 0.75em;' }
     });
-    
-    if (p.recommend) {
-      rightHeader.createEl('span', {
-        text: '추천',
-        attr: { style: 'background: #eab30820; color: #eab308; font-weight: bold; padding: 1px 4px; border-radius: 4px;' }
-      });
-    }
     
     if (p.court) {
       rightHeader.createEl('span', {
@@ -121,6 +114,20 @@ window.renderAuctionCard = function(p, container) {
         attr: { style: 'color: var(--text-muted); font-weight: bold;' }
       });
     }
+    
+    const level = p.recommendation || p.recommend_level || "보통";
+    const levelColors = {
+      '강강추': { bg: '#ef444420', text: '#ef4444' },
+      '강추': { bg: '#f9731620', text: '#f97316' },
+      '추천': { bg: '#eab30820', text: '#eab308' },
+      '보통': { bg: 'var(--background-modifier-hover)', text: 'var(--text-muted)' }
+    };
+    const colors = levelColors[level] || levelColors['보통'];
+    
+    rightHeader.createEl('span', {
+      text: level,
+      attr: { style: `background: ${colors.bg}; color: ${colors.text}; font-weight: bold; padding: 1px 4px; border-radius: 4px;` }
+    });
     
     // Object Details Line (물건명 -> 지역 -> 종류)
     const meta = card.createEl('div', {
@@ -210,25 +217,12 @@ window.renderAuctionCard = function(p, container) {
     const profitEl = financeRow.createEl('div');
     profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
     
-    // Recommendation & Next Action
-    const detailRow = card.createEl('div', {
-      attr: { style: 'display: flex; flex-direction: column; gap: 1px; font-size: 0.78em;' }
+    // Next Action & Note
+    const noteStr = p.recommend_note && p.recommend_note !== "정보 없음" ? ` <span style="color:var(--text-muted); font-style:italic;">(${p.recommend_note})</span>` : "";
+    const actionEl = card.createEl('div', {
+      attr: { style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
     });
-    
-    if (p.recommendation || p.recommend) {
-      const level = p.recommendation || p.recommend_level || "보통";
-      const note = p.recommend_note && p.recommend_note !== "정보 없음" ? ` · ${p.recommend_note}` : "";
-      const icon = level === "강추" ? "🔥" : level === "추천" ? "👍" : "✨";
-      const recEl = detailRow.createEl('div', {
-        attr: { style: 'color:var(--text-muted);' }
-      });
-      recEl.innerHTML = `<span style="color:var(--text-accent); font-weight:bold;">${icon} 추천등급: ${level}</span>${note}`;
-    }
-    
-    const actionEl = detailRow.createEl('div', {
-      attr: { style: 'color:var(--text-normal);' }
-    });
-    actionEl.innerHTML = `→ <strong style="color:var(--text-accent); font-weight:bold;">Next Action:</strong> ${p.next_action || "⚠️ 설정 필요"}`;
+    actionEl.innerHTML = `→ <strong style="color:var(--text-accent); font-weight:bold;">Next Action:</strong> ${p.next_action || "⚠️ 설정 필요"}${noteStr}`;
     
     // Transition status buttons
     const getTransitionButtons = (currentStatus) => {
