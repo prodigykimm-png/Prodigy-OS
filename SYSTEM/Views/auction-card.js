@@ -196,16 +196,19 @@ window.renderAuctionCard = function(p, container) {
       }
     }
       
-    financeRow.createEl('div', { html: `최저: <strong>${toEok(p.minimum_bid)}${minRateStr}</strong>` });
+    const minEl = financeRow.createEl('div');
+    minEl.innerHTML = `최저: <strong>${toEok(p.minimum_bid)}${minRateStr}</strong>`;
     
     financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     
-    financeRow.createEl('div', { html: `예상: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>` });
+    const expEl = financeRow.createEl('div');
+    expEl.innerHTML = `예상: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>`;
     
     financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     
     const profitInfo = calcMonthlyProfit(p);
-    financeRow.createEl('div', { html: `월수익: ${formatProfit(profitInfo)}` });
+    const profitEl = financeRow.createEl('div');
+    profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
     
     // Recommendation & Next Action
     const detailRow = card.createEl('div', {
@@ -216,16 +219,16 @@ window.renderAuctionCard = function(p, container) {
       const level = p.recommendation || p.recommend_level || "보통";
       const note = p.recommend_note && p.recommend_note !== "정보 없음" ? ` · ${p.recommend_note}` : "";
       const icon = level === "강추" ? "🔥" : level === "추천" ? "👍" : "✨";
-      detailRow.createEl('div', {
-        html: `<span style="color:var(--text-accent); font-weight:bold;">${icon} 추천등급: ${level}</span>${note}`,
+      const recEl = detailRow.createEl('div', {
         attr: { style: 'color:var(--text-muted);' }
       });
+      recEl.innerHTML = `<span style="color:var(--text-accent); font-weight:bold;">${icon} 추천등급: ${level}</span>${note}`;
     }
     
-    detailRow.createEl('div', {
-      html: `→ <strong style="color:var(--text-accent); font-weight:bold;">Next Action:</strong> ${p.next_action || "⚠️ 설정 필요"}`,
+    const actionEl = detailRow.createEl('div', {
       attr: { style: 'color:var(--text-normal);' }
     });
+    actionEl.innerHTML = `→ <strong style="color:var(--text-accent); font-weight:bold;">Next Action:</strong> ${p.next_action || "⚠️ 설정 필요"}`;
     
     // Transition status buttons
     const getTransitionButtons = (currentStatus) => {
