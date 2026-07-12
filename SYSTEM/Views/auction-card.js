@@ -217,126 +217,7 @@ window.renderAuctionCard = function(p, container) {
     const profitEl = financeRow.createEl('div');
     profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
     
-    // Site Visit Control (only for bidding status)
-    if (p.status === "bidding") {
-      const siteVisitRow = card.createEl('div', {
-        attr: { style: 'display: flex; align-items: center; gap: 6px; font-size: 0.78em; margin-top: 1px;' }
-      });
-      
-      const svd = p.site_visit_date;
-      const isCompleted = svd && svd !== "정보 없음" && String(svd).trim() !== "";
-      
-      if (!isCompleted) {
-        // Render: ☐ 임장 완료
-        const checkbox = siteVisitRow.createEl('input', {
-          attr: { 
-            type: 'checkbox',
-            style: 'cursor: pointer; margin: 0;'
-          }
-        });
-        
-        const label = siteVisitRow.createEl('label', {
-          text: '임장 완료',
-          attr: { style: 'cursor: pointer; font-weight: bold; color: var(--text-normal);' }
-        });
-        
-        const markAsCompletedToday = async () => {
-          const tFile = app.vault.getAbstractFileByPath(p.file.path);
-          if (tFile) {
-            const todayStr = new Date().toISOString().split('T')[0];
-            await app.fileManager.processFrontMatter(tFile, (fm) => {
-              fm.site_visit_date = todayStr;
-              fm.updated = todayStr;
-            });
-            new Notice(`임장 완료 처리되었습니다: ${todayStr}`);
-          }
-        };
-        
-        checkbox.onchange = markAsCompletedToday;
-        label.onclick = () => {
-          checkbox.checked = true;
-          markAsCompletedToday();
-        };
-      } else {
-        // Render: ☑ 임장 완료 (2026-07-12)
-        const badge = siteVisitRow.createEl('span', {
-          text: `☑ 임장 완료 (${svd})`,
-          attr: { 
-            style: 'font-weight: bold; color: var(--text-accent); background: var(--background-modifier-hover); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--background-modifier-border); cursor: pointer;' 
-          }
-        });
-        
-        badge.onclick = () => {
-          class SiteVisitActionModal extends window.obsidian.Modal {
-            constructor(appInstance) {
-              super(appInstance);
-            }
-            onOpen() {
-              const { contentEl } = this;
-              contentEl.empty();
-              contentEl.createEl("h3", { text: "임장 기록 관리", attr: { style: "margin-bottom: 16px; font-size: 1.15em;" } });
-              
-              // Option 1: Edit Date
-              const row1 = contentEl.createEl("div", { attr: { style: "display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; background: var(--background-modifier-hover); padding: 10px; border-radius: 6px;" } });
-              row1.createEl("span", { text: "날짜 수정:", attr: { style: "font-weight: bold; font-size: 0.85em; color: var(--text-muted);" } });
-              
-              const dateInput = row1.createEl("input", {
-                attr: { type: "date", value: svd, style: "padding: 4px; border-radius: 4px; border: 1px solid var(--background-modifier-border); width: 100%; margin-bottom: 8px; color: var(--text-normal); background: var(--background-primary);" }
-              });
-              
-              const saveBtn = row1.createEl("button", {
-                text: "수정 완료",
-                attr: { style: "background: var(--text-accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; align-self: flex-end;" }
-              });
-              
-              saveBtn.onclick = async () => {
-                const newDate = dateInput.value;
-                if (newDate) {
-                  const tFile = app.vault.getAbstractFileByPath(p.file.path);
-                  if (tFile) {
-                    await app.fileManager.processFrontMatter(tFile, (fm) => {
-                      fm.site_visit_date = newDate;
-                      fm.updated = new Date().toISOString().split('T')[0];
-                    });
-                    new Notice(`임장 기일이 수정되었습니다: ${newDate}`);
-                    this.close();
-                  }
-                } else {
-                  new Notice("올바른 날짜를 선택해주세요.");
-                }
-              };
-              
-              // Option 2: Delete Record
-              const row2 = contentEl.createEl("div", { attr: { style: "display: flex; justify-content: space-between; align-items: center; background: var(--background-modifier-hover); padding: 10px; border-radius: 6px;" } });
-              row2.createEl("span", { text: "임장 기록 삭제:", attr: { style: "font-weight: bold; font-size: 0.85em; color: var(--text-error);" } });
-              
-              const deleteBtn = row2.createEl("button", {
-                text: "기록 삭제",
-                attr: { style: "background: var(--text-error); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;" }
-              });
-              
-              deleteBtn.onclick = async () => {
-                if (confirm("정말로 임장 기일 기록을 삭제하시겠습니까?\n삭제하면 '임장 미완료' 상태로 복원됩니다.")) {
-                  const tFile = app.vault.getAbstractFileByPath(p.file.path);
-                  if (tFile) {
-                    await app.fileManager.processFrontMatter(tFile, (fm) => {
-                      delete fm.site_visit_date;
-                      fm.updated = new Date().toISOString().split('T')[0];
-                    });
-                    new Notice("임장 기록이 삭제되었습니다.");
-                    this.close();
-                  }
-                }
-              };
-            }
-            onClose() {
-              this.contentEl.empty();
-            }
-          }
-          new SiteVisitActionModal(window.app).open();
-        };
-      }
-    }
+
     
     // Memo Row (below Next Action)
     const memoEl = card.createEl('div', {
@@ -381,15 +262,129 @@ window.renderAuctionCard = function(p, container) {
     
     const buttons = getTransitionButtons(p.status);
     
-    if (buttons.length > 0) {
+    if (buttons.length > 0 || p.status === "bidding") {
       const buttonContainer = card.createEl('div', {
-        attr: { style: 'display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; border-top: 1px solid var(--background-modifier-border); padding-top: 4px;' }
+        attr: { style: 'display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; border-top: 1px solid var(--background-modifier-border); padding-top: 4px; align-items: center;' }
       });
       
-      buttonContainer.createEl('span', {
-        text: '상태 변경:',
-        attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; align-items: center; margin-right: 4px;' }
-      });
+      // If status is bidding, we display the site visit button/badge next to the status buttons
+      if (p.status === "bidding") {
+        const svd = p.site_visit_date;
+        const isCompleted = svd && svd !== "정보 없음" && String(svd).trim() !== "";
+        
+        if (!isCompleted) {
+          const svBtn = buttonContainer.createEl('button', {
+            text: '☐ 임장 완료',
+            attr: {
+              style: 'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid #3b82f6; cursor: pointer; font-weight: bold;'
+            }
+          });
+          
+          svBtn.onclick = async (e) => {
+            e.preventDefault();
+            const tFile = app.vault.getAbstractFileByPath(p.file.path);
+            if (tFile) {
+              const todayStr = new Date().toISOString().split('T')[0];
+              await app.fileManager.processFrontMatter(tFile, (fm) => {
+                fm.site_visit_date = todayStr;
+                fm.updated = todayStr;
+              });
+              new Notice(`임장 완료 처리되었습니다: ${todayStr}`);
+            }
+          };
+        } else {
+          const svBadge = buttonContainer.createEl('button', {
+            text: `☑ 임장 완료 (${svd})`,
+            attr: {
+              style: 'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #3b82f615; color: #3b82f6; border: 1px solid #3b82f6; cursor: pointer; font-weight: bold;'
+            }
+          });
+          
+          svBadge.onclick = (e) => {
+            e.preventDefault();
+            class SiteVisitActionModal extends window.obsidian.Modal {
+              constructor(appInstance) {
+                super(appInstance);
+              }
+              onOpen() {
+                const { contentEl } = this;
+                contentEl.empty();
+                contentEl.createEl("h3", { text: "임장 기록 관리", attr: { style: "margin-bottom: 16px; font-size: 1.15em;" } });
+                
+                // Option 1: Edit Date
+                const row1 = contentEl.createEl("div", { attr: { style: "display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; background: var(--background-modifier-hover); padding: 10px; border-radius: 6px;" } });
+                row1.createEl("span", { text: "날짜 수정:", attr: { style: "font-weight: bold; font-size: 0.85em; color: var(--text-muted);" } });
+                
+                const dateInput = row1.createEl("input", {
+                  attr: { type: "date", value: svd, style: "padding: 4px; border-radius: 4px; border: 1px solid var(--background-modifier-border); width: 100%; margin-bottom: 8px; color: var(--text-normal); background: var(--background-primary);" }
+                });
+                
+                const saveBtn = row1.createEl("button", {
+                  text: "수정 완료",
+                  attr: { style: "background: var(--text-accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; align-self: flex-end;" }
+                });
+                
+                saveBtn.onclick = async () => {
+                  const newDate = dateInput.value;
+                  if (newDate) {
+                    const tFile = app.vault.getAbstractFileByPath(p.file.path);
+                    if (tFile) {
+                      await app.fileManager.processFrontMatter(tFile, (fm) => {
+                        fm.site_visit_date = newDate;
+                        fm.updated = new Date().toISOString().split('T')[0];
+                      });
+                      new Notice(`임장 기일이 수정되었습니다: ${newDate}`);
+                      this.close();
+                    }
+                  } else {
+                    new Notice("올바른 날짜를 선택해주세요.");
+                  }
+                };
+                
+                // Option 2: Delete Record
+                const row2 = contentEl.createEl("div", { attr: { style: "display: flex; justify-content: space-between; align-items: center; background: var(--background-modifier-hover); padding: 10px; border-radius: 6px;" } });
+                row2.createEl("span", { text: "임장 기록 삭제:", attr: { style: "font-weight: bold; font-size: 0.85em; color: var(--text-error);" } });
+                
+                const deleteBtn = row2.createEl("button", {
+                  text: "기록 삭제",
+                  attr: { style: "background: var(--text-error); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;" }
+                });
+                
+                deleteBtn.onclick = async () => {
+                  if (confirm("정말로 임장 기일 기록을 삭제하시겠습니까?\n삭제하면 '임장 미완료' 상태로 복원됩니다.")) {
+                    const tFile = app.vault.getAbstractFileByPath(p.file.path);
+                    if (tFile) {
+                      await app.fileManager.processFrontMatter(tFile, (fm) => {
+                        delete fm.site_visit_date;
+                        fm.updated = new Date().toISOString().split('T')[0];
+                      });
+                      new Notice("임장 기록이 삭제되었습니다.");
+                      this.close();
+                    }
+                  }
+                };
+              }
+              onClose() {
+                this.contentEl.empty();
+              }
+            }
+            new SiteVisitActionModal(window.app).open();
+          };
+        }
+        
+        // Add a small divider separator between Site Visit and Status Change buttons
+        buttonContainer.createEl('span', {
+          text: ' | ',
+          attr: { style: 'font-size: 0.72em; color: var(--background-modifier-border); display: flex; align-items: center; margin: 0 2px;' }
+        });
+      }
+      
+      if (buttons.length > 0) {
+        buttonContainer.createEl('span', {
+          text: '상태 변경:',
+          attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; align-items: center; margin-right: 4px;' }
+        });
+      }
       
       buttons.forEach(opt => {
         const btn = buttonContainer.createEl('button', {
