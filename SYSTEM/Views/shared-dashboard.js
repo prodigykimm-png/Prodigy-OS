@@ -147,6 +147,16 @@ window.renderDashboardSection = function(options) {
       { text: '상가', value: '상가' },
       { text: '지식산업센터', value: '지식산업센터' }
     ], fm.card_type);
+
+    filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
+
+    makeSelectInline(filterContainer, '정렬:', 'card_sort', [
+      { text: 'D-day 가까운순', value: 'dday_asc' },
+      { text: 'D-day 먼순', value: 'dday_desc' },
+      { text: '감정가 낮은순', value: 'expected_bid_asc' },
+      { text: '감정가 높은순', value: 'expected_bid_desc' },
+      { text: '최근 등록순', value: 'created_desc' }
+    ], fm.card_sort || 'dday_asc');
   }
   
   // Query pages based on type
@@ -177,7 +187,40 @@ window.renderDashboardSection = function(options) {
   }
   
   // Sort
-  pages = pages.sort(p => p[sortField] || "", sortOrder);
+  let activeSortField = sortField;
+  let activeSortOrder = sortOrder;
+  const filterSort = fm.card_sort || "dday_asc";
+  
+  if (type === "auction_case") {
+    if (filterSort === "dday_asc") {
+      activeSortField = "auction_datetime";
+      activeSortOrder = "asc";
+    } else if (filterSort === "dday_desc") {
+      activeSortField = "auction_datetime";
+      activeSortOrder = "desc";
+    } else if (filterSort === "expected_bid_asc") {
+      activeSortField = "expected_bid";
+      activeSortOrder = "asc";
+    } else if (filterSort === "expected_bid_desc") {
+      activeSortField = "expected_bid";
+      activeSortOrder = "desc";
+    } else if (filterSort === "created_desc") {
+      activeSortField = "file.ctime";
+      activeSortOrder = "desc";
+    }
+  }
+  
+  const getSortKey = (p, field) => {
+    if (field === "file.ctime") return p.file.ctime;
+    if (field === "file.mtime") return p.file.mtime;
+    if (field === "expected_bid") {
+      const val = Number(p.expected_bid);
+      return isNaN(val) ? 0 : val;
+    }
+    return p[field] || "";
+  };
+  
+  pages = pages.sort(p => getSortKey(p, activeSortField), activeSortOrder);
   
   // Setup container
   let targetContainer = container;
