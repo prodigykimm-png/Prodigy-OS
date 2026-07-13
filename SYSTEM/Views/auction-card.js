@@ -316,22 +316,30 @@ window.renderAuctionCard = function(p, container) {
     // Reference Memo Row (Not Clickable, below opinionEl)
     const memoEl = card.createEl('div', {
       attr: { 
-        style: 'font-size: 0.78em; color: var(--text-muted); margin-top: 2px; padding: 2px 4px;' 
+        style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 2px; padding: 2px 4px;' 
       }
     });
 
-    let memoLines = [];
-    if (isValid(userNote)) {
-      memoLines.push(`📌 <strong style="color: var(--text-normal);">메모:</strong> ${String(userNote).trim()}`);
-    }
-    if (isValid(recNote)) {
-      memoLines.push(`📝 <strong style="color: var(--text-normal);">추천의견:</strong> ${String(recNote).trim()}`);
-    }
+    const userText = isValid(userNote) ? String(userNote).trim() : "";
+    const recText = isValid(recNote) ? String(recNote).trim() : "";
 
-    if (memoLines.length > 0) {
+    if (userText && recText) {
       memoEl.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 2px; border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;">
-          ${memoLines.map(line => `<div>${line}</div>`).join('')}
+        <div style="border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;">
+          <div>📝 <strong style="color:var(--text-accent); font-weight:bold;">참고사항:</strong> ${userText}</div>
+          <div style="margin-left: 18px; color: var(--text-muted); margin-top: 2px;">${recText}</div>
+        </div>
+      `;
+    } else if (userText) {
+      memoEl.innerHTML = `
+        <div style="border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;">
+          <div>📝 <strong style="color:var(--text-accent); font-weight:bold;">참고사항:</strong> ${userText}</div>
+        </div>
+      `;
+    } else if (recText) {
+      memoEl.innerHTML = `
+        <div style="border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;">
+          <div>📝 <strong style="color:var(--text-accent); font-weight:bold;">참고사항:</strong> ${recText}</div>
         </div>
       `;
     } else {
