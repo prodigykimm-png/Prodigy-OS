@@ -1,4 +1,8 @@
 ---
+journal: personal daily
+journal-date: <% tp.file.title %>
+journal-start-date: <% tp.file.title %>
+journal-end-date: <% tp.file.title %>
 type: journal
 date: <% tp.file.title %>
 status: completed
