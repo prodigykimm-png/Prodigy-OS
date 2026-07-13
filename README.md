@@ -76,6 +76,9 @@ Dusk/ (Vault Root)
 │   ├── AREAS/        ← 지속적 관리 영역 (건강, 자산 등)
 │   ├── RESOURCES/    ← 참고용 정적 자료
 │   └── ARCHIVES/     ← 완료되어 보관된 문서들
+├── ZETA/             ← 영구 지식 회고 및 제텔카스텐 저장소
+│   ├── FLEETING/     ← 일상적이고 빠른 임시 기록 (Fleeting Notes)
+│   └── LITERATURE/   ← 독서, 논문 등에서 추출한 지식 (Literature Notes)
 ├── DAILY/            ← 일일 회고 및 기록 저장소
 ├── STICKY/           ← 상시 참조가 필요한 고정 문서
 └── SYSTEM/           ← 시스템 작동을 위한 템플릿, CSS 및 코드 스크립트

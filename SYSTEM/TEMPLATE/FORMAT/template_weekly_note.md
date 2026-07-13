@@ -58,6 +58,16 @@ dv.taskList(dv.pages().file.tasks
 # Notes & Reflections
 
 
+# AI 추천 원칙 검토 (AI Suggested Principles)
+
+*AI가 한 주간 축적된 일일 성찰(증거)에서 감지한 패턴을 바탕으로 제안한 원칙 후보를 1차 검토합니다.*
+
+- **제안된 원칙 (Proposed Principle)**: 
+- **근거 자료 (Supporting Evidence)**: 
+- **관련 성찰 (Related Reflections)**: 
+- **사용자 결정 (User Decision)**: [ ] 승인 (Approve) / [ ] 반려 (Reject) / [ ] 증거 계속 수집 (Continue Collecting Evidence)
+
+
 # Plan for Next Week
 
 # Overview

@@ -1,54 +1,49 @@
 ---
-id: <% tp.file.title %>
 type: journal
+date: <% tp.file.creation_date("YYYY-MM-DD") %>
 status: completed
-next_action:
-due_date:
-priority:
-review_status:
-connections:
-created: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
-updated: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
-
-mood:
-energy:
-grateful_for:
-daily_highlight:
-reflection:
 ---
 
-# <% tp.file.title %>
+# Today's Event
 
-<!-- PROPERTY-DRIVEN SUMMARY (minimal — Journal is writing-first) -->
-
-| 기분 | `= this.mood` | 에너지 | `= this.energy` |
-|------|--------------|--------|----------------|
+What was the single most meaningful event worth reflecting on today?
+(The objective is to identify the one experience most worth understanding. Do not write everything.)
 
 ---
 
-<!-- HUMAN WRITING AREA -->
-## Today
+# Today's Question
 
-### What happened today?
-
--
-
-### What went well?
-
--
-
-### What could be better?
-
--
+What question naturally appeared today? (Optional)
 
 ---
 
-## Reflection
+# Reflection
 
-### One thing I learned today
+Reflect on the event. Focus on what happened, why it mattered, and what was learned.
+(Avoid writing a chronological timeline. Focus on meaningful understanding.)
 
--
+---
 
-### Tomorrow's intention
+# Change
 
--
+What will be different because of today's experience?
+(Describe inner transformation—better judgment, improved understanding, refined thinking, or changed perspective. Do not describe actions.)
+
+---
+
+# Next Experiment
+
+Write only ONE small behavioral experiment for tomorrow.
+(Must be observable, measurable, small, and low friction. Easy to verify.)
+
+Examples:
+- Prepare workout clothes tonight.
+- Calculate Exit Price before Bid.
+- Ask one more question before giving advice.
+
+---
+
+# References
+
+Connect today's Reflection to related Objects or Tasks.
+(Prefer clickable links over text summaries. Do not duplicate writing.)

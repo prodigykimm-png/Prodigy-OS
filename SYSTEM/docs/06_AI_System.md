@@ -44,9 +44,9 @@ Object와 Object를 연결한다.
 AI는 최종 결정을 내리지 않는다.
 
 ## 6. Review Support
-복기 데이터를 기반으로 패턴을 제시한다.
-- "최저가율 80% 이상에서 패찰률 80%"
-- "인천 오피스텔 낙찰 성공률: 45%"
+일일 성찰을 증거(Evidence)로 수집하고, 다수의 증거에서 공통된 패턴(Pattern)을 감지하며, 주간 성찰 시 원칙 후보(Suggested Principles)를 제안합니다.
+- "최저가율 80% 이상에서 패찰률 80% 패턴 발견"
+- "행동 전 미리 준비를 해두는 것이 마찰력을 최소화했다는 반복적 증거 포착"
 
 ---
 
@@ -58,6 +58,7 @@ AI는 최종 결정을 내리지 않는다.
 - Recommend
 - Generate Properties
 - Assist Organization
+- Suggest principles based on patterns (패턴 기반 원칙 제안)
 
 ## AI MUST NOT
 - Make final decisions
@@ -65,6 +66,7 @@ AI는 최종 결정을 내리지 않는다.
 - Rewrite important Object data without explicit approval
 - Change system architecture
 - Write Decision or Review content automatically
+- Create personal principles autonomously (개인의 핵심 원칙 독단적 생성 금지)
 
 ---
 
@@ -77,6 +79,7 @@ AI는 최종 결정을 내리지 않는다.
 - 삭제
 - 의사결정
 - Review 작성
+- 원칙 검증 및 최종 채택 (Validation)
 
 ---
 
@@ -97,9 +100,13 @@ Human Confirm
     ↓
 Object Updated
     ↓
-Review Support
+Review Support (Collect Evidence & Detect Patterns)
     ↓
-Knowledge Asset
+Suggest Principle (AI Proposes Principle Candidates)
+    ↓
+Human Validation (User Confirms / Rejects Principles)
+    ↓
+Knowledge Asset (ZETA)
 ```
 
 ---

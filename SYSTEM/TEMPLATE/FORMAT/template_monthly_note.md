@@ -137,4 +137,17 @@ WHERE type = "area_family"
 # Reflections & Learnings
 
 
+# 검증된 원칙 (Validated Principles)
+
+*한 달 동안 충분한 증거와 패턴 분석을 통해 타당성이 검증된 원칙들입니다. 이 원칙들은 영구 지식 문서(ZETA)로 최종 채택됩니다.*
+
+- 
+
+# 반려된 원칙 (Rejected Principles)
+
+*검증 과정에서 부적절하거나 현재 적용하기 부적절하여 보류 또는 영구 제외된 원칙들입니다.*
+
+- 
+
+
 # Plan for Next Month
