@@ -78,7 +78,7 @@ window.renderAuctionCard = function(p, container) {
         style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer;'
       }
     });
-    title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
+    title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path, 'split');
     
     // Quick Links
     const naverLink = p.source && p.source.naver && p.source.naver !== "정보 없음" && String(p.source.naver).startsWith("http") ? p.source.naver : null;
@@ -154,24 +154,38 @@ window.renderAuctionCard = function(p, container) {
     let isUrgent = false;
     let dateStr = "-";
     if (p.auction_datetime) {
-      const targetDate = new Date(String(p.auction_datetime).split(' ')[0].split('T')[0]);
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      targetDate.setHours(0,0,0,0);
-      const diffTime = targetDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays === 0) {
-        ddayStr = "D-Day";
-        isUrgent = true;
-      } else if (diffDays > 0) {
-        ddayStr = `D-${diffDays}`;
-        if (diffDays <= 3) isUrgent = true;
+      let isoDate = "";
+      const val = p.auction_datetime;
+      if (typeof val === "object" && typeof val.toISODate === "function") {
+        isoDate = val.toISODate();
       } else {
-        ddayStr = `D+${Math.abs(diffDays)}`;
+        const str = String(val).trim();
+        const match = str.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})/);
+        if (match) {
+          isoDate = `${match[1]}-${match[2]}-${match[3]}`;
+        }
       }
       
-      dateStr = String(p.auction_datetime).split(' ')[0].split('T')[0];
+      if (isoDate) {
+        const targetDate = new Date(isoDate);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        targetDate.setHours(0,0,0,0);
+        const diffTime = targetDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+          ddayStr = "D-Day";
+          isUrgent = true;
+        } else if (diffDays > 0) {
+          ddayStr = `D-${diffDays}`;
+          if (diffDays <= 3) isUrgent = true;
+        } else {
+          ddayStr = `D+${Math.abs(diffDays)}`;
+        }
+        
+        dateStr = isoDate;
+      }
     }
     
     if (ddayStr !== "-") {
@@ -230,15 +244,79 @@ window.renderAuctionCard = function(p, container) {
     
     // Memo Row (below Next Action)
     const memoEl = card.createEl('div', {
-      attr: { style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
+      attr: { 
+        style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px; padding: 2px 4px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;' 
+      }
     });
     
-    const rawNote = p.recommend_note;
-    let memoText = "메모 없음";
-    if (rawNote && rawNote !== "정보 없음" && rawNote !== "메모 없음" && String(rawNote).trim() !== "") {
-      memoText = String(rawNote).trim();
+    // Add hover effect
+    memoEl.addEventListener('mouseenter', () => {
+      memoEl.style.backgroundColor = 'var(--background-modifier-hover)';
+    });
+    memoEl.addEventListener('mouseleave', () => {
+      memoEl.style.backgroundColor = 'transparent';
+    });
+    
+    let memoText = "-";
+    const myOpinion = p.my_opinion;
+    const userNote = p.auction_note;
+    const recNote = p.recommend_note;
+    
+    const isValid = (val) => {
+      return val && val !== "정보 없음" && val !== "메모 없음" && String(val).trim() !== "";
+    };
+    
+    if (isValid(myOpinion)) {
+      memoText = String(myOpinion).trim();
+    } else if (isValid(userNote)) {
+      memoText = String(userNote).trim();
+    } else if (isValid(recNote)) {
+      memoText = String(recNote).trim();
     }
+    
     memoEl.innerHTML = `📝 <strong style="color:var(--text-accent); font-weight:bold;">참고사항:</strong> ${memoText}`;
+    memoEl.title = "클릭하여 나의 의견(my_opinion)을 수정합니다.";
+
+    memoEl.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const currentOpinion = p.my_opinion || "";
+      const newOpinion = await window.obsidianPrompt(
+        `[${p.case_number || p.file.name}] 나의 의견(my_opinion) 수정`,
+        "투자 판단 의견 및 메모를 입력해주세요:",
+        String(currentOpinion)
+      );
+      
+      if (newOpinion === null) return; // Cancelled
+      
+      const tFile = app.vault.getAbstractFileByPath(p.file.path);
+      if (tFile) {
+        // 1. Update frontmatter
+        await app.fileManager.processFrontMatter(tFile, (fm) => {
+          fm.my_opinion = newOpinion.trim();
+          fm.updated = new Date().toISOString().split('T')[0];
+        });
+        
+        // 2. Ensure note body Notes references my_opinion
+        let content = await app.vault.read(tFile);
+        let decisionHeader = "# Investment Decision";
+        let decisionIndex = content.indexOf(decisionHeader);
+        if (decisionIndex === -1) {
+          decisionHeader = "# Decision";
+          decisionIndex = content.indexOf(decisionHeader);
+        }
+        if (decisionIndex !== -1) {
+          const notesPattern = /(Notes\n)([\s\S]*?)(?=\n\n- 참고 -|\n\n---)/;
+          if (notesPattern.test(content)) {
+            const updatedContent = content.replace(notesPattern, "Notes\n`= this.my_opinion`\n");
+            await app.vault.modify(tFile, updatedContent);
+          }
+        }
+        
+        new Notice("나의 의견(my_opinion)이 업데이트되었습니다.");
+      }
+    });
     
     // Transition status buttons
     const getTransitionButtons = (currentStatus) => {
@@ -441,17 +519,22 @@ window.renderAuctionCard = function(p, container) {
                   fm.decision_reason = reason;
                   fm.decision_date = todayStr;
                   fm.updated = todayStr;
+                  fm.my_opinion = note || "";
                   
                   if (opt.key === 'won' || opt.key === 'lost') {
-                    if (actualBid) fm.actual_bid = Number(actualBid) || actualBid;
-                    if (winningBid) fm.winning_bid = Number(winningBid) || winningBid;
+                    if (actualBid) fm.my_bid_price = Number(actualBid) || actualBid;
+                    if (winningBid) fm.winning_bid_price = Number(winningBid) || winningBid;
                   }
                 });
                 
                 // 2. Update note body H1 Decision section
                 let content = await app.vault.read(tFile);
-                const decisionHeader = "# Decision";
-                const decisionIndex = content.indexOf(decisionHeader);
+                let decisionHeader = "# Investment Decision";
+                let decisionIndex = content.indexOf(decisionHeader);
+                if (decisionIndex === -1) {
+                  decisionHeader = "# Decision";
+                  decisionIndex = content.indexOf(decisionHeader);
+                }
                 if (decisionIndex !== -1) {
                   const nextH1Match = content.slice(decisionIndex + decisionHeader.length).match(/\n#[^#\n]/);
                   let endIndex = content.length;
@@ -459,21 +542,23 @@ window.renderAuctionCard = function(p, container) {
                     endIndex = decisionIndex + decisionHeader.length + nextH1Match.index + 1;
                   }
                   
-                  const statusLabel = { won: 'Won', lost: 'Lost', skipped: 'Skipped' }[opt.key] || opt.key;
-                  const newDecisionSection = `# Decision
-
-Status
-${statusLabel}
-
+                  const newDecisionSection = `${decisionHeader}
+ 
+Current Status
+\`= this.status\`
+ 
 Decision Date
 ${todayStr}
-
+ 
 Reason
 ${reason}
-
+ 
 Notes
-${note || "추가 메모 없음"}
-
+\`= this.my_opinion\`
+ 
+- 참고 -
+\`= this.recommend_note\`
+ 
 `;
                   const updatedContent = content.substring(0, decisionIndex) + newDecisionSection + content.substring(endIndex);
                   await app.vault.modify(tFile, updatedContent);
