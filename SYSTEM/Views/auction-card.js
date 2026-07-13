@@ -33,7 +33,7 @@ window.renderAuctionCard = function(p, container) {
 
     const calcMonthlyProfit = (p) => {
       const expected = Number(p.expected_bid);
-      const rent = Number(p.monthly_rent);
+      const rent = Number(p.expected_monthly_rent);
       const loanRatio = p.loan_ratio !== undefined && !isNaN(Number(p.loan_ratio)) ? Number(p.loan_ratio) : 0.8;
       const interestRate = p.interest_rate !== undefined && !isNaN(Number(p.interest_rate)) ? Number(p.interest_rate) : 0.06;
       
@@ -242,22 +242,21 @@ window.renderAuctionCard = function(p, container) {
       decisionEl.innerHTML = `${icon} <strong style="color:var(--text-accent); font-weight:bold;">결정 사유:</strong> ${reason}`;
     }
     
-    // Memo Row (below Next Action)
-    const memoEl = card.createEl('div', {
+    // Opinion Row (Clickable)
+    const opinionEl = card.createEl('div', {
       attr: { 
-        style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px; padding: 2px 4px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;' 
+        style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 2px; padding: 2px 4px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;' 
       }
     });
     
     // Add hover effect
-    memoEl.addEventListener('mouseenter', () => {
-      memoEl.style.backgroundColor = 'var(--background-modifier-hover)';
+    opinionEl.addEventListener('mouseenter', () => {
+      opinionEl.style.backgroundColor = 'var(--background-modifier-hover)';
     });
-    memoEl.addEventListener('mouseleave', () => {
-      memoEl.style.backgroundColor = 'transparent';
+    opinionEl.addEventListener('mouseleave', () => {
+      opinionEl.style.backgroundColor = 'transparent';
     });
     
-    let memoText = "-";
     const myOpinion = p.my_opinion;
     const userNote = p.auction_note;
     const recNote = p.recommend_note;
@@ -266,18 +265,14 @@ window.renderAuctionCard = function(p, container) {
       return val && val !== "정보 없음" && val !== "메모 없음" && String(val).trim() !== "";
     };
     
-    if (isValid(myOpinion)) {
-      memoText = String(myOpinion).trim();
-    } else if (isValid(userNote)) {
-      memoText = String(userNote).trim();
-    } else if (isValid(recNote)) {
-      memoText = String(recNote).trim();
-    }
-    
-    memoEl.innerHTML = `📝 <strong style="color:var(--text-accent); font-weight:bold;">참고사항:</strong> ${memoText}`;
-    memoEl.title = "클릭하여 나의 의견(my_opinion)을 수정합니다.";
+    let opinionText = isValid(myOpinion) 
+      ? String(myOpinion).trim() 
+      : `<span style="color:var(--text-muted); font-style:italic;">의견 없음 (클릭하여 입력...)</span>`;
+      
+    opinionEl.innerHTML = `💭 <strong style="color:var(--text-accent); font-weight:bold;">나의의견:</strong> ${opinionText}`;
+    opinionEl.title = "클릭하여 나의 의견(my_opinion)을 수정합니다.";
 
-    memoEl.addEventListener('click', async (e) => {
+    opinionEl.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       
@@ -317,6 +312,31 @@ window.renderAuctionCard = function(p, container) {
         new Notice("나의 의견(my_opinion)이 업데이트되었습니다.");
       }
     });
+
+    // Reference Memo Row (Not Clickable, below opinionEl)
+    const memoEl = card.createEl('div', {
+      attr: { 
+        style: 'font-size: 0.78em; color: var(--text-muted); margin-top: 2px; padding: 2px 4px;' 
+      }
+    });
+
+    let memoLines = [];
+    if (isValid(userNote)) {
+      memoLines.push(`📌 <strong style="color: var(--text-normal);">메모:</strong> ${String(userNote).trim()}`);
+    }
+    if (isValid(recNote)) {
+      memoLines.push(`📝 <strong style="color: var(--text-normal);">추천의견:</strong> ${String(recNote).trim()}`);
+    }
+
+    if (memoLines.length > 0) {
+      memoEl.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 2px; border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;">
+          ${memoLines.map(line => `<div>${line}</div>`).join('')}
+        </div>
+      `;
+    } else {
+      memoEl.style.display = 'none';
+    }
     
     // Transition status buttons
     const getTransitionButtons = (currentStatus) => {
@@ -373,8 +393,8 @@ window.renderAuctionCard = function(p, container) {
           e.preventDefault();
           
           let expectedBid = p.expected_bid || "";
-          let actualBid = p.actual_bid || "";
-          let winningBid = p.winning_bid || "";
+          let actualBid = p.my_bid_price || "";
+          let winningBid = p.winning_bid_price || "";
  
           if (opt.key === 'bidding') {
             const inputExpected = await window.obsidianPrompt(`[${p.case_number}] 입찰 준비`, "예상 입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):", String(expectedBid));
