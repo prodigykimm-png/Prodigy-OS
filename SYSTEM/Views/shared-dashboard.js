@@ -121,11 +121,14 @@ window.renderDashboardSection = function(options) {
       });
       
       sel.onchange = async () => {
-        const file = app.workspace.getActiveFile();
-        if (file) {
-          await app.fileManager.processFrontMatter(file, (fm) => {
-            fm[field] = sel.value;
-          });
+        const dashboardPath = dataviewInstance.current()?.file?.path;
+        if (dashboardPath) {
+          const file = app.vault.getAbstractFileByPath(dashboardPath);
+          if (file) {
+            await app.fileManager.processFrontMatter(file, (fm) => {
+              fm[field] = sel.value;
+            });
+          }
         }
       };
     };
@@ -150,13 +153,19 @@ window.renderDashboardSection = function(options) {
 
     filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
 
-    makeSelectInline(filterContainer, '정렬:', 'card_sort', [
+    const sortKeyField = `card_sort_${status}`;
+    let defaultSort = "dday_asc";
+    if (status !== "bidding" && status !== "watching") {
+      defaultSort = "dday_desc";
+    }
+
+    makeSelectInline(filterContainer, '정렬:', sortKeyField, [
       { text: 'D-day 가까운순', value: 'dday_asc' },
       { text: 'D-day 먼순', value: 'dday_desc' },
       { text: '감정가 낮은순', value: 'expected_bid_asc' },
       { text: '감정가 높은순', value: 'expected_bid_desc' },
       { text: '최근 등록순', value: 'created_desc' }
-    ], fm.card_sort || 'dday_asc');
+    ], fm[sortKeyField] || defaultSort);
   }
   
   // Query pages based on type
@@ -189,7 +198,12 @@ window.renderDashboardSection = function(options) {
   // Sort
   let activeSortField = sortField;
   let activeSortOrder = sortOrder;
-  const filterSort = fm.card_sort || "dday_asc";
+  const sortKeyField = `card_sort_${status}`;
+  let defaultSort = "dday_asc";
+  if (status !== "bidding" && status !== "watching") {
+    defaultSort = "dday_desc";
+  }
+  const filterSort = fm[sortKeyField] || defaultSort;
   
   if (type === "auction_case") {
     if (filterSort === "dday_asc") {
@@ -225,7 +239,15 @@ window.renderDashboardSection = function(options) {
       if (!val || val === "정보 없음" || String(val).trim() === "") {
         return activeSortOrder === "asc" ? "9999-12-31" : "0000-01-01";
       }
-      return String(val).split(' ')[0].split('T')[0];
+      if (typeof val === "object" && typeof val.toISODate === "function") {
+        return val.toISODate();
+      }
+      const str = String(val).trim();
+      const match = str.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})/);
+      if (match) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
+      }
+      return str;
     }
     return p[field] || "";
   };
