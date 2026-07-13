@@ -8,12 +8,6 @@ cssclasses:
 ```calendar-nav
 ```
 
-# Today's Focus
-*오늘 의도적으로 완수하고자 하는 가장 중요한 일을 최대 3개까지 작성합니다.*
-- 
-- 
-- 
-
 # Tasks
 
 ````tabs
