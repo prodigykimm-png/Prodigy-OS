@@ -215,7 +215,17 @@ window.renderDashboardSection = function(options) {
     if (field === "file.mtime") return p.file.mtime;
     if (field === "expected_bid") {
       const val = Number(p.expected_bid);
-      return isNaN(val) ? 0 : val;
+      if (isNaN(val) || p.expected_bid === "정보 없음" || String(p.expected_bid).trim() === "") {
+        return activeSortOrder === "asc" ? 999999999999 : -1;
+      }
+      return val;
+    }
+    if (field === "auction_datetime") {
+      const val = p.auction_datetime;
+      if (!val || val === "정보 없음" || String(val).trim() === "") {
+        return activeSortOrder === "asc" ? "9999-12-31" : "0000-01-01";
+      }
+      return String(val).split(' ')[0].split('T')[0];
     }
     return p[field] || "";
   };
