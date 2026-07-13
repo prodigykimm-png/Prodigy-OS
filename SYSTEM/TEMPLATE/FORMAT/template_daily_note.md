@@ -1,4 +1,7 @@
 ---
+type: journal
+date: <% tp.file.title %>
+status: completed
 cssclasses:
   - hide-properties_editing
   - hide-properties_reading
