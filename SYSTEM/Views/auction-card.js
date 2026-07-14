@@ -108,7 +108,7 @@ window.renderAuctionCard = function(p, container) {
       }
     }
 
-    const isMobile = window.app?.isMobile || document.body.classList.contains('is-mobile');
+    const isMobile = (window.app?.isMobile || document.body.classList.contains('is-mobile')) && window.innerWidth < 768;
 
     // -------------------------------------------------------------
     // Header & Meta Information Block (Highly Structured & Mobile Responsive)
@@ -127,7 +127,7 @@ window.renderAuctionCard = function(p, container) {
       text: `🏢 ${displayTitle}`,
       attr: {
         class: 'internal-link',
-        style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%;',
+        style: 'display: inline-block; vertical-align: middle; font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%;',
         title: '클릭하여 사건 노트를 엽니다.'
       }
     });
