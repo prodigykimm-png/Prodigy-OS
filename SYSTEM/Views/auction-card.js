@@ -110,158 +110,103 @@ window.renderAuctionCard = function(p, container) {
 
     const isMobile = window.app?.isMobile || document.body.classList.contains('is-mobile');
 
-    // Header
-    const header = card.createEl('div', {
-      attr: { style: isMobile ? 'display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 4px; margin-bottom: 4px;' : 'display: flex; justify-content: space-between; align-items: center;' }
+    // -------------------------------------------------------------
+    // Header & Meta Information Block (Highly Structured & Mobile Responsive)
+    // -------------------------------------------------------------
+    const naverLink = p.source && p.source.naver && p.source.naver !== "정보 없음" && String(p.source.naver).startsWith("http") ? p.source.naver : null;
+    const cafeLink = p.source && p.source.cafe && p.source.cafe !== "정보 없음" && String(p.source.cafe).startsWith("http") ? p.source.cafe : null;
+
+    // Line 1: Title (Property name) and Status/Links Badge Group
+    const titleRow = card.createEl('div', {
+      attr: { style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;' }
     });
 
-    let leftHeader, rightHeader;
+    const displayTitle = getPropertyName(p.address) !== "물건명 미지정" ? getPropertyName(p.address) : (p.case_number || p.file.name.replace(/\.md$/, ''));
 
-    if (isMobile) {
-      // Mobile header Row 1: Title and D-Day Badge
-      const row1 = header.createEl('div', {
-        attr: { style: 'display: flex; justify-content: space-between; align-items: center; width: 100%;' }
-      });
-      
-      const title = row1.createEl('a', {
-        text: p.file.name,
+    const titleLink = titleRow.createEl('a', {
+      text: `🏢 ${displayTitle}`,
+      attr: {
+        class: 'internal-link',
+        style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%;',
+        title: '클릭하여 사건 노트를 엽니다.'
+      }
+    });
+    titleLink.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path, 'split');
+
+    const rightBadges = titleRow.createEl('div', {
+      attr: { style: 'display: flex; align-items: center; gap: 4px;' }
+    });
+
+    // D-Day Badge
+    if (ddayStr !== "-") {
+      rightBadges.createEl('span', {
+        text: ddayStr,
         attr: {
-          class: 'internal-link',
-          style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;'
+          style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.72em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
         }
       });
-      title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path, 'split');
-
-      if (ddayStr !== "-") {
-        row1.createEl('span', {
-          text: ddayStr,
-          attr: {
-            style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.72em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
-          }
-        });
-      }
-
-      // Mobile header Row 2: Date, Court, Links
-      const row2 = header.createEl('div', {
-        attr: { style: 'display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.72em; color: var(--text-muted);' }
-      });
-
-      if (p.auction_datetime) {
-        row2.createEl('span', {
-          text: dateStr,
-          attr: { style: 'font-weight: bold;' }
-        });
-      }
-
-      if (p.court) {
-        row2.createEl('span', { text: '·' });
-        row2.createEl('span', { text: p.court, attr: { style: 'font-weight: bold;' } });
-      }
-
-      const naverLink = p.source && p.source.naver && p.source.naver !== "정보 없음" && String(p.source.naver).startsWith("http") ? p.source.naver : null;
-      const cafeLink = p.source && p.source.cafe && p.source.cafe !== "정보 없음" && String(p.source.cafe).startsWith("http") ? p.source.cafe : null;
-
-      if (naverLink || cafeLink) {
-        row2.createEl('span', { text: '·' });
-        if (naverLink) {
-          row2.createEl('a', {
-            text: '🌐 네이버',
-            href: naverLink,
-            attr: { 
-              style: 'background: #22c55e20; color: #22c55e; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
-            }
-          });
-        }
-        if (cafeLink) {
-          if (naverLink) row2.createEl('span', { text: ' ' });
-          row2.createEl('a', {
-            text: '💬 카페',
-            href: cafeLink,
-            attr: { 
-              style: 'background: #3b82f620; color: #3b82f6; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
-            }
-          });
-        }
-      }
-    } else {
-      // Desktop Header
-      leftHeader = header.createEl('div', {
-        attr: { style: 'display: flex; align-items: center; gap: 8px;' }
-      });
-      
-      const title = leftHeader.createEl('a', {
-        text: p.file.name,
-        attr: {
-          class: 'internal-link',
-          style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer;'
-        }
-      });
-      title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path, 'split');
-
-      if (ddayStr !== "-") {
-        leftHeader.createEl('span', {
-          text: ddayStr,
-          attr: {
-            style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.72em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
-          }
-        });
-      }
-      
-      if (p.auction_datetime) {
-        leftHeader.createEl('span', {
-          text: dateStr,
-          attr: { style: 'color: var(--text-muted); font-weight: bold; font-size: 0.72em;' }
-        });
-      }
-
-      rightHeader = header.createEl('div', {
-        attr: { style: 'display: flex; align-items: center; gap: 6px; font-size: 0.75em;' }
-      });
-
-      const naverLink = p.source && p.source.naver && p.source.naver !== "정보 없음" && String(p.source.naver).startsWith("http") ? p.source.naver : null;
-      const cafeLink = p.source && p.source.cafe && p.source.cafe !== "정보 없음" && String(p.source.cafe).startsWith("http") ? p.source.cafe : null;
-      
-      if (naverLink) {
-        rightHeader.createEl('a', {
-          text: '🌐 네이버',
-          href: naverLink,
-          attr: { 
-            style: 'font-size: 0.95em; background: #22c55e20; color: #22c55e; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
-          }
-        });
-      }
-      if (cafeLink) {
-        rightHeader.createEl('a', {
-          text: '💬 카페',
-          href: cafeLink,
-          attr: { 
-            style: 'font-size: 0.95em; background: #3b82f620; color: #3b82f6; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
-          }
-        });
-      }
-
-      if (p.court) {
-        rightHeader.createEl('span', {
-          text: p.court,
-          attr: { style: 'color: var(--text-muted); font-weight: bold;' }
-        });
-      }
     }
-    
-    // Object Details Line (물건명 -> 지역 -> 종류)
-    const meta = card.createEl('div', {
-      attr: { style: 'font-size: 0.8em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap;' }
-    });
-    
+
+    // Naver Icon Button
+    if (naverLink) {
+      rightBadges.createEl('a', {
+        text: '🌐',
+        href: naverLink,
+        attr: {
+          style: 'font-size: 0.75em; background: #22c55e20; padding: 2px 4px; border-radius: 4px; text-decoration: none; cursor: pointer;',
+          title: '네이버 부동산 바로가기'
+        }
+      });
+    }
+
+    // Cafe Icon Button
+    if (cafeLink) {
+      rightBadges.createEl('a', {
+        text: '💬',
+        href: cafeLink,
+        attr: {
+          style: 'font-size: 0.75em; background: #3b82f620; padding: 2px 4px; border-radius: 4px; text-decoration: none; cursor: pointer;',
+          title: '카페 바로가기'
+        }
+      });
+    }
+
+    // Line 2: Location & Type
     const regionText = (p.region_sigungu || p.region_dong) 
       ? `${p.region_sigungu || ""} ${p.region_dong || ""}`.trim() 
       : "지역 미정";
-      
-    meta.createEl('span', { text: `🏢 ${getPropertyName(p.address)}`, attr: { style: 'font-weight: bold; color: var(--text-normal);' } });
-    meta.createEl('span', { text: '·' });
-    meta.createEl('span', { text: `📍 ${regionText}` });
-    meta.createEl('span', { text: '·' });
-    meta.createEl('span', { text: p.property_type || "용도 미정" });
+
+    const detailRow1 = card.createEl('div', {
+      attr: { style: 'font-size: 0.76em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
+    });
+    detailRow1.createEl('span', { text: `📍 ${regionText}` });
+    detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+    detailRow1.createEl('span', { text: p.property_type || "용도 미정" });
+
+    // Line 3: Case Number & Court & Date
+    const detailRow2 = card.createEl('div', {
+      attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
+    });
+
+    const caseLink = detailRow2.createEl('a', {
+      text: `⚖️ ${p.case_number || p.file.name.replace(/\.md$/, '')}`,
+      attr: {
+        class: 'internal-link',
+        style: 'color: var(--text-muted); text-decoration: none; cursor: pointer; font-weight: bold;',
+        title: '클릭하여 사건 노트를 엽니다.'
+      }
+    });
+    caseLink.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path, 'split');
+
+    if (p.court) {
+      detailRow2.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+      detailRow2.createEl('span', { text: p.court });
+    }
+
+    if (p.auction_datetime) {
+      detailRow2.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+      detailRow2.createEl('span', { text: `📅 ${dateStr}` });
+    }
     
     // Finance Row
     const financeRow = card.createEl('div', {
