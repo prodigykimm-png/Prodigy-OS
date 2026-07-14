@@ -2,9 +2,6 @@
 id: <% tp.file.title %>
 type: auction_case
 status: watching
-priority:
-site_visit_date:
-connections:
 created: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
 updated: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
 # ---------- Source ----------
@@ -37,25 +34,25 @@ minimum_bid:
 minimum_bid_rate:
 bid_deposit:
 recommendation: 보통
-expected_bid:
-actual_bid:
-winning_bid:
-skip_reason:
-skip_note:
 # ---------- Investment ----------
-rent_deposit:
-monthly_rent:
+expected_bid:
+my_bid_price:
+winning_bid_price:
+market_sale_price:
+market_jeonse_price:
+expected_deposit:
+expected_monthly_rent:
+exit_price:
+market_price_basis:
 loan_ratio: 0.8
 interest_rate: 0.06
-# ---------- Market ----------
-market_sale_low:
-market_sale_high:
-market_sale_recent:
-market_jeonse_recent:
-market_monthly_recent:
-market_price_basis:
-# ---------- Risk ----------
-risk_flags:
+# ---------- Decision ----------
+site_visit_date:
+decision_reason:
+decision_date:
+review_date:
+auction_note:
+my_opinion:
 # ---------- Files ----------
 attachments:
   appraisal_report:
@@ -64,8 +61,7 @@ attachments:
 ---
 # <% tp.file.title %>
 
-<!-- PROPERTY-DRIVEN SUMMARY -->
-## Object Summary
+# Object Summary
 
 | Property | Value |
 |----------|-------|
@@ -75,7 +71,6 @@ attachments:
 | 주소 | `= this.address` |
 | 감정가 | `= this.appraisal_price` |
 | 최저매각가 | `= this.minimum_bid` |
-| 최저가율 | `= this.minimum_bid_rate` |
 | 예상 입찰가 | `= this.expected_bid` |
 | 입찰일시 | `= this.auction_datetime` |
 | 상태 | `= this.status` |
@@ -88,28 +83,74 @@ attachments:
 
 ---
 
-<!-- COLLECTED FACTS -->
+## Quick Note
+
+`INPUT[textArea(placeholder(투자 판단 의견 및 메모를 입력해주세요)):my_opinion]`
+
+---
+
+# Investment Thesis
+
+- 
+
+---
+
+# Investment Snapshot
+
+- **예상 입찰가 (Expected Bid)**: `= this.expected_bid` 원
+- **매매 시세 (Market Sale Price)**: `= this.market_sale_price` 원
+- **전세 시세 (Market Jeonse Price)**: `= this.market_jeonse_price` 원
+- **예상 보증금 (Expected Deposit)**: `= this.expected_deposit` 원
+- **예상 월세 (Expected Monthly Rent)**: `= this.expected_monthly_rent` 원
+- **매도 목표가 (Exit Price)**: `= this.exit_price` 원
+- **예상 수익률 (Expected Yield)**: `$= (() => { const exp = Number(dv.current().expected_bid); const rent = Number(dv.current().expected_monthly_rent); const dep = Number(dv.current().expected_deposit || 0); const lr = Number(dv.current().loan_ratio || 0.8); const ir = Number(dv.current().interest_rate || 0.06); if (!exp || !rent || isNaN(exp) || isNaN(rent)) return "-"; const capital = exp * (1 - lr) - dep; const netIncome = rent * 12 - (exp * lr * ir); if (capital <= 0) return "계산 불가 (실투자금 0 이하)"; return (netIncome / capital * 100).toFixed(2) + "% (대출 " + (lr*100) + "%, 금리 " + (ir*100) + "% 가정)"; })()`
+
+---
+
 # Collected Facts
+Store objective information only. No opinions.
 
-## 기본 정보
--
+- **감정평가 (Appraisal)**: 
+- **최저매각가 (Minimum Bid)**: 
+- **임차인 현황 (Tenant)**: 
+- **체납 관리비 / 부가세 (Management Fee / VAT)**: 
+- **등기부등본 현황 (Registry)**: 
+- **점유 현황 (Occupancy)**: 
 
-## 매각 정보
--
+---
 
-## 권리 / 임차 핵심
--
+# Market Analysis
+Store market analysis, sale price analysis, jeonse analysis, rental analysis, exit strategy.
 
-## 시세 핵심
--
+- **시세 분석 (Market Analysis)**: 
+- **매매 분석 (Sale Price Analysis)**: 
+- **전세 분석 (Jeonse Analysis)**: 
+- **월세 분석 (Rental Analysis)**: 
+- **출구 전략 (Exit Strategy)**: 
 
-## 수익성 핵심
--
+---
 
-## 주요 리스크
--
+# Legal Analysis
+Store rights, legal risks, occupancy risks, eviction risks.
 
-## 추천인 코멘트
+- **권리 분석 (Rights)**: 
+- **법적 리스크 (Legal Risks)**: 
+- **점유 리스크 (Occupancy Risks)**: 
+- **명도 리스크 (Eviction Risks)**: 
+
+---
+
+# Site Visit Report
+Store visit observations, broker comments, building condition, surrounding environment, photos, personal observations.
+
+- **임장 기일**: `= this.site_visit_date`
+- **현장 관찰 (Visit Observations)**: 
+- **중개업소 피드백 (Broker Comments)**: 
+- **건물 상태 (Building Condition)**: 
+- **주변 환경 (Surrounding Environment)**: 
+- **사진 (Photos)**: 
+- **투자 임장 소회 (Investment Impression)**: 
+
 ---
 
 # Status Control
@@ -213,88 +254,38 @@ actions:
 
 ---
 
-<!-- USER AREA -->
-# Decision
+# Investment Decision
 
-## 예상 입찰가
+Current Status
+`= this.status`
+
+Decision Date
 -
 
----
-
-## 입찰 여부
+Reason
 -
 
----
+Notes
+`INPUT[textArea(placeholder(사건 관련 참고 메모를 입력하세요)):auction_note]`
 
-## 입찰 전략
--
-
----
-
-## 판단 근거
-
-왜 이런 입찰가를 작성했는가?
-
-어떤 정보를 가장 중요하게 판단했는가?
-
-자유롭게 작성한다.
+- 참고 -
+`= this.recommend_note`
 
 ---
 
 # Review
+Store result review, mistakes, successful decisions, new investment principles. Use `review_date` when review is completed.
 
-## 결과
-
-- (낙찰 / 패찰 / 미입찰)
-
----
-
-## 당시 내 판단
-
-왜 이런 결정을 내렸는가?
-
-당시 어떤 정보를 가장 중요하게 생각했는가?
-
----
-
-## 실제 결과
-
-실제 낙찰가는 얼마였는가?
-
-예상과 얼마나 차이가 났는가?
-
----
-
-## 잘한 점
-
-이번 판단에서 잘했던 점은 무엇인가?
-
----
-
-## 아쉬운 점
-
-놓친 정보나 잘못 판단한 부분은 무엇인가?
-
----
-
-## 다음에는 어떻게 할 것인가?
-
-같은 유형의 물건을 다시 본다면
-
-무엇을 바꿀 것인가?
-
----
-
-## AI에게 남기는 메모
-
-미래의 AI가 참고하면 좋을
-
-생각이나 경험을 자유롭게 작성한다.
+- **결과 복기 (Result Review)**: 
+- **실수 및 피드백 (Mistakes)**: 
+- **잘한 결정 (Successful Decisions)**: 
+- **새로운 투자 원칙 (New Investment Principles)**: 
+- **복기 완료일**: `= this.review_date`
 
 ---
 
 # References
 
-- 옥션원:
-- 네이버부동산:
-- 카페:
+- 옥션원: `= this.source.auction`
+- 네이버부동산: `= this.source.naver`
+- 네이버카페: `= this.source.cafe`
