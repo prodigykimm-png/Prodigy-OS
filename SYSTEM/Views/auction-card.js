@@ -222,8 +222,48 @@ window.renderAuctionCard = function(p, container) {
     
     financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     
-    const expEl = financeRow.createEl('div');
+    const expEl = financeRow.createEl('div', {
+      attr: {
+        style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
+        title: '클릭하여 예상 입찰가(expected_bid)를 수정합니다.'
+      }
+    });
+    
+    // Add hover style for expected bid
+    expEl.addEventListener('mouseenter', () => {
+      expEl.style.backgroundColor = 'var(--background-modifier-hover)';
+    });
+    expEl.addEventListener('mouseleave', () => {
+      expEl.style.backgroundColor = 'transparent';
+    });
+    
     expEl.innerHTML = `예상: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>`;
+    
+    expEl.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const currentExpected = p.expected_bid || "";
+      const newExpected = await window.obsidianPrompt(
+        `[${p.case_number || p.file.name}] 예상 입찰가(expected_bid) 수정`,
+        "예상 입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):",
+        String(currentExpected)
+      );
+      
+      if (newExpected === null) return; // Cancelled
+      
+      let cleanVal = newExpected.replace(/,/g, '').trim();
+      const parsedValue = cleanVal === "" ? null : (Number(cleanVal) || cleanVal);
+      
+      const tFile = app.vault.getAbstractFileByPath(p.file.path);
+      if (tFile) {
+        await app.fileManager.processFrontMatter(tFile, (fm) => {
+          fm.expected_bid = parsedValue;
+          fm.updated = new Date().toISOString().split('T')[0];
+        });
+        new Notice("예상 입찰가가 업데이트되었습니다.");
+      }
+    });
     
     financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     
@@ -293,21 +333,7 @@ window.renderAuctionCard = function(p, container) {
           fm.updated = new Date().toISOString().split('T')[0];
         });
         
-        // 2. Ensure note body Notes references my_opinion
-        let content = await app.vault.read(tFile);
-        let decisionHeader = "# Investment Decision";
-        let decisionIndex = content.indexOf(decisionHeader);
-        if (decisionIndex === -1) {
-          decisionHeader = "# Decision";
-          decisionIndex = content.indexOf(decisionHeader);
-        }
-        if (decisionIndex !== -1) {
-          const notesPattern = /(Notes\n)([\s\S]*?)(?=\n\n- 참고 -|\n\n---)/;
-          if (notesPattern.test(content)) {
-            const updatedContent = content.replace(notesPattern, "Notes\n`= this.my_opinion`\n");
-            await app.vault.modify(tFile, updatedContent);
-          }
-        }
+        // Frontmatter update is sufficient since the template uses Meta-bind to display/edit properties
         
         new Notice("나의 의견(my_opinion)이 업데이트되었습니다.");
       }
