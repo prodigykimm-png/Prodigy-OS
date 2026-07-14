@@ -116,15 +116,17 @@ window.renderAuctionCard = function(p, container) {
     const naverLink = p.source && p.source.naver && p.source.naver !== "정보 없음" && String(p.source.naver).startsWith("http") ? p.source.naver : null;
     const cafeLink = p.source && p.source.cafe && p.source.cafe !== "정보 없음" && String(p.source.cafe).startsWith("http") ? p.source.cafe : null;
 
-    // Line 1: Title (Property name) and Status/Links Badge Group
+    // Line 1: Title (Case Number + Property name) and Status/Links Badge Group
     const titleRow = card.createEl('div', {
       attr: { style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;' }
     });
 
-    const displayTitle = getPropertyName(p.address) !== "물건명 미지정" ? getPropertyName(p.address) : (p.case_number || p.file.name.replace(/\.md$/, ''));
+    const displayCase = p.case_number || p.file.name.replace(/\.md$/, '');
+    const displayTitle = getPropertyName(p.address);
+    const fullTitleText = `⚖️ ${displayCase}`;
 
     const titleLink = titleRow.createEl('a', {
-      text: `🏢 ${displayTitle}`,
+      text: fullTitleText,
       attr: {
         class: 'internal-link',
         style: 'display: inline-block; vertical-align: middle; font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%;',
@@ -171,7 +173,7 @@ window.renderAuctionCard = function(p, container) {
       });
     }
 
-    // Line 2: Location & Type
+    // Line 2: Location & Type & Property Name
     const regionText = (p.region_sigungu || p.region_dong) 
       ? `${p.region_sigungu || ""} ${p.region_dong || ""}`.trim() 
       : "지역 미정";
@@ -183,28 +185,26 @@ window.renderAuctionCard = function(p, container) {
     detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     detailRow1.createEl('span', { text: p.property_type || "용도 미정" });
 
-    // Line 3: Case Number & Court & Date
+    if (displayTitle && displayTitle !== "물건명 미지정") {
+      detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+      detailRow1.createEl('span', { text: `🏢 ${displayTitle}`, attr: { style: 'font-weight: bold; color: var(--text-normal);' } });
+    }
+
+    // Line 3: Court & Date
     const detailRow2 = card.createEl('div', {
       attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
     });
 
-    const caseLink = detailRow2.createEl('a', {
-      text: `⚖️ ${p.case_number || p.file.name.replace(/\.md$/, '')}`,
-      attr: {
-        class: 'internal-link',
-        style: 'color: var(--text-muted); text-decoration: none; cursor: pointer; font-weight: bold;',
-        title: '클릭하여 사건 노트를 엽니다.'
-      }
-    });
-    caseLink.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path, 'split');
-
+    let hasCourtOrDate = false;
     if (p.court) {
-      detailRow2.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
-      detailRow2.createEl('span', { text: p.court });
+      detailRow2.createEl('span', { text: p.court, attr: { style: 'font-weight: bold;' } });
+      hasCourtOrDate = true;
     }
 
     if (p.auction_datetime) {
-      detailRow2.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+      if (hasCourtOrDate) {
+        detailRow2.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+      }
       detailRow2.createEl('span', { text: `📅 ${dateStr}` });
     }
     
