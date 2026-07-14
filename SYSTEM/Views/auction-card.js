@@ -297,69 +297,126 @@ window.renderAuctionCard = function(p, container) {
       e.preventDefault();
       e.stopPropagation();
       
+      const obsidianModule = window.obsidian;
+      const appInstance = window.app;
+      if (!obsidianModule || !appInstance) {
+        new Notice("오류: window.obsidian 또는 window.app을 불러올 수 없습니다.");
+        return;
+      }
+      const { Modal, Setting } = obsidianModule;
+
       const currentRent = p.expected_monthly_rent !== undefined ? p.expected_monthly_rent : "";
       const currentLoan = p.loan_ratio !== undefined ? p.loan_ratio : 0.8;
       const currentInterest = p.interest_rate !== undefined ? p.interest_rate : 0.06;
-      
-      const defaultVal = `${toMan(currentRent)}, ${Math.round(currentLoan * 100)}%, ${(currentInterest * 100).toFixed(1)}%`;
-      
-      const inputVal = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] 월수익 계산 변수 수정`,
-        "월세, 대출비율, 이율을 순서대로 공백이나 쉼표로 구분하여 입력해주세요:\n(예: 50만, 80%, 6% 또는 500000 0.8 0.06)",
-        defaultVal
-      );
-      if (inputVal === null) return; // Cancelled
-      
-      const parts = inputVal.split(/[\s,]+/).filter(x => x.trim() !== "");
-      
-      // 1. Parse rent
-      let cleanRent = (parts[0] || "").replace(/,/g, '').trim();
-      let parsedRent = currentRent;
-      if (cleanRent !== "") {
-        if (cleanRent.includes('만')) {
-          parsedRent = parseFloat(cleanRent) * 10000;
-        } else {
-          parsedRent = Number(cleanRent);
+
+      class ProfitEditModal extends Modal {
+        constructor(app, onSave) {
+          super(app);
+          this.onSave = onSave;
+          this.inputRent = toMan(currentRent);
+          this.inputLoan = (currentLoan * 100) + "%";
+          this.inputInterest = (currentInterest * 100).toFixed(1) + "%";
         }
-        if (isNaN(parsedRent)) parsedRent = cleanRent;
-      } else if (parts.length > 0) {
-        parsedRent = null;
-      }
-      
-      // 2. Parse loan ratio
-      let cleanLoan = (parts[1] || "").replace(/%/g, '').trim();
-      let parsedLoan = currentLoan;
-      if (cleanLoan !== "") {
-        let val = Number(cleanLoan);
-        if (!isNaN(val)) {
-          parsedLoan = val > 1 ? val / 100 : val;
-        } else {
-          parsedLoan = cleanLoan;
+        onOpen() {
+          const { contentEl } = this;
+          contentEl.createEl("h3", { text: `[${p.case_number || p.file.name}] 월수익 계산 정보 수정`, attr: { style: "margin-bottom: 16px; font-size: 1.2em;" } });
+          
+          new Setting(contentEl)
+            .setName("예상 월세")
+            .setDesc("원 단위 또는 만원 단위 (예: 500000 또는 50만)")
+            .addText((text) => {
+              text.setValue(String(this.inputRent));
+              text.onChange((val) => { this.inputRent = val; });
+            });
+            
+          new Setting(contentEl)
+            .setName("대출 비율")
+            .setDesc("소수점 비율 또는 % 단위 (예: 0.8 또는 80%)")
+            .addText((text) => {
+              text.setValue(String(this.inputLoan));
+              text.onChange((val) => { this.inputLoan = val; });
+            });
+            
+          new Setting(contentEl)
+            .setName("대출 이율")
+            .setDesc("소수점 이율 또는 % 단위 (예: 0.06 또는 6%)")
+            .addText((text) => {
+              text.setValue(String(this.inputInterest));
+              text.onChange((val) => { this.inputInterest = val; });
+            });
+            
+          new Setting(contentEl)
+            .addButton((btn) => {
+              btn.setButtonText("확인")
+                 .setCta()
+                 .onClick(() => {
+                   this.close();
+                   this.onSave(this.inputRent, this.inputLoan, this.inputInterest);
+                 });
+            })
+            .addButton((btn) => {
+              btn.setButtonText("취소")
+                 .onClick(() => {
+                   this.close();
+                 });
+            });
+        }
+        onClose() {
+          this.contentEl.empty();
         }
       }
-      
-      // 3. Parse interest rate
-      let cleanInterest = (parts[2] || "").replace(/%/g, '').trim();
-      let parsedInterest = currentInterest;
-      if (cleanInterest !== "") {
-        let val = Number(cleanInterest);
-        if (!isNaN(val)) {
-          parsedInterest = val > 1 ? val / 100 : val;
+
+      const modal = new ProfitEditModal(appInstance, async (rentVal, loanVal, interestVal) => {
+        // 1. Parse rent
+        let cleanRent = String(rentVal).replace(/,/g, '').trim();
+        let parsedRent = currentRent;
+        if (cleanRent !== "") {
+          if (cleanRent.includes('만')) {
+            parsedRent = parseFloat(cleanRent) * 10000;
+          } else {
+            parsedRent = Number(cleanRent);
+          }
+          if (isNaN(parsedRent)) parsedRent = cleanRent;
         } else {
-          parsedInterest = cleanInterest;
+          parsedRent = null;
         }
-      }
-      
-      const tFile = app.vault.getAbstractFileByPath(p.file.path);
-      if (tFile) {
-        await app.fileManager.processFrontMatter(tFile, (fm) => {
-          fm.expected_monthly_rent = parsedRent;
-          fm.loan_ratio = parsedLoan;
-          fm.interest_rate = parsedInterest;
-          fm.updated = new Date().toISOString().split('T')[0];
-        });
-        new Notice("월수익 계산 정보가 업데이트되었습니다.");
-      }
+        
+        // 2. Parse loan ratio
+        let cleanLoan = String(loanVal).replace(/%/g, '').trim();
+        let parsedLoan = currentLoan;
+        if (cleanLoan !== "") {
+          let val = Number(cleanLoan);
+          if (!isNaN(val)) {
+            parsedLoan = val > 1 ? val / 100 : val;
+          } else {
+            parsedLoan = cleanLoan;
+          }
+        }
+        
+        // 3. Parse interest rate
+        let cleanInterest = String(interestVal).replace(/%/g, '').trim();
+        let parsedInterest = currentInterest;
+        if (cleanInterest !== "") {
+          let val = Number(cleanInterest);
+          if (!isNaN(val)) {
+            parsedInterest = val > 1 ? val / 100 : val;
+          } else {
+            parsedInterest = cleanInterest;
+          }
+        }
+        
+        const tFile = app.vault.getAbstractFileByPath(p.file.path);
+        if (tFile) {
+          await app.fileManager.processFrontMatter(tFile, (fm) => {
+            fm.expected_monthly_rent = parsedRent;
+            fm.loan_ratio = parsedLoan;
+            fm.interest_rate = parsedInterest;
+            fm.updated = new Date().toISOString().split('T')[0];
+          });
+          new Notice("월수익 계산 정보가 업데이트되었습니다.");
+        }
+      });
+      modal.open();
     });
     
     if (["won", "lost", "skipped"].includes(p.status)) {
