@@ -214,6 +214,52 @@ window.renderAuctionCard = function(p, container) {
     
     financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     
+    const exitEl = financeRow.createEl('div', {
+      attr: {
+        style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
+        title: '클릭하여 매도 목표가(exit_price)를 수정합니다.'
+      }
+    });
+    
+    // Add hover style for exit price
+    exitEl.addEventListener('mouseenter', () => {
+      exitEl.style.backgroundColor = 'var(--background-modifier-hover)';
+    });
+    exitEl.addEventListener('mouseleave', () => {
+      exitEl.style.backgroundColor = 'transparent';
+    });
+    
+    const exitColor = p.exit_price && p.exit_price !== "정보 없음" ? 'var(--text-success)' : 'var(--text-normal)';
+    exitEl.innerHTML = `탈출: <strong style="color:${exitColor};">${toEok(p.exit_price)}</strong>`;
+    
+    exitEl.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const currentExit = p.exit_price || "";
+      const newExit = await window.obsidianPrompt(
+        `[${p.case_number || p.file.name}] 매도 목표가(exit_price) 수정`,
+        "매도 목표가(exit_price)를 입력해주세요 (원 단위, 예: 220000000):",
+        String(currentExit)
+      );
+      
+      if (newExit === null) return; // Cancelled
+      
+      let cleanVal = newExit.replace(/,/g, '').trim();
+      const parsedValue = cleanVal === "" ? null : (Number(cleanVal) || cleanVal);
+      
+      const tFile = app.vault.getAbstractFileByPath(p.file.path);
+      if (tFile) {
+        await app.fileManager.processFrontMatter(tFile, (fm) => {
+          fm.exit_price = parsedValue;
+          fm.updated = new Date().toISOString().split('T')[0];
+        });
+        new Notice("매도 목표가가 업데이트되었습니다.");
+      }
+    });
+    
+    financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+    
     const expEl = financeRow.createEl('div', {
       attr: {
         style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
@@ -278,52 +324,6 @@ window.renderAuctionCard = function(p, container) {
     
     const diffEl = financeRow.createEl('div');
     diffEl.innerHTML = `차익: <strong style="color:${diffColor};">${diffStr}</strong>`;
-    
-    financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
-    
-    const exitEl = financeRow.createEl('div', {
-      attr: {
-        style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
-        title: '클릭하여 매도 목표가(exit_price)를 수정합니다.'
-      }
-    });
-    
-    // Add hover style for exit price
-    exitEl.addEventListener('mouseenter', () => {
-      exitEl.style.backgroundColor = 'var(--background-modifier-hover)';
-    });
-    exitEl.addEventListener('mouseleave', () => {
-      exitEl.style.backgroundColor = 'transparent';
-    });
-    
-    const exitColor = p.exit_price && p.exit_price !== "정보 없음" ? 'var(--text-success)' : 'var(--text-normal)';
-    exitEl.innerHTML = `탈출: <strong style="color:${exitColor};">${toEok(p.exit_price)}</strong>`;
-    
-    exitEl.addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      const currentExit = p.exit_price || "";
-      const newExit = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] 매도 목표가(exit_price) 수정`,
-        "매도 목표가(exit_price)를 입력해주세요 (원 단위, 예: 220000000):",
-        String(currentExit)
-      );
-      
-      if (newExit === null) return; // Cancelled
-      
-      let cleanVal = newExit.replace(/,/g, '').trim();
-      const parsedValue = cleanVal === "" ? null : (Number(cleanVal) || cleanVal);
-      
-      const tFile = app.vault.getAbstractFileByPath(p.file.path);
-      if (tFile) {
-        await app.fileManager.processFrontMatter(tFile, (fm) => {
-          fm.exit_price = parsedValue;
-          fm.updated = new Date().toISOString().split('T')[0];
-        });
-        new Notice("매도 목표가가 업데이트되었습니다.");
-      }
-    });
     
     financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     
