@@ -268,8 +268,96 @@ window.renderAuctionCard = function(p, container) {
     financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     
     const profitInfo = calcMonthlyProfit(p);
-    const profitEl = financeRow.createEl('div');
+    const profitEl = financeRow.createEl('div', {
+      attr: {
+        style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
+        title: '클릭하여 예상 월세, 대출비율, 이율을 수정합니다.'
+      }
+    });
+    
+    // Add hover style for profit
+    profitEl.addEventListener('mouseenter', () => {
+      profitEl.style.backgroundColor = 'var(--background-modifier-hover)';
+    });
+    profitEl.addEventListener('mouseleave', () => {
+      profitEl.style.backgroundColor = 'transparent';
+    });
+
     profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
+
+    profitEl.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const currentRent = p.expected_monthly_rent || "";
+      const inputRent = await window.obsidianPrompt(
+        `[${p.case_number || p.file.name}] 월수익 계산 정보 수정 (1/3)`,
+        "예상 월세(expected_monthly_rent)를 입력해주세요 (원 단위 또는 만원 단위, 예: 500000 또는 50만):",
+        String(currentRent)
+      );
+      if (inputRent === null) return; // Cancelled
+      
+      const currentLoan = p.loan_ratio !== undefined ? p.loan_ratio : 0.8;
+      const inputLoan = await window.obsidianPrompt(
+        `[${p.case_number || p.file.name}] 월수익 계산 정보 수정 (2/3)`,
+        "대출 비율(loan_ratio)을 입력해주세요 (비율 또는 % 단위, 예: 0.8 또는 80%):",
+        String(currentLoan)
+      );
+      if (inputLoan === null) return; // Cancelled
+      
+      const currentInterest = p.interest_rate !== undefined ? p.interest_rate : 0.06;
+      const inputInterest = await window.obsidianPrompt(
+        `[${p.case_number || p.file.name}] 월수익 계산 정보 수정 (3/3)`,
+        "대출 이율(interest_rate)을 입력해주세요 (이율 또는 % 단위, 예: 0.06 또는 6%):",
+        String(currentInterest)
+      );
+      if (inputInterest === null) return; // Cancelled
+      
+      // Parse rent
+      let cleanRent = inputRent.replace(/,/g, '').trim();
+      let parsedRent = null;
+      if (cleanRent !== "") {
+        if (cleanRent.includes('만')) {
+          parsedRent = parseFloat(cleanRent) * 10000;
+        } else {
+          parsedRent = Number(cleanRent);
+        }
+        if (isNaN(parsedRent)) parsedRent = cleanRent;
+      }
+      
+      // Parse loan ratio
+      let cleanLoan = inputLoan.replace(/%/g, '').trim();
+      let parsedLoan = cleanLoan === "" ? null : Number(cleanLoan);
+      if (parsedLoan !== null && !isNaN(parsedLoan)) {
+        if (parsedLoan > 1) {
+          parsedLoan = parsedLoan / 100;
+        }
+      } else if (isNaN(parsedLoan)) {
+        parsedLoan = cleanLoan;
+      }
+      
+      // Parse interest rate
+      let cleanInterest = inputInterest.replace(/%/g, '').trim();
+      let parsedInterest = cleanInterest === "" ? null : Number(cleanInterest);
+      if (parsedInterest !== null && !isNaN(parsedInterest)) {
+        if (parsedInterest > 1) {
+          parsedInterest = parsedInterest / 100;
+        }
+      } else if (isNaN(parsedInterest)) {
+        parsedInterest = cleanInterest;
+      }
+      
+      const tFile = app.vault.getAbstractFileByPath(p.file.path);
+      if (tFile) {
+        await app.fileManager.processFrontMatter(tFile, (fm) => {
+          fm.expected_monthly_rent = parsedRent;
+          fm.loan_ratio = parsedLoan;
+          fm.interest_rate = parsedInterest;
+          fm.updated = new Date().toISOString().split('T')[0];
+        });
+        new Notice("월수익 계산 정보가 업데이트되었습니다.");
+      }
+    });
     
     if (["won", "lost", "skipped"].includes(p.status)) {
       const decisionEl = card.createEl('div', {
