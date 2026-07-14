@@ -83,12 +83,6 @@ attachments:
 
 ---
 
-## Quick Note
-
-`INPUT[textArea(placeholder(투자 판단 의견 및 메모를 입력해주세요)):my_opinion]`
-
----
-
 # Investment Thesis
 
 - 
@@ -263,7 +257,7 @@ Decision Date
 -
 
 Reason
--
+`INPUT[textArea(placeholder(투자 판단 의견 및 메모를 입력해주세요)):my_opinion]`
 
 Notes
 `INPUT[textArea(placeholder(사건 관련 참고 메모를 입력하세요)):auction_note]`
