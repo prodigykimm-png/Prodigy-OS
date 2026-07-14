@@ -17,8 +17,8 @@ Prodigy OS는 매일 사용하는 개인 운영체제이다.
 - Object, Capture, Journal, Knowledge, Project의 차이
 - AI를 언제, 어떻게 활용해야 하는지
 
-> 시스템 구조: [docs/01_Architecture.md](docs/01_Architecture.md)
-> 핵심 개념: [docs/02_Core_Concepts.md](docs/02_Core_Concepts.md)
+> 시스템 구조: [SYSTEM/docs/01_Architecture.md](SYSTEM/docs/01_Architecture.md)
+> 핵심 개념: [SYSTEM/docs/02_Core_Concepts.md](SYSTEM/docs/02_Core_Concepts.md)
 
 ---
 
@@ -413,6 +413,145 @@ AI는 다음을 해서는 안 된다:
 
 ---
 
+# 10. Operational Data Quality Rhythm
+
+Prodigy OS의 Review 품질은 AI 기능보다 운영 데이터 품질에 더 크게 좌우된다.
+
+## Morning
+
+```text
+Dashboard
+  ↓
+Today's Focus
+  ↓
+Todoist Tasks
+  ↓
+Execution
+```
+
+- 아침에는 판단을 늘리지 않는다.
+- Dashboard에서 오늘의 흐름을 확인한다.
+- Today's Focus를 보고 실제 실행 대상을 좁힌다.
+- Todoist Tasks는 실행 목록으로만 사용한다.
+
+## Evening
+
+```text
+Reflection
+  ↓
+Change
+  ↓
+Next Experiment
+```
+
+- 저녁에는 하루 전체를 기록하지 않는다.
+- 가장 의미 있는 하나의 경험을 Reflection에 남긴다.
+- 그 경험이 판단이나 행동을 어떻게 바꿨는지 Change에 남긴다.
+- 다음 날 바로 시도할 작은 행동을 Next Experiment에 남긴다.
+
+## Weekly
+
+```text
+prodigy review weekly
+```
+
+- Weekly Review는 Daily Reflection과 연결 Object를 기반으로 한다.
+- Evidence Package, PRE, Formatter는 운영 데이터가 충분할 때만 의미가 커진다.
+- Review Result는 AI의 제안이며 최종 판단은 사람이 한다.
+
+## Monthly
+
+```text
+monthly review
+```
+
+- Monthly Review는 자동화하지 않는다.
+- 한 달 동안 반복된 변화, 누락된 운영 데이터, 유지할 루틴을 사람이 확인한다.
+
+---
+
+# 11. Project Launch Workflow
+
+Project Wizard는 프로젝트를 시작하기 위한 사용자용 실행 흐름이다.
+
+```text
+Project Dashboard
+  ↓
+Launch Project
+  ↓
+Workflow Library preset
+  ↓
+Optional AI refinement
+  ↓
+Human approval
+  ↓
+Project Object
+  ↓
+Todoist execution artifacts, only when Start Now is selected
+```
+
+## Ownership Contract
+
+Project Object:
+
+- Purpose, completion condition, due date, full Workflow
+- Decisions, notes, result, review
+- Todoist linkage IDs
+
+Todoist:
+
+- Execution interface for approved Workflow items
+- Task completion interaction
+- Reminders and scheduling
+
+Dashboard:
+
+- Read-only operational visibility
+- Project launch point
+
+Daily:
+
+- Meaningful experience and reflection
+
+PRE:
+
+- Evidence-based review
+
+## Workflow Drafting
+
+- Workflow Library provides the starting structure.
+- AI may refine the draft, but only from the current Project context and selected preset.
+- The user approves the final Workflow.
+- Only after approval are Object and Todoist artifacts created.
+- Provider fallback is explicit. Project context is not silently sent to another provider.
+
+---
+
+# 12. Git Stability Workflow
+
+운영 Vault는 장기 미커밋 상태로 두지 않는다.
+
+```text
+Implement
+  ↓
+Commit
+  ↓
+Use
+  ↓
+Observe
+  ↓
+Improve
+```
+
+- 구현 후에는 가능한 작게 Commit한다.
+- Commit 이후 실제 Vault에서 사용한다.
+- 사용 중 발견한 문제를 관찰한다.
+- 관찰 결과를 다음 작은 개선으로 반영한다.
+- Evidence, PRE, Formatter, Dashboard, Template 변경을 한꺼번에 오래 들고 가지 않는다.
+- Source Object와 운영 데이터는 항상 복구 가능한 상태로 유지한다.
+
+---
+
 # Final Statement
 
 Prodigy OS는 폴더 시스템이 아니다.
@@ -430,9 +569,9 @@ AI의 도움을 받되, 최종 결정은 사람이 내린다.
 **Version:** 1.1
 **Status:** Active
 **Depends on:**
-- docs/00_Constitution.md
-- docs/01_Architecture.md
-- docs/02_Core_Concepts.md
-- docs/03_Object_Model.md
-- docs/04_Capture_System.md
-- docs/05_Home.md
+- SYSTEM/docs/00_Constitution.md
+- SYSTEM/docs/01_Architecture.md
+- SYSTEM/docs/02_Core_Concepts.md
+- SYSTEM/docs/03_Object_Model.md
+- SYSTEM/docs/04_Capture_System.md
+- SYSTEM/docs/05_Home.md

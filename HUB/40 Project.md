@@ -24,6 +24,10 @@ const loadProdigyScript = async (path) => {
 try {
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
   await loadProdigyScript("SYSTEM/Views/project-card.js");
+  await loadProdigyScript("SYSTEM/Views/project-wizard-core.js");
+  await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
+  await loadProdigyScript("SYSTEM/Views/project-todoist-adapter.js");
+  await loadProdigyScript("SYSTEM/Views/project-wizard.js");
 } catch (err) {
   container.empty();
   const errCard = container.createEl("div", {
@@ -43,6 +47,30 @@ try {
   });
   return;
 }
+```
+
+# Project Actions
+
+```js-engine
+if (!container) return;
+container.empty();
+
+const actionBar = container.createEl("div", {
+  attr: { style: "display:flex;justify-content:flex-end;align-items:center;margin:4px 0 12px;" }
+});
+
+const launchButton = actionBar.createEl("button", {
+  text: "+ Launch Project",
+  attr: { style: "font-size:0.88em;font-weight:700;padding:6px 10px;border-radius:6px;border:1px solid var(--text-accent);background:var(--text-accent);color:var(--background-primary);cursor:pointer;" }
+});
+
+launchButton.onclick = () => {
+  if (window.openProjectWizard) {
+    window.openProjectWizard();
+  } else {
+    new Notice("Project Wizard scripts are not loaded.", 9000);
+  }
+};
 ```
 
 # 🎯 Today

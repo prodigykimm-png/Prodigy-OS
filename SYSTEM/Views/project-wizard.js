@@ -1,0 +1,758 @@
+(function (root) {
+  "use strict";
+
+  const TEMPLATE_PATH = "SYSTEM/TEMPLATE/FORMAT/template_project.md";
+  const PROJECT_FOLDER = "PARA/PROJECTS";
+
+  function notice(message, timeout) {
+    const Notice = root.Notice || (root.obsidian && root.obsidian.Notice);
+    if (Notice) new Notice(message, timeout || 5000);
+  }
+
+  function button(parent, text, className) {
+    const el = parent.createEl("button", {
+      text,
+      attr: {
+        class: className || "",
+        style: "font-size:0.82em;padding:5px 9px;border-radius:6px;border:1px solid var(--background-modifier-border);background:var(--background-modifier-hover);color:var(--text-normal);cursor:pointer;transition:opacity 160ms ease, transform 160ms ease;"
+      }
+    });
+    el.onmousedown = () => { el.style.transform = "translateY(1px)"; };
+    el.onmouseup = () => { el.style.transform = "translateY(0)"; };
+    el.onmouseleave = () => { el.style.transform = "translateY(0)"; };
+    return el;
+  }
+
+  function iconButton(parent, iconName, label) {
+    const el = button(parent, "", "prodigy-icon-button");
+    el.setAttribute("aria-label", label);
+    el.setAttribute("title", label);
+    el.style.width = "28px";
+    el.style.height = "28px";
+    el.style.padding = "4px";
+    el.style.display = "inline-flex";
+    el.style.alignItems = "center";
+    el.style.justifyContent = "center";
+    const setIcon = root.setIcon || (root.obsidian && root.obsidian.setIcon);
+    if (typeof setIcon === "function") setIcon(el, iconName);
+    else el.textContent = iconName === "arrow-up" ? "↑" : iconName === "arrow-down" ? "↓" : iconName === "trash-2" ? "×" : iconName === "settings-2" ? "⋮" : "+";
+    return el;
+  }
+
+  function primaryButton(parent, text) {
+    const el = button(parent, text);
+    el.style.background = "var(--text-accent)";
+    el.style.color = "var(--background-primary)";
+    el.style.borderColor = "var(--text-accent)";
+    el.style.fontWeight = "700";
+    return el;
+  }
+
+  function fieldLabel(parent, text) {
+    parent.createEl("div", {
+      text,
+      attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);margin-bottom:4px;" }
+    });
+  }
+
+  function input(parent, value, placeholder, onChange) {
+    const el = parent.createEl("input", {
+      attr: {
+        value: value || "",
+        placeholder: placeholder || "",
+        style: "width:100%;box-sizing:border-box;border:1px solid var(--background-modifier-border);border-radius:6px;background:var(--background-primary);color:var(--text-normal);padding:7px 8px;font-size:0.9em;"
+      }
+    });
+    el.setAttribute("aria-label", placeholder || "Input");
+    el.oninput = () => onChange(el.value);
+    return el;
+  }
+
+  function dateInput(parent, value, label, onChange) {
+    const el = input(parent, value, "YYYY-MM-DD", onChange);
+    el.type = "date";
+    el.style.minWidth = "0";
+    el.setAttribute("aria-label", label);
+    el.setAttribute("title", `${label} (type YYYY-MM-DD or choose from calendar)`);
+    return el;
+  }
+
+  function textarea(parent, value, placeholder, onChange) {
+    const el = parent.createEl("textarea", {
+      attr: {
+        placeholder: placeholder || "",
+        style: "width:100%;min-height:82px;box-sizing:border-box;border:1px solid var(--background-modifier-border);border-radius:6px;background:var(--background-primary);color:var(--text-normal);padding:8px;font-size:0.9em;resize:vertical;"
+      }
+    });
+    el.setAttribute("aria-label", placeholder || "Text area");
+    el.value = value || "";
+    el.oninput = () => onChange(el.value);
+    return el;
+  }
+
+  function select(parent, value, options, onChange) {
+    const el = parent.createEl("select", {
+      attr: {
+        style: "width:100%;box-sizing:border-box;border:1px solid var(--background-modifier-border);border-radius:6px;background:var(--background-primary);color:var(--text-normal);padding:7px 8px;font-size:0.9em;"
+      }
+    });
+    options.forEach((option) => {
+      const opt = el.createEl("option", { text: option.label, value: option.value });
+      if (option.value === value) opt.selected = true;
+    });
+    el.onchange = () => onChange(el.value);
+    return el;
+  }
+
+  function passwordInput(parent, placeholder, onChange) {
+    const el = input(parent, "", placeholder, onChange);
+    el.type = "password";
+    return el;
+  }
+
+  async function readFile(app, path) {
+    const file = app.vault.getAbstractFileByPath(path);
+    if (!file) throw new Error(`File not found: ${path}`);
+    return app.vault.read(file);
+  }
+
+  function listExistingProjectPaths(app) {
+    return app.vault.getFiles()
+      .filter((file) => file.path.startsWith(`${PROJECT_FOLDER}/`) && file.extension === "md")
+      .map((file) => file.path);
+  }
+
+  async function writeSyncResult(app, path, updater) {
+    const file = app.vault.getAbstractFileByPath(path);
+    if (!file) throw new Error(`Project file not found: ${path}`);
+    const before = await app.vault.read(file);
+    const after = updater(before);
+    if (after !== before) await app.vault.modify(file, after);
+    return after;
+  }
+
+  class ProjectWizardSettingsModal extends root.obsidian.Modal {
+    constructor(app, currentConfig, onSaved) {
+      super(app);
+      this.currentConfig = currentConfig || root.ProjectWorkflowDraftService.DEFAULT_PROVIDER_CONFIG;
+      this.onSaved = onSaved;
+      this.state = {
+        defaultProvider: this.currentConfig.defaultProvider || "gemini",
+        secrets: {},
+        providers: JSON.parse(JSON.stringify(this.currentConfig.providers || {})),
+        status: "",
+        busy: false
+      };
+    }
+
+    onOpen() {
+      this.render();
+    }
+
+    onClose() {
+      this.contentEl.empty();
+    }
+
+    render() {
+      const { contentEl } = this;
+      contentEl.empty();
+      contentEl.createEl("h2", { text: "Project Wizard Settings", attr: { style: "margin:0 0 12px;font-size:1.18em;" } });
+      const providerKeys = Object.keys(this.state.providers);
+
+      const top = contentEl.createEl("div", {
+        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;margin-bottom:10px;" }
+      });
+      fieldLabel(top, "Default AI provider");
+      select(top, this.state.defaultProvider, providerKeys.map((key) => ({
+        value: key,
+        label: this.state.providers[key].name || key
+      })), (value) => {
+        this.state.defaultProvider = value;
+      });
+
+      const grid = contentEl.createEl("div", {
+        attr: { class: "prodigy-settings-grid", style: "display:grid;grid-template-columns:1fr 1fr;gap:10px;" }
+      });
+      contentEl.createEl("style", { text: "@media(max-width:680px){.prodigy-settings-grid{grid-template-columns:1fr!important}}" });
+      this.renderProviderCard(grid, "gemini", "Gemini API key");
+      this.renderProviderCard(grid, "mimo", "Xiaomi MiMo API key");
+      this.renderProviderCard(grid, "opencode-go", "OpenCode Go API key");
+      this.renderTodoistCard(grid);
+
+      if (this.state.status) {
+        contentEl.createEl("div", {
+          text: this.state.status,
+          attr: { style: "margin-top:10px;font-size:0.84em;color:var(--text-muted);background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:6px;padding:8px;" }
+        });
+      }
+
+      const footer = contentEl.createEl("div", {
+        attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;border-top:1px solid var(--background-modifier-border);padding-top:10px;" }
+      });
+      button(footer, "Cancel").onclick = () => this.close();
+      const save = primaryButton(footer, this.state.busy ? "Saving..." : "Save Settings");
+      save.disabled = this.state.busy;
+      save.onclick = () => this.save();
+    }
+
+    renderProviderCard(parent, providerKey, secretLabel) {
+      const provider = this.state.providers[providerKey];
+      const box = parent.createEl("div", {
+        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;" }
+      });
+      const header = box.createEl("div", { attr: { style: "display:flex;justify-content:space-between;align-items:center;gap:8px;" } });
+      header.createEl("div", { text: provider.name || providerKey, attr: { style: "font-weight:800;" } });
+      const defaults = root.ProjectWorkflowDraftService.getProviderDefaults(providerKey);
+      if (defaults) {
+        const defaultsButton = button(header, "Apply defaults");
+        defaultsButton.onclick = () => {
+          this.state.providers[providerKey] = defaults;
+          this.render();
+        };
+      }
+      fieldLabel(box, secretLabel);
+      passwordInput(box, "Leave blank to keep existing secret", (value) => {
+        this.state.secrets[provider.apiKeySecret] = value;
+      });
+      fieldLabel(box, "Model");
+      input(box, provider.model || "", "provider model id", (value) => {
+        provider.model = value.trim();
+      });
+      if (provider.adapter === "openai-compatible") {
+        fieldLabel(box, "Base URL");
+        input(box, provider.baseURL || "", "default provider base URL", (value) => {
+          provider.baseURL = value.trim();
+        });
+        fieldLabel(box, "Endpoint path");
+        input(box, provider.endpointPath || "/chat/completions", "/chat/completions", (value) => {
+          provider.endpointPath = value.trim() || "/chat/completions";
+        });
+        fieldLabel(box, "Auth mode");
+        select(box, provider.authMode || "bearer", [
+          { value: "bearer", label: "Bearer" },
+          { value: "api-key", label: "API key header" }
+        ], (value) => {
+          provider.authMode = value;
+        });
+        if (provider.authMode === "api-key") {
+          fieldLabel(box, "API key header");
+          input(box, provider.apiKeyHeader || "api-key", "api-key", (value) => {
+            provider.apiKeyHeader = value.trim() || "api-key";
+          });
+        }
+      }
+      if (provider.adapter === "gemini") {
+        fieldLabel(box, "Endpoint URL");
+        input(box, provider.endpointURL || "", "leave blank for Gemini default endpoint", (value) => {
+          provider.endpointURL = value.trim();
+        });
+      }
+    }
+
+    renderTodoistCard(parent) {
+      const box = parent.createEl("div", {
+        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;" }
+      });
+      box.createEl("div", { text: "Todoist", attr: { style: "font-weight:800;" } });
+      fieldLabel(box, "Todoist token");
+      passwordInput(box, "Leave blank to use existing Todoist plugin token", (value) => {
+        this.state.secrets["prodigy-todoist-api-token"] = value;
+      });
+      box.createEl("div", {
+        text: "If blank, the Wizard falls back to the existing Todoist Sync Plugin secret when available.",
+        attr: { style: "font-size:0.78em;color:var(--text-muted);line-height:1.35;" }
+      });
+    }
+
+    async save() {
+      this.state.busy = true;
+      this.state.status = "Saving settings...";
+      this.render();
+      try {
+        const saved = await root.ProjectWorkflowDraftService.saveProviderSettings(this.app, {
+          defaultProvider: this.state.defaultProvider,
+          config: { providers: this.state.providers },
+          secrets: this.state.secrets
+        });
+        this.state.status = "Settings saved.";
+        notice("Project Wizard settings saved.");
+        if (this.onSaved) await this.onSaved(saved);
+        this.close();
+      } catch (error) {
+        this.state.status = `Settings save failed: ${error.message}`;
+      } finally {
+        this.state.busy = false;
+        this.render();
+      }
+    }
+  }
+
+  class ProjectTypeManagerModal extends root.obsidian.Modal {
+    constructor(app, customPresets, currentWorkflow, onSaved) {
+      super(app);
+      this.presets = JSON.parse(JSON.stringify(customPresets || {}));
+      this.currentWorkflow = this.coreWorkflow = (currentWorkflow || []).map((item) => ({ label: item.label || "" }));
+      this.onSaved = onSaved;
+      this.name = "";
+      this.status = "";
+    }
+
+    onOpen() {
+      if (this.modalEl) this.modalEl.style.width = "min(560px, calc(100vw - 32px))";
+      this.render();
+    }
+
+    onClose() {
+      this.contentEl.empty();
+    }
+
+    render() {
+      const { contentEl } = this;
+      contentEl.empty();
+      contentEl.createEl("h2", { text: "Project Types", attr: { style: "margin:0 0 8px;font-size:1.18em;" } });
+      contentEl.createEl("div", {
+        text: "Built-in types are fixed. Added types reuse the current Workflow as their starting preset.",
+        attr: { style: "font-size:0.84em;color:var(--text-muted);line-height:1.4;margin-bottom:12px;" }
+      });
+
+      const addRow = contentEl.createEl("div", { attr: { style: "display:flex;gap:6px;align-items:center;margin-bottom:12px;" } });
+      input(addRow, this.name, "New project type", (value) => { this.name = value; });
+      const add = iconButton(addRow, "plus", "Add project type");
+      add.onclick = () => this.addType();
+
+      const list = contentEl.createEl("div", { attr: { style: "display:flex;flex-direction:column;gap:4px;" } });
+      const customNames = Object.keys(this.presets);
+      if (customNames.length === 0) {
+        list.createEl("div", { text: "No custom project types yet.", attr: { style: "font-size:0.84em;color:var(--text-muted);padding:8px 0;" } });
+      }
+      customNames.forEach((name) => {
+        const row = list.createEl("div", { attr: { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--background-modifier-border);" } });
+        row.createEl("span", { text: name, attr: { class: "prodigy-type-name" } });
+        const remove = iconButton(row, "trash-2", `Delete ${name}`);
+        remove.onclick = () => {
+          delete this.presets[name];
+          this.render();
+        };
+      });
+
+      if (this.status) contentEl.createEl("div", { text: this.status, attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:8px;" } });
+      const footer = contentEl.createEl("div", { attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:14px;border-top:1px solid var(--background-modifier-border);padding-top:10px;" } });
+      button(footer, "Cancel").onclick = () => this.close();
+      primaryButton(footer, "Save").onclick = () => this.save();
+    }
+
+    addType() {
+      const name = this.name.trim();
+      if (!name) {
+        this.status = "Enter a project type name.";
+        this.render();
+        return;
+      }
+      if (root.ProjectWizardCore.getPresetNames().includes(name)) {
+        this.status = "Built-in project types cannot be replaced.";
+        this.render();
+        return;
+      }
+      if (this.coreWorkflow && Object.keys(this.presets).includes(name)) {
+        this.status = "That custom project type already exists.";
+        this.render();
+        return;
+      }
+      this.presets[name] = this.coreWorkflow.map((item) => ({ label: item.label || "" }));
+      this.name = "";
+      this.status = "";
+      this.render();
+    }
+
+    async save() {
+      try {
+        if (this.onSaved) await this.onSaved(this.presets);
+        this.close();
+      } catch (error) {
+        this.status = `Save failed: ${error.message}`;
+        this.render();
+      }
+    }
+  }
+
+  class ProjectWizardModal extends root.obsidian.Modal {
+    constructor(app) {
+      super(app);
+      const core = root.ProjectWizardCore;
+      this.core = core;
+      this.state = {
+        projectName: "",
+        startDate: core.todayIso(),
+        dueDate: "",
+        projectType: "Company",
+        description: "",
+        startMode: "planning",
+        workflow: core.getPresetWorkflow("Company"),
+        workflowPresets: {},
+        providerKey: "",
+        providerConfig: null,
+        busy: false,
+        status: "",
+        createdPath: "",
+        createdWorkflow: []
+      };
+    }
+
+    async onOpen() {
+      if (this.modalEl) {
+        this.modalEl.style.width = "min(1040px, calc(100vw - 32px))";
+        this.modalEl.style.maxWidth = "calc(100vw - 32px)";
+      }
+      try {
+        this.state.providerConfig = await root.ProjectWorkflowDraftService.loadProviderConfig(this.app);
+        this.state.providerKey = this.state.providerConfig.defaultProvider;
+        this.state.workflowPresets = this.state.providerConfig.workflowPresets || {};
+      } catch (error) {
+        this.state.status = error.message;
+      }
+      this.render();
+    }
+
+    onClose() {
+      this.contentEl.empty();
+    }
+
+    render() {
+      const { contentEl } = this;
+      contentEl.empty();
+      contentEl.addClass("prodigy-project-wizard");
+      contentEl.createEl("style", { text: ".prodigy-project-wizard button:disabled{cursor:not-allowed!important;opacity:.42}.prodigy-project-wizard .prodigy-type-name{min-width:0;overflow-wrap:anywhere}.prodigy-project-wizard .prodigy-wizard-shell{grid-template-columns:minmax(0,.85fr) minmax(0,1.35fr)!important}.prodigy-project-wizard .prodigy-date-grid>*,.prodigy-project-wizard .prodigy-date-stack input{min-width:0}@media(max-width:760px){.prodigy-project-wizard .prodigy-wizard-shell{grid-template-columns:1fr!important}.prodigy-project-wizard .prodigy-date-grid{grid-template-columns:1fr!important}}" });
+      contentEl.createEl("h2", { text: "Launch Project", attr: { style: "margin:0 0 12px;font-size:1.25em;" } });
+
+      const shell = contentEl.createEl("div", {
+        attr: { class: "prodigy-wizard-shell", style: "display:grid;grid-template-columns:minmax(0,0.85fr) minmax(0,1.35fr);gap:16px;align-items:start;" }
+      });
+      const left = shell.createEl("div", { attr: { style: "display:flex;flex-direction:column;gap:10px;" } });
+      const right = shell.createEl("div", { attr: { style: "display:flex;flex-direction:column;gap:10px;" } });
+
+      this.renderContext(left);
+      this.renderWorkflow(right);
+      this.renderFooter(contentEl);
+    }
+
+    renderContext(parent) {
+      const state = this.state;
+      const projectBox = parent.createEl("div", {
+        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;" }
+      });
+      fieldLabel(projectBox, "Project name");
+      input(projectBox, state.projectName, "3차 운송예산 편성", (value) => { state.projectName = value; });
+
+      const grid = projectBox.createEl("div", { attr: { class: "prodigy-date-grid", style: "display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;margin-top:9px;" } });
+      const typeCell = grid.createEl("div", { attr: { style: "min-width:0;" } });
+      const typeHead = typeCell.createEl("div", { attr: { style: "display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;" } });
+      typeHead.createEl("span", { text: "Project type", attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);" } });
+      const manageTypes = iconButton(typeHead, "settings-2", "Manage project types");
+      manageTypes.onclick = () => this.openProjectTypeManager();
+      select(typeCell, state.projectType, this.core.getPresetNames(state.workflowPresets).map((name) => ({ value: name, label: name })), (value) => {
+        const previous = state.projectType;
+        state.projectType = value;
+        if (previous !== value) {
+          state.workflow = this.core.getPresetWorkflow(value, state.workflowPresets);
+          this.render();
+        }
+      });
+
+      const dateCell = grid.createEl("div", { attr: { class: "prodigy-date-stack", style: "display:flex;flex-direction:column;gap:6px;min-width:0;" } });
+      fieldLabel(dateCell, "Start date");
+      dateInput(dateCell, state.startDate, "Start date", (value) => { state.startDate = value; });
+      const dueCell = dateCell.createEl("div");
+      fieldLabel(dueCell, "Due date");
+      dateInput(dueCell, state.dueDate, "Due date", (value) => { state.dueDate = value; });
+
+      const descBox = projectBox.createEl("div", { attr: { style: "margin-top:9px;" } });
+      fieldLabel(descBox, "What must be true for this Project to be considered complete?");
+      textarea(descBox, state.description, "완료 조건을 한 문단으로 적어주세요.", (value) => { state.description = value; });
+
+      const startBox = parent.createEl("div", {
+        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;" }
+      });
+      fieldLabel(startBox, "Start state");
+      const choices = startBox.createEl("div", { attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
+      [
+        { key: "planning", label: "Planning", hint: "Object only" },
+        { key: "start_now", label: "Start Now", hint: "Object + Todoist" }
+      ].forEach((choice) => {
+        const opt = button(choices, `${choice.label} - ${choice.hint}`);
+        if (state.startMode === choice.key) {
+          opt.style.borderColor = "var(--text-accent)";
+          opt.style.background = "color-mix(in srgb, var(--text-accent) 16%, var(--background-secondary))";
+        }
+        opt.onclick = () => {
+          state.startMode = choice.key;
+          this.render();
+        };
+      });
+
+      const providerBox = parent.createEl("div", {
+        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;" }
+      });
+      fieldLabel(providerBox, "AI provider");
+      const providerOptions = root.ProjectWorkflowDraftService
+        .listProviders(state.providerConfig || undefined)
+        .map((provider) => ({
+          value: provider.key,
+          label: provider.model ? `${provider.name} (${provider.model})` : `${provider.name} (not configured)`
+        }));
+      select(providerBox, state.providerKey || (providerOptions[0] && providerOptions[0].value) || "", providerOptions, (value) => {
+        state.providerKey = value;
+      });
+      const aiRow = providerBox.createEl("div", { attr: { style: "display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap;" } });
+      const refine = primaryButton(aiRow, state.busy ? "Refining..." : "Refine Workflow");
+      refine.disabled = state.busy;
+      refine.onclick = () => this.refineWorkflow();
+      button(aiRow, "Settings").onclick = () => this.openSettings();
+      button(aiRow, "Continue manually").onclick = () => {
+        state.status = "Manual workflow editing remains available.";
+        this.render();
+      };
+    }
+
+    openProjectTypeManager() {
+      new ProjectTypeManagerModal(this.app, this.state.workflowPresets, this.state.workflow, async (presets) => {
+        await root.ProjectWorkflowDraftService.saveProviderSettings(this.app, {
+          config: { workflowPresets: presets }
+        });
+        this.state.workflowPresets = presets;
+        if (!this.core.getPresetNames(presets).includes(this.state.projectType)) this.state.projectType = "Company";
+        this.state.workflow = this.core.getPresetWorkflow(this.state.projectType, presets);
+        this.state.providerConfig = Object.assign({}, this.state.providerConfig, { workflowPresets: presets });
+        this.state.status = "Project types updated.";
+        this.render();
+      }).open();
+    }
+
+    renderWorkflow(parent) {
+      const state = this.state;
+      const box = parent.createEl("div", {
+        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;" }
+      });
+      const head = box.createEl("div", { attr: { style: "display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px;" } });
+      head.createEl("div", { text: "Workflow draft", attr: { style: "font-weight:800;color:var(--text-normal);" } });
+      const headActions = head.createEl("div", { attr: { style: "display:flex;gap:6px;" } });
+      button(headActions, "Reset preset").onclick = () => {
+        state.workflow = this.core.getPresetWorkflow(state.projectType, state.workflowPresets);
+        this.render();
+      };
+      button(headActions, "Add item").onclick = () => {
+        state.workflow.push({ label: "" });
+        this.render();
+      };
+
+      const rows = box.createEl("div", { attr: { style: "display:flex;flex-direction:column;gap:6px;" } });
+      if (state.workflow.length === 0) {
+        rows.createEl("div", {
+          text: "Blank preset selected. Add at least one workflow item before creating the project.",
+          attr: { style: "font-size:0.86em;color:var(--text-muted);padding:8px;border:1px dashed var(--background-modifier-border);border-radius:6px;" }
+        });
+      }
+      state.workflow.forEach((item, index) => {
+        const row = rows.createEl("div", {
+          attr: { style: "display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:6px;align-items:center;" }
+        });
+        row.createEl("span", { text: String(index + 1), attr: { style: "font-size:0.78em;color:var(--text-muted);text-align:right;font-variant-numeric:tabular-nums;" } });
+        input(row, item.label, "Workflow item", (value) => { item.label = value; });
+        const controls = row.createEl("div", { attr: { style: "display:flex;gap:4px;" } });
+        const up = iconButton(controls, "arrow-up", index === 0 ? "Move workflow item up (unavailable)" : "Move workflow item up");
+        up.disabled = index === 0;
+        up.onclick = () => {
+          const tmp = state.workflow[index - 1];
+          state.workflow[index - 1] = state.workflow[index];
+          state.workflow[index] = tmp;
+          this.render();
+        };
+        const down = iconButton(controls, "arrow-down", index === state.workflow.length - 1 ? "Move workflow item down (unavailable)" : "Move workflow item down");
+        down.disabled = index === state.workflow.length - 1;
+        down.onclick = () => {
+          const tmp = state.workflow[index + 1];
+          state.workflow[index + 1] = state.workflow[index];
+          state.workflow[index] = tmp;
+          this.render();
+        };
+        iconButton(controls, "trash-2", "Delete workflow item").onclick = () => {
+          state.workflow.splice(index, 1);
+          this.render();
+        };
+      });
+    }
+
+    renderFooter(parent) {
+      if (this.state.status) {
+        parent.createEl("div", {
+          text: this.state.status,
+          attr: { style: "margin-top:10px;font-size:0.84em;color:var(--text-muted);background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:6px;padding:8px;" }
+        });
+      }
+
+      const footer = parent.createEl("div", {
+        attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;border-top:1px solid var(--background-modifier-border);padding-top:10px;flex-wrap:wrap;" }
+      });
+      if (this.state.createdPath) {
+        button(footer, "Open Project").onclick = () => {
+          this.app.workspace.openLinkText(this.state.createdPath, "", false);
+        };
+        const projectId = this.state.todoistProjectId;
+        if (projectId) {
+          button(footer, "Open Todoist").onclick = () => {
+            window.open(`https://todoist.com/app/project/${projectId}`);
+          };
+        }
+        if (this.state.startMode === "start_now") {
+          button(footer, "Retry Todoist").onclick = () => this.retryTodoist();
+        }
+      }
+      button(footer, "Cancel").onclick = () => this.close();
+      const create = primaryButton(footer, this.state.busy ? "Creating..." : "Create Project");
+      create.disabled = this.state.busy || !!this.state.createdPath;
+      create.onclick = () => this.createProject();
+    }
+
+    async refineWorkflow() {
+      const validation = this.core.validateWizardInput(Object.assign({}, this.state, {
+        workflow: this.state.workflow.length ? this.state.workflow : [{ label: "임시 항목" }]
+      }), { presets: this.state.workflowPresets });
+      if (!this.state.projectName.trim() || !this.state.dueDate.trim() || !this.core.validateIsoDate(this.state.startDate) || !this.core.validateIsoDate(this.state.dueDate)) {
+        this.state.status = "Project name and valid due date are required before AI refinement.";
+        this.render();
+        return;
+      }
+      this.state.busy = true;
+      this.state.status = "Requesting workflow refinement...";
+      this.render();
+      try {
+        const result = await root.ProjectWorkflowDraftService.generateStructuredWorkflow({
+          app: this.app,
+          config: this.state.providerConfig,
+          providerKey: this.state.providerKey,
+          projectContext: {
+            projectName: this.state.projectName,
+            projectType: this.state.projectType,
+            description: this.state.description,
+            startDate: this.state.startDate,
+            dueDate: this.state.dueDate
+          },
+          baseWorkflow: this.state.workflow.length ? this.state.workflow : this.core.getPresetWorkflow(this.state.projectType, this.state.workflowPresets),
+          schema: this.core.WORKFLOW_SCHEMA
+        });
+        this.state.workflow = this.core.cloneWorkflow(result.workflow);
+        this.state.status = `Workflow refined with ${result.provider}.`;
+      } catch (error) {
+        this.state.status = `AI refinement failed: ${root.ProjectWorkflowDraftService.redactError(error)}`;
+      } finally {
+        this.state.busy = false;
+        this.render();
+      }
+    }
+
+    openSettings() {
+      new ProjectWizardSettingsModal(this.app, this.state.providerConfig, async (savedConfig) => {
+        this.state.providerConfig = savedConfig;
+        this.state.providerKey = savedConfig.defaultProvider;
+        this.state.status = "Provider settings updated.";
+        this.render();
+      }).open();
+    }
+
+    async createProject() {
+      const validation = this.core.validateWizardInput(this.state, { presets: this.state.workflowPresets });
+      if (!validation.ok) {
+        this.state.status = validation.errors.join(" ");
+        this.render();
+        return;
+      }
+      this.state.busy = true;
+      this.state.status = "Creating Project Object...";
+      this.render();
+      try {
+        const template = await readFile(this.app, TEMPLATE_PATH);
+        const existingPaths = listExistingProjectPaths(this.app);
+        const objectPath = this.core.buildProjectPath(validation.value.projectName, existingPaths);
+        const rendered = this.core.renderProjectContent(template, validation.value, { presets: this.state.workflowPresets });
+        await this.app.vault.create(objectPath, rendered.content);
+        this.state.createdPath = objectPath;
+        this.state.createdWorkflow = rendered.workflow;
+        this.state.status = "Project Object created.";
+        notice("Project Object created.");
+
+        if (validation.value.startMode === "start_now") {
+          await this.syncTodoist(objectPath, rendered.workflow, validation.value.projectName, "", validation.value.startDate, validation.value.dueDate);
+        }
+      } catch (error) {
+        this.state.status = `Project creation failed: ${error.message}`;
+        notice(this.state.status, 9000);
+      } finally {
+        this.state.busy = false;
+        this.render();
+      }
+    }
+
+    async retryTodoist() {
+      if (!this.state.createdPath) return;
+      this.state.busy = true;
+      this.state.status = "Retrying Todoist sync...";
+      this.render();
+      try {
+        await this.syncTodoist(this.state.createdPath, this.state.createdWorkflow, this.state.projectName, this.state.todoistProjectId || "", this.state.startDate, this.state.dueDate);
+      } finally {
+        this.state.busy = false;
+        this.render();
+      }
+    }
+
+    async syncTodoist(objectPath, workflow, projectName, existingProjectId, startDate, dueDate) {
+      this.state.status = "Creating Todoist Project and tasks...";
+      this.render();
+      try {
+        const result = await root.ProjectTodoistAdapter.createExecutionArtifacts({
+          app: this.app,
+          projectName,
+          objectPath,
+          workflowItems: workflow,
+          todoistProjectId: existingProjectId,
+          startDate: startDate || root.ProjectTodoistAdapter.getTodayIsoDate(),
+          dueDate
+        });
+        this.state.todoistProjectId = result.projectId;
+        await writeSyncResult(this.app, objectPath, (content) => {
+          let next = this.core.setTodoistProjectId(content, result.projectId);
+          Object.keys(result.taskIds).forEach((workflowId) => {
+            next = this.core.setWorkflowTaskId(next, workflowId, result.taskIds[workflowId]);
+          });
+          next = this.core.setProjectSyncStatus(next, "synced", "");
+          return next;
+        });
+        this.state.createdWorkflow = workflow.map((item) => Object.assign({}, item, {
+          todoist_task_id: result.taskIds[item.id] || item.todoist_task_id || ""
+        }));
+        this.state.status = "Project launched successfully.";
+        notice("Project launched successfully.");
+      } catch (error) {
+        const message = root.ProjectTodoistAdapter.redactError(error);
+        await writeSyncResult(this.app, objectPath, (content) => this.core.setProjectSyncStatus(content, "failed", message));
+        this.state.status = `Todoist sync failed: ${message}`;
+        notice(this.state.status, 9000);
+      }
+    }
+  }
+
+  function openProjectWizard() {
+    if (!root.app || !root.obsidian) {
+      notice("Project Wizard requires Obsidian app context.", 9000);
+      return;
+    }
+    if (!root.ProjectWizardCore || !root.ProjectWorkflowDraftService || !root.ProjectTodoistAdapter) {
+      notice("Project Wizard scripts are not fully loaded.", 9000);
+      return;
+    }
+    new ProjectWizardModal(root.app).open();
+  }
+
+  root.ProjectWizardModal = ProjectWizardModal;
+  root.ProjectWizardSettingsModal = ProjectWizardSettingsModal;
+  root.openProjectWizard = openProjectWizard;
+})(typeof globalThis !== "undefined" ? globalThis : this);

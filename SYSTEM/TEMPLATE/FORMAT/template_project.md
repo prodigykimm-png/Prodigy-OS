@@ -7,6 +7,9 @@ due_date:
 next_action: 
 review_date: 
 category: 
+todoist_project_id: 
+todoist_sync_status: pending
+todoist_last_error: 
 tags:
   - project
 cssclasses:
@@ -23,6 +26,9 @@ cssclasses:
 ---
 
 ## 🎯 목표 및 세부 계획
+
+
+## Workflow
 
 
 ## ✍️ 메모 및 진행 상황

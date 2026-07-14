@@ -47,3 +47,6 @@ venv/
 # Logs
 *.log
 logs/
+
+# Local Prodigy secrets/config
+SYSTEM/PRIVATE/
