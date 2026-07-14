@@ -70,6 +70,44 @@ window.renderAuctionCard = function(p, container) {
       return num;
     };
 
+    // Calculate D-Day first
+    let ddayStr = "-";
+    let isUrgent = false;
+    let dateStr = "-";
+    if (p.auction_datetime) {
+      let isoDate = "";
+      const val = p.auction_datetime;
+      if (typeof val === "object" && typeof val.toISODate === "function") {
+        isoDate = val.toISODate();
+      } else {
+        const str = String(val).trim();
+        const match = str.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})/);
+        if (match) {
+          isoDate = `${match[1]}-${match[2]}-${match[3]}`;
+        }
+      }
+      if (isoDate) {
+        const targetDate = new Date(isoDate);
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        targetDate.setHours(0,0,0,0);
+        const diffTime = targetDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+          ddayStr = "D-Day";
+          isUrgent = true;
+        } else if (diffDays > 0) {
+          ddayStr = `D-${diffDays}`;
+          if (diffDays <= 3) isUrgent = true;
+        } else {
+          ddayStr = `D+${Math.abs(diffDays)}`;
+        }
+        
+        dateStr = isoDate;
+      }
+    }
+
     // Header
     const header = card.createEl('div', {
       attr: { style: 'display: flex; justify-content: space-between; align-items: center;' }
@@ -87,48 +125,53 @@ window.renderAuctionCard = function(p, container) {
       }
     });
     title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path, 'split');
+
+    // Add D-Day Badge right next to the title
+    if (ddayStr !== "-") {
+      leftHeader.createEl('span', {
+        text: ddayStr,
+        attr: {
+          style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.72em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
+        }
+      });
+    }
     
-    // Quick Links
+    // Add D-Day Date next to badge
+    if (p.auction_datetime) {
+      leftHeader.createEl('span', {
+        text: dateStr,
+        attr: { style: 'color: var(--text-muted); font-weight: bold; font-size: 0.72em;' }
+      });
+    }
+
+    // Right header (quick links, recommend level, court)
+    const rightHeader = header.createEl('div', {
+      attr: { style: 'display: flex; align-items: center; gap: 6px; font-size: 0.75em;' }
+    });
+
     const naverLink = p.source && p.source.naver && p.source.naver !== "정보 없음" && String(p.source.naver).startsWith("http") ? p.source.naver : null;
     const cafeLink = p.source && p.source.cafe && p.source.cafe !== "정보 없음" && String(p.source.cafe).startsWith("http") ? p.source.cafe : null;
     
     if (naverLink) {
-      leftHeader.createEl('a', {
+      rightHeader.createEl('a', {
         text: '🌐 네이버',
         href: naverLink,
         attr: { 
-          style: 'font-size: 0.72em; background: #22c55e20; color: #22c55e; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
+          style: 'font-size: 0.95em; background: #22c55e20; color: #22c55e; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
         }
       });
     }
     if (cafeLink) {
-      leftHeader.createEl('a', {
+      rightHeader.createEl('a', {
         text: '💬 카페',
         href: cafeLink,
         attr: { 
-          style: 'font-size: 0.72em; background: #3b82f620; color: #3b82f6; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
+          style: 'font-size: 0.95em; background: #3b82f620; color: #3b82f6; padding: 1px 4px; border-radius: 4px; text-decoration: none; font-weight: bold; cursor: pointer;' 
         }
       });
     }
     
-    // Right header (court & recommend level badge)
-    const rightHeader = header.createEl('div', {
-      attr: { style: 'display: flex; align-items: center; gap: 6px; font-size: 0.75em;' }
-    });
-    
-    const level = p.recommendation || p.recommend_level || "보통";
-    const levelColors = {
-      '강강추': { bg: '#ef444420', text: '#ef4444' },
-      '강추': { bg: '#f9731620', text: '#f97316' },
-      '추천': { bg: '#eab30820', text: '#eab308' },
-      '보통': { bg: 'var(--background-modifier-hover)', text: 'var(--text-muted)' }
-    };
-    const colors = levelColors[level] || levelColors['보통'];
-    
-    rightHeader.createEl('span', {
-      text: level,
-      attr: { style: `background: ${colors.bg}; color: ${colors.text}; font-weight: bold; padding: 1px 4px; border-radius: 4px;` }
-    });
+
 
     if (p.court) {
       rightHeader.createEl('span', {
@@ -152,69 +195,10 @@ window.renderAuctionCard = function(p, container) {
     meta.createEl('span', { text: '·' });
     meta.createEl('span', { text: p.property_type || "용도 미정" });
     
-    // D-Day & Date & Finance Row
+    // Finance Row
     const financeRow = card.createEl('div', {
       attr: { style: 'display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
     });
-    
-    // Calculate D-Day
-    let ddayStr = "-";
-    let isUrgent = false;
-    let dateStr = "-";
-    if (p.auction_datetime) {
-      let isoDate = "";
-      const val = p.auction_datetime;
-      if (typeof val === "object" && typeof val.toISODate === "function") {
-        isoDate = val.toISODate();
-      } else {
-        const str = String(val).trim();
-        const match = str.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})/);
-        if (match) {
-          isoDate = `${match[1]}-${match[2]}-${match[3]}`;
-        }
-      }
-      
-      if (isoDate) {
-        const targetDate = new Date(isoDate);
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        targetDate.setHours(0,0,0,0);
-        const diffTime = targetDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 0) {
-          ddayStr = "D-Day";
-          isUrgent = true;
-        } else if (diffDays > 0) {
-          ddayStr = `D-${diffDays}`;
-          if (diffDays <= 3) isUrgent = true;
-        } else {
-          ddayStr = `D+${Math.abs(diffDays)}`;
-        }
-        
-        dateStr = isoDate;
-      }
-    }
-    
-    if (ddayStr !== "-") {
-      financeRow.createEl('span', {
-        text: ddayStr,
-        attr: {
-          style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.9em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
-        }
-      });
-    }
-    
-    if (p.auction_datetime) {
-      financeRow.createEl('span', {
-        text: dateStr,
-        attr: { style: 'color: var(--text-muted); font-weight: bold;' }
-      });
-    }
-    
-    if (p.auction_datetime) {
-      financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
-    }
     
     let minRateStr = "";
     if (p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") {
