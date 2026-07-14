@@ -1,8 +1,9 @@
 ---
 cssclasses:
   - hide-properties_reading
-card_region: 전체지역
+card_region: 부산
 card_type: 오피스텔
+card_sort: dday_asc
 ---
 ```js-engine
 const file = app.workspace.getActiveFile();

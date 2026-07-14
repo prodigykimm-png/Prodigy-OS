@@ -14,11 +14,6 @@
 id:              # 파일명과 동일 (Templater 자동)
 type: auction_case
 status:          # Auction Status Enum 참조
-next_action:     # 당장 할 일 한 줄
-due_date:        # 입찰 마감일 또는 다음 액션 기한
-priority:        # 1~5
-review_status:   # pending | done | null
-connections:     # 관련 Object 링크
 created:         # Templater 자동
 updated:         # Templater 또는 수동
 ```
@@ -29,7 +24,9 @@ updated:         # Templater 또는 수동
 |---|---|---|
 | `source` | 경매 출처 (법원/컨설팅/공매) | 텍스트 |
 | `case_number` | 사건번호 | 텍스트 |
-| `auction_date` | 입찰일 | ISO date |
+| `court` | 담당 법원 | 텍스트 |
+| `auction_dept` | 경매계 | 텍스트 |
+| `auction_datetime` | 입찰일시 | ISO date/datetime |
 
 ### Location (위치)
 
@@ -51,37 +48,36 @@ updated:         # Templater 또는 수동
 
 > `building_age`는 building_year에서 계산 (Derived Property Rule).
 
-### Price (가격)
+### Investment (투자 및 시세 정보)
 
 | Property | 목적 | 단위 |
 |---|---|---|
 | `appraisal_price` | 감정가 | 원 |
 | `minimum_bid` | 최저입찰가 | 원 |
+| `minimum_bid_rate` | 최저가율. 경매 원문 검증 및 정렬 보조용 공식 저장값 | 소수 (0.0~1.0) |
+| `bid_deposit` | 입찰 보증금 | 원 |
 | `expected_bid` | 예상 낙찰가 (내 예측) | 원 |
-| `actual_bid` | 실제 낙찰가 | 원 |
-| `winning_bid` | 내 낙찰가 (입찰 시) | 원 |
-| `bid_result` | 입찰 결과 | won/lost/null |
-
-> `bid_rate`, `my_bid_rate`, `bid_gap` 등은 계산값이므로 저장하지 않는다.
-
-### Finance (재무)
-
-| Property | 목적 | 단위 |
-|---|---|---|
-| `monthly_rent` | 월세 | 원/월 |
+| `my_bid_price` | 내 입찰가 (실제 입찰액) | 원 |
+| `winning_bid_price` | 최종 낙찰가 (실제 낙찰액) | 원 |
+| `market_sale_price` | 매매 시세 | 원 |
+| `market_jeonse_price` | 전세 시세 | 원 |
+| `expected_deposit` | 예상 보증금 | 원 |
+| `expected_monthly_rent` | 예상 월세 | 원 |
+| `exit_price` | 매도 목표가 (출구 전략) | 원 |
+| `market_price_basis` | 시세 판단 근거 | 텍스트 |
 | `loan_ratio` | 대출비율 | 소수 (0.0~1.0) |
 | `interest_rate` | 이자율 | 소수 (0.0~1.0) |
 
-> `annual_rent`는 monthly_rent × 12로 계산.
-> `annual_interest`는 loan_amount × interest_rate로 계산.
+### Decision (의사 결정)
 
-### Review (복기)
-
-| Property | 목적 |
-|---|---|
-| `failure_reason` | 실패 원인 (lost일 때) |
-| `lesson_learned` | 배운 점 |
-| `review_summary` | 복기 요약 |
+| Property | 목적 | 단위 |
+|---|---|---|
+| `site_visit_date` | 임장 기일 | ISO date |
+| `decision_reason` | 결정 사유 | 텍스트 |
+| `decision_date` | 의사결정 완료일 | ISO date |
+| `review_date` | 복기 완료일 | ISO date |
+| `auction_note` | 사용자 메모 (대시보드 표시용) | 텍스트 |
+| `my_opinion` | 최종 투자 판단 관련 사용자 메모 (의사결정 사유 상세) | 텍스트 |
 
 ### Attachments (첨부)
 
@@ -98,20 +94,16 @@ attachments:
 
 | Status | 의미 | 다음 상태 |
 |---|---|---|
-| `watching` | 관심만 갖고 있는 단계 | `rights_analysis` |
-| `rights_analysis` | 권리분석 중 | `market_analysis` |
-| `market_analysis` | 시세분석 중 | `profitability` |
-| `profitability` | 수익성 분석 중 | `site_visit` 또는 `ready_to_bid` |
-| `site_visit` | 임장 예정/완료 | `ready_to_bid` |
-| `ready_to_bid` | 입찰 준비 완료 | `bid_submitted` |
-| `bid_submitted` | 입찰 제출 | `won` 또는 `lost` |
-| `won` | 낙찰 | `review_completed` |
-| `lost` | 패찰 | `review_completed` |
-| `review_completed` | 복기 완료 | `archived` |
-| `archived` | 보관 | — |
+| `watching` | 검토 중인 물건 | `bidding`, `skipped` |
+| `bidding` | 입찰 준비/진행 예정 | `won`, `lost`, `skipped` |
+| `skipped` | 입찰 포기 | `archived` |
+| `won` | 낙찰 | `reviewing` |
+| `lost` | 패찰 | `reviewing` |
+| `reviewing` | 복기 진행 중 | `archived` |
+| `archived` | 복기 완료 및 사건 보관 | — |
 
 ### Status 전이 규칙
 
-- `won` / `lost`가 되면 `review_status`를 `pending`으로 설정 (복기 대상).
-- `review_completed`가 되면 `review_status`를 `done`으로 설정.
-- Homepage Needs Review 섹션: `review_status = "pending"` 또는 `status = won` 또는 `status = lost`.
+- `watching` 단계에서 임장 및 분석을 마친 후 `bidding` 상태로 전환하며 예상 입찰가를 등록합니다.
+- `bidding` 상태에서 `won`(낙찰), `lost`(패찰), `skipped`(입찰포기)로 전환될 때 의사결정 수집 팝업(의사결정 사유 및 추가 메모)이 표시되며 본문의 `# Investment Decision` 영역이 자동으로 갱신됩니다.
+- 낙찰(`won`) 및 패찰(`lost`) 이후에는 복기 단계(`reviewing`)로 진입하여 복기 완료 후 `archived` 상태로 사건을 보존합니다.
