@@ -217,7 +217,7 @@ window.renderAuctionCard = function(p, container) {
     const expEl = financeRow.createEl('div', {
       attr: {
         style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
-        title: '클릭하여 예상 입찰가(expected_bid)를 수정합니다.'
+        title: '클릭하여 입찰가(expected_bid)를 수정합니다.'
       }
     });
     
@@ -229,7 +229,7 @@ window.renderAuctionCard = function(p, container) {
       expEl.style.backgroundColor = 'transparent';
     });
     
-    expEl.innerHTML = `예상: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>`;
+    expEl.innerHTML = `입찰: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>`;
     
     expEl.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -237,8 +237,8 @@ window.renderAuctionCard = function(p, container) {
       
       const currentExpected = p.expected_bid || "";
       const newExpected = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] 예상 입찰가(expected_bid) 수정`,
-        "예상 입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):",
+        `[${p.case_number || p.file.name}] 입찰가(expected_bid) 수정`,
+        "입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):",
         String(currentExpected)
       );
       
@@ -253,9 +253,31 @@ window.renderAuctionCard = function(p, container) {
           fm.expected_bid = parsedValue;
           fm.updated = new Date().toISOString().split('T')[0];
         });
-        new Notice("예상 입찰가가 업데이트되었습니다.");
+        new Notice("입찰가가 업데이트되었습니다.");
       }
     });
+    
+    financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+    
+    // Calculate Difference (차익 = 탈출구 - 입찰)
+    let diffStr = "-";
+    let diffColor = "var(--text-muted)";
+    if (p.exit_price && p.expected_bid && p.exit_price !== "정보 없음" && p.expected_bid !== "정보 없음") {
+      const exit = Number(p.exit_price);
+      const exp = Number(p.expected_bid);
+      if (!isNaN(exit) && !isNaN(exp)) {
+        const diff = exit - exp;
+        diffStr = toEok(diff);
+        if (diff > 0) {
+          diffColor = "var(--text-accent)"; // Accent color for profit
+        } else if (diff < 0) {
+          diffColor = "var(--text-error)";
+        }
+      }
+    }
+    
+    const diffEl = financeRow.createEl('div');
+    diffEl.innerHTML = `차익: <strong style="color:${diffColor};">${diffStr}</strong>`;
     
     financeRow.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     
