@@ -62,6 +62,14 @@ window.renderAuctionCard = function(p, container) {
       return (num / 100000000).toFixed(2) + "억";
     };
 
+    const toMan = (v) => {
+      if (v === undefined || v === null || v === "") return "0";
+      const num = Number(v);
+      if (isNaN(num)) return v;
+      if (num % 10000 === 0) return (num / 10000) + "만";
+      return num;
+    };
+
     // Header
     const header = card.createEl('div', {
       attr: { style: 'display: flex; justify-content: space-between; align-items: center;' }
@@ -289,33 +297,24 @@ window.renderAuctionCard = function(p, container) {
       e.preventDefault();
       e.stopPropagation();
       
-      const currentRent = p.expected_monthly_rent || "";
-      const inputRent = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] 월수익 계산 정보 수정 (1/3)`,
-        "예상 월세(expected_monthly_rent)를 입력해주세요 (원 단위 또는 만원 단위, 예: 500000 또는 50만):",
-        String(currentRent)
-      );
-      if (inputRent === null) return; // Cancelled
-      
+      const currentRent = p.expected_monthly_rent !== undefined ? p.expected_monthly_rent : "";
       const currentLoan = p.loan_ratio !== undefined ? p.loan_ratio : 0.8;
-      const inputLoan = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] 월수익 계산 정보 수정 (2/3)`,
-        "대출 비율(loan_ratio)을 입력해주세요 (비율 또는 % 단위, 예: 0.8 또는 80%):",
-        String(currentLoan)
-      );
-      if (inputLoan === null) return; // Cancelled
-      
       const currentInterest = p.interest_rate !== undefined ? p.interest_rate : 0.06;
-      const inputInterest = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] 월수익 계산 정보 수정 (3/3)`,
-        "대출 이율(interest_rate)을 입력해주세요 (이율 또는 % 단위, 예: 0.06 또는 6%):",
-        String(currentInterest)
-      );
-      if (inputInterest === null) return; // Cancelled
       
-      // Parse rent
-      let cleanRent = inputRent.replace(/,/g, '').trim();
-      let parsedRent = null;
+      const defaultVal = `${toMan(currentRent)}, ${Math.round(currentLoan * 100)}%, ${(currentInterest * 100).toFixed(1)}%`;
+      
+      const inputVal = await window.obsidianPrompt(
+        `[${p.case_number || p.file.name}] 월수익 계산 변수 수정`,
+        "월세, 대출비율, 이율을 순서대로 공백이나 쉼표로 구분하여 입력해주세요:\n(예: 50만, 80%, 6% 또는 500000 0.8 0.06)",
+        defaultVal
+      );
+      if (inputVal === null) return; // Cancelled
+      
+      const parts = inputVal.split(/[\s,]+/).filter(x => x.trim() !== "");
+      
+      // 1. Parse rent
+      let cleanRent = (parts[0] || "").replace(/,/g, '').trim();
+      let parsedRent = currentRent;
       if (cleanRent !== "") {
         if (cleanRent.includes('만')) {
           parsedRent = parseFloat(cleanRent) * 10000;
@@ -323,28 +322,32 @@ window.renderAuctionCard = function(p, container) {
           parsedRent = Number(cleanRent);
         }
         if (isNaN(parsedRent)) parsedRent = cleanRent;
+      } else if (parts.length > 0) {
+        parsedRent = null;
       }
       
-      // Parse loan ratio
-      let cleanLoan = inputLoan.replace(/%/g, '').trim();
-      let parsedLoan = cleanLoan === "" ? null : Number(cleanLoan);
-      if (parsedLoan !== null && !isNaN(parsedLoan)) {
-        if (parsedLoan > 1) {
-          parsedLoan = parsedLoan / 100;
+      // 2. Parse loan ratio
+      let cleanLoan = (parts[1] || "").replace(/%/g, '').trim();
+      let parsedLoan = currentLoan;
+      if (cleanLoan !== "") {
+        let val = Number(cleanLoan);
+        if (!isNaN(val)) {
+          parsedLoan = val > 1 ? val / 100 : val;
+        } else {
+          parsedLoan = cleanLoan;
         }
-      } else if (isNaN(parsedLoan)) {
-        parsedLoan = cleanLoan;
       }
       
-      // Parse interest rate
-      let cleanInterest = inputInterest.replace(/%/g, '').trim();
-      let parsedInterest = cleanInterest === "" ? null : Number(cleanInterest);
-      if (parsedInterest !== null && !isNaN(parsedInterest)) {
-        if (parsedInterest > 1) {
-          parsedInterest = parsedInterest / 100;
+      // 3. Parse interest rate
+      let cleanInterest = (parts[2] || "").replace(/%/g, '').trim();
+      let parsedInterest = currentInterest;
+      if (cleanInterest !== "") {
+        let val = Number(cleanInterest);
+        if (!isNaN(val)) {
+          parsedInterest = val > 1 ? val / 100 : val;
+        } else {
+          parsedInterest = cleanInterest;
         }
-      } else if (isNaN(parsedInterest)) {
-        parsedInterest = cleanInterest;
       }
       
       const tFile = app.vault.getAbstractFileByPath(p.file.path);
