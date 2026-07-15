@@ -1,15 +1,8 @@
 window.renderAuctionCard = function(p, container) {
   try {
-    const statusColors = {
-      watching: '#888888',
-      bidding: '#3b82f6',
-      skipped: '#666666',
-      won: '#22c55e',
-      lost: '#ef4444',
-      reviewing: '#f97316',
-      archived: '#555555'
-    };
-    const color = statusColors[p.status] || '#555';
+    const display = window.prodigyDisplay;
+    if (!display) throw new Error("표시 Registry가 로드되지 않았습니다.");
+    const color = display.statusInfo(p.status).color;
     
     const card = container.createEl('div', {
       attr: {
@@ -70,6 +63,12 @@ window.renderAuctionCard = function(p, container) {
       return num;
     };
 
+    const hasRecordedValue = (value) => value !== undefined
+      && value !== null
+      && String(value).trim() !== ""
+      && value !== "정보 없음";
+    const isClosedWatching = p.status === "watching" && hasRecordedValue(p.winning_bid_price);
+
     // Calculate D-Day first
     let ddayStr = "-";
     let isUrgent = false;
@@ -95,17 +94,21 @@ window.renderAuctionCard = function(p, container) {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         if (diffDays === 0) {
-          ddayStr = "D-Day";
+          ddayStr = "오늘 입찰";
           isUrgent = true;
         } else if (diffDays > 0) {
-          ddayStr = `D-${diffDays}`;
+          ddayStr = `${diffDays}일 남음`;
           if (diffDays <= 3) isUrgent = true;
         } else {
-          ddayStr = `D+${Math.abs(diffDays)}`;
+          ddayStr = `${Math.abs(diffDays)}일 지남`;
         }
         
         dateStr = isoDate;
       }
+    }
+    if (isClosedWatching) {
+      ddayStr = "종료";
+      isUrgent = false;
     }
 
     const isMobile = (window.app?.isMobile || document.body.classList.contains('is-mobile')) && window.innerWidth < 768;
@@ -214,23 +217,25 @@ window.renderAuctionCard = function(p, container) {
     });
     
     let minRateStr = "";
-    if (p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") {
+    if (!isClosedWatching && p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") {
       const appraisal = Number(p.appraisal_price);
       const minimum = Number(p.minimum_bid);
       if (!isNaN(appraisal) && !isNaN(minimum) && isFinite(appraisal) && isFinite(minimum) && appraisal > 0) {
         minRateStr = ` (${(minimum / appraisal * 100).toFixed(0)}%)`;
       }
     }
-      
+
+    const primaryPriceKey = isClosedWatching ? "winning_bid_price" : "minimum_bid";
+    const primaryPrice = isClosedWatching ? p.winning_bid_price : p.minimum_bid;
     const minEl = financeRow.createEl('div');
-    minEl.innerHTML = `최저: <strong>${toEok(p.minimum_bid)}${minRateStr}</strong>`;
+    minEl.innerHTML = `${display.property(primaryPriceKey)}: <strong>${toEok(primaryPrice)}${minRateStr}</strong>`;
     
     financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
     
     const exitEl = financeRow.createEl('div', {
       attr: {
         style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
-        title: '클릭하여 매도 목표가(exit_price)를 수정합니다.'
+        title: `${display.property("exit_price")} 수정`
       }
     });
     
@@ -243,7 +248,7 @@ window.renderAuctionCard = function(p, container) {
     });
     
     const exitColor = p.exit_price && p.exit_price !== "정보 없음" ? 'var(--text-success)' : 'var(--text-normal)';
-    exitEl.innerHTML = `탈출: <strong style="color:${exitColor};">${toEok(p.exit_price)}</strong>`;
+    exitEl.innerHTML = `${display.property("exit_price")}: <strong style="color:${exitColor};">${toEok(p.exit_price)}</strong>`;
     
     exitEl.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -251,8 +256,8 @@ window.renderAuctionCard = function(p, container) {
       
       const currentExit = p.exit_price || "";
       const newExit = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] 매도 목표가(exit_price) 수정`,
-        "매도 목표가(exit_price)를 입력해주세요 (원 단위, 예: 220000000):",
+        `[${p.case_number || p.file.name}] ${display.property("exit_price")} 수정`,
+        `${display.property("exit_price")}를 입력해주세요 (원 단위, 예: 220000000):`,
         String(currentExit)
       );
       
@@ -276,7 +281,7 @@ window.renderAuctionCard = function(p, container) {
     const expEl = financeRow.createEl('div', {
       attr: {
         style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
-        title: '클릭하여 입찰가(expected_bid)를 수정합니다.'
+        title: `${display.property("expected_bid")} 수정`
       }
     });
     
@@ -288,7 +293,7 @@ window.renderAuctionCard = function(p, container) {
       expEl.style.backgroundColor = 'transparent';
     });
     
-    expEl.innerHTML = `입찰: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>`;
+    expEl.innerHTML = `${display.property("expected_bid")}: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>`;
     
     expEl.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -296,8 +301,8 @@ window.renderAuctionCard = function(p, container) {
       
       const currentExpected = p.expected_bid || "";
       const newExpected = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] 입찰가(expected_bid) 수정`,
-        "입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):",
+        `[${p.case_number || p.file.name}] ${display.property("expected_bid")} 수정`,
+        `${display.property("expected_bid")}를 입력해주세요 (원 단위, 예: 154000000):`,
         String(currentExpected)
       );
       
@@ -387,7 +392,7 @@ window.renderAuctionCard = function(p, container) {
           contentEl.createEl("h3", { text: `[${p.case_number || p.file.name}] 월수익 계산 정보 수정`, attr: { style: "margin-bottom: 16px; font-size: 1.2em;" } });
           
           new Setting(contentEl)
-            .setName("예상 월세")
+            .setName(display.property("expected_monthly_rent"))
             .setDesc("원 단위 또는 만원 단위 (예: 500000 또는 50만)")
             .addText((text) => {
               text.setValue(String(this.inputRent));
@@ -395,7 +400,7 @@ window.renderAuctionCard = function(p, container) {
             });
             
           new Setting(contentEl)
-            .setName("대출 비율")
+            .setName(display.property("loan_ratio"))
             .setDesc("소수점 비율 또는 % 단위 (예: 0.8 또는 80%)")
             .addText((text) => {
               text.setValue(String(this.inputLoan));
@@ -403,7 +408,7 @@ window.renderAuctionCard = function(p, container) {
             });
             
           new Setting(contentEl)
-            .setName("대출 이율")
+            .setName(display.property("interest_rate"))
             .setDesc("소수점 이율 또는 % 단위 (예: 0.06 또는 6%)")
             .addText((text) => {
               text.setValue(String(this.inputInterest));
@@ -491,8 +496,13 @@ window.renderAuctionCard = function(p, container) {
       
       const reason = p.decision_reason || "미지정";
       const icon = p.status === "won" ? "🏆" : p.status === "lost" ? "❌" : "🚫";
-      
-      decisionEl.innerHTML = `${icon} <strong style="color:var(--text-accent); font-weight:bold;">결정 사유:</strong> ${reason}`;
+
+      decisionEl.createSpan({ text: `${icon} ` });
+      decisionEl.createEl('strong', {
+        text: `${display.property("decision_reason")}:`,
+        attr: { style: 'color:var(--text-accent); font-weight:bold;' }
+      });
+      decisionEl.createSpan({ text: ` ${reason}` });
     }
     
     // Opinion Row (Clickable)
@@ -518,12 +528,16 @@ window.renderAuctionCard = function(p, container) {
       return val && val !== "정보 없음" && val !== "메모 없음" && String(val).trim() !== "";
     };
     
-    let opinionText = isValid(myOpinion) 
-      ? String(myOpinion).trim() 
-      : `<span style="color:var(--text-muted); font-style:italic;">의견 없음 (클릭하여 입력...)</span>`;
-      
-    opinionEl.innerHTML = `💭 <strong style="color:var(--text-accent); font-weight:bold;">나의의견:</strong> ${opinionText}`;
-    opinionEl.title = "클릭하여 나의 의견(my_opinion)을 수정합니다.";
+    opinionEl.createSpan({ text: '💭 ' });
+    opinionEl.createEl('strong', {
+      text: `${display.property("my_opinion")}:`,
+      attr: { style: 'color:var(--text-accent); font-weight:bold;' }
+    });
+    opinionEl.createSpan({
+      text: isValid(myOpinion) ? ` ${String(myOpinion).trim()}` : ' 의견 없음 (클릭하여 입력...)',
+      attr: isValid(myOpinion) ? {} : { style: 'color:var(--text-muted); font-style:italic;' }
+    });
+    opinionEl.title = `${display.property("my_opinion")} 수정`;
 
     opinionEl.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -531,7 +545,7 @@ window.renderAuctionCard = function(p, container) {
       
       const currentOpinion = p.my_opinion || "";
       const newOpinion = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] 나의 의견(my_opinion) 수정`,
+        `[${p.case_number || p.file.name}] ${display.property("my_opinion")} 수정`,
         "투자 판단 의견 및 메모를 입력해주세요:",
         String(currentOpinion)
       );
@@ -548,7 +562,7 @@ window.renderAuctionCard = function(p, container) {
         
         // Frontmatter update is sufficient since the template uses Meta-bind to display/edit properties
         
-        new Notice("나의 의견(my_opinion)이 업데이트되었습니다.");
+        new Notice(`${display.property("my_opinion")}이 업데이트되었습니다.`);
       }
     });
 
@@ -562,25 +576,23 @@ window.renderAuctionCard = function(p, container) {
     const userText = isValid(userNote) ? String(userNote).trim() : "";
     const recText = isValid(recNote) ? String(recNote).trim() : "";
 
-    if (userText && recText) {
-      memoEl.innerHTML = `
-        <div style="border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;">
-          <div>📝 <strong style="color:var(--text-accent); font-weight:bold;">참고사항:</strong> ${userText}</div>
-          <div style="margin-left: 18px; color: var(--text-muted); margin-top: 2px;">${recText}</div>
-        </div>
-      `;
-    } else if (userText) {
-      memoEl.innerHTML = `
-        <div style="border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;">
-          <div>📝 <strong style="color:var(--text-accent); font-weight:bold;">참고사항:</strong> ${userText}</div>
-        </div>
-      `;
-    } else if (recText) {
-      memoEl.innerHTML = `
-        <div style="border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;">
-          <div>📝 <strong style="color:var(--text-accent); font-weight:bold;">참고사항:</strong> ${recText}</div>
-        </div>
-      `;
+    if (userText || recText) {
+      const memoBody = memoEl.createEl('div', {
+        attr: { style: 'border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;' }
+      });
+      const primaryMemo = memoBody.createEl('div');
+      primaryMemo.createSpan({ text: '📝 ' });
+      primaryMemo.createEl('strong', {
+        text: '참고사항:',
+        attr: { style: 'color:var(--text-accent); font-weight:bold;' }
+      });
+      primaryMemo.createSpan({ text: ` ${userText || recText}` });
+      if (userText && recText) {
+        memoBody.createEl('div', {
+          text: recText,
+          attr: { style: 'margin-left: 18px; color: var(--text-muted); margin-top: 2px;' }
+        });
+      }
     } else {
       memoEl.style.display = 'none';
     }
@@ -588,30 +600,18 @@ window.renderAuctionCard = function(p, container) {
     // Transition status buttons
     const getTransitionButtons = (currentStatus) => {
       const allTransitions = {
-        watching: [
-          { key: 'bidding', label: '⚖️ 입찰 준비', color: '#3b82f6' },
-          { key: 'skipped', label: '❌ 입찰 포기', color: '#666666' }
-        ],
-        bidding: [
-          { key: 'won', label: '🏆 낙찰성공', color: '#22c55e' },
-          { key: 'lost', label: '💔 패찰차순', color: '#ef4444' },
-          { key: 'skipped', label: '❌ 입찰 포기', color: '#666666' }
-        ],
-        won: [
-          { key: 'reviewing', label: '🔄 낙찰복기', color: '#f97316' }
-        ],
-        lost: [
-          { key: 'reviewing', label: '🔄 패찰복기', color: '#f97316' }
-        ],
-        reviewing: [
-          { key: 'archived', label: '📦 사건종결', color: '#555555' }
-        ],
-        skipped: [
-          { key: 'archived', label: '📦 사건종결', color: '#555555' }
-        ],
+        watching: ['bidding', 'skipped'],
+        bidding: ['won', 'lost', 'skipped'],
+        won: ['reviewing'],
+        lost: ['reviewing'],
+        reviewing: ['archived'],
+        skipped: ['archived'],
         archived: []
       };
-      return allTransitions[currentStatus] || [];
+      return (allTransitions[currentStatus] || []).map((key) => {
+        const info = display.statusInfo(key);
+        return { key, label: `${info.icon} ${info.label}`.trim(), color: info.color };
+      });
     };
     
     const buttons = getTransitionButtons(p.status);
@@ -644,7 +644,7 @@ window.renderAuctionCard = function(p, container) {
           let winningBid = p.winning_bid_price || "";
  
           if (opt.key === 'bidding') {
-            const inputExpected = await window.obsidianPrompt(`[${p.case_number}] 입찰 준비`, "예상 입찰가(expected_bid)를 입력해주세요 (원 단위, 예: 154000000):", String(expectedBid));
+            const inputExpected = await window.obsidianPrompt(`[${p.case_number}] ${display.status('bidding')}`, `${display.property("expected_bid")}를 입력해주세요 (원 단위, 예: 154000000):`, String(expectedBid));
             if (inputExpected === null) return;
             expectedBid = inputExpected.trim();
 
@@ -794,7 +794,6 @@ window.renderAuctionCard = function(p, container) {
                   }
                 });
                 
-                // 2. Update note body H1 Decision section
                 let content = await app.vault.read(tFile);
                 let decisionHeader = "# Investment Decision";
                 let decisionIndex = content.indexOf(decisionHeader);
@@ -808,26 +807,19 @@ window.renderAuctionCard = function(p, container) {
                   if (nextH1Match) {
                     endIndex = decisionIndex + decisionHeader.length + nextH1Match.index + 1;
                   }
-                  
-                  const newDecisionSection = `${decisionHeader}
- 
-Current Status
-\`= this.status\`
- 
-Decision Date
-${todayStr}
- 
-Reason
-${reason}
- 
-Notes
-\`= this.my_opinion\`
- 
-- 참고 -
-\`= this.recommend_note\`
- 
-`;
-                  const updatedContent = content.substring(0, decisionIndex) + newDecisionSection + content.substring(endIndex);
+                  const section = content.slice(decisionIndex, endIndex);
+                  const separator = /\n---[ \t]*\n?$/.exec(section);
+                  const insertAt = separator ? decisionIndex + separator.index : endIndex;
+                  const safeNote = String(note || "-").replace(/[\r\n]+/g, " ").trim() || "-";
+                  const entry = [
+                    "",
+                    `### ${todayStr} · ${display.status(opt.key)}`,
+                    "",
+                    `- ${display.property("decision_reason")}: ${reason}`,
+                    `- ${display.property("my_opinion")}: ${safeNote}`,
+                    ""
+                  ].join("\n");
+                  const updatedContent = content.slice(0, insertAt).trimEnd() + "\n" + entry + content.slice(insertAt);
                   await app.vault.modify(tFile, updatedContent);
                 }
                 
@@ -851,114 +843,45 @@ Notes
         }
       });
       
-      // If status is bidding, display the site visit button/badge to the right of status buttons
-      if (p.status === "bidding") {
-        const svd = p.site_visit_date;
-        const isCompleted = svd && svd !== "정보 없음" && String(svd).trim() !== "";
-        
-        if (!isCompleted) {
-          const svBtn = buttonContainer.createEl('button', {
-            text: '☐ 임장 완료',
-            attr: {
-              style: 'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid #3b82f6; cursor: pointer; font-weight: bold; margin-left: auto;'
-            }
-          });
-          
-          svBtn.onclick = async (e) => {
-            e.preventDefault();
-            const tFile = app.vault.getAbstractFileByPath(p.file.path);
-            if (tFile) {
-              const todayStr = new Date().toISOString().split('T')[0];
-              await app.fileManager.processFrontMatter(tFile, (fm) => {
-                fm.site_visit_date = todayStr;
-                fm.updated = todayStr;
-              });
-              new Notice(`임장 완료 처리되었습니다: ${todayStr}`);
-            }
-          };
-        } else {
-          const svBadge = buttonContainer.createEl('button', {
-            text: `☑ 임장 완료 (${svd})`,
-            attr: {
-              style: 'font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: #3b82f615; color: #3b82f6; border: 1px solid #3b82f6; cursor: pointer; font-weight: bold; margin-left: auto;'
-            }
-          });
-          
-          svBadge.onclick = (e) => {
-            e.preventDefault();
-            class SiteVisitActionModal extends window.obsidian.Modal {
-              constructor(appInstance) {
-                super(appInstance);
-              }
-              onOpen() {
-                const { contentEl } = this;
-                contentEl.empty();
-                contentEl.createEl("h3", { text: "임장 기록 관리", attr: { style: "margin-bottom: 16px; font-size: 1.15em;" } });
-                
-                // Option 1: Edit Date
-                const row1 = contentEl.createEl("div", { attr: { style: "display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; background: var(--background-modifier-hover); padding: 10px; border-radius: 6px;" } });
-                row1.createEl("span", { text: "날짜 수정:", attr: { style: "font-weight: bold; font-size: 0.85em; color: var(--text-muted);" } });
-                
-                const dateInput = row1.createEl("input", {
-                  attr: { type: "date", value: svd, style: "padding: 4px; border-radius: 4px; border: 1px solid var(--background-modifier-border); width: 100%; margin-bottom: 8px; color: var(--text-normal); background: var(--background-primary);" }
-                });
-                
-                const saveBtn = row1.createEl("button", {
-                  text: "수정 완료",
-                  attr: { style: "background: var(--text-accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; align-self: flex-end;" }
-                });
-                
-                saveBtn.onclick = async () => {
-                  const newDate = dateInput.value;
-                  if (newDate) {
-                    const tFile = app.vault.getAbstractFileByPath(p.file.path);
-                    if (tFile) {
-                      await app.fileManager.processFrontMatter(tFile, (fm) => {
-                        fm.site_visit_date = newDate;
-                        fm.updated = new Date().toISOString().split('T')[0];
-                      });
-                      new Notice(`임장 기일이 수정되었습니다: ${newDate}`);
-                      this.close();
-                    }
-                  } else {
-                    new Notice("올바른 날짜를 선택해주세요.");
-                  }
-                };
-                
-                // Option 2: Delete Record
-                const row2 = contentEl.createEl("div", { attr: { style: "display: flex; justify-content: space-between; align-items: center; background: var(--background-modifier-hover); padding: 10px; border-radius: 6px;" } });
-                row2.createEl("span", { text: "임장 기록 삭제:", attr: { style: "font-weight: bold; font-size: 0.85em; color: var(--text-error);" } });
-                
-                const deleteBtn = row2.createEl("button", {
-                  text: "기록 삭제",
-                  attr: { style: "background: var(--text-error); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;" }
-                });
-                
-                deleteBtn.onclick = async () => {
-                  if (confirm("정말로 임장 기일 기록을 삭제하시겠습니까?\n삭제하면 '임장 미완료' 상태로 복원됩니다.")) {
-                    const tFile = app.vault.getAbstractFileByPath(p.file.path);
-                    if (tFile) {
-                      await app.fileManager.processFrontMatter(tFile, (fm) => {
-                        delete fm.site_visit_date;
-                        fm.updated = new Date().toISOString().split('T')[0];
-                      });
-                      new Notice("임장 기록이 삭제되었습니다.");
-                      this.close();
-                    }
-                  }
-                };
-              }
-              onClose() {
-                this.contentEl.empty();
-              }
-            }
-            new SiteVisitActionModal(window.app).open();
-          };
-        }
+      if (p.status === "bidding" && window.openAuctionSiteVisit) {
+        const state = window.prodigySiteVisitStateByPath?.[p.file.path];
+        const progress = window.prodigySiteVisit?.progress(state);
+        const complete = window.prodigySiteVisit?.isComplete(state);
+        const label = complete ? "현장 방문 체크리스트 (완료)" : progress && progress.done > 0
+          ? `현장 방문 체크리스트 (${progress.done} / ${progress.total})` : "현장 방문 체크리스트";
+        const siteVisitButton = buttonContainer.createEl('button', {
+          text: label,
+          attr: {
+            'data-site-visit-path': p.file.path,
+            style: 'font-size: 0.7em; padding: 1px 5px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid var(--text-accent); cursor: pointer; font-weight: bold; margin-left: auto;'
+          }
+        });
+        siteVisitButton.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.openAuctionSiteVisit(p);
+        };
       }
     }
   } catch (e) {
-    console.error("renderAuctionCard error:", e);
-    new Notice("renderAuctionCard 에러 발생: " + e.message + "\n" + e.stack, 15000);
+    console.error("Auction card error:", e);
+    new Notice("경매 카드 오류: " + e.message + "\n" + e.stack, 15000);
   }
 };
+
+if (!window.prodigySiteVisitCardListener) {
+  window.prodigySiteVisitCardListener = (event) => {
+    const path = event.detail?.path;
+    const state = event.detail?.state;
+    if (!path || !state) return;
+    const progress = window.prodigySiteVisit?.progress(state);
+    const complete = window.prodigySiteVisit?.isComplete(state);
+    const label = complete ? "현장 방문 체크리스트 (완료)" : progress && progress.done > 0
+      ? `현장 방문 체크리스트 (${progress.done} / ${progress.total})` : "현장 방문 체크리스트";
+    const buttons = document.querySelectorAll("[data-site-visit-path]");
+    for (const button of Array.from(buttons)) {
+      if (button.getAttribute("data-site-visit-path") === path) button.textContent = label;
+    }
+  };
+  window.addEventListener("prodigy-site-visit-updated", window.prodigySiteVisitCardListener);
+}

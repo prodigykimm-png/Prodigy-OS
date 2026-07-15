@@ -1,8 +1,8 @@
 ---
 cssclasses:
   - hide-properties_reading
-card_region: 부산
-card_type: 오피스텔
+card_region: 전체지역
+card_type: 전체종류
 card_sort: dday_asc
 ---
 ```js-engine
@@ -26,12 +26,12 @@ const loadProdigyScript = async (path) => {
 };
 
 try {
+  await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
+  await loadProdigyScript("SYSTEM/Views/site-visit-data.js");
+  await loadProdigyScript("SYSTEM/Views/site-visit-workflow.js");
+  if (window.prodigySiteVisitReady) await window.prodigySiteVisitReady;
   await loadProdigyScript("SYSTEM/Views/auction-card.js");
-  
-  const codeStr = window.renderAuctionCard ? window.renderAuctionCard.toString() : "undefined";
-  const hasFinanceRow = codeStr.includes("financeRow");
-  new Notice(`[Debug] renderAuctionCard 로드완료. 코드길이: ${codeStr.length}, financeRow 존재: ${hasFinanceRow}`, 10000);
 } catch (err) {
   container.empty();
   const errCard = container.createEl("div", {
@@ -53,7 +53,7 @@ try {
 }
 ```
 
-# 🎯 Today
+# 🎯 오늘
 
 ```dataviewjs
 // Calculate counts and progress stats
@@ -69,8 +69,15 @@ const currentMonth = now.getMonth(); // 0-11
 const todayStr = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
 const cases = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
+const toPlainArray = (value) => {
+  if (!value) return [];
+  if (typeof value.array === "function") return value.array();
+  if (Array.isArray(value)) return value;
+  if (typeof value[Symbol.iterator] === "function") return Array.from(value);
+  return [];
+};
 
-cases.forEach(p => {
+toPlainArray(cases).forEach(p => {
   // 1. Today Bidding
   if (p.status === "bidding" && p.auction_datetime) {
     const cleanStr = String(p.auction_datetime).split(' ')[0].split('T')[0];
@@ -120,7 +127,7 @@ const mainBox = this.container.createEl('div', {
 const statsBox = mainBox.createEl('div', {
   attr: { style: 'background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.2);' }
 });
-statsBox.createEl('div', { text: '🎯 Today 할 일 (Actions Needed)', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
+statsBox.createEl('div', { text: '🎯 오늘 할 일', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
 
 const addStatItem = (parent, label, count, color, isHighlight) => {
   const row = parent.createEl('div', { attr: { style: 'display:flex;justify-content:space-between;align-items:center;font-size:0.85em;' } });
@@ -133,7 +140,7 @@ const addStatItem = (parent, label, count, color, isHighlight) => {
   });
 };
 
-addStatItem(statsBox, '🔥 오늘 입찰 (Today Bidding)', todayBiddingCount, '#ef4444', todayBiddingCount > 0);
+addStatItem(statsBox, '🔥 오늘 입찰', todayBiddingCount, '#ef4444', todayBiddingCount > 0);
 addStatItem(statsBox, '⚠️ 임장 미완료', pendingSiteVisitsCount, '#3b82f6', pendingSiteVisitsCount > 0);
 addStatItem(statsBox, '⚠️ 예상입찰가 누락', missingExpectedCount, '#eab308', missingExpectedCount > 0);
 
@@ -141,15 +148,15 @@ addStatItem(statsBox, '⚠️ 예상입찰가 누락', missingExpectedCount, '#e
 const progressBox = mainBox.createEl('div', {
   attr: { style: 'background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px;box-shadow: 0 4px 8px rgba(0,0,0,0.2);' }
 });
-progressBox.createEl('div', { text: '✨ 이번 달 진행 현황 (Monthly Progress)', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
+progressBox.createEl('div', { text: '✨ 이번 달 진행 현황', attr: { style: 'font-weight:bold;font-size:0.95em;color:var(--text-accent);border-bottom:1px solid var(--background-modifier-border);padding-bottom:4px;' } });
 
-addStatItem(progressBox, '🏆 이번 달 낙찰 (Won)', wonThisMonthCount, '#22c55e', wonThisMonthCount > 0);
-addStatItem(progressBox, '🔄 복기 완료 (Reviews Done)', reviewsCompletedThisMonthCount, '#f97316', reviewsCompletedThisMonthCount > 0);
+addStatItem(progressBox, '🏆 이번 달 낙찰', wonThisMonthCount, '#22c55e', wonThisMonthCount > 0);
+addStatItem(progressBox, '🔄 이번 달 복기 완료', reviewsCompletedThisMonthCount, '#f97316', reviewsCompletedThisMonthCount > 0);
 ```
 
 ---
 
-# Auction Workflow
+# 경매 진행 현황
 
 ```js-engine
 const file = app.workspace.getActiveFile();
@@ -160,6 +167,13 @@ container.empty();
 const files = app.vault.getFiles().filter(f =>
   f.path.startsWith("PARA/PROJECTS/Auction/") && f.extension === "md"
 );
+
+if (!window.prodigyDisplay) {
+  const registryFile = app.vault.getAbstractFileByPath("SYSTEM/Views/display-registry.js");
+  if (!registryFile) throw new Error("Display Registry 파일을 찾을 수 없습니다.");
+  const registrySource = await app.vault.read(registryFile);
+  (new Function(registrySource))();
+}
 
 const counts = { watching: 0, bidding: 0, skipped: 0, won: 0, lost: 0, reviewing: 0, archived: 0 };
 
@@ -199,22 +213,28 @@ const makeArrow = (parent) => {
   });
 };
 
-makeStep(pipelineBox, '👀 검토', counts.watching, '#888');
+const display = window.prodigyDisplay;
+const statusStep = (status) => {
+  const info = display.statusInfo(status);
+  return `${info.icon} ${info.label}`.trim();
+};
+
+makeStep(pipelineBox, statusStep('watching'), counts.watching, '#888');
 makeArrow(pipelineBox);
-makeStep(pipelineBox, '⚖️ 입찰', counts.bidding, '#3b82f6');
+makeStep(pipelineBox, statusStep('bidding'), counts.bidding, '#3b82f6');
 makeArrow(pipelineBox);
 
 const grp1 = makeGroup(pipelineBox);
-makeStep(grp1, '🏆 낙찰', counts.won, '#22c55e');
-makeStep(grp1, '💔 패찰', counts.lost, '#ef4444');
+makeStep(grp1, statusStep('won'), counts.won, '#22c55e');
+makeStep(grp1, statusStep('lost'), counts.lost, '#ef4444');
 
 makeArrow(pipelineBox);
-makeStep(pipelineBox, '🔄 복기', counts.reviewing, '#f97316');
+makeStep(pipelineBox, statusStep('reviewing'), counts.reviewing, '#f97316');
 makeArrow(pipelineBox);
 
 const grp2 = makeGroup(pipelineBox);
-makeStep(grp2, '❌ 포기', counts.skipped, '#666');
-makeStep(grp2, '📦 보관', counts.archived, '#555');
+makeStep(grp2, statusStep('skipped'), counts.skipped, '#666');
+makeStep(grp2, statusStep('archived'), counts.archived, '#555');
 ```
 
 ---
@@ -238,7 +258,7 @@ if (window.renderDashboardSection) {
 
 ---
 
-## 👀 검토 중
+## 👀 관심
 
 ```dataviewjs
 if (window.renderDashboardSection) {

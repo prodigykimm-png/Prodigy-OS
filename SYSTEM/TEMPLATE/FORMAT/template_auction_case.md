@@ -59,227 +59,160 @@ attachments:
   sale_statement:
   field_report:
 ---
-# <% tp.file.title %>
+<!--
+Ownership:
+Property -> System -> Facts
+Summary -> Human -> Context
+Auction Information -> AI -> Evidence
+Site Visit -> Human -> Reality
+Decision Log -> Human -> Judgement
+Review -> Human -> Learning
+Observations -> Human -> Tacit Knowledge
+Attachments -> System -> Supporting Evidence
+This comment is for developers and must not be rendered in Dashboard views.
+-->
 
-# Object Summary
+# 요약
 
-| Property | Value |
-|----------|-------|
-| 사건번호 | `= this.case_number` |
-| 법원 | `= this.court` |
-| 물건종류 | `= this.property_type` |
-| 주소 | `= this.address` |
-| 감정가 | `= this.appraisal_price` |
-| 최저매각가 | `= this.minimum_bid` |
-| 예상 입찰가 | `= this.expected_bid` |
-| 입찰일시 | `= this.auction_datetime` |
-| 상태 | `= this.status` |
-| 임장 기일 | `= this.site_visit_date` |
-| 추천 | `= this.recommendation` |
-
-**AI Summary**
-
-> AI가 이 사건을 3~5줄 정도로 요약한다.
+- 중요한 이유:
+- 핵심 기회:
+- 핵심 위험:
 
 ---
 
-# Investment Thesis
+# 경매 정보
 
-- 
+> AI가 생성하거나 정리한 객관적 투자 근거입니다. 입찰, 포기 또는 매수를 권고하지 않습니다.
 
----
+## 물건 개요
 
-# Investment Snapshot
-
-- **예상 입찰가 (Expected Bid)**: `= this.expected_bid` 원
-- **매매 시세 (Market Sale Price)**: `= this.market_sale_price` 원
-- **전세 시세 (Market Jeonse Price)**: `= this.market_jeonse_price` 원
-- **예상 보증금 (Expected Deposit)**: `= this.expected_deposit` 원
-- **예상 월세 (Expected Monthly Rent)**: `= this.expected_monthly_rent` 원
-- **매도 목표가 (Exit Price)**: `= this.exit_price` 원
-- **예상 수익률 (Expected Yield)**: `$= (() => { const exp = Number(dv.current().expected_bid); const rent = Number(dv.current().expected_monthly_rent); const dep = Number(dv.current().expected_deposit || 0); const lr = Number(dv.current().loan_ratio || 0.8); const ir = Number(dv.current().interest_rate || 0.06); if (!exp || !rent || isNaN(exp) || isNaN(rent)) return "-"; const capital = exp * (1 - lr) - dep; const netIncome = rent * 12 - (exp * lr * ir); if (capital <= 0) return "계산 불가 (실투자금 0 이하)"; return (netIncome / capital * 100).toFixed(2) + "% (대출 " + (lr*100) + "%, 금리 " + (ir*100) + "% 가정)"; })()`
-
----
-
-# Collected Facts
-Store objective information only. No opinions.
-
-- **감정평가 (Appraisal)**: 
-- **최저매각가 (Minimum Bid)**: 
-- **임차인 현황 (Tenant)**: 
-- **체납 관리비 / 부가세 (Management Fee / VAT)**: 
-- **등기부등본 현황 (Registry)**: 
-- **점유 현황 (Occupancy)**: 
-
----
-
-# Market Analysis
-Store market analysis, sale price analysis, jeonse analysis, rental analysis, exit strategy.
-
-- **시세 분석 (Market Analysis)**: 
-- **매매 분석 (Sale Price Analysis)**: 
-- **전세 분석 (Jeonse Analysis)**: 
-- **월세 분석 (Rental Analysis)**: 
-- **출구 전략 (Exit Strategy)**: 
-
----
-
-# Legal Analysis
-Store rights, legal risks, occupancy risks, eviction risks.
-
-- **권리 분석 (Rights)**: 
-- **법적 리스크 (Legal Risks)**: 
-- **점유 리스크 (Occupancy Risks)**: 
-- **명도 리스크 (Eviction Risks)**: 
-
----
-
-# Site Visit Report
-Store visit observations, broker comments, building condition, surrounding environment, photos, personal observations.
-
-- **임장 기일**: `= this.site_visit_date`
-- **현장 관찰 (Visit Observations)**: 
-- **중개업소 피드백 (Broker Comments)**: 
-- **건물 상태 (Building Condition)**: 
-- **주변 환경 (Surrounding Environment)**: 
-- **사진 (Photos)**: 
-- **투자 임장 소회 (Investment Impression)**: 
-
----
-
-# Status Control
-
-<div style="display: none;">
-<style>
-div.block-language-meta-bind-button:has(.hidden-button-fix) {
-  display: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 0 !important;
-}
-</style>
-</div>
-```meta-bind-button
-id: watching
-hidden: true
-class: hidden-button-fix
-style: default
-label: 👀 보는 중
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: watching
-```
-```meta-bind-button
-id: bidding
-hidden: true
-class: hidden-button-fix
-style: default
-label: ⚖️ 입찰 예정
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: bidding
-```
-```meta-bind-button
-id: skipped
-hidden: true
-class: hidden-button-fix
-style: default
-label: ❌ 입찰 포기
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: skipped
-```
-```meta-bind-button
-id: won
-hidden: true
-class: hidden-button-fix
-style: default
-label: 🏆 낙찰
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: won
-```
-```meta-bind-button
-id: lost
-hidden: true
-class: hidden-button-fix
-style: default
-label: 💔 패찰
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: lost
-```
-```meta-bind-button
-id: reviewing
-hidden: true
-class: hidden-button-fix
-style: default
-label: 🔄 복기 중
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: reviewing
-```
-```meta-bind-button
-id: archived
-hidden: true
-class: hidden-button-fix
-style: default
-label: 📦 보관
-actions:
-  - type: updateMetadata
-    bindTarget: status
-    evaluate: false
-    value: archived
-```
-
-`BUTTON[watching, bidding, skipped, won, lost, reviewing, archived]`
-
----
-
-# Investment Decision
-
-Current Status
-`= this.status`
-
-Decision Date
 -
 
-Reason
-`INPUT[textArea(placeholder(투자 판단 의견 및 메모를 입력해주세요)):my_opinion]`
+## 입지 분석
 
-Notes
-`INPUT[textArea(placeholder(사건 관련 참고 메모를 입력하세요)):auction_note]`
+-
 
-- 참고 -
-`= this.recommend_note`
+## 교통
+
+-
+
+## 상권
+
+-
+
+## 시장 분석
+
+-
+
+## 수요 분석
+
+-
+
+## 위험 분석
+
+-
+
+## 기회 요인
+
+-
+
+## AI 근거 요약
+
+-
 
 ---
 
-# Review
-Store result review, mistakes, successful decisions, new investment principles. Use `review_date` when review is completed.
+# 현장 방문
 
-- **결과 복기 (Result Review)**: 
-- **실수 및 피드백 (Mistakes)**: 
-- **잘한 결정 (Successful Decisions)**: 
-- **새로운 투자 원칙 (New Investment Principles)**: 
-- **복기 완료일**: `= this.review_date`
+> 사람이 현장에서 직접 관찰한 사실만 기록합니다. 추론보다 실제로 확인한 내용을 남깁니다.
+
+## 외부
+
+-
+
+## 내부
+
+-
+
+## 공용부
+
+-
+
+## 주차
+
+-
+
+## 접근성
+
+-
+
+## 상권 분위기
+
+-
+
+## 예상 밖 발견
+
+-
+
+## 사진
+
+-
 
 ---
 
-# References
+# 판단 기록
 
-- 옥션원: `= this.source.auction`
-- 네이버부동산: `= this.source.naver`
-- 네이버카페: `= this.source.cafe`
+> 투자 판단의 중요한 변경을 순서대로 보존합니다. 이전 판단과 이유를 덮어쓰지 않습니다.
+
+<!-- Card compatibility anchor: # Investment Decision -->
+
+### 판단 변경 기록
+
+- 날짜:
+- 변경 내용:
+- 이유:
+- 근거:
+
+---
+
+# 복기
+
+> 판단과 실제 결과를 비교합니다. 이 섹션의 최종 작성자는 사람입니다.
+
+## 결과
+
+-
+
+## 잘한 점
+
+-
+
+## 틀린 판단
+
+-
+
+## 다시 같은 판단을 할 것인가?
+
+-
+
+## 핵심 교훈
+
+-
+
+---
+
+# 관찰
+
+> 다시 활용할 가치가 있는 관찰만 기록합니다. 억지로 작성할 필요는 없습니다.
+
+-
+
+---
+
+# 첨부 자료
+
+- 경매 문서:
+- 보고서:
+- 사진:
+- 지도:
+- 외부 참고자료:
