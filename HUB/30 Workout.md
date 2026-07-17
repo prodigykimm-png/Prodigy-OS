@@ -3,48 +3,37 @@ cssclasses:
   - hide-properties_editing
   - hide-properties_reading
 ---
-# 💪 Workout
+# Workout
 
-> **Workout Workspace**
-> 운동 계획 및 일지를 기록하고 피드백하는 공간입니다.
+> **Program Runner**
+> 프로그램을 선택하고, 오늘 순서를 수행하고, 실제 결과를 이어서 기록합니다.
 
----
+<!-- 현재 프로그램 · 프로그램 라이브러리 · 운동 기록 -->
 
-## 🏃‍♂️ 예정된 운동 루틴
+```js-engine
+if (!container) return;
+window.obsidian = obsidian;
+window.app = app;
 
-```dataviewjs
-let pages = dv.pages('"PARA/PROJECTS/Workout"')
-  .where(p => p.type === "workout" && p.status !== "completed")
-  .sort(p => p.due_date, 'asc');
+const loadWorkoutScript = async (path) => {
+  const file = app.vault.getAbstractFileByPath(path);
+  if (!file) throw new Error(`Workout resource not found: ${path}`);
+  (new Function(await app.vault.read(file)))();
+};
 
-if (pages.length === 0) {
-  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>예정되거나 진행 중인 운동이 없습니다.</span>");
-} else {
-  const tableData = [];
-  pages.forEach(p => {
-    tableData.push([p.file.link, p.workout_type || "-", `${p.duration_min || "-"}분`, p.intensity || "-", p.next_action || "-", p.due_date || "-"]);
+try {
+  await loadWorkoutScript("SYSTEM/Views/display-registry.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-core.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-store.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-import.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-view.js");
+  await window.WorkoutView.renderDashboard(app, container);
+} catch (error) {
+  container.empty();
+  container.createEl("p", {
+    text: "Workout Workspace를 불러오지 못했습니다.",
+    attr: { style: "color:var(--text-error);" }
   });
-  dv.table(["일지명", "부위/종류", "시간", "강도", "세부 계획", "예정일"], tableData);
-}
-```
-
----
-
-## 📅 최근 완료한 운동 목록
-
-```dataviewjs
-let pages = dv.pages('"PARA/PROJECTS/Workout"')
-  .where(p => p.type === "workout" && p.status === "completed")
-  .sort(p => p.due_date, 'desc')
-  .limit(10);
-
-if (pages.length === 0) {
-  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>기록된 이전 운동 일지가 없습니다.</span>");
-} else {
-  const tableData = [];
-  pages.forEach(p => {
-    tableData.push([p.file.link, p.workout_type || "-", `${p.duration_min || "-"}분`, p.intensity || "-", p.due_date || "-"]);
-  });
-  dv.table(["일지명", "부위/종류", "시간", "강도", "완료일"], tableData);
+  if (window.prodigyDebugMode === true) console.error(error);
 }
 ```

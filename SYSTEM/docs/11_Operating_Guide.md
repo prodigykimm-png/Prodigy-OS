@@ -230,21 +230,31 @@ next_action 설정
 
 ---
 
-## Scenario 5 — 개인 활동 (운동, 건강)
+## Scenario 5 — Workout Program Runner
 
 ```text
-1. Personal Object 열기 (Workout)
-2. Property 업데이트: 운동 종류, 시간, 강도
-3. 특별한 감정이나 깨달음이 있다면 Journal에 기록
-4. 추세는 Dashboard에서 확인
+1. Workout Dashboard에서 현재 Program Run 확인
+2. 제안된 다음 Program Day 또는 다른 Day 선택
+3. Exercise Card에서 실제 중량·횟수·RPE 기록
+4. 운동 완료 후 다음 미완료 Day 확인
+5. 필요할 때 Program을 일시정지·완료·중단하고 다른 Program 실행
 ```
 
-- Personal Object는 장기적인 데이터를 저장한다.
-- Journal은 운동 기록이 아니라 감정, 깨달음, 회고를 위한 공간이다.
+- **Program**: 재사용 가능한 운동 구성이다. 실행 진척을 저장하지 않는다.
+- **Program Run**: Program을 한 번 실행한 기록이다. 일반적으로 하나만 `active` 상태로 둔다.
+- **Program Day**: 요일이 아니라 `Week 2 Day 3` 같은 운동 순서다. 제안을 따르지 않고 다른 Day를 선택할 수 있다.
+- **Workout Session**: 실제 중량·횟수·RPE·메모를 저장한다. 같은 Day를 반복해도 이전 기록을 덮어쓰지 않는다.
+- **Quick Workout**: Program Run 없이 만드는 단독 Session이다. Program 진척에는 영향을 주지 않는다.
 
-**Personal vs Journal:**
-- Personal = 장기 추적 데이터 (운동 기록, 체중, 루틴)
-- Journal = 하루 회고, 감정, 깨달음
+### Program 가져오기
+
+Workout Dashboard의 `프로그램 가져오기`에서 Excel 파일을 선택한다. 저장 전 미리보기에서 Program 제목, 주차, Day 수, 운동 수, 확인이 필요한 행과 개요를 확인한다. 가져오기는 결정적 파서만 사용하며 AI가 내용을 추측하지 않는다.
+
+### 실행과 파생 상태
+
+Dashboard는 완료된 Session을 기준으로 가장 앞선 미완료 Day를 제안한다. 다른 Day를 먼저 선택하면 경고하지만 막지 않는다. 입력 중인 Session은 자동 저장되므로 Dashboard를 다시 열어도 이어서 기록할 수 있다.
+
+Program, Program Run, Session과 가져오기 결과는 `SYSTEM/AI/Memory/workout/` 아래의 파생 JSON으로 저장된다. 기존 Workout Markdown과 Program 원본은 실행 중 수정하지 않는다. 파생 상태를 제거해도 원본 사용자 문서는 삭제하지 않는다.
 
 ---
 
