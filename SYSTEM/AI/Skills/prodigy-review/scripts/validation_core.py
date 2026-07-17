@@ -52,12 +52,28 @@ def validate_structure(vault: Path, period: Period) -> list[ValidationIssue]:
 
 def validate_review_readiness(vault: Path, period: Period) -> list[ValidationIssue]:
     used = 0
+    blocks = 0
     for path in daily_files(vault, period):
-        evidence, _, _ = build_daily_evidence(vault, path)
-        used += int(bool(evidence.projection["reflection"].strip()))
+        items, has_content, _ = build_daily_evidence(vault, path)
+        blocks += len(items)
+        used += int(has_content)
     if used < 1:
-        return [ValidationIssue("review_readiness", "ERROR", "no_daily_reflection", "No meaningful Daily Reflection found for this week")]
-    return [ValidationIssue("review_readiness", "INFO", "review_ready", "Weekly Review has usable primary evidence")]
+        return [
+            ValidationIssue(
+                "review_readiness",
+                "ERROR",
+                "no_daily_reflection",
+                "No meaningful Daily Reflection / Evidence Blocks found for this week",
+            )
+        ]
+    return [
+        ValidationIssue(
+            "review_readiness",
+            "INFO",
+            "review_ready",
+            f"Weekly Review has usable primary evidence ({used} day(s), {blocks} block(s))",
+        )
+    ]
 
 
 def validate_pipeline_inputs(vault: Path, period: Period, operation_report: OperationReport) -> ValidationResult:
