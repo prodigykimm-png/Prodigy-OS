@@ -164,16 +164,16 @@ Home / Launcher의 **+ 새 Object** (⌘/Ctrl+N on Home) 가 **모든 Object 생
   ↓
 Object Engine.classify()  (결정론 · AI 없음 · vault 스캔 없음)
   ↓
-유형 제안 + 이유 + findDuplicates() 힌트
+유형 제안 + 이유 + findDuplicates() 유사 Object (최대 3)
   ↓
-사람 확인
+사람 확인 — 기존 Object 열기 또는 계속 만들기
   ↓
 기존 생성 흐름 (Project Wizard · People · Reading · …)
 ```
 
 - Creator는 **어댑터**다. 스키마·템플릿·워크스페이스 생성 구현을 복제하지 않는다.
 - 분류 실패 시 **저널** 폴백 + 이유 표시. 생성은 항상 사람이 확인한다.
-- 유사 Object는 패키지 목록만 힌트로 보여 주며 **생성을 막지 않는다**.
+- When similar Objects are detected, Universal Creator lets the user **open an existing Object** or **continue with a new creation**. Duplicate detection never blocks creation.
 - When **Project** is selected, the Creator input is handed to the existing Project Wizard as the initial project name.
 
 ## 2.2 Capture Postpones Decisions

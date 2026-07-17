@@ -45,18 +45,39 @@
 }
 .poc-reason-box strong{display:block;font-size:0.78em;color:var(--text-muted);margin-bottom:4px}
 .poc-dup,.poc-recent{
-  margin-top:10px;padding:8px 10px;border-radius:8px;
-  border:1px dashed var(--background-modifier-border);font-size:0.8em;line-height:1.4;
+  margin-top:10px;padding:10px;border-radius:8px;
+  border:1px solid var(--background-modifier-border);font-size:0.8em;line-height:1.4;
+  background:var(--background-secondary);
 }
-.poc-dup-title,.poc-recent-title{font-weight:700;color:var(--text-muted);margin-bottom:6px;font-size:0.78em}
-.poc-dup-item,.poc-recent-item{
+.poc-dup-title,.poc-recent-title{font-weight:800;color:var(--text-normal);margin-bottom:8px;font-size:0.84em}
+.poc-dup-card{
+  display:flex;flex-direction:column;gap:6px;padding:8px 0;
+  border-top:1px solid var(--background-modifier-border);
+}
+.poc-dup-card:first-of-type{border-top:0;padding-top:0}
+.poc-dup-title-line{font-weight:700;font-size:0.9em;color:var(--text-normal);overflow-wrap:anywhere}
+.poc-dup-meta{font-size:0.78em;color:var(--text-muted);overflow-wrap:anywhere}
+.poc-dup-reason{font-size:0.76em;color:var(--text-faint);line-height:1.35}
+.poc-dup-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.poc-dup-actions button{
+  min-height:36px;padding:4px 10px;font:inherit;font-size:0.8em;font-weight:650;
+  border-radius:6px;cursor:pointer;border:1px solid var(--background-modifier-border);
+  background:var(--background-primary);color:var(--text-normal);
+}
+.poc-dup-actions button:hover{background:var(--background-modifier-hover)}
+.poc-recent-item{
   display:flex;justify-content:space-between;gap:8px;padding:4px 0;cursor:pointer;border-radius:4px;
 }
-.poc-dup-item:hover,.poc-recent-item:hover{background:var(--background-modifier-hover)}
+.poc-recent-item:hover{background:var(--background-modifier-hover)}
 .poc-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap}
-.poc-footer button{min-height:0;padding:4px 12px}
+.poc-footer button{min-height:40px;padding:6px 14px;font:inherit}
 .poc-status{margin-top:8px;font-size:0.78em;color:var(--text-muted);min-height:1.2em}
 .poc-status.is-error{color:var(--text-error)}
+@media(max-width:480px){
+  .poc-dup-actions button{width:100%}
+  .poc-footer{flex-direction:column}
+  .poc-footer button{width:100%}
+}
 `;
 
   function ensureStyles() {
@@ -180,13 +201,19 @@
         cancelBtn.onclick = () => this.close();
 
         this.createBtn = footer.createEl("button", {
-          text: "만들기",
+          text: "새로 만들기",
           attr: { type: "button", class: "mod-cta" }
         });
 
         const paint = () => {
           const hasText = !!String(this.text || "").trim();
+          const sel = this.selectedCandidate();
           this.createBtn.disabled = !hasText || this.busy || !this.selectedId;
+          this.createBtn.setText(
+            hasText && this.selectedId && core.createActionLabel
+              ? core.createActionLabel(this.selectedId)
+              : "새로 만들기"
+          );
           suggestSection.empty();
           reasonBox.empty();
           dupBox.empty();
@@ -239,7 +266,6 @@
               };
             });
 
-            const sel = this.selectedCandidate();
             reasonBox.style.display = "";
             reasonBox.createEl("strong", { text: "이유" });
             if (sel && (sel.reasons || []).length) {
@@ -258,18 +284,62 @@
               });
             }
 
-            const similar = core.findSimilar(this.text, objectLists, { max: 5 });
+            // Actionable duplicates — open exact Object or create anyway
+            const similar = typeof core.listDuplicateCandidates === "function"
+              ? core.listDuplicateCandidates(this.text, objectLists, { maxResults: 3 })
+              : [];
             if (similar.length) {
               dupBox.style.display = "";
               dupBox.createEl("div", {
-                text: "비슷한 기존 Object (참고 · 생성을 막지 않음)",
+                text: "비슷한 Object가 있습니다",
                 attr: { class: "poc-dup-title" }
               });
               similar.forEach((item) => {
-                const row = dupBox.createDiv({ attr: { class: "poc-dup-item" } });
-                row.createEl("span", { text: `${item.label || item.type} · ${item.title}` });
-                row.onclick = () => {
-                  if (item.path) core.openPath(this.app, item.path);
+                const card = dupBox.createDiv({ attr: { class: "poc-dup-card" } });
+                card.createEl("div", {
+                  text: item.title,
+                  attr: { class: "poc-dup-title-line" }
+                });
+                const metaBits = [item.typeLabel, item.statusLabel].filter(Boolean);
+                if (metaBits.length) {
+                  card.createEl("div", {
+                    text: metaBits.join(" · "),
+                    attr: { class: "poc-dup-meta" }
+                  });
+                }
+                if (item.reason) {
+                  card.createEl("div", {
+                    text: item.reason,
+                    attr: { class: "poc-dup-reason" }
+                  });
+                }
+                const actions = card.createDiv({ attr: { class: "poc-dup-actions" } });
+                const openBtn = actions.createEl("button", {
+                  text: "기존 Object 열기",
+                  attr: { type: "button" }
+                });
+                openBtn.onclick = async (e) => {
+                  if (e && e.preventDefault) e.preventDefault();
+                  if (e && e.stopPropagation) e.stopPropagation();
+                  if (this.busy) return;
+                  statusEl.removeClass("is-error");
+                  statusEl.setText("여는 중…");
+                  try {
+                    const result = typeof core.openExistingObject === "function"
+                      ? await core.openExistingObject(this.app, item)
+                      : (core.openPath(this.app, item.path), { ok: true });
+                    if (result && result.ok) {
+                      notice("기존 Object를 열었습니다.");
+                      this.close();
+                    } else {
+                      statusEl.addClass("is-error");
+                      statusEl.setText("기존 Object를 열 수 없습니다.");
+                    }
+                  } catch (_err) {
+                    statusEl.addClass("is-error");
+                    statusEl.setText("기존 Object를 열 수 없습니다.");
+                    notice("기존 Object를 열 수 없습니다.");
+                  }
                 };
               });
             } else {
@@ -299,6 +369,7 @@
           paint();
         };
 
+        // Create-anyway — always available; never blocked by duplicates
         this.createBtn.onclick = async () => {
           if (this.busy || !String(this.text || "").trim() || !this.selectedId) return;
           this.busy = true;
@@ -319,6 +390,7 @@
             statusEl.addClass("is-error");
             statusEl.setText(error.message || String(error));
             notice(error.message || String(error), 9000);
+            paint();
           }
         };
 

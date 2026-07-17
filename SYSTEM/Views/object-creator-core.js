@@ -22,8 +22,12 @@
   }
 
   function openPath(app, path) {
-    if (!app || !path || !app.workspace || !app.workspace.openLinkText) return;
-    return app.workspace.openLinkText(String(path).replace(/\.md$/i, ""), path, false);
+    if (!app || !path || !app.workspace || !app.workspace.openLinkText) {
+      return Promise.resolve();
+    }
+    const link = String(path).replace(/\.md$/i, "");
+    const result = app.workspace.openLinkText(link, path, false);
+    return result && typeof result.then === "function" ? result : Promise.resolve(result);
   }
 
   function todayIso() {
@@ -97,6 +101,119 @@
       return engine.findSimilarObjects(input, objectLists, options);
     }
     return [];
+  }
+
+  function getDisplay() {
+    return root.prodigyDisplay || root.ProdigyDisplay || null;
+  }
+
+  /**
+   * Convert Object Engine duplicate hits into Creator UI cards.
+   * Drops candidates without title or path (cannot open).
+   * Does not change classification or mutate sources.
+   */
+  function normalizeDuplicateResults(rawResults, options) {
+    const opts = options || {};
+    const max = Math.max(1, Math.min(Number(opts.maxResults != null ? opts.maxResults : 3) || 3, 10));
+    const display = getDisplay();
+    const out = [];
+    const seen = Object.create(null);
+
+    (Array.isArray(rawResults) ? rawResults : []).forEach((item) => {
+      if (!item) return;
+      const title = clean(item.title || item.name || item.label);
+      const path = clean(item.path || item.object_path);
+      if (!title || !path) return;
+      const key = path.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+
+      let type = clean(item.type);
+      if (type === "auction") type = "auction_case";
+      const status = clean(item.status || item.canonical_status);
+      let typeLabel = clean(item.label || item.typeLabel || item.type_label);
+      if (!typeLabel && display && typeof display.type === "function" && type) {
+        try { typeLabel = display.type(type); } catch (_e) { typeLabel = ""; }
+      }
+      if (!typeLabel) typeLabel = type || "Object";
+
+      let statusLabel = clean(item.statusLabel || item.status_label);
+      if (!statusLabel && status && display && typeof display.status === "function") {
+        try { statusLabel = display.status(status); } catch (_e) { statusLabel = status; }
+      }
+
+      const reason = clean(item.reason)
+        || (Array.isArray(item.reasons) && item.reasons[0] ? clean(item.reasons[0]) : "")
+        || "제목이 유사합니다.";
+
+      out.push({
+        title,
+        path,
+        type: type || "",
+        typeLabel,
+        status: status || "",
+        statusLabel: statusLabel || "",
+        reason
+      });
+    });
+
+    return out.slice(0, max);
+  }
+
+  /**
+   * Engine findDuplicates → normalized Creator candidates.
+   * On engine failure: empty list (creation still works).
+   */
+  function listDuplicateCandidates(input, objectLists, options) {
+    const opts = options || {};
+    try {
+      const raw = findSimilar(input, objectLists, {
+        max: opts.max != null ? opts.max : (opts.maxResults != null ? opts.maxResults : 5)
+      });
+      return normalizeDuplicateResults(raw, {
+        maxResults: opts.maxResults != null ? opts.maxResults : 3
+      });
+    } catch (_err) {
+      return [];
+    }
+  }
+
+  /**
+   * Open an existing Object by path. Never launches a creator.
+   * @returns {Promise<{ ok: boolean, path?: string, error?: string }>}
+   */
+  async function openExistingObject(app, item) {
+    const host = app || root.app;
+    const path = clean(item && (item.path || item.object_path));
+    if (!path) {
+      notice("기존 Object를 열 수 없습니다.");
+      return { ok: false, error: "path missing" };
+    }
+    if (!host || !host.workspace || typeof host.workspace.openLinkText !== "function") {
+      notice("기존 Object를 열 수 없습니다.");
+      return { ok: false, error: "workspace unavailable" };
+    }
+    try {
+      await openPath(host, path);
+      return { ok: true, path };
+    } catch (err) {
+      notice("기존 Object를 열 수 없습니다.");
+      return { ok: false, error: String(err && err.message ? err.message : err) };
+    }
+  }
+
+  function createActionLabel(typeId) {
+    const id = clean(typeId).toLowerCase();
+    const map = {
+      project: "프로젝트 만들기",
+      people: "사람 만들기",
+      reading: "독서 Object 만들기",
+      workout: "운동 워크스페이스 열기",
+      auction: "경매 워크스페이스 열기",
+      knowledge: "지식 메모 만들기",
+      journal: "저널 열기"
+    };
+    return map[id] || "새로 만들기";
   }
 
   function listTypes() {
@@ -327,6 +444,10 @@
     clean,
     classify,
     findSimilar,
+    normalizeDuplicateResults,
+    listDuplicateCandidates,
+    openExistingObject,
+    createActionLabel,
     listTypes,
     launchExistingCreator,
     buildRecentFromPackage,
