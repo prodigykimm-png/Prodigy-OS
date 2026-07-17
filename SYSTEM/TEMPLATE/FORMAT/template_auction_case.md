@@ -33,7 +33,6 @@ appraisal_price:
 minimum_bid:
 minimum_bid_rate:
 bid_deposit:
-recommendation: 보통
 # ---------- Investment ----------
 expected_bid:
 my_bid_price:
@@ -53,6 +52,9 @@ decision_date:
 review_date:
 auction_note:
 my_opinion:
+# ---------- People / links ----------
+# Shared Object link field (People 등). 원본 사건 내용은 복사하지 않는다.
+connections:
 # ---------- Files ----------
 attachments:
   appraisal_report:

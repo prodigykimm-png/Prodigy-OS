@@ -11,7 +11,7 @@ cssclasses:
 
 ---
 
-## ⚡ Quick Capture
+## ⚡ 빠른 캡처
 
 `BUTTON[prodigy_quick_note, prodigy_auction_case, prodigy_knowledge, prodigy_project, prodigy_journal]`
 
@@ -62,11 +62,11 @@ if (pages.length === 0) {
 ---
 
 ```meta-bind-button
-label: Quick Note
+label: 빠른 메모
 icon: lucide-sticky-note
 hidden: true
 class: ""
-tooltip: Create a quick disposable note
+tooltip: 일회성 빠른 메모 만들기
 id: prodigy_quick_note
 style: primary
 actions:
@@ -75,11 +75,11 @@ actions:
 ```
 
 ```meta-bind-button
-label: Auction
+label: 경매
 icon: lucide-gavel
 hidden: true
 class: ""
-tooltip: Create a new auction case
+tooltip: 새 경매 사건 만들기
 id: prodigy_auction_case
 style: primary
 actions:
@@ -88,11 +88,11 @@ actions:
 ```
 
 ```meta-bind-button
-label: Knowledge
+label: 지식
 icon: lucide-brain
 hidden: true
 class: ""
-tooltip: Create a knowledge note
+tooltip: 지식 노트 만들기
 id: prodigy_knowledge
 style: primary
 actions:
@@ -101,11 +101,11 @@ actions:
 ```
 
 ```meta-bind-button
-label: Project
+label: 프로젝트
 icon: lucide-folder-kanban
 hidden: true
 class: ""
-tooltip: Create a new project
+tooltip: 새 프로젝트 만들기
 id: prodigy_project
 style: primary
 actions:
@@ -114,11 +114,11 @@ actions:
 ```
 
 ```meta-bind-button
-label: Journal
+label: 저널
 icon: lucide-calendar
 hidden: true
 class: ""
-tooltip: Open today's daily note
+tooltip: 오늘 일일 노트 열기
 id: prodigy_journal
 style: primary
 actions:

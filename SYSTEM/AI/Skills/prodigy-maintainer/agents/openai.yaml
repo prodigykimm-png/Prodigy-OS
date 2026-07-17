@@ -1,0 +1,6 @@
+interface:
+  display_name: "Prodigy Maintainer"
+  short_description: "Prodigy OS 변경을 규칙에 맞게 조정하고 검증합니다"
+  default_prompt: "Use $prodigy-maintainer to implement this Prodigy OS change with proportional verification."
+policy:
+  allow_implicit_invocation: true

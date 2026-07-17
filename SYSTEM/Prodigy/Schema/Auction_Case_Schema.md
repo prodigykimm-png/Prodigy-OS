@@ -68,6 +68,19 @@ updated:         # Templater 또는 수동
 | `loan_ratio` | 대출비율 | 소수 (0.0~1.0) |
 | `interest_rate` | 이자율 | 소수 (0.0~1.0) |
 
+### Recommendation (조사 추천 메타)
+
+| Property | 목적 | 단위 |
+|---|---|---|
+| `recommend` | 추천 여부 (공식 boolean) | true / false |
+| `recommend_level` | 추천 등급 (공식) | 텍스트 (`보통` / `추천` / `강추` / `강강추`) |
+| `recommend_note` | 추천 메모 (대시보드 표시) | 텍스트 |
+| `recommend_sources` | 추천 근거 출처 | 리스트 또는 텍스트 |
+
+> **공식 쓰기 필드:** `recommend`, `recommend_level`, `recommend_note`, `recommend_sources`  
+> **Legacy 읽기:** `recommendation` 이 있으면 `recommend_level` 이 비어 있을 때 등급으로 해석한다. 신규 저장은 `recommendation` 을 쓰지 않는다.  
+> 기존 Object 일괄 마이그레이션은 하지 않는다.
+
 ### Decision (의사 결정)
 
 | Property | 목적 | 단위 |

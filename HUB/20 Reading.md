@@ -24,7 +24,25 @@ const loadProdigyScript = async (path) => {
 };
 
 try {
+  await loadProdigyScript("SYSTEM/Views/display-registry.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/object-lifecycle-core.js");
+  await loadProdigyScript("SYSTEM/Views/object-lifecycle-view.js");
+  await loadProdigyScript("SYSTEM/Views/object-engine-core.js");
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
+  await loadProdigyScript("SYSTEM/Views/reading-memory-core.js");
+  await loadProdigyScript("SYSTEM/Views/reading-memory-retrieval.js");
+  await loadProdigyScript("SYSTEM/Views/reading-memory-store.js");
+  await loadProdigyScript("SYSTEM/Views/reading-memory-view.js");
+  await loadProdigyScript("SYSTEM/Views/reading-checklist-core.js");
+  await loadProdigyScript("SYSTEM/Views/reading-checklist-store.js");
+  await loadProdigyScript("SYSTEM/Views/reading-checklist-view.js");
+  await loadProdigyScript("SYSTEM/Views/reading-core.js");
+  await loadProdigyScript("SYSTEM/Views/reading-store.js");
+  await loadProdigyScript("SYSTEM/Views/reading-view.js");
+  await loadProdigyScript("SYSTEM/Views/reading-book-create.js");
+  await loadProdigyScript("SYSTEM/Views/reading-strategy-core.js");
+  await loadProdigyScript("SYSTEM/Views/reading-workspace-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-card.js");
 } catch (err) {
   container.empty();
@@ -46,208 +64,349 @@ try {
   return;
 }
 
-// Render "+ 새 책 추가" button
-const btn = container.createEl('button', {
-  text: '＋ 새 책 추가',
-  attr: { style: 'font-size:0.8em; font-weight:bold; padding:5px 12px; border-radius:6px; background:var(--text-accent); color:#ffffff; border:none; cursor:pointer; margin-bottom:16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' }
+// Create a complete Reading Object only after book metadata is available.
+if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
+const toolbar = container.createEl("div", {
+  attr: { class: "prodigy-btn-row", style: "margin-bottom:16px;" }
+});
+const btn = window.ProdigyUI
+  ? window.ProdigyUI.button(toolbar, "＋ 새 책 추가", { primary: true })
+  : toolbar.createEl("button", { text: "＋ 새 책 추가", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
+btn.onclick = (e) => {
+  e.preventDefault();
+  window.ReadingBookCreate.open(app);
+};
+
+```
+
+# 📖 읽는 중
+
+```dataviewjs
+// Card-first dashboard. Runtime + Strategy power the strip/actions — not a second UI wall.
+const mapReading = (p) => Object.assign({}, p, {
+  type: "reading",
+  path: p.file.path,
+  title: p.title || p.book_title || p.file.name,
+  book_title: p.book_title || p.title || p.file.name,
+  author: p.author,
+  status: p.status,
+  next_action: p.next_action,
+  progress: p.progress,
+  current_page: p.current_page,
+  total_page: p.total_page,
+  reading_strategy: p.reading_strategy,
+  book_type: p.book_type,
+  reading_type: p.reading_type,
+  category: p.category,
+  file: p.file,
+  id: p.id,
+  mtime: p.file && p.file.mtime
 });
 
-btn.onclick = async (e) => {
-  e.preventDefault();
-  const folderPath = "PARA/PROJECTS/Reading";
-  const folder = app.vault.getAbstractFileByPath(folderPath);
-  if (!folder) {
-    new Notice("Error: PARA/PROJECTS/Reading 폴더가 존재하지 않습니다.");
-    return;
-  }
-  
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hour = String(now.getHours()).padStart(2, '0');
-  const min = String(now.getMinutes()).padStart(2, '0');
-  
-  let baseName = `새 책 ${year}-${month}-${day} ${hour}${min}`;
-  let fileName = `${baseName}.md`;
-  let filePath = `${folderPath}/${fileName}`;
-  
-  let counter = 1;
-  while (app.vault.getAbstractFileByPath(filePath)) {
-    fileName = `${baseName}_${counter}.md`;
-    filePath = `${folderPath}/${fileName}`;
-    counter++;
-  }
-  
+const ensureRuntimeModel = () => {
+  if (window.__readingWorkspaceModel) return window.__readingWorkspaceModel;
+  if (!window.ObjectEngine || !window.ReadingWorkspaceCore) return null;
   try {
-    const newFile = await app.vault.create(filePath, "");
-    new Notice(`새 책 노트가 생성되었습니다: ${fileName}`);
-    const leaf = app.workspace.getLeaf(false);
-    await leaf.openFile(newFile);
-  } catch (err) {
-    new Notice("파일 생성 중 오류가 발생했습니다: " + err.message);
+    const all = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading").array().map(mapReading);
+    const session = window.ObjectEngine.createRuntimeSession({});
+    const model = window.ReadingWorkspaceCore.buildWorkspaceModel(all, { session });
+    window.__readingWorkspaceModel = model;
+    return model;
+  } catch (_e) {
+    return null;
   }
 };
-```
 
-# 📖 Continue Reading
+const run = () => {
+  if (!window.renderReadingCard) return false;
+  this.container.empty();
 
-```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading");
-if (pages.length === 0) {
-  this.container.createEl("span", {
-    text: "현재 읽는 중인 책이 없습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
-  });
-} else {
-  if (window.renderReadingCard) {
-    pages.forEach(p => window.renderReadingCard(p, this.container, "hero"));
-  } else {
-    this.container.createEl("span", { text: "로딩 중..." });
-  }
-}
-```
-
----
-
-# 📝 Review Needed
-
-```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reviewing");
-if (pages.length === 0) {
-  this.container.createEl("span", {
-    text: "리뷰 대기 중인 책이 없습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
-  });
-} else {
-  if (window.renderReadingCard) {
-    pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
-  } else {
-    this.container.createEl("span", { text: "로딩 중..." });
-  }
-}
-```
-
----
-
-# 📚 Reading Queue
-
-```dataviewjs
-const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "queue");
-if (pages.length === 0) {
-  this.container.createEl("span", {
-    text: "독서 대기열이 비어 있습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
-  });
-} else {
-  const grid = this.container.createEl("div", {
-    attr: { style: "display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px;" }
-  });
-  if (window.renderReadingCard) {
-    pages.forEach(p => window.renderReadingCard(p, grid, "grid"));
-  } else {
-    this.container.createEl("span", { text: "로딩 중..." });
-  }
-}
-```
-
-# ✅ Recently Finished
-
-```dataviewjs
-const current = dv.current();
-const sortBy = current.sort_completed_by || "date";
-const filterRating = Number(current.filter_rating);
-
-// Render inline filter and sort controls floated to the right
-const filterContainer = this.container.createEl("div", {
-  attr: { style: "display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px;" }
-});
-
-const makeSelectInline = (parent, label, field, options, currentVal) => {
-  const wrapper = parent.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 4px; font-size: 0.78em; color: var(--text-muted);' } });
-  wrapper.createEl('span', { text: label, attr: { style: 'font-weight: bold;' } });
-  
-  const sel = wrapper.createEl('select', { 
-    attr: { 
-      style: 'font-size: 0.95em; padding: 1px 4px; border-radius: 4px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid var(--background-modifier-border); cursor: pointer;' 
-    } 
-  });
-  
-  options.forEach(o => {
-    const opt = sel.createEl('option', { text: o.text, value: o.value });
-    if (o.value === String(currentVal !== undefined && currentVal !== null ? currentVal : o.value)) {
-      opt.selected = true;
+  // Compact Continue from Runtime (one strip — not full workspace render)
+  const model = ensureRuntimeModel();
+  const contBox = this.container.createEl("div", {
+    attr: {
+      style: "margin:0 0 12px;padding:10px 12px;border-radius:10px;border:1px solid var(--background-modifier-border);background:var(--background-secondary);"
     }
   });
-  
-  sel.onchange = async () => {
-    const file = app.workspace.getActiveFile();
-    if (file) {
-      await app.fileManager.processFrontMatter(file, (fm) => {
-        fm[field] = sel.value;
+  contBox.createEl("div", {
+    text: "▶ 이어 읽기",
+    attr: { style: "font-weight:800;font-size:0.88em;color:var(--text-accent);margin-bottom:4px;" }
+  });
+
+  const cont = model && model.continue_reading;
+  if (cont && !cont.empty) {
+    contBox.createEl("div", {
+      text: cont.title || "현재 책",
+      attr: { style: "font-weight:700;font-size:0.95em;" }
+    });
+    contBox.createEl("div", {
+      text: cont.action || "이어 읽기",
+      attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:2px;" }
+    });
+    if (cont.reason) {
+      const r = contBox.createEl("div", {
+        attr: { style: "margin-top:6px;font-size:0.78em;color:var(--text-muted);" }
+      });
+      r.createEl("span", { text: "이유 ", attr: { style: "font-weight:700;color:var(--text-faint);margin-right:4px;" } });
+      r.createEl("span", { text: cont.reason });
+    }
+    // Strategy chip for active book (power layer, not a full section)
+    if (model.strategy && !model.strategy.empty && model.strategy.strategy_label) {
+      contBox.createEl("div", {
+        text: `전략 · ${model.strategy.strategy_label}`,
+        attr: { style: "margin-top:6px;font-size:0.78em;font-weight:650;color:var(--text-muted);" }
       });
     }
-  };
+  } else {
+    contBox.createEl("div", {
+      text: "진행 중인 독서가 없습니다.",
+      attr: { style: "font-size:0.85em;color:var(--text-muted);font-style:italic;" }
+    });
+  }
+
+  // Hero cards — primary visible surface
+  const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading");
+  if (pages.length === 0) {
+    this.container.createEl("span", {
+      text: "진행 중인 독서가 없습니다.",
+      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+    });
+  } else {
+    pages.forEach(p => window.renderReadingCard(p, this.container, "hero"));
+  }
+  return true;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", { text: "로딩 중..." });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
+```
+
+---
+
+## 최근 세션
+
+```js-engine
+if (!container) return;
+container.empty();
+window.obsidian = obsidian;
+window.app = app;
+
+const loadProdigyScript = async (path) => {
+  const tFile = app.vault.getAbstractFileByPath(path);
+  if (tFile) (new Function(await app.vault.read(tFile)))();
 };
 
-makeSelectInline(filterContainer, '필터:', 'filter_rating', [
-  { text: '전체', value: '' },
-  { text: '⭐ 5점', value: '5' },
-  { text: '⭐ 4점 이상', value: '4' },
-  { text: '⭐ 3점 이상', value: '3' }
-], current.filter_rating);
-
-filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
-
-makeSelectInline(filterContainer, '정렬:', 'sort_completed_by', [
-  { text: '📅 최근 완독 순', value: 'date' },
-  { text: '⭐ 평점 높은 순', value: 'rating' }
-], current.sort_completed_by);
-
-let pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "completed");
-
-if (filterRating) {
-  pages = pages.where(p => p.rating && Number(p.rating) >= filterRating);
-}
-
-if (sortBy === "rating") {
-  pages = pages.sort(p => p.rating || 0, "desc");
-} else {
-  pages = pages.sort(p => p.file.mtime, "desc");
-}
-
-if (pages.length === 0) {
-  this.container.createEl("span", {
-    text: "조건에 맞는 완독 도서가 없습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+try {
+  await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/reading-core.js");
+  await loadProdigyScript("SYSTEM/Views/reading-store.js");
+  await loadProdigyScript("SYSTEM/Views/reading-view.js");
+  const render = window.ReadingView?.renderSessionHistory || window.ReadingView?.renderLearningLoop;
+  if (render) await render(app, container);
+  else {
+    container.createEl("span", {
+      text: "최근 세션이 없습니다.",
+      attr: { style: "color:var(--text-muted);font-style:italic;font-size:0.9em;" }
+    });
+  }
+} catch (error) {
+  container.createEl("p", {
+    text: "세션 기록을 불러오지 못했습니다.",
+    attr: { style: "color:var(--text-error);font-size:0.85em;" }
   });
-} else {
-  if (window.renderReadingCard) {
-    pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
-  } else {
-    this.container.createEl("span", { text: "로딩 중..." });
+  if (window.prodigyDebugMode) {
+    container.createEl("pre", { text: error.stack || error.message });
   }
 }
 ```
 
 ---
 
-# 🧠 AI Workspace
+## 📝 복기 필요
 
-> [!NOTE]
-> AI 독서 추천 및 지식 연결 서비스 준비 중입니다.
+```dataviewjs
+const run = () => {
+  if (window.renderReadingCard) {
+    this.container.empty();
+    // Prefer Runtime-derived waiting list when preloaded; else status reviewing
+    const model = window.__readingWorkspaceModel;
+    if (model && model.waiting_review && !model.waiting_review.empty && model.waiting_review.items) {
+      const paths = new Set(model.waiting_review.items.map(i => i.path).filter(Boolean));
+      let pages = dv.pages('"PARA/PROJECTS/Reading"')
+        .where(p => p.type === "reading" && paths.has(p.file.path));
+      if (pages.length === 0) {
+        pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reviewing");
+      }
+      if (pages.length === 0) {
+        this.container.createEl("span", {
+          text: "읽을 복기 대상이 없습니다.",
+          attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+        });
+      } else {
+        pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+      }
+      return true;
+    }
+    const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reviewing");
+    if (pages.length === 0) {
+      this.container.createEl("span", {
+        text: "읽을 복기 대상이 없습니다.",
+        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+      });
+    } else {
+      pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+    }
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", { text: "로딩 중..." });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
+```
 
-<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px;">
-  <div style="background: var(--background-secondary); border: 1px dashed var(--background-modifier-border); border-radius: 8px; padding: 12px; text-align: center; color: var(--text-muted);">
-    <div style="font-weight: bold; color: var(--text-normal); font-size: 0.9em; margin-bottom: 4px;">🧠 Suggested Knowledge</div>
-    <span style="font-size: 0.8em; font-style: italic;">연관 지식 추천 후보가 없습니다.</span>
-  </div>
-  <div style="background: var(--background-secondary); border: 1px dashed var(--background-modifier-border); border-radius: 8px; padding: 12px; text-align: center; color: var(--text-muted);">
-    <div style="font-weight: bold; color: var(--text-normal); font-size: 0.9em; margin-bottom: 4px;">🎯 Suggested Projects</div>
-    <span style="font-size: 0.8em; font-style: italic;">도서 기반 추천 실행 프로젝트가 없습니다.</span>
-  </div>
-  <div style="background: var(--background-secondary); border: 1px dashed var(--background-modifier-border); border-radius: 8px; padding: 12px; text-align: center; color: var(--text-muted);">
-    <div style="font-weight: bold; color: var(--text-normal); font-size: 0.9em; margin-bottom: 4px;">📚 Suggested Related Books</div>
-    <span style="font-size: 0.8em; font-style: italic;">연관 도서 추천 목록이 없습니다.</span>
-  </div>
-</div>
+---
+
+## 📚 읽기 대기
+
+```dataviewjs
+const run = () => {
+  if (window.renderReadingCard) {
+    this.container.empty();
+    const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "queue");
+    if (pages.length === 0) {
+      this.container.createEl("span", {
+        text: "독서 대기열이 비어 있습니다.",
+        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+      });
+    } else {
+      const grid = this.container.createEl("div", {
+        attr: { style: "display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px;" }
+      });
+      pages.forEach(p => window.renderReadingCard(p, grid, "grid"));
+    }
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", { text: "로딩 중..." });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
+```
+
+# ✅ 최근 완독
+
+```dataviewjs
+const run = () => {
+  if (window.renderReadingCard) {
+    this.container.empty();
+    const current = dv.current();
+    const sortBy = current.sort_completed_by || "date";
+    const filterRating = Number(current.filter_rating);
+
+    const filterContainer = this.container.createEl("div", {
+      attr: { style: "display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px;" }
+    });
+
+    const makeSelectInline = (parent, label, field, options, currentVal) => {
+      const wrapper = parent.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 4px; font-size: 0.78em; color: var(--text-muted);' } });
+      wrapper.createEl('span', { text: label, attr: { style: 'font-weight: bold;' } });
+      
+      const sel = wrapper.createEl('select', { 
+        attr: { 
+          style: 'font-size: 0.95em; padding: 1px 4px; border-radius: 4px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid var(--background-modifier-border); cursor: pointer;' 
+        } 
+      });
+      
+      options.forEach(o => {
+        const opt = sel.createEl('option', { text: o.text, value: o.value });
+        if (o.value === String(currentVal !== undefined && currentVal !== null ? currentVal : o.value)) {
+          opt.selected = true;
+        }
+      });
+      
+      sel.onchange = async () => {
+        const file = app.workspace.getActiveFile();
+        if (file) {
+          await app.fileManager.processFrontMatter(file, (fm) => {
+            fm[field] = sel.value;
+          });
+        }
+      };
+    };
+
+    makeSelectInline(filterContainer, '필터:', 'filter_rating', [
+      { text: '전체', value: '' },
+      { text: '⭐ 5점', value: '5' },
+      { text: '⭐ 4점 이상', value: '4' },
+      { text: '⭐ 3점 이상', value: '3' }
+    ], current.filter_rating);
+
+    filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
+
+    makeSelectInline(filterContainer, '정렬:', 'sort_completed_by', [
+      { text: '📅 최근 완독 순', value: 'date' },
+      { text: '⭐ 평점 높은 순', value: 'rating' }
+    ], current.sort_completed_by);
+
+    let pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "completed");
+
+    if (filterRating) {
+      pages = pages.where(p => p.rating && Number(p.rating) >= filterRating);
+    }
+
+    if (sortBy === "rating") {
+      pages = pages.sort(p => p.rating || 0, "desc");
+    } else {
+      pages = pages.sort(p => p.file.mtime, "desc");
+    }
+
+    if (pages.length === 0) {
+      this.container.createEl("span", {
+        text: "최근 완독 기록이 없습니다.",
+        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+      });
+    } else {
+      pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+    }
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", { text: "로딩 중..." });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
+```
+
+---
+
+# 객체 라이프사이클
+
+```dataviewjs
+if (window.ObjectLifecycleCore && window.ObjectLifecycleView) {
+  const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading").array();
+  const evaluation = window.ObjectLifecycleCore.evaluateCollection(pages);
+  window.ObjectLifecycleView.renderWorkspaceSummary({
+    container: this.container,
+    counts: evaluation.counts,
+    title: "독서 라이프사이클"
+  });
+} else {
+  this.container.createEl("span", {
+    text: "객체 라이프사이클 모듈을 불러오는 중...",
+    attr: { style: "color:var(--text-muted);font-size:0.82em;" }
+  });
+}
+```

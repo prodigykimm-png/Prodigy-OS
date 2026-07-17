@@ -60,7 +60,7 @@ Decision (Human Action)
 ## 시스템 폴더 구조
 
 ```text
-Dusk/ (Vault Root)
+Prodigy OS/ (Vault Root)
 ├── HUB/
 │   ├── 00 Home.md    ← 네비게이션 허브 (워크스페이스 런처)
 │   ├── 10 Auction.md ← 경매 도메인 작업 공간 (Operational Workspace)

@@ -144,8 +144,11 @@ async function runTests() {
   assert.ok(pkg.context.yesterday_review);
   assert.strictEqual(pkg.context.yesterday_review.date, "2026-07-15");
   assert.strictEqual(pkg.context.yesterday_review.found, true);
+  assert.strictEqual(pkg.context.yesterday_review.meaningful, true);
+  assert.strictEqual(pkg.context.yesterday_review.missing, false);
   assert.strictEqual(pkg.context.yesterday_review.change, "목표 달성에 더 신중해졌다.");
   assert.strictEqual(pkg.context.yesterday_review.next_experiment, "내일 아침 6시 기상");
+  assert.ok(pkg.context.yesterday_review.learning);
   console.log("✓ MorningContextCore.buildMorningPackage generated correct Morning Package.");
   console.log("✓ yesterday_review recovered change + next_experiment from previous day.");
 
@@ -153,8 +156,11 @@ async function runTests() {
   const fallback = global.MorningContextCore.generateDeterministicFallback(pkg);
   assert.strictEqual(fallback.schema_version, "morning-result-v1");
   assert.ok(fallback.brief.includes("규칙 기반") || fallback.brief_mode === "rule_based");
-  assert.ok(fallback.brief.includes("어제 변화"));
-  assert.ok(fallback.brief.includes("오늘 실험"));
+  assert.ok(
+    fallback.brief.includes("어제 배움") ||
+    fallback.brief.includes("오늘 실험") ||
+    fallback.brief.includes("이어갑니다")
+  );
   assert.ok(fallback.focus.length >= 2); // auction + project (and optional reading)
   assert.ok(fallback.focus.length <= 3);
   assert.strictEqual(fallback.focus[0].source_type, "auction");

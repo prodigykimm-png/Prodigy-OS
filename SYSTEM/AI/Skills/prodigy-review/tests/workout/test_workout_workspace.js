@@ -9,6 +9,7 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const core = require(path.join(ROOT, "SYSTEM/Views/workout-core.js"));
 const storeApi = require(path.join(ROOT, "SYSTEM/Views/workout-store.js"));
 const importer = require(path.join(ROOT, "SYSTEM/Views/workout-import.js"));
+const objects = require(path.join(ROOT, "SYSTEM/Views/workout-program-objects.js"));
 
 function program() {
   return core.normalizeProgram({
@@ -39,12 +40,57 @@ function testProgramAndRunDomain() {
   const first = core.createProgramRun(source, [], { run_id: "run-1", started_at: "2026-07-17T09:00:00Z" });
   assert.equal(first.status, "active");
   assert.equal(first.suggested_day, "w1d1");
+  assert.ok(first.program_snapshot);
+  assert.equal(first.program_snapshot.days.length, 3);
+  assert.ok(first.program_version);
   assert.throws(() => core.createProgramRun(source, [first], { run_id: "run-2" }), /active Program Run/);
 
   const paused = core.transitionProgramRun(first, "paused", "2026-07-18T09:00:00Z");
   const second = core.createProgramRun(source, [paused], { run_id: "run-2", started_at: "2026-07-18T10:00:00Z" });
   assert.equal(second.run_number, 2);
   assert.equal(first.status, "active", "transitions must not mutate history");
+
+  // Version safety: library edit does not rewrite run snapshot
+  const edited = core.clone(source);
+  edited.days[0].exercises[0].name = "Front Squat";
+  const frozen = core.programForRun(edited, first);
+  assert.equal(frozen.days[0].exercises[0].name, "Squat");
+}
+
+function testValidateDuplicateAndPr() {
+  const source = program();
+  assert.equal(core.validateProgram(source).ok, true);
+  const empty = core.validateProgram({ title: "X", days: [] });
+  assert.equal(empty.ok, false);
+  assert.ok(empty.errors.some((e) => /Day|day|세션|없습니다/i.test(e) || e.includes("Day")));
+
+  const dupDays = core.clone(source);
+  dupDays.days.push({ id: "dup", week: 1, day: 1, exercises: [{ name: "Row", prescribed_sets: [{ reps: "5" }] }] });
+  assert.equal(core.validateProgram(dupDays).ok, false);
+
+  const missingName = core.clone(source);
+  missingName.days[0].exercises[0].name = "";
+  assert.equal(core.validateProgram(missingName).ok, false);
+
+  const copy = core.duplicateProgram(source, { title: "Base One (복사)" });
+  assert.equal(copy.title, "Base One (복사)");
+  assert.notEqual(copy.id, source.id);
+
+  assert.equal(core.estimate1RM(100, 5), 116.7);
+  assert.equal(core.estimate1RM("", 5), null);
+
+  const sessions = [{
+    session_id: "s1", status: "completed", date: "2026-07-16", completed_at: "2026-07-16T10:00:00Z",
+    exercise_results: [{ exercise_id: "squat", name: "Squat", set_results: [
+      { weight: "100", reps: "5", rpe: "7", completed: true },
+      { weight: "110", reps: "3", rpe: "8", completed: true },
+    ] }],
+  }];
+  const best = core.bestExerciseResult(sessions, "Squat");
+  assert.equal(best.weight, "110");
+  const hist = core.exerciseHistory(sessions, "Squat", 5);
+  assert.ok(hist.length >= 2);
+  assert.ok(core.previousExerciseResultByName(sessions, "Squat"));
 }
 
 function testSuggestionAndManualDayRules() {
@@ -131,26 +177,73 @@ function testImportPreview() {
   assert.rejects(() => importer.inspectWorkbook(new Uint8Array([1, 2, 3]).buffer, "broken.xlsx"), /workbook/i);
 }
 
+function testProgramObjects() {
+  const source = program();
+  const note = objects.renderProgramNote(source, "2026-07-17");
+  assert.match(note, /type: workout_program/);
+  assert.match(note, /\[\[PARA\/RESOURCES\/Workout\/Exercises\/Squat\|Squat\]\]/);
+  assert.match(note, /# 코칭 노트/);
+  const parsed = objects.parseProgramSection(note, { id: source.id, title: source.title });
+  assert.equal(parsed.days[0].exercises[0].name, "Squat");
+  assert.equal(parsed.days[0].exercises[0].prescribed_sets[0].rpe, "7");
+  const personalized = note.replace("# 코칭 노트\n\n- ", "# 코칭 노트\n\n- 무릎 궤적 확인");
+  const edited = core.clone(source);
+  edited.days[0].exercises[0].prescribed_sets[0].reps = "8";
+  const replaced = objects.replaceProgramSection(personalized, edited);
+  assert.match(replaced, /무릎 궤적 확인/);
+  assert.equal(objects.parseProgramSection(replaced, { id: source.id, title: source.title }).days[0].exercises[0].prescribed_sets[0].reps, "8");
+  const exercise = objects.renderExerciseNote("핵 스쿼트", "2026-07-17");
+  for (const heading of ["# 설명", "# 주요 근육", "# 보조 근육", "# 테크닉", "# 흔한 실수", "# 대체 운동", "# 참고 영상", "# 팁", "# 메모", "# 개인 기록", "# 관련 운동"]) {
+    assert.match(exercise, new RegExp(heading));
+  }
+  assert.match(exercise, /primary_muscles|equipment|aliases/);
+}
+
+async function testProgramObjectSourceOfTruth() {
+  const source = program();
+  const note = objects.renderProgramNote(source, "2026-07-17");
+  const file = { path: `${objects.PROGRAM_FOLDER}/Base One.md`, basename: "Base One" };
+  const app = {
+    vault: { getMarkdownFiles: () => [file], read: async () => note },
+    metadataCache: { getFileCache: () => ({ frontmatter: { type: "workout_program", id: source.id, title: source.title, goal: "근비대" } }) },
+  };
+  const loaded = await objects.loadProgramObjects(app);
+  assert.equal(loaded.length, 1);
+  assert.equal(loaded[0].source_path, file.path);
+  assert.equal(loaded[0].days[1].exercises[0].name, "Bench Press");
+}
+
 function testDashboardAndRegressionContracts() {
   const dashboard = fs.readFileSync(path.join(ROOT, "HUB/30 Workout.md"), "utf8");
   for (const label of ["현재 프로그램", "프로그램 라이브러리", "운동 기록"]) assert.ok(dashboard.includes(label));
   const view = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workout-view.js"), "utf8");
-  for (const label of ["빠른 운동", "프로그램 가져오기", "운동 완료"]) assert.ok(view.includes(label));
-  assert.equal(view.includes("app.vault.modify(file"), false, "source Workout Markdown must stay read-only");
+  for (const label of ["빠른 운동", "프로그램 가져오기", "운동 완료", "편집", "복제", "내보내기", "Exercise Object"]) assert.ok(view.includes(label), label);
+  assert.equal(view.includes("app.vault.modify(file"), false, "source Workout Markdown must stay read-only via objects layer");
+  assert.match(view, /programForRun|program_snapshot|validateProgram|duplicateProgramObject/);
 
   const readingTemplate = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_reading.md"), "utf8");
   for (const obsolete of ["current_page", "total_pages", "total_page"]) assert.equal(readingTemplate.includes(obsolete), false);
   const schema = fs.readFileSync(path.join(ROOT, "SYSTEM/Prodigy/Schema/Core_Property_Schema.md"), "utf8");
   assert.ok(schema.includes("workout"));
+
+  const guide = fs.readFileSync(path.join(ROOT, "SYSTEM/docs/11_Operating_Guide.md"), "utf8");
+  assert.match(guide, /프로그램 라이브러리|프로그램 편집기|Exercise Object/);
+  assert.match(guide, /스냅샷|버전 안전/);
+
+  // No Runtime file edits in this sprint
+  // (engine path left untouched by workout enhancement)
 }
 
 async function main() {
   testProgramAndRunDomain();
+  testValidateDuplicateAndPr();
   testSuggestionAndManualDayRules();
   testSessionDraftAndCompletion();
   testQuickWorkoutAndPreviousResult();
   await testDerivedStore();
   testImportPreview();
+  testProgramObjects();
+  await testProgramObjectSourceOfTruth();
   testDashboardAndRegressionContracts();
   console.log("Workout Program Runner tests passed");
 }

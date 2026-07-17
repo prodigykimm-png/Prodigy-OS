@@ -156,13 +156,13 @@
     render() {
       const { contentEl } = this;
       contentEl.empty();
-      contentEl.createEl("h2", { text: "Project Wizard Settings", attr: { style: "margin:0 0 12px;font-size:1.18em;" } });
+      contentEl.createEl("h2", { text: "프로젝트 마법사 설정", attr: { style: "margin:0 0 12px;font-size:1.18em;" } });
       const providerKeys = Object.keys(this.state.providers);
 
       const top = contentEl.createEl("div", {
         attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;margin-bottom:10px;" }
       });
-      fieldLabel(top, "Default AI provider");
+      fieldLabel(top, "기본 AI 제공자");
       select(top, this.state.defaultProvider, providerKeys.map((key) => ({
         value: key,
         label: this.state.providers[key].name || key
@@ -174,9 +174,9 @@
         attr: { class: "prodigy-settings-grid", style: "display:grid;grid-template-columns:1fr 1fr;gap:10px;" }
       });
       contentEl.createEl("style", { text: "@media(max-width:680px){.prodigy-settings-grid{grid-template-columns:1fr!important}}" });
-      this.renderProviderCard(grid, "gemini", "Gemini API key");
-      this.renderProviderCard(grid, "mimo", "Xiaomi MiMo API key");
-      this.renderProviderCard(grid, "opencode-go", "OpenCode Go API key");
+      this.renderProviderCard(grid, "gemini", "Gemini API 키");
+      this.renderProviderCard(grid, "mimo", "Xiaomi MiMo API 키");
+      this.renderProviderCard(grid, "opencode-go", "OpenCode Go API 키");
       this.renderTodoistCard(grid);
 
       if (this.state.status) {
@@ -189,8 +189,8 @@
       const footer = contentEl.createEl("div", {
         attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;border-top:1px solid var(--background-modifier-border);padding-top:10px;" }
       });
-      button(footer, "Cancel").onclick = () => this.close();
-      const save = primaryButton(footer, this.state.busy ? "Saving..." : "Save Settings");
+      button(footer, "취소").onclick = () => this.close();
+      const save = primaryButton(footer, this.state.busy ? "저장 중..." : "설정 저장");
       save.disabled = this.state.busy;
       save.onclick = () => this.save();
     }
@@ -204,46 +204,46 @@
       header.createEl("div", { text: provider.name || providerKey, attr: { style: "font-weight:800;" } });
       const defaults = root.ProjectWorkflowDraftService.getProviderDefaults(providerKey);
       if (defaults) {
-        const defaultsButton = button(header, "Apply defaults");
+        const defaultsButton = button(header, "기본값 적용");
         defaultsButton.onclick = () => {
           this.state.providers[providerKey] = defaults;
           this.render();
         };
       }
       fieldLabel(box, secretLabel);
-      passwordInput(box, "Leave blank to keep existing secret", (value) => {
+      passwordInput(box, "비워 두면 기존 비밀 키를 유지합니다", (value) => {
         this.state.secrets[provider.apiKeySecret] = value;
       });
-      fieldLabel(box, "Model");
-      input(box, provider.model || "", "provider model id", (value) => {
+      fieldLabel(box, "모델");
+      input(box, provider.model || "", "제공자 모델 ID", (value) => {
         provider.model = value.trim();
       });
       if (provider.adapter === "openai-compatible") {
         fieldLabel(box, "Base URL");
-        input(box, provider.baseURL || "", "default provider base URL", (value) => {
+        input(box, provider.baseURL || "", "기본 제공자 Base URL", (value) => {
           provider.baseURL = value.trim();
         });
-        fieldLabel(box, "Endpoint path");
+        fieldLabel(box, "엔드포인트 경로");
         input(box, provider.endpointPath || "/chat/completions", "/chat/completions", (value) => {
           provider.endpointPath = value.trim() || "/chat/completions";
         });
-        fieldLabel(box, "Auth mode");
+        fieldLabel(box, "인증 방식");
         select(box, provider.authMode || "bearer", [
           { value: "bearer", label: "Bearer" },
-          { value: "api-key", label: "API key header" }
+          { value: "api-key", label: "API 키 헤더" }
         ], (value) => {
           provider.authMode = value;
         });
         if (provider.authMode === "api-key") {
-          fieldLabel(box, "API key header");
+          fieldLabel(box, "API 키 헤더");
           input(box, provider.apiKeyHeader || "api-key", "api-key", (value) => {
             provider.apiKeyHeader = value.trim() || "api-key";
           });
         }
       }
       if (provider.adapter === "gemini") {
-        fieldLabel(box, "Endpoint URL");
-        input(box, provider.endpointURL || "", "leave blank for Gemini default endpoint", (value) => {
+        fieldLabel(box, "엔드포인트 URL");
+        input(box, provider.endpointURL || "", "비워 두면 Gemini 기본 엔드포인트 사용", (value) => {
           provider.endpointURL = value.trim();
         });
       }
@@ -254,19 +254,19 @@
         attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;" }
       });
       box.createEl("div", { text: "Todoist", attr: { style: "font-weight:800;" } });
-      fieldLabel(box, "Todoist token");
-      passwordInput(box, "Leave blank to use existing Todoist plugin token", (value) => {
+      fieldLabel(box, "Todoist 토큰");
+      passwordInput(box, "비워 두면 기존 Todoist 플러그인 토큰을 사용합니다", (value) => {
         this.state.secrets["prodigy-todoist-api-token"] = value;
       });
       box.createEl("div", {
-        text: "If blank, the Wizard falls back to the existing Todoist Sync Plugin secret when available.",
+        text: "비워 두면 사용 가능한 Todoist Sync Plugin 비밀 키로 대체합니다.",
         attr: { style: "font-size:0.78em;color:var(--text-muted);line-height:1.35;" }
       });
     }
 
     async save() {
       this.state.busy = true;
-      this.state.status = "Saving settings...";
+      this.state.status = "설정 저장 중...";
       this.render();
       try {
         const saved = await root.ProjectWorkflowDraftService.saveProviderSettings(this.app, {
@@ -274,12 +274,12 @@
           config: { providers: this.state.providers },
           secrets: this.state.secrets
         });
-        this.state.status = "Settings saved.";
-        notice("Project Wizard settings saved.");
+        this.state.status = "설정을 저장했습니다.";
+        notice("프로젝트 마법사 설정을 저장했습니다.");
         if (this.onSaved) await this.onSaved(saved);
         this.close();
       } catch (error) {
-        this.state.status = `Settings save failed: ${error.message}`;
+        this.state.status = `설정 저장 실패: ${error.message}`;
       } finally {
         this.state.busy = false;
         this.render();
@@ -309,26 +309,26 @@
     render() {
       const { contentEl } = this;
       contentEl.empty();
-      contentEl.createEl("h2", { text: "Project Types", attr: { style: "margin:0 0 8px;font-size:1.18em;" } });
+      contentEl.createEl("h2", { text: "프로젝트 유형", attr: { style: "margin:0 0 8px;font-size:1.18em;" } });
       contentEl.createEl("div", {
-        text: "Built-in types are fixed. Added types reuse the current Workflow as their starting preset.",
+        text: "기본 제공 유형은 고정입니다. 추가한 유형은 현재 워크플로를 시작 프리셋으로 사용합니다.",
         attr: { style: "font-size:0.84em;color:var(--text-muted);line-height:1.4;margin-bottom:12px;" }
       });
 
       const addRow = contentEl.createEl("div", { attr: { style: "display:flex;gap:6px;align-items:center;margin-bottom:12px;" } });
-      input(addRow, this.name, "New project type", (value) => { this.name = value; });
-      const add = iconButton(addRow, "plus", "Add project type");
+      input(addRow, this.name, "새 프로젝트 유형", (value) => { this.name = value; });
+      const add = iconButton(addRow, "plus", "프로젝트 유형 추가");
       add.onclick = () => this.addType();
 
       const list = contentEl.createEl("div", { attr: { style: "display:flex;flex-direction:column;gap:4px;" } });
       const customNames = Object.keys(this.presets);
       if (customNames.length === 0) {
-        list.createEl("div", { text: "No custom project types yet.", attr: { style: "font-size:0.84em;color:var(--text-muted);padding:8px 0;" } });
+        list.createEl("div", { text: "사용자 정의 프로젝트 유형이 아직 없습니다.", attr: { style: "font-size:0.84em;color:var(--text-muted);padding:8px 0;" } });
       }
       customNames.forEach((name) => {
         const row = list.createEl("div", { attr: { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--background-modifier-border);" } });
         row.createEl("span", { text: name, attr: { class: "prodigy-type-name" } });
-        const remove = iconButton(row, "trash-2", `Delete ${name}`);
+        const remove = iconButton(row, "trash-2", `${name} 삭제`);
         remove.onclick = () => {
           delete this.presets[name];
           this.render();
@@ -337,24 +337,24 @@
 
       if (this.status) contentEl.createEl("div", { text: this.status, attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:8px;" } });
       const footer = contentEl.createEl("div", { attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:14px;border-top:1px solid var(--background-modifier-border);padding-top:10px;" } });
-      button(footer, "Cancel").onclick = () => this.close();
-      primaryButton(footer, "Save").onclick = () => this.save();
+      button(footer, "취소").onclick = () => this.close();
+      primaryButton(footer, "저장").onclick = () => this.save();
     }
 
     addType() {
       const name = this.name.trim();
       if (!name) {
-        this.status = "Enter a project type name.";
+        this.status = "프로젝트 유형 이름을 입력하세요.";
         this.render();
         return;
       }
       if (root.ProjectWizardCore.getPresetNames().includes(name)) {
-        this.status = "Built-in project types cannot be replaced.";
+        this.status = "기본 제공 프로젝트 유형은 바꿀 수 없습니다.";
         this.render();
         return;
       }
       if (this.coreWorkflow && Object.keys(this.presets).includes(name)) {
-        this.status = "That custom project type already exists.";
+        this.status = "이미 있는 사용자 정의 프로젝트 유형입니다.";
         this.render();
         return;
       }
@@ -384,6 +384,7 @@
         projectName: "",
         startDate: core.todayIso(),
         dueDate: "",
+        projectKind: "work",
         projectType: "Company",
         description: "",
         startMode: "planning",
@@ -422,7 +423,7 @@
       contentEl.empty();
       contentEl.addClass("prodigy-project-wizard");
       contentEl.createEl("style", { text: ".prodigy-project-wizard button:disabled{cursor:not-allowed!important;opacity:.42}.prodigy-project-wizard .prodigy-type-name{min-width:0;overflow-wrap:anywhere}.prodigy-project-wizard .prodigy-wizard-shell{grid-template-columns:minmax(0,.85fr) minmax(0,1.35fr)!important}.prodigy-project-wizard .prodigy-date-grid>*,.prodigy-project-wizard .prodigy-date-stack input{min-width:0}@media(max-width:760px){.prodigy-project-wizard .prodigy-wizard-shell{grid-template-columns:1fr!important}.prodigy-project-wizard .prodigy-date-grid{grid-template-columns:1fr!important}}" });
-      contentEl.createEl("h2", { text: "Launch Project", attr: { style: "margin:0 0 12px;font-size:1.25em;" } });
+      contentEl.createEl("h2", { text: "프로젝트 시작", attr: { style: "margin:0 0 12px;font-size:1.25em;" } });
 
       const shell = contentEl.createEl("div", {
         attr: { class: "prodigy-wizard-shell", style: "display:grid;grid-template-columns:minmax(0,0.85fr) minmax(0,1.35fr);gap:16px;align-items:start;" }
@@ -437,17 +438,47 @@
 
     renderContext(parent) {
       const state = this.state;
+      const display = root.prodigyDisplay;
       const projectBox = parent.createEl("div", {
         attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;" }
       });
-      fieldLabel(projectBox, "Project name");
+      fieldLabel(projectBox, "프로젝트 이름");
       input(projectBox, state.projectName, "3차 운송예산 편성", (value) => { state.projectName = value; });
+
+      const kindBox = projectBox.createEl("div", { attr: { style: "margin-top:10px;" } });
+      fieldLabel(kindBox, "프로젝트 유형");
+      const kindRow = kindBox.createEl("div", {
+        attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" }
+      });
+      [
+        { key: "business", label: "사업" },
+        { key: "work", label: "회사" },
+        { key: "personal", label: "개인" }
+      ].forEach((choice) => {
+        const opt = button(kindRow, choice.label);
+        opt.style.minHeight = "40px";
+        if (state.projectKind === choice.key) {
+          opt.style.borderColor = "var(--text-accent)";
+          opt.style.background = "color-mix(in srgb, var(--text-accent) 16%, var(--background-secondary))";
+          opt.style.fontWeight = "700";
+        }
+        opt.onclick = () => {
+          if (state.projectKind === choice.key) return;
+          state.projectKind = choice.key;
+          const preset = this.core.defaultWorkflowPresetForProjectType(choice.key);
+          if (this.core.getPresetNames(state.workflowPresets).includes(preset)) {
+            state.projectType = preset;
+            state.workflow = this.core.getPresetWorkflow(preset, state.workflowPresets);
+          }
+          this.render();
+        };
+      });
 
       const grid = projectBox.createEl("div", { attr: { class: "prodigy-date-grid", style: "display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;margin-top:9px;" } });
       const typeCell = grid.createEl("div", { attr: { style: "min-width:0;" } });
       const typeHead = typeCell.createEl("div", { attr: { style: "display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;" } });
-      typeHead.createEl("span", { text: "Project type", attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);" } });
-      const manageTypes = iconButton(typeHead, "settings-2", "Manage project types");
+      typeHead.createEl("span", { text: "워크플로 프리셋", attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);" } });
+      const manageTypes = iconButton(typeHead, "settings-2", "워크플로 프리셋 관리");
       manageTypes.onclick = () => this.openProjectTypeManager();
       select(typeCell, state.projectType, this.core.getPresetNames(state.workflowPresets).map((name) => ({ value: name, label: name })), (value) => {
         const previous = state.projectType;
@@ -459,24 +490,24 @@
       });
 
       const dateCell = grid.createEl("div", { attr: { class: "prodigy-date-stack", style: "display:flex;flex-direction:column;gap:6px;min-width:0;" } });
-      fieldLabel(dateCell, "Start date");
-      dateInput(dateCell, state.startDate, "Start date", (value) => { state.startDate = value; });
+      fieldLabel(dateCell, display.property("start_date"));
+      dateInput(dateCell, state.startDate, display.property("start_date"), (value) => { state.startDate = value; });
       const dueCell = dateCell.createEl("div");
-      fieldLabel(dueCell, "Due date");
-      dateInput(dueCell, state.dueDate, "Due date", (value) => { state.dueDate = value; });
+      fieldLabel(dueCell, display.property("due_date"));
+      dateInput(dueCell, state.dueDate, display.property("due_date"), (value) => { state.dueDate = value; });
 
       const descBox = projectBox.createEl("div", { attr: { style: "margin-top:9px;" } });
-      fieldLabel(descBox, "What must be true for this Project to be considered complete?");
+      fieldLabel(descBox, "이 프로젝트가 완료되려면 무엇이 충족되어야 하나요?");
       textarea(descBox, state.description, "완료 조건을 한 문단으로 적어주세요.", (value) => { state.description = value; });
 
       const startBox = parent.createEl("div", {
         attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;" }
       });
-      fieldLabel(startBox, "Start state");
+      fieldLabel(startBox, "시작 상태");
       const choices = startBox.createEl("div", { attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
       [
-        { key: "planning", label: "Planning", hint: "Object only" },
-        { key: "start_now", label: "Start Now", hint: "Object + Todoist" }
+        { key: "planning", label: display.status("planning"), hint: "프로젝트만 생성" },
+        { key: "start_now", label: "바로 시작", hint: "Todoist 함께 생성" }
       ].forEach((choice) => {
         const opt = button(choices, `${choice.label} - ${choice.hint}`);
         if (state.startMode === choice.key) {
@@ -492,23 +523,23 @@
       const providerBox = parent.createEl("div", {
         attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;" }
       });
-      fieldLabel(providerBox, "AI provider");
+      fieldLabel(providerBox, "AI 제공자");
       const providerOptions = root.ProjectWorkflowDraftService
         .listProviders(state.providerConfig || undefined)
         .map((provider) => ({
           value: provider.key,
-          label: provider.model ? `${provider.name} (${provider.model})` : `${provider.name} (not configured)`
+          label: provider.model ? `${provider.name} (${provider.model})` : `${provider.name} (설정되지 않음)`
         }));
       select(providerBox, state.providerKey || (providerOptions[0] && providerOptions[0].value) || "", providerOptions, (value) => {
         state.providerKey = value;
       });
       const aiRow = providerBox.createEl("div", { attr: { style: "display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap;" } });
-      const refine = primaryButton(aiRow, state.busy ? "Refining..." : "Refine Workflow");
+      const refine = primaryButton(aiRow, state.busy ? "다듬는 중..." : "워크플로 다듬기");
       refine.disabled = state.busy;
       refine.onclick = () => this.refineWorkflow();
-      button(aiRow, "Settings").onclick = () => this.openSettings();
-      button(aiRow, "Continue manually").onclick = () => {
-        state.status = "Manual workflow editing remains available.";
+      button(aiRow, "설정").onclick = () => this.openSettings();
+      button(aiRow, "직접 편집").onclick = () => {
+        state.status = "현재 워크플로를 직접 편집할 수 있습니다.";
         this.render();
       };
     }
@@ -533,13 +564,13 @@
         attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;" }
       });
       const head = box.createEl("div", { attr: { style: "display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px;" } });
-      head.createEl("div", { text: "Workflow draft", attr: { style: "font-weight:800;color:var(--text-normal);" } });
+      head.createEl("div", { text: "워크플로 초안", attr: { style: "font-weight:800;color:var(--text-normal);" } });
       const headActions = head.createEl("div", { attr: { style: "display:flex;gap:6px;" } });
-      button(headActions, "Reset preset").onclick = () => {
+      button(headActions, "프리셋 초기화").onclick = () => {
         state.workflow = this.core.getPresetWorkflow(state.projectType, state.workflowPresets);
         this.render();
       };
-      button(headActions, "Add item").onclick = () => {
+      button(headActions, "항목 추가").onclick = () => {
         state.workflow.push({ label: "" });
         this.render();
       };
@@ -547,7 +578,7 @@
       const rows = box.createEl("div", { attr: { style: "display:flex;flex-direction:column;gap:6px;" } });
       if (state.workflow.length === 0) {
         rows.createEl("div", {
-          text: "Blank preset selected. Add at least one workflow item before creating the project.",
+          text: "빈 프리셋입니다. 프로젝트를 만들기 전에 워크플로 항목을 하나 이상 추가하세요.",
           attr: { style: "font-size:0.86em;color:var(--text-muted);padding:8px;border:1px dashed var(--background-modifier-border);border-radius:6px;" }
         });
       }
@@ -556,9 +587,9 @@
           attr: { style: "display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:6px;align-items:center;" }
         });
         row.createEl("span", { text: String(index + 1), attr: { style: "font-size:0.78em;color:var(--text-muted);text-align:right;font-variant-numeric:tabular-nums;" } });
-        input(row, item.label, "Workflow item", (value) => { item.label = value; });
+        input(row, item.label, "워크플로 항목", (value) => { item.label = value; });
         const controls = row.createEl("div", { attr: { style: "display:flex;gap:4px;" } });
-        const up = iconButton(controls, "arrow-up", index === 0 ? "Move workflow item up (unavailable)" : "Move workflow item up");
+        const up = iconButton(controls, "arrow-up", index === 0 ? "위로 이동 (불가)" : "위로 이동");
         up.disabled = index === 0;
         up.onclick = () => {
           const tmp = state.workflow[index - 1];
@@ -566,7 +597,7 @@
           state.workflow[index] = tmp;
           this.render();
         };
-        const down = iconButton(controls, "arrow-down", index === state.workflow.length - 1 ? "Move workflow item down (unavailable)" : "Move workflow item down");
+        const down = iconButton(controls, "arrow-down", index === state.workflow.length - 1 ? "아래로 이동 (불가)" : "아래로 이동");
         down.disabled = index === state.workflow.length - 1;
         down.onclick = () => {
           const tmp = state.workflow[index + 1];
@@ -574,7 +605,7 @@
           state.workflow[index] = tmp;
           this.render();
         };
-        iconButton(controls, "trash-2", "Delete workflow item").onclick = () => {
+        iconButton(controls, "trash-2", "워크플로 항목 삭제").onclick = () => {
           state.workflow.splice(index, 1);
           this.render();
         };
@@ -593,21 +624,21 @@
         attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;border-top:1px solid var(--background-modifier-border);padding-top:10px;flex-wrap:wrap;" }
       });
       if (this.state.createdPath) {
-        button(footer, "Open Project").onclick = () => {
+        button(footer, "프로젝트 열기").onclick = () => {
           this.app.workspace.openLinkText(this.state.createdPath, "", false);
         };
         const projectId = this.state.todoistProjectId;
         if (projectId) {
-          button(footer, "Open Todoist").onclick = () => {
+          button(footer, "Todoist 열기").onclick = () => {
             window.open(`https://todoist.com/app/project/${projectId}`);
           };
         }
         if (this.state.startMode === "start_now") {
-          button(footer, "Retry Todoist").onclick = () => this.retryTodoist();
+          button(footer, "Todoist 재시도").onclick = () => this.retryTodoist();
         }
       }
-      button(footer, "Cancel").onclick = () => this.close();
-      const create = primaryButton(footer, this.state.busy ? "Creating..." : "Create Project");
+      button(footer, "취소").onclick = () => this.close();
+      const create = primaryButton(footer, this.state.busy ? "만드는 중..." : "프로젝트 만들기");
       create.disabled = this.state.busy || !!this.state.createdPath;
       create.onclick = () => this.createProject();
     }
@@ -617,12 +648,12 @@
         workflow: this.state.workflow.length ? this.state.workflow : [{ label: "임시 항목" }]
       }), { presets: this.state.workflowPresets });
       if (!this.state.projectName.trim() || !this.state.dueDate.trim() || !this.core.validateIsoDate(this.state.startDate) || !this.core.validateIsoDate(this.state.dueDate)) {
-        this.state.status = "Project name and valid due date are required before AI refinement.";
+        this.state.status = "AI 다듬기 전에 프로젝트 이름과 유효한 마감일이 필요합니다.";
         this.render();
         return;
       }
       this.state.busy = true;
-      this.state.status = "Requesting workflow refinement...";
+      this.state.status = "워크플로 다듬기를 요청하는 중...";
       this.render();
       try {
         const result = await root.ProjectWorkflowDraftService.generateStructuredWorkflow({
@@ -666,7 +697,7 @@
         return;
       }
       this.state.busy = true;
-      this.state.status = "Creating Project Object...";
+      this.state.status = "프로젝트 객체를 만드는 중...";
       this.render();
       try {
         const template = await readFile(this.app, TEMPLATE_PATH);
@@ -676,14 +707,14 @@
         await this.app.vault.create(objectPath, rendered.content);
         this.state.createdPath = objectPath;
         this.state.createdWorkflow = rendered.workflow;
-        this.state.status = "Project Object created.";
-        notice("Project Object created.");
+        this.state.status = "프로젝트 객체를 만들었습니다.";
+        notice("프로젝트 객체를 만들었습니다.");
 
         if (validation.value.startMode === "start_now") {
           await this.syncTodoist(objectPath, rendered.workflow, validation.value.projectName, "", validation.value.startDate, validation.value.dueDate);
         }
       } catch (error) {
-        this.state.status = `Project creation failed: ${error.message}`;
+        this.state.status = `프로젝트 생성 실패: ${error.message}`;
         notice(this.state.status, 9000);
       } finally {
         this.state.busy = false;
@@ -694,7 +725,7 @@
     async retryTodoist() {
       if (!this.state.createdPath) return;
       this.state.busy = true;
-      this.state.status = "Retrying Todoist sync...";
+      this.state.status = "Todoist 동기화를 다시 시도하는 중...";
       this.render();
       try {
         await this.syncTodoist(this.state.createdPath, this.state.createdWorkflow, this.state.projectName, this.state.todoistProjectId || "", this.state.startDate, this.state.dueDate);
@@ -705,7 +736,7 @@
     }
 
     async syncTodoist(objectPath, workflow, projectName, existingProjectId, startDate, dueDate) {
-      this.state.status = "Creating Todoist Project and tasks...";
+      this.state.status = "Todoist 프로젝트와 작업을 만드는 중...";
       this.render();
       try {
         const result = await root.ProjectTodoistAdapter.createExecutionArtifacts({
@@ -729,12 +760,12 @@
         this.state.createdWorkflow = workflow.map((item) => Object.assign({}, item, {
           todoist_task_id: result.taskIds[item.id] || item.todoist_task_id || ""
         }));
-        this.state.status = "Project launched successfully.";
-        notice("Project launched successfully.");
+        this.state.status = "프로젝트를 성공적으로 시작했습니다.";
+        notice("프로젝트를 성공적으로 시작했습니다.");
       } catch (error) {
         const message = root.ProjectTodoistAdapter.redactError(error);
         await writeSyncResult(this.app, objectPath, (content) => this.core.setProjectSyncStatus(content, "failed", message));
-        this.state.status = `Todoist sync failed: ${message}`;
+        this.state.status = `Todoist 동기화 실패: ${message}`;
         notice(this.state.status, 9000);
       }
     }
@@ -742,11 +773,11 @@
 
   function openProjectWizard() {
     if (!root.app || !root.obsidian) {
-      notice("Project Wizard requires Obsidian app context.", 9000);
+      notice("프로젝트 마법사는 Obsidian 앱 컨텍스트가 필요합니다.", 9000);
       return;
     }
     if (!root.ProjectWizardCore || !root.ProjectWorkflowDraftService || !root.ProjectTodoistAdapter) {
-      notice("Project Wizard scripts are not fully loaded.", 9000);
+      notice("프로젝트 마법사 스크립트가 아직 모두 로드되지 않았습니다.", 9000);
       return;
     }
     new ProjectWizardModal(root.app).open();

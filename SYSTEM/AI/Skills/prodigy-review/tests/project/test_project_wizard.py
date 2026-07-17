@@ -37,7 +37,7 @@ def run_node(script: str) -> str:
 
 def assert_dashboard_entry_point() -> None:
     dashboard = DASHBOARD.read_text(encoding="utf-8")
-    assert "+ Launch Project" in dashboard
+    assert "+ 프로젝트 시작" in dashboard
     assert "project-wizard-core.js" in dashboard
     assert "project-workflow-draft-service.js" in dashboard
     assert "project-todoist-adapter.js" in dashboard
@@ -50,16 +50,20 @@ def assert_wizard_layout() -> None:
     assert 'grid-template-columns:180px minmax(0,1fr)' in wizard
     assert 'class: "prodigy-date-stack"' in wizard
     assert 'class: "prodigy-date-grid"' in wizard
+    assert '프로젝트 유형' in wizard
+    assert '워크플로 프리셋' in wizard
+    assert 'projectKind' in wizard
+    assert '"business"' in wizard and '"work"' in wizard and '"personal"' in wizard
 
 
 def assert_template_mapping() -> None:
     template = TEMPLATE.read_text(encoding="utf-8")
     assert "type: project" in template
+    assert "project_type:" in template
     assert "due_date:" in template
     assert "todoist_project_id:" in template
     assert "todoist_sync_status: pending" in template
     assert "## Workflow" in template
-    assert "project_type:" not in template
 
 
 def assert_core_behaviour() -> None:
@@ -83,23 +87,30 @@ companyA[0].label = "mutated";
 assert(companyB[0].label !== "mutated", "preset returned shared mutable data");
 assert(core.getPresetWorkflow("Blank").length === 0, "blank preset must be empty");
 
+assert(core.normalizeProjectType("") === "uncategorized", "empty project_type normalize failed");
+assert(core.projectTypeLabel("business") === "사업", "business label failed");
+assert(core.defaultWorkflowPresetForProjectType("personal") === "Personal", "personal preset mapping failed");
+
 let validation = core.validateWizardInput({{
   projectName: "3차 운송예산 편성",
   dueDate: "2026-08-30",
   startDate: "2026-07-14",
   projectType: "Company",
+  project_type: "work",
   startMode: "planning",
   description: "결재 완료",
   workflow: core.getPresetWorkflow("Company")
 }});
 assert(validation.ok, validation.errors.join(", "));
 assert(validation.value.status === "planning", "planning status mapping failed");
+assert(validation.value.project_type === "work", "project_type mapping failed");
 
 validation = core.validateWizardInput({{
   projectName: "3차 운송예산 편성",
   dueDate: "2026-08-30",
   startDate: "2026-07-14",
   projectType: "Company",
+  project_type: "work",
   startMode: "start_now",
   workflow: core.getPresetWorkflow("Company")
 }});
@@ -111,6 +122,7 @@ validation = core.validateWizardInput({{
   dueDate: "2026-99-99",
   startDate: "2026-07-14",
   projectType: "Company",
+  project_type: "work",
   startMode: "planning",
   workflow: core.getPresetWorkflow("Company")
 }});
@@ -121,10 +133,21 @@ validation = core.validateWizardInput({{
   dueDate: "2026-08-30",
   startDate: "2026-07-14",
   projectType: "Blank",
+  project_type: "personal",
   startMode: "planning",
   workflow: []
 }});
 assert(!validation.ok, "empty workflow accepted");
+
+validation = core.validateWizardInput({{
+  projectName: "missing kind",
+  dueDate: "2026-08-30",
+  startDate: "2026-07-14",
+  projectType: "Company",
+  startMode: "planning",
+  workflow: core.getPresetWorkflow("Company")
+}});
+assert(!validation.ok, "missing project_type accepted");
 
 const path = core.buildProjectPath("3차 운송예산/편성", [
   "PARA/PROJECTS/3차 운송예산 편성.md"
@@ -136,6 +159,7 @@ const rendered = core.renderProjectContent(template, {{
   dueDate: "2026-08-30",
   startDate: "2026-07-14",
   projectType: "Company",
+  project_type: "work",
   startMode: "planning",
   description: "각 부서 요구액을 취합하고 결재를 완료한다.",
   workflow: [{{label:"관련 지침 확인"}}, {{label:"자료 수집"}}]
@@ -146,17 +170,35 @@ const rendered = core.renderProjectContent(template, {{
     return () => ["wf_a1b2c3d4", "wf_e5f6g7h8"][i++];
   }})()
 }});
+assert(rendered.content.includes("type: project"), "object type must remain project");
+assert(rendered.content.includes("project_type: work"), "project_type missing");
 assert(rendered.content.includes("status: planning"), "status missing");
 assert(rendered.content.includes("created: 2026-07-14"), "created missing");
 assert(rendered.content.includes("start_date: 2026-07-14"), "start date missing");
 assert(rendered.content.includes("due_date: 2026-08-30"), "due date missing");
 assert(rendered.content.includes("next_action: "), "next_action should remain blank");
-assert(!rendered.content.includes("project_type:"), "project type must not be stored");
+assert(rendered.content.includes("## 업무 목적"), "work body template missing");
 assert(rendered.content.includes("### 완료 조건"), "completion condition missing");
 assert(rendered.content.includes("각 부서 요구액을 취합하고 결재를 완료한다."), "completion condition body missing");
 assert((rendered.content.match(/## Workflow/g) || []).length === 1, "duplicate workflow heading");
 assert(rendered.content.includes("workflow_id: wf_a1b2c3d4"), "workflow id missing");
 assert(rendered.content.includes("todoist_task_id:"), "todoist task id slot missing");
+
+for (const kind of ["business", "work", "personal"]) {{
+  const sample = core.renderProjectContent(template, {{
+    projectName: "Sample " + kind,
+    dueDate: "2026-08-30",
+    startDate: "2026-07-14",
+    projectType: core.defaultWorkflowPresetForProjectType(kind),
+    project_type: kind,
+    startMode: "planning",
+    description: "완료 조건",
+    workflow: [{{label:"A"}}, {{label:"B"}}]
+  }}, {{ created: "2026-07-17" }});
+  assert(sample.content.includes("type: project"), "type changed for " + kind);
+  assert(sample.content.includes("project_type: " + kind), "project_type not stored for " + kind);
+  assert(!sample.content.includes("type: " + kind + "_project"), "illegal object type for " + kind);
+}}
 
 let updated = core.setTodoistProjectId(rendered.content, "proj_123");
 updated = core.setWorkflowTaskId(updated, "wf_a1b2c3d4", "task_123");

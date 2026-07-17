@@ -23,6 +23,7 @@
       rpe: clean(set.rpe).replace(/^@/, ""),
       load: clean(set.load),
       target: clean(set.target),
+      rest: clean(set.rest),
     }));
   }
 
@@ -30,7 +31,13 @@
     const name = clean(exercise && exercise.name);
     if (!name) throw new Error("Exercise name is required.");
     const id = clean(exercise.id) || machineId("exercise", `${daySeed}:${index}:${name}`);
-    return { id, name, target: clean(exercise.target), prescribed_sets: normalizeSets(exercise.prescribed_sets, `${daySeed}:${id}`) };
+    return {
+      id,
+      name,
+      target: clean(exercise.target),
+      notes: clean(exercise.notes),
+      prescribed_sets: normalizeSets(exercise.prescribed_sets, `${daySeed}:${id}`),
+    };
   }
 
   function normalizeDay(day, programSeed, index) {
@@ -52,7 +59,7 @@
     return {
       schema_version: "prodigy-workout-program-v1", id, title,
       creator: clean(input.creator), source: clean(input.source), goal: clean(input.goal), difficulty: clean(input.difficulty),
-      duration: clean(input.duration), weeks: Math.max(...days.map((day) => day.week)), days,
+      duration: clean(input.duration), source_path: clean(input.source_path), weeks: Math.max(...days.map((day) => day.week)), days,
     };
   }
 
@@ -66,16 +73,176 @@
     return next ? next.id : "";
   }
 
+  /**
+   * Snapshot Program structure for version safety.
+   * Future edits to the library Program must not rewrite this snapshot.
+   */
+  function snapshotProgram(program) {
+    const normalized = normalizeProgram(program);
+    return clone({
+      id: normalized.id,
+      title: normalized.title,
+      goal: normalized.goal,
+      difficulty: normalized.difficulty,
+      duration: normalized.duration,
+      weeks: normalized.weeks,
+      days: normalized.days,
+      schema_version: normalized.schema_version,
+    });
+  }
+
+  function programVersionToken(program) {
+    const snap = snapshotProgram(program);
+    return machineId("pv", `${snap.id}:${snap.title}:${snap.weeks}:${snap.days.map((d) => `${d.id}:${d.exercises.map((e) => e.id).join(",")}`).join("|")}`);
+  }
+
+  /** Prefer run.program_snapshot so active/historical Runs stay stable. */
+  function programForRun(libraryProgram, run) {
+    if (run && run.program_snapshot && Array.isArray(run.program_snapshot.days) && run.program_snapshot.days.length) {
+      try {
+        return normalizeProgram({
+          ...run.program_snapshot,
+          id: run.program_id || run.program_snapshot.id,
+          title: run.program_title || run.program_snapshot.title,
+          source_path: libraryProgram && libraryProgram.source_path,
+        });
+      } catch (_e) {
+        // fall through
+      }
+    }
+    return libraryProgram ? normalizeProgram(libraryProgram) : null;
+  }
+
   function createProgramRun(program, existingRuns, options = {}) {
     if ((existingRuns || []).some((run) => run.status === "active")) throw new Error("An active Program Run must be paused, completed, or abandoned first.");
     const prior = (existingRuns || []).filter((run) => run.program_id === program.id);
     const startedAt = clean(options.started_at) || nowIso();
+    const snap = snapshotProgram(program);
     return {
       schema_version: "prodigy-workout-run-v1",
       run_id: clean(options.run_id) || machineId("run", `${program.id}:${startedAt}:${prior.length + 1}`),
       program_id: program.id, program_title: program.title, run_number: prior.length + 1,
       status: "active", started_at: startedAt, completed_at: "", suggested_day: program.days[0].id,
+      program_version: clean(options.program_version) || programVersionToken(program),
+      program_snapshot: snap,
     };
+  }
+
+  function duplicateProgram(program, options = {}) {
+    const source = normalizeProgram(program);
+    const title = clean(options.title) || `${source.title} (복사)`;
+    const next = clone(source);
+    next.id = clean(options.id) || machineId("program", `${title}:${Date.now()}`);
+    next.title = title;
+    next.source_path = "";
+    next.source = clean(options.source) || source.source || "duplicate";
+    next.days = next.days.map((day, dayIndex) => {
+      const dayId = clean(options.keep_day_ids) ? day.id : `w${day.week}d${day.day}_${stableHash(`${next.id}:${dayIndex}`)}`;
+      return {
+        ...day,
+        id: dayId,
+        exercises: day.exercises.map((exercise, exerciseIndex) => ({
+          ...exercise,
+          id: clean(options.keep_exercise_ids) ? exercise.id : machineId("exercise", `${dayId}:${exerciseIndex}:${exercise.name}:${next.id}`),
+        })),
+      };
+    });
+    return normalizeProgram(next);
+  }
+
+  /**
+   * Friendly validation before save. Never silently repairs.
+   * @returns {{ ok: boolean, errors: string[] }}
+   */
+  function validateProgram(input) {
+    const errors = [];
+    const title = clean(input && input.title);
+    if (!title) errors.push("프로그램 이름이 비어 있습니다.");
+    const days = Array.isArray(input && input.days) ? input.days : [];
+    if (!days.length) errors.push("프로그램에 Day가 없습니다.");
+
+    const dayKeys = new Map();
+    days.forEach((day, index) => {
+      const week = number(day && day.week);
+      const sequence = number(day && day.day);
+      if (week < 1) errors.push(`${index + 1}번째 Day의 주차가 올바르지 않습니다.`);
+      if (sequence < 1) errors.push(`${index + 1}번째 Day의 일차가 올바르지 않습니다.`);
+      const key = `${week}:${sequence}`;
+      if (week >= 1 && sequence >= 1) {
+        if (dayKeys.has(key)) errors.push(`${week}주차 ${sequence}일차가 중복됩니다.`);
+        else dayKeys.set(key, true);
+      }
+      const exercises = Array.isArray(day && day.exercises) ? day.exercises : [];
+      if (!exercises.length) errors.push(`${week || "?"}주차 ${sequence || "?"}일차에 운동이 없습니다.`);
+      exercises.forEach((exercise, exerciseIndex) => {
+        if (!clean(exercise && exercise.name)) {
+          errors.push(`${week || "?"}주차 ${sequence || "?"}일차 ${exerciseIndex + 1}번째 운동 이름이 비어 있습니다.`);
+        }
+        const sets = Array.isArray(exercise && exercise.prescribed_sets) ? exercise.prescribed_sets : [];
+        if (!sets.length) {
+          errors.push(`${clean(exercise && exercise.name) || "운동"}에 세트가 없습니다.`);
+        }
+      });
+    });
+
+    return { ok: errors.length === 0, errors };
+  }
+
+  /** Epley: 1RM ≈ w * (1 + r/30). Needs weight + reps ≥ 1. */
+  function estimate1RM(weight, reps) {
+    const w = Number(String(weight == null ? "" : weight).replace(/[^\d.]/g, ""));
+    const r = Number(String(reps == null ? "" : reps).replace(/[^\d.]/g, ""));
+    if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(r) || r < 1) return null;
+    if (r === 1) return Math.round(w * 10) / 10;
+    return Math.round(w * (1 + r / 30) * 10) / 10;
+  }
+
+  function completedSetsAcrossSessions(sessions, exerciseName) {
+    const name = clean(exerciseName).toLocaleLowerCase("ko-KR");
+    const rows = [];
+    (sessions || []).filter((session) => session && session.status === "completed").forEach((session) => {
+      (session.exercise_results || []).forEach((exercise) => {
+        if (clean(exercise.name).toLocaleLowerCase("ko-KR") !== name && clean(exercise.exercise_id).toLocaleLowerCase("ko-KR") !== name) return;
+        (exercise.set_results || []).forEach((set) => {
+          if (!set.completed) return;
+          if (!clean(set.weight) && !clean(set.reps) && !clean(set.rpe)) return;
+          rows.push({
+            date: clean(session.date || session.completed_at).slice(0, 10),
+            completed_at: clean(session.completed_at),
+            session_id: clean(session.session_id),
+            weight: clean(set.weight),
+            reps: clean(set.reps),
+            rpe: clean(set.rpe),
+            notes: clean(set.notes),
+            e1rm: estimate1RM(set.weight, set.reps),
+          });
+        });
+      });
+    });
+    rows.sort((a, b) => clean(b.completed_at || b.date).localeCompare(clean(a.completed_at || a.date)));
+    return rows;
+  }
+
+  function exerciseHistory(sessions, exerciseName, limit = 10) {
+    return completedSetsAcrossSessions(sessions, exerciseName).slice(0, Math.max(1, Math.min(Number(limit) || 10, 50)));
+  }
+
+  function bestExerciseResult(sessions, exerciseName) {
+    const rows = completedSetsAcrossSessions(sessions, exerciseName);
+    if (!rows.length) return null;
+    return rows.slice().sort((a, b) => {
+      const wa = Number(String(a.weight).replace(/[^\d.]/g, "")) || 0;
+      const wb = Number(String(b.weight).replace(/[^\d.]/g, "")) || 0;
+      if (wb !== wa) return wb - wa;
+      const ra = Number(String(a.reps).replace(/[^\d.]/g, "")) || 0;
+      const rb = Number(String(b.reps).replace(/[^\d.]/g, "")) || 0;
+      return rb - ra;
+    })[0];
+  }
+
+  function previousExerciseResultByName(sessions, exerciseName) {
+    const rows = completedSetsAcrossSessions(sessions, exerciseName);
+    return rows[0] || null;
   }
 
   function transitionProgramRun(run, status, at = nowIso()) {
@@ -166,7 +333,13 @@
     return null;
   }
 
-  const api = { RUN_STATUSES, clone, completeWorkoutSession, createProgramRun, createQuickWorkout, createWorkoutSession, daySelectionWarning, normalizeProgram, previousExerciseResult, stableHash, suggestNextDay, transitionProgramRun, updateSetResult };
+  const api = {
+    RUN_STATUSES, clone, completeWorkoutSession, createProgramRun, createQuickWorkout, createWorkoutSession,
+    daySelectionWarning, normalizeProgram, previousExerciseResult, previousExerciseResultByName,
+    bestExerciseResult, exerciseHistory, estimate1RM, validateProgram, duplicateProgram,
+    snapshotProgram, programVersionToken, programForRun, stableHash, suggestNextDay,
+    transitionProgramRun, updateSetResult,
+  };
   root.WorkoutCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

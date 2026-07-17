@@ -6,6 +6,161 @@
     start_now: "doing"
   };
 
+  /** Object type stays `project`. This classifies project nature only. */
+  const PROJECT_TYPES = Object.freeze({
+    business: "business",
+    work: "work",
+    personal: "personal"
+  });
+
+  const PROJECT_TYPE_LABELS = Object.freeze({
+    business: "사업",
+    work: "회사",
+    personal: "개인",
+    uncategorized: "미분류"
+  });
+
+  const PROJECT_TYPE_BODIES = Object.freeze({
+    business: [
+      "# 프로젝트 개요",
+      "",
+      "* **유형**: 사업",
+      "* **우선순위**: `= this.priority`",
+      "* **시작일**: `= this.start_date` | **목표완료일**: `= this.due_date`",
+      "* **Next Action**: `= this.next_action`",
+      "",
+      "---",
+      "",
+      "## 목표",
+      "",
+      "",
+      "## 수익모델",
+      "",
+      "",
+      "## MVP",
+      "",
+      "",
+      "## 경쟁사",
+      "",
+      "",
+      "## 다음 실행",
+      "",
+      "",
+      "## Workflow",
+      "",
+      "",
+      "---",
+      "",
+      "## 🔄 복기 (Review)",
+      "",
+      "### 결과",
+      "- ",
+      "",
+      "### 잘한 점",
+      "- ",
+      "",
+      "### 아쉬운 점",
+      "- ",
+      "",
+      "### 다음 프로젝트에서는",
+      "- ",
+      ""
+    ].join("\n"),
+    work: [
+      "# 프로젝트 개요",
+      "",
+      "* **유형**: 회사",
+      "* **우선순위**: `= this.priority`",
+      "* **시작일**: `= this.start_date` | **목표완료일**: `= this.due_date`",
+      "* **Next Action**: `= this.next_action`",
+      "",
+      "---",
+      "",
+      "## 업무 목적",
+      "",
+      "",
+      "## 관련 부서",
+      "",
+      "",
+      "## 마감일",
+      "",
+      "",
+      "## 관련 문서",
+      "",
+      "",
+      "## 다음 실행",
+      "",
+      "",
+      "## Workflow",
+      "",
+      "",
+      "---",
+      "",
+      "## 🔄 복기 (Review)",
+      "",
+      "### 결과",
+      "- ",
+      "",
+      "### 잘한 점",
+      "- ",
+      "",
+      "### 아쉬운 점",
+      "- ",
+      "",
+      "### 다음 프로젝트에서는",
+      "- ",
+      ""
+    ].join("\n"),
+    personal: [
+      "# 프로젝트 개요",
+      "",
+      "* **유형**: 개인",
+      "* **우선순위**: `= this.priority`",
+      "* **시작일**: `= this.start_date` | **목표완료일**: `= this.due_date`",
+      "* **Next Action**: `= this.next_action`",
+      "",
+      "---",
+      "",
+      "## 목표",
+      "",
+      "",
+      "## 마일스톤",
+      "",
+      "",
+      "## 메모",
+      "",
+      "",
+      "## 다음 실행",
+      "",
+      "",
+      "## Workflow",
+      "",
+      "",
+      "---",
+      "",
+      "## 🔄 복기 (Review)",
+      "",
+      "### 결과",
+      "- ",
+      "",
+      "### 잘한 점",
+      "- ",
+      "",
+      "### 아쉬운 점",
+      "- ",
+      "",
+      "### 다음 프로젝트에서는",
+      "- ",
+      ""
+    ].join("\n")
+  });
+
+  const PROJECT_TYPE_DEFAULT_PRESET = Object.freeze({
+    business: "Software",
+    work: "Company",
+    personal: "Personal"
+  });
+
   const WORKFLOW_PRESETS = Object.freeze({
     Company: [
       "관련 지침과 완료 기준 확인",
@@ -191,20 +346,45 @@
     }, options || {}));
   }
 
+  function normalizeProjectType(value) {
+    const raw = String(value == null ? "" : value).trim().toLowerCase();
+    if (raw === "business" || raw === "work" || raw === "personal") return raw;
+    return "uncategorized";
+  }
+
+  function projectTypeLabel(value) {
+    const key = normalizeProjectType(value);
+    return PROJECT_TYPE_LABELS[key] || PROJECT_TYPE_LABELS.uncategorized;
+  }
+
+  function defaultWorkflowPresetForProjectType(projectTypeValue) {
+    const key = normalizeProjectType(projectTypeValue);
+    return PROJECT_TYPE_DEFAULT_PRESET[key] || "Company";
+  }
+
+  function bodyTemplateForProjectType(projectTypeValue) {
+    const key = normalizeProjectType(projectTypeValue);
+    return PROJECT_TYPE_BODIES[key] || PROJECT_TYPE_BODIES.work;
+  }
+
   function validateWizardInput(input) {
     const options = arguments[1] || {};
     const errors = [];
     const name = String(input.projectName || "").trim();
     const startDate = String(input.startDate || "").trim();
     const dueDate = String(input.dueDate || "").trim();
-    const projectType = String(input.projectType || "").trim();
+    const workflowPreset = String(input.projectType || input.workflowPreset || "").trim();
+    const projectTypeRaw = String(input.project_type || input.projectKind || "").trim().toLowerCase();
     const startMode = String(input.startMode || "planning").trim();
     const workflowResult = validateWorkflow(input.workflow || [], { minItems: 1 });
 
     if (!name) errors.push("Project name is required.");
     if (startDate && !validateIsoDate(startDate)) errors.push("Start date must be YYYY-MM-DD.");
     if (!dueDate || !validateIsoDate(dueDate)) errors.push("Due date must be YYYY-MM-DD.");
-    if (!getPresetNames(options.presets).includes(projectType)) errors.push("Project type is invalid.");
+    if (!getPresetNames(options.presets).includes(workflowPreset)) errors.push("Workflow preset is invalid.");
+    if (!Object.prototype.hasOwnProperty.call(PROJECT_TYPES, projectTypeRaw)) {
+      errors.push("Project type must be business, work, or personal.");
+    }
     if (startDate && validateIsoDate(startDate) && validateIsoDate(dueDate) && startDate > dueDate) errors.push("Start date cannot be after due date.");
     if (!Object.prototype.hasOwnProperty.call(PROJECT_STATUSES, startMode)) errors.push("Start state is invalid.");
     if (!workflowResult.ok) errors.push(...workflowResult.errors);
@@ -216,7 +396,9 @@
         projectName: name,
         startDate,
         dueDate,
-        projectType,
+        projectType: workflowPreset,
+        workflowPreset,
+        project_type: projectTypeRaw,
         startMode,
         status: PROJECT_STATUSES[startMode],
         description: String(input.description || "").trim(),
@@ -350,6 +532,7 @@
     let parts = splitFrontmatter(template);
     let fm = parts.frontmatter;
     fm = setFrontmatterValue(fm, "type", "project");
+    fm = setFrontmatterValue(fm, "project_type", value.project_type);
     fm = setFrontmatterValue(fm, "status", value.status);
     fm = setFrontmatterValue(fm, "created", opts.created || todayIso(opts.now));
     fm = setFrontmatterValue(fm, "start_date", value.startDate || "");
@@ -359,11 +542,18 @@
     fm = setFrontmatterValue(fm, "todoist_sync_status", value.startMode === "planning" ? "pending" : "pending");
     fm = setFrontmatterValue(fm, "todoist_last_error", "");
 
-    const insertionParts = [];
+    // Body is selected by project_type; Object type remains project.
+    let body = bodyTemplateForProjectType(value.project_type);
     const completion = renderCompletionSection(value.description);
-    if (completion) insertionParts.push(completion);
-    insertionParts.push(`## Workflow\n\n${renderWorkflowMarkdown(workflow)}`);
-    const body = insertAfterHeading(parts.body, "## 🎯 목표 및 세부 계획", insertionParts.join("\n\n"));
+    if (completion) {
+      body = body.replace("## 다음 실행\n\n", `## 다음 실행\n\n${completion}\n\n`);
+    }
+    const workflowBlock = `## Workflow\n\n${renderWorkflowMarkdown(workflow)}`;
+    if (/^## Workflow\s*$/m.test(body)) {
+      body = body.replace(/^## Workflow\s*$/m, workflowBlock.trimEnd());
+    } else {
+      body = insertAfterHeading(body, "## 다음 실행", workflowBlock);
+    }
     return {
       content: `---\n${fm.trim()}\n---\n${body.startsWith("\n") ? body : "\n" + body}`,
       workflow
@@ -394,6 +584,10 @@
 
   const api = {
     PROJECT_STATUSES,
+    PROJECT_TYPES,
+    PROJECT_TYPE_LABELS,
+    PROJECT_TYPE_BODIES,
+    PROJECT_TYPE_DEFAULT_PRESET,
     WORKFLOW_PRESETS,
     WORKFLOW_SCHEMA,
     todayIso,
@@ -402,6 +596,10 @@
     getPresetWorkflow,
     cloneWorkflow,
     normalizeLabel,
+    normalizeProjectType,
+    projectTypeLabel,
+    defaultWorkflowPresetForProjectType,
+    bodyTemplateForProjectType,
     validateIsoDate,
     validateWorkflow,
     validateProviderWorkflow,

@@ -76,6 +76,15 @@ window.renderDashboardSection = function(options) {
     sortField = "due_date",
     sortOrder = "asc"
   } = options;
+
+  if (!renderer) {
+    container.empty();
+    container.createEl("span", {
+      text: "⌛ 대시보드 리소스를 불러오는 중...",
+      attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
+    });
+    return;
+  }
   
   // Dataview API is passed from the DataviewJS block or retrieved globally
   const dataviewInstance = options.dv || window.dv || (typeof dv !== 'undefined' ? dv : null);
@@ -98,10 +107,56 @@ window.renderDashboardSection = function(options) {
   }
 
   // Render inline filters for Auction cases
-  if (type === "auction_case") {
+  if (type === "auction_case" && status === "bidding") {
+    const isMobile = (window.app?.isMobile || document.body.classList.contains('is-mobile')) || (window.innerWidth < 768);
+
     const filterContainer = container.createEl("div", {
-      attr: { style: "display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px;" }
+      attr: {
+        style: isMobile
+          ? "display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; width: 100%;"
+          : "display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px; width: 100%;"
+      }
     });
+
+    // Simple search input box for case name / number
+    const searchInput = filterContainer.createEl("input", {
+      type: "text",
+      value: window.auctionSearchQuery || "",
+      placeholder: "사건번호/물건명 검색...",
+      attr: {
+        style: isMobile
+          ? "font-size: 0.82em; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--background-modifier-border); background: var(--background-primary); color: var(--text-normal); width: 100%; outline: none; height: 28px; box-sizing: border-box;"
+          : "font-size: 0.76em; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--background-modifier-border); background: var(--background-primary); color: var(--text-normal); width: 150px; margin-right: auto; outline: none; height: 21px; box-sizing: border-box;"
+      }
+    });
+
+    searchInput.oninput = () => {
+      window.auctionSearchQuery = searchInput.value;
+      const dvPlugin = app.plugins?.plugins?.dataview;
+      if (dvPlugin?.api) {
+        dvPlugin.api.index.touch();
+      }
+    };
+
+    searchInput.onfocus = () => { window.auctionSearchFocus = true; };
+    searchInput.onblur = () => { window.auctionSearchFocus = false; };
+
+    if (window.auctionSearchFocus) {
+      setTimeout(() => {
+        searchInput.focus();
+        const val = searchInput.value;
+        searchInput.value = "";
+        searchInput.value = val;
+      }, 20);
+    }
+
+    // On mobile, the dropdowns go into their own sub-row to prevent overflow
+    let dropdownParent = filterContainer;
+    if (isMobile) {
+      dropdownParent = filterContainer.createEl("div", {
+        attr: { style: "display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%;" }
+      });
+    }
 
     const makeSelectInline = (parent, label, field, options, currentVal) => {
       const wrapper = parent.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 4px; font-size: 0.78em; color: var(--text-muted);' } });
@@ -109,7 +164,9 @@ window.renderDashboardSection = function(options) {
       
       const sel = wrapper.createEl('select', { 
         attr: { 
-          style: 'font-size: 0.95em; padding: 1px 4px; border-radius: 4px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid var(--background-modifier-border); cursor: pointer;' 
+          style: isMobile
+            ? 'font-size: 0.95em; padding: 4px 20px 4px 8px; border-radius: 6px; background: var(--background-primary); color: var(--text-normal); border: 1px solid var(--background-modifier-border); cursor: pointer; height: 26px; outline: none; box-sizing: border-box; line-height: 1.2; font-family: inherit;'
+            : 'font-size: 0.95em; padding: 2px 18px 2px 6px; border-radius: 4px; background: var(--background-primary); color: var(--text-normal); border: 1px solid var(--background-modifier-border); cursor: pointer; height: 21px; outline: none; box-sizing: border-box; line-height: 1.2; font-family: inherit;'
         } 
       });
       
@@ -133,7 +190,7 @@ window.renderDashboardSection = function(options) {
       };
     };
 
-    makeSelectInline(filterContainer, '지역:', 'card_region', [
+    makeSelectInline(dropdownParent, '지역:', 'card_region', [
       { text: '전체', value: '전체지역' },
       { text: '서울', value: '서울' },
       { text: '경기', value: '경기' },
@@ -141,9 +198,11 @@ window.renderDashboardSection = function(options) {
       { text: '부산', value: '부산' }
     ], fm.card_region);
 
-    filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
+    if (!isMobile) {
+      dropdownParent.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
+    }
 
-    makeSelectInline(filterContainer, '종류:', 'card_type', [
+    makeSelectInline(dropdownParent, '종류:', 'card_type', [
       { text: '전체', value: '전체종류' },
       { text: '오피스텔', value: '오피스텔' },
       { text: '아파트', value: '아파트' },
@@ -151,7 +210,9 @@ window.renderDashboardSection = function(options) {
       { text: '지식산업센터', value: '지식산업센터' }
     ], fm.card_type);
 
-    filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
+    if (!isMobile) {
+      dropdownParent.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
+    }
 
     const sortKeyField = `card_sort_${status}`;
     let defaultSort = "dday_asc";
@@ -159,15 +220,15 @@ window.renderDashboardSection = function(options) {
       defaultSort = "dday_desc";
     }
 
-    makeSelectInline(filterContainer, '정렬:', sortKeyField, [
-      { text: 'D-day 가까운순', value: 'dday_asc' },
-      { text: 'D-day 먼순', value: 'dday_desc' },
+    makeSelectInline(dropdownParent, '정렬:', sortKeyField, [
+      { text: '마감 임박순', value: 'dday_asc' },
+      { text: '마감 여유순', value: 'dday_desc' },
       { text: '감정가 낮은순', value: 'expected_bid_asc' },
       { text: '감정가 높은순', value: 'expected_bid_desc' },
       { text: '최근 등록순', value: 'created_desc' }
     ], fm[sortKeyField] || defaultSort);
   }
-  
+
   // Query pages based on type
   let folderPath = "";
   if (type === "auction_case") {
@@ -181,6 +242,31 @@ window.renderDashboardSection = function(options) {
   }
   
   let pages = dataviewInstance.pages(`"${folderPath}"`).where(p => p.type === type && p.status === status);
+
+  // Apply search query filter for auction cases globally
+  if (type === "auction_case" && window.auctionSearchQuery) {
+    const q = window.auctionSearchQuery.toLowerCase().trim();
+    pages = pages.where(p => {
+      const caseNum = String(p.case_number || p.file.name || "").toLowerCase();
+      const addr = String(p.address || "").toLowerCase();
+      return caseNum.includes(q) || addr.includes(q);
+    });
+  }
+
+  // Project type filter: all | business | work | personal | uncategorized
+  if (type === "project") {
+    const projectTypeFilter = options.projectTypeFilter
+      || window.prodigyProjectTypeFilter
+      || fm.card_project_type
+      || "all";
+    if (projectTypeFilter && projectTypeFilter !== "all" && projectTypeFilter !== "전체") {
+      pages = pages.where((p) => {
+        const raw = String(p.project_type || "").trim().toLowerCase();
+        const normalized = (raw === "business" || raw === "work" || raw === "personal") ? raw : "uncategorized";
+        return normalized === projectTypeFilter;
+      });
+    }
+  }
   
   // Filters
   if (type === "project" && filterCategory !== "전체") {
@@ -228,7 +314,7 @@ window.renderDashboardSection = function(options) {
     if (field === "file.ctime") return p.file.ctime;
     if (field === "file.mtime") return p.file.mtime;
     if (field === "expected_bid") {
-      const val = Number(p.expected_bid);
+      const val = (window.parsePrice || Number)(p.expected_bid);
       if (isNaN(val) || p.expected_bid === "정보 없음" || String(p.expected_bid).trim() === "") {
         return activeSortOrder === "asc" ? 999999999999 : -1;
       }

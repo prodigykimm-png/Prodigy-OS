@@ -4,31 +4,131 @@
 
 ---
 
-# 1. Purpose
+# 1. Purpose & OS Philosophy
 
-이 문서는 Prodigy OS를 실제로 어떻게 사용하는지 설명한다.
+Prodigy OS는 다음과 같은 주체와 계층 간의 철저한 역할 분리를 지향한다.
 
-Prodigy OS는 단순한 폴더 시스템이 아니다.
-Prodigy OS는 매일 사용하는 개인 운영체제이다.
+* **Home = Mission Control**: 대시보드를 총괄하는 지휘 통제 센터이자, 맥락 파악 ➡️ 의사결정 ➡️ 특정 워크스페이스 진입의 출발점.
+* **Workspace Dashboard = Domain Operations**: 프로젝트, 경매, 독서 등 특정 도메인의 세부 실무가 독립적으로 이루어지는 개별 워크스페이스.
+* **Todoist = Execution**: 구체적이고 액션 단위로 잘게 쪼개진 태스크의 실행 계층.
+* **Objects = Knowledge**: 정보의 속성과 관계를 담아 구조화한 지식 자산 계층.
+* **AI = Recommendation**: 축적된 데이터 맥락을 수집·분석하여 우선순위와 가이드를 제시하는 제안 엔진.
+* **Human = Approval**: AI 제안을 편집 및 승인하고 실제 행동으로 옮기는 최종 통제 주체.
 
-이 가이드는 다음을 돕는다:
-- 매일 아침 무엇을 해야 하는지
-- 정보가 들어왔을 때 어디에 두어야 하는지
-- Object, Capture, Journal, Knowledge, Project의 차이
-- AI를 언제, 어떻게 활용해야 하는지
+이 문서는 이러한 철학 하에 설계된 Prodigy OS를 일상 업무에서 어떻게 조작하고 활용하는지에 관한 실제적 운영 방법을 정의한다.
 
 > 시스템 구조: [SYSTEM/docs/01_Architecture.md](SYSTEM/docs/01_Architecture.md)
 > 핵심 개념: [SYSTEM/docs/02_Core_Concepts.md](SYSTEM/docs/02_Core_Concepts.md)
 
 ---
 
-# 2. Core Usage Rules
+# 2. Operating Loop
 
-## 2.1 Start from Home
+Prodigy OS의 일상 운영은 독립 기능의 모음이 아니라 **연속 루프**이다.
+
+```text
+Morning Brief
+  ↓
+Today's Focus
+  ↓
+Workspace Execution
+  ↓
+Daily Reflection (2분 Review)
+  ↓
+Weekly Review (PRE)
+  ↓
+Morning Brief
+```
+
+- **Morning Brief**: 오늘 Focus, 기한, **어제 배움**, **오늘 실험**을 1분 안에 읽는다. 어제의 Reflection에서 유용한 정보만 회수한다.
+- **Today's Focus**: 사람이 승인한다. AI는 제안만 한다.
+- **Workspace**: Auction / Reading / Project / Workout에서 실제 실행한다.
+- **Daily Reflection**: 사람이 작성하는 증거다. AI가 성찰을 대신 쓰지 않는다. 오늘 Focus 완료 여부를 자연스럽게 돌아본다.
+- **Weekly Review (PRE)**: 증거 기반 주간 회고. 자동 Memory 승격 없음. 사람 승인 필수.
+- **Memory**: 사용자 단계가 아니다. Morning Brief가 내부에서 검증된 맥락을 읽을 수 있으나, Home에 Memory 워크플로를 노출하지 않는다.
+
+어제 Reflection이 비어 있으면 Home에 **가벼운 알림**만 보여 준다. 워크플로를 막지 않는다.
+
+---
+
+# 3. Core Usage Rules
+
+## 3.1 Start from Home
 
 Home은 시작점이다.
 Home을 열면 오늘 해야 할 일, 진행 중인 Object, Capture, Review가 보인다.
 폴더부터 열지 않는다. Home을 먼저 연다.
+
+### Workspace Launcher
+
+Home은 링크 모음이 아니다. **Prodigy OS Launcher**이다.
+
+```text
+Home
+  ↓
+Morning Brief   (recommendation)
+  ↓
+Today's Focus
+  ↓
+Workspace Launcher   (navigation)
+  ↓
+Workspace Dashboard  (execution)
+  ↓
+Object
+```
+
+- 각 카드는 **하나의 Primary Action**만 보여 준다 (Continue / Start / Resume / Open).
+- 카드 레이아웃은 동일하다: Icon · Name · Context · Title · Detail · Action.
+- 버튼을 누르면 기존 Workspace Dashboard로 이동한다. Launcher가 Workspace를 대체하지 않는다.
+- Auction은 입찰일만이 아니라 **Lifecycle + next_action** 기준으로 다음 물건을 고른다.
+- 내용이 없으면 빈 상태를 보여 주며 가짜 데이터를 만들지 않는다.
+- **모바일/좁은 화면**: 별도 Home 없이 같은 Home을 압축한다. 상단은 Brief · Focus · Launcher, 나머지는 `더 보기`로 접는다.
+
+### Object Engine Runtime
+
+Objects는 Source of Truth이다. **Object Engine Runtime**은 공유 운영 레이어다.
+
+```text
+Objects
+    ↓
+Object Engine Runtime
+    ↓
+Lifecycle
+    ↓
+Health
+    ↓
+Attention
+    ↓
+Next Action   (canonical passthrough only — never invented)
+    ↓
+Continue Target
+    ↓
+Home · Morning Brief · Launcher · Workspace
+```
+
+- **Derived state is not stored in YAML.**
+- **Next Action**: Object에 있는 값만 노출. 없으면 `null`. 생성·추론하지 않는다.
+- **Continue Target**: Continue를 누르면 갈 Workspace Dashboard + 대상 Object + action label + reason.
+- Launcher / Morning Brief / Auction·Reading·Workout·Project 는 동일 Runtime을 소비한다.
+- Engine 실패 시 각 소비자는 기존 로컬 로직으로 폴백한다.
+
+### Morning Brief + Object Engine
+
+Morning Brief는 규칙을 다시 계산하지 않는다. **요약·표시 순서**만 담당한다.
+
+```text
+Morning Package
+    +
+Object Engine (attention: critical / high)
+    ↓
+Morning Brief Context
+    ↓
+Morning Brief / 오늘의 위험
+```
+
+- 기본 표시: **critical · high** Attention만 (normal 이하는 Home을 어지럽히지 않음).
+- 같은 Object는 한 번만 표시하고, 이유 문자열은 합친다.
+- Engine 실패 시 기존 package risks만 사용한다. Home은 깨지지 않는다.
 
 ## 2.2 Capture Postpones Decisions
 
@@ -56,6 +156,58 @@ Capture가 쌓이면 정기적으로 검토한다.
 모든 정보는 Object에 저장한다.
 Property는 구조화된 데이터, Content는 사람이 읽는 내용.
 계산은 Dashboard가 한다. Object는 저장만 한다.
+
+## 2.3.1 Object Lifecycle is Calculated
+
+Object Lifecycle은 Object의 운영 상태를 규칙으로 계산한다.
+
+- Lifecycle은 YAML에 저장하지 않는다.
+- Lifecycle Property를 만들지 않는다.
+- 사람이 수동으로 Lifecycle을 편집하지 않는다.
+- AI가 Lifecycle을 추론하거나 수정하지 않는다.
+
+기본 상태:
+
+| 내부 값 | 표시 |
+|---------|------|
+| `healthy` | 정상 |
+| `needs_action` | 다음 행동 필요 |
+| `needs_review` | 복기 필요 |
+| `stale` | 오래 방치됨 |
+| `completed` | 완료 |
+
+### Lifecycle Rule Registry
+
+Lifecycle 규칙은 엔진 본문이 아니라 **Rule Registry**에 모인다.
+
+- Global Defaults: `stale_days: 30`, `review_warning_days: 0`
+- Workspace Overrides: 확장 지점만 준비되어 있다. 현재는 기본값과 동일하게 동작한다.
+- Terminal Registry: 종료 상태는 `isTerminal(status)`로 판정한다.
+- Review hook: Review 완료 여부는 추측하지 않는다. 알려진 필드/훅만 사용한다.
+
+### Lifecycle Reason
+
+모든 Lifecycle 결과는 다음 형태를 가진다.
+
+```text
+{ state, reason, warnings }
+```
+
+Reason은 결정적이며 AI가 생성하지 않는다.
+
+예:
+
+- Needs Action → `Missing next_action.`
+- Needs Review → `Review pending.`
+- Stale → `Last updated 43 days ago.`
+- Completed → `Terminal status.`
+- Healthy → `No lifecycle warnings.`
+
+Home, Morning Brief, PRE, Workspace는 같은 Reason API를 소비한다.
+설명 로직을 각 화면에서 복제하지 않는다.
+
+Home의 **Object Lifecycle** 카드는 주의가 필요한 요약만 보여 준다.
+각 Workspace의 Lifecycle 카운트는 동일한 계산 엔진을 재사용한다.
 
 ## 2.4 Journal Records Reflection, Not All Work
 
@@ -186,6 +338,83 @@ next_action 설정
 
 **핵심:** 기존 Knowledge가 있으면 업데이트. 없으면 새로 생성.
 
+### 관련 기억
+
+Reading Dashboard의 각 책 카드에서 `관련 기억`을 누르면 현재 책과 연결되는 이전 독서 기록을 최대 5개까지 확인할 수 있다. 같은 주제, 같은 개념, 같은 저자, 직접 연결, 같은 지식 링크, 유사한 주장, 이전 생각 변화처럼 기존 기록에서 확인되는 관계만 표시한다.
+
+- `왜 표시되었나요?`에서 관계의 실제 근거를 확인한다.
+- `책 열기`는 파생 Memory 파일이 아니라 원본 Reading Object를 연다.
+- `기억 새로고침`은 변경된 독서 기록만 다시 반영하며 원본 Object를 수정하지 않는다.
+- 결과가 없는 경우는 오류가 아니다. 충분한 결정적 관계가 없다는 뜻이다.
+- 불러오기에 실패하면 `다시 시도`를 사용한다. Reading Dashboard와 기존 독서 동작은 계속 사용할 수 있다.
+
+Reading Memory는 원본에서 만든 재구축 가능한 맥락이며 공식 Knowledge가 아니다. 외부 AI를 호출하지 않고, 결정적인 필드·본문·링크 관계만 사용한다.
+
+### Reading Dashboard (카드 본체 + Runtime · Strategy 전력)
+
+Reading은 독서 트래커가 아니다. **판단 품질을 높이는 사고 워크플로**다.  
+화면의 본체는 **기존 카드 대시보드**다. Runtime과 Strategy는 그 뒤에서 선택·질문을 공급한다.
+
+질문 하나: **오늘 무엇을 생각해야 하는가?**
+
+화면 라벨은 한글 표시 계약을 따른다 (Property 키·내부 id는 영어 유지).
+
+```text
+Reading Objects
+    ↓
+Object Engine Runtime          ← 어떤 책 (continue / review)
+    ↓
+Reading Strategy               ← 어떻게 읽을지 (Guide · Checklist · Reflection)
+    ↓
+Reading Dashboard (카드 UI)
+  · 이어 읽기 한 줄 (Runtime)
+  · 읽는 중 hero 카드  (표지 · 오늘 읽기 · 독서 질답 · 관련 기억)
+  · 최근 세션
+  · 복기 필요
+  · 읽기 대기
+  · 최근 완독
+```
+
+### Reading Strategy
+
+```text
+Reading Strategy
+    ↓
+Guide      (Before — 카드「독서 질답」모달)
+    ↓
+Checklist  (During — 같은 모달 체크)
+    ↓
+Reflection (After — 카드 성찰 힌트 · 사용자 기록)
+```
+
+- **UI 원칙**: 회색 섹션 벽을 쌓지 않는다. **카드가 본체**, Strategy/Runtime은 칩·한 줄·모달로만 드러난다.
+- **진행도**: 읽는 중 카드에서 `25 · 50 · 75 · 100%`만 선택한다. 비어 있으면 아직 안 읽음(0). 저장 필드는 `progress`. `current_page`는 폐기 필드이며 쓰지 않는다. 100%가 상태 전환을 강제하지 않는다.
+- **Runtime vs Strategy**: Runtime이 **어떤 책**을 고른다. Strategy가 **어떻게 읽을지**를 정한다. Runtime 로직을 복제하지 않는다.
+- **이어 읽기**: Runtime `continue_target` 한 줄 + 이유. 없으면 `진행 중인 독서가 없습니다.`
+- **공통 레이어 (모든 책)**: Adler식 3단계 — **읽기 전 · 구조 파악** → **읽는 중 · 내용 해석** → **읽은 후 · 비판·적용**. 유형이 없어도 항상 동작한다.
+- **분야 레이어**: `book_type` / `reading_strategy` / `reading_type`이 **명시**될 때만 덧붙인다. 제목·카테고리로 조용히 추측하지 않는다. 미래 AI 분류가 타입을 채우면 같은 경로로 분야 질문이 켜진다.
+- **독서 질답 모달**: 카드 `독서 질답` → 상단 **읽기 전 / 읽는 중 / 읽은 후** 버튼으로 단계를 고른 뒤, 그 단계 질문에만 **답을 바로 입력**한다. 입력은 잠시 후 임시 저장되고, **맨 아래 `노트에 저장` 한 번**으로 작성된 답을 Reading Object Key Takeaways에 반영한다. 질문마다 저장 버튼을 두지 않는다.
+- **성찰**: 사용자 소유. 읽은 후 단계 질문으로 다룬다. 답 자동 생성 없음.
+- **복기 필요**: Runtime health / reviewing + 카드 목록.
+- **AI 경계**: Book Analysis / Thinking Delta / Knowledge Candidate / Reading Memory / PRE — 미구현.
+
+### 새 책 추가
+
+Reading Dashboard의 `＋ 새 책 추가`는 Korean Book Info(Yes24)로 메타데이터를 가져온다. 제목·저자·카테고리·표지와 함께 **소개·목차**를 Object 본문 `## 도서 정보 (참고)`에 넣는다. 이 구역은 참고용이며, 판단·배움은 독서 질답과 Key Takeaways에 쓴다. 소개·목차가 없어도 생성은 성공한다. Property Registry에 긴 본문을 넣지 않는다.
+
+### 독서 질답
+
+`reading` 상태의 책 카드에서 `독서 질답`을 누르면 읽기 전·중·후 질문에 답을 쓸 수 있다. Reading Strategy Layer가 모달 질문을 공급한다. 유형이 없으면 공통 질문만, 명시된 분야가 있으면 분야 질문이 덧붙는다.
+
+- **독서 질답** = 질문에 답을 쓰며 판단하는 실행 도구
+- **Reading Notes** = Object에 저장된 실제 생각
+- **Related Memory** = 과거 독서 기록에서 복원한 맥락
+- **Thinking Delta** = 독서 전후의 사고 변화 (미래 확장)
+
+질문별 힌트는 정해진 라이브러리에서 제공하며 외부 AI를 호출하지 않는다. 답을 바로 입력하고, 맨 아래 `노트에 저장`으로 Reading Object의 `Key Takeaways > 독서 질답`에 반영한다. 같은 질문을 다시 저장하면 기존 항목을 갱신한다.
+
+임시 답은 `SYSTEM/AI/Memory/reading/checklists/`에 저장된다. `임시 답 초기화`는 초안만 삭제하며 이미 Reading Object에 저장한 노트는 보존한다.
+
 ---
 
 ## Scenario 3 — 새로운 프로젝트 / 아이디어
@@ -228,6 +457,72 @@ next_action 설정
 
 **핵심:** Investment Object의 모든 결정은 사람의 소유이다.
 
+### Auction Bid Calendar
+
+Auction Workspace의 입찰 일정(Bid Calendar)은 일반 캘린더가 아니다. 경매 활동의 **시간 탐색 레이어**만 담당한다.
+
+```text
+Auction Dashboard
+  ↓
+Operate
+  ↓
+Bid Calendar
+  ↓
+Time Navigation
+  ↓
+Date Detail Popup
+  ↓
+Agenda View (주간 / 월간)
+  ↓
+Auction Object
+  ↓
+Preserve Knowledge
+```
+
+- **데이터 소스**: 기존 Auction Object Property만 사용한다. `auction_datetime`(입찰), `site_visit_date`(현장 방문), `review_date`(복기). 새 Property를 만들지 않는다. 캘린더에는 **status = bidding(입찰 예정)** 물건만 표시한다.
+- **월간 그리드**: 날짜 셀에는 일정 개수만 표시한다. 제목은 넣지 않는다.
+- **Date Detail Popup**: 해당 날짜의 활동을 유형별·법원별로 보여 주고, 물건 열기로 Object로 이동한다. 캘린더는 Object를 수정하지 않는다.
+- **Agenda**: 주간 / 월간 모드로 다가올 행동을 법원 기준으로 묶는다. 선택 범위 밖의 과거 완료 일정을 나열하지 않는다.
+- **Display Layer**: 상태·법원·입찰 일시 등 라벨은 Display Registry를 통해 표시한다.
+- **빈 상태**: 일정이 없으면 `예정된 입찰 일정이 없습니다.`만 표시한다. 예시 데이터를 만들지 않는다.
+
+**핵심:** Calendar = 시간 탐색, Agenda = 다가올 행동, Object = 지식, Dashboard = 운영. 역할을 섞지 않는다.
+
+### Auction Day Runner
+
+Auction Day Runner는 분석 화면이 아니다. **입찰 당일 실행 인터페이스**이다.
+
+```text
+Bid Calendar
+  ↓
+Time Navigation
+  ↓
+Auction Day Runner
+  ↓
+Execute (법원 준비 · 입찰 확인 · 결과 기록)
+  ↓
+Auction Result (status: won / lost / skipped)
+  ↓
+Auction Object
+  ↓
+Preserve Evidence
+  ↓
+Review
+  ↓
+Learning
+```
+
+- **진입점**: Bid Calendar의 `입찰 실행` · 날짜 팝업 `이 날 입찰 실행`. 동일 화면을 재사용한다.
+- **대상**: Bid Calendar와 같이 **status = bidding(입찰 예정)** 이면서 당일 `auction_datetime` 인 물건만 다룬다.
+- **법원 그룹**: 당일 입찰 예정 물건을 법원별로 묶는다. 사용자는 법원 단위로 이동·준비한다.
+- **법원 준비 체크리스트**: 신분증·도장·보증금·입찰표 등은 법원 공유 항목이다. Auction Object에 저장하지 않으며, 당일 실행 상태(`SYSTEM/CACHE/auction-day/`)로만 유지한다.
+- **실행 카드**: 사건번호, 상태, 최저가, 예상 입찰가, 보증금, 최종 입찰가(`my_bid_price`), 결과 기록, 물건 열기만 표시한다. 분석·AI 요약은 Object에 둔다.
+- **결과 기록**: 기존 status enum만 사용한다 (`won` / `lost` / `skipped`). 예상 입찰가(`expected_bid`)는 덮어쓰지 않는다.
+- **Lifecycle**: 새 상태를 만들지 않는다. 결과는 기존 Lifecycle 전이와 동일하다.
+- **빈 상태**: `오늘 예정된 입찰이 없습니다.`
+
+**핵심:** Calendar = 시간 탐색, Day Runner = 실행, Object = 지식, Review = 학습.
+
 ---
 
 ## Scenario 5 — Workout Program Runner
@@ -250,11 +545,45 @@ next_action 설정
 
 Workout Dashboard의 `프로그램 가져오기`에서 Excel 파일을 선택한다. 저장 전 미리보기에서 Program 제목, 주차, Day 수, 운동 수, 확인이 필요한 행과 개요를 확인한다. 가져오기는 결정적 파서만 사용하며 AI가 내용을 추측하지 않는다.
 
+### 프로그램 라이브러리
+
+라이브러리 카드에는 **이름 · 목표 · 주차 · 세션 수 · Run 횟수 · 상태**를 보여 준다.
+
+| 동작 | 설명 |
+|------|------|
+| 프로그램 시작 / 다시 시작 | 새 Program Run |
+| 이어서 실행 | 일시정지 Run 재개 |
+| 편집 | Program Editor |
+| 이름 변경 | 제목만 변경 |
+| 복제 | 새 Program id · 파일 |
+| 내보내기 | JSON export |
+| 삭제 | 원본 Program 노트 삭제 (Run 기록은 유지) |
+| 노트 열기 / 실행 기록 | 기존 동작 |
+
+### 프로그램 편집기
+
+이름·목표·주차·일차·운동 추가/삭제/복제/순서·세트(횟수·RPE·목표·휴식)·운동 메모를 편집한다.  
+저장 전 **검증**한다 (빈 이름, 빈 Program, Day 중복, 세트 없음 등). 조용히 고치지 않는다.
+
+**버전 안전성**: Program Run 시작 시 Program 스냅샷을 Run에 저장한다. 이후 라이브러리 편집은 **미래 Run**에만 영향을 준다. 진행 중 Run은 시작 시점 구성을 유지한다.
+
+### Exercise Object
+
+운동 이름은 선택적으로 Exercise Object(`PARA/RESOURCES/Workout/Exercises/`)와 연결된다.
+
+- Object가 있으면 연다.
+- 없으면 **Exercise Object 만들기**를 사용자만 실행한다. 자동 생성하지 않는다.
+- 노트에서 이전 결과 · 최고 중량 · 추정 1RM · 최근 세션 이력을 **기존 Session**에서 계산한다. 별도 저장소를 만들지 않는다.
+
+검색은 이름 · alias · category(있을 때)로 결정적으로 한다. AI 없음.
+
 ### 실행과 파생 상태
 
 Dashboard는 완료된 Session을 기준으로 가장 앞선 미완료 Day를 제안한다. 다른 Day를 먼저 선택하면 경고하지만 막지 않는다. 입력 중인 Session은 자동 저장되므로 Dashboard를 다시 열어도 이어서 기록할 수 있다.
 
-Program, Program Run, Session과 가져오기 결과는 `SYSTEM/AI/Memory/workout/` 아래의 파생 JSON으로 저장된다. 기존 Workout Markdown과 Program 원본은 실행 중 수정하지 않는다. 파생 상태를 제거해도 원본 사용자 문서는 삭제하지 않는다.
+Program, Program Run, Session과 가져오기 결과는 `SYSTEM/AI/Memory/workout/` 아래의 파생 JSON으로 저장된다. 실행 중 원본 Program Markdown을 덮어쓰지 않는다. 파생 상태를 제거해도 원본 사용자 문서는 삭제하지 않는다.
+
+Object Engine Runtime의 Continue / Attention / Next Action은 Workout이 다시 계산하지 않는다.
 
 ---
 
@@ -271,6 +600,16 @@ Program, Program Run, Session과 가져오기 결과는 `SYSTEM/AI/Memory/workou
 - 유한한 촬영 작업 → Project Object
 - 재사용 가능한 촬영 팁 → Knowledge Object
 - 개인적인 감정, 깨달음 → Journal
+
+---
+
+## Scenario 6.5 — 중요한 사람을 기록하고 싶다
+
+1. Personal Hub 또는 QuickAdd에서 **사람 추가**
+2. 이름만 입력 → `PARA/RESOURCES/CONTACTS`에 People Object 생성 (`type: people`)
+3. 관계·소통 방식·배운 점을 필요할 때만 작성
+4. 관련 Project / Journal / Auction / Reading의 `connections`에 `[[그 사람]]` 링크
+5. People Object의 **연결된 Object**에서 원본이 보이는지 확인 (내용 복제 없음)
 
 ---
 
@@ -337,6 +676,24 @@ AI는 다음을 해서는 안 된다:
 ---
 
 # 8. Common Confusions
+
+## People (사람)
+
+People는 **관계 기억**이다. CRM·주소록·영업 파이프라인이 아니다.
+
+```text
+People Object     = 관계 맥락 (누가 이 사람인가, 무엇을 나눴는가)
+Project/Auction/Journal/Reading = 사건·작업의 원본 기록
+connections / 링크 = 둘을 잇는 연결
+```
+
+- 내부 type: `people` · 표시 라벨: 사람
+- 저장 위치: `PARA/RESOURCES/CONTACTS`
+- 생성: Personal Hub 「사람 추가」 또는 QuickAdd 「사람 추가」 → 이름만 입력
+- 다른 Object에서 사람 연결: YAML `connections`에 `[[사람이름]]` (단일 공유 필드)
+- People 본문의 **핵심 상호작용**은 인덱스만 남긴다. 원본 노트 본문을 복사하지 않는다.
+- **연결된 Object** 섹션은 Dataview로 링크를 계산한다. Timeline/Follow-up Dashboard는 없다.
+- 레거시 `type: contact` 파일은 읽기 호환만 유지한다. 신규 생성은 항상 `people`.
 
 ## Personal vs Journal
 
@@ -430,19 +787,30 @@ Prodigy OS의 Review 품질은 AI 기능보다 운영 데이터 품질에 더 �
 ## Morning
 
 ```text
-Dashboard
+Build Context Package
   ↓
-Today's Focus
+Morning Brief AI (or Fallback)
   ↓
-Todoist Tasks
+Draft Today's Focus
+  ↓
+Human Edit & Approval
+  ↓
+Approved Focus Artifact
   ↓
 Execution
 ```
 
-- 아침에는 판단을 늘리지 않는다.
-- Dashboard에서 오늘의 흐름을 확인한다.
-- Today's Focus를 보고 실제 실행 대상을 좁힌다.
-- Todoist Tasks는 실행 목록으로만 사용한다.
+- **아침 판단 최소화**: 아침에는 판단력을 낭비하지 않도록 AI 브리핑을 통해 핵심 실행 우선순위를 확인한다.
+- **Morning Context Package**: 오늘 날짜/시간, Todoist 할 일 수, 활성 상태의 프로젝트/경매/독서 메타데이터, 최근 3일의 데일리 성찰 정보, 최근 주간 회고(PRE) 결과 등을 정합성 있게 취합하여 `morning-package-YYYY-MM-DD.json` 캐시 패키지를 자동 빌드한다.
+- **Morning Brief AI 및 Fallback**: 설정된 LLM API를 호출하여 한국어로 요약된 브리핑과 최대 3개의 오늘의 Focus를 제안받는다. 네트워크 또는 API 장애 발생 시, 로컬 D-Day 기반 휴리스틱 룰에 기초한 `Deterministic Fallback` 브리핑으로 자동 복구된다.
+- **Explainable Morning Brief & Focus**: AI 요약문은 전문적이고 간결한 4~5문장의 비서 스타일로 작성된다. 또한, 각 Focus 카드 하단의 **[왜 추천되었나요?]**를 클릭하면 추가 LLM 호출 없이 로컬 Morning Package로부터 추출된 **결정론적 근거(Evidence)** 및 수집 출처(**Trust Panel**)를 투명하게 조회할 수 있다.
+- **Today's Risk (금일의 위험)**: 오늘의 Focus 하단에 최대 2개의 위험 항목이 노출된다. 입찰 예정 경매의 임장 보고 누락 여부나 임박한 프로젝트 마감 등 철저히 데이터에 근거한 실행 리스크를 알려주며, 투기적 분석이나 주관적 추천은 완벽히 배제된다.
+- **Focus History (실행 이력 영속화)**: 승인된 Focus 데이터(`approved-focus-YYYY-MM-DD.json`)는 단순 임시 캐시가 아니라 사용자의 실행 의사결정을 담은 장기적 이력 데이터로 영구 보존된다. 향후 주간 회고(PRE) 단계에서 반복 패턴 분석의 중요한 실증 근거로 활용된다.
+- **Human Approval (인간 승인 권약)**: AI는 Focus를 제안할 뿐이며, 사용자는 Home 화면에서 직접 텍스트를 수정하거나 불필요한 대상을 제외하고 [승인] 버튼을 눌러 승인 조치한다. 승인된 정보는 다음 경로에 안전한 JSON 아티팩트로 영속화된다.
+  `SYSTEM/AI/Skills/prodigy-review/runs/morning/YYYY-MM-DD/approved-focus-YYYY-MM-DD.json`
+- **캐싱 및 새로고침**: 오늘 날짜 기준 캐시를 우선 활용하여 불필요한 LLM 호출과 비용을 아끼되, 데이터 변경(Todoist 개수 변동, 상태값 변화 등)이 감지되면 Stale 상태를 표시하여 사용자가 원할 때 수동으로 브리핑을 재생성할 수 있게 지원한다.
+- **Focus에서 Todoist Task 자동 생성 금지**: 승인된 Focus는 지향점일 뿐이며, Todoist 태스크를 자동으로 개설하여 사용자 환경을 오염시키지 않는다.
+- **Calendar의 읽기 전용 한계**: 캘린더 연동은 API가 준비될 때까지 `Unavailable` 상태 및 패키지 경고와 함께 안전한 기본 뼈대로만 가동된다.
 
 ## Evening
 

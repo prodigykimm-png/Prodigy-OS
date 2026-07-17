@@ -336,10 +336,10 @@
         },
         {
           "id": "4761947f-9a9a-486a-9e4b-2bfe26c83dbe",
-          "name": "Create Contact",
+          "name": "사람 추가",
           "type": "Template",
           "command": true,
-          "templatePath": "SYSTEM/TEMPLATE/FORMAT/template_contact.md",
+          "templatePath": "SYSTEM/TEMPLATE/FORMAT/template_people.md",
           "fileNameFormat": {
             "enabled": true,
             "format": "{{VALUE}}"
@@ -406,41 +406,6 @@
             "focus": true
           },
           "openFile": false,
-          "openFileInMode": "default",
-          "fileExistsBehavior": {
-            "kind": "prompt"
-          },
-          "fileOpening": {
-            "location": "tab",
-            "direction": "vertical",
-            "focus": true,
-            "mode": "default"
-          }
-        },
-        {
-          "id": "75b22050-2882-4386-b3c9-c9597b9a550a",
-          "name": "New Project Note",
-          "type": "Template",
-          "command": true,
-          "templatePath": "SYSTEM/TEMPLATE/FORMAT/template_project_note.md",
-          "fileNameFormat": {
-            "enabled": true,
-            "format": "{{VALUE}}"
-          },
-          "folder": {
-            "enabled": true,
-            "folders": [],
-            "chooseWhenCreatingNote": false,
-            "createInSameFolderAsActiveFile": true,
-            "chooseFromSubfolders": false
-          },
-          "appendLink": false,
-          "openFileInNewTab": {
-            "enabled": false,
-            "direction": "vertical",
-            "focus": true
-          },
-          "openFile": true,
           "openFileInMode": "default",
           "fileExistsBehavior": {
             "kind": "prompt"

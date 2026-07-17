@@ -366,7 +366,7 @@ Auction Dashboard (`HUB/10 Auction.md`)는 경매 물건을 한눈에 관리하�
 
 ### Q5. Home.md이 이상해요
 - Home.md은 시스템 파일이므로 직접 수정하지 않는다
-- 문제 발생 시 SYSTEM/VIEWS/ObjectCards 확인
+- 카드 문제 발생 시 해당 Workspace의 `SYSTEM/Views/*-card.js`와 `shared-dashboard.js`를 확인
 
 ---
 

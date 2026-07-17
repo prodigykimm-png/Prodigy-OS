@@ -1,14 +1,33 @@
+window.normalizeProjectType = function(value) {
+  if (window.ProjectWizardCore && window.ProjectWizardCore.normalizeProjectType) {
+    return window.ProjectWizardCore.normalizeProjectType(value);
+  }
+  const raw = String(value == null ? "" : value).trim().toLowerCase();
+  if (raw === "business" || raw === "work" || raw === "personal") return raw;
+  return "uncategorized";
+};
+
+window.projectTypeLabel = function(value) {
+  if (window.ProjectWizardCore && window.ProjectWizardCore.projectTypeLabel) {
+    return window.ProjectWizardCore.projectTypeLabel(value);
+  }
+  const labels = { business: "사업", work: "회사", personal: "개인", uncategorized: "미분류" };
+  return labels[window.normalizeProjectType(value)] || "미분류";
+};
+
 window.renderProjectCard = function(p, container) {
-  const statusColors = {
-    idea: '#a855f7',
-    planning: '#3b82f6',
-    doing: '#22c55e',
-    blocked: '#ef4444',
-    completed: '#06b6d4',
-    reviewing: '#f97316',
-    archived: '#8e8e93'
+  if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
+  const display = window.prodigyDisplay;
+  const color = display?.statusInfo(p.status).color || '#555';
+  const projectType = window.normalizeProjectType(p.project_type);
+  const projectTypeLabel = window.projectTypeLabel(projectType);
+  const typeColors = {
+    business: "#3b82f6",
+    work: "#f97316",
+    personal: "#a855f7",
+    uncategorized: "#8e8e93"
   };
-  const color = statusColors[p.status] || '#555';
+  const typeColor = typeColors[projectType] || typeColors.uncategorized;
   
   const card = container.createEl('div', {
     attr: {
@@ -20,20 +39,68 @@ window.renderProjectCard = function(p, container) {
   const header = card.createEl('div', {
     attr: { style: 'display: flex; justify-content: space-between; align-items: center;' }
   });
-  const title = header.createEl('a', {
+  
+  const titleContainer = header.createEl('div', {
+    attr: { style: 'display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap;' }
+  });
+
+  titleContainer.createEl('span', {
+    text: projectTypeLabel,
+    attr: {
+      style: `font-size:0.68em;font-weight:700;color:${typeColor};background:${typeColor}18;border:1px solid ${typeColor}55;padding:1px 6px;border-radius:999px;white-space:nowrap;`
+    }
+  });
+
+  const title = titleContainer.createEl('a', {
     text: p.file.name,
     attr: {
       class: 'internal-link',
-      style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer;'
+      style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow-wrap: anywhere;'
     }
   });
   title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
   
+  // Delete Button (Trash Icon) next to Title link
+  const deleteBtn = titleContainer.createEl('span', {
+    text: '🗑️',
+    attr: {
+      style: 'cursor: pointer; opacity: 0.4; font-size: 0.85em; transition: opacity 0.2s; flex-shrink: 0;',
+      title: '이 프로젝트 노트를 삭제(휴지통 이동)합니다.'
+    }
+  });
+  deleteBtn.onmouseenter = () => deleteBtn.style.opacity = '1';
+  deleteBtn.onmouseleave = () => deleteBtn.style.opacity = '0.4';
+  deleteBtn.onclick = async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const confirmDelete = confirm(`[${p.file.name}] 프로젝트 노트를 휴지통으로 이동하시겠습니까?`);
+    if (confirmDelete) {
+      try {
+        const file = app.vault.getAbstractFileByPath(p.file.path);
+        if (file) {
+          await app.vault.trash(file, true);
+          new Notice(`[${p.file.name}] 노트를 휴지통으로 이동했습니다.`);
+        } else {
+          new Notice("파일을 찾을 수 없습니다.");
+        }
+      } catch (err) {
+        console.error("파일 삭제 중 오류 발생:", err);
+        new Notice("노트 삭제 중 오류가 발생했습니다.");
+      }
+    }
+  };
+  
   // Priority Badge
   const rightHeader = header.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 6px;' } });
-  const priColor = p.priority === '높음' ? '#ef4444' : p.priority === '낮음' ? '#8e8e93' : 'var(--text-accent)';
+  const priorityLabel = display?.priority(p.priority) || p.priority || '보통';
+  const priColor = priorityLabel === '높음' || priorityLabel === '매우 높음'
+    ? '#ef4444'
+    : priorityLabel === '낮음' || priorityLabel === '매우 낮음'
+      ? '#8e8e93'
+      : 'var(--text-accent)';
   rightHeader.createEl('span', {
-    text: p.priority || '보통',
+    text: priorityLabel,
     attr: { style: `font-size: 0.72em; font-weight: bold; color: ${priColor}; background: ${priColor}15; padding: 1px 4px; border-radius: 4px;` }
   });
   
@@ -51,27 +118,27 @@ window.renderProjectCard = function(p, container) {
   const actionRow = card.createEl('div', {
     attr: { style: 'font-size: 0.85em; color: var(--text-normal); margin-top: 2px;' }
   });
-  actionRow.createEl('strong', { text: '→ Next Action: ', attr: { style: 'color: var(--text-accent);' } });
-  actionRow.createEl('span', { text: p.next_action || "⚠️ 설정 필요" });
+  actionRow.createEl('strong', { text: '다음 행동: ', attr: { style: 'color: var(--text-accent);' } });
+  actionRow.createEl('span', { text: p.next_action || "설정 필요" });
   
   // Buttons
   const getTransitions = (currentStatus) => {
     const trans = {
-      idea: [{ key: 'planning', label: '📋 기획', color: 'var(--text-accent)' }],
+      idea: [{ key: 'planning' }],
       planning: [
-        { key: 'doing', label: '🚀 진행', color: '#22c55e' },
-        { key: 'blocked', label: '🚧 지연', color: '#ef4444' }
+        { key: 'doing' },
+        { key: 'blocked' }
       ],
       doing: [
-        { key: 'completed', label: '✅ 완료', color: '#06b6d4' },
-        { key: 'blocked', label: '🚧 지연', color: '#ef4444' }
+        { key: 'completed' },
+        { key: 'blocked' }
       ],
       blocked: [
-        { key: 'doing', label: '🚀 진행', color: '#22c55e' },
-        { key: 'planning', label: '📋 기획', color: 'var(--text-accent)' }
+        { key: 'doing' },
+        { key: 'planning' }
       ],
-      completed: [{ key: 'reviewing', label: '🔄 복기', color: '#f97316' }],
-      reviewing: [{ key: 'archived', label: '📦 보관', color: '#555' }],
+      completed: [{ key: 'reviewing' }],
+      reviewing: [{ key: 'archived' }],
       archived: []
     };
     return trans[currentStatus] || [];
@@ -80,26 +147,39 @@ window.renderProjectCard = function(p, container) {
   const buttons = getTransitions(p.status || 'idea');
   if (buttons.length > 0) {
     const btnBox = card.createEl('div', {
-      attr: { style: 'display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; border-top: 1px solid var(--background-modifier-border); padding-top: 4px;' }
+      attr: { class: 'prodigy-card-actions', style: 'margin-top: 6px; border-top: 1px solid var(--background-modifier-border); padding-top: 8px;' }
     });
-    btnBox.createEl('span', { text: '상태 변경:', attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; align-items: center; margin-right: 4px;' } });
+    btnBox.createEl('span', { text: '상태 변경', attr: { style: 'font-size: 0.75em; color: var(--text-muted); display: flex; align-items: center; margin-right: 2px;' } });
     buttons.forEach(opt => {
-      const btn = btnBox.createEl('button', {
-        text: opt.label,
-        attr: { style: `font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid ${opt.color}; cursor: pointer;` }
-      });
-      btn.onclick = async (e) => {
-        e.preventDefault();
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-        const tFile = app.vault.getAbstractFileByPath(p.file.path);
-        if (tFile) {
-          await app.fileManager.processFrontMatter(tFile, (fm) => {
-            fm.status = opt.key;
-            fm.updated = new Date().toISOString().split('T')[0];
-          });
-        }
-      };
+      const statusInfo = display?.statusInfo(opt.key) || { label: opt.key, color: '#555' };
+      const btn = window.ProdigyUI
+        ? window.ProdigyUI.button(btnBox, statusInfo.label, {
+          chip: true,
+          onClick: async () => {
+            btn.disabled = true;
+            const tFile = app.vault.getAbstractFileByPath(p.file.path);
+            if (tFile) {
+              await app.fileManager.processFrontMatter(tFile, (fm) => {
+                fm.status = opt.key;
+                fm.updated = new Date().toISOString().split('T')[0];
+              });
+            }
+          }
+        })
+        : btnBox.createEl('button', { text: statusInfo.label, attr: { type: 'button', class: 'prodigy-btn prodigy-btn-chip' } });
+      if (!window.ProdigyUI) {
+        btn.onclick = async (e) => {
+          e.preventDefault();
+          btn.disabled = true;
+          const tFile = app.vault.getAbstractFileByPath(p.file.path);
+          if (tFile) {
+            await app.fileManager.processFrontMatter(tFile, (fm) => {
+              fm.status = opt.key;
+              fm.updated = new Date().toISOString().split('T')[0];
+            });
+          }
+        };
+      }
     });
   }
 };

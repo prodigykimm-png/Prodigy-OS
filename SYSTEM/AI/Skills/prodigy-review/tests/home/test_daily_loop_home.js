@@ -37,6 +37,9 @@ function main() {
         date: "2026-07-16",
         path: "DAILY/DAILY/2026-07-16.md",
         found: true,
+        meaningful: true,
+        missing: false,
+        learning: "집중 시간을 보호했다",
         change: "집중 시간을 보호했다",
         next_experiment: "오전에 가장 중요한 일 먼저"
       }
@@ -44,10 +47,30 @@ function main() {
   });
 
   assert.match(rule.brief, /규칙 기반/);
-  assert.match(rule.brief, /어제 변화/);
-  assert.match(rule.brief, /오늘 실험/);
+  assert.match(rule.brief, /어제 배움|오늘 실험|이어갑니다/);
   assert.equal(rule.brief.includes("Fallback"), false);
   assert.equal(rule.brief.includes("실패"), false);
+
+  const useful = morning.selectUsefulYesterdayReview({
+    date: "2026-07-16",
+    path: "DAILY/DAILY/2026-07-16.md",
+    reflection: "긴 성찰 본문은 변화 필드가 없을 때만 쓴다",
+    change: "핵심 변화",
+    next_experiment: "다음 실험"
+  });
+  assert.equal(useful.learning, "핵심 변화");
+  assert.equal(useful.meaningful, true);
+  assert.equal(useful.missing, false);
+
+  const emptyY = morning.selectUsefulYesterdayReview({
+    date: "2026-07-16",
+    path: "x",
+    reflection: "",
+    change: "",
+    next_experiment: ""
+  });
+  assert.equal(emptyY.missing, true);
+  assert.equal(emptyY.meaningful, false);
   assert.ok(Array.isArray(rule.focus));
   assert.ok(rule.focus.length >= 1);
   assert.ok(rule.focus.length <= 3);
@@ -68,7 +91,7 @@ next_experiment: frontmatter 실험
 
   assert.match(homeSource, /외부 failures must never block Home|external failures must never block Home/i);
   assert.match(homeSource, /오늘의 행동/);
-  assert.match(homeSource, /2분 Review/);
+  assert.match(homeSource, /2분 (Review|성찰)/);
   assert.match(homeSource, /오늘 운동 시작/);
   assert.match(homeSource, /다음 행동이 없는 경매/);
   assert.match(homeSource, /safeRenderRegion/);
@@ -76,9 +99,17 @@ next_experiment: frontmatter 실험
   assert.match(homeSource, /selectFocusItems/);
   assert.match(homeSource, /sanitizeFocusList|pathExists/);
   assert.match(homeSource, /Live vault context is always preferred/);
-  assert.match(homeSource, /어제 회수|yesterday_review/);
+  assert.match(homeSource, /어제 배움|yesterday_review|어제에서 이어가기/);
+  assert.match(homeSource, /어제 (Reflection|성찰)이 비어|home-yesterday-missing|yMissing/);
+  assert.match(homeSource, /focusHints/);
+  assert.match(homeSource, /home-compact|isCompactHome|home-secondary-fold/);
+  assert.match(homeSource, /home-lifecycle-fold|객체 라이프사이클 · 접힘|Object Lifecycle · 접힘/);
   assert.match(homeHub, /journal-core\.js/);
   assert.match(homeHub, /journal-view\.js/);
+
+  const journalView = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/journal-view.js"), "utf8");
+  assert.match(journalView, /focusHints/);
+  assert.match(journalView, /오늘 Focus를 마쳤나요/);
 
   // Focus selection priority: pinned > due today > priority > rule order
   const selected = morning.selectFocusItems({

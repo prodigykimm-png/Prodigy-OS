@@ -363,7 +363,7 @@
       }
     }
 
-    // F2. Yesterday review — explicit Daily Reflection → Morning Brief loop recovery
+    // F2. Yesterday review — Daily Reflection → Morning Brief (most useful fields only)
     const yesterdayDate = getYesterdayIsoDate(now);
     const yesterdayPath = `DAILY/DAILY/${yesterdayDate}.md`;
     let yesterdayReview = {
@@ -372,35 +372,35 @@
       reflection: "",
       change: "",
       next_experiment: "",
-      found: false
+      found: false,
+      meaningful: false,
+      missing: true
     };
     const fromRecent = recentReflections.find((r) => r.date === yesterdayDate);
-    if (fromRecent && (fromRecent.change || fromRecent.next_experiment || fromRecent.nextExperiment || fromRecent.reflection)) {
-      yesterdayReview = {
+    if (fromRecent) {
+      yesterdayReview = selectUsefulYesterdayReview({
         date: yesterdayDate,
         path: fromRecent.path || yesterdayPath,
         reflection: fromRecent.reflection || "",
         change: fromRecent.change || "",
-        next_experiment: fromRecent.next_experiment || fromRecent.nextExperiment || "",
-        found: true
-      };
+        next_experiment: fromRecent.next_experiment || fromRecent.nextExperiment || ""
+      });
     } else {
       try {
         const yFile = app.vault.getAbstractFileByPath(yesterdayPath);
         if (yFile) {
           const yText = await app.vault.read(yFile);
           const fields = extractDailyReviewFields(yText);
-          yesterdayReview = {
+          yesterdayReview = selectUsefulYesterdayReview({
             date: yesterdayDate,
             path: yesterdayPath,
             reflection: fields.reflection,
             change: fields.change,
-            next_experiment: fields.next_experiment,
-            found: true
-          };
+            next_experiment: fields.next_experiment
+          });
         }
       } catch (_yErr) {
-        // Safe skip
+        // Safe skip — missing stays true
       }
     }
 
@@ -420,6 +420,18 @@
       };
     } else {
       warnings.push(`PRE Weekly review file not found: ${reviewPath}`);
+    }
+
+    // G2. Internal verified context (PRE evidence only — not a user-facing Memory stage)
+    let internalContextLine = "";
+    if (Array.isArray(latestReview.meaningful_changes) && latestReview.meaningful_changes.length) {
+      const first = latestReview.meaningful_changes[0];
+      const text = typeof first === "string" ? first : (first && (first.summary || first.label || first.text)) || "";
+      if (String(text).trim()) internalContextLine = truncateText(String(text).trim(), 100);
+    } else if (Array.isArray(latestReview.next_week_direction) && latestReview.next_week_direction.length) {
+      const first = latestReview.next_week_direction[0];
+      const text = typeof first === "string" ? first : (first && (first.summary || first.label || first.text)) || "";
+      if (String(text).trim()) internalContextLine = truncateText(String(text).trim(), 100);
     }
 
     // H. Calendar (Unavailable)
@@ -486,6 +498,8 @@
         recent_reflections: recentReflections,
         yesterday_review: yesterdayReview,
         latest_review: latestReview,
+        /** Internal only — never render as a separate Memory stage on Home */
+        internal_context_line: internalContextLine,
         calendar,
         continue_candidates: continueCandidates
       },
@@ -494,7 +508,9 @@
         auctions_count: auctions.length,
         reading_count: reading.length,
         reflections_count: recentReflections.length,
-        yesterday_review_found: !!(yesterdayReview && yesterdayReview.found)
+        yesterday_review_found: !!(yesterdayReview && yesterdayReview.found),
+        yesterday_review_meaningful: !!(yesterdayReview && yesterdayReview.meaningful),
+        yesterday_review_missing: !!(yesterdayReview && yesterdayReview.missing)
       },
       warnings
     };
@@ -504,18 +520,52 @@
     return pkg;
   }
 
+  /**
+   * Prefer change + next_experiment for loop continuity.
+   * Fall back to a short reflection only when change is empty.
+   * Never invent content.
+   */
+  function selectUsefulYesterdayReview(source) {
+    const src = source || {};
+    const reflection = String(src.reflection || "").trim();
+    const change = String(src.change || "").trim();
+    const next = String(src.next_experiment || "").trim();
+    // Learning line: change first, else short reflection
+    const learning = change || (reflection ? truncateText(reflection, 140) : "");
+    const meaningful = !!(learning || next);
+    return {
+      date: src.date || "",
+      path: src.path || "",
+      reflection,
+      change,
+      next_experiment: next,
+      learning,
+      found: true,
+      meaningful,
+      missing: !meaningful
+    };
+  }
+
   function generateDeterministicFallback(pkg) {
     const localDate = (pkg && pkg.local_date) || getTodayIsoDate();
     const context = (pkg && pkg.context) || {};
 
     const yesterday = context.yesterday_review || {};
-    const yChange = String(yesterday.change || "").trim();
+    const yLearning = String(yesterday.learning || yesterday.change || "").trim();
     const yNext = String(yesterday.next_experiment || "").trim();
+    // Keep rule brief short; structured recovery is shown on Home (avoid duplicate walls of text)
     const briefLines = [
       "규칙 기반 오늘의 브리핑입니다. 기한·입찰일·다음 행동을 기준으로 우선순위를 정리했습니다."
     ];
-    if (yChange) briefLines.push(`어제 변화: ${truncateText(yChange, 120)}`);
-    if (yNext) briefLines.push(`오늘 실험: ${truncateText(yNext, 120)}`);
+    if (yLearning && !yNext) briefLines.push(`어제 배움: ${truncateText(yLearning, 100)}`);
+    else if (yNext && !yLearning) briefLines.push(`오늘 실험: ${truncateText(yNext, 100)}`);
+    else if (yLearning && yNext) {
+      briefLines.push(`어제 배움 → 오늘 실험으로 이어갑니다.`);
+    }
+    const internalLine = String(context.internal_context_line || "").trim();
+    if (internalLine && !yLearning && !yNext) {
+      briefLines.push(`주간 근거: ${truncateText(internalLine, 100)}`);
+    }
     const brief = briefLines.join("\n");
 
     const focus = [];
@@ -581,9 +631,9 @@
       focus.push({
         id: "rule_yesterday_experiment",
         label: truncateText(yNext, 48) || "어제 정한 실험 실행",
-        reason: yChange
-          ? `어제 기록한 다음 실험입니다. (어제 변화: ${truncateText(yChange, 60)})`
-          : "어제 Daily Reflection에 남긴 다음 실험입니다.",
+        reason: yLearning
+          ? `어제 기록한 다음 실험입니다. (어제 배움: ${truncateText(yLearning, 60)})`
+          : "어제 일일 성찰에 남긴 다음 실험입니다.",
         source_type: "health",
         urgency: "medium",
         next_action: yNext
@@ -722,6 +772,7 @@
     getWeekId,
     parseReflectionSections,
     extractDailyReviewFields,
+    selectUsefulYesterdayReview,
     buildTodayRisks,
     buildMorningPackage,
     generateDeterministicFallback,

@@ -1,0 +1,260 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const ROOT = path.resolve(__dirname, "../../../../../..");
+
+function load(rel) {
+  return require(path.join(ROOT, rel));
+}
+
+function main() {
+  try { load("SYSTEM/Views/object-lifecycle-core.js"); } catch (_e) { /* optional */ }
+  const engine = load("SYSTEM/Views/object-engine-core.js");
+  const checklist = load("SYSTEM/Views/reading-checklist-core.js");
+  load("SYSTEM/Views/reading-strategy-core.js");
+  const workspace = load("SYSTEM/Views/reading-workspace-core.js");
+  const launcher = load("SYSTEM/Views/workspace-launcher-core.js");
+
+  // --- Empty states ---
+  const emptyModel = workspace.buildWorkspaceModel([], {});
+  assert.equal(emptyModel.today.empty, true);
+  assert.equal(emptyModel.today.message, "진행 중인 독서가 없습니다.");
+  assert.equal(emptyModel.continue_reading.empty, true);
+  assert.equal(emptyModel.continue_reading.message, "진행 중인 독서가 없습니다.");
+  assert.equal(emptyModel.waiting_review.empty, true);
+  assert.equal(emptyModel.waiting_review.message, "읽을 복기 대상이 없습니다.");
+  assert.equal(emptyModel.knowledge_candidates.empty, true);
+  assert.equal(emptyModel.knowledge_candidates.message, "지식 후보가 없습니다.");
+  assert.equal(emptyModel.knowledge_candidates.reserved, true);
+
+  // --- Runtime integration: single session, continue target ---
+  const session = engine.createRuntimeSession({});
+  const pages = [
+    {
+      type: "reading",
+      status: "reading",
+      path: "PARA/PROJECTS/Reading/atomic.md",
+      title: "Atomic Habits",
+      author: "James Clear",
+      next_action: "Ch.3 읽기",
+      progress: 50,
+      reading_strategy: "practical"
+    },
+    {
+      type: "reading",
+      status: "reviewing",
+      path: "PARA/PROJECTS/Reading/thinking.md",
+      title: "Thinking Fast",
+      author: "Kahneman",
+      next_action: "복기 작성"
+    },
+    {
+      type: "reading",
+      status: "completed",
+      path: "PARA/PROJECTS/Reading/done.md",
+      title: "Done Book",
+      finished: "2026-07-10",
+      rating: 5
+    },
+    {
+      type: "reading",
+      status: "queue",
+      path: "PARA/PROJECTS/Reading/queue.md",
+      title: "Queued"
+    }
+  ];
+
+  const model = workspace.buildWorkspaceModel(pages, { session });
+  assert.equal(model.runtime_ok, true);
+  assert.ok(model.states.length === 4);
+
+  // Today's Reading — one primary from Runtime
+  assert.equal(model.today.empty, false);
+  assert.equal(model.today.object.title, "Atomic Habits");
+  assert.equal(model.today.object.author, "James Clear");
+  assert.equal(model.today.object.progress, "50%");
+  assert.equal(model.today.object.continue_action, "이어 읽기");
+  assert.ok(model.today.reason);
+  assert.match(model.today.reason, /Runtime|독서|Object/);
+
+  // Continue Reading from Runtime continue_target
+  assert.equal(model.continue_reading.empty, false);
+  assert.ok(model.continue_reading.continue_target);
+  assert.match(model.continue_reading.title, /Atomic Habits/);
+  assert.ok(model.continue_reading.reason);
+  assert.ok(model.continue_reading.reason.length > 0);
+
+  // Engine continue_target consistency (no re-rule)
+  const summary = engine.buildWorkspaceSummary(model.states, "reading", {});
+  assert.ok(summary.continue_target);
+  assert.equal(
+    model.continue_reading.continue_target.object_path,
+    summary.continue_target.object_path
+  );
+
+  // Reading Guide — common + practical domain
+  assert.equal(model.reading_guide.empty, false);
+  assert.equal(model.reading_guide.strategy, "practical");
+  assert.equal(model.reading_guide.known, true);
+  assert.equal(model.reading_guide.common, true);
+  assert.equal(model.reading_guide.domain, true);
+  assert.ok(model.reading_guide.prompts.length >= 3);
+  assert.ok(model.reading_guide.prompts.length <= 5);
+  assert.ok(model.reading_guide.reason);
+  assert.match(model.reading_guide.reason, /전략|공통|실용/);
+
+  // Reading Checklist — common spine + domain, never auto-complete
+  assert.equal(model.reading_checklist.empty, false);
+  assert.equal(model.reading_checklist.strategy, "practical");
+  assert.equal(model.reading_checklist.auto_complete, false);
+  assert.ok(model.reading_checklist.items.length >= 4);
+  assert.ok(model.reading_checklist.items.every((i) => i.checked === false));
+  assert.match(model.reading_checklist.reason, /전략|공통|실용/);
+
+  // Reflection — max 3, common critique + domain apply
+  assert.equal(model.reflection.empty, false);
+  assert.ok(model.reflection.prompts.length <= 3);
+  assert.ok(model.reflection.prompts.length >= 1);
+  assert.match(model.reflection.prompts.map((p) => p.label).join(" "), /의의|맞는가|이해|적용/);
+  assert.match(model.reflection.reason, /전략|공통|실용/);
+
+  // Waiting Review — Runtime reviewing / needs_review
+  assert.equal(model.waiting_review.empty, false);
+  assert.ok(model.waiting_review.items.some((i) => i.title.includes("Thinking") || i.path.includes("thinking")));
+  model.waiting_review.items.forEach((item) => {
+    assert.ok(item.reason, "every review card must explain itself");
+  });
+
+  // History — completed only
+  assert.equal(model.history.empty, false);
+  assert.ok(model.history.items.some((i) => i.title === "Done Book"));
+  assert.ok(!model.history.items.some((i) => i.title === "Queued"));
+
+  // Knowledge candidates placeholder — never fabricate
+  assert.equal(model.knowledge_candidates.items.length, 0);
+
+  // --- Explainability on Runtime-derived cards ---
+  assert.ok(model.today.reason);
+  assert.ok(model.continue_reading.reason);
+  assert.ok(model.reading_guide.reason);
+  assert.ok(model.waiting_review.items.every((i) => clean(i.reason)));
+
+  // --- Unknown book_type: no silent guess → Generic Strategy ---
+  const unknown = workspace.resolveStrategyDirect({ title: "Something", category: "자기계발" });
+  assert.equal(unknown.known, false);
+  assert.ok(unknown.strategy === "generic" || unknown.strategy === "unknown");
+
+  const known = workspace.resolveStrategyDirect({ book_type: "philosophy" });
+  assert.equal(known.known, true);
+  assert.equal(known.strategy, "philosophy");
+
+  // Guide with unknown type uses Generic Strategy
+  const unknownPages = [{
+    type: "reading",
+    status: "reading",
+    path: "PARA/PROJECTS/Reading/u.md",
+    title: "Unknown Type Book"
+  }];
+  const um = workspace.buildWorkspaceModel(unknownPages, { session: engine.createRuntimeSession({}) });
+  assert.equal(um.reading_guide.empty, false);
+  assert.equal(um.reading_guide.strategy, "generic");
+  assert.equal(um.reading_guide.domain, false);
+  assert.ok(um.reading_guide.prompts.length >= 3);
+  assert.ok(um.reading_checklist.empty === false);
+  assert.equal(um.reading_checklist.strategy, "generic");
+  assert.ok(um.reading_checklist.items.every((i) => String(i.id).includes("common")));
+  assert.ok(um.reading_guide.reason);
+
+  // --- Session memo: evaluate once ---
+  const s2 = engine.createRuntimeSession({});
+  const a = s2.evaluateObject(pages[0]);
+  const b = s2.evaluateObject(pages[0]);
+  assert.equal(a, b);
+
+  const model2 = workspace.buildWorkspaceModel(pages, { session: s2 });
+  assert.equal(model2.states[0], a);
+
+  // --- Launcher compatibility: still builds reading card from same objects ---
+  const cards = launcher.buildLauncherCards({
+    pkg: {
+      context: {
+        auctions: [],
+        reading: pages.filter((p) => p.status === "reading" || p.status === "reviewing"),
+        projects: []
+      }
+    },
+    journalStatus: { status: "empty" },
+    workoutSnapshot: null
+  });
+  const readingCard = cards.find((c) => c.id === "reading");
+  assert.ok(readingCard);
+  assert.equal(readingCard.empty, false);
+  assert.match(String(readingCard.title || readingCard.detail || ""), /Atomic|Habits|Ch\.3|읽기|Resume|이어/i);
+
+  // --- Home hub still references engine (not redesigned) ---
+  const homeHub = fs.readFileSync(path.join(ROOT, "HUB/00 Home.md"), "utf8");
+  assert.match(homeHub, /object-engine-core\.js|HomeView|workspace-launcher/i);
+
+  // --- Reading hub: card-first + Runtime/Strategy power (no full workspace wall) ---
+  const readingHub = fs.readFileSync(path.join(ROOT, "HUB/20 Reading.md"), "utf8");
+  assert.match(readingHub, /reading-workspace-core\.js/);
+  assert.match(readingHub, /reading-strategy-core\.js/);
+  assert.match(readingHub, /object-engine-core\.js/);
+  assert.match(readingHub, /reading-card\.js/);
+  assert.match(readingHub, /renderReadingCard/);
+  assert.match(readingHub, /이어 읽기|읽는 중/);
+  assert.match(readingHub, /진행 중인 독서가 없습니다/);
+  assert.match(readingHub, /읽을 복기 대상이 없습니다/);
+  // Card-first: do not mount full progressive wall on hub
+  assert.equal(/ReadingWorkspaceView\.renderWorkspace/.test(readingHub), false);
+  assert.equal(readingHub.includes("reading-workspace-view.js"), false);
+  assert.equal(workspace.EMPTY.knowledge, "지식 후보가 없습니다.");
+  assert.equal(workspace.EMPTY.continue, "진행 중인 독서가 없습니다.");
+  assert.equal(workspace.EMPTY.review, "읽을 복기 대상이 없습니다.");
+  assert.equal(workspace.LABELS.today, "오늘의 독서");
+  assert.equal(workspace.LABELS.continue, "이어 읽기");
+  assert.equal(workspace.LABELS.guide, "독서 질답");
+  assert.equal(workspace.LABELS.checklist, "독서 체크리스트");
+  assert.equal(workspace.LABELS.reflection, "성찰");
+  assert.equal(workspace.LABELS.review, "복기 대기");
+  assert.equal(workspace.LABELS.knowledge, "지식 후보");
+  assert.equal(workspace.LABELS.history, "기록");
+  assert.equal(workspace.LABELS.reason, "이유");
+
+  // --- No schema / property / runtime mutation in workspace core ---
+  const wsSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-workspace-core.js"), "utf8");
+  assert.equal(wsSrc.includes("processFrontMatter"), false);
+  assert.equal(wsSrc.includes("vault.modify"), false);
+  assert.equal(wsSrc.includes("fetch("), false);
+  assert.match(wsSrc, /ObjectEngine|createRuntimeSession|buildWorkspaceSummary/);
+
+  // --- Operating Guide documents flow ---
+  const guide = fs.readFileSync(path.join(ROOT, "SYSTEM/docs/11_Operating_Guide.md"), "utf8");
+  assert.match(guide, /Reading Dashboard|Reading Strategy|카드/);
+  assert.match(guide, /Object Engine Runtime/);
+  assert.match(guide, /독서 질답/);
+  assert.match(guide, /성찰/);
+  assert.match(guide, /복기/);
+
+  // Checklist still available for guide questions
+  assert.ok(checklist.selectQuestions);
+  const pq = checklist.selectQuestions({ reading_strategy: "practical", source_path: "PARA/PROJECTS/Reading/x.md" });
+  assert.ok(pq.questions.length >= 3);
+
+  // STRATEGY_GUIDE covers mission strategies (compat surface)
+  for (const key of ["practical", "philosophy", "history", "science", "literature", "social_science"]) {
+    assert.ok(workspace.STRATEGY_GUIDE[key], key);
+    assert.ok(workspace.STRATEGY_GUIDE[key].length >= 2);
+  }
+
+  console.log("Reading workspace tests passed");
+}
+
+function clean(value) {
+  return String(value == null ? "" : value).trim();
+}
+
+main();

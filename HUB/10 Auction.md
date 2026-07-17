@@ -27,11 +27,19 @@ const loadProdigyScript = async (path) => {
 
 try {
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/object-lifecycle-core.js");
+  await loadProdigyScript("SYSTEM/Views/object-lifecycle-view.js");
+  await loadProdigyScript("SYSTEM/Views/object-engine-core.js");
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
   await loadProdigyScript("SYSTEM/Views/site-visit-data.js");
   await loadProdigyScript("SYSTEM/Views/site-visit-workflow.js");
   if (window.prodigySiteVisitReady) await window.prodigySiteVisitReady;
   await loadProdigyScript("SYSTEM/Views/auction-card.js");
+  await loadProdigyScript("SYSTEM/Views/bid-calendar-core.js");
+  await loadProdigyScript("SYSTEM/Views/bid-calendar-view.js");
+  await loadProdigyScript("SYSTEM/Views/auction-day-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-day-view.js");
 } catch (err) {
   container.empty();
   const errCard = container.createEl("div", {
@@ -152,6 +160,85 @@ progressBox.createEl('div', { text: '✨ 이번 달 진행 현황', attr: { styl
 
 addStatItem(progressBox, '🏆 이번 달 낙찰', wonThisMonthCount, '#22c55e', wonThisMonthCount > 0);
 addStatItem(progressBox, '🔄 이번 달 복기 완료', reviewsCompletedThisMonthCount, '#f97316', reviewsCompletedThisMonthCount > 0);
+
+// Continue target from Object Engine Runtime (same as Launcher; no layout redesign)
+try {
+  if (window.ObjectEngine && window.ObjectEngine.evaluateObjects && window.ObjectEngine.buildWorkspaceSummary) {
+    const pages = toPlainArray(cases).map(p => Object.assign({}, p, {
+      type: p.type || "auction_case",
+      path: (p.file && p.file.path) || p.path || "",
+      name: p.case_number || (p.file && p.file.name) || p.name || ""
+    }));
+    const states = window.ObjectEngine.evaluateObjects(pages);
+    const summary = window.ObjectEngine.buildWorkspaceSummary(states, "auction", {});
+    const cont = summary && summary.continue_target;
+    const contBox = this.container.createEl("div", {
+      attr: {
+        style: "margin:8px 0 4px;padding:10px 12px;border-radius:10px;border:1px solid var(--background-modifier-border);background:var(--background-secondary);"
+      }
+    });
+    contBox.createEl("div", {
+      text: "▶ 계속",
+      attr: { style: "font-weight:800;font-size:0.88em;color:var(--text-accent);margin-bottom:4px;" }
+    });
+    if (cont) {
+      contBox.createEl("div", {
+        text: cont.label || "경매 물건",
+        attr: { style: "font-weight:700;font-size:0.92em;" }
+      });
+      contBox.createEl("div", {
+        text: cont.action || "",
+        attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:2px;" }
+      });
+      if (cont.reason) {
+        contBox.createEl("div", {
+          text: cont.reason,
+          attr: { style: "font-size:0.78em;color:var(--text-faint);margin-top:4px;" }
+        });
+      }
+    } else {
+      contBox.createEl("div", {
+        text: "진행 중인 작업이 없습니다.",
+        attr: { style: "font-size:0.85em;color:var(--text-muted);font-style:italic;" }
+      });
+    }
+  }
+} catch (_engineErr) {
+  // Engine optional — Today stats remain
+}
+```
+
+---
+
+# 📅 입찰 일정
+
+```dataviewjs
+// Bid Calendar: time navigation only (does not edit Objects)
+const run = () => {
+  if (window.BidCalendarCore && window.BidCalendarView) {
+    this.container.empty();
+    const pages = dv.pages('"PARA/PROJECTS/Auction"')
+      .where(p => p.type === "auction_case")
+      .array();
+    window.BidCalendarView.render({
+      container: this.container,
+      pages,
+      app: app,
+      now: new Date()
+    });
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", {
+    text: "⌛ 입찰 일정 캘린더를 불러오는 중...",
+    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
+  });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
 ```
 
 ---
@@ -242,17 +329,31 @@ makeStep(grp2, statusStep('archived'), counts.archived, '#555');
 ## ⚖️ 입찰 예정
 
 ```dataviewjs
-if (window.renderDashboardSection) {
-  window.renderDashboardSection({
-    dv: dv,
-    status: "bidding",
-    type: "auction_case",
-    container: this.container,
-    renderer: window.renderAuctionCard,
-    emptyMessage: "해당 조건의 입찰 예정 물건이 없습니다.",
-    sortField: "auction_datetime",
-    sortOrder: "asc"
+const run = () => {
+  if (window.renderDashboardSection && window.renderAuctionCard) {
+    this.container.empty();
+    window.renderDashboardSection({
+      dv: dv,
+      status: "bidding",
+      type: "auction_case",
+      container: this.container,
+      renderer: window.renderAuctionCard,
+      emptyMessage: "해당 조건의 입찰 예정 물건이 없습니다.",
+      sortField: "auction_datetime",
+      sortOrder: "asc"
+    });
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", {
+    text: "⌛ 대시보드 리소스를 불러오는 중...",
+    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
   });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
 }
 ```
 
@@ -261,17 +362,31 @@ if (window.renderDashboardSection) {
 ## 👀 관심
 
 ```dataviewjs
-if (window.renderDashboardSection) {
-  window.renderDashboardSection({
-    dv: dv,
-    status: "watching",
-    type: "auction_case",
-    container: this.container,
-    renderer: window.renderAuctionCard,
-    emptyMessage: "해당 조건의 검토 중인 물건이 없습니다.",
-    sortField: "auction_datetime",
-    sortOrder: "asc"
+const run = () => {
+  if (window.renderDashboardSection && window.renderAuctionCard) {
+    this.container.empty();
+    window.renderDashboardSection({
+      dv: dv,
+      status: "watching",
+      type: "auction_case",
+      container: this.container,
+      renderer: window.renderAuctionCard,
+      emptyMessage: "해당 조건의 검토 중인 물건이 없습니다.",
+      sortField: "auction_datetime",
+      sortOrder: "asc"
+    });
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", {
+    text: "⌛ 대시보드 리소스를 불러오는 중...",
+    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
   });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
 }
 ```
 
@@ -280,17 +395,31 @@ if (window.renderDashboardSection) {
 ## 🔄 복기 중
 
 ```dataviewjs
-if (window.renderDashboardSection) {
-  window.renderDashboardSection({
-    dv: dv,
-    status: "reviewing",
-    type: "auction_case",
-    container: this.container,
-    renderer: window.renderAuctionCard,
-    emptyMessage: "해당 조건의 복기 중인 물건이 없습니다.",
-    sortField: "auction_datetime",
-    sortOrder: "desc"
+const run = () => {
+  if (window.renderDashboardSection && window.renderAuctionCard) {
+    this.container.empty();
+    window.renderDashboardSection({
+      dv: dv,
+      status: "reviewing",
+      type: "auction_case",
+      container: this.container,
+      renderer: window.renderAuctionCard,
+      emptyMessage: "해당 조건의 복기 중인 물건이 없습니다.",
+      sortField: "auction_datetime",
+      sortOrder: "desc"
+    });
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", {
+    text: "⌛ 대시보드 리소스를 불러오는 중...",
+    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
   });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
 }
 ```
 
@@ -299,79 +428,136 @@ if (window.renderDashboardSection) {
 ## 🏆 낙찰
 
 ```dataviewjs
-if (window.renderDashboardSection) {
-  window.renderDashboardSection({
-    dv: dv,
-    status: "won",
-    type: "auction_case",
-    container: this.container,
-    renderer: window.renderAuctionCard,
-    emptyMessage: "해당 조건의 낙찰 물건이 없습니다.",
-    isCollapsed: true,
-    summaryText: "🏆 낙찰 물건 목록",
-    summaryColor: "#22c55e",
-    sortField: "auction_datetime",
-    sortOrder: "desc"
+const run = () => {
+  if (window.renderDashboardSection && window.renderAuctionCard) {
+    this.container.empty();
+    window.renderDashboardSection({
+      dv: dv,
+      status: "won",
+      type: "auction_case",
+      container: this.container,
+      renderer: window.renderAuctionCard,
+      emptyMessage: "해당 조건의 낙찰 물건이 없습니다.",
+      isCollapsed: true,
+      summaryText: "🏆 낙찰 물건 목록",
+      summaryColor: "#22c55e",
+      sortField: "auction_datetime",
+      sortOrder: "desc"
+    });
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", {
+    text: "⌛ 대시보드 리소스를 불러오는 중...",
+    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
   });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
 }
 ```
 
 ## 💔 패찰
 
 ```dataviewjs
-if (window.renderDashboardSection) {
-  window.renderDashboardSection({
-    dv: dv,
-    status: "lost",
-    type: "auction_case",
-    container: this.container,
-    renderer: window.renderAuctionCard,
-    emptyMessage: "해당 조건의 패찰 물건이 없습니다.",
-    isCollapsed: true,
-    summaryText: "💔 패찰 물건 목록",
-    summaryColor: "#ef4444",
-    sortField: "auction_datetime",
-    sortOrder: "desc"
+const run = () => {
+  if (window.renderDashboardSection && window.renderAuctionCard) {
+    this.container.empty();
+    window.renderDashboardSection({
+      dv: dv,
+      status: "lost",
+      type: "auction_case",
+      container: this.container,
+      renderer: window.renderAuctionCard,
+      emptyMessage: "해당 조건의 패찰 물건이 없습니다.",
+      isCollapsed: true,
+      summaryText: "💔 패찰 물건 목록",
+      summaryColor: "#ef4444",
+      sortField: "auction_datetime",
+      sortOrder: "desc"
+    });
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", {
+    text: "⌛ 대시보드 리소스를 불러오는 중...",
+    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
   });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
 }
 ```
 
 ## ❌ 입찰 포기
 
 ```dataviewjs
-if (window.renderDashboardSection) {
-  window.renderDashboardSection({
-    dv: dv,
-    status: "skipped",
-    type: "auction_case",
-    container: this.container,
-    renderer: window.renderAuctionCard,
-    emptyMessage: "해당 조건의 입찰 포기 물건이 없습니다.",
-    isCollapsed: true,
-    summaryText: "❌ 입찰 포기 물건 목록",
-    summaryColor: "#666666",
-    sortField: "auction_datetime",
-    sortOrder: "desc"
+const run = () => {
+  if (window.renderDashboardSection && window.renderAuctionCard) {
+    this.container.empty();
+    window.renderDashboardSection({
+      dv: dv,
+      status: "skipped",
+      type: "auction_case",
+      container: this.container,
+      renderer: window.renderAuctionCard,
+      emptyMessage: "해당 조건의 입찰 포기 물건이 없습니다.",
+      isCollapsed: true,
+      summaryText: "❌ 입찰 포기 물건 목록",
+      summaryColor: "#666666",
+      sortField: "auction_datetime",
+      sortOrder: "desc"
+    });
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", {
+    text: "⌛ 대시보드 리소스를 불러오는 중...",
+    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
   });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
 }
 ```
 
 ## 📦 보관
 
 ```dataviewjs
-if (window.renderDashboardSection) {
-  window.renderDashboardSection({
-    dv: dv,
-    status: "archived",
-    type: "auction_case",
-    container: this.container,
-    renderer: window.renderAuctionCard,
-    emptyMessage: "해당 조건의 보관 물건이 없습니다.",
-    isCollapsed: true,
-    summaryText: "📦 보관 물건 목록",
-    summaryColor: "var(--text-muted)",
-    sortField: "auction_datetime",
-    sortOrder: "desc"
+const run = () => {
+  if (window.renderDashboardSection && window.renderAuctionCard) {
+    this.container.empty();
+    window.renderDashboardSection({
+      dv: dv,
+      status: "archived",
+      type: "auction_case",
+      container: this.container,
+      renderer: window.renderAuctionCard,
+      emptyMessage: "해당 조건의 보관 물건이 없습니다.",
+      isCollapsed: true,
+      summaryText: "📦 보관 물건 목록",
+      summaryColor: "var(--text-muted)",
+      sortField: "auction_datetime",
+      sortOrder: "desc"
+    });
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", {
+    text: "⌛ 대시보드 리소스를 불러오는 중...",
+    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
   });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
 }
+```
 ```

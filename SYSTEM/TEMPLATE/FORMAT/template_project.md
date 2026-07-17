@@ -1,5 +1,6 @@
 ---
 type: project
+project_type: 
 status: idea
 priority: 보통
 start_date: 
@@ -7,6 +8,7 @@ due_date:
 next_action: 
 review_date: 
 category: 
+connections: 
 todoist_project_id: 
 todoist_sync_status: pending
 todoist_last_error: 
@@ -18,6 +20,7 @@ cssclasses:
 ---
 # 프로젝트 개요
 
+* **유형**: `= this.project_type`
 * **카테고리**: `= this.category`
 * **우선순위**: `= this.priority`
 * **시작일**: `= this.start_date` | **목표완료일**: `= this.due_date`
@@ -25,7 +28,10 @@ cssclasses:
 
 ---
 
-## 🎯 목표 및 세부 계획
+## 목표
+
+
+## 다음 실행
 
 
 ## Workflow

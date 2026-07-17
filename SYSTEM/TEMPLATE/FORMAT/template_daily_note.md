@@ -6,6 +6,10 @@ journal-end-date: <% tp.file.title %>
 type: journal
 date: <% tp.file.title %>
 status: completed
+reflection:
+change:
+next_experiment:
+connections:
 cssclasses:
   - hide-properties_editing
   - hide-properties_reading
@@ -14,6 +18,25 @@ cssclasses:
 
 ```calendar-nav
 ```
+
+# Reflection
+
+## 성찰 (Reflection)
+*오늘 가장 중요했던 일이나 깨달음은 무엇인가?*
+- 
+
+## 변화 (Change)
+*오늘 무엇이 달라졌는가?*
+- 
+
+## 다음 실험 (Next Experiment)
+*내일 또는 다음번에 무엇을 시험할 것인가?*
+- 
+
+## 연관 참조 (References)
+*오늘의 성찰과 직접적으로 연관된 다른 노트·사람·태스크 링크만 간단히 남깁니다. (중복 작성 금지)*
+*사람 연결은 YAML `connections` 또는 아래 wikilink를 사용합니다.*
+- 
 
 # Tasks
 
@@ -42,27 +65,6 @@ hide due date
 limit 10
 ```
 ````
-
-# Reflection
-
-## 성찰 (Reflection)
-*오늘 성찰해 볼 만한 가장 의미 있는 단 하나의 사건은 무엇이며, 이를 통해 나 자신에 대해 무엇을 배웠나요?*
-*(오늘 있었던 일들을 나열하는 것이 아니라, 나를 더 깊이 이해하는 것에 집중합니다. 양보다 질이 중요합니다.)*
-- 
-
-## 변화 (Change)
-*오늘의 경험으로 인해 앞으로 내 생각이나 행동에서 무엇이 달라질까요?*
-*(단순 행동 계획이 아닌, 판단력 개선, 관점 전환, 사고의 변화 등 내적인 성장을 기술합니다.)*
-- 
-
-## 다음 실험 (Next Experiment)
-*내일 의도적으로 시도해 볼 구체적이고 즉각적인 작은 행동 실험은 무엇인가요?*
-*(관찰과 측정이 가능하고 마찰력이 적은 아주 작은 단 하나의 행동이어야 합니다. 예: 전날 밤에 운동복 준비하기, 입찰 전 탈출 가격 계산하기 등)*
-- 
-
-## 연관 참조 (References)
-*오늘의 성찰과 직접적으로 연관된 다른 노트나 태스크(Todoist)에 대한 링크만 간단히 남깁니다. (중복 작성 금지)*
-- 
 
 # Overview
 

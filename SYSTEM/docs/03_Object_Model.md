@@ -139,16 +139,15 @@ Prodigy OS에서 관리하는 대표 Object 유형이다.
 Object는 굳이 Domain으로 분류하지 않으며, Folder, Property, AI 추천을 통해 충분히 관리 가능하다.
 
 - Auction Case
-- Onbid Case
-- Reading
-- Study
-- Concept
 - Project
+- Reading
 - Workout
-- Habit
-- Daily Note
-- Reflection
-- Review
+- Journal (Daily Reflection)
+- People (관계 기억 · 내부 type: `people` · 표시: 사람)
+- Knowledge (영구/문헌 노트 등)
+- Area
+
+레거시 읽기 호환(신규 생성 금지): `contact` (→ People), `project_note` / `project_family` (→ Project)
 
 ---
 

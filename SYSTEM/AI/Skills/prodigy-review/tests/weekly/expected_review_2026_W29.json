@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "review_id": "weekly-review-2026-W29",
+  "review_type": "learning",
+  "question": "이번 주의 경험에서 무엇이 반복되었고, 무엇을 배웠는가?",
+  "summary": "1개의 일일 성찰과 1개의 연결 Object를 검토했다. 반복 패턴은 충분한 복수 증거로 확인되지 않았다.",
+  "findings": [],
+  "meaningful_changes": [
+    {
+      "title": "즉시 처리 기준의 변화",
+      "reason": "- 즉시 처리할 수 있는 일은 당일에 끝내는 쪽으로 판단 기준이 바뀌었다.",
+      "evidence_refs": [
+        "daily-2026-07-13"
+      ]
+    }
+  ],
+  "experiments": [
+    {
+      "title": "다음 실험",
+      "description": "- 내일 5분짜리 일은 발견 즉시 처리한다.",
+      "evidence_refs": [
+        "daily-2026-07-13"
+      ]
+    }
+  ],
+  "suggested_principles": [],
+  "next_week_direction": [
+    "Try: - 내일 5분짜리 일은 발견 즉시 처리한다.",
+    "Observe: 같은 지연 패턴이 반복되는지 추가 증거를 모은다."
+  ],
+  "limitations": [
+    "No repeated pattern identified.",
+    "Only one Daily available.",
+    "Missing references: 1.",
+    "Evidence package contains warnings."
+  ],
+  "references": [
+    "DAILY/DAILY/2026-07-13.md",
+    "DAILY/DAILY/2026-07-14.md"
+  ]
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Prodigy Release"
+  short_description: "안전한 기능 단위 Git 커밋과 push를 수행합니다"
+  default_prompt: "Use $prodigy-release to audit and release the requested Prodigy OS changes."
+policy:
+  allow_implicit_invocation: true

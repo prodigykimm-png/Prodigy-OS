@@ -18,7 +18,30 @@
     auction_note: "참고 메모", my_opinion: "나의 의견", attachments: "첨부자료",
     appraisal_report: "감정평가서", sale_statement: "매각물건명세서", field_report: "현장 보고서",
     category: "분류", author: "저자", started: "시작일", finished: "완료일", rating: "평점",
-    progress: "진행도", todoist_project_id: "Todoist 프로젝트", todoist_sync_status: "Todoist 연동 상태"
+    progress: "진행도", title: "제목", creator: "제작자", goal: "목표", difficulty: "난이도",
+    duration: "기간", exercise: "운동", date: "날짜", intensity: "강도", sets: "세트",
+    reps: "횟수", weight: "중량", distance: "거리", calories: "칼로리", mood: "기분", notes: "메모",
+    publish_date: "출간일", cover_url: "표지", language: "언어",
+    key_takeaway: "핵심 배움", review_summary: "복기 요약",
+    todoist_project_id: "Todoist 프로젝트", todoist_sync_status: "Todoist 연동 상태",
+    project_type: "프로젝트 유형",
+    reflection: "성찰", change: "변화", next_experiment: "다음 실험",
+    daily_reflection: "성찰", learning: "배움", lesson: "교훈",
+    delta: "변화", next_step: "다음 단계", experiment: "실험", review: "복기",
+    book_id: "책 ID", book_title: "책 제목", reading_purpose: "독서 목적",
+    purpose: "목적", current_page: "현재 페이지", total_page: "전체 페이지",
+    started_at: "시작 시각", completed_at: "완료 시각",
+    session_id: "세션 ID", book: "책", start_page: "시작 페이지", end_page: "종료 페이지",
+    reading_range: "읽은 범위", key_content: "핵심 내용", my_thought: "내 생각",
+    thinking_delta: "생각의 변화", next_position: "다음 위치",
+    knowledge_candidate_ids: "지식 후보",
+    candidate_id: "후보 ID", statement: "지식 문장", reason: "이유",
+    source_type: "출처 유형", source_session_id: "출처 세션 ID",
+    source_session: "출처 세션", source_book: "출처 책",
+    reading_strategy: "독서 전략", book_type: "책 유형", reading_type: "독서 유형",
+    cover: "표지", cover_image: "표지 이미지", book_cover: "책 표지", image: "이미지",
+    relationship: "관계", company: "소속", role: "역할", birthday: "생일",
+    first_met: "처음 만난 날", last_contact: "최근 연락", phone: "전화", email: "이메일"
   });
 
   const STATUS_INFO = Object.freeze({
@@ -29,6 +52,9 @@
     active: Object.freeze({ label: "활성", icon: "▶", color: "#22c55e" }),
     bidding: Object.freeze({ label: "입찰 예정", icon: "⚖️", color: "#3b82f6" }),
     reviewing: Object.freeze({ label: "복기 중", icon: "🔄", color: "#f97316" }),
+    proposed: Object.freeze({ label: "제안", icon: "✦", color: "#a855f7" }),
+    saved: Object.freeze({ label: "보관", icon: "☆", color: "#22c55e" }),
+    rejected: Object.freeze({ label: "거절", icon: "✕", color: "#666666" }),
     won: Object.freeze({ label: "낙찰", icon: "🏆", color: "#22c55e" }),
     lost: Object.freeze({ label: "패찰", icon: "✕", color: "#ef4444" }),
     skipped: Object.freeze({ label: "입찰 포기", icon: "✕", color: "#666666" }),
@@ -59,14 +85,18 @@
   const TYPE_INFO = Object.freeze({
     auction_case: Object.freeze({ label: "경매", icon: "🏢", color: "#3b82f6" }),
     reading: Object.freeze({ label: "독서", icon: "📖", color: "#eab308" }),
+    reading_session: Object.freeze({ label: "독서 세션", icon: "✎", color: "#eab308" }),
+    knowledge_candidate: Object.freeze({ label: "지식 후보", icon: "✦", color: "#a855f7" }),
+    journal: Object.freeze({ label: "저널", icon: "📅", color: "#ec4899" }),
     project: Object.freeze({ label: "프로젝트", icon: "📁", color: "#f97316" }),
     project_family: Object.freeze({ label: "프로젝트", icon: "📁", color: "#f97316" }),
     project_note: Object.freeze({ label: "프로젝트", icon: "📁", color: "#f97316" }),
     knowledge: Object.freeze({ label: "지식", icon: "🧠", color: "#a855f7" }),
-    journal: Object.freeze({ label: "저널", icon: "📅", color: "#ec4899" }),
     people: Object.freeze({ label: "사람", icon: "👤", color: "#78716c" }),
     contact: Object.freeze({ label: "사람", icon: "👤", color: "#78716c" }),
     workout: Object.freeze({ label: "운동", icon: "💪", color: "#ef4444" }),
+    workout_program: Object.freeze({ label: "운동 프로그램", icon: "▤", color: "#ef4444" }),
+    exercise: Object.freeze({ label: "운동 종목", icon: "+", color: "#14b8a6" }),
     wedding: Object.freeze({ label: "웨딩", icon: "📸", color: "#8b5cf6" }),
     study: Object.freeze({ label: "공부", icon: "📚", color: "#22c55e" }),
     area_family: Object.freeze({ label: "영역", icon: "🌐", color: "#14b8a6" }),
@@ -81,9 +111,67 @@
     new_note: Object.freeze({ label: "노트", icon: "📌", color: "#6b7280" })
   });
 
+  const LIFECYCLE_INFO = Object.freeze({
+    healthy: Object.freeze({ label: "정상", icon: "●", color: "#22c55e" }),
+    needs_action: Object.freeze({ label: "다음 행동 필요", icon: "!", color: "#f97316" }),
+    needs_review: Object.freeze({ label: "복기 필요", icon: "↻", color: "#eab308" }),
+    stale: Object.freeze({ label: "오래 방치됨", icon: "◌", color: "#8e8e93" }),
+    completed: Object.freeze({ label: "완료", icon: "✓", color: "#06b6d4" })
+  });
+
   const fallbackInfo = (label) => Object.freeze({ label, icon: "", color: "#6b7280" });
   const statusInfo = (value) => STATUS_INFO[value] || fallbackInfo(value ? "미등록 상태" : "미지정");
   const typeInfo = (value) => TYPE_INFO[value] || fallbackInfo(value ? "미등록 유형" : "미지정");
+  const lifecycleInfo = (value) => LIFECYCLE_INFO[value] || fallbackInfo(value ? "미등록 라이프사이클" : "미지정");
+
+  const parsePrice = (val) => {
+    if (val === undefined || val === null) return NaN;
+    if (typeof val === "number") return val;
+    
+    let str = String(val).replace(/,/g, "").trim();
+    if (!str) return NaN;
+    
+    if (/^\d+(\.\d+)?$/.test(str)) {
+      return Number(str);
+    }
+    
+    let total = 0;
+    let hasEok = false;
+    let hasMan = false;
+    
+    const eokMatch = str.match(/^([\d.]+)\s*억/);
+    if (eokMatch) {
+      total += parseFloat(eokMatch[1]) * 100000000;
+      hasEok = true;
+      str = str.substring(eokMatch[0].length).trim();
+    } else {
+      const eokIdx = str.indexOf("억");
+      if (eokIdx !== -1) {
+        const eokPart = str.substring(0, eokIdx).trim();
+        if (eokPart) total += parseFloat(eokPart) * 100000000;
+        hasEok = true;
+        str = str.substring(eokIdx + 1).trim();
+      }
+    }
+    
+    if (str) {
+      const manMatch = str.match(/^([\d.]+)\s*만?/);
+      if (manMatch) {
+        total += parseFloat(manMatch[1]) * 10000;
+        hasMan = true;
+      } else if (/^\d+(\.\d+)?$/.test(str)) {
+        total += parseFloat(str) * 10000;
+        hasMan = true;
+      }
+    }
+    
+    if (hasEok || hasMan) return total;
+    
+    const parsed = Number(str);
+    return isNaN(parsed) ? NaN : parsed;
+  };
+
+  window.parsePrice = parsePrice;
 
   window.prodigyDisplay = Object.freeze({
     property: (key) => PROPERTY_LABELS[key] || "미등록 항목",
@@ -91,6 +179,8 @@
     statusInfo,
     priority: (value) => PRIORITY_LABELS[value] || (value ? "미등록 우선순위" : "미지정"),
     type: (value) => typeInfo(value).label,
-    typeInfo
+    typeInfo,
+    lifecycle: (value) => lifecycleInfo(value).label,
+    lifecycleInfo
   });
 })();

@@ -2,6 +2,7 @@ window.renderAuctionCard = function(p, container) {
   try {
     const display = window.prodigyDisplay;
     if (!display) throw new Error("표시 Registry가 로드되지 않았습니다.");
+    const parser = window.parsePrice || Number;
     const color = display.statusInfo(p.status).color;
     
     const card = container.createEl('div', {
@@ -25,10 +26,10 @@ window.renderAuctionCard = function(p, container) {
     };
 
     const calcMonthlyProfit = (p) => {
-      const expected = Number(p.expected_bid);
-      const rent = Number(p.expected_monthly_rent);
-      const loanRatio = p.loan_ratio !== undefined && !isNaN(Number(p.loan_ratio)) ? Number(p.loan_ratio) : 0.8;
-      const interestRate = p.interest_rate !== undefined && !isNaN(Number(p.interest_rate)) ? Number(p.interest_rate) : 0.06;
+      const expected = parser(p.expected_bid);
+      const rent = parser(p.expected_monthly_rent);
+      const loanRatio = p.loan_ratio !== undefined && !isNaN(parser(p.loan_ratio)) ? parser(p.loan_ratio) : 0.8;
+      const interestRate = p.interest_rate !== undefined && !isNaN(parser(p.interest_rate)) ? parser(p.interest_rate) : 0.06;
       
       if (isNaN(expected) || isNaN(rent) || !isFinite(expected) || !isFinite(rent) || expected <= 0 || rent <= 0) return null;
       
@@ -50,14 +51,14 @@ window.renderAuctionCard = function(p, container) {
     
     const toEok = (v) => {
       if (!v || v === "정보 없음") return "-";
-      const num = Number(v);
+      const num = parser(v);
       if (isNaN(num) || !isFinite(num)) return v;
       return (num / 100000000).toFixed(2) + "억";
     };
 
     const toMan = (v) => {
       if (v === undefined || v === null || v === "") return "0";
-      const num = Number(v);
+      const num = parser(v);
       if (isNaN(num)) return v;
       if (num % 10000 === 0) return (num / 10000) + "만";
       return num;
@@ -92,15 +93,16 @@ window.renderAuctionCard = function(p, container) {
         targetDate.setHours(0,0,0,0);
         const diffTime = targetDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const mdStr = isoDate.slice(5).replace("-", "/"); // e.g., "07/16"
         
         if (diffDays === 0) {
-          ddayStr = "오늘 입찰";
+          ddayStr = `${mdStr} (오늘)`;
           isUrgent = true;
         } else if (diffDays > 0) {
-          ddayStr = `${diffDays}일 남음`;
+          ddayStr = `${mdStr} (D-${diffDays})`;
           if (diffDays <= 3) isUrgent = true;
         } else {
-          ddayStr = `${Math.abs(diffDays)}일 지남`;
+          ddayStr = "종료";
         }
         
         dateStr = isoDate;
@@ -124,22 +126,68 @@ window.renderAuctionCard = function(p, container) {
       attr: { style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;' }
     });
 
+    const leftContainer = titleRow.createEl('div', {
+      attr: { style: 'display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;' }
+    });
+
     const displayCase = p.case_number || p.file.name.replace(/\.md$/, '');
     const displayTitle = getPropertyName(p.address);
     const fullTitleText = `⚖️ ${displayCase}`;
 
-    const titleLink = titleRow.createEl('a', {
+    const titleLink = leftContainer.createEl('a', {
       text: fullTitleText,
       attr: {
         class: 'internal-link',
-        style: 'display: inline-block; vertical-align: middle; font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%;',
+        style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
         title: '클릭하여 사건 노트를 엽니다.'
       }
     });
-    titleLink.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path, 'split');
+    titleLink.onclick = (e) => {
+      e.preventDefault();
+      const leaf = window.lastOpenedAuctionLeaf;
+      const openLeaves = app.workspace.getLeavesOfType("markdown");
+      const isStillOpen = leaf && openLeaves.includes(leaf);
+      if (isStillOpen) {
+        app.workspace.setActiveLeaf(leaf, { focus: true });
+        app.workspace.openLinkText(p.file.name, p.file.path, false);
+      } else {
+        app.workspace.openLinkText(p.file.name, p.file.path, 'split');
+        window.lastOpenedAuctionLeaf = app.workspace.getMostRecentLeaf();
+      }
+    };
+
+    const deleteBtn = leftContainer.createEl('span', {
+      text: '🗑️',
+      attr: {
+        style: 'cursor: pointer; opacity: 0.4; font-size: 0.85em; transition: opacity 0.2s; flex-shrink: 0;',
+        title: '이 사건 노트를 삭제(휴지통 이동)합니다.'
+      }
+    });
+    deleteBtn.onmouseenter = () => deleteBtn.style.opacity = '1';
+    deleteBtn.onmouseleave = () => deleteBtn.style.opacity = '0.4';
+    deleteBtn.onclick = async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      
+      const confirmDelete = confirm(`[${displayCase}] 사건 노트를 휴지통으로 이동하시겠습니까?`);
+      if (confirmDelete) {
+        try {
+          const file = app.vault.getAbstractFileByPath(p.file.path);
+          if (file) {
+            await app.vault.trash(file, true);
+            new Notice(`[${displayCase}] 노트를 휴지통으로 이동했습니다.`);
+          } else {
+            new Notice("파일을 찾을 수 없습니다.");
+          }
+        } catch (err) {
+          console.error("파일 삭제 중 오류 발생:", err);
+          new Notice("노트 삭제 중 오류가 발생했습니다.");
+        }
+      }
+    };
 
     const rightBadges = titleRow.createEl('div', {
-      attr: { style: 'display: flex; align-items: center; gap: 4px;' }
+      attr: { style: 'display: flex; align-items: center; gap: 4px; flex-shrink: 0;' }
     });
 
     // D-Day Badge
@@ -218,8 +266,8 @@ window.renderAuctionCard = function(p, container) {
     
     let minRateStr = "";
     if (!isClosedWatching && p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") {
-      const appraisal = Number(p.appraisal_price);
-      const minimum = Number(p.minimum_bid);
+      const appraisal = parser(p.appraisal_price);
+      const minimum = parser(p.minimum_bid);
       if (!isNaN(appraisal) && !isNaN(minimum) && isFinite(appraisal) && isFinite(minimum) && appraisal > 0) {
         minRateStr = ` (${(minimum / appraisal * 100).toFixed(0)}%)`;
       }
@@ -327,8 +375,8 @@ window.renderAuctionCard = function(p, container) {
     let diffStr = "-";
     let diffColor = "var(--text-muted)";
     if (p.exit_price && p.expected_bid && p.exit_price !== "정보 없음" && p.expected_bid !== "정보 없음") {
-      const exit = Number(p.exit_price);
-      const exp = Number(p.expected_bid);
+      const exit = parser(p.exit_price);
+      const exp = parser(p.expected_bid);
       if (!isNaN(exit) && !isNaN(exp)) {
         const diff = exit - exp;
         diffStr = toEok(diff);
@@ -522,7 +570,10 @@ window.renderAuctionCard = function(p, container) {
     
     const myOpinion = p.my_opinion;
     const userNote = p.auction_note;
-    const recNote = p.recommend_note;
+    const recLevel = (window.MorningContextCore && window.MorningContextCore.resolveRecommendLevel)
+      ? window.MorningContextCore.resolveRecommendLevel(p)
+      : (p.recommend_level || p.recommendation || "");
+    const recNote = p.recommend_note || (recLevel ? `추천 등급: ${recLevel}` : "");
     
     const isValid = (val) => {
       return val && val !== "정보 없음" && val !== "메모 없음" && String(val).trim() !== "";
@@ -610,31 +661,30 @@ window.renderAuctionCard = function(p, container) {
       };
       return (allTransitions[currentStatus] || []).map((key) => {
         const info = display.statusInfo(key);
-        return { key, label: `${info.icon} ${info.label}`.trim(), color: info.color };
+        // Card UI uses a shorter label so mobile rows stay compact.
+        const shortLabel = key === "skipped" ? "포기" : info.label;
+        return { key, label: `${info.icon} ${shortLabel}`.trim(), color: info.color };
       });
     };
     
     const buttons = getTransitionButtons(p.status);
     
     if (buttons.length > 0 || p.status === "bidding") {
+      if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
       const buttonContainer = card.createEl('div', {
-        attr: { style: 'display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; border-top: 1px solid var(--background-modifier-border); padding-top: 4px; align-items: center;' }
+        attr: {
+          class: 'prodigy-card-actions auction-card-actions',
+          style: 'margin-top: 3px; border-top: 1px solid var(--background-modifier-border); padding-top: 3px; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px;'
+        }
       });
       
-      if (buttons.length > 0) {
-        buttonContainer.createEl('span', {
-          text: '상태 변경:',
-          attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; align-items: center; margin-right: 4px;' }
-        });
-      }
-      
       buttons.forEach(opt => {
-        const btn = buttonContainer.createEl('button', {
-          text: opt.label,
-          attr: {
-            style: `font-size: 0.7em; padding: 1px 4px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid ${opt.color}; cursor: pointer;`
-          }
-        });
+        const btn = window.ProdigyUI
+          ? window.ProdigyUI.button(buttonContainer, opt.label, { chip: true })
+          : buttonContainer.createEl('button', {
+            text: opt.label,
+            attr: { type: 'button', class: 'prodigy-btn prodigy-btn-chip' }
+          });
         
         btn.onclick = async (e) => {
           e.preventDefault();
@@ -649,7 +699,6 @@ window.renderAuctionCard = function(p, container) {
             expectedBid = inputExpected.trim();
 
             btn.disabled = true;
-            btn.style.opacity = '0.5';
             const tFile = app.vault.getAbstractFileByPath(p.file.path);
             if (tFile) {
               await app.fileManager.processFrontMatter(tFile, (fm) => {
@@ -744,20 +793,19 @@ window.renderAuctionCard = function(p, container) {
                   }
                 });
                 
+                if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
                 const btnRow = contentEl.createEl("div", {
-                  attr: { style: "display: flex; justify-content: flex-end; gap: 8px;" }
+                  attr: { class: "prodigy-btn-row", style: "justify-content: flex-end;" }
                 });
                 
-                const cancelBtn = btnRow.createEl("button", {
-                  text: "취소",
-                  attr: { style: "background: var(--background-modifier-hover); color: var(--text-normal); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;" }
-                });
-                cancelBtn.onclick = () => this.close();
+                const cancelBtn = window.ProdigyUI
+                  ? window.ProdigyUI.button(btnRow, "취소", { onClick: () => this.close() })
+                  : btnRow.createEl("button", { text: "취소", attr: { type: "button", class: "prodigy-btn" } });
+                if (!window.ProdigyUI) cancelBtn.onclick = () => this.close();
                 
-                const saveBtn = btnRow.createEl("button", {
-                  text: "저장",
-                  attr: { style: "background: var(--text-accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold;" }
-                });
+                const saveBtn = window.ProdigyUI
+                  ? window.ProdigyUI.button(btnRow, "저장", { primary: true })
+                  : btnRow.createEl("button", { text: "저장", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
                 
                 saveBtn.onclick = () => {
                   if (!this.selectedReason) {
@@ -847,15 +895,23 @@ window.renderAuctionCard = function(p, container) {
         const state = window.prodigySiteVisitStateByPath?.[p.file.path];
         const progress = window.prodigySiteVisit?.progress(state);
         const complete = window.prodigySiteVisit?.isComplete(state);
-        const label = complete ? "현장 방문 체크리스트 (완료)" : progress && progress.done > 0
-          ? `현장 방문 체크리스트 (${progress.done} / ${progress.total})` : "현장 방문 체크리스트";
-        const siteVisitButton = buttonContainer.createEl('button', {
-          text: label,
-          attr: {
-            'data-site-visit-path': p.file.path,
-            style: 'font-size: 0.7em; padding: 1px 5px; border-radius: 3px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid var(--text-accent); cursor: pointer; font-weight: bold; margin-left: auto;'
-          }
-        });
+        // Short labels keep this control on the same row as status chips on mobile.
+        const label = complete
+          ? "현장 완료"
+          : progress && progress.done > 0
+            ? `현장 ${progress.done}/${progress.total}`
+            : "현장 방문";
+        const siteVisitButton = window.ProdigyUI
+          ? window.ProdigyUI.button(buttonContainer, label, { chip: true, primary: true })
+          : buttonContainer.createEl('button', {
+            text: label,
+            attr: {
+              type: 'button',
+              class: 'prodigy-btn prodigy-btn-chip prodigy-btn-primary',
+              'data-site-visit-path': p.file.path
+            }
+          });
+        siteVisitButton.setAttribute('data-site-visit-path', p.file.path);
         siteVisitButton.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();

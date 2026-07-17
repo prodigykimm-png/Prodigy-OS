@@ -14,8 +14,7 @@ title:
 author:
 category:
 language:
-total_pages:
-current_page:
+progress:
 started:
 finished:
 rating:
@@ -33,7 +32,7 @@ review_summary:
 | 저자 | `= this.author` |
 | 카테고리 | `= this.category` |
 | 언어 | `= this.language` |
-| 진행률 | `= this.current_page` / `= this.total_pages` |
+| 진행 | `= this.progress` |
 | 상태 | `= this.status` |
 | 평점 | `= this.rating` |
 | next_action | `= this.next_action` |
@@ -138,3 +137,5 @@ actions:
 ### Action Items
 
 -
+
+<!-- 새 책 생성 시 Korean Book Info 소개·목차가 아래에 붙을 수 있다 (참고용). -->

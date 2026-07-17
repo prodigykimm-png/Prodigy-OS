@@ -39,24 +39,43 @@
       "Content-Type": "application/x-www-form-urlencoded"
     };
     const requestUrl = requestUrlAdapter(app);
-    if (requestUrl) {
-      const response = await requestUrl({
-        url,
-        method: "POST",
-        headers,
-        body,
-        throw: false
-      });
-      const text = typeof response.text === "string" ? response.text : JSON.stringify(response.json || {});
-      if (response.status >= 400) throw new Error(`Todoist HTTP ${response.status}: ${text.slice(0, 180)}`);
-      if (response.json !== undefined) return response.json;
+    
+    const runRequest = async () => {
+      if (requestUrl) {
+        const response = await requestUrl({
+          url,
+          method: "POST",
+          headers,
+          body,
+          throw: false
+        });
+        const text = typeof response.text === "string" ? response.text : JSON.stringify(response.json || {});
+        if (response.status >= 400) throw new Error(`Todoist HTTP ${response.status}: ${text.slice(0, 180)}`);
+        if (response.json !== undefined) return response.json;
+        return JSON.parse(text);
+      }
+      if (typeof fetch !== "function") throw new Error("No HTTP request adapter is available.");
+      const response = await fetch(url, { method: "POST", headers, body });
+      const text = await response.text();
+      if (!response.ok) throw new Error(`Todoist HTTP ${response.status}: ${text.slice(0, 180)}`);
       return JSON.parse(text);
-    }
-    if (typeof fetch !== "function") throw new Error("No HTTP request adapter is available.");
-    const response = await fetch(url, { method: "POST", headers, body });
-    const text = await response.text();
-    if (!response.ok) throw new Error(`Todoist HTTP ${response.status}: ${text.slice(0, 180)}`);
-    return JSON.parse(text);
+    };
+
+    return await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error("Todoist API request timed out (3000ms limit reached)."));
+      }, 3000);
+      runRequest().then(
+        (res) => {
+          clearTimeout(timer);
+          resolve(res);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        }
+      );
+    });
   }
 
   async function readVaultJson(app, path) {
@@ -68,8 +87,24 @@
 
   async function getSecret(app, name) {
     if (!name || !app || !app.secretStorage || typeof app.secretStorage.getSecret !== "function") return "";
-    const value = await Promise.resolve(app.secretStorage.getSecret(name));
-    return value || "";
+    try {
+      const p = Promise.resolve(app.secretStorage.getSecret(name));
+      return await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(""), 1000);
+        p.then(
+          (val) => {
+            clearTimeout(timer);
+            resolve(val || "");
+          },
+          () => {
+            clearTimeout(timer);
+            resolve("");
+          }
+        );
+      });
+    } catch (_err) {
+      return "";
+    }
   }
 
   async function getTodoistToken(app) {
@@ -215,6 +250,42 @@
     };
   }
 
+  async function fetchExecutionSnapshot(app, token, endpoint) {
+    const url = endpoint || TODOIST_SYNC_URL;
+    const body = new URLSearchParams();
+    body.set("sync_token", "*");
+    body.set("resource_types", JSON.stringify(["items"]));
+    const response = await httpPost(app, url, token, body.toString());
+    const items = response.items || [];
+    const todayStr = getTodayIsoDate();
+    const todayTasks = [];
+    const overdueTasks = [];
+    items.forEach((item) => {
+      if (item.checked || item.is_completed) return;
+      if (!item.due || !item.due.date) return;
+      const dueDateStr = item.due.date.slice(0, 10);
+      const taskProj = {
+        id: item.id,
+        content: item.content,
+        priority: item.priority,
+        labels: item.labels || [],
+        project_id: item.project_id
+      };
+      if (dueDateStr === todayStr) {
+        todayTasks.push(taskProj);
+      } else if (dueDateStr < todayStr) {
+        overdueTasks.push(taskProj);
+      }
+    });
+    return {
+      todayCount: todayTasks.length,
+      overdueCount: overdueTasks.length,
+      todayTasks,
+      overdueTasks,
+      sync_token: response.sync_token || "*"
+    };
+  }
+
   const api = {
     TODOIST_SYNC_URL,
     getTodoistToken,
@@ -224,6 +295,7 @@
     createProject,
     createTasks,
     createExecutionArtifacts,
+    fetchExecutionSnapshot,
     getTodayIsoDate,
     buildTaskDueDates,
     redactError

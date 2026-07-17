@@ -124,32 +124,62 @@
         .badge-medium { background: rgba(249, 115, 22, 0.1); color: #f97316; }
         .badge-low { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
         .badge-gray { background: var(--background-modifier-hover); color: var(--text-muted); }
-        .action-btn {
-          min-height: 0;
-          height: auto;
-          font-size: 0.7em;
-          padding: 1px 6px;
-          border-radius: 4px;
+        /* Home compact button baseline — all Home buttons share this density */
+        .prodigy-home .action-btn,
+        .prodigy-home button.action-btn,
+        .prodigy-home .prodigy-launcher-actions button,
+        .prodigy-home .home-launcher-mount button,
+        .prodigy-home .home-card > button,
+        .prodigy-home .home-card button:not([class*="workspace-row"]) {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 0 !important;
+          height: auto !important;
+          font-size: 0.7em !important;
+          padding: 1px 6px !important;
+          border-radius: 4px !important;
           border: 1px solid var(--background-modifier-border);
           background: var(--background-primary);
           color: var(--text-normal);
           cursor: pointer;
           font-weight: 600;
-          line-height: 1.15;
+          line-height: 1.15 !important;
+          box-sizing: border-box;
+          white-space: nowrap;
           transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+          -webkit-appearance: none;
+          appearance: none;
         }
-        .action-btn:hover {
+        .prodigy-home .action-btn:hover,
+        .prodigy-home .prodigy-launcher-actions button:hover,
+        .prodigy-home .home-launcher-mount button:hover {
           background: var(--background-modifier-hover);
         }
-        .action-btn:active { transform: translateY(1px); }
-        .action-btn:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
-        .prodigy-home button.action-btn-primary {
+        .action-btn:active,
+        .prodigy-home .prodigy-launcher-actions button:active { transform: translateY(1px); }
+        .action-btn:focus-visible,
+        .prodigy-home .prodigy-launcher-actions button:focus-visible {
+          outline: 2px solid var(--text-accent);
+          outline-offset: 2px;
+        }
+        .prodigy-home button.action-btn-primary,
+        .prodigy-home .action-btn-primary {
           background: var(--interactive-accent) !important;
           color: var(--text-on-accent) !important;
           border-color: var(--interactive-accent) !important;
         }
-        .prodigy-home button.action-btn-primary:hover {
+        .prodigy-home button.action-btn-primary:hover,
+        .prodigy-home .action-btn-primary:hover {
           background: var(--interactive-accent-hover) !important;
+        }
+        /* Launcher CTA: compact size, accent border like other home actions */
+        .prodigy-home .prodigy-launcher-actions button {
+          min-width: 0 !important;
+          border-color: var(--text-accent) !important;
+          color: var(--text-accent) !important;
+          background: var(--background-secondary) !important;
+          font-weight: 700 !important;
         }
         .input-text {
           min-width: 0;
@@ -237,6 +267,118 @@
         .prodigy-home.home-narrow .home-card { padding: 8px; }
         .prodigy-home.home-narrow .focus-row { padding: 5px 2px; }
         .prodigy-home.home-narrow .workspace-row { min-height: 0; padding: 4px 8px; }
+
+        /* Mobile compact Home: Brief + Focus + Launcher first; rest behind fold */
+        .prodigy-home.home-compact {
+          padding-bottom: 24px;
+        }
+        .prodigy-home.home-compact .home-grid {
+          gap: 10px;
+        }
+        .prodigy-home.home-compact .home-column {
+          gap: 10px;
+        }
+        .prodigy-home.home-compact .home-title-row {
+          margin-bottom: 10px;
+          gap: 8px;
+        }
+        .prodigy-home.home-compact .home-title-row h2 {
+          font-size: 1.2em;
+        }
+        .prodigy-home.home-compact .home-brief-compact > p.home-brief-text {
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          font-size: 0.88em;
+          margin-bottom: 8px !important;
+        }
+        .prodigy-home.home-compact .home-secondary-fold {
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 10px;
+          background: var(--background-secondary);
+          padding: 4px 10px 10px;
+        }
+        .prodigy-home.home-compact .home-secondary-fold > summary {
+          font-weight: 800;
+          font-size: 0.9em;
+          color: var(--text-muted);
+          cursor: pointer;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          list-style: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .prodigy-home.home-compact .home-secondary-fold > summary::-webkit-details-marker {
+          display: none;
+        }
+        .prodigy-home.home-compact .home-secondary-fold > summary::before {
+          content: "▸ ";
+          color: var(--text-accent);
+        }
+        .prodigy-home.home-compact .home-secondary-fold[open] > summary::before {
+          content: "▾ ";
+        }
+        .prodigy-home.home-compact .home-secondary-fold-body {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-top: 6px;
+        }
+        /* Lifecycle is secondary: always collapsed by default */
+        .prodigy-home .home-lifecycle-fold {
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 8px;
+          background: var(--background-secondary);
+          padding: 2px 10px 8px;
+          margin: 0;
+        }
+        .prodigy-home .home-lifecycle-fold > summary {
+          font-weight: 700;
+          font-size: 0.88em;
+          color: var(--text-muted);
+          cursor: pointer;
+          min-height: 36px;
+          display: flex;
+          align-items: center;
+          list-style: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .prodigy-home .home-lifecycle-fold > summary::-webkit-details-marker {
+          display: none;
+        }
+        .prodigy-home .home-lifecycle-fold > summary::before {
+          content: "▸ ";
+          color: var(--text-muted);
+        }
+        .prodigy-home .home-lifecycle-fold[open] > summary::before {
+          content: "▾ ";
+        }
+        .prodigy-home .home-lifecycle-fold .home-card {
+          border: none;
+          box-shadow: none;
+          background: transparent;
+          padding: 4px 0 0;
+          margin: 0;
+        }
+        /* Compact Home: keep the same compact control density (no larger touch overrides) */
+        .prodigy-home.home-compact .action-btn,
+        .prodigy-home.home-compact button.action-btn,
+        .prodigy-home.home-compact .prodigy-launcher-actions button,
+        .prodigy-home.home-compact .home-launcher-mount button,
+        .prodigy-home.home-compact .focus-footer .action-btn-primary,
+        .prodigy-home.home-compact button.action-btn-primary {
+          min-height: 0 !important;
+          height: auto !important;
+          padding: 1px 6px !important;
+          font-size: 0.7em !important;
+          line-height: 1.15 !important;
+          border-radius: 4px !important;
+        }
+        .prodigy-home.home-compact .col-span-4:empty {
+          display: none;
+        }
       `;
 
     const todayStr = root.MorningContextCore.getTodayIsoDate();
@@ -433,44 +575,59 @@
         attr: { class: "badge badge-gray", style: "margin-left:auto;font-size:0.65em;" }
       });
     }
+    // Compact Home (mobile / narrow): same data, less chrome — Brief + Focus + Launcher first
+    const isCompactHome = !!(
+      app.isMobile
+      || (typeof document !== "undefined" && document.body && document.body.classList.contains("is-mobile"))
+      || container.classList.contains("home-narrow")
+      || (typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth < 720)
+    );
+    container.classList.toggle("home-compact", isCompactHome);
+    if (isCompactHome) briefCard.classList.add("home-brief-compact");
+
     briefCard.createEl("p", { 
       text: result.brief || "기본 우선순위 기준으로 정리했습니다.", 
-      attr: { style: "font-size:0.92em; line-height: 1.6; color: var(--text-normal); margin: 0 0 10px 0; white-space: pre-wrap;" } 
+      attr: {
+        class: "home-brief-text",
+        style: "font-size:0.92em; line-height: 1.6; color: var(--text-normal); margin: 0 0 10px 0; white-space: pre-wrap;"
+      } 
     });
 
-    // 1b. Yesterday recovery (change + next_experiment) — closes Daily Reflection → Morning Brief
+    // 1b. Yesterday recovery — only the useful loop fields (learning + experiment)
     const yesterdayReview = (pkg.context && pkg.context.yesterday_review) || null;
-    const yChange = yesterdayReview && String(yesterdayReview.change || "").trim();
+    const yLearning = yesterdayReview && String(yesterdayReview.learning || yesterdayReview.change || "").trim();
     const yNext = yesterdayReview && String(yesterdayReview.next_experiment || "").trim();
-    if (yChange || yNext) {
+    const yMissing = !!(
+      (yesterdayReview && yesterdayReview.missing) ||
+      (!yLearning && !yNext)
+    );
+
+    if (yLearning || yNext) {
       const yBox = briefCard.createEl("div", {
         attr: {
           class: "home-yesterday-review",
           style: "margin: 8px 0 4px 0; padding: 8px 10px; border-radius: 6px; background: var(--background-primary); border: 1px solid var(--background-modifier-border); font-size: 0.84em; line-height: 1.45;"
         }
       });
-      const yHead = yBox.createEl("div", {
-        attr: { style: "display:flex; align-items:center; gap:8px; margin-bottom:6px;" }
+      yBox.createEl("strong", {
+        text: `어제에서 이어가기 · ${yesterdayReview.date || ""}`,
+        attr: { style: "color: var(--text-accent); font-size: 0.95em; display:block; margin-bottom:6px;" }
       });
-      yHead.createEl("strong", {
-        text: `어제 회수 · ${yesterdayReview.date || ""}`,
-        attr: { style: "color: var(--text-accent); font-size: 0.95em;" }
-      });
-      if (yChange) {
+      if (yLearning) {
         const row = yBox.createEl("div", { attr: { style: "margin-top: 2px;" } });
-        row.createEl("span", { text: "변화: ", attr: { style: "color: var(--text-muted);" } });
-        row.createEl("span", { text: yChange });
+        row.createEl("span", { text: "어제 배움: ", attr: { style: "color: var(--text-muted);" } });
+        row.createEl("span", { text: yLearning });
       }
       if (yNext) {
         const row = yBox.createEl("div", { attr: { style: "margin-top: 2px;" } });
-        row.createEl("span", { text: "다음 실험: ", attr: { style: "color: var(--text-muted);" } });
+        row.createEl("span", { text: "오늘 실험: ", attr: { style: "color: var(--text-muted);" } });
         row.createEl("span", { text: yNext });
       }
       const openYBtn = yBox.createEl("button", {
         text: "어제 저널 열기",
         attr: {
           class: "action-btn",
-          style: "margin-top: 8px; font-size: 0.85em; padding: 4px 10px;"
+          style: "margin-top: 8px;"
         }
       });
       openYBtn.onclick = () => {
@@ -496,21 +653,74 @@
       }
     }
 
-    // 3. Evening Only: Reflection Reminder Card (prominent Callout)
+    // 2b. Priority 2 — Missing yesterday reflection (lightweight, never blocks)
+    if (yMissing && !isEvening) {
+      const missCard = leftCol.createEl("div", {
+        attr: {
+          class: "home-card emphasis-secondary home-yesterday-missing",
+          style: "border-left: 3px solid var(--text-muted); padding: 10px 12px;"
+        }
+      });
+      missCard.createEl("div", {
+        text: "어제 성찰이 비어 있습니다",
+        attr: { class: "home-header", style: "font-size:0.9em;" }
+      });
+      missCard.createEl("p", {
+        text: "2분 성찰로 어제 배움·오늘 실험을 남기면 내일 모닝 브리핑이 이어집니다. 필수는 아닙니다.",
+        attr: { style: "font-size: 0.84em; color: var(--text-muted); margin: 0 0 8px 0; line-height: 1.45;" }
+      });
+      const missBtn = missCard.createEl("button", {
+        text: "2분 성찰",
+        attr: { class: "action-btn" }
+      });
+      missBtn.onclick = async () => {
+        const yDate = (yesterdayReview && yesterdayReview.date)
+          || (root.MorningContextCore && root.MorningContextCore.getYesterdayIsoDate
+            ? root.MorningContextCore.getYesterdayIsoDate(new Date())
+            : "");
+        if (root.JournalView && root.JournalStore && yDate) {
+          const review = await root.JournalStore.loadReview(app, yDate);
+          root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
+            await root.JournalStore.saveReview(app, yDate, values);
+            if (window.Notice) new Notice("어제 성찰을 저장했습니다. Home을 새로고침하면 브리핑에 반영됩니다.");
+          }, { focusHints: [] });
+          return;
+        }
+        const path = (yesterdayReview && yesterdayReview.path) || (yDate ? `DAILY/DAILY/${yDate}.md` : "HUB/70 Journal.md");
+        app.workspace.openLinkText(path, path, false);
+      };
+    }
+
+    // 3. Evening: today reflection reminder (Focus loop closes here)
     if (isEvening) {
       const reflectionCard = leftCol.createEl("div", { 
         attr: { class: "home-card emphasis-primary", style: "border-left: 4px solid var(--text-accent);" } 
       });
-      reflectionCard.createEl("div", { text: "🔁 Evening Reflection Reminder", attr: { class: "home-header" } });
+      reflectionCard.createEl("div", { text: "🔁 오늘 마무리 성찰", attr: { class: "home-header" } });
       reflectionCard.createEl("p", {
-        text: "오늘 하루 있었던 일을 성찰하고 배운 점을 데일리 저널에 기록하여 마감할 시간입니다.",
+        text: "오늘 Focus를 마쳤는지, 무엇이 막혔는지, 내일 무엇을 바꿀지 2분 성찰로 남깁니다.",
         attr: { style: "font-size: 0.9em; color: var(--text-normal); margin: 0 0 12px 0;" }
       });
       const openJournalBtn = reflectionCard.createEl("button", { 
-        text: "오늘의 데일리 저널 작성하기", 
-        attr: { class: "action-btn action-btn-primary", style: "font-size:0.85em; padding: 6px 12px;" } 
+        text: "2분 성찰 작성", 
+        attr: { class: "action-btn action-btn-primary" } 
       });
       openJournalBtn.onclick = async () => {
+        const focusHints = [];
+        const focusList = (approvedFocus && Array.isArray(approvedFocus.focus))
+          ? approvedFocus.focus
+          : (Array.isArray(result.focus) ? result.focus : []);
+        focusList.slice(0, 3).forEach((item) => {
+          if (item && item.label) focusHints.push(String(item.label));
+        });
+        if (root.JournalView && root.JournalStore) {
+          const review = await root.JournalStore.loadReview(app, todayStr);
+          root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
+            await root.JournalStore.saveReview(app, todayStr, values);
+            if (window.Notice) new Notice("오늘 Review를 저장했습니다.");
+          }, { focusHints });
+          return;
+        }
         const dailyPath = `DAILY/DAILY/${todayStr}.md`;
         let file = app.vault.getAbstractFileByPath(dailyPath);
         if (!file) {
@@ -583,7 +793,7 @@
         sources.push("PRE Weekly Review", "Operation Reports");
         const issues = (pkg.context && pkg.context.review_inbox) || [];
         if (issues.length > 0) {
-          evidence.push(`Review Inbox 필수 권기 이슈 ${issues.length}건 감지`);
+          evidence.push(`복기 인박스 필수 권기 이슈 ${issues.length}건 감지`);
         }
       } else if (item.source_type === "reading") {
         sources.push("Reading Object");
@@ -880,9 +1090,83 @@
 
     renderFocusItems();
 
-    // 4a. Object Lifecycle attention summary (deterministic, never stored)
-    const lifecycleCard = leftCol.createEl("div", {
-      attr: { class: `home-card ${isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary"}` }
+    // 3b. Workspace Launcher — navigation entry only (after Brief + Focus)
+    const launcherMount = leftCol.createEl("div", {
+      attr: { class: "home-launcher-mount" }
+    });
+    try {
+      if (root.WorkspaceLauncherCore && root.WorkspaceLauncherView) {
+        let journalStatus = { status: "empty" };
+        if (root.JournalStore) {
+          try {
+            const review = await root.JournalStore.loadReview(app, todayStr);
+            journalStatus = { status: (review && review.status) || "empty" };
+          } catch (_j) {
+            journalStatus = { status: "empty" };
+          }
+        }
+        let workoutSnapshot = null;
+        try {
+          workoutSnapshot = await root.WorkspaceLauncherCore.loadWorkoutSnapshot(app);
+        } catch (_w) {
+          workoutSnapshot = null;
+        }
+        const launcherCards = root.WorkspaceLauncherCore.buildLauncherCards({
+          pkg,
+          journalStatus,
+          workoutSnapshot
+        });
+        root.WorkspaceLauncherView.render({
+          container: launcherMount,
+          app,
+          cards: launcherCards
+        });
+      } else {
+        launcherMount.createEl("div", {
+          text: "워크스페이스 런처를 불러오지 못했습니다.",
+          attr: { style: "font-size:0.82em;color:var(--text-muted);" }
+        });
+      }
+    } catch (launcherError) {
+      launcherMount.createEl("div", {
+        text: "워크스페이스 런처를 표시하지 못했습니다.",
+        attr: { style: "font-size:0.82em;color:var(--text-error);" }
+      });
+      if (window.prodigyDebugMode) {
+        launcherMount.createEl("div", {
+          text: String(launcherError.message || launcherError),
+          attr: { style: "font-size:0.75em;color:var(--text-muted);" }
+        });
+      }
+    }
+
+    // Secondary surfaces: full on desktop; collapsed under "더 보기" on compact Home
+    let leftSecondary = leftCol;
+    let rightSecondary = rightCol;
+    if (isCompactHome) {
+      const fold = leftCol.createEl("details", {
+        attr: { class: "home-secondary-fold" }
+      });
+      fold.createEl("summary", {
+        text: "더 보기 · 행동 · 이어서 하기"
+      });
+      const foldBody = fold.createEl("div", {
+        attr: { class: "home-secondary-fold-body" }
+      });
+      leftSecondary = foldBody;
+      rightSecondary = foldBody;
+    }
+
+    // 4a. Object Lifecycle — kept available but collapsed (not a primary Home surface)
+    const lifecycleFold = leftSecondary.createEl("details", {
+      attr: { class: "home-lifecycle-fold" }
+    });
+    // default closed: no open attribute
+    lifecycleFold.createEl("summary", {
+      text: "객체 라이프사이클 · 접힘 (주의 요약)"
+    });
+    const lifecycleCard = lifecycleFold.createEl("div", {
+      attr: { class: "home-card emphasis-secondary" }
     });
     try {
       if (root.ObjectLifecycleCore && root.ObjectLifecycleView) {
@@ -902,8 +1186,8 @@
               journalSignal = {
                 missingReflection: true,
                 reason: review.status === "empty"
-                  ? "Reflection missing."
-                  : "Journal review incomplete."
+                  ? "성찰이 작성되지 않았습니다."
+                  : "저널 성찰이 미완료입니다."
               };
             }
           } catch (_journalError) {
@@ -921,13 +1205,13 @@
         });
       } else {
         lifecycleCard.createEl("div", {
-          text: "Object Lifecycle 모듈을 불러오지 못했습니다.",
+          text: "객체 라이프사이클 모듈을 불러오지 못했습니다.",
           attr: { style: "font-size:0.85em;color:var(--text-muted);" }
         });
       }
     } catch (lifecycleError) {
       lifecycleCard.createEl("div", {
-        text: "Object Lifecycle 요약을 표시하지 못했습니다.",
+        text: "객체 라이프사이클 요약을 표시하지 못했습니다.",
         attr: { style: "font-size:0.85em;color:var(--text-error);" }
       });
       if (window.prodigyDebugMode) {
@@ -939,7 +1223,7 @@
     }
 
     // 4b. Today's Actions — direct executable items (max 3) + journal/reading/workout/auction blocked
-    const actionsCard = leftCol.createEl("div", {
+    const actionsCard = leftSecondary.createEl("div", {
       attr: { class: `home-card ${isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary"}` }
     });
     actionsCard.createEl("div", { text: "⚡ 오늘의 행동", attr: { class: "home-header" } });
@@ -994,7 +1278,7 @@
       if (activeReading && !actionItems.some((item) => item.path === activeReading.path) && actionItems.length < 3) {
         actionItems.push({
           label: `${activeReading.name || activeReading.title || "읽는 중"} 오늘 읽기`,
-          detail: activeReading.next_action || "Reading Session 기록",
+          detail: activeReading.next_action || "독서 세션 기록",
           path: activeReading.path,
           workspace: "HUB/20 Reading.md",
           badge: "독서"
@@ -1026,23 +1310,23 @@
             open.onclick = () => app.workspace.openLinkText(item.path, item.path, false);
           }
           if (item.workspace) {
-            const dash = btns.createEl("button", { text: "Workspace", attr: { class: "action-btn" } });
+            const dash = btns.createEl("button", { text: "워크스페이스", attr: { class: "action-btn" } });
             dash.onclick = () => app.workspace.openLinkText(item.workspace, item.workspace, false);
           }
         });
       }
     });
 
-    safeRenderRegion("Journal Review", () => {
+    safeRenderRegion("저널 성찰", () => {
       const journalBox = actionsCard.createEl("div", {
         attr: { style: "margin-top:12px;padding-top:12px;border-top:1px solid var(--background-modifier-border);" }
       });
       journalBox.createEl("div", {
-        text: "📝 Journal Review",
+        text: "📝 저널 성찰",
         attr: { style: "font-weight:700;margin-bottom:6px;" }
       });
 
-      let statusLabel = "Review 미작성";
+      let statusLabel = "성찰 미작성";
       let status = "empty";
       let fields = { reflection: "", change: "", next_experiment: "" };
       if (root.JournalCore && root.JournalStore) {
@@ -1054,24 +1338,24 @@
         attr: { style: "font-size:0.84em;color:var(--text-muted);margin-bottom:8px;" }
       });
       const jActions = journalBox.createEl("div", { attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
-      const reviewBtn = jActions.createEl("button", { text: "2분 Review", attr: { class: "action-btn action-btn-primary" } });
-      const openJournal = jActions.createEl("button", { text: "저널 Workspace", attr: { class: "action-btn" } });
+      const reviewBtn = jActions.createEl("button", { text: "2분 성찰", attr: { class: "action-btn action-btn-primary" } });
+      const openJournal = jActions.createEl("button", { text: "저널 워크스페이스", attr: { class: "action-btn" } });
       openJournal.onclick = () => app.workspace.openLinkText("HUB/70 Journal.md", "HUB/70 Journal.md", false);
 
       const refreshJournalStatus = async () => {
         if (!root.JournalStore) {
-          statusEl.setText("Journal 모듈이 로드되지 않았습니다. 저널 Workspace를 이용하세요.");
+          statusEl.setText("저널 모듈이 로드되지 않았습니다. 저널 워크스페이스를 이용하세요.");
           return;
         }
         const review = await root.JournalStore.loadReview(app, todayStr);
         status = review.status;
         fields = review.fields;
-        statusLabel = status === "complete" ? "Review 완료" : status === "partial" ? "Review 작성 중" : "Review 미작성";
+        statusLabel = status === "complete" ? "성찰 완료" : status === "partial" ? "성찰 작성 중" : "성찰 미작성";
         statusEl.setText(statusLabel);
-        reviewBtn.setText(status === "empty" ? "2분 Review" : "Review 수정");
+        reviewBtn.setText(status === "empty" ? "2분 성찰" : "성찰 수정");
       };
       refreshJournalStatus().catch(() => {
-        statusEl.setText("Review 상태를 확인하지 못했습니다.");
+        statusEl.setText("성찰 상태를 확인하지 못했습니다.");
       });
 
       reviewBtn.onclick = async () => {
@@ -1080,15 +1364,22 @@
           return;
         }
         const review = await root.JournalStore.loadReview(app, todayStr);
+        const focusHints = [];
+        const focusList = (approvedFocus && Array.isArray(approvedFocus.focus))
+          ? approvedFocus.focus
+          : (Array.isArray(result.focus) ? result.focus : []);
+        focusList.slice(0, 3).forEach((item) => {
+          if (item && item.label) focusHints.push(String(item.label));
+        });
         root.JournalView.openReviewModal(app, review.fields, async (values) => {
           await root.JournalStore.saveReview(app, todayStr, values);
-          if (window.Notice) new Notice("오늘 Review를 저장했습니다.");
+          if (window.Notice) new Notice("오늘 성찰을 저장했습니다.");
           await refreshJournalStatus();
-        });
+        }, { focusHints });
       };
     });
 
-    safeRenderRegion("Reading 연결", () => {
+    safeRenderRegion("독서 연결", () => {
       const readings = (pkg.context && pkg.context.reading) || [];
       const activeReading = readings.find((item) => item.status === "reading");
       if (!activeReading) return;
@@ -1113,16 +1404,16 @@
       openReading.onclick = () => app.workspace.openLinkText("HUB/20 Reading.md", "HUB/20 Reading.md", false);
     });
 
-    safeRenderRegion("Workout 연결", () => {
+    safeRenderRegion("운동 연결", () => {
       const box = actionsCard.createEl("div", {
         attr: { style: "margin-top:12px;padding-top:12px;border-top:1px solid var(--background-modifier-border);" }
       });
-      box.createEl("div", { text: "💪 Workout", attr: { style: "font-weight:700;margin-bottom:6px;" } });
+      box.createEl("div", { text: "💪 운동", attr: { style: "font-weight:700;margin-bottom:6px;" } });
       const start = box.createEl("button", { text: "오늘 운동 시작", attr: { class: "action-btn action-btn-primary" } });
       start.onclick = () => app.workspace.openLinkText("HUB/30 Workout.md", "HUB/30 Workout.md", false);
     });
 
-    safeRenderRegion("Auction Blocked", () => {
+    safeRenderRegion("경매 차단", () => {
       const auctions = (pkg.context && pkg.context.auctions) || [];
       const blocked = auctions.filter((item) => {
         const active = ["watching", "bidding", "reviewing"].includes(item.status);
@@ -1137,30 +1428,80 @@
         text: `⚠️ 다음 행동이 없는 경매 물건 ${blocked.length}건`,
         attr: { style: "font-weight:700;color:var(--text-error);margin-bottom:6px;" }
       });
-      const open = box.createEl("button", { text: "경매 Workspace 열기", attr: { class: "action-btn" } });
+      const open = box.createEl("button", { text: "경매 워크스페이스 열기", attr: { class: "action-btn" } });
       open.onclick = () => app.workspace.openLinkText("HUB/10 Auction.md", "HUB/10 Auction.md", false);
     });
 
-    // 5. Today's Risk Card (with Explainable Risks)
-    const risks = pkg.context.risks || [];
-    if (risks.length > 0) {
-      const riskCard = rightCol.createEl("div", { 
+    // 5. Today's Risk / Attention — package risks + Object Engine (critical/high only)
+    // Object Engine is additive; on failure keep package risks only.
+    let briefContext = null;
+    try {
+      if (root.MorningBriefContext && root.MorningBriefContext.buildMorningBriefContext) {
+        let journalStatusForBrief = { status: "empty" };
+        if (root.JournalStore) {
+          try {
+            const review = await root.JournalStore.loadReview(app, todayStr);
+            journalStatusForBrief = { status: (review && review.status) || "empty" };
+          } catch (_je) {
+            journalStatusForBrief = { status: "empty" };
+          }
+        }
+        briefContext = root.MorningBriefContext.buildMorningBriefContext({
+          pkg,
+          pinnedFocus,
+          journalStatus: journalStatusForBrief,
+          focusItems: (approvedFocus && approvedFocus.focus) || (result && result.focus) || [],
+          now: new Date()
+        });
+      }
+    } catch (_briefCtxError) {
+      briefContext = null;
+    }
+
+    const risks = (briefContext && root.MorningBriefContext && root.MorningBriefContext.toHomeRiskItems)
+      ? root.MorningBriefContext.toHomeRiskItems(briefContext)
+      : (pkg.context.risks || []);
+    const showRiskCard = risks.length > 0
+      || (briefContext && briefContext.attention && briefContext.attention.empty === true && briefContext.engine_ok);
+
+    if (showRiskCard) {
+      const riskCard = rightSecondary.createEl("div", { 
         attr: { class: `home-card emphasis-risk` } 
       });
       const rHead = riskCard.createEl("div", { attr: { class: "home-header", style: "color: var(--text-error);" } });
       rHead.createEl("span", { text: "⚠️ 오늘의 위험" });
       
       const rList = riskCard.createEl("div", { attr: { style: "display:flex; flex-direction:column; gap:8px;" } });
+
+      if (!risks.length) {
+        rList.createEl("div", {
+          text: (briefContext && briefContext.empty_attention_message)
+            || "주의가 필요한 Object가 없습니다.",
+          attr: { style: "font-size:0.85em;color:var(--text-muted);font-style:italic;padding:6px 0;" }
+        });
+      }
+
       risks.forEach((risk, rIdx) => {
         const rItem = rList.createEl("div", {
           attr: { style: "font-size: 0.85em; display:flex; flex-direction:column; gap:4px; padding: 10px 0; border-top: 1px solid var(--background-modifier-border);" }
         });
         
-        const topRow = rItem.createEl("div", { attr: { style: "display:flex; justify-content:space-between; align-items:center;" } });
-        topRow.createEl("strong", { text: risk.label, attr: { style: "color:var(--text-error);" } });
+        const topRow = rItem.createEl("div", { attr: { style: "display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;" } });
+        const titleWrap = topRow.createEl("div", { attr: { style: "display:flex; flex-direction:column; gap:2px; min-width:0;" } });
+        titleWrap.createEl("strong", { text: risk.label, attr: { style: "color:var(--text-error);" } });
+        if (risk.workspace_label) {
+          titleWrap.createEl("span", {
+            text: risk.workspace_label,
+            attr: { style: "font-size:0.78em;color:var(--text-muted);font-weight:600;" }
+          });
+        }
         
         const linkRow = topRow.createEl("div", { attr: { style: "display:flex; gap:6px; align-items:center;" } });
         
+        if (risk.dashboard_path) {
+          const dash = linkRow.createEl("button", { text: "워크스페이스", attr: { class: "action-btn" } });
+          dash.onclick = () => app.workspace.openLinkText(risk.dashboard_path, risk.dashboard_path, false);
+        }
         if (risk.object_path) {
           const lnk = linkRow.createEl("button", { text: "원본 열기", attr: { class: "action-btn" } });
           lnk.onclick = () => app.workspace.openLinkText(risk.object_path, risk.object_path, false);
@@ -1187,7 +1528,7 @@
         
         if (Array.isArray(risk.sources)) {
           const rSourcesDiv = rDetailsContent.createEl("div", {
-            attr: { style: "border-top: 1px solid var(--background-modifier-border); padding-top: 4px; margin-top: 4px; font-size: 0.9em; display:flex; align-items:center; gap:4px;" }
+            attr: { style: "border-top: 1px solid var(--background-modifier-border); padding-top: 4px; margin-top: 4px; font-size: 0.9em; display:flex; align-items:center; gap:4px; flex-wrap:wrap;" }
           });
           rSourcesDiv.createEl("strong", { text: "출처: " });
           
@@ -1197,7 +1538,9 @@
               attr: { class: "badge badge-gray", style: "cursor:pointer; text-decoration:underline;" } 
             });
             rSrcBtn.onclick = () => {
-              if (src.includes("Object") && risk.object_path) {
+              if (risk.dashboard_path) {
+                app.workspace.openLinkText(risk.dashboard_path, risk.dashboard_path, false);
+              } else if (src.includes("Object") && risk.object_path) {
                 app.workspace.openLinkText(risk.object_path, risk.object_path, false);
               } else if (src === "Todoist") {
                 window.open("todoist://");
@@ -1212,7 +1555,7 @@
     }
 
     // 6. Continue Candidates Card (Doing -> Has Next Action -> Recent Active -> Due Soon)
-    const continueCard = leftCol.createEl("div", { 
+    const continueCard = leftSecondary.createEl("div", { 
       attr: { class: `home-card ${isAfternoon ? "emphasis-primary" : "emphasis-secondary"}` } 
     });
     continueCard.createEl("div", { text: "▶ 이어서 하기", attr: { class: "home-header" } });
@@ -1277,7 +1620,7 @@
       continueCard.createEl("span", { text: "최근 활성화된 실행 대상이 없습니다.", attr: { style: "font-size: 0.85em; color: var(--text-muted); font-style:italic;" } });
     }
     // 1. Execution Status Card (Todoist & Calendar)
-    const execCard = rightCol.createEl("div", { 
+    const execCard = rightSecondary.createEl("div", { 
       attr: { class: `home-card ${isAfternoon ? "emphasis-primary" : "emphasis-secondary"}` } 
     });
     execCard.createEl("div", { text: "📊 실행 현황", attr: { class: "home-header" } });
@@ -1296,14 +1639,14 @@
 
     const todoBtn = execCard.createEl("button", { 
       text: "Todoist 실행 대기열 열기", 
-      attr: { class: "action-btn", style: "width:100%; font-size: 0.8em; margin-top: 8px; text-align:center;" } 
+      attr: { class: "action-btn", style: "width:100%; margin-top: 8px;" } 
     });
     todoBtn.onclick = () => window.open("todoist://");
 
     // 2. Review Inbox Card
     const issues = pkg.context.review_inbox || [];
     if (issues.length > 0) {
-      const inboxCard = rightCol.createEl("div", { 
+      const inboxCard = rightSecondary.createEl("div", { 
         attr: { class: `home-card ${isEvening ? "emphasis-primary" : "emphasis-secondary"}` } 
       });
       inboxCard.createEl("div", { text: "⚠️ 검토함", attr: { class: "home-header" } });
@@ -1313,8 +1656,9 @@
       });
     }
 
-    // 3. Workspace Launcher (Clear, single navigation endpoints)
-    const navCard = rightCol.createEl("div", { attr: { class: "home-card" } });
+    // 3. Legacy simple workspace links (desktop sidebar only — compact uses Workspace Launcher)
+    if (!isCompactHome) {
+    const navCard = rightSecondary.createEl("div", { attr: { class: "home-card" } });
     navCard.createEl("div", { text: "🌐 워크스페이스", attr: { class: "home-header" } });
     const navGrid = navCard.createEl("div", { attr: { class: "workspace-list" } });
 
@@ -1348,6 +1692,7 @@
     addLauncher(navGrid, "사람", "HUB/60 Personal.md", "👤");
     addLauncher(navGrid, "지식", "HUB/50 Knowledge.md", "🧠");
     addLauncher(navGrid, "받은함", "HUB/Inbox.md", "📥");
+    } // end !isCompactHome legacy nav
   }
 
   const api = {
