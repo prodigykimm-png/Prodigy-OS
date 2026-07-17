@@ -154,14 +154,21 @@ def text_value(item: dict[str, Json], key: str) -> str:
 
 
 def daily_blob(item: dict[str, Json]) -> str:
-    """Combine canonical Daily projection fields only (no invented fields)."""
+    """Combine canonical projection fields (legacy + Evidence Block)."""
     parts = [
+        text_value(item, "experience"),
         text_value(item, "reflection"),
+        text_value(item, "interpretation"),
         text_value(item, "change"),
         text_value(item, "next_experiment"),
         text_value(item, "decision"),
         text_value(item, "experiment"),
+        text_value(item, "title"),
     ]
+    # Lightweight Context is a retrieval hint only — never sole pattern basis
+    ctx = str(item.get("context") or "").strip()
+    if ctx:
+        parts.append(ctx)
     return "\n".join(p for p in parts if p).strip()
 
 
@@ -169,12 +176,27 @@ def has_daily_content(item: dict[str, Json]) -> bool:
     return bool(daily_blob(item))
 
 
+def evidence_date(item: dict[str, Json]) -> str:
+    d = item.get("date")
+    return str(d).strip() if d is not None else ""
+
+
 def usable_dailies(primary: list[Json]) -> list[dict[str, Json]]:
+    """Contentful evidence units (legacy Daily or Evidence Block)."""
     out: list[dict[str, Json]] = []
     for item in primary:
         if isinstance(item, dict) and has_daily_content(item):
             out.append(item)
     return out
+
+
+def distinct_evidence_dates(items: list[dict[str, Json]]) -> list[str]:
+    dates: list[str] = []
+    for item in items:
+        d = evidence_date(item)
+        if d and d not in dates:
+            dates.append(d)
+    return dates
 
 
 def clean_bullet_text(raw: str) -> str:
@@ -199,11 +221,18 @@ def short_title(raw: str, fallback: str, limit: int = 42) -> str:
 
 
 def evidence_excerpt(item: dict[str, Json], limit: int = 100) -> str:
-    """Prefer Change, then Reflection, then Experiment — user's own words."""
-    for key in ("change", "reflection", "next_experiment"):
+    """Prefer title/experience (blocks), Change, Reflection, Experiment — user's words."""
+    title = clean_bullet_text(text_value(item, "title"))
+    for key in ("change", "experience", "reflection", "interpretation", "next_experiment"):
         cleaned = clean_bullet_text(text_value(item, key))
         if cleaned:
-            return cleaned if len(cleaned) <= limit else cleaned[: limit - 1].rstrip() + "…"
+            if title and key != "title" and title not in cleaned:
+                combined = f"{title} — {cleaned}"
+            else:
+                combined = cleaned
+            return combined if len(combined) <= limit else combined[: limit - 1].rstrip() + "…"
+    if title:
+        return title if len(title) <= limit else title[: limit - 1].rstrip() + "…"
     return ""
 
 
@@ -279,12 +308,15 @@ def match_rule(blob: str, rule: dict[str, object]) -> bool:
 
 def build_why_with_quotes(supporting: list[dict[str, Json]], n: int) -> str:
     quotes: list[str] = []
-    for item in supporting[:3]:
+    for item in supporting[:4]:
         excerpt = evidence_excerpt(item, 80)
         eid = item.get("evidence_id")
+        day = evidence_date(item)
+        day_short = day[5:] if len(day) >= 10 else day  # MM-DD
         if excerpt and isinstance(eid, str):
-            quotes.append(f"· {eid}: “{excerpt}”")
-    head = f"{n}개 일일 성찰에서 같은 신호가 반복되었다."
+            label = f"{day_short} · {eid}" if day_short else str(eid)
+            quotes.append(f"· {label}: “{excerpt}”")
+    head = f"{n}개 일자에서 같은 신호가 반복되었다."
     if not quotes:
         return head
     return head + "\n" + "\n".join(quotes)
@@ -305,17 +337,17 @@ def principle_from_changes(
     - a Change that itself matches the pattern rule (lesson aligns with pattern).
     Otherwise use the predefined rule statement.
     """
-    # 1) Repeated identical Change across supporting days
+    # 1) Repeated identical Change across supporting *days* (not same-day blocks)
     buckets: dict[str, list[str]] = {}
     for item in supporting:
         key = _normalized_change(item)
         if len(key) < 8:
             continue
-        eid = item.get("evidence_id")
-        if isinstance(eid, str):
-            buckets.setdefault(key, []).append(eid)
-    for key, eids in buckets.items():
-        if len(set(eids)) >= MIN_SUPPORTING_SOURCES:
+        day = evidence_date(item)
+        if day:
+            buckets.setdefault(key, []).append(day)
+    for key, days in buckets.items():
+        if len(set(days)) >= MIN_SUPPORTING_SOURCES:
             return short_title(key, fallback, limit=60)
 
     # 2) Change that itself matches the pattern (not an unrelated Change)
@@ -339,24 +371,35 @@ def detect_theme_patterns(usable: list[dict[str, Json]]) -> tuple[list[Json], li
             blob = daily_blob(item)
             if match_rule(blob, rule):  # type: ignore[arg-type]
                 supporting.append(item)
-        if len(supporting) < MIN_SUPPORTING_SOURCES:
+        # Same-day multi-blocks do not count as repeated temporal evidence
+        support_dates = distinct_evidence_dates(supporting)
+        if len(support_dates) < MIN_SUPPORTING_SOURCES:
             continue
-        refs = [str(item["evidence_id"]) for item in supporting if isinstance(item.get("evidence_id"), str)]
-        sources = [
-            str(item.get("source_path") or item.get("source_link") or item.get("evidence_id"))
-            for item in supporting
-        ]
-        refs = list(dict.fromkeys(refs))
-        sources = list(dict.fromkeys(sources))
-        n = len(refs)
+        # All matched blocks keep independent evidence_refs (block-level provenance)
+        refs = list(
+            dict.fromkeys(
+                str(item["evidence_id"])
+                for item in supporting
+                if isinstance(item.get("evidence_id"), str)
+            )
+        )
+        sources = list(
+            dict.fromkeys(
+                str(item.get("source_path") or item.get("source_link") or item.get("evidence_id"))
+                for item in supporting
+            )
+        )
+        n_days = len(support_dates)
         pattern = str(rule["pattern"])
-        reason = build_why_with_quotes(supporting, n)
+        reason = build_why_with_quotes(supporting, n_days)
         findings.append(
             {
                 "title": pattern,
                 "reason": reason,
                 "evidence_refs": refs,
                 "supporting_sources": sources,
+                "supporting_days": support_dates,
+                "supporting_blocks": len(supporting),
                 "pattern": pattern,
             }
         )
@@ -368,11 +411,11 @@ def detect_theme_patterns(usable: list[dict[str, Json]]) -> tuple[list[Json], li
             {
                 "title": statement,
                 "statement": statement,
-                "proposal_id": f"principle-{rule['id']}-{n:02d}",
+                "proposal_id": f"principle-{rule['id']}-{n_days:02d}",
                 "reason": reason,
                 "evidence_refs": refs,
                 "support": refs,
-                "evidence_strength": "repeated" if n >= 3 else "emerging",
+                "evidence_strength": "repeated" if n_days >= 3 else "emerging",
                 "decision": "pending",
                 "status": "pending",
                 "applied": False,
@@ -398,18 +441,19 @@ def detect_repeated_change_phrases(
     findings: list[Json] = []
     principles: list[Json] = []
     for key, items in buckets.items():
-        if len(items) < MIN_SUPPORTING_SOURCES:
+        support_dates = distinct_evidence_dates(items)
+        if len(support_dates) < MIN_SUPPORTING_SOURCES:
             continue
         refs = list(
             dict.fromkeys(
                 str(i["evidence_id"]) for i in items if isinstance(i.get("evidence_id"), str)
             )
         )
-        if len(refs) < MIN_SUPPORTING_SOURCES:
+        if len(support_dates) < MIN_SUPPORTING_SOURCES:
             continue
         cleaned_sample = clean_bullet_text(text_value(items[0], "change"))
         reason = (
-            f"동일한 변화 기록이 {len(refs)}개 일자에서 반복되었다.\n"
+            f"동일한 변화 기록이 {len(support_dates)}개 일자에서 반복되었다.\n"
             f"· “{cleaned_sample[:160]}”"
         )
         findings.append(
@@ -417,9 +461,11 @@ def detect_repeated_change_phrases(
                 "title": "같은 변화가 여러 날에 반복됨",
                 "reason": reason,
                 "evidence_refs": refs,
-                "supporting_sources": [
-                    str(i.get("source_path") or i.get("evidence_id")) for i in items
-                ],
+                "supporting_sources": list(
+                    dict.fromkeys(str(i.get("source_path") or i.get("evidence_id")) for i in items)
+                ),
+                "supporting_days": support_dates,
+                "supporting_blocks": len(items),
                 "pattern": "Repeated change statement",
             }
         )
@@ -428,11 +474,11 @@ def detect_repeated_change_phrases(
             {
                 "title": statement,
                 "statement": statement,
-                "proposal_id": f"principle-repeated-change-{len(refs):02d}",
+                "proposal_id": f"principle-repeated-change-{len(support_dates):02d}",
                 "reason": reason,
                 "evidence_refs": refs,
                 "support": refs,
-                "evidence_strength": "repeated" if len(refs) >= 3 else "emerging",
+                "evidence_strength": "repeated" if len(support_dates) >= 3 else "emerging",
                 "decision": "pending",
                 "status": "pending",
                 "applied": False,
@@ -542,8 +588,9 @@ def generate_review(package: dict[str, Json]) -> dict[str, Json]:
         raise ReviewInputError("invalid evidence package structure")
 
     usable = usable_dailies(primary)
-    primary_used = len(usable)
-    # coverage may still report daily_used from package builder
+    evidence_units = len(usable)
+    distinct_days = distinct_evidence_dates(usable)
+    primary_used = len(distinct_days)  # days with content — not block count
     linked_used = int(coverage.get("linked_used", 0) or 0)
     missing_count = int(coverage.get("missing", 0) or 0)
 
@@ -560,13 +607,10 @@ def generate_review(package: dict[str, Json]) -> dict[str, Json]:
         findings.extend(theme_findings)
         findings.extend(change_findings)
         findings.extend(detect_contradictions(usable))
-        # Principles: lesson patterns + repeated Change only (never topic-only)
         principle_list.extend(theme_principles)
         principle_list.extend(change_principles)
-        # Stable order
         findings = _dedupe_findings(findings)
         principle_list = _dedupe_principles(principle_list)
-        # Renumber proposal ids for week
         week_token = str(package.get("package_id", "week")).replace("weekly-learning-", "")
         for idx, item in enumerate(principle_list, start=1):
             if isinstance(item, dict):
@@ -574,18 +618,21 @@ def generate_review(package: dict[str, Json]) -> dict[str, Json]:
 
     if enough_evidence and findings:
         summary = (
-            f"{primary_used}개의 일일 성찰과 {linked_used}개의 연결 Object를 검토했다. "
+            f"{primary_used}개 일자 · {evidence_units}개 증거 블록 · "
+            f"{linked_used}개 연결 Object를 검토했다. "
             f"반복 패턴 {len(findings)}건, 원칙 후보 {len(principle_list)}건을 제안한다. "
             "원칙은 모두 pending이며 사람 승인이 필요하다."
         )
     elif not enough_evidence:
         summary = (
-            f"{primary_used}개의 일일 성찰과 {linked_used}개의 연결 Object를 검토했다. "
+            f"{primary_used}개 일자 · {evidence_units}개 증거 블록 · "
+            f"{linked_used}개 연결 Object를 검토했다. "
             "Not enough evidence."
         )
     else:
         summary = (
-            f"{primary_used}개의 일일 성찰과 {linked_used}개의 연결 Object를 검토했다. "
+            f"{primary_used}개 일자 · {evidence_units}개 증거 블록 · "
+            f"{linked_used}개 연결 Object를 검토했다. "
             "반복 패턴은 충분한 복수 증거로 확인되지 않았다."
         )
 
@@ -606,8 +653,9 @@ def generate_review(package: dict[str, Json]) -> dict[str, Json]:
         "references": package["references"],
         # Debug / logging surface (non-canonical consumers may ignore)
         "pre_stats": {
-            "dailies_scanned": len(primary),
-            "evidence_extracted": primary_used,
+            "dailies_scanned": int(coverage.get("daily_found", 0) or len(primary)),
+            "evidence_extracted": evidence_units,
+            "distinct_days": primary_used,
             "patterns_found": len(findings),
             "principles_proposed": len(principle_list),
             "enough_evidence": enough_evidence,
@@ -695,7 +743,11 @@ def render_mvp_draft(review: dict[str, Json]) -> str:
             refs = item.get("evidence_refs") or []
             lines.append(f"## {title}")
             lines.append("")
-            lines.append(f"- Why: {reason}")
+            lines.append("Why:")
+            why_text = str(reason or "").strip()
+            if why_text:
+                for why_line in why_text.splitlines():
+                    lines.append(f"- {why_line.lstrip('·- ').strip()}" if why_line.strip() else "")
             if isinstance(refs, list) and refs:
                 lines.append(f"- Evidence: {', '.join(f'`{r}`' for r in refs)}")
             support = item.get("supporting_sources")

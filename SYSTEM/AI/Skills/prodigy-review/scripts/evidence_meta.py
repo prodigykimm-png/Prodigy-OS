@@ -27,9 +27,14 @@ def preview_markdown(result: dict[str, "Json"]) -> str:
     lines = ["# Weekly Evidence Preview", "", "## Reflection"]
     for item in result["primary_evidence"]:
         if isinstance(item, dict):
-            projection = item["projection"]
-            reflection = projection["reflection"] if isinstance(projection, dict) else ""
-            lines.extend(["", f"- {item['source_link']}: {reflection}"])
+            projection = item["projection"] if isinstance(item.get("projection"), dict) else {}
+            reflection = (
+                str(projection.get("experience") or projection.get("reflection") or "")
+            )
+            title = str(projection.get("title") or "")
+            label = f"{title} — {reflection}" if title and reflection else (reflection or title)
+            eid = item.get("evidence_id") or item.get("source_link")
+            lines.extend(["", f"- `{eid}` {item.get('source_link')}: {label}"])
     lines.extend(["", "## Missing"])
     missing = result["missing"]
     if isinstance(missing, list) and missing:

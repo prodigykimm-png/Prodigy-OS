@@ -117,17 +117,70 @@
 
 ## 일일 성찰 (Daily Reflection)
 ### 목적 (Purpose)
-오늘 하루 중 가장 의미 있었던 단 하나의 순간을 이해합니다. 일일 성찰은 오늘 일어난 모든 일이 아닌, 단 하나의 의미 있는 경험에 초점을 맞춥니다. 모든 이벤트를 빠짐없이 기록할 필요는 없습니다.
+오늘 의미 있었던 **경험 단위**를 이해합니다. 하루 전체를 한 문단으로 섞지 않습니다. 모든 이벤트를 빠짐없이 기록할 필요는 없지만, 서로 다른 의미(운동·관계·유혹·판단 등)는 **별도 Evidence Block**으로 남깁니다. 그래야 Weekly Review에서 증거가 섞이지 않습니다.
+
+### Evidence Blocks v1
+Daily 노트는 그대로 하루 하나의 컨테이너입니다. 그 안에 0개 이상의 Evidence Block을 둡니다.
+
+```text
+Daily Experience
+    ↓
+Multiple Evidence Blocks
+    ↓
+Evidence Package
+    ↓
+PRE
+    ↓
+Weekly Review
+```
+
+* **Experience만 필수** — 가벼운 블록도 허용
+* **Interpretation / Change / Next Experiment / Context / Related Objects** — 선택
+* Journal에서 **「+ 경험 추가」** 또는 **「하루 분리 제안」**(확인 후에만 저장)
+* AI는 초안만 제안하며 Daily를 자동 덮어쓰지 않음
+* 기존 `## 성찰 / 변화 / 다음 실험` 형식은 계속 읽힘 (단일 legacy 증거)
 
 ### 흐름 (Focus)
-사건 (Event) → 성찰 (Reflection) → 변화 (Change) → 실험 (Experiment) → 연관 참조 (References)
+사건 (Event) → Evidence Block(s) → (선택) 해석·변화·실험 → 연관 Object 링크
 
 ### 핵심 질문 (Guiding Questions)
-- 오늘 하루 중 성찰해 볼 만한 가치가 있었던 순간은 언제인가요?
-- 그때 내가 진심으로 느낀 감정은 무엇이었나요?
-- 나는 왜 그렇게 반응했나요?
-- 이 사건을 통해 나 자신에 대해 무엇을 배웠나요?
-- 다음 번에 내가 의도적으로 시도해 볼 단 하나의 작은 행동 실험은 무엇인가요?
+- 오늘 성찰 가치가 있었던 **서로 다른** 경험은 무엇인가? (여러 개여도 된다)
+- 각 경험에서 내가 진심으로 느낀 감정은 무엇이었나?
+- 나는 왜 그렇게 반응했나?
+- 이 사건을 통해 나 자신에 대해 무엇을 배웠나?
+- 다음 번에 의도적으로 시도해 볼 작은 행동 실험은 무엇인가?
+
+### 작성 예시 (가벼운 블록)
+
+```markdown
+### 회사에서 실수함
+
+Experience:
+보고서 숫자를 잘못 입력했다.
+```
+
+### 작성 예시 (완전한 블록)
+
+```markdown
+### 말투 때문에 갈등이 생김
+
+Context: people
+
+Related Objects:
+- [[여자친구]]
+
+Experience:
+내 말투가 공격적으로 들려 다툼이 생겼다.
+
+Interpretation:
+문제를 해결하려는 마음이 앞서 상대의 감정을 먼저 듣지 않았다.
+
+Change:
+해결책보다 상대의 감정을 먼저 확인한다.
+
+Next Experiment:
+의견을 말하기 전에 상대가 원하는 것이 공감인지 해결인지 묻는다.
+```
 
 ---
 

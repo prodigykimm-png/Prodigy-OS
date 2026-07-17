@@ -9,7 +9,7 @@
     "end": "2026-07-19",
     "week": "2026-W29"
   },
-  "primary_evidence_count": 2,
+  "primary_evidence_count": 1,
   "supporting_evidence_count": 1,
   "missing_count": 1,
   "statistics": {
@@ -19,6 +19,7 @@
     "linked_objects_used": 1,
     "linked_objects_excluded": 0,
     "empty_reflections": 1,
+    "evidence_blocks": 1,
     "missing_links": 1
   }
 }

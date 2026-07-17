@@ -19,24 +19,42 @@ cssclasses:
 ```calendar-nav
 ```
 
+## Daily Intention
+*오늘 한 가지에만 집중한다면?*
+-
+
+## Evidence
+<!-- Evidence Blocks: each ### is one meaningful experience. Use Journal 「+ 경험 추가」 or free-text propose. -->
+
+## End of Day
+
+### Overall Change
+*하루를 관통하는 변화가 있다면 (선택)*
+-
+
+### Tomorrow
+*내일 시험할 한 가지 (선택)*
+-
+
 # Reflection
+<!-- Legacy single-reflection fields — still read by Evidence Builder if ## Evidence is empty -->
 
 ## 성찰 (Reflection)
-*오늘 가장 중요했던 일이나 깨달음은 무엇인가?*
-- 
+*오늘 가장 중요했던 일이나 깨달음은 무엇인가? (단일 성찰 모드)*
+-
 
 ## 변화 (Change)
 *오늘 무엇이 달라졌는가?*
-- 
+-
 
 ## 다음 실험 (Next Experiment)
 *내일 또는 다음번에 무엇을 시험할 것인가?*
-- 
+-
 
 ## 연관 참조 (References)
 *오늘의 성찰과 직접적으로 연관된 다른 노트·사람·태스크 링크만 간단히 남깁니다. (중복 작성 금지)*
 *사람 연결은 YAML `connections` 또는 아래 wikilink를 사용합니다.*
-- 
+-
 
 # Tasks
 

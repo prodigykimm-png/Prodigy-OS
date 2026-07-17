@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Final, NewType
 
 from evidence_meta import relationships, warning
+from daily_evidence_blocks import (
+    parse_daily_evidence_blocks,
+    block_to_evidence_item,
+)
 
 
 Json = str | int | float | bool | None | list["Json"] | dict[str, "Json"]
@@ -166,25 +170,32 @@ def daily_files(vault: Path, period: Period) -> list[Path]:
     return found[:7]
 
 
-def build_daily_evidence(vault: Path, path: Path) -> tuple[DailyEvidence, bool, bool]:
+def build_daily_evidence(vault: Path, path: Path) -> tuple[list[dict[str, Json]], bool, bool]:
+    """
+    Project one Daily note into one or more Evidence Package items.
+    Multi-event Evidence Blocks preferred; legacy Reflection becomes one item.
+    """
     text = path.read_text(encoding="utf-8")
-    sections = extract_heading_sections(strip_frontmatter(text))
-    projection: dict[str, str] = {}
+    day = path.stem
+    source_path = path.relative_to(vault).as_posix()
+    blocks = parse_daily_evidence_blocks(text, day)
+    items: list[dict[str, Json]] = []
     truncated = False
-    for key, aliases in SECTION_ALIASES.items():
-        clean, was_truncated = clean_section(find_section(sections, aliases), SOURCE_LIMIT)
-        projection[key] = clean
-        truncated = truncated or was_truncated
-    links = list(dict.fromkeys(extract_links("\n".join(projection.values()))))
-    evidence = DailyEvidence(
-        evidence_id=f"daily-{path.stem}",
-        source_path=path.relative_to(vault).as_posix(),
-        source_link=f"[[{path.stem}]]",
-        day=path.stem,
-        projection=projection,
-        linked_objects=links,
+    for block in blocks:
+        item = block_to_evidence_item(block, day=day, source_path=source_path)
+        # Enforce size limits on projection fields
+        proj = item.get("projection") if isinstance(item.get("projection"), dict) else {}
+        for key in list(proj.keys()):
+            clean, was = clean_section(str(proj.get(key) or ""), SOURCE_LIMIT)
+            proj[key] = clean
+            truncated = truncated or was
+        item["projection"] = proj
+        items.append(item)
+    has_content = any(
+        any(str((it.get("projection") or {}).get(k) or "").strip() for k in ("experience", "reflection", "change", "next_experiment"))
+        for it in items
     )
-    return evidence, any(projection.values()), truncated
+    return items, has_content, truncated
 
 
 def markdown_index(vault: Path) -> dict[str, Path]:
@@ -246,26 +257,48 @@ def project_object(vault: Path, path: Path, ref: ObjectReference, latest: date) 
 def package(vault: Path, period: Period) -> dict[str, Json]:
     warnings: list[dict[str, Json]] = []
     missing: list[Json] = []
-    dailies: list[DailyEvidence] = []
+    # Flatten multi-block Daily evidence into primary_evidence
+    evidence_items: list[dict[str, Json]] = []
+    daily_paths: list[str] = []
     daily_used = 0
     empty_reflections = 0
+    block_count = 0
     for path in daily_files(vault, period):
-        evidence, has_content, truncated = build_daily_evidence(vault, path)
-        dailies.append(evidence)
+        items, has_content, truncated = build_daily_evidence(vault, path)
+        daily_paths.append(path.relative_to(vault).as_posix())
+        block_count += len(items)
+        for it in items:
+            evidence_items.append(it)
         daily_used += int(has_content)
         empty_reflections += int(not has_content)
         if truncated:
-            warnings.append(warning("WARNING", "daily_truncated", evidence.source_path))
-    latest = max((date.fromisoformat(item.day) for item in dailies), default=period.end)
+            warnings.append(warning("WARNING", "daily_truncated", path.relative_to(vault).as_posix()))
+        if not items:
+            # empty Daily is valid
+            pass
+    # Adapter for object_references: lightweight objects with linked_objects + day
+    class _DailyShim:
+        __slots__ = ("evidence_id", "day", "linked_objects", "source_path")
+        def __init__(self, item: dict[str, Json]):
+            self.evidence_id = str(item.get("evidence_id") or "")
+            self.day = str(item.get("date") or "")
+            links = item.get("linked_objects") or item.get("related_objects") or []
+            self.linked_objects = list(links) if isinstance(links, list) else []
+            self.source_path = str(item.get("source_path") or "")
+    dailies = [_DailyShim(it) for it in evidence_items]
+    latest = max((date.fromisoformat(str(it.get("date"))) for it in evidence_items if it.get("date")), default=period.end)
     dailies_json = []
-    for item in dailies:
-        value = item.to_json()
-        value["recency_days"] = (latest - date.fromisoformat(item.day)).days
+    for item in evidence_items:
+        value = dict(item)
+        try:
+            value["recency_days"] = (latest - date.fromisoformat(str(item.get("date")))).days
+        except Exception:
+            value["recency_days"] = 0
         dailies_json.append(value)
     index = markdown_index(vault)
     supporting: list[Json] = []
     used_links = 0
-    for ref in object_references(dailies):
+    for ref in object_references(dailies):  # type: ignore[arg-type]
         target = index.get(ref.source_link.strip("[]"))
         if target is None:
             missing.append({"source_link": ref.source_link, "referenced_by": ref.referenced_by})
@@ -284,16 +317,17 @@ def package(vault: Path, period: Period) -> dict[str, Json]:
         warnings.append(warning("WARNING", "total_character_limit_exceeded", str(estimated)))
     found_links = sum(len(daily.linked_objects) for daily in dailies)
     stats: dict[str, Json] = {
-        "daily_files_found": len(dailies),
+        "daily_files_found": len(daily_paths),
         "daily_files_used": daily_used,
         "linked_objects_found": found_links,
         "linked_objects_used": used_links,
         "linked_objects_excluded": max(0, found_links - LINK_LIMIT),
         "empty_reflections": empty_reflections,
+        "evidence_blocks": block_count,
         "missing_links": len(missing),
         "estimated_characters": estimated,
     }
     period_json: dict[str, Json] = {"start": period.start.isoformat(), "end": period.end.isoformat(), "week": period.week}
-    coverage: dict[str, Json] = {"daily_found": len(dailies), "daily_used": daily_used, "linked_found": found_links, "linked_used": used_links, "missing": len(missing)}
+    coverage: dict[str, Json] = {"daily_found": len(set(daily_paths)), "daily_used": daily_used, "evidence_blocks": block_count, "linked_found": found_links, "linked_used": used_links, "missing": len(missing)}
     recency: dict[str, Json] = {"latest": latest.isoformat(), "oldest": min((item.day for item in dailies), default=period.start.isoformat())}
-    return {"schema_version": "1.0", "package_id": f"weekly-learning-{period.week}", "review_type": "learning", "workspace": "journal", "question": QUESTION, "period": period_json, "primary_evidence": dailies_json, "supporting_evidence": supporting, "relationships": relationships(dailies, supporting), "coverage": coverage, "recency": recency, "statistics": stats, "missing": missing, "warnings": warnings, "references": [item.source_path for item in dailies]}
+    return {"schema_version": "1.0", "package_id": f"weekly-learning-{period.week}", "review_type": "learning", "workspace": "journal", "question": QUESTION, "period": period_json, "primary_evidence": dailies_json, "supporting_evidence": supporting, "relationships": relationships(dailies, supporting), "coverage": coverage, "recency": recency, "statistics": stats, "missing": missing, "warnings": warnings, "references": list(dict.fromkeys(daily_paths))}
