@@ -115,7 +115,7 @@ try {
       rawPeople,
       sourcePages,
       title: "사람과 관계",
-      subtitle: "중요한 사람을 찾고, 함께한 기록과 관계의 맥락을 이어갑니다.",
+      subtitle: "이름·「사람 열기」= 노트 미리보기 팝업. 관련 기록은 원본 Object로 이어집니다.",
       onRefresh: () => paintPeople()
     });
   };

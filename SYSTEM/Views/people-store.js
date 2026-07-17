@@ -147,6 +147,20 @@
   }
 
   /**
+   * Read full People note content for preview modal.
+   */
+  async function readPeopleNote(app, path) {
+    const core = getCore();
+    if (!core) throw new Error("PeopleCore를 불러오지 못했습니다.");
+    if (!app || !app.vault) throw new Error("Obsidian Vault를 사용할 수 없습니다.");
+    const filePath = core.clean(path);
+    const file = app.vault.getAbstractFileByPath(filePath);
+    if (!file) throw new Error(`사람 Object를 찾을 수 없습니다: ${filePath}`);
+    const content = await app.vault.read(file);
+    return core.buildPersonPreviewModel(filePath, content);
+  }
+
+  /**
    * Append a Key Interaction (사건) index line under # 핵심 상호작용.
    * Optionally updates last_contact. Does not create a separate CRM event Object.
    * @returns {{ path: string, line: string, content: string }}
@@ -258,6 +272,7 @@
     updatePeopleProperties,
     appendKeyInteraction,
     appendMemo,
+    readPeopleNote,
     parseSimpleFrontmatter
   };
 

@@ -785,6 +785,130 @@
   }
 
   /**
+   * Split note into frontmatter + body.
+   */
+  function splitFrontmatter(content) {
+    const text = String(content || "").replace(/\r\n/g, "\n");
+    if (!text.startsWith("---")) {
+      return { frontmatterRaw: "", body: text, data: {} };
+    }
+    const end = text.indexOf("\n---", 3);
+    if (end === -1) {
+      return { frontmatterRaw: "", body: text, data: {} };
+    }
+    const raw = text.slice(3, end).replace(/^\n/, "");
+    const body = text.slice(end + 4).replace(/^\n/, "");
+    const data = {};
+    raw.split("\n").forEach((line) => {
+      const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+      if (!match) return;
+      let value = match[2].trim();
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      data[match[1]] = value;
+    });
+    return { frontmatterRaw: raw, body, data };
+  }
+
+  /**
+   * Parse People body into H1 sections for readable preview.
+   * Returns [{ title, body, isEmpty }]
+   */
+  function parsePeopleBodySections(body) {
+    const text = String(body || "").replace(/\r\n/g, "\n");
+    const lines = text.split("\n");
+    const sections = [];
+    let current = null;
+
+    function pushCurrent() {
+      if (!current) return;
+      const bodyText = current.lines.join("\n").replace(/^\n+|\n+$/g, "");
+      const plain = bodyText
+        .replace(/\*[^*]+\*/g, "")
+        .replace(/^[-*]\s*$/gm, "")
+        .replace(/YYYY-MM-DD/g, "")
+        .replace(/\[\[원본 Object\]\]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      // dataview blocks count as content
+      const hasCode = /```/.test(bodyText);
+      const isEmpty = !hasCode && plain.length < 2;
+      sections.push({
+        title: current.title,
+        body: bodyText,
+        isEmpty
+      });
+    }
+
+    lines.forEach((line) => {
+      const h1 = line.match(/^#\s+(.+?)\s*$/);
+      if (h1) {
+        pushCurrent();
+        current = { title: h1[1].trim(), lines: [] };
+        return;
+      }
+      if (!current) {
+        // preamble before first H1 (e.g. leftover title)
+        if (clean(line)) {
+          current = { title: "", lines: [line] };
+        }
+        return;
+      }
+      current.lines.push(line);
+    });
+    pushCurrent();
+
+    // Skip pure technical dataview "연결된 Object" bulk in preview? Keep but mark.
+    return sections.filter((s) => s.title || clean(s.body));
+  }
+
+  /**
+   * Build a read-model for person preview modal.
+   */
+  function buildPersonPreviewModel(path, content) {
+    const filePath = clean(path);
+    const name = filePath.split("/").pop().replace(/\.md$/i, "");
+    const split = splitFrontmatter(content);
+    const person = normalizePersonRecord(Object.assign({
+      path: filePath,
+      name,
+      body: split.body
+    }, split.data));
+    const sections = parsePeopleBodySections(split.body);
+    // Prefer human narrative sections first in display order
+    const preferred = [
+      "관계", "Relationship",
+      "소통 방식", "Communication Style",
+      "배운 점", "Things I Learned",
+      "핵심 상호작용", "Key Interactions",
+      "메모", "Notes",
+      "나의 성찰", "My Reflection",
+      "AI 요약", "AI Summary",
+      "첨부", "Attachments",
+      "연결된 Object"
+    ];
+    const rank = (title) => {
+      const i = preferred.findIndex((t) => t.toLowerCase() === clean(title).toLowerCase());
+      return i === -1 ? 100 + clean(title).charCodeAt(0) : i;
+    };
+    sections.sort((a, b) => rank(a.title) - rank(b.title));
+
+    return {
+      path: filePath,
+      name: person.name || name,
+      person,
+      properties: pickQuickEditValues(split.data),
+      meta_line: [person.relationship, person.company, person.role].filter(Boolean).join(" · "),
+      last_contact: person.last_contact,
+      is_legacy: person.is_legacy,
+      sections,
+      body: split.body,
+      content: String(content || "")
+    };
+  }
+
+  /**
    * Build full workspace model from raw people pages + source pages.
    */
   function buildPeopleWorkspaceModel(rawPeople, sourcePages, options) {
@@ -863,7 +987,10 @@
     enrichPersonWithContext,
     filterPeopleList,
     sortPeopleList,
-    buildPeopleWorkspaceModel
+    buildPeopleWorkspaceModel,
+    splitFrontmatter,
+    parsePeopleBodySections,
+    buildPersonPreviewModel
   };
 
   root.PeopleCore = api;

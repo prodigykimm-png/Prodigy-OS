@@ -30,13 +30,236 @@
     }
   }
 
+  function fieldLabel(key) {
+    if (root.prodigyDisplay && typeof root.prodigyDisplay.property === "function") {
+      return root.prodigyDisplay.property(key);
+    }
+    const fallback = {
+      relationship: "관계",
+      company: "소속",
+      role: "역할",
+      last_contact: "최근 연락",
+      phone: "전화",
+      email: "이메일"
+    };
+    return fallback[key] || key;
+  }
+
+  async function renderMarkdownInto(app, container, markdown, sourcePath) {
+    const ob = root.obsidian || (typeof window !== "undefined" ? window.obsidian : null);
+    const text = String(markdown || "").trim();
+    if (!text) {
+      container.createEl("div", {
+        text: "내용이 비어 있습니다.",
+        attr: { style: "color:var(--text-muted);font-size:0.85em;font-style:italic;" }
+      });
+      return null;
+    }
+
+    if (ob && ob.MarkdownRenderer) {
+      try {
+        const Component = ob.Component;
+        const component = Component ? new Component() : null;
+        if (component && typeof component.load === "function") component.load();
+        if (typeof ob.MarkdownRenderer.render === "function") {
+          await ob.MarkdownRenderer.render(app, text, container, sourcePath || "", component || {});
+        } else if (typeof ob.MarkdownRenderer.renderMarkdown === "function") {
+          await ob.MarkdownRenderer.renderMarkdown(text, container, sourcePath || "", component || {});
+        } else {
+          throw new Error("no renderer");
+        }
+        return component;
+      } catch (_e) {
+        /* fall through to plain text */
+      }
+    }
+
+    // Fallback: preserve paragraphs / bullets lightly
+    const pre = container.createEl("div", {
+      attr: { class: "ppw-preview-plain", style: "white-space:pre-wrap;line-height:1.55;font-size:0.9em;" }
+    });
+    pre.setText(text);
+    return null;
+  }
+
+  /**
+   * Open People Object as a readable formatted popup (full note sections).
+   * Primary open path from name click / 사람 열기.
+   */
+  async function openPersonPreview(app, path, onChanged) {
+    const host = app || root.app || (typeof window !== "undefined" ? window.app : null);
+    if (!host) {
+      notice("Obsidian 앱 컨텍스트가 필요합니다.");
+      return null;
+    }
+    if (!root.PeopleStore || !root.PeopleCore) {
+      notice("People 모듈을 불러오지 못했습니다.");
+      return null;
+    }
+
+    let preview;
+    try {
+      preview = await root.PeopleStore.readPeopleNote(host, path);
+    } catch (error) {
+      notice(error.message || String(error), 9000);
+      return null;
+    }
+
+    const Modal = root.obsidian && root.obsidian.Modal;
+    if (!Modal) {
+      // No modal — fall back to side open
+      return openBeside(host, path);
+    }
+
+    ensureWorkspaceStyles();
+
+    return new Promise((resolve) => {
+      class PeoplePreviewModal extends Modal {
+        constructor(appInstance, model) {
+          super(appInstance);
+          this.model = model;
+          this._mdComponents = [];
+        }
+        onOpen() {
+          const { contentEl, modalEl } = this;
+          contentEl.empty();
+          if (modalEl) {
+            modalEl.style.width = "min(720px, calc(100vw - 24px))";
+            modalEl.style.maxHeight = "min(88vh, 900px)";
+          }
+          contentEl.addClass("ppw-preview-modal");
+
+          const head = contentEl.createDiv({ attr: { class: "ppw-preview-head" } });
+          const titleRow = head.createDiv({ attr: { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap;" } });
+          titleRow.createEl("h2", {
+            text: this.model.name,
+            attr: { style: "margin:0;font-size:1.25em;" }
+          });
+          if (this.model.is_legacy) {
+            titleRow.createEl("span", { text: "레거시", attr: { class: "ppw-badge" } });
+          }
+          if (this.model.meta_line) {
+            head.createEl("div", {
+              text: this.model.meta_line,
+              attr: { class: "ppw-meta", style: "margin-top:6px;" }
+            });
+          }
+          if (this.model.last_contact) {
+            head.createEl("div", {
+              text: `최근 연락 ${this.model.last_contact}`,
+              attr: { class: "ppw-sub", style: "margin-top:4px;" }
+            });
+          }
+
+          // Property chips (filled only)
+          const props = this.model.properties || {};
+          const chips = contentEl.createDiv({ attr: { class: "ppw-preview-props" } });
+          Object.keys(props).forEach((key) => {
+            const val = String(props[key] || "").trim();
+            if (!val) return;
+            const chip = chips.createEl("span", { attr: { class: "ppw-prop-chip" } });
+            chip.createEl("em", { text: fieldLabel(key) });
+            chip.createEl("span", { text: val });
+          });
+
+          const scroll = contentEl.createDiv({ attr: { class: "ppw-preview-scroll" } });
+          const sections = (this.model.sections || []).filter((s) => {
+            // Hide empty template sections and pure dataview dump heading optional
+            if (s.isEmpty) return false;
+            if (s.title === "연결된 Object") return true; // keep if has content
+            return true;
+          });
+
+          if (!sections.length) {
+            scroll.createEl("div", {
+              text: "아직 작성된 본문이 거의 없습니다. 사건·메모·빠른 수정으로 맥락을 채워 보세요.",
+              attr: { class: "ppw-empty" }
+            });
+          } else {
+            sections.forEach((section) => {
+              if (section.isEmpty) return;
+              const block = scroll.createDiv({ attr: { class: "ppw-preview-section" } });
+              if (section.title) {
+                block.createEl("h3", { text: section.title, attr: { class: "ppw-preview-h" } });
+              }
+              const bodyEl = block.createDiv({ attr: { class: "ppw-preview-body markdown-preview-view" } });
+              // fire-and-forget async render
+              renderMarkdownInto(this.app, bodyEl, section.body, this.model.path).then((comp) => {
+                if (comp) this._mdComponents.push(comp);
+              });
+            });
+          }
+
+          const footer = contentEl.createDiv({ attr: { class: "ppw-preview-footer" } });
+          const left = footer.createDiv({ attr: { style: "display:flex;gap:6px;flex-wrap:wrap;" } });
+          const right = footer.createDiv({ attr: { style: "display:flex;gap:6px;flex-wrap:wrap;" } });
+
+          const eventBtn = left.createEl("button", { text: "사건 추가", attr: { type: "button" } });
+          eventBtn.onclick = () => openAddInteractionFlow(this.app, this.model.path, async () => {
+            if (typeof onChanged === "function") await onChanged();
+            // refresh modal content
+            try {
+              this.model = await root.PeopleStore.readPeopleNote(this.app, this.model.path);
+              this.onOpen();
+            } catch (_e) { /* ignore */ }
+          });
+
+          const memoBtn = left.createEl("button", { text: "메모 추가", attr: { type: "button" } });
+          memoBtn.onclick = () => openAddMemoFlow(this.app, this.model.path, async () => {
+            if (typeof onChanged === "function") await onChanged();
+            try {
+              this.model = await root.PeopleStore.readPeopleNote(this.app, this.model.path);
+              this.onOpen();
+            } catch (_e) { /* ignore */ }
+          });
+
+          const editBtn = left.createEl("button", { text: "빠른 수정", attr: { type: "button" } });
+          editBtn.onclick = () => openQuickEditFlow(this.app, this.model.path, async () => {
+            if (typeof onChanged === "function") await onChanged();
+            try {
+              this.model = await root.PeopleStore.readPeopleNote(this.app, this.model.path);
+              this.onOpen();
+            } catch (_e) { /* ignore */ }
+          });
+
+          const sideBtn = right.createEl("button", { text: "편집기에서 열기", attr: { type: "button" } });
+          sideBtn.onclick = () => openBeside(this.app, this.model.path);
+
+          const closeBtn = right.createEl("button", {
+            text: "닫기",
+            attr: { type: "button", class: "mod-cta" }
+          });
+          closeBtn.onclick = () => {
+            this.close();
+            resolve(this.model);
+          };
+        }
+        onClose() {
+          (this._mdComponents || []).forEach((c) => {
+            try {
+              if (c && typeof c.unload === "function") c.unload();
+            } catch (_e) { /* ignore */ }
+          });
+          this._mdComponents = [];
+          this.contentEl.empty();
+        }
+      }
+      new PeoplePreviewModal(host, preview).open();
+    });
+  }
+
   async function createAndOpen(app, rawName) {
     if (!root.PeopleStore || !root.PeopleCore) {
       throw new Error("People 모듈을 불러오지 못했습니다.");
     }
     const result = await root.PeopleStore.createPeople(app, rawName);
-    await openPath(app, result.path);
     notice(`사람 Object를 만들었습니다: ${result.name}`);
+    // Show formatted preview instead of jumping to raw editor
+    try {
+      await openPersonPreview(app, result.path);
+    } catch (_e) {
+      await openPath(app, result.path);
+    }
     return result;
   }
 
@@ -151,21 +374,6 @@
       }
       new PeopleCreateModal(host).open();
     });
-  }
-
-  function fieldLabel(key) {
-    if (root.prodigyDisplay && typeof root.prodigyDisplay.property === "function") {
-      return root.prodigyDisplay.property(key);
-    }
-    const fallback = {
-      relationship: "관계",
-      company: "소속",
-      role: "역할",
-      last_contact: "최근 연락",
-      phone: "전화",
-      email: "이메일"
-    };
-    return fallback[key] || key;
   }
 
   /**
@@ -621,6 +829,21 @@
 .ppw-areas{margin-top:28px;padding-top:12px;border-top:1px solid var(--background-modifier-border);opacity:.92}
 .ppw-areas summary{cursor:pointer;font-weight:700;font-size:.95em;color:var(--text-muted);list-style:none}
 .ppw-areas summary::-webkit-details-marker{display:none}
+.ppw-preview-modal{display:flex;flex-direction:column;gap:0;max-height:min(88vh,900px)}
+.ppw-preview-head{padding:0 0 12px;border-bottom:1px solid var(--background-modifier-border)}
+.ppw-preview-props{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0}
+.ppw-prop-chip{display:inline-flex;flex-direction:column;gap:1px;padding:6px 10px;border-radius:8px;background:var(--background-secondary);border:1px solid var(--background-modifier-border);font-size:.82em;max-width:100%}
+.ppw-prop-chip em{font-style:normal;font-size:.72em;color:var(--text-muted);font-weight:700}
+.ppw-prop-chip span{overflow-wrap:anywhere}
+.ppw-preview-scroll{overflow:auto;flex:1 1 auto;padding:8px 2px 12px;max-height:min(58vh,620px)}
+.ppw-preview-section{margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--background-modifier-border)}
+.ppw-preview-section:last-child{border-bottom:0}
+.ppw-preview-h{margin:0 0 8px;font-size:.95em;font-weight:800;color:var(--text-normal)}
+.ppw-preview-body{font-size:.9em;line-height:1.55}
+.ppw-preview-body p{margin:0.4em 0}
+.ppw-preview-body ul{margin:0.35em 0;padding-left:1.2em}
+.ppw-preview-footer{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--background-modifier-border)}
+.ppw-preview-footer button{min-height:36px}
 @media(max-width:600px){
   .prodigy-people-workspace{padding:4px 4px 32px}
   .ppw-header{flex-direction:column;align-items:stretch}
@@ -628,6 +851,9 @@
   .ppw-actions{display:grid;grid-template-columns:1fr 1fr}
   .ppw-actions button{min-height:44px;width:100%}
   .ppw-actions button.ppw-action-primary{grid-column:1 / -1}
+  .ppw-preview-footer{flex-direction:column}
+  .ppw-preview-footer>div{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .ppw-preview-footer button{min-height:44px;width:100%}
 }
 `;
     document.head.appendChild(style);
@@ -704,7 +930,11 @@
 
     function openPerson(path) {
       if (typeof opts.onOpenPerson === "function") return opts.onOpenPerson(path);
-      return openBeside(app, path);
+      // Default: full formatted People note popup (not side split)
+      return openPersonPreview(app, path, () => {
+        if (typeof opts.onRefresh === "function") opts.onRefresh();
+        else paint();
+      });
     }
 
     function openRecord(path) {
@@ -796,7 +1026,7 @@
         const left = top.createDiv();
         const nameEl = left.createEl("a", {
           text: person.name,
-          attr: { class: "ppw-name", href: "#", title: "옆에 노트 열기" }
+          attr: { class: "ppw-name", href: "#", title: "사람 노트 미리보기" }
         });
         nameEl.onclick = (e) => {
           if (e && e.preventDefault) e.preventDefault();
@@ -911,6 +1141,7 @@
   const api = {
     openPath,
     openBeside,
+    openPersonPreview,
     createAndOpen,
     openCreateFlow,
     openQuickEditFlow,

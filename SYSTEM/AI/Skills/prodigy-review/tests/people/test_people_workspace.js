@@ -168,7 +168,7 @@ function main() {
   // --- Personal hub wiring ---
   const personal = read("HUB/60 Personal.md");
   assert.match(personal, /사람과 관계/);
-  assert.match(personal, /중요한 사람을 찾고/);
+  assert.match(personal, /미리보기 팝업|중요한 사람을 찾고/);
   assert.match(personal, /buildPeopleWorkspaceModel/);
   assert.match(personal, /renderPeopleWorkspace/);
   assert.match(personal, /지속 영역/);
@@ -176,8 +176,47 @@ function main() {
   assert.equal(personal.includes("HUB/People.md"), false);
   assert.equal(/미접촉|잠재 고객|인맥 관리|연락 관리/.test(personal), false);
 
+  // --- Person preview model (popup) ---
+  const noteBody = [
+    "---",
+    "type: people",
+    "relationship: 동료",
+    "company: 공사",
+    "role: 담당",
+    "last_contact: 2026-07-16",
+    "---",
+    "",
+    "# 김대리",
+    "",
+    "# 관계",
+    "회사 동료로 운송예산 업무를 함께한다.",
+    "",
+    "# 핵심 상호작용",
+    "- [[2026-07-16]] 회의",
+    "",
+    "# 메모",
+    "- 주말에만 연락 가능",
+    "",
+    "# 연결된 Object",
+    "```dataview",
+    "LIST",
+    "```"
+  ].join("\n");
+  const personPreview = core.buildPersonPreviewModel("PARA/RESOURCES/CONTACTS/김대리.md", noteBody);
+  assert.equal(personPreview.name, "김대리");
+  assert.match(personPreview.meta_line, /동료/);
+  assert.equal(personPreview.properties.company, "공사");
+  assert.equal(personPreview.last_contact, "2026-07-16");
+  assert.ok(personPreview.sections.some((s) => s.title === "관계" && !s.isEmpty));
+  assert.ok(personPreview.sections.some((s) => s.title === "핵심 상호작용"));
+  // empty-ish template sections should be empty
+  const emptyNote = "---\ntype: people\n---\n\n# 관계\n*\n-\n\n# 메모\n-\n";
+  const emptyPrev = core.buildPersonPreviewModel("PARA/RESOURCES/CONTACTS/X.md", emptyNote);
+  assert.ok(emptyPrev.sections.every((s) => s.isEmpty || !String(s.body || "").replace(/[*\-\s]/g, "")));
+
   // --- View exports ---
   assert.equal(typeof view.renderPeopleWorkspace, "function");
+  assert.equal(typeof view.openPersonPreview, "function");
 
   // --- No CRM schema / home / PRE changes required ---
   const engine = read("SYSTEM/Views/object-engine-core.js");
