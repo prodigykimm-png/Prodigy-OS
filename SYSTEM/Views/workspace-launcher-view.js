@@ -152,10 +152,23 @@
     const rootEl = container.createEl("div", {
       attr: { class: "prodigy-workspace-launcher home-card emphasis-primary" }
     });
-    rootEl.createEl("div", {
-      text: "🚀 워크스페이스 런처",
-      attr: { class: "home-header" }
+    const headRow = rootEl.createEl("div", {
+      attr: { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px;" }
     });
+    headRow.createEl("div", {
+      text: "🚀 워크스페이스 런처",
+      attr: { class: "home-header", style: "margin:0;" }
+    });
+    if (root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
+      const plus = headRow.createEl("button", {
+        text: "+ 새 Object",
+        attr: { type: "button", title: "Universal Object Creator" }
+      });
+      plus.onclick = (ev) => {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        root.ObjectCreatorView.open(app, { pkg: opts.pkg || null });
+      };
+    }
     rootEl.createEl("div", {
       text: "지금 열 워크스페이스를 고릅니다. 실행은 각 워크스페이스에서 합니다.",
       attr: { style: "font-size:0.8em;color:var(--text-muted);margin:-4px 0 10px;line-height:1.4;" }

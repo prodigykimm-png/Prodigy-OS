@@ -399,10 +399,120 @@
   }
 
   /**
-   * Continue Target: where Continue should go (Workspace Dashboard + object context).
-   * Deterministic. Never AI. Returns null when no meaningful continue exists.
+   * Resolve raw Object or already-evaluated engine state to a full state.
+   * Shared by capability accessors (lifecycle / attention / continue).
    */
-  function getContinueTarget(state) {
+  function resolveState(objectOrState, context) {
+    if (!objectOrState) return null;
+    if (objectOrState.error && objectOrState.schema_version) return objectOrState;
+    if (objectOrState.schema_version === SCHEMA
+      || (objectOrState.lifecycle && objectOrState.attention && objectOrState.workspace_key != null)) {
+      return objectOrState;
+    }
+    // Raw page / package object → evaluate once
+    return evaluateObject(objectOrState, context || {});
+  }
+
+  /**
+   * Lifecycle accessor — computed only, never persisted to YAML.
+   * @returns {{ state: string, reason: string, reasons: string[] }}
+   */
+  function getLifecycle(objectOrState, context) {
+    const state = resolveState(objectOrState, context);
+    if (!state) {
+      return {
+        state: HEALTH.invalid,
+        reason: "객체가 없습니다.",
+        reasons: ["객체가 없습니다."]
+      };
+    }
+    if (state.error) {
+      const msg = clean(state.error) || "평가에 실패했습니다.";
+      return { state: HEALTH.invalid, reason: msg, reasons: [msg] };
+    }
+    // Prefer health (operational) when present; fall back to lifecycle block
+    const healthState = state.health && state.health.state;
+    const lifeState = state.lifecycle && state.lifecycle.state;
+    const lifeReason = clean(state.lifecycle && state.lifecycle.reason);
+    const healthReasons = Array.isArray(state.health && state.health.reasons)
+      ? state.health.reasons.map(clean).filter(Boolean)
+      : [];
+
+    // Map to product lifecycle vocabulary used across OS
+    let outState = healthState || lifeState || "healthy";
+    // ObjectLifecycleCore uses needs_action / needs_review / stale / healthy / completed
+    if (outState === "blocked") outState = "needs_action";
+
+    const reasons = healthReasons.slice();
+    if (lifeReason && reasons.indexOf(lifeReason) === -1) reasons.push(lifeReason);
+    if (!reasons.length) {
+      if (outState === "healthy") reasons.push("라이프사이클 경고 없음.");
+      else if (outState === "needs_action") reasons.push("다음 행동이 필요합니다.");
+      else if (outState === "needs_review") reasons.push("복기가 필요합니다.");
+      else if (outState === "stale") reasons.push("오래 방치된 상태입니다.");
+      else if (outState === "completed") reasons.push("종료 상태입니다.");
+      else reasons.push("라이프사이클 상태를 계산했습니다.");
+    }
+
+    return {
+      state: outState,
+      reason: reasons[0],
+      reasons,
+      // raw passthrough for advanced consumers
+      health: state.health || null,
+      lifecycle: state.lifecycle || null
+    };
+  }
+
+  /**
+   * Attention accessor — consumers must not recompute attention rules.
+   * @returns {{ priority: string, level: string, reason: string, reasons: string[] }}
+   */
+  function getAttention(objectOrState, context) {
+    const state = resolveState(objectOrState, context);
+    if (!state) {
+      return {
+        priority: ATTENTION.none,
+        level: ATTENTION.none,
+        reason: "객체가 없습니다.",
+        reasons: ["객체가 없습니다."]
+      };
+    }
+    if (state.error) {
+      const msg = clean(state.error) || "평가에 실패했습니다.";
+      return {
+        priority: ATTENTION.none,
+        level: ATTENTION.none,
+        reason: msg,
+        reasons: [msg]
+      };
+    }
+    const level = clean(state.attention && state.attention.level).toLowerCase() || ATTENTION.none;
+    const reasons = Array.isArray(state.attention && state.attention.reasons)
+      ? state.attention.reasons.map(clean).filter(Boolean)
+      : [];
+    if (!reasons.length) {
+      if (level === ATTENTION.none || level === ATTENTION.normal || level === ATTENTION.low) {
+        reasons.push("주의 신호 없음.");
+      } else {
+        reasons.push("주의가 필요합니다.");
+      }
+    }
+    return {
+      priority: level, // product name
+      level, // existing field name (backward compatible)
+      reason: reasons[0],
+      reasons
+    };
+  }
+
+  /**
+   * Continue Target: where Continue should go (Workspace Dashboard + object context).
+   * Accepts evaluated state or raw Object. Deterministic. Never AI.
+   * Returns null when no meaningful continue exists.
+   */
+  function getContinueTarget(stateOrObject, context) {
+    const state = resolveState(stateOrObject, context);
     if (!state || state.error) return null;
 
     const wsRaw = clean(state.workspace_key).toLowerCase();
@@ -799,22 +909,314 @@
     };
   }
 
+  /**
+   * Creatable type registry for Universal Object Creator (display + classify).
+   * Future types: push via registerCreatableType (does not change YAML schemas).
+   */
+  const CREATABLE_TYPES = [
+    Object.freeze({ id: "project", label: "프로젝트", type: "project", icon: "📁" }),
+    Object.freeze({ id: "auction", label: "경매", type: "auction_case", icon: "🏢" }),
+    Object.freeze({ id: "reading", label: "독서", type: "reading", icon: "📖" }),
+    Object.freeze({ id: "workout", label: "운동", type: "workout", icon: "💪" }),
+    Object.freeze({ id: "people", label: "사람", type: "people", icon: "👤" }),
+    Object.freeze({ id: "knowledge", label: "지식", type: "knowledge", icon: "🧠" }),
+    Object.freeze({ id: "journal", label: "저널", type: "journal", icon: "📅" })
+  ];
+
+  const _extraCreatable = [];
+
+  function registerCreatableType(entry) {
+    if (!entry || !entry.id) return false;
+    const id = clean(entry.id).toLowerCase();
+    if (CREATABLE_TYPES.some((t) => t.id === id) || _extraCreatable.some((t) => t.id === id)) {
+      return false;
+    }
+    _extraCreatable.push(Object.freeze({
+      id,
+      label: clean(entry.label) || id,
+      type: clean(entry.type) || id,
+      icon: clean(entry.icon) || "📌"
+    }));
+    return true;
+  }
+
+  function listCreatableTypes() {
+    return CREATABLE_TYPES.concat(_extraCreatable);
+  }
+
+  /**
+   * Deterministic input classification for Universal Creator.
+   * Capability name: classify(). Alias: classifyInput() (backward compatible).
+   * No AI. No vault scan. Keyword / pattern heuristics only.
+   * @returns {{ candidates: Array, selected: object, fallback: boolean, error?: string }}
+   */
+  function classifyInput(rawInput, options) {
+    const opts = options || {};
+    const text = clean(rawInput);
+    const lower = text.toLowerCase();
+    const types = listCreatableTypes();
+
+    if (!text) {
+      return {
+        candidates: types.map((t) => ({
+          id: t.id,
+          label: t.label,
+          type: t.type,
+          icon: t.icon,
+          score: 0,
+          reasons: [],
+          confidence: 0
+        })),
+        selected: null,
+        fallback: false,
+        empty: true
+      };
+    }
+
+    try {
+      const scores = Object.create(null);
+      const reasons = Object.create(null);
+      types.forEach((t) => {
+        scores[t.id] = 0;
+        reasons[t.id] = [];
+      });
+
+      const add = (id, pts, reason) => {
+        if (scores[id] == null) return;
+        scores[id] += pts;
+        if (reason && reasons[id].indexOf(reason) === -1) reasons[id].push(reason);
+      };
+
+      // People: person-like names / honorifics / contact words
+      if (/(씨|님|대표|팀장|과장|대리|교수|박사|선배|후배|동기)\b/.test(text)
+        || /^(김|이|박|최|정|강|조|윤|장|임|한|오|서|신|권|황|안|송|류|홍)\S{1,3}$/.test(text)
+        || /(만나|통화|연락|미팅|사람|인맥)/.test(text)) {
+        add("people", 40, "사람·호칭·연락 표현이 감지되었습니다.");
+      }
+      if (text.length <= 6 && !/\s/.test(text) && /[가-힣]{2,4}/.test(text) && !/(책|운동|경매|프로젝트)/.test(text)) {
+        add("people", 15, "짧은 이름 형태입니다.");
+      }
+
+      // Auction
+      if (/(경매|입찰|낙찰|패찰|임장|감정가|최저가|타경|사건번호|법원|매각)/.test(text)
+        || /\d{4}\s*타경\s*\d+/.test(text)
+        || /(오피스텔|아파트|다가구|상가).{0,8}(경매|입찰)/.test(text)) {
+        add("auction", 50, "경매·입찰 관련 용어가 감지되었습니다.");
+      }
+
+      // Reading
+      if (/(책|독서|완독|읽기|저자|페이지|목차|서평|도서|에세이|소설)/.test(text)
+        || /(habits|book|author|read)/i.test(text)) {
+        add("reading", 45, "책·독서 관련 키워드가 감지되었습니다.");
+      }
+
+      // Workout
+      if (/(운동|헬스|스쿼트|데드|벤치|러닝|유산소|웨이트|세트|kg|킬로|프로그램 운동|pt)/i.test(text)
+        || /(workout|squat|deadlift|bench)/i.test(text)) {
+        add("workout", 45, "운동·훈련 관련 키워드가 감지되었습니다.");
+      }
+
+      // Project
+      if (/(프로젝트|기획|마일스톤|스프린트|납기|마감|할 일|todo|task|mvp|런칭|출시)/i.test(text)
+        || /(개발|배포|리팩터|온보딩|워크플로)/.test(text)) {
+        add("project", 40, "프로젝트·작업 관련 표현이 감지되었습니다.");
+      }
+
+      // Knowledge
+      if (/(원칙|인사이트|개념|정의|이론|배움|깨달음|영구 노트|제텔|지식|패턴)/.test(text)
+        || /(why|principle|insight)/i.test(text)) {
+        add("knowledge", 35, "지식·원칙 관련 표현이 감지되었습니다.");
+      }
+
+      // Journal / reflection
+      if (/(오늘|어제|성찰|회고|느낀|기분|일기|저널|실험|변화)/.test(text)
+        || /^\d{4}-\d{2}-\d{2}/.test(text)) {
+        add("journal", 30, "일일·성찰 관련 표현이 감지되었습니다.");
+      }
+
+      // Soft default: multi-word work phrase → project
+      if (text.length >= 4 && /\s/.test(text) && scores.project < 20) {
+        add("project", 10, "일반 작업 문장으로 프로젝트를 후보에 올렸습니다.");
+      }
+
+      // Build ordered candidates
+      let candidates = types.map((t) => {
+        const score = scores[t.id] || 0;
+        const rs = (reasons[t.id] || []).slice();
+        return {
+          id: t.id,
+          label: t.label,
+          type: t.type,
+          icon: t.icon,
+          score,
+          reasons: rs,
+          reason: rs[0] || "",
+          confidence: Math.min(1, score / 50)
+        };
+      }).sort((a, b) => b.score - a.score || a.label.localeCompare(b.label, "ko"));
+
+      // Ensure every listed type appears; top without score get journal fallback reason
+      const top = candidates[0];
+      let fallback = false;
+      if (!top || top.score <= 0) {
+        fallback = true;
+        candidates = candidates.map((c) => {
+          if (c.id === "journal") {
+            return Object.assign({}, c, {
+              score: 1,
+              reasons: ["더 강한 Object 유형 신호가 없어 저널을 제안합니다."],
+              reason: "더 강한 Object 유형 신호가 없어 저널을 제안합니다.",
+              confidence: 0.2
+            });
+          }
+          return c;
+        }).sort((a, b) => b.score - a.score);
+      } else {
+        // Fill empty reasons for display order (UI still needs a reason when selected)
+        candidates = candidates.map((c) => {
+          if (c.score > 0 && !c.reasons.length) {
+            return Object.assign({}, c, {
+              reasons: [`${c.label} 후보입니다.`],
+              reason: `${c.label} 후보입니다.`
+            });
+          }
+          if (c.score === 0) {
+            return Object.assign({}, c, {
+              reasons: [],
+              reason: ""
+            });
+          }
+          return c;
+        });
+      }
+
+      const selected = candidates.find((c) => c.score > 0) || candidates.find((c) => c.id === "journal");
+      return {
+        candidates,
+        selected: selected || null,
+        fallback,
+        empty: false
+      };
+    } catch (err) {
+      const journal = types.find((t) => t.id === "journal") || types[0];
+      return {
+        candidates: types.map((t) => ({
+          id: t.id,
+          label: t.label,
+          type: t.type,
+          icon: t.icon,
+          score: t.id === "journal" ? 1 : 0,
+          reasons: t.id === "journal"
+            ? ["분류를 사용할 수 없어 저널을 제안합니다."]
+            : [],
+          reason: t.id === "journal" ? "분류를 사용할 수 없어 저널을 제안합니다." : "",
+          confidence: t.id === "journal" ? 0.1 : 0
+        })),
+        selected: {
+          id: journal.id,
+          label: journal.label,
+          type: journal.type,
+          icon: journal.icon,
+          score: 1,
+          reasons: ["분류를 사용할 수 없어 저널을 제안합니다."],
+          reason: "분류를 사용할 수 없어 저널을 제안합니다.",
+          confidence: 0.1
+        },
+        fallback: true,
+        empty: false,
+        error: String(err && err.message ? err.message : err)
+      };
+    }
+  }
+
+  /**
+   * Duplicate / similar-object detection (capability: findDuplicates).
+   * Alias: findSimilarObjects (backward compatible).
+   * Never blocks creation. No vault scan — pass in-memory lists only.
+   */
+  function findSimilarObjects(rawInput, objectLists, options) {
+    const opts = options || {};
+    const q = clean(rawInput).toLowerCase();
+    if (!q || q.length < 2) return [];
+    const max = opts.max != null ? Number(opts.max) : 5;
+    const lists = objectLists || {};
+    const pool = []
+      .concat(lists.projects || [])
+      .concat(lists.auctions || [])
+      .concat(lists.reading || [])
+      .concat(lists.people || [])
+      .concat(lists.workouts || [])
+      .concat(lists.objects || []);
+
+    const hits = [];
+    pool.forEach((obj) => {
+      if (!obj) return;
+      const title = clean(obj.name || obj.title || obj.label || "");
+      const path = clean(obj.path || obj.object_path || "");
+      const type = clean(obj.type || "");
+      if (!title && !path) return;
+      const hay = `${title} ${path}`.toLowerCase();
+      if (!hay.includes(q) && !q.split(/\s+/).some((tok) => tok.length >= 2 && hay.includes(tok))) {
+        return;
+      }
+      const ws = workspaceKeyForType(type) || type || "object";
+      hits.push({
+        title: title || path.split("/").pop().replace(/\.md$/i, ""),
+        path,
+        type,
+        workspace_key: ws,
+        label: (root.prodigyDisplay && root.prodigyDisplay.type)
+          ? root.prodigyDisplay.type(type === "auction" ? "auction_case" : type)
+          : type
+      });
+    });
+
+    // de-dupe by path
+    const seen = Object.create(null);
+    const out = [];
+    hits.forEach((h) => {
+      const k = clean(h.path).toLowerCase() || h.title.toLowerCase();
+      if (seen[k]) return;
+      seen[k] = true;
+      out.push(h);
+    });
+    return out.slice(0, max);
+  }
+
+  // Capability-oriented public names share the same function identity as aliases
+  // (classify === classifyInput, findDuplicates === findSimilarObjects).
+  const classify = classifyInput;
+  const findDuplicates = findSimilarObjects;
+
   const api = {
     SCHEMA,
     HEALTH,
     ATTENTION,
     WORKSPACE_PATHS,
     WORKSPACE_VERBS,
+    CREATABLE_TYPES,
     clean,
+    // Core evaluation (shared runtime)
     normalizeObject,
+    resolveState,
     evaluateObject,
     evaluateObjects,
     selectPrimaryObject,
     buildWorkspaceSummary,
+    createRuntimeSession,
+    scoreForSelection,
+    // Capability services (preferred public API)
+    classify,
+    getLifecycle,
+    getAttention,
+    findDuplicates,
     getContinueTarget,
     getNextAction,
-    createRuntimeSession,
-    scoreForSelection
+    listCreatableTypes,
+    registerCreatableType,
+    // Backward-compatible aliases (same references — Creator / tests depend on them)
+    classifyInput: classify,
+    findSimilarObjects: findDuplicates
   };
 
   root.ObjectEngine = api;

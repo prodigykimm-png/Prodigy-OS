@@ -25,15 +25,21 @@ function main() {
   assert.deepEqual(core.QUICK_EDIT_FIELDS, [
     "relationship", "company", "role", "last_contact", "phone", "email"
   ]);
+  // relationship = short category, not free narrative
+  assert.ok(core.RELATIONSHIP_TYPES.includes("지인"));
+  assert.ok(core.RELATIONSHIP_TYPES.includes("회사"));
+  assert.equal(core.isKnownRelationshipType("지인"), true);
+  assert.equal(core.isKnownRelationshipType("한국해양대학교 13학번 동기"), false);
+  assert.equal(core.normalizeRelationshipType("  학교  "), "학교");
   const picked = core.pickQuickEditValues({
     type: "people",
-    relationship: "동료",
+    relationship: "회사",
     company: "Acme",
     title: "CTO",
     notes: "should not appear",
     next_action: "no"
   });
-  assert.equal(picked.relationship, "동료");
+  assert.equal(picked.relationship, "회사");
   assert.equal(picked.company, "Acme");
   assert.equal(picked.role, "CTO");
   assert.equal(Object.prototype.hasOwnProperty.call(picked, "notes"), false);
@@ -47,6 +53,8 @@ function main() {
   assert.equal(Object.prototype.hasOwnProperty.call(merged, "status"), false);
   const sanitized = core.sanitizeQuickEditUpdates({ company: "X", type: "people", body: "no" });
   assert.deepEqual(Object.keys(sanitized).sort(), ["company"]);
+  const sanRel = core.sanitizeQuickEditUpdates({ relationship: "  지인  " });
+  assert.equal(sanRel.relationship, "지인");
 
   // --- Interaction / 사건 index lines ---
   assert.equal(
@@ -301,15 +309,36 @@ function main() {
     assert.match(listView, /workspace-list-name/);
 
     const peopleView = read("SYSTEM/Views/people-view.js");
-    assert.match(peopleView, /openQuickEditFlow/);
+    assert.match(peopleView, /openPersonPreview/);
     assert.match(peopleView, /openAddInteractionFlow/);
     assert.match(peopleView, /openAddMemoFlow/);
     assert.match(peopleView, /renderPeopleWorkspace/);
     assert.match(peopleView, /사람 추가/);
     assert.match(peopleView, /사건 추가/);
     assert.match(peopleView, /메모 추가/);
-    assert.match(peopleView, /빠른 수정/);
-    assert.match(peopleView, /관련 기록/);
+    assert.match(peopleView, /최근 맥락/);
+    assert.match(peopleView, /ppw-context-toggle|나머지/);
+    assert.match(peopleView, /ppw-memo|memo_preview/);
+    assert.match(peopleView, /openRemoveMemoFlow|ppw-memo-del/);
+    assert.match(peopleView, /openRemoveInteractionFlow|interaction_preview|ppw-events/);
+    assert.match(peopleView, /showUndoToast|ppw-undo-toast/);
+    assert.match(peopleView, /_renderListSection|ppw-edit-line-list/);
+    assert.match(peopleView, /metaKey|ctrlKey|ArrowDown|focusPath|ppw-card-flash/);
+    assert.match(peopleView, /본문 관계로 옮기기|ppw-ctx-type|검색 일치/);
+    assert.match(read("SYSTEM/Views/people-core.js"), /extractMemoLines|extractInteractionLines/);
+    assert.match(read("SYSTEM/Views/people-core.js"), /removeMemoLineFromContent|removeInteractionLineFromContent/);
+    assert.match(read("SYSTEM/Views/people-core.js"), /attention|emptyFilterHint|filterContextItems/);
+    assert.match(read("SYSTEM/Views/people-store.js"), /async function removeMemo|removeInteraction|rawLine/);
+    assert.match(read("HUB/60 Personal.md"), /dv\.io\.load|getAbstractFileByPath/);
+    assert.match(peopleView, /hydratePeopleBodies/);
+    // Name opens popup; no separate 관계 / 빠른 수정 / 관련 기록 보기 card buttons
+    assert.match(peopleView, /openPerson\(person\.path\)|openPersonPreview/);
+    assert.equal(/btn\(actions, "관계"/.test(peopleView), false);
+    assert.equal(/btn\(actions, "빠른 수정"/.test(peopleView), false);
+    assert.equal(/btn\(actions, "관련 기록/.test(peopleView), false);
+    assert.equal(/btn\(actions, "사람 열기"/.test(peopleView), false);
+    assert.match(peopleView, /__prodigyPeopleSideLeaf|PEOPLE_SIDE_LEAF/);
+    assert.match(peopleView, /isLeafStillOpen|openFile/);
     assert.match(peopleView, /QUICK_EDIT_FIELDS|relationship/);
 
     // appendKeyInteraction store path

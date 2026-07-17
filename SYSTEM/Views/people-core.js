@@ -18,7 +18,7 @@
 
   /**
    * Dashboard "빠른 수정" whitelist only.
-   * Long relationship narrative stays in body sections, not here.
+   * relationship = short category only (지인/회사/…). Detail stays in body `# 관계`.
    */
   const QUICK_EDIT_FIELDS = Object.freeze([
     "relationship",
@@ -28,6 +28,32 @@
     "phone",
     "email"
   ]);
+
+  /**
+   * Fixed short labels for frontmatter `relationship`.
+   * Free-form narrative (동기, 어떻게 만났는지 등) belongs in the body section, not here.
+   */
+  const RELATIONSHIP_TYPES = Object.freeze([
+    "가족",
+    "친구",
+    "지인",
+    "회사",
+    "학교",
+    "업무",
+    "커뮤니티",
+    "기타"
+  ]);
+
+  function isKnownRelationshipType(value) {
+    return RELATIONSHIP_TYPES.indexOf(clean(value)) !== -1;
+  }
+
+  /**
+   * Keep known categories as-is. Leave legacy free-text readable (do not auto-rewrite notes).
+   */
+  function normalizeRelationshipType(value) {
+    return clean(value);
+  }
 
   const LINKED_OBJECT_TYPES = Object.freeze({
     project: Object.freeze({ type: "project", label: "프로젝트" }),
@@ -275,6 +301,10 @@
     const out = {};
     Object.keys(updates || {}).forEach((key) => {
       if (QUICK_EDIT_FIELDS.indexOf(key) === -1) return;
+      if (key === "relationship") {
+        out[key] = normalizeRelationshipType(updates[key]);
+        return;
+      }
       out[key] = clean(updates[key]);
     });
     return out;
@@ -457,6 +487,126 @@
     });
   }
 
+  function normalizeMemoLineKey(line) {
+    return clean(line).replace(/^[-*•]\s+/, "").replace(/^[-*•]$/, "");
+  }
+
+  function isGuidanceItalicLine(key) {
+    return /^\*[^*].*\*$/.test(key)
+      && /둡니다|사실 중심|장기 맥락|인덱스|형식:|원본 노트|금지|Store only|Capture|never/i.test(key);
+  }
+
+  /**
+   * Remove one bullet from an H1 section range.
+   * target: string | number | { text|line|index }
+   */
+  function removeBulletFromSection(content, aliases, target, options) {
+    const opts = options || {};
+    const label = opts.label || "항목";
+    const range = findSectionRange(content, aliases);
+    if (range.start < 0) {
+      throw new Error(`${label} 섹션을 찾을 수 없습니다.`);
+    }
+
+    let targetIndex = -1;
+    let targetKey = "";
+    if (typeof target === "number" && Number.isFinite(target)) {
+      targetIndex = Math.max(0, Math.floor(target));
+    } else if (target && typeof target === "object") {
+      if (target.index != null && target.index !== "") {
+        targetIndex = Math.max(0, Math.floor(Number(target.index)));
+      }
+      targetKey = normalizeMemoLineKey(target.text || target.line || target.memo || target.insight || "");
+    } else {
+      targetKey = normalizeMemoLineKey(target);
+    }
+    if (targetIndex < 0 && !targetKey) {
+      throw new Error(`삭제할 ${label}을(를) 지정해 주세요.`);
+    }
+
+    const { start, end, lines } = range;
+    let ordinal = -1;
+    let removeAt = -1;
+    for (let i = start + 1; i < end; i += 1) {
+      const raw = lines[i];
+      if (isTemplatePlaceholderBullet(raw)) continue;
+      const key = normalizeMemoLineKey(raw);
+      if (!key) continue;
+      if (isGuidanceItalicLine(key)) continue;
+      ordinal += 1;
+      if (targetIndex >= 0) {
+        if (ordinal === targetIndex) {
+          removeAt = i;
+          break;
+        }
+      } else if (key === targetKey) {
+        removeAt = i;
+        break;
+      }
+    }
+    if (removeAt < 0) {
+      throw new Error(`삭제할 ${label}을(를) 찾지 못했습니다.`);
+    }
+
+    const removedKey = normalizeMemoLineKey(lines[removeAt]);
+    const nextLines = lines.slice(0, removeAt).concat(lines.slice(removeAt + 1));
+    const next = nextLines.join("\n").replace(/\n{3,}/g, "\n\n");
+    return { content: next, removed: removedKey, index: ordinal };
+  }
+
+  function removeMemoLineFromContent(content, target) {
+    return removeBulletFromSection(content, NOTES_SECTION_ALIASES, target, { label: "메모" });
+  }
+
+  function removeInteractionLineFromContent(content, target) {
+    return removeBulletFromSection(content, INTERACTION_SECTION_ALIASES, target, { label: "사건" });
+  }
+
+  /**
+   * Extract bullet lines from a named section (memo / interaction).
+   */
+  function extractSectionBulletLines(contentOrBody, aliases, options) {
+    const opts = options || {};
+    const max = opts.max != null ? Math.max(0, Number(opts.max) || 0) : 0;
+    const text = String(contentOrBody || "").replace(/\r\n/g, "\n");
+    if (!text.trim()) return [];
+
+    let sectionBody = "";
+    const range = findSectionRange(text, aliases);
+    if (range.start >= 0) {
+      sectionBody = range.lines.slice(range.start + 1, range.end).join("\n");
+    } else {
+      const body = text.startsWith("---") ? splitFrontmatter(text).body : text;
+      const range2 = findSectionRange(body, aliases);
+      if (range2.start >= 0) {
+        sectionBody = range2.lines.slice(range2.start + 1, range2.end).join("\n");
+      } else {
+        const parsed = parsePeopleBodySections(body);
+        const hit = parsed.find((s) => {
+          const t = clean(s.title).toLowerCase();
+          return (aliases || []).some((a) => a.toLowerCase() === t);
+        });
+        sectionBody = hit ? String(hit.body || hit.displayBody || "") : "";
+      }
+    }
+
+    const cleaned = cleanPreviewBodyText(stripDataviewBlocks(sectionBody));
+    const lines = cleaned
+      .split("\n")
+      .map((line) => clean(line).replace(/^[-*•]\s+/, "").replace(/^[-*•]$/, ""))
+      .filter((line) => {
+        if (!line) return false;
+        if (isTemplatePlaceholderBullet(`- ${line}`) || isTemplatePlaceholderBullet(line)) return false;
+        if (isGuidanceItalicLine(line) || (/^\*[^*].*\*$/.test(line) && /둡니다|사실 중심|장기 맥락|인덱스/i.test(line))) {
+          return false;
+        }
+        return true;
+      });
+
+    if (max > 0) return lines.slice(0, max);
+    return lines;
+  }
+
   /**
    * Optionally set last_contact in frontmatter text when appending an interaction.
    */
@@ -479,11 +629,37 @@
   // People Workspace (Personal Hub) — pure list/search/context helpers
   // ---------------------------------------------------------------------------
 
-  const WORKSPACE_FILTERS = Object.freeze([
+  /** Filters aligned with relationship short categories (+ 미분류 / 연결 / 레거시). */
+  const WORKSPACE_FILTERS = Object.freeze(
+    [
+      Object.freeze({ id: "all", label: "전체" })
+    ].concat(
+      RELATIONSHIP_TYPES.map((t) => Object.freeze({ id: t, label: t })),
+      [
+        Object.freeze({ id: "unset", label: "미분류" }),
+        Object.freeze({ id: "recent_link", label: "연결 있음" }),
+        Object.freeze({ id: "legacy", label: "레거시" }),
+        Object.freeze({ id: "no_contact", label: "연락일 없음" })
+      ]
+    )
+  );
+
+  /**
+   * Sorts: 가나다, 손볼 사람 (last_contact empty first then oldest — never invents dates).
+   */
+  const WORKSPACE_SORTS = Object.freeze([
+    Object.freeze({ id: "name_asc", label: "가나다 ↑" }),
+    Object.freeze({ id: "name_desc", label: "가나다 ↓" }),
+    Object.freeze({ id: "attention", label: "손볼 사람" })
+  ]);
+
+  const CONTEXT_TYPE_FILTERS = Object.freeze([
     Object.freeze({ id: "all", label: "전체" }),
-    Object.freeze({ id: "relationship", label: "관계" }),
-    Object.freeze({ id: "company", label: "회사" }),
-    Object.freeze({ id: "recent_link", label: "최근 연결" })
+    Object.freeze({ id: "project", label: "프로젝트" }),
+    Object.freeze({ id: "journal", label: "저널" }),
+    Object.freeze({ id: "auction_case", label: "경매" }),
+    Object.freeze({ id: "reading", label: "독서" }),
+    Object.freeze({ id: "other", label: "기타" })
   ]);
 
   const TYPE_LABELS = Object.freeze({
@@ -542,6 +718,32 @@
     return Number.isNaN(d.getTime()) ? 0 : d.getTime();
   }
 
+  function extractMemoLines(contentOrBody, options) {
+    return extractSectionBulletLines(contentOrBody, NOTES_SECTION_ALIASES, options);
+  }
+
+  function extractInteractionLines(contentOrBody, options) {
+    return extractSectionBulletLines(contentOrBody, INTERACTION_SECTION_ALIASES, options);
+  }
+
+  /**
+   * Why a person matched search (for dashboard hints). Deterministic field scan only.
+   */
+  function getSearchMatchHints(person, query) {
+    const q = clean(query).toLowerCase();
+    if (!q) return [];
+    const p = person && person.search_text ? person : normalizePersonRecord(person);
+    const hints = [];
+    if (clean(p.name).toLowerCase().includes(q)) hints.push("이름");
+    if (clean(p.relationship).toLowerCase().includes(q)) hints.push("구분");
+    if (clean(p.company).toLowerCase().includes(q)) hints.push("소속");
+    if (clean(p.role).toLowerCase().includes(q)) hints.push("역할");
+    if ((p.memo_lines || []).some((l) => clean(l).toLowerCase().includes(q))) hints.push("메모");
+    if ((p.interaction_lines || []).some((l) => clean(l).toLowerCase().includes(q))) hints.push("사건");
+    if (!hints.length && String(p.search_text || "").includes(q)) hints.push("본문");
+    return hints;
+  }
+
   /**
    * Normalize a People/contact page for workspace rendering.
    * Does NOT treat file mtime as contact time.
@@ -564,8 +766,23 @@
     const lastContactExplicit = /^\d{4}-\d{2}-\d{2}/.test(lastContact)
       ? lastContact.slice(0, 10)
       : (lastContact || "");
-    const body = clean(source.body || source.content || "");
+    const body = String(source.body || source.content || "");
     const isLegacy = type === LEGACY_TYPE;
+
+    // Prefer pre-extracted lines; else parse from body/content
+    const memoLines = Array.isArray(source.memo_lines)
+      ? source.memo_lines.map(clean).filter(Boolean)
+      : extractMemoLines(body);
+    const interactionLines = Array.isArray(source.interaction_lines)
+      ? source.interaction_lines.map(clean).filter(Boolean)
+      : extractInteractionLines(body);
+    const memoPreviewMax = source.memo_preview_max != null ? Number(source.memo_preview_max) : 3;
+    const interactionPreviewMax = source.interaction_preview_max != null
+      ? Number(source.interaction_preview_max)
+      : 2;
+    const memoPreview = memoLines.slice(0, Math.max(1, memoPreviewMax || 3));
+    const interactionPreview = interactionLines.slice(0, Math.max(1, interactionPreviewMax || 2));
+    const relationshipNeedsClassify = !!(relationship && !isKnownRelationshipType(relationship));
 
     return {
       path,
@@ -576,9 +793,25 @@
       company,
       role,
       last_contact: lastContactExplicit,
-      body,
+      body: clean(body),
+      memo_lines: memoLines,
+      memo_preview: memoPreview,
+      memo_count: memoLines.length,
+      interaction_lines: interactionLines,
+      interaction_preview: interactionPreview,
+      interaction_count: interactionLines.length,
+      relationship_needs_classify: relationshipNeedsClassify,
       // search blob (not displayed as contact time)
-      search_text: [name, relationship, company, role, lastContactExplicit, body].join("\n").toLowerCase()
+      search_text: [
+        name,
+        relationship,
+        company,
+        role,
+        lastContactExplicit,
+        memoLines.join("\n"),
+        interactionLines.join("\n"),
+        clean(body)
+      ].join("\n").toLowerCase()
     };
   }
 
@@ -740,7 +973,8 @@
 
   /**
    * Filter + search people for workspace.
-   * filterId: all | relationship | company | recent_link
+   * filterId: all | 가족|친구|지인|회사|학교|업무|커뮤니티|기타 | unset | recent_link
+   * (legacy: relationship = any set, company = has company)
    */
   function filterPeopleList(people, options) {
     const opts = options || {};
@@ -752,23 +986,89 @@
       list = list.filter((p) => matchPeopleSearch(p, query));
     }
 
+    if (filterId === "all" || !filterId) {
+      return list;
+    }
+    if (filterId === "unset" || filterId === "미분류") {
+      // Empty or free-text not in category chips
+      list = list.filter((p) => {
+        const rel = clean(p.relationship);
+        return !rel || !isKnownRelationshipType(rel);
+      });
+      return list;
+    }
+    if (filterId === "recent_link" || filterId === "연결") {
+      list = list.filter((p) => (p.linked_count || (p.linked_all && p.linked_all.length) || 0) > 0);
+      return list;
+    }
+    if (filterId === "legacy" || filterId === "레거시") {
+      list = list.filter((p) => p.is_legacy || p.type === LEGACY_TYPE);
+      return list;
+    }
+    if (filterId === "no_contact" || filterId === "연락일 없음") {
+      // Explicit empty only — never invent last_contact from mtime
+      list = list.filter((p) => !clean(p.last_contact));
+      return list;
+    }
+    // Legacy filters
     if (filterId === "relationship") {
       list = list.filter((p) => clean(p.relationship));
-    } else if (filterId === "company") {
+      return list;
+    }
+    if (filterId === "company") {
       list = list.filter((p) => clean(p.company));
-    } else if (filterId === "recent_link") {
-      list = list.filter((p) => (p.linked_count || (p.linked_all && p.linked_all.length) || 0) > 0);
+      return list;
+    }
+    // Relationship category chip (가족, 회사, …)
+    if (isKnownRelationshipType(filterId)) {
+      list = list.filter((p) => clean(p.relationship) === filterId);
+      return list;
     }
 
     return list;
   }
 
+  function emptyFilterHint(filterId, query) {
+    const f = clean(filterId || "all") || "all";
+    const q = clean(query);
+    if (q) return `「${q}」와 일치하는 사람이 없습니다. 검색어를 줄이거나 구분 필터를 전체로 바꿔 보세요.`;
+    if (f === "unset") return "미분류가 없습니다. 구분 칩이 비어 있거나 예전 자유 입력 값만 여기에 모입니다.";
+    if (f === "legacy") return "레거시 type: contact 노트가 없습니다.";
+    if (f === "no_contact") return "최근 연락일이 비어 있는 사람이 없습니다.";
+    if (f === "recent_link") return "연결된 원본 기록이 있는 사람이 없습니다.";
+    if (isKnownRelationshipType(f)) return `구분「${f}」인 사람이 없습니다. 팝업에서 구분을 지정해 보세요.`;
+    return "일치하는 사람이 없습니다.";
+  }
+
   /**
-   * Sort: canonical people before legacy; then last_contact date desc if present;
-   * then latest linked mtime; then name. Never treats file mtime as contact.
+   * Sort people list.
+   * sort: name_asc | name_desc | attention | recent
    */
-  function sortPeopleList(people) {
-    return (people || []).slice().sort((a, b) => {
+  function sortPeopleList(people, options) {
+    const sortId = clean((options && (options.sort || options.sortId)) || "name_asc") || "name_asc";
+    const list = (people || []).slice();
+
+    if (sortId === "name_desc" || sortId === "desc") {
+      return list.sort((a, b) => clean(b.name).localeCompare(clean(a.name), "ko"));
+    }
+    if (sortId === "name_asc" || sortId === "asc" || sortId === "가나다") {
+      return list.sort((a, b) => clean(a.name).localeCompare(clean(b.name), "ko"));
+    }
+    if (sortId === "attention" || sortId === "손볼") {
+      // Empty last_contact first, then oldest explicit date, then name. Never invent dates.
+      return list.sort((a, b) => {
+        const lcA = clean(a.last_contact);
+        const lcB = clean(b.last_contact);
+        const emptyA = lcA ? 1 : 0;
+        const emptyB = lcB ? 1 : 0;
+        if (emptyA !== emptyB) return emptyA - emptyB; // empty (0) first
+        if (lcA && lcB && lcA !== lcB) return lcA.localeCompare(lcB); // oldest first
+        return clean(a.name).localeCompare(clean(b.name), "ko");
+      });
+    }
+
+    // recent / default legacy ordering
+    return list.sort((a, b) => {
       const legA = a.is_legacy || a.type === LEGACY_TYPE ? 1 : 0;
       const legB = b.is_legacy || b.type === LEGACY_TYPE ? 1 : 0;
       if (legA !== legB) return legA - legB;
@@ -781,6 +1081,23 @@
       const lmB = b.latest_link_mtime || 0;
       if (lmA !== lmB) return lmB - lmA;
       return clean(a.name).localeCompare(clean(b.name), "ko");
+    });
+  }
+
+  function filterContextItems(items, typeFilter) {
+    const id = clean(typeFilter || "all") || "all";
+    if (id === "all") return items || [];
+    return (items || []).filter((item) => {
+      const bucket = clean(item && (item.bucket || item.type)).toLowerCase();
+      if (id === "project") return bucket === "project" || /^project/.test(bucket);
+      if (id === "journal") return bucket === "journal";
+      if (id === "auction_case") return bucket === "auction_case" || bucket === "auction";
+      if (id === "reading") return bucket === "reading" || bucket === "reading_session";
+      if (id === "other") {
+        return ["project", "journal", "auction_case", "auction", "reading", "reading_session"]
+          .indexOf(bucket) === -1;
+      }
+      return bucket === id;
     });
   }
 
@@ -812,10 +1129,52 @@
   }
 
   /**
-   * Parse People body into H1 sections for readable preview.
-   * Returns [{ title, body, isEmpty }]
+   * Strip template instruction lines so preview shows only human content.
    */
-  function parsePeopleBodySections(body) {
+  function cleanPreviewBodyText(bodyText) {
+    return String(bodyText || "")
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .filter((line) => {
+        const t = line.trim();
+        if (!t) return true;
+        // Italic template guidance: *...둡니다.*
+        if (/^\*[^*].*\*$/.test(t) && /둡니다|않습니다|금지|인덱스|형식:|Store only|Capture|never/i.test(t)) {
+          return false;
+        }
+        if (/^- YYYY-MM-DD/.test(t) || /^- \*\*YYYY-MM-DD\*\*/.test(t)) return false;
+        if (t === "-" || t === "*" || t === "·") return false;
+        // Hide live dataview query blocks in preview (unreadable raw code)
+        return true;
+      })
+      .join("\n")
+      // collapse excess blank lines
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/^\n+|\n+$/g, "");
+  }
+
+  function stripDataviewBlocks(text) {
+    return String(text || "").replace(/```dataview[\s\S]*?```/gi, "").replace(/```dataviewjs[\s\S]*?```/gi, "");
+  }
+
+  function isInstructionOnlyBody(bodyText) {
+    const stripped = cleanPreviewBodyText(stripDataviewBlocks(bodyText));
+    const plain = stripped
+      .replace(/\*[^*]+\*/g, "")
+      .replace(/^[-*•]\s*/gm, "")
+      .replace(/\[\[|\]\]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return plain.length < 2;
+  }
+
+  /**
+   * Parse People body into H1 sections for readable preview.
+   * Returns [{ title, body, displayBody, isEmpty }]
+   */
+  function parsePeopleBodySections(body, options) {
+    const opts = options || {};
+    const personName = clean(opts.personName).toLowerCase();
     const text = String(body || "").replace(/\r\n/g, "\n");
     const lines = text.split("\n");
     const sections = [];
@@ -824,19 +1183,13 @@
     function pushCurrent() {
       if (!current) return;
       const bodyText = current.lines.join("\n").replace(/^\n+|\n+$/g, "");
-      const plain = bodyText
-        .replace(/\*[^*]+\*/g, "")
-        .replace(/^[-*]\s*$/gm, "")
-        .replace(/YYYY-MM-DD/g, "")
-        .replace(/\[\[원본 Object\]\]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-      // dataview blocks count as content
-      const hasCode = /```/.test(bodyText);
-      const isEmpty = !hasCode && plain.length < 2;
+      const withoutDv = stripDataviewBlocks(bodyText);
+      const displayBody = cleanPreviewBodyText(withoutDv);
+      const isEmpty = isInstructionOnlyBody(bodyText);
       sections.push({
         title: current.title,
         body: bodyText,
+        displayBody,
         isEmpty
       });
     }
@@ -849,22 +1202,107 @@
         return;
       }
       if (!current) {
-        // preamble before first H1 (e.g. leftover title)
-        if (clean(line)) {
-          current = { title: "", lines: [line] };
-        }
+        if (clean(line)) current = { title: "", lines: [line] };
         return;
       }
       current.lines.push(line);
     });
     pushCurrent();
 
-    // Skip pure technical dataview "연결된 Object" bulk in preview? Keep but mark.
-    return sections.filter((s) => s.title || clean(s.body));
+    return sections.filter((s) => {
+      if (!s.title && !clean(s.displayBody || s.body)) return false;
+      // Skip H1 that is just the person name
+      if (personName && clean(s.title).toLowerCase() === personName && isInstructionOnlyBody(s.body)) {
+        return false;
+      }
+      // Dataview-heavy linked objects block — hide in preview (card already shows links)
+      if (/^연결된 Object$/i.test(clean(s.title)) || /^Linked Objects$/i.test(clean(s.title))) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  /** Sections always offered as editable fields in the relation popup. */
+  const EDITABLE_SECTIONS = Object.freeze([
+    "관계",
+    "핵심 상호작용",
+    "메모",
+    "배운 점",
+    "소통 방식",
+    "나의 성찰"
+  ]);
+
+  function upsertFrontmatterKey(content, key, value) {
+    const text = String(content || "");
+    if (!text.startsWith("---")) {
+      return `---\n${key}: ${clean(value)}\n---\n${text}`;
+    }
+    const end = text.indexOf("\n---", 3);
+    if (end === -1) return text;
+    let raw = text.slice(3, end).replace(/^\n/, "");
+    const body = text.slice(end + 4);
+    const line = `${key}: ${clean(value)}`;
+    const re = new RegExp(`^${key}:\\s*.*$`, "m");
+    if (re.test(raw)) raw = raw.replace(re, line);
+    else raw = `${raw.replace(/\s+$/, "")}\n${line}`;
+    return `---\n${raw.replace(/^\n/, "")}\n---${body.startsWith("\n") ? body : `\n${body}`}`;
   }
 
   /**
-   * Build a read-model for person preview modal.
+   * Replace (or create) an H1 section body. Preserves following sections.
+   */
+  function replaceSectionBody(content, sectionTitle, newBody) {
+    const title = clean(sectionTitle);
+    if (!title) return content;
+    const bodyText = String(newBody == null ? "" : newBody).replace(/\r\n/g, "\n").replace(/^\n+|\n+$/g, "");
+    const { start, end, lines } = findSectionRange(content, [title]);
+    if (start >= 0) {
+      const head = lines.slice(0, start + 1);
+      const mid = bodyText ? bodyText.split("\n").concat([""]) : [""];
+      return head.concat(mid).concat(lines.slice(end)).join("\n");
+    }
+    // Create section before 연결된 Object / 나의 성찰 / end
+    const full = String(content || "").replace(/\r\n/g, "\n");
+    const block = ["", `# ${title}`, bodyText, ""].filter((line, i, arr) => {
+      // keep structure
+      return true;
+    }).join("\n");
+    const anchors = [
+      /^#\s+연결된 Object\s*$/m,
+      /^#\s+Linked Objects\s*$/m,
+      /^#\s+첨부\s*$/m,
+      /^#\s+Attachments\s*$/m
+    ];
+    for (let i = 0; i < anchors.length; i += 1) {
+      const at = full.search(anchors[i]);
+      if (at >= 0) {
+        return `${full.slice(0, at).replace(/\s+$/, "")}\n${block}\n${full.slice(at)}`;
+      }
+    }
+    return `${full.replace(/\s+$/, "")}\n${block}\n`;
+  }
+
+  /**
+   * Apply popup edits (properties + section bodies) onto full note content.
+   * Does not change type. Does not remove unlisted sections.
+   */
+  function applyPersonPreviewEdits(content, edits) {
+    let next = String(content || "");
+    const props = sanitizeQuickEditUpdates((edits && edits.properties) || {});
+    Object.keys(props).forEach((key) => {
+      next = upsertFrontmatterKey(next, key, props[key]);
+    });
+    const sections = (edits && edits.sections) || {};
+    Object.keys(sections).forEach((title) => {
+      if (EDITABLE_SECTIONS.indexOf(title) === -1) return;
+      next = replaceSectionBody(next, title, sections[title]);
+    });
+    return next;
+  }
+
+  /**
+   * Build a read-model for person preview modal (also used for editable form).
    */
   function buildPersonPreviewModel(path, content) {
     const filePath = clean(path);
@@ -875,24 +1313,23 @@
       name,
       body: split.body
     }, split.data));
-    const sections = parsePeopleBodySections(split.body);
-    // Prefer human narrative sections first in display order
-    const preferred = [
-      "관계", "Relationship",
-      "소통 방식", "Communication Style",
-      "배운 점", "Things I Learned",
-      "핵심 상호작용", "Key Interactions",
-      "메모", "Notes",
-      "나의 성찰", "My Reflection",
-      "AI 요약", "AI Summary",
-      "첨부", "Attachments",
-      "연결된 Object"
-    ];
-    const rank = (title) => {
-      const i = preferred.findIndex((t) => t.toLowerCase() === clean(title).toLowerCase());
-      return i === -1 ? 100 + clean(title).charCodeAt(0) : i;
-    };
-    sections.sort((a, b) => rank(a.title) - rank(b.title));
+    const parsed = parsePeopleBodySections(split.body, { personName: person.name || name });
+    const byTitle = Object.create(null);
+    parsed.forEach((s) => {
+      if (s.title) byTitle[s.title] = s;
+    });
+
+    // Always expose editable section slots (empty if missing)
+    const sections = EDITABLE_SECTIONS.map((title) => {
+      const found = byTitle[title];
+      const displayBody = found ? clean(found.displayBody) : "";
+      return {
+        title,
+        body: found ? found.body : "",
+        displayBody,
+        isEmpty: !displayBody
+      };
+    });
 
     return {
       path: filePath,
@@ -903,6 +1340,7 @@
       last_contact: person.last_contact,
       is_legacy: person.is_legacy,
       sections,
+      editable_sections: EDITABLE_SECTIONS.slice(),
       body: split.body,
       content: String(content || "")
     };
@@ -918,21 +1356,35 @@
     const enriched = people.map((p) => enrichPersonWithContext(p, linkIndex, {
       maxPreview: opts.maxPreview != null ? opts.maxPreview : 3
     }));
+    const sortId = clean(opts.sort || "name_asc") || "name_asc";
     const filtered = filterPeopleList(enriched, {
       query: opts.query,
       filter: opts.filter
     });
-    const sorted = sortPeopleList(filtered);
+    const sorted = sortPeopleList(filtered, { sort: sortId });
+    const filterId = clean(opts.filter || "all") || "all";
+    const query = clean(opts.query);
+    const peopleWithHints = sorted.map((p) => {
+      if (!query) return p;
+      const hints = getSearchMatchHints(p, query);
+      return hints.length ? Object.assign({}, p, { search_match_hints: hints }) : p;
+    });
     return {
-      people: sorted,
+      people: peopleWithHints,
       total: people.length,
-      shown: sorted.length,
-      query: clean(opts.query),
-      filter: clean(opts.filter || "all") || "all",
+      shown: peopleWithHints.length,
+      query,
+      filter: filterId,
+      sort: sortId,
       linkIndex,
       filters: WORKSPACE_FILTERS,
+      sorts: WORKSPACE_SORTS,
+      context_type_filters: CONTEXT_TYPE_FILTERS,
       empty: people.length === 0,
-      no_match: people.length > 0 && sorted.length === 0
+      no_match: people.length > 0 && peopleWithHints.length === 0,
+      empty_hint: people.length > 0 && peopleWithHints.length === 0
+        ? emptyFilterHint(filterId, query)
+        : ""
     };
   }
 
@@ -944,6 +1396,9 @@
     DISPLAY_LABEL,
     LINK_FIELD,
     QUICK_EDIT_FIELDS,
+    RELATIONSHIP_TYPES,
+    isKnownRelationshipType,
+    normalizeRelationshipType,
     INTERACTION_SECTION,
     INTERACTION_SECTION_ALIASES,
     NOTES_SECTION,
@@ -967,14 +1422,26 @@
     normalizeIsoDate,
     formatInteractionLine,
     formatMemoLine,
+    extractMemoLines,
+    extractInteractionLines,
+    extractSectionBulletLines,
+    getSearchMatchHints,
+    normalizeMemoLineKey,
+    removeBulletFromSection,
+    removeMemoLineFromContent,
+    removeInteractionLineFromContent,
     appendInteractionToContent,
     appendMemoToContent,
+    emptyFilterHint,
+    filterContextItems,
+    CONTEXT_TYPE_FILTERS,
     appendLineToSection,
     findSectionRange,
     findInteractionSectionRange,
     findNotesSectionRange,
     upsertLastContactInContent,
     WORKSPACE_FILTERS,
+    WORKSPACE_SORTS,
     TYPE_LABELS,
     typeLabel,
     normalizeKey,
@@ -990,7 +1457,12 @@
     buildPeopleWorkspaceModel,
     splitFrontmatter,
     parsePeopleBodySections,
-    buildPersonPreviewModel
+    cleanPreviewBodyText,
+    buildPersonPreviewModel,
+    EDITABLE_SECTIONS,
+    upsertFrontmatterKey,
+    replaceSectionBody,
+    applyPersonPreviewEdits
   };
 
   root.PeopleCore = api;

@@ -58,12 +58,39 @@ try {
     };
   };
 
-  const collectRawPeople = () => {
-    return dv.pages('"PARA/RESOURCES/CONTACTS"')
+  const readNoteText = async (filePath) => {
+    const path = String(filePath || "");
+    if (!path) return "";
+    // 1) Dataview io (most reliable inside dataviewjs)
+    try {
+      if (dv && dv.io && typeof dv.io.load === "function") {
+        const text = await dv.io.load(path);
+        if (text != null && String(text).length) return String(text);
+      }
+    } catch (_e0) { /* fall through */ }
+    // 2) Vault via path → TFile (Dataview p.file is NOT a TFile)
+    try {
+      if (app.vault && typeof app.vault.getAbstractFileByPath === "function") {
+        const af = app.vault.getAbstractFileByPath(path);
+        if (af) {
+          if (typeof app.vault.cachedRead === "function") return await app.vault.cachedRead(af);
+          if (typeof app.vault.read === "function") return await app.vault.read(af);
+        }
+      }
+    } catch (_e1) { /* fall through */ }
+    return "";
+  };
+
+  const collectRawPeople = async () => {
+    const pages = dv.pages('"PARA/RESOURCES/CONTACTS"')
       .where(p => p.type === "people" || p.type === "contact")
-      .array()
-      .map(p => ({
-        path: p.file.path,
+      .array();
+    const out = [];
+    for (const p of pages) {
+      const path = p.file && p.file.path ? p.file.path : "";
+      const body = await readNoteText(path);
+      out.push({
+        path,
         type: p.type,
         name: p.file.name,
         title: p.title,
@@ -71,8 +98,10 @@ try {
         company: p.company,
         role: p.role,
         last_contact: p.last_contact,
-        body: ""
-      }));
+        body
+      });
+    }
+    return out;
   };
 
   const collectSourcePages = () => {
@@ -99,12 +128,14 @@ try {
 
   let workspaceApi = null;
 
-  const paintPeople = () => {
-    const rawPeople = collectRawPeople();
+  const paintPeople = async () => {
+    const rawPeople = await collectRawPeople();
     const sourcePages = collectSourcePages();
+    const st = workspaceApi && workspaceApi.getState ? workspaceApi.getState() : null;
     const model = window.PeopleCore.buildPeopleWorkspaceModel(rawPeople, sourcePages, {
-      query: workspaceApi && workspaceApi.getState ? workspaceApi.getState().query : "",
-      filter: workspaceApi && workspaceApi.getState ? workspaceApi.getState().filter : "all",
+      query: st && st.query ? st.query : "",
+      filter: st && st.filter ? st.filter : "all",
+      sort: st && st.sort ? st.sort : "name_asc",
       maxPreview: 3
     });
     peopleMount.empty();
@@ -115,7 +146,7 @@ try {
       rawPeople,
       sourcePages,
       title: "사람과 관계",
-      subtitle: "이름·「사람 열기」= 노트 미리보기 팝업. 관련 기록은 원본 Object로 이어집니다.",
+      subtitle: "이름 클릭 = 관계 편집 · 사건·메모는 카드에 표시 · 최근 맥락은 연결된 원본 기록입니다.",
       onRefresh: () => paintPeople()
     });
   };

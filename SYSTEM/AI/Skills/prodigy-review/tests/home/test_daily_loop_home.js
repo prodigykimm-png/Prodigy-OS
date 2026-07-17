@@ -93,7 +93,8 @@ next_experiment: frontmatter 실험
   assert.match(homeSource, /오늘의 행동/);
   assert.match(homeSource, /2분 (Review|성찰)/);
   assert.match(homeSource, /오늘 운동 시작/);
-  assert.match(homeSource, /다음 행동이 없는 경매/);
+  assert.match(homeSource, /주의가 필요함|home-needs-attention/);
+  assert.match(homeSource, /engine_states|buildMorningBriefContext/);
   assert.match(homeSource, /safeRenderRegion/);
   assert.match(homeSource, /오늘 고정/);
   assert.match(homeSource, /selectFocusItems/);

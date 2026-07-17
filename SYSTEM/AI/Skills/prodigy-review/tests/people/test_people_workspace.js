@@ -49,6 +49,44 @@ function main() {
   });
   assert.equal(noGuess.last_contact, "");
 
+  // --- memo lines for dashboard glance ---
+  const memoNote = [
+    "---",
+    "type: people",
+    "relationship: 학교",
+    "---",
+    "",
+    "# 전태현",
+    "",
+    "# 메모",
+    "*사실 중심의 장기 맥락.*",
+    "- 8월 29일 결혼",
+    "- 주말 연락 선호",
+    "",
+    "# 핵심 상호작용",
+    "- [[2026-07-16]] 청첩장"
+  ].join("\n");
+  const memoLines = core.extractMemoLines(memoNote);
+  assert.deepEqual(memoLines, ["8월 29일 결혼", "주말 연락 선호"]);
+  const withMemo = core.normalizePersonRecord({
+    path: "PARA/RESOURCES/CONTACTS/전태현.md",
+    type: "people",
+    name: "전태현",
+    body: memoNote
+  });
+  assert.equal(withMemo.memo_count, 2);
+  assert.equal(withMemo.memo_preview[0], "8월 29일 결혼");
+  assert.equal(core.matchPeopleSearch(withMemo, "결혼"), true);
+
+  // remove memo line
+  const afterDel = core.removeMemoLineFromContent(memoNote, { text: "8월 29일 결혼" });
+  assert.equal(afterDel.removed, "8월 29일 결혼");
+  assert.deepEqual(core.extractMemoLines(afterDel.content), ["주말 연락 선호"]);
+  const afterDelIdx = core.removeMemoLineFromContent(memoNote, { index: 1 });
+  assert.equal(afterDelIdx.removed, "주말 연락 선호");
+  assert.deepEqual(core.extractMemoLines(afterDelIdx.content), ["8월 29일 결혼"]);
+  assert.throws(() => core.removeMemoLineFromContent(memoNote, { text: "없는 메모" }), /찾지/);
+
   // --- search ---
   assert.equal(core.matchPeopleSearch(person, ""), true);
   assert.equal(core.matchPeopleSearch(person, "김대"), true);
@@ -135,22 +173,29 @@ function main() {
   assert.equal(m3.no_match, true);
   assert.equal(m3.shown, 0);
 
-  // filters
+  // filters — relationship categories
+  assert.ok(core.WORKSPACE_FILTERS.some((f) => f.id === "지인"));
+  assert.ok(core.WORKSPACE_FILTERS.some((f) => f.id === "회사"));
+  assert.ok(core.WORKSPACE_FILTERS.some((f) => f.id === "unset"));
   const withRel = people.map((p) => core.enrichPersonWithContext(
-    Object.assign({}, p, { relationship: p.name === "김대리" ? "동료" : "" }),
+    Object.assign({}, p, { relationship: p.name === "김대리" ? "회사" : "학교" }),
     index
   ));
-  const fRel = core.filterPeopleList(withRel, { filter: "relationship" });
-  assert.ok(fRel.every((p) => p.relationship));
-
-  const fCompany = core.filterPeopleList(
+  const fCompanyCat = core.filterPeopleList(withRel, { filter: "회사" });
+  assert.equal(fCompanyCat.length, 1);
+  assert.equal(fCompanyCat[0].name, "김대리");
+  const fSchool = core.filterPeopleList(withRel, { filter: "학교" });
+  assert.equal(fSchool.length, 1);
+  assert.equal(fSchool[0].name, "정호성");
+  const fUnset = core.filterPeopleList(
     people.map((p) => core.enrichPersonWithContext(
-      Object.assign({}, p, { company: p.name === "김대리" ? "공사" : "" }),
+      Object.assign({}, p, { relationship: p.name === "김대리" ? "한국해양대 동기" : "지인" }),
       index
     )),
-    { filter: "company" }
+    { filter: "unset" }
   );
-  assert.ok(fCompany.every((p) => p.company));
+  assert.ok(fUnset.every((p) => !core.isKnownRelationshipType(p.relationship) || !p.relationship));
+  assert.ok(fUnset.some((p) => p.name === "김대리"));
 
   const fLink = core.filterPeopleList(
     people.map((p) => core.enrichPersonWithContext(p, index)),
@@ -158,17 +203,54 @@ function main() {
   );
   assert.ok(fLink.every((p) => p.linked_count > 0));
 
-  // sort: people before legacy
-  const mixed = core.sortPeopleList([
-    core.enrichPersonWithContext(legacy, {}),
-    core.enrichPersonWithContext(person, index)
-  ]);
-  assert.equal(mixed[0].is_legacy, false);
+  // sort 가나다 + 손볼 사람
+  assert.ok(core.WORKSPACE_SORTS.some((s) => s.id === "name_asc"));
+  assert.ok(core.WORKSPACE_SORTS.some((s) => s.id === "attention"));
+  const nameList = [
+    core.normalizePersonRecord({ path: "a.md", type: "people", name: "홍길동" }),
+    core.normalizePersonRecord({ path: "b.md", type: "people", name: "김대리" }),
+    core.normalizePersonRecord({ path: "c.md", type: "people", name: "정호성" })
+  ];
+  const asc = core.sortPeopleList(nameList, { sort: "name_asc" }).map((p) => p.name);
+  assert.deepEqual(asc, ["김대리", "정호성", "홍길동"]);
+  const desc = core.sortPeopleList(nameList, { sort: "name_desc" }).map((p) => p.name);
+  assert.deepEqual(desc, ["홍길동", "정호성", "김대리"]);
+  const modelAsc = core.buildPeopleWorkspaceModel(nameList, [], { sort: "name_asc" });
+  assert.equal(modelAsc.sort, "name_asc");
+  assert.equal(modelAsc.people[0].name, "김대리");
+  const touch = [
+    core.normalizePersonRecord({ path: "x.md", type: "people", name: "가", last_contact: "2026-07-01" }),
+    core.normalizePersonRecord({ path: "y.md", type: "people", name: "나", last_contact: "" }),
+    core.normalizePersonRecord({ path: "z.md", type: "people", name: "다", last_contact: "2025-01-01" })
+  ];
+  const att = core.sortPeopleList(touch, { sort: "attention" }).map((p) => p.name);
+  assert.deepEqual(att, ["나", "다", "가"]); // empty first, then oldest
+
+  // interaction extract + remove
+  const eventNote = [
+    "---", "type: people", "---", "",
+    "# 핵심 상호작용",
+    "- [[2026-07-16]] 회의",
+    "- [[2026-07-10]] 통화",
+    "",
+    "# 메모",
+    "- 메모1"
+  ].join("\n");
+  assert.deepEqual(core.extractInteractionLines(eventNote), ["[[2026-07-16]] 회의", "[[2026-07-10]] 통화"]);
+  const delEv = core.removeInteractionLineFromContent(eventNote, { index: 0 });
+  assert.match(delEv.removed, /회의/);
+  assert.equal(core.extractInteractionLines(delEv.content).length, 1);
+  assert.ok(core.WORKSPACE_FILTERS.some((f) => f.id === "legacy"));
+  assert.ok(core.WORKSPACE_FILTERS.some((f) => f.id === "no_contact"));
+  assert.equal(core.filterContextItems(
+    [{ bucket: "project", title: "A" }, { bucket: "journal", title: "B" }],
+    "project"
+  ).length, 1);
 
   // --- Personal hub wiring ---
   const personal = read("HUB/60 Personal.md");
   assert.match(personal, /사람과 관계/);
-  assert.match(personal, /미리보기 팝업|중요한 사람을 찾고/);
+  assert.match(personal, /관계|원본 노트|미리보기/);
   assert.match(personal, /buildPeopleWorkspaceModel/);
   assert.match(personal, /renderPeopleWorkspace/);
   assert.match(personal, /지속 영역/);
@@ -207,16 +289,96 @@ function main() {
   assert.match(personPreview.meta_line, /동료/);
   assert.equal(personPreview.properties.company, "공사");
   assert.equal(personPreview.last_contact, "2026-07-16");
-  assert.ok(personPreview.sections.some((s) => s.title === "관계" && !s.isEmpty));
+  // Editable popup always exposes fixed section slots
+  assert.equal(personPreview.sections.length, core.EDITABLE_SECTIONS.length);
+  assert.ok(personPreview.sections.some((s) => s.title === "관계"));
   assert.ok(personPreview.sections.some((s) => s.title === "핵심 상호작용"));
-  // empty-ish template sections should be empty
-  const emptyNote = "---\ntype: people\n---\n\n# 관계\n*\n-\n\n# 메모\n-\n";
+  assert.deepEqual(personPreview.editable_sections, core.EDITABLE_SECTIONS.slice());
+  // template guidance stripped from displayBody
+  const interact = personPreview.sections.find((s) => s.title === "핵심 상호작용");
+  assert.ok(interact);
+  assert.match(interact.displayBody, /회의/);
+  assert.equal(/인덱스만|형식:/.test(interact.displayBody || ""), false);
+  // empty template note → slots present but empty
+  const emptyNote = "---\ntype: people\n---\n\n# 관계\n*안내 문구입니다. 둡니다.*\n-\n\n# 메모\n-\n";
   const emptyPrev = core.buildPersonPreviewModel("PARA/RESOURCES/CONTACTS/X.md", emptyNote);
-  assert.ok(emptyPrev.sections.every((s) => s.isEmpty || !String(s.body || "").replace(/[*\-\s]/g, "")));
+  assert.equal(emptyPrev.sections.length, core.EDITABLE_SECTIONS.length);
+  assert.ok(emptyPrev.sections.every((s) => s.isEmpty));
+  // 연결된 Object is not an editable slot
+  const withDv = core.buildPersonPreviewModel("PARA/RESOURCES/CONTACTS/Y.md", [
+    "---", "type: people", "---", "",
+    "# 관계", "동료", "",
+    "# 연결된 Object", "```dataview", "LIST", "```"
+  ].join("\n"));
+  assert.equal(withDv.sections.some((s) => /연결/.test(s.title)), false);
+  const relFilled = withDv.sections.find((s) => s.title === "관계");
+  assert.ok(relFilled);
+  assert.match(relFilled.displayBody, /동료/);
 
-  // --- View exports ---
+  // --- applyPersonPreviewEdits ---
+  const edited = core.applyPersonPreviewEdits(noteBody, {
+    properties: { company: "새회사", role: "팀장", last_contact: "2026-07-17" },
+    sections: {
+      "관계": "업데이트된 관계 설명",
+      "메모": "- 새 메모 한 줄"
+    }
+  });
+  assert.match(edited, /company:\s*새회사/);
+  assert.match(edited, /role:\s*팀장/);
+  assert.match(edited, /last_contact:\s*2026-07-17/);
+  assert.match(edited, /# 관계\n업데이트된 관계 설명/);
+  assert.match(edited, /# 메모\n- 새 메모 한 줄/);
+  assert.match(edited, /# 핵심 상호작용\n- \[\[2026-07-16\]\] 회의/); // untouched section kept
+  assert.match(edited, /type:\s*people/);
+  // unknown section titles ignored
+  const ignoreUnknown = core.applyPersonPreviewEdits(noteBody, {
+    sections: { "비밀구역": "should not appear" }
+  });
+  assert.equal(/비밀구역/.test(ignoreUnknown), false);
+
+  // --- deletePeople (store) ---
+  let deletedPath = null;
+  const delApp = {
+    vault: {
+      getAbstractFileByPath: (p) => (p === "PARA/RESOURCES/CONTACTS/지울사람.md" ? { path: p } : null),
+      trash: async (file) => { deletedPath = file.path; },
+      delete: async () => { throw new Error("should prefer trash"); }
+    }
+  };
+  return require(path.join(ROOT, "SYSTEM/Views/people-store.js")).deletePeople(
+    delApp,
+    "PARA/RESOURCES/CONTACTS/지울사람.md"
+  ).then((res) => {
+    assert.equal(res.path, "PARA/RESOURCES/CONTACTS/지울사람.md");
+    assert.equal(deletedPath, "PARA/RESOURCES/CONTACTS/지울사람.md");
+    assert.equal(res.trashed, true);
+    return require(path.join(ROOT, "SYSTEM/Views/people-store.js")).deletePeople(
+      delApp,
+      "PARA/PROJECTS/not-people.md"
+    ).then(
+      () => { throw new Error("should reject non-contacts path"); },
+      (err) => { assert.match(String(err.message), /Contacts|사람/); }
+    );
+  }).then(() => {
+  // --- View exports + editable preview wiring ---
   assert.equal(typeof view.renderPeopleWorkspace, "function");
   assert.equal(typeof view.openPersonPreview, "function");
+  assert.equal(typeof view.openDeletePersonFlow, "function");
+  const peopleViewSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/people-view.js"), "utf8");
+  assert.match(peopleViewSrc, /openDeletePersonFlow/);
+  assert.match(peopleViewSrc, /사람 삭제|삭제할까요/);
+  assert.match(peopleViewSrc, /ppw-trash|🗑️/);
+  assert.match(peopleViewSrc, /이 사람 노트를 삭제/);
+  assert.match(peopleViewSrc, /savePeopleNote/);
+  assert.match(peopleViewSrc, /ppw-edit-textarea/);
+  assert.match(peopleViewSrc, /ppw-modal/);
+  assert.match(peopleViewSrc, /관계 맥락/);
+  assert.match(peopleViewSrc, /calc\(100vw - 10px\)/);
+  assert.match(peopleViewSrc, /renderRelationshipPicker|ppw-rel-chip/);
+  assert.ok(core.RELATIONSHIP_TYPES.includes("지인"));
+  const peopleStoreSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/people-store.js"), "utf8");
+  assert.match(peopleStoreSrc, /async function savePeopleNote/);
+  assert.match(peopleStoreSrc, /applyPersonPreviewEdits/);
 
   // --- No CRM schema / home / PRE changes required ---
   const engine = read("SYSTEM/Views/object-engine-core.js");
@@ -226,6 +388,10 @@ function main() {
   assert.match(foundation, /CANONICAL_TYPE/);
 
   console.log("People workspace tests passed");
+  });
 }
 
-main();
+main().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exitCode = 1;
+});

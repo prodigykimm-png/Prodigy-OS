@@ -79,9 +79,17 @@ function main() {
   assert.equal(brief.engine_ok, true);
   assert.ok(Array.isArray(brief.pinned_focus));
   assert.equal(brief.pinned_focus.length, 1);
-  assert.deepEqual(brief.display_order[0], "pinned_focus");
+  assert.deepEqual(brief.display_order, [
+    "morning_brief",
+    "today_schedule",
+    "needs_attention",
+    "todays_focus",
+    "workspace_launcher"
+  ]);
   assert.ok(brief.today);
   assert.equal(brief.today.due_today.todoist_today, 2);
+  assert.ok(Array.isArray(brief.engine_states));
+  assert.ok(brief.engine_states.length >= 1);
 
   // Only critical/high in attention items
   brief.attention.items.forEach((item) => {
@@ -158,16 +166,86 @@ function main() {
   assert.equal(onlyRisk.level, "high");
   assert.ok(onlyRisk.reasons.length);
 
+  // Engine failure degrades: package risks still surface, Home does not require engine
+  const engine = load("SYSTEM/Views/object-engine-core.js");
+  const originalEval = engine.evaluateObjects;
+  const originalSession = engine.createRuntimeSession;
+  engine.evaluateObjects = () => { throw new Error("simulated engine failure"); };
+  engine.createRuntimeSession = () => {
+    throw new Error("simulated engine failure");
+  };
+  try {
+    const failed = ctxApi.buildMorningBriefContext({
+      pkg,
+      now: new Date("2026-07-17T10:00:00")
+    });
+    assert.equal(failed.engine_ok, false);
+    assert.ok(failed.engine_error);
+    assert.ok(failed.attention.items.length >= 1); // package risk remains
+    failed.attention.items.forEach((item) => {
+      assert.ok(item.reasons && item.reasons.length >= 1);
+    });
+  } finally {
+    engine.evaluateObjects = originalEval;
+    engine.createRuntimeSession = originalSession;
+  }
+
+  // Launcher + Brief share engine_states (no second evaluate when states provided)
+  const launcher = load("SYSTEM/Views/workspace-launcher-core.js");
+  let evalCount = 0;
+  const countedEval = engine.evaluateObjects;
+  engine.evaluateObjects = function () {
+    evalCount += 1;
+    return countedEval.apply(this, arguments);
+  };
+  try {
+    // Force path that uses evaluateObjects (session may wrap it; also count session evals)
+    const originalSession2 = engine.createRuntimeSession;
+    engine.createRuntimeSession = function (ctx) {
+      const session = originalSession2.call(this, ctx);
+      const inner = session.evaluateObjects.bind(session);
+      session.evaluateObjects = function (list) {
+        evalCount += 1;
+        return inner(list);
+      };
+      return session;
+    };
+    try {
+      const shared = ctxApi.buildMorningBriefContext({
+        pkg,
+        now: new Date("2026-07-17T10:00:00")
+      });
+      const afterBrief = evalCount;
+      const cards = launcher.buildLauncherCards({
+        pkg,
+        journalStatus: { status: "empty" },
+        engine_states: shared.engine_states
+      });
+      assert.equal(evalCount, afterBrief); // no additional evaluateObjects
+      assert.equal(cards.length, 5);
+      assert.ok(cards.some((c) => c.id === "project" || c.id === "auction"));
+    } finally {
+      engine.createRuntimeSession = originalSession2;
+    }
+  } finally {
+    engine.evaluateObjects = countedEval;
+  }
+
   // Wiring
   assert.match(homeHub, /morning-brief-context\.js/);
   assert.match(homeSource, /MorningBriefContext|buildMorningBriefContext|toHomeRiskItems/);
+  assert.match(homeSource, /engine_states|주의가 필요함|Needs Attention|home-needs-attention/);
+  assert.match(homeSource, /journalStatusForOps|workoutSnapshotForOps/);
   assert.match(guide, /Morning Brief Context|Morning Package/);
   assert.match(guide, /Object Engine/);
 
-  // Source safety
+  // Source safety — adapter never mutates Objects
   const src = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/morning-brief-context.js"), "utf8");
   assert.equal(src.includes("processFrontMatter"), false);
   assert.equal(src.includes("vault.modify"), false);
+
+  // No new schema surface in adapter
+  assert.equal(src.includes("type: people"), false);
 
   console.log("Morning brief context tests passed");
 }

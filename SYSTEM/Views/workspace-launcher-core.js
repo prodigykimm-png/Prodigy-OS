@@ -321,30 +321,52 @@
     }
   }
 
+  function filterStatesForWorkspace(states, workspaceId) {
+    const ws = clean(workspaceId).toLowerCase();
+    return (Array.isArray(states) ? states : []).filter((s) => {
+      if (!s || s.error) return false;
+      const key = clean(s.workspace_key).toLowerCase();
+      if (ws === "personal") return key === "personal" || key === "journal";
+      return key === ws;
+    });
+  }
+
   /**
    * Prefer Object Engine summaries; fall back to legacy pick* if engine fails.
+   * When options.engine_states is provided (from Morning Brief Context), reuse them —
+   * do not re-evaluate Objects (single operational truth).
    */
   function pickViaEngine(workspaceId, pkg, options) {
     const engine = root.ObjectEngine || root.ObjectEngineCore;
-    if (!engine || typeof engine.evaluateObjects !== "function" || typeof engine.buildWorkspaceSummary !== "function") {
+    if (!engine || typeof engine.buildWorkspaceSummary !== "function") {
       return null;
     }
+    const opts = options || {};
     const ctx = {
-      journalStatus: options.journalStatus,
-      workoutSnapshot: options.workoutSnapshot,
-      now: options.now
+      journalStatus: opts.journalStatus,
+      workoutSnapshot: opts.workoutSnapshot,
+      now: opts.now
     };
+    const precomputed = Array.isArray(opts.engine_states) ? opts.engine_states : null;
+    const canEvaluate = typeof engine.evaluateObjects === "function";
+
     try {
       if (workspaceId === "auction") {
-        const states = engine.evaluateObjects((pkg.context && pkg.context.auctions) || [], ctx);
+        const states = precomputed
+          ? filterStatesForWorkspace(precomputed, "auction")
+          : (canEvaluate ? engine.evaluateObjects((pkg.context && pkg.context.auctions) || [], ctx) : []);
         return engine.buildWorkspaceSummary(states, "auction", ctx);
       }
       if (workspaceId === "reading") {
-        const states = engine.evaluateObjects((pkg.context && pkg.context.reading) || [], ctx);
+        const states = precomputed
+          ? filterStatesForWorkspace(precomputed, "reading")
+          : (canEvaluate ? engine.evaluateObjects((pkg.context && pkg.context.reading) || [], ctx) : []);
         return engine.buildWorkspaceSummary(states, "reading", ctx);
       }
       if (workspaceId === "project") {
-        const states = engine.evaluateObjects((pkg.context && pkg.context.projects) || [], ctx);
+        const states = precomputed
+          ? filterStatesForWorkspace(precomputed, "project")
+          : (canEvaluate ? engine.evaluateObjects((pkg.context && pkg.context.projects) || [], ctx) : []);
         return engine.buildWorkspaceSummary(states, "project", ctx);
       }
       if (workspaceId === "workout") {
@@ -364,11 +386,16 @@
    * @param {object} options.pkg Morning package
    * @param {object} [options.journalStatus] { status: empty|partial|complete }
    * @param {object} [options.workoutSnapshot]
+   * @param {Array} [options.engine_states] shared Object Engine states (from Morning Brief Context)
+   * @param {object} [options.briefContext] optional full brief context (engine_states extracted if present)
    * @returns {Array<object>} launcher cards in fixed workspace order
    */
   function buildLauncherCards(options) {
     const opts = options || {};
     const pkg = opts.pkg || {};
+    if (!opts.engine_states && opts.briefContext && Array.isArray(opts.briefContext.engine_states)) {
+      opts.engine_states = opts.briefContext.engine_states;
+    }
 
     const legacyPicks = {
       auction: () => pickAuction(pkg),
@@ -393,7 +420,20 @@
           actionVerb: ws.emptyActionVerb
         };
       }
-      const cont = pick.continue_target || (pick.state && pick.state.continue_target) || null;
+      // Prefer explicit continue from summary; else ObjectEngine.getContinueTarget capability
+      let cont = pick.continue_target || (pick.state && pick.state.continue_target) || null;
+      const eng = root.ObjectEngine || root.ObjectEngineCore;
+      if (!cont && pick.state && eng && typeof eng.getContinueTarget === "function") {
+        try {
+          cont = eng.getContinueTarget(pick.state, {
+            journalStatus: opts.journalStatus,
+            workoutSnapshot: opts.workoutSnapshot,
+            now: opts.now
+          });
+        } catch (_e) {
+          cont = null;
+        }
+      }
       return {
         id: ws.id,
         icon: ws.icon,
@@ -406,6 +446,7 @@
         objectPath: pick.objectPath || (cont && cont.object_path) || "",
         actionVerb: pick.actionVerb || (cont && cont.verb) || (pick.empty ? ws.emptyActionVerb : ws.actionVerb),
         continue_target: cont,
+        continue_reason: cont && cont.reason ? cont.reason : "",
         next_action: pick.next_action != null ? pick.next_action : (pick.state && pick.state.next_action) || null,
         engine: pick.state || null
       };

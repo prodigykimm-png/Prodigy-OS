@@ -506,6 +506,40 @@
       result = root.MorningContextCore.generateDeterministicFallback(pkg);
     }
 
+    // Shared operational layer (Object Engine once) for Needs Attention + Launcher
+    let briefContext = null;
+    let journalStatusForOps = { status: "empty" };
+    let workoutSnapshotForOps = null;
+    try {
+      if (root.JournalStore) {
+        try {
+          const review = await root.JournalStore.loadReview(app, todayStr);
+          journalStatusForOps = { status: (review && review.status) || "empty" };
+        } catch (_je) {
+          journalStatusForOps = { status: "empty" };
+        }
+      }
+      if (root.WorkspaceLauncherCore && typeof root.WorkspaceLauncherCore.loadWorkoutSnapshot === "function") {
+        try {
+          workoutSnapshotForOps = await root.WorkspaceLauncherCore.loadWorkoutSnapshot(app);
+        } catch (_w) {
+          workoutSnapshotForOps = null;
+        }
+      }
+      if (root.MorningBriefContext && typeof root.MorningBriefContext.buildMorningBriefContext === "function") {
+        briefContext = root.MorningBriefContext.buildMorningBriefContext({
+          pkg,
+          pinnedFocus,
+          journalStatus: journalStatusForOps,
+          workoutSnapshot: workoutSnapshotForOps,
+          focusItems: (approvedFocus && approvedFocus.focus) || (result && result.focus) || [],
+          now: new Date()
+        });
+      }
+    } catch (_briefEarlyError) {
+      briefContext = null;
+    }
+
     // Time of Day Adaptive Emphasis Calculations
     const hours = new Date().getHours();
     const daypart = root.MorningContextCore.getDaypart(hours);
@@ -529,6 +563,44 @@
     leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting}`, attr: { style: "font-size: 0.85em; color: var(--text-muted);" } });
 
     const rightActions = titleRow.createEl("div", { attr: { class: "home-toolbar" } });
+
+    // Universal Object Creator entry (+ / ⌘N)
+    const newObjBtn = rightActions.createEl("button", {
+      text: "+ 새 Object",
+      attr: {
+        type: "button",
+        class: "action-btn action-btn-primary",
+        title: "새 Object (⌘/Ctrl+N)"
+      }
+    });
+    newObjBtn.onclick = () => {
+      if (root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
+        root.ObjectCreatorView.open(app, { pkg });
+      } else {
+        new Notice("Object Creator를 불러오지 못했습니다.");
+      }
+    };
+    // One global keyboard entry on Home (do not register multiple)
+    if (container && !container.__prodigyCreatorKey) {
+      container.__prodigyCreatorKey = (e) => {
+        if (!e) return;
+        const mod = e.metaKey || e.ctrlKey;
+        if (mod && (e.key === "n" || e.key === "N") && !e.altKey && !e.shiftKey) {
+          // Avoid when typing in inputs outside home primary chrome
+          const t = e.target;
+          const tag = t && t.tagName ? String(t.tagName).toLowerCase() : "";
+          if (tag === "input" || tag === "textarea" || (t && t.isContentEditable)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
+            root.ObjectCreatorView.open(app, { pkg });
+          }
+        }
+      };
+      try {
+        document.addEventListener("keydown", container.__prodigyCreatorKey);
+      } catch (_e) { /* ignore */ }
+    }
     
     if (isStale) {
       rightActions.createEl("span", { 
@@ -1090,36 +1162,26 @@
 
     renderFocusItems();
 
-    // 3b. Workspace Launcher — navigation entry only (after Brief + Focus)
+    // 3b. Workspace Launcher — same Object Engine states as Needs Attention (no re-eval)
     const launcherMount = leftCol.createEl("div", {
       attr: { class: "home-launcher-mount" }
     });
     try {
       if (root.WorkspaceLauncherCore && root.WorkspaceLauncherView) {
-        let journalStatus = { status: "empty" };
-        if (root.JournalStore) {
-          try {
-            const review = await root.JournalStore.loadReview(app, todayStr);
-            journalStatus = { status: (review && review.status) || "empty" };
-          } catch (_j) {
-            journalStatus = { status: "empty" };
-          }
-        }
-        let workoutSnapshot = null;
-        try {
-          workoutSnapshot = await root.WorkspaceLauncherCore.loadWorkoutSnapshot(app);
-        } catch (_w) {
-          workoutSnapshot = null;
-        }
         const launcherCards = root.WorkspaceLauncherCore.buildLauncherCards({
           pkg,
-          journalStatus,
-          workoutSnapshot
+          journalStatus: journalStatusForOps,
+          workoutSnapshot: workoutSnapshotForOps,
+          engine_states: briefContext && briefContext.engine_states
+            ? briefContext.engine_states
+            : null,
+          briefContext
         });
         root.WorkspaceLauncherView.render({
           container: launcherMount,
           app,
-          cards: launcherCards
+          cards: launcherCards,
+          pkg
         });
       } else {
         launcherMount.createEl("div", {
@@ -1413,144 +1475,121 @@
       start.onclick = () => app.workspace.openLinkText("HUB/30 Workout.md", "HUB/30 Workout.md", false);
     });
 
-    safeRenderRegion("경매 차단", () => {
-      const auctions = (pkg.context && pkg.context.auctions) || [];
-      const blocked = auctions.filter((item) => {
-        const active = ["watching", "bidding", "reviewing"].includes(item.status);
-        const missing = !item.next_action || item.next_action === "정보 없음";
-        return active && missing;
-      });
-      if (!blocked.length) return;
-      const box = actionsCard.createEl("div", {
-        attr: { style: "margin-top:12px;padding-top:12px;border-top:1px solid var(--background-modifier-border);" }
-      });
-      box.createEl("div", {
-        text: `⚠️ 다음 행동이 없는 경매 물건 ${blocked.length}건`,
-        attr: { style: "font-weight:700;color:var(--text-error);margin-bottom:6px;" }
-      });
-      const open = box.createEl("button", { text: "경매 워크스페이스 열기", attr: { class: "action-btn" } });
-      open.onclick = () => app.workspace.openLinkText("HUB/10 Auction.md", "HUB/10 Auction.md", false);
-    });
-
-    // 5. Today's Risk / Attention — package risks + Object Engine (critical/high only)
-    // Object Engine is additive; on failure keep package risks only.
-    let briefContext = null;
-    try {
-      if (root.MorningBriefContext && root.MorningBriefContext.buildMorningBriefContext) {
-        let journalStatusForBrief = { status: "empty" };
-        if (root.JournalStore) {
-          try {
-            const review = await root.JournalStore.loadReview(app, todayStr);
-            journalStatusForBrief = { status: (review && review.status) || "empty" };
-          } catch (_je) {
-            journalStatusForBrief = { status: "empty" };
-          }
-        }
-        briefContext = root.MorningBriefContext.buildMorningBriefContext({
-          pkg,
-          pinnedFocus,
-          journalStatus: journalStatusForBrief,
-          focusItems: (approvedFocus && approvedFocus.focus) || (result && result.focus) || [],
-          now: new Date()
-        });
-      }
-    } catch (_briefCtxError) {
-      briefContext = null;
-    }
-
+    // 5. Needs Attention — Object Engine critical/high only (no re-scan; shared briefContext)
+    // Engine failure → package risks only. Never fabricate recommendations.
     const risks = (briefContext && root.MorningBriefContext && root.MorningBriefContext.toHomeRiskItems)
       ? root.MorningBriefContext.toHomeRiskItems(briefContext)
-      : (pkg.context.risks || []);
-    const showRiskCard = risks.length > 0
-      || (briefContext && briefContext.attention && briefContext.attention.empty === true && briefContext.engine_ok);
+      : ((pkg.context && pkg.context.risks) || []);
+    const showAttentionCard = risks.length > 0
+      || (briefContext && briefContext.attention && briefContext.attention.empty === true)
+      || (briefContext && briefContext.engine_ok === false);
 
-    if (showRiskCard) {
-      const riskCard = rightSecondary.createEl("div", { 
-        attr: { class: `home-card emphasis-risk` } 
+    if (showAttentionCard) {
+      const riskCard = rightSecondary.createEl("div", {
+        attr: { class: "home-card emphasis-risk home-needs-attention" }
       });
-      const rHead = riskCard.createEl("div", { attr: { class: "home-header", style: "color: var(--text-error);" } });
-      rHead.createEl("span", { text: "⚠️ 오늘의 위험" });
-      
-      const rList = riskCard.createEl("div", { attr: { style: "display:flex; flex-direction:column; gap:8px;" } });
+      const rHead = riskCard.createEl("div", {
+        attr: { class: "home-header", style: "color: var(--text-error);" }
+      });
+      rHead.createEl("span", { text: "⚠ 주의가 필요함" });
+      if (briefContext && briefContext.engine_ok === false) {
+        rHead.createEl("span", {
+          text: "엔진 폴백",
+          attr: { class: "badge badge-gray", style: "margin-left:6px;" }
+        });
+      }
+
+      const rList = riskCard.createEl("div", {
+        attr: { style: "display:flex; flex-direction:column; gap:4px;" }
+      });
 
       if (!risks.length) {
         rList.createEl("div", {
           text: (briefContext && briefContext.empty_attention_message)
             || "주의가 필요한 Object가 없습니다.",
-          attr: { style: "font-size:0.85em;color:var(--text-muted);font-style:italic;padding:6px 0;" }
+          attr: {
+            style: "font-size:0.88em;color:var(--text-muted);font-style:italic;padding:10px 0;line-height:1.45;"
+          }
         });
       }
 
-      risks.forEach((risk, rIdx) => {
+      risks.forEach((risk) => {
         const rItem = rList.createEl("div", {
-          attr: { style: "font-size: 0.85em; display:flex; flex-direction:column; gap:4px; padding: 10px 0; border-top: 1px solid var(--background-modifier-border);" }
+          attr: {
+            class: "home-attention-item",
+            style: "font-size:0.88em;display:flex;flex-direction:column;gap:6px;padding:12px 0;border-top:1px solid var(--background-modifier-border);"
+          }
         });
-        
-        const topRow = rItem.createEl("div", { attr: { style: "display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;" } });
-        const titleWrap = topRow.createEl("div", { attr: { style: "display:flex; flex-direction:column; gap:2px; min-width:0;" } });
-        titleWrap.createEl("strong", { text: risk.label, attr: { style: "color:var(--text-error);" } });
+
+        const topRow = rItem.createEl("div", {
+          attr: { style: "display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;" }
+        });
+        const titleWrap = topRow.createEl("div", {
+          attr: { style: "display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 auto;" }
+        });
         if (risk.workspace_label) {
           titleWrap.createEl("span", {
             text: risk.workspace_label,
-            attr: { style: "font-size:0.78em;color:var(--text-muted);font-weight:600;" }
+            attr: { style: "font-size:0.78em;color:var(--text-muted);font-weight:700;letter-spacing:0.02em;" }
           });
         }
-        
-        const linkRow = topRow.createEl("div", { attr: { style: "display:flex; gap:6px; align-items:center;" } });
-        
+        titleWrap.createEl("strong", {
+          text: risk.label,
+          attr: { style: "color:var(--text-normal);font-size:1.02em;" }
+        });
+        if (risk.attention_level) {
+          const lvl = String(risk.attention_level).toLowerCase();
+          titleWrap.createEl("span", {
+            text: lvl === "critical" ? "Critical" : (lvl === "high" ? "High" : lvl),
+            attr: {
+              class: lvl === "critical" ? "badge badge-high" : "badge badge-medium",
+              style: "width:fit-content;"
+            }
+          });
+        }
+
+        const linkRow = topRow.createEl("div", {
+          attr: { style: "display:flex;gap:6px;align-items:center;flex-wrap:wrap;" }
+        });
         if (risk.dashboard_path) {
-          const dash = linkRow.createEl("button", { text: "워크스페이스", attr: { class: "action-btn" } });
+          const dash = linkRow.createEl("button", {
+            text: "워크스페이스 열기",
+            attr: { class: "action-btn action-btn-primary" }
+          });
           dash.onclick = () => app.workspace.openLinkText(risk.dashboard_path, risk.dashboard_path, false);
         }
         if (risk.object_path) {
-          const lnk = linkRow.createEl("button", { text: "원본 열기", attr: { class: "action-btn" } });
+          const lnk = linkRow.createEl("button", {
+            text: "원본 열기",
+            attr: { class: "action-btn" }
+          });
           lnk.onclick = () => app.workspace.openLinkText(risk.object_path, risk.object_path, false);
         }
 
-        // Explainable Risk Expand Details
-        const rDetails = rItem.createEl("details", {
-          attr: { style: "margin-top: 4px; font-size: 0.85em; color: var(--text-muted);" }
+        // Reasons always visible (explainability contract)
+        const reasonBox = rItem.createEl("div", {
+          attr: { style: "display:flex;flex-direction:column;gap:3px;" }
         });
-        rDetails.createEl("summary", {
-          text: "[왜 리스크인가요?]",
-          attr: { style: "cursor: pointer; color: var(--text-error); font-weight: bold; outline: none; margin-bottom: 2px;" }
+        reasonBox.createEl("div", {
+          text: "이유",
+          attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);" }
         });
-        
-        const rDetailsContent = rDetails.createEl("div", {
-          attr: { style: "background: var(--background-secondary); border-radius: 4px; padding: 6px; display: flex; flex-direction: column; gap: 2px; margin-top:4px;" }
-        });
-        
-        if (Array.isArray(risk.evidence)) {
-          risk.evidence.forEach(ev => {
-            rDetailsContent.createEl("div", { text: `✓ ${ev}` });
+        const reasonList = Array.isArray(risk.evidence) && risk.evidence.length
+          ? risk.evidence
+          : [String(risk.reason || "").replace(/\s*\(site_visit_date\)/g, "")].filter(Boolean);
+        if (!reasonList.length) {
+          reasonBox.createEl("div", {
+            text: "· 주의가 필요합니다.",
+            attr: { style: "color:var(--text-normal);line-height:1.45;" }
           });
-        }
-        
-        if (Array.isArray(risk.sources)) {
-          const rSourcesDiv = rDetailsContent.createEl("div", {
-            attr: { style: "border-top: 1px solid var(--background-modifier-border); padding-top: 4px; margin-top: 4px; font-size: 0.9em; display:flex; align-items:center; gap:4px; flex-wrap:wrap;" }
-          });
-          rSourcesDiv.createEl("strong", { text: "출처: " });
-          
-          risk.sources.forEach(src => {
-            const rSrcBtn = rSourcesDiv.createEl("span", { 
-              text: getEvidenceSourceLabel(src), 
-              attr: { class: "badge badge-gray", style: "cursor:pointer; text-decoration:underline;" } 
+        } else {
+          reasonList.forEach((ev) => {
+            reasonBox.createEl("div", {
+              text: `· ${String(ev).replace(/\s*\(site_visit_date\)/g, "")}`,
+              attr: { style: "color:var(--text-normal);line-height:1.45;" }
             });
-            rSrcBtn.onclick = () => {
-              if (risk.dashboard_path) {
-                app.workspace.openLinkText(risk.dashboard_path, risk.dashboard_path, false);
-              } else if (src.includes("Object") && risk.object_path) {
-                app.workspace.openLinkText(risk.object_path, risk.object_path, false);
-              } else if (src === "Todoist") {
-                window.open("todoist://");
-              }
-            };
           });
         }
-
-        const riskReason = String(risk.reason || "").replace(/\s*\(site_visit_date\)/g, "");
-        rItem.createEl("span", { text: riskReason, attr: { style: "color:var(--text-normal); font-size:0.95em; margin-top:4px;" } });
       });
     }
 

@@ -33,6 +33,15 @@ const main = async () => {
     await loadProdigyScript("SYSTEM/Views/journal-view.js");
     await loadProdigyScript("SYSTEM/Views/workspace-launcher-core.js");
     await loadProdigyScript("SYSTEM/Views/workspace-launcher-view.js");
+    await loadProdigyScript("SYSTEM/Views/object-creator-core.js");
+    await loadProdigyScript("SYSTEM/Views/object-creator-view.js");
+    // Creators that Universal Object Creator reuses (optional if already loaded elsewhere)
+    await loadProdigyScript("SYSTEM/Views/people-core.js");
+    await loadProdigyScript("SYSTEM/Views/people-store.js");
+    await loadProdigyScript("SYSTEM/Views/people-view.js");
+    await loadProdigyScript("SYSTEM/Views/reading-book-create.js");
+    await loadProdigyScript("SYSTEM/Views/project-wizard-core.js");
+    await loadProdigyScript("SYSTEM/Views/project-wizard.js");
     await loadProdigyScript("SYSTEM/Views/home-view.js");
 
     if (window.HomeView) {

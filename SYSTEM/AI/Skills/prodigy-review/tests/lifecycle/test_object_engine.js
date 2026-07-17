@@ -52,6 +52,37 @@ function main() {
   assert.match(projNeed.primary_action.label, /다음 행동/);
   assert.ok(projNeed.primary_action.reason);
 
+  // Capability accessors (same intelligence, dedicated API)
+  assert.equal(typeof engine.classify, "function");
+  assert.equal(typeof engine.getLifecycle, "function");
+  assert.equal(typeof engine.getAttention, "function");
+  assert.equal(typeof engine.findDuplicates, "function");
+  assert.equal(typeof engine.getContinueTarget, "function");
+  // aliases
+  assert.equal(engine.classify, engine.classifyInput);
+  assert.equal(engine.findDuplicates, engine.findSimilarObjects);
+
+  const life = engine.getLifecycle(projNeed);
+  assert.equal(life.state, "needs_action");
+  assert.ok(life.reason);
+  assert.ok(Array.isArray(life.reasons) && life.reasons.length >= 1);
+
+  // getLifecycle accepts raw object too
+  const lifeRaw = engine.getLifecycle({
+    type: "project",
+    status: "doing",
+    path: "PARA/PROJECTS/need.md",
+    name: "Need Action",
+    next_action: ""
+  });
+  assert.equal(lifeRaw.state, "needs_action");
+
+  const att = engine.getAttention(projNeed);
+  assert.equal(att.priority, "high");
+  assert.equal(att.level, "high");
+  assert.ok(att.reason);
+  assert.ok(att.reasons.length >= 1);
+
   const projOk = engine.evaluateObject({
     type: "project",
     status: "doing",

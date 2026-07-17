@@ -112,23 +112,68 @@ Home · Morning Brief · Launcher · Workspace
 - Launcher / Morning Brief / Auction·Reading·Workout·Project 는 동일 Runtime을 소비한다.
 - Engine 실패 시 각 소비자는 기존 로컬 로직으로 폴백한다.
 
-### Morning Brief + Object Engine
+### Object Engine (공유 운영 지능)
 
-Morning Brief는 규칙을 다시 계산하지 않는다. **요약·표시 순서**만 담당한다.
+Object Engine은 **분류기가 아니다.**  
+OS 전역의 **운영 Object 지능**을 소유한다. Workspace UI는 자체 추론을 두지 않고 Engine을 소비한다.
 
 ```text
-Morning Package
-    +
-Object Engine (attention: critical / high)
-    ↓
-Morning Brief Context
-    ↓
-Morning Brief / 오늘의 위험
+ObjectEngine
+  · classify()           입력 → 생성 후보 유형 + 이유
+  · getLifecycle()       Healthy / Needs Action / Needs Review / Stale / Completed + reason
+  · getAttention()       critical|high|normal|low|none + reasons
+  · findDuplicates()     유사 Object 힌트 (생성 차단 없음)
+  · getContinueTarget()  이어하기 대상 (Workspace + Object + reason)
+  · listCreatableTypes / registerCreatableType
+  · evaluateObject(s)    공통 런타임 상태 (내부·고급 소비자)
 ```
 
-- 기본 표시: **critical · high** Attention만 (normal 이하는 Home을 어지럽히지 않음).
-- 같은 Object는 한 번만 표시하고, 이유 문자열은 합친다.
-- Engine 실패 시 기존 package risks만 사용한다. Home은 깨지지 않는다.
+- Lifecycle / Attention은 **계산만** 한다. YAML에 저장하지 않는다. 새 Property를 만들지 않는다.
+- 모든 결과는 **설명 가능**해야 한다 (reason / reasons).
+- 하위 호환 별칭: `classifyInput` ≡ `classify`, `findSimilarObjects` ≡ `findDuplicates`.
+
+### Morning Brief + Object Engine
+
+Home is **Mission Control** — answers only “What should I do now?”
+
+Morning Brief is an **adapter**. Object Engine is the **shared operational rule layer**.
+
+```text
+Objects
+    ↓
+Object Engine (lifecycle · attention · next_action · reasons)
+    ↓
+Morning Brief Context  (buildMorningBriefContext)
+    ↓
+Home: Brief → Schedule → 주의가 필요함 → Focus → Launcher
+```
+
+- **Single evaluation**: Home builds `briefContext` once; Workspace Launcher reuses `engine_states` (no second vault/object scan).
+- **Needs Attention** shows **critical · high** only. Each card always has **이유** (merged reasons). Normal is hidden.
+- Same Object appears **once**; reasons from engine + package risk are merged.
+- Engine failure → package risks only; Home and Launcher still run (graceful degrade).
+- Morning Brief never edits Objects. Navigation reuses existing Workspace / Object open paths.
+- Attention path: **no AI** (deterministic only).
+
+### Universal Object Creator
+
+Home / Launcher의 **+ 새 Object** (⌘/Ctrl+N on Home) 가 **모든 Object 생성 입구**다.
+
+```text
+입력
+  ↓
+Object Engine.classify()  (결정론 · AI 없음 · vault 스캔 없음)
+  ↓
+유형 제안 + 이유 + findDuplicates() 힌트
+  ↓
+사람 확인
+  ↓
+기존 생성 흐름 (Project Wizard · People · Reading · …)
+```
+
+- Creator는 **어댑터**다. 스키마·템플릿·워크스페이스 생성 구현을 복제하지 않는다.
+- 분류 실패 시 **저널** 폴백 + 이유 표시. 생성은 항상 사람이 확인한다.
+- 유사 Object는 패키지 목록만 힌트로 보여 주며 **생성을 막지 않는다**.
 
 ## 2.2 Capture Postpones Decisions
 
@@ -692,14 +737,16 @@ connections / 링크 = 둘을 잇는 연결
 - 저장 위치: `PARA/RESOURCES/CONTACTS`
 - 운영 표면: `HUB/60 Personal.md` (**사람과 관계**). 별도 People Hub 없음.
 - 생성: 「사람 추가」 또는 QuickAdd 「사람 추가」 → 이름만 입력 → 항상 `type: people`
-- 검색: 이름·관계·회사·역할 (로컬, 결정적). 필터: 전체 / 관계 / 회사 / 최근 연결
-- 카드: 관계 메타 · **최근 맥락**(연결된 원본 Object 최대 3개) · 사람 열기 / 관련 기록 보기
-- 링크는 `connections` 또는 wikilink. 원본 본문을 People에 복사하지 않는다.
-- 연결 미리보기는 **관련 기록**이다. 단순 링크를 “실제 대화/상호작용”으로 단정하지 않는다.
-- `last_contact`는 사용자가 명시했을 때만 표시한다. 파일 수정 시각으로 추정·경고하지 않는다.
-- **사건 추가** = `# 핵심 상호작용` 한 줄 인덱스. **메모 추가** = `# 메모` 장기 사실. **빠른 수정** = Property.
-- 이름 클릭 또는 「사람 열기」 = People 노트 양식 **미리보기 팝업**(섹션·Property 읽기 전용). 본문 편집이 필요하면 팝업의 「편집기에서 열기」.
-- 레거시 `type: contact`는 읽기 호환(「레거시」 표시). 신규 생성·type 변경 없음.
+- 검색: 이름·구분·소속·역할·메모·사건 (로컬). 카드에 `검색 일치:` 힌트.
+- 필터: 전체 / 구분 칩 / 미분류 / 연결 있음 / 레거시 / 연락일 없음.
+- 정렬: 가나다 ↑↓ · **손볼 사람**(`last_contact` 공백 우선 → 오래된 명시일; mtime 추정 없음).
+- `relationship` = 짧은 구분만. 상세는 본문 `# 관계`. 팝업에서 미분류 문구를 본문으로 옮기기 가능.
+- 카드: 메타 · **사건**(상위 2줄) · **메모**(상위 3줄) · 줄 **×** 삭제(10초 실행 취소) · **최근 맥락**(3개 + 타입 칩 + 펼침).
+- 링크는 `connections`/wikilink. 본문 복제 없음. `last_contact`는 명시값만.
+- **이름 클릭** = 관계 팝업(구분 칩 · 사건/메모 줄 목록 · ⌘/Ctrl+S 저장). 「원본 노트」로 에디터.
+- 사건/메모 추가 후 해당 카드로 스크롤. 검색창 `↓` = 첫 카드.
+- **사람 삭제** = 이름 옆 🗑️. Contacts 노트만 휴지통. 다른 Object 링크 유지.
+- 레거시 `type: contact` 읽기 호환(배지·필터). 신규 type 변경 없음.
 - 지속 영역(Areas)은 같은 Hub 하단 보조 섹션으로 유지한다.
 
 ## Personal vs Journal

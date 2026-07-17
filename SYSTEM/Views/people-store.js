@@ -147,6 +147,38 @@
   }
 
   /**
+   * Delete (trash) a People Object file.
+   * Only allows files under PARA/RESOURCES/CONTACTS.
+   * Prefer system trash when available.
+   * @returns {{ path: string, trashed: boolean }}
+   */
+  async function deletePeople(app, path) {
+    const core = getCore();
+    if (!core) throw new Error("PeopleCore를 불러오지 못했습니다.");
+    if (!app || !app.vault) throw new Error("Obsidian Vault를 사용할 수 없습니다.");
+    const filePath = core.clean(path).replace(/\\/g, "/");
+    if (!core.isUnderPeopleFolder(filePath)) {
+      throw new Error("Contacts 폴더의 사람 노트만 삭제할 수 있습니다.");
+    }
+    if (!/\.md$/i.test(filePath)) {
+      throw new Error("마크다운 사람 노트만 삭제할 수 있습니다.");
+    }
+    const file = app.vault.getAbstractFileByPath(filePath);
+    if (!file) throw new Error(`사람 Object를 찾을 수 없습니다: ${filePath}`);
+
+    if (typeof app.vault.trash === "function") {
+      // system=true uses OS trash when configured
+      await app.vault.trash(file, true);
+      return { path: filePath, trashed: true };
+    }
+    if (typeof app.vault.delete === "function") {
+      await app.vault.delete(file, true);
+      return { path: filePath, trashed: false };
+    }
+    throw new Error("Vault 삭제 API를 사용할 수 없습니다.");
+  }
+
+  /**
    * Read full People note content for preview modal.
    */
   async function readPeopleNote(app, path) {
@@ -158,6 +190,50 @@
     if (!file) throw new Error(`사람 Object를 찾을 수 없습니다: ${filePath}`);
     const content = await app.vault.read(file);
     return core.buildPersonPreviewModel(filePath, content);
+  }
+
+  /**
+   * Save relation-popup edits (properties + editable sections) back to the note.
+   * @param {{ properties?: object, sections?: object }} edits
+   */
+  async function savePeopleNote(app, path, edits) {
+    const core = getCore();
+    if (!core) throw new Error("PeopleCore를 불러오지 못했습니다.");
+    if (!app || !app.vault) throw new Error("Obsidian Vault를 사용할 수 없습니다.");
+    const filePath = core.clean(path);
+    const file = app.vault.getAbstractFileByPath(filePath);
+    if (!file) throw new Error(`사람 Object를 찾을 수 없습니다: ${filePath}`);
+
+    const original = await app.vault.read(file);
+    let next = core.applyPersonPreviewEdits(original, edits || {});
+    // Never allow type flip to contact via this path
+    if (/type:\s*contact\b/i.test(next) && !/type:\s*contact\b/i.test(original)) {
+      next = next.replace(/^type:\s*contact\b/im, "type: people");
+    }
+    if (typeof app.vault.modify !== "function") {
+      throw new Error("Vault modify API를 사용할 수 없습니다.");
+    }
+    await app.vault.modify(file, next);
+
+    // Sync properties via processFrontMatter when available (metadata cache)
+    if (app.fileManager && typeof app.fileManager.processFrontMatter === "function") {
+      const props = core.sanitizeQuickEditUpdates((edits && edits.properties) || {});
+      if (Object.keys(props).length) {
+        try {
+          await app.fileManager.processFrontMatter(file, (fm) => {
+            const originalType = fm.type;
+            Object.keys(props).forEach((key) => {
+              fm[key] = props[key];
+            });
+            if (originalType != null) fm.type = originalType;
+          });
+        } catch (_e) {
+          /* body already written */
+        }
+      }
+    }
+
+    return core.buildPersonPreviewModel(filePath, await app.vault.read(file));
   }
 
   /**
@@ -174,13 +250,19 @@
     if (!file) throw new Error(`사람 Object를 찾을 수 없습니다: ${filePath}`);
 
     const opts = options || {};
-    const line = core.formatInteractionLine(input || {}, {
-      now: opts.now,
-      linkDaily: opts.linkDaily !== false
-    });
+    let line;
+    if (opts.rawLine) {
+      const raw = core.clean(opts.rawLine);
+      line = raw.startsWith("-") ? raw : `- ${raw}`;
+    } else {
+      line = core.formatInteractionLine(input || {}, {
+        now: opts.now,
+        linkDaily: opts.linkDaily !== false
+      });
+    }
     const original = await app.vault.read(file);
     let next = core.appendInteractionToContent(original, line);
-    if (opts.updateLastContact !== false) {
+    if (opts.updateLastContact !== false && !opts.rawLine) {
       const day = core.normalizeIsoDate(input && input.date, opts.now);
       next = core.upsertLastContactInContent(next, day);
       if (app.fileManager && typeof app.fileManager.processFrontMatter === "function") {
@@ -193,7 +275,7 @@
     }
     await app.vault.modify(file, next);
 
-    if (opts.updateLastContact !== false && app.fileManager
+    if (opts.updateLastContact !== false && !opts.rawLine && app.fileManager
       && typeof app.fileManager.processFrontMatter === "function") {
       const day = core.normalizeIsoDate(input && input.date, opts.now);
       try {
@@ -229,6 +311,71 @@
     }
     await app.vault.modify(file, next);
     return { path: filePath, line, content: next };
+  }
+
+  /**
+   * Remove one memo line from # 메모.
+   * @param {string|number|{ text?: string, index?: number }} target
+   * @returns {{ path: string, removed: string, content: string }}
+   */
+  async function removeMemo(app, path, target) {
+    const core = getCore();
+    if (!core) throw new Error("PeopleCore를 불러오지 못했습니다.");
+    if (!app || !app.vault) throw new Error("Obsidian Vault를 사용할 수 없습니다.");
+    if (typeof core.removeMemoLineFromContent !== "function") {
+      throw new Error("PeopleCore.removeMemoLineFromContent를 사용할 수 없습니다.");
+    }
+    const filePath = core.clean(path);
+    if (!core.isUnderPeopleFolder(filePath)) {
+      throw new Error("Contacts 폴더의 사람 노트만 수정할 수 있습니다.");
+    }
+    const file = app.vault.getAbstractFileByPath(filePath);
+    if (!file) throw new Error(`사람 Object를 찾을 수 없습니다: ${filePath}`);
+
+    const original = await app.vault.read(file);
+    const result = core.removeMemoLineFromContent(original, target);
+    const next = result && result.content != null ? result.content : result;
+    if (typeof app.vault.modify !== "function") {
+      throw new Error("Vault modify API를 사용할 수 없습니다.");
+    }
+    await app.vault.modify(file, next);
+    return {
+      path: filePath,
+      removed: result && result.removed != null ? result.removed : "",
+      content: next
+    };
+  }
+
+  /**
+   * Remove one interaction line from # 핵심 상호작용.
+   * @returns {{ path: string, removed: string, content: string }}
+   */
+  async function removeInteraction(app, path, target) {
+    const core = getCore();
+    if (!core) throw new Error("PeopleCore를 불러오지 못했습니다.");
+    if (!app || !app.vault) throw new Error("Obsidian Vault를 사용할 수 없습니다.");
+    if (typeof core.removeInteractionLineFromContent !== "function") {
+      throw new Error("PeopleCore.removeInteractionLineFromContent를 사용할 수 없습니다.");
+    }
+    const filePath = core.clean(path);
+    if (!core.isUnderPeopleFolder(filePath)) {
+      throw new Error("Contacts 폴더의 사람 노트만 수정할 수 있습니다.");
+    }
+    const file = app.vault.getAbstractFileByPath(filePath);
+    if (!file) throw new Error(`사람 Object를 찾을 수 없습니다: ${filePath}`);
+
+    const original = await app.vault.read(file);
+    const result = core.removeInteractionLineFromContent(original, target);
+    const next = result && result.content != null ? result.content : result;
+    if (typeof app.vault.modify !== "function") {
+      throw new Error("Vault modify API를 사용할 수 없습니다.");
+    }
+    await app.vault.modify(file, next);
+    return {
+      path: filePath,
+      removed: result && result.removed != null ? result.removed : "",
+      content: next
+    };
   }
 
   /**
@@ -272,7 +419,11 @@
     updatePeopleProperties,
     appendKeyInteraction,
     appendMemo,
+    removeMemo,
+    removeInteraction,
+    deletePeople,
     readPeopleNote,
+    savePeopleNote,
     parseSimpleFrontmatter
   };
 

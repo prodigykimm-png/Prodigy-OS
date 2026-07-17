@@ -336,9 +336,15 @@
         items: merged,
         empty: merged.length === 0
       },
-      empty_attention_message: "주의가 필요한 객체가 없습니다.",
-      // Display order contract (for consumers / tests)
-      display_order: ["pinned_focus", "today", "critical_attention", "high_attention", "remaining_summary"]
+      empty_attention_message: "주의가 필요한 Object가 없습니다.",
+      // Home Mission Control surface order (product contract)
+      display_order: [
+        "morning_brief",
+        "today_schedule",
+        "needs_attention",
+        "todays_focus",
+        "workspace_launcher"
+      ]
     };
   }
 

@@ -10,32 +10,158 @@
     if (typeof Notice !== "undefined") new Notice(message, timeout || 5000);
   }
 
+  /** Short-lived undo action for memo/event delete (DOM toast on workspace). */
+  let _undoTimer = null;
+  let _undoPayload = null;
+
+  function clearUndoToast() {
+    if (_undoTimer) {
+      try { clearTimeout(_undoTimer); } catch (_e) { /* ignore */ }
+      _undoTimer = null;
+    }
+    _undoPayload = null;
+    if (typeof document !== "undefined") {
+      const el = document.getElementById("ppw-undo-toast");
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    }
+  }
+
+  function showUndoToast(message, onUndo) {
+    clearUndoToast();
+    if (typeof document === "undefined") {
+      notice(message);
+      return;
+    }
+    ensureWorkspaceStyles();
+    const toast = document.createElement("div");
+    toast.id = "ppw-undo-toast";
+    toast.className = "ppw-undo-toast";
+    const text = document.createElement("span");
+    text.textContent = message;
+    const btnEl = document.createElement("button");
+    btnEl.type = "button";
+    btnEl.className = "ppw-undo-btn";
+    btnEl.textContent = "실행 취소";
+    btnEl.onclick = async () => {
+      clearUndoToast();
+      if (typeof onUndo === "function") {
+        try { await onUndo(); } catch (err) {
+          notice(err.message || String(err), 9000);
+        }
+      }
+    };
+    toast.appendChild(text);
+    toast.appendChild(btnEl);
+    document.body.appendChild(toast);
+    _undoPayload = { onUndo };
+    _undoTimer = setTimeout(() => clearUndoToast(), 10000);
+  }
+
   function openPath(app, path) {
     if (!app || !path) return;
     return app.workspace.openLinkText(String(path).replace(/\.md$/, ""), "", false);
   }
 
-  /** Open People note in a side split when list/workspace helper is available. */
-  function openBeside(app, path) {
-    if (root.ProdigyListWorkspace && typeof root.ProdigyListWorkspace.openBeside === "function") {
-      return root.ProdigyListWorkspace.openBeside(app, path);
+  const PEOPLE_SIDE_LEAF_KEY = "__prodigyPeopleSideLeaf";
+
+  function isLeafStillOpen(app, leaf) {
+    if (!app || !leaf || !app.workspace) return false;
+    try {
+      const leaves = typeof app.workspace.getLeavesOfType === "function"
+        ? app.workspace.getLeavesOfType("markdown")
+        : [];
+      if (leaves && leaves.includes && leaves.includes(leaf)) return true;
+      // Fallback: walk root children if available
+      if (typeof app.workspace.iterateAllLeaves === "function") {
+        let found = false;
+        app.workspace.iterateAllLeaves((l) => {
+          if (l === leaf) found = true;
+        });
+        return found;
+      }
+    } catch (_e) {
+      return false;
     }
+    return false;
+  }
+
+  /**
+   * Open a People note in one reusable side leaf.
+   * Clicking another person reuses the same side pane (replaces the previous note)
+   * instead of stacking more splits.
+   */
+  async function openBeside(app, path) {
     if (!app || !path) return null;
     const filePath = String(path);
     const link = filePath.replace(/\.md$/i, "");
+    const file = app.vault && typeof app.vault.getAbstractFileByPath === "function"
+      ? app.vault.getAbstractFileByPath(filePath)
+      : null;
+
+    const existing = root[PEOPLE_SIDE_LEAF_KEY] || (typeof window !== "undefined" ? window[PEOPLE_SIDE_LEAF_KEY] : null);
+    const stillOpen = isLeafStillOpen(app, existing);
+
     try {
-      return app.workspace.openLinkText(link, filePath, "split");
-    } catch (_e) {
-      return openPath(app, path);
+      if (stillOpen && existing) {
+        if (typeof app.workspace.setActiveLeaf === "function") {
+          try {
+            app.workspace.setActiveLeaf(existing, { focus: true });
+          } catch (_e) {
+            try { app.workspace.setActiveLeaf(existing); } catch (_e2) { /* ignore */ }
+          }
+        }
+        if (file && typeof existing.openFile === "function") {
+          await existing.openFile(file);
+          return existing;
+        }
+        // open in active (side) leaf without creating a new split
+        if (typeof app.workspace.openLinkText === "function") {
+          await app.workspace.openLinkText(link, filePath, false);
+          return existing;
+        }
+      }
+
+      // Create one side split and remember it
+      let leaf = null;
+      if (typeof app.workspace.getLeaf === "function") {
+        try {
+          leaf = app.workspace.getLeaf("split");
+        } catch (_e) {
+          try { leaf = app.workspace.getLeaf(true); } catch (_e2) { leaf = null; }
+        }
+      }
+      if (leaf && file && typeof leaf.openFile === "function") {
+        await leaf.openFile(file);
+        root[PEOPLE_SIDE_LEAF_KEY] = leaf;
+        if (typeof window !== "undefined") window[PEOPLE_SIDE_LEAF_KEY] = leaf;
+        return leaf;
+      }
+      if (typeof app.workspace.openLinkText === "function") {
+        await app.workspace.openLinkText(link, filePath, "split");
+        const recent = typeof app.workspace.getMostRecentLeaf === "function"
+          ? app.workspace.getMostRecentLeaf()
+          : null;
+        if (recent) {
+          root[PEOPLE_SIDE_LEAF_KEY] = recent;
+          if (typeof window !== "undefined") window[PEOPLE_SIDE_LEAF_KEY] = recent;
+        }
+        return recent;
+      }
+    } catch (_err) {
+      /* fall through */
     }
+
+    return openPath(app, path);
   }
 
   function fieldLabel(key) {
+    // People-specific: relationship is a short category, not free narrative
+    if (key === "relationship") return "구분";
     if (root.prodigyDisplay && typeof root.prodigyDisplay.property === "function") {
       return root.prodigyDisplay.property(key);
     }
     const fallback = {
-      relationship: "관계",
+      relationship: "구분",
       company: "소속",
       role: "역할",
       last_contact: "최근 연락",
@@ -45,46 +171,196 @@
     return fallback[key] || key;
   }
 
-  async function renderMarkdownInto(app, container, markdown, sourcePath) {
-    const ob = root.obsidian || (typeof window !== "undefined" ? window.obsidian : null);
-    const text = String(markdown || "").trim();
-    if (!text) {
-      container.createEl("div", {
-        text: "내용이 비어 있습니다.",
-        attr: { style: "color:var(--text-muted);font-size:0.85em;font-style:italic;" }
-      });
-      return null;
-    }
+  /**
+   * Relationship property = short category chips (지인/회사/…).
+   * Detail narrative stays in body `# 관계`.
+   */
+  function renderRelationshipPicker(parent, currentValue, onChange) {
+    const core = root.PeopleCore;
+    const types = (core && core.RELATIONSHIP_TYPES) || [
+      "가족", "친구", "지인", "회사", "학교", "업무", "커뮤니티", "기타"
+    ];
+    const current = String(currentValue == null ? "" : currentValue).trim();
+    const known = core && typeof core.isKnownRelationshipType === "function"
+      ? core.isKnownRelationshipType(current)
+      : types.indexOf(current) !== -1;
 
-    if (ob && ob.MarkdownRenderer) {
-      try {
-        const Component = ob.Component;
-        const component = Component ? new Component() : null;
-        if (component && typeof component.load === "function") component.load();
-        if (typeof ob.MarkdownRenderer.render === "function") {
-          await ob.MarkdownRenderer.render(app, text, container, sourcePath || "", component || {});
-        } else if (typeof ob.MarkdownRenderer.renderMarkdown === "function") {
-          await ob.MarkdownRenderer.renderMarkdown(text, container, sourcePath || "", component || {});
-        } else {
-          throw new Error("no renderer");
-        }
-        return component;
-      } catch (_e) {
-        /* fall through to plain text */
-      }
-    }
-
-    // Fallback: preserve paragraphs / bullets lightly
-    const pre = container.createEl("div", {
-      attr: { class: "ppw-preview-plain", style: "white-space:pre-wrap;line-height:1.55;font-size:0.9em;" }
+    const wrap = parent.createDiv({ attr: { class: "ppw-rel-picker" } });
+    wrap.createEl("div", {
+      text: "짧은 분류만 선택 · 상세 맥락은 아래 「관계」 본문에",
+      attr: { class: "ppw-rel-hint" }
     });
-    pre.setText(text);
-    return null;
+
+    const chips = wrap.createDiv({ attr: { class: "ppw-rel-chips" } });
+    let selected = known ? current : "";
+
+    function paint() {
+      chips.empty();
+      // clear option
+      const clearBtn = chips.createEl("button", {
+        text: "없음",
+        attr: {
+          type: "button",
+          class: "ppw-rel-chip" + (selected ? "" : " is-active"),
+          "aria-pressed": selected ? "false" : "true"
+        }
+      });
+      clearBtn.onclick = () => {
+        selected = "";
+        paint();
+        if (typeof onChange === "function") onChange("");
+      };
+
+      types.forEach((label) => {
+        const btnEl = chips.createEl("button", {
+          text: label,
+          attr: {
+            type: "button",
+            class: "ppw-rel-chip" + (selected === label ? " is-active" : ""),
+            "aria-pressed": selected === label ? "true" : "false"
+          }
+        });
+        btnEl.onclick = () => {
+          selected = label;
+          paint();
+          if (typeof onChange === "function") onChange(label);
+        };
+      });
+    }
+    paint();
+
+    // Legacy free-text (e.g. "13학번 동기") — show once so user can reclassify
+    if (current && !known) {
+      const legacy = wrap.createDiv({ attr: { class: "ppw-rel-legacy" } });
+      legacy.createEl("span", {
+        text: `이전 값: ${current}`,
+        attr: { class: "ppw-rel-legacy-text" }
+      });
+      legacy.createEl("span", {
+        text: " → 위 구분 중 하나를 고르고, 이 문장은 본문 「관계」로 옮기세요.",
+        attr: { class: "ppw-rel-legacy-hint" }
+      });
+    }
+
+    return wrap;
   }
 
   /**
-   * Open People Object as a readable formatted popup (full note sections).
-   * Primary open path from name click / 사람 열기.
+   * Confirm then delete a People Object from the dashboard.
+   * @returns {Promise<{ path: string }|null>}
+   */
+  async function openDeletePersonFlow(app, path, onDeleted) {
+    const host = app || root.app || (typeof window !== "undefined" ? window.app : null);
+    if (!host) {
+      notice("Obsidian 앱 컨텍스트가 필요합니다.");
+      return null;
+    }
+    if (!root.PeopleStore || !root.PeopleCore) {
+      notice("People 모듈을 불러오지 못했습니다.");
+      return null;
+    }
+
+    const filePath = String(path || "");
+    const name = filePath.split("/").pop().replace(/\.md$/i, "") || "이 사람";
+
+    if (!root.PeopleCore.isUnderPeopleFolder(filePath)) {
+      notice("Contacts 폴더의 사람 노트만 삭제할 수 있습니다.");
+      return null;
+    }
+
+    const Modal = root.obsidian && root.obsidian.Modal;
+    if (!Modal) {
+      const ok = typeof window !== "undefined" && window.confirm
+        ? window.confirm(`「${name}」 사람 Object를 삭제할까요?\n휴지통으로 이동합니다.`)
+        : false;
+      if (!ok) return null;
+      try {
+        const result = await root.PeopleStore.deletePeople(host, filePath);
+        notice(`삭제했습니다: ${name}`);
+        if (typeof onDeleted === "function") await onDeleted(result);
+        return result;
+      } catch (error) {
+        notice(error.message || String(error), 9000);
+        return null;
+      }
+    }
+
+    return new Promise((resolve) => {
+      class PeopleDeleteModal extends Modal {
+        constructor(appInstance) {
+          super(appInstance);
+          this.busy = false;
+        }
+        onOpen() {
+          const { contentEl } = this;
+          contentEl.empty();
+          contentEl.createEl("h2", {
+            text: "사람 삭제",
+            attr: { style: "margin:0 0 8px;font-size:1.15em;" }
+          });
+          contentEl.createEl("p", {
+            text: `「${name}」 사람 Object를 삭제할까요?`,
+            attr: { style: "font-size:0.95em;margin:0 0 8px;font-weight:700;" }
+          });
+          contentEl.createEl("p", {
+            text: "노트 파일은 휴지통으로 이동합니다. Project·Journal 등 다른 Object에 남은 링크는 그대로 두며, 이 작업이 원본 사건 기록을 지우지는 않습니다.",
+            attr: { style: "font-size:0.82em;color:var(--text-muted);margin:0 0 14px;line-height:1.45;" }
+          });
+
+          const footer = contentEl.createEl("div", {
+            attr: { style: "display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;" }
+          });
+          const cancel = footer.createEl("button", { text: "취소", attr: { type: "button" } });
+          cancel.onclick = () => {
+            this.close();
+            resolve(null);
+          };
+          this.deleteBtn = footer.createEl("button", {
+            text: "삭제",
+            attr: {
+              type: "button",
+              class: "mod-warning",
+              style: "background:var(--text-error);color:var(--text-on-accent);border-color:var(--text-error);"
+            }
+          });
+          this.deleteBtn.onclick = () => this.submit();
+          this.statusEl = contentEl.createEl("div", {
+            text: "",
+            attr: { style: "margin-top:10px;font-size:0.8em;color:var(--text-muted);" }
+          });
+        }
+        async submit() {
+          if (this.busy) return;
+          this.busy = true;
+          this.deleteBtn.disabled = true;
+          this.statusEl.setText("삭제 중...");
+          try {
+            const result = await root.PeopleStore.deletePeople(this.app, filePath);
+            notice(`삭제했습니다: ${name}`);
+            if (typeof onDeleted === "function") {
+              try { await onDeleted(result); } catch (_e) { /* ignore */ }
+            }
+            this.close();
+            resolve(result);
+          } catch (error) {
+            this.statusEl.setText(error.message || String(error));
+            this.statusEl.style.color = "var(--text-error)";
+            this.busy = false;
+            this.deleteBtn.disabled = false;
+          }
+        }
+        onClose() {
+          this.contentEl.empty();
+        }
+      }
+      new PeopleDeleteModal(host).open();
+    });
+  }
+
+  /**
+   * Open People Object as an editable relation popup.
+   * Name click (and create flow) open this form. Raw note via 「원본 노트」 inside the popup.
+   * Edits: whitelist properties + body sections → PeopleStore.savePeopleNote.
    */
   async function openPersonPreview(app, path, onChanged) {
     const host = app || root.app || (typeof window !== "undefined" ? window.app : null);
@@ -111,136 +387,443 @@
       return openBeside(host, path);
     }
 
+    if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
     ensureWorkspaceStyles();
+
+    const propFields = (root.PeopleCore.QUICK_EDIT_FIELDS || [
+      "relationship", "company", "role", "last_contact", "phone", "email"
+    ]).slice();
+    // Primary narrative first; secondary reflection below
+    const primarySections = ["관계", "핵심 상호작용", "메모"];
+    const secondarySections = ["배운 점", "소통 방식", "나의 성찰"];
+    const sectionTitles = (root.PeopleCore.EDITABLE_SECTIONS || primarySections.concat(secondarySections)).slice();
+    const sectionPlaceholders = {
+      "관계": "누구인지, 어떻게 만났는지, 현재 맥락 (구분이 아닌 상세)",
+      "핵심 상호작용": "- [[YYYY-MM-DD]] 한 줄 요약",
+      "메모": "- 오래 남을 사실·선호",
+      "배운 점": "이 관계에서 배운 점",
+      "소통 방식": "연락 채널·톤·주의점",
+      "나의 성찰": "나에게 남긴 생각"
+    };
+    const sectionRows = {
+      "관계": 5,
+      "핵심 상호작용": 6,
+      "메모": 5,
+      "배운 점": 3,
+      "소통 방식": 3,
+      "나의 성찰": 3
+    };
+
+    function buildMetaLine(values) {
+      const v = values || {};
+      return [v.relationship, v.company, v.role].map((x) => String(x || "").trim()).filter(Boolean).join(" · ");
+    }
 
     return new Promise((resolve) => {
       class PeoplePreviewModal extends Modal {
         constructor(appInstance, model) {
           super(appInstance);
           this.model = model;
-          this._mdComponents = [];
+          this.busy = false;
+          this.propValues = Object.assign({}, (model && model.properties) || {});
+          this.sectionValues = Object.create(null);
+          this._hydrateSections(model);
+        }
+        _hydrateSections(model) {
+          const byTitle = Object.create(null);
+          ((model && model.sections) || []).forEach((s) => {
+            if (s && s.title) byTitle[s.title] = s;
+          });
+          sectionTitles.forEach((title) => {
+            const found = byTitle[title];
+            // Prefer cleaned display text so template guidance is not re-saved
+            const raw = found
+              ? String(found.displayBody != null ? found.displayBody : found.body || "")
+              : "";
+            this.sectionValues[title] = raw;
+          });
+        }
+        _linesFromSectionText(text) {
+          return String(text || "")
+            .replace(/\r\n/g, "\n")
+            .split("\n")
+            .map((l) => String(l || "").trim().replace(/^[-*•]\s+/, ""))
+            .filter((l) => l && l !== "-" && !/^\*[^*].*\*$/.test(l));
+        }
+        _sectionTextFromLines(lines) {
+          return (lines || []).map((l) => {
+            const t = String(l || "").trim();
+            if (!t) return "";
+            return t.startsWith("-") ? t : `- ${t}`;
+          }).filter(Boolean).join("\n");
+        }
+        _renderListSection(parent, title) {
+          const block = parent.createDiv({ attr: { class: "ppw-edit-panel ppw-edit-list-panel" } });
+          block.createEl("div", { text: title, attr: { class: "ppw-edit-section-label" } });
+          block.createEl("div", {
+            text: title === "메모"
+              ? "한 줄씩 추가·삭제 · 저장 시 노트에 반영"
+              : "사건 인덱스 한 줄씩 · 저장 또는 「사건 추가」",
+            attr: { class: "ppw-rel-hint" }
+          });
+          let lines = this._linesFromSectionText(this.sectionValues[title]);
+          const listEl = block.createDiv({ attr: { class: "ppw-edit-line-list" } });
+
+          const sync = () => {
+            this.sectionValues[title] = this._sectionTextFromLines(lines);
+          };
+
+          const paintList = () => {
+            listEl.empty();
+            if (!lines.length) {
+              listEl.createEl("div", {
+                text: "아직 없습니다.",
+                attr: { class: "ppw-edit-line-empty" }
+              });
+            } else {
+              lines.forEach((line, idx) => {
+                const row = listEl.createDiv({ attr: { class: "ppw-edit-line-row" } });
+                row.createEl("div", { text: line, attr: { class: "ppw-edit-line-text" } });
+                const del = row.createEl("button", {
+                  text: "×",
+                  attr: { type: "button", class: "ppw-memo-del", title: "삭제", "aria-label": `${title} 삭제` }
+                });
+                del.onclick = () => {
+                  lines = lines.filter((_, i) => i !== idx);
+                  sync();
+                  paintList();
+                };
+              });
+            }
+          };
+          paintList();
+
+          const addRow = block.createDiv({ attr: { class: "ppw-edit-line-add" } });
+          const input = addRow.createEl("input", {
+            attr: {
+              type: "text",
+              class: "ppw-edit-input",
+              placeholder: title === "메모" ? "새 메모 한 줄" : "[[YYYY-MM-DD]] 한 줄 요약"
+            }
+          });
+          const addBtn = btn(addRow, "추가");
+          const doAdd = () => {
+            const v = String(input.value || "").trim();
+            if (!v) return;
+            lines.push(v.replace(/^[-*•]\s+/, ""));
+            input.value = "";
+            sync();
+            paintList();
+            input.focus();
+          };
+          addBtn.onclick = doAdd;
+          input.onkeydown = (e) => {
+            if (e && e.key === "Enter") {
+              e.preventDefault();
+              doAdd();
+            }
+          };
+          return block;
+        }
+        _renderSectionBlock(parent, title) {
+          if (title === "메모" || title === "핵심 상호작용") {
+            return this._renderListSection(parent, title);
+          }
+          const block = parent.createDiv({ attr: { class: "ppw-edit-panel" } });
+          const lab = block.createEl("label", {
+            text: title,
+            attr: { class: "ppw-edit-section-label" }
+          });
+          lab.setAttribute("for", `ppw-sec-${title}`);
+          const ta = block.createEl("textarea", {
+            attr: {
+              id: `ppw-sec-${title}`,
+              class: "ppw-edit-textarea",
+              rows: String(sectionRows[title] || 3),
+              placeholder: sectionPlaceholders[title] || `${title} 내용`
+            }
+          });
+          if (title === "관계") ta.addClass("ppw-edit-textarea-lead");
+          ta.value = this.sectionValues[title] || "";
+          ta.oninput = () => { this.sectionValues[title] = ta.value; };
+          return ta;
         }
         onOpen() {
           const { contentEl, modalEl } = this;
           contentEl.empty();
           if (modalEl) {
-            modalEl.style.width = "min(720px, calc(100vw - 24px))";
-            modalEl.style.maxHeight = "min(88vh, 900px)";
+            modalEl.addClass("ppw-modal");
+            // Desktop-friendly size; mobile overrides via CSS
+            modalEl.style.width = "";
+            modalEl.style.maxWidth = "";
+            modalEl.style.maxHeight = "";
           }
           contentEl.addClass("ppw-preview-modal");
 
-          const head = contentEl.createDiv({ attr: { class: "ppw-preview-head" } });
-          const titleRow = head.createDiv({ attr: { style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap;" } });
-          titleRow.createEl("h2", {
+          // Keyboard: Cmd/Ctrl+S save, Esc close
+          if (this._keyHandler && modalEl) {
+            modalEl.removeEventListener("keydown", this._keyHandler);
+          }
+          this._keyHandler = (e) => {
+            if (!e) return;
+            const mod = e.metaKey || e.ctrlKey;
+            if (mod && (e.key === "s" || e.key === "S")) {
+              e.preventDefault();
+              e.stopPropagation();
+              this.submit();
+            } else if (e.key === "Escape") {
+              // allow default modal close; ensure resolve
+            }
+          };
+          if (modalEl) modalEl.addEventListener("keydown", this._keyHandler);
+
+          const shell = contentEl.createDiv({ attr: { class: "ppw-preview-shell" } });
+
+          // --- Header ---
+          const head = shell.createDiv({ attr: { class: "ppw-preview-head" } });
+          head.createEl("div", { text: "관계 맥락", attr: { class: "ppw-preview-kicker" } });
+
+          const titleRow = head.createDiv({ attr: { class: "ppw-preview-title-row" } });
+          const titleMain = titleRow.createDiv({ attr: { class: "ppw-preview-title-main" } });
+          titleMain.createEl("h2", {
             text: this.model.name,
-            attr: { style: "margin:0;font-size:1.25em;" }
+            attr: { class: "ppw-preview-title" }
           });
           if (this.model.is_legacy) {
-            titleRow.createEl("span", { text: "레거시", attr: { class: "ppw-badge" } });
+            titleMain.createEl("span", { text: "레거시", attr: { class: "ppw-badge" } });
           }
-          if (this.model.meta_line) {
-            head.createEl("div", {
-              text: this.model.meta_line,
-              attr: { class: "ppw-meta", style: "margin-top:6px;" }
+          const previewTrash = titleRow.createEl("span", {
+            text: "🗑️",
+            attr: {
+              class: "ppw-trash ppw-preview-trash",
+              title: "이 사람 노트를 삭제(휴지통 이동)합니다.",
+              role: "button",
+              "aria-label": `${this.model.name} 삭제`
+            }
+          });
+          previewTrash.onclick = (e) => {
+            if (e) {
+              e.stopPropagation();
+              e.preventDefault();
+            }
+            openDeletePersonFlow(this.app, this.model.path, async () => {
+              if (typeof onChanged === "function") await onChanged();
+              this.close();
+              resolve({ deleted: true, path: this.model.path });
             });
-          }
-          if (this.model.last_contact) {
-            head.createEl("div", {
-              text: `최근 연락 ${this.model.last_contact}`,
-              attr: { class: "ppw-sub", style: "margin-top:4px;" }
-            });
-          }
+          };
 
-          // Property chips (filled only)
-          const props = this.model.properties || {};
-          const chips = contentEl.createDiv({ attr: { class: "ppw-preview-props" } });
-          Object.keys(props).forEach((key) => {
-            const val = String(props[key] || "").trim();
-            if (!val) return;
-            const chip = chips.createEl("span", { attr: { class: "ppw-prop-chip" } });
-            chip.createEl("em", { text: fieldLabel(key) });
-            chip.createEl("span", { text: val });
+          this.metaEl = head.createEl("div", {
+            text: buildMetaLine(this.propValues) || "구분·소속·역할을 채우면 여기에 표시됩니다.",
+            attr: {
+              class: "ppw-preview-meta" + (buildMetaLine(this.propValues) ? "" : " is-empty")
+            }
+          });
+          const lastContact = String(this.propValues.last_contact || this.model.last_contact || "").trim();
+          this.subEl = head.createEl("div", {
+            text: lastContact ? `최근 연락 ${lastContact}` : "",
+            attr: {
+              class: "ppw-preview-sub",
+              style: lastContact ? "" : "display:none;"
+            }
           });
 
-          const scroll = contentEl.createDiv({ attr: { class: "ppw-preview-scroll" } });
-          const sections = (this.model.sections || []).filter((s) => {
-            // Hide empty template sections and pure dataview dump heading optional
-            if (s.isEmpty) return false;
-            if (s.title === "연결된 Object") return true; // keep if has content
-            return true;
+          // --- Scroll body ---
+          const scroll = shell.createDiv({ attr: { class: "ppw-preview-scroll" } });
+
+          // Properties panel
+          const propsBlock = scroll.createDiv({ attr: { class: "ppw-edit-panel ppw-edit-props" } });
+          propsBlock.createEl("div", { text: "속성", attr: { class: "ppw-edit-panel-title" } });
+
+          const syncMeta = () => {
+            if (!this.metaEl) return;
+            const line = buildMetaLine(this.propValues);
+            this.metaEl.setText(line || "구분·소속·역할을 채우면 여기에 표시됩니다.");
+            if (line) this.metaEl.removeClass("is-empty");
+            else this.metaEl.addClass("is-empty");
+          };
+
+          // relationship = category chips (full width)
+          const relField = propsBlock.createDiv({ attr: { class: "ppw-edit-field ppw-edit-field-full" } });
+          relField.createEl("label", {
+            text: fieldLabel("relationship"),
+            attr: { class: "ppw-edit-label" }
+          });
+          const legacyRel = String(this.propValues.relationship || "").trim();
+          const isKnown = root.PeopleCore && typeof root.PeopleCore.isKnownRelationshipType === "function"
+            ? root.PeopleCore.isKnownRelationshipType(legacyRel)
+            : false;
+          if (legacyRel && !isKnown) {
+            const helper = relField.createDiv({ attr: { class: "ppw-rel-legacy ppw-rel-helper" } });
+            helper.createEl("div", {
+              text: `이전 상세 값: ${legacyRel}`,
+              attr: { class: "ppw-rel-legacy-text" }
+            });
+            helper.createEl("div", {
+              text: "구분 칩으로 짧게 고르고, 상세는 본문 「관계」에 두세요.",
+              attr: { class: "ppw-rel-legacy-hint" }
+            });
+            const moveBtn = btn(helper, "본문 관계로 옮기기");
+            moveBtn.onclick = () => {
+              const cur = String(this.sectionValues["관계"] || "").trim();
+              const chunk = legacyRel.startsWith("-") ? legacyRel : `- ${legacyRel}`;
+              this.sectionValues["관계"] = cur ? `${cur}\n${chunk}` : chunk;
+              this.propValues.relationship = "";
+              this.onOpen();
+            };
+          }
+          renderRelationshipPicker(relField, this.propValues.relationship || "", (value) => {
+            this.propValues.relationship = value;
+            syncMeta();
           });
 
-          if (!sections.length) {
-            scroll.createEl("div", {
-              text: "아직 작성된 본문이 거의 없습니다. 사건·메모·빠른 수정으로 맥락을 채워 보세요.",
-              attr: { class: "ppw-empty" }
+          const propsGrid = propsBlock.createDiv({ attr: { class: "ppw-edit-grid" } });
+          propFields.forEach((key) => {
+            if (key === "relationship") return; // chips above
+            const wrap = propsGrid.createDiv({ attr: { class: "ppw-edit-field" } });
+            wrap.createEl("label", {
+              text: fieldLabel(key),
+              attr: { class: "ppw-edit-label" }
             });
-          } else {
-            sections.forEach((section) => {
-              if (section.isEmpty) return;
-              const block = scroll.createDiv({ attr: { class: "ppw-preview-section" } });
-              if (section.title) {
-                block.createEl("h3", { text: section.title, attr: { class: "ppw-preview-h" } });
+            const input = wrap.createEl("input", {
+              attr: {
+                type: key === "email" ? "email" : "text",
+                class: "ppw-edit-input",
+                placeholder: key === "last_contact" ? "YYYY-MM-DD" : fieldLabel(key),
+                autocomplete: "off",
+                spellcheck: key === "email" || key === "phone" ? "false" : "true"
               }
-              const bodyEl = block.createDiv({ attr: { class: "ppw-preview-body markdown-preview-view" } });
-              // fire-and-forget async render
-              renderMarkdownInto(this.app, bodyEl, section.body, this.model.path).then((comp) => {
-                if (comp) this._mdComponents.push(comp);
-              });
             });
-          }
-
-          const footer = contentEl.createDiv({ attr: { class: "ppw-preview-footer" } });
-          const left = footer.createDiv({ attr: { style: "display:flex;gap:6px;flex-wrap:wrap;" } });
-          const right = footer.createDiv({ attr: { style: "display:flex;gap:6px;flex-wrap:wrap;" } });
-
-          const eventBtn = left.createEl("button", { text: "사건 추가", attr: { type: "button" } });
-          eventBtn.onclick = () => openAddInteractionFlow(this.app, this.model.path, async () => {
-            if (typeof onChanged === "function") await onChanged();
-            // refresh modal content
-            try {
-              this.model = await root.PeopleStore.readPeopleNote(this.app, this.model.path);
-              this.onOpen();
-            } catch (_e) { /* ignore */ }
+            input.value = this.propValues[key] || "";
+            input.oninput = () => {
+              this.propValues[key] = input.value;
+              if (key === "company" || key === "role") syncMeta();
+              if (this.subEl && key === "last_contact") {
+                const lc = String(input.value || "").trim();
+                if (lc) {
+                  this.subEl.setText(`최근 연락 ${lc}`);
+                  this.subEl.style.display = "";
+                } else {
+                  this.subEl.setText("");
+                  this.subEl.style.display = "none";
+                }
+              }
+            };
           });
 
-          const memoBtn = left.createEl("button", { text: "메모 추가", attr: { type: "button" } });
-          memoBtn.onclick = () => openAddMemoFlow(this.app, this.model.path, async () => {
+          // Primary sections
+          const primaryWrap = scroll.createDiv({ attr: { class: "ppw-edit-group" } });
+          primaryWrap.createEl("div", { text: "본문", attr: { class: "ppw-edit-group-title" } });
+          primarySections.forEach((title) => {
+            if (sectionTitles.indexOf(title) === -1) return;
+            this._renderSectionBlock(primaryWrap, title);
+          });
+
+          // Secondary sections (collapsed visual weight)
+          const secondaryWrap = scroll.createDiv({ attr: { class: "ppw-edit-group ppw-edit-group-secondary" } });
+          secondaryWrap.createEl("div", { text: "성찰 · 소통", attr: { class: "ppw-edit-group-title" } });
+          secondarySections.forEach((title) => {
+            if (sectionTitles.indexOf(title) === -1) return;
+            this._renderSectionBlock(secondaryWrap, title);
+          });
+
+          // --- Footer ---
+          const footer = shell.createDiv({ attr: { class: "ppw-preview-footer" } });
+          const left = footer.createDiv({ attr: { class: "ppw-preview-footer-left prodigy-btn-row" } });
+          const mid = footer.createDiv({ attr: { class: "ppw-preview-footer-mid" } });
+          const right = footer.createDiv({ attr: { class: "ppw-preview-footer-right prodigy-btn-row" } });
+
+          this.statusEl = mid.createEl("div", {
+            text: "",
+            attr: { class: "ppw-edit-status" }
+          });
+
+          const refreshSelf = async () => {
             if (typeof onChanged === "function") await onChanged();
             try {
               this.model = await root.PeopleStore.readPeopleNote(this.app, this.model.path);
+              this.propValues = Object.assign({}, this.model.properties || {});
+              this._hydrateSections(this.model);
+              this.busy = false;
               this.onOpen();
             } catch (_e) { /* ignore */ }
-          });
+          };
 
-          const editBtn = left.createEl("button", { text: "빠른 수정", attr: { type: "button" } });
-          editBtn.onclick = () => openQuickEditFlow(this.app, this.model.path, async () => {
-            if (typeof onChanged === "function") await onChanged();
-            try {
-              this.model = await root.PeopleStore.readPeopleNote(this.app, this.model.path);
-              this.onOpen();
-            } catch (_e) { /* ignore */ }
-          });
+          const eventBtn = btn(left, "사건 추가");
+          eventBtn.onclick = () => openAddInteractionFlow(this.app, this.model.path, refreshSelf);
 
-          const sideBtn = right.createEl("button", { text: "편집기에서 열기", attr: { type: "button" } });
+          const memoBtn = btn(left, "메모 추가");
+          memoBtn.onclick = () => openAddMemoFlow(this.app, this.model.path, refreshSelf);
+
+          const sideBtn = btn(left, "원본 노트");
           sideBtn.onclick = () => openBeside(this.app, this.model.path);
 
-          const closeBtn = right.createEl("button", {
-            text: "닫기",
-            attr: { type: "button", class: "mod-cta" }
-          });
+          const closeBtn = btn(right, "닫기");
           closeBtn.onclick = () => {
             this.close();
             resolve(this.model);
           };
+
+          this.saveBtn = btn(right, "저장", { primary: true });
+          this.saveBtn.onclick = () => this.submit();
+          this.statusEl.setText("⌘/Ctrl+S 저장");
+        }
+        async submit() {
+          if (this.busy) return;
+          this.busy = true;
+          // Snapshot so failed save keeps in-memory edits
+          const snapshotProps = Object.assign({}, this.propValues);
+          const snapshotSections = Object.assign({}, this.sectionValues);
+          if (this.saveBtn) this.saveBtn.disabled = true;
+          if (this.statusEl) {
+            this.statusEl.setText("저장 중…");
+            this.statusEl.style.color = "var(--text-muted)";
+          }
+          try {
+            const edits = {
+              properties: snapshotProps,
+              sections: snapshotSections
+            };
+            const result = await root.PeopleStore.savePeopleNote(
+              this.app,
+              this.model.path,
+              edits
+            );
+            this.model = result;
+            this.propValues = Object.assign({}, result.properties || {});
+            this._hydrateSections(result);
+            notice(`저장했습니다: ${result.name}`);
+            if (typeof onChanged === "function") {
+              try { await onChanged(result); } catch (_e) { /* ignore */ }
+            }
+            this.busy = false;
+            this.onOpen();
+            if (this.statusEl) {
+              this.statusEl.setText("저장됨 · ⌘/Ctrl+S");
+              this.statusEl.style.color = "var(--text-muted)";
+            }
+          } catch (error) {
+            // Restore draft values (do not wipe form)
+            this.propValues = snapshotProps;
+            this.sectionValues = snapshotSections;
+            this.busy = false;
+            if (this.saveBtn) this.saveBtn.disabled = false;
+            if (this.statusEl) {
+              this.statusEl.setText(`저장 실패: ${error.message || String(error)} · 입력은 유지됨`);
+              this.statusEl.style.color = "var(--text-error)";
+            }
+            notice(error.message || String(error), 9000);
+          }
         }
         onClose() {
-          (this._mdComponents || []).forEach((c) => {
-            try {
-              if (c && typeof c.unload === "function") c.unload();
-            } catch (_e) { /* ignore */ }
-          });
-          this._mdComponents = [];
+          if (this.modalEl && this._keyHandler) {
+            try { this.modalEl.removeEventListener("keydown", this._keyHandler); } catch (_e) { /* ignore */ }
+          }
+          this._keyHandler = null;
+          if (this.modalEl) {
+            if (typeof this.modalEl.removeClass === "function") this.modalEl.removeClass("ppw-modal");
+            else if (this.modalEl.classList) this.modalEl.classList.remove("ppw-modal");
+          }
           this.contentEl.empty();
         }
       }
@@ -377,132 +960,11 @@
   }
 
   /**
-   * Quick-edit modal: whitelist properties only.
-   * @param {object} app
-   * @param {string} path
-   * @param {function} [onSaved]
+   * @deprecated Use openPersonPreview — relation popup covers property + body edit.
+   * Kept as a thin alias so older call sites still work.
    */
   async function openQuickEditFlow(app, path, onSaved) {
-    const host = app || root.app || (typeof window !== "undefined" ? window.app : null);
-    if (!host) {
-      notice("Obsidian 앱 컨텍스트가 필요합니다.");
-      return null;
-    }
-    if (!root.PeopleStore || !root.PeopleCore) {
-      notice("People 모듈을 불러오지 못했습니다.");
-      return null;
-    }
-
-    let snapshot;
-    try {
-      snapshot = await root.PeopleStore.readPeopleProperties(host, path);
-    } catch (error) {
-      notice(error.message || String(error), 9000);
-      return null;
-    }
-
-    const Modal = root.obsidian && root.obsidian.Modal;
-    if (!Modal) {
-      notice("모달을 열 수 없습니다. 원본 노트를 엽니다.");
-      await openPath(host, path);
-      return null;
-    }
-
-    return new Promise((resolve) => {
-      class PeopleQuickEditModal extends Modal {
-        constructor(appInstance, data) {
-          super(appInstance);
-          this.data = data;
-          this.values = Object.assign({}, data.values || {});
-          this.busy = false;
-        }
-        onOpen() {
-          const { contentEl } = this;
-          contentEl.empty();
-          const typeNote = this.data.type === "contact"
-            ? "레거시 contact — 읽기 호환 필드만 수정합니다. type은 바꾸지 않습니다."
-            : "관계 맥락의 핵심 Property만 수정합니다. 긴 서사는 원본 노트에 둡니다.";
-
-          contentEl.createEl("h2", {
-            text: `빠른 수정 · ${this.data.title}`,
-            attr: { style: "margin:0 0 6px;font-size:1.12em;" }
-          });
-          contentEl.createEl("p", {
-            text: typeNote,
-            attr: { style: "font-size:0.82em;color:var(--text-muted);margin:0 0 12px;line-height:1.45;" }
-          });
-
-          const fields = root.PeopleCore.QUICK_EDIT_FIELDS;
-          fields.forEach((key) => {
-            const wrap = contentEl.createEl("div", {
-              attr: { style: "margin-bottom:10px;" }
-            });
-            wrap.createEl("label", {
-              text: fieldLabel(key),
-              attr: { style: "display:block;font-size:0.78em;font-weight:700;margin-bottom:4px;color:var(--text-muted);" }
-            });
-            const input = wrap.createEl("input", {
-              attr: {
-                type: key === "email" ? "email" : (key === "last_contact" ? "text" : "text"),
-                placeholder: key === "last_contact" ? "YYYY-MM-DD" : "",
-                style: "width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid var(--background-modifier-border);background:var(--background-primary);"
-              }
-            });
-            input.value = this.values[key] || "";
-            input.oninput = () => { this.values[key] = input.value; };
-          });
-
-          const footer = contentEl.createEl("div", {
-            attr: { style: "display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;" }
-          });
-
-          const cancel = footer.createEl("button", { text: "취소", attr: { type: "button" } });
-          cancel.onclick = () => {
-            this.close();
-            resolve(null);
-          };
-          this.saveBtn = footer.createEl("button", {
-            text: "저장",
-            attr: { type: "button", class: "mod-cta" }
-          });
-          this.saveBtn.onclick = () => this.submit();
-
-          this.statusEl = contentEl.createEl("div", {
-            text: "",
-            attr: { style: "margin-top:10px;font-size:0.8em;color:var(--text-muted);" }
-          });
-        }
-        async submit() {
-          if (this.busy) return;
-          this.busy = true;
-          this.saveBtn.disabled = true;
-          this.statusEl.setText("저장 중...");
-          this.statusEl.style.color = "var(--text-muted)";
-          try {
-            const result = await root.PeopleStore.updatePeopleProperties(
-              this.app,
-              this.data.path,
-              this.values
-            );
-            notice(`저장했습니다: ${this.data.title}`);
-            if (typeof onSaved === "function") {
-              try { await onSaved(result); } catch (_e) { /* ignore refresh errors */ }
-            }
-            this.close();
-            resolve(result);
-          } catch (error) {
-            this.statusEl.setText(error.message || String(error));
-            this.statusEl.style.color = "var(--text-error)";
-            this.busy = false;
-            this.saveBtn.disabled = false;
-          }
-        }
-        onClose() {
-          this.contentEl.empty();
-        }
-      }
-      new PeopleQuickEditModal(host, snapshot).open();
-    });
+    return openPersonPreview(app, path, onSaved);
   }
 
   /**
@@ -666,6 +1128,241 @@
   }
 
   /**
+   * Confirm and remove one memo line under # 메모.
+   * @param {object} app
+   * @param {string} path
+   * @param {{ text?: string, index?: number }} target
+   * @param {function} [onRemoved]
+   */
+  async function openRemoveMemoFlow(app, path, target, onRemoved) {
+    const host = app || root.app || (typeof window !== "undefined" ? window.app : null);
+    if (!host) {
+      notice("Obsidian 앱 컨텍스트가 필요합니다.");
+      return null;
+    }
+    if (!root.PeopleStore || !root.PeopleCore) {
+      notice("People 모듈을 불러오지 못했습니다.");
+      return null;
+    }
+
+    const filePath = String(path || "");
+    const name = filePath.split("/").pop().replace(/\.md$/i, "") || "이 사람";
+    const preview = String(
+      (target && (target.text || target.line)) || ""
+    ).trim() || "(메모)";
+
+    const Modal = root.obsidian && root.obsidian.Modal;
+    if (!Modal) {
+      const ok = typeof window !== "undefined" && window.confirm
+        ? window.confirm(`메모를 삭제할까요?\n\n${preview}`)
+        : true;
+      if (!ok) return null;
+      try {
+        const result = await root.PeopleStore.removeMemo(host, filePath, target);
+        notice("메모를 삭제했습니다.");
+        if (typeof onRemoved === "function") await onRemoved(result);
+        return result;
+      } catch (error) {
+        notice(error.message || String(error), 9000);
+        return null;
+      }
+    }
+
+    return new Promise((resolve) => {
+      class PeopleRemoveMemoModal extends Modal {
+        constructor(appInstance) {
+          super(appInstance);
+          this.busy = false;
+        }
+        onOpen() {
+          const { contentEl } = this;
+          contentEl.empty();
+          contentEl.createEl("h2", {
+            text: "메모 삭제",
+            attr: { style: "margin:0 0 8px;font-size:1.12em;" }
+          });
+          contentEl.createEl("p", {
+            text: `「${name}」의 메모를 삭제할까요?`,
+            attr: { style: "font-size:0.92em;margin:0 0 8px;font-weight:700;" }
+          });
+          contentEl.createEl("p", {
+            text: preview,
+            attr: {
+              style: "font-size:0.88em;margin:0 0 14px;padding:8px 10px;border-radius:8px;background:var(--background-secondary);border:1px solid var(--background-modifier-border);line-height:1.45;overflow-wrap:anywhere;"
+            }
+          });
+          const footer = contentEl.createEl("div", {
+            attr: { style: "display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;" }
+          });
+          const cancel = footer.createEl("button", { text: "취소", attr: { type: "button" } });
+          cancel.onclick = () => {
+            this.close();
+            resolve(null);
+          };
+          this.deleteBtn = footer.createEl("button", {
+            text: "삭제",
+            attr: {
+              type: "button",
+              class: "mod-warning",
+              style: "background:var(--text-error);color:var(--text-on-accent);border-color:var(--text-error);"
+            }
+          });
+          this.deleteBtn.onclick = () => this.submit();
+          this.statusEl = contentEl.createEl("div", {
+            text: "",
+            attr: { style: "margin-top:10px;font-size:0.8em;color:var(--text-muted);" }
+          });
+        }
+        async submit() {
+          if (this.busy) return;
+          this.busy = true;
+          this.deleteBtn.disabled = true;
+          this.statusEl.setText("삭제 중…");
+          try {
+            const result = await root.PeopleStore.removeMemo(this.app, filePath, target);
+            const removedText = (result && result.removed) || preview;
+            if (typeof onRemoved === "function") {
+              try { await onRemoved(result); } catch (_e) { /* ignore */ }
+            }
+            this.close();
+            showUndoToast("메모를 삭제했습니다.", async () => {
+              await root.PeopleStore.appendMemo(host, filePath, { text: removedText });
+              notice("메모를 복구했습니다.");
+              if (typeof onRemoved === "function") await onRemoved({ restored: true, path: filePath });
+            });
+            resolve(result);
+          } catch (error) {
+            this.statusEl.setText(error.message || String(error));
+            this.statusEl.style.color = "var(--text-error)";
+            this.busy = false;
+            this.deleteBtn.disabled = false;
+          }
+        }
+        onClose() {
+          this.contentEl.empty();
+        }
+      }
+      new PeopleRemoveMemoModal(host).open();
+    });
+  }
+
+  /**
+   * Confirm and remove one interaction line under # 핵심 상호작용.
+   */
+  async function openRemoveInteractionFlow(app, path, target, onRemoved) {
+    const host = app || root.app || (typeof window !== "undefined" ? window.app : null);
+    if (!host) {
+      notice("Obsidian 앱 컨텍스트가 필요합니다.");
+      return null;
+    }
+    if (!root.PeopleStore || !root.PeopleCore) {
+      notice("People 모듈을 불러오지 못했습니다.");
+      return null;
+    }
+
+    const filePath = String(path || "");
+    const name = filePath.split("/").pop().replace(/\.md$/i, "") || "이 사람";
+    const preview = String((target && (target.text || target.line)) || "").trim() || "(사건)";
+
+    const Modal = root.obsidian && root.obsidian.Modal;
+    if (!Modal) {
+      const ok = typeof window !== "undefined" && window.confirm
+        ? window.confirm(`사건을 삭제할까요?\n\n${preview}`)
+        : true;
+      if (!ok) return null;
+      try {
+        const result = await root.PeopleStore.removeInteraction(host, filePath, target);
+        notice("사건을 삭제했습니다.");
+        if (typeof onRemoved === "function") await onRemoved(result);
+        return result;
+      } catch (error) {
+        notice(error.message || String(error), 9000);
+        return null;
+      }
+    }
+
+    return new Promise((resolve) => {
+      class PeopleRemoveInteractionModal extends Modal {
+        constructor(appInstance) {
+          super(appInstance);
+          this.busy = false;
+        }
+        onOpen() {
+          const { contentEl } = this;
+          contentEl.empty();
+          contentEl.createEl("h2", {
+            text: "사건 삭제",
+            attr: { style: "margin:0 0 8px;font-size:1.12em;" }
+          });
+          contentEl.createEl("p", {
+            text: `「${name}」의 사건을 삭제할까요?`,
+            attr: { style: "font-size:0.92em;margin:0 0 8px;font-weight:700;" }
+          });
+          contentEl.createEl("p", {
+            text: preview,
+            attr: {
+              style: "font-size:0.88em;margin:0 0 14px;padding:8px 10px;border-radius:8px;background:var(--background-secondary);border:1px solid var(--background-modifier-border);line-height:1.45;overflow-wrap:anywhere;"
+            }
+          });
+          const footer = contentEl.createEl("div", {
+            attr: { style: "display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;" }
+          });
+          const cancel = footer.createEl("button", { text: "취소", attr: { type: "button" } });
+          cancel.onclick = () => {
+            this.close();
+            resolve(null);
+          };
+          this.deleteBtn = footer.createEl("button", {
+            text: "삭제",
+            attr: {
+              type: "button",
+              class: "mod-warning",
+              style: "background:var(--text-error);color:var(--text-on-accent);border-color:var(--text-error);"
+            }
+          });
+          this.deleteBtn.onclick = () => this.submit();
+          this.statusEl = contentEl.createEl("div", {
+            text: "",
+            attr: { style: "margin-top:10px;font-size:0.8em;color:var(--text-muted);" }
+          });
+        }
+        async submit() {
+          if (this.busy) return;
+          this.busy = true;
+          this.deleteBtn.disabled = true;
+          this.statusEl.setText("삭제 중…");
+          try {
+            const result = await root.PeopleStore.removeInteraction(this.app, filePath, target);
+            const removedText = (result && result.removed) || preview;
+            if (typeof onRemoved === "function") {
+              try { await onRemoved(result); } catch (_e) { /* ignore */ }
+            }
+            this.close();
+            showUndoToast("사건을 삭제했습니다.", async () => {
+              await root.PeopleStore.appendKeyInteraction(host, filePath, {}, {
+                rawLine: removedText,
+                updateLastContact: false
+              });
+              notice("사건을 복구했습니다.");
+              if (typeof onRemoved === "function") await onRemoved({ restored: true, path: filePath });
+            });
+            resolve(result);
+          } catch (error) {
+            this.statusEl.setText(error.message || String(error));
+            this.statusEl.style.color = "var(--text-error)";
+            this.busy = false;
+            this.deleteBtn.disabled = false;
+          }
+        }
+        onClose() {
+          this.contentEl.empty();
+        }
+      }
+      new PeopleRemoveInteractionModal(host).open();
+    });
+  }
+
+  /**
    * Add a factual one-line note under # 메모 (not a dated interaction event).
    */
   async function openAddMemoFlow(app, path, onSaved) {
@@ -794,69 +1491,429 @@
 
   function ensureWorkspaceStyles() {
     if (typeof document === "undefined") return;
-    if (document.getElementById(WORKSPACE_STYLE_ID)) return;
-    const style = document.createElement("style");
-    style.id = WORKSPACE_STYLE_ID;
+    let style = document.getElementById(WORKSPACE_STYLE_ID);
+    if (!style) {
+      style = document.createElement("style");
+      style.id = WORKSPACE_STYLE_ID;
+      document.head.appendChild(style);
+    }
+    // Always refresh so modal CSS updates after script reload
     style.textContent = `
 .prodigy-people-workspace{max-width:980px;margin:0 auto;padding:8px 8px 24px}
 .ppw-header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:4px 0 16px;border-bottom:1px solid var(--background-modifier-border);flex-wrap:wrap}
 .ppw-header h1{margin:0;font-size:1.45em}
 .ppw-header p{margin:6px 0 0;color:var(--text-muted);font-size:.84em;line-height:1.45;max-width:36em}
 .ppw-toolbar{display:flex;flex-direction:column;gap:10px;padding:14px 0 8px}
+.ppw-toolbar-row{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.ppw-toolbar-label{
+  flex:0 0 auto;margin-top:6px;font-size:.72em;font-weight:800;
+  color:var(--text-muted);letter-spacing:.03em;min-width:2.2em;
+}
 .ppw-search{width:100%;box-sizing:border-box;min-height:44px;padding:10px 12px;border-radius:8px;border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);font-size:.95em}
-.ppw-filters{display:flex;flex-wrap:wrap;gap:6px}
-.ppw-filter{min-height:36px;padding:6px 12px;border-radius:999px;border:1px solid var(--background-modifier-border);background:var(--background-secondary);color:var(--text-muted);font-size:.78em;font-weight:700;cursor:pointer}
+.ppw-filters{display:flex;flex-wrap:wrap;gap:4px;flex:1 1 auto;min-width:0}
+.ppw-filter{
+  min-height:0;height:auto;padding:3px 10px;border-radius:999px;
+  border:1px solid var(--background-modifier-border);background:var(--background-secondary);
+  color:var(--text-muted);font-size:.74em;font-weight:700;cursor:pointer;line-height:1.35;
+  -webkit-appearance:none;appearance:none;
+}
+.ppw-filter:hover{background:var(--background-modifier-hover);color:var(--text-normal)}
 .ppw-filter.is-active{background:var(--interactive-accent);color:var(--text-on-accent);border-color:var(--interactive-accent)}
+.ppw-sorts .ppw-sort{min-width:4.5em}
 .ppw-count{font-size:.78em;color:var(--text-muted)}
 .ppw-list{display:flex;flex-direction:column;gap:10px;padding:8px 0 4px}
 .ppw-card{border:1px solid var(--background-modifier-border);border-radius:10px;background:var(--background-secondary);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .ppw-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ppw-name-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
 .ppw-name{margin:0;font-size:1.05em;font-weight:800;color:var(--text-accent);cursor:pointer;border-bottom:1px solid transparent}
 .ppw-name:hover{border-bottom-color:var(--text-accent)}
+.ppw-trash{cursor:pointer;opacity:0.4;font-size:0.9em;transition:opacity 0.2s;flex-shrink:0;line-height:1;user-select:none}
+.ppw-trash:hover{opacity:1}
 .ppw-badge{font-size:.7em;font-weight:700;color:var(--text-muted);border:1px solid var(--background-modifier-border);border-radius:4px;padding:2px 6px}
 .ppw-meta{font-size:.84em;color:var(--text-normal);line-height:1.4;overflow-wrap:anywhere}
 .ppw-sub{font-size:.78em;color:var(--text-muted);line-height:1.4}
+.ppw-memo{
+  margin-top:2px;padding:8px 10px;border-radius:8px;
+  background:var(--background-primary);
+  border:1px solid var(--background-modifier-border);
+}
+.ppw-memo-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px}
+.ppw-memo-title{font-size:.72em;font-weight:800;color:var(--text-muted);letter-spacing:.02em}
+.ppw-memo-more{font-size:.7em;font-weight:700;color:var(--text-faint)}
+.ppw-memo-list{display:flex;flex-direction:column;gap:2px}
+.ppw-memo-row{
+  display:flex;align-items:flex-start;gap:6px;
+  min-width:0;
+}
+.ppw-memo-line{
+  flex:1 1 auto;min-width:0;
+  font-size:.88em;line-height:1.45;color:var(--text-normal);
+  overflow-wrap:anywhere;
+  padding-left:0.85em;position:relative;
+}
+.ppw-memo-line::before{
+  content:"·";position:absolute;left:0;color:var(--text-muted);font-weight:700;
+}
+.ppw-memo-del{
+  flex:0 0 auto;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:1.35em;height:1.35em;margin-top:1px;padding:0;
+  border-radius:4px;border:1px solid transparent;
+  background:transparent;color:var(--text-faint);
+  font-size:.95em;font-weight:700;line-height:1;cursor:pointer;
+  opacity:0.55;-webkit-appearance:none;appearance:none;
+}
+.ppw-memo-del:hover{
+  opacity:1;color:var(--text-error);
+  background:color-mix(in srgb, var(--text-error) 10%, transparent);
+  border-color:color-mix(in srgb, var(--text-error) 25%, var(--background-modifier-border));
+}
+.ppw-events{border-style:dashed}
+.ppw-search-hint,.ppw-classify-hint{
+  font-size:.74em;font-weight:600;color:var(--text-accent);line-height:1.35;
+}
+.ppw-classify-hint{color:var(--text-muted);font-weight:500}
+.ppw-card-flash{
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--interactive-accent) 55%, transparent);
+  transition:box-shadow .3s ease;
+}
+.ppw-context-types{display:flex;flex-wrap:wrap;gap:3px;margin:0 0 6px}
+.ppw-ctx-type{
+  min-height:0;padding:1px 7px;border-radius:999px;font-size:.68em;font-weight:700;
+  border:1px solid var(--background-modifier-border);background:var(--background-primary);
+  color:var(--text-muted);cursor:pointer;line-height:1.3;-webkit-appearance:none;appearance:none;
+}
+.ppw-ctx-type.is-active{
+  border-color:var(--interactive-accent);
+  background:color-mix(in srgb, var(--interactive-accent) 16%, var(--background-secondary));
+  color:var(--text-normal);
+}
+.ppw-edit-line-list{display:flex;flex-direction:column;gap:4px;margin:6px 0 8px}
+.ppw-edit-line-row{
+  display:flex;align-items:flex-start;gap:6px;padding:6px 8px;border-radius:6px;
+  background:var(--background-primary);border:1px solid var(--background-modifier-border);
+}
+.ppw-edit-line-text{flex:1 1 auto;font-size:.9em;line-height:1.45;overflow-wrap:anywhere}
+.ppw-edit-line-empty{font-size:.82em;color:var(--text-faint);padding:4px 0}
+.ppw-edit-line-add{display:flex;gap:6px;align-items:center}
+.ppw-edit-line-add .ppw-edit-input{flex:1 1 auto}
+.ppw-undo-toast{
+  position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10000;
+  display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;
+  background:var(--background-secondary);border:1px solid var(--background-modifier-border);
+  box-shadow:0 8px 28px color-mix(in srgb, #000 25%, transparent);
+  font-size:.86em;color:var(--text-normal);max-width:min(92vw,420px);
+}
+.ppw-undo-btn{
+  flex:0 0 auto;padding:2px 10px;border-radius:6px;font-size:.82em;font-weight:700;cursor:pointer;
+  border:1px solid var(--interactive-accent);background:var(--interactive-accent);color:var(--text-on-accent);
+  -webkit-appearance:none;appearance:none;
+}
 .ppw-context{margin-top:2px;padding-top:8px;border-top:1px solid var(--background-modifier-border)}
-.ppw-context-title{font-size:.72em;font-weight:700;color:var(--text-muted);margin-bottom:6px;letter-spacing:.02em}
+.ppw-context-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px}
+.ppw-context-title{font-size:.72em;font-weight:700;color:var(--text-muted);letter-spacing:.02em}
+.ppw-context-count{font-size:.7em;font-weight:600;color:var(--text-faint)}
 .ppw-context-item{display:flex;flex-direction:column;gap:1px;padding:4px 0;cursor:pointer;border-radius:4px}
 .ppw-context-item:hover{background:var(--background-modifier-hover)}
 .ppw-context-item strong{font-size:.86em;overflow-wrap:anywhere}
 .ppw-context-item span{font-size:.74em;color:var(--text-muted)}
+.ppw-context-more{margin-top:2px;padding-top:4px;border-top:1px dashed var(--background-modifier-border)}
+.ppw-context-toggle{
+  display:inline-flex;align-items:center;justify-content:center;
+  margin-top:4px;padding:1px 8px;min-height:0;height:auto;
+  border-radius:999px;border:1px solid var(--background-modifier-border);
+  background:var(--background-primary);color:var(--text-muted);
+  font-size:.72em;font-weight:700;line-height:1.35;cursor:pointer;
+  -webkit-appearance:none;appearance:none;
+}
+.ppw-context-toggle:hover{background:var(--background-modifier-hover);color:var(--text-normal)}
 .ppw-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-.ppw-actions button{min-height:36px}
-.ppw-related{margin-top:6px;padding:8px 10px;border-radius:8px;background:var(--background-primary);border:1px solid var(--background-modifier-border)}
+.ppw-actions button{min-height:0}
 .ppw-related-empty,.ppw-empty{padding:18px 4px;color:var(--text-muted);font-size:.88em;line-height:1.5}
 .ppw-areas{margin-top:28px;padding-top:12px;border-top:1px solid var(--background-modifier-border);opacity:.92}
 .ppw-areas summary{cursor:pointer;font-weight:700;font-size:.95em;color:var(--text-muted);list-style:none}
 .ppw-areas summary::-webkit-details-marker{display:none}
-.ppw-preview-modal{display:flex;flex-direction:column;gap:0;max-height:min(88vh,900px)}
-.ppw-preview-head{padding:0 0 12px;border-bottom:1px solid var(--background-modifier-border)}
-.ppw-preview-props{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0}
-.ppw-prop-chip{display:inline-flex;flex-direction:column;gap:1px;padding:6px 10px;border-radius:8px;background:var(--background-secondary);border:1px solid var(--background-modifier-border);font-size:.82em;max-width:100%}
-.ppw-prop-chip em{font-style:normal;font-size:.72em;color:var(--text-muted);font-weight:700}
-.ppw-prop-chip span{overflow-wrap:anywhere}
-.ppw-preview-scroll{overflow:auto;flex:1 1 auto;padding:8px 2px 12px;max-height:min(58vh,620px)}
-.ppw-preview-section{margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid var(--background-modifier-border)}
-.ppw-preview-section:last-child{border-bottom:0}
-.ppw-preview-h{margin:0 0 8px;font-size:.95em;font-weight:800;color:var(--text-normal)}
-.ppw-preview-body{font-size:.9em;line-height:1.55}
-.ppw-preview-body p{margin:0.4em 0}
-.ppw-preview-body ul{margin:0.35em 0;padding-left:1.2em}
-.ppw-preview-footer{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--background-modifier-border)}
-.ppw-preview-footer button{min-height:36px}
-@media(max-width:600px){
+
+/* ===== Relation edit modal (desktop-first, mobile-narrow) ===== */
+.modal.ppw-modal{
+  width:min(960px, calc(100vw - 48px)) !important;
+  max-width:960px !important;
+  height:auto !important;
+  max-height:min(92vh, 1040px) !important;
+  padding:0 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  border-radius:12px !important;
+  border:1px solid var(--background-modifier-border);
+  background:var(--modal-background, var(--background-primary));
+  box-shadow:0 12px 40px color-mix(in srgb, var(--background-modifier-box-shadow, #000) 28%, transparent);
+}
+.modal.ppw-modal .modal-close-button{z-index:3;top:10px;right:12px}
+.modal.ppw-modal .modal-content,
+.ppw-preview-modal{
+  display:flex !important;
+  flex-direction:column !important;
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  max-height:inherit !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+}
+.ppw-preview-shell{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  flex:1 1 auto;
+  max-height:min(92vh, 1040px);
+}
+.ppw-preview-head{
+  flex:0 0 auto;
+  padding:18px 22px 14px;
+  border-bottom:1px solid var(--background-modifier-border);
+  background:var(--background-primary);
+}
+.ppw-preview-kicker{
+  font-size:.7em;
+  font-weight:700;
+  color:var(--text-muted);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  margin:0 0 8px;
+}
+.ppw-preview-title-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding-right:28px; /* room for Obsidian close */
+}
+.ppw-preview-title-main{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  flex-wrap:wrap;
+}
+.ppw-preview-title{
+  margin:0;
+  font-size:1.55em;
+  font-weight:800;
+  letter-spacing:-0.02em;
+  line-height:1.2;
+  color:var(--text-normal);
+  overflow-wrap:anywhere;
+}
+.ppw-preview-trash{margin-top:4px;font-size:1em}
+.ppw-preview-meta{
+  margin-top:8px;
+  font-size:.92em;
+  font-weight:600;
+  color:var(--text-normal);
+  line-height:1.45;
+  overflow-wrap:anywhere;
+}
+.ppw-preview-meta.is-empty{
+  font-weight:500;
+  color:var(--text-faint);
+  font-style:italic;
+}
+.ppw-preview-sub{
+  margin-top:4px;
+  font-size:.8em;
+  color:var(--text-muted);
+  line-height:1.4;
+}
+.ppw-preview-scroll{
+  flex:1 1 auto;
+  min-height:0;
+  overflow:auto;
+  padding:16px 22px 18px;
+  -webkit-overflow-scrolling:touch;
+  background:var(--background-primary);
+}
+.ppw-edit-group{margin:0 0 18px}
+.ppw-edit-group:last-child{margin-bottom:4px}
+.ppw-edit-group-title,
+.ppw-edit-panel-title{
+  font-size:.72em;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--text-muted);
+  margin:0 0 10px;
+}
+.ppw-edit-group-secondary{
+  opacity:.96;
+  padding-top:4px;
+  border-top:1px dashed var(--background-modifier-border);
+}
+.ppw-edit-panel{
+  margin:0 0 12px;
+  padding:14px 16px;
+  border-radius:10px;
+  background:var(--background-secondary);
+  border:1px solid var(--background-modifier-border);
+}
+.ppw-edit-panel:last-child{margin-bottom:0}
+.ppw-edit-props{padding:14px 16px 16px}
+.ppw-edit-field-full{margin-bottom:12px}
+.ppw-edit-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:12px 14px;
+}
+.ppw-edit-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.ppw-rel-picker{display:flex;flex-direction:column;gap:6px}
+.ppw-rel-hint{font-size:.74em;color:var(--text-faint);line-height:1.4}
+.ppw-rel-chips{display:flex;flex-wrap:wrap;gap:4px}
+.ppw-rel-chip{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:0;height:auto;padding:2px 9px;border-radius:999px;
+  font-size:.74em;font-weight:700;line-height:1.35;cursor:pointer;
+  border:1px solid var(--background-modifier-border);
+  background:var(--background-primary);color:var(--text-muted);
+  -webkit-appearance:none;appearance:none;
+}
+.ppw-rel-chip:hover{background:var(--background-modifier-hover);color:var(--text-normal)}
+.ppw-rel-chip.is-active{
+  border-color:var(--interactive-accent) !important;
+  background:color-mix(in srgb,var(--interactive-accent) 18%, var(--background-secondary)) !important;
+  color:var(--text-normal) !important;
+}
+.ppw-rel-legacy{
+  margin-top:2px;padding:6px 8px;border-radius:6px;
+  background:color-mix(in srgb, var(--text-accent) 8%, var(--background-primary));
+  border:1px dashed var(--background-modifier-border);
+  font-size:.76em;line-height:1.4;
+}
+.ppw-rel-legacy-text{font-weight:700;color:var(--text-normal)}
+.ppw-rel-legacy-hint{color:var(--text-muted)}
+.ppw-edit-label,
+.ppw-edit-section-label{
+  display:block;
+  font-size:.78em;
+  font-weight:700;
+  color:var(--text-muted);
+  letter-spacing:.01em;
+}
+.ppw-edit-section-label{margin-bottom:8px;font-size:.82em;color:var(--text-normal)}
+.ppw-edit-input,
+.ppw-edit-textarea{
+  width:100%;
+  box-sizing:border-box;
+  padding:9px 11px;
+  border-radius:6px;
+  border:1px solid var(--background-modifier-border);
+  background:var(--background-primary);
+  color:var(--text-normal);
+  font-family:var(--font-text, var(--font-interface, inherit));
+  font-size:.95em;
+  line-height:1.55;
+  transition:border-color .12s ease, box-shadow .12s ease;
+}
+.ppw-edit-input{min-height:2.4em}
+.ppw-edit-textarea{
+  resize:vertical;
+  min-height:5.2em;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.ppw-edit-textarea-lead{min-height:7.5em;font-size:.98em;line-height:1.6}
+.ppw-edit-input:focus,
+.ppw-edit-textarea:focus{
+  outline:none;
+  border-color:var(--interactive-accent);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+}
+.ppw-edit-input::placeholder,
+.ppw-edit-textarea::placeholder{color:var(--text-faint);opacity:.9}
+.ppw-preview-footer{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px 14px;
+  flex-wrap:wrap;
+  padding:10px 16px 12px;
+  border-top:1px solid var(--background-modifier-border);
+  background:var(--background-secondary);
+}
+.ppw-preview-footer-left,
+.ppw-preview-footer-right{
+  display:flex;
+  gap:4px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.ppw-preview-footer-mid{flex:1 1 auto;min-width:4em;text-align:center}
+.ppw-edit-status{
+  font-size:.75em;
+  color:var(--text-muted);
+  min-height:1.1em;
+  line-height:1.3;
+}
+.ppw-preview-footer .prodigy-btn,
+.ppw-preview-footer button{
+  min-height:0 !important;
+  height:auto !important;
+}
+
+/* Tablet */
+@media (max-width: 900px){
+  .modal.ppw-modal{
+    width:min(100%, calc(100vw - 24px)) !important;
+    max-width:calc(100vw - 24px) !important;
+  }
+  .ppw-edit-grid{grid-template-columns:repeat(2, minmax(0, 1fr))}
+  .ppw-preview-head{padding:14px 16px 12px}
+  .ppw-preview-scroll{padding:12px 14px 14px}
+}
+
+/* Mobile: narrow to viewport, denser but readable */
+@media (max-width: 600px){
   .prodigy-people-workspace{padding:4px 4px 32px}
   .ppw-header{flex-direction:column;align-items:stretch}
-  .ppw-filter{min-height:40px}
-  .ppw-actions{display:grid;grid-template-columns:1fr 1fr}
-  .ppw-actions button{min-height:44px;width:100%}
-  .ppw-actions button.ppw-action-primary{grid-column:1 / -1}
-  .ppw-preview-footer{flex-direction:column}
-  .ppw-preview-footer>div{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:6px}
-  .ppw-preview-footer button{min-height:44px;width:100%}
+  .ppw-filter{min-height:32px}
+  .ppw-actions{display:flex;flex-wrap:wrap;gap:3px}
+  .ppw-actions button{min-height:0;width:auto}
+
+  .modal.ppw-modal{
+    width:calc(100vw - 10px) !important;
+    max-width:calc(100vw - 10px) !important;
+    max-height:min(94vh, 100%) !important;
+    border-radius:10px !important;
+  }
+  .ppw-preview-shell{max-height:min(94vh, 100%)}
+  .ppw-preview-head{padding:12px 12px 10px}
+  .ppw-preview-title{font-size:1.28em}
+  .ppw-preview-title-row{padding-right:22px;gap:8px}
+  .ppw-preview-meta{font-size:.86em}
+  .ppw-preview-scroll{padding:10px 10px 12px}
+  .ppw-edit-grid{grid-template-columns:1fr;gap:10px}
+  .ppw-edit-panel{padding:10px 11px;margin-bottom:10px;border-radius:8px}
+  .ppw-edit-input,
+  .ppw-edit-textarea{font-size:.92em;padding:8px 9px;border-radius:5px}
+  .ppw-edit-textarea{min-height:4.6em}
+  .ppw-edit-textarea-lead{min-height:6em}
+  .ppw-preview-footer{
+    padding:8px 10px 10px;
+    gap:8px;
+    align-items:stretch;
+  }
+  .ppw-preview-footer-mid{order:3;width:100%;text-align:left;min-width:0}
+  .ppw-preview-footer-left,
+  .ppw-preview-footer-right{
+    flex:1 1 auto;
+  }
+  .ppw-preview-footer .prodigy-btn,
+  .ppw-preview-footer button{
+    padding:1px 7px !important;
+    font-size:.72em !important;
+  }
 }
 `;
-    document.head.appendChild(style);
   }
 
   function btn(parent, label, opts) {
@@ -894,18 +1951,29 @@
     const state = {
       query: (opts.model && opts.model.query) || "",
       filter: (opts.model && opts.model.filter) || "all",
-      expanded: Object.create(null)
+      sort: (opts.model && opts.model.sort) || opts.sort || "name_asc",
+      expanded: Object.create(null),
+      contextType: Object.create(null),
+      focusPath: opts.focusPath || ""
     };
+
+    function refreshAfterEdit(path) {
+      state.focusPath = path || state.focusPath;
+      if (typeof opts.onRefresh === "function") opts.onRefresh();
+      else paint();
+    }
 
     let model = opts.model || core.buildPeopleWorkspaceModel([], [], {});
     const rawPeople = opts.rawPeople || null;
     const sourcePages = opts.sourcePages || null;
+    let bodiesHydrated = false;
 
     function rebuildModel() {
       if (rawPeople && core.buildPeopleWorkspaceModel) {
         model = core.buildPeopleWorkspaceModel(rawPeople, sourcePages || [], {
           query: state.query,
           filter: state.filter,
+          sort: state.sort,
           maxPreview: 3
         });
       } else if (opts.model && rawPeople == null) {
@@ -914,27 +1982,58 @@
         // if opts.allPeople not set, use model as full set only when query empty first paint
         const full = opts.allPeople || model._all || base;
         const filtered = core.filterPeopleList(full, { query: state.query, filter: state.filter });
+        const sorted = core.sortPeopleList(filtered, { sort: state.sort });
         model = {
-          people: core.sortPeopleList(filtered),
+          people: sorted,
           total: full.length,
-          shown: filtered.length,
+          shown: sorted.length,
           query: state.query,
           filter: state.filter,
+          sort: state.sort,
           filters: core.WORKSPACE_FILTERS,
+          sorts: core.WORKSPACE_SORTS,
           empty: full.length === 0,
-          no_match: full.length > 0 && filtered.length === 0,
+          no_match: full.length > 0 && sorted.length === 0,
           _all: full
         };
       }
     }
 
+    /**
+     * Ensure each raw person has note body so # 메모 can show on cards.
+     * Hub may pass empty body if Dataview file objects were mis-read.
+     */
+    async function hydratePeopleBodies() {
+      if (bodiesHydrated || !rawPeople || !Array.isArray(rawPeople) || !app || !app.vault) return false;
+      if (typeof core.extractMemoLines !== "function") return false;
+      let changed = false;
+      for (let i = 0; i < rawPeople.length; i += 1) {
+        const row = rawPeople[i];
+        if (!row || !row.path) continue;
+        const hasSection = /#\s*메모/m.test(String(row.body || ""));
+        if (hasSection && core.extractMemoLines(row.body).length) continue;
+        try {
+          const af = typeof app.vault.getAbstractFileByPath === "function"
+            ? app.vault.getAbstractFileByPath(row.path)
+            : null;
+          if (!af) continue;
+          const text = typeof app.vault.cachedRead === "function"
+            ? await app.vault.cachedRead(af)
+            : await app.vault.read(af);
+          if (text && String(text).length) {
+            row.body = String(text);
+            changed = true;
+          }
+        } catch (_e) { /* ignore one file */ }
+      }
+      bodiesHydrated = true;
+      return changed;
+    }
+
+    // Name click → editable relation popup (single entry point)
     function openPerson(path) {
       if (typeof opts.onOpenPerson === "function") return opts.onOpenPerson(path);
-      // Default: full formatted People note popup (not side split)
-      return openPersonPreview(app, path, () => {
-        if (typeof opts.onRefresh === "function") opts.onRefresh();
-        else paint();
-      });
+      return openPersonPreview(app, path, () => refreshAfterEdit(path));
     }
 
     function openRecord(path) {
@@ -943,8 +2042,7 @@
     }
 
     function paint() {
-      if (rawPeople) rebuildModel();
-      else rebuildModel();
+      rebuildModel();
 
       container.empty();
       container.addClass("prodigy-people-workspace");
@@ -968,7 +2066,7 @@
         attr: {
           class: "ppw-search",
           type: "search",
-          placeholder: "이름 · 관계 · 회사 · 역할 검색",
+          placeholder: "이름 · 구분 · 소속 · 역할 · 메모 검색",
           value: state.query,
           "aria-label": "사람 검색"
         }
@@ -978,18 +2076,52 @@
         state.query = search.value;
         paint();
       };
+      search.onkeydown = (e) => {
+        if (e && e.key === "ArrowDown") {
+          e.preventDefault();
+          const first = container.querySelector(".ppw-card .ppw-name");
+          if (first && typeof first.focus === "function") first.focus();
+          else if (first) first.click();
+        }
+      };
 
-      const filters = toolbar.createDiv({ attr: { class: "ppw-filters" } });
+      // 구분 필터 (관계 Property 카테고리)
+      const filterRow = toolbar.createDiv({ attr: { class: "ppw-toolbar-row" } });
+      filterRow.createEl("span", { text: "구분", attr: { class: "ppw-toolbar-label" } });
+      const filters = filterRow.createDiv({ attr: { class: "ppw-filters" } });
       (core.WORKSPACE_FILTERS || []).forEach((f) => {
         const chip = filters.createEl("button", {
           text: f.label,
           attr: {
             type: "button",
-            class: "ppw-filter" + (state.filter === f.id ? " is-active" : "")
+            class: "ppw-filter" + (state.filter === f.id ? " is-active" : ""),
+            "aria-pressed": state.filter === f.id ? "true" : "false"
           }
         });
         chip.onclick = () => {
           state.filter = f.id;
+          paint();
+        };
+      });
+
+      // 가나다 정렬
+      const sortRow = toolbar.createDiv({ attr: { class: "ppw-toolbar-row" } });
+      sortRow.createEl("span", { text: "정렬", attr: { class: "ppw-toolbar-label" } });
+      const sorts = sortRow.createDiv({ attr: { class: "ppw-filters ppw-sorts" } });
+      (core.WORKSPACE_SORTS || [
+        { id: "name_asc", label: "가나다 ↑" },
+        { id: "name_desc", label: "가나다 ↓" }
+      ]).forEach((s) => {
+        const chip = sorts.createEl("button", {
+          text: s.label,
+          attr: {
+            type: "button",
+            class: "ppw-filter ppw-sort" + (state.sort === s.id ? " is-active" : ""),
+            "aria-pressed": state.sort === s.id ? "true" : "false"
+          }
+        });
+        chip.onclick = () => {
+          state.sort = s.id;
           paint();
         };
       });
@@ -1014,26 +2146,64 @@
 
       if (model.no_match) {
         list.createEl("div", {
-          text: "일치하는 사람이 없습니다.",
+          text: model.empty_hint || (core.emptyFilterHint
+            ? core.emptyFilterHint(state.filter, state.query)
+            : "일치하는 사람이 없습니다."),
           attr: { class: "ppw-empty" }
         });
         return model;
       }
 
       (model.people || []).forEach((person) => {
-        const card = list.createDiv({ attr: { class: "ppw-card" } });
+        const card = list.createDiv({
+          attr: {
+            class: "ppw-card",
+            "data-path": person.path
+          }
+        });
         const top = card.createDiv({ attr: { class: "ppw-card-top" } });
-        const left = top.createDiv();
+        const left = top.createDiv({ attr: { class: "ppw-name-row" } });
         const nameEl = left.createEl("a", {
           text: person.name,
-          attr: { class: "ppw-name", href: "#", title: "사람 노트 미리보기" }
+          attr: {
+            class: "ppw-name",
+            href: "#",
+            title: "관계 맥락 열기 · 편집",
+            tabindex: "0"
+          }
         });
         nameEl.onclick = (e) => {
           if (e && e.preventDefault) e.preventDefault();
           openPerson(person.path);
         };
+        nameEl.onkeydown = (e) => {
+          if (e && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            openPerson(person.path);
+          }
+        };
+        // Auction/Project card pattern: trash icon beside title
+        const trashBtn = left.createEl("span", {
+          text: "🗑️",
+          attr: {
+            class: "ppw-trash",
+            title: "이 사람 노트를 삭제(휴지통 이동)합니다.",
+            role: "button",
+            "aria-label": `${person.name} 삭제`
+          }
+        });
+        trashBtn.onclick = (e) => {
+          if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
+          openDeletePersonFlow(app, person.path, () => {
+            if (typeof opts.onRefresh === "function") opts.onRefresh();
+            else paint();
+          });
+        };
         if (person.is_legacy) {
-          top.createEl("span", { text: "레거시", attr: { class: "ppw-badge" } });
+          left.createEl("span", { text: "레거시", attr: { class: "ppw-badge" } });
         }
 
         if (person.meta_line) {
@@ -1049,92 +2219,237 @@
         );
         card.createEl("div", { text: subBits.join(" · "), attr: { class: "ppw-sub" } });
 
-        // Recent context preview (related records — not confirmed interactions)
+        if (person.relationship_needs_classify) {
+          card.createEl("div", {
+            text: "구분이 자유 입력입니다 · 이름 클릭 후 칩으로 정리",
+            attr: { class: "ppw-classify-hint" }
+          });
+        }
+
+        if (person.search_match_hints && person.search_match_hints.length) {
+          card.createEl("div", {
+            text: `검색 일치: ${person.search_match_hints.join(" · ")}`,
+            attr: { class: "ppw-search-hint" }
+          });
+        }
+
+        // 사건: top 2 lines
+        const eventLines = (person.interaction_preview && person.interaction_preview.length)
+          ? person.interaction_preview
+          : (person.interaction_lines || []).slice(0, 2);
+        if (eventLines.length) {
+          const eventBox = card.createDiv({ attr: { class: "ppw-memo ppw-events" } });
+          const eventHead = eventBox.createDiv({ attr: { class: "ppw-memo-head" } });
+          eventHead.createEl("div", { text: "사건", attr: { class: "ppw-memo-title" } });
+          if (person.interaction_count > eventLines.length) {
+            eventHead.createEl("span", {
+              text: `+${person.interaction_count - eventLines.length}`,
+              attr: { class: "ppw-memo-more" }
+            });
+          }
+          const eventList = eventBox.createDiv({ attr: { class: "ppw-memo-list" } });
+          eventLines.forEach((line, idx) => {
+            const row = eventList.createDiv({ attr: { class: "ppw-memo-row" } });
+            row.createEl("div", { text: line, attr: { class: "ppw-memo-line" } });
+            const delBtn = row.createEl("button", {
+              text: "×",
+              attr: {
+                type: "button",
+                class: "ppw-memo-del",
+                title: "이 사건 삭제",
+                "aria-label": `사건 삭제: ${line}`
+              }
+            });
+            delBtn.onclick = (e) => {
+              if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+              openRemoveInteractionFlow(app, person.path, { text: line, index: idx }, () => {
+                refreshAfterEdit(person.path);
+              });
+            };
+          });
+        }
+
+        // 메모: dashboard glance — top lines from # 메모
+        const memoLines = (person.memo_preview && person.memo_preview.length)
+          ? person.memo_preview
+          : (person.memo_lines || []).slice(0, 3);
+        if (memoLines.length) {
+          const memoBox = card.createDiv({ attr: { class: "ppw-memo" } });
+          const memoHead = memoBox.createDiv({ attr: { class: "ppw-memo-head" } });
+          memoHead.createEl("div", { text: "메모", attr: { class: "ppw-memo-title" } });
+          if (person.memo_count > memoLines.length) {
+            memoHead.createEl("span", {
+              text: `+${person.memo_count - memoLines.length}`,
+              attr: { class: "ppw-memo-more", title: "이름 클릭 → 전체 메모" }
+            });
+          }
+          const memoList = memoBox.createDiv({ attr: { class: "ppw-memo-list" } });
+          memoLines.forEach((line, idx) => {
+            const row = memoList.createDiv({ attr: { class: "ppw-memo-row" } });
+            row.createEl("div", {
+              text: line,
+              attr: { class: "ppw-memo-line" }
+            });
+            const delBtn = row.createEl("button", {
+              text: "×",
+              attr: {
+                type: "button",
+                class: "ppw-memo-del",
+                title: "이 메모 삭제",
+                "aria-label": `메모 삭제: ${line}`
+              }
+            });
+            delBtn.onclick = (e) => {
+              if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+              openRemoveMemoFlow(app, person.path, { text: line, index: idx }, () => {
+                refreshAfterEdit(person.path);
+              });
+            };
+          });
+        }
+
+        // 최근 맥락: top 3 always; expand + type filter for the rest
+        const PREVIEW_N = 3;
+        const typeFilter = state.contextType[person.path] || "all";
+        const allLinkedRaw = person.linked_all || person.recent_context || [];
+        const allLinked = core.filterContextItems
+          ? core.filterContextItems(allLinkedRaw, typeFilter)
+          : allLinkedRaw;
+        const preview = allLinked.slice(0, PREVIEW_N);
+        const rest = allLinked.slice(PREVIEW_N);
+        const expanded = !!state.expanded[person.path];
+
         const ctx = card.createDiv({ attr: { class: "ppw-context" } });
-        ctx.createEl("div", { text: "최근 맥락", attr: { class: "ppw-context-title" } });
-        const recent = person.recent_context || [];
-        if (!recent.length) {
+        const ctxHead = ctx.createDiv({ attr: { class: "ppw-context-head" } });
+        ctxHead.createEl("div", { text: "최근 맥락", attr: { class: "ppw-context-title" } });
+        if (allLinkedRaw.length) {
+          ctxHead.createEl("span", {
+            text: typeFilter === "all"
+              ? `${allLinkedRaw.length}개`
+              : `${allLinked.length}/${allLinkedRaw.length}`,
+            attr: { class: "ppw-context-count" }
+          });
+        }
+
+        if (allLinkedRaw.length > 1) {
+          const typeRow = ctx.createDiv({ attr: { class: "ppw-context-types" } });
+          (core.CONTEXT_TYPE_FILTERS || [{ id: "all", label: "전체" }]).forEach((tf) => {
+            const chip = typeRow.createEl("button", {
+              text: tf.label,
+              attr: {
+                type: "button",
+                class: "ppw-ctx-type" + (typeFilter === tf.id ? " is-active" : "")
+              }
+            });
+            chip.onclick = (e) => {
+              if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+              state.contextType[person.path] = tf.id;
+              state.expanded[person.path] = true;
+              paint();
+            };
+          });
+        }
+
+        function appendContextRow(parent, item) {
+          const row = parent.createDiv({ attr: { class: "ppw-context-item" } });
+          row.createEl("strong", { text: item.title });
+          const meta = [item.type_label || "기록"];
+          if (item.mtime) {
+            try {
+              const d = new Date(item.mtime);
+              if (!Number.isNaN(d.getTime())) meta.unshift(d.toISOString().slice(0, 10));
+            } catch (_e) { /* ignore */ }
+          }
+          row.createEl("span", { text: meta.join(" · ") });
+          row.onclick = () => openRecord(item.path);
+        }
+
+        if (!allLinkedRaw.length) {
           ctx.createEl("div", {
             text: "아직 연결된 기록이 없습니다. Project나 Journal에서 이 사람을 링크하면 여기에 표시됩니다.",
             attr: { class: "ppw-related-empty" }
           });
-        } else {
-          recent.forEach((item) => {
-            const row = ctx.createDiv({ attr: { class: "ppw-context-item" } });
-            row.createEl("strong", { text: item.title });
-            const meta = [item.type_label || "기록"];
-            if (item.mtime) {
-              try {
-                const d = new Date(item.mtime);
-                if (!Number.isNaN(d.getTime())) {
-                  meta.unshift(d.toISOString().slice(0, 10));
-                }
-              } catch (_e) { /* ignore */ }
-            }
-            row.createEl("span", { text: meta.join(" · ") });
-            row.onclick = () => openRecord(item.path);
+        } else if (!allLinked.length) {
+          ctx.createEl("div", {
+            text: "이 유형의 연결 기록이 없습니다. 타입 칩을 「전체」로 바꿔 보세요.",
+            attr: { class: "ppw-related-empty" }
           });
+        } else {
+          preview.forEach((item) => appendContextRow(ctx, item));
+          if (expanded && rest.length) {
+            const more = ctx.createDiv({ attr: { class: "ppw-context-more" } });
+            rest.forEach((item) => appendContextRow(more, item));
+          }
+          if (rest.length) {
+            const toggle = ctx.createEl("button", {
+              text: expanded
+                ? "접기"
+                : `··· 나머지 ${rest.length}개`,
+              attr: {
+                type: "button",
+                class: "ppw-context-toggle",
+                "aria-expanded": expanded ? "true" : "false"
+              }
+            });
+            toggle.onclick = (e) => {
+              if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+              state.expanded[person.path] = !expanded;
+              paint();
+            };
+          }
         }
 
         const actions = card.createDiv({ attr: { class: "ppw-actions" } });
-        const openBtn = btn(actions, "사람 열기", { primary: true, className: "ppw-action-primary" });
-        openBtn.onclick = () => openPerson(person.path);
-
-        const relatedBtn = btn(actions, state.expanded[person.path] ? "관련 기록 접기" : "관련 기록 보기");
-        relatedBtn.onclick = () => {
-          state.expanded[person.path] = !state.expanded[person.path];
-          paint();
-        };
 
         const eventBtn = btn(actions, "사건 추가");
         eventBtn.onclick = () => openAddInteractionFlow(app, person.path, () => {
-          if (typeof opts.onRefresh === "function") opts.onRefresh();
-          else paint();
+          refreshAfterEdit(person.path);
         });
 
         const memoBtn = btn(actions, "메모 추가");
         memoBtn.onclick = () => openAddMemoFlow(app, person.path, () => {
-          if (typeof opts.onRefresh === "function") opts.onRefresh();
-          else paint();
+          refreshAfterEdit(person.path);
         });
-
-        const editBtn = btn(actions, "빠른 수정");
-        editBtn.onclick = () => openQuickEditFlow(app, person.path, () => {
-          if (typeof opts.onRefresh === "function") opts.onRefresh();
-          else paint();
-        });
-
-        if (state.expanded[person.path]) {
-          const panel = card.createDiv({ attr: { class: "ppw-related" } });
-          const all = person.linked_all || [];
-          if (!all.length) {
-            panel.createEl("div", {
-              text: "아직 연결된 기록이 없습니다. Project나 Journal에서 이 사람을 링크하면 여기에 표시됩니다.",
-              attr: { class: "ppw-related-empty" }
-            });
-          } else {
-            all.slice(0, 12).forEach((item) => {
-              const row = panel.createDiv({ attr: { class: "ppw-context-item" } });
-              row.createEl("strong", { text: item.title });
-              row.createEl("span", { text: `${item.type_label || "기록"} · 관련 기록` });
-              row.onclick = () => openRecord(item.path);
-            });
-            if (all.length > 12) {
-              panel.createEl("div", {
-                text: `외 ${all.length - 12}개 — 사람 노트에서 전체 확인`,
-                attr: { class: "ppw-sub" }
-              });
-            }
-          }
-        }
       });
 
-      // silence unused
+      // Scroll to focused card after add/delete
+      if (state.focusPath) {
+        const focusPath = state.focusPath;
+        state.focusPath = "";
+        setTimeout(() => {
+          try {
+            const el = container.querySelector(`.ppw-card[data-path="${CSS && CSS.escape ? CSS.escape(focusPath) : focusPath.replace(/"/g, '\\"')}"]`);
+            if (el && typeof el.scrollIntoView === "function") {
+              el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              el.classList.add("ppw-card-flash");
+              setTimeout(() => el.classList.remove("ppw-card-flash"), 1200);
+            }
+          } catch (_e) { /* ignore */ }
+        }, 40);
+      }
+
       void count;
       return model;
     }
 
     paint();
+    // Second pass: load note bodies if memos missing (Hub read failures / empty body)
+    hydratePeopleBodies().then((changed) => {
+      if (changed) paint();
+    }).catch(() => { /* ignore */ });
+
     return { paint, getState: () => state, getModel: () => model };
   }
 
@@ -1147,6 +2462,9 @@
     openQuickEditFlow,
     openAddInteractionFlow,
     openAddMemoFlow,
+    openRemoveMemoFlow,
+    openRemoveInteractionFlow,
+    openDeletePersonFlow,
     renderPeopleWorkspace,
     ensureWorkspaceStyles
   };
