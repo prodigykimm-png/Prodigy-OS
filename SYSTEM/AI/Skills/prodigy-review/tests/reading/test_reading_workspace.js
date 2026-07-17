@@ -18,23 +18,17 @@ function main() {
   const workspace = load("SYSTEM/Views/reading-workspace-core.js");
   const launcher = load("SYSTEM/Views/workspace-launcher-core.js");
 
-  // --- Empty states (daily flow) ---
+  // --- Empty states ---
   const emptyModel = workspace.buildWorkspaceModel([], {});
   assert.equal(emptyModel.today.empty, true);
-  assert.match(emptyModel.today.message, /다음 책|Choose your next book/i);
+  assert.equal(emptyModel.today.message, "진행 중인 독서가 없습니다.");
   assert.equal(emptyModel.continue_reading.empty, true);
-  assert.match(emptyModel.continue_reading.message, /다음 책|Choose your next book/i);
-  assert.equal(emptyModel.continue_list.empty, true);
-  assert.equal(emptyModel.session_surface.empty, true);
+  assert.equal(emptyModel.continue_reading.message, "진행 중인 독서가 없습니다.");
   assert.equal(emptyModel.waiting_review.empty, true);
-  assert.match(emptyModel.waiting_review.message, /복기|Everything is reviewed/i);
-  assert.equal(emptyModel.history.empty, true);
-  assert.match(emptyModel.history.message, /여정|journey starts/i);
+  assert.equal(emptyModel.waiting_review.message, "읽을 복기 대상이 없습니다.");
   assert.equal(emptyModel.knowledge_candidates.empty, true);
   assert.equal(emptyModel.knowledge_candidates.message, "지식 후보가 없습니다.");
   assert.equal(emptyModel.knowledge_candidates.reserved, true);
-  assert.ok(Array.isArray(emptyModel.display_order));
-  assert.ok(emptyModel.display_order[0] === "today");
 
   // --- Runtime integration: single session, continue target ---
   const session = engine.createRuntimeSession({});
@@ -82,8 +76,7 @@ function main() {
   assert.equal(model.today.object.title, "Atomic Habits");
   assert.equal(model.today.object.author, "James Clear");
   assert.equal(model.today.object.progress, "50%");
-  assert.match(String(model.today.object.continue_action), /Continue|이어/);
-  assert.ok(model.today.object.chapter || model.today.object.next_action);
+  assert.equal(model.today.object.continue_action, "이어 읽기");
   assert.ok(model.today.reason);
   assert.match(model.today.reason, /Runtime|독서|Object/);
 
@@ -93,22 +86,6 @@ function main() {
   assert.match(model.continue_reading.title, /Atomic Habits/);
   assert.ok(model.continue_reading.reason);
   assert.ok(model.continue_reading.reason.length > 0);
-
-  // Continue list max 3 · never completed
-  assert.equal(model.continue_list.empty, false);
-  assert.ok(model.continue_list.items.length >= 1 && model.continue_list.items.length <= 3);
-  assert.ok(model.continue_list.items.every((i) => i.status === "reading"));
-  assert.ok(!model.continue_list.items.some((i) => /Done Book/i.test(i.title)));
-
-  // Session surface — one-click Start Reading
-  assert.equal(model.session_surface.empty, false);
-  assert.match(String(model.session_surface.book), /Atomic Habits/);
-  assert.match(String(model.session_surface.primary_action), /Start Reading|읽기 시작/);
-  assert.ok(model.session_surface.object_path);
-
-  // Finished recently alias
-  assert.ok(model.finished_recently);
-  assert.equal(model.finished_recently.empty, model.history.empty);
 
   // Engine continue_target consistency (no re-rule)
   const summary = engine.buildWorkspaceSummary(model.states, "reading", {});
@@ -277,50 +254,41 @@ function main() {
   const homeHub = fs.readFileSync(path.join(ROOT, "HUB/00 Home.md"), "utf8");
   assert.match(homeHub, /object-engine-core\.js|HomeView|workspace-launcher/i);
 
-  // --- Reading hub: daily flow + library ---
+  // --- Reading hub: card-first + Runtime/Strategy power (no full workspace wall) ---
   const readingHub = fs.readFileSync(path.join(ROOT, "HUB/20 Reading.md"), "utf8");
   assert.match(readingHub, /reading-workspace-core\.js/);
-  assert.match(readingHub, /reading-workspace-view\.js/);
   assert.match(readingHub, /reading-strategy-core\.js/);
   assert.match(readingHub, /object-engine-core\.js/);
   assert.match(readingHub, /reading-card\.js/);
-  assert.match(readingHub, /renderReadingCard|ReadingWorkspaceView/);
-  assert.match(readingHub, /Daily Reading|Today's Reading|onStartSession/);
-  assert.match(readingHub, /Reading Library|읽는 중/);
-
-  // View source — daily order + Start Reading CTA
-  const wsViewSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-workspace-view.js"), "utf8");
-  assert.match(wsViewSrc, /renderSession|session_surface|Start Reading/);
-  assert.match(wsViewSrc, /continue_list|Quick Reflection|Waiting Review|Finished Recently/);
-  assert.match(wsViewSrc, /min-height:\s*44px|min-height:44px/);
-  assert.match(readingHub, /다음 책을 고르세요|Daily Reading/);
+  assert.match(readingHub, /renderReadingCard/);
+  assert.match(readingHub, /이어 읽기|읽는 중/);
+  assert.match(readingHub, /진행 중인 독서가 없습니다/);
+  assert.match(readingHub, /읽을 복기 대상이 없습니다/);
   assert.match(readingHub, /오래 방치/);
   assert.match(readingHub, /완독 임박/);
+  assert.match(readingHub, /오늘 읽기|이 책 포커스/);
   assert.match(readingHub, /shareRuntimeModel|__readingWorkspaceModel/);
   assert.match(readingHub, /stale_reading|finish_soon/);
-  // Daily flow mounts ReadingWorkspaceView
-  assert.match(readingHub, /ReadingWorkspaceView\.renderWorkspace/);
-  assert.match(readingHub, /reading-workspace-view\.js/);
+  // Card-first: do not mount full progressive wall on hub
+  assert.equal(/ReadingWorkspaceView\.renderWorkspace/.test(readingHub), false);
+  assert.equal(readingHub.includes("reading-workspace-view.js"), false);
   assert.equal(workspace.EMPTY.knowledge, "지식 후보가 없습니다.");
-  assert.match(workspace.EMPTY.continue, /다음 책/);
-  assert.match(workspace.EMPTY.review, /복기/);
+  assert.equal(workspace.EMPTY.continue, "진행 중인 독서가 없습니다.");
+  assert.equal(workspace.EMPTY.review, "읽을 복기 대상이 없습니다.");
   assert.equal(workspace.EMPTY.stale, "오래 방치된 독서가 없습니다.");
   assert.equal(workspace.EMPTY.finish, "완독 임박 책이 없습니다.");
-  assert.equal(workspace.LABELS.today, "Today's Reading");
-  assert.equal(workspace.LABELS.continue, "Continue Reading");
-  assert.equal(workspace.LABELS.session, "Reading Session");
+  assert.equal(workspace.LABELS.today, "오늘의 독서");
+  assert.equal(workspace.LABELS.continue, "이어 읽기");
   assert.equal(workspace.LABELS.guide, "독서 질답");
   assert.equal(workspace.LABELS.checklist, "독서 체크리스트");
-  assert.equal(workspace.LABELS.reflection, "Quick Reflection");
-  assert.equal(workspace.LABELS.review, "Waiting Review");
+  assert.equal(workspace.LABELS.reflection, "성찰");
+  assert.equal(workspace.LABELS.review, "복기 대기");
   assert.equal(workspace.LABELS.knowledge, "지식 후보");
-  assert.equal(workspace.LABELS.history, "Finished Recently");
+  assert.equal(workspace.LABELS.history, "기록");
   assert.equal(workspace.LABELS.reason, "이유");
-  assert.equal(workspace.LABELS.startReading, "Start Reading");
   assert.equal(workspace.LABELS.stale, "오래 방치");
   assert.equal(workspace.LABELS.finish, "완독 임박");
   assert.equal(workspace.LABELS.quickSession, "빠른 기록");
-  assert.deepEqual(workspace.DISPLAY_ORDER.slice(0, 4), ["today", "continue", "session", "reflection"]);
 
   // --- No schema / property / runtime mutation in workspace core ---
   const wsSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-workspace-core.js"), "utf8");
@@ -341,24 +309,24 @@ function main() {
   assert.match(cardSrc, /읽기 시작/);
 
   // --- Minimal session modal (one memo, not a form wall) ---
-  const readingViewSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-view.js"), "utf8");
-  assert.match(readingViewSrc, /openSessionModal|saveQuickSession/);
-  assert.match(readingViewSrc, /한 줄 메모/);
-  assert.match(readingViewSrc, /한 줄이면 충분/);
-  assert.match(readingViewSrc, /더 보기/);
+  const viewSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-view.js"), "utf8");
+  assert.match(viewSrc, /openSessionModal|saveQuickSession/);
+  assert.match(viewSrc, /한 줄 메모/);
+  assert.match(viewSrc, /한 줄이면 충분/);
+  assert.match(viewSrc, /더 보기/);
   // Full field wall removed from default surface
-  assert.equal(/fieldInput\(contentEl,\s*"시작 페이지"/.test(readingViewSrc), false);
-  assert.equal(/fieldInput\(contentEl,\s*"종료 페이지"/.test(readingViewSrc), false);
-  assert.equal(/fieldInput\(contentEl,\s*"핵심 내용"/.test(readingViewSrc), false);
+  assert.equal(/fieldInput\(contentEl,\s*"시작 페이지"/.test(viewSrc), false);
+  assert.equal(/fieldInput\(contentEl,\s*"종료 페이지"/.test(viewSrc), false);
+  assert.equal(/fieldInput\(contentEl,\s*"핵심 내용"/.test(viewSrc), false);
 
   // --- Operating Guide documents flow ---
   const guide = fs.readFileSync(path.join(ROOT, "SYSTEM/docs/11_Operating_Guide.md"), "utf8");
-  assert.match(guide, /Reading Dashboard|Reading Strategy|Daily Thinking/);
+  assert.match(guide, /Reading Dashboard|Reading Strategy|카드/);
   assert.match(guide, /Object Engine Runtime/);
   assert.match(guide, /독서 질답/);
-  assert.match(guide, /Quick Reflection|성찰/);
-  assert.match(guide, /Waiting Review|복기/);
-  assert.match(guide, /Start Reading|Continue Reading|Today's Reading/);
+  assert.match(guide, /성찰/);
+  assert.match(guide, /복기/);
+  assert.match(guide, /한 줄|오늘 읽기|완독 임박|오래 방치/);
 
   // Checklist still available for guide questions
   assert.ok(checklist.selectQuestions);

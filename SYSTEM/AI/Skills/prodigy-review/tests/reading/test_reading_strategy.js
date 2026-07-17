@@ -104,9 +104,7 @@ function main() {
 
   const hub = fs.readFileSync(path.join(ROOT, "HUB/20 Reading.md"), "utf8");
   assert.match(hub, /reading-strategy-core\.js/);
-  // Daily flow mounts workspace view; strategy still powers reflection/guide
-  assert.match(hub, /ReadingWorkspaceView\.renderWorkspace/);
-  assert.match(hub, /reading-workspace-view\.js/);
+  assert.equal(/ReadingWorkspaceView\.renderWorkspace/.test(hub), false);
 
   const guideDoc = fs.readFileSync(path.join(ROOT, "SYSTEM/docs/11_Operating_Guide.md"), "utf8");
   assert.match(guideDoc, /공통 레이어|분야 레이어|Adler|book_type/);

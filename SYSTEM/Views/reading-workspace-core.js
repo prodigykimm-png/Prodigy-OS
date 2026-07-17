@@ -10,15 +10,15 @@
   const SCHEMA = "prodigy-reading-workspace-v1";
 
   const EMPTY = Object.freeze({
-    continue: "다음 책을 고르세요.",
-    today: "다음 책을 고르세요.",
-    review: "모두 복기했습니다.",
+    continue: "진행 중인 독서가 없습니다.",
+    today: "진행 중인 독서가 없습니다.",
+    review: "읽을 복기 대상이 없습니다.",
     knowledge: "지식 후보가 없습니다.",
-    history: "독서 여정이 여기서 시작됩니다.",
-    guide: "다음 책을 고르세요.",
-    checklist: "다음 책을 고르세요.",
-    session: "다음 책을 고르세요.",
-    reflection: "다음 책을 고르세요.",
+    history: "최근 완독 기록이 없습니다.",
+    guide: "진행 중인 독서가 없습니다.",
+    checklist: "진행 중인 독서가 없습니다.",
+    session: "최근 세션이 없습니다.",
+    reflection: "진행 중인 독서가 없습니다.",
     stale: "오래 방치된 독서가 없습니다.",
     finish: "완독 임박 책이 없습니다.",
     queue: "독서 대기열이 비어 있습니다."
@@ -38,23 +38,20 @@
   });
 
   const LABELS = Object.freeze({
-    today: "Today's Reading",
-    continue: "Continue Reading",
-    session: "Reading Session",
+    today: "오늘의 독서",
+    continue: "이어 읽기",
     guide: "독서 질답",
     checklist: "독서 체크리스트",
-    reflection: "Quick Reflection",
-    review: "Waiting Review",
+    reflection: "성찰",
+    review: "복기 대기",
     knowledge: "지식 후보",
-    history: "Finished Recently",
+    history: "기록",
     reason: "이유",
     progress: "진행",
-    continueAction: "Continue Reading",
-    startReading: "Start Reading",
-    openReview: "Open Review",
+    continueAction: "이어 읽기",
     strategy: "전략",
     strategyUnknown: "일반 독서",
-    reflectionHint: "1분 이내 · 유용한 생각 하나",
+    reflectionHint: "사용자 작성 · 최대 3개 질문",
     checklistHint: "읽는 중 확인 · 자동 완료 없음",
     guideHint: "읽기 전 · 주의할 점",
     untitled: "제목 없음",
@@ -62,25 +59,10 @@
     stale: "오래 방치",
     finish: "완독 임박",
     queue: "읽기 대기",
-    nextAction: "다음",
-    chapter: "Chapter",
-    goal: "Goal",
-    estimated: "Est.",
-    lastOpened: "Last opened",
+    nextAction: "다음 행동",
     quickSession: "빠른 기록",
     focus: "이 책 포커스"
   });
-
-  /** Daily flow surface order (product contract). */
-  const DISPLAY_ORDER = Object.freeze([
-    "today",
-    "continue",
-    "session",
-    "reflection",
-    "review",
-    "history",
-    "library"
-  ]);
 
   /** Progress threshold for "finish soon" surface (canonical progress only). */
   const FINISH_PROGRESS_MIN = 75;
@@ -538,18 +520,6 @@
     };
   }
 
-  function formatLastOpened(raw) {
-    const mtime = Number(raw && raw.mtime) || (raw && raw.file && Number(raw.file.mtime)) || 0;
-    if (!mtime) return "";
-    try {
-      const d = new Date(mtime);
-      if (Number.isNaN(d.getTime())) return "";
-      return d.toISOString().slice(0, 10);
-    } catch (_e) {
-      return "";
-    }
-  }
-
   function buildTodayReading(summary, primaryState, pagesByPath) {
     if (!summary || summary.empty || !primaryState) {
       return {
@@ -571,9 +541,6 @@
     }
     const raw = rawForState(primaryState, pagesByPath) || {};
     const progress = progressOf(raw, primaryState);
-    const nextAction = primaryState.next_action || clean(raw.next_action) || null;
-    // Existing fields only — never invent chapter/time
-    const estimated = clean(raw.estimated_minutes || raw.reading_time || raw.est_minutes || "");
     return {
       empty: false,
       message: null,
@@ -584,114 +551,10 @@
         progress: progress || null,
         status: clean(primaryState.canonical_status),
         path: clean(primaryState.source_path || primaryState.object_path),
-        next_action: nextAction,
-        chapter: nextAction,
-        goal: nextAction,
-        estimated: estimated || null,
-        last_opened: formatLastOpened(raw) || null,
+        next_action: primaryState.next_action || null,
         continue_action: LABELS.continueAction
       },
       state: primaryState
-    };
-  }
-
-  /**
-   * Continue list — active reading books only, max 3, never completed.
-   * Primary/focus book first; then recent mtime.
-   */
-  function buildContinueList(pages, states, focusPath, limit) {
-    const max = Math.max(1, Math.min(Number(limit) || 3, 5));
-    const stateByPath = Object.create(null);
-    (Array.isArray(states) ? states : []).forEach((s) => {
-      const path = clean(s && (s.source_path || s.object_path));
-      if (path) stateByPath[path] = s;
-    });
-    const active = normalizeReadingPages(pages).filter((p) => {
-      const s = clean(p.status).toLowerCase();
-      return s === "reading";
-    });
-    active.sort((a, b) => {
-      const ap = clean(a.path);
-      const bp = clean(b.path);
-      if (focusPath && ap === focusPath) return -1;
-      if (focusPath && bp === focusPath) return 1;
-      const ma = Number(a.mtime) || (a.file && Number(a.file.mtime)) || 0;
-      const mb = Number(b.mtime) || (b.file && Number(b.file.mtime)) || 0;
-      return mb - ma;
-    });
-    const items = active.slice(0, max).map((p) => {
-      const path = clean(p.path);
-      const st = stateByPath[path] || null;
-      const next = (st && st.next_action) || clean(p.next_action) || null;
-      return {
-        title: clean(p.title || p.book_title) || LABELS.untitled,
-        path,
-        author: clean(p.author),
-        next_action: next,
-        chapter: next,
-        progress: progressOf(p, st) || null,
-        progress_number: progressNumber(p),
-        last_opened: formatLastOpened(p) || null,
-        last_session: formatLastOpened(p) || null,
-        status: "reading"
-      };
-    });
-    if (!items.length) {
-      return { empty: true, message: EMPTY.continue, items: [], max };
-    }
-    return {
-      empty: false,
-      message: null,
-      items,
-      max,
-      reason: REASONS.continueActive
-    };
-  }
-
-  /**
-   * Reading Session surface — one-click start from today's book.
-   * No configuration; session goal = existing next_action only.
-   */
-  function buildSessionSurface(today, continueCard) {
-    const obj = today && !today.empty ? today.object : null;
-    if (!obj || !obj.path) {
-      if (continueCard && !continueCard.empty && continueCard.object_path) {
-        return {
-          empty: false,
-          message: null,
-          book: continueCard.title || "",
-          chapter: continueCard.next_action || null,
-          session_goal: continueCard.next_action || LABELS.continueAction,
-          progress: continueCard.progress || null,
-          object_path: continueCard.object_path,
-          next_action: continueCard.next_action || null,
-          primary_action: LABELS.startReading,
-          reason: continueCard.reason || REASONS.continueNext
-        };
-      }
-      return {
-        empty: true,
-        message: EMPTY.session,
-        book: null,
-        chapter: null,
-        session_goal: null,
-        object_path: null,
-        primary_action: LABELS.startReading
-      };
-    }
-    return {
-      empty: false,
-      message: null,
-      book: obj.title || "",
-      author: obj.author || "",
-      chapter: obj.chapter || obj.next_action || null,
-      session_goal: obj.goal || obj.next_action || LABELS.continueAction,
-      progress: obj.progress || null,
-      estimated: obj.estimated || null,
-      object_path: obj.path,
-      next_action: obj.next_action || null,
-      primary_action: LABELS.startReading,
-      reason: (today && today.reason) || REASONS.todayPrimary
     };
   }
 
@@ -913,14 +776,6 @@
     const today = buildTodayReading(summary, primary, pagesByPath);
     const cont = buildContinueCard(summary, primary, pagesByPath);
     if (cont.empty) cont.message = EMPTY.continue;
-    const focusPath = cont.focus_path
-      || (today.object && today.object.path)
-      || null;
-    const continueList = buildContinueList(evaluated.pages, evaluated.states, focusPath, 3);
-    const sessionSurface = buildSessionSurface(today, cont);
-    const history = buildHistory(evaluated.pages, opts.historyLimit != null ? opts.historyLimit : 6);
-    // Alias for daily flow naming (same data, no second scan)
-    const finishedRecently = history;
 
     // Strategy Layer once — powers Guide / Checklist / Reflection
     const strategy = buildStrategyLayer(primary, pagesByPath);
@@ -930,11 +785,8 @@
       runtime_ok: evaluated.ok,
       runtime_error: evaluated.error || null,
       empty_messages: EMPTY,
-      display_order: DISPLAY_ORDER.slice(),
       today,
       continue_reading: cont,
-      continue_list: continueList,
-      session_surface: sessionSurface,
       strategy,
       reading_guide: buildReadingGuide(strategy, primary, pagesByPath),
       reading_checklist: buildReadingChecklist(strategy, primary),
@@ -944,14 +796,12 @@
       finish_soon: buildFinishSoon(evaluated.pages, evaluated.states, pagesByPath),
       queue_ready: buildQueueReady(evaluated.pages),
       knowledge_candidates: buildKnowledgeCandidates(evaluated.states),
-      history,
-      finished_recently: finishedRecently,
+      history: buildHistory(evaluated.pages, opts.historyLimit),
       primary_state: primary,
       states: evaluated.states,
-      /** Runtime session object (engine); not the UI session surface */
       session: evaluated.session,
       summary,
-      focus_path: focusPath
+      focus_path: cont.focus_path || null
     });
   }
 
@@ -968,7 +818,6 @@
     EMPTY,
     REASONS,
     LABELS,
-    DISPLAY_ORDER,
     REFLECTION_PROMPTS,
     STRATEGY_GUIDE,
     STRATEGY_LABELS,
@@ -983,9 +832,7 @@
     parseConnectionChips,
     summarizeChecklistProgress,
     buildContinueCard,
-    buildContinueList,
     buildTodayReading,
-    buildSessionSurface,
     buildStrategyLayer,
     buildReadingGuide,
     buildReadingChecklist,
