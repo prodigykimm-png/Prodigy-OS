@@ -51,32 +51,32 @@ Home에서 수정하지 않는다.
 
 ---
 
-# Layout (Mission Control)
+# Layout (Mission Control · 실제 UI 라벨)
 
 ```text
 Top
 ────────────────
-🌅 TODAY
-Morning Brief
+🌅 오늘 · 아침 브리핑
 
-Today's Focus
+🎯 오늘의 집중
 
-Continue
+▶ 이어하기
 
-Needs Attention
+⚠ 주의가 필요함
 
-Quick Actions
+⚡ 빠른 실행
 
-Todoist
+✓ Todoist
 
-Workspace Launcher
+🚀 Workspace 런처
 
-System Status
+시스템 상태
 ────────────────
 Bottom
 ```
 
-아래로 갈수록 시각적 우선순위가 낮아진다 (calmer hierarchy).
+아래로 갈수록 시각적 우선순위가 낮아진다 (calmer hierarchy).  
+사용자 조작 상세: [09_Obsidian_Manual.md](09_Obsidian_Manual.md).
 
 ---
 

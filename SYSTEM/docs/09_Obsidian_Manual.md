@@ -1,406 +1,351 @@
-# Prodigy OS Obsidian 사용 설명서 v1.0
+# Prodigy OS Obsidian 사용 설명서 v2.0
 
-> "Obsidian는 플랫폼일 뿐이다. Prodigy OS의 핵심은 데이터 구조와 시스템 설계이다."
-> — Constitution Article 11, 12
+> "Obsidian은 플랫폼일 뿐이다. Prodigy OS의 핵심은 Object와 Workspace 운영이다."  
+> 이 문서는 **현재 vault 구현(2026-07 기준)** 을 기준으로 한 **사용자 매뉴얼**이다.
 
 ---
 
 ## 이 문서의 목적
 
-이 문서는 Prodigy OS를 **Obsidian으로 실제 사용하는 방법**을 설명한다.
-개발자가 아니라 **사용자 관점**에서 읽는다.
+- 개발자가 아니라 **매일 쓰는 사람** 관점
+- “어디에 들어가서 무엇을 누르는가”를 설명한다
+- 설계 철학의 상세는 [11_Operating_Guide.md](11_Operating_Guide.md), [05_Home.md](05_Home.md)를 본다
 
 ---
 
-## 1. Prodigy OS란?
+## 1. 한 줄로 쓰는 법
 
-Prodigy OS는 단순한 메모 앱이 아니다.
-**나의 지식, 투자, 프로젝트, 건강, 경험, 기록을 하나의 시스템으로 연결하여 더 나은 의사결정을 지원하는 Personal Operating System**이다.
-
-**핵심 개념:**
-- 모든 정보는 **Object**로 관리한다
-- Object는 **Property**(구조화 데이터) + **Content**(자유로운 내용)로 구성된다
-- **Dashboard**는 Object를 사용자에게 표현하는 View이다
-- 데이터는 한 곳에만 저장한다 (**Single Source of Truth**)
-
----
-
-## 2. Obsidian에서의 기본 구조
-
-### 2.1 폴더 구조
-
+```text
+HUB/00 Home 열기
+  → 오늘 집중·이어하기·주의 확인
+  → Workspace로 들어가 실행
+  → 저녁 Daily 성찰 (2분)
+  → 주말에 PRE 초안 검토 (사람 승인)
 ```
+
+폴더를 먼저 뒤지지 않는다. **Home부터** 연다.
+
+---
+
+## 2. Vault 구조 (실제)
+
+```text
 Dusk/
-├── PARA/
-│   ├── PROJECTS/     ← 진행 중인 프로젝트 (경매, 독서 등)
-│   ├── RESOURCES/    ← 참고 자료
-│   ├── AREAS/        ← 지속 관리 영역 (건강, 육아 등)
-│   └── ARCHIVES/     ← 완료/보관
-├── ZETA/
-│   ├── FLEETING/     ← 일상적 기록
-│   └── LITERATURE/   ← 참고 문헌
-├── HUB/
-│   ├── Home.md       ← 시작 화면 (Action Dashboard)
-│   ├── Mail Box.md   ← 받은 편지
-│   └── Map of Content.md ← 목차
+├── HUB/                    ← 모든 Workspace 입구 (여기가 앱 화면)
+│   ├── 00 Home.md
+│   ├── 10 Auction.md
+│   ├── 20 Reading.md
+│   ├── 30 Workout.md
+│   ├── 40 Project.md
+│   ├── 50 Knowledge.md
+│   ├── 60 Personal.md      ← People
+│   ├── 70 Journal.md
+│   ├── Inbox.md
+│   ├── Mail Box.md
+│   └── Map of Content.md
+├── PARA/                   ← Object 저장 (개인 데이터 · git 추적 제외 권장)
+│   ├── PROJECTS/           Auction · Reading · Workout · 일반 Project
+│   ├── RESOURCES/          CONTACTS · 문서 등
+│   ├── AREAS/
+│   └── ARCHIVES/
+├── DAILY/                  ← 일·주·월 노트 (개인 · git 추적 제외 권장)
+│   └── DAILY/YYYY-MM-DD.md
 ├── SYSTEM/
-│   ├── TEMPLATE/     ← 생성 템플릿
-│   ├── VIEWS/        ← Dashboard 뷰
-│   └── CODE/         ← 스크립트/자동화
-├── DAILY/            ← 일일 노트
-├── STICKY/           ← 중요 기록
-├── docs/             ← 시스템 문서
-└── README.md         ← 개요
+│   ├── Views/              ← Dashboard 스크립트 (제품 코드)
+│   ├── TEMPLATE/           ← 템플릿
+│   ├── AI/Skills/          ← PRE 등 스킬 · 테스트
+│   └── docs/               ← 이 매뉴얼 포함
+└── README.md
 ```
 
-### 2.2 Object 개념
+**역할 분리**
 
-Prodigy OS에서 **기본 단위는 Note가 아니다. Object이다.**
-
-| Object Type | 설명 | 예시 |
-|-------------|------|------|
-| Auction Case | 경매 물건 | `인천-2025타경1144.md` |
-| Knowledge | 지식/메모 | 개념, 법률, 용어 |
-| Project | 프로젝트 | 투자 계획, 리서치 |
-| Daily Note | 일일 기록 | 날짜별 일지 |
-| Journal | 주간/월간 회고 | 성과, 패턴 |
+| 계층 | 역할 | 예 |
+|------|------|----|
+| **Home** | 결정 · 탐색 | 지금 무엇에 집중할까? |
+| **Workspace** | 실행 · 기록 · 복기 | 경매 / 독서 / 운동 / 프로젝트 |
+| **Todoist** | 태스크 실행 | 오늘 할 일 목록 |
+| **Object** | 지식·사건의 원본 | 경매 사건, 책, 사람, 프로젝트 |
+| **PRE** | 주간 초안 엔진 | Daily → Weekly Draft (Workspace 아님) |
 
 ---
 
-## 3. Property (속성) 시스템
+## 3. 핵심 개념 (짧게)
 
-### 3.1 Property란?
+### 3.1 Object
 
-Object를 설명하는 **구조화된 데이터**이다.
-YAML frontmatter에 저장된다.
+- 기본 단위는 폴더가 아니라 **Object 노트**다.
+- **Property** (YAML, 영어 키) + **Content** (본문).
+- 화면 라벨은 한글 (Display Registry). 키는 영어 유지.
 
-**예시 (경매 물건):**
-```yaml
----
-id: 인천-2025타경1144
-type: auction_case
-status: watching
-region_sido: 인천광역시
-region_sigungu: 남동구
-region_dong: 구월동
-property_type: 오피스텔
-appraisal_price: 150000000
-minimum_bid: 105000000
-monthly_rent: 800000
----
-```
+### 3.2 Lifecycle / Attention / next_action
 
-### 3.2 Property 명명 규칙
+- **Lifecycle · Attention** 은 Object Engine이 **계산**한다. YAML에 저장하지 않는다.
+- **next_action** 은 Object에 적힌 값만 쓴다. AI가 지어내지 않는다.
+- Home · Launcher · Workspace가 같은 Engine 상태를 재사용한다.
 
-**모든 Property 이름은 영어 snake_case를 사용한다.**
+### 3.3 AI 경계
 
-| Property | 설명 | 예시 값 |
-|----------|------|---------|
-| `id` | 고유 식별자 | `인천-2025타경1144` |
-| `type` | Object 타입 | `auction_case` |
-| `status` | 현재 상태 | `watching`, `ready_to_bid`, `won`, `lost` |
-| `region_sido` | 시/도 | `인천광역시` |
-| `region_sigungu` | 시/군/구 | `남동구` |
-| `region_dong` | 동 | `구월동` |
-| `property_type` | 물건 종류 | `오피스텔`, `아파트`, `상가` |
-| `appraisal_price` | 감정가 (원) | `150000000` |
-| `minimum_bid` | 최저입찰가 (원) | `105000000` |
-| `expected_bid` | 예상 입찰가 (원) | `130000000` |
-| `monthly_rent` | 월세 (원) | `800000` |
-| `auction_date` | 입찰일 | `2025-03-15` |
-| `recommend` | 추천 여부 | `true` / `false` |
-| `recommend_level` | 추천 레벨 | `보통`, `추천`, `강추`, `강강추` |
-| `risk_flags` | 리스크 요소 | `["권리 문제", "경쟁 심화"]` |
-
-> **주의:** Property 이름은 영어이지만, **값은 한국어/숫자/날짜**를 자유롭게 사용한다.
-
-### 3.3 주요 상태 값
-
-| status | 설명 |
-|--------|------|
-| `watching` | 관심 (초기) |
-| `rights_analysis` | 권리 분석 중 |
-| `market_analysis` | 시세 분석 중 |
-| `profitability` | 수익성 검토 중 |
-| `site_visit` | 임장 예정/완료 |
-| `ready_to_bid` | 입찰 준비 완료 |
-| `bid_submitted` | 입찰 완료 |
-| `won` | 낙찰 |
-| `lost` | 패찰 |
-| `review_completed` | 복기 완료 |
-| `archived` | 보관 |
+- AI / 규칙은 **제안**만 한다.
+- **승인 · 실행 · 성찰 작성** 은 사람.
+- PRE 원칙은 항상 `pending` — Knowledge 자동 생성 없음.
 
 ---
 
-## 4. Home (시작 화면)
+## 4. Home (`HUB/00 Home.md`)
 
-Home.md은 Prodigy OS의 **출발점**이다.
-Dashboard가 아니라 **Action Center**이다.
+Home = **Mission Control** (한글 UI).
 
-### 4.1 Home의 역할
+### 4.1 화면 구성 (위 → 아래)
 
-- 5초 안에 오늘 해야 할 일 확인
-- 진행 중인 Object 빠르게 파악
-- 빠른 Capture 버튼 제공
-- Review 알림 표시
+| 섹션 | 하는 일 |
+|------|---------|
+| **아침 브리핑** | 오늘 요약 · 어제 배움 · 오늘 실험 (짧게) |
+| **오늘의 집중** | **승인된** Focus만 (최대 3). Home에서 문구 편집 안 함 |
+| **이어하기** | 중단된 일 재개 (최대 4, 완료 Object 제외) |
+| **주의가 필요함** | critical / high 만 · 이유(WHY) 표시 |
+| **빠른 실행** | + 새 Object · + 오늘 Daily · 검색 |
+| **Todoist** | 오늘 건수 · 지연 · Todoist 열기 (목록 복제 안 함) |
+| **Workspace 런처** | “무엇이 기다리는가?” 컨텍스트 + 해당 Workspace 열기 |
+| **시스템 상태** | Engine / Sync / Review Queue (아주 작게) |
 
-### 4.2 Home 섹션 구성
+모바일·좁은 화면: 상단 Brief·집중 우선, 하부는 **더 보기**로 접힌다.
 
-| 섹션 | 기능 | 구현 |
-|------|------|------|
-| ☀️ Good Morning | 인사말 + 오늘 예정 Object | DataviewJS |
-| 🔥 Today | 오늘 해야 할 일 (7일 이내) | DataviewJS |
-| 📥 Capture | 새 Object 생성 버튼 | Templater + QuickAdd |
-| ▶ Continue | 계속 진행 중인 Object | DataviewJS |
-| 📊 Needs Review | 복기/검토 필요한 Object | Dataview |
-| 📋 이번 주 경매 요약 | 주간 경매 현황 (입찰/복기/임박/추천) | DataviewJS |
-| 🔍 Navigation | 주요 링크 | 마크다운 링크 |
+### 4.2 단축키 · 생성
 
-### 4.3 빠른 생성 버튼
-
-Home에서 버튼 클릭으로 새 Object 생성:
-- **Auction** — 새 경매 물건 생성
-- **Knowledge** — 지식 노트 생성
-- **Project** — 프로젝트 생성
-- **Journal** — 오늘 일지 열기
-
----
-
-## 5. Auction Dashboard 사용법
-
-Auction Dashboard (`HUB/10 Auction.md`)는 경매 물건을 한눈에 관리하는 화면이다.
-
-### 5.1 섹션 구성
-
-| 순서 | 섹션 | 기능 | 구현 |
-|------|------|------|------|
-| 1 | 필터 | 카드/집계 필터 | JS Engine |
-| 2 | 차트 | 지역별/월별/가격대 분포 | Chart.js CDN |
-| 3 | 진행중인 물건 | 카드 뷰 + 정렬 | DataviewJS + JS Engine |
-| 4 | 집계 필터 | 집계 전용 필터 | JS Engine |
-| 5 | 전체 집계 | 통계 요약 + 목록 | DataviewJS |
-| 6 | 입찰 일정 | 월간 캘린더 | JS Engine |
-| 7 | 입찰 전략 | 성공률/적정가 추천 | DataviewJS |
-| 8 | 낙찰 성공 패턴 | 지역/종류/가격대별 성공률 | DataviewJS |
-| 9 | 복기 필요한 물건 | 복기 대기 목록 | DataviewJS |
-
-### 5.2 필터 사용법
-
-**카드 필터** (섹션 1):
-- 상태: 전체 / 진행중 / 낙찰 / 패찰
-- 지역: 전체지역 / 서울 / 경기 / 인천 / 부산
-- 종류: 전체종류 / 오피스텔 / 아파트 / 상가 / 지식산업센터
-- 추천: 전체 / 추천만
-
-**집계 필터** (섹션 4):
-- 상태 / 시 / 구 / 동 / 종류
-
-> 필터 변경 시 자동으로 Dashboard 전체가 리렌더링된다.
-
-### 5.3 정렬 사용법
-
-**카드 뷰 정렬** (섹션 3 상단):
-- D-Day (입찰일 임박 순)
-- 최저가율 (싼 순)
-- 수익성 (수익성 높은 순)
-
-**집계 정렬** (섹션 5 상단):
-- D-Day / 최저가율 / 수익성
-
-> 정렬 변경 시 해당 섹션만 리렌더링된다.
-
-### 5.4 차트
-
-**지역별 분포 (파이 차트):**
-- 시도별 물건 수 시각화
-- 차트 조각 클릭 → 해당 지역으로 필터 변경
-
-**월별 추이 (라인 차트):**
-- 월별 입찰 물건 수 추이
-
-**가격대별 분포 (막대 차트):**
-- 감정가 기준 0~1억, 1~3억, 3~5억, 5~10억, 10억+
-
-> 차트는 인터넷 연결 시 Chart.js CDN에서 로드된다. 오프라인 시 차트가 표시되지 않는다.
-
-### 5.5 입찰 일정 (캘린더)
-
-- 월간 캘린더 (◀ ▶ 버튼으로 이동)
-- 날짜에 입찰 물건 표시
-- 색상 구분:
-  - 노랑: 진행중
-  - 초록: 낙찰
-  - 빨강: 패찰
-- 물건명 클릭 → 해당 파일 열기
-
-### 5.6 입찰 전략 / 낙찰 성공 패턴
-
-**입찰 전략 (섹션 7):**
-- 전체 낙찰 성공률
-- 낙찰 성공 평균 최저가율
-- 낙찰 성공 평균 예상입찰가율
-- 추천 입찰가 구간
-
-**낙찰 성공 패턴 (섹션 8):**
-- 지역별 성공률
-- 종류별 성공률
-- 최저가율별 성공률
-
-> 이 데이터는 Property 기반으로 자동 계산된다. 새로고침 없이 자동 반영.
-
-### 5.7 복기 필요한 물건
-
-- 낙찰/패찰 후 복기 완료하지 않은 물건 목록
-- 내 입찰가 / 낙찰가 / 차이 / Action 표시
-
----
-
-## 6. 경매 물건 (Object) 사용법
-
-### 6.1 경매 물건 생성
-
-**방법 1: Home.md 버튼**
-1. Home.md에서 `BUTTON[prodigy_auction_case]` 클릭
-2. 새 파일 생성 (템플릿 적용)
-
-**방법 2: 파일 직접 생성**
-1. `PARA/PROJECTS/Auction/` 폴더에서 새 파일 생성
-2. 파일명: `지역-사건번호.md` (예: `인천-2025타경1144.md`)
-3. 템플릿 내용 붙여넣기
-
-### 6.2 Property 입력 가이드
-
-**필수 입력:**
-- `region_sido` — 시/도 (예: 인천광역시)
-- `region_sigungu` — 시/군/구 (예: 남동구)
-- `region_dong` — 동 (예: 구월동)
-- `property_type` — 오피스텔/아파트/상가/지식산업센터
-- `appraisal_price` — 감정가 (원 단위 숫자)
-- `minimum_bid` — 최저입찰가 (원 단위 숫자)
-- `auction_date` — 입찰일 (YYYY-MM-DD)
-
-**선택 입력:**
-- `monthly_rent` — 월세 (원)
-- `loan_ratio` — 대출 비율 (기본 0.8)
-- `interest_rate` — 이자율 (기본 0.06)
-- `recommend` — 추천 여부 (`true`/`false`)
-- `recommend_level` — 추천 레벨 (`보통`/`추천`/`강추`/`강강추`)
-- `risk_flags` — 리스크 (배열)
-
-> **중요:** 가격은 반드시 **원 단위 숫자**로 입력한다. `"1억"`, `"정보 없음"` 같은 문자열은 오류를 유발한다.
-
-### 6.3 추천/복기 워크플로우
-
-```
-1. 물건 생성 → Property 입력
-2. Dashboard에서 필터/정렬로 탐색
-3. 추천 여부 결정 → recommend: true/false
-4. 입찰 실행 → bid_result: won/lost
-5. 복기 실행 → review_status: completed
-```
-
----
-
-## 7. 주요 화면별 사용법
-
-### 7.1 Dashboard 접근
-
-**경로:** `HUB/10 Auction.md`
-
-- 브라우저 사이드바에서 `HUB → 10 Auction` 클릭
-- 또는 검색 (`Cmd+O`)에서 `10 Auction` 검색
-
-### 7.2 Home 접근
-
-**경로:** `HUB/Home.md`
-
-- 브라우저 상단 탭에서 `Home` 클릭
-- 또는 홈 아이콘 클릭
-
-### 7.3 물건 상세 페이지
-
-**경로:** `PARA/PROJECTS/Auction/인천-2025타경1144.md`
-
-- Dashboard 카드에서 파일명 클릭 → 해당 물건 페이지로 이동
-- 뒤로가기 (`Alt+←`)로 Dashboard로 복귀
-
----
-
-## 8. 자동화 기능
-
-### 8.1 Aside 자동 데이터 입력
-
-- 입찰 마감일 저녁에 자동으로 결과 데이터 입력
-- `actual_bid`, `winning_bid`, `bid_result` 자동 업데이트
-
-### 8.2 Dashboard 자동 갱신
-
-- Property 변경 시 Dashboard 자동 리렌더링
-- 필터/정렬 변경 시 즉시 반영
-- 별도 새로고침 불필요
-
-### 8.3 주간 리포트
-
-- Home.md 상단에 자동 생성
-- 이번 주 입찰 예정 / 복기 필요 / D-7 임박 / 추천 매물 건수 표시
-
----
-
-## 9. 자주 묻는 질문
-
-### Q1. 필터가 변경되지 않아요
-- Dashboard를 다시 열어본다
-- `Cmd+Shift+R`로 캐시 클리어 후 다시 열기
-
-### Q2. 차트가 보이지 않아요
-- 인터넷 연결 확인 (Chart.js CDN 필요)
-- 오프라인 상태에서는 차트가 표시되지 않음
-
-### Q3. 가격율 계산이 `NaN`으로 나와요
-- `appraisal_price` 또는 `minimum_bid`가 비어있거나 문자열인 경우
-- 해당 물건의 Property를 원 단위 숫자로 입력
-
-### Q4. 물건을 어디에 생성해야 하나요?
-- `PARA/PROJECTS/Auction/` 폴더
-- 파일명: `지역-사건번호.md`
-
-### Q5. Home.md이 이상해요
-- Home.md은 시스템 파일이므로 직접 수정하지 않는다
-- 카드 문제 발생 시 해당 Workspace의 `SYSTEM/Views/*-card.js`와 `shared-dashboard.js`를 확인
-
----
-
-## 10. 용어 사전
-
-| 용어 | 설명 |
+| 동작 | 방법 |
 |------|------|
-| Object | Prodigy OS의 기본 단위 (Note가 아니다) |
-| Property | Object를 설명하는 구조화된 데이터 (YAML frontmatter) |
-| Dashboard | Object를 사용자에게 표현하는 화면 |
-| Home | Action Dashboard (오늘 할 일 중심) |
-| Capture | 정보 입력 (가장 빠르고 단순하게) |
-| Review | 낙찰/패찰 후 분석 |
-| 복기 | 결과 분석 및 다음 전략 수립 |
-| D-Day | 입찰일까지 남은 날짜 |
-| 최저가율 | 최저입찰가 / 감정가 × 100 |
-| 예상입찰가율 | 예상입찰가 / 감정가 × 100 |
+| 새 Object | Home **+ 새 Object** 또는 **⌘/Ctrl+N** |
+| 오늘 Daily | **+ 오늘 Daily** |
+| 검색 | **검색** (Obsidian 전역 검색) |
+| 브리핑 갱신 | **브리핑 다시 생성** / **새로고침** |
+
+### 4.3 Universal Object Creator
+
+모든 생성의 **단일 입구**.
+
+```text
+한 줄 입력
+  → 유형 제안 + 이유 (Object Engine.classify)
+  → 비슷한 Object 최대 3 (있으면 「기존 Object 열기」)
+  → 계속 만들기 (유형별 기존 마법사/워크스페이스로 연결)
+```
+
+- 중복 감지는 **생성을 막지 않는다**.
+- Project 선택 시 입력 문구가 Project Wizard 초기 이름으로 넘어간다.
+- 분류 신호가 약하면 **저널** 폴백.
 
 ---
 
-## 11. 시스템 문서 참조
+## 5. Workspace 안내
 
-| 문서 | 설명 |
+사이드바 **HUB** 또는 Home 런처에서 연다.
+
+### 5.1 경매 — `HUB/10 Auction.md`
+
+**경로:** `PARA/PROJECTS/Auction/`
+
+| 구역 | 용도 |
 |------|------|
-| `docs/00_Constitution.md` | Prodigy OS 최상위 원칙 |
-| `docs/01_Architecture.md` | 시스템 구조 및 정보 흐름 |
-| `docs/02_Core_Concepts.md` | 핵심 개념 |
-| `docs/03_Object_Model.md` | Object 정의 및 구조 |
-| `docs/04_Capture_System.md` | 정보 입력 시스템 |
-| `docs/05_Home.md` | Home 설계 원칙 |
-| `docs/06_AI_System.md` | AI 역할 및 책임 |
-| `docs/07_Implementation_Guide.md` | 구현 규칙 |
-| `docs/08_Domain_Architecture.md` | 도메인 구조 |
+| 오늘 | 오늘 행동 · Day Runner 등 |
+| 입찰 일정 | 캘린더 |
+| 경매 진행 현황 | 입찰 예정 · 관심 · 복기 · 낙찰/패찰 등 카드 |
+
+- 카드에서 물건 열기 · 임장 · 복기 흐름 진행.
+- **Auction Day Runner** 로 입찰일 운영 (Workspace 안에서).
+
+### 5.2 독서 — `HUB/20 Reading.md`
+
+**경로:** `PARA/PROJECTS/Reading/`
+
+| 구역 | 용도 |
+|------|------|
+| 이어 읽기 스트립 | 지금 읽을 책 · **오늘 읽기** (최소 세션) |
+| 읽는 중 | hero 카드 |
+| 읽기 대기 / 방치 / 완독 임박 / 복기 / 최근 완독 | 라이브러리·상태 |
+
+- **오늘 읽기**: 한 줄 메모 중심 세션 (긴 폼 금지).
+- **독서 질답**: 카드에서 읽기 전·중·후 질문 (전략 레이어).
+- 새 책: **＋ 새 책 추가** (메타데이터 어댑터).
+
+### 5.3 운동 — `HUB/30 Workout.md`
+
+**경로:** `PARA/PROJECTS/Workout/` 등
+
+- 오늘 세션 · 프로그램 · 운동 라이브러리.
+- 세트 추가/삭제 · draft/stale 처리 · cue/target 표시는 제품 기능으로 유지.
+- 이름 클릭 = 팝업, 노트 = 사이드 리프 (가능 시).
+
+### 5.4 프로젝트 — `HUB/40 Project.md`
+
+**경로:** `PARA/PROJECTS/` (도메인 폴더 외 일반 프로젝트)
+
+- 진행 중 / 계획 / 아이디어 / 지연 / 완료 / 복기 중 카드.
+- **Project Wizard** 로 생성 (Creator에서 이름 handoff 가능).
+- Todoist 연동: 실행 계층. 프로젝트 Object는 지식·워크플로 원본.
+
+### 5.5 지식 — `HUB/50 Knowledge.md`
+
+- 지식 Object 탐색 (도메인별).
+- PRE·Memory가 자동으로 Knowledge를 만들지 않는다.
+
+### 5.6 사람 — `HUB/60 Personal.md`
+
+- People Workspace (연락처 · 연결 Object).
+- 연락처 원본: `PARA/RESOURCES/CONTACTS/`.
+- last_contact 등은 **추측하지 않음** (연결·기록 기반).
+
+### 5.7 저널 — `HUB/70 Journal.md`
+
+- Daily 성찰 · 2분 Review UI.
+- 성찰 필드: **성찰 (Reflection) · 변화 (Change) · 다음 실험 (Next Experiment)**.
+- 저녁에 “오늘 가장 의미 있는 하나”만 남겨도 충분하다.
 
 ---
 
-*이 문서는 Prodigy OS의 실제 사용법을 설명한다. 시스템 설계는 `docs/`를 참조한다.*
+## 6. Daily · Weekly 루프
+
+### 6.1 Daily (`DAILY/DAILY/YYYY-MM-DD.md`)
+
+**저녁 루틴 (권장 2분)**
+
+1. Reflection — 의미 있는 사건 하나  
+2. Change — 생각·행동이 어떻게 바뀌었는지  
+3. Next Experiment — 내일 바로 시도할 **작은 행동 하나** (여러 개보다 하나)
+
+Home의 아침 브리핑은 어제의 Change / Next Experiment를 짧게 회수한다.
+
+### 6.2 Weekly PRE (주간 초안)
+
+PRE는 **Workspace가 아니다.** 내부 Review Engine이다.
+
+```bash
+# vault 루트에서
+python3 SYSTEM/AI/Skills/prodigy-review/scripts/prodigy.py weekly --week YYYY-Www
+```
+
+예: `2026-W29`
+
+**결과 위치:** `SYSTEM/AI/Skills/prodigy-review/runs/<week>/`
+
+| 파일 | 용도 |
+|------|------|
+| `weekly-review-*-draft.md` | **사람이 읽을 초안 (권장)** |
+| `weekly-review-*.json` | 구조화 결과 |
+| `weekly-workspace-view-*.md` | 포맷 뷰 |
+| `pipeline.log` | 스캔·패턴 로그 |
+
+**규칙**
+
+- 내용 있는 Daily가 **3일 미만**이면 패턴/원칙을 만들지 않음 (`Not enough evidence`).
+- 패턴·원칙에는 **출처 + 짧은 인용**이 붙는다.
+- 원칙은 항상 **pending** — 승인·Knowledge 승격은 사람만.
+- Daily / Object 원본을 수정하지 않는다.
+
+---
+
+## 7. Object 생성 경로 (요약)
+
+| 만들고 싶은 것 | 권장 경로 |
+|----------------|-----------|
+| 아무거나 | Home → **+ 새 Object** |
+| 프로젝트 | Creator → Project 또는 Project Workspace Wizard |
+| 경매 | Auction Workspace / Creator → 경매 |
+| 책 | Reading **＋ 새 책 추가** |
+| 사람 | Personal Workspace / Creator → 사람 |
+| Daily | Home **+ 오늘 Daily** 또는 Journal |
+
+---
+
+## 8. Property · 표시 규칙 (실무)
+
+| 규칙 | 내용 |
+|------|------|
+| 키 | 영어 `snake_case` |
+| 화면 라벨 | 한글 (Display Registry) |
+| 가격 등 숫자 | 원 단위 숫자 (문자열 `"1억"` 금지) |
+| status | 도메인별 영어 값 (`watching`, `reading`, `doing` …) |
+| 새 Property | 함부로 추가하지 않음 (Registry 계약) |
+
+경매 등 도메인 상세 필드 목록은 Object Model / Property 계약 문서를 본다.  
+일상 사용에서는 **status · next_action · 핵심 날짜** 만 정확히 유지해도 대시보드가 동작한다.
+
+---
+
+## 9. 모바일
+
+- **별도 Mobile Home 없음.** 같은 Home · Workspace를 압축 레이아웃으로 씀.
+- 큰 터치 영역 · 하단 접기(더 보기) 유지.
+- 플러그인 데이터·workspace 상태는 기기별 (git에 올리지 않는 것을 권장).
+
+---
+
+## 10. Git · 개인 데이터 (중요)
+
+현재 정책 의도:
+
+- **제품 코드** (`SYSTEM/Views`, 테스트, 문서, HUB 셸) → git
+- **개인 vault 내용** (`DAILY/`, `PARA/`, `ZETA/`, Obsidian runtime 설정) → **gitignore**
+
+실사용 노트는 iCloud vault에 두고, GitHub에는 OS 기능만 올리는 것을 권장한다.
+
+---
+
+## 11. 자주 하는 일 체크리스트
+
+### 아침 (1–3분)
+- [ ] `HUB/00 Home` 열기  
+- [ ] 브리핑 읽기  
+- [ ] 오늘의 집중 확인 (미승인이면 제안 승인)  
+- [ ] 이어하기 또는 런처로 Workspace 진입  
+
+### 실행 중
+- [ ] Workspace에서 next_action 갱신  
+- [ ] 새 일은 **+ 새 Object** 로만 생성 (중복 카드 확인)  
+
+### 저녁 (2분)
+- [ ] Daily Reflection / Change / Next Experiment  
+
+### 주말
+- [ ] `prodigy.py weekly --week …` 실행  
+- [ ] `*-draft.md` 읽고 원칙 pending 검토 (승인/보류는 사람)  
+
+---
+
+## 12. 문제 해결
+
+| 증상 | 조치 |
+|------|------|
+| Home 스크립트 로드 실패 | Obsidian 재시작 · `SYSTEM/Views` 경로 확인 |
+| 브리핑이 비정상 | Home **브리핑 다시 생성** |
+| Todoist 0건 | 토큰/플러그인 · Home 경고 확인 (실행은 계속 가능) |
+| PRE 패턴 없음 | 해당 주 contentful Daily 3일 이상인지 확인 |
+| 카드 안 보임 | Object `type` · `status` · 폴더 경로 확인 |
+
+디버그가 필요하면 (개발 모드) `window.prodigyDebugMode` 등 기존 훅을 쓰되, 일상 사용에서는 끄고 쓴다.
+
+---
+
+## 13. 관련 문서
+
+| 문서 | 내용 |
+|------|------|
+| [11_Operating_Guide.md](11_Operating_Guide.md) | 운영 루프 · Engine · PRE · Creator 상세 |
+| [05_Home.md](05_Home.md) | Home Mission Control 계약 |
+| [00_Constitution.md](00_Constitution.md) | 철학 · Homepage = Mission Control |
+| [03_Object_Model.md](03_Object_Model.md) | Object 모델 |
+| `SYSTEM/AI/Skills/prodigy-review/SKILL.md` | PRE 실행 스킬 |
+
+---
+
+## 14. 변경 이력 (매뉴얼)
+
+| 버전 | 내용 |
+|------|------|
+| v1.0 | 초기 Obsidian 사용 설명 (Home/Auction 중심, 구 레이아웃) |
+| **v2.0** | 실제 HUB·Views·Creator·People·Workout·PRE·git 개인 데이터 정책 반영. Home 한글 Mission Control, Reading 카드 우선, PRE draft 경로 명시. |
+
+---
+
+**끝.**  
+시스템이 생각하게 만들지 말고, **일이 생각나게** 쓰는 것이 목표다.

@@ -61,39 +61,40 @@ Home을 열면 오늘 해야 할 일, 진행 중인 Object, Capture, Review가 �
 
 ### Home = Mission Control
 
-Home은 링크 모음이 아니다. **오늘 무엇을 할지 결정하는 Mission Control**이다.
+Home은 링크 모음이 아니다. **오늘 무엇을 할지 결정하는 Mission Control**이다.  
+화면 라벨은 **한글**이다 (`HUB/00 Home.md`).
 
 ```text
-Home (Mission Control)
-  ↓ Decide / Navigate
-Morning Brief
+Home (오늘 · Mission Control)
+  ↓ 결정 / 이동
+아침 브리핑
   ↓
-Today's Focus   (approved only · not edited on Home)
+오늘의 집중     (승인된 항목만 · Home에서 필드 편집 안 함)
   ↓
-Continue        (max 4 · Object Engine)
+이어하기        (최대 4 · Object Engine · 완료 제외)
   ↓
-Needs Attention (critical · high · WHY)
+주의가 필요함   (critical · high · 이유)
   ↓
-Quick Actions   (+ New Object · Daily · Search)
+빠른 실행       (+ 새 Object · 오늘 Daily · 검색)
   ↓
-Todoist         (Today summary · Open Todoist)
+Todoist         (오늘 건수 · Todoist 열기 · 목록 복제 안 함)
   ↓
-Workspace Launcher   (What is waiting for me?)
+Workspace 런처  (무엇이 기다리는가?)
   ↓
-System Status
+시스템 상태
   ↓
-Workspace Dashboard  (Operate / Record / Review)
+Workspace Dashboard  (실행 / 기록 / 복기)
   ↓
 Object
 ```
 
-- Home **does not** replace Workspaces. Execution lives in Workspaces.
-- 각 Launcher 카드는 **하나의 Primary Action**만 보여 준다 (Continue / Start / Resume / Open).
-- 카드 레이아웃은 동일하다: Icon · Name · Context · Title · Detail · Action.
-- Context는 가능하면 **Continue** + 대기 중인 작업 제목을 보여 준다.
-- 버튼을 누르면 기존 Workspace Dashboard로 이동한다.
-- 내용이 없으면 빈 상태를 보여 주며 가짜 데이터를 만들지 않는다.
-- **모바일/좁은 화면**: 같은 Home을 압축한다. 상단은 Brief · Focus, 하부는 `더 보기`로 접는다.
+- Home은 Workspace를 대체하지 않는다. 실행은 Workspace에서 한다.
+- 각 런처 카드는 **Primary Action 하나** (이어하기 / 시작 / 열기).
+- 카드: Icon · Name · Context · Title · Detail · Action.
+- Context는 가능하면 **Continue** + 대기 중인 작업 제목.
+- 빈 상태는 가짜 데이터 없이 표시한다.
+- **모바일/좁은 화면**: Brief · 집중 우선, 하부는 `더 보기`로 접는다.
+- 상세 사용자 매뉴얼: [09_Obsidian_Manual.md](09_Obsidian_Manual.md).
 
 ### Object Engine Runtime
 
@@ -962,8 +963,12 @@ Daily (ISO week, max 7)
 - Reads canonical Daily Reflection / Change / Next Experiment sections only.
 - Every pattern and principle keeps **source evidence refs** (provenance) **and short evidence quotes**.
 - If fewer than 3 contentful Dailies: **Not enough evidence.** — no fabricated patterns.
-- Weak keyword matches are suppressed (e.g. reading habit requires topic **and** failure/interrupt signal).
-- Principle statements prefer the user's own **Change** wording when available; status stays `pending`.
+- Weak keyword matches are suppressed (false positives worse than misses).
+  - Deferral requires postponement language — temptation/distraction alone is not deferral.
+  - Reading requires topic **and** reading-specific failure (not generic 미루).
+  - Topic-only recurrence (workout/auction mentions) → **Findings only**, no Principle.
+- Principle reuses user **Change** wording only when that Change is **repeated** across days or **itself matches** the pattern; otherwise uses the rule statement.
+- Status stays `pending`.
 - Contradictory signals are kept on both sides (never averaged).
 - Weekly view is a single coherent surface (no duplicated Summary / Findings blocks).
 - Outputs land under `SYSTEM/AI/Skills/prodigy-review/runs/<week>/` as draft artifacts.

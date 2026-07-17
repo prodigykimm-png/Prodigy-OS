@@ -24,79 +24,98 @@ MIN_DAILIES_FOR_PATTERNS: Final = 3
 MIN_SUPPORTING_SOURCES: Final = 2
 
 # Deterministic theme detectors — keyword match only, no LLM.
-# require_all: every group must match (AND). Optional require_any_extra for precision.
-# Product rule: prefer precision over volume (validation: weak reading false-positives).
+# Product rule: false positives worse than missed patterns.
+# emit_principle=False → topic-only Findings (no Principle advice).
 THEME_RULES: Final = (
     {
         "id": "deferral",
         "pattern": "바로 할 수 있는 일을 미루는 패턴",
         "statement": "바로 처리할 수 있는 일은 당일에 끝낸다.",
+        "emit_principle": True,
+        # Postponement evidence only — NOT temptation/distraction alone
         "keys": (
             "미루",
             "미뤄",
             "미루다",
             "procrastin",
+            "미뤄두",
+            "미뤄 두",
+            "미뤄버",
+            "미뤄 버",
+            "조금 더 있다",
+            "조금만 더 있다",
+            "나중에 하",
+            "내일 하",
             "즉시 처리",
             "즉각",
             "바로 처리",
             "바로 해결",
-            "조금만 더",
-            "하다가 말",
-            "유혹에 약",
-            "유혹",
+            "당일",
         ),
-        # Avoid matching only generic "5분" / "당일" alone
         "require_any_of": (
             "미루",
             "미뤄",
-            "즉시",
+            "procrastin",
+            "나중에 하",
+            "조금 더 있다",
+            "조금만 더",
+            "즉시 처리",
             "즉각",
             "바로 처리",
             "바로 해결",
-            "procrastin",
-            "조금만 더",
-            "하다가 말",
-            "유혹에 약",
         ),
     },
     {
         "id": "reading_habit",
         "pattern": "독서 습관이 반복적으로 흔들림",
         "statement": "방해 없는 짧은 독서 시간을 먼저 지킨다.",
-        # Topic + reading-specific failure (do NOT reuse generic 미루 — false positives)
+        "emit_principle": True,
+        # Topic + reading-specific failure (never generic temptation alone)
         "require_all_groups": (
             ("독서", "읽기", "책", "reading"),
-            ("안 읽", "안읽", "못 읽", "못읽", "책도 안", "중단", "방해", "interrupt", "집중 읽"),
+            ("안 읽", "안읽", "못 읽", "못읽", "책도 안", "중단", "방해", "interrupt"),
         ),
-        "keys": (),  # unused when require_all_groups present
+        "keys": (),
     },
     {
-        "id": "workout",
+        # Topic recurrence only — Findings, no Principle (topic ≠ lesson)
+        "id": "workout_topic",
         "pattern": "운동이 반복적으로 기록됨",
         "statement": "유동 업무보다 운동 일정을 먼저 잡는다.",
+        "emit_principle": False,
         "keys": ("운동", "workout", "헬스", "훈련", "스쿼트", "러닝"),
         "require_any_of": ("운동", "workout", "헬스", "훈련", "스쿼트", "러닝"),
     },
     {
-        "id": "auction_review",
+        "id": "auction_topic",
         "pattern": "경매·임장 관련 일이 반복됨",
         "statement": "시세 판단 전에 임장·현장 확인을 한다.",
-        "keys": ("경매", "임장", "입찰", "auction", "시세"),
+        "emit_principle": False,
+        "keys": ("경매", "임장", "입찰", "auction"),
         "require_any_of": ("경매", "임장", "입찰", "auction"),
     },
     {
         "id": "project_delay",
         "pattern": "프로젝트 지연·막힘이 반복됨",
         "statement": "프로젝트 작업을 끝내기 전에 next_action 하나를 남긴다.",
-        "keys": ("프로젝트", "스프린트", "마감", "지연된", "blocked", "project"),
-        "require_any_of": ("프로젝트", "스프린트", "지연", "blocked", "마감"),
+        "emit_principle": True,
+        # Require delay/block signal — not project topic alone
+        "require_all_groups": (
+            ("프로젝트", "스프린트", "project"),
+            ("지연", "막힘", "blocked", "미루", "마감"),
+        ),
+        "keys": (),
     },
     {
         "id": "prep_helps",
         "pattern": "준비가 실행 마찰을 줄임",
         "statement": "작업 블록 시작 전에 재료·환경을 준비한다.",
-        "keys": ("준비", "미리", "마찰", "preparation", "prep"),
-        "require_any_of": ("준비", "미리", "마찰", "prep"),
+        "emit_principle": True,
+        "require_all_groups": (
+            ("준비", "미리", "prep", "preparation"),
+            ("마찰", "쉬워", "쉽게", "실행", "준비했"),
+        ),
+        "keys": (),
     },
 )
 
@@ -271,13 +290,42 @@ def build_why_with_quotes(supporting: list[dict[str, Json]], n: int) -> str:
     return head + "\n" + "\n".join(quotes)
 
 
-def principle_from_changes(supporting: list[dict[str, Json]], fallback: str) -> str:
-    """Prefer user's own Change language when available (product trust)."""
+def _normalized_change(item: dict[str, Json]) -> str:
+    return clean_bullet_text(text_value(item, "change")).lower()
+
+
+def principle_from_changes(
+    supporting: list[dict[str, Json]],
+    rule: dict[str, object],
+    fallback: str,
+) -> str:
+    """
+    Reuse user's Change wording only when evidence is not exaggerated:
+    - same Change text on 2+ supporting days, OR
+    - a Change that itself matches the pattern rule (lesson aligns with pattern).
+    Otherwise use the predefined rule statement.
+    """
+    # 1) Repeated identical Change across supporting days
+    buckets: dict[str, list[str]] = {}
+    for item in supporting:
+        key = _normalized_change(item)
+        if len(key) < 8:
+            continue
+        eid = item.get("evidence_id")
+        if isinstance(eid, str):
+            buckets.setdefault(key, []).append(eid)
+    for key, eids in buckets.items():
+        if len(set(eids)) >= MIN_SUPPORTING_SOURCES:
+            return short_title(key, fallback, limit=60)
+
+    # 2) Change that itself matches the pattern (not an unrelated Change)
     for item in supporting:
         change = clean_bullet_text(text_value(item, "change"))
-        if len(change) >= 12:
-            # Keep as a short principle-like sentence
+        if len(change) < 12:
+            continue
+        if match_rule(change, rule):
             return short_title(change, fallback, limit=60)
+
     return fallback
 
 
@@ -312,7 +360,10 @@ def detect_theme_patterns(usable: list[dict[str, Json]]) -> tuple[list[Json], li
                 "pattern": pattern,
             }
         )
-        statement = principle_from_changes(supporting, str(rule["statement"]))
+        # Topic-only rules: Findings only (no Principle advice)
+        if rule.get("emit_principle") is False:
+            continue
+        statement = principle_from_changes(supporting, rule, str(rule["statement"]))
         principles.append(
             {
                 "title": statement,
@@ -330,18 +381,22 @@ def detect_theme_patterns(usable: list[dict[str, Json]]) -> tuple[list[Json], li
     return findings, principles
 
 
-def detect_repeated_change_phrases(usable: list[dict[str, Json]]) -> list[Json]:
-    """Exact repeated change lines across days (deterministic, provenance-preserving)."""
+def detect_repeated_change_phrases(
+    usable: list[dict[str, Json]],
+) -> tuple[list[Json], list[Json]]:
+    """
+    Exact repeated change lines across days.
+    Returns findings + principles (same wording IS a lesson, not a topic).
+    """
     buckets: dict[str, list[dict[str, Json]]] = {}
     for item in usable:
-        change = text_value(item, "change")
-        cleaned = re.sub(r"^[\-\*\s]+", "", change, flags=re.M).strip()
-        cleaned = re.sub(r"\s+", " ", cleaned)
+        cleaned = clean_bullet_text(text_value(item, "change"))
         if len(cleaned) < 8:
             continue
         key = cleaned.lower()
         buckets.setdefault(key, []).append(item)
     findings: list[Json] = []
+    principles: list[Json] = []
     for key, items in buckets.items():
         if len(items) < MIN_SUPPORTING_SOURCES:
             continue
@@ -352,12 +407,15 @@ def detect_repeated_change_phrases(usable: list[dict[str, Json]]) -> list[Json]:
         )
         if len(refs) < MIN_SUPPORTING_SOURCES:
             continue
-        sample = text_value(items[0], "change")
-        cleaned_sample = clean_bullet_text(sample)
+        cleaned_sample = clean_bullet_text(text_value(items[0], "change"))
+        reason = (
+            f"동일한 변화 기록이 {len(refs)}개 일자에서 반복되었다.\n"
+            f"· “{cleaned_sample[:160]}”"
+        )
         findings.append(
             {
                 "title": "같은 변화가 여러 날에 반복됨",
-                "reason": f"동일한 변화 기록이 {len(refs)}개 일자에서 반복되었다.\n· “{cleaned_sample[:160]}”",
+                "reason": reason,
                 "evidence_refs": refs,
                 "supporting_sources": [
                     str(i.get("source_path") or i.get("evidence_id")) for i in items
@@ -365,7 +423,22 @@ def detect_repeated_change_phrases(usable: list[dict[str, Json]]) -> list[Json]:
                 "pattern": "Repeated change statement",
             }
         )
-    return findings
+        statement = short_title(cleaned_sample, cleaned_sample, limit=60)
+        principles.append(
+            {
+                "title": statement,
+                "statement": statement,
+                "proposal_id": f"principle-repeated-change-{len(refs):02d}",
+                "reason": reason,
+                "evidence_refs": refs,
+                "support": refs,
+                "evidence_strength": "repeated" if len(refs) >= 3 else "emerging",
+                "decision": "pending",
+                "status": "pending",
+                "applied": False,
+            }
+        )
+    return findings, principles
 
 
 def detect_contradictions(usable: list[dict[str, Json]]) -> list[Json]:
@@ -483,11 +556,13 @@ def generate_review(package: dict[str, Json]) -> dict[str, Json]:
 
     if enough_evidence:
         theme_findings, theme_principles = detect_theme_patterns(usable)
+        change_findings, change_principles = detect_repeated_change_phrases(usable)
         findings.extend(theme_findings)
-        findings.extend(detect_repeated_change_phrases(usable))
+        findings.extend(change_findings)
         findings.extend(detect_contradictions(usable))
-        # Principles only from theme rules with support (never invent)
+        # Principles: lesson patterns + repeated Change only (never topic-only)
         principle_list.extend(theme_principles)
+        principle_list.extend(change_principles)
         # Stable order
         findings = _dedupe_findings(findings)
         principle_list = _dedupe_principles(principle_list)
