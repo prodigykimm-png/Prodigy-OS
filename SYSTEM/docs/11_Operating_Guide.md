@@ -412,14 +412,39 @@ Reading Dashboard의 각 책 카드에서 `관련 기억`을 누르면 현재 �
 
 Reading Memory는 원본에서 만든 재구축 가능한 맥락이며 공식 Knowledge가 아니다. 외부 AI를 호출하지 않고, 결정적인 필드·본문·링크 관계만 사용한다.
 
-### Reading Dashboard (카드 본체 + Runtime · Strategy 전력)
+### Reading Dashboard (Daily Thinking Workflow)
 
-Reading은 독서 트래커가 아니다. **판단 품질을 높이는 사고 워크플로**다.  
-화면의 본체는 **기존 카드 대시보드**다. Runtime과 Strategy는 그 뒤에서 선택·질문을 공급한다.
+Reading은 독서 트래커가 아니다. **판단 품질을 높이는 사고 워크플로**다.
 
-질문 하나: **오늘 무엇을 생각해야 하는가?**
+#### Daily flow (위 → 아래)
 
-화면 라벨은 한글 표시 계약을 따른다 (Property 키·내부 id는 영어 유지).
+```text
+Today's Reading     ← 오늘 무엇을 읽을지 하나
+  ↓
+Continue Reading    ← 활성 책 최대 3 · 완료 제외
+  ↓
+Reading Session     ← Start Reading 원클릭
+  ↓
+Quick Reflection    ← 1분 이내 · 프롬프트 최대 3
+  ↓
+Waiting Review      ← 책 라이프사이클 복기 (매 세션 강요 금지)
+  ↓
+Finished Recently   ← 제목 · 완료일 · Open Review
+  ↓
+Reading Library     ← 기존 카드 라이브러리 (재설계 없음)
+```
+
+- **Continue**는 책·챕터 선택 벽을 만들지 않는다. `next_action`이 있으면 그대로 이어 읽는다.
+- **Session**은 설정 화면이 아니다. 큰 **Start Reading** 한 번으로 기존 최소 세션 모달을 연다.
+- **Quick Reflection**은 긴 폼이 아니다. 전략 레이어 프롬프트(최대 3)로 유용한 생각 하나를 남긴다.
+- **Review**는 세션마다 묻지 않는다. `reviewing` / needs_review Runtime 신호만 사용한다.
+- 빈 상태: 다음 책 고르기 · 모두 복기 · 여정 시작 메시지.
+- AI 요약·추천·리뷰 생성 없음. 스키마·Property·Engine 변경 없음.
+
+질문 하나: **What should I read now?**
+
+Runtime과 Strategy는 선택·질문을 공급하고, Dashboard는 **일일 흐름 + Library**로 재배치한다.  
+Object 스키마·Property·Engine은 변경하지 않는다.
 
 ```text
 Reading Objects
@@ -428,15 +453,16 @@ Object Engine Runtime          ← 어떤 책 (continue / review)
     ↓
 Reading Strategy               ← 어떻게 읽을지 (Guide · Checklist · Reflection)
     ↓
-Reading Dashboard (카드 UI)
-  · 이어 읽기 스트립 (Runtime · next_action · 오늘 읽기 · 포커스)
-  · 읽는 중 hero 카드  (표지 · next_action · 진행 칩 · 오늘 읽기 · 질답 진행 · 기억 미리보기 · connections 칩)
-  · 최근 세션
-  · 읽기 대기 (queue → 읽기 시작)
-  · 오래 방치 (Runtime lifecycle stale)
-  · 완독 임박 (progress ≥ 75%)
-  · 복기 필요
-  · 최근 완독
+Reading Dashboard
+  Daily flow
+  · Today's Reading
+  · Continue Reading (max 3)
+  · Reading Session → Start Reading
+  · Quick Reflection (≤ 1 min)
+  · Waiting Review
+  · Finished Recently
+  Library (unchanged cards)
+  · 읽는 중 hero · 대기 · 방치 · 완독 임박 · 최근 완독
 ```
 
 ### Reading Strategy

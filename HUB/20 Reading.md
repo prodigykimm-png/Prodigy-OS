@@ -43,6 +43,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/reading-book-create.js");
   await loadProdigyScript("SYSTEM/Views/reading-strategy-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-workspace-core.js");
+  await loadProdigyScript("SYSTEM/Views/reading-workspace-view.js");
   await loadProdigyScript("SYSTEM/Views/reading-card.js");
 } catch (err) {
   container.empty();
@@ -79,10 +80,11 @@ btn.onclick = (e) => {
 
 ```
 
-# 📖 읽는 중
+# 📖 Daily Reading
 
 ```dataviewjs
-// Card-first dashboard. Runtime + Strategy power the strip/actions — not a second UI wall.
+// Daily Thinking workflow — single Runtime model, no second vault scan.
+// Order: Today → Continue → Session → Quick Reflection → Waiting Review → Finished
 const mapReading = (p) => Object.assign({}, p, {
   type: "reading",
   path: p.file.path,
@@ -132,109 +134,72 @@ const scrollToReadingPath = (path) => {
   }
 };
 
-const openContinueSession = (cont) => {
-  if (!cont || !cont.object_path || !window.ReadingView || !window.ReadingCore) return;
-  const page = dv.page(cont.object_path);
+const openContinueSession = (payload) => {
+  if (!payload) return;
+  const path = payload.object_path || payload.path;
+  if (!path || !window.ReadingView || !window.ReadingCore) return;
+  const page = dv.page(path);
   const book = window.ReadingCore.normalizeBook(Object.assign({}, page || {}, {
-    path: cont.object_path,
-    title: cont.title,
-    book_title: cont.title,
-    next_action: cont.next_action,
-    progress: cont.progress_number || cont.progress
+    path,
+    title: payload.title || (page && (page.title || page.book_title)),
+    book_title: payload.title || (page && (page.book_title || page.title)),
+    next_action: payload.next_action,
+    progress: payload.progress
   }));
   const open = window.ReadingView.openSessionModal || window.ReadingView.openQuickSession;
   open(app, book, () => {
     try { delete window.__readingWorkspaceModel; } catch (_e) { window.__readingWorkspaceModel = null; }
-  }, { progress: cont.progress_number || cont.progress, next_action: cont.next_action });
+  }, { progress: payload.progress, next_action: payload.next_action });
 };
 
 const run = () => {
-  if (!window.renderReadingCard) return false;
+  if (!window.ReadingWorkspaceView || !window.ReadingWorkspaceCore) return false;
   this.container.empty();
-
-  // Compact Continue from Runtime (one strip — not full workspace render)
   const model = ensureRuntimeModel();
-  const contBox = this.container.createEl("div", {
-    attr: {
-      class: "reading-continue-strip",
-      style: "margin:0 0 12px;padding:10px 12px;border-radius:10px;border:1px solid var(--background-modifier-border);background:var(--background-secondary);"
-    }
-  });
-  contBox.createEl("div", {
-    text: "▶ 이어 읽기",
-    attr: { style: "font-weight:800;font-size:0.88em;color:var(--text-accent);margin-bottom:4px;" }
-  });
-
-  const cont = model && model.continue_reading;
-  if (cont && !cont.empty) {
-    contBox.createEl("div", {
-      text: cont.title || "현재 책",
-      attr: { style: "font-weight:700;font-size:0.95em;" }
+  if (!model) {
+    this.container.createEl("span", {
+      text: "독서 런타임을 준비하는 중…",
+      attr: { style: "color:var(--text-muted);font-style:italic;font-size:0.9em;" }
     });
-    const actionLine = contBox.createEl("div", {
-      attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:2px;" }
-    });
-    actionLine.createEl("span", { text: cont.action || "이어 읽기" });
-    if (cont.progress) {
-      actionLine.createEl("span", {
-        text: ` · ${cont.progress}`,
-        attr: { style: "font-weight:700;" }
-      });
-    }
-    if (cont.next_action) {
-      contBox.createEl("div", {
-        text: `다음 · ${cont.next_action}`,
-        attr: { style: "margin-top:4px;font-size:0.82em;font-weight:650;color:var(--text-normal);" }
-      });
-    }
-    if (cont.reason) {
-      const r = contBox.createEl("div", {
-        attr: { style: "margin-top:6px;font-size:0.78em;color:var(--text-muted);" }
-      });
-      r.createEl("span", { text: "이유 ", attr: { style: "font-weight:700;color:var(--text-faint);margin-right:4px;" } });
-      r.createEl("span", { text: cont.reason });
-    }
-    // Strategy chip for active book (power layer, not a full section)
-    if (model.strategy && !model.strategy.empty && model.strategy.strategy_label) {
-      contBox.createEl("div", {
-        text: `전략 · ${model.strategy.strategy_label}`,
-        attr: { style: "margin-top:6px;font-size:0.78em;font-weight:650;color:var(--text-muted);" }
-      });
-    }
-    // Continue focus + single minimal session path (no form wall)
-    const stripActions = contBox.createEl("div", {
-      attr: { class: "prodigy-btn-row", style: "margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;" }
-    });
-    const readBtn = window.ProdigyUI
-      ? window.ProdigyUI.button(stripActions, "오늘 읽기", { primary: true })
-      : stripActions.createEl("button", { text: "오늘 읽기", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
-    readBtn.onclick = (e) => {
-      if (e && e.preventDefault) e.preventDefault();
-      openContinueSession(cont);
-    };
-    const focusBtn = window.ProdigyUI
-      ? window.ProdigyUI.button(stripActions, "이 책 포커스")
-      : stripActions.createEl("button", { text: "이 책 포커스", attr: { type: "button", class: "prodigy-btn" } });
-    focusBtn.onclick = (e) => {
-      if (e && e.preventDefault) e.preventDefault();
-      scrollToReadingPath(cont.focus_path || cont.object_path);
-    };
-  } else {
-    contBox.createEl("div", {
-      text: "진행 중인 독서가 없습니다.",
-      attr: { style: "font-size:0.85em;color:var(--text-muted);font-style:italic;" }
-    });
+    return false;
   }
 
-  // Hero cards — primary visible surface (focus path highlighted via model)
+  window.ReadingWorkspaceView.renderWorkspace(this.container, model, {
+    app,
+    sections: ["today", "continue", "session", "reflection", "review", "history"],
+    onStartSession: (payload) => openContinueSession(payload),
+    onOpenReview: (item) => {
+      if (item && item.path) app.workspace.openLinkText(item.path, item.path, false);
+    }
+  });
+  return true;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", { text: "로딩 중..." });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
+```
+
+---
+
+# 📚 Reading Library
+
+## 읽는 중
+
+```dataviewjs
+const run = () => {
+  if (!window.renderReadingCard) return false;
+  this.container.empty();
+  const model = window.__readingWorkspaceModel;
   const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading");
   if (pages.length === 0) {
     this.container.createEl("span", {
-      text: "진행 중인 독서가 없습니다.",
+      text: "다음 책을 고르세요.",
       attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
     });
   } else {
-    // Prefer Runtime focus first when multiple reading books
     const arr = pages.array ? pages.array() : [...pages];
     const focus = model && model.focus_path;
     arr.sort((a, b) => {
@@ -253,45 +218,6 @@ if (!run()) {
   this.container.createEl("span", { text: "로딩 중..." });
   const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
   setTimeout(() => clearInterval(t), 10000);
-}
-```
-
----
-
-## 최근 세션
-
-```js-engine
-if (!container) return;
-container.empty();
-window.obsidian = obsidian;
-window.app = app;
-
-const loadProdigyScript = async (path) => {
-  const tFile = app.vault.getAbstractFileByPath(path);
-  if (tFile) (new Function(await app.vault.read(tFile)))();
-};
-
-try {
-  await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
-  await loadProdigyScript("SYSTEM/Views/reading-core.js");
-  await loadProdigyScript("SYSTEM/Views/reading-store.js");
-  await loadProdigyScript("SYSTEM/Views/reading-view.js");
-  const render = window.ReadingView?.renderSessionHistory || window.ReadingView?.renderLearningLoop;
-  if (render) await render(app, container);
-  else {
-    container.createEl("span", {
-      text: "최근 세션이 없습니다.",
-      attr: { style: "color:var(--text-muted);font-style:italic;font-size:0.9em;" }
-    });
-  }
-} catch (error) {
-  container.createEl("p", {
-    text: "세션 기록을 불러오지 못했습니다.",
-    attr: { style: "color:var(--text-error);font-size:0.85em;" }
-  });
-  if (window.prodigyDebugMode) {
-    container.createEl("pre", { text: error.stack || error.message });
-  }
 }
 ```
 
