@@ -434,6 +434,95 @@
     };
   }
 
+  /**
+   * Post-result review queue (no new properties).
+   * - won / lost → 복기 시작 전 (pending_review)
+   * - reviewing → 복기 진행 중 (in_progress)
+   * - skipped → 보관 전 정리 (pending_close)
+   */
+  function buildReviewQueue(pages) {
+    const list = Array.isArray(pages) ? pages : [];
+    const out = [];
+    list.forEach((raw) => {
+      if (!raw) return;
+      const type = clean(raw.type);
+      if (type && type !== "auction_case") return;
+      const status = clean(raw.status);
+      const path = pagePath(raw);
+      if (!path) return;
+      let stage = "";
+      let reason = "";
+      let next_status = "";
+      if (status === "won" || status === "lost") {
+        stage = "pending_review";
+        reason = "결과 기록 후 복기가 시작되지 않았습니다.";
+        next_status = "reviewing";
+      } else if (status === "reviewing") {
+        stage = "in_progress";
+        reason = "복기 진행 중입니다.";
+        next_status = "archived";
+      } else if (status === "skipped") {
+        stage = "pending_close";
+        reason = "입찰 포기 후 보관 전입니다.";
+        next_status = "archived";
+      } else {
+        return;
+      }
+      out.push({
+        path,
+        title: pageTitle(raw),
+        case_number: hasValue(raw.case_number) ? clean(raw.case_number) : pageTitle(raw),
+        status,
+        stage,
+        reason,
+        next_status,
+        auction_datetime: raw.auction_datetime || "",
+        decision_reason: raw.decision_reason || "",
+        page: raw
+      });
+    });
+    const stageRank = { pending_review: 0, in_progress: 1, pending_close: 2 };
+    out.sort((a, b) => {
+      const ra = stageRank[a.stage] != null ? stageRank[a.stage] : 9;
+      const rb = stageRank[b.stage] != null ? stageRank[b.stage] : 9;
+      if (ra !== rb) return ra - rb;
+      return String(b.auction_datetime || "").localeCompare(String(a.auction_datetime || ""));
+    });
+    return out;
+  }
+
+  /**
+   * Load auction_case pages from vault metadata (for Day Runner from cards).
+   * No full-file read — frontmatter cache only.
+   */
+  function pagesFromVault(app) {
+    if (!app || !app.vault || typeof app.vault.getMarkdownFiles !== "function") return [];
+    const folder = "PARA/PROJECTS/Auction/";
+    const files = app.vault.getMarkdownFiles().filter((f) => {
+      if (!f || !f.path) return false;
+      if (!f.path.startsWith(folder)) return false;
+      if (f.path.indexOf("/_") !== -1) return false;
+      return true;
+    });
+    return files.map((f) => {
+      let fm = {};
+      try {
+        const cache = app.metadataCache && typeof app.metadataCache.getFileCache === "function"
+          ? app.metadataCache.getFileCache(f)
+          : null;
+        fm = (cache && cache.frontmatter) || {};
+      } catch (_e) {
+        fm = {};
+      }
+      return Object.assign({}, fm, {
+        type: clean(fm.type) || "auction_case",
+        path: f.path,
+        file: f,
+        name: clean(fm.case_number) || f.basename || f.name
+      });
+    });
+  }
+
   const api = {
     RESULT_OUTCOMES,
     COURT_PREP_ITEMS,
@@ -461,7 +550,9 @@
     isValidOutcome,
     saveFinalBid,
     recordResult,
-    buildDayModel
+    buildDayModel,
+    buildReviewQueue,
+    pagesFromVault
   };
 
   root.AuctionDayCore = api;

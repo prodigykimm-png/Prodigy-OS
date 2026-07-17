@@ -9,10 +9,25 @@ const CARD_PATH = path.join(ROOT, "SYSTEM/Views/reading-card.js");
 function testBaselineContract() {
   const template = fs.readFileSync(TEMPLATE_PATH, "utf8");
   const card = fs.readFileSync(CARD_PATH, "utf8");
-  for (const term of ["purpose", "reading_purpose", "current_page", "total_page", "total_pages", "progress"]) {
+  // Discarded legacy fields must not return on template or card UX.
+  for (const term of ["purpose", "reading_purpose", "current_page", "total_page", "total_pages"]) {
+    if (term === "current_page" && card.includes("current_page")) {
+      // Card may delete legacy current_page only — never write it.
+      assert.equal(/fm\.current_page\s*=/.test(card), false, "card must not write current_page");
+      assert.match(
+        card,
+        /delete fm\.current_page|hasOwnProperty\.call\(fm,\s*["']current_page["']\)/,
+        "current_page on card must only be legacy cleanup"
+      );
+      assert.equal(template.includes(term), false, `template still contains ${term}`);
+      continue;
+    }
     assert.equal(template.includes(term), false, `template still contains ${term}`);
     assert.equal(card.includes(term), false, `card still contains ${term}`);
   }
+  // Canonical progress is allowed and expected.
+  assert.match(template, /^progress:/m, "template should declare canonical progress");
+  assert.match(card, /progress/, "card should expose canonical progress chips");
 }
 
 function testProjectionAliasesAndSafety() {

@@ -24,7 +24,17 @@ function main() {
   });
   assert.equal(withPurpose.reading_purpose, "new purpose");
 
+  // Minimal validation: book + date + one memo. Range/pages optional.
   assert.throws(() => core.createReadingSession(book, { date: "2026-07-17" }));
+
+  const minimal = core.createReadingSession(book, {
+    date: "2026-07-17",
+    note: "경청이 먼저다"
+  });
+  assert.equal(minimal.type, "reading_session");
+  assert.equal(minimal.key_content, "경청이 먼저다");
+  assert.equal(minimal.reading_range, "오늘 읽기");
+  assert.ok(minimal.session_id);
 
   const session = core.createReadingSession(book, {
     date: "2026-07-17",
@@ -46,6 +56,7 @@ function main() {
     key_content: "핵심"
   });
   assert.equal(pageOnly.start_page, "10");
+  assert.equal(pageOnly.reading_range, "");
 
   const candidate = core.createKnowledgeCandidate(session, {});
   assert.equal(candidate.status, "proposed");

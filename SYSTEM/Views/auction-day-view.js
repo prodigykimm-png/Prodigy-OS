@@ -147,6 +147,10 @@
   padding: 10px;
   margin-bottom: 10px;
   background: var(--background-secondary);
+  scroll-margin-top: 12px;
+}
+.prodigy-aday-card.is-focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 55%, transparent);
 }
 .prodigy-aday-card-title {
   font-weight: 800;
@@ -402,9 +406,12 @@
     function renderAuctionExecCard(parent, item) {
       const page = item.page || {};
       const path = item.object_path || item.path;
+      const focusPath = opts.focusPath ? String(opts.focusPath) : "";
+      const isFocus = focusPath && path && focusPath === path;
       const card = parent.createEl("div", {
         attr: {
-          class: "prodigy-aday-card",
+          class: "prodigy-aday-card" + (isFocus ? " is-focus" : ""),
+          "data-path": path || "",
           style: `border-left-color: ${statusColor(item.status)};`
         }
       });
@@ -536,6 +543,9 @@
                 if (winInput.value) page.winning_bid_price = winInput.value;
               }
               paint();
+              if (out.key === "won" || out.key === "lost") {
+                notice("복기 대기 큐에 올랐습니다. 대시보드 「복기 대기」에서 이어가세요.", 6000);
+              }
             } catch (err) {
               notice(err && err.message ? err.message : "결과 기록 실패");
             } finally {
@@ -548,6 +558,33 @@
         badge.setText
           ? badge.setText(`결과: ${statusLabel(item.status)}`)
           : (badge.textContent = `결과: ${statusLabel(item.status)}`);
+        // After result: one-tap start review (won/lost → reviewing)
+        if (item.status === "won" || item.status === "lost") {
+          const revBtn = card.createEl("button", {
+            text: "복기 시작",
+            attr: { type: "button", class: "prodigy-aday-result-btn is-primary", style: "margin-top:8px;" }
+          });
+          revBtn.onclick = async () => {
+            try {
+              revBtn.disabled = true;
+              const tFile = app.vault.getAbstractFileByPath(path);
+              if (!tFile || !app.fileManager) throw new Error("Object를 찾을 수 없습니다.");
+              await app.fileManager.processFrontMatter(tFile, (fm) => {
+                fm.status = "reviewing";
+                fm.updated = core.isoToday(now);
+              });
+              item.status = "reviewing";
+              if (page) page.status = "reviewing";
+              notice("복기를 시작했습니다.");
+              await refreshPagesFromVault();
+              paint();
+            } catch (err) {
+              notice(err && err.message ? err.message : "복기 시작 실패");
+            } finally {
+              revBtn.disabled = false;
+            }
+          };
+        }
       }
 
       const openRow = card.createEl("div", { attr: { class: "prodigy-aday-actions" } });
@@ -572,6 +609,52 @@
     // Load state for current date then paint
     dayState = await core.loadDayState(app, dateIso);
     paint();
+
+    // Focus card from dashboard list (round-trip)
+    if (opts.focusPath) {
+      setTimeout(() => {
+        try {
+          const el = rootEl.querySelector
+            ? rootEl.querySelector(`.prodigy-aday-card[data-path="${String(opts.focusPath).replace(/"/g, '\\"')}"]`)
+            : null;
+          if (el && typeof el.scrollIntoView === "function") {
+            el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        } catch (_e) { /* ignore */ }
+      }, 50);
+    }
+  }
+
+  /**
+   * Open Day Runner for a specific auction (card → runner).
+   * Loads vault pages if not provided.
+   */
+  async function openForAuction(options) {
+    const opts = options || {};
+    const app = opts.app || root.app;
+    const core = root.AuctionDayCore;
+    if (!app || !core) {
+      notice("입찰 실행을 열 수 없습니다.");
+      return null;
+    }
+    let pages = Array.isArray(opts.pages) ? opts.pages : null;
+    if (!pages || !pages.length) {
+      pages = typeof core.pagesFromVault === "function" ? core.pagesFromVault(app) : [];
+    }
+    let dateIso = opts.date || "";
+    if (!dateIso && opts.path) {
+      const hit = pages.find((p) => core.pagePath(p) === opts.path);
+      dateIso = core.toIsoDate(hit && hit.auction_datetime) || core.isoToday();
+    }
+    if (!dateIso) dateIso = core.isoToday();
+    return openPanel({
+      app,
+      pages,
+      date: dateIso,
+      focusPath: opts.path || opts.focusPath || "",
+      reloadPages: async () => (typeof core.pagesFromVault === "function" ? core.pagesFromVault(app) : pages),
+      onClose: opts.onClose
+    });
   }
 
   /**
@@ -634,6 +717,7 @@
   const api = {
     render,
     openPanel,
+    openForAuction,
     ensureStyles
   };
 

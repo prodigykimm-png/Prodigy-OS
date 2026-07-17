@@ -677,6 +677,41 @@ window.renderAuctionCard = function(p, container) {
           style: 'margin-top: 3px; border-top: 1px solid var(--background-modifier-border); padding-top: 3px; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px;'
         }
       });
+
+      // Card → Day Runner (when bidding with a bid date)
+      if (p.status === "bidding" && p.auction_datetime) {
+        const dayBtn = window.ProdigyUI
+          ? window.ProdigyUI.button(buttonContainer, "⚖️ 입찰 실행", { chip: true })
+          : buttonContainer.createEl("button", {
+            text: "⚖️ 입찰 실행",
+            attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" }
+          });
+        dayBtn.onclick = async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const dayView = window.AuctionDayView;
+          const dayCore = window.AuctionDayCore;
+          if (!dayView || !dayView.openForAuction) {
+            if (typeof Notice !== "undefined") new Notice("입찰 실행을 불러오지 못했습니다.");
+            return;
+          }
+          const path = (p.file && p.file.path) || p.path || "";
+          const dateIso = dayCore && dayCore.toIsoDate
+            ? dayCore.toIsoDate(p.auction_datetime)
+            : String(p.auction_datetime).slice(0, 10);
+          try {
+            await dayView.openForAuction({
+              app,
+              path,
+              date: dateIso
+            });
+          } catch (err) {
+            if (typeof Notice !== "undefined") {
+              new Notice(err && err.message ? err.message : "입찰 실행을 열지 못했습니다.");
+            }
+          }
+        };
+      }
       
       buttons.forEach(opt => {
         const btn = window.ProdigyUI

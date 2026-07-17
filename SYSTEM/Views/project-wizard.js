@@ -376,12 +376,21 @@
   }
 
   class ProjectWizardModal extends root.obsidian.Modal {
-    constructor(app) {
+    /**
+     * @param {object} app
+     * @param {{ initialProjectName?: string }} [options]
+     *   initialProjectName is applied once at construction (editable; not reset on render).
+     */
+    constructor(app, options) {
       super(app);
       const core = root.ProjectWizardCore;
       this.core = core;
+      const opts = options && typeof options === "object" ? options : {};
+      const initialName = typeof core.normalizeInitialProjectName === "function"
+        ? core.normalizeInitialProjectName(opts.initialProjectName)
+        : String(opts.initialProjectName == null ? "" : opts.initialProjectName).trim();
       this.state = {
-        projectName: "",
+        projectName: initialName,
         startDate: core.todayIso(),
         dueDate: "",
         projectKind: "work",
@@ -771,7 +780,13 @@
     }
   }
 
-  function openProjectWizard() {
+  /**
+   * Public entry: open Project Wizard.
+   * @param {{ initialProjectName?: string }} [options]
+   * openProjectWizard() — blank name (existing callers)
+   * openProjectWizard({ initialProjectName: "…" }) — prefill once
+   */
+  function openProjectWizard(options) {
     if (!root.app || !root.obsidian) {
       notice("프로젝트 마법사는 Obsidian 앱 컨텍스트가 필요합니다.", 9000);
       return;
@@ -780,7 +795,8 @@
       notice("프로젝트 마법사 스크립트가 아직 모두 로드되지 않았습니다.", 9000);
       return;
     }
-    new ProjectWizardModal(root.app).open();
+    const opts = options && typeof options === "object" ? options : {};
+    new ProjectWizardModal(root.app, opts).open();
   }
 
   root.ProjectWizardModal = ProjectWizardModal;

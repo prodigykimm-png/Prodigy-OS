@@ -174,6 +174,7 @@ Object Engine.classify()  (결정론 · AI 없음 · vault 스캔 없음)
 - Creator는 **어댑터**다. 스키마·템플릿·워크스페이스 생성 구현을 복제하지 않는다.
 - 분류 실패 시 **저널** 폴백 + 이유 표시. 생성은 항상 사람이 확인한다.
 - 유사 Object는 패키지 목록만 힌트로 보여 주며 **생성을 막지 않는다**.
+- When **Project** is selected, the Creator input is handed to the existing Project Wizard as the initial project name.
 
 ## 2.2 Capture Postpones Decisions
 
@@ -412,11 +413,13 @@ Object Engine Runtime          ← 어떤 책 (continue / review)
 Reading Strategy               ← 어떻게 읽을지 (Guide · Checklist · Reflection)
     ↓
 Reading Dashboard (카드 UI)
-  · 이어 읽기 한 줄 (Runtime)
-  · 읽는 중 hero 카드  (표지 · 오늘 읽기 · 독서 질답 · 관련 기억)
+  · 이어 읽기 스트립 (Runtime · next_action · 오늘 읽기 · 포커스)
+  · 읽는 중 hero 카드  (표지 · next_action · 진행 칩 · 오늘 읽기 · 질답 진행 · 기억 미리보기 · connections 칩)
   · 최근 세션
+  · 읽기 대기 (queue → 읽기 시작)
+  · 오래 방치 (Runtime lifecycle stale)
+  · 완독 임박 (progress ≥ 75%)
   · 복기 필요
-  · 읽기 대기
   · 최근 완독
 ```
 
@@ -432,16 +435,24 @@ Checklist  (During — 같은 모달 체크)
 Reflection (After — 카드 성찰 힌트 · 사용자 기록)
 ```
 
-- **UI 원칙**: 회색 섹션 벽을 쌓지 않는다. **카드가 본체**, Strategy/Runtime은 칩·한 줄·모달로만 드러난다.
+- **UI 원칙**: 회색 섹션 벽을 쌓지 않는다. **카드가 본체**, Strategy/Runtime은 칩·한 줄·모달로만 드러난다. **입력은 최소화**가 OS 원칙이다.
 - **진행도**: 읽는 중 카드에서 `25 · 50 · 75 · 100%`만 선택한다. 비어 있으면 아직 안 읽음(0). 저장 필드는 `progress`. `current_page`는 폐기 필드이며 쓰지 않는다. 100%가 상태 전환을 강제하지 않는다.
-- **Runtime vs Strategy**: Runtime이 **어떤 책**을 고른다. Strategy가 **어떻게 읽을지**를 정한다. Runtime 로직을 복제하지 않는다.
-- **이어 읽기**: Runtime `continue_target` 한 줄 + 이유. 없으면 `진행 중인 독서가 없습니다.`
+- **Runtime vs Strategy**: Runtime이 **어떤 책**을 고른다. Strategy가 **어떻게 읽을지**를 정한다. Runtime 로직을 복제하지 않는다. Hub 섹션은 **한 번 평가한 Runtime 모델**을 공유한다 (`__readingWorkspaceModel`).
+- **이어 읽기**: Runtime `continue_target` 한 줄 + 이유 + `next_action` + 진행. **오늘 읽기**로 최소 세션. **이 책 포커스**로 해당 hero 카드로 스크롤한다.
+- **next_action**: 카드에 추정 없이 표시한다. 비어 있으면 숨긴다.
+- **오늘 읽기 (최소 세션)**: 필수 입력은 **한 줄 메모 하나**다. 진행 칩·다음 행동은 선택. 페이지/시간/생각의 변화 등은 `더 보기` 뒤에만 둔다. 범위가 비면 `오늘 읽기` 또는 진행 %로 자동 채운다. 필드 벽을 기본 화면에 두지 않는다.
+- **질답 진행**: 카드에 `질답 n/m` 요약을 보여 준다. 자동 완료 없음.
+- **기억 미리보기**: 관련 기억이 있으면 한 줄 힌트. 상세는 `관련 기억` 모달.
+- **connections 칩**: Object `connections`에 적힌 링크만 칩으로 보여 준다. 관계를 추정하지 않는다.
+- **오래 방치**: Runtime lifecycle `stale`인 읽는 중 책. 날짜를 추측하지 않는다.
+- **완독 임박**: `progress` ≥ 75%인 읽는 중 책. 상태 전환은 사용자가 `복기 시작` 등으로 직접 한다.
+- **읽기 대기**: queue 카드의 **읽기 시작**으로 status → reading. 필요 시 `next_action`을 채운다.
 - **공통 레이어 (모든 책)**: Adler식 3단계 — **읽기 전 · 구조 파악** → **읽는 중 · 내용 해석** → **읽은 후 · 비판·적용**. 유형이 없어도 항상 동작한다.
 - **분야 레이어**: `book_type` / `reading_strategy` / `reading_type`이 **명시**될 때만 덧붙인다. 제목·카테고리로 조용히 추측하지 않는다. 미래 AI 분류가 타입을 채우면 같은 경로로 분야 질문이 켜진다.
 - **독서 질답 모달**: 카드 `독서 질답` → 상단 **읽기 전 / 읽는 중 / 읽은 후** 버튼으로 단계를 고른 뒤, 그 단계 질문에만 **답을 바로 입력**한다. 입력은 잠시 후 임시 저장되고, **맨 아래 `노트에 저장` 한 번**으로 작성된 답을 Reading Object Key Takeaways에 반영한다. 질문마다 저장 버튼을 두지 않는다.
 - **성찰**: 사용자 소유. 읽은 후 단계 질문으로 다룬다. 답 자동 생성 없음.
 - **복기 필요**: Runtime health / reviewing + 카드 목록.
-- **AI 경계**: Book Analysis / Thinking Delta / Knowledge Candidate / Reading Memory / PRE — 미구현.
+- **AI 경계**: Book Analysis / Thinking Delta / Knowledge Candidate 자동 승인 / PRE — 미구현. Related Memory 조회는 기존 기록 관계만 표시한다.
 
 ### 새 책 추가
 
@@ -537,6 +548,10 @@ Preserve Knowledge
 
 Auction Day Runner는 분석 화면이 아니다. **입찰 당일 실행 인터페이스**이다.
 
+- **카드 → 실행**: 입찰 예정 카드의 「입찰 실행」으로 당일 Day Runner를 열고, 해당 물건을 포커스한다.
+- **실행 → 복기**: 결과(won/lost) 기록 후 「복기 시작」 또는 대시보드 **복기 대기** 큐에서 이어간다.
+- **입찰가**: 카드에서 `expected_bid` 클릭 수정, Day Runner에서 `my_bid_price` 「입찰가 확정」 (이미 지원).
+
 ```text
 Bid Calendar
   ↓
@@ -573,62 +588,93 @@ Learning
 ## Scenario 5 — Workout Program Runner
 
 ```text
-1. Workout Dashboard에서 현재 Program Run 확인
-2. 제안된 다음 Program Day 또는 다른 Day 선택
-3. Exercise Card에서 실제 중량·횟수·RPE 기록
-4. 운동 완료 후 다음 미완료 Day 확인
-5. 필요할 때 Program을 일시정지·완료·중단하고 다른 Program 실행
+1. Workout Dashboard ▶ 계속 에서 오늘 운동 시작 / 이어서 기록
+2. 세트: 완료 체크 · 중량/횟수 (이전 복제 원탭). RPE·메모는 더 보기
+3. 운동 완료 → 선택 한 줄 메모 → 다음 Day 확인
+4. 미완료 초안 / 오래 방치 Run 정리
+5. 필요할 때 Program 일시정지·중단 후 다른 Program 시작
 ```
 
-- **Program**: 재사용 가능한 운동 구성이다. 실행 진척을 저장하지 않는다.
-- **Program Run**: Program을 한 번 실행한 기록이다. 일반적으로 하나만 `active` 상태로 둔다.
-- **Program Day**: 요일이 아니라 `Week 2 Day 3` 같은 운동 순서다. 제안을 따르지 않고 다른 Day를 선택할 수 있다.
-- **Workout Session**: 실제 중량·횟수·RPE·메모를 저장한다. 같은 Day를 반복해도 이전 기록을 덮어쓰지 않는다.
-- **Quick Workout**: Program Run 없이 만드는 단독 Session이다. Program 진척에는 영향을 주지 않는다.
+- **Program**: 재사용 가능한 운동 구성. 실행 진척을 저장하지 않는다.
+- **Program Run**: Program을 한 번 실행한 기록. 일반적으로 하나만 `active`.
+- **Program Day**: 요일이 아니라 `1주차 2일차` 순서. 제안을 따르지 않아도 된다.
+- **Workout Session**: 실제 중량·횟수·RPE·메모. 같은 Day 반복도 덮어쓰지 않는다.
+- **Quick Workout**: Program Run 없이 만드는 단독 Session.
+- **Workout Object (`WO-*`)**: Program Runner와 **별도** 일회 계획/복기 노트. 대시보드「오늘 계획」에 노출.
+
+### 대시보드 표면 (입력 최소화)
+
+```text
+▶ 계속 (시작 / 이어서 기록)
+  · 진행 중 세션 (최소 입력)
+  · 현재 프로그램 + 진행 바
+  · 미완료 세션 초안
+  · 오래 방치 Run
+  · 오늘 계획 (WO Object)
+  · 프로그램 라이브러리
+  · 운동 기록 (세션 타임라인)
+```
+
+- **▶ 계속**: draft가 있으면 이어서 기록, 없으면 제안 Day로 **오늘 운동 시작**.
+- **세트 입력**: 기본 표면은 완료 체크 · kg · 회. **이전** 칩 / **전부 이전과 동일**. RPE·메모는 `더`.
+- **초안 버리기**: 미완료 draft 삭제 (완료 기록은 보존).
+- **오래 방치**: active/paused 중 최근 완료 세션이 N일 이상 없는 실행 (저장된 날짜만 사용).
+- **진행 바**: `3/12 Day · 다음 1주차 2일차`.
 
 ### Program 가져오기
 
-Workout Dashboard의 `프로그램 가져오기`에서 Excel 파일을 선택한다. 저장 전 미리보기에서 Program 제목, 주차, Day 수, 운동 수, 확인이 필요한 행과 개요를 확인한다. 가져오기는 결정적 파서만 사용하며 AI가 내용을 추측하지 않는다.
+`프로그램 가져오기`에서 Excel을 선택한다. 저장 전 미리보기(제목·주차·Day·운동 수·확인 행). 결정적 파서만 사용한다.
 
 ### 프로그램 라이브러리
 
-라이브러리 카드에는 **이름 · 목표 · 주차 · 세션 수 · Run 횟수 · 상태**를 보여 준다.
+카드: **이름 · 목표 · 주차 · 세션 · Run · 상태**.
 
 | 동작 | 설명 |
 |------|------|
-| 프로그램 시작 / 다시 시작 | 새 Program Run |
-| 이어서 실행 | 일시정지 Run 재개 |
+| 시작 / 다시 시작 / 이어서 실행 | primary |
 | 편집 | Program Editor |
-| 이름 변경 | 제목만 변경 |
-| 복제 | 새 Program id · 파일 |
-| 내보내기 | JSON export |
-| 삭제 | 원본 Program 노트 삭제 (Run 기록은 유지) |
-| 노트 열기 / 실행 기록 | 기존 동작 |
+| 더 보기 | 이름 변경 · 복제 · 내보내기 · 노트 · 실행 기록 · 삭제 |
 
 ### 프로그램 편집기
 
-이름·목표·주차·일차·운동 추가/삭제/복제/순서·세트(횟수·RPE·목표·휴식)·운동 메모를 편집한다.  
-저장 전 **검증**한다 (빈 이름, 빈 Program, Day 중복, 세트 없음 등). 조용히 고치지 않는다.
-
-**버전 안전성**: Program Run 시작 시 Program 스냅샷을 Run에 저장한다. 이후 라이브러리 편집은 **미래 Run**에만 영향을 준다. 진행 중 Run은 시작 시점 구성을 유지한다.
+이름·목표·주차·일차·운동·세트 편집. 저장 전 검증.  
+**버전 안전성**: Run 시작 시 스냅샷. 라이브러리 편집은 미래 Run에만 영향.
 
 ### Exercise Object
 
-운동 이름은 선택적으로 Exercise Object(`PARA/RESOURCES/Workout/Exercises/`)와 연결된다.
+`PARA/RESOURCES/Workout/Exercises/`. 없으면 사용자만 생성. 이전·최고·e1RM·이력은 기존 Session에서 계산.
 
-- Object가 있으면 연다.
-- 없으면 **Exercise Object 만들기**를 사용자만 실행한다. 자동 생성하지 않는다.
-- 노트에서 이전 결과 · 최고 중량 · 추정 1RM · 최근 세션 이력을 **기존 Session**에서 계산한다. 별도 저장소를 만들지 않는다.
+**target (부위)**: 영문 표준 값으로 관리한다.
 
-검색은 이름 · alias · category(있을 때)로 결정적으로 한다. AI 없음.
+| target | 표시 |
+|--------|------|
+| `legs` | 하체 |
+| `chest` | 가슴 |
+| `back` | 등 |
+| `shoulders` | 어깨 |
+| `arms` | 팔 |
+| `core` | 코어 |
+| `full_body` | 전신 |
+| `cardio` | 유산소 |
+| `other` | 기타 |
+
+프로그램 **운동 추가** / 편집기에서 부위 칩을 고르면 해당 `target` 운동(및 미분류)만 검색된다. 운동 노트 생성·상세에서 target을 저장할 수 있다.
+
+**cue (한 줄 테크닉 큐)**: 대시보드 세션 카드에만 쓰는 짧은 힌트다.
+
+```yaml
+cue: "무릎이 발끝 밖으로 나가지 않게"
+```
+
+- 긴 테크닉 설명은 본문 `# 테크닉`에 둔다.
+- **개인 기록(이전·최고·e1RM)은 property로 저장하지 않는다.** 완료 Session에서 계산해 세션 카드에 `이전 … · 최고 …`로 표시한다.
+- 운동 상세 모달에서 `cue` 편집·저장.
 
 ### 실행과 파생 상태
 
-Dashboard는 완료된 Session을 기준으로 가장 앞선 미완료 Day를 제안한다. 다른 Day를 먼저 선택하면 경고하지만 막지 않는다. 입력 중인 Session은 자동 저장되므로 Dashboard를 다시 열어도 이어서 기록할 수 있다.
-
-Program, Program Run, Session과 가져오기 결과는 `SYSTEM/AI/Memory/workout/` 아래의 파생 JSON으로 저장된다. 실행 중 원본 Program Markdown을 덮어쓰지 않는다. 파생 상태를 제거해도 원본 사용자 문서는 삭제하지 않는다.
-
-Object Engine Runtime의 Continue / Attention / Next Action은 Workout이 다시 계산하지 않는다.
+완료 Session 기준 다음 Day 제안. 입력 중 Session은 자동 저장.  
+파생 JSON: `SYSTEM/AI/Memory/workout/`. 원본 Program 노트를 실행 중 덮어쓰지 않는다.  
+Hub는 `WorkoutView.renderDashboard` 한 경로로 로드하며 `__workoutWorkspaceModel`을 공유한다.
 
 ---
 

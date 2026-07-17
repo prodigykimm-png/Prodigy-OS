@@ -7,8 +7,72 @@
   const START = "<!-- workout-program:start -->";
   const END = "<!-- workout-program:end -->";
 
+  /**
+   * Canonical exercise body-part targets (English id + Korean label).
+   * Stored on Exercise Object frontmatter as `target: legs` etc.
+   */
+  const EXERCISE_TARGETS = Object.freeze([
+    Object.freeze({ id: "legs", label: "하체" }),
+    Object.freeze({ id: "chest", label: "가슴" }),
+    Object.freeze({ id: "back", label: "등" }),
+    Object.freeze({ id: "shoulders", label: "어깨" }),
+    Object.freeze({ id: "arms", label: "팔" }),
+    Object.freeze({ id: "core", label: "코어" }),
+    Object.freeze({ id: "full_body", label: "전신" }),
+    Object.freeze({ id: "cardio", label: "유산소" }),
+    Object.freeze({ id: "other", label: "기타" }),
+  ]);
+  const TARGET_IDS = Object.freeze(EXERCISE_TARGETS.map((t) => t.id));
+  const TARGET_ALIASES = Object.freeze({
+    legs: "legs", leg: "legs", lower: "legs", lower_body: "legs",
+    "하체": "legs", "다리": "legs", "둔근": "legs", "엉덩이": "legs", glute: "legs", glutes: "legs",
+    chest: "chest", pec: "chest", pecs: "chest", "가슴": "chest", "흉부": "chest",
+    back: "back", lats: "back", "등": "back", "광배": "back",
+    shoulders: "shoulders", shoulder: "shoulders", delts: "shoulders", "어깨": "shoulders",
+    arms: "arms", arm: "arms", biceps: "arms", triceps: "arms", "팔": "arms", "이두": "arms", "삼두": "arms",
+    core: "core", abs: "core", "코어": "core", "복근": "core",
+    full_body: "full_body", fullbody: "full_body", "전신": "full_body",
+    cardio: "cardio", conditioning: "cardio", "유산소": "cardio", "컨디셔닝": "cardio",
+    other: "other", misc: "other", "기타": "other", "미분류": "other",
+  });
+
   function clean(value) { return String(value == null ? "" : value).trim(); }
   function yamlValue(value) { return JSON.stringify(clean(value)); }
+
+  /** Normalize free text / Korean / English to canonical target id, or "". */
+  function normalizeTarget(value) {
+    const raw = clean(value);
+    if (!raw) return "";
+    const key = raw.toLocaleLowerCase("ko-KR").replace(/[\s-]+/g, "_");
+    if (TARGET_ALIASES[key]) return TARGET_ALIASES[key];
+    if (TARGET_ALIASES[raw]) return TARGET_ALIASES[raw];
+    if (TARGET_IDS.includes(key)) return key;
+    return "";
+  }
+
+  function targetLabel(id) {
+    const found = EXERCISE_TARGETS.find((t) => t.id === id);
+    return found ? found.label : (id || "");
+  }
+
+  /** Soft name-based suggestion only (for empty notes / UI hint — never auto-write without user). */
+  function suggestTargetFromName(name) {
+    const text = clean(name).toLocaleLowerCase("ko-KR");
+    if (!text) return "";
+    const rules = [
+      ["legs", ["squat", "lunge", "leg press", "hack squat", "rdl", "deadlift", "calf", "스쿼트", "런지", "레그", "하체", "데드", "카프", "힙 쓰러스트", "hip thrust"]],
+      ["chest", ["bench", "chest", "fly", "푸시업", "벤치", "가슴", "플라이", "딥스"]],
+      ["back", ["row", "pull", "lat", "back extension", "pull-up", "chin", "로우", "풀다운", "등", "시티드", "페이스 풀"]],
+      ["shoulders", ["shoulder", "press", "lateral raise", "face pull", "어깨", "밀리터리", "사이드 레터럴", "리어 델트"]],
+      ["arms", ["curl", "tricep", "bicep", "extension", "이두", "삼두", "컬", "푸시다운"]],
+      ["core", ["crunch", "plank", "ab ", "core", "복근", "플랭크", "크런치", "레그 레이즈"]],
+      ["cardio", ["run", "row erg", "bike", "cardio", "러닝", "유산소", "로잉", "사이클"]],
+    ];
+    for (const [id, words] of rules) {
+      if (words.some((w) => text.includes(w))) return id;
+    }
+    return "";
+  }
   function safeName(value) {
     const result = clean(value).replace(/[\\/:*?"<>|#[\]^]/g, " ").replace(/\s+/g, " ").replace(/^\.+|\.+$/g, "").trim();
     if (!result) throw new Error("이름을 입력해 주세요.");
@@ -73,9 +137,16 @@
     }
     return core.normalizeProgram({ ...metadata, days });
   }
-  function renderExerciseNote(name, date = new Date().toISOString().slice(0, 10)) {
+  function cleanCue(value) {
+    // One-line dashboard cue — collapse newlines, cap length
+    return clean(value).replace(/\s+/g, " ").slice(0, 160);
+  }
+
+  function renderExerciseNote(name, date = new Date().toISOString().slice(0, 10), options = {}) {
     const title = safeName(name);
-    return `---\nid: ${yamlValue(`exercise_${core.stableHash(title.toLowerCase())}`)}\ntype: exercise\nstatus: active\ncreated: ${date}\nupdated: ${date}\ntitle: ${yamlValue(title)}\ncategory: ""\nprimary_muscles: []\nsecondary_muscles: []\nequipment: ""\naliases: []\n---\n# ${title}\n\n# 설명\n\n# 주요 근육\n\n# 보조 근육\n\n# 장비\n\n# 테크닉\n\n# 흔한 실수\n\n# 대체 운동\n\n# 참고 영상\n\n# 팁\n\n# 메모\n\n# 개인 기록\n\n# 관련 운동\n`;
+    const target = normalizeTarget(options.target) || "";
+    const cue = cleanCue(options.cue);
+    return `---\nid: ${yamlValue(`exercise_${core.stableHash(title.toLowerCase())}`)}\ntype: exercise\nstatus: active\ncreated: ${date}\nupdated: ${date}\ntitle: ${yamlValue(title)}\ntarget: ${target ? yamlValue(target) : ""}\ncue: ${cue ? yamlValue(cue) : ""}\ncategory: ""\nprimary_muscles: []\nsecondary_muscles: []\nequipment: ""\naliases: []\n---\n# ${title}\n\n# 설명\n\n# 주요 근육\n\n# 보조 근육\n\n# 장비\n\n# 테크닉\n\n# 흔한 실수\n\n# 대체 운동\n\n# 참고 영상\n\n# 팁\n\n# 메모\n\n# 개인 기록\n\n# 관련 운동\n`;
   }
 
   function findExerciseFile(app, name) {
@@ -96,11 +167,85 @@
     return Boolean(findExerciseFile(app, name));
   }
 
-  async function createExerciseObject(app, name) {
+  function resolveExerciseFile(app, nameOrPath) {
+    if (!app || !app.vault) return null;
+    if (nameOrPath && String(nameOrPath).includes("/")) {
+      return app.vault.getAbstractFileByPath(nameOrPath) || null;
+    }
+    return findExerciseFile(app, nameOrPath);
+  }
+
+  async function patchExerciseFrontmatter(app, file, patch) {
+    if (!file) throw new Error("운동 노트를 찾을 수 없습니다.");
+    const next = Object.assign({}, patch || {}, {
+      updated: new Date().toISOString().slice(0, 10)
+    });
+    if (app.fileManager && app.fileManager.processFrontMatter) {
+      await app.fileManager.processFrontMatter(file, (fm) => {
+        Object.keys(next).forEach((key) => {
+          if (next[key] === undefined) return;
+          fm[key] = next[key];
+        });
+      });
+    } else {
+      const source = await app.vault.read(file);
+      await app.vault.modify(file, patchFrontmatter(source, next));
+    }
+    return file;
+  }
+
+  async function createExerciseObject(app, name, options = {}) {
     const existing = findExerciseFile(app, name);
-    if (existing) return existing;
+    if (existing) {
+      // Fill empty target/cue only — never overwrite user text
+      const wantTarget = normalizeTarget(options.target);
+      const wantCue = cleanCue(options.cue);
+      if ((wantTarget || wantCue) && app.fileManager && app.fileManager.processFrontMatter) {
+        await app.fileManager.processFrontMatter(existing, (fm) => {
+          if (wantTarget && !normalizeTarget(fm.target)) fm.target = wantTarget;
+          if (wantCue && !cleanCue(fm.cue)) fm.cue = wantCue;
+        });
+      }
+      return existing;
+    }
     await ensureFolder(app, EXERCISE_FOLDER);
-    return app.vault.create(stableExercisePath(name), renderExerciseNote(name));
+    return app.vault.create(stableExercisePath(name), renderExerciseNote(name, undefined, options));
+  }
+
+  async function setExerciseTarget(app, nameOrPath, targetValue) {
+    const target = normalizeTarget(targetValue);
+    if (!target) throw new Error("유효한 target이 아닙니다. (legs, chest, back, …)");
+    const file = resolveExerciseFile(app, nameOrPath);
+    await patchExerciseFrontmatter(app, file, { target });
+    return { path: file.path, target };
+  }
+
+  async function setExerciseCue(app, nameOrPath, cueValue) {
+    const cue = cleanCue(cueValue);
+    const file = resolveExerciseFile(app, nameOrPath);
+    await patchExerciseFrontmatter(app, file, { cue });
+    return { path: file.path, cue };
+  }
+
+  function getExerciseMeta(app, name) {
+    const file = findExerciseFile(app, name);
+    if (!file) {
+      return { name: clean(name), path: "", target: "", target_label: "", cue: "", exists: false };
+    }
+    const cache = app.metadataCache && app.metadataCache.getFileCache
+      ? app.metadataCache.getFileCache(file)
+      : null;
+    const fm = (cache && cache.frontmatter) || {};
+    const target = normalizeTarget(fm.target);
+    return {
+      name: file.basename,
+      path: file.path,
+      target,
+      target_label: targetLabel(target),
+      cue: cleanCue(fm.cue),
+      category: clean(fm.category),
+      exists: true
+    };
   }
 
   function listExerciseCatalog(app) {
@@ -111,9 +256,13 @@
         const cache = app.metadataCache && app.metadataCache.getFileCache ? app.metadataCache.getFileCache(file) : null;
         const fm = (cache && cache.frontmatter) || {};
         const aliases = Array.isArray(fm.aliases) ? fm.aliases.map(clean).filter(Boolean) : [];
+        const target = normalizeTarget(fm.target);
         return {
           name: file.basename,
           path: file.path,
+          target,
+          target_label: targetLabel(target),
+          cue: cleanCue(fm.cue),
           category: clean(fm.category),
           aliases,
         };
@@ -121,12 +270,29 @@
       .sort((left, right) => left.name.localeCompare(right.name, "ko"));
   }
 
-  function searchExercises(app, query, limit = 20) {
+  /**
+   * @param {object} [options]
+   * @param {string} [options.target] canonical id or alias — filters catalog
+   * @param {boolean} [options.include_untargeted=true] when target filter set, also show notes without target
+   */
+  function searchExercises(app, query, limit = 20, options = {}) {
+    const opts = options || {};
     const q = clean(query).toLocaleLowerCase("ko-KR");
-    const catalog = listExerciseCatalog(app);
-    if (!q) return catalog.slice(0, limit);
+    const want = normalizeTarget(opts.target);
+    const includeUntargeted = opts.include_untargeted !== false;
+    let catalog = listExerciseCatalog(app);
+    if (want) {
+      catalog = catalog.filter((item) => {
+        if (item.target === want) return true;
+        if (!item.target && includeUntargeted) return true;
+        return false;
+      });
+    }
+    if (!q) return catalog.slice(0, Math.max(1, Math.min(Number(limit) || 20, 100)));
     return catalog.filter((item) => {
       if (item.name.toLocaleLowerCase("ko-KR").includes(q)) return true;
+      if (item.target && item.target.includes(q)) return true;
+      if (item.target_label && item.target_label.toLocaleLowerCase("ko-KR").includes(q)) return true;
       if (item.category && item.category.toLocaleLowerCase("ko-KR").includes(q)) return true;
       return (item.aliases || []).some((alias) => String(alias).toLocaleLowerCase("ko-KR").includes(q));
     }).slice(0, Math.max(1, Math.min(Number(limit) || 20, 100)));
@@ -283,6 +449,9 @@
 
   const api = {
     END, EXERCISE_FOLDER, PROGRAM_FOLDER, START,
+    EXERCISE_TARGETS, TARGET_IDS,
+    normalizeTarget, targetLabel, suggestTargetFromName, cleanCue,
+    setExerciseTarget, setExerciseCue, getExerciseMeta,
     ensureExercise, createExerciseObject, exerciseObjectExists, findExerciseFile,
     linkForExercise, listExerciseNames, listExerciseCatalog, searchExercises,
     loadProgramObjects, parseProgramSection, renderExerciseNote, renderProgramNote,

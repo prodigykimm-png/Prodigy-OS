@@ -141,6 +141,85 @@ function testQuickWorkoutAndPreviousResult() {
   assert.equal(core.previousExerciseResult([previous], "other-run", "squat", "current"), null);
 }
 
+function testProgressDraftStaleContinueAndCopy() {
+  const source = program();
+  const run = core.createProgramRun(source, [], { run_id: "run-1", started_at: "2026-07-01T09:00:00Z" });
+  const done = completedSession(run.run_id, "w1d1", "s1", "2026-07-02T10:00:00Z");
+  const progress = core.runProgress(source, [done], run.run_id);
+  assert.equal(progress.completed, 1);
+  assert.equal(progress.total, 3);
+  assert.equal(progress.next_day_id, "w1d2");
+  assert.match(progress.label, /1\/3/);
+  assert.match(progress.next_label, /1주차 2일차|Week 1 Day 2|2일차/);
+
+  const draft = core.createWorkoutSession(source, run, "w1d2", { session_id: "draft-1", date: "2026-07-17" });
+  const drafts = core.listDraftSessions([draft, done]);
+  assert.equal(drafts.length, 1);
+  assert.equal(drafts[0].session_id, "draft-1");
+
+  const prev = { weight: "100", reps: "5", rpe: "7" };
+  const filled = core.applyPreviousToExercise(draft, "bench", prev);
+  assert.equal(filled.exercise_results[0].set_results[0].weight, "100");
+  assert.equal(filled.exercise_results[0].set_results[0].completed, false);
+  assert.equal(draft.exercise_results[0].set_results[0].weight, "", "copy must be immutable");
+
+  const stale = core.listStaleRuns(
+    [run],
+    [done],
+    { stale_days: 7, now: new Date("2026-07-17T12:00:00Z") }
+  );
+  assert.ok(stale.some((item) => item.run_id === "run-1"));
+  assert.ok(stale[0].age_days >= 7);
+
+  const model = core.buildWorkspaceModel({
+    activeRun: run,
+    activeProgram: source,
+    sessions: [done, draft],
+    runs: [run],
+    draft
+  });
+  assert.equal(model.continue_target.empty, false);
+  assert.equal(model.continue_target.kind, "resume_draft");
+  assert.equal(model.progress.next_day_id, "w1d2");
+  assert.ok(model.timeline);
+
+  const modelStart = core.buildWorkspaceModel({
+    activeRun: run,
+    activeProgram: source,
+    sessions: [done],
+    runs: [run],
+    draft: null
+  });
+  assert.equal(modelStart.continue_target.kind, "start_day");
+  assert.match(modelStart.continue_target.action, /시작/);
+}
+
+function testAddRemoveSet() {
+  const source = program();
+  const run = core.createProgramRun(source, [], { run_id: "run-sets" });
+  const session = core.createWorkoutSession(source, run, "w1d1", { session_id: "session-sets" });
+  assert.equal(session.exercise_results[0].set_results.length, 1);
+
+  const withWeight = core.updateSetResult(session, "squat", 0, { weight: "100", reps: "5" });
+  const added = core.addSetResult(withWeight, "squat", { copy_last: true });
+  assert.equal(added.exercise_results[0].set_results.length, 2);
+  assert.equal(added.exercise_results[0].set_results[1].weight, "100");
+  assert.equal(added.exercise_results[0].set_results[1].reps, "5");
+  assert.equal(added.exercise_results[0].set_results[1].completed, false);
+  assert.equal(withWeight.exercise_results[0].set_results.length, 1, "add must be immutable");
+
+  const removed = core.removeSetResult(added, "squat", 0);
+  assert.equal(removed.exercise_results[0].set_results.length, 1);
+  assert.equal(removed.exercise_results[0].set_results[0].weight, "100");
+
+  const empty = core.removeSetResult(removed, "squat", 0);
+  assert.equal(empty.exercise_results[0].set_results.length, 0);
+  assert.equal(empty.exercise_results[0].completed, false);
+
+  const again = core.addSetResult(empty, "squat", { copy_last: true });
+  assert.equal(again.exercise_results[0].set_results.length, 1);
+}
+
 async function testDerivedStore() {
   const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "workout-store-"));
   const adapter = storeApi.createNodeAdapter(root);
@@ -215,11 +294,41 @@ async function testProgramObjectSourceOfTruth() {
 
 function testDashboardAndRegressionContracts() {
   const dashboard = fs.readFileSync(path.join(ROOT, "HUB/30 Workout.md"), "utf8");
-  for (const label of ["현재 프로그램", "프로그램 라이브러리", "운동 기록"]) assert.ok(dashboard.includes(label));
+  assert.match(dashboard, /WorkoutView\.renderDashboard/);
+  // Labels live in the view (single render path), not as static hub headings
   const view = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workout-view.js"), "utf8");
-  for (const label of ["빠른 운동", "프로그램 가져오기", "운동 완료", "편집", "복제", "내보내기", "Exercise Object"]) assert.ok(view.includes(label), label);
+  for (const label of [
+    "빠른 운동", "프로그램 가져오기", "운동 완료", "편집", "복제", "내보내기",
+    "현재 프로그램", "프로그램 라이브러리", "운동 기록", "Exercise Object",
+    "이어서 기록", "오늘 운동 시작", "미완료 세션", "오래 방치", "전부 이전과 동일",
+    "세트 추가", "workout-set-remove", "운동 추가", "새 프로그램"
+  ]) {
+    assert.ok(view.includes(label), label);
+  }
+  assert.match(view, /addSetResult|removeSetResult/);
+  assert.match(view, /AddExerciseToProgramModal|CreateProgramModal|appendExerciseToProgram/);
+  assert.match(view, /renderTargetFilter|부위 필터|target/);
+  const objectsSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workout-program-objects.js"), "utf8");
+  assert.match(objectsSrc, /EXERCISE_TARGETS|normalizeTarget|target: legs|searchExercises/);
+  const objects = require(path.join(ROOT, "SYSTEM/Views/workout-program-objects.js"));
+  assert.equal(objects.normalizeTarget("하체"), "legs");
+  assert.equal(objects.normalizeTarget("chest"), "chest");
+  assert.equal(objects.targetLabel("back"), "등");
+  assert.equal(objects.cleanCue("  a\nb  "), "a b");
+  const noteWithCue = objects.renderExerciseNote("Cue Test", "2026-07-17", { target: "legs", cue: "힙 힌지" });
+  assert.match(noteWithCue, /target: "legs"/);
+  assert.match(noteWithCue, /cue: "힙 힌지"/);
+  const exerciseTemplate = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_exercise.md"), "utf8");
+  assert.match(exerciseTemplate, /^target:/m);
+  assert.match(exerciseTemplate, /^cue:/m);
+  assert.match(view, /workout-exercise-cue|recordStripText|setExerciseCue|getExerciseMeta/);
+  assert.match(view, /paintExerciseNoteBody|노트 본문|stripNoteFrontmatter/);
+  assert.match(view, /openExercisePopup|openExerciseNoteSide|workout-exercise-note-link/);
   assert.equal(view.includes("app.vault.modify(file"), false, "source Workout Markdown must stay read-only via objects layer");
   assert.match(view, /programForRun|program_snapshot|validateProgram|duplicateProgramObject/);
+  assert.match(view, /renderContinueStrip|buildWorkspaceModel|__workoutWorkspaceModel/);
+  const coreSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workout-core.js"), "utf8");
+  assert.match(coreSrc, /runProgress|listDraftSessions|listStaleRuns|applyPreviousToExercise/);
 
   const readingTemplate = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_reading.md"), "utf8");
   for (const obsolete of ["current_page", "total_pages", "total_page"]) assert.equal(readingTemplate.includes(obsolete), false);
@@ -229,9 +338,7 @@ function testDashboardAndRegressionContracts() {
   const guide = fs.readFileSync(path.join(ROOT, "SYSTEM/docs/11_Operating_Guide.md"), "utf8");
   assert.match(guide, /프로그램 라이브러리|프로그램 편집기|Exercise Object/);
   assert.match(guide, /스냅샷|버전 안전/);
-
-  // No Runtime file edits in this sprint
-  // (engine path left untouched by workout enhancement)
+  assert.match(guide, /입력 최소화|오래 방치|이어서 기록/);
 }
 
 async function main() {
@@ -240,6 +347,8 @@ async function main() {
   testSuggestionAndManualDayRules();
   testSessionDraftAndCompletion();
   testQuickWorkoutAndPreviousResult();
+  testProgressDraftStaleContinueAndCopy();
+  testAddRemoveSet();
   await testDerivedStore();
   testImportPreview();
   testProgramObjects();

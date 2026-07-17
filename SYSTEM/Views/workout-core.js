@@ -304,8 +304,65 @@
     const exercise = next.exercise_results.find((item) => item.exercise_id === exerciseId);
     if (!exercise || !exercise.set_results[setIndex]) throw new Error("Set Result was not found.");
     const allowed = ["completed", "weight", "reps", "rpe", "notes"];
-    for (const key of allowed) if (Object.hasOwn(patch || {}, key)) exercise.set_results[setIndex][key] = key === "completed" ? Boolean(patch[key]) : clean(patch[key]);
+    for (const key of allowed) {
+      if (!Object.prototype.hasOwnProperty.call(patch || {}, key)) continue;
+      exercise.set_results[setIndex][key] = key === "completed" ? Boolean(patch[key]) : clean(patch[key]);
+    }
     exercise.completed = exercise.set_results.length > 0 && exercise.set_results.every((set) => set.completed);
+    return next;
+  }
+
+  function recomputeExerciseCompleted(exercise) {
+    if (!exercise) return;
+    const sets = exercise.set_results || [];
+    exercise.completed = sets.length > 0 && sets.every((set) => set.completed);
+  }
+
+  /**
+   * Append one set to an exercise (session draft only).
+   * Copies last set weight/reps as soft defaults when present — never auto-completes.
+   */
+  function addSetResult(session, exerciseId, options) {
+    const opts = options || {};
+    const next = clone(session);
+    const exercise = (next.exercise_results || []).find((item) => item.exercise_id === exerciseId);
+    if (!exercise) throw new Error("Exercise was not found.");
+    if (!Array.isArray(exercise.set_results)) exercise.set_results = [];
+    const last = exercise.set_results.length
+      ? exercise.set_results[exercise.set_results.length - 1]
+      : null;
+    const prescribed = (exercise.prescribed_sets && exercise.prescribed_sets[0]) || { id: machineId("set", `${exerciseId}:extra`) };
+    const blank = blankSetResult({
+      id: machineId("set", `${exerciseId}:${exercise.set_results.length + 1}:${Date.now()}`)
+    });
+    // Soft carry: last logged numbers help drop sets; user can clear.
+    if (opts.copy_last !== false && last) {
+      blank.weight = clean(last.weight);
+      blank.reps = clean(last.reps);
+      // do not copy completed / rpe / notes by default
+    } else if (opts.weight != null || opts.reps != null) {
+      blank.weight = clean(opts.weight);
+      blank.reps = clean(opts.reps);
+      blank.rpe = clean(opts.rpe);
+    } else if (prescribed && prescribed.reps) {
+      blank.reps = clean(prescribed.reps);
+    }
+    exercise.set_results.push(blank);
+    recomputeExerciseCompleted(exercise);
+    return next;
+  }
+
+  /** Remove one set by index. Allows zero sets remaining. */
+  function removeSetResult(session, exerciseId, setIndex) {
+    const next = clone(session);
+    const exercise = (next.exercise_results || []).find((item) => item.exercise_id === exerciseId);
+    if (!exercise || !Array.isArray(exercise.set_results)) throw new Error("Set Result was not found.");
+    const index = Number(setIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= exercise.set_results.length) {
+      throw new Error("Set Result was not found.");
+    }
+    exercise.set_results.splice(index, 1);
+    recomputeExerciseCompleted(exercise);
     return next;
   }
 
@@ -333,12 +390,235 @@
     return null;
   }
 
+  function dayLabel(dayOrSession) {
+    if (!dayOrSession) return "";
+    if (dayOrSession.week != null && dayOrSession.day != null) {
+      return `${dayOrSession.week}주차 ${dayOrSession.day}일차`;
+    }
+    return clean(dayOrSession.label);
+  }
+
+  /** Progress of a Program Run against program days (completed sessions only). */
+  function runProgress(program, sessions, runId) {
+    const days = (program && Array.isArray(program.days)) ? program.days : [];
+    const total = days.length;
+    const completed = completedDayIds(sessions, runId);
+    let done = 0;
+    days.forEach((day) => { if (completed.has(day.id)) done += 1; });
+    const nextId = total ? suggestNextDay(program, sessions, runId) : "";
+    const nextDay = days.find((day) => day.id === nextId) || null;
+    return {
+      total,
+      completed: done,
+      remaining: Math.max(0, total - done),
+      ratio: total ? done / total : 0,
+      percent: total ? Math.round((done / total) * 100) : 0,
+      next_day_id: nextId || "",
+      next_label: nextDay ? dayLabel(nextDay) : (done >= total && total > 0 ? "프로그램 완료" : ""),
+      label: total ? `${done}/${total} Day` : "0/0 Day"
+    };
+  }
+
+  function applyPreviousToSet(session, exerciseId, setIndex, previous) {
+    if (!previous) return session;
+    return updateSetResult(session, exerciseId, setIndex, {
+      weight: clean(previous.weight),
+      reps: clean(previous.reps),
+      rpe: clean(previous.rpe)
+    });
+  }
+
+  /** Fill all sets of an exercise from a previous result (no auto-complete). */
+  function applyPreviousToExercise(session, exerciseId, previous) {
+    if (!previous) return session;
+    const exercise = (session.exercise_results || []).find((item) => item.exercise_id === exerciseId);
+    if (!exercise) return session;
+    let next = session;
+    (exercise.set_results || []).forEach((_set, index) => {
+      next = applyPreviousToSet(next, exerciseId, index, previous);
+    });
+    return next;
+  }
+
+  function listDraftSessions(sessions) {
+    return (sessions || [])
+      .filter((session) => session && session.status === "draft")
+      .slice()
+      .sort((a, b) => clean(b.started_at || b.date).localeCompare(clean(a.started_at || a.date)))
+      .map((session) => ({
+        session_id: clean(session.session_id),
+        program_run_id: clean(session.program_run_id),
+        program_title: clean(session.program_title),
+        program_day_id: clean(session.program_day_id),
+        label: dayLabel(session) || clean(session.title) || "초안 세션",
+        date: clean(session.date).slice(0, 10),
+        started_at: clean(session.started_at),
+        quick: !!session.quick,
+        reason: "미완료 세션 초안"
+      }));
+  }
+
+  function daysBetweenIso(iso, now) {
+    const text = clean(iso).slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+    const then = new Date(`${text}T00:00:00`);
+    const base = now instanceof Date ? now : new Date();
+    if (Number.isNaN(then.getTime())) return null;
+    return Math.floor((Date.UTC(base.getFullYear(), base.getMonth(), base.getDate()) - Date.UTC(then.getFullYear(), then.getMonth(), then.getDate())) / 86400000);
+  }
+
+  /**
+   * Active/paused runs with no recent completed session.
+   * Uses only stored dates — never invents last_contact-style guesses.
+   */
+  function listStaleRuns(runs, sessions, options) {
+    const opts = options || {};
+    const staleDays = Math.max(1, Number(opts.stale_days) || 7);
+    const now = opts.now instanceof Date ? opts.now : new Date();
+    const items = [];
+    (runs || []).forEach((run) => {
+      if (!run) return;
+      const status = clean(run.status);
+      if (status !== "active" && status !== "paused") return;
+      const related = (sessions || []).filter((s) => s && s.program_run_id === run.run_id && s.status === "completed");
+      related.sort((a, b) => clean(b.completed_at || b.date).localeCompare(clean(a.completed_at || a.date)));
+      const last = related[0];
+      const anchor = last
+        ? clean(last.completed_at || last.date)
+        : clean(run.started_at);
+      const age = daysBetweenIso(anchor, now);
+      if (age == null || age < staleDays) return;
+      items.push({
+        run_id: clean(run.run_id),
+        program_id: clean(run.program_id),
+        program_title: clean(run.program_title),
+        status,
+        run_number: run.run_number,
+        age_days: age,
+        last_activity: clean(anchor).slice(0, 10),
+        reason: last
+          ? `${age}일 동안 완료 세션 없음`
+          : `시작 후 ${age}일 · 완료 세션 없음`
+      });
+    });
+    items.sort((a, b) => (b.age_days || 0) - (a.age_days || 0));
+    return items;
+  }
+
+  function sessionSetSummary(session) {
+    let sets = 0;
+    let done = 0;
+    (session && session.exercise_results || []).forEach((ex) => {
+      (ex.set_results || []).forEach((set) => {
+        sets += 1;
+        if (set.completed) done += 1;
+      });
+    });
+    return { sets, done, label: sets ? `${done}/${sets} 세트` : "" };
+  }
+
+  function completedSessionTimeline(sessions, limit) {
+    const max = Math.max(1, Math.min(Number(limit) || 12, 40));
+    return (sessions || [])
+      .filter((session) => session && session.status === "completed")
+      .slice()
+      .sort((a, b) => clean(b.completed_at || b.date).localeCompare(clean(a.completed_at || a.date)))
+      .slice(0, max)
+      .map((session) => {
+        const summary = sessionSetSummary(session);
+        return {
+          session_id: clean(session.session_id),
+          title: session.quick
+            ? (clean(session.title) || "빠른 운동")
+            : `${clean(session.program_title)} · ${dayLabel(session)}`,
+          date: clean(session.completed_at || session.date).slice(0, 10),
+          quick: !!session.quick,
+          program_title: clean(session.program_title),
+          label: dayLabel(session),
+          sets_label: summary.label,
+          distance: clean(session.distance),
+          duration: clean(session.duration)
+        };
+      });
+  }
+
+  /**
+   * Shared hub/dashboard model — one place for continue / progress / queues.
+   * Does not recompute Object Engine lifecycle; only Workout execution state.
+   */
+  function buildWorkspaceModel(input) {
+    const state = input || {};
+    const program = state.activeProgram || null;
+    const run = state.activeRun || null;
+    const sessions = state.sessions || [];
+    const draft = state.draft || null;
+    const drafts = listDraftSessions(sessions);
+    const progress = run && program
+      ? runProgress(program, sessions, run.run_id)
+      : { total: 0, completed: 0, remaining: 0, ratio: 0, percent: 0, next_day_id: "", next_label: "", label: "0/0 Day" };
+    const stale = listStaleRuns(state.runs || [], sessions, state.staleOptions || {});
+    const timeline = completedSessionTimeline(sessions, state.timelineLimit || 12);
+
+    let cont = null;
+    if (draft) {
+      cont = {
+        empty: false,
+        kind: "resume_draft",
+        title: clean(draft.program_title) || "진행 중 세션",
+        action: "이어서 기록",
+        detail: dayLabel(draft) || clean(draft.title) || "",
+        reason: "미완료 세션 초안",
+        day_id: clean(draft.program_day_id),
+        session_id: clean(draft.session_id),
+        progress_label: progress.label
+      };
+    } else if (run && program) {
+      const dayId = progress.next_day_id || clean(run.suggested_day);
+      const day = (program.days || []).find((d) => d.id === dayId) || null;
+      cont = {
+        empty: false,
+        kind: day ? "start_day" : "run_done",
+        title: clean(program.title) || clean(run.program_title),
+        action: day ? "오늘 운동 시작" : "프로그램 완료 정리",
+        detail: day ? dayLabel(day) : "모든 Day 완료",
+        reason: day ? "제안된 다음 Program Day" : "실행 완료 가능",
+        day_id: dayId || "",
+        session_id: "",
+        progress_label: progress.label
+      };
+    } else {
+      cont = {
+        empty: true,
+        kind: "none",
+        title: "",
+        action: "",
+        detail: "",
+        reason: null,
+        message: "진행 중인 프로그램이 없습니다."
+      };
+    }
+
+    return Object.freeze({
+      schema_version: "prodigy-workout-workspace-v1",
+      continue_target: cont,
+      progress,
+      drafts,
+      stale_runs: stale,
+      timeline,
+      active_run: run,
+      active_program: program
+    });
+  }
+
   const api = {
     RUN_STATUSES, clone, completeWorkoutSession, createProgramRun, createQuickWorkout, createWorkoutSession,
     daySelectionWarning, normalizeProgram, previousExerciseResult, previousExerciseResultByName,
     bestExerciseResult, exerciseHistory, estimate1RM, validateProgram, duplicateProgram,
     snapshotProgram, programVersionToken, programForRun, stableHash, suggestNextDay,
-    transitionProgramRun, updateSetResult,
+    transitionProgramRun, updateSetResult, addSetResult, removeSetResult,
+    dayLabel, runProgress, applyPreviousToSet, applyPreviousToExercise,
+    listDraftSessions, listStaleRuns, daysBetweenIso, sessionSetSummary,
+    completedSessionTimeline, buildWorkspaceModel, completedDayIds,
   };
   root.WorkoutCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

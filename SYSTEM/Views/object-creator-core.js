@@ -124,16 +124,18 @@
       throw new Error("Obsidian 앱 컨텍스트가 필요합니다.");
     }
 
-    // Project → existing wizard
+    // Project → existing wizard (hand off Creator title as initial project name)
     if (id === "project") {
       if (typeof root.openProjectWizard === "function") {
-        root.openProjectWizard();
+        if (title) {
+          root.openProjectWizard({ initialProjectName: title });
+        } else {
+          root.openProjectWizard();
+        }
         return {
           ok: true,
           deferred: true,
-          message: title
-            ? `프로젝트 마법사를 열었습니다. 제목 힌트: ${title}`
-            : "프로젝트 마법사를 열었습니다."
+          message: "프로젝트 마법사를 열었습니다."
         };
       }
       await openPath(host, "HUB/40 Project.md");

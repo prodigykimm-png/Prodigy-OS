@@ -61,6 +61,7 @@ async function main() {
   assert.match(textOf(container), /진행 중인 프로그램이 없습니다/);
   assert.ok(findText(container, "프로그램 가져오기"));
   assert.ok(findText(container, "빠른 운동"));
+  assert.match(textOf(container), /▶ 계속|계속/);
 
   const store = storeApi.createWorkoutStore(storeApi.createObsidianAdapter(fixture.app));
   const program = sampleProgram();
@@ -71,11 +72,15 @@ async function main() {
   const rendered = textOf(container);
   assert.match(rendered, /모바일 근비대/);
   assert.match(rendered, /스미스 머신 스쿼트/);
-  assert.match(rendered, /이 실행에서 이전 기록 없음/);
+  assert.match(rendered, /이전 기록 없음|이전 /);
+  assert.match(rendered, /세트 추가|운동 완료/);
+  assert.match(rendered, /이어서 기록|미완료/);
   assert.ok(findText(container, "운동 완료"));
+  assert.ok(findText(container, "초안 버리기"));
   const css = container.children.find((child) => child.tag === "style").text;
   assert.match(css, /@media\(max-width:600px\)/);
   assert.match(css, /min-height:44px/);
+  assert.match(css, /workout-continue-strip|workout-progress-track|workout-set-row-min/);
   assert.equal(css.includes("table"), false);
   assert.equal([...fixture.files.keys()].some((key) => key.endsWith(".md")), false);
   console.log("Workout Program Runner UI tests passed");

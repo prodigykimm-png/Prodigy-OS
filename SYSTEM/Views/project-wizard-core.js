@@ -417,6 +417,14 @@
     return cleaned || "Untitled Project";
   }
 
+  /**
+   * Prefill for Project Wizard handoff (Universal Creator → Wizard).
+   * Single Modal instance only — not global state.
+   */
+  function normalizeInitialProjectName(value) {
+    return String(value == null ? "" : value).trim();
+  }
+
   function buildProjectPath(projectName, existingPaths) {
     const base = sanitizeProjectFileName(projectName);
     const existing = new Set((existingPaths || []).map((path) => String(path)));
@@ -606,6 +614,7 @@
     validateWizardInput,
     sanitizeProjectFileName,
     buildProjectPath,
+    normalizeInitialProjectName,
     randomWorkflowId,
     ensureWorkflowIds,
     renderWorkflowMarkdown,

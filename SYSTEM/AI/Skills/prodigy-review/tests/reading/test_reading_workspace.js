@@ -128,6 +128,62 @@ function main() {
     assert.ok(item.reason, "every review card must explain itself");
   });
 
+  // Continue focus path + next_action / progress on strip model
+  assert.equal(model.focus_path, "PARA/PROJECTS/Reading/atomic.md");
+  assert.equal(model.continue_reading.focus_path, "PARA/PROJECTS/Reading/atomic.md");
+  assert.ok(model.continue_reading.next_action);
+  assert.match(String(model.continue_reading.next_action), /Ch\.3|읽기/);
+  assert.equal(model.continue_reading.progress, "50%");
+  assert.equal(model.continue_reading.progress_number, 50);
+
+  // Finish soon — high progress reading books
+  const finishPages = pages.concat([{
+    type: "reading",
+    status: "reading",
+    path: "PARA/PROJECTS/Reading/almost.md",
+    title: "Almost Done",
+    progress: 90,
+    next_action: "마지막 장"
+  }]);
+  const finishModel = workspace.buildWorkspaceModel(finishPages, { session: engine.createRuntimeSession({}) });
+  assert.equal(finishModel.finish_soon.empty, false);
+  assert.ok(finishModel.finish_soon.items.some((i) => i.title === "Almost Done" || i.progress_number >= 75));
+  finishModel.finish_soon.items.forEach((item) => {
+    assert.ok(item.reason);
+    assert.ok(item.progress_number >= workspace.FINISH_PROGRESS_MIN);
+  });
+
+  // Queue ready
+  assert.equal(model.queue_ready.empty, false);
+  assert.ok(model.queue_ready.items.some((i) => i.title === "Queued"));
+
+  // Stale reading surface exists (may be empty without old updated dates)
+  assert.ok(model.stale_reading);
+  assert.ok(Array.isArray(model.stale_reading.items));
+
+  // Connection chips helper
+  const chips = workspace.parseConnectionChips(["[[민지선]]", "PARA/RESOURCES/CONTACTS/윤채연.md"], 5);
+  assert.ok(chips.length >= 2);
+  assert.ok(chips.some((c) => c.label.includes("민지선") || c.name.includes("민지선")));
+
+  // Checklist progress helper
+  const qa = workspace.summarizeChecklistProgress({
+    items: { a: "checked", b: "unchecked", c: "not_applicable" }
+  }, 3);
+  assert.equal(qa.checked, 2);
+  assert.equal(qa.total, 3);
+  assert.match(qa.label, /질답/);
+
+  // Progress helpers
+  assert.equal(workspace.progressNumber({ progress: 75 }), 75);
+  assert.equal(workspace.progressNumber({ progress: "0" }), null);
+  assert.equal(workspace.normalizeProgressStep(48), 50);
+
+  // shareRuntimeModel alias
+  const shared = workspace.shareRuntimeModel(pages, { session: engine.createRuntimeSession({}) });
+  assert.equal(shared.schema_version, model.schema_version);
+  assert.equal(shared.runtime_ok, true);
+
   // History — completed only
   assert.equal(model.history.empty, false);
   assert.ok(model.history.items.some((i) => i.title === "Done Book"));
@@ -140,7 +196,7 @@ function main() {
   assert.ok(model.today.reason);
   assert.ok(model.continue_reading.reason);
   assert.ok(model.reading_guide.reason);
-  assert.ok(model.waiting_review.items.every((i) => clean(i.reason)));
+  assert.ok(model.waiting_review.items.every((i) => i.reason && String(i.reason).trim()));
 
   // --- Unknown book_type: no silent guess → Generic Strategy ---
   const unknown = workspace.resolveStrategyDirect({ title: "Something", category: "자기계발" });
@@ -208,12 +264,19 @@ function main() {
   assert.match(readingHub, /이어 읽기|읽는 중/);
   assert.match(readingHub, /진행 중인 독서가 없습니다/);
   assert.match(readingHub, /읽을 복기 대상이 없습니다/);
+  assert.match(readingHub, /오래 방치/);
+  assert.match(readingHub, /완독 임박/);
+  assert.match(readingHub, /오늘 읽기|이 책 포커스/);
+  assert.match(readingHub, /shareRuntimeModel|__readingWorkspaceModel/);
+  assert.match(readingHub, /stale_reading|finish_soon/);
   // Card-first: do not mount full progressive wall on hub
   assert.equal(/ReadingWorkspaceView\.renderWorkspace/.test(readingHub), false);
   assert.equal(readingHub.includes("reading-workspace-view.js"), false);
   assert.equal(workspace.EMPTY.knowledge, "지식 후보가 없습니다.");
   assert.equal(workspace.EMPTY.continue, "진행 중인 독서가 없습니다.");
   assert.equal(workspace.EMPTY.review, "읽을 복기 대상이 없습니다.");
+  assert.equal(workspace.EMPTY.stale, "오래 방치된 독서가 없습니다.");
+  assert.equal(workspace.EMPTY.finish, "완독 임박 책이 없습니다.");
   assert.equal(workspace.LABELS.today, "오늘의 독서");
   assert.equal(workspace.LABELS.continue, "이어 읽기");
   assert.equal(workspace.LABELS.guide, "독서 질답");
@@ -223,6 +286,9 @@ function main() {
   assert.equal(workspace.LABELS.knowledge, "지식 후보");
   assert.equal(workspace.LABELS.history, "기록");
   assert.equal(workspace.LABELS.reason, "이유");
+  assert.equal(workspace.LABELS.stale, "오래 방치");
+  assert.equal(workspace.LABELS.finish, "완독 임박");
+  assert.equal(workspace.LABELS.quickSession, "빠른 기록");
 
   // --- No schema / property / runtime mutation in workspace core ---
   const wsSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-workspace-core.js"), "utf8");
@@ -231,6 +297,28 @@ function main() {
   assert.equal(wsSrc.includes("fetch("), false);
   assert.match(wsSrc, /ObjectEngine|createRuntimeSession|buildWorkspaceSummary/);
 
+  // --- Card source: next_action / minimal session / people chips / focus ---
+  const cardSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-card.js"), "utf8");
+  assert.match(cardSrc, /reading-next-action|next_action/);
+  assert.match(cardSrc, /오늘 읽기|openSessionModal/);
+  assert.equal(cardSrc.includes("빠른 기록"), false, "card should not dual-path session buttons");
+  assert.match(cardSrc, /parseConnectionChips|reading-people-chips/);
+  assert.match(cardSrc, /reading-qa-progress|질답/);
+  assert.match(cardSrc, /reading-memory-preview|관련 기억/);
+  assert.match(cardSrc, /is-focus|focus_path/);
+  assert.match(cardSrc, /읽기 시작/);
+
+  // --- Minimal session modal (one memo, not a form wall) ---
+  const viewSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-view.js"), "utf8");
+  assert.match(viewSrc, /openSessionModal|saveQuickSession/);
+  assert.match(viewSrc, /한 줄 메모/);
+  assert.match(viewSrc, /한 줄이면 충분/);
+  assert.match(viewSrc, /더 보기/);
+  // Full field wall removed from default surface
+  assert.equal(/fieldInput\(contentEl,\s*"시작 페이지"/.test(viewSrc), false);
+  assert.equal(/fieldInput\(contentEl,\s*"종료 페이지"/.test(viewSrc), false);
+  assert.equal(/fieldInput\(contentEl,\s*"핵심 내용"/.test(viewSrc), false);
+
   // --- Operating Guide documents flow ---
   const guide = fs.readFileSync(path.join(ROOT, "SYSTEM/docs/11_Operating_Guide.md"), "utf8");
   assert.match(guide, /Reading Dashboard|Reading Strategy|카드/);
@@ -238,6 +326,7 @@ function main() {
   assert.match(guide, /독서 질답/);
   assert.match(guide, /성찰/);
   assert.match(guide, /복기/);
+  assert.match(guide, /한 줄|오늘 읽기|완독 임박|오래 방치/);
 
   // Checklist still available for guide questions
   assert.ok(checklist.selectQuestions);

@@ -5,6 +5,8 @@ status: active
 created: <% tp.file.creation_date("YYYY-MM-DD") %>
 updated: <% tp.file.creation_date("YYYY-MM-DD") %>
 title: <% tp.file.title %>
+target:
+cue:
 category:
 primary_muscles: []
 secondary_muscles: []

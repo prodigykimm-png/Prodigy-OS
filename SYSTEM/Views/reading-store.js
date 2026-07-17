@@ -112,11 +112,26 @@
     const content = root.ReadingCore.buildSessionMarkdown(session);
     const file = await app.vault.create(path, content);
     session.path = file.path;
-    if (book.path && formValues && formValues.next_position) {
+    // Touch book next_action / updated when session provides them.
+    // Prefer canonical progress if supplied; do not invent current_page.
+    const shouldTouchBook = book.path && formValues && (
+      formValues.next_action
+      || formValues.next_position
+      || formValues.progress != null
+      || formValues.end_page
+    );
+    if (shouldTouchBook) {
       const bookFile = app.vault.getAbstractFileByPath(book.path);
       if (bookFile && app.fileManager && app.fileManager.processFrontMatter) {
         await app.fileManager.processFrontMatter(bookFile, (fm) => {
-          if (formValues.end_page) fm.current_page = formValues.end_page;
+          if (formValues.progress != null && formValues.progress !== "") {
+            const n = Number(String(formValues.progress).replace(/%/g, ""));
+            if (Number.isFinite(n)) fm.progress = Math.min(100, Math.max(0, Math.round(n)));
+          }
+          // Legacy: end_page only if caller still uses page ranges (not progress-first UX).
+          if (formValues.end_page && formValues.progress == null) {
+            fm.current_page = formValues.end_page;
+          }
           if (formValues.next_action) fm.next_action = formValues.next_action;
           fm.updated = root.ReadingCore.todayIsoDate();
         });

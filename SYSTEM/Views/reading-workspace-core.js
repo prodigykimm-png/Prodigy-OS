@@ -18,7 +18,10 @@
     guide: "진행 중인 독서가 없습니다.",
     checklist: "진행 중인 독서가 없습니다.",
     session: "최근 세션이 없습니다.",
-    reflection: "진행 중인 독서가 없습니다."
+    reflection: "진행 중인 독서가 없습니다.",
+    stale: "오래 방치된 독서가 없습니다.",
+    finish: "완독 임박 책이 없습니다.",
+    queue: "독서 대기열이 비어 있습니다."
   });
 
   const REASONS = Object.freeze({
@@ -27,7 +30,11 @@
     reviewMissing: "완료됐지만 복기가 비어 있음",
     reviewStatus: "상태가 복기 중(reviewing)",
     todayPrimary: "Runtime이 고른 오늘의 독서 Object",
-    historyCompleted: "최근 완독한 독서 Object"
+    historyCompleted: "최근 완독한 독서 Object",
+    staleLifecycle: "오래 갱신되지 않은 읽는 중 책",
+    finishNear: "진행도가 높아 완독·복기에 가깝습니다",
+    finishHundred: "진행 100% · 상태 전환은 사용자가 결정",
+    queueReady: "읽기 대기 중인 책"
   });
 
   const LABELS = Object.freeze({
@@ -48,8 +55,18 @@
     checklistHint: "읽는 중 확인 · 자동 완료 없음",
     guideHint: "읽기 전 · 주의할 점",
     untitled: "제목 없음",
-    candidate: "후보"
+    candidate: "후보",
+    stale: "오래 방치",
+    finish: "완독 임박",
+    queue: "읽기 대기",
+    nextAction: "다음 행동",
+    quickSession: "빠른 기록",
+    focus: "이 책 포커스"
   });
+
+  /** Progress threshold for "finish soon" surface (canonical progress only). */
+  const FINISH_PROGRESS_MIN = 75;
+  const PROGRESS_STEPS = Object.freeze([25, 50, 75, 100]);
 
   // Backward-compatible aliases (tests / older consumers)
   const STRATEGY_LABELS = Object.freeze({
@@ -143,6 +160,78 @@
     const n = Number(text);
     if (Number.isFinite(n)) return `${Math.min(100, Math.max(0, Math.round(n)))}%`;
     return clean(src.progress);
+  }
+
+  /** Numeric progress 0–100, or null when empty/unread. */
+  function progressNumber(raw) {
+    const src = raw || {};
+    if (src.progress == null || clean(src.progress) === "") return null;
+    const text = clean(src.progress).replace(/%/g, "");
+    const n = Number(text);
+    if (!Number.isFinite(n)) return null;
+    const clamped = Math.min(100, Math.max(0, Math.round(n)));
+    return clamped === 0 ? null : clamped;
+  }
+
+  /** Snap to discrete chips for display highlight. */
+  function normalizeProgressStep(value) {
+    const n = typeof value === "number" ? value : progressNumber({ progress: value });
+    if (n == null) return null;
+    if (PROGRESS_STEPS.includes(n)) return n;
+    return PROGRESS_STEPS.reduce((best, step) =>
+      Math.abs(step - n) < Math.abs(best - n) ? step : best
+    , PROGRESS_STEPS[0]);
+  }
+
+  /**
+   * Parse connections / links into short chips (people or note titles).
+   * Does not invent relationships — only explicit field values.
+   */
+  function parseConnectionChips(connections, limit) {
+    const max = Math.max(1, Math.min(Number(limit) || 6, 12));
+    const raw = connections;
+    const parts = [];
+    if (Array.isArray(raw)) {
+      raw.forEach((item) => {
+        if (item == null) return;
+        if (typeof item === "string") parts.push(item);
+        else if (typeof item === "object") {
+          parts.push(item.path || item.link || item.name || item.title || String(item));
+        }
+      });
+    } else if (typeof raw === "string" && clean(raw)) {
+      // Split wikilinks and comma/semicolon lists
+      const text = raw;
+      const wiki = text.match(/\[\[([^\]]+)\]\]/g);
+      if (wiki && wiki.length) {
+        wiki.forEach((w) => parts.push(w));
+      } else {
+        text.split(/[,;\n]/).forEach((p) => parts.push(p));
+      }
+    }
+    const out = [];
+    const seen = new Set();
+    for (const part of parts) {
+      let label = clean(part);
+      if (!label) continue;
+      label = label.replace(/^\[\[/, "").replace(/\]\]$/, "");
+      const pipe = label.indexOf("|");
+      if (pipe >= 0) label = label.slice(pipe + 1).trim() || label.slice(0, pipe).trim();
+      const pathPart = label.includes("/") ? label : "";
+      const name = pathPart
+        ? (pathPart.split("/").pop() || pathPart).replace(/\.md$/i, "")
+        : label.replace(/\.md$/i, "");
+      const key = name.toLocaleLowerCase("ko-KR");
+      if (!name || seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        label: name,
+        path: pathPart ? (pathPart.endsWith(".md") ? pathPart : `${pathPart}.md`) : "",
+        name
+      });
+      if (out.length >= max) break;
+    }
+    return out;
   }
 
   function rawForState(state, pagesByPath) {
@@ -259,7 +348,7 @@
     };
   }
 
-  function buildContinueCard(summary, primaryState) {
+  function buildContinueCard(summary, primaryState, pagesByPath) {
     const cont = (summary && summary.continue_target)
       || (primaryState && primaryState.continue_target)
       || null;
@@ -268,22 +357,166 @@
         empty: true,
         message: EMPTY.continue,
         continue_target: null,
-        reason: null
+        reason: null,
+        focus_path: null,
+        next_action: null,
+        progress: null
       };
     }
     const reason = clean(cont.reason)
       || (primaryState && primaryState.primary_action && primaryState.primary_action.reason)
       || REASONS.continueActive;
+    const objectPath = clean(cont.object_path)
+      || clean(primaryState && (primaryState.source_path || primaryState.object_path))
+      || "";
+    const raw = (objectPath && pagesByPath && pagesByPath[objectPath])
+      || rawForState(primaryState, pagesByPath || {})
+      || {};
+    const nextAction = clean(
+      (primaryState && primaryState.next_action)
+      || raw.next_action
+      || ""
+    ) || null;
+    const progress = progressOf(raw, primaryState) || null;
     return {
       empty: false,
       continue_target: cont,
-      title: clean(cont.label) || (primaryState && primaryState.title) || "",
+      title: clean(cont.label) || (primaryState && primaryState.title) || clean(raw.title || raw.book_title) || "",
       action: clean(cont.action) || LABELS.continueAction,
       verb: clean(cont.verb) || "이어 읽기",
-      object_path: clean(cont.object_path) || "",
+      object_path: objectPath,
+      focus_path: objectPath,
       dashboard_path: clean(cont.dashboard_path) || "HUB/20 Reading.md",
+      next_action: nextAction,
+      progress,
+      progress_number: progressNumber(raw),
       reason,
       message: null
+    };
+  }
+
+  /**
+   * Reading books marked stale by Runtime lifecycle (or health reasons).
+   * No invented dates — only engine lifecycle/health.
+   */
+  function buildStaleReading(states, pagesByPath) {
+    const list = (Array.isArray(states) ? states : []).filter((s) => s && !s.error);
+    const items = [];
+    list.forEach((s) => {
+      const status = clean(s.canonical_status);
+      if (status !== "reading") return;
+      const life = clean(s.lifecycle && s.lifecycle.state);
+      const healthReasons = (s.health && s.health.reasons) || [];
+      const lifeReason = clean(s.lifecycle && s.lifecycle.reason);
+      const isStale = life === "stale"
+        || healthReasons.some((r) => /오래|방치|stale|갱신/i.test(String(r || "")));
+      if (!isStale) return;
+      const path = clean(s.source_path || s.object_path);
+      const raw = (path && pagesByPath && pagesByPath[path]) || {};
+      items.push({
+        title: clean(s.title) || clean(raw.title || raw.book_title) || LABELS.untitled,
+        path,
+        status,
+        progress: progressOf(raw, s) || null,
+        progress_number: progressNumber(raw),
+        next_action: s.next_action || clean(raw.next_action) || null,
+        reason: lifeReason || healthReasons[0] || REASONS.staleLifecycle,
+        lifecycle: life,
+        health: (s.health && s.health.state) || ""
+      });
+    });
+    if (!items.length) {
+      return { empty: true, message: EMPTY.stale, items: [] };
+    }
+    return {
+      empty: false,
+      message: null,
+      items,
+      reason: REASONS.staleLifecycle
+    };
+  }
+
+  /**
+   * High-progress reading books (finish soon). Status stays user-owned.
+   */
+  function buildFinishSoon(pages, states, pagesByPath) {
+    const byPath = pagesByPath || Object.create(null);
+    const stateByPath = Object.create(null);
+    (Array.isArray(states) ? states : []).forEach((s) => {
+      const path = clean(s && (s.source_path || s.object_path));
+      if (path) stateByPath[path] = s;
+    });
+    const items = [];
+    normalizeReadingPages(pages).forEach((p) => {
+      const status = clean(p.status).toLowerCase();
+      if (status !== "reading") return;
+      const n = progressNumber(p);
+      if (n == null || n < FINISH_PROGRESS_MIN) return;
+      const path = clean(p.path || (p.file && p.file.path));
+      const st = path && stateByPath[path] ? stateByPath[path] : null;
+      items.push({
+        title: clean(p.title || p.book_title) || LABELS.untitled,
+        path,
+        status: "reading",
+        progress: progressOf(p, st) || `${n}%`,
+        progress_number: n,
+        next_action: (st && st.next_action) || clean(p.next_action) || null,
+        reason: n >= 100 ? REASONS.finishHundred : REASONS.finishNear,
+        ready_for_review: n >= 100
+      });
+    });
+    items.sort((a, b) => (b.progress_number || 0) - (a.progress_number || 0));
+    if (!items.length) {
+      return { empty: true, message: EMPTY.finish, items: [] };
+    }
+    return {
+      empty: false,
+      message: null,
+      items,
+      reason: REASONS.finishNear
+    };
+  }
+
+  /** Queue books ready to start (status = queue). */
+  function buildQueueReady(pages) {
+    const items = normalizeReadingPages(pages)
+      .filter((p) => clean(p.status).toLowerCase() === "queue")
+      .map((p) => ({
+        title: clean(p.title || p.book_title) || LABELS.untitled,
+        path: clean(p.path || (p.file && p.file.path)),
+        author: clean(p.author),
+        status: "queue",
+        next_action: clean(p.next_action) || null,
+        reason: REASONS.queueReady
+      }));
+    if (!items.length) {
+      return { empty: true, message: EMPTY.queue, items: [] };
+    }
+    return { empty: false, message: null, items, reason: REASONS.queueReady };
+  }
+
+  /**
+   * Checklist progress summary from stored state (optional inject).
+   * items: { [id]: "unchecked"|"checked"|"not_applicable" }
+   */
+  function summarizeChecklistProgress(checklistState, totalQuestions) {
+    const items = checklistState && checklistState.items && typeof checklistState.items === "object"
+      ? checklistState.items
+      : null;
+    if (!items) {
+      return { empty: true, checked: 0, total: Number(totalQuestions) || 0, label: "" };
+    }
+    const ids = Object.keys(items);
+    const total = Number(totalQuestions) > 0 ? Number(totalQuestions) : ids.length;
+    let checked = 0;
+    ids.forEach((id) => {
+      if (items[id] === "checked" || items[id] === "not_applicable") checked += 1;
+    });
+    return {
+      empty: total === 0,
+      checked,
+      total,
+      label: total > 0 ? `질답 ${checked}/${total}` : ""
     };
   }
 
@@ -541,7 +774,7 @@
     }
 
     const today = buildTodayReading(summary, primary, pagesByPath);
-    const cont = buildContinueCard(summary, primary);
+    const cont = buildContinueCard(summary, primary, pagesByPath);
     if (cont.empty) cont.message = EMPTY.continue;
 
     // Strategy Layer once — powers Guide / Checklist / Reflection
@@ -559,13 +792,25 @@
       reading_checklist: buildReadingChecklist(strategy, primary),
       reflection: buildReflection(strategy, primary),
       waiting_review: buildWaitingReview(evaluated.states),
+      stale_reading: buildStaleReading(evaluated.states, pagesByPath),
+      finish_soon: buildFinishSoon(evaluated.pages, evaluated.states, pagesByPath),
+      queue_ready: buildQueueReady(evaluated.pages),
       knowledge_candidates: buildKnowledgeCandidates(evaluated.states),
       history: buildHistory(evaluated.pages, opts.historyLimit),
       primary_state: primary,
       states: evaluated.states,
       session: evaluated.session,
-      summary
+      summary,
+      focus_path: cont.focus_path || null
     });
+  }
+
+  /**
+   * Shared hub runtime model (single evaluate pass).
+   * Callers pass pages + optional session; result cached by hub on window.
+   */
+  function shareRuntimeModel(pages, options) {
+    return buildWorkspaceModel(pages, options || {});
   }
 
   const api = {
@@ -576,9 +821,16 @@
     REFLECTION_PROMPTS,
     STRATEGY_GUIDE,
     STRATEGY_LABELS,
+    FINISH_PROGRESS_MIN,
+    PROGRESS_STEPS,
     clean,
     resolveStrategyDirect,
     evaluateReadingStates,
+    progressOf,
+    progressNumber,
+    normalizeProgressStep,
+    parseConnectionChips,
+    summarizeChecklistProgress,
     buildContinueCard,
     buildTodayReading,
     buildStrategyLayer,
@@ -586,9 +838,13 @@
     buildReadingChecklist,
     buildReflection,
     buildWaitingReview,
+    buildStaleReading,
+    buildFinishSoon,
+    buildQueueReady,
     buildKnowledgeCandidates,
     buildHistory,
     buildWorkspaceModel,
+    shareRuntimeModel,
     normalizeReadingPages
   };
 

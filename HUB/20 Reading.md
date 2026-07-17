@@ -98,23 +98,54 @@ const mapReading = (p) => Object.assign({}, p, {
   book_type: p.book_type,
   reading_type: p.reading_type,
   category: p.category,
+  connections: p.connections,
   file: p.file,
   id: p.id,
-  mtime: p.file && p.file.mtime
+  mtime: p.file && p.file.mtime,
+  updated: p.updated
 });
 
-const ensureRuntimeModel = () => {
-  if (window.__readingWorkspaceModel) return window.__readingWorkspaceModel;
+/** Single Runtime evaluate for the whole Reading hub (shared on window). */
+const ensureRuntimeModel = (force) => {
+  if (!force && window.__readingWorkspaceModel) return window.__readingWorkspaceModel;
   if (!window.ObjectEngine || !window.ReadingWorkspaceCore) return null;
   try {
     const all = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading").array().map(mapReading);
     const session = window.ObjectEngine.createRuntimeSession({});
-    const model = window.ReadingWorkspaceCore.buildWorkspaceModel(all, { session });
+    const build = window.ReadingWorkspaceCore.shareRuntimeModel
+      || window.ReadingWorkspaceCore.buildWorkspaceModel;
+    const model = build(all, { session });
     window.__readingWorkspaceModel = model;
+    window.__readingRuntimeSession = session;
     return model;
   } catch (_e) {
     return null;
   }
+};
+
+const scrollToReadingPath = (path) => {
+  if (!path) return;
+  const root = document;
+  const el = root.querySelector && root.querySelector(`[data-reading-path="${CSS && CSS.escape ? CSS.escape(path) : path}"]`);
+  if (el && el.scrollIntoView) {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+};
+
+const openContinueSession = (cont) => {
+  if (!cont || !cont.object_path || !window.ReadingView || !window.ReadingCore) return;
+  const page = dv.page(cont.object_path);
+  const book = window.ReadingCore.normalizeBook(Object.assign({}, page || {}, {
+    path: cont.object_path,
+    title: cont.title,
+    book_title: cont.title,
+    next_action: cont.next_action,
+    progress: cont.progress_number || cont.progress
+  }));
+  const open = window.ReadingView.openSessionModal || window.ReadingView.openQuickSession;
+  open(app, book, () => {
+    try { delete window.__readingWorkspaceModel; } catch (_e) { window.__readingWorkspaceModel = null; }
+  }, { progress: cont.progress_number || cont.progress, next_action: cont.next_action });
 };
 
 const run = () => {
@@ -125,6 +156,7 @@ const run = () => {
   const model = ensureRuntimeModel();
   const contBox = this.container.createEl("div", {
     attr: {
+      class: "reading-continue-strip",
       style: "margin:0 0 12px;padding:10px 12px;border-radius:10px;border:1px solid var(--background-modifier-border);background:var(--background-secondary);"
     }
   });
@@ -139,10 +171,22 @@ const run = () => {
       text: cont.title || "현재 책",
       attr: { style: "font-weight:700;font-size:0.95em;" }
     });
-    contBox.createEl("div", {
-      text: cont.action || "이어 읽기",
+    const actionLine = contBox.createEl("div", {
       attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:2px;" }
     });
+    actionLine.createEl("span", { text: cont.action || "이어 읽기" });
+    if (cont.progress) {
+      actionLine.createEl("span", {
+        text: ` · ${cont.progress}`,
+        attr: { style: "font-weight:700;" }
+      });
+    }
+    if (cont.next_action) {
+      contBox.createEl("div", {
+        text: `다음 · ${cont.next_action}`,
+        attr: { style: "margin-top:4px;font-size:0.82em;font-weight:650;color:var(--text-normal);" }
+      });
+    }
     if (cont.reason) {
       const r = contBox.createEl("div", {
         attr: { style: "margin-top:6px;font-size:0.78em;color:var(--text-muted);" }
@@ -157,6 +201,24 @@ const run = () => {
         attr: { style: "margin-top:6px;font-size:0.78em;font-weight:650;color:var(--text-muted);" }
       });
     }
+    // Continue focus + single minimal session path (no form wall)
+    const stripActions = contBox.createEl("div", {
+      attr: { class: "prodigy-btn-row", style: "margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;" }
+    });
+    const readBtn = window.ProdigyUI
+      ? window.ProdigyUI.button(stripActions, "오늘 읽기", { primary: true })
+      : stripActions.createEl("button", { text: "오늘 읽기", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
+    readBtn.onclick = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      openContinueSession(cont);
+    };
+    const focusBtn = window.ProdigyUI
+      ? window.ProdigyUI.button(stripActions, "이 책 포커스")
+      : stripActions.createEl("button", { text: "이 책 포커스", attr: { type: "button", class: "prodigy-btn" } });
+    focusBtn.onclick = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      scrollToReadingPath(cont.focus_path || cont.object_path);
+    };
   } else {
     contBox.createEl("div", {
       text: "진행 중인 독서가 없습니다.",
@@ -164,7 +226,7 @@ const run = () => {
     });
   }
 
-  // Hero cards — primary visible surface
+  // Hero cards — primary visible surface (focus path highlighted via model)
   const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading");
   if (pages.length === 0) {
     this.container.createEl("span", {
@@ -172,7 +234,17 @@ const run = () => {
       attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
     });
   } else {
-    pages.forEach(p => window.renderReadingCard(p, this.container, "hero"));
+    // Prefer Runtime focus first when multiple reading books
+    const arr = pages.array ? pages.array() : [...pages];
+    const focus = model && model.focus_path;
+    arr.sort((a, b) => {
+      const ap = a.file && a.file.path;
+      const bp = b.file && b.file.path;
+      if (focus && ap === focus) return -1;
+      if (focus && bp === focus) return 1;
+      return 0;
+    });
+    arr.forEach(p => window.renderReadingCard(p, this.container, "hero"));
   }
   return true;
 };
@@ -225,6 +297,126 @@ try {
 
 ---
 
+## 📚 읽기 대기
+
+```dataviewjs
+const run = () => {
+  if (window.renderReadingCard) {
+    this.container.empty();
+    const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "queue");
+    if (pages.length === 0) {
+      this.container.createEl("span", {
+        text: "독서 대기열이 비어 있습니다.",
+        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+      });
+    } else {
+      const grid = this.container.createEl("div", {
+        attr: { style: "display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px;" }
+      });
+      pages.forEach(p => window.renderReadingCard(p, grid, "grid"));
+    }
+    return true;
+  }
+  return false;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", { text: "로딩 중..." });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
+```
+
+---
+
+## ⏳ 오래 방치
+
+```dataviewjs
+const run = () => {
+  if (!window.renderReadingCard) return false;
+  this.container.empty();
+  const model = window.__readingWorkspaceModel;
+  const stale = model && model.stale_reading;
+  if (stale && !stale.empty && stale.items && stale.items.length) {
+    const paths = new Set(stale.items.map(i => i.path).filter(Boolean));
+    const pages = dv.pages('"PARA/PROJECTS/Reading"')
+      .where(p => p.type === "reading" && paths.has(p.file.path));
+    if (pages.length === 0) {
+      this.container.createEl("span", {
+        text: "오래 방치된 독서가 없습니다.",
+        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+      });
+    } else {
+      this.container.createEl("div", {
+        text: "Runtime lifecycle · 오래 갱신되지 않은 읽는 중 책",
+        attr: { style: "font-size:0.78em;color:var(--text-muted);margin-bottom:8px;" }
+      });
+      pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+    }
+    return true;
+  }
+  this.container.createEl("span", {
+    text: "오래 방치된 독서가 없습니다.",
+    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+  });
+  return true;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", { text: "로딩 중..." });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
+```
+
+---
+
+---
+
+## 🏁 완독 임박
+
+```dataviewjs
+const run = () => {
+  if (!window.renderReadingCard) return false;
+  this.container.empty();
+  const model = window.__readingWorkspaceModel;
+  const finish = model && model.finish_soon;
+  if (finish && !finish.empty && finish.items && finish.items.length) {
+    const paths = new Set(finish.items.map(i => i.path).filter(Boolean));
+    const pages = dv.pages('"PARA/PROJECTS/Reading"')
+      .where(p => p.type === "reading" && paths.has(p.file.path));
+    if (pages.length === 0) {
+      this.container.createEl("span", {
+        text: "완독 임박 책이 없습니다.",
+        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+      });
+    } else {
+      this.container.createEl("div", {
+        text: "진행 75% 이상 · 상태 전환은 직접 결정",
+        attr: { style: "font-size:0.78em;color:var(--text-muted);margin-bottom:8px;" }
+      });
+      pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+    }
+    return true;
+  }
+  this.container.createEl("span", {
+    text: "완독 임박 책이 없습니다.",
+    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+  });
+  return true;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", { text: "로딩 중..." });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
+```
+
+---
+
+---
+
 ## 📝 복기 필요
 
 ```dataviewjs
@@ -273,35 +465,7 @@ if (!run()) {
 
 ---
 
-## 📚 읽기 대기
-
-```dataviewjs
-const run = () => {
-  if (window.renderReadingCard) {
-    this.container.empty();
-    const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "queue");
-    if (pages.length === 0) {
-      this.container.createEl("span", {
-        text: "독서 대기열이 비어 있습니다.",
-        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
-      });
-    } else {
-      const grid = this.container.createEl("div", {
-        attr: { style: "display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px;" }
-      });
-      pages.forEach(p => window.renderReadingCard(p, grid, "grid"));
-    }
-    return true;
-  }
-  return false;
-};
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", { text: "로딩 중..." });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
-```
+---
 
 # ✅ 최근 완독
 
@@ -391,6 +555,7 @@ if (!run()) {
 ```
 
 ---
+
 
 # 객체 라이프사이클
 

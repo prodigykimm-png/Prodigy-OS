@@ -7,15 +7,18 @@
   }
 
   function fieldInput(parent, label, key, state, options = {}) {
-    parent.createEl("label", {
-      text: label,
-      attr: { style: "display:block;font-weight:600;margin:10px 0 4px;font-size:0.86em;" }
-    });
+    if (label) {
+      parent.createEl("label", {
+        text: label,
+        attr: { style: "display:block;font-weight:600;margin:10px 0 4px;font-size:0.86em;" }
+      });
+    }
     const isArea = options.rows && options.rows > 1;
     const input = parent.createEl(isArea ? "textarea" : "input", {
       attr: {
         type: isArea ? undefined : "text",
         rows: isArea ? String(options.rows) : undefined,
+        placeholder: options.placeholder || "",
         style: "width:100%;padding:8px;border-radius:6px;border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);min-height:" + (isArea ? "72px" : "40px") + ";box-sizing:border-box;"
       }
     });
@@ -24,27 +27,105 @@
     return input;
   }
 
-  function openSessionModal(app, book, onSaved) {
-    const obsidianModule = root.obsidian || window.obsidian;
-    const initial = {
+  function progressNumberOf(book, options) {
+    const opts = options || {};
+    const raw = opts.progress != null && opts.progress !== ""
+      ? opts.progress
+      : (book && book.progress);
+    if (raw == null || raw === "") return null;
+    const n = Number(String(raw).replace(/%/g, "").trim());
+    return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null;
+  }
+
+  function buildSessionPayload(book, state, options) {
+    const opts = options || {};
+    const note = String(state.note || state.key_content || state.my_thought || "").trim();
+    const progress = state.progress != null && state.progress !== ""
+      ? state.progress
+      : progressNumberOf(book, opts);
+    return {
       date: root.ReadingCore.todayIsoDate(),
-      reading_range: "",
+      note,
+      key_content: note,
+      my_thought: "",
+      thinking_delta: String(state.thinking_delta || "").trim(),
+      reading_range: String(state.reading_range || "").trim(),
       start_page: "",
       end_page: "",
-      duration: "",
-      key_content: "",
-      my_thought: "",
+      duration: String(state.duration || "").trim(),
+      next_position: String(state.next_position || "").trim(),
+      next_action: String(state.next_action || "").trim(),
+      progress: progress == null ? "" : progress
+    };
+  }
+
+  /**
+   * Minimal session save — one memo is enough.
+   * Used by openSessionModal and openQuickSession (same product path).
+   */
+  async function saveQuickSession(app, book, options, onSaved) {
+    const opts = options || {};
+    let note = opts.note != null ? String(opts.note) : "";
+    if (!opts.skipPrompt && !note) {
+      const promptLabel = `[${(book && (book.book_title || book.title)) || "책"}] 오늘 읽기`;
+      const seed = (book && book.next_action) || opts.next_action || "";
+      if (typeof window.obsidianPrompt === "function") {
+        const input = await window.obsidianPrompt(promptLabel, "한 줄 메모:", seed);
+        if (input === null) return null;
+        note = String(input || "").trim();
+      } else if (typeof window.prompt === "function") {
+        const input = window.prompt("한 줄 메모:", seed);
+        if (input === null) return null;
+        note = String(input || "").trim();
+      }
+    }
+    if (!note) {
+      if (window.Notice) new Notice("한 줄 메모가 필요합니다.");
+      return null;
+    }
+    const formValues = buildSessionPayload(book, {
+      note,
+      next_action: opts.next_action || (book && book.next_action) || "",
+      progress: opts.progress,
+      thinking_delta: opts.thinking_delta || "",
+      duration: opts.duration || ""
+    }, opts);
+    const session = await root.ReadingStore.saveSession(app, book, formValues);
+    if (window.Notice) new Notice("독서 세션을 저장했습니다.");
+    if (onSaved) await onSaved(session);
+    return session;
+  }
+
+  function openQuickSession(app, book, onSaved, options) {
+    // Same minimal path as 오늘 읽기 — no separate form wall.
+    return openSessionModal(app, book, onSaved, options || {});
+  }
+
+  /**
+   * 오늘 읽기 — minimal by design.
+   * Required: one memo. Optional: progress chip, next_action.
+   * Advanced fields stay behind "더 보기".
+   */
+  function openSessionModal(app, book, onSaved, options) {
+    const opts = options || {};
+    const obsidianModule = root.obsidian || window.obsidian;
+    const initialProgress = progressNumberOf(book, opts);
+    const initial = {
+      note: opts.note || "",
+      next_action: opts.next_action || (book && book.next_action) || "",
+      progress: initialProgress == null ? "" : String(initialProgress),
       thinking_delta: "",
+      duration: "",
       next_position: "",
-      next_action: ""
+      reading_range: ""
     };
 
     if (!obsidianModule || !obsidianModule.Modal) {
-      initial.reading_range = window.prompt("읽은 범위", "") || "";
-      initial.key_content = window.prompt("핵심 내용", "") || "";
-      initial.my_thought = window.prompt("내 생각", "") || "";
-      onSaved(initial);
-      return;
+      return saveQuickSession(app, book, {
+        note: initial.note,
+        next_action: initial.next_action,
+        progress: initial.progress
+      }, onSaved);
     }
 
     class SessionModal extends obsidianModule.Modal {
@@ -55,36 +136,107 @@
       onOpen() {
         const { contentEl } = this;
         contentEl.empty();
-        contentEl.createEl("h3", { text: `오늘 읽기 — ${book.book_title || book.title || "책"}` });
-        contentEl.createEl("p", {
-          text: "한 화면에서 세션을 기록합니다. 생각의 변화와 다음 행동은 선택입니다.",
-          attr: { style: "color:var(--text-muted);font-size:0.84em;margin:0 0 8px;" }
+        contentEl.createEl("h3", {
+          text: `오늘 읽기 — ${book.book_title || book.title || "책"}`,
+          attr: { style: "margin:0 0 6px;" }
         });
-        fieldInput(contentEl, "읽은 범위", "reading_range", this.state);
-        fieldInput(contentEl, "시작 페이지", "start_page", this.state);
-        fieldInput(contentEl, "종료 페이지", "end_page", this.state);
-        fieldInput(contentEl, "독서 시간 (선택, 예: 32m)", "duration", this.state);
-        fieldInput(contentEl, "핵심 내용", "key_content", this.state, { rows: 3 });
-        fieldInput(contentEl, "내 생각", "my_thought", this.state, { rows: 3 });
-        fieldInput(contentEl, "생각의 변화", "thinking_delta", this.state, { rows: 3 });
-        fieldInput(contentEl, "다음 읽을 위치", "next_position", this.state);
-        fieldInput(contentEl, "다음 행동", "next_action", this.state);
+        contentEl.createEl("p", {
+          text: "한 줄이면 충분합니다. 나머지는 필요할 때만.",
+          attr: { style: "color:var(--text-muted);font-size:0.84em;margin:0 0 10px;" }
+        });
+
+        // Primary: one memo
+        fieldInput(contentEl, "한 줄 메모", "note", this.state, {
+          rows: 3,
+          placeholder: "오늘 읽으며 남길 핵심 또는 생각"
+        });
+
+        // Optional progress — same discrete steps as card (no page fields)
+        const progressWrap = contentEl.createEl("div", {
+          attr: { style: "margin-top:12px;" }
+        });
+        progressWrap.createEl("div", {
+          text: "진행 (선택)",
+          attr: { style: "font-weight:600;font-size:0.86em;margin-bottom:6px;" }
+        });
+        const chipRow = progressWrap.createEl("div", {
+          attr: { style: "display:flex;flex-wrap:wrap;gap:6px;" }
+        });
+        const steps = [25, 50, 75, 100];
+        const paintChips = () => {
+          chipRow.empty();
+          const current = this.state.progress === "" || this.state.progress == null
+            ? null
+            : Number(this.state.progress);
+          steps.forEach((step) => {
+            const on = current === step;
+            const chip = chipRow.createEl("button", {
+              text: `${step}%`,
+              attr: {
+                type: "button",
+                class: on ? "prodigy-btn prodigy-btn-primary" : "prodigy-btn",
+                style: "min-height:28px;padding:2px 10px;font-size:0.78em;border-radius:999px;"
+              }
+            });
+            chip.onclick = (e) => {
+              if (e && e.preventDefault) e.preventDefault();
+              this.state.progress = on ? "" : String(step);
+              paintChips();
+            };
+          });
+        };
+        if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
+        paintChips();
+
+        // Optional next_action — one line, often already on the book
+        fieldInput(contentEl, "다음 행동 (선택)", "next_action", this.state, {
+          placeholder: "다음에 할 일 한 줄"
+        });
+
+        // Advanced: rare fields, collapsed
+        const details = contentEl.createEl("details", {
+          attr: { style: "margin-top:12px;" }
+        });
+        details.createEl("summary", {
+          text: "더 보기 (선택)",
+          attr: {
+            style: "cursor:pointer;font-size:0.82em;color:var(--text-muted);font-weight:600;"
+          }
+        });
+        const advanced = details.createEl("div", {
+          attr: { style: "margin-top:6px;" }
+        });
+        fieldInput(advanced, "생각의 변화", "thinking_delta", this.state, {
+          rows: 2,
+          placeholder: "읽기 전후 달라진 점"
+        });
+        fieldInput(advanced, "독서 시간", "duration", this.state, {
+          placeholder: "예: 25m"
+        });
+        fieldInput(advanced, "읽은 범위", "reading_range", this.state, {
+          placeholder: "비우면 자동 (오늘 읽기 / 진행 %)"
+        });
 
         const actions = contentEl.createEl("div", {
           attr: { style: "display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;" }
         });
-        if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
         const cancel = root.ProdigyUI
           ? root.ProdigyUI.button(actions, "취소", { onClick: () => this.close() })
           : actions.createEl("button", { text: "취소", attr: { type: "button", class: "prodigy-btn" } });
         if (!root.ProdigyUI) cancel.onclick = () => this.close();
         const save = root.ProdigyUI
-          ? root.ProdigyUI.button(actions, "세션 저장", { primary: true })
-          : actions.createEl("button", { text: "세션 저장", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
+          ? root.ProdigyUI.button(actions, "저장", { primary: true })
+          : actions.createEl("button", { text: "저장", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
         save.onclick = async () => {
+          const note = String(this.state.note || "").trim();
+          if (!note) {
+            if (window.Notice) new Notice("한 줄 메모가 필요합니다.");
+            return;
+          }
           save.disabled = true;
           try {
-            const session = await root.ReadingStore.saveSession(app, book, this.state);
+            const payload = buildSessionPayload(book, this.state, opts);
+            const session = await root.ReadingStore.saveSession(app, book, payload);
             if (window.Notice) new Notice("독서 세션을 저장했습니다.");
             this.close();
             if (onSaved) await onSaved(session);
@@ -332,6 +484,8 @@
 
   const api = {
     openSessionModal,
+    openQuickSession,
+    saveQuickSession,
     openCandidateModal,
     renderSessionHistory,
     renderLearningLoop,

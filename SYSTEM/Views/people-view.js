@@ -831,13 +831,15 @@
     });
   }
 
+  /**
+   * Create a People Object, then open the relation popup for immediate edit.
+   */
   async function createAndOpen(app, rawName) {
     if (!root.PeopleStore || !root.PeopleCore) {
       throw new Error("People 모듈을 불러오지 못했습니다.");
     }
     const result = await root.PeopleStore.createPeople(app, rawName);
     notice(`사람 Object를 만들었습니다: ${result.name}`);
-    // Show formatted preview instead of jumping to raw editor
     try {
       await openPersonPreview(app, result.path);
     } catch (_e) {
@@ -891,7 +893,7 @@
           contentEl.empty();
           contentEl.createEl("h2", { text: "사람 추가", attr: { style: "margin:0 0 8px;font-size:1.15em;" } });
           contentEl.createEl("p", {
-            text: "이름만 입력하면 People Object가 생성됩니다. 관계 맥락은 Object를 연 뒤 채웁니다.",
+            text: "이름만 입력하면 추가 후 관계 팝업이 열립니다.",
             attr: { style: "font-size:0.84em;color:var(--text-muted);margin:0 0 12px;line-height:1.45;" }
           });
           contentEl.createEl("label", {

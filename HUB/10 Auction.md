@@ -392,6 +392,138 @@ if (!run()) {
 
 ---
 
+## 🔄 복기 대기
+
+```dataviewjs
+// Post-result queue: won/lost before reviewing, reviewing in progress, skipped before archive
+const run = () => {
+  if (!window.AuctionDayCore || !window.AuctionDayCore.buildReviewQueue) return false;
+  this.container.empty();
+  const pages = dv.pages('"PARA/PROJECTS/Auction"')
+    .where(p => p.type === "auction_case")
+    .array()
+    .map(p => Object.assign({}, p, {
+      type: p.type || "auction_case",
+      path: (p.file && p.file.path) || p.path || "",
+      file: p.file
+    }));
+  const queue = window.AuctionDayCore.buildReviewQueue(pages);
+  const box = this.container.createEl("div", {
+    attr: {
+      style: "background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:10px;padding:12px;margin:4px 0 12px;box-shadow:0 2px 6px rgba(0,0,0,0.08);"
+    }
+  });
+  box.createEl("div", {
+    text: "🔄 복기 대기",
+    attr: { style: "font-weight:800;font-size:0.95em;color:var(--text-accent);margin-bottom:6px;" }
+  });
+  box.createEl("div", {
+    text: "결과 기록 후 닫을 일. 새 Property 없이 기존 status만 사용합니다.",
+    attr: { style: "font-size:0.78em;color:var(--text-muted);margin-bottom:10px;line-height:1.4;" }
+  });
+  if (!queue.length) {
+    box.createEl("div", {
+      text: "복기 대기 물건이 없습니다.",
+      attr: { style: "font-size:0.85em;color:var(--text-muted);font-style:italic;padding:6px 0;" }
+    });
+    return true;
+  }
+  const stageLabel = {
+    pending_review: "복기 시작 전",
+    in_progress: "복기 중",
+    pending_close: "보관 전"
+  };
+  const statusLabel = (s) => (window.prodigyDisplay && window.prodigyDisplay.status)
+    ? window.prodigyDisplay.status(s)
+    : s;
+  queue.forEach((item) => {
+    const row = box.createEl("div", {
+      attr: {
+        style: "display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px;padding:10px 0;border-top:1px solid var(--background-modifier-border);"
+      }
+    });
+    const left = row.createEl("div", { attr: { style: "min-width:0;flex:1 1 auto;" } });
+    left.createEl("div", {
+      text: item.case_number || item.title,
+      attr: { style: "font-weight:700;font-size:0.92em;" }
+    });
+    left.createEl("div", {
+      text: `${statusLabel(item.status)} · ${stageLabel[item.stage] || item.stage}`,
+      attr: { style: "font-size:0.78em;color:var(--text-muted);margin-top:2px;" }
+    });
+    left.createEl("div", {
+      text: item.reason,
+      attr: { style: "font-size:0.82em;color:var(--text-normal);margin-top:4px;line-height:1.4;" }
+    });
+    const actions = row.createEl("div", {
+      attr: { style: "display:flex;gap:6px;flex-wrap:wrap;align-items:center;" }
+    });
+    const openBtn = actions.createEl("button", {
+      text: "원본 열기",
+      attr: { type: "button", class: "prodigy-btn" }
+    });
+    openBtn.onclick = () => app.workspace.openLinkText(item.path, item.path, false);
+    if (item.stage === "pending_review" && item.next_status === "reviewing") {
+      const startBtn = actions.createEl("button", {
+        text: "복기 시작",
+        attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" }
+      });
+      startBtn.onclick = async () => {
+        try {
+          startBtn.disabled = true;
+          const tFile = app.vault.getAbstractFileByPath(item.path);
+          if (!tFile) throw new Error("Object를 찾을 수 없습니다.");
+          const today = window.AuctionDayCore.isoToday();
+          await app.fileManager.processFrontMatter(tFile, (fm) => {
+            fm.status = "reviewing";
+            fm.updated = today;
+          });
+          if (typeof Notice !== "undefined") new Notice("복기를 시작했습니다.");
+          // Dataview will refresh on metadata change
+        } catch (err) {
+          if (typeof Notice !== "undefined") new Notice(err.message || String(err));
+          startBtn.disabled = false;
+        }
+      };
+    } else if (item.stage === "in_progress" || item.stage === "pending_close") {
+      const archBtn = actions.createEl("button", {
+        text: item.stage === "pending_close" ? "보관" : "복기 완료·보관",
+        attr: { type: "button", class: "prodigy-btn" }
+      });
+      archBtn.onclick = async () => {
+        try {
+          archBtn.disabled = true;
+          const tFile = app.vault.getAbstractFileByPath(item.path);
+          if (!tFile) throw new Error("Object를 찾을 수 없습니다.");
+          const today = window.AuctionDayCore.isoToday();
+          await app.fileManager.processFrontMatter(tFile, (fm) => {
+            fm.status = "archived";
+            fm.updated = today;
+            if (!fm.review_date) fm.review_date = today;
+          });
+          if (typeof Notice !== "undefined") new Notice("보관으로 옮겼습니다.");
+        } catch (err) {
+          if (typeof Notice !== "undefined") new Notice(err.message || String(err));
+          archBtn.disabled = false;
+        }
+      };
+    }
+  });
+  return true;
+};
+if (!run()) {
+  this.container.empty();
+  this.container.createEl("span", {
+    text: "⌛ 복기 대기 큐를 불러오는 중...",
+    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
+  });
+  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
+  setTimeout(() => clearInterval(t), 10000);
+}
+```
+
+---
+
 ## 🔄 복기 중
 
 ```dataviewjs

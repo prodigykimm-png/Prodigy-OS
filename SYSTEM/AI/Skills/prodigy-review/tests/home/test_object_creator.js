@@ -15,11 +15,13 @@ function main() {
   try { load("SYSTEM/Views/object-lifecycle-core.js"); } catch (_e) { /* optional */ }
   const engine = load("SYSTEM/Views/object-engine-core.js");
   const core = load("SYSTEM/Views/object-creator-core.js");
+  const projectCore = load("SYSTEM/Views/project-wizard-core.js");
   const viewSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/object-creator-view.js"), "utf8");
   const homeSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/home-view.js"), "utf8");
   const homeHub = fs.readFileSync(path.join(ROOT, "HUB/00 Home.md"), "utf8");
   const launcherView = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workspace-launcher-view.js"), "utf8");
   const guide = fs.readFileSync(path.join(ROOT, "SYSTEM/docs/11_Operating_Guide.md"), "utf8");
+  const creatorCoreSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/object-creator-core.js"), "utf8");
 
   // --- classify (capability) + classifyInput alias ---
   assert.equal(typeof engine.classify, "function");
@@ -100,17 +102,49 @@ function main() {
     }
   };
 
-  // project → openProjectWizard if present
+  // project → openProjectWizard with initialProjectName handoff
   const prevWizard = global.openProjectWizard || (typeof window !== "undefined" ? window.openProjectWizard : null);
   let wizardOpened = false;
-  global.openProjectWizard = () => { wizardOpened = true; };
-  // root is module's globalThis via require - set on globalThis
+  let wizardOpts = null;
   const g = globalThis;
-  g.openProjectWizard = () => { wizardOpened = true; };
-  return core.launchExistingCreator(fakeApp, "project", "테스트 프로젝트").then((res) => {
+  g.openProjectWizard = (opts) => {
+    wizardOpened = true;
+    wizardOpts = opts;
+  };
+  return core.launchExistingCreator(fakeApp, "project", "  3차 운송예산 편성  ").then((res) => {
     assert.equal(res.ok, true);
-    assert.equal(wizardOpened || res.deferred, true);
+    assert.equal(wizardOpened, true);
+    assert.ok(wizardOpts && typeof wizardOpts === "object");
+    assert.equal(wizardOpts.initialProjectName, "3차 운송예산 편성");
+    assert.equal(res.message, "프로젝트 마법사를 열었습니다.");
+    assert.equal(String(res.message || "").includes("제목 힌트"), false);
+
+    // empty title → blank wizard (openProjectWizard with no options)
+    wizardOpened = false;
+    wizardOpts = "sentinel";
+    return core.launchExistingCreator(fakeApp, "project", "   ");
+  }).then((res) => {
+    assert.equal(res.ok, true);
+    assert.equal(wizardOpened, true);
+    // empty handoff calls openProjectWizard() with no args → opts is undefined
+    assert.equal(wizardOpts, undefined);
+
     g.openProjectWizard = prevWizard;
+
+    // ProjectWizardCore prefill helper (Modal-free unit surface)
+    assert.equal(typeof projectCore.normalizeInitialProjectName, "function");
+    assert.equal(projectCore.normalizeInitialProjectName("  3차 운송예산 편성  "), "3차 운송예산 편성");
+    assert.equal(projectCore.normalizeInitialProjectName(""), "");
+    assert.equal(projectCore.normalizeInitialProjectName(null), "");
+    assert.equal(projectCore.normalizeInitialProjectName(undefined), "");
+
+    // Handoff wiring in sources
+    assert.match(creatorCoreSrc, /initialProjectName/);
+    assert.equal(creatorCoreSrc.includes("제목 힌트"), false);
+    const wizardSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/project-wizard.js"), "utf8");
+    assert.match(wizardSrc, /initialProjectName|normalizeInitialProjectName/);
+    assert.match(wizardSrc, /function openProjectWizard\(options\)/);
+    assert.match(guide, /initial project name|Creator input is handed/i);
 
     return core.launchExistingCreator(fakeApp, "workout", "레그데이");
   }).then((res) => {
@@ -167,7 +201,6 @@ function main() {
   assert.match(guide, /getLifecycle|getAttention|findDuplicates|getContinueTarget/);
 
     // No schema mutation APIs in creator core
-    const creatorCoreSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/object-creator-core.js"), "utf8");
     assert.equal(creatorCoreSrc.includes("processFrontMatter"), false);
     assert.match(creatorCoreSrc, /openProjectWizard|createAndOpen|ReadingBookCreate|launchExistingCreator/);
 

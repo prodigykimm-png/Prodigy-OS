@@ -171,12 +171,35 @@ function main() {
       assert.equal(empty.total, 0);
       assert.equal(empty.courts.length, 0);
 
+      // Review queue (post-result)
+      const reviewPages = [
+        { type: "auction_case", status: "won", path: "PARA/PROJECTS/Auction/w.md", case_number: "W-1", auction_datetime: "2026-07-20" },
+        { type: "auction_case", status: "reviewing", path: "PARA/PROJECTS/Auction/r.md", case_number: "R-1", auction_datetime: "2026-07-19" },
+        { type: "auction_case", status: "skipped", path: "PARA/PROJECTS/Auction/s.md", case_number: "S-1", auction_datetime: "2026-07-18" },
+        { type: "auction_case", status: "bidding", path: "PARA/PROJECTS/Auction/b.md", case_number: "B-1", auction_datetime: "2026-07-21" },
+        { type: "auction_case", status: "archived", path: "PARA/PROJECTS/Auction/a.md", case_number: "A-1" }
+      ];
+      const queue = core.buildReviewQueue(reviewPages);
+      assert.equal(queue.length, 3);
+      assert.equal(queue[0].stage, "pending_review");
+      assert.equal(queue[0].status, "won");
+      assert.ok(queue[0].reason);
+      assert.equal(queue[0].next_status, "reviewing");
+      assert.ok(queue.some((q) => q.stage === "in_progress"));
+      assert.ok(queue.some((q) => q.stage === "pending_close"));
+      assert.equal(queue.some((q) => q.status === "bidding"), false);
+      assert.equal(queue.some((q) => q.status === "archived"), false);
+
       // View contracts
       assert.match(viewSource, /오늘 예정된 입찰이 없습니다/);
       assert.match(viewSource, /Preparation|법원|입찰가 확정|결과 기록|물건 열기/);
+      assert.match(viewSource, /openForAuction|focusPath|is-focus|복기 시작/);
       assert.match(viewSource, /min-height:\s*40px/);
       assert.match(viewSource, /openLinkText/);
       assert.equal(viewSource.includes("processFrontMatter") || viewSource.includes("saveFinalBid") || viewSource.includes("recordResult"), true);
+      assert.match(hub, /복기 대기|buildReviewQueue/);
+      const cardSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-card.js"), "utf8");
+      assert.match(cardSrc, /입찰 실행|openForAuction/);
 
       // Hub loads scripts; entry is via Bid Calendar only
       assert.match(hub, /auction-day-core\.js/);

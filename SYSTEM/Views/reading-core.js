@@ -76,10 +76,10 @@
       errors.push("연결된 Book이 필요합니다.");
     }
     if (!clean(source.date)) errors.push("날짜가 필요합니다.");
-    const hasRange = clean(source.reading_range) || clean(source.start_page) || clean(source.end_page);
-    if (!hasRange) errors.push("읽은 범위 또는 페이지 정보가 필요합니다.");
-    if (!clean(source.key_content) && !clean(source.my_thought)) {
-      errors.push("핵심 내용 또는 내 생각 중 하나가 필요합니다.");
+    // Range/pages are optional — OS prefers one-note sessions over form walls.
+    // At least one thought signal is required (memo / key / delta).
+    if (!clean(source.key_content) && !clean(source.my_thought) && !clean(source.thinking_delta)) {
+      errors.push("한 줄 메모가 필요합니다.");
     }
     return errors;
   }
@@ -88,6 +88,20 @@
     const book = normalizeBook(bookInput);
     const source = sessionInput || {};
     const date = clean(source.date) || todayIsoDate();
+    // Minimal input: one memo can fill key_content; range defaults to "오늘 읽기".
+    let keyContent = clean(source.key_content);
+    let myThought = clean(source.my_thought);
+    const note = clean(source.note);
+    if (note && !keyContent && !myThought) {
+      keyContent = note;
+    }
+    let readingRange = clean(source.reading_range);
+    if (!readingRange && !clean(source.start_page) && !clean(source.end_page)) {
+      const progressHint = clean(source.progress);
+      readingRange = progressHint
+        ? `진행 ${String(progressHint).replace(/%/g, "")}%`
+        : "오늘 읽기";
+    }
     const payload = {
       type: "reading_session",
       session_id: clean(source.session_id) || machineId("session", `${book.book_id}:${date}:${Date.now()}`),
@@ -98,10 +112,10 @@
       date,
       start_page: clean(source.start_page),
       end_page: clean(source.end_page),
-      reading_range: clean(source.reading_range),
+      reading_range: readingRange,
       duration: clean(source.duration),
-      key_content: clean(source.key_content),
-      my_thought: clean(source.my_thought),
+      key_content: keyContent,
+      my_thought: myThought,
       thinking_delta: clean(source.thinking_delta),
       next_position: clean(source.next_position),
       next_action: clean(source.next_action),
