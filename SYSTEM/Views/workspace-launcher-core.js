@@ -434,17 +434,31 @@
           cont = null;
         }
       }
+      // Presentation: prefer "Continue" context when something is waiting
+      const empty = !!pick.empty;
+      let contextLabel = pick.contextLabel || "";
+      if (!empty && cont) {
+        contextLabel = "Continue";
+      } else if (!empty && !contextLabel) {
+        contextLabel = ws.actionVerb || "Open";
+      }
+      const title = pick.title || (cont && cont.label) || "";
+      const detail = pick.detail
+        || (cont && cont.action)
+        || (pick.next_action != null ? pick.next_action : null)
+        || (pick.state && pick.state.next_action)
+        || "";
       return {
         id: ws.id,
         icon: ws.icon,
         name: ws.name,
         path: ws.path,
-        empty: !!pick.empty,
-        contextLabel: pick.contextLabel || "",
-        title: pick.title || (cont && cont.label) || "",
-        detail: pick.detail || (cont && cont.action) || "",
+        empty,
+        contextLabel,
+        title,
+        detail: detail || "",
         objectPath: pick.objectPath || (cont && cont.object_path) || "",
-        actionVerb: pick.actionVerb || (cont && cont.verb) || (pick.empty ? ws.emptyActionVerb : ws.actionVerb),
+        actionVerb: pick.actionVerb || (cont && cont.verb) || (empty ? ws.emptyActionVerb : ws.actionVerb),
         continue_target: cont,
         continue_reason: cont && cont.reason ? cont.reason : "",
         next_action: pick.next_action != null ? pick.next_action : (pick.state && pick.state.next_action) || null,

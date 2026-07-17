@@ -90,21 +90,26 @@ next_experiment: frontmatter 실험
   assert.equal(yFields.reflection, "본문 성찰");
 
   assert.match(homeSource, /외부 failures must never block Home|external failures must never block Home/i);
-  assert.match(homeSource, /오늘의 행동/);
+  // Mission Control surfaces
+  assert.match(homeSource, /Mission Control|What should I do now/);
+  assert.match(homeSource, /Today's Focus|제안 Focus 승인/);
+  assert.match(homeSource, /Nothing to continue|Enjoy a fresh start|Continue/);
+  assert.match(homeSource, /Needs Attention|home-needs-attention|Everything looks good today/);
+  assert.match(homeSource, /Quick Actions|New Object|New Daily|Search/);
+  assert.match(homeSource, /Open Todoist|Todoist/);
+  assert.match(homeSource, /System Status|Object Engine|Review Queue/);
   assert.match(homeSource, /2분 (Review|성찰)/);
-  assert.match(homeSource, /오늘 운동 시작/);
-  assert.match(homeSource, /주의가 필요함|home-needs-attention/);
   assert.match(homeSource, /engine_states|buildMorningBriefContext/);
   assert.match(homeSource, /safeRenderRegion/);
-  assert.match(homeSource, /오늘 고정/);
   assert.match(homeSource, /selectFocusItems/);
   assert.match(homeSource, /sanitizeFocusList|pathExists/);
   assert.match(homeSource, /Live vault context is always preferred/);
-  assert.match(homeSource, /어제 배움|yesterday_review|어제에서 이어가기/);
+  assert.match(homeSource, /어제 배움|yesterday_review/);
   assert.match(homeSource, /어제 (Reflection|성찰)이 비어|home-yesterday-missing|yMissing/);
   assert.match(homeSource, /focusHints/);
   assert.match(homeSource, /home-compact|isCompactHome|home-secondary-fold/);
   assert.match(homeSource, /home-lifecycle-fold|객체 라이프사이클 · 접힘|Object Lifecycle · 접힘/);
+  assert.match(homeSource, /approved only|제안 Focus 승인|No focus selected/);
   assert.match(homeHub, /journal-core\.js/);
   assert.match(homeHub, /journal-view\.js/);
 

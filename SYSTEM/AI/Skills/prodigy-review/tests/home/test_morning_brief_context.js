@@ -81,10 +81,13 @@ function main() {
   assert.equal(brief.pinned_focus.length, 1);
   assert.deepEqual(brief.display_order, [
     "morning_brief",
-    "today_schedule",
-    "needs_attention",
     "todays_focus",
-    "workspace_launcher"
+    "continue",
+    "needs_attention",
+    "quick_actions",
+    "todoist",
+    "workspace_launcher",
+    "system_status"
   ]);
   assert.ok(brief.today);
   assert.equal(brief.today.due_today.todoist_today, 2);

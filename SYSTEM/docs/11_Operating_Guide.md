@@ -59,30 +59,41 @@ Home은 시작점이다.
 Home을 열면 오늘 해야 할 일, 진행 중인 Object, Capture, Review가 보인다.
 폴더부터 열지 않는다. Home을 먼저 연다.
 
-### Workspace Launcher
+### Home = Mission Control
 
-Home은 링크 모음이 아니다. **Prodigy OS Launcher**이다.
+Home은 링크 모음이 아니다. **오늘 무엇을 할지 결정하는 Mission Control**이다.
 
 ```text
-Home
+Home (Mission Control)
+  ↓ Decide / Navigate
+Morning Brief
   ↓
-Morning Brief   (recommendation)
+Today's Focus   (approved only · not edited on Home)
   ↓
-Today's Focus
+Continue        (max 4 · Object Engine)
   ↓
-Workspace Launcher   (navigation)
+Needs Attention (critical · high · WHY)
   ↓
-Workspace Dashboard  (execution)
+Quick Actions   (+ New Object · Daily · Search)
+  ↓
+Todoist         (Today summary · Open Todoist)
+  ↓
+Workspace Launcher   (What is waiting for me?)
+  ↓
+System Status
+  ↓
+Workspace Dashboard  (Operate / Record / Review)
   ↓
 Object
 ```
 
-- 각 카드는 **하나의 Primary Action**만 보여 준다 (Continue / Start / Resume / Open).
+- Home **does not** replace Workspaces. Execution lives in Workspaces.
+- 각 Launcher 카드는 **하나의 Primary Action**만 보여 준다 (Continue / Start / Resume / Open).
 - 카드 레이아웃은 동일하다: Icon · Name · Context · Title · Detail · Action.
-- 버튼을 누르면 기존 Workspace Dashboard로 이동한다. Launcher가 Workspace를 대체하지 않는다.
-- Auction은 입찰일만이 아니라 **Lifecycle + next_action** 기준으로 다음 물건을 고른다.
+- Context는 가능하면 **Continue** + 대기 중인 작업 제목을 보여 준다.
+- 버튼을 누르면 기존 Workspace Dashboard로 이동한다.
 - 내용이 없으면 빈 상태를 보여 주며 가짜 데이터를 만들지 않는다.
-- **모바일/좁은 화면**: 별도 Home 없이 같은 Home을 압축한다. 상단은 Brief · Focus · Launcher, 나머지는 `더 보기`로 접는다.
+- **모바일/좁은 화면**: 같은 Home을 압축한다. 상단은 Brief · Focus, 하부는 `더 보기`로 접는다.
 
 ### Object Engine Runtime
 
@@ -145,15 +156,20 @@ Object Engine (lifecycle · attention · next_action · reasons)
     ↓
 Morning Brief Context  (buildMorningBriefContext)
     ↓
-Home: Brief → Schedule → 주의가 필요함 → Focus → Launcher
+Home Mission Control:
+  Brief → Focus → Continue → Needs Attention
+  → Quick Actions → Todoist → Launcher → System Status
 ```
 
 - **Single evaluation**: Home builds `briefContext` once; Workspace Launcher reuses `engine_states` (no second vault/object scan).
-- **Needs Attention** shows **critical · high** only. Each card always has **이유** (merged reasons). Normal is hidden.
+- **Needs Attention** shows **critical · high** only. Each card always has **WHY** (merged reasons). Normal is hidden.
+- **Continue** reuses engine `continue_by_workspace` + package candidates (max 4; no completed Objects).
+- **Today's Focus** shows **approved** items only (max 3). Home does not edit Focus fields.
 - Same Object appears **once**; reasons from engine + package risk are merged.
 - Engine failure → package risks only; Home and Launcher still run (graceful degrade).
 - Morning Brief never edits Objects. Navigation reuses existing Workspace / Object open paths.
 - Attention path: **no AI** (deterministic only).
+- **System Status** is tiny: Object Engine / Sync / Review Queue counts only.
 
 ### Universal Object Creator
 

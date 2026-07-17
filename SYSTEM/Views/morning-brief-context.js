@@ -340,10 +340,13 @@
       // Home Mission Control surface order (product contract)
       display_order: [
         "morning_brief",
-        "today_schedule",
-        "needs_attention",
         "todays_focus",
-        "workspace_launcher"
+        "continue",
+        "needs_attention",
+        "quick_actions",
+        "todoist",
+        "workspace_launcher",
+        "system_status"
       ]
     };
   }

@@ -197,19 +197,21 @@ Homepage는 Dashboard가 아니다.
 
 Homepage는
 
-**Action Dashboard**이다.
+**Mission Control**이다.
 
 Homepage에서는
 
-- 지금 무엇을 해야 하는가
-- 현재 어떤 Object가 진행 중인가
-- 무엇을 기록할 수 있는가
+- 지금 무엇을 해야 하는가 (What should I do right now?)
+- 승인된 Focus · Continue · Needs Attention
+- 어디로 들어가 실행할 것인가 (Workspace navigation)
 
 만 보여준다.
 
+실행·기록·복기는 Workspace Dashboard에서 수행한다.
+
 통계, 그래프, ROI 등 분석 정보는 Homepage에서 보여주지 않는다.
 
-분석은 각 Object 내부에서 수행한다.
+분석은 각 Object / Workspace 내부에서 수행한다.
 
 ---
 

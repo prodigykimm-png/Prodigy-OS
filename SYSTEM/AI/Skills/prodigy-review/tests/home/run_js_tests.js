@@ -298,17 +298,19 @@ async function runTests() {
   // When: Home sources are inspected
   // Then: daily actions and Korean labels remain available
   const homeSource = fs.readFileSync(path.join(rootDir, "SYSTEM/Views/home-view.js"), "utf8");
-  assert.strictEqual(homeSource.includes("오늘의 행동"), true);
+  assert.strictEqual(homeSource.includes("Mission Control"), true);
   assert.strictEqual(homeSource.includes("2분 Review"), true);
+  assert.strictEqual(homeSource.includes("Today's Focus"), true);
+  assert.strictEqual(homeSource.includes("Quick Actions"), true);
+  assert.strictEqual(homeSource.includes("System Status"), true);
   assert.strictEqual(global.HomeView.getSourceTypeLabel("auction"), "경매");
   assert.strictEqual(global.HomeView.getSourceTypeLabel("project"), "프로젝트");
   assert.strictEqual(global.HomeView.getSourceTypeLabel("reading"), "독서");
   assert.strictEqual(homeSource.includes("opacity: 0.72"), false);
   assert.strictEqual(homeSource.includes("HUB/30 Workout.md"), true);
-  assert.strictEqual(homeSource.includes("HUB/Inbox.md"), true);
   assert.strictEqual(homeSource.includes("(Auction)"), false);
-  assert.strictEqual(homeSource.indexOf("const focusMount") < homeSource.indexOf("const briefCard"), true);
-  console.log("✓ Home follows the daily-loop action connection and Korean display-label contracts.");
+  assert.strictEqual(homeSource.includes("home-mc-stack"), true);
+  console.log("✓ Home follows Mission Control layout and Korean display-label contracts.");
 
   console.log("=== All JS Runtime Tests Passed! ===");
 }

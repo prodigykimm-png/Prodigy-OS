@@ -79,10 +79,14 @@
         .prodigy-home { width: 100%; margin: 0 auto; padding: 0 8px 32px; }
         .home-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
         .home-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-        .prodigy-home.home-wide .home-grid { grid-template-columns: repeat(12, 1fr); }
-        .prodigy-home.home-wide .col-span-8 { grid-column: span 8; }
-        .prodigy-home.home-wide .col-span-4 { grid-column: span 4; }
-        .prodigy-home.home-wide .col-span-12 { grid-column: span 12; }
+        .home-mc-stack { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 920px; margin: 0 auto; }
+        .home-mc-lower .home-card { border-color: var(--background-modifier-border); }
+        .home-system-status { opacity: 0.92; padding: 12px 14px !important; }
+        .home-quick-actions .action-btn { min-height: 36px !important; padding: 6px 12px !important; font-size: 0.82em !important; }
+        .prodigy-home.home-wide .home-grid { grid-template-columns: 1fr; }
+        .prodigy-home.home-wide .col-span-8 { grid-column: span 1; }
+        .prodigy-home.home-wide .col-span-4 { grid-column: span 1; }
+        .prodigy-home.home-wide .col-span-12 { grid-column: span 1; }
         .home-card {
           background: var(--background-secondary);
           border: 1px solid var(--background-modifier-border);
@@ -559,8 +563,8 @@
     });
     
     const leftTitle = titleRow.createEl("div");
-    leftTitle.createEl("h2", { text: `☀️ 오늘의 운영 (${todayStr})`, attr: { style: "margin:0;" } });
-    leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting}`, attr: { style: "font-size: 0.85em; color: var(--text-muted);" } });
+    leftTitle.createEl("h2", { text: `🌅 Mission Control · ${todayStr}`, attr: { style: "margin:0;" } });
+    leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting} · What should I do now?`, attr: { style: "font-size: 0.85em; color: var(--text-muted);" } });
 
     const rightActions = titleRow.createEl("div", { attr: { class: "home-toolbar" } });
 
@@ -628,26 +632,7 @@
       }
     };
 
-    // Main Grid Layout
-    const grid = container.createEl("div", { attr: { class: "home-grid" } });
-
-    // LEFT COLUMN (Brief, Principle, Focus, Risk, Continue)
-    const leftCol = grid.createEl("div", { attr: { class: "col-span-8 home-column" } });
-    const rightCol = grid.createEl("div", { attr: { class: "col-span-4 home-column" } });
-    const focusMount = leftCol.createEl("div");
-
-    // 1. Morning Brief Card
-    const briefCard = leftCol.createEl("div", { attr: { class: `home-card ${isMorning ? "emphasis-primary" : "emphasis-secondary"}` } });
-    const briefHead = briefCard.createEl("div", { attr: { class: "home-header" } });
-    briefHead.createEl("span", { text: "✉️ 아침 브리핑" });
-    const briefMode = result.brief_mode || result.principle?.source || "";
-    if (briefMode === "rule_based" || briefMode === "fallback" || String(result.result_id || "").includes("rule-based") || String(result.result_id || "").includes("fallback")) {
-      briefHead.createEl("span", {
-        text: "규칙 기반",
-        attr: { class: "badge badge-gray", style: "margin-left:auto;font-size:0.65em;" }
-      });
-    }
-    // Compact Home (mobile / narrow): same data, less chrome — Brief + Focus + Launcher first
+    // ── Mission Control stack (presentation only; reuses existing APIs) ──
     const isCompactHome = !!(
       app.isMobile
       || (typeof document !== "undefined" && document.body && document.body.classList.contains("is-mobile"))
@@ -655,247 +640,222 @@
       || (typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth < 720)
     );
     container.classList.toggle("home-compact", isCompactHome);
-    if (isCompactHome) briefCard.classList.add("home-brief-compact");
 
-    briefCard.createEl("p", { 
-      text: result.brief || "기본 우선순위 기준으로 정리했습니다.", 
-      attr: {
-        class: "home-brief-text",
-        style: "font-size:0.92em; line-height: 1.6; color: var(--text-normal); margin: 0 0 10px 0; white-space: pre-wrap;"
-      } 
+    const stack = container.createEl("div", {
+      attr: { class: "home-grid home-mc-stack home-column col-span-12" }
     });
 
-    // 1b. Yesterday recovery — only the useful loop fields (learning + experiment)
-    const yesterdayReview = (pkg.context && pkg.context.yesterday_review) || null;
-    const yLearning = yesterdayReview && String(yesterdayReview.learning || yesterdayReview.change || "").trim();
-    const yNext = yesterdayReview && String(yesterdayReview.next_experiment || "").trim();
-    const yMissing = !!(
-      (yesterdayReview && yesterdayReview.missing) ||
-      (!yLearning && !yNext)
-    );
+    const workspacePathFor = (sourceType) => {
+      const t = String(sourceType || "").toLowerCase();
+      if (t === "auction" || t === "auction_case") return "HUB/10 Auction.md";
+      if (t === "reading") return "HUB/20 Reading.md";
+      if (t === "workout") return "HUB/30 Workout.md";
+      if (t === "project" || t === "project_note" || t === "project_family") return "HUB/40 Project.md";
+      if (t === "people" || t === "personal" || t === "person") return "HUB/60 Personal.md";
+      if (t === "journal") return "HUB/70 Journal.md";
+      if (t === "knowledge") return "HUB/50 Knowledge.md";
+      return "";
+    };
 
-    if (yLearning || yNext) {
-      const yBox = briefCard.createEl("div", {
-        attr: {
-          class: "home-yesterday-review",
-          style: "margin: 8px 0 4px 0; padding: 8px 10px; border-radius: 6px; background: var(--background-primary); border: 1px solid var(--background-modifier-border); font-size: 0.84em; line-height: 1.45;"
-        }
-      });
-      yBox.createEl("strong", {
-        text: `어제에서 이어가기 · ${yesterdayReview.date || ""}`,
-        attr: { style: "color: var(--text-accent); font-size: 0.95em; display:block; margin-bottom:6px;" }
-      });
-      if (yLearning) {
-        const row = yBox.createEl("div", { attr: { style: "margin-top: 2px;" } });
-        row.createEl("span", { text: "어제 배움: ", attr: { style: "color: var(--text-muted);" } });
-        row.createEl("span", { text: yLearning });
-      }
-      if (yNext) {
-        const row = yBox.createEl("div", { attr: { style: "margin-top: 2px;" } });
-        row.createEl("span", { text: "오늘 실험: ", attr: { style: "color: var(--text-muted);" } });
-        row.createEl("span", { text: yNext });
-      }
-      const openYBtn = yBox.createEl("button", {
-        text: "어제 저널 열기",
-        attr: {
-          class: "action-btn",
-          style: "margin-top: 8px;"
-        }
-      });
-      openYBtn.onclick = () => {
-        const path = yesterdayReview.path || `DAILY/DAILY/${yesterdayReview.date}.md`;
-        app.workspace.openLinkText(path, path, false);
-      };
-    }
+    const openPath = (p) => {
+      if (!p) return;
+      try { app.workspace.openLinkText(p, p, false); } catch (_e) { /* ignore */ }
+    };
 
-    // 2. Today's Principle
-    if (result.principle && result.principle.label) {
-      const principleDiv = briefCard.createEl("div", {
-        attr: { style: "background: var(--background-primary); border-left: 3px solid var(--text-accent); padding: 8px 12px; border-radius: 0 6px 6px 0; font-size: 0.88em; margin-top: 10px;" }
-      });
-      principleDiv.createEl("strong", { text: "오늘의 원칙: ", attr: { style: "color: var(--text-accent);" } });
-      principleDiv.createEl("span", { text: result.principle.label });
-      
-      if (window.prodigyDebugMode) {
-        const srcLabel = result.principle.source === "validated" ? "PRE 검증됨" : (result.principle.source === "suggested" ? "PRE 제안 (미승인)" : "기본 원칙");
-        principleDiv.createEl("div", { 
-          text: `[Debug Mode] Source: ${srcLabel} · ${result.principle.reason || ""}`, 
-          attr: { style: "font-size: 0.78em; color: var(--text-muted); margin-top: 4px;" } 
-        });
-      }
-    }
+    const openSearch = () => {
+      try {
+        if (app.commands && typeof app.commands.executeCommandById === "function") {
+          if (app.commands.executeCommandById("global-search:open")) return;
+          if (app.commands.executeCommandById("switcher:open")) return;
+        }
+      } catch (_e) { /* ignore */ }
+      new Notice("검색을 열 수 없습니다. ⌘/Ctrl+O 또는 돋보기 단축키를 사용하세요.");
+    };
 
-    // 2b. Priority 2 — Missing yesterday reflection (lightweight, never blocks)
-    if (yMissing && !isEvening) {
-      const missCard = leftCol.createEl("div", {
-        attr: {
-          class: "home-card emphasis-secondary home-yesterday-missing",
-          style: "border-left: 3px solid var(--text-muted); padding: 10px 12px;"
-        }
-      });
-      missCard.createEl("div", {
-        text: "어제 성찰이 비어 있습니다",
-        attr: { class: "home-header", style: "font-size:0.9em;" }
-      });
-      missCard.createEl("p", {
-        text: "2분 성찰로 어제 배움·오늘 실험을 남기면 내일 모닝 브리핑이 이어집니다. 필수는 아닙니다.",
-        attr: { style: "font-size: 0.84em; color: var(--text-muted); margin: 0 0 8px 0; line-height: 1.45;" }
-      });
-      const missBtn = missCard.createEl("button", {
-        text: "2분 성찰",
-        attr: { class: "action-btn" }
-      });
-      missBtn.onclick = async () => {
-        const yDate = (yesterdayReview && yesterdayReview.date)
-          || (root.MorningContextCore && root.MorningContextCore.getYesterdayIsoDate
-            ? root.MorningContextCore.getYesterdayIsoDate(new Date())
-            : "");
-        if (root.JournalView && root.JournalStore && yDate) {
-          const review = await root.JournalStore.loadReview(app, yDate);
-          root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
-            await root.JournalStore.saveReview(app, yDate, values);
-            if (window.Notice) new Notice("어제 성찰을 저장했습니다. Home을 새로고침하면 브리핑에 반영됩니다.");
-          }, { focusHints: [] });
-          return;
-        }
-        const path = (yesterdayReview && yesterdayReview.path) || (yDate ? `DAILY/DAILY/${yDate}.md` : "HUB/70 Journal.md");
-        app.workspace.openLinkText(path, path, false);
-      };
-    }
-
-    // 3. Evening: today reflection reminder (Focus loop closes here)
-    if (isEvening) {
-      const reflectionCard = leftCol.createEl("div", { 
-        attr: { class: "home-card emphasis-primary", style: "border-left: 4px solid var(--text-accent);" } 
-      });
-      reflectionCard.createEl("div", { text: "🔁 오늘 마무리 성찰", attr: { class: "home-header" } });
-      reflectionCard.createEl("p", {
-        text: "오늘 Focus를 마쳤는지, 무엇이 막혔는지, 내일 무엇을 바꿀지 2분 성찰로 남깁니다.",
-        attr: { style: "font-size: 0.9em; color: var(--text-normal); margin: 0 0 12px 0;" }
-      });
-      const openJournalBtn = reflectionCard.createEl("button", { 
-        text: "2분 성찰 작성", 
-        attr: { class: "action-btn action-btn-primary" } 
-      });
-      openJournalBtn.onclick = async () => {
-        const focusHints = [];
-        const focusList = (approvedFocus && Array.isArray(approvedFocus.focus))
-          ? approvedFocus.focus
-          : (Array.isArray(result.focus) ? result.focus : []);
-        focusList.slice(0, 3).forEach((item) => {
-          if (item && item.label) focusHints.push(String(item.label));
-        });
-        if (root.JournalView && root.JournalStore) {
-          const review = await root.JournalStore.loadReview(app, todayStr);
-          root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
-            await root.JournalStore.saveReview(app, todayStr, values);
-            if (window.Notice) new Notice("오늘 Review를 저장했습니다.");
-          }, { focusHints });
-          return;
-        }
-        const dailyPath = `DAILY/DAILY/${todayStr}.md`;
+    const openOrCreateDaily = async () => {
+      const dailyPath = "DAILY/DAILY/" + todayStr + ".md";
+      try {
         let file = app.vault.getAbstractFileByPath(dailyPath);
         if (!file) {
+          const folder = "DAILY/DAILY";
+          if (!app.vault.getAbstractFileByPath(folder) && app.vault.createFolder) {
+            try { await app.vault.createFolder(folder); } catch (_f) { /* may exist */ }
+          }
           const templateFile = app.vault.getAbstractFileByPath("SYSTEM/TEMPLATE/FORMAT/template_daily_note.md");
-          let templateContent = "";
-          if (templateFile) {
-            templateContent = await app.vault.read(templateFile);
-            templateContent = templateContent.replace(/{{date}}/g, todayStr).replace(/{{title}}/g, todayStr);
+          let body = "# " + todayStr + "\n";
+          if (templateFile && app.vault.read) {
+            try { body = await app.vault.read(templateFile); } catch (_r) { /* default */ }
           }
-          file = await app.vault.create(dailyPath, templateContent);
+          file = await app.vault.create(dailyPath, body);
         }
-        app.workspace.openLinkText(file.path, file.path, false);
-      };
-    }
+        openPath(dailyPath);
+      } catch (err) {
+        new Notice("Daily를 열 수 없습니다: " + (err && err.message ? err.message : err));
+        openPath(dailyPath);
+      }
+    };
 
-    // Deterministic Focus Evidence Generator
-    function getDeterministicEvidence(item, pkg) {
-      const evidence = [];
-      const sources = [];
+    const safeRenderRegion = (label, renderFn) => {
+      try {
+        return renderFn();
+      } catch (error) {
+        const err = stack.createEl("div", {
+          text: label + " 영역을 표시하지 못했습니다.",
+          attr: { style: "font-size:0.82em;color:var(--text-error);margin:6px 0;" }
+        });
+        if (window.prodigyDebugMode) {
+          err.createEl("div", {
+            text: String(error.message || error),
+            attr: { style: "font-size:0.75em;color:var(--text-muted);" }
+          });
+        }
+        return null;
+      }
+    };
 
-      if (item.source_type === "auction") {
-        sources.push("Auction Object");
-        const auctions = (pkg.context && pkg.context.auctions) || [];
-        const match = auctions.find(a => a.path === item.object_path);
-        if (match) {
-          if (match.auction_datetime) {
-            const days = Math.round((new Date(match.auction_datetime) - new Date(pkg.local_date)) / 86400000);
-            evidence.push(`입찰일까지 ${days}일 남음 (${match.auction_datetime})`);
+    const clampBriefLines = (text, maxLines) => {
+      const raw = String(text || "").trim();
+      if (!raw) return "오늘 우선순위를 정리했습니다.";
+      const lines = raw.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+      if (lines.length <= maxLines) return lines.join("\n");
+      return lines.slice(0, maxLines).join("\n");
+    };
+
+    // ── 1. TODAY · Morning Brief ──
+    safeRenderRegion("Morning Brief", () => {
+      const briefCard = stack.createEl("div", {
+        attr: { class: "home-card " + (isMorning ? "emphasis-primary" : "emphasis-secondary") + (isCompactHome ? " home-brief-compact" : "") }
+      });
+      const briefHead = briefCard.createEl("div", { attr: { class: "home-header" } });
+      briefHead.createEl("span", { text: "🌅 TODAY" });
+      briefHead.createEl("span", {
+        text: "Morning Brief",
+        attr: { style: "font-size:0.78em;font-weight:600;color:var(--text-muted);margin-left:4px;" }
+      });
+      const briefMode = result.brief_mode || (result.principle && result.principle.source) || "";
+      if (briefMode === "rule_based" || briefMode === "fallback" || String(result.result_id || "").includes("rule-based") || String(result.result_id || "").includes("fallback")) {
+        briefHead.createEl("span", {
+          text: "규칙 기반",
+          attr: { class: "badge badge-gray", style: "margin-left:auto;font-size:0.65em;" }
+        });
+      }
+
+      briefCard.createEl("p", {
+        text: clampBriefLines(result.brief, isCompactHome ? 4 : 5),
+        attr: {
+          class: "home-brief-text",
+          style: "font-size:0.92em;line-height:1.55;color:var(--text-normal);margin:0 0 8px 0;white-space:pre-wrap;"
+        }
+      });
+
+      // Context lines only (no long paragraphs / statistics)
+      const contextLines = [];
+      if (result.principle && result.principle.label) {
+        contextLines.push("원칙 · " + result.principle.label);
+      }
+      const yesterdayReview = (pkg.context && pkg.context.yesterday_review) || null;
+      const yLearning = yesterdayReview && String(yesterdayReview.learning || yesterdayReview.change || "").trim();
+      const yNext = yesterdayReview && String(yesterdayReview.next_experiment || "").trim();
+      if (yLearning) contextLines.push("어제 배움 · " + yLearning);
+      if (yNext) contextLines.push("오늘 실험 · " + yNext);
+
+      if (contextLines.length) {
+        const ctxBox = briefCard.createEl("div", {
+          attr: {
+            class: "home-yesterday-review",
+            style: "margin-top:4px;display:flex;flex-direction:column;gap:3px;font-size:0.84em;line-height:1.4;color:var(--text-muted);"
           }
-          if (!match.site_visit_date) {
-            evidence.push("임장 정보 (현장 방문일) 누락 상태");
-          } else {
-            evidence.push(`현장 임장일: ${match.site_visit_date}`);
-          }
-        } else {
-          evidence.push("경매 분석 데이터 참조");
-        }
-      } else if (item.source_type === "project") {
-        sources.push("Project Object");
-        const projects = (pkg.context && pkg.context.projects) || [];
-        const match = projects.find(p => p.path === item.object_path);
-        if (match) {
-          if (match.due_date) {
-            const days = Math.round((new Date(match.due_date) - new Date(pkg.local_date)) / 86400000);
-            evidence.push(`마감일까지 ${days}일 남음 (${match.due_date})`);
-          }
-          if (match.workflow_summary) {
-            evidence.push(`진행 상황: ${match.workflow_summary} 단계 완료`);
-          }
-          if (match.next_action) {
-            evidence.push(`다음 행동 기입됨: ${match.next_action}`);
-          }
-        } else {
-          evidence.push("프로젝트 관리 데이터 참조");
-        }
-      } else if (item.source_type === "health") {
-        sources.push("Todoist", "Daily Reflection");
-        const todoist = (pkg.context && pkg.context.todoist) || {};
-        if (todoist.overdueCount > 0) {
-          evidence.push(`Todoist 미완료 지연 태스크 ${todoist.overdueCount}건 존재`);
-        }
-        if (todoist.todayCount > 0) {
-          evidence.push(`Todoist 오늘 마감 태스크 ${todoist.todayCount}건 존재`);
-        }
-        const reflections = (pkg.context && pkg.context.recent_reflections) || [];
-        if (reflections.length > 0) {
-          evidence.push("최근 3일 일일 성찰 기록 분석 완료");
-        }
-      } else if (item.source_type === "review") {
-        sources.push("PRE Weekly Review", "Operation Reports");
-        const issues = (pkg.context && pkg.context.review_inbox) || [];
-        if (issues.length > 0) {
-          evidence.push(`복기 인박스 필수 권기 이슈 ${issues.length}건 감지`);
-        }
-      } else if (item.source_type === "reading") {
-        sources.push("Reading Object");
-        const readings = (pkg.context && pkg.context.reading) || [];
-        const match = readings.find(r => r.path === item.object_path);
-        if (match) {
-          evidence.push("현재 독서 중인 기록");
-        } else {
-          evidence.push("독서 활성 상태 확인");
+        });
+        contextLines.slice(0, 3).forEach((line) => {
+          ctxBox.createEl("div", { text: line, attr: { style: "overflow-wrap:anywhere;" } });
+        });
+        if (yesterdayReview && (yLearning || yNext) && yesterdayReview.path) {
+          const openY = briefCard.createEl("button", {
+            text: "어제 저널 열기",
+            attr: { class: "action-btn", style: "margin-top:8px;" }
+          });
+          openY.onclick = () => openPath(yesterdayReview.path || ("DAILY/DAILY/" + (yesterdayReview.date || "") + ".md"));
         }
       }
 
-      if (evidence.length === 0) {
-        evidence.push("기본 시스템 조건 충족");
+      // Lightweight yesterday-missing notice (never blocks)
+      const yMissing = !!(
+        (yesterdayReview && yesterdayReview.missing)
+        || (!yLearning && !yNext)
+      );
+      if (yMissing && !isEvening) {
+        const miss = briefCard.createEl("div", {
+          attr: {
+            class: "home-yesterday-missing",
+            style: "margin-top:10px;padding-top:8px;border-top:1px dashed var(--background-modifier-border);font-size:0.82em;color:var(--text-muted);"
+          }
+        });
+        miss.createEl("div", { text: "어제 성찰이 비어 있습니다 · 필수는 아닙니다." });
+        const missBtn = miss.createEl("button", {
+          text: "2분 성찰",
+          attr: { class: "action-btn", style: "margin-top:6px;" }
+        });
+        missBtn.onclick = async () => {
+          const yDate = (yesterdayReview && yesterdayReview.date)
+            || (root.MorningContextCore && root.MorningContextCore.getYesterdayIsoDate
+              ? root.MorningContextCore.getYesterdayIsoDate(new Date())
+              : "");
+          if (root.JournalView && root.JournalStore && yDate) {
+            const review = await root.JournalStore.loadReview(app, yDate);
+            root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
+              await root.JournalStore.saveReview(app, yDate, values);
+              if (window.Notice) new Notice("어제 성찰을 저장했습니다.");
+            }, { focusHints: [] });
+            return;
+          }
+          openPath((yesterdayReview && yesterdayReview.path) || (yDate ? "DAILY/DAILY/" + yDate + ".md" : "HUB/70 Journal.md"));
+        };
       }
 
-      return { evidence, sources };
-    }
-
-    // 4. Today's Focus Card
-    const focusCard = focusMount.createEl("div", { 
-      attr: { class: `home-card ${isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary"}` } 
+      if (isEvening) {
+        const eve = briefCard.createEl("div", {
+          attr: { style: "margin-top:10px;padding-top:8px;border-top:1px solid var(--background-modifier-border);" }
+        });
+        eve.createEl("div", {
+          text: "오늘 마무리 · 2분 Review로 Focus를 닫습니다.",
+          attr: { style: "font-size:0.84em;color:var(--text-muted);margin-bottom:6px;" }
+        });
+        const openJournalBtn = eve.createEl("button", {
+          text: "2분 성찰 작성",
+          attr: { class: "action-btn action-btn-primary" }
+        });
+        openJournalBtn.onclick = async () => {
+          const focusHints = [];
+          const focusList = (approvedFocus && Array.isArray(approvedFocus.focus))
+            ? approvedFocus.focus
+            : (Array.isArray(result.focus) ? result.focus : []);
+          focusList.slice(0, 3).forEach((item) => {
+            if (item && item.label) focusHints.push(String(item.label));
+          });
+          if (root.JournalView && root.JournalStore) {
+            const review = await root.JournalStore.loadReview(app, todayStr);
+            root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
+              await root.JournalStore.saveReview(app, todayStr, values);
+              if (window.Notice) new Notice("오늘 Review를 저장했습니다.");
+            }, { focusHints });
+            return;
+          }
+          openPath("HUB/70 Journal.md");
+        };
+      }
     });
 
-    if (!root.dismissedFocusIds) root.dismissedFocusIds = [];
+    // ── 2. Today's Focus (approved only — no edit from Home) ──
+    safeRenderRegion("Today's Focus", () => {
+      const focusCard = stack.createEl("div", {
+        attr: { class: "home-card " + (isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
+      });
+      const head = focusCard.createEl("div", { attr: { class: "home-header" } });
+      head.createEl("span", { text: "🎯 Today's Focus" });
 
-    const renderFocusItems = () => {
       const baseFocus = (approvedFocus && Array.isArray(approvedFocus.focus))
         ? approvedFocus.focus
-        : (result && Array.isArray(result.focus) ? result.focus : []);
+        : [];
       const rankedFocus = root.MorningContextCore.selectFocusItems
         ? root.MorningContextCore.selectFocusItems({
           pinnedFocus,
@@ -904,594 +864,203 @@
           localDate: todayStr
         })
         : baseFocus;
-      const rawFocus = rankedFocus.slice();
-      const currentFocus = rawFocus.filter(item => item && !root.dismissedFocusIds.includes(item.id));
-      const isApproved = !!approvedFocus;
-      const isPinned = !!(pinnedFocus && pinnedFocus.focus && pinnedFocus.focus.id);
+      const currentFocus = (rankedFocus || []).filter(Boolean).slice(0, 3);
 
-      focusCard.empty();
-      
-      const head = focusCard.createEl("div", { attr: { class: "home-header" } });
-      head.createEl("span", { text: "🎯 오늘의 집중" });
-      if (isPinned) {
-        head.createEl("span", {
-          text: "고정",
-          attr: { class: "badge badge-high", style: "margin-left: auto; font-size: 0.65em;" }
+      if (!approvedFocus || !currentFocus.length) {
+        focusCard.createEl("div", {
+          text: "No focus selected.",
+          attr: { style: "font-size:0.9em;color:var(--text-normal);font-weight:600;" }
         });
-      } else if (isApproved) {
-        head.createEl("span", { 
-          text: "승인됨", 
-          attr: { class: "badge badge-high", style: "margin-left: auto; font-size: 0.65em;" } 
+        focusCard.createEl("div", {
+          text: "Open Morning Brief.",
+          attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:4px;margin-bottom:10px;" }
         });
-      } else {
-        head.createEl("span", { 
-          text: "검토안", 
-          attr: { class: "badge badge-medium", style: "margin-left: auto; font-size: 0.65em;" } 
+        // One-tap approve of existing proposal (no field editing)
+        const proposal = root.MorningContextCore.selectFocusItems
+          ? root.MorningContextCore.selectFocusItems({
+            pinnedFocus,
+            focusItems: (result && Array.isArray(result.focus) ? result.focus : []),
+            pkg,
+            localDate: todayStr
+          })
+          : ((result && Array.isArray(result.focus)) ? result.focus : []);
+        const actions = focusCard.createEl("div", { attr: { class: "focus-footer", style: "border-top:none;padding-top:0;" } });
+        if (proposal && proposal.length) {
+          const approveBtn = actions.createEl("button", {
+            text: "제안 Focus 승인",
+            attr: { class: "action-btn action-btn-primary" }
+          });
+          approveBtn.onclick = async () => {
+            approvedFocus = await root.MorningCache.saveApprovedFocus(app, todayStr, proposal.slice(0, 3), false);
+            new Notice("오늘의 Focus가 승인되었습니다.");
+            renderHome(options);
+          };
+        }
+        const regenHint = actions.createEl("button", {
+          text: "브리핑 다시 생성",
+          attr: { class: "action-btn" }
         });
+        regenHint.onclick = () => regenerateBtn.click();
+        return;
       }
 
-      if (currentFocus.length === 0) {
-        focusCard.createEl("div", { 
-          text: "오늘 해야 할 모든 Focus를 처리했거나 제외했습니다.", 
-          attr: { style: "font-size:0.85em; color:var(--text-muted); font-style:italic;" } 
+      head.createEl("span", {
+        text: "승인됨",
+        attr: { class: "badge badge-high", style: "margin-left:auto;font-size:0.65em;" }
+      });
+
+      const listDiv = focusCard.createEl("div", { attr: { class: "focus-list" } });
+      currentFocus.forEach((item) => {
+        const row = listDiv.createEl("div", { attr: { class: "focus-row" } });
+        const top = row.createEl("div", { attr: { class: "focus-top" } });
+        const titleSpan = top.createEl("div", { attr: { class: "focus-title" } });
+        titleSpan.createEl("span", { text: item.label || "Focus" });
+        top.createEl("span", {
+          text: getSourceTypeLabel(item.source_type),
+          attr: { class: "badge badge-gray" }
+        });
+        const next = item.next_action || item.reason || "";
+        if (next) {
+          row.createEl("div", {
+            text: next,
+            attr: { class: "focus-reason", style: "padding-left:0;" }
+          });
+        }
+        const btnRow = row.createEl("div", { attr: { class: "focus-actions" } });
+        const dash = workspacePathFor(item.source_type);
+        if (dash) {
+          const openDash = btnRow.createEl("button", {
+            text: "워크스페이스 열기",
+            attr: { class: "action-btn action-btn-primary" }
+          });
+          openDash.onclick = () => openPath(dash);
+        } else if (item.object_path) {
+          const openObj = btnRow.createEl("button", {
+            text: "열기",
+            attr: { class: "action-btn action-btn-primary" }
+          });
+          openObj.onclick = () => openPath(item.object_path);
+        }
+      });
+    });
+
+    // Primary mission blocks stay above the fold on all sizes
+    const primary = stack;
+    // Lower chrome (actions / todoist / launcher / status) can collapse on mobile
+    let lower = stack;
+    if (isCompactHome) {
+      // Continue + Attention render into primary first; fold created after them
+      lower = null;
+    }
+
+    // ── 3. Continue (Object Engine / package candidates, max 4) ──
+    safeRenderRegion("Continue", () => {
+      const continueCard = primary.createEl("div", {
+        attr: { class: "home-card " + (isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
+      });
+      continueCard.createEl("div", { text: "▶ Continue", attr: { class: "home-header" } });
+
+      const cards = [];
+      const seen = Object.create(null);
+      const pushCard = (card) => {
+        if (!card || !card.title) return;
+        const key = String(card.object_path || card.title).toLowerCase();
+        if (seen[key]) return;
+        // Never display completed Objects
+        const st = String(card.status || "").toLowerCase();
+        if (st === "completed" || st === "archived" || st === "finished" || st === "dropped") return;
+        if (/\bcompleted\b/.test(st)) return;
+        seen[key] = true;
+        cards.push(card);
+      };
+
+      const byWs = (briefContext && briefContext.continue_by_workspace) || {};
+      ["auction", "reading", "workout", "project", "personal"].forEach((ws) => {
+        const c = byWs[ws];
+        if (!c) return;
+        pushCard({
+          title: c.label || c.title || "",
+          workspace: c.workspace || ws,
+          workspace_label: getSourceTypeLabel(ws === "personal" ? "journal" : ws) || ws,
+          next_action: c.action || c.next_action || "",
+          object_path: c.object_path || "",
+          dashboard_path: c.dashboard_path || workspacePathFor(ws),
+          status: c.status || ""
+        });
+      });
+
+      ((pkg.context && pkg.context.continue_candidates) || []).forEach((c) => {
+        if (!c) return;
+        pushCard({
+          title: c.name || c.title || "",
+          workspace: c.type || "",
+          workspace_label: getSourceTypeLabel(c.type) || c.type || "Object",
+          next_action: c.next_action || "",
+          object_path: c.path || c.object_path || "",
+          dashboard_path: workspacePathFor(c.type),
+          status: c.status || ""
+        });
+      });
+
+      const limited = cards.slice(0, 4);
+      if (!limited.length) {
+        continueCard.createEl("div", {
+          text: "Nothing to continue.",
+          attr: { style: "font-size:0.9em;font-weight:600;" }
+        });
+        continueCard.createEl("div", {
+          text: "Enjoy a fresh start.",
+          attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:4px;font-style:italic;" }
         });
         return;
       }
 
-      const listDiv = focusCard.createEl("div", { attr: { class: "focus-list" } });
-
-      currentFocus.forEach((item, index) => {
-        const itemRow = listDiv.createEl("div", {
-          attr: { class: "focus-row" }
+      const list = continueCard.createEl("div", { attr: { class: "continue-list" } });
+      limited.forEach((c) => {
+        const row = list.createEl("div", { attr: { class: "continue-row" } });
+        const meta = row.createEl("div", {
+          attr: { style: "display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;" }
         });
-
-        const topRow = itemRow.createEl("div", { attr: { class: "focus-top" } });
-        
-        const titleSpan = topRow.createEl("div", { attr: { class: "focus-title" } });
-        if (item.pinned) {
-          titleSpan.createEl("span", { text: "📌", attr: { style: "font-size: 0.85em;" } });
-        } else if (isApproved) {
-          titleSpan.createEl("span", { text: "✅", attr: { style: "font-size: 0.85em;" } });
-        } else {
-          titleSpan.createEl("span", { text: `${index + 1}.`, attr: { style: "color: var(--text-muted); font-size: 0.85em;" } });
-        }
-
-        if (!isApproved && !item.pinned) {
-          const editInp = topRow.createEl("input", {
-            type: "text",
-            value: item.label,
-            attr: { class: "input-text" }
+        meta.createEl("div", {
+          text: c.workspace_label || "Workspace",
+          attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);" }
+        });
+        meta.createEl("strong", {
+          text: c.title,
+          attr: { style: "font-size:0.95em;overflow-wrap:anywhere;" }
+        });
+        if (c.next_action) {
+          meta.createEl("div", {
+            text: c.next_action,
+            attr: { style: "font-size:0.82em;color:var(--text-accent);font-weight:500;overflow-wrap:anywhere;" }
           });
-          editInp.onchange = () => {
-            item.label = editInp.value;
-          };
-        } else {
-          if (item.object_path) {
-            const linkA = titleSpan.createEl("a", {
-              text: item.label,
-              attr: { class: "internal-link", style: "cursor: pointer; text-decoration: underline; color: var(--text-accent);" }
-            });
-            linkA.onclick = (e) => {
-              e.preventDefault();
-              app.workspace.openLinkText(item.object_path, item.object_path, false);
-            };
-          } else {
-            titleSpan.createEl("span", { text: item.label });
-          }
         }
-
-        const badgeClass = item.urgency === "high" ? "badge-high" : (item.urgency === "medium" ? "badge-medium" : "badge-low");
-        topRow.createEl("span", { text: getSourceTypeLabel(item.source_type), attr: { class: `badge ${badgeClass}` } });
-        if (item.source_type === "project") {
-          const projects = (pkg.context && pkg.context.projects) || [];
-          const match = projects.find((p) => p.path === item.object_path);
-          const pType = match && match.project_type;
-          const pLabel = pType === "business" ? "사업" : pType === "work" ? "회사" : pType === "personal" ? "개인" : "";
-          if (pLabel) topRow.createEl("span", { text: pLabel, attr: { class: "badge badge-gray" } });
-        }
-
-        itemRow.createEl("div", { 
-          text: item.reason, 
-          attr: { class: "focus-reason" } 
+        const target = c.dashboard_path || c.object_path;
+        const btn = row.createEl("button", {
+          text: "이어하기",
+          attr: { class: "action-btn action-btn-primary" }
         });
-
-        // 1. Explainable Focus (Details / Summary)
-        const explanation = getDeterministicEvidence(item, pkg);
-        const details = itemRow.createEl("details", {
-          attr: { class: "focus-details" }
-        });
-        details.createEl("summary", {
-          text: "왜 추천되었나요?"
-        });
-        
-        const detailsContent = details.createEl("div", {
-          attr: { class: "focus-evidence" }
-        });
-        
-        detailsContent.createEl("strong", { text: "근거", attr: { style: "color: var(--text-normal); font-size: 0.9em; margin-bottom: 2px;" } });
-        explanation.evidence.forEach(ev => {
-          detailsContent.createEl("div", { text: `✓ ${ev}` });
-        });
-
-        // 2. Interactive Trust Panel
-        const trustDiv = detailsContent.createEl("div", {
-          attr: { style: "border-top: 1px solid var(--background-modifier-border); padding-top: 6px; margin-top: 6px; font-size: 0.9em; display:flex; align-items:center; gap:6px; flex-wrap:wrap;" }
-        });
-        trustDiv.createEl("strong", { text: "근거 출처: ", attr: { style: "color: var(--text-normal);" } });
-        
-        explanation.sources.forEach(src => {
-          const srcBtn = trustDiv.createEl("span", { 
-            text: getEvidenceSourceLabel(src), 
-            attr: { class: "badge badge-gray", style: "cursor:pointer; text-decoration:underline;" } 
-          });
-          srcBtn.onclick = () => {
-            if (src.includes("Object") && item.object_path) {
-              app.workspace.openLinkText(item.object_path, item.object_path, false);
-            } else if (src === "Todoist") {
-              window.open("todoist://");
-            } else if (src.includes("Review") || src === "PRE") {
-              const path = `SYSTEM/AI/Skills/prodigy-review/runs/${weekId}/weekly-workspace-view-${weekId}.md`;
-              app.workspace.openLinkText(path, path, false);
-            } else if (src === "Daily Reflection" && pkg.context.recent_reflections && pkg.context.recent_reflections[0]) {
-              const path = pkg.context.recent_reflections[0].path;
-              app.workspace.openLinkText(path, path, false);
-            }
-          };
-        });
-
-        // Action panel inside each card
-        const btnRow = itemRow.createEl("div", { attr: { class: "focus-actions" } });
-
-        if (item.object_path) {
-          const openObjBtn = btnRow.createEl("button", { text: "원본 열기", attr: { class: "action-btn" } });
-          openObjBtn.onclick = () => app.workspace.openLinkText(item.object_path, item.object_path, false);
-        }
-
-        // Open Dashboard button (Context -> Action -> Workspace)
-        let dashPath = "";
-        if (item.source_type === "auction") dashPath = "HUB/10 Auction.md";
-        if (item.source_type === "project") dashPath = "HUB/40 Project.md";
-        if (item.source_type === "reading") dashPath = "HUB/20 Reading.md";
-        if (item.source_type === "workout") dashPath = "HUB/30 Workout.md";
-        
-        if (dashPath) {
-          const openDashBtn = btnRow.createEl("button", { text: "작업 열기", attr: { class: "action-btn action-btn-primary" } });
-          openDashBtn.onclick = () => app.workspace.openLinkText(dashPath, dashPath, false);
-        }
-
-        const pinBtn = btnRow.createEl("button", {
-          text: item.pinned ? "고정 해제" : "오늘 고정",
-          attr: { class: item.pinned ? "action-btn" : "action-btn action-btn-primary" }
-        });
-        pinBtn.onclick = async () => {
-          try {
-            if (item.pinned) {
-              await root.MorningCache.clearPinnedFocus(app, todayStr);
-              pinnedFocus = null;
-              new Notice("Focus 고정을 해제했습니다.");
-            } else {
-              pinnedFocus = await root.MorningCache.savePinnedFocus(app, todayStr, item);
-              new Notice(`'${item.label}'을(를) 오늘의 Focus로 고정했습니다.`);
-            }
-            renderFocusItems();
-          } catch (error) {
-            new Notice(error.message || String(error));
-          }
+        btn.onclick = (e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          openPath(target);
         };
-
-        const dismissBtn = btnRow.createEl("button", { text: "오늘 숨기기", attr: { class: "action-btn" } });
-        dismissBtn.onclick = () => {
-          root.dismissedFocusIds.push(item.id);
-          new Notice(`'${item.label}' 항목을 오늘 하루 숨겼습니다.`);
-          renderFocusItems();
-        };
-
-        if (!isApproved && !item.pinned) {
-          const deleteLink = btnRow.createEl("button", { 
-            text: "제외", 
-            attr: { class: "action-btn", style: "color: var(--text-error);" } 
-          });
-          deleteLink.onclick = () => {
-            const sourceList = (approvedFocus && Array.isArray(approvedFocus.focus))
-              ? approvedFocus.focus
-              : (result && Array.isArray(result.focus) ? result.focus : []);
-            const idx = sourceList.findIndex((f) => f && f.id === item.id);
-            if (idx >= 0) sourceList.splice(idx, 1);
-            renderFocusItems();
-          };
-        }
+        row.onclick = () => openPath(target);
       });
-
-      const actionsDiv = focusCard.createEl("div", { attr: { class: "focus-footer" } });
-
-      if (isPinned) {
-        const clearPin = actionsDiv.createEl("button", { text: "고정 해제", attr: { class: "action-btn" } });
-        clearPin.onclick = async () => {
-          await root.MorningCache.clearPinnedFocus(app, todayStr);
-          pinnedFocus = null;
-          renderFocusItems();
-        };
-      }
-      
-      if (isApproved) {
-        const revertBtn = actionsDiv.createEl("button", { text: "수정하기", attr: { class: "action-btn" } });
-        revertBtn.onclick = async () => {
-          await root.MorningCache.clearApprovedFocus(app, todayStr);
-          approvedFocus = null;
-          root.dismissedFocusIds = [];
-          renderFocusItems();
-        };
-      } else {
-        const addBtn = actionsDiv.createEl("button", { text: "집중 항목 추가", attr: { class: "action-btn" } });
-        addBtn.onclick = () => {
-          const sourceList = (result && Array.isArray(result.focus)) ? result.focus : [];
-          if (sourceList.length >= 3) {
-            new Notice("Focus 항목은 최대 3개까지만 등록할 수 있습니다.");
-            return;
-          }
-          sourceList.push({
-            id: `focus_manual_${Date.now()}`,
-            label: "직접 기입한 목표",
-            reason: "사용자가 수동으로 설정한 오늘의 주요 지향점입니다.",
-            source_type: "health",
-            urgency: "medium"
-          });
-          if (result) result.focus = sourceList;
-          renderFocusItems();
-        };
-
-        const approveBtn = actionsDiv.createEl("button", { text: "승인", attr: { class: "action-btn action-btn-primary" } });
-        approveBtn.onclick = async () => {
-          const sourceList = (result && Array.isArray(result.focus)) ? result.focus : [];
-          if (sourceList.length === 0 && !(pinnedFocus && pinnedFocus.focus)) {
-            new Notice("최소 1개 이상의 Focus 항목이 필요합니다.");
-            return;
-          }
-          let isEdited = false;
-          sourceList.forEach((item, index) => {
-            const original = (cached && cached.result && Array.isArray(cached.result.focus)) ? cached.result.focus[index] : null;
-            if (!original || original.label !== item.label) isEdited = true;
-          });
-          
-          approvedFocus = await root.MorningCache.saveApprovedFocus(app, todayStr, sourceList, isEdited);
-          new Notice("오늘의 Focus가 승인되어 반영되었습니다!");
-          renderFocusItems();
-        };
-      }
-    };
-
-    renderFocusItems();
-
-    // 3b. Workspace Launcher — same Object Engine states as Needs Attention (no re-eval)
-    const launcherMount = leftCol.createEl("div", {
-      attr: { class: "home-launcher-mount" }
-    });
-    try {
-      if (root.WorkspaceLauncherCore && root.WorkspaceLauncherView) {
-        const launcherCards = root.WorkspaceLauncherCore.buildLauncherCards({
-          pkg,
-          journalStatus: journalStatusForOps,
-          workoutSnapshot: workoutSnapshotForOps,
-          engine_states: briefContext && briefContext.engine_states
-            ? briefContext.engine_states
-            : null,
-          briefContext
-        });
-        root.WorkspaceLauncherView.render({
-          container: launcherMount,
-          app,
-          cards: launcherCards,
-          pkg
-        });
-      } else {
-        launcherMount.createEl("div", {
-          text: "워크스페이스 런처를 불러오지 못했습니다.",
-          attr: { style: "font-size:0.82em;color:var(--text-muted);" }
-        });
-      }
-    } catch (launcherError) {
-      launcherMount.createEl("div", {
-        text: "워크스페이스 런처를 표시하지 못했습니다.",
-        attr: { style: "font-size:0.82em;color:var(--text-error);" }
-      });
-      if (window.prodigyDebugMode) {
-        launcherMount.createEl("div", {
-          text: String(launcherError.message || launcherError),
-          attr: { style: "font-size:0.75em;color:var(--text-muted);" }
-        });
-      }
-    }
-
-    // Secondary surfaces: full on desktop; collapsed under "더 보기" on compact Home
-    let leftSecondary = leftCol;
-    let rightSecondary = rightCol;
-    if (isCompactHome) {
-      const fold = leftCol.createEl("details", {
-        attr: { class: "home-secondary-fold" }
-      });
-      fold.createEl("summary", {
-        text: "더 보기 · 행동 · 이어서 하기"
-      });
-      const foldBody = fold.createEl("div", {
-        attr: { class: "home-secondary-fold-body" }
-      });
-      leftSecondary = foldBody;
-      rightSecondary = foldBody;
-    }
-
-    // 4a. Object Lifecycle — kept available but collapsed (not a primary Home surface)
-    const lifecycleFold = leftSecondary.createEl("details", {
-      attr: { class: "home-lifecycle-fold" }
-    });
-    // default closed: no open attribute
-    lifecycleFold.createEl("summary", {
-      text: "객체 라이프사이클 · 접힘 (주의 요약)"
-    });
-    const lifecycleCard = lifecycleFold.createEl("div", {
-      attr: { class: "home-card emphasis-secondary" }
-    });
-    try {
-      if (root.ObjectLifecycleCore && root.ObjectLifecycleView) {
-        const lifecycleObjects = [];
-        const pushAll = (list) => {
-          (list || []).forEach((item) => lifecycleObjects.push(item));
-        };
-        pushAll((pkg.context && pkg.context.projects) || []);
-        pushAll((pkg.context && pkg.context.auctions) || []);
-        pushAll((pkg.context && pkg.context.reading) || []);
-
-        let journalSignal = null;
-        if (root.JournalStore && root.JournalCore) {
-          try {
-            const review = await root.JournalStore.loadReview(app, todayStr);
-            if (review && review.status !== "complete") {
-              journalSignal = {
-                missingReflection: true,
-                reason: review.status === "empty"
-                  ? "성찰이 작성되지 않았습니다."
-                  : "저널 성찰이 미완료입니다."
-              };
-            }
-          } catch (_journalError) {
-            journalSignal = null;
-          }
-        }
-
-        const attention = root.ObjectLifecycleCore.summarizeAttention(lifecycleObjects, {
-          journal: journalSignal
-        });
-        root.ObjectLifecycleView.renderHomeCard({
-          app,
-          container: lifecycleCard,
-          items: attention
-        });
-      } else {
-        lifecycleCard.createEl("div", {
-          text: "객체 라이프사이클 모듈을 불러오지 못했습니다.",
-          attr: { style: "font-size:0.85em;color:var(--text-muted);" }
-        });
-      }
-    } catch (lifecycleError) {
-      lifecycleCard.createEl("div", {
-        text: "객체 라이프사이클 요약을 표시하지 못했습니다.",
-        attr: { style: "font-size:0.85em;color:var(--text-error);" }
-      });
-      if (window.prodigyDebugMode) {
-        lifecycleCard.createEl("div", {
-          text: String(lifecycleError.message || lifecycleError),
-          attr: { style: "font-size:0.75em;color:var(--text-muted);" }
-        });
-      }
-    }
-
-    // 4b. Today's Actions — direct executable items (max 3) + journal/reading/workout/auction blocked
-    const actionsCard = leftSecondary.createEl("div", {
-      attr: { class: `home-card ${isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary"}` }
-    });
-    actionsCard.createEl("div", { text: "⚡ 오늘의 행동", attr: { class: "home-header" } });
-
-    const safeRenderRegion = (label, renderFn) => {
-      try {
-        return renderFn();
-      } catch (error) {
-        const err = actionsCard.createEl("div", {
-          text: `${label} 영역을 표시하지 못했습니다.`,
-          attr: { style: "font-size:0.82em;color:var(--text-error);margin:6px 0;" }
-        });
-        if (window.prodigyDebugMode) {
-          err.createEl("div", { text: String(error.message || error), attr: { style: "font-size:0.75em;color:var(--text-muted);" } });
-        }
-        return null;
-      }
-    };
-
-    safeRenderRegion("오늘의 행동", () => {
-      const actionItems = [];
-      const focusSource = root.MorningContextCore.selectFocusItems
-        ? root.MorningContextCore.selectFocusItems({
-          pinnedFocus,
-          focusItems: (approvedFocus && Array.isArray(approvedFocus.focus))
-            ? approvedFocus.focus
-            : (Array.isArray(result.focus) ? result.focus : []),
-          pkg,
-          localDate: todayStr
-        })
-        : ((approvedFocus && Array.isArray(approvedFocus.focus))
-          ? approvedFocus.focus
-          : (Array.isArray(result.focus) ? result.focus : []));
-      focusSource.slice(0, 3).forEach((item) => {
-        if (!item) return;
-        actionItems.push({
-          label: item.label,
-          detail: item.next_action || item.reason || "",
-          path: item.object_path || "",
-          workspace: item.source_type === "auction" ? "HUB/10 Auction.md"
-            : item.source_type === "reading" ? "HUB/20 Reading.md"
-            : item.source_type === "workout" ? "HUB/30 Workout.md"
-            : item.source_type === "project" ? "HUB/40 Project.md"
-            : "",
-          badge: getSourceTypeLabel(item.source_type)
-        });
-      });
-
-      // Ensure reading appears if active.
-      const readings = (pkg.context && pkg.context.reading) || [];
-      const activeReading = readings.find((item) => item.status === "reading");
-      if (activeReading && !actionItems.some((item) => item.path === activeReading.path) && actionItems.length < 3) {
-        actionItems.push({
-          label: `${activeReading.name || activeReading.title || "읽는 중"} 오늘 읽기`,
-          detail: activeReading.next_action || "독서 세션 기록",
-          path: activeReading.path,
-          workspace: "HUB/20 Reading.md",
-          badge: "독서"
-        });
-      }
-
-      if (!actionItems.length) {
-        actionsCard.createEl("div", {
-          text: "오늘 바로 실행할 항목이 없습니다. 워크스페이스에서 다음 행동을 설정하세요.",
-          attr: { style: "font-size:0.85em;color:var(--text-muted);font-style:italic;" }
-        });
-      } else {
-        actionItems.slice(0, 3).forEach((item) => {
-          const row = actionsCard.createEl("div", {
-            attr: { style: "padding:10px 0;border-top:1px solid var(--background-modifier-border);display:flex;flex-direction:column;gap:6px;" }
-          });
-          const top = row.createEl("div", { attr: { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap;" } });
-          top.createEl("strong", { text: item.label, attr: { style: "overflow-wrap:anywhere;" } });
-          top.createEl("span", { text: item.badge, attr: { class: "badge badge-gray" } });
-          if (item.detail) {
-            row.createEl("div", {
-              text: item.detail,
-              attr: { style: "font-size:0.82em;color:var(--text-muted);overflow-wrap:anywhere;" }
-            });
-          }
-          const btns = row.createEl("div", { attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
-          if (item.path) {
-            const open = btns.createEl("button", { text: "바로 열기", attr: { class: "action-btn action-btn-primary" } });
-            open.onclick = () => app.workspace.openLinkText(item.path, item.path, false);
-          }
-          if (item.workspace) {
-            const dash = btns.createEl("button", { text: "워크스페이스", attr: { class: "action-btn" } });
-            dash.onclick = () => app.workspace.openLinkText(item.workspace, item.workspace, false);
-          }
-        });
-      }
     });
 
-    safeRenderRegion("저널 성찰", () => {
-      const journalBox = actionsCard.createEl("div", {
-        attr: { style: "margin-top:12px;padding-top:12px;border-top:1px solid var(--background-modifier-border);" }
-      });
-      journalBox.createEl("div", {
-        text: "📝 저널 성찰",
-        attr: { style: "font-weight:700;margin-bottom:6px;" }
-      });
+    // ── 4. Needs Attention (critical/high via briefContext) ──
+    safeRenderRegion("Needs Attention", () => {
+      const risks = (briefContext && root.MorningBriefContext && root.MorningBriefContext.toHomeRiskItems)
+        ? root.MorningBriefContext.toHomeRiskItems(briefContext)
+        : ((pkg.context && pkg.context.risks) || []);
 
-      let statusLabel = "성찰 미작성";
-      let status = "empty";
-      let fields = { reflection: "", change: "", next_experiment: "" };
-      if (root.JournalCore && root.JournalStore) {
-        // synchronous status from cache if available; async refresh below
-        statusLabel = "상태 확인 중...";
-      }
-      const statusEl = journalBox.createEl("div", {
-        text: statusLabel,
-        attr: { style: "font-size:0.84em;color:var(--text-muted);margin-bottom:8px;" }
-      });
-      const jActions = journalBox.createEl("div", { attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
-      const reviewBtn = jActions.createEl("button", { text: "2분 성찰", attr: { class: "action-btn action-btn-primary" } });
-      const openJournal = jActions.createEl("button", { text: "저널 워크스페이스", attr: { class: "action-btn" } });
-      openJournal.onclick = () => app.workspace.openLinkText("HUB/70 Journal.md", "HUB/70 Journal.md", false);
-
-      const refreshJournalStatus = async () => {
-        if (!root.JournalStore) {
-          statusEl.setText("저널 모듈이 로드되지 않았습니다. 저널 워크스페이스를 이용하세요.");
-          return;
-        }
-        const review = await root.JournalStore.loadReview(app, todayStr);
-        status = review.status;
-        fields = review.fields;
-        statusLabel = status === "complete" ? "성찰 완료" : status === "partial" ? "성찰 작성 중" : "성찰 미작성";
-        statusEl.setText(statusLabel);
-        reviewBtn.setText(status === "empty" ? "2분 성찰" : "성찰 수정");
-      };
-      refreshJournalStatus().catch(() => {
-        statusEl.setText("성찰 상태를 확인하지 못했습니다.");
-      });
-
-      reviewBtn.onclick = async () => {
-        if (!root.JournalView || !root.JournalStore) {
-          app.workspace.openLinkText("HUB/70 Journal.md", "HUB/70 Journal.md", false);
-          return;
-        }
-        const review = await root.JournalStore.loadReview(app, todayStr);
-        const focusHints = [];
-        const focusList = (approvedFocus && Array.isArray(approvedFocus.focus))
-          ? approvedFocus.focus
-          : (Array.isArray(result.focus) ? result.focus : []);
-        focusList.slice(0, 3).forEach((item) => {
-          if (item && item.label) focusHints.push(String(item.label));
-        });
-        root.JournalView.openReviewModal(app, review.fields, async (values) => {
-          await root.JournalStore.saveReview(app, todayStr, values);
-          if (window.Notice) new Notice("오늘 성찰을 저장했습니다.");
-          await refreshJournalStatus();
-        }, { focusHints });
-      };
-    });
-
-    safeRenderRegion("독서 연결", () => {
-      const readings = (pkg.context && pkg.context.reading) || [];
-      const activeReading = readings.find((item) => item.status === "reading");
-      if (!activeReading) return;
-      const box = actionsCard.createEl("div", {
-        attr: { style: "margin-top:12px;padding-top:12px;border-top:1px solid var(--background-modifier-border);" }
-      });
-      box.createEl("div", { text: "📚 오늘 읽기", attr: { style: "font-weight:700;margin-bottom:4px;" } });
-      box.createEl("div", {
-        text: activeReading.name || activeReading.title || "읽는 중",
-        attr: { style: "font-size:0.9em;overflow-wrap:anywhere;" }
-      });
-      if (activeReading.progress != null) {
-        box.createEl("div", {
-          text: `진행: ${activeReading.progress}`,
-          attr: { style: "font-size:0.8em;color:var(--text-muted);margin-top:2px;" }
-        });
-      }
-      const row = box.createEl("div", { attr: { style: "display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;" } });
-      const openBook = row.createEl("button", { text: "책 열기", attr: { class: "action-btn" } });
-      openBook.onclick = () => app.workspace.openLinkText(activeReading.path, activeReading.path, false);
-      const openReading = row.createEl("button", { text: "오늘 읽기", attr: { class: "action-btn action-btn-primary" } });
-      openReading.onclick = () => app.workspace.openLinkText("HUB/20 Reading.md", "HUB/20 Reading.md", false);
-    });
-
-    safeRenderRegion("운동 연결", () => {
-      const box = actionsCard.createEl("div", {
-        attr: { style: "margin-top:12px;padding-top:12px;border-top:1px solid var(--background-modifier-border);" }
-      });
-      box.createEl("div", { text: "💪 운동", attr: { style: "font-weight:700;margin-bottom:6px;" } });
-      const start = box.createEl("button", { text: "오늘 운동 시작", attr: { class: "action-btn action-btn-primary" } });
-      start.onclick = () => app.workspace.openLinkText("HUB/30 Workout.md", "HUB/30 Workout.md", false);
-    });
-
-    // 5. Needs Attention — Object Engine critical/high only (no re-scan; shared briefContext)
-    // Engine failure → package risks only. Never fabricate recommendations.
-    const risks = (briefContext && root.MorningBriefContext && root.MorningBriefContext.toHomeRiskItems)
-      ? root.MorningBriefContext.toHomeRiskItems(briefContext)
-      : ((pkg.context && pkg.context.risks) || []);
-    const showAttentionCard = risks.length > 0
-      || (briefContext && briefContext.attention && briefContext.attention.empty === true)
-      || (briefContext && briefContext.engine_ok === false);
-
-    if (showAttentionCard) {
-      const riskCard = rightSecondary.createEl("div", {
+      const riskCard = primary.createEl("div", {
         attr: { class: "home-card emphasis-risk home-needs-attention" }
       });
       const rHead = riskCard.createEl("div", {
         attr: { class: "home-header", style: "color: var(--text-error);" }
       });
-      rHead.createEl("span", { text: "⚠ 주의가 필요함" });
+      rHead.createEl("span", { text: "⚠ Needs Attention" });
       if (briefContext && briefContext.engine_ok === false) {
         rHead.createEl("span", {
           text: "엔진 폴백",
@@ -1499,20 +1068,20 @@
         });
       }
 
-      const rList = riskCard.createEl("div", {
-        attr: { style: "display:flex; flex-direction:column; gap:4px;" }
-      });
-
       if (!risks.length) {
-        rList.createEl("div", {
+        riskCard.createEl("div", {
           text: (briefContext && briefContext.empty_attention_message)
-            || "주의가 필요한 Object가 없습니다.",
+            || "Everything looks good today.",
           attr: {
-            style: "font-size:0.88em;color:var(--text-muted);font-style:italic;padding:10px 0;line-height:1.45;"
+            style: "font-size:0.9em;color:var(--text-muted);font-style:italic;padding:6px 0;line-height:1.45;"
           }
         });
+        return;
       }
 
+      const rList = riskCard.createEl("div", {
+        attr: { style: "display:flex;flex-direction:column;gap:4px;" }
+      });
       risks.forEach((risk) => {
         const rItem = rList.createEl("div", {
           attr: {
@@ -1520,7 +1089,6 @@
             style: "font-size:0.88em;display:flex;flex-direction:column;gap:6px;padding:12px 0;border-top:1px solid var(--background-modifier-border);"
           }
         });
-
         const topRow = rItem.createEl("div", {
           attr: { style: "display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;" }
         });
@@ -1530,208 +1098,248 @@
         if (risk.workspace_label) {
           titleWrap.createEl("span", {
             text: risk.workspace_label,
-            attr: { style: "font-size:0.78em;color:var(--text-muted);font-weight:700;letter-spacing:0.02em;" }
+            attr: { style: "font-size:0.78em;color:var(--text-muted);font-weight:700;" }
           });
         }
         titleWrap.createEl("strong", {
           text: risk.label,
-          attr: { style: "color:var(--text-normal);font-size:1.02em;" }
+          attr: { style: "color:var(--text-normal);font-size:1.02em;overflow-wrap:anywhere;" }
         });
+        // Human labels only — never raw lifecycle tokens as primary copy
         if (risk.attention_level) {
           const lvl = String(risk.attention_level).toLowerCase();
-          titleWrap.createEl("span", {
-            text: lvl === "critical" ? "Critical" : (lvl === "high" ? "High" : lvl),
-            attr: {
-              class: lvl === "critical" ? "badge badge-high" : "badge badge-medium",
-              style: "width:fit-content;"
-            }
-          });
+          if (lvl === "critical" || lvl === "high") {
+            titleWrap.createEl("span", {
+              text: lvl === "critical" ? "Critical" : "High",
+              attr: {
+                class: lvl === "critical" ? "badge badge-high" : "badge badge-medium",
+                style: "width:fit-content;"
+              }
+            });
+          }
         }
-
-        const linkRow = topRow.createEl("div", {
-          attr: { style: "display:flex;gap:6px;align-items:center;flex-wrap:wrap;" }
-        });
-        if (risk.dashboard_path) {
-          const dash = linkRow.createEl("button", {
+        const dash = risk.dashboard_path || workspacePathFor(risk.workspace_label);
+        if (dash) {
+          const dashBtn = topRow.createEl("button", {
             text: "워크스페이스 열기",
             attr: { class: "action-btn action-btn-primary" }
           });
-          dash.onclick = () => app.workspace.openLinkText(risk.dashboard_path, risk.dashboard_path, false);
-        }
-        if (risk.object_path) {
-          const lnk = linkRow.createEl("button", {
-            text: "원본 열기",
-            attr: { class: "action-btn" }
-          });
-          lnk.onclick = () => app.workspace.openLinkText(risk.object_path, risk.object_path, false);
+          dashBtn.onclick = () => openPath(dash);
         }
 
-        // Reasons always visible (explainability contract)
-        const reasonBox = rItem.createEl("div", {
-          attr: { style: "display:flex;flex-direction:column;gap:3px;" }
-        });
+        const reasonBox = rItem.createEl("div");
         reasonBox.createEl("div", {
-          text: "이유",
-          attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);" }
+          text: "WHY",
+          attr: { style: "font-size:0.75em;font-weight:700;color:var(--text-muted);margin-bottom:2px;" }
         });
         const reasonList = Array.isArray(risk.evidence) && risk.evidence.length
           ? risk.evidence
           : [String(risk.reason || "").replace(/\s*\(site_visit_date\)/g, "")].filter(Boolean);
         if (!reasonList.length) {
-          reasonBox.createEl("div", {
-            text: "· 주의가 필요합니다.",
-            attr: { style: "color:var(--text-normal);line-height:1.45;" }
-          });
+          reasonBox.createEl("div", { text: "· 주의가 필요합니다." });
         } else {
-          reasonList.forEach((ev) => {
+          reasonList.slice(0, 3).forEach((ev) => {
             reasonBox.createEl("div", {
-              text: `· ${String(ev).replace(/\s*\(site_visit_date\)/g, "")}`,
-              attr: { style: "color:var(--text-normal);line-height:1.45;" }
+              text: "· " + String(ev).replace(/\s*\(site_visit_date\)/g, ""),
+              attr: { style: "line-height:1.45;overflow-wrap:anywhere;" }
             });
           });
         }
       });
-    }
-
-    // 6. Continue Candidates Card (Doing -> Has Next Action -> Recent Active -> Due Soon)
-    const continueCard = leftSecondary.createEl("div", { 
-      attr: { class: `home-card ${isAfternoon ? "emphasis-primary" : "emphasis-secondary"}` } 
     });
-    continueCard.createEl("div", { text: "▶ 이어서 하기", attr: { class: "home-header" } });
-    
-    const candidates = pkg.context.continue_candidates || [];
-    if (candidates.length > 0) {
-      const cGrid = continueCard.createEl("div", { attr: { class: "continue-list" } });
-      candidates.forEach(c => {
-        const cBox = cGrid.createEl("div", {
-          attr: { class: "continue-row" }
-        });
-        
-        cBox.onclick = () => {
-          app.workspace.openLinkText(c.path, c.path, false);
-        };
-        
-        const leftMeta = cBox.createEl("div", { attr: { style: "display:flex; flex-direction:column; gap:2px; flex-grow:1; overflow:hidden;" } });
-        
-        const registryType = c.type === "auction" ? "auction_case" : c.type;
-        const typeInfo = root.prodigyDisplay?.typeInfo ? root.prodigyDisplay.typeInfo(registryType) : { label: c.type, icon: "📝" };
-        const labelRow = leftMeta.createEl("div", { attr: { style: "display:flex; align-items:center; gap:6px; flex-wrap:wrap;" } });
-        labelRow.createEl("span", { text: `${typeInfo.icon} ${typeInfo.label}`, attr: { class: "badge badge-gray" } });
 
-        if (c.type === "project" || c.type === "project_note" || c.type === "project_family") {
-          const pType = String(c.project_type || "").toLowerCase();
-          const pLabel = pType === "business" ? "사업"
-            : pType === "work" ? "회사"
-            : pType === "personal" ? "개인"
-            : "미분류";
-          labelRow.createEl("span", {
-            text: pLabel,
-            attr: { class: "badge badge-gray", style: "font-size:0.7em;" }
-          });
-        }
-        
-        if (c.due_date) {
-          labelRow.createEl("span", { 
-            text: `마감: ${c.due_date}`, 
-            attr: { class: "badge badge-medium", style: "font-size:0.7em;" } 
-          });
-        }
-
-        leftMeta.createEl("strong", { 
-          text: c.name, 
-          attr: { style: "font-size: 0.95em; color: var(--text-normal); overflow-wrap: anywhere; margin-top: 4px;" } 
-        });
-
-        if (c.next_action) {
-          leftMeta.createEl("div", {
-            text: `다음 행동: ${c.next_action}`,
-            attr: { style: "font-size:0.8em; color:var(--text-accent); margin-top:2px; font-weight:500;" }
-          });
-        }
-
-        const navBtn = cBox.createEl("button", { text: "열기", attr: { class: "action-btn" } });
-        navBtn.onclick = (e) => {
-          e.stopPropagation();
-          app.workspace.openLinkText(c.path, c.path, false);
-        };
-      });
+    if (isCompactHome) {
+      const fold = stack.createEl("details", { attr: { class: "home-secondary-fold" } });
+      fold.createEl("summary", { text: "더 보기 · Quick Actions · Todoist · Launcher" });
+      lower = fold.createEl("div", { attr: { class: "home-secondary-fold-body home-mc-lower" } });
     } else {
-      continueCard.createEl("span", { text: "최근 활성화된 실행 대상이 없습니다.", attr: { style: "font-size: 0.85em; color: var(--text-muted); font-style:italic;" } });
-    }
-    // 1. Execution Status Card (Todoist & Calendar)
-    const execCard = rightSecondary.createEl("div", { 
-      attr: { class: `home-card ${isAfternoon ? "emphasis-primary" : "emphasis-secondary"}` } 
-    });
-    execCard.createEl("div", { text: "📊 실행 현황", attr: { class: "home-header" } });
-    
-    const todoist = pkg.context.todoist || {};
-    const eRow = execCard.createEl("div", { attr: { style: "display:flex; justify-content:space-around; align-items:center; margin-bottom:12px;" } });
-    
-    const buildStatBox = (parent, label, count, color) => {
-      const box = parent.createEl("div", { attr: { style: "display:flex; flex-direction:column; align-items:center; gap:2px;" } });
-      box.createEl("span", { text: label, attr: { style: "font-size:0.78em; color:var(--text-muted);" } });
-      box.createEl("span", { text: String(count), attr: { style: `font-size: 1.6em; font-weight: bold; color: ${color};` } });
-    };
-
-    buildStatBox(eRow, "오늘 마감", todoist.todayCount || 0, "var(--text-accent)");
-    buildStatBox(eRow, "지연", todoist.overdueCount || 0, "var(--text-error)");
-
-    const todoBtn = execCard.createEl("button", { 
-      text: "Todoist 실행 대기열 열기", 
-      attr: { class: "action-btn", style: "width:100%; margin-top: 8px;" } 
-    });
-    todoBtn.onclick = () => window.open("todoist://");
-
-    // 2. Review Inbox Card
-    const issues = pkg.context.review_inbox || [];
-    if (issues.length > 0) {
-      const inboxCard = rightSecondary.createEl("div", { 
-        attr: { class: `home-card ${isEvening ? "emphasis-primary" : "emphasis-secondary"}` } 
-      });
-      inboxCard.createEl("div", { text: "⚠️ 검토함", attr: { class: "home-header" } });
-      const iList = inboxCard.createEl("ul", { attr: { style: "font-size: 0.82em; color: var(--text-normal); padding-left: 16px; margin: 0; display:flex; flex-direction:column; gap:6px;" } });
-      issues.forEach(issue => {
-        iList.createEl("li", { text: issue });
-      });
+      lower = stack;
     }
 
-    // 3. Legacy simple workspace links (desktop sidebar only — compact uses Workspace Launcher)
-    if (!isCompactHome) {
-    const navCard = rightSecondary.createEl("div", { attr: { class: "home-card" } });
-    navCard.createEl("div", { text: "🌐 워크스페이스", attr: { class: "home-header" } });
-    const navGrid = navCard.createEl("div", { attr: { class: "workspace-list" } });
-
-    const addLauncher = (parent, label, path, icon) => {
-      const box = parent.createEl("div", {
-        attr: { class: "workspace-row", role: "button", tabindex: "0" }
+    // ── 5. Quick Actions ──
+    safeRenderRegion("Quick Actions", () => {
+      const qa = lower.createEl("div", { attr: { class: "home-card emphasis-secondary home-quick-actions" } });
+      qa.createEl("div", { text: "⚡ Quick Actions", attr: { class: "home-header" } });
+      const row = qa.createEl("div", {
+        attr: { style: "display:flex;flex-wrap:wrap;gap:8px;" }
       });
-      
-      const left = box.createEl("div", { attr: { class: "workspace-label" } });
-      left.createEl("span", { text: icon });
-      left.createEl("strong", { text: label });
-
-      box.createEl("span", { text: "›", attr: { class: "workspace-arrow", "aria-hidden": "true" } });
-      
-      box.onclick = () => {
-        app.workspace.openLinkText(path, path, false);
-      };
-      box.onkeydown = (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          app.workspace.openLinkText(path, path, false);
+      const newObj = row.createEl("button", {
+        text: "+ New Object",
+        attr: { class: "action-btn action-btn-primary", type: "button" }
+      });
+      newObj.onclick = () => {
+        if (root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
+          root.ObjectCreatorView.open(app, { pkg });
+        } else {
+          new Notice("Object Creator를 불러오지 못했습니다.");
         }
       };
-    };
+      const newDaily = row.createEl("button", {
+        text: "+ New Daily",
+        attr: { class: "action-btn", type: "button" }
+      });
+      newDaily.onclick = () => { openOrCreateDaily(); };
+      const searchBtn = row.createEl("button", {
+        text: "+ Search",
+        attr: { class: "action-btn", type: "button" }
+      });
+      searchBtn.onclick = () => openSearch();
+    });
 
-    addLauncher(navGrid, "경매", "HUB/10 Auction.md", "🏛");
-    addLauncher(navGrid, "프로젝트", "HUB/40 Project.md", "📁");
-    addLauncher(navGrid, "독서", "HUB/20 Reading.md", "📚");
-    addLauncher(navGrid, "운동", "HUB/30 Workout.md", "🏋");
-    addLauncher(navGrid, "저널", "HUB/70 Journal.md", "📅");
-    addLauncher(navGrid, "사람", "HUB/60 Personal.md", "👤");
-    addLauncher(navGrid, "지식", "HUB/50 Knowledge.md", "🧠");
-    addLauncher(navGrid, "받은함", "HUB/Inbox.md", "📥");
-    } // end !isCompactHome legacy nav
+    // ── 6. Todoist (summary only — Todoist owns execution) ──
+    safeRenderRegion("Todoist", () => {
+      const execCard = lower.createEl("div", {
+        attr: { class: "home-card " + (isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
+      });
+      execCard.createEl("div", { text: "✓ Todoist", attr: { class: "home-header" } });
+      const todoist = (pkg.context && pkg.context.todoist) || {};
+      const todayCount = todoist.todayCount || 0;
+      const overdueCount = todoist.overdueCount || 0;
+      execCard.createEl("div", {
+        text: "Today",
+        attr: { style: "font-size:0.8em;color:var(--text-muted);font-weight:700;" }
+      });
+      execCard.createEl("div", {
+        text: todayCount + " Tasks",
+        attr: { style: "font-size:1.15em;font-weight:800;margin-top:2px;" }
+      });
+      if (overdueCount > 0) {
+        execCard.createEl("div", {
+          text: overdueCount + " Overdue",
+          attr: { style: "font-size:0.9em;color:var(--text-error);font-weight:700;margin-top:2px;" }
+        });
+      }
+      const todoBtn = execCard.createEl("button", {
+        text: "Open Todoist",
+        attr: { class: "action-btn action-btn-primary", style: "margin-top:10px;" }
+      });
+      todoBtn.onclick = () => {
+        try { window.open("todoist://"); } catch (_e) {
+          try { window.open("https://todoist.com/app", "_blank"); } catch (_e2) { /* ignore */ }
+        }
+      };
+    });
+
+    // ── 7. Workspace Launcher (reuse — context cards) ──
+    safeRenderRegion("Workspace Launcher", () => {
+      const launcherMount = lower.createEl("div", { attr: { class: "home-launcher-mount" } });
+      try {
+        if (root.WorkspaceLauncherCore && root.WorkspaceLauncherView) {
+          const launcherCards = root.WorkspaceLauncherCore.buildLauncherCards({
+            pkg,
+            journalStatus: journalStatusForOps,
+            workoutSnapshot: workoutSnapshotForOps,
+            engine_states: briefContext && briefContext.engine_states
+              ? briefContext.engine_states
+              : null,
+            briefContext
+          });
+          root.WorkspaceLauncherView.render({
+            container: launcherMount,
+            app,
+            cards: launcherCards,
+            pkg
+          });
+        } else {
+          launcherMount.createEl("div", {
+            text: "워크스페이스 런처를 불러오지 못했습니다.",
+            attr: { style: "font-size:0.82em;color:var(--text-muted);" }
+          });
+        }
+      } catch (launcherError) {
+        launcherMount.createEl("div", {
+          text: "워크스페이스 런처를 표시하지 못했습니다.",
+          attr: { style: "font-size:0.82em;color:var(--text-error);" }
+        });
+        if (window.prodigyDebugMode) {
+          launcherMount.createEl("div", {
+            text: String(launcherError.message || launcherError),
+            attr: { style: "font-size:0.75em;color:var(--text-muted);" }
+          });
+        }
+      }
+    });
+
+    // ── 8. System Status (tiny, no diagnostics) ──
+    safeRenderRegion("System Status", () => {
+      const status = lower.createEl("div", {
+        attr: { class: "home-card home-system-status emphasis-secondary" }
+      });
+      status.createEl("div", {
+        text: "System Status",
+        attr: { class: "home-header", style: "font-size:0.9em;margin-bottom:8px;" }
+      });
+      const engineHealthy = !(briefContext && briefContext.engine_ok === false);
+      const warnings = Array.isArray(pkg.warnings) ? pkg.warnings : [];
+      const syncHealthy = !warnings.some((w) => /todoist|sync|fetch failed/i.test(String(w)));
+      const reviewPending = Array.isArray(pkg.context && pkg.context.review_inbox)
+        ? pkg.context.review_inbox.length
+        : 0;
+
+      const row = status.createEl("div", {
+        attr: {
+          style: "display:flex;flex-wrap:wrap;gap:12px 18px;font-size:0.8em;color:var(--text-muted);"
+        }
+      });
+      const pill = (label, value, ok) => {
+        const el = row.createEl("div", {
+          attr: { style: "display:flex;flex-direction:column;gap:2px;min-width:90px;" }
+        });
+        el.createEl("span", { text: label, attr: { style: "font-weight:700;color:var(--text-faint);" } });
+        el.createEl("span", {
+          text: value,
+          attr: { style: "font-weight:700;color:" + (ok ? "var(--text-success, var(--text-accent))" : "var(--text-warning, var(--text-muted))") + ";" }
+        });
+      };
+      pill("Object Engine", engineHealthy ? "Healthy" : "Degraded", engineHealthy);
+      pill("Sync", syncHealthy ? "Healthy" : "Limited", syncHealthy);
+      pill("Review Queue", reviewPending + " Pending", reviewPending === 0);
+
+      // Collapsed lifecycle remains available for debug (not Mission Control primary)
+      if (root.ObjectLifecycleCore && root.ObjectLifecycleView) {
+        const lifecycleFold = status.createEl("details", {
+          attr: { class: "home-lifecycle-fold", style: "margin-top:10px;" }
+        });
+        lifecycleFold.createEl("summary", {
+          text: "객체 라이프사이클 · 접힘 (주의 요약)"
+        });
+        const lifecycleCard = lifecycleFold.createEl("div", {
+          attr: { class: "home-card emphasis-secondary" }
+        });
+        try {
+          const lifecycleObjects = [];
+          const pushAll = (list) => { (list || []).forEach((item) => lifecycleObjects.push(item)); };
+          pushAll((pkg.context && pkg.context.projects) || []);
+          pushAll((pkg.context && pkg.context.auctions) || []);
+          pushAll((pkg.context && pkg.context.reading) || []);
+          let journalSignal = null;
+          if (root.JournalStore && root.JournalCore) {
+            // status already loaded earlier for ops; keep lightweight
+            if (journalStatusForOps && journalStatusForOps.status && journalStatusForOps.status !== "complete") {
+              journalSignal = {
+                missingReflection: true,
+                reason: journalStatusForOps.status === "empty"
+                  ? "성찰이 작성되지 않았습니다."
+                  : "저널 성찰이 미완료입니다."
+              };
+            }
+          }
+          const attention = root.ObjectLifecycleCore.summarizeAttention(lifecycleObjects, {
+            journal: journalSignal
+          });
+          root.ObjectLifecycleView.renderHomeCard({
+            app,
+            container: lifecycleCard,
+            items: attention
+          });
+        } catch (_lc) {
+          lifecycleCard.createEl("div", {
+            text: "라이프사이클 요약을 표시하지 못했습니다.",
+            attr: { style: "font-size:0.8em;color:var(--text-muted);" }
+          });
+        }
+      }
+    });
   }
 
   const api = {
