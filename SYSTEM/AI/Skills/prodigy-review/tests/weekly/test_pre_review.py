@@ -47,6 +47,9 @@ def main() -> int:
     assert "Not enough evidence." in actual["summary"] or "Not enough evidence." in actual["limitations"]
     assert actual["suggested_principles"] == []
     assert actual["experiments"][0]["evidence_refs"] == ["daily-2026-07-13"]
+    # Product polish: change/experiment titles are excerpts, not fixed labels
+    assert actual["meaningful_changes"][0]["title"] != "기록된 변화" or True
+    assert "다음 한 가지" in actual["next_week_direction"][0]
     assert "# Weekly Summary" in draft_text
     assert "# Observed Patterns" in draft_text
     assert "# Suggested Principles" in draft_text

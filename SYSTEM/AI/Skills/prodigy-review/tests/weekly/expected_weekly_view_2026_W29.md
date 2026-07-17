@@ -1,9 +1,5 @@
 # Weekly Review
 
-## Weekly Summary
-
-2개의 성찰에서 실행 전 준비의 중요성이 반복적으로 관찰되었다.
-
 ## Summary
 
 2개의 성찰에서 실행 전 준비의 중요성이 반복적으로 관찰되었다.
@@ -11,15 +7,6 @@
 ---
 
 ## Observed Patterns
-
-### 준비가 행동 마찰을 낮춤
-
-- Reason: 두 성찰 모두 미리 준비했을 때 실행이 쉬워졌다고 기록했다.
-- Evidence: `daily-2026-07-13`, `daily-2026-07-14`
-
----
-
-## Key Findings
 
 ### 준비가 행동 마찰을 낮춤
 
@@ -37,7 +24,7 @@
 
 ---
 
-## Experiment Review
+## Experiments
 
 ### 작은 일 즉시 처리
 
@@ -73,13 +60,6 @@
 ---
 
 ## Evidence References
-
-- DAILY/DAILY/2026-07-13.md
-- DAILY/DAILY/2026-07-14.md
-
----
-
-## References
 
 - DAILY/DAILY/2026-07-13.md
 - DAILY/DAILY/2026-07-14.md

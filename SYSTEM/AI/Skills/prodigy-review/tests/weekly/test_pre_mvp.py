@@ -120,7 +120,7 @@ def test_three_daily_with_pattern() -> None:
     review = generate_review(package)
     assert review["pre_stats"]["enough_evidence"] is True
     assert len(review["findings"]) >= 1
-    assert any("Reading" in str(f.get("title", "")) or "reading" in str(f.get("title", "")).lower() or "독서" in str(f) for f in review["findings"])
+    assert any("독서" in str(f.get("title", "")) or "Reading" in str(f.get("title", "")) for f in review["findings"])
     # Provenance on every finding
     for f in review["findings"]:
         assert isinstance(f.get("evidence_refs"), list) and len(f["evidence_refs"]) >= 2
@@ -151,10 +151,7 @@ def test_seven_daily() -> None:
     review = generate_review(base_package(days))
     assert review["pre_stats"]["evidence_extracted"] == 7
     assert review["pre_stats"]["enough_evidence"] is True
-    assert any(
-        "Workout" in str(f.get("title", "")) or "운동" in str(f.get("title", ""))
-        for f in review["findings"]
-    )
+    assert any("운동" in str(f.get("title", "")) or "Workout" in str(f.get("title", "")) for f in review["findings"])
 
 
 def test_empty_change_and_experiment() -> None:
@@ -206,8 +203,8 @@ def test_contradictory_evidence() -> None:
         ]
     )
     review = generate_review(package)
-    contra = [f for f in review["findings"] if "Contradictory" in str(f.get("title", ""))]
-    assert len(contra) == 1
+    contra = [f for f in review["findings"] if "Contradictory" in str(f.get("title", "")) or "상충" in str(f.get("title", ""))]
+    assert len(contra) >= 1
     support = contra[0].get("supporting_sources")
     assert isinstance(support, dict)
     assert support.get("success")

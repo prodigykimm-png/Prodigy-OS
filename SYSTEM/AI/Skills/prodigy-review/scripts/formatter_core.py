@@ -42,7 +42,31 @@ def titled_items(title: str, values: Json, body_key: str) -> list[str]:
         return lines
     for item in values:
         if isinstance(item, dict):
-            lines.extend([f"### {text(item.get('title'), 'Untitled')}", "", f"- {body_key.title()}: {text(item.get(body_key))}", f"- Evidence: {refs(item.get('evidence_refs'))}", ""])
+            body = text(item.get(body_key))
+            # Multiline Why (evidence quotes) — preserve line breaks in display
+            if "\n" in body:
+                lines.extend(
+                    [
+                        f"### {text(item.get('title'), 'Untitled')}",
+                        "",
+                        f"- {body_key.title()}:",
+                        "",
+                    ]
+                )
+                for line in body.split("\n"):
+                    lines.append(f"  {line}" if line.strip() else "")
+                lines.append(f"- Evidence: {refs(item.get('evidence_refs'))}")
+                lines.append("")
+            else:
+                lines.extend(
+                    [
+                        f"### {text(item.get('title'), 'Untitled')}",
+                        "",
+                        f"- {body_key.title()}: {body}",
+                        f"- Evidence: {refs(item.get('evidence_refs'))}",
+                        "",
+                    ]
+                )
     return lines
 
 
@@ -54,23 +78,42 @@ def principles(values: Json) -> list[str]:
     for item in values:
         if isinstance(item, dict):
             status = "Pending Human Review" if item.get("decision") == "pending" else text(item.get("decision"), "unknown")
-            lines.extend([f"### Suggested Principle: {text(item.get('title'), 'Untitled')}", "", f"- Proposal ID: `{text(item.get('proposal_id'))}`", f"- Reason: {text(item.get('reason'))}", f"- Evidence: {refs(item.get('evidence_refs'))}", f"- Strength: `{text(item.get('evidence_strength'))}`", f"- Status: {status}", f"- Applied: `{str(item.get('applied')).lower()}`", ""])
+            reason = text(item.get("reason"))
+            lines.extend(
+                [
+                    f"### Suggested Principle: {text(item.get('title') or item.get('statement'), 'Untitled')}",
+                    "",
+                    f"- Proposal ID: `{text(item.get('proposal_id'))}`",
+                ]
+            )
+            if "\n" in reason:
+                lines.append("- Reason:")
+                lines.append("")
+                for line in reason.split("\n"):
+                    lines.append(f"  {line}" if line.strip() else "")
+            else:
+                lines.append(f"- Reason: {reason}")
+            lines.extend(
+                [
+                    f"- Evidence: {refs(item.get('evidence_refs'))}",
+                    f"- Strength: `{text(item.get('evidence_strength'))}`",
+                    f"- Status: {status}",
+                    f"- Applied: `{str(item.get('applied')).lower()}`",
+                    "",
+                ]
+            )
     return lines
 
 
 def render_weekly_view(review: dict[str, Json]) -> str:
+    """Single coherent Weekly Review surface — no duplicated Summary/Findings/References."""
     validate_review(review)
-    # Existing headings + MVP aliases (Observed Patterns / Evidence References)
-    lines = ["# Weekly Review", "", "## Weekly Summary", "", text(review["summary"]), ""]
-    # Keep "## Summary" alias for older consumers/tests
-    lines.extend(["## Summary", "", text(review["summary"]), ""])
+    lines = ["# Weekly Review", "", "## Summary", "", text(review["summary"]), ""]
     lines.extend(titled_items("Observed Patterns", review["findings"], "reason"))
-    lines.extend(titled_items("Key Findings", review["findings"], "reason"))
     lines.extend(titled_items("Meaningful Changes", review["meaningful_changes"], "reason"))
-    lines.extend(titled_items("Experiment Review", review["experiments"], "description"))
+    lines.extend(titled_items("Experiments", review["experiments"], "description"))
     lines.extend(principles(review["suggested_principles"]))
     lines.extend(section_list("Next Week Direction", review["next_week_direction"]))
     lines.extend(section_list("Limitations", review["limitations"]))
     lines.extend(section_list("Evidence References", review["references"]))
-    lines.extend(section_list("References", review["references"]))
     return "\n".join(lines).rstrip() + "\n"

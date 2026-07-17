@@ -7,8 +7,8 @@
   "findings": [],
   "meaningful_changes": [
     {
-      "title": "기록된 변화",
-      "reason": "- 즉시 처리할 수 있는 일은 당일에 끝내는 쪽으로 판단 기준이 바뀌었다.",
+      "title": "즉시 처리할 수 있는 일은 당일에 끝내는 쪽으로 판단 기준이 바뀌었다",
+      "reason": "즉시 처리할 수 있는 일은 당일에 끝내는 쪽으로 판단 기준이 바뀌었다.",
       "evidence_refs": [
         "daily-2026-07-13"
       ]
@@ -16,8 +16,8 @@
   ],
   "experiments": [
     {
-      "title": "다음 실험",
-      "description": "- 내일 5분짜리 일은 발견 즉시 처리한다.",
+      "title": "내일 5분짜리 일은 발견 즉시 처리한다",
+      "description": "내일 5분짜리 일은 발견 즉시 처리한다.",
       "evidence_refs": [
         "daily-2026-07-13"
       ]
@@ -25,8 +25,8 @@
   ],
   "suggested_principles": [],
   "next_week_direction": [
-    "Try: - 내일 5분짜리 일은 발견 즉시 처리한다.",
-    "Observe: 같은 패턴이 반복되는지 추가 증거를 모은다."
+    "다음 한 가지: 내일 5분짜리 일은 발견 즉시 처리한다.",
+    "관찰: 같은 패턴이 반복되는지 기록한다."
   ],
   "limitations": [
     "Not enough evidence.",

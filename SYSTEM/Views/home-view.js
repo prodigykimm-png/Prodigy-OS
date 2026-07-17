@@ -563,8 +563,8 @@
     });
     
     const leftTitle = titleRow.createEl("div");
-    leftTitle.createEl("h2", { text: `🌅 Mission Control · ${todayStr}`, attr: { style: "margin:0;" } });
-    leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting} · What should I do now?`, attr: { style: "font-size: 0.85em; color: var(--text-muted);" } });
+    leftTitle.createEl("h2", { text: `🌅 오늘 · ${todayStr}`, attr: { style: "margin:0;" } });
+    leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting} · 지금 무엇에 집중할까?`, attr: { style: "font-size: 0.85em; color: var(--text-muted);" } });
 
     const rightActions = titleRow.createEl("div", { attr: { class: "home-toolbar" } });
 
@@ -851,7 +851,7 @@
         attr: { class: "home-card " + (isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
       });
       const head = focusCard.createEl("div", { attr: { class: "home-header" } });
-      head.createEl("span", { text: "🎯 Today's Focus" });
+      head.createEl("span", { text: "🎯 오늘의 집중" });
 
       const baseFocus = (approvedFocus && Array.isArray(approvedFocus.focus))
         ? approvedFocus.focus
@@ -868,11 +868,11 @@
 
       if (!approvedFocus || !currentFocus.length) {
         focusCard.createEl("div", {
-          text: "No focus selected.",
+          text: "선택된 집중이 없습니다.",
           attr: { style: "font-size:0.9em;color:var(--text-normal);font-weight:600;" }
         });
         focusCard.createEl("div", {
-          text: "Open Morning Brief.",
+          text: "아침 브리핑을 확인하세요.",
           attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:4px;margin-bottom:10px;" }
         });
         // One-tap approve of existing proposal (no field editing)
@@ -958,7 +958,7 @@
       const continueCard = primary.createEl("div", {
         attr: { class: "home-card " + (isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
       });
-      continueCard.createEl("div", { text: "▶ Continue", attr: { class: "home-header" } });
+      continueCard.createEl("div", { text: "▶ 이어하기", attr: { class: "home-header" } });
 
       const cards = [];
       const seen = Object.create(null);
@@ -1005,11 +1005,11 @@
       const limited = cards.slice(0, 4);
       if (!limited.length) {
         continueCard.createEl("div", {
-          text: "Nothing to continue.",
+          text: "이어할 항목이 없습니다.",
           attr: { style: "font-size:0.9em;font-weight:600;" }
         });
         continueCard.createEl("div", {
-          text: "Enjoy a fresh start.",
+          text: "오늘은 새 출발입니다.",
           attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:4px;font-style:italic;" }
         });
         return;
@@ -1060,7 +1060,7 @@
       const rHead = riskCard.createEl("div", {
         attr: { class: "home-header", style: "color: var(--text-error);" }
       });
-      rHead.createEl("span", { text: "⚠ Needs Attention" });
+      rHead.createEl("span", { text: "⚠ 주의가 필요함" });
       if (briefContext && briefContext.engine_ok === false) {
         rHead.createEl("span", {
           text: "엔진 폴백",
@@ -1071,7 +1071,7 @@
       if (!risks.length) {
         riskCard.createEl("div", {
           text: (briefContext && briefContext.empty_attention_message)
-            || "Everything looks good today.",
+            || "오늘은 주의할 Object가 없습니다.",
           attr: {
             style: "font-size:0.9em;color:var(--text-muted);font-style:italic;padding:6px 0;line-height:1.45;"
           }
@@ -1150,7 +1150,7 @@
 
     if (isCompactHome) {
       const fold = stack.createEl("details", { attr: { class: "home-secondary-fold" } });
-      fold.createEl("summary", { text: "더 보기 · Quick Actions · Todoist · Launcher" });
+      fold.createEl("summary", { text: "더 보기 · 빠른 실행 · Todoist · 런처" });
       lower = fold.createEl("div", { attr: { class: "home-secondary-fold-body home-mc-lower" } });
     } else {
       lower = stack;
@@ -1159,12 +1159,12 @@
     // ── 5. Quick Actions ──
     safeRenderRegion("Quick Actions", () => {
       const qa = lower.createEl("div", { attr: { class: "home-card emphasis-secondary home-quick-actions" } });
-      qa.createEl("div", { text: "⚡ Quick Actions", attr: { class: "home-header" } });
+      qa.createEl("div", { text: "⚡ 빠른 실행", attr: { class: "home-header" } });
       const row = qa.createEl("div", {
         attr: { style: "display:flex;flex-wrap:wrap;gap:8px;" }
       });
       const newObj = row.createEl("button", {
-        text: "+ New Object",
+        text: "+ 새 Object",
         attr: { class: "action-btn action-btn-primary", type: "button" }
       });
       newObj.onclick = () => {
@@ -1175,12 +1175,12 @@
         }
       };
       const newDaily = row.createEl("button", {
-        text: "+ New Daily",
+        text: "+ 오늘 Daily",
         attr: { class: "action-btn", type: "button" }
       });
       newDaily.onclick = () => { openOrCreateDaily(); };
       const searchBtn = row.createEl("button", {
-        text: "+ Search",
+        text: "검색",
         attr: { class: "action-btn", type: "button" }
       });
       searchBtn.onclick = () => openSearch();
@@ -1210,7 +1210,7 @@
         });
       }
       const todoBtn = execCard.createEl("button", {
-        text: "Open Todoist",
+        text: "Todoist 열기",
         attr: { class: "action-btn action-btn-primary", style: "margin-top:10px;" }
       });
       todoBtn.onclick = () => {
@@ -1266,7 +1266,7 @@
         attr: { class: "home-card home-system-status emphasis-secondary" }
       });
       status.createEl("div", {
-        text: "System Status",
+        text: "시스템 상태",
         attr: { class: "home-header", style: "font-size:0.9em;margin-bottom:8px;" }
       });
       const engineHealthy = !(briefContext && briefContext.engine_ok === false);
@@ -1291,9 +1291,9 @@
           attr: { style: "font-weight:700;color:" + (ok ? "var(--text-success, var(--text-accent))" : "var(--text-warning, var(--text-muted))") + ";" }
         });
       };
-      pill("Object Engine", engineHealthy ? "Healthy" : "Degraded", engineHealthy);
-      pill("Sync", syncHealthy ? "Healthy" : "Limited", syncHealthy);
-      pill("Review Queue", reviewPending + " Pending", reviewPending === 0);
+      pill("Object Engine", engineHealthy ? "정상" : "제한", engineHealthy);
+      pill("Sync", syncHealthy ? "정상" : "제한", syncHealthy);
+      pill("Review Queue", reviewPending + "건 대기", reviewPending === 0);
 
       // Collapsed lifecycle remains available for debug (not Mission Control primary)
       if (root.ObjectLifecycleCore && root.ObjectLifecycleView) {

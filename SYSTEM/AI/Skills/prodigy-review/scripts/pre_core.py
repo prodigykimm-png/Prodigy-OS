@@ -24,53 +24,79 @@ MIN_DAILIES_FOR_PATTERNS: Final = 3
 MIN_SUPPORTING_SOURCES: Final = 2
 
 # Deterministic theme detectors — keyword match only, no LLM.
-# Keywords scan existing Daily projection fields only.
+# require_all: every group must match (AND). Optional require_any_extra for precision.
+# Product rule: prefer precision over volume (validation: weak reading false-positives).
 THEME_RULES: Final = (
     {
         "id": "deferral",
-        "pattern": "Small tasks are deferred and handled late",
-        "statement": "Handle immediately doable tasks on the same day.",
+        "pattern": "바로 할 수 있는 일을 미루는 패턴",
+        "statement": "바로 처리할 수 있는 일은 당일에 끝낸다.",
         "keys": (
             "미루",
-            "지연",
             "미뤄",
             "미루다",
             "procrastin",
             "즉시 처리",
-            "당일",
+            "즉각",
             "바로 처리",
-            "5분",
+            "바로 해결",
+            "조금만 더",
+            "하다가 말",
+            "유혹에 약",
+            "유혹",
+        ),
+        # Avoid matching only generic "5분" / "당일" alone
+        "require_any_of": (
+            "미루",
+            "미뤄",
+            "즉시",
+            "즉각",
+            "바로 처리",
+            "바로 해결",
+            "procrastin",
+            "조금만 더",
+            "하다가 말",
+            "유혹에 약",
         ),
     },
     {
-        "id": "reading_interrupt",
-        "pattern": "Reading is frequently interrupted or delayed",
-        "statement": "Protect uninterrupted reading time.",
-        "keys": ("독서", "읽기", "책 ", " reading", "중단", "방해", "interrupt", "집중 읽"),
+        "id": "reading_habit",
+        "pattern": "독서 습관이 반복적으로 흔들림",
+        "statement": "방해 없는 짧은 독서 시간을 먼저 지킨다.",
+        # Topic + reading-specific failure (do NOT reuse generic 미루 — false positives)
+        "require_all_groups": (
+            ("독서", "읽기", "책", "reading"),
+            ("안 읽", "안읽", "못 읽", "못읽", "책도 안", "중단", "방해", "interrupt", "집중 읽"),
+        ),
+        "keys": (),  # unused when require_all_groups present
     },
     {
         "id": "workout",
-        "pattern": "Workout consistency appears repeatedly",
-        "statement": "Schedule workouts before other flexible work.",
-        "keys": ("운동", "workout", "헬스", "훈련", "스쿼트", "러닝", "run "),
+        "pattern": "운동이 반복적으로 기록됨",
+        "statement": "유동 업무보다 운동 일정을 먼저 잡는다.",
+        "keys": ("운동", "workout", "헬스", "훈련", "스쿼트", "러닝"),
+        "require_any_of": ("운동", "workout", "헬스", "훈련", "스쿼트", "러닝"),
     },
     {
         "id": "auction_review",
-        "pattern": "Auction review or site-visit work recurs",
-        "statement": "Perform site visits before valuation decisions.",
-        "keys": ("경매", "임장", "입찰", "auction", "현장", "시세"),
+        "pattern": "경매·임장 관련 일이 반복됨",
+        "statement": "시세 판단 전에 임장·현장 확인을 한다.",
+        "keys": ("경매", "임장", "입찰", "auction", "시세"),
+        "require_any_of": ("경매", "임장", "입찰", "auction"),
     },
     {
         "id": "project_delay",
-        "pattern": "Project work is delayed or blocked repeatedly",
-        "statement": "Define one next action before leaving project work.",
+        "pattern": "프로젝트 지연·막힘이 반복됨",
+        "statement": "프로젝트 작업을 끝내기 전에 next_action 하나를 남긴다.",
         "keys": ("프로젝트", "스프린트", "마감", "지연된", "blocked", "project"),
+        "require_any_of": ("프로젝트", "스프린트", "지연", "blocked", "마감"),
     },
     {
         "id": "prep_helps",
-        "pattern": "Preparation reduces friction before action",
-        "statement": "Prepare materials before the work block starts.",
+        "pattern": "준비가 실행 마찰을 줄임",
+        "statement": "작업 블록 시작 전에 재료·환경을 준비한다.",
         "keys": ("준비", "미리", "마찰", "preparation", "prep"),
+        "require_any_of": ("준비", "미리", "마찰", "prep"),
     },
 )
 
@@ -132,6 +158,36 @@ def usable_dailies(primary: list[Json]) -> list[dict[str, Json]]:
     return out
 
 
+def clean_bullet_text(raw: str) -> str:
+    """Strip markdown bullets / empty placeholders for display."""
+    text = re.sub(r"^[\-\*\s]+", "", raw or "", flags=re.M).strip()
+    text = re.sub(r"\n[\-\*\s]+", "\n", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if text in {"", "-", "—", "없음", "None", "*"}:
+        return ""
+    return text
+
+
+def short_title(raw: str, fallback: str, limit: int = 42) -> str:
+    cleaned = clean_bullet_text(raw)
+    if not cleaned:
+        return fallback
+    # Prefer first line / first sentence fragment
+    first = re.split(r"[\n.。]", cleaned)[0].strip() or cleaned
+    if len(first) > limit:
+        return first[: limit - 1].rstrip() + "…"
+    return first
+
+
+def evidence_excerpt(item: dict[str, Json], limit: int = 100) -> str:
+    """Prefer Change, then Reflection, then Experiment — user's own words."""
+    for key in ("change", "reflection", "next_experiment"):
+        cleaned = clean_bullet_text(text_value(item, key))
+        if cleaned:
+            return cleaned if len(cleaned) <= limit else cleaned[: limit - 1].rstrip() + "…"
+    return ""
+
+
 def meaningful_changes(primary: list[Json]) -> list[Json]:
     changes: list[Json] = []
     for item in primary:
@@ -139,13 +195,12 @@ def meaningful_changes(primary: list[Json]) -> list[Json]:
             change = text_value(item, "change")
             evidence_id = item.get("evidence_id")
             if change and isinstance(evidence_id, str):
-                # Skip empty markdown bullets
-                cleaned = re.sub(r"^[\-\*\s]+", "", change, flags=re.M).strip()
-                if cleaned and cleaned not in {"-", "—", "없음", "None"}:
+                cleaned = clean_bullet_text(change)
+                if cleaned:
                     changes.append(
                         {
-                            "title": "기록된 변화",
-                            "reason": change,
+                            "title": short_title(cleaned, "기록된 변화"),
+                            "reason": cleaned,
                             "evidence_refs": [evidence_id],
                         }
                     )
@@ -159,12 +214,14 @@ def experiments(primary: list[Json]) -> list[Json]:
             experiment = text_value(item, "next_experiment")
             evidence_id = item.get("evidence_id")
             if experiment and isinstance(evidence_id, str):
-                cleaned = re.sub(r"^[\-\*\s]+", "", experiment, flags=re.M).strip()
-                if cleaned and cleaned not in {"-", "—", "없음", "None"}:
+                cleaned = clean_bullet_text(experiment)
+                if cleaned:
+                    # Prefer first bullet only for title clarity
+                    first_bullet = clean_bullet_text(experiment.split("\n")[0])
                     result.append(
                         {
-                            "title": "다음 실험",
-                            "description": experiment,
+                            "title": short_title(first_bullet or cleaned, "다음 실험"),
+                            "description": cleaned,
                             "evidence_refs": [evidence_id],
                         }
                     )
@@ -182,6 +239,48 @@ def match_theme(blob: str, keys: tuple[str, ...]) -> bool:
     return False
 
 
+def match_rule(blob: str, rule: dict[str, object]) -> bool:
+    """AND-groups if present; else keys + optional require_any_of precision filter."""
+    groups = rule.get("require_all_groups")
+    if isinstance(groups, tuple) and groups:
+        for group in groups:
+            if not isinstance(group, tuple) or not match_theme(blob, group):
+                return False
+        return True
+    keys = rule.get("keys")
+    if not isinstance(keys, tuple) or not keys:
+        return False
+    if not match_theme(blob, keys):
+        return False
+    require_any = rule.get("require_any_of")
+    if isinstance(require_any, tuple) and require_any:
+        return match_theme(blob, require_any)
+    return True
+
+
+def build_why_with_quotes(supporting: list[dict[str, Json]], n: int) -> str:
+    quotes: list[str] = []
+    for item in supporting[:3]:
+        excerpt = evidence_excerpt(item, 80)
+        eid = item.get("evidence_id")
+        if excerpt and isinstance(eid, str):
+            quotes.append(f"· {eid}: “{excerpt}”")
+    head = f"{n}개 일일 성찰에서 같은 신호가 반복되었다."
+    if not quotes:
+        return head
+    return head + "\n" + "\n".join(quotes)
+
+
+def principle_from_changes(supporting: list[dict[str, Json]], fallback: str) -> str:
+    """Prefer user's own Change language when available (product trust)."""
+    for item in supporting:
+        change = clean_bullet_text(text_value(item, "change"))
+        if len(change) >= 12:
+            # Keep as a short principle-like sentence
+            return short_title(change, fallback, limit=60)
+    return fallback
+
+
 def detect_theme_patterns(usable: list[dict[str, Json]]) -> tuple[list[Json], list[Json]]:
     """Return (findings, principles) backed only by matched Daily sources."""
     findings: list[Json] = []
@@ -190,7 +289,7 @@ def detect_theme_patterns(usable: list[dict[str, Json]]) -> tuple[list[Json], li
         supporting: list[dict[str, Json]] = []
         for item in usable:
             blob = daily_blob(item)
-            if match_theme(blob, rule["keys"]):  # type: ignore[arg-type]
+            if match_rule(blob, rule):  # type: ignore[arg-type]
                 supporting.append(item)
         if len(supporting) < MIN_SUPPORTING_SOURCES:
             continue
@@ -199,12 +298,11 @@ def detect_theme_patterns(usable: list[dict[str, Json]]) -> tuple[list[Json], li
             str(item.get("source_path") or item.get("source_link") or item.get("evidence_id"))
             for item in supporting
         ]
-        # Deduplicate while preserving order
         refs = list(dict.fromkeys(refs))
         sources = list(dict.fromkeys(sources))
         n = len(refs)
         pattern = str(rule["pattern"])
-        reason = f"{n}개 일일 성찰에서 관련 표현이 반복되었다."
+        reason = build_why_with_quotes(supporting, n)
         findings.append(
             {
                 "title": pattern,
@@ -214,12 +312,13 @@ def detect_theme_patterns(usable: list[dict[str, Json]]) -> tuple[list[Json], li
                 "pattern": pattern,
             }
         )
+        statement = principle_from_changes(supporting, str(rule["statement"]))
         principles.append(
             {
-                "title": str(rule["statement"]),
-                "statement": str(rule["statement"]),
+                "title": statement,
+                "statement": statement,
                 "proposal_id": f"principle-{rule['id']}-{n:02d}",
-                "reason": reason + f" 근거: {', '.join(refs)}.",
+                "reason": reason,
                 "evidence_refs": refs,
                 "support": refs,
                 "evidence_strength": "repeated" if n >= 3 else "emerging",
@@ -254,10 +353,11 @@ def detect_repeated_change_phrases(usable: list[dict[str, Json]]) -> list[Json]:
         if len(refs) < MIN_SUPPORTING_SOURCES:
             continue
         sample = text_value(items[0], "change")
+        cleaned_sample = clean_bullet_text(sample)
         findings.append(
             {
-                "title": "Same change recorded on multiple days",
-                "reason": f"동일한 변화 기록이 {len(refs)}개 일자에서 반복되었다: {sample[:160]}",
+                "title": "같은 변화가 여러 날에 반복됨",
+                "reason": f"동일한 변화 기록이 {len(refs)}개 일자에서 반복되었다.\n· “{cleaned_sample[:160]}”",
                 "evidence_refs": refs,
                 "supporting_sources": [
                     str(i.get("source_path") or i.get("evidence_id")) for i in items
@@ -330,20 +430,33 @@ def limitations(
     return list(dict.fromkeys(result))
 
 
+def primary_experiment_line(experiments_list: list[Json]) -> str:
+    """One next action for the week — first bullet of most recent non-empty experiment."""
+    for item in reversed(experiments_list):
+        if not isinstance(item, dict):
+            continue
+        description = item.get("description")
+        if not isinstance(description, str) or not description.strip():
+            continue
+        first = clean_bullet_text(description.split("\n")[0])
+        if first:
+            return first
+    return ""
+
+
 def direction(experiments_list: list[Json], principles: list[Json]) -> list[str]:
     lines: list[str] = []
-    if experiments_list and isinstance(experiments_list[0], dict):
-        description = experiments_list[0].get("description")
-        if isinstance(description, str) and description:
-            lines.append(f"Try: {description}")
+    primary = primary_experiment_line(experiments_list)
+    if primary:
+        lines.append(f"다음 한 가지: {primary}")
     if principles and isinstance(principles[0], dict):
         statement = principles[0].get("statement") or principles[0].get("title")
         if isinstance(statement, str) and statement:
-            lines.append(f"Review pending principle: {statement}")
+            lines.append(f"검토할 원칙(pending): {statement}")
     if not lines:
-        lines.append("Observe: 다음 주 성찰에서 반복되는 상황을 더 모은다.")
+        lines.append("관찰: 다음 주 성찰에서 반복되는 상황을 더 모은다.")
     else:
-        lines.append("Observe: 같은 패턴이 반복되는지 추가 증거를 모은다.")
+        lines.append("관찰: 같은 패턴이 반복되는지 기록한다.")
     return lines
 
 

@@ -960,9 +960,12 @@ Daily (ISO week, max 7)
 ```
 
 - Reads canonical Daily Reflection / Change / Next Experiment sections only.
-- Every pattern and principle keeps **source evidence refs** (provenance).
+- Every pattern and principle keeps **source evidence refs** (provenance) **and short evidence quotes**.
 - If fewer than 3 contentful Dailies: **Not enough evidence.** — no fabricated patterns.
+- Weak keyword matches are suppressed (e.g. reading habit requires topic **and** failure/interrupt signal).
+- Principle statements prefer the user's own **Change** wording when available; status stays `pending`.
 - Contradictory signals are kept on both sides (never averaged).
+- Weekly view is a single coherent surface (no duplicated Summary / Findings blocks).
 - Outputs land under `SYSTEM/AI/Skills/prodigy-review/runs/<week>/` as draft artifacts.
 - **Never** auto-creates Knowledge, approves principles, or rewrites Daily / Object notes.
 - Human reviews the draft and decides every principle.
