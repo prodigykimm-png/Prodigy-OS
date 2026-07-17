@@ -21,6 +21,90 @@ function main() {
   assert.equal(core.DISPLAY_LABEL, "사람");
   assert.equal(core.LINK_FIELD, "connections");
 
+  // --- Quick-edit whitelist ---
+  assert.deepEqual(core.QUICK_EDIT_FIELDS, [
+    "relationship", "company", "role", "last_contact", "phone", "email"
+  ]);
+  const picked = core.pickQuickEditValues({
+    type: "people",
+    relationship: "동료",
+    company: "Acme",
+    title: "CTO",
+    notes: "should not appear",
+    next_action: "no"
+  });
+  assert.equal(picked.relationship, "동료");
+  assert.equal(picked.company, "Acme");
+  assert.equal(picked.role, "CTO");
+  assert.equal(Object.prototype.hasOwnProperty.call(picked, "notes"), false);
+  const merged = core.applyQuickEditValues(
+    { type: "contact", company: "Old", relationship: "" },
+    { company: "New", relationship: "친구", type: "people", status: "hacked" }
+  );
+  assert.equal(merged.type, "contact");
+  assert.equal(merged.company, "New");
+  assert.equal(merged.relationship, "친구");
+  assert.equal(Object.prototype.hasOwnProperty.call(merged, "status"), false);
+  const sanitized = core.sanitizeQuickEditUpdates({ company: "X", type: "people", body: "no" });
+  assert.deepEqual(Object.keys(sanitized).sort(), ["company"]);
+
+  // --- Interaction / 사건 index lines ---
+  assert.equal(
+    core.formatInteractionLine({ date: "2026-07-16", insight: "전태현 청모" }),
+    "- [[2026-07-16]] 전태현 청모"
+  );
+  assert.equal(
+    core.formatInteractionLine({ date: "2026-07-16", source: "[[운송예산 회의]]", insight: "범위 먼저" }),
+    "- 2026-07-16 | [[운송예산 회의]] | 범위 먼저"
+  );
+  assert.throws(() => core.formatInteractionLine({ date: "2026-07-16", insight: "" }), /한 줄/);
+  const withSection = [
+    "---",
+    "type: people",
+    "last_contact: ",
+    "---",
+    "",
+    "# 정호성",
+    "",
+    "# 핵심 상호작용",
+    "*인덱스만*",
+    "- YYYY-MM-DD | [[원본 Object]] | ",
+    "",
+    "# 메모",
+    "- "
+  ].join("\n");
+  const afterAppend = core.appendInteractionToContent(
+    withSection,
+    core.formatInteractionLine({ date: "2026-07-16", insight: "전태현 청모" })
+  );
+  assert.match(afterAppend, /- \[\[2026-07-16\]\] 전태현 청모/);
+  assert.equal(/- YYYY-MM-DD/.test(afterAppend), false);
+  const withLast = core.upsertLastContactInContent(afterAppend, "2026-07-16");
+  assert.match(withLast, /last_contact:\s*2026-07-16/);
+
+  // --- Memo lines go under # 메모, not interaction ---
+  assert.equal(core.formatMemoLine({ text: "청모 통해 알게 됨" }), "- 청모 통해 알게 됨");
+  assert.throws(() => core.formatMemoLine({ text: "" }), /메모/);
+  const withMemoSection = [
+    "---",
+    "type: people",
+    "---",
+    "",
+    "# 메모",
+    "*사실 중심의 장기 맥락.*",
+    "- ",
+    "",
+    "# 나의 성찰",
+    "- "
+  ].join("\n");
+  const afterMemo = core.appendMemoToContent(
+    withMemoSection,
+    core.formatMemoLine({ text: "주말에만 연락 가능" })
+  );
+  assert.match(afterMemo, /# 메모[\s\S]*- 주말에만 연락 가능/);
+  assert.match(afterMemo, /# 나의 성찰/);
+  assert.equal(afterMemo.includes("# 핵심 상호작용"), false);
+
   // --- Type helpers ---
   assert.equal(core.isPeopleType("people"), true);
   assert.equal(core.isPeopleType("contact"), false);
@@ -159,16 +243,111 @@ function main() {
       () => { throw new Error("expected duplicate error"); },
       (err) => { assert.match(String(err.message), /이미 있습니다/); }
     );
-  }).then(() => {
-    // --- Personal hub ---
+  }).then(async () => {
+    // --- Quick-edit read/update (fake vault + processFrontMatter) ---
+    let fm = {
+      type: "people",
+      relationship: "동료",
+      company: "OldCo",
+      role: "",
+      last_contact: "",
+      phone: "",
+      email: ""
+    };
+    const personPath = "PARA/RESOURCES/CONTACTS/편집대상.md";
+    const editApp = {
+      vault: {
+        getAbstractFileByPath: (p) => (p === personPath ? { path: p } : null),
+        read: async () => `---\ntype: people\nrelationship: 동료\ncompany: OldCo\nrole: \nlast_contact: \nphone: \nemail: \n---\n\n# 편집대상\n`
+      },
+      metadataCache: {
+        getFileCache: () => ({ frontmatter: Object.assign({}, fm) })
+      },
+      fileManager: {
+        processFrontMatter: async (_file, mutator) => {
+          mutator(fm);
+        }
+      }
+    };
+    const before = await store.readPeopleProperties(editApp, personPath);
+    assert.equal(before.values.company, "OldCo");
+    const saved = await store.updatePeopleProperties(editApp, personPath, {
+      company: "NewCo",
+      relationship: "멘토",
+      type: "contact",
+      notes: "ignored"
+    });
+    assert.equal(saved.values.company, "NewCo");
+    assert.equal(saved.values.relationship, "멘토");
+    assert.equal(fm.type, "people");
+    assert.equal(Object.prototype.hasOwnProperty.call(fm, "notes"), false);
+
+    // --- Personal hub + People workspace ---
     const personal = read("HUB/60 Personal.md");
     assert.match(personal, /people-core\.js/);
     assert.match(personal, /people-store\.js/);
     assert.match(personal, /people-view\.js/);
     assert.match(personal, /type === "people" \|\| p\.type === "contact"/);
-    assert.match(personal, /사람 추가/);
-    assert.match(personal, /openCreateFlow/);
+    assert.match(personal, /사람과 관계/);
+    assert.match(personal, /renderPeopleWorkspace/);
+    assert.match(personal, /buildPeopleWorkspaceModel/);
     assert.equal(personal.includes("dv.table"), false);
+    assert.equal(personal.includes("원본 열기"), false);
+
+    const listView = read("SYSTEM/Views/workspace-list-view.js");
+    assert.match(listView, /item\.actions/);
+    assert.match(listView, /workspace-list-row-actions/);
+    assert.match(listView, /openBeside/);
+    assert.match(listView, /workspace-list-name/);
+
+    const peopleView = read("SYSTEM/Views/people-view.js");
+    assert.match(peopleView, /openQuickEditFlow/);
+    assert.match(peopleView, /openAddInteractionFlow/);
+    assert.match(peopleView, /openAddMemoFlow/);
+    assert.match(peopleView, /renderPeopleWorkspace/);
+    assert.match(peopleView, /사람 추가/);
+    assert.match(peopleView, /사건 추가/);
+    assert.match(peopleView, /메모 추가/);
+    assert.match(peopleView, /빠른 수정/);
+    assert.match(peopleView, /관련 기록/);
+    assert.match(peopleView, /QUICK_EDIT_FIELDS|relationship/);
+
+    // appendKeyInteraction store path
+    let body = withSection;
+    const interactApp = {
+      vault: {
+        getAbstractFileByPath: (p) => (p === "PARA/RESOURCES/CONTACTS/정호성.md" ? { path: p } : null),
+        read: async () => body,
+        modify: async (_f, next) => { body = next; }
+      },
+      fileManager: {
+        processFrontMatter: async (_f, mutator) => {
+          // no-op for test body path
+        }
+      }
+    };
+    const added = await store.appendKeyInteraction(interactApp, "PARA/RESOURCES/CONTACTS/정호성.md", {
+      date: "2026-07-16",
+      insight: "전태현 청모"
+    });
+    assert.match(added.line, /전태현 청모/);
+    assert.match(body, /- \[\[2026-07-16\]\] 전태현 청모/);
+    assert.match(body, /last_contact:\s*2026-07-16/);
+
+    let memoBody = withMemoSection;
+    const memoApp = {
+      vault: {
+        getAbstractFileByPath: (p) => (p === "PARA/RESOURCES/CONTACTS/메모인.md" ? { path: p } : null),
+        read: async () => memoBody,
+        modify: async (_f, next) => { memoBody = next; }
+      }
+    };
+    const memoAdded = await store.appendMemo(memoApp, "PARA/RESOURCES/CONTACTS/메모인.md", {
+      text: "청모 통해 알게 됨"
+    });
+    assert.match(memoAdded.line, /청모 통해/);
+    assert.match(memoBody, /# 메모[\s\S]*- 청모 통해 알게 됨/);
+    assert.equal(/last_contact:\s*2026-07-16/.test(memoBody), false);
 
     // --- QuickAdd ---
     const quickadd = read(".obsidian/plugins/quickadd/data.json");

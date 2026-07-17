@@ -147,6 +147,8 @@ Object는 굳이 Domain으로 분류하지 않으며, Folder, Property, AI 추�
 - Knowledge (영구/문헌 노트 등)
 - Area
 
+People 운영 표면은 `HUB/60 Personal.md`(사람과 관계)이다. People Object는 관계 맥락을, 원본 Object는 사건·작업을 소유한다. `connections`/링크로 연결하며 본문을 복제하지 않는다. `last_contact` 공백은 오류가 아니다.
+
 레거시 읽기 호환(신규 생성 금지): `contact` (→ People), `project_note` / `project_family` (→ Project)
 
 ---

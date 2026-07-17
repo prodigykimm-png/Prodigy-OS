@@ -29,6 +29,7 @@ async function main() {
   });
   const text = textOf(container);
   for (const label of ["지식", "최근 지식", "판단 원칙", "영구 노트", "열기"]) assert.match(text, new RegExp(label));
+  assert.equal(typeof view.openBeside, "function");
   const css = container.children.find((item) => item.tag === "style").text;
   assert.match(css, /@media\(max-width:600px\)/);
   assert.match(css, /min-height:44px/);

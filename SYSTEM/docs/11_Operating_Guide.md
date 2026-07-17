@@ -682,18 +682,25 @@ AI는 다음을 해서는 안 된다:
 People는 **관계 기억**이다. CRM·주소록·영업 파이프라인이 아니다.
 
 ```text
-People Object     = 관계 맥락 (누가 이 사람인가, 무엇을 나눴는가)
+People Object     = 관계 맥락을 보존한다
+Personal Hub      = 사람을 찾고 관련 맥락을 이어 준다
 Project/Auction/Journal/Reading = 사건·작업의 원본 기록
 connections / 링크 = 둘을 잇는 연결
 ```
 
 - 내부 type: `people` · 표시 라벨: 사람
 - 저장 위치: `PARA/RESOURCES/CONTACTS`
-- 생성: Personal Hub 「사람 추가」 또는 QuickAdd 「사람 추가」 → 이름만 입력
-- 다른 Object에서 사람 연결: YAML `connections`에 `[[사람이름]]` (단일 공유 필드)
-- People 본문의 **핵심 상호작용**은 인덱스만 남긴다. 원본 노트 본문을 복사하지 않는다.
-- **연결된 Object** 섹션은 Dataview로 링크를 계산한다. Timeline/Follow-up Dashboard는 없다.
-- 레거시 `type: contact` 파일은 읽기 호환만 유지한다. 신규 생성은 항상 `people`.
+- 운영 표면: `HUB/60 Personal.md` (**사람과 관계**). 별도 People Hub 없음.
+- 생성: 「사람 추가」 또는 QuickAdd 「사람 추가」 → 이름만 입력 → 항상 `type: people`
+- 검색: 이름·관계·회사·역할 (로컬, 결정적). 필터: 전체 / 관계 / 회사 / 최근 연결
+- 카드: 관계 메타 · **최근 맥락**(연결된 원본 Object 최대 3개) · 사람 열기 / 관련 기록 보기
+- 링크는 `connections` 또는 wikilink. 원본 본문을 People에 복사하지 않는다.
+- 연결 미리보기는 **관련 기록**이다. 단순 링크를 “실제 대화/상호작용”으로 단정하지 않는다.
+- `last_contact`는 사용자가 명시했을 때만 표시한다. 파일 수정 시각으로 추정·경고하지 않는다.
+- **사건 추가** = `# 핵심 상호작용` 한 줄 인덱스. **메모 추가** = `# 메모` 장기 사실. **빠른 수정** = Property.
+- 이름 클릭 또는 「사람 열기」 = 옆에 노트 split 열기.
+- 레거시 `type: contact`는 읽기 호환(「레거시」 표시). 신규 생성·type 변경 없음.
+- 지속 영역(Areas)은 같은 Hub 하단 보조 섹션으로 유지한다.
 
 ## Personal vs Journal
 
