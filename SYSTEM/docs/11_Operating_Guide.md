@@ -943,15 +943,29 @@ Next Experiment
 - 그 경험이 판단이나 행동을 어떻게 바꿨는지 Change에 남긴다.
 - 다음 날 바로 시도할 작은 행동을 Next Experiment에 남긴다.
 
-## Weekly
+## Weekly (PRE MVP)
 
-```text
-prodigy review weekly
+```bash
+python3 SYSTEM/AI/Skills/prodigy-review/scripts/prodigy.py weekly --week YYYY-Www
 ```
 
-- Weekly Review는 Daily Reflection과 연결 Object를 기반으로 한다.
-- Evidence Package, PRE, Formatter는 운영 데이터가 충분할 때만 의미가 커진다.
-- Review Result는 AI의 제안이며 최종 판단은 사람이 한다.
+PRE is an **internal Review Engine**, not a Workspace / Object / Dashboard.
+
+```text
+Daily (ISO week, max 7)
+  → Evidence Package
+  → Pattern Detection (≥3 contentful Dailies)
+  → Suggested Principles (status: pending only)
+  → Weekly Review Draft
+```
+
+- Reads canonical Daily Reflection / Change / Next Experiment sections only.
+- Every pattern and principle keeps **source evidence refs** (provenance).
+- If fewer than 3 contentful Dailies: **Not enough evidence.** — no fabricated patterns.
+- Contradictory signals are kept on both sides (never averaged).
+- Outputs land under `SYSTEM/AI/Skills/prodigy-review/runs/<week>/` as draft artifacts.
+- **Never** auto-creates Knowledge, approves principles, or rewrites Daily / Object notes.
+- Human reviews the draft and decides every principle.
 
 ## Monthly
 
@@ -1009,7 +1023,8 @@ Daily:
 
 PRE:
 
-- Evidence-based review
+- Evidence Package → patterns → pending principles → Weekly draft
+- No PRE Workspace / PRE Object / auto Knowledge
 
 ## Workflow Drafting
 

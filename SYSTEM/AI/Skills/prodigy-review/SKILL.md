@@ -53,18 +53,41 @@ Before reporting success:
 3. Confirm source files were not modified by the builder.
 4. Report package path, preview path, counts, warnings, and known limitations.
 
-## PRE v1
+## PRE v1 (MVP)
 
 Run PRE only after an Evidence Package exists.
 
-PRE reads one Evidence Package JSON and writes:
+One-command weekly pipeline (from vault root):
 
-- Review Result JSON
-- Sibling Review Preview Markdown
+```bash
+python3 SYSTEM/AI/Skills/prodigy-review/scripts/prodigy.py weekly --week YYYY-Www
+```
 
-PRE must not read the Vault, scan for extra evidence, create Knowledge, approve Principles, modify Objects, or update Weekly Notes.
+Pipeline:
 
-PRE may report only evidence-backed findings, changes, experiments, temporary pending suggestions, next-week direction, limitations, and references.
+```text
+Daily (ISO week, max 7)
+  → Evidence Package JSON
+  → PRE Review Result (patterns + pending principles)
+  → Formatter Weekly View
+  → MVP Draft Markdown (Weekly Summary / Patterns / Principles / Evidence)
+```
+
+Outputs under `SYSTEM/AI/Skills/prodigy-review/runs/<week>/` (not a PRE Workspace/Object):
+
+- `weekly-learning-*.json` — Evidence Package
+- `weekly-review-*.json` — Review Result
+- `weekly-review-*-draft.md` — human-facing draft
+- `weekly-workspace-view-*.md` — formatted view
+- `pipeline.log` — scan / extract / pattern / principle counts
+
+PRE rules:
+
+- Reads Evidence Package only (no vault scan in PRE step).
+- Pattern generation requires **≥3 Daily notes with content**; otherwise: `Not enough evidence.`
+- Every pattern/principle includes evidence refs (provenance).
+- Principles are always `status: pending` — never auto-approved, never applied.
+- Must not create Knowledge, approve Principles, modify Objects, or rewrite Weekly journal notes.
 
 ## Formatter v1
 

@@ -60,12 +60,17 @@ def principles(values: Json) -> list[str]:
 
 def render_weekly_view(review: dict[str, Json]) -> str:
     validate_review(review)
-    lines = ["# Weekly Review", "", "## Summary", "", text(review["summary"]), ""]
+    # Existing headings + MVP aliases (Observed Patterns / Evidence References)
+    lines = ["# Weekly Review", "", "## Weekly Summary", "", text(review["summary"]), ""]
+    # Keep "## Summary" alias for older consumers/tests
+    lines.extend(["## Summary", "", text(review["summary"]), ""])
+    lines.extend(titled_items("Observed Patterns", review["findings"], "reason"))
     lines.extend(titled_items("Key Findings", review["findings"], "reason"))
     lines.extend(titled_items("Meaningful Changes", review["meaningful_changes"], "reason"))
     lines.extend(titled_items("Experiment Review", review["experiments"], "description"))
     lines.extend(principles(review["suggested_principles"]))
     lines.extend(section_list("Next Week Direction", review["next_week_direction"]))
     lines.extend(section_list("Limitations", review["limitations"]))
+    lines.extend(section_list("Evidence References", review["references"]))
     lines.extend(section_list("References", review["references"]))
     return "\n".join(lines).rstrip() + "\n"

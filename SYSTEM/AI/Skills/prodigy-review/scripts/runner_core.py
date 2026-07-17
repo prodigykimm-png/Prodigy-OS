@@ -121,12 +121,26 @@ def run_weekly(vault: Path, raw_week: str | None, mode: PipelineMode) -> Pipelin
         return PipelineResult("validate_only", paths, log_lines, validation, "")
     evidence = package(vault, period)
     write_evidence(paths, evidence)
+    coverage = evidence.get("coverage") if isinstance(evidence, dict) else {}
+    daily_scanned = int(coverage.get("daily_scanned", coverage.get("daily_total", 0)) or 0) if isinstance(coverage, dict) else 0
+    daily_used = int(coverage.get("daily_used", 0) or 0) if isinstance(coverage, dict) else 0
     log_lines.append("Evidence Package Generated")
+    log_lines.append(f"Daily scanned: {daily_scanned or len(evidence.get('primary_evidence') or [])}")
+    log_lines.append(f"Evidence extracted: {daily_used}")
+    if isinstance(evidence.get("warnings"), list) and evidence["warnings"]:
+        log_lines.append(f"Warnings: {len(evidence['warnings'])}")
     review = generate_review(evidence)
     write_outputs(review, paths.review_json)
+    stats = review.get("pre_stats") if isinstance(review, dict) else {}
+    if isinstance(stats, dict):
+        log_lines.append(f"Patterns found: {stats.get('patterns_found', 0)}")
+        log_lines.append(f"Principles proposed: {stats.get('principles_proposed', 0)}")
+        if not stats.get("enough_evidence", True):
+            log_lines.append("Not enough evidence for pattern generation")
     log_lines.append("PRE Completed")
     paths.weekly_view.write_text(render_weekly_view(review), encoding="utf-8")
     log_lines.append("Formatter Completed")
+    log_lines.append(f"Weekly draft: {paths.review_json.with_name(paths.review_json.stem + '-draft.md')}")
     operation_warning = ""
     try:
         final_operation_report = build_operation_report(vault)

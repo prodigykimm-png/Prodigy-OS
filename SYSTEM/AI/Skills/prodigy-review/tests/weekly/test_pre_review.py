@@ -30,14 +30,27 @@ def main() -> int:
         subprocess.run([sys.executable, str(PRE_SCRIPT), "--input", str(evidence_path), "--output", str(review_path)], check=True, capture_output=True, text=True, encoding="utf-8")
         actual = json.loads(review_path.read_text(encoding="utf-8"))
         preview = review_path.with_suffix(".md").read_text(encoding="utf-8")
+        draft = review_path.with_name(review_path.stem + "-draft.md")
+        assert draft.exists()
+        draft_text = draft.read_text(encoding="utf-8")
 
     expected = json.loads(EXPECTED.read_text(encoding="utf-8"))
-    assert actual == expected
+    # Compare without requiring exact pre_stats if missing in older expected
+    for key in expected:
+        if key == "pre_stats":
+            continue
+        assert actual[key] == expected[key], key
+    assert actual.get("pre_stats", {}).get("enough_evidence") is False
     assert "# Weekly Review Preview" in preview
     assert "## Suggested Principles" in preview
     assert "No repeated pattern identified." in preview
+    assert "Not enough evidence." in actual["summary"] or "Not enough evidence." in actual["limitations"]
     assert actual["suggested_principles"] == []
     assert actual["experiments"][0]["evidence_refs"] == ["daily-2026-07-13"]
+    assert "# Weekly Summary" in draft_text
+    assert "# Observed Patterns" in draft_text
+    assert "# Suggested Principles" in draft_text
+    assert "# Evidence References" in draft_text
     return 0
 
 
