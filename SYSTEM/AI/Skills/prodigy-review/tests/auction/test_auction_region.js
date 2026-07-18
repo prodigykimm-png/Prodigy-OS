@@ -52,6 +52,14 @@ function main() {
   assert.match(skill, /region_sigungu/);
   assert.match(skill, /pending/);
 
+  const researchSkill = fs.readFileSync(
+    path.join(ROOT, ".opencode/skills/prodigy-auction-region-research/SKILL.md"),
+    "utf8"
+  );
+  assert.match(researchSkill, /prodigy-auction-region-research/);
+  assert.match(researchSkill, /region_sigungu/);
+  assert.match(researchSkill, /pending/);
+
   const hub = fs.readFileSync(path.join(ROOT, "HUB/10 Auction.md"), "utf8");
   assert.match(hub, /auction-region-core\.js/);
 

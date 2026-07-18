@@ -65,6 +65,7 @@ PARA/RESOURCES/Auction Regions/{시도}-{시군구}.md
 
 - Auction 카드 **지역** 버튼 → 해당 노트 열기/생성
 - 딥리서치·임장 관찰은 지역 노트에 축적 (AI 초안은 pending → 사람 승인)
+- **시장 지표 스냅샷** 표(매매·전세가율·입주·낙찰가율·인구 순위 등)는 서술과 분리해 두고, 출처·기준일 있는 값만 채운다
 - 물건 AI 브리핑: Claudian/OpenCode 스킬 `prodigy-auction-brief`
   (활성 경매 노트 + 매칭 지역 노트 → 채팅 초안, 입찰가 확정 금지)
 
