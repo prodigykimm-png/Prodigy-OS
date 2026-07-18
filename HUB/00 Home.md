@@ -3,6 +3,7 @@ cssclasses:
   - hide-properties_editing
   - hide-properties_reading
 ---
+
 ```dataviewjs
 window.obsidian = obsidian;
 window.app = app;

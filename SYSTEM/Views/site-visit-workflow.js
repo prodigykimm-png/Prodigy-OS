@@ -128,11 +128,37 @@
         section.createEl("p", { text: "물건 유형이 지정되지 않아 공통 항목만 표시합니다.", attr: { style: "color: var(--text-muted); font-size: 0.85em; margin: 6px 0;" } });
         return;
       }
+      if (!this.state.checklistNotes || typeof this.state.checklistNotes !== "object") {
+        this.state.checklistNotes = {};
+      }
+      const ratings = [
+        ["high", "상"],
+        ["medium", "중"],
+        ["low", "하"],
+        ["na", "해당 없음"]
+      ];
       for (const label of items) {
-        const row = section.createEl("div", { attr: { style: "display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--background-modifier-border);" } });
-        row.createEl("span", { text: workflow().labelFor(label), attr: { style: "font-size: 0.9em;" } });
-        const controls = row.createEl("div", { attr: { style: "display: flex; gap: 4px; flex-shrink: 0;" } });
-        [["unchecked", "미확인"], ["checked", "확인"], ["na", "해당 없음"]].forEach(([value, text]) => {
+        const block = section.createEl("div", {
+          attr: {
+            style: "padding: 8px 0; border-bottom: 1px solid var(--background-modifier-border);"
+          }
+        });
+        const row = block.createEl("div", {
+          attr: {
+            style: "display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;"
+          }
+        });
+        row.createEl("span", {
+          text: workflow().labelFor(label),
+          attr: { style: "font-size: 0.9em; font-weight: 650;" }
+        });
+        const controls = row.createEl("div", {
+          attr: { style: "display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap;" }
+        });
+        const current = workflow().normalizeRating
+          ? workflow().normalizeRating(this.state.checklist[label])
+          : this.state.checklist[label];
+        ratings.forEach(([value, text]) => {
           const button = this.button(controls, text, async () => {
             this.captureText();
             this.state.checklist[label] = value;
@@ -140,9 +166,27 @@
               await this.persist();
               this.render();
             } catch (_) {}
-          }, this.state.checklist[label] === value);
+          }, current === value);
           button.setAttr("aria-label", `${workflow().labelFor(label)}: ${text}`);
         });
+        const memo = block.createEl("input", {
+          attr: {
+            type: "text",
+            placeholder: "한 줄 메모 (선택)",
+            style: "width: 100%; margin-top: 6px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--background-modifier-border); background: var(--background-primary); color: var(--text-normal); font-size: 0.84em; box-sizing: border-box;"
+          }
+        });
+        memo.value = String((this.state.checklistNotes && this.state.checklistNotes[label]) || "");
+        memo.oninput = () => {
+          if (!this.state.checklistNotes) this.state.checklistNotes = {};
+          this.state.checklistNotes[label] = memo.value;
+        };
+        memo.onblur = async () => {
+          this.captureText();
+          if (!this.state.checklistNotes) this.state.checklistNotes = {};
+          this.state.checklistNotes[label] = String(memo.value || "").trim();
+          try { await this.persist(); } catch (_) {}
+        };
       }
     }
 
@@ -249,7 +293,10 @@
     async finish() {
       this.state.notes = String(this.noteInput?.value || "").split("\n").map((value) => value.trim()).filter(Boolean);
       this.state.unexpected = String(this.unexpectedInput?.value || "").split("\n").map((value) => value.trim()).filter(Boolean);
-      if (!workflow().isComplete(this.state)) { notify("미확인 항목을 모두 확인하거나 해당 없음으로 표시해주세요."); return; }
+      if (!workflow().isComplete(this.state)) {
+        notify("모든 항목에 상/중/하/해당 없음을 선택해주세요.");
+        return;
+      }
       this.state.finishedAt = new Date().toISOString();
       const labels = Object.fromEntries([...workflow().commonItems, ...Object.values(workflow().specificItems).flat()].map((value) => [value, workflow().labelFor(value)]));
       const report = workflow().buildReport(this.state, labels, today());
@@ -274,6 +321,10 @@
     captureText() {
       this.state.notes = String(this.noteInput?.value || "").split("\n").map((value) => value.trim()).filter(Boolean);
       this.state.unexpected = String(this.unexpectedInput?.value || "").split("\n").map((value) => value.trim()).filter(Boolean);
+      // Per-item memos are bound on the live inputs; ensure object exists
+      if (!this.state.checklistNotes || typeof this.state.checklistNotes !== "object") {
+        this.state.checklistNotes = {};
+      }
     }
 
     onClose() { this.contentEl.empty(); }

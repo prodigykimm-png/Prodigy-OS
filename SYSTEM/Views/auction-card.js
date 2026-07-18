@@ -233,6 +233,27 @@ window.renderAuctionCard = function(p, container) {
       attr: { style: 'font-size: 0.76em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
     });
     detailRow1.createEl('span', { text: `📍 ${regionText}` });
+    // Region knowledge note (uses region_sido + region_sigungu)
+    if (window.AuctionRegionCore && (p.region_sido || p.region_sigungu)) {
+      const regionBtn = detailRow1.createEl('button', {
+        text: '지역',
+        attr: {
+          type: 'button',
+          class: 'action-btn',
+          style: 'font-size: 0.72em; padding: 1px 6px; min-height: 0; cursor: pointer;',
+          title: '지역 지식 노트 열기/만들기'
+        }
+      });
+      regionBtn.onclick = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        try {
+          await window.AuctionRegionCore.openOrCreateRegionNote(app, p);
+        } catch (error) {
+          if (window.Notice) new Notice(error.message || String(error));
+        }
+      };
+    }
     detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     detailRow1.createEl('span', { text: p.property_type || "용도 미정" });
 

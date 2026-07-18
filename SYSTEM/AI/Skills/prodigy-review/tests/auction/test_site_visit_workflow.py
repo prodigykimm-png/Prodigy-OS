@@ -24,20 +24,22 @@ def test_site_visit_state_is_internal_and_report_preserves_properties():
         "const api = window.prodigySiteVisit;",
         f"const before = {json.dumps(before)};",
         "const state = api.createState('아파트');",
-        "state.checklist.Environment = 'checked';",
+        "state.checklist.Environment = 'high';",
         "state.checklist['Building Condition'] = 'na';",
+        "state.checklistNotes = { Environment: '대로변 양호' };",
         "state.notes = ['마커 <!-- PRODIGY_SITE_VISIT_REPORT_END --> 와 주석 --> 확인'];",
         "const withState = api.updateStateInContent(before, state);",
         "const report = api.buildReport(state, Object.fromEntries(api.commonItems.map((x) => [x, x])), '2026-07-15');",
         "const after = api.completeVisitInContent(withState, state, report);",
         "const completedWithNa = api.createState('');",
         "Object.keys(completedWithNa.checklist).forEach((key) => { completedWithNa.checklist[key] = 'na'; });",
-        "console.log(JSON.stringify({complete: api.isComplete(state), completedWithNa: api.isComplete(completedWithNa), progress: api.progress(state), propertiesUnchanged: after.includes('status: bidding') && after.includes('site_visit_date:'), existingContentPreserved: after.includes('Existing note.'), reportInserted: after.includes('## 현장 방문 요약') && after.includes('### 예상 밖 발견') && after.includes('### 사진'), stateIntact: api.readState(after).notes[0].includes('-->'), encodedState: after.includes('v1:%7B'), escapedReport: after.includes('&lt;!-- PRODIGY_SITE_VISIT_REPORT_END --&gt;'), reportEndCount: (after.match(/<!-- PRODIGY_SITE_VISIT_REPORT_END -->/g) || []).length, duplicateReport: api.updateReportInContent(after, report).match(/PRODIGY_SITE_VISIT_REPORT_START/g).length}));",
+        "console.log(JSON.stringify({complete: api.isComplete(state), completedWithNa: api.isComplete(completedWithNa), progress: api.progress(state), propertiesUnchanged: after.includes('status: bidding') && after.includes('site_visit_date:'), existingContentPreserved: after.includes('Existing note.'), reportInserted: after.includes('## 현장 방문 요약') && after.includes('### 예상 밖 발견') && after.includes('### 사진') && after.includes('### 항목 메모'), stateIntact: api.readState(after).notes[0].includes('-->'), encodedState: after.includes('v1:%7B'), escapedReport: after.includes('&lt;!-- PRODIGY_SITE_VISIT_REPORT_END --&gt;'), reportEndCount: (after.match(/<!-- PRODIGY_SITE_VISIT_REPORT_END -->/g) || []).length, duplicateReport: api.updateReportInContent(after, report).match(/PRODIGY_SITE_VISIT_REPORT_START/g).length, memoInReport: after.includes('대로변 양호')}));",
     ])
     result = run_node(script)
     assert result["complete"] is False
     assert result["completedWithNa"] is True
     assert result["progress"]["done"] == 2
+    assert result["memoInReport"] is True
     assert result["propertiesUnchanged"] is True
     assert result["existingContentPreserved"] is True
     assert result["reportInserted"] is True
@@ -114,21 +116,24 @@ def test_property_type_change_reconciles_checklist_without_losing_observations()
         f"eval(require('fs').readFileSync({json.dumps(str(DATA_SCRIPT))}, 'utf8'));",
         "const api = window.prodigySiteVisit;",
         "const state = api.createState('아파트');",
-        "state.checklist.Environment = 'checked';",
-        "state.checklist['Unit Layout'] = 'checked';",
+        "state.checklist.Environment = 'high';",
+        "state.checklist['Unit Layout'] = 'medium';",
+        "state.checklistNotes = { Environment: '채광 좋음' };",
         "state.notes = ['도로 소음'];",
         "const next = api.reconcileState(state, '토지');",
         "console.log(JSON.stringify({",
         "  commonState: next.checklist.Environment,",
         "  oldSpecificRemoved: !Object.hasOwn(next.checklist, 'Unit Layout'),",
         "  newSpecificAdded: next.checklist['Road Access'],",
+        "  memoPreserved: next.checklistNotes.Environment,",
         "  notes: next.notes",
         "}));",
     ])
     result = run_node(script)
-    assert result["commonState"] == "checked"
+    assert result["commonState"] == "high"
     assert result["oldSpecificRemoved"] is True
-    assert result["newSpecificAdded"] == "unchecked"
+    assert result["newSpecificAdded"] == "unset"
+    assert result["memoPreserved"] == "채광 좋음"
     assert result["notes"] == ["도로 소음"]
 
 
@@ -152,9 +157,12 @@ def test_field_companion_ui_uses_korean_labels_and_internal_storage():
     data_source = DATA_SCRIPT.read_text(encoding="utf-8")
     for label in ["공통 현장 체크리스트", "물건 유형별 체크리스트", "짧은 현장 메모", "예상 밖 발견", "현장 방문 완료"]:
         assert label in workflow_source
-    for state_label in ["미확인", "확인", "해당 없음"]:
+    for state_label in ["상", "중", "하", "해당 없음"]:
         assert state_label in workflow_source
+    assert "한 줄 메모" in workflow_source
+    assert "checklistNotes" in workflow_source
     assert "PRODIGY_SITE_VISIT_STATE" in data_source
+    assert "normalizeRating" in data_source
     assert "processFrontMatter" not in workflow_source
 
 

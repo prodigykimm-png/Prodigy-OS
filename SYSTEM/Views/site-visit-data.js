@@ -4,6 +4,17 @@
   const REPORT_START = "<!-- PRODIGY_SITE_VISIT_REPORT_START -->";
   const REPORT_END = "<!-- PRODIGY_SITE_VISIT_REPORT_END -->";
 
+  // Rating: unset | high | medium | low | na
+  // Legacy: unchecked → unset, checked → medium, na → na
+  const RATING_VALUES = ["unset", "high", "medium", "low", "na"];
+  const RATING_LABELS = {
+    unset: "미평가",
+    high: "상",
+    medium: "중",
+    low: "하",
+    na: "해당 없음"
+  };
+
   const COMMON_ITEMS = [
     "Environment", "Building Condition", "Common Areas", "Accessibility",
     "Parking", "Noise", "Odor", "Photos", "Management Office",
@@ -42,30 +53,52 @@
   };
 
   const clone = (value) => JSON.parse(JSON.stringify(value));
-  const createState = (propertyType) => ({
-    version: 1,
-    propertyType: normalizeType(propertyType),
-    startedAt: new Date().toISOString(),
-    finishedAt: "",
-    checklist: Object.fromEntries([...COMMON_ITEMS, ...SPECIFIC_ITEMS[normalizeType(propertyType)]].map((label) => [label, "unchecked"])),
-    notes: [],
-    unexpected: [],
-    photos: []
-  });
+
+  const normalizeRating = (value) => {
+    const raw = String(value || "").toLowerCase().trim();
+    if (raw === "high" || raw === "상") return "high";
+    if (raw === "medium" || raw === "중" || raw === "checked") return "medium";
+    if (raw === "low" || raw === "하") return "low";
+    if (raw === "na" || raw === "해당없음" || raw === "해당 없음") return "na";
+    if (raw === "unset" || raw === "unchecked" || raw === "미확인" || raw === "미평가" || !raw) return "unset";
+    return RATING_VALUES.includes(raw) ? raw : "unset";
+  };
+
+  const createState = (propertyType) => {
+    const items = [...COMMON_ITEMS, ...SPECIFIC_ITEMS[normalizeType(propertyType)]];
+    return {
+      version: 2,
+      propertyType: normalizeType(propertyType),
+      startedAt: new Date().toISOString(),
+      finishedAt: "",
+      checklist: Object.fromEntries(items.map((label) => [label, "unset"])),
+      checklistNotes: Object.fromEntries(items.map((label) => [label, ""])),
+      notes: [],
+      unexpected: [],
+      photos: []
+    };
+  };
 
   const reconcileState = (state, propertyType) => {
     const normalizedType = normalizeType(propertyType);
     const expectedItems = [...COMMON_ITEMS, ...SPECIFIC_ITEMS[normalizedType]];
     const previous = state && typeof state === "object" ? state : createState(propertyType);
+    const prevNotes = previous.checklistNotes && typeof previous.checklistNotes === "object"
+      ? previous.checklistNotes
+      : {};
     const checklist = Object.fromEntries(expectedItems.map((item) => {
-      const value = previous.checklist?.[item];
-      return [item, ["unchecked", "checked", "na"].includes(value) ? value : "unchecked"];
+      return [item, normalizeRating(previous.checklist?.[item])];
+    }));
+    const checklistNotes = Object.fromEntries(expectedItems.map((item) => {
+      const note = prevNotes[item];
+      return [item, note == null ? "" : String(note)];
     }));
     return {
       ...previous,
-      version: 1,
+      version: 2,
       propertyType: normalizedType,
       checklist,
+      checklistNotes,
       notes: Array.isArray(previous.notes) ? previous.notes : [],
       unexpected: Array.isArray(previous.unexpected) ? previous.unexpected : [],
       photos: Array.isArray(previous.photos) ? previous.photos : []
@@ -131,18 +164,44 @@
     return items.length ? items.map((value) => `- ${reportText(value)}`).join("\n") : empty;
   };
 
+  const ratingLine = (state, labels, rating) => {
+    const notes = state.checklistNotes || {};
+    return Object.entries(state.checklist || {})
+      .filter(([, value]) => normalizeRating(value) === rating)
+      .map(([key]) => {
+        const label = labels[key] || key;
+        const memo = String(notes[key] || "").trim();
+        return memo ? `${label} (${RATING_LABELS[rating]}) — ${memo}` : `${label} (${RATING_LABELS[rating]})`;
+      });
+  };
+
   const buildReport = (state, labels, visitedAt) => {
-    const checked = Object.entries(state.checklist).filter(([, value]) => value === "checked").map(([key]) => labels[key] || key);
-    const na = Object.entries(state.checklist).filter(([, value]) => value === "na").map(([key]) => labels[key] || key);
+    const high = ratingLine(state, labels, "high");
+    const medium = ratingLine(state, labels, "medium");
+    const low = ratingLine(state, labels, "low");
+    const na = ratingLine(state, labels, "na");
     const findings = [...(state.notes || []), ...(state.unexpected || [])];
+    const itemMemos = Object.entries(state.checklistNotes || {})
+      .filter(([, note]) => String(note || "").trim())
+      .map(([key, note]) => `${labels[key] || key}: ${String(note).trim()}`);
+    const values = Object.values(state.checklist || {}).map(normalizeRating);
     return [
       "## 현장 방문 요약",
       "",
       "### 방문 일시",
       `- ${visitedAt}`,
       "",
-      "### 주요 확인 내용",
-      lines(checked.map((item) => `${item} 확인`)),
+      "### 주요 확인 내용 (상)",
+      lines(high),
+      "",
+      "### 보통 (중)",
+      lines(medium),
+      "",
+      "### 주의 (하)",
+      lines(low),
+      "",
+      "### 해당 없음",
+      lines(na),
       "",
       "### 중요 관찰",
       lines(findings),
@@ -151,8 +210,13 @@
       lines(state.unexpected, "- 추가 확인 필요 사항 없음"),
       "",
       "### 체크리스트 기록",
-      `- 확인: ${checked.length}개`,
-      `- 해당 없음: ${na.length}개`,
+      `- 상: ${values.filter((v) => v === "high").length}개`,
+      `- 중: ${values.filter((v) => v === "medium").length}개`,
+      `- 하: ${values.filter((v) => v === "low").length}개`,
+      `- 해당 없음: ${values.filter((v) => v === "na").length}개`,
+      "",
+      "### 항목 메모",
+      lines(itemMemos),
       "",
       "### 짧은 현장 메모",
       lines(state.notes),
@@ -165,11 +229,20 @@
     ].join("\n");
   };
 
+  const isRated = (value) => {
+    const rating = normalizeRating(value);
+    return rating !== "unset";
+  };
+
   window.prodigySiteVisit = {
     commonItems: clone(COMMON_ITEMS),
     specificItems: clone(SPECIFIC_ITEMS),
+    ratingValues: clone(RATING_VALUES),
+    ratingLabels: clone(RATING_LABELS),
     normalizeType,
+    normalizeRating,
     labelFor: (value) => ITEM_LABELS[value] || value,
+    ratingLabel: (value) => RATING_LABELS[normalizeRating(value)] || value,
     createState,
     reconcileState,
     readState,
@@ -179,10 +252,10 @@
     updateReportInContent,
     completeVisitInContent,
     buildReport,
-    isComplete: (state) => state && Object.values(state.checklist || {}).every((value) => value !== "unchecked"),
+    isComplete: (state) => state && Object.values(state.checklist || {}).every((value) => isRated(value)),
     progress: (state) => {
       const values = Object.values(state?.checklist || {});
-      return { done: values.filter((value) => value !== "unchecked").length, total: values.length };
+      return { done: values.filter((value) => isRated(value)).length, total: values.length };
     }
   };
 })();

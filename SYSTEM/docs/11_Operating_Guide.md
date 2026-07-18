@@ -49,6 +49,25 @@ Morning Brief
   - workspace view · operation report 는 내부/보조 산출물이다. Home의 **주간 복기 초안 열기**가 draft를 연다.
 - **Memory**: 사용자 단계가 아니다. Morning Brief가 내부에서 검증된 맥락을 읽을 수 있으나, Home에 Memory 워크플로를 노출하지 않는다.
 
+### Auction Region knowledge (지역 지식)
+
+경매 Object는 이미 지역 Property를 가진다.
+
+- `region_sido` · `region_sigungu` · `region_dong`
+
+지역 **지식 노트**는 별도 경로에 쌓는다 (새 Workspace 아님).
+
+```text
+PARA/RESOURCES/Auction Regions/{시도}-{시군구}.md
+```
+
+예: `PARA/RESOURCES/Auction Regions/인천광역시-계양구.md`
+
+- Auction 카드 **지역** 버튼 → 해당 노트 열기/생성
+- 딥리서치·임장 관찰은 지역 노트에 축적 (AI 초안은 pending → 사람 승인)
+- 물건 AI 브리핑: Claudian/OpenCode 스킬 `prodigy-auction-brief`
+  (활성 경매 노트 + 매칭 지역 노트 → 채팅 초안, 입찰가 확정 금지)
+
 어제 Reflection이 비어 있으면 Home에 **가벼운 알림**만 보여 준다. 워크플로를 막지 않는다.
 
 ---
@@ -1085,7 +1104,7 @@ AI의 도움을 받되, 최종 결정은 사람이 내린다.
 
 ---
 
-**Version:** 1.1
+**Version:** 1.2
 **Status:** Active
 **Depends on:**
 - SYSTEM/docs/00_Constitution.md

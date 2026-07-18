@@ -35,6 +35,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/site-visit-data.js");
   await loadProdigyScript("SYSTEM/Views/site-visit-workflow.js");
   if (window.prodigySiteVisitReady) await window.prodigySiteVisitReady;
+  await loadProdigyScript("SYSTEM/Views/auction-region-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-card.js");
   await loadProdigyScript("SYSTEM/Views/bid-calendar-core.js");
   await loadProdigyScript("SYSTEM/Views/bid-calendar-view.js");
