@@ -70,6 +70,11 @@
 
   function attentionFromEngineState(state) {
     if (!state || state.error) return null;
+    // Home policy: auction watching never surfaces in 주의가 필요함 (bidding only)
+    const wsKey = clean(state.workspace_key).toLowerCase();
+    const status = clean(state.canonical_status).toLowerCase();
+    if (wsKey === "auction" && status === "watching") return null;
+
     const level = clean(state.attention && state.attention.level).toLowerCase();
     if (level !== "critical" && level !== "high") return null;
 

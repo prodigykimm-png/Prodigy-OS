@@ -51,6 +51,15 @@ function main() {
           next_action: "관리비 확인",
           site_visit_date: "",
           auction_datetime: "2026-07-20"
+        },
+        {
+          type: "auction_case",
+          status: "watching",
+          path: "PARA/PROJECTS/Auction/watch-many.md",
+          name: "관심 물건 다수",
+          next_action: "",
+          site_visit_date: "",
+          auction_datetime: "2026-09-01"
         }
       ],
       reading: [
@@ -119,6 +128,22 @@ function main() {
       String(i.title).includes("운송") || String(i.object_path).includes("need.md")
     )
   );
+
+  // Auction watching must NOT surface on Home attention (bidding-only policy)
+  assert.equal(
+    brief.attention.items.some((i) =>
+      String(i.object_path).includes("watch-many") || String(i.title).includes("관심 물건")
+    ),
+    false
+  );
+  const watchState = brief.engine_states.find((s) =>
+    String(s.source_path || s.object_path || "").includes("watch-many")
+  );
+  if (watchState) {
+    assert.equal(watchState.canonical_status, "watching");
+    assert.notEqual(watchState.attention.level, "high");
+    assert.notEqual(watchState.attention.level, "critical");
+  }
 
   // Home risk mapping
   const homeRisks = ctxApi.toHomeRiskItems(brief);

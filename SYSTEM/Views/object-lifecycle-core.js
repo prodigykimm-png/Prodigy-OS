@@ -338,7 +338,10 @@
 
     if (!hasNextAction(source)) {
       if (!ObjectLifecycleRules.nonOperationalTypes.has(type)) {
-        return resultPayload(STATES.needs_action, REASONS.missing_next_action, warnings, meta);
+        // Auction watching = interest pool; only bidding is operational for attention
+        if (!(workspaceKey === "auction" && status === "watching")) {
+          return resultPayload(STATES.needs_action, REASONS.missing_next_action, warnings, meta);
+        }
       }
     }
 

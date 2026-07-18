@@ -162,6 +162,10 @@
       return { state: "needs_review", reason: "복기가 대기 중입니다.", warnings: [] };
     }
     if (!norm.has_next_action && ["doing", "active", "bidding", "watching", "reading", "planning"].includes(status)) {
+      // Auction watching = interest pool, not Home attention / operational gap
+      if (norm.workspace_key === "auction" && status === "watching") {
+        return { state: "healthy", reason: "관심 물건(watching)은 입찰 전 풀입니다.", warnings: [] };
+      }
       return { state: "needs_action", reason: "다음 행동이 없습니다.", warnings: [] };
     }
     return { state: "healthy", reason: "라이프사이클 경고 없음.", warnings: [] };
@@ -185,10 +189,11 @@
     }
 
     // Workspace-specific signals
+    // Home / attention: auction watching is interest pool only — bidding is operational
     if (norm.workspace_key === "auction") {
-      if (["watching", "bidding"].includes(norm.canonical_status) && !norm.has_next_action) {
+      if (norm.canonical_status === "bidding" && !norm.has_next_action) {
         state = HEALTH.needs_action;
-        reasons.push("활성 경매에 다음 행동이 없습니다.");
+        reasons.push("입찰 중 경매에 다음 행동이 없습니다.");
       }
       if (norm.canonical_status === "bidding" && !clean(norm.site_visit_date)) {
         if (state === HEALTH.healthy) state = HEALTH.needs_action;
@@ -252,8 +257,11 @@
     // Align with lifecycle when still healthy
     if (state === HEALTH.healthy) {
       if (life === "needs_action") {
-        state = HEALTH.needs_action;
-        reasons.push(lifecycle.reason || "다음 행동이 없습니다.");
+        // Do not promote auction watching into operational needs_action
+        if (!(norm.workspace_key === "auction" && norm.canonical_status === "watching")) {
+          state = HEALTH.needs_action;
+          reasons.push(lifecycle.reason || "다음 행동이 없습니다.");
+        }
       } else if (life === "needs_review") {
         state = HEALTH.needs_review;
         reasons.push(lifecycle.reason || "복기가 대기 중입니다.");
@@ -282,6 +290,10 @@
     }
     if (health.state === HEALTH.completed) {
       return { level: ATTENTION.none, reasons: ["완료되었거나 보관된 상태입니다."] };
+    }
+    // Watching auctions never elevate Home attention (bidding-only policy)
+    if (norm.workspace_key === "auction" && norm.canonical_status === "watching") {
+      return { level: ATTENTION.none, reasons: ["관심 물건(watching)은 주의 목록에 올리지 않습니다."] };
     }
 
     const overdue = health.reasons.some((r) => /overdue|마감일이 지났/i.test(r));

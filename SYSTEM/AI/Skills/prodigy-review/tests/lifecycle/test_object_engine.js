@@ -120,11 +120,32 @@ function main() {
       path: "PARA/PROJECTS/Auction/b.md",
       next_action: "",
       auction_datetime: "2026-07-17"
+    },
+    {
+      type: "auction_case",
+      status: "watching",
+      name: "관심만 보는 물건",
+      path: "PARA/PROJECTS/Auction/watch.md",
+      next_action: "",
+      auction_datetime: "2026-09-01"
     }
   ]);
   const primaryAuction = engine.selectPrimaryObject(auctions, "auction");
   assert.ok(primaryAuction);
   assert.ok(primaryAuction.title.includes("김포") || primaryAuction.primary_action.label.includes("관리비"));
+
+  // watching without next_action is not high attention (Home bidding-only)
+  const watching = auctions.find((s) => String(s.source_path || "").includes("watch.md"));
+  assert.ok(watching);
+  assert.equal(watching.canonical_status, "watching");
+  assert.notEqual(watching.attention.level, "high");
+  assert.notEqual(watching.attention.level, "critical");
+  assert.notEqual(watching.health.state, "needs_action");
+
+  // bidding without next_action still needs attention
+  const bidEmpty = auctions.find((s) => String(s.source_path || "").includes("b.md"));
+  assert.ok(bidEmpty);
+  assert.equal(bidEmpty.attention.level, "high");
 
   // --- Reading ---
   const reading = engine.evaluateObject({
