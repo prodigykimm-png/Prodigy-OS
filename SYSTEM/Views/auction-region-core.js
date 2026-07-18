@@ -2,9 +2,9 @@
   "use strict";
 
   /**
-   * Auction Region knowledge helpers.
-   * Reuses existing auction properties: region_sido, region_sigungu, region_dong.
-   * Does not invent a new Object type Workspace — region notes are knowledge notes.
+   * Real-estate region Resource helpers (internal type: auction_region).
+   * v1 key = region_sido + region_sigungu only (no dong on region notes).
+   * Metrics contract: SYSTEM/docs/Region_Property_Contract_v1.md
    */
 
   const REGION_ROOT = "PARA/RESOURCES/Auction Regions";
@@ -88,18 +88,35 @@
     const opts = options || {};
     const sido = normalizeSido(pageOrParts.region_sido || pageOrParts.sido);
     const sigungu = normalizeSigungu(pageOrParts.region_sigungu || pageOrParts.sigungu);
-    const dong = clean(pageOrParts.region_dong || pageOrParts.dong);
     const title = regionKey(pageOrParts) || "지역";
     const today = opts.today || new Date().toISOString().slice(0, 10);
+    // Keep in sync with SYSTEM/TEMPLATE/FORMAT/template_auction_region.md (Contract §6)
+    const regionKeyStr = `${sido}-${sigungu}`.replace(/^-|-$/g, "") || title;
     return [
       "---",
       "type: auction_region",
       `title: ${title}`,
       `region_sido: ${sido}`,
       `region_sigungu: ${sigungu}`,
-      `region_dong: ${dong}`,
       "status: active",
       `updated: ${today}`,
+      "metrics_as_of:",
+      "metrics_scope: sigungu",
+      "metrics_source:",
+      "source_as_of:",
+      "verification_status: unverified",
+      "housing_stock_basis: reb_public_price_apartment_units",
+      "sale_price_change_basis: reb_apt_price_index_yoy",
+      "sale_volume_3m:",
+      "housing_stock:",
+      "sale_turnover_rate:",
+      "sale_price_change_yoy:",
+      "jeonse_ratio:",
+      "move_in_12m:",
+      "move_in_24m:",
+      "households:",
+      "household_change_yoy:",
+      "auction_bid_rate_6m:",
       "cssclasses:",
       "  - hide-properties_editing",
       "  - hide-properties_reading",
@@ -107,59 +124,83 @@
       "",
       `# ${sido} ${sigungu}`.trim(),
       "",
-      "> 경매 지역 지식 노트 · 딥리서치·임장 관찰을 쌓고 물건 브리핑에 연결합니다.",
-      "> AI 초안은 pending으로 두고, 사람 승인 후 본문에 남깁니다.",
-      "> 시장 지표 표는 출처·기준일이 있을 때만 채운다. 모르면 비우거나 미확인.",
+      "> **부동산 지역 분석** Resource (시군구 only).",
+      "> 최신 수치 = **Frontmatter만** canonical. 아래 표는 표시용(한글 라벨).",
+      "> 시계열 = **지표 히스토리** JSON. dry-run Freeze 전 숫자 기입 금지.",
+      "> 어댑터: 히스토리 → FM → 표 순으로 한 실행에 원자 갱신.",
       "",
       "## 한 줄 요약",
       "",
+      "<!-- HUMAN: summary — monthly adapter must not edit -->",
+      "",
       "## 시장 지표 스냅샷",
       "",
-      "- 기준일:",
-      "- 비교 범위:",
-      "- 갱신 메모:",
+      "<!-- PRODIGY_REGION_METRICS_DISPLAY: regenerated from frontmatter; do not hand-edit values -->",
+      "| 지표 | 값 | 단위 | 비고 |",
+      "|------|-----|------|------|",
+      "| 매매 거래량(3개월) |  |  | 15134761 |",
+      "| 주택 재고(아파트·공시) |  | 호 | 15106861 |",
+      "| 매매 회전율 |  | 비율 | 파생 vol×4/stock |",
+      "| 매매가 변동 YoY |  | % | 15069821 원지수 |",
+      "| 전세가율 |  | % | 15143751 |",
+      "| 입주 예정 12개월 |  | 세대 | 15111714 |",
+      "| 입주 예정 24개월 |  | 세대 | 12 포함 · 기간 부족 시 비움 |",
+      "| 세대수 |  | 세대 | 15108071 |",
+      "| 세대수 변동 YoY |  | % | 15108071 |",
+      "| 경매 낙찰가율(6개월) |  | — | v1 비움 |",
       "",
-      "| 지표 | 값 | 순위 | 전월·전년 | 출처 |",
-      "|------|-----|------|-----------|------|",
-      "| 아파트 매매 거래량 (최근 3개월) |  |  |  |  |",
-      "| 매매가 변동 (YoY 또는 MoM) |  |  |  |  |",
-      "| 전세가율 |  |  |  |  |",
-      "| 전세 거래량 (최근 3개월) |  |  |  |  |",
-      "| 입주 예정 (향후 12개월) |  | — |  |  |",
-      "| 경매 낙찰가율 (아파트, 최근 6개월) |  |  |  |  |",
-      "| 인구 / 순이동 |  |  |  |  |",
+      "## 지표 히스토리",
       "",
-      "### 권역 분단 (같은 구 안)",
+      "<!-- PRODIGY_REGION_METRICS_HISTORY -->",
+      "```json",
+      "{",
+      '  "schema_version": 1,',
+      `  "region_key": "${regionKeyStr}",`,
+      '  "snapshots": []',
+      "}",
+      "```",
       "",
-      "| 권역 (동·역세권) | 성격 한 줄 | 경매 시 주의 |",
-      "|------------------|------------|--------------|",
-      "|  |  |  |",
-      "|  |  |  |",
+      "## 권역 분단 (같은 구 안)",
+      "",
+      "<!-- HUMAN:LOCKED -->",
+      "",
+      "| 권역 (동·역세권) | 성격 한 줄 | 주의 |",
+      "|------------------|------------|------|",
       "|  |  |  |",
       "",
       "## 시장·공급",
       "",
+      "<!-- HUMAN -->",
+      "",
       "## 교통·생활",
+      "",
+      "<!-- HUMAN -->",
       "",
       "## 리스크·주의",
       "",
+      "<!-- HUMAN -->",
+      "",
       "## 임장 포인트",
       "",
-      "## 출처·리서치",
+      "<!-- HUMAN:OWNED -->",
       "",
-      "<!-- 날짜 · 출처 · 핵심만 -->",
+      "## 출처·리서치",
       "",
       "## 연결 경매",
       "",
       "```dataview",
-      "TABLE status AS 상태, auction_datetime AS 기일, minimum_bid AS 최저가",
+      'TABLE status AS "상태", auction_datetime AS "기일", minimum_bid AS "최저가", address AS "주소", region_dong AS "동"',
       'FROM "PARA/PROJECTS/Auction"',
       'WHERE type = "auction_case"',
-      `WHERE region_sido = this.region_sido AND region_sigungu = this.region_sigungu`,
+      "WHERE region_sido = this.region_sido AND region_sigungu = this.region_sigungu",
       "SORT auction_datetime ASC",
       "```",
       "",
       "## 브리핑 메모",
+      "",
+      "## AI 조사 로그",
+      "",
+      "<!-- Evidence only — never write metric numbers here -->",
       ""
     ].join("\n");
   }
@@ -194,18 +235,21 @@
         body = await app.vault.read(templateFile);
         const sido = normalizeSido(pageOrParts.region_sido || pageOrParts.sido);
         const sigungu = normalizeSigungu(pageOrParts.region_sigungu || pageOrParts.sigungu);
-        const dong = clean(pageOrParts.region_dong || pageOrParts.dong);
         const title = regionKey(pageOrParts);
+        const key = regionKey(pageOrParts);
         const today = new Date().toISOString().slice(0, 10);
+        // v1: region Resource has no region_dong; fill region_key for history JSON
         body = body
           .replace(/<%\s*region_sido\s*%>/g, sido)
           .replace(/<%\s*region_sigungu\s*%>/g, sigungu)
-          .replace(/<%\s*region_dong\s*%>/g, dong)
+          .replace(/<%\s*region_dong\s*%>/g, "")
+          .replace(/<%\s*region_key\s*%>/g, key)
           .replace(/<%\s*title\s*%>/g, title)
           .replace(/<%\s*date\s*%>/g, today)
           .replace(/\{\{region_sido\}\}/g, sido)
           .replace(/\{\{region_sigungu\}\}/g, sigungu)
-          .replace(/\{\{region_dong\}\}/g, dong)
+          .replace(/\{\{region_dong\}\}/g, "")
+          .replace(/\{\{region_key\}\}/g, key)
           .replace(/\{\{title\}\}/g, title)
           .replace(/\{\{date\}\}/g, today);
       } else {

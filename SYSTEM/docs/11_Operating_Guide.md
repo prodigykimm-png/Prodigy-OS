@@ -49,25 +49,26 @@ Morning Brief
   - workspace view · operation report 는 내부/보조 산출물이다. Home의 **주간 복기 초안 열기**가 draft를 연다.
 - **Memory**: 사용자 단계가 아니다. Morning Brief가 내부에서 검증된 맥락을 읽을 수 있으나, Home에 Memory 워크플로를 노출하지 않는다.
 
-### Auction Region knowledge (지역 지식)
+### 부동산 지역 분석 (Region Resource)
 
-경매 Object는 이미 지역 Property를 가진다.
-
-- `region_sido` · `region_sigungu` · `region_dong`
-
-지역 **지식 노트**는 별도 경로에 쌓는다 (새 Workspace 아님).
+경매 Object는 지역 키를 가진다: `region_sido` · `region_sigungu` · `region_dong`.
+지역 **Resource**는 재사용 가능한 시장 근거·시계열이다 (내부 type: `auction_region`, 표시: 부동산 지역 분석).
 
 ```text
 PARA/RESOURCES/Auction Regions/{시도}-{시군구}.md
+계약: SYSTEM/docs/Region_Property_Contract_v1.md
 ```
 
-예: `PARA/RESOURCES/Auction Regions/인천광역시-계양구.md`
-
-- Auction 카드 **지역** 버튼 → 해당 노트 열기/생성
-- 딥리서치·임장 관찰은 지역 노트에 축적 (AI 초안은 pending → 사람 승인)
-- **시장 지표 스냅샷** 표(매매·전세가율·입주·낙찰가율·인구 순위 등)는 서술과 분리해 두고, 출처·기준일 있는 값만 채운다
-- 물건 AI 브리핑: Claudian/OpenCode 스킬 `prodigy-auction-brief`
-  (활성 경매 노트 + 매칭 지역 노트 → 채팅 초안, 입찰가 확정 금지)
+- Auction 카드 **지역** 버튼 → 노트 열기/생성
+- **시군구 Object only** (동은 Case·권역 표)
+- 계약 **Version 1.2.3 Draft**: 공식 어댑터. dry-run enum `PASS|BLOCKED|N/A`. **원본 재현 전 숫자 기입 금지**
+- **FM = 최신 canonical**, 본문 표 = 한글 표시(어댑터가 FM에서 재생성), 히스토리 = JSON 스냅샷
+- 히스토리: `snapshot_id` · 중복 시 replace · raw `SYSTEM/CACHE/region-metrics/` + sha256
+- `verification_status` 집계: 하나라도 unverified → unverified; 전부 verified → verified; 아니면 partial
+- 숫자·산식 = 코드. AI = Evidence only
+- `move_in_24m` (기간 부족 시 null). `auction_bid_rate_6m` v1 null
+- 상권·학군·호재 = 본문 Evidence
+- 물건 브리핑: `prodigy-auction-brief` (입찰가 확정 금지)
 
 어제 Reflection이 비어 있으면 Home에 **가벼운 알림**만 보여 준다. 워크플로를 막지 않는다.
 
@@ -83,7 +84,7 @@ Home을 열면 오늘 해야 할 일, 진행 중인 Object, Capture, Review가 �
 
 ### Home = Mission Control
 
-Home은 링크 모음이 아니다. **오늘 무엇을 할지 결정하는 Mission Control**이다.  
+Home은 링크 모음이 아니다. **오늘 무엇을 할지 결정하는 Mission Control**이다.
 화면 라벨은 **한글**이다 (`HUB/00 Home.md`).
 
 ```text
@@ -148,7 +149,7 @@ Home · Morning Brief · Launcher · Workspace
 
 ### Object Engine (공유 운영 지능)
 
-Object Engine은 **분류기가 아니다.**  
+Object Engine은 **분류기가 아니다.**
 OS 전역의 **운영 Object 지능**을 소유한다. Workspace UI는 자체 추론을 두지 않고 Engine을 소비한다.
 
 ```text
@@ -437,7 +438,7 @@ Reading Memory는 원본에서 만든 재구축 가능한 맥락이며 공식 Kn
 
 ### Reading Dashboard (카드 본체 + Runtime · Strategy 전력)
 
-Reading은 독서 트래커가 아니다. **판단 품질을 높이는 사고 워크플로**다.  
+Reading은 독서 트래커가 아니다. **판단 품질을 높이는 사고 워크플로**다.
 화면의 본체는 **기존 카드 대시보드**다. Runtime과 Strategy는 그 뒤에서 선택·질문을 공급한다.
 
 질문 하나: **오늘 무엇을 생각해야 하는가?**
@@ -676,7 +677,7 @@ Learning
 
 ### 프로그램 편집기
 
-이름·목표·주차·일차·운동·세트 편집. 저장 전 검증.  
+이름·목표·주차·일차·운동·세트 편집. 저장 전 검증.
 **버전 안전성**: Run 시작 시 스냅샷. 라이브러리 편집은 미래 Run에만 영향.
 
 ### Exercise Object
@@ -711,8 +712,8 @@ cue: "무릎이 발끝 밖으로 나가지 않게"
 
 ### 실행과 파생 상태
 
-완료 Session 기준 다음 Day 제안. 입력 중 Session은 자동 저장.  
-파생 JSON: `SYSTEM/AI/Memory/workout/`. 원본 Program 노트를 실행 중 덮어쓰지 않는다.  
+완료 Session 기준 다음 Day 제안. 입력 중 Session은 자동 저장.
+파생 JSON: `SYSTEM/AI/Memory/workout/`. 원본 Program 노트를 실행 중 덮어쓰지 않는다.
 Hub는 `WorkoutView.renderDashboard` 한 경로로 로드하며 `__workoutWorkspaceModel`을 공유한다.
 
 ---
