@@ -35,6 +35,12 @@ def assert_template_and_dashboard_removed_fields() -> None:
     # current_page may appear only as cleanup when saving progress, not as product UI
     assert "current_page" not in template
     assert "progress" in template
+    assert "| 다음 행동 |" in template
+    assert "`= this.next_action`" in template
+    assert "| next_action |" not in template
+    assert "# Status Control" not in template
+    assert "meta-bind-button" not in template
+    assert "BUTTON[r_" not in template
     assert "PROGRESS_STEPS" in card
     assert "fm.progress" in card
     assert "window.prodigyDisplay" in card

@@ -69,3 +69,8 @@ venv/
 # Logs
 *.log
 logs/
+
+# Local-only agent plugins / Claudian runtime (not repository-owned; may contain provider state)
+.claudian/
+.obsidian/plugins/claudian/
+.obsidian/plugins/realclaudian/
