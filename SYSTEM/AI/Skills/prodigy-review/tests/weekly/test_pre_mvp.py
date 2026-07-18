@@ -349,10 +349,11 @@ def test_draft_outputs_stable() -> None:
     )
     review = generate_review(package)
     draft = render_mvp_draft(review)
-    assert "# Weekly Summary" in draft
-    assert "# Observed Patterns" in draft
-    assert "# Suggested Principles" in draft
-    assert "# Evidence References" in draft
+    assert "한 주 요약" in draft or "Weekly Summary" in draft
+    assert "관찰된 패턴" in draft or "Observed Patterns" in draft
+    assert "원칙 후보" in draft or "Suggested Principles" in draft
+    assert "의미 있는 변화" in draft
+    assert "근거 노트" in draft or "Evidence References" in draft
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "weekly-review-test.json"
         write_outputs(review, out)

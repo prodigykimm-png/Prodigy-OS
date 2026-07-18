@@ -21,9 +21,9 @@ function main() {
   // --- Empty states ---
   const emptyModel = workspace.buildWorkspaceModel([], {});
   assert.equal(emptyModel.today.empty, true);
-  assert.equal(emptyModel.today.message, "진행 중인 독서가 없습니다.");
+  assert.match(emptyModel.today.message, /읽는 책|여기에 표시/);
   assert.equal(emptyModel.continue_reading.empty, true);
-  assert.equal(emptyModel.continue_reading.message, "진행 중인 독서가 없습니다.");
+  assert.match(emptyModel.continue_reading.message, /이어 읽을 책|읽는 중/);
   assert.equal(emptyModel.waiting_review.empty, true);
   assert.equal(emptyModel.waiting_review.message, "읽을 복기 대상이 없습니다.");
   assert.equal(emptyModel.knowledge_candidates.empty, true);
@@ -80,20 +80,35 @@ function main() {
   assert.ok(model.today.reason);
   assert.match(model.today.reason, /Runtime|독서|Object/);
 
-  // Continue Reading from Runtime continue_target
-  assert.equal(model.continue_reading.empty, false);
-  assert.ok(model.continue_reading.continue_target);
-  assert.match(model.continue_reading.title, /Atomic Habits/);
-  assert.ok(model.continue_reading.reason);
-  assert.ok(model.continue_reading.reason.length > 0);
+  // Continue strip: single active book → do not duplicate hero
+  assert.equal(model.continue_reading.empty, true);
+  assert.equal(model.continue_reading.single_hero, true);
+  assert.match(model.continue_reading.message, /다른 책|오늘의 독서/);
 
-  // Engine continue_target consistency (no re-rule)
+  // Engine continue_target still exists for Runtime; strip just hides hero dup
   const summary = engine.buildWorkspaceSummary(model.states, "reading", {});
   assert.ok(summary.continue_target);
-  assert.equal(
-    model.continue_reading.continue_target.object_path,
-    summary.continue_target.object_path
-  );
+  assert.match(summary.continue_target.object_path || summary.continue_target.label || "", /atomic|Atomic/i);
+
+  // Multi-book: strip shows other reading books, not the hero
+  const multiPages = pages.concat([
+    {
+      type: "reading",
+      status: "reading",
+      path: "PARA/PROJECTS/Reading/deep.md",
+      title: "Deep Work",
+      author: "Newport",
+      next_action: "Ch.2",
+      progress: 20
+    }
+  ]);
+  const multi = workspace.buildWorkspaceModel(multiPages, { session });
+  assert.equal(multi.today.empty, false);
+  assert.equal(multi.continue_reading.empty, false);
+  assert.equal(multi.continue_reading.hero_excluded, true);
+  assert.ok(Array.isArray(multi.continue_reading.items));
+  assert.ok(multi.continue_reading.items.every((it) => !/Atomic Habits/i.test(it.title || "")));
+  assert.ok(multi.continue_reading.items.some((it) => /Deep Work/i.test(it.title || "")));
 
   // Reading Guide — common + practical domain
   assert.equal(model.reading_guide.empty, false);
@@ -128,13 +143,15 @@ function main() {
     assert.ok(item.reason, "every review card must explain itself");
   });
 
-  // Continue focus path + next_action / progress on strip model
+  // Focus path remains hero; strip is empty (no hero duplicate)
   assert.equal(model.focus_path, "PARA/PROJECTS/Reading/atomic.md");
   assert.equal(model.continue_reading.focus_path, "PARA/PROJECTS/Reading/atomic.md");
-  assert.ok(model.continue_reading.next_action);
-  assert.match(String(model.continue_reading.next_action), /Ch\.3|읽기/);
-  assert.equal(model.continue_reading.progress, "50%");
-  assert.equal(model.continue_reading.progress_number, 50);
+  assert.equal(model.continue_reading.empty, true);
+  // Multi-book strip carries next_action / progress on non-hero items
+  assert.ok(multi.continue_reading.next_action || (multi.continue_reading.items && multi.continue_reading.items[0]));
+  if (multi.continue_reading.items && multi.continue_reading.items[0]) {
+    assert.ok(multi.continue_reading.items[0].object_path.includes("deep"));
+  }
 
   // Finish soon — high progress reading books
   const finishPages = pages.concat([{
@@ -194,9 +211,16 @@ function main() {
 
   // --- Explainability on Runtime-derived cards ---
   assert.ok(model.today.reason);
-  assert.ok(model.continue_reading.reason);
+  // Single-book continue is empty (no hero dup) but must explain why
+  assert.ok(model.continue_reading.message || model.continue_reading.reason);
   assert.ok(model.reading_guide.reason);
   assert.ok(model.waiting_review.items.every((i) => i.reason && String(i.reason).trim()));
+  // Multi-book strip items are explainable
+  if (multi.continue_reading.items) {
+    multi.continue_reading.items.forEach((it) => {
+      assert.ok(it.reason || it.title);
+    });
+  }
 
   // --- Unknown book_type: no silent guess → Generic Strategy ---
   const unknown = workspace.resolveStrategyDirect({ title: "Something", category: "자기계발" });
@@ -262,7 +286,7 @@ function main() {
   assert.match(readingHub, /reading-card\.js/);
   assert.match(readingHub, /renderReadingCard/);
   assert.match(readingHub, /이어 읽기|읽는 중/);
-  assert.match(readingHub, /진행 중인 독서가 없습니다/);
+  assert.match(readingHub, /이어 읽을 책|읽는 중|진행 중/);
   assert.match(readingHub, /읽을 복기 대상이 없습니다/);
   assert.match(readingHub, /오래 방치/);
   assert.match(readingHub, /완독 임박/);
@@ -273,7 +297,8 @@ function main() {
   assert.equal(/ReadingWorkspaceView\.renderWorkspace/.test(readingHub), false);
   assert.equal(readingHub.includes("reading-workspace-view.js"), false);
   assert.equal(workspace.EMPTY.knowledge, "지식 후보가 없습니다.");
-  assert.equal(workspace.EMPTY.continue, "진행 중인 독서가 없습니다.");
+  assert.match(workspace.EMPTY.continue, /이어 읽을 책/);
+  assert.match(workspace.EMPTY.today, /읽는 책|여기에 표시/);
   assert.equal(workspace.EMPTY.review, "읽을 복기 대상이 없습니다.");
   assert.equal(workspace.EMPTY.stale, "오래 방치된 독서가 없습니다.");
   assert.equal(workspace.EMPTY.finish, "완독 임박 책이 없습니다.");

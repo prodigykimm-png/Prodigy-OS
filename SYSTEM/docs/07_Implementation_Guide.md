@@ -552,6 +552,49 @@ AI는
 
 ---
 
+## Feature-only Git review (Vault hygiene)
+
+Vault worktrees are noisy. Feature commits must not mix personal notes, PRE runtime output, or unrelated deletions.
+
+### Before coding — status check
+
+```bash
+git status --short
+git diff --stat
+```
+
+Answer:
+
+* Which files belong to this feature?
+* Which modifications are unrelated (Home personal edits, deleted onboarding, …)?
+* Are personal notes included? (`DAILY/`, `PARA/` should be ignored)
+* Are generated outputs included? (`SYSTEM/AI/Skills/prodigy-review/runs/` is ignored)
+* Is a deleted file intentional product work?
+
+### Stage only feature paths
+
+Do **not** use broad `git add .` in a mixed Vault tree.
+
+```bash
+git add path/to/feature-file.js path/to/test-file.js
+git diff --cached
+git diff --cached --check
+```
+
+### Safe rules
+
+* Do not restore deleted files without a product decision
+* Do not commit personal Daily or PARA content
+* Do not mix `runs/` runtime output with product source
+* Do not rewrite Git history during a normal feature Sprint
+* Prefer explicit paths over wildcards
+
+### Personal history note
+
+Personal Daily/PARA paths may still appear in **past** commits. This guide does not rewrite history. Treat history rewrite as a separate, explicit security decision on public remotes.
+
+---
+
 # Final Statement
 
 Prodigy OS는

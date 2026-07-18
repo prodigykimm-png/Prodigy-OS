@@ -92,7 +92,7 @@ next_experiment: frontmatter 실험
   assert.match(homeSource, /외부 failures must never block Home|external failures must never block Home/i);
   // Mission Control surfaces (Korean product labels)
   assert.match(homeSource, /지금 무엇에 집중할까|home-mc-stack|Mission Control/);
-  assert.match(homeSource, /오늘의 집중|제안 Focus 승인/);
+  assert.match(homeSource, /오늘의 집중|첫 번째 제안 승인|이 제안 승인|오늘의 집중 제안/);
   assert.match(homeSource, /이어할 항목이 없습니다|오늘은 새 출발|이어하기/);
   assert.match(homeSource, /주의가 필요함|home-needs-attention|오늘은 주의할 Object가 없습니다/);
   assert.match(homeSource, /빠른 실행|새 Object|오늘 Daily|검색/);
@@ -109,7 +109,10 @@ next_experiment: frontmatter 실험
   assert.match(homeSource, /focusHints/);
   assert.match(homeSource, /home-compact|isCompactHome|home-secondary-fold/);
   assert.match(homeSource, /home-lifecycle-fold|객체 라이프사이클 · 접힘|Object Lifecycle · 접힘/);
-  assert.match(homeSource, /approved only|제안 Focus 승인|선택된 집중이 없습니다/);
+  assert.match(homeSource, /approved only|첫 번째 제안 승인|아직 제안된 집중|오늘의 집중 제안|주간 복기 초안 열기/);
+  assert.match(homeSource, /saveApprovedFocus/);
+  assert.equal(homeSource.includes("contenteditable"), false);
+  assert.match(homeSource, /주간 복기 초안 열기/);
   assert.match(homeHub, /journal-core\.js/);
   assert.match(homeHub, /journal-view\.js/);
 

@@ -29,6 +29,7 @@ class PipelinePaths:
     run_dir: Path
     evidence_json: Path
     review_json: Path
+    review_draft: Path
     weekly_view: Path
     review_inbox: Path
     readiness_report: Path
@@ -52,10 +53,13 @@ def default_week(today: date) -> WeekId:
 
 def pipeline_paths(vault: Path, week: WeekId) -> PipelinePaths:
     run_dir = vault / "SYSTEM" / "AI" / "Skills" / "prodigy-review" / "runs" / str(week)
+    review_json = run_dir / f"weekly-review-{week}.json"
     return PipelinePaths(
         run_dir=run_dir,
         evidence_json=run_dir / f"weekly-learning-{week}.json",
-        review_json=run_dir / f"weekly-review-{week}.json",
+        review_json=review_json,
+        # Primary human-facing PRE output
+        review_draft=run_dir / f"weekly-review-{week}-draft.md",
         weekly_view=run_dir / f"weekly-workspace-view-{week}.md",
         review_inbox=run_dir / "review-inbox.md",
         readiness_report=run_dir / "operational-readiness-report.md",
@@ -94,6 +98,24 @@ def render_summary(result: PipelineResult) -> str:
         lines.extend(["✓ Evidence Package", "✓ PRE", "✓ Formatter"])
         lines.append("! Operation Reports Warning" if result.operation_warning else "✓ Review Inbox")
     lines.append("Done." if result.status in {"completed", "dry_run", "validate_only"} else "Stopped.")
+    # Product hierarchy: one primary human path, internals secondary
+    if result.status == "completed":
+        draft = result.paths.review_draft
+        lines.extend(
+            [
+                "",
+                "Weekly Review generated successfully.",
+                "",
+                "Open:",
+                str(draft),
+                "",
+                "Internal artifacts:",
+                f"  workspace view: {result.paths.weekly_view}",
+                f"  operation report: {result.paths.readiness_report}",
+                f"  review inbox: {result.paths.review_inbox}",
+                f"  evidence package: {result.paths.evidence_json}",
+            ]
+        )
     return "\n".join(lines)
 
 
@@ -138,9 +160,23 @@ def run_weekly(vault: Path, raw_week: str | None, mode: PipelineMode) -> Pipelin
         if not stats.get("enough_evidence", True):
             log_lines.append("Not enough evidence for pattern generation")
     log_lines.append("PRE Completed")
-    paths.weekly_view.write_text(render_weekly_view(review), encoding="utf-8")
+    weekly_view_body = render_weekly_view(review)
+    # Demote workspace view: not the primary human Weekly Review
+    paths.weekly_view.write_text(
+        "\n".join(
+            [
+                "# Weekly Workspace View (internal)",
+                "",
+                "> 내부/고급 뷰입니다. 사람이 읽을 주간 복기는 같은 폴더의 `*-draft.md` 입니다.",
+                f"> Primary: `{paths.review_draft.name}`",
+                "",
+                weekly_view_body.lstrip(),
+            ]
+        ),
+        encoding="utf-8",
+    )
     log_lines.append("Formatter Completed")
-    log_lines.append(f"Weekly draft: {paths.review_json.with_name(paths.review_json.stem + '-draft.md')}")
+    log_lines.append(f"Primary Weekly Review draft: {paths.review_draft}")
     operation_warning = ""
     try:
         final_operation_report = build_operation_report(vault)

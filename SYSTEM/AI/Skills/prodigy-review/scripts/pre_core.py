@@ -718,19 +718,20 @@ def preview_markdown(review: dict[str, Json]) -> str:
 
 def render_mvp_draft(review: dict[str, Json]) -> str:
     """
-    Human-facing Weekly Review draft sections (presentation only).
+    Primary human-facing Weekly Review (presentation only).
     Does not modify Weekly journal notes or templates.
     """
     lines = [
-        "# Weekly Review Draft",
+        "# 주간 복기 초안 (Weekly Review Draft)",
         "",
-        "> PRE 초안 · 모든 원칙은 pending · 사람 승인 필요 · Knowledge 자동 생성 없음",
+        "> 사람이 읽을 **주 결과**입니다. 원칙은 모두 pending · 사람 승인 필요 · Knowledge 자동 생성 없음",
+        "> 내부 산출물(workspace view · operation report)은 보조 자료입니다.",
         "",
-        "# Weekly Summary",
+        "# 한 주 요약",
         "",
         str(review.get("summary") or ""),
         "",
-        "# Observed Patterns",
+        "# 관찰된 패턴",
         "",
     ]
     findings = review.get("findings")
@@ -743,21 +744,55 @@ def render_mvp_draft(review: dict[str, Json]) -> str:
             refs = item.get("evidence_refs") or []
             lines.append(f"## {title}")
             lines.append("")
-            lines.append("Why:")
+            lines.append("이유:")
             why_text = str(reason or "").strip()
             if why_text:
                 for why_line in why_text.splitlines():
                     lines.append(f"- {why_line.lstrip('·- ').strip()}" if why_line.strip() else "")
             if isinstance(refs, list) and refs:
-                lines.append(f"- Evidence: {', '.join(f'`{r}`' for r in refs)}")
-            support = item.get("supporting_sources")
-            if isinstance(support, list) and support:
-                lines.append(f"- Sources: {', '.join(str(s) for s in support)}")
+                lines.append(f"- 근거: {', '.join(f'`{r}`' for r in refs)}")
             lines.append("")
     else:
-        lines.extend(["- Not enough evidence or no repeated pattern.", ""])
+        lines.extend(["- 반복 패턴이 충분히 확인되지 않았습니다.", ""])
 
-    lines.extend(["# Suggested Principles", ""])
+    lines.extend(["# 의미 있는 변화", ""])
+    changes = review.get("meaningful_changes")
+    if isinstance(changes, list) and changes:
+        for item in changes:
+            if not isinstance(item, dict):
+                continue
+            title = item.get("title") or "변화"
+            reason = item.get("reason") or ""
+            refs = item.get("evidence_refs") or []
+            lines.append(f"## {title}")
+            lines.append("")
+            if reason:
+                lines.append(f"- {reason}")
+            if isinstance(refs, list) and refs:
+                lines.append(f"- 근거: {', '.join(f'`{r}`' for r in refs)}")
+            lines.append("")
+    else:
+        lines.extend(["- 기록된 변화가 없습니다.", ""])
+
+    lines.extend(["# 다음 실험", ""])
+    experiments_list = review.get("experiments")
+    if isinstance(experiments_list, list) and experiments_list:
+        for item in experiments_list:
+            if not isinstance(item, dict):
+                continue
+            title = item.get("title") or item.get("description") or "실험"
+            desc = item.get("description") or ""
+            refs = item.get("evidence_refs") or []
+            lines.append(f"- **{title}**")
+            if desc and desc != title:
+                lines.append(f"  - {desc}")
+            if isinstance(refs, list) and refs:
+                lines.append(f"  - 근거: {', '.join(f'`{r}`' for r in refs)}")
+    else:
+        lines.append("- 없음")
+    lines.append("")
+
+    lines.extend(["# 원칙 후보 (승인 필요)", ""])
     principles = review.get("suggested_principles")
     if isinstance(principles, list) and principles:
         for item in principles:
@@ -769,21 +804,31 @@ def render_mvp_draft(review: dict[str, Json]) -> str:
             status = item.get("status") or item.get("decision") or "pending"
             lines.append(f"## {statement}")
             lines.append("")
-            lines.append(f"- Reason: {reason}")
+            if reason:
+                lines.append(f"- 이유: {reason}")
             if isinstance(refs, list) and refs:
-                lines.append(f"- Supporting Evidence: {', '.join(f'`{r}`' for r in refs)}")
-            lines.append(f"- Status: `{status}` (human approval required)")
+                lines.append(f"- 근거: {', '.join(f'`{r}`' for r in refs)}")
+            lines.append(f"- 상태: `{status}` (사람 승인 필요)")
             lines.append("")
     else:
-        lines.extend(["- None (pending principles only when patterns have support).", ""])
+        lines.extend(["- 없음 (패턴이 있을 때만 제안).", ""])
 
-    lines.extend(["# Evidence References", ""])
+    direction = review.get("next_week_direction")
+    lines.extend(["# 다음 주 방향", ""])
+    if isinstance(direction, list) and direction:
+        for line in direction:
+            lines.append(f"- {line}")
+    else:
+        lines.append("- 없음")
+    lines.append("")
+
+    lines.extend(["# 근거 노트", ""])
     refs = review.get("references")
     if isinstance(refs, list) and refs:
         for ref in refs:
             lines.append(f"- `{ref}`")
     else:
-        lines.append("- None")
+        lines.append("- 없음")
     lines.append("")
     return "\n".join(lines)
 

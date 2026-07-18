@@ -50,10 +50,12 @@ def main() -> int:
     # Product polish: change/experiment titles are excerpts, not fixed labels
     assert actual["meaningful_changes"][0]["title"] != "기록된 변화" or True
     assert "다음 한 가지" in actual["next_week_direction"][0]
-    assert "# Weekly Summary" in draft_text
-    assert "# Observed Patterns" in draft_text
-    assert "# Suggested Principles" in draft_text
-    assert "# Evidence References" in draft_text
+    assert "주간 복기 초안" in draft_text or "Weekly Review Draft" in draft_text
+    assert "한 주 요약" in draft_text or "Weekly Summary" in draft_text
+    assert "관찰된 패턴" in draft_text or "Observed Patterns" in draft_text
+    assert "원칙 후보" in draft_text or "Suggested Principles" in draft_text
+    assert "근거 노트" in draft_text or "Evidence References" in draft_text
+    assert "의미 있는 변화" in draft_text
     return 0
 
 

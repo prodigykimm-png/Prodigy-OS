@@ -146,6 +146,11 @@
         if (obj.path && options && options.app) openPath(options.app, obj.path);
       }
     });
+    makeButton(actions, "책 열기", {
+      onClick: () => {
+        if (obj.path && options && options.app) openPath(options.app, obj.path);
+      }
+    });
     return box;
   }
 
@@ -153,27 +158,61 @@
     const L = labels();
     const box = sectionBox(container, L.continue);
     if (!cont || cont.empty) {
-      emptyLine(box, (cont && cont.message) || "진행 중인 독서가 없습니다.");
+      emptyLine(
+        box,
+        (cont && cont.message)
+          || (coreApi() && coreApi().EMPTY.continue)
+          || "이어 읽을 책이 없습니다. 읽는 중인 책을 선택하세요."
+      );
       return box;
     }
-    box.createEl("div", {
-      text: cont.title || "독서",
-      attr: { style: "font-weight:700;font-size:0.95em;" }
-    });
-    box.createEl("div", {
-      text: cont.action || L.continueAction,
-      attr: { style: "font-size:0.86em;color:var(--text-muted);margin-top:2px;" }
-    });
-    reasonLine(box, cont.reason);
-    const actions = box.createEl("div", {
-      attr: { class: "prodigy-btn-row", style: "margin-top:10px;" }
-    });
-    makeButton(actions, L.continueAction, {
-      primary: true,
-      onClick: () => {
-        const path = cont.object_path || cont.dashboard_path;
-        if (path && options && options.app) openPath(options.app, path);
+    const items = Array.isArray(cont.items) && cont.items.length
+      ? cont.items
+      : [{
+        title: cont.title || "독서",
+        object_path: cont.object_path,
+        dashboard_path: cont.dashboard_path,
+        action: cont.action || L.continueAction,
+        next_action: cont.next_action,
+        reason: cont.reason
+      }];
+    items.forEach((item) => {
+      const row = box.createEl("div", {
+        attr: {
+          style: "padding:8px 0;border-top:1px solid var(--background-modifier-border);"
+        }
+      });
+      if (row.previousSibling === null || items.indexOf(item) === 0) {
+        row.style.borderTop = "none";
+        row.style.paddingTop = "0";
       }
+      row.createEl("div", {
+        text: item.title || "독서",
+        attr: { style: "font-weight:700;font-size:0.95em;" }
+      });
+      if (item.next_action) {
+        row.createEl("div", {
+          text: item.next_action,
+          attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:2px;" }
+        });
+      }
+      reasonLine(row, item.reason);
+      const actions = row.createEl("div", {
+        attr: { class: "prodigy-btn-row", style: "margin-top:8px;" }
+      });
+      makeButton(actions, item.action || L.continueAction, {
+        primary: true,
+        onClick: () => {
+          const path = item.object_path || item.dashboard_path;
+          if (path && options && options.app) openPath(options.app, path);
+        }
+      });
+      makeButton(actions, "책 열기", {
+        onClick: () => {
+          const path = item.object_path;
+          if (path && options && options.app) openPath(options.app, path);
+        }
+      });
     });
     return box;
   }

@@ -45,6 +45,8 @@ Morning Brief
 - **Workspace**: Auction / Reading / Project / Workout에서 실제 실행한다.
 - **Daily Reflection**: 사람이 작성하는 증거다. AI가 성찰을 대신 쓰지 않는다. 오늘 Focus 완료 여부를 자연스럽게 돌아본다.
 - **Weekly Review (PRE)**: 증거 기반 주간 회고. 자동 Memory 승격 없음. 사람 승인 필수.
+  - **사람이 읽을 파일**: `SYSTEM/AI/Skills/prodigy-review/runs/<주차>/weekly-review-<주차>-draft.md`
+  - workspace view · operation report 는 내부/보조 산출물이다. Home의 **주간 복기 초안 열기**가 draft를 연다.
 - **Memory**: 사용자 단계가 아니다. Morning Brief가 내부에서 검증된 맥락을 읽을 수 있으나, Home에 Memory 워크플로를 노출하지 않는다.
 
 어제 Reflection이 비어 있으면 Home에 **가벼운 알림**만 보여 준다. 워크플로를 막지 않는다.

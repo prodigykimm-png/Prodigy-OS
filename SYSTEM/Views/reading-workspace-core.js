@@ -10,8 +10,9 @@
   const SCHEMA = "prodigy-reading-workspace-v1";
 
   const EMPTY = Object.freeze({
-    continue: "진행 중인 독서가 없습니다.",
-    today: "진행 중인 독서가 없습니다.",
+    continue: "이어 읽을 책이 없습니다. 읽는 중인 책을 선택하세요.",
+    continueOnlyHero: "이어 읽을 다른 책이 없습니다. 위 오늘의 독서에서 이어 읽으세요.",
+    today: "현재 읽는 책이 없습니다. 책을 시작하면 여기에 표시됩니다.",
     review: "읽을 복기 대상이 없습니다.",
     knowledge: "지식 후보가 없습니다.",
     history: "최근 완독 기록이 없습니다.",
@@ -348,50 +349,88 @@
     };
   }
 
-  function buildContinueCard(summary, primaryState, pagesByPath) {
-    const cont = (summary && summary.continue_target)
-      || (primaryState && primaryState.continue_target)
-      || null;
-    if (!cont) {
+  function buildContinueCard(summary, primaryState, pagesByPath, states) {
+    /**
+     * Strip of other active books — excludes the hero (today) book when others exist
+     * so the same title is not repeated under 오늘의 독서 + 이어 읽기.
+     */
+    const heroPath = clean(
+      (primaryState && (primaryState.source_path || primaryState.object_path))
+      || (summary && summary.continue_target && summary.continue_target.object_path)
+      || ""
+    );
+    const list = (Array.isArray(states) ? states : []).filter((s) => s && !s.error);
+    const others = [];
+    list.forEach((s) => {
+      if (clean(s.canonical_status) !== "reading") return;
+      const path = clean(s.source_path || s.object_path);
+      if (!path || (heroPath && path === heroPath)) return;
+      const raw = (path && pagesByPath && pagesByPath[path]) || {};
+      others.push({
+        title: clean(s.title) || clean(raw.title || raw.book_title) || LABELS.untitled,
+        object_path: path,
+        dashboard_path: "HUB/20 Reading.md",
+        action: LABELS.continueAction,
+        verb: "이어 읽기",
+        next_action: s.next_action || clean(raw.next_action) || null,
+        progress: progressOf(raw, s) || null,
+        progress_number: progressNumber(raw),
+        reason: REASONS.continueActive
+      });
+    });
+
+    if (others.length) {
+      const first = others[0];
       return {
-        empty: true,
-        message: EMPTY.continue,
-        continue_target: null,
-        reason: null,
-        focus_path: null,
-        next_action: null,
-        progress: null
+        empty: false,
+        continue_target: {
+          object_path: first.object_path,
+          label: first.title,
+          action: first.action,
+          dashboard_path: first.dashboard_path
+        },
+        title: first.title,
+        action: first.action,
+        verb: first.verb,
+        object_path: first.object_path,
+        focus_path: first.object_path,
+        dashboard_path: first.dashboard_path,
+        next_action: first.next_action,
+        progress: first.progress,
+        progress_number: first.progress_number,
+        reason: first.reason,
+        items: others.slice(0, 4),
+        hero_excluded: true,
+        message: null
       };
     }
-    const reason = clean(cont.reason)
-      || (primaryState && primaryState.primary_action && primaryState.primary_action.reason)
-      || REASONS.continueActive;
-    const objectPath = clean(cont.object_path)
-      || clean(primaryState && (primaryState.source_path || primaryState.object_path))
-      || "";
-    const raw = (objectPath && pagesByPath && pagesByPath[objectPath])
-      || rawForState(primaryState, pagesByPath || {})
-      || {};
-    const nextAction = clean(
-      (primaryState && primaryState.next_action)
-      || raw.next_action
-      || ""
-    ) || null;
-    const progress = progressOf(raw, primaryState) || null;
+
+    // Only the hero book is active — do not duplicate it in the strip
+    if (heroPath) {
+      return {
+        empty: true,
+        message: EMPTY.continueOnlyHero,
+        continue_target: null,
+        reason: null,
+        focus_path: heroPath,
+        next_action: null,
+        progress: null,
+        items: [],
+        hero_excluded: true,
+        single_hero: true
+      };
+    }
+
     return {
-      empty: false,
-      continue_target: cont,
-      title: clean(cont.label) || (primaryState && primaryState.title) || clean(raw.title || raw.book_title) || "",
-      action: clean(cont.action) || LABELS.continueAction,
-      verb: clean(cont.verb) || "이어 읽기",
-      object_path: objectPath,
-      focus_path: objectPath,
-      dashboard_path: clean(cont.dashboard_path) || "HUB/20 Reading.md",
-      next_action: nextAction,
-      progress,
-      progress_number: progressNumber(raw),
-      reason,
-      message: null
+      empty: true,
+      message: EMPTY.continue,
+      continue_target: null,
+      reason: null,
+      focus_path: null,
+      next_action: null,
+      progress: null,
+      items: [],
+      hero_excluded: false
     };
   }
 
@@ -774,8 +813,8 @@
     }
 
     const today = buildTodayReading(summary, primary, pagesByPath);
-    const cont = buildContinueCard(summary, primary, pagesByPath);
-    if (cont.empty) cont.message = EMPTY.continue;
+    const cont = buildContinueCard(summary, primary, pagesByPath, evaluated.states);
+    if (cont.empty && !cont.message) cont.message = EMPTY.continue;
 
     // Strategy Layer once — powers Guide / Checklist / Reflection
     const strategy = buildStrategyLayer(primary, pagesByPath);

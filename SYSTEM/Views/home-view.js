@@ -867,15 +867,7 @@
       const currentFocus = (rankedFocus || []).filter(Boolean).slice(0, 3);
 
       if (!approvedFocus || !currentFocus.length) {
-        focusCard.createEl("div", {
-          text: "선택된 집중이 없습니다.",
-          attr: { style: "font-size:0.9em;color:var(--text-normal);font-weight:600;" }
-        });
-        focusCard.createEl("div", {
-          text: "아침 브리핑을 확인하세요.",
-          attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:4px;margin-bottom:10px;" }
-        });
-        // One-tap approve of existing proposal (no field editing)
+        // Read-only suggestions on Home — no inline editing (Mission Control only)
         const proposal = root.MorningContextCore.selectFocusItems
           ? root.MorningContextCore.selectFocusItems({
             pinnedFocus,
@@ -884,18 +876,73 @@
             localDate: todayStr
           })
           : ((result && Array.isArray(result.focus)) ? result.focus : []);
-        const actions = focusCard.createEl("div", { attr: { class: "focus-footer", style: "border-top:none;padding-top:0;" } });
-        if (proposal && proposal.length) {
+        const suggestions = (proposal || []).filter(Boolean).slice(0, 3);
+        const actions = focusCard.createEl("div", {
+          attr: { class: "focus-footer", style: "border-top:none;padding-top:0;" }
+        });
+
+        if (suggestions.length) {
+          focusCard.createEl("div", {
+            text: "오늘의 집중 제안",
+            attr: { style: "font-size:0.9em;color:var(--text-normal);font-weight:700;margin-bottom:6px;" }
+          });
+          focusCard.createEl("div", {
+            text: "읽기 전용 · 승인만 Home에서 합니다. 편집은 브리핑에서.",
+            attr: { style: "font-size:0.78em;color:var(--text-muted);margin-bottom:8px;" }
+          });
+          const listDiv = focusCard.createEl("div", { attr: { class: "focus-list" } });
+          suggestions.forEach((item, idx) => {
+            const row = listDiv.createEl("div", { attr: { class: "focus-row" } });
+            const top = row.createEl("div", { attr: { class: "focus-top" } });
+            top.createEl("div", {
+              text: `${idx + 1}. ${item.label || "제안"}`,
+              attr: { class: "focus-title" }
+            });
+            top.createEl("span", {
+              text: getSourceTypeLabel(item.source_type),
+              attr: { class: "badge badge-gray" }
+            });
+            const next = item.next_action || item.reason || "";
+            if (next) {
+              row.createEl("div", {
+                text: next,
+                attr: { class: "focus-reason", style: "padding-left:0;" }
+              });
+            }
+          });
           const approveBtn = actions.createEl("button", {
-            text: "제안 Focus 승인",
+            text: suggestions.length === 1 ? "이 제안 승인" : "첫 번째 제안 승인",
             attr: { class: "action-btn action-btn-primary" }
           });
           approveBtn.onclick = async () => {
-            approvedFocus = await root.MorningCache.saveApprovedFocus(app, todayStr, proposal.slice(0, 3), false);
-            new Notice("오늘의 Focus가 승인되었습니다.");
+            // Canonical approval: first suggestion as today's Focus (existing MorningCache API)
+            const chosen = [suggestions[0]];
+            approvedFocus = await root.MorningCache.saveApprovedFocus(app, todayStr, chosen, false);
+            new Notice("오늘의 집중이 승인되었습니다.");
             renderHome(options);
           };
+          if (suggestions.length > 1) {
+            const approveAll = actions.createEl("button", {
+              text: `상위 ${suggestions.length}개 승인`,
+              attr: { class: "action-btn" }
+            });
+            approveAll.onclick = async () => {
+              approvedFocus = await root.MorningCache.saveApprovedFocus(app, todayStr, suggestions, false);
+              new Notice("오늘의 집중이 승인되었습니다.");
+              renderHome(options);
+            };
+          }
+        } else {
+          focusCard.createEl("div", {
+            text: "아직 제안된 집중 항목이 없습니다.",
+            attr: { style: "font-size:0.9em;color:var(--text-normal);font-weight:600;" }
+          });
+          focusCard.createEl("div", {
+            text: "오늘의 기록이나 다음 행동을 먼저 추가하세요.",
+            attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:4px;margin-bottom:10px;" }
+          });
         }
+
         const regenHint = actions.createEl("button", {
           text: "브리핑 다시 생성",
           attr: { class: "action-btn" }
@@ -1275,6 +1322,45 @@
       const reviewPending = Array.isArray(pkg.context && pkg.context.review_inbox)
         ? pkg.context.review_inbox.length
         : 0;
+
+      // Primary PRE surface: Weekly Review draft only (internal reports stay collapsed)
+      const weeklyDraftPath = (function resolveWeeklyDraftPath() {
+        try {
+          const runsRoot = "SYSTEM/AI/Skills/prodigy-review/runs";
+          const rootFolder = app.vault.getAbstractFileByPath(runsRoot);
+          if (!rootFolder || !rootFolder.children) return null;
+          const weekFolders = rootFolder.children
+            .filter((f) => f && f.children && /^\d{4}-W\d{2}$/.test(f.name))
+            .map((f) => f.name)
+            .sort()
+            .reverse();
+          for (const week of weekFolders) {
+            const draft = `${runsRoot}/${week}/weekly-review-${week}-draft.md`;
+            if (app.vault.getAbstractFileByPath(draft)) return draft;
+          }
+        } catch (_e) { /* ignore */ }
+        return null;
+      })();
+      if (weeklyDraftPath) {
+        const weekRow = status.createEl("div", {
+          attr: {
+            style: "margin-bottom:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--background-modifier-border);background:var(--background-primary);"
+          }
+        });
+        weekRow.createEl("div", {
+          text: "주간 복기 (읽을 파일)",
+          attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-accent);margin-bottom:4px;" }
+        });
+        weekRow.createEl("div", {
+          text: "Weekly Review 초안 · 내부 리포트와 구분",
+          attr: { style: "font-size:0.75em;color:var(--text-muted);margin-bottom:6px;" }
+        });
+        const openDraft = weekRow.createEl("button", {
+          text: "주간 복기 초안 열기",
+          attr: { class: "action-btn action-btn-primary" }
+        });
+        openDraft.onclick = () => openPath(weeklyDraftPath);
+      }
 
       const row = status.createEl("div", {
         attr: {
