@@ -19,6 +19,22 @@ VISIBLE_RAW_KEY: Final[re.Pattern[str]] = re.compile("".join((
     r"|(?:setText|setButtonText)\(\s*[\"']([a-z][a-z0-9_]+)[\"']",
     r"|(?:textContent|innerText)\s*=\s*[\"']([a-z][a-z0-9_]+)[\"']",
 )))
+# Obsidian / Journals own these keys. They are storage contracts outside Prodigy
+# domain Properties, so the auditor must not force snake_case, Display labels,
+# or Schema membership on them.
+OBSIDIAN_RESERVED_KEYS: Final[frozenset[str]] = frozenset({
+    "aliases",
+    "cssclasses",
+    "tags",
+})
+JOURNALS_RESERVED_KEYS: Final[frozenset[str]] = frozenset({
+    "journal",
+    "journal-date",
+    "journal-end-date",
+    "journal-section",
+    "journal-start-date",
+})
+RESERVED_PROPERTY_KEYS: Final[frozenset[str]] = OBSIDIAN_RESERVED_KEYS | JOURNALS_RESERVED_KEYS
 
 
 class IssueJson(TypedDict):
@@ -196,6 +212,8 @@ def template_issues(
         relative = path.relative_to(vault).as_posix()
         properties = frontmatter(path)
         for key in properties:
+            if key in RESERVED_PROPERTY_KEYS:
+                continue
             if not SNAKE_CASE.fullmatch(key):
                 issues.append(Issue("ERROR", "invalid_property_key", relative, key, "Property key is not English snake_case."))
             elif key not in labels:
@@ -209,6 +227,8 @@ def template_issues(
         if object_type in schemas:
             allowed = core_schema | schemas[object_type]
             for key in properties.keys() - allowed:
+                if key in RESERVED_PROPERTY_KEYS:
+                    continue
                 issues.append(Issue("ERROR", "template_schema_conflict", relative, key, "Template Property is not declared in its official Schema."))
     return issues
 

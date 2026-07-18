@@ -833,7 +833,9 @@ connections / 링크 = 둘을 잇는 연결
 - 사건/메모 추가 후 해당 카드로 스크롤. 검색창 `↓` = 첫 카드.
 - **사람 삭제** = 이름 옆 🗑️. Contacts 노트만 휴지통. 다른 Object 링크 유지.
 - 레거시 `type: contact` 읽기 호환(배지·필터). 신규 type 변경 없음.
-- 지속 영역(Areas)은 같은 Hub 하단 보조 섹션으로 유지한다.
+- **People only:** 사람 Object의 공식 type은 `people`다. Contact로 Areas와 People를 합치지 않는다.
+- 지속 영역(Areas)은 사람과 다른 축이다. 같은 Hub 하단 보조 섹션으로만 유지한다.
+- 현재 `PARA/AREAS` 샘플 3종(자율주행 윤리 / 그린 데이터센터 / 우주관광)은 데모성 ARCHIVE 후보다. 자동 삭제하지 않는다.
 
 ## Personal vs Journal
 

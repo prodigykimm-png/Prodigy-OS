@@ -139,3 +139,58 @@ def test_rejects_english_display_label_values(tmp_path: Path) -> None:
         "non_korean_status_label",
         "non_korean_type_label",
     } <= codes
+
+
+def test_skips_obsidian_and_journals_reserved_keys(tmp_path: Path) -> None:
+    make_vault(tmp_path, broken=False)
+    write(
+        tmp_path / "SYSTEM/TEMPLATE/FORMAT/template_daily_note.md",
+        "".join((
+            "---\n",
+            "type: journal\n",
+            "status: open\n",
+            "tags:\n",
+            "aliases:\n",
+            "cssclasses:\n",
+            "journal: true\n",
+            "journal-date: 2026-07-18\n",
+            "journal-start-date: 2026-07-18\n",
+            "journal-end-date: 2026-07-18\n",
+            "journal-section: daily\n",
+            "---\n# Daily\n",
+        )),
+    )
+    write(
+        tmp_path / "SYSTEM/Prodigy/Schema/Journal_Schema.md",
+        "".join((
+            "```yaml\ntype: journal\nstatus:\n```\n",
+            "| Property | Purpose |\n|---|---|\n| `status` | workflow |\n",
+        )),
+    )
+    registry = (tmp_path / "SYSTEM/Views/display-registry.js").read_text(encoding="utf-8")
+    registry = registry.replace(
+        "export const STATUS_INFO = {\n",
+        'export const STATUS_INFO = {\n  open: { label: "열림" },\n',
+    )
+    registry = registry.replace(
+        "export const TYPE_INFO = {\n",
+        'export const TYPE_INFO = {\n  journal: { label: "저널" },\n',
+    )
+    _ = (tmp_path / "SYSTEM/Views/display-registry.js").write_text(registry, encoding="utf-8")
+
+    result = audit(tmp_path)
+    report = cast(PropertyReport, json.loads(result.stdout))
+    reserved_values = {issue.get("value") for issue in report["issues"]}
+    assert result.returncode == 0
+    assert report["issues"] == []
+    assert not {
+        "tags",
+        "aliases",
+        "cssclasses",
+        "journal",
+        "journal-date",
+        "journal-start-date",
+        "journal-end-date",
+        "journal-section",
+    } & reserved_values
+

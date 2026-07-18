@@ -17,3 +17,13 @@ If two levels conflict, report both sources. Do not silently migrate files, rena
 - Add or update one Korean label in the central registry.
 - Keep enum values unchanged when only display wording changes.
 - Treat removal as a migration: report affected real Objects before editing them.
+
+## Reserved Non-Prodigy Keys
+
+These keys are owned by Obsidian or the Journals plugin. They may appear in templates, but they are not Prodigy official Properties.
+
+- Obsidian: `tags`, `aliases`, `cssclasses`
+- Journals: `journal`, `journal-date`, `journal-start-date`, `journal-end-date`, `journal-section`
+
+The Property Contract auditor must skip snake_case, Display Registry, and Schema membership checks for these keys. Do not rename them to force Prodigy naming.
+

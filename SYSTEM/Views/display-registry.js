@@ -52,7 +52,13 @@
     reading_strategy: "독서 전략", book_type: "책 유형", reading_type: "독서 유형",
     cover: "표지", cover_image: "표지 이미지", book_cover: "책 표지", image: "이미지",
     relationship: "관계", company: "소속", role: "역할", birthday: "생일",
-    first_met: "처음 만난 날", last_contact: "최근 연락", phone: "전화", email: "이메일"
+    first_met: "처음 만난 날", last_contact: "최근 연락", phone: "전화", email: "이메일",
+    area: "영역", area_category: "영역 분류", summary: "요약", reference: "참고 자료",
+    scheduled_date: "예정일", start_time: "시작 시각", end_time: "종료 시각",
+    meeting_status: "회의 상태",
+    target: "목표 부위", cue: "운동 큐", primary_muscles: "주요 근육",
+    secondary_muscles: "보조 근육", equipment: "장비",
+    todoist_last_error: "Todoist 오류"
   });
 
   const STATUS_INFO = Object.freeze({
