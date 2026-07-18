@@ -324,6 +324,68 @@
         .prodigy-home.home-compact .home-secondary-fold[open] > summary::before {
           content: "▾ ";
         }
+        /* Compact-only workspace dock — one-tap nav without scrolling Mission Control */
+        .prodigy-home .home-ws-dock {
+          display: none;
+        }
+        .prodigy-home.home-compact .home-ws-dock {
+          display: block;
+          margin: 0 0 10px 0;
+          padding: 10px 10px 8px;
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 10px;
+          background: var(--background-secondary);
+        }
+        .prodigy-home.home-compact .home-ws-dock-label {
+          font-size: 0.72em;
+          font-weight: 700;
+          color: var(--text-muted);
+          margin: 0 0 8px 2px;
+          letter-spacing: 0.02em;
+        }
+        .prodigy-home.home-compact .home-ws-dock-row {
+          display: flex;
+          flex-wrap: nowrap;
+          gap: 6px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 2px;
+        }
+        .prodigy-home.home-compact .home-ws-dock-btn {
+          flex: 1 1 0;
+          min-width: 56px;
+          max-width: 88px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          min-height: 52px !important;
+          height: auto !important;
+          padding: 8px 4px !important;
+          border-radius: 8px !important;
+          border: 1px solid var(--background-modifier-border);
+          background: var(--background-primary);
+          color: var(--text-normal);
+          font-size: 0.72em !important;
+          font-weight: 700 !important;
+          line-height: 1.15 !important;
+          cursor: pointer;
+        }
+        .prodigy-home.home-compact .home-ws-dock-btn:active {
+          transform: scale(0.97);
+          border-color: var(--text-accent);
+        }
+        .prodigy-home.home-compact .home-ws-dock-icon {
+          font-size: 1.15em;
+          line-height: 1;
+        }
+        .prodigy-home.home-compact .home-ws-dock-name {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
         .prodigy-home.home-compact .home-secondary-fold-body {
           display: flex;
           flex-direction: column;
@@ -662,6 +724,46 @@
       try { app.workspace.openLinkText(p, p, false); } catch (_e) { /* ignore */ }
     };
 
+    /**
+     * Compact Home only: workspace dock at top for one-tap navigation.
+     * Wide desktop Mission Control keeps the full launcher lower down.
+     */
+    const renderWorkspaceDock = (parent) => {
+      if (!isCompactHome || !parent) return;
+      const dockItems = [
+        { id: "auction", icon: "🏛", name: "경매", path: "HUB/10 Auction.md" },
+        { id: "reading", icon: "📚", name: "독서", path: "HUB/20 Reading.md" },
+        { id: "project", icon: "📁", name: "프로젝트", path: "HUB/40 Project.md" },
+        { id: "workout", icon: "🏋", name: "운동", path: "HUB/30 Workout.md" },
+        { id: "journal", icon: "📝", name: "저널", path: "HUB/70 Journal.md" }
+      ];
+      const dock = parent.createEl("div", {
+        attr: {
+          class: "home-ws-dock",
+          role: "navigation",
+          "aria-label": "워크스페이스 바로가기"
+        }
+      });
+      dock.createEl("div", {
+        text: "워크스페이스",
+        attr: { class: "home-ws-dock-label" }
+      });
+      const row = dock.createEl("div", { attr: { class: "home-ws-dock-row" } });
+      dockItems.forEach((item) => {
+        const btn = row.createEl("button", {
+          attr: {
+            type: "button",
+            class: "home-ws-dock-btn",
+            "data-workspace": item.id,
+            title: item.name + " 열기"
+          }
+        });
+        btn.createEl("span", { text: item.icon, attr: { class: "home-ws-dock-icon" } });
+        btn.createEl("span", { text: item.name, attr: { class: "home-ws-dock-name" } });
+        btn.onclick = () => openPath(item.path);
+      });
+    };
+
     const openSearch = () => {
       try {
         if (app.commands && typeof app.commands.executeCommandById === "function") {
@@ -720,6 +822,11 @@
       if (lines.length <= maxLines) return lines.join("\n");
       return lines.slice(0, maxLines).join("\n");
     };
+
+    // ── 0. Compact workspace dock (top nav — A2) ──
+    safeRenderRegion("Workspace Dock", () => {
+      renderWorkspaceDock(stack);
+    });
 
     // ── 1. TODAY · Morning Brief ──
     safeRenderRegion("Morning Brief", () => {
@@ -1038,6 +1145,11 @@
 
       ((pkg.context && pkg.context.continue_candidates) || []).forEach((c) => {
         if (!c) return;
+        const st = String(c.status || "").toLowerCase();
+        const typ = String(c.type || "").toLowerCase();
+        if ((typ === "auction" || typ === "auction_case") && (st === "watching" || st === "관심" || st === "watch")) {
+          return;
+        }
         pushCard({
           title: c.name || c.title || "",
           workspace: c.type || "",
@@ -1097,9 +1209,34 @@
 
     // ── 4. Needs Attention (critical/high via briefContext) ──
     safeRenderRegion("Needs Attention", () => {
-      const risks = (briefContext && root.MorningBriefContext && root.MorningBriefContext.toHomeRiskItems)
+      let risks = (briefContext && root.MorningBriefContext && root.MorningBriefContext.toHomeRiskItems)
         ? root.MorningBriefContext.toHomeRiskItems(briefContext)
         : ((pkg.context && pkg.context.risks) || []);
+      // Belt-and-suspenders: never show non-bidding auctions on Home attention
+      const auctionByPath = Object.create(null);
+      ((pkg.context && pkg.context.auctions) || []).forEach((a) => {
+        if (!a || !a.path) return;
+        auctionByPath[String(a.path).toLowerCase()] = a;
+      });
+      const auctionStatusOk = (status) => {
+        const eng = root.ObjectEngine || root.ObjectEngineCore;
+        if (eng && typeof eng.isAuctionHomeAttentionStatus === "function") {
+          return eng.isAuctionHomeAttentionStatus(status);
+        }
+        return String(status || "").toLowerCase() === "bidding";
+      };
+      risks = (risks || []).filter((risk) => {
+        if (!risk) return false;
+        const p = String(risk.object_path || "").toLowerCase();
+        const a = auctionByPath[p];
+        if (a) return auctionStatusOk(a.status);
+        const ws = String(risk.workspace_label || risk.workspace || "");
+        if (/경매|auction/i.test(ws) || /\/auction\//i.test(p)) {
+          // Auction-looking row without package match: drop unless explicitly bidding in label
+          return /입찰|bidding/i.test(String(risk.label || "") + String(risk.reason || ""));
+        }
+        return true;
+      });
 
       const riskCard = primary.createEl("div", {
         attr: { class: "home-card emphasis-risk home-needs-attention" }

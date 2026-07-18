@@ -108,6 +108,11 @@ next_experiment: frontmatter 실험
   assert.match(homeSource, /어제 (Reflection|성찰)이 비어|home-yesterday-missing|yMissing/);
   assert.match(homeSource, /focusHints/);
   assert.match(homeSource, /home-compact|isCompactHome|home-secondary-fold/);
+  // A2: compact-only workspace dock for one-tap hub navigation
+  assert.match(homeSource, /home-ws-dock|renderWorkspaceDock|워크스페이스 바로가기/);
+  assert.match(homeSource, /HUB\/10 Auction\.md/);
+  assert.match(homeSource, /HUB\/20 Reading\.md/);
+  assert.match(homeSource, /isCompactHome[\s\S]*home-ws-dock|home-ws-dock[\s\S]*isCompactHome|if \(!isCompactHome/);
   assert.match(homeSource, /home-lifecycle-fold|객체 라이프사이클 · 접힘|Object Lifecycle · 접힘/);
   assert.match(homeSource, /approved only|첫 번째 제안 승인|아직 제안된 집중|오늘의 집중 제안|주간 복기 초안 열기/);
   assert.match(homeSource, /saveApprovedFocus/);

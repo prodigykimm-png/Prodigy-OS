@@ -67,6 +67,28 @@
     return t || "";
   }
 
+  /**
+   * Normalize auction (and common aliases) so Home filters cannot miss Korean labels.
+   */
+  function normalizeCanonicalStatus(rawStatus, workspaceKey) {
+    const s = clean(rawStatus).toLowerCase().replace(/^["']|["']$/g, "");
+    if (!s) return "";
+    if (workspaceKey === "auction" || !workspaceKey) {
+      if (s === "watching" || s === "관심" || s === "watch" || s === "interest") return "watching";
+      if (s === "bidding" || s === "입찰" || s === "입찰예정" || s === "입찰 예정" || s === "bid") return "bidding";
+      if (s === "reviewing" || s === "복기" || s === "복기중" || s === "review") return "reviewing";
+      if (s === "won" || s === "낙찰") return "won";
+      if (s === "lost" || s === "패찰") return "lost";
+      if (s === "skipped" || s === "스킵" || s === "포기") return "skipped";
+    }
+    return s;
+  }
+
+  /** Home Mission Control: only bidding auctions may raise attention. */
+  function isAuctionHomeAttentionStatus(status) {
+    return normalizeCanonicalStatus(status, "auction") === "bidding";
+  }
+
   function titleOf(source) {
     if (!source) return "";
     return clean(
@@ -92,7 +114,7 @@
     const source = rawPage || {};
     const type = clean(source.type).toLowerCase() || clean(ctx.object_type).toLowerCase();
     const workspace = workspaceKeyForType(type) || clean(ctx.workspace_key).toLowerCase();
-    const status = clean(source.status).toLowerCase();
+    const status = normalizeCanonicalStatus(source.status, workspace);
     const path = pathOf(source);
     const title = titleOf(source);
     const nextAction = clean(source.next_action != null ? source.next_action : source.nextAction);
@@ -291,9 +313,12 @@
     if (health.state === HEALTH.completed) {
       return { level: ATTENTION.none, reasons: ["완료되었거나 보관된 상태입니다."] };
     }
-    // Watching auctions never elevate Home attention (bidding-only policy)
-    if (norm.workspace_key === "auction" && norm.canonical_status === "watching") {
-      return { level: ATTENTION.none, reasons: ["관심 물건(watching)은 주의 목록에 올리지 않습니다."] };
+    // Home Mission Control: auction attention is bidding-only (watching/interest pool never elevates)
+    if (norm.workspace_key === "auction" && !isAuctionHomeAttentionStatus(norm.canonical_status)) {
+      return {
+        level: ATTENTION.none,
+        reasons: ["경매 주의는 입찰 중(bidding)만 표시합니다."]
+      };
     }
 
     const overdue = health.reasons.some((r) => /overdue|마감일이 지났/i.test(r));
@@ -755,7 +780,11 @@
     // Active pipeline filters
     let candidates = filtered;
     if (ws === "auction") {
-      candidates = filtered.filter((s) => ["watching", "bidding", "reviewing"].includes(s.canonical_status));
+      // Prefer operational pipeline on Home/Launcher; watching is interest pool only
+      const operational = filtered.filter((s) => ["bidding", "reviewing"].includes(s.canonical_status));
+      candidates = operational.length
+        ? operational
+        : filtered.filter((s) => s.canonical_status === "watching");
     } else if (ws === "project") {
       candidates = filtered.filter((s) => !["completed", "archived", "cancelled"].includes(s.canonical_status));
       candidates = candidates.filter((s) => ["doing", "active", "planning"].includes(s.canonical_status) || s.health.state !== HEALTH.completed);
@@ -1220,6 +1249,8 @@
     // Capability services (preferred public API)
     classify,
     getLifecycle,
+    normalizeCanonicalStatus,
+    isAuctionHomeAttentionStatus,
     getAttention,
     findDuplicates,
     getContinueTarget,

@@ -145,6 +145,45 @@ function main() {
     assert.notEqual(watchState.attention.level, "critical");
   }
 
+  // Korean alias "관심" must normalize and stay off Home attention
+  const aliasBrief = ctxApi.buildMorningBriefContext({
+    pkg: {
+      local_date: "2026-07-17",
+      context: {
+        todoist: { todayCount: 0, overdueCount: 0 },
+        risks: [{
+          label: "관심 물건 리스크",
+          reason: "다음 행동 없음",
+          object_path: "PARA/PROJECTS/Auction/alias.md"
+        }],
+        projects: [],
+        auctions: [{
+          type: "auction_case",
+          status: "관심",
+          path: "PARA/PROJECTS/Auction/alias.md",
+          name: "한글관심",
+          next_action: ""
+        }],
+        reading: []
+      }
+    },
+    journalStatus: { status: "complete" },
+    now: new Date("2026-07-17T10:00:00")
+  });
+  assert.equal(
+    aliasBrief.attention.items.some((i) =>
+      String(i.object_path).includes("alias.md") || String(i.title).includes("한글관심")
+    ),
+    false
+  );
+  const aliasState = aliasBrief.engine_states.find((s) =>
+    String(s.source_path || "").includes("alias.md")
+  );
+  if (aliasState) {
+    assert.equal(aliasState.canonical_status, "watching");
+    assert.equal(aliasState.attention.level, "none");
+  }
+
   // Home risk mapping
   const homeRisks = ctxApi.toHomeRiskItems(brief);
   assert.ok(homeRisks.length >= 1);

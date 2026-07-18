@@ -456,7 +456,12 @@
 
     const candidatesList = [];
     projects.forEach(p => candidatesList.push({ ...p, type: "project" }));
-    auctions.forEach(a => candidatesList.push({ ...a, type: "auction" }));
+    // Home Continue: auction watching is interest pool — do not crowd Mission Control
+    auctions.forEach((a) => {
+      const st = String((a && a.status) || "").toLowerCase();
+      if (st === "watching" || st === "관심" || st === "watch" || st === "interest") return;
+      candidatesList.push({ ...a, type: "auction" });
+    });
     reading.forEach(r => candidatesList.push({ ...r, type: "reading" }));
 
     const continueCandidates = candidatesList

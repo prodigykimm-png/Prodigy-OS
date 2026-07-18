@@ -195,7 +195,12 @@
   }
 
   function objectStatus(object) {
-    return clean(object && object.status).toLowerCase();
+    const s = clean(object && object.status).toLowerCase().replace(/^["']|["']$/g, "");
+    // Align auction aliases with Object Engine Home bidding-only policy
+    if (s === "관심" || s === "watch" || s === "interest") return "watching";
+    if (s === "입찰" || s === "입찰예정" || s === "입찰 예정" || s === "bid") return "bidding";
+    if (s === "복기" || s === "복기중" || s === "review") return "reviewing";
+    return s;
   }
 
   function objectType(object) {

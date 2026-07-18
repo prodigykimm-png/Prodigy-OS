@@ -68,12 +68,38 @@
     return out;
   }
 
+  function auctionStatusFromPackage(pkg, objectPath) {
+    const path = pathKey(objectPath);
+    if (!path) return "";
+    const list = (pkg && pkg.context && pkg.context.auctions) || [];
+    for (let i = 0; i < list.length; i += 1) {
+      const a = list[i];
+      if (!a) continue;
+      if (pathKey(a.path || a.object_path) === path) {
+        const engine = root.ObjectEngine || root.ObjectEngineCore;
+        if (engine && typeof engine.normalizeCanonicalStatus === "function") {
+          return engine.normalizeCanonicalStatus(a.status, "auction");
+        }
+        return clean(a.status).toLowerCase();
+      }
+    }
+    return "";
+  }
+
+  function isAuctionHomeAttentionStatus(status) {
+    const engine = root.ObjectEngine || root.ObjectEngineCore;
+    if (engine && typeof engine.isAuctionHomeAttentionStatus === "function") {
+      return engine.isAuctionHomeAttentionStatus(status);
+    }
+    return clean(status).toLowerCase() === "bidding";
+  }
+
   function attentionFromEngineState(state) {
     if (!state || state.error) return null;
-    // Home policy: auction watching never surfaces in 주의가 필요함 (bidding only)
+    // Home policy: auction attention = bidding only
     const wsKey = clean(state.workspace_key).toLowerCase();
     const status = clean(state.canonical_status).toLowerCase();
-    if (wsKey === "auction" && status === "watching") return null;
+    if (wsKey === "auction" && !isAuctionHomeAttentionStatus(status)) return null;
 
     const level = clean(state.attention && state.attention.level).toLowerCase();
     if (level !== "critical" && level !== "high") return null;
@@ -121,7 +147,7 @@
     };
   }
 
-  function attentionFromPackageRisk(risk, index) {
+  function attentionFromPackageRisk(risk, index, pkg) {
     if (!risk) return null;
     const reasons = [];
     if (risk.reason) reasons.push(clean(risk.reason));
@@ -134,18 +160,29 @@
     if (!reasons.length) reasons.push("운영 위험이 감지되었습니다.");
 
     const path = clean(risk.object_path);
+    // Drop package risks that point at non-bidding auctions (watching leak guard)
+    const auctionStatus = auctionStatusFromPackage(pkg, path);
+    if (auctionStatus && !isAuctionHomeAttentionStatus(auctionStatus)) {
+      return null;
+    }
+    // Path under Auction folder without status match still blocked if label says 관심
+    if (/watching|관심/i.test(clean(risk.label) + " " + reasons.join(" ")) && auctionStatus === "watching") {
+      return null;
+    }
+
     return {
       id: pathKey(path) || `risk:${index}:${clean(risk.label)}`,
       title: clean(risk.label) || "위험",
       level: "high",
       reasons,
       reason: reasons[0],
-      workspace: "",
-      workspace_label: "오늘",
-      dashboard_path: path ? "" : "HUB/00 Home.md",
+      workspace: auctionStatus ? "auction" : "",
+      workspace_label: auctionStatus ? workspaceLabel("auction") : "오늘",
+      dashboard_path: path ? (auctionStatus ? workspacePath("auction") : "") : "HUB/00 Home.md",
       object_path: path,
       primary_label: "",
-      source: "package_risk"
+      source: "package_risk",
+      status: auctionStatus || ""
     };
   }
 
@@ -267,11 +304,27 @@
     }
 
     const packageItems = (today.risks || [])
-      .map((risk, index) => attentionFromPackageRisk(risk, index))
+      .map((risk, index) => attentionFromPackageRisk(risk, index, pkg))
       .filter(Boolean);
 
     // Engine-first attention; package risks additive then de-duped
-    const merged = sortAttention(mergeAttentionItems(engineItems.concat(packageItems)));
+    let merged = sortAttention(mergeAttentionItems(engineItems.concat(packageItems)));
+    // Final Home gate: auction rows only when status is bidding (resolve via package if needed)
+    merged = merged.filter((item) => {
+      if (!item) return false;
+      const ws = clean(item.workspace).toLowerCase();
+      const path = clean(item.object_path);
+      const looksAuction = ws === "auction"
+        || /auction/i.test(path)
+        || /경매/.test(clean(item.workspace_label));
+      if (!looksAuction) return true;
+      let st = clean(item.status);
+      if (!st) st = auctionStatusFromPackage(pkg, path);
+      // Unknown auction path: keep only if engine already labeled auction+bidding
+      if (!st && ws === "auction") return false;
+      if (st) return isAuctionHomeAttentionStatus(st);
+      return true;
+    });
     const critical = merged.filter((i) => i.level === "critical");
     const high = merged.filter((i) => i.level === "high");
 
