@@ -200,6 +200,9 @@ function main() {
       assert.match(hub, /복기 대기|buildReviewQueue/);
       const cardSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-card.js"), "utf8");
       assert.match(cardSrc, /입찰 실행|openForAuction/);
+      assert.match(cardSrc, /let isAuctionToday = false/);
+      assert.match(cardSrc, /p\.status === "bidding" && isAuctionToday \? toWon\(primaryPrice\) : toEok\(primaryPrice\)/);
+      assert.match(cardSrc, /p\.status === "bidding" && isAuctionToday \? toWon\(p\.expected_bid\) : toEok\(p\.expected_bid\)/);
 
       // Hub loads scripts; entry is via Bid Calendar only
       assert.match(hub, /auction-day-core\.js/);

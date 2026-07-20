@@ -56,6 +56,13 @@ window.renderAuctionCard = function(p, container) {
       return (num / 100000000).toFixed(2) + "억";
     };
 
+    const toWon = (v) => {
+      if (!v || v === "정보 없음") return "-";
+      const num = parser(v);
+      if (isNaN(num) || !isFinite(num)) return v;
+      return `${num.toLocaleString("ko-KR")}원`;
+    };
+
     const toMan = (v) => {
       if (v === undefined || v === null || v === "") return "0";
       const num = parser(v);
@@ -73,6 +80,7 @@ window.renderAuctionCard = function(p, container) {
     // Calculate D-Day first
     let ddayStr = "-";
     let isUrgent = false;
+    let isAuctionToday = false;
     let dateStr = "-";
     if (p.auction_datetime) {
       let isoDate = "";
@@ -98,6 +106,7 @@ window.renderAuctionCard = function(p, container) {
         if (diffDays === 0) {
           ddayStr = `${mdStr} (오늘)`;
           isUrgent = true;
+          isAuctionToday = true;
         } else if (diffDays > 0) {
           ddayStr = `${mdStr} (D-${diffDays})`;
           if (diffDays <= 3) isUrgent = true;
@@ -111,6 +120,7 @@ window.renderAuctionCard = function(p, container) {
     if (isClosedWatching) {
       ddayStr = "종료";
       isUrgent = false;
+      isAuctionToday = false;
     }
 
     const isMobile = (window.app?.isMobile || document.body.classList.contains('is-mobile')) && window.innerWidth < 768;
@@ -297,7 +307,8 @@ window.renderAuctionCard = function(p, container) {
     const primaryPriceKey = isClosedWatching ? "winning_bid_price" : "minimum_bid";
     const primaryPrice = isClosedWatching ? p.winning_bid_price : p.minimum_bid;
     const minEl = financeRow.createEl('div');
-    minEl.innerHTML = `${display.property(primaryPriceKey)}: <strong>${toEok(primaryPrice)}${minRateStr}</strong>`;
+    const primaryPriceText = p.status === "bidding" && isAuctionToday ? toWon(primaryPrice) : toEok(primaryPrice);
+    minEl.innerHTML = `${display.property(primaryPriceKey)}: <strong>${primaryPriceText}${minRateStr}</strong>`;
     
     financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
     
@@ -362,7 +373,8 @@ window.renderAuctionCard = function(p, container) {
       expEl.style.backgroundColor = 'transparent';
     });
     
-    expEl.innerHTML = `${display.property("expected_bid")}: <strong style="color:var(--text-accent);">${toEok(p.expected_bid)}</strong>`;
+    const expectedBidText = p.status === "bidding" && isAuctionToday ? toWon(p.expected_bid) : toEok(p.expected_bid);
+    expEl.innerHTML = `${display.property("expected_bid")}: <strong style="color:var(--text-accent);">${expectedBidText}</strong>`;
     
     expEl.addEventListener('click', async (e) => {
       e.preventDefault();
