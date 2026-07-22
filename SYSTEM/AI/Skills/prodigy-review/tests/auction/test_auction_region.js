@@ -41,11 +41,12 @@ function main() {
     "utf8"
   );
   assert.match(template, /type: auction_region/);
+  assert.match(template, /Contract v1\.4\.0/);
   assert.match(template, /region_sido/);
   assert.match(template, /PARA\/PROJECTS\/Auction/);
 
   const skill = fs.readFileSync(
-    path.join(ROOT, ".opencode/skills/prodigy-auction-brief/SKILL.md"),
+    path.join(ROOT, "SYSTEM/AI/Skills/prodigy-auction-brief/SKILL.md"),
     "utf8"
   );
   assert.match(skill, /prodigy-auction-brief/);
@@ -53,7 +54,7 @@ function main() {
   assert.match(skill, /pending/);
 
   const researchSkill = fs.readFileSync(
-    path.join(ROOT, ".opencode/skills/prodigy-auction-region-research/SKILL.md"),
+    path.join(ROOT, "SYSTEM/AI/Skills/prodigy-auction-region-research/SKILL.md"),
     "utf8"
   );
   assert.match(researchSkill, /prodigy-auction-region-research/);
@@ -61,13 +62,13 @@ function main() {
   assert.match(researchSkill, /dry-run/i);
   assert.match(researchSkill, /monthly_refresh/);
   assert.match(researchSkill, /기입 금지|never invent/i);
-  assert.match(researchSkill, /reb_statistics/);
+  assert.match(researchSkill, /reb_rone_public_table/);
 
   const contract = fs.readFileSync(
     path.join(ROOT, "SYSTEM/docs/Region_Property_Contract_v1.md"),
     "utf8"
   );
-  assert.match(contract, /1\.2\.3/);
+  assert.match(contract, /1\.4\.0/);
   assert.match(contract, /dry-run/i);
   assert.match(contract, /PASS\s*\|\s*BLOCKED|결과 enum|PASS\nBLOCKED/);
   assert.match(contract, /BLOCKED/);
@@ -79,10 +80,30 @@ function main() {
   assert.match(contract, /canonical/i);
   assert.match(contract, /sha256|SHA-256/i);
   assert.match(contract, /하나라도 unverified/);
-  assert.match(contract, /15108071/);
+  assert.match(contract, /jumin_statmonth_csv|mois_jumin_statmonth_csv|jumin\.mois\.go\.kr/);
+  assert.match(contract, /reb_rone_public_table/);
+  assert.match(contract, /A_2024_00554/);
+  assert.match(contract, /A_2024_00045/);
+  assert.match(contract, /A_2024_00073/);
   assert.match(contract, /region_key/);
   assert.match(contract, /기입 금지/);
   assert.match(contract, /AI는 숫자/);
+
+  // Documentation regression lock only: persistence behavior is covered by the
+  // Region Experience contract/store suites, not asserted as docs-enforced here.
+  assert.match(contract, /Region Experience.*사람 확인.*append|사람 확인.*Region Experience.*append/s);
+  assert.match(contract, /Daily Evidence.*저장.*canonical path.*stable Evidence ID/s);
+  assert.match(contract, /human_confirmed/);
+  assert.match(contract, /transport_life.*교통·생활.*HUMAN|risk.*리스크·주의.*HUMAN|site_visit.*임장 포인트.*HUMAN/s);
+  assert.match(contract, /supply_observation.*임장 포인트.*HUMAN:OWNED/s);
+  assert.match(contract, /AI.*append.*할 수 없|provider.*append.*할 수 없/s);
+  assert.match(contract, /Object.*자동 생성.*금지|자동.*Object.*생성.*하지 않/s);
+  assert.match(contract, /Knowledge.*승인.*승격.*하지 않|Knowledge.*promotion.*금지/s);
+  assert.match(contract, /공식.*공급.*planned move-in.*수량.*거부|공식.*공급.*입주 예정.*수량.*거부/s);
+  assert.match(contract, /frontmatter.*metrics.*history.*AUTO.*AI:PENDING.*HUMAN:LOCKED.*기존.*human/s);
+
+  const experienceStore = require(path.join(ROOT, "SYSTEM/Views/region-experience-store.js"));
+  assert.equal(typeof experienceStore.appendApprovedExperience, "function");
 
   assert.match(template, /sale_volume_3m/);
   assert.match(template, /move_in_24m/);
@@ -91,14 +112,42 @@ function main() {
   assert.match(template, /매매 거래량\(3개월\)/);
   assert.match(template, /HUMAN:LOCKED/);
   assert.match(template, /HUMAN:OWNED/);
+  assert.match(template, /AUTO:REGION_MARKET:START/);
+  assert.match(template, /AI:PENDING:ZONES:START/);
+  assert.match(template, /AI:PENDING:TRANSPORT_LIFE:START/);
   assert.doesNotMatch(template, /^region_dong:/m);
-  assert.doesNotMatch(template, /move_in_36m/);
+  assert.match(template, /move_in_36m/);
+  assert.match(template, /move_in_48m/);
+  assert.match(template, /move_in_60m/);
+  assert.match(template, /\[!abstract\]-/);
+  assert.match(template, /원본 지표 이력/);
+  assert.match(template, /AI:PENDING:SUPPLY_PIPELINE:START/);
+  assert.match(template, /AUTO:REGION_LAND_PRICE:START/);
   assert.match(body, /PRODIGY_REGION_METRICS_HISTORY/);
   assert.match(body, /매매 거래량\(3개월\)/);
   assert.match(body, /HUMAN:LOCKED/);
   assert.match(body, /HUMAN:OWNED/);
   assert.match(body, /"region_key": "인천광역시-계양구"/);
+  assert.match(body, /AI:PENDING:SUPPLY_PIPELINE:START/);
+  assert.match(body, /AUTO:REGION_LAND_PRICE:START/);
   assert.doesNotMatch(body, /^region_dong:/m);
+
+  const refreshScript = fs.readFileSync(
+    path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-refresh.js"),
+    "utf8"
+  );
+  assert.match(refreshScript, /sttsDataPreviewList\.do/);
+  assert.match(refreshScript, /snapshot\.json/);
+  assert.match(refreshScript, /verification_status: "unverified"/);
+  assert.doesNotMatch(refreshScript, /verification_status: "verified"/);
+
+  const applyScript = fs.readFileSync(
+    path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-apply.js"),
+    "utf8"
+  );
+  assert.match(applyScript, /region-metrics-note-core\.js/);
+  assert.match(applyScript, /atomicWrite/);
+  assert.match(applyScript, /--dry-run/);
 
   // template substitution must fill region_key (simulate generator)
   const filled = template
@@ -111,6 +160,9 @@ function main() {
   const registry = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/display-registry.js"), "utf8");
   assert.match(registry, /auction_region/);
   assert.match(registry, /부동산 지역/);
+
+  const coreSchema = fs.readFileSync(path.join(ROOT, "SYSTEM/Prodigy/Schema/Core_Property_Schema.md"), "utf8");
+  assert.match(coreSchema, /`auction_region`/);
 
   const hub = fs.readFileSync(path.join(ROOT, "HUB/10 Auction.md"), "utf8");
   assert.match(hub, /auction-region-core\.js/);

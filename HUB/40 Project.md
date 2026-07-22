@@ -24,15 +24,18 @@ const loadProdigyScript = async (path) => {
 try {
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-core.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-view.js");
   await loadProdigyScript("SYSTEM/Views/object-engine-core.js");
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
   await loadProdigyScript("SYSTEM/Views/project-card.js");
   await loadProdigyScript("SYSTEM/Views/project-wizard-core.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
   await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
   await loadProdigyScript("SYSTEM/Views/project-todoist-adapter.js");
   await loadProdigyScript("SYSTEM/Views/project-wizard.js");
+  window.ProdigyWorkspaceNavigation.mount(container, { app, title: "프로젝트" });
 } catch (err) {
   container.empty();
   const errCard = container.createEl("div", {

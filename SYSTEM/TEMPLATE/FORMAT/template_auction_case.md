@@ -28,6 +28,12 @@ property_type:
 building_year:
 exclusive_area:
 supply_area:
+# ---------- Land price reference ----------
+land_parcel_id:
+official_land_price_per_sqm:
+official_land_price_as_of:
+official_land_price_source:
+land_rights_area_sqm:
 # ---------- Auction ----------
 appraisal_price:
 minimum_bid:

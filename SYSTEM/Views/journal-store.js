@@ -63,10 +63,8 @@
     return app.vault.create(path, template);
   }
 
-  async function loadReview(app, dateStr) {
+  function reviewFromContent(path, dateStr, content) {
     const core = root.JournalCore;
-    const path = core.dailyPath(dateStr);
-    const content = await readText(app, path);
     if (!content) {
       return {
         path,
@@ -99,6 +97,12 @@
       statusLabel: core.reviewStatusLabel(status),
       content
     };
+  }
+
+  async function loadReview(app, dateStr) {
+    const core = root.JournalCore;
+    const path = core.dailyPath(dateStr);
+    return reviewFromContent(path, dateStr, await readText(app, path));
   }
 
   async function saveReview(app, dateStr, review) {
@@ -134,15 +138,62 @@
     return loadReview(app, dateStr);
   }
 
-  async function appendEvidenceBlock(app, dateStr, block) {
-    const loaded = await loadReview(app, dateStr);
-    const existing = (loaded.blocks || []).filter((b) => !b.legacy);
+  function mergeProposedEvidenceBlocks(dateStr, currentBlocks, proposedBlocks) {
     const core = root.JournalCore;
-    const nextBlock = Object.assign({}, core.emptyBlock(dateStr, existing), block || {});
-    if (!core.clean(nextBlock.evidence_id)) {
-      nextBlock.evidence_id = core.nextEvidenceId(existing, dateStr);
-    }
-    return saveEvidenceBlocks(app, dateStr, existing.concat([nextBlock]));
+    const current = (currentBlocks || []).filter((block) => block && !block.legacy);
+    const merged = current.slice();
+    const usedIds = new Set(current.map((block) => String(block.evidence_id || "")).filter(Boolean));
+    const expectedId = new RegExp(`^daily-${String(dateStr).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-e\\d{2,}$`);
+
+    (proposedBlocks || []).forEach((block) => {
+      if (!block || (!core.clean(block.experience) && !core.clean(block.title))) return;
+      const proposed = Object.assign({}, block);
+      const evidenceId = String(proposed.evidence_id || "");
+      if (!expectedId.test(evidenceId) || usedIds.has(evidenceId)) {
+        proposed.evidence_id = core.nextEvidenceId(merged, dateStr);
+      }
+      usedIds.add(proposed.evidence_id);
+      merged.push(proposed);
+    });
+    return merged;
+  }
+
+  /**
+   * Merge confirmed Evidence proposals against the latest note content in one
+   * vault transaction so concurrent Evidence writes cannot be overwritten.
+   */
+  async function mergeProposedEvidenceAtCommit(app, dateStr, proposedBlocks, options) {
+    const core = root.JournalCore;
+    const file = await ensureDailyNote(app, dateStr);
+    const path = file.path || core.dailyPath(dateStr);
+    const deleteEvidenceIds = new Set((options && options.deleteEvidenceIds || []).map((value) => String(value || "").trim()).filter(Boolean));
+    let committedReview;
+
+    await app.vault.process(file, (currentContent) => {
+      const current = core.parseDailyEvidenceBlocks(currentContent || "", dateStr)
+        .filter((block) => !block.legacy && !deleteEvidenceIds.has(block.evidence_id));
+      const merged = mergeProposedEvidenceBlocks(dateStr, current, proposedBlocks);
+      const evidenceIdMap = {};
+      const committedProposals = merged.slice(current.length);
+      let committedIndex = 0;
+      (proposedBlocks || []).forEach((block) => {
+        if (!block || (!core.clean(block.experience) && !core.clean(block.title))) return;
+        const originalId = String(block.evidence_id || "").trim();
+        const committed = committedProposals[committedIndex];
+        committedIndex += 1;
+        if (originalId && committed && committed.evidence_id) evidenceIdMap[originalId] = committed.evidence_id;
+      });
+      let next = core.upsertEvidenceSection(currentContent || "", merged);
+      next = core.applyReviewToDailyContent(next, core.aggregateLegacyFieldsFromBlocks(merged));
+      committedReview = reviewFromContent(path, dateStr, next);
+      committedReview.evidenceIdMap = evidenceIdMap;
+      return next;
+    });
+    return committedReview;
+  }
+
+  async function appendEvidenceBlock(app, dateStr, block) {
+    return mergeProposedEvidenceAtCommit(app, dateStr, [block || {}]);
   }
 
   async function listRecentReviews(app, options = {}) {
@@ -184,6 +235,7 @@
     loadReview,
     saveReview,
     saveEvidenceBlocks,
+    mergeProposedEvidenceAtCommit,
     appendEvidenceBlock,
     listRecentReviews
   };

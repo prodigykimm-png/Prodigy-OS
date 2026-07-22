@@ -25,11 +25,15 @@
 | Home 사용 | **예** — Type 라벨 + 아이콘 + 색상 |
 | Dataview 조회 | **예** — 필터/그룹화의 1순위 |
 
-허용값: `auction_case` · `project` · `reading` · `workout` · `workout_program` · `exercise` · `journal` · `people` · `area_family` · `area_note` · `meeting` · `fleeting_note` · `permanent_note` · `literature_note` · `workstation_note` · `documentation_note` · `wedding` · `study`
+허용값: `auction_case` · `auction_region` · `project` · `reading` · `workout` · `workout_program` · `exercise` · `journal` · `people` · `area_family` · `area_note` · `meeting` · `fleeting_note` · `knowledge_candidate` · `knowledge` · `permanent_note` · `literature_note` · `venue` · `workstation_note` · `documentation_note` · `wedding` · `study`
+
+`auction_region`은 시군구 단위의 재사용 가능한 부동산 시장 근거·시계열 Resource다. 실행 사건인 `auction_case`와 분리하며, 상세 계약은 `SYSTEM/docs/Region_Property_Contract_v1.md`를 따른다.
 
 레거시 읽기 호환(신규 생성 금지): `contact` · `project_note` · `project_family`
 
 공식 관계 Object는 `people` (표시 라벨: 사람). `contact`는 기존 파일 읽기 전용이다.
+
+Knowledge 계약에서 `knowledge_candidate`는 사람의 저장·승인을 기다리는 전 도메인 임시 후보이며, `knowledge`는 사람이 검증한 재사용 가능한 canonical Knowledge다. `permanent_note`는 legacy read-compatible Knowledge, `literature_note`는 supporting Resource, `fleeting_note`는 검증 전 capture다. `venue`는 전용 Resource type이며 범용 `resource` type을 만들지 않는다.
 
 ### `status`
 
@@ -107,6 +111,54 @@ People 링크 예:
 connections:
   - "[[홍길동]]"
 ```
+
+### `knowledge_domain`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Knowledge Explorer에서 Knowledge가 귀속되는 하나의 주 Domain. |
+| 형식 | registry-backed 영어 snake_case scalar |
+| 입력 주체 | 사용자 검토·승인 |
+| Home 사용 | 아니오 |
+| Dataview 조회 | **예** — Explorer Domain 귀속과 계산형 카운트 |
+
+canonical `knowledge`, legacy `permanent_note`, `knowledge_candidate`, 그리고 새 `literature_note`에만 계약 범위 안에서 저장한다. 누락되거나 허용되지 않은 값은 기존 Object의 저장값을 수정하지 않고 Explorer projection에서만 `unclassified`로 취급한다. 허용값은 `Knowledge_Explorer_Schema.md`가 소유한다.
+
+### `knowledge_topics`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Knowledge가 연결되는 복수의 승인된 Topic. |
+| 형식 | registry-backed 영어 snake_case 값의 YAML list |
+| 입력 주체 | 사용자 검토·승인 |
+| Home 사용 | 아니오 |
+| Dataview 조회 | **예** — Explorer Topic 탐색 |
+
+canonical 저장 형식은 YAML list다. legacy scalar/comma 형식은 read-only projection에서만 호환하며 자동 rewrite하지 않는다. 누락되거나 허용되지 않은 값은 원본을 변경하지 않고 projection에서만 `unclassified`로 취급한다.
+
+### `application_trigger`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 이 지식을 실제로 꺼내 적용해야 하는 조건 또는 계기. |
+| 형식 | 짧은 텍스트 |
+| 입력 주체 | 사용자 |
+| Home 사용 | 아니오 |
+| Dataview 조회 | 승인된 Knowledge의 적용 맥락 조회에 사용 가능 |
+
+`knowledge_candidate`와 canonical `knowledge`만 저장한다. Candidate의 인간 승인·승격은 이 값을 삭제·재해석하지 않고 canonical Knowledge로 그대로 보존한다.
+
+### `application_contexts`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 적용할 Domain 또는 Domain/Topic 맥락의 명시 목록. |
+| 형식 | registry-backed 영어 snake_case YAML list (`knowledge_domain` 또는 `knowledge_domain/knowledge_topic`) |
+| 입력 주체 | 사용자 |
+| Home 사용 | 아니오 |
+| Dataview 조회 | 승인된 Knowledge의 적용 맥락 조회에 사용 가능 |
+
+`knowledge_candidate`와 canonical `knowledge`만 저장한다. Candidate의 인간 승인·승격은 이 YAML list를 canonical Knowledge로 그대로 보존한다. 이 Property는 전역 Domain Architecture를 만들지 않으며, 유효성은 Knowledge Explorer registry 범위에서만 판단한다.
 
 ### `created`
 

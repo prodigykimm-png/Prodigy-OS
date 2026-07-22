@@ -130,6 +130,7 @@
         source_path: result.source_path,
         title: result.title,
         author: entry.author || "",
+        knowledge_links: Array.isArray(entry.knowledge_links) ? entry.knowledge_links.slice() : [],
         relation_labels: relationLabels,
         evidence_line: evidenceLine(query, entry, result),
         explanation: explanationFor(query, entry, result),

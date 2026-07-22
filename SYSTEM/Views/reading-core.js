@@ -5,10 +5,6 @@
     return String(value == null ? "" : value).trim();
   }
 
-  function clone(value) {
-    return JSON.parse(JSON.stringify(value));
-  }
-
   function stableHash(value) {
     let hash = 2166136261;
     for (const char of String(value || "")) {
@@ -132,60 +128,50 @@
     return payload;
   }
 
+  function candidateCore() {
+    if (!root.KnowledgeCandidateCore && typeof require === "function") require("./knowledge-candidate-core.js");
+    if (!root.KnowledgeCandidateCore) throw new Error("Knowledge Candidate core를 먼저 불러와야 합니다.");
+    return root.KnowledgeCandidateCore;
+  }
+
+  function sourceSessionLink(session, source) {
+    const explicit = clean(source.source_session || session.source_session);
+    if (explicit) return /^\[\[[^\[\]|]+\]\]$/.test(explicit) ? explicit : `[[${explicit.replace(/\.md$/, "")}]]`;
+    const sessionPath = clean(session.path);
+    if (sessionPath) return `[[${sessionPath.replace(/\.md$/, "")}]]`;
+    throw new Error("지식 후보는 저장된 독서 세션에서만 만들 수 있습니다.");
+  }
+
   function createKnowledgeCandidate(sessionInput, candidateInput) {
     const session = sessionInput || {};
     const source = candidateInput || {};
     const title = clean(source.title) || `${clean(session.book_title) || "독서"} 후보`;
     const statement = clean(source.statement || source.my_thought || session.my_thought || session.thinking_delta);
-    return {
+    const now = new Date().toISOString();
+    return candidateCore().createCandidate({
       type: "knowledge_candidate",
-      candidate_id: clean(source.candidate_id) || machineId("candidate", `${session.session_id || "session"}:${title}:${Date.now()}`),
-      status: "proposed",
+      candidate_id: clean(source.candidate_id),
+      status: "saved",
       title,
       statement,
-      reason: clean(source.reason),
+      reason: clean(source.reason) || "독서 세션의 직접 기록을 바탕으로 만든 후보입니다.",
       source_type: "reading_session",
-      source_session_id: clean(session.session_id),
-      source_session: clean(source.source_session) || (session.path ? `[[${session.path.replace(/\.md$/, "")}]]` : ""),
-      source_book: clean(source.source_book || session.book || session.book_title),
-      created: clean(source.created) || new Date().toISOString(),
-      updated: clean(source.updated) || new Date().toISOString()
-    };
-  }
-
-  const CANDIDATE_STATUSES = Object.freeze({
-    proposed: "proposed",
-    saved: "saved",
-    rejected: "rejected"
-    // approved / knowledge are reserved for a later sprint
-  });
-
-  function setKnowledgeCandidateStatus(candidateInput, status) {
-    const next = clone(candidateInput || {});
-    const value = clean(status);
-    if (!CANDIDATE_STATUSES[value]) {
-      throw new Error(`Unsupported candidate status: ${value}`);
-    }
-    next.status = value;
-    next.updated = new Date().toISOString();
-    return next;
-  }
-
-  function rejectKnowledgeCandidate(candidateInput) {
-    return setKnowledgeCandidateStatus(candidateInput, "rejected");
-  }
-
-  function saveKnowledgeCandidate(candidateInput) {
-    return setKnowledgeCandidateStatus(candidateInput, "saved");
+      source_evidence_ids: [],
+      source_objects: [sourceSessionLink(session, source)],
+      confidence: clean(source.confidence) || "explicit",
+      suggested_domain: clean(source.suggested_domain) || "reading",
+      suggested_topics: Array.isArray(source.suggested_topics) ? source.suggested_topics : [],
+      approval_note: clean(source.approval_note),
+      promotion_target: "",
+      promoted_knowledge: "",
+      created: clean(source.created) || now,
+      updated: clean(source.updated) || now
+    });
   }
 
   function sessionFilename(session) {
     const base = `${session.date} - ${sanitizeFilename(session.book_title || "Book")} - Session`;
     return `${base}.md`;
-  }
-
-  function candidateFilename(candidate) {
-    return `Candidate - ${sanitizeFilename(candidate.title)}.md`;
   }
 
   function toFrontmatter(fields) {
@@ -242,24 +228,6 @@
     return body.join("\n");
   }
 
-  function buildCandidateMarkdown(candidate) {
-    const body = [
-      toFrontmatter(candidate),
-      "",
-      `# ${candidate.title}`,
-      "",
-      "## Statement",
-      "",
-      candidate.statement || "",
-      "",
-      "## Reason",
-      "",
-      candidate.reason || "",
-      ""
-    ];
-    return body.join("\n");
-  }
-
   function parseSimpleFrontmatter(text) {
     if (!text || !text.startsWith("---")) return {};
     const end = text.indexOf("\n---", 3);
@@ -280,7 +248,6 @@
 
   const api = {
     clean,
-    clone,
     machineId,
     todayIsoDate,
     sanitizeFilename,
@@ -288,14 +255,8 @@
     validateReadingSession,
     createReadingSession,
     createKnowledgeCandidate,
-    CANDIDATE_STATUSES,
-    setKnowledgeCandidateStatus,
-    rejectKnowledgeCandidate,
-    saveKnowledgeCandidate,
     sessionFilename,
-    candidateFilename,
     buildSessionMarkdown,
-    buildCandidateMarkdown,
     parseSimpleFrontmatter
   };
 

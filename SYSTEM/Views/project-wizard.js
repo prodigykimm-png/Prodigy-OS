@@ -174,6 +174,7 @@
         attr: { class: "prodigy-settings-grid", style: "display:grid;grid-template-columns:1fr 1fr;gap:10px;" }
       });
       contentEl.createEl("style", { text: "@media(max-width:680px){.prodigy-settings-grid{grid-template-columns:1fr!important}}" });
+      this.renderProviderCard(grid, "lm-studio", "");
       this.renderProviderCard(grid, "gemini", "Gemini API 키");
       this.renderProviderCard(grid, "mimo", "Xiaomi MiMo API 키");
       this.renderProviderCard(grid, "opencode-go", "OpenCode Go API 키");
@@ -210,14 +211,28 @@
           this.render();
         };
       }
-      fieldLabel(box, secretLabel);
-      passwordInput(box, "비워 두면 기존 비밀 키를 유지합니다", (value) => {
-        this.state.secrets[provider.apiKeySecret] = value;
-      });
+      if (provider.authMode !== "none" && provider.apiKeySecret) {
+        fieldLabel(box, secretLabel);
+        passwordInput(box, "비워 두면 기존 비밀 키를 유지합니다", (value) => {
+          this.state.secrets[provider.apiKeySecret] = value;
+        });
+      } else {
+        box.createEl("div", {
+          text: "로컬 서버를 사용하므로 API 키가 필요하지 않습니다.",
+          attr: { style: "font-size:0.78em;color:var(--text-muted);line-height:1.35;" }
+        });
+      }
       fieldLabel(box, "모델");
-      input(box, provider.model || "", "제공자 모델 ID", (value) => {
-        provider.model = value.trim();
-      });
+      const modelOptions = root.ProjectWorkflowDraftService.listProviderModels(providerKey, { providers: this.state.providers });
+      if (modelOptions.length) {
+        select(box, provider.model || modelOptions[0].id, modelOptions.map((model) => ({ value: model.id, label: model.label })), (value) => {
+          provider.model = value;
+        });
+      } else {
+        input(box, provider.model || "", "제공자 모델 ID", (value) => {
+          provider.model = value.trim();
+        });
+      }
       if (provider.adapter === "openai-compatible") {
         fieldLabel(box, "Base URL");
         input(box, provider.baseURL || "", "기본 제공자 Base URL", (value) => {
@@ -229,6 +244,7 @@
         });
         fieldLabel(box, "인증 방식");
         select(box, provider.authMode || "bearer", [
+          { value: "none", label: "없음 (로컬)" },
           { value: "bearer", label: "Bearer" },
           { value: "api-key", label: "API 키 헤더" }
         ], (value) => {

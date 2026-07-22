@@ -27,6 +27,8 @@ def run_registry() -> dict[str, str]:
         "  legacyPriority: display.priority('보통'),",
         "  auction: display.type('auction_case'),",
         "  project: display.type('project'),",
+        "  landPrice: display.property('official_land_price_per_sqm'),",
+        "  supply60: display.property('move_in_60m'),",
         "  unknownStatus: display.status('future_status'),",
         "  unknownPriority: display.priority('future_priority')",
         "}));",
@@ -48,6 +50,8 @@ def test_display_registry_maps_internal_values_to_korean_labels():
         "legacyPriority": "보통",
         "auction": "경매",
         "project": "프로젝트",
+        "landPrice": "개별공시지가(㎡당)",
+        "supply60": "입주 예정 60개월",
         "unknownStatus": "미등록 상태",
         "unknownPriority": "미등록 우선순위",
     }

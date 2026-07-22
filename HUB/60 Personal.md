@@ -16,6 +16,7 @@ const loadProdigyScript = async (path) => {
 try {
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/workspace-list-view.js");
   await loadProdigyScript("SYSTEM/Views/people-core.js");
   await loadProdigyScript("SYSTEM/Views/people-store.js");
@@ -23,6 +24,8 @@ try {
 
   const rootEl = this.container;
   rootEl.empty();
+
+  window.ProdigyWorkspaceNavigation.mount(rootEl, { app, title: "개인" });
 
   // People surface (primary)
   const peopleMount = rootEl.createDiv({ attr: { class: "personal-people-mount" } });

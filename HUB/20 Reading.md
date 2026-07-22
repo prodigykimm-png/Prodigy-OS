@@ -26,17 +26,23 @@ const loadProdigyScript = async (path) => {
 try {
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-core.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-view.js");
   await loadProdigyScript("SYSTEM/Views/object-engine-core.js");
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
+  await loadProdigyScript("SYSTEM/Views/decision-packet-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-decision-packet.js");
   await loadProdigyScript("SYSTEM/Views/reading-memory-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-memory-retrieval.js");
   await loadProdigyScript("SYSTEM/Views/reading-memory-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-memory-view.js");
+  await loadProdigyScript("SYSTEM/Views/reading-decision-packet.js");
   await loadProdigyScript("SYSTEM/Views/reading-checklist-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-checklist-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-checklist-view.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-candidate-core.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-candidate-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-view.js");
@@ -44,6 +50,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/reading-strategy-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-workspace-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-card.js");
+  window.ProdigyWorkspaceNavigation.mount(container, { app, title: "독서" });
 } catch (err) {
   container.empty();
   const errCard = container.createEl("div", {
@@ -273,6 +280,8 @@ const loadProdigyScript = async (path) => {
 
 try {
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-candidate-core.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-candidate-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-view.js");

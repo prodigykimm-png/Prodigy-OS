@@ -30,9 +30,9 @@ const loadWorkoutScript = async (path) => {
   }
 };
 
-const showError = (error) => {
-  container.empty();
-  const card = container.createEl("div", {
+const showError = (target, error) => {
+  target.empty();
+  const card = target.createEl("div", {
     attr: {
       style: "background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 16px; margin: 12px 0;"
     }
@@ -61,18 +61,23 @@ const showError = (error) => {
 
 try {
   await loadWorkoutScript("SYSTEM/Views/display-registry.js");
+  await loadWorkoutScript("SYSTEM/Views/workspace-navigation.js");
   await loadWorkoutScript("SYSTEM/Views/object-engine-core.js");
   await loadWorkoutScript("SYSTEM/Views/workout-core.js");
   await loadWorkoutScript("SYSTEM/Views/workout-store.js");
   await loadWorkoutScript("SYSTEM/Views/workout-import.js");
   await loadWorkoutScript("SYSTEM/Views/workout-program-objects.js");
   await loadWorkoutScript("SYSTEM/Views/workout-view.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-decision-packet.js");
 
   if (!window.WorkoutView || typeof window.WorkoutView.renderDashboard !== "function") {
     throw new Error("WorkoutView.renderDashboard 가 없습니다. workout-view.js 로드를 확인하세요.");
   }
-  await window.WorkoutView.renderDashboard(app, container);
+  const navigationMount = container.createDiv({ attr: { class: "workout-workspace-navigation" } });
+  const workoutMount = container.createDiv({ attr: { class: "workout-workspace-content" } });
+  window.ProdigyWorkspaceNavigation.mount(navigationMount, { app, title: "운동" });
+  await window.WorkoutView.renderDashboard(app, workoutMount);
 } catch (error) {
-  showError(error);
+  showError(container, error);
 }
 ```

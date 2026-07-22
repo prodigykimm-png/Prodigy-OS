@@ -18,19 +18,38 @@ window.obsidianPrompt = function(title, placeholder, value = "") {
           const { contentEl } = this;
           contentEl.createEl("h3", { text: title, attr: { style: "margin-bottom: 12px; font-size: 1.2em;" } });
           
-          let inputVal = value;
-          new Setting(contentEl)
-            .setName(placeholder)
-            .addText((text) => {
-              text.setValue(value);
-              text.onChange((val) => {
-                inputVal = val;
-              });
-              setTimeout(() => {
-                text.inputEl.focus();
-                text.inputEl.select();
-              }, 50);
-            });
+         let inputVal = value;
+         new Setting(contentEl)
+           .setName(placeholder)
+           .addText((text) => {
+             text.setValue(value);
+             text.onChange((val) => {
+               inputVal = val;
+             });
+             // Auto-format numbers with commas (천 단위 콤마)
+             text.inputEl.addEventListener('input', () => {
+               const raw = text.inputEl.value.replace(/,/g, '');
+               if (/^\d+$/.test(raw) && raw.length > 3) {
+                 const formatted = Number(raw).toLocaleString('ko-KR');
+                 const cursor = text.inputEl.selectionStart || 0;
+                 const beforeCommas = text.inputEl.value.slice(0, cursor).replace(/,/g, '').length;
+                 text.inputEl.value = formatted;
+                 inputVal = formatted;
+                 // Restore cursor position accounting for new commas
+                 let newPos = 0;
+                 let digitCount = 0;
+                 for (let i = 0; i < formatted.length && digitCount < beforeCommas; i++) {
+                   newPos = i + 1;
+                   if (formatted[i] !== ',') digitCount++;
+                 }
+                 text.inputEl.setSelectionRange(newPos, newPos);
+               }
+             });
+             setTimeout(() => {
+               text.inputEl.focus();
+               text.inputEl.select();
+             }, 50);
+           });
             
           new Setting(contentEl)
             .addButton((btn) => {

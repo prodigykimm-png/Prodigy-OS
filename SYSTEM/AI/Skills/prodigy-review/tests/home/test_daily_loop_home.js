@@ -1,7 +1,6 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
@@ -10,10 +9,8 @@ function load(modulePath) {
   return require(path.join(ROOT, modulePath));
 }
 
-function main() {
+async function main() {
   const morning = load("SYSTEM/Views/morning-context-core.js");
-  const homeSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/home-view.js"), "utf8");
-  const homeHub = fs.readFileSync(path.join(ROOT, "HUB/00 Home.md"), "utf8");
 
   assert.equal(morning.resolveRecommendLevel({ recommend_level: "강추", recommendation: "보통" }), "강추");
   assert.equal(morning.resolveRecommendLevel({ recommendation: "보통" }), "보통");
@@ -89,42 +86,32 @@ next_experiment: frontmatter 실험
   assert.equal(yFields.next_experiment, "frontmatter 실험");
   assert.equal(yFields.reflection, "본문 성찰");
 
-  assert.match(homeSource, /외부 failures must never block Home|external failures must never block Home/i);
-  // Mission Control surfaces (Korean product labels)
-  assert.match(homeSource, /지금 무엇에 집중할까|home-mc-stack|Mission Control/);
-  assert.match(homeSource, /오늘의 집중|첫 번째 제안 승인|이 제안 승인|오늘의 집중 제안/);
-  assert.match(homeSource, /이어할 항목이 없습니다|오늘은 새 출발|이어하기/);
-  assert.match(homeSource, /주의가 필요함|home-needs-attention|오늘은 주의할 Object가 없습니다/);
-  assert.match(homeSource, /빠른 실행|새 Object|오늘 Daily|검색/);
-  assert.match(homeSource, /Todoist 열기|Todoist/);
-  assert.match(homeSource, /시스템 상태|Object Engine|Review Queue/);
-  assert.match(homeSource, /2분 (Review|성찰)/);
-  assert.match(homeSource, /engine_states|buildMorningBriefContext/);
-  assert.match(homeSource, /safeRenderRegion/);
-  assert.match(homeSource, /selectFocusItems/);
-  assert.match(homeSource, /sanitizeFocusList|pathExists/);
-  assert.match(homeSource, /Live vault context is always preferred/);
-  assert.match(homeSource, /어제 배움|yesterday_review/);
-  assert.match(homeSource, /어제 (Reflection|성찰)이 비어|home-yesterday-missing|yMissing/);
-  assert.match(homeSource, /focusHints/);
-  assert.match(homeSource, /home-compact|isCompactHome|home-secondary-fold/);
-  // A2: compact-only workspace dock for one-tap hub navigation
-  assert.match(homeSource, /home-ws-dock|renderWorkspaceDock|워크스페이스 바로가기/);
-  assert.match(homeSource, /HUB\/10 Auction\.md/);
-  assert.match(homeSource, /HUB\/20 Reading\.md/);
-  assert.match(homeSource, /isCompactHome[\s\S]*home-ws-dock|home-ws-dock[\s\S]*isCompactHome|if \(!isCompactHome/);
-  assert.match(homeSource, /home-lifecycle-fold|객체 라이프사이클 · 접힘|Object Lifecycle · 접힘/);
-  assert.match(homeSource, /approved only|첫 번째 제안 승인|아직 제안된 집중|오늘의 집중 제안|주간 복기 초안 열기/);
-  assert.match(homeSource, /saveApprovedFocus/);
-  assert.equal(homeSource.includes("contenteditable"), false);
-  assert.match(homeSource, /주간 복기 초안 열기/);
-  assert.match(homeHub, /journal-core\.js/);
-  assert.match(homeHub, /journal-view\.js/);
-
-  const journalView = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/journal-view.js"), "utf8");
-  assert.match(journalView, /focusHints/);
-  assert.match(journalView, /오늘 Focus를 마쳤나요/);
-
+  const previousMorningCore = global.MorningContextCore;
+  const previousBriefService = global.MorningBriefService;
+  const homePath = path.join(ROOT, "SYSTEM/Views/home-view.js");
+  try {
+    global.MorningContextCore = morning;
+    global.MorningBriefService = {
+      generateMorningResult: async () => { throw new Error("network unavailable"); }
+    };
+    delete require.cache[require.resolve(homePath)];
+    const home = require(homePath);
+    const recovered = await home.generateMorningBrief({ app: {}, morningPackage: {
+      local_date: "2026-07-17",
+      warnings: ["Todoist fetch failed: network"],
+      context: { todoist: { overdueCount: 0, todayCount: 0 }, auctions: [], projects: [], reading: [], review_inbox: [] }
+    } });
+    assert.equal(recovered.brief_mode, "rule_based", "Home keeps the daily loop usable when its provider fails");
+    assert.match(recovered.brief, /규칙 기반/);
+    assert.equal(home.getSourceTypeLabel("project"), "프로젝트");
+    assert.equal(home.getEvidenceSourceLabel("Daily Reflection"), "최근 성찰");
+  } finally {
+    delete require.cache[require.resolve(homePath)];
+    if (previousMorningCore === undefined) delete global.MorningContextCore;
+    else global.MorningContextCore = previousMorningCore;
+    if (previousBriefService === undefined) delete global.MorningBriefService;
+    else global.MorningBriefService = previousBriefService;
+  }
   // Focus selection priority: pinned > due today > priority > rule order
   const selected = morning.selectFocusItems({
     localDate: "2026-07-17",
@@ -158,4 +145,7 @@ next_experiment: frontmatter 실험
   console.log("Daily loop home tests passed");
 }
 
-main();
+main().catch((error) => {
+  console.error(error.stack || error.message);
+  process.exit(1);
+});

@@ -1,4 +1,4 @@
-window.renderAuctionCard = function(p, container) {
+window.renderAuctionCard = function(p, container, options) {
   try {
     const display = window.prodigyDisplay;
     if (!display) throw new Error("표시 Registry가 로드되지 않았습니다.");
@@ -25,8 +25,8 @@ window.renderAuctionCard = function(p, container) {
       return addr;
     };
 
-    const calcMonthlyProfit = (p) => {
-      const expected = parser(p.expected_bid);
+    const calcMonthlyProfit = (p, acquisitionPrice) => {
+      const expected = parser(acquisitionPrice);
       const rent = parser(p.expected_monthly_rent);
       const loanRatio = p.loan_ratio !== undefined && !isNaN(parser(p.loan_ratio)) ? parser(p.loan_ratio) : 0.8;
       const interestRate = p.interest_rate !== undefined && !isNaN(parser(p.interest_rate)) ? parser(p.interest_rate) : 0.06;
@@ -290,10 +290,10 @@ window.renderAuctionCard = function(p, container) {
       detailRow2.createEl('span', { text: `📅 ${dateStr}` });
     }
     
-    // Finance Row
-    const financeRow = card.createEl('div', {
-      attr: { style: `display: flex; flex-wrap: wrap; align-items: center; gap: ${isMobile ? '4px' : '8px'}; font-size: ${isMobile ? '0.72em' : '0.78em'}; color: var(--text-normal); margin-top: 1px;` }
-    });
+   // Finance Row
+   const financeRow = card.createEl('div', {
+     attr: { style: `display: flex; flex-wrap: wrap; align-items: center; gap: ${isMobile ? '4px 6px' : '8px'}; font-size: ${isMobile ? '0.72em' : '0.78em'}; color: var(--text-normal); margin-top: 1px;` }
+   });
     
     let minRateStr = "";
     if (!isClosedWatching && p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") {
@@ -304,79 +304,75 @@ window.renderAuctionCard = function(p, container) {
       }
     }
 
-    const primaryPriceKey = isClosedWatching ? "winning_bid_price" : "minimum_bid";
-    const primaryPrice = isClosedWatching ? p.winning_bid_price : p.minimum_bid;
-    const minEl = financeRow.createEl('div');
-    const primaryPriceText = p.status === "bidding" && isAuctionToday ? toWon(primaryPrice) : toEok(primaryPrice);
-    minEl.innerHTML = `${display.property(primaryPriceKey)}: <strong>${primaryPriceText}${minRateStr}</strong>`;
+    const priceProjection = window.AuctionCardPriceProjection
+      ? window.AuctionCardPriceProjection.project(p)
+      : { left: { key: "minimum_bid", label: "최저가", value: p.minimum_bid }, right: { key: "expected_bid", label: "입찰 예정가", value: p.expected_bid } };
+   const formatProjectedPrice = (entry) => {
+     const isTerminal = ["won", "lost", "skipped", "reviewing"].includes(p.status);
+     const precise = (p.status === "bidding" && isAuctionToday) || isTerminal;
+     const value = precise ? toWon(entry.value) : toEok(entry.value);
+     return `${entry.label}: <strong title="${toWon(entry.value)}">${value}</strong>`;
+   };
+    // The acquisition/outcome pair is the first thing a completed card must communicate.
+    // Keep it together so "내 입찰가 → 낙찰가" is not visually split by editable estimates.
+    const pricePair = financeRow.createEl('div', {
+      attr: { class: 'auction-card-price-pair', style: 'display:flex; align-items:center; gap:4px; flex-wrap:wrap;' }
+    });
+   const minEl = pricePair.createEl('div', { attr: { class: 'auction-card-result-price' } });
+   minEl.innerHTML = `${formatProjectedPrice(priceProjection.left)}${priceProjection.left.key === "minimum_bid" ? minRateStr : ""}`;
+
+   // Terminal cards: make left price (my_bid / expected_bid) clickable to edit
+   const terminalLeftEditable = ["won", "lost", "skipped", "reviewing"].includes(p.status)
+     && (priceProjection.left.key === "my_bid_price" || priceProjection.left.key === "expected_bid");
+   if (terminalLeftEditable) {
+     minEl.style.cssText = 'cursor:pointer;padding:0 2px;border-radius:3px;transition:background-color 0.2s;';
+     minEl.title = `${priceProjection.left.label} 수정`;
+     minEl.addEventListener('mouseenter', () => { minEl.style.backgroundColor = 'var(--background-modifier-hover)'; });
+     minEl.addEventListener('mouseleave', () => { minEl.style.backgroundColor = 'transparent'; });
+     minEl.addEventListener('click', async (e) => {
+       e.preventDefault(); e.stopPropagation();
+       const current = p[priceProjection.left.key] || "";
+       const newVal = await window.obsidianPrompt(
+         `[${p.case_number || p.file.name}] ${priceProjection.left.label} 수정`,
+         `${priceProjection.left.label}를 입력해주세요 (원 단위):`, String(current)
+       );
+       if (newVal === null) return;
+       const clean = newVal.replace(/,/g, '').trim();
+       const parsed = clean === "" ? null : (Number(clean) || clean);
+       const tFile = app.vault.getAbstractFileByPath(p.file.path);
+       if (tFile) {
+         await app.fileManager.processFrontMatter(tFile, (fm) => {
+           fm[priceProjection.left.key] = parsed;
+           fm.updated = new Date().toISOString().split('T')[0];
+         });
+         new Notice(`${priceProjection.left.label}가 업데이트되었습니다.`);
+       }
+     });
+   }
+
+   pricePair.createEl('span', { text: '→', attr: { style: 'color: var(--text-muted); font-weight: 700;' } });
     
-    financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
-    
-    const exitEl = financeRow.createEl('div', {
+    const expectedBidEditable = priceProjection.right.key === "expected_bid" && ["watching", "bidding"].includes(p.status);
+    const expEl = pricePair.createEl('div', {
       attr: {
-        style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
-        title: `${display.property("exit_price")} 수정`
-      }
-    });
-    
-    // Add hover style for exit price
-    exitEl.addEventListener('mouseenter', () => {
-      exitEl.style.backgroundColor = 'var(--background-modifier-hover)';
-    });
-    exitEl.addEventListener('mouseleave', () => {
-      exitEl.style.backgroundColor = 'transparent';
-    });
-    
-    const exitColor = p.exit_price && p.exit_price !== "정보 없음" ? 'var(--text-success)' : 'var(--text-normal)';
-    exitEl.innerHTML = `${display.property("exit_price")}: <strong style="color:${exitColor};">${toEok(p.exit_price)}</strong>`;
-    
-    exitEl.addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      const currentExit = p.exit_price || "";
-      const newExit = await window.obsidianPrompt(
-        `[${p.case_number || p.file.name}] ${display.property("exit_price")} 수정`,
-        `${display.property("exit_price")}를 입력해주세요 (원 단위, 예: 220000000):`,
-        String(currentExit)
-      );
-      
-      if (newExit === null) return; // Cancelled
-      
-      let cleanVal = newExit.replace(/,/g, '').trim();
-      const parsedValue = cleanVal === "" ? null : (Number(cleanVal) || cleanVal);
-      
-      const tFile = app.vault.getAbstractFileByPath(p.file.path);
-      if (tFile) {
-        await app.fileManager.processFrontMatter(tFile, (fm) => {
-          fm.exit_price = parsedValue;
-          fm.updated = new Date().toISOString().split('T')[0];
-        });
-        new Notice("매도 목표가가 업데이트되었습니다.");
-      }
-    });
-    
-    financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
-    
-    const expEl = financeRow.createEl('div', {
-      attr: {
-        style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
-        title: `${display.property("expected_bid")} 수정`
+        style: expectedBidEditable ? 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;' : '',
+        title: expectedBidEditable ? `${priceProjection.right.label} 수정` : ''
       }
     });
     
     // Add hover style for expected bid
-    expEl.addEventListener('mouseenter', () => {
-      expEl.style.backgroundColor = 'var(--background-modifier-hover)';
-    });
-    expEl.addEventListener('mouseleave', () => {
-      expEl.style.backgroundColor = 'transparent';
-    });
+    if (expectedBidEditable) {
+      expEl.addEventListener('mouseenter', () => {
+        expEl.style.backgroundColor = 'var(--background-modifier-hover)';
+      });
+      expEl.addEventListener('mouseleave', () => {
+        expEl.style.backgroundColor = 'transparent';
+      });
+    }
     
-    const expectedBidText = p.status === "bidding" && isAuctionToday ? toWon(p.expected_bid) : toEok(p.expected_bid);
-    expEl.innerHTML = `${display.property("expected_bid")}: <strong style="color:var(--text-accent);">${expectedBidText}</strong>`;
+    expEl.innerHTML = `<span class="auction-card-result-price">${formatProjectedPrice(priceProjection.right)}</span>`;
     
-    expEl.addEventListener('click', async (e) => {
+    if (expectedBidEditable) expEl.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       
@@ -401,46 +397,122 @@ window.renderAuctionCard = function(p, container) {
         new Notice("입찰가가 업데이트되었습니다.");
       }
     });
-    
-    financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
-    
-    // Calculate Difference (차익 = 탈출구 - 입찰)
-    let diffStr = "-";
-    let diffColor = "var(--text-muted)";
-    if (p.exit_price && p.expected_bid && p.exit_price !== "정보 없음" && p.expected_bid !== "정보 없음") {
-      const exit = parser(p.exit_price);
-      const exp = parser(p.expected_bid);
-      if (!isNaN(exit) && !isNaN(exp)) {
-        const diff = exit - exp;
-        diffStr = toEok(diff);
-        if (diff > 0) {
-          diffColor = "var(--text-accent)"; // Accent color for profit
-        } else if (diff < 0) {
-          diffColor = "var(--text-error)";
-        }
-      }
+
+   financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
+
+ // Deposit = minimum_bid / 10 (visible when bidding)
+ if (p.status === "bidding") {
+   const savedDeposit = parser(p.bid_deposit);
+   const minBidNum = parser(p.minimum_bid);
+   const deposit = (!isNaN(savedDeposit) && isFinite(savedDeposit) && savedDeposit > 0)
+     ? savedDeposit
+     : (!isNaN(minBidNum) && isFinite(minBidNum) && minBidNum > 0 ? Math.floor(minBidNum / 10) : 0);
+   if (deposit > 0) {
+     const depositStr = toWon(deposit);
+     const depositEl = financeRow.createEl('div', {
+       attr: { style: 'white-space:nowrap;cursor:pointer;padding:0 2px;border-radius:3px;transition:background-color 0.2s;', title: `보증금: ${toWon(deposit)} (최저가 ÷ 10) — 클릭하여 수정` }
+     });
+       depositEl.innerHTML = `보증금: <strong style="color:var(--text-accent);">${depositStr}</strong>`;
+       depositEl.addEventListener('mouseenter', () => { depositEl.style.backgroundColor = 'var(--background-modifier-hover)'; });
+       depositEl.addEventListener('mouseleave', () => { depositEl.style.backgroundColor = 'transparent'; });
+       depositEl.addEventListener('click', async (e) => {
+         e.preventDefault(); e.stopPropagation();
+         const currentDeposit = p.bid_deposit || "";
+         const newDeposit = await window.obsidianPrompt(
+           `[${p.case_number || p.file.name}] 보증금 수정`,
+           `보증금을 입력해주세요 (원 단위):`, String(currentDeposit)
+         );
+         if (newDeposit === null) return;
+         const clean = newDeposit.replace(/,/g, '').trim();
+         const parsed = clean === "" ? null : (Number(clean) || clean);
+         const tFile = app.vault.getAbstractFileByPath(p.file.path);
+         if (tFile) {
+           await app.fileManager.processFrontMatter(tFile, (fm) => {
+             fm.bid_deposit = parsed;
+             fm.updated = new Date().toISOString().split('T')[0];
+           });
+           new Notice("보증금이 업데이트되었습니다.");
+         }
+       });
+      financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
     }
-    
-    const diffEl = financeRow.createEl('div');
-    diffEl.innerHTML = `차익: <strong style="color:${diffColor};">${diffStr}</strong>`;
-    
-    financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
-    
-    const profitInfo = calcMonthlyProfit(p);
-    const profitEl = financeRow.createEl('div', {
+  }
+
+   const exitEl = financeRow.createEl('div', {
       attr: {
         style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
-        title: '클릭하여 예상 월세, 대출비율, 이율을 수정합니다.'
+        title: `${display.property("exit_price")} 수정`
+      }
+    });
+    exitEl.addEventListener('mouseenter', () => { exitEl.style.backgroundColor = 'var(--background-modifier-hover)'; });
+    exitEl.addEventListener('mouseleave', () => { exitEl.style.backgroundColor = 'transparent'; });
+   const exitColor = p.exit_price && p.exit_price !== "정보 없음" ? 'var(--text-success)' : 'var(--text-normal)';
+   const exitDisplay = ["won", "lost", "skipped"].includes(p.status) ? toWon(p.exit_price) : toEok(p.exit_price);
+   exitEl.innerHTML = `${display.property("exit_price")}: <strong style="color:${exitColor};">${exitDisplay}</strong>`;
+    exitEl.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const currentExit = p.exit_price || "";
+      const newExit = await window.obsidianPrompt(
+        `[${p.case_number || p.file.name}] ${display.property("exit_price")} 수정`,
+        `${display.property("exit_price")}를 입력해주세요 (원 단위, 예: 220000000):`,
+        String(currentExit)
+      );
+      if (newExit === null) return;
+      const cleanVal = newExit.replace(/,/g, '').trim();
+      const parsedValue = cleanVal === "" ? null : (Number(cleanVal) || cleanVal);
+      const tFile = app.vault.getAbstractFileByPath(p.file.path);
+      if (tFile) {
+        await app.fileManager.processFrontMatter(tFile, (fm) => {
+          fm.exit_price = parsedValue;
+          fm.updated = new Date().toISOString().split('T')[0];
+        });
+        new Notice("매도 목표가가 업데이트되었습니다.");
       }
     });
     
-    // Add hover style for profit
-    profitEl.addEventListener('mouseenter', () => {
-      profitEl.style.backgroundColor = 'var(--background-modifier-hover)';
-    });
-    profitEl.addEventListener('mouseleave', () => {
-      profitEl.style.backgroundColor = 'transparent';
-    });
+   financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
+   
+   const isTerminalStatus = ["won", "lost", "skipped"].includes(p.status);
+
+   // 차익·월수익: 터미널 상태(won/lost/skipped)에서는 숨김
+   if (!isTerminalStatus) {
+     // Calculate Difference (차익 = 탈출구 - 입찰)
+     let diffStr = "-";
+     let diffColor = "var(--text-muted)";
+     if (p.exit_price && priceProjection.left.value && p.exit_price !== "정보 없음") {
+       const exit = parser(p.exit_price);
+       const exp = parser(priceProjection.left.value);
+       if (!isNaN(exit) && !isNaN(exp)) {
+         const diff = exit - exp;
+         diffStr = toEok(diff);
+         if (diff > 0) {
+           diffColor = "var(--text-accent)";
+         } else if (diff < 0) {
+           diffColor = "var(--text-error)";
+         }
+       }
+     }
+     
+     const diffEl = financeRow.createEl('div');
+     diffEl.innerHTML = `차익: <strong style="color:${diffColor};">${diffStr}</strong>`;
+     
+     financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
+     
+     const profitInfo = calcMonthlyProfit(p, priceProjection.left.value);
+     const profitEl = financeRow.createEl('div', {
+       attr: {
+         style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
+         title: '클릭하여 예상 월세, 대출비율, 이율을 수정합니다.'
+       }
+     });
+     
+     profitEl.addEventListener('mouseenter', () => {
+       profitEl.style.backgroundColor = 'var(--background-modifier-hover)';
+     });
+     profitEl.addEventListener('mouseleave', () => {
+       profitEl.style.backgroundColor = 'transparent';
+     });
 
     profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
 
@@ -567,10 +639,11 @@ window.renderAuctionCard = function(p, container) {
           new Notice("월수익 계산 정보가 업데이트되었습니다.");
         }
       });
-      modal.open();
-    });
+     modal.open();
+   });
+   } // end if (!isTerminalStatus) — 차익·월수익 hidden for terminal cards
     
-    if (["won", "lost", "skipped"].includes(p.status)) {
+   if (["won", "lost", "skipped"].includes(p.status)) {
       const decisionEl = card.createEl('div', {
         attr: { style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
       });
@@ -701,6 +774,9 @@ window.renderAuctionCard = function(p, container) {
     };
     
     const buttons = getTransitionButtons(p.status);
+    const decisionPacket = window.AuctionDecisionPacket;
+    const decisionPacketContext = (options && options.decisionPacketContext)
+      || window.AuctionDecisionPacketDashboardContext;
     
     if (buttons.length > 0 || p.status === "bidding") {
       if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
@@ -711,12 +787,41 @@ window.renderAuctionCard = function(p, container) {
         }
       });
 
-      // Card → Day Runner (when bidding with a bid date)
-      if (p.status === "bidding" && p.auction_datetime) {
-        const dayBtn = window.ProdigyUI
-          ? window.ProdigyUI.button(buttonContainer, "⚖️ 입찰 실행", { chip: true })
+      // Decision Packet is deterministic reference material for active cases.
+      // It stays inline and never changes Object properties or Auction Day state.
+      if (decisionPacket && decisionPacket.isActionable && decisionPacket.isActionable(p)) {
+        let packetHost = null;
+        const packetBtn = window.ProdigyUI
+          ? window.ProdigyUI.button(buttonContainer, "결정 패킷", { chip: true })
           : buttonContainer.createEl("button", {
-            text: "⚖️ 입찰 실행",
+            text: "결정 패킷",
+            attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" }
+          });
+        packetBtn.onclick = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (packetHost && packetHost.parentNode) {
+            packetHost.parentNode.removeChild(packetHost);
+            packetHost = null;
+            packetBtn.setText ? packetBtn.setText("결정 패킷") : (packetBtn.textContent = "결정 패킷");
+            return;
+          }
+          packetHost = card.createEl("div", { attr: { class: "prodigy-auction-decision-packet-host" } });
+          decisionPacket.renderForAuction(packetHost, {
+            app,
+            auction: p,
+            context: decisionPacketContext
+          });
+          packetBtn.setText ? packetBtn.setText("패킷 닫기") : (packetBtn.textContent = "패킷 닫기");
+        };
+      }
+
+     // Card → single-case bid sheet (when bidding with a bid date)
+     if (p.status === "bidding" && p.auction_datetime) {
+       const dayBtn = window.ProdigyUI
+          ? window.ProdigyUI.button(buttonContainer, "입찰표 열기", { chip: true })
+          : buttonContainer.createEl("button", {
+            text: "입찰표 열기",
             attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" }
           });
         dayBtn.onclick = async (e) => {
@@ -725,7 +830,7 @@ window.renderAuctionCard = function(p, container) {
           const dayView = window.AuctionDayView;
           const dayCore = window.AuctionDayCore;
           if (!dayView || !dayView.openForAuction) {
-            if (typeof Notice !== "undefined") new Notice("입찰 실행을 불러오지 못했습니다.");
+            if (typeof Notice !== "undefined") new Notice("입찰표를 불러오지 못했습니다.");
             return;
           }
           const path = (p.file && p.file.path) || p.path || "";
@@ -736,11 +841,12 @@ window.renderAuctionCard = function(p, container) {
             await dayView.openForAuction({
               app,
               path,
-              date: dateIso
+              date: dateIso,
+              packetContext: decisionPacketContext
             });
           } catch (err) {
             if (typeof Notice !== "undefined") {
-              new Notice(err && err.message ? err.message : "입찰 실행을 열지 못했습니다.");
+              new Notice(err && err.message ? err.message : "입찰표를 열지 못했습니다.");
             }
           }
         };
@@ -776,16 +882,12 @@ window.renderAuctionCard = function(p, container) {
               });
               new Notice(`상태가 ${opt.label}(으)로 변경되고 예상 입찰가가 기록되었습니다.`);
             }
-          } else if (opt.key === 'won' || opt.key === 'lost' || opt.key === 'skipped') {
-            if (opt.key === 'won' || opt.key === 'lost') {
-              const inputActual = await window.obsidianPrompt(`[${p.case_number}] 실제 입찰가 입력`, "실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):", String(actualBid));
-              if (inputActual === null) return;
-              actualBid = inputActual.trim();
- 
-              const inputWinning = await window.obsidianPrompt(`[${p.case_number}] 최종 낙찰가 입력`, "최종 낙찰가를 입력해주세요 (원 단위):", String(winningBid || actualBid));
-              if (inputWinning === null) return;
-              winningBid = inputWinning.trim();
-            }
+         } else if (opt.key === 'won' || opt.key === 'lost' || opt.key === 'skipped') {
+           if (opt.key === 'won' || opt.key === 'lost') {
+             const inputActual = await window.obsidianPrompt(`[${p.case_number}] 실제 입찰가 입력`, "실제 입찰가를 입력해주세요 (원 단위, 예: 154000000):", String(actualBid));
+             if (inputActual === null) return;
+             actualBid = inputActual.trim();
+           }
 
             // Open Decision Capture Modal
             class DecisionCaptureModal extends window.obsidian.Modal {
@@ -904,10 +1006,9 @@ window.renderAuctionCard = function(p, container) {
                   fm.updated = todayStr;
                   fm.my_opinion = note || "";
                   
-                  if (opt.key === 'won' || opt.key === 'lost') {
-                    if (actualBid) fm.my_bid_price = Number(actualBid) || actualBid;
-                    if (winningBid) fm.winning_bid_price = Number(winningBid) || winningBid;
-                  }
+                 if (opt.key === 'won' || opt.key === 'lost') {
+                   if (actualBid) fm.my_bid_price = Number(actualBid) || actualBid;
+                 }
                 });
                 
                 let content = await app.vault.read(tFile);

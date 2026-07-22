@@ -5,9 +5,16 @@
   // New writes use these paths; legacy paths remain readable without migration.
   const SESSION_DIR = "PARA/RESOURCES/Reading/Sessions";
   const SESSION_LEGACY_DIRS = Object.freeze(["PARA/PROJECTS/Reading/Sessions"]);
-  const CANDIDATE_DIR = "PARA/RESOURCES/Reading/Candidates";
-  const CANDIDATE_LEGACY_DIRS = Object.freeze(["ZETA/FLEETING/Knowledge Candidates"]);
   const BOOK_DIR = "PARA/PROJECTS/Reading";
+
+  function candidateStore() {
+    if (!root.KnowledgeCandidateStore && typeof require === "function") require("./knowledge-candidate-store.js");
+    if (!root.KnowledgeCandidateStore) throw new Error("Knowledge Candidate store를 먼저 불러와야 합니다.");
+    return root.KnowledgeCandidateStore;
+  }
+
+  const CANDIDATE_DIR = "PARA/RESOURCES/Knowledge/Candidates";
+  const CANDIDATE_LEGACY_DIRS = Object.freeze(["PARA/RESOURCES/Reading/Candidates", "ZETA/FLEETING/Knowledge Candidates"]);
 
   async function ensureFolder(app, folderPath) {
     if (!folderPath) return;
@@ -88,20 +95,30 @@
   }
 
   async function listCandidates(app, options = {}) {
-    await ensureFolder(app, CANDIDATE_DIR);
-    const files = await listMarkdownAcross(app, [CANDIDATE_DIR, ...CANDIDATE_LEGACY_DIRS]);
-    const status = options.status || "proposed";
-    const candidates = [];
-    for (const file of files) {
+    const candidates = await candidateStore().listCandidates(app, options);
+    const visible = candidates.map((candidate) => {
+      const sourceSession = candidate.source_session || (candidate.source_objects || []).find((value) => /^\[\[/.test(String(value))) || "";
+      return { ...candidate, source_session: sourceSession };
+    });
+    const knownPaths = new Set(visible.map((candidate) => candidate.path));
+    const request = options || {};
+    const legacyStatusMatches = (status) => {
+      if (!request.status || request.status === "all") return true;
+      if (request.status === "active") return status === "proposed" || status === "saved";
+      return status === request.status;
+    };
+    // A few pre-schema Reading notes have no usable provenance field. The shared
+    // store correctly excludes them from canonical validation; Reading alone keeps
+    // those legacy folders visible without rewriting or making them actionable.
+    for (const file of await listMarkdownAcross(app, CANDIDATE_LEGACY_DIRS)) {
+      if (knownPaths.has(file.path)) continue;
       const data = await readMarkdownObject(app, file);
       if (data.type && data.type !== "knowledge_candidate") continue;
-      if (status === "active") {
-        if (!["proposed", "saved"].includes(data.status || "proposed")) continue;
-      } else if (status !== "all" && data.status !== status) continue;
-      candidates.push(data);
+      const status = data.status || "proposed";
+      if (!legacyStatusMatches(status)) continue;
+      visible.push({ ...data, type: "knowledge_candidate", status });
     }
-    candidates.sort((a, b) => String(b.created || "").localeCompare(String(a.created || "")));
-    return candidates;
+    return visible.sort((left, right) => String(right.created || "").localeCompare(String(left.created || "")) || String(left.path || "").localeCompare(String(right.path || "")));
   }
 
   async function saveSession(app, book, formValues) {
@@ -142,57 +159,32 @@
 
   async function saveCandidate(app, session, formValues) {
     const candidate = root.ReadingCore.createKnowledgeCandidate(session, formValues);
-    await ensureFolder(app, CANDIDATE_DIR);
-    const filename = root.ReadingCore.candidateFilename(candidate);
-    const path = await uniquePath(app, CANDIDATE_DIR, filename);
-    if (session.path) {
-      candidate.source_session = `[[${session.path.replace(/\.md$/, "")}]]`;
-    }
-    const content = root.ReadingCore.buildCandidateMarkdown(candidate);
-    const file = await app.vault.create(path, content);
-    candidate.path = file.path;
+    const saved = await candidateStore().saveCandidate(app, candidate);
 
     if (session.path) {
       const sessionFile = app.vault.getAbstractFileByPath(session.path);
       if (sessionFile && app.fileManager && app.fileManager.processFrontMatter) {
         await app.fileManager.processFrontMatter(sessionFile, (fm) => {
           const ids = Array.isArray(fm.knowledge_candidate_ids) ? fm.knowledge_candidate_ids.slice() : [];
-          if (!ids.includes(candidate.candidate_id)) ids.push(candidate.candidate_id);
+          if (!ids.includes(saved.candidate_id)) ids.push(saved.candidate_id);
           fm.knowledge_candidate_ids = ids;
           fm.updated = new Date().toISOString();
         });
       }
     }
-    return candidate;
-  }
-
-  async function setCandidateStatus(app, candidatePath, status) {
-    const file = app.vault.getAbstractFileByPath(candidatePath);
-    if (!file) throw new Error("Knowledge Candidate 파일을 찾을 수 없습니다.");
-    const content = await app.vault.read(file);
-    const data = root.ReadingCore.parseSimpleFrontmatter(content);
-    const nextData = root.ReadingCore.setKnowledgeCandidateStatus(data, status);
-    if (app.fileManager && app.fileManager.processFrontMatter) {
-      await app.fileManager.processFrontMatter(file, (fm) => {
-        fm.status = nextData.status;
-        fm.updated = nextData.updated;
-      });
-    } else {
-      const next = content
-        .replace(/^status:\s*.*$/m, `status: ${nextData.status}`)
-        .replace(/^updated:\s*.*$/m, `updated: ${nextData.updated}`);
-      await app.vault.modify(file, next);
-    }
-    nextData.path = candidatePath;
-    return nextData;
+    return { ...saved, source_session: (saved.source_objects || [])[0] || "" };
   }
 
   async function rejectCandidate(app, candidatePath) {
-    return setCandidateStatus(app, candidatePath, "rejected");
+    return candidateStore().rejectCandidate(app, candidatePath);
   }
 
-  async function saveCandidateAsKept(app, candidatePath) {
-    return setCandidateStatus(app, candidatePath, "saved");
+  async function approveCandidate(app, candidatePath, request, options) {
+    return candidateStore().approveCandidate(app, candidatePath, request, options);
+  }
+
+  function isCanonicalCandidatePath(candidatePath) {
+    return String(candidatePath || "").startsWith(`${CANDIDATE_DIR}/`);
   }
 
   const api = {
@@ -208,9 +200,9 @@
     listCandidates,
     saveSession,
     saveCandidate,
-    setCandidateStatus,
     rejectCandidate,
-    saveCandidateAsKept
+    approveCandidate,
+    isCanonicalCandidatePath
   };
 
   root.ReadingStore = api;

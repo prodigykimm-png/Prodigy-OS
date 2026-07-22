@@ -229,6 +229,16 @@ assert(geminiDefaults.model === "gemini-3.5-flash", "gemini model default missin
 assert(!geminiDefaults.endpointURL, "gemini endpoint should be adapter default unless overridden");
 const opencodeDefaults = service.getProviderDefaults("opencode-go");
 assert(opencodeDefaults.baseURL === "", "opencode-go baseURL should not be guessed");
+const localDefaults = service.getProviderDefaults("lm-studio");
+assert(localDefaults.baseURL === "http://127.0.0.1:1234/v1", "LM Studio baseURL default missing");
+assert(localDefaults.authMode === "none", "LM Studio must not require a secret by default");
+assert(localDefaults.model === "qwen/qwen3.5-9b", "LM Studio Qwen default missing");
+assert(localDefaults.ttl === 120, "LM Studio idle TTL must be two minutes");
+const localModels = service.listProviderModels("lm-studio");
+assert(localModels.some((model) => model.id === "qwen/qwen3.5-9b"), "LM Studio Qwen model option missing");
+assert(localModels.some((model) => model.id === "google/gemma-4-12b-qat"), "LM Studio Gemma model option missing");
+assert(service.isEmbeddingModelId("text-embedding-nomic-embed-text-v1.5"), "embedding model must be recognized");
+assert(!service.isEmbeddingModelId("google/gemma-4-12b-qat"), "chat model must not be hidden");
 
 const valid = service.normalizeProviderPayload({{
   workflow: [
@@ -380,6 +390,14 @@ const app = {{
   const config = await service.loadProviderConfig(app);
   assert(config.providers.gemini.model === "gemini-2.5-flash", "configured gemini model must be preserved");
   assert(config.providers.gemini.apiKeySecret === "prodigy-gemini-api-key", "gemini secret id not normalized");
+
+  files["SYSTEM/PRIVATE/project-wizard.local.json"] = JSON.stringify({{
+    defaultProvider: "lm-studio",
+    providers: {{ "lm-studio": {{ model: "google/gemma-4-12b-qat" }} }}
+  }});
+  app.secretStorage.getSecret = async (name) => name === "prodigy-project-wizard-last-provider" ? "gemini" : "";
+  const explicitLocal = await service.loadProviderConfig(app);
+  assert(explicitLocal.defaultProvider === "lm-studio", "explicit local default must beat stale last-provider state");
 }})().catch((error) => {{
   console.error(error.message);
   process.exit(1);

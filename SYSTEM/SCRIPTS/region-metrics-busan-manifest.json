@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "sido": "부산광역시",
+  "description": "부산광역시 16개 구·군 표준 지역 manifest — metrics batch와 research job이 공유하는 canonical source. Contract: SYSTEM/docs/Region_Property_Contract_v1.md",
+  "created": "2026-07-19",
+  "region_count": 16,
+  "regions": [
+    {
+      "sigungu": "중구",
+      "region_key": "부산광역시-중구",
+      "title": "부산광역시 중구",
+      "region_prefix": "부산광역시 중구",
+      "lawd_code": "26110000",
+      "household_code": "2611000000"
+    },
+    {
+      "sigungu": "서구",
+      "region_key": "부산광역시-서구",
+      "title": "부산광역시 서구",
+      "region_prefix": "부산광역시 서구",
+      "lawd_code": "26140000",
+      "household_code": "2614000000"
+    },
+    {
+      "sigungu": "동구",
+      "region_key": "부산광역시-동구",
+      "title": "부산광역시 동구",
+      "region_prefix": "부산광역시 동구",
+      "lawd_code": "26170000",
+      "household_code": "2617000000"
+    },
+    {
+      "sigungu": "영도구",
+      "region_key": "부산광역시-영도구",
+      "title": "부산광역시 영도구",
+      "region_prefix": "부산광역시 영도구",
+      "lawd_code": "26200000",
+      "household_code": "2620000000"
+    },
+    {
+      "sigungu": "부산진구",
+      "region_key": "부산광역시-부산진구",
+      "title": "부산광역시 부산진구",
+      "region_prefix": "부산광역시 부산진구",
+      "lawd_code": "26230000",
+      "household_code": "2623000000"
+    },
+    {
+      "sigungu": "동래구",
+      "region_key": "부산광역시-동래구",
+      "title": "부산광역시 동래구",
+      "region_prefix": "부산광역시 동래구",
+      "lawd_code": "26260000",
+      "household_code": "2626000000"
+    },
+    {
+      "sigungu": "남구",
+      "region_key": "부산광역시-남구",
+      "title": "부산광역시 남구",
+      "region_prefix": "부산광역시 남구",
+      "lawd_code": "26290000",
+      "household_code": "2629000000"
+    },
+    {
+      "sigungu": "북구",
+      "region_key": "부산광역시-북구",
+      "title": "부산광역시 북구",
+      "region_prefix": "부산광역시 북구",
+      "lawd_code": "26320000",
+      "household_code": "2632000000"
+    },
+    {
+      "sigungu": "해운대구",
+      "region_key": "부산광역시-해운대구",
+      "title": "부산광역시 해운대구",
+      "region_prefix": "부산광역시 해운대구",
+      "lawd_code": "26350000",
+      "household_code": "2635000000"
+    },
+    {
+      "sigungu": "사하구",
+      "region_key": "부산광역시-사하구",
+      "title": "부산광역시 사하구",
+      "region_prefix": "부산광역시 사하구",
+      "lawd_code": "26380000",
+      "household_code": "2638000000"
+    },
+    {
+      "sigungu": "금정구",
+      "region_key": "부산광역시-금정구",
+      "title": "부산광역시 금정구",
+      "region_prefix": "부산광역시 금정구",
+      "lawd_code": "26410000",
+      "household_code": "2641000000"
+    },
+    {
+      "sigungu": "강서구",
+      "region_key": "부산광역시-강서구",
+      "title": "부산광역시 강서구",
+      "region_prefix": "부산광역시 강서구",
+      "lawd_code": "26440000",
+      "household_code": "2644000000"
+    },
+    {
+      "sigungu": "연제구",
+      "region_key": "부산광역시-연제구",
+      "title": "부산광역시 연제구",
+      "region_prefix": "부산광역시 연제구",
+      "lawd_code": "26470000",
+      "household_code": "2647000000"
+    },
+    {
+      "sigungu": "수영구",
+      "region_key": "부산광역시-수영구",
+      "title": "부산광역시 수영구",
+      "region_prefix": "부산광역시 수영구",
+      "lawd_code": "26500000",
+      "household_code": "2650000000"
+    },
+    {
+      "sigungu": "사상구",
+      "region_key": "부산광역시-사상구",
+      "title": "부산광역시 사상구",
+      "region_prefix": "부산광역시 사상구",
+      "lawd_code": "26530000",
+      "household_code": "2653000000"
+    },
+    {
+      "sigungu": "기장군",
+      "region_key": "부산광역시-기장군",
+      "title": "부산광역시 기장군",
+      "region_prefix": "부산광역시 기장군",
+      "lawd_code": "26710000",
+      "household_code": "2671000000"
+    }
+  ]
+}

@@ -6,10 +6,12 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const core = require(path.join(ROOT, "SYSTEM/Views/reading-core.js"));
 const store = require(path.join(ROOT, "SYSTEM/Views/reading-store.js"));
+const view = require(path.join(ROOT, "SYSTEM/Views/reading-view.js"));
 
 function createMockApp(files) {
   const map = new Map(Object.entries(files || {}));
   const folders = new Set();
+  const writes = [];
   return {
     vault: {
       getAbstractFileByPath(target) {
@@ -58,10 +60,12 @@ function createMockApp(files) {
       async create(target, content) {
         if (map.has(target)) throw new Error("exists");
         map.set(target, content);
+        writes.push({ kind: "create", path: target });
         return { path: target, basename: target.split("/").pop().replace(/\.md$/, "") };
       },
       async modify(file, content) {
         map.set(file.path, content);
+        writes.push({ kind: "modify", path: file.path });
       },
       async createFolder(target) {
         folders.add(target);
@@ -89,7 +93,8 @@ function createMockApp(files) {
       }
     },
     _map: map,
-    _folders: folders
+    _folders: folders,
+    _writes: writes
   };
 }
 
@@ -138,17 +143,37 @@ author: Author
     statement: "Knowledge statement",
     reason: "Because"
   });
-  assert.ok(candidate.path.startsWith("PARA/RESOURCES/Reading/Candidates/"));
-  assert.equal(candidate.status, "proposed");
+  assert.ok(candidate.path.startsWith("PARA/RESOURCES/Knowledge/Candidates/"));
+  assert.equal(candidate.status, "saved");
+  assert.match(app._map.get(candidate.path), /source_objects:\n  - "\[\[PARA\/RESOURCES\/Reading\/Sessions\//);
+  assert.match(app._map.get(session.path), /knowledge_candidate_ids:/);
 
-  const kept = await store.saveCandidateAsKept(app, candidate.path);
-  assert.equal(kept.status, "saved");
-  assert.match(app._map.get(candidate.path), /status: saved/);
+  const canonicalBeforeDuplicate = app._map.get(candidate.path);
+  const duplicate = await store.saveCandidate(app, session, {
+    title: "Candidate Title",
+    statement: "Knowledge statement",
+    reason: "Because"
+  });
+  assert.notEqual(duplicate.path, candidate.path);
+  assert.equal(duplicate.candidate_id, candidate.candidate_id);
+  assert.equal(app._map.get(candidate.path), canonicalBeforeDuplicate);
 
   const rejected = await store.rejectCandidate(app, candidate.path);
   assert.equal(rejected.status, "rejected");
   const text = app._map.get(candidate.path);
-  assert.match(text, /status: rejected/);
+  assert.match(text, /status: "rejected"/);
+
+  const approved = await store.approveCandidate(app, duplicate.path, {
+    title: "Approved Reading Knowledge",
+    statement: "Knowledge statement",
+    knowledge_domain: "coding",
+    knowledge_topics: ["ai"],
+    approval_note: "사람이 승인했습니다."
+  });
+  assert.equal(approved.candidate.status, "approved");
+  assert.ok(app._map.has(approved.path));
+  assert.match(app._map.get(approved.path), /^knowledge_domain: "coding"$/m);
+  assert.match(app._map.get(approved.path), /^knowledge_topics:\n  - "ai"$/m);
 
   // legacy path remains readable without migration
   app._folders.add("PARA/PROJECTS/Reading/Sessions");
@@ -163,6 +188,71 @@ key_content: old
 `);
   const listed = await store.listSessions(app, 20);
   assert.ok(listed.some((item) => item.path.includes("legacy.md")));
+
+  // Shared reader keeps all old Reading/ZETA statuses visible, read-only, and untouched.
+  app._folders.add("PARA/RESOURCES/Reading/Candidates");
+  app._folders.add("ZETA/FLEETING/Knowledge Candidates");
+  app._map.set("PARA/RESOURCES/Reading/Candidates/proposed.md", `---
+type: knowledge_candidate
+candidate_id: legacy-proposed
+status: proposed
+title: Legacy proposed
+statement: Old proposal
+reason: Old reason
+source_session: "[[${session.path.replace(/\.md$/, "")}]]"
+created: 2026-07-10
+updated: 2026-07-10
+---
+`);
+  app._map.set("ZETA/FLEETING/Knowledge Candidates/saved.md", `---
+type: knowledge_candidate
+candidate_id: legacy-saved
+status: saved
+title: Legacy saved
+statement: Old saved
+reason: Old reason
+source_session: "[[${session.path.replace(/\.md$/, "")}]]"
+created: 2026-07-11
+updated: 2026-07-11
+---
+`);
+  app._map.set("ZETA/FLEETING/Knowledge Candidates/rejected.md", `---
+type: knowledge_candidate
+candidate_id: legacy-rejected
+status: rejected
+title: Legacy rejected
+statement: Old rejected
+reason: Old reason
+source_session: "[[${session.path.replace(/\.md$/, "")}]]"
+created: 2026-07-12
+updated: 2026-07-12
+---
+`);
+  const malformedPath = "PARA/RESOURCES/Knowledge/Candidates/malformed.md";
+  const malformed = "---\ntype: knowledge_candidate\ntitle: Broken\n---\n";
+  app._map.set(malformedPath, malformed);
+  const writesBeforeRead = app._writes.slice();
+  const allCandidates = await store.listCandidates(app, { status: "all" });
+  const activeCandidates = await store.listCandidates(app, { status: "active" });
+  assert.ok(allCandidates.some((entry) => entry.path.endsWith("proposed.md") && entry.status === "proposed"));
+  assert.ok(allCandidates.some((entry) => entry.path.endsWith("saved.md") && entry.status === "saved"));
+  assert.ok(allCandidates.some((entry) => entry.path.endsWith("rejected.md") && entry.status === "rejected"));
+  assert.ok(activeCandidates.some((entry) => entry.path.endsWith("proposed.md")));
+  assert.ok(activeCandidates.some((entry) => entry.path.endsWith("saved.md")));
+  assert.equal(activeCandidates.some((entry) => entry.path.endsWith("rejected.md")), false);
+  assert.equal(app._map.get(malformedPath), malformed);
+  assert.deepEqual(app._writes, writesBeforeRead);
+
+  // Cancelling the fallback Korean prompt path must leave both Candidate and session untouched.
+  const previousWindow = global.window;
+  const filesBeforeCancel = new Map(app._map);
+  global.window = { prompt: () => null };
+  try {
+    assert.equal(await view.openCandidateModal(app, session), null);
+  } finally {
+    global.window = previousWindow;
+  }
+  assert.deepEqual([...app._map.entries()], [...filesBeforeCancel.entries()]);
 
   console.log("Reading store loop tests passed");
 }

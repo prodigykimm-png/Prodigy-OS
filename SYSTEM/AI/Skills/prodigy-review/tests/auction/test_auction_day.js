@@ -10,8 +10,55 @@ function load(rel) {
   return require(path.join(ROOT, rel));
 }
 
+function createFakeElement() {
+  const element = {
+    children: [],
+    textContent: "",
+    value: "",
+    style: {},
+    attributes: {},
+    addEventListener() {},
+    setAttribute(name, value) {
+      this.attributes[name] = String(value);
+    },
+    createEl(tag, options) {
+      const child = createFakeElement();
+      child.tagName = tag;
+      if (options && options.text != null) child.textContent = String(options.text);
+      if (options && options.attr) {
+        Object.entries(options.attr).forEach(([name, value]) => child.setAttribute(name, value));
+        if (options.attr.value != null) child.value = String(options.attr.value);
+      }
+      this.children.push(child);
+      return child;
+    },
+    empty() {
+      this.children.length = 0;
+      this.textContent = "";
+    },
+    setText(value) {
+      this.textContent = String(value);
+    }
+  };
+  return element;
+}
+
+function renderedText(element) {
+  return [element.textContent].concat(element.children.flatMap(renderedText)).join("\n");
+}
+
+function findByAttribute(element, name, value) {
+  if (element.attributes && element.attributes[name] === value) return element;
+  for (const child of element.children || []) {
+    const found = findByAttribute(child, name, value);
+    if (found) return found;
+  }
+  return null;
+}
+
 function main() {
   const core = load("SYSTEM/Views/auction-day-core.js");
+  const view = load("SYSTEM/Views/auction-day-view.js");
   const viewSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-day-view.js"), "utf8");
   const hub = fs.readFileSync(path.join(ROOT, "HUB/10 Auction.md"), "utf8");
   const calView = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/bid-calendar-view.js"), "utf8");
@@ -123,6 +170,26 @@ function main() {
   assert.equal(core.isValidOutcome("cancelled"), false);
   assert.equal(core.isValidOutcome("bidding"), false);
 
+  // Card entry opens a single bid sheet with deterministic prefill.
+  assert.deepEqual(core.resolveBidSheetValues({
+    minimum_bid: 100000000,
+    expected_bid: 143000000,
+    my_bid_price: "",
+    bid_deposit: ""
+  }), { final_bid: 143000000, bid_deposit: 10000000 });
+  assert.deepEqual(core.resolveBidSheetValues({
+    minimum_bid: 100000000,
+    expected_bid: 143000000,
+    my_bid_price: 145000000,
+    bid_deposit: 12000000
+  }), { final_bid: 145000000, bid_deposit: 12000000 });
+
+  assert.deepEqual(core.normalizeBidderProfile({ bidder_address: "  테스트 입찰자 주소  " }), {
+    schema_version: "auction-bidder-profile-v1",
+    bidder_address: "테스트 입찰자 주소",
+    updated_at: ""
+  });
+
   // Final bid write uses my_bid_price only (mock processFrontMatter)
   const fmWrites = [];
   const mockApp = {
@@ -142,12 +209,46 @@ function main() {
     }
   };
 
+  const profileFiles = new Map([[core.BIDDER_PROFILE_PATH, JSON.stringify({
+    schema_version: "auction-bidder-profile-v1",
+    bidder_address: "기존 입찰자 주소",
+    updated_at: "2026-07-21T00:00:00.000Z"
+  })]]);
+  const profileApp = {
+    vault: {
+      getAbstractFileByPath: (p) => profileFiles.has(p) ? { path: p } : null,
+      read: async (file) => profileFiles.get(file.path),
+      modify: async (file, text) => profileFiles.set(file.path, text),
+      create: async (p, text) => profileFiles.set(p, text),
+      createFolder: async () => {}
+    }
+  };
+
   return Promise.resolve()
     .then(() => core.saveFinalBid(mockApp, "PARA/PROJECTS/Auction/a.md", "145000000"))
     .then((value) => {
       assert.equal(value, 145000000);
       assert.equal(fmWrites[0].my_bid_price, 145000000);
       assert.equal(fmWrites[0].expected_bid, 143000000); // never overwrite expected
+    })
+    .then(() => core.saveBidSheet(mockApp, "PARA/PROJECTS/Auction/a.md", {
+      final_bid: "145,000,000",
+      bid_deposit: "10,000,000"
+    }))
+    .then((saved) => {
+      assert.equal(saved.my_bid_price, 145000000);
+      assert.equal(saved.bid_deposit, 10000000);
+      const write = fmWrites[fmWrites.length - 1];
+      assert.equal(write.my_bid_price, 145000000);
+      assert.equal(write.bid_deposit, 10000000);
+      assert.equal(write.expected_bid, 143000000);
+    })
+    .then(async () => {
+      const loaded = await core.loadBidderProfile(profileApp);
+      assert.equal(loaded.bidder_address, "기존 입찰자 주소");
+      const saved = await core.saveBidderProfile(profileApp, { bidder_address: "수정한 입찰자 주소" });
+      assert.equal(saved.bidder_address, "수정한 입찰자 주소");
+      assert.equal(JSON.parse(profileFiles.get(core.BIDDER_PROFILE_PATH)).bidder_address, "수정한 입찰자 주소");
     })
     .then(() => core.recordResult(mockApp, "PARA/PROJECTS/Auction/a.md", {
       outcome: "lost",
@@ -165,7 +266,7 @@ function main() {
       assert.match(String(last.decision_reason), /경쟁 과열/);
       assert.match(String(last.decision_reason), /응찰 7명/);
     })
-    .then(() => {
+    .then(async () => {
       // Empty model
       const empty = core.buildDayModel([], "2026-07-21");
       assert.equal(empty.total, 0);
@@ -196,24 +297,79 @@ function main() {
       assert.match(viewSource, /openForAuction|focusPath|is-focus|복기 시작/);
       assert.match(viewSource, /min-height:\s*40px/);
       assert.match(viewSource, /openLinkText/);
+
+      // Exercise the Auction Day render path, including the private formatters.
+      const renderContainer = createFakeElement();
+      await view.render({
+        container: renderContainer,
+        date: "2026-07-21",
+        pages: [
+          {
+            type: "auction_case", status: "bidding", case_number: "exact-won",
+            court: "테스트법원", path: "PARA/PROJECTS/Auction/exact.md", auction_datetime: "2026-07-21",
+            minimum_bid: 100000000, expected_bid: 143000000, bid_deposit: 10000000
+          },
+          {
+            type: "auction_case", status: "bidding", case_number: "blank-values",
+            court: "테스트법원", path: "PARA/PROJECTS/Auction/blank.md", auction_datetime: "2026-07-21",
+            minimum_bid: "", expected_bid: undefined, bid_deposit: ""
+          },
+          {
+            type: "auction_case", status: "bidding", case_number: "malformed-values",
+            court: "테스트법원", path: "PARA/PROJECTS/Auction/malformed.md", auction_datetime: "2026-07-21",
+            minimum_bid: "invalid minimum", expected_bid: "invalid expected", bid_deposit: 10000000
+          }
+        ]
+      });
+      const rendered = renderedText(renderContainer);
+      assert.match(rendered, /minimum_bid: 100,000,000원 · expected_bid: 143,000,000원 · bid_deposit: 10,000,000원/);
+      assert.match(rendered, /minimum_bid: — · expected_bid: — · bid_deposit: —/);
+      assert.match(rendered, /minimum_bid: invalid minimum · expected_bid: invalid expected · bid_deposit: 10,000,000원/);
       assert.equal(viewSource.includes("processFrontMatter") || viewSource.includes("saveFinalBid") || viewSource.includes("recordResult"), true);
+
+      const bidSheetContainer = createFakeElement();
+      await view.render({
+        container: bidSheetContainer,
+        app: profileApp,
+        date: "2026-07-21",
+        mode: "bid_sheet",
+        focusPath: "PARA/PROJECTS/Auction/exact.md",
+        pages: [{
+          type: "auction_case", status: "bidding", case_number: "exact-won",
+          court: "테스트법원", auction_dept: "경매 4계", address: "테스트 주소",
+          path: "PARA/PROJECTS/Auction/exact.md", auction_datetime: "2026-07-21",
+          minimum_bid: 100000000, expected_bid: 143000000, bid_deposit: 10000000
+        }]
+      });
+      const sheetText = renderedText(bidSheetContainer);
+      assert.match(sheetText, /기일 입찰표/);
+      assert.match(sheetText, /exact-won/);
+      assert.match(sheetText, /테스트법원/);
+      assert.match(sheetText, /경매 4계/);
+      assert.match(sheetText, /입찰자 주소/);
+      assert.equal(sheetText.includes("테스트 주소"), false);
+      assert.equal(findByAttribute(bidSheetContainer, "aria-label", "입찰자 주소").value, "수정한 입찰자 주소");
+      assert.match(sheetText, /100,000,000원/);
+      assert.match(sheetText, /입찰표 확정/);
+      assert.equal(sheetText.includes("결과 기록"), false);
+      assert.equal(sheetText.includes("낙찰가"), false);
       assert.match(hub, /복기 대기|buildReviewQueue/);
       const cardSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-card.js"), "utf8");
-      assert.match(cardSrc, /입찰 실행|openForAuction/);
+      assert.match(cardSrc, /입찰표 열기|openForAuction/);
       assert.match(cardSrc, /let isAuctionToday = false/);
-      assert.match(cardSrc, /p\.status === "bidding" && isAuctionToday \? toWon\(primaryPrice\) : toEok\(primaryPrice\)/);
-      assert.match(cardSrc, /p\.status === "bidding" && isAuctionToday \? toWon\(p\.expected_bid\) : toEok\(p\.expected_bid\)/);
+      assert.match(cardSrc, /const precise = \(p\.status === "bidding" && isAuctionToday\) \|\| isTerminal/);
+      assert.match(cardSrc, /const value = precise \? toWon\(entry\.value\) : toEok\(entry\.value\)/);
 
       // Hub loads scripts; entry is via Bid Calendar only
       assert.match(hub, /auction-day-core\.js/);
       assert.match(hub, /auction-day-view\.js/);
       assert.equal(hub.includes("오늘 입찰 실행"), false);
-      assert.match(calView, /입찰 실행|AuctionDayView|openPanel/);
+      assert.match(calView, /오늘 입찰 목록|todayBidEvents|showDatePopup/);
 
       // Operating Guide
-      assert.match(guide, /Auction Day Runner/);
+      assert.match(guide, /Auction Today List & Bid Sheet/);
       assert.match(guide, /Bid Calendar/);
-      assert.match(guide, /Auction Result/);
+      assert.match(guide, /오늘 입찰 목록/);
 
       // No property/template/display architecture changes for this feature
       assert.match(template, /my_bid_price:/);

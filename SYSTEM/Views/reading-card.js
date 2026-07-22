@@ -333,6 +333,11 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     });
   };
 
+  const renderDecisionPacket = (parentEl) => {
+    if (p.status !== "reading" || !window.ReadingDecisionPacket) return;
+    window.ReadingDecisionPacket.renderForReading(parentEl, { app, reading: { ...p, path: pathOf() } });
+  };
+
   /** 오늘 읽기 — minimal modal (one memo). Single session path only. */
   const renderTodayReadButton = (parentEl) => {
     if (p.status !== "reading" || !window.ReadingView || !window.ReadingCore) return;
@@ -544,6 +549,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     renderTodayReadButton(actionBox);
     renderChecklistButton(actionBox);
     renderMemoryButton(actionBox);
+    renderDecisionPacket(actionBox);
     renderNextActionButton(actionBox, p.status);
     
   } else if (mode === "simple") {
@@ -597,6 +603,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     }
     renderChecklistButton(right);
     renderMemoryButton(right);
+    renderDecisionPacket(right);
     renderNextActionButton(right, p.status);
     
   } else if (mode === "grid") {

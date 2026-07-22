@@ -125,6 +125,14 @@ function main() {
   // --- Path / name ---
   assert.equal(core.peoplePath("홍길동"), "PARA/RESOURCES/CONTACTS/홍길동.md");
   assert.equal(core.safeName("  A / B  "), "A B");
+  // Person Object names never include honorifics / job titles
+  assert.equal(core.safeName("최진웅 대표"), "최진웅");
+  assert.equal(core.safeName("최진웅 대표님"), "최진웅");
+  assert.equal(core.safeName("정호성님"), "정호성");
+  assert.equal(core.safeName("Dr. Kim"), "Kim");
+  assert.equal(core.stripPersonHonorifics("윤채연 씨"), "윤채연");
+  // Nickname-like stump must not collapse to a single syllable
+  assert.equal(core.safeName("김대리"), "김대리");
   assert.throws(() => core.safeName(""), /이름/);
   assert.throws(
     () => core.resolveCreatePath("홍길동", ["PARA/RESOURCES/CONTACTS/홍길동.md"]),

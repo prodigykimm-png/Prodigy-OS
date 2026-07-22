@@ -1,0 +1,100 @@
+(function (root) {
+  "use strict";
+
+  const DOMAIN_LABELS = Object.freeze({
+    real_estate: "부동산", wedding: "웨딩", coding: "코딩", workout: "운동",
+    reading: "독서", business: "비즈니스", personal_growth: "개인 성장"
+  });
+  const TOPIC_LABELS = Object.freeze({
+    rights_analysis: "권리 분석", site_visit: "현장 조사", bidding: "입찰", public_auction: "공매", tax: "세금", precedent: "판례",
+    shooting: "촬영", lighting: "조명", editing: "편집", equipment: "장비",
+    electron: "Electron", react: "React", typescript: "TypeScript", python: "Python", ai: "인공지능", prompt_engineering: "프롬프트 설계",
+    obsidian_plugin: "Obsidian 플러그인", claude_code: "Claude Code", codex: "Codex", gemini: "Gemini"
+  });
+
+  function registryTopics(domain) {
+    const registry = root.KnowledgeExplorerRegistry || (typeof require === "function" ? require("./knowledge-explorer-registry.js") : null);
+    return registry && Array.isArray(registry.TOPICS_BY_DOMAIN[domain]) ? registry.TOPICS_BY_DOMAIN[domain] : [];
+  }
+  function field(parent, config) {
+    parent.createEl("label", { text: config.label, attr: { for: `knowledge-direct-${config.name}`, style: "display:block;font-weight:600;margin:10px 0 4px;" } });
+    const input = parent.createEl(config.rows ? "textarea" : (config.select ? "select" : "input"), { attr: {
+      id: `knowledge-direct-${config.name}`, name: config.name, type: config.select || config.rows ? undefined : "text", rows: config.rows ? String(config.rows) : undefined, multiple: config.multiple ? "true" : undefined,
+      required: config.required ? "true" : undefined, "aria-required": config.required ? "true" : undefined, "aria-label": config.label,
+      "aria-describedby": config.help ? `knowledge-direct-${config.name}-help` : undefined,
+      style: "width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);"
+    } });
+    input.value = config.value == null ? "" : config.value;
+    input.disabled = Boolean(config.disabled);
+    if (config.select && Array.isArray(config.options)) config.options.forEach((option) => {
+      const node = input.createEl("option", { text: option.label, attr: { value: option.value } });
+      node.value = option.value;
+      node.selected = Array.isArray(config.value) ? config.value.includes(option.value) : config.value === option.value;
+    });
+    const read = (event) => {
+      const target = event && event.target ? event.target : input;
+      if (config.multiple && target.selectedOptions) return Array.from(target.selectedOptions).map((option) => option.value);
+      return target.value;
+    };
+    input.oninput = (event) => config.onChange(read(event));
+    input.onchange = (event) => config.onChange(read(event));
+    if (config.help) parent.createEl("p", { text: config.help, attr: { id: `knowledge-direct-${config.name}-help`, style: "margin:4px 0;color:var(--text-muted);font-size:0.85em;" } });
+  }
+  function domainOptions() { return Object.keys(DOMAIN_LABELS).map((value) => ({ value, label: DOMAIN_LABELS[value] })); }
+  function topicOptions(domain) { return registryTopics(domain).map((value) => ({ value, label: TOPIC_LABELS[value] || value })); }
+  function findNamed(parent, name) {
+    if (!parent) return null;
+    if (parent.attr && parent.attr.name === name) return parent;
+    for (const child of parent.children || []) {
+      const found = findNamed(child, name);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function renderDirectAuthoringForm(parent, controller) {
+    if (!parent || !controller) throw new Error("작성 화면과 컨트롤러가 필요합니다.");
+    parent.empty();
+    const current = controller.values();
+    const status = controller.state();
+    if (!status.mounted) return parent;
+    const form = parent.createEl("form", { attr: { class: "knowledge-direct-authoring-view", "aria-label": "직접 지식 작성", novalidate: "true" } });
+    form.onsubmit = (event) => { if (event && event.preventDefault) event.preventDefault(); void controller.submit(); };
+    form.onkeydown = (event) => { if (event && event.key === "Escape") { if (event.preventDefault) event.preventDefault(); if (controller.requestClose()) parent.empty(); } };
+    form.createEl("h2", { text: "+ 지식 작성" });
+    form.createEl("p", { text: "직접 학습한 내용을 사람이 작성해 검증 대기에 보냅니다. 자동 생성이나 승인 없이 직접 입력합니다.", attr: { style: "color:var(--text-muted);" } });
+    const disabled = status.pending || status.saved;
+    field(form, { label: "제목", name: "title", value: current.title, required: true, disabled, onChange: (value) => controller.setField("title", value) });
+    field(form, { label: "지식 문장", name: "statement", value: current.statement, rows: 3, required: true, disabled, onChange: (value) => controller.setField("statement", value) });
+    field(form, { label: "상세 학습 기록", name: "body", value: current.body, rows: 5, disabled, help: "긴 학습 기록은 Candidate의 사람 작성 제안 이유에 함께 보존됩니다.", onChange: (value) => controller.setField("body", value) });
+    field(form, { label: "제안 이유", name: "reason", value: current.reason, rows: 3, required: true, disabled, onChange: (value) => controller.setField("reason", value) });
+    field(form, { label: "직접 학습 출처 메모", name: "source_note", value: current.source_note, rows: 3, required: true, disabled, help: "직접 학습한 날짜, 실습 또는 참고 맥락을 남겨 주세요.", onChange: (value) => controller.setField("source_note", value) });
+    field(form, { label: "지식 영역", name: "suggested_domain", value: current.suggested_domain, select: true, required: true, disabled, options: [{ value: "", label: "선택하세요" }, ...domainOptions()], onChange: (value) => controller.setField("suggested_domain", value) });
+    const availableTopics = topicOptions(current.suggested_domain);
+    if (current.suggested_domain && !availableTopics.length) form.createEl("p", { text: "이 지식 영역은 세부 주제를 선택할 필요가 없습니다.", attr: { "data-state": "topicless", style: "color:var(--text-muted);" } });
+    else if (current.suggested_domain) field(form, { label: "세부 주제", name: "suggested_topics", value: current.suggested_topics, select: true, multiple: true, required: true, disabled, options: availableTopics, help: "하나 이상 선택하세요.", onChange: (value) => controller.setField("suggested_topics", value) });
+    field(form, { label: "적용 계기", name: "application_trigger", value: current.application_trigger, rows: 2, disabled, onChange: (value) => controller.setField("application_trigger", value) });
+    field(form, { label: "적용 맥락", name: "application_contexts", value: current.application_contexts.join("\n"), rows: 3, disabled, help: "한 줄에 하나씩 지식 영역 또는 지식 영역/세부 주제를 입력하세요.", onChange: (value) => controller.setField("application_contexts", value) });
+    if (status.error) form.createEl("p", { text: status.error, attr: { role: "alert", "aria-live": "assertive", "data-state": "error" } });
+    if (status.message) form.createEl("p", { text: status.message, attr: { role: "status", "aria-live": "polite", "data-state": "saved" } });
+    const actions = form.createEl("div", { attr: { style: "display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:16px;" } });
+    const cancel = actions.createEl("button", { text: "취소", attr: { type: "button" }, disabled: status.pending });
+    cancel.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); if (controller.requestClose()) parent.empty(); };
+    if (status.saved) {
+      const review = actions.createEl("button", { text: "검증 대기에서 검토", attr: { type: "button" } });
+      review.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); return controller.review(); };
+    } else {
+      const submit = actions.createEl("button", { text: status.pending ? "저장 중…" : "검증 대기에 저장", attr: { type: "submit" }, disabled: status.pending });
+      submit.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); void controller.submit(); };
+    }
+    if (status.focus) {
+      const target = findNamed(form, status.focus);
+      if (target && typeof target.focus === "function") target.focus();
+    }
+    return parent;
+  }
+
+  const api = Object.freeze({ renderDirectAuthoringForm });
+  root.KnowledgeDirectAuthoringForm = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof window !== "undefined" ? window : globalThis);

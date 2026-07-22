@@ -58,20 +58,16 @@ function main() {
   assert.equal(pageOnly.start_page, "10");
   assert.equal(pageOnly.reading_range, "");
 
-  const candidate = core.createKnowledgeCandidate(session, {});
-  assert.equal(candidate.status, "proposed");
+  const savedSession = { ...session, path: "PARA/RESOURCES/Reading/Sessions/2026-07-17 - Test - Session.md" };
+  const candidate = core.createKnowledgeCandidate(savedSession, {});
+  assert.equal(candidate.status, "saved");
   assert.equal(candidate.source_type, "reading_session");
   assert.equal(candidate.statement, "관계의 시작은 경청");
   assert.match(candidate.title, /데일 카네기|후보/);
+  assert.deepEqual(candidate.source_objects, ["[[PARA/RESOURCES/Reading/Sessions/2026-07-17 - Test - Session]]"]);
+  assert.equal(candidate.candidate_id, core.createKnowledgeCandidate(savedSession, {}).candidate_id);
 
-  const saved = core.saveKnowledgeCandidate(candidate);
-  assert.equal(saved.status, "saved");
-  assert.equal(candidate.status, "proposed");
-  const rejected = core.rejectKnowledgeCandidate(candidate);
-  assert.equal(rejected.status, "rejected");
-  assert.equal(candidate.status, "proposed");
-  assert.ok(rejected.updated);
-  assert.throws(() => core.setKnowledgeCandidateStatus(candidate, "approved"));
+  assert.equal(core.createKnowledgeCandidate(savedSession, { status: "proposed" }).status, "saved");
 
   const original = { title: "immutable" };
   const bookCopy = core.normalizeBook(original);

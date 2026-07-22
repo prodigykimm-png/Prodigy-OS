@@ -34,14 +34,20 @@ async function main() {
   assert.match(css, /@media\(max-width:600px\)/);
   assert.match(css, /min-height:44px/);
 
-  // Knowledge + Personal use the shared list workspace. Journal uses JournalView dashboard.
-  for (const hub of ["50 Knowledge.md", "60 Personal.md"]) {
-    const source = fs.readFileSync(path.join(ROOT, "HUB", hub), "utf8");
-    assert.match(source, /workspace-list-view\.js/);
-    assert.equal(source.includes("dv.table"), false);
-    assert.equal(source.includes("Recent Journals"), false);
-  }
+  // Knowledge uses the dedicated Explorer stack; Personal still uses the shared list workspace.
+  const knowledgeHub = fs.readFileSync(path.join(ROOT, "HUB/50 Knowledge.md"), "utf8");
+  assert.doesNotMatch(knowledgeHub, /workspace-list-view\.js/);
+  assert.match(knowledgeHub, /display-registry\.js/);
+  assert.match(knowledgeHub, /knowledge-explorer-registry\.js/);
+  assert.match(knowledgeHub, /knowledge-explorer-core\.js/);
+  assert.match(knowledgeHub, /knowledge-explorer-relations\.js/);
+  assert.match(knowledgeHub, /knowledge-explorer-view\.js/);
+  assert.match(knowledgeHub, /KnowledgeExplorerHub\.render/);
+  assert.equal(knowledgeHub.includes("dv.table"), false);
+  assert.equal(knowledgeHub.includes("Recent Journals"), false);
+
   const personal = fs.readFileSync(path.join(ROOT, "HUB/60 Personal.md"), "utf8");
+  assert.match(personal, /workspace-list-view\.js/);
   assert.match(personal, /people-core\.js|type === "people"/);
   assert.match(personal, /사람/);
   const journalHub = fs.readFileSync(path.join(ROOT, "HUB/70 Journal.md"), "utf8");
@@ -50,6 +56,7 @@ async function main() {
   assert.equal(journalHub.includes("Recent Journals"), false);
   const home = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/home-view.js"), "utf8");
   assert.match(home, /HUB\/30 Workout\.md/);
+  assert.match(home, /HUB\/50 Knowledge\.md/);
   assert.match(home, /workout: "운동"/);
   console.log("Workspace consistency tests passed");
 }

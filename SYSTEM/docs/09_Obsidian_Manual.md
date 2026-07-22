@@ -186,8 +186,15 @@ Home = **Mission Control** (한글 UI).
 
 ### 5.5 지식 — `HUB/50 Knowledge.md`
 
-- 지식 Object 탐색 (도메인별).
-- PRE·Memory가 자동으로 Knowledge를 만들지 않는다.
+- **+ 지식 작성**: 직접 공부한 내용을 AI 없이 `knowledge_candidate`로 저장. `source_note` 필수. 저장 후 `검증 대기`에서 사람 승인.
+- **+ 자료 정리**: 기사·칼럼·YouTube·인강·논문·공식 문서를 `literature_note`로 저장. `단일 자료`(직접 입력)와 `오늘의 자료 묶음`(URL 1~20개 → AI 항목별 요약 + 사람 한 줄 필수) 두 탭.
+- `application_trigger`·`application_contexts`는 후보→승인→Knowledge 전 과정 보존.
+- URL 가져오기는 HTTP(S) 공개 페이지만. 로그인·유료벽 우회·영상 다운로드 없음. 실패 시 사용자 텍스트 fallback.
+- AI가 Candidate·Knowledge를 자동 생성·승인하지 않음. 배경 크롤링·사용 통계·분석 대시보드 없음.
+- **지식 탐색기**에서 도메인 → 주제 또는 자료 → 상세 순서로 좁혀 봅니다. 상세 항목과 브리핑의 출처 경로는 `옆에 열기`로 탐색기를 유지한 채 분할 패널에서 엽니다.
+- `knowledge`만 사람이 검증한 재사용 가능한 **정식 Knowledge**입니다. `permanent_note`는 읽기 호환을 위한 기존 지식이며 자동 전환하지 않습니다. `literature_note`, `venue`, `auction_region`은 근거를 보존하는 보조 **자료(Resource)** 이며 일반 `resource` type으로 합치지 않습니다.
+- 상세의 **오늘의 브리핑**은 현재 도메인 안의 결정적 사실과 명시적 출처를 먼저 표시합니다. `AI 요약 만들기`는 사용자가 직접 눌렀을 때만 보조 요약을 요청하며, 취소·실패·재시도 중에도 결정적 브리핑과 출처는 남습니다. 이 브리핑은 Home Morning Brief나 PRE가 아니며 Knowledge를 만들거나 승인·수정하지 않습니다.
+- 기존 Knowledge 정리는 `node SYSTEM/SCRIPTS/knowledge-explorer-audit.js --path <대상 경로>`로 **dry-run**만 먼저 확인합니다. 제안은 사람이 검토하며 이 도구는 실제 노트·Daily·PRE를 수정하지 않습니다.
 
 ### 5.6 사람 — `HUB/60 Personal.md`
 
@@ -197,9 +204,13 @@ Home = **Mission Control** (한글 UI).
 
 ### 5.7 저널 — `HUB/70 Journal.md`
 
-- Daily 성찰 · 2분 Review UI.
-- 성찰 필드: **성찰 (Reflection) · 변화 (Change) · 다음 실험 (Next Experiment)**.
-- 저녁에 “오늘 가장 의미 있는 하나”만 남겨도 충분하다.
+- Daily · Weekly · Monthly · Quarterly · Yearly 질문을 한 화면에서 탐색합니다.
+- Daily는 여러 Evidence Block을 남기며, 각각 Experience → Interpretation → Change → Next Experiment를 보존합니다.
+- Weekly는 월요일~일요일 Evidence를 Pattern → Learning으로 읽습니다. `AI 학습 분석`은 사용자가 직접 눌렀을 때만 실행하며, 실패 시 규칙 기반 결과를 유지합니다.
+- Weekly 저장 시 `type: journal`, `status: completed`를 frontmatter에 기록합니다.
+- Monthly는 저장된 Weekly 2개 이상과 서로 다른 주차의 반복 Principle이 있을 때 개방됩니다.
+- Monthly에서 `검증`한 Principle은 `source_type: monthly_validation` Knowledge Candidate로 저장되며, 기존 승인 화면에서 사람이 Knowledge 승격을 결정합니다.
+- Quarterly·Yearly는 readiness 화면만 제공합니다.
 
 ---
 
@@ -215,32 +226,23 @@ Home = **Mission Control** (한글 UI).
 
 Home의 아침 브리핑은 어제의 Change / Next Experiment를 짧게 회수한다.
 
-### 6.2 Weekly PRE (주간 초안)
+### 6.2 Weekly Learning Review
 
-PRE는 **Workspace가 아니다.** 내부 Review Engine이다.
+Weekly는 월요일~일요일의 Daily Evidence를 읽는 Filter입니다. 먼저 규칙 기반 결과를 만들고, 사용자가 **AI 학습 분석**을 누르면 AI가 Pattern의 의미와 Learning, 다음 주 방향을 제안합니다.
 
-```bash
-# vault 루트에서
-python3 SYSTEM/AI/Skills/prodigy-review/scripts/prodigy.py weekly --week YYYY-Www
-```
+- AI는 저장·승인·Knowledge 승격을 실행하지 않습니다.
+- 같은 날의 Object·Context 반복은 Pattern이 아닙니다. Pattern은 서로 다른 날짜의 반복 행동 변화여야 합니다.
+- Suggested Principle은 항상 `pending`이며 사람 검토가 필요합니다.
+- Daily·Object 원본은 Weekly 분석으로 수정하지 않습니다.
+- 기존 터미널 PRE는 내부 점검·재현용으로 유지되며, 일상 사용 진입점은 Journal Workspace입니다.
 
-예: `2026-W29`
+### 6.3 AI 제공자와 로컬 Gemma
 
-**결과 위치:** `SYSTEM/AI/Skills/prodigy-review/runs/<week>/`
-
-| 파일 | 용도 |
-|------|------|
-| `weekly-review-*-draft.md` | **사람이 읽을 초안 (권장)** |
-| `weekly-review-*.json` | 구조화 결과 |
-| `weekly-workspace-view-*.md` | 포맷 뷰 |
-| `pipeline.log` | 스캔·패턴 로그 |
-
-**규칙**
-
-- 내용 있는 Daily가 **3일 미만**이면 패턴/원칙을 만들지 않음 (`Not enough evidence`).
-- 패턴·원칙에는 **출처 + 짧은 인용**이 붙는다.
-- 원칙은 항상 **pending** — 승인·Knowledge 승격은 사람만.
-- Daily / Object 원본을 수정하지 않는다.
+- Daily의 `AI 성찰 분석 → AI 제공자·모델 설정`에서 제공자와 모델을 선택하고 기본값을 저장합니다. Project Wizard도 같은 제공자 설정을 공유합니다.
+- `LM Studio`는 `http://127.0.0.1:1234/v1`의 Local Server를 사용하며 API 키가 필요하지 않습니다. 기본 모델은 `qwen/qwen3.5-9b` Q4_K_M이고, `google/gemma-4-12b-qat`도 비교 모델로 선택할 수 있습니다.
+- Local Server만 켜 두어도 됩니다. 모델은 요청할 때 적재되고 요청에 포함된 `ttl: 120`에 따라 마지막 호출 2분 뒤 자동으로 메모리에서 내려갑니다.
+- LM Studio가 꺼져 있으면 원시 네트워크 오류 대신 Local Server 시작 안내를 표시합니다. 모델 목록에서는 임베딩 모델을 제외합니다.
+- 외부 제공자는 API 키를 Obsidian SecretStorage에만 저장합니다. 다른 제공자로 자동 전송하는 묵시적 fallback은 없습니다.
 
 ---
 

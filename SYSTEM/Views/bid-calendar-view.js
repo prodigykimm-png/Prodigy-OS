@@ -292,6 +292,12 @@
   }
 }
 @media (max-width: 480px) {
+  .prodigy-bid-cal-nav button,
+  .prodigy-bid-cal-modes button,
+  .prodigy-bid-cal-item-open,
+  .prodigy-bid-cal-popup-close {
+    min-height: var(--ke-touch-target, 44px);
+  }
   .prodigy-bid-cal-cell {
     min-height: 44px;
     padding: 6px 2px;
@@ -517,7 +523,7 @@
   }
 
   function showDatePopup(options) {
-    const { app, date, events, pageByPath } = options;
+    const { app, date, events, pageByPath, title, emptyText } = options;
     if (typeof document === "undefined") return;
 
     const existing = document.querySelector(".prodigy-bid-cal-popup-backdrop");
@@ -530,7 +536,7 @@
     popup.__prodigyPlainEl = true;
     const head = el(popup, "div", { attr: { class: "prodigy-bid-cal-popup-head" } });
     el(head, "div", {
-      text: formatDateLabel(date),
+      text: title || formatDateLabel(date),
       attr: { class: "prodigy-bid-cal-popup-title" }
     });
     const closeBtn = el(head, "button", {
@@ -544,45 +550,10 @@
 
     if (!events || !events.length) {
       el(popup, "div", {
-        text: "예정된 입찰 일정이 없습니다.",
+        text: emptyText || "예정된 입찰 일정이 없습니다.",
         attr: { class: "prodigy-bid-cal-empty" }
       });
       return;
-    }
-
-    // Entry into Auction Day Runner for this date (execution, not planning)
-    const dayView = root.AuctionDayView || (typeof window !== "undefined" ? window.AuctionDayView : null);
-    if (dayView && dayView.openPanel) {
-      const runBtn = el(popup, "button", {
-        text: "이 날 입찰 실행",
-        attr: {
-          type: "button",
-          class: "prodigy-bid-cal-item-open",
-          style: "width:100%;margin-bottom:10px;min-height:40px;font-weight:700;"
-        }
-      });
-      runBtn.onclick = (ev) => {
-        if (ev && ev.stopPropagation) ev.stopPropagation();
-        closePopup(backdrop);
-        const pagesForDay = [];
-        const seen = new Set();
-        events.forEach((e) => {
-          const p = e.page || (pageByPath && pageByPath[e.object_path || e.path]);
-          const path = (p && p.file && p.file.path) || e.object_path || e.path;
-          if (!path || seen.has(path)) return;
-          seen.add(path);
-          if (p) pagesForDay.push(p);
-        });
-        // Prefer full index pages so non-bid fields remain available
-        const allPages = pageByPath
-          ? Object.keys(pageByPath).map((k) => pageByPath[k])
-          : pagesForDay;
-        dayView.openPanel({
-          app,
-          pages: allPages.length ? allPages : pagesForDay,
-          date
-        });
-      };
     }
 
     const core = root.BidCalendarCore;
@@ -720,26 +691,22 @@
     const modes = header.createEl("div", { attr: { class: "prodigy-bid-cal-modes" } });
     const weekBtn = modes.createEl("button", { text: "주간", attr: { type: "button" } });
     const monthBtn = modes.createEl("button", { text: "월간", attr: { type: "button" } });
-    const dayRunnerBtn = modes.createEl("button", {
-      text: "입찰 실행",
-      attr: { type: "button", title: "입찰 실행" }
+    const todayListBtn = modes.createEl("button", {
+      text: "오늘 입찰 목록",
+      attr: { type: "button", title: "오늘 입찰 목록" }
     });
 
-    const openDayRunner = (dateIso) => {
-      const dayView = root.AuctionDayView || (typeof window !== "undefined" ? window.AuctionDayView : null);
-      if (!dayView || !dayView.openPanel) {
-        if (typeof Notice !== "undefined") new Notice("입찰 실행을 불러오지 못했습니다.");
-        return;
-      }
-      dayView.openPanel({
+    todayListBtn.onclick = () => {
+      const date = core.isoToday(now);
+      showDatePopup({
         app,
-        pages,
-        date: dateIso || core.isoToday(now),
-        now,
-        reloadPages: opts.reloadPages
+        date,
+        events: core.todayBidEvents(events, now),
+        pageByPath,
+        title: `오늘 입찰 목록 · ${formatDateLabel(date)}`,
+        emptyText: "오늘 예정된 입찰이 없습니다."
       });
     };
-    dayRunnerBtn.onclick = () => openDayRunner(core.isoToday(now));
 
     const dowRow = rootEl.createEl("div", { attr: { class: "prodigy-bid-cal-grid" } });
     ["일", "월", "화", "수", "목", "금", "토"].forEach((d) => {

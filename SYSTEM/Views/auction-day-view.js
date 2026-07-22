@@ -207,11 +207,117 @@
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+.prodigy-aday-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ke-space-3, 8px);
+  background: color-mix(in srgb, var(--background-primary) 35%, transparent);
+}
+.prodigy-aday-panel {
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--ke-radius-panel, 8px);
+  padding: var(--ke-space-3, 8px);
+}
+.prodigy-bid-sheet {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--ke-radius-panel, 8px);
+  overflow: hidden;
+  background: var(--background-primary);
+  min-inline-size: 0;
+}
+.prodigy-bid-sheet-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ke-space-3, 8px);
+  align-items: end;
+  padding: var(--ke-space-4, 12px);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.prodigy-bid-sheet-kicker { font-size: var(--ke-type-label, .72rem); color: var(--text-muted); }
+.prodigy-bid-sheet-title { margin: var(--ke-space-1, 2px) 0 0; font-size: 1.15rem; color: var(--text-normal); }
+.prodigy-bid-sheet-date { text-align: right; font-size: var(--ke-type-body, .84rem); font-weight: 700; }
+.prodigy-bid-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.prodigy-bid-sheet-field {
+  min-inline-size: 0;
+  padding: var(--ke-space-3, 8px) var(--ke-space-4, 12px);
+  border-inline-end: 1px solid var(--background-modifier-border);
+}
+.prodigy-bid-sheet-field:nth-child(2n) { border-inline-end: 0; }
+.prodigy-bid-sheet-field.is-wide { grid-column: 1 / -1; border-inline-end: 0; border-top: 1px solid var(--background-modifier-border); }
+.prodigy-bid-sheet-label { display: block; margin-bottom: var(--ke-space-1, 2px); font-size: var(--ke-type-label, .72rem); color: var(--text-muted); font-weight: 700; }
+.prodigy-bid-sheet-value { font-size: var(--ke-type-body, .84rem); font-weight: 700; overflow-wrap: anywhere; line-height: var(--ke-leading-body, 1.45); }
+.prodigy-bid-sheet-address input {
+  width: 100%;
+  min-height: var(--ke-touch-target, 44px);
+  padding: 0 var(--ke-space-3, 8px);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--ke-radius-control, 4px);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--ke-type-body, .84rem);
+  font-weight: 700;
+  text-align: left;
+}
+.prodigy-bid-sheet-money {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ke-space-3, 8px);
+  padding: var(--ke-space-4, 12px);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.prodigy-bid-sheet-money input {
+  width: 100%;
+  min-height: var(--ke-touch-target, 44px);
+  padding: 0 var(--ke-space-3, 8px);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--ke-radius-control, 4px);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 1rem;
+  font-weight: 800;
+  text-align: right;
+}
+.prodigy-bid-sheet-checks { padding: var(--ke-space-3, 8px) var(--ke-space-4, 12px); border-bottom: 1px solid var(--background-modifier-border); }
+.prodigy-bid-sheet-checks .prodigy-aday-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.prodigy-bid-sheet-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ke-space-3, 8px);
+  padding: var(--ke-space-3, 8px) var(--ke-space-4, 12px);
+  background: var(--background-primary);
+}
+.prodigy-bid-sheet-status { flex: 1 1 auto; align-self: center; font-size: var(--ke-type-label, .72rem); color: var(--text-muted); }
 @media (max-width: 480px) {
   .prodigy-aday-nav button,
   .prodigy-aday-card button {
     flex: 1 1 calc(50% - 6px);
   }
+  .prodigy-aday-panel-backdrop { align-items: flex-end; padding: 0; }
+  .prodigy-aday-panel { width: 100%; max-height: 96dvh; border-radius: var(--ke-radius-panel, 8px) var(--ke-radius-panel, 8px) 0 0; padding: var(--ke-space-2, 4px); }
+  .prodigy-bid-sheet-head, .prodigy-bid-sheet-grid, .prodigy-bid-sheet-money { grid-template-columns: 1fr; }
+  .prodigy-bid-sheet-date { text-align: left; }
+  .prodigy-bid-sheet-field { border-inline-end: 0; border-top: 1px solid var(--background-modifier-border); }
+  .prodigy-bid-sheet-field:first-child { border-top: 0; }
+  .prodigy-bid-sheet-field.is-wide { grid-column: auto; }
+  .prodigy-bid-sheet-checks .prodigy-aday-checklist { grid-template-columns: 1fr; }
+  .prodigy-bid-sheet-actions { flex-wrap: wrap; }
+  .prodigy-bid-sheet-actions button { min-height: var(--ke-touch-target, 44px); }
+  .prodigy-bid-sheet-status { flex-basis: 100%; }
 }
 `;
 
@@ -258,6 +364,32 @@
     return String(value);
   }
 
+  function formatExactWon(value) {
+    if (value === undefined || value === null || String(value).trim() === "") return "—";
+    const parser = root.parsePrice || (typeof window !== "undefined" ? window.parsePrice : null) || Number;
+    const num = parser(value);
+    if (typeof num === "number" && Number.isFinite(num) && num > 0) return `${num.toLocaleString()}원`;
+    return String(value);
+  }
+
+  function moneyInputValue(value) {
+    if (value === undefined || value === null || String(value).trim() === "") return "";
+    const parser = root.parsePrice || (typeof window !== "undefined" ? window.parsePrice : null) || Number;
+    const num = parser(value);
+    return typeof num === "number" && Number.isFinite(num) && num > 0
+      ? Math.floor(num).toLocaleString("ko-KR")
+      : String(value);
+  }
+
+  function bindMoneyInput(input, initialValue) {
+    input.value = moneyInputValue(initialValue);
+    input.addEventListener("input", () => {
+      const raw = String(input.value || "").replace(/,/g, "").replace(/[^0-9]/g, "");
+      input.value = raw ? Number(raw).toLocaleString("ko-KR") : "";
+    });
+    return input;
+  }
+
   function notice(msg) {
     if (typeof Notice !== "undefined") new Notice(msg);
     else if (typeof console !== "undefined") console.log(msg);
@@ -300,14 +432,18 @@
     if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
 
     const now = opts.now instanceof Date ? opts.now : new Date();
+    const isBidSheetMode = opts.mode === "bid_sheet";
     let dateIso = opts.date || core.isoToday(now);
     let pages = Array.isArray(opts.pages) ? opts.pages : [];
     let dayState = await core.loadDayState(app, dateIso);
+    let bidderProfile = isBidSheetMode
+      ? await core.loadBidderProfile(app)
+      : core.normalizeBidderProfile({});
 
     const rootEl = container.createEl("div", { attr: { class: "prodigy-auction-day" } });
     const header = rootEl.createEl("div", { attr: { class: "prodigy-aday-header" } });
     const titleEl = header.createEl("div", {
-      text: "입찰 실행",
+      text: isBidSheetMode ? "기일 입찰표" : "입찰 실행",
       attr: { class: "prodigy-aday-title" }
     });
     const subEl = header.createEl("div", {
@@ -315,9 +451,14 @@
       attr: { class: "prodigy-aday-sub" }
     });
     const nav = header.createEl("div", { attr: { class: "prodigy-aday-nav" } });
-    const prevBtn = nav.createEl("button", { text: "‹", attr: { type: "button", "aria-label": "이전 날" } });
-    const todayBtn = nav.createEl("button", { text: "오늘", attr: { type: "button" } });
-    const nextBtn = nav.createEl("button", { text: "›", attr: { type: "button", "aria-label": "다음 날" } });
+    let prevBtn = null;
+    let todayBtn = null;
+    let nextBtn = null;
+    if (!isBidSheetMode) {
+      prevBtn = nav.createEl("button", { text: "‹", attr: { type: "button", "aria-label": "이전 날" } });
+      todayBtn = nav.createEl("button", { text: "오늘", attr: { type: "button" } });
+      nextBtn = nav.createEl("button", { text: "›", attr: { type: "button", "aria-label": "다음 날" } });
+    }
     if (typeof opts.onClose === "function") {
       const closeBtn = nav.createEl("button", { text: "닫기", attr: { type: "button" } });
       closeBtn.onclick = () => opts.onClose();
@@ -351,6 +492,117 @@
       }
     }
 
+    function addSheetField(parent, label, value, wide) {
+      const field = parent.createEl("div", {
+        attr: { class: `prodigy-bid-sheet-field${wide ? " is-wide" : ""}` }
+      });
+      field.createEl("span", { text: label, attr: { class: "prodigy-bid-sheet-label" } });
+      field.createEl("div", { text: value || "—", attr: { class: "prodigy-bid-sheet-value" } });
+      return field;
+    }
+
+    function renderBidSheet(parent, item) {
+      const page = item.page || {};
+      const path = item.object_path || item.path;
+      const values = core.resolveBidSheetValues(page);
+      const sheet = parent.createEl("section", {
+        attr: { class: "prodigy-bid-sheet", "aria-label": `${item.case_number || item.title} 기일 입찰표` }
+      });
+
+      const sheetHead = sheet.createEl("header", { attr: { class: "prodigy-bid-sheet-head" } });
+      const headTitle = sheetHead.createEl("div");
+      headTitle.createEl("div", { text: item.court || "법원 미지정", attr: { class: "prodigy-bid-sheet-kicker" } });
+      headTitle.createEl("h2", { text: "기일 입찰표", attr: { class: "prodigy-bid-sheet-title" } });
+      sheetHead.createEl("div", {
+        text: `입찰기일 ${core.toIsoDate(item.auction_datetime) || dateIso}`,
+        attr: { class: "prodigy-bid-sheet-date" }
+      });
+
+      const info = sheet.createEl("div", { attr: { class: "prodigy-bid-sheet-grid" } });
+      addSheetField(info, propLabel("case_number"), item.case_number || item.title);
+      addSheetField(info, propLabel("auction_dept"), page.auction_dept || "—");
+      const addressField = info.createEl("label", {
+        attr: { class: "prodigy-bid-sheet-field prodigy-bid-sheet-address is-wide" }
+      });
+      addressField.createEl("span", { text: "입찰자 주소", attr: { class: "prodigy-bid-sheet-label" } });
+      const bidderAddressInput = addressField.createEl("input", {
+        attr: {
+          type: "text",
+          autocomplete: "street-address",
+          "aria-label": "입찰자 주소",
+          placeholder: "입찰자 주소를 입력하세요"
+        }
+      });
+      bidderAddressInput.value = bidderProfile.bidder_address;
+      addSheetField(info, propLabel("minimum_bid"), formatExactWon(item.minimum_bid));
+      addSheetField(info, propLabel("expected_bid"), formatExactWon(item.expected_bid));
+
+      const money = sheet.createEl("div", { attr: { class: "prodigy-bid-sheet-money" } });
+      const bidField = money.createEl("label");
+      bidField.createEl("span", { text: "입찰가", attr: { class: "prodigy-bid-sheet-label" } });
+      const bidInput = bidField.createEl("input", {
+        attr: { type: "text", inputmode: "numeric", autocomplete: "off", "aria-label": "입찰가 원 단위" }
+      });
+      bindMoneyInput(bidInput, values.final_bid);
+
+      const depositField = money.createEl("label");
+      depositField.createEl("span", { text: propLabel("bid_deposit"), attr: { class: "prodigy-bid-sheet-label" } });
+      const depositInput = depositField.createEl("input", {
+        attr: { type: "text", inputmode: "numeric", autocomplete: "off", "aria-label": "입찰 보증금 원 단위" }
+      });
+      bindMoneyInput(depositInput, values.bid_deposit);
+
+      const checksBox = sheet.createEl("div", { attr: { class: "prodigy-bid-sheet-checks" } });
+      checksBox.createEl("div", { text: "제출 전 확인", attr: { class: "prodigy-aday-section-label" } });
+      const checks = core.getAuctionChecks(dayState, path);
+      renderChecklist(checksBox, core.AUCTION_EXEC_ITEMS, checks, async (itemId, checked) => {
+        dayState = core.setAuctionCheckItem(dayState, path, itemId, checked);
+        await persistState();
+      });
+
+      const actions = sheet.createEl("footer", { attr: { class: "prodigy-bid-sheet-actions" } });
+      const status = actions.createEl("div", { attr: { class: "prodigy-bid-sheet-status", role: "status" } });
+      const openBtn = actions.createEl("button", {
+        text: "물건 열기",
+        attr: { type: "button", class: "prodigy-aday-open" }
+      });
+      openBtn.onclick = () => openObject(app, path);
+      const saveBtn = actions.createEl("button", {
+        text: "입찰표 확정",
+        attr: { type: "button", class: "prodigy-aday-save-bid is-primary" }
+      });
+      saveBtn.onclick = async () => {
+        try {
+          saveBtn.disabled = true;
+          status.textContent = "저장 중…";
+          bidderProfile = await core.saveBidderProfile(app, {
+            bidder_address: bidderAddressInput.value
+          });
+          const saved = await core.saveBidSheet(app, path, {
+            final_bid: bidInput.value,
+            bid_deposit: depositInput.value
+          });
+          item.my_bid_price = saved.my_bid_price;
+          item.bid_deposit = saved.bid_deposit;
+          page.my_bid_price = saved.my_bid_price;
+          page.bid_deposit = saved.bid_deposit;
+          dayState = core.setAuctionCheckItem(dayState, path, "final_bid_checked", true);
+          dayState = core.setAuctionCheckItem(dayState, path, "deposit_checked", true);
+          await persistState();
+          bidderAddressInput.value = bidderProfile.bidder_address;
+          bidInput.value = moneyInputValue(saved.my_bid_price);
+          depositInput.value = moneyInputValue(saved.bid_deposit);
+          status.textContent = "입찰자 주소, 입찰가와 보증금을 저장했습니다.";
+          notice("입찰표가 확정되었습니다.");
+        } catch (err) {
+          status.textContent = err && err.message ? err.message : "입찰표 저장 실패";
+          notice(status.textContent);
+        } finally {
+          saveBtn.disabled = false;
+        }
+      };
+    }
+
     function paint() {
       subEl.setText ? subEl.setText(dateIso) : (subEl.textContent = dateIso);
       if (typeof body.empty === "function") body.empty();
@@ -366,6 +618,14 @@
           text: emptyText,
           attr: { class: "prodigy-aday-empty" }
         });
+        return;
+      }
+
+      if (isBidSheetMode) {
+        const auctions = model.courts.flatMap((court) => court.auctions || []);
+        const focusPath = opts.focusPath ? String(opts.focusPath) : "";
+        const focused = auctions.find((item) => (item.object_path || item.path) === focusPath) || auctions[0];
+        if (focused) renderBidSheet(body, focused);
         return;
       }
 
@@ -434,11 +694,24 @@
       });
       meta.createEl("div", {
         text: [
-          `${propLabel("minimum_bid")}: ${formatMoney(item.minimum_bid)}`,
-          `${propLabel("expected_bid")}: ${formatMoney(item.expected_bid)}`,
-          `${propLabel("bid_deposit")}: ${formatMoney(item.bid_deposit)}`
+          `${propLabel("minimum_bid")}: ${formatExactWon(item.minimum_bid)}`,
+          `${propLabel("expected_bid")}: ${formatExactWon(item.expected_bid)}`,
+          `${propLabel("bid_deposit")}: ${formatExactWon(item.bid_deposit)}`
         ].join(" · ")
       });
+
+      // Auction Day receives the dashboard snapshot; it does not read or write
+      // packet data. Terminal cards never render a Decision Packet.
+      const decisionPacket = root.AuctionDecisionPacket;
+      const packetContext = opts.packetContext || root.AuctionDecisionPacketDashboardContext;
+      if (decisionPacket && decisionPacket.isActionable && decisionPacket.isActionable(page)) {
+        const packetHost = card.createEl("div", { attr: { class: "prodigy-auction-decision-packet-host" } });
+        decisionPacket.renderForAuction(packetHost, {
+          app,
+          auction: page,
+          context: packetContext
+        });
+      }
 
       // Final bid confirmation
       const bidRow = card.createEl("div", { attr: { class: "prodigy-aday-row" } });
@@ -599,9 +872,9 @@
       return v !== undefined && v !== null && String(v).trim() !== "" && String(v) !== "정보 없음";
     }
 
-    prevBtn.onclick = () => shiftDate(-1);
-    nextBtn.onclick = () => shiftDate(1);
-    todayBtn.onclick = () => {
+    if (prevBtn) prevBtn.onclick = () => shiftDate(-1);
+    if (nextBtn) nextBtn.onclick = () => shiftDate(1);
+    if (todayBtn) todayBtn.onclick = () => {
       dateIso = core.isoToday(now);
       paint();
     };
@@ -651,7 +924,9 @@
       app,
       pages,
       date: dateIso,
+      mode: "bid_sheet",
       focusPath: opts.path || opts.focusPath || "",
+      packetContext: opts.packetContext || root.AuctionDecisionPacketDashboardContext,
       reloadPages: async () => (typeof core.pagesFromVault === "function" ? core.pagesFromVault(app) : pages),
       onClose: opts.onClose
     });
@@ -673,10 +948,8 @@
 
     const backdrop = document.createElement("div");
     backdrop.className = "prodigy-aday-panel-backdrop";
-    backdrop.style.cssText = "position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;padding:8px;";
     const panel = document.createElement("div");
     panel.className = "prodigy-aday-panel";
-    panel.style.cssText = "width:min(640px,100%);max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;background:var(--background-primary);border-radius:12px;padding:8px;border:1px solid var(--background-modifier-border);";
     backdrop.appendChild(panel);
     document.body.appendChild(backdrop);
     backdrop.onclick = (ev) => {
@@ -706,7 +979,10 @@
       app,
       pages: opts.pages || [],
       date: opts.date,
+      mode: opts.mode,
+      focusPath: opts.focusPath,
       now: opts.now,
+      packetContext: opts.packetContext || root.AuctionDecisionPacketDashboardContext,
       reloadPages: opts.reloadPages,
       onClose: () => backdrop.remove()
     });

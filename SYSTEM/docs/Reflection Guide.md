@@ -111,7 +111,7 @@
 ↓
 더 나은 미래의 의사결정 (Better Future Decisions)
 
-일일 성찰(Daily Reflection)은 오직 '오늘의 증거'를 축적하는 역할에 집중하며, 단일 사건의 회고만으로 개인의 삶을 규정하는 거대 원칙을 즉흥적으로 만들어내지 않습니다.
+일일 성찰(Daily Reflection)은 '오늘의 증거'를 축적하는 역할에 집중합니다. 다만 입력에 재사용 가능한 실무 지식이 포함되면 AI는 **Knowledge Candidate**를 별도 제안할 수 있습니다. 후보는 증거와 구분하며, 단일 사건만으로 원칙이나 영구 Knowledge로 승인하지 않습니다.
 
 ---
 
@@ -136,12 +136,20 @@ Weekly Review
 
 * **Experience만 필수** — 가벼운 블록도 허용
 * **Interpretation / Change / Next Experiment / Context / Related Objects** — 선택
-* Journal에서 **「+ 경험 추가」** 또는 **「하루 분리 제안」**(확인 후에만 저장)
-* AI는 초안만 제안하며 Daily를 자동 덮어쓰지 않음
+* `Next Experiment`는 사용자가 직접 말하거나 명확히 선택한 범위만 저장하며, AI가 날짜·수량·채널·단계를 발명하지 않음
+* Home의 **「AI 성찰」** 또는 Journal의 **「AI 성찰 분석」**에서 자유 입력 → Gemini 제안 → Evidence 선택 반영
+* AI는 Evidence와 Knowledge / Resource / Object / PRE 후보를 함께 제안하지만, 선택한 Evidence만 Daily에 저장함
+* API·에이전트와 무관한 canonical 규칙은 `SYSTEM/AI/Skills/prodigy-daily-reflection/` 한 경로에서 관리함
 * 기존 `## 성찰 / 변화 / 다음 실험` 형식은 계속 읽힘 (단일 legacy 증거)
+* 같은 사건 안에서도 나중에 찾을 질문이 다르면 별도 Evidence Block으로 분리
+* 한 번의 계획된 사건을 함께 설명하는 관찰은 한 블록 안에서 소항목으로 유지
+* 명시적 실무 팁과 재사용 가능한 판단은 **Knowledge Candidate**로 별도 제안하되 Daily에는 저장하지 않음
+* 장소·시설·책·도구는 **Resource Candidate**, 사람·경매 사건·프로젝트는 **Object Linking Suggestion**으로 제안함
+* `work → wedding → shooting` 같은 세부 검색 경로는 **PRE Routing Suggestion**으로 제안하되, 기존 `Context` 값이나 PRE 파일을 자동 변경하지 않음
+* 존재가 확인된 Object만 `Related Objects`에 연결하고, 확인하지 않았다면 `존재 확인 필요`로 표시함
 
 ### 흐름 (Focus)
-사건 (Event) → Evidence Block(s) → (선택) 해석·변화·실험 → 연관 Object 링크
+사건 (Event) → 검색 단위 Evidence Block(s) → Knowledge / Resource / Object / PRE 후보 제안 → 사람 확인 → 이후 지식·의사결정에 활용
 
 ### 핵심 질문 (Guiding Questions)
 - 오늘 성찰 가치가 있었던 **서로 다른** 경험은 무엇인가? (여러 개여도 된다)
@@ -189,7 +197,7 @@ Next Experiment:
 반복되는 패턴을 발견하고, AI가 제안한 원칙 후보를 1차로 검토합니다. 일일 성찰이 축적한 하루하루의 '증거'들을 연결하여 반복되는 행동, 감정, 의사결정의 패턴을 식별합니다. 주간 단계에서는 드러난 패턴을 검토할 뿐, 원칙을 영구적으로 검증(Validate)하지는 않습니다.
 
 ### 흐름 (Focus)
-패턴 (Pattern) → AI 추천 원칙 검토 (AI Suggested Principles)
+패턴 (Pattern) → 배움 (Learning) → AI 추천 원칙 검토 (AI Suggested Principles)
 
 ### 핵심 질문 (Guiding Questions)
 - 이번 주에 축적된 일일 성찰(증거)들에서 반복되어 나타난 행동이나 상황은 무엇인가요?
@@ -210,7 +218,7 @@ AI가 한 주간 축적된 일일 성찰(증거)에서 감지한 패턴을 바�
 
 ## 월간 성찰 (Monthly Reflection)
 ### 목적 (Purpose)
-제안된 원칙 후보들을 최종 검증(Validation)하고 개인의 영구적 지식으로 이관합니다. 월간 성찰은 미시적인 사건이나 단순 정리를 넘어, 삶에 실질적인 변화를 일으킨 원칙을 공식 등록하는 단계입니다.
+제안된 원칙 후보들을 검증(Validation)하여 Knowledge Candidate로 보냅니다. 월간 성찰은 미시적인 사건이나 단순 정리를 넘어, 삶에 실질적인 변화를 일으킨 원칙을 검증하는 단계입니다.
 
 ### 흐름 (Focus)
 변화 (Change) → 원칙 최종 검증 (Validation)
@@ -221,7 +229,7 @@ AI가 한 주간 축적된 일일 성찰(증거)에서 감지한 패턴을 바�
 - 한 달간 실행하고 수집한 원칙들 중 최종 검증할 준비가 된 것은 무엇인가요?
 
 ### 검증된 원칙 (Validated Principles)
-한 달 동안 충분한 증거와 패턴 분석을 통해 타당성이 검증된 원칙들입니다. 이 원칙들은 공식적으로 **지식 워크스페이스 (Knowledge Workspace / ZETA)**의 영구 지식 문서로 등록되어 향후 장기적인 의사결정 기준이 됩니다.
+한 달 동안 충분한 증거와 패턴 분석을 통해 타당성이 검증된 원칙들입니다. 이 원칙들은 **Knowledge Candidate**로 보존되며, 기존 Knowledge Approval에서 사람이 승인한 뒤에만 정식 Knowledge가 됩니다.
 
 ### 반려된 원칙 (Rejected Principles)
 검증 과정에서 타당하지 않거나 현재 적용하기 부적절하다고 판단되어 최종 제외된 원칙들입니다. 비록 공식 원칙으로 등록되지는 못했으나, 실패의 분석 자료이자 소중한 배움(Valuable Learning)의 기록으로서 고유한 가치를 보존합니다.
@@ -233,7 +241,7 @@ AI가 한 주간 축적된 일일 성찰(증거)에서 감지한 패턴을 바�
 삶의 방향성을 점검합니다. 분기 성찰은 미시적인 사건 대신 거시적인 전략(Strategy)과 자원 배분에 초점을 맞춥니다.
 
 ### 흐름 (Focus)
-전략 (Strategy)
+전략 정렬과 재정렬 (Strategy Re-alignment)
 
 ### 핵심 질문 (Guiding Questions)
 - 현재 내 삶에서 더 많은 관심과 에너지를 쏟아야 할 영역은 어디인가요?
@@ -248,7 +256,7 @@ AI가 한 주간 축적된 일일 성찰(증거)에서 감지한 패턴을 바�
 나의 정체성을 이해합니다. 연간 성찰은 한 해의 이벤트 요약이 아니라, 내가 어떤 사람(Identity)으로 성장하고 변해왔는지를 정의하는 것입니다.
 
 ### 흐름 (Focus)
-정체성 (Identity)
+정체성 렌즈 (Identity Lens)
 
 ### 핵심 질문 (Guiding Questions)
 - 올해를 거치며 나는 어떤 사람이 되었나요?

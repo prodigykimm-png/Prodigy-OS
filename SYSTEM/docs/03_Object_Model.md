@@ -136,7 +136,7 @@ View는
 # 3. Object Examples
 
 Prodigy OS에서 관리하는 대표 Object 유형이다.
-Object는 굳이 Domain으로 분류하지 않으며, Folder, Property, AI 추천을 통해 충분히 관리 가능하다.
+Object는 굳이 전역 Domain으로 분류하지 않으며, Folder, Property, AI 추천을 통해 충분히 관리 가능하다. 단, Knowledge Explorer는 검증된 지식을 찾기 위한 로컬 탐색 계약으로 `knowledge_domain`과 `knowledge_topics`를 사용한다. 이 분류는 다른 Object에 적용되는 전역 Domain Architecture가 아니다.
 
 - Auction Case
 - Project
@@ -144,7 +144,7 @@ Object는 굳이 Domain으로 분류하지 않으며, Folder, Property, AI 추�
 - Workout
 - Journal (Daily Reflection)
 - People (관계 기억 · 내부 type: `people` · 표시: 사람)
-- Knowledge (영구/문헌 노트 등)
+- Knowledge (canonical `knowledge`: 사람이 검증한 재사용 가능한 이해)
 - Area
 
 People 운영 표면은 `HUB/60 Personal.md`(사람과 관계)이다. People Object는 관계 맥락을, 원본 Object는 사건·작업을 소유한다. `connections`/링크로 연결하며 본문을 복제하지 않는다. `last_contact` 공백은 오류가 아니다.
@@ -152,6 +152,8 @@ People 운영 표면은 `HUB/60 Personal.md`(사람과 관계)이다. People Obj
 사람 Object 공식 type은 `people` only다. `contact`는 레거시 이름이며 신규 생성·Areas 통합에 사용하지 않는다. Area는 장기 주제/책임 영역용 별도 축이다.
 
 레거시 읽기 호환(신규 생성 금지): `contact` (→ People), `project_note` / `project_family` (→ Project)
+
+Knowledge의 공식 type은 `knowledge`다. `permanent_note`는 기존 지식을 계속 읽기 위한 legacy Knowledge이며 신규 canonical type이 아니다. `literature_note`는 지식을 뒷받침하는 Resource, `fleeting_note`는 검증 전 capture이므로 둘 다 검증된 Knowledge 카운트에서 제외한다. `venue`는 범용 `resource`가 아닌 독립된 전용 Resource type이다. 상세 분류와 projection 규칙은 `SYSTEM/Prodigy/Schema/Knowledge_Explorer_Schema.md`를 따른다.
 
 ---
 

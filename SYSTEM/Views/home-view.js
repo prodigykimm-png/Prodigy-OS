@@ -646,6 +646,33 @@
         new Notice("Object Creator를 불러오지 못했습니다.");
       }
     };
+
+    const reflectionBtn = rightActions.createEl("button", {
+      text: "AI 성찰",
+      attr: {
+        type: "button",
+        class: "action-btn",
+        title: "오늘 경험을 Gemini로 분석"
+      }
+    });
+    reflectionBtn.onclick = async () => {
+      if (!root.JournalView || !root.JournalStore || !root.DailyReflectionAI) {
+        new Notice("AI 성찰 기능을 불러오지 못했습니다.");
+        return;
+      }
+      try {
+        const review = await root.JournalStore.loadReview(app, todayStr);
+        const existingBlocks = (review.blocks || []).filter((block) => !block.legacy);
+        root.JournalView.openProposeEvidenceModal(app, todayStr, async (proposed) => {
+          const saved = await root.JournalView.saveProposedEvidenceAtCommit(app, todayStr, proposed);
+          new Notice(`${proposed.length}개 Evidence를 반영했습니다.`);
+          await renderHome(options);
+          return saved;
+        }, { existingBlocks });
+      } catch (error) {
+        new Notice(`AI 성찰을 열지 못했습니다: ${error.message || error}`);
+      }
+    };
     // One global keyboard entry on Home (do not register multiple)
     if (container && !container.__prodigyCreatorKey) {
       container.__prodigyCreatorKey = (e) => {
@@ -709,6 +736,11 @@
 
     const workspacePathFor = (sourceType) => {
       const t = String(sourceType || "").toLowerCase();
+      const registry = root.ProdigyWorkspaceRegistry;
+      if (registry && typeof registry.find === "function") {
+        const found = registry.find(t);
+        if (found) return found.path;
+      }
       if (t === "auction" || t === "auction_case") return "HUB/10 Auction.md";
       if (t === "reading") return "HUB/20 Reading.md";
       if (t === "workout") return "HUB/30 Workout.md";
@@ -730,13 +762,10 @@
      */
     const renderWorkspaceDock = (parent) => {
       if (!isCompactHome || !parent) return;
-      const dockItems = [
-        { id: "auction", icon: "🏛", name: "경매", path: "HUB/10 Auction.md" },
-        { id: "reading", icon: "📚", name: "독서", path: "HUB/20 Reading.md" },
-        { id: "project", icon: "📁", name: "프로젝트", path: "HUB/40 Project.md" },
-        { id: "workout", icon: "🏋", name: "운동", path: "HUB/30 Workout.md" },
-        { id: "journal", icon: "📝", name: "저널", path: "HUB/70 Journal.md" }
-      ];
+      const registry = root.ProdigyWorkspaceRegistry;
+      const dockItems = registry && typeof registry.items === "function"
+        ? registry.items().map((item) => ({ id: item.id, icon: item.icon, name: item.label, path: item.path }))
+        : [];
       const dock = parent.createEl("div", {
         attr: {
           class: "home-ws-dock",

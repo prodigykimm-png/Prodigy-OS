@@ -6,6 +6,23 @@
     defaultProvider: "gemini",
     workflowPresets: {},
     providers: {
+      "lm-studio": {
+        adapter: "openai-compatible",
+        name: "LM Studio",
+        baseURL: "http://127.0.0.1:1234/v1",
+        endpointPath: "/chat/completions",
+        model: "qwen/qwen3.5-9b",
+        models: [
+          { id: "qwen/qwen3.5-9b", label: "Qwen 3.5 9B Q4_K_M" },
+          { id: "google/gemma-4-12b-qat", label: "Gemma 4 12B QAT" }
+        ],
+        authMode: "none",
+        ttl: 120,
+        maxTokens: 4096,
+        apiKeySecret: "",
+        legacyApiKeySecret: "",
+        capabilities: { structuredOutput: "json-schema", strictStructuredOutput: true, schemaDialect: "lm-studio", conservativeProposal: true }
+      },
       "opencode-go": {
         adapter: "openai-compatible",
         name: "OpenCode Go",
@@ -23,6 +40,7 @@
         baseURL: "https://api.xiaomimimo.com/v1",
         endpointPath: "/chat/completions",
         model: "mimo-v2.5-pro",
+        models: [{ id: "mimo-v2.5-pro", label: "MiMo V2.5 Pro" }],
         authMode: "bearer",
         apiKeySecret: "prodigy-mimo-api-key",
         legacyApiKeySecret: "PRODIGY_MIMO_API_KEY",
@@ -32,6 +50,11 @@
         adapter: "gemini",
         name: "Google Gemini",
         model: "gemini-3.5-flash",
+        models: [
+          { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+          { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" },
+          { id: "gemini-3.1-pro", label: "Gemini 3.1 Pro" }
+        ],
         apiKeySecret: "prodigy-gemini-api-key",
         legacyApiKeySecret: "PRODIGY_GEMINI_API_KEY",
         capabilities: { structuredOutput: "json-schema" }
@@ -164,13 +187,55 @@
       model: normalizeProviderModel(providerKey, provider, defaults),
       apiKeySecret: defaults.apiKeySecret,
       legacyApiKeySecret: defaults.legacyApiKeySecret,
-      capabilities: defaults.capabilities
+      capabilities: Object.assign({}, defaults.capabilities || {}, provider && provider.capabilities || {}),
+      models: normalizeProviderModels(provider, defaults),
+      ttl: Number(provider && provider.ttl) > 0 ? Number(provider.ttl) : defaults.ttl,
+      maxTokens: Number(provider && provider.maxTokens) > 0 ? Number(provider.maxTokens) : defaults.maxTokens
     });
+  }
+
+  function normalizeProviderModels(provider, defaults) {
+    const source = Array.isArray(provider && provider.models) && provider.models.length
+      ? provider.models
+      : defaults.models || [];
+    return source.map((item) => typeof item === "string"
+      ? { id: item, label: item }
+      : { id: String(item && item.id || ""), label: String(item && item.label || item && item.id || "") })
+      .filter((item) => item.id);
   }
 
   function normalizeProviderModel(providerKey, provider, defaults) {
     const configuredModel = provider && provider.model ? provider.model : "";
     return configuredModel || defaults.model;
+  }
+
+  function listProviderModels(providerKey, config) {
+    const provider = config && config.providers && config.providers[providerKey]
+      ? config.providers[providerKey]
+      : getProviderDefaults(providerKey);
+    if (!provider) return [];
+    const models = normalizeProviderModels(provider, provider);
+    const configured = String(provider.model || "").trim();
+    if (configured && !models.some((item) => item.id === configured)) models.unshift({ id: configured, label: configured });
+    return models;
+  }
+
+  function isEmbeddingModelId(modelId) {
+    return /(^|[\/_.-])(?:text-)?embed(?:ding)?([\/_.-]|$)/i.test(String(modelId || ""));
+  }
+
+  async function discoverProviderModels(app, providerKey, config) {
+    const provider = config && config.providers && config.providers[providerKey];
+    const configured = listProviderModels(providerKey, config);
+    if (!provider || providerKey !== "lm-studio") return configured;
+    const service = providerService();
+    if (!service || typeof service.listModels !== "function") return configured;
+    const discovered = await service.listModels({ app, provider });
+    const seen = new Set(configured.map((item) => item.id));
+    discovered.filter((id) => !isEmbeddingModelId(id)).forEach((id) => {
+      if (!seen.has(id)) configured.push({ id, label: id });
+    });
+    return configured;
   }
 
   async function loadProviderConfig(app) {
@@ -182,7 +247,7 @@
     }
     const config = mergeConfig(DEFAULT_PROVIDER_CONFIG, local);
     const lastProvider = await getSecret(app, "prodigy-project-wizard-last-provider") || await getSecret(app, "PRODIGY_PROJECT_WIZARD_LAST_PROVIDER");
-    if (lastProvider && config.providers[lastProvider]) config.defaultProvider = lastProvider;
+    if (!(local && local.defaultProvider) && lastProvider && config.providers[lastProvider]) config.defaultProvider = lastProvider;
     return config;
   }
 
@@ -319,6 +384,12 @@
     return { workflow: result.workflow.map((item) => ({ label: item.label })) };
   }
 
+  function providerService() {
+    if (root.AIProviderService) return root.AIProviderService;
+    if (typeof require === "function") return require("./ai-provider-service.js");
+    throw new Error("AIProviderService is not loaded.");
+  }
+
   function authHeaders(provider, apiKey) {
     const headers = Object.assign({ "Content-Type": "application/json" }, provider.headers || {});
     if (provider.authMode === "api-key") {
@@ -330,56 +401,25 @@
   }
 
   async function openAiCompatibleAdapter(args) {
-    const provider = args.provider;
-    if (!provider.baseURL) throw new Error(`${provider.name || "Provider"} baseURL is not configured.`);
-    if (!provider.model) throw new Error(`${provider.name || "Provider"} model is not configured.`);
-    const apiKey = await getProviderSecret(args.app, provider);
-    if (!apiKey) throw new Error(`${provider.name || "Provider"} API key is not configured.`);
-    const prompt = buildPrompt(args.projectContext, args.baseWorkflow);
-    const body = {
-      model: provider.model,
-      stream: false,
-      messages: [
-        { role: "system", content: "You return strict JSON only." },
-        { role: "user", content: prompt }
-      ],
-      response_format: { type: "json_object" }
-    };
-    const response = await httpRequest(args.app, {
-      url: `${String(provider.baseURL).replace(/\/$/, "")}${provider.endpointPath || "/chat/completions"}`,
-      headers: authHeaders(provider, apiKey),
-      body: JSON.stringify(body),
+    const payload = await providerService().requestStructuredJson({
+      app: args.app,
+      provider: args.provider,
+      prompt: buildPrompt(args.projectContext, args.baseWorkflow),
+      schema: args.schema,
       signal: args.signal
     });
-    return normalizeProviderPayload(parseJsonPayload(extractJsonText(response)));
+    return normalizeProviderPayload(payload);
   }
 
   async function geminiAdapter(args) {
-    const provider = args.provider;
-    if (!provider.model) throw new Error("Gemini model is not configured.");
-    const apiKey = await getProviderSecret(args.app, provider);
-    if (!apiKey) throw new Error("Gemini API key is not configured.");
-    const prompt = buildPrompt(args.projectContext, args.baseWorkflow);
-    const schema = args.schema || (root.ProjectWizardCore && root.ProjectWizardCore.WORKFLOW_SCHEMA);
-    const body = {
-      model: provider.model,
-      input: prompt,
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema
-      }
-    };
-    const response = await httpRequest(args.app, {
-      url: provider.endpointURL || "https://generativelanguage.googleapis.com/v1beta/interactions",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey
-      },
-      body: JSON.stringify(body),
+    const payload = await providerService().requestStructuredJson({
+      app: args.app,
+      provider: args.provider,
+      prompt: buildPrompt(args.projectContext, args.baseWorkflow),
+      schema: args.schema || (root.ProjectWizardCore && root.ProjectWizardCore.WORKFLOW_SCHEMA),
       signal: args.signal
     });
-    return normalizeProviderPayload(parseJsonPayload(extractJsonText(response)));
+    return normalizeProviderPayload(payload);
   }
 
   const adapters = {
@@ -434,6 +474,9 @@
     getProviderDefaults,
     applyProviderDefaults,
     listProviders,
+    listProviderModels,
+    isEmbeddingModelId,
+    discoverProviderModels,
     generateStructuredWorkflow,
     buildPrompt,
     extractJsonText,

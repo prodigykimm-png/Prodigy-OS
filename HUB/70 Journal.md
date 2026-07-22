@@ -16,11 +16,57 @@ const loadProdigyScript = async (path) => {
 try {
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
+  await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
   await loadProdigyScript("SYSTEM/Views/morning-context-core.js");
   await loadProdigyScript("SYSTEM/Views/journal-core.js");
   await loadProdigyScript("SYSTEM/Views/journal-store.js");
+  await loadProdigyScript("SYSTEM/Views/evidence-quality-core.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-candidate-core.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-candidate-store.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-venue-policy.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-proposal-contract.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-object-links.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-knowledge-handoff.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-ai.js");
+  await loadProdigyScript("SYSTEM/Views/place-candidate-store.js");
+  await loadProdigyScript("SYSTEM/Views/venue-creator.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-modal-styles.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-modal-state.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-proposal-input-view.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-proposal-candidates-view.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-evidence-review-view.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-candidate-handoff-view.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-post-save.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-modal.js");
+  await loadProdigyScript("SYSTEM/Views/journal-review-modal.js");
+  await loadProdigyScript("SYSTEM/Views/journal-evidence-block-modal.js");
+  await loadProdigyScript("SYSTEM/Views/journal-completion-action.js");
+  await loadProdigyScript("SYSTEM/Views/journal-dashboard-view.js");
   await loadProdigyScript("SYSTEM/Views/journal-view.js");
-  await window.JournalView.renderDashboard(app, this.container);
+  await loadProdigyScript("SYSTEM/Views/weekly-filter-core.js");
+  await loadProdigyScript("SYSTEM/Views/weekly-filter-styles.js");
+  await loadProdigyScript("SYSTEM/Views/weekly-filter-render.js");
+  await loadProdigyScript("SYSTEM/Views/weekly-filter-ai.js");
+  await loadProdigyScript("SYSTEM/Views/weekly-review-store.js");
+  await loadProdigyScript("SYSTEM/Views/weekly-filter-view.js");
+  await loadProdigyScript("SYSTEM/Views/monthly-validation-core.js");
+  await loadProdigyScript("SYSTEM/Views/monthly-validation-store.js");
+  await loadProdigyScript("SYSTEM/Views/monthly-validation-view.js");
+  await loadProdigyScript("SYSTEM/Views/journal-period-core.js");
+  await loadProdigyScript("SYSTEM/Views/journal-period-view.js");
+
+  this.container.empty();
+  var navigationMount = this.container.createDiv({ attr: { class: "journal-workspace-navigation" } });
+  var periodMount = this.container.createDiv({ attr: { class: "journal-period-mount" } });
+  window.ProdigyWorkspaceNavigation.mount(navigationMount, { app: app, title: "저널" });
+  window.JournalPeriodView.mount({
+    app: app,
+    container: periodMount,
+    renderDaily: function (mount) { return window.JournalView.renderDashboard(app, mount); },
+    renderWeekly: function (mount) { return window.WeeklyFilterView.mountWeeklyFilter(mount, { app: app }); }
+  });
 } catch (error) {
   this.container.empty();
   this.container.createEl("p", {

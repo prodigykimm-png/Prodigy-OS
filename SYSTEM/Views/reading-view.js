@@ -6,6 +6,45 @@
     return app.workspace.openLinkText(String(path).replace(/\.md$/, ""), "", false);
   }
 
+  function notify(message) {
+    const Notice = root.Notice || (typeof window !== "undefined" && window.Notice);
+    if (typeof Notice === "function") new Notice(message);
+  }
+
+  async function openKnowledgeExplorer(app) {
+    const workspace = app && app.workspace;
+    if (workspace && typeof workspace.openLinkText === "function") {
+      try {
+        await workspace.openLinkText("HUB/50 Knowledge", "", false);
+        return true;
+      } catch (_error) { /* recovery notice below */ }
+    }
+    notify("Knowledge Explorer를 열 수 없습니다. HUB/50 Knowledge.md에서 검토해 주세요.");
+    return false;
+  }
+
+  function projectReadingCandidate(candidate) {
+    const source = candidate || {};
+    const sourceObjects = Array.isArray(source.source_objects) ? source.source_objects : [];
+    const sourceSession = String(source.source_session || sourceObjects.find((value) => /Reading\/Sessions/i.test(String(value))) || sourceObjects[0] || "").trim();
+    const suppliedQuality = source.evidence_quality && typeof source.evidence_quality === "object" ? source.evidence_quality.status : "";
+    const qualityStatus = ["thin", "usable", "strong"].includes(suppliedQuality)
+      ? suppliedQuality
+      : source.confidence === "explicit" ? "usable" : ["inferred", "low"].includes(source.confidence) ? "thin" : "unavailable";
+    const qualityLabels = { thin: "보완 필요", usable: "사용 가능", strong: "근거 충분", unavailable: "확인 불가" };
+    const status = String(source.status || "").trim();
+    return {
+      title: String(source.title || "제목 없음").trim(),
+      statement: String(source.statement || "").trim(),
+      status,
+      status_label: status === "saved" ? "저장됨" : "제안됨",
+      source_session: sourceSession,
+      quality: { available: qualityStatus !== "unavailable", status: qualityStatus, label: qualityLabels[qualityStatus] },
+      review_target: "HUB/50 Knowledge.md",
+      counts_as_knowledge: false
+    };
+  }
+
   function fieldInput(parent, label, key, state, options = {}) {
     if (label) {
       parent.createEl("label", {
@@ -262,11 +301,14 @@
     };
 
     if (!obsidianModule || !obsidianModule.Modal) {
-      state.title = window.prompt("후보 제목", state.title) || state.title;
-      state.statement = window.prompt("지식 문장", state.statement) || state.statement;
-      state.reason = window.prompt("중요한 이유", "") || "";
-      onSaved(state);
-      return;
+      const title = window.prompt("후보 제목", state.title);
+      if (title === null) return null;
+      const statement = window.prompt("지식 문장", state.statement);
+      if (statement === null) return null;
+      const reason = window.prompt("중요한 이유", "");
+      if (reason === null) return null;
+      return root.ReadingStore.saveCandidate(app, session, { title, statement, reason })
+        .then(async (candidate) => { if (onSaved) await onSaved(candidate); return candidate; });
     }
 
     class CandidateModal extends obsidianModule.Modal {
@@ -422,59 +464,36 @@
       });
     }
 
-    // Candidates stay as a short follow-up list from sessions.
+    // Candidates are a compact reading projection. The shared Inbox owns review,
+    // approval, rejection, and any Knowledge creation.
     const candidateCard = section(wrap, "지식 후보");
     if (!candidates.length) {
       empty(candidateCard, "아직 지식 후보가 없습니다. 세션에서 만들 수 있습니다.");
     } else {
       candidates.forEach((candidate) => {
+        const projected = projectReadingCandidate(candidate);
         const row = candidateCard.createEl("div", { attr: { class: "reading-session-row" } });
         const titleRow = row.createEl("div", { attr: { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap;" } });
-        titleRow.createEl("strong", { text: candidate.title || "제목 없음" });
-        const statusLabel = candidate.status === "saved" ? "보관" : "제안";
+        titleRow.createEl("strong", { text: projected.title });
         titleRow.createEl("span", {
-          text: statusLabel,
+          text: projected.status_label,
           attr: { style: "font-size:0.72em;font-weight:700;color:var(--text-muted);background:var(--background-modifier-hover);padding:1px 6px;border-radius:999px;" }
         });
-        row.createEl("div", { text: candidate.statement || "", attr: { class: "reading-session-detail" } });
+        row.createEl("div", { text: projected.statement, attr: { class: "reading-session-detail" } });
         const meta = row.createEl("div", { attr: { class: "reading-session-meta" } });
-        meta.createEl("span", { text: candidate.source_book || "" });
+        meta.createEl("span", { text: projected.source_session ? `출처 세션: ${projected.source_session}` : "출처 세션을 확인할 수 없습니다." });
+        meta.createEl("span", { text: `근거 품질: ${projected.quality.label}` });
         meta.createEl("span", { text: String(candidate.created || "").slice(0, 10) });
         const actions = row.createEl("div", { attr: { class: "reading-loop-actions", style: "margin-top:8px;" } });
-        if (candidate.source_session) {
+        if (projected.source_session) {
           btn(actions, "세션 열기", {
             onClick: () => {
-              const link = String(candidate.source_session).replace(/^\[\[|\]\]$/g, "");
+              const link = projected.source_session.replace(/^\[\[|\]\]$/g, "");
               openPath(app, link);
             }
           });
         }
-        if (candidate.status !== "saved") {
-          btn(actions, "보관", {
-            primary: true,
-            onClick: async () => {
-              try {
-                await root.ReadingStore.saveCandidateAsKept(app, candidate.path);
-                if (window.Notice) new Notice("지식 후보를 보관했습니다.");
-                await refresh();
-              } catch (error) {
-                if (window.Notice) new Notice(error.message || String(error));
-              }
-            }
-          });
-        }
-        btn(actions, "거절", {
-          danger: true,
-          onClick: async () => {
-            try {
-              await root.ReadingStore.rejectCandidate(app, candidate.path);
-              if (window.Notice) new Notice("지식 후보를 거절했습니다.");
-              await refresh();
-            } catch (error) {
-              if (window.Notice) new Notice(error.message || String(error));
-            }
-          }
-        });
+        btn(actions, "Knowledge Explorer에서 검토", { primary: true, onClick: () => openKnowledgeExplorer(app) });
       });
     }
   }
@@ -489,7 +508,9 @@
     openCandidateModal,
     renderSessionHistory,
     renderLearningLoop,
-    openPath
+    openPath,
+    openKnowledgeExplorer,
+    projectReadingCandidate
   };
   root.ReadingView = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

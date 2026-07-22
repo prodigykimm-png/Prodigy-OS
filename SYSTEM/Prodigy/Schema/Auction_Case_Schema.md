@@ -48,6 +48,18 @@ updated:         # Templater 또는 수동
 
 > `building_age`는 building_year에서 계산 (Derived Property Rule).
 
+### Land price reference (공시지가 기준)
+
+| Property | 목적 | 단위 |
+|---|---|---|
+| `land_parcel_id` | 공시지가 조회에 사용한 필지 식별 | 텍스트 |
+| `official_land_price_per_sqm` | 개별공시지가 | 원/m² |
+| `official_land_price_as_of` | 공시지가 기준일 | ISO date |
+| `official_land_price_source` | 직접 공식 출처 URL | URL |
+| `land_rights_area_sqm` | 해당 물건의 토지권 면적 | m² |
+
+> 공시지가는 연간 행정 기준값이다. `appraisal_price`, `market_sale_price`, `winning_bid_price` 또는 파생 합계와 대체·혼용하지 않는다. `official_land_price_per_sqm × land_rights_area_sqm`는 View/분석에서만 계산하며 저장하지 않는다.
+
 ### Investment (투자 및 시세 정보)
 
 | Property | 목적 | 단위 |

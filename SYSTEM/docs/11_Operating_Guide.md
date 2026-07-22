@@ -61,11 +61,17 @@ PARA/RESOURCES/Auction Regions/{시도}-{시군구}.md
 
 - Auction 카드 **지역** 버튼 → 노트 열기/생성
 - **시군구 Object only** (동은 Case·권역 표)
-- 계약 **Version 1.2.3 Draft**: 공식 어댑터. dry-run enum `PASS|BLOCKED|N/A`. **원본 재현 전 숫자 기입 금지**
+- 계약 **Version 1.4.0 Operational**: R-ONE 공개 통계표 + 공식 CSV 어댑터 + 본문 조사 소유권. 숫자는 Freeze된 어댑터로만 쓰고 사람 확인 전 `unverified`
 - **FM = 최신 canonical**, 본문 표 = 한글 표시(어댑터가 FM에서 재생성), 히스토리 = JSON 스냅샷
 - 히스토리: `snapshot_id` · 중복 시 replace · raw `SYSTEM/CACHE/region-metrics/` + sha256
 - `verification_status` 집계: 하나라도 unverified → unverified; 전부 verified → verified; 아니면 partial
 - 숫자·산식 = 코드. AI = Evidence only
+- 월간 반영: `region-metrics-refresh.js`로 cache 생성 → `region-metrics-apply.js --dry-run` 확인 → flag 제거 후 기존 Region Object에 원자 갱신
+- writer는 실제 Object를 생성하지 않으며 지역키·전체 snapshot·history가 모두 유효할 때만 write
+- 본문 조사: 공식 사실=`AUTO`, AI 해석·권역·체크리스트=`AI:PENDING`, 현장 경험·승인=`HUMAN:OWNED`
+- **Region Experience 반영**: Daily Evidence가 먼저 저장된 뒤, 사람이 후보 하나를 명시 선택해 `human_confirmed`로 append한다. AI/provider·adapter·research/metrics writer는 append할 수 없고, 기존 Region만 정확한 시군구 identity로 대상으로 삼는다. `transport_life`/`risk`는 각 `HUMAN`, `site_visit`/`supply_observation`은 임장 포인트 `HUMAN:OWNED`에만 기록한다. 같은 Daily path+Evidence ID 재시도는 no-op이며, Region 반영 실패 뒤에도 Daily는 보존되어 retry 가능하다. 새 소유 marker 또는 template block marker는 만들지 않는다. 단, 승인된 사람이 확인한 append 항목에 바로 붙는 인라인 `REGION_EXPERIENCE_PROVENANCE` 주석은 idempotency 전용이며 marker block·writer 소유권·research/metrics writer 입력이 아니다.
+- `supply_observation`은 사용자 임장 관찰이며 append prose는 저장된 `direct_observation`과 verbatim으로 정확히 같아야 한다. AI/provider는 이를 요약·해석·추론·보강할 수 없다. 공식 공급 pipeline·사업명/단지명·단위/월/수치가 아니며, 어떤 후보 category든 공식 공급 또는 planned move-in 수량은 거부한다. 이 action은 Object 생성, Knowledge 저장·승인·승격, frontmatter/metrics/history/marker/template migration을 수행하지 않는다.
+- Dataview Hub가 로드하는 `SYSTEM/Views/` 코드는 모두 사용자가 신뢰한 local executable code다. Vault sync/write 접근은 사용자의 기존 Obsidian/Dataview 신뢰 경계이며 비신뢰 콘텐츠 sandbox가 아니다. 신뢰하지 않는 vault sync origin에서 온 `SYSTEM/Views/` 코드는 실행하지 않는다.
 - `move_in_24m` (기간 부족 시 null). `auction_bid_rate_6m` v1 null
 - 상권·학군·호재 = 본문 Evidence
 - 물건 브리핑: `prodigy-auction-brief` (입찰가 확정 금지)
@@ -306,6 +312,70 @@ Journal은 하루를 돌아보는 기록이다.
 Knowledge Object는 한 번에 완성되지 않는다.
 시간이 지나며 Content가 추가되고, 연결이 확장된다.
 새 Knowledge를 만들기 전에 기존 Knowledge를 업데이트할 수 있는지 확인한다.
+
+### C1–C5 Knowledge Decision Loop — Operating Contract
+
+이 루프는 자동 지식 생성 장치가 아니라, 사람이 근거를 읽고 다음 행동을 승인할 수 있게 하는 운영 순서다. **AI는 Evidence를 정리하고 Candidate·연결·요약을 제안할 수 있지만, Candidate 저장·승인·Knowledge 승격·입찰 결정을 자동으로 실행하지 않는다.** 사람은 언제나 저장, 반려, 승인, 실제 행동의 최종 주체다.
+
+```text
+C1 Candidate lifecycle
+  → C2 Evidence Quality
+  → C3 Decision Packet
+  → C4 Auction decision / review
+  → C5 Reading learning loop
+```
+
+| Gate | 운영 계약 | 사람의 결정 |
+|---|---|---|
+| C1 Candidate lifecycle | `knowledge_candidate`는 `proposed → saved → approved` 또는 `rejected`만 따른다. `approved`/`rejected`는 terminal이며, `approved`에는 동일한 `promotion_target`과 `promoted_knowledge`가 있어야 한다. 후보에는 Evidence 본문을 복사하지 않고 stable Evidence ID와 명시적 source Object만 남긴다. `source_type: monthly_validation`은 Weekly 검증에서 온 Candidate를 식별한다. | 후보를 저장·반려하고, Knowledge 승격을 승인한다. |
+| C2 Evidence Quality | Evidence는 `invalid` · `thin` · `usable` · `strong`으로 계산한다. `invalid`는 승격 불가, `thin`은 사람이 override와 승인 사유를 함께 남길 때만 진행 가능하며, `usable`/`strong`도 자동 승격 근거가 아니다. | 증거 보완 여부와 thin override를 판단한다. |
+| C3 Decision Packet | Packet은 검증된 Knowledge, 동일 시·군·구 `auction_region`, 직접 연결·같은 지역·주제의 이전 Decision만 결정적으로 모은다. Candidate와 범용 자료는 정식 Knowledge처럼 섞지 않으며, 빈 결과와 경고도 숨기지 않는다. | Packet을 참고해 실제 판단을 내린다. |
+| C4 Auction | 경매는 조사 → 분석 → Packet 참고 → 입찰/포기 → 결과 → 복기 순서다. 지역 자료와 AI 분석은 참고 근거이고, 입찰가·입찰 여부·결과 기록의 소유자는 사람이다. | 입찰·포기·최종 입찰가·복기 완료를 결정한다. |
+| C5 Reading | Reading Session의 핵심 내용·생각 변화는 Candidate를 제안할 수 있으나, Candidate 저장과 정식 Knowledge 승격은 C1/C2의 사람 승인 게이트를 다시 통과한다. | 읽기 기록의 저장, Candidate 검토, Knowledge 승격을 결정한다. |
+
+**C4 → C5 순서를 바꾸지 않는다.** Auction의 현재 의사결정은 먼저 C3 Packet과 C4의 실제 결과·복기로 닫는다. Reading의 배움은 별도 Evidence/후보로 축적되며, 경매 입찰을 자동으로 대체하거나 역으로 승인하지 않는다.
+
+#### C6 Deferred Activation
+
+C6는 현재 **deferred**다. C1–C5 밖의 자동 실행·자동 승격·자동 의사결정 연결은 활성화하지 않는다. C6을 열려면 사람이 별도로 목적, 입력 Evidence 범위, 쓰기 대상, 취소/실패 동작, 직접 테스트 및 승인자를 확정해야 한다. 이 조건 전에는 C6용 Dashboard, writer, schedule, smoke 제외 항목을 추가하지 않는다.
+
+#### C1–C5 Smoke Baseline
+
+다음 명령은 모든 C1–C5 직접 suite를 순서대로 실행한다. 누락 파일, 실행 실패, skip 신호는 실패다. 선택 실행 옵션은 제공하지 않는다.
+
+```bash
+node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/run_knowledge_decision_loop_tests.js
+```
+
+- **유일한 알려진 제외**: `tests/auction/test_auction_region.js`. 현재 이 test는 `.opencode/skills/prodigy-auction-brief/SKILL.md`에 inline `region_sigungu` 계약이 있다고 가정하지만, 실제 파일은 canonical skill로 연결하는 discovery adapter라서 baseline에서 실패한다. 이는 pass로 바꾸거나 숨기지 않는다.
+- 재현: `node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/run_knowledge_decision_loop_tests.js --verify-known-region-baseline`. 이 명령은 현재의 `region_sigungu` assertion failure만 알려진 baseline으로 인정한다. 통과하거나 다른 오류가 나면 smoke 계약 자체가 실패한다.
+- 제외를 해소하려면 별도의 계약 변경과 직접 test 수정·검토가 필요하다. 이 운영 기준선 작업에서는 이를 수정하지 않는다.
+
+### Knowledge Explorer 탐색과 오늘의 브리핑
+
+### 지식 작성과 자료 정리 — 두 개의 직접 입력 경로
+
+`HUB/50 Knowledge.md` 상단의 **+ 지식 작성**과 **+ 자료 정리**는 Daily Reflection이나 Reading 없이도 지식과 자료를 직접 입력하는 경로다.
+
+- **+ 지식 작성**: 사람이 직접 공부하거나 경험한 내용을 `knowledge_candidate`로 저장한다. AI 없이도 저장 가능하며, `source_note`(어디서 배웠는지)이 필수다. 저장된 후보는 `검증 대기`에서 사람이 승인해야 정식 Knowledge가 된다.
+- **+ 자료 정리**: 기사·칼럼·YouTube·인강·논문·공식 문서를 `literature_note` Resource로 저장한다. `단일 자료`와 `오늘의 자료 묶음` 두 탭이 있다.
+  - **단일 자료**: URL(선택), 제목, 출처 주장, 내 해석, 재사용 가능한 지식을 직접 입력한다.
+  - **오늘의 자료 묶음**: 1~20개 URL을 넣고 `기사 가져오기`를 누르면 공개 페이지 텍스트를 가져와 AI가 항목별 요약을 만든다. 각 항목에 사람의 한 줄 판단이 필수이며, 없으면 저장되지 않는다.
+- 두 경로 모두 저장 후 `검증 대기`로 들어가며, AI가 Candidate나 Knowledge를 자동 생성·승인하지 않는다.
+- `application_trigger`(언제 이 지식을 쓸지)와 `application_contexts`(어떤 도메인/주제에서 쓸지)는 후보→승인→Knowledge 전 과정에서 보존된다.
+- URL 가져오기는 HTTP(S) 공개 페이지만 지원하며, 로그인·유료벽 우회·영상 다운로드를 하지 않는다. 실패 시 사용자가 직접 텍스트를 입력하는 fallback이 제공된다.
+- 배경 크롤링, 사용 통계, 분석 대시보드, Knowledge 피드백 텔레메트리는 현재 구현하지 않는다.
+
+`HUB/50 Knowledge.md`의 **지식 탐색기**는 도메인 → 주제 또는 자료 → 상세의 순서로 검증된 지식과 근거를 읽는 화면이다. 제목과 브리핑의 출처 경로는 `옆에 열기`로 현재 탐색기를 보존한 채 분할 패널에서 연다.
+
+- `knowledge`는 사람이 검증한 재사용 가능한 정식 Knowledge다.
+- `permanent_note`는 기존 파일을 읽기 위한 legacy Knowledge다. 자동으로 `knowledge`로 바꾸지 않는다.
+- `literature_note`, `venue`, `auction_region`은 각각의 전용 계약을 가진 보조 자료(Resource)다. 범용 `resource` type을 만들지 않는다.
+- 상세의 **오늘의 브리핑**은 도메인 안의 결정적 사실·명시적 출처를 항상 먼저 보여 준다. `AI 요약 만들기`는 사용자가 명시적으로 선택했을 때만 주입된 제공자 서비스에 보조 요약을 요청한다.
+- AI 요약은 Knowledge를 생성·수정·승인하지 않으며, 사람이 이를 사용·적용·검증했다고 주장하지 않는다. 제공자 오류, 취소, 잘못된 응답에는 간단히 가린 오류 상태와 결정적 브리핑·출처·재시도 동작이 남는다.
+- 이 브리핑은 Home Morning Brief, Daily Reflection, PRE와 별개의 Explorer 내부 기능이다. Hub를 열기만 해서는 네트워크 요청을 하지 않는다.
+
+기존 지식의 분류 누락은 먼저 `node SYSTEM/SCRIPTS/knowledge-explorer-audit.js --path <대상 경로>`로 dry-run 점검한다. 제안은 사람이 검토하고, 이 감사는 원본 Object·Daily·PRE를 수정하거나 자동 backfill하지 않는다.
 
 ## 2.6 Projects Have an End
 
@@ -566,6 +636,8 @@ Bid Calendar
   ↓
 Time Navigation
   ↓
+Today Bid List
+  ↓
 Date Detail Popup
   ↓
 Agenda View (주간 / 월간)
@@ -577,33 +649,35 @@ Preserve Knowledge
 
 - **데이터 소스**: 기존 Auction Object Property만 사용한다. `auction_datetime`(입찰), `site_visit_date`(현장 방문), `review_date`(복기). 새 Property를 만들지 않는다. 캘린더에는 **status = bidding(입찰 예정)** 물건만 표시한다.
 - **월간 그리드**: 날짜 셀에는 일정 개수만 표시한다. 제목은 넣지 않는다.
+- **오늘 입찰 목록**: 상단 버튼은 기기 로컬 날짜 기준 오늘의 `status = bidding` + 입찰 일정만 보여 준다. 현재 보고 있는 달이나 선택 날짜와 무관하며, 현장 방문·복기 일정은 섞지 않는다.
 - **Date Detail Popup**: 해당 날짜의 활동을 유형별·법원별로 보여 주고, 물건 열기로 Object로 이동한다. 캘린더는 Object를 수정하지 않는다.
 - **Agenda**: 주간 / 월간 모드로 다가올 행동을 법원 기준으로 묶는다. 선택 범위 밖의 과거 완료 일정을 나열하지 않는다.
 - **Display Layer**: 상태·법원·입찰 일시 등 라벨은 Display Registry를 통해 표시한다.
-- **빈 상태**: 일정이 없으면 `예정된 입찰 일정이 없습니다.`만 표시한다. 예시 데이터를 만들지 않는다.
+- **빈 상태**: 오늘 목록은 `오늘 예정된 입찰이 없습니다.`, 날짜·Agenda는 `예정된 입찰 일정이 없습니다.`만 표시한다. 예시 데이터를 만들지 않는다.
 
 **핵심:** Calendar = 시간 탐색, Agenda = 다가올 행동, Object = 지식, Dashboard = 운영. 역할을 섞지 않는다.
 
-### Auction Day Runner
+### Auction Today List & Bid Sheet
 
-Auction Day Runner는 분석 화면이 아니다. **입찰 당일 실행 인터페이스**이다.
+오늘 입찰 목록은 당일 사건을 고르는 화면이고, 기일 입찰표는 선택한 한 사건을 실행하는 화면이다.
 
-- **카드 → 실행**: 입찰 예정 카드의 「입찰 실행」으로 당일 Day Runner를 열고, 해당 물건을 포커스한다.
+- **목록 → 카드**: Bid Calendar 상단의 「오늘 입찰 목록」은 오늘 입찰 예정 카드만 보여 준다.
+- **카드 → 입찰표**: 카드의 「입찰표 열기」로 해당 사건의 기일 입찰표를 연다. 입찰자 주소는 `SYSTEM/PRIVATE/auction-bidder-profile.local.json`의 개인 기본값을 불러오며, 물건 주소 Property와 분리한다. 입찰표에서 주소를 수정하고 확정하면 다음 입찰표에도 재사용한다.
 - **실행 → 복기**: 결과(won/lost) 기록 후 「복기 시작」 또는 대시보드 **복기 대기** 큐에서 이어간다.
 - **입찰가**: 카드에서 `expected_bid` 클릭 수정, Day Runner에서 `my_bid_price` 「입찰가 확정」 (이미 지원).
 
 ```text
-Bid Calendar
+오늘 입찰 목록
   ↓
-Time Navigation
+Auction Card
   ↓
-Auction Day Runner
+기일 입찰표
   ↓
-Execute (법원 준비 · 입찰 확인 · 결과 기록)
-  ↓
-Auction Result (status: won / lost / skipped)
+Human Confirm (입찰자 주소 · 입찰가 · 보증금)
   ↓
 Auction Object
+  ↓
+카드에서 결과 기록 (status: won / lost / skipped)
   ↓
 Preserve Evidence
   ↓
@@ -612,16 +686,15 @@ Review
 Learning
 ```
 
-- **진입점**: Bid Calendar의 `입찰 실행` · 날짜 팝업 `이 날 입찰 실행`. 동일 화면을 재사용한다.
-- **대상**: Bid Calendar와 같이 **status = bidding(입찰 예정)** 이면서 당일 `auction_datetime` 인 물건만 다룬다.
-- **법원 그룹**: 당일 입찰 예정 물건을 법원별로 묶는다. 사용자는 법원 단위로 이동·준비한다.
-- **법원 준비 체크리스트**: 신분증·도장·보증금·입찰표 등은 법원 공유 항목이다. Auction Object에 저장하지 않으며, 당일 실행 상태(`SYSTEM/CACHE/auction-day/`)로만 유지한다.
-- **실행 카드**: 사건번호, 상태, 최저가, 예상 입찰가, 보증금, 최종 입찰가(`my_bid_price`), 결과 기록, 물건 열기만 표시한다. 분석·AI 요약은 Object에 둔다.
-- **결과 기록**: 기존 status enum만 사용한다 (`won` / `lost` / `skipped`). 예상 입찰가(`expected_bid`)는 덮어쓰지 않는다.
+- **진입점**: Bid Calendar 상단의 `오늘 입찰 목록`에서 당일 카드를 고른 뒤 `입찰표 열기`로 진입한다.
+- **대상**: **status = bidding(입찰 예정)** 이면서 오늘 `auction_datetime` 인 물건만 목록에 표시한다.
+- **목록 카드**: 사건번호, 법원, 물건 주소, 최저가, 예상 입찰가, 보증금과 사건별 행동을 표시한다. 여러 사건의 입력 화면을 한 팝업에 중첩하지 않는다.
+- **기일 입찰표**: 선택한 사건 하나의 입찰자 주소, 입찰가, 보증금과 제출 전 확인만 표시한다. 결과 기록과 Decision Packet은 넣지 않는다.
+- **결과 기록**: 입찰표 밖의 Auction Card에서 기존 status enum만 사용한다 (`won` / `lost` / `skipped`). 예상 입찰가(`expected_bid`)는 덮어쓰지 않는다.
 - **Lifecycle**: 새 상태를 만들지 않는다. 결과는 기존 Lifecycle 전이와 동일하다.
 - **빈 상태**: `오늘 예정된 입찰이 없습니다.`
 
-**핵심:** Calendar = 시간 탐색, Day Runner = 실행, Object = 지식, Review = 학습.
+**핵심:** Calendar = 시간 탐색, 오늘 목록 = 사건 선택, 입찰표 = 단일 사건 실행, Object = 지식, Review = 학습.
 
 ---
 
@@ -969,45 +1042,23 @@ Next Experiment
 - 그 경험이 판단이나 행동을 어떻게 바꿨는지 Change에 남긴다.
 - 다음 날 바로 시도할 작은 행동을 Next Experiment에 남긴다.
 
-## Weekly (PRE MVP)
+## Weekly Learning Review
 
-```bash
-python3 SYSTEM/AI/Skills/prodigy-review/scripts/prodigy.py weekly --week YYYY-Www
-```
-
-PRE is an **internal Review Engine**, not a Workspace / Object / Dashboard.
+Journal Workspace의 Weekly는 ISO 월요일~일요일 Daily Evidence를 읽는 사용자용 Review surface입니다.
 
 ```text
-Daily (ISO week, max 7)
-  → Evidence Package
-  → Pattern Detection (≥3 contentful Dailies)
-  → Suggested Principles (status: pending only)
-  → Weekly Review Draft
+Daily Evidence
+  → deterministic Pattern Filter
+  → explicit AI Learning proposal (optional)
+  → Human Review
+  → Suggested Principle (pending only)
 ```
 
-- Reads canonical Daily Reflection / Change / Next Experiment sections only.
-- Every pattern and principle keeps **source evidence refs** (provenance) **and short evidence quotes**.
-- If fewer than 3 contentful Dailies: **Not enough evidence.** — no fabricated patterns.
-- Weak keyword matches are suppressed (false positives worse than misses).
-  - Deferral requires postponement language — temptation/distraction alone is not deferral.
-  - Reading requires topic **and** reading-specific failure (not generic 미루).
-  - Topic-only recurrence (workout/auction mentions) → **Findings only**, no Principle.
-- Principle reuses user **Change** wording only when that Change is **repeated** across days or **itself matches** the pattern; otherwise uses the rule statement.
-- Status stays `pending`.
-- Contradictory signals are kept on both sides (never averaged).
-- Weekly view is a single coherent surface (no duplicated Summary / Findings blocks).
-- Outputs land under `SYSTEM/AI/Skills/prodigy-review/runs/<week>/` as draft artifacts.
+- AI는 명시적으로 실행할 때만 Pattern → Learning, Next Week Direction, Suggested Principle을 제안합니다.
+- 서로 다른 날짜에서 반복된 행동 변화만 Pattern으로 인정합니다. 같은 날의 Object·Context 중복은 집계하지 않습니다.
+- AI 실패 시 규칙 기반 결과를 보존합니다.
 - **Never** auto-creates Knowledge, approves principles, or rewrites Daily / Object notes.
-- Human reviews the draft and decides every principle.
-
-## Monthly
-
-```text
-monthly review
-```
-
-- Monthly Review는 자동화하지 않는다.
-- 한 달 동안 반복된 변화, 누락된 운영 데이터, 유지할 루틴을 사람이 확인한다.
+- Monthly·Quarterly·Yearly는 Workspace readiness 화면을 제공하지만, 실행 엔진과 자동화는 아직 열지 않습니다.
 
 ---
 

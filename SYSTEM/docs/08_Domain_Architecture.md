@@ -61,3 +61,16 @@ Domain 개념을 재검토한다.
 **Status:** Not Active
 
 **Supersedes:** Domain Architecture v1.0
+
+---
+
+# Knowledge Explorer Local Taxonomy
+
+Knowledge Explorer는 검증된 Knowledge와 이를 뒷받침하는 Resource를 탐색하기 위해서만 제한된 Domain/Topic taxonomy를 사용한다. 이 로컬 taxonomy는 `knowledge_domain`과 `knowledge_topics`에만 적용되며, 전역 `domain` Property나 Vault-wide Domain layer를 활성화하지 않는다.
+
+- 공식 Domain Architecture 상태는 계속 **Not Active**다.
+- 다른 Object type에 Domain Property를 요구하지 않는다.
+- 누락되거나 registry에 없는 값은 원본을 바꾸지 않고 Explorer projection에서만 `unclassified`(표시: 미분류)로 보인다.
+- 분류를 자동 생성·승인·migration하지 않는다. canonical Knowledge 승인은 사람의 판단이다.
+
+공식 저장·호환 계약은 `SYSTEM/Prodigy/Schema/Knowledge_Explorer_Schema.md`가 소유한다.

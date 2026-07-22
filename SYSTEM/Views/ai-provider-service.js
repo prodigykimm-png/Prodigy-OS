@@ -1,0 +1,250 @@
+(function (root) {
+  "use strict";
+
+  const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
+  const TRANSIENT_HTTP_STATUSES = new Set([500, 502, 503]);
+  const RETRY_DELAYS_MS = Object.freeze([1000, 2500]);
+
+  if (typeof require === "function") {
+    if (!root.AIProviderResponse) root.AIProviderResponse = require("./ai-provider-response.js");
+    if (!root.AIProviderSchema) root.AIProviderSchema = require("./ai-provider-schema.js");
+  }
+
+  function redactError(error) {
+    const text = error && error.message ? error.message : String(error || "Unknown provider error");
+    return text.replace(/[A-Za-z0-9_\-]{24,}/g, "[redacted]");
+  }
+
+  function requestUrlAdapter(app) {
+    if (root.requestUrl) return root.requestUrl;
+    if (root.obsidian && root.obsidian.requestUrl) return root.obsidian.requestUrl;
+    if (app && app.requestUrl) return app.requestUrl;
+    return null;
+  }
+
+  function providerHttpError(status, responseText) {
+    const error = new Error(`Provider HTTP ${status}`);
+    error.name = "ProviderHttpError";
+    error.status = Number(status || 0);
+    error.responseText = String(responseText || "");
+    return error;
+  }
+
+  function wait(ms, signal) {
+    if (signal && signal.aborted) {
+      const error = new Error("AI 요청이 취소되었습니다.");
+      error.name = "AbortError";
+      return Promise.reject(error);
+    }
+    return new Promise((resolve, reject) => {
+      let abortHandler = null;
+      const cleanup = () => {
+        if (signal && abortHandler && typeof signal.removeEventListener === "function") {
+          signal.removeEventListener("abort", abortHandler);
+        }
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve();
+      }, ms);
+      if (!signal || typeof signal.addEventListener !== "function") return;
+      abortHandler = () => {
+        clearTimeout(timer);
+        cleanup();
+        const error = new Error("AI 요청이 취소되었습니다.");
+        error.name = "AbortError";
+        reject(error);
+      };
+      signal.addEventListener("abort", abortHandler, { once: true });
+    });
+  }
+
+  function userFacingProviderError(error, provider) {
+    if (error && error.name === "AbortError") {
+      const cancelled = new Error("AI 요청이 취소되었습니다.");
+      cancelled.name = "AbortError";
+      return cancelled;
+    }
+    const status = Number(error && error.status || 0);
+    const rawMessage = error && error.message ? error.message : String(error || "");
+    const isLocalConnectionFailure = provider
+      && provider.authMode === "none"
+      && /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::|\/)/i.test(String(provider.baseURL || ""))
+      && /ECONNREFUSED|fetch failed|failed to fetch|NetworkError|network request failed/i.test(rawMessage);
+    let message = "";
+    if (isLocalConnectionFailure) {
+      message = "LM Studio 서버에 연결할 수 없습니다. LM Studio의 Developer에서 Local Server를 시작해 주세요.";
+    } else if (status === 429) {
+      message = "AI 제공자 사용 한도에 도달했습니다. 공급자 사용량과 Rate limits를 확인해 주세요.";
+    } else if (TRANSIENT_HTTP_STATUSES.has(status)) {
+      message = "AI 제공자 사용량이 많아 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    } else if (status === 401 || status === 403) {
+      message = "AI 제공자의 API 키 또는 접근 권한을 확인해 주세요.";
+    } else if (status) {
+      message = `AI 제공자 요청에 실패했습니다. (HTTP ${status}) 공급자 설정을 확인해 주세요.`;
+    } else {
+      message = "AI 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    }
+    const mapped = new Error(message);
+    if (status) mapped.status = status;
+    return mapped;
+  }
+
+  async function httpRequest(app, options) {
+    const requestUrl = requestUrlAdapter(app);
+    if (requestUrl) {
+      const response = await requestUrl({
+        url: options.url,
+        method: options.method || "POST",
+        headers: options.headers || {},
+        body: options.body,
+        throw: false
+      });
+      const status = Number(response.status || 0);
+      const text = typeof response.text === "string" ? response.text : JSON.stringify(response.json || {});
+      if (status >= 400) throw providerHttpError(status, text);
+      if (response.json !== undefined) return response.json;
+      try { return JSON.parse(text); } catch (_error) { return { text }; }
+    }
+    if (typeof fetch !== "function") throw new Error("No HTTP request adapter is available.");
+    const response = await fetch(options.url, {
+      method: options.method || "POST",
+      headers: options.headers || {},
+      body: options.body,
+      signal: options.signal
+    });
+    const text = await response.text();
+    if (!response.ok) throw providerHttpError(response.status, text);
+    try { return JSON.parse(text); } catch (_error) { return { text }; }
+  }
+
+  async function getSecret(app, name) {
+    if (!name || !app || !app.secretStorage || typeof app.secretStorage.getSecret !== "function") return "";
+    return (await Promise.resolve(app.secretStorage.getSecret(name))) || "";
+  }
+
+  async function setSecret(app, name, value) {
+    if (!name || !app || !app.secretStorage || typeof app.secretStorage.setSecret !== "function") return;
+    await Promise.resolve(app.secretStorage.setSecret(name, value));
+  }
+
+  async function getProviderSecret(app, provider) {
+    const current = await getSecret(app, provider && provider.apiKeySecret);
+    if (current) return current;
+    return getSecret(app, provider && provider.legacyApiKeySecret);
+  }
+
+  function extractJsonText(response) { return root.AIProviderResponse.extractJsonText(response); }
+  function parseJsonPayload(text) { return root.AIProviderResponse.parseJsonPayload(text); }
+
+  function authHeaders(provider, apiKey) {
+    const headers = Object.assign({ "Content-Type": "application/json" }, provider.headers || {});
+    if (provider.authMode === "none") return headers;
+    if (provider.authMode === "api-key") headers[provider.apiKeyHeader || "api-key"] = apiKey;
+    else headers.Authorization = `Bearer ${apiKey}`;
+    return headers;
+  }
+
+  function normalizeGeminiSchema(schema) { return root.AIProviderSchema.normalizeGeminiSchema(schema); }
+  function normalizeStructuredSchema(schema, provider) { return root.AIProviderSchema.normalizeStructuredSchema(schema, provider); }
+
+  async function requestGemini(options, apiKey) {
+    const body = {
+      model: options.provider.model,
+      input: options.prompt,
+      response_format: {
+        type: "text",
+        mime_type: "application/json",
+        schema: normalizeGeminiSchema(options.schema)
+      }
+    };
+    return httpRequest(options.app, {
+      url: options.provider.endpointURL || GEMINI_ENDPOINT,
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey
+      },
+      body: JSON.stringify(body),
+      signal: options.signal
+    });
+  }
+
+  async function requestOpenAiCompatible(options, apiKey) {
+    const provider = options.provider;
+    if (!provider.baseURL) throw new Error(`${provider.name || "Provider"} baseURL is not configured.`);
+    const capabilities = provider.capabilities || {};
+    const useJsonSchema = capabilities.structuredOutput === "json-schema" && options.schema;
+    const body = {
+      model: provider.model,
+      stream: false,
+      messages: [
+        { role: "system", content: "Return strict JSON only." },
+        { role: "user", content: options.prompt }
+      ],
+      response_format: useJsonSchema
+        ? {
+            type: "json_schema",
+            json_schema: {
+              name: provider.responseSchemaName || "prodigy_response",
+              strict: capabilities.strictStructuredOutput === true,
+              schema: normalizeStructuredSchema(options.schema, provider)
+            }
+          }
+        : { type: "json_object" }
+    };
+    if (capabilities.conservativeProposal === true) body.temperature = 0;
+    if (Number(provider.ttl) > 0) body.ttl = Number(provider.ttl);
+    if (Number(provider.maxTokens) > 0) body.max_tokens = Number(provider.maxTokens);
+    return httpRequest(options.app, {
+      url: `${String(provider.baseURL).replace(/\/$/, "")}${provider.endpointPath || "/chat/completions"}`,
+      headers: authHeaders(provider, apiKey),
+      body: JSON.stringify(body),
+      signal: options.signal
+    });
+  }
+
+  async function requestStructuredJson(options) {
+    const provider = options && options.provider;
+    if (!provider || !provider.model) throw new Error("AI provider model is not configured.");
+    const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
+    if (provider.authMode !== "none" && !apiKey) throw new Error(`${provider.name || "AI provider"} API key is not configured.`);
+    const sleep = typeof options.sleep === "function"
+      ? options.sleep
+      : (ms) => wait(ms, options.signal);
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+      try {
+        const response = provider.adapter === "gemini"
+          ? await requestGemini(options, apiKey)
+          : await requestOpenAiCompatible(options, apiKey);
+        return parseJsonPayload(extractJsonText(response));
+      } catch (error) {
+        const status = Number(error && error.status || 0);
+        const shouldRetry = TRANSIENT_HTTP_STATUSES.has(status) && attempt < RETRY_DELAYS_MS.length;
+        if (!shouldRetry) throw userFacingProviderError(error, provider);
+        await sleep(RETRY_DELAYS_MS[attempt]);
+      }
+    }
+    throw new Error("AI 요청을 완료하지 못했습니다.");
+  }
+
+  async function listModels(options) {
+    const provider = options && options.provider;
+    if (!provider || !provider.baseURL) throw new Error("AI provider baseURL is not configured.");
+    const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
+    if (provider.authMode !== "none" && !apiKey) throw new Error(`${provider.name || "AI provider"} API key is not configured.`);
+    const response = await httpRequest(options.app, {
+      url: `${String(provider.baseURL).replace(/\/$/, "")}/models`,
+      method: "GET",
+      headers: authHeaders(provider, apiKey),
+      signal: options.signal
+    });
+    return (Array.isArray(response && response.data) ? response.data : [])
+      .map((item) => String(item && item.id || "").trim())
+      .filter(Boolean);
+  }
+
+  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, listModels, requestStructuredJson };
+
+  root.AIProviderService = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);

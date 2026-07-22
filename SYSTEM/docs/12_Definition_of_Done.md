@@ -31,8 +31,8 @@ Consistency is more important than length.
 # Weekly Done
 
 - Pipeline executed
-- Weekly Workspace generated
-- Weekly Review read by the user
+- Weekly Filter reviewed by the user
+- AI Learning proposal reviewed when explicitly requested
 - Next Week Direction reviewed
 
 Suggested Principles remain pending.
@@ -42,9 +42,12 @@ No automatic adoption.
 
 # Monthly Done
 
-- Weekly Review Results collected
-- Monthly Review generated
-- Human validation completed
+- Weekly Review Results collected (저장된 Weekly 2개 이상)
+- 서로 다른 주차의 반복 Principle 확인
+- Human validation: 검증·보류·반려 중 하나 선택
+- 검증된 Principle은 `source_type: monthly_validation` Knowledge Candidate로 저장
+- Knowledge 승격은 기존 승인 화면에서만 가능
+- AI는 검증 상태를 선택하거나 자동 저장하지 않음
 
 ---
 

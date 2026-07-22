@@ -5,26 +5,132 @@ cssclasses:
 ---
 ```dataviewjs
 window.app = app;
-const source = app.vault.getAbstractFileByPath("SYSTEM/Views/workspace-list-view.js");
-if (!source) throw new Error("Workspace list view not found.");
-(new Function(await app.vault.read(source)))();
+window.KnowledgeExplorerHub = window.KnowledgeExplorerHub || {};
 
-const items = dv.pages('"ZETA"')
-  .where(p => p.type === "permanent_note" || p.type === "knowledge")
-  .sort(p => p.file.mtime, "desc")
-  .array()
-  .map(p => ({
-    title: p.file.name,
-    path: p.file.path,
-    meta: [p.type === "knowledge" ? "지식" : "영구 노트", p.file.mtime.toFormat("yyyy-MM-dd")],
-    detail: p.summary || p.review_summary || ""
-  }));
+const KnowledgeExplorerHub = window.KnowledgeExplorerHub;
+KnowledgeExplorerHub.modulePaths = [
+  "SYSTEM/Views/display-registry.js",
+  "SYSTEM/Views/workspace-navigation.js",
+  "SYSTEM/Views/knowledge-explorer-registry.js",
+  "SYSTEM/Views/knowledge-authoring-validation.js",
+  "SYSTEM/Views/knowledge-authoring-core.js",
+  "SYSTEM/Views/knowledge-candidate-core.js",
+  "SYSTEM/Views/evidence-quality-core.js",
+  "SYSTEM/Views/knowledge-candidate-store.js",
+  "SYSTEM/Views/knowledge-candidate-view.js",
+  "SYSTEM/Views/knowledge-candidate-hub-adapter.js",
+  "SYSTEM/Views/knowledge-direct-authoring-form.js",
+  "SYSTEM/Views/knowledge-direct-authoring-view.js",
+  "SYSTEM/Views/knowledge-source-authoring-form.js",
+  "SYSTEM/Views/knowledge-source-store.js",
+  "SYSTEM/Views/knowledge-source-authoring-view.js",
+  "SYSTEM/Views/knowledge-source-fetch-service.js",
+  "SYSTEM/Views/knowledge-source-batch-policy.js",
+  "SYSTEM/Views/knowledge-source-batch-service.js",
+  "SYSTEM/Views/knowledge-source-batch-state.js",
+  "SYSTEM/Views/knowledge-source-batch-controller.js",
+  "SYSTEM/Views/knowledge-source-batch-render.js",
+  "SYSTEM/Views/knowledge-source-batch-view.js",
+  "SYSTEM/Views/ai-provider-service.js",
+  "SYSTEM/Views/project-workflow-draft-service.js",
+  "SYSTEM/Views/knowledge-authoring-hub-adapter.js",
+  "SYSTEM/Views/knowledge-explorer-hub-projection.js",
+  "SYSTEM/Views/knowledge-explorer-core.js",
+  "SYSTEM/Views/knowledge-explorer-data-source.js",
+  "SYSTEM/Views/knowledge-explorer-relations.js",
+  "SYSTEM/Views/knowledge-explorer-hub-adapter.js",
+  "SYSTEM/Views/knowledge-explorer-brief-core.js",
+  "SYSTEM/Views/knowledge-explorer-brief-policy.js",
+  "SYSTEM/Views/knowledge-explorer-brief-service.js",
+  "SYSTEM/Views/knowledge-explorer-brief.js",
+  "SYSTEM/Views/knowledge-explorer-brief-render.js",
+  "SYSTEM/Views/knowledge-explorer-state.js",
+  "SYSTEM/Views/knowledge-explorer-responsive.js",
+  "SYSTEM/Views/knowledge-explorer-render.js",
+  "SYSTEM/Views/knowledge-explorer-view.js"
+];
 
-window.ProdigyListWorkspace.render({
-  app,
-  container: this.container,
-  title: "지식",
-  subtitle: "검증된 이해를 찾고 연결합니다.",
-  sections: [{ title: "최근 지식", items, empty: "아직 검증된 지식이 없습니다." }]
-});
+const loadProdigyScript = async (modulePath) => {
+  const tFile = app.vault.getAbstractFileByPath(modulePath);
+  if (!tFile) throw new Error(`Missing module: ${modulePath}`);
+  (new Function(await app.vault.read(tFile)))();
+};
+
+KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidian: hubObsidian }) => {
+  const mountPoint = container;
+  if (!mountPoint) throw new Error("Missing hub container.");
+  const appRef = hubApp || app;
+  const dvRef = hubDv || dv;
+  const obsidianRef = hubObsidian || obsidian;
+  const retry = () => KnowledgeExplorerHub.render({ app: appRef, dv: dvRef, container: mountPoint, obsidian: obsidianRef });
+
+  mountPoint.empty();
+  try {
+    for (const modulePath of KnowledgeExplorerHub.modulePaths) await loadProdigyScript(modulePath);
+    window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, title: "지식" });
+    const P = window.KnowledgeExplorerHubProjection;
+    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView) {
+      throw new Error("Knowledge Explorer modules failed to load.");
+    }
+    const dataSource = window.KnowledgeExplorerDataSource.createKnowledgeExplorerDataSource({
+      registry: window.KnowledgeExplorerRegistry,
+      schemaVersion: window.KnowledgeExplorerCore.SCHEMA_VERSION,
+      readBody: (asset) => P.readSelectedNote(appRef, dvRef, asset && asset.path)
+    });
+    const records = P.collectRecords(dataSource, dvRef);
+    const relationRecords = P.collectRelationRecords(dvRef);
+    const snapshot = JSON.stringify(records);
+    const relationSnapshot = JSON.stringify(relationRecords);
+    const model = window.KnowledgeExplorerCore.projectKnowledgeExplorer(records, window.KnowledgeExplorerRegistry);
+    const relationsModel = window.KnowledgeExplorerRelations.projectRelations(relationRecords);
+    if (JSON.stringify(records) !== snapshot) throw new Error("Knowledge Explorer records were mutated.");
+    if (JSON.stringify(relationRecords) !== relationSnapshot) throw new Error("Knowledge Explorer relation records were mutated.");
+    const candidateConfig = await window.KnowledgeCandidateHubAdapter.createCandidateInboxConfig(appRef);
+    const authoringMount = mountPoint.createDiv({ attr: { class: "knowledge-authoring-hub-mount" } });
+    const explorerMount = mountPoint.createDiv({ attr: { class: "knowledge-explorer-hub-mount" } });
+    KnowledgeExplorerHub.authoringActions = window.KnowledgeAuthoringHubAdapter.mountKnowledgeAuthoringActions(authoringMount, {
+      app: appRef,
+      onReload: retry
+    });
+    model.detail_sections_by_asset_path = window.KnowledgeExplorerHubAdapter.buildDetailSections(model, relationsModel);
+    model.detail_warnings = relationsModel.warnings || [];
+    model.brief_signals_by_domain = relationsModel.signals_by_domain || {};
+    const surfaceState = (model.warnings.length || relationsModel.warnings.length) ? "error" : "rest";
+    const briefService = KnowledgeExplorerHub.briefService || window.KnowledgeExplorerBriefService.createKnowledgeExplorerBriefService({
+      aiProviderService: window.AIProviderService || {},
+      providerConfigService: window.ProjectWorkflowDraftService || {}
+    });
+    const api = window.KnowledgeExplorerView.mountKnowledgeExplorer({
+      app: appRef,
+      container: explorerMount,
+      model,
+      surfaceState,
+      onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath),
+      briefService,
+      hydrateAsset: dataSource.hydrate,
+      ...candidateConfig
+    });
+    KnowledgeExplorerHub.api = api;
+    KnowledgeExplorerHub.model = model;
+    KnowledgeExplorerHub.dataSource = dataSource;
+    return api;
+  } catch (error) {
+    KnowledgeExplorerHub.error = error;
+    const P = window.KnowledgeExplorerHubProjection;
+    if (P) P.renderError(mountPoint, "지식 탐색기를 불러오지 못했습니다.", error && error.message ? error.message : "알 수 없는 오류가 발생했습니다.", retry);
+    else { mountPoint.empty(); mountPoint.createEl("p", { text: error.message }); }
+    return null;
+  }
+};
+
+KnowledgeExplorerHub.openBeside = (targetPath) => {
+  const P = window.KnowledgeExplorerHubProjection;
+  return P ? P.openBeside(app, targetPath) : null;
+};
+KnowledgeExplorerHub.collectRecords = () => {
+  const P = window.KnowledgeExplorerHubProjection;
+  return P ? P.collectRecords(KnowledgeExplorerHub.dataSource, dv) : [];
+};
+
+await KnowledgeExplorerHub.render({ app, dv, container: this.container, obsidian });
 ```

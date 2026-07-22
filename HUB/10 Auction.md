@@ -28,6 +28,7 @@ const loadProdigyScript = async (path) => {
 try {
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-core.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-view.js");
   await loadProdigyScript("SYSTEM/Views/object-engine-core.js");
@@ -36,11 +37,24 @@ try {
   await loadProdigyScript("SYSTEM/Views/site-visit-workflow.js");
   if (window.prodigySiteVisitReady) await window.prodigySiteVisitReady;
   await loadProdigyScript("SYSTEM/Views/auction-region-core.js");
+  await loadProdigyScript("SYSTEM/Views/decision-packet-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-decision-packet.js");
+  await loadProdigyScript("SYSTEM/Views/auction-card-price-projection.js");
+  // Snapshot the full Dataview index once for this dashboard render. Cards and
+  // Auction Day only consume this immutable context; they never re-query Vault.
+  const packetDataview = app.plugins?.plugins?.dataview?.api;
+  const packetPages = packetDataview && typeof packetDataview.pages === "function"
+    ? packetDataview.pages("").array()
+    : [];
+  window.AuctionDecisionPacketDashboardContext = window.AuctionDecisionPacket
+    ? window.AuctionDecisionPacket.createDashboardContext(packetPages)
+    : null;
   await loadProdigyScript("SYSTEM/Views/auction-card.js");
   await loadProdigyScript("SYSTEM/Views/bid-calendar-core.js");
   await loadProdigyScript("SYSTEM/Views/bid-calendar-view.js");
   await loadProdigyScript("SYSTEM/Views/auction-day-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-day-view.js");
+  window.ProdigyWorkspaceNavigation.mount(container, { app, title: "경매" });
 } catch (err) {
   container.empty();
   const errCard = container.createEl("div", {
@@ -61,6 +75,8 @@ try {
   return;
 }
 ```
+
+[[15 Region|지역 비교]] — 기존 지역 Object의 지표와 근거를 읽기 전용으로 비교합니다.
 
 # 🎯 오늘
 
@@ -338,7 +354,9 @@ const run = () => {
       status: "bidding",
       type: "auction_case",
       container: this.container,
-      renderer: window.renderAuctionCard,
+      renderer: (page, target) => window.renderAuctionCard(page, target, {
+        decisionPacketContext: window.AuctionDecisionPacketDashboardContext
+      }),
       emptyMessage: "해당 조건의 입찰 예정 물건이 없습니다.",
       sortField: "auction_datetime",
       sortOrder: "asc"
@@ -371,7 +389,9 @@ const run = () => {
       status: "watching",
       type: "auction_case",
       container: this.container,
-      renderer: window.renderAuctionCard,
+      renderer: (page, target) => window.renderAuctionCard(page, target, {
+        decisionPacketContext: window.AuctionDecisionPacketDashboardContext
+      }),
       emptyMessage: "해당 조건의 검토 중인 물건이 없습니다.",
       sortField: "auction_datetime",
       sortOrder: "asc"

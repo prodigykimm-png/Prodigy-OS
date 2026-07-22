@@ -29,7 +29,7 @@ function loadView(notices = [], overrides = {}, preserveRuntime = false) {
 
 async function testLoadAndIncrementalBuild() {
   const current = readingFile("PARA/PROJECTS/Reading/성공대화론.md", source("성공대화론", "데일 카네기", ["대화", "인간관계"]));
-  const related = readingFile("PARA/PROJECTS/Reading/인간관계론.md", source("인간관계론", "데일 카네기", ["인간관계"], "먼저 이해하려고 질문한다."));
+  const related = readingFile("PARA/PROJECTS/Reading/인간관계론.md", source("인간관계론", "데일 카네기", ["인간관계"], "먼저 이해하려고 질문한다.").replace("topics: [인간관계]", "topics: [인간관계]\nknowledge_links: [ZETA/대화 원칙]"));
   const fixture = createApp([current, related]);
   const view = loadView();
 
@@ -40,6 +40,7 @@ async function testLoadAndIncrementalBuild() {
   assert.equal(first.candidates[0].author, "데일 카네기");
   assert.deepEqual(first.candidates[0].relation_labels, ["같은 주제", "같은 저자"]);
   assert.equal(first.candidates[0].evidence_line, "내 기록: 먼저 이해하려고 질문한다.");
+  assert.deepEqual(first.candidates[0].knowledge_links, ["ZETA/대화 원칙"]);
   assert.deepEqual(concurrent.candidates, first.candidates);
   assert.equal(fixture.readCount(), 2, "concurrent opens and repeated script loads must share one build");
 

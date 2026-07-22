@@ -87,6 +87,10 @@ function main() {
   const dayEvents = core.eventsForDate(events, "2026-07-21");
   assert.ok(dayEvents.length >= 2);
   assert.ok(dayEvents.every((e) => e.type === "bid"));
+  const todayBids = core.todayBidEvents(events, new Date("2026-07-21T12:00:00"));
+  assert.equal(todayBids.length, 2);
+  assert.ok(todayBids.every((e) => e.type === "bid" && e.status === "bidding"));
+  assert.equal(core.todayBidEvents(events, new Date("2026-07-22T12:00:00")).length, 0);
 
   // Court grouping primary strategy
   const courts = core.groupByCourt(dayEvents);
@@ -150,6 +154,10 @@ function main() {
   // Date popup reuses the real Auction Card renderer
   assert.match(viewSource, /renderAuctionCard/);
   assert.match(viewSource, /renderEventCard|prodigy-bid-cal-card-host/);
+  assert.match(viewSource, /오늘 입찰 목록/);
+  assert.match(viewSource, /todayBidEvents/);
+  assert.match(viewSource, /오늘 예정된 입찰이 없습니다/);
+  assert.equal(viewSource.includes("이 날 입찰 실행"), false);
 
   // Hub wiring
   assert.match(hub, /bid-calendar-core\.js/);
@@ -162,6 +170,7 @@ function main() {
   assert.match(guide, /Time Navigation/);
   assert.match(guide, /Date Detail Popup/);
   assert.match(guide, /Agenda View/);
+  assert.match(guide, /오늘 입찰 목록/);
 
   // No Property / template / Display Registry architecture changes
   assert.match(template, /auction_datetime:/);

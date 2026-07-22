@@ -734,13 +734,57 @@
     };
   }
 
-  function buildKnowledgeCandidates(_states) {
+  function candidateSourceSession(candidate) {
+    const source = candidate || {};
+    const direct = clean(source.source_session);
+    if (direct) return direct;
+    const links = Array.isArray(source.source_objects) ? source.source_objects : [];
+    return clean(links.find((value) => /Reading\/Sessions/i.test(String(value)))) || clean(links[0]);
+  }
+
+  function candidateQuality(candidate) {
+    const supplied = candidate && candidate.evidence_quality;
+    const status = clean(supplied && supplied.status);
+    const labels = { thin: "보완 필요", usable: "사용 가능", strong: "근거 충분" };
+    if (labels[status]) return { available: true, status, label: labels[status] };
+    const confidence = clean(candidate && candidate.confidence);
+    if (confidence === "explicit") return { available: true, status: "usable", label: labels.usable };
+    if (confidence === "inferred" || confidence === "low") return { available: true, status: "thin", label: labels.thin };
+    return { available: false, status: "unavailable", label: "확인 불가" };
+  }
+
+  function buildKnowledgeCandidates(candidates) {
+    const statusLabel = { proposed: "제안됨", saved: "저장됨" };
+    const items = (Array.isArray(candidates) ? candidates : [])
+      .filter((candidate) => candidate && (clean(candidate.status) === "proposed" || clean(candidate.status) === "saved"))
+      .map((candidate) => ({
+        candidate_id: clean(candidate.candidate_id),
+        title: clean(candidate.title) || LABELS.untitled,
+        statement: clean(candidate.statement),
+        status: clean(candidate.status),
+        status_label: statusLabel[clean(candidate.status)] || "검토 대기",
+        source_session: candidateSourceSession(candidate),
+        quality: candidateQuality(candidate),
+        review_target: "HUB/50 Knowledge.md",
+        counts_as_knowledge: false
+      }));
+    if (!items.length) {
+      return {
+        empty: true,
+        message: EMPTY.knowledge,
+        items: [],
+        reserved: true,
+        counts_as_knowledge: false,
+        reason: "Knowledge Explorer Inbox에서 검토할 활성 후보가 없습니다."
+      };
+    }
     return {
-      empty: true,
-      message: EMPTY.knowledge,
-      items: [],
-      reserved: true,
-      reason: "지식 후보 생성은 이후 스프린트 예약"
+      empty: false,
+      message: null,
+      items,
+      reserved: false,
+      counts_as_knowledge: false,
+      reason: "후보는 Knowledge Explorer Inbox에서만 승인합니다."
     };
   }
 
@@ -834,7 +878,7 @@
       stale_reading: buildStaleReading(evaluated.states, pagesByPath),
       finish_soon: buildFinishSoon(evaluated.pages, evaluated.states, pagesByPath),
       queue_ready: buildQueueReady(evaluated.pages),
-      knowledge_candidates: buildKnowledgeCandidates(evaluated.states),
+      knowledge_candidates: buildKnowledgeCandidates(opts.candidates),
       history: buildHistory(evaluated.pages, opts.historyLimit),
       primary_state: primary,
       states: evaluated.states,
@@ -880,6 +924,8 @@
     buildStaleReading,
     buildFinishSoon,
     buildQueueReady,
+    candidateSourceSession,
+    candidateQuality,
     buildKnowledgeCandidates,
     buildHistory,
     buildWorkspaceModel,

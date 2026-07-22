@@ -78,9 +78,70 @@
     return isPeopleType(type) || isLegacyContactType(type);
   }
 
+  /**
+   * Honorifics / role titles must never be part of a People Object name.
+   * Role belongs in frontmatter `role` (or body), not the filename / [[wikilink]].
+   * Longer tokens first so "대표님" wins over "대표" / "님".
+   */
+  const PERSON_HONORIFIC_TOKENS = Object.freeze([
+    "선생님", "대표님", "사장님", "부장님", "과장님", "대리님", "팀장님",
+    "실장님", "이사님", "상무님", "전무님", "회장님", "원장님", "소장님",
+    "교수님", "박사님", "매니저님",
+    "대표", "사장", "부장", "과장", "대리", "팀장", "실장", "이사", "상무",
+    "전무", "회장", "원장", "소장", "교수", "박사", "선생", "매니저",
+    "님", "씨", "군", "양",
+    "CEO", "CTO", "CFO", "COO", "CMO", "PM"
+  ].slice().sort((a, b) => b.length - a.length));
+
+  /**
+   * Strip role/honorific tokens so only the personal name remains.
+   * - "최진웅 대표" → "최진웅"
+   * - "정호성님" → "정호성"
+   * - "김대리" (no separable full name) stays "김대리" — remaining must be ≥ 2 chars when attached
+   */
+  function stripPersonHonorifics(value) {
+    let s = clean(value);
+    if (!s) return s;
+
+    s = s.replace(/^(mr|mrs|ms|miss|dr|prof)\.?\s+/i, "");
+
+    let changed = true;
+    let guard = 0;
+    while (changed && guard < 8) {
+      changed = false;
+      guard += 1;
+      for (let i = 0; i < PERSON_HONORIFIC_TOKENS.length; i++) {
+        const tok = PERSON_HONORIFIC_TOKENS[i];
+        const reSpace = new RegExp("\\s+" + escapeRegExp(tok) + "$", "i");
+        if (reSpace.test(s)) {
+          const next = s.replace(reSpace, "").trim();
+          if (next) {
+            s = next;
+            changed = true;
+            break;
+          }
+        }
+        const reAttach = new RegExp(escapeRegExp(tok) + "$", "i");
+        if (reAttach.test(s) && s.length > tok.length) {
+          const next = s.slice(0, s.length - tok.length).replace(/\s+$/g, "").trim();
+          // Keep nicknames like "김대리": do not leave a 1-character stump.
+          if (next.length >= 2) {
+            s = next;
+            changed = true;
+            break;
+          }
+        }
+      }
+    }
+    return s;
+  }
+
   function safeName(value) {
-    const name = clean(value)
+    let name = clean(value)
       .replace(/[\\/:*?"<>|#[\]^]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    name = stripPersonHonorifics(name)
       .replace(/\s+/g, " ")
       .trim();
     if (!name) throw new Error("사람 이름을 입력해 주세요.");
@@ -1408,6 +1469,7 @@
     isPeopleType,
     isLegacyContactType,
     isPeopleOrLegacy,
+    stripPersonHonorifics,
     safeName,
     peoplePath,
     isUnderPeopleFolder,

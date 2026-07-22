@@ -1,4 +1,5 @@
 (function () {
+  // allow: SIZE_OK — one central, static Korean display registry prevents label ownership from fragmenting across Views.
   const PROPERTY_LABELS = Object.freeze({
     id: "식별자", type: "유형", status: "상태", created: "생성일", updated: "수정일",
     next_action: "다음 행동", due_date: "마감일", start_date: "시작일", priority: "우선순위",
@@ -6,7 +7,7 @@
     naver: "네이버 부동산", cafe: "네이버 카페", recommend: "추천 여부",
     recommend_level: "추천 등급", recommend_note: "추천 메모", recommend_sources: "추천 근거",
     case_number: "사건번호", court: "법원", auction_dept: "경매계", auction_datetime: "입찰 일시",
-    region_sido: "시도", region_sigungu: "시군구", region_dong: "읍면동", address: "주소",
+    region_sido: "시도", region_sigungu: "시군구", region_dong: "읍면동", address: "주소", venue_category: "장소 분류",
     metrics_as_of: "지표 기준일", metrics_scope: "지표 범위", metrics_provider: "시장 지표 공급자",
     metrics_source: "지표 출처", source_as_of: "출처 확인일", verification_status: "검증 상태",
     housing_stock_basis: "재고 정의", sale_price_change_basis: "매매가 변동 기준",
@@ -15,10 +16,12 @@
     sale_volume_3m: "매매 거래량(3개월)", housing_stock: "주택 재고",
     sale_turnover_rate: "매매 회전율", sale_price_change_yoy: "매매가 변동 YoY",
     jeonse_ratio: "전세가율", move_in_12m: "입주 예정 12개월", move_in_24m: "입주 예정 24개월",
-    move_in_36m: "입주 예정 36개월",
+    move_in_36m: "입주 예정 36개월", move_in_48m: "입주 예정 48개월", move_in_60m: "입주 예정 60개월",
+    land_price_trend_yoy: "지가 변동률", land_price_trend_as_of: "지가 기준일", land_price_trend_scope: "지가 범위", land_price_trend_source: "지가 출처",
     households: "세대수", household_change_yoy: "세대수 변동 YoY",
     auction_bid_rate_6m: "경매 낙찰가율(6개월)",
     property_type: "물건 유형", building_year: "준공 연도", exclusive_area: "전용 면적",
+    land_parcel_id: "공시지가 필지", official_land_price_per_sqm: "개별공시지가(㎡당)", official_land_price_as_of: "공시지가 기준일", official_land_price_source: "공시지가 출처", land_rights_area_sqm: "토지권 면적",
     supply_area: "공급 면적", appraisal_price: "감정가", minimum_bid: "최저 입찰가",
     minimum_bid_rate: "최저가율", bid_deposit: "입찰 보증금", recommendation: "추천",
     expected_bid: "예상 입찰가", my_bid_price: "실제 입찰가", winning_bid_price: "낙찰가",
@@ -47,7 +50,13 @@
     thinking_delta: "생각의 변화", next_position: "다음 위치",
     knowledge_candidate_ids: "지식 후보",
     candidate_id: "후보 ID", statement: "지식 문장", reason: "이유",
-    source_type: "출처 유형", source_session_id: "출처 세션 ID",
+    source_type: "출처 유형", source_note: "학습 출처 메모", source_evidence_ids: "출처 증거 ID", source_objects: "출처 Object",
+    source_kind: "자료 유형", source_id: "자료 ID", source_batch_id: "자료 묶음 ID", source_url: "자료 URL", source_title: "자료 제목",
+    publisher: "발행처", published_at: "발행일", summary_origin: "요약 출처",
+    application_trigger: "적용 계기", application_contexts: "적용 맥락",
+    confidence: "확신 수준", suggested_domain: "제안 지식 도메인", suggested_topics: "제안 지식 주제",
+    approval_note: "승인 메모", promotion_target: "승격 대상", promoted_knowledge: "승격된 지식",
+    source_session_id: "출처 세션 ID",
     source_session: "출처 세션", source_book: "출처 책",
     reading_strategy: "독서 전략", book_type: "책 유형", reading_type: "독서 유형",
     cover: "표지", cover_image: "표지 이미지", book_cover: "책 표지", image: "이미지",
@@ -58,7 +67,7 @@
     meeting_status: "회의 상태",
     target: "목표 부위", cue: "운동 큐", primary_muscles: "주요 근육",
     secondary_muscles: "보조 근육", equipment: "장비",
-    todoist_last_error: "Todoist 오류"
+    todoist_last_error: "Todoist 오류", knowledge_domain: "지식 도메인", knowledge_topics: "지식 주제"
   });
 
   const STATUS_INFO = Object.freeze({
@@ -71,7 +80,8 @@
     reviewing: Object.freeze({ label: "복기 중", icon: "🔄", color: "#f97316" }),
     proposed: Object.freeze({ label: "제안", icon: "✦", color: "#a855f7" }),
     saved: Object.freeze({ label: "보관", icon: "☆", color: "#22c55e" }),
-    rejected: Object.freeze({ label: "거절", icon: "✕", color: "#666666" }),
+    approved: Object.freeze({ label: "승인", icon: "✓", color: "#22c55e" }),
+    rejected: Object.freeze({ label: "반려", icon: "✕", color: "#666666" }),
     won: Object.freeze({ label: "낙찰", icon: "🏆", color: "#22c55e" }),
     lost: Object.freeze({ label: "패찰", icon: "✕", color: "#ef4444" }),
     skipped: Object.freeze({ label: "입찰 포기", icon: "✕", color: "#666666" }),
@@ -110,6 +120,7 @@
     project_family: Object.freeze({ label: "프로젝트", icon: "📁", color: "#f97316" }),
     project_note: Object.freeze({ label: "프로젝트", icon: "📁", color: "#f97316" }),
     knowledge: Object.freeze({ label: "지식", icon: "🧠", color: "#a855f7" }),
+    venue: Object.freeze({ label: "장소", icon: "", color: "#8b5cf6" }),
     people: Object.freeze({ label: "사람", icon: "👤", color: "#78716c" }),
     contact: Object.freeze({ label: "사람", icon: "👤", color: "#78716c" }),
     workout: Object.freeze({ label: "운동", icon: "💪", color: "#ef4444" }),
@@ -137,10 +148,69 @@
     completed: Object.freeze({ label: "완료", icon: "✓", color: "#06b6d4" })
   });
 
+  const KNOWLEDGE_DOMAIN_INFO = Object.freeze({
+    real_estate: Object.freeze({ label: "부동산" }),
+    wedding: Object.freeze({ label: "웨딩" }),
+    coding: Object.freeze({ label: "코딩" }),
+    workout: Object.freeze({ label: "운동" }),
+    reading: Object.freeze({ label: "독서" }),
+    business: Object.freeze({ label: "비즈니스" }),
+    personal_growth: Object.freeze({ label: "개인 성장" })
+  });
+
+  const KNOWLEDGE_TOPIC_INFO = Object.freeze({
+    shooting: Object.freeze({ label: "촬영" }),
+    lighting: Object.freeze({ label: "조명" }),
+    editing: Object.freeze({ label: "편집" }),
+    equipment: Object.freeze({ label: "장비" }),
+    rights_analysis: Object.freeze({ label: "권리 분석" }),
+    site_visit: Object.freeze({ label: "현장 방문" }),
+    bidding: Object.freeze({ label: "입찰" }),
+    public_auction: Object.freeze({ label: "공매" }),
+    tax: Object.freeze({ label: "세금" }),
+    precedent: Object.freeze({ label: "판례" }),
+    electron: Object.freeze({ label: "일렉트론" }),
+    react: Object.freeze({ label: "리액트" }),
+    typescript: Object.freeze({ label: "타입스크립트" }),
+    python: Object.freeze({ label: "파이썬" }),
+    ai: Object.freeze({ label: "인공지능" }),
+    prompt_engineering: Object.freeze({ label: "프롬프트 엔지니어링" }),
+    obsidian_plugin: Object.freeze({ label: "옵시디언 플러그인" }),
+    claude_code: Object.freeze({ label: "클로드 코드" }),
+    codex: Object.freeze({ label: "코덱스" }),
+    gemini: Object.freeze({ label: "제미나이" })
+  });
+
+  const KNOWLEDGE_SOURCE_TYPE_INFO = Object.freeze({
+    daily_evidence: Object.freeze({ label: "일일 근거" }),
+    reading_session: Object.freeze({ label: "독서 세션" }),
+    manual_study: Object.freeze({ label: "직접 학습" }),
+    study_material: Object.freeze({ label: "학습 자료" })
+  });
+
+  const KNOWLEDGE_SOURCE_KIND_INFO = Object.freeze({
+    article: Object.freeze({ label: "기사" }),
+    column: Object.freeze({ label: "칼럼" }),
+    youtube: Object.freeze({ label: "유튜브" }),
+    course: Object.freeze({ label: "강의" }),
+    paper: Object.freeze({ label: "논문" }),
+    official_document: Object.freeze({ label: "공식 문서" })
+  });
+
+  const SUMMARY_ORIGIN_INFO = Object.freeze({
+    manual: Object.freeze({ label: "직접 작성" }),
+    ai: Object.freeze({ label: "AI 요약" })
+  });
+
   const fallbackInfo = (label) => Object.freeze({ label, icon: "", color: "#6b7280" });
   const statusInfo = (value) => STATUS_INFO[value] || fallbackInfo(value ? "미등록 상태" : "미지정");
   const typeInfo = (value) => TYPE_INFO[value] || fallbackInfo(value ? "미등록 유형" : "미지정");
   const lifecycleInfo = (value) => LIFECYCLE_INFO[value] || fallbackInfo(value ? "미등록 라이프사이클" : "미지정");
+  const knowledgeDomainInfo = (value) => KNOWLEDGE_DOMAIN_INFO[value] || fallbackInfo("미분류");
+  const knowledgeTopicInfo = (value) => KNOWLEDGE_TOPIC_INFO[value] || fallbackInfo("미분류");
+  const knowledgeSourceTypeInfo = (value) => KNOWLEDGE_SOURCE_TYPE_INFO[value] || fallbackInfo("미등록 출처 유형");
+  const knowledgeSourceKindInfo = (value) => KNOWLEDGE_SOURCE_KIND_INFO[value] || fallbackInfo("미등록 자료 유형");
+  const summaryOriginInfo = (value) => SUMMARY_ORIGIN_INFO[value] || fallbackInfo("미등록 요약 출처");
 
   const parsePrice = (val) => {
     if (val === undefined || val === null) return NaN;
@@ -199,6 +269,16 @@
     type: (value) => typeInfo(value).label,
     typeInfo,
     lifecycle: (value) => lifecycleInfo(value).label,
-    lifecycleInfo
+    lifecycleInfo,
+    knowledgeDomain: (value) => knowledgeDomainInfo(value).label,
+    knowledgeDomainInfo,
+    knowledgeTopic: (value) => knowledgeTopicInfo(value).label,
+    knowledgeTopicInfo,
+    knowledgeSourceType: (value) => knowledgeSourceTypeInfo(value).label,
+    knowledgeSourceTypeInfo,
+    knowledgeSourceKind: (value) => knowledgeSourceKindInfo(value).label,
+    knowledgeSourceKindInfo,
+    summaryOrigin: (value) => summaryOriginInfo(value).label,
+    summaryOriginInfo
   });
 })();

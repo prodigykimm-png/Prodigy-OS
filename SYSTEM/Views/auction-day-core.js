@@ -7,6 +7,7 @@
    */
 
   const RESULT_OUTCOMES = Object.freeze(["won", "lost", "skipped"]);
+  const BIDDER_PROFILE_PATH = "SYSTEM/PRIVATE/auction-bidder-profile.local.json";
 
   /** Court-level preparation (shared per court, not stored on Objects). */
   const COURT_PREP_ITEMS = Object.freeze([
@@ -278,6 +279,41 @@
     return payload;
   }
 
+  function normalizeBidderProfile(value) {
+    const source = value && typeof value === "object" ? value : {};
+    return {
+      schema_version: "auction-bidder-profile-v1",
+      bidder_address: clean(source.bidder_address),
+      updated_at: clean(source.updated_at)
+    };
+  }
+
+  async function loadBidderProfile(app) {
+    const fallback = normalizeBidderProfile({});
+    if (!app || !app.vault) return fallback;
+    const file = app.vault.getAbstractFileByPath(BIDDER_PROFILE_PATH);
+    if (!file) return fallback;
+    try {
+      return normalizeBidderProfile(JSON.parse(await app.vault.read(file)));
+    } catch (_e) {
+      return fallback;
+    }
+  }
+
+  async function saveBidderProfile(app, value) {
+    if (!app || !app.vault) throw new Error("입찰자 주소를 저장할 수 없습니다.");
+    const profile = normalizeBidderProfile(value);
+    if (!profile.bidder_address) throw new Error("입찰자 주소를 입력해 주세요.");
+    profile.updated_at = new Date().toISOString();
+    const folder = BIDDER_PROFILE_PATH.split("/").slice(0, -1).join("/");
+    await ensureFolder(app, folder);
+    const text = `${JSON.stringify(profile, null, 2)}\n`;
+    const file = app.vault.getAbstractFileByPath(BIDDER_PROFILE_PATH);
+    if (file) await app.vault.modify(file, text);
+    else await app.vault.create(BIDDER_PROFILE_PATH, text);
+    return profile;
+  }
+
   function getCourtPrep(state, court) {
     const key = normalizeCourt(court);
     const source = (state && state.court_prep && state.court_prep[key]) || {};
@@ -335,6 +371,41 @@
       fm.updated = today;
     });
     return value;
+  }
+
+  function positiveWon(value) {
+    const raw = clean(value).replace(/,/g, "");
+    const amount = Number(raw);
+    return Number.isFinite(amount) && amount > 0 ? Math.floor(amount) : 0;
+  }
+
+  function resolveBidSheetValues(page) {
+    const source = page || {};
+    const minimumBid = positiveWon(source.minimum_bid);
+    const storedDeposit = positiveWon(source.bid_deposit);
+    return {
+      final_bid: positiveWon(source.my_bid_price) || positiveWon(source.expected_bid),
+      bid_deposit: storedDeposit || (minimumBid ? Math.floor(minimumBid / 10) : 0)
+    };
+  }
+
+  /** Save the two values the bidder writes on the paper bid form. */
+  async function saveBidSheet(app, objectPath, values) {
+    if (!app || !app.fileManager || !objectPath) throw new Error("입찰표를 저장할 수 없습니다.");
+    const tFile = app.vault.getAbstractFileByPath(objectPath);
+    if (!tFile) throw new Error("Auction Object를 찾을 수 없습니다.");
+    const input = values || {};
+    const finalBid = positiveWon(input.final_bid);
+    const deposit = positiveWon(input.bid_deposit);
+    if (!finalBid) throw new Error("입찰가를 원 단위로 입력해 주세요.");
+    if (!deposit) throw new Error("입찰 보증금을 원 단위로 입력해 주세요.");
+    const today = isoToday();
+    await app.fileManager.processFrontMatter(tFile, (fm) => {
+      fm.my_bid_price = finalBid;
+      fm.bid_deposit = deposit;
+      fm.updated = today;
+    });
+    return { path: objectPath, my_bid_price: finalBid, bid_deposit: deposit };
   }
 
   /**
@@ -525,6 +596,7 @@
 
   const api = {
     RESULT_OUTCOMES,
+    BIDDER_PROFILE_PATH,
     COURT_PREP_ITEMS,
     AUCTION_EXEC_ITEMS,
     clean,
@@ -543,12 +615,18 @@
     dayStatePath,
     loadDayState,
     saveDayState,
+    normalizeBidderProfile,
+    loadBidderProfile,
+    saveBidderProfile,
     getCourtPrep,
     setCourtPrepItem,
     getAuctionChecks,
     setAuctionCheckItem,
     isValidOutcome,
     saveFinalBid,
+    positiveWon,
+    resolveBidSheetValues,
+    saveBidSheet,
     recordResult,
     buildDayModel,
     buildReviewQueue,

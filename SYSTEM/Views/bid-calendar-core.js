@@ -365,6 +365,13 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
+  function todayBidEvents(events, now) {
+    const today = isoToday(now);
+    return eventsForDate(events, today).filter((event) => (
+      event && event.type === "bid" && event.status === "bidding"
+    ));
+  }
+
   function eventTypeProperty(type) {
     const spec = EVENT_SPECS.find((s) => s.type === type);
     return spec ? spec.property : "";
@@ -387,6 +394,7 @@
     buildMonthGrid,
     buildAgenda,
     isoToday,
+    todayBidEvents,
     eventTypeProperty,
     pageTitle,
     normalizeCourt
