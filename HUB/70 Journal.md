@@ -18,7 +18,9 @@ try {
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-config-service.js");
   await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-settings-modal.js");
   await loadProdigyScript("SYSTEM/Views/morning-context-core.js");
   await loadProdigyScript("SYSTEM/Views/journal-core.js");
   await loadProdigyScript("SYSTEM/Views/journal-store.js");

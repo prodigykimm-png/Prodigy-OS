@@ -1118,6 +1118,16 @@ PRE:
 - Only after approval are Object and Todoist artifacts created.
 - Provider fallback is explicit. Project context is not silently sent to another provider.
 
+## Prodigy OS 통합 설정
+
+Home의 설정 아이콘 또는 AI 기능 안의 `통합 설정 열기`에서 공통 설정을 연다.
+
+- **AI 제공자**: 데일리 성찰, 선택적 위클리 AI, 모닝 브리프, 프로젝트 Workflow, Knowledge AI가 같은 기본 제공자와 모델을 사용한다.
+- **외부 서비스**: Todoist 토큰과 REB OpenAPI 키를 같은 화면에서 관리한다. REB 키의 실제 지역 지표 수집은 승인된 Region adapter 흐름에서만 사용한다.
+- **보안**: API 키와 토큰은 Obsidian SecretStorage에만 저장된다. `SYSTEM/PRIVATE/prodigy.local.json`에는 provider·model·endpoint 같은 비밀이 아닌 설정만 남는다.
+- **호환성**: 기존 `project-wizard.local.json`과 기존 SecretStorage 키는 계속 읽을 수 있다. 설정을 저장하면 새 공통 파일이 우선 사용되며 이전 파일은 자동 삭제하지 않는다.
+- **기기별 확인**: SecretStorage의 기기 간 동기화 여부를 가정하지 않는다. Desktop과 iPhone에서 각자의 저장 상태를 확인한다.
+
 ---
 
 # 12. Git Stability Workflow

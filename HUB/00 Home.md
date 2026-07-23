@@ -25,7 +25,9 @@ const main = async () => {
     await loadProdigyScript("SYSTEM/Views/object-engine-core.js");
     await loadProdigyScript("SYSTEM/Views/project-todoist-adapter.js");
     await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
+    await loadProdigyScript("SYSTEM/Views/prodigy-config-service.js");
     await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
+    await loadProdigyScript("SYSTEM/Views/prodigy-settings-modal.js");
     await loadProdigyScript("SYSTEM/Views/morning-context-core.js");
     await loadProdigyScript("SYSTEM/Views/morning-brief-service.js");
     await loadProdigyScript("SYSTEM/Views/morning-brief-context.js");

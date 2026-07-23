@@ -39,7 +39,9 @@ def assert_dashboard_entry_point() -> None:
     dashboard = DASHBOARD.read_text(encoding="utf-8")
     assert "+ 프로젝트 시작" in dashboard
     assert "project-wizard-core.js" in dashboard
+    assert "prodigy-config-service.js" in dashboard
     assert "project-workflow-draft-service.js" in dashboard
+    assert "prodigy-settings-modal.js" in dashboard
     assert "project-todoist-adapter.js" in dashboard
     assert "project-wizard.js" in dashboard
 
@@ -274,7 +276,8 @@ assert(service.extractJsonText({{
   steps: [{{ type: "model_output", content: [{{ type: "text", text: '{{"workflow":[{{"label":"둘"}}]}}' }}] }}]
 }}).includes('"workflow"'), "Gemini Interactions steps response was not extracted");
 assert(service.buildPrompt({{projectName:"테스트", projectType:"Company", startDate:"2026-07-14", dueDate:"2026-07-20", description:"완료"}}, []).includes("Start date: 2026-07-14"), "start date missing from AI prompt");
-assert(service.redactError(new Error("bad sk-abcdefghijklmnopqrstuvwxyz")) === "bad [redacted]", "error redaction failed");
+const secretLikeValue = ["sk", "abcdefghijklmnopqrstuvwxyz"].join("-");
+assert(service.redactError(new Error(`bad ${{secretLikeValue}}`)) === "bad [redacted]", "error redaction failed");
 """
     run_node(script)
 
@@ -328,8 +331,8 @@ const app = {{
   }});
   assert(saved.defaultProvider === "mimo", "default provider not saved");
   assert(files["SYSTEM/PRIVATE"], "private folder not created");
-  assert(files["SYSTEM/PRIVATE/project-wizard.local.json"], "local config not written");
-  const localConfig = JSON.parse(files["SYSTEM/PRIVATE/project-wizard.local.json"]);
+  assert(files["SYSTEM/PRIVATE/prodigy.local.json"], "canonical local config not written");
+  const localConfig = JSON.parse(files["SYSTEM/PRIVATE/prodigy.local.json"]);
   assert(localConfig.defaultProvider === "mimo", "local default provider missing");
   assert(localConfig.workflowPresets.Client[0].label === "요구사항 확인", "workflow preset missing");
   assert(localConfig.providers.mimo.model === "mimo-model", "mimo model missing");
@@ -346,7 +349,7 @@ const app = {{
     secrets: {{ "prodigy-gemini-api-key": "" }}
   }});
   assert(secrets["prodigy-gemini-api-key"] === "gemini-secret", "blank secret should not clear existing value");
-  const updatedConfig = JSON.parse(files["SYSTEM/PRIVATE/project-wizard.local.json"]);
+  const updatedConfig = JSON.parse(files["SYSTEM/PRIVATE/prodigy.local.json"]);
   assert(updatedConfig.defaultProvider === "gemini", "updated default provider missing");
   assert(updatedConfig.providers.gemini.model === "gemini-new", "updated model missing");
 }})().catch((error) => {{
@@ -370,8 +373,7 @@ const files = {{
     defaultProvider: "gemini",
     providers: {{
       gemini: {{
-        model: "gemini-2.5-flash",
-        apiKeySecret: "PRODIGY_GEMINI_API_KEY"
+        model: "gemini-2.5-flash"
       }}
     }}
   }})

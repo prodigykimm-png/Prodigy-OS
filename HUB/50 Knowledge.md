@@ -32,6 +32,7 @@ KnowledgeExplorerHub.modulePaths = [
   "SYSTEM/Views/knowledge-source-batch-render.js",
   "SYSTEM/Views/knowledge-source-batch-view.js",
   "SYSTEM/Views/ai-provider-service.js",
+  "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",
   "SYSTEM/Views/knowledge-authoring-hub-adapter.js",
   "SYSTEM/Views/knowledge-explorer-hub-projection.js",

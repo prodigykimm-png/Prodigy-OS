@@ -214,17 +214,13 @@ function createModalHarness(onConfirm, options) {
   return { instance, notices, propose, button, checkbox, restore };
 }
 
-async function testLocalProviderControlsRenderWithoutApiKey() {
+async function testSharedProviderSettingsSummaryRenders() {
   const harness = createModalHarness(async () => ({}));
   try {
     await new Promise((resolve) => setImmediate(resolve));
-    const providerSelect = findElement(harness.instance.contentEl, (element) => element.attributes["aria-label"] === "AI 제공자");
-    const modelSelect = findElement(harness.instance.contentEl, (element) => element.attributes["aria-label"] === "AI 모델");
-    const keyInput = findElement(harness.instance.contentEl, (element) => element.attributes.type === "password");
-    assert.equal(providerSelect.value, "lm-studio");
-    assert.equal(modelSelect.value, "qwen/qwen3.5-9b");
-    assert.equal(keyInput.parent.style.display, "none");
-    assert.ok(modelSelect.children.some((option) => option.text === "Qwen 3.5 9B Q4_K_M"));
+    assert.ok(harness.button("통합 설정 열기"));
+    assert.ok(findElement(harness.instance.contentEl, (element) => String(element.text || "").includes("LM Studio")));
+    assert.equal(findElement(harness.instance.contentEl, (element) => element.attributes.type === "password"), null);
   } finally {
     harness.restore();
   }
@@ -354,7 +350,7 @@ async function testEvidenceSavedCallbackContract() {
 
 async function main() {
   testNoModalFailsClosed();
-  await testLocalProviderControlsRenderWithoutApiKey();
+  await testSharedProviderSettingsSummaryRenders();
   await testEvidenceSavedCallbackContract();
   console.log("Daily Reflection modal extraction tests passed");
 }

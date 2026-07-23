@@ -238,7 +238,7 @@ Weekly는 월요일~일요일의 Daily Evidence를 읽는 Filter입니다. 먼�
 
 ### 6.3 AI 제공자와 로컬 Gemma
 
-- Daily의 `AI 성찰 분석 → AI 제공자·모델 설정`에서 제공자와 모델을 선택하고 기본값을 저장합니다. Project Wizard도 같은 제공자 설정을 공유합니다.
+- Home의 `Prodigy OS 설정` 또는 Daily의 `AI 성찰 분석 → AI 설정 → 통합 설정 열기`에서 기본 제공자와 모델을 관리합니다. Project Wizard와 다른 AI 기능도 같은 설정을 공유합니다.
 - `LM Studio`는 `http://127.0.0.1:1234/v1`의 Local Server를 사용하며 API 키가 필요하지 않습니다. 기본 모델은 `qwen/qwen3.5-9b` Q4_K_M이고, `google/gemma-4-12b-qat`도 비교 모델로 선택할 수 있습니다.
 - Local Server만 켜 두어도 됩니다. 모델은 요청할 때 적재되고 요청에 포함된 `ttl: 120`에 따라 마지막 호출 2분 뒤 자동으로 메모리에서 내려갑니다.
 - LM Studio가 꺼져 있으면 원시 네트워크 오류 대신 Local Server 시작 안내를 표시합니다. 모델 목록에서는 임베딩 모델을 제외합니다.

@@ -32,7 +32,9 @@ try {
   await loadProdigyScript("SYSTEM/Views/project-card.js");
   await loadProdigyScript("SYSTEM/Views/project-wizard-core.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-config-service.js");
   await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-settings-modal.js");
   await loadProdigyScript("SYSTEM/Views/project-todoist-adapter.js");
   await loadProdigyScript("SYSTEM/Views/project-wizard.js");
   window.ProdigyWorkspaceNavigation.mount(container, { app, title: "프로젝트" });

@@ -45,9 +45,23 @@
     }
   }
 
+  async function loadOptionalProdigyScript(app, path, globalKey) {
+    if (globalKey && root[globalKey]) return;
+    const file = app && app.vault && app.vault.getAbstractFileByPath && app.vault.getAbstractFileByPath(path);
+    if (!file) return;
+    (new Function(await app.vault.read(file)))();
+  }
+
+  async function ensureProdigySettings(app) {
+    await loadOptionalProdigyScript(app, "SYSTEM/Views/prodigy-config-service.js", "ProdigyConfigService");
+    await loadOptionalProdigyScript(app, "SYSTEM/Views/prodigy-settings-modal.js", "ProdigySettingsModal");
+  }
+
   async function renderHome(options) {
     const { app, dv, container } = options;
     if (!app || !dv || !container) return;
+
+    try { await ensureProdigySettings(app); } catch (_settingsError) { /* Home remains usable without settings. */ }
 
     container.empty();
     container.classList.add("prodigy-home");
@@ -629,6 +643,22 @@
     leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting} · 지금 무엇에 집중할까?`, attr: { style: "font-size: 0.85em; color: var(--text-muted);" } });
 
     const rightActions = titleRow.createEl("div", { attr: { class: "home-toolbar" } });
+
+    const settingsBtn = rightActions.createEl("button", {
+      attr: { type: "button", class: "action-btn home-settings-button", title: "Prodigy OS 설정", "aria-label": "Prodigy OS 설정" }
+    });
+    const setIcon = root.setIcon || (root.obsidian && root.obsidian.setIcon);
+    if (typeof setIcon === "function") setIcon(settingsBtn, "settings");
+    else settingsBtn.textContent = "설정";
+    settingsBtn.onclick = async () => {
+      try {
+        await ensureProdigySettings(app);
+        if (!root.ProdigySettingsModal || typeof root.ProdigySettingsModal.open !== "function") throw new Error("settings unavailable");
+        root.ProdigySettingsModal.open(app);
+      } catch (_error) {
+        new Notice("Prodigy OS 설정을 열지 못했습니다.");
+      }
+    };
 
     // Universal Object Creator entry (+ / ⌘N)
     const newObjBtn = rightActions.createEl("button", {

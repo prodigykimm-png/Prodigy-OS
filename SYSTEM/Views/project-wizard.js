@@ -104,12 +104,6 @@
     return el;
   }
 
-  function passwordInput(parent, placeholder, onChange) {
-    const el = input(parent, "", placeholder, onChange);
-    el.type = "password";
-    return el;
-  }
-
   async function readFile(app, path) {
     const file = app.vault.getAbstractFileByPath(path);
     if (!file) throw new Error(`File not found: ${path}`);
@@ -129,178 +123,6 @@
     const after = updater(before);
     if (after !== before) await app.vault.modify(file, after);
     return after;
-  }
-
-  class ProjectWizardSettingsModal extends root.obsidian.Modal {
-    constructor(app, currentConfig, onSaved) {
-      super(app);
-      this.currentConfig = currentConfig || root.ProjectWorkflowDraftService.DEFAULT_PROVIDER_CONFIG;
-      this.onSaved = onSaved;
-      this.state = {
-        defaultProvider: this.currentConfig.defaultProvider || "gemini",
-        secrets: {},
-        providers: JSON.parse(JSON.stringify(this.currentConfig.providers || {})),
-        status: "",
-        busy: false
-      };
-    }
-
-    onOpen() {
-      this.render();
-    }
-
-    onClose() {
-      this.contentEl.empty();
-    }
-
-    render() {
-      const { contentEl } = this;
-      contentEl.empty();
-      contentEl.createEl("h2", { text: "프로젝트 마법사 설정", attr: { style: "margin:0 0 12px;font-size:1.18em;" } });
-      const providerKeys = Object.keys(this.state.providers);
-
-      const top = contentEl.createEl("div", {
-        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;margin-bottom:10px;" }
-      });
-      fieldLabel(top, "기본 AI 제공자");
-      select(top, this.state.defaultProvider, providerKeys.map((key) => ({
-        value: key,
-        label: this.state.providers[key].name || key
-      })), (value) => {
-        this.state.defaultProvider = value;
-      });
-
-      const grid = contentEl.createEl("div", {
-        attr: { class: "prodigy-settings-grid", style: "display:grid;grid-template-columns:1fr 1fr;gap:10px;" }
-      });
-      contentEl.createEl("style", { text: "@media(max-width:680px){.prodigy-settings-grid{grid-template-columns:1fr!important}}" });
-      this.renderProviderCard(grid, "lm-studio", "");
-      this.renderProviderCard(grid, "gemini", "Gemini API 키");
-      this.renderProviderCard(grid, "mimo", "Xiaomi MiMo API 키");
-      this.renderProviderCard(grid, "opencode-go", "OpenCode Go API 키");
-      this.renderTodoistCard(grid);
-
-      if (this.state.status) {
-        contentEl.createEl("div", {
-          text: this.state.status,
-          attr: { style: "margin-top:10px;font-size:0.84em;color:var(--text-muted);background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-radius:6px;padding:8px;" }
-        });
-      }
-
-      const footer = contentEl.createEl("div", {
-        attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;border-top:1px solid var(--background-modifier-border);padding-top:10px;" }
-      });
-      button(footer, "취소").onclick = () => this.close();
-      const save = primaryButton(footer, this.state.busy ? "저장 중..." : "설정 저장");
-      save.disabled = this.state.busy;
-      save.onclick = () => this.save();
-    }
-
-    renderProviderCard(parent, providerKey, secretLabel) {
-      const provider = this.state.providers[providerKey];
-      const box = parent.createEl("div", {
-        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;" }
-      });
-      const header = box.createEl("div", { attr: { style: "display:flex;justify-content:space-between;align-items:center;gap:8px;" } });
-      header.createEl("div", { text: provider.name || providerKey, attr: { style: "font-weight:800;" } });
-      const defaults = root.ProjectWorkflowDraftService.getProviderDefaults(providerKey);
-      if (defaults) {
-        const defaultsButton = button(header, "기본값 적용");
-        defaultsButton.onclick = () => {
-          this.state.providers[providerKey] = defaults;
-          this.render();
-        };
-      }
-      if (provider.authMode !== "none" && provider.apiKeySecret) {
-        fieldLabel(box, secretLabel);
-        passwordInput(box, "비워 두면 기존 비밀 키를 유지합니다", (value) => {
-          this.state.secrets[provider.apiKeySecret] = value;
-        });
-      } else {
-        box.createEl("div", {
-          text: "로컬 서버를 사용하므로 API 키가 필요하지 않습니다.",
-          attr: { style: "font-size:0.78em;color:var(--text-muted);line-height:1.35;" }
-        });
-      }
-      fieldLabel(box, "모델");
-      const modelOptions = root.ProjectWorkflowDraftService.listProviderModels(providerKey, { providers: this.state.providers });
-      if (modelOptions.length) {
-        select(box, provider.model || modelOptions[0].id, modelOptions.map((model) => ({ value: model.id, label: model.label })), (value) => {
-          provider.model = value;
-        });
-      } else {
-        input(box, provider.model || "", "제공자 모델 ID", (value) => {
-          provider.model = value.trim();
-        });
-      }
-      if (provider.adapter === "openai-compatible") {
-        fieldLabel(box, "Base URL");
-        input(box, provider.baseURL || "", "기본 제공자 Base URL", (value) => {
-          provider.baseURL = value.trim();
-        });
-        fieldLabel(box, "엔드포인트 경로");
-        input(box, provider.endpointPath || "/chat/completions", "/chat/completions", (value) => {
-          provider.endpointPath = value.trim() || "/chat/completions";
-        });
-        fieldLabel(box, "인증 방식");
-        select(box, provider.authMode || "bearer", [
-          { value: "none", label: "없음 (로컬)" },
-          { value: "bearer", label: "Bearer" },
-          { value: "api-key", label: "API 키 헤더" }
-        ], (value) => {
-          provider.authMode = value;
-        });
-        if (provider.authMode === "api-key") {
-          fieldLabel(box, "API 키 헤더");
-          input(box, provider.apiKeyHeader || "api-key", "api-key", (value) => {
-            provider.apiKeyHeader = value.trim() || "api-key";
-          });
-        }
-      }
-      if (provider.adapter === "gemini") {
-        fieldLabel(box, "엔드포인트 URL");
-        input(box, provider.endpointURL || "", "비워 두면 Gemini 기본 엔드포인트 사용", (value) => {
-          provider.endpointURL = value.trim();
-        });
-      }
-    }
-
-    renderTodoistCard(parent) {
-      const box = parent.createEl("div", {
-        attr: { style: "border:1px solid var(--background-modifier-border);background:var(--background-secondary);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;" }
-      });
-      box.createEl("div", { text: "Todoist", attr: { style: "font-weight:800;" } });
-      fieldLabel(box, "Todoist 토큰");
-      passwordInput(box, "비워 두면 기존 Todoist 플러그인 토큰을 사용합니다", (value) => {
-        this.state.secrets["prodigy-todoist-api-token"] = value;
-      });
-      box.createEl("div", {
-        text: "비워 두면 사용 가능한 Todoist Sync Plugin 비밀 키로 대체합니다.",
-        attr: { style: "font-size:0.78em;color:var(--text-muted);line-height:1.35;" }
-      });
-    }
-
-    async save() {
-      this.state.busy = true;
-      this.state.status = "설정 저장 중...";
-      this.render();
-      try {
-        const saved = await root.ProjectWorkflowDraftService.saveProviderSettings(this.app, {
-          defaultProvider: this.state.defaultProvider,
-          config: { providers: this.state.providers },
-          secrets: this.state.secrets
-        });
-        this.state.status = "설정을 저장했습니다.";
-        notice("프로젝트 마법사 설정을 저장했습니다.");
-        if (this.onSaved) await this.onSaved(saved);
-        this.close();
-      } catch (error) {
-        this.state.status = `설정 저장 실패: ${error.message}`;
-      } finally {
-        this.state.busy = false;
-        this.render();
-      }
-    }
   }
 
   class ProjectTypeManagerModal extends root.obsidian.Modal {
@@ -706,12 +528,17 @@
     }
 
     openSettings() {
-      new ProjectWizardSettingsModal(this.app, this.state.providerConfig, async (savedConfig) => {
+      if (!root.ProdigySettingsModal || typeof root.ProdigySettingsModal.open !== "function") {
+        this.state.status = "Prodigy OS 설정을 불러오지 못했습니다.";
+        this.render();
+        return;
+      }
+      root.ProdigySettingsModal.open(this.app, { onSaved: async (savedConfig) => {
         this.state.providerConfig = savedConfig;
         this.state.providerKey = savedConfig.defaultProvider;
-        this.state.status = "Provider settings updated.";
+        this.state.status = "Prodigy OS 설정을 적용했습니다.";
         this.render();
-      }).open();
+      }});
     }
 
     async createProject() {
@@ -816,6 +643,5 @@
   }
 
   root.ProjectWizardModal = ProjectWizardModal;
-  root.ProjectWizardSettingsModal = ProjectWizardSettingsModal;
   root.openProjectWizard = openProjectWizard;
 })(typeof globalThis !== "undefined" ? globalThis : this);
