@@ -52,6 +52,12 @@ async function main() {
   assert.match(personal, /사람/);
   const journalHub = fs.readFileSync(path.join(ROOT, "HUB/70 Journal.md"), "utf8");
   assert.match(journalHub, /journal-view\.js/);
+  const conservativePolicyIndex = journalHub.indexOf("daily-reflection-conservative-policy.js");
+  const dailyReflectionAiIndex = journalHub.indexOf("daily-reflection-ai.js");
+  assert.ok(
+    conservativePolicyIndex >= 0 && conservativePolicyIndex < dailyReflectionAiIndex,
+    "Journal must load the Daily Reflection conservative policy before the AI module"
+  );
   assert.equal(journalHub.includes("dv.table"), false);
   assert.equal(journalHub.includes("Recent Journals"), false);
   const home = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/home-view.js"), "utf8");

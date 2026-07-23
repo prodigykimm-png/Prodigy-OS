@@ -31,6 +31,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/daily-reflection-proposal-contract.js");
   await loadProdigyScript("SYSTEM/Views/daily-reflection-object-links.js");
   await loadProdigyScript("SYSTEM/Views/daily-reflection-knowledge-handoff.js");
+  await loadProdigyScript("SYSTEM/Views/daily-reflection-conservative-policy.js");
   await loadProdigyScript("SYSTEM/Views/daily-reflection-ai.js");
   await loadProdigyScript("SYSTEM/Views/place-candidate-store.js");
   await loadProdigyScript("SYSTEM/Views/venue-creator.js");
