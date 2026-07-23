@@ -33,14 +33,21 @@ try {
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
   await loadProdigyScript("SYSTEM/Views/decision-packet-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-decision-packet.js");
+  await loadProdigyScript("SYSTEM/Views/decision-packet-reasons.js");
   await loadProdigyScript("SYSTEM/Views/reading-memory-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-memory-retrieval.js");
   await loadProdigyScript("SYSTEM/Views/reading-memory-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-memory-view.js");
   await loadProdigyScript("SYSTEM/Views/reading-decision-packet.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-use-body-core.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-use-body-store.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-use-record-ui.js");
   await loadProdigyScript("SYSTEM/Views/reading-checklist-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-checklist-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-checklist-view.js");
+  await loadProdigyScript("SYSTEM/Views/reading-question-ai.js");
+  await loadProdigyScript("SYSTEM/Views/reading-thinking-delta-ai.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-explorer-registry.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-candidate-core.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-candidate-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-core.js");
@@ -280,6 +287,7 @@ const loadProdigyScript = async (path) => {
 
 try {
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-explorer-registry.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-candidate-core.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-candidate-store.js");
   await loadProdigyScript("SYSTEM/Views/reading-core.js");

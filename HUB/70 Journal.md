@@ -17,6 +17,8 @@ try {
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-response.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-schema.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-config-service.js");
   await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
@@ -25,6 +27,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/journal-core.js");
   await loadProdigyScript("SYSTEM/Views/journal-store.js");
   await loadProdigyScript("SYSTEM/Views/evidence-quality-core.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-explorer-registry.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-candidate-core.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-candidate-store.js");
   await loadProdigyScript("SYSTEM/Views/daily-reflection-venue-policy.js");

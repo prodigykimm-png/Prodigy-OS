@@ -160,6 +160,12 @@ test("Given the Region Experience documentation When its intake provenance and D
     assert.match(document, /AI\/provider.*요약·해석·추론·보강/);
     assert.match(document, /Dataview Hub.*SYSTEM\/Views/);
     assert.match(document, /신뢰하지 않는 vault sync origin.*실행/);
+    assert.match(document, /canonical 승인 provider key.*`gemini`.*`mimo`/);
+    assert.match(document, /기대 adapter.*`gemini`.*`openai-compatible`/);
+    assert.match(document, /정확히 일치하는 승인 HTTPS endpoint/);
+    assert.match(document, /query(?: 또는 |\/)fragment/);
+    assert.match(document, /등록되지 않은 alias.*어떤 secret도 재사용할 수 없다/);
+    assert.match(document, /`authMode: none` local configuration.*secret을 읽거나 전송하지 않는다/);
   }
 });
 

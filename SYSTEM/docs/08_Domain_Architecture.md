@@ -74,3 +74,15 @@ Knowledge Explorer는 검증된 Knowledge와 이를 뒷받침하는 Resource를 
 - 분류를 자동 생성·승인·migration하지 않는다. canonical Knowledge 승인은 사람의 판단이다.
 
 공식 저장·호환 계약은 `SYSTEM/Prodigy/Schema/Knowledge_Explorer_Schema.md`가 소유한다.
+
+---
+
+# Knowledge Stability Sprint Results
+
+Knowledge stability sprint는 다음을 확정했다.
+
+1. **Domain/Topic 단일 출처**: `KnowledgeExplorerRegistry`가 Explorer, Authoring, Candidate, Decision Packet의 유일한 taxonomy source of truth다.
+2. **Candidate 상태 머신**: `needs_more_evidence`는 비종단 상태로, 승인·승격이 차단되며 검토 재개로만 `saved`로 복귀한다.
+3. **Decision Packet 설명 가능성**: 각 Knowledge 항목에 한국어 매칭 이유(직접 연결 / 동일 지역 / 공통 주제)를 표시한다.
+4. **Knowledge Use Body Link**: v1에서는 공식 Property가 아닌 본문 링크 실험으로 기록한다.
+5. **CI baseline**: push/PR 시 stability smoke runner가 자동 실행된다.

@@ -126,12 +126,14 @@
       if (KNOWLEDGE_TYPES.has(type)) {
         var km = matchKnowledge(page, context);
         if (km.score > 0) {
-          knowledge.push({ path: path, title: titleFor(page), score: km.score, reason: km.reason, recency: recency(page) });
+          var kReasons = root.DecisionPacketReasons && root.DecisionPacketReasons.workoutReasons ? root.DecisionPacketReasons.workoutReasons(km.reason) : null;
+          knowledge.push({ path: path, title: titleFor(page), score: km.score, reason: km.reason, reasons: kReasons, recency: recency(page) });
         }
       } else if (type === "workout") {
         var pm = matchPrior(page, context);
         if (pm.score > 0) {
-          priors.push({ path: path, title: titleFor(page), score: pm.score, reason: pm.reason, recency: recency(page) });
+          var pReasons = root.DecisionPacketReasons && root.DecisionPacketReasons.workoutReasons ? root.DecisionPacketReasons.workoutReasons(pm.reason) : null;
+          priors.push({ path: path, title: titleFor(page), score: pm.score, reason: pm.reason, reasons: pReasons, recency: recency(page) });
         }
       }
     });
@@ -184,7 +186,8 @@
           attr: { style: "font-size:0.82em;padding:3px 0;display:flex;gap:6px;align-items:baseline;" }
         });
         row.createEl("span", { text: "·", attr: { style: "color:var(--text-muted);" } });
-        var link = row.createEl("a", { text: k.title, attr: { href: k.path, style: "color:var(--text-accent);text-decoration:none;" } });
+        var kReason = Array.isArray(k.reasons) && k.reasons.length ? k.reasons.join(" · ") : "";
+        var link = row.createEl("a", { text: k.title + (kReason ? " — " + kReason : ""), attr: { href: k.path, style: "color:var(--text-accent);text-decoration:none;" } });
         link.onclick = function (e) {
           e.preventDefault();
           if (root.app && root.app.workspace) root.app.workspace.openLinkText(k.path, k.path, false);
@@ -202,7 +205,8 @@
           attr: { style: "font-size:0.82em;padding:3px 0;display:flex;gap:6px;align-items:baseline;" }
         });
         row.createEl("span", { text: "·", attr: { style: "color:var(--text-muted);" } });
-        var link = row.createEl("a", { text: p.title, attr: { href: p.path, style: "color:var(--text-accent);text-decoration:none;" } });
+        var pReason = Array.isArray(p.reasons) && p.reasons.length ? p.reasons.join(" · ") : "";
+        var link = row.createEl("a", { text: p.title + (pReason ? " — " + pReason : ""), attr: { href: p.path, style: "color:var(--text-accent);text-decoration:none;" } });
         link.onclick = function (e) {
           e.preventDefault();
           if (root.app && root.app.workspace) root.app.workspace.openLinkText(p.path, p.path, false);

@@ -226,6 +226,25 @@ async function testSharedProviderSettingsSummaryRenders() {
   }
 }
 
+async function testApprovalButtonCountTracksSelectedEvidence() {
+  const proposal = createProposal();
+  proposal.evidence_blocks = Array.from({ length: 4 }, (_, index) => Object.assign({}, proposal.evidence_blocks[0], {
+    evidence_id: `daily-2026-07-20-e0${index + 1}`,
+    title: `증거 ${index + 1}`
+  }));
+  const harness = createModalHarness(async () => ({}), { testProposal: proposal });
+  try {
+    await harness.propose();
+    assert.equal(harness.button("Evidence 승인·반영").text, "4개 Evidence 승인·반영");
+    const first = harness.checkbox("증거 1 선택");
+    first.checked = false;
+    first.onchange();
+    assert.equal(harness.button("Evidence 승인·반영").text, "3개 Evidence 승인·반영");
+  } finally {
+    harness.restore();
+  }
+}
+
 async function testEvidenceSavedCallbackContract() {
   const received = [];
   let callbackSawClosed;
@@ -351,6 +370,7 @@ async function testEvidenceSavedCallbackContract() {
 async function main() {
   testNoModalFailsClosed();
   await testSharedProviderSettingsSummaryRenders();
+  await testApprovalButtonCountTracksSelectedEvidence();
   await testEvidenceSavedCallbackContract();
   console.log("Daily Reflection modal extraction tests passed");
 }

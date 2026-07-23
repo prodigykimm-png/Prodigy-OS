@@ -80,6 +80,7 @@
     reviewing: Object.freeze({ label: "복기 중", icon: "🔄", color: "#f97316" }),
     proposed: Object.freeze({ label: "제안", icon: "✦", color: "#a855f7" }),
     saved: Object.freeze({ label: "보관", icon: "☆", color: "#22c55e" }),
+    needs_more_evidence: Object.freeze({ label: "증거 보강", icon: "⚠", color: "#eab308" }),
     approved: Object.freeze({ label: "승인", icon: "✓", color: "#22c55e" }),
     rejected: Object.freeze({ label: "반려", icon: "✕", color: "#666666" }),
     won: Object.freeze({ label: "낙찰", icon: "🏆", color: "#22c55e" }),

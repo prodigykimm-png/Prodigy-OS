@@ -104,7 +104,7 @@
     const request = options || {};
     const legacyStatusMatches = (status) => {
       if (!request.status || request.status === "all") return true;
-      if (request.status === "active") return status === "proposed" || status === "saved";
+      if (request.status === "active") return status === "proposed" || status === "saved" || status === "needs_more_evidence";
       return status === request.status;
     };
     // A few pre-schema Reading notes have no usable provenance field. The shared

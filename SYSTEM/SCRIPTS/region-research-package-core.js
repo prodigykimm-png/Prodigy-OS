@@ -13,9 +13,13 @@ const SEARCH_URL_NEEDLES = Object.freeze([
   "bing.com/search",
   "duckduckgo.com",
   "youtube.com/results",
-  "/search?",
-  "q="
+  "/search?"
 ]);
+// Query-string search-parameter detector.
+// Match only when `q` is a real query key (start-of-query, preceded by `?`, `&`, or `#`),
+// not a substring inside another key name like `lsiSeq` or `land_seq`.
+// Anchored on `?[...&]q=` or `#[...&]q=` or `&q=`. Trailing value boundary is optional.
+const SEARCH_PARAM_Q_RE = /[?&#]q=/iu;
 
 // Top-level allowed keys
 const PACKAGE_TOP_KEYS = Object.freeze(new Set([
@@ -135,6 +139,9 @@ function validateUrl(url, label) {
   const lower = url.toLowerCase();
   for (const needle of SEARCH_URL_NEEDLES) {
     if (lower.includes(needle)) throw new Error(`${label} URL이 검색 결과 URL로 보입니다: ${url}`);
+  }
+  if (SEARCH_PARAM_Q_RE.test(url)) {
+    throw new Error(`${label} URL이 검색 결과 URL로 보입니다: ${url}`);
   }
   if (/[^\x00-\x7F]/.test(url)) {
     throw new Error(`${label} URL은 ASCII 직접 URL 또는 percent-encoded URL이어야 합니다: ${url}`);

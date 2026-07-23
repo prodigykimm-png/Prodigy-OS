@@ -22,6 +22,17 @@
     return null;
   }
 
+  function isMobileRuntime(app) {
+    if (app && typeof app.isMobile === "boolean") return app.isMobile;
+    const platform = root.obsidian && root.obsidian.Platform;
+    return Boolean(platform && (platform.isMobileApp || platform.isMobile));
+  }
+
+  function resolveBaseURL(provider, app) {
+    if (provider && provider.localBaseURL && !isMobileRuntime(app)) return String(provider.localBaseURL);
+    return String(provider && provider.baseURL || "");
+  }
+
   function providerHttpError(status, responseText) {
     const error = new Error(`Provider HTTP ${status}`);
     error.name = "ProviderHttpError";
@@ -59,7 +70,7 @@
     });
   }
 
-  function userFacingProviderError(error, provider) {
+  function userFacingProviderError(error, provider, app) {
     if (error && error.name === "AbortError") {
       const cancelled = new Error("AI 요청이 취소되었습니다.");
       cancelled.name = "AbortError";
@@ -69,7 +80,7 @@
     const rawMessage = error && error.message ? error.message : String(error || "");
     const isLocalConnectionFailure = provider
       && provider.authMode === "none"
-      && /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::|\/)/i.test(String(provider.baseURL || ""))
+      && /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::|\/)/i.test(resolveBaseURL(provider, app))
       && /ECONNREFUSED|fetch failed|failed to fetch|NetworkError|network request failed/i.test(rawMessage);
     let message = "";
     if (isLocalConnectionFailure) {
@@ -171,7 +182,8 @@
 
   async function requestOpenAiCompatible(options, apiKey) {
     const provider = options.provider;
-    if (!provider.baseURL) throw new Error(`${provider.name || "Provider"} baseURL is not configured.`);
+    const baseURL = resolveBaseURL(provider, options.app);
+    if (!baseURL) throw new Error(`${provider.name || "Provider"} baseURL is not configured.`);
     const capabilities = provider.capabilities || {};
     const useJsonSchema = capabilities.structuredOutput === "json-schema" && options.schema;
     const body = {
@@ -193,10 +205,11 @@
         : { type: "json_object" }
     };
     if (capabilities.conservativeProposal === true) body.temperature = 0;
+    if (provider.reasoningEffort) body.reasoning_effort = provider.reasoningEffort;
     if (Number(provider.ttl) > 0) body.ttl = Number(provider.ttl);
     if (Number(provider.maxTokens) > 0) body.max_tokens = Number(provider.maxTokens);
     return httpRequest(options.app, {
-      url: `${String(provider.baseURL).replace(/\/$/, "")}${provider.endpointPath || "/chat/completions"}`,
+      url: `${baseURL.replace(/\/$/, "")}${provider.endpointPath || "/chat/completions"}`,
       headers: authHeaders(provider, apiKey),
       body: JSON.stringify(body),
       signal: options.signal
@@ -220,7 +233,7 @@
       } catch (error) {
         const status = Number(error && error.status || 0);
         const shouldRetry = TRANSIENT_HTTP_STATUSES.has(status) && attempt < RETRY_DELAYS_MS.length;
-        if (!shouldRetry) throw userFacingProviderError(error, provider);
+        if (!shouldRetry) throw userFacingProviderError(error, provider, options.app);
         await sleep(RETRY_DELAYS_MS[attempt]);
       }
     }
@@ -229,11 +242,12 @@
 
   async function listModels(options) {
     const provider = options && options.provider;
-    if (!provider || !provider.baseURL) throw new Error("AI provider baseURL is not configured.");
+    const baseURL = resolveBaseURL(provider, options.app);
+    if (!provider || !baseURL) throw new Error("AI provider baseURL is not configured.");
     const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
     if (provider.authMode !== "none" && !apiKey) throw new Error(`${provider.name || "AI provider"} API key is not configured.`);
     const response = await httpRequest(options.app, {
-      url: `${String(provider.baseURL).replace(/\/$/, "")}/models`,
+      url: `${baseURL.replace(/\/$/, "")}/models`,
       method: "GET",
       headers: authHeaders(provider, apiKey),
       signal: options.signal
@@ -243,7 +257,7 @@
       .filter(Boolean);
   }
 
-  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, listModels, requestStructuredJson };
+  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, listModels, requestStructuredJson };
 
   root.AIProviderService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

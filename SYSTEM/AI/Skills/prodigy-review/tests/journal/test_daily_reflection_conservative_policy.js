@@ -50,10 +50,27 @@ function testTentativeAuctionAndOutcomeAttribution() {
   ]));
   assert.equal(out.evidence_blocks[0].title, "부산 과열과 두 물건 패찰 및 낙찰");
   assert.equal(out.evidence_blocks[0].experience, "부산 경매가 과열됐고 2025타경2391(1),(2) 두 개를 모두 패찰 (낙찰) 했다.");
-  assert.equal(out.evidence_blocks[0].interpretation, "");
+  assert.equal(out.evidence_blocks[0].interpretation, "부산은 과열된 것 같다.");
   assert.equal(out.evidence_blocks[0].next_experiment, "");
   assert.deepEqual(out.pre_routing_suggestions.map((item) => item.path), [["auction"]]);
   assert.deepEqual(out.object_linking_suggestions.filter((item) => item.object_kind === "auction").map((item) => item.name).sort(), ["부산-2025타경2391_1", "부산-2025타경2391_2"]);
+}
+
+function testExplicitSelfJudgmentIsKeptWhenProviderLeavesItBlank() {
+  const proposal = normalize(payload([
+    {
+      title: "보증금 반환 지연과 위탁 판단",
+      context: "integrity",
+      experience: "보증금을 맡겼지만 밤 10시가 다 되어도 돌려받지 못했다.",
+      interpretation: "",
+      change: "신중해지자.",
+      next_experiment: "",
+      related_objects: []
+    }
+  ]));
+  const raw = "보증금을 받고 돌려준다 해서 맡겼는데 밤 10시가 다되가는데 아직 안 돌려준다. 2600만원에 달하는 큰돈인데 너무 생각없이 맡긴 거같다. 신중해지자.";
+  const out = policy.applyConservativeProposalPolicy(proposal, raw, appWithFiles([]));
+  assert.equal(out.evidence_blocks[0].interpretation, "2600만원에 달하는 큰돈인데 너무 생각없이 맡긴 거같다.");
 }
 
 function testEvidenceTitleAndExperienceAreImmutable() {
@@ -75,7 +92,7 @@ function testEvidenceTitleAndExperienceAreImmutable() {
   );
   assert.equal(out.evidence_blocks[0].title, "생성된 짧은 제목");
   assert.equal(out.evidence_blocks[0].experience, "2025타경2391(1),(2)는 결과를 비교했다.");
-  assert.equal(out.evidence_blocks[0].interpretation, "");
+  assert.equal(out.evidence_blocks[0].interpretation, "부산은 과열된 것 같다.");
   assert.equal(out.evidence_blocks[0].next_experiment, "");
 }
 
@@ -174,6 +191,7 @@ function testGroundedKnowledgeSurvivesWithoutOperationalKeyword() {
 
 function main() {
   testTentativeAuctionAndOutcomeAttribution();
+  testExplicitSelfJudgmentIsKeptWhenProviderLeavesItBlank();
   testEvidenceTitleAndExperienceAreImmutable();
   testResourcePeopleAndSelfDirectiveBoundaries();
   testMergedFoodInvestmentAndUncertainty();

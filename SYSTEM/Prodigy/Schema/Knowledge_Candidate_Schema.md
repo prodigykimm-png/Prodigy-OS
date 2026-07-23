@@ -19,7 +19,7 @@
 |---|---|---|
 | `type` | 고정값 `knowledge_candidate` | 임시 후보 Object 식별 |
 | `candidate_id` | 안정적인 machine ID | 후보 식별 및 재시도 연결 |
-| `status` | `proposed` \| `saved` \| `approved` \| `rejected` | 사람 검토 workflow 상태 |
+| `status` | `proposed` \| `saved` \| `needs_more_evidence` \| `approved` \| `rejected` | 사람 검토 workflow 상태 |
 | `title` | 텍스트 | 후보의 짧은 제목 |
 | `statement` | 텍스트 | 검토할 지식 문장 |
 | `reason` | 텍스트 | 제안 이유 |
@@ -66,7 +66,8 @@
 | 현재 상태 | 허용 전이 | 의미 |
 |---|---|---|
 | `proposed` | `saved` \| `rejected` | legacy Reading 제안 또는 아직 저장되지 않은 제안 |
-| `saved` | `approved` \| `rejected` | 사람이 저장하여 검토 대기 중인 후보 |
+| `saved` | `needs_more_evidence` \| `approved` \| `rejected` | 사람이 저장하여 검토 대기 중인 후보 |
+| `needs_more_evidence` | `saved` \| `rejected` | 검토 중 증거가 부족해 보류된 후보; 승인·승격 전 `saved`로 복귀 필요 |
 | `approved` | terminal | canonical Knowledge가 존재하고 `promoted_knowledge`가 기록된 종료 상태 |
 | `rejected` | terminal | 사람이 반려한 종료 상태 |
 

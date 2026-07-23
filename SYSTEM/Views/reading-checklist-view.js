@@ -320,6 +320,8 @@
       saveBtn.addClass("reading-guide-save");
       saveBtn.onclick = () => this.saveAllToObject();
       const secondary = footer.createDiv({ attr: { class: "reading-guide-footer-secondary" } });
+      const geminiBtn = button(secondary, "Gemini로 질문 다듬기");
+      geminiBtn.onclick = () => this.requestGeminiRefinement();
       button(secondary, "책 열기").onclick = async () => {
         if (await openBook(this.app, this.source)) this.close();
       };
@@ -348,6 +350,49 @@
           if (root.prodigyDebugMode === true) console.error(error);
         });
       };
+    }
+
+    async requestGeminiRefinement() {
+      if (!root.ReadingQuestionAI || typeof root.ReadingQuestionAI.refineQuestions !== "function") {
+        notice("Reading Question AI 모듈이 로드되지 않았습니다.");
+        return;
+      }
+      const active = this.ensureActivePhase();
+      if (!active || !active.questions || !active.questions.length) {
+        notice("현재 단계에 질문이 없습니다.");
+        return;
+      }
+      const memoryContext = [];
+      if (root.ReadingMemoryView && typeof root.ReadingMemoryView.loadForSource === "function") {
+        try {
+          const result = await root.ReadingMemoryView.loadForSource(this.source.source_path);
+          (result.candidates || []).slice(0, 3).forEach(function (c) {
+            memoryContext.push({ title: c.title, relation: (c.relation_labels || []).join(", "), evidence: c.evidence_line || "" });
+          });
+        } catch (_e) { /* memory unavailable is ok */ }
+      }
+      notice("Gemini가 질문을 정교화하고 있습니다…");
+      try {
+        const result = await root.ReadingQuestionAI.refineQuestions({
+          app: this.app,
+          title: this.source.title || this.source.book_title || "",
+          author: this.source.author || "",
+          bookType: (this.data && this.data.selection && this.data.selection.type) || "universal",
+          phase: this.activePhaseId || "before",
+          deterministicQuestions: active.questions,
+          memoryContext: memoryContext
+        });
+        this.data.selection.phases.forEach(function (phase) {
+          if (phase.id === this.activePhaseId) {
+            phase.questions = result.questions.filter(function (q) { return q.phase === this.activePhaseId; }.bind(this));
+            if (!phase.questions.length) phase.questions = result.questions;
+          }
+        }.bind(this));
+        notice("Gemini 질문 초안이 적용되었습니다. 검토 후 저장하세요.");
+        this.renderGuide();
+      } catch (error) {
+        notice("Gemini 정교화 실패: " + (error.message || error) + " — 기본 질문이 유지됩니다.");
+      }
     }
 
     requestReset() {

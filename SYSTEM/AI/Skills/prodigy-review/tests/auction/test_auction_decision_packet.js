@@ -232,7 +232,8 @@ async function main() {
 
   const wonPriceRoot = fakeElement("div");
   global.window.renderAuctionCard(activeAuction("won"), wonPriceRoot, { decisionPacketContext: context });
-  assert.match(textContent(wonPriceRoot), /차익: <strong[^>]*>0\.27억/, "won card calculates spread from the recorded bid, not the prior estimate");
+  assert.doesNotMatch(textContent(wonPriceRoot), /차익:/, "terminal won card hides the spread per the no-profit-on-terminal rule");
+  assert.doesNotMatch(textContent(wonPriceRoot), /월수익:/, "terminal won card hides monthly profit per the no-profit-on-terminal rule");
 
   const terminalRoot = fakeElement("div");
   global.window.renderAuctionCard(activeAuction("won"), terminalRoot, { decisionPacketContext: context });

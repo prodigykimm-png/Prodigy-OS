@@ -83,6 +83,7 @@ async function testLocalStructuredRequestNeedsNoSecretAndUsesTtl() {
       authMode: "none",
       ttl: 120,
       maxTokens: 4096,
+      reasoningEffort: "none",
       capabilities: { structuredOutput: "json-schema", strictStructuredOutput: true, schemaDialect: "lm-studio" }
     },
     prompt: "fixture",
@@ -93,6 +94,7 @@ async function testLocalStructuredRequestNeedsNoSecretAndUsesTtl() {
   assert.equal("Authorization" in calls[0].headers, false);
   assert.equal(body.ttl, 120);
   assert.equal(body.max_tokens, 4096);
+  assert.equal(body.reasoning_effort, "none");
   assert.equal(body.temperature, undefined);
   assert.deepEqual(body.response_format.json_schema.schema.properties.related_objects, { type: "array", enum: [[]] });
 
@@ -118,6 +120,15 @@ async function testLocalStructuredRequestNeedsNoSecretAndUsesTtl() {
 function testResponseExtraction() {
   assert.equal(provider.extractJsonText({ choices: [{ message: { content: "", reasoning_content: '{"ok":true}' } }] }), '{"ok":true}');
   assert.deepEqual(provider.parseJsonPayload("prefix {\"ok\":true} suffix"), { ok: true });
+}
+
+function testTailnetProviderUsesLocalUrlOnlyOnDesktop() {
+  const lmStudio = {
+    baseURL: "https://youngjae-macmini-2.tail1992b9.ts.net/v1",
+    localBaseURL: "http://127.0.0.1:1234/v1"
+  };
+  assert.equal(provider.resolveBaseURL(lmStudio, { isMobile: false }), "http://127.0.0.1:1234/v1");
+  assert.equal(provider.resolveBaseURL(lmStudio, { isMobile: true }), "https://youngjae-macmini-2.tail1992b9.ts.net/v1");
 }
 
 async function testRetriesAndErrors() {
@@ -190,6 +201,7 @@ async function main() {
   await testGeminiStructuredRequest();
   await testLocalStructuredRequestNeedsNoSecretAndUsesTtl();
   testResponseExtraction();
+  testTailnetProviderUsesLocalUrlOnlyOnDesktop();
   await testRetriesAndErrors();
   await testLocalServerConnectionFailureHasActionableMessage();
   await testProjectWorkflowReusesSharedProvider();

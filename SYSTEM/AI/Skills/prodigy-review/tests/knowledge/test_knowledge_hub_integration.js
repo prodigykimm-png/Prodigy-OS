@@ -4,9 +4,13 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const { collectText, findByText } = require("./knowledge_explorer_view_fakes.js");
-const { buildPages, firstElement, runHub } = require("./knowledge_hub_integration_harness.js");
+const { buildPages, firstElement, runHub, MODULE_PATHS, HUB_MODULE_PATHS } = require("./knowledge_hub_integration_harness.js");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const hubAdapter = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-hub-adapter.js"));
+
+function testFixtureModulePathsMatchKnowledgeHub() {
+  assert.deepEqual(MODULE_PATHS, HUB_MODULE_PATHS);
+}
 
 async function testHubLoadsExplorerAndDetailSections() {
   const pages = buildPages();
@@ -262,6 +266,7 @@ function testInvalidRecencyWarningUsesKoreanDisplayCopy() {
 }
 
 async function main() {
+  testFixtureModulePathsMatchKnowledgeHub();
   await testHubLoadsExplorerAndDetailSections();
   await testHubMountsAuthoringActionsWithoutChangingExplorerProjection();
   await testHubBuildsLargeExplorerWithoutEagerBodyReads();

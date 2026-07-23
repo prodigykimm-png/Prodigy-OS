@@ -9,14 +9,40 @@
   const REGION_NODES = new Set(["서울", "경기", "인천", "부산", "부천", "대구", "대전", "광주", "울산", "세종", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"]);
   function evidenceText(block) { return normalized([block.title, block.experience, block.interpretation, block.change, block.next_experiment].join(" ")); }
   function auctionCaseBase(value) { const match = compactCaseNumber(value).match(/(\d{4}타경\d+)/); return match ? match[1] : ""; }
-  function hasTentativeCue(text) { return /것\s*같|듯|수\s*있|가능성|추정|아마/.test(text); }
+  function hasTentativeCue(text) { return /것\s*같|거\s*같|듯|수\s*있|가능성|추정|아마/.test(text); }
   function contentWords(value) { return normalized(value).match(/[0-9a-z가-힣]{2,}/g) || []; }
+  function wordStem(value) { return clean(value).replace(/(은|는|이|가|을|를|의|와|과|도|로|으로|에서|에게|된|되어|했다|한다|같다)$/u, ""); }
+  function relatedWord(left, right) {
+    const a = wordStem(left);
+    const b = wordStem(right);
+    return a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a));
+  }
   function unsupportedHan(value, source) { const sourceChars = new Set(clean(source).match(/\p{Script=Han}/gu) || []); return (clean(value).match(/\p{Script=Han}/gu) || []).some((char) => !sourceChars.has(char)); }
   function explicitDirective(text) { const match = clean(text).match(/([가-힣][가-힣0-9\s,·]*(?:하자|해지자|되자|말자))(?=$|[\s.!?。])/); return match ? clean(match[1]) : ""; }
   function hasOperationalCue(text) { return /확인|검토|비교|기록|정리|준비|조사|체크|기준|살핀|살피|피한다|줄인다|늘린다|조정|선택|진행|입찰|촬영/.test(text); }
   function operationalChange(value) { const text = normalized(value); return hasOperationalCue(text) || /신중|조심|주의|책임|절차|판단/.test(text); }
   function sloganChange(value) { return /(힘내|부자|성공|화이팅|파이팅|잘\s*되|꿈)/.test(normalized(value)) && !operationalChange(value); }
   function hasUnchosenExploration(text) { return /던가|눈을\s*돌리|방안(?:을)?\s*찾아봐야겠다/.test(text); }
+  function sourceSentences(value) { return clean(value).split(/(?<=[.!?。])\s*/).map(clean).filter(Boolean); }
+  function sourceGroundedInterpretation(block, source, hint) {
+    const blockWords = new Set(contentWords(evidenceText(block)));
+    const hintWords = new Set(contentWords(hint));
+    const sentences = sourceSentences(source);
+    let best = "";
+    let bestScore = 0;
+    for (let index = 0; index < sentences.length; index += 1) {
+      const sentence = sentences[index];
+      if (!(hasTentativeCue(sentence) || /느꼈|생각했|판단했|후회|아쉽|동병상련/.test(sentence))) continue;
+      const nearby = [sentences[index - 1], sentence, sentences[index + 1]].filter(Boolean).join(" ");
+      const score = contentWords(nearby).filter((word) => Array.from(blockWords).some((blockWord) => relatedWord(word, blockWord))).length
+        + (hintWords.size ? contentWords(sentence).filter((word) => Array.from(hintWords).some((hintWord) => relatedWord(word, hintWord))).length * 3 : 0);
+      if (score > bestScore) {
+        best = sentence;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
   function knowledgeSupport(label, source) {
     const words = contentWords(label);
     const sourceWords = contentWords(source);
@@ -82,9 +108,11 @@
     const sourceText = normalized(source);
     (proposal.evidence_blocks || []).forEach((block) => {
       const text = evidenceText(block);
-      const interpretation = normalized(block.interpretation);
+      const originalInterpretation = block.interpretation;
+      const interpretation = normalized(originalInterpretation);
       if (interpretation && (hasTentativeCue(text) || hasTentativeCue(sourceText)) && !hasTentativeCue(interpretation) && (/원인|때문|과열|확실|단정/.test(interpretation) || /과열/.test(sourceText))) block.interpretation = "";
       if (interpretation && (unsupportedHan(block.interpretation, source) || unsupportedKnowledge(interpretation, sourceText))) block.interpretation = "";
+      if (!clean(block.interpretation)) block.interpretation = sourceGroundedInterpretation(block, source, originalInterpretation);
       const directive = explicitDirective(text);
       if (clean(block.change) && sloganChange(block.change)) block.change = "";
       if (directive && !clean(block.change) && operationalChange(directive) && !sloganChange(directive)) block.change = directive;

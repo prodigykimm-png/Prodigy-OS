@@ -151,8 +151,14 @@
     }
     draftFields(card, candidate, draft, (next) => options.onDraftChange(candidate.candidate_id, next), options.disabled);
     const actions = createEl(card, "div", { attr: { class: "knowledge-explorer-row-actions" } });
-    button(actions, { text: "승인", action: "approve", candidateId: candidate.candidate_id, disabled: options.disabled, onAction: () => options.onAction({ type: "approve", candidateId: candidate.candidate_id, draft }) });
-    button(actions, { text: "보류", action: "defer", candidateId: candidate.candidate_id, disabled: options.disabled, onAction: () => options.onAction({ type: "defer", candidateId: candidate.candidate_id }) });
+    const deferred = candidate.status === "needs_more_evidence";
+    if (deferred) createEl(card, "p", { text: "증거 보강 대기 — 검토를 재개한 뒤에만 승인할 수 있습니다.", attr: { class: "knowledge-explorer-meta" } });
+    button(actions, { text: "승인", action: "approve", candidateId: candidate.candidate_id, disabled: options.disabled || deferred, onAction: () => options.onAction({ type: "approve", candidateId: candidate.candidate_id, draft }) });
+    if (deferred) {
+      button(actions, { text: "검토 재개", action: "resume", candidateId: candidate.candidate_id, disabled: options.disabled, onAction: () => options.onAction({ type: "resume", candidateId: candidate.candidate_id }) });
+    } else {
+      button(actions, { text: "보류", action: "defer", candidateId: candidate.candidate_id, disabled: options.disabled, onAction: () => options.onAction({ type: "defer", candidateId: candidate.candidate_id }) });
+    }
     button(actions, { text: "반려", action: "reject", candidateId: candidate.candidate_id, disabled: options.disabled, onAction: () => options.onAction({ type: "reject", candidateId: candidate.candidate_id }) });
   }
 
@@ -205,7 +211,6 @@
       if (pending || !action) return;
       const candidate = candidates.find((item) => item.candidate_id === action.candidateId);
       if (!candidate) return;
-      if (action.type === "defer") { error = false; onChange(); return; }
       if (action.type === "retry") return perform(retryAction);
       pending = true;
       error = false;
@@ -221,6 +226,12 @@
         } else if (action.type === "reject") {
           await store.rejectCandidate(options.app, candidate.path);
           candidates = candidates.filter((item) => item.candidate_id !== candidate.candidate_id);
+        } else if (action.type === "defer") {
+          await store.deferCandidate(options.app, candidate.path);
+          candidates = candidates.map((item) => item.candidate_id === candidate.candidate_id ? { ...item, status: "needs_more_evidence" } : item);
+        } else if (action.type === "resume") {
+          await store.resumeCandidate(options.app, candidate.path);
+          candidates = candidates.map((item) => item.candidate_id === candidate.candidate_id ? { ...item, status: "saved" } : item);
         }
         retryAction = null;
       } catch (_error) {

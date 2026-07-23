@@ -29,7 +29,7 @@ Use the smallest unit useful for later search or grouping. Split when the future
 - Keep several observations together only when they jointly describe one incident or decision and separating them would reduce meaning.
 - Different properties visited during one planned site-visit outing may remain one Evidence with short internal labels.
 - Different café taste and product-search criteria are different retrieval questions and should split.
-- Food/taste evaluation and investment or real-estate judgment are different retrieval questions and must split even when mentioned in one paragraph.
+- Food/taste evaluation and investment or real-estate judgment are different retrieval questions. Create a food-only Evidence block only when the user records an independently reusable place or taste judgment; when it is incidental social context, keep it with the interaction or omit it.
 - Asset/entity outcomes must not be merged. If one case was lost by the user while another party won, or one property was acceptable while another failed, keep the subject, entity, and outcome attached exactly as reflected in the source.
 
 ## Evidence fields
@@ -51,6 +51,7 @@ Use the smallest unit useful for later search or grouping. Split when the future
 - Omit thin interpretation instead of inventing insight. Mark uncertainty in `uncertainties`.
 - `interpretation` must stay within raw observation or the user's own stated judgment. Do not add unsupported outcome, loss, consequence, or causal claims.
 - Preserve tentative language. `긴장해서 그런가` may be recorded as uncertainty, but must not become a causal assertion in Interpretation.
+- When the user states a self-evaluation or tentative judgment, prefer the source-grounded wording in `interpretation` rather than leaving it empty. Preserve cues such as `것 같다`, `느꼈다`, and `동병상련이다`.
   Claims such as `과열된 것 같다` remain tentative in title, experience, and interpretation; do not rewrite them as a settled cause or fact.
 
 ## Knowledge candidates

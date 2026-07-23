@@ -32,6 +32,7 @@ const REGION_EXPERIENCE_MODULE_PATHS = [
   "SYSTEM/Views/region-experience-ai.js",
   "SYSTEM/Views/journal-store.js",
   "SYSTEM/Views/daily-reflection-knowledge-handoff.js",
+  "SYSTEM/Views/knowledge-explorer-registry.js",
   "SYSTEM/Views/knowledge-candidate-core.js",
   "SYSTEM/Views/evidence-quality-core.js",
   "SYSTEM/Views/knowledge-candidate-store.js",
@@ -266,9 +267,12 @@ test("Given a fresh Hub runtime without CommonJS globals When Region Experience 
   });
   const trigger = walk(hub.container, (node) => node.attr && node.attr["data-action"] === "add-region-experience")[0];
 
+  assert.deepEqual(hub.reads.slice(0, MODULE_PATHS.length), MODULE_PATHS);
+  assert.equal(typeof hub.window.ProdigyWorkspaceNavigation.mount, "function");
   await trigger.onclick({ preventDefault() {} });
 
   assert.deepEqual(hub.reads.filter((item) => REGION_EXPERIENCE_MODULE_PATHS.includes(item)), REGION_EXPERIENCE_MODULE_PATHS);
+  assert.equal(typeof hub.window.KnowledgeExplorerRegistry.normalizeDomain, "function");
   assert.equal(modals.length, 1);
   assert.doesNotMatch(renderedText(hub.container), /지역 경험 기능을 불러오지 못했습니다/);
   assert.deepEqual(hub.writes, []);

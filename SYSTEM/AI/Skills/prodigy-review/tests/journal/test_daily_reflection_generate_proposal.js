@@ -164,6 +164,8 @@ async function testGenerateProposalFakeProviderNoWrite() {
     });
     assert.equal(calls.length, 1);
     assert.equal(calls[0].provider.model, "qwen-fixture");
+    assert.match(calls[0].prompt, /self-evaluation or tentative judgment/i);
+    assert.match(calls[0].prompt, /incidental meal\/food-only block/i);
     assert.equal(proposal.provider, "local");
     assert.equal(proposal.model, "qwen-fixture");
     assert.deepEqual(proposal.evidence_blocks.map((item) => item.title), ["2025타경2391 패찰과 낙찰", "보증금 반환 책임자 확인", "조효진과 김나래 식사", "투자 판단 보류"]);

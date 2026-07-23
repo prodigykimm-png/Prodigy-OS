@@ -68,7 +68,11 @@ try {
   await loadWorkoutScript("SYSTEM/Views/workout-import.js");
   await loadWorkoutScript("SYSTEM/Views/workout-program-objects.js");
   await loadWorkoutScript("SYSTEM/Views/workout-view.js");
+  await loadWorkoutScript("SYSTEM/Views/decision-packet-reasons.js");
   await loadWorkoutScript("SYSTEM/Views/workout-decision-packet.js");
+  await loadWorkoutScript("SYSTEM/Views/knowledge-use-body-core.js");
+  await loadWorkoutScript("SYSTEM/Views/knowledge-use-body-store.js");
+  await loadWorkoutScript("SYSTEM/Views/knowledge-use-record-ui.js");
 
   if (!window.WorkoutView || typeof window.WorkoutView.renderDashboard !== "function") {
     throw new Error("WorkoutView.renderDashboard 가 없습니다. workout-view.js 로드를 확인하세요.");

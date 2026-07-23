@@ -251,6 +251,36 @@ async function testAuthoredSourceBoundariesRejectWithoutWrites() {
   assert.deepEqual((await store.readCandidate(fixture.app, material.path)).source_objects, ["[[ZETA/LITERATURE/공식 문서]]"]);
 }
 
+async function testDeferAndResumePersistRemediationStatus() {
+  // Given: a saved canonical candidate.
+  const fixture = makeVault();
+  const saved = await createSaved(fixture);
+
+  // When: a reviewer defers it for more evidence.
+  const deferred = await store.deferCandidate(fixture.app, saved.path, { now: "2026-07-20T14:00:00Z" });
+
+  // Then: the persisted status flips and the candidate stays in the active inbox.
+  assert.equal(deferred.status, "needs_more_evidence");
+  assert.equal((await store.readCandidate(fixture.app, saved.path)).status, "needs_more_evidence");
+  const active = await store.listCandidates(fixture.app, { status: "active" });
+  assert.ok(active.some((item) => item.path === saved.path), "deferred candidate remains active/readable");
+
+  // When: the reviewer resumes review.
+  const resumed = await store.resumeCandidate(fixture.app, saved.path, { now: "2026-07-20T14:30:00Z" });
+
+  // Then: it returns to saved and the persisted file follows.
+  assert.equal(resumed.status, "saved");
+  assert.equal((await store.readCandidate(fixture.app, saved.path)).status, "saved");
+
+  // And: approval is blocked while deferred, writing no Knowledge.
+  await store.deferCandidate(fixture.app, saved.path, { now: "2026-07-20T15:00:00Z" });
+  await assert.rejects(
+    () => store.approveCandidate(fixture.app, saved.path, { title: "회상 학습", statement: "문장", knowledge_domain: "coding", knowledge_topics: ["ai"] }),
+    /needs_more_evidence/
+  );
+  assert.equal(fixture.count("ZETA/PERMANENT/"), 0);
+}
+
 async function testMalformedCandidateFrontmatterRejectsBeforePromotionWrites() {
   // Given: an otherwise saved Candidate whose persisted frontmatter has become malformed.
   const fixture = makeVault();
@@ -273,6 +303,7 @@ async function main() {
   await testPromotionUsesCurrentPersistedCandidateBodyAcrossRetry();
   await testAuthoredSourceBoundariesRejectWithoutWrites();
   await testMalformedCandidateFrontmatterRejectsBeforePromotionWrites();
+  await testDeferAndResumePersistRemediationStatus();
   console.log("Knowledge candidate store tests passed");
 }
 

@@ -342,6 +342,47 @@ AI는
 
 ---
 
+## Analysis Draft
+
+### Definition
+
+사용 중 소비되는 AI 분석 제안이다.
+Object에 자동 저장되지 않는다.
+
+### Examples
+
+- Reading Questions (독서 질문 초안)
+- Auction Evidence (경매 증거 초안)
+- Workout Pattern (운동 패턴 초안)
+
+---
+
+## Record Draft
+
+### Definition
+
+승인 후 Object에 보존될 수 있는 AI 기록 제안이다.
+승인 전에는 Object에 저장되지 않는다.
+
+### Examples
+
+- Thinking Delta (사고 변화 초안)
+- Project Review (프로젝트 복기 초안)
+- Knowledge Candidate (지식 후보)
+
+---
+
+## Validation Workspace
+
+### Definition
+
+새로운 AI Capability를 실제로 검증하는 첫 번째 Workspace이다.
+표준이 아니라 실험장이다.
+
+Reading은 Prodigy OS의 첫 번째 Validation Workspace이다.
+
+---
+
 # Naming Convention
 
 ---
@@ -518,7 +559,7 @@ Asset으로 성장한다.
 
 ---
 
-**Version:** 1.2
+**Version:** 1.3
 
 **Status:** Active
 

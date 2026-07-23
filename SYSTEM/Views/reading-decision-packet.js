@@ -70,7 +70,11 @@
         const record = resolveKnowledge(app, link, sourcePath);
         if (!record || seen.has(record.path)) continue;
         seen.add(record.path);
-        records.push(Object.freeze({ ...record, reason: reasonFor(candidate) }));
+        const Reasons = root.DecisionPacketReasons;
+        const reasons = Reasons && typeof Reasons.readingReasons === "function"
+          ? Reasons.readingReasons(candidate.relation_labels, candidate.evidence_line)
+          : null;
+        records.push(Object.freeze({ ...record, reason: reasonFor(candidate), reasons }));
         if (records.length === KNOWLEDGE_CAP) break;
       }
       if (records.length === KNOWLEDGE_CAP) break;
@@ -116,9 +120,16 @@
       } finally {
         trigger.disabled = false;
       }
-      const presentation = root.AuctionDecisionPacket;
-      if (presentation && typeof presentation.renderInline === "function") {
-        presentation.renderInline(slot, { app: opts.app, packet, includeRegionResource: false, includePriorDecisions: false });
+     const presentation = root.AuctionDecisionPacket;
+     if (presentation && typeof presentation.renderInline === "function") {
+        presentation.renderInline(slot, {
+          app: opts.app,
+          packet,
+          includeRegionResource: false,
+          includePriorDecisions: false,
+          objectPath: sourcePath,
+          objectType: "reading"
+        });
       }
     };
     return trigger;

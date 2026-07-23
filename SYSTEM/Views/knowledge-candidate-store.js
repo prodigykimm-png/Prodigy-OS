@@ -238,7 +238,21 @@
     return writeCandidate(app, candidatePath, candidate, next);
   }
 
-  const api = Object.freeze({ CANDIDATE_DIR, LEGACY_CANDIDATE_DIRS, KNOWLEDGE_DIR, parseFrontmatter, readCandidate, listCandidates, saveCandidate, approveCandidate, rejectCandidate });
+  async function deferCandidate(app, candidatePath, options) {
+    requireCanonicalCandidatePath(candidatePath);
+    const candidate = await readCandidate(app, candidatePath);
+    const next = core().transitionCandidate({ ...candidate, updated: stamp(options && options.now) }, "needs_more_evidence");
+    return writeCandidate(app, candidatePath, candidate, next);
+  }
+
+  async function resumeCandidate(app, candidatePath, options) {
+    requireCanonicalCandidatePath(candidatePath);
+    const candidate = await readCandidate(app, candidatePath);
+    const next = core().transitionCandidate({ ...candidate, updated: stamp(options && options.now) }, "saved");
+    return writeCandidate(app, candidatePath, candidate, next);
+  }
+
+  const api = Object.freeze({ CANDIDATE_DIR, LEGACY_CANDIDATE_DIRS, KNOWLEDGE_DIR, parseFrontmatter, readCandidate, listCandidates, saveCandidate, approveCandidate, rejectCandidate, deferCandidate, resumeCandidate });
   root.KnowledgeCandidateStore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

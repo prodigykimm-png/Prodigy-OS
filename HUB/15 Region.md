@@ -36,6 +36,7 @@ RegionExplorerHub.regionExperienceModulePaths = [
   "SYSTEM/Views/region-experience-ai.js",
   "SYSTEM/Views/journal-store.js",
   "SYSTEM/Views/daily-reflection-knowledge-handoff.js",
+  "SYSTEM/Views/knowledge-explorer-registry.js",
   "SYSTEM/Views/knowledge-candidate-core.js",
   "SYSTEM/Views/evidence-quality-core.js",
   "SYSTEM/Views/knowledge-candidate-store.js",

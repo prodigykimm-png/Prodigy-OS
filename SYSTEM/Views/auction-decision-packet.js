@@ -115,9 +115,19 @@
   }
 
   function addRecord(parent, app, record, label) {
+    return addRecordWithReasons(parent, app, record, label, null);
+  }
+
+  function reasonText(record, reasons) {
+    if (Array.isArray(reasons) && reasons.length) return reasons.join(" · ");
+    return record && record.reason ? String(record.reason) : "";
+  }
+
+  function addRecordWithReasons(parent, app, record, label, reasons) {
     if (!record) return;
+    const reason = reasonText(record, reasons);
     const row = parent.createEl("button", {
-      text: `${label}: ${record.title || "제목 없음"}${record.reason ? ` · ${record.reason}` : ""}`,
+      text: `${label}: ${record.title || "제목 없음"}${reason ? ` · ${reason}` : ""}`,
       attr: {
         type: "button",
         class: "prodigy-decision-packet-record",
@@ -159,7 +169,13 @@
 
     if (opts.includeKnowledge !== false) {
       const knowledge = Array.isArray(packet.knowledge) ? packet.knowledge.slice(0, KNOWLEDGE_CAP) : [];
-      if (knowledge.length) knowledge.forEach((record) => addRecord(box, opts.app, record, "검증 지식"));
+      if (knowledge.length) knowledge.forEach((record) => {
+        const Reasons = root.DecisionPacketReasons;
+        const reasons = Reasons && typeof Reasons.auctionReasons === "function"
+          ? Reasons.auctionReasons(record.matched, record.matched && record.matched.topics)
+          : null;
+        addRecordWithReasons(box, opts.app, record, "검증 지식", reasons);
+      });
       else addEmpty(box, packet.empty_state && packet.empty_state.knowledge, "검증 지식");
     }
 
@@ -168,10 +184,22 @@
       else addEmpty(box, packet.empty_state && packet.empty_state.region_resource, "지역 분석");
     }
 
-    if (opts.includePriorDecisions !== false) {
-      const decisions = Array.isArray(packet.prior_decisions) ? packet.prior_decisions.slice(0, PRIOR_DECISION_CAP) : [];
-      if (decisions.length) decisions.forEach((record) => addRecord(box, opts.app, record, "이전 결정"));
-      else addEmpty(box, packet.empty_state && packet.empty_state.prior_decisions, "이전 결정");
+   if (opts.includePriorDecisions !== false) {
+     const decisions = Array.isArray(packet.prior_decisions) ? packet.prior_decisions.slice(0, PRIOR_DECISION_CAP) : [];
+     if (decisions.length) decisions.forEach((record) => addRecord(box, opts.app, record, "이전 결정"));
+     else addEmpty(box, packet.empty_state && packet.empty_state.prior_decisions, "이전 결정");
+   }
+
+    // Knowledge-use record bar (Todo 10 view integration).
+    const recordUI = root.KnowledgeUseRecordUI;
+    if (recordUI && typeof recordUI.renderRecordBar === "function" && opts.objectPath && opts.objectType) {
+      const knowledgeForRecord = Array.isArray(packet.knowledge) ? packet.knowledge.slice(0, KNOWLEDGE_CAP) : [];
+      recordUI.renderRecordBar(box, {
+        app: opts.app,
+        objectPath: opts.objectPath,
+        objectType: opts.objectType,
+        knowledgeRecords: knowledgeForRecord
+      });
     }
 
     return box;
@@ -183,7 +211,9 @@
     if (!isActionable(opts.auction)) return null;
     return renderInline(parent, {
       app: opts.app,
-      packet: packetForAuction(opts.context, opts.auction)
+      packet: packetForAuction(opts.context, opts.auction),
+      objectPath: pathFor(opts.auction),
+      objectType: "auction_case"
     });
   }
 

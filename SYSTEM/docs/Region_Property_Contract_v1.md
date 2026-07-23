@@ -407,6 +407,8 @@ guardrail:
 
 Dataview Hub가 로드하는 `SYSTEM/Views/`의 모든 코드는 사용자가 신뢰한 local executable code다. Vault sync/write 접근은 사용자의 기존 Obsidian/Dataview 신뢰 경계에 속하며, 비신뢰 콘텐츠 sandbox가 아니다. 따라서 신뢰하지 않는 vault sync origin에서 온 `SYSTEM/Views/` 코드는 실행해서는 안 된다.
 
+Region Experience의 인증/secret-bearing provider 설정은 canonical 승인 provider key인 `gemini` 또는 `mimo`에서만 허용한다. 각 key는 기대 adapter(`gemini` → `gemini`, `mimo` → `openai-compatible`)와 정확히 일치하는 승인 HTTPS endpoint만 사용하며, endpoint에는 query 또는 fragment를 둘 수 없다. 등록되지 않은 alias는 어떤 secret도 재사용할 수 없다. 반면 built-in secret이 없는 명시적 `authMode: none` local configuration은 허용되며 secret을 읽거나 전송하지 않는다.
+
 ---
 
 ## 5. 히스토리 형식 (고정)

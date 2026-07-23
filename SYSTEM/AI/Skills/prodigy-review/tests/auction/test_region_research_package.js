@@ -171,6 +171,17 @@ function main() {
   assert.throws(() => pkgCore.validateUrl("https://example.com/<x>", "test"), /angle-bracket/);
   assert.throws(() => pkgCore.validateUrl("https://www.busan.go.kr/bh금정gu", "test"), /ASCII|percent-encoded/);
   assert.equal(pkgCore.validateUrl("https://www.busan.go.kr/safe", "test"), true);
+  // Regression: search-URL detector must match the `q` query KEY (anchored),
+  // not the substring `q=` inside unrelated query keys like `lsiSeq=` or `land_seq=`.
+  // Without this fix, legitimate government revision URLs are falsely rejected.
+  assert.equal(pkgCore.validateUrl("https://www.law.go.kr/LSW/lsInfoP.do?lsiSeq=259479&viewCls=lsRvsDocInfoR", "test"), true);
+  assert.equal(pkgCore.validateUrl("https://www.law.go.kr/LSW/lsInfoP.do?ancYnChk=&chrClsCd=010202&efYd=20260701&lsiSeq=286453&urlMode=lsInfoP", "test"), true);
+  assert.equal(pkgCore.validateUrl("https://www.ih.co.kr/main/land/landDetail.do?land_seq=6&landDiv=1110", "test"), true);
+  // Genuine `q` search-param must still be rejected (anchored on `?`, `&`, or `#`).
+  assert.throws(() => pkgCore.validateUrl("https://example.com/?q=abc", "test"), /검색 결과 URL/);
+  assert.throws(() => pkgCore.validateUrl("https://example.com/path?foo=1&q=bar", "test"), /검색 결과 URL/);
+  assert.throws(() => pkgCore.validateUrl("https://example.com/path?x=1#q=frag", "test"), /검색 결과 URL/);
+  assert.throws(() => pkgCore.validateUrl("https://example.com/path&a&q=b", "test"), /검색 결과 URL/);
 
   /* ============ Markdown escape: table cell | ============ */
   assert.equal(pkgCore.escapeTableCell("a|b"), "a\\|b");

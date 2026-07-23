@@ -180,6 +180,46 @@ View는 Property를 읽고 계산하여 표시한다.
 
 ---
 
+# Knowledge Pipeline
+
+Knowledge는 Experience → Evidence → Candidate → Human Review → Knowledge → Decision Packet
+의 파이프라인으로 생성되고 재사용된다.
+
+```
+Experience (Journal / Capture)
+    ↓
+Evidence (Daily Reflection)
+    ↓
+Knowledge Candidate (proposed → saved → needs_more_evidence → approved / rejected)
+    ↓
+Human Review Gate (AI recommends, Human decides)
+    ↓
+Knowledge (verified, type: knowledge | permanent_note)
+    ↓
+Decision Packet (판단 순간에 관련 Knowledge 호출)
+    ↓
+Knowledge Use Body Link (사용자가 명시적으로 판단 근거로 기록)
+```
+
+## Knowledge Use Body Link (v1 Experiment)
+
+v1에서는 `used_knowledge`를 공식 frontmatter Property로 채택하지 않는다.
+대신 사용자가 Decision Packet에서 Knowledge를 체크하고 판단 맥락을 입력한 후
+"판단 근거로 기록"을 눌렀을 때, 해당 Object의 기존 본문 섹션에 링크 블록을 추가한다.
+
+- Auction: `# 판단 기록`
+- Reading: `## Review`
+- Workout: `# 리뷰`
+
+이 실험은 10~20건의 실사용 후 구조화된 Property 승격 여부를 재평가한다.
+자동 기록하지 않으며, 표시/열기 시 기록하지 않는다.
+
+## Pre-Sprint Baseline
+
+Knowledge stability sprint의 기준 커밋: `eac574b`
+
+---
+
 # Out of Scope
 
 Architecture는 다음을 정의하지 않는다.

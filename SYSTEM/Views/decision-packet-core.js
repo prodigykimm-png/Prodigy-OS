@@ -113,8 +113,9 @@
     const region = Boolean(context.region_sido && context.region_sigungu)
       && record.region_sido === context.region_sido
       && record.region_sigungu === context.region_sigungu;
-    const topic = record.topics.some((value) => context.topics.includes(value));
-    return { direct, region, topic, score: (direct ? 100 : 0) + (region ? 80 : 0) + (topic ? 50 : 0) };
+    const matchedTopics = record.topics.filter((value) => context.topics.includes(value));
+    const topic = matchedTopics.length > 0;
+    return { direct, region, topic, topics: matchedTopics, score: (direct ? 100 : 0) + (region ? 80 : 0) + (topic ? 50 : 0) };
   }
 
   function compareRanked(left, right) {
@@ -131,7 +132,7 @@
       type: record.type,
       recency: record.recency,
       score: matched.score,
-      matched: { direct: matched.direct, region: matched.region, topic: matched.topic }
+      matched: { direct: matched.direct, region: matched.region, topic: matched.topic, topics: matched.topics.slice() }
     };
   }
 

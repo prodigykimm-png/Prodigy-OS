@@ -249,6 +249,13 @@
           rows: 2,
           placeholder: "읽기 전후 달라진 점"
         });
+        const deltaBtn = root.ProdigyUI
+          ? root.ProdigyUI.button(advanced, "Thinking Delta 초안 만들기")
+          : advanced.createEl("button", { text: "Thinking Delta 초안 만들기", attr: { type: "button", class: "prodigy-btn", style: "margin-top:6px;font-size:0.82em;" } });
+        if (!root.ProdigyUI) deltaBtn.onclick = () => this.requestThinkingDelta();
+        else deltaBtn.onclick = () => this.requestThinkingDelta();
+        deltaBtn.style.marginTop = "6px";
+        deltaBtn.style.fontSize = "0.82em";
         fieldInput(advanced, "독서 시간", "duration", this.state, {
           placeholder: "예: 25m"
         });
@@ -286,6 +293,40 @@
         };
       }
       onClose() { this.contentEl.empty(); }
+      async requestThinkingDelta() {
+        if (!root.ReadingThinkingDeltaAI || typeof root.ReadingThinkingDeltaAI.generateThinkingDelta !== "function") {
+          if (window.Notice) new Notice("Thinking Delta AI 모듈이 로드되지 않았습니다.");
+          return;
+        }
+        var beforeText = "";
+        var afterText = String(this.state.note || "").trim();
+        if (root.ReadingChecklistStore && root.ReadingChecklistCore) {
+          try {
+            var store = root.ReadingChecklistStore.createChecklistStore(root.ReadingChecklistStore.createObsidianAdapter(app));
+            var path = book.path || "";
+            var state = await store.read(path);
+            if (state && state.drafts) {
+              beforeText = Object.values(state.drafts).filter(Boolean).join("\n");
+            }
+          } catch (_e) { /* no checklist data */ }
+        }
+        if (!afterText) afterText = String(this.state.thinking_delta || "").trim();
+        try {
+          var result = await root.ReadingThinkingDeltaAI.generateThinkingDelta({
+            app: app,
+            title: book.book_title || book.title || "",
+            before: beforeText,
+            after: afterText,
+            sessionNotes: afterText
+          });
+          this.state.thinking_delta = result.before + "\n→ " + result.after + "\n이유: " + result.reason;
+          var deltaField = this.contentEl.querySelector('[data-field="thinking_delta"]');
+          if (deltaField) deltaField.value = this.state.thinking_delta;
+          if (window.Notice) new Notice("Thinking Delta 초안이 생성되었습니다. 검토 후 저장하세요.");
+        } catch (error) {
+          if (window.Notice) new Notice(error.message || String(error));
+        }
+      }
     }
 
     new SessionModal(app).open();

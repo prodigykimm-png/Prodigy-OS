@@ -72,6 +72,7 @@ PARA/RESOURCES/Auction Regions/{시도}-{시군구}.md
 - **Region Experience 반영**: Daily Evidence가 먼저 저장된 뒤, 사람이 후보 하나를 명시 선택해 `human_confirmed`로 append한다. AI/provider·adapter·research/metrics writer는 append할 수 없고, 기존 Region만 정확한 시군구 identity로 대상으로 삼는다. `transport_life`/`risk`는 각 `HUMAN`, `site_visit`/`supply_observation`은 임장 포인트 `HUMAN:OWNED`에만 기록한다. 같은 Daily path+Evidence ID 재시도는 no-op이며, Region 반영 실패 뒤에도 Daily는 보존되어 retry 가능하다. 새 소유 marker 또는 template block marker는 만들지 않는다. 단, 승인된 사람이 확인한 append 항목에 바로 붙는 인라인 `REGION_EXPERIENCE_PROVENANCE` 주석은 idempotency 전용이며 marker block·writer 소유권·research/metrics writer 입력이 아니다.
 - `supply_observation`은 사용자 임장 관찰이며 append prose는 저장된 `direct_observation`과 verbatim으로 정확히 같아야 한다. AI/provider는 이를 요약·해석·추론·보강할 수 없다. 공식 공급 pipeline·사업명/단지명·단위/월/수치가 아니며, 어떤 후보 category든 공식 공급 또는 planned move-in 수량은 거부한다. 이 action은 Object 생성, Knowledge 저장·승인·승격, frontmatter/metrics/history/marker/template migration을 수행하지 않는다.
 - Dataview Hub가 로드하는 `SYSTEM/Views/` 코드는 모두 사용자가 신뢰한 local executable code다. Vault sync/write 접근은 사용자의 기존 Obsidian/Dataview 신뢰 경계이며 비신뢰 콘텐츠 sandbox가 아니다. 신뢰하지 않는 vault sync origin에서 온 `SYSTEM/Views/` 코드는 실행하지 않는다.
+- **Region Experience provider 보안**: 인증/secret-bearing 설정은 canonical 승인 provider key `gemini` 또는 `mimo`에만 허용한다. 각 key는 기대 adapter(`gemini` → `gemini`, `mimo` → `openai-compatible`)와 정확히 일치하는 승인 HTTPS endpoint만 사용하고 query/fragment는 허용하지 않는다. 등록되지 않은 alias는 어떤 secret도 재사용할 수 없다. built-in secret이 없는 명시적 `authMode: none` local configuration은 계속 허용하며 secret을 읽거나 전송하지 않는다.
 - `move_in_24m` (기간 부족 시 null). `auction_bid_rate_6m` v1 null
 - 상권·학군·호재 = 본문 Evidence
 - 물건 브리핑: `prodigy-auction-brief` (입찰가 확정 금지)
@@ -1155,6 +1156,109 @@ Improve
 
 ---
 
+# 13. AI Implementation Blueprint
+
+이 섹션은 AI Capability의 구현 순서와 각 Workspace의 역할을 정의한다.
+Constitution의 불변 원칙과 구분하여, 제품 구현 계획으로 관리한다.
+
+## Workspace Capability Map
+
+| Workspace | Analysis Draft | Record Draft | 구현 순서 |
+|---|---|---|---|
+| Reading | Adaptive Questions | Thinking Delta | 1 (Validation Workspace) |
+| Project | Workflow Comparison | Project Review | 2 |
+| Auction | Auction Evidence | Decision Review | 3 |
+| Workout | Session Pattern | Progress Review | 4 |
+| People | Interaction Context | Relationship Reflection | 보류 |
+| Journal | Evidence Organization | Reflection | 기존 운영 |
+| PRE | Pattern Proposal | Principle Candidate | 마지막 |
+
+Capability Map은 방향을 고정하지만 구현 계약은 아니다.
+각 Workspace의 실사용 결과에 따라 변경할 수 있다.
+
+## AI Runtime Library
+
+공통 Runtime이 제공하는 것:
+
+- Provider 호출 (ProdigyConfigService, AIProviderService)
+- Structured Output (Schema Validation)
+- Error / Retry Handling
+- SecretStorage
+
+공통 Runtime이 알 수 없는 것:
+
+- Reading Question, Thinking Delta
+- Auction Evidence, Workout Pattern
+- Project Review
+
+이 용어들은 각 Workspace에만 존재한다.
+
+## Provider 역할
+
+| 역할 | 기본 방식 |
+|---|---|
+| Deterministic 처리 | 항상 먼저 |
+| Parsing·분류·JSON | LM Studio |
+| 비교·성찰·질문 정교화 | Gemini |
+| Provider 실패 | Deterministic 또는 수동 흐름 |
+| 자동 대체 Provider | 사용자가 승인할 때만 |
+
+## Implementation Stages
+
+```text
+Stage 0  ✅ AI Constitution + Capability Map + Runtime Boundary
+Stage 1  Reading Stage 4 (Adaptive Questions → Thinking Delta)
+Stage 2  Reading Dogfooding (5~10권)
+Stage 3  Runtime 수정
+Stage 4  Project AI
+Stage 5  Project Dogfooding
+Stage 6  Runtime 승격
+Stage 7  Auction
+Stage 8  Workout
+Stage 9  PRE Integration
+```
+
+## Dogfooding Gate
+
+각 Workspace 구현 후 다음을 확인한다.
+
+- AI Draft가 실제 사용에 도움이 되는가
+- 사용자가 Draft를 유지·수정·삭제하는 비율
+- AI 실패 후에도 수동 흐름이 유지되는가
+- 모바일에서도 부담 없이 사용 가능한가
+- 원본 Object가 보호되는가
+
+통과 전에는 다음 Workspace로 진행하지 않는다.
+
+## Review Type
+
+Learning Review, Decision Review, Strategy Review, Identity Review 등은
+실사용 증거가 쌓인 후에만 일반화한다.
+현재는 `Review`까지만 정의한다.
+
+---
+
+# Knowledge Use Body Link Experiment
+
+Decision Packet에서 표시된 Knowledge를 실제 판단에 사용했을 때,
+사용자가 체크박스를 선택하고 한 줄 맥락을 입력한 후 "기록" 버튼을 누르면
+해당 Object의 본문에 판단 근거 블록이 추가된다.
+
+이 기록은 자동화되지 않으며, 표시 시점에 생성되지 않는다.
+중복 기록(동일 Object + 동일 맥락 + 동일 링크 조합)은 방지된다.
+
+v1에서는 `used_knowledge`를 공식 frontmatter Property로 사용하지 않는다.
+실사용 10~20건 후 구조화된 Property 승격 여부를 재평가한다.
+
+대상 본문 섹션:
+- Auction Case: `# 판단 기록`
+- Reading: `## Review`
+- Workout Program: `# 리뷰`
+
+선택한 링크가 검증된 Knowledge(`type: knowledge` 또는 `type: permanent_note`)가 아니면 기록을 거부한다.
+
+---
+
 # Final Statement
 
 Prodigy OS는 폴더 시스템이 아니다.
@@ -1169,7 +1273,7 @@ AI의 도움을 받되, 최종 결정은 사람이 내린다.
 
 ---
 
-**Version:** 1.2
+**Version:** 1.3
 **Status:** Active
 **Depends on:**
 - SYSTEM/docs/00_Constitution.md

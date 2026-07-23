@@ -52,6 +52,13 @@ async function main() {
   assert.match(personal, /사람/);
   const journalHub = fs.readFileSync(path.join(ROOT, "HUB/70 Journal.md"), "utf8");
   assert.match(journalHub, /journal-view\.js/);
+  const providerResponseIndex = journalHub.indexOf("ai-provider-response.js");
+  const providerSchemaIndex = journalHub.indexOf("ai-provider-schema.js");
+  const providerServiceIndex = journalHub.indexOf("ai-provider-service.js");
+  assert.ok(
+    providerResponseIndex >= 0 && providerSchemaIndex >= 0 && providerResponseIndex < providerServiceIndex && providerSchemaIndex < providerServiceIndex,
+    "Journal must load AI provider parsing dependencies before the provider service"
+  );
   const conservativePolicyIndex = journalHub.indexOf("daily-reflection-conservative-policy.js");
   const dailyReflectionAiIndex = journalHub.indexOf("daily-reflection-ai.js");
   assert.ok(

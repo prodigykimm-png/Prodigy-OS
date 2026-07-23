@@ -22,7 +22,7 @@ const REQUIRED_KEYS = Object.freeze([
   "confidence", "suggested_domain", "suggested_topics",
   "approval_note", "promotion_target", "promoted_knowledge", "created", "updated",
 ]);
-const STATUS_VALUES = Object.freeze(["proposed", "saved", "approved", "rejected"]);
+const STATUS_VALUES = Object.freeze(["proposed", "saved", "needs_more_evidence", "approved", "rejected"]);
 const SOURCE_TYPES = Object.freeze(["daily_evidence", "reading_session", "manual_study", "study_material"]);
 const CONFIDENCE_VALUES = Object.freeze(["explicit", "inferred", "low"]);
 
@@ -70,7 +70,8 @@ function testCandidateSchemaAndTransitions() {
   for (const key of REQUIRED_KEYS) assert.match(schema, new RegExp("`" + key + "`"));
   assert.match(schema, /`source_type`[^\n]*`daily_evidence`\s*\\\|\s*`reading_session`\s*\\\|\s*`manual_study`\s*\\\|\s*`study_material`/);
   assert.match(schema, /\|\s*`proposed`\s*\|\s*`saved`\s*\\\|\s*`rejected`\s*\|/);
-  assert.match(schema, /\|\s*`saved`\s*\|\s*`approved`\s*\\\|\s*`rejected`\s*\|/);
+  assert.match(schema, /\|\s*`saved`\s*\|\s*`needs_more_evidence`\s*\\\|\s*`approved`\s*\\\|\s*`rejected`\s*\|/);
+  assert.match(schema, /\|\s*`needs_more_evidence`\s*\|\s*`saved`\s*\\\|\s*`rejected`\s*\|/);
   assert.match(schema, /`approved`[^\n]*terminal|terminal[^\n]*`approved`/i);
   assert.match(schema, /`rejected`[^\n]*terminal|terminal[^\n]*`rejected`/i);
   assert.match(schema, /PARA\/RESOURCES\/Knowledge\/Candidates\//);
@@ -97,6 +98,7 @@ function testTemplateAndKoreanDisplay() {
   assert.equal(display.type("knowledge_candidate"), "지식 후보");
   assert.equal(display.status("proposed"), "제안");
   assert.equal(display.status("saved"), "보관");
+  assert.equal(display.status("needs_more_evidence"), "증거 보강");
   assert.equal(display.status("approved"), "승인");
   assert.equal(display.status("rejected"), "반려");
   assert.equal(display.knowledgeSourceType("manual_study"), "직접 학습");

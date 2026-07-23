@@ -3,16 +3,16 @@
 
   // Pure Candidate value model. Vault I/O and Knowledge creation belong to the store layer.
   const TYPE = "knowledge_candidate";
-  const STATUSES = Object.freeze(["proposed", "saved", "approved", "rejected"]);
+  const STATUSES = Object.freeze(["proposed", "saved", "needs_more_evidence", "approved", "rejected"]);
  const SOURCE_TYPES = Object.freeze(["daily_evidence", "reading_session", "manual_study", "study_material", "monthly_validation"]);
   const CONFIDENCE = Object.freeze(["explicit", "inferred", "low"]);
-  const DOMAINS = Object.freeze(["real_estate", "wedding", "coding", "workout", "reading", "business", "personal_growth"]);
-  const TOPICS = Object.freeze({
-    real_estate: Object.freeze(["rights_analysis", "site_visit", "bidding", "public_auction", "tax", "precedent"]),
-    wedding: Object.freeze(["shooting", "lighting", "editing", "equipment"]),
-    coding: Object.freeze(["electron", "react", "typescript", "python", "ai", "prompt_engineering", "obsidian_plugin", "claude_code", "codex", "gemini"]),
-    workout: Object.freeze([]), reading: Object.freeze([]), business: Object.freeze([]), personal_growth: Object.freeze([])
-  });
+  // Domain/Topic taxonomy has a single source of truth: KnowledgeExplorerRegistry.
+  // Candidate keeps DOMAINS/TOPICS as compatibility references, never as copied literals.
+  const registry = root.KnowledgeExplorerRegistry
+    || (typeof require === "function" ? require("./knowledge-explorer-registry.js") : null);
+  if (!registry) throw new Error("KnowledgeExplorerRegistry is required.");
+  const DOMAINS = registry.DOMAIN_ORDER;
+  const TOPICS = registry.TOPICS_BY_DOMAIN;
   const STATUS_SET = new Set(STATUSES);
   const SOURCE_TYPE_SET = new Set(SOURCE_TYPES);
   const CONFIDENCE_SET = new Set(CONFIDENCE);
@@ -190,6 +190,7 @@
   function createCandidate(input) {
     if (!isRecord(input)) throw new Error("candidate must be an object.");
     if (input.status === "approved") throw new Error("Knowledge candidate creation does not promote Knowledge.");
+    if (input.status === "needs_more_evidence") throw new Error("Knowledge candidate creation starts as saved; evidence remediation is a review transition.");
     if (input.promotion_target || input.promoted_knowledge) throw new Error("Knowledge candidate creation does not promote Knowledge.");
     return normalizeCandidate({ ...input, type: TYPE, status: input.status || "saved", promotion_target: "", promoted_knowledge: "" });
   }
@@ -214,7 +215,7 @@
   }
 
   function isActive(candidate) {
-    return ["proposed", "saved"].includes(validateCandidate(candidate).status);
+    return ["proposed", "saved", "needs_more_evidence"].includes(validateCandidate(candidate).status);
   }
 
   function isTerminal(candidate) {
@@ -227,7 +228,11 @@
     if (current.status === "rejected") throw new Error("rejected candidates are terminal.");
     if (current.status === "approved") throw new Error("approved candidates are terminal.");
     if (current.status === "proposed" && !["saved", "rejected"].includes(next)) throw new Error(`cannot transition proposed candidate to ${next}.`);
-    if (current.status === "saved" && !["approved", "rejected"].includes(next)) throw new Error(`cannot transition saved candidate to ${next}.`);
+    if (current.status === "saved" && !["needs_more_evidence", "approved", "rejected"].includes(next)) throw new Error(`cannot transition saved candidate to ${next}.`);
+    if (current.status === "saved" && next === "needs_more_evidence" && current.promotion_target) {
+      throw new Error("promotion이 시작된 후보는 보류할 수 없습니다.");
+    }
+    if (current.status === "needs_more_evidence" && !["saved", "rejected"].includes(next)) throw new Error(`cannot transition needs_more_evidence candidate to ${next}.`);
     if (next === "approved" && (!current.promotion_target || !current.promoted_knowledge)) {
       throw new Error("approved candidates require promotion_target and promoted_knowledge.");
     }
@@ -237,6 +242,7 @@
   function setPromotionTarget(candidate, value) {
     const current = validateCandidate(candidate);
     if (current.status === "rejected") throw new Error("rejected candidates are terminal.");
+    if (current.status === "needs_more_evidence") throw new Error("needs_more_evidence candidates must be resumed to saved before promotion.");
     if (current.status !== "saved") throw new Error("promotion target may be set only while a candidate is saved.");
     const target = targetPath(value);
     if (current.promotion_target && current.promotion_target !== target) throw new Error("promotion target is already set and cannot be changed.");
@@ -251,6 +257,7 @@
       if (current.promoted_knowledge !== promoted) throw new Error("candidate was finalized with a different canonical Knowledge link.");
       return validateCandidate(current);
     }
+    if (current.status === "needs_more_evidence") throw new Error("needs_more_evidence candidates must be resumed to saved before finalization.");
     if (current.status !== "saved" || !current.promotion_target) throw new Error("saved candidate with a promotion target is required before finalization.");
     if (!promotionTargetMatches(current.promotion_target, promoted)) {
       throw new Error("promoted_knowledge must match promotion_target.");

@@ -400,6 +400,72 @@ ADR을 통해 검증한다.
 
 ---
 
+# Article 16 — AI Architecture Principles
+
+AI가 Prodigy OS에 참여하는 방식을 규정한다.
+
+## 불변 원칙
+
+```text
+AI creates drafts.
+Humans decide.
+Objects preserve the approved record.
+
+AI Runtime provides capabilities.
+Workspaces own intelligence.
+```
+
+이 다섯 문장은 5년이 지나도 거의 변하지 않는다.
+
+## 개발 원칙
+
+```text
+설계는 Top-down으로 한 번 확정한다.
+구현은 Vertical로 하나씩 완성한다.
+공통화는 Bottom-up으로 실제 사용 후 승격한다.
+```
+
+## Draft 분류
+
+AI가 생성하는 모든 출력은 Draft이다.
+Draft는 두 종류로 구분한다.
+
+- **Analysis Draft**: 사용 중 소비되는 분석 제안 (Reading Questions, Auction Evidence, Workout Pattern)
+- **Record Draft**: 승인 후 Object에 보존될 수 있는 기록 제안 (Thinking Delta, Project Review, Knowledge Candidate)
+
+어느 쪽이든 자동 저장은 없다.
+
+## Runtime과 Workspace의 경계
+
+AI Runtime Library는 Provider 호출, Structured Output, Validation, Draft Lifecycle, Approval Boundary만 제공한다.
+
+Reading Questions, Thinking Delta, Auction Evidence, Workout Pattern 등 Workspace Intelligence는 각 Workspace가 소유한다.
+
+## Capability 승격 조건
+
+새로운 AI Capability가 공통 Runtime으로 승격되려면 다음을 모두 만족해야 한다.
+
+1. 최소 두 Workspace에서 실제 사용
+2. 입력과 출력의 의미가 동일
+3. 실패·재시도·승인 흐름이 동일
+4. Workspace 고유 용어가 없음
+5. 사용자가 같은 기능으로 인식
+6. 두 Workspace의 회귀 테스트가 존재
+
+하나라도 충족하지 않으면 Workspace 소유로 남는다.
+
+## Dogfooding Release Gate
+
+Workspace 하나를 실제 사용하기 전에는 다음 Workspace를 구현하지 않는다.
+
+```text
+Implement → Dogfood → Observe → Improve → Next Workspace
+```
+
+Dogfooding은 Sprint가 아니라 Release Gate이다.
+
+---
+
 # Final Principle
 
 모든 중요한 설계는 문서에 기록한다.
@@ -410,8 +476,8 @@ Prodigy OS는 문서를 중심으로 발전하는 프로젝트이다.
 
 ---
 
-**Version:** 1.0
+**Version:** 1.1
 
 **Status:** Active
 
-**Last Updated:** 2026-07-06
+**Last Updated:** 2026-07-23

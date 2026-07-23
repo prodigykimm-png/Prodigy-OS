@@ -7,8 +7,15 @@ const vm = require("node:vm");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const HUB_PATH = path.join(ROOT, "HUB/50 Knowledge.md");
 const HUB_SOURCE = fs.readFileSync(HUB_PATH, "utf8");
+function hubModulePaths(source) {
+  const match = source.match(/KnowledgeExplorerHub\.modulePaths\s*=\s*\[([\s\S]*?)\];/);
+  if (!match) throw new Error("Knowledge hub module list not found.");
+  return Object.freeze([...match[1].matchAll(/"([^"]+)"/g)].map((entry) => entry[1]));
+}
+const HUB_MODULE_PATHS = hubModulePaths(HUB_SOURCE);
 const MODULE_PATHS = [
   "SYSTEM/Views/display-registry.js",
+  "SYSTEM/Views/workspace-navigation.js",
   "SYSTEM/Views/knowledge-explorer-registry.js",
   "SYSTEM/Views/knowledge-authoring-validation.js",
   "SYSTEM/Views/knowledge-authoring-core.js",
@@ -216,4 +223,4 @@ function firstElement(root, tag, predicate) {
   return walk(root, (node) => node.tag === tag && (!predicate || predicate(node)))[0] || null;
 }
 
-module.exports = { buildPages, firstElement, runHub };
+module.exports = { buildPages, firstElement, runHub, MODULE_PATHS, HUB_MODULE_PATHS };

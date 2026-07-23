@@ -44,8 +44,8 @@ function selectedConfig() {
   return {
     defaultProvider: "selected-provider",
     providers: {
-      "selected-provider": { name: "Selected provider", adapter: "openai-compatible", model: "selected-model", authMode: "none" },
-      "other-provider": { name: "Other provider", adapter: "openai-compatible", model: "other-model", authMode: "none" }
+      "selected-provider": { name: "Selected provider", adapter: "openai-compatible", baseURL: "http://127.0.0.1:1234/v1", endpointPath: "/chat/completions", model: "selected-model", authMode: "none" },
+      "other-provider": { name: "Other provider", adapter: "openai-compatible", baseURL: "http://127.0.0.1:1234/v1", endpointPath: "/chat/completions", model: "other-model", authMode: "none" }
     }
   };
 }
@@ -179,6 +179,107 @@ test("Given a built-in provider with an attacker endpoint override and retained 
   assert.equal(appFixture.secretReads(), 0);
   assert.equal(appFixture.requestAttempts(), 0);
   assert.equal(appFixture.vaultWrites(), 0);
+});
+
+test("Given an unknown provider alias with a built-in secret and attacker endpoint When Region Experience generates a proposal Then it rejects before secret access or any request", { skip: !hasGenerateProposal }, async () => {
+  const appFixture = providerResponseApp({ status: 200, json: { choices: [{ message: { content: JSON.stringify(validProviderProposal()) } }] } });
+  const harness = createHarness({
+    config: {
+      defaultProvider: "evil",
+      providers: {
+        evil: {
+          adapter: "openai-compatible",
+          name: "Evil alias",
+          baseURL: "https://attacker.invalid/v1",
+          endpointPath: "/chat/completions",
+          model: "attacker-model",
+          authMode: "bearer",
+          apiKeySecret: "prodigy-mimo-api-key"
+        }
+      }
+    }
+  });
+
+  await assert.rejects(
+    ai.generateProposal(generationOptions(appFixture.app, harness, validInput(), { providerService: providerErrorMapper })),
+    /AI 제공자 엔드포인트 설정/
+  );
+
+  assert.equal(appFixture.secretReads(), 0);
+  assert.equal(appFixture.requestAttempts(), 0);
+  assert.equal(appFixture.vaultWrites(), 0);
+});
+
+test("Given unknown explicit no-secret localhost or IPv6-loopback aliases When Region Experience generates a proposal Then they remain available without secret access", { skip: !hasGenerateProposal }, async () => {
+  for (const baseURL of ["http://localhost:1234/v1", "http://[::1]:1234/v1"]) {
+    const appFixture = providerResponseApp({ status: 200, json: { choices: [{ message: { content: JSON.stringify(validProviderProposal()) } }] } });
+    const harness = createHarness({
+      config: {
+        defaultProvider: "local-alias",
+        providers: {
+          "local-alias": { adapter: "openai-compatible", name: "Local alias", baseURL, endpointPath: "/chat/completions", model: "local-model", authMode: "none" }
+        }
+      }
+    });
+
+    const proposal = await ai.generateProposal(generationOptions(appFixture.app, harness, validInput(), { providerService: providerErrorMapper }));
+
+    assert.equal(appFixture.secretReads(), 0);
+    assert.equal(appFixture.requestAttempts(), 1);
+    assert.equal(proposal.provider, "local-alias");
+    assert.equal(appFixture.vaultWrites(), 0);
+  }
+});
+
+test("Given an unknown no-secret remote provider alias When Region Experience generates a proposal Then it rejects before any request", { skip: !hasGenerateProposal }, async () => {
+  const appFixture = providerResponseApp({ status: 200, json: { choices: [{ message: { content: JSON.stringify(validProviderProposal()) } }] } });
+  const harness = createHarness({
+    config: {
+      defaultProvider: "evil-none",
+      providers: {
+        "evil-none": { adapter: "openai-compatible", baseURL: "https://attacker.invalid/v1", endpointPath: "/chat/completions", model: "attacker-model", authMode: "none" }
+      }
+    }
+  });
+
+  await assert.rejects(
+    ai.generateProposal(generationOptions(appFixture.app, harness, validInput(), { providerService: providerErrorMapper })),
+    /AI 제공자 엔드포인트 설정/
+  );
+
+  assert.equal(appFixture.secretReads(), 0);
+  assert.equal(appFixture.requestAttempts(), 0);
+  assert.equal(appFixture.vaultWrites(), 0);
+});
+
+test("Given no-secret aliases with malformed, credentialed, queried, or fragmented loopback URLs When Region Experience generates a proposal Then each rejects before any request", { skip: !hasGenerateProposal }, async () => {
+  const cases = [
+    { baseURL: "not a URL", endpointPath: "/chat/completions" },
+    { baseURL: "http://user@127.0.0.1:1234/v1", endpointPath: "/chat/completions" },
+    { baseURL: "http://127.0.0.1:1234/v1", endpointPath: "/chat/completions?redirect=1" },
+    { baseURL: "http://[::1]:1234/v1", endpointPath: "/chat/completions#fragment" }
+  ];
+
+  for (const endpoint of cases) {
+    const appFixture = providerResponseApp({ status: 200, json: { choices: [{ message: { content: JSON.stringify(validProviderProposal()) } }] } });
+    const harness = createHarness({
+      config: {
+        defaultProvider: "local-alias",
+        providers: {
+          "local-alias": { adapter: "openai-compatible", ...endpoint, model: "local-model", authMode: "none" }
+        }
+      }
+    });
+
+    await assert.rejects(
+      ai.generateProposal(generationOptions(appFixture.app, harness, validInput(), { providerService: providerErrorMapper })),
+      /AI 제공자 엔드포인트 설정/
+    );
+
+    assert.equal(appFixture.secretReads(), 0);
+    assert.equal(appFixture.requestAttempts(), 0);
+    assert.equal(appFixture.vaultWrites(), 0);
+  }
 });
 
 test("Given a built-in provider with an approved-origin endpoint suffix When Region Experience generates a proposal Then it rejects before secret access or any request", { skip: !hasGenerateProposal }, async () => {

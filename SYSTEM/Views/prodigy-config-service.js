@@ -25,7 +25,7 @@
       "lm-studio": {
         adapter: "openai-compatible", name: "LM Studio", baseURL: "http://127.0.0.1:1234/v1", endpointPath: "/chat/completions",
         model: "qwen/qwen3.5-9b", models: [{ id: "qwen/qwen3.5-9b", label: "Qwen 3.5 9B Q4_K_M" }, { id: "google/gemma-4-12b-qat", label: "Gemma 4 12B QAT" }],
-        authMode: "none", ttl: 120, maxTokens: 4096, apiKeySecret: "", legacyApiKeySecret: "",
+        authMode: "none", reasoningEffort: "none", ttl: 120, maxTokens: 4096, apiKeySecret: "", legacyApiKeySecret: "",
         capabilities: { structuredOutput: "json-schema", strictStructuredOutput: true, schemaDialect: "lm-studio", conservativeProposal: true }
       },
       "opencode-go": {

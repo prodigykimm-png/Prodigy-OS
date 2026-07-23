@@ -1,0 +1,21 @@
+name: Prodigy Stability Smoke
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  stability-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v5
+      - name: Run stability smoke
+        run: node SYSTEM/AI/Skills/prodigy-review/tests/run_stability_smoke_tests.js

@@ -8,6 +8,9 @@ const test = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const BUSAN_MANIFEST_PATH = path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-busan-manifest.json");
+const SEOUL_MANIFEST_PATH = path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-seoul-manifest.json");
+const GYEONGGI_MANIFEST_PATH = path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-gyeonggi-manifest.json");
+const INCHEON_MANIFEST_PATH = path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-incheon-manifest.json");
 const INDEX_PATH = path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-manifest-index.json");
 const CORE_PATH = path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-registry-core.js");
 const registryCore = fs.existsSync(CORE_PATH) ? require(CORE_PATH) : {};
@@ -87,15 +90,23 @@ test("Given Busan plus Seoul, Gyeonggi, and Incheon fixture manifests, When the 
   ]);
 });
 
-test("Given the checked-in manifest index, When its sole Busan entry is loaded, Then the existing manifest remains the only production source", () => {
+test("Given the checked-in manifest index, When its four sido entries are loaded, Then the existing manifests remain the only production sources", () => {
   const indexText = fs.readFileSync(INDEX_PATH, "utf8");
   const busanText = fs.readFileSync(BUSAN_MANIFEST_PATH, "utf8");
-  const loaded = registryCore.loadRegistry(indexText, { "region-metrics-busan-manifest.json": busanText });
+  const seoulText = fs.readFileSync(SEOUL_MANIFEST_PATH, "utf8");
+  const gyeonggiText = fs.readFileSync(GYEONGGI_MANIFEST_PATH, "utf8");
+  const incheonText = fs.readFileSync(INCHEON_MANIFEST_PATH, "utf8");
+  const loaded = registryCore.loadRegistry(indexText, {
+    "region-metrics-busan-manifest.json": busanText,
+    "region-metrics-seoul-manifest.json": seoulText,
+    "region-metrics-gyeonggi-manifest.json": gyeonggiText,
+    "region-metrics-incheon-manifest.json": incheonText,
+  });
 
   assert.equal(loaded.schema_version, 1);
-  assert.deepEqual(loaded.manifests.map((manifest) => manifest.sido), ["부산광역시"]);
+  assert.deepEqual(loaded.manifests.map((manifest) => manifest.sido), ["부산광역시", "서울특별시", "경기도", "인천광역시"]);
   assert.equal(loaded.manifests[0].manifest_path, "region-metrics-busan-manifest.json");
-  assert.equal(loaded.regions.length, 16);
+  assert.equal(loaded.regions.length, 83);
 });
 
 test("Given malformed registry JSON, When the registry loader parses it, Then it rejects the boundary input", () => {

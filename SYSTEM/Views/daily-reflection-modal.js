@@ -21,8 +21,15 @@
       resetProposalSelection() { root.DailyReflectionModalState.reset(this); }
       refreshApprovalFooter() {
         const count = this.selectedIds.size;
-        if (this.approvalCountEl) this.approvalCountEl.setText(`${count}개 Evidence 승인·반영`);
-        if (this.confirmButton) { this.confirmButton.disabled = this.busy || count === 0; this.confirmButton.setAttribute("aria-disabled", String(this.confirmButton.disabled)); }
+        const label = `${count}개 Evidence 승인·반영`;
+        if (this.approvalCountEl) this.approvalCountEl.setText(label);
+        if (this.confirmButton) {
+          if (typeof this.confirmButton.setText === "function") this.confirmButton.setText(label);
+          else this.confirmButton.textContent = label;
+          this.confirmButton.disabled = this.busy || count === 0;
+          this.confirmButton.setAttribute("aria-disabled", String(this.confirmButton.disabled));
+          this.confirmButton.setAttribute("aria-label", label);
+        }
       }
       async finishSavedEvidence() {
         const saveResult = this.savedEvidence.saveResult;

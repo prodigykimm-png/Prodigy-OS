@@ -4,6 +4,18 @@
     {
       "sido": "부산광역시",
       "manifest_path": "region-metrics-busan-manifest.json"
+    },
+    {
+      "sido": "서울특별시",
+      "manifest_path": "region-metrics-seoul-manifest.json"
+    },
+    {
+      "sido": "경기도",
+      "manifest_path": "region-metrics-gyeonggi-manifest.json"
+    },
+    {
+      "sido": "인천광역시",
+      "manifest_path": "region-metrics-incheon-manifest.json"
     }
   ]
 }

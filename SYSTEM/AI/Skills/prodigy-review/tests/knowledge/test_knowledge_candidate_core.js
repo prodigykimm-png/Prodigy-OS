@@ -9,8 +9,10 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const data = (value) => JSON.parse(JSON.stringify(value));
 
 function loadCore() {
+  const registrySource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-registry.js"), "utf8");
   const source = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/knowledge-candidate-core.js"), "utf8");
   const sandbox = { window: {} };
+  vm.runInNewContext(registrySource, sandbox, { filename: "knowledge-explorer-registry.js" });
   vm.runInNewContext(source, sandbox, { filename: "knowledge-candidate-core.js" });
   return sandbox.window.KnowledgeCandidateCore;
 }
@@ -196,6 +198,7 @@ function testInvalidStatesAndMalformedData(core) {
   assert.throws(() => core.createCandidate({ ...savedDailyCandidate(), suggested_domain: "global_domain" }), /suggested_domain/i);
   assert.throws(() => core.createCandidate({ ...savedDailyCandidate(), suggested_domain: "reading", suggested_topics: ["react"] }), /suggested_topics/i);
   assert.throws(() => core.createCandidate({ ...savedDailyCandidate(), status: "active" }), /status/i);
+  assert.throws(() => core.createCandidate({ ...savedDailyCandidate(), status: "needs_more_evidence" }), /saved/);
   assert.throws(() => core.setPromotionTarget(saved, "../ZETA/PERMANENT/nope.md"), /promotion_target/i);
   assert.throws(() => core.finalizePromotion(saved, "[[ZETA/PERMANENT/missing-target]]"), /promotion target/i);
   assert.throws(
@@ -216,6 +219,33 @@ function testInvalidStatesAndMalformedData(core) {
   assert.throws(() => core.transitionCandidate(core.finalizePromotion(core.setPromotionTarget(saved, "ZETA/PERMANENT/a.md"), "[[ZETA/PERMANENT/a]]"), "rejected"), /approved.*terminal/i);
 }
 
+function testNeedsMoreEvidenceRemediationLifecycle(core) {
+  // Given: a saved candidate without a promotion target.
+  const saved = core.createCandidate(savedDailyCandidate());
+
+  // When: a reviewer defers it for more evidence, then resumes and approves.
+  const deferred = core.transitionCandidate(saved, "needs_more_evidence");
+  assert.equal(deferred.status, "needs_more_evidence");
+  assert.equal(core.isActive(deferred), true);
+  assert.equal(core.isTerminal(deferred), false);
+  const resumed = core.transitionCandidate(deferred, "saved");
+  assert.equal(resumed.status, "saved");
+  const targeted = core.setPromotionTarget(resumed, "ZETA/PERMANENT/회상.md");
+  const approved = core.finalizePromotion(targeted, "[[ZETA/PERMANENT/회상]]");
+  assert.equal(approved.status, "approved");
+
+  // Then: approval and promotion setup are blocked while evidence is missing.
+  assert.throws(() => core.transitionCandidate(deferred, "approved"), /needs_more_evidence/);
+  assert.throws(() => core.setPromotionTarget(deferred, "ZETA/PERMANENT/x.md"), /saved/);
+
+  // And: a candidate whose promotion already began cannot be deferred.
+  const inPromotion = core.setPromotionTarget(saved, "ZETA/PERMANENT/y.md");
+  assert.throws(() => core.transitionCandidate(inPromotion, "needs_more_evidence"), /보류/);
+
+  // And: candidates are never created directly in the remediation state.
+  assert.throws(() => core.createCandidate({ ...savedDailyCandidate(), status: "needs_more_evidence" }), /saved/);
+}
+
 function main() {
   const core = loadCore();
   testNewDailyCandidateHasCanonicalImmutableShape(core);
@@ -223,6 +253,7 @@ function main() {
   testAuthoredCandidateProvenanceAndApplicationMetadata(core);
   testTransitionsAndRetrySafePromotion(core);
   testInvalidStatesAndMalformedData(core);
+  testNeedsMoreEvidenceRemediationLifecycle(core);
   console.log("Knowledge candidate core tests passed");
 }
 

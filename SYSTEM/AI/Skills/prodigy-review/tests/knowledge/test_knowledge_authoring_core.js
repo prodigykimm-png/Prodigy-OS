@@ -55,7 +55,7 @@ function testBaselineCandidateAndRegistryCharacterization() {
   const normalized = candidateCore.validateCandidate(candidate);
 
   // Then: the exact legacy and authored source-type contract remains pinned.
-  assert.deepEqual(clone(candidateCore.SOURCE_TYPES), ["daily_evidence", "reading_session", "manual_study", "study_material"]);
+  assert.deepEqual(clone(candidateCore.SOURCE_TYPES), ["daily_evidence", "reading_session", "manual_study", "study_material", "monthly_validation"]);
   assert.equal(normalized.status, "saved");
   assert.equal(Object.isFrozen(normalized), true);
   assert.equal(registry.normalizeDomain(" coding "), "coding");
