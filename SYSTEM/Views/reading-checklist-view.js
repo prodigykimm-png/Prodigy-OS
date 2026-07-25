@@ -319,9 +319,13 @@
       const saveBtn = button(footer, "노트에 저장", true);
       saveBtn.addClass("reading-guide-save");
       saveBtn.onclick = () => this.saveAllToObject();
-      const secondary = footer.createDiv({ attr: { class: "reading-guide-footer-secondary" } });
-      const geminiBtn = button(secondary, "Gemini로 질문 다듬기");
-      geminiBtn.onclick = () => this.requestGeminiRefinement();
+     const secondary = footer.createDiv({ attr: { class: "reading-guide-footer-secondary" } });
+     const geminiBtn = button(secondary, "Gemini로 질문 다듬기");
+      geminiBtn.onclick = () => { geminiBtn.disabled = true; geminiBtn.textContent = "정교화 중…"; this.requestGeminiRefinement().finally(() => { geminiBtn.disabled = false; geminiBtn.textContent = "Gemini로 질문 다듬기"; }); };
+      if (this._originalQuestions) {
+        const restoreBtn = button(secondary, "기본 질문으로 되돌리기");
+        restoreBtn.onclick = () => { this.data.selection.phases.forEach((phase) => { if (phase.id === this.activePhaseId && this._originalQuestions[phase.id]) { phase.questions = JSON.parse(JSON.stringify(this._originalQuestions[phase.id])); } }); this.renderGuide(); notice("기본 질문으로 되돌렸습니다."); };
+      }
       button(secondary, "책 열기").onclick = async () => {
         if (await openBook(this.app, this.source)) this.close();
       };
@@ -371,7 +375,11 @@
           });
         } catch (_e) { /* memory unavailable is ok */ }
       }
-      notice("Gemini가 질문을 정교화하고 있습니다…");
+     notice("Gemini가 질문을 정교화하고 있습니다…");
+      if (!this._originalQuestions) this._originalQuestions = {};
+      if (!this._originalQuestions[this.activePhaseId]) {
+        this._originalQuestions[this.activePhaseId] = JSON.parse(JSON.stringify(active.questions));
+      }
       try {
         const result = await root.ReadingQuestionAI.refineQuestions({
           app: this.app,

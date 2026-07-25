@@ -14,7 +14,9 @@
       const tools = head.createEl("div", { attr: { class: "reflection-evidence-tools" } });
       const split = button(tools, "수동 분할");
       split.onclick = () => { if (root.DailyReflectionModalState.split(modal, index, dateStr)) { modal.render(); onNotice("새 블록으로 분리할 내용을 옮겨 주세요."); } };
-      if (index < modal.proposal.evidence_blocks.length - 1) { const merge = button(tools, "아래와 병합"); merge.onclick = () => { if (root.DailyReflectionModalState.merge(modal, index)) modal.render(); }; }
+     if (index < modal.proposal.evidence_blocks.length - 1) { const merge = button(tools, "아래와 병합"); merge.onclick = () => { if (root.DailyReflectionModalState.merge(modal, index)) modal.render(); }; }
+      const dismiss = button(tools, "삭제");
+      dismiss.onclick = () => { if (root.DailyReflectionModalState.dismiss(modal, block.evidence_id)) { modal.refreshApprovalFooter(); modal.render(); onNotice("증거를 삭제했습니다."); } };
       const title = card.createEl("input", { attr: { type: "text", "aria-label": "증거 제목" } });
       title.value = block.title || ""; title.placeholder = "증거 제목"; title.oninput = () => { block.title = title.value; };
       const contextWrap = card.createEl("div", { attr: { class: "reflection-field" } });
@@ -42,7 +44,16 @@
     revise.onclick = async () => {
       if (!String(modal.revisionRequest || "").trim()) return onNotice("수정 요청을 입력해 주세요.");
       revise.disabled = true; revise.textContent = "수정 중…";
-      try { modal.proposal = await root.DailyReflectionAI.generateProposal({ app, dateStr, freeText: modal.freeText, existingBlocks, revisionRequest: modal.revisionRequest, previousProposal: modal.proposal }); modal.revisionRequest = ""; modal.resetProposalSelection(); modal.render(); }
+      try {
+        modal.proposal = await root.DailyReflectionAI.generateProposal({ app, dateStr, freeText: modal.freeText, existingBlocks, revisionRequest: modal.revisionRequest, previousProposal: modal.proposal });
+        if (modal.dismissedEvidenceIds && modal.dismissedEvidenceIds.size) {
+          modal.proposal.evidence_blocks = (modal.proposal.evidence_blocks || []).filter(function (block) { return !modal.dismissedEvidenceIds.has(block.evidence_id); });
+        }
+        if (modal.dismissedExperienceTexts && modal.dismissedExperienceTexts.size) {
+          modal.proposal.evidence_blocks = (modal.proposal.evidence_blocks || []).filter(function (block) { return !modal.dismissedExperienceTexts.has(String(block.experience || "").trim()); });
+        }
+        modal.revisionRequest = ""; modal.resetProposalSelection(); modal.render();
+      }
       catch (error) { revise.disabled = false; revise.textContent = "제안 다시 만들기"; onNotice(error.message || String(error)); }
     };
   }

@@ -109,6 +109,9 @@ cssclasses:
 
 ## 교통·생활
 
+<!-- AUTO:REGION_TRANSIT:START -->
+<!-- AUTO:REGION_TRANSIT:END -->
+
 <!-- AI:PENDING:TRANSPORT_LIFE:START -->
 <!-- AI:PENDING:TRANSPORT_LIFE:END -->
 <!-- HUMAN -->

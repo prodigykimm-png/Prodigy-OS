@@ -1,7 +1,7 @@
 ---
 cssclasses:
   - hide-properties_reading
-card_region: 전체지역
+card_region: 부산
 card_type: 전체종류
 card_sort: dday_asc
 ---

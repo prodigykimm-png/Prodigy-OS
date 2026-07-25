@@ -8,7 +8,7 @@ description: >
 
 # Prodigy Region Research
 
-계약: `SYSTEM/docs/Region_Property_Contract_v1.md` (**Version 1.4.0 Operational**)
+계약: `SYSTEM/docs/Region_Property_Contract_v1.md` (**Version 1.5.0**)
 
 ## 숫자 경계
 
@@ -52,6 +52,19 @@ description: >
 ```
 
 브라우저 크롤은 v1 본경로 아님.
+
+## 교통 writer 분리 (v1.5)
+
+`AUTO:REGION_TRANSIT`은 research writer와 **완전히 분리된** transit writer가 소유한다.
+
+- research package의 8개 source 제한에 포함되지 않는다.
+- `SYSTEM/CACHE/region-transit/station-district-map.json` + `hashes.json`을 입력으로 사용한다.
+- canonical transit package 경로: `SYSTEM/CACHE/region-transit-packages/{region_key}/{provider}_{map-sha12}.json`
+- transit writer는 crosswalk의 hash 검증 없이 렌더하지 않는다.
+- transit writer는 `--execute` 없이 dry-run으로 동작한다.
+- `AUTO:REGION_TRANSIT` 블록은 `## 교통·생활` 내 `AI:PENDING:TRANSPORT_LIFE` 위에 위치한다.
+- research writer는 `AUTO:REGION_TRANSIT` 블록을 byte-for-byte 보존해야 한다.
+- 교통 근거가 없는 지역은 빈 marker를 유지하며, 이는 "교통이 없다"는 의미가 아니다.
 
 ## Provider (참고)
 

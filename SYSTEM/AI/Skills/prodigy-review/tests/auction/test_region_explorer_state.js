@@ -76,7 +76,7 @@ test("Given independent state operations and malformed input When view models ar
 test("Given a comparison model When display groups are exposed Then fixed Korean groups exist without a derived score or rank", () => {
   const model = state.buildViewModel({ rows }, state.createState({ selected_region_keys: rows.slice(0, 3).map((item) => item.identity.region_key) }));
 
-  assert.deepEqual(state.DISPLAY_GROUPS.map((group) => group.label), ["시장", "세대", "12~60개월 입주물량", "지가", "조사 근거"]);
+  assert.deepEqual(state.DISPLAY_GROUPS.map((group) => group.label), ["시장", "세대", "12~60개월 입주물량", "지가", "조사 근거", "도시철도"]);
   assert.equal(model.comparison.rows.length, 3);
   assert.doesNotMatch(JSON.stringify(model), /"(?:score|rank)"/i);
 });

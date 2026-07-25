@@ -252,8 +252,7 @@
         const deltaBtn = root.ProdigyUI
           ? root.ProdigyUI.button(advanced, "Thinking Delta 초안 만들기")
           : advanced.createEl("button", { text: "Thinking Delta 초안 만들기", attr: { type: "button", class: "prodigy-btn", style: "margin-top:6px;font-size:0.82em;" } });
-        if (!root.ProdigyUI) deltaBtn.onclick = () => this.requestThinkingDelta();
-        else deltaBtn.onclick = () => this.requestThinkingDelta();
+        deltaBtn.onclick = () => { deltaBtn.disabled = true; deltaBtn.textContent = "생성 중…"; this.requestThinkingDelta().finally(() => { deltaBtn.disabled = false; deltaBtn.textContent = "Thinking Delta 초안 만들기"; }); };
         deltaBtn.style.marginTop = "6px";
         deltaBtn.style.fontSize = "0.82em";
         fieldInput(advanced, "독서 시간", "duration", this.state, {
@@ -324,7 +323,11 @@
           if (deltaField) deltaField.value = this.state.thinking_delta;
           if (window.Notice) new Notice("Thinking Delta 초안이 생성되었습니다. 검토 후 저장하세요.");
         } catch (error) {
-          if (window.Notice) new Notice(error.message || String(error));
+          if (error.code === "INSUFFICIENT_RECORDS") {
+            if (window.Notice) new Notice("읽기 전 질문 답안(체크리스트)이나 세션 메모를 먼저 적어 주세요. Before와 After가 모두 있어야 Thinking Delta를 생성할 수 있습니다.");
+          } else {
+            if (window.Notice) new Notice(error.message || String(error));
+          }
         }
       }
     }

@@ -11,6 +11,8 @@
     sources: "AUTO:REGION_RESEARCH_SOURCES", log: "AUTO:REGION_RESEARCH_LOG"
   });
   const HISTORY_MARKER = "<!-- PRODIGY_REGION_METRICS_HISTORY -->";
+  const TRANSIT_START = "<!-- AUTO:REGION_TRANSIT:START -->";
+  const TRANSIT_END = "<!-- AUTO:REGION_TRANSIT:END -->";
 
   function text(value) { return typeof value === "string" ? value.trim() : value === null || value === undefined ? "" : String(value).trim(); }
   function normalized(value) { return text(value).normalize("NFC"); }
@@ -83,6 +85,28 @@
     return { blocks, diagnostics };
   }
 
+  function transitBlock(body) {
+    const startCount = markerCount(body, TRANSIT_START);
+    const endCount = markerCount(body, TRANSIT_END);
+    if (startCount !== 1 || endCount !== 1) return { available: false, malformed: true, lines: null };
+    const startIdx = body.indexOf(TRANSIT_START) + TRANSIT_START.length;
+    const endIdx = body.indexOf(TRANSIT_END);
+    if (endIdx < startIdx) return { available: false, malformed: true, lines: null };
+    const inner = body.slice(startIdx, endIdx).trim();
+    if (!inner) return { available: false, malformed: false, lines: null };
+    // Extract line names and station counts — must parse as valid transit lines
+    const lines = [];
+    const lineRe = /^- ([^-]+) · (.+)$/gm;
+    let match;
+    while ((match = lineRe.exec(inner)) !== null) {
+      lines.push({ line: match[1].trim(), stations: match[2].split(",").map(s => s.trim()).filter(Boolean) });
+    }
+    // If inner has content but no valid line matches, it's malformed
+    if (lines.length === 0) return { available: false, malformed: true, lines: null };
+    const totalStations = lines.reduce((sum, l) => sum + l.stations.length, 0);
+    return { available: true, malformed: false, lines, totalStations };
+  }
+
   function newest(snapshots, metricsAsOf) {
     return [...snapshots].sort((left, right) => text(right.metrics_as_of).localeCompare(text(left.metrics_as_of), "en"))
       .find((snapshot) => !metricsAsOf || snapshot.metrics_as_of === metricsAsOf) || null;
@@ -126,6 +150,7 @@
       metrics,
       history: { snapshots: history.snapshots },
       research: researchBlocks.blocks,
+      transit: transitBlock(body),
       provenance: {
         metrics_as_of: text(data.metrics_as_of) || null, metrics_source: text(data.metrics_source) || null,
         source_as_of: text(data.source_as_of) || null, updated: text(data.updated) || null,

@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const test = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const core = require(path.join(ROOT, "SYSTEM/SCRIPTS/land-price-package-core.js"));
@@ -91,3 +92,29 @@ function main() {
 }
 
 main();
+
+test("Given a region note with populated AUTO:REGION_TRANSIT, When land-price region package is applied, Then transit block is byte-for-byte preserved", () => {
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "land-price-transit-"));
+  try {
+    const pkg = regionPackage();
+    const note = [
+      "---", "type: auction_region", "region_sido: 부산광역시", "region_sigungu: 중구",
+      "land_price_trend_yoy:", "land_price_trend_as_of:", "land_price_trend_scope:", "land_price_trend_source:",
+      "---", "# Region", "",
+      "<!-- AUTO:REGION_LAND_PRICE:START -->", "<!-- AUTO:REGION_LAND_PRICE:END -->", "",
+      "## 교통·생활", "",
+      "<!-- AUTO:REGION_TRANSIT:START -->",
+      "테스트 보존 내용",
+      "<!-- AUTO:REGION_TRANSIT:END -->", "",
+      "<!-- AI:PENDING:TRANSPORT_LIFE:START -->", "<!-- AI:PENDING:TRANSPORT_LIFE:END -->"
+    ].join("\n");
+    const result = apply.renderRegion(note, pkg);
+    // Check transit block preserved
+    const startIdx = result.indexOf("<!-- AUTO:REGION_TRANSIT:START -->");
+    const endIdx = result.indexOf("<!-- AUTO:REGION_TRANSIT:END -->");
+    assert.ok(startIdx >= 0, "transit start marker must exist");
+    assert.ok(endIdx > startIdx, "transit end marker must exist");
+    const body = result.slice(startIdx + "<!-- AUTO:REGION_TRANSIT:START -->".length, endIdx).trim();
+    assert.equal(body, "테스트 보존 내용", "transit block body must be byte-for-byte preserved");
+  } finally { fs.rmSync(tmpdir, { recursive: true, force: true }); }
+});

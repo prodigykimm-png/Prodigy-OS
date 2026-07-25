@@ -3,7 +3,7 @@
 **표시 명칭:** 부동산 지역 분석 (Real Estate Region Resource)
 **내부 type:** `auction_region` (리네임 보류 · Registry 라벨: 부동산 지역)
 **경로:** `PARA/RESOURCES/Auction Regions/{시도}-{시군구}.md`
-**Version:** 1.4.0
+**Version:** 1.5.0
 **Status:** Operational — source map, collector, atomic writer, body ownership frozen, research package writer
 
 Object(`auction_case`) = 사건·입찰 판단.
@@ -364,6 +364,7 @@ source_id: jumin_statmonth_csv
 |---|---|---|
 | `AUTO:REGION_MARKET` | metrics writer | snapshot에서 결정적으로 재생성. 수동 편집 금지 |
 | `AUTO:REGION_LAND_PRICE` | land-price writer | 공식 지가 package에서만 재생성. research writer 수정 금지 |
+| `AUTO:REGION_TRANSIT` | transit writer | hash-verified crosswalk snapshot에서 결정적으로 재생성. research/metrics/land-price writer 수정 금지 |
 | `AUTO:REGION_RESEARCH_SOURCES` | research job | 공식 1차 출처 URL·조회일·담당기관. job이 교체 가능 |
 | `AUTO:REGION_RESEARCH_LOG` | research job | 조사 실행일·상태·한계 기록 |
 | `AI:PENDING:SUMMARY` | AI 제안 | 공식 사실과 pending 해석을 압축. 사람 승인 전 확정문 아님 |
@@ -659,9 +660,36 @@ AUTO:REGION_RESEARCH_SOURCES
 AUTO:REGION_RESEARCH_LOG
 ```
 
-`AI:PENDING:SUPPLY_PIPELINE`은 `AUTO:REGION_MARKET` 직후·`AI:PENDING:TRANSPORT_LIFE` 전에 위치한다. writer는 이 8개 marker 사이만 갱신한다. frontmatter, metrics, history, market, `AUTO:REGION_LAND_PRICE`, HUMAN 블록은 byte-for-byte 보존한다. 기존 내용이 있으면 fail-closed로 거부한다. atomic write (temp + fsync + rename) 만 사용한다.
+`AI:PENDING:SUPPLY_PIPELINE`은 `AUTO:REGION_MARKET` 직후·`AI:PENDING:TRANSPORT_LIFE` 전에 위치한다. writer는 이 8개 marker 사이만 갱신한다. frontmatter, metrics, history, market, `AUTO:REGION_LAND_PRICE`, `AUTO:REGION_TRANSIT`, HUMAN 블록은 byte-for-byte 보존한다. 기존 내용이 있으면 fail-closed로 거부한다. atomic write (temp + fsync + rename) 만 사용한다.
 
-### 10.3 validator와 integrator 책임 분리
+### 10.3 Transit writer (v1.5)
+
+`AUTO:REGION_TRANSIT`는 research writer와 완전히 분리된 transit writer(`region-transit-writer.js`)가 소유한다.
+
+**marker 위치**: `## 교통·생활` 내에서 `AI:PENDING:TRANSPORT_LIFE:START` 바로 위. 정확히 하나의 START/END pair만 허용한다.
+
+**package**: `SYSTEM/CACHE/region-transit-packages/{region_key}/{provider}_{map-sha12}.json`에 저장한다. `schema_version`, `region_key`, `provider`, `crosswalk_path`, `map_sha256`, `created`, `stations[]` 필드를 가진다.
+
+**입력**: `SYSTEM/CACHE/region-transit/station-district-map.json` + `hashes.json`만 허용한다. crosswalk 파일명은 `station-district-map.json`으로 고정된다.
+
+**검증**:
+- map SHA-256을 crosswalk 파일과 대조한다.
+- `hashes.json`은 필수이며 map hash + 모든 station raw hash를 포함해야 한다.
+- raw file은 `realpathSync`로 검증하고 symlink/traversal을 차단한다.
+- package station은 crosswalk의 역명·노선·region_key·raw_path·raw_sha256과 대조한다.
+- `AUTO:REGION_TRANSIT:END`가 `AI:PENDING:TRANSPORT_LIFE:START`보다 뒤에 있으면 reject한다.
+
+**적용 규칙**:
+- `--execute` 없이 dry-run으로 동작한다. `--execute`가 명시돼야 실제 write를 수행한다.
+- 같은 map hash면 no-op이다. 새 hash면 transit marker만 atomic 교체한다.
+- frontmatter, metrics, land price, market, research, HUMAN, `AI:PENDING:TRANSPORT_LIFE`, `verification_status`는 byte-for-byte 보존한다.
+- transit writer는 marker를 삽입하지 않는다. v1.5 migration(`region-contract-migrate-v1_5.js`)이 빈 marker를 추가한다.
+
+**렌더링**: 각 역의 공식 URL(`source_url`)과 raw SHA-256을 출력에 포함한다. 역명은 crosswalk에서 다시 읽어 package text를 신뢰하지 않는다.
+
+**지원 provider**: `incheon-metro`만 허용한다. 역이 0개인 지역은 package를 만들지 않고 빈 marker를 유지한다. 빈 marker는 "교통이 없다"는 의미가 아니다.
+
+### 10.4 validator와 integrator 책임 분리
 
 ```text
 validator (region-research-package-core.js):
@@ -713,6 +741,6 @@ node SYSTEM/SCRIPTS/region-contract-migrate-v1_4.js --all-busan
 
 ---
 
-**Version:** 1.4.0
-**Status:** Operational (coverage-aware supply, research pipeline, and land-price package contracts added; 부산 16개 Region Object v1.4 구조 마이그레이션 완료)
-**Next:** 새 공식 raw/package만 fixture 검증 후 dry-run으로 검토하고, 사람 승인 뒤에만 실제 Object에 적용
+**Version:** 1.5.0
+**Status:** Operational (v1.5: AUTO:REGION_TRANSIT transit writer contract added; 인천 1·2호선 crosswalk 등록)
+**Next:** 83개 marker migration(--execute), production transit package 생성, 실제 transit writer apply

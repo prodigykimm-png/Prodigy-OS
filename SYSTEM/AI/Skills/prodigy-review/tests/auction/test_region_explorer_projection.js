@@ -51,13 +51,14 @@ function regionNote({ sido, sigungu, title = `${sido} ${sigungu}`, metrics = {},
       metrics: { move_in_36m: { value: null }, sale_volume_3m: { value: 120 } },
       evidence: { supply_coverage: { observed_horizon_months: 24, unavailable_horizons: [36, 48, 60] } } }]
   } : history;
+  const transitBlock = '<!-- AUTO:REGION_TRANSIT:START -->\n<!-- AUTO:REGION_TRANSIT:END -->\n';
   const researchBlocks = research ? [
     ["AI:PENDING:SUMMARY", "요약 근거"], ["AI:PENDING:ZONES", "권역 근거"],
     ["AI:PENDING:SUPPLY_PIPELINE", "공급 근거"], ["AI:PENDING:TRANSPORT_LIFE", "교통 근거"],
     ["AI:PENDING:RISKS", "리스크 근거"], ["AI:PENDING:SITE_VISIT", "임장 근거"],
     ["AUTO:REGION_RESEARCH_SOURCES", "출처 근거"], ["AUTO:REGION_RESEARCH_LOG", "조사 로그"]
   ].map(([marker, body]) => `<!-- ${marker}:START -->\n${body}\n<!-- ${marker}:END -->`).join("\n") : "";
-  return `---\ntype: auction_region\ntitle: ${title}\nregion_sido: ${sido}\nregion_sigungu: ${sigungu}\nupdated: 2026-07-20\n${metricLines}\n---\n\n<!-- PRODIGY_REGION_METRICS_HISTORY -->\n\`\`\`json\n${JSON.stringify(payload)}\n\`\`\`\n${researchBlocks}\n`;
+  return `---\ntype: auction_region\ntitle: ${title}\nregion_sido: ${sido}\nregion_sigungu: ${sigungu}\nupdated: 2026-07-20\n${metricLines}\n---\n\n<!-- PRODIGY_REGION_METRICS_HISTORY -->\n\`\`\`json\n${JSON.stringify(payload)}\n\`\`\`\n\n## 교통·생활\n\n${transitBlock}${researchBlocks}\n`;
 }
 
 test("Given four frontmatter Region Objects When the fake vault is projected Then metrics history evidence and land price remain distinct", async () => {
@@ -156,4 +157,54 @@ test("Given an identical duplicate title Frontmatter When projected Then the fir
 
   assert.equal(result.rows[0].identity.title, "첫 제목");
   assert(result.rows[0].diagnostics.some((item) => item.code === "duplicate_frontmatter" && /첫 값을 사용/.test(item.message)));
+});
+
+
+test("Given a region note with populated transit block When projected Then transit.available is true with correct station count", () => {
+  const body = regionNote({ sido: "인천광역시", sigungu: "검단구" })
+    .replace("<!-- AUTO:REGION_TRANSIT:START -->\n<!-- AUTO:REGION_TRANSIT:END -->",
+      "<!-- AUTO:REGION_TRANSIT:START -->\n### 인천교통공사 확인 역\n\n- 인천1호선 · 검단호수공원역, 신검단중앙역, 아라역\n- 인천2호선 · 검단오류역, 왕길역, 검단사거리역\n\n원본: 인천교통공사 역별 상세 6건\n<!-- AUTO:REGION_TRANSIT:END -->"
+    );
+  const result = projection.projectRegionSources([{ path: "populated.md", body }]);
+  assert.equal(result.rows.length, 1);
+  const transit = result.rows[0].transit;
+  assert.equal(transit.available, true);
+  assert.equal(transit.malformed, false);
+  assert.equal(transit.totalStations, 6);
+  assert.equal(transit.lines.length, 2);
+});
+
+test("Given a region note with empty transit block When projected Then transit.available is false and malformed is false", () => {
+  const body = regionNote({ sido: "서울특별시", sigungu: "종로구" });
+  const result = projection.projectRegionSources([{ path: "empty.md", body }]);
+  assert.equal(result.rows.length, 1);
+  const transit = result.rows[0].transit;
+  assert.equal(transit.available, false);
+  assert.equal(transit.malformed, false);
+  assert.equal(transit.lines, null);
+});
+
+test("Given a region note with malformed transit content When projected Then transit.available is false and malformed is true", () => {
+  const body = regionNote({ sido: "서울특별시", sigungu: "종로구" })
+    .replace("<!-- AUTO:REGION_TRANSIT:START -->\n<!-- AUTO:REGION_TRANSIT:END -->",
+      "<!-- AUTO:REGION_TRANSIT:START -->\n이 것은 육교형식이 아닙니다.\n<!-- AUTO:REGION_TRANSIT:END -->"
+    );
+  const result = projection.projectRegionSources([{ path: "malformed.md", body }]);
+  assert.equal(result.rows.length, 1);
+  const transit = result.rows[0].transit;
+  assert.equal(transit.available, false);
+  assert.equal(transit.malformed, true);
+  assert.equal(transit.lines, null);
+});
+
+test("Given a region note with no transit marker When projected Then transit.available is false and malformed is true", () => {
+  const body = regionNote({ sido: "서울특별시", sigungu: "종로구" })
+    .replace("<!-- AUTO:REGION_TRANSIT:START -->\n<!-- AUTO:REGION_TRANSIT:END -->\n", "");
+  const result = projection.projectRegionSources([{ path: "no-marker.md", body }]);
+  assert.equal(result.rows.length, 1);
+  const transit = result.rows[0].transit;
+  assert.equal(transit.available, false);
+  // missing marker is malformed because markerCount !== 1
+  assert.equal(transit.malformed, true);
+  assert.equal(transit.lines, null);
 });

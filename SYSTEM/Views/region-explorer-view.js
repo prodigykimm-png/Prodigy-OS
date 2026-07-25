@@ -13,7 +13,7 @@
 @container region-explorer (max-width:599px){.region-explorer-row{grid-template-columns:minmax(0,1fr)}.region-explorer-controls{align-items:stretch}.region-explorer-control,.region-explorer-add-action{min-inline-size:100%;inline-size:100%}.region-explorer-metric-grid{grid-template-columns:1fr}.region-explorer-sparkline{inline-size:100%;max-inline-size:12rem}}
 @media (prefers-reduced-motion:reduce){.region-explorer-button{transform:none!important}}
 `;
-  const SORT_LABELS = Object.freeze({ name: "지역명", sido: "시도", metrics_as_of: "통계 기준일", verification: "검증 상태", sale_volume_3m: "최근 3개월 거래량", housing_stock: "주택 재고", sale_turnover_rate: "거래 회전율", sale_price_change_yoy: "매매가격 증감률", jeonse_ratio: "전세가율", move_in_12m: "12개월 입주물량", move_in_24m: "24개월 입주물량", move_in_36m: "36개월 입주물량", move_in_48m: "48개월 입주물량", move_in_60m: "60개월 입주물량", households: "세대수", household_change_yoy: "세대수 증감률", auction_bid_rate_6m: "최근 6개월 낙찰가율" });
+  const SORT_LABELS = Object.freeze({ name: "지역명", sido: "시도", metrics_as_of: "통계 기준일", verification: "검증 상태", transit_available: "확인된 도시철도", sale_volume_3m: "최근 3개월 거래량", housing_stock: "주택 재고", sale_turnover_rate: "거래 회전율", sale_price_change_yoy: "매매가격 증감률", jeonse_ratio: "전세가율", move_in_12m: "12개월 입주물량", move_in_24m: "24개월 입주물량", move_in_36m: "36개월 입주물량", move_in_48m: "48개월 입주물량", move_in_60m: "60개월 입주물량", households: "세대수", household_change_yoy: "세대수 증감률", auction_bid_rate_6m: "최근 6개월 낙찰가율" });
   const VERIFICATION_LABELS = Object.freeze({ verified: "검증 완료", partial: "일부 검증", unverified: "미검증" });
 
   function stateApi() {
@@ -45,7 +45,15 @@
   function empty(element) { if (element && typeof element.empty === "function") element.empty(); else if (element) element.textContent = ""; }
   function layoutFor(width) { return Number(width) < 600 ? "narrow" : "wide"; }
   function format(value, fallback) { return typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("ko-KR", { maximumFractionDigits: 2 }) : text(value) || fallback || "자료 없음"; }
+  function transitDisplay(row) {
+    const transit = record(row && row.transit);
+    if (!transit.available) return transit.malformed ? "정보 확인 불가" : "확인된 도시철도 정보 없음";
+    const lines = Array.isArray(transit.lines) ? transit.lines : [];
+    const summary = lines.map((l) => `${l.line} ${l.stations.length}개역`).join(" · ");
+    return summary || "확인된 도시철도 정보 없음";
+  }
   function metricValue(row, field) {
+    if (field.source === "transit") return transitDisplay(row);
     const source = record(row && row[field.source]);
     if (field.source !== "metrics") return format(source[field.key]);
     const metric = record(source[field.key]);

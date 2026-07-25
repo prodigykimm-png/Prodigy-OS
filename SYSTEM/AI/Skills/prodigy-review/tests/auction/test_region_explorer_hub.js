@@ -10,7 +10,10 @@ const REGION_ROOT = "PARA/RESOURCES/Auction Regions/";
 const HUB_PATH = "HUB/15 Region.md";
 const REGISTRY_PATHS = [
   "SYSTEM/SCRIPTS/region-metrics-manifest-index.json",
-  "SYSTEM/SCRIPTS/region-metrics-busan-manifest.json"
+  "SYSTEM/SCRIPTS/region-metrics-busan-manifest.json",
+  "SYSTEM/SCRIPTS/region-metrics-seoul-manifest.json",
+  "SYSTEM/SCRIPTS/region-metrics-gyeonggi-manifest.json",
+  "SYSTEM/SCRIPTS/region-metrics-incheon-manifest.json"
 ];
 const MODULE_PATHS = [
   "SYSTEM/Views/workspace-navigation.js",
@@ -27,6 +30,7 @@ const REGION_EXPERIENCE_MODULE_PATHS = [
   "SYSTEM/Views/ai-provider-response.js",
   "SYSTEM/Views/ai-provider-schema.js",
   "SYSTEM/Views/ai-provider-service.js",
+  "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",
   "SYSTEM/Views/region-experience-provider-endpoint-guard.js",
   "SYSTEM/Views/region-experience-ai.js",
@@ -51,6 +55,7 @@ class FakeElement {
     this.focusCalls = 0;
     this.focusOptions = [];
     this.isConnected = true;
+    this.onclick = null;
   }
 
   createEl(tag, options = {}) {

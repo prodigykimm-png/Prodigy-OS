@@ -91,6 +91,8 @@ function assertProtectedMarkersIntact(before, after) {
     "<!-- PRODIGY_REGION_METRICS_HISTORY -->",
     "<!-- AUTO:REGION_MARKET:START -->",
     "<!-- AUTO:REGION_MARKET:END -->",
+    "<!-- AUTO:REGION_TRANSIT:START -->",
+    "<!-- AUTO:REGION_TRANSIT:END -->",
     "<!-- HUMAN",
     "<!-- HUMAN:LOCKED -->",
     "<!-- HUMAN:OWNED -->"
@@ -112,6 +114,13 @@ function assertProtectedMarkersIntact(before, after) {
   const marketAfter = after.match(marketRe);
   if (marketBefore && marketAfter && marketBefore[0] !== marketAfter[0]) {
     throw new Error("AUTO:REGION_MARKET 블록이 변경됐습니다.");
+  }
+  // AUTO:REGION_TRANSIT block body must be byte-for-byte preserved
+  const transitRe = /<!-- AUTO:REGION_TRANSIT:START -->[\s\S]*?<!-- AUTO:REGION_TRANSIT:END -->/;
+  const transitBefore = before.match(transitRe);
+  const transitAfter = after.match(transitRe);
+  if (transitBefore && transitAfter && transitBefore[0] !== transitAfter[0]) {
+    throw new Error("AUTO:REGION_TRANSIT 블록이 변경됐습니다.");
   }
   // PRODIGY_REGION_METRICS_HISTORY body must be byte-for-byte preserved
   const historyRe = /<!-- PRODIGY_REGION_METRICS_HISTORY -->[\s\S]*?```[\s\S]*?```/;

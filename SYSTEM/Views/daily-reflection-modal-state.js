@@ -32,5 +32,21 @@
     modal.selectedIds.add(block.evidence_id);
     return true;
   }
-  root.DailyReflectionModalState = Object.freeze({ reset, merge, split });
+  function dismiss(modal, evidenceId) {
+    modal.dismissedEvidenceIds.add(evidenceId);
+    var block = modal.proposal.evidence_blocks.find(function (b) { return b.evidence_id === evidenceId; });
+    if (block && block.experience) modal.dismissedExperienceTexts.add(String(block.experience).trim());
+    modal.selectedIds.delete(evidenceId);
+    modal.proposal.evidence_blocks = modal.proposal.evidence_blocks.filter(function (block) { return block.evidence_id !== evidenceId; });
+    [modal.proposal.knowledge_candidates, modal.proposal.resource_candidates, modal.proposal.object_linking_suggestions, modal.proposal.pre_routing_suggestions].forEach(function (items) {
+      if (!Array.isArray(items)) return;
+      items.forEach(function (item) {
+        if (Array.isArray(item.source_evidence_ids)) {
+          item.source_evidence_ids = item.source_evidence_ids.filter(function (id) { return id !== evidenceId; });
+        }
+      });
+    });
+    return true;
+  }
+  root.DailyReflectionModalState = Object.freeze({ reset, merge, split, dismiss });
 })(typeof globalThis !== "undefined" ? globalThis : this);

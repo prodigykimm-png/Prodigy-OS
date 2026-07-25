@@ -340,6 +340,14 @@ function main() {
     const humanAfter = (after.match(/<!-- HUMAN[^>]*-->/g) || []).length;
     assert.equal(humanBefore, humanAfter);
 
+    // AUTO:REGION_TRANSIT block body must be byte-for-byte preserved
+    const transitRe = /<!-- AUTO:REGION_TRANSIT:START -->[\s\S]*?<!-- AUTO:REGION_TRANSIT:END -->/;
+    const transitBefore = originalContent.match(transitRe);
+    const transitAfter = after.match(transitRe);
+    if (transitBefore && transitAfter) {
+      assert.equal(transitBefore[0], transitAfter[0], "AUTO:REGION_TRANSIT block must be byte-for-byte preserved after research apply");
+    }
+
     // no .tmp leftover
     assert.equal(fs.readdirSync(path.dirname(targetPath)).some((n) => n.includes(".tmp-")), false);
 

@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const test = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const noteCore = require(path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-note-core.js"));
@@ -247,3 +248,18 @@ function main() {
 }
 
 main();
+
+test("Given a region note with populated AUTO:REGION_TRANSIT, When applySnapshotToNote is called, Then transit block is byte-for-byte preserved", () => {
+  const s = snapshot();
+  // Use the existing note() function which has all required markers, then inject transit block
+  const baseNote = note();
+  const transitInjection = "\n## 교통·생활\n\n<!-- AUTO:REGION_TRANSIT:START -->\n테스트 보존 내용\n<!-- AUTO:REGION_TRANSIT:END -->\n\n<!-- AI:PENDING:TRANSPORT_LIFE:START -->\n<!-- AI:PENDING:TRANSPORT_LIFE:END -->";
+  const noteBody = baseNote + transitInjection;
+  const result = noteCore.applySnapshotToNote(noteBody, s);
+  assert.ok(result.content.includes("<!-- AUTO:REGION_TRANSIT:START -->"), "transit start marker must exist");
+  assert.ok(result.content.includes("<!-- AUTO:REGION_TRANSIT:END -->"), "transit end marker must exist");
+  const startIdx = result.content.indexOf("<!-- AUTO:REGION_TRANSIT:START -->");
+  const endIdx = result.content.indexOf("<!-- AUTO:REGION_TRANSIT:END -->");
+  const body = result.content.slice(startIdx + "<!-- AUTO:REGION_TRANSIT:START -->".length, endIdx).trim();
+  assert.equal(body, "테스트 보존 내용", "transit block body must be byte-for-byte preserved");
+});

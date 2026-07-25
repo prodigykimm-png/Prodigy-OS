@@ -100,3 +100,29 @@ test("Given an Obsidian-style element helper When a valid history renders Then t
   assert.deepEqual(calls.map((call) => call.tag), ["svg", "polyline"]);
   assert.ok(calls.every((call) => call.namespace === "http://www.w3.org/2000/svg"));
 });
+
+test("Given a projection row with populated transit When rendered Then Korean transit summary appears", () => {
+  const root = new FakeElement("section");
+  const transitRow = { ...row({ sido: "인천광역시", sigungu: "검단구", volume: 10 }), transit: { available: true, malformed: false, lines: [{ line: "인천1호선", stations: ["검단호수공원역", "신검단중앙역"] }, { line: "인천2호선", stations: ["검단오류역", "왕길역"] }], totalStations: 4 } };
+  view.renderRegionExplorer(root, { rows: [transitRow] }, { logicalWidth: 1280, state: { selected_region_keys: ["인천광역시-검단구"] } });
+  const rendered = text(root);
+  assert.match(rendered, /인천1호선/);
+  assert.match(rendered, /인천1호선 2개역/);
+  assert.match(rendered, /인천2호선 2개역/);
+});
+
+test("Given a projection row with empty transit When rendered Then Korean empty message appears", () => {
+  const root = new FakeElement("section");
+  const emptyRow = { ...row({ sido: "서울특별시", sigungu: "종로구", volume: 10 }), transit: { available: false, malformed: false, lines: null } };
+  view.renderRegionExplorer(root, { rows: [emptyRow] }, { logicalWidth: 1280, state: { selected_region_keys: ["서울특별시-종로구"] } });
+  const rendered = text(root);
+  assert.match(rendered, /확인된 도시철도 정보 없음/);
+});
+
+test("Given a projection row with malformed transit When rendered Then Korean error message appears", () => {
+  const root = new FakeElement("section");
+  const badRow = { ...row({ sido: "서울특별시", sigungu: "종로구", volume: 10 }), transit: { available: false, malformed: true, lines: null } };
+  view.renderRegionExplorer(root, { rows: [badRow] }, { logicalWidth: 1280, state: { selected_region_keys: ["서울특별시-종로구"] } });
+  const rendered = text(root);
+  assert.match(rendered, /정보 확인 불가/);
+});

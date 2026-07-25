@@ -6,7 +6,7 @@
     "move_in_12m", "move_in_24m", "move_in_36m", "move_in_48m", "move_in_60m",
     "households", "household_change_yoy", "auction_bid_rate_6m"
   ]);
-  const SORT_KEYS = Object.freeze(["name", "sido", "metrics_as_of", "verification", ...METRIC_KEYS]);
+  const SORT_KEYS = Object.freeze(["name", "sido", "metrics_as_of", "verification", "transit_available", ...METRIC_KEYS]);
   const VERIFICATION_FILTERS = Object.freeze(["all", "verified", "partial", "unverified"]);
   const FRESHNESS_FILTERS = Object.freeze(["all", "기준일 있음", "기준일 없음"]);
   const MAX_SELECTION = 3;
@@ -45,6 +45,9 @@
       Object.freeze({ key: "risks", label: "위험", source: "research" }),
       Object.freeze({ key: "site_visit", label: "임장", source: "research" }),
       Object.freeze({ key: "sources", label: "출처", source: "research" })
+    ]) }),
+    Object.freeze({ label: "도시철도", fields: Object.freeze([
+      Object.freeze({ key: "transit_available", label: "확인된 도시철도", source: "transit" })
     ]) })
   ]);
 
@@ -97,6 +100,11 @@
     if (sortKey === "sido") return normalized(identity.sido) || null;
     if (sortKey === "metrics_as_of") return text(provenance.metrics_as_of) || null;
     if (sortKey === "verification") return text(provenance.verification_status) || null;
+    if (sortKey === "transit_available") {
+      const transit = row && row.transit;
+      if (!transit || !transit.available) return 0;
+      return transit.totalStations || 0;
+    }
     const metric = row && row.metrics && row.metrics[sortKey];
     return metric && typeof metric.value === "number" && Number.isFinite(metric.value) ? metric.value : null;
   }

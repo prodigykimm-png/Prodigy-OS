@@ -12,7 +12,7 @@
     class ProposeModal extends obsidianModule.Modal {
       constructor(appInstance) {
         super(appInstance);
-        this.freeText = ""; this.proposal = null; this.selectedIds = new Set(); this.selectedObjectPaths = new Set();
+        this.freeText = ""; this.proposal = null; this.selectedIds = new Set(); this.selectedObjectPaths = new Set(); this.dismissedEvidenceIds = new Set(); this.dismissedExperienceTexts = new Set();
         this.candidateHandoff = root.DailyReflectionCandidateHandoffView.createState(); this.savedEvidence = null; this.focusEvidenceId = "";
         this.selectedVenueCandidates = new Set(); this.selectedPlaceCandidates = new Set(); this.revisionRequest = ""; this.phase = "input"; this.busy = false;
       }
