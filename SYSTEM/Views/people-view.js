@@ -2076,8 +2076,21 @@
       search.value = state.query;
       search.oninput = () => {
         state.query = search.value;
-        paint();
+        state._searchCursor = typeof search.selectionStart === "number" ? search.selectionStart : search.value.length;
+        state._searchFocused = true;
+        if (state._searchTimer) clearTimeout(state._searchTimer);
+        state._searchTimer = setTimeout(() => {
+          state._searchTimer = null;
+          paint();
+        }, 200);
       };
+      if (state._searchFocused) {
+        try {
+          search.focus();
+          const pos = typeof state._searchCursor === "number" ? state._searchCursor : search.value.length;
+          if (typeof search.setSelectionRange === "function") search.setSelectionRange(pos, pos);
+        } catch (_e) { /* ignore */ }
+      }
       search.onkeydown = (e) => {
         if (e && e.key === "ArrowDown") {
           e.preventDefault();

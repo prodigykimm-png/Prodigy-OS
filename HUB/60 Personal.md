@@ -85,22 +85,35 @@ try {
   };
 
   const collectRawPeople = async () => {
-    const pages = dv.pages('"PARA/RESOURCES/CONTACTS"')
-      .where(p => p.type === "people" || p.type === "contact")
-      .array();
+    // Primary: vault.getFiles() — always current, no Dataview cache delay
+    const allFiles = (app.vault.getFiles && app.vault.getFiles()) || [];
+    const contactFiles = allFiles.filter(
+      (f) => f.path.startsWith("PARA/RESOURCES/CONTACTS/") && f.extension === "md"
+    );
+
+    // Supplement: Dataview metadata (faster for frontmatter when available)
+    let dvMap = new Map();
+    try {
+      const dvPages = dv.pages('"PARA/RESOURCES/CONTACTS"').array();
+      dvPages.forEach((p) => {
+        if (p && p.file && p.file.path) dvMap.set(p.file.path, p);
+      });
+    } catch (_e) { /* ignore */ }
+
     const out = [];
-    for (const p of pages) {
-      const path = p.file && p.file.path ? p.file.path : "";
+    for (const file of contactFiles) {
+      const path = file.path;
+      const p = dvMap.get(path);
       const body = await readNoteText(path);
       out.push({
         path,
-        type: p.type,
-        name: p.file.name,
-        title: p.title,
-        relationship: p.relationship,
-        company: p.company,
-        role: p.role,
-        last_contact: p.last_contact,
+        type: (p && p.type) || "people",
+        name: (p && p.file && p.file.name) || file.basename || file.name.replace(/\.md$/i, ""),
+        title: (p && p.title) || "",
+        relationship: (p && p.relationship) || "",
+        company: (p && p.company) || "",
+        role: (p && p.role) || "",
+        last_contact: (p && p.last_contact) || "",
         body
       });
     }
@@ -132,6 +145,11 @@ try {
   let workspaceApi = null;
 
   const paintPeople = async () => {
+    // Touch Dataview index so newly created files appear in dv.pages()
+    try {
+      const dvPlugin = app.plugins?.plugins?.dataview;
+      if (dvPlugin?.api?.index?.touch) await dvPlugin.api.index.touch();
+    } catch (_e) { /* best-effort */ }
     const rawPeople = await collectRawPeople();
     const sourcePages = collectSourcePages();
     const st = workspaceApi && workspaceApi.getState ? workspaceApi.getState() : null;

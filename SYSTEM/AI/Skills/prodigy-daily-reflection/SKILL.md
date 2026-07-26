@@ -50,6 +50,18 @@ Only after Evidence approval completes, the user may make a distinct second conf
 
 These handoffs are never automatic, are never provider-mediated, and do not run merely because Evidence was approved. They must not create a generic Resource or Place Object, and neither path may auto-promote a candidate.
 
+
+### Phase 4 — people interaction writer (automatic handoff)
+
+After Evidence approval completes, the post-save hook automatically invokes the people interaction writer:
+
+- Evidence blocks with `context: "people"` are matched against resolved `object_linking_suggestions` of kind `people`.
+- For each matching pair, one insight line is appended under `# 핵심 상호작용` in the corresponding CONTACTS file.
+- The insight line contains **only the insight** (interpretation/title/experience) — no date, no Object link.
+- If the CONTACTS file does not exist, it is created from `template_people.md`.
+- This handoff is automatic — no separate user confirmation required.
+- See `references/runtime-contract.md` §Phase 4 for the full contract.
+
 ## Human boundary
 
 AI structures evidence and proposes connections; it never invokes a writer or creator. The user separately approves Evidence writes, each local handoff, and every promotion toward permanent Knowledge.

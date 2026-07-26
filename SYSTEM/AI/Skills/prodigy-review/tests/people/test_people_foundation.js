@@ -303,7 +303,8 @@ function main() {
     assert.match(personal, /people-core\.js/);
     assert.match(personal, /people-store\.js/);
     assert.match(personal, /people-view\.js/);
-    assert.match(personal, /type === "people" \|\| p\.type === "contact"/);
+    assert.match(personal, /PARA\/RESOURCES\/CONTACTS\//);
+    assert.match(personal, /app\.vault\.getFiles/);
     assert.match(personal, /사람과 관계/);
     assert.match(personal, /renderPeopleWorkspace/);
     assert.match(personal, /buildPeopleWorkspaceModel/);

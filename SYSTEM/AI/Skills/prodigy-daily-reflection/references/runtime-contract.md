@@ -135,6 +135,18 @@ Only after that Evidence save completes, a distinct second human confirmation ma
 - `PlaceCandidateStore` may capture a `suggested_type: "resource"` general-place candidate as a `fleeting_note`.
 
 Neither handoff is automatic or provider-mediated. Neither may create a generic Resource or Place Object, and neither may auto-promote a candidate.
+### Phase 4 — people interaction writer (automatic)
+
+After Evidence approval, `context: "people"` evidence blocks are automatically written to the corresponding CONTACTS file:
+
+- The people interaction writer reads the saved evidence blocks and the resolved `object_linking_suggestions` of kind `people`.
+- For each matching pair, one insight line is appended under `# 핵심 상호작용` in the CONTACTS file.
+- The insight line contains **only the insight** (interpretation/title/experience) — no date, no Object link.
+- The `최근 맥락` (역링크) already provides date and source context, so the interaction line is kept concise.
+- If the CONTACTS file does not exist, it is created from the people template (`template_people.md`).
+- This handoff is automatic on Evidence approval — no separate user confirmation required.
+- The insight format is: `- {통찰}` (plain bullet, no date prefix).
+
 
 ## Safety
 

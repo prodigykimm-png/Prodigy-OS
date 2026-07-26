@@ -429,6 +429,17 @@
     return `- ${date} | ${insight}`;
   }
 
+  /**
+   * Format one 사람 insight line for # 핵심 상호작용.
+   * Only the insight (통찰) — no date, no link.
+   * 최근 맥락 (역링크) already shows date and source, so roles do not overlap.
+   */
+  function formatPeopleInsightLine(input) {
+    const raw = clean(input && (input.insight || input.note || input.summary || input.text));
+    if (!raw) throw new Error("사람 통찰 내용을 입력해 주세요.");
+    return raw.startsWith("-") ? raw : `- ${raw}`;
+  }
+
   function findSectionRange(content, aliases) {
     const text = String(content || "").replace(/\r\n/g, "\n");
     const lines = text.split("\n");
@@ -523,6 +534,20 @@
       sectionTitle: INTERACTION_SECTION,
       intro: "*인덱스만 남깁니다. 원본 노트 본문을 복사하지 않습니다.*",
       emptyError: "추가할 사건 줄이 비어 있습니다."
+    });
+  }
+
+  /**
+   * Insert a people insight line under # 핵심 상호작용.
+   * 통찰만 기록 — 날짜/Object 링크 없음 (최근 맥락이 대체).
+   */
+  function appendPeopleInteractionToContent(content, line) {
+    return appendLineToSection(content, {
+      line,
+      aliases: INTERACTION_SECTION_ALIASES,
+      sectionTitle: INTERACTION_SECTION,
+      intro: "*통찰만 기록합니다. 날짜와 출처는 최근 맥락(역링크)이 대체합니다.*",
+      emptyError: "추가할 사람 통찰 줄이 비어 있습니다."
     });
   }
 
@@ -1483,6 +1508,7 @@
     todayIso,
     normalizeIsoDate,
     formatInteractionLine,
+    formatPeopleInsightLine,
     formatMemoLine,
     extractMemoLines,
     extractInteractionLines,
@@ -1493,6 +1519,7 @@
     removeMemoLineFromContent,
     removeInteractionLineFromContent,
     appendInteractionToContent,
+    appendPeopleInteractionToContent,
     appendMemoToContent,
     emptyFilterHint,
     filterContextItems,
