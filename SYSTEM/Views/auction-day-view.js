@@ -1,4 +1,5 @@
 (function (root) {
+  const T = root.ProdigyTokens || {}; const C = T.COLORS || {};
   "use strict";
 
   const STYLE_ID = "prodigy-auction-day-styles";
@@ -65,12 +66,12 @@
   color: var(--text-accent);
 }
 .prodigy-aday-result-btn.is-danger {
-  border-color: #ef4444;
-  color: #ef4444;
+  border-color: ${C.error || "#ef4444"};
+  color: ${C.error || "#ef4444"};
 }
 .prodigy-aday-result-btn.is-ok {
-  border-color: #22c55e;
-  color: #22c55e;
+  border-color: ${C.success || "#22c55e"};
+  color: ${C.success || "#22c55e"};
 }
 .prodigy-aday-empty {
   text-align: center;

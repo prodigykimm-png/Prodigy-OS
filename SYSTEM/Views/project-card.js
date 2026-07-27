@@ -18,20 +18,20 @@ window.projectTypeLabel = function(value) {
 window.renderProjectCard = function(p, container) {
   if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
   const display = window.prodigyDisplay;
-  const color = display?.statusInfo(p.status).color || '#555';
+  const color = display?.statusInfo(p.status).color || C.neutral800 || "#555";
   const projectType = window.normalizeProjectType(p.project_type);
   const projectTypeLabel = window.projectTypeLabel(projectType);
   const typeColors = {
-    business: "#3b82f6",
-    work: "#f97316",
-    personal: "#a855f7",
-    uncategorized: "#8e8e93"
+    business: C.info || "#3b82f6",
+    work: C.warning || "#f97316",
+    personal: C.accentAlt || "#a855f7",
+    uncategorized: C.neutral500 || "#8e8e93"
   };
   const typeColor = typeColors[projectType] || typeColors.uncategorized;
   
   const card = container.createEl('div', {
     attr: {
-      style: `border: 1px solid var(--background-modifier-border); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);`
+      style: `border: 1px solid var(--background-modifier-border); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px ${T.SHADOWS ? T.SHADOWS.md : "0 2px 6px rgba(0,0,0,0.08)"};`
     }
   });
   
@@ -95,9 +95,9 @@ window.renderProjectCard = function(p, container) {
   const rightHeader = header.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 6px;' } });
   const priorityLabel = display?.priority(p.priority) || p.priority || '보통';
   const priColor = priorityLabel === '높음' || priorityLabel === '매우 높음'
-    ? '#ef4444'
+    ? C.error || "#ef4444"
     : priorityLabel === '낮음' || priorityLabel === '매우 낮음'
-      ? '#8e8e93'
+      ? C.neutral500 || "#8e8e93"
       : 'var(--text-accent)';
   rightHeader.createEl('span', {
     text: priorityLabel,
@@ -151,7 +151,7 @@ window.renderProjectCard = function(p, container) {
     });
     btnBox.createEl('span', { text: '상태 변경', attr: { style: 'font-size: 0.75em; color: var(--text-muted); display: flex; align-items: center; margin-right: 2px;' } });
     buttons.forEach(opt => {
-      const statusInfo = display?.statusInfo(opt.key) || { label: opt.key, color: '#555' };
+      const statusInfo = display?.statusInfo(opt.key) || { label: opt.key, color: C.neutral800 || "#555" };
       const btn = window.ProdigyUI
         ? window.ProdigyUI.button(btnBox, statusInfo.label, {
           chip: true,

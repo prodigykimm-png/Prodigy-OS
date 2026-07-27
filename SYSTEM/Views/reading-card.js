@@ -386,7 +386,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       
       const cover = parentEl.createEl('div', {
         attr: {
-          style: `width: 90px; height: 130px; background: linear-gradient(135deg, ${colorBg} 0%, ${colorBgLight} 100%); border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; padding: 10px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.15); color: #ffffff; font-family: sans-serif; cursor: pointer; border-left: 3px solid rgba(255,255,255,0.3);`
+          style: `width: 90px; height: 130px; background: linear-gradient(135deg, ${colorBg} 0%, ${colorBgLight} 100%); border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; padding: 10px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.15); color: ${C.white || "#ffffff"}; font-family: sans-serif; cursor: pointer; border-left: 3px solid rgba(255,255,255,0.3);`
         }
       });
       
@@ -411,10 +411,10 @@ window.renderReadingCard = function(p, container, mode = "simple") {
   // Helper to render next action button (status transition)
   const renderNextActionButton = (parentEl, currentStatus) => {
     const transitions = {
-      queue: { key: 'reading', label: '📖 읽기 시작', color: '#22c55e' },
-      reading: { key: 'reviewing', label: '📝 복기 시작', color: '#f97316' },
-      reviewing: { key: 'completed', label: '✅ 복기 완료', color: '#06b6d4' },
-      completed: { key: 'archived', label: '📦 보관', color: '#8e8e93' }
+      queue: { key: 'reading', label: '📖 읽기 시작', color: C.success || "#22c55e" },
+      reading: { key: 'reviewing', label: '📝 복기 시작', color: C.warning || "#f97316" },
+      reviewing: { key: 'completed', label: '✅ 복기 완료', color: C.cyan || "#06b6d4" },
+      completed: { key: 'archived', label: '📦 보관', color: C.neutral500 || "#8e8e93" }
     };
     
     const target = transitions[currentStatus];

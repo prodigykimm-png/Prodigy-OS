@@ -1,4 +1,5 @@
 (function (root) {
+  const T = root.ProdigyTokens || {}; const C = T.COLORS || {};
   "use strict";
 
   const STYLE_ID = "prodigy-bid-calendar-styles";

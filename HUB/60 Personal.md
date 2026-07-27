@@ -14,12 +14,14 @@ const loadProdigyScript = async (path) => {
 };
 
 try {
+  await loadProdigyScript("SYSTEM/Views/design-tokens.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/workspace-list-view.js");
   await loadProdigyScript("SYSTEM/Views/people-core.js");
   await loadProdigyScript("SYSTEM/Views/people-store.js");
+  await loadProdigyScript("SYSTEM/Views/people-styles.js");
   await loadProdigyScript("SYSTEM/Views/people-view.js");
 
   const rootEl = this.container;

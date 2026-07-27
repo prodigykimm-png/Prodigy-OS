@@ -1,5 +1,6 @@
 window.renderAuctionCard = function(p, container, options) {
   try {
+    const T = window.ProdigyTokens || {}; const C = T.COLORS || {};
     const display = window.prodigyDisplay;
     if (!display) throw new Error("표시 Registry가 로드되지 않았습니다.");
     const parser = window.parsePrice || Number;
@@ -216,7 +217,7 @@ window.renderAuctionCard = function(p, container, options) {
         text: '🌐',
         href: naverLink,
         attr: {
-          style: 'font-size: 0.75em; background: #22c55e20; padding: 2px 4px; border-radius: 4px; text-decoration: none; cursor: pointer;',
+          style: `font-size: 0.75em; background: ${T.withAlpha ? T.withAlpha(C.success || "#22c55e", 0.12) : "#22c55e20"}; padding: 2px 4px; border-radius: 4px; text-decoration: none; cursor: pointer;`,
           title: '네이버 부동산 바로가기'
         }
       });
@@ -228,7 +229,7 @@ window.renderAuctionCard = function(p, container, options) {
         text: '💬',
         href: cafeLink,
         attr: {
-          style: 'font-size: 0.75em; background: #3b82f620; padding: 2px 4px; border-radius: 4px; text-decoration: none; cursor: pointer;',
+          style: `font-size: 0.75em; background: ${T.withAlpha ? T.withAlpha(C.info || "#3b82f6", 0.12) : "#3b82f620"}; padding: 2px 4px; border-radius: 4px; text-decoration: none; cursor: pointer;`,
           title: '카페 바로가기'
         }
       });

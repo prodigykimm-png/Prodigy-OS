@@ -18,6 +18,7 @@ const loadProdigyScript = async (path) => {
 
 const main = async () => {
   try {
+    await loadProdigyScript("SYSTEM/Views/design-tokens.js");
     await loadProdigyScript("SYSTEM/Views/display-registry.js");
     await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
     await loadProdigyScript("SYSTEM/Views/object-lifecycle-core.js");
@@ -45,6 +46,7 @@ const main = async () => {
     // Creators that Universal Object Creator reuses (optional if already loaded elsewhere)
     await loadProdigyScript("SYSTEM/Views/people-core.js");
     await loadProdigyScript("SYSTEM/Views/people-store.js");
+    await loadProdigyScript("SYSTEM/Views/people-styles.js");
     await loadProdigyScript("SYSTEM/Views/people-view.js");
     await loadProdigyScript("SYSTEM/Views/reading-book-create.js");
     await loadProdigyScript("SYSTEM/Views/project-wizard-core.js");

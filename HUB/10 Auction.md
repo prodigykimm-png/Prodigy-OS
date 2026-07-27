@@ -26,6 +26,7 @@ const loadProdigyScript = async (path) => {
 };
 
 try {
+  await loadProdigyScript("SYSTEM/Views/design-tokens.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");

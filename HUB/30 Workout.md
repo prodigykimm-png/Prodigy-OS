@@ -60,6 +60,7 @@ const showError = (target, error) => {
 };
 
 try {
+  await loadWorkoutScript("SYSTEM/Views/design-tokens.js");
   await loadWorkoutScript("SYSTEM/Views/display-registry.js");
   await loadWorkoutScript("SYSTEM/Views/workspace-navigation.js");
   await loadWorkoutScript("SYSTEM/Views/object-engine-core.js");

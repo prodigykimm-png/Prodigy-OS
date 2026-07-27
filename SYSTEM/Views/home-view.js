@@ -1,4 +1,5 @@
 (function (root) {
+  const T = root.ProdigyTokens || {}; const C = T.COLORS || {};
   "use strict";
 
   const SOURCE_TYPE_LABELS = Object.freeze({
@@ -138,9 +139,9 @@
           white-space: nowrap;
           flex: none;
         }
-        .badge-high { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-        .badge-medium { background: rgba(249, 115, 22, 0.1); color: #f97316; }
-        .badge-low { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .badge-high { background: rgba(239, 68, 68, 0.1); color: ${C.error || "#ef4444"}; }
+        .badge-medium { background: rgba(249, 115, 22, 0.1); color: ${C.warning || "#f97316"}; }
+        .badge-low { background: rgba(59, 130, 246, 0.1); color: ${C.info || "#3b82f6"}; }
         .badge-gray { background: var(--background-modifier-hover); color: var(--text-muted); }
         /* Home compact button baseline — all Home buttons share this density */
         .prodigy-home .action-btn,

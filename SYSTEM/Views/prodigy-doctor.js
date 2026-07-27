@@ -6,6 +6,7 @@
  * 읽기 전용 검사만 수행하며 Vault를 수정하지 않는다.
  */
 (function (root) {
+  const T = root.ProdigyTokens || {}; const C = T.COLORS || {};
   var REQUIRED_PLUGINS = Object.freeze([
     Object.freeze({ id: "dataview", label: "Dataview", purpose: "대시보드 데이터 조회" }),
     Object.freeze({ id: "datacore", label: "Datacore", purpose: "Dataview 성능 보강" }),

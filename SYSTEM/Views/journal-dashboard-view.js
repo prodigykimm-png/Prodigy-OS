@@ -1,4 +1,5 @@
 (function (root) {
+  const T = root.ProdigyTokens || {}; const C = T.COLORS || {};
   "use strict";
 
   function openPath(app, path) { return app.workspace.openLinkText(String(path || "").replace(/\.md$/, ""), "", false); }

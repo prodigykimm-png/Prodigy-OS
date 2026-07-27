@@ -9,6 +9,7 @@ window.KnowledgeExplorerHub = window.KnowledgeExplorerHub || {};
 
 const KnowledgeExplorerHub = window.KnowledgeExplorerHub;
 KnowledgeExplorerHub.modulePaths = [
+  "SYSTEM/Views/design-tokens.js",
   "SYSTEM/Views/display-registry.js",
   "SYSTEM/Views/workspace-navigation.js",
   "SYSTEM/Views/knowledge-explorer-registry.js",
