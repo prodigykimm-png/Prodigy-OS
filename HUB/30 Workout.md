@@ -68,6 +68,7 @@ try {
   await loadWorkoutScript("SYSTEM/Views/workout-store.js");
   await loadWorkoutScript("SYSTEM/Views/workout-import.js");
   await loadWorkoutScript("SYSTEM/Views/workout-program-objects.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-modals.js");
   await loadWorkoutScript("SYSTEM/Views/workout-view.js");
   await loadWorkoutScript("SYSTEM/Views/decision-packet-reasons.js");
   await loadWorkoutScript("SYSTEM/Views/workout-decision-packet.js");

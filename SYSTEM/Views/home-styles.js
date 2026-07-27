@@ -1,0 +1,395 @@
+/**
+ * Home Dashboard CSS — extracted from home-view.js (P2-1)
+ * 로드 순서: design-tokens.js → home-styles.js → home-view.js
+ */
+(function (root) {
+  "use strict";
+  const T = root.ProdigyTokens || {}; const C = T.COLORS || {};
+
+  const HOME_STYLE_ID = "prodigy-home-styles";
+
+  function ensureHomeStyles() {
+    if (typeof document === "undefined") return;
+    let styleEl = document.getElementById(HOME_STYLE_ID);
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = HOME_STYLE_ID;
+      document.head.appendChild(styleEl);
+    }
+    if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
+    styleEl.textContent = `
+        .prodigy-home { width: 100%; margin: 0 auto; padding: 0 8px 32px; }
+        .home-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
+        .home-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+        .home-mc-stack { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 920px; margin: 0 auto; }
+        .home-mc-lower .home-card { border-color: var(--background-modifier-border); }
+        .home-system-status { opacity: 0.92; padding: 12px 14px !important; }
+        .home-quick-actions .action-btn { min-height: 36px !important; padding: 6px 12px !important; font-size: 0.82em !important; }
+        .prodigy-home.home-wide .home-grid { grid-template-columns: 1fr; }
+        .prodigy-home.home-wide .col-span-8 { grid-column: span 1; }
+        .prodigy-home.home-wide .col-span-4 { grid-column: span 1; }
+        .prodigy-home.home-wide .col-span-12 { grid-column: span 1; }
+        .home-card {
+          background: var(--background-secondary);
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 8px;
+          padding: 16px;
+        }
+        .emphasis-primary {
+          background: var(--background-secondary);
+          border-left: 4px solid var(--text-accent);
+        }
+        .emphasis-secondary {
+          background: var(--background-secondary);
+        }
+        .emphasis-risk {
+          border-left: 4px solid var(--text-error);
+          background: var(--background-secondary);
+        }
+        .home-header {
+          font-weight: 700;
+          font-size: 1.05em;
+          color: var(--text-normal);
+          margin-bottom: 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .badge {
+          display: inline-flex;
+          align-items: center;
+          min-height: 22px;
+          font-size: 0.72em;
+          padding: 2px 7px;
+          border-radius: 4px;
+          font-weight: 650;
+          white-space: nowrap;
+          flex: none;
+        }
+        .badge-high { background: rgba(239, 68, 68, 0.1); color: ${C.error || "#ef4444"}; }
+        .badge-medium { background: rgba(249, 115, 22, 0.1); color: ${C.warning || "#f97316"}; }
+        .badge-low { background: rgba(59, 130, 246, 0.1); color: ${C.info || "#3b82f6"}; }
+        .badge-gray { background: var(--background-modifier-hover); color: var(--text-muted); }
+        /* Home compact button baseline — all Home buttons share this density */
+        .prodigy-home .action-btn,
+        .prodigy-home button.action-btn,
+        .prodigy-home .prodigy-launcher-actions button,
+        .prodigy-home .home-launcher-mount button,
+        .prodigy-home .home-card > button,
+        .prodigy-home .home-card button:not([class*="workspace-row"]) {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 0 !important;
+          height: auto !important;
+          font-size: 0.7em !important;
+          padding: 1px 6px !important;
+          border-radius: 4px !important;
+          border: 1px solid var(--background-modifier-border);
+          background: var(--background-primary);
+          color: var(--text-normal);
+          cursor: pointer;
+          font-weight: 600;
+          line-height: 1.15 !important;
+          box-sizing: border-box;
+          white-space: nowrap;
+          transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+          -webkit-appearance: none;
+          appearance: none;
+        }
+        .prodigy-home .action-btn:hover,
+        .prodigy-home .prodigy-launcher-actions button:hover,
+        .prodigy-home .home-launcher-mount button:hover {
+          background: var(--background-modifier-hover);
+        }
+        .action-btn:active,
+        .prodigy-home .prodigy-launcher-actions button:active { transform: translateY(1px); }
+        .action-btn:focus-visible,
+        .prodigy-home .prodigy-launcher-actions button:focus-visible {
+          outline: 2px solid var(--text-accent);
+          outline-offset: 2px;
+        }
+        .prodigy-home button.action-btn-primary,
+        .prodigy-home .action-btn-primary {
+          background: var(--interactive-accent) !important;
+          color: var(--text-on-accent) !important;
+          border-color: var(--interactive-accent) !important;
+        }
+        .prodigy-home button.action-btn-primary:hover,
+        .prodigy-home .action-btn-primary:hover {
+          background: var(--interactive-accent-hover) !important;
+        }
+        /* Launcher CTA: compact size, accent border like other home actions */
+        .prodigy-home .prodigy-launcher-actions button {
+          min-width: 0 !important;
+          border-color: var(--text-accent) !important;
+          color: var(--text-accent) !important;
+          background: var(--background-secondary) !important;
+          font-weight: 700 !important;
+        }
+        .input-text {
+          min-width: 0;
+          width: auto;
+          flex: 1 1 220px;
+          font-size: 0.9em;
+          padding: 6px 9px;
+          border-radius: 6px;
+          border: 1px solid var(--background-modifier-border);
+          background: var(--background-primary);
+          color: var(--text-normal);
+        }
+        .home-title-row { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+        .home-title-row h2 { margin: 0; font-size: 1.45em; }
+        .home-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .focus-list { display: flex; flex-direction: column; margin: 0 -2px; }
+        .focus-row { display: flex; flex-direction: column; gap: 7px; padding: 14px 2px; border-top: 1px solid var(--background-modifier-border); }
+        .focus-row:first-child { border-top: 0; padding-top: 2px; }
+        .focus-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .focus-title { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1 1 auto; font-weight: 700; }
+        .focus-title a, .focus-title span { overflow-wrap: anywhere; }
+        .focus-reason { color: var(--text-muted); font-size: 0.86em; line-height: 1.5; padding-left: 24px; }
+        .focus-details { margin-left: 24px; font-size: 0.82em; color: var(--text-muted); }
+        .focus-details summary { cursor: pointer; color: var(--text-accent); font-weight: 600; }
+        .focus-evidence { margin-top: 7px; padding: 9px 10px; border-left: 2px solid var(--background-modifier-border); display: flex; flex-direction: column; gap: 4px; }
+        .focus-actions, .focus-footer { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+        .focus-actions { margin-top: 4px; }
+        .focus-footer { padding-top: 12px; border-top: 1px solid var(--background-modifier-border); }
+        .continue-list { display: flex; flex-direction: column; }
+        .workspace-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+        .continue-row, .workspace-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--background-modifier-border); }
+        .continue-row:first-child { border-top: 0; padding-top: 0; }
+        .continue-row:last-child { padding-bottom: 0; }
+        .continue-row { cursor: pointer; }
+        .continue-row:hover, .workspace-row:hover { background: var(--background-modifier-hover); }
+        .workspace-row {
+          min-height: 40px;
+          justify-content: space-between;
+          padding: 8px 10px;
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 6px;
+          cursor: pointer;
+        }
+        .workspace-row:focus-visible { outline: 2px solid var(--text-accent); outline-offset: 2px; }
+        .workspace-label { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .workspace-arrow { color: var(--text-muted); font-size: 1.2em; line-height: 1; }
+        .prodigy-home:not(.home-wide) .home-title-row { align-items: flex-start; }
+        .prodigy-home:not(.home-wide) .home-toolbar { width: 100%; }
+        .prodigy-home:not(.home-wide) .home-toolbar .action-btn { flex: 0 1 auto; }
+        .prodigy-home:not(.home-wide) .focus-top { flex-wrap: wrap; }
+        .prodigy-home:not(.home-wide) .focus-title { flex-basis: calc(100% - 72px); }
+        .prodigy-home:not(.home-wide) .focus-reason,
+        .prodigy-home:not(.home-wide) .focus-details { padding-left: 0; margin-left: 0; }
+        /* Mobile/narrow Home: minimum vertical control footprint */
+        .prodigy-home:not(.home-wide) .focus-actions .action-btn,
+        .prodigy-home:not(.home-wide) .focus-footer .action-btn,
+        .prodigy-home:not(.home-wide) .home-toolbar .action-btn {
+          min-height: 0;
+          height: auto;
+          padding: 0 5px;
+          font-size: 0.66em;
+          line-height: 1.3;
+        }
+        .prodigy-home:not(.home-wide) .focus-actions,
+        .prodigy-home:not(.home-wide) .focus-footer {
+          justify-content: flex-start;
+          gap: 2px;
+          margin-top: 1px;
+        }
+        .prodigy-home:not(.home-wide) .focus-row {
+          padding: 6px 2px;
+          gap: 4px;
+        }
+        .prodigy-home:not(.home-wide) .home-card {
+          padding: 8px 10px;
+        }
+        .prodigy-home:not(.home-wide) .home-header {
+          margin-bottom: 6px;
+        }
+        .prodigy-home:not(.home-wide) .home-grid {
+          gap: 8px;
+        }
+        .prodigy-home.home-narrow { padding-inline: 0; }
+        .prodigy-home.home-narrow .workspace-list { grid-template-columns: 1fr; }
+        .prodigy-home.home-narrow .home-card { padding: 8px; }
+        .prodigy-home.home-narrow .focus-row { padding: 5px 2px; }
+        .prodigy-home.home-narrow .workspace-row { min-height: 0; padding: 4px 8px; }
+
+        /* Mobile compact Home: Brief + Focus + Launcher first; rest behind fold */
+        .prodigy-home.home-compact {
+          padding-bottom: 24px;
+        }
+        .prodigy-home.home-compact .home-grid {
+          gap: 10px;
+        }
+        .prodigy-home.home-compact .home-column {
+          gap: 10px;
+        }
+        .prodigy-home.home-compact .home-title-row {
+          margin-bottom: 10px;
+          gap: 8px;
+        }
+        .prodigy-home.home-compact .home-title-row h2 {
+          font-size: 1.2em;
+        }
+        .prodigy-home.home-compact .home-brief-compact > p.home-brief-text {
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          font-size: 0.88em;
+          margin-bottom: 8px !important;
+        }
+        .prodigy-home.home-compact .home-secondary-fold {
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 10px;
+          background: var(--background-secondary);
+          padding: 4px 10px 10px;
+        }
+        .prodigy-home.home-compact .home-secondary-fold > summary {
+          font-weight: 800;
+          font-size: 0.9em;
+          color: var(--text-muted);
+          cursor: pointer;
+          min-height: 44px;
+          display: flex;
+          align-items: center;
+          list-style: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .prodigy-home.home-compact .home-secondary-fold > summary::-webkit-details-marker {
+          display: none;
+        }
+        .prodigy-home.home-compact .home-secondary-fold > summary::before {
+          content: "▸ ";
+          color: var(--text-accent);
+        }
+        .prodigy-home.home-compact .home-secondary-fold[open] > summary::before {
+          content: "▾ ";
+        }
+        /* Compact-only workspace dock — one-tap nav without scrolling Mission Control */
+        .prodigy-home .home-ws-dock {
+          display: none;
+        }
+        .prodigy-home.home-compact .home-ws-dock {
+          display: block;
+          margin: 0 0 10px 0;
+          padding: 10px 10px 8px;
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 10px;
+          background: var(--background-secondary);
+        }
+        .prodigy-home.home-compact .home-ws-dock-label {
+          font-size: 0.72em;
+          font-weight: 700;
+          color: var(--text-muted);
+          margin: 0 0 8px 2px;
+          letter-spacing: 0.02em;
+        }
+        .prodigy-home.home-compact .home-ws-dock-row {
+          display: flex;
+          flex-wrap: nowrap;
+          gap: 6px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 2px;
+        }
+        .prodigy-home.home-compact .home-ws-dock-btn {
+          flex: 1 1 0;
+          min-width: 56px;
+          max-width: 88px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          min-height: 52px !important;
+          height: auto !important;
+          padding: 8px 4px !important;
+          border-radius: 8px !important;
+          border: 1px solid var(--background-modifier-border);
+          background: var(--background-primary);
+          color: var(--text-normal);
+          font-size: 0.72em !important;
+          font-weight: 700 !important;
+          line-height: 1.15 !important;
+          cursor: pointer;
+        }
+        .prodigy-home.home-compact .home-ws-dock-btn:active {
+          transform: scale(0.97);
+          border-color: var(--text-accent);
+        }
+        .prodigy-home.home-compact .home-ws-dock-icon {
+          font-size: 1.15em;
+          line-height: 1;
+        }
+        .prodigy-home.home-compact .home-ws-dock-name {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+        .prodigy-home.home-compact .home-secondary-fold-body {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-top: 6px;
+        }
+        /* Lifecycle is secondary: always collapsed by default */
+        .prodigy-home .home-lifecycle-fold {
+          border: 1px solid var(--background-modifier-border);
+          border-radius: 8px;
+          background: var(--background-secondary);
+          padding: 2px 10px 8px;
+          margin: 0;
+        }
+        .prodigy-home .home-lifecycle-fold > summary {
+          font-weight: 700;
+          font-size: 0.88em;
+          color: var(--text-muted);
+          cursor: pointer;
+          min-height: 36px;
+          display: flex;
+          align-items: center;
+          list-style: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .prodigy-home .home-lifecycle-fold > summary::-webkit-details-marker {
+          display: none;
+        }
+        .prodigy-home .home-lifecycle-fold > summary::before {
+          content: "▸ ";
+          color: var(--text-muted);
+        }
+        .prodigy-home .home-lifecycle-fold[open] > summary::before {
+          content: "▾ ";
+        }
+        .prodigy-home .home-lifecycle-fold .home-card {
+          border: none;
+          box-shadow: none;
+          background: transparent;
+          padding: 4px 0 0;
+          margin: 0;
+        }
+        /* Compact Home: keep the same compact control density (no larger touch overrides) */
+        .prodigy-home.home-compact .action-btn,
+        .prodigy-home.home-compact button.action-btn,
+        .prodigy-home.home-compact .prodigy-launcher-actions button,
+        .prodigy-home.home-compact .home-launcher-mount button,
+        .prodigy-home.home-compact .focus-footer .action-btn-primary,
+        .prodigy-home.home-compact button.action-btn-primary {
+          min-height: 0 !important;
+          height: auto !important;
+          padding: 1px 6px !important;
+          font-size: 0.7em !important;
+          line-height: 1.15 !important;
+          border-radius: 4px !important;
+        }
+        .prodigy-home.home-compact .col-span-4:empty {
+          display: none;
+        }
+    `;
+  }
+
+  root.HomeStyles = Object.freeze({ HOME_STYLE_ID, ensureHomeStyles });
+  if (typeof module !== "undefined" && module.exports) module.exports = root.HomeStyles;
+})(typeof globalThis !== "undefined" ? globalThis : this);

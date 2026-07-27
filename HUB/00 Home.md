@@ -51,6 +51,7 @@ const main = async () => {
     await loadProdigyScript("SYSTEM/Views/reading-book-create.js");
     await loadProdigyScript("SYSTEM/Views/project-wizard-core.js");
     await loadProdigyScript("SYSTEM/Views/project-wizard.js");
+    await loadProdigyScript("SYSTEM/Views/home-styles.js");
     await loadProdigyScript("SYSTEM/Views/home-view.js");
 
     if (window.HomeView) {
