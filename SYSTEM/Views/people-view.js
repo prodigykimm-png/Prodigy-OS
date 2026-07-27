@@ -962,6 +962,221 @@
   }
 
   /**
+   * Search People in an Obsidian Modal instead of the Dataview-owned page.
+   * The modal input is not destroyed when Dataview refreshes the dashboard.
+   */
+  function openPeopleFinder(app, options) {
+    const host = app || root.app || (typeof window !== "undefined" ? window.app : null);
+    const opts = options || {};
+    const core = root.PeopleCore;
+    if (!host || !core) {
+      notice("사람 찾기를 열 수 없습니다.");
+      return null;
+    }
+    const Modal = root.obsidian && root.obsidian.Modal;
+    if (!Modal) {
+      notice("이 환경에서는 사람 찾기 창을 열 수 없습니다.");
+      return null;
+    }
+
+    class PeopleFinderModal extends Modal {
+      constructor(appInstance) {
+        super(appInstance);
+        this.query = "";
+        this.composing = false;
+        this.activeIndex = 0;
+        this.matches = [];
+        this.inputEl = null;
+        this.resultsEl = null;
+        this.previewEl = null;
+      }
+
+      buildMatches() {
+        const rawPeople = Array.isArray(opts.rawPeople) ? opts.rawPeople : [];
+        const sourcePages = Array.isArray(opts.sourcePages) ? opts.sourcePages : [];
+        const model = core.buildPeopleWorkspaceModel(rawPeople, sourcePages, {
+          query: this.query,
+          filter: "all",
+          sort: "name_asc",
+          maxPreview: 0
+        });
+        this.matches = model.people || [];
+      }
+
+      paintResults() {
+        this.buildMatches();
+        if (this.activeIndex >= this.matches.length) this.activeIndex = 0;
+        this.resultsEl.empty();
+        this.resultsEl.createEl("div", {
+          text: this.query
+            ? `${this.matches.length}명 일치`
+            : `전체 ${this.matches.length}명`,
+          attr: { style: "font-size:.8em;color:var(--text-muted);margin:0 0 8px;" }
+        });
+
+        if (!this.matches.length) {
+          this.resultsEl.createEl("div", {
+            text: "일치하는 사람이 없습니다.",
+            attr: { style: "padding:12px;color:var(--text-muted);border:1px solid var(--background-modifier-border);border-radius:7px;" }
+          });
+          this.paintPreview();
+          return;
+        }
+
+        this.matches.forEach((person, index) => {
+          const meta = [person.relationship, person.company, person.role].filter(Boolean).join(" · ");
+          const row = this.resultsEl.createEl("button", {
+            attr: {
+              type: "button",
+              class: "ppw-finder-result" + (index === this.activeIndex ? " is-active" : ""),
+              "aria-label": `${person.name} 열기`,
+              style: "display:block;width:100%;text-align:left;padding:10px 11px;margin:0 0 6px;border:1px solid var(--background-modifier-border);border-radius:7px;background:var(--background-primary);color:var(--text-normal);cursor:pointer;"
+            }
+          });
+          row.createEl("strong", { text: person.name, attr: { style: "display:block;" } });
+          if (meta) row.createEl("span", {
+            text: meta,
+            attr: { style: "display:block;margin-top:3px;font-size:.8em;color:var(--text-muted);" }
+          });
+          row.onclick = () => {
+            this.activeIndex = index;
+            this.paintResults();
+          };
+        });
+        this.paintPreview();
+      }
+
+      paintPreview() {
+        this.previewEl.empty();
+        const person = this.matches[this.activeIndex];
+        if (!person) {
+          this.previewEl.createEl("div", {
+            text: "왼쪽 목록에서 사람을 선택하면 관계와 최근 맥락을 확인할 수 있습니다.",
+            attr: { style: "padding:14px;color:var(--text-muted);border:1px solid var(--background-modifier-border);border-radius:7px;line-height:1.5;" }
+          });
+          return;
+        }
+
+        const meta = [person.relationship, person.company, person.role].filter(Boolean).join(" · ");
+        this.previewEl.createEl("h3", { text: person.name, attr: { style: "margin:0;font-size:1.05em;" } });
+        if (meta) this.previewEl.createEl("div", {
+          text: meta,
+          attr: { style: "margin:4px 0 12px;font-size:.82em;color:var(--text-muted);" }
+        });
+
+        const sections = typeof core.parsePeopleBodySections === "function"
+          ? core.parsePeopleBodySections(person.body, { personName: person.name })
+          : [];
+        const relation = sections.find((section) => section.title === "관계");
+        const relationText = relation && relation.displayBody ? relation.displayBody : "기록된 관계 설명이 없습니다.";
+        const addSection = (title, lines, emptyText) => {
+          const block = this.previewEl.createEl("section", {
+            attr: { style: "margin-top:12px;padding-top:10px;border-top:1px solid var(--background-modifier-border);" }
+          });
+          block.createEl("div", { text: title, attr: { style: "font-size:.78em;font-weight:700;color:var(--text-muted);margin-bottom:5px;" } });
+          if (!lines.length) {
+            block.createEl("div", { text: emptyText, attr: { style: "font-size:.84em;color:var(--text-muted);" } });
+            return;
+          }
+          lines.slice(0, 4).forEach((line) => block.createEl("div", {
+            text: line,
+            attr: { style: "font-size:.86em;line-height:1.45;margin:3px 0;" }
+          }));
+        };
+        addSection("관계", [relationText], "기록된 관계 설명이 없습니다.");
+        addSection("핵심 상호작용", person.interaction_lines || [], "기록된 핵심 상호작용이 없습니다.");
+        addSection("메모", person.memo_lines || [], "기록된 메모가 없습니다.");
+        addSection(
+          "최근 맥락",
+          (person.linked_all || []).map((item) => item && item.title).filter(Boolean),
+          "연결된 기록이 없습니다."
+        );
+
+        const actions = this.previewEl.createEl("div", { attr: { style: "margin-top:14px;display:flex;justify-content:flex-end;" } });
+        const openBtn = actions.createEl("button", { text: "관계 맥락 열기", attr: { type: "button", class: "mod-cta" } });
+        openBtn.onclick = () => this.pick(person.path);
+      }
+
+      moveActive(step) {
+        if (!this.matches.length) return;
+        this.activeIndex = (this.activeIndex + step + this.matches.length) % this.matches.length;
+        this.paintResults();
+      }
+
+      pick(path) {
+        if (!path) return;
+        this.close();
+        setTimeout(() => {
+          if (typeof opts.onPick === "function") opts.onPick(path);
+        }, 0);
+      }
+
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h2", { text: "사람 찾기", attr: { style: "margin:0 0 6px;font-size:1.15em;" } });
+        contentEl.createEl("p", {
+          text: "이름, 구분, 소속, 역할, 메모를 찾습니다. 목록을 선택하면 관계와 최근 맥락을 바로 확인할 수 있습니다.",
+          attr: { style: "margin:0 0 12px;font-size:.84em;color:var(--text-muted);line-height:1.45;" }
+        });
+        this.inputEl = contentEl.createEl("input", {
+          attr: {
+            type: "text",
+            placeholder: "이름 입력",
+            "aria-label": "사람 찾기",
+            style: "width:100%;box-sizing:border-box;padding:9px 10px;border-radius:7px;border:1px solid var(--background-modifier-border);background:var(--background-primary);"
+          }
+        });
+        const layout = contentEl.createEl("div", {
+          attr: {
+            class: "ppw-finder-layout",
+            style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px;"
+          }
+        });
+        this.resultsEl = layout.createEl("div", { attr: { style: "max-height:52vh;overflow:auto;" } });
+        this.previewEl = layout.createEl("div", { attr: { style: "max-height:52vh;overflow:auto;padding:12px;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-primary);" } });
+        this.inputEl.oncompositionstart = () => { this.composing = true; };
+        this.inputEl.oncompositionend = () => {
+          this.composing = false;
+          this.query = this.inputEl.value;
+          this.activeIndex = 0;
+          this.paintResults();
+        };
+        this.inputEl.oninput = () => {
+          this.query = this.inputEl.value;
+          if (this.composing) return;
+          this.activeIndex = 0;
+          this.paintResults();
+        };
+        this.inputEl.onkeydown = (event) => {
+          if (event && (event.isComposing || event.keyCode === 229 || event.key === "Process")) return;
+          if (event && event.key === "ArrowDown") {
+            event.preventDefault();
+            this.moveActive(1);
+          } else if (event && event.key === "ArrowUp") {
+            event.preventDefault();
+            this.moveActive(-1);
+          } else if (event && event.key === "Enter") {
+            event.preventDefault();
+            const active = this.matches[this.activeIndex] || this.matches[0];
+            if (active) this.pick(active.path);
+          }
+        };
+        this.paintResults();
+        setTimeout(() => this.inputEl && this.inputEl.focus(), 20);
+      }
+
+      onClose() {
+        this.contentEl.empty();
+      }
+    }
+
+    const modal = new PeopleFinderModal(host);
+    modal.open();
+    return modal;
+  }
+
+  /**
    * @deprecated Use openPersonPreview — relation popup covers property + body edit.
    * Kept as a thin alias so older call sites still work.
    */
@@ -1951,7 +2166,7 @@
     ensureWorkspaceStyles();
 
     const state = {
-      query: (opts.model && opts.model.query) || "",
+      query: "",
       filter: (opts.model && opts.model.filter) || "all",
       sort: (opts.model && opts.model.sort) || opts.sort || "name_asc",
       expanded: Object.create(null),
@@ -2043,114 +2258,118 @@
       return openBeside(app, path);
     }
 
-    function paint() {
-      rebuildModel();
+    // ── Static shell: created once, never destroyed by paint() ──
+    container.empty();
+    container.addClass("prodigy-people-workspace");
 
-      container.empty();
-      container.addClass("prodigy-people-workspace");
+    const header = container.createDiv({ attr: { class: "ppw-header" } });
+    const heading = header.createDiv();
+    heading.createEl("h1", { text: opts.title || "사람과 관계" });
+    heading.createEl("p", {
+      text: opts.subtitle || "중요한 사람을 찾고, 함께한 기록과 관계의 맥락을 이어갑니다."
+    });
+    const headerActions = header.createDiv({ attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
+    const addBtn = btn(headerActions, "사람 추가", { primary: true });
+    addBtn.onclick = async () => {
+      await openCreateFlow(app);
+      if (typeof opts.onRefresh === "function") opts.onRefresh();
+      else paint();
+    };
 
-      const header = container.createDiv({ attr: { class: "ppw-header" } });
-      const heading = header.createDiv();
-      heading.createEl("h1", { text: opts.title || "사람과 관계" });
-      heading.createEl("p", {
-        text: opts.subtitle || "중요한 사람을 찾고, 함께한 기록과 관계의 맥락을 이어갑니다."
-      });
-      const headerActions = header.createDiv({ attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
-      const addBtn = btn(headerActions, "사람 추가", { primary: true });
-      addBtn.onclick = async () => {
-        await openCreateFlow(app);
-        if (typeof opts.onRefresh === "function") opts.onRefresh();
-        else paint();
-      };
+    const finderBtn = btn(headerActions, "사람 찾기");
+    finderBtn.onclick = () => openPeopleFinder(app, {
+      rawPeople,
+      sourcePages,
+      onPick: (path) => openPerson(path)
+    });
 
-      const toolbar = container.createDiv({ attr: { class: "ppw-toolbar" } });
-      const search = toolbar.createEl("input", {
+    const toolbar = container.createDiv({ attr: { class: "ppw-toolbar" } });
+
+    // 구분 필터 (관계 Property 카테고리)
+    const filterRow = toolbar.createDiv({ attr: { class: "ppw-toolbar-row" } });
+    filterRow.createEl("span", { text: "구분", attr: { class: "ppw-toolbar-label" } });
+    const filters = filterRow.createDiv({ attr: { class: "ppw-filters" } });
+    (core.WORKSPACE_FILTERS || []).forEach((f) => {
+      const chip = filters.createEl("button", {
+        text: f.label,
         attr: {
-          class: "ppw-search",
-          type: "search",
-          placeholder: "이름 · 구분 · 소속 · 역할 · 메모 검색",
-          value: state.query,
-          "aria-label": "사람 검색"
+          type: "button",
+          class: "ppw-filter" + (state.filter === f.id ? " is-active" : ""),
+          "aria-pressed": state.filter === f.id ? "true" : "false"
         }
       });
-      search.value = state.query;
-      search.oninput = () => {
-        state.query = search.value;
-        state._searchCursor = typeof search.selectionStart === "number" ? search.selectionStart : search.value.length;
-        state._searchFocused = true;
-        if (state._searchTimer) clearTimeout(state._searchTimer);
-        state._searchTimer = setTimeout(() => {
-          state._searchTimer = null;
-          paint();
-        }, 200);
+      chip.onclick = () => {
+        state.filter = f.id;
+        syncFilterChips();
+        paint();
       };
-      if (state._searchFocused) {
-        try {
-          search.focus();
-          const pos = typeof state._searchCursor === "number" ? state._searchCursor : search.value.length;
-          if (typeof search.setSelectionRange === "function") search.setSelectionRange(pos, pos);
-        } catch (_e) { /* ignore */ }
-      }
-      search.onkeydown = (e) => {
-        if (e && e.key === "ArrowDown") {
-          e.preventDefault();
-          const first = container.querySelector(".ppw-card .ppw-name");
-          if (first && typeof first.focus === "function") first.focus();
-          else if (first) first.click();
+    });
+
+    // 가나다 정렬
+    const sortRow = toolbar.createDiv({ attr: { class: "ppw-toolbar-row" } });
+    sortRow.createEl("span", { text: "정렬", attr: { class: "ppw-toolbar-label" } });
+    const sorts = sortRow.createDiv({ attr: { class: "ppw-filters ppw-sorts" } });
+    (core.WORKSPACE_SORTS || [
+      { id: "name_asc", label: "가나다 ↑" },
+      { id: "name_desc", label: "가나다 ↓" }
+    ]).forEach((s) => {
+      const chip = sorts.createEl("button", {
+        text: s.label,
+        attr: {
+          type: "button",
+          class: "ppw-filter ppw-sort" + (state.sort === s.id ? " is-active" : ""),
+          "aria-pressed": state.sort === s.id ? "true" : "false"
         }
-      };
-
-      // 구분 필터 (관계 Property 카테고리)
-      const filterRow = toolbar.createDiv({ attr: { class: "ppw-toolbar-row" } });
-      filterRow.createEl("span", { text: "구분", attr: { class: "ppw-toolbar-label" } });
-      const filters = filterRow.createDiv({ attr: { class: "ppw-filters" } });
-      (core.WORKSPACE_FILTERS || []).forEach((f) => {
-        const chip = filters.createEl("button", {
-          text: f.label,
-          attr: {
-            type: "button",
-            class: "ppw-filter" + (state.filter === f.id ? " is-active" : ""),
-            "aria-pressed": state.filter === f.id ? "true" : "false"
-          }
-        });
-        chip.onclick = () => {
-          state.filter = f.id;
-          paint();
-        };
       });
+      chip.onclick = () => {
+        state.sort = s.id;
+        syncSortChips();
+        paint();
+      };
+    });
 
-      // 가나다 정렬
-      const sortRow = toolbar.createDiv({ attr: { class: "ppw-toolbar-row" } });
-      sortRow.createEl("span", { text: "정렬", attr: { class: "ppw-toolbar-label" } });
-      const sorts = sortRow.createDiv({ attr: { class: "ppw-filters ppw-sorts" } });
+    const count = toolbar.createEl("div", {
+      text: "",
+      attr: { class: "ppw-count" }
+    });
+
+    const list = container.createDiv({ attr: { class: "ppw-list" } });
+
+    function syncFilterChips() {
+      const chips = filters.querySelectorAll(".ppw-filter");
+      (core.WORKSPACE_FILTERS || []).forEach((f, i) => {
+        if (!chips[i]) return;
+        const active = state.filter === f.id;
+        chips[i].className = "ppw-filter" + (active ? " is-active" : "");
+        chips[i].setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    }
+
+    function syncSortChips() {
+      const chips = sorts.querySelectorAll(".ppw-filter");
       (core.WORKSPACE_SORTS || [
         { id: "name_asc", label: "가나다 ↑" },
         { id: "name_desc", label: "가나다 ↓" }
-      ]).forEach((s) => {
-        const chip = sorts.createEl("button", {
-          text: s.label,
-          attr: {
-            type: "button",
-            class: "ppw-filter ppw-sort" + (state.sort === s.id ? " is-active" : ""),
-            "aria-pressed": state.sort === s.id ? "true" : "false"
-          }
-        });
-        chip.onclick = () => {
-          state.sort = s.id;
-          paint();
-        };
+      ]).forEach((s, i) => {
+        if (!chips[i]) return;
+        const active = state.sort === s.id;
+        chips[i].className = "ppw-filter ppw-sort" + (active ? " is-active" : "");
+        chips[i].setAttribute("aria-pressed", active ? "true" : "false");
       });
+    }
 
-      const count = toolbar.createEl("div", {
-        text: model.empty
-          ? ""
-          : (model.no_match
-            ? "일치하는 사람이 없습니다."
-            : `${model.shown}명 표시 · 전체 ${model.total}명`),
-        attr: { class: "ppw-count" }
-      });
+    // ── Dynamic paint: only rebuilds the card list, never touches search input ──
+    function paint() {
+      rebuildModel();
 
-      const list = container.createDiv({ attr: { class: "ppw-list" } });
+      // Update count text
+      count.setText(model.empty
+        ? ""
+        : (model.no_match
+          ? "일치하는 사람이 없습니다."
+          : `${model.shown}명 표시 · 전체 ${model.total}명`));
+
+      list.empty();
 
       if (model.empty) {
         const empty = list.createEl("div", { attr: { class: "ppw-empty" } });
@@ -2455,7 +2674,6 @@
         }, 40);
       }
 
-      void count;
       return model;
     }
 
@@ -2474,6 +2692,7 @@
     openPersonPreview,
     createAndOpen,
     openCreateFlow,
+    openPeopleFinder,
     openQuickEditFlow,
     openAddInteractionFlow,
     openAddMemoFlow,

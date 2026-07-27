@@ -94,6 +94,32 @@ function main() {
   assert.equal(core.matchPeopleSearch(person, "담당"), true);
   assert.equal(core.matchPeopleSearch(person, "없는단어xyz"), false);
 
+  // macOS/iCloud may retain contact filenames as NFD while the Korean IME
+  // supplies NFC input. They are visually identical and must search alike.
+  const nfdName = "강은지".normalize("NFD");
+  const nfdPerson = core.normalizePersonRecord({
+    path: `PARA/RESOURCES/CONTACTS/${nfdName}.md`,
+    type: "people",
+    name: nfdName
+  });
+  assert.equal(
+    core.matchPeopleSearch(nfdPerson, "강은지"),
+    true,
+    "NFC Korean search must find an NFD-backed contact name"
+  );
+  const nfdSearchModel = core.buildPeopleWorkspaceModel(
+    [nfdPerson],
+    [],
+    { query: "강은지", filter: "all" }
+  );
+  assert.equal(nfdSearchModel.shown, 1);
+  assert.deepEqual(nfdSearchModel.people[0].search_match_hints, ["이름"]);
+  assert.equal(
+    core.matchPeopleSearch(nfdPerson, "ㄱㅏㅇㅇㅡㄴㅈㅣ"),
+    true,
+    "raw Korean jamo from the workspace input must find the completed name"
+  );
+
   // --- link index (one-pass) ---
   const people = [
     core.normalizePersonRecord({ path: "PARA/RESOURCES/CONTACTS/김대리.md", type: "people", name: "김대리" }),
@@ -375,6 +401,17 @@ function main() {
   assert.match(peopleViewSrc, /관계 맥락/);
   assert.match(peopleViewSrc, /calc\(100vw - 10px\)/);
   assert.match(peopleViewSrc, /renderRelationshipPicker|ppw-rel-chip/);
+  // Finder input lives in a native Modal, outside the Dataview-owned DOM.
+  assert.equal(typeof view.openPeopleFinder, "function");
+  assert.match(peopleViewSrc, /class PeopleFinderModal extends Modal/);
+  assert.match(peopleViewSrc, /btn\(headerActions, "사람 찾기"/);
+  assert.match(peopleViewSrc, /this\.resultsEl\.empty\(\)/);
+  assert.match(peopleViewSrc, /oncompositionstart/);
+  assert.match(peopleViewSrc, /paintPreview\(\)/);
+  assert.match(peopleViewSrc, /핵심 상호작용/);
+  assert.match(peopleViewSrc, /최근 맥락/);
+  assert.match(peopleViewSrc, /관계 맥락 열기/);
+  assert.match(peopleViewSrc, /ppw-finder-layout/);
   assert.ok(core.RELATIONSHIP_TYPES.includes("지인"));
   const peopleStoreSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/people-store.js"), "utf8");
   assert.match(peopleStoreSrc, /async function savePeopleNote/);

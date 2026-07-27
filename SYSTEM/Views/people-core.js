@@ -66,6 +66,53 @@
     return String(value == null ? "" : value).trim();
   }
 
+  const HANGUL_COMPAT_INITIALS = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+  const HANGUL_COMPAT_MEDIALS = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ";
+  const HANGUL_COMPAT_FINALS = [
+    "", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ",
+    "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"
+  ];
+
+  /**
+   * Compose a raw two-beolsik compatibility-jamo run (ㄱㅏㅇ) for matching.
+   * Obsidian/Electron can surface this form during Korean input even before
+   * the IME exposes a completed syllable (강).
+   */
+  function composeHangulCompatJamo(value) {
+    const text = String(value == null ? "" : value);
+    let output = "";
+    let index = 0;
+    while (index < text.length) {
+      const lead = HANGUL_COMPAT_INITIALS.indexOf(text[index]);
+      const medial = HANGUL_COMPAT_MEDIALS.indexOf(text[index + 1]);
+      if (lead < 0 || medial < 0) {
+        output += text[index];
+        index += 1;
+        continue;
+      }
+
+      index += 2;
+      let final = 0;
+      const possibleFinal = HANGUL_COMPAT_FINALS.indexOf(text[index]);
+      const nextIsMedial = HANGUL_COMPAT_MEDIALS.indexOf(text[index + 1]) >= 0;
+      if (possibleFinal > 0 && !nextIsMedial) {
+        final = possibleFinal;
+        index += 1;
+      }
+      output += String.fromCharCode(0xAC00 + ((lead * 21 + medial) * 28) + final);
+    }
+    return output;
+  }
+
+  /**
+   * Search must treat macOS/iCloud NFD filenames, Korean IME NFC input, and
+   * raw compatibility jamo alike. Keep this scoped to matching: paths and
+   * note content stay byte-for-byte untouched.
+   */
+  function normalizeSearchText(value) {
+    return composeHangulCompatJamo(clean(value)).normalize("NFC").toLowerCase();
+  }
+
   function isPeopleType(type) {
     return clean(type).toLowerCase() === CANONICAL_TYPE;
   }
@@ -816,16 +863,16 @@
    * Why a person matched search (for dashboard hints). Deterministic field scan only.
    */
   function getSearchMatchHints(person, query) {
-    const q = clean(query).toLowerCase();
+    const q = normalizeSearchText(query);
     if (!q) return [];
     const p = person && person.search_text ? person : normalizePersonRecord(person);
     const hints = [];
-    if (clean(p.name).toLowerCase().includes(q)) hints.push("이름");
-    if (clean(p.relationship).toLowerCase().includes(q)) hints.push("구분");
-    if (clean(p.company).toLowerCase().includes(q)) hints.push("소속");
-    if (clean(p.role).toLowerCase().includes(q)) hints.push("역할");
-    if ((p.memo_lines || []).some((l) => clean(l).toLowerCase().includes(q))) hints.push("메모");
-    if ((p.interaction_lines || []).some((l) => clean(l).toLowerCase().includes(q))) hints.push("사건");
+    if (normalizeSearchText(p.name).includes(q)) hints.push("이름");
+    if (normalizeSearchText(p.relationship).includes(q)) hints.push("구분");
+    if (normalizeSearchText(p.company).includes(q)) hints.push("소속");
+    if (normalizeSearchText(p.role).includes(q)) hints.push("역할");
+    if ((p.memo_lines || []).some((l) => normalizeSearchText(l).includes(q))) hints.push("메모");
+    if ((p.interaction_lines || []).some((l) => normalizeSearchText(l).includes(q))) hints.push("사건");
     if (!hints.length && String(p.search_text || "").includes(q)) hints.push("본문");
     return hints;
   }
@@ -897,12 +944,12 @@
         memoLines.join("\n"),
         interactionLines.join("\n"),
         clean(body)
-      ].join("\n").toLowerCase()
+      ].join("\n").normalize("NFC").toLowerCase()
     };
   }
 
   function matchPeopleSearch(person, query) {
-    const q = clean(query).toLowerCase();
+    const q = normalizeSearchText(query);
     if (!q) return true;
     const p = person && person.search_text
       ? person
