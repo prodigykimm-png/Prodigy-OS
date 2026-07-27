@@ -18,11 +18,11 @@ const fs = require("node:fs");
 const crypto = require("node:crypto");
 
 const SUPPORTED_SCHEMA_VERSION = 1;
-const ALLOWED_PROVIDERS = new Set(["incheon-metro", "busan-metro"]);
+const ALLOWED_PROVIDERS = new Set(["incheon-metro", "busan-metro", "seoul-metro"]);
 const STATION_KEYS = new Set(["station_name", "station_no", "line_name", "raw_path", "raw_sha256"]);
 const CROSSWALK_ROOT = "SYSTEM/CACHE/region-transit";
 const ALLOWED_RAW_ROOT = "SYSTEM/CACHE/region-transit/raw";
-const CROSSWALK_FILENAME = "station-district-map.json";
+const CROSSWALK_FILENAMES = new Set(["station-district-map.json", "station-district-map-seoul.json"]);
 const HASHES_FILENAME = "hashes.json";
 
 const TRANSIT_MARKER = Object.freeze({
@@ -98,8 +98,8 @@ function validatePackage(pkg, vaultRoot) {
   if (!realCrosswalk.startsWith(allowedCrosswalkRoot + path.sep) && realCrosswalk !== allowedCrosswalkRoot) {
     throw new Error("crosswalk_path가 허용 경로 밖에 있습니다: " + pkg.crosswalk_path);
   }
-  if (path.basename(realCrosswalk) !== CROSSWALK_FILENAME) {
-    throw new Error("crosswalk 파일명이 " + CROSSWALK_FILENAME + "이 아닙니다: " + path.basename(realCrosswalk));
+  if (!CROSSWALK_FILENAMES.has(path.basename(realCrosswalk))) {
+    throw new Error("crosswalk 파일명이 허용 목록에 없습니다: " + path.basename(realCrosswalk));
   }
 
   // Verify crosswalk map hash
@@ -145,8 +145,9 @@ function validatePackage(pkg, vaultRoot) {
   if (!hashesContent.hashes || typeof hashesContent.hashes !== "object") {
     throw new Error("hashes.json에 hashes 객체가 없습니다.");
   }
-  const mapHashInHashes = hashesContent.hashes[CROSSWALK_FILENAME];
-  if (!mapHashInHashes) throw new Error("hashes.json에 " + CROSSWALK_FILENAME + " hash가 없습니다.");
+  const crosswalkBasename = path.basename(realCrosswalk);
+  const mapHashInHashes = hashesContent.hashes[crosswalkBasename];
+  if (!mapHashInHashes) throw new Error("hashes.json에 " + crosswalkBasename + " hash가 없습니다.");
   if (mapHashInHashes !== actualMapSha) {
     throw new Error("hashes.json의 map hash 불일치: map=" + actualMapSha + " hashes.json=" + mapHashInHashes);
   }
@@ -197,7 +198,7 @@ function renderBody(pkg, vaultRoot) {
   }
 
   const lines = [];
-  const providerLabel = { "incheon-metro": "인천교통공사" }[pkg.provider] || pkg.provider;
+  const providerLabel = { "incheon-metro": "인천교통공사", "seoul-metro": "서울교통공사", "busan-metro": "부산교통공사" }[pkg.provider] || pkg.provider;
   lines.push("### " + providerLabel + " 확인 역");
   lines.push("");
 
@@ -242,7 +243,7 @@ module.exports = Object.freeze({
   TRANSPORT_LIFE_START: TRANSPORT_LIFE_START,
   CROSSWALK_ROOT: CROSSWALK_ROOT,
   ALLOWED_RAW_ROOT: ALLOWED_RAW_ROOT,
-  CROSSWALK_FILENAME: CROSSWALK_FILENAME,
+  CROSSWALK_FILENAMES: CROSSWALK_FILENAMES,
   HASHES_FILENAME: HASHES_FILENAME,
   validatePackage: validatePackage,
   renderBody: renderBody,
