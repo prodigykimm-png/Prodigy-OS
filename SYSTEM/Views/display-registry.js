@@ -1,5 +1,7 @@
 (function () {
   // allow: SIZE_OK — one central, static Korean display registry prevents label ownership from fragmenting across Views.
+  const T = (typeof globalThis !== "undefined" ? globalThis : this).ProdigyTokens;
+  const C = T ? T.COLORS : {};
   const PROPERTY_LABELS = Object.freeze({
     id: "식별자", type: "유형", status: "상태", created: "생성일", updated: "수정일",
     next_action: "다음 행동", due_date: "마감일", start_date: "시작일", priority: "우선순위",
@@ -71,38 +73,38 @@
   });
 
   const STATUS_INFO = Object.freeze({
-    watching: Object.freeze({ label: "관심", icon: "👀", color: "#888888" }),
-    idea: Object.freeze({ label: "아이디어", icon: "💡", color: "#8b5cf6" }),
-    planning: Object.freeze({ label: "계획", icon: "📋", color: "#3b82f6" }),
-    doing: Object.freeze({ label: "진행", icon: "▶", color: "#22c55e" }),
-    active: Object.freeze({ label: "활성", icon: "▶", color: "#22c55e" }),
-    bidding: Object.freeze({ label: "입찰 예정", icon: "⚖️", color: "#3b82f6" }),
-    reviewing: Object.freeze({ label: "복기 중", icon: "🔄", color: "#f97316" }),
-    proposed: Object.freeze({ label: "제안", icon: "✦", color: "#a855f7" }),
-    saved: Object.freeze({ label: "보관", icon: "☆", color: "#22c55e" }),
-    needs_more_evidence: Object.freeze({ label: "증거 보강", icon: "⚠", color: "#eab308" }),
-    approved: Object.freeze({ label: "승인", icon: "✓", color: "#22c55e" }),
-    rejected: Object.freeze({ label: "반려", icon: "✕", color: "#666666" }),
-    won: Object.freeze({ label: "낙찰", icon: "🏆", color: "#22c55e" }),
-    lost: Object.freeze({ label: "패찰", icon: "✕", color: "#ef4444" }),
-    skipped: Object.freeze({ label: "입찰 포기", icon: "✕", color: "#666666" }),
-    archived: Object.freeze({ label: "보관", icon: "▣", color: "#555555" }),
-    blocked: Object.freeze({ label: "지연", icon: "!", color: "#ef4444" }),
-    completed: Object.freeze({ label: "완료", icon: "✓", color: "#06b6d4" }),
-    queue: Object.freeze({ label: "독서 대기", icon: "📚", color: "#8e8e93" }),
-    to_read: Object.freeze({ label: "읽을 예정", icon: "📚", color: "#8e8e93" }),
-    reading: Object.freeze({ label: "독서 중", icon: "📖", color: "#22c55e" }),
-    finished: Object.freeze({ label: "완독", icon: "✓", color: "#06b6d4" }),
-    paused: Object.freeze({ label: "일시 정지", icon: "Ⅱ", color: "#eab308" }),
-    dropped: Object.freeze({ label: "중단", icon: "✕", color: "#ef4444" }),
-    capture: Object.freeze({ label: "등록", icon: "+", color: "#14b8a6" }),
-    learning: Object.freeze({ label: "학습 중", icon: "▶", color: "#22c55e" }),
-    planned: Object.freeze({ label: "계획", icon: "📋", color: "#3b82f6" }),
-    scheduled: Object.freeze({ label: "예정", icon: "📅", color: "#64748b" }),
-    in_meeting: Object.freeze({ label: "진행 중", icon: "▶", color: "#22c55e" }),
-    identified: Object.freeze({ label: "등록", icon: "+", color: "#78716c" }),
-    engaging: Object.freeze({ label: "접촉 중", icon: "▶", color: "#78716c" }),
-    connected: Object.freeze({ label: "연결 완료", icon: "✓", color: "#06b6d4" })
+    watching: Object.freeze({ label: "관심", icon: "👀", color: C.muted }),
+    idea: Object.freeze({ label: "아이디어", icon: "💡", color: C.accent }),
+    planning: Object.freeze({ label: "계획", icon: "📋", color: C.info }),
+    doing: Object.freeze({ label: "진행", icon: "▶", color: C.success }),
+    active: Object.freeze({ label: "활성", icon: "▶", color: C.success }),
+    bidding: Object.freeze({ label: "입찰 예정", icon: "⚖️", color: C.info }),
+    reviewing: Object.freeze({ label: "복기 중", icon: "🔄", color: C.warning }),
+    proposed: Object.freeze({ label: "제안", icon: "✦", color: C.accentAlt }),
+    saved: Object.freeze({ label: "보관", icon: "☆", color: C.success }),
+    needs_more_evidence: Object.freeze({ label: "증거 보강", icon: "⚠", color: C.caution }),
+    approved: Object.freeze({ label: "승인", icon: "✓", color: C.success }),
+    rejected: Object.freeze({ label: "반려", icon: "✕", color: C.neutral600 }),
+    won: Object.freeze({ label: "낙찰", icon: "🏆", color: C.success }),
+    lost: Object.freeze({ label: "패찰", icon: "✕", color: C.error }),
+    skipped: Object.freeze({ label: "입찰 포기", icon: "✕", color: C.neutral600 }),
+    archived: Object.freeze({ label: "보관", icon: "▣", color: C.neutral800 }),
+    blocked: Object.freeze({ label: "지연", icon: "!", color: C.error }),
+    completed: Object.freeze({ label: "완료", icon: "✓", color: C.cyan }),
+    queue: Object.freeze({ label: "독서 대기", icon: "📚", color: C.neutral500 }),
+    to_read: Object.freeze({ label: "읽을 예정", icon: "📚", color: C.neutral500 }),
+    reading: Object.freeze({ label: "독서 중", icon: "📖", color: C.success }),
+    finished: Object.freeze({ label: "완독", icon: "✓", color: C.cyan }),
+    paused: Object.freeze({ label: "일시 정지", icon: "Ⅱ", color: C.caution }),
+    dropped: Object.freeze({ label: "중단", icon: "✕", color: C.error }),
+    capture: Object.freeze({ label: "등록", icon: "+", color: C.teal }),
+    learning: Object.freeze({ label: "학습 중", icon: "▶", color: C.success }),
+    planned: Object.freeze({ label: "계획", icon: "📋", color: C.info }),
+    scheduled: Object.freeze({ label: "예정", icon: "📅", color: C.neutral700 }),
+    in_meeting: Object.freeze({ label: "진행 중", icon: "▶", color: C.success }),
+    identified: Object.freeze({ label: "등록", icon: "+", color: C.stone }),
+    engaging: Object.freeze({ label: "접촉 중", icon: "▶", color: C.stone }),
+    connected: Object.freeze({ label: "연결 완료", icon: "✓", color: C.cyan })
   });
 
   const PRIORITY_LABELS = Object.freeze({
@@ -111,42 +113,42 @@
     "매우 낮음": "매우 낮음", "낮음": "낮음", "보통": "보통", "높음": "높음", "매우 높음": "매우 높음"
   });
   const TYPE_INFO = Object.freeze({
-    auction_case: Object.freeze({ label: "경매", icon: "🏢", color: "#3b82f6" }),
-    auction_region: Object.freeze({ label: "부동산 지역", icon: "🗺", color: "#0ea5e9" }),
-    reading: Object.freeze({ label: "독서", icon: "📖", color: "#eab308" }),
-    reading_session: Object.freeze({ label: "독서 세션", icon: "✎", color: "#eab308" }),
-    knowledge_candidate: Object.freeze({ label: "지식 후보", icon: "✦", color: "#a855f7" }),
-    journal: Object.freeze({ label: "저널", icon: "📅", color: "#ec4899" }),
-    project: Object.freeze({ label: "프로젝트", icon: "📁", color: "#f97316" }),
-    project_family: Object.freeze({ label: "프로젝트", icon: "📁", color: "#f97316" }),
-    project_note: Object.freeze({ label: "프로젝트", icon: "📁", color: "#f97316" }),
-    knowledge: Object.freeze({ label: "지식", icon: "🧠", color: "#a855f7" }),
-    venue: Object.freeze({ label: "장소", icon: "", color: "#8b5cf6" }),
-    people: Object.freeze({ label: "사람", icon: "👤", color: "#78716c" }),
-    contact: Object.freeze({ label: "사람", icon: "👤", color: "#78716c" }),
-    workout: Object.freeze({ label: "운동", icon: "💪", color: "#ef4444" }),
-    workout_program: Object.freeze({ label: "운동 프로그램", icon: "▤", color: "#ef4444" }),
-    exercise: Object.freeze({ label: "운동 종목", icon: "+", color: "#14b8a6" }),
-    wedding: Object.freeze({ label: "웨딩", icon: "📸", color: "#8b5cf6" }),
-    study: Object.freeze({ label: "공부", icon: "📚", color: "#22c55e" }),
-    area_family: Object.freeze({ label: "영역", icon: "🌐", color: "#14b8a6" }),
-    area_note: Object.freeze({ label: "영역 노트", icon: "📝", color: "#14b8a6" }),
-    area_note_sub: Object.freeze({ label: "영역 세부", icon: "📝", color: "#14b8a6" }),
-    fleeting_note: Object.freeze({ label: "메모", icon: "💡", color: "#14b8a6" }),
-    permanent_note: Object.freeze({ label: "영구 노트", icon: "🧠", color: "#14b8a6" }),
-    literature_note: Object.freeze({ label: "문헌", icon: "📖", color: "#14b8a6" }),
-    meeting: Object.freeze({ label: "회의", icon: "📅", color: "#64748b" }),
-    workstation_note: Object.freeze({ label: "워크스테이션", icon: "💻", color: "#64748b" }),
-    documentation_note: Object.freeze({ label: "문서", icon: "📄", color: "#64748b" }),
-    new_note: Object.freeze({ label: "노트", icon: "📌", color: "#6b7280" })
+    auction_case: Object.freeze({ label: "경매", icon: "🏢", color: C.info }),
+    auction_region: Object.freeze({ label: "부동산 지역", icon: "🗺", color: C.infoLight }),
+    reading: Object.freeze({ label: "독서", icon: "📖", color: C.caution }),
+    reading_session: Object.freeze({ label: "독서 세션", icon: "✎", color: C.caution }),
+    knowledge_candidate: Object.freeze({ label: "지식 후보", icon: "✦", color: C.accentAlt }),
+    journal: Object.freeze({ label: "저널", icon: "📅", color: C.pink }),
+    project: Object.freeze({ label: "프로젝트", icon: "📁", color: C.warning }),
+    project_family: Object.freeze({ label: "프로젝트", icon: "📁", color: C.warning }),
+    project_note: Object.freeze({ label: "프로젝트", icon: "📁", color: C.warning }),
+    knowledge: Object.freeze({ label: "지식", icon: "🧠", color: C.accentAlt }),
+    venue: Object.freeze({ label: "장소", icon: "", color: C.accent }),
+    people: Object.freeze({ label: "사람", icon: "👤", color: C.stone }),
+    contact: Object.freeze({ label: "사람", icon: "👤", color: C.stone }),
+    workout: Object.freeze({ label: "운동", icon: "💪", color: C.error }),
+    workout_program: Object.freeze({ label: "운동 프로그램", icon: "▤", color: C.error }),
+    exercise: Object.freeze({ label: "운동 종목", icon: "+", color: C.teal }),
+    wedding: Object.freeze({ label: "웨딩", icon: "📸", color: C.accent }),
+    study: Object.freeze({ label: "공부", icon: "📚", color: C.success }),
+    area_family: Object.freeze({ label: "영역", icon: "🌐", color: C.teal }),
+    area_note: Object.freeze({ label: "영역 노트", icon: "📝", color: C.teal }),
+    area_note_sub: Object.freeze({ label: "영역 세부", icon: "📝", color: C.teal }),
+    fleeting_note: Object.freeze({ label: "메모", icon: "💡", color: C.teal }),
+    permanent_note: Object.freeze({ label: "영구 노트", icon: "🧠", color: C.teal }),
+    literature_note: Object.freeze({ label: "문헌", icon: "📖", color: C.teal }),
+    meeting: Object.freeze({ label: "회의", icon: "📅", color: C.neutral700 }),
+    workstation_note: Object.freeze({ label: "워크스테이션", icon: "💻", color: C.neutral700 }),
+    documentation_note: Object.freeze({ label: "문서", icon: "📄", color: C.neutral700 }),
+    new_note: Object.freeze({ label: "노트", icon: "📌", color: C.neutral600 })
   });
 
   const LIFECYCLE_INFO = Object.freeze({
-    healthy: Object.freeze({ label: "정상", icon: "●", color: "#22c55e" }),
-    needs_action: Object.freeze({ label: "다음 행동 필요", icon: "!", color: "#f97316" }),
-    needs_review: Object.freeze({ label: "복기 필요", icon: "↻", color: "#eab308" }),
-    stale: Object.freeze({ label: "오래 방치됨", icon: "◌", color: "#8e8e93" }),
-    completed: Object.freeze({ label: "완료", icon: "✓", color: "#06b6d4" })
+    healthy: Object.freeze({ label: "정상", icon: "●", color: C.success }),
+    needs_action: Object.freeze({ label: "다음 행동 필요", icon: "!", color: C.warning }),
+    needs_review: Object.freeze({ label: "복기 필요", icon: "↻", color: C.caution }),
+    stale: Object.freeze({ label: "오래 방치됨", icon: "◌", color: C.neutral500 }),
+    completed: Object.freeze({ label: "완료", icon: "✓", color: C.cyan })
   });
 
   const KNOWLEDGE_DOMAIN_INFO = Object.freeze({
@@ -203,7 +205,7 @@
     ai: Object.freeze({ label: "AI 요약" })
   });
 
-  const fallbackInfo = (label) => Object.freeze({ label, icon: "", color: "#6b7280" });
+  const fallbackInfo = (label) => Object.freeze({ label, icon: "", color: C.neutral600 });
   const statusInfo = (value) => STATUS_INFO[value] || fallbackInfo(value ? "미등록 상태" : "미지정");
   const typeInfo = (value) => TYPE_INFO[value] || fallbackInfo(value ? "미등록 유형" : "미지정");
   const lifecycleInfo = (value) => LIFECYCLE_INFO[value] || fallbackInfo(value ? "미등록 라이프사이클" : "미지정");
