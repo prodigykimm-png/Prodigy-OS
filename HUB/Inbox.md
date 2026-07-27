@@ -5,15 +5,10 @@ cssclasses:
 ---
 # 📥 Inbox
 
-> **Temporary Capture Space**
-> 임시로 캡처된 정보나 빠른 기록(Fleeting Notes)이 보관되는 공간입니다.
-> 이곳에 기록된 정보는 장기 보관하지 않으며, 검토 후 정식 Object(사건, 지식, 프로젝트 등)로 변환하거나 아카이브해야 합니다.
-
----
-
-## ⚡ 빠른 캡처
-
-`BUTTON[prodigy_quick_note, prodigy_auction_case, prodigy_knowledge, prodigy_project, prodigy_journal]`
+> **미분류 기록 검토함**
+> 임시로 캡처된 정보와 빠른 기록(Fleeting Notes)을 검토하는 공간입니다.
+> 새 Object 생성은 **Home의 + 새 Object**를 사용하세요.
+> 이곳에서는 기존 임시 기록을 검토하고, 정식 Object로 변환하거나 아카이브합니다.
 
 ---
 
@@ -61,67 +56,4 @@ if (pages.length === 0) {
 
 ---
 
-```meta-bind-button
-label: 빠른 메모
-icon: lucide-sticky-note
-hidden: true
-class: ""
-tooltip: 일회성 빠른 메모 만들기
-id: prodigy_quick_note
-style: primary
-actions:
-  - type: command
-    command: quickadd:choice:9a4a8c3c-5e7a-4261-bd7f-85f2891948a7
-```
-
-```meta-bind-button
-label: 경매
-icon: lucide-gavel
-hidden: true
-class: ""
-tooltip: 새 경매 사건 만들기
-id: prodigy_auction_case
-style: primary
-actions:
-  - type: command
-    command: file-explorer:new-file
-```
-
-```meta-bind-button
-label: 지식
-icon: lucide-brain
-hidden: true
-class: ""
-tooltip: 지식 노트 만들기
-id: prodigy_knowledge
-style: primary
-actions:
-  - type: command
-    command: quickadd:choice:a019f4b7-7f8e-4937-8069-7a9ad8c4b10e
-```
-
-```meta-bind-button
-label: 프로젝트
-icon: lucide-folder-kanban
-hidden: true
-class: ""
-tooltip: 새 프로젝트 만들기
-id: prodigy_project
-style: primary
-actions:
-  - type: command
-    command: quickadd:choice:e4613d75-73bb-4923-8c77-fd39102a8b9a
-```
-
-```meta-bind-button
-label: 저널
-icon: lucide-calendar
-hidden: true
-class: ""
-tooltip: 오늘 일일 노트 열기
-id: prodigy_journal
-style: primary
-actions:
-  - type: command
-    command: journals:journal:calendar:open-day
-```
+<!-- QuickAdd UUID 버튼 제거됨 (2026-07-27): Home Creator가 유일한 Object 생성 진입점입니다. -->

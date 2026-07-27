@@ -43,7 +43,7 @@
     const source = plain(evidence) ? evidence : {};
     const title = contract.safeProse(source.title || input.direct_observation.slice(0, 80), "manual evidence.title", true).slice(0, 80);
     return {
-      evidence_id: PLANNED_EVIDENCE_ID, title, context: "auction", related_objects: input.related_object_links.slice(), experience: input.direct_observation,
+      evidence_id: PLANNED_EVIDENCE_ID, title, context: root.RegionExperienceContract.EVIDENCE_CONTEXT || "auction", related_objects: input.related_object_links.slice(), experience: input.direct_observation,
       interpretation: contract.safeProse(source.interpretation, "manual evidence.interpretation", false),
       change: contract.safeProse(source.change, "manual evidence.change", false), next_experiment: contract.safeProse(source.next_experiment, "manual evidence.next_experiment", false),
       epistemic_status: input.epistemic_status, review_status: input.epistemic_status === "user_inference" ? "pending" : "ready",

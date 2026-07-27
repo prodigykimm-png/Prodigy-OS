@@ -43,10 +43,8 @@ const SUITES = Object.freeze([
 // Pre-existing Property-audit warnings that are allowed to remain. A warning whose
 // path is NOT in this list is a regression and fails the run. A listed warning that
 // disappears is fine (the baseline may only shrink).
-const KNOWN_PROPERTY_WARNINGS = Object.freeze([
-  "region-experience-contract.js",
-  "region-experience-handoff.js"
-]);
+// 2026-07-27: region-experience-contract.js, region-experience-handoff.js 경고 해결됨 (EVIDENCE_CONTEXT 상수 추출)
+const KNOWN_PROPERTY_WARNINGS = Object.freeze([]);
 
 const PROPERTY_AUDIT_CMD = "uv";
 const PROPERTY_AUDIT_ARGS = Object.freeze([

@@ -2,6 +2,7 @@
   "use strict";
 
   // Pure Region Experience value contract. Provider and vault work stay outside this module.
+  var EVIDENCE_CONTEXT = "auction";
   const CATEGORY_SECTIONS = Object.freeze({
     transport_life: "교통·생활",
     supply_observation: "임장 포인트",
@@ -190,7 +191,7 @@
     return {
       evidence_id: "region-experience-0",
       title,
-      context: "auction",
+      context: EVIDENCE_CONTEXT,
       related_objects: input.related_object_links.slice(),
       experience: input.direct_observation,
       interpretation,
@@ -264,6 +265,7 @@
 
   const api = Object.freeze({
     CATEGORY_SECTIONS,
+    EVIDENCE_CONTEXT,
     normalizeInput,
     normalizeProposal,
     safeProse

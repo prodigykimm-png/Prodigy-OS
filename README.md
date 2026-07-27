@@ -32,7 +32,7 @@ Humans decide.
 - **Data First (SSoT)**: YAML Property는 유일한 진실의 원천입니다. 계산을 통해 도출 가능한 2차 값은 중복하여 물리적으로 저장하지 않고 대시보드에서 실시간 계산합니다.
 - **Decision First**: 대시보드는 정적인 분석 차트의 나열이 아니라, "오늘 당장 무엇을 행동해야 하는가"를 가이드하는 Operational Workspace입니다.
 
-> 상세 원칙 문서: [docs/00_Constitution.md](docs/00_Constitution.md)
+> 상세 원칙 문서: [docs/00_Constitution.md](SYSTEM/docs/00_Constitution.md)
 
 ---
 
@@ -53,7 +53,7 @@ Decision (Human Action)
 3. **Dashboard**: 각 도메인의 대시보드가 Object 속성을 읽고 실시간으로 상태를 추적 및 필터링하여 사용자에게 보여줍니다.
 4. **Decision**: 사용자는 카드 내 퀵 액션 버튼 클릭만으로 워크플로우 상태를 변경하고 최적의 의사결정을 내립니다.
 
-> 상세 구조 문서: [docs/01_Architecture.md](docs/01_Architecture.md)
+> 상세 구조 문서: [docs/01_Architecture.md](SYSTEM/docs/01_Architecture.md)
 
 ---
 
@@ -90,15 +90,15 @@ Prodigy OS/ (Vault Root)
 
 | 주제 | 문서 링크 |
 |------|------|
-| 헌법 (최상위 철학) | [docs/00_Constitution.md](docs/00_Constitution.md) |
-| 시스템 아키텍처 | [docs/01_Architecture.md](docs/01_Architecture.md) |
-| 핵심 개념 설명 | [docs/02_Core_Concepts.md](docs/02_Core_Concepts.md) |
-| Object 모델 명세 | [docs/03_Object_Model.md](docs/03_Object_Model.md) |
-| 캡처 시스템 설계 | [docs/04_Capture_System.md](docs/04_Capture_System.md) |
-| Home 설계 규칙 | [docs/05_Home.md](docs/05_Home.md) |
-| AI 어시스턴트 역할 | [docs/06_AI_System.md](docs/06_AI_System.md) |
-| 구현 및 가이드라인 | [docs/07_Implementation_Guide.md](docs/07_Implementation_Guide.md) |
-| 실제 작동 설명서 | [docs/09_Obsidian_Manual.md](docs/09_Obsidian_Manual.md) |
+| 헌법 (최상위 철학) | [docs/00_Constitution.md](SYSTEM/docs/00_Constitution.md) |
+| 시스템 아키텍처 | [docs/01_Architecture.md](SYSTEM/docs/01_Architecture.md) |
+| 핵심 개념 설명 | [docs/02_Core_Concepts.md](SYSTEM/docs/02_Core_Concepts.md) |
+| Object 모델 명세 | [docs/03_Object_Model.md](SYSTEM/docs/03_Object_Model.md) |
+| 캡처 시스템 설계 | [docs/04_Capture_System.md](SYSTEM/docs/04_Capture_System.md) |
+| Home 설계 규칙 | [docs/05_Home.md](SYSTEM/docs/05_Home.md) |
+| AI 어시스턴트 역할 | [docs/06_AI_System.md](SYSTEM/docs/06_AI_System.md) |
+| 구현 및 가이드라인 | [docs/07_Implementation_Guide.md](SYSTEM/docs/07_Implementation_Guide.md) |
+| 실제 작동 설명서 | [docs/09_Obsidian_Manual.md](SYSTEM/docs/09_Obsidian_Manual.md) |
 
 ---
 

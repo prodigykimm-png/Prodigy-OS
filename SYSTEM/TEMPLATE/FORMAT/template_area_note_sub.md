@@ -7,6 +7,7 @@ cssclasses:
   - hide-properties_editing
   - hide-properties_reading
 ---
+<!-- 미사용: 생성 Object 0개. area_note와 통합 검토 대상. -->
 # [[<% tp.file.folder() %>]] — <% tp.file.title %>
 
 <!-- PROPERTY-DRIVEN SUMMARY -->

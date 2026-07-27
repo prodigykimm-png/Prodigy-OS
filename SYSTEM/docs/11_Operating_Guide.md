@@ -352,6 +352,20 @@ node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/run_knowledge_decision_loop
 - 재현: `node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/run_knowledge_decision_loop_tests.js --verify-known-region-baseline`. 이 명령은 현재의 `region_sigungu` assertion failure만 알려진 baseline으로 인정한다. 통과하거나 다른 오류가 나면 smoke 계약 자체가 실패한다.
 - 제외를 해소하려면 별도의 계약 변경과 직접 test 수정·검토가 필요하다. 이 운영 기준선 작업에서는 이를 수정하지 않는다.
 
+### Knowledge 워크스페이스 — 두 탭 구조
+
+`HUB/50 Knowledge.md`는 두 탭으로 분리되어 있다.
+
+| 탭 | 이름 | 역할 |
+|---|---|---|
+| 기본 | 지식 구축 · 제텔카스텐 | 후보 작성·문헌 정리·검증 대기·영구 지식 탐색 |
+| 보조 | 지식 활용 · PARA | 프로젝트·영역·자료에 명시적으로 연결된 승인 지식만 표시 |
+
+- **제텔카스텐 탭**: `+ 지식 후보 작성`, `+ 자료 정리`, 검증 대기 Inbox, 도메인→주제→상세 탐색기를 포함한다. `fleeting_note`는 카운트에서 제외한다.
+- **PARA 탭**: `connections` 또는 wikilink로 연결된 `type: knowledge` / `type: permanent_note`만 표시한다. Candidate, literature_note, venue, auction_region은 "검증된 지식"으로 표시하지 않는다. 연결이 없으면 "연결된 지식 없음"으로 표시한다.
+- 탭 상태는 Hub 재렌더 시 유지되며, 신규 로드 시 제텔카스텐 탭이 기본이다.
+- 기존 파일·Object 경로는 이동하지 않는다.
+
 ### Knowledge Explorer 탐색과 오늘의 브리핑
 
 ### 지식 작성과 자료 정리 — 두 개의 직접 입력 경로

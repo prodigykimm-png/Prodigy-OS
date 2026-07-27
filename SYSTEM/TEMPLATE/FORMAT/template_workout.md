@@ -23,6 +23,7 @@ mood:
 notes:
 review_summary:
 ---
+<!-- 미사용: 생성 Object 0개. 운동 시스템은 workout_program·세션 Store 중심. -->
 # <% tp.file.title %>
 
 <!-- PROPERTY-DRIVEN SUMMARY -->

@@ -20,9 +20,24 @@ async function testHubLoadsExplorerAndDetailSections() {
   assert.match(text, /지식|자료|연결된 항목|저널|프로젝트|최근 학습|확인 필요|연결 근거/);
   assert.match(text, /분류:\s*(지식|자료|사람|프로젝트|저널|읽기|기타)/);
   assert.match(text, /연결 이유:/);
-  assert.doesNotMatch(text, /\b(Knowledge|Resources|Related Objects|Journal|Projects|recent learning|warnings|provenance)\b/);
-  assert.doesNotMatch(text, /\b(category|reason|provenance_label|provenance_source_path)\b/);
-  assert.doesNotMatch(text, /\b(auction_region|literature_note|permanent_note)\b/);
+  // 부정 매칭은 제텔카스텐(Explorer) 패널로 한정 — PARA 탭에는 정당한 영문 지식 제목이 포함될 수 있음
+  function findByAttrId(el, id) {
+    if (!el) return null;
+    if (el.attr && el.attr.id === id) return el;
+    for (const child of el.children || []) { const found = findByAttrId(child, id); if (found) return found; }
+    return null;
+  }
+  const zettelPanel = findByAttrId(result.container, "knowledge-panel-zettelkasten");
+  assert.ok(zettelPanel, "제텔카스텐 탭 패널이 존재해야 합니다.");
+  const zettelText = collectText(zettelPanel);
+  assert.doesNotMatch(zettelText, /\b(Knowledge|Resources|Related Objects|Journal|Projects|recent learning|warnings|provenance)\b/);
+  assert.doesNotMatch(zettelText, /\b(category|reason|provenance_label|provenance_source_path)\b/);
+  assert.doesNotMatch(zettelText, /\b(auction_region|literature_note|permanent_note)\b/);
+  // PARA 탭 검증
+  const paraPanel = findByAttrId(result.container, "knowledge-panel-para");
+  assert.ok(paraPanel, "PARA 탭 패널이 존재해야 합니다.");
+  const paraText = collectText(paraPanel);
+  assert.match(paraText, /지식 활용|연결된 지식 없음|승인 지식/);
   assert.equal(result.window.KnowledgeExplorerHub.error, undefined);
   assert.ok(result.window.KnowledgeExplorerHub.model);
   assert.ok(result.window.KnowledgeExplorerHub.model.detail_sections_by_asset_path);

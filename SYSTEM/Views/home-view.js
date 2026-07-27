@@ -893,9 +893,9 @@
         attr: { class: "home-card " + (isMorning ? "emphasis-primary" : "emphasis-secondary") + (isCompactHome ? " home-brief-compact" : "") }
       });
       const briefHead = briefCard.createEl("div", { attr: { class: "home-header" } });
-      briefHead.createEl("span", { text: "🌅 TODAY" });
+      briefHead.createEl("span", { text: "🌅 오늘" });
       briefHead.createEl("span", {
-        text: "Morning Brief",
+        text: "모닝 브리프",
         attr: { style: "font-size:0.78em;font-weight:600;color:var(--text-muted);margin-left:4px;" }
       });
       const briefMode = result.brief_mode || (result.principle && result.principle.source) || "";
@@ -1127,7 +1127,7 @@
         const row = listDiv.createEl("div", { attr: { class: "focus-row" } });
         const top = row.createEl("div", { attr: { class: "focus-top" } });
         const titleSpan = top.createEl("div", { attr: { class: "focus-title" } });
-        titleSpan.createEl("span", { text: item.label || "Focus" });
+        titleSpan.createEl("span", { text: item.label || "집중" });
         top.createEl("span", {
           text: getSourceTypeLabel(item.source_type),
           attr: { class: "badge badge-gray" }
@@ -1240,7 +1240,7 @@
           attr: { style: "display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;" }
         });
         meta.createEl("div", {
-          text: c.workspace_label || "Workspace",
+          text: c.workspace_label || "워크스페이스",
           attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);" }
         });
         meta.createEl("strong", {
@@ -1353,7 +1353,7 @@
           const lvl = String(risk.attention_level).toLowerCase();
           if (lvl === "critical" || lvl === "high") {
             titleWrap.createEl("span", {
-              text: lvl === "critical" ? "Critical" : "High",
+              text: lvl === "critical" ? "긴급" : "높음",
               attr: {
                 class: lvl === "critical" ? "badge badge-high" : "badge badge-medium",
                 style: "width:fit-content;"
@@ -1372,7 +1372,7 @@
 
         const reasonBox = rItem.createEl("div");
         reasonBox.createEl("div", {
-          text: "WHY",
+          text: "이유",
           attr: { style: "font-size:0.75em;font-weight:700;color:var(--text-muted);margin-bottom:2px;" }
         });
         const reasonList = Array.isArray(risk.evidence) && risk.evidence.length
@@ -1427,6 +1427,29 @@
         attr: { class: "action-btn", type: "button" }
       });
       searchBtn.onclick = () => openSearch();
+      const guideBtn = row.createEl("button", {
+        text: "사용법",
+        attr: { class: "action-btn", type: "button" }
+      });
+      guideBtn.onclick = () => {
+        if (app.workspace && typeof app.workspace.openLinkText === "function") {
+          app.workspace.openLinkText("HUB/05 Guide", "HUB/05 Guide.md", false);
+        }
+      };
+      const doctorBtn = row.createEl("button", {
+        text: "상태 점검",
+        attr: { class: "action-btn", type: "button" }
+      });
+      doctorBtn.onclick = () => {
+        if (root.ProdigyDoctor && typeof root.ProdigyDoctor.renderDoctor === "function") {
+          const leaf = app.workspace.getLeaf(true);
+          if (leaf && leaf.view && leaf.view.contentEl) {
+            root.ProdigyDoctor.renderDoctor(leaf.view.contentEl, app);
+          }
+        } else {
+          new Notice("Prodigy Doctor를 불러오지 못했습니다.");
+        }
+      };
     });
 
     // ── 6. Todoist (summary only — Todoist owns execution) ──
@@ -1439,11 +1462,11 @@
       const todayCount = todoist.todayCount || 0;
       const overdueCount = todoist.overdueCount || 0;
       execCard.createEl("div", {
-        text: "Today",
+        text: "오늘",
         attr: { style: "font-size:0.8em;color:var(--text-muted);font-weight:700;" }
       });
       execCard.createEl("div", {
-        text: todayCount + " Tasks",
+        text: todayCount + "개 업무",
         attr: { style: "font-size:1.15em;font-weight:800;margin-top:2px;" }
       });
       if (overdueCount > 0) {

@@ -11,6 +11,7 @@ tags:
   - knowledge
 type: knowledge
 ---
+<!-- 제텔카스텐 · 지식 구축 계층: 이 템플릿은 지식 성장·검증·보존 흐름에 속합니다. PARA 실행 계층과 구분됩니다. -->
 # <% tp.file.title %>
 
 ## 핵심 요약

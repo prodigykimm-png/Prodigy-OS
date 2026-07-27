@@ -37,6 +37,7 @@ const MODULE_PATHS = [
   "SYSTEM/Views/knowledge-source-batch-render.js",
   "SYSTEM/Views/knowledge-source-batch-view.js",
   "SYSTEM/Views/ai-provider-service.js",
+  "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",
   "SYSTEM/Views/knowledge-authoring-hub-adapter.js",
   "SYSTEM/Views/knowledge-explorer-hub-projection.js",
@@ -52,7 +53,10 @@ const MODULE_PATHS = [
   "SYSTEM/Views/knowledge-explorer-state.js",
   "SYSTEM/Views/knowledge-explorer-responsive.js",
   "SYSTEM/Views/knowledge-explorer-render.js",
-  "SYSTEM/Views/knowledge-explorer-view.js"
+  "SYSTEM/Views/knowledge-explorer-view.js",
+  "SYSTEM/Views/knowledge-workspace-tabs.js",
+  "SYSTEM/Views/knowledge-para-projection.js",
+  "SYSTEM/Views/knowledge-para-view.js"
 ];
 
 const { FakeElement } = require("./knowledge_explorer_view_fakes.js");

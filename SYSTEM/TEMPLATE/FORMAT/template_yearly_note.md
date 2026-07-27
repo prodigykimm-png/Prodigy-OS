@@ -7,6 +7,7 @@ journal-start-date: {{year_start_date}}
 journal-end-date: {{year_end_date}}
 journal-section: year
 ---
+<!-- 미연결: Journal 설정에 등록되지 않음. 신규 생성 경로 없음. -->
 # <% tp.file.title %>
 
 > 나는 어떤 사람이 되어가고 있는가?

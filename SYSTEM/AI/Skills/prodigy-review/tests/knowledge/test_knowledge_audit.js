@@ -26,7 +26,8 @@ function assertTemplateBodies() {
   const knowledgeTemplate = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_knowledge.md"), "utf8");
   const permanentTemplate = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_permanent_note.md"), "utf8");
   assert.match(knowledgeTemplate, /type: knowledge/);
-  assert.match(knowledgeTemplate, /knowledge_domain:\nknowledge_topics:\nsummary:/);
+  assert.match(knowledgeTemplate, /knowledge_domain:\nknowledge_topics: \[\]\n/);
+  assert.match(knowledgeTemplate, /application_contexts: \[\]\nsummary:/);
   assert.match(knowledgeTemplate, /## 핵심 요약/);
   assert.match(knowledgeTemplate, /## 연결된 Object/);
   assert.match(knowledgeTemplate, /## 본문/);

@@ -1,0 +1,68 @@
+name: Prodigy Full Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  full-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v5
+
+      - name: JavaScript syntax check (all Views)
+        run: |
+          FAIL=0
+          for f in SYSTEM/Views/*.js; do
+            node --check "$f" || FAIL=1
+          done
+          if [ "$FAIL" -ne 0 ]; then echo "Syntax check failed"; exit 1; fi
+          echo "All JS syntax OK"
+
+      - name: Run all JavaScript direct tests
+        run: |
+          FAIL=0
+          TOTAL=0
+          PASSED=0
+          for f in $(find SYSTEM/AI/Skills/prodigy-review/tests -name 'test_*.js' -type f | sort); do
+            TOTAL=$((TOTAL + 1))
+            if node "$f" > /dev/null 2>&1; then
+              PASSED=$((PASSED + 1))
+            else
+              echo "FAIL: $f"
+              FAIL=1
+            fi
+          done
+          echo "JavaScript tests: $PASSED/$TOTAL passed"
+          if [ "$FAIL" -ne 0 ]; then exit 1; fi
+
+      - name: Run all Python direct tests
+        run: |
+          FAIL=0
+          TOTAL=0
+          PASSED=0
+          for f in $(find SYSTEM/AI/Skills/prodigy-review/tests -name 'test_*.py' -type f | sort); do
+            TOTAL=$((TOTAL + 1))
+            if uv run "$f" > /dev/null 2>&1; then
+              PASSED=$((PASSED + 1))
+            else
+              echo "FAIL: $f"
+              FAIL=1
+            fi
+          done
+          echo "Python tests: $PASSED/$TOTAL passed"
+          if [ "$FAIL" -ne 0 ]; then exit 1; fi
+
+      - name: Property contract audit
+        run: uv run SYSTEM/AI/Skills/prodigy-property-contract/scripts/audit_property_contract.py --vault . --format text
+
+      - name: Stability smoke
+        run: node SYSTEM/AI/Skills/prodigy-review/tests/run_stability_smoke_tests.js

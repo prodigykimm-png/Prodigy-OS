@@ -40,19 +40,19 @@ Prodigy OS는 Template 중심이 아니라 **Property → Behavior → View → 
 
 ### Auction Case
 
+> Canonical 상태는 `Auction_Case_Schema.md`가 소유한다. 아래 표는 Engine·Dashboard·테스트가 실제로 사용하는 상태 전이다.
+
 | 현재 Status | 권장 next_action | 다음 Status | 전이 조건 |
 |---|---|---|---|
-| `watching` | 권리분석 시작 | `rights_analysis` | 사용자 확인 |
-| `rights_analysis` | 시세 조사 | `market_analysis` | 권리분석 완료 |
-| `market_analysis` | 수익성 계산 | `profitability` | 시세 파악 완료 |
-| `profitability` | 임장 예약 | `site_visit` | 수익성 기준 충족 |
-| `profitability` | 입찰 준비 | `ready_to_bid` | 임장 불필요 시 |
-| `site_visit` | 입찰 준비 | `ready_to_bid` | 현장 확인 완료 |
-| `ready_to_bid` | 입찰 제출 | `bid_submitted` | due_date 도래 |
-| `bid_submitted` | 결과 확인 | `won` 또는 `lost` | 경매 결과 발표 |
-| `won` | 복기 시작 | `review_completed` | review_status → pending |
-| `lost` | 실패 원인 분석 | `review_completed` | review_status → pending |
-| `review_completed` | — | `archived` | review_status → done |
+| `watching` | 권리분석·시세조사·임장 | `bidding` 또는 `skipped` | 사용자 확인 |
+| `bidding` | 입찰 제출 | `won` 또는 `lost` 또는 `skipped` | 경매 결과 또는 입찰 포기 |
+| `won` | 복기 시작 | `reviewing` | review_status → pending |
+| `lost` | 실패 원인 분석 | `reviewing` | review_status → pending |
+| `skipped` | 보관 | `archived` | 사용자 결정 |
+| `reviewing` | 복기 완료 | `archived` | review_status → done |
+| `archived` | — | — | 종결 |
+
+`watching` 단계 내부의 세분 작업(권리분석 → 시세조사 → 수익성 → 임장)은 `next_action` 텍스트로 관리하며 별도 status enum을 만들지 않는다.
 
 ### Project
 

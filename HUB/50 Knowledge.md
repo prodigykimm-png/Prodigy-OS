@@ -48,7 +48,10 @@ KnowledgeExplorerHub.modulePaths = [
   "SYSTEM/Views/knowledge-explorer-state.js",
   "SYSTEM/Views/knowledge-explorer-responsive.js",
   "SYSTEM/Views/knowledge-explorer-render.js",
-  "SYSTEM/Views/knowledge-explorer-view.js"
+  "SYSTEM/Views/knowledge-explorer-view.js",
+  "SYSTEM/Views/knowledge-workspace-tabs.js",
+  "SYSTEM/Views/knowledge-para-projection.js",
+  "SYSTEM/Views/knowledge-para-view.js"
 ];
 
 const loadProdigyScript = async (modulePath) => {
@@ -87,12 +90,6 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     if (JSON.stringify(records) !== snapshot) throw new Error("Knowledge Explorer records were mutated.");
     if (JSON.stringify(relationRecords) !== relationSnapshot) throw new Error("Knowledge Explorer relation records were mutated.");
     const candidateConfig = await window.KnowledgeCandidateHubAdapter.createCandidateInboxConfig(appRef);
-    const authoringMount = mountPoint.createDiv({ attr: { class: "knowledge-authoring-hub-mount" } });
-    const explorerMount = mountPoint.createDiv({ attr: { class: "knowledge-explorer-hub-mount" } });
-    KnowledgeExplorerHub.authoringActions = window.KnowledgeAuthoringHubAdapter.mountKnowledgeAuthoringActions(authoringMount, {
-      app: appRef,
-      onReload: retry
-    });
     model.detail_sections_by_asset_path = window.KnowledgeExplorerHubAdapter.buildDetailSections(model, relationsModel);
     model.detail_warnings = relationsModel.warnings || [];
     model.brief_signals_by_domain = relationsModel.signals_by_domain || {};
@@ -100,6 +97,22 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const briefService = KnowledgeExplorerHub.briefService || window.KnowledgeExplorerBriefService.createKnowledgeExplorerBriefService({
       aiProviderService: window.AIProviderService || {},
       providerConfigService: window.ProjectWorkflowDraftService || {}
+    });
+
+    // 탭 시스템 마운트
+    const tabsMount = mountPoint.createDiv({ attr: { class: "knowledge-workspace-tabs-mount" } });
+    const tabs = window.KnowledgeWorkspaceTabs.mountTabs(tabsMount, {
+      activeTab: KnowledgeExplorerHub._lastTab || "zettelkasten",
+      onChange: (tabId) => { KnowledgeExplorerHub._lastTab = tabId; }
+    });
+
+    // 제텔카스텐 탭: 기존 Explorer + 작성 버튼
+    const zettelPanel = tabs.getPanel("zettelkasten");
+    const authoringMount = zettelPanel.createDiv({ attr: { class: "knowledge-authoring-hub-mount" } });
+    const explorerMount = zettelPanel.createDiv({ attr: { class: "knowledge-explorer-hub-mount" } });
+    KnowledgeExplorerHub.authoringActions = window.KnowledgeAuthoringHubAdapter.mountKnowledgeAuthoringActions(authoringMount, {
+      app: appRef,
+      onReload: retry
     });
     const api = window.KnowledgeExplorerView.mountKnowledgeExplorer({
       app: appRef,
@@ -111,8 +124,18 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       hydrateAsset: dataSource.hydrate,
       ...candidateConfig
     });
+
+    // PARA 탭: 연결된 승인 지식만
+    const paraPanel = tabs.getPanel("para");
+    const paraModel = window.KnowledgeParaProjection.projectParaKnowledge(records, relationRecords);
+    window.KnowledgeParaView.renderParaPanel(paraPanel, paraModel, {
+      onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath)
+    });
+
     KnowledgeExplorerHub.api = api;
+    KnowledgeExplorerHub.tabs = tabs;
     KnowledgeExplorerHub.model = model;
+    KnowledgeExplorerHub.paraModel = paraModel;
     KnowledgeExplorerHub.dataSource = dataSource;
     return api;
   } catch (error) {

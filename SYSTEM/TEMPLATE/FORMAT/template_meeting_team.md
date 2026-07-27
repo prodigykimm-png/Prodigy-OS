@@ -12,6 +12,7 @@ cssclasses:
   - hide-properties_editing
   - hide-properties_reading
 ---
+<!-- 미사용: 생성 Object 0개. meeting_general과 통합 검토 대상. -->
 # <% tp.file.title %>
 
 <!-- PROPERTY-DRIVEN SUMMARY -->

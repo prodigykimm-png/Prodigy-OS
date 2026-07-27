@@ -18,6 +18,7 @@ cssclasses:
   - hide-properties_editing
   - hide-properties_reading
 ---
+<!-- PARA · 실행 계층: 이 Object에서 승인 지식을 활용하려면 본문에 [[지식 제목]] 링크를 추가하세요. -->
 # 프로젝트 개요
 
 * **유형**: `= this.project_type`

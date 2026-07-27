@@ -530,11 +530,22 @@
    * Fall back to a short reflection only when change is empty.
    * Never invent content.
    */
+  var RAW_KEY_PATTERN = /^(?:connections|tags|type|status|created|updated|knowledge_domain|knowledge_topics|application_trigger|application_contexts|source_type|candidate_id)\s*:?\s*$/i;
+
+  function sanitizeDisplayText(value) {
+    var text = String(value || "").trim();
+    if (!text) return "";
+    // raw frontmatter key가 그대로 값으로 들어온 경우 제거
+    if (RAW_KEY_PATTERN.test(text)) return "";
+    // "connections: ..." 형태로 키가 앞에 붙은 경우 키 부분 제거
+    return text.replace(/^(?:connections|tags|type|status|created|updated)\s*:\s*/i, "").trim();
+  }
+
   function selectUsefulYesterdayReview(source) {
     const src = source || {};
-    const reflection = String(src.reflection || "").trim();
-    const change = String(src.change || "").trim();
-    const next = String(src.next_experiment || "").trim();
+    const reflection = sanitizeDisplayText(src.reflection);
+    const change = sanitizeDisplayText(src.change);
+    const next = sanitizeDisplayText(src.next_experiment);
     // Learning line: change first, else short reflection
     const learning = change || (reflection ? truncateText(reflection, 140) : "");
     const meaningful = !!(learning || next);
