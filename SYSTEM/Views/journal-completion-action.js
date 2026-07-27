@@ -21,8 +21,23 @@
   }
   function render(actions, options) {
     const hasStagedDelete = Array.isArray(options.deleteEvidenceIds) && options.deleteEvidenceIds.length > 0;
+    if (options.todayReview.status === "partial" && typeof options.completeDaily === "function" && !hasStagedDelete) {
+      const complete = addButton(actions, "작성 완료", true);
+      complete.onclick = async () => {
+        complete.disabled = true;
+        try {
+          await options.completeDaily(options.app, options.today);
+          if (window.Notice) new Notice(`${options.today} Daily 작성을 완료했습니다.`);
+          await options.refresh();
+        } catch (error) {
+          complete.disabled = false;
+          if (window.Notice) new Notice(`Daily 완료 처리 실패: ${error.message || error}`);
+          throw error;
+        }
+      };
+    }
     if (options.todayReview.status === "complete" && !hasStagedDelete) return;
-    const confirm = addButton(actions, "오늘 증거 검토·확정", true);
+    const confirm = addButton(actions, "증거 검토·확정", true);
     confirm.onclick = () => options.openProposeEvidenceModal(options.app, options.today, async (proposed) => {
       const saved = await saveProposedEvidenceAtCommit(options.app, options.today, proposed, {
         deleteEvidenceIds: Array.isArray(options.deleteEvidenceIds) ? options.deleteEvidenceIds : []

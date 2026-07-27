@@ -178,6 +178,17 @@ canonical 저장 형식은 YAML list다. legacy scalar/comma 형식은 read-only
 | Home 사용 | 아니오 |
 | Dataview 조회 | 보조 |
 
+### `completed_at`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 사람이 명시적으로 완료한 시각. |
+| 입력 주체 | 사용자 완료 동작 또는 해당 Workflow. |
+| Home 사용 | 아니오 |
+| Dataview 조회 | 완료 기록 정렬·감사에 사용 가능 |
+
+완료 여부를 추정하는 계산값이 아니다. Daily에서는 사람이 `작성 완료`를 누를 때만 `status: completed`와 함께 기록한다. 기존 템플릿의 `status: completed`만으로는 완료를 선언하지 않는다.
+
 ---
 
 ## Property 원칙

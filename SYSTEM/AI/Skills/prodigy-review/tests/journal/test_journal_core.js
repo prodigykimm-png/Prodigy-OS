@@ -14,6 +14,11 @@ function main() {
   assert.equal(partial.reflection, "배웠다");
   assert.equal(core.reviewStatus(partial), "partial");
 
+  // A legacy template can contain status: completed before the person has
+  // actually closed the Daily. Only the explicit timestamped action closes it.
+  assert.equal(core.isExplicitDailyCompletion({ status: "completed" }), false);
+  assert.equal(core.isExplicitDailyCompletion({ status: "completed", completed_at: "2026-07-27T21:00:00+09:00" }), true);
+
   const legacy = core.normalizeReviewFields({
     learning: "legacy reflection",
     delta: "legacy change",

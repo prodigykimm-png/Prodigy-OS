@@ -82,6 +82,7 @@
       todayReview: activeReview,
       blocks: visibleBlocks,
       deleteEvidenceIds: Array.from(state.pendingDeletedEvidenceIds),
+      completeDaily: function (targetApp, date) { return root.JournalStore.markDailyComplete(targetApp, date); },
       openProposeEvidenceModal: openProposeEvidenceModal,
       refresh: function () { return renderDashboard(app, container, openProposeEvidenceModal, state, activeDate); }
     });

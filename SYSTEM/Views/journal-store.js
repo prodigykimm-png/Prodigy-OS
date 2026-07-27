@@ -80,6 +80,7 @@
     const fields = core.extractReviewFromDaily(content, parsed.data);
     const blocks = core.parseDailyEvidenceBlocks(content, dateStr);
     const blockStatus = core.evidenceStatus(blocks);
+    const manuallyCompleted = core.isExplicitDailyCompletion(parsed.data);
     // Prefer multi-block status when Evidence Blocks exist
     let status = core.reviewStatus(fields);
     if (blocks.length && !blocks[0].legacy) {
@@ -87,6 +88,7 @@
     } else if (blockStatus !== "empty" && status === "empty") {
       status = blockStatus;
     }
+    if (manuallyCompleted) status = "complete";
     return {
       path,
       exists: true,
@@ -95,6 +97,7 @@
       blockCount: blocks.length,
       status,
       statusLabel: core.reviewStatusLabel(status),
+      manuallyCompleted,
       content
     };
   }
@@ -110,6 +113,19 @@
     const file = await ensureDailyNote(app, dateStr);
     const previous = await app.vault.read(file);
     const next = core.applyReviewToDailyContent(previous, review);
+    if (next !== previous) await app.vault.modify(file, next);
+    return loadReview(app, dateStr);
+  }
+
+  async function markDailyComplete(app, dateStr) {
+    const core = root.JournalCore;
+    const file = await ensureDailyNote(app, dateStr);
+    const previous = await app.vault.read(file);
+    const next = core.upsertFrontmatterKeys(previous, {
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      updated: core.todayIsoDate()
+    });
     if (next !== previous) await app.vault.modify(file, next);
     return loadReview(app, dateStr);
   }
@@ -212,18 +228,16 @@
     for (const path of files) {
       const content = await readText(app, path);
       if (!content) continue;
-      const parsed = core.parseFrontmatter(content);
-      const fields = core.extractReviewFromDaily(content, parsed.data);
       const date = path.split("/").pop().replace(/\.md$/, "");
-      const blocks = core.parseDailyEvidenceBlocks(content, date);
+      const review = reviewFromContent(path, date, content);
       items.push({
         date,
         path,
-        fields,
-        blocks,
-        blockCount: blocks.length,
-        status: core.reviewStatus(fields),
-        statusLabel: core.reviewStatusLabel(core.reviewStatus(fields))
+        fields: review.fields,
+        blocks: review.blocks,
+        blockCount: review.blockCount,
+        status: review.status,
+        statusLabel: review.statusLabel
       });
     }
     return items;
@@ -234,6 +248,7 @@
     ensureDailyNote,
     loadReview,
     saveReview,
+    markDailyComplete,
     saveEvidenceBlocks,
     mergeProposedEvidenceAtCommit,
     appendEvidenceBlock,

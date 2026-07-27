@@ -57,6 +57,11 @@
     return "작성 전";
   }
 
+  function isExplicitDailyCompletion(frontmatter) {
+    const data = frontmatter || {};
+    return clean(data.status).toLowerCase() === "completed" && Boolean(clean(data.completed_at));
+  }
+
   function todayIsoDate(now) {
     const date = now || new Date();
     const year = date.getFullYear();
@@ -495,6 +500,7 @@
     normalizeReviewFields,
     reviewStatus,
     reviewStatusLabel,
+    isExplicitDailyCompletion,
     todayIsoDate,
     dailyPath,
     parseFrontmatter,

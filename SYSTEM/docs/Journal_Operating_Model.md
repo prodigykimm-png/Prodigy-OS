@@ -77,6 +77,7 @@ flowchart BT
 ## 운영 모델 ↔ 구현 매핑
 
 - **Evidence Gate** = Daily Evidence 품질 계산 (`evidence-quality-core`).
+- **Daily human completion** = 작성 중인 Daily를 사람이 `작성 완료`로 닫을 때 `status: completed`와 `completed_at`을 함께 기록한다. 이는 Evidence의 품질·내용을 자동으로 보강하거나 Weekly의 근거를 만들지 않는다.
 - **Human Review Gate** = Weekly Suggested Principle을 Monthly에서 사람이 검증.
 - **Validated Principle** = 구현에서 `knowledge_candidate`(검증 완료, approved 직전).
 - **Knowledge Approval** = `approveCandidate`(사람 클릭, `knowledge-candidate-view`).
