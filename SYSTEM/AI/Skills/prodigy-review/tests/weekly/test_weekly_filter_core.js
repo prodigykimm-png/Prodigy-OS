@@ -141,6 +141,14 @@ date: 2026-07-13
   console.log("PASS: currentISOWeek");
 })();
 
+(function testISOWeekForSelectedDate() {
+  assert.equal(core.isoWeekForDate("2026-07-19"), "2026-W29", "Sunday belongs to the preceding ISO week");
+  assert.equal(core.isoWeekForDate("2026-07-20"), "2026-W30", "Monday starts the next ISO week");
+  assert.equal(core.isoWeekForDate("2026-02-30"), null, "invalid calendar dates are rejected");
+  assert.equal(core.shiftISODate("2026-07-20", -7), "2026-07-13", "week navigation preserves local calendar dates");
+  console.log("PASS: selected date maps to its ISO week");
+})();
+
 // --- detectPatterns: same-day duplicates must NOT form a pattern ---
 
 (function testDetectPatternsSameDayNoPattern() {

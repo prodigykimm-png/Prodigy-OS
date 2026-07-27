@@ -229,6 +229,26 @@
     return d.getUTCFullYear() + "-W" + String(weekNo).padStart(2, "0");
   }
 
+  function isoWeekForDate(dateStr) {
+    var match = String(dateStr || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    var year = Number(match[1]);
+    var month = Number(match[2]);
+    var day = Number(match[3]);
+    var localDate = new Date(year, month - 1, day);
+    if (localDate.getFullYear() !== year || localDate.getMonth() !== month - 1 || localDate.getDate() !== day) return null;
+    return currentISOWeek(localDate);
+  }
+
+  function shiftISODate(dateStr, days) {
+    var match = String(dateStr || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match || !Number.isFinite(days)) return null;
+    var date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    if (formatDate(date) !== dateStr) return null;
+    date.setUTCDate(date.getUTCDate() + days);
+    return formatDate(date);
+  }
+
   function formatDate(d) {
     return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
   }
@@ -467,6 +487,8 @@
     parseDailyEvidenceBlocks: parseDailyEvidenceBlocks,
     parseISOWeek: parseISOWeek,
     currentISOWeek: currentISOWeek,
+    isoWeekForDate: isoWeekForDate,
+    shiftISODate: shiftISODate,
     formatDate: formatDate,
     detectPatterns: detectPatterns,
     buildWeeklyReview: buildWeeklyReview,

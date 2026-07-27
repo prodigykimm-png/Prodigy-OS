@@ -72,6 +72,11 @@
     var header = el(wrapper, "div", { attr: { class: "weekly-filter-header" } });
     el(header, "h2", { text: "주간 학습 리뷰", attr: { class: "weekly-filter-title" } });
     var weekLabel = el(header, "span", { text: "", attr: { class: "weekly-filter-week-label" } });
+    var periodControls = el(header, "div", { attr: { class: "weekly-filter-period-controls", "aria-label": "주간 기준 날짜" } });
+    var previousWeekBtn = el(periodControls, "button", { text: "이전 주", attr: { type: "button", class: "weekly-filter-btn" } });
+    var dateInput = el(periodControls, "input", { attr: { type: "date", class: "weekly-filter-date-input", "aria-label": "주간 기준 날짜" } });
+    var nextWeekBtn = el(periodControls, "button", { text: "다음 주", attr: { type: "button", class: "weekly-filter-btn" } });
+    var todayBtn = el(periodControls, "button", { text: "오늘", attr: { type: "button", class: "weekly-filter-btn" } });
     var actions = el(header, "div", { attr: { class: "weekly-filter-actions" } });
     var refreshBtn = el(actions, "button", { text: "새로고침", attr: { type: "button", class: "weekly-filter-btn" } });
     var aiBtn = el(actions, "button", { text: "AI 학습 분석", attr: { type: "button", class: "weekly-filter-btn weekly-filter-btn-ai" } });
@@ -79,7 +84,13 @@
     var statusLine = el(wrapper, "p", { text: "", attr: { class: "weekly-filter-status" } });
     var contentArea = el(wrapper, "div", { attr: { class: "weekly-filter-content" } });
 
-    var currentWeek = options && options.week ? options.week : core.currentISOWeek(new Date());
+    var selectedDate = options && options.initialDate ? options.initialDate : core.formatDate(new Date());
+    var currentWeek = options && options.week ? options.week : core.isoWeekForDate(selectedDate);
+    if (!currentWeek) {
+      selectedDate = core.formatDate(new Date());
+      currentWeek = core.currentISOWeek(new Date());
+    }
+    dateInput.value = selectedDate;
     var state = { review: null, evidenceItems: [], aiEnhanced: false, loading: false, aiLoading: false };
 
     function setStatus(msg, isError) {
@@ -115,6 +126,19 @@
       } finally {
         state.loading = false;
       }
+    }
+
+    function loadForDate(nextDate) {
+      var nextWeek = core.isoWeekForDate(nextDate);
+      if (!nextWeek) {
+        setStatus("유효한 날짜를 선택해 주세요.", true);
+        dateInput.value = selectedDate;
+        return Promise.resolve();
+      }
+      selectedDate = nextDate;
+      currentWeek = nextWeek;
+      dateInput.value = selectedDate;
+      return load();
     }
 
     async function runAI() {
@@ -162,11 +186,15 @@
       }
     }
 
-    refreshBtn.onclick = function () { load(); };
+    refreshBtn.onclick = function () { return load(); };
+    previousWeekBtn.onclick = function () { return loadForDate(core.shiftISODate(selectedDate, -7)); };
+    nextWeekBtn.onclick = function () { return loadForDate(core.shiftISODate(selectedDate, 7)); };
+    todayBtn.onclick = function () { return loadForDate(core.formatDate(new Date())); };
+    dateInput.onchange = function () { return loadForDate(dateInput.value); };
     aiBtn.onclick = function () { runAI(); };
     saveBtn.onclick = function () { saveReview(); };
-    load();
-    return Object.freeze({ wrapper: wrapper, reload: load, runAI: runAI, save: saveReview });
+    var ready = load();
+    return Object.freeze({ wrapper: wrapper, ready: ready, reload: load, selectDate: loadForDate, runAI: runAI, save: saveReview });
   }
 
   var api = Object.freeze({ mountWeeklyFilter: mountWeeklyFilter, buildReviewFromVault: buildReviewFromVault });
