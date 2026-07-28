@@ -33,15 +33,35 @@ function parseArgs(argv) {
   return values;
 }
 
-async function post(url, form) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-    body: new URLSearchParams(form),
-    signal: AbortSignal.timeout(30000)
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
-  return Buffer.from(await response.arrayBuffer());
+const RETRY_MAX = 3;
+const RETRY_BASE_MS = 2000;
+
+async function post(url, form, attempt = 1) {
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+      body: new URLSearchParams(form),
+      signal: AbortSignal.timeout(30000)
+    });
+    if (response.status === 429 || response.status >= 500) {
+      if (attempt < RETRY_MAX) {
+        const delay = RETRY_BASE_MS * 2 ** (attempt - 1) + Math.random() * 500;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return post(url, form, attempt + 1);
+      }
+      throw new Error(`HTTP ${response.status} (재시도 ${RETRY_MAX}회 소진): ${url}`);
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${url}`);
+    return Buffer.from(await response.arrayBuffer());
+  } catch (error) {
+    if (attempt < RETRY_MAX && (error.name === "TimeoutError" || error.name === "AbortError" || error.code === "ECONNRESET" || error.code === "ENOTFOUND")) {
+      const delay = RETRY_BASE_MS * 2 ** (attempt - 1) + Math.random() * 500;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return post(url, form, attempt + 1);
+    }
+    throw error;
+  }
 }
 
 async function lookupRoneClass(tableId, lawdCode) {

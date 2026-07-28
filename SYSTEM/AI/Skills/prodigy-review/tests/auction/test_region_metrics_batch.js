@@ -124,7 +124,7 @@ test("Given malformed, unknown, or ambiguous registry selection, When a province
   );
 });
 
-test("Given a zero-exit child without a valid snapshot receipt, When batch execution evaluates the result through a fake runner, Then it fails fast instead of reporting success", () => {
+test("Given a zero-exit child without a valid snapshot receipt, When batch execution evaluates the result through a fake runner, Then it reports failure without aborting remaining regions", () => {
   const manifest = batch.loadManifest(BUSAN_MANIFEST_PATH);
   const region = manifest.regions.find((candidate) => candidate.region_key === "부산광역시-금정구");
   const executeOptions = {
@@ -156,7 +156,7 @@ test("Given a zero-exit child without a valid snapshot receipt, When batch execu
     assert.equal(result.snapshot_dir, null);
     assert.match(result.error, expectedError);
     assert.equal(summary.failed_count, 1);
-    assert.equal(summary.aborted, true);
+    assert.equal(summary.aborted, false);
     assert.equal(summary.completed, 1);
   }
 });

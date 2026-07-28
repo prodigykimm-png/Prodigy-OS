@@ -8,6 +8,9 @@ const registryCore = require("./region-metrics-registry-core.js");
 
 const REFRESH_SCRIPT = path.resolve(__dirname, "region-metrics-refresh.js");
 const DEFAULT_MANIFEST = path.resolve(__dirname, "region-metrics-busan-manifest.json");
+const SHARED_CACHE_DIR = path.resolve(__dirname, "../CACHE/region-metrics/_shared");
+const DEFAULT_STOCK_AS_OF = "2025-09";
+const DEFAULT_SUPPLY_BASIS = "2025-12";
 const DEFAULT_REGISTRY_INDEX = path.resolve(__dirname, "region-metrics-manifest-index.json");
 
 function parseArgs(argv) {
@@ -57,10 +60,18 @@ function validateOptions(options) {
     if (!/^.+-.+$/.test(options.regionKey)) errors.push("--region-key 형식이 올바르지 않습니다.");
   }
   if (options.execute) {
-    if (!options.stockCsv) errors.push("--execute에는 --stock-csv가 필요합니다.");
-    if (!options.stockAsOf) errors.push("--execute에는 --stock-as-of가 필요합니다.");
-    if (!options.supplyCsv) errors.push("--execute에는 --supply-csv가 필요합니다.");
-    if (!options.supplyBasis) errors.push("--execute에는 --supply-basis가 필요합니다.");
+    if (!options.stockCsv) {
+      const sharedStock = path.join(SHARED_CACHE_DIR, "housing-stock.csv");
+      if (fs.existsSync(sharedStock)) options.stockCsv = sharedStock;
+      else errors.push("--execute에는 --stock-csv가 필요합니다 (또는 _shared/housing-stock.csv 배치).");
+    }
+    if (!options.stockAsOf) options.stockAsOf = DEFAULT_STOCK_AS_OF;
+    if (!options.supplyCsv) {
+      const sharedSupply = path.join(SHARED_CACHE_DIR, "supply.csv");
+      if (fs.existsSync(sharedSupply)) options.supplyCsv = sharedSupply;
+      else errors.push("--execute에는 --supply-csv가 필요합니다 (또는 _shared/supply.csv 배치).");
+    }
+    if (!options.supplyBasis) options.supplyBasis = DEFAULT_SUPPLY_BASIS;
     if (!options.output) errors.push("--execute에는 --output이 필요합니다.");
   }
   if (options.stockAsOf && !/^\d{4}-\d{2}$/.test(options.stockAsOf)) errors.push("--stock-as-of는 YYYY-MM 형식이어야 합니다.");
@@ -222,28 +233,33 @@ function runExecute(manifest, options, runner) {
   for (const region of selected) {
     const regionResult = runRefreshForRegion(region, options, runner);
     results.push(regionResult);
-    if (regionResult.status !== "success") {
-      return {
-        mode: "execute",
-        manifest: path.resolve(options.manifest),
-        selected_count: selected.length,
-        completed: results.length,
-        failed_count: results.filter((r) => r.status !== "success").length,
-        jobs: results,
-        aborted: true,
-        aborted_reason: `fail-fast at ${region.region_key}`
-      };
-    }
   }
   return {
     mode: "execute",
     manifest: path.resolve(options.manifest),
     selected_count: selected.length,
     completed: results.length,
-    failed_count: 0,
+    failed_count: results.filter((r) => r.status !== "success").length,
     jobs: results,
     aborted: false
   };
+}
+
+function writeCollectHistory(summary, options) {
+  const historyPath = path.join(SHARED_CACHE_DIR, "last-collect.json");
+  const existing = fs.existsSync(historyPath) ? JSON.parse(fs.readFileSync(historyPath, "utf8")) : { runs: [] };
+  existing.last_run = {
+    executed_at: new Date().toISOString(),
+    sido: options.sido || null,
+    selected: summary.selected_count,
+    succeeded: summary.completed - summary.failed_count,
+    failed: summary.failed_count,
+    failed_regions: summary.jobs.filter((j) => j.status !== "success").map((j) => j.region_key)
+  };
+  existing.runs.push(existing.last_run);
+  if (existing.runs.length > 50) existing.runs = existing.runs.slice(-50);
+  fs.mkdirSync(SHARED_CACHE_DIR, { recursive: true });
+  fs.writeFileSync(historyPath, `${JSON.stringify(existing, null, 2)}\n`);
 }
 
 function main() {
@@ -254,6 +270,7 @@ function main() {
   const selectedOptions = { ...options, manifest: selected.manifest_path };
   if (options.execute) {
     const summary = runExecute(manifest, selectedOptions, defaultSpawn);
+    writeCollectHistory(summary, options);
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
     if (summary.failed_count > 0) process.exitCode = 1;
     return;
