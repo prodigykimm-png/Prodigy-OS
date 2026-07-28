@@ -159,7 +159,8 @@ async function collect(config) {
   const jeonse = core.parseRoneSeries(jeonseRaw, jeonseClass.categories)[0];
   const stockRaw = fs.readFileSync(config["stock-csv"]);
   const supplyRaw = fs.readFileSync(config["supply-csv"]);
-  const stock = core.parseStockCsv(new TextDecoder("utf-8").decode(stockRaw), config["region-prefix"]);
+  const stockPrefix = config["stock-region-prefix"] || config["region-prefix"];
+  const stock = core.parseStockCsv(new TextDecoder("utf-8").decode(stockRaw), stockPrefix);
   const supply = core.parseSupplyCsv(new TextDecoder("utf-8").decode(supplyRaw), config["region-prefix"], config["supply-basis"]);
   const householdDecoder = new TextDecoder("euc-kr");
   const households = core.parseHouseholdsCsv(householdDecoder.decode(householdsRaw), config["household-row"], metricsMonth);

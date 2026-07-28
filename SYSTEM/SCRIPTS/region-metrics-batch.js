@@ -149,6 +149,7 @@ function buildRefreshArgs(region, options) {
     REFRESH_SCRIPT,
     "--region-key", region.region_key,
     "--region-prefix", region.region_prefix,
+    ...(region.stock_region_prefix ? ["--stock-region-prefix", region.stock_region_prefix] : []),
     "--lawd-code", region.lawd_code,
     "--household-row", householdRow(region),
     "--stock-csv", options.stockCsv,

@@ -147,9 +147,11 @@ function parseStockCsv(text, regionPrefix) {
 
 function parseSupplyCsv(text, regionPrefix, basisMonth) {
   const rows = csvRows(text);
-  const matched = rows.filter((row) => row["주소"].trim().startsWith(regionPrefix));
+  const validMonthRe = /^\d{4}-(0[1-9]|1[0-2])$/;
+  const validRows = rows.filter((row) => validMonthRe.test((row["입주예정월"] || "").trim()));
+  const matched = validRows.filter((row) => row["주소"].trim().startsWith(regionPrefix));
   const basisIndex = monthIndex(basisMonth.replace("-", ""));
-  const datedRows = rows.map((row) => ({
+  const datedRows = validRows.map((row) => ({
     row,
     month: row["입주예정월"].replace("-", ""),
     delta: monthIndex(row["입주예정월"].replace("-", "")) - basisIndex
