@@ -11,7 +11,8 @@
       "title": "경기도 수원시",
       "region_prefix": "경기도 수원시",
       "lawd_code": "41110000",
-      "household_code": "4111000000"
+      "household_code": "4111000000",
+      "stock_region_prefix": "경기도 수원"
     },
     {
       "sigungu": "성남시",
@@ -19,7 +20,8 @@
       "title": "경기도 성남시",
       "region_prefix": "경기도 성남시",
       "lawd_code": "41130000",
-      "household_code": "4113000000"
+      "household_code": "4113000000",
+      "stock_region_prefix": "경기도 성남"
     },
     {
       "sigungu": "의정부시",
@@ -35,7 +37,8 @@
       "title": "경기도 안양시",
       "region_prefix": "경기도 안양시",
       "lawd_code": "41170000",
-      "household_code": "4117000000"
+      "household_code": "4117000000",
+      "stock_region_prefix": "경기도 안양"
     },
     {
       "sigungu": "부천시",
@@ -43,7 +46,8 @@
       "title": "경기도 부천시",
       "region_prefix": "경기도 부천시",
       "lawd_code": "41190000",
-      "household_code": "4119000000"
+      "household_code": "4119000000",
+      "stock_region_prefix": "경기도 부천"
     },
     {
       "sigungu": "광명시",
@@ -75,7 +79,8 @@
       "title": "경기도 안산시",
       "region_prefix": "경기도 안산시",
       "lawd_code": "41270000",
-      "household_code": "4127000000"
+      "household_code": "4127000000",
+      "stock_region_prefix": "경기도 안산"
     },
     {
       "sigungu": "고양시",
@@ -83,7 +88,8 @@
       "title": "경기도 고양시",
       "region_prefix": "경기도 고양시",
       "lawd_code": "41280000",
-      "household_code": "4128000000"
+      "household_code": "4128000000",
+      "stock_region_prefix": "경기도 고양"
     },
     {
       "sigungu": "과천시",
@@ -155,7 +161,8 @@
       "title": "경기도 용인시",
       "region_prefix": "경기도 용인시",
       "lawd_code": "41460000",
-      "household_code": "4146000000"
+      "household_code": "4146000000",
+      "stock_region_prefix": "경기도 용인"
     },
     {
       "sigungu": "파주시",
