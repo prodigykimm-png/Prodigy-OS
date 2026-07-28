@@ -166,11 +166,13 @@ async function runHub(notes, runtime = {}) {
   return { container, reads, writes, providers, window };
 }
 
-test("baseline: the Auction Hub does not load Explorer modules or issue a Region write", () => {
+test("Auction Hub loads only the read-only Region projection needed by the decision packet and issues no Region write", () => {
   const auction = fs.readFileSync(path.join(ROOT, "HUB/10 Auction.md"), "utf8");
   const initialEngine = auction.match(/```js-engine\n([\s\S]*?)\n```/)?.[1] || "";
 
-  assert.doesNotMatch(initialEngine, /region-explorer-(?:projection|state|view)\.js/);
+  assert.match(initialEngine, /region-explorer-projection\.js/);
+  assert.match(initialEngine, /auction-region-packet\.js/);
+  assert.doesNotMatch(initialEngine, /region-explorer-(?:state|view)\.js/);
   assert.doesNotMatch(initialEngine, /openOrCreateRegionNote|region-metrics-(?:apply|refresh)|region-research-apply/);
 });
 

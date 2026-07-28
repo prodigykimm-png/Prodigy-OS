@@ -14,6 +14,8 @@ application_contexts: []
 confidence: low
 suggested_domain:
 suggested_topics: []
+connections: []
+invalidation_conditions: []
 approval_note:
 promotion_target:
 promoted_knowledge:
@@ -43,6 +45,14 @@ updated: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
 ## 적용 조건
 
 -
+
+## 무효화 조건
+
+- 이 지식이 더 이상 유효하지 않게 되는 조건을 사람이 작성합니다.
+
+## 연결된 Region
+
+- exact canonical Region wikilink(`[[PARA/RESOURCES/Auction Regions/<시도-시군구>]]`)만 connections에 저장합니다. 본문·좌표·모호한 지명은 Region link를 만들지 않습니다.
 
 ## 승인 메모
 

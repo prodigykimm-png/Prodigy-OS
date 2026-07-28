@@ -191,6 +191,107 @@ canonical 저장 형식은 YAML list다. legacy scalar/comma 형식은 read-only
 
 ---
 
+## Consolidation Optional Properties (Region·Auction·Knowledge·Reading)
+
+> Todo 8–12에서 도입된 선택 Property. 내부 키는 영어 snake_case, UI는 한국어 라벨.
+> 기존 Object를 일괄 migration하지 않으며, 누락값은 projection에서 fallback으로 취급한다.
+
+### `auction_outcome`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 경매 사건의 정규 결과. 학습·shadow portfolio·집중도 분석의 source of truth. |
+| 형식 | enum: `won` · `lost` · `skipped` |
+| 입력 주체 | 사용자 (Outcome writer 경유) |
+| Home 사용 | 아니오 |
+| Dataview 조회 | **예** — 결과 필터·집중도 계산 |
+
+`auction_result_date`, 조건부 `winning_bid_price`와 원자 tuple로 기록·수정·삭제된다. lifecycle `status`로부터 독립적이다.
+
+### `auction_result_date`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 경매 결과 확정일. |
+| 형식 | ISO date (`YYYY-MM-DD`) |
+| 입력 주체 | 사용자 (Outcome writer 경유) |
+| Home 사용 | 아니오 |
+| Dataview 조회 | **예** — 결과 시계열 정렬 |
+
+`auction_datetime` 날짜 이후(당일 포함)여야 하며, `as_of` 기준 미래일 수 없다.
+
+### `winning_bid_price`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | 최종 낙찰가 (실제 낙찰액). |
+| 형식 | 정수 (원) |
+| 입력 주체 | 사용자 (Outcome writer 경유) |
+| Home 사용 | 아니오 |
+| Dataview 조회 | **예** — shadow portfolio·낙찰가율 계산 |
+
+`won`/`lost`는 `> 0` 필수, `skipped`는 생략 가능. `Auction_Case_Schema.md`의 Investment 섹션과 동일한 계약이다.
+
+### `invalidation_conditions`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Knowledge가 무효화되는 조건 목록. Region thesis/invalidation projection의 source. |
+| 형식 | YAML list (자유 텍스트 문장) |
+| 입력 주체 | 사용자 |
+| Home 사용 | 아니오 |
+| Dataview 조회 | **예** — Region thesis projection |
+
+canonical 저장 형식은 YAML list다. `connections`의 exact Region link와 함께 Region thesis를 구성한다. Candidate에서 canonical Knowledge로 승격할 때 값을 바꾸지 않는다.
+
+### `reading_format`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Reading 자료의 물리·디지털 형식 분류. |
+| 형식 | enum: `book` · `ebook` · `paper` · `document` · `audiobook` · `미분류` |
+| 입력 주체 | 사용자 (수동 등록 또는 검색) |
+| Home 사용 | 아니오 |
+| Dataview 조회 | **예** — 형식별 필터 |
+
+누락되거나 알 수 없는 legacy 값은 projection에서 `미분류`로 취급한다. 원본 frontmatter를 rewrite하지 않는다.
+
+### `identifier`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Reading 자료의 외부 식별자 (ISBN, DOI, ISSN 등). |
+| 형식 | 텍스트 |
+| 입력 주체 | 사용자 |
+| Home 사용 | 아니오 |
+| Dataview 조회 | 보조 (중복 감지) |
+
+### `publisher`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Reading 자료의 발행처·플랫폼·기관. |
+| 형식 | 텍스트 |
+| 입력 주체 | 사용자 |
+| Home 사용 | 아니오 |
+| Dataview 조회 | 보조 |
+
+`Literature_Source_Schema.md`의 `publisher`와 동일한 계약이다.
+
+### `source_url`
+
+| 항목 | 내용 |
+|---|---|
+| 목적 | Reading 자료의 공개 출처 URL. |
+| 형식 | HTTP(S) URL |
+| 입력 주체 | 사용자 |
+| Home 사용 | 아니오 |
+| Dataview 조회 | 보조 |
+
+비어 있지 않으면 `http:` 또는 `https:` protocol이어야 한다. `Literature_Source_Schema.md`의 `source_url`과 동일한 계약이다.
+
+---
+
 ## Property 원칙
 
 ### 1. Property First

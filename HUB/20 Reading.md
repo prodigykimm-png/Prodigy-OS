@@ -91,6 +91,17 @@ btn.onclick = (e) => {
   e.preventDefault();
   window.ReadingBookCreate.open(app);
 };
+const manualBtn = window.ProdigyUI
+  ? window.ProdigyUI.button(toolbar, "✍ 수동 등록")
+  : toolbar.createEl("button", { text: "✍ 수동 등록", attr: { type: "button", class: "prodigy-btn" } });
+manualBtn.onclick = (e) => {
+  e.preventDefault();
+  if (window.ReadingView && window.ReadingView.openManualRegistrationModal) {
+    window.ReadingView.openManualRegistrationModal(app, () => {
+      try { delete window.__readingWorkspaceModel; } catch (_e) { window.__readingWorkspaceModel = null; }
+    });
+  }
+};
 
 ```
 

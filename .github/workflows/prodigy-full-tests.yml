@@ -66,3 +66,15 @@ jobs:
 
       - name: Stability smoke
         run: node SYSTEM/AI/Skills/prodigy-review/tests/run_stability_smoke_tests.js
+
+      - name: Consolidation plan audit
+        run: node SYSTEM/SCRIPTS/prodigy-consolidation-plan-audit.js --plan .omo/plans/prodigy-region-workspace-consolidation.md --ownership SYSTEM/docs/Prodigy_Consolidation_Ownership_v1.json --baseline .omo/evidence/prodigy-region-workspace-consolidation/task-0/baseline.json --output .omo/evidence/prodigy-region-workspace-consolidation/final-F1/receipt.json
+
+      - name: Consolidation security audit
+        run: node SYSTEM/SCRIPTS/prodigy-consolidation-security-audit.js --ownership SYSTEM/docs/Prodigy_Consolidation_Ownership_v1.json --baseline .omo/evidence/prodigy-region-workspace-consolidation/task-0/baseline.json --approval-root SYSTEM/CACHE/region-approvals --output .omo/evidence/prodigy-region-workspace-consolidation/final-F2/receipt.json
+
+      - name: Consolidation visual receipt
+        run: node SYSTEM/SCRIPTS/prodigy-consolidation-visual-receipt.js --output .omo/evidence/prodigy-region-workspace-consolidation/final-F3/receipt.json
+
+      - name: Consolidation final audit
+        run: node SYSTEM/SCRIPTS/prodigy-consolidation-final-audit.js --evidence-root .omo/evidence/prodigy-region-workspace-consolidation --output .omo/evidence/prodigy-region-workspace-consolidation/final-F4/receipt.json

@@ -38,6 +38,18 @@
   function collectLinkedKnowledge(relationRecords, knowledgeIndex) {
     var results = [];
     var seen = new Set();
+    // Wikilinks are usually basenames; resolve them against an unambiguous
+    // basename map in addition to full canonical paths (fail-closed on collision).
+    var baseCounts = new Map();
+    knowledgeIndex.forEach(function (k) {
+      var base = k.path.split("/").pop().toLowerCase();
+      baseCounts.set(base, (baseCounts.get(base) || 0) + 1);
+    });
+    var byBase = new Map();
+    knowledgeIndex.forEach(function (k) {
+      var base = k.path.split("/").pop().toLowerCase();
+      if (baseCounts.get(base) === 1) byBase.set(base, k);
+    });
 
     for (var i = 0; i < relationRecords.length; i++) {
       var record = relationRecords[i];
@@ -55,7 +67,8 @@
       for (var l = 0; l < links.length; l++) {
         var target = links[l];
         if (!target) continue;
-        var knowledge = knowledgeIndex.get(target.toLowerCase());
+        var key = target.toLowerCase();
+        var knowledge = knowledgeIndex.get(key) || byBase.get(key);
         if (!knowledge) continue;
         var key = sourcePath.toLowerCase() + "\x1f" + target.toLowerCase();
         if (seen.has(key)) continue;

@@ -68,21 +68,21 @@ function main() {
     const caseDryRun = apply.applyPackageFile({ vaultRoot: vault, targetPath: casePath, packagePath: casePackagePath, dryRun: true });
     assert.equal(caseDryRun.reason, "package_planned");
     assert.equal(fs.readFileSync(casePath, "utf8"), caseNote());
-    const caseApplied = apply.applyPackageFile({ vaultRoot: vault, targetPath: casePath, packagePath: casePackagePath });
+    const caseApplied = apply.applyPackageFile({ vaultRoot: vault, targetPath: casePath, packagePath: casePackagePath, execute: true });
     assert.equal(caseApplied.reason, "package_applied");
     const appliedCase = fs.readFileSync(casePath, "utf8");
     assert.match(appliedCase, /^official_land_price_per_sqm: 1230000$/m);
     assert.match(appliedCase, /^official_land_price_source: "https:\/\/www\.busan\.go\.kr\/depart\/ahindividualprices"$/m);
     assert.match(appliedCase, /^appraisal_price: 500000000$/m);
-    assert.equal(apply.applyPackageFile({ vaultRoot: vault, targetPath: casePath, packagePath: casePackagePath }).reason, "same_package");
+    assert.equal(apply.applyPackageFile({ vaultRoot: vault, targetPath: casePath, packagePath: casePackagePath, execute: true }).reason, "same_package");
 
-    const regionApplied = apply.applyPackageFile({ vaultRoot: vault, targetPath: regionPath, packagePath: regionPackagePath });
+    const regionApplied = apply.applyPackageFile({ vaultRoot: vault, targetPath: regionPath, packagePath: regionPackagePath, execute: true });
     assert.equal(regionApplied.reason, "package_applied");
     const appliedRegion = fs.readFileSync(regionPath, "utf8");
     assert.match(appliedRegion, /^land_price_trend_yoy: 1\.2$/m);
     assert.match(appliedRegion, /공시지가 변동률: 1\.20%/);
     assert.match(appliedRegion, /공시지가를 시세·감정가·낙찰가로 해석하지 않음/);
-    assert.equal(apply.applyPackageFile({ vaultRoot: vault, targetPath: regionPath, packagePath: regionPackagePath }).reason, "same_package");
+    assert.equal(apply.applyPackageFile({ vaultRoot: vault, targetPath: regionPath, packagePath: regionPackagePath, execute: true }).reason, "same_package");
 
     assert.throws(() => apply.applyPackageFile({ vaultRoot: vault, targetPath: casePath, packagePath: regionPackagePath, dryRun: true }), /허용 경로|scope|target/);
   } finally {

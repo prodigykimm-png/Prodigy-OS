@@ -117,6 +117,27 @@
     return loadReview(app, dateStr);
   }
 
+  async function saveReflection(app, dateStr, reflection) {
+    const core = root.JournalCore;
+    const file = await ensureDailyNote(app, dateStr);
+    const path = file.path || core.dailyPath(dateStr);
+    let committedReview;
+    const update = (content) => {
+      const parsed = core.parseFrontmatter(content || "");
+      const current = core.extractReviewFromDaily(content || "", parsed.data);
+      const next = core.applyReviewToDailyContent(content || "", Object.assign({}, current, { reflection: core.clean(reflection) }));
+      committedReview = reviewFromContent(path, dateStr, next);
+      return next;
+    };
+    if (typeof app.vault.process === "function") await app.vault.process(file, update);
+    else {
+      const previous = await app.vault.read(file);
+      const next = update(previous);
+      if (next !== previous) await app.vault.modify(file, next);
+    }
+    return committedReview;
+  }
+
   async function markDailyComplete(app, dateStr) {
     const core = root.JournalCore;
     const file = await ensureDailyNote(app, dateStr);
@@ -147,9 +168,15 @@
         evidence_id: b.evidence_id || `daily-${dateStr}-e${String(i + 1).padStart(2, "0")}`
       });
     });
+    const parsed = core.parseFrontmatter(previous);
+    const currentReview = core.extractReviewFromDaily(previous, parsed.data);
     let next = core.upsertEvidenceSection(previous, withIds);
     const legacy = core.aggregateLegacyFieldsFromBlocks(withIds);
-    next = core.applyReviewToDailyContent(next, legacy);
+    next = core.applyReviewToDailyContent(next, {
+      reflection: currentReview.reflection || legacy.reflection,
+      change: currentReview.change || legacy.change,
+      next_experiment: currentReview.next_experiment || legacy.next_experiment
+    });
     if (next !== previous) await app.vault.modify(file, next);
     return loadReview(app, dateStr);
   }
@@ -186,6 +213,8 @@
     let committedReview;
 
     await app.vault.process(file, (currentContent) => {
+      const parsed = core.parseFrontmatter(currentContent || "");
+      const currentReview = core.extractReviewFromDaily(currentContent || "", parsed.data);
       const current = core.parseDailyEvidenceBlocks(currentContent || "", dateStr)
         .filter((block) => !block.legacy && !deleteEvidenceIds.has(block.evidence_id));
       const merged = mergeProposedEvidenceBlocks(dateStr, current, proposedBlocks);
@@ -200,7 +229,12 @@
         if (originalId && committed && committed.evidence_id) evidenceIdMap[originalId] = committed.evidence_id;
       });
       let next = core.upsertEvidenceSection(currentContent || "", merged);
-      next = core.applyReviewToDailyContent(next, core.aggregateLegacyFieldsFromBlocks(merged));
+      const legacy = core.aggregateLegacyFieldsFromBlocks(merged);
+      next = core.applyReviewToDailyContent(next, {
+        reflection: currentReview.reflection || legacy.reflection,
+        change: currentReview.change || legacy.change,
+        next_experiment: currentReview.next_experiment || legacy.next_experiment
+      });
       committedReview = reviewFromContent(path, dateStr, next);
       committedReview.evidenceIdMap = evidenceIdMap;
       return next;
@@ -248,6 +282,7 @@
     ensureDailyNote,
     loadReview,
     saveReview,
+    saveReflection,
     markDailyComplete,
     saveEvidenceBlocks,
     mergeProposedEvidenceAtCommit,

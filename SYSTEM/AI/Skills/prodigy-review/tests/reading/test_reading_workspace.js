@@ -364,6 +364,71 @@ function main() {
     assert.ok(workspace.STRATEGY_GUIDE[key].length >= 2);
   }
 
+  // --- Manual registration: downstream Memory/Questions/Review pass ---
+  // A manually registered book (with reading_format) still works with workspace model
+  const manualPages = [{
+    type: "reading",
+    status: "reading",
+    path: "PARA/PROJECTS/Reading/manual-book.md",
+    title: "수동 등록 책",
+    author: "저자",
+    reading_format: "ebook",
+    identifier: "978-89-01-23456-7",
+    publisher: "출판사",
+    source_url: "https://example.com/book",
+    next_action: "1장 읽기",
+    progress: 10
+  }];
+  const manualModel = workspace.buildWorkspaceModel(manualPages, { session: engine.createRuntimeSession({}) });
+  assert.equal(manualModel.today.empty, false);
+  assert.equal(manualModel.today.object.title, "수동 등록 책");
+  // Reading guide works for manually registered book
+  assert.equal(manualModel.reading_guide.empty, false);
+  assert.ok(manualModel.reading_guide.prompts.length >= 3);
+  // Checklist works
+  assert.equal(manualModel.reading_checklist.empty, false);
+  assert.ok(manualModel.reading_checklist.items.length >= 4);
+  // Review surface exists
+  assert.ok(manualModel.waiting_review);
+
+  // --- Invalid URL/date/enum preserves input and creates nothing ---
+  global.obsidian = {
+    Modal: class {},
+    Notice: class {},
+    stringifyYaml(value) {
+      return Object.entries(value)
+        .map(([key, item]) => `${key}: ${item === null ? "" : JSON.stringify(item)}`)
+        .join("\n");
+    },
+  };
+  const bookCreate = load("SYSTEM/Views/reading-book-create.js");
+  const invalidInputs = [
+    { title: "책", source_url: "not-a-url" },
+    { title: "책", publish_date: "2024-13-01" },
+    { title: "책", reading_format: "magazine" },
+    { title: "", reading_format: "book" },
+  ];
+  for (const input of invalidInputs) {
+    const { errors, values } = bookCreate.validateManualInput(input);
+    assert.ok(errors.length > 0, `expected errors for ${JSON.stringify(input)}`);
+    // Original input preserved in values
+    if (input.source_url) assert.equal(values.source_url, input.source_url);
+    if (input.publish_date) assert.equal(values.publish_date, input.publish_date);
+    if (input.reading_format && input.reading_format !== "book") {
+      assert.equal(values.reading_format, input.reading_format);
+    }
+  }
+  // buildManualReadingContent throws and creates nothing on invalid input
+  const templateContent = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_reading.md"), "utf8");
+  for (const input of invalidInputs) {
+    assert.throws(() => bookCreate.buildManualReadingContent(templateContent, input));
+  }
+
+  // --- reading-view.js exposes manual registration modal ---
+  assert.match(viewSrc, /openManualRegistrationModal/);
+  assert.match(viewSrc, /수동 등록/);
+  assert.match(viewSrc, /네트워크 없이/);
+
   console.log("Reading workspace tests passed");
 }
 

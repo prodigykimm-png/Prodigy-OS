@@ -226,19 +226,19 @@ function main() {
     assert.equal(dryRun.changed, true);
     assert.equal(dryRun.dry_run, true);
     assert.equal(fs.readFileSync(target, "utf8"), note());
-    const result = apply.applySnapshotFile({ vaultRoot: vault, targetPath: target, snapshotPath, updatedDate: "2026-07-19" });
+    const result = apply.applySnapshotFile({ vaultRoot: vault, targetPath: target, snapshotPath, updatedDate: "2026-07-19", execute: true });
     assert.equal(result.changed, true);
     assert.match(fs.readFileSync(target, "utf8"), /^housing_stock: 48544$/m);
     assert.equal(fs.readdirSync(path.dirname(target)).some((name) => name.includes(".tmp-")), false);
 
     const beforeFailure = fs.readFileSync(target, "utf8");
     fs.writeFileSync(snapshotPath, "{broken", "utf8");
-    assert.throws(() => apply.applySnapshotFile({ vaultRoot: vault, targetPath: target, snapshotPath, updatedDate: "2026-07-19" }), /스냅샷 JSON/);
+    assert.throws(() => apply.applySnapshotFile({ vaultRoot: vault, targetPath: target, snapshotPath, updatedDate: "2026-07-19", execute: true }), /스냅샷 JSON/);
     assert.equal(fs.readFileSync(target, "utf8"), beforeFailure);
 
     assert.deepEqual(
       apply.parseArgs(["--vault", vault, "--target", target, "--snapshot", snapshotPath, "--dry-run"]),
-      { vaultRoot: vault, dryRun: true, targetPath: target, snapshotPath }
+      { vaultRoot: vault, dryRun: true, execute: false, targetPath: target, snapshotPath }
     );
   } finally {
     fs.rmSync(vault, { recursive: true, force: true });

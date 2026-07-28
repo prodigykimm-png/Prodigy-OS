@@ -447,6 +447,134 @@
     return target;
   }
 
+  // ─── Workout v2: Superset / Replace / Order (Todo 10) ─────────────────
+  // Program JSON production writer count remains 0 — these are pure
+  // transformations that return new objects. Persistence only through
+  // the existing saveProgramObject() single-writer boundary.
+
+  /**
+   * Mark two or more consecutive exercises in a day as a superset group.
+   * Pure — returns a new program object. Does NOT write.
+   * @param {object} program - normalized program
+   * @param {string} dayId
+   * @param {number[]} exerciseIndices - indices of exercises in the day (must be consecutive)
+   * @param {string} [label] - optional superset label
+   * @returns {object} new normalized program
+   */
+  function markSuperset(program, dayId, exerciseIndices, label) {
+    const normalized = core.normalizeProgram(program);
+    const next = core.clone(normalized);
+    const day = next.days.find((d) => d.id === dayId);
+    if (!day) throw new Error("Program Day를 찾을 수 없습니다.");
+    const indices = (Array.isArray(exerciseIndices) ? exerciseIndices : [])
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n >= 0 && n < day.exercises.length)
+      .sort((a, b) => a - b);
+    if (indices.length < 2) throw new Error("슈퍼세트는 최소 2개의 운동이 필요합니다.");
+    // Verify consecutive
+    for (let i = 1; i < indices.length; i++) {
+      if (indices[i] !== indices[i - 1] + 1) throw new Error("슈퍼세트 운동은 연속되어야 합니다.");
+    }
+    const groupId = `superset_${core.stableHash(`${dayId}:${indices.join("-")}:${Date.now()}`)}`;
+    const groupLabel = clean(label) || `슈퍼세트 ${groupId.slice(-4).toUpperCase()}`;
+    indices.forEach((idx) => {
+      day.exercises[idx].superset_group = groupId;
+      day.exercises[idx].superset_label = groupLabel;
+    });
+    return core.normalizeProgram(next);
+  }
+
+  /**
+   * Remove superset grouping from exercises in a day.
+   * Pure — returns a new program object.
+   */
+  function removeSuperset(program, dayId, exerciseIndices) {
+    const normalized = core.normalizeProgram(program);
+    const next = core.clone(normalized);
+    const day = next.days.find((d) => d.id === dayId);
+    if (!day) throw new Error("Program Day를 찾을 수 없습니다.");
+    const indices = new Set(
+      (Array.isArray(exerciseIndices) ? exerciseIndices : [])
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n >= 0 && n < day.exercises.length)
+    );
+    indices.forEach((idx) => {
+      delete day.exercises[idx].superset_group;
+      delete day.exercises[idx].superset_label;
+    });
+    return core.normalizeProgram(next);
+  }
+
+  /**
+   * Replace an exercise in a specific day by index.
+   * Preserves prescribed_sets, notes, and position. Pure — returns new program.
+   * @param {object} program
+   * @param {string} dayId
+   * @param {number} exerciseIndex
+   * @param {object} replacement - { name, target?, notes? }
+   */
+  function replaceExerciseInDay(program, dayId, exerciseIndex, replacement) {
+    const normalized = core.normalizeProgram(program);
+    const next = core.clone(normalized);
+    const day = next.days.find((d) => d.id === dayId);
+    if (!day) throw new Error("Program Day를 찾을 수 없습니다.");
+    const idx = Number(exerciseIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= day.exercises.length) {
+      throw new Error("운동 인덱스가 올바르지 않습니다.");
+    }
+    const newName = clean(replacement && replacement.name);
+    if (!newName) throw new Error("대체 운동 이름이 필요합니다.");
+    day.exercises[idx].name = newName;
+    if (replacement.target !== undefined) day.exercises[idx].target = clean(replacement.target);
+    if (replacement.notes !== undefined) day.exercises[idx].notes = clean(replacement.notes);
+    // Regenerate id to reflect new identity
+    day.exercises[idx].id = `exercise_${core.stableHash(`${dayId}:${idx}:${newName}:${Date.now()}`)}`;
+    return core.normalizeProgram(next);
+  }
+
+  /**
+   * Reorder exercises within a day. Pure — returns new program.
+   * @param {object} program
+   * @param {string} dayId
+   * @param {number[]} newOrder - array of current indices in desired order
+   */
+  function reorderExercises(program, dayId, newOrder) {
+    const normalized = core.normalizeProgram(program);
+    const next = core.clone(normalized);
+    const day = next.days.find((d) => d.id === dayId);
+    if (!day) throw new Error("Program Day를 찾을 수 없습니다.");
+    const order = (Array.isArray(newOrder) ? newOrder : []).map(Number);
+    if (order.length !== day.exercises.length) throw new Error("순서 배열 길이가 운동 수와 다릅니다.");
+    const seen = new Set();
+    for (const idx of order) {
+      if (!Number.isInteger(idx) || idx < 0 || idx >= day.exercises.length || seen.has(idx)) {
+        throw new Error("순서 배열이 올바르지 않습니다.");
+      }
+      seen.add(idx);
+    }
+    day.exercises = order.map((idx) => day.exercises[idx]);
+    return core.normalizeProgram(next);
+  }
+
+  /**
+   * Get superset groups for a day.
+   * @returns {Array<{group_id, label, exercises: Array<{index, name}>}>}
+   */
+  function getSupersetGroups(program, dayId) {
+    const normalized = core.normalizeProgram(program);
+    const day = normalized.days.find((d) => d.id === dayId);
+    if (!day) return [];
+    const groups = new Map();
+    day.exercises.forEach((ex, idx) => {
+      if (!ex.superset_group) return;
+      if (!groups.has(ex.superset_group)) {
+        groups.set(ex.superset_group, { group_id: ex.superset_group, label: ex.superset_label || "", exercises: [] });
+      }
+      groups.get(ex.superset_group).exercises.push({ index: idx, name: ex.name });
+    });
+    return [...groups.values()];
+  }
+
   const api = {
     END, EXERCISE_FOLDER, PROGRAM_FOLDER, START,
     EXERCISE_TARGETS, TARGET_IDS,
@@ -458,6 +586,7 @@
     renderProgramSection, replaceProgramSection, safeName, saveProgramObject,
     duplicateProgramObject, renameProgramObject, deleteProgramObject, exportProgramObject,
     stableExercisePath,
+    markSuperset, removeSuperset, replaceExerciseInDay, reorderExercises, getSupersetGroups,
   };
   root.WorkoutProgramObjects = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

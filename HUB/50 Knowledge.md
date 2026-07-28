@@ -53,6 +53,7 @@ KnowledgeExplorerHub.modulePaths = [
   "SYSTEM/Views/knowledge-explorer-render.js",
   "SYSTEM/Views/knowledge-explorer-view.js",
   "SYSTEM/Views/knowledge-workspace-tabs.js",
+  "SYSTEM/Views/para-object-creator-service.js",
   "SYSTEM/Views/knowledge-para-projection.js",
   "SYSTEM/Views/knowledge-para-view.js"
 ];
@@ -132,7 +133,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const paraPanel = tabs.getPanel("para");
     const paraModel = window.KnowledgeParaProjection.projectParaKnowledge(records, relationRecords);
     window.KnowledgeParaView.renderParaPanel(paraPanel, paraModel, {
-      onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath)
+      app: appRef,
+      onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath),
+      onCreated: () => retry()
     });
 
     KnowledgeExplorerHub.api = api;

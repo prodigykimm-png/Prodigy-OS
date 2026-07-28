@@ -166,9 +166,32 @@ function main() {
 
   const hub = fs.readFileSync(path.join(ROOT, "HUB/10 Auction.md"), "utf8");
   assert.match(hub, /auction-region-core\.js/);
+  assert.match(hub, /region-explorer-projection\.js/);
+  assert.match(hub, /auction-region-packet\.js/);
+  assert.ok(hub.indexOf("region-explorer-projection.js") < hub.indexOf("auction-region-packet.js"));
+  assert.ok(hub.indexOf("auction-region-packet.js") < hub.indexOf("auction-card.js"));
 
   const card = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-card.js"), "utf8");
-  assert.match(card, /AuctionRegionCore|openOrCreateRegionNote|지역/);
+  assert.match(card, /AuctionRegionPacket\.openForAuction/);
+  assert.doesNotMatch(card, /openOrCreateRegionNote\(app, p\)/);
+
+  // Todo 14: Region Intelligence popup integration assertions
+  const popupCore = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-core.js"), "utf8");
+  assert.match(popupCore, /openPopup/);
+  assert.match(popupCore, /NEVER writes/);
+  const popupView = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-view.js"), "utf8");
+  assert.match(popupView, /renderPopup/);
+  assert.match(popupView, /min-height:\s*44px/);
+  const decisionVM = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/region-decision-view-model.js"), "utf8");
+  assert.match(decisionVM, /projectRegionPopup/);
+  assert.match(decisionVM, /computeTrustBadges/);
+  // HUB loads the popup modules
+  assert.match(hub, /region-decision-view-model\.js/);
+  assert.match(hub, /region-intelligence-popup-core\.js/);
+  assert.match(hub, /region-intelligence-popup-view\.js/);
+  // Auction card has Region Intelligence button
+  assert.match(card, /RegionIntelligencePopupCore/);
+  assert.match(card, /지역 정보/);
 
   console.log("Auction region tests passed");
 }

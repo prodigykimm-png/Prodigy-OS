@@ -402,6 +402,32 @@
       return { ok: true, deferred: true, path: "HUB/70 Journal.md", message: "저널 Hub를 열었습니다." };
     }
 
+    // Area → shared PARA creator service (single writer)
+    if (id === "area") {
+      const para = root.ParaObjectCreatorService;
+      if (!para) throw new Error("PARA Creator 서비스를 불러오지 못했습니다.");
+      const result = await para.createArea(host, title, opts);
+      if (result && result.file && host.workspace && host.workspace.getLeaf) {
+        await host.workspace.getLeaf(false).openFile(result.file);
+      } else if (result && result.path) {
+        await openPath(host, result.path);
+      }
+      return { ok: true, path: result.path, message: `영역: ${result.name}` };
+    }
+
+    // Documentation → shared PARA creator service (single writer)
+    if (id === "documentation") {
+      const para = root.ParaObjectCreatorService;
+      if (!para) throw new Error("PARA Creator 서비스를 불러오지 못했습니다.");
+      const result = await para.createDocumentation(host, title, opts);
+      if (result && result.file && host.workspace && host.workspace.getLeaf) {
+        await host.workspace.getLeaf(false).openFile(result.file);
+      } else if (result && result.path) {
+        await openPath(host, result.path);
+      }
+      return { ok: true, path: result.path, message: `문서: ${result.name}` };
+    }
+
     // Registered custom types: open workspace path if provided
     if (opts.workspacePath) {
       await openPath(host, opts.workspacePath);

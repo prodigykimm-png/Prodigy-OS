@@ -75,6 +75,8 @@ try {
   await loadWorkoutScript("SYSTEM/Views/workspace-navigation.js");
   await loadWorkoutScript("SYSTEM/Views/object-engine-core.js");
   await loadWorkoutScript("SYSTEM/Views/workout-core.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-exercise-library.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-analysis.js");
   await loadWorkoutScript("SYSTEM/Views/workout-store.js");
   await loadWorkoutScript("SYSTEM/Views/workout-import.js");
   await loadWorkoutScript("SYSTEM/Views/workout-program-objects.js");

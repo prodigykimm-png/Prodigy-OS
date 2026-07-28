@@ -10,6 +10,104 @@ function load(rel) {
   return require(path.join(ROOT, rel));
 }
 
+// In-memory vault fake that records every write so tests can prove exactly
+// what was (and was not) persisted.
+function makeFakeApp(existing) {
+  const files = new Map();
+  (existing || []).forEach((p) => files.set(p, ""));
+  const created = [];
+  const folders = [];
+  return {
+    created,
+    folders,
+    files,
+    vault: {
+      getAbstractFileByPath: (p) => (files.has(p) ? { path: p } : null),
+      create: async (p, content) => { files.set(p, content); created.push({ path: p, content }); return { path: p }; },
+      createFolder: async (p) => { folders.push(p); files.set(p, ""); return { path: p }; },
+      read: async (p) => files.get(p) || ""
+    },
+    workspace: {
+      openLinkText: async () => {},
+      getLeaf: () => ({ openFile: async () => {} })
+    }
+  };
+}
+
+// PARA creator coverage: create Area/Documentation, open delegated
+// Literature/Project, and prove collision/invalid title write nothing.
+async function paraTests(core) {
+  const para = load("SYSTEM/Views/para-object-creator-service.js");
+  assert.ok(para, "ParaObjectCreatorService loads");
+
+  // Create Area via the Universal Object Creator entry point.
+  {
+    const app = makeFakeApp();
+    const res = await core.launchExistingCreator(app, "area", "Green Data Center Initiative");
+    assert.equal(res.ok, true);
+    assert.equal(res.path, "PARA/AREAS/Green Data Center Initiative/2. Green Data Center Initiative.md");
+    assert.equal(app.created.length, 1);
+    assert.match(app.created[0].content, /type: area_family/);
+  }
+
+  // Create Documentation via the Universal Object Creator entry point.
+  {
+    const app = makeFakeApp();
+    const res = await core.launchExistingCreator(app, "documentation", "Transparency Strategies");
+    assert.equal(res.ok, true);
+    assert.equal(res.path, "PARA/RESOURCES/DOCUMENTATIONS/Transparency Strategies.md");
+    assert.equal(app.created.length, 1);
+    assert.match(app.created[0].content, /type: documentation_note/);
+  }
+
+  // Open delegated Project — writes nothing here, opens the wizard.
+  {
+    const g = globalThis;
+    const prev = g.openProjectWizard;
+    let opened = null;
+    g.openProjectWizard = (opts) => { opened = opts; };
+    try {
+      const app = makeFakeApp();
+      const res = await para.executeAction("project", app, "Auction Calendar MVP");
+      assert.equal(res.ok, true);
+      assert.equal(res.deferred, true);
+      assert.equal(app.created.length, 0, "delegated project writes nothing");
+      assert.ok(opened && opened.initialProjectName === "Auction Calendar MVP");
+    } finally {
+      g.openProjectWizard = prev;
+    }
+  }
+
+  // Open delegated Literature — writes nothing here.
+  {
+    const app = makeFakeApp();
+    const res = await para.executeAction("literature", app, "Some Paper");
+    assert.equal(res.ok, true);
+    assert.equal(res.deferred, true);
+    assert.equal(app.created.length, 0, "delegated literature writes nothing");
+  }
+
+  // Collision writes nothing.
+  {
+    const app = makeFakeApp(["PARA/AREAS/Dup/2. Dup.md"]);
+    await assert.rejects(() => para.createArea(app, "Dup"), /이미 존재하는 영역/);
+    assert.equal(app.created.length, 0);
+  }
+  {
+    const app = makeFakeApp(["PARA/RESOURCES/DOCUMENTATIONS/Dup Doc.md"]);
+    await assert.rejects(() => para.createDocumentation(app, "Dup Doc"), /이미 존재하는 문서/);
+    assert.equal(app.created.length, 0);
+  }
+
+  // Invalid title writes nothing.
+  {
+    const app = makeFakeApp();
+    await assert.rejects(() => para.createArea(app, "   "), /제목을 입력해 주세요/);
+    await assert.rejects(() => para.createDocumentation(app, ""), /제목을 입력해 주세요/);
+    assert.equal(app.created.length, 0);
+  }
+}
+
 function main() {
   try { load("SYSTEM/Views/display-registry.js"); } catch (_e) { /* optional */ }
   try { load("SYSTEM/Views/object-lifecycle-core.js"); } catch (_e) { /* optional */ }
@@ -251,7 +349,9 @@ function main() {
     assert.equal(engine.registerCreatableType({ id: "study_test_x", label: "공부테스트", type: "study" }), true);
     assert.ok(engine.listCreatableTypes().some((t) => t.id === "study_test_x"));
 
-    console.log("Object creator tests passed");
+    return paraTests(core).then(() => {
+      console.log("Object creator tests passed");
+    });
   });
 }
 

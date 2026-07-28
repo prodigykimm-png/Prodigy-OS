@@ -18,7 +18,8 @@
     }
     if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
     styleEl.textContent = `
-        .prodigy-home { width: 100%; margin: 0 auto; padding: 0 8px 32px; }
+        .prodigy-home { width: 100%; margin: 0 auto; padding: 0 8px 32px; word-break: keep-all; overflow-wrap: anywhere; }
+        .prodigy-home * { min-inline-size: 0; }
         .home-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
         .home-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
         .home-mc-stack { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 920px; margin: 0 auto; }
@@ -66,9 +67,9 @@
           white-space: nowrap;
           flex: none;
         }
-        .badge-high { background: rgba(239, 68, 68, 0.1); color: ${C.error || "#ef4444"}; }
-        .badge-medium { background: rgba(249, 115, 22, 0.1); color: ${C.warning || "#f97316"}; }
-        .badge-low { background: rgba(59, 130, 246, 0.1); color: ${C.info || "#3b82f6"}; }
+        .badge-high { background: var(--background-modifier-hover); color: var(--text-error); }
+        .badge-medium { background: var(--background-modifier-hover); color: var(--text-warning, var(--text-accent)); }
+        .badge-low { background: var(--background-modifier-hover); color: var(--text-accent); }
         .badge-gray { background: var(--background-modifier-hover); color: var(--text-muted); }
         /* Home compact button baseline — all Home buttons share this density */
         .prodigy-home .action-btn,
@@ -105,7 +106,8 @@
         .action-btn:active,
         .prodigy-home .prodigy-launcher-actions button:active { transform: translateY(1px); }
         .action-btn:focus-visible,
-        .prodigy-home .prodigy-launcher-actions button:focus-visible {
+        .prodigy-home .prodigy-launcher-actions button:focus-visible,
+        .prodigy-home .home-launcher-mount button:focus-visible {
           outline: 2px solid var(--text-accent);
           outline-offset: 2px;
         }
@@ -183,11 +185,11 @@
         .prodigy-home:not(.home-wide) .focus-actions .action-btn,
         .prodigy-home:not(.home-wide) .focus-footer .action-btn,
         .prodigy-home:not(.home-wide) .home-toolbar .action-btn {
-          min-height: 0;
+          min-height: var(--ke-touch-target);
           height: auto;
-          padding: 0 5px;
-          font-size: 0.66em;
-          line-height: 1.3;
+          padding: var(--ke-space-3) var(--ke-space-4);
+          font-size: var(--ke-type-body);
+          line-height: var(--ke-leading-body);
         }
         .prodigy-home:not(.home-wide) .focus-actions,
         .prodigy-home:not(.home-wide) .focus-footer {
@@ -212,9 +214,9 @@
         .prodigy-home.home-narrow .workspace-list { grid-template-columns: 1fr; }
         .prodigy-home.home-narrow .home-card { padding: 8px; }
         .prodigy-home.home-narrow .focus-row { padding: 5px 2px; }
-        .prodigy-home.home-narrow .workspace-row { min-height: 0; padding: 4px 8px; }
+        .prodigy-home.home-narrow .workspace-row { min-height: var(--ke-touch-target); padding: 4px 8px; }
 
-        /* Mobile compact Home: Brief + Focus + Launcher first; rest behind fold */
+        /* Mobile compact Home: Brief + Focus + Continue + Micro Log first; rest behind fold */
         .prodigy-home.home-compact {
           padding-bottom: 24px;
         }
@@ -241,7 +243,7 @@
         }
         .prodigy-home.home-compact .home-secondary-fold {
           border: 1px solid var(--background-modifier-border);
-          border-radius: 10px;
+          border-radius: var(--ke-radius-panel);
           background: var(--background-secondary);
           padding: 4px 10px 10px;
         }
@@ -250,7 +252,7 @@
           font-size: 0.9em;
           color: var(--text-muted);
           cursor: pointer;
-          min-height: 44px;
+          min-height: var(--ke-touch-target);
           display: flex;
           align-items: center;
           list-style: none;
@@ -266,34 +268,43 @@
         .prodigy-home.home-compact .home-secondary-fold[open] > summary::before {
           content: "▾ ";
         }
-        /* Compact-only workspace dock — one-tap nav without scrolling Mission Control */
-        .prodigy-home .home-ws-dock {
-          display: none;
+        .prodigy-home.home-compact .home-micro-log-slot {
+          padding: var(--ke-space-4);
         }
-        .prodigy-home.home-compact .home-ws-dock {
+        .prodigy-home.home-compact .home-micro-log-label {
+          min-height: var(--ke-touch-target);
+          display: flex;
+          align-items: center;
+          padding: 0 var(--ke-space-3);
+          border: 1px dashed var(--background-modifier-border);
+          border-radius: var(--ke-radius-control);
+          color: var(--text-muted);
+          font-size: var(--ke-type-body);
+          line-height: var(--ke-leading-body);
+        }
+        .prodigy-home .home-ws-dock {
           display: block;
           margin: 0 0 10px 0;
           padding: 10px 10px 8px;
           border: 1px solid var(--background-modifier-border);
-          border-radius: 10px;
+          border-radius: var(--ke-radius-panel);
           background: var(--background-secondary);
         }
-        .prodigy-home.home-compact .home-ws-dock-label {
+        .prodigy-home .home-ws-dock-label {
           font-size: 0.72em;
           font-weight: 700;
           color: var(--text-muted);
           margin: 0 0 8px 2px;
-          letter-spacing: 0.02em;
+          letter-spacing: 0;
         }
-        .prodigy-home.home-compact .home-ws-dock-row {
+        .prodigy-home .home-ws-dock-row {
           display: flex;
-          flex-wrap: nowrap;
+          flex-wrap: wrap;
           gap: 6px;
-          overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           padding-bottom: 2px;
         }
-        .prodigy-home.home-compact .home-ws-dock-btn {
+        .prodigy-home .home-ws-dock-btn {
           flex: 1 1 0;
           min-width: 56px;
           max-width: 88px;
@@ -302,10 +313,10 @@
           align-items: center;
           justify-content: center;
           gap: 3px;
-          min-height: 52px !important;
+          min-height: var(--ke-touch-target) !important;
           height: auto !important;
           padding: 8px 4px !important;
-          border-radius: 8px !important;
+          border-radius: var(--ke-radius-control) !important;
           border: 1px solid var(--background-modifier-border);
           background: var(--background-primary);
           color: var(--text-normal);
@@ -314,18 +325,17 @@
           line-height: 1.15 !important;
           cursor: pointer;
         }
-        .prodigy-home.home-compact .home-ws-dock-btn:active {
+        .prodigy-home .home-ws-dock-btn:active {
           transform: scale(0.97);
           border-color: var(--text-accent);
         }
-        .prodigy-home.home-compact .home-ws-dock-icon {
+        .prodigy-home .home-ws-dock-icon {
           font-size: 1.15em;
           line-height: 1;
         }
-        .prodigy-home.home-compact .home-ws-dock-name {
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        .prodigy-home .home-ws-dock-name {
+          white-space: normal;
+          overflow-wrap: anywhere;
           max-width: 100%;
         }
         .prodigy-home.home-compact .home-secondary-fold-body {
@@ -370,22 +380,33 @@
           padding: 4px 0 0;
           margin: 0;
         }
-        /* Compact Home: keep the same compact control density (no larger touch overrides) */
+        /* Compact Home: touch contract from DESIGN.md */
         .prodigy-home.home-compact .action-btn,
         .prodigy-home.home-compact button.action-btn,
         .prodigy-home.home-compact .prodigy-launcher-actions button,
         .prodigy-home.home-compact .home-launcher-mount button,
         .prodigy-home.home-compact .focus-footer .action-btn-primary,
         .prodigy-home.home-compact button.action-btn-primary {
-          min-height: 0 !important;
+          min-height: var(--ke-touch-target) !important;
           height: auto !important;
-          padding: 1px 6px !important;
-          font-size: 0.7em !important;
-          line-height: 1.15 !important;
-          border-radius: 4px !important;
+          padding: var(--ke-space-3) var(--ke-space-4) !important;
+          font-size: var(--ke-type-body) !important;
+          line-height: var(--ke-leading-body) !important;
+          border-radius: var(--ke-radius-control) !important;
+          white-space: normal;
+          overflow-wrap: anywhere;
         }
         .prodigy-home.home-compact .col-span-4:empty {
           display: none;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .prodigy-home *,
+          .prodigy-home *::before,
+          .prodigy-home *::after {
+            transition: none !important;
+            transform: none !important;
+            scroll-behavior: auto !important;
+          }
         }
     `;
   }

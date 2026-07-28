@@ -12,7 +12,15 @@
     opencodeGo: "prodigy-opencode-go-api-key",
     openaiCompatible: "prodigy-openai-compatible-api-key",
     todoist: "prodigy-todoist-api-token",
-    reb: "prodigy-reb-openapi-key"
+    reb: "prodigy-reb-openapi-key",
+    // Region Intelligence secret IDs
+    dataGoKr: "prodigy-data-go-kr-service-key",
+    vworld: "prodigy-vworld-api-key",
+    kosis: "prodigy-kosis-api-key",
+    seoulOpenapi: "prodigy-seoul-openapi-key",
+    naverClientId: "test-naver-client-id-placeholder",
+    naverClientSecret: "test-naver-client-secret-placeholder",
+    youtube: "prodigy-youtube-api-key"
   });
   const LEGACY_SECRET_IDS = Object.freeze({
     [SECRET_IDS.gemini]: "PRODIGY_GEMINI_API_KEY",
@@ -218,7 +226,29 @@
     return config.providers[providerKey] || null;
   }
 
-  const api = { CONFIG_PATH, LEGACY_CONFIG_PATH, LAST_PROVIDER_SECRET, SECRET_IDS, LEGACY_SECRET_IDS, DEFAULT_CONFIG, isSecretId, redactError, getProviderDefaults, applyProviderDefaults, mergeConfig, load, save, getDefaultProvider, getProvider, getSecret, hasSecret, setSecret, deleteSecret };
+  // Region Intelligence: stable secret IDs for provider auth
+  const REGION_SECRET_IDS = Object.freeze({
+    reb: SECRET_IDS.reb,
+    dataGoKr: SECRET_IDS.dataGoKr,
+    vworld: SECRET_IDS.vworld,
+    kosis: SECRET_IDS.kosis,
+    seoulOpenapi: SECRET_IDS.seoulOpenapi,
+    naverClientId: SECRET_IDS.naverClientId,
+    naverClientSecret: SECRET_IDS.naverClientSecret,
+    youtube: SECRET_IDS.youtube
+  });
+
+  /**
+   * Check presence of all Region secrets without revealing values.
+   * Returns { [secretId]: boolean }.
+   */
+  async function getRegionSecretStatus(app) {
+    const ids = Object.values(REGION_SECRET_IDS);
+    const entries = await Promise.all(ids.map(async (id) => [id, await hasSecret(app, id)]));
+    return Object.fromEntries(entries);
+  }
+
+  const api = { CONFIG_PATH, LEGACY_CONFIG_PATH, LAST_PROVIDER_SECRET, SECRET_IDS, LEGACY_SECRET_IDS, REGION_SECRET_IDS, DEFAULT_CONFIG, isSecretId, redactError, getProviderDefaults, applyProviderDefaults, mergeConfig, load, save, getDefaultProvider, getProvider, getSecret, hasSecret, setSecret, deleteSecret, getRegionSecretStatus };
   root.ProdigyConfigService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

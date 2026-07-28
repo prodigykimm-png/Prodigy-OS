@@ -50,6 +50,9 @@ function readSnapshot(snapshotPath) {
 }
 
 function applySnapshotFile(options) {
+  // --execute is REQUIRED for actual write; default is dry-run
+  if (!options.execute) options.dryRun = true;
+
   const vaultRoot = fs.realpathSync(path.resolve(options.vaultRoot ?? process.cwd()));
   const targetRoot = path.join(vaultRoot, "PARA/RESOURCES/Auction Regions");
   const cacheRoot = path.join(vaultRoot, "SYSTEM/CACHE/region-metrics");
@@ -75,10 +78,11 @@ function applySnapshotFile(options) {
 }
 
 function parseArgs(argv) {
-  const options = { vaultRoot: process.cwd(), dryRun: false };
+  const options = { vaultRoot: process.cwd(), dryRun: false, execute: false };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === "--dry-run") { options.dryRun = true; continue; }
+    if (key === "--execute") { options.execute = true; continue; }
     const value = argv[index + 1];
     if (!key.startsWith("--") || value === undefined) throw new Error(`인자는 --key value 형식이어야 합니다: ${key}`);
     index += 1;

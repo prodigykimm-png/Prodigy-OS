@@ -14,6 +14,12 @@ title:
 author:
 category:
 language:
+reading_format: 미분류
+identifier:
+publisher:
+publish_date:
+source_url:
+cover_url:
 progress:
 started:
 finished:

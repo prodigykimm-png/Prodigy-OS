@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "region-selection-receipt.schema.json",
+  "title": "Region Intelligence Selection Receipt",
+  "description": "Immutable selection receipt binding a generation to the selected.json pointer. Hash-addressed and immutable; the only mutable pointer is selected.json itself.",
+  "type": "object",
+  "required": [
+    "provider_id",
+    "run_id",
+    "generation_id",
+    "selected_at",
+    "hashes_sha256",
+    "receipt_sha256"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "hashes_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "receipt_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "normalized_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "domain_input_hashes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    }
+  }
+}

@@ -2,14 +2,18 @@
 "use strict";
 
 /**
- * Quarantines an invalid seoul-metro transit projection.
+ * Quarantines invalid seoul-metro transit projections from Region Objects.
  *
  * Safety contract:
  * - dry-run by default; --execute is required to write.
+ * - preflight validates ALL targets before any write occurs.
+ * - backups are created for every target before mutation.
+ * - atomic writes with fsync ensure crash safety.
+ * - rollback restores all applied targets on any failure.
  * - only the content between the exactly-one AUTO:REGION_TRANSIT markers changes.
  * - only a block headed "### 서울교통공사 확인 역" is eligible.
  * - every original is saved under SYSTEM/CACHE/region-transit/quarantine before write.
- * - all targets preflight before the first atomic write; writes rollback on failure.
+ * - zero network dispatch.
  */
 
 const crypto = require("node:crypto");
@@ -21,6 +25,7 @@ const BACKUP_ROOT_REL = "SYSTEM/CACHE/region-transit/quarantine";
 const START = "<!-- AUTO:REGION_TRANSIT:START -->";
 const END = "<!-- AUTO:REGION_TRANSIT:END -->";
 const SEOUL_HEADING = "### 서울교통공사 확인 역";
+const NETWORK_ALLOWED = false;
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -77,10 +82,17 @@ function quarantine(options) {
   const vaultRoot = fs.realpathSync(path.resolve(options.vaultRoot));
   const objectRoot = path.join(vaultRoot, OBJECT_ROOT_REL);
   const backupRoot = path.join(vaultRoot, BACKUP_ROOT_REL);
+
+  // Preflight: verify object root exists
+  if (!fs.existsSync(objectRoot)) {
+    return { dry_run: !options.execute ? true : false, total: 0, targets: [], note: "object root not found: " + OBJECT_ROOT_REL };
+  }
+
   const candidates = fs.readdirSync(objectRoot)
     .filter((name) => name.endsWith(".md"))
     .map((name) => path.join(objectRoot, name));
 
+  // Phase 1: Preflight — validate ALL targets before any write
   const preflight = [];
   for (const targetPath of candidates) {
     const original = fs.readFileSync(targetPath, "utf8");
@@ -92,24 +104,32 @@ function quarantine(options) {
   if (!options.execute) {
     return {
       dry_run: true,
+      network_dispatched: 0,
       total: preflight.length,
       targets: preflight.map((entry) => ({ file: path.basename(entry.targetPath), original_sha256: entry.original_sha256, next_sha256: entry.next_sha256 }))
     };
   }
 
+  // Phase 2: Backup — save all originals before mutation
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const runRoot = path.join(backupRoot, stamp);
   fs.mkdirSync(runRoot, { recursive: true });
+
+  for (const entry of preflight) {
+    const backupPath = path.join(runRoot, path.basename(entry.targetPath));
+    fs.writeFileSync(backupPath, entry.original, "utf8");
+  }
+
+  // Phase 3: Atomic writes with rollback
   const applied = [];
   try {
     for (const entry of preflight) {
-      const backupPath = path.join(runRoot, path.basename(entry.targetPath));
-      fs.writeFileSync(backupPath, entry.original, "utf8");
       atomicWrite(entry.targetPath, entry.next);
       if (fs.readFileSync(entry.targetPath, "utf8") !== entry.next) throw new Error(`post-write verification failed: ${entry.targetPath}`);
       applied.push(entry);
     }
   } catch (error) {
+    // Phase 4: Rollback on failure
     const rollbackFailures = [];
     for (const entry of applied.reverse()) {
       try { atomicWrite(entry.targetPath, entry.original); } catch (rollbackError) { rollbackFailures.push(`${path.basename(entry.targetPath)}: ${rollbackError.message}`); }
@@ -121,9 +141,10 @@ function quarantine(options) {
   fs.writeFileSync(path.join(runRoot, "manifest.json"), JSON.stringify({
     created_at: new Date().toISOString(),
     reason: "서울·경기 transit crosswalk provenance quarantine",
+    network_dispatched: 0,
     files: preflight.map((entry) => ({ file: path.basename(entry.targetPath), original_sha256: entry.original_sha256, next_sha256: entry.next_sha256 }))
   }, null, 2));
-  return { dry_run: false, total: preflight.length, backup_path: path.relative(vaultRoot, runRoot), status: "quarantined" };
+  return { dry_run: false, total: preflight.length, backup_path: path.relative(vaultRoot, runRoot), status: "quarantined", network_dispatched: 0 };
 }
 
 if (require.main === module) {
@@ -131,4 +152,4 @@ if (require.main === module) {
   catch (error) { process.stderr.write(`${error.stack || error.message}\n`); process.exitCode = 1; }
 }
 
-module.exports = { quarantineContent, quarantine };
+module.exports = Object.freeze({ quarantineContent, quarantine, sha256, atomicWrite, NETWORK_ALLOWED });

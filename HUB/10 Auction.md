@@ -38,6 +38,11 @@ try {
   await loadProdigyScript("SYSTEM/Views/site-visit-workflow.js");
   if (window.prodigySiteVisitReady) await window.prodigySiteVisitReady;
   await loadProdigyScript("SYSTEM/Views/auction-region-core.js");
+  await loadProdigyScript("SYSTEM/Views/region-explorer-projection.js");
+  await loadProdigyScript("SYSTEM/Views/auction-region-packet.js");
+  await loadProdigyScript("SYSTEM/Views/region-decision-view-model.js");
+  await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-core.js");
+  await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-view.js");
   await loadProdigyScript("SYSTEM/Views/decision-packet-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-decision-packet.js");
   await loadProdigyScript("SYSTEM/Views/decision-packet-reasons.js");

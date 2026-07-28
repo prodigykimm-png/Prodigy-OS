@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "region-run.schema.json",
+  "title": "Region Intelligence Run Identity",
+  "description": "Identity envelope for a single provider collection run. Each run is uniquely identified by (provider_id, run_id) and tracks the generation directory, timing, and attempt metadata.",
+  "type": "object",
+  "required": [
+    "provider_id",
+    "run_id",
+    "generation_id",
+    "fetched_at",
+    "attempt",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "generation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "period": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9]{4}-[0-9]{2}$"
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "dispatched",
+        "collected",
+        "unchanged",
+        "failed",
+        "timed_out_pending",
+        "cancelled",
+        "blocked_auth",
+        "blocked_schema",
+        "blocked_coverage",
+        "blocked_runtime",
+        "blocked_inflight",
+        "blocked_inflight_unknown"
+      ]
+    },
+    "owner_token": {
+      "type": "string",
+      "minLength": 1
+    },
+    "process_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "monotonic_generation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "error": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

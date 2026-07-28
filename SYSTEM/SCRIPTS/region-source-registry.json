@@ -1,0 +1,837 @@
+{
+  "$schema": "./region-source-registry.schema.json",
+  "version": 1,
+  "plan": ".omo/plans/prodigy-region-workspace-consolidation.md",
+  "provider_count": 32,
+  "providers": [
+    {
+      "provider_id": "mois_jumin_statmonth_csv",
+      "status": "planned_enabled",
+      "canonical_source_url": "https://jumin.mois.go.kr/downloadCsv.do",
+      "auth_placement": "none",
+      "scope": "current-manifest codes present in the requested YYYYMM; households 세대, YoY from exact 12-month raw pair",
+      "cadence": "monthly",
+      "parser_version": "1.0.0",
+      "units": {
+        "households": "세대",
+        "population": "명"
+      },
+      "correction_semantics": "same YYYYMM new raw is correction; pre-reform fixture covers only unchanged current Regions and quarantines predecessor codes",
+      "retention": "latest 25 distinct periods surfaced; every correction generation retained",
+      "license_url": "https://www.mois.go.kr/",
+      "network_allowed": true,
+      "fixture_policy": "required",
+      "fixtures": [
+        {
+          "role": "current_period",
+          "path": "SYSTEM/AI/Skills/prodigy-review/tests/fixtures/region-intelligence/mois_jumin_statmonth_csv/2026-05-households.csv",
+          "sha256": "576bf4419ddebd24da4b1c917269ed298f03bd6c413213c8b3e93599462d415a"
+        },
+        {
+          "role": "yoy_prior_period",
+          "path": "SYSTEM/AI/Skills/prodigy-review/tests/fixtures/region-intelligence/mois_jumin_statmonth_csv/2025-05-households.csv",
+          "sha256": "e451385dddfb976ed6687a5750e23a8a70d51cd291c841eae0606950e8104ead"
+        }
+      ],
+      "fixture_missing_reason": null,
+      "transport": {
+        "method": "POST",
+        "url": "https://jumin.mois.go.kr/downloadCsv.do",
+        "query": {
+          "searchYearMonth": "month",
+          "xlsStats": "3"
+        },
+        "headers": {
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+        },
+        "body": {
+          "sltOrgType": "1",
+          "sltOrgLvl1": "A",
+          "sltOrgLvl2": "",
+          "gender": "gender",
+          "genderPer": "genderPer",
+          "generation": "generation",
+          "sltUndefType": "",
+          "searchYearStart": "{{YYYY}}",
+          "searchMonthStart": "{{MM}}",
+          "searchYearEnd": "{{YYYY}}",
+          "searchMonthEnd": "{{MM}}",
+          "sltOrderType": "1",
+          "sltOrderValue": "ASC",
+          "category": "month",
+          "state": "3"
+        },
+        "pagination": {
+          "kind": "none",
+          "max_requests": 1
+        },
+        "response_encoding": "euc-kr",
+        "response_columns": [
+          "행정구역",
+          "{{YYYY}}년{{MM}}월_총인구수",
+          "{{YYYY}}년{{MM}}월_세대수",
+          "{{YYYY}}년{{MM}}월_세대당 인구",
+          "{{YYYY}}년{{MM}}월_남자 인구수",
+          "{{YYYY}}년{{MM}}월_여자 인구수",
+          "{{YYYY}}년{{MM}}월_남여 비율"
+        ]
+      },
+      "transport_missing_reason": null
+    },
+    {
+      "provider_id": "reb_rone_public_table",
+      "status": "blocked_coverage",
+      "canonical_source_url": "https://www.r-one.co.kr/rone/resis/statistics/statisticsViewer.do?menuId=HOUSE_002",
+      "auth_placement": "none for public tables",
+      "scope": "sigungu-month; price index, transaction volume, jeonse ratio; table IDs A_2024_00554/A_2024_00045/A_2024_00073",
+      "cadence": "monthly",
+      "parser_version": "1.0.0",
+      "units": {
+        "price_index": "index",
+        "transaction_volume": "건",
+        "jeonse_ratio": "%"
+      },
+      "correction_semantics": "부산 사하구 seed fixtures are parser regression only; no new dispatch until Seoul/Gyeonggi/Incheon/Busan exact rows and literal hashes are added by reviewed amendment",
+      "retention": "latest 25 after gate",
+      "license_url": "https://www.r-one.co.kr/",
+      "network_allowed": false,
+      "fixture_policy": "parser_seed",
+      "fixtures": [
+        {
+          "role": "jeonse_current",
+          "path": "SYSTEM/AI/Skills/prodigy-review/tests/fixtures/region-intelligence/reb_rone_public_table/2026-05-jeonse-sahagu.json",
+          "sha256": "21953cc9241445b13ad7d06d5dce81c1c60942fd6ad87d274bc37b77f39f97fd"
+        },
+        {
+          "role": "price_current",
+          "path": "SYSTEM/AI/Skills/prodigy-review/tests/fixtures/region-intelligence/reb_rone_public_table/2026-05-price-sahagu.json",
+          "sha256": "40dd9f8fdb6b955f664b8367f3afb91309de930d28f5277eaba66b6236478842"
+        },
+        {
+          "role": "volume_window",
+          "path": "SYSTEM/AI/Skills/prodigy-review/tests/fixtures/region-intelligence/reb_rone_public_table/2026-03_05-volume-sahagu.json",
+          "sha256": "485a5f75a2d076992465ab7115514e2b08b31e597fa6663896e335aca69998a0"
+        }
+      ],
+      "fixture_missing_reason": null,
+      "transport": null,
+      "transport_missing_reason": "blocked_coverage: Seoul/Gyeonggi/Incheon/Busan exact rows and literal hashes not yet added by reviewed amendment"
+    },
+    {
+      "provider_id": "reb_stock",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15106861/fileData.do",
+      "auth_placement": "none",
+      "scope": "offline seed rows grouped by address sigungu; 세대수 summed as apartment stock 호; identity 단지고유번호",
+      "cadence": "annual",
+      "parser_version": "1.0.0",
+      "units": {
+        "apartment_stock": "호"
+      },
+      "correction_semantics": "seed fixture is parser-only; zero live requests until exact catalog-to-download fixture and redirect rules are reviewed",
+      "retention": "latest 3 distinct releases surfaced; every correction retained",
+      "license_url": "https://www.data.go.kr/data/15106861/fileData.do",
+      "network_allowed": false,
+      "fixture_policy": "parser_seed",
+      "fixtures": [
+        {
+          "role": "parser_seed",
+          "path": "SYSTEM/AI/Skills/prodigy-review/tests/fixtures/region-intelligence/reb_stock/2026-release.csv",
+          "sha256": "2fe472b92867b69644d368a89df2acd81a65004cfc01afff0a7e72021c7f2e0a"
+        }
+      ],
+      "fixture_missing_reason": null,
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact download endpoint/redirect contract not frozen"
+    },
+    {
+      "provider_id": "molit_apt_sale",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15126469/openapi.do",
+      "auth_placement": "intended ServiceKey query, exact operation path unapproved",
+      "scope": "intended LAWD_CD first 5 digits x DEAL_YMD; price KRW, exclusive area m2, date, official ID",
+      "cadence": "monthly",
+      "parser_version": "1.0.0",
+      "units": {
+        "price": "KRW",
+        "exclusive_area": "m2"
+      },
+      "correction_semantics": "no HTTP dispatch or parser implementation until exact official request/response fixture is added through a reviewed contract amendment",
+      "retention": "latest 13 after gate",
+      "license_url": "https://www.data.go.kr/data/15126469/openapi.do",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no official request/response fixture exists; external comparables remain 정보 확인 불가, never estimated",
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact operation path unapproved; no HTTP dispatch until reviewed fixture"
+    },
+    {
+      "provider_id": "molit_apt_rent",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15126474/openapi.do",
+      "auth_placement": "intended ServiceKey query, exact operation path unapproved",
+      "scope": "intended deposit/rent KRW, area m2, date, official ID",
+      "cadence": "monthly",
+      "parser_version": "1.0.0",
+      "units": {
+        "deposit": "KRW",
+        "rent": "KRW",
+        "exclusive_area": "m2"
+      },
+      "correction_semantics": "same blocked rule; external comparables remain 정보 확인 불가, never estimated",
+      "retention": "latest 13 after gate",
+      "license_url": "https://www.data.go.kr/data/15126474/openapi.do",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no official request/response fixture exists; external comparables remain 정보 확인 불가, never estimated",
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact operation path unapproved; no HTTP dispatch until reviewed fixture"
+    },
+    {
+      "provider_id": "reb_supply",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15111714/fileData.do",
+      "auth_placement": "none",
+      "scope": "offline seed rows 입주예정월, 주소, 세대수; exact address sigungu grouping; cumulative 12/24/36/48/60m 세대",
+      "cadence": "half-year",
+      "parser_version": "1.0.0",
+      "units": {
+        "households": "세대"
+      },
+      "correction_semantics": "seed fixture is parser-only; zero live requests until exact catalog-to-download fixture and redirect rules are reviewed; missing horizon remains null",
+      "retention": "latest 3 distinct releases surfaced; every correction retained",
+      "license_url": "https://www.data.go.kr/data/15111714/fileData.do",
+      "network_allowed": false,
+      "fixture_policy": "parser_seed",
+      "fixtures": [
+        {
+          "role": "parser_seed",
+          "path": "SYSTEM/AI/Skills/prodigy-review/tests/fixtures/region-intelligence/reb_supply/2026-release.csv",
+          "sha256": "09cf2ad66d74bb0f5840a3249fc54634bdc08dd9d34630bfb730ae544a20c3a2"
+        }
+      ],
+      "fixture_missing_reason": null,
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact download endpoint/redirect contract not frozen"
+    },
+    {
+      "provider_id": "building_hub_housing_permit",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15136560/openapi.do",
+      "auth_placement": "intended ServiceKey query, exact operation/response field unapproved",
+      "scope": "intended sigungu-month housing permit units",
+      "cadence": "monthly",
+      "parser_version": "1.0.0",
+      "units": {
+        "permit_units": "호"
+      },
+      "correction_semantics": "15136267 forbidden; no network/parser until reviewed literal operation+fixture",
+      "retention": "latest 25 after gate",
+      "license_url": "https://www.data.go.kr/data/15136560/openapi.do",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no reviewed literal operation+fixture exists; dataset 15136267 is forbidden",
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact operation/response field unapproved; 15136267 forbidden"
+    },
+    {
+      "provider_id": "kapt_basic",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15058453/openapi.do",
+      "auth_placement": "intended ServiceKey query, exact operation unapproved",
+      "scope": "intended complex/address/unit facts; evidence enrichment only",
+      "cadence": "annual",
+      "parser_version": "1.0.0",
+      "units": {
+        "units": "호"
+      },
+      "correction_semantics": "cannot populate housing_stock; no dispatch until reviewed fixture",
+      "retention": "latest 3 after gate",
+      "license_url": "https://www.data.go.kr/data/15058453/openapi.do",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no reviewed fixture exists; cannot populate housing_stock",
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact operation unapproved; cannot populate housing_stock"
+    },
+    {
+      "provider_id": "national_establishments",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15087673/openapi.do",
+      "auth_placement": "exact API/file route and auth placement unapproved",
+      "scope": "intended sigungu-base-year establishments 개 and employees 명",
+      "cadence": "annual",
+      "parser_version": "1.0.0",
+      "units": {
+        "establishments": "개",
+        "employees": "명"
+      },
+      "correction_semantics": "no dispatch until reviewed exact columns/code sample; jobs tab states blocked coverage",
+      "retention": "latest 3 after gate",
+      "license_url": "https://www.data.go.kr/data/15087673/openapi.do",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no reviewed exact columns/code sample exists; jobs tab states blocked coverage",
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact API/file route and auth placement unapproved"
+    },
+    {
+      "provider_id": "kosis_disabled",
+      "status": "disabled",
+      "canonical_source_url": null,
+      "auth_placement": "optional prodigy-kosis-api-key",
+      "scope": "none",
+      "cadence": "none",
+      "parser_version": "0.0.0",
+      "units": {},
+      "correction_semantics": "cannot enable until exact table ID, dimensions, units and fixture are added through a reviewed plan amendment",
+      "retention": "none",
+      "license_url": "https://kosis.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no endpoint/table selected; cannot enable until exact table ID, dimensions, units and fixture are added",
+      "transport": null,
+      "transport_missing_reason": "disabled: no endpoint/table selected"
+    },
+    {
+      "provider_id": "official_land_price_region",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15123971/openapi.do",
+      "auth_placement": "data.go.kr LINK 15123971 to VWorld; exact linked operation unapproved",
+      "scope": "intended Region parcel partition x year, KRW/m2",
+      "cadence": "annual",
+      "parser_version": "1.0.0",
+      "units": {
+        "land_price": "KRW/m2"
+      },
+      "correction_semantics": "LINK is not data.go ServiceKey; blocked until exact KEY/DOMAIN request and response fixture is reviewed",
+      "retention": "annual after gate",
+      "license_url": "https://www.data.go.kr/data/15123971/openapi.do",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "LINK is not data.go ServiceKey; no exact KEY/DOMAIN request and response fixture reviewed",
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact linked VWorld operation unapproved; LINK is not data.go ServiceKey"
+    },
+    {
+      "provider_id": "official_land_price_case",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15124014/openapi.do",
+      "auth_placement": "data.go.kr LINK 15124014 to VWorld; exact linked operation unapproved",
+      "scope": "intended one Auction Case target/parcel x year, KRW/m2",
+      "cadence": "annual",
+      "parser_version": "1.0.0",
+      "units": {
+        "land_price": "KRW/m2"
+      },
+      "correction_semantics": "no shared batch; blocked until reviewed fixture",
+      "retention": "annual after gate",
+      "license_url": "https://www.data.go.kr/data/15124014/openapi.do",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no shared batch; no reviewed fixture exists for case-level land price",
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact linked VWorld operation unapproved; no shared batch"
+    },
+    {
+      "provider_id": "admin_code",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.data.go.kr/data/15077871/openapi.do",
+      "auth_placement": "intended ServiceKey query, exact operation unapproved",
+      "scope": "intended nationwide 10-digit codes and release/effective date",
+      "cadence": "revision polling",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "no dispatch until reviewed request/response fixture; current four manifests stay canonical",
+      "retention": "revision polling after gate",
+      "license_url": "https://www.data.go.kr/data/15077871/openapi.do",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no reviewed request/response fixture; current four manifests stay canonical",
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact operation unapproved; current four manifests stay canonical"
+    },
+    {
+      "provider_id": "admin_boundary_vworld",
+      "status": "blocked_fixture",
+      "canonical_source_url": "https://www.vworld.kr/",
+      "auth_placement": "VWorld WFS 1.1.0 lt_c_adsigg_info; intended KEY + exact DOMAIN",
+      "scope": "intended nationwide sig_cd, sig_kor_nm, polygon; server EPSG:4326 only",
+      "cadence": "seven-day revision poll",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "request contract is GET SERVICE=WFS&VERSION=1.1.0&REQUEST=GetFeature&TYPENAME=lt_c_adsigg_info&OUTPUT=application/json&SRSNAME=EPSG:4326&MAXFEATURES=1000, PAGE/BBOX absent; no dispatch until reviewed total=count<1000 complete-code fixture exists",
+      "retention": "seven-day revision poll after gate",
+      "license_url": "https://www.vworld.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no reviewed total=count<1000 complete-code fixture exists; PAGE/BBOX absent",
+      "transport": null,
+      "transport_missing_reason": "blocked_fixture: exact KEY/DOMAIN unapproved; no reviewed complete-code fixture"
+    },
+    {
+      "provider_id": "incheon-metro",
+      "status": "accepted_legacy",
+      "canonical_source_url": "https://www.ictr.or.kr/",
+      "auth_placement": "none",
+      "scope": "station/operator/address/raw evidence to exact Region",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "preserve approved corpus and 7 package hashes; future refresh requires same validator",
+      "retention": "current+previous",
+      "license_url": "https://www.ictr.or.kr/",
+      "network_allowed": false,
+      "fixture_policy": "grandfathered_set",
+      "fixtures": [
+        {
+          "role": "region_0ec19816b7c6",
+          "path": "SYSTEM/CACHE/region-transit-packages/인천광역시-남동구/incheon-metro_95edd6d6872f5.json",
+          "sha256": "d0a3bbd10e982b94be62294968d4fbc543ed3f2bbb36fd048e25c95042f19e69"
+        },
+        {
+          "role": "region_35fdfcedb767",
+          "path": "SYSTEM/CACHE/region-transit-packages/인천광역시-계양구/incheon-metro_95edd6d6872f5.json",
+          "sha256": "fb887ffb1b6ecaa0285b2dcb3af2c31ce6a13ec2b4cc0bb2033370c657644d7c"
+        },
+        {
+          "role": "region_6685f830cd46",
+          "path": "SYSTEM/CACHE/region-transit-packages/인천광역시-검단구/incheon-metro_95edd6d6872f5.json",
+          "sha256": "cca159a5af549462674535c05f8f1500a82c92b9aa3b1262d456d268035feebc"
+        },
+        {
+          "role": "region_81f0af49467b",
+          "path": "SYSTEM/CACHE/region-transit-packages/인천광역시-서해구/incheon-metro_95edd6d6872f5.json",
+          "sha256": "08a7054e39832d1770273dc991b2d2eac0e04af07bc10c39cd62e121a3f5e46d"
+        },
+        {
+          "role": "region_98b7a63ee536",
+          "path": "SYSTEM/CACHE/region-transit-packages/인천광역시-부평구/incheon-metro_95edd6d6872f5.json",
+          "sha256": "d0696bbb09101fd3ffaec6c682ab652ca69d24d2d64da09d91a021de91ceea14"
+        },
+        {
+          "role": "region_d3526b2243dd",
+          "path": "SYSTEM/CACHE/region-transit-packages/인천광역시-미추홀구/incheon-metro_95edd6d6872f5.json",
+          "sha256": "d872fd37777328ae9a92b545362385ee611d69b4fbda8b9a04d53cbc4319f253"
+        },
+        {
+          "role": "region_d73d971c3553",
+          "path": "SYSTEM/CACHE/region-transit-packages/인천광역시-연수구/incheon-metro_95edd6d6872f5.json",
+          "sha256": "97f91d37c06368a78a831b5d28c914baa2e46b8cf4a7413d69d708ffaf793196"
+        }
+      ],
+      "fixture_missing_reason": null,
+      "transport": null,
+      "transport_missing_reason": "accepted_legacy: preserve approved corpus; future refresh requires same validator"
+    },
+    {
+      "provider_id": "busan-metro",
+      "status": "accepted_legacy",
+      "canonical_source_url": "https://www.humetro.busan.kr/",
+      "auth_placement": "none",
+      "scope": "station/operator/address/raw evidence to exact Region",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "preserve approved corpus and 15 package hashes",
+      "retention": "current+previous",
+      "license_url": "https://www.humetro.busan.kr/",
+      "network_allowed": false,
+      "fixture_policy": "grandfathered_set",
+      "fixtures": [
+        {
+          "role": "region_11c67a8e8b59",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-동래구/busan-metro_95edd6d6872f5.json",
+          "sha256": "352f51850decabcff3f4e450989fd035c6c6cf897c6445a9128be8bd38562e5e"
+        },
+        {
+          "role": "region_1723dbbcda18",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-동구/busan-metro_95edd6d6872f5.json",
+          "sha256": "7ca3a98e640be123baeed58cc237ad8694d703f79dcc31e01ae009060989b8b6"
+        },
+        {
+          "role": "region_28a84c8ce0a0",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-북구/busan-metro_95edd6d6872f5.json",
+          "sha256": "076d76af36d95f212c0503aa540fc3aa6e7d9d810b0895cd09f25772d3af4cb1"
+        },
+        {
+          "role": "region_2b74dc7005ff",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-연제구/busan-metro_95edd6d6872f5.json",
+          "sha256": "802aca342b59151d72297ed7c8e9feca2543bc523ec1f06dd212cd7bb7692644"
+        },
+        {
+          "role": "region_413aa97b57cf",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-중구/busan-metro_95edd6d6872f5.json",
+          "sha256": "fa7d51ebcf1fcc9362ebe323f5c20d31dc15dcaa4ee90d03ab2f39f59a6142e0"
+        },
+        {
+          "role": "region_42c6cba8d319",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-강서구/busan-metro_95edd6d6872f5.json",
+          "sha256": "4b2966956998e6d6ad18b3874736c6346c29c341c8dfd5d854c7eba9c8e9a623"
+        },
+        {
+          "role": "region_498b3d2781fa",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-사상구/busan-metro_95edd6d6872f5.json",
+          "sha256": "c5cb2305691777afb1bd3036ba2676899a0dfdc78bbd5d42284cd6c373399d9b"
+        },
+        {
+          "role": "region_54f95a254dc9",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-서구/busan-metro_95edd6d6872f5.json",
+          "sha256": "271339797bb21d0d113f57e04778176a25f8f79d52c489f2ca1df4e15f69558a"
+        },
+        {
+          "role": "region_5ca3411f8648",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-해운대구/busan-metro_95edd6d6872f5.json",
+          "sha256": "f8b8ed807cf9f0e69f25984f41070951ab63b3f591c82f9cc0f3b43988b183f2"
+        },
+        {
+          "role": "region_8ab949aa4d93",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-사하구/busan-metro_95edd6d6872f5.json",
+          "sha256": "1cfba70289a621fddbe29f16d8b4c61239901d84bdc99e9f692980489d09b0d8"
+        },
+        {
+          "role": "region_9e17b4993c2d",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-기장군/busan-metro_95edd6d6872f5.json",
+          "sha256": "468ddabf53513f14c7ae44b045c3f161e1ad5ca05f5516886971bf7766ebd0c1"
+        },
+        {
+          "role": "region_b9b8922072c0",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-부산진구/busan-metro_95edd6d6872f5.json",
+          "sha256": "97b0da183adf2acc66a2d401c4676a79f07c1e94a1b3bb2eea10e8ef3a0b4b16"
+        },
+        {
+          "role": "region_c2264432bb41",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-금정구/busan-metro_95edd6d6872f5.json",
+          "sha256": "7f5839acab818f18ad43c77b844cf82a39a905de66b8ee3b4cb56b47cd06403c"
+        },
+        {
+          "role": "region_d0d0ac714f54",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-남구/busan-metro_95edd6d6872f5.json",
+          "sha256": "09a89baa26aafb5c53c9855ddbf9c9790d813484729c0aa35209dc386463645e"
+        },
+        {
+          "role": "region_f45cb66ea6df",
+          "path": "SYSTEM/CACHE/region-transit-packages/부산광역시-수영구/busan-metro_95edd6d6872f5.json",
+          "sha256": "df5350eab115131295ca955132a545fffcfe2dc0495abdf22b3fde0c0bb5f20d"
+        }
+      ],
+      "fixture_missing_reason": null,
+      "transport": null,
+      "transport_missing_reason": "accepted_legacy: preserve approved corpus and 15 package hashes"
+    },
+    {
+      "provider_id": "seoul-metro",
+      "status": "candidate",
+      "canonical_source_url": "https://data.seoul.go.kr/dataList/OA-22441/L/1/datasetView.do",
+      "auth_placement": "Seoul OpenAPI StationAdresTelno; exact key placement/response fixture not frozen",
+      "scope": "intended authoritative Seoul Metro station/address set; operator-separated",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "this plan builds a zero-network typed adapter/quarantine only; future reviewed fixture must prove key placement, station set, exact address and Region evidence before enablement",
+      "retention": "current+previous surfaced; all candidate generations retained",
+      "license_url": "https://data.seoul.go.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "exact key placement/response fixture not frozen; zero-network typed adapter/quarantine only",
+      "transport": null,
+      "transport_missing_reason": "candidate: exact key placement/response fixture not frozen"
+    },
+    {
+      "provider_id": "metro9-stage1",
+      "status": "candidate",
+      "canonical_source_url": "https://www.metro9.co.kr/",
+      "auth_placement": "none",
+      "scope": "9호선 1단계 only",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "separate operator/address/raw fixture",
+      "retention": "current+previous",
+      "license_url": "https://www.metro9.co.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "separate operator/address/raw fixture not yet frozen",
+      "transport": null,
+      "transport_missing_reason": "candidate: separate operator/address/raw fixture required"
+    },
+    {
+      "provider_id": "metro9-stage23",
+      "status": "candidate",
+      "canonical_source_url": "https://news.seoul.go.kr/traffic/transfer_discount?tr_code=sweb",
+      "auth_placement": "none",
+      "scope": "9호선 2/3단계 only",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "never merged with stage1 before validation",
+      "retention": "current+previous",
+      "license_url": "https://data.seoul.go.kr/dataList/OA-22441/L/1/datasetView.do",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "never merged with stage1 before validation; fixture not frozen",
+      "transport": null,
+      "transport_missing_reason": "candidate: never merged with stage1 before validation"
+    },
+    {
+      "provider_id": "korail-station-candidate",
+      "status": "candidate",
+      "canonical_source_url": "https://www.kric.go.kr/jsp/board/portal/sub05/est/estationList.jsp",
+      "auth_placement": "none; no generic operator inference",
+      "scope": "Korail 수도권 rail stations",
+      "cadence": "official file revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "operator, line, address, raw hash all required; KRIC alone does not prove operator when ambiguous",
+      "retention": "current+previous",
+      "license_url": "https://www.kric.go.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "operator, line, address, raw hash all required; KRIC alone does not prove operator when ambiguous",
+      "transport": null,
+      "transport_missing_reason": "candidate: KRIC alone does not prove operator when ambiguous"
+    },
+    {
+      "provider_id": "kric-station-candidate",
+      "status": "candidate",
+      "canonical_source_url": "https://data.kric.go.kr/rips/M_01_01/detail.do?id=32",
+      "auth_placement": "data.go.kr LINK 15041676; no ServiceKey claim",
+      "scope": "cross-operator candidate corpus",
+      "cadence": "official file revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "quarantine until provider/address/boundary evidence passes",
+      "retention": "current+previous",
+      "license_url": "https://data.kric.go.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "quarantine until provider/address/boundary evidence passes",
+      "transport": null,
+      "transport_missing_reason": "candidate: quarantine until provider/address/boundary evidence passes"
+    },
+    {
+      "provider_id": "arex",
+      "status": "candidate",
+      "canonical_source_url": "https://www.arex.or.kr/station/trainTime.do?menuNo=MN201503300000000013&stnCd=020&tab=2",
+      "auth_placement": "none",
+      "scope": "AREX stations",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "station list/address/raw fixture and operator evidence",
+      "retention": "current+previous",
+      "license_url": "https://www.arex.or.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "station list/address/raw fixture and operator evidence not frozen",
+      "transport": null,
+      "transport_missing_reason": "candidate: station list/address/raw fixture and operator evidence required"
+    },
+    {
+      "provider_id": "shinbundang",
+      "status": "candidate",
+      "canonical_source_url": "https://www.shinbundang.co.kr/dxline/dxline6.jsp",
+      "auth_placement": "none",
+      "scope": "신분당선 stations",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "대지위치 address and operator evidence required",
+      "retention": "current+previous",
+      "license_url": "https://www.shinbundang.co.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "대지위치 address and operator evidence required; not frozen",
+      "transport": null,
+      "transport_missing_reason": "candidate: 대지위치 address and operator evidence required"
+    },
+    {
+      "provider_id": "gimpo-goldline",
+      "status": "candidate",
+      "canonical_source_url": "https://gimpogoldline.com/?page_id=505",
+      "auth_placement": "none",
+      "scope": "김포골드라인 stations",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "station-code/name uniqueness and address fixture required",
+      "retention": "current+previous",
+      "license_url": "https://gimpogoldline.com/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "station-code/name uniqueness and address fixture required; not frozen",
+      "transport": null,
+      "transport_missing_reason": "candidate: station-code/name uniqueness and address fixture required"
+    },
+    {
+      "provider_id": "ui-sinseol",
+      "status": "candidate",
+      "canonical_source_url": "https://www.ui-line.com/html/main.php",
+      "auth_placement": "none",
+      "scope": "우이신설선 stations",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "current fetch failure remains blocked_runtime; exact detail URL fixture required",
+      "retention": "current+previous",
+      "license_url": "https://www.ui-line.com/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "current fetch failure remains blocked_runtime; exact detail URL fixture required",
+      "transport": null,
+      "transport_missing_reason": "candidate: current fetch failure remains blocked_runtime; exact detail URL fixture required"
+    },
+    {
+      "provider_id": "sillim",
+      "status": "candidate",
+      "canonical_source_url": "https://sillimlrt.com/site/kr/",
+      "auth_placement": "none",
+      "scope": "신림선 stations",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "station detail/address and operator evidence required",
+      "retention": "current+previous",
+      "license_url": "https://sillimlrt.com/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "station detail/address and operator evidence required; not frozen",
+      "transport": null,
+      "transport_missing_reason": "candidate: station detail/address and operator evidence required"
+    },
+    {
+      "provider_id": "everline",
+      "status": "candidate",
+      "canonical_source_url": "https://ever-line.co.kr/page/?M2_IDX=28976",
+      "auth_placement": "none",
+      "scope": "용인경전철 stations",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "exact detail fixture required",
+      "retention": "current+previous",
+      "license_url": "https://ever-line.co.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "exact detail fixture required; not frozen",
+      "transport": null,
+      "transport_missing_reason": "candidate: exact detail fixture required"
+    },
+    {
+      "provider_id": "uijeongbu-lrt",
+      "status": "candidate",
+      "canonical_source_url": "https://www.ulrt.co.kr/",
+      "auth_placement": "none; plus KRIC cross-check",
+      "scope": "의정부경전철 stations",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "official station detail not frozen means row stays candidate",
+      "retention": "current+previous",
+      "license_url": "https://www.ulrt.co.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "official station detail not frozen; row stays candidate",
+      "transport": null,
+      "transport_missing_reason": "candidate: official station detail not frozen"
+    },
+    {
+      "provider_id": "seohae-rail",
+      "status": "candidate",
+      "canonical_source_url": "https://www.seohaerail.co.kr/",
+      "auth_placement": "none; plus KRIC cross-check",
+      "scope": "서해철도 operated stations only",
+      "cadence": "provider revision",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "exact station detail/operator fixture required; line-map code alone forbidden",
+      "retention": "current+previous",
+      "license_url": "https://www.seohaerail.co.kr/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "exact station detail/operator fixture required; line-map code alone forbidden",
+      "transport": null,
+      "transport_missing_reason": "candidate: exact station detail/operator fixture required; line-map code alone forbidden"
+    },
+    {
+      "provider_id": "naver_candidate",
+      "status": "disabled",
+      "canonical_source_url": "https://developers.naver.com/docs/search/search/",
+      "auth_placement": "X-Naver-Client-Id + X-Naver-Client-Secret headers",
+      "scope": "exact Region query; URL/title/date metadata only",
+      "cadence": "manual/weekly",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "no key means blocked_auth with zero network; never canonical metric",
+      "retention": "raw 7 days, unsaved normalized 90 days",
+      "license_url": "https://developers.naver.com/",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "no key means blocked_auth with zero network; never canonical metric",
+      "transport": null,
+      "transport_missing_reason": "disabled: no key means blocked_auth with zero network"
+    },
+    {
+      "provider_id": "youtube_candidate",
+      "status": "disabled",
+      "canonical_source_url": "https://developers.google.com/youtube/v3",
+      "auth_placement": "API key query",
+      "scope": "exact Region query; video/channel/date metadata only",
+      "cadence": "manual/weekly",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "same candidate-only gate; quota-unit budget",
+      "retention": "raw 7 days, unsaved normalized 90 days",
+      "license_url": "https://developers.google.com/youtube/terms/developer-policies",
+      "network_allowed": false,
+      "fixture_policy": "absent_blocked",
+      "fixtures": [],
+      "fixture_missing_reason": "same candidate-only gate; quota-unit budget; no fixture",
+      "transport": null,
+      "transport_missing_reason": "disabled: candidate-only gate; quota-unit budget"
+    },
+    {
+      "provider_id": "instagram_manual",
+      "status": "manual",
+      "canonical_source_url": null,
+      "auth_placement": "user-entered HTTP(S) URL; no fetch",
+      "scope": "exact selected Region + Literature metadata",
+      "cadence": "manual",
+      "parser_version": "1.0.0",
+      "units": {},
+      "correction_semantics": "save only after explicit user action; no crawler/parser",
+      "retention": "Knowledge retention",
+      "license_url": null,
+      "network_allowed": false,
+      "fixture_policy": "manual_no_fetch",
+      "fixtures": [],
+      "fixture_missing_reason": "save only after explicit user action; no crawler/parser; no fetch",
+      "transport": null,
+      "transport_missing_reason": "manual: user-entered URL; no fetch; no crawler/parser"
+    }
+  ]
+}

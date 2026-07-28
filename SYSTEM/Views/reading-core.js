@@ -50,6 +50,7 @@
       title,
       author: clean(source.author),
       status: clean(source.status) || "queue",
+      reading_format: projectReadingFormat(source.reading_format),
       reading_purpose: readingPurpose,
       purpose: clean(source.purpose),
       current_page: Number.isFinite(currentPage) ? currentPage : null,
@@ -60,9 +61,25 @@
       key_takeaway: clean(source.key_takeaway),
       next_action: clean(source.next_action),
       cover_url: clean(source.cover_url || source.cover || source.cover_image || source.book_cover || source.image),
+      identifier: clean(source.identifier),
+      publisher: clean(source.publisher),
+      source_url: clean(source.source_url),
       path,
       updated: clean(source.updated)
     };
+  }
+
+  /**
+   * Project missing or unknown legacy reading_format as "미분류".
+   * Preserves valid canonical values. Never rewrites files — projection only.
+   */
+  const READING_FORMATS = Object.freeze(["book", "ebook", "paper", "document", "audiobook", "미분류"]);
+
+  function projectReadingFormat(value) {
+    const text = clean(value);
+    if (!text) return "미분류";
+    if (READING_FORMATS.includes(text)) return text;
+    return "미분류";
   }
 
   function validateReadingSession(input) {
@@ -252,6 +269,8 @@
     todayIsoDate,
     sanitizeFilename,
     normalizeBook,
+    projectReadingFormat,
+    READING_FORMATS,
     validateReadingSession,
     createReadingSession,
     createKnowledgeCandidate,

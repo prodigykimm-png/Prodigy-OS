@@ -28,6 +28,14 @@ global_domain_architecture: inactive
 - `venue`와 `auction_region`은 각자 전용 계약을 가진 Resource다. 범용 `resource` type은 없다.
 - AI는 분류 후보를 제안할 수 있지만 Knowledge 승인과 최종 분류는 사람이 수행한다.
 
+## Region 연결 계약
+
+- Region 연결은 `connections`에 저장된 exact canonical Region wikilink로만 만든다. 본문 텍스트, 좌표만 있는 값, 모호한 동네 이름은 Region link를 만들지 않는다.
+- canonical Region wikilink는 `[[PARA/RESOURCES/Auction Regions/<region_key>]]` 형태이며 `<region_key>`는 `시도-시군구` 형식의 canonical key다.
+- `invalidation_conditions`는 이 Knowledge가 무효화되는 조건을 사람이 작성한 YAML list다. Region thesis/invalidation projection은 이 값과 `connections`의 exact Region link를 읽는다.
+- `connections`와 `invalidation_conditions`는 Candidate에서 canonical Knowledge로 승격할 때 값을 바꾸거나 누락하지 않고 그대로 보존한다. 이 보존은 자동 승인이나 자동 Knowledge 생성이 아니다.
+- `literature_note`와 `knowledge_candidate`는 verified Knowledge가 아니다. Region thesis projection에서 별도 material/pending group으로만 표시한다.
+
 ## Persisted Properties
 
 ### `knowledge_domain`
@@ -45,6 +53,14 @@ registry-backed 영어 snake_case 값의 YAML list다. 하나의 Knowledge가 �
 ### `application_contexts`
 
 registry-backed 영어 snake_case YAML list다. 각 값은 등록된 `knowledge_domain` 또는 `knowledge_domain/knowledge_topic` 형식이며, Candidate에 저장된 list는 승인 writer가 변경하지 않고 canonical Knowledge로 승격한다.
+
+### `connections`
+
+explicit wikilink YAML list다. exact canonical Region link를 포함할 수 있으며, Region association의 유일한 source of truth다. 본문·좌표·모호한 지명에서 추론한 값은 저장하지 않는다.
+
+### `invalidation_conditions`
+
+사람이 작성한 조건 문장의 YAML list다. 이 Knowledge가 더 이상 유효하지 않게 되는 판단 기준을 기록한다. Candidate에 저장된 list는 승인 writer가 변경하지 않고 canonical Knowledge로 승격한다.
 
 ## Approved Registry
 

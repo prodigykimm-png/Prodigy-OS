@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "region-domain-input.schema.json",
+  "title": "Region Intelligence Domain Input",
+  "description": "Schema-valid domain input payload materialized from a selected receipt for human approval. Routes to one of the four existing domain writers: metrics, research, transit, land_price.",
+  "type": "object",
+  "required": [
+    "provider_id",
+    "run_id",
+    "domain",
+    "region_key",
+    "payload"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain": {
+      "type": "string",
+      "enum": [
+        "metrics",
+        "transit",
+        "research",
+        "land_price"
+      ]
+    },
+    "region_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lawd_code": {
+      "type": "string",
+      "pattern": "^[0-9]{8}$"
+    },
+    "household_code": {
+      "type": "string",
+      "pattern": "^[0-9]{10}$"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "source_receipt_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
