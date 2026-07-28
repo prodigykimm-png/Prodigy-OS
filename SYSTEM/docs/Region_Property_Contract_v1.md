@@ -687,7 +687,7 @@ AUTO:REGION_RESEARCH_LOG
 
 **렌더링**: 각 역의 공식 URL(`source_url`)과 raw SHA-256을 출력에 포함한다. 역명은 crosswalk에서 다시 읽어 package text를 신뢰하지 않는다.
 
-**지원 provider**: `incheon-metro`만 허용한다. 역이 0개인 지역은 package를 만들지 않고 빈 marker를 유지한다. 빈 marker는 "교통이 없다"는 의미가 아니다.
+**지원 provider**: 승인된 provider만 허용한다. 현재 `incheon-metro`, `busan-metro`가 승인 상태다. 새 provider는 운영사·역별 원천·raw hash·공식 행정경계 point-in-polygon 검증을 provider 계약과 테스트로 갖춘 뒤에만 추가한다. 역이 0개인 지역은 package를 만들지 않고 빈 marker를 유지한다. 빈 marker는 "교통이 없다"는 의미가 아니다.
 
 ### 10.4 validator와 integrator 책임 분리
 

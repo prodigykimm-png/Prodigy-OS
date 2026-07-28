@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * 서울교통공사 좌표 → 행정구역 매칭 + crosswalk JSON 생성
+ * 서울교통공사 좌표 후보 → 행정구역 매칭용 보조 스크립트
  * 입력: /tmp/seoul_metro_coords.json (수집 스크립트 출력)
  * 출력: SYSTEM/CACHE/region-transit/station-district-map-seoul.json
- * 사용법: node SYSTEM/SCRIPTS/seoul-metro-match.js
+ * 사용 중지: 기존 구현은 시군구 중심점 최근접 매칭을 사용했고,
+ * 경계 근처·광역 구간 역을 잘못 배정할 수 있어 crosswalk 생성에 쓰면 안 된다.
+ * 향후 공식 시군구 경계 GeoJSON을 이용한 point-in-polygon importer로 교체한다.
  */
 "use strict";
 const fs = require("fs");
@@ -35,6 +37,7 @@ function matchDistrict(lat, lng, districts) {
 }
 
 function main() {
+  throw new Error("서울·경기 후보 crosswalk는 격리 상태입니다. 공식 행정경계 GeoJSON 기반 point-in-polygon importer가 준비되기 전에는 실행할 수 없습니다.");
   const coords = JSON.parse(fs.readFileSync(COORDS_FILE, "utf8"));
   const districts = JSON.parse(fs.readFileSync(DISTRICTS_FILE, "utf8"));
 

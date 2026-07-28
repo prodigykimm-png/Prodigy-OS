@@ -8,7 +8,7 @@
  * Security invariants:
  * - package text is NEVER trusted for display; crosswalk on disk is source of truth
  * - hashes.json is REQUIRED; every map and raw hash must match
- * - only station-district-map.json is accepted as crosswalk
+ * - only approved provider-specific crosswalk files are accepted
  * - all paths are realpath-resolved, symlink/traversal blocked
  * - marker position is validated (must precede TRANSPORT_LIFE)
  */
@@ -18,11 +18,14 @@ const fs = require("node:fs");
 const crypto = require("node:crypto");
 
 const SUPPORTED_SCHEMA_VERSION = 1;
-const ALLOWED_PROVIDERS = new Set(["incheon-metro", "busan-metro", "seoul-metro"]);
+// `seoul-metro` is intentionally absent: the prior candidate mixed operators
+// and used nearest-centre district matching. It remains quarantined until a
+// provider-separated, boundary-verified contract is implemented.
+const ALLOWED_PROVIDERS = new Set(["incheon-metro", "busan-metro"]);
 const STATION_KEYS = new Set(["station_name", "station_no", "line_name", "raw_path", "raw_sha256"]);
 const CROSSWALK_ROOT = "SYSTEM/CACHE/region-transit";
 const ALLOWED_RAW_ROOT = "SYSTEM/CACHE/region-transit/raw";
-const CROSSWALK_FILENAMES = new Set(["station-district-map.json", "station-district-map-seoul.json"]);
+const CROSSWALK_FILENAMES = new Set(["station-district-map.json"]);
 const HASHES_FILENAME = "hashes.json";
 
 const TRANSIT_MARKER = Object.freeze({
@@ -99,7 +102,7 @@ function validatePackage(pkg, vaultRoot) {
     throw new Error("crosswalk_path가 허용 경로 밖에 있습니다: " + pkg.crosswalk_path);
   }
   if (!CROSSWALK_FILENAMES.has(path.basename(realCrosswalk))) {
-    throw new Error("crosswalk 파일명이 허용 목록에 없습니다: " + path.basename(realCrosswalk));
+    throw new Error("crosswalk 파일명이 허용 목록에 없습니다 (허용: " + [...CROSSWALK_FILENAMES].join(", ") + "): " + path.basename(realCrosswalk));
   }
 
   // Verify crosswalk map hash
@@ -198,7 +201,7 @@ function renderBody(pkg, vaultRoot) {
   }
 
   const lines = [];
-  const providerLabel = { "incheon-metro": "인천교통공사", "seoul-metro": "서울교통공사", "busan-metro": "부산교통공사" }[pkg.provider] || pkg.provider;
+  const providerLabel = { "incheon-metro": "인천교통공사", "busan-metro": "부산교통공사" }[pkg.provider] || pkg.provider;
   lines.push("### " + providerLabel + " 확인 역");
   lines.push("");
 
