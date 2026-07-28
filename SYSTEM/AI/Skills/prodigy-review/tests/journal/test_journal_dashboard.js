@@ -131,14 +131,26 @@ async function testManualDailyCompletionAction() {
   }
 }
 
+async function testLiteralNewlinesRenderAsLines() {
+  const harness = loadDashboardHarness();
+  try {
+    await harness.render();
+    assert.equal(global.JournalDashboardView.displayText("첫 줄\\n둘째 줄"), "첫 줄\n둘째 줄");
+  } finally {
+    harness.restore();
+  }
+}
+
 async function testCurrentEvidenceCompletionAction() {
   const harness = loadDashboardHarness({ blockCount: 10 });
   try {
     await harness.render();
     const actions = findAll(harness.container, (element) => element.tag === "button");
-    const complete = actions.find((element) => element.text === "증거 검토·확정");
-    assert.ok(complete, "unfinished current Daily exposes the Evidence completion action");
-    assert.match(complete.attributes.class, /prodigy-btn-primary/, "Evidence confirmation is the primary current-day action");
+    const complete = actions.find((element) => element.text === "일기 쓰기");
+    const classify = actions.find((element) => element.text === "AI 분류");
+    assert.ok(complete, "every Daily exposes an explicit diary writing action");
+    assert.ok(classify, "every Daily exposes an explicit AI classification action");
+    assert.match(complete.attributes.class, /prodigy-btn-primary/, "diary writing is the primary current-day action");
     assert.equal(actions.some((element) => /지식/.test(element.text)), false, "Knowledge approval is not presented as the Daily completion action");
     const todayCard = findAll(harness.container, (element) => element.attributes.class === "journal-card")[0];
     const primaryActions = todayCard.children.findIndex((element) => element.attributes.class === "journal-primary-actions prodigy-btn-row");
@@ -151,7 +163,7 @@ async function testCurrentEvidenceCompletionAction() {
     await confirmEvidence([{ evidence_id: "daily-2026-07-20-e01", title: "촬영 기록", experience: "촬영을 진행했다.", change: "변화", next_experiment: "다음 실험" }]);
 
     const afterConfirm = findAll(harness.container, (element) => element.tag === "button");
-    assert.equal(afterConfirm.some((element) => element.text === "증거 검토·확정"), false, "a successful Evidence confirmation moves the current Daily out of the unfinished action state");
+    assert.ok(afterConfirm.some((element) => element.text === "일기 쓰기"), "a completed Daily still allows a new diary entry");
     assert.ok(findAll(harness.container, (element) => element.text === "완료").length, "the rerendered current Daily shows completion after Evidence confirmation succeeds");
   } finally {
     harness.restore();
@@ -162,14 +174,14 @@ async function testFailedEvidenceConfirmationKeepsCompletionAction() {
   const harness = loadDashboardHarness({ failCommit: true });
   try {
     await harness.render();
-    const complete = findAll(harness.container, (element) => element.tag === "button" && element.text === "증거 검토·확정")[0];
+    const complete = findAll(harness.container, (element) => element.tag === "button" && element.text === "일기 쓰기")[0];
     complete.onclick();
     const [, , confirmEvidence] = harness.modalCalls[0];
     await assert.rejects(
       () => confirmEvidence([{ evidence_id: "daily-2026-07-20-e01", title: "촬영 기록", experience: "촬영을 진행했다." }]),
       /저장 실패/
     );
-    assert.ok(findAll(harness.container, (element) => element.tag === "button" && element.text === "증거 검토·확정").length, "a failed Evidence save leaves the Daily in its unfinished action state");
+    assert.ok(findAll(harness.container, (element) => element.tag === "button" && element.text === "일기 쓰기").length, "a failed Evidence save keeps the diary entry action available");
     assert.ok(findAll(harness.container, (element) => element.text === "작성 중").length, "the dashboard does not claim completion on a failed Evidence save");
   } finally {
     harness.restore();
@@ -187,7 +199,7 @@ async function testStagedEvidenceDeletionWaitsForEvidenceConfirmation() {
     assert.equal(findAll(harness.container, (element) => element.text === "촬영 기록 1").length, 0, "a staged delete is reflected in the current dashboard review state");
     assert.ok(findAll(harness.container, (element) => element.text === "삭제 취소").length, "the user can restore a staged delete before confirmation");
 
-    const complete = findAll(harness.container, (element) => element.tag === "button" && element.text === "증거 검토·확정")[0];
+    const complete = findAll(harness.container, (element) => element.tag === "button" && element.text === "일기 쓰기")[0];
     complete.onclick();
     assert.equal(harness.commitCalls.length, 0, "opening then cancelling the review flow leaves the Daily note unwritten");
     const [, , confirmEvidence] = harness.modalCalls[0];
@@ -205,7 +217,7 @@ async function testFailedConfirmationPreservesStagedDeleteWithoutWriting() {
   try {
     await harness.render();
     await findAll(harness.container, (element) => element.attributes["aria-label"] === "촬영 기록 1 삭제")[0].onclick();
-    findAll(harness.container, (element) => element.tag === "button" && element.text === "증거 검토·확정")[0].onclick();
+    findAll(harness.container, (element) => element.tag === "button" && element.text === "일기 쓰기")[0].onclick();
     const [, , confirmEvidence] = harness.modalCalls[0];
     await assert.rejects(() => confirmEvidence([{ evidence_id: "daily-2026-07-20-e03", title: "새 기록", experience: "새 Evidence" }]), /저장 실패/);
     assert.equal(harness.commitCalls.length, 1, "a failed confirmation attempts no follow-up write");
@@ -220,9 +232,9 @@ async function testCompletedEvidenceCanConfirmAStagedDelete() {
   const harness = loadDashboardHarness({ blockCount: 1, status: "complete" });
   try {
     await harness.render();
-    assert.equal(findAll(harness.container, (element) => element.text === "증거 검토·확정").length, 0, "a completed Daily does not show an unnecessary confirmation action");
+    assert.ok(findAll(harness.container, (element) => element.text === "일기 쓰기").length, "a completed Daily keeps the diary writing action");
     await findAll(harness.container, (element) => element.attributes["aria-label"] === "촬영 기록 1 삭제")[0].onclick();
-    const confirm = findAll(harness.container, (element) => element.tag === "button" && element.text === "증거 검토·확정")[0];
+    const confirm = findAll(harness.container, (element) => element.tag === "button" && element.text === "증거 변경 검토")[0];
     assert.ok(confirm, "a staged delete re-exposes the Evidence confirmation action for a completed Daily");
     confirm.onclick();
     const [, , confirmEvidence] = harness.modalCalls[0];
@@ -234,6 +246,7 @@ async function testCompletedEvidenceCanConfirmAStagedDelete() {
 }
 
 Promise.resolve()
+  .then(testLiteralNewlinesRenderAsLines)
   .then(testManualDailyCompletionAction)
   .then(testCurrentEvidenceCompletionAction)
   .then(testFailedEvidenceConfirmationKeepsCompletionAction)

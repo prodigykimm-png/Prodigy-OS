@@ -265,9 +265,146 @@
     return normalizeCandidate({ ...current, status: "approved", promoted_knowledge: promoted });
   }
 
+  // --- Region evidence tier grouping ---
+  // knowledge = verified, permanent_note = legacy verified, literature_note = related material,
+  // knowledge_candidate = pending. Candidate/literature are never verified.
+  const TIER_ORDER = Object.freeze(["verified", "legacy", "material", "pending"]);
+  const TIER_BY_TYPE = Object.freeze({
+    knowledge: "verified",
+    permanent_note: "legacy",
+    literature_note: "material",
+    knowledge_candidate: "pending"
+  });
+
+  function tierForType(type) {
+    return TIER_BY_TYPE[typeof type === "string" ? type.trim() : ""] || null;
+  }
+
+  function groupByTier(rows) {
+    const groups = { verified: [], legacy: [], material: [], pending: [] };
+    for (const row of Array.isArray(rows) ? rows : []) {
+      if (!isRecord(row)) continue;
+      const tier = tierForType(row.type);
+      if (!tier) continue;
+      groups[tier].push(row);
+    }
+    return Object.freeze({
+      verified: Object.freeze(groups.verified),
+      legacy: Object.freeze(groups.legacy),
+      material: Object.freeze(groups.material),
+      pending: Object.freeze(groups.pending),
+      counts: Object.freeze({
+        verified: groups.verified.length,
+        legacy: groups.legacy.length,
+        material: groups.material.length,
+        pending: groups.pending.length
+      })
+    });
+  }
+
+  // --- Region link extraction (exact canonical wikilinks only) ---
+  const REGION_ROOT = "PARA/RESOURCES/Auction Regions/";
+
+  function canonicalPath(value) {
+    return String(value || "").trim().replace(/\\/g, "/").replace(/\.md$/i, "");
+  }
+
+  // Normalize a source/object path WITHOUT stripping .md (canonical repo-relative path keeps its extension).
+  function normalizeSourcePath(value) {
+    return String(value || "").trim().replace(/\\/g, "/");
+  }
+
+  function connectionList(row) {
+    const data = isRecord(row) ? row : {};
+    const connections = Array.isArray(data.connections) ? data.connections
+      : typeof data.connections === "string" && data.connections.trim() ? [data.connections] : [];
+    const result = [];
+    const seen = new Set();
+    for (const raw of connections) {
+      const text = typeof raw === "string" ? raw.trim() : "";
+      const match = /^\[\[([^\[\]|]+)\]\]$/.exec(text);
+      if (!match) continue;
+      const target = canonicalPath(match[1]);
+      if (!target || target.includes("..")) continue;
+      if (!seen.has(target)) {
+        seen.add(target);
+        result.push(target);
+      }
+    }
+    return result;
+  }
+
+  function regionLinksForRow(row) {
+    return connectionList(row).filter((target) => target.startsWith(REGION_ROOT)
+      && target.slice(REGION_ROOT.length).length > 0);
+  }
+
+  function invalidationList(row) {
+    const data = isRecord(row) ? row : {};
+    const values = Array.isArray(data.invalidation_conditions) ? data.invalidation_conditions
+      : typeof data.invalidation_conditions === "string" && data.invalidation_conditions.trim()
+        ? [data.invalidation_conditions] : [];
+    return values.filter((value) => typeof value === "string" && value.trim()).map((value) => value.trim());
+  }
+
+  // --- Thesis / invalidation projection ---
+  // Render every exact-linked knowledge then permanent_note, each with its own invalidation_conditions,
+  // sorted by tier, valid updated descending (missing/invalid last), then canonical path code point;
+  // deduplicate exact canonical path only. literature_note and candidates stay in separate groups.
+  const THESIS_TIER_RANK = Object.freeze({ knowledge: 0, permanent_note: 1 });
+
+  function parseUpdated(value) {
+    const parsed = typeof value === "number" ? value : Date.parse(String(value || ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function projectRegionThesis(rows, regionTarget) {
+    const wanted = canonicalPath(regionTarget);
+    const verified = [];
+    const seenPaths = new Set();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      if (!isRecord(row)) continue;
+      const type = typeof row.type === "string" ? row.type.trim() : "";
+      if (type !== "knowledge" && type !== "permanent_note") continue;
+      const path = normalizeSourcePath(row.path || row.canonical_path || "");
+      if (!path) continue;
+      const linked = wanted ? regionLinksForRow(row).includes(wanted) : regionLinksForRow(row).length > 0;
+      if (!linked) continue;
+      if (seenPaths.has(path)) continue; // deduplicate exact canonical path only
+      seenPaths.add(path);
+      verified.push({
+        path,
+        type,
+        title: typeof row.title === "string" ? row.title.trim() : "",
+        updated: parseUpdated(row.updated),
+        invalidation_conditions: Object.freeze(invalidationList(row))
+      });
+    }
+    verified.sort((a, b) => {
+      const tierDelta = THESIS_TIER_RANK[a.type] - THESIS_TIER_RANK[b.type];
+      if (tierDelta !== 0) return tierDelta;
+      const aUpdated = a.updated === null ? Number.NEGATIVE_INFINITY : a.updated;
+      const bUpdated = b.updated === null ? Number.NEGATIVE_INFINITY : b.updated;
+      if (a.updated === null && b.updated === null) {
+        // both invalid -> code point
+      } else if (aUpdated !== bUpdated) {
+        return bUpdated - aUpdated; // valid updated descending, missing/invalid last
+      }
+      return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+    });
+    return Object.freeze({
+      region: wanted,
+      thesis: Object.freeze(verified),
+      count: verified.length
+    });
+  }
+
   root.KnowledgeCandidateCore = Object.freeze({
     TYPE, STATUSES, SOURCE_TYPES, CONFIDENCE, DOMAINS, TOPICS, stableCandidateId,
     createCandidate, normalizeLegacyReadingCandidate, validateCandidate, isActive, isTerminal,
-    transitionCandidate, setPromotionTarget, finalizePromotion
+    transitionCandidate, setPromotionTarget, finalizePromotion,
+    TIER_ORDER, TIER_BY_TYPE, tierForType, groupByTier,
+    REGION_ROOT, connectionList, regionLinksForRow, invalidationList, projectRegionThesis
   });
+  if (typeof module !== "undefined" && module.exports) module.exports = root.KnowledgeCandidateCore;
 })(typeof window !== "undefined" ? window : globalThis);

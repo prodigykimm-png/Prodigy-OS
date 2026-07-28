@@ -38,6 +38,9 @@
       .prodigy-settings-secret-row input { flex: 1 1 auto; }
       .prodigy-settings-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--background-modifier-border); }
       .prodigy-settings-status { margin-top: 12px; padding: 8px; border: 1px solid var(--background-modifier-border); border-radius: 4px; color: var(--text-muted); font-size: .8rem; }
+      .prodigy-settings-badge { display: inline-block; font-size: .68rem; font-weight: 700; padding: 2px 6px; border-radius: 3px; margin-bottom: 4px; }
+      .prodigy-settings-badge-present { background: var(--background-modifier-success); color: var(--text-on-accent); }
+      .prodigy-settings-badge-missing { background: var(--background-modifier-error); color: var(--text-on-accent); }
       @media (max-width: 640px) {
         .modal.prodigy-settings-modal { width: calc(100vw - 24px) !important; max-width: calc(100vw - 24px) !important; }
         .prodigy-settings-grid { grid-template-columns: 1fr; }
@@ -64,6 +67,7 @@
         const config = await service.load(this.app);
         const secretIds = [
           ...Object.values(service.SECRET_IDS),
+          ...Object.values(service.REGION_SECRET_IDS),
           ...Object.values(config.providers).map((provider) => provider.apiKeySecret).filter(Boolean)
         ];
         const unique = [...new Set(secretIds)];
@@ -91,6 +95,7 @@
 
       this.renderAi(content);
       this.renderServiceSecrets(content);
+      this.renderRegionSecrets(content);
       if (this.state.status) content.createEl("div", { text: this.state.status, attr: { class: "prodigy-settings-status" } });
       this.renderFooter(content);
     }
@@ -183,6 +188,31 @@
       const reb = grid.createEl("div", { attr: { class: "prodigy-settings-card" } });
       reb.createEl("h4", { text: "REB OpenAPI" });
       this.renderSecretInput(reb, "REB OpenAPI 키", service.SECRET_IDS.reb, "지역 지표 수집용 키입니다. 수집 실행과 수치 기록은 별도 승인된 흐름에서만 수행됩니다.");
+    }
+
+    renderRegionSecrets(parent) {
+      const service = configService();
+      const section = parent.createEl("section", { attr: { class: "prodigy-settings-section" } });
+      section.createEl("h3", { text: "Region Intelligence 수집 키" });
+      section.createEl("p", { text: "지역 공식 데이터 수집에 사용하는 API 키입니다. 키는 이 기기의 SecretStorage에만 저장되며, 캐시·로그·Node로 전송되지 않습니다. 키가 없으면 해당 수집은 blocked_auth 상태로 보고됩니다.", attr: { class: "prodigy-settings-intro" } });
+      const grid = section.createEl("div", { attr: { class: "prodigy-settings-grid prodigy-settings-service-grid" } });
+      const regionKeys = [
+        { id: service.REGION_SECRET_IDS.dataGoKr, label: "data.go.kr 서비스 키", hint: "국토교통부 실거래가, 건축인허가, K-APT 등 공공데이터포털 API 키" },
+        { id: service.REGION_SECRET_IDS.vworld, label: "VWorld API 키", hint: "공시지가, 행정경계 WFS 요청용 VWorld KEY" },
+        { id: service.REGION_SECRET_IDS.kosis, label: "KOSIS API 키 (선택)", hint: "KOSIS 통계 API 키. 현재 비활성 상태이며 미래 게이트 통과 후 사용" },
+        { id: service.REGION_SECRET_IDS.seoulOpenapi, label: "서울 열린데이터 키", hint: "서울시 지하철역 공식 데이터 요청용 API 키" },
+        { id: service.REGION_SECRET_IDS.naverClientId, label: "Naver Client ID", hint: "지역 분위기 후보 검색용. 비활성 상태이며 키 없이 네트워크 요청 0회" },
+        { id: service.REGION_SECRET_IDS.naverClientSecret, label: "Naver Client Secret", hint: "Naver Search API 클라이언트 시크릿" },
+        { id: service.REGION_SECRET_IDS.youtube, label: "YouTube API 키", hint: "지역 영상 후보 검색용. 비활성 상태이며 quota 단위 예산 적용" }
+      ];
+      regionKeys.forEach((item) => {
+        const card = grid.createEl("div", { attr: { class: "prodigy-settings-card" } });
+        const present = this.state.secretStatus[item.id];
+        card.createEl("h4", { text: item.label });
+        const badge = card.createEl("span", { attr: { class: present ? "prodigy-settings-badge prodigy-settings-badge-present" : "prodigy-settings-badge prodigy-settings-badge-missing" } });
+        badge.textContent = present ? "저장됨" : "미설정";
+        this.renderSecretInput(card, item.label, item.id, item.hint);
+      });
     }
 
     renderSecretInput(parent, label, secretId, hint) {

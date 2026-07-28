@@ -21,6 +21,32 @@ const CANDIDATE_REL = "SYSTEM/CACHE/region-transit/candidates/kric-urban-station
 const OUT_REL = "SYSTEM/CACHE/region-transit/candidates/v2";
 const KRIC_URL = "https://data.kric.go.kr/rips/M_01_01/detail.do?id=32";
 
+/**
+ * Quarantine schema: every candidate output MUST carry these fields so that
+ * downstream tooling can fail closed if a candidate is mistaken for an
+ * accepted provider. A candidate map is never publishable and never reaches
+ * Region inputs.
+ */
+const QUARANTINE_SCHEMA = Object.freeze({
+  status: "candidate_not_publishable",
+  network_allowed: false,
+  region_inputs_reachable: false,
+  promotion_requires: "reviewed official source cross-check, writer v2 approval, and human approval envelope"
+});
+
+function enforceQuarantineSchema(map) {
+  if (map.status !== QUARANTINE_SCHEMA.status) {
+    throw new Error("candidate map status must be '" + QUARANTINE_SCHEMA.status + "'");
+  }
+  if (map.network_allowed !== false) {
+    throw new Error("candidate map network_allowed must be false");
+  }
+  if (map.region_inputs_reachable !== false) {
+    throw new Error("candidate map region_inputs_reachable must be false");
+  }
+  return true;
+}
+
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
@@ -88,6 +114,8 @@ function build(vaultRoot = process.cwd()) {
     const map = {
       schema_version: 2,
       status: "candidate_not_publishable",
+      network_allowed: false,
+      region_inputs_reachable: false,
       provider_id: `kric-${slug(operator)}`,
       operator,
       operator_evidence_url: KRIC_URL,
@@ -97,6 +125,7 @@ function build(vaultRoot = process.cwd()) {
       station_count: stations.length,
       stations
     };
+    enforceQuarantineSchema(map);
     validateProviderMap(map, root);
     const outputPath = path.join(outRoot, `${map.provider_id}.json`);
     fs.writeFileSync(outputPath, JSON.stringify(map, null, 2));
@@ -106,6 +135,8 @@ function build(vaultRoot = process.cwd()) {
   const manifest = {
     generated_at: new Date().toISOString(),
     status: "candidate_not_publishable",
+    network_allowed: false,
+    region_inputs_reachable: false,
     reason: "Provider-specific official source cross-check and writer v2 approval are still required.",
     input: { path: CANDIDATE_REL, raw_sha256: input.raw_sha256 },
     accepted_station_count: [...identity.values()].filter(Boolean).length,
@@ -121,4 +152,4 @@ if (require.main === module) {
   catch (error) { process.stderr.write(`${error.stack || error.message}\n`); process.exitCode = 1; }
 }
 
-module.exports = Object.freeze({ build, sameStation });
+module.exports = Object.freeze({ build, sameStation, enforceQuarantineSchema, QUARANTINE_SCHEMA });

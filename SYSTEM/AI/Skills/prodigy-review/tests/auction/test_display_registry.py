@@ -154,6 +154,120 @@ def test_display_scripts_have_valid_javascript_syntax():
         subprocess.run(["node", "--check", str(path)], check=True)
 
 
+def test_consolidation_properties_have_korean_labels():
+    """All new consolidation properties must have one canonical Korean label."""
+    source = "\n".join([
+        "global.window = {};",
+        f"eval(require('fs').readFileSync({json.dumps(str(REGISTRY))}, 'utf8'));",
+        "const display = window.prodigyDisplay;",
+        "console.log(JSON.stringify({",
+        "  auction_outcome: display.property('auction_outcome'),",
+        "  auction_result_date: display.property('auction_result_date'),",
+        "  winning_bid_price: display.property('winning_bid_price'),",
+        "  invalidation_conditions: display.property('invalidation_conditions'),",
+        "  reading_format: display.property('reading_format'),",
+        "  identifier: display.property('identifier'),",
+        "  publisher: display.property('publisher'),",
+        "  source_url: display.property('source_url'),",
+        "  connections: display.property('connections')",
+        "}));",
+    ])
+    result = subprocess.run(["node", "-e", source], capture_output=True, text=True, check=True)
+    labels = json.loads(result.stdout)
+    expected = {
+        "auction_outcome": "경매 결과",
+        "auction_result_date": "결과 확정일",
+        "winning_bid_price": "낙찰가",
+        "invalidation_conditions": "무효화 조건",
+        "reading_format": "독서 형식",
+        "identifier": "식별 번호",
+        "publisher": "발행처",
+        "source_url": "자료 URL",
+        "connections": "연결",
+    }
+    assert labels == expected, f"Label mismatch: {labels}"
+
+
+def test_consolidation_enum_infos_render_korean():
+    """auction_outcome and reading_format enum infos must render Korean labels."""
+    source = "\n".join([
+        "global.window = {};",
+        f"eval(require('fs').readFileSync({json.dumps(str(REGISTRY))}, 'utf8'));",
+        "const display = window.prodigyDisplay;",
+        "console.log(JSON.stringify({",
+        "  won: display.auctionOutcome('won'),",
+        "  lost: display.auctionOutcome('lost'),",
+        "  skipped: display.auctionOutcome('skipped'),",
+        "  unknownOutcome: display.auctionOutcome('future'),",
+        "  book: display.readingFormat('book'),",
+        "  ebook: display.readingFormat('ebook'),",
+        "  paper: display.readingFormat('paper'),",
+        "  document: display.readingFormat('document'),",
+        "  audiobook: display.readingFormat('audiobook'),",
+        "  unclassified: display.readingFormat('미분류'),",
+        "  unknownFormat: display.readingFormat('scroll')",
+        "}));",
+    ])
+    result = subprocess.run(["node", "-e", source], capture_output=True, text=True, check=True)
+    labels = json.loads(result.stdout)
+    expected = {
+        "won": "낙찰",
+        "lost": "패찰",
+        "skipped": "입찰 포기",
+        "unknownOutcome": "미등록 경매 결과",
+        "book": "종이책",
+        "ebook": "전자책",
+        "paper": "논문",
+        "document": "문서",
+        "audiobook": "오디오북",
+        "unclassified": "미분류",
+        "unknownFormat": "미등록 독서 형식",
+    }
+    assert labels == expected, f"Enum label mismatch: {labels}"
+
+
+def test_schema_has_no_duplicate_property_definitions():
+    """Each consolidation property must appear exactly once as a ### heading in Core_Property_Schema.md."""
+    import re
+    schema_path = ROOT / "SYSTEM/Prodigy/Schema/Core_Property_Schema.md"
+    text = schema_path.read_text(encoding="utf-8")
+    consolidation_keys = [
+        "auction_outcome", "auction_result_date", "winning_bid_price",
+        "invalidation_conditions", "reading_format", "identifier",
+        "publisher", "source_url",
+    ]
+    for key in consolidation_keys:
+        count = len(re.findall(rf"^###\s+`{key}`", text, re.MULTILINE))
+        assert count == 1, f"Property `{key}` has {count} ### definitions (expected 1)"
+
+
+def test_raw_key_not_exposed_in_registry_labels():
+    """No property label value may be identical to its snake_case key (raw exposure)."""
+    source = "\n".join([
+        "global.window = {};",
+        f"eval(require('fs').readFileSync({json.dumps(str(REGISTRY))}, 'utf8'));",
+        "const display = window.prodigyDisplay;",
+        "const keys = ['auction_outcome','auction_result_date','winning_bid_price',",
+        "  'invalidation_conditions','reading_format','identifier','publisher','source_url'];",
+        "const exposed = keys.filter(k => display.property(k) === k);",
+        "console.log(JSON.stringify(exposed));",
+    ])
+    result = subprocess.run(["node", "-e", source], capture_output=True, text=True, check=True)
+    exposed = json.loads(result.stdout)
+    assert exposed == [], f"Raw keys exposed as labels: {exposed}"
+
+
+def test_list_property_defaults_remain_lists():
+    """connections and invalidation_conditions must be documented as YAML list in schema."""
+    schema_path = ROOT / "SYSTEM/Prodigy/Schema/Core_Property_Schema.md"
+    text = schema_path.read_text(encoding="utf-8")
+    for key in ["connections", "invalidation_conditions"]:
+        section = text.split(f"### `{key}`", 1)[1].split("### `", 1)[0]
+        assert "YAML list" in section or "list" in section.lower(), (
+            f"Property `{key}` must document list format"
+        )
+
+
 if __name__ == "__main__":
     test_display_registry_maps_internal_values_to_korean_labels()
     test_auction_surfaces_use_the_central_registry()
@@ -164,4 +278,9 @@ if __name__ == "__main__":
     test_user_facing_auction_copy_does_not_expose_property_keys()
     test_watching_card_with_winning_bid_is_rendered_as_closed()
     test_display_scripts_have_valid_javascript_syntax()
+    test_consolidation_properties_have_korean_labels()
+    test_consolidation_enum_infos_render_korean()
+    test_schema_has_no_duplicate_property_definitions()
+    test_raw_key_not_exposed_in_registry_labels()
+    test_list_property_defaults_remain_lists()
     print("Display Registry tests passed")

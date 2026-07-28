@@ -12,13 +12,29 @@
     class ProposeModal extends obsidianModule.Modal {
       constructor(appInstance) {
         super(appInstance);
-        this.freeText = ""; this.proposal = null; this.selectedIds = new Set(); this.selectedObjectPaths = new Set(); this.dismissedEvidenceIds = new Set(); this.dismissedExperienceTexts = new Set();
+        this.freeText = String(opts.initialReflection || ""); this.committedReflectionText = this.freeText.trim(); this.startClassification = Boolean(opts.startClassification);
+        this.proposal = null; this.selectedIds = new Set(); this.selectedObjectPaths = new Set(); this.dismissedEvidenceIds = new Set(); this.dismissedExperienceTexts = new Set();
         this.candidateHandoff = root.DailyReflectionCandidateHandoffView.createState(); this.savedEvidence = null; this.focusEvidenceId = "";
         this.selectedVenueCandidates = new Set(); this.selectedPlaceCandidates = new Set(); this.revisionRequest = ""; this.phase = "input"; this.busy = false;
       }
       onOpen() { this.render(); }
       onClose() { this.contentEl.empty(); }
       resetProposalSelection() { root.DailyReflectionModalState.reset(this); }
+      async commitReflection() {
+        const text = String(this.freeText || "").trim();
+        if (!text) throw new Error("저장할 일기를 입력해 주세요.");
+        if (text === this.committedReflectionText) return { unchanged: true };
+        const commit = typeof opts.onReflectionCommit === "function"
+          ? opts.onReflectionCommit
+          : root.JournalStore && typeof root.JournalStore.saveReflection === "function"
+            ? ({ freeText }) => root.JournalStore.saveReflection(app, dateStr, freeText)
+            : null;
+        if (!commit) throw new Error("일기 저장 기능을 불러오지 못했습니다.");
+        const result = await commit({ app, dateStr, freeText: text });
+        if (result === false) throw new Error("일기를 저장하지 못했습니다.");
+        this.committedReflectionText = text;
+        return result;
+      }
       refreshApprovalFooter() {
         const count = this.selectedIds.size;
         const label = `${count}개 Evidence 승인·반영`;

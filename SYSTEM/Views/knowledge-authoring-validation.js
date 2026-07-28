@@ -150,11 +150,71 @@
     return id;
   }
 
+  // --- Region link validation ---
+  const REGION_ROOT = "PARA/RESOURCES/Auction Regions/";
+
+  /**
+   * Validate an exact canonical Region wikilink.
+   * Body text, coordinates alone, and fuzzy district names do NOT create links.
+   * Only [[PARA/RESOURCES/Auction Regions/<region_key>]] is accepted.
+   */
+  function regionLink(value, field) {
+    const text = requiredText(value, field || "connections", MAX_TITLE_TEXT * 2).replace(/\\/g, "/");
+    const match = /^\[\[([^\[\]|]+)\]\]$/.exec(text);
+    if (!match) throw new Error("정확한 Region wikilink가 필요합니다.");
+    const target = match[1].trim().replace(/\.md$/i, "");
+    if (!target.startsWith(REGION_ROOT) || target.slice(REGION_ROOT.length).length === 0
+      || target.includes("..") || target.split("/").some((part) => !part || part === "." || part === "..")) {
+      throw new Error("정확한 Region wikilink가 필요합니다.");
+    }
+    return `[[${target}]]`;
+  }
+
+  /**
+   * Validate a list of connections, extracting only exact Region links.
+   * Non-Region wikilinks pass through unchanged; body text is never parsed for Regions.
+   */
+  function connectionsWithRegions(value, field) {
+    const inputs = value === undefined ? [] : value;
+    return uniqueList(inputs, field || "connections", (entry, itemField) => wikiLink(entry, itemField));
+  }
+
+  /**
+   * Extract only exact Region links from a validated connections list.
+   */
+  function extractRegionLinks(connections) {
+    const list = Array.isArray(connections) ? connections : [];
+    const result = [];
+    for (const link of list) {
+      const text = typeof link === "string" ? link.trim() : "";
+      const match = /^\[\[([^\[\]|]+)\]\]$/.exec(text);
+      if (!match) continue;
+      const target = match[1].trim().replace(/\.md$/i, "").replace(/\\/g, "/");
+      if (target.startsWith(REGION_ROOT) && target.slice(REGION_ROOT.length).length > 0) {
+        result.push(`[[${target}]]`);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Validate invalidation_conditions as a YAML list of text strings.
+   */
+  function invalidationConditions(value, field) {
+    const inputs = value === undefined ? [] : value;
+    return uniqueList(inputs, field || "invalidation_conditions", (entry, itemField) => {
+      const text = requiredText(entry, itemField, MAX_FIELD_TEXT);
+      if (hostileMarkup(text)) throw new Error(`${itemField} must be safe text.`);
+      return text;
+    });
+  }
+
   const api = freezeDeep({
     LITERATURE_PATH, MAX_TITLE_TEXT, MAX_FIELD_TEXT,
     isRecord, freezeDeep, optionalText, requiredText, hostileMarkup, safeTitle,
     canonicalId, sourceId, candidateId, url, exactEnum, uniqueList,
     canonicalLiteratureLink, evidenceIds, wikiLink, optionalLinks, optionalMachineId,
+    REGION_ROOT, regionLink, connectionsWithRegions, extractRegionLinks, invalidationConditions,
   });
 
   root.KnowledgeAuthoringValidation = api;

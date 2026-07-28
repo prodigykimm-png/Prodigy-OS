@@ -5,6 +5,9 @@
   const storeApi = root.WorkoutStore || (typeof require === "function" ? require("./workout-store.js") : null);
   const importer = root.WorkoutImport || (typeof require === "function" ? require("./workout-import.js") : null);
   const objects = root.WorkoutProgramObjects || (typeof require === "function" ? require("./workout-program-objects.js") : null);
+  const exerciseLibrary = root.WorkoutExerciseLibrary || (typeof require === "function" ? require("./workout-exercise-library.js") : null);
+  const analysis = root.WorkoutAnalysis || (typeof require === "function" ? require("./workout-analysis.js") : null);
+  const modals = root.WorkoutModals || (typeof require === "function" ? require("./workout-modals.js") : null);
 
   /**
    * Modal base must never be undefined — `class X extends undefined` aborts the whole
@@ -1089,6 +1092,84 @@
 ` });
   }
 
+  // ─── Workout v2: Analysis & Observation Section (Todo 10) ─────────────
+
+  function renderAnalysisSection(parent, state) {
+    if (!analysis) return;
+    const completed = (state.sessions || []).filter((s) => s && s.status === "completed");
+    if (!completed.length) return;
+    const area = section(parent, "분석 (v2)", "볼륨 · PR · 근육 분포. 결정론적 계산.");
+
+    // Multi-session volume summary
+    const vol = analysis.multiSessionVolume(completed);
+    const statsRow = area.createDiv({ attr: { class: "workout-metrics" } });
+    const volMetric = statsRow.createDiv({ attr: { class: "workout-metric" } });
+    volMetric.createEl("span", { text: "총 볼륨" });
+    volMetric.createEl("strong", { text: `${Math.round(vol.total_volume).toLocaleString()} kg` });
+    const sessMetric = statsRow.createDiv({ attr: { class: "workout-metric" } });
+    sessMetric.createEl("span", { text: "완료 세션" });
+    sessMetric.createEl("strong", { text: `${vol.session_count}` });
+
+    // Top exercises by volume
+    if (vol.by_exercise.length) {
+      area.createEl("h3", { text: "운동별 볼륨", attr: { style: "margin:12px 0 6px;font-size:.92em;" } });
+      vol.by_exercise.slice(0, 5).forEach((ex) => {
+        const row = area.createDiv({ attr: { class: "workout-history-row" } });
+        row.createEl("strong", { text: ex.name });
+        row.createEl("span", { text: `${Math.round(ex.volume).toLocaleString()} kg · ${ex.sets}세트 · ${ex.sessions}회` });
+      });
+    }
+
+    // Latest session muscle distribution
+    const latest = completed.slice().sort((a, b) =>
+      String(b.completed_at || b.date).localeCompare(String(a.completed_at || a.date))
+    )[0];
+    if (latest && exerciseLibrary) {
+      const catalog = exerciseLibrary.createLibrary();
+      const dist = analysis.sessionMuscleDistribution(latest, catalog);
+      if (dist.length) {
+        area.createEl("h3", { text: "최근 세션 근육 분포", attr: { style: "margin:12px 0 6px;font-size:.92em;" } });
+        const distRow = area.createDiv({ attr: { class: "workout-metrics" } });
+        dist.slice(0, 6).forEach((d) => {
+          const chip = distRow.createDiv({ attr: { class: "workout-metric" } });
+          chip.createEl("span", { text: d.label });
+          chip.createEl("strong", { text: `${Math.round(d.ratio * 100)}%` });
+        });
+      }
+    }
+  }
+
+  function renderObservationSection(parent, state, refresh) {
+    const area = section(parent, "관측 기록 (v2)", "AI 대화 없이 직접 관측을 저장합니다. 자동 저장 없음.");
+    const noteInput = area.createEl("textarea", {
+      attr: { placeholder: "오늘 운동 관측을 적어 주세요. 예: 스쿼트 3세트에서 좌우 불균형 느껴짐", rows: "3", class: "workout-observation-input" }
+    });
+    const actions = area.createDiv({ attr: { class: "workout-inline-actions", style: "margin-top:8px;" } });
+    button(actions, "관측 저장", true).onclick = async () => {
+      const text = String(noteInput.value || "").trim();
+      if (!text) return notice("관측 내용을 입력해 주세요.");
+      try {
+        const obs = core.buildObservation(state.draft || null, text);
+        // Explicit save through the store — the only write path.
+        await state.store.saveSession({
+          schema_version: "prodigy-workout-observation-v1",
+          session_id: obs.observation_id,
+          status: "observation",
+          note: obs.note,
+          kind: obs.kind,
+          created_at: obs.created_at,
+          linked_session_id: obs.session_id,
+          exercise_results: [],
+        });
+        noteInput.value = "";
+        notice("관측을 저장했습니다.");
+        await refresh();
+      } catch (error) {
+        notice(error.message || "관측 저장에 실패했습니다.");
+      }
+    };
+  }
+
   async function renderStrengthDashboard(app, container, state, refresh) {
     const toolbar = container.createDiv({ attr: { class: "workout-toolbar" } });
     button(toolbar, "새 프로그램", true).onclick = () => new CreateProgramModal(app, state, refresh).open();
@@ -1104,6 +1185,8 @@
     renderWorkoutNotes(container, state);
     renderLibrary(container, state, refresh);
     renderHistory(container, state);
+    renderAnalysisSection(container, state);
+    renderObservationSection(container, state, refresh);
   }
 
   let shellController = null;

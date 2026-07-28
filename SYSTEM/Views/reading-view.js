@@ -545,11 +545,125 @@
   // Backward-compatible alias (old call sites / tests)
   const renderLearningLoop = renderSessionHistory;
 
+  /**
+   * Manual registration modal — zero network calls.
+   * Converges on ReadingBookCreate.createManualReadingObject (single writer).
+   */
+  function openManualRegistrationModal(app, onCreated) {
+    const obsidianModule = root.obsidian || window.obsidian;
+    const formats = (root.ReadingBookCreate && root.ReadingBookCreate.READING_FORMATS) || ["book", "ebook", "paper", "document", "audiobook", "미분류"];
+    const state = {
+      title: "",
+      author: "",
+      reading_format: "book",
+      identifier: "",
+      publisher: "",
+      publish_date: "",
+      source_url: "",
+      cover_url: "",
+      category: "",
+      language: "",
+      connections: ""
+    };
+
+    if (!obsidianModule || !obsidianModule.Modal) {
+      // Fallback: prompt-based
+      const title = typeof window.prompt === "function" ? window.prompt("책 제목") : null;
+      if (!title) return null;
+      state.title = title;
+      return root.ReadingBookCreate.createManualReadingObject(app, state).then(async (result) => {
+        if (window.Notice) new Notice(`${result.title} 독서 기록을 만들었습니다.`);
+        if (onCreated) await onCreated(result);
+        return result;
+      });
+    }
+
+    class ManualRegistrationModal extends obsidianModule.Modal {
+      constructor(appInstance) {
+        super(appInstance);
+        this.state = { ...state };
+      }
+      onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.addClass("reading-manual-registration-modal");
+        contentEl.createEl("h3", { text: "수동 등록", attr: { style: "margin:0 0 6px;" } });
+        contentEl.createEl("p", {
+          text: "네트워크 없이 직접 정보를 입력하여 독서 기록을 만듭니다.",
+          attr: { style: "color:var(--text-muted);font-size:0.84em;margin:0 0 12px;" }
+        });
+
+        const addField = (label, key, options = {}) => {
+          fieldInput(contentEl, label, key, this.state, options);
+        };
+
+        addField("제목 *", "title", { placeholder: "책/자료 제목" });
+        addField("저자", "author", { placeholder: "저자명" });
+
+        // Format select
+        contentEl.createEl("label", {
+          text: "형식",
+          attr: { style: "display:block;font-weight:600;margin:10px 0 4px;font-size:0.86em;" }
+        });
+        const select = contentEl.createEl("select", {
+          attr: { style: "width:100%;padding:8px;border-radius:6px;border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);min-height:40px;box-sizing:border-box;" }
+        });
+        formats.forEach((fmt) => {
+          const opt = select.createEl("option", { text: fmt, value: fmt });
+          if (fmt === this.state.reading_format) opt.selected = true;
+        });
+        select.onchange = () => { this.state.reading_format = select.value; };
+
+        addField("식별자 (ISBN/DOI 등)", "identifier", { placeholder: "예: 978-89-01-23456-7" });
+        addField("출판사", "publisher", { placeholder: "출판사명" });
+        addField("출판일", "publish_date", { placeholder: "YYYY-MM-DD" });
+        addField("출처 URL", "source_url", { placeholder: "https://..." });
+        addField("표지 URL", "cover_url", { placeholder: "https://..." });
+        addField("카테고리", "category", { placeholder: "분류" });
+        addField("연결", "connections", { placeholder: "[[연결 Object]]" });
+
+        const errorEl = contentEl.createEl("p", {
+          attr: { style: "color:var(--text-error);font-size:0.82em;margin:8px 0 0;display:none;" }
+        });
+
+        const actions = contentEl.createEl("div", {
+          attr: { style: "display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;" }
+        });
+        if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
+        const cancel = root.ProdigyUI
+          ? root.ProdigyUI.button(actions, "취소", { onClick: () => this.close() })
+          : actions.createEl("button", { text: "취소", attr: { type: "button", class: "prodigy-btn" } });
+        if (!root.ProdigyUI) cancel.onclick = () => this.close();
+        const save = root.ProdigyUI
+          ? root.ProdigyUI.button(actions, "등록", { primary: true })
+          : actions.createEl("button", { text: "등록", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
+        save.onclick = async () => {
+          save.disabled = true;
+          errorEl.style.display = "none";
+          try {
+            const result = await root.ReadingBookCreate.createManualReadingObject(app, this.state);
+            if (window.Notice) new Notice(`${result.title} 독서 기록을 만들었습니다.`);
+            this.close();
+            if (onCreated) await onCreated(result);
+          } catch (error) {
+            save.disabled = false;
+            errorEl.setText(error.message || String(error));
+            errorEl.style.display = "block";
+          }
+        };
+      }
+      onClose() { this.contentEl.empty(); }
+    }
+
+    new ManualRegistrationModal(app).open();
+  }
+
   const api = {
     openSessionModal,
     openQuickSession,
     saveQuickSession,
     openCandidateModal,
+    openManualRegistrationModal,
     renderSessionHistory,
     renderLearningLoop,
     openPath,

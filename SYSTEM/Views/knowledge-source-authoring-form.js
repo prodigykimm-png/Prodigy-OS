@@ -99,6 +99,10 @@
     control(form, controller, { name: "application_trigger", label: "적용 계기", value: draft.application_trigger, disabled });
     label(form, "적용 맥락(쉼표로 구분)", "application_contexts");
     commaList(control(form, controller, { name: "application_contexts_text", label: "적용 맥락", value: draft.application_contexts.join(", "), disabled }), "application_contexts", controller);
+    label(form, "연결 Region (exact wikilink)", "connections");
+    control(form, controller, { name: "connections", label: "연결 Region", value: Array.isArray(draft.connections) ? draft.connections.join(", ") : "", disabled,
+      tag: "input" });
+    createEl(form, "p", { text: "정확한 Region wikilink만 입력하세요. 본문·좌표·모호한 지명은 Region link를 만들지 않습니다.", attr: { class: "knowledge-source-authoring-help", style: "margin:2px 0;color:var(--text-muted);font-size:0.85em;" } });
   }
 
   function renderActions(section, form, controller, current, disabled) {

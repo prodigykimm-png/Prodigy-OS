@@ -122,9 +122,50 @@ title: x
   await creator.createReadingObject(app, "한국어 책 제목");
   assert.equal(created[1], "PARA/PROJECTS/Reading/한국어 책 제목 (2).md");
 
+  // --- One writer: search and manual converge on writeReadingObject ---
+  assert.equal(typeof creator.writeReadingObject, "function");
+  assert.equal(typeof creator.createManualReadingObject, "function");
+  // createReadingObject must route through the shared writer (no inline create loop)
+  const creatorSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-book-create.js"), "utf8");
+  const createReadingBody = creatorSrc.slice(creatorSrc.indexOf("async function createReadingObject"));
+  assert.match(createReadingBody, /writeReadingObject\(app, content, title\)/);
+
+  // --- Create book/ebook/paper/document fixtures without network ---
+  const templateContent = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_reading.md"), "utf8");
+  const fixtureFiles = new Map([[creator.TEMPLATE, templateContent]]);
+  const fixtureCreated = [];
+  const fixtureApp = {
+    vault: {
+      getAbstractFileByPath: (target) => (fixtureFiles.has(target) ? { path: target } : null),
+      read: async (file) => fixtureFiles.get(file.path || file),
+      create: async (target, value) => {
+        fixtureFiles.set(target, value);
+        fixtureCreated.push(target);
+        return { path: target };
+      },
+    },
+  };
+  for (const fmt of ["book", "ebook", "paper", "document"]) {
+    const res = await creator.createManualReadingObject(fixtureApp, {
+      title: `픽스처 ${fmt}`,
+      reading_format: fmt,
+      author: "작가",
+      publish_date: "2024-01-01",
+    });
+    assert.match(res.path, new RegExp(`픽스처 ${fmt}\\.md$`));
+    const written = fixtureFiles.get(res.path);
+    assert.match(written, new RegExp(`reading_format: "${fmt}"`));
+    assert.match(written, /status: "queue"/);
+  }
+  assert.equal(fixtureCreated.length, 4);
+  // Zero network in the whole module
+  assert.equal(creatorSrc.includes("fetch("), false);
+  assert.equal(creatorSrc.includes("XMLHttpRequest"), false);
+
   const dashboard = fs.readFileSync(path.join(ROOT, "HUB/20 Reading.md"), "utf8");
   assert.equal(dashboard.includes('app.vault.create(filePath, "")'), false);
   assert.match(dashboard, /ReadingBookCreate\.open/);
+  assert.match(dashboard, /openManualRegistrationModal/);
   console.log("Reading book creation tests passed");
 }
 

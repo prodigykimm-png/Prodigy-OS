@@ -4,6 +4,7 @@
 
   function openPath(app, path) { return app.workspace.openLinkText(String(path || "").replace(/\.md$/, ""), "", false); }
   function addButton(parent, text, primary) { return root.ProdigyUI ? root.ProdigyUI.button(parent, text, primary ? { primary: true } : undefined) : parent.createEl("button", { text, attr: { type: "button", class: "prodigy-btn" + (primary ? " prodigy-btn-primary" : "") } }); }
+  function displayText(value) { return String(value || "").replace(/\\n/g, "\n"); }
   function shiftDate(dateStr, days) {
     var parts = String(dateStr || "").split("-").map(Number);
     if (parts.length !== 3 || parts.some(function (n) { return !Number.isFinite(n); })) return dateStr;
@@ -14,9 +15,9 @@
     var preview = parent.createEl("div", { attr: { "class": "journal-preview" } });
     if (!blocks.length && review.status === "empty") return preview.setText("\uC544\uC9C1 \uAE30\uB85D\uB41C \uACBD\uD5D8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \u300C+ \uACBD\uD5D8 \uCD94\uAC00\u300D\uB85C \uAC00\uBE58\uAC8C \uB0A8\uAE30\uC138\uC694.");
     if (!blocks.length) {
-      preview.createEl("div", { text: "\uC131\uCC30: " + (review.fields.reflection || "\u2014") });
-      preview.createEl("div", { text: "\uBCC0\uD654: " + (review.fields.change || "\u2014") });
-      return preview.createEl("div", { text: "\uB2E4\uC74C \uC2E4\uD5D8: " + (review.fields.next_experiment || "\u2014") });
+      preview.createEl("div", { text: "\uC131\uCC30: " + (displayText(review.fields.reflection) || "\u2014") });
+      preview.createEl("div", { text: "\uBCC0\uD654: " + (displayText(review.fields.change) || "\u2014") });
+      return preview.createEl("div", { text: "\uB2E4\uC74C \uC2E4\uD5D8: " + (displayText(review.fields.next_experiment) || "\u2014") });
     }
     blocks.forEach(function (block) {
       var item = preview.createEl("div", { attr: { "class": "journal-block" } });
@@ -28,8 +29,8 @@
         remove.addClass("journal-block-delete");
         remove.onclick = function () { return onStageDelete(block); };
       }
-      item.createEl("div", { text: block.title || "(\uC81C\uBAA9 \uC5C6\uC74C)", attr: { style: "font-weight:600;" } });
-      item.createEl("div", { text: block.experience || "", attr: { style: "color:var(--text-muted);margin-top:2px;" } });
+      item.createEl("div", { text: displayText(block.title) || "(\uC81C\uBAA9 \uC5C6\uC74C)", attr: { style: "font-weight:600;" } });
+      item.createEl("div", { text: displayText(block.experience), attr: { style: "color:var(--text-muted);margin-top:2px;" } });
     });
   }
   function renderRecentCard(container, title, items, emptyText, value) {
@@ -39,7 +40,7 @@
     items.forEach(function (item) {
       var row = card.createEl("div", { attr: { "class": "journal-row" } });
       row.createEl("strong", { text: item.date, attr: { style: "display:block;margin-bottom:4px;" } });
-      row.createEl("div", { text: value(item), attr: { "class": "journal-preview" } });
+      row.createEl("div", { text: displayText(value(item)), attr: { "class": "journal-preview" } });
     });
   }
   async function renderDashboard(app, container, openProposeEvidenceModal, dashboardState, selectedDate) {
@@ -130,7 +131,7 @@
     });
   }
 
-  var api = { openPath: openPath, renderDashboard: renderDashboard };
+  var api = { openPath: openPath, displayText: displayText, renderDashboard: renderDashboard };
   root.JournalDashboardView = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

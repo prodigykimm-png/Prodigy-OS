@@ -121,6 +121,7 @@ function createModalHarness(onConfirm, options) {
     notice: global.Notice,
     obsidian: global.obsidian,
     ai: global.DailyReflectionAI,
+    journalStore: global.JournalStore,
     providerService: global.ProjectWorkflowDraftService,
     quality: global.EvidenceQualityCore,
     handoff: global.DailyReflectionCandidateHandoffView,
@@ -129,9 +130,11 @@ function createModalHarness(onConfirm, options) {
   };
   let instance;
   const notices = [];
+  const generatedInputs = [];
   global.Notice = class Notice { constructor(message) { notices.push(message); } };
   global.window = { Notice: global.Notice };
   global.EvidenceQualityCore = require(path.join(ROOT, "SYSTEM/Views/evidence-quality-core.js"));
+  global.JournalStore = { saveReflection: async (_app, _date, freeText) => ({ fields: { reflection: freeText } }) };
   global.ProjectWorkflowDraftService = {
     loadProviderConfig: async () => ({
       defaultProvider: "lm-studio",
@@ -156,7 +159,11 @@ function createModalHarness(onConfirm, options) {
     require(dependencyPath);
   });
   global.DailyReflectionAI = {
-    generateProposal: async () => options && options.testProposal || createProposal(),
+    generateProposal: async (input) => {
+      generatedInputs.push(input);
+      if (options && options.generateError) throw options.generateError;
+      return options && options.testProposal || createProposal();
+    },
     selectEvidenceBlocks: (proposal, selectedIds) => proposal.evidence_blocks.filter((block) => selectedIds.includes(block.evidence_id))
   };
   global.obsidian = {
@@ -176,8 +183,8 @@ function createModalHarness(onConfirm, options) {
     const reflection = findElement(instance.contentEl, (element) => element.tag === "textarea");
     reflection.value = "오늘의 관찰";
     reflection.oninput();
-    const apply = findElement(instance.contentEl, (element) => element.text === "AI 적용");
-    await apply.onclick();
+    await button("일기 저장").onclick();
+    await button("AI 분류").onclick();
   }
   function button(text) {
     const found = findElement(instance.contentEl, (element) => element.tag === "button" && (element.text === text || element.text.includes(text)));
@@ -200,6 +207,8 @@ function createModalHarness(onConfirm, options) {
     else global.obsidian = previous.obsidian;
     if (previous.ai === undefined) delete global.DailyReflectionAI;
     else global.DailyReflectionAI = previous.ai;
+    if (previous.journalStore === undefined) delete global.JournalStore;
+    else global.JournalStore = previous.journalStore;
     if (previous.providerService === undefined) delete global.ProjectWorkflowDraftService;
     else global.ProjectWorkflowDraftService = previous.providerService;
     if (previous.quality === undefined) delete global.EvidenceQualityCore;
@@ -211,7 +220,37 @@ function createModalHarness(onConfirm, options) {
     if (previous.opener === undefined) delete global.openDailyReflectionProposalModal;
     else global.openDailyReflectionProposalModal = previous.opener;
   }
-  return { instance, notices, propose, button, checkbox, restore };
+  return { instance, notices, generatedInputs, propose, button, checkbox, restore };
+}
+
+async function testSaveAndClassificationAreSeparate() {
+  const savedTexts = [];
+  const harness = createModalHarness(async () => ({}), {
+    generateError: new Error("provider unavailable"),
+    onReflectionCommit: async ({ freeText }) => {
+      savedTexts.push(freeText);
+      return { fields: { reflection: freeText } };
+    }
+  });
+  try {
+    const area = findElement(harness.instance.contentEl, (element) => element.tag === "textarea");
+    area.value = "먼저 저장하고 나중에 분류할 일기";
+    area.oninput();
+    const classifyBeforeSave = harness.button("AI 분류");
+    assert.equal(classifyBeforeSave.disabled, true, "classification is unavailable until the current text is saved");
+
+    await harness.button("일기 저장").onclick();
+    assert.deepEqual(savedTexts, ["먼저 저장하고 나중에 분류할 일기"]);
+    assert.equal(harness.generatedInputs.length, 0, "saving a diary never waits for or calls AI");
+    assert.equal(harness.button("AI 분류").disabled, false);
+
+    await harness.button("AI 분류").onclick();
+    assert.equal(harness.generatedInputs.length, 1);
+    assert.equal(harness.instance.freeText, "먼저 저장하고 나중에 분류할 일기");
+    assert.ok(harness.notices.some((message) => /일기는 저장되어 있습니다/.test(message)));
+  } finally {
+    harness.restore();
+  }
 }
 
 async function testSharedProviderSettingsSummaryRenders() {
@@ -370,6 +409,7 @@ async function testEvidenceSavedCallbackContract() {
 async function main() {
   testNoModalFailsClosed();
   await testSharedProviderSettingsSummaryRenders();
+  await testSaveAndClassificationAreSeparate();
   await testApprovalButtonCountTracksSelectedEvidence();
   await testEvidenceSavedCallbackContract();
   console.log("Daily Reflection modal extraction tests passed");

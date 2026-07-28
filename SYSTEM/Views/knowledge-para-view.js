@@ -42,6 +42,41 @@
     return control;
   }
 
+  function renderParaActions(container, options) {
+    var opts = options || {};
+    var app = opts.app;
+    var onCreated = typeof opts.onCreated === "function" ? opts.onCreated : function () {};
+    var service = root.ParaObjectCreatorService;
+    if (!service) return;
+
+    var bar = createEl(container, "div", { attr: { class: "knowledge-para-actions", role: "toolbar", "aria-label": "PARA Object 만들기" } });
+    service.ACTIONS.forEach(function (action) {
+      var btn = createEl(bar, "button", {
+        text: action.icon + " " + action.label,
+        attr: { type: "button", class: "knowledge-para-action-btn", "data-action": action.id, "aria-label": action.label }
+      });
+      btn.onclick = function () {
+        if (action.writes) {
+          var title = typeof root.obsidian !== "undefined" && root.obsidian.Modal
+            ? prompt("제목을 입력하세요")
+            : null;
+          if (!title) return;
+          service.executeAction(action.id, app, title).then(function (result) {
+            if (result && result.ok) onCreated(result);
+          }).catch(function (err) {
+            if (root.obsidian && root.obsidian.Notice) new root.obsidian.Notice(err.message || "만들기에 실패했습니다.");
+          });
+        } else {
+          service.executeAction(action.id, app, "").then(function (result) {
+            if (result && result.ok) onCreated(result);
+          }).catch(function (err) {
+            if (root.obsidian && root.obsidian.Notice) new root.obsidian.Notice(err.message || "열기에 실패했습니다.");
+          });
+        }
+      };
+    });
+  }
+
   function renderParaPanel(container, paraModel, options) {
     if (!container) return;
     empty(container);
@@ -51,6 +86,10 @@
 
     var section = createEl(container, "section", { attr: { class: "knowledge-para-section", "aria-label": "지식 활용 · PARA" } });
     createEl(section, "h2", { text: "지식 활용 · PARA" });
+
+    // PARA creator actions
+    renderParaActions(section, opts);
+
     createEl(section, "p", {
       text: "프로젝트·영역·자료에서 명시적으로 연결된 승인 지식만 표시합니다. 후보나 미검증 자료는 여기에 나타나지 않습니다.",
       attr: { class: "knowledge-explorer-meta" }
@@ -93,7 +132,7 @@
     }
   }
 
-  var api = Object.freeze({ renderParaPanel: renderParaPanel });
+  var api = Object.freeze({ renderParaPanel: renderParaPanel, renderParaActions: renderParaActions });
   root.KnowledgeParaView = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

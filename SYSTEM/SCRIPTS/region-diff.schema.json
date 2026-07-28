@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "region-diff.schema.json",
+  "title": "Region Intelligence Diff",
+  "description": "Correction-aware diff between two normalized generations. Compares same-period corrections or new-period against greatest accepted earlier period.",
+  "type": "object",
+  "required": [
+    "provider_id",
+    "run_id",
+    "baseline_run_id",
+    "diff_type",
+    "changes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "baseline_run_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "diff_type": {
+      "type": "string",
+      "enum": [
+        "correction",
+        "new_period",
+        "initial"
+      ]
+    },
+    "raw_changed": {
+      "type": "boolean"
+    },
+    "normalized_equal": {
+      "type": "boolean"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "region_key",
+          "field",
+          "old_value",
+          "new_value"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "region_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "field": {
+            "type": "string",
+            "minLength": 1
+          },
+          "old_value": {
+            "type": [
+              "number",
+              "string",
+              "null"
+            ]
+          },
+          "new_value": {
+            "type": [
+              "number",
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

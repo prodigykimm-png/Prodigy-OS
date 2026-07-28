@@ -104,6 +104,23 @@ updated:         # Templater 또는 수동
 | `auction_note` | 사용자 메모 (대시보드 표시용) | 텍스트 |
 | `my_opinion` | 최종 투자 판단 관련 사용자 메모 (의사결정 사유 상세) | 텍스트 |
 
+### Outcome (경매 결과 — 학습용, 선택)
+
+| Property | 목적 | 단위 |
+|---|---|---|
+| `auction_outcome` | 정규 결과 tuple (`won` / `lost` / `skipped`) | enum |
+| `auction_result_date` | 결과 확정일 | ISO date |
+| `winning_bid_price` | 최종 낙찰가 (실제 낙찰액). `won`/`lost`는 `> 0` 필수, `skipped`는 생략 가능 | 원 |
+
+> **Outcome 규칙 (학습 코어 계약)**
+> - `auction_outcome`, `auction_result_date`, 조건부 `winning_bid_price`는 한 번에 원자적으로 기록·수정·삭제되는 한 tuple이다.
+> - `won`/`lost`는 `winning_bid_price > 0` 필수. `skipped`는 생략 가능.
+> - `auction_result_date`는 실제 존재하는 날짜여야 하며 `as_of` 기준 미래일 수 없고, `auction_datetime` 날짜 이후(당일 포함)여야 한다.
+> - 덮어쓰기/삭제는 기존 tuple 전체를 명시적 확인 후에만 변경한다.
+> - **Outcome은 lifecycle `status`로부터 독립적이다.** 결과 기록은 `status`를 변경하지 않고, `status` 전이도 outcome을 설정하지 않는다.
+> - 기존 사건은 마이그레이션하지 않는다. `status`만 있고 정규 outcome이 없는 legacy 결과는 `결과 입력 대기`로 표시한다.
+> - 법원 결과를 스크래핑하지 않으며, 누락된 가격을 추정하거나 입찰가를 추천하지 않는다.
+
 ### Attachments (첨부)
 
 ```yaml

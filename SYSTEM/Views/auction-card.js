@@ -244,24 +244,62 @@ window.renderAuctionCard = function(p, container, options) {
       attr: { style: 'font-size: 0.76em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
     });
     detailRow1.createEl('span', { text: `📍 ${regionText}` });
-    // Region knowledge note (uses region_sido + region_sigungu)
-    if (window.AuctionRegionCore && (p.region_sido || p.region_sigungu)) {
+    // Region decision packet is read-only: it must never create a Region Object.
+    if (window.AuctionRegionPacket) {
       const regionBtn = detailRow1.createEl('button', {
-        text: '지역',
+        text: '지역 판단',
         attr: {
           type: 'button',
           class: 'action-btn',
           style: 'font-size: 0.72em; padding: 1px 6px; min-height: 0; cursor: pointer;',
-          title: '지역 지식 노트 열기/만들기'
+          title: '검증된 지역 근거와 확인 필요 항목 보기',
+          'aria-label': '지역 판단 패킷 열기'
         }
       });
       regionBtn.onclick = async (event) => {
         event.preventDefault();
         event.stopPropagation();
         try {
-          await window.AuctionRegionCore.openOrCreateRegionNote(app, p);
+          await window.AuctionRegionPacket.openForAuction(app, p, { returnFocus: regionBtn });
         } catch (error) {
           if (window.Notice) new Notice(error.message || String(error));
+        }
+      };
+    }
+    // Region Intelligence popup — read-only, never mutates Objects.
+    if (window.RegionIntelligencePopupCore && window.RegionIntelligencePopupView) {
+      const riBtn = detailRow1.createEl('button', {
+        text: '지역 정보',
+        attr: {
+          type: 'button',
+          class: 'action-btn',
+          style: 'font-size: 0.72em; padding: 1px 6px; min-height: 0; cursor: pointer;',
+          title: '지역 정량·정성 정보 팝업',
+          'aria-label': '지역 정보 팝업 열기'
+        }
+      });
+      riBtn.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        try {
+          const regionKey = (p.region_sido || "").trim() && (p.region_sigungu || "").trim()
+            ? `${(p.region_sido || "").trim()}-${(p.region_sigungu || "").trim()}`
+            : null;
+          if (!regionKey) { if (window.Notice) new Notice("지역 정보가 없습니다."); return; }
+          const result = window.RegionIntelligencePopupCore.openPopup(app.vault.adapter.basePath || "", regionKey);
+          if (!result.ok) { if (window.Notice) new Notice(result.error); return; }
+          const html = window.RegionIntelligencePopupView.renderPopup(result.state);
+          const overlay = document.createElement("div");
+          overlay.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)";
+          const modal = document.createElement("div");
+          modal.style.cssText = "background:var(--background-primary);border-radius:12px;max-width:560px;width:95vw;max-height:90vh;overflow-y:auto;padding:16px";
+          modal.innerHTML = html;
+          overlay.appendChild(modal);
+          overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+          modal.querySelector("[data-action='close']")?.addEventListener("click", () => overlay.remove());
+          document.body.appendChild(overlay);
+        } catch (error) {
+          if (window.Notice) new Notice("지역 정보 팝업 오류: " + (error.message || String(error)));
         }
       };
     }

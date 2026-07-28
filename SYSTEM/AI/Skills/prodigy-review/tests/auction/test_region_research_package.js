@@ -307,7 +307,7 @@ function main() {
     fs.writeFileSync(targetPath, originalContent, "utf8");
     const pkg = validPackage("부산광역시-중구");
     const pkgPath = mkCache(vault7, "부산광역시-중구", "2026-07-19", pkg);
-    const result = apply.applyPackageFile({ vaultRoot: vault7, targetPath, packagePath: pkgPath });
+    const result = apply.applyPackageFile({ vaultRoot: vault7, targetPath, packagePath: pkgPath, execute: true });
     assert.equal(result.changed, true);
     assert.equal(result.dry_run, false);
     assert.equal(result.reason, "package_applied");
@@ -352,7 +352,7 @@ function main() {
     assert.equal(fs.readdirSync(path.dirname(targetPath)).some((n) => n.includes(".tmp-")), false);
 
     // idempotency
-    const result2 = apply.applyPackageFile({ vaultRoot: vault7, targetPath, packagePath: pkgPath });
+    const result2 = apply.applyPackageFile({ vaultRoot: vault7, targetPath, packagePath: pkgPath, execute: true });
     assert.equal(result2.changed, false);
     assert.equal(result2.reason, "same_package");
     assert.equal(fs.readFileSync(targetPath, "utf8"), after);
@@ -386,7 +386,7 @@ function main() {
     const pkgPath = mkCache(vault9, "부산광역시-중구", "2026-07-19", validPackage("부산광역시-중구"));
     fs.chmodSync(targetDir, 0o555);
     try {
-      assert.throws(() => apply.applyPackageFile({ vaultRoot: vault9, targetPath, packagePath: pkgPath }), /rename|EACCES|EPERM|ENOENT/);
+      assert.throws(() => apply.applyPackageFile({ vaultRoot: vault9, targetPath, packagePath: pkgPath, execute: true }), /rename|EACCES|EPERM|ENOENT/);
       assert.equal(fs.readFileSync(targetPath, "utf8"), originalContent);
     } finally {
       fs.chmodSync(targetDir, 0o755);

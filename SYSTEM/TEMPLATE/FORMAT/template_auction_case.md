@@ -58,6 +58,9 @@ decision_date:
 review_date:
 auction_note:
 my_opinion:
+# ---------- Outcome (학습용, 선택) ----------
+auction_outcome:
+auction_result_date:
 # ---------- People / links ----------
 # Shared Object link field (People 등). 원본 사건 내용은 복사하지 않는다.
 connections:

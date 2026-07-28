@@ -92,6 +92,8 @@
     const details = [
       `Daily Evidence: ${list(candidate.source_evidence_ids).join(", ") || "연결된 Evidence ID 없음"}`,
       `출처 Object: ${list(candidate.source_objects).join(", ") || "연결된 Object 없음"}`,
+      `연결 Region: ${list(candidate.connections).filter((link) => typeof link === "string" && link.includes("Auction Regions")).join(", ") || "연결된 Region 없음"}`,
+      `무효화 조건: ${list(candidate.invalidation_conditions).join("; ") || "없음"}`,
       `신뢰도: ${confidence}`,
       `제안 경로: ${route || "미분류"}`
     ];

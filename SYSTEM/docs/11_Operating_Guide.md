@@ -1340,3 +1340,62 @@ AI의 도움을 받되, 최종 결정은 사람이 내린다.
 - SYSTEM/docs/03_Object_Model.md
 - SYSTEM/docs/04_Capture_System.md
 - SYSTEM/docs/05_Home.md
+
+---
+
+## Region Intelligence 수집·승인 운영
+
+### API 키 설정
+
+통합 설정 모달의 "Region Intelligence 수집 키" 섹션에서 관리한다. 모든 키는 Obsidian SecretStorage에만 저장되며, 캐시·로그·JSON 파일에 절대 기록되지 않는다.
+
+| 키 ID | 용도 | 필수 여부 |
+|-------|------|-----------|
+| prodigy-reb-openapi-key | 부동산원 R-ONE 공시가격·거래량 | 선택 |
+| prodigy-mois-api-key | 행정안전부 주민등록 인구 | 선택 |
+| prodigy-vworld-api-key | V-World 경계·지가 | 선택 |
+| prodigy-data-go-kr-key | 공공데이터포털 공통 | 선택 |
+| prodigy-kapt-key | K-APT 공동주택 | 선택 |
+| prodigy-kosis-key | KOSIS 통계 | 선택 |
+| prodigy-building-hub-key | 건축허가 | 선택 |
+
+키가 없으면 해당 provider는 `blocked_auth` 상태로 보고되며, 다른 provider 수집에 영향이 없다.
+
+### 수집 상태
+
+- **ready**: 키 설정 완료, 다음 만기 시 자동 수집 대상
+- **blocked_auth**: 키 미설정 — 설정 후 자동 복구
+- **blocked_coverage**: 파서는 있으나 해당 지역 코드 미지원 (예: 인천 개편구)
+- **candidate**: 제공자 계약 미확정 — 수집 비활성
+- **disabled**: 정책상 비활성 (Naver, YouTube 등)
+
+### 수집 실행
+
+- **자동**: JS Engine 시작 시 활성화 확인 → 승인하면 만기 provider만 KST 예산 내에서 수집
+- **수동**: Home 또는 Region Hub의 `지금 수집` 버튼 — 만기 여부와 무관하게 즉시 1회
+- **수집 결과**: `SYSTEM/CACHE/region-intelligence/providers/{provider_id}/` 아래 generation 디렉토리에 raw·normalized·snapshot 저장
+
+### 승인 및 적용
+
+수집 결과는 자동으로 Region Object를 수정하지 않는다. 적용 절차:
+
+1. 수집 완료 시 `SYSTEM/CACHE/region-approvals/envelopes/{nonce}.json`에 불변 envelope 생성 (TTL 30분)
+2. Region 수집 inbox에서 변경 내용 확인
+3. 표시된 명령을 복사하여 터미널에서 실행:
+   ```
+   node SYSTEM/SCRIPTS/region-approved-apply.js --envelope SYSTEM/CACHE/region-approvals/envelopes/{nonce}.json --nonce {nonce} --execute
+   ```
+4. Bridge가 기존 domain writer(metrics/research/transit/land_price)에 `--execute`로 위임
+5. 적용 완료 시 receipt 기록, 대상 잠금 해제
+
+**주의**: UI는 명령을 실행하지 않는다. 반드시 사용자가 복사하여 터미널에서 실행한다.
+
+### Region 팝업
+
+Auction 카드의 "지역 정보" 버튼 또는 Region Hub에서 열린다. 7개 탭(핵심·변화·실거래·공급·일자리·교통·생활·지식·논지·임장)과 4개 독립 신뢰도 배지(최신성·검증·출처·스키마)를 표시한다. 팝업은 읽기 전용이며 Object를 수정하지 않는다.
+
+### 문제 해결
+
+- 수집이 실행되지 않으면: Prodigy Doctor에서 플러그인·키 상태 확인
+- envelope 만료 시: 재수집하면 새 envelope 생성
+- `blocked_runtime` 잠금: 대상 파일이 preimage도 postimage도 아닌 경우 — 수동 확인 필요

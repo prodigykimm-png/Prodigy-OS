@@ -70,6 +70,9 @@
     target: "목표 부위", cue: "운동 큐", primary_muscles: "주요 근육",
     secondary_muscles: "보조 근육", equipment: "장비",
     todoist_last_error: "Todoist 오류", knowledge_domain: "지식 도메인", knowledge_topics: "지식 주제"
+    , auction_outcome: "경매 결과", auction_result_date: "결과 확정일",
+    invalidation_conditions: "무효화 조건",
+    reading_format: "독서 형식", identifier: "식별 번호"
   });
 
   const STATUS_INFO = Object.freeze({
@@ -205,6 +208,21 @@
     ai: Object.freeze({ label: "AI 요약" })
   });
 
+  const AUCTION_OUTCOME_INFO = Object.freeze({
+    won: Object.freeze({ label: "낙찰", icon: "🏆", color: C.success }),
+    lost: Object.freeze({ label: "패찰", icon: "✕", color: C.error }),
+    skipped: Object.freeze({ label: "입찰 포기", icon: "✕", color: C.neutral600 })
+  });
+
+  const READING_FORMAT_INFO = Object.freeze({
+    book: Object.freeze({ label: "종이책", icon: "📖", color: C.success }),
+    ebook: Object.freeze({ label: "전자책", icon: "💻", color: C.info }),
+    paper: Object.freeze({ label: "논문", icon: "📄", color: C.warning }),
+    document: Object.freeze({ label: "문서", icon: "📃", color: C.neutral700 }),
+    audiobook: Object.freeze({ label: "오디오북", icon: "🎧", color: C.accent }),
+    "미분류": Object.freeze({ label: "미분류", icon: "?", color: C.neutral500 })
+  });
+
   const fallbackInfo = (label) => Object.freeze({ label, icon: "", color: C.neutral600 });
   const statusInfo = (value) => STATUS_INFO[value] || fallbackInfo(value ? "미등록 상태" : "미지정");
   const typeInfo = (value) => TYPE_INFO[value] || fallbackInfo(value ? "미등록 유형" : "미지정");
@@ -214,6 +232,8 @@
   const knowledgeSourceTypeInfo = (value) => KNOWLEDGE_SOURCE_TYPE_INFO[value] || fallbackInfo("미등록 출처 유형");
   const knowledgeSourceKindInfo = (value) => KNOWLEDGE_SOURCE_KIND_INFO[value] || fallbackInfo("미등록 자료 유형");
   const summaryOriginInfo = (value) => SUMMARY_ORIGIN_INFO[value] || fallbackInfo("미등록 요약 출처");
+  const auctionOutcomeInfo = (value) => AUCTION_OUTCOME_INFO[value] || fallbackInfo(value ? "미등록 경매 결과" : "미지정");
+  const readingFormatInfo = (value) => READING_FORMAT_INFO[value] || fallbackInfo(value ? "미등록 독서 형식" : "미지정");
 
   const parsePrice = (val) => {
     if (val === undefined || val === null) return NaN;
@@ -282,6 +302,10 @@
     knowledgeSourceKind: (value) => knowledgeSourceKindInfo(value).label,
     knowledgeSourceKindInfo,
     summaryOrigin: (value) => summaryOriginInfo(value).label,
-    summaryOriginInfo
+    summaryOriginInfo,
+    auctionOutcome: (value) => auctionOutcomeInfo(value).label,
+    auctionOutcomeInfo,
+    readingFormat: (value) => readingFormatInfo(value).label,
+    readingFormatInfo
   });
 })();

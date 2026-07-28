@@ -249,7 +249,85 @@
     };
   }
 
-  const api = Object.freeze({ SCHEMA_VERSION, projectRelations });
+  // --- Region evidence grouping ---
+  // knowledge = verified, permanent_note = legacy verified, literature_note = related material,
+  // knowledge_candidate = pending. Candidate/literature are never verified.
+  const REGION_ROOT = "PARA/RESOURCES/Auction Regions/";
+  const TIER_BY_TYPE = Object.freeze({
+    knowledge: "verified",
+    permanent_note: "legacy",
+    literature_note: "material",
+    knowledge_candidate: "pending"
+  });
+
+  function canonicalPath(value) {
+    return String(value || "").trim().replace(/\\/g, "/").replace(/\.md$/i, "");
+  }
+
+  function connectionTargets(source) {
+    const targets = [];
+    const seen = new Set();
+    for (const value of linkValues(source, "connection")) {
+      const parsed = parseLink(value, canonicalSourcePath(source));
+      if (!parsed.path) continue;
+      const target = canonicalPath(parsed.path);
+      if (target && !seen.has(target)) {
+        seen.add(target);
+        targets.push(target);
+      }
+    }
+    return targets;
+  }
+
+  function regionTargetsForSource(source) {
+    return connectionTargets(source).filter((target) => target.startsWith(REGION_ROOT)
+      && target.slice(REGION_ROOT.length).length > 0);
+  }
+
+  function groupRegionEvidence(sources, regionTarget) {
+    const wanted = canonicalPath(regionTarget);
+    const groups = { verified: [], legacy: [], material: [], pending: [] };
+    const seen = new Set();
+    for (const source of Array.isArray(sources) ? sources : []) {
+      if (!source || typeof source !== "object" || Array.isArray(source)) continue;
+      const data = metadata(source);
+      const type = token(data.type);
+      const tier = TIER_BY_TYPE[type];
+      if (!tier) continue;
+      const path = canonicalSourcePath(source);
+      if (!path || seen.has(path)) continue;
+      const regions = regionTargetsForSource(source);
+      if (wanted && !regions.includes(wanted)) continue;
+      if (!wanted && !regions.length) continue;
+      seen.add(path);
+      groups[tier].push({
+        path,
+        type,
+        tier,
+        title: String(data.title || filename(path)).trim() || filename(path),
+        regions: Object.freeze(regions),
+        invalidation_conditions: Object.freeze(
+          (Array.isArray(data.invalidation_conditions) ? data.invalidation_conditions : [])
+            .filter((value) => typeof value === "string" && value.trim()).map((value) => value.trim())
+        )
+      });
+    }
+    return Object.freeze({
+      region: wanted,
+      verified: Object.freeze(groups.verified),
+      legacy: Object.freeze(groups.legacy),
+      material: Object.freeze(groups.material),
+      pending: Object.freeze(groups.pending),
+      counts: Object.freeze({
+        verified: groups.verified.length,
+        legacy: groups.legacy.length,
+        material: groups.material.length,
+        pending: groups.pending.length
+      })
+    });
+  }
+
+  const api = Object.freeze({ SCHEMA_VERSION, projectRelations, REGION_ROOT, TIER_BY_TYPE, groupRegionEvidence });
   root.KnowledgeExplorerRelations = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

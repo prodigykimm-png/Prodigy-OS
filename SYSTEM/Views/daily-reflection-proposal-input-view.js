@@ -43,8 +43,8 @@
   function render(options) {
     const { modal, app, dateStr, existingBlocks, onNotice } = options;
     const contentEl = modal.contentEl;
-    contentEl.createEl("h3", { text: "AI 성찰 분석" });
-    contentEl.createEl("p", { text: "자유롭게 기록하면 선택한 AI가 증거와 지식·리소스·문서·PRE 분류 후보를 제안합니다. AI는 자동 저장하지 않습니다.", attr: { style: "color:var(--text-muted);font-size:0.85em;margin:0 0 12px;" } });
+    contentEl.createEl("h3", { text: "오늘 일기" });
+    contentEl.createEl("p", { text: "일기를 먼저 저장한 뒤, 필요할 때 AI 분류를 실행합니다. AI가 실패해도 저장한 일기는 유지됩니다.", attr: { style: "color:var(--text-muted);font-size:0.85em;margin:0 0 12px;" } });
     const connection = contentEl.createEl("details", { attr: { style: "margin:0 0 12px;border:1px solid var(--background-modifier-border);border-radius:6px;padding:8px 10px;background:var(--background-secondary);" } });
     connection.createEl("summary", { text: "AI 설정" });
     connection.createEl("p", { text: "기본 AI 제공자와 API 키는 Prodigy OS 설정에서 공통으로 관리합니다.", attr: { style: "color:var(--text-muted);font-size:.78em;margin:8px 0;" } });
@@ -53,23 +53,43 @@
     const area = contentEl.createEl("textarea", { attr: { rows: "8", style: "width:100%;min-height:140px;resize:vertical;padding:8px;border-radius:6px;border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);" } });
     area.placeholder = "오늘 있었던 일, 실수, 배운 점, 다음에 바꾸고 싶은 점을 그대로 적어 주세요.";
     area.value = modal.freeText;
-    area.oninput = () => { modal.freeText = area.value; };
+    let classify;
+    area.oninput = () => {
+      modal.freeText = area.value;
+      if (classify) classify.disabled = String(modal.freeText || "").trim() !== modal.committedReflectionText;
+    };
     const actions = contentEl.createEl("div", { attr: { style: "display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;" } });
     const cancel = button(actions, "취소");
     cancel.onclick = () => modal.close();
-    const propose = button(actions, "AI 적용", true);
-    propose.onclick = async () => {
-      if (!String(modal.freeText || "").trim()) return onNotice("분석할 내용을 입력해 주세요.");
+    const save = button(actions, "일기 저장", true);
+    save.onclick = async () => {
+      if (!String(modal.freeText || "").trim()) return onNotice("저장할 일기를 입력해 주세요.");
+      save.disabled = true;
+      save.textContent = "저장 중…";
+      try {
+        await modal.commitReflection();
+        onNotice("일기를 저장했습니다.");
+        modal.render();
+      } catch (error) {
+        save.disabled = false;
+        save.textContent = "일기 저장";
+        onNotice(`일기 저장 실패: ${error.message || error}`);
+      }
+    };
+    classify = button(actions, "AI 분류");
+    classify.disabled = !modal.committedReflectionText || String(modal.freeText || "").trim() !== modal.committedReflectionText;
+    const runClassification = async () => {
+      if (classify.disabled) return;
       const ai = root.DailyReflectionAI;
-      if (!ai || typeof ai.generateProposal !== "function") return onNotice("AI 성찰 서비스를 불러오지 못했습니다.");
+      if (!ai || typeof ai.generateProposal !== "function") return onNotice("일기는 저장되어 있습니다. AI 분류 기능을 불러오지 못했습니다.");
       try {
         if (!modal.providerConfig && modal.providerConfigLoad) await modal.providerConfigLoad;
       } catch (_error) {
-        return onNotice("AI 설정을 불러오지 못했습니다.");
+        return onNotice("일기는 저장되어 있습니다. AI 설정을 불러오지 못했습니다.");
       }
-      if (!modal.providerConfig || !modal.providerKey) return onNotice("AI 설정을 불러오는 중입니다.");
-      propose.disabled = true;
-      propose.textContent = "분석 중…";
+      if (!modal.providerConfig || !modal.providerKey) return onNotice("일기는 저장되어 있습니다. AI 설정을 불러오는 중입니다.");
+      classify.disabled = true;
+      classify.textContent = "분류 중…";
       modal.busy = true;
       try {
         modal.proposal = await ai.generateProposal({ app, dateStr, freeText: modal.freeText, existingBlocks, providerKey: modal.providerKey, config: modal.providerConfig });
@@ -77,13 +97,18 @@
         modal.phase = "confirm";
         modal.render();
       } catch (error) {
-        propose.disabled = false;
-        propose.textContent = "AI 적용";
-        onNotice(error.message || String(error));
+        classify.disabled = false;
+        classify.textContent = "AI 분류";
+        onNotice(`일기는 저장되어 있습니다. AI 분류만 실패했습니다: ${error.message || error}`);
       } finally {
         modal.busy = false;
       }
     };
+    classify.onclick = runClassification;
+    if (modal.startClassification && !classify.disabled) {
+      modal.startClassification = false;
+      Promise.resolve().then(runClassification);
+    }
   }
 
   root.DailyReflectionProposalInputView = Object.freeze({ render });

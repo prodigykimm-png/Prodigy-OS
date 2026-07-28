@@ -31,13 +31,17 @@
     const name = clean(exercise && exercise.name);
     if (!name) throw new Error("Exercise name is required.");
     const id = clean(exercise.id) || machineId("exercise", `${daySeed}:${index}:${name}`);
-    return {
+    const normalized = {
       id,
       name,
       target: clean(exercise.target),
       notes: clean(exercise.notes),
       prescribed_sets: normalizeSets(exercise.prescribed_sets, `${daySeed}:${id}`),
     };
+    // Preserve optional Workout v2 superset grouping (Todo 10).
+    if (clean(exercise.superset_group)) normalized.superset_group = clean(exercise.superset_group);
+    if (clean(exercise.superset_label)) normalized.superset_label = clean(exercise.superset_label);
+    return normalized;
   }
 
   function normalizeDay(day, programSeed, index) {
@@ -662,6 +666,228 @@
     return { total, done, ratio: total ? done / total : 0, percent: total ? Math.round((done / total) * 100) : 0 };
   }
 
+  // ─── Workout v2: Event-driven Rest Timer (Todo 10) ────────────────────
+  // The timer is EVENT-DRIVEN: it records discrete lifecycle events
+  // (start / adjust / pause / resume / complete / skip) and computes the
+  // remaining time from wall-clock deltas on demand. It NEVER writes state
+  // every second — the UI polls `remaining()` for display only.
+
+  /**
+   * Create an event-driven rest timer. No intervals, no per-second writes.
+   * @param {object} [options]
+   * @param {number} [options.default_seconds=90]
+   * @param {function} [options.now] injectable clock for deterministic tests
+   */
+  function createRestTimer(options) {
+    const opts = options || {};
+    const nowFn = typeof opts.now === "function" ? opts.now : () => Date.now();
+    const defaultSeconds = Math.max(1, Number(opts.default_seconds) || 90);
+    let state = "idle"; // idle | running | paused | done
+    let totalMs = 0;
+    let startedAt = 0; // wall-clock ms when current running segment began
+    let accumulatedMs = 0; // elapsed ms accumulated across paused segments
+    let writeCount = 0; // counts discrete state-mutation events (NOT ticks)
+    const events = [];
+
+    function record(type, detail) {
+      writeCount += 1;
+      events.push(Object.freeze({ type, at: nowFn(), detail: detail || null }));
+    }
+
+    function elapsedMs() {
+      if (state === "running") return accumulatedMs + (nowFn() - startedAt);
+      return accumulatedMs;
+    }
+
+    return {
+      get state() { return state; },
+      /** Number of discrete state-mutation events (writes). Bounded by user actions, never by seconds. */
+      get writeCount() { return writeCount; },
+      get events() { return events.slice(); },
+      get totalSeconds() { return Math.round(totalMs / 1000); },
+
+      /** Begin a rest period. One write event. */
+      start(seconds) {
+        const secs = Math.max(1, Number(seconds) || defaultSeconds);
+        totalMs = secs * 1000;
+        accumulatedMs = 0;
+        startedAt = nowFn();
+        state = "running";
+        record("start", { seconds: secs });
+        return this;
+      },
+
+      /** Adjust remaining time by deltaSeconds (e.g. +30 / -30). One write event. */
+      adjust(deltaSeconds) {
+        if (state === "idle" || state === "done") return this;
+        const deltaMs = (Number(deltaSeconds) || 0) * 1000;
+        totalMs = Math.max(1000, totalMs + deltaMs);
+        record("adjust", { delta_seconds: Number(deltaSeconds) || 0 });
+        return this;
+      },
+
+      pause() {
+        if (state !== "running") return this;
+        accumulatedMs = elapsedMs();
+        state = "paused";
+        record("pause", null);
+        return this;
+      },
+
+      resume() {
+        if (state !== "paused") return this;
+        startedAt = nowFn();
+        state = "running";
+        record("resume", null);
+        return this;
+      },
+
+      /** User skips the rest. One write event. */
+      skip() {
+        if (state === "idle" || state === "done") return this;
+        accumulatedMs = totalMs;
+        state = "done";
+        record("skip", null);
+        return this;
+      },
+
+      /** Mark rest complete (naturally or by user). One write event. */
+      complete() {
+        if (state === "idle" || state === "done") return this;
+        accumulatedMs = totalMs;
+        state = "done";
+        record("complete", null);
+        return this;
+      },
+
+      reset() {
+        state = "idle";
+        totalMs = 0;
+        accumulatedMs = 0;
+        startedAt = 0;
+        record("reset", null);
+        return this;
+      },
+
+      /**
+       * Remaining seconds, computed on demand from the clock.
+       * READ-ONLY — does not count as a write and does not mutate state.
+       */
+      remaining() {
+        if (state === "idle") return 0;
+        if (state === "done") return 0;
+        const ms = Math.max(0, totalMs - elapsedMs());
+        return Math.ceil(ms / 1000);
+      },
+
+      /** True when the rest period has elapsed (display cue only). */
+      isFinished() {
+        if (state === "done") return true;
+        if (state === "idle") return false;
+        return elapsedMs() >= totalMs;
+      },
+    };
+  }
+
+  // ─── Workout v2: Six-turn Nonpersistent AI Interaction (Todo 10) ──────
+  // The conversation lives ONLY in memory. It is never written to the store
+  // or to any Object. Saving an insight requires an EXPLICIT saveObservation()
+  // call — there is no auto-save path.
+
+  const AI_MAX_TURNS = 6;
+
+  /**
+   * Create a bounded, nonpersistent AI conversation.
+   * @param {object} [options]
+   * @param {number} [options.max_turns=6]
+   * @param {function} [options.responder] (messages, context) => string — pluggable
+   *        reply source. Defaults to a deterministic local echo so tests run offline.
+   */
+  function createAiConversation(options) {
+    const opts = options || {};
+    const maxTurns = Math.max(1, Math.min(Number(opts.max_turns) || AI_MAX_TURNS, AI_MAX_TURNS));
+    const responder = typeof opts.responder === "function"
+      ? opts.responder
+      : (messages) => `코치 응답 (${messages.length}번째 메시지)`;
+    const messages = []; // { role: "user"|"assistant", text }
+    let persisted = false;
+
+    return {
+      get maxTurns() { return maxTurns; },
+      get turnsUsed() { return messages.filter((m) => m.role === "user").length; },
+      get isExhausted() { return this.turnsUsed >= maxTurns; },
+      get isPersisted() { return persisted; },
+      get transcript() { return messages.slice(); },
+
+      /**
+       * Send a user turn and receive an assistant reply.
+       * Rejects once the turn budget is exhausted. Never persists.
+       */
+      send(text) {
+        const body = clean(text);
+        if (!body) throw new Error("메시지를 입력해 주세요.");
+        if (this.turnsUsed >= maxTurns) {
+          throw new Error(`AI 대화는 최대 ${maxTurns}회까지 가능합니다. 관측 저장은 별도로 실행하세요.`);
+        }
+        messages.push({ role: "user", text: body });
+        const reply = clean(responder(messages.slice(), opts.context));
+        messages.push({ role: "assistant", text: reply });
+        return reply;
+      },
+
+      /**
+       * Explicitly mark that the user chose to persist an observation.
+       * This is the ONLY persistence gate — it never fires automatically.
+       * Returns the payload the caller should hand to the store writer.
+       */
+      buildObservation(extra) {
+        return Object.freeze({
+          kind: "ai_observation",
+          turns_used: this.turnsUsed,
+          transcript: messages.slice(),
+          note: clean(extra && extra.note),
+          created_at: clean(extra && extra.created_at) || nowIso(),
+        });
+      },
+
+      /** Record that an explicit save happened (caller performs the real write). */
+      markPersisted() { persisted = true; return this; },
+    };
+  }
+
+  // ─── Workout v2: Explicit Observation Save (Todo 10) ──────────────────
+
+  /**
+   * Build an observation record for explicit save. Pure — returns a frozen
+   * object; the caller decides whether/where to write it. There is no
+   * auto-save: this only shapes the payload.
+   */
+  function buildObservation(session, note, options) {
+    const opts = options || {};
+    const text = clean(note);
+    if (!text) throw new Error("관측 내용을 입력해 주세요.");
+    return Object.freeze({
+      schema_version: "prodigy-workout-observation-v1",
+      observation_id: clean(opts.observation_id) || machineId("obs", `${session ? session.session_id : "quick"}:${text}:${nowIso()}`),
+      session_id: session ? clean(session.session_id) : "",
+      note: text,
+      kind: clean(opts.kind) || "general",
+      created_at: clean(opts.created_at) || nowIso(),
+      explicit: true,
+    });
+  }
+
+  /**
+   * Guard: observations may only be attached to draft sessions or standalone.
+   * Completed sessions and active runs are immutable here.
+   */
+  function assertObservationAllowed(session) {
+    if (session && clean(session.status) === "completed") {
+      throw new Error("완료된 세션에는 관측을 추가할 수 없습니다.");
+    }
+    return true;
+  }
+
   const api = {
     RUN_STATUSES, clone, completeWorkoutSession, createProgramRun, createQuickWorkout, createWorkoutSession,
     daySelectionWarning, normalizeProgram, previousExerciseResult, previousExerciseResultByName,
@@ -672,6 +898,8 @@
     listDraftSessions, listStaleRuns, daysBetweenIso, sessionSetSummary,
     completedSessionTimeline, buildWorkspaceModel, completedDayIds,
     nextIncompleteSet, resolveRestSeconds, sessionProgress,
+    createRestTimer, createAiConversation, buildObservation, assertObservationAllowed,
+    AI_MAX_TURNS,
   };
   root.WorkoutCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

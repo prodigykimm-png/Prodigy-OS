@@ -800,11 +800,139 @@
     }
   }
 
+  // ─── Workout v2: Draft-only Substitution (Todo 10) ────────────────────
+  // Substitution is PROPOSED as a draft and only applied on explicit user
+  // save. Completed sessions and active runs are immutable and reject.
+
+  /**
+   * Build a draft substitution proposal for one exercise in a draft session.
+   * Pure — returns a frozen proposal; does NOT mutate the session.
+   * @param {object} session - must be a draft session
+   * @param {string} exerciseId
+   * @param {object} replacement - { name, target?, notes? }
+   * @returns {object} proposal { session_id, exercise_id, from, to, status:"draft" }
+   */
+  function buildSubstitutionDraft(session, exerciseId, replacement) {
+    if (!session) throw new Error("세션이 없습니다.");
+    const status = String(session.status || "").trim();
+    if (status === "completed") throw new Error("완료된 세션은 대체할 수 없습니다.");
+    if (status && status !== "draft") throw new Error("초안 세션만 대체할 수 있습니다.");
+    const exercise = (session.exercise_results || []).find((e) => e.exercise_id === exerciseId);
+    if (!exercise) throw new Error("운동을 찾을 수 없습니다.");
+    const toName = String(replacement && replacement.name || "").trim();
+    if (!toName) throw new Error("대체 운동 이름이 필요합니다.");
+    return Object.freeze({
+      schema_version: "prodigy-workout-substitution-v1",
+      session_id: String(session.session_id || "").trim(),
+      exercise_id: String(exerciseId || "").trim(),
+      from: Object.freeze({
+        name: String(exercise.name || "").trim(),
+        target: String(exercise.target || "").trim(),
+      }),
+      to: Object.freeze({
+        name: toName,
+        target: String(replacement.target || "").trim(),
+        notes: String(replacement.notes || "").trim(),
+      }),
+      status: "draft",
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Apply a draft substitution proposal to a draft session.
+   * Pure — returns a NEW session; the original is never mutated.
+   * Rejects completed/active sessions. Only applies when proposal.status === "draft".
+   */
+  function applySubstitutionDraft(session, proposal) {
+    if (!session) throw new Error("세션이 없습니다.");
+    const status = String(session.status || "").trim();
+    if (status === "completed") throw new Error("완료된 세션은 대체할 수 없습니다.");
+    if (status && status !== "draft") throw new Error("초안 세션만 대체할 수 있습니다.");
+    if (!proposal || proposal.status !== "draft") throw new Error("초안 대체안만 적용할 수 있습니다.");
+    if (String(proposal.session_id || "").trim() && String(proposal.session_id) !== String(session.session_id)) {
+      throw new Error("대체안이 이 세션에 속하지 않습니다.");
+    }
+    const next = core.clone(session);
+    const exercise = (next.exercise_results || []).find((e) => e.exercise_id === proposal.exercise_id);
+    if (!exercise) throw new Error("운동을 찾을 수 없습니다.");
+    exercise.name = proposal.to.name;
+    if (proposal.to.target) exercise.target = proposal.to.target;
+    if (proposal.to.notes) exercise.notes = proposal.to.notes;
+    // Preserve set_results and prescribed_sets — only identity changes.
+    return next;
+  }
+
+  class SubstitutionModal extends ModalBase {
+    constructor(app, session, exerciseId, onApplied) {
+      super(app);
+      this.session = session;
+      this.exerciseId = exerciseId;
+      this.onApplied = onApplied;
+      this.proposal = null;
+    }
+    onOpen() {
+      this.contentEl.addClass("workout-modal");
+      this.contentEl.createEl("h2", { text: "운동 대체 (초안)" });
+      this.contentEl.createEl("p", {
+        text: "대체는 초안으로만 제안됩니다. 「초안 적용」을 눌러야 반영됩니다. 완료·진행 중 세션은 바꿀 수 없습니다.",
+        attr: { class: "workout-muted" }
+      });
+      const exercise = (this.session.exercise_results || []).find((e) => e.exercise_id === this.exerciseId);
+      this.contentEl.createEl("p", { text: `현재: ${exercise ? exercise.name : "(없음)"}` });
+
+      const listId = `substitution-catalog-${Date.now().toString(36)}`;
+      const choices = this.contentEl.createEl("datalist", { attr: { id: listId } });
+      const catalog = objects.searchExercises ? objects.searchExercises(this.app, "", 100, {}) : [];
+      catalog.forEach((ex) => choices.createEl("option", { attr: { value: ex.name } }));
+
+      const nameInput = setInput(this.contentEl, "대체 운동", "", { placeholder: "예: Hack Squat" });
+      nameInput.setAttribute && nameInput.setAttribute("list", listId);
+
+      const preview = this.contentEl.createDiv({ attr: { class: "workout-muted", style: "margin-top:8px;" } });
+      const renderPreview = () => {
+        preview.empty();
+        const val = String(nameInput.value || "").trim();
+        if (!val) { this.proposal = null; return; }
+        try {
+          const meta = objects.getExerciseMeta ? objects.getExerciseMeta(this.app, val) : null;
+          this.proposal = buildSubstitutionDraft(this.session, this.exerciseId, {
+            name: val,
+            target: meta && meta.target ? meta.target : "",
+          });
+          preview.createEl("span", { text: `제안: ${this.proposal.from.name} → ${this.proposal.to.name} (초안)` });
+        } catch (error) {
+          this.proposal = null;
+          preview.createEl("span", { text: error.message, attr: { class: "workout-error" } });
+        }
+      };
+      nameInput.oninput = renderPreview;
+
+      const actions = this.contentEl.createDiv({ attr: { class: "workout-modal-actions" } });
+      button(actions, "취소").onclick = () => this.close();
+      const apply = button(actions, "초안 적용", true);
+      apply.onclick = () => {
+        try {
+          renderPreview();
+          if (!this.proposal) return notice("대체 운동을 입력해 주세요.");
+          // Explicit user save — the only path that mutates the session.
+          const next = applySubstitutionDraft(this.session, this.proposal);
+          this.close();
+          notice(`${this.proposal.from.name} → ${this.proposal.to.name} 적용`);
+          if (typeof this.onApplied === "function") this.onApplied(next);
+        } catch (error) {
+          notice(error.message || "적용에 실패했습니다.");
+        }
+      };
+    }
+  }
+
   root.WorkoutModals = Object.freeze({
     RunConflictModal, QuickWorkoutModal, ProgramHistoryModal,
     RenameProgramModal, CreateExerciseModal, ExerciseDetailModal,
     AddExerciseToProgramModal, CreateProgramModal,
     ProgramEditorModal, ImportProgramModal,
+    SubstitutionModal, buildSubstitutionDraft, applySubstitutionDraft,
   });
   if (typeof module !== "undefined" && module.exports) module.exports = root.WorkoutModals;
 })(typeof globalThis !== "undefined" ? globalThis : this);

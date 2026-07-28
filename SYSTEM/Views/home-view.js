@@ -67,14 +67,29 @@
     container.empty();
     container.classList.add("prodigy-home");
     const workspaceLeaf = container.closest?.(".workspace-leaf-content");
+    const getElementWidth = (element) => {
+      try {
+        if (!element) return 0;
+        const rect = typeof element.getBoundingClientRect === "function" ? element.getBoundingClientRect() : null;
+        return Math.floor((rect && rect.width) || element.clientWidth || 0);
+      } catch (_widthError) {
+        return 0;
+      }
+    };
     const syncHomeWidth = () => {
-      if (!workspaceLeaf || !container.style) return;
-      const gutter = workspaceLeaf.clientWidth < 600 ? 16 : 64;
-      const homeWidth = Math.min(1180, Math.max(280, workspaceLeaf.clientWidth - gutter));
-      container.style.width = `${homeWidth}px`;
-      container.style.marginLeft = `calc((100% - ${homeWidth}px) / 2)`;
-      container.classList.toggle("home-wide", homeWidth >= 860);
-      container.classList.toggle("home-narrow", homeWidth < 520);
+      try {
+        if (!container.style) return;
+        const sourceWidth = getElementWidth(workspaceLeaf) || getElementWidth(container.parentElement) || getElementWidth(container);
+        if (!sourceWidth) return;
+        const gutter = sourceWidth < 600 ? 16 : 64;
+        const homeWidth = Math.min(1180, Math.max(280, sourceWidth - gutter));
+        container.style.width = `${homeWidth}px`;
+        container.style.marginLeft = `calc((100% - ${homeWidth}px) / 2)`;
+        container.classList.toggle("home-wide", homeWidth >= 860);
+        container.classList.toggle("home-narrow", homeWidth < 520);
+      } catch (_syncWidthError) {
+        container.classList.toggle("home-wide", false);
+      }
     };
     syncHomeWidth();
     if (typeof ResizeObserver !== "undefined" && workspaceLeaf) {
@@ -304,32 +319,6 @@
       }
     };
 
-    const reflectionBtn = rightActions.createEl("button", {
-      text: "AI 성찰",
-      attr: {
-        type: "button",
-        class: "action-btn",
-        title: "오늘 경험을 Gemini로 분석"
-      }
-    });
-    reflectionBtn.onclick = async () => {
-      if (!root.JournalView || !root.JournalStore || !root.DailyReflectionAI) {
-        new Notice("AI 성찰 기능을 불러오지 못했습니다.");
-        return;
-      }
-      try {
-        const review = await root.JournalStore.loadReview(app, todayStr);
-        const existingBlocks = (review.blocks || []).filter((block) => !block.legacy);
-        root.JournalView.openProposeEvidenceModal(app, todayStr, async (proposed) => {
-          const saved = await root.JournalView.saveProposedEvidenceAtCommit(app, todayStr, proposed);
-          new Notice(`${proposed.length}개 Evidence를 반영했습니다.`);
-          await renderHome(options);
-          return saved;
-        }, { existingBlocks });
-      } catch (error) {
-        new Notice(`AI 성찰을 열지 못했습니다: ${error.message || error}`);
-      }
-    };
     // One global keyboard entry on Home (do not register multiple)
     if (container && !container.__prodigyCreatorKey) {
       container.__prodigyCreatorKey = (e) => {
@@ -355,7 +344,7 @@
     if (isStale) {
       rightActions.createEl("span", { 
         text: "🔔 새 정보 감지됨", 
-        attr: { style: "font-size: 0.72em; color: var(--text-accent); font-weight: bold; background: rgba(var(--text-accent-rgb), 0.1); padding: 2px 6px; border-radius: 4px;" } 
+        attr: { style: "font-size: 0.72em; color: var(--text-accent); font-weight: bold; background: var(--background-modifier-hover); padding: 2px 6px; border-radius: 4px;" }
       });
     }
 
@@ -379,11 +368,19 @@
     };
 
     // ── Mission Control stack (presentation only; reuses existing APIs) ──
+    const compactWidths = [
+      getElementWidth(container),
+      getElementWidth(workspaceLeaf),
+      typeof document !== "undefined" ? getElementWidth(document.documentElement) : 0,
+      typeof document !== "undefined" ? getElementWidth(document.body) : 0,
+      typeof window !== "undefined" && window.visualViewport ? Math.floor(window.visualViewport.width || 0) : 0,
+      typeof window !== "undefined" ? Math.floor(window.innerWidth || 0) : 0
+    ];
     const isCompactHome = !!(
       app.isMobile
       || (typeof document !== "undefined" && document.body && document.body.classList.contains("is-mobile"))
       || container.classList.contains("home-narrow")
-      || (typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth < 720)
+      || compactWidths.some((width) => width > 0 && width < 720)
     );
     container.classList.toggle("home-compact", isCompactHome);
 
@@ -413,16 +410,23 @@
       try { app.workspace.openLinkText(p, p, false); } catch (_e) { /* ignore */ }
     };
 
-    /**
-     * Compact Home only: workspace dock at top for one-tap navigation.
-     * Wide desktop Mission Control keeps the full launcher lower down.
-     */
     const renderWorkspaceDock = (parent) => {
-      if (!isCompactHome || !parent) return;
+      if (!parent) return;
       const registry = root.ProdigyWorkspaceRegistry;
-      const dockItems = registry && typeof registry.items === "function"
+      const fallbackItems = [
+        { id: "auction", icon: "경", name: "경매", path: "HUB/10 Auction.md" },
+        { id: "workout", icon: "운", name: "운동", path: "HUB/30 Workout.md" },
+        { id: "reading", icon: "독", name: "독서", path: "HUB/20 Reading.md" },
+        { id: "project", icon: "프", name: "프로젝트", path: "HUB/40 Project.md" },
+        { id: "personal", icon: "개", name: "개인", path: "HUB/60 Personal.md" },
+        { id: "journal", icon: "성", name: "성찰", path: "HUB/70 Journal.md" },
+        { id: "knowledge", icon: "지", name: "지식", path: "HUB/50 Knowledge.md" }
+      ];
+      const registryItems = registry && typeof registry.items === "function"
         ? registry.items().map((item) => ({ id: item.id, icon: item.icon, name: item.label, path: item.path }))
         : [];
+      const dockItems = registryItems.filter((item) => item && item.name && item.path);
+      const visibleItems = dockItems.length ? dockItems : fallbackItems;
       const dock = parent.createEl("div", {
         attr: {
           class: "home-ws-dock",
@@ -431,11 +435,11 @@
         }
       });
       dock.createEl("div", {
-        text: "워크스페이스",
+        text: dockItems.length ? "워크스페이스 바로가기" : "워크스페이스 바로가기 · 기본 바로가기",
         attr: { class: "home-ws-dock-label" }
       });
       const row = dock.createEl("div", { attr: { class: "home-ws-dock-row" } });
-      dockItems.forEach((item) => {
+      visibleItems.forEach((item) => {
         const btn = row.createEl("button", {
           attr: {
             type: "button",
@@ -447,6 +451,22 @@
         btn.createEl("span", { text: item.icon, attr: { class: "home-ws-dock-icon" } });
         btn.createEl("span", { text: item.name, attr: { class: "home-ws-dock-name" } });
         btn.onclick = () => openPath(item.path);
+      });
+    };
+
+    const renderMicroLogSlot = (parent) => {
+      if (!isCompactHome || !parent) return;
+      const slot = parent.createEl("div", {
+        attr: {
+          class: "home-card home-micro-log-slot emphasis-secondary",
+          role: "region",
+          "aria-label": "Micro Log"
+        }
+      });
+      slot.createEl("div", { text: "Micro Log", attr: { class: "home-header" } });
+      slot.createEl("div", {
+        text: "빠른 기록 슬롯",
+        attr: { class: "home-micro-log-label" }
       });
     };
 
@@ -511,8 +531,7 @@
       return lines.slice(0, maxLines).join("\n");
     };
 
-    // ── 0. Compact workspace dock (top nav — A2) ──
-    safeRenderRegion("Workspace Dock", () => {
+    safeRenderRegion("Workspace Shortcuts", () => {
       renderWorkspaceDock(stack);
     });
 
@@ -895,6 +914,17 @@
       });
     });
 
+    if (isCompactHome) {
+      safeRenderRegion("Micro Log", () => {
+        renderMicroLogSlot(stack);
+      });
+      const fold = stack.createEl("details", { attr: { class: "home-secondary-fold" } });
+      fold.createEl("summary", { text: "더 보기 · 주의 · 빠른 실행 · 런처" });
+      lower = fold.createEl("div", { attr: { class: "home-secondary-fold-body home-mc-lower" } });
+    } else {
+      lower = stack;
+    }
+
     // ── 4. Needs Attention (critical/high via briefContext) ──
     safeRenderRegion("Needs Attention", () => {
       let risks = (briefContext && root.MorningBriefContext && root.MorningBriefContext.toHomeRiskItems)
@@ -926,7 +956,8 @@
         return true;
       });
 
-      const riskCard = primary.createEl("div", {
+      const riskParent = isCompactHome ? lower : primary;
+      const riskCard = riskParent.createEl("div", {
         attr: { class: "home-card emphasis-risk home-needs-attention" }
       });
       const rHead = riskCard.createEl("div", {
@@ -1020,14 +1051,6 @@
       });
     });
 
-    if (isCompactHome) {
-      const fold = stack.createEl("details", { attr: { class: "home-secondary-fold" } });
-      fold.createEl("summary", { text: "더 보기 · 빠른 실행 · Todoist · 런처" });
-      lower = fold.createEl("div", { attr: { class: "home-secondary-fold-body home-mc-lower" } });
-    } else {
-      lower = stack;
-    }
-
     // ── 5. Quick Actions ──
     safeRenderRegion("Quick Actions", () => {
       const qa = lower.createEl("div", { attr: { class: "home-card emphasis-secondary home-quick-actions" } });
@@ -1082,38 +1105,40 @@
     });
 
     // ── 6. Todoist (summary only — Todoist owns execution) ──
-    safeRenderRegion("Todoist", () => {
-      const execCard = lower.createEl("div", {
-        attr: { class: "home-card " + (isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
-      });
-      execCard.createEl("div", { text: "✓ Todoist", attr: { class: "home-header" } });
-      const todoist = (pkg.context && pkg.context.todoist) || {};
-      const todayCount = todoist.todayCount || 0;
-      const overdueCount = todoist.overdueCount || 0;
-      execCard.createEl("div", {
-        text: "오늘",
-        attr: { style: "font-size:0.8em;color:var(--text-muted);font-weight:700;" }
-      });
-      execCard.createEl("div", {
-        text: todayCount + "개 업무",
-        attr: { style: "font-size:1.15em;font-weight:800;margin-top:2px;" }
-      });
-      if (overdueCount > 0) {
-        execCard.createEl("div", {
-          text: overdueCount + " Overdue",
-          attr: { style: "font-size:0.9em;color:var(--text-error);font-weight:700;margin-top:2px;" }
+    if (!isCompactHome) {
+      safeRenderRegion("Todoist", () => {
+        const execCard = lower.createEl("div", {
+          attr: { class: "home-card " + (isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
         });
-      }
-      const todoBtn = execCard.createEl("button", {
-        text: "Todoist 열기",
-        attr: { class: "action-btn action-btn-primary", style: "margin-top:10px;" }
-      });
-      todoBtn.onclick = () => {
-        try { window.open("todoist://"); } catch (_e) {
-          try { window.open("https://todoist.com/app", "_blank"); } catch (_e2) { /* ignore */ }
+        execCard.createEl("div", { text: "✓ Todoist", attr: { class: "home-header" } });
+        const todoist = (pkg.context && pkg.context.todoist) || {};
+        const todayCount = todoist.todayCount || 0;
+        const overdueCount = todoist.overdueCount || 0;
+        execCard.createEl("div", {
+          text: "오늘",
+          attr: { style: "font-size:0.8em;color:var(--text-muted);font-weight:700;" }
+        });
+        execCard.createEl("div", {
+          text: todayCount + "개 업무",
+          attr: { style: "font-size:1.15em;font-weight:800;margin-top:2px;" }
+        });
+        if (overdueCount > 0) {
+          execCard.createEl("div", {
+            text: overdueCount + " Overdue",
+            attr: { style: "font-size:0.9em;color:var(--text-error);font-weight:700;margin-top:2px;" }
+          });
         }
-      };
-    });
+        const todoBtn = execCard.createEl("button", {
+          text: "Todoist 열기",
+          attr: { class: "action-btn action-btn-primary", style: "margin-top:10px;" }
+        });
+        todoBtn.onclick = () => {
+          try { window.open("todoist://"); } catch (_e) {
+            try { window.open("https://todoist.com/app", "_blank"); } catch (_e2) { /* ignore */ }
+          }
+        };
+      });
+    }
 
     // ── 7. Workspace Launcher (reuse — context cards) ──
     safeRenderRegion("Workspace Launcher", () => {

@@ -32,6 +32,7 @@
 | `knowledge_domain` | registry-backed 영어 snake_case scalar | 필수 | 자료를 탐색할 Knowledge Explorer Domain |
 | `knowledge_topics` | registry-backed 영어 snake_case YAML list | 필수 | 자료를 탐색할 Topic; topicless Domain은 빈 list가 유효 |
 | `connections` | explicit wikilink YAML list | 선택 | 명시적 관련 Object |
+| `invalidation_conditions` | 텍스트 YAML list | 선택 | 이 자료에서 도출한 지식이 무효화되는 조건; 사람이 작성 |
 | `reference` | 텍스트 | legacy 선택 | 기존 Literature note의 read-compatible 참고 값 |
 | `created` | ISO date/datetime | 필수 | 생성 시점 |
 | `updated` | ISO date/datetime | 필수 | 마지막 수정 시점 |
