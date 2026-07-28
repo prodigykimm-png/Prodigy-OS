@@ -610,6 +610,58 @@
     });
   }
 
+  // ─── Session Focus Primitives (Todo 10) ─────────────────────────────
+
+  /**
+   * Find the next incomplete set across all exercises in a draft session.
+   * Returns { exercise_id, set_index } or null if all complete.
+   */
+  function nextIncompleteSet(session) {
+    for (const exercise of (session.exercise_results || [])) {
+      for (let i = 0; i < (exercise.set_results || []).length; i++) {
+        if (!exercise.set_results[i].completed) {
+          return { exercise_id: exercise.exercise_id, set_index: i, exercise_name: exercise.name };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Resolve rest seconds for a set: prescribed rest wins, else 90s default.
+   * Prescribed rest formats: "90", "90s", "1:30", "2분"
+   */
+  function resolveRestSeconds(prescribedSet) {
+    if (!prescribedSet) return 90;
+    const raw = clean(prescribedSet.rest);
+    if (!raw) return 90;
+    // "1:30" format
+    const colonMatch = raw.match(/^(\d+):(\d+)$/);
+    if (colonMatch) return Number(colonMatch[1]) * 60 + Number(colonMatch[2]);
+    // "2분" or "2min"
+    const minMatch = raw.match(/^([\d.]+)\s*(?:분|min|m)$/i);
+    if (minMatch) return Math.round(Number(minMatch[1]) * 60);
+    // "90s" or "90" or "90초"
+    const secMatch = raw.match(/^([\d.]+)\s*(?:초|s|sec)?$/i);
+    if (secMatch) return Math.round(Number(secMatch[1]));
+    return 90;
+  }
+
+  /**
+   * Session progress: completed sets / total sets.
+   */
+  function sessionProgress(session) {
+    let total = 0;
+    let done = 0;
+    for (const exercise of (session.exercise_results || [])) {
+      for (const set of (exercise.set_results || [])) {
+        total++;
+        if (set.completed) done++;
+      }
+    }
+    return { total, done, ratio: total ? done / total : 0, percent: total ? Math.round((done / total) * 100) : 0 };
+  }
+
   const api = {
     RUN_STATUSES, clone, completeWorkoutSession, createProgramRun, createQuickWorkout, createWorkoutSession,
     daySelectionWarning, normalizeProgram, previousExerciseResult, previousExerciseResultByName,
@@ -619,6 +671,7 @@
     dayLabel, runProgress, applyPreviousToSet, applyPreviousToExercise,
     listDraftSessions, listStaleRuns, daysBetweenIso, sessionSetSummary,
     completedSessionTimeline, buildWorkspaceModel, completedDayIds,
+    nextIncompleteSet, resolveRestSeconds, sessionProgress,
   };
   root.WorkoutCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

@@ -81,7 +81,8 @@ async function main() {
   assert.match(css, /@media\(max-width:600px\)/);
   assert.match(css, /min-height:44px/);
   assert.match(css, /workout-continue-strip|workout-progress-track|workout-set-row-min/);
-  assert.equal(css.includes("table"), false);
+  // No generic table element styling (class names like .workout-split-table are fine)
+  assert.equal(/(?:^|[,{\s])table(?:[,{\s:]|$)/.test(css), false, "no generic table element styling");
   assert.equal([...fixture.files.keys()].some((key) => key.endsWith(".md")), false);
   console.log("Workout Program Runner UI tests passed");
 }

@@ -713,15 +713,59 @@ Learning
 
 ---
 
-## Scenario 5 — Workout Program Runner
+## Scenario 5 — Workout (근력 · 식단 · 러닝)
+
+Workout 워크스페이스는 하나의 진입점에서 **근력 · 식단 · 러닝** 세 탭을 제공한다.
+탭 전환은 키보드(←→, Home/End)와 터치 모두 지원하며, 선택한 탭은 세션 동안 기억된다.
 
 ```text
+[근력] [식단] [러닝]   ← 탭 바
+
+근력 탭:
 1. Workout Dashboard ▶ 계속 에서 오늘 운동 시작 / 이어서 기록
 2. 세트: 완료 체크 · 중량/횟수 (이전 복제 원탭). RPE·메모는 더 보기
 3. 운동 완료 → 선택 한 줄 메모 → 다음 Day 확인
 4. 미완료 초안 / 오래 방치 Run 정리
 5. 필요할 때 Program 일시정지·중단 후 다른 Program 시작
+
+식단 탭:
+1. 날짜 선택 (← →) → 오늘 칼로리·탄단지 요약
+2. 끼니별 기록 확인 (아침·점심·저녁·간식·기타)
+3. FatSecret CSV 가져오기 → 미리보기 → 확인 → 저장
+4. 직접 기록 (음식명·끼니·칼로리 필수, 매크로 선택)
+5. 7일 평균 추세 확인
+
+러닝 탭:
+1. 최근 활동 요약 (거리·시간·페이스·심박·고도)
+2. 구간(split) 표 확인
+3. TCX/GPX 파일 가져오기 → 미리보기 → 확인 → 저장
+4. Apple Health 과거 기록 1회 가져오기 (export.xml, 러닝만)
+5. 직접 기록 (거리·시간 필수, RPE·메모 선택)
+6. 최근 6주 거리/시간, 4주 평균 페이스 추세
 ```
+
+### 데이터 소유권과 프라이버시
+
+| 영역 | 원본 | Prodigy 저장 위치 |
+|------|------|-------------------|
+| 근력 | Program 노트 + Session JSON | `SYSTEM/AI/Memory/workout/` |
+| 식단 | FatSecret 앱 (CSV 내보내기) | `SYSTEM/AI/Memory/workout/health/nutrition-entries/` |
+| 러닝 | Apple Health / WorkOutDoors / HealthFit | `SYSTEM/AI/Memory/workout/health/run-activities/` |
+
+- 원본 CSV/XML/TCX/GPX 파일 자체는 Vault에 보관하지 않는다. import receipt(basename, 시각, 건수)만 남긴다.
+- GPX/FIT의 위도·경도·route 좌표는 정규화 후 즉시 폐기한다.
+- 식단 목표는 사용자가 직접 설정하며, 자동 추천하지 않는다. 미설정은 `미설정`으로 표시.
+- FatSecret 재가져오기는 `source=fatsecret` 행만 갱신. `source=manual` 행은 절대 덮어쓰지 않는다.
+- 기존 근력 Program Run snapshot이나 완료 Session은 식단/러닝 기능의 영향을 받지 않는다.
+
+### 권장 앱 구성 (Apple Watch 사용자)
+
+| 용도 | 권장 앱 | 역할 |
+|------|---------|------|
+| 러닝 기록 | WorkOutDoors 또는 Apple 기본 운동 | Apple Health에 저장 |
+| 러닝 내보내기 | HealthFit | workout 단위 FIT/TCX export |
+| 식단 기록 | FatSecret | Food Diary → CSV export |
+| 과거 러닝 일괄 이전 | Apple 건강 앱 | 모든 건강 데이터 내보내기 → export.xml |
 
 - **Program**: 재사용 가능한 운동 구성. 실행 진척을 저장하지 않는다.
 - **Program Run**: Program을 한 번 실행한 기록. 일반적으로 하나만 `active`.

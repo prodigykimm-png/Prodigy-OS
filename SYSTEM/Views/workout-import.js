@@ -166,7 +166,52 @@
     }
   }
 
-  const api = { inspectWorkbook, parseSheetRows, previewProgramRows };
+  // ─── Exercise Replacement (import-time) ──────────────────────────────
+
+  /**
+   * Extract unique source exercise names from a candidate program.
+   * Returns [{ name, occurrences, targets }] sorted by name.
+   */
+  function uniqueSourceExercises(program) {
+    const map = new Map();
+    (program.days || []).forEach((day) => {
+      (day.exercises || []).forEach((ex) => {
+        const name = clean(ex.name);
+        if (!name) return;
+        if (!map.has(name)) map.set(name, { name, occurrences: 0, targets: new Set() });
+        const entry = map.get(name);
+        entry.occurrences++;
+        if (ex.target) entry.targets.add(ex.target);
+      });
+    });
+    return [...map.values()]
+      .map((e) => ({ name: e.name, occurrences: e.occurrences, targets: [...e.targets] }))
+      .sort((a, b) => a.name.localeCompare(b.name, "ko"));
+  }
+
+  /**
+   * Apply exercise replacements to a candidate program (pure, returns clone).
+   * mapping: { "원본 운동명": { name: "대체 운동명", target: "legs" } }
+   * Only exact catalog matches are applied. Sets/reps/RPE/rest/notes/order preserved.
+   */
+  function applyExerciseReplacements(program, mapping) {
+    if (!core) throw new Error("WorkoutCore is unavailable.");
+    const clone = core.clone(program);
+    const map = mapping || {};
+    let replaced = 0;
+    (clone.days || []).forEach((day) => {
+      (day.exercises || []).forEach((ex) => {
+        const replacement = map[ex.name];
+        if (!replacement || !clean(replacement.name)) return;
+        ex.name = clean(replacement.name);
+        if (clean(replacement.target)) ex.target = clean(replacement.target);
+        replaced++;
+      });
+    });
+    return { program: clone, replaced_count: replaced };
+  }
+
+  const api = { inspectWorkbook, parseSheetRows, previewProgramRows, uniqueSourceExercises, applyExerciseReplacements };
   root.WorkoutImport = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

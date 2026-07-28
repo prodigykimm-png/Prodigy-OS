@@ -504,7 +504,9 @@
     const clampBriefLines = (text, maxLines) => {
       const raw = String(text || "").trim();
       if (!raw) return "오늘 우선순위를 정리했습니다.";
-      const lines = raw.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+      // Normalize literal backslash-n from AI JSON / YAML to real newlines
+      const normalized = raw.replace(/\\n/g, "\n");
+      const lines = normalized.split(/\n+/).map((l) => l.trim()).filter(Boolean);
       if (lines.length <= maxLines) return lines.join("\n");
       return lines.slice(0, maxLines).join("\n");
     };

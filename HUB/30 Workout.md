@@ -30,6 +30,16 @@ const loadWorkoutScript = async (path) => {
   }
 };
 
+const loadWorkoutScriptOptional = async (path) => {
+  try {
+    await loadWorkoutScript(path);
+  } catch (err) {
+    if (window.prodigyDebugMode === true && console && console.warn) {
+      console.warn('Optional workout module not loaded:', path, err.message);
+    }
+  }
+};
+
 const showError = (target, error) => {
   target.empty();
   const card = target.createEl("div", {
@@ -69,6 +79,13 @@ try {
   await loadWorkoutScript("SYSTEM/Views/workout-import.js");
   await loadWorkoutScript("SYSTEM/Views/workout-program-objects.js");
   await loadWorkoutScript("SYSTEM/Views/workout-modals.js");
+  await loadWorkoutScriptOptional("SYSTEM/Views/workout-health-store.js");
+  await loadWorkoutScriptOptional("SYSTEM/Views/workout-nutrition-core.js");
+  await loadWorkoutScriptOptional("SYSTEM/Views/workout-running-core.js");
+  await loadWorkoutScriptOptional("SYSTEM/Views/workout-fit-parser.js");
+  await loadWorkoutScriptOptional("SYSTEM/Views/workout-health-shell.js");
+  await loadWorkoutScriptOptional("SYSTEM/Views/workout-nutrition-view.js");
+  await loadWorkoutScriptOptional("SYSTEM/Views/workout-running-view.js");
   await loadWorkoutScript("SYSTEM/Views/workout-view.js");
   await loadWorkoutScript("SYSTEM/Views/decision-packet-reasons.js");
   await loadWorkoutScript("SYSTEM/Views/workout-decision-packet.js");

@@ -18,7 +18,6 @@ const loadProdigyScript = async (path) => {
 
 const main = async () => {
   try {
-    await loadProdigyScript("SYSTEM/Views/design-tokens.js");
     await loadProdigyScript("SYSTEM/Views/display-registry.js");
     await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
     await loadProdigyScript("SYSTEM/Views/object-lifecycle-core.js");
@@ -29,7 +28,6 @@ const main = async () => {
     await loadProdigyScript("SYSTEM/Views/prodigy-config-service.js");
     await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
     await loadProdigyScript("SYSTEM/Views/prodigy-settings-modal.js");
-    await loadProdigyScript("SYSTEM/Views/prodigy-doctor.js");
     await loadProdigyScript("SYSTEM/Views/morning-context-core.js");
     await loadProdigyScript("SYSTEM/Views/morning-brief-service.js");
     await loadProdigyScript("SYSTEM/Views/morning-brief-context.js");
@@ -46,12 +44,10 @@ const main = async () => {
     // Creators that Universal Object Creator reuses (optional if already loaded elsewhere)
     await loadProdigyScript("SYSTEM/Views/people-core.js");
     await loadProdigyScript("SYSTEM/Views/people-store.js");
-    await loadProdigyScript("SYSTEM/Views/people-styles.js");
     await loadProdigyScript("SYSTEM/Views/people-view.js");
     await loadProdigyScript("SYSTEM/Views/reading-book-create.js");
     await loadProdigyScript("SYSTEM/Views/project-wizard-core.js");
     await loadProdigyScript("SYSTEM/Views/project-wizard.js");
-    await loadProdigyScript("SYSTEM/Views/home-styles.js");
     await loadProdigyScript("SYSTEM/Views/home-view.js");
 
     if (window.HomeView) {

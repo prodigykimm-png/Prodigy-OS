@@ -452,6 +452,42 @@
     });
   }
 
+  let restTimerInterval = null;
+
+  function clearRestTimer() {
+    if (restTimerInterval) { clearInterval(restTimerInterval); restTimerInterval = null; }
+  }
+
+  function startRestTimer(bar, seconds) {
+    clearRestTimer();
+    const timerEl = bar.querySelector(".workout-rest-timer");
+    if (!timerEl) return;
+    let remaining = seconds;
+    const endsAt = Date.now() + remaining * 1000;
+    timerEl.hidden = false;
+    const label = timerEl.querySelector(".workout-rest-label");
+    const controls = timerEl.querySelector(".workout-rest-controls");
+
+    function tick() {
+      remaining = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      label.textContent = `${m}:${String(s).padStart(2, "0")}`;
+      if (remaining <= 0) clearRestTimer();
+    }
+    tick();
+    restTimerInterval = setInterval(tick, 1000);
+
+    // Controls: -30, +30, skip
+    controls.empty();
+    const minus = controls.createEl("button", { text: "-30초", attr: { class: "workout-button workout-chip-btn", type: "button" } });
+    const plus = controls.createEl("button", { text: "+30초", attr: { class: "workout-button workout-chip-btn", type: "button" } });
+    const skip = controls.createEl("button", { text: "건너뛰기", attr: { class: "workout-button workout-chip-btn", type: "button" } });
+    minus.onclick = () => { clearRestTimer(); startRestTimer(bar, Math.max(10, remaining - 30)); };
+    plus.onclick = () => { clearRestTimer(); startRestTimer(bar, remaining + 30); };
+    skip.onclick = () => { clearRestTimer(); timerEl.hidden = true; };
+  }
+
   function renderSession(parent, state, refresh) {
     if (!state.draft) return;
     const session = state.draft;
@@ -460,6 +496,32 @@
     if (!area.classList || !area.classList.contains("workout-session-live")) {
       area.setAttribute && area.setAttribute("class", `${area.getAttribute("class") || ""} workout-session-live`.trim());
     }
+
+    // ─── Sticky Session Bar ───────────────────────────────────────────
+    const progress = core.sessionProgress(session);
+    const nextSet = core.nextIncompleteSet(session);
+    const stickyBar = area.createDiv({ attr: { class: "workout-session-bar" } });
+    const barInfo = stickyBar.createDiv({ attr: { class: "workout-session-bar-info" } });
+    barInfo.createEl("strong", { text: nextSet ? nextSet.exercise_name : "모든 세트 완료" });
+    barInfo.createEl("span", { text: `${progress.done}/${progress.total} 세트`, attr: { class: "workout-muted" } });
+    // Progress track
+    const track = stickyBar.createDiv({ attr: { class: "workout-progress-track" } });
+    const fill = track.createDiv({ attr: { class: "workout-progress-fill" } });
+    if (fill.style) fill.style.width = progress.percent + "%";
+    // Rest timer (hidden until triggered)
+    const timerWrap = stickyBar.createDiv({ attr: { class: "workout-rest-timer", hidden: "" } });
+    timerWrap.createEl("span", { text: "0:00", attr: { class: "workout-rest-label" } });
+    timerWrap.createDiv({ attr: { class: "workout-rest-controls" } });
+    // Next incomplete jump
+    if (nextSet) {
+      const jumpBtn = stickyBar.createEl("button", { text: "다음 세트 ↓", attr: { class: "workout-button workout-chip-btn workout-next-set-btn", type: "button" } });
+      jumpBtn.onclick = () => {
+        const cards = area.querySelectorAll ? area.querySelectorAll(".workout-exercise-card") : [];
+        const exerciseIndex = (session.exercise_results || []).findIndex((e) => e.exercise_id === nextSet.exercise_id);
+        if (exerciseIndex >= 0 && cards[exerciseIndex]) cards[exerciseIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+      };
+    }
+
     const dayActions = area.createDiv({ attr: { class: "workout-inline-actions" } });
     button(dayActions, "초안 버리기").onclick = async () => {
       if (root.confirm && !root.confirm("진행 중 초안을 삭제할까요?")) return;
@@ -572,7 +634,14 @@
           Object.assign(session, next);
           queueDraftSave(state.store, session);
         };
-        complete.onchange = () => update({ completed: complete.checked });
+        complete.onchange = () => {
+          update({ completed: complete.checked });
+          if (complete.checked && stickyBar) {
+            const prescribed = (exercise.prescribed_sets && exercise.prescribed_sets[setIndex]) || null;
+            const restSec = core.resolveRestSeconds(prescribed);
+            startRestTimer(stickyBar, restSec);
+          }
+        };
         weight.oninput = () => update({ weight: weight.value });
         reps.oninput = () => update({ reps: reps.value });
         if (previous && (previous.weight || previous.reps)) {
@@ -680,7 +749,6 @@
     const actions = summary.createDiv({ attr: { class: "workout-inline-actions" } });
     button(actions, "일시정지").onclick = () => setRunStatus(state, state.activeRun, "paused", refresh);
     button(actions, "중단").onclick = () => setRunStatus(state, state.activeRun, "abandoned", refresh);
-    if (state.draft) return;
     const chooser = area.createDiv({ attr: { class: "workout-day-chooser" } });
     const select = chooser.createEl("select", { attr: { "aria-label": "프로그램 Day 선택" } });
     state.activeProgram.days.forEach((day) => {
@@ -936,16 +1004,92 @@
 .workout-exercise-body-section{margin:0 0 10px}
 .workout-exercise-body-heading{margin:10px 0 4px;font-size:.92em;color:var(--text-accent)}
 .workout-exercise-body-line{font-size:.88em;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
-@media(max-width:600px){.prodigy-workout-dashboard{padding:0 4px 40px}.workout-toolbar,.workout-inline-actions,.workout-modal-actions{flex-direction:column}.workout-toolbar .workout-button,.workout-inline-actions .workout-button,.workout-modal-actions .workout-button{width:100%;min-height:44px}.workout-current,.workout-library-row,.workout-history-row,.workout-exercise-heading{align-items:stretch;flex-direction:column}.workout-day-chooser,.workout-editor-heading,.workout-editor-set,.workout-editor-add,.workout-editor-meta,.workout-editor-day-head{grid-template-columns:1fr}.workout-editor-controls{display:grid;grid-template-columns:repeat(3,1fr)}.workout-editor-controls .workout-button{min-height:44px}.workout-day-chooser .workout-button{min-height:48px}.workout-section{padding:16px 0}.workout-exercise-card{padding:12px}.workout-previous{text-align:left}.workout-set-row{grid-template-columns:40px minmax(0,1fr)}.workout-set-row-min{grid-template-columns:40px 24px minmax(0,1fr) auto}.workout-set-remove{min-width:44px;min-height:44px!important}.workout-set-row>strong{font-size:.82em}.workout-set-fields,.workout-set-fields-min{grid-column:1/-1}.workout-set-row>.workout-field{grid-column:1/-1}.workout-field input{min-height:44px}.workout-modal-grid{grid-template-columns:1fr}.workout-chip-btn{min-height:40px!important}}
+
+.workout-session-bar{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px;margin:0 -14px 12px;background:var(--background-primary);border-bottom:2px solid var(--background-modifier-border);border-radius:0 0 10px 10px}
+.workout-session-bar-info{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
+.workout-session-bar-info strong{font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workout-session-bar .workout-progress-track{flex:0 0 80px;height:6px}
+.workout-rest-timer{display:flex;align-items:center;gap:6px}
+.workout-rest-timer[hidden]{display:none}
+.workout-rest-label{font-size:1.1em;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text-accent)}
+.workout-rest-controls{display:flex;gap:4px}
+.workout-next-set-btn{white-space:nowrap}
+.workout-health-tablist{display:flex;gap:4px;margin:0 0 16px;border-bottom:2px solid var(--background-modifier-border);padding-bottom:0}
+.workout-health-tab{min-height:44px;padding:8px 16px;border:0;background:none;font-size:.92em;font-weight:650;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s}
+.workout-health-tab:hover{color:var(--text-normal)}
+.workout-health-tab.is-active{color:var(--text-accent);border-bottom-color:var(--text-accent)}
+.workout-health-tab:focus-visible{outline:2px solid var(--text-accent);outline-offset:-2px;border-radius:4px 4px 0 0}
+.workout-health-panel{min-height:120px}
+.workout-panel-error{padding:16px 0}
+.workout-nutrition-date-nav{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.workout-nav-btn{min-width:44px;min-height:44px;font-size:1.1em;padding:0}
+.workout-nutrition-date-label{font-weight:700;font-size:1em}
+.workout-nutrition-today{font-size:.78em}
+.workout-nutrition-summary{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.workout-nutrition-chip{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 14px;background:var(--background-secondary);border-radius:8px;min-width:72px}
+.workout-nutrition-chip-label{font-size:.68em;color:var(--text-muted);font-weight:650}
+.workout-nutrition-chip-value{font-size:1.15em;font-weight:800}
+.workout-nutrition-chip-unit{font-size:.65em;color:var(--text-muted)}
+.workout-nutrition-avg{margin-bottom:14px}
+.workout-nutrition-meals{margin-bottom:16px}
+.workout-nutrition-meal{padding:10px 0;border-top:1px solid var(--background-modifier-border)}
+.workout-nutrition-meal h3{margin:0 0 6px;font-size:.92em}
+.workout-nutrition-empty-meal{font-size:.8em;margin:2px 0}
+.workout-nutrition-list{list-style:none;padding:0;margin:0}
+.workout-nutrition-list li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:5px 0;border-top:1px solid var(--background-modifier-border)}
+.workout-nutrition-food-name{font-weight:650;font-size:.88em}
+.workout-nutrition-food-detail{font-size:.76em}
+.workout-nutrition-source-tag{font-size:.65em;padding:1px 6px;border-radius:999px;background:var(--background-modifier-border);color:var(--text-muted)}
+.workout-nutrition-actions,.workout-running-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.workout-running-latest{padding:14px;border:1px solid var(--background-modifier-border);border-radius:10px;background:var(--background-secondary);margin-bottom:16px}
+.workout-running-latest h3{margin:0 0 10px;font-size:.95em}
+.workout-running-stats{display:flex;flex-wrap:wrap;gap:8px}
+.workout-running-stat{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 12px;background:var(--background-primary);border-radius:8px;min-width:68px}
+.workout-running-stat-label{font-size:.65em;color:var(--text-muted);font-weight:650}
+.workout-running-stat-value{font-size:1.05em;font-weight:800}
+.workout-running-quality{font-size:.72em;font-style:italic}
+.workout-running-splits{margin-bottom:16px}
+.workout-running-splits h3,.workout-running-trends h3,.workout-running-history h3{margin:0 0 8px;font-size:.92em}
+.workout-running-split-table{width:100%;border-collapse:collapse;font-size:.82em}
+.workout-running-split-table th,.workout-running-split-table td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--background-modifier-border)}
+.workout-running-split-table th{font-weight:700;font-size:.9em;color:var(--text-muted)}
+.workout-running-trend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;margin-bottom:8px}
+.workout-running-trend-cell{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 6px;background:var(--background-secondary);border-radius:8px;font-size:.82em}
+.workout-running-avg-pace{font-size:.82em;font-weight:650}
+.workout-running-history-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--background-modifier-border)}
+.workout-running-history-info{display:flex;flex-direction:column;gap:2px}
+.workout-running-history-info strong{font-size:.88em}
+.workout-running-history-meta{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:.76em}
+.workout-running-legacy-tag,.workout-running-summary-tag{font-size:.9em;padding:1px 6px;border-radius:999px;background:var(--background-modifier-border);color:var(--text-muted)}
+.workout-import-replace{margin:14px 0;padding:14px;border:1px solid var(--background-modifier-border);border-radius:10px;background:var(--background-secondary)}
+.workout-import-replace h3{margin:0 0 4px;font-size:.92em}
+.workout-replace-summary{display:flex;align-items:center;gap:8px;margin:8px 0}
+.workout-replace-count{font-weight:700;font-size:.82em;color:var(--text-accent)}
+.workout-replace-list{max-height:240px;overflow-y:auto}
+.workout-replace-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--background-modifier-border)}
+.workout-replace-label{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.workout-replace-label strong{font-size:.85em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workout-replace-label span{font-size:.72em}
+.workout-replace-input{flex:0 0 180px}
+.workout-replace-input input{width:100%;min-height:40px}
+.workout-import-table{width:100%;border-collapse:collapse;font-size:.8em;margin:8px 0}
+.workout-import-table th,.workout-import-table td{padding:5px 6px;text-align:left;border-bottom:1px solid var(--background-modifier-border)}
+.workout-import-table th{font-weight:700;color:var(--text-muted)}
+.workout-import-warnings{font-size:.78em;padding-left:1.2em;margin:6px 0}
+@media(max-width:600px){.prodigy-workout-dashboard{padding:0 4px 40px}.workout-toolbar,.workout-inline-actions,.workout-modal-actions{flex-direction:column}.workout-toolbar .workout-button,.workout-inline-actions .workout-button,.workout-modal-actions .workout-button{width:100%;min-height:44px}.workout-current,.workout-library-row,.workout-history-row,.workout-exercise-heading{align-items:stretch;flex-direction:column}.workout-day-chooser,.workout-editor-heading,.workout-editor-set,.workout-editor-add,.workout-editor-meta,.workout-editor-day-head{grid-template-columns:1fr}.workout-editor-controls{display:grid;grid-template-columns:repeat(3,1fr)}.workout-editor-controls .workout-button{min-height:44px}.workout-day-chooser .workout-button{min-height:48px}.workout-section{padding:16px 0}.workout-exercise-card{padding:12px}.workout-previous{text-align:left}.workout-set-row{grid-template-columns:40px minmax(0,1fr)}.workout-set-row-min{grid-template-columns:40px 24px minmax(0,1fr) auto}.workout-set-remove{min-width:44px;min-height:44px!important}.workout-set-row>strong{font-size:.82em}.workout-set-fields,.workout-set-fields-min{grid-column:1/-1}.workout-set-row>.workout-field{grid-column:1/-1}.workout-field input{min-height:44px}.workout-modal-grid{grid-template-columns:1fr}.workout-chip-btn{min-height:40px!important}.workout-session-bar{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px;margin:0 -14px 12px;background:var(--background-primary);border-bottom:2px solid var(--background-modifier-border);border-radius:0 0 10px 10px}
+.workout-session-bar-info{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
+.workout-session-bar-info strong{font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workout-session-bar .workout-progress-track{flex:0 0 80px;height:6px}
+.workout-rest-timer{display:flex;align-items:center;gap:6px}
+.workout-rest-timer[hidden]{display:none}
+.workout-rest-label{font-size:1.1em;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text-accent)}
+.workout-rest-controls{display:flex;gap:4px}
+.workout-next-set-btn{white-space:nowrap}
+.workout-health-tablist{gap:0}.workout-health-tab{flex:1;padding:8px 6px;font-size:.85em;min-height:44px}.workout-nutrition-summary{gap:6px}.workout-nutrition-chip{min-width:60px;padding:8px 10px}.workout-nutrition-actions,.workout-running-actions{flex-direction:column}.workout-nutrition-actions .workout-button,.workout-running-actions .workout-button{width:100%;min-height:44px}.workout-running-stats{gap:6px}.workout-running-stat{min-width:56px;padding:6px 8px}.workout-running-trend-grid{grid-template-columns:repeat(3,1fr)}.workout-running-history-row{flex-direction:column;align-items:flex-start}.workout-running-history-meta{align-items:flex-start}}
 ` });
   }
 
-  async function renderDashboard(app, container) {
-    if (!core || !storeApi || !importer || !objects) throw new Error("Workout Workspace modules are unavailable.");
-    root.app = app;
-    container.empty(); container.addClass("prodigy-workout-dashboard"); injectStyles(container);
-    const state = await loadState(app);
-    const refresh = () => renderDashboard(app, container);
+  async function renderStrengthDashboard(app, container, state, refresh) {
     const toolbar = container.createDiv({ attr: { class: "workout-toolbar" } });
     button(toolbar, "새 프로그램", true).onclick = () => new CreateProgramModal(app, state, refresh).open();
     button(toolbar, "프로그램 가져오기").onclick = () => new ImportProgramModal(app, refresh).open();
@@ -962,6 +1106,36 @@
     renderHistory(container, state);
   }
 
+  let shellController = null;
+
+  async function renderDashboard(app, container, options) {
+    if (!core || !storeApi || !importer || !objects) throw new Error("Workout Workspace modules are unavailable.");
+    root.app = app;
+    container.empty(); container.addClass("prodigy-workout-dashboard"); injectStyles(container);
+
+    const shell = root.WorkoutHealthShell;
+    const nutritionView = root.WorkoutNutritionView;
+    const runningView = root.WorkoutRunningView;
+
+    // If shell module is unavailable, fall back to strength-only
+    if (!shell || !shell.renderShell) {
+      const state = await loadState(app);
+      const refresh = () => renderDashboard(app, container, options);
+      await renderStrengthDashboard(app, container, state, refresh);
+      return;
+    }
+
+    shellController = shell.renderShell(container, {
+      strength: async (panel) => {
+        const state = await loadState(app);
+        const refresh = () => renderDashboard(app, container, options);
+        await renderStrengthDashboard(app, panel, state, refresh);
+      },
+      nutrition: nutritionView ? (panel) => nutritionView.renderNutritionPanel(app, panel) : null,
+      running: runningView ? (panel) => runningView.renderRunningPanel(app, panel) : null,
+    }, options || {});
+  }
+
   const api = {
     ImportProgramModal, ProgramEditorModal, ProgramHistoryModal, QuickWorkoutModal,
     RenameProgramModal, CreateExerciseModal, ExerciseDetailModal,
@@ -970,6 +1144,7 @@
     openExercisePopup, openExerciseNoteSide, renderDashboard,
     renderContinueStrip, renderDraftQueue, renderStaleQueue,
     appendExerciseToProgram, persistProgram,
+    openTab: (tabId) => { if (shellController) shellController.openTab(tabId); },
   };
   root.WorkoutView = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

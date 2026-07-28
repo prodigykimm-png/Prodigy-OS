@@ -698,9 +698,11 @@
     }
     renderPreview(parent) {
       parent.empty();
+      this.replacementMaps = this.replacementMaps || {};
       const select = parent.createEl("select", { attr: { "aria-label": "프로그램 시트 선택" } });
       this.result.candidates.forEach((candidate, index) => { const option = select.createEl("option", { text: `${candidate.sheet_name} · ${candidate.weeks}주 ${candidate.days}회`, value: String(index) }); option.value = String(index); });
       const details = parent.createDiv({ attr: { class: "workout-import-details" } });
+      const replaceArea = parent.createDiv({ attr: { class: "workout-import-replace" } });
       const render = () => {
         details.empty(); const candidate = this.result.candidates[Number(select.value) || 0];
         details.createEl("h3", { text: candidate.title });
@@ -711,15 +713,26 @@
           const remainder = day.exercises.length - visible.length;
           outline.createEl("li", { text: `${day.label}: ${visible.join(", ")}${remainder > 0 ? ` 외 ${remainder}개` : ""}` });
         });
+        this.renderReplacementUI(replaceArea, candidate);
       };
-      select.onchange = render; render();
+      select.onchange = () => { this.replacementMaps = {}; render(); };
+      render();
       const actions = parent.createDiv({ attr: { class: "workout-modal-actions" } });
       button(actions, "취소").onclick = () => this.close();
       button(actions, "프로그램 저장", true).onclick = async () => {
         try {
           const candidate = this.result.candidates[Number(select.value) || 0];
-          const program = await objects.saveProgramObject(this.app, candidate.program);
-          await createStore(this.app).saveProgram(program);
+          const sheetKey = candidate.sheet_name || "0";
+          const mapping = this.replacementMaps[sheetKey] || {};
+          let program = candidate.program;
+          if (Object.keys(mapping).length) {
+            const result = importer.applyExerciseReplacements(program, mapping);
+            program = result.program;
+          }
+          const validation = core.validateProgram(program);
+          if (!validation.ok) { notice(validation.errors[0] || "프로그램 검증 실패"); return; }
+          const saved = await objects.saveProgramObject(this.app, program);
+          await createStore(this.app).saveProgram(saved);
           this.close();
           notice(`${candidate.title} 프로그램을 저장했습니다.`);
           await this.refresh();
@@ -727,6 +740,63 @@
           notice(error.message || "저장에 실패했습니다.");
         }
       };
+    }
+    renderReplacementUI(area, candidate) {
+      area.empty();
+      if (!importer || typeof importer.uniqueSourceExercises !== "function") {
+        area.createEl("p", { text: "운동 교체 기능을 불러오지 못했습니다. Obsidian을 다시 로드해 주세요.", attr: { class: "workout-muted" } });
+        return;
+      }
+      const sheetKey = candidate.sheet_name || "0";
+      if (!this.replacementMaps[sheetKey]) this.replacementMaps[sheetKey] = {};
+      const mapping = this.replacementMaps[sheetKey];
+      let unique;
+      try { unique = importer.uniqueSourceExercises(candidate.program); } catch (_e) { unique = []; }
+      if (!unique.length) return;
+      area.createEl("h3", { text: "운동 교체 (선택)" });
+      area.createEl("p", { text: "동일한 원본 운동은 프로그램 전체에서 한 번에 교체됩니다. 세트·횟수·RPE·휴식은 보존됩니다.", attr: { class: "workout-muted" } });
+      const summary = area.createDiv({ attr: { class: "workout-replace-summary" } });
+      const list = area.createDiv({ attr: { class: "workout-replace-list" } });
+      const renderSummary = () => {
+        const count = Object.keys(mapping).length;
+        summary.empty();
+        summary.createEl("span", { text: count ? `대체 ${count}개` : "교체 없음", attr: { class: count ? "workout-replace-count" : "workout-muted" } });
+        if (count) {
+          const resetBtn = summary.createEl("button", { text: "모두 원본으로", attr: { class: "workout-button workout-chip-btn", type: "button" } });
+          resetBtn.onclick = () => { for (const key of Object.keys(mapping)) delete mapping[key]; renderRows(); };
+        }
+      };
+      const renderRows = () => {
+        list.empty();
+        unique.forEach((item) => {
+          const row = list.createDiv({ attr: { class: "workout-replace-row" } });
+          const label = row.createDiv({ attr: { class: "workout-replace-label" } });
+          label.createEl("strong", { text: item.name });
+          label.createEl("span", { text: `×${item.occurrences}${item.targets.length ? " · " + item.targets.join(", ") : ""}`, attr: { class: "workout-muted" } });
+          const inputWrap = row.createDiv({ attr: { class: "workout-replace-input" } });
+          const input = inputWrap.createEl("input", { attr: { type: "text", placeholder: "원본 유지", value: mapping[item.name] ? mapping[item.name].name : "", "aria-label": `${item.name} 대체 운동` } });
+          input.setAttribute("list", "workout-replace-datalist");
+          input.oninput = () => {
+            const val = input.value.trim();
+            if (val) {
+              const meta = objects.getExerciseMeta ? objects.getExerciseMeta(this.app, val) : null;
+              mapping[item.name] = { name: val, target: meta && meta.target ? meta.target : "" };
+            } else {
+              delete mapping[item.name];
+            }
+            renderSummary();
+          };
+        });
+        renderSummary();
+      };
+      // Datalist for exercise catalog
+      let datalist = area.querySelector("#workout-replace-datalist");
+      if (!datalist) {
+        datalist = area.createEl("datalist", { attr: { id: "workout-replace-datalist" } });
+        const catalog = objects.searchExercises ? objects.searchExercises(this.app, "", 100, {}) : [];
+        catalog.forEach((ex) => datalist.createEl("option", { attr: { value: ex.name } }));
+      }
+      renderRows();
     }
   }
 

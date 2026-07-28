@@ -295,6 +295,8 @@ async function testProgramObjectSourceOfTruth() {
 function testDashboardAndRegressionContracts() {
   const dashboard = fs.readFileSync(path.join(ROOT, "HUB/30 Workout.md"), "utf8");
   assert.match(dashboard, /WorkoutView\.renderDashboard/);
+  // Hub load order: workout-modals.js must load before workout-view.js
+  assert.ok(dashboard.indexOf("workout-modals.js") < dashboard.indexOf("workout-view.js"), "Hub must load workout-modals.js before workout-view.js");
   // Labels live in the view (single render path), not as static hub headings
   const view = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workout-view.js"), "utf8");
   for (const label of [
@@ -322,7 +324,9 @@ function testDashboardAndRegressionContracts() {
   assert.match(exerciseTemplate, /^target:/m);
   assert.match(exerciseTemplate, /^cue:/m);
   assert.match(view, /workout-exercise-cue|recordStripText|setExerciseCue|getExerciseMeta/);
-  assert.match(view, /paintExerciseNoteBody|노트 본문|stripNoteFrontmatter/);
+  // Modal extraction: paintExerciseNoteBody/stripNoteFrontmatter now live in workout-modals.js
+  const modals = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workout-modals.js"), "utf8");
+  assert.match(modals, /paintExerciseNoteBody|노트 본문|stripNoteFrontmatter/);
   assert.match(view, /openExercisePopup|openExerciseNoteSide|workout-exercise-note-link/);
   assert.equal(view.includes("app.vault.modify(file"), false, "source Workout Markdown must stay read-only via objects layer");
   assert.match(view, /programForRun|program_snapshot|validateProgram|duplicateProgramObject/);
@@ -330,6 +334,21 @@ function testDashboardAndRegressionContracts() {
   const coreSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workout-core.js"), "utf8");
   assert.match(coreSrc, /runProgress|listDraftSessions|listStaleRuns|applyPreviousToExercise/);
 
+
+  // Modal module exports: all extracted classes must be present
+  const modalsModule = require(path.join(ROOT, "SYSTEM/Views/workout-modals.js"));
+  for (const cls of [
+    "RunConflictModal", "QuickWorkoutModal", "ProgramHistoryModal",
+    "RenameProgramModal", "CreateExerciseModal", "ExerciseDetailModal",
+    "AddExerciseToProgramModal", "CreateProgramModal",
+    "ProgramEditorModal", "ImportProgramModal",
+  ]) {
+    assert.ok(modalsModule[cls], `WorkoutModals must export ${cls}`);
+  }
+  // View must consume modals via root.WorkoutModals, not contain class bodies
+  assert.match(view, /root\.WorkoutModals/);
+  assert.equal(view.includes("class RunConflictModal"), false, "modal classes must not be redefined in workout-view.js");
+  assert.equal(view.includes("class ImportProgramModal"), false, "modal classes must not be redefined in workout-view.js");
   const readingTemplate = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_reading.md"), "utf8");
   for (const obsolete of ["current_page", "total_pages", "total_page"]) assert.equal(readingTemplate.includes(obsolete), false);
   const schema = fs.readFileSync(path.join(ROOT, "SYSTEM/Prodigy/Schema/Core_Property_Schema.md"), "utf8");
