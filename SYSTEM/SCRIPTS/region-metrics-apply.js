@@ -73,7 +73,8 @@ function applySnapshotFile(options) {
     reason: rendered.reason,
     region_key: snapshot.region_key,
     snapshot_id: snapshot.snapshot_id,
-    target_path: targetPath
+    target_path: targetPath,
+    output_hash: rendered.changed ? require("node:crypto").createHash("sha256").update(rendered.content).digest("hex") : null
   };
 }
 
