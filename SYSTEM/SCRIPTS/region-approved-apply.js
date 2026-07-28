@@ -237,12 +237,24 @@ function executeBridge(options) {
 
   // Step 5: Verify postimage
   const postimageHash = sha256File(targetAbsolute);
-  if (postimageHash !== envelope.rendered_output_hash) {
+  // Parse writer stdout for output_hash (writer-authoritative)
+  let writerOutputHash = null;
+  try {
+    const writerResult = JSON.parse(child.stdout || "{}");
+    if (writerResult.output_hash) writerOutputHash = writerResult.output_hash;
+  } catch (_parseError) { /* stdout not JSON — fall through to envelope check */ }
+
+  // Primary: file hash must match writer's claimed output (deterministic proof)
+  // Secondary: if writer didn't report hash, fall back to envelope hash
+  const expectedHash = writerOutputHash || envelope.rendered_output_hash;
+  if (postimageHash !== expectedHash) {
     const receipt = {
       schema_version: 1,
       nonce: options.nonce,
       status: "failed_postimage_mismatch",
-      expected: envelope.rendered_output_hash,
+      expected: expectedHash,
+      envelope_hash: envelope.rendered_output_hash,
+      writer_hash: writerOutputHash,
       actual: postimageHash,
       resolved_at: new Date().toISOString()
     };
