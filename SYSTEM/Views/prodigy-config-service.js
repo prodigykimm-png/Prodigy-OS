@@ -6,6 +6,8 @@
   const LAST_PROVIDER_SECRET = "prodigy-project-wizard-last-provider";
   const SECRET_IDS = Object.freeze({
     gemini: "prodigy-gemini-api-key",
+    groq: "prodigy-groq-api-key",
+    openrouter: "prodigy-openrouter-api-key",
     mimo: "prodigy-mimo-api-key",
     opencodeGo: "prodigy-opencode-go-api-key",
     openaiCompatible: "prodigy-openai-compatible-api-key",
@@ -20,6 +22,7 @@
   });
   const DEFAULT_CONFIG = Object.freeze({
     defaultProvider: "gemini",
+    fallbackProvider: "",
     workflowPresets: {},
     providers: {
       "lm-studio": {
@@ -41,6 +44,16 @@
         adapter: "gemini", name: "Google Gemini", model: "gemini-3.5-flash",
         models: [{ id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" }, { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" }, { id: "gemini-3.1-pro", label: "Gemini 3.1 Pro" }],
         apiKeySecret: SECRET_IDS.gemini, legacyApiKeySecret: "PRODIGY_GEMINI_API_KEY", capabilities: { structuredOutput: "json-schema" }
+      },
+      groq: {
+        adapter: "openai-compatible", name: "Groq", baseURL: "https://api.groq.com/openai/v1", endpointPath: "/chat/completions", model: "qwen/qwen3.6-27b",
+        models: [{ id: "qwen/qwen3.6-27b", label: "Qwen 3.6 27B (무료 티어)" }, { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B (무료 티어)" }, { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B (무료 티어)" }],
+        authMode: "bearer", apiKeySecret: SECRET_IDS.groq, hint: "무료 한도는 Groq 계정의 Rate limit을 따릅니다.", capabilities: { structuredOutput: "json-mode" }
+      },
+      openrouter: {
+        adapter: "openai-compatible", name: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", endpointPath: "/chat/completions", model: "openrouter/free",
+        models: [{ id: "openrouter/free", label: "Free Models Router (무료만 사용)" }],
+        authMode: "bearer", apiKeySecret: SECRET_IDS.openrouter, hint: "openrouter/free는 무료 모델만 선택합니다. 무료 모델은 한도·가용성이 변동될 수 있습니다.", capabilities: { structuredOutput: "json-mode" }
       },
       "openai-compatible": {
         adapter: "openai-compatible", name: "OpenAI-Compatible", baseURL: "", endpointPath: "/chat/completions", model: "", authMode: "bearer",
@@ -76,6 +89,7 @@
       apiKeyHeader: value.apiKeyHeader || defaults.apiKeyHeader,
       endpointURL: value.endpointURL || defaults.endpointURL,
       model: value.model || defaults.model,
+      hint: defaults.hint,
       apiKeySecret: defaults.apiKeySecret,
       legacyApiKeySecret: defaults.legacyApiKeySecret,
       capabilities: Object.assign({}, defaults.capabilities || {}, value.capabilities || {}),
@@ -89,6 +103,7 @@
     const merged = clone(base || DEFAULT_CONFIG);
     if (!override || typeof override !== "object") return normalizeConfig(merged);
     if (override.defaultProvider) merged.defaultProvider = override.defaultProvider;
+    if (typeof override.fallbackProvider === "string") merged.fallbackProvider = override.fallbackProvider;
     if (override.workflowPresets && typeof override.workflowPresets === "object") merged.workflowPresets = clone(override.workflowPresets);
     if (override.providers && typeof override.providers === "object") {
       Object.keys(override.providers).forEach((key) => {
@@ -104,6 +119,14 @@
     normalized.providers = normalized.providers && typeof normalized.providers === "object" ? normalized.providers : {};
     Object.keys(DEFAULT_CONFIG.providers).forEach((key) => { normalized.providers[key] = applyProviderDefaults(key, normalized.providers[key]); });
     if (!normalized.providers[normalized.defaultProvider]) normalized.defaultProvider = DEFAULT_CONFIG.defaultProvider;
+    normalized.fallbackProvider = normalized.providers[normalized.fallbackProvider] && normalized.fallbackProvider !== normalized.defaultProvider
+      ? normalized.fallbackProvider
+      : "";
+    if (normalized.fallbackProvider) {
+      Object.defineProperty(normalized.providers[normalized.defaultProvider], "fallbackProvider", {
+        value: normalized.providers[normalized.fallbackProvider], enumerable: false
+      });
+    }
     return normalized;
   }
 
@@ -167,20 +190,22 @@
     const config = mergeConfig(DEFAULT_CONFIG, source);
     if (!source || source.defaultProvider) return config;
     const lastProvider = await getSecret(app, LAST_PROVIDER_SECRET) || await getSecret(app, "prodigy-project-wizard-last-provider");
-    return config.providers[lastProvider] ? Object.assign(config, { defaultProvider: lastProvider }) : config;
+    return config.providers[lastProvider] ? normalizeConfig(Object.assign(config, { defaultProvider: lastProvider })) : config;
   }
 
   async function save(app, settings) {
     const current = await load(app);
     const next = mergeConfig(current, settings && settings.config ? settings.config : {});
     if (settings && settings.defaultProvider) next.defaultProvider = settings.defaultProvider;
+    if (settings && typeof settings.fallbackProvider === "string") next.fallbackProvider = settings.fallbackProvider;
     if (!next.providers[next.defaultProvider]) next.defaultProvider = DEFAULT_CONFIG.defaultProvider;
-    await writeVaultJson(app, CONFIG_PATH, { defaultProvider: next.defaultProvider, workflowPresets: next.workflowPresets, providers: next.providers });
+    const normalized = normalizeConfig(next);
+    await writeVaultJson(app, CONFIG_PATH, { defaultProvider: normalized.defaultProvider, fallbackProvider: normalized.fallbackProvider, workflowPresets: normalized.workflowPresets, providers: normalized.providers });
     const secrets = settings && settings.secrets || {};
     for (const secretId of Object.keys(secrets)) if (secrets[secretId]) await setSecret(app, secretId, secrets[secretId]);
     for (const secretId of settings && settings.deleteSecretIds || []) await deleteSecret(app, secretId);
-    await setSecret(app, LAST_PROVIDER_SECRET, next.defaultProvider);
-    return next;
+    await setSecret(app, LAST_PROVIDER_SECRET, normalized.defaultProvider);
+    return normalized;
   }
 
   async function getDefaultProvider(app) {

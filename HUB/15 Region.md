@@ -29,6 +29,8 @@ RegionExplorerHub.regionExperienceModulePaths = [
   "SYSTEM/Views/region-experience-store.js",
   "SYSTEM/Views/ai-provider-response.js",
   "SYSTEM/Views/ai-provider-schema.js",
+  "SYSTEM/Views/ai-provider-error-policy.js",
+  "SYSTEM/Views/ai-provider-fallback.js",
   "SYSTEM/Views/ai-provider-service.js",
   "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",

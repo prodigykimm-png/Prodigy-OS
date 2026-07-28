@@ -100,6 +100,23 @@ async function testLegacySecretCountsAsConfigured() {
   assert.equal(await service.hasSecret(app, "prodigy-gemini-api-key"), true);
 }
 
+async function testFreeProviderDefaultsAndFallbackPersist() {
+  const files = {};
+  const app = createApp(files, {});
+  const config = await service.save(app, {
+    defaultProvider: "groq",
+    fallbackProvider: "openrouter"
+  });
+  assert.equal(config.providers.groq.baseURL, "https://api.groq.com/openai/v1");
+  assert.equal(config.providers.groq.model, "qwen/qwen3.6-27b");
+  assert.equal(config.providers.openrouter.model, "openrouter/free");
+  assert.equal(config.fallbackProvider, "openrouter");
+  assert.equal(config.providers.groq.fallbackProvider, config.providers.openrouter);
+  const stored = JSON.parse(files[service.CONFIG_PATH]);
+  assert.equal(stored.fallbackProvider, "openrouter");
+  assert.equal(Object.hasOwn(stored.providers.groq, "fallbackProvider"), false);
+}
+
 async function testSecretIdsRemainValid() {
   Object.values(service.SECRET_IDS).forEach((secretId) => {
     assert.match(secretId, /^[a-z0-9-]{1,64}$/);
@@ -111,6 +128,7 @@ async function testSecretIdsRemainValid() {
   await testSaveWritesCanonicalConfigAndKeepsSecretsOut();
   await testCanonicalConfigBeatsLegacyAndOnlyDeletesRequestedSecret();
   await testLegacySecretCountsAsConfigured();
+  await testFreeProviderDefaultsAndFallbackPersist();
   await testSecretIdsRemainValid();
   console.log("ProdigyConfigService tests passed.");
 })().catch((error) => {

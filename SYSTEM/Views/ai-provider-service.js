@@ -2,18 +2,21 @@
   "use strict";
 
   const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
-  const TRANSIENT_HTTP_STATUSES = new Set([500, 502, 503]);
   const RETRY_DELAYS_MS = Object.freeze([1000, 2500]);
 
   if (typeof require === "function") {
+    if (!root.AIProviderErrorPolicy) root.AIProviderErrorPolicy = require("./ai-provider-error-policy.js");
     if (!root.AIProviderResponse) root.AIProviderResponse = require("./ai-provider-response.js");
     if (!root.AIProviderSchema) root.AIProviderSchema = require("./ai-provider-schema.js");
+    if (!root.AIProviderFallback) root.AIProviderFallback = require("./ai-provider-fallback.js");
   }
 
-  function redactError(error) {
-    const text = error && error.message ? error.message : String(error || "Unknown provider error");
-    return text.replace(/[A-Za-z0-9_\-]{24,}/g, "[redacted]");
+  function errorPolicy() {
+    if (root.AIProviderErrorPolicy) return root.AIProviderErrorPolicy;
+    throw new Error("AIProviderErrorPolicy must load before AIProviderService.");
   }
+  function redactError(error) { return errorPolicy().redactError(error); }
+  const TRANSIENT_HTTP_STATUSES = errorPolicy().TRANSIENT_HTTP_STATUSES;
 
   function requestUrlAdapter(app) {
     if (root.requestUrl) return root.requestUrl;
@@ -33,13 +36,7 @@
     return String(provider && provider.baseURL || "");
   }
 
-  function providerHttpError(status, responseText) {
-    const error = new Error(`Provider HTTP ${status}`);
-    error.name = "ProviderHttpError";
-    error.status = Number(status || 0);
-    error.responseText = String(responseText || "");
-    return error;
-  }
+  function providerHttpError(status, responseText) { return errorPolicy().providerHttpError(status, responseText); }
 
   function wait(ms, signal) {
     if (signal && signal.aborted) {
@@ -71,34 +68,7 @@
   }
 
   function userFacingProviderError(error, provider, app) {
-    if (error && error.name === "AbortError") {
-      const cancelled = new Error("AI 요청이 취소되었습니다.");
-      cancelled.name = "AbortError";
-      return cancelled;
-    }
-    const status = Number(error && error.status || 0);
-    const rawMessage = error && error.message ? error.message : String(error || "");
-    const isLocalConnectionFailure = provider
-      && provider.authMode === "none"
-      && /^https?:\/\/(?:127\.0\.0\.1|localhost)(?::|\/)/i.test(resolveBaseURL(provider, app))
-      && /ECONNREFUSED|fetch failed|failed to fetch|NetworkError|network request failed/i.test(rawMessage);
-    let message = "";
-    if (isLocalConnectionFailure) {
-      message = "LM Studio 서버에 연결할 수 없습니다. LM Studio의 Developer에서 Local Server를 시작해 주세요.";
-    } else if (status === 429) {
-      message = "AI 제공자 사용 한도에 도달했습니다. 공급자 사용량과 Rate limits를 확인해 주세요.";
-    } else if (TRANSIENT_HTTP_STATUSES.has(status)) {
-      message = "AI 제공자 사용량이 많아 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
-    } else if (status === 401 || status === 403) {
-      message = "AI 제공자의 API 키 또는 접근 권한을 확인해 주세요.";
-    } else if (status) {
-      message = `AI 제공자 요청에 실패했습니다. (HTTP ${status}) 공급자 설정을 확인해 주세요.`;
-    } else {
-      message = "AI 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
-    }
-    const mapped = new Error(message);
-    if (status) mapped.status = status;
-    return mapped;
+    return errorPolicy().userFacingProviderError(error, provider, resolveBaseURL(provider, app));
   }
 
   async function httpRequest(app, options) {
@@ -216,7 +186,7 @@
     });
   }
 
-  async function requestStructuredJson(options) {
+  async function requestProviderStructuredJson(options) {
     const provider = options && options.provider;
     if (!provider || !provider.model) throw new Error("AI provider model is not configured.");
     const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
@@ -233,11 +203,40 @@
       } catch (error) {
         const status = Number(error && error.status || 0);
         const shouldRetry = TRANSIENT_HTTP_STATUSES.has(status) && attempt < RETRY_DELAYS_MS.length;
-        if (!shouldRetry) throw userFacingProviderError(error, provider, options.app);
+        if (!shouldRetry) throw error;
         await sleep(RETRY_DELAYS_MS[attempt]);
       }
     }
     throw new Error("AI 요청을 완료하지 못했습니다.");
+  }
+
+  async function isProviderConfigured(app, provider) {
+    if (!provider || provider.authMode === "none") return true;
+    return Boolean(await getProviderSecret(app, provider));
+  }
+
+  async function requestStructuredJson(options) {
+    const provider = options && options.provider;
+    if (!provider) throw new Error("AI provider is not configured.");
+    const fallback = root.AIProviderFallback;
+    try {
+      if (!fallback || typeof fallback.requestWithFallback !== "function") return await requestProviderStructuredJson(options);
+      const result = await fallback.requestWithFallback({
+        provider,
+        request: (candidate) => requestProviderStructuredJson(Object.assign({}, options, { provider: candidate })),
+        isConfigured: (candidate) => isProviderConfigured(options.app, candidate)
+      });
+      return result.payload;
+    } catch (error) {
+      const attemptedFallback = error && error.prodigyFallback && error.prodigyFallback.fallback;
+      const surfaced = userFacingProviderError(error, attemptedFallback || provider, options && options.app);
+      if (attemptedFallback) {
+        const primaryName = error.prodigyFallback.primary.name || "기본 AI 제공자";
+        const fallbackName = attemptedFallback.name || "보조 AI 제공자";
+        surfaced.message = `${primaryName} 요청 실패 후 ${fallbackName}도 응답하지 않았습니다. ${surfaced.message}`;
+      }
+      throw surfaced;
+    }
   }
 
   async function listModels(options) {

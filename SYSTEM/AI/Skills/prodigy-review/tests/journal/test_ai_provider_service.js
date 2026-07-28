@@ -160,6 +160,55 @@ async function testRetriesAndErrors() {
   assert.equal(quotaCalls, 1);
 }
 
+async function testGroqFallbacksToOpenRouterOnlyForEligibleFailure() {
+  const calls = [];
+  const app = {
+    secretStorage: {
+      getSecret: async (name) => ({ "prodigy-groq-api-key": "groq-key", "prodigy-openrouter-api-key": "router-key" })[name] || ""
+    },
+    requestUrl: async (options) => {
+      calls.push(options);
+      if (calls.length === 1) return { status: 429, json: { error: { message: "rate limited" } } };
+      return { status: 200, json: { choices: [{ message: { content: JSON.stringify(validPayload()) } }] } };
+    }
+  };
+  const fallbackProvider = {
+    adapter: "openai-compatible", name: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", endpointPath: "/chat/completions",
+    model: "openrouter/free", authMode: "bearer", apiKeySecret: "prodigy-openrouter-api-key", capabilities: { structuredOutput: "json-mode" }
+  };
+  const result = await provider.requestStructuredJson({
+    app,
+    provider: {
+      adapter: "openai-compatible", name: "Groq", baseURL: "https://api.groq.com/openai/v1", endpointPath: "/chat/completions",
+      model: "qwen/qwen3.6-27b", authMode: "bearer", apiKeySecret: "prodigy-groq-api-key", capabilities: { structuredOutput: "json-mode" }, fallbackProvider
+    },
+    prompt: "fixture",
+    schema: { type: "object" }
+  });
+  assert.equal(result.evidence_blocks.length, 1);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, "https://api.groq.com/openai/v1/chat/completions");
+  assert.equal(calls[0].headers.Authorization, "Bearer groq-key");
+  assert.equal(calls[1].url, "https://openrouter.ai/api/v1/chat/completions");
+  assert.equal(calls[1].headers.Authorization, "Bearer router-key");
+  assert.equal(JSON.parse(calls[1].body).model, "openrouter/free");
+
+  calls.length = 0;
+  await assert.rejects(
+    provider.requestStructuredJson({
+      app: { secretStorage: app.secretStorage, requestUrl: async (options) => { calls.push(options); return { status: 401, json: { error: { message: "bad key" } } }; } },
+      provider: {
+        adapter: "openai-compatible", name: "Groq", baseURL: "https://api.groq.com/openai/v1", endpointPath: "/chat/completions",
+        model: "qwen/qwen3.6-27b", authMode: "bearer", apiKeySecret: "prodigy-groq-api-key", fallbackProvider
+      },
+      prompt: "fixture",
+      schema: { type: "object" }
+    }),
+    /API 키 또는 접근 권한/
+  );
+  assert.equal(calls.length, 1);
+}
+
 async function testLocalServerConnectionFailureHasActionableMessage() {
   await assert.rejects(
     provider.requestStructuredJson({
@@ -203,6 +252,7 @@ async function main() {
   testResponseExtraction();
   testTailnetProviderUsesLocalUrlOnlyOnDesktop();
   await testRetriesAndErrors();
+  await testGroqFallbacksToOpenRouterOnlyForEligibleFailure();
   await testLocalServerConnectionFailureHasActionableMessage();
   await testProjectWorkflowReusesSharedProvider();
   console.log("AI provider service tests passed");

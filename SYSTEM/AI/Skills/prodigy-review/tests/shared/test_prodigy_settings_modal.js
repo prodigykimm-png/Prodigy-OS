@@ -74,6 +74,9 @@ async function main() {
   assert.ok(findButton(modal.contentEl, "취소"));
   assert.ok(JSON.stringify(modal.contentEl).includes("Todoist"));
   assert.ok(JSON.stringify(modal.contentEl).includes("REB OpenAPI"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("Groq"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("OpenRouter"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("실패 시 보조 AI 제공자"));
 
   await findButton(modal.contentEl, "설정 저장").onclick();
   assert.ok(files["SYSTEM/PRIVATE/prodigy.local.json"], modal.state.status);

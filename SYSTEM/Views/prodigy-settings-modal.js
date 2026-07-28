@@ -107,6 +107,18 @@
       });
       select.onchange = () => { this.state.config.defaultProvider = select.value; };
 
+      field(section, "실패 시 보조 AI 제공자");
+      const fallback = section.createEl("select", { attr: { "aria-label": "실패 시 보조 AI 제공자" } });
+      fallback.createEl("option", { text: "사용 안 함", value: "" }).selected = !this.state.config.fallbackProvider;
+      Object.keys(this.state.config.providers).forEach((key) => {
+        if (key === this.state.config.defaultProvider) return;
+        const provider = this.state.config.providers[key];
+        const option = fallback.createEl("option", { text: provider.name || key, value: key });
+        option.selected = key === this.state.config.fallbackProvider;
+      });
+      fallback.onchange = () => { this.state.config.fallbackProvider = fallback.value; };
+      section.createEl("p", { text: "429·일시 장애·구조화 JSON 실패 때만 한 번 보조 제공자로 재시도합니다. 키·권한·입력 설정 오류에는 전환하지 않습니다.", attr: { class: "prodigy-settings-hint" } });
+
       const grid = section.createEl("div", { attr: { class: "prodigy-settings-grid" } });
       Object.keys(this.state.config.providers).forEach((key) => this.renderProviderCard(grid, key));
     }
@@ -115,6 +127,7 @@
       const provider = this.state.config.providers[providerKey];
       const card = parent.createEl("div", { attr: { class: "prodigy-settings-card" } });
       card.createEl("h4", { text: provider.name || providerKey });
+      if (provider.hint) card.createEl("p", { text: provider.hint, attr: { class: "prodigy-settings-hint" } });
       this.renderSecretInput(card, "API 키", provider.apiKeySecret, provider.authMode === "none" ? "로컬 서버는 API 키가 필요하지 않습니다." : "비워 두면 기존 키를 유지합니다.");
       field(card, "모델");
       const models = this.providerModels(providerKey, provider);
@@ -222,6 +235,7 @@
         try {
           const saved = await configService().save(this.app, {
             defaultProvider: this.state.config.defaultProvider,
+            fallbackProvider: this.state.config.fallbackProvider,
             config: { workflowPresets: this.state.config.workflowPresets, providers: this.state.config.providers },
             secrets: this.state.secrets,
             deleteSecretIds: [...this.state.deleteSecretIds]
