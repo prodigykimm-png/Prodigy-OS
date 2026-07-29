@@ -271,4 +271,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = Object.freeze({ collect, fetchHouseholds, fetchRone, lookupRoneClass, parseArgs, roneForm, writeArtifacts });
+module.exports = Object.freeze({ collect, fetchHouseholds, fetchRone, lookupRoneClass, parseArgs, resolveVaultRoot, roneForm, writeArtifacts });
