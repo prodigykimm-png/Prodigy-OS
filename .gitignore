@@ -65,6 +65,8 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.ruff_cache/
+.pytest_cache/
 
 # Logs
 *.log

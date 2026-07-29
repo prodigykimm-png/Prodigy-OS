@@ -5,10 +5,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const registryCore = require("./region-metrics-registry-core.js");
+const cacheRoot = require("./region-cache-root.js");
 
 const REFRESH_SCRIPT = path.resolve(__dirname, "region-metrics-refresh.js");
 const DEFAULT_MANIFEST = path.resolve(__dirname, "region-metrics-busan-manifest.json");
-const SHARED_CACHE_DIR = path.resolve(__dirname, "../CACHE/region-metrics/_shared");
+const VAULT_ROOT = path.resolve(__dirname, "..", "..");
+const SHARED_CACHE_DIR = path.join(VAULT_ROOT, cacheRoot.LEGACY_METRICS_REL, "_shared");
 const DEFAULT_STOCK_AS_OF = "2025-09";
 const DEFAULT_SUPPLY_BASIS = "2025-12";
 const DEFAULT_REGISTRY_INDEX = path.resolve(__dirname, "region-metrics-manifest-index.json");

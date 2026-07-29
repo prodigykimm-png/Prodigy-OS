@@ -63,7 +63,7 @@ PARA/RESOURCES/Auction Regions/{시도}-{시군구}.md
 - **시군구 Object only** (동은 Case·권역 표)
 - 계약 **Version 1.4.0 Operational**: R-ONE 공개 통계표 + 공식 CSV 어댑터 + 본문 조사 소유권. 숫자는 Freeze된 어댑터로만 쓰고 사람 확인 전 `unverified`
 - **FM = 최신 canonical**, 본문 표 = 한글 표시(어댑터가 FM에서 재생성), 히스토리 = JSON 스냅샷
-- 히스토리: `snapshot_id` · 중복 시 replace · raw `SYSTEM/CACHE/region-metrics/` + sha256
+- 히스토리: `snapshot_id` · 중복 시 replace · raw는 `~/ProdigyCache/region-metrics-raw/`로 오프로딩 + sha256
 - `verification_status` 집계: 하나라도 unverified → unverified; 전부 verified → verified; 아니면 partial
 - 숫자·산식 = 코드. AI = Evidence only
 - 월간 반영: `region-metrics-refresh.js`로 cache 생성 → `region-metrics-apply.js --dry-run` 확인 → flag 제거 후 기존 Region Object에 원자 갱신
@@ -1374,6 +1374,15 @@ AI의 도움을 받되, 최종 결정은 사람이 내린다.
 - **자동**: JS Engine 시작 시 활성화 확인 → 승인하면 만기 provider만 KST 예산 내에서 수집
 - **수동**: Home 또는 Region Hub의 `지금 수집` 버튼 — 만기 여부와 무관하게 즉시 1회
 - **수집 결과**: `SYSTEM/CACHE/region-intelligence/providers/{provider_id}/` 아래 generation 디렉토리에 raw·normalized·snapshot 저장
+
+### 캐시 저장 위치 규칙 (iCloud 안전)
+
+- 목적: `SYSTEM/CACHE` 팽창으로 iCloud 할당량이 막히면 동기화가 정지되고, 모바일 Obsidian이 새 스크립트를 못 받아 `Workout resource not found`가 난다.
+- 원칙: 메타데이터와 승인용 JSON은 vault 안에 두고, 큰 raw payload만 offload root로 보낸다.
+- region-metrics raw payload: `~/ProdigyCache/region-metrics-raw/<regionKey>/<snapshotId>/raw/`
+- region-transit raw payload: `~/ProdigyCache/region-transit-raw/seoul-metro/`
+- `SYSTEM/SCRIPTS/region-cache-root.js`가 이 분리를 강제하며, `PRODIGY_CACHE_ROOT`는 offload root를 덮어쓰는 절대 경로만 허용한다.
+- 경고: `snapshot.json`, `hashes.json`와 `SYSTEM/CACHE/{auction-day,region-approvals,region-runtime,region-startup-activation}`, `SYSTEM/CACHE/region-transit/raw/{busan-metro,incheon-metro,kric,national-rail}`는 vault 밖으로 옮기지 않는다.
 
 ### 승인 및 적용
 
