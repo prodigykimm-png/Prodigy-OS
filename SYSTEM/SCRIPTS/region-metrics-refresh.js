@@ -9,6 +9,7 @@ const cacheRoot = require("./region-cache-root.js");
 
 const RONE_BASE = "https://www.reb.or.kr/r-one";
 const JUMIN_BASE = "https://jumin.mois.go.kr";
+const VAULT_ROOT = path.resolve(__dirname, "..", "..");
 const TABLES = Object.freeze({
   volume: "A_2024_00554",
   price: "A_2024_00045",
@@ -147,7 +148,7 @@ function resolveVaultRoot(config) {
   if (typeof config?.vaultRoot === "string" && config.vaultRoot.trim() !== "") {
     return path.resolve(config.vaultRoot);
   }
-  return path.resolve(config.output, "..", "..", "..");
+  return VAULT_ROOT;
 }
 
 function writeArtifacts(config, snapshotId, rawFiles, snapshot) {
