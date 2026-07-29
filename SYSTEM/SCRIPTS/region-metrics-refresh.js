@@ -9,7 +9,6 @@ const cacheRoot = require("./region-cache-root.js");
 
 const RONE_BASE = "https://www.reb.or.kr/r-one";
 const JUMIN_BASE = "https://jumin.mois.go.kr";
-const VAULT_ROOT = path.resolve(__dirname, "..", "..");
 const TABLES = Object.freeze({
   volume: "A_2024_00554",
   price: "A_2024_00045",
@@ -144,16 +143,9 @@ function metric(value, unit, asOf, provider, sourceId, rawHash) {
   return { value, unit, as_of: `${asOf.slice(0, 4)}-${asOf.slice(4, 6)}-01`, provider, source_id: sourceId, raw_hash: rawHash, verification: "unverified" };
 }
 
-function resolveVaultRoot(config) {
-  if (typeof config?.vaultRoot === "string" && config.vaultRoot.trim() !== "") {
-    return path.resolve(config.vaultRoot);
-  }
-  return VAULT_ROOT;
-}
-
 function writeArtifacts(config, snapshotId, rawFiles, snapshot) {
   const snapshotDir = path.join(config.output, config["region-key"], snapshotId);
-  const vaultRoot = resolveVaultRoot(config);
+  const vaultRoot = cacheRoot.resolveVaultRoot(config);
   const rawDir = cacheRoot.resolveRawDir({
     vaultRoot,
     regionKey: config["region-key"],
@@ -271,4 +263,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = Object.freeze({ collect, fetchHouseholds, fetchRone, lookupRoneClass, parseArgs, resolveVaultRoot, roneForm, writeArtifacts });
+module.exports = Object.freeze({ collect, fetchHouseholds, fetchRone, lookupRoneClass, parseArgs, roneForm, writeArtifacts });

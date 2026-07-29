@@ -14,11 +14,8 @@
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const cacheRoot = require("./region-cache-root.js");
-
 const BATCH_SCRIPT = path.resolve(__dirname, "region-metrics-batch.js");
-const VAULT_ROOT = path.resolve(__dirname, "..", "..");
-const OUTPUT_DIR = path.join(VAULT_ROOT, cacheRoot.LEGACY_METRICS_REL);
+const OUTPUT_DIR = path.resolve(__dirname, "../CACHE/region-metrics");
 const SIDOS = ["부산광역시", "서울특별시", "경기도", "인천광역시"];
 
 function main() {
