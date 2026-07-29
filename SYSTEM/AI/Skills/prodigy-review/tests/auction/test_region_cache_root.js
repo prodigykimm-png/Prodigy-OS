@@ -27,7 +27,12 @@ function makeICloudVault() {
   return { root };
 }
 
-function withEnv(key, value, fn) {
+function expectedRawDir(vaultRoot, regionKey, snapshotId) {
+  return cacheRoot.resolveRawDir({ vaultRoot, regionKey, snapshotId });
+}
+
+function withCacheRootEnv(value, fn) {
+  const key = "PRODIGY_CACHE_ROOT";
   const hadKey = Object.prototype.hasOwnProperty.call(process.env, key);
   const previous = process.env[key];
   if (value === undefined) delete process.env[key];
@@ -40,21 +45,6 @@ function withEnv(key, value, fn) {
   }
 }
 
-function expectedRawDir(vaultRoot, regionKey, snapshotId) {
-  return cacheRoot.resolveRawDir({ vaultRoot, regionKey, snapshotId });
-}
-
-function withTempEnv(key, value) {
-  const hadKey = Object.prototype.hasOwnProperty.call(process.env, key);
-  const previous = process.env[key];
-  if (value === undefined) delete process.env[key];
-  else process.env[key] = value;
-  return () => {
-    if (hadKey) process.env[key] = previous;
-    else delete process.env[key];
-  };
-}
-
 function expectedVaultRoot() {
   return path.resolve(ROOT, "SYSTEM", "SCRIPTS", "..", "..");
 }
@@ -64,19 +54,21 @@ test("Given a non-iCloud vault with no cache override, When the metrics root is 
   const regionKey = "TEST-REGION";
   const snapshotId = "TEST-GEN";
 
-  assert.equal(cacheRoot.isICloudHosted(vault.root), false);
-  assert.equal(
-    cacheRoot.resolveMetricsRoot({ vaultRoot: vault.root }),
-    path.join(vault.root, cacheRoot.LEGACY_METRICS_REL)
-  );
-  assert.equal(
-    cacheRoot.resolveRawRoot({ vaultRoot: vault.root }),
-    path.join(vault.root, cacheRoot.LEGACY_METRICS_REL)
-  );
-  assert.equal(
-    cacheRoot.resolveRawDir({ vaultRoot: vault.root, regionKey, snapshotId }),
-    path.join(vault.root, cacheRoot.LEGACY_METRICS_REL, regionKey, snapshotId, "raw")
-  );
+  withCacheRootEnv(undefined, () => {
+    assert.equal(cacheRoot.isICloudHosted(vault.root), false);
+    assert.equal(
+      cacheRoot.resolveMetricsRoot({ vaultRoot: vault.root }),
+      path.join(vault.root, cacheRoot.LEGACY_METRICS_REL)
+    );
+    assert.equal(
+      cacheRoot.resolveRawRoot({ vaultRoot: vault.root }),
+      path.join(vault.root, cacheRoot.LEGACY_METRICS_REL)
+    );
+    assert.equal(
+      cacheRoot.resolveRawDir({ vaultRoot: vault.root, regionKey, snapshotId }),
+      path.join(vault.root, cacheRoot.LEGACY_METRICS_REL, regionKey, snapshotId, "raw")
+    );
+  });
 });
 
 test("Given a custom output outside the vault, When writeArtifacts runs, Then raw payloads still anchor to the vault and metadata stays under output", () => {
@@ -89,33 +81,33 @@ test("Given a custom output outside the vault, When writeArtifacts runs, Then ra
     "beta.json": Buffer.from("{\"ok\":true}", "utf8")
   };
   const snapshot = { schema_version: 1, snapshot_id: snapshotId, region_key: regionKey };
-  const restoreEnv = withTempEnv("PRODIGY_CACHE_ROOT", cacheOverride);
   try {
-    assert.equal(refresh.resolveVaultRoot({ output }), expectedVaultRoot());
+    withCacheRootEnv(cacheOverride, () => {
+      assert.equal(refresh.resolveVaultRoot({ output }), expectedVaultRoot());
 
-    const snapshotDir = refresh.writeArtifacts(
-      { output, "region-key": regionKey },
-      snapshotId,
-      rawFiles,
-      snapshot
-    );
-    const rawDir = expectedRawDir(expectedVaultRoot(), regionKey, snapshotId);
+      const snapshotDir = refresh.writeArtifacts(
+        { output, "region-key": regionKey },
+        snapshotId,
+        rawFiles,
+        snapshot
+      );
+      const rawDir = expectedRawDir(expectedVaultRoot(), regionKey, snapshotId);
 
-    assert.equal(snapshotDir, path.join(output, regionKey, snapshotId));
-    assert.equal(fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf8"), `${JSON.stringify(snapshot, null, 2)}\n`);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(snapshotDir, "hashes.json"), "utf8")), {
-      "alpha.txt": core.sha256(rawFiles["alpha.txt"]),
-      "beta.json": core.sha256(rawFiles["beta.json"])
+      assert.equal(snapshotDir, path.join(output, regionKey, snapshotId));
+      assert.equal(fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf8"), `${JSON.stringify(snapshot, null, 2)}\n`);
+      assert.deepEqual(JSON.parse(fs.readFileSync(path.join(snapshotDir, "hashes.json"), "utf8")), {
+        "alpha.txt": core.sha256(rawFiles["alpha.txt"]),
+        "beta.json": core.sha256(rawFiles["beta.json"])
+      });
+      assert.equal(fs.readFileSync(path.join(rawDir, "alpha.txt"), "utf8"), "alpha");
+      assert.equal(fs.readFileSync(path.join(rawDir, "beta.json"), "utf8"), "{\"ok\":true}");
+      assert.ok(fs.existsSync(path.join(snapshotDir, "hashes.json")));
+      assert.ok(fs.existsSync(path.join(snapshotDir, "snapshot.json")));
+      assert.ok(fs.existsSync(rawDir));
+      assert.ok(!rawDir.startsWith(path.resolve(output)));
+      assert.ok(!rawDir.startsWith(path.sep + "SYSTEM"));
     });
-    assert.equal(fs.readFileSync(path.join(rawDir, "alpha.txt"), "utf8"), "alpha");
-    assert.equal(fs.readFileSync(path.join(rawDir, "beta.json"), "utf8"), "{\"ok\":true}");
-    assert.ok(fs.existsSync(path.join(snapshotDir, "hashes.json")));
-    assert.ok(fs.existsSync(path.join(snapshotDir, "snapshot.json")));
-    assert.ok(fs.existsSync(rawDir));
-    assert.ok(!rawDir.startsWith(path.resolve(output)));
-    assert.ok(!rawDir.startsWith(path.sep + "SYSTEM"));
   } finally {
-    restoreEnv();
     fs.rmSync(cacheOverride, { recursive: true, force: true });
     fs.rmSync(output, { recursive: true, force: true });
   }
@@ -125,12 +117,14 @@ test("Given a deeper output path under the vault, When the vault root is resolve
   const output = path.join(ROOT, "SYSTEM", "CACHE", "region-metrics", "sub", "deeper");
   const regionKey = "TEST-REGION";
   const snapshotId = "TEST-GEN";
-  const resolvedVaultRoot = refresh.resolveVaultRoot({ output });
-  const rawDir = expectedRawDir(resolvedVaultRoot, regionKey, snapshotId);
+  withCacheRootEnv(undefined, () => {
+    const resolvedVaultRoot = refresh.resolveVaultRoot({ output });
+    const rawDir = expectedRawDir(resolvedVaultRoot, regionKey, snapshotId);
 
-  assert.equal(resolvedVaultRoot, expectedVaultRoot());
-  assert.equal(rawDir, path.join(os.homedir(), "ProdigyCache", "region-metrics-raw", regionKey, snapshotId, "raw"));
-  assert.ok(rawDir.startsWith(path.join(os.homedir(), "ProdigyCache")));
+    assert.equal(resolvedVaultRoot, expectedVaultRoot());
+    assert.equal(rawDir, path.join(os.homedir(), "ProdigyCache", "region-metrics-raw", regionKey, snapshotId, "raw"));
+    assert.ok(rawDir.startsWith(path.join(os.homedir(), "ProdigyCache")));
+  });
 });
 
 test("Given an explicit config.vaultRoot, When writeArtifacts runs, Then the explicit vault root wins over the anchor", () => {
@@ -143,25 +137,25 @@ test("Given an explicit config.vaultRoot, When writeArtifacts runs, Then the exp
     "alpha.txt": Buffer.from("alpha", "utf8")
   };
   const snapshot = { schema_version: 1, snapshot_id: snapshotId, region_key: regionKey };
-  const restoreEnv = withTempEnv("PRODIGY_CACHE_ROOT", cacheOverride);
   try {
-    assert.equal(refresh.resolveVaultRoot({ output, vaultRoot: vault }), path.resolve(vault));
+    withCacheRootEnv(cacheOverride, () => {
+      assert.equal(refresh.resolveVaultRoot({ output, vaultRoot: vault }), path.resolve(vault));
 
-    const snapshotDir = refresh.writeArtifacts(
-      { output, vaultRoot: vault, "region-key": regionKey },
-      snapshotId,
-      rawFiles,
-      snapshot
-    );
-    const rawDir = path.join(cacheOverride, "region-metrics-raw", regionKey, snapshotId, "raw");
+      const snapshotDir = refresh.writeArtifacts(
+        { output, vaultRoot: vault, "region-key": regionKey },
+        snapshotId,
+        rawFiles,
+        snapshot
+      );
+      const rawDir = path.join(cacheOverride, "region-metrics-raw", regionKey, snapshotId, "raw");
 
-    assert.equal(snapshotDir, path.join(output, regionKey, snapshotId));
-    assert.equal(fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf8"), `${JSON.stringify(snapshot, null, 2)}\n`);
-    assert.equal(fs.readFileSync(path.join(rawDir, "alpha.txt"), "utf8"), "alpha");
-    assert.ok(fs.existsSync(rawDir));
-    assert.ok(!rawDir.startsWith(path.resolve(output)));
+      assert.equal(snapshotDir, path.join(output, regionKey, snapshotId));
+      assert.equal(fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf8"), `${JSON.stringify(snapshot, null, 2)}\n`);
+      assert.equal(fs.readFileSync(path.join(rawDir, "alpha.txt"), "utf8"), "alpha");
+      assert.ok(fs.existsSync(rawDir));
+      assert.ok(!rawDir.startsWith(path.resolve(output)));
+    });
   } finally {
-    restoreEnv();
     fs.rmSync(cacheOverride, { recursive: true, force: true });
     fs.rmSync(output, { recursive: true, force: true });
     fs.rmSync(vault, { recursive: true, force: true });
@@ -173,26 +167,28 @@ test("Given an iCloud-hosted vault with no cache override, When the metrics root
   const regionKey = "TEST-REGION";
   const snapshotId = "TEST-GEN";
 
-  assert.equal(cacheRoot.isICloudHosted(vault.root), true);
-  assert.equal(
-    cacheRoot.resolveMetricsRoot({ vaultRoot: vault.root }),
-    path.join(vault.root, cacheRoot.LEGACY_METRICS_REL)
-  );
-  assert.equal(
-    cacheRoot.resolveRawRoot({ vaultRoot: vault.root }),
-    path.join(os.homedir(), "ProdigyCache", "region-metrics-raw")
-  );
-  assert.equal(
-    cacheRoot.resolveRawDir({ vaultRoot: vault.root, regionKey, snapshotId }),
-    path.join(os.homedir(), "ProdigyCache", "region-metrics-raw", regionKey, snapshotId, "raw")
-  );
+  withCacheRootEnv(undefined, () => {
+    assert.equal(cacheRoot.isICloudHosted(vault.root), true);
+    assert.equal(
+      cacheRoot.resolveMetricsRoot({ vaultRoot: vault.root }),
+      path.join(vault.root, cacheRoot.LEGACY_METRICS_REL)
+    );
+    assert.equal(
+      cacheRoot.resolveRawRoot({ vaultRoot: vault.root }),
+      path.join(os.homedir(), "ProdigyCache", "region-metrics-raw")
+    );
+    assert.equal(
+      cacheRoot.resolveRawDir({ vaultRoot: vault.root, regionKey, snapshotId }),
+      path.join(os.homedir(), "ProdigyCache", "region-metrics-raw", regionKey, snapshotId, "raw")
+    );
+  });
 });
 
 test("Given a cache override, When the raw root is resolved, Then the override wins", () => {
   const vault = makeICloudVault();
   const override = fs.mkdtempSync(path.join(os.tmpdir(), "prodigy-cache-override-"));
 
-  withEnv("PRODIGY_CACHE_ROOT", override, () => {
+  withCacheRootEnv(override, () => {
     assert.equal(
       cacheRoot.resolveRawRoot({ vaultRoot: vault.root }),
       path.join(override, "region-metrics-raw")
@@ -203,7 +199,7 @@ test("Given a cache override, When the raw root is resolved, Then the override w
 test("Given a non-absolute cache override, When the raw root is resolved, Then it is rejected", () => {
   const vault = makeVault("prodigy-cache-root-absolute-");
 
-  withEnv("PRODIGY_CACHE_ROOT", "relative/cache", () => {
+  withCacheRootEnv("relative/cache", () => {
     assert.throws(
       () => cacheRoot.resolveRawRoot({ vaultRoot: vault.root }),
       /PRODIGY_CACHE_ROOT는 절대 경로여야 합니다/
@@ -222,34 +218,34 @@ test("Given an iCloud vault, When writeArtifacts runs, Then only raw bytes leave
     "beta.json": Buffer.from("{\"ok\":true}", "utf8")
   };
   const snapshot = { schema_version: 1, snapshot_id: snapshotId, region_key: regionKey };
-  const restoreEnv = withTempEnv("PRODIGY_CACHE_ROOT", override);
   try {
-    const snapshotDir = refresh.writeArtifacts(
-      { output, vaultRoot: vault.root, "region-key": regionKey },
-      snapshotId,
-      rawFiles,
-      snapshot
-    );
-    const rawDir = path.join(override, "region-metrics-raw", regionKey, snapshotId, "raw");
+    withCacheRootEnv(override, () => {
+      const snapshotDir = refresh.writeArtifacts(
+        { output, vaultRoot: vault.root, "region-key": regionKey },
+        snapshotId,
+        rawFiles,
+        snapshot
+      );
+      const rawDir = path.join(override, "region-metrics-raw", regionKey, snapshotId, "raw");
 
-    assert.equal(snapshotDir, path.join(output, regionKey, snapshotId));
-    assert.equal(fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf8"), `${JSON.stringify(snapshot, null, 2)}\n`);
-    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(snapshotDir, "hashes.json"), "utf8")), {
-      "alpha.txt": core.sha256(rawFiles["alpha.txt"]),
-      "beta.json": core.sha256(rawFiles["beta.json"])
+      assert.equal(snapshotDir, path.join(output, regionKey, snapshotId));
+      assert.equal(fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf8"), `${JSON.stringify(snapshot, null, 2)}\n`);
+      assert.deepEqual(JSON.parse(fs.readFileSync(path.join(snapshotDir, "hashes.json"), "utf8")), {
+        "alpha.txt": core.sha256(rawFiles["alpha.txt"]),
+        "beta.json": core.sha256(rawFiles["beta.json"])
+      });
+      assert.equal(fs.readFileSync(path.join(rawDir, "alpha.txt"), "utf8"), "alpha");
+      assert.equal(fs.readFileSync(path.join(rawDir, "beta.json"), "utf8"), "{\"ok\":true}");
+      assert.ok(fs.existsSync(path.join(snapshotDir, "hashes.json")));
+      assert.ok(fs.existsSync(path.join(snapshotDir, "snapshot.json")));
+      assert.ok(fs.existsSync(rawDir));
+      assert.ok(!fs.existsSync(path.join(snapshotDir, "raw")));
+      assert.ok(!fs.existsSync(path.join(snapshotDir, "raw", "alpha.txt")));
+      assert.equal(path.dirname(path.join(snapshotDir, "hashes.json")), snapshotDir);
+      assert.equal(path.dirname(path.join(snapshotDir, "snapshot.json")), snapshotDir);
+      assert.equal(path.dirname(rawDir), path.join(override, "region-metrics-raw", regionKey, snapshotId));
     });
-    assert.equal(fs.readFileSync(path.join(rawDir, "alpha.txt"), "utf8"), "alpha");
-    assert.equal(fs.readFileSync(path.join(rawDir, "beta.json"), "utf8"), "{\"ok\":true}");
-    assert.ok(fs.existsSync(path.join(snapshotDir, "hashes.json")));
-    assert.ok(fs.existsSync(path.join(snapshotDir, "snapshot.json")));
-    assert.ok(fs.existsSync(rawDir));
-    assert.ok(!fs.existsSync(path.join(snapshotDir, "raw")));
-    assert.ok(!fs.existsSync(path.join(snapshotDir, "raw", "alpha.txt")));
-    assert.equal(path.dirname(path.join(snapshotDir, "hashes.json")), snapshotDir);
-    assert.equal(path.dirname(path.join(snapshotDir, "snapshot.json")), snapshotDir);
-    assert.equal(path.dirname(rawDir), path.join(override, "region-metrics-raw", regionKey, snapshotId));
   } finally {
-    restoreEnv();
     fs.rmSync(override, { recursive: true, force: true });
   }
 });
