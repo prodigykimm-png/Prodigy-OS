@@ -1,17 +1,20 @@
 "use strict";
 
-const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
 const LEGACY_METRICS_REL = "SYSTEM/CACHE/region-metrics";
+const VAULT_ROOT = path.resolve(__dirname, "..", "..");
 
 function isICloudHosted(vaultRoot) {
   return typeof vaultRoot === "string" && vaultRoot.includes("Mobile Documents");
 }
 
 function resolveVaultRoot(options) {
-  return path.resolve(options?.vaultRoot || process.cwd());
+  if (typeof options?.vaultRoot === "string" && options.vaultRoot.trim() !== "") {
+    return path.resolve(options.vaultRoot);
+  }
+  return VAULT_ROOT;
 }
 
 function resolveMetricsRoot(options) {
@@ -48,23 +51,10 @@ function resolveRawDir(options) {
   return path.join(resolveRawRoot(options), regionKey, snapshotId, "raw");
 }
 
-function ensureMetricsRootDir(options) {
-  const metricsRoot = resolveMetricsRoot(options);
-  fs.mkdirSync(metricsRoot, { recursive: true });
-  return metricsRoot;
-}
-
-function ensureRawDir(options) {
-  const rawDir = resolveRawDir(options);
-  fs.mkdirSync(rawDir, { recursive: true });
-  return rawDir;
-}
-
 module.exports = Object.freeze({
   LEGACY_METRICS_REL,
-  ensureMetricsRootDir,
-  ensureRawDir,
   isICloudHosted,
+  resolveVaultRoot,
   resolveMetricsRoot,
   resolveRawRoot,
   resolveRawDir
