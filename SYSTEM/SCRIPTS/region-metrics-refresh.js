@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const core = require("./region-metrics-core.js");
+const cacheRoot = require("./region-cache-root.js");
 
 const RONE_BASE = "https://www.reb.or.kr/r-one";
 const JUMIN_BASE = "https://jumin.mois.go.kr";
@@ -142,9 +143,22 @@ function metric(value, unit, asOf, provider, sourceId, rawHash) {
   return { value, unit, as_of: `${asOf.slice(0, 4)}-${asOf.slice(4, 6)}-01`, provider, source_id: sourceId, raw_hash: rawHash, verification: "unverified" };
 }
 
+function resolveVaultRoot(config) {
+  if (typeof config?.vaultRoot === "string" && config.vaultRoot.trim() !== "") {
+    return path.resolve(config.vaultRoot);
+  }
+  return path.resolve(config.output, "..", "..", "..");
+}
+
 function writeArtifacts(config, snapshotId, rawFiles, snapshot) {
   const snapshotDir = path.join(config.output, config["region-key"], snapshotId);
-  const rawDir = path.join(snapshotDir, "raw");
+  const vaultRoot = resolveVaultRoot(config);
+  const rawDir = cacheRoot.resolveRawDir({
+    vaultRoot,
+    regionKey: config["region-key"],
+    snapshotId
+  });
+  fs.mkdirSync(snapshotDir, { recursive: true });
   fs.mkdirSync(rawDir, { recursive: true });
   const hashes = {};
   Object.entries(rawFiles).forEach(([name, raw]) => {
@@ -256,4 +270,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = Object.freeze({ collect, fetchHouseholds, fetchRone, lookupRoneClass, parseArgs, roneForm });
+module.exports = Object.freeze({ collect, fetchHouseholds, fetchRone, lookupRoneClass, parseArgs, roneForm, writeArtifacts });
