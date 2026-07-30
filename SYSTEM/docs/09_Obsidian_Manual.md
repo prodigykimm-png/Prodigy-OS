@@ -277,9 +277,17 @@ Weekly는 월요일~일요일의 Daily Evidence를 읽는 Filter입니다. 먼�
 ## 9. 모바일
 
 - **별도 Mobile Home 없음.** 같은 Home · Workspace를 압축 레이아웃으로 씀.
+- compact는 `768px` 미만, medium은 `768px`부터 `1023px`, wide는 `1024px` 이상이다. Workspace bar는 48px, Action Bar는 52px, 최소 터치 대상은 44px이다.
 - 운영 계약은 `single Home` / `no separate Mobile Home`이다. 모바일에서도 별도 Home 파일이나 별도 승인 흐름을 만들지 않는다.
 - 큰 터치 영역 · 하단 접기(더 보기) 유지.
+- Workspace UI 상태는 `AppShell`과 `WorkspaceStateStore`(sessionStorage)가 관리한다. AI 채팅 세션은 `prodigy.ai.chat-session.v1` 키로 존재하며 vault에 저장되지 않는다.
 - 플러그인 데이터·workspace 상태는 기기별 (git에 올리지 않는 것을 권장).
+
+. **Workspace별 반응형 동작**: Home(한 줄, 48px, nowrap), Auction(compact overflow menu), Region(compact 단일 열 읽기 전용), Reading(두 패널/한 패널), Project(두 열/한 열, 사람 승인 보존), Knowledge(정본 폭 분류), Personal(정본 토큰), Journal(AdaptiveTabs), Workout(normalizeSessionKind, 운동 교체, 러닝 투영, 식단·러닝 탭, Apple Health 수동·일회성·러닝만), Excel 가져오기(실시간 검색 필터).
+
+. **AI 제공자 보안**: Provider 바인드는 localhost·private tailnet만 허용. `antigravity`·`agy`·OAuth 재사용·공용 bind·LAN bind는 네트워크 호출 전 차단.
+
+. **물리 기기 한계**: 모든 반응형 검증은 headless logical-width harness. 실제 iPhone·iPad·Mac 검증은 미수행. `.omo/evidence/evidence-manifest.json`의 `physical_device_success: false`와 일관됨. 이 문서는 물리 기기 동작을 주장하지 않음.
 
 ---
 
