@@ -124,15 +124,42 @@ function main() {
   const statusLines = getGitStatusPorcelain();
   const { dirtyTracked, untracked } = parseStatusLines(statusLines);
 
-  const dirtyTrackedRecords = dirtyTracked.map(p => {
+  // Expand any directory entry into its constituent files.
+  // git status --porcelain may report untracked directories as a single
+  // entry with a trailing slash (e.g. "?? dir/"). existsSync returns true
+  // for that path, but readFileSync on a directory throws EISDIR.
+  function expandPath(p) {
     const absPath = path.join(VAULT_ROOT, p);
-    return { path: p, sha256: fs.existsSync(absPath) ? sha256File(absPath) : null };
+    const relPath = p;
+    if (!fs.existsSync(absPath)) return [{ path: relPath, sha256: null }];
+    let stat;
+    try {
+      stat = fs.lstatSync(absPath);
+    } catch (_err) {
+      return [{ path: relPath, sha256: null }];
+    }
+    if (stat.isDirectory()) {
+      const files = walkDirRecursive(absPath);
+      return files.map(f => ({
+        path: path.relative(VAULT_ROOT, f),
+        sha256: sha256File(f),
+      }));
+    }
+    return [{ path: relPath, sha256: sha256File(absPath) }];
+  }
+
+  const dirtyTrackedRecords = dirtyTracked.flatMap(p => {
+    const absPath = path.join(VAULT_ROOT, p);
+    if (!fs.existsSync(absPath)) return [{ path: p, sha256: null }];
+    const stat = fs.lstatSync(absPath);
+    if (stat.isDirectory()) {
+      const files = walkDirRecursive(absPath);
+      return files.map(f => ({ path: path.relative(VAULT_ROOT, f), sha256: sha256File(f) }));
+    }
+    return [{ path: p, sha256: sha256File(absPath) }];
   });
 
-  const untrackedRecords = untracked.map(p => {
-    const absPath = path.join(VAULT_ROOT, p);
-    return { path: p, sha256: fs.existsSync(absPath) ? sha256File(absPath) : null };
-  });
+  const untrackedRecords = untracked.flatMap(expandPath);
 
   const cacheMembership = recordCacheMembership();
   const regionObjects = recordRegionObjects();
