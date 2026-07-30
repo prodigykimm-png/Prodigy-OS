@@ -15,9 +15,12 @@ const loadProdigyScript = async (path) => {
 
 try {
   await loadProdigyScript("SYSTEM/Views/design-tokens.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
-  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/workspace-list-view.js");
   await loadProdigyScript("SYSTEM/Views/people-core.js");
   await loadProdigyScript("SYSTEM/Views/people-store.js");
@@ -27,12 +30,13 @@ try {
   const rootEl = this.container;
   rootEl.empty();
 
-  window.ProdigyWorkspaceNavigation.mount(rootEl, { app, title: "개인" });
+  const shell = window.ProdigyWorkspaceNavigation.mount(rootEl, { app, workspaceId: "personal", title: "개인" });
+  const workspaceBody = shell.body;
 
   // People surface (primary)
-  const peopleMount = rootEl.createDiv({ attr: { class: "personal-people-mount" } });
+  const peopleMount = workspaceBody.createDiv({ attr: { class: "personal-people-mount" } });
   // Areas surface (supporting)
-  const areasMount = rootEl.createDiv({ attr: { class: "personal-areas-mount prodigy-people-workspace" } });
+  const areasMount = workspaceBody.createDiv({ attr: { class: "personal-areas-mount prodigy-people-workspace" } });
 
   const pageToSource = (p) => {
     if (!p || !p.file) return null;
@@ -59,7 +63,7 @@ try {
       connections,
       outlinks,
       body: "",
-      mtime: p.file.mtime
+      updated: p.date || p.updated || p.file.day || ""
     };
   };
 
@@ -168,8 +172,9 @@ try {
       model,
       rawPeople,
       sourcePages,
+      selectedPath: st && st.selectedPath ? st.selectedPath : "",
       title: "사람과 관계",
-      subtitle: "이름 클릭 = 관계 편집 · 사건·메모는 카드에 표시 · 최근 맥락은 연결된 원본 기록입니다.",
+      subtitle: "이름 클릭 = 관계 맥락 · 관계 편집과 원본 노트는 상세에서 · 최근 맥락은 연결된 원본 기록입니다.",
       onRefresh: () => paintPeople()
     });
   };
@@ -187,12 +192,12 @@ try {
 
     const areas = dv.pages('"PARA/AREAS"')
       .where(p => p.type === "area_family" || p.type === "area_note")
-      .sort(p => p.file.mtime, "desc")
+      .sort(p => p.file.name, "asc")
       .array()
       .map(p => ({
         title: p.file.name,
         path: p.file.path,
-        meta: [p.file.mtime.toFormat("yyyy-MM-dd")],
+        meta: [],
         detail: p.summary || "",
         actions: []
       }));
@@ -223,13 +228,11 @@ try {
   paintPeople();
   paintAreas();
 } catch (error) {
-  this.container.empty();
-  this.container.createEl("p", {
-    text: "Personal 워크스페이스를 불러오지 못했습니다.",
-    attr: { style: "color:var(--text-error);" }
-  });
-  if (window.prodigyDebugMode === true) {
-    this.container.createEl("pre", { text: error.stack || error.message });
+  if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
+    window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "개인" });
+  } else {
+    this.container.empty();
+    this.container.createEl("p", { text: "개인 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
   }
 }
 ```

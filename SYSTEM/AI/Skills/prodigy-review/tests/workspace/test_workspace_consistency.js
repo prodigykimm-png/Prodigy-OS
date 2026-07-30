@@ -19,6 +19,36 @@ class Element {
 }
 function textOf(node) { return [node.text, ...node.children.flatMap(textOf)].filter(Boolean).join(" "); }
 
+const APP_SHELL_HUBS = Object.freeze([
+  { path: "HUB/00 Home.md", workspaceId: "home", title: "홈" },
+  { path: "HUB/10 Auction.md", workspaceId: "auction", title: "경매" },
+  { path: "HUB/15 Region.md", workspaceId: "auction", title: "지역 비교" },
+  { path: "HUB/20 Reading.md", workspaceId: "reading", title: "독서" },
+  { path: "HUB/40 Project.md", workspaceId: "project", title: "프로젝트" },
+  { path: "HUB/50 Knowledge.md", workspaceId: "knowledge", title: "지식" },
+  { path: "HUB/60 Personal.md", workspaceId: "personal", title: "개인" },
+  { path: "HUB/70 Journal.md", workspaceId: "journal", title: "저널" },
+]);
+
+function assertAppShellAdoption(relativePath, workspaceId, title) {
+  const source = fs.readFileSync(path.join(ROOT, relativePath), "utf8");
+  const loaderOrder = [
+    "SYSTEM/Views/design-tokens.js",
+    "SYSTEM/Views/workspace-registry.js",
+    "SYSTEM/Views/prodigy-workspace-state-store.js",
+    "SYSTEM/Views/prodigy-app-shell.js",
+    "SYSTEM/Views/workspace-navigation.js",
+  ].map((modulePath) => source.indexOf(modulePath));
+  assert.ok(loaderOrder.every((index) => index >= 0), `${relativePath} loads every App Shell dependency`);
+  assert.deepEqual(loaderOrder, [...loaderOrder].sort((a, b) => a - b), `${relativePath} loads App Shell dependencies in order`);
+  assert.match(
+    source,
+    new RegExp(`ProdigyWorkspaceNavigation\\.mount\\([^;]+workspaceId:\\s*"${workspaceId}"[^;]+title:\\s*"${title}"`),
+    `${relativePath} mounts its registered lane and Korean title`,
+  );
+  assert.match(source, /ProdigyWorkspaceNavigation\.renderLoaderError/, `${relativePath} uses the shared loader error state`);
+}
+
 async function main() {
   const view = require(path.join(ROOT, "SYSTEM/Views/workspace-list-view.js"));
   const shell = require(path.join(ROOT, "SYSTEM/Views/prodigy-app-shell.js"));
@@ -42,6 +72,16 @@ async function main() {
   switcher.value = "reading";
   await switcher.onchange();
   assert.equal(openedPath, "HUB/20 Reading");
+  const navigation = require(path.join(ROOT, "SYSTEM/Views/workspace-navigation.js"));
+  const navigationHost = new Element();
+  const mountedNavigation = navigation.mount(navigationHost, { app: {}, workspaceId: "reading", title: "독서" });
+  assert.equal(mountedNavigation.element.attr["data-workspace-id"], "reading");
+  assert.equal(mountedNavigation.body.tag, "main");
+  assert.match(textOf(navigationHost), /독서/);
+  const errorHost = new Element();
+  navigation.renderLoaderError(errorHost, new Error("private provider detail"), { title: "독서" });
+  assert.match(textOf(errorHost), /독서 워크스페이스를 불러오지 못했습니다/);
+  assert.doesNotMatch(textOf(errorHost), /private provider detail/);
   const tabHost = new Element();
   const firstPanel = new Element();
   const secondPanel = new Element();
@@ -72,6 +112,12 @@ async function main() {
   const css = container.children.find((item) => item.tag === "style").text;
   assert.match(css, /@media\(max-width:600px\)/);
   assert.match(css, /min-height:44px/);
+
+  for (const hub of APP_SHELL_HUBS) assertAppShellAdoption(hub.path, hub.workspaceId, hub.title);
+  const navigationSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workspace-navigation.js"), "utf8");
+  assert.match(navigationSource, /BREAKPOINTS/);
+  assert.match(navigationSource, /CONTROL_HEIGHTS/);
+  assert.doesNotMatch(navigationSource, /\b(?:768|1024|48|52|44)\b/, "navigation must consume canonical responsive tokens");
 
   // Knowledge uses the dedicated Explorer stack; Personal still uses the shared list workspace.
   const knowledgeHub = fs.readFileSync(path.join(ROOT, "HUB/50 Knowledge.md"), "utf8");

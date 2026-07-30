@@ -17,17 +17,27 @@ window.app = app;
 // Dynamic script loader helper
 const loadProdigyScript = async (path) => {
   const tFile = app.vault.getAbstractFileByPath(path);
-  if (tFile) {
-    const content = await app.vault.read(tFile);
+  if (!tFile) throw new Error(`필수 스크립트 파일이 없습니다: ${path}`);
+  const content = await app.vault.read(tFile);
+  try {
     (new Function(content))();
+  } catch (error) {
+    const wrapped = error instanceof Error ? error : new Error(String(error));
+    wrapped.prodigyLoadPath = path;
+    throw wrapped;
   }
 };
 
+let workspaceBody = container;
 try {
   await loadProdigyScript("SYSTEM/Views/design-tokens.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-adaptive-controls.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
-  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-core.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-view.js");
   await loadProdigyScript("SYSTEM/Views/object-engine-core.js");
@@ -58,54 +68,42 @@ try {
   await loadProdigyScript("SYSTEM/Views/reading-strategy-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-workspace-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-card.js");
-  window.ProdigyWorkspaceNavigation.mount(container, { app, title: "독서" });
+  workspaceBody = window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "reading", title: "독서" }).body;
 } catch (err) {
-  container.empty();
-  const errCard = container.createEl("div", {
-    attr: { style: "background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 16px; margin: 12px 0; color: #ef4444;" }
-  });
-  errCard.createEl("h4", { text: "⚠️ 대시보드 스크립트 로드 실패" });
-  errCard.createEl("p", { 
-    text: "공통 뷰 렌더러 파일을 읽어오는 중 에러가 발생했습니다. 자바스크립트 소스 코드나 경로를 확인해주세요.",
-    attr: { style: "font-size: 0.85em; color: var(--text-normal);" }
-  });
-  
-  const details = errCard.createEl("details", { attr: { style: "margin-top: 8px; cursor: pointer;" } });
-  details.createEl("summary", { text: "에러 로그 자세히 보기", attr: { style: "font-size: 0.8em; font-weight: bold;" } });
-  details.createEl("pre", { 
-    text: err.stack || err.message, 
-    attr: { style: "font-size: 0.75em; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; overflow-x: auto; margin-top: 4px;" } 
-  });
+  if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
+    window.ProdigyWorkspaceNavigation.renderLoaderError(container, err, { title: "독서" });
+  } else {
+    container.empty();
+    container.createEl("p", { text: "독서 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
+  }
   return;
 }
 
 // Create a complete Reading Object only after book metadata is available.
 if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
-const toolbar = container.createEl("div", {
-  attr: { class: "prodigy-btn-row", style: "margin-bottom:16px;" }
+window.ProdigyAdaptiveControls.AdaptiveActionBar(workspaceBody, {
+  label: "독서 등록",
+  actions: [{
+    label: "새 책 추가",
+    onClick: () => window.ReadingBookCreate.open(app)
+  }],
+  secondaryActions: [{
+    label: "수동 등록",
+    onClick: () => {
+      if (!window.ReadingView || !window.ReadingView.openManualRegistrationModal) return;
+      window.ReadingView.openManualRegistrationModal(app, () => {
+        try { delete window.__readingWorkspaceModel; } catch (_error) { window.__readingWorkspaceModel = null; }
+      });
+    }
+  }],
+  sheetParent: workspaceBody,
+  sheetTitle: "독서 등록",
+  moreLabel: "등록 방법"
 });
-const btn = window.ProdigyUI
-  ? window.ProdigyUI.button(toolbar, "＋ 새 책 추가", { primary: true })
-  : toolbar.createEl("button", { text: "＋ 새 책 추가", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
-btn.onclick = (e) => {
-  e.preventDefault();
-  window.ReadingBookCreate.open(app);
-};
-const manualBtn = window.ProdigyUI
-  ? window.ProdigyUI.button(toolbar, "✍ 수동 등록")
-  : toolbar.createEl("button", { text: "✍ 수동 등록", attr: { type: "button", class: "prodigy-btn" } });
-manualBtn.onclick = (e) => {
-  e.preventDefault();
-  if (window.ReadingView && window.ReadingView.openManualRegistrationModal) {
-    window.ReadingView.openManualRegistrationModal(app, () => {
-      try { delete window.__readingWorkspaceModel; } catch (_e) { window.__readingWorkspaceModel = null; }
-    });
-  }
-};
 
 ```
 
-# 📖 읽는 중
+# 읽는 중
 
 ```dataviewjs
 // Card-first dashboard. Runtime + Strategy power the strip/actions — not a second UI wall.
@@ -118,8 +116,6 @@ const mapReading = (p) => Object.assign({}, p, {
   status: p.status,
   next_action: p.next_action,
   progress: p.progress,
-  current_page: p.current_page,
-  total_page: p.total_page,
   reading_strategy: p.reading_strategy,
   book_type: p.book_type,
   reading_type: p.reading_type,
@@ -178,99 +174,92 @@ const run = () => {
   if (!window.renderReadingCard) return false;
   this.container.empty();
 
-  // Compact Continue from Runtime (one strip — not full workspace render)
   const model = ensureRuntimeModel();
-  const contBox = this.container.createEl("div", {
-    attr: {
-      class: "reading-continue-strip",
-      style: "margin:0 0 12px;padding:10px 12px;border-radius:10px;border:1px solid var(--background-modifier-border);background:var(--background-secondary);"
-    }
-  });
-  contBox.createEl("div", {
-    text: "▶ 이어 읽기",
-    attr: { style: "font-weight:800;font-size:0.88em;color:var(--text-accent);margin-bottom:4px;" }
-  });
-
-  const cont = model && model.continue_reading;
-  if (cont && !cont.empty) {
-    contBox.createEl("div", {
-      text: cont.title || "현재 책",
-      attr: { style: "font-weight:700;font-size:0.95em;" }
-    });
-    const actionLine = contBox.createEl("div", {
-      attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:2px;" }
-    });
-    actionLine.createEl("span", { text: cont.action || "이어 읽기" });
-    if (cont.progress) {
-      actionLine.createEl("span", {
-        text: ` · ${cont.progress}`,
-        attr: { style: "font-weight:700;" }
-      });
-    }
-    if (cont.next_action) {
-      contBox.createEl("div", {
-        text: `다음 · ${cont.next_action}`,
-        attr: { style: "margin-top:4px;font-size:0.82em;font-weight:650;color:var(--text-normal);" }
-      });
-    }
-    if (cont.reason) {
-      const r = contBox.createEl("div", {
-        attr: { style: "margin-top:6px;font-size:0.78em;color:var(--text-muted);" }
-      });
-      r.createEl("span", { text: "이유 ", attr: { style: "font-weight:700;color:var(--text-faint);margin-right:4px;" } });
-      r.createEl("span", { text: cont.reason });
-    }
-    // Strategy chip for active book (power layer, not a full section)
-    if (model.strategy && !model.strategy.empty && model.strategy.strategy_label) {
-      contBox.createEl("div", {
-        text: `전략 · ${model.strategy.strategy_label}`,
-        attr: { style: "margin-top:6px;font-size:0.78em;font-weight:650;color:var(--text-muted);" }
-      });
-    }
-    // Continue focus + single minimal session path (no form wall)
-    const stripActions = contBox.createEl("div", {
-      attr: { class: "prodigy-btn-row", style: "margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;" }
-    });
-    const readBtn = window.ProdigyUI
-      ? window.ProdigyUI.button(stripActions, "오늘 읽기", { primary: true })
-      : stripActions.createEl("button", { text: "오늘 읽기", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
-    readBtn.onclick = (e) => {
-      if (e && e.preventDefault) e.preventDefault();
-      openContinueSession(cont);
-    };
-    const focusBtn = window.ProdigyUI
-      ? window.ProdigyUI.button(stripActions, "이 책 포커스")
-      : stripActions.createEl("button", { text: "이 책 포커스", attr: { type: "button", class: "prodigy-btn" } });
-    focusBtn.onclick = (e) => {
-      if (e && e.preventDefault) e.preventDefault();
-      scrollToReadingPath(cont.focus_path || cont.object_path);
-    };
-  } else {
-    contBox.createEl("div", {
-      text: "진행 중인 독서가 없습니다.",
-      attr: { style: "font-size:0.85em;color:var(--text-muted);font-style:italic;" }
-    });
-  }
-
-  // Hero cards — primary visible surface (focus path highlighted via model)
   const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading");
-  if (pages.length === 0) {
-    this.container.createEl("span", {
-      text: "진행 중인 독서가 없습니다.",
-      attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
-    });
-  } else {
-    // Prefer Runtime focus first when multiple reading books
-    const arr = pages.array ? pages.array() : [...pages];
+  const renderList = (listPane) => {
+    if (pages.length === 0) {
+      listPane.createEl("span", {
+        text: "진행 중인 독서가 없습니다.",
+        attr: { style: "color:var(--text-muted);font-style:italic;font-size:0.9em;" }
+      });
+      return;
+    }
+    const items = pages.array ? pages.array() : [...pages];
     const focus = model && model.focus_path;
-    arr.sort((a, b) => {
-      const ap = a.file && a.file.path;
-      const bp = b.file && b.file.path;
-      if (focus && ap === focus) return -1;
-      if (focus && bp === focus) return 1;
+    items.sort((a, b) => {
+      const firstPath = a.file && a.file.path;
+      const secondPath = b.file && b.file.path;
+      if (focus && firstPath === focus) return -1;
+      if (focus && secondPath === focus) return 1;
       return 0;
     });
-    arr.forEach(p => window.renderReadingCard(p, this.container, "hero"));
+    items.forEach(p => window.renderReadingCard(p, listPane, "hero"));
+  };
+
+  const renderDetail = (detailPane) => {
+    const cont = model && model.continue_reading;
+    const today = model && model.today && model.today.object;
+    const target = cont && !cont.empty ? cont : today ? {
+      title: today.title,
+      object_path: today.path,
+      focus_path: today.path,
+      next_action: today.next_action,
+      progress: today.progress,
+      progress_number: window.ReadingWorkspaceCore.progressNumber(today),
+      action: today.continue_action,
+      reason: model.today.reason
+    } : null;
+    const detail = detailPane.createEl("div", {
+      attr: {
+        class: "reading-continue-strip",
+        style: "padding:var(--ke-space-4,12px);border-radius:var(--ke-radius-panel,8px);border:1px solid var(--background-modifier-border);background:var(--background-secondary);"
+      }
+    });
+    detail.createEl("h2", {
+      text: "이어 읽기",
+      attr: { style: "margin:0 0 var(--ke-space-2,4px);font-size:var(--ke-type-title,1.05rem);color:var(--text-accent);" }
+    });
+    if (!target) {
+      detail.createEl("p", {
+        text: "진행 중인 독서가 없습니다.",
+        attr: { style: "color:var(--text-muted);font-size:var(--ke-type-body,.84rem);" }
+      });
+      return;
+    }
+    detail.createEl("strong", { text: target.title || "현재 책" });
+    const context = detail.createEl("div", { attr: { style: "margin-top:var(--ke-space-2,4px);color:var(--text-muted);font-size:var(--ke-type-body,.84rem);" } });
+    context.createEl("span", { text: target.action || "이어 읽기" });
+    if (target.progress) context.createEl("span", { text: ` · ${target.progress}` });
+    if (target.next_action) detail.createEl("p", { text: `다음 · ${target.next_action}`, attr: { style: "margin:var(--ke-space-2,4px) 0 0;" } });
+    if (target.reason) detail.createEl("p", { text: `이유 · ${target.reason}`, attr: { style: "margin:var(--ke-space-2,4px) 0 0;color:var(--text-muted);font-size:var(--ke-type-label,.72rem);" } });
+    if (model.strategy && !model.strategy.empty && model.strategy.strategy_label) {
+      detail.createEl("p", { text: `전략 · ${model.strategy.strategy_label}`, attr: { style: "margin:var(--ke-space-2,4px) 0 0;color:var(--text-muted);font-size:var(--ke-type-label,.72rem);" } });
+    }
+    const actions = detail.createEl("div", { attr: { class: "prodigy-btn-row", style: "margin-top:var(--ke-space-3,8px);" } });
+    const read = window.ProdigyUI.button(actions, "오늘 읽기", { primary: true });
+    read.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); openContinueSession(target); };
+    const focusButton = window.ProdigyUI.button(actions, "이 책 포커스");
+    focusButton.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); scrollToReadingPath(target.focus_path || target.object_path); };
+    const knowledge = window.ProdigyUI.button(actions, "Knowledge Explorer에서 검토");
+    knowledge.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); window.ReadingView.openKnowledgeExplorer(app); };
+  };
+
+  const logicalWidth = Number(this.container.clientWidth) || window.ProdigyTokens.BREAKPOINTS.wide;
+  const responsive = window.ReadingView.mountResponsiveWorkspace({
+    container: this.container,
+    model,
+    logicalWidth,
+    renderList,
+    renderDetail
+  });
+  if (this.container.__readingResponsiveObserver) this.container.__readingResponsiveObserver.disconnect();
+  if (typeof ResizeObserver === "function") {
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0] && entries[0].contentRect && entries[0].contentRect.width;
+      if (Number.isFinite(width)) responsive.setLogicalWidth(width);
+    });
+    observer.observe(this.container);
+    this.container.__readingResponsiveObserver = observer;
   }
   return true;
 };
@@ -326,7 +315,7 @@ try {
 
 ---
 
-## 📚 읽기 대기
+## 읽기 대기
 
 ```dataviewjs
 const run = () => {
@@ -358,7 +347,7 @@ if (!run()) {
 
 ---
 
-## ⏳ 오래 방치
+## 오래 방치
 
 ```dataviewjs
 const run = () => {
@@ -402,7 +391,7 @@ if (!run()) {
 
 ---
 
-## 🏁 완독 임박
+## 완독 임박
 
 ```dataviewjs
 const run = () => {
@@ -446,7 +435,7 @@ if (!run()) {
 
 ---
 
-## 📝 복기 필요
+## 복기 필요
 
 ```dataviewjs
 const run = () => {
@@ -496,7 +485,7 @@ if (!run()) {
 
 ---
 
-# ✅ 최근 완독
+# 최근 완독
 
 ```dataviewjs
 const run = () => {
@@ -539,16 +528,16 @@ const run = () => {
 
     makeSelectInline(filterContainer, '필터:', 'filter_rating', [
       { text: '전체', value: '' },
-      { text: '⭐ 5점', value: '5' },
-      { text: '⭐ 4점 이상', value: '4' },
-      { text: '⭐ 3점 이상', value: '3' }
+      { text: '5점', value: '5' },
+      { text: '4점 이상', value: '4' },
+      { text: '3점 이상', value: '3' }
     ], current.filter_rating);
 
     filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
 
     makeSelectInline(filterContainer, '정렬:', 'sort_completed_by', [
-      { text: '📅 최근 완독 순', value: 'date' },
-      { text: '⭐ 평점 높은 순', value: 'rating' }
+      { text: '최근 완독 순', value: 'date' },
+      { text: '평점 높은 순', value: 'rating' }
     ], current.sort_completed_by);
 
     let pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "completed");

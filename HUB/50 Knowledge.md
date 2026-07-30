@@ -10,8 +10,11 @@ window.KnowledgeExplorerHub = window.KnowledgeExplorerHub || {};
 const KnowledgeExplorerHub = window.KnowledgeExplorerHub;
 KnowledgeExplorerHub.modulePaths = [
   "SYSTEM/Views/design-tokens.js",
-  "SYSTEM/Views/display-registry.js",
+  "SYSTEM/Views/workspace-registry.js",
+  "SYSTEM/Views/prodigy-workspace-state-store.js",
+  "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
+  "SYSTEM/Views/display-registry.js",
   "SYSTEM/Views/knowledge-explorer-registry.js",
   "SYSTEM/Views/knowledge-authoring-validation.js",
   "SYSTEM/Views/knowledge-authoring-core.js",
@@ -75,7 +78,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
   mountPoint.empty();
   try {
     for (const modulePath of KnowledgeExplorerHub.modulePaths) await loadProdigyScript(modulePath);
-    window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, title: "지식" });
+    const shell = window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, workspaceId: "knowledge", title: "지식" });
+    const workspaceBody = shell.body;
     const P = window.KnowledgeExplorerHubProjection;
     if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView) {
       throw new Error("Knowledge Explorer modules failed to load.");
@@ -104,7 +108,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     });
 
     // 탭 시스템 마운트
-    const tabsMount = mountPoint.createDiv({ attr: { class: "knowledge-workspace-tabs-mount" } });
+    const tabsMount = workspaceBody.createDiv({ attr: { class: "knowledge-workspace-tabs-mount" } });
     const tabs = window.KnowledgeWorkspaceTabs.mountTabs(tabsMount, {
       activeTab: KnowledgeExplorerHub._lastTab || "zettelkasten",
       onChange: (tabId) => { KnowledgeExplorerHub._lastTab = tabId; }
@@ -146,9 +150,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     return api;
   } catch (error) {
     KnowledgeExplorerHub.error = error;
-    const P = window.KnowledgeExplorerHubProjection;
-    if (P) P.renderError(mountPoint, "지식 탐색기를 불러오지 못했습니다.", error && error.message ? error.message : "알 수 없는 오류가 발생했습니다.", retry);
-    else { mountPoint.empty(); mountPoint.createEl("p", { text: error.message }); }
+    if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
+      window.ProdigyWorkspaceNavigation.renderLoaderError(mountPoint, error, { title: "지식", message: "지식 탐색기를 불러오지 못했습니다.", retry });
+    } else {
+      mountPoint.empty();
+      mountPoint.createEl("p", { text: "지식 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
+    }
     return null;
   }
 };
