@@ -10,6 +10,14 @@ Transform the raw reflection through:
 
 Do not merely split a diary into events.
 
+## Phase 0 — journal save before optional classification
+
+The user saves the raw diary to the active Daily `## 성찰 (Reflection)` section with a dedicated action. AI classification is a separate optional action enabled only for the saved text.
+
+- Saving never waits for or invokes an AI provider.
+- Provider failure never rolls back or deletes the saved diary.
+- Evidence approval must not replace the raw diary.
+
 ## Mandatory output
 
 Always return all arrays, using an empty array when unsupported:

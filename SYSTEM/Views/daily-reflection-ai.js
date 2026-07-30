@@ -64,7 +64,8 @@
     const service = options.providerService || root.AIProviderService;
     if (!service || typeof service.requestStructuredJson !== "function") throw new Error("AI provider service is not loaded.");
     const basePrompt = buildPrompt({ contract: runtime.contract, dateStr: options.dateStr, existingBlocks: options.existingBlocks, freeText: clean(options.freeText), revisionRequest: options.revisionRequest, previousProposal: options.previousProposal });
-    const payload = await service.requestStructuredJson({ app: options.app, provider, prompt: buildProviderPrompt(basePrompt, provider), schema: runtime.schema, signal: options.signal });
+    const rawPayload = await service.requestStructuredJson({ app: options.app, provider, prompt: buildProviderPrompt(basePrompt, provider), schema: runtime.schema, signal: options.signal });
+    const payload = root.DailyReflectionProposalContract.sanitizeProviderPayload(rawPayload);
     const proposal = root.DailyReflectionProposalContract.normalizeProposal(payload, { dateStr: options.dateStr, existingBlocks: options.existingBlocks || [] });
     if (provider.capabilities && provider.capabilities.conservativeProposal === true) applyConservativeProposalPolicy(proposal, options.freeText, options.app);
     await root.DailyReflectionObjectLinks.resolveObjectLinks(options.app, proposal);

@@ -130,7 +130,61 @@
     });
   }
 
-  const api = { clean, normalizeProposal, providerProposal, selectEvidenceBlocks };
+  function coerceIndexes(item) {
+    if (Array.isArray(item.source_evidence_indexes)) return item.source_evidence_indexes.map(Number).filter(Number.isInteger);
+    if (Number.isInteger(item.source_evidence_indexes)) return [item.source_evidence_indexes];
+    if (Array.isArray(item.source_evidence_index)) return item.source_evidence_index.map(Number).filter(Number.isInteger);
+    if (Number.isInteger(item.source_evidence_index)) return [item.source_evidence_index];
+    return [];
+  }
+  function hasValidRefs(indexes, blockCount) {
+    return Array.isArray(indexes) && indexes.length > 0 && indexes.every((n) => Number.isInteger(n) && n >= 0 && n < blockCount);
+  }
+  function sanitizeEvidenceBlock(item) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const experience = clean(item.experience);
+    const title = clean(item.title) || experience.slice(0, 80);
+    const context = clean(item.context).toLowerCase();
+    return { title, context: CONTEXTS.has(context) ? context : "", experience: experience || clean(item.title), interpretation: clean(item.interpretation), change: clean(item.change), next_experiment: clean(item.next_experiment), related_objects: [] };
+  }
+  function sanitizeKnowledge(item) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const label = clean(item.label) || clean(item.title) || clean(item.statement) || clean(item.name);
+    const confidence = clean(item.confidence).toLowerCase();
+    return { label, source_evidence_indexes: coerceIndexes(item), confidence: CONFIDENCE.has(confidence) ? confidence : "inferred" };
+  }
+  function sanitizeResource(item) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    return { name: clean(item.name) || clean(item.title), suggested_type: clean(item.suggested_type) || clean(item.type), source_evidence_indexes: coerceIndexes(item) };
+  }
+  function sanitizeObject(item) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    return { name: clean(item.name) || clean(item.title), object_kind: clean(item.object_kind) || clean(item.kind) || "object", source_evidence_indexes: coerceIndexes(item), existence: "unknown" };
+  }
+  function sanitizeRouting(item) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const path = Array.isArray(item.path) ? item.path.map(clean).filter(Boolean) : (clean(item.path) ? [clean(item.path)] : []);
+    const confidence = clean(item.confidence).toLowerCase();
+    return { source_evidence_indexes: coerceIndexes(item), path, confidence: CONFIDENCE.has(confidence) ? confidence : "inferred" };
+  }
+  function sanitizeProviderPayload(payload) {
+    const empty = { evidence_blocks: [], knowledge_candidates: [], resource_candidates: [], object_linking_suggestions: [], pre_routing_suggestions: [], uncertainties: [] };
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return empty;
+    const evidenceBlocks = (Array.isArray(payload.evidence_blocks) ? payload.evidence_blocks : []).map(sanitizeEvidenceBlock).filter((block) => block && clean(block.experience));
+    const blockCount = evidenceBlocks.length;
+    const filterRefs = (item) => item && hasValidRefs(item.source_evidence_indexes, blockCount);
+    const resources = (Array.isArray(payload.resource_candidates) ? payload.resource_candidates : []).map(sanitizeResource).filter((item) => filterRefs(item) && CANDIDATE_TYPES.has(clean(item.suggested_type).toLowerCase()));
+    return {
+      evidence_blocks: evidenceBlocks,
+      knowledge_candidates: (Array.isArray(payload.knowledge_candidates) ? payload.knowledge_candidates : []).map(sanitizeKnowledge).filter(filterRefs),
+      resource_candidates: resources,
+      object_linking_suggestions: (Array.isArray(payload.object_linking_suggestions) ? payload.object_linking_suggestions : []).map(sanitizeObject).filter(filterRefs),
+      pre_routing_suggestions: (Array.isArray(payload.pre_routing_suggestions) ? payload.pre_routing_suggestions : []).map(sanitizeRouting).filter((item) => filterRefs(item) && item.path.length >= 1 && item.path.length <= 4),
+      uncertainties: Array.isArray(payload.uncertainties) ? payload.uncertainties.map((value) => clean(value)).filter(Boolean) : []
+    };
+  }
+
+  const api = { clean, normalizeProposal, providerProposal, selectEvidenceBlocks, sanitizeProviderPayload };
   root.DailyReflectionProposalContract = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
