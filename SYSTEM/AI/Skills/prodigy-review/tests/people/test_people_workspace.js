@@ -12,6 +12,47 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), "utf8");
 }
 
+class RenderElement {
+  constructor(tag = "div", options = {}) {
+    this.tag = tag;
+    this.text = options.text || "";
+    this.children = [];
+    this.attr = Object.assign({}, options.attr || {});
+    this.className = this.attr.class || "";
+    this.hidden = false;
+    this.style = {};
+  }
+
+  createEl(tag, options = {}) {
+    const child = new RenderElement(tag, options);
+    this.children.push(child);
+    return child;
+  }
+
+  createDiv(options = {}) { return this.createEl("div", options); }
+  empty() { this.children = []; }
+  addClass(name) { this.className = `${this.className} ${name}`.trim(); }
+  removeClass(name) { this.className = this.className.split(/\s+/).filter((item) => item && item !== name).join(" "); }
+  setText(value) { this.text = String(value == null ? "" : value); }
+  setAttribute(name, value) {
+    this.attr[name] = String(value);
+    if (name === "class") this.className = String(value);
+  }
+
+  querySelectorAll(selector) {
+    const className = selector.startsWith(".") ? selector.slice(1) : "";
+    const matches = [];
+    const visit = (node) => {
+      if (className && node.className.split(/\s+/).includes(className)) matches.push(node);
+      node.children.forEach(visit);
+    };
+    this.children.forEach(visit);
+    return matches;
+  }
+
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+}
+
 function main() {
   // --- normalizePersonRecord ---
   const person = core.normalizePersonRecord({
@@ -284,6 +325,52 @@ function main() {
   assert.equal(personal.includes("HUB/People.md"), false);
   assert.equal(/미접촉|잠재 고객|인맥 관리|연락 관리/.test(personal), false);
 
+  // Given explicit logical widths, the Personal workspace must render list/detail
+  // together only at the canonical wide tier and keep one visible pane at compact.
+  const tokens = require(path.join(ROOT, "SYSTEM/Views/design-tokens.js"));
+  const styles = require(path.join(ROOT, "SYSTEM/Views/people-styles.js"));
+  const responsive = styles.responsiveContract();
+  assert.equal(tokens.BREAKPOINTS.medium, 768);
+  assert.equal(tokens.BREAKPOINTS.wide, 1024);
+  assert.equal(tokens.CONTROL_HEIGHTS.actionBar, 52);
+  assert.equal(tokens.CONTROL_HEIGHTS.touchTarget, 44);
+  assert.equal(responsive.compactMax, tokens.BREAKPOINTS.medium - 1);
+  assert.equal(responsive.wideMin, tokens.BREAKPOINTS.wide);
+  assert.equal(responsive.actionBarHeight, tokens.CONTROL_HEIGHTS.actionBar);
+  assert.equal(responsive.touchTarget, tokens.CONTROL_HEIGHTS.touchTarget);
+  assert.equal(/max-width:\s*600px/.test(read("SYSTEM/Views/people-styles.js")), false);
+  assert.equal(view.resolvePeoplePaneLayout(1023).paneMode, "single-pane");
+  assert.equal(view.resolvePeoplePaneLayout(1024).paneMode, "two-pane");
+
+  const responsiveModel = core.buildPeopleWorkspaceModel([
+    core.normalizePersonRecord({
+      path: "PARA/RESOURCES/CONTACTS/QA-THROWAWAY-반응형.md",
+      type: "people",
+      name: "QA 반응형",
+      body: "# 핵심 상호작용\n- 서로의 판단 근거를 먼저 확인한다."
+    })
+  ], [], {});
+  const wideHost = new RenderElement();
+  view.renderPeopleWorkspace({ container: wideHost, model: responsiveModel, logicalWidth: 1280 });
+  const wideLayout = wideHost.querySelector(".ppw-master-detail");
+  assert.equal(wideLayout.attr["data-pane-mode"], "two-pane");
+  assert.equal(wideHost.querySelector(".ppw-list-pane").hidden, false);
+  assert.equal(wideHost.querySelector(".ppw-detail-pane").hidden, false);
+  assert.equal(wideHost.querySelectorAll(".ppw-detail-section").length, 2);
+
+  const compactHost = new RenderElement();
+  const compactWorkspace = view.renderPeopleWorkspace({ container: compactHost, model: responsiveModel, logicalWidth: 767 });
+  const compactLayout = compactHost.querySelector(".ppw-master-detail");
+  assert.equal(compactLayout.attr["data-pane-mode"], "single-pane");
+  assert.equal(compactHost.querySelector(".ppw-list-pane").hidden, false);
+  assert.equal(compactHost.querySelector(".ppw-detail-pane").hidden, true);
+  compactWorkspace.selectPerson("PARA/RESOURCES/CONTACTS/QA-THROWAWAY-반응형.md");
+  assert.equal(compactHost.querySelector(".ppw-list-pane").hidden, true);
+  assert.equal(compactHost.querySelector(".ppw-detail-pane").hidden, false);
+  compactHost.querySelector(".ppw-detail-back").onclick();
+  assert.equal(compactHost.querySelector(".ppw-list-pane").hidden, false);
+  assert.equal(compactHost.querySelector(".ppw-detail-pane").hidden, true);
+
   // --- Person preview model (popup) ---
   const noteBody = [
     "---",
@@ -404,7 +491,7 @@ function main() {
   // where it actually lives — deleting it must still turn this test red.
   assert.match(peopleViewSrc, /PeopleStyles/);
   const peopleStylesSrc = read("SYSTEM/Views/people-styles.js");
-  const compactBlock = peopleStylesSrc.match(/@media\s*\(max-width:\s*600px\)\s*\{[\s\S]*?\n\}/);
+  const compactBlock = peopleStylesSrc.match(/@media\s*\(max-width:\s*\$\{compactMax\}px\)\s*\{[\s\S]*?\n\}/);
   assert.ok(compactBlock, "people-styles.js must keep a compact-screen media block");
   const compactModal = compactBlock[0].match(/\.modal\.ppw-modal\s*\{[^}]*\}/);
   assert.ok(compactModal, "compact media block must size .ppw-modal to the narrow viewport");

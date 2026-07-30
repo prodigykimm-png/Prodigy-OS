@@ -7,8 +7,31 @@
 
   const WORKSPACE_STYLE_ID = "prodigy-people-workspace-styles";
 
+  function designTokens() {
+    if (root.ProdigyTokens) return root.ProdigyTokens;
+    if (typeof require === "function") {
+      try { return require("./design-tokens.js"); } catch (_error) { /* handled below */ }
+    }
+    throw new Error("People 반응형 디자인 토큰을 불러오지 못했습니다.");
+  }
+
+  function responsiveContract() {
+    const tokens = designTokens();
+    if (!tokens.BREAKPOINTS || !tokens.CONTROL_HEIGHTS) {
+      throw new Error("People 반응형 디자인 토큰이 완전하지 않습니다.");
+    }
+    return Object.freeze({
+      compactMax: tokens.BREAKPOINTS.medium - 1,
+      mediumMin: tokens.BREAKPOINTS.medium,
+      wideMin: tokens.BREAKPOINTS.wide,
+      actionBarHeight: tokens.CONTROL_HEIGHTS.actionBar,
+      touchTarget: tokens.CONTROL_HEIGHTS.touchTarget
+    });
+  }
+
   function ensureWorkspaceStyles() {
     if (typeof document === "undefined") return;
+    const { compactMax, wideMin, actionBarHeight, touchTarget } = responsiveContract();
     let style = document.getElementById(WORKSPACE_STYLE_ID);
     if (!style) {
       style = document.createElement("style");
@@ -17,7 +40,7 @@
     }
     // Always refresh so modal CSS updates after script reload
     style.textContent = `
-.prodigy-people-workspace{max-width:980px;margin:0 auto;padding:8px 8px 24px}
+.prodigy-people-workspace{max-width:none;margin:0 auto;padding:8px 8px 24px;min-inline-size:0}
 .ppw-header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:4px 0 16px;border-bottom:1px solid var(--background-modifier-border);flex-wrap:wrap}
 .ppw-header h1{margin:0;font-size:1.45em}
 .ppw-header p{margin:6px 0 0;color:var(--text-muted);font-size:.84em;line-height:1.45;max-width:36em}
@@ -39,6 +62,19 @@
 .ppw-filter.is-active{background:var(--interactive-accent);color:var(--text-on-accent);border-color:var(--interactive-accent)}
 .ppw-sorts .ppw-sort{min-width:4.5em}
 .ppw-count{font-size:.78em;color:var(--text-muted)}
+.ppw-master-detail{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-inline-size:0;min-block-size:0}
+.ppw-master-detail[data-pane-mode="two-pane"]{grid-template-columns:minmax(min(22rem,100%),.88fr) minmax(min(24rem,100%),1.12fr)}
+.ppw-list-pane,.ppw-detail-pane{min-inline-size:0;min-block-size:0}
+.ppw-list-pane[hidden],.ppw-detail-pane[hidden]{display:none!important}
+.ppw-detail-pane{border-inline-start:1px solid var(--background-modifier-border);padding-inline-start:12px}
+.ppw-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-block:8px;border-bottom:1px solid var(--background-modifier-border)}
+.ppw-detail-title{margin:0;font-size:1.05em;line-height:1.4;word-break:keep-all;overflow-wrap:anywhere}
+.ppw-detail-back{display:none}
+.ppw-detail-section{padding-block:12px;border-bottom:1px solid var(--background-modifier-border)}
+.ppw-detail-section h3{margin:0 0 6px;font-size:.78em;color:var(--text-muted)}
+.ppw-detail-lines{display:flex;flex-direction:column;gap:4px;margin:0;padding-inline-start:1.2em}
+.ppw-detail-context{display:flex;flex-direction:column;gap:4px}
+.ppw-detail-context button.ppw-context-item{inline-size:100%;border:0;background:transparent;color:inherit;text-align:start;word-break:keep-all;overflow-wrap:anywhere}
 .ppw-list{display:flex;flex-direction:column;gap:10px;padding:8px 0 4px}
 .ppw-card{border:1px solid var(--background-modifier-border);border-radius:10px;background:var(--background-secondary);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .ppw-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -119,7 +155,7 @@
   position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10000;
   display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;
   background:var(--background-secondary);border:1px solid var(--background-modifier-border);
-  box-shadow:0 8px 28px color-mix(in srgb, #000 25%, transparent);
+  box-shadow:0 8px 28px color-mix(in srgb, var(--background-modifier-box-shadow) 25%, transparent);
   font-size:.86em;color:var(--text-normal);max-width:min(92vw,420px);
 }
 .ppw-undo-btn{
@@ -165,7 +201,7 @@
   border-radius:12px !important;
   border:1px solid var(--background-modifier-border);
   background:var(--modal-background, var(--background-primary));
-  box-shadow:0 12px 40px color-mix(in srgb, var(--background-modifier-box-shadow, #000) 28%, transparent);
+  box-shadow:0 12px 40px color-mix(in srgb, var(--background-modifier-box-shadow) 28%, transparent);
 }
 .modal.ppw-modal .modal-close-button{z-index:3;top:10px;right:12px}
 .modal.ppw-modal .modal-content,
@@ -389,13 +425,17 @@
   .ppw-preview-scroll{padding:12px 14px 14px}
 }
 
-/* Mobile: narrow to viewport, denser but readable */
-@media (max-width: 600px){
+/* Compact: canonical narrow workspace tier */
+@media (max-width: ${compactMax}px){
   .prodigy-people-workspace{padding:4px 4px 32px}
   .ppw-header{flex-direction:column;align-items:stretch}
-  .ppw-filter{min-height:32px}
+  .ppw-master-detail{display:block}
+  .ppw-detail-pane{border-inline-start:0;padding-inline-start:0}
+  .ppw-detail-back{display:inline-flex}
+  .ppw-filter,.ppw-ctx-type,.ppw-context-toggle,.ppw-detail-back,.ppw-detail-context .ppw-context-item{min-height:${touchTarget}px}
   .ppw-actions{display:flex;flex-wrap:wrap;gap:3px}
-  .ppw-actions button{min-height:0;width:auto}
+  .ppw-actions button{min-height:${touchTarget}px;width:auto}
+  .ppw-detail-actions{position:sticky;inset-block-end:0;min-block-size:${actionBarHeight}px;align-items:center;padding-block:4px;background:var(--background-primary);border-top:1px solid var(--background-modifier-border)}
 
   .modal.ppw-modal{
     width:calc(100vw - 10px) !important;
@@ -427,13 +467,19 @@
   }
   .ppw-preview-footer .prodigy-btn,
   .ppw-preview-footer button{
+    min-height:${touchTarget}px !important;
     padding:1px 7px !important;
     font-size:.72em !important;
   }
 }
+
+@media (min-width: ${wideMin}px){
+  .ppw-master-detail[data-pane-mode="two-pane"]>.ppw-list-pane,
+  .ppw-master-detail[data-pane-mode="two-pane"]>.ppw-detail-pane{display:block}
+}
 `;
   }
 
-  root.PeopleStyles = Object.freeze({ WORKSPACE_STYLE_ID, ensureWorkspaceStyles });
+  root.PeopleStyles = Object.freeze({ WORKSPACE_STYLE_ID, responsiveContract, ensureWorkspaceStyles });
   if (typeof module !== "undefined" && module.exports) module.exports = root.PeopleStyles;
 })(typeof globalThis !== "undefined" ? globalThis : this);
