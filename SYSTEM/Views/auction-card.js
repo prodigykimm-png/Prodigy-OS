@@ -174,6 +174,45 @@ window.renderAuctionCard = function(p, container, options) {
       }
     };
 
+    if (p.status === "bidding" && p.auction_datetime) {
+      const headerBidSheet = leftContainer.createEl('button', {
+        text: '입찰표',
+        attr: {
+          type: 'button',
+          class: 'auction-header-bid-sheet',
+          title: '이 사건의 입찰표를 엽니다.'
+        }
+      });
+      headerBidSheet.onclick = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const dayView = window.AuctionDayView;
+        const dayCore = window.AuctionDayCore;
+        if (!dayView || !dayView.openForAuction) {
+          if (typeof Notice !== "undefined") new Notice("입찰표를 불러오지 못했습니다.");
+          return;
+        }
+        const casePath = (p.file && p.file.path) || p.path || "";
+        const dateIso = dayCore && dayCore.toIsoDate
+          ? dayCore.toIsoDate(p.auction_datetime)
+          : String(p.auction_datetime).slice(0, 10);
+        const packetContext = (options && options.decisionPacketContext)
+          || window.AuctionDecisionPacketDashboardContext;
+        try {
+          await dayView.openForAuction({
+            app,
+            path: casePath,
+            date: dateIso,
+            packetContext: packetContext
+          });
+        } catch (err) {
+          if (typeof Notice !== "undefined") {
+            new Notice(err && err.message ? err.message : "입찰표를 열지 못했습니다.");
+          }
+        }
+      };
+    }
+
     const deleteBtn = leftContainer.createEl('span', {
       text: '🗑️',
       attr: {
@@ -869,42 +908,6 @@ window.renderAuctionCard = function(p, container, options) {
         };
       }
 
-     // Card → single-case bid sheet (when bidding with a bid date)
-     if (p.status === "bidding" && p.auction_datetime) {
-       const dayBtn = window.ProdigyUI
-          ? window.ProdigyUI.button(buttonContainer, "입찰표 열기", { chip: true })
-          : buttonContainer.createEl("button", {
-            text: "입찰표 열기",
-            attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" }
-          });
-        dayBtn.onclick = async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const dayView = window.AuctionDayView;
-          const dayCore = window.AuctionDayCore;
-          if (!dayView || !dayView.openForAuction) {
-            if (typeof Notice !== "undefined") new Notice("입찰표를 불러오지 못했습니다.");
-            return;
-          }
-          const path = (p.file && p.file.path) || p.path || "";
-          const dateIso = dayCore && dayCore.toIsoDate
-            ? dayCore.toIsoDate(p.auction_datetime)
-            : String(p.auction_datetime).slice(0, 10);
-          try {
-            await dayView.openForAuction({
-              app,
-              path,
-              date: dateIso,
-              packetContext: decisionPacketContext
-            });
-          } catch (err) {
-            if (typeof Notice !== "undefined") {
-              new Notice(err && err.message ? err.message : "입찰표를 열지 못했습니다.");
-            }
-          }
-        };
-      }
-      
       buttons.forEach(opt => {
         const btn = window.ProdigyUI
           ? window.ProdigyUI.button(buttonContainer, opt.label, { chip: true })

@@ -2092,6 +2092,14 @@
       if (layout.paneMode === "two-pane" && !state.selectedPath && model.people && model.people.length) {
         state.selectedPath = model.people[0].path;
       }
+      if (typeof opts.onStateChange === "function") {
+        opts.onStateChange({
+          query: state.query,
+          filter: state.filter,
+          sort: state.sort,
+          selectedPath: state.selectedPath
+        });
+      }
       applyPaneVisibility();
       paintDetail(selectedPerson());
 

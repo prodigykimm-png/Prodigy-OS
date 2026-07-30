@@ -49,7 +49,7 @@ def test_compact_action_menu_preserves_inline_editing_and_wide_actions():
     ):
         assert click_path in inline_editing
     assert "const buttonContainer = actionLayout.actionHost;" in card
-    for action_path in ("packetBtn", "dayBtn", "buttons.forEach", "siteVisitButton"):
+    for action_path in ("packetBtn", "headerBidSheet", "buttons.forEach", "siteVisitButton"):
         assert action_path in card
     assert "btn.onclick = async" in card
     assert "logicalWidth" in hub
