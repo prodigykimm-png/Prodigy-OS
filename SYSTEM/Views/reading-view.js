@@ -1,6 +1,138 @@
 (function (root) {
   "use strict";
 
+  const RESPONSIVE_CSS = `
+.reading-responsive-workspace{display:grid;grid-template-rows:auto minmax(0,1fr);gap:var(--ke-space-3,8px);min-block-size:0;min-inline-size:0;color:var(--text-normal)}
+.reading-responsive-tabs[hidden],.reading-responsive-pane[hidden]{display:none}
+.reading-responsive-grid{display:grid;grid-template-columns:minmax(min(18rem,100%),4fr) minmax(min(22rem,100%),6fr);gap:var(--ke-space-4,12px);min-block-size:0;min-inline-size:0}
+.reading-responsive-workspace[data-reading-layout="compact"] .reading-responsive-grid,.reading-responsive-workspace[data-reading-layout="medium"] .reading-responsive-grid{grid-template-columns:minmax(0,1fr)}
+.reading-responsive-pane{min-block-size:0;min-inline-size:0;overflow:auto;word-break:keep-all;overflow-wrap:anywhere}
+.reading-responsive-pane:focus-visible{outline:2px solid var(--text-accent);outline-offset:2px}
+.reading-responsive-workspace[data-reading-layout="compact"] .prodigy-adaptive-tab{min-block-size:var(--reading-touch-target)}
+@media(prefers-reduced-motion:reduce){.reading-responsive-workspace *{transition:none!important;animation:none!important;transform:none!important}}
+`;
+
+  function resolveModule(globalName, relativePath) {
+    if (root[globalName]) return root[globalName];
+    if (typeof require === "function") {
+      try { return require(relativePath); } catch (_error) { return null; }
+    }
+    return null;
+  }
+
+  function responsiveTokens() {
+    const tokens = resolveModule("ProdigyTokens", "./design-tokens.js");
+    if (!tokens || !tokens.BREAKPOINTS || !tokens.CONTROL_HEIGHTS) {
+      throw new Error("독서 반응형 디자인 토큰을 불러오지 못했습니다.");
+    }
+    return tokens;
+  }
+
+  function layoutForWidth(logicalWidth) {
+    const width = Number(logicalWidth);
+    if (!Number.isFinite(width)) throw new Error("독서 작업면 logicalWidth가 필요합니다.");
+    const breakpoints = responsiveTokens().BREAKPOINTS;
+    if (width >= breakpoints.wide) return "wide";
+    if (width >= breakpoints.medium) return "medium";
+    return "compact";
+  }
+
+  function setAttribute(element, name, value) {
+    if (element && typeof element.setAttr === "function") element.setAttr(name, value);
+    else if (element && typeof element.setAttribute === "function") element.setAttribute(name, value);
+  }
+
+  function setHidden(element, hidden) {
+    if (!element) return;
+    element.hidden = hidden;
+    if (hidden) setAttribute(element, "hidden", "");
+    else if (typeof element.removeAttribute === "function") element.removeAttribute("hidden");
+    else if (element.attr) delete element.attr.hidden;
+  }
+
+  function renderResponsiveWorkspace(container, options) {
+    const opts = options || {};
+    if (!container || typeof container.createEl !== "function") return null;
+    const layout = layoutForWidth(opts.logicalWidth);
+    const activePane = opts.activePane === "detail" ? "detail" : "list";
+    const tokens = responsiveTokens();
+    const controls = resolveModule("ProdigyAdaptiveControls", "./prodigy-adaptive-controls.js");
+    if (!controls || typeof controls.AdaptiveTabs !== "function") {
+      throw new Error("독서 반응형 탭을 불러오지 못했습니다.");
+    }
+
+    if (typeof container.empty === "function") container.empty();
+    setAttribute(container, "data-reading-layout", layout);
+    const style = container.createEl("style", { text: RESPONSIVE_CSS, attr: { "data-reading-responsive-style": "true" } });
+    style.textContent = RESPONSIVE_CSS;
+    const shell = container.createEl("section", {
+      attr: {
+        class: "reading-responsive-workspace",
+        "data-reading-layout": layout,
+        style: `--reading-touch-target:${tokens.CONTROL_HEIGHTS.touchTarget}px`
+      }
+    });
+    const tabsHost = shell.createEl("div", { attr: { class: "reading-responsive-tabs" } });
+    const grid = shell.createEl("div", { attr: { class: "reading-responsive-grid" } });
+    const list = grid.createEl("section", {
+      attr: { class: "reading-responsive-pane reading-responsive-list", "data-reading-pane": "list", tabindex: "-1", "aria-label": "독서 목록" }
+    });
+    const detail = grid.createEl("section", {
+      attr: { class: "reading-responsive-pane reading-responsive-detail", "data-reading-pane": "detail", tabindex: "-1", "aria-label": "독서 상세" }
+    });
+    if (typeof opts.renderList === "function") opts.renderList(list, opts.model);
+    if (typeof opts.renderDetail === "function") opts.renderDetail(detail, opts.model);
+
+    const tabs = controls.AdaptiveTabs(tabsHost, {
+      label: "독서 작업면",
+      activeId: activePane,
+      tabs: [
+        { id: "list", label: "목록", panel: list },
+        { id: "detail", label: "이어 읽기", panel: detail }
+      ],
+      onChange: opts.onPaneChange
+    });
+    const wide = layout === "wide";
+    setHidden(tabsHost, wide);
+    setHidden(list, !wide && activePane !== "list");
+    setHidden(detail, !wide && activePane !== "detail");
+    return { element: shell, grid, list, detail, tabs, layout };
+  }
+
+  function mountResponsiveWorkspace(options) {
+    const opts = options || {};
+    let logicalWidth = opts.logicalWidth;
+    let activePane = opts.activePane === "detail" ? "detail" : "list";
+    let model = opts.model;
+    let rendered = null;
+    const render = () => {
+      rendered = renderResponsiveWorkspace(opts.container, {
+        logicalWidth,
+        activePane,
+        model,
+        renderList: opts.renderList,
+        renderDetail: opts.renderDetail,
+        onPaneChange(pane) {
+          activePane = pane;
+          if (typeof opts.onPaneChange === "function") opts.onPaneChange(pane);
+        }
+      });
+      return rendered;
+    };
+    render();
+    return Object.freeze({
+      setLogicalWidth(value) {
+        if (Number(value) === Number(logicalWidth)) return rendered;
+        logicalWidth = value;
+        return render();
+      },
+      selectPane(value) { activePane = value === "detail" ? "detail" : "list"; return render(); },
+      setModel(value) { model = value; return render(); },
+      getLayout() { return layoutForWidth(logicalWidth); },
+      getActivePane() { return activePane; }
+    });
+  }
+
   function openPath(app, path) {
     if (!path) return;
     return app.workspace.openLinkText(String(path).replace(/\.md$/, ""), "", false);
@@ -89,8 +221,6 @@
       my_thought: "",
       thinking_delta: String(state.thinking_delta || "").trim(),
       reading_range: String(state.reading_range || "").trim(),
-      start_page: "",
-      end_page: "",
       duration: String(state.duration || "").trim(),
       next_position: String(state.next_position || "").trim(),
       next_action: String(state.next_action || "").trim(),
@@ -477,7 +607,7 @@
         const row = sessionCard.createEl("div", { attr: { class: "reading-session-row" } });
         row.createEl("strong", { text: `${session.date || "날짜 없음"} · ${session.book_title || "책"}` });
         const meta = row.createEl("div", { attr: { class: "reading-session-meta" } });
-        meta.createEl("span", { text: session.reading_range || `${session.start_page || "?"}–${session.end_page || "?"}` });
+        meta.createEl("span", { text: session.reading_range || "진행 기록 없음" });
         if (session.duration) meta.createEl("span", { text: String(session.duration) });
         if (session.key_content) {
           row.createEl("div", {
@@ -659,6 +789,9 @@
   }
 
   const api = {
+    layoutForWidth,
+    renderResponsiveWorkspace,
+    mountResponsiveWorkspace,
     openSessionModal,
     openQuickSession,
     saveQuickSession,

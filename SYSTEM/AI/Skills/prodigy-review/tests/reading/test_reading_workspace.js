@@ -10,13 +10,86 @@ function load(rel) {
   return require(path.join(ROOT, rel));
 }
 
+class FakeElement {
+  constructor(tag = "div") {
+    this.tag = tag;
+    this.children = [];
+    this.text = "";
+    this.attr = {};
+    this.style = {};
+    this.hidden = false;
+    this.clientWidth = 0;
+  }
+
+  createEl(tag, options = {}) {
+    const child = new FakeElement(tag);
+    child.text = options.text || "";
+    child.attr = options.attr || {};
+    child.hidden = Object.prototype.hasOwnProperty.call(child.attr, "hidden");
+    this.children.push(child);
+    return child;
+  }
+
+  empty() {
+    this.children = [];
+    this.text = "";
+  }
+
+  setAttr(name, value) {
+    this.attr[name] = value;
+  }
+
+  setAttribute(name, value) {
+    this.attr[name] = value;
+  }
+
+  removeAttribute(name) {
+    delete this.attr[name];
+  }
+}
+
+function findAll(node, predicate, found = []) {
+  if (node && predicate(node)) found.push(node);
+  for (const child of (node && node.children) || []) findAll(child, predicate, found);
+  return found;
+}
+
 function main() {
   try { load("SYSTEM/Views/object-lifecycle-core.js"); } catch (_e) { /* optional */ }
   const engine = load("SYSTEM/Views/object-engine-core.js");
   const checklist = load("SYSTEM/Views/reading-checklist-core.js");
   load("SYSTEM/Views/reading-strategy-core.js");
   const workspace = load("SYSTEM/Views/reading-workspace-core.js");
+  const readingView = load("SYSTEM/Views/reading-view.js");
+  const tokens = load("SYSTEM/Views/design-tokens.js");
   const launcher = load("SYSTEM/Views/workspace-launcher-core.js");
+
+  // --- Responsive list/detail: explicit logical width, progress-only model preserved ---
+  assert.equal(typeof readingView.mountResponsiveWorkspace, "function", "reading responsive workspace mount is missing");
+  const responsiveModel = Object.freeze({
+    today: Object.freeze({ object: Object.freeze({ title: "Atomic Habits", progress: "50%" }) }),
+    continue_reading: Object.freeze({ empty: true, items: Object.freeze([]) })
+  });
+  const modelBeforeResize = JSON.stringify(responsiveModel);
+  const responsiveRoot = new FakeElement("section");
+  const responsive = readingView.mountResponsiveWorkspace({
+    container: responsiveRoot,
+    model: responsiveModel,
+    logicalWidth: tokens.BREAKPOINTS.wide,
+    renderList(parent) { parent.createEl("p", { text: "독서 목록" }); },
+    renderDetail(parent) { parent.createEl("p", { text: "이어 읽기" }); }
+  });
+  const visiblePaneCount = () => findAll(
+    responsiveRoot,
+    (node) => node.attr["data-reading-pane"] && !node.hidden
+  ).length;
+  assert.equal(responsiveRoot.attr["data-reading-layout"], "wide");
+  assert.equal(visiblePaneCount(), 2);
+  responsive.setLogicalWidth(tokens.BREAKPOINTS.medium - 1);
+  assert.equal(responsiveRoot.attr["data-reading-layout"], "compact");
+  assert.equal(visiblePaneCount(), 1);
+  assert.equal(JSON.stringify(responsiveModel), modelBeforeResize);
+  assert.equal(responsiveModel.today.object.progress, "50%");
 
   // --- Empty states ---
   const emptyModel = workspace.buildWorkspaceModel([], {});
@@ -293,6 +366,10 @@ function main() {
   assert.match(readingHub, /오늘 읽기|이 책 포커스/);
   assert.match(readingHub, /shareRuntimeModel|__readingWorkspaceModel/);
   assert.match(readingHub, /stale_reading|finish_soon/);
+  assert.match(readingHub, /ProdigyAdaptiveControls\.AdaptiveActionBar/);
+  assert.match(readingHub, /mountResponsiveWorkspace/);
+  assert.match(readingHub, /ProdigyTokens\.BREAKPOINTS\.wide/);
+  assert.doesNotMatch(readingHub, /window\.innerWidth|globalThis\.innerWidth/);
   // Card-first: do not mount full progressive wall on hub
   assert.equal(/ReadingWorkspaceView\.renderWorkspace/.test(readingHub), false);
   assert.equal(readingHub.includes("reading-workspace-view.js"), false);
@@ -335,6 +412,8 @@ function main() {
 
   // --- Minimal session modal (one memo, not a form wall) ---
   const viewSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-view.js"), "utf8");
+  assert.match(viewSrc, /grid-template-columns:minmax\(min\(18rem,100%\),4fr\) minmax\(min\(22rem,100%\),6fr\)/);
+  assert.doesNotMatch(viewSrc, /grid-template-columns:[^;]*,minmax\(0,/);
   assert.match(viewSrc, /openSessionModal|saveQuickSession/);
   assert.match(viewSrc, /한 줄 메모/);
   assert.match(viewSrc, /한 줄이면 충분/);
