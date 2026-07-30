@@ -15,8 +15,10 @@
    * @param app - Obsidian app
    * @param panel - DOM element (tabpanel)
    */
-  async function renderNutritionPanel(app, panel) {
-    if (!nutrition || !healthStoreApi || !storeApi) throw new Error("Nutrition modules are unavailable.");
+ async function renderNutritionPanel(app, panel) {
+   // options is optional — { width, breakpoint }
+   const opts = arguments[2] || {};
+   if (!nutrition || !healthStoreApi || !storeApi) throw new Error("Nutrition modules are unavailable.");
 
     const adapter = storeApi.createObsidianAdapter(app);
     const store = healthStoreApi.createHealthStore(adapter);

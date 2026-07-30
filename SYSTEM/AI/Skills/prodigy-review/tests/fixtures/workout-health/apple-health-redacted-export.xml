@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE HealthData [
+  <!ELEMENT HealthData (ExportDate,Me,Record*,Workout*,ActivitySummary*)>
+  <!ELEMENT ExportDate EMPTY>
+  <!ATTLIST ExportDate value CDATA #REQUIRED>
+  <!ELEMENT Me EMPTY>
+  <!ATTLIST Me HKCharacteristicTypeIdentifierDateOfBirth CDATA #IMPLIED>
+  <!ELEMENT Record EMPTY>
+  <!ATTLIST Record type CDATA #REQUIRED>
+  <!ATTLIST Record value CDATA #REQUIRED>
+  <!ATTLIST Record startDate CDATA #IMPLIED>
+  <!ATTLIST Record endDate CDATA #IMPLIED>
+  <!ELEMENT Workout EMPTY>
+  <!ATTLIST Workout activityType CDATA #REQUIRED>
+  <!ATTLIST Workout startDate CDATA #REQUIRED>
+  <!ATTLIST Workout endDate CDATA #IMPLIED>
+  <!ATTLIST Workout duration CDATA #IMPLIED>
+  <!ATTLIST Workout totalDistance CDATA #IMPLIED>
+  <!ATTLIST Workout totalEnergyBurned CDATA #IMPLIED>
+  <!ELEMENT ActivitySummary EMPTY>
+]>
+<HealthData>
+  <ExportDate value="2099-12-31 00:00:00 +0000"/>
+  <Me HKCharacteristicTypeIdentifierDateOfBirth=""/>
+  <Workout activityType="HKWorkoutActivityTypeRunning" startDate="2099-12-31 07:00:00 +0900" endDate="2099-12-31 07:30:00 +0900" duration="1800" totalDistance="6000" totalEnergyBurned="420"/>
+  <Workout activityType="HKWorkoutActivityTypeWalking" startDate="2099-12-31 08:00:00 +0900" endDate="2099-12-31 08:45:00 +0900" duration="2700" totalDistance="3500"/>
+  <Workout activityType="HKWorkoutActivityTypeRunning" startDate="2099-12-30 06:30:00 +0900" endDate="2099-12-30 07:15:00 +0900" duration="2700" totalDistance="10000" totalEnergyBurned="750"/>
+  <Workout activityType="HKWorkoutActivityTypeRunning" startDate="2099-12-29 19:00:00 +0900" endDate="2099-12-29 19:25:00 +0900" duration="1500" totalDistance="4200" totalEnergyBurned="310"/>
+  <Workout activityType="HKWorkoutActivityTypeRunning" startDate="2099-12-28 07:00:00 +0900" endDate="2099-12-28 07:22:00 +0900" duration="1320" totalDistance="3600" totalEnergyBurned="260"/>
+  <Workout activityType="HKWorkoutActivityTypeCycling" startDate="2099-12-28 16:00:00 +0900" endDate="2099-12-28 17:00:00 +0900" duration="3600" totalDistance="25000"/>
+  <Workout activityType="HKWorkoutActivityTypeRunning" startDate="2099-12-27 08:00:00 +0900" endDate="2099-12-27 08:40:00 +0900" duration="2400" totalDistance="8000" totalEnergyBurned="580"/>
+</HealthData>
