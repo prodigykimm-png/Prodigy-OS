@@ -32,13 +32,13 @@
 | `confidence` | `explicit` \| `inferred` \| `low` | 출처에서의 명시성 |
 | `suggested_domain` | optional registry-backed 영어 snake_case scalar | 제안된 Explorer Domain; 승인 전 자동 분류 아님 |
 | `suggested_topics` | registry-backed 영어 snake_case YAML list | 제안된 Explorer Topic; 승인 전 자동 분류 아님 |
+| `connections` | explicit wikilink YAML list | 선택; exact canonical Region link를 포함한 명시적 관련 Object; 본문·좌표·모호한 지명에서 추론하지 않음 |
+| `invalidation_conditions` | 텍스트 YAML list | 선택; 이 지식이 무효화되는 조건; 사람이 작성하며 승격 시 보존 |
 | `approval_note` | 텍스트 | 인간 승인 또는 thin Evidence override의 근거 |
 | `promotion_target` | optional canonical target path | 승인 writer가 Knowledge 생성 전 기록하는 대상 |
 | `promoted_knowledge` | optional explicit wikilink | 생성 완료된 canonical Knowledge 링크 |
 | `created` | ISO date/datetime | 생성 시점 |
 | `updated` | ISO date/datetime | 마지막 수정 시점 |
-| `connections` | explicit wikilink YAML list | 선택 | exact canonical Region link를 포함한 명시적 관련 Object; 본문·좌표·모호한 지명에서 추론하지 않음 |
-| `invalidation_conditions` | 텍스트 YAML list | 선택 | 이 지식이 무효화되는 조건; 사람이 작성하며 승격 시 보존 |
 
 `source_evidence_ids`, `source_objects`, `suggested_topics`, `application_contexts`의 canonical 저장 형식은 YAML list다. scalar/comma 형식은 새 writer가 저장하지 않는다. Candidate나 Knowledge에 Evidence 본문을 복사하지 않고 stable ID와 명시적 wikilink만 provenance로 저장한다.
 

@@ -32,7 +32,7 @@ type: knowledge
 
 ## 연결된 Object
 -
-<!-- Region 연결은 connections에 exact canonical Region wikilink([[PARA/RESOURCES/Auction Regions/<시도-시군구>]])로만 저장합니다. 본문·좌표·모호한 지명은 Region link를 만들지 않습니다. -->
+<!-- Region 연결은 `연결` Property에 exact canonical Region wikilink([[PARA/RESOURCES/Auction Regions/<시도-시군구>]])로만 저장합니다. 본문·좌표·모호한 지명은 Region link를 만들지 않습니다. -->
 
 ## 본문
 <% tp.file.cursor()%>

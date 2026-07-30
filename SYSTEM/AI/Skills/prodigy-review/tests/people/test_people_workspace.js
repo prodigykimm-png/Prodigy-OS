@@ -399,7 +399,17 @@ function main() {
   assert.match(peopleViewSrc, /ppw-edit-textarea/);
   assert.match(peopleViewSrc, /ppw-modal/);
   assert.match(peopleViewSrc, /관계 맥락/);
-  assert.match(peopleViewSrc, /calc\(100vw - 10px\)/);
+  // Workspace CSS moved out of people-view.js into people-styles.js (ab1f852).
+  // The view now delegates injection, so assert the narrow-screen width rule
+  // where it actually lives — deleting it must still turn this test red.
+  assert.match(peopleViewSrc, /PeopleStyles/);
+  const peopleStylesSrc = read("SYSTEM/Views/people-styles.js");
+  const compactBlock = peopleStylesSrc.match(/@media\s*\(max-width:\s*600px\)\s*\{[\s\S]*?\n\}/);
+  assert.ok(compactBlock, "people-styles.js must keep a compact-screen media block");
+  const compactModal = compactBlock[0].match(/\.modal\.ppw-modal\s*\{[^}]*\}/);
+  assert.ok(compactModal, "compact media block must size .ppw-modal to the narrow viewport");
+  assert.match(compactModal[0], /width:\s*calc\(100vw - 10px\)/);
+  assert.match(compactModal[0], /max-width:\s*calc\(100vw - 10px\)/);
   assert.match(peopleViewSrc, /renderRelationshipPicker|ppw-rel-chip/);
   // Finder input lives in a native Modal, outside the Dataview-owned DOM.
   assert.equal(typeof view.openPeopleFinder, "function");

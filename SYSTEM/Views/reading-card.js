@@ -1,4 +1,5 @@
 window.renderReadingCard = function(p, container, mode = "simple") {
+  const T = typeof ProdigyTokens !== "undefined" ? ProdigyTokens : (typeof globalThis !== "undefined" ? globalThis : this).ProdigyTokens; const C = T ? T.COLORS : {};
   const display = window.prodigyDisplay || {
     statusInfo: () => ({ color: 'var(--text-accent)' })
   };
@@ -373,8 +374,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       });
       img.onclick = () => app.workspace.openLinkText(p.file ? p.file.name : titleOf(), pathOf());
     } else {
-      const bookTitle = titleOf();
-      const author = p.author || "저자 미상";
+      const bookTitle = titleOf(), author = p.author || "저자 미상";
       
       let hash = 0;
       for (let i = 0; i < bookTitle.length; i++) {

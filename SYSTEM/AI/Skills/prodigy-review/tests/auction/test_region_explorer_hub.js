@@ -29,6 +29,8 @@ const REGION_EXPERIENCE_MODULE_PATHS = [
   "SYSTEM/Views/region-experience-store.js",
   "SYSTEM/Views/ai-provider-response.js",
   "SYSTEM/Views/ai-provider-schema.js",
+  "SYSTEM/Views/ai-provider-error-policy.js",
+  "SYSTEM/Views/ai-provider-fallback.js",
   "SYSTEM/Views/ai-provider-service.js",
   "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",
@@ -320,9 +322,9 @@ test("Given concurrent and keyboard trigger activation When the modal opens, clo
   const modals = [];
   let modalOpens = 0;
   class FakeModal {
-    constructor() { this.contentEl = new FakeElement("div"); modals.push(this); }
+    constructor() { this.contentEl = new FakeElement("div"); this.closed = false; modals.push(this); }
     open() { modalOpens += 1; if (typeof this.onOpen === "function") this.onOpen(); return this; }
-    close() { if (typeof this.onClose === "function") this.onClose(); }
+    close() { if (this.closed) return; this.closed = true; if (typeof this.onClose === "function") this.onClose(); }
   }
   const notes = { [`${REGION_ROOT}부산광역시-해운대구.md`]: validRegion({ sido: "부산광역시", sigungu: "해운대구" }) };
   const hub = await runHub(notes, { obsidian: { Modal: FakeModal } });
@@ -368,9 +370,9 @@ test("Given an Obsidian-style deferred modal close When the focus trap releases 
   let modalOpens = 0;
   let trapActive = true;
   class DeferredModal {
-    constructor() { this.contentEl = new FakeElement("div"); modals.push(this); }
+    constructor() { this.contentEl = new FakeElement("div"); this.closed = false; modals.push(this); }
     open() { modalOpens += 1; if (typeof this.onOpen === "function") this.onOpen(); return this; }
-    close() { deferredClose.push(() => { if (typeof this.onClose === "function") this.onClose(); trapActive = false; }); }
+    close() { if (this.closed) return; this.closed = true; deferredClose.push(() => { if (typeof this.onClose === "function") this.onClose(); trapActive = false; }); }
   }
   const hub = await runHub({ [`${REGION_ROOT}부산광역시-해운대구.md`]: validRegion({ sido: "부산광역시", sigungu: "해운대구" }) }, {
     obsidian: { Modal: DeferredModal },
@@ -416,9 +418,11 @@ test("Given Obsidian schedules root focus after onClose When the Hub restores fo
   let modalOpens = 0;
   let focused = "modal";
   class RootAfterCloseModal {
-    constructor() { this.contentEl = new FakeElement("div"); modals.push(this); }
+    constructor() { this.contentEl = new FakeElement("div"); this.closed = false; modals.push(this); }
     open() { modalOpens += 1; if (typeof this.onOpen === "function") this.onOpen(); return this; }
     close() {
+      if (this.closed) return;
+      this.closed = true;
       deferredClose.push(() => {
         if (typeof this.onClose === "function") this.onClose();
         deferredTimers.push(() => { focused = "root"; });
@@ -451,9 +455,11 @@ test("Given Obsidian Modal.open returns void When the modal opens and closes The
   let modalOpens = 0;
   let focused = "modal";
   class VoidOpenModal {
-    constructor() { this.contentEl = new FakeElement("div"); modals.push(this); }
+    constructor() { this.contentEl = new FakeElement("div"); this.closed = false; modals.push(this); }
     open() { modalOpens += 1; if (typeof this.onOpen === "function") this.onOpen(); }
     close() {
+      if (this.closed) return;
+      this.closed = true;
       if (typeof this.onClose === "function") this.onClose();
       deferredTimers.push(() => { focused = "root"; });
     }
@@ -481,9 +487,9 @@ test("Given a Hub reopen after the Region modal source changes When the same win
   const modals = [];
   let modalOpens = 0;
   class VoidOpenModal {
-    constructor() { this.contentEl = new FakeElement("div"); modals.push(this); }
+    constructor() { this.contentEl = new FakeElement("div"); this.closed = false; modals.push(this); }
     open() { modalOpens += 1; if (typeof this.onOpen === "function") this.onOpen(); }
-    close() { if (typeof this.onClose === "function") this.onClose(); }
+    close() { if (this.closed) return; this.closed = true; if (typeof this.onClose === "function") this.onClose(); }
   }
   const notes = { [`${REGION_ROOT}부산광역시-해운대구.md`]: validRegion({ sido: "부산광역시", sigungu: "해운대구" }) };
   const modalPath = "SYSTEM/Views/region-experience-modal.js";
