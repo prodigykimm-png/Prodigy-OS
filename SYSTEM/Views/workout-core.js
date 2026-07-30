@@ -2,6 +2,7 @@
   "use strict";
 
   const RUN_STATUSES = new Set(["active", "paused", "completed", "abandoned"]);
+  const SESSION_KINDS = new Set(["programmed", "free", "quick"]);
 
   function clean(value) { return String(value == null ? "" : value).trim(); }
   function number(value) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
@@ -13,6 +14,16 @@
   }
   function machineId(prefix, seed) { return `${prefix}_${stableHash(seed)}`; }
   function nowIso() { return new Date().toISOString(); }
+
+  function normalizeSessionKind(session) {
+    const source = session || {};
+    const explicit = clean(source.session_kind);
+    if (SESSION_KINDS.has(explicit)) return explicit;
+    if (source.quick === true) return "quick";
+    if ([source.program_run_id, source.program_id, source.program_day_id].some((id) => clean(id))) return "programmed";
+    if (Array.isArray(source.exercise_results) && source.exercise_results.length) return "free";
+    return "quick";
+  }
 
   function normalizeSets(sets, exerciseSeed) {
     const source = Array.isArray(sets) && sets.length ? sets : [{}];
@@ -282,11 +293,25 @@
       session_id: clean(options.session_id) || machineId("session", `${run.run_id}:${day.id}:${startedAt}`),
       program_run_id: run.run_id, program_id: program.id, program_title: program.title,
       program_day_id: day.id, week: day.week, day: day.day, date: clean(options.date) || startedAt.slice(0, 10),
-      started_at: startedAt, completed_at: "", status: "draft", quick: false,
+      started_at: startedAt, completed_at: "", status: "draft", session_kind: "programmed", quick: false,
       exercise_results: day.exercises.map((exercise) => ({
         exercise_id: exercise.id, name: exercise.name, target: exercise.target,
         prescribed_sets: clone(exercise.prescribed_sets), set_results: exercise.prescribed_sets.map(blankSetResult), notes: "", completed: false,
       })),
+    };
+  }
+
+  function createFreeWorkout(options = {}) {
+    const startedAt = clean(options.started_at) || nowIso();
+    const title = clean(options.title);
+    if (!title) throw new Error("자유운동 이름이 필요합니다.");
+    const exerciseResults = Array.isArray(options.exercise_results) ? clone(options.exercise_results) : [];
+    return {
+      schema_version: "prodigy-workout-session-v1",
+      session_id: clean(options.session_id) || machineId("session", `free:${title}:${startedAt}`),
+      program_run_id: null, program_id: null, program_title: "", program_day_id: null, week: null, day: null,
+      date: clean(options.date) || startedAt.slice(0, 10), started_at: startedAt, completed_at: "", status: "draft", session_kind: "free", quick: false,
+      title, distance: clean(options.distance), duration: clean(options.duration), notes: clean(options.notes), exercise_results: exerciseResults,
     };
   }
 
@@ -298,7 +323,7 @@
       schema_version: "prodigy-workout-session-v1",
       session_id: clean(options.session_id) || machineId("session", `quick:${title}:${startedAt}`),
       program_run_id: null, program_id: null, program_title: "", program_day_id: null, week: null, day: null,
-      date: clean(options.date) || startedAt.slice(0, 10), started_at: startedAt, completed_at: "", status: "draft", quick: true,
+      date: clean(options.date) || startedAt.slice(0, 10), started_at: startedAt, completed_at: "", status: "draft", session_kind: "quick", quick: true,
       title, distance: clean(options.distance), duration: clean(options.duration), notes: clean(options.notes), exercise_results: [],
     };
   }
@@ -371,9 +396,16 @@
   }
 
   function completeWorkoutSession(session, program, run, otherSessions, completedAt = nowIso()) {
+    const sessionKind = normalizeSessionKind(session);
+    if (sessionKind === "free") {
+      const results = Array.isArray(session && session.exercise_results) ? session.exercise_results : [];
+      const malformed = results.some((exercise) => !exercise || !clean(exercise.exercise_id || exercise.name) || !Array.isArray(exercise.set_results));
+      if (!results.length || malformed) throw new Error("자유운동을 완료하려면 구조화된 운동 결과가 필요합니다.");
+    }
     const completedSession = clone(session);
     completedSession.status = "completed";
     completedSession.completed_at = clean(completedAt);
+    if (sessionKind !== "programmed") return { session: completedSession, run };
     const sessions = [...(otherSessions || []), completedSession];
     const suggested = suggestNextDay(program, sessions, run.run_id);
     const nextRun = clone(run);
@@ -889,7 +921,7 @@
   }
 
   const api = {
-    RUN_STATUSES, clone, completeWorkoutSession, createProgramRun, createQuickWorkout, createWorkoutSession,
+    RUN_STATUSES, clone, completeWorkoutSession, createProgramRun, createFreeWorkout, createQuickWorkout, createWorkoutSession,
     daySelectionWarning, normalizeProgram, previousExerciseResult, previousExerciseResultByName,
     bestExerciseResult, exerciseHistory, estimate1RM, validateProgram, duplicateProgram,
     snapshotProgram, programVersionToken, programForRun, stableHash, suggestNextDay,
@@ -899,7 +931,7 @@
     completedSessionTimeline, buildWorkspaceModel, completedDayIds,
     nextIncompleteSet, resolveRestSeconds, sessionProgress,
     createRestTimer, createAiConversation, buildObservation, assertObservationAllowed,
-    AI_MAX_TURNS,
+    normalizeSessionKind, AI_MAX_TURNS,
   };
   root.WorkoutCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
