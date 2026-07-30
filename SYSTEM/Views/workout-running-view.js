@@ -2,6 +2,7 @@
   "use strict";
 
   const running = root.WorkoutRunningCore || (typeof require === "function" ? require("./workout-running-core.js") : null);
+  const projection = root.WorkoutRunningProjection || (typeof require === "function" ? require("./workout-running-projection.js") : null);
   const healthStoreApi = root.WorkoutHealthStore || (typeof require === "function" ? require("./workout-health-store.js") : null);
   const storeApi = root.WorkoutStore || (typeof require === "function" ? require("./workout-store.js") : null);
 
@@ -12,7 +13,7 @@
    * Render the running tab panel.
    */
   async function renderRunningPanel(app, panel) {
-    if (!running || !healthStoreApi || !storeApi) throw new Error("Running modules are unavailable.");
+    if (!running || !projection || !healthStoreApi || !storeApi) throw new Error("Running modules are unavailable.");
 
     const adapter = storeApi.createObsidianAdapter(app);
     const store = healthStoreApi.createHealthStore(adapter);
@@ -23,9 +24,7 @@
         store.list("runActivities"),
         strengthStore.listSessions(),
       ]);
-      const legacy = running.projectLegacyQuickSessions(sessions);
-      const all = [...activities, ...legacy].sort((a, b) => clean(b.start_time).localeCompare(clean(a.start_time)));
-      return { activities, legacy, all };
+      return projection.buildRunningModel(activities, sessions);
     }
 
     function render() {
@@ -210,8 +209,8 @@
         confirmBtn.onclick = async () => {
           confirmBtn.disabled = true;
           try {
-            await store.save("runActivities", activity.activity_id, activity);
-            const receipt = running.buildRunImportReceipt({ file_basename: file.name, format: file.name.split(".").pop(), activity_count: 1, created_count: 1 });
+            const [saved] = await projection.saveActivities(store, [activity]);
+            const receipt = running.buildRunImportReceipt({ file_basename: file.name, format: file.name.split(".").pop(), activity_count: 1, created_count: saved.created ? 1 : 0, updated_count: saved.updated ? 1 : 0 });
             await store.save("runImports", receipt.import_id, receipt);
             this.close();
             const Notice = root.obsidian && root.obsidian.Notice ? root.obsidian.Notice : root.Notice;
@@ -265,7 +264,7 @@
               notes: clean(notesInput.value),
               source: "manual",
             });
-            await store.save("runActivities", activityId, activity);
+            await projection.saveActivities(store, [activity]);
             this.close();
             const Notice = root.obsidian && root.obsidian.Notice ? root.obsidian.Notice : root.Notice;
             if (Notice) new Notice("러닝 기록을 저장했습니다.");
@@ -327,16 +326,15 @@
               confirmBtn.disabled = true;
               confirmBtn.textContent = "가져오는 중…";
               try {
-                let saved = 0;
-                for (const act of result.activities) {
-                  await store.save("runActivities", act.activity_id, act);
-                  saved++;
-                }
-                const receipt = running.buildRunImportReceipt({ source: "apple_health", file_basename: file.name, format: "xml", activity_count: result.activities.length, created_count: saved });
+                const saved = await projection.saveActivities(store, result.activities);
+                const createdCount = saved.filter((item) => item.created).length;
+                const updatedCount = saved.filter((item) => item.updated).length;
+                const duplicateCount = saved.filter((item) => item.duplicate).length;
+                const receipt = running.buildRunImportReceipt({ source: "apple_health", file_basename: file.name, format: "xml", activity_count: result.activities.length, created_count: createdCount, updated_count: updatedCount });
                 await store.save("runImports", receipt.import_id, receipt);
                 this.close();
                 const Notice = root.obsidian && root.obsidian.Notice ? root.obsidian.Notice : root.Notice;
-                if (Notice) new Notice(`Apple Health 러닝 ${saved}개를 가져왔습니다.`);
+                if (Notice) new Notice(`Apple Health 러닝 ${createdCount}개 추가 · 중복 ${duplicateCount}개`);
                 if (onDone) onDone();
               } catch (err) {
                 confirmBtn.disabled = false;

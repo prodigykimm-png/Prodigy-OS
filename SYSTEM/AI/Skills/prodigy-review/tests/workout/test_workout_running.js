@@ -141,11 +141,14 @@ function testLegacyQuickProjection() {
     { session_id: "s1", quick: true, status: "completed", title: "러닝", distance: "5 km", duration: "28:31", completed_at: "2026-07-15T08:00:00Z", date: "2026-07-15", notes: "한강" },
     { session_id: "s2", quick: true, status: "completed", title: "수영", distance: "", duration: "45:00", completed_at: "2026-07-16T08:00:00Z", date: "2026-07-16" },
     { session_id: "s3", quick: true, status: "draft", title: "미완료", distance: "3 km", duration: "15:00", date: "2026-07-17" },
-    { session_id: "s4", quick: false, status: "completed", title: "근력", date: "2026-07-18", completed_at: "2026-07-18T10:00:00Z", exercise_results: [] },
+    { session_id: "s4", session_kind: "free", quick: false, status: "completed", title: "러닝", distance: "9 km", duration: "45:00", completed_at: "2026-07-18T10:00:00Z", exercise_results: [{ exercise_id: "squat" }] },
+    { session_id: "s5", session_kind: "quick", quick: false, status: "completed", title: "새 Quick", distance: "6 km", duration: "30:00", completed_at: "2026-07-19T07:00:00Z" },
+    { session_id: "s6", session_kind: "programmed", status: "completed", title: "프로그램 러닝", completed_at: "2026-07-20T07:00:00Z", running_activity: { distance_m: 8000, elapsed_s: 2400, avg_hr: 150 } },
+    { session_id: "s7", session_kind: "free", status: "completed", title: "자유 러닝", completed_at: "2026-07-21T07:00:00Z", running_activity: { distance_m: 10000, elapsed_s: 3000, calories_kcal: 700 } },
   ];
+  const before = JSON.stringify(sessions);
   const projected = running.projectLegacyQuickSessions(sessions);
-  // Only s1 and s2 qualify (completed quick with distance or duration)
-  assert.equal(projected.length, 2);
+  assert.equal(projected.length, 5, "legacy/new quick and explicit running payloads project; free strength does not");
   assert.equal(projected[0].activity_id, "legacy_s1");
   assert.equal(projected[0].distance_m, 5000);
   assert.equal(projected[0].elapsed_s, 1711); // 28*60 + 31
@@ -160,10 +163,17 @@ function testLegacyQuickProjection() {
   assert.equal(projected[1].distance_m, null); // no distance
   assert.equal(projected[1].elapsed_s, 2700); // 45*60
   assert.equal(projected[1].pace_s_per_km, null);
+  assert.equal(projected[2].activity_id, "legacy_s5");
+  assert.equal(projected[3].activity_id, "legacy_s6");
+  assert.equal(projected[3].source, "workout_session");
+  assert.equal(projected[3].avg_hr, 150);
+  assert.equal(projected[4].activity_id, "legacy_s7");
+  assert.equal(projected[4].calories_kcal, 700);
+  assert.ok(projected.every((row) => row._read_only === true));
+  assert.ok(projected.every((row) => row.activity_id.startsWith("legacy_")));
 
   // Source sessions are NOT mutated
-  assert.equal(sessions[0].status, "completed");
-  assert.equal(sessions[2].status, "draft");
+  assert.equal(JSON.stringify(sessions), before);
 }
 
 function testParseTcx() {

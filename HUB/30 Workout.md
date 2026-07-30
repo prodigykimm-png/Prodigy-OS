@@ -81,9 +81,12 @@ try {
   await loadWorkoutScript("SYSTEM/Views/workout-import.js");
   await loadWorkoutScript("SYSTEM/Views/workout-program-objects.js");
   await loadWorkoutScript("SYSTEM/Views/workout-modals.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-session-flow.js");
+  await loadWorkoutScript("SYSTEM/Views/workout-session-ui.js");
   await loadWorkoutScriptOptional("SYSTEM/Views/workout-health-store.js");
   await loadWorkoutScriptOptional("SYSTEM/Views/workout-nutrition-core.js");
   await loadWorkoutScriptOptional("SYSTEM/Views/workout-running-core.js");
+  await loadWorkoutScriptOptional("SYSTEM/Views/workout-running-projection.js");
   await loadWorkoutScriptOptional("SYSTEM/Views/workout-fit-parser.js");
   await loadWorkoutScriptOptional("SYSTEM/Views/workout-health-shell.js");
   await loadWorkoutScriptOptional("SYSTEM/Views/workout-nutrition-view.js");
