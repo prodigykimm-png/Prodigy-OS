@@ -44,7 +44,11 @@ class FakeElement {
     this.children = [];
     this.parent = null;
     this.attributes = {};
-    this.style = {};
+    this.style = {
+      setProperty(name, value) { this[name] = String(value); },
+      getPropertyValue(name) { return typeof this[name] === "string" ? this[name] : ""; },
+      removeProperty(name) { delete this[name]; }
+    };
     this.classList = new ClassList(this);
     this.onclick = null;
     this.disabled = Boolean(options.disabled);
@@ -716,7 +720,15 @@ async function testResponsiveTextMotionAndOverflowContracts() {
     // When: classes and CSS contracts are inspected
     // Then: no nested vertical scroll contract is introduced and long text can wrap safely
     assert.equal(container.hasClass("home-compact"), true);
-    assert.equal(container.style.width, `${Math.max(280, width - 16)}px`);
+    assert.equal(
+      container.style.width,
+      "",
+      "픽셀 폭 고정과 calc 마진은 좌측 잘림의 원인이었다 — 되살리지 말 것"
+    );
+    assert.equal(
+      container.style.getPropertyValue("--home-measured-width"),
+      `${Math.max(280, width - 16)}px`
+    );
     assert.equal(container.textTree().includes(LONG_KOREAN_LABEL), true);
     assert.equal(container.textTree().includes(LONG_URL), true);
     assert.match(css, /overflow-wrap:\s*anywhere/);

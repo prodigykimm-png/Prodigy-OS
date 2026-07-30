@@ -29,7 +29,7 @@
           --home-workspace-bar-height: ${workspaceBarHeight}px;
           --ke-touch-target: ${touchTarget}px;
           width: 100%;
-          max-inline-size: 100%;
+          max-inline-size: min(100%, var(--home-measured-width, 1180px));
           box-sizing: border-box;
           overflow-x: hidden;
           margin: 0 auto;
@@ -349,7 +349,7 @@
           color: var(--text-normal);
           font-size: 0.72em !important;
           font-weight: 700 !important;
-          line-height: 1.15 !important;
+          line-height: 1.4 !important;
           cursor: pointer;
         }
         .prodigy-home .home-ws-dock-btn:active {

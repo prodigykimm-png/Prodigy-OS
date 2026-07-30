@@ -1521,6 +1521,54 @@
     };
   }
 
+  const WORKSPACE_STATE_KEY = "prodigy.people.workspace-state.v1";
+  const WORKSPACE_STATE_DEFAULTS = Object.freeze({
+    query: "",
+    filter: "all",
+    sort: "name_asc",
+    selectedPath: ""
+  });
+
+  function readWorkspaceState(storage) {
+    const fallback = Object.assign({}, WORKSPACE_STATE_DEFAULTS);
+    if (!storage || typeof storage.getItem !== "function") return fallback;
+    let raw = null;
+    try {
+      raw = storage.getItem(WORKSPACE_STATE_KEY);
+    } catch (_readError) {
+      return fallback;
+    }
+    if (!raw) return fallback;
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_parseError) {
+      return fallback;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return fallback;
+    const restored = Object.assign({}, WORKSPACE_STATE_DEFAULTS);
+    Object.keys(WORKSPACE_STATE_DEFAULTS).forEach((key) => {
+      const value = parsed[key];
+      if (typeof value === "string") restored[key] = value;
+    });
+    return restored;
+  }
+
+  function writeWorkspaceState(storage, state) {
+    if (!storage || typeof storage.setItem !== "function") return false;
+    const payload = {};
+    Object.keys(WORKSPACE_STATE_DEFAULTS).forEach((key) => {
+      const value = state && state[key];
+      payload[key] = typeof value === "string" ? value : WORKSPACE_STATE_DEFAULTS[key];
+    });
+    try {
+      storage.setItem(WORKSPACE_STATE_KEY, JSON.stringify(payload));
+      return true;
+    } catch (_writeError) {
+      return false;
+    }
+  }
+
   const api = {
     CANONICAL_TYPE,
     LEGACY_TYPE,
@@ -1534,6 +1582,9 @@
     normalizeRelationshipType,
     INTERACTION_SECTION,
     INTERACTION_SECTION_ALIASES,
+    WORKSPACE_STATE_KEY,
+    readWorkspaceState,
+    writeWorkspaceState,
     NOTES_SECTION,
     NOTES_SECTION_ALIASES,
     LINKED_OBJECT_TYPES,

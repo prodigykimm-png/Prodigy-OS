@@ -29,13 +29,16 @@ function ruleBody(source, selector) {
   return "";
 }
 
-test("Given Home sets an explicit pixel width, When it also carries horizontal padding, Then it must use border-box so the padding cannot push content past the viewport", () => {
-  const source = styleSource();
+test("Given Home must fit any leaf width, When it sizes itself, Then it must not pin a pixel width or a calc margin that can go negative", () => {
   const view = fs.readFileSync(VIEW_PATH, "utf8");
 
-  assert.match(view, /container\.style\.width = `\$\{homeWidth\}px`/);
+  assert.doesNotMatch(view, /container\.style\.width = `\$\{homeWidth\}px`/);
+  assert.doesNotMatch(view, /marginLeft = `calc\(\(100% - \$\{homeWidth\}px\) \/ 2\)`/);
+});
 
-  const body = ruleBody(source, ".prodigy-home {");
+test("Given Home carries horizontal padding, When it renders, Then border-box keeps the padding inside the measured width", () => {
+  const body = ruleBody(styleSource(), ".prodigy-home {");
+
   assert.match(body, /padding:/);
   assert.match(body, /box-sizing:\s*border-box/);
 });
@@ -51,7 +54,7 @@ test("Given Home content, When any child is wider than its column, Then Home mus
   const source = styleSource();
   const body = ruleBody(source, ".prodigy-home {");
 
-  assert.match(body, /max-inline-size:\s*100%|max-width:\s*100%/);
+  assert.match(body, /max-inline-size:\s*min\(100%/, "Home 폭 상한은 부모를 넘지 않는 min(100%, …) 형태여야 한다");
   assert.match(body, /overflow-x:\s*hidden|overflow-x:\s*clip/);
 });
 
@@ -69,4 +72,12 @@ test("Given Home type sizes, When rendered on a phone, Then no declared em size 
   }
 
   assert.deepEqual(offenders, [], "본문·배지 글자가 " + FLOOR_EM + "em 미만이면 모바일에서 판독이 어렵다: " + offenders.join(", "));
+});
+
+test("Given compact Home buttons, When text sits inside them, Then padding and line-height leave breathing room instead of hugging the glyphs", () => {
+  const source = styleSource();
+  const dock = ruleBody(source, ".prodigy-home .home-ws-dock-btn {");
+
+  assert.match(dock, /padding:\s*0 var\(--ke-space-2\)|padding-block:/);
+  assert.match(dock, /line-height:\s*1\.[3-9]/, "버튼 line-height가 1.3 미만이면 글자가 버튼에 딱 붙어 보인다");
 });

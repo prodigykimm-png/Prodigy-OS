@@ -158,7 +158,11 @@ try {
     } catch (_e) { /* best-effort */ }
     const rawPeople = await collectRawPeople();
     const sourcePages = collectSourcePages();
-    const st = workspaceApi && workspaceApi.getState ? workspaceApi.getState() : null;
+    // Dataview re-runs this whole block on its refresh interval, which destroys
+    // workspaceApi. Persisted state is the only thing that survives that rerun.
+    const persisted = window.PeopleCore.readWorkspaceState(window.sessionStorage);
+    const live = workspaceApi && workspaceApi.getState ? workspaceApi.getState() : null;
+    const st = live || persisted;
     const model = window.PeopleCore.buildPeopleWorkspaceModel(rawPeople, sourcePages, {
       query: st && st.query ? st.query : "",
       filter: st && st.filter ? st.filter : "all",
@@ -175,8 +179,12 @@ try {
       selectedPath: st && st.selectedPath ? st.selectedPath : "",
       title: "사람과 관계",
       subtitle: "이름 클릭 = 관계 맥락 · 관계 편집과 원본 노트는 상세에서 · 최근 맥락은 연결된 원본 기록입니다.",
-      onRefresh: () => paintPeople()
+      onRefresh: () => paintPeople(),
+      onStateChange: (next) => window.PeopleCore.writeWorkspaceState(window.sessionStorage, next)
     });
+    if (workspaceApi && workspaceApi.getState) {
+      window.PeopleCore.writeWorkspaceState(window.sessionStorage, workspaceApi.getState());
+    }
   };
 
   const paintAreas = () => {

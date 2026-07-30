@@ -123,8 +123,11 @@
         const variant = getHomeVariant(sourceWidth);
         const gutter = variant === "compact" ? 16 : 64;
         const homeWidth = Math.min(1180, Math.max(280, sourceWidth - gutter));
-        container.style.width = `${homeWidth}px`;
-        container.style.marginLeft = `calc((100% - ${homeWidth}px) / 2)`;
+        container.style.width = "";
+        container.style.marginLeft = "";
+        if (typeof container.style.setProperty === "function") {
+          container.style.setProperty("--home-measured-width", `${homeWidth}px`);
+        }
         container.classList.toggle("home-compact", variant === "compact");
         container.classList.toggle("home-medium", variant === "medium");
         container.classList.toggle("home-wide", variant === "wide");

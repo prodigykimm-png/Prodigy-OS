@@ -164,8 +164,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 3px !important;
-  margin-top: 4px !important;
-  padding-top: 4px !important;
+  margin-top: 2px !important;
+  padding-top: 2px !important;
 }
 .auction-card-actions > .prodigy-btn,
 .auction-card-actions > button {
@@ -310,6 +310,26 @@
   padding-inline: var(--ke-space-3, 8px) !important;
   font-size: var(--ke-type-label, .72rem) !important;
   word-break: keep-all;
+}
+.auction-header-bid-sheet {
+  flex-shrink: 0;
+  min-height: 0;
+  padding: 0 5px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--ke-radius-control, 4px);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 0.72em;
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.auction-header-bid-sheet:hover {
+  background: var(--background-modifier-hover);
+}
+.auction-header-bid-sheet:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 1px;
 }
 `;
 
