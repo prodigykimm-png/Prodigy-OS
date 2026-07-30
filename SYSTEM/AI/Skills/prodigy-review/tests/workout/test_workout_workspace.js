@@ -131,6 +131,9 @@ function testSessionDraftAndCompletion() {
 function testQuickWorkoutAndPreviousResult() {
   const quick = core.createQuickWorkout({ session_id: "quick-1", title: "Running", date: "2026-07-17", distance: "5 km", duration: "28:31" });
   assert.equal(quick.program_run_id, null);
+  assert.equal(quick.program_id, null);
+  assert.equal(quick.program_day_id, null);
+  assert.equal(quick.session_kind, "quick");
   assert.equal(quick.quick, true);
 
   const previous = {
@@ -139,6 +142,48 @@ function testQuickWorkoutAndPreviousResult() {
   };
   assert.deepEqual(core.previousExerciseResult([previous], "run-1", "squat", "current"), { weight: "100", reps: "5", rpe: "7" });
   assert.equal(core.previousExerciseResult([previous], "other-run", "squat", "current"), null);
+}
+
+function testSessionKindCompatibilityAndWriters() {
+  const cases = [
+    { name: "valid explicit kind wins", input: { session_kind: "free", quick: true, program_run_id: "run-explicit", exercise_results: [] }, expected: "free" },
+    { name: "valid explicit programmed wins", input: { session_kind: "programmed", quick: true }, expected: "programmed" },
+    { name: "valid explicit quick wins", input: { session_kind: "quick", exercise_results: [{ exercise_id: "row" }] }, expected: "quick" },
+    { name: "legacy quick flag wins over relation", input: { quick: true, program_run_id: "run-quick" }, expected: "quick" },
+    { name: "legacy run relation", input: { program_run_id: "run-legacy" }, expected: "programmed" },
+    { name: "legacy program relation", input: { program_id: "base-one" }, expected: "programmed" },
+    { name: "legacy day relation", input: { program_day_id: "w1d1" }, expected: "programmed" },
+    { name: "legacy structured results", input: { exercise_results: [{ exercise_id: "squat", set_results: [] }] }, expected: "free" },
+    { name: "invalid explicit kind follows precedence", input: { session_kind: "other", quick: false, program_id: "base-one", exercise_results: [{ exercise_id: "squat" }] }, expected: "programmed" },
+    { name: "invalid explicit kind reaches free", input: { session_kind: "other", exercise_results: [{ exercise_id: "squat" }] }, expected: "free" },
+    { name: "safest legacy fallback", input: {}, expected: "quick" },
+  ];
+
+  for (const fixture of cases) {
+    const before = JSON.stringify(fixture.input);
+    assert.equal(core.normalizeSessionKind(fixture.input), fixture.expected, fixture.name);
+    assert.equal(JSON.stringify(fixture.input), before, `${fixture.name} must not mutate its source`);
+  }
+
+  const source = program();
+  const run = core.createProgramRun(source, [], { run_id: "run-kind" });
+  const programmed = core.createWorkoutSession(source, run, "w1d1", { session_id: "programmed-kind" });
+  assert.equal(programmed.session_kind, "programmed");
+  assert.equal(programmed.quick, false);
+  assert.equal(programmed.program_run_id, run.run_id);
+  assert.equal(programmed.program_id, source.id);
+  assert.equal(programmed.program_day_id, "w1d1");
+
+  const exerciseResults = [{ exercise_id: "row", name: "Row", set_results: [{ completed: false, weight: "", reps: "", rpe: "", notes: "" }] }];
+  const free = core.createFreeWorkout({ session_id: "free-kind", title: "자유운동", exercise_results: exerciseResults });
+  assert.equal(free.session_kind, "free");
+  assert.equal(free.quick, false);
+  assert.equal(free.program_run_id, null);
+  assert.equal(free.program_id, null);
+  assert.equal(free.program_day_id, null);
+  assert.deepEqual(free.exercise_results, exerciseResults);
+  free.exercise_results[0].name = "Changed in writer output";
+  assert.equal(exerciseResults[0].name, "Row", "free writer must not mutate or alias source results");
 }
 
 function testProgressDraftStaleContinueAndCopy() {
@@ -366,6 +411,7 @@ async function main() {
   testSuggestionAndManualDayRules();
   testSessionDraftAndCompletion();
   testQuickWorkoutAndPreviousResult();
+  testSessionKindCompatibilityAndWriters();
   testProgressDraftStaleContinueAndCopy();
   testAddRemoveSet();
   await testDerivedStore();
