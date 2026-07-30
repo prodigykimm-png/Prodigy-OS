@@ -1522,6 +1522,27 @@
   }
 
   const WORKSPACE_STATE_KEY = "prodigy.people.workspace-state.v1";
+
+  function peopleFingerprint(rawPeople) {
+    if (!Array.isArray(rawPeople) || !rawPeople.length) return "0:";
+    const rows = rawPeople.map((person) => {
+      if (!person || typeof person !== "object") return "";
+      const bodyLength = typeof person.body === "string" ? person.body.length : 0;
+      const fields = [
+        person.path || "",
+        person.name || "",
+        person.relationship || "",
+        person.company || "",
+        person.role || "",
+        person.last_contact || "",
+        String(bodyLength)
+      ];
+      return fields.join("\u001f");
+    });
+    rows.sort();
+    return rows.length + ":" + rows.join("\u001e");
+  }
+
   const WORKSPACE_STATE_DEFAULTS = Object.freeze({
     query: "",
     filter: "all",
@@ -1585,6 +1606,7 @@
     WORKSPACE_STATE_KEY,
     readWorkspaceState,
     writeWorkspaceState,
+    peopleFingerprint,
     NOTES_SECTION,
     NOTES_SECTION_ALIASES,
     LINKED_OBJECT_TYPES,

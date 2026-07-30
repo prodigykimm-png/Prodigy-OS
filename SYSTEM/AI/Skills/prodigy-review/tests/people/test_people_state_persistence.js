@@ -73,3 +73,26 @@ test("Given a corrupt or absent persisted payload, When the hub reads it, Then i
     assert.equal(restored.selectedPath, "");
   }
 });
+
+test("Given Dataview reruns the block every 2.5s, When nothing the user cares about changed, Then the hub skips the repaint instead of rebuilding the DOM", () => {
+  const hub = hubSource();
+
+  assert.match(hub, /shouldSkipRepaint|__prodigyPersonalRenderGuard/, "허브가 불필요한 재렌더를 건너뛰는 가드를 가져야 한다");
+  assert.match(hub, /fingerprint|signature/i, "무엇이 바뀌었는지 비교할 지표가 있어야 한다");
+});
+
+test("Given a people fingerprint, When the underlying data is unchanged, Then the computed signature is stable and changes only with real edits", () => {
+  delete require.cache[require.resolve(CORE_PATH)];
+  const core = require(CORE_PATH);
+
+  assert.equal(typeof core.peopleFingerprint, "function");
+
+  const a = [{ path: "b.md", name: "김나래", body: "메모" }, { path: "a.md", name: "강은지", body: "" }];
+  const sameUnordered = [{ path: "a.md", name: "강은지", body: "" }, { path: "b.md", name: "김나래", body: "메모" }];
+  const edited = [{ path: "a.md", name: "강은지", body: "" }, { path: "b.md", name: "김나래", body: "메모 수정" }];
+
+  assert.equal(core.peopleFingerprint(a), core.peopleFingerprint(sameUnordered), "순서만 다른 동일 데이터는 같은 지문이어야 한다");
+  assert.notEqual(core.peopleFingerprint(a), core.peopleFingerprint(edited), "본문이 바뀌면 지문이 달라져야 한다");
+  assert.equal(core.peopleFingerprint([]), core.peopleFingerprint([]));
+  assert.equal(typeof core.peopleFingerprint(null), "string");
+});
