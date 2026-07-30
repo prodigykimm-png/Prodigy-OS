@@ -200,8 +200,9 @@ async function testMissingModuleProducesRecoverableError() {
   const pages = buildPages();
   const result = await runHub({ pages, omittedModulePaths: ["SYSTEM/Views/knowledge-explorer-relations.js"] });
   const text = collectText(result.container);
+  assert.match(text, /지식 워크스페이스를 불러오지 못했습니다/);
   assert.match(text, /지식 탐색기를 불러오지 못했습니다/);
-  assert.match(text, /Missing module:/);
+  assert.doesNotMatch(text, /Missing module:/, "shared loader errors must not expose internal module paths");
   assert.ok(firstElement(result.container, "button", (node) => node.text === "다시 시도"));
   assert.equal(result.container.children.length > 0, true);
   assert.equal(result.window.KnowledgeExplorerHub.api, undefined);

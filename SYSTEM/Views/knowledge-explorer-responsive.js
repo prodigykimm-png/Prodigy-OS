@@ -1,8 +1,16 @@
 "use strict";
 
 (function (root) {
-  const WIDE_MIN = 1024;
-  const COMPACT_MIN = 640;
+  function responsiveTokens() {
+    const tokens = root.ProdigyTokens || (typeof require === "function" ? require("./design-tokens.js") : null);
+    if (!tokens || !tokens.BREAKPOINTS || !tokens.CONTROL_HEIGHTS) throw new Error("Knowledge Explorer responsive tokens must load before the responsive module.");
+    return tokens;
+  }
+
+  const { BREAKPOINTS, CONTROL_HEIGHTS } = responsiveTokens();
+  const MEDIUM_MIN = BREAKPOINTS.medium;
+  const WIDE_MIN = BREAKPOINTS.wide;
+  const TOUCH_TARGET = CONTROL_HEIGHTS.touchTarget;
   const CSS = `
 .knowledge-explorer-shell { display:grid; grid-template-columns:minmax(min(var(--ke-nav-min),100%),var(--ke-nav-max)) minmax(min(var(--ke-topic-min),100%),1fr) minmax(min(var(--ke-detail-min),100%),1.3fr); gap:var(--ke-space-4); min-inline-size:0; min-block-size:0; color:var(--ke-color-text); background:var(--ke-color-surface); container-type:inline-size; container-name:knowledge-explorer; }
 .knowledge-explorer-shell *, .knowledge-explorer-shell *::before, .knowledge-explorer-shell *::after { box-sizing:border-box; }
@@ -35,8 +43,8 @@
 .knowledge-explorer-row-link, .knowledge-explorer-detail-item-link, .knowledge-explorer-brief-source { color:var(--ke-color-accent); text-decoration:none; }
 .knowledge-explorer-row-link:hover, .knowledge-explorer-detail-item-link:hover, .knowledge-explorer-brief-source:hover { text-decoration:underline; }
 .knowledge-explorer-drill-back { min-height:var(--ke-touch-target); }
-@media (min-width: ${COMPACT_MIN}px) and (max-width: ${WIDE_MIN - 1}px) { .knowledge-explorer-shell[data-layout="compact"] { grid-template-columns:minmax(min(var(--ke-nav-min),100%),var(--ke-nav-max)) minmax(0,1fr); } }
-@media (max-width: ${COMPACT_MIN - 1}px) { .knowledge-explorer-shell[data-layout="narrow"] { grid-template-columns:minmax(0,1fr); } .knowledge-explorer-button, .knowledge-explorer-open, .knowledge-explorer-back { min-height:var(--ke-touch-target); } }
+@media (min-width: ${MEDIUM_MIN}px) and (max-width: ${WIDE_MIN - 1}px) { .knowledge-explorer-shell[data-layout="medium"] { grid-template-columns:minmax(min(var(--ke-nav-min),100%),var(--ke-nav-max)) minmax(0,1fr); } }
+@media (max-width: ${MEDIUM_MIN - 1}px) { .knowledge-explorer-shell[data-layout="compact"] { grid-template-columns:minmax(0,1fr); } .knowledge-explorer-button, .knowledge-explorer-open, .knowledge-explorer-back { min-height:${TOUCH_TARGET}px; } }
 @container knowledge-explorer (max-width: ${WIDE_MIN - 1}px) { .knowledge-explorer-pane-title h2 { line-height:var(--ke-leading-body); } }
 @media (prefers-reduced-motion: reduce) { .knowledge-explorer-button, .knowledge-explorer-open, .knowledge-explorer-back { transition:none; transform:none; } }
 `;
@@ -44,12 +52,12 @@
   function layoutForWidth(width) {
     const logicalWidth = Number(width);
     if (!Number.isFinite(logicalWidth) || logicalWidth >= WIDE_MIN) return "wide";
-    return logicalWidth >= COMPACT_MIN ? "compact" : "narrow";
+    return logicalWidth >= MEDIUM_MIN ? "medium" : "compact";
   }
 
   function visiblePanes(layout, focusPane) {
     if (layout === "wide") return ["domain", "middle", "detail"];
-    if (layout === "compact") return focusPane === "detail" ? ["domain", "detail"] : ["domain", "middle"];
+    if (layout === "medium") return focusPane === "detail" ? ["domain", "detail"] : ["domain", "middle"];
     return [focusPane === "detail" ? "detail" : focusPane === "middle" ? "middle" : "domain"];
   }
 
@@ -57,7 +65,7 @@
     return focusPane === "detail" ? "middle" : "domain";
   }
 
-  const api = Object.freeze({ CSS, WIDE_MIN, COMPACT_MIN, layoutForWidth, visiblePanes, previousPane });
+  const api = Object.freeze({ CSS, MEDIUM_MIN, WIDE_MIN, TOUCH_TARGET, layoutForWidth, visiblePanes, previousPane });
   root.KnowledgeExplorerResponsive = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

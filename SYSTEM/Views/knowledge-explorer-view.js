@@ -184,8 +184,8 @@
       const currentLayout = layout();
       const origin = controlIdentity(action, event);
       const nextAction = { ...action };
-      if (currentLayout === "narrow" && action.drill && action.type === "set-domain") nextAction.focusPane = "middle";
-      if (currentLayout === "narrow" && action.drill && action.type === "set-middle") nextAction.focusPane = "detail";
+      if (currentLayout === "compact" && action.type === "set-domain") nextAction.focusPane = "middle";
+      if (currentLayout === "compact" && action.type === "set-middle") nextAction.focusPane = "detail";
       selection = State.reduceSelectionState(model, selection, nextAction);
       if (nextAction.focusPane) selection = State.reduceSelectionState(model, selection, { type: "focus-pane", focusPane: nextAction.focusPane });
       if (action.type === "back") returnFocus = origin;
