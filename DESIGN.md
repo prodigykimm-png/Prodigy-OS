@@ -114,7 +114,7 @@ Hover is additive and never the only indication of interactivity. Active feedbac
 
 The primitive/state harness must cover rest, focus-visible, selected, loading, empty, error, disabled, 40-character Korean labels, long prose, unbroken URLs, empty sections, and desktop/narrow containers before the Hub adapter is wired. The final Explorer surface must later be exercised in actual Obsidian for load, navigation, open-beside, focus return, safe failure, and both panes in the accessibility tree.
 
-`qa:device-limitation-accepted`: a resized Obsidian Desktop window may verify narrow-window reflow but is not evidence of iPhone or other physical-device success. Device-specific success remains unclaimed until a later real-device run; this limitation is accepted for this design-contract-only task.
+`qa:device-limitation-accepted`: a resized Obsidian Desktop window may verify narrow-window reflow but is not evidence of iPhone or other real-device verification. Device-specific success remains unclaimed until a later real-device run; this limitation is accepted for this design-contract-only task.
 
 ## 8. Existing Shared Components
 
@@ -138,6 +138,7 @@ Physical-device 성공은 `physical iPhone` 실기기에서 사용자가 직접 
 | Primitive | 책임 | 계약 |
 |---|---|---|
 | `AppShell` | Workspace bar, context, 단일 body scroll owner를 조합한다. | compact는 `768px` 미만, medium은 `768px`부터 `1023px`, wide는 `1024px` 이상이다. |
+| | | 분기점은 `SYSTEM/Views/design-tokens.js`에서 `BREAKPOINTS`와 `CONTROL_HEIGHTS`로 내보낸다. |
 | `ContextBar` | 선택·필터·동기화 같은 현재 문맥을 짧게 표시한다. | 한글/CJK는 자연스럽게 줄바꿈하며 긴 값이 수평 스크롤을 만들지 않는다. |
 | `WorkspaceSwitcher` | Workspace registry의 id/path/label로 HUB를 전환한다. | registry 외 별도 목록을 만들지 않으며 Obsidian Workspace API fallback을 유지한다. |
 | `AdaptiveTabs` | 동일한 tab 의미와 키보드 순서를 폭에 맞게 유지한다. | Arrow, Home, End와 선택 semantics를 제공한다. |
@@ -185,3 +186,15 @@ Workspace UI 상태는 schema `v1`로 분리한다. `prodigy.ui.workspace-state.
 - `import-review` is the shared preview-before-confirm pattern for FatSecret CSV, TCX/GPX files, and Apple Health XML. It shows mapped columns or activity stats, first rows, create/update/skip/warning counts, and requires explicit confirm before writes. Raw file content is never persisted; only a receipt (basename, timestamp, counts) is stored.
 - All Workout health primitives follow the shared contracts: Obsidian theme variables only (no raw hex/rgb), one scroll owner per panel, 44px minimum touch targets at narrow widths, CJK wrapping with `word-break: keep-all`, `overflow-wrap: anywhere`, reduced-motion compliance, and full state coverage (rest, focus-visible, selected, loading, empty, error, disabled).
 - Privacy: latitude, longitude, route, track, and coordinate arrays are recursively stripped before any object reaches the health store. Original CSV/XML/FIT/TCX/GPX bytes are never copied into the Vault.
+
+## 10. 구현 현실과 물리 기기 한계
+
+이 문서는 2026-07-30 기준 실제 구현을 설명한다. 모든 반응형 검증은 headless logical-width harness로 수행되었으며, 실제 iPhone·iPad·Mac 기기 검증은 아직 수행되지 않았다. `.omo/evidence/evidence-manifest.json`은 `physical_device_success: false`, `physical_claim_status: "not_proven"`을 기록하고 있다. 물리 기기에서의 동작을 주장하지 않으며, 데스크톱 폭 조절과 시뮬레이터는 모바일 증명으로 인정하지 않는다.
+
+## 11. AI 컨텍스트 봉투 (Context Envelope)
+
+`ai-context-envelope.js`의 `buildContextEnvelope(input)`은 순수 함수로 동작하며, 정확히 6개의 필드(`workspace`, `tab`, `selection`, `snapshot`, `citations`, `locale`)만 허용한다. 직렬화 용량은 8 KiB로 제한되며, 초과 시 `snapshot`을 가장 오래된 항목부터 제거하고 `truncated: true`를 설정한다. 본문·비밀값·`selection`을 벗어난 DAILY-PARA 콘텐츠는 금지된다. Provider 바인드는 localhost 또는 private tailnet만 허용하며, `antigravity`, `agy`, 소비자 OAuth 재사용, 공용 바인드, LAN 바인드는 네트워크 호출 전에 차단된다. AI 제안 출력은 기존 도메인 승인 핸들러가 수락하기 전까지 비활성 상태다.
+
+## 12. 정리 감사 (Cleanup Audit)
+
+`SYSTEM/SCRIPTS/prodigy-cleanup-audit.js`는 기본적으로 dry-run 모드로 동작하며, 실제 삭제는 `--apply`와 함께 일치하는 receipt 해시가 필요하다. 드리프트가 감지되면 실패로 종료된다. 재고 조사는 52개 플러그인과 29개 템플릿을 대상으로 했으며, 미참조 템플릿은 0개였다. `password-protection`, `table-editor-obsidian`, `SYSTEM/TEMPLATE` 루트, `SYSTEM/CACHE`는 보존되었다.

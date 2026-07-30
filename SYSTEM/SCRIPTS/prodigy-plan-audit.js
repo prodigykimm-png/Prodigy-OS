@@ -64,6 +64,7 @@ Options:
   --no-physical-claim        Record that automation has NOT proven physical-device behavior.
   --physical-receipt <dir>   Validate a human F3 physical-device receipt directory before claiming success.
   --all-implementation-tasks Require a complete manifest entry for every numbered plan task.
+  --docs-closure             Require DESIGN.md and SYSTEM/docs/09_Obsidian_Manual.md to document shipped contracts.
   --help                     Show this help.
 
 Manifest contract:
@@ -83,6 +84,7 @@ function parseArgs(argv) {
     help: false,
     noPhysicalClaim: false,
     allImplementationTasks: false,
+    docsClosure: false,
     errors: []
   };
   const valueFlags = new Map([
@@ -94,7 +96,8 @@ function parseArgs(argv) {
   const booleanFlags = new Map([
     ["--help", "help"],
     ["--no-physical-claim", "noPhysicalClaim"],
-    ["--all-implementation-tasks", "allImplementationTasks"]
+    ["--all-implementation-tasks", "allImplementationTasks"],
+    ["--docs-closure", "docsClosure"]
   ]);
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -370,6 +373,102 @@ function validateAllImplementationTasks(manifest, vaultRoot, errors) {
   }
 }
 
+function validateDocumentationClosure(vaultRoot, errors) {
+  const checkDoc = (docPath, requiredTerms, checkName) => {
+    const absPath = path.join(vaultRoot, docPath);
+    if (!fs.existsSync(absPath)) {
+      addError(errors, "DOC_MISSING", `${docPath} is missing`, { check: checkName });
+      return;
+    }
+    let content;
+    try {
+      content = fs.readFileSync(absPath, "utf8");
+    } catch (_error) {
+      addError(errors, "DOC_UNREADABLE", `${docPath} cannot be read`, { check: checkName });
+      return;
+    }
+    const missing = requiredTerms.filter((term) => !content.includes(term));
+    if (missing.length > 0) {
+      addError(errors, "DOC_INCOMPLETE", `${docPath} is missing required terms`, { check: checkName, missing });
+    }
+  };
+
+  const checkAbsent = (docPath, forbiddenTerms, checkName) => {
+    const absPath = path.join(vaultRoot, docPath);
+    if (!fs.existsSync(absPath)) return;
+    let content;
+    try {
+      content = fs.readFileSync(absPath, "utf8");
+    } catch (_error) { return; }
+    const found = forbiddenTerms.filter((term) => content.includes(term));
+    if (found.length > 0) {
+      addError(errors, "DOC_FORBIDDEN_CLAIM", `${docPath} contains forbidden terms`, { check: checkName, found });
+    }
+  };
+
+  // DESIGN.md must document canonical breakpoints, control heights, and three storage keys
+  checkDoc("DESIGN.md", [
+    "BREAKPOINTS",
+    "768",
+    "1024",
+    "CONTROL_HEIGHTS",
+    "prodigy.ui.workspace-state.v1",
+    "prodigy.ui.scroll-state.v1",
+    "prodigy.ai.chat-session.v1"
+  ], "design-tokens-and-storage");
+
+  // DESIGN.md must document App Shell primitives
+  checkDoc("DESIGN.md", [
+    "AppShell",
+    "ContextBar",
+    "WorkspaceSwitcher",
+    "AdaptiveTabs",
+    "AdaptiveActionBar",
+    "BottomSheet",
+    "StatusLine",
+    "InlineError"
+  ], "design-app-shell");
+
+  // DESIGN.md must document AI context envelope
+  checkDoc("DESIGN.md", [
+    "buildContextEnvelope",
+    "8 KiB",
+    "workspace",
+    "snapshot",
+    "truncated"
+  ], "design-ai-context");
+
+  // DESIGN.md must document cleanup audit
+  checkDoc("DESIGN.md", [
+    "prodigy-cleanup-audit",
+    "dry-run",
+    "--apply"
+  ], "design-cleanup");
+
+  // DESIGN.md must document physical-device honesty
+  checkDoc("DESIGN.md", [
+    "not_proven",
+    "physical_device_success"
+  ], "design-physical-honesty");
+
+  // Manual must document responsive behavior
+  checkDoc("SYSTEM/docs/09_Obsidian_Manual.md", [
+    "768px",
+    "1024px",
+    "AppShell",
+    "WorkspaceStateStore",
+    "prodigy.ai.chat-session.v1"
+  ], "manual-responsive");
+
+  // Forbidden claims in both docs
+  const forbiddenClaims = [
+    "HealthKit", "background sync", "subscription API", "Antigravity bridge",
+    "physical-device success", "device-verified", "iPhone verified", "iPad verified"
+  ];
+  checkAbsent("DESIGN.md", forbiddenClaims, "design-no-unsupported");
+  checkAbsent("SYSTEM/docs/09_Obsidian_Manual.md", forbiddenClaims, "manual-no-unsupported");
+}
+
 function validatePhysicalReceipt(receiptRoot, errors) {
   const requiredFiles = ["device-manifest.json", "operator-notes.md", "redaction-log.md"];
   for (const file of requiredFiles) {
@@ -436,6 +535,7 @@ function runAudit(options, vaultRoot = process.cwd()) {
     validateScope(manifest, errors);
     validateChecks(manifest, evidenceRoot, errors);
     if (options.allImplementationTasks) validateAllImplementationTasks(manifest, vaultRoot, errors);
+    if (options.allImplementationTasks || options.docsClosure) validateDocumentationClosure(vaultRoot, errors);
     if (manifest.physical_device_success === true && !options.physicalReceipt) {
       addError(errors, "UNVERIFIED_PHYSICAL_CLAIM", "physical success requires --physical-receipt with a valid F3 directory");
     }
