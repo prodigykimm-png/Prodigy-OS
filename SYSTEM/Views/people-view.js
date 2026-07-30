@@ -4,7 +4,7 @@
 
   /**
    * People UX — create + quick property edit modal.
-   * Not a CRM: only whitelist fields; body narrative stays in the Object note.
+   * Human-context memory: only whitelist fields; body narrative stays in the Object note.
    */
 
   function notice(message, timeout) {
@@ -1714,6 +1714,33 @@
     }
   }
 
+  function peopleResponsiveContract() {
+    let styles = root.PeopleStyles;
+    if ((!styles || typeof styles.responsiveContract !== "function") && typeof require === "function") {
+      try { styles = require("./people-styles.js"); } catch (_error) { styles = null; }
+    }
+    if (!styles || typeof styles.responsiveContract !== "function") {
+      throw new Error("People 반응형 계약을 불러오지 못했습니다.");
+    }
+    return styles.responsiveContract();
+  }
+
+  function resolvePeoplePaneLayout(logicalWidth) {
+    const width = Number(logicalWidth);
+    if (!Number.isFinite(width) || width < 0) {
+      throw new Error("People 작업면의 논리 너비가 필요합니다.");
+    }
+    const contract = peopleResponsiveContract();
+    const tier = width >= contract.wideMin
+      ? "wide"
+      : (width >= contract.mediumMin ? "medium" : "compact");
+    return Object.freeze({
+      logicalWidth: width,
+      tier,
+      paneMode: tier === "wide" ? "two-pane" : "single-pane"
+    });
+  }
+
   function btn(parent, label, opts) {
     const o = opts || {};
     if (root.ProdigyUI && root.ProdigyUI.button) {
@@ -1747,13 +1774,19 @@
     ensureWorkspaceStyles();
 
     const state = {
-      query: "",
+      query: (opts.model && opts.model.query) || "",
       filter: (opts.model && opts.model.filter) || "all",
       sort: (opts.model && opts.model.sort) || opts.sort || "name_asc",
       expanded: Object.create(null),
       contextType: Object.create(null),
-      focusPath: opts.focusPath || ""
+      focusPath: opts.focusPath || "",
+      selectedPath: opts.selectedPath || ""
     };
+
+    const hasExplicitLogicalWidth = Number.isFinite(Number(opts.logicalWidth));
+    let layout = resolvePeoplePaneLayout(hasExplicitLogicalWidth
+      ? Number(opts.logicalWidth)
+      : Number(container.clientWidth || 0));
 
     function refreshAfterEdit(path) {
       state.focusPath = path || state.focusPath;
@@ -1839,6 +1872,10 @@
       return openBeside(app, path);
     }
 
+    function selectedPerson() {
+      return (model.people || []).find((person) => person.path === state.selectedPath) || null;
+    }
+
     // ── Static shell: created once, never destroyed by paint() ──
     container.empty();
     container.addClass("prodigy-people-workspace");
@@ -1861,10 +1898,44 @@
     finderBtn.onclick = () => openPeopleFinder(app, {
       rawPeople,
       sourcePages,
-      onPick: (path) => openPerson(path)
+      onPick: (path) => selectPerson(path)
     });
 
-    const toolbar = container.createDiv({ attr: { class: "ppw-toolbar" } });
+    const masterDetail = container.createDiv({
+      attr: {
+        class: "ppw-master-detail",
+        "data-pane-mode": layout.paneMode,
+        "data-layout-tier": layout.tier
+      }
+    });
+    const listPane = masterDetail.createEl("section", {
+      attr: { class: "ppw-list-pane", "aria-label": "사람 목록" }
+    });
+    const detailPane = masterDetail.createEl("section", {
+      attr: { class: "ppw-detail-pane", "aria-label": "사람 맥락" }
+    });
+
+    const toolbar = listPane.createDiv({ attr: { class: "ppw-toolbar" } });
+    const searchInput = toolbar.createEl("input", {
+      attr: {
+        type: "search",
+        class: "ppw-search",
+        placeholder: "이름·소속·역할·메모 검색",
+        "aria-label": "사람 검색"
+      }
+    });
+    let composing = false;
+    searchInput.oncompositionstart = () => { composing = true; };
+    searchInput.oncompositionend = () => {
+      composing = false;
+      state.query = String(searchInput.value || "");
+      paint();
+    };
+    searchInput.oninput = () => {
+      if (composing) return;
+      state.query = String(searchInput.value || "");
+      paint();
+    };
 
     // 구분 필터 (관계 Property 카테고리)
     const filterRow = toolbar.createDiv({ attr: { class: "ppw-toolbar-row" } });
@@ -1914,7 +1985,81 @@
       attr: { class: "ppw-count" }
     });
 
-    const list = container.createDiv({ attr: { class: "ppw-list" } });
+    const list = listPane.createDiv({ attr: { class: "ppw-list" } });
+
+    function applyPaneVisibility() {
+      masterDetail.setAttribute("data-pane-mode", layout.paneMode);
+      masterDetail.setAttribute("data-layout-tier", layout.tier);
+      const detailSelected = !!state.selectedPath;
+      listPane.hidden = layout.paneMode === "single-pane" && detailSelected;
+      detailPane.hidden = layout.paneMode === "single-pane" && !detailSelected;
+    }
+
+    function paintDetail(person) {
+      detailPane.empty();
+      if (!person) {
+        detailPane.createEl("div", {
+          text: "목록에서 사람을 선택하면 관계 맥락과 연결된 기록을 볼 수 있습니다.",
+          attr: { class: "ppw-empty" }
+        });
+        return;
+      }
+
+      const head = detailPane.createDiv({ attr: { class: "ppw-detail-head" } });
+      const back = btn(head, "목록", { className: "ppw-detail-back" });
+      back.onclick = () => {
+        state.selectedPath = "";
+        applyPaneVisibility();
+        paintDetail(null);
+      };
+      const titleWrap = head.createDiv();
+      titleWrap.createEl("h2", { text: person.name, attr: { class: "ppw-detail-title" } });
+      if (person.meta_line) titleWrap.createEl("div", { text: person.meta_line, attr: { class: "ppw-meta" } });
+
+      const insightSection = detailPane.createEl("section", { attr: { class: "ppw-detail-section" } });
+      insightSection.createEl("h3", { text: "핵심 상호작용" });
+      const insights = person.interaction_lines || [];
+      if (insights.length) {
+        const lines = insightSection.createEl("ul", { attr: { class: "ppw-detail-lines" } });
+        insights.forEach((line) => lines.createEl("li", { text: line }));
+      } else {
+        insightSection.createEl("div", {
+          text: "큐레이션된 상호작용 통찰이 없습니다.",
+          attr: { class: "ppw-related-empty" }
+        });
+      }
+
+      const contextSection = detailPane.createEl("section", { attr: { class: "ppw-detail-section" } });
+      contextSection.createEl("h3", { text: "최근 맥락" });
+      const context = contextSection.createDiv({ attr: { class: "ppw-detail-context" } });
+      const linked = person.linked_all || person.recent_context || [];
+      if (linked.length) {
+        linked.forEach((item) => {
+          const row = context.createEl("button", {
+            text: `${item.title} · ${item.type_label || "기록"}`,
+            attr: { type: "button", class: "ppw-context-item" }
+          });
+          row.onclick = () => openRecord(item.path);
+        });
+      } else {
+        context.createEl("div", {
+          text: "연결된 원본 기록이 없습니다.",
+          attr: { class: "ppw-related-empty" }
+        });
+      }
+
+      const actions = detailPane.createDiv({ attr: { class: "ppw-actions ppw-detail-actions" } });
+      const edit = btn(actions, "관계 편집", { primary: true });
+      edit.onclick = () => openPerson(person.path);
+      const source = btn(actions, "원본 노트");
+      source.onclick = () => openRecord(person.path);
+    }
+
+    function selectPerson(path) {
+      state.selectedPath = String(path || "");
+      applyPaneVisibility();
+      paintDetail(selectedPerson());
+    }
 
     function syncFilterChips() {
       const chips = filters.querySelectorAll(".ppw-filter");
@@ -1942,6 +2087,13 @@
     // ── Dynamic paint: only rebuilds the card list, never touches search input ──
     function paint() {
       rebuildModel();
+
+      if (state.selectedPath && !selectedPerson()) state.selectedPath = "";
+      if (layout.paneMode === "two-pane" && !state.selectedPath && model.people && model.people.length) {
+        state.selectedPath = model.people[0].path;
+      }
+      applyPaneVisibility();
+      paintDetail(selectedPerson());
 
       // Update count text
       count.setText(model.empty
@@ -1989,12 +2141,12 @@
         });
         nameEl.onclick = (e) => {
           if (e && e.preventDefault) e.preventDefault();
-          openPerson(person.path);
+          selectPerson(person.path);
         };
         nameEl.onkeydown = (e) => {
           if (e && (e.key === "Enter" || e.key === " ")) {
             e.preventDefault();
-            openPerson(person.path);
+            selectPerson(person.path);
           }
         };
         // Auction/Project card pattern: trash icon beside title
@@ -2178,12 +2330,6 @@
           const row = parent.createDiv({ attr: { class: "ppw-context-item" } });
           row.createEl("strong", { text: item.title });
           const meta = [item.type_label || "기록"];
-          if (item.mtime) {
-            try {
-              const d = new Date(item.mtime);
-              if (!Number.isNaN(d.getTime())) meta.unshift(d.toISOString().slice(0, 10));
-            } catch (_e) { /* ignore */ }
-          }
           row.createEl("span", { text: meta.join(" · ") });
           row.onclick = () => openRecord(item.path);
         }
@@ -2264,7 +2410,28 @@
       if (changed) paint();
     }).catch(() => { /* ignore */ });
 
-    return { paint, getState: () => state, getModel: () => model };
+    let resizeObserver = null;
+    if (!hasExplicitLogicalWidth && typeof root.ResizeObserver === "function") {
+      resizeObserver = new root.ResizeObserver((entries) => {
+        const width = entries && entries[0] && entries[0].contentRect
+          ? Number(entries[0].contentRect.width)
+          : Number(container.clientWidth || 0);
+        const next = resolvePeoplePaneLayout(width);
+        if (next.tier === layout.tier) return;
+        layout = next;
+        paint();
+      });
+      resizeObserver.observe(container);
+    }
+
+    return {
+      paint,
+      selectPerson,
+      getState: () => state,
+      getModel: () => model,
+      getLayout: () => layout,
+      destroy: () => { if (resizeObserver) resizeObserver.disconnect(); }
+    };
   }
 
   const api = {
@@ -2280,6 +2447,7 @@
     openRemoveMemoFlow,
     openRemoveInteractionFlow,
     openDeletePersonFlow,
+    resolvePeoplePaneLayout,
     renderPeopleWorkspace,
     ensureWorkspaceStyles
   };
