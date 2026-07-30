@@ -153,7 +153,7 @@
     return { strategy: "generic", source: "none", known: false };
   }
 
-  /** Canonical progress only (0–100). current_page is discarded. */
+  /** Canonical progress only (0–100). Page position is discarded. */
   function progressOf(raw, state) {
     const src = raw || (state && state._norm && state._norm.raw) || {};
     if (src.progress == null || clean(src.progress) === "") return "";
