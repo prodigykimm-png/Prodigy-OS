@@ -7,7 +7,7 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 
 class Element {
-  constructor(tag = "div") { this.tag = tag; this.text = ""; this.children = []; this.attr = {}; }
+  constructor(tag = "div") { this.tag = tag; this.text = ""; this.children = []; this.attr = {}; this.style = {}; this.offsetWidth = 400; }
   createEl(tag, options = {}) { const item = new Element(tag); item.text = options.text || ""; item.attr = options.attr || {}; this.children.push(item); return item; }
   createDiv(options = {}) { return this.createEl("div", options); }
   empty() { this.children = []; }
@@ -16,6 +16,8 @@ class Element {
   setAttribute(key, value) { this.attr[key] = value; }
   removeAttribute(key) { delete this.attr[key]; }
   focus() { this.focused = true; }
+  addEventListener(type, listener) { (this.listeners ||= {})[type] = listener; }
+  removeEventListener(type) { if (this.listeners) delete this.listeners[type]; }
 }
 function textOf(node) { return [node.text, ...node.children.flatMap(textOf)].filter(Boolean).join(" "); }
 
