@@ -3,12 +3,23 @@
 /**
  * region-intelligence-popup-view.js
  * DOM rendering for the Region decision popup. Mobile-safe.
- * 320/390px: no horizontal overflow. Touch targets ≥ 44px.
+ * Compact widths: no horizontal overflow. Touch targets use shared tokens.
  * Korean labels. Never writes to Objects.
  * Contract: .omo/plans/prodigy-region-workspace-consolidation.md Todo 14
  */
 
 const root = typeof window !== "undefined" ? window : globalThis;
+
+function tokenApi() {
+  const api = root.ProdigyTokens || (typeof require === "function" ? require("./design-tokens.js") : null);
+  if (!api || !api.BREAKPOINTS || !api.CONTROL_HEIGHTS) throw new Error("ProdigyTokens를 먼저 불러와야 합니다.");
+  return api;
+}
+
+function touchStyle() {
+  const size = tokenApi().CONTROL_HEIGHTS.touchTarget;
+  return `min-height:${size}px;min-width:${size}px`;
+}
 
 const BADGE_CLASSES = Object.freeze({
   fresh: "region-badge-fresh",
@@ -52,7 +63,7 @@ function renderTabBar(tabs, activeIndex) {
   return `<div class="region-popup-tabs" role="tablist" aria-label="지역 정보 탭" style="overflow-x:auto;display:flex">${tabs.map((tab, i) => {
     const selected = i === activeIndex;
     const disabled = !tab.available && tab.id !== "site_visit";
-    return `<button class="region-popup-tab${selected ? " is-active" : ""}" role="tab" id="region-tab-${tab.id}" aria-selected="${selected}" aria-controls="region-panel-${tab.id}" ${disabled ? 'aria-disabled="true"' : ""} data-tab-index="${i}" style="min-height:44px;min-width:44px">${tab.label}</button>`;
+    return `<button class="region-popup-tab${selected ? " is-active" : ""}" role="tab" id="region-tab-${tab.id}" aria-selected="${selected}" aria-controls="region-panel-${tab.id}" ${disabled ? 'aria-disabled="true"' : ""} data-tab-index="${i}" style="${touchStyle()}">${tab.label}</button>`;
   }).join("")}</div>`;
 }
 
@@ -76,7 +87,7 @@ function renderTabPanel(tab, index, active) {
   } else if (tab.id === "site_visit") {
     const visits = (tab.content && tab.content.site_visits) || [];
     const visitHtml = visits.length > 0 ? visits.map((v) => `<div class="region-visit-item">${v}</div>`).join("") : `<div class="region-popup-empty">임장 기록 없음</div>`;
-    content = `${visitHtml}<button class="region-popup-action" style="min-height:44px" data-action="add-site-visit">임장 추가</button>`;
+    content = visitHtml;
   } else if (tab.content) {
     content = `<pre class="region-popup-json">${JSON.stringify(tab.content, null, 2)}</pre>`;
   } else {
@@ -99,7 +110,7 @@ function renderPopup(popupState) {
   return `<div class="region-intelligence-popup" role="dialog" aria-label="${projection.title} 지역 정보" style="max-width:100%;overflow-x:hidden">
   <div class="region-popup-header">
     <h2 class="region-popup-title">${projection.title}</h2>
-    <button class="region-popup-close" style="min-height:44px;min-width:44px" aria-label="닫기" data-action="close">✕</button>
+    <button class="region-popup-close" style="${touchStyle()}" aria-label="닫기" data-action="close">닫기</button>
   </div>
   ${badges}
   ${tabBar}
@@ -115,18 +126,19 @@ function renderPopup(popupState) {
  * @returns {string} CSS
  */
 function popupStyles() {
+  const tokens = tokenApi();
   return `
 .region-intelligence-popup { max-width: 100vw; overflow-x: hidden; }
 .region-popup-tabs { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 4px; padding: 4px 0; }
-.region-popup-tab { flex-shrink: 0; min-height: 44px; min-width: 44px; padding: 8px 12px; border: none; background: var(--background-secondary, #f0f0f0); border-radius: 6px; cursor: pointer; font-size: 14px; }
-.region-popup-tab.is-active { background: var(--interactive-accent, #7c5cbf); color: white; }
-.region-popup-action, .region-popup-close { min-height: 44px; min-width: 44px; cursor: pointer; }
+.region-popup-tab { flex-shrink: 0; min-height: ${tokens.CONTROL_HEIGHTS.touchTarget}px; min-width: ${tokens.CONTROL_HEIGHTS.touchTarget}px; padding: 8px 12px; border: none; background: var(--background-secondary); border-radius: 6px; cursor: pointer; font-size: 14px; }
+.region-popup-tab.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }
+.region-popup-close { min-height: ${tokens.CONTROL_HEIGHTS.touchTarget}px; min-width: ${tokens.CONTROL_HEIGHTS.touchTarget}px; cursor: pointer; }
 .region-trust-badges { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
 .region-trust-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
 .region-popup-table { width: 100%; border-collapse: collapse; }
-.region-popup-table td { padding: 4px 8px; border-bottom: 1px solid var(--background-modifier-border, #ddd); }
-.region-popup-empty { padding: 16px; text-align: center; color: var(--text-muted, #888); }
-@media (max-width: 390px) {
+.region-popup-table td { padding: 4px 8px; border-bottom: 1px solid var(--background-modifier-border); }
+.region-popup-empty { padding: 16px; text-align: center; color: var(--text-muted); }
+@media (max-width: ${tokens.BREAKPOINTS.medium - 1}px) {
   .region-intelligence-popup { width: 100vw; border-radius: 0; }
   .region-popup-title { font-size: 16px; }
 }

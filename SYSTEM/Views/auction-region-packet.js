@@ -22,6 +22,12 @@
   const SOURCE_MAX_AGE_DAYS = 90;
   const DAY_MS = 24 * 60 * 60 * 1000;
 
+  function tokenApi() {
+    const api = root.ProdigyTokens || (typeof require === "function" ? require("./design-tokens.js") : null);
+    if (!api || !api.BREAKPOINTS || !api.CONTROL_HEIGHTS) throw new Error("ProdigyTokens를 먼저 불러와야 합니다.");
+    return api;
+  }
+
   function clean(value) {
     return value === undefined || value === null ? "" : String(value).trim();
   }
@@ -60,6 +66,7 @@
 
   function ensureStyles() {
     if (!root.document || root.document.getElementById(STYLE_ID)) return;
+    const tokens = tokenApi();
     const style = root.document.createElement("style");
     style.id = STYLE_ID;
     style.textContent = `
@@ -79,8 +86,8 @@
       .auction-region-packet-checks { background: var(--background-secondary); border-radius: var(--radius-s); padding-inline: var(--size-4-3); padding-bottom: var(--size-4-3); }
       .auction-region-packet-authority { color: var(--text-accent); font-weight: var(--font-semibold); margin-top: 0; }
       .auction-region-packet-error { color: var(--text-error); overflow-wrap: anywhere; }
-      .auction-region-packet-modal button.mod-cta { min-height: 44px; margin-top: var(--size-4-4); }
-      @media (max-width: 599px) {
+      .auction-region-packet-modal button.mod-cta { min-height: ${tokens.CONTROL_HEIGHTS.touchTarget}px; margin-top: var(--size-4-4); }
+      @media (max-width: ${tokens.BREAKPOINTS.medium - 1}px) {
         .auction-region-packet-metrics { grid-template-columns: minmax(0, 1fr); gap: var(--size-4-1); }
         .auction-region-packet-metrics dd { text-align: start; }
       }
