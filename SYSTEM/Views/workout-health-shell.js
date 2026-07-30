@@ -38,11 +38,19 @@
    * @param options - { initialTab: string }
    * @returns { openTab: fn(tabId), getActiveTab: fn() }
    */
-  function renderShell(container, renderers, options) {
-    const activeTab = resolveTab(options);
-    const rendered = new Set();
+ function renderShell(container, renderers, options) {
+   const activeTab = resolveTab(options);
+   const rendered = new Set();
 
-    // Tab list
+   // Apply responsive layout classes
+   const Whr = root.WorkoutHealthResponsive;
+   const logicalWidth = (options && options.width) || (typeof window !== "undefined" ? window.innerWidth : 1024);
+   if (Whr && typeof Whr.applyLayout === "function") {
+     Whr.applyLayout(container, logicalWidth);
+     if (typeof Whr.injectResponsiveCss === "function") Whr.injectResponsiveCss();
+   }
+
+   // Tab list
     const tablist = container.createDiv({ attr: { class: "workout-health-tablist", role: "tablist", "aria-label": "운동 영역" } });
     const tabEls = {};
     const panelEls = {};
@@ -100,20 +108,21 @@
 
     let currentTab = activeTab;
 
-    function renderPanel(tabId) {
-      if (rendered.has(tabId)) return;
-      const panel = panelEls[tabId];
-      const renderer = renderers[tabId];
-      if (!renderer) {
-        panel.createEl("p", { text: "이 탭은 준비 중입니다.", attr: { class: "workout-empty" } });
-        rendered.add(tabId);
-        return;
-      }
-      try {
-        // Show loading state
-        const loading = panel.createEl("p", { text: "불러오는 중…", attr: { class: "workout-muted workout-panel-loading" } });
-        const result = renderer(panel);
-        // If renderer is async (returns promise), handle loading state
+   function renderPanel(tabId) {
+     if (rendered.has(tabId)) return;
+     const panel = panelEls[tabId];
+     const renderer = renderers[tabId];
+     if (!renderer) {
+       panel.createEl("p", { text: "이 탭은 준비 중입니다.", attr: { class: "workout-empty" } });
+       rendered.add(tabId);
+       return;
+     }
+     try {
+       // Show loading state
+       const loading = panel.createEl("p", { text: "불러오는 중…", attr: { class: "workout-muted workout-panel-loading" } });
+       const bp = Whr ? Whr.resolveBreakpoint(logicalWidth) : "wide";
+       const result = renderer(panel, { width: logicalWidth, breakpoint: bp });
+       // If renderer is async (returns promise), handle loading state
         if (result && typeof result.then === "function") {
           result.then(() => {
             if (loading.parentNode) loading.remove();

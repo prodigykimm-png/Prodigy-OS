@@ -12,8 +12,10 @@
   /**
    * Render the running tab panel.
    */
-  async function renderRunningPanel(app, panel) {
-    if (!running || !projection || !healthStoreApi || !storeApi) throw new Error("Running modules are unavailable.");
+ async function renderRunningPanel(app, panel) {
+   // options is optional — { width, breakpoint }
+   const opts = arguments[2] || {};
+   if (!running || !projection || !healthStoreApi || !storeApi) throw new Error("Running modules are unavailable.");
 
     const adapter = storeApi.createObsidianAdapter(app);
     const store = healthStoreApi.createHealthStore(adapter);
@@ -284,11 +286,18 @@
     if (!ModalBase) return;
 
     class AppleHealthModal extends ModalBase {
-      onOpen() {
-        this.contentEl.addClass("workout-modal");
-        this.contentEl.createEl("h2", { text: "Apple Health 과거 기록 1회 가져오기" });
-        this.contentEl.createEl("p", { text: "iPhone → 건강 앱 → 프로필 → 모든 건강 데이터 내보내기 → export.xml 파일을 선택하세요.", attr: { class: "workout-muted" } });
-        this.contentEl.createEl("p", { text: "러닝(HKWorkoutActivityTypeRunning) 기록만 가져옵니다. 위치 좌표는 저장되지 않습니다.", attr: { class: "workout-muted" } });
+     onOpen() {
+       this.contentEl.addClass("workout-modal");
+       this.contentEl.createEl("h2", { text: "Apple Health 과거 기록 1회 가져오기" });
+       // Apple Health import UX: manual, one-time, running-only, confirm-first
+       const infoBanner = this.contentEl.createDiv({ attr: { class: "workout-ah-info" } });
+       infoBanner.createEl("div", { text: "수동 파일 가져오기 (1회)", attr: { class: "workout-ah-info-title" } });
+       infoBanner.createEl("p", { text: "iPhone 건강 앱 → 프로필 → 모든 건강 데이터 내보내기 → 생성된 export.xml 파일을 직접 선택하세요. 자동 동기화가 아닌 수동 1회 파일 가져오기입니다.", attr: { class: "workout-muted" } });
+       const badges = infoBanner.createDiv({ attr: { class: "workout-ah-badges" } });
+       badges.createEl("span", { text: "러닝만", attr: { class: "workout-ah-badge is-info" } });
+       badges.createEl("span", { text: "자동 아님", attr: { class: "workout-ah-badge is-warn" } });
+       badges.createEl("span", { text: "확인 후 저장", attr: { class: "workout-ah-badge is-warn" } });
+       this.contentEl.createEl("p", { text: "HKWorkoutActivityTypeRunning 항목만 가져옵니다. 위치 좌표는 저장되지 않습니다.", attr: { class: "workout-muted" } });
         const input = this.contentEl.createEl("input", { attr: { type: "file", accept: ".xml", "aria-label": "Apple Health XML 선택" } });
         const statusArea = this.contentEl.createDiv({ attr: { class: "workout-import-preview" } });
 
