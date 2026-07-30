@@ -277,6 +277,7 @@ Weekly는 월요일~일요일의 Daily Evidence를 읽는 Filter입니다. 먼�
 ## 9. 모바일
 
 - **별도 Mobile Home 없음.** 같은 Home · Workspace를 압축 레이아웃으로 씀.
+- 운영 계약은 `single Home` / `no separate Mobile Home`이다. 모바일에서도 별도 Home 파일이나 별도 승인 흐름을 만들지 않는다.
 - 큰 터치 영역 · 하단 접기(더 보기) 유지.
 - 플러그인 데이터·workspace 상태는 기기별 (git에 올리지 않는 것을 권장).
 

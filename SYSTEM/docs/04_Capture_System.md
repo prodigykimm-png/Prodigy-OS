@@ -48,6 +48,14 @@ Review (Human Only)
 
 Capture는 **정보 손실을 최소화**하고, **소스 정보를 보존**하며, **Object를 생성**한다.
 
+## Reliability Capture Contract
+
+Capture 보조 AI는 `vault-assistant`로 취급한다. `read-only Assistant`이며 원본을 읽고 정리 방향을 제안할 수 있지만, Object 저장·상태 변경·승인 처리를 직접 실행하지 않는다.
+
+AI 제안은 항상 `citation-bundle`을 함께 둔다. 출처 경로, 수집 상태, 확인 시각처럼 판단에 필요한 최소 근거만 남기고, 개인 노트 본문을 불필요하게 복제하지 않는다.
+
+Capture에는 `no automatic approval` 경계가 적용된다. 추천, 구조화, 출처 묶음, `ai-telemetry-status` 표시 중 어떤 것도 Decision·Review·Knowledge 승인을 대신하지 않는다.
+
 ## Aside Capture
 
 Aside는 LLM을 활용하여 **Auction Object를 직접 생성**한다.
