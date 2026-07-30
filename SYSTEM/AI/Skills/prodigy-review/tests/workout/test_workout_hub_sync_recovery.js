@@ -121,3 +121,30 @@ test("Given the Workout hub fails to load, When the error surface renders, Then 
   assert.match(hub, /retry:/);
   assert.match(hub, /동기화/);
 });
+
+test("Given a consumer module captured a dependency as null on first load, When retry re-runs the manifest, Then the consumer is re-executed and sees the arrived dependency", async () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  delete global.__dep;
+  delete global.__consumerSawDep;
+
+  const app = createApp(
+    {
+      "consumer.js": "globalThis.__consumerSawDep = Boolean(globalThis.__dep);",
+      "dep.js": "globalThis.__dep = { ready: true };"
+    },
+    { unresolved: ["dep.js"] }
+  );
+
+  const first = await loader.loadManifest(app, { required: ["dep.js", "consumer.js"], optional: [] });
+  assert.equal(first.sync_pending, true);
+  assert.equal(global.__consumerSawDep, false);
+
+  app.resolveModule("dep.js", "globalThis.__dep = { ready: true };");
+  loader.retry(["dep.js", "consumer.js"], { rerun_loaded: true });
+  await loader.loadManifest(app, { required: ["dep.js", "consumer.js"], optional: [] });
+
+  assert.equal(global.__consumerSawDep, true);
+  delete global.__dep;
+  delete global.__consumerSawDep;
+});

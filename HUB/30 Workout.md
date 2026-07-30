@@ -101,7 +101,7 @@ const renderWorkout = async () => {
 const retryWorkout = async () => {
   const loader = window.ProdigyHubLoader;
   if (loader && typeof loader.retry === "function") {
-    loader.retry(WORKOUT_MANIFEST.required.concat(WORKOUT_MANIFEST.optional));
+    loader.retry(WORKOUT_MANIFEST.required.concat(WORKOUT_MANIFEST.optional), { rerun_loaded: true });
   }
   try {
     await renderWorkout();
