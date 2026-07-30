@@ -3,6 +3,9 @@
 
   const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
   const RETRY_DELAYS_MS = Object.freeze([1000, 2500]);
+  const CHAT_TIMEOUT_MS = 30000;
+  const STRUCTURED_TIMEOUT_MS = 60000;
+  const SUBSCRIPTION_REJECTION = /구독|subscription|session|cookie|web[-_ ]ui|automation|consumer[-_ ]login|google[-_ ]account|chatgpt[-_ ](?:login|session|account)/i;
 
   if (typeof require === "function") {
     if (!root.AIProviderErrorPolicy) root.AIProviderErrorPolicy = require("./ai-provider-error-policy.js");
@@ -56,10 +59,16 @@
     if (/consumer.*oauth|oauth.*consumer/i.test(String(source.authMode || "")) || source.reuseConsumerOAuth === true || source.consumerOAuthReuse === true) {
       throw providerSecurityError("소비자 OAuth 재사용은 허용되지 않습니다.");
     }
+    if (source.adapter === "subscription" || source.authMode === "subscription" || source.authMode === "consumer-session") {
+      throw providerSecurityError("소비자 구독 로그인 세션은 API 자격증명이 아니며, 3rd-party wrapping은 약관 위반입니다. Gemini API 키 또는 로컬 OpenAI-compatible endpoint를 사용하세요.");
+    }
+    if (SUBSCRIPTION_REJECTION.test(String(source.name || "")) || SUBSCRIPTION_REJECTION.test(String(source.description || ""))) {
+      throw providerSecurityError("구독 세션·쿠키·웹 UI 자동화를 provider로 등록할 수 없습니다. Gemini API 키 또는 로컬 OpenAI-compatible endpoint를 사용하세요.");
+    }
     const bindValue = [source.bind, source.bindAddress, source.listen, source.host, source.hostname, source.publicBind, source.lanBind]
       .find((value) => value !== undefined && value !== null && String(value).trim());
     if (bindValue && !/^(?:127\.0\.0\.1|localhost|::1)$/i.test(String(bindValue).trim())) {
-      throw providerSecurityError("AI 제공자는 로컬 루프백 주소에만 bind할 수 있습니다.");
+      throw providerSecurityError("AI 제공자는 로컬 루프백 주소에만 bind할 수 있습니다. 공개·LAN 바인딩은 보안상 허용되지 않으며, 원격 접근이 필요하면 Tailscale Serve를 사용하세요.");
     }
     const baseURL = String(source.localBaseURL || source.baseURL || "");
     if (/^https?:\/\/(?:0\.0\.0\.0|\[?::\]?|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)(?::|\/|$)/i.test(baseURL)) {
@@ -254,11 +263,21 @@
   async function requestProviderChatText(options) {
     const provider = options && options.provider;
     if (!provider || !provider.model) throw new Error("AI provider model is not configured.");
+    if (provider.adapter === "openai-compatible" && !provider.model && provider.authMode !== "none") {
+      throw new Error("로컬 AI 제공자에 모델 ID가 설정되지 않았습니다. 설정 → AI → 해당 제공자의 모델 ID를 입력해 주세요.");
+    }
     validateProviderSecurity(provider);
     const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
-    if (provider.authMode !== "none" && !apiKey) throw new Error(`${provider.name || "AI provider"} API key is not configured.`);
+    if (provider.authMode !== "none" && !apiKey) {
+      const providerName = provider.name || "AI 제공자";
+      const secretField = provider.apiKeySecret || "API 키";
+      throw new Error(`설정 → AI → ${providerName} API 키가 없습니다. ${secretField}을(를) 설정해 주세요.`);
+    }
+    const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : (Number(provider.chatTimeoutMs) > 0 ? Number(provider.chatTimeoutMs) : CHAT_TIMEOUT_MS);
     const sleep = typeof options.sleep === "function" ? options.sleep : (ms) => wait(ms, options.signal);
+    const deadline = Date.now() + timeoutMs;
     for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+      if (Date.now() >= deadline) throw new Error("AI 요청 시간이 초과되었습니다. 네트워크 상태와 제공자 설정을 확인해 주세요.");
       try {
         const response = provider.adapter === "gemini"
           ? await requestGeminiChat(options, apiKey)
@@ -280,11 +299,18 @@
     if (!provider || !provider.model) throw new Error("AI provider model is not configured.");
     validateProviderSecurity(provider);
     const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
-    if (provider.authMode !== "none" && !apiKey) throw new Error(`${provider.name || "AI provider"} API key is not configured.`);
+    if (provider.authMode !== "none" && !apiKey) {
+      const providerName = provider.name || "AI 제공자";
+      const secretField = provider.apiKeySecret || "API 키";
+      throw new Error(`설정 → AI → ${providerName} API 키가 없습니다. ${secretField}을(를) 설정해 주세요.`);
+    }
+    const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : (Number(provider.structuredTimeoutMs) > 0 ? Number(provider.structuredTimeoutMs) : STRUCTURED_TIMEOUT_MS);
     const sleep = typeof options.sleep === "function"
       ? options.sleep
       : (ms) => wait(ms, options.signal);
+    const deadline = Date.now() + timeoutMs;
     for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+      if (Date.now() >= deadline) throw new Error("AI 요청 시간이 초과되었습니다. 네트워크 상태와 제공자 설정을 확인해 주세요.");
       try {
         const response = provider.adapter === "gemini"
           ? await requestGemini(options, apiKey)
@@ -378,7 +404,7 @@
       .filter(Boolean);
   }
 
-  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, validateProviderSecurity, listModels, requestChatText, requestStructuredJson };
+  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, CHAT_TIMEOUT_MS, STRUCTURED_TIMEOUT_MS, SUBSCRIPTION_REJECTION, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, validateProviderSecurity, listModels, requestChatText, requestStructuredJson };
 
   root.AIProviderService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
