@@ -267,7 +267,7 @@ window.renderAuctionCard = function(p, container, options) {
       };
     }
     // Region Intelligence popup — read-only, never mutates Objects.
-    if (window.RegionIntelligencePopupCore && window.RegionIntelligencePopupView) {
+    if (window.RegionIntelligencePopupCore?.isAvailable && window.RegionIntelligencePopupView) {
       const riBtn = detailRow1.createEl('button', {
         text: '지역 정보',
         attr: {

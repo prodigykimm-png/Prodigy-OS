@@ -208,10 +208,14 @@ function projectRegionPopup(regionData, now) {
   });
 }
 
-module.exports = Object.freeze({
+const api = Object.freeze({
   TAB_DEFS,
   FRESHNESS_THRESHOLDS,
   computeTrustBadges,
   projectTransit,
   projectRegionPopup
 });
+
+const root = typeof window !== "undefined" ? window : globalThis;
+root.RegionDecisionViewModel = api;
+if (typeof module !== "undefined" && module.exports) module.exports = api;

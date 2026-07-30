@@ -8,9 +8,17 @@
  * Contract: .omo/plans/prodigy-region-workspace-consolidation.md Todo 14
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
-const viewModel = require("./region-decision-view-model.js");
+const root = typeof window !== "undefined" ? window : globalThis;
+const viewModel = root.RegionDecisionViewModel || (typeof require === "function" ? require("./region-decision-view-model.js") : null);
+
+function nodeRuntime() {
+  if (typeof require !== "function") return null;
+  try {
+    return { fs: require("node:fs"), path: require("node:path") };
+  } catch (_error) {
+    return null;
+  }
+}
 
 /**
  * Parse a Region Object markdown file into frontmatter + body sections.
@@ -93,6 +101,9 @@ function openPopup(vaultRoot, regionKey, now) {
   if (!regionKey || typeof regionKey !== "string") {
     return { ok: false, error: "regionKey가 필요합니다." };
   }
+  const node = nodeRuntime();
+  if (!node) return { ok: false, error: "지역 정보 팝업은 데스크톱 Obsidian에서만 사용할 수 있습니다." };
+  const { fs, path } = node;
   const regionDir = path.join(vaultRoot, "PARA/RESOURCES/Auction Regions");
   const nfcName = `${regionKey}.md`.normalize("NFC");
   let targetPath = path.join(regionDir, nfcName);
@@ -149,9 +160,13 @@ function getSourceDrilldown(projection, metricKey) {
   return { provider: null, source_id: null, note: "출처 정보는 수집 데이터에서 제공됩니다." };
 }
 
-module.exports = Object.freeze({
+const api = Object.freeze({
+  isAvailable: Boolean(nodeRuntime()),
   parseRegionNote,
   openPopup,
   switchTab,
   getSourceDrilldown
 });
+
+root.RegionIntelligencePopupCore = api;
+if (typeof module !== "undefined" && module.exports) module.exports = api;

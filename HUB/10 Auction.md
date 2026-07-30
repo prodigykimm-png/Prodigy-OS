@@ -17,11 +17,18 @@ window.obsidian = obsidian;
 window.app = app;
 
 // Dynamic script loader helper
+let activeLoadPath = "로더 시작";
 const loadProdigyScript = async (path) => {
+  activeLoadPath = path;
   const tFile = app.vault.getAbstractFileByPath(path);
-  if (tFile) {
-    const content = await app.vault.read(tFile);
+  if (!tFile) throw new Error(`필수 스크립트 파일이 없습니다: ${path}`);
+  const content = await app.vault.read(tFile);
+  try {
     (new Function(content))();
+  } catch (error) {
+    const wrapped = error instanceof Error ? error : new Error(String(error));
+    wrapped.prodigyLoadPath = path;
+    throw wrapped;
   }
 };
 
@@ -36,6 +43,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
   await loadProdigyScript("SYSTEM/Views/site-visit-data.js");
   await loadProdigyScript("SYSTEM/Views/site-visit-workflow.js");
+  activeLoadPath = "site-visit-workflow 초기화";
   if (window.prodigySiteVisitReady) await window.prodigySiteVisitReady;
   await loadProdigyScript("SYSTEM/Views/auction-region-core.js");
   await loadProdigyScript("SYSTEM/Views/region-explorer-projection.js");
@@ -52,6 +60,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/auction-card-price-projection.js");
   // Snapshot the full Dataview index once for this dashboard render. Cards and
   // Auction Day only consume this immutable context; they never re-query Vault.
+  activeLoadPath = "Dataview 결정 패킷 인덱스";
   const packetDataview = app.plugins?.plugins?.dataview?.api;
   const packetPages = packetDataview && typeof packetDataview.pages === "function"
     ? packetDataview.pages("").array()
@@ -64,6 +73,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/bid-calendar-view.js");
   await loadProdigyScript("SYSTEM/Views/auction-day-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-day-view.js");
+  activeLoadPath = "워크스페이스 탐색 UI";
   window.ProdigyWorkspaceNavigation.mount(container, { app, title: "경매" });
 } catch (err) {
   container.empty();
@@ -78,8 +88,12 @@ try {
   
   const details = errCard.createEl("details", { attr: { style: "margin-top: 8px; cursor: pointer;" } });
   details.createEl("summary", { text: "에러 로그 자세히 보기", attr: { style: "font-size: 0.8em; font-weight: bold;" } });
+  const failedStage = err && err.prodigyLoadPath ? err.prodigyLoadPath : activeLoadPath;
+  const errorName = err && err.name ? err.name : "Error";
+  const errorMessage = err && err.message ? err.message : String(err);
+  const errorStack = err && err.stack ? String(err.stack) : "";
   details.createEl("pre", { 
-    text: err.stack || err.message, 
+    text: `실패 단계: ${failedStage}\n${errorName}: ${errorMessage}${errorStack ? `\n${errorStack}` : ""}`,
     attr: { style: "font-size: 0.75em; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; overflow-x: auto; margin-top: 4px;" } 
   });
   return;
