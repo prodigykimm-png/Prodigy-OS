@@ -2,21 +2,31 @@
   "use strict";
 
   const TRANSIENT_HTTP_STATUSES = new Set([500, 502, 503]);
+  const FORMAT_REJECTION = /요청 형식|response_format|json_schema|output format|JSON 출력 형식|Invalid value for 'response_format'|'response_format'|invalid_request_error/i;
+  const SENSITIVE_DIAGNOSTIC = /authorization|headers?|\bbody\b|prompt|messages?|secret(?:storage)?|api[-_ ]?key|bearer\s+|\btoken\b|prodigy-[a-z0-9-]*(?:api-key|token|secret|client-id)/i;
 
   function redactError(error) {
     const text = error && error.message ? error.message : String(error || "Unknown provider error");
+    if (SENSITIVE_DIAGNOSTIC.test(text)) return "[redacted]";
     return text.replace(/[A-Za-z0-9_\-]{24,}/g, "[redacted]");
   }
 
   function providerHttpError(status, responseText) {
+    const raw = String(responseText || "");
     const error = new Error(`Provider HTTP ${status}`);
     error.name = "ProviderHttpError";
     error.status = Number(status || 0);
-    error.responseText = String(responseText || "");
+    error.formatRejection = FORMAT_REJECTION.test(raw);
+    error.responseText = raw ? "[redacted]" : "";
     return error;
   }
 
   function userFacingProviderError(error, provider, baseURL) {
+    if (error && error.name === "ProviderSecurityError") {
+      const rejected = new Error(redactError(error));
+      rejected.name = "ProviderSecurityError";
+      return rejected;
+    }
     if (error && error.name === "AbortError") {
       const cancelled = new Error("AI 요청이 취소되었습니다.");
       cancelled.name = "AbortError";
