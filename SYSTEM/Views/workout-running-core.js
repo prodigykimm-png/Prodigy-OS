@@ -237,52 +237,10 @@
    * into read-only running rows. Does NOT mutate the source sessions.
    */
   function projectLegacyQuickSessions(sessions) {
-    return (sessions || [])
-      .filter((s) => s && s.quick === true && s.status === "completed" && (clean(s.distance) || clean(s.duration)))
-      .map((s) => {
-        // Parse distance: "5 km", "5km", "5.2 km"
-        const distMatch = clean(s.distance).match(/([\d.]+)\s*km/i);
-        const distanceM = distMatch ? Math.round(Number(distMatch[1]) * 1000) : null;
-        // Parse duration: "28:31", "1:02:03"
-        const durParts = clean(s.duration).split(":").map(Number);
-        let durationS = null;
-        if (durParts.length === 2 && durParts.every(Number.isFinite)) {
-          durationS = durParts[0] * 60 + durParts[1];
-        } else if (durParts.length === 3 && durParts.every(Number.isFinite)) {
-          durationS = durParts[0] * 3600 + durParts[1] * 60 + durParts[2];
-        }
-
-        const paceS = distanceM && durationS && distanceM > 0
-          ? Math.round((durationS / (distanceM / 1000)) * 10) / 10
-          : null;
-
-        return {
-          schema_version: ACTIVITY_SCHEMA,
-          activity_id: `legacy_${clean(s.session_id)}`,
-          start_time: clean(s.completed_at || s.started_at || `${clean(s.date)}T00:00:00`),
-          timezone_offset: "",
-          distance_m: distanceM,
-          elapsed_s: durationS,
-          moving_s: null,
-          pace_s_per_km: paceS,
-          elevation_gain_m: null,
-          avg_hr: null,
-          max_hr: null,
-          cadence: null,
-          calories_kcal: null,
-          rpe: null,
-          notes: clean(s.notes) || "",
-          source: "legacy_quick_session",
-          source_key: clean(s.session_id),
-          import_id: null,
-          data_quality: "summary_only",
-          splits: [],
-          created_at: clean(s.completed_at) || new Date().toISOString(),
-          updated_at: clean(s.completed_at) || new Date().toISOString(),
-          _read_only: true,
-          _legacy_title: clean(s.title) || "빠른 운동",
-        };
-      });
+    const projection = root.WorkoutRunningProjection
+      || (typeof require === "function" ? require("./workout-running-projection.js") : null);
+    if (!projection) throw new Error("WorkoutRunningProjection is unavailable.");
+    return projection.projectSessionActivities(sessions);
   }
 
   /**
