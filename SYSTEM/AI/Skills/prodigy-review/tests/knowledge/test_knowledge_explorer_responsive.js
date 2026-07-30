@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
@@ -18,6 +19,7 @@ const { FakeElement, collectText } = require("./knowledge_explorer_view_fakes.js
 const { catalog, flattenCatalog } = require("./knowledge_explorer_fixtures.js");
 const registry = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-registry.js"));
 const core = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-core.js"));
+const { BREAKPOINTS, CONTROL_HEIGHTS } = require(path.join(ROOT, "SYSTEM/Views/design-tokens.js"));
 
 function walk(node, predicate, hits = []) {
   if (!node) return hits;
@@ -49,20 +51,25 @@ function model() {
 }
 
 function testResponsivePrimitives() {
+  const responsiveSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-responsive.js"), "utf8");
+  assert.equal(responsive.MEDIUM_MIN, BREAKPOINTS.medium);
+  assert.equal(responsive.WIDE_MIN, BREAKPOINTS.wide);
+  assert.equal(responsive.TOUCH_TARGET, CONTROL_HEIGHTS.touchTarget);
+  assert.doesNotMatch(responsiveSource, /\b(?:768|1024|44)\b/, "Explorer responsiveness must consume canonical tokens");
   assert.equal(responsive.layoutForWidth(1280), "wide");
-  assert.equal(responsive.layoutForWidth(768), "compact");
-  assert.equal(responsive.layoutForWidth(375), "narrow");
-  assert.equal(responsive.visiblePanes("narrow", "domain").join(","), "domain");
-  assert.equal(responsive.visiblePanes("narrow", "middle").join(","), "middle");
-  assert.equal(responsive.visiblePanes("narrow", "detail").join(","), "detail");
-  assert.equal(responsive.visiblePanes("compact", "detail").join(","), "domain,detail");
+  assert.equal(responsive.layoutForWidth(BREAKPOINTS.medium), "medium");
+  assert.equal(responsive.layoutForWidth(BREAKPOINTS.medium - 1), "compact");
+  assert.equal(responsive.visiblePanes("compact", "domain").join(","), "domain");
+  assert.equal(responsive.visiblePanes("compact", "middle").join(","), "middle");
+  assert.equal(responsive.visiblePanes("compact", "detail").join(","), "detail");
+  assert.equal(responsive.visiblePanes("medium", "detail").join(","), "domain,detail");
 }
 
 function testVisiblePanesHaveOneNamedScrollOwner() {
   const explorerModel = model();
   const cases = [
     [1280, "domain", [["domain-nav", "knowledge-explorer-scroll-domain"], ["topic-nav", "knowledge-explorer-scroll-topic"], ["detail-pane", "knowledge-explorer-scroll-detail"]]],
-    [768, "domain", [["domain-nav", "knowledge-explorer-scroll-domain"], ["topic-nav", "knowledge-explorer-scroll-topic"]]],
+    [BREAKPOINTS.medium, "domain", [["domain-nav", "knowledge-explorer-scroll-domain"], ["topic-nav", "knowledge-explorer-scroll-topic"]]],
     [375, "detail", [["detail-pane", "knowledge-explorer-scroll-detail"]]]
   ];
   for (const [logicalWidth, focusPane, expectedOwners] of cases) {
@@ -72,41 +79,50 @@ function testVisiblePanesHaveOneNamedScrollOwner() {
   }
 }
 
-function testNarrowDrillDownAndResize() {
+function testCompactCollapseAndWideExpansionPreserveState() {
   const root = new FakeElement("section");
-  const shell = view.mountKnowledgeExplorer({ container: root, model: model(), logicalWidth: 375 });
-  assert.equal(root.attr["data-layout"], "narrow");
+  const compactWidth = BREAKPOINTS.medium - 1;
+  const shell = view.mountKnowledgeExplorer({ container: root, model: model(), logicalWidth: compactWidth });
+  assert.equal(root.attr["data-layout"], "compact");
   assert.equal(walk(root, (node) => node.attr && node.attr["data-pane"] === "domain").length, 1);
   assert.equal(walk(root, (node) => node.attr && node.attr["data-pane"] === "middle").length, 0);
+  assert.equal(walk(root, (node) => node.attr && node.attr["data-pane"] === "detail").length, 0);
   assertScrollOwners(root, [["domain-nav", "knowledge-explorer-scroll-domain"]]);
 
   const domain = button(root, "domain");
-  assert.ok(domain, "narrow domain control should exist");
+  assert.ok(domain, "compact domain control should exist");
   click(domain);
   assert.equal(shell.state().focusPane, "middle");
-  assert.equal(root.attr["data-layout"], "narrow");
+  assert.equal(root.attr["data-layout"], "compact");
   assert.match(collectText(root), /도메인으로 돌아가기/);
   assertScrollOwners(root, [["topic-nav", "knowledge-explorer-scroll-topic"]]);
 
   const middle = button(root, "middle");
-  assert.ok(middle, "narrow topic/resource control should exist");
+  assert.ok(middle, "compact topic/resource control should exist");
   click(middle);
   assert.equal(shell.state().focusPane, "detail");
   assert.match(collectText(root), /주제·자료로 돌아가기/);
   assertScrollOwners(root, [["detail-pane", "knowledge-explorer-scroll-detail"]]);
 
   const selectedBeforeResize = shell.state();
-  shell.setLogicalWidth(1280);
+  shell.setLogicalWidth(BREAKPOINTS.wide);
   assert.equal(root.attr["data-layout"], "wide");
-  assert.deepEqual(shell.state(), selectedBeforeResize, "resize must preserve selection");
+  assert.equal(shell.state(), selectedBeforeResize, "wide expansion must retain the same explorer state object");
+  assert.deepEqual(shell.state(), selectedBeforeResize, "wide expansion must preserve domain, topic, detail, and focus state");
   assert.equal(walk(root, (node) => node.attr && node.attr["data-pane"] === "domain").length, 1);
   assert.equal(walk(root, (node) => node.attr && node.attr["data-pane"] === "middle").length, 1);
   assert.equal(walk(root, (node) => node.attr && node.attr["data-pane"] === "detail").length, 1);
   assertScrollOwners(root, [["domain-nav", "knowledge-explorer-scroll-domain"], ["topic-nav", "knowledge-explorer-scroll-topic"], ["detail-pane", "knowledge-explorer-scroll-detail"]]);
 
-  shell.setLogicalWidth(375);
+  shell.setLogicalWidth(compactWidth);
+  assert.equal(root.attr["data-layout"], "compact");
+  assert.equal(shell.state(), selectedBeforeResize, "compact collapse must retain the same explorer state object");
+  assert.deepEqual(shell.state(), selectedBeforeResize, "compact collapse must preserve domain, topic, detail, and focus state");
+  assert.equal(walk(root, (node) => node.attr && node.attr["data-pane"] === "domain").length, 0);
+  assert.equal(walk(root, (node) => node.attr && node.attr["data-pane"] === "middle").length, 0);
+  assert.equal(walk(root, (node) => node.attr && node.attr["data-pane"] === "detail").length, 1);
   const back = walk(root, (node) => node.tag === "button" && node.attr && node.attr["data-action"] === "back")[0];
-  assert.ok(back, "narrow detail must expose an explicit Korean back control");
+  assert.ok(back, "compact detail must expose an explicit Korean back control");
   click(back);
   assert.equal(shell.state().focusPane, "middle");
   assert.ok(walk(root, (node) => node.focused).some((node) => node.attr && node.attr["data-group"] === "middle"), "back should restore focus to the triggering middle control");
@@ -154,7 +170,7 @@ function testSelectedRecordRemovalRecoversDeterministically() {
 
 testResponsivePrimitives();
 testVisiblePanesHaveOneNamedScrollOwner();
-testNarrowDrillDownAndResize();
+testCompactCollapseAndWideExpansionPreserveState();
 testContentAndStateStress();
 testSelectedRecordRemovalRecoversDeterministically();
 

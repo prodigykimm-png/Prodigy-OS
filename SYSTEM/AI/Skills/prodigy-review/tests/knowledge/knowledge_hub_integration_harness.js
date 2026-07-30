@@ -15,8 +15,11 @@ function hubModulePaths(source) {
 const HUB_MODULE_PATHS = hubModulePaths(HUB_SOURCE);
 const MODULE_PATHS = [
   "SYSTEM/Views/design-tokens.js",
-  "SYSTEM/Views/display-registry.js",
+  "SYSTEM/Views/workspace-registry.js",
+  "SYSTEM/Views/prodigy-workspace-state-store.js",
+  "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
+  "SYSTEM/Views/display-registry.js",
   "SYSTEM/Views/knowledge-explorer-registry.js",
   "SYSTEM/Views/knowledge-authoring-validation.js",
   "SYSTEM/Views/knowledge-authoring-core.js",
