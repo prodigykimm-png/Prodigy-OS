@@ -18,94 +18,121 @@ if (typeof obsidian !== "undefined" && obsidian) {
   window.obsidian = obsidian;
 }
 
-const loadWorkoutScript = async (path) => {
-  const file = app.vault.getAbstractFileByPath(path);
-  if (!file) throw new Error(`Workout resource not found: ${path}`);
-  const code = await app.vault.read(file);
-  try {
-    (new Function(code))();
-  } catch (err) {
-    err.message = `${path}: ${err.message || err}`;
+const BOOTSTRAP_PATH = "SYSTEM/Views/prodigy-hub-loader.js";
+
+const WORKOUT_MANIFEST = {
+  required: [
+    "SYSTEM/Views/design-tokens.js",
+    "SYSTEM/Views/workspace-registry.js",
+    "SYSTEM/Views/prodigy-workspace-state-store.js",
+    "SYSTEM/Views/prodigy-app-shell.js",
+    "SYSTEM/Views/workspace-navigation.js",
+    "SYSTEM/Views/display-registry.js",
+    "SYSTEM/Views/object-engine-core.js",
+    "SYSTEM/Views/workout-core.js",
+    "SYSTEM/Views/workout-exercise-library.js",
+    "SYSTEM/Views/workout-analysis.js",
+    "SYSTEM/Views/workout-store.js",
+    "SYSTEM/Views/workout-import.js",
+    "SYSTEM/Views/workout-program-objects.js",
+    "SYSTEM/Views/workout-modals.js",
+    "SYSTEM/Views/workout-session-flow.js",
+    "SYSTEM/Views/workout-session-ui.js",
+    "SYSTEM/Views/workout-view.js",
+    "SYSTEM/Views/decision-packet-reasons.js",
+    "SYSTEM/Views/workout-decision-packet.js",
+    "SYSTEM/Views/knowledge-use-body-core.js",
+    "SYSTEM/Views/knowledge-use-body-store.js",
+    "SYSTEM/Views/knowledge-use-record-ui.js"
+  ],
+  optional: [
+    "SYSTEM/Views/prodigy-adaptive-controls.js",
+    "SYSTEM/Views/workout-health-responsive.js",
+    "SYSTEM/Views/workout-health-store.js",
+    "SYSTEM/Views/workout-nutrition-core.js",
+    "SYSTEM/Views/workout-running-core.js",
+    "SYSTEM/Views/workout-running-projection.js",
+    "SYSTEM/Views/workout-fit-parser.js",
+    "SYSTEM/Views/workout-health-shell.js",
+    "SYSTEM/Views/workout-nutrition-view.js",
+    "SYSTEM/Views/workout-running-view.js"
+  ]
+};
+
+const bootstrapLoader = async () => {
+  if (window.ProdigyHubLoader) return window.ProdigyHubLoader;
+  const file = app.vault.getAbstractFileByPath(BOOTSTRAP_PATH);
+  if (!file) {
+    const err = new Error(`${BOOTSTRAP_PATH} 를 찾을 수 없습니다 — 동기화가 끝나지 않았을 수 있습니다.`);
+    err.prodigySyncPending = true;
     throw err;
   }
+  (new Function(await app.vault.read(file)))();
+  return window.ProdigyHubLoader;
 };
 
-const loadWorkoutScriptOptional = async (path) => {
-  try {
-    await loadWorkoutScript(path);
-  } catch (err) {
-    if (window.prodigyDebugMode === true && console && console.warn) {
-      console.warn('Optional workout module not loaded:', path, err.message);
-    }
+const renderWorkout = async () => {
+  container.empty();
+  await bootstrapLoader();
+  const result = await window.ProdigyHubLoader.loadManifest(app, WORKOUT_MANIFEST);
+
+  if (result.required_failures.length) {
+    const err = new Error(result.required_failures.map((f) => f.summary).join(" / "));
+    err.prodigySyncPending = result.sync_pending;
+    err.prodigyRetryPaths = result.required_failures.map((f) => f.path);
+    throw err;
   }
-};
-
-const showError = (target, error) => {
-  target.empty();
-  const card = target.createEl("div", {
-    attr: {
-      style: "background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 16px; margin: 12px 0;"
-    }
-  });
-  card.createEl("h4", {
-    text: "운동 워크스페이스를 불러오지 못했습니다",
-    attr: { style: "margin:0 0 8px;color:#ef4444;" }
-  });
-  card.createEl("p", {
-    text: String(error && error.message ? error.message : error),
-    attr: { style: "font-size:0.85em;color:var(--text-normal);margin:0 0 8px;line-height:1.45;" }
-  });
-  const details = card.createEl("details");
-  details.createEl("summary", {
-    text: "상세 로그",
-    attr: { style: "cursor:pointer;font-size:0.8em;font-weight:700;" }
-  });
-  details.createEl("pre", {
-    text: (error && (error.stack || error.message)) || String(error),
-    attr: {
-      style: "font-size:0.72em;background:rgba(0,0,0,0.15);padding:8px;border-radius:4px;overflow-x:auto;margin-top:6px;white-space:pre-wrap;"
-    }
-  });
-  if (window.prodigyDebugMode === true && console && console.error) console.error(error);
-};
-
-try {
-  await loadWorkoutScript("SYSTEM/Views/design-tokens.js");
-  await loadWorkoutScript("SYSTEM/Views/display-registry.js");
-  await loadWorkoutScript("SYSTEM/Views/workspace-navigation.js");
-  await loadWorkoutScript("SYSTEM/Views/object-engine-core.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-core.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-exercise-library.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-analysis.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-store.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-import.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-program-objects.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-modals.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-session-flow.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-session-ui.js");
-  await loadWorkoutScriptOptional("SYSTEM/Views/workout-health-store.js");
-  await loadWorkoutScriptOptional("SYSTEM/Views/workout-nutrition-core.js");
-  await loadWorkoutScriptOptional("SYSTEM/Views/workout-running-core.js");
-  await loadWorkoutScriptOptional("SYSTEM/Views/workout-running-projection.js");
-  await loadWorkoutScriptOptional("SYSTEM/Views/workout-fit-parser.js");
-  await loadWorkoutScriptOptional("SYSTEM/Views/workout-health-shell.js");
-  await loadWorkoutScriptOptional("SYSTEM/Views/workout-nutrition-view.js");
-  await loadWorkoutScriptOptional("SYSTEM/Views/workout-running-view.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-view.js");
-  await loadWorkoutScript("SYSTEM/Views/decision-packet-reasons.js");
-  await loadWorkoutScript("SYSTEM/Views/workout-decision-packet.js");
-  await loadWorkoutScript("SYSTEM/Views/knowledge-use-body-core.js");
-  await loadWorkoutScript("SYSTEM/Views/knowledge-use-body-store.js");
-  await loadWorkoutScript("SYSTEM/Views/knowledge-use-record-ui.js");
-
   if (!window.WorkoutView || typeof window.WorkoutView.renderDashboard !== "function") {
     throw new Error("WorkoutView.renderDashboard 가 없습니다. workout-view.js 로드를 확인하세요.");
   }
-  const navigationMount = container.createDiv({ attr: { class: "workout-workspace-navigation" } });
-  const workoutMount = container.createDiv({ attr: { class: "workout-workspace-content" } });
-  window.ProdigyWorkspaceNavigation.mount(navigationMount, { app, title: "운동" });
+
+  const shell = window.ProdigyWorkspaceNavigation.mount(container, {
+    app,
+    workspaceId: "workout",
+    title: "운동"
+  });
+  const workoutMount = shell.body.createDiv({ attr: { class: "workout-workspace-content" } });
+  if (result.optional_failures.length && window.prodigyDebugMode === true && console && console.warn) {
+    console.warn("운동 선택 모듈 미로드:", result.optional_failures.map((f) => f.summary).join(" / "));
+  }
   await window.WorkoutView.renderDashboard(app, workoutMount);
+};
+
+const retryWorkout = async () => {
+  const loader = window.ProdigyHubLoader;
+  if (loader && typeof loader.retry === "function") {
+    loader.retry(WORKOUT_MANIFEST.required.concat(WORKOUT_MANIFEST.optional));
+  }
+  try {
+    await renderWorkout();
+  } catch (error) {
+    showWorkoutError(error);
+  }
+};
+
+const showWorkoutError = (error) => {
+  const syncPending = Boolean(error && error.prodigySyncPending);
+  const message = syncPending
+    ? "필요한 파일이 이 기기에 아직 내려오지 않았습니다. iCloud 동기화가 끝난 뒤 다시 시도해 주세요."
+    : "화면을 다시 열거나 Obsidian을 재시작한 뒤 다시 시도해 주세요.";
+  if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
+    window.ProdigyWorkspaceNavigation.renderLoaderError(container, error, {
+      title: "운동",
+      message,
+      retry: retryWorkout
+    });
+    return;
+  }
+  container.empty();
+  const card = container.createEl("section", { attr: { role: "alert" } });
+  card.createEl("p", { text: `운동 워크스페이스를 불러오지 못했습니다. ${message}` });
+  const button = card.createEl("button", { text: "다시 시도", attr: { type: "button" } });
+  button.onclick = retryWorkout;
+};
+
+try {
+  await renderWorkout();
 } catch (error) {
-  showError(container, error);
+  showWorkoutError(error);
 }
 ```
