@@ -8,7 +8,7 @@
  * Contract: .omo/plans/prodigy-region-workspace-consolidation.md Todo 14
  */
 
-const viewModel = require("./region-decision-view-model.js");
+const root = typeof window !== "undefined" ? window : globalThis;
 
 const BADGE_CLASSES = Object.freeze({
   fresh: "region-badge-fresh",
@@ -133,7 +133,7 @@ function popupStyles() {
 `;
 }
 
-module.exports = Object.freeze({
+const api = Object.freeze({
   BADGE_CLASSES,
   renderTrustBadges,
   renderTabBar,
@@ -141,3 +141,6 @@ module.exports = Object.freeze({
   renderPopup,
   popupStyles
 });
+
+root.RegionIntelligencePopupView = api;
+if (typeof module !== "undefined" && module.exports) module.exports = api;

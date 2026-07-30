@@ -16,3 +16,11 @@ def test_mobile_dataview_collections_are_normalized_before_for_each():
     assert "toPlainArray(pages).forEach" in shared, (
         "Shared dashboard must normalize Dataview collections before rendering on mobile"
     )
+
+
+def test_loader_error_exposes_failing_stage_and_message_on_ios():
+    hub = HUB.read_text(encoding="utf-8")
+
+    assert "activeLoadPath" in hub
+    assert "err.message" in hub
+    assert "실패 단계:" in hub
