@@ -8,6 +8,8 @@
   const exerciseLibrary = root.WorkoutExerciseLibrary || (typeof require === "function" ? require("./workout-exercise-library.js") : null);
   const analysis = root.WorkoutAnalysis || (typeof require === "function" ? require("./workout-analysis.js") : null);
   const modals = root.WorkoutModals || (typeof require === "function" ? require("./workout-modals.js") : null);
+  const sessionFlow = root.WorkoutSessionFlow || (typeof require === "function" ? require("./workout-session-flow.js") : null);
+  const sessionUI = root.WorkoutSessionUI || (typeof require === "function" ? require("./workout-session-ui.js") : null);
 
   /**
    * Modal base must never be undefined — `class X extends undefined` aborts the whole
@@ -118,9 +120,10 @@
     const activeProgram = activeRun
       ? (core.programForRun(libraryProgram, activeRun) || libraryProgram)
       : null;
-    const draft = activeRun
-      ? sessions.find((session) => session.program_run_id === activeRun.run_id && session.status === "draft") || null
-      : sessions.find((session) => session.status === "draft") || null;
+    const strengthDrafts = sessions
+      .filter((session) => session && session.status === "draft" && core.normalizeSessionKind(session) !== "quick")
+      .sort((left, right) => String(right.started_at || right.date).localeCompare(String(left.started_at || left.date)));
+    const draft = strengthDrafts.find((session) => session.runner_active === true) || strengthDrafts[0] || null;
     const base = {
       store, programs, runs, sessions, activeRun, activeProgram, libraryProgram, draft,
       metrics: await journalMetrics(app),
@@ -224,8 +227,7 @@
     const warning = core.daySelectionWarning(state.activeProgram, state.sessions, state.activeRun.run_id, dayId);
     if (warning && root.confirm && !root.confirm(warning)) return;
     const session = core.createWorkoutSession(state.activeProgram, state.activeRun, dayId, { session_id: uniqueId("session"), date: today() });
-    await state.store.saveSession(session);
-    await refresh();
+    await sessionFlow.startDraft(root.app, state, session, refresh);
   }
 
   function previousText(previous) {
@@ -358,7 +360,10 @@
       });
       return;
     }
-    box.createEl("div", { text: cont.title || "오늘 운동", attr: { class: "workout-continue-title" } });
+    const continueTitle = cont.kind === "resume_draft" && state.draft
+      ? `${sessionFlow.kindLabel(state.draft)} · ${cont.title || "오늘 운동"}`
+      : (cont.title || "오늘 운동");
+    box.createEl("div", { text: continueTitle, attr: { class: "workout-continue-title" } });
     if (cont.detail) {
       box.createEl("div", { text: cont.detail, attr: { class: "workout-muted" } });
     }
@@ -406,12 +411,10 @@
       const isActiveDraft = state.draft && state.draft.session_id === item.session_id;
       if (isActiveDraft) {
         button(actions, "기록 중").disabled = true;
-      } else if (state.activeRun && item.program_run_id === state.activeRun.run_id) {
+      } else {
         button(actions, "이 초안 열기", true).onclick = async () => {
-          // Prefer this draft by refreshing focus — already in state.sessions
-          notice("해당 초안이 현재 실행에 연결되어 있습니다. 아래에서 이어서 기록하세요.");
-          const el = parent.querySelector && parent.querySelector(".workout-session-live");
-          if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          await sessionFlow.activateDraft(state, item.session_id);
+          await refresh();
         };
       }
       button(actions, "버리기").onclick = async () => {
@@ -494,7 +497,7 @@
   function renderSession(parent, state, refresh) {
     if (!state.draft) return;
     const session = state.draft;
-    const area = section(parent, `${core.dayLabel(session) || "오늘 세션"}`, "필수: 완료 체크 · 중량/횟수. 이전이 있으면 원탭 복제.");
+    const area = section(parent, `${sessionFlow.kindLabel(session)} · ${core.dayLabel(session) || session.title || "오늘 세션"}`, "필수: 완료 체크 · 중량/횟수. 이전이 있으면 원탭 복제.");
     area.addClass && area.addClass("workout-session-live");
     if (!area.classList || !area.classList.contains("workout-session-live")) {
       area.setAttribute && area.setAttribute("class", `${area.getAttribute("class") || ""} workout-session-live`.trim());
@@ -537,6 +540,7 @@
         notice(error.message || "삭제 실패");
       }
     };
+    sessionUI.renderFreeDraftTools(area, { app: root.app, state, session, refresh });
 
     session.exercise_results.forEach((exercise) => {
       const card = area.createDiv({ attr: { class: "workout-exercise-card" } });
@@ -608,6 +612,7 @@
           await refresh();
         };
       }
+      sessionUI.renderExerciseActions(prevBox, { app: root.app, state, session, exercise, refresh });
       // Set add — top of exercise, one tap
       const setToolbar = card.createDiv({ attr: { class: "workout-set-toolbar" } });
       const addSetBtn = button(setToolbar, "세트 추가", true);
@@ -721,14 +726,18 @@
           state.activeRun,
           state.sessions.filter((item) => item.session_id !== session.session_id)
         );
-        await state.store.saveSession(result.session);
-        await state.store.saveRun(result.run);
-        const nextLabel = result.run.suggested_day && state.activeProgram
-          ? core.dayLabel(state.activeProgram.days.find((d) => d.id === result.run.suggested_day) || {})
-          : "";
-        notice(result.run.status === "completed"
-          ? "프로그램 실행을 완료했습니다."
-          : (nextLabel ? `운동 완료 · 다음 ${nextLabel}` : "운동을 완료했습니다."));
+        await state.store.saveSession({ ...result.session, runner_active: false });
+        if (core.normalizeSessionKind(session) === "programmed") {
+          await state.store.saveRun(result.run);
+          const nextLabel = result.run.suggested_day && state.activeProgram
+            ? core.dayLabel(state.activeProgram.days.find((d) => d.id === result.run.suggested_day) || {})
+            : "";
+          notice(result.run.status === "completed"
+            ? "프로그램 실행을 완료했습니다."
+            : (nextLabel ? `운동 완료 · 다음 ${nextLabel}` : "운동을 완료했습니다."));
+        } else {
+          notice("자유운동을 완료했습니다.");
+        }
         await refresh();
       } catch (error) {
         finish.disabled = false;
@@ -740,7 +749,8 @@
   function renderCurrent(parent, state, refresh) {
     const area = section(parent, "현재 프로그램", "완료 세션 기준 다음 Day 제안");
     if (!state.activeRun || !state.activeProgram) {
-      empty(area, "진행 중인 프로그램이 없습니다. 라이브러리에서 프로그램을 시작하세요.");
+      empty(area, "진행 중인 프로그램이 없습니다. 시작 전에도 주차·요일 배정을 확인하고 편집할 수 있습니다.");
+      sessionUI.renderScheduleAccess(area, state, (program) => new ProgramEditorModal(root.app, program, state, refresh).open());
       return;
     }
     const summary = area.createDiv({ attr: { class: "workout-current" } });
@@ -925,23 +935,13 @@
   }
 
   function renderHistory(parent, state) {
-    const area = section(parent, "운동 기록", "완료 세션 타임라인 · Run · 빠른 운동");
-    const timeline = (state.model && state.model.timeline) || core.completedSessionTimeline(state.sessions, 12);
+    const area = section(parent, "운동 기록", "완료 세션 타임라인 · 프로그램 · 자유운동 · 빠른 기록");
+    const sessionCount = sessionUI.renderSessionHistory(area, state.sessions);
     const completedRuns = state.runs
       .filter((run) => ["completed", "abandoned"].includes(run.status))
       .sort((a, b) => String(b.completed_at || "").localeCompare(String(a.completed_at || "")));
-    if (!timeline.length && !completedRuns.length) {
+    if (!sessionCount && !completedRuns.length) {
       return empty(area, "아직 완료된 운동 기록이 없습니다.");
-    }
-    if (timeline.length) {
-      area.createEl("h3", { text: "최근 세션", attr: { style: "margin:8px 0 4px;font-size:0.92em;" } });
-      timeline.forEach((item) => {
-        const row = area.createDiv({ attr: { class: "workout-history-row" } });
-        row.createEl("strong", { text: item.title });
-        row.createEl("span", {
-          text: [item.date, item.sets_label, item.distance, item.duration].filter(Boolean).join(" · ")
-        });
-      });
     }
     if (completedRuns.length) {
       area.createEl("h3", { text: "프로그램 실행", attr: { style: "margin:12px 0 4px;font-size:0.92em;" } });
@@ -970,7 +970,7 @@
 
   function injectStyles(container) {
     container.createEl("style", { text: `
-.prodigy-workout-dashboard{max-width:920px;margin:0 auto;padding-bottom:48px}.workout-toolbar{display:flex;justify-content:flex-end;gap:8px;margin:8px 0 16px}.workout-button{min-height:40px;border-radius:6px;padding:6px 12px}.workout-section{padding:20px 0;border-bottom:1px solid var(--background-modifier-border)}.workout-section h2{margin:0;font-size:1.05em}.workout-section-copy,.workout-muted,.workout-empty{color:var(--text-muted);font-size:.82em;line-height:1.45;margin:4px 0 12px}.workout-current,.workout-library-row,.workout-history-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.workout-current h3,.workout-exercise-heading h3{margin:0;font-size:1.12em}.workout-current p,.workout-exercise-heading p{margin:3px 0 0;color:var(--text-muted);font-size:.78em}.workout-exercise-title-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 8px}
+.prodigy-workout-dashboard{max-width:920px;margin:0 auto;padding-bottom:48px}.workout-toolbar{display:flex;justify-content:flex-end;gap:8px;margin:8px 0 16px}.workout-button{min-height:40px;border-radius:6px;padding:6px 12px}.workout-section{padding:20px 0;border-bottom:1px solid var(--background-modifier-border)}.workout-section h2{margin:0;font-size:1.05em}.workout-section-copy,.workout-muted,.workout-empty{color:var(--text-muted);font-size:.82em;line-height:1.45;margin:4px 0 12px}.workout-current,.workout-library-row,.workout-history-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.workout-current h3,.workout-exercise-heading h3{margin:0;font-size:1.12em}.workout-current p,.workout-exercise-heading p{margin:3px 0 0;color:var(--text-muted);font-size:.78em}.workout-exercise-title-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 8px}.workout-start-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.workout-start-path{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--background-modifier-border);border-radius:8px}.workout-start-path h3,.workout-start-path p{margin:0}.workout-start-path .workout-button{margin-top:auto}.workout-start-path select{width:100%;min-height:44px}
 .workout-exercise-link{border:0;background:none;padding:0;color:var(--text-accent);font:inherit;font-weight:700;text-align:left;cursor:pointer}
 .workout-exercise-note-link{border:0;background:none;padding:0;margin:0;color:var(--text-muted);font-size:0.72em;font-weight:650;cursor:pointer;text-decoration:underline;text-underline-offset:2px;opacity:0.9}
 .workout-exercise-note-link:hover{color:var(--text-accent)}
@@ -1009,14 +1009,6 @@
 .workout-exercise-body-line{font-size:.88em;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
 
 .workout-session-bar{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px;margin:0 -14px 12px;background:var(--background-primary);border-bottom:2px solid var(--background-modifier-border);border-radius:0 0 10px 10px}
-.workout-session-bar-info{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
-.workout-session-bar-info strong{font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.workout-session-bar .workout-progress-track{flex:0 0 80px;height:6px}
-.workout-rest-timer{display:flex;align-items:center;gap:6px}
-.workout-rest-timer[hidden]{display:none}
-.workout-rest-label{font-size:1.1em;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text-accent)}
-.workout-rest-controls{display:flex;gap:4px}
-.workout-next-set-btn{white-space:nowrap}
 .workout-health-tablist{display:flex;gap:4px;margin:0 0 16px;border-bottom:2px solid var(--background-modifier-border);padding-bottom:0}
 .workout-health-tab{min-height:44px;padding:8px 16px;border:0;background:none;font-size:.92em;font-weight:650;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s}
 .workout-health-tab:hover{color:var(--text-normal)}
@@ -1079,7 +1071,7 @@
 .workout-import-table th,.workout-import-table td{padding:5px 6px;text-align:left;border-bottom:1px solid var(--background-modifier-border)}
 .workout-import-table th{font-weight:700;color:var(--text-muted)}
 .workout-import-warnings{font-size:.78em;padding-left:1.2em;margin:6px 0}
-@media(max-width:600px){.prodigy-workout-dashboard{padding:0 4px 40px}.workout-toolbar,.workout-inline-actions,.workout-modal-actions{flex-direction:column}.workout-toolbar .workout-button,.workout-inline-actions .workout-button,.workout-modal-actions .workout-button{width:100%;min-height:44px}.workout-current,.workout-library-row,.workout-history-row,.workout-exercise-heading{align-items:stretch;flex-direction:column}.workout-day-chooser,.workout-editor-heading,.workout-editor-set,.workout-editor-add,.workout-editor-meta,.workout-editor-day-head{grid-template-columns:1fr}.workout-editor-controls{display:grid;grid-template-columns:repeat(3,1fr)}.workout-editor-controls .workout-button{min-height:44px}.workout-day-chooser .workout-button{min-height:48px}.workout-section{padding:16px 0}.workout-exercise-card{padding:12px}.workout-previous{text-align:left}.workout-set-row{grid-template-columns:40px minmax(0,1fr)}.workout-set-row-min{grid-template-columns:40px 24px minmax(0,1fr) auto}.workout-set-remove{min-width:44px;min-height:44px!important}.workout-set-row>strong{font-size:.82em}.workout-set-fields,.workout-set-fields-min{grid-column:1/-1}.workout-set-row>.workout-field{grid-column:1/-1}.workout-field input{min-height:44px}.workout-modal-grid{grid-template-columns:1fr}.workout-chip-btn{min-height:40px!important}.workout-session-bar{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px;margin:0 -14px 12px;background:var(--background-primary);border-bottom:2px solid var(--background-modifier-border);border-radius:0 0 10px 10px}
+@media(max-width:600px){.prodigy-workout-dashboard{padding:0 4px 40px}.workout-toolbar,.workout-inline-actions,.workout-modal-actions{flex-direction:column}.workout-toolbar .workout-button,.workout-inline-actions .workout-button,.workout-modal-actions .workout-button{width:100%;min-height:44px}.workout-start-grid{grid-template-columns:1fr}.workout-current,.workout-library-row,.workout-history-row,.workout-exercise-heading{align-items:stretch;flex-direction:column}.workout-day-chooser,.workout-editor-heading,.workout-editor-set,.workout-editor-add,.workout-editor-meta,.workout-editor-day-head{grid-template-columns:1fr}.workout-editor-controls{display:grid;grid-template-columns:repeat(3,1fr)}.workout-editor-controls .workout-button{min-height:44px}.workout-day-chooser .workout-button{min-height:48px}.workout-section{padding:16px 0}.workout-exercise-card{padding:12px}.workout-previous{text-align:left}.workout-set-row{grid-template-columns:40px minmax(0,1fr)}.workout-set-row-min{grid-template-columns:40px 24px minmax(0,1fr) auto}.workout-set-remove{min-width:44px;min-height:44px!important}.workout-set-row>strong{font-size:.82em}.workout-set-fields,.workout-set-fields-min{grid-column:1/-1}.workout-set-row>.workout-field{grid-column:1/-1}.workout-field input{min-height:44px}.workout-modal-grid{grid-template-columns:1fr}.workout-chip-btn{min-height:40px!important}.workout-session-bar{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 14px;margin:0 -14px 12px;background:var(--background-primary);border-bottom:2px solid var(--background-modifier-border);border-radius:0 0 10px 10px}
 .workout-session-bar-info{display:flex;align-items:baseline;gap:8px;min-width:0;flex:1}
 .workout-session-bar-info strong{font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .workout-session-bar .workout-progress-track{flex:0 0 80px;height:6px}
@@ -1174,7 +1166,15 @@
     const toolbar = container.createDiv({ attr: { class: "workout-toolbar" } });
     button(toolbar, "새 프로그램", true).onclick = () => new CreateProgramModal(app, state, refresh).open();
     button(toolbar, "프로그램 가져오기").onclick = () => new ImportProgramModal(app, refresh).open();
-    button(toolbar, "빠른 운동").onclick = () => new QuickWorkoutModal(app, refresh).open();
+    sessionUI.renderEntryPaths(container, {
+      app, state, refresh,
+      startProgram: (program) => startProgram(app, program, state, refresh),
+      quickLabel: "빠른 운동",
+      resumeRunner: () => {
+        const el = container.querySelector && container.querySelector(".workout-session-live");
+        if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      },
+    });
     // Order: continue → session (if draft) → current → drafts/stale → WO notes → library → history
     renderContinueStrip(container, state, refresh);
     renderJournalMetrics(container, state.metrics);
