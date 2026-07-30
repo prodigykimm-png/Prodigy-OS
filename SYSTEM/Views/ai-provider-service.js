@@ -128,6 +128,10 @@
 
   function normalizeGeminiSchema(schema) { return root.AIProviderSchema.normalizeGeminiSchema(schema); }
   function normalizeStructuredSchema(schema, provider) { return root.AIProviderSchema.normalizeStructuredSchema(schema, provider); }
+  function isFormatRejection(error) {
+    const haystack = [error && error.message, error && error.responseText, error].map((part) => String(part || "")).join("\n");
+    return /요청 형식|response_format|json_schema|output format|JSON 출력 형식|Invalid value for 'response_format'|'response_format'|invalid_request_error/i.test(haystack);
+  }
 
   async function requestGemini(options, apiKey) {
     const body = {
@@ -156,6 +160,7 @@
     if (!baseURL) throw new Error(`${provider.name || "Provider"} baseURL is not configured.`);
     const capabilities = provider.capabilities || {};
     const useJsonSchema = capabilities.structuredOutput === "json-schema" && options.schema;
+    const forcePlain = options.forcePlain === true;
     const body = {
       model: provider.model,
       stream: false,
@@ -163,8 +168,9 @@
         { role: "system", content: "Return strict JSON only." },
         { role: "user", content: options.prompt }
       ],
-      response_format: useJsonSchema
-        ? {
+      response_format: (forcePlain || !useJsonSchema)
+        ? { type: "json_object" }
+        : {
             type: "json_schema",
             json_schema: {
               name: provider.responseSchemaName || "prodigy_response",
@@ -172,7 +178,6 @@
               schema: normalizeStructuredSchema(options.schema, provider)
             }
           }
-        : { type: "json_object" }
     };
     if (capabilities.conservativeProposal === true) body.temperature = 0;
     if (provider.reasoningEffort) body.reasoning_effort = provider.reasoningEffort;
@@ -203,8 +208,19 @@
       } catch (error) {
         const status = Number(error && error.status || 0);
         const shouldRetry = TRANSIENT_HTTP_STATUSES.has(status) && attempt < RETRY_DELAYS_MS.length;
-        if (!shouldRetry) throw error;
-        await sleep(RETRY_DELAYS_MS[attempt]);
+        if (shouldRetry) {
+          await sleep(RETRY_DELAYS_MS[attempt]);
+          continue;
+        }
+        if (!options.forcePlain && provider.adapter !== "gemini" && status === 400 && isFormatRejection(error)) {
+          try {
+            const plainResponse = await requestOpenAiCompatible(Object.assign({}, options, { forcePlain: true }), apiKey);
+            return parseJsonPayload(extractJsonText(plainResponse));
+          } catch (_plainError) {
+            // 형식 거부 다운그레이드도 실패하면 원래 오류를 그대로 표시
+          }
+        }
+        throw error;
       }
     }
     throw new Error("AI 요청을 완료하지 못했습니다.");

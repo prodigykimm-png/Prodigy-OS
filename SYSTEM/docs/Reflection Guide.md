@@ -137,7 +137,8 @@ Weekly Review
 * **Experience만 필수** — 가벼운 블록도 허용
 * **Interpretation / Change / Next Experiment / Context / Related Objects** — 선택
 * `Next Experiment`는 사용자가 직접 말하거나 명확히 선택한 범위만 저장하며, AI가 날짜·수량·채널·단계를 발명하지 않음
-* Home의 **「AI 성찰」** 또는 Journal의 **「AI 성찰 분석」**에서 자유 입력 → Gemini 제안 → Evidence 선택 반영
+* Home의 **「AI 성찰」** 또는 Journal의 **「일기 쓰기·분류」**에서 자유 입력 → Daily 원문 저장 → AI 분류 제안 → Evidence 선택 반영
+* AI 요청이 실패해도 먼저 저장된 원문 일기는 유지되며, 같은 내용으로 분류만 다시 시도할 수 있음
 * AI는 Evidence와 Knowledge / Resource / Object / PRE 후보를 함께 제안하지만, 선택한 Evidence만 Daily에 저장함
 * API·에이전트와 무관한 canonical 규칙은 `SYSTEM/AI/Skills/prodigy-daily-reflection/` 한 경로에서 관리함
 * 기존 `## 성찰 / 변화 / 다음 실험` 형식은 계속 읽힘 (단일 legacy 증거)
