@@ -16,6 +16,10 @@ const REGISTRY_PATHS = [
   "SYSTEM/SCRIPTS/region-metrics-incheon-manifest.json"
 ];
 const MODULE_PATHS = [
+  "SYSTEM/Views/design-tokens.js",
+  "SYSTEM/Views/workspace-registry.js",
+  "SYSTEM/Views/prodigy-workspace-state-store.js",
+  "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
   "SYSTEM/SCRIPTS/region-metrics-registry-core.js",
   "SYSTEM/Views/region-explorer-projection.js",
@@ -93,13 +97,13 @@ function walk(node, predicate, found = []) {
 function controlLayout(container, width) {
   const controls = walk(container, (node) => node.attr && node.attr.class === "region-explorer-controls")[0];
   const style = walk(container, (node) => node.tag === "style" && node.attr && node.attr["data-region-explorer-style"] === "true")[0];
-  const narrow = width <= 599;
+  const compact = width < 768;
   const stacked = Boolean(controls && controls.attr && controls.attr["data-control-layout"] === "stacked");
-  const fullWidthRule = style && /\.region-explorer-control,\.region-explorer-add-action\{min-inline-size:100%;inline-size:100%/.test(style.text);
+  const fullWidthRule = style && /\[data-control-layout="stacked"\][^{]*\.region-explorer-control,[^{]*\[data-control-layout="stacked"\][^{]*\.region-explorer-add-action\{min-inline-size:100%;inline-size:100%/.test(style.text);
   const items = (controls && controls.children || []).filter((node) => node.attr && /(region-explorer-control|region-explorer-add-action)/.test(node.attr.class || ""));
-  const itemWidths = items.map(() => narrow && stacked && fullWidthRule ? width : Math.min(width, 192));
+  const itemWidths = items.map(() => compact && stacked && fullWidthRule ? width : Math.min(width, 192));
   const scrollWidth = itemWidths.length ? Math.max(...itemWidths) : 0;
-  return { clientWidth: width, scrollWidth, rows: narrow && stacked && fullWidthRule ? itemWidths.length : 1, itemCount: itemWidths.length, stacked };
+  return { clientWidth: width, scrollWidth, rows: compact && stacked && fullWidthRule ? itemWidths.length : 1, itemCount: itemWidths.length, stacked };
 }
 
 function extractDataviewBlock(markdown) {
@@ -190,6 +194,8 @@ test("Region Hub mounts the actual read-only fixture path in module order, inclu
   assert.match(renderedText(first.container), /부산광역시 해운대구/);
   assert.match(renderedText(first.container), /인천광역시 부평구/);
   assert.match(renderedText(first.container), /히스토리.*올바르지/);
+  assert.match(renderedText(first.container), /읽기 전용/);
+  assert.equal(walk(first.container, (node) => node.attr && node.attr["data-scroll-owner"] === "region-workspace-body").length, 1);
   assert.deepEqual(first.writes, []);
   assert.deepEqual(first.providers, []);
 
@@ -296,10 +302,10 @@ test("Given a 599px Region Hub fixture When the experience trigger renders Then 
   const trigger = walk(hub.container, (node) => node.attr && node.attr["data-action"] === "add-region-experience")[0];
   const css = walk(hub.container, (node) => node.tag === "style" && node.attr && node.attr["data-region-explorer-style"] === "true")[0].text;
 
-  assert.equal(shell.attr["data-layout"], "narrow");
+  assert.equal(shell.attr["data-layout"], "compact");
   assert.equal(trigger.attr["aria-label"], "지역 경험 추가");
   assert.match(css, /\.region-explorer-button\{[^}]*min-inline-size:0[^}]*word-break:keep-all[^}]*overflow-wrap:anywhere/);
-  assert.match(css, /\.region-explorer-control,\.region-explorer-add-action\{min-inline-size:100%;inline-size:100%/);
+  assert.match(css, /\[data-control-layout="stacked"\][^{]*\.region-explorer-control,[^{]*\[data-control-layout="stacked"\][^{]*\.region-explorer-add-action\{min-inline-size:100%;inline-size:100%/);
 });
 
 test("Given 375px and 599px Hub fixtures When the Region Experience trigger renders Then controls stack without a horizontal-overflow signal", async () => {
@@ -311,7 +317,7 @@ test("Given 375px and 599px Hub fixtures When the Region Experience trigger rend
     const trigger = walk(hub.container, (node) => node.attr && node.attr["data-action"] === "add-region-experience")[0];
 
     assert.equal(layout.clientWidth, width);
-    assert.equal(layout.stacked, true, `${width}px fixture renders the controls in their narrow stacked state`);
+    assert.equal(layout.stacked, true, `${width}px fixture renders the controls in their compact stacked state`);
     assert.ok(layout.scrollWidth <= layout.clientWidth, `${width}px fixture must not signal horizontal overflow`);
     assert.equal(layout.rows, layout.itemCount, `${width}px fixture stacks every control`);
     assert.equal(trigger.text, "지역 경험 추가");
@@ -544,7 +550,7 @@ test("Given a canonical Region with malformed history When Region Experience is 
 test("Given a malformed startup registry When the Hub fails to mount Then only concise Korean recovery copy is exposed", async () => {
   const hub = await runHub({}, { sourceOverrides: { "SYSTEM/SCRIPTS/region-metrics-manifest-index.json": "{ registry-raw-31415" } });
 
-  assert.match(renderedText(hub.container), /지역 비교 화면을 불러오지 못했습니다/);
+  assert.match(renderedText(hub.container), /지역 비교 워크스페이스를 불러오지 못했습니다/);
   assert.doesNotMatch(renderedText(hub.container), /registry-raw-31415|Unexpected token|SyntaxError/);
   assert.deepEqual(hub.writes, []);
   assert.deepEqual(hub.providers, []);

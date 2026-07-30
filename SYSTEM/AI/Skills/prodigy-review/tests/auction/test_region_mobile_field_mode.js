@@ -7,6 +7,7 @@ const test = require("node:test");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const popupView = require(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-view.js"));
 const viewModel = require(path.join(ROOT, "SYSTEM/Views/region-decision-view-model.js"));
+const tokens = require(path.join(ROOT, "SYSTEM/Views/design-tokens.js"));
 
 function sampleProjection() {
   return viewModel.projectRegionPopup({
@@ -69,13 +70,13 @@ test("tab bar: scrollable on narrow", () => {
   assert.match(tabBar, /role="tablist"/);
 });
 
-test("modal: full-screen mobile, dialog desktop", () => {
+test("modal: full-screen compact, dialog desktop", () => {
   const html = popupView.renderPopup({ projection: sampleProjection(), activeTabIndex: 0 });
   assert.match(html, /role="dialog"/);
   assert.match(html, /aria-label/);
   // CSS handles responsive
   const css = popupView.popupStyles();
-  assert.match(css, /@media\s*\(max-width:\s*390px\)/);
+  assert.match(css, new RegExp(`@media\\s*\\(max-width:\\s*${tokens.BREAKPOINTS.medium - 1}px\\)`));
   assert.match(css, /width:\s*100vw/);
 });
 

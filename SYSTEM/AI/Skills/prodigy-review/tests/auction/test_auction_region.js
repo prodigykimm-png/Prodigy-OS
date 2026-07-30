@@ -181,7 +181,9 @@ function main() {
   assert.match(popupCore, /NEVER writes/);
   const popupView = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-view.js"), "utf8");
   assert.match(popupView, /renderPopup/);
-  assert.match(popupView, /min-height:\s*44px/);
+  assert.match(popupView, /CONTROL_HEIGHTS\.touchTarget/);
+  assert.doesNotMatch(popupView, /min-height:\s*44px/);
+  assert.match(require(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-view.js")).popupStyles(), /min-height:\s*44px/);
   const decisionVM = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/region-decision-view-model.js"), "utf8");
   assert.match(decisionVM, /projectRegionPopup/);
   assert.match(decisionVM, /computeTrustBadges/);

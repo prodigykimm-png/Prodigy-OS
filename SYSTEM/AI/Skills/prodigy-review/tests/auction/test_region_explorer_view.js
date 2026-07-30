@@ -1,8 +1,19 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 const view = require("../../../../../Views/region-explorer-view.js");
+
+const ROOT = path.resolve(__dirname, "../../../../../../");
+const READ_ONLY_SURFACES = Object.freeze([
+  "HUB/15 Region.md",
+  "SYSTEM/Views/region-explorer-view.js",
+  "SYSTEM/Views/region-intelligence-popup-core.js",
+  "SYSTEM/Views/region-intelligence-popup-view.js",
+  "SYSTEM/Views/auction-region-packet.js"
+]);
 
 class FakeElement {
   constructor(tag = "div") { this.tag = tag; this.children = []; this.text = ""; this.attr = {}; this.style = {}; this.classNames = []; this.clientWidth = 1280; }
@@ -43,6 +54,30 @@ const projection = { rows: [
   row({ sido: "인천광역시", sigungu: "부평구", volume: 30 })
 ] };
 
+test("Given Region surfaces When their source is inspected Then no Vault write API is present", () => {
+  for (const relativePath of READ_ONLY_SURFACES) {
+    const source = fs.readFileSync(path.join(ROOT, relativePath), "utf8");
+    assert.doesNotMatch(source, /processFrontMatter|vault\.(?:modify|create|delete)/u, relativePath);
+    assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}|rgba\(|hsla\(/u, relativePath);
+    if (relativePath.endsWith("region-intelligence-popup-view.js")) assert.doesNotMatch(source, /add-site-visit/u, relativePath);
+  }
+});
+
+test("Given explicit wide and compact logical widths When Region comparison renders Then it switches from side-by-side to one stacked column", () => {
+  const state = { selected_region_keys: projection.rows.slice(0, 2).map((item) => item.identity.region_key) };
+  const wide = new FakeElement("section");
+  const compact = new FakeElement("section");
+
+  view.renderRegionExplorer(wide, projection, { logicalWidth: 1024, state });
+  view.renderRegionExplorer(compact, projection, { logicalWidth: 767, state });
+
+  assert.equal(wide.attr["data-layout"], "wide");
+  assert.equal(find(wide, (node) => node.attr && node.attr["data-comparison-layout"])?.attr["data-comparison-layout"], "side-by-side");
+  assert.equal(compact.attr["data-layout"], "compact");
+  assert.equal(find(compact, (node) => node.attr && node.attr["data-comparison-layout"])?.attr["data-comparison-layout"], "stacked");
+  assert.ok(walk(compact, (node) => node.attr && node.attr.class === "region-explorer-values" && node.attr["data-columns"] === "1").length > 0);
+});
+
 test("Given valid and incomplete Region rows When the wide Explorer renders Then Korean controls, provenance, SVG trends, diagnostics, and separate groups remain visible", () => {
   const root = new FakeElement("section");
   view.renderRegionExplorer(root, projection, { logicalWidth: 1280 });
@@ -52,7 +87,7 @@ test("Given valid and incomplete Region rows When the wide Explorer renders Then
   assert.match(rendered, /관측값|자료 없음|관측 범위 부족|미검증|히스토리 일부/);
   assert.match(rendered, /시장|세대|12~60개월 입주물량|지가|조사 근거/);
   assert.doesNotMatch(rendered, /sale_volume_3m|move_in_12m|score|rank|추천|지도/i);
-  assert.equal(walk(root, (node) => node.attr && node.attr["data-scroll-owner"] === "region-explorer-content").length, 1);
+  assert.equal(walk(root, (node) => node.attr && node.attr["data-scroll-owner"] === "region-explorer-content").length, 0, "the shared AppShell body remains the only scroll owner");
   assert.ok(walk(root, (node) => node.tag === "svg").length >= 1, "valid history must render a native SVG sparkline");
   assert.ok(walk(root, (node) => node.tag === "style")[0].text.includes("@container region-explorer"));
 });
@@ -70,12 +105,12 @@ test("Given a mounted Explorer When three rows are selected and a fourth is requ
   assert.deepEqual(independent.state().selected_region_keys, []);
 });
 
-test("Given narrow, long-label, null, and malformed fixtures When the Explorer renders Then comparison collapses to metric cards without throwing", () => {
-  const narrow = new FakeElement("section");
-  assert.doesNotThrow(() => view.renderRegionExplorer(narrow, projection, { logicalWidth: 375, state: { selected_region_keys: projection.rows.slice(0, 3).map((item) => item.identity.region_key) } }));
-  assert.equal(narrow.attr["data-layout"], "narrow");
-  assert.equal(walk(narrow, (node) => node.attr && node.attr["data-comparison-layout"] === "metric-cards").length, 1);
-  assert.match(text(narrow), /아주길고긴한국어지역명과공백없는세부설명문자열/);
+test("Given compact, long-label, null, and malformed fixtures When the Explorer renders Then comparison collapses to stacked metric cards without throwing", () => {
+  const compact = new FakeElement("section");
+  assert.doesNotThrow(() => view.renderRegionExplorer(compact, projection, { logicalWidth: 375, state: { selected_region_keys: projection.rows.slice(0, 3).map((item) => item.identity.region_key) } }));
+  assert.equal(compact.attr["data-layout"], "compact");
+  assert.equal(walk(compact, (node) => node.attr && node.attr["data-comparison-layout"] === "stacked").length, 1);
+  assert.match(text(compact), /아주길고긴한국어지역명과공백없는세부설명문자열/);
   assert.doesNotThrow(() => view.renderRegionExplorer(new FakeElement("section"), { rows: [null, { identity: null, metrics: null }] }, { logicalWidth: 375 }));
 });
 

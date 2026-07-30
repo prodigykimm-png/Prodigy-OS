@@ -1,16 +1,25 @@
 (function (root) {
   "use strict";
 
+  function tokenApi() {
+    const api = root.ProdigyTokens || (typeof require === "function" ? require("./design-tokens.js") : null);
+    if (!api || !api.BREAKPOINTS || !api.CONTROL_HEIGHTS) throw new Error("ProdigyTokens를 먼저 불러와야 합니다.");
+    return api;
+  }
+
+  const TOKENS = tokenApi();
+  const COMPACT_MAX = TOKENS.BREAKPOINTS.medium - 1;
   const CSS = `
-.region-explorer-shell{container-type:inline-size;container-name:region-explorer;display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:var(--ke-space-3);max-block-size:100dvb;color:var(--ke-color-text);font-size:var(--ke-type-body);line-height:var(--ke-leading-body)}
+.region-explorer-shell{container-type:inline-size;container-name:region-explorer;display:grid;gap:var(--ke-space-3);min-inline-size:0;color:var(--ke-color-text);font-size:var(--ke-type-body);line-height:var(--ke-leading-body)}
 .region-explorer-head,.region-explorer-controls,.region-explorer-summary,.region-explorer-selection,.region-explorer-group-head,.region-explorer-row-meta{display:flex;gap:var(--ke-space-2);align-items:center;flex-wrap:wrap}
 .region-explorer-head{justify-content:space-between}.region-explorer-head h2,.region-explorer-group h3{font-size:var(--ke-type-title);margin:0}.region-explorer-controls{padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-panel);background:var(--ke-color-surface-secondary)}
-.region-explorer-control{display:grid;gap:var(--ke-space-1);min-inline-size:min(12rem,100%)}.region-explorer-control label,.region-explorer-meta{font-size:var(--ke-type-label);color:var(--ke-color-muted)}.region-explorer-control input,.region-explorer-control select,.region-explorer-button{min-block-size:var(--ke-touch-target);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-control);background:var(--ke-color-surface);color:var(--ke-color-text);padding-inline:var(--ke-space-3)}
+.region-explorer-control{display:grid;gap:var(--ke-space-1);min-inline-size:min(12rem,100%)}.region-explorer-control label,.region-explorer-meta{font-size:var(--ke-type-label);color:var(--ke-color-muted)}.region-explorer-control input,.region-explorer-control select,.region-explorer-button{min-block-size:${TOKENS.CONTROL_HEIGHTS.touchTarget}px;border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-control);background:var(--ke-color-surface);color:var(--ke-color-text);padding-inline:var(--ke-space-3)}
 .region-explorer-button{cursor:pointer;min-inline-size:0;word-break:keep-all;overflow-wrap:anywhere}.region-explorer-add-action{min-inline-size:min(12rem,100%)}.region-explorer-button[data-selected="true"]{border-color:var(--ke-color-accent);color:var(--ke-color-accent);background:var(--ke-color-hover)}.region-explorer-button:focus-visible,.region-explorer-control input:focus-visible,.region-explorer-control select:focus-visible{outline:2px solid var(--ke-color-accent);outline-offset:2px}.region-explorer-button:active{transform:translateY(1px)}
-.region-explorer-scroll{min-block-size:0;overflow:auto;display:grid;align-content:start;gap:var(--ke-space-4);padding-inline-end:var(--ke-space-1)}.region-explorer-summary,.region-explorer-selection,.region-explorer-notice{padding:var(--ke-space-3);border-inline-start:2px solid var(--ke-color-border);background:var(--ke-color-surface-secondary)}.region-explorer-notice{border-color:var(--ke-color-error);color:var(--ke-color-error)}
+.region-explorer-scroll{min-block-size:0;min-inline-size:0;display:grid;align-content:start;gap:var(--ke-space-4);padding-inline-end:var(--ke-space-1)}.region-explorer-summary,.region-explorer-selection,.region-explorer-notice{padding:var(--ke-space-3);border-inline-start:2px solid var(--ke-color-border);background:var(--ke-color-surface-secondary)}.region-explorer-notice{border-color:var(--ke-color-error);color:var(--ke-color-error)}
 .region-explorer-list{display:grid;gap:var(--ke-space-2)}.region-explorer-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--ke-space-3);padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-panel);background:var(--ke-color-surface)}.region-explorer-row-title,.region-explorer-cell-title{overflow-wrap:anywhere}.region-explorer-row-title{font-weight:600}.region-explorer-diagnostics{margin:var(--ke-space-2) 0 0;color:var(--ke-color-error);overflow-wrap:anywhere}
-.region-explorer-comparison{display:grid;gap:var(--ke-space-4)}.region-explorer-group{display:grid;gap:var(--ke-space-2);padding-block-start:var(--ke-space-3);border-block-start:1px solid var(--ke-color-border)}.region-explorer-metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr));gap:var(--ke-space-2)}.region-explorer-metric-card{display:grid;gap:var(--ke-space-2);padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-control);background:var(--ke-color-surface)}.region-explorer-value{display:grid;gap:var(--ke-space-1);min-inline-size:0}.region-explorer-value strong{overflow-wrap:anywhere}.region-explorer-sparkline{inline-size:6rem;block-size:2rem;color:var(--ke-color-accent)}.region-explorer-empty{color:var(--ke-color-muted)}
-@container region-explorer (max-width:599px){.region-explorer-row{grid-template-columns:minmax(0,1fr)}.region-explorer-controls{align-items:stretch}.region-explorer-control,.region-explorer-add-action{min-inline-size:100%;inline-size:100%}.region-explorer-metric-grid{grid-template-columns:1fr}.region-explorer-sparkline{inline-size:100%;max-inline-size:12rem}}
+.region-explorer-comparison{display:grid;gap:var(--ke-space-4)}.region-explorer-group{display:grid;gap:var(--ke-space-2);padding-block-start:var(--ke-space-3);border-block-start:1px solid var(--ke-color-border)}.region-explorer-metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr));gap:var(--ke-space-2)}.region-explorer-metric-card{display:grid;gap:var(--ke-space-2);padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-control);background:var(--ke-color-surface)}.region-explorer-values{display:grid;gap:var(--ke-space-2);min-inline-size:0}.region-explorer-comparison[data-comparison-layout="side-by-side"] .region-explorer-values[data-columns="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}.region-explorer-comparison[data-comparison-layout="side-by-side"] .region-explorer-values[data-columns="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}.region-explorer-comparison[data-comparison-layout="stacked"] .region-explorer-metric-grid,.region-explorer-comparison[data-comparison-layout="stacked"] .region-explorer-values{grid-template-columns:minmax(0,1fr)}.region-explorer-value{display:grid;gap:var(--ke-space-1);min-inline-size:0}.region-explorer-value strong{overflow-wrap:anywhere}.region-explorer-sparkline{inline-size:6rem;block-size:2rem;color:var(--ke-color-accent)}.region-explorer-empty{color:var(--ke-color-muted)}
+.region-explorer-controls[data-control-layout="stacked"]{align-items:stretch}.region-explorer-controls[data-control-layout="stacked"] .region-explorer-control,.region-explorer-controls[data-control-layout="stacked"] .region-explorer-add-action{min-inline-size:100%;inline-size:100%}
+@container region-explorer (max-width:${COMPACT_MAX}px){.region-explorer-row{grid-template-columns:minmax(0,1fr)}.region-explorer-sparkline{inline-size:100%;max-inline-size:12rem}}
 @media (prefers-reduced-motion:reduce){.region-explorer-button{transform:none!important}}
 `;
   const SORT_LABELS = Object.freeze({ name: "지역명", sido: "시도", metrics_as_of: "통계 기준일", verification: "검증 상태", transit_available: "확인된 도시철도", sale_volume_3m: "최근 3개월 거래량", housing_stock: "주택 재고", sale_turnover_rate: "거래 회전율", sale_price_change_yoy: "매매가격 증감률", jeonse_ratio: "전세가율", move_in_12m: "12개월 입주물량", move_in_24m: "24개월 입주물량", move_in_36m: "36개월 입주물량", move_in_48m: "48개월 입주물량", move_in_60m: "60개월 입주물량", households: "세대수", household_change_yoy: "세대수 증감률", auction_bid_rate_6m: "최근 6개월 낙찰가율" });
@@ -43,7 +52,11 @@
   }
   function setAttr(element, name, value) { if (element && typeof element.setAttr === "function") element.setAttr(name, value); else if (element && element.setAttribute) element.setAttribute(name, value); }
   function empty(element) { if (element && typeof element.empty === "function") element.empty(); else if (element) element.textContent = ""; }
-  function layoutFor(width) { return Number(width) < 600 ? "narrow" : "wide"; }
+  function layoutFor(width) {
+    const logicalWidth = Number(width);
+    if (!Number.isFinite(logicalWidth) || logicalWidth >= TOKENS.BREAKPOINTS.wide) return "wide";
+    return logicalWidth >= TOKENS.BREAKPOINTS.medium ? "medium" : "compact";
+  }
   function format(value, fallback) { return typeof value === "number" && Number.isFinite(value) ? value.toLocaleString("ko-KR", { maximumFractionDigits: 2 }) : text(value) || fallback || "자료 없음"; }
   function transitDisplay(row) {
     const transit = record(row && row.transit);
@@ -118,7 +131,7 @@
     }
   }
   function renderComparison(parent, model, layout) {
-    const comparison = model.comparison; const container = create(parent, "section", { attr: { class: "region-explorer-comparison", "data-comparison-layout": layout === "narrow" ? "metric-cards" : "matrix", "aria-label": "선택 지역 비교" } });
+    const comparison = model.comparison; const comparisonLayout = layout === "wide" ? "side-by-side" : "stacked"; const container = create(parent, "section", { attr: { class: "region-explorer-comparison", "data-comparison-layout": comparisonLayout, "aria-label": "선택 지역 비교" } });
     create(container, "h3", { text: "선택 지역 비교" });
     if (!comparison.rows.length) create(container, "p", { text: "비교할 지역을 최대 3개까지 선택하세요.", attr: { class: "region-explorer-empty" } });
     for (const group of comparison.groups) {
@@ -128,8 +141,9 @@
       for (const field of group.fields) {
         const card = create(grid, "article", { attr: { class: "region-explorer-metric-card" } });
         create(card, "strong", { text: field.label, attr: { class: "region-explorer-cell-title" } });
+        const values = create(card, "div", { attr: { class: "region-explorer-values", "data-columns": comparisonLayout === "side-by-side" ? String(Math.max(1, comparison.rows.length)) : "1" } });
         for (const row of comparison.rows) {
-          const identity = record(row.identity); const entry = create(card, "div", { attr: { class: "region-explorer-value" } });
+          const identity = record(row.identity); const entry = create(values, "div", { attr: { class: "region-explorer-value" } });
           create(entry, "span", { text: text(identity.title) || "지역 정보 없음", attr: { class: "region-explorer-meta" } });
           create(entry, "strong", { text: metricValue(row, field) });
         }
@@ -138,13 +152,13 @@
   }
   function renderRegionExplorer(container, projection, options = {}) {
     if (!container) return null;
-    const State = stateApi(); const width = Number.isFinite(Number(options.logicalWidth)) ? Number(options.logicalWidth) : Number(container.clientWidth) || 1280; const layout = layoutFor(width);
+    const State = stateApi(); const width = Number.isFinite(Number(options.logicalWidth)) ? Number(options.logicalWidth) : Number(container.clientWidth) || TOKENS.BREAKPOINTS.wide; const layout = layoutFor(width);
     const model = State.buildViewModel(projection, options.state); const dispatch = typeof options.onAction === "function" ? options.onAction : () => {};
     empty(container); setAttr(container, "data-layout", layout); setAttr(container, "data-shell", "region-explorer-shell");
     create(container, "style", { text: CSS, attr: { "data-region-explorer-style": "true" } });
     const shell = create(container, "section", { attr: { class: "region-explorer-shell", "data-layout": layout } });
     const head = create(shell, "header", { attr: { class: "region-explorer-head" } }); create(head, "h2", { text: "지역 비교" }); create(head, "span", { text: "최대 3개 지역", attr: { class: "region-explorer-meta" } });
-    const controls = create(shell, "section", { attr: { class: "region-explorer-controls", "aria-label": "지역 필터와 정렬", "data-control-layout": layout === "narrow" ? "stacked" : "wrapped" } });
+    const controls = create(shell, "section", { attr: { class: "region-explorer-controls", "aria-label": "지역 필터와 정렬", "data-control-layout": layout === "compact" ? "stacked" : "wrapped" } });
     const sido = control(controls, "시도", "select", model.state.sido, (value) => dispatch({ type: "set_filters", filters: { sido: value } })); option(sido, "", "전체", !model.state.sido); [...new Set(model.rows.map((row) => text(record(row.identity).sido)).filter(Boolean))].forEach((value) => option(sido, value, value, model.state.sido === value));
     control(controls, "지역 검색", "input", model.state.search, (value) => dispatch({ type: "set_filters", filters: { search: value } }));
     const verified = control(controls, "검증 상태", "select", model.state.verification, (value) => dispatch({ type: "set_filters", filters: { verification: value } })); option(verified, "all", "전체", model.state.verification === "all"); State.VERIFICATION_FILTERS.filter((value) => value !== "all").forEach((value) => option(verified, value, verification(value), model.state.verification === value));
@@ -154,7 +168,7 @@
     if (typeof options.onAddRegionExperience === "function") {
       button(controls, "지역 경험 추가", { type: "add-region-experience", className: "region-explorer-add-action", run: (returnFocus) => options.onAddRegionExperience({ selectedRegionKeys: model.state.selected_region_keys.slice(), returnFocus }) }, false);
     }
-    const scroll = create(shell, "div", { attr: { class: "region-explorer-scroll", "data-scroll-owner": "region-explorer-content" } }); summary(scroll, model.rows);
+    const scroll = create(shell, "div", { attr: { class: "region-explorer-scroll" } }); summary(scroll, model.rows);
     const tray = create(scroll, "section", { attr: { class: "region-explorer-selection", "aria-label": "비교 선택" } }); create(tray, "strong", { text: `비교 선택 ${model.state.selected_region_keys.length}/3` }); button(tray, "선택 지우기", { type: "clear-selection", run: () => dispatch({ type: "clear_selection" }) }, false);
     if (options.notice) create(scroll, "p", { text: options.notice, attr: { class: "region-explorer-notice", role: "status" } });
     renderRows(scroll, model, dispatch); renderComparison(scroll, model, layout); return container;
