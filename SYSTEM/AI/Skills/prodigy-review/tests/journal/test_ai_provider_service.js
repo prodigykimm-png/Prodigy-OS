@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const provider = require(path.join(ROOT, "SYSTEM/Views/ai-provider-service.js"));
+const contextEnvelopeApi = require(path.join(ROOT, "SYSTEM/Views/ai-context-envelope.js"));
 
 function validPayload() {
   return {
@@ -115,6 +116,108 @@ async function testLocalStructuredRequestNeedsNoSecretAndUsesTtl() {
   assert.equal(JSON.parse(calls[1].body).temperature, 0);
   assert.equal(schema.properties.experience.maxLength, 2000);
   assert.equal(schema.properties.related_objects.maxItems, 0);
+}
+
+async function testChatTextRequestKeepsCitationsWithoutVaultWrites() {
+  // Given: a validated contextual chat request and mutation-capable app fixture.
+  const calls = [];
+  let vaultWrites = 0;
+  const app = {
+    secretStorage: { getSecret: async () => "FAKE_GEMINI_KEY_FOR_TEST_ONLY" },
+    vault: {
+      create: async () => { vaultWrites += 1; },
+      modify: async () => { vaultWrites += 1; },
+      delete: async () => { vaultWrites += 1; }
+    },
+    requestUrl: async (options) => {
+      calls.push(options);
+      return { status: 200, json: { outputs: [{ type: "text", text: "선택한 자료를 요약했습니다." }] } };
+    }
+  };
+  const contextEnvelope = {
+    workspace: "journal",
+    tab: "reflection",
+    selection: { path: "DAILY/2026-07-30.md", type: "daily", title: "2026-07-30" },
+    snapshot: [{ key: "mood", value: "calm" }],
+    citations: ["PARA/Projects/context.md"],
+    locale: "ko"
+  };
+
+  // When: the plain chat path is called beside the structured proposal path.
+  const result = await provider.requestChatText({
+    app,
+    provider: geminiProvider(),
+    prompt: "현재 화면만 요약해 줘.",
+    contextEnvelope
+  });
+
+  // Then: only inert text and allow-listed citation paths return, with no Vault write.
+  assert.deepEqual(result, { text: "선택한 자료를 요약했습니다.", citations: ["PARA/Projects/context.md"] });
+  assert.equal(vaultWrites, 0);
+  const body = JSON.parse(calls[0].body);
+  const input = JSON.parse(body.input);
+  assert.deepEqual(input.context, contextEnvelope);
+  assert.equal(Object.hasOwn(input, "tools"), false);
+}
+
+async function testChatTextAcceptsBuilderTruncatedEnvelope() {
+  // Given: the pure builder has already dropped oldest visible snapshot entries.
+  const contextEnvelope = contextEnvelopeApi.buildContextEnvelope({
+    workspace: "journal",
+    tab: "reflection",
+    selection: { path: "DAILY/2026-07-30.md", type: "daily", title: "2026-07-30" },
+    snapshot: Array.from({ length: 20 }, (_, index) => ({ key: `visible-${index}`, value: "가".repeat(300) })),
+    citations: ["PARA/Projects/context.md"],
+    locale: "ko"
+  });
+  assert.equal(contextEnvelope.truncated, true);
+  const calls = [];
+
+  // When: the already-built ContextEnvelope reaches the chat transport.
+  const result = await provider.requestChatText({
+    app: {
+      secretStorage: { getSecret: async () => "FAKE_GEMINI_KEY_FOR_TEST_ONLY" },
+      requestUrl: async (options) => {
+        calls.push(options);
+        return { status: 200, json: { outputs: [{ type: "text", text: "완료" }] } };
+      }
+    },
+    provider: geminiProvider(),
+    prompt: "fixture",
+    contextEnvelope
+  });
+
+  // Then: the transport preserves the builder's truncation marker and citations.
+  assert.equal(JSON.parse(JSON.parse(calls[0].body).input).context.truncated, true);
+  assert.deepEqual(result.citations, ["PARA/Projects/context.md"]);
+}
+
+async function testStructuredFormatRejectionStillFallsBackToPlainJsonMode() {
+  // Given: an OpenAI-compatible provider that rejects json_schema once.
+  const calls = [];
+  const app = {
+    requestUrl: async (options) => {
+      calls.push(options);
+      if (calls.length === 1) return { status: 400, json: { error: { message: "Invalid value for 'response_format': json_schema" } } };
+      return { status: 200, json: { choices: [{ message: { content: JSON.stringify(validPayload()) } }] } };
+    }
+  };
+
+  // When: the existing structured path handles the format rejection.
+  const result = await provider.requestStructuredJson({
+    app,
+    provider: {
+      adapter: "openai-compatible", name: "Local", baseURL: "http://127.0.0.1:1234/v1",
+      model: "fixture", authMode: "none", capabilities: { structuredOutput: "json-schema" }
+    },
+    prompt: "fixture",
+    schema: { type: "object" }
+  });
+
+  // Then: structured parsing remains intact and only the retry uses json_object.
+  assert.equal(result.evidence_blocks.length, 1);
+  assert.equal(JSON.parse(calls[0].body).response_format.type, "json_schema");
+  assert.equal(JSON.parse(calls[1].body).response_format.type, "json_object");
 }
 
 function testResponseExtraction() {
@@ -249,6 +352,9 @@ async function testProjectWorkflowReusesSharedProvider() {
 async function main() {
   await testGeminiStructuredRequest();
   await testLocalStructuredRequestNeedsNoSecretAndUsesTtl();
+  await testChatTextRequestKeepsCitationsWithoutVaultWrites();
+  await testChatTextAcceptsBuilderTruncatedEnvelope();
+  await testStructuredFormatRejectionStillFallsBackToPlainJsonMode();
   testResponseExtraction();
   testTailnetProviderUsesLocalUrlOnlyOnDesktop();
   await testRetriesAndErrors();

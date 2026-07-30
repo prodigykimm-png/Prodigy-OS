@@ -15,6 +15,11 @@
     if (root.AIProviderErrorPolicy) return root.AIProviderErrorPolicy;
     throw new Error("AIProviderErrorPolicy must load before AIProviderService.");
   }
+  function contextEnvelopeApi() {
+    if (root.AIContextEnvelope) return root.AIContextEnvelope;
+    if (typeof require === "function") return require("./ai-context-envelope.js");
+    throw new Error("AIContextEnvelope must load before contextual chat.");
+  }
   function redactError(error) { return errorPolicy().redactError(error); }
   const TRANSIENT_HTTP_STATUSES = errorPolicy().TRANSIENT_HTTP_STATUSES;
 
@@ -34,6 +39,33 @@
   function resolveBaseURL(provider, app) {
     if (provider && provider.localBaseURL && !isMobileRuntime(app)) return String(provider.localBaseURL);
     return String(provider && provider.baseURL || "");
+  }
+
+  function providerSecurityError(message) {
+    const error = new Error(message);
+    error.name = "ProviderSecurityError";
+    return error;
+  }
+
+  function validateProviderSecurity(provider) {
+    const source = provider || {};
+    const serialized = JSON.stringify(source).toLowerCase();
+    if (serialized.includes("antigravity") || /"agy"/.test(serialized)) {
+      throw providerSecurityError("Antigravity 또는 agy 제공자는 지원하지 않습니다.");
+    }
+    if (/consumer.*oauth|oauth.*consumer/i.test(String(source.authMode || "")) || source.reuseConsumerOAuth === true || source.consumerOAuthReuse === true) {
+      throw providerSecurityError("소비자 OAuth 재사용은 허용되지 않습니다.");
+    }
+    const bindValue = [source.bind, source.bindAddress, source.listen, source.host, source.hostname, source.publicBind, source.lanBind]
+      .find((value) => value !== undefined && value !== null && String(value).trim());
+    if (bindValue && !/^(?:127\.0\.0\.1|localhost|::1)$/i.test(String(bindValue).trim())) {
+      throw providerSecurityError("AI 제공자는 로컬 루프백 주소에만 bind할 수 있습니다.");
+    }
+    const baseURL = String(source.localBaseURL || source.baseURL || "");
+    if (/^https?:\/\/(?:0\.0\.0\.0|\[?::\]?|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)(?::|\/|$)/i.test(baseURL)) {
+      throw providerSecurityError("공개 또는 LAN bind 주소는 허용되지 않습니다. 로컬 루프백을 사용해 주세요.");
+    }
+    return true;
   }
 
   function providerHttpError(status, responseText) { return errorPolicy().providerHttpError(status, responseText); }
@@ -129,6 +161,7 @@
   function normalizeGeminiSchema(schema) { return root.AIProviderSchema.normalizeGeminiSchema(schema); }
   function normalizeStructuredSchema(schema, provider) { return root.AIProviderSchema.normalizeStructuredSchema(schema, provider); }
   function isFormatRejection(error) {
+    if (error && error.formatRejection === true) return true;
     const haystack = [error && error.message, error && error.responseText, error].map((part) => String(part || "")).join("\n");
     return /요청 형식|response_format|json_schema|output format|JSON 출력 형식|Invalid value for 'response_format'|'response_format'|invalid_request_error/i.test(haystack);
   }
@@ -191,9 +224,61 @@
     });
   }
 
+  function chatPayload(options) {
+    return JSON.stringify({ message: String(options.prompt || ""), context: options.contextEnvelope });
+  }
+
+  async function requestGeminiChat(options, apiKey) {
+    return httpRequest(options.app, {
+      url: options.provider.endpointURL || GEMINI_ENDPOINT,
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({ model: options.provider.model, input: chatPayload(options) }),
+      signal: options.signal
+    });
+  }
+
+  async function requestOpenAiCompatibleChat(options, apiKey) {
+    const provider = options.provider;
+    const baseURL = resolveBaseURL(provider, options.app);
+    if (!baseURL) throw new Error(`${provider.name || "Provider"} baseURL is not configured.`);
+    const body = { model: provider.model, stream: false, messages: [{ role: "user", content: chatPayload(options) }] };
+    if (Number(provider.maxTokens) > 0) body.max_tokens = Number(provider.maxTokens);
+    return httpRequest(options.app, {
+      url: `${baseURL.replace(/\/$/, "")}${provider.endpointPath || "/chat/completions"}`,
+      headers: authHeaders(provider, apiKey),
+      body: JSON.stringify(body),
+      signal: options.signal
+    });
+  }
+
+  async function requestProviderChatText(options) {
+    const provider = options && options.provider;
+    if (!provider || !provider.model) throw new Error("AI provider model is not configured.");
+    validateProviderSecurity(provider);
+    const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
+    if (provider.authMode !== "none" && !apiKey) throw new Error(`${provider.name || "AI provider"} API key is not configured.`);
+    const sleep = typeof options.sleep === "function" ? options.sleep : (ms) => wait(ms, options.signal);
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+      try {
+        const response = provider.adapter === "gemini"
+          ? await requestGeminiChat(options, apiKey)
+          : await requestOpenAiCompatibleChat(options, apiKey);
+        const text = extractJsonText(response).trim();
+        if (!text) throw new Error("AI 제공자가 빈 응답을 반환했습니다.");
+        return text;
+      } catch (error) {
+        const status = Number(error && error.status || 0);
+        if (!TRANSIENT_HTTP_STATUSES.has(status) || attempt >= RETRY_DELAYS_MS.length) throw error;
+        await sleep(RETRY_DELAYS_MS[attempt]);
+      }
+    }
+    throw new Error("AI 요청을 완료하지 못했습니다.");
+  }
+
   async function requestProviderStructuredJson(options) {
     const provider = options && options.provider;
     if (!provider || !provider.model) throw new Error("AI provider model is not configured.");
+    validateProviderSecurity(provider);
     const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
     if (provider.authMode !== "none" && !apiKey) throw new Error(`${provider.name || "AI provider"} API key is not configured.`);
     const sleep = typeof options.sleep === "function"
@@ -255,8 +340,29 @@
     }
   }
 
+  async function requestChatText(options) {
+    const provider = options && options.provider;
+    if (!provider) throw new Error("AI provider is not configured.");
+    const contextEnvelope = contextEnvelopeApi().validateContextEnvelope(options.contextEnvelope);
+    const requestOptions = Object.assign({}, options, { contextEnvelope });
+    const fallback = root.AIProviderFallback;
+    try {
+      const result = !fallback || typeof fallback.requestWithFallback !== "function"
+        ? { payload: await requestProviderChatText(requestOptions) }
+        : await fallback.requestWithFallback({
+            provider,
+            request: (candidate) => requestProviderChatText(Object.assign({}, requestOptions, { provider: candidate })),
+            isConfigured: (candidate) => isProviderConfigured(options.app, candidate)
+          });
+      return { text: result.payload, citations: contextEnvelope.citations.slice() };
+    } catch (error) {
+      throw userFacingProviderError(error, provider, options && options.app);
+    }
+  }
+
   async function listModels(options) {
     const provider = options && options.provider;
+    validateProviderSecurity(provider);
     const baseURL = resolveBaseURL(provider, options.app);
     if (!provider || !baseURL) throw new Error("AI provider baseURL is not configured.");
     const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
@@ -272,7 +378,7 @@
       .filter(Boolean);
   }
 
-  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, listModels, requestStructuredJson };
+  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, validateProviderSecurity, listModels, requestChatText, requestStructuredJson };
 
   root.AIProviderService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
