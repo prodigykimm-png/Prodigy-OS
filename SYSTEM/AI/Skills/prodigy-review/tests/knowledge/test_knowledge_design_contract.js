@@ -34,6 +34,20 @@ const REQUIRED_INPUT_CONTRACTS = [
   "text:korean-cjk-wrap",
   "qa:device-limitation-accepted",
 ];
+const REQUIRED_SHELL_CONTRACTS = [
+  "AppShell",
+  "ContextBar",
+  "WorkspaceSwitcher",
+  "AdaptiveTabs",
+  "AdaptiveActionBar",
+  "BottomSheet",
+  "StatusLine",
+  "InlineError",
+  "AIInspector",
+  "prodigy.ui.workspace-state.v1",
+  "prodigy.ui.scroll-state.v1",
+  "prodigy.ai.chat-session.v1",
+];
 const REQUIRED_STATE_RECORDS = [
   "journey:domain-topic-detail-object",
   "persona:keyboard-only",
@@ -63,6 +77,10 @@ function validateDesign(source) {
   assertIncludesAll(source, REQUIRED_STATES, "missing state");
   assertIncludesAll(source, REQUIRED_LAYOUT_CONTRACTS, "missing layout contract");
   assertIncludesAll(source, REQUIRED_INPUT_CONTRACTS, "missing input/adaptive contract");
+  assertIncludesAll(source, REQUIRED_SHELL_CONTRACTS, "missing shared shell contract");
+  for (const value of ["768px", "1024px", "48px", "52px", "44px", "min(70vh, 560px)", "min(38%, 420px)"]) {
+    assert.ok(source.includes(`\`${value}\``), `missing responsive value: ${value}`);
+  }
 
   const declaredTokens = new Set(
     [...source.matchAll(/^\|\s*`(--ke-[a-z0-9-]+)`\s*\|/gm)].map((match) => match[1]),

@@ -13,11 +13,50 @@ class Element {
   empty() { this.children = []; }
   addClass() {}
   setAttr(key, value) { this.attr[key] = value; }
+  setAttribute(key, value) { this.attr[key] = value; }
+  removeAttribute(key) { delete this.attr[key]; }
+  focus() { this.focused = true; }
 }
 function textOf(node) { return [node.text, ...node.children.flatMap(textOf)].filter(Boolean).join(" "); }
 
 async function main() {
   const view = require(path.join(ROOT, "SYSTEM/Views/workspace-list-view.js"));
+  const shell = require(path.join(ROOT, "SYSTEM/Views/prodigy-app-shell.js"));
+  const controls = require(path.join(ROOT, "SYSTEM/Views/prodigy-adaptive-controls.js"));
+  const inspector = require(path.join(ROOT, "SYSTEM/Views/ai-inspector.js"));
+  const ui = require(path.join(ROOT, "SYSTEM/Views/prodigy-ui.js"));
+  for (const [name, value] of Object.entries({ ...shell, ...controls, ...inspector, StatusLine: ui.StatusLine, InlineError: ui.InlineError })) {
+    assert.equal(typeof value, "function", `${name} export`);
+  }
+  const shellContainer = new Element();
+  const mountedShell = shell.AppShell(shellContainer, { workspaceId: "knowledge", title: "지식" });
+  const workspaceRegistry = require(path.join(ROOT, "SYSTEM/Views/workspace-registry.js"));
+  assert.equal(mountedShell.switcher.children.length, workspaceRegistry.items().length);
+  assert.match(textOf(shellContainer), /경매/);
+  for (const item of workspaceRegistry.items()) assert.equal(textOf(shellContainer).includes(item.icon), false);
+  let openedPath = "";
+  const switcherHost = new Element();
+  const switcher = shell.WorkspaceSwitcher(switcherHost, {
+    app: { workspace: { openLinkText: async (target) => { openedPath = target; } } },
+  });
+  switcher.value = "reading";
+  await switcher.onchange();
+  assert.equal(openedPath, "HUB/20 Reading");
+  const tabHost = new Element();
+  const firstPanel = new Element();
+  const secondPanel = new Element();
+  const tabs = controls.AdaptiveTabs(tabHost, { tabs: [
+    { id: "first", label: "첫 화면", panel: firstPanel, disabled: true },
+    { id: "second", label: "둘째 화면", panel: secondPanel },
+  ] });
+  assert.equal(tabs.getActiveTab(), "second");
+  assert.equal(secondPanel.hidden, false);
+  const inspectorHost = new Element();
+  const inspectorShell = inspector.AIInspector(inspectorHost);
+  inspectorShell.open();
+  assert.equal(inspectorShell.isOpen(), true);
+  inspectorShell.close();
+  assert.equal(inspectorShell.isOpen(), false);
   const container = new Element();
   view.render({
     app: { workspace: { openLinkText: async () => {} } },

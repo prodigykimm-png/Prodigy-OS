@@ -200,6 +200,27 @@
   z-index: 1;
 }
 
+.prodigy-status-line,
+.prodigy-inline-error {
+  min-inline-size: 0;
+  font-size: var(--ke-type-body, .84rem);
+  line-height: var(--ke-leading-body, 1.45);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.prodigy-status-line { color: var(--text-muted); }
+.prodigy-status-line.is-busy { color: var(--text-normal); }
+.prodigy-inline-error {
+  display: flex;
+  align-items: center;
+  gap: var(--ke-space-3, 8px);
+  padding: var(--ke-space-3, 8px);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--ke-radius-control, 4px);
+  color: var(--text-error);
+}
+.prodigy-inline-error .prodigy-btn { flex: 0 0 auto; }
+
 @media (max-width: 600px) {
   /* Mobile: absolute minimum vertical space for controls */
   .prodigy-btn,
@@ -272,6 +293,10 @@
     margin-top: 3px !important;
     padding-top: 3px !important;
   }
+
+  .prodigy-inline-error .prodigy-btn {
+    min-height: var(--ke-touch-target, 44px) !important;
+  }
 }
 `;
 
@@ -322,10 +347,40 @@
     });
   }
 
+  function StatusLine(parent, options) {
+    ensureStyles();
+    const opts = typeof options === "string" ? { text: options } : (options || {});
+    const classes = ["prodigy-status-line"];
+    if (opts.busy) classes.push("is-busy");
+    const line = parent.createEl("div", {
+      text: opts.text || "",
+      attr: {
+        class: classes.join(" "),
+        role: "status",
+        "aria-live": opts.live || "polite",
+        "aria-busy": opts.busy ? "true" : "false"
+      }
+    });
+    return line;
+  }
+
+  function InlineError(parent, options) {
+    ensureStyles();
+    const opts = typeof options === "string" ? { message: options } : (options || {});
+    const box = parent.createEl("div", { attr: { class: "prodigy-inline-error", role: "alert" } });
+    box.createEl("span", { text: opts.message || "문제가 발생했습니다." });
+    if (typeof opts.onRetry === "function") {
+      button(box, opts.retryLabel || "다시 시도", { quiet: true, onClick: opts.onRetry });
+    }
+    return box;
+  }
+
   const api = {
     ensureStyles,
     button,
     actionRow,
+    StatusLine,
+    InlineError,
     STYLE_ID
   };
 

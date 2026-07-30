@@ -51,6 +51,17 @@
     backdrop: "rgba(0,0,0,0.45)",
   });
 
+  const BREAKPOINTS = Object.freeze({
+    medium: 768,
+    wide: 1024,
+  });
+
+  const CONTROL_HEIGHTS = Object.freeze({
+    workspaceBar: 48,
+    actionBar: 52,
+    touchTarget: 44,
+  });
+
   /** Semantic color at given alpha (0-1). Returns rgba() string. */
   function withAlpha(hex, alpha) {
     const r = parseInt(hex.slice(1, 3), 16);
@@ -67,6 +78,8 @@
   const api = Object.freeze({
     COLORS,
     SHADOWS,
+    BREAKPOINTS,
+    CONTROL_HEIGHTS,
     withAlpha,
     badgeBg,
   });
