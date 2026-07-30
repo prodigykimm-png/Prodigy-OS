@@ -114,6 +114,41 @@
     app.workspace.openLinkText(record.path, record.path, false);
   }
 
+  function regionKeyOf(record) {
+    if (!record) return "";
+    if (typeof record.region_key === "string" && record.region_key.trim()) return record.region_key.trim();
+    const sido = typeof record.region_sido === "string" ? record.region_sido.trim() : "";
+    const sigungu = typeof record.region_sigungu === "string" ? record.region_sigungu.trim() : "";
+    return sido && sigungu ? `${sido}-${sigungu}` : "";
+  }
+
+  function openRegionPopup(app, record) {
+    const core = root.RegionIntelligencePopupCore;
+    const view = root.RegionIntelligencePopupView;
+    if (!core || !core.isAvailable || !view || typeof view.renderPopup !== "function") return false;
+    if (typeof core.openPopup !== "function") return false;
+    if (typeof document === "undefined" || !document.body) return false;
+
+    const regionKey = regionKeyOf(record);
+    if (!regionKey) return false;
+
+    const basePath = (app && app.vault && app.vault.adapter && app.vault.adapter.basePath) || "";
+    const result = core.openPopup(basePath, regionKey);
+    if (!result || !result.ok) return false;
+
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)";
+    const modal = document.createElement("div");
+    modal.style.cssText = "background:var(--background-primary);border-radius:12px;max-width:560px;width:95vw;max-height:90vh;overflow-y:auto;padding:16px";
+    modal.innerHTML = view.renderPopup(result.state);
+    overlay.appendChild(modal);
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) overlay.remove(); });
+    const closeBtn = modal.querySelector("[data-action='close']");
+    if (closeBtn) closeBtn.addEventListener("click", () => overlay.remove());
+    document.body.appendChild(overlay);
+    return true;
+  }
+
   function addRecord(parent, app, record, label) {
     return addRecordWithReasons(parent, app, record, label, null);
   }
@@ -137,6 +172,7 @@
     row.onclick = (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (label === "지역 분석" && openRegionPopup(app, record)) return;
       openRecord(app, record);
     };
   }

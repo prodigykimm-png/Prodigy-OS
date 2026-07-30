@@ -347,9 +347,10 @@
           border: 1px solid var(--background-modifier-border);
           background: var(--background-primary);
           color: var(--text-normal);
-          font-size: 0.72em !important;
-          font-weight: 700 !important;
-          line-height: 1.4 !important;
+          font-size: 0.66em !important;
+          font-weight: 600 !important;
+          line-height: 1.45 !important;
+          letter-spacing: -0.01em;
           cursor: pointer;
         }
         .prodigy-home .home-ws-dock-btn:active {
@@ -357,8 +358,9 @@
           border-color: var(--text-accent);
         }
         .prodigy-home .home-ws-dock-icon {
-          font-size: 1.15em;
+          font-size: 0.95em;
           line-height: 1;
+          opacity: 0.85;
         }
         .prodigy-home .home-ws-dock-name {
           min-inline-size: 0;

@@ -150,7 +150,8 @@ try {
 
   let workspaceApi = null;
 
-  const paintPeople = async () => {
+  const paintPeople = async (options) => {
+    const force = Boolean(options && options.force);
     // Touch Dataview index so newly created files appear in dv.pages()
     try {
       const dvPlugin = app.plugins?.plugins?.dataview;
@@ -158,6 +159,21 @@ try {
     } catch (_e) { /* best-effort */ }
     const rawPeople = await collectRawPeople();
     const sourcePages = collectSourcePages();
+
+    // Dataview reruns this block every refreshInterval (2500ms by default).
+    // Repainting on every tick destroys focus, scroll, and typing, so skip when
+    // the underlying people data is byte-equivalent to what is already on screen.
+    const fingerprint = window.PeopleCore.peopleFingerprint(rawPeople);
+    const guard = window.__prodigyPersonalRenderGuard;
+    const shouldSkipRepaint = Boolean(
+      !force
+      && guard
+      && guard.mount === peopleMount
+      && guard.fingerprint === fingerprint
+      && workspaceApi
+    );
+    if (shouldSkipRepaint) return;
+
     // Dataview re-runs this whole block on its refresh interval, which destroys
     // workspaceApi. Persisted state is the only thing that survives that rerun.
     const persisted = window.PeopleCore.readWorkspaceState(window.sessionStorage);
@@ -179,9 +195,10 @@ try {
       selectedPath: st && st.selectedPath ? st.selectedPath : "",
       title: "사람과 관계",
       subtitle: "이름 클릭 = 관계 맥락 · 관계 편집과 원본 노트는 상세에서 · 최근 맥락은 연결된 원본 기록입니다.",
-      onRefresh: () => paintPeople(),
+      onRefresh: () => paintPeople({ force: true }),
       onStateChange: (next) => window.PeopleCore.writeWorkspaceState(window.sessionStorage, next)
     });
+    window.__prodigyPersonalRenderGuard = { mount: peopleMount, fingerprint: fingerprint };
     if (workspaceApi && workspaceApi.getState) {
       window.PeopleCore.writeWorkspaceState(window.sessionStorage, workspaceApi.getState());
     }
