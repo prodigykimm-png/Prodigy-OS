@@ -13,9 +13,15 @@ window.app = app;
 window.RegionExplorerHub = window.RegionExplorerHub || {};
 
 const RegionExplorerHub = window.RegionExplorerHub;
+if (RegionExplorerHub.resizeObserver && typeof RegionExplorerHub.resizeObserver.disconnect === "function") RegionExplorerHub.resizeObserver.disconnect();
+RegionExplorerHub.resizeObserver = null;
 const REGISTRY_INDEX_PATH = "SYSTEM/SCRIPTS/region-metrics-manifest-index.json";
 const SCRIPTS_ROOT = "SYSTEM/SCRIPTS/";
 RegionExplorerHub.modulePaths = [
+  "SYSTEM/Views/design-tokens.js",
+  "SYSTEM/Views/workspace-registry.js",
+  "SYSTEM/Views/prodigy-workspace-state-store.js",
+  "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
   "SYSTEM/SCRIPTS/region-metrics-registry-core.js",
   "SYSTEM/Views/region-explorer-projection.js",
@@ -153,9 +159,14 @@ const validExperienceRegions = (projection) => {
 
 try {
   for (const modulePath of RegionExplorerHub.modulePaths) await loadReadOnlyModule(modulePath);
-  const navigationMount = this.container.createDiv({ attr: { class: "region-workspace-navigation" } });
-  const explorerMount = this.container.createDiv({ attr: { class: "region-workspace-content" } });
-  window.ProdigyWorkspaceNavigation.mount(navigationMount, { app, title: "지역 비교" });
+  const shell = window.ProdigyWorkspaceNavigation.mount(this.container, {
+    app,
+    workspaceId: "auction",
+    title: "지역 비교",
+    context: { label: "지역 비교 문맥", items: ["읽기 전용", "최대 3개 지역 비교"] }
+  });
+  shell.body.setAttr("data-scroll-owner", "region-workspace-body");
+  const explorerMount = shell.body.createDiv({ attr: { class: "region-workspace-content" } });
   const [projection, registry] = await Promise.all([
     window.RegionExplorerDataSource.loadRegionExplorer({
       vault: app.vault,
@@ -224,17 +235,27 @@ try {
     regionExperienceOpening = opening;
     return opening;
   };
+  const initialLogicalWidth = explorerMount.clientWidth > 0 ? explorerMount.clientWidth : window.ProdigyTokens.BREAKPOINTS.wide;
   explorer = window.RegionExplorerView.mountRegionExplorer({
     container: explorerMount,
     projection: coveredProjection,
+    logicalWidth: initialLogicalWidth,
     onAddRegionExperience: openRegionExperience
   });
+  if (typeof window.ResizeObserver === "function") {
+    RegionExplorerHub.resizeObserver = new window.ResizeObserver((entries) => {
+      const logicalWidth = entries && entries[0] && entries[0].contentRect && entries[0].contentRect.width;
+      if (Number.isFinite(logicalWidth)) explorer.setLogicalWidth(logicalWidth);
+    });
+    RegionExplorerHub.resizeObserver.observe(explorerMount);
+  }
   coverageNotice(explorerMount, coveredProjection);
-} catch (_error) {
-  this.container.empty();
-  this.container.createEl("p", {
-    text: "지역 비교 화면을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
-    attr: { role: "alert", style: "color:var(--text-error);" }
-  });
+} catch (error) {
+  if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
+    window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "지역 비교" });
+  } else {
+    this.container.empty();
+    this.container.createEl("p", { text: "지역 비교 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
+  }
 }
 ```

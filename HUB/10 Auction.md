@@ -34,9 +34,12 @@ const loadProdigyScript = async (path) => {
 
 try {
   await loadProdigyScript("SYSTEM/Views/design-tokens.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
-  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-core.js");
   await loadProdigyScript("SYSTEM/Views/object-lifecycle-view.js");
   await loadProdigyScript("SYSTEM/Views/object-engine-core.js");
@@ -74,28 +77,15 @@ try {
   await loadProdigyScript("SYSTEM/Views/auction-day-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-day-view.js");
   activeLoadPath = "워크스페이스 탐색 UI";
-  window.ProdigyWorkspaceNavigation.mount(container, { app, title: "경매" });
+  window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "auction", title: "경매" });
 } catch (err) {
-  container.empty();
-  const errCard = container.createEl("div", {
-    attr: { style: "background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 16px; margin: 12px 0; color: #ef4444;" }
-  });
-  errCard.createEl("h4", { text: "⚠️ 대시보드 스크립트 로드 실패" });
-  errCard.createEl("p", { 
-    text: "공통 뷰 렌더러 파일을 읽어오는 중 에러가 발생했습니다. 자바스크립트 소스 코드나 경로를 확인해주세요.",
-    attr: { style: "font-size: 0.85em; color: var(--text-normal);" }
-  });
-  
-  const details = errCard.createEl("details", { attr: { style: "margin-top: 8px; cursor: pointer;" } });
-  details.createEl("summary", { text: "에러 로그 자세히 보기", attr: { style: "font-size: 0.8em; font-weight: bold;" } });
   const failedStage = err && err.prodigyLoadPath ? err.prodigyLoadPath : activeLoadPath;
-  const errorName = err && err.name ? err.name : "Error";
-  const errorMessage = err && err.message ? err.message : String(err);
-  const errorStack = err && err.stack ? String(err.stack) : "";
-  details.createEl("pre", { 
-    text: `실패 단계: ${failedStage}\n${errorName}: ${errorMessage}${errorStack ? `\n${errorStack}` : ""}`,
-    attr: { style: "font-size: 0.75em; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; overflow-x: auto; margin-top: 4px;" } 
-  });
+  if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
+    window.ProdigyWorkspaceNavigation.renderLoaderError(container, err, { title: "경매", failedStage });
+  } else {
+    container.empty();
+    container.createEl("p", { text: "경매 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
+  }
   return;
 }
 ```
@@ -125,6 +115,11 @@ const toPlainArray = (value) => {
   if (typeof value[Symbol.iterator] === "function") return Array.from(value);
   return [];
 };
+const responsiveTokens = window.ProdigyTokens;
+const dashboardLogicalWidth = this.container.clientWidth > 0
+  ? this.container.clientWidth
+  : responsiveTokens.BREAKPOINTS.wide;
+const compactDashboard = dashboardLogicalWidth < responsiveTokens.BREAKPOINTS.medium;
 
 toPlainArray(cases).forEach(p => {
   // 1. Today Bidding
@@ -169,7 +164,7 @@ toPlainArray(cases).forEach(p => {
 });
 
 const mainBox = this.container.createEl('div', {
-  attr: { style: 'display:grid;grid-template-columns: 1fr 1fr;gap:12px;margin-bottom:8px;' }
+  attr: { style: `display:grid;grid-template-columns:${compactDashboard ? '1fr' : '1fr 1fr'};gap:12px;margin-bottom:8px;` }
 });
 
 // Left Box: Actions Needed
@@ -373,13 +368,17 @@ makeStep(grp2, statusStep('archived'), counts.archived, '#555');
 const run = () => {
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
+    const logicalWidth = this.container.clientWidth > 0
+      ? this.container.clientWidth
+      : window.ProdigyTokens.BREAKPOINTS.wide;
     window.renderDashboardSection({
       dv: dv,
       status: "bidding",
       type: "auction_case",
       container: this.container,
       renderer: (page, target) => window.renderAuctionCard(page, target, {
-        decisionPacketContext: window.AuctionDecisionPacketDashboardContext
+        decisionPacketContext: window.AuctionDecisionPacketDashboardContext,
+        logicalWidth
       }),
       emptyMessage: "해당 조건의 입찰 예정 물건이 없습니다.",
       sortField: "auction_datetime",
@@ -408,13 +407,17 @@ if (!run()) {
 const run = () => {
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
+    const logicalWidth = this.container.clientWidth > 0
+      ? this.container.clientWidth
+      : window.ProdigyTokens.BREAKPOINTS.wide;
     window.renderDashboardSection({
       dv: dv,
       status: "watching",
       type: "auction_case",
       container: this.container,
       renderer: (page, target) => window.renderAuctionCard(page, target, {
-        decisionPacketContext: window.AuctionDecisionPacketDashboardContext
+        decisionPacketContext: window.AuctionDecisionPacketDashboardContext,
+        logicalWidth
       }),
       emptyMessage: "해당 조건의 검토 중인 물건이 없습니다.",
       sortField: "auction_datetime",

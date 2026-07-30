@@ -15,9 +15,13 @@ const loadProdigyScript = async (path) => {
 
 try {
   await loadProdigyScript("SYSTEM/Views/design-tokens.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-adaptive-controls.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
-  await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-response.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-schema.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-error-policy.js");
@@ -67,9 +71,8 @@ try {
   await loadProdigyScript("SYSTEM/Views/journal-period-view.js");
 
   this.container.empty();
-  var navigationMount = this.container.createDiv({ attr: { class: "journal-workspace-navigation" } });
-  var periodMount = this.container.createDiv({ attr: { class: "journal-period-mount" } });
-  window.ProdigyWorkspaceNavigation.mount(navigationMount, { app: app, title: "저널" });
+  var shell = window.ProdigyWorkspaceNavigation.mount(this.container, { app: app, workspaceId: "journal", title: "저널" });
+  var periodMount = shell.body.createDiv({ attr: { class: "journal-period-mount" } });
   window.JournalPeriodView.mount({
     app: app,
     container: periodMount,
@@ -77,13 +80,11 @@ try {
     renderWeekly: function (mount) { return window.WeeklyFilterView.mountWeeklyFilter(mount, { app: app }); }
   });
 } catch (error) {
-  this.container.empty();
-  this.container.createEl("p", {
-    text: "저널 워크스페이스를 불러오지 못했습니다.",
-    attr: { style: "color:var(--text-error);" }
-  });
-  if (window.prodigyDebugMode === true) {
-    this.container.createEl("pre", { text: error.stack || error.message });
+  if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
+    window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "저널" });
+  } else {
+    this.container.empty();
+    this.container.createEl("p", { text: "저널 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
   }
 }
 ```
