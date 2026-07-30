@@ -27,7 +27,7 @@
   function safeFailure(modulePath, err, kind) {
     var path = typeof modulePath === "string" && modulePath ? modulePath : "<invalid>";
     var message = "모듈 로드 실패";
-    if (kind === "missing") message = "모듈 파일이 없습니다";
+    if (kind === "sync_pending") message = "모듈 파일이 이 기기에 없습니다 — 동기화가 끝나지 않았을 수 있습니다";
     if (kind === "invalid") message = "모듈 경로 입력 오류";
     if (kind === "throw") message = "모듈 실행 실패";
     if (kind === "stale") message = "모듈 로드 시도가 만료되었습니다";
@@ -39,11 +39,15 @@
   }
 
   function freezeResult(result) {
+    var pending = result.optional_failures.concat(result.required_failures).some(function (failure) {
+      return failure && failure.code === "sync_pending";
+    });
     return Object.freeze({
       loaded: Object.freeze(result.loaded.slice()),
       optional_failures: Object.freeze(result.optional_failures.slice()),
       required_failures: Object.freeze(result.required_failures.slice()),
-      attempt_id: result.attempt_id
+      attempt_id: result.attempt_id,
+      sync_pending: pending
     });
   }
 
@@ -80,7 +84,7 @@
   function readAndEvaluate(app, modulePath, token) {
     var tFile = app && app.vault && app.vault.getAbstractFileByPath(modulePath);
     if (!tFile) {
-      var missingFailure = safeFailure(modulePath, null, "missing");
+      var missingFailure = safeFailure(modulePath, null, "sync_pending");
       if (versionOf(modulePath) === token) failed.set(modulePath, missingFailure);
       return Promise.resolve({ ok: false, failure: missingFailure });
     }
