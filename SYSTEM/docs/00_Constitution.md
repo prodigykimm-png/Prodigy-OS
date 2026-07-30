@@ -126,6 +126,10 @@ Capture 단계에서는
 - Property를 입력하지 않는다.
 - 긴 Template를 작성하지 않는다.
 
+Home Article 3 최소 Capture 예외: Home에서 시작한 Capture가 3초 입력을 넘어 분류·정리·판단을 요구하면, Home에서 계속 처리하지 않고 Inbox 또는 해당 Workspace에서 검토한다.
+
+모바일 성공 주장은 `physical iPhone` 실기기에서 사용자가 직접 확인한 경우에만 `user-evidence-only gate`를 통과한다. 데스크톱 폭 조절이나 추정 결과는 Article 3 Capture의 모바일 성공 근거가 아니다.
+
 사람은 최소한만 입력한다.
 
 나머지는 AI가 구조화한다.

@@ -114,6 +114,21 @@ The primitive/state harness must cover rest, focus-visible, selected, loading, e
 
 ## 8. Existing Shared Components
 
+### Reliability and capture primitives
+
+아래 이름은 Home, Workspace, Capture, Assistant가 같은 경계를 공유하기 위한 계약 참조다. 사용자에게 보이는 문구는 한글로 유지하고, 영어 이름은 테스트와 설계 참조에서만 사용한다.
+
+| Primitive | 책임 | 가드레일 |
+|---|---|---|
+| `recoverable-hub-shell` | Home과 Workspace 진입면이 일부 데이터·제공자 실패에도 오늘 행동, 복구 안내, Workspace 이동을 유지한다. | 실패 상태도 `error`로 보이며, 한 화면 안의 `one scroll owner` 원칙을 깬 중첩 스크롤을 만들지 않는다. |
+| `mobile-quick-stream` | 좁은 화면에서 같은 Home 흐름을 빠른 확인 → Workspace 진입 순서로 압축한다. | `single Home`, `no separate Mobile Home`, `44px` 터치 대상, `CJK` 줄바꿈, `reduced motion` 대응을 유지한다. |
+| `micro-log-capture` | Home이나 Workspace에서 3초 안에 시작하는 최소 기록 입력이다. | 폴더·Property 선택을 요구하지 않으며, 길어진 정리는 Inbox 또는 해당 Workspace 검토로 넘긴다. |
+| `vault-assistant` | Vault 안의 기존 문서와 상태를 읽어 다음 확인 지점을 제안하는 보조자다. | `read-only Assistant`이며 Object 생성, 저장, 승인, 상태 변경을 직접 수행하지 않는다. |
+| `citation-bundle` | AI 제안이나 보조 요약 옆에 출처 경로, 수집 상태, 확인 시각 같은 최소 근거 묶음을 붙인다. | 개인 노트 본문을 불필요하게 복제하지 않고, 근거 없음은 숨기지 않고 빈 상태로 표시한다. |
+| `ai-telemetry-status` | AI 제공자, 로컬 서버, 마지막 실패, 재시도 가능 여부를 작은 시스템 상태로 드러낸다. | 비밀값과 원문 오류를 노출하지 않으며, 어떤 상태도 `no automatic approval` 예외가 될 수 없다. |
+
+Physical-device 성공은 `physical iPhone` 실기기에서 사용자가 직접 확인한 경우에만 `user-evidence-only gate`를 통과한다. 데스크톱 폭 조절, 시뮬레이터, 스크린샷 추정은 모바일 성공 근거가 아니다.
+
 - Workflow rows keep stable row height with labeled input and explicit up/down/delete controls.
 - Provider controls remain secondary to the workflow action they support.
 - Long-running actions disable repeat submission while preserving form state on AI or Todoist failure.
