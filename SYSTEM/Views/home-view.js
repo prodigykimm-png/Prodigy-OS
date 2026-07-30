@@ -622,7 +622,7 @@
       if (briefMode === "rule_based" || briefMode === "fallback" || String(result.result_id || "").includes("rule-based") || String(result.result_id || "").includes("fallback")) {
         briefHead.createEl("span", {
           text: "규칙 기반",
-          attr: { class: "badge badge-gray", style: "margin-left:auto;font-size:0.65em;" }
+          attr: { class: "badge badge-gray", style: "margin-left:auto;font-size:0.72em;" }
         });
       }
 
@@ -839,7 +839,7 @@
 
       head.createEl("span", {
         text: "승인됨",
-        attr: { class: "badge badge-high", style: "margin-left:auto;font-size:0.65em;" }
+        attr: { class: "badge badge-high", style: "margin-left:auto;font-size:0.72em;" }
       });
 
       const listDiv = focusCard.createEl("div", { attr: { class: "focus-list" } });

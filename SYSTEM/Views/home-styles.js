@@ -29,6 +29,9 @@
           --home-workspace-bar-height: ${workspaceBarHeight}px;
           --ke-touch-target: ${touchTarget}px;
           width: 100%;
+          max-inline-size: 100%;
+          box-sizing: border-box;
+          overflow-x: hidden;
           margin: 0 auto;
           padding: 0 8px 32px;
           word-break: keep-all;
@@ -98,7 +101,7 @@
           justify-content: center;
           min-height: 0 !important;
           height: auto !important;
-          font-size: 0.7em !important;
+          font-size: 0.72em !important;
           padding: 1px 6px !important;
           border-radius: 4px !important;
           border: 1px solid var(--background-modifier-border);
@@ -225,7 +228,7 @@
         .prodigy-home:not(.home-wide) .home-grid {
           gap: 8px;
         }
-        .prodigy-home.home-narrow { padding-inline: 0; }
+        .prodigy-home.home-narrow { padding-inline: 6px; }
         .prodigy-home.home-narrow .workspace-list { grid-template-columns: 1fr; }
         .prodigy-home.home-narrow .home-card { padding: 8px; }
         .prodigy-home.home-narrow .focus-row { padding: 5px 2px; }

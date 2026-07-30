@@ -80,8 +80,9 @@ class Element {
 
 const actionIds = ["decision_packet", "bid_sheet", "status", "site_visit"];
 const compact = ui.auctionActionRow(new Element(), 390);
-assert.equal(compact.mode, "overflow");
-assert.equal(compact.row.children.filter((child) => child.tag === "details").length, 1);
+assert.equal(compact.mode, "inline");
+assert.equal(compact.actionHost, compact.row);
+assert.equal(compact.row.children.filter((child) => child.tag === "details").length, 0);
 for (const id of actionIds) compact.actionHost.createEl("button", { attr: { "data-action": id } });
 assert.deepEqual(
   compact.actionHost.children.map((child) => child.options.attr["data-action"]),
