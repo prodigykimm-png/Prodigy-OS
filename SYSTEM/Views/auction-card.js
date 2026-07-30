@@ -124,7 +124,14 @@ window.renderAuctionCard = function(p, container, options) {
       isAuctionToday = false;
     }
 
-    const isMobile = (window.app?.isMobile || document.body.classList.contains('is-mobile')) && window.innerWidth < 768;
+    const responsiveBreakpoints = T.BREAKPOINTS || {};
+    const requestedWidth = options && options.logicalWidth;
+    const logicalWidth = Number.isFinite(requestedWidth) && requestedWidth > 0
+      ? requestedWidth
+      : responsiveBreakpoints.wide;
+    const isMobile = Number.isFinite(logicalWidth) && Number.isFinite(responsiveBreakpoints.medium)
+      ? logicalWidth < responsiveBreakpoints.medium
+      : false;
 
     // -------------------------------------------------------------
     // Header & Meta Information Block (Highly Structured & Mobile Responsive)
@@ -819,12 +826,19 @@ window.renderAuctionCard = function(p, container, options) {
     
     if (buttons.length > 0 || p.status === "bidding") {
       if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
-      const buttonContainer = card.createEl('div', {
-        attr: {
-          class: 'prodigy-card-actions auction-card-actions',
-          style: 'margin-top: 3px; border-top: 1px solid var(--background-modifier-border); padding-top: 3px; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px;'
-        }
-      });
+      const actionLayout = window.ProdigyUI && window.ProdigyUI.auctionActionRow
+        ? window.ProdigyUI.auctionActionRow(card, logicalWidth)
+        : {
+            mode: "inline",
+            row: card.createEl('div', {
+              attr: {
+                class: 'prodigy-card-actions auction-card-actions',
+                style: 'margin-top: 3px; border-top: 1px solid var(--background-modifier-border); padding-top: 3px; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px;'
+              }
+            })
+          };
+      if (!actionLayout.actionHost) actionLayout.actionHost = actionLayout.row;
+      const buttonContainer = actionLayout.actionHost;
 
       // Decision Packet is deterministic reference material for active cases.
       // It stays inline and never changes Object properties or Auction Day state.

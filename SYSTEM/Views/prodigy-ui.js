@@ -298,6 +298,69 @@
     min-height: var(--ke-touch-target, 44px) !important;
   }
 }
+
+.auction-card-actions.is-compact {
+  min-height: var(--prodigy-auction-action-bar-height);
+  justify-content: flex-end;
+  overflow: visible;
+}
+.auction-card-action-overflow {
+  position: relative;
+  margin-inline-start: auto;
+}
+.auction-card-action-overflow > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--prodigy-auction-touch-target);
+  min-height: var(--prodigy-auction-touch-target);
+  padding-inline: var(--ke-space-3, 8px);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--ke-radius-control, 4px);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--ke-type-body, .84rem);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  box-sizing: border-box;
+  word-break: keep-all;
+}
+.auction-card-action-overflow > summary::-webkit-details-marker {
+  display: none;
+}
+.auction-card-action-overflow > summary:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+.auction-card-action-menu {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: calc(100% + var(--ke-space-2, 4px));
+  inset-inline-end: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ke-space-2, 4px);
+  min-inline-size: min(15rem, calc(100vw - 2 * var(--ke-space-4, 12px)));
+  max-block-size: min(70vh, 560px);
+  overflow-y: auto;
+  padding: var(--ke-space-3, 8px);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--ke-radius-panel, 8px);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+}
+.auction-card-action-menu > .prodigy-btn,
+.auction-card-action-menu > button {
+  width: 100% !important;
+  min-height: var(--prodigy-auction-touch-target) !important;
+  justify-content: flex-start;
+  padding-inline: var(--ke-space-3, 8px) !important;
+  border-radius: var(--ke-radius-control, 4px) !important;
+  font-size: var(--ke-type-body, .84rem) !important;
+  word-break: keep-all;
+}
 `;
 
   function ensureStyles() {
@@ -347,6 +410,38 @@
     });
   }
 
+  function auctionActionRow(parent, logicalWidth) {
+    ensureStyles();
+    const breakpoints = root.ProdigyTokens && root.ProdigyTokens.BREAKPOINTS;
+    const heights = root.ProdigyTokens && root.ProdigyTokens.CONTROL_HEIGHTS;
+    if (!breakpoints || !heights) throw new Error("Prodigy responsive tokens are required");
+    if (!Number.isFinite(logicalWidth) || logicalWidth <= 0) {
+      throw new TypeError("logicalWidth must be a positive finite number");
+    }
+
+    const mode = logicalWidth < breakpoints.medium ? "overflow" : "inline";
+    const row = actionRow(parent, "auction-card-actions");
+    row.setAttribute("data-action-layout", mode);
+    row.setAttribute(
+      "style",
+      `--prodigy-auction-action-bar-height:${heights.actionBar}px;--prodigy-auction-touch-target:${heights.touchTarget}px;`
+    );
+    if (mode === "inline") return { mode, row, actionHost: row };
+
+    row.classList.add("is-compact");
+    const overflow = row.createEl("details", {
+      attr: { class: "auction-card-action-overflow" }
+    });
+    overflow.createEl("summary", {
+      text: "작업",
+      attr: { "aria-label": "경매 작업 열기" }
+    });
+    const actionHost = overflow.createEl("div", {
+      attr: { class: "auction-card-action-menu" }
+    });
+    return { mode, row, actionHost };
+  }
+
   function StatusLine(parent, options) {
     ensureStyles();
     const opts = typeof options === "string" ? { text: options } : (options || {});
@@ -379,6 +474,7 @@
     ensureStyles,
     button,
     actionRow,
+    auctionActionRow,
     StatusLine,
     InlineError,
     STYLE_ID
