@@ -210,9 +210,10 @@
     });
   }
 
-  function retry(paths) {
+  function retry(paths, options) {
     var invalidated = [];
     var list = Array.isArray(paths) ? paths : [];
+    var rerunLoaded = Boolean(options && options.rerun_loaded);
     for (var i = 0; i < list.length; i++) {
       var modulePath = list[i];
       if (typeof modulePath !== "string" || !modulePath.trim()) continue;
@@ -220,6 +221,10 @@
         failed.delete(modulePath);
         bumpVersion(modulePath);
         if (!loaded.has(modulePath)) invalidated.push(modulePath);
+      } else if (rerunLoaded && loaded.has(modulePath)) {
+        loaded.delete(modulePath);
+        bumpVersion(modulePath);
+        invalidated.push(modulePath);
       } else if (inFlight.has(modulePath)) {
         bumpVersion(modulePath);
       }
