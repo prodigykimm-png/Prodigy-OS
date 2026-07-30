@@ -189,6 +189,70 @@
       .sort((a, b) => a.name.localeCompare(b.name, "ko"));
   }
 
+  function replacementEntries(mapping) {
+    if (Array.isArray(mapping)) {
+      return mapping.map((entry) => ({
+        source: clean(entry && entry.source),
+        replacement: (entry && entry.replacement) || {},
+      }));
+    }
+    return Object.entries(mapping || {}).map(([source, replacement]) => ({ source: clean(source), replacement: replacement || {} }));
+  }
+
+  function validateExerciseReplacementMapping(program, mapping) {
+    const sourceNames = new Set(uniqueSourceExercises(program).map((item) => item.name));
+    const entries = replacementEntries(mapping);
+    const selected = new Map();
+    for (const entry of entries) {
+      if (!entry.source || !sourceNames.has(entry.source)) return { ok: false, error: `${entry.source || "(빈 원본)"}: 원본 운동을 찾을 수 없습니다.` };
+      if (selected.has(entry.source)) return { ok: false, error: `${entry.source}: 중복 대체 선택입니다.` };
+      const name = clean(entry.replacement && entry.replacement.name);
+      if (!name) return { ok: false, error: `${entry.source}: 대체 운동을 선택해 주세요.` };
+      selected.set(entry.source, { name, target: clean(entry.replacement.target) });
+    }
+    for (const start of selected.keys()) {
+      const path = [];
+      const seen = new Map();
+      let current = start;
+      while (selected.has(current)) {
+        if (seen.has(current)) {
+          const cycle = path.slice(seen.get(current)).concat(current);
+          return { ok: false, error: `순환 대체: ${cycle.join(" → ")}` };
+        }
+        seen.set(current, path.length);
+        path.push(current);
+        current = selected.get(current).name;
+      }
+    }
+    return { ok: true, mapping: Object.fromEntries(selected) };
+  }
+
+  function buildExerciseReplacementPreview(program, mapping) {
+    const review = validateExerciseReplacementMapping(program, mapping);
+    if (!review.ok) throw new Error(`운동 대체 검토 오류: ${review.error}`);
+    return Object.entries(review.mapping).map(([sourceName, replacement]) => {
+      const affectedDays = [];
+      const prescriptions = [];
+      (program.days || []).forEach((day) => {
+        (day.exercises || []).forEach((exercise, exerciseOrder) => {
+          if (clean(exercise.name) !== sourceName) return;
+          if (!affectedDays.some((item) => item.id === day.id)) {
+            affectedDays.push({ id: day.id, label: day.label, week: day.week, day: day.day });
+          }
+          prescriptions.push({
+            day_id: day.id,
+            day_label: day.label,
+            exercise_id: exercise.id,
+            exercise_order: exerciseOrder,
+            notes: clean(exercise.notes),
+            prescribed_sets: core.clone(exercise.prescribed_sets || []),
+          });
+        });
+      });
+      return { source_name: sourceName, replacement: core.clone(replacement), affected_days: affectedDays, prescriptions };
+    });
+  }
+
   /**
    * Apply exercise replacements to a candidate program (pure, returns clone).
    * mapping: { "원본 운동명": { name: "대체 운동명", target: "legs" } }
@@ -196,8 +260,10 @@
    */
   function applyExerciseReplacements(program, mapping) {
     if (!core) throw new Error("WorkoutCore is unavailable.");
+    const review = validateExerciseReplacementMapping(program, mapping);
+    if (!review.ok) throw new Error(`운동 대체 검토 오류: ${review.error}`);
     const clone = core.clone(program);
-    const map = mapping || {};
+    const map = review.mapping;
     let replaced = 0;
     (clone.days || []).forEach((day) => {
       (day.exercises || []).forEach((ex) => {
@@ -211,7 +277,58 @@
     return { program: clone, replaced_count: replaced };
   }
 
-  const api = { inspectWorkbook, parseSheetRows, previewProgramRows, uniqueSourceExercises, applyExerciseReplacements };
+  function createExerciseReplacementReview(program, searchCatalog) {
+    if (typeof searchCatalog !== "function") throw new Error("운동 라이브러리 검색을 사용할 수 없습니다.");
+    const sourceNames = new Set(uniqueSourceExercises(program).map((item) => item.name));
+    const mapping = {};
+    const requireSource = (sourceName) => {
+      const source = clean(sourceName);
+      if (!sourceNames.has(source)) throw new Error(`운동 대체 검토 오류: ${source || "(빈 원본)"}: 원본 운동을 찾을 수 없습니다.`);
+      return source;
+    };
+    return Object.freeze({
+      sources: () => uniqueSourceExercises(program),
+      candidates(sourceName, query, options = {}) {
+        requireSource(sourceName);
+        const found = searchCatalog(clean(query), 40, options || {});
+        return core.clone(Array.isArray(found) ? found : []);
+      },
+      select(sourceName, replacement) {
+        const source = requireSource(sourceName);
+        const name = clean(replacement && replacement.name);
+        if (!name) throw new Error(`운동 대체 검토 오류: ${source}: 대체 운동을 선택해 주세요.`);
+        if (name === source) { delete mapping[source]; return; }
+        const previous = mapping[source];
+        mapping[source] = { name, target: clean(replacement.target) };
+        const validation = validateExerciseReplacementMapping(program, mapping);
+        if (!validation.ok) {
+          if (previous) mapping[source] = previous;
+          else delete mapping[source];
+          throw new Error(`운동 대체 검토 오류: ${validation.error}`);
+        }
+      },
+      clear(sourceName) { delete mapping[requireSource(sourceName)]; },
+      clearAll() { Object.keys(mapping).forEach((source) => delete mapping[source]); },
+      mapping: () => core.clone(mapping),
+      preview: () => buildExerciseReplacementPreview(program, mapping),
+      apply: () => applyExerciseReplacements(program, mapping),
+    });
+  }
+
+  async function commitExerciseReplacementReview(program, mapping, writeProgram) {
+    if (typeof writeProgram !== "function") throw new Error("프로그램 저장 경로를 사용할 수 없습니다.");
+    const applied = applyExerciseReplacements(program, mapping);
+    const validation = core.validateProgram(applied.program);
+    if (!validation.ok) throw new Error(`프로그램 검토 오류: ${validation.errors[0] || "프로그램 검증 실패"}`);
+    const saved = await writeProgram(applied.program);
+    return { ...applied, saved };
+  }
+
+  const api = {
+    inspectWorkbook, parseSheetRows, previewProgramRows, uniqueSourceExercises,
+    validateExerciseReplacementMapping, buildExerciseReplacementPreview,
+    applyExerciseReplacements, createExerciseReplacementReview, commitExerciseReplacementReview,
+  };
   root.WorkoutImport = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

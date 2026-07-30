@@ -698,7 +698,8 @@
     }
     renderPreview(parent) {
       parent.empty();
-      this.replacementMaps = this.replacementMaps || {};
+      this.replacementReviews = this.replacementReviews || {};
+      this.replacementFilters = this.replacementFilters || {};
       const select = parent.createEl("select", { attr: { "aria-label": "프로그램 시트 선택" } });
       this.result.candidates.forEach((candidate, index) => { const option = select.createEl("option", { text: `${candidate.sheet_name} · ${candidate.weeks}주 ${candidate.days}회`, value: String(index) }); option.value = String(index); });
       const details = parent.createDiv({ attr: { class: "workout-import-details" } });
@@ -715,7 +716,7 @@
         });
         this.renderReplacementUI(replaceArea, candidate);
       };
-      select.onchange = () => { this.replacementMaps = {}; render(); };
+      select.onchange = () => { this.replacementReviews = {}; this.replacementFilters = {}; render(); };
       render();
       const actions = parent.createDiv({ attr: { class: "workout-modal-actions" } });
       button(actions, "취소").onclick = () => this.close();
@@ -723,16 +724,13 @@
         try {
           const candidate = this.result.candidates[Number(select.value) || 0];
           const sheetKey = candidate.sheet_name || "0";
-          const mapping = this.replacementMaps[sheetKey] || {};
-          let program = candidate.program;
-          if (Object.keys(mapping).length) {
-            const result = importer.applyExerciseReplacements(program, mapping);
-            program = result.program;
-          }
-          const validation = core.validateProgram(program);
-          if (!validation.ok) { notice(validation.errors[0] || "프로그램 검증 실패"); return; }
-          const saved = await objects.saveProgramObject(this.app, program);
-          await createStore(this.app).saveProgram(saved);
+          const review = this.replacementReviews[sheetKey];
+          const mapping = review ? review.mapping() : {};
+          await importer.commitExerciseReplacementReview(candidate.program, mapping, async (program) => {
+            const saved = await objects.saveProgramObject(this.app, program);
+            await createStore(this.app).saveProgram(saved);
+            return saved;
+          });
           this.close();
           notice(`${candidate.title} 프로그램을 저장했습니다.`);
           await this.refresh();
@@ -743,59 +741,98 @@
     }
     renderReplacementUI(area, candidate) {
       area.empty();
-      if (!importer || typeof importer.uniqueSourceExercises !== "function") {
+      if (!importer || typeof importer.createExerciseReplacementReview !== "function") {
         area.createEl("p", { text: "운동 교체 기능을 불러오지 못했습니다. Obsidian을 다시 로드해 주세요.", attr: { class: "workout-muted" } });
         return;
       }
       const sheetKey = candidate.sheet_name || "0";
-      if (!this.replacementMaps[sheetKey]) this.replacementMaps[sheetKey] = {};
-      const mapping = this.replacementMaps[sheetKey];
+      if (!this.replacementReviews[sheetKey]) {
+        this.replacementReviews[sheetKey] = importer.createExerciseReplacementReview(
+          candidate.program,
+          (query, _limit, options) => objects.searchExercises(this.app, query, 40, options),
+        );
+      }
+      if (!this.replacementFilters[sheetKey]) this.replacementFilters[sheetKey] = {};
+      const review = this.replacementReviews[sheetKey];
+      const filters = this.replacementFilters[sheetKey];
       let unique;
-      try { unique = importer.uniqueSourceExercises(candidate.program); } catch (_e) { unique = []; }
+      try { unique = review.sources(); } catch (_e) { unique = []; }
       if (!unique.length) return;
       area.createEl("h3", { text: "운동 교체 (선택)" });
       area.createEl("p", { text: "동일한 원본 운동은 프로그램 전체에서 한 번에 교체됩니다. 세트·횟수·RPE·휴식은 보존됩니다.", attr: { class: "workout-muted" } });
       const summary = area.createDiv({ attr: { class: "workout-replace-summary" } });
       const list = area.createDiv({ attr: { class: "workout-replace-list" } });
+      const previewArea = area.createDiv({ attr: { class: "workout-import-details" } });
+      const renderPreview = () => {
+        previewArea.empty();
+        const preview = review.preview();
+        if (!preview.length) return;
+        previewArea.createEl("h4", { text: "대체 미리보기" });
+        preview.forEach((item) => {
+          const block = previewArea.createDiv({ attr: { class: "workout-replace-label" } });
+          block.createEl("strong", { text: `${item.source_name} → ${item.replacement.name}` });
+          block.createEl("span", { text: `영향 Day: ${item.affected_days.map((day) => day.label).join(", ")}`, attr: { class: "workout-muted" } });
+          const values = item.prescriptions.map((prescription) => {
+            const sets = prescription.prescribed_sets.map((set) => `${set.set_number || "-"}세트 ${set.reps || "-"}회 · RPE ${set.rpe || "-"} · 휴식 ${set.rest || "-"}`).join(" / ");
+            return `${prescription.day_label}: ${sets}`;
+          }).join(" | ");
+          block.createEl("span", { text: `보존되는 세트·횟수·RPE·휴식: ${values}`, attr: { class: "workout-muted" } });
+        });
+      };
       const renderSummary = () => {
-        const count = Object.keys(mapping).length;
+        const count = review.preview().length;
         summary.empty();
         summary.createEl("span", { text: count ? `대체 ${count}개` : "교체 없음", attr: { class: count ? "workout-replace-count" : "workout-muted" } });
         if (count) {
           const resetBtn = summary.createEl("button", { text: "모두 원본으로", attr: { class: "workout-button workout-chip-btn", type: "button" } });
-          resetBtn.onclick = () => { for (const key of Object.keys(mapping)) delete mapping[key]; renderRows(); };
+          resetBtn.onclick = () => { review.clearAll(); renderRows(); };
         }
+        renderPreview();
       };
       const renderRows = () => {
         list.empty();
         unique.forEach((item) => {
+          if (!filters[item.name]) filters[item.name] = { query: "", target: "" };
+          const filter = filters[item.name];
           const row = list.createDiv({ attr: { class: "workout-replace-row" } });
           const label = row.createDiv({ attr: { class: "workout-replace-label" } });
           label.createEl("strong", { text: item.name });
           label.createEl("span", { text: `×${item.occurrences}${item.targets.length ? " · " + item.targets.join(", ") : ""}`, attr: { class: "workout-muted" } });
           const inputWrap = row.createDiv({ attr: { class: "workout-replace-input" } });
-          const input = inputWrap.createEl("input", { attr: { type: "text", placeholder: "원본 유지", value: mapping[item.name] ? mapping[item.name].name : "", "aria-label": `${item.name} 대체 운동` } });
-          input.setAttribute("list", "workout-replace-datalist");
-          input.oninput = () => {
-            const val = input.value.trim();
-            if (val) {
-              const meta = objects.getExerciseMeta ? objects.getExerciseMeta(this.app, val) : null;
-              mapping[item.name] = { name: val, target: meta && meta.target ? meta.target : "" };
-            } else {
-              delete mapping[item.name];
+          const selected = review.preview().find((entry) => entry.source_name === item.name);
+          inputWrap.createEl("span", { text: selected ? `선택: ${selected.replacement.name}` : "원본 유지", attr: { class: selected ? "workout-replace-count" : "workout-muted" } });
+          const target = inputWrap.createEl("select", { attr: { "aria-label": `${item.name} 부위 필터` } });
+          target.createEl("option", { text: "전체 부위", attr: { value: "" } });
+          (objects.EXERCISE_TARGETS || []).forEach((option) => target.createEl("option", { text: option.label, attr: { value: option.id } }));
+          target.value = filter.target;
+          const input = inputWrap.createEl("input", { attr: { type: "search", placeholder: "이름·부위·별칭 검색", value: filter.query, "aria-label": `${item.name} 대체 운동 필터` } });
+          const candidates = inputWrap.createDiv({ attr: { class: "workout-inline-actions" } });
+          const renderCandidates = () => {
+            candidates.empty();
+            const options = { target: filter.target, include_untargeted: false };
+            const found = review.candidates(item.name, filter.query, options);
+            if (!found.length) {
+              candidates.createEl("span", { text: "일치하는 운동 없음", attr: { class: "workout-muted" } });
+              return;
             }
-            renderSummary();
+            found.slice(0, 6).forEach((exercise) => {
+              const choice = candidates.createEl("button", { text: exercise.name, attr: { type: "button", class: "workout-button workout-chip-btn" } });
+              choice.onclick = () => {
+                try { review.select(item.name, exercise); renderRows(); }
+                catch (error) { notice(error.message || "대체 운동을 선택하지 못했습니다."); }
+              };
+            });
           };
+          input.oninput = () => { filter.query = input.value.trim(); renderCandidates(); };
+          target.onchange = () => { filter.target = target.value; renderCandidates(); };
+          if (selected) {
+            const clear = inputWrap.createEl("button", { text: "원본 유지", attr: { type: "button", class: "workout-button workout-chip-btn" } });
+            clear.onclick = () => { review.clear(item.name); renderRows(); };
+          }
+          renderCandidates();
         });
         renderSummary();
       };
-      // Datalist for exercise catalog
-      let datalist = area.querySelector("#workout-replace-datalist");
-      if (!datalist) {
-        datalist = area.createEl("datalist", { attr: { id: "workout-replace-datalist" } });
-        const catalog = objects.searchExercises ? objects.searchExercises(this.app, "", 100, {}) : [];
-        catalog.forEach((ex) => datalist.createEl("option", { attr: { value: ex.name } }));
-      }
       renderRows();
     }
   }
