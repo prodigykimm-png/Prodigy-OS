@@ -1,6 +1,9 @@
 (function (root) {
-  const T = root.ProdigyTokens || {}; const C = T.COLORS || {};
   "use strict";
+
+  const T = root.ProdigyTokens || {};
+  const BREAKPOINTS = T.BREAKPOINTS || {};
+  const CONTROL_HEIGHTS = T.CONTROL_HEIGHTS || {};
 
   const SOURCE_TYPE_LABELS = Object.freeze({
     auction: "경매",
@@ -74,10 +77,12 @@
     try {
       await loadOptionalProdigyScript(app, "SYSTEM/Views/workspace-registry.js", "ProdigyWorkspaceRegistry");
       await loadOptionalProdigyScript(app, "SYSTEM/Views/home-workspace-bar-core.js", "HomeWorkspaceBarCore");
+      await loadOptionalProdigyScript(app, "SYSTEM/Views/prodigy-adaptive-controls.js", "ProdigyAdaptiveControls");
     } catch (_workspaceModuleError) { /* Home remains usable when optional loading is unavailable. */ }
 
     const workspaceRegistry = resolveViewModule("ProdigyWorkspaceRegistry", "./workspace-registry.js");
     const workspaceBarCore = resolveViewModule("HomeWorkspaceBarCore", "./home-workspace-bar-core.js");
+    const adaptiveControls = resolveViewModule("ProdigyAdaptiveControls", "./prodigy-adaptive-controls.js");
 
     container.empty();
     container.classList.add("prodigy-home");
@@ -91,18 +96,48 @@
         return 0;
       }
     };
+    const getLogicalWidth = () => (
+      getElementWidth(workspaceLeaf)
+      || getElementWidth(container.parentElement)
+      || getElementWidth(container)
+      || (typeof window !== "undefined" && window.visualViewport ? Math.floor(window.visualViewport.width || 0) : 0)
+      || (typeof document !== "undefined" ? getElementWidth(document.documentElement) : 0)
+      || (typeof document !== "undefined" ? getElementWidth(document.body) : 0)
+      || (typeof window !== "undefined" ? Math.floor(window.innerWidth || 0) : 0)
+    );
+    const getHomeVariant = (logicalWidth) => {
+      const mobileShell = !!(
+        app.isMobile
+        || (typeof document !== "undefined" && document.body && document.body.classList.contains("is-mobile"))
+      );
+      if (mobileShell || logicalWidth < BREAKPOINTS.medium) return "compact";
+      if (logicalWidth < BREAKPOINTS.wide) return "medium";
+      return "wide";
+    };
+    let currentHomeVariant = "";
     const syncHomeWidth = () => {
       try {
         if (!container.style) return;
-        const sourceWidth = getElementWidth(workspaceLeaf) || getElementWidth(container.parentElement) || getElementWidth(container);
+        const sourceWidth = getLogicalWidth();
         if (!sourceWidth) return;
-        const gutter = sourceWidth < 600 ? 16 : 64;
+        const variant = getHomeVariant(sourceWidth);
+        const gutter = variant === "compact" ? 16 : 64;
         const homeWidth = Math.min(1180, Math.max(280, sourceWidth - gutter));
         container.style.width = `${homeWidth}px`;
         container.style.marginLeft = `calc((100% - ${homeWidth}px) / 2)`;
-        container.classList.toggle("home-wide", homeWidth >= 860);
+        container.classList.toggle("home-compact", variant === "compact");
+        container.classList.toggle("home-medium", variant === "medium");
+        container.classList.toggle("home-wide", variant === "wide");
         container.classList.toggle("home-narrow", homeWidth < 520);
+        if (variant !== currentHomeVariant) {
+          currentHomeVariant = variant;
+          if (typeof container.__prodigyHomeVariantChange === "function") {
+            container.__prodigyHomeVariantChange(variant);
+          }
+        }
       } catch (_syncWidthError) {
+        container.classList.toggle("home-compact", false);
+        container.classList.toggle("home-medium", false);
         container.classList.toggle("home-wide", false);
       }
     };
@@ -123,7 +158,7 @@
 
     // Display loader — external failures must never block Home.
     const mainLoader = container.createEl("div", {
-      text: "⌛ 오늘의 운영 화면을 준비하는 중...",
+      text: "오늘의 운영 화면을 준비하는 중...",
       attr: { style: "color: var(--text-muted); font-size: 0.9em; font-style: italic; padding: 20px; text-align: center;" }
     });
 
@@ -296,7 +331,7 @@
     });
     
     const leftTitle = titleRow.createEl("div");
-    leftTitle.createEl("h2", { text: `🌅 오늘 · ${todayStr}`, attr: { style: "margin:0;" } });
+    leftTitle.createEl("h2", { text: `오늘 · ${todayStr}`, attr: { style: "margin:0;" } });
     leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting} · 지금 무엇에 집중할까?`, attr: { style: "font-size: 0.85em; color: var(--text-muted);" } });
 
     const rightActions = titleRow.createEl("div", { attr: { class: "home-toolbar" } });
@@ -358,7 +393,7 @@
     
     if (isStale) {
       rightActions.createEl("span", { 
-        text: "🔔 새 정보 감지됨", 
+        text: "새 정보 감지됨",
         attr: { style: "font-size: 0.72em; color: var(--text-accent); font-weight: bold; background: var(--background-modifier-hover); padding: 2px 6px; border-radius: 4px;" }
       });
     }
@@ -383,22 +418,6 @@
     };
 
     // ── Mission Control stack (presentation only; reuses existing APIs) ──
-    const compactWidths = [
-      getElementWidth(container),
-      getElementWidth(workspaceLeaf),
-      typeof document !== "undefined" ? getElementWidth(document.documentElement) : 0,
-      typeof document !== "undefined" ? getElementWidth(document.body) : 0,
-      typeof window !== "undefined" && window.visualViewport ? Math.floor(window.visualViewport.width || 0) : 0,
-      typeof window !== "undefined" ? Math.floor(window.innerWidth || 0) : 0
-    ];
-    const isCompactHome = !!(
-      app.isMobile
-      || (typeof document !== "undefined" && document.body && document.body.classList.contains("is-mobile"))
-      || container.classList.contains("home-narrow")
-      || compactWidths.some((width) => width > 0 && width < 720)
-    );
-    container.classList.toggle("home-compact", isCompactHome);
-
     const stack = container.createEl("div", {
       attr: { class: "home-grid home-mc-stack home-column col-span-12" }
     });
@@ -438,7 +457,8 @@
         attr: {
           class: "home-ws-dock",
           role: "navigation",
-          "aria-label": "워크스페이스 바로가기"
+          "aria-label": "워크스페이스 바로가기",
+          "data-height": String(CONTROL_HEIGHTS.workspaceBar)
         }
       });
       dock.createEl("div", {
@@ -453,6 +473,7 @@
           "data-horizontal-scroll": String(model.layout.horizontalScroll)
         }
       });
+      let overflowButton = null;
       model.barItems.forEach((item) => {
         const btn = row.createEl("button", {
           attr: {
@@ -460,16 +481,53 @@
             class: "home-ws-dock-btn",
             "data-workspace": item.id,
             title: item.accessibleLabel,
-            "aria-label": item.accessibleLabel
+            "aria-label": item.accessibleLabel,
+            "aria-haspopup": item.kind === "overflow" ? "dialog" : "false",
+            "aria-expanded": "false"
           }
         });
         btn.createEl("span", { text: item.label, attr: { class: "home-ws-dock-name" } });
         if (item.path) btn.onclick = () => openPath(item.path);
+        if (item.kind === "overflow") overflowButton = btn;
       });
+
+      if (!overflowButton || !adaptiveControls || typeof adaptiveControls.BottomSheet !== "function") return;
+      const setExpanded = (expanded) => {
+        if (typeof overflowButton.setAttribute === "function") {
+          overflowButton.setAttribute("aria-expanded", expanded ? "true" : "false");
+        } else if (overflowButton.attributes) {
+          overflowButton.attributes["aria-expanded"] = expanded ? "true" : "false";
+        }
+      };
+      const sheet = adaptiveControls.BottomSheet(parent, {
+        title: "전체 워크스페이스",
+        onOpen: () => setExpanded(true),
+        onClose: () => setExpanded(false)
+      });
+      const sheetList = sheet.body.createEl("div", {
+        attr: { class: "home-workspace-sheet-list" }
+      });
+      model.sheetItems.forEach((item) => {
+        const sheetButton = sheetList.createEl("button", {
+          text: item.label,
+          attr: {
+            type: "button",
+            class: "home-workspace-sheet-btn",
+            "data-workspace": item.id,
+            title: item.accessibleLabel,
+            "aria-label": item.accessibleLabel
+          }
+        });
+        sheetButton.onclick = () => {
+          sheet.close();
+          openPath(item.path);
+        };
+      });
+      overflowButton.onclick = () => sheet.open(overflowButton);
     };
 
     const renderMicroLogSlot = (parent) => {
-      if (!isCompactHome || !parent) return;
+      if (!parent) return;
       const slot = parent.createEl("div", {
         attr: {
           class: "home-card home-micro-log-slot emphasis-secondary",
@@ -552,10 +610,10 @@
     // ── 1. TODAY · Morning Brief ──
     safeRenderRegion("Morning Brief", () => {
       const briefCard = stack.createEl("div", {
-        attr: { class: "home-card " + (isMorning ? "emphasis-primary" : "emphasis-secondary") + (isCompactHome ? " home-brief-compact" : "") }
+        attr: { class: "home-card home-brief " + (isMorning ? "emphasis-primary" : "emphasis-secondary") }
       });
       const briefHead = briefCard.createEl("div", { attr: { class: "home-header" } });
-      briefHead.createEl("span", { text: "🌅 오늘" });
+      briefHead.createEl("span", { text: "오늘" });
       briefHead.createEl("span", {
         text: "모닝 브리프",
         attr: { style: "font-size:0.78em;font-weight:600;color:var(--text-muted);margin-left:4px;" }
@@ -569,7 +627,7 @@
       }
 
       briefCard.createEl("p", {
-        text: clampBriefLines(result.brief, isCompactHome ? 2 : 5),
+        text: clampBriefLines(result.brief, 2),
         attr: {
           class: "home-brief-text",
           style: "font-size:0.92em;line-height:1.55;color:var(--text-normal);margin:0 0 8px 0;white-space:pre-wrap;"
@@ -679,7 +737,7 @@
         attr: { class: "home-card " + (isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
       });
       const head = focusCard.createEl("div", { attr: { class: "home-header" } });
-      head.createEl("span", { text: "🎯 오늘의 집중" });
+      head.createEl("span", { text: "오늘의 집중" });
 
       const baseFocus = (approvedFocus && Array.isArray(approvedFocus.focus))
         ? approvedFocus.focus
@@ -821,19 +879,13 @@
 
     // Primary mission blocks stay above the fold on all sizes
     const primary = stack;
-    // Lower chrome (actions / todoist / launcher / status) can collapse on mobile
-    let lower = stack;
-    if (isCompactHome) {
-      // Continue + Attention render into primary first; fold created after them
-      lower = null;
-    }
 
     // ── 3. Continue (Object Engine / package candidates, max 4) ──
     safeRenderRegion("Continue", () => {
       const continueCard = primary.createEl("div", {
         attr: { class: "home-card " + (isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
       });
-      continueCard.createEl("div", { text: "▶ 이어하기", attr: { class: "home-header" } });
+      continueCard.createEl("div", { text: "이어하기", attr: { class: "home-header" } });
 
       const cards = [];
       const seen = Object.create(null);
@@ -928,16 +980,19 @@
       });
     });
 
-    if (isCompactHome) {
-      safeRenderRegion("Micro Log", () => {
-        renderMicroLogSlot(stack);
-      });
-      const fold = stack.createEl("details", { attr: { class: "home-secondary-fold" } });
-      fold.createEl("summary", { text: "더 보기 · 주의 · 빠른 실행 · 런처" });
-      lower = fold.createEl("div", { attr: { class: "home-secondary-fold-body home-mc-lower" } });
-    } else {
-      lower = stack;
-    }
+    safeRenderRegion("Micro Log", () => {
+      renderMicroLogSlot(stack);
+    });
+    const fold = stack.createEl("details", { attr: { class: "home-secondary-fold" } });
+    fold.createEl("summary", { text: "더 보기 · 주의 · 빠른 실행 · 런처" });
+    const lower = fold.createEl("div", { attr: { class: "home-secondary-fold-body home-mc-lower" } });
+    let foldVariant = "";
+    container.__prodigyHomeVariantChange = (variant) => {
+      if (variant === foldVariant) return;
+      foldVariant = variant;
+      fold.open = variant !== "compact";
+    };
+    container.__prodigyHomeVariantChange(currentHomeVariant || getHomeVariant(getLogicalWidth()));
 
     // ── 4. Needs Attention (critical/high via briefContext) ──
     safeRenderRegion("Needs Attention", () => {
@@ -970,14 +1025,13 @@
         return true;
       });
 
-      const riskParent = isCompactHome ? lower : primary;
-      const riskCard = riskParent.createEl("div", {
+      const riskCard = lower.createEl("div", {
         attr: { class: "home-card emphasis-risk home-needs-attention" }
       });
       const rHead = riskCard.createEl("div", {
         attr: { class: "home-header", style: "color: var(--text-error);" }
       });
-      rHead.createEl("span", { text: "⚠ 주의가 필요함" });
+      rHead.createEl("span", { text: "주의가 필요함" });
       if (briefContext && briefContext.engine_ok === false) {
         rHead.createEl("span", {
           text: "엔진 폴백",
@@ -1068,7 +1122,7 @@
     // ── 5. Quick Actions ──
     safeRenderRegion("Quick Actions", () => {
       const qa = lower.createEl("div", { attr: { class: "home-card emphasis-secondary home-quick-actions" } });
-      qa.createEl("div", { text: "⚡ 빠른 실행", attr: { class: "home-header" } });
+      qa.createEl("div", { text: "빠른 실행", attr: { class: "home-header" } });
       const row = qa.createEl("div", {
         attr: { style: "display:flex;flex-wrap:wrap;gap:8px;" }
       });
@@ -1119,12 +1173,11 @@
     });
 
     // ── 6. Todoist (summary only — Todoist owns execution) ──
-    if (!isCompactHome) {
-      safeRenderRegion("Todoist", () => {
+    safeRenderRegion("Todoist", () => {
         const execCard = lower.createEl("div", {
           attr: { class: "home-card " + (isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
         });
-        execCard.createEl("div", { text: "✓ Todoist", attr: { class: "home-header" } });
+        execCard.createEl("div", { text: "Todoist", attr: { class: "home-header" } });
         const todoist = (pkg.context && pkg.context.todoist) || {};
         const todayCount = todoist.todayCount || 0;
         const overdueCount = todoist.overdueCount || 0;
@@ -1151,8 +1204,7 @@
             try { window.open("https://todoist.com/app", "_blank"); } catch (_e2) { /* ignore */ }
           }
         };
-      });
-    }
+    });
 
     // ── 7. Workspace Launcher (reuse — context cards) ──
     safeRenderRegion("Workspace Launcher", () => {
