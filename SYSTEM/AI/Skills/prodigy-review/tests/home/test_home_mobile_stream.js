@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
+const DESIGN_TOKENS = require(path.join(ROOT, "SYSTEM/Views/design-tokens.js"));
 const WORKSPACE_REGISTRY = require(path.join(ROOT, "SYSTEM/Views/workspace-registry.js"));
 const WORKSPACE_BAR_CORE = require(path.join(ROOT, "SYSTEM/Views/home-workspace-bar-core.js"));
 const LONG_KOREAN_LABEL = "가".repeat(40);
@@ -73,6 +74,18 @@ class FakeElement {
     });
   }
 
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+  }
+
+  removeAttribute(name) {
+    delete this.attributes[name];
+  }
+
+  focus() {
+    if (global.document) global.document.activeElement = this;
+  }
+
   createEl(tagName, options = {}) {
     const child = new FakeElement(tagName, options);
     child.parent = this;
@@ -127,6 +140,7 @@ class FakeElement {
 function installDocument() {
   const styleElements = new Map();
   global.document = {
+    activeElement: null,
     body: new FakeElement("body"),
     documentElement: new FakeElement("html"),
     head: {
@@ -154,6 +168,7 @@ function installDocument() {
 
 function clearModules() {
   [
+    "SYSTEM/Views/prodigy-adaptive-controls.js",
     "SYSTEM/Views/home-styles.js",
     "SYSTEM/Views/home-view.js"
   ].forEach((modulePath) => {
@@ -162,6 +177,7 @@ function clearModules() {
   });
   delete global.HomeStyles;
   delete global.HomeView;
+  delete global.ProdigyAdaptiveControls;
 }
 
 function cssRule(css, selector) {
@@ -171,7 +187,7 @@ function cssRule(css, selector) {
 }
 
 function installHomeDependencies({ registryAvailable = true, registryItems = null } = {}) {
-  global.ProdigyTokens = {};
+  global.ProdigyTokens = DESIGN_TOKENS;
   global.ProdigyUI = { ensureStyles() {} };
   global.MorningContextCore = {
     getTodayIsoDate: () => "2026-07-28",
@@ -439,6 +455,7 @@ async function testCompactQuickStreamOrder() {
   assert.deepEqual(foldedSections(container), [
     "Needs Attention",
     "Quick Actions",
+    "Todoist",
     "Launcher",
     "System Status"
   ]);
@@ -449,7 +466,7 @@ async function testCompactQuickStreamOrder() {
 
 async function testCompactWorkspaceBarSingleRowContract() {
   // Given: canonical workspaces and an explicit compact-width bar selection
-  const { app, container } = await renderHomeAtWidth(390, {
+  const { app, container, css } = await renderHomeAtWidth(390, {
     registryItems: WORKSPACE_REGISTRY.items(),
     workspaceBarSelection: {
       pinnedIds: ["workout", "auction"],
@@ -465,6 +482,17 @@ async function testCompactWorkspaceBarSingleRowContract() {
   assert.equal(rows[0].attributes["data-row-count"], "1");
   assert.equal(rows[0].attributes["data-wrap"], "nowrap");
   assert.equal(rows[0].attributes["data-horizontal-scroll"], "false");
+  const dockRule = cssRule(css, ".prodigy-home .home-ws-dock");
+  const rowRule = cssRule(css, ".prodigy-home .home-ws-dock-row");
+  const labelRule = cssRule(css, ".prodigy-home .home-ws-dock-name");
+  assert.match(
+    dockRule,
+    new RegExp(`(?:block-size|height):\\s*${DESIGN_TOKENS.CONTROL_HEIGHTS.workspaceBar}px`),
+    "390px Home applies the canonical 48px workspace-bar height"
+  );
+  assert.match(rowRule, /flex-wrap:\s*nowrap/, "390px Home keeps the workspace bar on one visual row");
+  assert.doesNotMatch(rowRule, /overflow-x:\s*(auto|scroll)/);
+  assert.match(labelRule, /white-space:\s*nowrap/, "workspace labels never wrap inside the fixed row");
   const buttons = rows[0].children.filter((element) => element.tagName === "BUTTON");
   assert.deepEqual(
     buttons.map((button) => button.attributes["data-workspace"]),
@@ -473,6 +501,26 @@ async function testCompactWorkspaceBarSingleRowContract() {
   assert.equal(buttons[0].attributes["aria-label"], "운동 워크스페이스 열기");
   buttons[0].onclick();
   assert.deepEqual(app.openedPaths, ["HUB/30 Workout.md"]);
+
+  // When: the overflow action is opened
+  buttons[3].onclick();
+
+  // Then: every registry workspace remains reachable from the bottom sheet
+  const sheets = container.findAll((element) => element.hasClass("prodigy-bottom-sheet"));
+  assert.equal(sheets.length, 1);
+  assert.equal(sheets[0].hidden, false);
+  assert.equal(buttons[3].attributes["aria-expanded"], "true");
+  const sheetButtons = sheets[0].findAll((element) => element.hasClass("home-workspace-sheet-btn"));
+  assert.deepEqual(
+    sheetButtons.map((button) => button.attributes["data-workspace"]),
+    WORKSPACE_REGISTRY.items().map((item) => item.id)
+  );
+  const workoutSheetButton = sheetButtons.find((button) => button.attributes["data-workspace"] === "workout");
+  workoutSheetButton.onclick();
+  assert.deepEqual(app.openedPaths, ["HUB/30 Workout.md", "HUB/30 Workout.md"]);
+  assert.equal(sheets[0].hidden, true);
+  assert.equal(buttons[3].attributes["aria-expanded"], "false");
+  assert.equal(global.document.activeElement, buttons[3]);
 }
 
 function testWorkspaceBarPinnedOrder() {
@@ -568,6 +616,35 @@ async function testDesktopParityAndCompactPredicate() {
   assert.ok(desktop.container.textTree().includes("시스템 상태"));
 }
 
+async function testCanonicalVariantsProjectTheSameHomeDom() {
+  // Given: widths on both sides of the canonical Home breakpoints
+  const compact = await renderHomeAtWidth(DESIGN_TOKENS.BREAKPOINTS.medium - 1);
+  const mediumStart = await renderHomeAtWidth(DESIGN_TOKENS.BREAKPOINTS.medium);
+  const mediumEnd = await renderHomeAtWidth(DESIGN_TOKENS.BREAKPOINTS.wide - 1);
+  const wide = await renderHomeAtWidth(DESIGN_TOKENS.BREAKPOINTS.wide);
+
+  // When: responsive classes and shared mission-control nodes are inspected
+  // Then: one Home DOM is projected as compact, medium, or wide without dropping core sections
+  assert.equal(compact.container.hasClass("home-compact"), true);
+  assert.equal(mediumStart.container.hasClass("home-medium"), true);
+  assert.equal(mediumEnd.container.hasClass("home-medium"), true);
+  assert.equal(wide.container.hasClass("home-wide"), true);
+  [compact.container, mediumStart.container, mediumEnd.container, wide.container].forEach((container) => {
+    assert.equal(container.findAll((element) => element.hasClass("prodigy-home")).length, 1);
+    assert.equal(container.findAll((element) => element.hasClass("home-ws-dock")).length, 1);
+    assert.equal(container.findAll((element) => element.hasClass("home-micro-log-slot")).length, 1);
+    assert.equal(container.findAll((element) => element.hasClass("home-secondary-fold")).length, 1);
+    assert.equal(container.textTree().includes("오늘의 집중"), true);
+    assert.equal(container.textTree().includes("이어하기"), true);
+    const briefText = container.findAll((element) => element.hasClass("home-brief-text"))[0];
+    assert.equal(briefText.textContent.split("\n").length, 2);
+    assert.equal(briefText.textContent.includes("표시되면 안 되는 세 번째 줄"), false);
+  });
+  assert.equal(compact.container.findAll((element) => element.hasClass("home-secondary-fold"))[0].open, false);
+  assert.equal(mediumStart.container.findAll((element) => element.hasClass("home-secondary-fold"))[0].open, true);
+  assert.equal(wide.container.findAll((element) => element.hasClass("home-secondary-fold"))[0].open, true);
+}
+
 async function testDesktopWorkspaceShortcutsRemainVisible() {
   // Given: desktop Home with a workspace registry and long item labels
   const { container, css } = await renderHomeAtWidth(1024);
@@ -580,7 +657,7 @@ async function testDesktopWorkspaceShortcutsRemainVisible() {
   assert.equal(shortcutSurface.textTree().includes("워크스페이스 바로가기"), true);
   assert.equal(shortcutSurface.textTree().includes(LONG_KOREAN_LABEL), true);
   assert.equal(shortcutSurface.findAll((element) => element.tagName === "BUTTON").length >= 1, true);
-  assert.match(cssRule(css, ".prodigy-home .home-ws-dock"), /display:\s*block/);
+  assert.match(cssRule(css, ".prodigy-home .home-ws-dock"), /display:\s*flex/);
   assert.doesNotMatch(cssRule(css, ".prodigy-home .home-ws-dock"), /display:\s*none/);
 }
 
@@ -644,6 +721,8 @@ async function testResponsiveTextMotionAndOverflowContracts() {
     assert.equal(container.textTree().includes(LONG_URL), true);
     assert.match(css, /overflow-wrap:\s*anywhere/);
     assert.match(css, /word-break:\s*keep-all/);
+    assert.match(css, new RegExp(`--ke-touch-target:\\s*${DESIGN_TOKENS.CONTROL_HEIGHTS.touchTarget}px`));
+    assert.doesNotMatch(css, /font-size:\s*[^;]*(?:vw|vh|vmin|vmax)/);
     assert.doesNotMatch(css, /home-compact[\s\S]*overflow-y:\s*(auto|scroll)/);
     assert.doesNotMatch(css, /home-ws-dock-row[\s\S]*overflow-x:\s*auto/);
     assert.match(css, /prefers-reduced-motion:\s*reduce/);
@@ -659,6 +738,7 @@ async function main() {
   await testCompactQuickStreamOrder();
   await testCompactWorkspaceBarSingleRowContract();
   await testDesktopParityAndCompactPredicate();
+  await testCanonicalVariantsProjectTheSameHomeDom();
   await testDesktopWorkspaceShortcutsRemainVisible();
   await testDesktopWorkspaceShortcutFallbackWhenRegistryUnavailable();
   await testDesktopNarrowDesktopStateDoesNotDropFocusContinue();

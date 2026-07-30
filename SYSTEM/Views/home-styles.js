@@ -4,12 +4,19 @@
  */
 (function (root) {
   "use strict";
-  const T = root.ProdigyTokens || {}; const C = T.COLORS || {};
+  const T = root.ProdigyTokens || {};
+  const BREAKPOINTS = T.BREAKPOINTS || {};
+  const CONTROL_HEIGHTS = T.CONTROL_HEIGHTS || {};
 
   const HOME_STYLE_ID = "prodigy-home-styles";
 
   function ensureHomeStyles() {
     if (typeof document === "undefined") return;
+    const medium = Number(BREAKPOINTS.medium);
+    const wide = Number(BREAKPOINTS.wide);
+    const workspaceBarHeight = Number(CONTROL_HEIGHTS.workspaceBar);
+    const touchTarget = Number(CONTROL_HEIGHTS.touchTarget);
+    if (![medium, wide, workspaceBarHeight, touchTarget].every(Number.isFinite)) return;
     let styleEl = document.getElementById(HOME_STYLE_ID);
     if (!styleEl) {
       styleEl = document.createElement("style");
@@ -18,7 +25,15 @@
     }
     if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
     styleEl.textContent = `
-        .prodigy-home { width: 100%; margin: 0 auto; padding: 0 8px 32px; word-break: keep-all; overflow-wrap: anywhere; }
+        .prodigy-home {
+          --home-workspace-bar-height: ${workspaceBarHeight}px;
+          --ke-touch-target: ${touchTarget}px;
+          width: 100%;
+          margin: 0 auto;
+          padding: 0 8px 32px;
+          word-break: keep-all;
+          overflow-wrap: anywhere;
+        }
         .prodigy-home * { min-inline-size: 0; }
         .home-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
         .home-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -233,11 +248,12 @@
         .prodigy-home.home-compact .home-title-row h2 {
           font-size: 1.2em;
         }
-        .prodigy-home.home-compact .home-brief-compact > p.home-brief-text {
+        .prodigy-home .home-brief > p.home-brief-text {
           display: -webkit-box;
-          -webkit-line-clamp: 4;
+          -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
+          white-space: normal !important;
           font-size: 0.88em;
           margin-bottom: 8px !important;
         }
@@ -283,39 +299,47 @@
           line-height: var(--ke-leading-body);
         }
         .prodigy-home .home-ws-dock {
-          display: block;
+          display: flex;
+          align-items: center;
+          block-size: ${workspaceBarHeight}px;
+          box-sizing: border-box;
           margin: 0 0 10px 0;
-          padding: 10px 10px 8px;
+          padding: 0 var(--ke-space-2);
           border: 1px solid var(--background-modifier-border);
           border-radius: var(--ke-radius-panel);
           background: var(--background-secondary);
+          overflow: hidden;
         }
         .prodigy-home .home-ws-dock-label {
-          font-size: 0.72em;
-          font-weight: 700;
-          color: var(--text-muted);
-          margin: 0 0 8px 2px;
-          letter-spacing: 0;
+          position: absolute;
+          inline-size: 1px;
+          block-size: 1px;
+          margin: -1px;
+          padding: 0;
+          overflow: hidden;
+          clip: rect(0 0 0 0);
+          white-space: nowrap;
         }
         .prodigy-home .home-ws-dock-row {
           display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          -webkit-overflow-scrolling: touch;
-          padding-bottom: 2px;
+          flex: 1 1 auto;
+          align-items: center;
+          block-size: 100%;
+          gap: var(--ke-space-2);
+          flex-wrap: nowrap;
+          overflow: hidden;
         }
         .prodigy-home .home-ws-dock-btn {
           flex: 1 1 0;
-          min-width: 56px;
-          max-width: 88px;
+          min-inline-size: 0;
+          max-inline-size: none;
           display: flex;
-          flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 3px;
+          gap: var(--ke-space-2);
           min-height: var(--ke-touch-target) !important;
-          height: auto !important;
-          padding: 8px 4px !important;
+          height: var(--ke-touch-target) !important;
+          padding: 0 var(--ke-space-2) !important;
           border-radius: var(--ke-radius-control) !important;
           border: 1px solid var(--background-modifier-border);
           background: var(--background-primary);
@@ -334,15 +358,63 @@
           line-height: 1;
         }
         .prodigy-home .home-ws-dock-name {
-          white-space: normal;
-          overflow-wrap: anywhere;
+          min-inline-size: 0;
           max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .prodigy-home .home-ws-dock-btn:focus-visible,
+        .prodigy-home .home-workspace-sheet-btn:focus-visible {
+          outline: 2px solid var(--text-accent);
+          outline-offset: 2px;
+        }
+        .prodigy-home .home-workspace-sheet-list {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: var(--ke-space-2);
+          padding-block: var(--ke-space-3);
+        }
+        .prodigy-home .home-workspace-sheet-btn {
+          display: flex;
+          align-items: center;
+          inline-size: 100%;
+          min-block-size: var(--ke-touch-target);
+          padding: var(--ke-space-3) var(--ke-space-4);
+          border: 1px solid var(--background-modifier-border);
+          border-radius: var(--ke-radius-control);
+          background: var(--background-primary);
+          color: var(--text-normal);
+          font-size: var(--ke-type-body);
+          font-weight: 700;
+          line-height: var(--ke-leading-body);
+          text-align: start;
+          word-break: keep-all;
+          overflow-wrap: anywhere;
+          cursor: pointer;
         }
         .prodigy-home.home-compact .home-secondary-fold-body {
           display: flex;
           flex-direction: column;
           gap: 10px;
           margin-top: 6px;
+        }
+        .prodigy-home.home-medium .home-secondary-fold,
+        .prodigy-home.home-wide .home-secondary-fold {
+          border: 0;
+          background: transparent;
+          padding: 0;
+        }
+        .prodigy-home.home-medium .home-secondary-fold > summary,
+        .prodigy-home.home-wide .home-secondary-fold > summary {
+          display: none;
+        }
+        .prodigy-home.home-medium .home-secondary-fold-body,
+        .prodigy-home.home-wide .home-secondary-fold-body {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          margin-top: 0;
         }
         /* Lifecycle is secondary: always collapsed by default */
         .prodigy-home .home-lifecycle-fold {
@@ -398,6 +470,12 @@
         }
         .prodigy-home.home-compact .col-span-4:empty {
           display: none;
+        }
+        @media (min-width: ${medium}px) and (max-width: ${wide - 1}px) {
+          .prodigy-home.home-medium .home-mc-stack { max-width: 920px; }
+        }
+        @media (min-width: ${wide}px) {
+          .prodigy-home.home-wide .home-mc-stack { max-width: 920px; }
         }
         @media (prefers-reduced-motion: reduce) {
           .prodigy-home *,
