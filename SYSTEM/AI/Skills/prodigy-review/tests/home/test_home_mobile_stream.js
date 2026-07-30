@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
+const WORKSPACE_REGISTRY = require(path.join(ROOT, "SYSTEM/Views/workspace-registry.js"));
+const WORKSPACE_BAR_CORE = require(path.join(ROOT, "SYSTEM/Views/home-workspace-bar-core.js"));
 const LONG_KOREAN_LABEL = "가".repeat(40);
 const LONG_URL = "https://example.test/" + "a".repeat(200);
 
@@ -168,7 +170,7 @@ function cssRule(css, selector) {
   return match ? match[1] : "";
 }
 
-function installHomeDependencies({ registryAvailable = true } = {}) {
+function installHomeDependencies({ registryAvailable = true, registryItems = null } = {}) {
   global.ProdigyTokens = {};
   global.ProdigyUI = { ensureStyles() {} };
   global.MorningContextCore = {
@@ -218,7 +220,7 @@ function installHomeDependencies({ registryAvailable = true } = {}) {
     generateDeterministicFallback: () => ({
       schema_version: "morning-result-v1",
       brief_mode: "rule_based",
-      brief: "규칙 기반 브리프\n" + LONG_URL,
+      brief: "규칙 기반 브리프\n" + LONG_URL + "\n표시되면 안 되는 세 번째 줄",
       focus: [
         {
           id: "focus-1",
@@ -300,11 +302,13 @@ function installHomeDependencies({ registryAvailable = true } = {}) {
     }
   };
   if (registryAvailable) {
+    const items = Array.isArray(registryItems)
+      ? registryItems
+      : [{ id: "project", icon: "P", label: LONG_KOREAN_LABEL, path: LONG_URL }];
     global.ProdigyWorkspaceRegistry = {
-      items: () => [
-        { id: "project", icon: "P", label: LONG_KOREAN_LABEL, path: LONG_URL }
-      ],
-      find: () => ({ path: "HUB/40 Project.md" })
+      items: () => items.slice(),
+      launcherItems: () => items.filter((item) => item.launcher !== false),
+      find: (id) => items.find((item) => item.id === id) || null
     };
   } else {
     delete global.ProdigyWorkspaceRegistry;
@@ -312,8 +316,10 @@ function installHomeDependencies({ registryAvailable = true } = {}) {
 }
 
 function createApp({ mobile }) {
+  const openedPaths = [];
   return {
     isMobile: mobile,
+    openedPaths,
     vault: {
       getAbstractFileByPath: () => ({ path: "fixture.md" }),
       read: async () => "",
@@ -321,24 +327,35 @@ function createApp({ mobile }) {
       create: async (createdPath) => ({ path: createdPath })
     },
     workspace: {
-      openLinkText() {},
+      openLinkText(openedPath) { openedPaths.push(openedPath); },
       getLeaf: () => ({ view: { contentEl: new FakeElement("div") } })
     },
     commands: { executeCommandById: () => false }
   };
 }
 
-async function renderHomeAtWidth(width, { mobile = false, registryAvailable = true } = {}) {
+async function renderHomeAtWidth(width, {
+  mobile = false,
+  registryAvailable = true,
+  registryItems = null,
+  workspaceBarSelection = null
+} = {}) {
   clearModules();
   installDocument();
-  installHomeDependencies({ registryAvailable });
+  installHomeDependencies({ registryAvailable, registryItems });
   global.window.innerWidth = width;
   require(path.join(ROOT, "SYSTEM/Views/home-styles.js"));
   const home = require(path.join(ROOT, "SYSTEM/Views/home-view.js"));
   const container = new FakeElement("div");
   container.workspaceLeaf = new FakeElement("div", { clientWidth: width });
-  await home.renderHome({ app: createApp({ mobile }), dv: {}, container });
-  return { container, css: global.document.getElementById("prodigy-home-styles").textContent };
+  const app = createApp({ mobile });
+  await home.renderHome({
+    app,
+    dv: {},
+    container,
+    workspaceBarSelection
+  });
+  return { app, container, css: global.document.getElementById("prodigy-home-styles").textContent };
 }
 
 async function renderHomeWithContainerOnlyWidth(width) {
@@ -425,6 +442,109 @@ async function testCompactQuickStreamOrder() {
     "Launcher",
     "System Status"
   ]);
+  const briefText = container.findAll((element) => element.hasClass("home-brief-text"))[0];
+  assert.equal(briefText.textContent.split("\n").length, 2);
+  assert.equal(briefText.textContent.includes("표시되면 안 되는 세 번째 줄"), false);
+}
+
+async function testCompactWorkspaceBarSingleRowContract() {
+  // Given: canonical workspaces and an explicit compact-width bar selection
+  const { app, container } = await renderHomeAtWidth(390, {
+    registryItems: WORKSPACE_REGISTRY.items(),
+    workspaceBarSelection: {
+      pinnedIds: ["workout", "auction"],
+      recentId: "project"
+    }
+  });
+
+  // When: the compact workspace bar structure is inspected
+  const rows = container.findAll((element) => element.hasClass("home-ws-dock-row"));
+
+  // Then: exactly one non-wrapping, non-scrolling row exposes pinned 2 + recent 1 + all
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].attributes["data-row-count"], "1");
+  assert.equal(rows[0].attributes["data-wrap"], "nowrap");
+  assert.equal(rows[0].attributes["data-horizontal-scroll"], "false");
+  const buttons = rows[0].children.filter((element) => element.tagName === "BUTTON");
+  assert.deepEqual(
+    buttons.map((button) => button.attributes["data-workspace"]),
+    ["workout", "auction", "project", "all"]
+  );
+  assert.equal(buttons[0].attributes["aria-label"], "운동 워크스페이스 열기");
+  buttons[0].onclick();
+  assert.deepEqual(app.openedPaths, ["HUB/30 Workout.md"]);
+}
+
+function testWorkspaceBarPinnedOrder() {
+  // Given: two pinned workspace ids in user-defined order
+  const selection = { pinnedIds: ["workout", "auction"], recentIds: ["project"] };
+
+  // When: the pure hybrid-bar model is built from the canonical registry
+  const model = WORKSPACE_BAR_CORE.buildWorkspaceBarModel(WORKSPACE_REGISTRY, selection);
+
+  // Then: pinned order is preserved before the recent workspace
+  assert.deepEqual(model.directItems.map((item) => item.id), ["workout", "auction", "project"]);
+}
+
+function testWorkspaceBarRecentDeduplication() {
+  // Given: the newest recent workspace is already pinned and an older recent remains
+  const selection = {
+    pinnedIds: ["auction", "project"],
+    recentIds: ["project", "reading", "workout"]
+  };
+
+  // When: the pure hybrid-bar model excludes pinned duplicates
+  const model = WORKSPACE_BAR_CORE.buildWorkspaceBarModel(WORKSPACE_REGISTRY, selection);
+
+  // Then: the first non-pinned recent workspace occupies the recent slot
+  assert.deepEqual(model.directItems.map((item) => item.id), ["auction", "project", "reading"]);
+}
+
+function testWorkspaceBarMissingRecentFallback() {
+  // Given: two pinned workspaces and no recent history
+  const selection = { pinnedIds: ["auction", "project"], recentIds: [] };
+
+  // When: the pure hybrid-bar model is built
+  const model = WORKSPACE_BAR_CORE.buildWorkspaceBarModel(WORKSPACE_REGISTRY, selection);
+
+  // Then: the first remaining registry workspace fills the recent slot gracefully
+  assert.deepEqual(model.directItems.map((item) => item.id), ["auction", "project", "knowledge"]);
+}
+
+function testWorkspaceBarRetainsAllRegistryEntries() {
+  // Given: the canonical registry
+  // When: the pure hybrid-bar model is built
+  const model = WORKSPACE_BAR_CORE.buildWorkspaceBarModel(WORKSPACE_REGISTRY, {
+    pinnedIds: ["auction", "project"],
+    recentIds: ["reading"]
+  });
+
+  // Then: the bottom-sheet projection retains every registry id in registry order
+  assert.deepEqual(
+    model.sheetItems.map((item) => item.id),
+    WORKSPACE_REGISTRY.items().map((item) => item.id)
+  );
+  assert.equal(model.sheetItems.every((item) => item.accessibleLabel.length > item.label.length), true);
+}
+
+function testWorkoutRemainsReachable() {
+  // Given: Workout is outside the three direct slots
+  const model = WORKSPACE_BAR_CORE.buildWorkspaceBarModel(WORKSPACE_REGISTRY, {
+    pinnedIds: ["auction", "project"],
+    recentIds: ["reading"]
+  });
+
+  // When: all bottom-sheet entries are inspected
+  const workout = model.sheetItems.find((item) => item.id === "workout");
+
+  // Then: Workout remains a fully labelled route to its existing dashboard
+  assert.deepEqual(workout, {
+    id: "workout",
+    kind: "workspace",
+    label: "운동",
+    path: "HUB/30 Workout.md",
+    accessibleLabel: "운동 워크스페이스 열기"
+  });
 }
 
 async function testDesktopParityAndCompactPredicate() {
@@ -531,7 +651,13 @@ async function testResponsiveTextMotionAndOverflowContracts() {
 }
 
 async function main() {
+  testWorkspaceBarPinnedOrder();
+  testWorkspaceBarRecentDeduplication();
+  testWorkspaceBarMissingRecentFallback();
+  testWorkspaceBarRetainsAllRegistryEntries();
+  testWorkoutRemainsReachable();
   await testCompactQuickStreamOrder();
+  await testCompactWorkspaceBarSingleRowContract();
   await testDesktopParityAndCompactPredicate();
   await testDesktopWorkspaceShortcutsRemainVisible();
   await testDesktopWorkspaceShortcutFallbackWhenRegistryUnavailable();

@@ -58,11 +58,26 @@
     await loadOptionalProdigyScript(app, "SYSTEM/Views/prodigy-settings-modal.js", "ProdigySettingsModal");
   }
 
+  function resolveViewModule(globalKey, relativePath) {
+    if (root[globalKey]) return root[globalKey];
+    if (typeof module !== "undefined" && module.exports && typeof require === "function") {
+      return require(relativePath);
+    }
+    return null;
+  }
+
   async function renderHome(options) {
     const { app, dv, container } = options;
     if (!app || !dv || !container) return;
 
     try { await ensureProdigySettings(app); } catch (_settingsError) { /* Home remains usable without settings. */ }
+    try {
+      await loadOptionalProdigyScript(app, "SYSTEM/Views/workspace-registry.js", "ProdigyWorkspaceRegistry");
+      await loadOptionalProdigyScript(app, "SYSTEM/Views/home-workspace-bar-core.js", "HomeWorkspaceBarCore");
+    } catch (_workspaceModuleError) { /* Home remains usable when optional loading is unavailable. */ }
+
+    const workspaceRegistry = resolveViewModule("ProdigyWorkspaceRegistry", "./workspace-registry.js");
+    const workspaceBarCore = resolveViewModule("HomeWorkspaceBarCore", "./home-workspace-bar-core.js");
 
     container.empty();
     container.classList.add("prodigy-home");
@@ -390,9 +405,8 @@
 
     const workspacePathFor = (sourceType) => {
       const t = String(sourceType || "").toLowerCase();
-      const registry = root.ProdigyWorkspaceRegistry;
-      if (registry && typeof registry.find === "function") {
-        const found = registry.find(t);
+      if (workspaceRegistry && typeof workspaceRegistry.find === "function") {
+        const found = workspaceRegistry.find(t);
         if (found) return found.path;
       }
       if (t === "auction" || t === "auction_case") return "HUB/10 Auction.md";
@@ -412,21 +426,14 @@
 
     const renderWorkspaceDock = (parent) => {
       if (!parent) return;
-      const registry = root.ProdigyWorkspaceRegistry;
-      const fallbackItems = [
-        { id: "auction", icon: "경", name: "경매", path: "HUB/10 Auction.md" },
-        { id: "workout", icon: "운", name: "운동", path: "HUB/30 Workout.md" },
-        { id: "reading", icon: "독", name: "독서", path: "HUB/20 Reading.md" },
-        { id: "project", icon: "프", name: "프로젝트", path: "HUB/40 Project.md" },
-        { id: "personal", icon: "개", name: "개인", path: "HUB/60 Personal.md" },
-        { id: "journal", icon: "성", name: "성찰", path: "HUB/70 Journal.md" },
-        { id: "knowledge", icon: "지", name: "지식", path: "HUB/50 Knowledge.md" }
-      ];
-      const registryItems = registry && typeof registry.items === "function"
-        ? registry.items().map((item) => ({ id: item.id, icon: item.icon, name: item.label, path: item.path }))
-        : [];
-      const dockItems = registryItems.filter((item) => item && item.name && item.path);
-      const visibleItems = dockItems.length ? dockItems : fallbackItems;
+      if (!workspaceBarCore || typeof workspaceBarCore.buildWorkspaceBarModel !== "function") return;
+      const registry = workspaceRegistry;
+      if (!registry || typeof registry.items !== "function") return;
+      const hasWorkspaceItems = registry.items().length > 0;
+      const model = workspaceBarCore.buildWorkspaceBarModel(
+        registry,
+        options.workspaceBarSelection || {}
+      );
       const dock = parent.createEl("div", {
         attr: {
           class: "home-ws-dock",
@@ -435,22 +442,29 @@
         }
       });
       dock.createEl("div", {
-        text: dockItems.length ? "워크스페이스 바로가기" : "워크스페이스 바로가기 · 기본 바로가기",
+        text: hasWorkspaceItems ? "워크스페이스 바로가기" : "워크스페이스 바로가기 · 비어 있음",
         attr: { class: "home-ws-dock-label" }
       });
-      const row = dock.createEl("div", { attr: { class: "home-ws-dock-row" } });
-      visibleItems.forEach((item) => {
+      const row = dock.createEl("div", {
+        attr: {
+          class: "home-ws-dock-row",
+          "data-row-count": String(model.layout.rowCount),
+          "data-wrap": model.layout.wrap ? "wrap" : "nowrap",
+          "data-horizontal-scroll": String(model.layout.horizontalScroll)
+        }
+      });
+      model.barItems.forEach((item) => {
         const btn = row.createEl("button", {
           attr: {
             type: "button",
             class: "home-ws-dock-btn",
             "data-workspace": item.id,
-            title: item.name + " 열기"
+            title: item.accessibleLabel,
+            "aria-label": item.accessibleLabel
           }
         });
-        btn.createEl("span", { text: item.icon, attr: { class: "home-ws-dock-icon" } });
-        btn.createEl("span", { text: item.name, attr: { class: "home-ws-dock-name" } });
-        btn.onclick = () => openPath(item.path);
+        btn.createEl("span", { text: item.label, attr: { class: "home-ws-dock-name" } });
+        if (item.path) btn.onclick = () => openPath(item.path);
       });
     };
 
@@ -555,7 +569,7 @@
       }
 
       briefCard.createEl("p", {
-        text: clampBriefLines(result.brief, isCompactHome ? 4 : 5),
+        text: clampBriefLines(result.brief, isCompactHome ? 2 : 5),
         attr: {
           class: "home-brief-text",
           style: "font-size:0.92em;line-height:1.55;color:var(--text-normal);margin:0 0 8px 0;white-space:pre-wrap;"
