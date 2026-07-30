@@ -6,8 +6,49 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[6]
 REGISTRY = ROOT / "SYSTEM/Views/display-registry.js"
 AUCTION_CARD = ROOT / "SYSTEM/Views/auction-card.js"
+PRICE_PROJECTION = ROOT / "SYSTEM/Views/auction-card-price-projection.js"
 SITE_VISIT = ROOT / "SYSTEM/Views/site-visit-workflow.js"
 DASHBOARD = ROOT / "HUB/10 Auction.md"
+
+
+# Minimal Obsidian DOM double, shared by the card rendering assertions below.
+# Mirrors the element surface auction-card.js actually uses (createEl/createSpan,
+# setText, innerHTML, listeners) so the real renderer can run under plain node.
+_DOM_DOUBLE = "\n".join([
+    "function fakeElement(tag, options) {",
+    "  const opts = options || {};",
+    "  const element = {",
+    "    tag: tag, attr: opts.attr || {}, children: [], listeners: Object.create(null),",
+    "    parentNode: null, style: {}, text: opts.text || '', textContent: opts.text || '',",
+    "    innerHTML: '', value: '', checked: false, disabled: false,",
+    "    createEl(childTag, childOptions) {",
+    "      const child = fakeElement(childTag, childOptions);",
+    "      child.parentNode = this; this.children.push(child); return child;",
+    "    },",
+    "    createSpan(o) { return this.createEl('span', o); },",
+    "    createDiv(o) { return this.createEl('div', o); },",
+    "    addEventListener(type, listener) { this.listeners[type] = listener; },",
+    "    setText(v) { this.text = String(v); this.textContent = String(v); },",
+    "    empty() { this.children = []; this.text = ''; this.textContent = ''; this.innerHTML = ''; },",
+    "    appendChild(c) { c.parentNode = this; this.children.push(c); return c; },",
+    "    removeChild(c) { this.children = this.children.filter((x) => x !== c); },",
+    "    setAttribute() {}, remove() {},",
+    "    classList: { add() {}, remove() {}, contains: () => false, toggle() {} },",
+    "    querySelector: () => null, querySelectorAll: () => []",
+    "  };",
+    "  return element;",
+    "}",
+    "function textOf(element) {",
+    "  return [element.text || '', element.innerHTML || '']",
+    "    .concat(element.children.map(textOf)).filter(Boolean).join(' ');",
+    "}",
+    "function findAll(element, predicate, acc) {",
+    "  const found = acc || [];",
+    "  if (predicate(element)) found.push(element);",
+    "  element.children.forEach((child) => findAll(child, predicate, found));",
+    "  return found;",
+    "}",
+])
 
 
 def run_registry() -> dict[str, str]:
@@ -136,11 +177,83 @@ def test_user_facing_auction_copy_does_not_expose_property_keys():
 
 
 def test_watching_card_with_winning_bid_is_rendered_as_closed():
-    card = AUCTION_CARD.read_text(encoding="utf-8")
-    assert 'p.status === "watching" && hasRecordedValue(p.winning_bid_price)' in card
-    assert 'ddayStr = "종료"' in card
-    assert 'isClosedWatching ? "winning_bid_price" : "minimum_bid"' in card
-    assert 'isClosedWatching ? p.winning_bid_price : p.minimum_bid' in card
+    """A watching case that already has a winning bid must render as closed.
+
+    This renders the real card through a DOM double instead of grepping the
+    product source, so harmless refactors (extracted variables, the price
+    projection helper) do not break the test while the guarded behavior —
+    "종료" D-Day badge plus 낙찰가 replacing 입찰 예정가 — stays enforced.
+    """
+    source = "\n".join([
+        "const fs = require('fs');",
+        _DOM_DOUBLE,
+        "const renderErrors = [];",
+        "global.document = {",
+        "  body: { classList: { contains: () => false } }, head: fakeElement('head'),",
+        "  getElementById: () => null, createElement: (tag) => fakeElement(tag),",
+        "  querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {}",
+        "};",
+        "global.Notice = function Notice(message) { renderErrors.push(String(message)); };",
+        "global.window = global;",
+        "global.window.innerWidth = 1280;",
+        "global.window.addEventListener = () => {};",
+        "global.window.ProdigyUI = null;",
+        f"eval(fs.readFileSync({json.dumps(str(REGISTRY))}, 'utf8'));",
+        f"require({json.dumps(str(PRICE_PROJECTION))});",
+        f"require({json.dumps(str(AUCTION_CARD))});",
+        "const app = {",
+        "  isMobile: false,",
+        "  workspace: { getLeavesOfType: () => [], openLinkText: () => {}, getMostRecentLeaf: () => null },",
+        "  vault: { getAbstractFileByPath: (target) => target ? { path: target } : null },",
+        "  fileManager: { processFrontMatter: async () => {} }",
+        "};",
+        "global.window.app = app;",
+        "global.app = app;",
+        # A future auction date guarantees the "종료" badge can only come from the
+        # closed-watching branch, never from the ordinary expired-date branch.
+        "const futureDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);",
+        "const fixture = (extra) => Object.assign({",
+        "  type: 'auction_case', status: 'watching', case_number: '2026타경9001',",
+        "  file: { path: 'PARA/PROJECTS/Auction/fixture.md', name: 'fixture.md' },",
+        "  address: '부산광역시 금정구, 테스트물건', court: '부산지방법원',",
+        "  auction_datetime: futureDate + ' 10:00',",
+        "  appraisal_price: 200000000, minimum_bid: 100000000,",
+        "  expected_bid: 120000000, exit_price: 150000000",
+        "}, extra || {});",
+        "const render = (page) => {",
+        "  const root = fakeElement('div');",
+        "  window.renderAuctionCard(page, root, {});",
+        "  return {",
+        "    text: textOf(root),",
+        "    closedBadge: findAll(root, (n) => n.tag === 'span' && String(n.text).trim() === '종료').length > 0",
+        "  };",
+        "};",
+        "const closed = render(fixture({ winning_bid_price: 137000000 }));",
+        "const open = render(fixture({}));",
+        "console.log(JSON.stringify({",
+        "  renderErrors: renderErrors,",
+        "  closedBadge: closed.closedBadge,",
+        "  closedShowsWinningBidLabel: closed.text.includes('낙찰가'),",
+        "  closedShowsWinningBidValue: closed.text.includes('1.37억'),",
+        "  closedHidesExpectedBid: !closed.text.includes('입찰 예정가'),",
+        "  openBadge: open.closedBadge,",
+        "  openShowsExpectedBid: open.text.includes('입찰 예정가'),",
+        "  openHidesWinningBid: !open.text.includes('낙찰가')",
+        "}));",
+    ])
+    result = subprocess.run(["node", "-e", source], capture_output=True, text=True, check=True)
+    rendered = json.loads(result.stdout)
+
+    assert rendered["renderErrors"] == [], f"card render raised: {rendered['renderErrors']}"
+    # Closed watching case: shows 종료 and the winning bid, not the minimum-bid projection.
+    assert rendered["closedBadge"], "watching + winning_bid_price must render the 종료 D-Day badge"
+    assert rendered["closedShowsWinningBidLabel"], "closed watching card must show the 낙찰가 label"
+    assert rendered["closedShowsWinningBidValue"], "closed watching card must show the winning bid value"
+    assert rendered["closedHidesExpectedBid"], "closed watching card must not show 입찰 예정가"
+    # Still-open watching case: the closed treatment must NOT leak.
+    assert not rendered["openBadge"], "open watching card must not render the 종료 badge"
+    assert rendered["openShowsExpectedBid"], "open watching card must still show 입찰 예정가"
+    assert rendered["openHidesWinningBid"], "open watching card must not show 낙찰가"
 
 
 def test_display_scripts_have_valid_javascript_syntax():

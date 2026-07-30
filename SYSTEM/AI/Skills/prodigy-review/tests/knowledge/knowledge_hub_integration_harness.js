@@ -14,6 +14,7 @@ function hubModulePaths(source) {
 }
 const HUB_MODULE_PATHS = hubModulePaths(HUB_SOURCE);
 const MODULE_PATHS = [
+  "SYSTEM/Views/design-tokens.js",
   "SYSTEM/Views/display-registry.js",
   "SYSTEM/Views/workspace-navigation.js",
   "SYSTEM/Views/knowledge-explorer-registry.js",
@@ -36,6 +37,8 @@ const MODULE_PATHS = [
   "SYSTEM/Views/knowledge-source-batch-controller.js",
   "SYSTEM/Views/knowledge-source-batch-render.js",
   "SYSTEM/Views/knowledge-source-batch-view.js",
+  "SYSTEM/Views/ai-provider-error-policy.js",
+  "SYSTEM/Views/ai-provider-fallback.js",
   "SYSTEM/Views/ai-provider-service.js",
   "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",
@@ -55,6 +58,7 @@ const MODULE_PATHS = [
   "SYSTEM/Views/knowledge-explorer-render.js",
   "SYSTEM/Views/knowledge-explorer-view.js",
   "SYSTEM/Views/knowledge-workspace-tabs.js",
+  "SYSTEM/Views/para-object-creator-service.js",
   "SYSTEM/Views/knowledge-para-projection.js",
   "SYSTEM/Views/knowledge-para-view.js"
 ];

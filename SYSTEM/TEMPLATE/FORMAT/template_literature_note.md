@@ -13,6 +13,7 @@ summary_origin: manual
 knowledge_domain:
 knowledge_topics: []
 connections: []
+invalidation_conditions: []
 reference:
 tags:
   - literature_note

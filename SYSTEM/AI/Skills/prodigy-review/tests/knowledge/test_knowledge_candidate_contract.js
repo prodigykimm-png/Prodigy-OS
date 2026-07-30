@@ -22,6 +22,13 @@ const REQUIRED_KEYS = Object.freeze([
   "confidence", "suggested_domain", "suggested_topics",
   "approval_note", "promotion_target", "promoted_knowledge", "created", "updated",
 ]);
+// Schema marks these 선택(optional): stored in the template, never required on a runtime Candidate.
+const OPTIONAL_STORED_KEYS = Object.freeze(["connections", "invalidation_conditions"]);
+const TEMPLATE_KEYS = Object.freeze([
+  ...REQUIRED_KEYS.slice(0, REQUIRED_KEYS.indexOf("approval_note")),
+  ...OPTIONAL_STORED_KEYS,
+  ...REQUIRED_KEYS.slice(REQUIRED_KEYS.indexOf("approval_note")),
+]);
 const STATUS_VALUES = Object.freeze(["proposed", "saved", "needs_more_evidence", "approved", "rejected"]);
 const SOURCE_TYPES = Object.freeze(["daily_evidence", "reading_session", "manual_study", "study_material"]);
 const CONFIDENCE_VALUES = Object.freeze(["explicit", "inferred", "low"]);
@@ -67,7 +74,7 @@ function testCandidateSchemaAndTransitions() {
   const core = read(CORE_SCHEMA_PATH);
 
   assert.match(core, /`knowledge_candidate`/);
-  for (const key of REQUIRED_KEYS) assert.match(schema, new RegExp("`" + key + "`"));
+  for (const key of TEMPLATE_KEYS) assert.match(schema, new RegExp("`" + key + "`"));
   assert.match(schema, /`source_type`[^\n]*`daily_evidence`\s*\\\|\s*`reading_session`\s*\\\|\s*`manual_study`\s*\\\|\s*`study_material`/);
   assert.match(schema, /\|\s*`proposed`\s*\|\s*`saved`\s*\\\|\s*`rejected`\s*\|/);
   assert.match(schema, /\|\s*`saved`\s*\|\s*`needs_more_evidence`\s*\\\|\s*`approved`\s*\\\|\s*`rejected`\s*\|/);
@@ -86,7 +93,7 @@ function testTemplateAndKoreanDisplay() {
   const template = read(TEMPLATE_PATH);
   const display = loadDisplayRegistry();
 
-  assert.deepEqual(frontmatterKeys(template), REQUIRED_KEYS);
+  assert.deepEqual(frontmatterKeys(template), TEMPLATE_KEYS);
   assert.match(frontmatter(template), /^type:\s*knowledge_candidate$/m);
   assert.match(frontmatter(template), /^status:\s*saved$/m);
   assert.match(frontmatter(template), /^source_evidence_ids:\s*\[\]$/m);
@@ -103,7 +110,7 @@ function testTemplateAndKoreanDisplay() {
   assert.equal(display.status("rejected"), "반려");
   assert.equal(display.knowledgeSourceType("manual_study"), "직접 학습");
   assert.equal(display.knowledgeSourceType("study_material"), "학습 자료");
-  for (const key of REQUIRED_KEYS) assert.match(display.property(key), /[가-힣]/);
+  for (const key of TEMPLATE_KEYS) assert.match(display.property(key), /[가-힣]/);
 }
 
 function testExplorerBoundaryAndFailureFixtures() {

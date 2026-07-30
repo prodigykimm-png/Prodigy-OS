@@ -145,6 +145,18 @@ function activeAuction(status) {
   };
 }
 
+// activeAuction() carries winning_bid_price for every status, so any
+// watching/bidding fixture built from it lands on the closed-auction branch of
+// auction-card-price-projection.js (최저가 + 낙찰가). liveAuction() omits the key
+// entirely — hasValue() there treats a missing key as absent — so the live
+// branch a user still deciding on a case actually sees (최저가 + 입찰 예정가)
+// stays covered too.
+function liveAuction(status) {
+  const record = activeAuction(status);
+  delete record.winning_bid_price;
+  return record;
+}
+
 async function main() {
   const auction = page("PARA/PROJECTS/Auction/current.md", "auction_case", {
     status: "bidding", region_sido: "부산광역시", region_sigungu: "금정구", knowledge_topics: ["bidding"]
@@ -201,7 +213,7 @@ async function main() {
     const casePage = activeAuction(status);
     global.window.renderAuctionCard(casePage, root, { decisionPacketContext: context });
     assert.match(textContent(root), /최저가/);
-    assert.match(textContent(root), /입찰 예정가/);
+    assert.match(textContent(root), /낙찰가/);
     button(root, "결정 패킷").onclick({ preventDefault() {}, stopPropagation() {} });
     assert.match(textContent(root), /결정 패킷/);
     assert.match(textContent(root), /검증 지식/);
@@ -211,8 +223,8 @@ async function main() {
   });
 
   const priceLabelsByStatus = {
-    watching: ["최저가", "입찰 예정가"],
-    bidding: ["최저가", "입찰 예정가"],
+    watching: ["최저가", "낙찰가"],
+    bidding: ["최저가", "낙찰가"],
     won: ["내 입찰가", "낙찰가"],
     lost: ["내 입찰가", "낙찰가"],
     skipped: ["입찰 예정가", "낙찰가"],
@@ -228,6 +240,24 @@ async function main() {
     assert.ok(pair, `${status} keeps its decision prices in one visual pair`);
     labels.forEach((label) => assert.match(textContent(pair), new RegExp(label), `${status} keeps ${label} beside its counterpart`));
     assert.doesNotMatch(textContent(pair), /출구가/, `${status} does not split the decision pair with the exit-price control`);
+  });
+
+  // watching/bidding have two price projections and the live one is what a user
+  // reads while the case is still open. priceLabelsByStatus above only reaches
+  // the closed branch because its fixture always has winning_bid_price, so the
+  // live branch is asserted here with the same grouping guarantees.
+  ["watching", "bidding"].forEach((status) => {
+    const livePriceRoot = fakeElement("div");
+    global.window.renderAuctionCard(liveAuction(status), livePriceRoot, { decisionPacketContext: context });
+    const livePriceText = textContent(livePriceRoot);
+    assert.match(livePriceText, /최저가/, `active ${status} shows 최저가`);
+    assert.match(livePriceText, /입찰 예정가/, `active ${status} shows 입찰 예정가 while the auction is still open`);
+    assert.doesNotMatch(livePriceText, /낙찰가/, `active ${status} does not claim a 낙찰가 before the auction closes`);
+    const livePair = findAll(livePriceRoot, (node) => node.attr.class === "auction-card-price-pair")[0];
+    assert.ok(livePair, `active ${status} keeps its decision prices in one visual pair`);
+    assert.match(textContent(livePair), /최저가/, `active ${status} keeps 최저가 beside its counterpart`);
+    assert.match(textContent(livePair), /입찰 예정가/, `active ${status} keeps 입찰 예정가 beside its counterpart`);
+    assert.doesNotMatch(textContent(livePair), /출구가/, `active ${status} does not split the decision pair with the exit-price control`);
   });
 
   const wonPriceRoot = fakeElement("div");
