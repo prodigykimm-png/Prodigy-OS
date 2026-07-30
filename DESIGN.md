@@ -37,6 +37,10 @@ Explorer code may consume the following aliases. A color alias must resolve dire
 | `--ke-type-title` | `1.05rem` | Pane and asset titles |
 | `--ke-leading-body` | `1.45` | Korean and Latin body copy |
 | `--ke-touch-target` | `44px` | Minimum narrow/touch target |
+| `--ke-workspace-bar-height` | `48px` | Shared Workspace bar height |
+| `--ke-action-bar-height` | `52px` | Compact bottom Action Bar height |
+| `--ke-breakpoint-medium` | `768px` | Medium layout begins |
+| `--ke-breakpoint-wide` | `1024px` | Wide layout begins |
 | `--ke-motion-fast` | `150ms` | Meaningful hover/focus feedback only |
 | `--ke-nav-min` | `12rem` | Domain navigation preferred floor |
 | `--ke-nav-max` | `16rem` | Domain navigation preferred ceiling |
@@ -128,6 +132,22 @@ The primitive/state harness must cover rest, focus-visible, selected, loading, e
 | `ai-telemetry-status` | AI 제공자, 로컬 서버, 마지막 실패, 재시도 가능 여부를 작은 시스템 상태로 드러낸다. | 비밀값과 원문 오류를 노출하지 않으며, 어떤 상태도 `no automatic approval` 예외가 될 수 없다. |
 
 Physical-device 성공은 `physical iPhone` 실기기에서 사용자가 직접 확인한 경우에만 `user-evidence-only gate`를 통과한다. 데스크톱 폭 조절, 시뮬레이터, 스크린샷 추정은 모바일 성공 근거가 아니다.
+
+## 9. Responsive Workspace Shell
+
+| Primitive | 책임 | 계약 |
+|---|---|---|
+| `AppShell` | Workspace bar, context, 단일 body scroll owner를 조합한다. | compact는 `768px` 미만, medium은 `768px`부터 `1023px`, wide는 `1024px` 이상이다. |
+| `ContextBar` | 선택·필터·동기화 같은 현재 문맥을 짧게 표시한다. | 한글/CJK는 자연스럽게 줄바꿈하며 긴 값이 수평 스크롤을 만들지 않는다. |
+| `WorkspaceSwitcher` | Workspace registry의 id/path/label로 HUB를 전환한다. | registry 외 별도 목록을 만들지 않으며 Obsidian Workspace API fallback을 유지한다. |
+| `AdaptiveTabs` | 동일한 tab 의미와 키보드 순서를 폭에 맞게 유지한다. | Arrow, Home, End와 선택 semantics를 제공한다. |
+| `AdaptiveActionBar` | compact의 주요/보조 작업을 `52px` Action Bar와 sheet로 나눈다. | 터치 대상은 최소 `44px`이며 lane 고유 작업을 제거하지 않는다. |
+| `BottomSheet` | compact 보조 작업과 Inspector shell의 bounded overlay다. | 최대 높이는 `min(70vh, 560px)`이고 body 하나만 scroll을 소유한다. |
+| `StatusLine` | loading/동기화 상태를 비파괴적으로 알린다. | polite live region과 텍스트 상태를 사용한다. |
+| `InlineError` | 문맥을 보존한 recoverable 오류를 표시한다. | concise Korean copy와 선택적 복구 작업을 제공한다. |
+| `AIInspector` | Task 21이 채울 빈 Inspector frame이다. | compact는 bottom sheet, medium/wide는 `min(38%, 420px)` side panel이다. |
+
+Workspace UI 상태는 schema `v1`로 분리한다. `prodigy.ui.workspace-state.v1`에는 active workspace/tab, filters, sort, density만 저장하고, scroll position은 session 전용 `prodigy.ui.scroll-state.v1`에 저장한다. AI transcript는 `prodigy.ai.chat-session.v1` sessionStorage 또는 memory fallback에만 존재하며 두 UI key에 복제하지 않는다. 저장값을 해석할 수 없으면 폐기하고 first-run 상태로 복구한다. 모든 primitive는 visible focus, reduced motion, CJK wrapping, compact `44px` touch target 계약을 공유한다.
 
 - Workflow rows keep stable row height with labeled input and explicit up/down/delete controls.
 - Provider controls remain secondary to the workflow action they support.
