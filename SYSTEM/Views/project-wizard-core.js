@@ -161,6 +161,29 @@
     personal: "Personal"
   });
 
+  function responsiveTokens() {
+    const tokens = root.ProdigyTokens || (typeof require === "function" && require("./design-tokens.js"));
+    if (!tokens || !tokens.BREAKPOINTS || !tokens.CONTROL_HEIGHTS) {
+      throw new Error("Responsive design tokens are not loaded.");
+    }
+    return tokens;
+  }
+
+  function resolveProjectWorkspaceLayout(logicalWidth) {
+    const width = Number(logicalWidth);
+    if (!Number.isFinite(width) || width < 0) throw new Error("Logical width must be a non-negative number.");
+    const tokens = responsiveTokens();
+    const density = width < tokens.BREAKPOINTS.medium
+      ? "compact"
+      : width < tokens.BREAKPOINTS.wide ? "medium" : "wide";
+    return Object.freeze({
+      density,
+      columns: density === "wide" ? 2 : 1,
+      actionBarHeight: tokens.CONTROL_HEIGHTS.actionBar,
+      touchTarget: tokens.CONTROL_HEIGHTS.touchTarget
+    });
+  }
+
   const WORKFLOW_PRESETS = Object.freeze({
     Company: [
       "관련 지침과 완료 기준 확인",
@@ -596,6 +619,7 @@
     PROJECT_TYPE_LABELS,
     PROJECT_TYPE_BODIES,
     PROJECT_TYPE_DEFAULT_PRESET,
+    resolveProjectWorkspaceLayout,
     WORKFLOW_PRESETS,
     WORKFLOW_SCHEMA,
     todayIso,

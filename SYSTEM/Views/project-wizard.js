@@ -4,6 +4,22 @@
   const TEMPLATE_PATH = "SYSTEM/TEMPLATE/FORMAT/template_project.md";
   const PROJECT_FOLDER = "PARA/PROJECTS";
 
+  function projectLayout(core, element, logicalWidth) {
+    const explicit = Number(logicalWidth);
+    const measured = Number(element && element.clientWidth);
+    const tokens = root.ProdigyTokens;
+    const width = Number.isFinite(explicit)
+      ? explicit
+      : Number.isFinite(measured) && measured > 0 ? measured : tokens.BREAKPOINTS.wide;
+    return core.resolveProjectWorkspaceLayout(width);
+  }
+
+  function applyResponsiveSurface(element, layout) {
+    element.setAttribute("data-density", layout.density);
+    element.style.setProperty("--project-action-bar-height", `${layout.actionBarHeight}px`);
+    element.style.setProperty("--project-touch-target", `${layout.touchTarget}px`);
+  }
+
   function notice(message, timeout) {
     const Notice = root.Notice || (root.obsidian && root.obsidian.Notice);
     if (Notice) new Notice(message, timeout || 5000);
@@ -126,13 +142,14 @@
   }
 
   class ProjectTypeManagerModal extends root.obsidian.Modal {
-    constructor(app, customPresets, currentWorkflow, onSaved) {
+    constructor(app, customPresets, currentWorkflow, onSaved, logicalWidth) {
       super(app);
       this.presets = JSON.parse(JSON.stringify(customPresets || {}));
       this.currentWorkflow = this.coreWorkflow = (currentWorkflow || []).map((item) => ({ label: item.label || "" }));
       this.onSaved = onSaved;
       this.name = "";
       this.status = "";
+      this.logicalWidth = logicalWidth;
     }
 
     onOpen() {
@@ -147,13 +164,17 @@
     render() {
       const { contentEl } = this;
       contentEl.empty();
+      const layout = projectLayout(root.ProjectWizardCore, this.modalEl || contentEl, this.logicalWidth);
+      applyResponsiveSurface(contentEl, layout);
+      contentEl.createEl("style", { text: ".prodigy-project-type-manager{min-inline-size:0;word-break:keep-all;overflow-wrap:anywhere}.prodigy-project-type-manager .prodigy-project-type-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}.prodigy-project-type-manager .prodigy-project-approval-bar{display:flex;justify-content:flex-end;gap:8px;min-block-size:var(--project-action-bar-height);margin-top:14px;border-top:1px solid var(--background-modifier-border);padding-top:10px}.prodigy-project-type-manager[data-density=compact] button,.prodigy-project-type-manager[data-density=compact] input{min-inline-size:var(--project-touch-target);min-block-size:var(--project-touch-target)}.prodigy-project-type-manager[data-density=compact] .prodigy-project-type-add{grid-template-columns:minmax(0,1fr)}.prodigy-project-type-manager[data-density=compact] .prodigy-project-approval-bar{display:grid;grid-template-columns:minmax(0,1fr)}" });
+      contentEl.addClass("prodigy-project-type-manager");
       contentEl.createEl("h2", { text: "프로젝트 유형", attr: { style: "margin:0 0 8px;font-size:1.18em;" } });
       contentEl.createEl("div", {
         text: "기본 제공 유형은 고정입니다. 추가한 유형은 현재 워크플로를 시작 프리셋으로 사용합니다.",
         attr: { style: "font-size:0.84em;color:var(--text-muted);line-height:1.4;margin-bottom:12px;" }
       });
 
-      const addRow = contentEl.createEl("div", { attr: { style: "display:flex;gap:6px;align-items:center;margin-bottom:12px;" } });
+      const addRow = contentEl.createEl("div", { attr: { class: "prodigy-project-type-add", style: "margin-bottom:12px;" } });
       input(addRow, this.name, "새 프로젝트 유형", (value) => { this.name = value; });
       const add = iconButton(addRow, "plus", "프로젝트 유형 추가");
       add.onclick = () => this.addType();
@@ -174,7 +195,7 @@
       });
 
       if (this.status) contentEl.createEl("div", { text: this.status, attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:8px;" } });
-      const footer = contentEl.createEl("div", { attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:14px;border-top:1px solid var(--background-modifier-border);padding-top:10px;" } });
+      const footer = contentEl.createEl("div", { attr: { class: "prodigy-project-approval-bar" } });
       button(footer, "취소").onclick = () => this.close();
       primaryButton(footer, "저장").onclick = () => this.save();
     }
@@ -216,7 +237,7 @@
   class ProjectWizardModal extends root.obsidian.Modal {
     /**
      * @param {object} app
-     * @param {{ initialProjectName?: string }} [options]
+     * @param {{ initialProjectName?: string, logicalWidth?: number }} [options]
      *   initialProjectName is applied once at construction (editable; not reset on render).
      */
     constructor(app, options) {
@@ -244,6 +265,7 @@
         createdPath: "",
         createdWorkflow: []
       };
+      this.logicalWidth = opts.logicalWidth;
     }
 
     async onOpen() {
@@ -269,14 +291,20 @@
       const { contentEl } = this;
       contentEl.empty();
       contentEl.addClass("prodigy-project-wizard");
-      contentEl.createEl("style", { text: ".prodigy-project-wizard button:disabled{cursor:not-allowed!important;opacity:.42}.prodigy-project-wizard .prodigy-type-name{min-width:0;overflow-wrap:anywhere}.prodigy-project-wizard .prodigy-wizard-shell{grid-template-columns:minmax(0,.85fr) minmax(0,1.35fr)!important}.prodigy-project-wizard .prodigy-date-grid>*,.prodigy-project-wizard .prodigy-date-stack input{min-width:0}@media(max-width:760px){.prodigy-project-wizard .prodigy-wizard-shell{grid-template-columns:1fr!important}.prodigy-project-wizard .prodigy-date-grid{grid-template-columns:1fr!important}}" });
+      const layout = projectLayout(this.core, this.modalEl || contentEl, this.logicalWidth);
+      applyResponsiveSurface(contentEl, layout);
+      contentEl.createEl("style", { text: ".prodigy-project-wizard{min-inline-size:0;word-break:keep-all;overflow-wrap:anywhere}.prodigy-project-wizard button:disabled{cursor:not-allowed!important;opacity:.42}.prodigy-project-wizard .prodigy-type-name,.prodigy-project-wizard .prodigy-wizard-column{min-width:0;overflow-wrap:anywhere}.prodigy-project-wizard .prodigy-date-grid>*,.prodigy-project-wizard .prodigy-date-stack input{min-width:0}.prodigy-project-wizard .prodigy-project-approval-bar{display:flex;justify-content:flex-end;gap:8px;min-block-size:var(--project-action-bar-height);margin-top:12px;border-top:1px solid var(--background-modifier-border);padding-top:10px;flex-wrap:wrap}.prodigy-project-wizard[data-density=compact] button,.prodigy-project-wizard[data-density=compact] input,.prodigy-project-wizard[data-density=compact] select{min-block-size:var(--project-touch-target)}.prodigy-project-wizard[data-density=compact] button{min-inline-size:var(--project-touch-target)}.prodigy-project-wizard[data-density=compact] .prodigy-workflow-row{grid-template-columns:minmax(0,1fr)}.prodigy-project-wizard[data-density=compact] .prodigy-workflow-index{text-align:left!important}.prodigy-project-wizard[data-density=compact] .prodigy-workflow-controls{justify-content:flex-end}.prodigy-project-wizard[data-density=compact] .prodigy-project-approval-bar{display:grid;grid-template-columns:minmax(0,1fr)}" });
       contentEl.createEl("h2", { text: "프로젝트 시작", attr: { style: "margin:0 0 12px;font-size:1.25em;" } });
 
       const shell = contentEl.createEl("div", {
-        attr: { class: "prodigy-wizard-shell", style: "display:grid;grid-template-columns:minmax(0,0.85fr) minmax(0,1.35fr);gap:16px;align-items:start;" }
+        attr: {
+          class: "prodigy-wizard-shell",
+          "data-layout": layout.density,
+          style: `display:grid;grid-template-columns:${layout.columns === 2 ? "minmax(0,0.85fr) minmax(0,1.35fr)" : "minmax(0,1fr)"};gap:16px;align-items:start;`
+        }
       });
-      const left = shell.createEl("div", { attr: { style: "display:flex;flex-direction:column;gap:10px;" } });
-      const right = shell.createEl("div", { attr: { style: "display:flex;flex-direction:column;gap:10px;" } });
+      const left = shell.createEl("div", { attr: { class: "prodigy-wizard-column", style: "display:flex;flex-direction:column;gap:10px;" } });
+      const right = shell.createEl("div", { attr: { class: "prodigy-wizard-column", style: "display:flex;flex-direction:column;gap:10px;" } });
 
       this.renderContext(left);
       this.renderWorkflow(right);
@@ -321,7 +349,16 @@
         };
       });
 
-      const grid = projectBox.createEl("div", { attr: { class: "prodigy-date-grid", style: "display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;margin-top:9px;" } });
+      const layout = projectLayout(this.core, this.modalEl || this.contentEl, this.logicalWidth);
+      const dateGridStyle = layout.density === "compact"
+        ? "display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:9px;"
+        : "display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;margin-top:9px;";
+      const grid = projectBox.createEl("div", {
+        attr: {
+          class: "prodigy-date-grid",
+          style: dateGridStyle
+        }
+      });
       const typeCell = grid.createEl("div", { attr: { style: "min-width:0;" } });
       const typeHead = typeCell.createEl("div", { attr: { style: "display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;" } });
       typeHead.createEl("span", { text: "워크플로 프리셋", attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);" } });
@@ -400,9 +437,9 @@
         if (!this.core.getPresetNames(presets).includes(this.state.projectType)) this.state.projectType = "Company";
         this.state.workflow = this.core.getPresetWorkflow(this.state.projectType, presets);
         this.state.providerConfig = Object.assign({}, this.state.providerConfig, { workflowPresets: presets });
-        this.state.status = "Project types updated.";
+        this.state.status = "프로젝트 유형을 업데이트했습니다.";
         this.render();
-      }).open();
+      }, this.logicalWidth).open();
     }
 
     renderWorkflow(parent) {
@@ -431,11 +468,11 @@
       }
       state.workflow.forEach((item, index) => {
         const row = rows.createEl("div", {
-          attr: { style: "display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:6px;align-items:center;" }
+          attr: { class: "prodigy-workflow-row", style: "display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:6px;align-items:center;" }
         });
-        row.createEl("span", { text: String(index + 1), attr: { style: "font-size:0.78em;color:var(--text-muted);text-align:right;font-variant-numeric:tabular-nums;" } });
+        row.createEl("span", { text: String(index + 1), attr: { class: "prodigy-workflow-index", style: "font-size:0.78em;color:var(--text-muted);text-align:right;font-variant-numeric:tabular-nums;" } });
         input(row, item.label, "워크플로 항목", (value) => { item.label = value; });
-        const controls = row.createEl("div", { attr: { style: "display:flex;gap:4px;" } });
+        const controls = row.createEl("div", { attr: { class: "prodigy-workflow-controls", style: "display:flex;gap:4px;" } });
         const up = iconButton(controls, "arrow-up", index === 0 ? "위로 이동 (불가)" : "위로 이동");
         up.disabled = index === 0;
         up.onclick = () => {
@@ -468,7 +505,7 @@
       }
 
       const footer = parent.createEl("div", {
-        attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;border-top:1px solid var(--background-modifier-border);padding-top:10px;flex-wrap:wrap;" }
+        attr: { class: "prodigy-project-approval-bar" }
       });
       if (this.state.createdPath) {
         button(footer, "프로젝트 열기").onclick = () => {
@@ -625,7 +662,7 @@
 
   /**
    * Public entry: open Project Wizard.
-   * @param {{ initialProjectName?: string }} [options]
+   * @param {{ initialProjectName?: string, logicalWidth?: number }} [options]
    * openProjectWizard() — blank name (existing callers)
    * openProjectWizard({ initialProjectName: "…" }) — prefill once
    */
