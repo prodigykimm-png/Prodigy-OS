@@ -37,35 +37,48 @@
         adapter: "openai-compatible", name: "LM Studio", baseURL: "http://127.0.0.1:1234/v1", endpointPath: "/chat/completions",
         model: "qwen/qwen3.5-9b", models: [{ id: "qwen/qwen3.5-9b", label: "Qwen 3.5 9B Q4_K_M" }, { id: "google/gemma-4-12b-qat", label: "Gemma 4 12B QAT" }],
         authMode: "none", reasoningEffort: "none", ttl: 120, maxTokens: 4096, apiKeySecret: "", legacyApiKeySecret: "",
+        chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
         capabilities: { structuredOutput: "json-schema", strictStructuredOutput: true, schemaDialect: "lm-studio", conservativeProposal: true }
       },
       "opencode-go": {
         adapter: "openai-compatible", name: "OpenCode Go", baseURL: "", endpointPath: "/chat/completions", model: "", authMode: "bearer",
-        apiKeySecret: SECRET_IDS.opencodeGo, legacyApiKeySecret: "PRODIGY_OPENCODE_GO_API_KEY", capabilities: { structuredOutput: "json-mode" }
+        apiKeySecret: SECRET_IDS.opencodeGo, legacyApiKeySecret: "PRODIGY_OPENCODE_GO_API_KEY",
+        chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
+        capabilities: { structuredOutput: "json-mode" }
       },
       mimo: {
         adapter: "openai-compatible", name: "Xiaomi MiMo", baseURL: "https://api.xiaomimimo.com/v1", endpointPath: "/chat/completions", model: "mimo-v2.5-pro",
         models: [{ id: "mimo-v2.5-pro", label: "MiMo V2.5 Pro" }], authMode: "bearer", apiKeySecret: SECRET_IDS.mimo,
-        legacyApiKeySecret: "PRODIGY_MIMO_API_KEY", capabilities: { structuredOutput: "json-mode" }
+        legacyApiKeySecret: "PRODIGY_MIMO_API_KEY",
+        chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
+        capabilities: { structuredOutput: "json-mode" }
       },
       gemini: {
         adapter: "gemini", name: "Google Gemini", model: "gemini-3.5-flash",
         models: [{ id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" }, { id: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite" }, { id: "gemini-3.1-pro", label: "Gemini 3.1 Pro" }],
-        apiKeySecret: SECRET_IDS.gemini, legacyApiKeySecret: "PRODIGY_GEMINI_API_KEY", capabilities: { structuredOutput: "json-schema" }
+        apiKeySecret: SECRET_IDS.gemini, legacyApiKeySecret: "PRODIGY_GEMINI_API_KEY",
+        chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
+        capabilities: { structuredOutput: "json-schema" }
       },
       groq: {
         adapter: "openai-compatible", name: "Groq", baseURL: "https://api.groq.com/openai/v1", endpointPath: "/chat/completions", model: "qwen/qwen3.6-27b",
         models: [{ id: "qwen/qwen3.6-27b", label: "Qwen 3.6 27B (무료 티어)" }, { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B (무료 티어)" }, { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B (무료 티어)" }],
-        authMode: "bearer", apiKeySecret: SECRET_IDS.groq, hint: "무료 한도는 Groq 계정의 Rate limit을 따릅니다.", capabilities: { structuredOutput: "json-mode" }
+        authMode: "bearer", apiKeySecret: SECRET_IDS.groq, hint: "무료 한도는 Groq 계정의 Rate limit을 따릅니다.",
+        chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
+        capabilities: { structuredOutput: "json-mode" }
       },
       openrouter: {
         adapter: "openai-compatible", name: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", endpointPath: "/chat/completions", model: "openrouter/free",
         models: [{ id: "openrouter/free", label: "Free Models Router (무료만 사용)" }],
-        authMode: "bearer", apiKeySecret: SECRET_IDS.openrouter, hint: "openrouter/free는 무료 모델만 선택합니다. 무료 모델은 한도·가용성이 변동될 수 있습니다.", capabilities: { structuredOutput: "json-mode" }
+        authMode: "bearer", apiKeySecret: SECRET_IDS.openrouter, hint: "openrouter/free는 무료 모델만 선택합니다. 무료 모델은 한도·가용성이 변동될 수 있습니다.",
+        chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
+        capabilities: { structuredOutput: "json-mode" }
       },
       "openai-compatible": {
         adapter: "openai-compatible", name: "OpenAI-Compatible", baseURL: "", endpointPath: "/chat/completions", model: "", authMode: "bearer",
-        apiKeySecret: SECRET_IDS.openaiCompatible, legacyApiKeySecret: "PRODIGY_OPENAI_COMPATIBLE_API_KEY", capabilities: { structuredOutput: "json-mode" }
+        apiKeySecret: SECRET_IDS.openaiCompatible, legacyApiKeySecret: "PRODIGY_OPENAI_COMPATIBLE_API_KEY",
+        chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
+        capabilities: { structuredOutput: "json-mode" }
       }
     }
   });
@@ -103,7 +116,9 @@
       capabilities: Object.assign({}, defaults.capabilities || {}, value.capabilities || {}),
       models: normalizeModels(value, defaults),
       ttl: Number(value.ttl) > 0 ? Number(value.ttl) : defaults.ttl,
-      maxTokens: Number(value.maxTokens) > 0 ? Number(value.maxTokens) : defaults.maxTokens
+      maxTokens: Number(value.maxTokens) > 0 ? Number(value.maxTokens) : defaults.maxTokens,
+      chatTimeoutMs: Number(value.chatTimeoutMs) > 0 ? Number(value.chatTimeoutMs) : (defaults.chatTimeoutMs || 30000),
+      structuredTimeoutMs: Number(value.structuredTimeoutMs) > 0 ? Number(value.structuredTimeoutMs) : (defaults.structuredTimeoutMs || 60000)
     });
   }
 

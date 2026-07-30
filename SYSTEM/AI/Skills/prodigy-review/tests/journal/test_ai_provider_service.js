@@ -260,7 +260,7 @@ async function testRetriesAndErrors() {
     }),
     /사용 한도/
   );
-  assert.equal(quotaCalls, 1);
+  assert.equal(quotaCalls, 3);
 }
 
 async function testGroqFallbacksToOpenRouterOnlyForEligibleFailure() {
@@ -271,7 +271,7 @@ async function testGroqFallbacksToOpenRouterOnlyForEligibleFailure() {
     },
     requestUrl: async (options) => {
       calls.push(options);
-      if (calls.length === 1) return { status: 429, json: { error: { message: "rate limited" } } };
+      if (calls.length <= 3) return { status: 429, json: { error: { message: "rate limited" } } };
       return { status: 200, json: { choices: [{ message: { content: JSON.stringify(validPayload()) } }] } };
     }
   };
@@ -289,12 +289,14 @@ async function testGroqFallbacksToOpenRouterOnlyForEligibleFailure() {
     schema: { type: "object" }
   });
   assert.equal(result.evidence_blocks.length, 1);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 4);
   assert.equal(calls[0].url, "https://api.groq.com/openai/v1/chat/completions");
   assert.equal(calls[0].headers.Authorization, "Bearer groq-key");
-  assert.equal(calls[1].url, "https://openrouter.ai/api/v1/chat/completions");
-  assert.equal(calls[1].headers.Authorization, "Bearer router-key");
-  assert.equal(JSON.parse(calls[1].body).model, "openrouter/free");
+  assert.equal(calls[1].url, "https://api.groq.com/openai/v1/chat/completions");
+  assert.equal(calls[2].url, "https://api.groq.com/openai/v1/chat/completions");
+  assert.equal(calls[3].url, "https://openrouter.ai/api/v1/chat/completions");
+  assert.equal(calls[3].headers.Authorization, "Bearer router-key");
+  assert.equal(JSON.parse(calls[3].body).model, "openrouter/free");
 
   calls.length = 0;
   await assert.rejects(
