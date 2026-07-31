@@ -188,6 +188,12 @@ Workspace UI 상태는 schema `v1`로 분리한다. `prodigy.ui.workspace-state.
 
 - `region-experience-modal` is the reusable, Obsidian-native intake primitive for one already-existing `auction_region`. It preserves a caller's focus-return control and opens and cancels without provider or vault work. It selects an available canonical Region by default; Korean invalid-region recovery appears only after an invalid action.
 - Its review shell owns the body scroll. `region-experience-review-footer` remains sticky at the modal bottom and contains the explicit `Evidence 승인·반영` action; it is disabled while busy or without selected Evidence. After Evidence is saved, Region reflection and Knowledge candidate saving remain separate, explicit approvals and never run automatically.
+
+### Region decision popup
+
+- `region-collection-health` is a compact status band, not a score. It shows canonical Region coverage, the selected Region's latest metrics month and run count, and explicit missing, stale, or repeated-month warnings without changing any Region Object.
+- `region-decision-outcome` places the current Auction's human-authored judgement beside canonical `auction_outcome` history for the exact same 시군구. `region_dong` remains item context; district-only values are labeled `구 기준`.
+- Lifecycle-only `won` / `lost` / `skipped` records are labeled as pending legacy results and never enter outcome counts or bid-rate calculations. Small samples are identified explicitly, and the surface never emits a region score, recommendation, forecast, or suggested bid.
 - At widths up to 599px fields and actions become one column; review-footer controls use a one-column grid with `var(--ke-space-3)` visible gaps and at least `var(--ke-touch-target)` height. Korean text uses the shared CJK wrapping contract, focus remains visibly outlined, and reduced-motion users receive no nonessential transition.
 
 ### Workout health tabs

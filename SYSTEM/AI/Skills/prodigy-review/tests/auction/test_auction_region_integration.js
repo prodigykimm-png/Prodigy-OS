@@ -87,6 +87,48 @@ test("Region popup → source drilldown → back", () => {
   fs.rmSync(vault, { recursive: true, force: true });
 });
 
+test("Auction card context → 판단·결과 tab keeps human judgement and canonical outcomes separate", () => {
+  const vault = makeVault();
+  const result = popupCore.openPopup(vault, "부산광역시-사하구", {
+    auction: {
+      id: "current-case",
+      type: "auction_case",
+      file: { path: "PARA/PROJECTS/Auction/current-case.md" },
+      region_sido: "부산광역시",
+      region_sigungu: "사하구",
+      region_dong: "괴정동",
+      decision_reason: "교통과 실수요를 확인했다.",
+      expected_bid: 230000000
+    },
+    cases: [{
+      id: "past-case",
+      type: "auction_case",
+      file: { path: "PARA/PROJECTS/Auction/past-case.md" },
+      region_sido: "부산광역시",
+      region_sigungu: "사하구",
+      region_dong: "하단동",
+      decision_reason: "임대 수요를 확인했다.",
+      auction_outcome: "lost",
+      auction_result_date: "2026-06-20",
+      winning_bid_price: 255000000,
+      appraisal_price: 300000000
+    }]
+  });
+
+  assert.equal(result.ok, true);
+  const tab = result.state.projection.tabs.find((item) => item.id === "decision_outcome");
+  assert.ok(tab);
+  assert.equal(tab.content.current_decision.region_dong, "괴정동");
+  assert.equal(tab.content.current_decision.reasons[0].value, "교통과 실수요를 확인했다.");
+  assert.equal(tab.content.canonical_outcome_count, 1);
+  assert.equal(tab.content.outcomes[0].bid_rate_percent, 85);
+  const html = popupView.renderTabPanel(tab, 1, true);
+  assert.match(html, /판단 근거/);
+  assert.match(html, /정규 결과 1건/);
+  assert.doesNotMatch(html, /추천 입찰가|지역 점수/);
+  fs.rmSync(vault, { recursive: true, force: true });
+});
+
 test("Region popup → site visit → creates note, not Object", () => {
   const vault = makeVault();
   const result = popupCore.openPopup(vault, "부산광역시-사하구");

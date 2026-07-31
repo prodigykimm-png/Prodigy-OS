@@ -206,6 +206,54 @@ async function main() {
   global.app = app;
   global.window.AuctionDecisionPacketDashboardContext = context;
 
+  const popupRequests = [];
+  const popupOverlays = [];
+  const regionPacketRequests = [];
+  global.window.AuctionRegionPacket = {
+    async openForAuction(appArg, auctionArg, options) {
+      regionPacketRequests.push({ app: appArg, auction: auctionArg, options });
+    }
+  };
+  global.window.RegionIntelligencePopupCore = {
+    async openPopupForApp(appArg, regionKey, options) {
+      popupRequests.push({ app: appArg, regionKey, options });
+      return { ok: true, state: { regionKey } };
+    }
+  };
+  global.window.RegionIntelligencePopupView = {
+    openOverlay(state, options) {
+      popupOverlays.push({ state, options });
+      return { close() {} };
+    }
+  };
+
+  app.isMobile = true;
+  const mobileRoot = fakeElement("div");
+  const mobileAuction = liveAuction("bidding");
+  global.window.renderAuctionCard(mobileAuction, mobileRoot, { decisionPacketContext: context });
+  const regionDecisionButton = button(mobileRoot, "판단");
+  const regionInfoButton = button(mobileRoot, "정보");
+  [regionDecisionButton, regionInfoButton].forEach((control) => {
+    assert.equal(control.attr.class, "auction-region-inline-action");
+    assert.match(control.attr.style, /border:\s*0/);
+    assert.match(control.attr.style, /background:\s*transparent/);
+    assert.doesNotMatch(control.attr.style, /border-radius/);
+  });
+  await regionDecisionButton.onclick({ preventDefault() {}, stopPropagation() {} });
+  assert.equal(regionPacketRequests.length, 1, "inline 판단 action opens the Region decision packet");
+  assert.equal(regionPacketRequests[0].app, app);
+  assert.equal(regionPacketRequests[0].auction, mobileAuction);
+  assert.equal(regionPacketRequests[0].options.returnFocus, regionDecisionButton);
+  await regionInfoButton.onclick({ preventDefault() {}, stopPropagation() {} });
+  assert.equal(popupRequests.length, 1, "mobile card reads Region data through the Vault API");
+  assert.equal(popupRequests[0].app, app);
+  assert.equal(popupRequests[0].regionKey, "부산광역시-금정구");
+  assert.equal(popupRequests[0].options.auction, mobileAuction);
+  assert.equal(popupOverlays.length, 1, "mobile card opens the Region popup overlay");
+  assert.equal(popupOverlays[0].state.regionKey, "부산광역시-금정구");
+  assert.equal(popupOverlays[0].options.returnFocus, regionInfoButton);
+  app.isMobile = false;
+
   // Behavioral Card coverage: both active statuses render an action, toggle
   // real packet DOM, and retain existing finance/status controls.
   ["watching", "bidding"].forEach((status) => {

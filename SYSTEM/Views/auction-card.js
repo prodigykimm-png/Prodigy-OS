@@ -290,14 +290,25 @@ window.renderAuctionCard = function(p, container, options) {
       attr: { style: 'font-size: 0.76em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
     });
     detailRow1.createEl('span', { text: `📍 ${regionText}` });
-    // Region decision packet is read-only: it must never create a Region Object.
-    if (window.AuctionRegionPacket) {
-      const regionBtn = detailRow1.createEl('button', {
-        text: '지역 판단',
+    const hasRegionDecision = Boolean(window.AuctionRegionPacket);
+    const hasRegionInfo = typeof window.RegionIntelligencePopupCore?.openPopupForApp === 'function'
+      && typeof window.RegionIntelligencePopupView?.openOverlay === 'function';
+    const regionActionStyle = 'font: inherit; color: var(--text-accent); background: transparent; border: 0; box-shadow: none; padding: 0 2px; min-height: 0; height: auto; cursor: pointer; text-decoration: underline; text-underline-offset: 2px;';
+    const regionActions = hasRegionDecision || hasRegionInfo
+      ? detailRow1.createEl('span', {
+          attr: {
+            class: 'auction-region-inline-actions',
+            style: 'display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;'
+          }
+        })
+      : null;
+    if (hasRegionDecision) {
+      const regionBtn = regionActions.createEl('button', {
+        text: '판단',
         attr: {
           type: 'button',
-          class: 'action-btn',
-          style: 'font-size: 0.72em; padding: 1px 6px; min-height: 0; cursor: pointer;',
+          class: 'auction-region-inline-action',
+          style: regionActionStyle,
           title: '검증된 지역 근거와 확인 필요 항목 보기',
           'aria-label': '지역 판단 패킷 열기'
         }
@@ -312,19 +323,24 @@ window.renderAuctionCard = function(p, container, options) {
         }
       };
     }
-    // Region Intelligence popup — read-only, never mutates Objects.
-    if (window.RegionIntelligencePopupCore?.isAvailable && window.RegionIntelligencePopupView) {
-      const riBtn = detailRow1.createEl('button', {
-        text: '지역 정보',
+    if (hasRegionDecision && hasRegionInfo) {
+      regionActions.createEl('span', {
+        text: '·',
+        attr: { 'aria-hidden': 'true', style: 'color: var(--background-modifier-border);' }
+      });
+    }
+    if (hasRegionInfo) {
+      const riBtn = regionActions.createEl('button', {
+        text: '정보',
         attr: {
           type: 'button',
-          class: 'action-btn',
-          style: 'font-size: 0.72em; padding: 1px 6px; min-height: 0; cursor: pointer;',
+          class: 'auction-region-inline-action',
+          style: regionActionStyle,
           title: '지역 정량·정성 정보 팝업',
           'aria-label': '지역 정보 팝업 열기'
         }
       });
-      riBtn.onclick = (event) => {
+      riBtn.onclick = async (event) => {
         event.preventDefault();
         event.stopPropagation();
         try {
@@ -332,18 +348,12 @@ window.renderAuctionCard = function(p, container, options) {
             ? `${(p.region_sido || "").trim()}-${(p.region_sigungu || "").trim()}`
             : null;
           if (!regionKey) { if (window.Notice) new Notice("지역 정보가 없습니다."); return; }
-          const result = window.RegionIntelligencePopupCore.openPopup(app.vault.adapter.basePath || "", regionKey);
+          const result = await window.RegionIntelligencePopupCore.openPopupForApp(app, regionKey, {
+            auction: p,
+            decisionContext: (options && options.decisionMirrorContext) || window.AuctionDecisionMirrorDashboardContext
+          });
           if (!result.ok) { if (window.Notice) new Notice(result.error); return; }
-          const html = window.RegionIntelligencePopupView.renderPopup(result.state);
-          const overlay = document.createElement("div");
-          overlay.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)";
-          const modal = document.createElement("div");
-          modal.style.cssText = "background:var(--background-primary);border-radius:12px;max-width:560px;width:95vw;max-height:90vh;overflow-y:auto;padding:16px";
-          modal.innerHTML = html;
-          overlay.appendChild(modal);
-          overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-          modal.querySelector("[data-action='close']")?.addEventListener("click", () => overlay.remove());
-          document.body.appendChild(overlay);
+          window.RegionIntelligencePopupView.openOverlay(result.state, { returnFocus: riBtn });
         } catch (error) {
           if (window.Notice) new Notice("지역 정보 팝업 오류: " + (error.message || String(error)));
         }

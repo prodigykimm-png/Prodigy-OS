@@ -189,7 +189,9 @@ function main() {
   assert.match(decisionVM, /computeTrustBadges/);
   // HUB loads the popup modules
   assert.match(hub, /region-decision-view-model\.js/);
+  assert.match(hub, /region-intelligence-popup-store\.js/);
   assert.match(hub, /region-intelligence-popup-core\.js/);
+  assert.ok(hub.indexOf("region-intelligence-popup-store.js") < hub.indexOf("region-intelligence-popup-core.js"));
   assert.match(hub, /region-intelligence-popup-view\.js/);
   // Auction card has Region Intelligence button
   assert.match(card, /RegionIntelligencePopupCore/);

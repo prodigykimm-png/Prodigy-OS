@@ -52,6 +52,9 @@ try {
   await loadProdigyScript("SYSTEM/Views/region-explorer-projection.js");
   await loadProdigyScript("SYSTEM/Views/auction-region-packet.js");
   await loadProdigyScript("SYSTEM/Views/region-decision-view-model.js");
+  await loadProdigyScript("SYSTEM/Views/region-collection-health-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-decision-mirror-core.js");
+  await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-store.js");
   await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-core.js");
   await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-view.js");
   await loadProdigyScript("SYSTEM/Views/decision-packet-core.js");
@@ -70,6 +73,9 @@ try {
     : [];
   window.AuctionDecisionPacketDashboardContext = window.AuctionDecisionPacket
     ? window.AuctionDecisionPacket.createDashboardContext(packetPages)
+    : null;
+  window.AuctionDecisionMirrorDashboardContext = window.AuctionDecisionMirrorCore
+    ? window.AuctionDecisionMirrorCore.snapshotAuctionCases(packetPages)
     : null;
   await loadProdigyScript("SYSTEM/Views/auction-card.js");
   await loadProdigyScript("SYSTEM/Views/bid-calendar-core.js");

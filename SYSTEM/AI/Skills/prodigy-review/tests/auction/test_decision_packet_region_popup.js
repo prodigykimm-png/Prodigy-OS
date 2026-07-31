@@ -79,22 +79,26 @@ function packetWithRegion() {
   };
 }
 
-test("Given the decision packet lists a region analysis record, When the user clicks it, Then it opens the region intelligence popup instead of navigating to the note", () => {
+test("Given the decision packet lists a region analysis record, When the user clicks it, Then it opens the region intelligence popup instead of navigating to the note", async () => {
   const packetApi = loadPacket();
   const parent = new Element("div");
-  const appended = installDomStub();
+  installDomStub();
 
   const opened = [];
+  const overlays = [];
   const navigated = [];
   globalThis.RegionIntelligencePopupCore = {
-    isAvailable: true,
-    openPopup(vaultRoot, regionKey) {
+    openPopupForApp(appArg, regionKey) {
+      assert.equal(appArg.vault.adapter.basePath, "/vault");
       opened.push(regionKey);
       return { ok: true, state: { regionKey } };
     }
   };
   globalThis.RegionIntelligencePopupView = {
-    renderPopup() { return "<div>popup</div>"; }
+    openOverlay(state) {
+      overlays.push(state);
+      return { close() {} };
+    }
   };
 
   const app = {
@@ -108,18 +112,21 @@ test("Given the decision packet lists a region analysis record, When the user cl
   const regionRow = findButtonByPrefix(parent, "지역 분석:");
   assert.ok(regionRow, "지역 분석 행을 찾지 못했다");
 
-  regionRow.onclick({ preventDefault() {}, stopPropagation() {} });
+  await regionRow.onclick({ preventDefault() {}, stopPropagation() {} });
 
   assert.deepEqual(opened, ["부산-해운대구"], "지역 인텔리전스 팝업이 열려야 한다");
   assert.deepEqual(navigated, [], "노트로 이동하면 안 된다");
-  assert.equal(appended.length, 1, "팝업 오버레이가 body에 붙어야 한다");
+  assert.deepEqual(overlays, [{ regionKey: "부산-해운대구" }], "상호작용 가능한 팝업 오버레이를 열어야 한다");
 
   delete globalThis.RegionIntelligencePopupCore;
   delete globalThis.RegionIntelligencePopupView;
   delete globalThis.document;
 });
 
-test("Given the popup modules are unavailable, When the region record is clicked, Then it falls back to opening the note rather than doing nothing", () => {
+test("Given the popup modules are unavailable, When the region record is clicked, Then it falls back to opening the note rather than doing nothing", async () => {
+  delete globalThis.RegionIntelligencePopupCore;
+  delete globalThis.RegionIntelligencePopupView;
+  delete globalThis.document;
   const packetApi = loadPacket();
   const parent = new Element("div");
   const navigated = [];
@@ -130,12 +137,12 @@ test("Given the popup modules are unavailable, When the region record is clicked
 
   packetApi.renderInline(parent, { app, packet: packetWithRegion() });
   const regionRow = findButtonByPrefix(parent, "지역 분석:");
-  regionRow.onclick({ preventDefault() {}, stopPropagation() {} });
+  await regionRow.onclick({ preventDefault() {}, stopPropagation() {} });
 
   assert.deepEqual(navigated, ["PARA/RESOURCES/REGION/부산-해운대구.md"]);
 });
 
-test("Given a non-region packet record, When it is clicked, Then it still opens the note", () => {
+test("Given a non-region packet record, When it is clicked, Then it still opens the note", async () => {
   const packetApi = loadPacket();
   const parent = new Element("div");
   const navigated = [];
@@ -156,7 +163,7 @@ test("Given a non-region packet record, When it is clicked, Then it still opens 
 
   const row = findButtonByPrefix(parent, "검증 지식:");
   assert.ok(row, "검증 지식 행을 찾지 못했다");
-  row.onclick({ preventDefault() {}, stopPropagation() {} });
+  await row.onclick({ preventDefault() {}, stopPropagation() {} });
 
   assert.deepEqual(navigated, ["ZETA/knowledge.md"]);
 });

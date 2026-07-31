@@ -8,6 +8,9 @@ const vm = require("node:vm");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const files = [
   "SYSTEM/Views/region-decision-view-model.js",
+  "SYSTEM/Views/region-collection-health-core.js",
+  "SYSTEM/Views/auction-decision-mirror-core.js",
+  "SYSTEM/Views/region-intelligence-popup-store.js",
   "SYSTEM/Views/region-intelligence-popup-core.js",
   "SYSTEM/Views/region-intelligence-popup-view.js"
 ];
@@ -28,6 +31,8 @@ for (const file of files) {
 }
 
 assert.equal(typeof sandbox.RegionDecisionViewModel?.projectRegionPopup, "function");
+assert.equal(typeof sandbox.RegionCollectionHealthCore?.analyzeCollectionHealth, "function");
+assert.equal(typeof sandbox.AuctionDecisionMirrorCore?.projectDecisionMirror, "function");
 assert.equal(typeof sandbox.RegionIntelligencePopupCore?.openPopup, "function");
 assert.equal(typeof sandbox.RegionIntelligencePopupView?.renderPopup, "function");
 
@@ -42,11 +47,54 @@ for (const file of files) {
 }
 
 assert.equal(typeof mobileSandbox.RegionDecisionViewModel?.projectRegionPopup, "function");
+assert.equal(typeof mobileSandbox.RegionCollectionHealthCore?.analyzeCollectionHealth, "function");
+assert.equal(typeof mobileSandbox.AuctionDecisionMirrorCore?.projectDecisionMirror, "function");
 assert.equal(typeof mobileSandbox.RegionIntelligencePopupCore?.openPopup, "function");
 assert.equal(typeof mobileSandbox.RegionIntelligencePopupView?.renderPopup, "function");
-assert.equal(mobileSandbox.RegionIntelligencePopupCore.isAvailable, false);
+assert.equal(mobileSandbox.RegionIntelligencePopupCore.isAvailable, true);
+assert.equal(typeof mobileSandbox.RegionIntelligencePopupCore.openPopupForApp, "function");
 
 const auctionCard = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-card.js"), "utf8");
-assert.match(auctionCard, /RegionIntelligencePopupCore\?\.isAvailable/);
+assert.doesNotMatch(auctionCard, /RegionIntelligencePopupCore\?\.isAvailable/);
+assert.match(auctionCard, /await window\.RegionIntelligencePopupCore\.openPopupForApp\(app,/);
 
-console.log("auction popup JS Engine loader tests passed");
+const mobileRegionPath = "PARA/RESOURCES/Auction Regions/부산광역시-사하구.md";
+const mobileRegionNote = [
+  "---",
+  "type: auction_region",
+  "title: 부산광역시 사하구",
+  "region_sido: 부산광역시",
+  "region_sigungu: 사하구",
+  "status: active",
+  "updated: 2026-07-31",
+  "metrics_as_of: 2026-07-01",
+  "verification_status: verified",
+  "housing_stock: 48544",
+  "---",
+  "",
+  "# 부산광역시 사하구"
+].join("\n");
+const mobileFile = { path: mobileRegionPath, extension: "md" };
+const mobileApp = {
+  vault: {
+    getAbstractFileByPath(filePath) { return filePath === mobileRegionPath ? mobileFile : null; },
+    getFiles() { return [mobileFile]; },
+    read(file) {
+      assert.equal(file, mobileFile);
+      return Promise.resolve(mobileRegionNote);
+    },
+    adapter: {}
+  }
+};
+
+mobileSandbox.RegionIntelligencePopupCore.openPopupForApp(mobileApp, "부산광역시-사하구")
+  .then((result) => {
+    assert.equal(result.ok, true);
+    assert.equal(result.state.regionKey, "부산광역시-사하구");
+    assert.equal(result.state.projection.tabs[0].content.housing_stock, 48544);
+    console.log("auction popup JS Engine loader tests passed");
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
