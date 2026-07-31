@@ -12,7 +12,7 @@ const SOURCE_PRIVATE_PREFIXES = Object.freeze(["DAILY/", "PARA/", "ZETA/", "SYST
 function run(command, args, options = {}) {
   const result = childProcess.spawnSync(command, args, {
     cwd: options.cwd,
-    encoding: options.encoding ?? "utf8",
+    encoding: Object.prototype.hasOwnProperty.call(options, "encoding") ? options.encoding : "utf8",
     input: options.input,
     maxBuffer: 256 * 1024 * 1024,
   });

@@ -24,6 +24,7 @@ test("tracked-only runtime fixture contains synthetic data and isolated Dataview
     const settings = JSON.parse(fs.readFileSync(path.join(result.vault_root, ".obsidian/plugins/dataview/data.json")));
     assert.equal(settings.enableDataviewJs, true);
     assert.equal(settings.refreshInterval, 2500);
+    assert.ok(fs.existsSync(path.join(result.vault_root, "SYSTEM/Views/home-view.js")));
     assert.ok(fs.existsSync(path.join(result.vault_root, "DAILY/2026-08-01.md")));
     assert.equal(fs.existsSync(path.join(result.vault_root, "SYSTEM/CACHE")), false);
     assert.equal(fs.existsSync(path.join(result.vault_root, ".obsidian/plugins/homepage")), false);
