@@ -199,6 +199,8 @@ UI는 이를 표현하는 역할만 수행한다.
 
 Homepage는 Dashboard가 아니다.
 
+> **용어:** 현재 UI 구현에서 Homepage는 Home과 동의어로 사용됨.
+
 Homepage는
 
 **Mission Control**이다.

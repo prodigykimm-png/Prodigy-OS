@@ -11,7 +11,7 @@
 Prodigy OS는 AI를 단순한 챗봇으로 사용하지 않는다.
 AI는 **사용자의 경험을 구조화된 Asset으로 성장시키는 엔진**이다.
 
-> 상세 원칙: [docs/00_Constitution.md](docs/00_Constitution.md) (Article 2)
+> 상세 원칙: [00_Constitution.md](00_Constitution.md) (Article 2)
 
 ---
 

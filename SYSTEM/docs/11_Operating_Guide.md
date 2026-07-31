@@ -17,8 +17,8 @@ Prodigy OS는 다음과 같은 주체와 계층 간의 철저한 역할 분리�
 
 이 문서는 이러한 철학 하에 설계된 Prodigy OS를 일상 업무에서 어떻게 조작하고 활용하는지에 관한 실제적 운영 방법을 정의한다.
 
-> 시스템 구조: [SYSTEM/docs/01_Architecture.md](SYSTEM/docs/01_Architecture.md)
-> 핵심 개념: [SYSTEM/docs/02_Core_Concepts.md](SYSTEM/docs/02_Core_Concepts.md)
+> 시스템 구조: [SYSTEM/docs/01_Architecture.md](01_Architecture.md)
+> 핵심 개념: [SYSTEM/docs/02_Core_Concepts.md](02_Core_Concepts.md)
 
 ---
 

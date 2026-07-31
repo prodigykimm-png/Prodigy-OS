@@ -14,7 +14,7 @@ Prodigy OS에서 Capture의 목적은 기록이 아니다.
 Capture는 가능한 한 빠르고 단순해야 한다.
 사람은 최소한만 입력하고, AI가 나머지를 구조화한다.
 
-> 상세 원칙: [docs/00_Constitution.md](docs/00_Constitution.md) (Article 3)
+> 상세 원칙: [00_Constitution.md](00_Constitution.md) (Article 3)
 
 ---
 

@@ -6,6 +6,9 @@ const path = require("node:path");
 
 const CONTRACT_MAP_PATH = "SYSTEM/docs/13_Contract_Map.md";
 const WORKSPACE_REGISTRY_PATH = "SYSTEM/Views/workspace-registry.js";
+const CONTRACT_HIERARCHY_ADR_PATH = "SYSTEM/docs/ADR/ADR-007-contract-source-hierarchy.md";
+const CANONICAL_UI_CONTRACT_PATH = "DESIGN.md";
+const COMPATIBILITY_UI_CONTRACT_PATH = "SYSTEM/docs/DESIGN.md";
 const LINK_SCAN_DIRS = ["SYSTEM/docs", "HUB"];
 const LEGACY_ALIAS_ALLOWLIST = [];
 const MAP_COLUMNS = ["Surface", "WorkspaceId", "Schema", "Template", "Hub", "View", "Test"];
@@ -89,6 +92,144 @@ function extractHubWorkspaceId(hubText) {
   return match ? match[1] : null;
 }
 
+function sliceSection(text, headingPattern) {
+  const lines = text.split("\n");
+  const startIndex = lines.findIndex((line) => headingPattern.test(line));
+  if (startIndex === -1) return null;
+  const collected = [];
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    if (/^##\s+/.test(lines[index])) break;
+    collected.push(lines[index]);
+  }
+  return collected;
+}
+
+function firstMarkdownPathInCodeSpan(line) {
+  const pattern = /`([^`]+)`/g;
+  let match = pattern.exec(line);
+  while (match !== null) {
+    const candidate = match[1].trim();
+    if (candidate.endsWith(".md")) return candidate;
+    match = pattern.exec(line);
+  }
+  return null;
+}
+
+// Machine-consumed ADR-007 Decision markers: "canonical contract" declares the canonical
+// UI target, "UI contract 자체를 정의하지 않음" declares a compatibility-only target.
+function parseUiContractDeclarations(adrText) {
+  const sectionLines = sliceSection(adrText, /^##\s+Decision\s*$/);
+  if (sectionLines === null) throw new Error("ADR Decision section not found");
+
+  const items = [];
+  sectionLines.forEach((line) => {
+    if (/^\d+\.\s/.test(line)) {
+      items.push({ declaration: line, body: [line] });
+      return;
+    }
+    if (items.length > 0 && line.trim() !== "") items[items.length - 1].body.push(line);
+  });
+
+  const canonicalTargets = [];
+  const compatibilityTargets = [];
+  items.forEach((item) => {
+    const declaredPath = firstMarkdownPathInCodeSpan(item.declaration);
+    if (!declaredPath) return;
+    const bodyText = item.body.join("\n");
+    if (/canonical contract/i.test(bodyText)) {
+      canonicalTargets.push(declaredPath);
+      return;
+    }
+    if (/UI contract 자체를 정의하지 않음/.test(bodyText)) compatibilityTargets.push(declaredPath);
+  });
+
+  return { canonicalTargets, compatibilityTargets };
+}
+
+function auditUiContractDeclaration(root, errors) {
+  const adrAbs = path.join(root, CONTRACT_HIERARCHY_ADR_PATH);
+  let adrText;
+  try {
+    adrText = fs.readFileSync(adrAbs, "utf8");
+  } catch (error) {
+    errors.push({
+      code: "canonical_ui_contract_mismatch",
+      path: CONTRACT_HIERARCHY_ADR_PATH,
+      expected: CANONICAL_UI_CONTRACT_PATH,
+      actual: null,
+      message: "contract source hierarchy ADR is unreadable: " + error.message
+    });
+    return null;
+  }
+
+  let declarations;
+  try {
+    declarations = parseUiContractDeclarations(adrText);
+  } catch (error) {
+    errors.push({
+      code: "canonical_ui_contract_mismatch",
+      path: CONTRACT_HIERARCHY_ADR_PATH,
+      expected: CANONICAL_UI_CONTRACT_PATH,
+      actual: null,
+      message: "UI contract declarations are unparsable: " + error.message
+    });
+    return null;
+  }
+
+  const canonical = declarations.canonicalTargets;
+  if (canonical.length !== 1) {
+    errors.push({
+      code: "canonical_ui_contract_mismatch",
+      path: CONTRACT_HIERARCHY_ADR_PATH,
+      expected: CANONICAL_UI_CONTRACT_PATH,
+      actual: canonical.slice(),
+      message: "expected exactly one canonical UI-contract target, found " + canonical.length
+    });
+  } else if (canonical[0] !== CANONICAL_UI_CONTRACT_PATH) {
+    errors.push({
+      code: "canonical_ui_contract_mismatch",
+      path: CONTRACT_HIERARCHY_ADR_PATH,
+      expected: CANONICAL_UI_CONTRACT_PATH,
+      actual: canonical[0],
+      message: "canonical UI-contract target is not the root design contract"
+    });
+  }
+
+  if (canonical.indexOf(COMPATIBILITY_UI_CONTRACT_PATH) !== -1) {
+    errors.push({
+      code: "canonical_ui_contract_mismatch",
+      path: COMPATIBILITY_UI_CONTRACT_PATH,
+      expected: "compatibility-only",
+      actual: "canonical",
+      message: "compatibility UI-contract document is declared canonical"
+    });
+  } else if (declarations.compatibilityTargets.indexOf(COMPATIBILITY_UI_CONTRACT_PATH) === -1) {
+    errors.push({
+      code: "canonical_ui_contract_mismatch",
+      path: COMPATIBILITY_UI_CONTRACT_PATH,
+      expected: "compatibility-only",
+      actual: null,
+      message: "compatibility UI-contract document has no non-canonical declaration"
+    });
+  }
+
+  canonical.concat(declarations.compatibilityTargets).forEach((relPath) => {
+    if (fs.existsSync(path.join(root, relPath))) return;
+    errors.push({
+      code: "canonical_ui_contract_mismatch",
+      path: relPath,
+      expected: "existing declared UI-contract document",
+      actual: null,
+      message: "declared UI-contract document does not exist"
+    });
+  });
+
+  return {
+    adr: CONTRACT_HIERARCHY_ADR_PATH,
+    canonicalTargets: canonical.slice(),
+    compatibilityTargets: declarations.compatibilityTargets.slice()
+  };
+}
 function listMarkdownFiles(absDir, relDir, collected) {
   if (!fs.existsSync(absDir)) return collected;
   fs.readdirSync(absDir, { withFileTypes: true }).forEach((entry) => {
@@ -130,6 +271,7 @@ function earlyFailure(root, code, message) {
     root,
     legacyAliasAllowlist: LEGACY_ALIAS_ALLOWLIST.slice(),
     surfaces: [],
+    uiContract: null,
     checkedLinkFiles: 0,
     errorCount: 1,
     errors: [{ code, path: CONTRACT_MAP_PATH, message }]
@@ -279,6 +421,8 @@ function auditRepository(options) {
     });
   });
 
+  const uiContract = auditUiContractDeclaration(root, errors);
+
   return {
     status: errors.length === 0 ? "pass" : "fail",
     root,
@@ -288,6 +432,7 @@ function auditRepository(options) {
       workspaceId: surface.workspaceId,
       paths: surface.paths
     })),
+    uiContract,
     checkedLinkFiles: linkFiles.length,
     errorCount: errors.length,
     errors
@@ -317,7 +462,8 @@ const USAGE = [
   "Usage: node SYSTEM/SCRIPTS/prodigy-contract-audit.js [--root <dir>] [--format text|json]",
   "",
   "Audits SYSTEM/docs/13_Contract_Map.md: mapped path existence, sibling-relative",
-  "internal links, Schema-Template linkage, and Hub/registry workspace id equality.",
+  "internal links, Schema-Template linkage, Hub/registry workspace id equality, and the",
+  "single canonical UI-contract target declared by the contract source hierarchy ADR.",
   "Exit 0 = pass, 1 = contract violations found, 2 = bad invocation."
 ].join("\n");
 
@@ -326,6 +472,7 @@ function renderText(result) {
     "root: " + result.root,
     "surfaces: " + result.surfaces.length,
     "link files scanned: " + result.checkedLinkFiles,
+    "canonical UI contract: " + (result.uiContract ? result.uiContract.canonicalTargets.join(", ") || "none" : "unresolved"),
     "status: " + result.status + " (" + result.errorCount + " error(s))"
   ];
   result.errors.forEach((error) => {
@@ -352,9 +499,13 @@ function main(argv) {
 module.exports = {
   CONTRACT_MAP_PATH,
   WORKSPACE_REGISTRY_PATH,
+  CONTRACT_HIERARCHY_ADR_PATH,
+  CANONICAL_UI_CONTRACT_PATH,
+  COMPATIBILITY_UI_CONTRACT_PATH,
   LEGACY_ALIAS_ALLOWLIST,
   parseContractMap,
   parseWorkspaceRegistry,
+  parseUiContractDeclarations,
   auditRepository
 };
 

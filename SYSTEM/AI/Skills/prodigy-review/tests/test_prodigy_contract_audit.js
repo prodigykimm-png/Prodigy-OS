@@ -15,6 +15,9 @@ const { execFileSync } = require("node:child_process");
 const VAULT_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..");
 const AUDIT_SCRIPT = path.join(VAULT_ROOT, "SYSTEM/SCRIPTS/prodigy-contract-audit.js");
 const SYNTHETIC_ONLY = process.argv.includes("--synthetic-only");
+const CONSTITUTION_PATH = "SYSTEM/docs/00_Constitution.md";
+const CONSTITUTION_BASELINE_COMMIT = "b4db0df98e003589efa6ef4e0a2ec57545713eb8";
+const APPROVED_ARTICLE_8_ANNOTATION = "> **용어:** 현재 UI 구현에서 Homepage는 Home과 동의어로 사용됨.";
 
 const audit = require(AUDIT_SCRIPT);
 const createdFixtures = [];
@@ -56,12 +59,36 @@ function fixtureMap(regionTemplateRow) {
 
 const REGION_ROW_OK = "| Region | region | `SYSTEM/Prodigy/Schema/Core_Property_Schema.md` | `SYSTEM/TEMPLATE/FORMAT/template_auction_region.md` | `HUB/15 Region.md` | `SYSTEM/Views/region-explorer-view.js` | `SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_explorer_view.js` |";
 
+function fixtureContractHierarchyAdr(decisionItems) {
+  return ["# Fixture ADR", "", "## Decision", ""].concat(decisionItems, ["", "## Consequences", "", "없음", ""]).join("\n");
+}
+
+const ADR_CANONICAL_ROOT_ITEM = [
+  "4. **Root `DESIGN.md`**는 UI 구현의 canonical contract이다.",
+  "   - 모든 View는 이를 따른다."
+].join("\n");
+
+const ADR_COMPATIBILITY_ITEM = [
+  "5. **`SYSTEM/docs/DESIGN.md`**는 별도 역할을 한다:",
+  "   - Root `DESIGN.md`와의 호환성 설명 제공",
+  "   - UI contract 자체를 정의하지 않음"
+].join("\n");
+
 function buildBaseFixture(label, options) {
   const opts = options || {};
   const root = makeFixtureRoot(label);
 
   writeFixtureFile(root, "SYSTEM/docs/13_Contract_Map.md", fixtureMap(REGION_ROW_OK));
   writeFixtureFile(root, "SYSTEM/docs/00_Constitution.md", "# Fixture Constitution\n");
+  writeFixtureFile(root, "DESIGN.md", "# Fixture Root UI Contract\n");
+  writeFixtureFile(root, "SYSTEM/docs/DESIGN.md", "# Fixture Token Registry\n");
+  writeFixtureFile(
+    root,
+    "SYSTEM/docs/ADR/ADR-007-contract-source-hierarchy.md",
+    fixtureContractHierarchyAdr(
+      opts.adrDecisionItems || [ADR_CANONICAL_ROOT_ITEM, ADR_COMPATIBILITY_ITEM]
+    )
+  );
   writeFixtureFile(
     root,
     "SYSTEM/docs/01_Architecture.md",
@@ -141,13 +168,60 @@ function runCli(args) {
   assert.equal(result.surfaces.length, 2);
   assert.deepEqual(result.surfaces.map((surface) => surface.surface), ["Auction", "Region"]);
   assert.deepEqual(audit.LEGACY_ALIAS_ALLOWLIST, []);
+  assert.deepEqual(result.uiContract.canonicalTargets, ["DESIGN.md"]);
+  assert.deepEqual(result.uiContract.compatibilityTargets, ["SYSTEM/docs/DESIGN.md"]);
 
   const cli = runCli(["--root", root, "--format", "json"]);
   assert.equal(cli.exitCode, 0);
   const parsed = JSON.parse(cli.stdout);
   assert.equal(parsed.status, "pass");
   assert.equal(parsed.errorCount, 0);
+  assert.deepEqual(parsed.uiContract.canonicalTargets, ["DESIGN.md"]);
   console.log("PASS synthetic clean fixture");
+})();
+
+// GIVEN a fixture whose contract hierarchy ADR declares two canonical UI-contract targets
+// WHEN the audit runs
+// THEN the exact-one canonical rule fails machine-readably on canonical_ui_contract_mismatch
+(function givenTwoCanonicalUiTargets() {
+  const root = buildBaseFixture("two-canonical", {
+    adrDecisionItems: [
+      ADR_CANONICAL_ROOT_ITEM,
+      "5. **`SYSTEM/docs/DESIGN.md`**도 UI 구현의 canonical contract이다."
+    ]
+  });
+  const result = audit.auditRepository({ root });
+
+  assert.equal(result.status, "fail");
+  assert.deepEqual(codesOf(result), ["canonical_ui_contract_mismatch", "canonical_ui_contract_mismatch"]);
+  const exactlyOne = result.errors.find((error) => /exactly one canonical/.test(error.message));
+  assert.deepEqual(exactlyOne.actual, ["DESIGN.md", "SYSTEM/docs/DESIGN.md"]);
+  assert.equal(exactlyOne.expected, "DESIGN.md");
+  const compatibility = result.errors.find((error) => error.path === "SYSTEM/docs/DESIGN.md");
+  assert.equal(compatibility.actual, "canonical");
+  assert.equal(compatibility.expected, "compatibility-only");
+  console.log("PASS synthetic two canonical UI-contract targets");
+})();
+
+// GIVEN a fixture whose ADR declares no canonical UI-contract target
+// WHEN the audit runs
+// THEN the missing canonical target is reported with the same stable code
+(function givenMissingCanonicalUiTarget() {
+  const root = buildBaseFixture("no-canonical", { adrDecisionItems: [ADR_COMPATIBILITY_ITEM] });
+  const result = audit.auditRepository({ root });
+
+  assert.equal(result.status, "fail");
+  assert.deepEqual(codesOf(result), ["canonical_ui_contract_mismatch"]);
+  assert.deepEqual(result.errors[0].actual, []);
+  assert.equal(result.errors[0].path, "SYSTEM/docs/ADR/ADR-007-contract-source-hierarchy.md");
+
+  const unreadableRoot = buildBaseFixture("no-adr", {});
+  fs.rmSync(path.join(unreadableRoot, "SYSTEM/docs/ADR/ADR-007-contract-source-hierarchy.md"));
+  const unreadable = audit.auditRepository({ root: unreadableRoot });
+  assert.equal(unreadable.status, "fail");
+  assert.deepEqual(codesOf(unreadable), ["canonical_ui_contract_mismatch"]);
+  assert.equal(unreadable.uiContract, null);
+  console.log("PASS synthetic missing canonical UI-contract target");
 })();
 
 // GIVEN a synthetic bad fixture with exactly three planted defects:
@@ -243,6 +317,72 @@ function runCli(args) {
   console.log("PASS malformed / missing contract map handling");
 })();
 
+function readArticleSection(text, articleNumber) {
+  const lines = text.split("\n");
+  const startIndex = lines.findIndex((line) => new RegExp("^#\\s+Article " + articleNumber + "\\s+—").test(line));
+  assert.notEqual(startIndex, -1, "Article " + articleNumber + " heading not found");
+  const collected = [];
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (index > startIndex && /^#\s+Article\s+\d+\s+—/.test(lines[index])) break;
+    collected.push(lines[index]);
+  }
+  return collected;
+}
+
+function normalizeSection(sectionLines) {
+  return sectionLines
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => line !== "" && line !== "---")
+    .join("\n");
+}
+
+function baselineConstitution() {
+  return execFileSync("git", ["show", CONSTITUTION_BASELINE_COMMIT + ":" + CONSTITUTION_PATH], {
+    cwd: VAULT_ROOT,
+    encoding: "utf8"
+  });
+}
+
+// GIVEN the protected Constitution articles at the approved baseline commit
+// WHEN the current working-tree Constitution is normalized and compared per article
+// THEN only the one approved Article 8 Homepage/Home terminology annotation may differ
+function assertProtectedArticlesStable() {
+  const baselineText = baselineConstitution();
+  const currentText = fs.readFileSync(path.join(VAULT_ROOT, CONSTITUTION_PATH), "utf8");
+
+  [3, 8, 9, 14].forEach((articleNumber) => {
+    const baseline = normalizeSection(readArticleSection(baselineText, articleNumber));
+    const currentLines = readArticleSection(currentText, articleNumber);
+    const annotationCount = currentLines.filter((line) => line.trim() === APPROVED_ARTICLE_8_ANNOTATION).length;
+    const current = normalizeSection(
+      currentLines.filter((line) => line.trim() !== APPROVED_ARTICLE_8_ANNOTATION)
+    );
+
+    assert.equal(
+      current,
+      baseline,
+      "Article " + articleNumber + " changed beyond the approved terminology annotation"
+    );
+    assert.equal(
+      annotationCount,
+      articleNumber === 8 ? 1 : 0,
+      "unexpected terminology annotation count in Article " + articleNumber
+    );
+  });
+
+  const article3 = normalizeSection(readArticleSection(currentText, 3));
+  assert.ok(
+    article3.indexOf("`physical iPhone` 실기기에서 사용자가 직접 확인한 경우에만 `user-evidence-only gate`를 통과한다") !== -1,
+    "Article 3 physical-device evidence wording is missing"
+  );
+  const article8 = normalizeSection(readArticleSection(currentText, 8));
+  assert.ok(
+    article8.indexOf("통계, 그래프, ROI 등 분석 정보는 Homepage에서 보여주지 않는다") !== -1,
+    "Article 8 Home analytics prohibition is missing"
+  );
+  console.log("PASS protected Constitution articles stable vs baseline (3, 8, 9, 14)");
+}
+
 function cleanupFixtures() {
   createdFixtures.forEach((root) => {
     assert.ok(root.startsWith(os.tmpdir()), "refusing to remove non-temp fixture: " + root);
@@ -264,6 +404,9 @@ try {
       "pass",
       "live contract audit failed:\n" + JSON.stringify(live.errors, null, 2)
     );
+    assert.deepEqual(live.uiContract.canonicalTargets, [audit.CANONICAL_UI_CONTRACT_PATH]);
+    assert.deepEqual(live.uiContract.compatibilityTargets, [audit.COMPATIBILITY_UI_CONTRACT_PATH]);
+    assertProtectedArticlesStable();
     console.log("Contract audit tests passed (synthetic + live)");
   }
 } finally {
