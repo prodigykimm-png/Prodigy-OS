@@ -9,6 +9,7 @@ const test = require("node:test");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const viewModel = require(path.join(ROOT, "SYSTEM/Views/region-decision-view-model.js"));
 const popupCore = require(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-core.js"));
+const popupView = require(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-view.js"));
 
 function regionNote(overrides = {}) {
   const fm = {
@@ -183,4 +184,21 @@ test("collection status projected", () => {
   const { frontmatter, body } = popupCore.parseRegionNote(regionNote({ source_as_of: "2026-07-19" }));
   const projection = viewModel.projectRegionPopup({ frontmatter, body, regionKey: "부산광역시-사하구" });
   assert.equal(projection.collectionStatus.last_collection, "2026-07-19");
+});
+
+test("Given focus would leave either dialog edge, When Tab advances, Then focus stays inside the popup", () => {
+  const first = { disabled: false, focused: false, focus() { this.focused = true; } };
+  const last = { disabled: false, focused: false, focus() { this.focused = true; } };
+  const outside = { disabled: false };
+  const modal = { contains(element) { return element === first || element === last; }, querySelectorAll() { return [first, last]; } };
+
+  let forwardPrevented = false;
+  popupView.trapOverlayFocus({ key: "Tab", shiftKey: false, target: last, relatedTarget: outside, preventDefault() { forwardPrevented = true; } }, modal);
+  assert.equal(forwardPrevented, true);
+  assert.equal(first.focused, true);
+
+  let backwardPrevented = false;
+  popupView.trapOverlayFocus({ key: "Tab", shiftKey: true, target: first, relatedTarget: outside, preventDefault() { backwardPrevented = true; } }, modal);
+  assert.equal(backwardPrevented, true);
+  assert.equal(last.focused, true);
 });

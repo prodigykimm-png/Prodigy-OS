@@ -281,6 +281,25 @@ function mountPopup(container, popupState, options) {
   return Object.freeze({ getState: () => state });
 }
 
+function trapOverlayFocus(event, modal) {
+  if (!event || event.key !== "Tab" || !modal || typeof modal.querySelectorAll !== "function") return;
+  const focusable = Array.from(modal.querySelectorAll("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"))
+    .filter((element) => !element.disabled);
+  if (!focusable.length) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && event.target === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && event.target === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 function openOverlay(popupState, options) {
   if (typeof document === "undefined" || !document.body) return null;
   const opts = options || {};
@@ -300,11 +319,16 @@ function openOverlay(popupState, options) {
     overlay.remove();
     if (opts.returnFocus && typeof opts.returnFocus.focus === "function") opts.returnFocus.focus();
   };
-  const onKeydown = (event) => { if (event.key === "Escape") close(); };
+  const onKeydown = (event) => {
+    if (event.key === "Escape") close();
+    else trapOverlayFocus(event, modal);
+  };
   overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
   document.addEventListener("keydown", onKeydown);
   document.body.appendChild(overlay);
   mountPopup(modal, popupState, { onClose: close });
+  const initialFocus = modal.querySelector("[data-action='close']");
+  if (initialFocus && typeof initialFocus.focus === "function") initialFocus.focus();
   return Object.freeze({ overlay, close });
 }
 
@@ -318,6 +342,7 @@ const api = Object.freeze({
   renderPopup,
   popupStyles,
   mountPopup,
+  trapOverlayFocus,
   openOverlay
 });
 
