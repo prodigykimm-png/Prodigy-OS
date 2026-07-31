@@ -754,9 +754,9 @@
   }
 
   function buildKnowledgeCandidates(candidates) {
-    const statusLabel = { proposed: "제안됨", saved: "저장됨" };
+    const statusLabel = { proposed: "제안됨", saved: "저장됨", needs_more_evidence: "증거 보강" };
     const items = (Array.isArray(candidates) ? candidates : [])
-      .filter((candidate) => candidate && (clean(candidate.status) === "proposed" || clean(candidate.status) === "saved"))
+      .filter((candidate) => candidate && Object.prototype.hasOwnProperty.call(statusLabel, clean(candidate.status)))
       .map((candidate) => ({
         candidate_id: clean(candidate.candidate_id),
         title: clean(candidate.title) || LABELS.untitled,
