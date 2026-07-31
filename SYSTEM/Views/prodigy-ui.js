@@ -17,14 +17,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: var(--ke-space-1, 2px);
   min-height: 0;
   height: auto;
-  padding: 1px 7px;
-  border-radius: 4px;
-  font-size: 0.72em;
+  padding: var(--ke-space-1, 2px) var(--ke-space-3, 8px);
+  border-radius: var(--ke-radius-control, 4px);
+  font-size: var(--ke-type-label, 0.72rem);
   font-weight: 600;
-  line-height: 1.15;
+  line-height: var(--ke-leading-control, 1.35);
   border: 1px solid var(--background-modifier-border);
   background: var(--background-primary);
   color: var(--text-normal);
@@ -113,10 +113,10 @@
 .prodigy-project-type-filter button {
   min-height: 0;
   height: auto;
-  padding: 0 6px;
+  padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px);
   border-radius: 999px;
-  font-size: 0.7em;
-  line-height: 1.35;
+  font-size: var(--ke-type-chrome, 0.68rem);
+  line-height: var(--ke-leading-control, 1.35);
 }
 
 .prodigy-project-type-filter button.is-active,
@@ -136,7 +136,7 @@
 .prodigy-home .focus-footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: var(--ke-space-2, 4px);
   align-items: center;
 }
 
@@ -147,14 +147,14 @@
 .prodigy-home .home-launcher-mount button {
   min-height: 0 !important;
   height: auto !important;
-  padding: 1px 6px !important;
-  font-size: 0.7em !important;
-  line-height: 1.15 !important;
+  padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
+  font-size: var(--ke-type-label, 0.72rem) !important;
+  line-height: var(--ke-leading-control, 1.35) !important;
   border-radius: 4px !important;
 }
 .prodigy-home .focus-actions,
 .prodigy-home .focus-footer {
-  gap: 3px;
+  gap: var(--ke-space-2, 4px);
 }
 
 /* Auction card action row: keep status + site-visit on one compact flow */
@@ -163,7 +163,7 @@
   flex-direction: row !important;
   flex-wrap: wrap;
   align-items: center;
-  gap: 3px !important;
+  gap: var(--ke-space-2, 4px) !important;
   margin-top: 2px !important;
   padding-top: 2px !important;
 }
@@ -173,9 +173,9 @@
   width: auto !important;
   min-height: 0 !important;
   height: auto !important;
-  padding: 0 6px !important;
-  font-size: 0.68em !important;
-  line-height: 1.35 !important;
+  padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
+  font-size: var(--ke-type-chrome, 0.68rem) !important;
+  line-height: var(--ke-leading-control, 1.35) !important;
 }
 
 /* Reading cards: keep cover clear of action buttons */
@@ -233,18 +233,18 @@
   .auction-card-actions > button {
     min-height: 0 !important;
     height: auto !important;
-    padding: 0 5px !important;
-    font-size: 0.68em !important;
-    line-height: 1.3 !important;
-    border-radius: 3px !important;
+    padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
+    font-size: var(--ke-type-chrome, 0.68rem) !important;
+    line-height: var(--ke-leading-control, 1.35) !important;
+    border-radius: var(--ke-radius-control, 4px) !important;
   }
 
   .prodigy-btn-chip,
   .prodigy-project-type-filter button {
     min-height: 0 !important;
-    padding: 0 5px !important;
-    font-size: 0.66em !important;
-    line-height: 1.3 !important;
+    padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
+    font-size: var(--ke-type-chrome, 0.68rem) !important;
+    line-height: var(--ke-leading-control, 1.35) !important;
   }
 
   .prodigy-btn-row,
@@ -254,15 +254,15 @@
   .prodigy-home .focus-actions,
   .prodigy-home .focus-footer,
   .auction-card-actions {
-    gap: 2px !important;
+    gap: var(--ke-space-1, 2px) !important;
   }
 
   .prodigy-home .action-btn {
     min-height: 0 !important;
     height: auto !important;
-    padding: 0 5px !important;
-    font-size: 0.66em !important;
-    line-height: 1.3 !important;
+    padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
+    font-size: var(--ke-type-chrome, 0.68rem) !important;
+    line-height: var(--ke-leading-control, 1.35) !important;
     flex: 0 1 auto !important;
   }
 
@@ -290,8 +290,8 @@
   }
 
   .auction-card-actions {
-    margin-top: 3px !important;
-    padding-top: 3px !important;
+    margin-top: 2px !important;
+    padding-top: 2px !important;
   }
 
   .prodigy-inline-error .prodigy-btn {
@@ -314,13 +314,13 @@
 .auction-header-bid-sheet {
   flex-shrink: 0;
   min-height: 0;
-  padding: 0 5px;
+  padding: var(--ke-space-1, 2px) var(--ke-space-3, 8px);
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--ke-radius-control, 4px);
   background: var(--background-primary);
   color: var(--text-normal);
-  font-size: 0.72em;
-  line-height: 1.5;
+  font-size: var(--ke-type-label, 0.72rem);
+  line-height: var(--ke-leading-control, 1.35);
   white-space: nowrap;
   cursor: pointer;
 }

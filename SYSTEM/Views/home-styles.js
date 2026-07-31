@@ -34,16 +34,31 @@
           overflow-x: hidden;
           margin: 0 auto;
           padding: 0 8px 32px;
+          font-size: var(--ke-type-body, 0.84rem);
+          line-height: var(--ke-leading-body, 1.45);
+          letter-spacing: 0;
           word-break: keep-all;
           overflow-wrap: anywhere;
         }
         .prodigy-home * { min-inline-size: 0; }
-        .home-grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
-        .home-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-        .home-mc-stack { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 920px; margin: 0 auto; }
+        @media (max-width: ${medium - 1}px) {
+          .prodigy-app-shell[data-workspace-id="home"] > .prodigy-app-shell-body {
+            --home-mobile-toolbar-clearance: var(--ke-mobile-toolbar-height, 56px);
+            --home-mobile-bottom-clearance: calc(
+              var(--home-mobile-toolbar-clearance, 56px)
+              + var(--prodigy-action-bar-height, 52px)
+              + env(safe-area-inset-bottom, 0px)
+              + var(--ke-space-5, 16px)
+            );
+            scroll-padding-block-end: var(--home-mobile-bottom-clearance);
+          }
+        }
+        .home-grid { display: grid; grid-template-columns: 1fr; gap: var(--ke-space-5, 16px); margin-bottom: var(--ke-space-5, 16px); }
+        .home-column { display: flex; flex-direction: column; gap: var(--ke-space-5, 16px); min-width: 0; }
+        .home-mc-stack { display: flex; flex-direction: column; gap: var(--ke-space-4, 12px); width: 100%; max-width: 920px; margin: 0 auto; }
         .home-mc-lower .home-card { border-color: var(--background-modifier-border); }
         .home-system-status { opacity: 0.92; padding: 12px 14px !important; }
-        .home-quick-actions .action-btn { min-height: 36px !important; padding: 6px 12px !important; font-size: 0.82em !important; }
+        .home-quick-actions .action-btn { min-height: 36px !important; padding: var(--ke-space-2, 4px) var(--ke-space-4, 12px) !important; font-size: var(--ke-type-label, 0.72rem) !important; line-height: var(--ke-leading-control, 1.35) !important; }
         .prodigy-home.home-wide .home-grid { grid-template-columns: 1fr; }
         .prodigy-home.home-wide .col-span-8 { grid-column: span 1; }
         .prodigy-home.home-wide .col-span-4 { grid-column: span 1; }
@@ -67,7 +82,9 @@
         }
         .home-header {
           font-weight: 700;
-          font-size: 1.05em;
+          font-size: var(--ke-type-heading, 0.92rem);
+          line-height: var(--ke-leading-body, 1.45);
+          letter-spacing: 0;
           color: var(--text-normal);
           margin-bottom: 12px;
           display: flex;
@@ -78,8 +95,9 @@
           display: inline-flex;
           align-items: center;
           min-height: 22px;
-          font-size: 0.72em;
-          padding: 2px 7px;
+          font-size: var(--ke-type-label, 0.72rem);
+          line-height: var(--ke-leading-control, 1.35);
+          padding: var(--ke-space-1, 2px) var(--ke-space-3, 8px);
           border-radius: 4px;
           font-weight: 650;
           white-space: nowrap;
@@ -101,15 +119,15 @@
           justify-content: center;
           min-height: 0 !important;
           height: auto !important;
-          font-size: 0.72em !important;
-          padding: 1px 6px !important;
+          font-size: var(--ke-type-label, 0.72rem) !important;
+          padding: var(--ke-space-1, 2px) var(--ke-space-3, 8px) !important;
           border-radius: 4px !important;
           border: 1px solid var(--background-modifier-border);
           background: var(--background-primary);
           color: var(--text-normal);
           cursor: pointer;
           font-weight: 600;
-          line-height: 1.15 !important;
+          line-height: var(--ke-leading-control, 1.35) !important;
           box-sizing: border-box;
           white-space: nowrap;
           transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
@@ -151,15 +169,16 @@
           min-width: 0;
           width: auto;
           flex: 1 1 220px;
-          font-size: 0.9em;
-          padding: 6px 9px;
+          font-size: var(--ke-type-body, 0.84rem);
+          line-height: var(--ke-leading-body, 1.45);
+          padding: var(--ke-space-2, 4px) var(--ke-space-3, 8px);
           border-radius: 6px;
           border: 1px solid var(--background-modifier-border);
           background: var(--background-primary);
           color: var(--text-normal);
         }
         .home-title-row { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-        .home-title-row h2 { margin: 0; font-size: 1.45em; }
+        .home-title-row h2 { margin: 0; font-size: var(--ke-type-title, 1.05rem); line-height: var(--ke-leading-body, 1.45); letter-spacing: 0; }
         .home-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .focus-list { display: flex; flex-direction: column; margin: 0 -2px; }
         .focus-row { display: flex; flex-direction: column; gap: 7px; padding: 14px 2px; border-top: 1px solid var(--background-modifier-border); }
@@ -167,8 +186,8 @@
         .focus-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
         .focus-title { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1 1 auto; font-weight: 700; }
         .focus-title a, .focus-title span { overflow-wrap: anywhere; }
-        .focus-reason { color: var(--text-muted); font-size: 0.86em; line-height: 1.5; padding-left: 24px; }
-        .focus-details { margin-left: 24px; font-size: 0.82em; color: var(--text-muted); }
+        .focus-reason { color: var(--text-muted); font-size: var(--ke-type-body, 0.84rem); line-height: var(--ke-leading-body, 1.45); padding-left: 24px; }
+        .focus-details { margin-left: 24px; font-size: var(--ke-type-label, 0.72rem); line-height: var(--ke-leading-body, 1.45); color: var(--text-muted); }
         .focus-details summary { cursor: pointer; color: var(--text-accent); font-weight: 600; }
         .focus-evidence { margin-top: 7px; padding: 9px 10px; border-left: 2px solid var(--background-modifier-border); display: flex; flex-direction: column; gap: 4px; }
         .focus-actions, .focus-footer { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
@@ -236,7 +255,7 @@
 
         /* Mobile compact Home: Brief + Focus + Continue + Micro Log first; rest behind fold */
         .prodigy-home.home-compact {
-          padding-bottom: 24px;
+          padding-bottom: var(--home-mobile-bottom-clearance);
         }
         .prodigy-home.home-compact .home-grid {
           gap: 10px;
@@ -249,7 +268,7 @@
           gap: 8px;
         }
         .prodigy-home.home-compact .home-title-row h2 {
-          font-size: 1.2em;
+          font-size: var(--ke-type-title, 1.05rem);
         }
         .prodigy-home .home-brief > p.home-brief-text {
           display: -webkit-box;
@@ -257,7 +276,8 @@
           -webkit-box-orient: vertical;
           overflow: hidden;
           white-space: normal !important;
-          font-size: 0.88em;
+          font-size: var(--ke-type-body, 0.84rem);
+          line-height: var(--ke-leading-body, 1.45);
           margin-bottom: 8px !important;
         }
         .prodigy-home.home-compact .home-secondary-fold {
@@ -268,7 +288,8 @@
         }
         .prodigy-home.home-compact .home-secondary-fold > summary {
           font-weight: 800;
-          font-size: 0.9em;
+          font-size: var(--ke-type-heading, 0.92rem);
+          line-height: var(--ke-leading-control, 1.35);
           color: var(--text-muted);
           cursor: pointer;
           min-height: var(--ke-touch-target);
@@ -347,10 +368,10 @@
           border: 1px solid var(--background-modifier-border);
           background: var(--background-primary);
           color: var(--text-normal);
-          font-size: 0.66em !important;
+          font-size: var(--ke-type-chrome, 0.68rem) !important;
           font-weight: 600 !important;
-          line-height: 1.45 !important;
-          letter-spacing: -0.01em;
+          line-height: var(--ke-leading-control, 1.35) !important;
+          letter-spacing: 0;
           cursor: pointer;
         }
         .prodigy-home .home-ws-dock-btn:active {
@@ -431,7 +452,8 @@
         }
         .prodigy-home .home-lifecycle-fold > summary {
           font-weight: 700;
-          font-size: 0.88em;
+          font-size: var(--ke-type-body, 0.84rem);
+          line-height: var(--ke-leading-control, 1.35);
           color: var(--text-muted);
           cursor: pointer;
           min-height: 36px;
