@@ -1795,8 +1795,8 @@
     }
 
     let model = opts.model || core.buildPeopleWorkspaceModel([], [], {});
-    const rawPeople = opts.rawPeople || null;
-    const sourcePages = opts.sourcePages || null;
+    let rawPeople = opts.rawPeople || null;
+    let sourcePages = opts.sourcePages || null;
     let bodiesHydrated = false;
 
     function rebuildModel() {
@@ -1924,6 +1924,7 @@
         "aria-label": "사람 검색"
       }
     });
+    searchInput.value = state.query;
     let composing = false;
     searchInput.oncompositionstart = () => { composing = true; };
     searchInput.oncompositionend = () => {
@@ -2435,6 +2436,12 @@
     return {
       paint,
       selectPerson,
+      setData: (nextRawPeople, nextSourcePages) => {
+        rawPeople = Array.isArray(nextRawPeople) ? nextRawPeople : rawPeople;
+        sourcePages = Array.isArray(nextSourcePages) ? nextSourcePages : sourcePages;
+        bodiesHydrated = false;
+        paint();
+      },
       getState: () => state,
       getModel: () => model,
       getLayout: () => layout,

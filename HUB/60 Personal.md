@@ -28,15 +28,9 @@ try {
   await loadProdigyScript("SYSTEM/Views/people-view.js");
 
   const rootEl = this.container;
-  rootEl.empty();
-
-  const shell = window.ProdigyWorkspaceNavigation.mount(rootEl, { app, workspaceId: "personal", title: "개인" });
-  const workspaceBody = shell.body;
-
-  // People surface (primary)
-  const peopleMount = workspaceBody.createDiv({ attr: { class: "personal-people-mount" } });
-  // Areas surface (supporting)
-  const areasMount = workspaceBody.createDiv({ attr: { class: "personal-areas-mount prodigy-people-workspace" } });
+  const personalHost = typeof rootEl.closest === "function"
+    ? (rootEl.closest(".workspace-leaf-content") || rootEl.closest(".markdown-reading-view") || rootEl.parentElement || rootEl)
+    : (rootEl.parentElement || rootEl);
 
   const pageToSource = (p) => {
     if (!p || !p.file) return null;
@@ -148,34 +142,98 @@ try {
     return out;
   };
 
+  const workspaceFingerprint = (rawPeople, sourcePages) => {
+    const people = window.PeopleCore.peopleFingerprint(rawPeople);
+    const sources = (sourcePages || []).map((item) => [
+      item.path || "",
+      item.type || "",
+      item.title || "",
+      Array.isArray(item.connections) ? item.connections.map(String).sort().join("\u001c") : String(item.connections || ""),
+      Array.isArray(item.outlinks) ? item.outlinks.map(String).sort().join("\u001c") : "",
+      String(item.updated || "")
+    ].join("\u001f")).sort();
+    return `${people}\u001d${sources.join("\u001e")}`;
+  };
+
+  const collectWorkspaceSnapshot = async () => {
+    const rawPeople = await collectRawPeople();
+    const sourcePages = collectSourcePages();
+    return {
+      rawPeople,
+      sourcePages,
+      fingerprint: workspaceFingerprint(rawPeople, sourcePages)
+    };
+  };
+
+  const initialSnapshot = await collectWorkspaceSnapshot();
+  const guardStore = window.__prodigyPersonalRenderGuard instanceof WeakMap
+    ? window.__prodigyPersonalRenderGuard
+    : new WeakMap();
+  window.__prodigyPersonalRenderGuard = guardStore;
+  const guard = guardStore.get(personalHost);
+  const canReuseWorkspace = Boolean(
+    guard
+    && guard.shellElement
+    && guard.workspaceApi
+    && typeof guard.paintPeople === "function"
+  );
+
+  if (canReuseWorkspace) {
+    if (guard.shellElement.parentElement !== rootEl) {
+      rootEl.empty();
+      rootEl.appendChild(guard.shellElement);
+    }
+    if (guard.fingerprint !== initialSnapshot.fingerprint) {
+      const scrollOwner = guard.shellElement.querySelector(".prodigy-app-shell-body");
+      const savedScrollTop = scrollOwner ? scrollOwner.scrollTop : 0;
+      // setData refreshes rows in place; a full repaint would reset the scroll
+      // offset and the caret even though the user never left the workspace.
+      if (typeof guard.workspaceApi.setData === "function") {
+        guard.workspaceApi.setData(initialSnapshot.rawPeople, initialSnapshot.sourcePages);
+        guard.fingerprint = initialSnapshot.fingerprint;
+      } else {
+        await guard.paintPeople({ force: true, snapshot: initialSnapshot });
+        if (typeof guard.paintAreas === "function") guard.paintAreas();
+      }
+      if (scrollOwner && savedScrollTop) scrollOwner.scrollTop = savedScrollTop;
+    }
+    return;
+  }
+
+  rootEl.empty();
+  const shell = window.ProdigyWorkspaceNavigation.mount(rootEl, { app, workspaceId: "personal", title: "개인" });
+  const workspaceBody = shell.body;
+
+  // People surface (primary)
+  const peopleMount = workspaceBody.createDiv({ attr: { class: "personal-people-mount" } });
+  // Areas surface (supporting)
+  const areasMount = workspaceBody.createDiv({ attr: { class: "personal-areas-mount prodigy-people-workspace" } });
+
   let workspaceApi = null;
 
   const paintPeople = async (options) => {
     const force = Boolean(options && options.force);
-    // Touch Dataview index so newly created files appear in dv.pages()
-    try {
-      const dvPlugin = app.plugins?.plugins?.dataview;
-      if (dvPlugin?.api?.index?.touch) await dvPlugin.api.index.touch();
-    } catch (_e) { /* best-effort */ }
-    const rawPeople = await collectRawPeople();
-    const sourcePages = collectSourcePages();
+    const snapshot = options && options.snapshot
+      ? options.snapshot
+      : await collectWorkspaceSnapshot();
+    const rawPeople = snapshot.rawPeople;
+    const sourcePages = snapshot.sourcePages;
 
-    // Dataview reruns this block every refreshInterval (2500ms by default).
-    // Repainting on every tick destroys focus, scroll, and typing, so skip when
-    // the underlying people data is byte-equivalent to what is already on screen.
-    const fingerprint = window.PeopleCore.peopleFingerprint(rawPeople);
-    const guard = window.__prodigyPersonalRenderGuard;
+    // Dataview reruns this block after an actual index change. Repainting when
+    // the data is equivalent would still destroy focus, scroll, and typing.
+    const fingerprint = snapshot.fingerprint;
+    const activeGuard = guardStore.get(personalHost);
     const shouldSkipRepaint = Boolean(
       !force
-      && guard
-      && guard.mount === peopleMount
-      && guard.fingerprint === fingerprint
+      && activeGuard
+      && activeGuard.mount === peopleMount
+      && activeGuard.fingerprint === fingerprint
       && workspaceApi
     );
     if (shouldSkipRepaint) return;
 
-    // Dataview re-runs this whole block on its refresh interval, which destroys
-    // workspaceApi. Persisted state is the only thing that survives that rerun.
+    // Dataview can replace this code-block container after an index change.
+    // Persisted state survives that replacement when the old DOM cannot be reused.
     const persisted = window.PeopleCore.readWorkspaceState(window.sessionStorage);
     const live = workspaceApi && workspaceApi.getState ? workspaceApi.getState() : null;
     const st = live || persisted;
@@ -198,7 +256,15 @@ try {
       onRefresh: () => paintPeople({ force: true }),
       onStateChange: (next) => window.PeopleCore.writeWorkspaceState(window.sessionStorage, next)
     });
-    window.__prodigyPersonalRenderGuard = { mount: peopleMount, fingerprint: fingerprint };
+    guardStore.set(personalHost, {
+      rootEl,
+      shellElement: shell.element,
+      mount: peopleMount,
+      workspaceApi,
+      fingerprint,
+      paintPeople,
+      paintAreas
+    });
     if (workspaceApi && workspaceApi.getState) {
       window.PeopleCore.writeWorkspaceState(window.sessionStorage, workspaceApi.getState());
     }
@@ -250,7 +316,7 @@ try {
     }
   };
 
-  paintPeople();
+  await paintPeople({ snapshot: initialSnapshot });
   paintAreas();
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {

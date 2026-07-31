@@ -8,12 +8,13 @@ const test = require("node:test");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const HUB_PATH = path.join(ROOT, "HUB/60 Personal.md");
 const CORE_PATH = path.join(ROOT, "SYSTEM/Views/people-core.js");
+const VIEW_PATH = path.join(ROOT, "SYSTEM/Views/people-view.js");
 
 function hubSource() {
   return fs.readFileSync(HUB_PATH, "utf8");
 }
 
-test("Given Dataview re-runs the Personal block on its refresh interval, When it re-renders, Then the hub restores query, filter, and sort from a durable store instead of resetting", () => {
+test("Given Dataview re-runs the Personal block after an index change, When it re-renders, Then the hub restores query, filter, and sort from a durable store instead of resetting", () => {
   const hub = hubSource();
 
   assert.match(hub, /PeopleCore\.readWorkspaceState|readWorkspaceState/, "허브가 지속 상태를 읽어야 한다");
@@ -74,11 +75,28 @@ test("Given a corrupt or absent persisted payload, When the hub reads it, Then i
   }
 });
 
-test("Given Dataview reruns the block every 2.5s, When nothing the user cares about changed, Then the hub skips the repaint instead of rebuilding the DOM", () => {
+test("Given Dataview reruns the block after an index change, When nothing the user cares about changed, Then the hub skips the repaint instead of rebuilding the DOM", () => {
   const hub = hubSource();
 
-  assert.match(hub, /shouldSkipRepaint|__prodigyPersonalRenderGuard/, "허브가 불필요한 재렌더를 건너뛰는 가드를 가져야 한다");
+  const reuseDecision = hub.indexOf("canReuseWorkspace");
+  const firstRootClear = hub.indexOf("rootEl.empty()");
+
+  assert.ok(reuseDecision >= 0, "허브가 기존 Personal DOM/API 재사용 여부를 판단해야 한다");
+  assert.ok(firstRootClear > reuseDecision, "기존 DOM을 비우기 전에 재사용 여부를 먼저 판단해야 한다");
+  assert.match(hub, /guard\.shellElement/, "재실행 사이에 기존 App Shell DOM을 보관해야 한다");
+  assert.match(hub, /rootEl\.appendChild\(guard\.shellElement\)/, "Dataview가 컨테이너를 교체해도 기존 App Shell을 재부착해야 한다");
+  assert.match(hub, /guard\.workspaceApi/, "검색·필터 상태를 가진 기존 workspace API를 재사용해야 한다");
   assert.match(hub, /fingerprint|signature/i, "무엇이 바뀌었는지 비교할 지표가 있어야 한다");
+});
+
+test("Given a persisted Personal search, When the workspace is rebuilt after a Dataview refresh, Then the visible search field restores the query", () => {
+  const view = fs.readFileSync(VIEW_PATH, "utf8");
+
+  assert.match(
+    view,
+    /searchInput\.value\s*=\s*state\.query/,
+    "검색 모델만 복원하고 입력창 값을 비워 두면 사용자는 첫 화면으로 초기화됐다고 보게 된다"
+  );
 });
 
 test("Given a people fingerprint, When the underlying data is unchanged, Then the computed signature is stable and changes only with real edits", () => {
