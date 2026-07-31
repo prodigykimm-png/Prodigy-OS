@@ -17,6 +17,10 @@ test("tracked-only runtime fixture contains synthetic data and isolated Dataview
     assert.ok(result.profile_root.startsWith(result.temp_root));
     assert.deepEqual(result.private_source_paths_copied, []);
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(result.vault_root, ".obsidian/community-plugins.json"))), ["dataview"]);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(path.join(result.vault_root, ".obsidian/app.json"))),
+      { showUnsupportedFiles: true }
+    );
     const settings = JSON.parse(fs.readFileSync(path.join(result.vault_root, ".obsidian/plugins/dataview/data.json")));
     assert.equal(settings.enableDataviewJs, true);
     assert.equal(settings.refreshInterval, 2500);

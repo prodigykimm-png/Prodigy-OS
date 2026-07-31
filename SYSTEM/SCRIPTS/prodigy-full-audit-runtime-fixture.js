@@ -80,6 +80,7 @@ function prepare(options = {}) {
   const fixtures = syntheticFixtures();
   for (const [relative, content] of Object.entries(fixtures)) writeFixture(vaultRoot, relative, content);
 
+  writeJson(path.join(vaultRoot, ".obsidian", "app.json"), { showUnsupportedFiles: true });
   writeJson(path.join(vaultRoot, ".obsidian", "community-plugins.json"), ["dataview"]);
   writeJson(path.join(vaultRoot, ".obsidian", "plugins", "dataview", "data.json"), {
     enableDataviewJs: true,
