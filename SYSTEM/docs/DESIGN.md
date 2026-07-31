@@ -1,9 +1,22 @@
 # Prodigy OS Design System
 
+**이 문서는 호환성 부록입니다.** 공식 UI 계약은 저장소 루트의 [`DESIGN.md`](../../DESIGN.md)를 참조하십시오.
+
+## 레거시 도메인 팔레트 (ProdigyTokens.COLORS)
+
+`ProdigyTokens.COLORS`는 **기존 도메인 상태 시각화 전용**으로 허용된 레거시 팔레트입니다.
+
+### 사용 경계
+
+- **허용**: Auction/Reading/Workout/Project/Personal/Knowledge의 기존 상태·우선순위·결과 표시
+- **금지**: 공통 App Shell, Workspace chrome, 새로 추가되는 UI 요소
+- **대체**: 공통 chrome은 `--ke-color-*` 토큰 또는 Obsidian 테마 변수(`--text-accent`, `--background-modifier-hover` 등)만 사용
+
+새로운 raw hex 색상은 `SYSTEM/Views/design-tokens.js` 외부에 추가할 수 없습니다.
+
 ## 색상 토큰
 
-모든 View는 `SYSTEM/Views/design-tokens.js`의 `ProdigyTokens.COLORS`를 참조한다.
-raw hex/rgb 직접 사용 금지.
+아래 토큰은 `SYSTEM/Views/design-tokens.js`에서 내보내며, **도메인 상태 전용**입니다.
 
 ### Semantic
 
@@ -44,7 +57,9 @@ raw hex/rgb 직접 사용 금지.
 | overlay | 0 12px 40px rgba(0,0,0,0.28) | 모달 |
 | backdrop | rgba(0,0,0,0.45) | 모달 배경 |
 
-## 사용법
+## 레거시 도메인 사용 예시
+
+**주의**: 새 코드는 이 패턴을 사용하지 마십시오. 공통 chrome은 루트 `DESIGN.md`의 `--ke-color-*` 토큰을 사용하십시오.
 
 ```js
 const T = root.ProdigyTokens;
