@@ -69,9 +69,45 @@
     return null;
   }
 
+  function disposeHome(container) {
+    if (!container) return;
+    if (container.__prodigyCreatorKey && typeof document !== "undefined" && document.removeEventListener) {
+      document.removeEventListener("keydown", container.__prodigyCreatorKey);
+    }
+    if (container.__prodigyHomeResizeObserver) {
+      container.__prodigyHomeResizeObserver.disconnect();
+    }
+    delete container.__prodigyCreatorKey;
+    delete container.__prodigyHomeResizeObserver;
+    delete container.__prodigyHomeVariantChange;
+    delete container.__prodigyHomeLifecycle;
+  }
+
+  function isEditableShortcutTarget(target) {
+    let current = target;
+    while (current) {
+      const tag = current.tagName ? String(current.tagName).toLowerCase() : "";
+      if (tag === "input" || tag === "textarea" || tag === "select" || current.isContentEditable) return true;
+      const contentEditable = typeof current.getAttribute === "function"
+        ? current.getAttribute("contenteditable")
+        : null;
+      if (contentEditable !== null && String(contentEditable).toLowerCase() !== "false") return true;
+      current = current.parentElement || current.parentNode || null;
+    }
+    return false;
+  }
+
   async function renderHome(options) {
     const { app, dv, container } = options;
     if (!app || !dv || !container) return;
+
+    disposeHome(container);
+    const lifecycle = {
+      dispose() {
+        if (container.__prodigyHomeLifecycle === lifecycle) disposeHome(container);
+      }
+    };
+    container.__prodigyHomeLifecycle = lifecycle;
 
     try { await ensureProdigySettings(app); } catch (_settingsError) { /* Home remains usable without settings. */ }
     try {
@@ -146,7 +182,6 @@
     };
     syncHomeWidth();
     if (typeof ResizeObserver !== "undefined" && workspaceLeaf) {
-      container.__prodigyHomeResizeObserver?.disconnect();
       container.__prodigyHomeResizeObserver = new ResizeObserver(syncHomeWidth);
       container.__prodigyHomeResizeObserver.observe(workspaceLeaf);
     }
@@ -378,10 +413,7 @@
         if (!e) return;
         const mod = e.metaKey || e.ctrlKey;
         if (mod && (e.key === "n" || e.key === "N") && !e.altKey && !e.shiftKey) {
-          // Avoid when typing in inputs outside home primary chrome
-          const t = e.target;
-          const tag = t && t.tagName ? String(t.tagName).toLowerCase() : "";
-          if (tag === "input" || tag === "textarea" || (t && t.isContentEditable)) return;
+          if (isEditableShortcutTarget(e.target)) return;
           e.preventDefault();
           e.stopPropagation();
           if (root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
@@ -1012,13 +1044,13 @@
         const target = c.dashboard_path || c.object_path;
         const btn = row.createEl("button", {
           text: "이어하기",
-          attr: { class: "action-btn action-btn-primary" }
+          attr: {
+            type: "button",
+            class: "action-btn action-btn-primary",
+            "aria-label": `${c.title} 이어하기`
+          }
         });
-        btn.onclick = (e) => {
-          if (e && e.stopPropagation) e.stopPropagation();
-          openPath(target);
-        };
-        row.onclick = () => openPath(target);
+        btn.onclick = () => openPath(target);
       });
     });
 
@@ -1398,10 +1430,12 @@
         }
       }
     });
+    return lifecycle;
   }
 
   const api = {
     renderHome,
+    disposeHome,
     generateMorningBrief,
     getSourceTypeLabel,
     getEvidenceSourceLabel
