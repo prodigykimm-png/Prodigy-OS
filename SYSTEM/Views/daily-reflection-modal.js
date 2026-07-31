@@ -37,8 +37,12 @@
       }
       refreshApprovalFooter() {
         const count = this.selectedIds.size;
+        const peopleCount = (this.proposal && this.proposal.evidence_blocks || []).filter((block) => this.selectedIds.has(block.evidence_id) && String(block.context || "").trim().toLowerCase() === "people").length;
         const label = `${count}개 Evidence 승인·반영`;
-        if (this.approvalCountEl) this.approvalCountEl.setText(label);
+        const summary = peopleCount > 0
+          ? `선택 ${count}개 · 사람 ${peopleCount}개 · 승인 시 해당 사람의 핵심 상호작용에 자동 반영`
+          : `선택 ${count}개`;
+        if (this.approvalCountEl) this.approvalCountEl.setText(summary);
         if (this.confirmButton) {
           if (typeof this.confirmButton.setText === "function") this.confirmButton.setText(label);
           else this.confirmButton.textContent = label;
