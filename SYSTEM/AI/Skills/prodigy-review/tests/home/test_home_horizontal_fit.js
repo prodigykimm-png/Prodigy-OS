@@ -29,6 +29,15 @@ function ruleBody(source, selector) {
   return "";
 }
 
+function cssNumericValue(body, property, unit) {
+  const direct = body.match(new RegExp(property + "\\s*:\\s*([0-9.]+)" + unit));
+  if (direct) return Number(direct[1]);
+  const tokenFallback = body.match(
+    new RegExp(property + "\\s*:\\s*var\\([^,]+,\\s*([0-9.]+)" + unit + "\\)")
+  );
+  return tokenFallback ? Number(tokenFallback[1]) : null;
+}
+
 test("Given Home must fit any leaf width, When it sizes itself, Then it must not pin a pixel width or a calc margin that can go negative", () => {
   const view = fs.readFileSync(VIEW_PATH, "utf8");
 
@@ -92,7 +101,9 @@ test("Given compact Home buttons, When text sits inside them, Then padding and l
   const dock = ruleBody(source, ".prodigy-home .home-ws-dock-btn {");
 
   assert.match(dock, /padding:\s*0 var\(--ke-space-2\)|padding-block:/);
-  assert.match(dock, /line-height:\s*1\.[3-9]/, "버튼 line-height가 1.3 미만이면 글자가 버튼에 딱 붙어 보인다");
+  const lineHeight = cssNumericValue(dock, "line-height", "");
+  assert.ok(lineHeight !== null, "버튼 line-height 선언 또는 토큰 fallback이 있어야 한다");
+  assert.ok(lineHeight >= 1.3, "버튼 line-height가 1.3 미만이면 글자가 버튼에 딱 붙어 보인다: " + lineHeight);
 });
 
 test("Given a fixed-height workspace dock button, When icon and label stack inside it, Then the label is small enough and the icon is not oversized so the text does not fill the button edge to edge", () => {
@@ -100,11 +111,11 @@ test("Given a fixed-height workspace dock button, When icon and label stack insi
   const dock = ruleBody(source, ".prodigy-home .home-ws-dock-btn {");
   const icon = ruleBody(source, ".prodigy-home .home-ws-dock-icon {");
 
-  const dockFont = dock.match(/font-size:\s*([0-9.]+)em/);
-  assert.ok(dockFont, "버튼 font-size 선언이 있어야 한다");
+  const dockFont = cssNumericValue(dock, "font-size", "rem");
+  assert.ok(dockFont !== null, "버튼 font-size 선언 또는 토큰 fallback이 있어야 한다");
   assert.ok(
-    Number(dockFont[1]) <= 0.68,
-    "44px 고정 높이 버튼에서 0.68em를 넘으면 글자가 버튼을 꽉 채운다: " + dockFont[1]
+    dockFont <= 0.68,
+    "44px 고정 높이 버튼에서 0.68rem를 넘으면 글자가 버튼을 꽉 채운다: " + dockFont
   );
 
   const iconFont = icon.match(/font-size:\s*([0-9.]+)em/);
@@ -115,4 +126,63 @@ test("Given a fixed-height workspace dock button, When icon and label stack insi
   );
 
   assert.doesNotMatch(dock, /font-weight:\s*700/, "700 굵기는 작은 글자를 버튼에 더 붙어 보이게 한다");
+});
+
+test("Given Home runs inside the mobile Obsidian chrome, When the user reaches the bottom, Then the last content can clear the action bar and iPhone safe area", () => {
+  const source = styleSource();
+  const compact = ruleBody(source, ".prodigy-home.home-compact {");
+  const scrollOwner = ruleBody(
+    source,
+    '.prodigy-app-shell[data-workspace-id="home"] > .prodigy-app-shell-body {'
+  );
+
+  assert.match(compact, /padding-bottom:\s*var\(--home-mobile-bottom-clearance\)/);
+  assert.match(scrollOwner, /--home-mobile-bottom-clearance:\s*calc\(/);
+  assert.match(scrollOwner, /var\(--prodigy-action-bar-height,\s*52px\)/);
+  assert.match(scrollOwner, /env\(safe-area-inset-bottom,\s*0px\)/);
+  assert.match(scrollOwner, /var\(--ke-space-5,\s*16px\)/);
+  assert.match(scrollOwner, /scroll-padding-block-end:\s*var\(--home-mobile-bottom-clearance\)/);
+});
+
+test("Given the mobile Obsidian toolbar overlays the viewport, When Home defines its bottom clearance, Then the clearance covers the real floating toolbar, not just a 52px action bar", () => {
+  const source = styleSource();
+  const scrollOwner = ruleBody(
+    source,
+    '.prodigy-app-shell[data-workspace-id="home"] > .prodigy-app-shell-body {'
+  );
+
+  // The iOS Obsidian toolbar floats above the content and is taller than the
+  // in-app action bar, so a 52px-only budget still leaves content underneath it.
+  assert.match(
+    scrollOwner,
+    /--home-mobile-toolbar-clearance/,
+    "Home must budget the floating mobile toolbar explicitly",
+  );
+  assert.match(
+    scrollOwner,
+    /var\(--home-mobile-toolbar-clearance[^)]*\)/,
+    "the clearance calc must consume the toolbar budget",
+  );
+});
+
+test("Given Obsidian already owns the document scroll, When Home renders on mobile, Then Home does not create a nested 100dvb scroll surface", () => {
+  const shell = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-app-shell.js"), "utf8");
+  const mobileHomeShell = ruleBody(
+    shell,
+    '.prodigy-app-shell[data-workspace-id="home"]{'
+  );
+  const mobileHomeBody = ruleBody(
+    shell,
+    '.prodigy-app-shell[data-workspace-id="home"]>.prodigy-app-shell-body{'
+  );
+
+  assert.match(
+    shell,
+    /--prodigy-mobile-toolbar-clearance/,
+    "the App Shell must expose a mobile toolbar clearance token",
+  );
+  assert.match(mobileHomeShell, /max-block-size:none/, "mobile Home must not remain capped at 100dvb");
+  assert.match(mobileHomeShell, /grid-template-rows:auto auto auto/, "mobile Home rows must retain their intrinsic height");
+  assert.match(mobileHomeBody, /overflow:visible/, "mobile Home must delegate scrolling to the reading view");
+  assert.match(mobileHomeBody, /padding-block-end:0/, "only the Home root should own the final toolbar clearance");
 });

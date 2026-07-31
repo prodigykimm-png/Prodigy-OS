@@ -60,6 +60,25 @@
     workspaceBar: 48,
     actionBar: 52,
     touchTarget: 44,
+    mobileToolbar: 56,
+  });
+
+  const TYPOGRAPHY = Object.freeze({
+    chrome: "0.68rem",
+    label: "0.72rem",
+    body: "0.84rem",
+    heading: "0.92rem",
+    title: "1.05rem",
+    bodyLeading: 1.45,
+    controlLeading: 1.35,
+  });
+
+  const SPACING = Object.freeze({
+    xs: 2,
+    sm: 4,
+    md: 8,
+    lg: 12,
+    xl: 16,
   });
 
   /** Semantic color at given alpha (0-1). Returns rgba() string. */
@@ -80,6 +99,8 @@
     SHADOWS,
     BREAKPOINTS,
     CONTROL_HEIGHTS,
+    TYPOGRAPHY,
+    SPACING,
     withAlpha,
     badgeBg,
   });

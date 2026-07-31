@@ -57,11 +57,27 @@ async function main() {
   const controls = require(path.join(ROOT, "SYSTEM/Views/prodigy-adaptive-controls.js"));
   const inspector = require(path.join(ROOT, "SYSTEM/Views/ai-inspector.js"));
   const ui = require(path.join(ROOT, "SYSTEM/Views/prodigy-ui.js"));
+  const tokens = require(path.join(ROOT, "SYSTEM/Views/design-tokens.js"));
+  assert.deepEqual(tokens.TYPOGRAPHY, {
+    chrome: "0.68rem",
+    label: "0.72rem",
+    body: "0.84rem",
+    heading: "0.92rem",
+    title: "1.05rem",
+    bodyLeading: 1.45,
+    controlLeading: 1.35,
+  });
+  assert.deepEqual(tokens.SPACING, { xs: 2, sm: 4, md: 8, lg: 12, xl: 16 });
   for (const [name, value] of Object.entries({ ...shell, ...controls, ...inspector, StatusLine: ui.StatusLine, InlineError: ui.InlineError })) {
     assert.equal(typeof value, "function", `${name} export`);
   }
   const shellContainer = new Element();
   const mountedShell = shell.AppShell(shellContainer, { workspaceId: "knowledge", title: "지식" });
+  assert.match(
+    mountedShell.element.attr.style,
+    /--ke-type-body:0\.84rem;--ke-type-title:1\.05rem;--ke-leading-body:1\.45/,
+    "App Shell exposes the shared typography contract to every workspace",
+  );
   const workspaceRegistry = require(path.join(ROOT, "SYSTEM/Views/workspace-registry.js"));
   assert.equal(mountedShell.switcher.children.length, workspaceRegistry.items().length);
   assert.match(textOf(shellContainer), /경매/);

@@ -400,7 +400,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       cover.createEl('div', {
         text: author,
         attr: {
-          style: 'font-size: 0.62em; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right;'
+          style: 'font-size: var(--ke-type-chrome, 0.68rem); line-height: var(--ke-leading-control, 1.35); opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right;'
         }
       });
       

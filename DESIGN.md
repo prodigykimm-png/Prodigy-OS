@@ -32,13 +32,17 @@ Explorer code may consume the following aliases. A color alias must resolve dire
 | `--ke-space-5` | `16px` | Major section separation |
 | `--ke-radius-control` | `4px` | Buttons and focusable rows |
 | `--ke-radius-panel` | `8px` | Grouped information panels only |
+| `--ke-type-chrome` | `0.68rem` | Fixed-height dock and dense system chrome |
 | `--ke-type-label` | `0.72rem` | Navigation metadata and counts |
 | `--ke-type-body` | `0.84rem` | Dense operational copy |
+| `--ke-type-heading` | `0.92rem` | Card and subsection headings |
 | `--ke-type-title` | `1.05rem` | Pane and asset titles |
 | `--ke-leading-body` | `1.45` | Korean and Latin body copy |
+| `--ke-leading-control` | `1.35` | Buttons, filters, chips, and fixed-height chrome |
 | `--ke-touch-target` | `44px` | Minimum narrow/touch target |
 | `--ke-workspace-bar-height` | `48px` | Shared Workspace bar height |
 | `--ke-action-bar-height` | `52px` | Compact bottom Action Bar height |
+| `--ke-mobile-toolbar-height` | `56px` | Floating mobile Obsidian toolbar that overlays content |
 | `--ke-breakpoint-medium` | `768px` | Medium layout begins |
 | `--ke-breakpoint-wide` | `1024px` | Wide layout begins |
 | `--ke-motion-fast` | `150ms` | Meaningful hover/focus feedback only |
@@ -85,6 +89,16 @@ Status uses semantic theme aliases rather than a fixed palette: active work uses
 <!-- explorer-composition:end -->
 
 Shared controls retain the existing compact Prodigy patterns: action buttons use 4px radius, high contrast, visible hover/focus, and concise labels; grouped controls use panels only when their relationship needs a boundary. Do not use emoji as icons. If an icon is necessary, use an Obsidian-provided icon with an accessible text name.
+
+### Shared visual rhythm
+
+- Workspace titles use `--ke-type-title`; card and section headings use `--ke-type-heading`; operational copy uses `--ke-type-body`; metadata, filters, and button labels use `--ke-type-label`; fixed-height dock labels may use `--ke-type-chrome`.
+- Korean body copy uses `--ke-leading-body`. Buttons, tabs, chips, and other controls use `--ke-leading-control` so glyphs do not touch their control edges.
+- Repeated spacing follows the 2/4/8/12/16px `--ke-space-*` scale. A control's default inset is `--ke-space-1` vertically and `--ke-space-3` horizontally; compact variants may reduce horizontal inset to `--ke-space-2` but must retain readable leading.
+- Letter spacing is neutral (`0`) for Korean workspace chrome and headings. Fixed-height controls must not compensate for narrow geometry with negative tracking.
+- Compact layout keeps 44px touch targets for primary navigation and workflow actions. Desktop density may use intrinsic control height when the same action remains easy to target with a pointer.
+- On mobile widths the App Shell body reserves `--ke-mobile-toolbar-height` plus `env(safe-area-inset-bottom)` at its scroll end. `100dvb` still includes the strip the floating Obsidian toolbar paints over, so a workspace that only budgets the in-app Action Bar leaves its last row unreachable.
+- A workspace that repaints on a data refresh restores the scroll offset of `.prodigy-app-shell-body` and updates rows in place. Rebuilding the subtree resets scroll position and caret even when the user never navigated.
 
 ## 5. Component States
 
