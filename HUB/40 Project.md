@@ -41,6 +41,8 @@ try {
   await loadProdigyScript("SYSTEM/Views/shared-dashboard.js");
   await loadProdigyScript("SYSTEM/Views/project-card.js");
   await loadProdigyScript("SYSTEM/Views/project-wizard-core.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-response.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-schema.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-error-policy.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-fallback.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
