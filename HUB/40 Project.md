@@ -26,7 +26,7 @@ const loadProdigyScript = async (path) => {
   }
 };
 
-try {
+window.prodigyProjectReady = (async () => {
   await loadProdigyScript("SYSTEM/Views/design-tokens.js");
   await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
@@ -76,6 +76,10 @@ try {
     return true;
   };
   window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "project", title: "프로젝트" });
+})();
+
+try {
+  await window.prodigyProjectReady;
 } catch (err) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(container, err, { title: "프로젝트" });
@@ -92,6 +96,7 @@ try {
 ```js-engine
 if (!container) return;
 container.empty();
+await window.prodigyProjectReady;
 
 const refreshProjectViews = () => {
   try {
@@ -210,6 +215,7 @@ filterOptions.forEach((item) => {
 // Collapsed by default — Today is the primary operating surface
 const host = this.container;
 host.empty();
+await window.prodigyProjectReady;
 const lifecycleWidth = Number(host.clientWidth);
 const lifecycleLayout = window.ProjectWizardCore.resolveProjectWorkspaceLayout(
   Number.isFinite(lifecycleWidth) && lifecycleWidth > 0 ? lifecycleWidth : window.ProdigyTokens.BREAKPOINTS.wide
@@ -250,6 +256,7 @@ if (window.ObjectLifecycleCore && window.ObjectLifecycleView) {
 # 오늘
 
 ```dataviewjs
+await window.prodigyProjectReady;
 const now = new Date();
 const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -380,6 +387,7 @@ const file = app.workspace.getActiveFile();
 if (!file) return;
 if (!container) return;
 container.empty();
+await window.prodigyProjectReady;
 
 const allProjects = app.vault.getFiles().filter(f => {
   const c = app.metadataCache.getFileCache(f);
