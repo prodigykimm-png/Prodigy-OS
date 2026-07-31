@@ -23,7 +23,6 @@ test("Given manifest and snapshots, When health is analyzed, Then coverage and m
   assert.deepEqual(result.missing_region_keys, ["인천광역시-검단구"]);
   assert.equal(result.status, "attention");
 });
-
 test("Given repeated runs for one metrics month, When health is analyzed, Then duplicate month runs are surfaced without inflating coverage", () => {
   const result = core.analyzeCollectionHealth({
     expectedRegionKeys: ["부산광역시-금정구"],
@@ -82,4 +81,3 @@ test("Given a selected region, When health is analyzed, Then its latest month an
     snapshot_count: 2
   });
 });
-

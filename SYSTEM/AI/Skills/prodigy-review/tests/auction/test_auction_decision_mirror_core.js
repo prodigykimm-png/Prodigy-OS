@@ -41,7 +41,6 @@ test("Given human judgement, When a decision mirror is projected, Then only popu
   assert.equal(result.recommendation, undefined);
   assert.equal(result.score, undefined);
 });
-
 test("Given a canonical outcome, When a decision mirror is projected, Then bid rate uses winning price over appraisal price", () => {
   const result = core.projectDecisionMirror({
     regionKey: "부산광역시-금정구",
@@ -102,4 +101,3 @@ test("Given mixed regions and invalid tuples, When a decision mirror is projecte
   assert.equal(result.bid_rate_summary.sample_count, 0);
   assert.equal(result.bid_rate_summary.average_percent, null);
 });
-
