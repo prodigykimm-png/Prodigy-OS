@@ -341,6 +341,10 @@ async function main() {
   assert.match(home, /HUB\/30 Workout\.md/);
   assert.match(home, /HUB\/50 Knowledge\.md/);
   assert.match(home, /workout: "운동"/);
+  const homeHub = fs.readFileSync(path.join(ROOT, "HUB/00 Home.md"), "utf8");
+  assert.match(homeHub, /journal-review-modal\.js/);
+  assert.doesNotMatch(homeHub, /daily-reflection-ai\.js|journal-view\.js/);
+  assert.match(home, /JournalReviewModal\.open/);
 
   const receiptPath = writeIdentityReceipt(identity);
   const receiptNote = receiptPath ? `receipt: ${EVIDENCE_RELATIVE_PATH}` : "receipt skipped (no .omo evidence root)";

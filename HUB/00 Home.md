@@ -49,8 +49,7 @@ const main = async () => {
     await loadProdigyScript("SYSTEM/Views/morning-cache.js");
     await loadProdigyScript("SYSTEM/Views/journal-core.js");
     await loadProdigyScript("SYSTEM/Views/journal-store.js");
-    await loadProdigyScript("SYSTEM/Views/daily-reflection-ai.js");
-    await loadProdigyScript("SYSTEM/Views/journal-view.js");
+    await loadProdigyScript("SYSTEM/Views/journal-review-modal.js");
     await loadProdigyScript("SYSTEM/Views/home-workspace-bar-core.js");
     await loadProdigyScript("SYSTEM/Views/prodigy-adaptive-controls.js");
     await loadProdigyScript("SYSTEM/Views/workspace-launcher-core.js");

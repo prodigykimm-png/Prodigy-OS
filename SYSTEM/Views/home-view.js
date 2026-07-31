@@ -721,9 +721,9 @@
             || (root.MorningContextCore && root.MorningContextCore.getYesterdayIsoDate
               ? root.MorningContextCore.getYesterdayIsoDate(new Date())
               : "");
-          if (root.JournalView && root.JournalStore && yDate) {
+          if (root.JournalReviewModal && root.JournalStore && yDate) {
             const review = await root.JournalStore.loadReview(app, yDate);
-            root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
+            root.JournalReviewModal.open(app, review.fields || {}, async (values) => {
               await root.JournalStore.saveReview(app, yDate, values);
               if (window.Notice) new Notice("어제 성찰을 저장했습니다.");
             }, { focusHints: [] });
@@ -753,9 +753,9 @@
           focusList.slice(0, 3).forEach((item) => {
             if (item && item.label) focusHints.push(String(item.label));
           });
-          if (root.JournalView && root.JournalStore) {
+          if (root.JournalReviewModal && root.JournalStore) {
             const review = await root.JournalStore.loadReview(app, todayStr);
-            root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
+            root.JournalReviewModal.open(app, review.fields || {}, async (values) => {
               await root.JournalStore.saveReview(app, todayStr, values);
               if (window.Notice) new Notice("오늘 Review를 저장했습니다.");
             }, { focusHints });
