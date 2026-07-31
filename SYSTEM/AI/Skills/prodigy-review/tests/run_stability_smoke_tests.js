@@ -31,11 +31,15 @@ const SUITES = Object.freeze([
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_use_record_ui.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_stability_docs.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_candidate_policy.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_people_handoff.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_candidate_lifecycle.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_store_loop.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_decision_packet.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_day.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/home/run_js_tests.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_interaction_lifecycle.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_mobile_geometry.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_refresh_loop.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/run_knowledge_dogfood_tests.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/test_stability_ci_contract.js"
 ]);
@@ -74,7 +78,12 @@ function assertSuiteExists(value) {
 }
 
 function assertNotSkipped(output, suite) {
-  if (/(?:^|\n)\s*(?:#\s*)?(?:skip(?:ped)?|todo)\b/im.test(output)) {
+  const skipSignal = output.split("\n").some((line) => {
+    const trimmed = line.trim();
+    if (/^#\s*(?:skipped|todo)\s+0$/i.test(trimmed)) return false;
+    return /^(?:#\s*)?(?:skip(?:ped)?|todo)\b/i.test(trimmed);
+  });
+  if (skipSignal) {
     fail(`Skipped smoke suite is not allowed: ${suite}`);
   }
 }

@@ -48,6 +48,10 @@ function checkRunnerManifest() {
     "test_decision_packet_reasons.js",
     "test_knowledge_use_body_core.js",
     "test_knowledge_use_body_store.js",
+    "test_daily_reflection_people_handoff.js",
+    "test_home_interaction_lifecycle.js",
+    "test_home_mobile_geometry.js",
+    "test_people_refresh_loop.js",
     "run_knowledge_dogfood_tests.js"
   ]) {
     assert.ok(src.includes(suite), `Smoke runner lost required suite ${suite}`);
