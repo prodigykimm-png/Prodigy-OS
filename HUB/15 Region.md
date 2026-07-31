@@ -161,7 +161,7 @@ try {
   for (const modulePath of RegionExplorerHub.modulePaths) await loadReadOnlyModule(modulePath);
   const shell = window.ProdigyWorkspaceNavigation.mount(this.container, {
     app,
-    workspaceId: "auction",
+    workspaceId: "region",
     title: "지역 비교",
     context: { label: "지역 비교 문맥", items: ["읽기 전용", "최대 3개 지역 비교"] }
   });
