@@ -3,6 +3,9 @@
 const path = require("node:path");
 
 const tests = [
+  "test_codex_exec_service.js",
+  "test_antigravity_exec_service.js",
+  "test_antigravity_relay_server.js",
   "test_ai_provider_service.js",
   "test_daily_reflection_contract.js",
   "test_daily_reflection_conservative_policy.js",

@@ -1,10 +1,6 @@
 #!/usr/bin/env node
 "use strict";
 
-// Verify that docs do not claim unsupported capabilities.
-// Physical device success, native HealthKit, background sync,
-// subscription API, and Antigravity bridge are NOT implemented.
-
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -14,7 +10,6 @@ const FORBIDDEN = [
   { term: "HealthKit", reason: "HealthKit integration is not implemented" },
   { term: "background sync", reason: "background sync is not implemented" },
   { term: "subscription API", reason: "Google subscription API access is not available" },
-  { term: "Antigravity bridge", reason: "Antigravity bridge is not implemented" },
   { term: "physical-device success", reason: "physical-device verification has not happened" },
   { term: "device-verified", reason: "no device-verified behavior exists" },
   { term: "iPhone verified", reason: "no iPhone verification has occurred" },

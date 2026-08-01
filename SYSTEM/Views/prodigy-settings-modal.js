@@ -68,7 +68,7 @@
         const secretIds = [
           ...Object.values(service.SECRET_IDS),
           ...Object.values(service.REGION_SECRET_IDS),
-          ...Object.values(config.providers).map((provider) => provider.apiKeySecret).filter(Boolean)
+          ...Object.values(config.providers).flatMap((provider) => [provider.apiKeySecret, provider.relayTokenSecret]).filter(Boolean)
         ];
         const unique = [...new Set(secretIds)];
         const states = await Promise.all(unique.map(async (secretId) => [secretId, await service.hasSecret(this.app, secretId)]));
@@ -133,6 +133,23 @@
       const card = parent.createEl("div", { attr: { class: "prodigy-settings-card" } });
       card.createEl("h4", { text: provider.name || providerKey });
       if (provider.hint) card.createEl("p", { text: provider.hint, attr: { class: "prodigy-settings-hint" } });
+      if (provider.adapter === "codex-exec") {
+        card.createEl("p", { text: "실행 방식: 공식 Codex CLI · API 키 없음 · codex login 세션 사용", attr: { class: "prodigy-settings-hint" } });
+        return;
+      }
+      if (provider.adapter === "antigravity-exec") {
+        card.createEl("p", { text: "실행 방식: 데스크톱은 로컬 agy · 모바일은 Tailscale 맥미니 중계 · API 키 없음", attr: { class: "prodigy-settings-hint" } });
+        field(card, "모델");
+        const model = card.createEl("select", { attr: { "aria-label": `${provider.name || providerKey} 모델` } });
+        this.providerModels(providerKey, provider).forEach((item) => {
+          const option = model.createEl("option", { text: item.label, value: item.id });
+          option.selected = item.id === provider.model;
+        });
+        model.onchange = () => { provider.model = model.value; };
+        this.renderTextInput(card, "모바일 중계 URL", provider.relayURL || "", "https://맥미니.tailxxxx.ts.net:8443/v1/antigravity", (value) => { provider.relayURL = value; });
+        this.renderSecretInput(card, "모바일 중계 토큰", provider.relayTokenSecret, "맥미니 중계 서버와 동일한 토큰을 입력합니다. Vault 파일에는 저장되지 않습니다.");
+        return;
+      }
       this.renderSecretInput(card, "API 키", provider.apiKeySecret, provider.authMode === "none" ? "로컬 서버는 API 키가 필요하지 않습니다." : "비워 두면 기존 키를 유지합니다.");
       field(card, "모델");
       const models = this.providerModels(providerKey, provider);

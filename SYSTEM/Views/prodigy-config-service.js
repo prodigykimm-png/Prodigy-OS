@@ -11,6 +11,7 @@
     mimo: "prodigy-mimo-api-key",
     opencodeGo: "prodigy-opencode-go-api-key",
     openaiCompatible: "prodigy-openai-compatible-api-key",
+    antigravityRelay: "prodigy-antigravity-relay-token",
     todoist: "prodigy-todoist-api-token",
     reb: "prodigy-reb-openapi-key",
     // Region Intelligence secret IDs
@@ -59,6 +60,32 @@
         apiKeySecret: SECRET_IDS.gemini, legacyApiKeySecret: "PRODIGY_GEMINI_API_KEY",
         chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
         capabilities: { structuredOutput: "json-schema" }
+      },
+      codex: {
+        adapter: "codex-exec", name: "Codex 구독", description: "공식 Codex CLI가 저장된 ChatGPT 로그인 세션을 사용합니다.",
+        hint: "API 키를 입력하지 않습니다. 데스크톱 터미널에서 codex login을 완료하면 Codex CLI가 해당 로그인 세션을 사용합니다.",
+        authMode: "codex-login", command: "", model: "", sandbox: "read-only",
+        chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
+        capabilities: { structuredOutput: "json-prompt", strictStructuredOutput: true, conservativeProposal: true }
+      },
+      antigravity: {
+        adapter: "antigravity-exec", name: "Antigravity 구독", description: "공식 Antigravity CLI가 저장된 Google 로그인 세션을 사용합니다.",
+        hint: "API 키를 입력하지 않습니다. 데스크톱은 로컬 `agy`, 모바일은 Tailscale 중계 서버의 로그인 세션을 사용합니다.",
+        authMode: "antigravity-login", command: "", model: "gemini-3.6-flash-medium",
+        relayURL: "", relayTokenSecret: SECRET_IDS.antigravityRelay,
+        models: [
+          { id: "gemini-3.6-flash-high", label: "Gemini 3.6 Flash · High" },
+          { id: "gemini-3.6-flash-medium", label: "Gemini 3.6 Flash · Medium" },
+          { id: "gemini-3.6-flash-low", label: "Gemini 3.6 Flash · Low" },
+          { id: "gemini-3.5-flash-medium", label: "Gemini 3.5 Flash · Medium" },
+          { id: "gemini-3.1-pro-high", label: "Gemini 3.1 Pro · High" },
+          { id: "gemini-3.1-pro-low", label: "Gemini 3.1 Pro · Low" },
+          { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+          { id: "claude-opus-4-6-thinking", label: "Claude Opus 4.6 · Thinking" },
+          { id: "gpt-oss-120b-medium", label: "GPT-OSS 120B · Medium" }
+        ],
+        sandbox: true, chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
+        capabilities: { structuredOutput: "json-schema", strictStructuredOutput: true, conservativeProposal: true }
       },
       groq: {
         adapter: "openai-compatible", name: "Groq", baseURL: "https://api.groq.com/openai/v1", endpointPath: "/chat/completions", model: "qwen/qwen3.6-27b",
@@ -113,6 +140,8 @@
       hint: defaults.hint,
       apiKeySecret: defaults.apiKeySecret,
       legacyApiKeySecret: defaults.legacyApiKeySecret,
+      relayURL: value.relayURL || defaults.relayURL,
+      relayTokenSecret: defaults.relayTokenSecret,
       capabilities: Object.assign({}, defaults.capabilities || {}, value.capabilities || {}),
       models: normalizeModels(value, defaults),
       ttl: Number(value.ttl) > 0 ? Number(value.ttl) : defaults.ttl,

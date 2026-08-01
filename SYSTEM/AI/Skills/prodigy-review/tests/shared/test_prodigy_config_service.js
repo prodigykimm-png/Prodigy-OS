@@ -123,6 +123,27 @@ async function testSecretIdsRemainValid() {
   });
 }
 
+function testCodexProviderUsesCliLoginWithoutSecret() {
+  const provider = service.DEFAULT_CONFIG.providers.codex;
+  assert.equal(provider.adapter, "codex-exec");
+  assert.equal(provider.authMode, "codex-login");
+  assert.equal(provider.apiKeySecret, undefined);
+  assert.equal(provider.model, "");
+  assert.equal(provider.sandbox, "read-only");
+}
+
+function testAntigravityProviderUsesCliLoginWithSelectableModel() {
+  const provider = service.DEFAULT_CONFIG.providers.antigravity;
+  assert.equal(provider.adapter, "antigravity-exec");
+  assert.equal(provider.authMode, "antigravity-login");
+  assert.equal(provider.apiKeySecret, undefined);
+  assert.equal(provider.model, "gemini-3.6-flash-medium");
+  assert.equal(provider.relayURL, "");
+  assert.equal(provider.relayTokenSecret, service.SECRET_IDS.antigravityRelay);
+  assert.ok(provider.models.some((item) => item.id === "claude-sonnet-4-6"));
+  assert.equal(provider.sandbox, true);
+}
+
 (async () => {
   await testLegacyConfigLoadsWithoutWriting();
   await testSaveWritesCanonicalConfigAndKeepsSecretsOut();
@@ -130,6 +151,8 @@ async function testSecretIdsRemainValid() {
   await testLegacySecretCountsAsConfigured();
   await testFreeProviderDefaultsAndFallbackPersist();
   await testSecretIdsRemainValid();
+  testCodexProviderUsesCliLoginWithoutSecret();
+  testAntigravityProviderUsesCliLoginWithSelectableModel();
   console.log("ProdigyConfigService tests passed.");
 })().catch((error) => {
   console.error(error.stack || error.message);

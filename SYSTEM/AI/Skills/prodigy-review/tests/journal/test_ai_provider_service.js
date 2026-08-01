@@ -118,6 +118,49 @@ async function testLocalStructuredRequestNeedsNoSecretAndUsesTtl() {
   assert.equal(schema.properties.related_objects.maxItems, 0);
 }
 
+async function testCodexProviderUsesCliSessionWithoutApiKey() {
+  const previous = global.CodexExecService;
+  const calls = [];
+  global.CodexExecService = {
+    requestStructuredJson: async (options) => { calls.push(options); return validPayload(); }
+  };
+  try {
+    const result = await provider.requestStructuredJson({
+      app: { requestUrl: async () => { throw new Error("Codex provider must not use HTTP"); } },
+      provider: { adapter: "codex-exec", name: "Codex 구독", authMode: "codex-login", model: "" },
+      prompt: "fixture",
+      schema: { type: "object" }
+    });
+    assert.equal(result.evidence_blocks.length, 1);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].provider.adapter, "codex-exec");
+  } finally {
+    global.CodexExecService = previous;
+  }
+}
+
+async function testAntigravityProviderUsesCliSessionAndModelWithoutApiKey() {
+  const previous = global.AntigravityExecService;
+  const calls = [];
+  global.AntigravityExecService = {
+    requestStructuredJson: async (options) => { calls.push(options); return validPayload(); }
+  };
+  try {
+    const result = await provider.requestStructuredJson({
+      app: { requestUrl: async () => { throw new Error("Antigravity provider must not use HTTP"); } },
+      provider: { adapter: "antigravity-exec", name: "Antigravity 구독", authMode: "antigravity-login", model: "gemini-3.6-flash-medium" },
+      prompt: "fixture",
+      schema: { type: "object" }
+    });
+    assert.equal(result.evidence_blocks.length, 1);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].provider.adapter, "antigravity-exec");
+    assert.equal(calls[0].provider.model, "gemini-3.6-flash-medium");
+  } finally {
+    global.AntigravityExecService = previous;
+  }
+}
+
 async function testChatTextRequestKeepsCitationsWithoutVaultWrites() {
   // Given: a validated contextual chat request and mutation-capable app fixture.
   const calls = [];
@@ -232,6 +275,18 @@ function testTailnetProviderUsesLocalUrlOnlyOnDesktop() {
   };
   assert.equal(provider.resolveBaseURL(lmStudio, { isMobile: false }), "http://127.0.0.1:1234/v1");
   assert.equal(provider.resolveBaseURL(lmStudio, { isMobile: true }), "https://youngjae-macmini-2.tail1992b9.ts.net/v1");
+}
+
+async function testMobileAntigravityRelayRequiresSecretStorageToken() {
+  const providerConfig = {
+    adapter: "antigravity-exec",
+    authMode: "antigravity-login",
+    relayURL: "https://youngjae-macmini-2.tail1992b9.ts.net:8443/v1/antigravity"
+  };
+  assert.equal(provider.isAllowedRelayURL(providerConfig.relayURL), true);
+  assert.equal(provider.isAllowedRelayURL("http://192.168.1.2:8787/v1/antigravity"), false);
+  assert.equal(await provider.isProviderConfigured({ isMobile: true, secretStorage: { getSecret: async () => "test-relay-token-placeholder" } }, Object.assign({}, providerConfig, { relayTokenSecret: "prodigy-antigravity-relay-token" })), true);
+  assert.equal(await provider.isProviderConfigured({ isMobile: true, secretStorage: { getSecret: async () => "" } }, Object.assign({}, providerConfig, { relayTokenSecret: "prodigy-antigravity-relay-token" })), false);
 }
 
 async function testRetriesAndErrors() {
@@ -354,11 +409,14 @@ async function testProjectWorkflowReusesSharedProvider() {
 async function main() {
   await testGeminiStructuredRequest();
   await testLocalStructuredRequestNeedsNoSecretAndUsesTtl();
+  await testCodexProviderUsesCliSessionWithoutApiKey();
+  await testAntigravityProviderUsesCliSessionAndModelWithoutApiKey();
   await testChatTextRequestKeepsCitationsWithoutVaultWrites();
   await testChatTextAcceptsBuilderTruncatedEnvelope();
   await testStructuredFormatRejectionStillFallsBackToPlainJsonMode();
   testResponseExtraction();
   testTailnetProviderUsesLocalUrlOnlyOnDesktop();
+  await testMobileAntigravityRelayRequiresSecretStorageToken();
   await testRetriesAndErrors();
   await testGroqFallbacksToOpenRouterOnlyForEligibleFailure();
   await testLocalServerConnectionFailureHasActionableMessage();

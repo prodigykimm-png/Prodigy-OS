@@ -118,7 +118,7 @@ Knowledge Asset (ZETA)
 소비자용 ChatGPT Plus, Google One AI Premium, GitHub Copilot 구독은 **API 자격증명이 아닙니다.**
 구독 세션·쿠키·웹 UI 자동화를 Provider로 등록하거나 API처럼 감싸서 사용하는 행위는 해당 서비스의 약관을 위반합니다.
 
-따라서 Prodigy OS가 지원하는 AI Provider는 아래 두 가지뿐입니다.
+따라서 Prodigy OS는 API Provider와 별도로, 공식 로그인형 CLI를 호출하는 로컬 실행기를 지원합니다.
 
 ### 1. Gemini API 키
 - Google Cloud에서 별도 과금되며, 소비자 Google One 구독과는 결제 계정이 분리됩니다.
@@ -129,6 +129,19 @@ Knowledge Asset (ZETA)
 - LM Studio, Ollama, OpenCode Go 등 로컬에서 실행되는 추론 서버.
 - 기본 URL: `http://127.0.0.1:1234/v1`
 - 모델 ID는 설정에서 직접 입력해야 하며, 하드코딩된 기본값은 없습니다.
+
+### 3. 공식 Codex CLI 실행기
+- 설정의 `Codex 구독`은 API endpoint가 아니라 데스크톱에서 `codex exec`를 직접 실행합니다.
+- Codex CLI가 관리하는 로그인 상태를 사용하므로 API 키·쿠키·웹 세션·`auth.json`을 Prodigy OS가 읽거나 전송하지 않습니다.
+- 사용 전 터미널에서 `codex login`을 완료해야 하며, 구조화 분석은 일회성·읽기 전용 프로세스로 실행됩니다.
+
+### 4. 공식 Antigravity CLI 실행기
+- 설정의 `Antigravity 구독`은 API endpoint가 아니라 데스크톱에서 `agy --print`를 직접 실행합니다.
+- Antigravity CLI가 관리하는 Google 로그인 상태를 사용하므로 API 키·쿠키·브라우저 세션을 Prodigy OS가 읽거나 전송하지 않습니다.
+- 사용 전 터미널에서 `agy`를 한 번 실행해 로그인을 완료해야 하며, 모델은 설정 화면에서 선택할 수 있습니다.
+- 저널 분석은 `--sandbox`와 구조화 JSON 스키마를 사용하고, 분석 프롬프트에는 파일 수정·명령 실행 금지 지시를 포함합니다.
+- 모바일에서는 `agy`를 직접 실행할 수 없으므로, 맥미니의 공식 CLI 실행기를 Tailscale Serve 뒤의 `antigravity-relay`로 호출합니다. 중계 서버는 요청마다 `agy`를 한 번 실행하고 종료하며, 동시 실행은 하나로 제한합니다.
+- 중계 URL은 `*.ts.net` HTTPS 주소만 허용하고, 중계 토큰은 Vault JSON이 아닌 각 기기의 `SecretStorage`에 저장합니다. 임의의 Antigravity 브리지나 공개/LAN 바인드는 허용하지 않습니다.
 
 ## Provider 보안 경계
 
@@ -142,14 +155,14 @@ AI Provider는 반드시 **localhost 또는 사설 Tailnet 주소**에만 바인
 
 ### 거부되는 Provider 유형
 
-- `antigravity`, `agy` 어댑터
+- 공식 `antigravity-exec` 실행기와 Tailscale 릴레이가 아닌 임의의 `antigravity`·`agy` 브리지
 - 소비자 OAuth 재사용 (`consumer-oauth`, `reuseConsumerOAuth`)
-- 구독 세션·쿠키·웹 UI 자동화 (`subscription`, `consumer-session`, `chatgpt-login` 등)
+- 구독 세션·쿠키·웹 UI 자동화 (`subscription`, `consumer-session`, `chatgpt-login` 등). 단, `codex-exec`와 `antigravity-exec`는 각 공식 CLI 로그인만 허용합니다.
 - 위 모든 항목은 네트워크 요청 전에 설정 단계에서 거부됩니다.
 
 ## API 키 관리
 
-모든 API 키는 `secretStorage`를 통해 안전하게 저장되며, 설정 파일(JSON)이나 로그에 평문으로 기록되지 않습니다.
+모든 API 키와 Antigravity 중계 토큰은 `secretStorage`를 통해 안전하게 저장되며, 설정 파일(JSON)이나 로그에 평문으로 기록되지 않습니다.
 API 키가 설정되지 않은 경우 "설정 → AI → [Provider 이름] API 키가 없습니다"라는 한국어 오류가 표시되며, 다른 Provider로 자동 폴백되지 않습니다.
 
 ## 요청 시간 제한

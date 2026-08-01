@@ -32,6 +32,15 @@ function findButton(element, label) {
   return null;
 }
 
+function findElement(element, predicate) {
+  if (predicate(element)) return element;
+  for (const child of element.children) {
+    const found = findElement(child, predicate);
+    if (found) return found;
+  }
+  return null;
+}
+
 async function main() {
   const files = {};
   const secrets = {};
@@ -76,10 +85,26 @@ async function main() {
   assert.ok(JSON.stringify(modal.contentEl).includes("REB OpenAPI"));
   assert.ok(JSON.stringify(modal.contentEl).includes("Groq"));
   assert.ok(JSON.stringify(modal.contentEl).includes("OpenRouter"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("Codex 구독"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("codex login"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("공식 Codex CLI"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("Antigravity 구독"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("Tailscale 맥미니 중계"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("모바일 중계 URL"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("모바일 중계 토큰"));
+  assert.ok(findElement(modal.contentEl, (element) => element.tag === "select" && element.attr["aria-label"] === "Antigravity 구독 모델"));
   assert.ok(JSON.stringify(modal.contentEl).includes("실패 시 보조 AI 제공자"));
 
+  const providerSelect = findElement(modal.contentEl, (element) => element.tag === "select" && element.attr["aria-label"] === "기본 AI 제공자");
+  providerSelect.value = "antigravity";
+  providerSelect.onchange();
+  assert.equal(modal.state.config.defaultProvider, "antigravity");
+  providerSelect.value = "codex";
+  providerSelect.onchange();
+  assert.equal(modal.state.config.defaultProvider, "codex");
   await findButton(modal.contentEl, "설정 저장").onclick();
   assert.ok(files["SYSTEM/PRIVATE/prodigy.local.json"], modal.state.status);
+  assert.equal(JSON.parse(files["SYSTEM/PRIVATE/prodigy.local.json"]).defaultProvider, "codex");
   assert.equal(files["SYSTEM/PRIVATE/prodigy.local.json"].includes("api-key"), true);
   console.log("ProdigySettingsModal tests passed.");
 }
