@@ -863,7 +863,8 @@ window.renderAuctionCard = function(p, container, options) {
     const decisionPacketContext = (options && options.decisionPacketContext)
       || window.AuctionDecisionPacketDashboardContext;
     
-    if (buttons.length > 0 || p.status === "bidding") {
+    const hasResearchEntry = p.type === "auction_case" || Boolean(window.AuctionRealEstateResearch);
+    if (buttons.length > 0 || p.status === "bidding" || hasResearchEntry) {
       if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
       const actionLayout = window.ProdigyUI && window.ProdigyUI.auctionActionRow
         ? window.ProdigyUI.auctionActionRow(card, logicalWidth)
@@ -878,6 +879,33 @@ window.renderAuctionCard = function(p, container, options) {
           };
       if (!actionLayout.actionHost) actionLayout.actionHost = actionLayout.row;
       const buttonContainer = actionLayout.actionHost;
+
+      if (hasResearchEntry) {
+        const researchButton = window.ProdigyUI
+          ? window.ProdigyUI.button(buttonContainer, "부동산 조사", { chip: true })
+          : buttonContainer.createEl("button", { text: "부동산 조사", attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" } });
+        if (typeof researchButton.setAttribute === "function") researchButton.setAttribute("aria-label", `${displayCase} 부동산 조사 열기`);
+        researchButton.onclick = async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          try {
+            if (!window.AuctionRealEstateResearch || typeof window.AuctionRealEstateResearch.openForAuction !== "function") {
+              if (window.Notice) new Notice("부동산 조사 모듈이 아직 준비되지 않았습니다. 잠시 후 다시 시도하세요.");
+              return;
+            }
+            await window.AuctionRealEstateResearch.openForAuction(app, p, {
+              returnFocus: researchButton,
+              onApplied: async (fields) => {
+                Object.assign(p, fields);
+                card.empty();
+                window.renderAuctionCard(p, container, options);
+              }
+            });
+          } catch (error) {
+            if (window.Notice) new Notice(`부동산 조사 오류: ${error.message || String(error)}`);
+          }
+        };
+      }
 
       // Decision Packet is deterministic reference material for active cases.
       // It stays inline and never changes Object properties or Auction Day state.

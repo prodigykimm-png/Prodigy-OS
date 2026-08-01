@@ -12,9 +12,8 @@
    * Contract: .omo/plans/prodigy-region-workspace-consolidation.md § Auction learning
    */
 
-  const LearningCore = (typeof require === "function")
-    ? require("./auction-learning-core.js")
-    : root.AuctionLearningCore;
+  const LearningCore = root.AuctionLearningCore
+    || ((typeof module !== "undefined" && module.exports && typeof require === "function") ? require("./auction-learning-core.js") : null);
 
   // ─── Tuple Construction ──────────────────────────────────────────────────────
 

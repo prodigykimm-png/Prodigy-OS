@@ -61,6 +61,11 @@ try {
   await loadProdigyScript("SYSTEM/Views/knowledge-use-body-store.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-use-record-ui.js");
   await loadProdigyScript("SYSTEM/Views/auction-card-price-projection.js");
+  await loadProdigyScript("SYSTEM/Views/auction-learning-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-outcome-writer.js");
+  await loadProdigyScript("SYSTEM/Views/auction-source-approval-writer.js");
+  await loadProdigyScript("SYSTEM/Views/auction-real-estate-research-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-real-estate-research.js");
   // Snapshot the full Dataview index once for this dashboard render. Cards and
   // Auction Day only consume this immutable context; they never re-query Vault.
   activeLoadPath = "Dataview 결정 패킷 인덱스";
