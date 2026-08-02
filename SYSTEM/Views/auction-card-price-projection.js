@@ -9,8 +9,9 @@
     return Object.freeze({ key: key, label: label, value: hasValue(value) ? value : null });
   }
 
-  function project(page) {
+  function project(page, options) {
     var record = page || {};
+    var opts = options || {};
     var status = String(record.status || "watching").trim();
     if (status === "won" || status === "lost") {
       return Object.freeze({ left: price("my_bid_price", "내 입찰가", record.my_bid_price), right: price("winning_bid_price", "낙찰가", record.winning_bid_price) });
@@ -24,8 +25,7 @@
         : price("expected_bid", "입찰 예정가", record.expected_bid);
       return Object.freeze({ left: left, right: price("winning_bid_price", "낙찰가", record.winning_bid_price) });
     }
-    // watching/bidding: 경매 종료(winning_bid_price 존재) 시 최저가+낙찰가 표시, 아니면 최저가/입찰 예정가
-    if (hasValue(record.winning_bid_price)) {
+    if (Boolean(opts.isEnded) || hasValue(record.winning_bid_price)) {
       return Object.freeze({ left: price("minimum_bid", "최저가", record.minimum_bid), right: price("winning_bid_price", "낙찰가", record.winning_bid_price) });
     }
     return Object.freeze({ left: price("minimum_bid", "최저가", record.minimum_bid), right: price("expected_bid", "입찰 예정가", record.expected_bid) });

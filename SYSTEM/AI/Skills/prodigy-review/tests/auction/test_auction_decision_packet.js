@@ -127,6 +127,7 @@ function activeAuction(status) {
     file: { path: "PARA/PROJECTS/Auction/current.md", name: "current.md" },
     region_sido: "부산광역시",
     region_sigungu: "금정구",
+    region_dong: "부곡동",
     knowledge_topics: ["bidding"],
     property_type: "오피스텔",
     address: "부산광역시 금정구, 테스트 오피스텔",
@@ -154,6 +155,7 @@ function activeAuction(status) {
 function liveAuction(status) {
   const record = activeAuction(status);
   delete record.winning_bid_price;
+  record.auction_datetime = "2099-01-01T10:00:00";
   return record;
 }
 
@@ -206,19 +208,63 @@ async function main() {
   global.app = app;
   global.window.AuctionDecisionPacketDashboardContext = context;
 
+  const popupRequests = [];
+  const popupOverlays = [];
+  const regionPacketRequests = [];
+  global.window.AuctionRegionPacket = {
+    async researchActionForAuction() {
+      return { state: "ready", label: "조사 자료", show: false };
+    },
+    async openForAuction(appArg, auctionArg, options) {
+      regionPacketRequests.push({ app: appArg, auction: auctionArg, options });
+    }
+  };
+  global.window.RegionIntelligencePopupCore = {
+    async openPopupForApp(appArg, regionKey, options) {
+      popupRequests.push({ app: appArg, regionKey, options });
+      return { ok: true, state: { regionKey } };
+    }
+  };
+  global.window.RegionIntelligencePopupView = {
+    openOverlay(state, options) {
+      popupOverlays.push({ state, options });
+      return { close() {} };
+    }
+  };
+
+  app.isMobile = true;
+  const mobileRoot = fakeElement("div");
+  const mobileAuction = liveAuction("bidding");
+  global.window.renderAuctionCard(mobileAuction, mobileRoot, { decisionPacketContext: context });
+  const regionDecisionButton = button(mobileRoot, "판단 보드");
+  [regionDecisionButton].forEach((control) => {
+    assert.equal(control.attr.class, "auction-region-inline-action");
+    assert.match(control.attr.style, /border:\s*0/);
+    assert.match(control.attr.style, /background:\s*transparent/);
+    assert.doesNotMatch(control.attr.style, /border-radius/);
+  });
+  await regionDecisionButton.onclick({ preventDefault() {}, stopPropagation() {} });
+  assert.equal(regionPacketRequests.length, 1, "inline 판단 action opens the Region decision packet");
+  assert.equal(regionPacketRequests[0].app, app);
+  assert.equal(regionPacketRequests[0].auction, mobileAuction);
+  assert.equal(regionPacketRequests[0].options.returnFocus, regionDecisionButton);
+  assert.equal(regionPacketRequests[0].options.decisionPacketContext, context);
+  assert.equal(findAll(mobileRoot, (node) => node.tag === "button" && /지역 정보|결정 패킷/.test(node.text || node.textContent)).length, 0, "duplicate decision entry points leave the card");
+  assert.equal(popupRequests.length, 0, "Region detail opens only through the decision board");
+  assert.equal(popupOverlays.length, 0);
+  app.isMobile = false;
+
   // Behavioral Card coverage: both active statuses render an action, toggle
   // real packet DOM, and retain existing finance/status controls.
   ["watching", "bidding"].forEach((status) => {
     const root = fakeElement("div");
     const casePage = activeAuction(status);
     global.window.renderAuctionCard(casePage, root, { decisionPacketContext: context });
+    assert.match(textContent(root), /부산광역시 금정구 부곡동/, `${status} cards show the full region path`);
     assert.match(textContent(root), /최저가/);
     assert.match(textContent(root), /낙찰가/);
-    button(root, "결정 패킷").onclick({ preventDefault() {}, stopPropagation() {} });
-    assert.match(textContent(root), /결정 패킷/);
-    assert.match(textContent(root), /검증 지식/);
-    assert.match(textContent(root), /지역 분석/);
-    assert.match(textContent(root), /이전 결정/);
+    button(root, "판단 보드");
+    assert.doesNotMatch(textContent(root), /결정 패킷|지역 정보/);
     assert.ok(findAll(root, (node) => node.tag === "button" && /낙찰|입찰 예정/.test(node.text || node.textContent)).length > 0, "existing lifecycle action remains");
   });
 
@@ -242,6 +288,10 @@ async function main() {
     assert.doesNotMatch(textContent(pair), /출구가/, `${status} does not split the decision pair with the exit-price control`);
   });
 
+  const archivedPriceRoot = fakeElement("div");
+  global.window.renderAuctionCard(activeAuction("archived"), archivedPriceRoot, { decisionPacketContext: context });
+  assert.match(textContent(archivedPriceRoot), />127,000,000원<\/strong>/, "archived cards show the exact winning price");
+
   // watching/bidding have two price projections and the live one is what a user
   // reads while the case is still open. priceLabelsByStatus above only reaches
   // the closed branch because its fixture always has winning_bid_price, so the
@@ -260,6 +310,14 @@ async function main() {
     assert.doesNotMatch(textContent(livePair), /출구가/, `active ${status} does not split the decision pair with the exit-price control`);
   });
 
+  const endedWatching = liveAuction("watching");
+  endedWatching.auction_datetime = "2000-01-01T10:00:00";
+  const endedWatchingRoot = fakeElement("div");
+  global.window.renderAuctionCard(endedWatching, endedWatchingRoot, { decisionPacketContext: context });
+  assert.match(textContent(endedWatchingRoot), /종료/, "date-passed watching card is marked ended");
+  assert.match(textContent(endedWatchingRoot), /낙찰가/, "date-passed watching card shows the winning-price field");
+  assert.doesNotMatch(textContent(endedWatchingRoot), /입찰 예정가/, "date-passed watching card no longer shows the live estimate");
+
   const wonPriceRoot = fakeElement("div");
   global.window.renderAuctionCard(activeAuction("won"), wonPriceRoot, { decisionPacketContext: context });
   assert.doesNotMatch(textContent(wonPriceRoot), /차익:/, "terminal won card hides the spread per the no-profit-on-terminal rule");
@@ -267,7 +325,8 @@ async function main() {
 
   const terminalRoot = fakeElement("div");
   global.window.renderAuctionCard(activeAuction("won"), terminalRoot, { decisionPacketContext: context });
-  assert.equal(findAll(terminalRoot, (node) => node.tag === "button" && node.text === "결정 패킷").length, 0, "terminal card has no packet action");
+  assert.equal(findAll(terminalRoot, (node) => node.tag === "button" && node.text === "판단 보드").length, 1, "every Auction card keeps one decision entry");
+  assert.equal(findAll(terminalRoot, (node) => node.tag === "button" && node.text === "결정 패킷").length, 0, "terminal card has no duplicate packet action");
 
   // Behavioral Auction Day coverage: the packet is before bid/result controls,
   // and the existing final-bid write remains functional after packet rendering.

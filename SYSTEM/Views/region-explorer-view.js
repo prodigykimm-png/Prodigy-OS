@@ -16,14 +16,21 @@
 .region-explorer-control{display:grid;gap:var(--ke-space-1);min-inline-size:min(12rem,100%)}.region-explorer-control label,.region-explorer-meta{font-size:var(--ke-type-label);color:var(--ke-color-muted)}.region-explorer-control input,.region-explorer-control select,.region-explorer-button{min-block-size:${TOKENS.CONTROL_HEIGHTS.touchTarget}px;border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-control);background:var(--ke-color-surface);color:var(--ke-color-text);padding-inline:var(--ke-space-3)}
 .region-explorer-button{cursor:pointer;min-inline-size:0;word-break:keep-all;overflow-wrap:anywhere}.region-explorer-add-action{min-inline-size:min(12rem,100%)}.region-explorer-button[data-selected="true"]{border-color:var(--ke-color-accent);color:var(--ke-color-accent);background:var(--ke-color-hover)}.region-explorer-button:focus-visible,.region-explorer-control input:focus-visible,.region-explorer-control select:focus-visible{outline:2px solid var(--ke-color-accent);outline-offset:2px}.region-explorer-button:active{transform:translateY(1px)}
 .region-explorer-scroll{min-block-size:0;min-inline-size:0;display:grid;align-content:start;gap:var(--ke-space-4);padding-inline-end:var(--ke-space-1)}.region-explorer-summary,.region-explorer-selection,.region-explorer-notice{padding:var(--ke-space-3);border-inline-start:2px solid var(--ke-color-border);background:var(--ke-color-surface-secondary)}.region-explorer-notice{border-color:var(--ke-color-error);color:var(--ke-color-error)}
-.region-explorer-list{display:grid;gap:var(--ke-space-2)}.region-explorer-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--ke-space-3);padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-panel);background:var(--ke-color-surface)}.region-explorer-row-title,.region-explorer-cell-title{overflow-wrap:anywhere}.region-explorer-row-title{font-weight:600}.region-explorer-diagnostics{margin:var(--ke-space-2) 0 0;color:var(--ke-color-error);overflow-wrap:anywhere}
-.region-explorer-comparison{display:grid;gap:var(--ke-space-4)}.region-explorer-group{display:grid;gap:var(--ke-space-2);padding-block-start:var(--ke-space-3);border-block-start:1px solid var(--ke-color-border)}.region-explorer-metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr));gap:var(--ke-space-2)}.region-explorer-metric-card{display:grid;gap:var(--ke-space-2);padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-control);background:var(--ke-color-surface)}.region-explorer-values{display:grid;gap:var(--ke-space-2);min-inline-size:0}.region-explorer-comparison[data-comparison-layout="side-by-side"] .region-explorer-values[data-columns="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}.region-explorer-comparison[data-comparison-layout="side-by-side"] .region-explorer-values[data-columns="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}.region-explorer-comparison[data-comparison-layout="stacked"] .region-explorer-metric-grid,.region-explorer-comparison[data-comparison-layout="stacked"] .region-explorer-values{grid-template-columns:minmax(0,1fr)}.region-explorer-value{display:grid;gap:var(--ke-space-1);min-inline-size:0}.region-explorer-value strong{overflow-wrap:anywhere}.region-explorer-sparkline{inline-size:6rem;block-size:2rem;color:var(--ke-color-accent)}.region-explorer-empty{color:var(--ke-color-muted)}
+.region-explorer-list{display:grid;gap:var(--ke-space-2)}.region-explorer-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--ke-space-3);padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-panel);background:var(--ke-color-surface)}.region-explorer-row-title,.region-explorer-cell-title{overflow-wrap:anywhere}.region-explorer-row-title{font-weight:600}.region-explorer-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:var(--ke-space-2);flex-wrap:wrap}.region-explorer-diagnostics{margin:var(--ke-space-2) 0 0;color:var(--ke-color-error);overflow-wrap:anywhere}
+.region-explorer-comparison{display:grid;gap:var(--ke-space-4)}.region-explorer-comparison-regions{display:grid;gap:var(--ke-space-2);padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-panel);background:var(--ke-color-surface-secondary)}.region-explorer-comparison-region{display:grid;gap:var(--ke-space-1);min-inline-size:0}.region-explorer-comparison-region strong,.region-explorer-comparison-region span{overflow-wrap:anywhere}.region-explorer-group{display:grid;gap:var(--ke-space-2);padding-block-start:var(--ke-space-3);border-block-start:1px solid var(--ke-color-border)}.region-explorer-metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr));gap:var(--ke-space-2)}.region-explorer-metric-card{display:grid;gap:var(--ke-space-2);padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-control);background:var(--ke-color-surface)}.region-explorer-values{display:grid;gap:var(--ke-space-2);min-inline-size:0}.region-explorer-comparison[data-comparison-layout="side-by-side"] .region-explorer-comparison-regions[data-columns="2"],.region-explorer-comparison[data-comparison-layout="side-by-side"] .region-explorer-values[data-columns="2"]{grid-template-columns:repeat(2,minmax(0,1fr))}.region-explorer-comparison[data-comparison-layout="side-by-side"] .region-explorer-comparison-regions[data-columns="3"],.region-explorer-comparison[data-comparison-layout="side-by-side"] .region-explorer-values[data-columns="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}.region-explorer-comparison[data-comparison-layout="horizontal"]{overflow-x:auto;overscroll-behavior-inline:contain;padding-block-end:var(--ke-space-2)}.region-explorer-comparison[data-comparison-layout="horizontal"] .region-explorer-comparison-regions[data-columns="2"],.region-explorer-comparison[data-comparison-layout="horizontal"] .region-explorer-values[data-columns="2"]{grid-template-columns:repeat(2,minmax(13rem,1fr));min-inline-size:27rem}.region-explorer-comparison[data-comparison-layout="horizontal"] .region-explorer-comparison-regions[data-columns="3"],.region-explorer-comparison[data-comparison-layout="horizontal"] .region-explorer-values[data-columns="3"]{grid-template-columns:repeat(3,minmax(13rem,1fr));min-inline-size:41rem}.region-explorer-comparison[data-comparison-layout="horizontal"] .region-explorer-metric-grid{grid-template-columns:minmax(18rem,1fr);min-inline-size:18rem}.region-explorer-value{display:grid;gap:var(--ke-space-1);min-inline-size:0}.region-explorer-value strong{overflow-wrap:anywhere}.region-explorer-sparkline{inline-size:6rem;block-size:2rem;color:var(--ke-color-accent)}.region-explorer-empty{color:var(--ke-color-muted)}
 .region-explorer-controls[data-control-layout="stacked"]{align-items:stretch}.region-explorer-controls[data-control-layout="stacked"] .region-explorer-control,.region-explorer-controls[data-control-layout="stacked"] .region-explorer-add-action{min-inline-size:100%;inline-size:100%}
 @container region-explorer (max-width:${COMPACT_MAX}px){.region-explorer-row{grid-template-columns:minmax(0,1fr)}.region-explorer-sparkline{inline-size:100%;max-inline-size:12rem}}
 @media (prefers-reduced-motion:reduce){.region-explorer-button{transform:none!important}}
 `;
   const SORT_LABELS = Object.freeze({ name: "지역명", sido: "시도", metrics_as_of: "통계 기준일", verification: "검증 상태", transit_available: "확인된 도시철도", sale_volume_3m: "최근 3개월 거래량", housing_stock: "주택 재고", sale_turnover_rate: "거래 회전율", sale_price_change_yoy: "매매가격 증감률", jeonse_ratio: "전세가율", move_in_12m: "12개월 입주물량", move_in_24m: "24개월 입주물량", move_in_36m: "36개월 입주물량", move_in_48m: "48개월 입주물량", move_in_60m: "60개월 입주물량", households: "세대수", household_change_yoy: "세대수 증감률", auction_bid_rate_6m: "최근 6개월 낙찰가율" });
   const VERIFICATION_LABELS = Object.freeze({ verified: "검증 완료", partial: "일부 검증", unverified: "미검증" });
+  const DECISION_GROUPS = Object.freeze([
+    Object.freeze({ label: "거래·가격", fields: Object.freeze(["metrics:sale_volume_3m", "metrics:housing_stock", "metrics:sale_turnover_rate", "metrics:sale_price_change_yoy"]) }),
+    Object.freeze({ label: "임대·수요 근거", fields: Object.freeze(["metrics:jeonse_ratio", "metrics:households", "metrics:household_change_yoy"]) }),
+    Object.freeze({ label: "공급·생활환경", fields: Object.freeze(["metrics:move_in_12m", "metrics:move_in_24m", "metrics:move_in_36m", "metrics:move_in_48m", "metrics:move_in_60m", "land_price:trend_yoy", "land_price:as_of", "land_price:scope", "land_price:source", "research:zones", "research:supply_pipeline", "research:transport_life", "transit:transit_available"]) }),
+    Object.freeze({ label: "경매 사례·미시 입지", fields: Object.freeze(["metrics:auction_bid_rate_6m", "research:summary", "research:risks", "research:site_visit"]) }),
+    Object.freeze({ label: "근거 상태", fields: Object.freeze(["research:sources"]) })
+  ]);
 
   function stateApi() {
     const api = root.RegionExplorerState || (typeof require === "function" ? require("./region-explorer-state.js") : null);
@@ -73,6 +80,13 @@
     return format(metric.value, text(metric.availability) || "자료 없음");
   }
   function verification(value) { return VERIFICATION_LABELS[text(value)] || "미검증"; }
+  function decisionComparisonGroups(groups) {
+    const fields = new Map();
+    for (const group of Array.isArray(groups) ? groups : []) {
+      for (const field of Array.isArray(group && group.fields) ? group.fields : []) fields.set(`${text(field.source)}:${text(field.key)}`, field);
+    }
+    return DECISION_GROUPS.map((group) => ({ label: group.label, fields: group.fields.map((key) => fields.get(key)).filter(Boolean) }));
+  }
   function sparkline(parent, row) {
     const values = record(record(row).history).snapshots;
     const points = Array.isArray(values) ? values.map((item) => record(record(item).metrics).sale_price_change_yoy).map((item) => record(item).value).filter((value) => typeof value === "number" && Number.isFinite(value)) : [];
@@ -112,7 +126,7 @@
     create(block, "span", { text: `기준일 있음 ${dated}개`, attr: { class: "region-explorer-meta" } });
     create(block, "span", { text: `관측값 ${observed}개 · 자료 없음 ${missing}개 · 관측 범위 부족 ${insufficient}개`, attr: { class: "region-explorer-meta" } });
   }
-  function renderRows(parent, model, dispatch) {
+  function renderRows(parent, model, dispatch, options = {}) {
     const list = create(parent, "section", { attr: { class: "region-explorer-list", "aria-label": "지역 목록" } });
     if (!model.rows.length) create(list, "p", { text: "현재 조건에 맞는 지역이 없습니다.", attr: { class: "region-explorer-empty" } });
     for (const row of model.rows) {
@@ -127,21 +141,37 @@
       sparkline(meta, row);
       const diagnostics = Array.isArray(row.diagnostics) ? row.diagnostics.map((item) => text(record(item).message)).filter(Boolean) : [];
       if (diagnostics.length) create(copy, "p", { text: diagnostics.join(" "), attr: { class: "region-explorer-diagnostics" } });
-      button(item, selected ? "선택 해제" : "비교에 추가", { type: selected ? "deselect-region" : "select-region", region_key: key, run: () => dispatch({ type: selected ? "deselect_region" : "select_region", region_key: key }) }, selected);
+      const actions = create(item, "div", { attr: { class: "region-explorer-row-actions" } });
+      if (typeof options.onViewRegionDetail === "function" && key && text(identity.sido) && text(identity.sigungu)) {
+        button(actions, "지역 상세 보기", { type: "view-region-detail", region_key: key, run: (returnFocus) => options.onViewRegionDetail({ regionKey: key, row, returnFocus }) }, false);
+      }
+      if (typeof options.onViewRegionAuctions === "function" && key && text(identity.sido) && text(identity.sigungu)) {
+        button(actions, "이 지역 경매 보기", { type: "view-region-auctions", region_key: key, run: (returnFocus) => options.onViewRegionAuctions({ regionKey: key, row, returnFocus }) }, false);
+      }
+      button(actions, selected ? "선택 해제" : "비교에 추가", { type: selected ? "deselect-region" : "select-region", region_key: key, run: () => dispatch({ type: selected ? "deselect_region" : "select_region", region_key: key }) }, selected);
     }
   }
   function renderComparison(parent, model, layout) {
-    const comparison = model.comparison; const comparisonLayout = layout === "wide" ? "side-by-side" : "stacked"; const container = create(parent, "section", { attr: { class: "region-explorer-comparison", "data-comparison-layout": comparisonLayout, "aria-label": "선택 지역 비교" } });
+    const comparison = model.comparison; const comparisonLayout = layout === "wide" ? "side-by-side" : "horizontal"; const container = create(parent, "section", { attr: { class: "region-explorer-comparison", "data-comparison-layout": comparisonLayout, "aria-label": "선택 지역 비교" } });
     create(container, "h3", { text: "선택 지역 비교" });
     if (!comparison.rows.length) create(container, "p", { text: "비교할 지역을 최대 3개까지 선택하세요.", attr: { class: "region-explorer-empty" } });
-    for (const group of comparison.groups) {
+    if (comparison.rows.length) {
+      const regions = create(container, "header", { attr: { class: "region-explorer-comparison-regions", "data-columns": String(comparison.rows.length), "aria-label": "비교 지역 기준일과 검증 상태" } });
+      for (const row of comparison.rows) {
+        const identity = record(row.identity); const provenance = record(row.provenance); const region = create(regions, "div", { attr: { class: "region-explorer-comparison-region" } });
+        create(region, "strong", { text: text(identity.title) || "지역 정보 없음" });
+        create(region, "span", { text: `지역 기준일 ${text(provenance.metrics_as_of) || "자료 없음"}`, attr: { class: "region-explorer-meta" } });
+        create(region, "span", { text: verification(provenance.verification_status), attr: { class: "region-explorer-meta" } });
+      }
+    }
+    for (const group of decisionComparisonGroups(comparison.groups)) {
       const section = create(container, "section", { attr: { class: "region-explorer-group" } });
       create(section, "h3", { text: group.label, attr: { class: "region-explorer-group-head" } });
       const grid = create(section, "div", { attr: { class: "region-explorer-metric-grid" } });
       for (const field of group.fields) {
         const card = create(grid, "article", { attr: { class: "region-explorer-metric-card" } });
         create(card, "strong", { text: field.label, attr: { class: "region-explorer-cell-title" } });
-        const values = create(card, "div", { attr: { class: "region-explorer-values", "data-columns": comparisonLayout === "side-by-side" ? String(Math.max(1, comparison.rows.length)) : "1" } });
+        const values = create(card, "div", { attr: { class: "region-explorer-values", "data-columns": String(Math.max(1, comparison.rows.length)) } });
         for (const row of comparison.rows) {
           const identity = record(row.identity); const entry = create(values, "div", { attr: { class: "region-explorer-value" } });
           create(entry, "span", { text: text(identity.title) || "지역 정보 없음", attr: { class: "region-explorer-meta" } });
@@ -171,11 +201,11 @@
     const scroll = create(shell, "div", { attr: { class: "region-explorer-scroll" } }); summary(scroll, model.rows);
     const tray = create(scroll, "section", { attr: { class: "region-explorer-selection", "aria-label": "비교 선택" } }); create(tray, "strong", { text: `비교 선택 ${model.state.selected_region_keys.length}/3` }); button(tray, "선택 지우기", { type: "clear-selection", run: () => dispatch({ type: "clear_selection" }) }, false);
     if (options.notice) create(scroll, "p", { text: options.notice, attr: { class: "region-explorer-notice", role: "status" } });
-    renderRows(scroll, model, dispatch); renderComparison(scroll, model, layout); return container;
+    renderRows(scroll, model, dispatch, options); renderComparison(scroll, model, layout); return container;
   }
   function mountRegionExplorer(options = {}) {
     const State = stateApi(); let projection = options.projection || { rows: [] }; let state = State.createState(options.state); let notice = null; let width = options.logicalWidth;
-    const render = () => renderRegionExplorer(options.container, projection, { state, notice, logicalWidth: width, onAddRegionExperience: options.onAddRegionExperience, onAction: (action) => { const result = State.transition(state, action); state = result.state; notice = result.message; if (typeof options.onStateChange === "function") options.onStateChange(state, notice); render(); } });
+    const render = () => renderRegionExplorer(options.container, projection, { state, notice, logicalWidth: width, onAddRegionExperience: options.onAddRegionExperience, onViewRegionDetail: options.onViewRegionDetail, onViewRegionAuctions: options.onViewRegionAuctions, onAction: (action) => { const result = State.transition(state, action); state = result.state; notice = result.message; if (typeof options.onStateChange === "function") options.onStateChange(state, notice); render(); } });
     render(); return Object.freeze({ state: () => state, setLogicalWidth: (value) => { width = value; render(); }, setProjection: (value) => { projection = value || { rows: [] }; render(); }, setNotice: (value) => { notice = text(value) || null; render(); } });
   }
 

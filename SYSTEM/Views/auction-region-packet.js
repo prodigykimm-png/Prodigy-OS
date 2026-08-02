@@ -21,6 +21,31 @@
   const METRICS_MAX_AGE_DAYS = 183;
   const SOURCE_MAX_AGE_DAYS = 90;
   const DAY_MS = 24 * 60 * 60 * 1000;
+  const REGION_EXPERIENCE_MODULE_PATHS = Object.freeze([
+    "SYSTEM/Views/region-experience-contract.js",
+    "SYSTEM/Views/journal-core.js",
+    "SYSTEM/Views/region-experience-store.js",
+    "SYSTEM/Views/ai-provider-response.js",
+    "SYSTEM/Views/ai-provider-schema.js",
+    "SYSTEM/Views/ai-provider-error-policy.js",
+    "SYSTEM/Views/ai-provider-fallback.js",
+    "SYSTEM/Views/codex-exec-service.js",
+    "SYSTEM/Views/antigravity-exec-service.js",
+    "SYSTEM/Views/ai-provider-service.js",
+    "SYSTEM/Views/prodigy-config-service.js",
+    "SYSTEM/Views/project-workflow-draft-service.js",
+    "SYSTEM/Views/region-experience-provider-endpoint-guard.js",
+    "SYSTEM/Views/region-experience-ai.js",
+    "SYSTEM/Views/journal-store.js",
+    "SYSTEM/Views/daily-reflection-knowledge-handoff.js",
+    "SYSTEM/Views/knowledge-explorer-registry.js",
+    "SYSTEM/Views/knowledge-candidate-core.js",
+    "SYSTEM/Views/evidence-quality-core.js",
+    "SYSTEM/Views/knowledge-candidate-store.js",
+    "SYSTEM/Views/region-experience-handoff.js",
+    "SYSTEM/Views/region-experience-modal.js"
+  ]);
+  let regionExperienceLoading = null;
 
   function tokenApi() {
     const api = root.ProdigyTokens || (typeof require === "function" ? require("./design-tokens.js") : null);
@@ -30,6 +55,46 @@
 
   function clean(value) {
     return value === undefined || value === null ? "" : String(value).trim();
+  }
+
+  function decisionContextApi() {
+    return root.RegionDecisionContextCore || (typeof require === "function" ? require("./region-decision-context-core.js") : null);
+  }
+
+  function researchApi() {
+    return root.AuctionRealEstateResearch || null;
+  }
+
+  function researchCore() {
+    return root.AuctionRealEstateResearchCore || null;
+  }
+
+  function projectResearchAction(packageInfo) {
+    if (!packageInfo || !packageInfo.pkg) return Object.freeze({ state: "missing", label: "조사 필요", show: true });
+    if (packageInfo.stale === true) return Object.freeze({ state: "stale", label: "자료 갱신 필요", show: true });
+    const providers = packageInfo.pkg.providers && typeof packageInfo.pkg.providers === "object" ? Object.values(packageInfo.pkg.providers) : [];
+    const statuses = providers.map((provider) => clean(provider && provider.status));
+    if (statuses.includes("needs_selection")) return Object.freeze({ state: "needs_selection", label: "대상 선택 필요", show: true });
+    if (statuses.includes("needs_identifier")) return Object.freeze({ state: "needs_identifier", label: "식별 정보 필요", show: true });
+    if (statuses.includes("failed")) return Object.freeze({ state: "failed", label: "조사 실패", show: true });
+    return Object.freeze({ state: "ready", label: "조사 자료", show: false });
+  }
+
+  function researchContext(packageInfo) {
+    const action = projectResearchAction(packageInfo);
+    const api = researchCore();
+    const pkg = packageInfo && packageInfo.pkg;
+    return Object.freeze({
+      ...action,
+      observed_at: clean(pkg && pkg.observed_at) || null,
+      evidence_summary: pkg && api && typeof api.evidenceSummary === "function" ? api.evidenceSummary(pkg) : null
+    });
+  }
+
+  async function researchActionForAuction(app, auction) {
+    const api = researchApi();
+    if (!api || typeof api.readLatestPackage !== "function") return projectResearchAction(null);
+    return projectResearchAction(await api.readLatestPackage(app, auction));
   }
 
   function toDisplayText(value) {
@@ -86,13 +151,70 @@
       .auction-region-packet-checks { background: var(--background-secondary); border-radius: var(--radius-s); padding-inline: var(--size-4-3); padding-bottom: var(--size-4-3); }
       .auction-region-packet-authority { color: var(--text-accent); font-weight: var(--font-semibold); margin-top: 0; }
       .auction-region-packet-error { color: var(--text-error); overflow-wrap: anywhere; }
+      .auction-region-packet-actions { display: flex; gap: var(--size-4-2); flex-wrap: wrap; }
+      .auction-decision-board-status { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--size-4-2); }
+      .auction-decision-board-status div { min-inline-size: 0; padding: var(--size-4-2); border-inline-start: 2px solid var(--background-modifier-border); background: var(--background-secondary); overflow-wrap: anywhere; }
+      .auction-decision-board-status span, .auction-decision-board-fact-kind { display: block; color: var(--text-muted); font-size: var(--font-ui-smaller); }
+      .auction-decision-board-questions { display: grid; gap: var(--size-4-3); }
+      .auction-decision-board-question { min-inline-size: 0; padding-block: var(--size-4-2); border-bottom: 1px solid var(--background-modifier-border); }
+      .auction-decision-board-question:last-child { border-bottom: 0; }
+      .auction-decision-board-question h4 { margin-block: 0 var(--size-4-2); font-size: var(--font-ui-small); overflow-wrap: anywhere; }
+      .auction-decision-board-facts { display: grid; gap: var(--size-4-2); margin: 0; padding: 0; list-style: none; }
+      .auction-decision-board-fact { min-inline-size: 0; overflow-wrap: anywhere; }
+      .auction-decision-board-action { min-height: ${tokens.CONTROL_HEIGHTS.touchTarget}px; }
       .auction-region-packet-modal button.mod-cta { min-height: ${tokens.CONTROL_HEIGHTS.touchTarget}px; margin-top: var(--size-4-4); }
       @media (max-width: ${tokens.BREAKPOINTS.medium - 1}px) {
+        .auction-decision-board-status { grid-template-columns: minmax(0, 1fr); }
         .auction-region-packet-metrics { grid-template-columns: minmax(0, 1fr); gap: var(--size-4-1); }
         .auction-region-packet-metrics dd { text-align: start; }
+        .auction-region-packet-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+        .auction-region-packet-actions button { inline-size: 100%; }
       }
     `;
     root.document.head.appendChild(style);
+  }
+
+  function fallbackRequire(moduleName) {
+    if (moduleName === "node:path") {
+      return {
+        posix: { isAbsolute: (value) => String(value || "").startsWith("/") },
+        win32: { isAbsolute: (value) => /^[A-Za-z]:[\\/]/.test(String(value || "")) }
+      };
+    }
+    throw new Error(`지원하지 않는 지역 경험 모듈 의존성: ${moduleName}`);
+  }
+
+  async function loadRegionExperienceModules(app) {
+    if (typeof root.openRegionExperienceModal === "function") return;
+    if (regionExperienceLoading) return regionExperienceLoading;
+    if (!app || !app.vault || typeof app.vault.getAbstractFileByPath !== "function" || typeof app.vault.read !== "function") throw new Error("지역 경험 모듈을 읽을 수 없습니다.");
+    regionExperienceLoading = (async () => {
+      for (const modulePath of REGION_EXPERIENCE_MODULE_PATHS) {
+        const file = app.vault.getAbstractFileByPath(modulePath);
+        if (!file) throw new Error(`지역 경험 모듈을 찾을 수 없습니다: ${modulePath}`);
+        const source = await app.vault.read(file);
+        const module = { exports: {} };
+        const localRequire = typeof require === "function" ? require : fallbackRequire;
+        (new Function("module", "exports", "require", "window", "globalThis", source))(module, module.exports, localRequire, root, root);
+      }
+      if (typeof root.openRegionExperienceModal !== "function") throw new Error("지역 경험 모달을 불러오지 못했습니다.");
+    })();
+    try {
+      await regionExperienceLoading;
+    } catch (error) {
+      regionExperienceLoading = null;
+      throw error;
+    }
+  }
+
+  function canonicalRegion(packet) {
+    const identity = packet && packet.region && packet.region.identity || {};
+    const key = clean(identity.region_key);
+    const sido = clean(identity.sido);
+    const sigungu = clean(identity.sigungu);
+    const path = clean(identity.path);
+    if (!key || !sido || !sigungu || !path) return null;
+    return { type: "auction_region", region_key: key, region_sido: sido, region_sigungu: sigungu, path, wiki_link: `[[${path.replace(/\.md$/i, "")}]]` };
   }
 
   function unavailable(message, checks) {
@@ -119,7 +241,8 @@
     return checks;
   }
 
-  function projectPacket(auction, source) {
+  function projectPacket(auction, source, options) {
+    const opts = options || {};
     const regionCore = root.AuctionRegionCore;
     const projectionCore = root.RegionExplorerProjection;
     const regionKey = regionCore && typeof regionCore.regionKey === "function" ? regionCore.regionKey(auction) : "";
@@ -133,12 +256,18 @@
       const diagnostics = Array.isArray(projection.diagnostics) ? projection.diagnostics : [];
       return unavailable("경매와 일치하는 지역 분석 자료가 없습니다.", diagnostics.map((item) => ({ kind: item.code || "invalid_region", message: item.message || "지역 자료 형식을 확인해야 합니다." })));
     }
+    const contextApi = decisionContextApi();
+    const decisionContext = contextApi && typeof contextApi.projectRegionDecisionContext === "function"
+      ? contextApi.projectRegionDecisionContext({ region, auction, research: opts.research || null, outcome: opts.outcome || null, conflicts: opts.conflicts || [] })
+      : null;
     return Object.freeze({
       status: "ready",
       decision_authority: "human_required",
       message: null,
       auction_context: Object.freeze({ region_key: regionKey, dong: clean(auction && auction.region_dong), address: clean(auction && auction.address) }),
       region,
+      decision_context: decisionContext,
+      research: opts.research || null,
       checks: Object.freeze(packetChecks(auction, region))
     });
   }
@@ -195,12 +324,81 @@
     packet.checks.forEach((check) => list.createEl("li", { text: check.message }));
   }
 
+  function addBoardStatus(parent, packet) {
+    const section = parent.createEl("section", { attr: { class: "auction-region-packet-section" } });
+    section.createEl("h3", { text: "근거 상태" });
+    const context = packet.decision_context || {};
+    const trust = context.trust || {};
+    const research = packet.research || {};
+    const grid = section.createEl("div", { attr: { class: "auction-decision-board-status" } });
+    [
+      ["지역 기준일", trust.metrics_as_of || "자료 없음"],
+      ["검증 상태", trust.verification_status === "verified" ? "검증 완료" : trust.verification_status ? "검증 전" : "자료 없음"],
+      ["출처", trust.source_ref || "자료 없음"],
+      ["부동산 조사", research.label || "조사 필요"]
+    ].forEach(([label, value]) => {
+      const item = grid.createEl("div");
+      item.createEl("span", { text: label });
+      item.createEl("strong", { text: value });
+    });
+  }
+
+  function addBoardQuestions(parent, packet) {
+    const section = parent.createEl("section", { attr: { class: "auction-region-packet-section" } });
+    section.createEl("h3", { text: "지역 판단 맥락" });
+    const questions = packet.decision_context && Array.isArray(packet.decision_context.questions) ? packet.decision_context.questions : [];
+    const grid = section.createEl("div", { attr: { class: "auction-decision-board-questions" } });
+    questions.forEach((question) => {
+      const item = grid.createEl("article", { attr: { class: "auction-decision-board-question" } });
+      item.createEl("h4", { text: question.label });
+      const facts = Array.isArray(question.facts) ? question.facts.slice(0, 3) : [];
+      if (!facts.length) {
+        item.createEl("p", { text: "근거 부족", attr: { class: "auction-region-packet-empty" } });
+        return;
+      }
+      const list = item.createEl("ul", { attr: { class: "auction-decision-board-facts" } });
+      facts.forEach((entry) => {
+        const row = list.createEl("li", { attr: { class: "auction-decision-board-fact" } });
+        row.createEl("span", { text: entry.kind, attr: { class: "auction-decision-board-fact-kind" } });
+        row.createEl("span", { text: entry.text });
+      });
+    });
+  }
+
+  function addBoardChecks(parent, packet) {
+    const checks = packet.decision_context && Array.isArray(packet.decision_context.checks) ? packet.decision_context.checks : [];
+    if (!checks.length) return;
+    const section = parent.createEl("section", { attr: { class: "auction-region-packet-section auction-region-packet-checks" } });
+    section.createEl("h3", { text: "확인할 항목" });
+    const list = section.createEl("ul", { attr: { class: "auction-region-packet-list" } });
+    checks.forEach((check) => list.createEl("li", { text: check.message }));
+  }
+
+  function openReferenceModal(app, auction, context, returnFocus) {
+    if (!root.obsidian || !root.obsidian.Modal || !root.AuctionDecisionPacket) throw new Error("참고 근거를 불러오지 못했습니다.");
+    const modal = new root.obsidian.Modal(app);
+    modal.onOpen = function () {
+      this.contentEl.empty();
+      this.contentEl.addClass("auction-region-packet-modal");
+      this.contentEl.createEl("h2", { text: "참고 근거" });
+      root.AuctionDecisionPacket.renderForAuction(this.contentEl, { app, auction, context });
+    };
+    modal.onClose = function () {
+      this.contentEl.empty();
+      if (returnFocus && returnFocus.isConnected !== false && typeof returnFocus.focus === "function") returnFocus.focus({ preventScroll: true });
+    };
+    modal.open();
+    return modal;
+  }
+
   class RegionPacketModal extends (root.obsidian && root.obsidian.Modal ? root.obsidian.Modal : class {}) {
-    constructor(app, packet, returnFocus) {
+    constructor(app, packet, options, auction) {
       super(app);
       this.app = app;
       this.packet = packet;
-      this.returnFocus = returnFocus || null;
+      this.options = options || {};
+      this.returnFocus = this.options.returnFocus || null;
+      this.auction = auction || null;
     }
 
     onOpen() {
@@ -208,7 +406,7 @@
       const content = this.contentEl;
       content.empty();
       content.addClass("auction-region-packet-modal");
-      content.createEl("h2", { text: "지역 판단 패킷" });
+      content.createEl("h2", { text: "판단 보드" });
       if (this.packet.status !== "ready") {
         content.createEl("p", { text: this.packet.message, attr: { class: "auction-region-packet-error", role: "alert" } });
         addChecks(content, this.packet);
@@ -217,14 +415,60 @@
       const identity = this.packet.region.identity;
       const context = this.packet.auction_context;
       content.createEl("p", { text: `${identity.title}${context.dong ? ` · ${context.dong}` : ""}`, attr: { class: "auction-region-packet-title" } });
-      if (context.address) content.createEl("p", { text: context.address, attr: { class: "auction-region-packet-meta" } });
-      content.createEl("p", { text: "입찰 추천이 아닙니다. 사람이 근거와 현장을 확인해 최종 판단합니다.", attr: { class: "auction-region-packet-authority" } });
-      addMetrics(content, this.packet);
-      addTransit(content, this.packet);
-      RESEARCH_SECTIONS.forEach((definition) => addSection(content, definition.label, this.packet.region.research && this.packet.region.research[definition.key]));
-      addChecks(content, this.packet);
-      const open = content.createEl("button", { text: "지역 노트 열기", attr: { type: "button", class: "mod-cta" } });
-      open.onclick = () => this.app.workspace.openLinkText(identity.path.replace(/\.md$/i, ""), identity.path, false);
+      content.createEl("p", { text: "사실과 확인 상태를 정리합니다. 최종 판단과 기록은 경매 카드에서 수행합니다.", attr: { class: "auction-region-packet-authority" } });
+      addBoardStatus(content, this.packet);
+      addBoardQuestions(content, this.packet);
+      addBoardChecks(content, this.packet);
+      const detail = content.createEl("section", { attr: { class: "auction-region-packet-section" } });
+      detail.createEl("h3", { text: "상세 및 기록" });
+      const actions = detail.createEl("div", { attr: { class: "auction-region-packet-actions" } });
+      if (researchApi() && typeof researchApi().openForAuction === "function") {
+        const researchButton = actions.createEl("button", { text: "조사 자료 보기", attr: { type: "button", class: "auction-decision-board-action" } });
+        researchButton.onclick = async () => {
+          try {
+            await researchApi().openForAuction(this.app, this.auction, { returnFocus: researchButton, onApplied: this.options.onApplied });
+          } catch (error) {
+            if (root.Notice) new root.Notice(error.message || String(error));
+          }
+        };
+      }
+      const fullInfo = actions.createEl("button", { text: "지역 상세 보기", attr: { type: "button", class: "auction-decision-board-action" } });
+      fullInfo.onclick = async () => {
+        try {
+          if (!root.RegionIntelligencePopupCore || !root.RegionIntelligencePopupView) throw new Error("지역 정보 팝업을 불러오지 못했습니다.");
+          const result = await root.RegionIntelligencePopupCore.openPopupForApp(this.app, context.region_key, { auction: this.auction });
+          if (!result || !result.ok) throw new Error(result && result.error || "지역 정보 팝업을 열지 못했습니다.");
+          root.RegionIntelligencePopupView.openOverlay(result.state, { returnFocus: fullInfo });
+        } catch (error) {
+          if (root.Notice) new root.Notice(error.message || String(error));
+        }
+      };
+      if (root.AuctionDecisionPacket && root.AuctionDecisionPacket.isActionable && root.AuctionDecisionPacket.isActionable(this.auction)) {
+        const reference = actions.createEl("button", { text: "참고 근거 보기", attr: { type: "button", class: "auction-decision-board-action" } });
+        reference.onclick = () => {
+          try {
+            openReferenceModal(this.app, this.auction, this.options.decisionPacketContext || root.AuctionDecisionPacketDashboardContext, reference);
+          } catch (error) {
+            if (root.Notice) new root.Notice(error.message || String(error));
+          }
+        };
+      }
+      const experience = actions.createEl("button", { text: "지역 경험 기록", attr: { type: "button", class: "auction-decision-board-action" } });
+      experience.onclick = async () => {
+        if (experience.disabled) return;
+        experience.disabled = true;
+        try {
+          await loadRegionExperienceModules(this.app);
+          const region = canonicalRegion(this.packet);
+          if (!region) throw new Error("지역 경험을 기록할 지역 Object가 없습니다.");
+          const modal = root.openRegionExperienceModal(this.app, { regions: [region], selectedRegions: [region], returnFocus: experience });
+          if (!modal || typeof modal !== "object") throw new Error("지역 경험 모달을 열지 못했습니다.");
+        } catch (error) {
+          if (root.Notice) new root.Notice(error.message || String(error));
+        } finally {
+          experience.disabled = false;
+        }
+      };
     }
 
     onClose() {
@@ -242,16 +486,23 @@
       const file = app.vault.getAbstractFileByPath(path);
       if (file && typeof app.vault.read === "function") source = { path, body: await app.vault.read(file), metadata_available: true };
     }
-    const packet = projectPacket(auction, source);
+    let packageInfo = null;
+    try {
+      const api = researchApi();
+      if (api && typeof api.readLatestPackage === "function") packageInfo = await api.readLatestPackage(app, auction);
+    } catch (_error) {
+      packageInfo = null;
+    }
+    const packet = projectPacket(auction, source, { research: researchContext(packageInfo) });
     if (!root.obsidian || !root.obsidian.Modal) {
       if (root.Notice) new root.Notice(packet.message || "지역 판단 패킷을 열 수 없습니다.");
       return packet;
     }
-    new RegionPacketModal(app, packet, opts.returnFocus).open();
+    new RegionPacketModal(app, packet, opts, auction).open();
     return packet;
   }
 
-  const api = Object.freeze({ METRICS, projectPacket, openForAuction, toDisplayText });
+  const api = Object.freeze({ METRICS, projectPacket, projectResearchAction, researchActionForAuction, openForAuction, toDisplayText });
   root.AuctionRegionPacket = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

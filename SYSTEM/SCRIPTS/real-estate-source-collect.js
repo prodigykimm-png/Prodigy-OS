@@ -7,6 +7,7 @@ const path = require("node:path");
 const { createRequire } = require("node:module");
 const { spawnSync } = require("node:child_process");
 const core = require("./real-estate-source-package-core.js");
+const identityCore = require("./real-estate-source-identity-core.js");
 
 const LOCK_PATH = path.resolve(__dirname, "../CONFIG/k-skill-real-estate-lock.json");
 const CACHE_ROOT = "SYSTEM/CACHE/real-estate-source-packages";
@@ -21,6 +22,11 @@ const PROVIDER_FILES = Object.freeze({
 
 function clean(value) { return value === undefined || value === null ? "" : String(value).trim(); }
 function nowIso() { return new Date().toISOString(); }
+function validateObservedAt(value) {
+  const text = clean(value);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(text) || Number.isNaN(Date.parse(text))) throw new Error("observed_at은 UTC ISO 형식이어야 합니다.");
+  return text;
+}
 function parseScalar(block, key) {
   const match = String(block).match(new RegExp(`^${key}:\\s*(.*?)\\s*$`, "mu"));
   if (!match) return "";
@@ -33,9 +39,9 @@ function readAuctionObject(objectPath) {
   const block = match[1];
   if (parseScalar(block, "type") !== "auction_case") throw new Error("대상 파일이 auction_case Object가 아닙니다.");
   const result = {};
-  ["case_number", "court", "court_code", "auction_datetime", "region_sido", "region_sigungu", "region_dong", "address", "property_type", "appraisal_price", "minimum_bid", "land_parcel_id", "pnu", "item_number", "building_name"].forEach((key) => {
+  ["case_number", "court", "court_code", "auction_datetime", "region_sido", "region_sigungu", "region_dong", "address", "road_address", "land_address", "land_parcel_id", "pnu", "property_type", "appraisal_price", "minimum_bid", "item_number", "building_name", "complex_name", "building_dong", "dong_number", "unit_number", "unit", "ho_number", "ho", "apt_code", "apt_notice_date", "dong_code", "ho_code"].forEach((key) => {
     const value = parseScalar(block, key);
-    if (value) result[key] = /^\d+(?:\.\d+)?$/u.test(value) ? Number(value) : value;
+    if (value) result[key] = value;
   });
   result.object_path = objectPath;
   return result;
@@ -55,12 +61,18 @@ function readLock(lockPath = LOCK_PATH) {
   const lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
   if (lock.schema_version !== 1 || lock.repository !== KSKILL_REPOSITORY || !/^[a-f0-9]{40}$/u.test(lock.commit)) throw new Error("k-skill 잠금 manifest가 올바르지 않습니다.");
   if (!lock.cli_package || !lock.cli_package.name || !lock.cli_package.version) throw new Error("k-skill CLI 버전이 잠겨 있지 않습니다.");
+  const selectedSkills = Object.keys(lock.selected_skills || {});
+  if (selectedSkills.length !== core.SELECTED_SKILLS.length || JSON.stringify([...selectedSkills].sort()) !== JSON.stringify([...core.SELECTED_SKILLS].sort())) throw new Error("k-skill 선택 목록이 5개 skill과 일치하지 않습니다.");
+  for (const skill of core.SELECTED_SKILLS) {
+    const hashes = lock.selected_skills[skill];
+    if (!hashes || !/^[a-f0-9]{64}$/u.test(hashes.skill_json_sha256 || "") || !/^[a-f0-9]{64}$/u.test(hashes.instruction_sha256 || "")) throw new Error(`k-skill ${skill} 파일 해시가 잠겨 있지 않습니다.`);
+  }
   return lock;
 }
 function installPackage(packageSpec) {
   const prefix = fs.mkdtempSync(path.join(os.tmpdir(), "prodigy-real-estate-") );
   const result = spawnSync("npm", ["install", "--ignore-scripts", "--no-package-lock", "--prefix", prefix, packageSpec], { encoding: "utf8", timeout: 180000 });
-  if (result.error || result.status !== 0) throw new Error(`${packageSpec} 설치 실패: ${clean(result.stderr) || result.error?.message || "알 수 없는 오류"}`);
+  if (result.error || result.status !== 0) { fs.rmSync(prefix, { recursive: true, force: true }); throw new Error(`${packageSpec} 설치 실패: ${clean(result.stderr) || result.error?.message || "알 수 없는 오류"}`); }
   return { prefix, require: createRequire(path.join(prefix, "package.json")) };
 }
 function verifyKSkillFiles(lock, packageRoot) {
@@ -77,16 +89,20 @@ function installKSkillCli(lock) {
   const installed = installPackage(`${lock.cli_package.name}@${lock.cli_package.version}`);
   const packageRoot = installed.require.resolve(`${lock.cli_package.name}/package.json`).replace(/\/package\.json$/u, "");
   verifyKSkillFiles(lock, packageRoot);
-  return { bin: path.join(packageRoot, "bin", "k-skill.js"), packageRoot };
+  return { bin: path.join(packageRoot, "bin", "k-skill.js"), packageRoot, prefix: installed.prefix };
 }
+const CHILD_ENV_KEYS = new Set(["PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "NO_COLOR", "NODE_ENV", "PRODIGY_REAL_ESTATE_ALLOW_PROXY", "KSKILL_PROXY_BASE_URL", "KSKILL_API_KEY", "DATA_GO_KR_API_KEY", "DATA_GO_KR_SERVICE_KEY", "REALTY_PRICE_API_KEY"]);
 function runKSkillScript(cli, skill, script, args, env) {
-  const result = spawnSync(process.execPath, [cli.bin, "exec", skill, script, "--", ...args], { encoding: "utf8", env: Object.assign({}, process.env, env || {}), timeout: 120000 });
+  const childEnv = {};
+  CHILD_ENV_KEYS.forEach((key) => { if (process.env[key] !== undefined) childEnv[key] = process.env[key]; });
+  Object.entries(env || {}).forEach(([key, value]) => { if (CHILD_ENV_KEYS.has(key)) childEnv[key] = String(value); });
+  const result = spawnSync(process.execPath, [cli.bin, "exec", skill, script, "--", ...args], { encoding: "utf8", env: childEnv, timeout: 120000 });
   if (result.error || result.status !== 0) throw new Error(`${skill} 실행 실패: ${clean(result.stderr) || result.error?.message || "알 수 없는 오류"}`);
-  try { return JSON.parse(result.stdout); } catch (_error) { const error = new Error(`${skill} 응답이 JSON이 아닙니다.`); error.raw = result.stdout; throw error; }
+  try { return JSON.parse(result.stdout); } catch (_error) { const error = new Error(`${skill} 응답이 JSON이 아닙니다.`); error.raw = "[NON_JSON_RESPONSE]"; throw error; }
 }
 function installAndLoad(packageName, version) {
   const installed = installPackage(`${packageName}@${version}`);
-  return installed.require(packageName);
+  return { module: installed.require(packageName), prefix: installed.prefix };
 }
 function pnuOf(record) {
   const candidate = clean(record.pnu || record.land_parcel_id);
@@ -101,11 +117,30 @@ function regionFromAddress(address) {
   const parts = clean(address).split(/\s+/u).filter(Boolean);
   return { region_sido: parts.find((value) => /(?:특별시|광역시|자치시|자치도|도)$/u.test(value)) || "", region_sigungu: parts.find((value) => /(?:시|군|구)$/u.test(value) && !/(?:특별시|광역시|자치시)$/u.test(value)) || "", region_dong: parts.find((value) => /(?:동|읍|면|리)$/u.test(value)) || "" };
 }
-function providerMeta(status, sourceUrl, raw, warnings, error) {
-  const rawText = `${JSON.stringify(raw ?? null, null, 2)}\n`;
-  const result = { status, source_url: sourceUrl, fetched_at: nowIso(), raw_sha256: core.sha256(rawText), warnings: warnings || [] };
-  if (error) { result.error_code = error.code || "PROVIDER_ERROR"; result.message = error.message || String(error); }
+function providerMeta(status, sourceUrl, raw, warnings, error, match) {
+  const rawText = serializeRaw(raw ?? null);
+  const result = { status, source_url: sourceUrl, fetched_at: nowIso(), raw_sha256: core.sha256(rawText), warnings: (warnings || []).map((warning) => clean(redactSensitive(warning))) };
+  if (error) { result.error_code = error.code || "PROVIDER_ERROR"; result.message = clean(redactSensitive(error.message || String(error))); }
+  if (match) {
+    result.match_verified = match.match_verified === true;
+    if (match.scope) result.match_scope = match.scope;
+    if (match.method) result.match_method = match.method;
+    if (match.reason) result.match_reason = match.reason;
+    if (match.transport) result.transport = match.transport;
+  }
   return result;
+}
+const SENSITIVE_KEY = /(?:secret|token|password|cookie|authorization|api[_-]?key)/iu;
+function redactSensitive(value) {
+  if (Array.isArray(value)) return value.map(redactSensitive);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, SENSITIVE_KEY.test(key) ? "[REDACTED]" : redactSensitive(item)]));
+  if (typeof value === "string") return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/giu, "Bearer [REDACTED]");
+  return value;
+}
+function serializeRaw(value) {
+  const text = `${JSON.stringify(redactSensitive(value), null, 2)}\n`;
+  if (Buffer.byteLength(text, "utf8") > 2 * 1024 * 1024) throw new Error("공급자 원문이 허용된 크기를 초과했습니다.");
+  return text;
 }
 function normalizeCourt(record, payload) {
   if (!payload || payload.found === false) return { status: "empty", candidate: {}, evidence: { result: null }, raw: payload, source_url: "https://www.courtauction.go.kr" };
@@ -136,55 +171,144 @@ function normalizeBuilding(record, payload) {
 function normalizeTransactions(payload) { const items = Array.isArray(payload?.items) ? payload.items : []; return { status: items.length ? "success" : "empty", candidate: {}, evidence: { items, summary: payload?.summary || null, query: payload?.query || null }, raw: payload, source_url: "https://k-skill-proxy.nomadamas.org/v1/real-estate" }; }
 function normalizeOfficialPrice(payload) { const history = Array.isArray(payload?.history) ? payload.history : []; return { status: history.length ? "success" : "empty", candidate: {}, evidence: { status: payload?.status || null, selected: payload?.selected || null, history, source: payload?.source || null }, raw: payload, source_url: "https://www.realtyprice.kr" }; }
 function normalizeLandPrice(payload) { const history = Array.isArray(payload?.history) ? payload.history : []; return { status: payload?.latest || history.length ? "success" : "empty", candidate: {}, evidence: { address: payload?.address || null, latest: payload?.latest || null, history, yoy_change_pct: payload?.yoy_change_pct ?? null }, raw: payload, source_url: payload?.source_url || "https://www.realtyprice.kr/notice/gsindividual/search.htm" }; }
-async function httpJson(url) {
-  const response = await fetch(url, { headers: { accept: "application/json", "user-agent": "ProdigyOS-real-estate-source/1.0" } });
-  const text = await response.text();
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.slice(0, 240)}`);
-  try { return JSON.parse(text); } catch (_error) { const error = new Error("외부 응답이 JSON이 아닙니다."); error.raw = text; throw error; }
+async function httpJson(url, options = {}) {
+  const attempts = Number.isInteger(options.attempts) ? Math.max(1, Math.min(options.attempts, 3)) : 2;
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(url, { headers: { accept: "application/json", "user-agent": "ProdigyOS-real-estate-source/1.0" }, signal: controller.signal });
+      const text = await response.text();
+      if (!response.ok) {
+        const error = new Error(`외부 조회가 HTTP ${response.status}로 실패했습니다.`); error.retryable = response.status === 429 || response.status >= 500; throw error;
+      }
+      try { return JSON.parse(text); } catch (_error) { const error = new Error("외부 응답이 JSON이 아닙니다."); error.raw = "[REDACTED_RESPONSE]"; throw error; }
+    } catch (error) {
+      lastError = error;
+      if (!error.retryable && error.name !== "AbortError") throw error;
+      if (attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+    } finally { clearTimeout(timer); }
+  }
+  throw lastError || new Error("외부 조회가 실패했습니다.");
+}
+function proxyBaseUrl() {
+  const value = clean(process.env.KSKILL_PROXY_BASE_URL || "https://k-skill-proxy.nomadamas.org").replace(/\/$/u, "");
+  let parsed;
+  try { parsed = new URL(value); } catch (_error) { throw new Error("k-skill 프록시 URL이 올바르지 않습니다."); }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.hostname !== "k-skill-proxy.nomadamas.org") throw new Error("허용되지 않은 k-skill 프록시 URL입니다.");
+  return value;
 }
 function recentMonths(count) {
   const result = []; const date = new Date(); date.setUTCDate(1);
   for (let index = 0; index < count; index += 1) { result.push(`${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`); date.setUTCMonth(date.getUTCMonth() - 1); }
   return result;
 }
-async function liveProvider(name, record, dependencies) {
-  const pnu = pnuOf(record);
+function resultWithMatch(result, match) { return Object.assign({}, result, { match: Object.assign({}, match || {}, result.match || {}) }); }
+function unresolvedResult(status, match, sourceUrl, warning, evidence) { return { status, candidate: {}, evidence: evidence || {}, raw: { status, match, warning }, source_url: sourceUrl, warnings: [warning], match }; }
+function verifiedResult(name, result, record, identity, payload, query, plan) {
+  const verification = identityCore.verifyReturnedIdentity(name, identity, payload, query);
+  const match = Object.assign({}, plan, { query: query || plan?.query || {}, match_verified: verification.match_verified, reason: verification.reason, scope: verification.scope || plan?.scope });
+  if (!verification.match_verified && result.status === "success") {
+    const error = new Error(`${identityCore.clean(name)} 공급자가 반환한 식별자가 선택한 물건과 일치하지 않습니다.`);
+    error.code = "IDENTITY_MISMATCH";
+    return { status: "failed", candidate: {}, evidence: result.evidence || {}, raw: payload, source_url: result.source_url, warnings: ["공급자 반환 식별자가 선택한 물건과 일치하지 않아 후보 생성을 차단했습니다."], error, match };
+  }
+  return resultWithMatch(result, match);
+}
+async function liveProvider(name, record, dependencies, identityContext) {
+  const identity = identityContext.identity;
+  const directOrProxy = process.env.PRODIGY_REAL_ESTATE_ALLOW_PROXY === "1" ? "proxy" : "direct";
+  const sourceUrls = { court: "https://www.courtauction.go.kr", building: "https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo", transactions: "https://k-skill-proxy.nomadamas.org/v1/real-estate", "official-price": "https://www.realtyprice.kr", "land-price": "https://www.realtyprice.kr/notice/gsindividual/search.htm" };
   if (name === "court") {
     const court = dependencies.court;
-    let courtCode = clean(record.court_code);
-    if (!/^B\d{6}$/u.test(courtCode) && court?.getCourtCodes) {
-      const codes = await court.getCourtCodes(); const rows = codes.items || codes.courts || codes.rows || [];
-      const match = rows.find((row) => clean(row.code || row.courtCode || row.cortOfcCd) && clean(record.court) && clean(row.name || row.courtName || row.jiwonNm).includes(clean(record.court)));
-      courtCode = match ? clean(match.code || match.courtCode || match.cortOfcCd) : "";
+    let plan = identityCore.providerPlan(name, identity);
+    if (plan.status !== "resolved" && court?.getCourtCodes) {
+      const codes = await court.getCourtCodes();
+      const rows = codes.items || codes.courts || codes.rows || [];
+      plan = identityCore.resolveCourtCode(record, rows);
+      if (plan.status === "resolved") {
+        identity.court_code = plan.selected.court_code;
+        identity.court_code_source = plan.method;
+        plan = Object.assign({}, plan, { query: { court_code: identity.court_code, case_number: identity.case_number } });
+      }
     }
-    if (!/^B\d{6}$/u.test(courtCode) || !record.case_number) return { status: "needs_identifier", candidate: {}, evidence: {}, source_url: "https://www.courtauction.go.kr", warnings: ["법원사무소 코드와 사건번호가 필요합니다."] };
-    const payload = await court.getCaseByCaseNumber({ courtCode, caseNumber: record.case_number });
-    return normalizeWithRaw((value) => normalizeCourt(record, value), payload);
+    if (plan.status !== "resolved") return unresolvedResult(plan.status, plan, sourceUrls.court, plan.reason || "법원사무소 코드와 사건번호가 필요합니다.", { candidates: plan.candidates || [] });
+    const payload = await court.getCaseByCaseNumber({ courtCode: identity.court_code, caseNumber: identity.case_number });
+    const normalized = normalizeWithRaw((value) => normalizeCourt(record, value), payload);
+    if (normalized.status === "empty") return resultWithMatch(normalized, Object.assign({}, plan, { match_verified: true, reason: "case_query_empty" }));
+    return verifiedResult(name, normalized, record, identity, payload, plan.query, plan);
   }
   if (name === "building") {
-    if (!pnu && process.env.PRODIGY_REAL_ESTATE_ALLOW_PROXY !== "1") return { status: "needs_identifier", candidate: {}, evidence: {}, source_url: "https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo", warnings: ["건축물대장 공식 직접 조회에는 19자리 PNU가 필요합니다."] };
-    const args = ["title", pnu ? "--pnu" : "--address", pnu || record.address, "--json"];
-    if (!pnu) args.push("--proxy-base-url", process.env.KSKILL_PROXY_BASE_URL || "https://k-skill-proxy.nomadamas.org"); else args.push("--direct");
+    const queryAddress = identity.road_address || identity.parcel_query_address || identity.address;
+    if (!identity.pnu && directOrProxy !== "proxy") return unresolvedResult("needs_selection", identityCore.providerPlan(name, identity), sourceUrls.building, "건축물대장 공식 직접 조회에는 19자리 PNU가 필요합니다.");
+    const args = ["title", identity.pnu ? "--pnu" : "--address", identity.pnu || queryAddress, "--json"];
+    if (!identity.pnu) args.push("--proxy-base-url", proxyBaseUrl()); else args.push("--direct");
     const payload = runKSkillScript(dependencies.cli, "building-register-search", "scripts/building_register.py", args);
-    return normalizeWithRaw((value) => normalizeBuilding(record, value), payload);
+    const normalized = normalizeWithRaw((value) => normalizeBuilding(record, value), payload);
+    if (normalized.status === "empty") return resultWithMatch(normalized, Object.assign({}, identityCore.providerPlan(name, identity), { match_verified: true, transport: directOrProxy, reason: "parcel_query_empty" }));
+    return verifiedResult(name, normalized, record, identity, payload, identityCore.providerPlan(name, identity).query, Object.assign({}, identityCore.providerPlan(name, identity), { transport: directOrProxy }));
   }
   if (name === "transactions") {
-    if (!record.region_sigungu) return { status: "needs_identifier", candidate: {}, evidence: {}, source_url: "https://k-skill-proxy.nomadamas.org/v1/real-estate", warnings: ["실거래 조회에 시·군·구가 필요합니다."] };
-    if (process.env.PRODIGY_REAL_ESTATE_ALLOW_PROXY !== "1") return { status: "needs_identifier", candidate: {}, evidence: {}, source_url: "https://k-skill-proxy.nomadamas.org/v1/real-estate", warnings: ["실거래 k-skill 프록시는 PRODIGY_REAL_ESTATE_ALLOW_PROXY=1일 때만 사용합니다."] };
-    const base = (process.env.KSKILL_PROXY_BASE_URL || "https://k-skill-proxy.nomadamas.org").replace(/\/$/u, "");
-    const codePayload = await httpJson(`${base}/v1/real-estate/region-code?q=${encodeURIComponent(record.region_sigungu)}`);
-    const lawd = codePayload.results?.[0]?.lawd_cd;
-    if (!lawd) return { status: "needs_identifier", candidate: {}, evidence: {}, source_url: `${base}/v1/real-estate/region-code`, warnings: ["시·군·구 법정동 코드를 확정하지 못했습니다."] };
-    const assetType = /아파트|공동주택/u.test(clean(record.property_type)) ? "apartment" : /오피스텔/u.test(clean(record.property_type)) ? "officetel" : /상가|상업/u.test(clean(record.property_type)) ? "commercial" : /빌라|연립|다세대/u.test(clean(record.property_type)) ? "villa" : "single-house";
-    const responses = await Promise.all(recentMonths(3).map(async (month) => httpJson(`${base}/v1/real-estate/${assetType}/trade?lawd_cd=${lawd}&deal_ymd=${month}`)));
-    return normalizeWithRaw(normalizeTransactions, { items: responses.flatMap((response) => response.items || []), summary: { sample_count: responses.reduce((sum, response) => sum + Number(response.summary?.sample_count || response.items?.length || 0), 0) }, query: { asset_type: assetType, deal_type: "trade", lawd_cd: lawd, months: recentMonths(3) } });
+    const plan = identityCore.providerPlan(name, identity);
+    if (plan.status !== "resolved") return unresolvedResult(plan.status, plan, sourceUrls.transactions, plan.reason || "실거래 조회에 시·군·구가 필요합니다.");
+    if (directOrProxy !== "proxy") return unresolvedResult("needs_identifier", Object.assign({}, plan, { method: "proxy_opt_in_required", reason: "실거래 비교는 명시적인 프록시 허용 후 실행합니다." }), sourceUrls.transactions, "실거래 k-skill 프록시는 PRODIGY_REAL_ESTATE_ALLOW_PROXY=1일 때만 사용합니다.");
+    const base = proxyBaseUrl();
+    let lawd = clean(identity.lawd_cd);
+    if (!lawd) {
+      const codePayload = await httpJson(`${base}/v1/real-estate/region-code?q=${encodeURIComponent(identity.region_sigungu)}`);
+      const rows = Array.isArray(codePayload.results) ? codePayload.results : [];
+      const exact = rows.filter((row) => identityCore.compareText(row.name).endsWith(identityCore.compareText(identity.region_sigungu)));
+      if (exact.length !== 1) return unresolvedResult("needs_selection", Object.assign({}, plan, { method: "region_code_selection", candidates: rows.slice(0, 20), reason: "시·군·구 법정동 코드를 하나로 확정하지 못했습니다." }), `${base}/v1/real-estate/region-code`, "시·군·구 법정동 코드를 하나로 확정하지 못했습니다.", { candidates: rows });
+      lawd = clean(exact[0].lawd_cd);
+    }
+    if (!/^\d{5}$/u.test(lawd)) return unresolvedResult("needs_selection", Object.assign({}, plan, { method: "region_code_selection", reason: "법정동 코드 형식을 확인해야 합니다." }), `${base}/v1/real-estate/region-code`, "법정동 코드 형식을 확인해야 합니다.");
+    const assetType = /아파트|공동주택/u.test(identity.property_type) ? "apartment" : /오피스텔/u.test(identity.property_type) ? "officetel" : /상가|상업/u.test(identity.property_type) ? "commercial" : /빌라|연립|다세대/u.test(identity.property_type) ? "villa" : "single-house";
+    const months = recentMonths(3);
+    const responses = await Promise.all(months.map(async (month) => httpJson(`${base}/v1/real-estate/${assetType}/trade?lawd_cd=${lawd}&deal_ymd=${month}`)));
+    const payload = { items: responses.flatMap((response) => response.items || []), summary: { sample_count: responses.reduce((sum, response) => sum + Number(response.summary?.sample_count || response.items?.length || 0), 0) }, query: { asset_type: assetType, deal_type: "trade", lawd_cd: lawd, months } };
+    const normalized = normalizeWithRaw(normalizeTransactions, payload);
+    return verifiedResult(name, normalized, record, identity, payload, payload.query, Object.assign({}, plan, { query: payload.query, transport: directOrProxy, scope: "region_comparison", method: "region_code_exact" }));
   }
   if (name === "official-price") {
-    if (!pnu && !record.building_name) return { status: "needs_selection", candidate: {}, evidence: {}, source_url: "https://www.realtyprice.kr", warnings: ["공시가격은 PNU 또는 공동주택 단지·동·호 선택이 필요합니다."] };
-    if (pnu) return normalizeWithRaw(normalizeOfficialPrice, await dependencies.housing.lookupIndividualHousePriceByPnu(pnu));
-    return { status: "needs_selection", candidate: {}, evidence: {}, source_url: "https://www.realtyprice.kr", warnings: ["공동주택 후보·동·호 선택은 조사 모달에서 추가해야 합니다."] };
+    const plan = identityCore.providerPlan(name, identity);
+    if (!identity.is_apartment) {
+      if (!identity.pnu) return unresolvedResult(plan.status, plan, sourceUrls["official-price"], plan.reason || "개별주택 공시가격 조회에 PNU가 필요합니다.");
+      const payload = await dependencies.housing.lookupIndividualHousePriceByPnu(identity.pnu);
+      const normalized = normalizeWithRaw(normalizeOfficialPrice, payload);
+      if (normalized.status === "empty") return resultWithMatch(normalized, Object.assign({}, plan, { match_verified: true, reason: "pnu_query_empty" }));
+      return verifiedResult(name, normalized, record, identity, payload, plan.query, plan);
+    }
+    if (!identity.building_name) return unresolvedResult("needs_selection", plan, sourceUrls["official-price"], "공동주택 단지명을 선택해야 합니다.");
+    let candidate = identity.apt_code ? { aptCode: identity.apt_code, noticeDate: identity.apt_notice_date, complexName: identity.building_name } : null;
+    let candidatePayload = null;
+    if (!candidate) {
+      candidatePayload = await dependencies.housing.searchApartmentCandidates({ complexName: identity.building_name });
+      const candidates = Array.isArray(candidatePayload?.candidates) ? candidatePayload.candidates : [];
+      if (candidates.length !== 1) return unresolvedResult("needs_selection", Object.assign({}, plan, { method: "apartment_candidate_selection", candidates: candidates.slice(0, 20), reason: candidates.length ? "공동주택 후보를 하나로 선택해야 합니다." : "공동주택 후보를 찾지 못했습니다." }), sourceUrls["official-price"], candidates.length ? "공동주택 후보를 하나로 선택해야 합니다." : "공동주택 후보를 찾지 못했습니다.", { candidates });
+      candidate = candidates[0];
+      identity.apt_code = clean(candidate.aptCode);
+      identity.apt_notice_date = clean(candidate.noticeDate);
+    }
+    if (!identity.building_dong || !identity.unit_number) return unresolvedResult("needs_selection", Object.assign({}, plan, { method: "apartment_unit_selection", selected: { candidate, building_dong: identity.building_dong, unit_number: identity.unit_number }, reason: "공동주택 동·호를 선택해야 합니다." }), sourceUrls["official-price"], "공동주택 동·호를 선택해야 합니다.", { candidate });
+    let payload;
+    try {
+      payload = await dependencies.housing.lookupApartmentOfficialPrice({ candidate, dongCode: identity.dong_code || undefined, dongName: identity.building_dong, hoCode: identity.ho_code || undefined, hoName: identity.unit_number });
+    } catch (error) {
+      if (/AMBIGUOUS|INVALID_SELECTOR/u.test(clean(error.code))) return unresolvedResult("needs_selection", Object.assign({}, plan, { method: "apartment_unit_selection", candidates: error.candidates || [], reason: error.message }), sourceUrls["official-price"], error.message, { candidates: error.candidates || [] });
+      throw error;
+    }
+    const normalized = normalizeWithRaw(normalizeOfficialPrice, payload);
+    const resolvedPlan = identityCore.providerPlan(name, identity);
+    return verifiedResult(name, normalized, record, identity, payload, { candidate, building_dong: identity.building_dong, unit_number: identity.unit_number }, Object.assign({}, resolvedPlan, { query: { candidate, building_dong: identity.building_dong, unit_number: identity.unit_number } }));
   }
-  if (name === "land-price") return normalizeWithRaw(normalizeLandPrice, await dependencies.land.lookupGongsijiga(record.address));
+  if (name === "land-price") {
+    const plan = identityCore.providerPlan(name, identity);
+    if (!identity.parcel_query_address) return unresolvedResult("needs_selection", plan, sourceUrls["land-price"], "개별공시지가 조회에 사용할 지번 필지를 선택해야 합니다.");
+    const payload = await dependencies.land.lookupGongsijiga(identity.parcel_query_address);
+    const normalized = normalizeWithRaw(normalizeLandPrice, payload);
+    if (normalized.status === "empty") return resultWithMatch(normalized, Object.assign({}, plan, { match_verified: true, reason: "lot_query_empty" }));
+    return verifiedResult(name, normalized, record, identity, payload, { lot_address: identity.parcel_query_address }, plan);
+  }
   throw new Error(`지원하지 않는 provider입니다: ${name}`);
 }
 function normalizeResult(record, result) {
@@ -199,35 +323,67 @@ function normalizeWithRaw(normalizer, payload) {
   try { return normalizer(payload); } catch (error) { error.raw = payload; throw error; }
 }
 function atomicWrite(target, text) { const temp = `${target}.tmp-${process.pid}`; fs.writeFileSync(temp, text, "utf8"); fs.renameSync(temp, target); }
-function writePackage(vaultRoot, record, observedAt, providerResults, lock) {
+function writePackage(vaultRoot, record, observedAt, providerResults, lock, identityContext, objectIdentityContext) {
+  validateObservedAt(observedAt);
   const caseKey = core.safeCaseKey(record.case_number, record.item_number);
   const packageId = `${caseKey}-${observedAt.replace(/[^0-9TZ]/gu, "")}`;
   const directory = path.join(vaultRoot, CACHE_ROOT, caseKey, observedAt);
+  const cacheRoot = path.resolve(vaultRoot, CACHE_ROOT);
+  if (!inside(cacheRoot, directory)) throw new Error("조사 패키지 경로가 캐시 경계를 벗어납니다.");
   fs.mkdirSync(path.join(directory, "raw"), { recursive: true });
-  const providers = {}; const evidence = {}; const errors = []; const candidatePatch = {};
+  const providers = {}; const evidence = {}; const errors = []; const candidatePatch = {}; const candidateSources = {};
   for (const name of core.PROVIDERS) {
-    const result = providerResults[name]; const fileName = PROVIDER_FILES[name]; const rawText = JSON.stringify(result.raw ?? result, null, 2); const rawPath = `raw/${fileName}`;
-    atomicWrite(path.join(directory, rawPath), `${rawText}\n`);
-    const meta = providerMeta(result.status, result.source_url, result.raw ?? result, result.warnings, result.error);
+    const result = providerResults[name]; const fileName = PROVIDER_FILES[name]; const rawText = serializeRaw(result.raw ?? result); const rawPath = `raw/${fileName}`;
+    atomicWrite(path.join(directory, rawPath), rawText);
+    const meta = providerMeta(result.status, result.source_url, result.raw ?? result, result.warnings, result.error, result.match);
     meta.raw_path = rawPath; providers[name] = meta; evidence[name] = result.evidence || {};
-    Object.assign(candidatePatch, result.candidate || {});
-    if (result.status !== "success" && result.status !== "empty") errors.push({ provider: name, code: result.error?.code || result.status.toUpperCase(), message: (result.warnings || [])[0] || result.error?.message || `${name} 조회를 완료하지 못했습니다.` });
+    if (result.match?.match_verified === true) {
+      Object.entries(result.candidate || {}).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === "") return;
+        candidatePatch[key] = value;
+        candidateSources[key] = [...new Set([...(candidateSources[key] || []), name])];
+      });
+    }
+    if (result.status !== "success" && result.status !== "empty") errors.push({ provider: name, code: result.error?.code || result.status.toUpperCase(), message: clean(redactSensitive((result.warnings || [])[0] || result.error?.message || `${name} 조회를 완료하지 못했습니다.`)) });
   }
-  const pkg = core.buildPackage({ package_id: packageId, case_key: caseKey, observed_at: observedAt, query_identity: { object_path: record.object_path, case_number: clean(record.case_number), court: clean(record.court), address: clean(record.address), region_sido: clean(record.region_sido), region_sigungu: clean(record.region_sigungu), region_dong: clean(record.region_dong) }, collector: { k_skill_repository: KSKILL_REPOSITORY, k_skill_commit: lock.commit, package_version: lock.cli_package.version, selected_skills: core.PROVIDERS.slice() }, providers, candidate_patch: candidatePatch, evidence, errors });
+  const identity = identityContext.identity;
+  const resolutionProviders = Object.fromEntries(core.PROVIDERS.map((name) => [name, providerResults[name].match || identityCore.providerPlan(name, identity)]));
+  const matchResolution = identityCore.buildMatchResolution(identityContext, resolutionProviders, candidateSources);
+  const pkg = core.buildPackage({ package_id: packageId, case_key: caseKey, observed_at: observedAt, query_identity: { object_path: record.object_path, object_fingerprint: objectIdentityContext?.query_fingerprint || identityContext.query_fingerprint, case_number: identity.case_number, court: identity.court, court_code: identity.court_code, address: clean(record.address), normalized_address: identity.address, road_address: identity.road_address, lot_address: identity.lot_address, lot_number: identity.lot_number, pnu: identity.pnu, region_sido: identity.region_sido, region_sigungu: identity.region_sigungu, region_dong: identity.region_dong, lawd_cd: identity.lawd_cd, property_type: identity.property_type, building_name: identity.building_name, building_dong: identity.building_dong, unit_number: identity.unit_number, apt_code: identity.apt_code, apt_notice_date: identity.apt_notice_date, dong_code: identity.dong_code, ho_code: identity.ho_code }, collector: { k_skill_repository: KSKILL_REPOSITORY, k_skill_commit: lock.commit, package_version: lock.cli_package.version, selected_skills: core.SELECTED_SKILLS.slice() }, providers, match_resolution: matchResolution, candidate_patch: candidatePatch, evidence, errors });
   atomicWrite(path.join(directory, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);
   return { package_path: path.join(directory, "package.json"), package: pkg };
 }
-function parseArgs(argv) { const options = { vaultRoot: process.cwd(), providers: core.PROVIDERS.slice(), fixtureDir: "", observedAt: nowIso() }; for (let index = 0; index < argv.length; index += 1) { const arg = argv[index]; const next = argv[index + 1]; if (arg === "--case") options.casePath = next; else if (arg === "--vault") options.vaultRoot = next; else if (arg === "--providers") options.providers = next.split(",").map((item) => item.trim()).filter(Boolean); else if (arg === "--fixture-dir") options.fixtureDir = next; else if (arg === "--observed-at") options.observedAt = next; else throw new Error(`지원하지 않는 인자입니다: ${arg}`); index += 1; } if (!options.casePath) throw new Error("--case가 필요합니다."); options.providers.forEach((provider) => { if (!core.PROVIDERS.includes(provider)) throw new Error(`지원하지 않는 provider입니다: ${provider}`); }); return options; }
+function parseArgs(argv) { const options = { vaultRoot: process.cwd(), providers: core.PROVIDERS.slice(), fixtureDir: "", observedAt: nowIso(), selection: {} }; const selectionArgs = { "--court-code": "court_code", "--pnu": "pnu", "--lot-address": "lot_address", "--building-name": "building_name", "--building-dong": "building_dong", "--unit-number": "unit_number", "--apt-code": "apt_code", "--apt-notice-date": "apt_notice_date", "--dong-code": "dong_code", "--ho-code": "ho_code", "--lawd-cd": "lawd_cd" }; for (let index = 0; index < argv.length; index += 1) { const arg = argv[index]; const next = argv[index + 1]; if (arg === "--case") options.casePath = next; else if (arg === "--vault") options.vaultRoot = next; else if (arg === "--providers") options.providers = next.split(",").map((item) => item.trim()).filter(Boolean); else if (arg === "--fixture-dir") options.fixtureDir = next; else if (arg === "--observed-at") options.observedAt = next; else if (selectionArgs[arg]) options.selection[selectionArgs[arg]] = next; else throw new Error(`지원하지 않는 인자입니다: ${arg}`); index += 1; } if (!options.casePath) throw new Error("--case가 필요합니다."); options.providers.forEach((provider) => { if (!core.PROVIDERS.includes(provider)) throw new Error(`지원하지 않는 provider입니다: ${provider}`); }); validateObservedAt(options.observedAt); return options; }
 async function collect(options) {
-  const vaultRoot = fs.realpathSync(path.resolve(options.vaultRoot)); const objectPath = resolveCasePath(vaultRoot, options.casePath); const record = readAuctionObject(objectPath); const lock = readLock(); const providerResults = {}; let dependencies = null;
-  if (!options.fixtureDir) { const cli = installKSkillCli(lock); dependencies = { cli, court: installAndLoad("court-auction-notice-search", lock.packages["court-auction-notice-search"]), housing: installAndLoad("housing-official-price", lock.packages["housing-official-price"]), land: installAndLoad("gongsijiga-search", lock.packages["gongsijiga-search"]) }; }
-  for (const name of core.PROVIDERS) {
-    if (!options.providers.includes(name)) { providerResults[name] = { status: "needs_identifier", candidate: {}, evidence: {}, source_url: "https://www.realtyprice.kr", warnings: ["이번 실행에서 선택하지 않은 provider입니다."] }; continue; }
-    try { const result = options.fixtureDir ? JSON.parse(fs.readFileSync(path.join(options.fixtureDir, PROVIDER_FILES[name]), "utf8")) : await liveProvider(name, record, dependencies); providerResults[name] = normalizeResult(record, result); providerResults[name].raw = options.fixtureDir ? result : result.raw || result; }
-    catch (error) { providerResults[name] = { status: "failed", candidate: {}, evidence: {}, raw: error.raw || { error: error.message }, source_url: "https://www.realtyprice.kr", warnings: [], error }; }
-  }
-  return writePackage(vaultRoot, record, options.observedAt, providerResults, lock);
+  const vaultRoot = fs.realpathSync(path.resolve(options.vaultRoot)); const objectPath = resolveCasePath(vaultRoot, options.casePath); const record = readAuctionObject(objectPath); record.object_path = path.relative(vaultRoot, objectPath).split(path.sep).join("/"); const objectIdentityContext = identityCore.normalizeAuctionIdentity(record, {}); const identityContext = identityCore.normalizeAuctionIdentity(record, options.selection || {}); const lock = readLock(); const providerResults = {}; let dependencies = null; const temporaryRoots = [];
+  try {
+    if (!options.fixtureDir) {
+      const cli = installKSkillCli(lock); temporaryRoots.push(cli.prefix);
+      const court = installAndLoad("court-auction-notice-search", lock.packages["court-auction-notice-search"]); temporaryRoots.push(court.prefix);
+      const housing = installAndLoad("housing-official-price", lock.packages["housing-official-price"]); temporaryRoots.push(housing.prefix);
+      const land = installAndLoad("gongsijiga-search", lock.packages["gongsijiga-search"]); temporaryRoots.push(land.prefix);
+      dependencies = { cli, court: court.module, housing: housing.module, land: land.module };
+    }
+    for (const name of core.PROVIDERS) {
+      if (!options.providers.includes(name)) { providerResults[name] = { status: "needs_identifier", candidate: {}, evidence: {}, source_url: "https://www.realtyprice.kr", warnings: ["이번 실행에서 선택하지 않은 provider입니다."], match: Object.assign({}, identityCore.providerPlan(name, identityContext.identity), { status: "needs_identifier", match_verified: false, reason: "provider_not_selected" }) }; continue; }
+      try {
+        const fixture = options.fixtureDir ? JSON.parse(fs.readFileSync(path.join(options.fixtureDir, PROVIDER_FILES[name]), "utf8")) : null;
+        const result = fixture || await liveProvider(name, record, dependencies, identityContext);
+        const normalized = normalizeResult(record, result);
+        const plan = identityCore.providerPlan(name, identityContext.identity);
+        const match = result.match || (options.fixtureDir && result.status === "success" ? identityCore.verifyReturnedIdentity(name, identityContext.identity, normalized.raw || result.raw || result, plan.query) : null);
+        const fixtureResultWithMatch = options.fixtureDir && !result.match
+          ? (result.status === "success" ? verifiedResult(name, normalized, record, identityContext.identity, result.raw || result, plan.query, Object.assign({}, plan, { status: result.status, method: "fixture_identity_exact" })) : resultWithMatch(normalized, Object.assign({}, plan, { status: result.status, match_verified: result.status === "empty" && plan.status === "resolved", reason: result.status === "empty" && plan.status === "resolved" ? "fixture_query_empty" : "fixture_unresolved" })))
+          : Object.assign({}, normalized, { match: match || Object.assign({}, plan, { status: result.status, match_verified: false, reason: "match_missing" }) });
+        providerResults[name] = fixtureResultWithMatch;
+        providerResults[name].raw = options.fixtureDir ? result : result.raw || result;
+      } catch (error) { providerResults[name] = { status: "failed", candidate: {}, evidence: {}, raw: error.raw || { error: clean(redactSensitive(error.message)) }, source_url: "https://www.realtyprice.kr", warnings: [], error, match: Object.assign({}, identityCore.providerPlan(name, identityContext.identity), { status: "failed", match_verified: false, reason: error.code || "provider_error" }) }; }
+    }
+    const autoSelections = Object.assign({}, options.selection || {}, { court_code: providerResults.court?.match?.selected?.court_code || identityContext.identity.court_code, apt_code: providerResults["official-price"]?.match?.selected?.candidate?.aptCode || identityContext.identity.apt_code, apt_notice_date: providerResults["official-price"]?.match?.selected?.candidate?.noticeDate || identityContext.identity.apt_notice_date, lawd_cd: providerResults.transactions?.match?.query?.lawd_cd || identityContext.identity.lawd_cd });
+    const finalIdentity = identityCore.normalizeAuctionIdentity(record, autoSelections);
+    return writePackage(vaultRoot, record, validateObservedAt(options.observedAt), providerResults, lock, finalIdentity, objectIdentityContext);
+  } finally { temporaryRoots.forEach((directory) => { try { fs.rmSync(directory, { recursive: true, force: true }); } catch (_error) {} }); }
 }
 if (require.main === module) collect(parseArgs(process.argv.slice(2))).then((result) => process.stdout.write(`${JSON.stringify({ package_path: result.package_path, package_id: result.package.package_id }, null, 2)}\n`)).catch((error) => { process.stderr.write(`${error.stack || error.message}\n`); process.exitCode = 1; });
 
-module.exports = Object.freeze({ CACHE_ROOT, PROVIDER_FILES, collect, normalizeBuilding, normalizeCourt, normalizeLandPrice, normalizeOfficialPrice, normalizeResult, normalizeTransactions, parseArgs, readAuctionObject, readLock, safeCaseKey: core.safeCaseKey, verifyKSkillFiles });
+module.exports = Object.freeze({ CACHE_ROOT, PROVIDER_FILES, collect, normalizeBuilding, normalizeCourt, normalizeLandPrice, normalizeOfficialPrice, normalizeResult, normalizeTransactions, parseArgs, readAuctionObject, readLock, safeCaseKey: core.safeCaseKey, serializeRaw, validateObservedAt, verifyKSkillFiles });

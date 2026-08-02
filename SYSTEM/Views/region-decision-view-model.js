@@ -9,13 +9,9 @@
  */
 
 const TAB_DEFS = Object.freeze([
-  Object.freeze({ id: "core", label: "핵심" }),
-  Object.freeze({ id: "change", label: "변화" }),
-  Object.freeze({ id: "deals", label: "실거래" }),
-  Object.freeze({ id: "supply_jobs", label: "공급·일자리" }),
-  Object.freeze({ id: "transit_life", label: "교통·생활" }),
-  Object.freeze({ id: "knowledge_thesis", label: "지식·논지" }),
-  Object.freeze({ id: "site_visit", label: "임장" })
+  Object.freeze({ id: "decision_context", label: "판단 맥락" }),
+  Object.freeze({ id: "region_evidence", label: "지역 근거" }),
+  Object.freeze({ id: "cases_visit", label: "사례·임장" })
 ]);
 
 const FRESHNESS_THRESHOLDS = Object.freeze({
@@ -190,7 +186,24 @@ function projectRegionPopup(regionData, now) {
     unavailableReason: null
   };
 
-  const tabs = [coreTab, changeTab, dealsTab, supplyTab, transitTab, knowledgeTab, siteVisitTab];
+  const evidenceSections = [coreTab, changeTab, dealsTab, supplyTab, transitTab, knowledgeTab];
+  const caseSections = [
+    ...(regionData.connectedAuctions ? [{ id: "connected_auctions", label: "연결 경매", available: true, content: regionData.connectedAuctions, unavailableReason: null }] : []),
+    ...(regionData.decisionMirror ? [{ id: "decision_outcome", label: "현재 사건 대조", available: true, content: regionData.decisionMirror, unavailableReason: null }] : []),
+    siteVisitTab
+  ];
+  const decisionContext = regionData.decisionContext || {
+    status: "unavailable",
+    identity: { region_key: regionKey, title },
+    trust: { metrics_as_of: fm.metrics_as_of || null, verification_status: fm.verification_status || null },
+    questions: [],
+    checks: [{ kind: "missing_context", message: "판단 맥락을 준비하지 못했습니다." }]
+  };
+  const tabs = [
+    { id: "decision_context", label: "판단 맥락", available: true, content: decisionContext, unavailableReason: null },
+    { id: "region_evidence", label: "지역 근거", available: true, content: { sections: evidenceSections }, unavailableReason: null },
+    { id: "cases_visit", label: "사례·임장", available: true, content: { sections: caseSections }, unavailableReason: null }
+  ];
 
   // Collection status
   const collectionStatus = {

@@ -8,6 +8,9 @@ window.renderAuctionCard = function(p, container, options) {
     
     const card = container.createEl('div', {
       attr: {
+        class: 'auction-card',
+        'data-auction-path': (p.file && p.file.path) || p.path || '',
+        tabindex: '-1',
         style: `border: 1px solid var(--background-modifier-border); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);`
       }
     });
@@ -76,12 +79,12 @@ window.renderAuctionCard = function(p, container, options) {
       && value !== null
       && String(value).trim() !== ""
       && value !== "정보 없음";
-    const isClosedWatching = p.status === "watching" && hasRecordedValue(p.winning_bid_price);
 
     // Calculate D-Day first
     let ddayStr = "-";
     let isUrgent = false;
     let isAuctionToday = false;
+    let isAuctionEnded = false;
     let dateStr = "-";
     if (p.auction_datetime) {
       let isoDate = "";
@@ -112,14 +115,17 @@ window.renderAuctionCard = function(p, container, options) {
           ddayStr = `${mdStr} (D-${diffDays})`;
           if (diffDays <= 3) isUrgent = true;
         } else {
-          ddayStr = "종료";
+          ddayStr = "종료(경매일 기준)";
+          isAuctionEnded = true;
         }
         
         dateStr = isoDate;
       }
     }
+    const isClosedWatching = p.status === "watching"
+      && (isAuctionEnded || hasRecordedValue(p.winning_bid_price));
     if (isClosedWatching) {
-      ddayStr = "종료";
+      ddayStr = "종료(경매일 기준)";
       isUrgent = false;
       isAuctionToday = false;
     }
@@ -282,70 +288,53 @@ window.renderAuctionCard = function(p, container, options) {
     }
 
     // Line 2: Location & Type & Property Name
-    const regionText = (p.region_sigungu || p.region_dong) 
-      ? `${p.region_sigungu || ""} ${p.region_dong || ""}`.trim() 
-      : "지역 미정";
+    const regionText = window.AuctionRegionCore?.regionDisplay
+      ? window.AuctionRegionCore.regionDisplay(p)
+      : [p.region_sido, p.region_sigungu, p.region_dong]
+        .map((value) => String(value == null ? "" : value).trim())
+        .filter(Boolean)
+        .join(" ") || "지역 미정";
 
     const detailRow1 = card.createEl('div', {
       attr: { style: 'font-size: 0.76em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
     });
     detailRow1.createEl('span', { text: `📍 ${regionText}` });
-    // Region decision packet is read-only: it must never create a Region Object.
-    if (window.AuctionRegionPacket) {
-      const regionBtn = detailRow1.createEl('button', {
-        text: '지역 판단',
+    const hasRegionDecision = Boolean(window.AuctionRegionPacket);
+    const regionActionStyle = 'font: inherit; color: var(--text-accent); background: transparent; border: 0; box-shadow: none; padding: 0 2px; min-height: 0; height: auto; cursor: pointer; text-decoration: underline; text-underline-offset: 2px;';
+    const regionActions = hasRegionDecision
+      ? detailRow1.createEl('span', {
+          attr: {
+            class: 'auction-region-inline-actions',
+            style: 'display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;'
+          }
+        })
+      : null;
+    if (hasRegionDecision) {
+      const regionBtn = regionActions.createEl('button', {
+        text: '판단 보드',
         attr: {
           type: 'button',
-          class: 'action-btn',
-          style: 'font-size: 0.72em; padding: 1px 6px; min-height: 0; cursor: pointer;',
-          title: '검증된 지역 근거와 확인 필요 항목 보기',
-          'aria-label': '지역 판단 패킷 열기'
+          class: 'auction-region-inline-action',
+          style: regionActionStyle,
+          title: '지역 근거와 조사 상태를 한 화면에서 확인합니다.',
+          'aria-label': '판단 보드 열기'
         }
       });
       regionBtn.onclick = async (event) => {
         event.preventDefault();
         event.stopPropagation();
         try {
-          await window.AuctionRegionPacket.openForAuction(app, p, { returnFocus: regionBtn });
+          await window.AuctionRegionPacket.openForAuction(app, p, {
+            returnFocus: regionBtn,
+            decisionPacketContext: (options && options.decisionPacketContext) || window.AuctionDecisionPacketDashboardContext,
+            onApplied: async (fields) => {
+              Object.assign(p, fields);
+              card.empty();
+              window.renderAuctionCard(p, container, options);
+            }
+          });
         } catch (error) {
           if (window.Notice) new Notice(error.message || String(error));
-        }
-      };
-    }
-    // Region Intelligence popup — read-only, never mutates Objects.
-    if (window.RegionIntelligencePopupCore?.isAvailable && window.RegionIntelligencePopupView) {
-      const riBtn = detailRow1.createEl('button', {
-        text: '지역 정보',
-        attr: {
-          type: 'button',
-          class: 'action-btn',
-          style: 'font-size: 0.72em; padding: 1px 6px; min-height: 0; cursor: pointer;',
-          title: '지역 정량·정성 정보 팝업',
-          'aria-label': '지역 정보 팝업 열기'
-        }
-      });
-      riBtn.onclick = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        try {
-          const regionKey = (p.region_sido || "").trim() && (p.region_sigungu || "").trim()
-            ? `${(p.region_sido || "").trim()}-${(p.region_sigungu || "").trim()}`
-            : null;
-          if (!regionKey) { if (window.Notice) new Notice("지역 정보가 없습니다."); return; }
-          const result = window.RegionIntelligencePopupCore.openPopup(app.vault.adapter.basePath || "", regionKey);
-          if (!result.ok) { if (window.Notice) new Notice(result.error); return; }
-          const html = window.RegionIntelligencePopupView.renderPopup(result.state);
-          const overlay = document.createElement("div");
-          overlay.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)";
-          const modal = document.createElement("div");
-          modal.style.cssText = "background:var(--background-primary);border-radius:12px;max-width:560px;width:95vw;max-height:90vh;overflow-y:auto;padding:16px";
-          modal.innerHTML = html;
-          overlay.appendChild(modal);
-          overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-          modal.querySelector("[data-action='close']")?.addEventListener("click", () => overlay.remove());
-          document.body.appendChild(overlay);
-        } catch (error) {
-          if (window.Notice) new Notice("지역 정보 팝업 오류: " + (error.message || String(error)));
         }
       };
     }
@@ -377,7 +366,7 @@ window.renderAuctionCard = function(p, container, options) {
     
    // Finance Row
    const financeRow = card.createEl('div', {
-     attr: { style: `display: flex; flex-wrap: wrap; align-items: center; gap: ${isMobile ? '4px 6px' : '8px'}; font-size: ${isMobile ? '0.72em' : '0.78em'}; color: var(--text-normal); margin-top: 1px;` }
+     attr: { class: 'auction-card-finance-row', style: `display: flex; flex-wrap: wrap; align-items: center; gap: ${isMobile ? '4px 6px' : '8px'}; font-size: ${isMobile ? '0.72em' : '0.78em'}; color: var(--text-normal); margin-top: 1px;` }
    });
     
     let minRateStr = "";
@@ -390,17 +379,27 @@ window.renderAuctionCard = function(p, container, options) {
     }
 
     const priceProjection = window.AuctionCardPriceProjection
-      ? window.AuctionCardPriceProjection.project(p)
+      ? window.AuctionCardPriceProjection.project(p, { isEnded: isAuctionEnded })
       : { left: { key: "minimum_bid", label: "최저가", value: p.minimum_bid }, right: { key: "expected_bid", label: "입찰 예정가", value: p.expected_bid } };
    const formatProjectedPrice = (entry) => {
-     const isTerminal = ["won", "lost", "skipped", "reviewing"].includes(p.status);
+     const isTerminal = ["won", "lost", "skipped", "reviewing", "archived"].includes(p.status);
      const precise = (p.status === "bidding" && isAuctionToday) || isTerminal;
      const value = precise ? toWon(entry.value) : toEok(entry.value);
      return `${entry.label}: <strong title="${toWon(entry.value)}">${value}</strong>`;
    };
+    const priceGroup = financeRow.createEl('div', {
+      attr: {
+        class: 'auction-card-finance-group auction-card-finance-group-price',
+        'aria-label': priceProjection.right.key === "winning_bid_price" ? '경매 결과' : '입찰 정보'
+      }
+    });
+    priceGroup.createEl('span', {
+      text: priceProjection.right.key === "winning_bid_price" ? '경매 결과' : '입찰 정보',
+      attr: { class: 'auction-card-finance-label' }
+    });
     // The acquisition/outcome pair is the first thing a completed card must communicate.
     // Keep it together so "내 입찰가 → 낙찰가" is not visually split by editable estimates.
-    const pricePair = financeRow.createEl('div', {
+    const pricePair = priceGroup.createEl('div', {
       attr: { class: 'auction-card-price-pair', style: 'display:flex; align-items:center; gap:4px; flex-wrap:wrap;' }
     });
    const minEl = pricePair.createEl('div', { attr: { class: 'auction-card-result-price' } });
@@ -483,8 +482,6 @@ window.renderAuctionCard = function(p, container, options) {
       }
     });
 
-   financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
-
  // Deposit = minimum_bid / 10 (visible when bidding)
  if (p.status === "bidding") {
    const savedDeposit = parser(p.bid_deposit);
@@ -494,7 +491,7 @@ window.renderAuctionCard = function(p, container, options) {
      : (!isNaN(minBidNum) && isFinite(minBidNum) && minBidNum > 0 ? Math.floor(minBidNum / 10) : 0);
    if (deposit > 0) {
      const depositStr = toWon(deposit);
-     const depositEl = financeRow.createEl('div', {
+     const depositEl = priceGroup.createEl('div', {
        attr: { style: 'white-space:nowrap;cursor:pointer;padding:0 2px;border-radius:3px;transition:background-color 0.2s;', title: `보증금: ${toWon(deposit)} (최저가 ÷ 10) — 클릭하여 수정` }
      });
        depositEl.innerHTML = `보증금: <strong style="color:var(--text-accent);">${depositStr}</strong>`;
@@ -519,11 +516,36 @@ window.renderAuctionCard = function(p, container, options) {
            new Notice("보증금이 업데이트되었습니다.");
          }
        });
-      financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
+      priceGroup.createEl('span', { text: '·', attr: { class: 'auction-card-finance-separator', style: isMobile ? 'display: none;' : '' } });
     }
   }
 
-   const exitEl = financeRow.createEl('div', {
+   const isTerminalStatus = ["won", "lost", "skipped"].includes(p.status);
+   const hasExitPrice = hasRecordedValue(p.exit_price);
+   const profitInfo = !isTerminalStatus ? calcMonthlyProfit(p, priceProjection.left.value) : null;
+   let spreadInfo = null;
+   if (!isTerminalStatus && hasExitPrice && hasRecordedValue(priceProjection.left.value)) {
+     const exit = parser(p.exit_price);
+     const acquisition = parser(priceProjection.left.value);
+     if (!isNaN(exit) && !isNaN(acquisition) && isFinite(exit) && isFinite(acquisition)) {
+       const diff = exit - acquisition;
+       spreadInfo = {
+         value: toEok(diff),
+         color: diff > 0 ? "var(--text-accent)" : diff < 0 ? "var(--text-error)" : "var(--text-muted)"
+       };
+     }
+   }
+   const incomeGroup = hasExitPrice || spreadInfo || profitInfo
+     ? financeRow.createEl('div', {
+         attr: { class: 'auction-card-finance-group auction-card-finance-group-income', 'aria-label': '수익 분석' }
+       })
+     : null;
+   if (incomeGroup) {
+     incomeGroup.createEl('span', { text: '수익 분석', attr: { class: 'auction-card-finance-label' } });
+   }
+
+   if (hasExitPrice && incomeGroup) {
+   const exitEl = incomeGroup.createEl('div', {
       attr: {
         style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
         title: `${display.property("exit_price")} 수정`
@@ -556,36 +578,21 @@ window.renderAuctionCard = function(p, container, options) {
       }
     });
     
-   financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
+   }
    
-   const isTerminalStatus = ["won", "lost", "skipped"].includes(p.status);
-
    // 차익·월수익: 터미널 상태(won/lost/skipped)에서는 숨김
-   if (!isTerminalStatus) {
-     // Calculate Difference (차익 = 탈출구 - 입찰)
-     let diffStr = "-";
-     let diffColor = "var(--text-muted)";
-     if (p.exit_price && priceProjection.left.value && p.exit_price !== "정보 없음") {
-       const exit = parser(p.exit_price);
-       const exp = parser(priceProjection.left.value);
-       if (!isNaN(exit) && !isNaN(exp)) {
-         const diff = exit - exp;
-         diffStr = toEok(diff);
-         if (diff > 0) {
-           diffColor = "var(--text-accent)";
-         } else if (diff < 0) {
-           diffColor = "var(--text-error)";
-         }
-       }
+   if (!isTerminalStatus && incomeGroup && (spreadInfo || profitInfo)) {
+     if (spreadInfo) {
+       const diffEl = incomeGroup.createEl('div');
+       diffEl.innerHTML = `차익: <strong style="color:${spreadInfo.color};">${spreadInfo.value}</strong>`;
      }
-     
-     const diffEl = financeRow.createEl('div');
-     diffEl.innerHTML = `차익: <strong style="color:${diffColor};">${diffStr}</strong>`;
-     
-     financeRow.createEl('span', { text: '·', attr: { style: isMobile ? 'display: none;' : 'color: var(--background-modifier-border);' } });
-     
-     const profitInfo = calcMonthlyProfit(p, priceProjection.left.value);
-     const profitEl = financeRow.createEl('div', {
+
+     if (spreadInfo && profitInfo) {
+       incomeGroup.createEl('span', { text: '·', attr: { class: 'auction-card-finance-separator', style: isMobile ? 'display: none;' : '' } });
+     }
+
+     if (profitInfo) {
+     const profitEl = incomeGroup.createEl('div', {
        attr: {
          style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
          title: '클릭하여 예상 월세, 대출비율, 이율을 수정합니다.'
@@ -726,6 +733,7 @@ window.renderAuctionCard = function(p, container, options) {
       });
      modal.open();
    });
+     }
    } // end if (!isTerminalStatus) — 차익·월수익 hidden for terminal cards
     
    if (["won", "lost", "skipped"].includes(p.status)) {
@@ -859,11 +867,8 @@ window.renderAuctionCard = function(p, container, options) {
     };
     
     const buttons = getTransitionButtons(p.status);
-    const decisionPacket = window.AuctionDecisionPacket;
-    const decisionPacketContext = (options && options.decisionPacketContext)
-      || window.AuctionDecisionPacketDashboardContext;
-    
-    const hasResearchEntry = p.type === "auction_case" || Boolean(window.AuctionRealEstateResearch);
+    const hasResearchEntry = p.type === "auction_case"
+      && Boolean(window.AuctionRealEstateResearch && typeof window.AuctionRealEstateResearch.openForAuction === "function");
     if (buttons.length > 0 || p.status === "bidding" || hasResearchEntry) {
       if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
       const actionLayout = window.ProdigyUI && window.ProdigyUI.auctionActionRow
@@ -881,59 +886,44 @@ window.renderAuctionCard = function(p, container, options) {
       const buttonContainer = actionLayout.actionHost;
 
       if (hasResearchEntry) {
-        const researchButton = window.ProdigyUI
-          ? window.ProdigyUI.button(buttonContainer, "부동산 조사", { chip: true })
-          : buttonContainer.createEl("button", { text: "부동산 조사", attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" } });
-        if (typeof researchButton.setAttribute === "function") researchButton.setAttribute("aria-label", `${displayCase} 부동산 조사 열기`);
-        researchButton.onclick = async (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          try {
-            if (!window.AuctionRealEstateResearch || typeof window.AuctionRealEstateResearch.openForAuction !== "function") {
-              if (window.Notice) new Notice("부동산 조사 모듈이 아직 준비되지 않았습니다. 잠시 후 다시 시도하세요.");
-              return;
+        const researchHost = buttonContainer.createEl("span", { attr: { class: "auction-card-research-attention" } });
+        const actionPromise = window.AuctionRegionPacket && typeof window.AuctionRegionPacket.researchActionForAuction === "function"
+          ? window.AuctionRegionPacket.researchActionForAuction(app, p)
+          : Promise.resolve({ state: "missing", label: "조사 필요", show: true });
+        Promise.resolve(actionPromise).then((researchState) => {
+          if (!researchState || !researchState.show || researchHost.isConnected === false) return;
+          researchHost.createEl("span", { text: researchState.label, attr: { class: "auction-card-research-badge" } });
+          const researchButton = window.ProdigyUI
+            ? window.ProdigyUI.button(researchHost, "조사 자료", { chip: true })
+            : researchHost.createEl("button", { text: "조사 자료", attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" } });
+          if (typeof researchButton.setAttribute === "function") researchButton.setAttribute("aria-label", `${displayCase} 조사 자료 열기 · ${researchState.label}`);
+          researchButton.onclick = async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            try {
+              await window.AuctionRealEstateResearch.openForAuction(app, p, {
+                returnFocus: researchButton,
+                onApplied: async (fields) => {
+                  Object.assign(p, fields);
+                  card.empty();
+                  window.renderAuctionCard(p, container, options);
+                }
+              });
+            } catch (error) {
+              if (window.Notice) new Notice(`부동산 조사 오류: ${error.message || String(error)}`);
             }
-            await window.AuctionRealEstateResearch.openForAuction(app, p, {
-              returnFocus: researchButton,
-              onApplied: async (fields) => {
-                Object.assign(p, fields);
-                card.empty();
-                window.renderAuctionCard(p, container, options);
-              }
-            });
-          } catch (error) {
-            if (window.Notice) new Notice(`부동산 조사 오류: ${error.message || String(error)}`);
-          }
-        };
+          };
+        }).catch(() => {
+          if (researchHost.isConnected === false) return;
+          researchHost.createEl("span", { text: "조사 상태 확인 실패", attr: { class: "auction-card-research-badge" } });
+        });
       }
 
-      // Decision Packet is deterministic reference material for active cases.
-      // It stays inline and never changes Object properties or Auction Day state.
-      if (decisionPacket && decisionPacket.isActionable && decisionPacket.isActionable(p)) {
-        let packetHost = null;
-        const packetBtn = window.ProdigyUI
-          ? window.ProdigyUI.button(buttonContainer, "결정 패킷", { chip: true })
-          : buttonContainer.createEl("button", {
-            text: "결정 패킷",
-            attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" }
-          });
-        packetBtn.onclick = (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (packetHost && packetHost.parentNode) {
-            packetHost.parentNode.removeChild(packetHost);
-            packetHost = null;
-            packetBtn.setText ? packetBtn.setText("결정 패킷") : (packetBtn.textContent = "결정 패킷");
-            return;
-          }
-          packetHost = card.createEl("div", { attr: { class: "prodigy-auction-decision-packet-host" } });
-          decisionPacket.renderForAuction(packetHost, {
-            app,
-            auction: p,
-            context: decisionPacketContext
-          });
-          packetBtn.setText ? packetBtn.setText("패킷 닫기") : (packetBtn.textContent = "패킷 닫기");
-        };
+      if (buttons.length > 0) {
+        buttonContainer.createEl('span', {
+          text: '다음 행동',
+          attr: { class: 'auction-card-next-action-label' }
+        });
       }
 
       buttons.forEach(opt => {

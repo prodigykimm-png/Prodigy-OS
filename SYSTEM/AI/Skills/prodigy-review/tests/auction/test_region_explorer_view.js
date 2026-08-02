@@ -63,7 +63,7 @@ test("Given Region surfaces When their source is inspected Then no Vault write A
   }
 });
 
-test("Given explicit wide and compact logical widths When Region comparison renders Then it switches from side-by-side to one stacked column", () => {
+test("Given explicit wide and compact logical widths When Region comparison renders Then compact keeps readable horizontal Region columns", () => {
   const state = { selected_region_keys: projection.rows.slice(0, 2).map((item) => item.identity.region_key) };
   const wide = new FakeElement("section");
   const compact = new FakeElement("section");
@@ -74,8 +74,11 @@ test("Given explicit wide and compact logical widths When Region comparison rend
   assert.equal(wide.attr["data-layout"], "wide");
   assert.equal(find(wide, (node) => node.attr && node.attr["data-comparison-layout"])?.attr["data-comparison-layout"], "side-by-side");
   assert.equal(compact.attr["data-layout"], "compact");
-  assert.equal(find(compact, (node) => node.attr && node.attr["data-comparison-layout"])?.attr["data-comparison-layout"], "stacked");
-  assert.ok(walk(compact, (node) => node.attr && node.attr.class === "region-explorer-values" && node.attr["data-columns"] === "1").length > 0);
+  assert.equal(find(compact, (node) => node.attr && node.attr["data-comparison-layout"])?.attr["data-comparison-layout"], "horizontal");
+  assert.ok(walk(compact, (node) => node.attr && node.attr.class === "region-explorer-values" && node.attr["data-columns"] === "2").length > 0);
+  const comparisonText = text(find(compact, (node) => node.attr && node.attr.class === "region-explorer-comparison"));
+  assert.match(comparisonText, /지역 기준일 2026-05-01/);
+  assert.match(comparisonText, /미검증/);
 });
 
 test("Given valid and incomplete Region rows When the wide Explorer renders Then Korean controls, provenance, SVG trends, diagnostics, and separate groups remain visible", () => {
@@ -85,7 +88,7 @@ test("Given valid and incomplete Region rows When the wide Explorer renders Then
   const rendered = text(root);
   assert.match(rendered, /지역 비교|시도|지역 검색|검증 상태|기준일|정렬|비교 선택/);
   assert.match(rendered, /관측값|자료 없음|관측 범위 부족|미검증|히스토리 일부/);
-  assert.match(rendered, /시장|세대|12~60개월 입주물량|지가|조사 근거/);
+  assert.match(rendered, /거래·가격|임대·수요 근거|공급·생활환경|경매 사례·미시 입지|근거 상태/);
   assert.doesNotMatch(rendered, /sale_volume_3m|move_in_12m|score|rank|추천|지도/i);
   assert.equal(walk(root, (node) => node.attr && node.attr["data-scroll-owner"] === "region-explorer-content").length, 0, "the shared AppShell body remains the only scroll owner");
   assert.ok(walk(root, (node) => node.tag === "svg").length >= 1, "valid history must render a native SVG sparkline");
@@ -105,11 +108,12 @@ test("Given a mounted Explorer When three rows are selected and a fourth is requ
   assert.deepEqual(independent.state().selected_region_keys, []);
 });
 
-test("Given compact, long-label, null, and malformed fixtures When the Explorer renders Then comparison collapses to stacked metric cards without throwing", () => {
+test("Given compact, long-label, null, and malformed fixtures When the Explorer renders Then comparison keeps horizontal columns without throwing", () => {
   const compact = new FakeElement("section");
   assert.doesNotThrow(() => view.renderRegionExplorer(compact, projection, { logicalWidth: 375, state: { selected_region_keys: projection.rows.slice(0, 3).map((item) => item.identity.region_key) } }));
   assert.equal(compact.attr["data-layout"], "compact");
-  assert.equal(walk(compact, (node) => node.attr && node.attr["data-comparison-layout"] === "stacked").length, 1);
+  assert.equal(walk(compact, (node) => node.attr && node.attr["data-comparison-layout"] === "horizontal").length, 1);
+  assert.match(walk(compact, (node) => node.tag === "style")[0].text, /overflow-x:auto/);
   assert.match(text(compact), /아주길고긴한국어지역명과공백없는세부설명문자열/);
   assert.doesNotThrow(() => view.renderRegionExplorer(new FakeElement("section"), { rows: [null, { identity: null, metrics: null }] }, { logicalWidth: 375 }));
 });
@@ -144,6 +148,39 @@ test("Given a projection row with populated transit When rendered Then Korean tr
   assert.match(rendered, /인천1호선/);
   assert.match(rendered, /인천1호선 2개역/);
   assert.match(rendered, /인천2호선 2개역/);
+});
+
+test("Given a valid Region row and an Auction navigation handler When the Explorer renders Then the row exposes a district-scoped Auction action", () => {
+  const root = new FakeElement("section");
+  const calls = [];
+  view.renderRegionExplorer(root, { rows: [projection.rows[0]] }, {
+    logicalWidth: 1280,
+    onViewRegionAuctions: (payload) => calls.push(payload)
+  });
+
+  const action = find(root, (node) => node.attr && node.attr["data-action"] === "view-region-auctions");
+  assert.ok(action);
+  assert.equal(action.text, "이 지역 경매 보기");
+  click(action);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].regionKey, "부산광역시-중구");
+  assert.equal(calls[0].row.identity.sigungu, "중구");
+});
+
+test("Given a valid Region row and a detail handler When the Explorer renders Then the row exposes a note-free Region detail action", () => {
+  const root = new FakeElement("section");
+  const calls = [];
+  view.renderRegionExplorer(root, { rows: [projection.rows[0]] }, {
+    logicalWidth: 1280,
+    onViewRegionDetail: (payload) => calls.push(payload)
+  });
+
+  const action = find(root, (node) => node.attr && node.attr["data-action"] === "view-region-detail");
+  assert.ok(action);
+  assert.equal(action.text, "지역 상세 보기");
+  click(action);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].regionKey, "부산광역시-중구");
 });
 
 test("Given a projection row with empty transit When rendered Then Korean empty message appears", () => {

@@ -9,6 +9,15 @@
 
   const REGION_ROOT = "PARA/RESOURCES/Auction Regions";
   const TEMPLATE_PATH = "SYSTEM/TEMPLATE/FORMAT/template_auction_region.md";
+  const REGION_AUCTION_QUERY = Object.freeze({
+    table: 'TABLE status AS "상태", auction_datetime AS "기일", minimum_bid AS "최저가", address AS "주소", region_dong AS "동"',
+    from: 'FROM "PARA/PROJECTS/Auction"',
+    where: Object.freeze([
+      'WHERE type = "auction_case"',
+      "WHERE region_sido = this.region_sido AND region_sigungu = this.region_sigungu"
+    ]),
+    sort: "SORT auction_datetime ASC"
+  });
 
   function clean(value) {
     return String(value == null ? "" : value).trim();
@@ -69,6 +78,15 @@
     return regionKey(p) || "지역 미정";
   }
 
+  function regionDisplay(pageOrParts) {
+    const p = pageOrParts || {};
+    const sido = normalizeSido(p.region_sido || p.sido);
+    const sigungu = clean(p.region_sigungu || p.sigungu).replace(/\s+/g, " ");
+    const dong = clean(p.region_dong || p.dong).replace(/\s+/g, " ");
+    if (!sido && !sigungu && !dong) return "지역 미정";
+    return [sido || "시·도 미입력", sigungu || "시·군·구 미입력", dong || "동 미입력"].join(" ");
+  }
+
   function regionNotePath(pageOrParts) {
     const key = regionKey(pageOrParts);
     if (!key) return "";
@@ -82,6 +100,59 @@
     if (!path) return "";
     const name = path.split("/").pop().replace(/\.md$/i, "");
     return `[[${name}]]`;
+  }
+
+  function dateValue(value) {
+    const match = clean(value).match(/^(\d{4})-(\d{2})-(\d{2})(?:T|$)/);
+    if (!match) return null;
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function snapshotFreshness(options) {
+    const opts = options || {};
+    const observedAt = dateValue(opts.observedAt || opts.observed_at);
+    const now = dateValue(opts.now || opts.asOf || opts.as_of);
+    const maxAgeDays = Number(opts.maxAgeDays ?? opts.max_age_days ?? 30);
+    if (!observedAt || !now || !Number.isFinite(maxAgeDays) || maxAgeDays < 0) {
+      return Object.freeze({ status: "unknown", observed_at: clean(opts.observedAt || opts.observed_at) });
+    }
+    const ageDays = (now.getTime() - observedAt.getTime()) / (24 * 60 * 60 * 1000);
+    if (ageDays < 0 || ageDays > maxAgeDays) {
+      return Object.freeze({ status: "stale", observed_at: clean(opts.observedAt || opts.observed_at), age_days: ageDays });
+    }
+    return Object.freeze({ status: "fresh", observed_at: clean(opts.observedAt || opts.observed_at), age_days: ageDays });
+  }
+
+  function getRegionAuctionSnapshot(regionSido, regionSigungu, rows, options) {
+    const sido = normalizeSido(regionSido);
+    const sigungu = normalizeSigungu(regionSigungu);
+    const sourceRows = rows && typeof rows[Symbol.iterator] === "function" ? Array.from(rows) : [];
+    const matched = sourceRows.filter((row) => {
+      if (!row || typeof row !== "object") return false;
+      return normalizeSido(row.region_sido) === sido && normalizeSigungu(row.region_sigungu) === sigungu;
+    }).map((row) => Object.freeze({
+      path: clean(row.path || row.file && row.file.path),
+      case_number: clean(row.case_number),
+      status: clean(row.status),
+      auction_datetime: clean(row.auction_datetime),
+      minimum_bid: row.minimum_bid ?? null,
+      address: clean(row.address),
+      region_dong: clean(row.region_dong)
+    }));
+    const freshness = snapshotFreshness(options);
+    const status = matched.length === 0 ? "empty" : freshness.status === "stale" ? "stale" : "ready";
+    return Object.freeze({
+      status,
+      source: "dataview",
+      region_sido: sido,
+      region_sigungu: sigungu,
+      region_key: sido && sigungu ? `${sido}-${sigungu}` : "",
+      count: matched.length,
+      rows: Object.freeze(matched),
+      freshness,
+      query: REGION_AUCTION_QUERY
+    });
   }
 
   function buildRegionNoteBody(pageOrParts, options) {
@@ -303,13 +374,16 @@
   const api = {
     REGION_ROOT,
     TEMPLATE_PATH,
+    REGION_AUCTION_QUERY,
     clean,
     normalizeSido,
     normalizeSigungu,
     regionKey,
     regionTitle,
+    regionDisplay,
     regionNotePath,
     regionWikilink,
+    getRegionAuctionSnapshot,
     buildRegionNoteBody,
     openOrCreateRegionNote
   };

@@ -1,7 +1,7 @@
 ---
 cssclasses:
   - hide-properties_reading
-card_region: 부산
+card_region: 전체지역
 card_type: 전체종류
 card_sort: dday_asc
 ---
@@ -15,6 +15,57 @@ container.empty();
 // Last reload: 2026-07-12T16:22:00
 window.obsidian = obsidian;
 window.app = app;
+
+// Consume an exact Auction handoff once. Each status section reports when it has
+// rendered, then this session-only runtime reveals and focuses the matching card.
+const auctionNavigationRequest = window.prodigyAuctionNavigationRequest && typeof window.prodigyAuctionNavigationRequest === "object"
+  ? window.prodigyAuctionNavigationRequest
+  : null;
+delete window.prodigyAuctionNavigationRequest;
+window.ProdigyAuctionNavigationFocus = null;
+if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path === "string" && auctionNavigationRequest.auction_path.trim()) {
+  const targetPath = auctionNavigationRequest.auction_path.trim();
+  const expectedSections = new Set(["bidding", "watching", "reviewing", "won", "lost", "skipped", "archived"]);
+  const renderedSections = new Set();
+  let completed = false;
+  let fallbackScheduled = false;
+  const locate = () => {
+    if (completed || typeof document === "undefined") return false;
+    const card = Array.from(document.querySelectorAll("[data-auction-path]")).find((element) => element.getAttribute("data-auction-path") === targetPath);
+    if (!card) return false;
+    const collapsed = typeof card.closest === "function" ? card.closest("details") : null;
+    if (collapsed) collapsed.open = true;
+    card.setAttribute("data-navigation-focus", "true");
+    if (typeof card.scrollIntoView === "function") card.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (typeof card.focus === "function") {
+      try { card.focus({ preventScroll: true }); }
+      catch (_) { card.focus(); }
+    }
+    completed = true;
+    window.setTimeout(() => card.removeAttribute("data-navigation-focus"), 1800);
+    window.ProdigyAuctionNavigationFocus = null;
+    return true;
+  };
+  const scheduleLocate = () => {
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(locate);
+    else window.setTimeout(locate, 0);
+  };
+  const markSection = (status) => {
+    if (completed) return;
+    if (expectedSections.has(status)) renderedSections.add(status);
+    scheduleLocate();
+    if (renderedSections.size === expectedSections.size && !fallbackScheduled) {
+      fallbackScheduled = true;
+      window.setTimeout(() => {
+        if (locate()) return;
+        completed = true;
+        window.ProdigyAuctionNavigationFocus = null;
+        if (typeof Notice !== "undefined") new Notice("선택한 경매 카드가 현재 필터에 보이지 않습니다. 지역 필터와 카드 상태를 확인해 주세요.");
+      }, 120);
+    }
+  };
+  window.ProdigyAuctionNavigationFocus = Object.freeze({ targetPath, markSection });
+}
 
 // Dynamic script loader helper
 let activeLoadPath = "로더 시작";
@@ -50,8 +101,12 @@ try {
   if (window.prodigySiteVisitReady) await window.prodigySiteVisitReady;
   await loadProdigyScript("SYSTEM/Views/auction-region-core.js");
   await loadProdigyScript("SYSTEM/Views/region-explorer-projection.js");
+  await loadProdigyScript("SYSTEM/Views/region-decision-context-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-region-packet.js");
   await loadProdigyScript("SYSTEM/Views/region-decision-view-model.js");
+  await loadProdigyScript("SYSTEM/Views/region-collection-health-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-decision-mirror-core.js");
+  await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-store.js");
   await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-core.js");
   await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-view.js");
   await loadProdigyScript("SYSTEM/Views/decision-packet-core.js");
@@ -63,8 +118,19 @@ try {
   await loadProdigyScript("SYSTEM/Views/auction-card-price-projection.js");
   await loadProdigyScript("SYSTEM/Views/auction-learning-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-outcome-writer.js");
+  await loadProdigyScript("SYSTEM/Views/real-estate-source-runtime.js");
   await loadProdigyScript("SYSTEM/Views/auction-source-approval-writer.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-response.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-schema.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-error-policy.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-fallback.js");
+  await loadProdigyScript("SYSTEM/Views/codex-exec-service.js");
+  await loadProdigyScript("SYSTEM/Views/antigravity-exec-service.js");
+  await loadProdigyScript("SYSTEM/Views/ai-context-envelope.js");
+  await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-config-service.js");
   await loadProdigyScript("SYSTEM/Views/auction-real-estate-research-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-real-estate-source-runner.js");
   await loadProdigyScript("SYSTEM/Views/auction-real-estate-research.js");
   // Snapshot the full Dataview index once for this dashboard render. Cards and
   // Auction Day only consume this immutable context; they never re-query Vault.
@@ -76,13 +142,29 @@ try {
   window.AuctionDecisionPacketDashboardContext = window.AuctionDecisionPacket
     ? window.AuctionDecisionPacket.createDashboardContext(packetPages)
     : null;
+  window.AuctionDecisionMirrorDashboardContext = window.AuctionDecisionMirrorCore
+    ? window.AuctionDecisionMirrorCore.snapshotAuctionCases(packetPages)
+    : null;
   await loadProdigyScript("SYSTEM/Views/auction-card.js");
   await loadProdigyScript("SYSTEM/Views/bid-calendar-core.js");
   await loadProdigyScript("SYSTEM/Views/bid-calendar-view.js");
   await loadProdigyScript("SYSTEM/Views/auction-day-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-day-view.js");
   activeLoadPath = "워크스페이스 탐색 UI";
-  window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "auction", title: "경매" });
+  const regionScope = window.prodigyAuctionRegionScope && typeof window.prodigyAuctionRegionScope === "object"
+    ? window.prodigyAuctionRegionScope
+    : null;
+  window.ProdigyWorkspaceNavigation.mount(container, {
+    app,
+    workspaceId: "auction",
+    title: "경매",
+    context: {
+      label: "현재 문맥",
+      items: regionScope && regionScope.region_sido && regionScope.region_sigungu
+        ? [`지역 필터 · ${regionScope.region_sido} ${regionScope.region_sigungu}`]
+        : []
+    }
+  });
 } catch (err) {
   const failedStage = err && err.prodigyLoadPath ? err.prodigyLoadPath : activeLoadPath;
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
@@ -389,6 +471,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "asc"
     });
+    window.ProdigyAuctionNavigationFocus?.markSection("bidding");
     return true;
   }
   return false;
@@ -428,6 +511,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "asc"
     });
+    window.ProdigyAuctionNavigationFocus?.markSection("watching");
     return true;
   }
   return false;
@@ -593,6 +677,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    window.ProdigyAuctionNavigationFocus?.markSection("reviewing");
     return true;
   }
   return false;
@@ -629,6 +714,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    window.ProdigyAuctionNavigationFocus?.markSection("won");
     return true;
   }
   return false;
@@ -663,6 +749,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    window.ProdigyAuctionNavigationFocus?.markSection("lost");
     return true;
   }
   return false;
@@ -697,6 +784,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    window.ProdigyAuctionNavigationFocus?.markSection("skipped");
     return true;
   }
   return false;
@@ -731,6 +819,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    window.ProdigyAuctionNavigationFocus?.markSection("archived");
     return true;
   }
   return false;

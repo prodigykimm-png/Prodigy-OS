@@ -69,8 +69,8 @@ test("Auction card → Region popup → back retains context", () => {
   assert.equal(result.state.regionKey, "부산광역시-사하구");
   assert.equal(result.state.readOnly, true);
   // Navigate tabs
-  const s1 = popupCore.switchTab(result.state, 4);
-  assert.equal(s1.activeTabIndex, 4);
+  const s1 = popupCore.switchTab(result.state, 2);
+  assert.equal(s1.activeTabIndex, 2);
   // "Back" — just switch back to 0
   const s2 = popupCore.switchTab(s1, 0);
   assert.equal(s2.activeTabIndex, 0);
@@ -87,11 +87,72 @@ test("Region popup → source drilldown → back", () => {
   fs.rmSync(vault, { recursive: true, force: true });
 });
 
+test("Region popup → metric tabs use Korean labels and formatted units, never raw Property keys", () => {
+  const coreHtml = popupView.renderTabPanel({
+    id: "core",
+    available: true,
+    content: { metrics_as_of: "2026-05-01", housing_stock: 12345, sale_price_change_yoy: 1.23, sale_turnover_rate: 0.035 }
+  }, 0, true);
+  assert.match(coreHtml, /지표 기준일/);
+  assert.match(coreHtml, /주택 재고/);
+  assert.match(coreHtml, /12,345호/);
+  assert.match(coreHtml, /1\.23%/);
+  assert.match(coreHtml, /3\.5%/);
+  assert.doesNotMatch(coreHtml, /metrics_as_of|housing_stock|sale_price_change_yoy/);
+
+  const fallbackHtml = popupView.renderTabPanel({ id: "unknown", available: true, content: { internal_property: "value" } }, 0, true);
+  assert.doesNotMatch(fallbackHtml, /region-popup-json|internal_property/);
+});
+
+test("Auction card context → 판단·결과 tab keeps human judgement and canonical outcomes separate", () => {
+  const vault = makeVault();
+  const result = popupCore.openPopup(vault, "부산광역시-사하구", {
+    auction: {
+      id: "current-case",
+      type: "auction_case",
+      file: { path: "PARA/PROJECTS/Auction/current-case.md" },
+      region_sido: "부산광역시",
+      region_sigungu: "사하구",
+      region_dong: "괴정동",
+      decision_reason: "교통과 실수요를 확인했다.",
+      expected_bid: 230000000
+    },
+    cases: [{
+      id: "past-case",
+      type: "auction_case",
+      file: { path: "PARA/PROJECTS/Auction/past-case.md" },
+      region_sido: "부산광역시",
+      region_sigungu: "사하구",
+      region_dong: "하단동",
+      decision_reason: "임대 수요를 확인했다.",
+      auction_outcome: "lost",
+      auction_result_date: "2026-06-20",
+      winning_bid_price: 255000000,
+      appraisal_price: 300000000
+    }]
+  });
+
+  assert.equal(result.ok, true);
+  const casesTab = result.state.projection.tabs.find((item) => item.id === "cases_visit");
+  const tab = casesTab.content.sections.find((item) => item.id === "decision_outcome");
+  assert.ok(tab);
+  assert.equal(tab.content.current_decision.region_dong, "괴정동");
+  assert.equal(tab.content.current_decision.reasons[0].value, "교통과 실수요를 확인했다.");
+  assert.equal(tab.content.canonical_outcome_count, 1);
+  assert.equal(tab.content.outcomes[0].bid_rate_percent, 85);
+  const html = popupView.renderTabPanel(casesTab, 2, true);
+  assert.match(html, /판단 근거/);
+  assert.match(html, /정규 결과 1건/);
+  assert.doesNotMatch(html, /추천 입찰가|지역 점수/);
+  fs.rmSync(vault, { recursive: true, force: true });
+});
+
 test("Region popup → site visit → creates note, not Object", () => {
   const vault = makeVault();
   const result = popupCore.openPopup(vault, "부산광역시-사하구");
   // Site visit tab is always available
-  const siteTab = result.state.projection.tabs.find((t) => t.id === "site_visit");
+  const casesTab = result.state.projection.tabs.find((t) => t.id === "cases_visit");
+  const siteTab = casesTab.content.sections.find((t) => t.id === "site_visit");
   assert.equal(siteTab.available, true);
   assert.equal(siteTab.content.can_add, true);
   // Popup does NOT create the note itself — that's the workflow's job
@@ -109,7 +170,8 @@ test("malformed Region → popup shows unavailable, no crash", () => {
   fs.writeFileSync(path.join(regionDir, "부산광역시-테스트구.md"), "INVALID CONTENT NO FRONTMATTER\n", "utf8");
   const result = popupCore.openPopup(vault, "부산광역시-테스트구");
   assert.equal(result.ok, true); // opens but shows unavailable
-  const coreTab = result.state.projection.tabs.find((t) => t.id === "core");
+  const evidenceTab = result.state.projection.tabs.find((t) => t.id === "region_evidence");
+  const coreTab = evidenceTab.content.sections.find((t) => t.id === "core");
   assert.equal(coreTab.available, false);
   // Render doesn't crash
   const html = popupView.renderPopup(result.state);
@@ -125,7 +187,7 @@ test("popup never mutates any file", () => {
 
   // Full popup lifecycle
   const result = popupCore.openPopup(vault, "부산광역시-사하구");
-  for (let i = 0; i < 7; i++) popupCore.switchTab(result.state, i);
+  for (let i = 0; i < 3; i++) popupCore.switchTab(result.state, i);
   popupView.renderPopup(result.state);
   popupCore.getSourceDrilldown(result.state.projection, "housing_stock");
 

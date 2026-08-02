@@ -122,31 +122,20 @@
     return sido && sigungu ? `${sido}-${sigungu}` : "";
   }
 
-  function openRegionPopup(app, record) {
+  async function openRegionPopup(app, record) {
     const core = root.RegionIntelligencePopupCore;
     const view = root.RegionIntelligencePopupView;
-    if (!core || !core.isAvailable || !view || typeof view.renderPopup !== "function") return false;
-    if (typeof core.openPopup !== "function") return false;
+    if (!core || typeof core.openPopupForApp !== "function" || !view || typeof view.openOverlay !== "function") return false;
     if (typeof document === "undefined" || !document.body) return false;
 
     const regionKey = regionKeyOf(record);
     if (!regionKey) return false;
 
-    const basePath = (app && app.vault && app.vault.adapter && app.vault.adapter.basePath) || "";
-    const result = core.openPopup(basePath, regionKey);
+    const result = await core.openPopupForApp(app, regionKey, {
+      decisionContext: root.AuctionDecisionMirrorDashboardContext || null
+    });
     if (!result || !result.ok) return false;
-
-    const overlay = document.createElement("div");
-    overlay.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)";
-    const modal = document.createElement("div");
-    modal.style.cssText = "background:var(--background-primary);border-radius:12px;max-width:560px;width:95vw;max-height:90vh;overflow-y:auto;padding:16px";
-    modal.innerHTML = view.renderPopup(result.state);
-    overlay.appendChild(modal);
-    overlay.addEventListener("click", (event) => { if (event.target === overlay) overlay.remove(); });
-    const closeBtn = modal.querySelector("[data-action='close']");
-    if (closeBtn) closeBtn.addEventListener("click", () => overlay.remove());
-    document.body.appendChild(overlay);
-    return true;
+    return Boolean(view.openOverlay(result.state));
   }
 
   function addRecord(parent, app, record, label) {
@@ -169,10 +158,10 @@
         style: "border:0;background:transparent;color:var(--text-accent);padding:0;text-align:left;cursor:pointer;font:inherit;"
       }
     });
-    row.onclick = (event) => {
+    row.onclick = async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (label === "지역 분석" && openRegionPopup(app, record)) return;
+      if (label === "지역 분석" && await openRegionPopup(app, record)) return;
       openRecord(app, record);
     };
   }

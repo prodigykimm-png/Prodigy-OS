@@ -10,6 +10,11 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const viewModel = require(path.join(ROOT, "SYSTEM/Views/region-decision-view-model.js"));
 const popupCore = require(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-core.js"));
 
+function nestedSection(projection, groupId, sectionId) {
+  const group = projection.tabs.find((tab) => tab.id === groupId);
+  return group && group.content.sections.find((section) => section.id === sectionId);
+}
+
 function regionNote(overrides = {}) {
   const fm = {
     type: "auction_region",
@@ -38,26 +43,27 @@ function emptyNote() {
   return `---\ntype: auction_region\ntitle: 테스트구\nregion_sido: 부산광역시\nregion_sigungu: 테스트구\nstatus: active\nupdated: 2026-07-18\nmetrics_as_of:\nverification_status: unverified\nhousing_stock:\nsale_volume_3m:\n---\n\n# 테스트구\n\n## 교통·생활\n\n<!-- AUTO:REGION_TRANSIT:START -->\n<!-- AUTO:REGION_TRANSIT:END -->\n`;
 }
 
-test("populated Region → all 7 tabs projected", () => {
+test("populated Region → exactly three purpose groups preserve all evidence sections", () => {
   const { frontmatter, body } = popupCore.parseRegionNote(regionNote());
   const projection = viewModel.projectRegionPopup({ frontmatter, body, regionKey: "부산광역시-사하구" });
-  assert.equal(projection.tabs.length, 7);
-  assert.equal(projection.tabs[0].id, "core");
+  assert.equal(projection.tabs.length, 3);
+  assert.deepEqual(projection.tabs.map((tab) => tab.id), ["decision_context", "region_evidence", "cases_visit"]);
   assert.equal(projection.tabs[0].available, true);
-  assert.equal(projection.tabs[0].content.housing_stock, 48544);
-  assert.equal(projection.tabs[4].id, "transit_life");
-  assert.equal(projection.tabs[4].available, true);
-  assert.equal(projection.tabs[6].id, "site_visit");
-  assert.equal(projection.tabs[6].available, true);
+  assert.equal(nestedSection(projection, "region_evidence", "core").content.housing_stock, 48544);
+  assert.equal(nestedSection(projection, "region_evidence", "transit_life").available, true);
+  assert.equal(nestedSection(projection, "cases_visit", "site_visit").available, true);
+  assert.equal(projection.tabs[0].label, "판단 맥락");
+  assert.equal(projection.tabs[1].label, "지역 근거");
+  assert.equal(projection.tabs[2].label, "사례·임장");
 });
 
 test("empty Region → tabs show unavailable reasons", () => {
   const { frontmatter, body } = popupCore.parseRegionNote(emptyNote());
   const projection = viewModel.projectRegionPopup({ frontmatter, body, regionKey: "부산광역시-테스트구" });
-  assert.equal(projection.tabs[0].available, false);
-  assert.equal(projection.tabs[0].unavailableReason, "수집 데이터 없음");
-  assert.equal(projection.tabs[4].available, false);
-  assert.equal(projection.tabs[4].unavailableReason, "확인된 도시철도 정보 없음");
+  assert.equal(nestedSection(projection, "region_evidence", "core").available, false);
+  assert.equal(nestedSection(projection, "region_evidence", "core").unavailableReason, "수집 데이터 없음");
+  assert.equal(nestedSection(projection, "region_evidence", "transit_life").available, false);
+  assert.equal(nestedSection(projection, "region_evidence", "transit_life").unavailableReason, "확인된 도시철도 정보 없음");
 });
 
 test("stale metrics → freshness badge warns", () => {
@@ -80,8 +86,8 @@ test("malformed transit → 정보 확인 불가", () => {
   );
   const { frontmatter, body } = popupCore.parseRegionNote(note);
   const projection = viewModel.projectRegionPopup({ frontmatter, body, regionKey: "부산광역시-사하구" });
-  assert.equal(projection.tabs[4].available, false);
-  assert.equal(projection.tabs[4].unavailableReason, "정보 확인 불가");
+  assert.equal(nestedSection(projection, "region_evidence", "transit_life").available, false);
+  assert.equal(nestedSection(projection, "region_evidence", "transit_life").unavailableReason, "정보 확인 불가");
 });
 
 test("trust badges: 4 independent fields, never aggregated", () => {
@@ -109,8 +115,8 @@ test("tab navigation: focus persistence across switches", () => {
   const result = popupCore.openPopup(vault, "부산광역시-사하구");
   assert.equal(result.ok, true);
   assert.equal(result.state.activeTabIndex, 0);
-  const switched = popupCore.switchTab(result.state, 3);
-  assert.equal(switched.activeTabIndex, 3);
+  const switched = popupCore.switchTab(result.state, 2);
+  assert.equal(switched.activeTabIndex, 2);
   const back = popupCore.switchTab(switched, 0);
   assert.equal(back.activeTabIndex, 0);
   fs.rmSync(vault, { recursive: true, force: true });
@@ -135,7 +141,7 @@ test("zero write: popup never calls any writer/apply function", () => {
   const shaBefore = require("crypto").createHash("sha256").update(before).digest("hex");
   // Open popup, switch tabs, drill down
   const result = popupCore.openPopup(vault, "부산광역시-사하구");
-  popupCore.switchTab(result.state, 4);
+  popupCore.switchTab(result.state, 1);
   popupCore.getSourceDrilldown(result.state.projection, "housing_stock");
   // Verify file unchanged
   const after = fs.readFileSync(targetPath, "utf8");

@@ -188,7 +188,21 @@ Workspace UI 상태는 schema `v1`로 분리한다. `prodigy.ui.workspace-state.
 
 - `region-experience-modal` is the reusable, Obsidian-native intake primitive for one already-existing `auction_region`. It preserves a caller's focus-return control and opens and cancels without provider or vault work. It selects an available canonical Region by default; Korean invalid-region recovery appears only after an invalid action.
 - Its review shell owns the body scroll. `region-experience-review-footer` remains sticky at the modal bottom and contains the explicit `Evidence 승인·반영` action; it is disabled while busy or without selected Evidence. After Evidence is saved, Region reflection and Knowledge candidate saving remain separate, explicit approvals and never run automatically.
+
+### Region decision popup
+
+- `region-collection-health` is a compact status band, not a score. It shows canonical Region coverage, the selected Region's latest metrics month and run count, and explicit missing, stale, or repeated-month warnings without changing any Region Object.
+- `region-decision-outcome` places the current Auction's human-authored judgement beside canonical `auction_outcome` history for the exact same 시군구. `region_dong` remains item context; district-only values are labeled `구 기준`.
+- Lifecycle-only `won` / `lost` / `skipped` records are labeled as pending legacy results and never enter outcome counts or bid-rate calculations. Small samples are identified explicitly, and the surface never emits a region score, recommendation, forecast, or suggested bid.
 - At widths up to 599px fields and actions become one column; review-footer controls use a one-column grid with `var(--ke-space-3)` visible gaps and at least `var(--ke-touch-target)` height. Korean text uses the shared CJK wrapping contract, focus remains visibly outlined, and reduced-motion users receive no nonessential transition.
+
+### Auction–Region decision surfaces
+
+- `auction-decision-board` is the single card-level entry point for regional context. It keeps the Auction card's address, price, status, and user judgement out of the board when they are already visible on the card; the board adds only the four neutral questions `거래·가격`, `임대·수요`, `공급·생활환경`, and `경매 사례·미시 입지`, with at most three traceable facts per question.
+- `auction-research-attention` is conditional chrome. A healthy source package stays quiet on the card; missing, stale, failed, identifier-required, or selection-required research exposes a compact `조사 자료` action. The action reports provider state and never invents an auction outcome from an elapsed date.
+- `region-detail-groups` is a fixed three-group detail surface: `판단 맥락`, `지역 근거`, and `사례·임장`. Existing evidence sections remain nested under their responsible group, and connected Auction rows remain read-only drill-downs with exact source paths.
+- `region-comparison` groups comparison fields by decision question and retains each selected Region as a column. Wide layouts use side-by-side columns; compact layouts preserve the columns inside a local horizontal scroller. Each column carries its own 기준일 and 검증 상태, and the surface does not calculate rank, delta, score, baseline, or recommendation.
+- `auction-region-focus-handoff` carries a selected Auction path for one session only. The Auction Hub consumes it once, applies the existing district filter, opens a collapsed status section if needed, and focuses the exact card; if no matching card is rendered, it shows a Korean recovery notice and clears the request.
 
 ### Workout health tabs
 

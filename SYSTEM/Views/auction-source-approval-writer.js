@@ -11,6 +11,13 @@
   function outcomeWriter() {
     return root.AuctionOutcomeWriter || (typeof require === "function" ? require("./auction-outcome-writer.js") : null);
   }
+  function packageCore() {
+    return root.RealEstateSourcePackageCore || (typeof require === "function" ? require("../SCRIPTS/real-estate-source-package-core.js") : null);
+  }
+  function identityCore() {
+    return root.RealEstateSourceIdentityCore || (typeof require === "function" ? require("../SCRIPTS/real-estate-source-identity-core.js") : null);
+  }
+  function canonicalObjectPath(value) { return clean(value).replace(/\\/gu, "/").replace(/^\/+|\/+$/gu, ""); }
   function clean(value) { return value === undefined || value === null ? "" : String(value).trim(); }
   function selectedKeys(value) {
     if (!Array.isArray(value)) throw new Error("반영할 필드 목록이 배열이 아닙니다.");
@@ -20,6 +27,16 @@
   }
   function buildApplyPlan(pkg, keys, existingFm, options) {
     const selected = selectedKeys(keys);
+    const sourcePackage = packageCore();
+    const identity = identityCore();
+    if (!sourcePackage || !identity) throw new Error("부동산 조사 패키지 검증 모듈을 불러오지 못했습니다.");
+    sourcePackage.validatePackage(pkg);
+    const objectPath = canonicalObjectPath(options && options.object_path);
+    if (!objectPath || canonicalObjectPath(pkg.query_identity.object_path) !== objectPath) throw new Error("조사 패키지의 Auction Object 경로가 현재 대상과 일치하지 않습니다.");
+    const currentFingerprint = identity.normalizeAuctionIdentity(existingFm || {}, {}).query_fingerprint;
+    if (currentFingerprint !== pkg.query_identity.object_fingerprint) throw new Error("현재 Auction Object와 조사 패키지의 식별자 fingerprint가 달라졌습니다. 최신 조사를 다시 실행하세요.");
+    const candidateGate = sourcePackage.canApplyCandidatePatch(pkg, selected);
+    if (!candidateGate.ok) throw new Error(candidateGate.errors.join(" "));
     const patch = pkg && pkg.candidate_patch && typeof pkg.candidate_patch === "object" ? pkg.candidate_patch : {};
     selected.forEach((key) => { if (patch[key] === undefined || patch[key] === null || patch[key] === "") throw new Error(`선택한 후보 값이 없습니다: ${key}`); });
     const fields = {};
@@ -44,7 +61,7 @@
     if (!file) return { ok: false, errors: ["Auction Object를 찾을 수 없습니다."], dry_run: !opts.execute };
     const existing = app.metadataCache && app.metadataCache.getFileCache ? (app.metadataCache.getFileCache(file) || {}).frontmatter || {} : {};
     let plan;
-    try { plan = buildApplyPlan(pkg, keys, existing, opts); } catch (error) { return { ok: false, errors: [error.message], dry_run: !opts.execute }; }
+    try { plan = buildApplyPlan(pkg, keys, existing, Object.assign({}, opts, { object_path: objectPath })); } catch (error) { return { ok: false, errors: [error.message], dry_run: !opts.execute }; }
     if (!plan.ok) return Object.assign(plan, { dry_run: !opts.execute, errors: ["기존 outcome을 덮어쓰려면 추가 확인이 필요합니다."] });
     if (opts.execute !== true) return Object.assign(plan, { dry_run: true, message: "Dry-run: 승인된 후보 필드를 반영할 수 있습니다." });
     await app.fileManager.processFrontMatter(file, (fm) => {

@@ -25,7 +25,15 @@ const MODULE_PATHS = [
   "SYSTEM/Views/region-explorer-projection.js",
   "SYSTEM/Views/region-explorer-data-source.js",
   "SYSTEM/Views/region-explorer-state.js",
-  "SYSTEM/Views/region-explorer-view.js"
+  "SYSTEM/Views/region-explorer-view.js",
+  "SYSTEM/Views/auction-region-core.js",
+  "SYSTEM/Views/region-collection-health-core.js",
+  "SYSTEM/Views/region-decision-context-core.js",
+  "SYSTEM/Views/region-decision-view-model.js",
+  "SYSTEM/Views/auction-decision-mirror-core.js",
+  "SYSTEM/Views/region-intelligence-popup-store.js",
+  "SYSTEM/Views/region-intelligence-popup-core.js",
+  "SYSTEM/Views/region-intelligence-popup-view.js"
 ];
 const REGION_EXPERIENCE_MODULE_PATHS = [
   "SYSTEM/Views/region-experience-contract.js",
@@ -35,6 +43,8 @@ const REGION_EXPERIENCE_MODULE_PATHS = [
   "SYSTEM/Views/ai-provider-schema.js",
   "SYSTEM/Views/ai-provider-error-policy.js",
   "SYSTEM/Views/ai-provider-fallback.js",
+  "SYSTEM/Views/codex-exec-service.js",
+  "SYSTEM/Views/antigravity-exec-service.js",
   "SYSTEM/Views/ai-provider-service.js",
   "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",

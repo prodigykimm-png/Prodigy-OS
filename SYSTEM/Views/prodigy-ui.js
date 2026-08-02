@@ -177,6 +177,67 @@
   font-size: var(--ke-type-chrome, 0.68rem) !important;
   line-height: var(--ke-leading-control, 1.35) !important;
 }
+.auction-card-research-attention {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ke-space-1, 2px);
+  min-inline-size: 0;
+}
+.auction-card-research-badge {
+  display: inline-flex;
+  align-items: center;
+  min-inline-size: 0;
+  padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  font-size: var(--ke-type-chrome, .68rem);
+  font-weight: 700;
+  line-height: var(--ke-leading-control, 1.35);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.auction-card[data-navigation-focus="true"] {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 3px;
+}
+
+.auction-card-finance-row {
+  min-inline-size: 0;
+  word-break: keep-all;
+}
+.auction-card-finance-group {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ke-space-2, 4px);
+  min-inline-size: 0;
+  padding: 2px 0;
+}
+.auction-card-finance-group + .auction-card-finance-group {
+  padding-inline-start: var(--ke-space-3, 8px);
+  border-inline-start: 1px solid var(--background-modifier-border);
+}
+.auction-card-finance-label {
+  color: var(--text-muted);
+  font-size: var(--ke-type-chrome, .68rem);
+  font-weight: 700;
+  line-height: var(--ke-leading-control, 1.35);
+  white-space: nowrap;
+}
+.auction-card-finance-separator {
+  color: var(--text-muted);
+}
+.auction-card-next-action-label {
+  color: var(--text-muted);
+  font-size: var(--ke-type-chrome, .68rem);
+  font-weight: 700;
+  line-height: var(--ke-leading-control, 1.35);
+  white-space: nowrap;
+  padding-inline-end: var(--ke-space-1, 2px);
+}
 
 /* Reading cards: keep cover clear of action buttons */
 .reading-card-hero-main {
@@ -292,6 +353,14 @@
   .auction-card-actions {
     margin-top: 2px !important;
     padding-top: 2px !important;
+  }
+
+  .auction-card-finance-group {
+    gap: var(--ke-space-1, 2px);
+    padding-block: 1px;
+  }
+  .auction-card-finance-group + .auction-card-finance-group {
+    padding-inline-start: var(--ke-space-2, 4px);
   }
 
   .prodigy-inline-error .prodigy-btn {

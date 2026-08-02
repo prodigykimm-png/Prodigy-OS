@@ -7,6 +7,7 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 global.window = global;
 require(path.join(ROOT, "SYSTEM/Views/auction-region-core.js"));
 require(path.join(ROOT, "SYSTEM/Views/region-explorer-projection.js"));
+require(path.join(ROOT, "SYSTEM/Views/region-decision-context-core.js"));
 const packet = require(path.join(ROOT, "SYSTEM/Views/auction-region-packet.js"));
 
 const body = `---
@@ -52,6 +53,9 @@ assert.equal(ready.auction_context.dong, "당하동");
 assert.equal(ready.region.metrics.sale_volume_3m.value, 120);
 assert.equal(ready.region.transit.available, true);
 assert.equal(ready.region.transit.lines[0].stations.length, 3);
+assert.equal(ready.decision_context.questions.length, 4);
+assert.equal(ready.decision_context.questions[0].id, "transactions_price");
+assert.ok(ready.decision_context.questions.every((question) => question.facts.length <= 3));
 assert.match(ready.region.research.summary, /공식 수치/);
 assert.match(ready.region.research.risks, /통계 비교/);
 assert.match(ready.region.research.site_visit, /보행 동선/);
@@ -73,6 +77,13 @@ const missing = packet.projectPacket(auction, null);
 assert.equal(missing.status, "unavailable");
 assert.match(missing.message, /지역 분석 자료/);
 assert.equal(missing.decision_authority, "human_required");
+
+assert.deepEqual(packet.projectResearchAction(null), { state: "missing", label: "조사 필요", show: true });
+assert.deepEqual(packet.projectResearchAction({ stale: true, pkg: { providers: {} } }), { state: "stale", label: "자료 갱신 필요", show: true });
+assert.deepEqual(packet.projectResearchAction({ pkg: { providers: { court: { status: "failed" } } } }), { state: "failed", label: "조사 실패", show: true });
+assert.deepEqual(packet.projectResearchAction({ pkg: { providers: { building: { status: "needs_identifier" } } } }), { state: "needs_identifier", label: "식별 정보 필요", show: true });
+assert.deepEqual(packet.projectResearchAction({ pkg: { providers: { building: { status: "needs_selection" } } } }), { state: "needs_selection", label: "대상 선택 필요", show: true });
+assert.deepEqual(packet.projectResearchAction({ pkg: { providers: { court: { status: "success" }, building: { status: "empty" } } } }), { state: "ready", label: "조사 자료", show: false });
 
 async function verifyMissingRegionNeverCreatesObject() {
   const previousObsidian = global.obsidian;

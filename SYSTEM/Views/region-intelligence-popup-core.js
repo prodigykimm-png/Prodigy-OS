@@ -10,15 +10,10 @@
 
 const root = typeof window !== "undefined" ? window : globalThis;
 const viewModel = root.RegionDecisionViewModel || (typeof require === "function" ? require("./region-decision-view-model.js") : null);
-
-function nodeRuntime() {
-  if (typeof require !== "function") return null;
-  try {
-    return { fs: require("node:fs"), path: require("node:path") };
-  } catch (_error) {
-    return null;
-  }
-}
+const decisionMirrorCore = root.AuctionDecisionMirrorCore || (typeof require === "function" ? require("./auction-decision-mirror-core.js") : null);
+const popupStore = root.RegionIntelligencePopupStore || (typeof require === "function" ? require("./region-intelligence-popup-store.js") : null);
+const decisionContextCore = root.RegionDecisionContextCore || (typeof require === "function" ? require("./region-decision-context-core.js") : null);
+const regionProjectionCore = root.RegionExplorerProjection || (typeof require === "function" ? require("./region-explorer-projection.js") : null);
 
 /**
  * Parse a Region Object markdown file into frontmatter + body sections.
@@ -90,6 +85,90 @@ function parseRegionNote(content) {
   return { frontmatter, body };
 }
 
+function loadCollectionHealth(vaultRoot, regionKey, now) {
+  return popupStore ? popupStore.loadCollectionHealth(vaultRoot, regionKey, now) : null;
+}
+
+function withDecisionMirror(projection, decisionMirror) {
+  if (!decisionMirror) return projection;
+  const decisionTab = Object.freeze({
+    id: "decision_outcome",
+    label: "판단·결과",
+    available: true,
+    content: decisionMirror,
+    unavailableReason: null
+  });
+  const tabs = projection.tabs.length > 0
+    ? [projection.tabs[0], decisionTab, ...projection.tabs.slice(1)]
+    : [decisionTab];
+  return Object.freeze({ ...projection, tabs: Object.freeze(tabs), decisionMirror });
+}
+
+function withConnectedAuctions(projection, snapshot) {
+  if (!snapshot) return projection;
+  const auctionTab = Object.freeze({
+    id: "connected_auctions",
+    label: "연결 경매",
+    available: true,
+    content: snapshot,
+    unavailableReason: null
+  });
+  const tabs = projection.tabs.length > 0 ? [auctionTab, ...projection.tabs] : [auctionTab];
+  return Object.freeze({ ...projection, tabs: Object.freeze(tabs), connectedAuctions: snapshot });
+}
+
+function popupArguments(nowOrOptions, maybeOptions) {
+  const hasExplicitDate = nowOrOptions instanceof Date;
+  const options = hasExplicitDate ? (maybeOptions || {}) : (nowOrOptions || {});
+  const now = hasExplicitDate ? nowOrOptions : (options.now instanceof Date ? options.now : undefined);
+  return { options, now };
+}
+
+function projectPopup(regionKey, content, options, now, collectionHealth) {
+  const { frontmatter, body } = parseRegionNote(content);
+  const decisionMirror = decisionMirrorCore ? decisionMirrorCore.projectDecisionMirror({
+    regionKey,
+    auction: options.auction || {},
+    context: options.decisionContext || null,
+    cases: options.cases || []
+  }) : null;
+  const auctionRows = Array.isArray(options.auctionRows) ? options.auctionRows : null;
+  const auctionSnapshot = auctionRows && root.AuctionRegionCore && typeof root.AuctionRegionCore.getRegionAuctionSnapshot === "function"
+    ? root.AuctionRegionCore.getRegionAuctionSnapshot(frontmatter.region_sido, frontmatter.region_sigungu, auctionRows, { now })
+    : null;
+  const projectedRows = regionProjectionCore && typeof regionProjectionCore.projectRegionSources === "function"
+    ? regionProjectionCore.projectRegionSources([{ path: `PARA/RESOURCES/Auction Regions/${regionKey}.md`, body: content, metadata_available: true }]).rows
+    : [];
+  const region = projectedRows.find((row) => row && row.identity && row.identity.region_key === regionKey) || null;
+  const decisionContext = decisionContextCore && typeof decisionContextCore.projectRegionDecisionContext === "function"
+    ? decisionContextCore.projectRegionDecisionContext({
+        region,
+        auction: options.auction || null,
+        outcome: decisionMirror && decisionMirror.bid_rate_summary
+          ? { sample_count: decisionMirror.bid_rate_summary.sample_count, period_label: "정규 경매 결과" }
+          : null
+      })
+    : null;
+  const finalProjection = viewModel.projectRegionPopup({
+    frontmatter,
+    body,
+    regionKey,
+    decisionContext,
+    connectedAuctions: auctionSnapshot,
+    decisionMirror
+  }, now);
+  return {
+    ok: true,
+    state: {
+      regionKey,
+      projection: Object.freeze({ ...finalProjection, collectionHealth }),
+      activeTabIndex: 0,
+      previousContext: null,
+      readOnly: true
+    }
+  };
+}
+
 /**
  * Open popup state for a Region.
  * @param {string} vaultRoot
@@ -97,45 +176,27 @@ function parseRegionNote(content) {
  * @param {Date} [now]
  * @returns {{ ok: boolean, state?: object, error?: string }}
  */
-function openPopup(vaultRoot, regionKey, now) {
+function openPopup(vaultRoot, regionKey, nowOrOptions, maybeOptions) {
   if (!regionKey || typeof regionKey !== "string") {
     return { ok: false, error: "regionKey가 필요합니다." };
   }
-  const node = nodeRuntime();
-  if (!node) return { ok: false, error: "지역 정보 팝업은 데스크톱 Obsidian에서만 사용할 수 있습니다." };
-  const { fs, path } = node;
-  const regionDir = path.join(vaultRoot, "PARA/RESOURCES/Auction Regions");
-  const nfcName = `${regionKey}.md`.normalize("NFC");
-  let targetPath = path.join(regionDir, nfcName);
+  if (!popupStore) return { ok: false, error: "지역 정보 로더를 사용할 수 없습니다." };
+  const source = popupStore.readRegionFromDisk(vaultRoot, regionKey);
+  if (!source.ok) return source;
+  const { options, now } = popupArguments(nowOrOptions, maybeOptions);
+  return projectPopup(regionKey, source.content, options, now, loadCollectionHealth(vaultRoot, regionKey, now));
+}
 
-  // Try NFD fallback for macOS HFS+
-  if (!fs.existsSync(targetPath)) {
-    const nfdName = `${regionKey}.md`.normalize("NFD");
-    const nfdPath = path.join(regionDir, nfdName);
-    if (fs.existsSync(nfdPath)) targetPath = nfdPath;
-    else return { ok: false, error: `Region Object를 찾을 수 없습니다: ${regionKey}` };
+async function openPopupForApp(app, regionKey, nowOrOptions, maybeOptions) {
+  if (!regionKey || typeof regionKey !== "string") {
+    return { ok: false, error: "regionKey가 필요합니다." };
   }
-
-  let content;
-  try {
-    content = fs.readFileSync(targetPath, "utf8");
-  } catch (e) {
-    return { ok: false, error: `Region Object 읽기 실패: ${e.message}` };
-  }
-
-  const { frontmatter, body } = parseRegionNote(content);
-  const projection = viewModel.projectRegionPopup({ frontmatter, body, regionKey }, now);
-
-  return {
-    ok: true,
-    state: {
-      regionKey,
-      projection,
-      activeTabIndex: 0,
-      previousContext: null,
-      readOnly: true
-    }
-  };
+  if (!popupStore) return { ok: false, error: "지역 정보 로더를 사용할 수 없습니다." };
+  const source = await popupStore.readRegionFromApp(app, regionKey);
+  if (!source.ok) return source;
+  const { options, now } = popupArguments(nowOrOptions, maybeOptions);
+  const vaultRoot = app && app.vault && app.vault.adapter && app.vault.adapter.basePath || "";
+  return projectPopup(regionKey, source.content, options, now, loadCollectionHealth(vaultRoot, regionKey, now));
 }
 
 /**
@@ -161,9 +222,11 @@ function getSourceDrilldown(projection, metricKey) {
 }
 
 const api = Object.freeze({
-  isAvailable: Boolean(nodeRuntime()),
+  isAvailable: Boolean(popupStore),
   parseRegionNote,
+  loadCollectionHealth,
   openPopup,
+  openPopupForApp,
   switchTab,
   getSourceDrilldown
 });

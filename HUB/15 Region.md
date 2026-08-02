@@ -27,7 +27,15 @@ RegionExplorerHub.modulePaths = [
   "SYSTEM/Views/region-explorer-projection.js",
   "SYSTEM/Views/region-explorer-data-source.js",
   "SYSTEM/Views/region-explorer-state.js",
-  "SYSTEM/Views/region-explorer-view.js"
+  "SYSTEM/Views/region-explorer-view.js",
+  "SYSTEM/Views/auction-region-core.js",
+  "SYSTEM/Views/region-collection-health-core.js",
+  "SYSTEM/Views/region-decision-context-core.js",
+  "SYSTEM/Views/region-decision-view-model.js",
+  "SYSTEM/Views/auction-decision-mirror-core.js",
+  "SYSTEM/Views/region-intelligence-popup-store.js",
+  "SYSTEM/Views/region-intelligence-popup-core.js",
+  "SYSTEM/Views/region-intelligence-popup-view.js"
 ];
 RegionExplorerHub.regionExperienceModulePaths = [
   "SYSTEM/Views/region-experience-contract.js",
@@ -37,6 +45,8 @@ RegionExplorerHub.regionExperienceModulePaths = [
   "SYSTEM/Views/ai-provider-schema.js",
   "SYSTEM/Views/ai-provider-error-policy.js",
   "SYSTEM/Views/ai-provider-fallback.js",
+  "SYSTEM/Views/codex-exec-service.js",
+  "SYSTEM/Views/antigravity-exec-service.js",
   "SYSTEM/Views/ai-provider-service.js",
   "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",
@@ -161,7 +171,7 @@ try {
   for (const modulePath of RegionExplorerHub.modulePaths) await loadReadOnlyModule(modulePath);
   const shell = window.ProdigyWorkspaceNavigation.mount(this.container, {
     app,
-    workspaceId: "auction",
+    workspaceId: "region",
     title: "지역 비교",
     context: { label: "지역 비교 문맥", items: ["읽기 전용", "최대 3개 지역 비교"] }
   });
@@ -235,12 +245,73 @@ try {
     regionExperienceOpening = opening;
     return opening;
   };
+const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
+    const identity = { ...(regionIdentity || {}), ...((row && row.identity) || {}) };
+    const firstText = (...values) => values.find((value) => typeof value === "string" && value.trim())?.trim() || "";
+    const sido = firstText(identity.sido, row && row.region_sido, regionIdentity && regionIdentity.sido);
+    const sigungu = firstText(identity.sigungu, row && row.region_sigungu, regionIdentity && regionIdentity.sigungu);
+    const key = typeof regionKey === "string" ? regionKey.trim() : "";
+    const auctionPath = typeof (row && row.path) === "string"
+      ? row.path.trim()
+      : typeof (row && row.file && row.file.path) === "string"
+        ? row.file.path.trim()
+        : "";
+    if (!key || !sido || !sigungu) {
+      explorer.setNotice("시·도와 시·군·구가 확인되는 지역만 경매 목록으로 이동할 수 있습니다.");
+      return null;
+    }
+    if (!app.workspace || typeof app.workspace.openLinkText !== "function") {
+      explorer.setNotice("경매 워크스페이스를 열 수 없습니다. Obsidian 창을 다시 시도해 주세요.");
+      return null;
+    }
+    window.prodigyAuctionRegionScope = { region_key: key, region_sido: sido, region_sigungu: sigungu };
+    if (auctionPath) window.prodigyAuctionNavigationRequest = { region_sido: sido, region_sigungu: sigungu, auction_path: auctionPath };
+    try {
+      return await app.workspace.openLinkText("HUB/10 Auction", "HUB/15 Region.md", false);
+    } catch (_error) {
+      if (window.prodigyAuctionNavigationRequest && window.prodigyAuctionNavigationRequest.auction_path === auctionPath) delete window.prodigyAuctionNavigationRequest;
+      explorer.setNotice("경매 워크스페이스를 열지 못했습니다. 다시 시도해 주세요.");
+      return null;
+  }
+};
+  const auctionRowsForRegion = () => {
+    const dataview = app.plugins?.plugins?.dataview?.api;
+    if (!dataview || typeof dataview.pages !== "function") return [];
+    const pages = dataview.pages('"PARA/PROJECTS/Auction"');
+    const cases = pages && typeof pages.where === "function" ? pages.where((page) => page && page.type === "auction_case") : pages;
+    if (cases && typeof cases.array === "function") return cases.array();
+    if (Array.isArray(cases)) return cases;
+    return [];
+  };
+  const openRegionDetail = async ({ regionKey, row, returnFocus } = {}) => {
+    const identity = row && row.identity || {};
+    const sido = typeof identity.sido === "string" ? identity.sido.trim() : "";
+    const sigungu = typeof identity.sigungu === "string" ? identity.sigungu.trim() : "";
+    const key = typeof regionKey === "string" ? regionKey.trim() : "";
+    if (!key || !sido || !sigungu) {
+      explorer.setNotice("시·도와 시·군·구가 확인되는 지역만 상세 화면을 열 수 있습니다.");
+      return null;
+    }
+    try {
+      const result = await window.RegionIntelligencePopupCore.openPopupForApp(app, key, { auctionRows: auctionRowsForRegion(), now: new Date() });
+      if (!result.ok) throw new Error(result.error || "지역 상세 화면을 열지 못했습니다.");
+      return window.RegionIntelligencePopupView.openOverlay(result.state, {
+        returnFocus,
+        onOpenAuction: (auctionRow) => openRegionAuctions({ regionKey: key, row: auctionRow, regionIdentity: { sido, sigungu } })
+      });
+    } catch (_error) {
+      explorer.setNotice("지역 상세 화면을 열지 못했습니다. 다시 시도해 주세요.");
+      return null;
+    }
+  };
   const initialLogicalWidth = explorerMount.clientWidth > 0 ? explorerMount.clientWidth : window.ProdigyTokens.BREAKPOINTS.wide;
   explorer = window.RegionExplorerView.mountRegionExplorer({
     container: explorerMount,
     projection: coveredProjection,
     logicalWidth: initialLogicalWidth,
-    onAddRegionExperience: openRegionExperience
+    onAddRegionExperience: openRegionExperience,
+    onViewRegionDetail: openRegionDetail,
+    onViewRegionAuctions: openRegionAuctions
   });
   if (typeof window.ResizeObserver === "function") {
     RegionExplorerHub.resizeObserver = new window.ResizeObserver((entries) => {
