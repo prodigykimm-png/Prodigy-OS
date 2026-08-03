@@ -51,6 +51,30 @@ SYSTEM/CACHE/region-source-ledger/{provider_id}/{source_dataset_id}/{snapshot_id
 
 이 경계는 기존 `SYSTEM/CACHE/region-metrics`와 다르다. 기존 Region metrics writer는 동일한 표시 `snapshot_id`를 현재 projection에서 교체할 수 있으며, 그 동작은 기존 계약으로 유지한다. 새 source ledger만 append-only 원장으로 취급한다.
 
+## Phase 1 MOIS 파일럿 브리지
+
+`SYSTEM/SCRIPTS/region-source-fixture-bridge-core.js`는 검증된 MOIS fixture를 읽어 서울·부산 41개 시군구 snapshot으로 변환한다. 이 모듈은 네트워크 요청이나 Vault 파일 쓰기를 하지 않는다.
+
+```js
+const bridge = require("./SYSTEM/SCRIPTS/region-source-fixture-bridge-core.js");
+
+const result = bridge.appendMoisFixtureSnapshots(
+  { schema_version: 1, snapshots: [] },
+  {
+    fixture_path: ".../2026-05-households.csv",
+    expected_sha256: "검토된 fixture SHA-256",
+    period: "2026-05",
+    published_at: "2026-06-20T00:00:00.000Z",
+    first_seen_at: "2026-08-03T00:00:00.000Z",
+    collected_at: "2026-08-03T00:00:01.000Z"
+  }
+);
+```
+
+fixture 해시가 다르면 변환을 중단한다. 같은 기간·원문을 다른 수집 시각에 다시 읽으면 snapshot 세대를 추가하고, `selectCurrentProjection()`은 최신 세대만 반환한다. 서울·부산 밖의 42개 기존 Region은 이 파일럿에 포함되지 않으며, 다른 공급자는 각각 fixture와 매칭 계약을 통과한 뒤 같은 브리지 경계를 사용해야 한다.
+
+원장에 보존된 자료를 화면에 투영할 때는 `SYSTEM/SCRIPTS/region-source-projection-gate-core.js`의 `selectReadyProjection()`을 통과시킨다. 이 gate는 support matrix의 `projection_ready`만 허용하므로, 차단된 실거래가나 parser seed가 원문 원장에 존재해도 Region 화면에 섞이지 않는다.
+
 ## 변경 금지 범위
 
 - 새로운 Auction frontmatter Property를 추가하지 않는다.
