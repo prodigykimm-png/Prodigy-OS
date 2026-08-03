@@ -196,6 +196,12 @@ Workspace UI 상태는 schema `v1`로 분리한다. `prodigy.ui.workspace-state.
 - Lifecycle-only `won` / `lost` / `skipped` records are labeled as pending legacy results and never enter outcome counts or bid-rate calculations. Small samples are identified explicitly, and the surface never emits a region score, recommendation, forecast, or suggested bid.
 - At widths up to 599px fields and actions become one column; review-footer controls use a one-column grid with `var(--ke-space-3)` visible gaps and at least `var(--ke-touch-target)` height. Korean text uses the shared CJK wrapping contract, focus remains visibly outlined, and reduced-motion users receive no nonessential transition.
 
+### Region source command guide
+
+- `region-source-command` is the full-width, read-only command surface for preparing an official source collection. It requires an explicit reference period and provider-published UTC timestamp, never infers either value, and only exposes the command after validation.
+- The command surface remains secondary to Region comparison, uses the existing Explorer control tokens, and spans the compact panel width so an absolute Vault path remains reviewable. Its `focus-visible` outline and `is-error` status use the shared accent/error aliases.
+- The Hub action only prepares or copies a command. Network dispatch, process execution, raw-ledger writes, and Region Object changes remain outside the Obsidian view.
+
 ### Auction–Region decision surfaces
 
 - `auction-decision-board` is the single card-level entry point for regional context. It keeps the Auction card's address, price, status, and user judgement out of the board when they are already visible on the card; the board adds only the four neutral questions `거래·가격`, `임대·수요`, `공급·생활환경`, and `경매 사례·미시 입지`, with at most three traceable facts per question.

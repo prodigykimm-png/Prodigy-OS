@@ -21,6 +21,7 @@ const MODULE_PATHS = [
   "SYSTEM/Views/prodigy-workspace-state-store.js",
   "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
+  "SYSTEM/SCRIPTS/region-source-mois-command-core.js",
   "SYSTEM/SCRIPTS/region-metrics-registry-core.js",
   "SYSTEM/Views/region-explorer-projection.js",
   "SYSTEM/Views/region-explorer-data-source.js",
@@ -213,6 +214,29 @@ test("Region Hub mounts the actual read-only fixture path in module order, inclu
   assert.equal(walk(second.container, (node) => node.attr && node.attr["data-shell"] === "region-explorer-shell").length, 1, "a stale Hub container cannot retain a second Explorer mount");
   assert.deepEqual(second.writes, []);
   assert.deepEqual(second.providers, []);
+});
+
+test("Given the Region Hub is open, When the official source action is used, Then it exposes an explicit MOIS command guide without network or Vault writes", async () => {
+  const notes = {
+    [`${REGION_ROOT}부산광역시-해운대구.md`]: validRegion({ sido: "부산광역시", sigungu: "해운대구" })
+  };
+  const hub = await runHub(notes);
+  const action = walk(hub.container, (node) => node.text === "공식 원문 수집")[0];
+  assert.ok(action, "the Region context action is visible");
+  action.onclick();
+  assert.match(renderedText(hub.container), /공식 원문 수집/);
+  assert.match(renderedText(hub.container), /행정안전부 주민등록 CSV/);
+  assert.match(renderedText(hub.container), /Region Object 자동 수정 없음/);
+  const inputs = walk(hub.container, (node) => node.tag === "input");
+  inputs.find((node) => node.attr && node.attr["aria-label"] === "자료 기준월").value = "2026-05";
+  inputs.find((node) => node.attr && node.attr["aria-label"] === "공식 공표 시각 UTC ISO").value = "2026-06-20T00:00:00.000Z";
+  const build = walk(hub.container, (node) => node.text === "명령 생성")[0];
+  build.onclick();
+  const command = walk(hub.container, (node) => node.tag === "textarea")[0];
+  assert.match(command.value, /region-source-mois-collect\.js/);
+  assert.match(command.value, /--allow-network/);
+  assert.deepEqual(hub.writes, []);
+  assert.deepEqual(hub.providers, []);
 });
 
 test("Given a selected canonical Region When 지역 경험 추가 is opened and cancelled Then only click-path modules load with no provider or vault action", async () => {

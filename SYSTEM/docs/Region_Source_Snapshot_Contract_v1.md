@@ -96,6 +96,8 @@ node SYSTEM/SCRIPTS/region-source-mois-collect.js \
 
 `--allow-network`가 없으면 요청하지 않고 종료하며, `--dry-run`이면 성공 응답도 ledger에 쓰지 않는다. `--published-at`은 공급자 공표 시각을 사용자가 확인해 넣는 값이며, CLI가 날짜를 추정하지 않는다.
 
+Region Hub의 `공식 원문 수집` 문맥 액션은 위 CLI를 직접 실행하지 않는다. 자료 기준월·공식 공표 시각·수집 범위를 입력하면 동일한 명령을 미리 보여주고 클립보드로 복사할 뿐이며, 사용자는 Vault 루트의 데스크톱 터미널에서 명령을 실행한다. 따라서 Hub를 열거나 명령을 생성하는 것만으로 네트워크 요청·프로세스 실행·Region Object 변경이 발생하지 않는다.
+
 원장에 보존된 자료를 화면에 투영할 때는 `SYSTEM/SCRIPTS/region-source-projection-gate-core.js`의 `selectReadyProjection()`을 통과시킨다. 이 gate는 support matrix의 `projection_ready`만 허용하므로, 차단된 실거래가나 parser seed가 원문 원장에 존재해도 Region 화면에 섞이지 않는다.
 
 ## Phase 2 R-ONE 원문 브리지

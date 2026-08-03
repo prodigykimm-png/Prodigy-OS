@@ -23,6 +23,7 @@ RegionExplorerHub.modulePaths = [
   "SYSTEM/Views/prodigy-workspace-state-store.js",
   "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
+  "SYSTEM/SCRIPTS/region-source-mois-command-core.js",
   "SYSTEM/SCRIPTS/region-metrics-registry-core.js",
   "SYSTEM/Views/region-explorer-projection.js",
   "SYSTEM/Views/region-explorer-data-source.js",
@@ -80,6 +81,7 @@ const loadReadOnlyModule = async (modulePath) => {
   const source = await app.vault.read(tFile);
   (new Function("module", "exports", "require", "window", "globalThis", source))(module, module.exports, localRequire, window, window);
   if (modulePath.endsWith("region-metrics-registry-core.js")) window.RegionMetricsRegistryCore = module.exports;
+  if (modulePath.endsWith("region-source-mois-command-core.js")) window.RegionSourceMoisCommandCore = module.exports;
 };
 
 const regionExperienceModuleRevision = () => RegionExplorerHub.regionExperienceModulePaths.map((modulePath) => {
@@ -167,15 +169,122 @@ const validExperienceRegions = (projection) => {
   }).filter(Boolean);
 };
 
+let sourceCommandMount = null;
+const renderMoisCollectionGuide = () => {
+  if (!sourceCommandMount) return null;
+  sourceCommandMount.empty();
+  const panel = sourceCommandMount.createEl("section", {
+    attr: {
+      class: "region-explorer-controls",
+      "aria-label": "공식 원문 수집 안내"
+    }
+  });
+  panel.createEl("h3", { text: "공식 원문 수집" });
+  panel.createEl("p", {
+    text: "행정안전부 주민등록 CSV를 원문 원장에 보존합니다. 이 화면은 네트워크나 프로세스를 실행하지 않으며, 아래 명령을 데스크톱 터미널에서 실행합니다.",
+    attr: { class: "region-explorer-meta" }
+  });
+  panel.createEl("p", {
+    text: "현재 대상: 서울·경기·인천·부산 83개 시·군·구 · Region Object 자동 수정 없음",
+    attr: { class: "region-explorer-meta" }
+  });
+
+  const periodControl = panel.createDiv({ attr: { class: "region-explorer-control" } });
+  periodControl.createEl("label", { text: "자료 기준월", attr: { for: "region-source-mois-period" } });
+  const periodInput = periodControl.createEl("input", {
+    attr: { id: "region-source-mois-period", type: "month", required: "true", "aria-label": "자료 기준월" }
+  });
+
+  const publishedControl = panel.createDiv({ attr: { class: "region-explorer-control" } });
+  publishedControl.createEl("label", { text: "공식 공표 시각 (UTC ISO)", attr: { for: "region-source-mois-published-at" } });
+  const publishedInput = publishedControl.createEl("input", {
+    attr: {
+      id: "region-source-mois-published-at",
+      type: "text",
+      required: "true",
+      placeholder: "2026-06-20T00:00:00.000Z",
+      "aria-label": "공식 공표 시각 UTC ISO"
+    }
+  });
+
+  const registryControl = panel.createDiv({ attr: { class: "region-explorer-control" } });
+  registryControl.createEl("label", { text: "수집 범위", attr: { for: "region-source-mois-registry" } });
+  const registryInput = registryControl.createEl("select", { attr: { id: "region-source-mois-registry", "aria-label": "수집 범위" } });
+  registryInput.createEl("option", { text: "확장 범위 · 83개 지역", attr: { value: "expansion", selected: "selected" } });
+  registryInput.createEl("option", { text: "파일럿 · 서울·부산 41개 지역", attr: { value: "pilot" } });
+
+  const command = panel.createEl("textarea", {
+    attr: { readonly: "true", rows: "4", class: "region-source-command", "aria-label": "MOIS 공식 원문 수집 명령" }
+  });
+  command.value = "기간과 공표 시각을 입력한 뒤 명령을 생성하세요.";
+  const status = panel.createEl("p", { text: "공식 공표 시각은 원문 제공 화면에서 확인해 입력하세요.", attr: { role: "status", class: "region-source-command-status" } });
+  const actions = panel.createDiv({ attr: { class: "region-explorer-row-actions" } });
+  const build = actions.createEl("button", { text: "명령 생성", attr: { type: "button", class: "region-explorer-button" } });
+  const copy = actions.createEl("button", { text: "명령 복사", attr: { type: "button", class: "region-explorer-button" } });
+  copy.disabled = true;
+  const close = actions.createEl("button", { text: "닫기", attr: { type: "button", class: "region-explorer-button" } });
+
+  const buildCommand = () => {
+    const api = window.RegionSourceMoisCommandCore;
+    if (!api || typeof api.buildCommand !== "function") {
+      status.setText("공식 원문 명령 모듈을 불러오지 못했습니다.");
+      status.setAttr("class", "region-source-command-status is-error");
+      status.setAttr("role", "alert");
+      return;
+    }
+    try {
+      const vaultRoot = app?.vault?.adapter?.basePath || "";
+      command.value = api.buildCommand({
+        vault_root: vaultRoot,
+        period: periodInput.value,
+        published_at: publishedInput.value,
+        registry: registryInput.value
+      });
+      copy.disabled = false;
+      status.setText("명령이 준비되었습니다. 데스크톱 터미널에서 실행하세요.");
+      status.setAttr("class", "region-source-command-status");
+      status.setAttr("role", "status");
+    } catch (error) {
+      command.value = "";
+      copy.disabled = true;
+      status.setText(error && error.message ? error.message : "입력값을 확인해 주세요.");
+      status.setAttr("class", "region-source-command-status is-error");
+      status.setAttr("role", "alert");
+    }
+  };
+  build.onclick = buildCommand;
+  copy.onclick = async () => {
+    if (!command.value || copy.disabled) return;
+    if (window.navigator?.clipboard?.writeText) {
+      await window.navigator.clipboard.writeText(command.value);
+      status.setText("명령을 클립보드에 복사했습니다.");
+      status.setAttr("class", "region-source-command-status");
+      status.setAttr("role", "status");
+    } else {
+      status.setText("이 환경에서는 클립보드를 사용할 수 없습니다. 명령을 직접 복사하세요.");
+      status.setAttr("class", "region-source-command-status is-error");
+      status.setAttr("role", "alert");
+    }
+  };
+  close.onclick = () => sourceCommandMount.empty();
+  periodInput.focus?.();
+  return panel;
+};
+
 try {
   for (const modulePath of RegionExplorerHub.modulePaths) await loadReadOnlyModule(modulePath);
   const shell = window.ProdigyWorkspaceNavigation.mount(this.container, {
     app,
     workspaceId: "region",
     title: "지역 비교",
-    context: { label: "지역 비교 문맥", items: ["읽기 전용", "최대 3개 지역 비교"] }
+    context: {
+      label: "지역 비교 문맥",
+      items: ["읽기 전용", "최대 3개 지역 비교"],
+      actions: [{ label: "공식 원문 수집", onClick: renderMoisCollectionGuide }]
+    }
   });
   shell.body.setAttr("data-scroll-owner", "region-workspace-body");
+  sourceCommandMount = shell.body.createDiv({ attr: { class: "region-source-command-mount" } });
   const explorerMount = shell.body.createDiv({ attr: { class: "region-workspace-content" } });
   const [projection, registry] = await Promise.all([
     window.RegionExplorerDataSource.loadRegionExplorer({
