@@ -76,6 +76,12 @@ fixture 해시가 다르면 변환을 중단한다. 같은 기간·원문을 다
 
 확장 registry를 호출자가 명시하면 같은 MOIS fixture를 83개 identity에 투영한다. 현재 fixture에서 확인된 79개는 수치 snapshot으로, 확인되지 않은 4개 successor code는 `not_available` snapshot으로 남긴다. 이 확장 registry도 유효일 근거가 아직 없으므로 모든 그룹은 `effective_date_pending`이며 날짜를 추정하지 않는다.
 
+## Phase 3 MOIS 공식 direct collector
+
+`SYSTEM/SCRIPTS/region-source-mois-live-core.js`는 `allow_network: true`가 명시된 실행에서만 고정된 MOIS 공식 CSV POST transport를 사용한다. 인증값이나 proxy를 받지 않으며, 기본 호출은 네트워크를 만들지 않는다. 성공 응답은 동일한 MOIS parser와 선택된 geography registry를 거쳐 snapshot 후보가 되고, HTTP 실패·파싱 실패·snapshot 계약 실패는 raw payload hash와 실패 사유만 반환한다.
+
+이 모듈은 Vault와 Object를 직접 쓰지 않는다. 호출자는 반환된 raw payload를 계약된 `raw/` 경계에 저장하고, `appendMoisOfficialSnapshots()`를 통해서만 source ledger에 추가한다. 실제 실행은 명시적 CLI 또는 승인된 desktop runner에서만 수행하며 CI fixture 테스트는 네트워크를 사용하지 않는다.
+
 원장에 보존된 자료를 화면에 투영할 때는 `SYSTEM/SCRIPTS/region-source-projection-gate-core.js`의 `selectReadyProjection()`을 통과시킨다. 이 gate는 support matrix의 `projection_ready`만 허용하므로, 차단된 실거래가나 parser seed가 원문 원장에 존재해도 Region 화면에 섞이지 않는다.
 
 ## Phase 2 R-ONE 원문 브리지
