@@ -75,6 +75,12 @@ fixture 해시가 다르면 변환을 중단한다. 같은 기간·원문을 다
 
 원장에 보존된 자료를 화면에 투영할 때는 `SYSTEM/SCRIPTS/region-source-projection-gate-core.js`의 `selectReadyProjection()`을 통과시킨다. 이 gate는 support matrix의 `projection_ready`만 허용하므로, 차단된 실거래가나 parser seed가 원문 원장에 존재해도 Region 화면에 섞이지 않는다.
 
+## Phase 2 R-ONE 원문 브리지
+
+`SYSTEM/SCRIPTS/region-source-rone-fixture-bridge-core.js`는 기존 R-ONE parser fixture를 검증된 raw source snapshot으로 변환한다. 현재는 부산 사하구의 가격지수·전세가율·거래량 fixture만 연결하며, 행의 지역 라벨에 시도 alias와 시군구명이 모두 정확히 존재할 때만 `mois_sigungu` 식별자를 확정한다. 권역명만 있거나 시도 정보가 빠진 행은 `unmatched` 경고로 남기고 snapshot을 만들지 않는다.
+
+이 단계에서 R-ONE의 support matrix 상태는 여전히 `blocked_coverage`이고 `projection_ready: false`다. 따라서 원문 원장에 R-ONE 세대가 보존되어도 `selectReadyProjection()` 결과에는 포함되지 않는다. 서울·경기·인천·부산 전체의 공식 동일 기간 fixture와 대상 매칭을 추가로 검토한 뒤에만 공급자 readiness를 승격할 수 있다.
+
 ## 변경 금지 범위
 
 - 새로운 Auction frontmatter Property를 추가하지 않는다.
