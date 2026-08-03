@@ -44,6 +44,10 @@ test("Given the verified R-ONE fixtures, When bridged, Then rows become exact Sa
   assert.equal(jeonse.snapshots.length, 1);
   assert.equal(volume.snapshots.length, 3);
   assert.equal(volume.unmatched.length, 0);
+  assert.equal(price.coverage.target_region_count, 83);
+  assert.equal(price.coverage.matched_region_count, 1);
+  assert.equal(price.coverage.complete, false);
+  assert.equal(price.coverage.missing_region_keys.length, 82);
   assert.equal(ledger.snapshots.length, 5);
   for (const snapshot of ledger.snapshots) {
     assert.equal(snapshot.provider_id, "reb_rone_public_table");
@@ -56,6 +60,13 @@ test("Given the verified R-ONE fixtures, When bridged, Then rows become exact Sa
   assert.equal(price.snapshots[0].measures.price_index.value, 99.57008);
   assert.equal(jeonse.snapshots[0].measures.jeonse_ratio.value, 76.05634);
   assert.equal(volume.snapshots[0].measures.transaction_volume.unit, "건");
+});
+
+test("Given the expansion registry, When an exact nationwide label is supplied, Then the bridge resolves it without changing the pilot data", () => {
+  const expansion = require(path.join(ROOT, "SYSTEM/SCRIPTS/region-geography-expansion-core.js")).loadRegistry();
+  const resolved = bridge.resolveRegionLabel("경기도 수원시", expansion);
+  assert.equal(resolved.status, "resolved");
+  assert.equal(resolved.region.region_key, "경기도-수원시");
 });
 
 test("Given R-ONE raw snapshots, When the readiness gate runs, Then blocked provider data never reaches Region projection", () => {

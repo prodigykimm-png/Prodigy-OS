@@ -104,7 +104,7 @@ Region Hub는 `SYSTEM/CACHE/region-source-ledger/`의 최신 snapshot과 연결�
 
 ## Phase 2 R-ONE 원문 브리지
 
-`SYSTEM/SCRIPTS/region-source-rone-fixture-bridge-core.js`는 기존 R-ONE parser fixture를 검증된 raw source snapshot으로 변환한다. 현재는 부산 사하구의 가격지수·전세가율·거래량 fixture만 연결하며, 행의 지역 라벨에 시도 alias와 시군구명이 모두 정확히 존재할 때만 `mois_sigungu` 식별자를 확정한다. 권역명만 있거나 시도 정보가 빠진 행은 `unmatched` 경고로 남기고 snapshot을 만들지 않는다.
+`SYSTEM/SCRIPTS/region-source-rone-fixture-bridge-core.js`는 기존 R-ONE parser fixture를 검증된 raw source snapshot으로 변환한다. 기본 매핑 대상은 부산·서울·경기·인천 83개 확장 registry이며, 행의 지역 라벨에 시도 alias와 시군구명이 모두 정확히 존재할 때만 `mois_sigungu` 식별자를 확정한다. 권역명만 있거나 시도 정보가 빠진 행은 `unmatched` 경고로 남기고 snapshot을 만들지 않는다. 각 fixture 결과에는 `target_region_count`, `matched_region_count`, `missing_region_keys`, `coverage_ratio`, `complete`가 포함되며, 수치가 전체 대상 지역을 덮지 않으면 공급자 readiness를 승격하지 않는다.
 
 이 단계에서 R-ONE의 support matrix 상태는 여전히 `blocked_coverage`이고 `projection_ready: false`다. 따라서 원문 원장에 R-ONE 세대가 보존되어도 `selectReadyProjection()` 결과에는 포함되지 않는다. 서울·경기·인천·부산 전체의 공식 동일 기간 fixture와 대상 매칭을 추가로 검토한 뒤에만 공급자 readiness를 승격할 수 있다.
 

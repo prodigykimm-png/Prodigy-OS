@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const rone = require("./collectors/rone-market.js");
-const geography = require("./region-geography-registry-core.js");
+const geography = require("./region-geography-expansion-core.js");
 const ledgerCore = require("./region-source-ledger-core.js");
 const snapshotCore = require("./region-source-snapshot-core.js");
 
@@ -47,8 +47,9 @@ function sidoAlias(value) {
 
 function resolveRegionLabel(regionLabel, registry) {
   const tokens = clean(regionLabel).split(/\s+/u).filter(Boolean);
+  const normalizedSidoTokens = new Set(tokens.map(sidoAlias));
   const candidates = registry.regions.filter((region) => (
-    tokens.includes(sidoAlias(clean(region.region_key).split("-")[0])) && tokens.includes(region.name_current)
+    normalizedSidoTokens.has(sidoAlias(clean(region.region_key).split("-")[0])) && tokens.includes(region.name_current)
   ));
   if (candidates.length === 1) return { region: candidates[0], status: "resolved", reason: "sido_sigungu_tokens_exact" };
   if (candidates.length > 1) return { region: null, status: "needs_selection", reason: "sigungu_label_ambiguous" };
@@ -149,9 +150,33 @@ function buildRoneSnapshots(loaded, registry = geography.loadRegistry()) {
   return Object.freeze({ snapshots: Object.freeze(snapshots), unmatched: Object.freeze(unmatched) });
 }
 
+function coverageFor(snapshots, unmatched, registry, sourceDatasetId) {
+  const targetRegions = Array.isArray(registry && registry.regions) ? registry.regions : [];
+  const matchedKeys = new Set((Array.isArray(snapshots) ? snapshots : []).map((snapshot) => {
+    const geographyIdentity = snapshot && snapshot.geography ? snapshot.geography : {};
+    return `${clean(geographyIdentity.sido_code)}:${clean(geographyIdentity.sigungu_code)}`;
+  }).filter((key) => key !== ":"));
+  const targetByCode = new Map(targetRegions.map((region) => [`${clean(region.sido_code)}:${clean(region.sigungu_code)}`, region]));
+  const missingRegionKeys = [...targetByCode.entries()]
+    .filter(([code]) => !matchedKeys.has(code))
+    .map(([, region]) => clean(region.region_key))
+    .filter(Boolean);
+  const matchedRegionCount = targetByCode.size - missingRegionKeys.length;
+  return Object.freeze({
+    source_dataset_id: clean(sourceDatasetId),
+    target_region_count: targetByCode.size,
+    matched_region_count: matchedRegionCount,
+    coverage_ratio: targetByCode.size === 0 ? 0 : matchedRegionCount / targetByCode.size,
+    missing_region_keys: Object.freeze(missingRegionKeys),
+    unmatched_row_count: Array.isArray(unmatched) ? unmatched.length : 0,
+    complete: targetByCode.size > 0 && matchedRegionCount === targetByCode.size && (!Array.isArray(unmatched) || unmatched.length === 0)
+  });
+}
+
 function appendRoneFixtureSnapshots(ledgerState, options, registry) {
+  const selectedRegistry = registry || geography.loadRegistry();
   const loaded = loadRoneFixture(options);
-  const built = buildRoneSnapshots(loaded, registry);
+  const built = buildRoneSnapshots(loaded, selectedRegistry);
   let ledger = ledgerState;
   for (const snapshot of built.snapshots) ledger = ledgerCore.appendSnapshot(ledger, snapshot);
   return Object.freeze({
@@ -162,6 +187,7 @@ function appendRoneFixtureSnapshots(ledgerState, options, registry) {
     parsed_rows: loaded.parsed.rows.length,
     snapshots: built.snapshots,
     unmatched: built.unmatched,
+    coverage: coverageFor(built.snapshots, built.unmatched, selectedRegistry, DATASET_BY_KIND[loaded.options.kind].source_dataset_id),
     network_dispatched: loaded.parsed.network_dispatched,
     request_count: loaded.parsed.request_count
   });
@@ -173,6 +199,7 @@ module.exports = Object.freeze({
   PROVIDER_ID,
   appendRoneFixtureSnapshots,
   buildRoneSnapshots,
+  coverageFor,
   geographyFor,
   loadRoneFixture,
   resolveRegionLabel,
