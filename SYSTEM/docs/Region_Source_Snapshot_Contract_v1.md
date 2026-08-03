@@ -7,6 +7,7 @@
 기계 계약은 다음 파일에 있다.
 
 - `SYSTEM/SCRIPTS/region-geography-registry.json` — Phase 0 서울·부산 41개 시군구 식별자
+- `SYSTEM/SCRIPTS/region-geography-expansion.json` — 확장 단계 서울·경기·인천·부산 83개 시군구 식별자
 - `SYSTEM/SCRIPTS/region-provider-support-matrix.json` — 공급자별 readiness와 차단 사유
 - `SYSTEM/SCRIPTS/region-source-snapshot.schema.json` — 한 번의 원문 관측 계약
 - `SYSTEM/SCRIPTS/region-source-ledger.schema.json` — append-only 관측 목록 계약
@@ -72,6 +73,8 @@ const result = bridge.appendMoisFixtureSnapshots(
 ```
 
 fixture 해시가 다르면 변환을 중단한다. 같은 기간·원문을 다른 수집 시각에 다시 읽으면 snapshot 세대를 추가하고, `selectCurrentProjection()`은 최신 세대만 반환한다. 서울·부산 밖의 42개 기존 Region은 이 파일럿에 포함되지 않으며, 다른 공급자는 각각 fixture와 매칭 계약을 통과한 뒤 같은 브리지 경계를 사용해야 한다.
+
+확장 registry를 호출자가 명시하면 같은 MOIS fixture를 83개 identity에 투영한다. 현재 fixture에서 확인된 79개는 수치 snapshot으로, 확인되지 않은 4개 successor code는 `not_available` snapshot으로 남긴다. 이 확장 registry도 유효일 근거가 아직 없으므로 모든 그룹은 `effective_date_pending`이며 날짜를 추정하지 않는다.
 
 원장에 보존된 자료를 화면에 투영할 때는 `SYSTEM/SCRIPTS/region-source-projection-gate-core.js`의 `selectReadyProjection()`을 통과시킨다. 이 gate는 support matrix의 `projection_ready`만 허용하므로, 차단된 실거래가나 parser seed가 원문 원장에 존재해도 Region 화면에 섞이지 않는다.
 

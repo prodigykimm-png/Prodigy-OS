@@ -67,7 +67,7 @@ function buildMoisSnapshots(input) {
   if (typeof input.raw_payload_hash !== "string" || !/^[a-f0-9]{64}$/u.test(input.raw_payload_hash)) throw new Error("MOIS raw_payload_hash가 올바르지 않습니다.");
   const rawPath = fixtureRawPath("fixture.csv", input.raw_path);
   if (input.parsed.period !== period) throw new Error("MOIS parsed period와 요청 period가 다릅니다.");
-  const regions = geography.loadRegistry().regions;
+  const regions = input.geography_registry?.regions || geography.loadRegistry().regions;
   const rowsBySigungu = new Map(input.parsed.rows.map((row) => [String(row.household_code).slice(0, 5), row]));
   return regions.map((region) => {
     const measures = measuresFor(rowsBySigungu.get(region.sigungu_code));
@@ -124,7 +124,8 @@ function loadMoisFixtureSnapshots(options = {}) {
     published_at: options.published_at,
     first_seen_at: options.first_seen_at,
     collected_at: options.collected_at,
-    revision_type: options.revision_type
+    revision_type: options.revision_type,
+    geography_registry: options.geography_registry
   });
   return { provider_id: PROVIDER_ID, fixture_path: fixturePath, raw_payload_hash: actualHash, parser_result: parsed, snapshots };
 }

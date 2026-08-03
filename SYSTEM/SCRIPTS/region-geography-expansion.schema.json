@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prodigy-os.local/schema/region-geography-expansion-v1.json",
+  "title": "Prodigy Region Geography Expansion Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "registry_id", "code_system", "as_of", "regions"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "registry_id": { "const": "seoul-capital-busan-sigungu" },
+    "code_system": { "const": "mois_sigungu" },
+    "as_of": { "type": "string", "format": "date" },
+    "regions": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sido", "sido_code", "effective_from", "effective_to", "mapping_status", "sigungu"],
+        "properties": {
+          "sido": { "type": "string", "minLength": 1 },
+          "sido_code": { "type": "string", "pattern": "^[0-9]{2}$" },
+          "effective_from": { "type": ["string", "null"], "format": "date" },
+          "effective_to": { "type": ["string", "null"], "format": "date" },
+          "mapping_status": { "enum": ["effective_date_pending", "verified", "retired"] },
+          "sigungu": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "code"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "code": { "type": "string", "pattern": "^[0-9]{5}$" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
