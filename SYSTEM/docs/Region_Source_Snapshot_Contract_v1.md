@@ -84,6 +84,18 @@ fixture 해시가 다르면 변환을 중단한다. 같은 기간·원문을 다
 
 `SYSTEM/SCRIPTS/region-source-ledger-writer-core.js`는 이 보존 경계를 구현한다. snapshot ID가 처음이면 `snapshot.json`과 해당 raw payload를 원자적으로 만들고, 같은 fingerprint면 재실행을 no-op으로 처리한다. 같은 snapshot ID의 다른 snapshot 또는 다른 raw hash는 대체하지 않고 중단한다. 수집 실패 결과는 ledger에 성공 snapshot으로 기록하지 않는다.
 
+명시적 실행 예시는 다음과 같다.
+
+```bash
+node SYSTEM/SCRIPTS/region-source-mois-collect.js \
+  --period 2026-05 \
+  --published-at 2026-06-20T00:00:00.000Z \
+  --registry expansion \
+  --allow-network
+```
+
+`--allow-network`가 없으면 요청하지 않고 종료하며, `--dry-run`이면 성공 응답도 ledger에 쓰지 않는다. `--published-at`은 공급자 공표 시각을 사용자가 확인해 넣는 값이며, CLI가 날짜를 추정하지 않는다.
+
 원장에 보존된 자료를 화면에 투영할 때는 `SYSTEM/SCRIPTS/region-source-projection-gate-core.js`의 `selectReadyProjection()`을 통과시킨다. 이 gate는 support matrix의 `projection_ready`만 허용하므로, 차단된 실거래가나 parser seed가 원문 원장에 존재해도 Region 화면에 섞이지 않는다.
 
 ## Phase 2 R-ONE 원문 브리지
