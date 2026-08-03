@@ -6,6 +6,12 @@ This document defines the frozen source contracts for the Prodigy Region Intelli
 
 The canonical machine-readable registry is `SYSTEM/SCRIPTS/region-source-registry.json`. The validation module is `SYSTEM/SCRIPTS/region-source-registry-core.js`. All schemas are in `SYSTEM/SCRIPTS/region-*.schema.json`.
 
+## Phase 0 source boundary
+
+The Seoul and Busan real-estate expansion uses a separate support matrix and source snapshot boundary. See `SYSTEM/docs/Region_Source_Snapshot_Contract_v1.md`, `SYSTEM/SCRIPTS/region-provider-support-matrix.json`, and `SYSTEM/SCRIPTS/region-geography-registry.json`. The existing 32-provider registry remains frozen; the Phase 0 matrix does not silently promote a provider or change the current Region projection.
+
+Only a provider with official availability, an implemented adapter, a reviewed fixture, an explicit network allowance, and projection readiness may dispatch. All other rows retain a machine-readable blocked reason. Source generations are append-only in the new raw ledger; the existing Region metrics display projection keeps its established replacement semantics.
+
 ## Provider Registry
 
 The registry contains exactly **32 provider rows**. Each row carries:
