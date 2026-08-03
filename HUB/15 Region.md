@@ -16,6 +16,7 @@ const RegionExplorerHub = window.RegionExplorerHub;
 if (RegionExplorerHub.resizeObserver && typeof RegionExplorerHub.resizeObserver.disconnect === "function") RegionExplorerHub.resizeObserver.disconnect();
 RegionExplorerHub.resizeObserver = null;
 const REGISTRY_INDEX_PATH = "SYSTEM/SCRIPTS/region-metrics-manifest-index.json";
+const SOURCE_SUPPORT_MATRIX_PATH = "SYSTEM/SCRIPTS/region-provider-support-matrix.json";
 const SCRIPTS_ROOT = "SYSTEM/SCRIPTS/";
 RegionExplorerHub.modulePaths = [
   "SYSTEM/Views/design-tokens.js",
@@ -24,6 +25,8 @@ RegionExplorerHub.modulePaths = [
   "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
   "SYSTEM/SCRIPTS/region-source-mois-command-core.js",
+  "SYSTEM/SCRIPTS/region-source-snapshot-core.js",
+  "SYSTEM/SCRIPTS/region-source-ledger-read-core.js",
   "SYSTEM/SCRIPTS/region-metrics-registry-core.js",
   "SYSTEM/Views/region-explorer-projection.js",
   "SYSTEM/Views/region-explorer-data-source.js",
@@ -82,6 +85,8 @@ const loadReadOnlyModule = async (modulePath) => {
   (new Function("module", "exports", "require", "window", "globalThis", source))(module, module.exports, localRequire, window, window);
   if (modulePath.endsWith("region-metrics-registry-core.js")) window.RegionMetricsRegistryCore = module.exports;
   if (modulePath.endsWith("region-source-mois-command-core.js")) window.RegionSourceMoisCommandCore = module.exports;
+  if (modulePath.endsWith("region-source-snapshot-core.js")) window.RegionSourceSnapshotCore = module.exports;
+  if (modulePath.endsWith("region-source-ledger-read-core.js")) window.RegionSourceLedgerReadCore = module.exports;
 };
 
 const regionExperienceModuleRevision = () => RegionExplorerHub.regionExperienceModulePaths.map((modulePath) => {
@@ -123,6 +128,12 @@ const loadRegistry = async () => {
     manifestTexts[manifestPath] = await app.vault.read(manifestFile);
   }
   return window.RegionMetricsRegistryCore.loadRegistry(indexText, manifestTexts);
+};
+
+const loadSourceSupportMatrix = async () => {
+  const matrixFile = app.vault.getAbstractFileByPath(SOURCE_SUPPORT_MATRIX_PATH);
+  if (!matrixFile) throw new Error("Region source support matrix를 찾을 수 없습니다.");
+  return JSON.parse(await app.vault.read(matrixFile));
 };
 
 const coverageProjection = (projection, registry) => {
@@ -167,6 +178,74 @@ const validExperienceRegions = (projection) => {
     seen.add(regionKey);
     return { type: "auction_region", region_key: regionKey, region_sido: sido, region_sigungu: sigungu, path, wiki_link: `[[${path.slice(0, -3)}]]` };
   }).filter(Boolean);
+};
+
+const emptySourceLedgerModel = (message) => ({
+  schema_version: 1,
+  status: "unavailable",
+  snapshot_count: 0,
+  verified_count: 0,
+  ready_count: 0,
+  blocked_count: 0,
+  invalid_count: 1,
+  covered_region_count: 0,
+  latest_reference_period: null,
+  latest_collected_at: null,
+  evidence_by_region: {},
+  errors: [{ code: "source_ledger_unavailable", path: null, message }]
+});
+
+const loadSourceLedger = async (registry) => {
+  try {
+    return await window.RegionSourceLedgerReadCore.loadFromVault({
+      vault: app.vault,
+      support_matrix: await loadSourceSupportMatrix(),
+      region_registry: registry && registry.regions
+    });
+  } catch (error) {
+    return emptySourceLedgerModel(error && error.message ? error.message : "공식 원문 상태를 읽지 못했습니다.");
+  }
+};
+
+const attachSourceEvidence = (projection, sourceLedger) => {
+  const evidenceByRegion = sourceLedger && sourceLedger.evidence_by_region && typeof sourceLedger.evidence_by_region === "object" ? sourceLedger.evidence_by_region : {};
+  return {
+    ...projection,
+    rows: (Array.isArray(projection && projection.rows) ? projection.rows : []).map((row) => ({
+      ...row,
+      source_evidence: Array.isArray(evidenceByRegion[row && row.identity && row.identity.region_key]) ? evidenceByRegion[row.identity.region_key] : []
+    }))
+  };
+};
+
+let sourceLedgerMount = null;
+const renderSourceLedgerStatus = (sourceLedger) => {
+  if (!sourceLedgerMount) return null;
+  sourceLedgerMount.empty();
+  const panel = sourceLedgerMount.createEl("section", {
+    attr: { class: "region-explorer-summary", "aria-label": "공식 원문 근거 상태" }
+  });
+  panel.createEl("h3", { text: "공식 원문 근거" });
+  const model = sourceLedger || emptySourceLedgerModel("공식 원문 상태를 읽지 못했습니다.");
+  if (model.status === "empty") {
+    panel.createEl("p", { text: "아직 수집된 공식 원문이 없습니다. 공식 원문 수집에서 명령을 복사해 데스크톱 터미널에서 실행하세요.", attr: { class: "region-explorer-meta" } });
+  } else if (model.status === "unavailable") {
+    panel.createEl("p", { text: "공식 원문 원장을 읽을 수 없습니다. 명령을 실행한 Vault와 현재 Vault가 같은지 확인하세요.", attr: { class: "region-explorer-diagnostics", role: "status" } });
+  } else {
+    panel.createEl("p", {
+      text: `검증된 투영 가능 원문 ${Number(model.ready_count) || 0}건 · 연결 지역 ${Number(model.covered_region_count) || 0}개 · 기준월 ${model.latest_reference_period || "자료 없음"}`,
+      attr: { class: "region-explorer-meta" }
+    });
+    panel.createEl("p", {
+      text: `현재 표시 원문 ${Number(model.snapshot_count) || 0}건 · 검증 완료 ${Number(model.verified_count) || 0}건 · 투영 차단 ${Number(model.blocked_count) || 0}건`,
+      attr: { class: "region-explorer-meta" }
+    });
+  }
+  if (Number(model.invalid_count) > 0) panel.createEl("p", {
+    text: `검증 실패 ${Number(model.invalid_count)}건은 지역 근거와 비교에 사용하지 않습니다.`,
+    attr: { class: "region-explorer-diagnostics", role: "status" }
+  });
+  return panel;
 };
 
 let sourceCommandMount = null;
@@ -284,6 +363,7 @@ try {
     }
   });
   shell.body.setAttr("data-scroll-owner", "region-workspace-body");
+  sourceLedgerMount = shell.body.createDiv({ attr: { class: "region-source-ledger-mount" } });
   sourceCommandMount = shell.body.createDiv({ attr: { class: "region-source-command-mount" } });
   const explorerMount = shell.body.createDiv({ attr: { class: "region-workspace-content" } });
   const [projection, registry] = await Promise.all([
@@ -293,7 +373,9 @@ try {
     }),
     loadRegistry()
   ]);
-  const coveredProjection = coverageProjection(projection, registry);
+  const sourceLedger = await loadSourceLedger(registry);
+  renderSourceLedgerStatus(sourceLedger);
+  const coveredProjection = attachSourceEvidence(coverageProjection(projection, registry), sourceLedger);
   let explorer = null;
   let activeRegionExperienceModal = null;
   let regionExperienceOpening = null;

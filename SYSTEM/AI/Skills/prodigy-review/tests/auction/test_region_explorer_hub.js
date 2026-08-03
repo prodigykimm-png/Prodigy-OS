@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -8,6 +9,7 @@ const test = require("node:test");
 const ROOT = path.resolve(__dirname, "../../../../../../");
 const REGION_ROOT = "PARA/RESOURCES/Auction Regions/";
 const HUB_PATH = "HUB/15 Region.md";
+const SOURCE_SUPPORT_MATRIX_PATH = "SYSTEM/SCRIPTS/region-provider-support-matrix.json";
 const REGISTRY_PATHS = [
   "SYSTEM/SCRIPTS/region-metrics-manifest-index.json",
   "SYSTEM/SCRIPTS/region-metrics-busan-manifest.json",
@@ -22,6 +24,8 @@ const MODULE_PATHS = [
   "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
   "SYSTEM/SCRIPTS/region-source-mois-command-core.js",
+  "SYSTEM/SCRIPTS/region-source-snapshot-core.js",
+  "SYSTEM/SCRIPTS/region-source-ledger-read-core.js",
   "SYSTEM/SCRIPTS/region-metrics-registry-core.js",
   "SYSTEM/Views/region-explorer-projection.js",
   "SYSTEM/Views/region-explorer-data-source.js",
@@ -60,6 +64,7 @@ const REGION_EXPERIENCE_MODULE_PATHS = [
   "SYSTEM/Views/region-experience-handoff.js",
   "SYSTEM/Views/region-experience-modal.js"
 ];
+const sourceSnapshotCore = require(path.join(ROOT, "SYSTEM/SCRIPTS/region-source-snapshot-core.js"));
 
 class FakeElement {
   constructor(tag = "div") {
@@ -137,11 +142,48 @@ function invalidRegionType({ sido, sigungu, type = "auction_case" }) {
   return `---\ntype: ${type}\ntitle: ${sido} ${sigungu}\nregion_sido: ${sido}\nregion_sigungu: ${sigungu}\n---\n`;
 }
 
+function sourceLedgerFixture() {
+  const raw = Buffer.from("official-source-fixture", "utf8");
+  const snapshot = sourceSnapshotCore.buildSnapshot({
+    schema_version: 1,
+    snapshot_id: "mois-2026-05-26350-ui-fixture",
+    provider_id: "mois_jumin_statmonth_csv",
+    source_dataset_id: "mois_households",
+    property_type: "all",
+    geography: {
+      level: "sigungu",
+      code_system: "mois_sigungu",
+      sido_code: "26",
+      sigungu_code: "26350",
+      name_at_release: "해운대구",
+      name_current: "해운대구",
+      effective_from: null,
+      effective_to: null,
+      mapping_status: "effective_date_pending"
+    },
+    reference_period: "2026-05",
+    coverage_level: "sigungu",
+    missingness_code: "none",
+    valid_time: "2026-05-01",
+    published_at: "2026-06-20T00:00:00.000Z",
+    first_seen_at: "2026-08-03T00:00:00.000Z",
+    collected_at: "2026-08-03T00:00:01.000Z",
+    revision_type: "initial",
+    methodology_version: "1.0.0",
+    raw_path: "raw/source.csv",
+    raw_payload_hash: crypto.createHash("sha256").update(raw).digest("hex"),
+    measures: { households: { value: 100, unit: "가구" } }
+  });
+  const snapshotPath = `SYSTEM/CACHE/region-source-ledger/${snapshot.provider_id}/${snapshot.source_dataset_id}/${snapshot.snapshot_id}/snapshot.json`;
+  const rawPath = `SYSTEM/CACHE/region-source-ledger/${snapshot.provider_id}/${snapshot.source_dataset_id}/${snapshot.snapshot_id}/raw/source.csv`;
+  return { [snapshotPath]: JSON.stringify(snapshot), [rawPath]: raw };
+}
+
 async function runHub(notes, runtime = {}) {
   const markdown = fs.readFileSync(path.join(ROOT, HUB_PATH), "utf8");
   const unavailable = new Set(runtime.unavailableModulePaths || []);
   const sourceOverrides = runtime.sourceOverrides || {};
-  const sourceByPath = Object.fromEntries([...MODULE_PATHS, ...REGION_EXPERIENCE_MODULE_PATHS, ...REGISTRY_PATHS].filter((modulePath) => !unavailable.has(modulePath)).map((modulePath) => [
+  const sourceByPath = Object.fromEntries([...MODULE_PATHS, ...REGION_EXPERIENCE_MODULE_PATHS, ...REGISTRY_PATHS, SOURCE_SUPPORT_MATRIX_PATH].filter((modulePath) => !unavailable.has(modulePath)).map((modulePath) => [
     modulePath,
     Object.hasOwn(sourceOverrides, modulePath) ? sourceOverrides[modulePath] : fs.readFileSync(path.join(ROOT, modulePath), "utf8")
   ]));
@@ -155,17 +197,25 @@ async function runHub(notes, runtime = {}) {
   if (typeof window.setTimeout !== "function") window.setTimeout = runtime.setTimeout || ((callback) => { callback(); return 0; });
   window.fetch = (...args) => { providers.push(args); throw new Error("provider/network calls are forbidden in the Region Hub"); };
   const moduleMtimes = runtime.moduleMtimes || {};
-  const files = Object.keys(notes).map((notePath) => ({ path: notePath, extension: "md" }));
+  const markdownFiles = Object.keys(notes).map((notePath) => ({ path: notePath, extension: "md" }));
+  const extraFiles = Object.entries(runtime.extraFiles || {}).map(([filePath, content]) => ({ path: filePath, extension: path.extname(filePath).slice(1) || "" , content }));
+  const files = [...markdownFiles, ...extraFiles];
   const vault = {
     getAbstractFileByPath(filePath) {
       if (Object.hasOwn(sourceByPath, filePath)) return { path: filePath, extension: "js", stat: { mtime: moduleMtimes[filePath] || 1 } };
       return files.find((file) => file.path === filePath) || null;
     },
-    getMarkdownFiles() { return files; },
+    getFiles() { return files; },
+    getMarkdownFiles() { return markdownFiles; },
     async read(file) {
       reads.push(file.path);
       if (Object.hasOwn(sourceByPath, file.path)) return sourceByPath[file.path];
-      return notes[file.path];
+      if (Object.hasOwn(notes, file.path)) return notes[file.path];
+      return file.content;
+    },
+    async readBinary(file) {
+      const content = Object.hasOwn(notes, file.path) ? notes[file.path] : Object.hasOwn(sourceByPath, file.path) ? sourceByPath[file.path] : file.content;
+      return Buffer.isBuffer(content) ? content : Buffer.from(String(content ?? ""), "utf8");
     },
     async create() { writes.push("create"); throw new Error("write forbidden"); },
     async modify() { writes.push("modify"); throw new Error("write forbidden"); },
@@ -235,6 +285,18 @@ test("Given the Region Hub is open, When the official source action is used, The
   const command = walk(hub.container, (node) => node.tag === "textarea")[0];
   assert.match(command.value, /region-source-mois-collect\.js/);
   assert.match(command.value, /--allow-network/);
+  assert.deepEqual(hub.writes, []);
+  assert.deepEqual(hub.providers, []);
+});
+
+test("Given a verified MOIS ledger generation, When Region Hub mounts, Then source evidence and readiness are visible without changing Region Objects", async () => {
+  const notes = {
+    [`${REGION_ROOT}부산광역시-해운대구.md`]: validRegion({ sido: "부산광역시", sigungu: "해운대구" })
+  };
+  const hub = await runHub(notes, { extraFiles: sourceLedgerFixture() });
+  assert.match(renderedText(hub.container), /검증된 투영 가능 원문 1건/);
+  assert.match(renderedText(hub.container), /연결 지역 1개/);
+  assert.match(renderedText(hub.container), /공식 원문 행정안전부 주민등록 · mois_households · 2026-05 · 1개 근거/);
   assert.deepEqual(hub.writes, []);
   assert.deepEqual(hub.providers, []);
 });

@@ -201,6 +201,7 @@ Workspace UI 상태는 schema `v1`로 분리한다. `prodigy.ui.workspace-state.
 - `region-source-command` is the full-width, read-only command surface for preparing an official source collection. It requires an explicit reference period and provider-published UTC timestamp, never infers either value, and only exposes the command after validation.
 - The command surface remains secondary to Region comparison, uses the existing Explorer control tokens, and spans the compact panel width so an absolute Vault path remains reviewable. Its `focus-visible` outline and `is-error` status use the shared accent/error aliases.
 - The Hub action only prepares or copies a command. Network dispatch, process execution, raw-ledger writes, and Region Object changes remain outside the Obsidian view.
+- `region-source-evidence` is a compact provenance badge on each covered Region row. It reports only a verified, projection-ready ledger generation and keeps source values out of the existing Region metric cards.
 
 ### Auction–Region decision surfaces
 
