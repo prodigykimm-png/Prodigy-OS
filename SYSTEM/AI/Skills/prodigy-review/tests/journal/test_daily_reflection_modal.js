@@ -269,16 +269,19 @@ async function testApprovalButtonCountTracksSelectedEvidence() {
   const proposal = createProposal();
   proposal.evidence_blocks = Array.from({ length: 4 }, (_, index) => Object.assign({}, proposal.evidence_blocks[0], {
     evidence_id: `daily-2026-07-20-e0${index + 1}`,
-    title: `증거 ${index + 1}`
+    title: `증거 ${index + 1}`,
+    context: index < 2 ? "people" : "work"
   }));
   const harness = createModalHarness(async () => ({}), { testProposal: proposal });
   try {
     await harness.propose();
     assert.equal(harness.button("Evidence 승인·반영").text, "4개 Evidence 승인·반영");
+    assert.ok(findElement(harness.instance.contentEl, (element) => element.text === "선택 4개 · 사람 2개 · 승인 시 해당 사람의 핵심 상호작용에 자동 반영"));
     const first = harness.checkbox("증거 1 선택");
     first.checked = false;
     first.onchange();
     assert.equal(harness.button("Evidence 승인·반영").text, "3개 Evidence 승인·반영");
+    assert.ok(findElement(harness.instance.contentEl, (element) => element.text === "선택 3개 · 사람 1개 · 승인 시 해당 사람의 핵심 상호작용에 자동 반영"));
   } finally {
     harness.restore();
   }

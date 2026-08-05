@@ -35,6 +35,8 @@ KnowledgeExplorerHub.modulePaths = [
   "SYSTEM/Views/knowledge-source-batch-controller.js",
   "SYSTEM/Views/knowledge-source-batch-render.js",
   "SYSTEM/Views/knowledge-source-batch-view.js",
+  "SYSTEM/Views/ai-provider-response.js",
+  "SYSTEM/Views/ai-provider-schema.js",
   "SYSTEM/Views/ai-provider-error-policy.js",
   "SYSTEM/Views/ai-provider-fallback.js",
   "SYSTEM/Views/ai-provider-service.js",

@@ -20,9 +20,9 @@ AI는 운영체제를 소유하지 않는다.
 이 문서는 구현이 아니다.
 이 문서는 파이프라인의 개념적, 구조적 사양이다.
 
-> 근거 원칙: [docs/00_Constitution.md](docs/00_Constitution.md) (Article 2, Article 4)
-> 아키텍처 맥락: [docs/01_Architecture.md](docs/01_Architecture.md)
-> 객체 구조: [docs/03_Object_Model.md](docs/03_Object_Model.md)
+> 근거 원칙: [00_Constitution.md](00_Constitution.md) (Article 2, Article 4)
+> 아키텍처 맥락: [01_Architecture.md](01_Architecture.md)
+> 객체 구조: [03_Object_Model.md](03_Object_Model.md)
 
 ---
 
@@ -862,9 +862,9 @@ Dashboard 계산을 설명하고,
 **Version:** 1.1
 **Status:** Active
 **Depends on:**
-- docs/00_Constitution.md
-- docs/01_Architecture.md
-- docs/03_Object_Model.md
-- docs/06_AI_System.md
+- 00_Constitution.md
+- 01_Architecture.md
+- 03_Object_Model.md
+- 06_AI_System.md
 
-**Note:** This document supersedes the pipeline description in docs/06_AI_System.md. For high-level responsibilities and boundaries, refer to docs/06_AI_System.md. This document provides the complete stage-by-stage specification.
+**Note:** This document supersedes the pipeline description in 06_AI_System.md. For high-level responsibilities and boundaries, refer to 06_AI_System.md. This document provides the complete stage-by-stage specification.

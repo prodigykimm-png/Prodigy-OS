@@ -55,6 +55,64 @@ function testCandidateProjectionPreservesLifecycleAndExcludesKnowledge() {
   assert.deepEqual(workspace.buildHistory([saved, legacy, rejected]).items, []);
 }
 
+function testDeferredCandidateStaysVisibleWithoutApprovalOrPromotion() {
+  // Given: the shared Candidate contract keeps needs_more_evidence active and the
+  // Reading store returns it for `status: "active"`.
+  const saved = candidate();
+  const deferred = candidate({
+    candidate_id: "deferred-reading-candidate",
+    status: "needs_more_evidence",
+    confidence: "inferred",
+    path: "PARA/RESOURCES/Knowledge/Candidates/보류.md"
+  });
+
+  // When: Reading projects the active lifecycle set for its workspace summary.
+  const projected = workspace.buildKnowledgeCandidates([saved, deferred]);
+
+  // Then: the deferred Candidate stays visible with its registry label, out of
+  // Knowledge, and without any promotion or approval affordance.
+  assert.equal(projected.items.length, 2);
+  assert.deepEqual(projected.items.map((item) => item.status), ["saved", "needs_more_evidence"]);
+  const deferredItem = projected.items.find((item) => item.status === "needs_more_evidence");
+  assert.equal(deferredItem.status_label, "증거 보강");
+  assert.equal(deferredItem.counts_as_knowledge, false);
+  assert.equal(deferredItem.review_target, "HUB/50 Knowledge.md");
+  assert.equal(Object.prototype.hasOwnProperty.call(deferredItem, "promotion_target"), false);
+  assert.deepEqual(workspace.buildHistory([saved, deferred]).items, []);
+}
+
+async function testDeferredCandidateRendersDeferredLabelInReadingHistory() {
+  // Given: the Reading store hands the view one deferred active Candidate.
+  const root = new FakeElement("section");
+  const previousStore = global.ReadingStore;
+  const previousCore = global.ReadingCore;
+  const previousWindow = global.window;
+  global.ReadingCore = {};
+  global.ReadingStore = {
+    async listSessions() { return []; },
+    async listCandidates() {
+      return [candidate({ candidate_id: "deferred-view-candidate", status: "needs_more_evidence", confidence: "inferred" })];
+    }
+  };
+  global.window = { Notice: function Notice() {} };
+
+  try {
+    // When: the Reading history surface renders that Candidate.
+    await view.renderSessionHistory({ workspace: { async openLinkText() {} } }, root);
+    const text = collectText(root);
+
+    // Then: the deferred state is named instead of mislabeled as a fresh proposal,
+    // and Reading still owns no approval control.
+    assert.match(text, /증거 보강/);
+    assert.equal(text.includes("제안됨"), false);
+    assert.equal(text.includes("승인"), false);
+  } finally {
+    global.ReadingStore = previousStore;
+    global.ReadingCore = previousCore;
+    global.window = previousWindow;
+  }
+}
+
 async function testReadingHistoryNavigatesToSharedInboxWithoutApprovalControls() {
   // Given: Reading can load a shared active Candidate but cannot itself approve it.
   const root = new FakeElement("section");
@@ -99,7 +157,9 @@ async function testReadingHistoryNavigatesToSharedInboxWithoutApprovalControls()
 
 async function main() {
   testCandidateProjectionPreservesLifecycleAndExcludesKnowledge();
+  testDeferredCandidateStaysVisibleWithoutApprovalOrPromotion();
   await testReadingHistoryNavigatesToSharedInboxWithoutApprovalControls();
+  await testDeferredCandidateRendersDeferredLabelInReadingHistory();
   console.log("Reading Candidate lifecycle tests passed");
 }
 

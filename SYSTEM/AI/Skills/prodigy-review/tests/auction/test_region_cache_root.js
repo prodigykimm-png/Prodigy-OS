@@ -52,10 +52,6 @@ function withCacheRootEnv(value, fn) {
   }
 }
 
-function expectedVaultRoot() {
-  return path.resolve(ROOT, "SYSTEM", "SCRIPTS", "..", "..");
-}
-
 test("Given a non-iCloud vault with no cache override, When the metrics root is resolved, Then the legacy in-vault path is preserved", () => {
   const vault = makeVault("prodigy-cache-root-legacy-");
   const regionKey = "TEST-REGION";
@@ -83,6 +79,7 @@ test("Given a non-iCloud vault with no cache override, When the metrics root is 
 });
 
 test("Given a custom output outside the vault, When writeArtifacts runs, Then raw payloads still anchor to the vault and metadata stays under output", () => {
+  const vault = makeVault("prodigy-cache-root-vault-");
   const output = makeTempDir("prodigy-cache-root-output-");
   const cacheOverride = makeTempDir("prodigy-cache-root-override-");
   const regionKey = "TEST-REGION";
@@ -94,15 +91,15 @@ test("Given a custom output outside the vault, When writeArtifacts runs, Then ra
   const snapshot = { schema_version: 1, snapshot_id: snapshotId, region_key: regionKey };
   try {
     withCacheRootEnv(cacheOverride, () => {
-      assert.equal(resolveVaultRoot({ output }), expectedVaultRoot());
+      assert.equal(resolveVaultRoot({ output, vaultRoot: vault.root }), vault.root);
 
       const snapshotDir = refresh.writeArtifacts(
-        { output, "region-key": regionKey },
+        { output, vaultRoot: vault.root, "region-key": regionKey },
         snapshotId,
         rawFiles,
         snapshot
       );
-      const rawDir = expectedRawDir(expectedVaultRoot(), regionKey, snapshotId);
+      const rawDir = expectedRawDir(vault.root, regionKey, snapshotId);
 
       assert.equal(snapshotDir, path.join(output, regionKey, snapshotId));
       assert.equal(fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf8"), `${JSON.stringify(snapshot, null, 2)}\n`);
@@ -116,25 +113,32 @@ test("Given a custom output outside the vault, When writeArtifacts runs, Then ra
       assert.ok(fs.existsSync(path.join(snapshotDir, "snapshot.json")));
       assert.ok(fs.existsSync(rawDir));
       assert.ok(!rawDir.startsWith(path.resolve(output)));
-      assert.ok(!rawDir.startsWith(path.sep + "SYSTEM"));
+      assert.ok(rawDir.startsWith(cacheOverride));
+      assert.ok(!rawDir.startsWith(ROOT));
     });
   } finally {
-    cleanupTempDirs(cacheOverride, output);
+    cleanupTempDirs(cacheOverride, output, vault.cleanup);
   }
 });
 
-test("Given a deeper output path under the vault, When the vault root is resolved, Then the fixed anchor stays stable", () => {
-  const output = path.join(ROOT, "SYSTEM", "CACHE", "region-metrics", "sub", "deeper");
+test("Given a deeper output path under a synthetic vault, When the vault root is resolved, Then the explicit anchor stays stable", () => {
+  const vault = makeVault("prodigy-cache-root-deep-");
+  const output = path.join(vault.root, "SYSTEM", "CACHE", "region-metrics", "sub", "deeper");
   const regionKey = "TEST-REGION";
   const snapshotId = "TEST-GEN";
-  withCacheRootEnv(undefined, () => {
-    const resolvedVaultRoot = resolveVaultRoot({ output });
-    const rawDir = expectedRawDir(resolvedVaultRoot, regionKey, snapshotId);
+  try {
+    withCacheRootEnv(undefined, () => {
+      const resolvedVaultRoot = resolveVaultRoot({ output, vaultRoot: vault.root });
+      const rawDir = expectedRawDir(resolvedVaultRoot, regionKey, snapshotId);
 
-    assert.equal(resolvedVaultRoot, expectedVaultRoot());
-    assert.equal(rawDir, path.join(os.homedir(), "ProdigyCache", "region-metrics-raw", regionKey, snapshotId, "raw"));
-    assert.ok(rawDir.startsWith(path.join(os.homedir(), "ProdigyCache")));
-  });
+      assert.equal(resolvedVaultRoot, vault.root);
+      assert.equal(rawDir, path.join(vault.root, cacheRoot.LEGACY_METRICS_REL, regionKey, snapshotId, "raw"));
+      assert.ok(rawDir.startsWith(vault.root));
+      assert.ok(!rawDir.startsWith(ROOT));
+    });
+  } finally {
+    cleanupTempDirs(vault.cleanup);
+  }
 });
 
 test("Given an explicit config.vaultRoot, When writeArtifacts runs, Then the explicit vault root wins over the anchor", () => {

@@ -69,9 +69,45 @@
     return null;
   }
 
+  function disposeHome(container) {
+    if (!container) return;
+    if (container.__prodigyCreatorKey && typeof document !== "undefined" && document.removeEventListener) {
+      document.removeEventListener("keydown", container.__prodigyCreatorKey);
+    }
+    if (container.__prodigyHomeResizeObserver) {
+      container.__prodigyHomeResizeObserver.disconnect();
+    }
+    delete container.__prodigyCreatorKey;
+    delete container.__prodigyHomeResizeObserver;
+    delete container.__prodigyHomeVariantChange;
+    delete container.__prodigyHomeLifecycle;
+  }
+
+  function isEditableShortcutTarget(target) {
+    let current = target;
+    while (current) {
+      const tag = current.tagName ? String(current.tagName).toLowerCase() : "";
+      if (tag === "input" || tag === "textarea" || tag === "select" || current.isContentEditable) return true;
+      const contentEditable = typeof current.getAttribute === "function"
+        ? current.getAttribute("contenteditable")
+        : null;
+      if (contentEditable !== null && String(contentEditable).toLowerCase() !== "false") return true;
+      current = current.parentElement || current.parentNode || null;
+    }
+    return false;
+  }
+
   async function renderHome(options) {
     const { app, dv, container } = options;
     if (!app || !dv || !container) return;
+
+    disposeHome(container);
+    const lifecycle = {
+      dispose() {
+        if (container.__prodigyHomeLifecycle === lifecycle) disposeHome(container);
+      }
+    };
+    container.__prodigyHomeLifecycle = lifecycle;
 
     try { await ensureProdigySettings(app); } catch (_settingsError) { /* Home remains usable without settings. */ }
     try {
@@ -146,7 +182,6 @@
     };
     syncHomeWidth();
     if (typeof ResizeObserver !== "undefined" && workspaceLeaf) {
-      container.__prodigyHomeResizeObserver?.disconnect();
       container.__prodigyHomeResizeObserver = new ResizeObserver(syncHomeWidth);
       container.__prodigyHomeResizeObserver.observe(workspaceLeaf);
     }
@@ -378,10 +413,7 @@
         if (!e) return;
         const mod = e.metaKey || e.ctrlKey;
         if (mod && (e.key === "n" || e.key === "N") && !e.altKey && !e.shiftKey) {
-          // Avoid when typing in inputs outside home primary chrome
-          const t = e.target;
-          const tag = t && t.tagName ? String(t.tagName).toLowerCase() : "";
-          if (tag === "input" || tag === "textarea" || (t && t.isContentEditable)) return;
+          if (isEditableShortcutTarget(e.target)) return;
           e.preventDefault();
           e.stopPropagation();
           if (root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
@@ -689,9 +721,9 @@
             || (root.MorningContextCore && root.MorningContextCore.getYesterdayIsoDate
               ? root.MorningContextCore.getYesterdayIsoDate(new Date())
               : "");
-          if (root.JournalView && root.JournalStore && yDate) {
+          if (root.JournalReviewModal && root.JournalStore && yDate) {
             const review = await root.JournalStore.loadReview(app, yDate);
-            root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
+            root.JournalReviewModal.open(app, review.fields || {}, async (values) => {
               await root.JournalStore.saveReview(app, yDate, values);
               if (window.Notice) new Notice("어제 성찰을 저장했습니다.");
             }, { focusHints: [] });
@@ -721,9 +753,9 @@
           focusList.slice(0, 3).forEach((item) => {
             if (item && item.label) focusHints.push(String(item.label));
           });
-          if (root.JournalView && root.JournalStore) {
+          if (root.JournalReviewModal && root.JournalStore) {
             const review = await root.JournalStore.loadReview(app, todayStr);
-            root.JournalView.openReviewModal(app, review.fields || {}, async (values) => {
+            root.JournalReviewModal.open(app, review.fields || {}, async (values) => {
               await root.JournalStore.saveReview(app, todayStr, values);
               if (window.Notice) new Notice("오늘 Review를 저장했습니다.");
             }, { focusHints });
@@ -735,6 +767,41 @@
     });
 
     // ── 2. Today's Focus (approved only — no edit from Home) ──
+    const focusDisplayKeys = Object.create(null);
+
+    const normalizeWorkspaceId = (value) => {
+      const raw = String(value || "").trim().toLowerCase();
+      if (raw === "auction_case") return "auction";
+      if (raw === "project_note" || raw === "project_family") return "project";
+      if (raw === "person" || raw === "people") return "personal";
+      return raw;
+    };
+
+    const normalizeObjectPath = (value) => String(value || "")
+      .trim()
+      .replace(/^\.\/+/, "")
+      .replace(/\/{2,}/g, "/")
+      .toLowerCase();
+
+    const normalizeTitleKey = (value) => String(value || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+    const dedupeKeyFor = (objectPath, workspace, title) => {
+      const normalizedPath = normalizeObjectPath(objectPath);
+      if (normalizedPath) return "path:" + normalizedPath;
+      const normalizedTitle = normalizeTitleKey(title);
+      if (!normalizedTitle) return "";
+      return "ws:" + normalizeWorkspaceId(workspace) + "|" + normalizedTitle;
+    };
+
+    const rememberFocusDisplayKey = (item) => {
+      if (!item) return;
+      const key = dedupeKeyFor(item.object_path, item.source_type, item.label || item.title);
+      if (key) focusDisplayKeys[key] = true;
+    };
+
     safeRenderRegion("Today's Focus", () => {
       const focusCard = stack.createEl("div", {
         attr: { class: "home-card " + (isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
@@ -781,6 +848,7 @@
           });
           const listDiv = focusCard.createEl("div", { attr: { class: "focus-list" } });
           suggestions.forEach((item, idx) => {
+            rememberFocusDisplayKey(item);
             const row = listDiv.createEl("div", { attr: { class: "focus-row" } });
             const top = row.createEl("div", { attr: { class: "focus-top" } });
             top.createEl("div", {
@@ -847,6 +915,7 @@
 
       const listDiv = focusCard.createEl("div", { attr: { class: "focus-list" } });
       currentFocus.forEach((item) => {
+        rememberFocusDisplayKey(item);
         const row = listDiv.createEl("div", { attr: { class: "focus-row" } });
         const top = row.createEl("div", { attr: { class: "focus-top" } });
         const titleSpan = top.createEl("div", { attr: { class: "focus-title" } });
@@ -894,8 +963,10 @@
       const seen = Object.create(null);
       const pushCard = (card) => {
         if (!card || !card.title) return;
-        const key = String(card.object_path || card.title).toLowerCase();
+        const key = dedupeKeyFor(card.object_path, card.workspace, card.title);
+        if (!key) return;
         if (seen[key]) return;
+        if (focusDisplayKeys[key]) return;
         // Never display completed Objects
         const st = String(card.status || "").toLowerCase();
         if (st === "completed" || st === "archived" || st === "finished" || st === "dropped") return;
@@ -973,13 +1044,13 @@
         const target = c.dashboard_path || c.object_path;
         const btn = row.createEl("button", {
           text: "이어하기",
-          attr: { class: "action-btn action-btn-primary" }
+          attr: {
+            type: "button",
+            class: "action-btn action-btn-primary",
+            "aria-label": `${c.title} 이어하기`
+          }
         });
-        btn.onclick = (e) => {
-          if (e && e.stopPropagation) e.stopPropagation();
-          openPath(target);
-        };
-        row.onclick = () => openPath(target);
+        btn.onclick = () => openPath(target);
       });
     });
 
@@ -1129,20 +1200,9 @@
       const row = qa.createEl("div", {
         attr: { style: "display:flex;flex-wrap:wrap;gap:8px;" }
       });
-      const newObj = row.createEl("button", {
-        text: "+ 새 Object",
-        attr: { class: "action-btn action-btn-primary", type: "button" }
-      });
-      newObj.onclick = () => {
-        if (root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
-          root.ObjectCreatorView.open(app, { pkg });
-        } else {
-          new Notice("Object Creator를 불러오지 못했습니다.");
-        }
-      };
       const newDaily = row.createEl("button", {
         text: "+ 오늘 Daily",
-        attr: { class: "action-btn", type: "button" }
+        attr: { class: "action-btn action-btn-primary", type: "button" }
       });
       newDaily.onclick = () => { openOrCreateDaily(); };
       const searchBtn = row.createEl("button", {
@@ -1227,7 +1287,9 @@
             container: launcherMount,
             app,
             cards: launcherCards,
-            pkg
+            pkg,
+            showCreator: false,
+            hideEmptyCards: currentHomeVariant === "compact"
           });
         } else {
           launcherMount.createEl("div", {
@@ -1368,10 +1430,12 @@
         }
       }
     });
+    return lifecycle;
   }
 
   const api = {
     renderHome,
+    disposeHome,
     generateMorningBrief,
     getSourceTypeLabel,
     getEvidenceSourceLabel

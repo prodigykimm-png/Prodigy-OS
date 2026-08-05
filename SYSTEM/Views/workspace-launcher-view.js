@@ -140,6 +140,8 @@
    * @param {HTMLElement} options.container
    * @param {object} options.app
    * @param {Array} options.cards from WorkspaceLauncherCore.buildLauncherCards
+   * @param {boolean} [options.showCreator=true] false when Home already shows a creator
+   * @param {boolean} [options.hideEmptyCards=false] true to drop empty context cards (compact Home)
    */
   function render(options) {
     const opts = options || {};
@@ -148,6 +150,7 @@
     if (!container) return;
     ensureStyles();
     if (typeof container.empty === "function") container.empty();
+    const showCreator = opts.showCreator !== false;
 
     const rootEl = container.createEl("div", {
       attr: { class: "prodigy-workspace-launcher home-card emphasis-primary" }
@@ -159,7 +162,7 @@
       text: "🚀 Workspace Launcher",
       attr: { class: "home-header", style: "margin:0;" }
     });
-    if (root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
+    if (showCreator && root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
       const plus = headRow.createEl("button", {
         text: "+ 새 Object",
         attr: { type: "button", title: "Universal Object Creator" }
@@ -175,7 +178,8 @@
     });
 
     const grid = rootEl.createEl("div", { attr: { class: "prodigy-launcher-grid" } });
-    const cards = Array.isArray(opts.cards) ? opts.cards : [];
+    const allCards = Array.isArray(opts.cards) ? opts.cards : [];
+    const cards = opts.hideEmptyCards ? allCards.filter((card) => card && !card.empty) : allCards;
 
     cards.forEach((card) => {
       const el = grid.createEl("div", {

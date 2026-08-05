@@ -45,9 +45,10 @@ No automatic adoption.
 - Weekly Review Results collected (저장된 Weekly 2개 이상)
 - 서로 다른 주차의 반복 Principle 확인
 - Human validation: 검증·보류·반려 중 하나 선택
-- 검증된 Principle은 `source_type: monthly_validation` Knowledge Candidate로 저장
+- 2개 이상 Weekly에서 반복 검증된 Principle은 Monthly Validation Note가 보존
+- 검증된 Principle은 그 Monthly Note를 명시적 source Object로 가진 `source_type: monthly_validation` Knowledge Candidate로 저장
 - Knowledge 승격은 기존 승인 화면에서만 가능
-- AI는 검증 상태를 선택하거나 자동 저장하지 않음
+- AI는 검증 상태를 선택하거나 Candidate를 자동 저장·승격하지 않음
 
 ---
 
@@ -74,6 +75,8 @@ Site visit remains optional unless required by workflow.
 
 - Interaction recorded
 - Reflection recorded
+- Daily의 선택된 `context: people` Evidence만 핵심 상호작용에 반영
+- 동일 통찰의 반복 승인 결과가 한 줄로 유지
 
 No forced interaction frequency.
 

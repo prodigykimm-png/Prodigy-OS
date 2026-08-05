@@ -255,6 +255,12 @@
 
         /* Mobile compact Home: Brief + Focus + Continue + Micro Log first; rest behind fold */
         .prodigy-home.home-compact {
+          --home-mobile-bottom-clearance: calc(
+            var(--ke-mobile-toolbar-height, 56px)
+            + var(--prodigy-action-bar-height, 52px)
+            + env(safe-area-inset-bottom, 0px)
+            + var(--ke-space-5, 16px)
+          );
           padding-bottom: var(--home-mobile-bottom-clearance);
         }
         .prodigy-home.home-compact .home-grid {

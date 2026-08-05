@@ -169,7 +169,7 @@
       title: String(source.title || "제목 없음").trim(),
       statement: String(source.statement || "").trim(),
       status,
-      status_label: status === "saved" ? "저장됨" : "제안됨",
+      status_label: status === "saved" ? "저장됨" : status === "needs_more_evidence" ? "증거 보강" : "제안됨",
       source_session: sourceSession,
       quality: { available: qualityStatus !== "unavailable", status: qualityStatus, label: qualityLabels[qualityStatus] },
       review_target: "HUB/50 Knowledge.md",

@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const CORE_PATH = path.join(ROOT, "SYSTEM/Views/project-wizard-core.js");
 const TOKENS_PATH = path.join(ROOT, "SYSTEM/Views/design-tokens.js");
 const TEMPLATE_PATH = path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_project.md");
+const HUB_PATH = path.join(ROOT, "HUB/40 Project.md");
 
 class Element {
   constructor() {
@@ -50,6 +51,27 @@ function findByClass(element, className) {
 }
 
 async function main() {
+  // Given: Obsidian may execute Project's JS Engine and Dataview blocks concurrently.
+  const hubSource = fs.readFileSync(HUB_PATH, "utf8");
+  const projectBlocks = [...hubSource.matchAll(/```(?:js-engine|dataviewjs)\n([\s\S]*?)```/g)]
+    .map((match) => match[1]);
+  const bootstrap = projectBlocks[0];
+  const layoutConsumers = projectBlocks.slice(1)
+    .filter((source) => source.includes("resolveProjectWorkspaceLayout"));
+
+  // When: the bootstrap and every layout consumer are inspected.
+  // Then: readiness is published before the first async load, and consumers await it.
+  assert.ok(bootstrap, "Project bootstrap block is missing");
+  assert.ok(
+    bootstrap.indexOf("window.prodigyProjectReady =") >= 0
+      && bootstrap.indexOf("window.prodigyProjectReady =") < bootstrap.indexOf("await loadProdigyScript"),
+    "Project readiness must be published before the first asynchronous module load"
+  );
+  assert.ok(layoutConsumers.length >= 4, "expected every Project layout surface to be covered");
+  layoutConsumers.forEach((source, index) => {
+    assert.match(source, /await window\.prodigyProjectReady/, `Project layout consumer ${index + 1} must await bootstrap readiness`);
+  });
+
   // Given: canonical tokens and explicit compact/wide logical widths.
   const tokens = require(TOKENS_PATH);
   global.ProdigyTokens = tokens;

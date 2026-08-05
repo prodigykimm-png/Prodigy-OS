@@ -13,7 +13,7 @@ Architecture는 **정보가 어떻게 흐르고, Object가 어떻게 성장하�
 
 Prodigy OS의 모든 구현은 이 문서를 따른다.
 
-> 상세 원칙: [docs/00_Constitution.md](docs/00_Constitution.md)
+> 상세 원칙: [00_Constitution.md](00_Constitution.md)
 
 ---
 

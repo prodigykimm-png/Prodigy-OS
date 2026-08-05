@@ -28,32 +28,35 @@
           const blocks = (modal.proposal.evidence_blocks || []).filter(function (b) { return String(b.context || "").trim().toLowerCase() === "people"; });
           const selectedIds = new Set(modal.savedEvidence ? modal.savedEvidence.selectedEvidenceIds : []);
           const approvedPeopleBlocks = blocks.filter(function (b) { return selectedIds.has(b.evidence_id); });
-          const peopleLinks = (modal.proposal.object_linking_suggestions || []).filter(function (s) { const k = String(s.object_kind || "").trim().toLowerCase(); return k === "people" || k === "person"; }).map(function (s) { var name = s.object_name || s.name || ""; var rp = s.resolved_path || s.person_path || ""; if (!rp && name && core.peoplePath) { try { rp = core.peoplePath(name); } catch (_e) { rp = ""; } } return { name: name, resolved_path: rp }; }).filter(function (l) { return l.resolved_path && l.name; });
+          const peopleLinks = (modal.proposal.object_linking_suggestions || []).filter(function (s) { const k = String(s.object_kind || "").trim().toLowerCase(); return k === "people" || k === "person"; }).map(function (s) { var name = s.object_name || s.name || ""; var rp = s.resolved_path || s.person_path || ""; if (!rp && name && core.peoplePath) { try { rp = core.peoplePath(name); } catch (_e) { rp = ""; } } return { name: name, resolved_path: rp, source_evidence_ids: Array.isArray(s.source_evidence_ids) ? s.source_evidence_ids : [] }; }).filter(function (l) { return l.resolved_path && l.name; });
           var writtenCount = 0;
           for (var pi = 0; pi < peopleLinks.length; pi++) {
             var link = peopleLinks[pi];
             var personPath = link.resolved_path;
             var personName = link.name || personPath.split("/").pop().replace(/\.md$/i, "");
             var insights = [];
+            var linkedEvidenceIds = new Set(link.source_evidence_ids);
             for (var bi = 0; bi < approvedPeopleBlocks.length; bi++) {
               var blk = approvedPeopleBlocks[bi];
+              if (linkedEvidenceIds.size && !linkedEvidenceIds.has(blk.evidence_id)) continue;
               var insight = blk.interpretation || blk.title || blk.experience || "";
               if (insight.trim()) insights.push(insight.trim());
             }
             if (!insights.length) continue;
             var personFile = app.vault.getAbstractFileByPath(personPath);
             var content = "";
-            var created = false;
             if (personFile) {
               content = await app.vault.read(personFile);
             } else {
-              try { await store.createPeople(app, personName); personFile = app.vault.getAbstractFileByPath(personPath); content = personFile ? await app.vault.read(personFile) : ""; created = true; } catch (_ce) { continue; }
+              try { await store.createPeople(app, personName); personFile = app.vault.getAbstractFileByPath(personPath); content = personFile ? await app.vault.read(personFile) : ""; } catch (_ce) { continue; }
             }
             if (!personFile) continue;
+            var originalContent = content;
             for (var ii = 0; ii < insights.length; ii++) {
               var line = core.formatPeopleInsightLine({ insight: insights[ii] });
               content = core.appendPeopleInteractionToContent(content, line);
             }
+            if (content === originalContent) continue;
             await app.vault.modify(personFile, content);
             writtenCount++;
           }

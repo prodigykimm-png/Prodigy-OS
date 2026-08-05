@@ -51,7 +51,7 @@ Home에서 수정하지 않는다.
 
 ---
 
-# Layout (Mission Control · 실제 UI 라벨)
+# Layout (Mission Control · 실제 UI 순서)
 
 ```text
 Top
@@ -62,15 +62,9 @@ Top
 
 ▶ 이어하기
 
-⚠ 주의가 필요함
+Micro Log
 
-⚡ 빠른 실행
-
-✓ Todoist
-
-🚀 Workspace 런처
-
-시스템 상태
+더 보기 (주의 · 빠른 실행 · 런처 · Todoist · 시스템 상태)
 ────────────────
 Bottom
 ```
@@ -94,6 +88,10 @@ Bottom
 | System Status | engine_ok · sync warnings · review_inbox | Healthy / Pending only | — |
 
 Focus is **not edited** on Home. Approve-as-is is allowed when proposals exist.
+
+Focus와 Continue는 같은 Object 또는 같은 제목의 행동을 동시에 보여 주지 않는다. 승인된 Focus가 우선이며, Continue는 남은 후보만 렌더링한다. 생성 진입점은 Home의 `Micro Log` 하나이며 Workspace Launcher의 독립 Creator와 의미를 중복하지 않는다.
+
+compact Home은 문서 전체가 아니라 App Shell body 하나만 스크롤을 소유한다. 마지막 Micro Log 조작부와 `더 보기` summary가 floating Obsidian toolbar 위까지 도달하도록 Action Bar 52px, 모바일 toolbar 56px, safe area, 16px 여백을 함께 예약한다. 320/375/390/430px 자동 기하 검증은 통과했지만, 수정 후 physical iPhone 검증은 아직 `not_proven`이다.
 
 ---
 

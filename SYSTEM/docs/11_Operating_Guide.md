@@ -17,8 +17,8 @@ Prodigy OS는 다음과 같은 주체와 계층 간의 철저한 역할 분리�
 
 이 문서는 이러한 철학 하에 설계된 Prodigy OS를 일상 업무에서 어떻게 조작하고 활용하는지에 관한 실제적 운영 방법을 정의한다.
 
-> 시스템 구조: [SYSTEM/docs/01_Architecture.md](SYSTEM/docs/01_Architecture.md)
-> 핵심 개념: [SYSTEM/docs/02_Core_Concepts.md](SYSTEM/docs/02_Core_Concepts.md)
+> 시스템 구조: [SYSTEM/docs/01_Architecture.md](01_Architecture.md)
+> 핵심 개념: [SYSTEM/docs/02_Core_Concepts.md](02_Core_Concepts.md)
 
 ---
 
@@ -328,7 +328,7 @@ C1 Candidate lifecycle
 
 | Gate | 운영 계약 | 사람의 결정 |
 |---|---|---|
-| C1 Candidate lifecycle | `knowledge_candidate`는 `proposed → saved → approved` 또는 `rejected`만 따른다. `approved`/`rejected`는 terminal이며, `approved`에는 동일한 `promotion_target`과 `promoted_knowledge`가 있어야 한다. 후보에는 Evidence 본문을 복사하지 않고 stable Evidence ID와 명시적 source Object만 남긴다. `source_type: monthly_validation`은 Weekly 검증에서 온 Candidate를 식별한다. | 후보를 저장·반려하고, Knowledge 승격을 승인한다. |
+| C1 Candidate lifecycle | `knowledge_candidate`는 `proposed → saved → approved` 또는 `rejected`만 따른다. `approved`/`rejected`는 terminal이며, `approved`에는 동일한 `promotion_target`과 `promoted_knowledge`가 있어야 한다. 후보에는 Evidence 본문을 복사하지 않고 stable Evidence ID와 명시적 source Object만 남긴다. `source_type: monthly_validation`은 2개 이상 Weekly에서 반복 검증된 원칙을 보존한 Monthly Validation Note를 명시적 source Object로 가진 Candidate를 식별한다. | 후보를 저장·반려하고, Knowledge 승격을 승인한다. |
 | C2 Evidence Quality | Evidence는 `invalid` · `thin` · `usable` · `strong`으로 계산한다. `invalid`는 승격 불가, `thin`은 사람이 override와 승인 사유를 함께 남길 때만 진행 가능하며, `usable`/`strong`도 자동 승격 근거가 아니다. | 증거 보완 여부와 thin override를 판단한다. |
 | C3 Decision Packet | Packet은 검증된 Knowledge, 동일 시·군·구 `auction_region`, 직접 연결·같은 지역·주제의 이전 Decision만 결정적으로 모은다. Candidate와 범용 자료는 정식 Knowledge처럼 섞지 않으며, 빈 결과와 경고도 숨기지 않는다. | Packet을 참고해 실제 판단을 내린다. |
 | C4 Auction | 경매는 조사 → 분석 → Packet 참고 → 입찰/포기 → 결과 → 복기 순서다. 지역 자료와 AI 분석은 참고 근거이고, 입찰가·입찰 여부·결과 기록의 소유자는 사람이다. | 입찰·포기·최종 입찰가·복기 완료를 결정한다. |
@@ -872,6 +872,8 @@ Hub는 `WorkoutView.renderDashboard` 한 경로로 로드하며 `__workoutWorksp
 2. 이름만 입력 → `PARA/RESOURCES/CONTACTS`에 People Object 생성 (`type: people`)
 3. 관계·소통 방식·배운 점을 필요할 때만 작성
 4. 관련 Project / Journal / Auction / Reading의 `connections`에 `[[그 사람]]` 링크
+
+Daily Reflection에서 `context: people` Evidence를 선택하면 승인 footer가 선택 수와 사람 수, 자동 반영 대상을 미리 고지한다. Evidence 승인 뒤 선택된 사람 통찰만 해당 CONTACTS 파일의 `# 핵심 상호작용`에 자동 반영되며 별도 두 번째 확인은 없다. 통찰은 날짜·출처 링크 없이 한 줄로 기록되고, 같은 normalized 통찰의 반복 승인은 no-op이다. 내용이 바뀌지 않으면 Vault 파일을 다시 쓰지 않으며, handoff 실패가 이미 저장된 Daily Evidence를 되돌리지 않는다.
 5. People Object의 **연결된 Object**에서 원본이 보이는지 확인 (내용 복제 없음)
 
 ---

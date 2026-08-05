@@ -589,6 +589,11 @@
    * 통찰만 기록 — 날짜/Object 링크 없음 (최근 맥락이 대체).
    */
   function appendPeopleInteractionToContent(content, line) {
+    const normalizedLine = clean(line).replace(/^[-*+]\s*/, "").replace(/\s+/g, " ");
+    const exists = extractInteractionLines(content).some(function (existingLine) {
+      return clean(existingLine).replace(/^[-*+]\s*/, "").replace(/\s+/g, " ") === normalizedLine;
+    });
+    if (exists) return String(content == null ? "" : content);
     return appendLineToSection(content, {
       line,
       aliases: INTERACTION_SECTION_ALIASES,

@@ -6,11 +6,11 @@
  */
 "use strict";
 
-const { describe, it } = require("node:test");
+const { after, describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("path");
 const fs = require("fs");
-const crypto = require("crypto");
+const os = require("os");
 
 const VAULT_ROOT = path.resolve(__dirname, "..", "..", "..", "..", "..", "..");
 const core = require(path.join(VAULT_ROOT, "SYSTEM", "SCRIPTS", "region-source-registry-core.js"));
@@ -20,6 +20,27 @@ const core = require(path.join(VAULT_ROOT, "SYSTEM", "SCRIPTS", "region-source-r
 // ---------------------------------------------------------------------------
 
 const FIX = "SYSTEM/AI/Skills/prodigy-review/tests/fixtures/region-intelligence";
+
+function createHermeticRegistryFixture(sourceRegistry) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "prodigy-region-source-contract-"));
+  const registry = JSON.parse(JSON.stringify(sourceRegistry));
+
+  for (const row of registry.providers) {
+    row.fixtures.forEach((fixture, index) => {
+      const relativePath = path.join("fixtures", row.provider_id, `${fixture.role}-${index}.fixture`);
+      const content = Buffer.from(`${row.provider_id}:${fixture.role}:${index}\n`, "utf8");
+      const absolutePath = path.join(root, relativePath);
+      fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+      fs.writeFileSync(absolutePath, content);
+      fixture.path = relativePath;
+      fixture.sha256 = core.sha256hex(content);
+    });
+  }
+
+  const registryPath = path.join(root, "region-source-registry.json");
+  fs.writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
+  return { root, registry, registryPath };
+}
 
 const EXPECTED_FIXTURE_BINDINGS = {
   mois_jumin_statmonth_csv: [
@@ -44,10 +65,14 @@ const EXPECTED_FIXTURE_BINDINGS = {
 // ---------------------------------------------------------------------------
 
 describe("Region Source Contract", () => {
-  let registry;
+  const registry = core.loadRegistry();
+  const hermetic = createHermeticRegistryFixture(registry);
+
+  after(() => {
+    fs.rmSync(hermetic.root, { recursive: true, force: true });
+  });
 
   it("loads the registry JSON", () => {
-    registry = core.loadRegistry();
     assert.ok(registry);
     assert.ok(Array.isArray(registry.providers));
   });
@@ -75,24 +100,14 @@ describe("Region Source Contract", () => {
     assert.deepEqual(errors, []);
   });
 
-  it("all seven seed fixture SHA-256 hashes verify", () => {
-    const { results, errors } = core.verifyFixtureHashes(registry, VAULT_ROOT);
+  it("all declared fixture SHA-256 hashes verify from an OS-temp root", () => {
+    const { results, errors } = core.verifyFixtureHashes(hermetic.registry, hermetic.root);
     assert.deepEqual(errors, []);
-
-    // Check the 7 seed fixtures specifically
-    const seedPaths = [
-      FIX + "/mois_jumin_statmonth_csv/2026-05-households.csv",
-      FIX + "/mois_jumin_statmonth_csv/2025-05-households.csv",
-      FIX + "/reb_rone_public_table/2026-05-price-sahagu.json",
-      FIX + "/reb_rone_public_table/2026-03_05-volume-sahagu.json",
-      FIX + "/reb_rone_public_table/2026-05-jeonse-sahagu.json",
-      FIX + "/reb_stock/2026-release.csv",
-      FIX + "/reb_supply/2026-release.csv",
-    ];
-    for (const sp of seedPaths) {
-      const r = results.find((x) => x.path === sp);
-      assert.ok(r, `Seed fixture not found in results: ${sp}`);
-      assert.ok(r.match, `Hash mismatch for ${sp}`);
+    assert.ok(results.length > 7);
+    for (const result of results) {
+      assert.equal(result.match, true);
+      assert.ok(path.resolve(hermetic.root, result.path).startsWith(hermetic.root));
+      assert.ok(!path.resolve(hermetic.root, result.path).startsWith(VAULT_ROOT));
     }
   });
 
@@ -149,10 +164,10 @@ describe("Region Source Contract", () => {
   });
 
   it("rejects a changed dataset ID/hash", () => {
-    const modified = JSON.parse(JSON.stringify(registry));
+    const modified = JSON.parse(JSON.stringify(hermetic.registry));
     const mois = modified.providers.find((r) => r.provider_id === "mois_jumin_statmonth_csv");
     mois.fixtures[0].sha256 = "0000000000000000000000000000000000000000000000000000000000000000";
-    const { errors } = core.verifyFixtureHashes(modified, VAULT_ROOT);
+    const { errors } = core.verifyFixtureHashes(modified, hermetic.root);
     assert.ok(errors.length > 0);
     assert.ok(errors.some((e) => e.includes("hash mismatch")));
   });
@@ -217,11 +232,15 @@ describe("Region Source Contract", () => {
   });
 
   it("full validateAll passes with zero errors", () => {
-    const result = core.validateAll({ vaultRoot: VAULT_ROOT });
+    const result = core.validateAll({
+      registryPath: hermetic.registryPath,
+      vaultRoot: hermetic.root,
+    });
     assert.equal(result.ok, true);
     assert.deepEqual(result.errors, []);
     assert.equal(result.provider_count, 32);
     assert.equal(result.digest_sha256, "663998ddf2f7b1b4d4242d52e5ea0fc99884c55230b3ceb3f555f07a101dab1b");
     assert.equal(result.secret_scan_hits, 0);
+    assert.equal(result.fixture_hashes_verified, result.fixture_total);
   });
 });

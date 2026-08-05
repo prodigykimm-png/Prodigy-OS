@@ -1,57 +1,23 @@
-# Prodigy OS Design System
+# Prodigy OS Design — 호환성 부록
 
-## 색상 토큰
+**이 문서는 계약이 아닙니다.** 공식 UI 계약은 저장소 루트의 [`DESIGN.md`](../../DESIGN.md) 하나뿐이며,
+토큰, 레이아웃, 접근성, 상태 표현의 유일한 권위입니다. 이 부록은 루트 계약보다 앞선 시기의 코드가
+남긴 레거시 예외 하나만 설명하고, 어떤 토큰 값도 다시 적지 않습니다.
 
-모든 View는 `SYSTEM/Views/design-tokens.js`의 `ProdigyTokens.COLORS`를 참조한다.
-raw hex/rgb 직접 사용 금지.
+## 레거시 예외: ProdigyTokens.COLORS
 
-### Semantic
+`ProdigyTokens.COLORS`는 루트 계약 도입 이전부터 존재하는 도메인 팔레트이며, 아래 경계 안에서만 허용됩니다.
 
-| 토큰 | 값 | 용도 |
-|------|-----|------|
-| success | #22c55e | 완료·승인·활성·낙찰 |
-| successDark | #16a34a | success 강조 텍스트 |
-| error | #ef4444 | 실패·반려·패찰·차단 |
-| warning | #f97316 | 주의·복기·중간 우선순위 |
-| warningDark | #ea580c | warning 강조 텍스트 |
-| caution | #eab308 | 증거 보강·일시정지 |
-| info | #3b82f6 | 정보·계획·입찰 예정 |
-| infoLight | #0ea5e9 | 정보 보조 |
-| accent | #8b5cf6 | 아이디어·강조 |
-| accentAlt | #a855f7 | 제안·보조 강조 |
-| teal | #14b8a6 | 등록·캡처 |
-| cyan | #06b6d4 | 완료·완독 |
-| pink | #ec4899 | 특수 강조 |
+- **허용**: Auction/Reading/Workout/Project/Personal/Knowledge의 **기존** 상태·우선순위·결과 표시
+- **금지**: 공통 App Shell, Workspace chrome, 새로 추가되는 모든 UI
+- **대체**: 공통 chrome은 루트 계약의 `--ke-color-*` 토큰과 Obsidian 테마 변수만 사용
 
-### Neutral
+토큰 이름과 값의 정의는 오직 [`SYSTEM/Views/design-tokens.js`](../Views/design-tokens.js)에 있습니다.
+값이 필요하면 그 파일을 읽으십시오. 새 raw hex는 이 파일 밖에 추가할 수 없습니다.
 
-| 토큰 | 값 | 용도 |
-|------|-----|------|
-| neutral500 | #8e8e93 | 비활성·대기·보관 |
-| neutral600 | #6b7280 | 보조 텍스트 |
-| neutral700 | #64748b | 예정·메타 |
-| neutral800 | #555555 | 보관·비활성 진하게 |
-| muted | #888888 | 관심·희미 |
-| stone | #78716c | 등록·식별 |
+로드 순서는 `design-tokens.js` → `display-registry.js` → 각 View입니다.
 
-### 그림자
+## 자동 검증
 
-| 토큰 | 값 | 용도 |
-|------|-----|------|
-| sm | 0 2px 4px rgba(0,0,0,0.06) | 카드 기본 |
-| md | 0 2px 6px rgba(0,0,0,0.08) | 카드 강조 |
-| card | 0 4px 6px rgba(0,0,0,0.15) | 표지·썸네일 |
-| overlay | 0 12px 40px rgba(0,0,0,0.28) | 모달 |
-| backdrop | rgba(0,0,0,0.45) | 모달 배경 |
-
-## 사용법
-
-```js
-const T = root.ProdigyTokens;
-style: `color: ${T.COLORS.success}; box-shadow: ${T.SHADOWS.sm};`
-style: `background: ${T.badgeBg(T.COLORS.error)};`
-```
-
-## 로드 순서
-
-`design-tokens.js` → `display-registry.js` → 각 View
+이 경계는 `SYSTEM/AI/Skills/prodigy-review/tests/test_design_color_contract.js`가 강제합니다.
+공통 chrome의 raw color, 레거시 baseline 이탈, 이 부록의 토큰 값 중복은 모두 테스트 실패로 차단됩니다.
