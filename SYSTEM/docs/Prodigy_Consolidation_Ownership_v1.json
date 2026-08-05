@@ -229,6 +229,7 @@
     ],
     "14": [
       ".omo/evidence/prodigy-region-workspace-consolidation/task-14/**",
+      "SYSTEM/Views/region-intelligence-popup-store.js",
       "SYSTEM/Views/region-intelligence-popup-core.js",
       "SYSTEM/Views/region-intelligence-popup-view.js",
       "SYSTEM/Views/region-decision-view-model.js",
