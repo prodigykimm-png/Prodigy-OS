@@ -39,6 +39,10 @@
 
   /** Prefer frontmatter (Journal UI) then body sections. */
   function extractDailyReviewFields(text) {
+    if (root.JournalCore && typeof root.JournalCore.extractReviewFromDaily === "function") {
+      const parsed = root.JournalCore.parseFrontmatter(text || "");
+      return root.JournalCore.extractReviewFromDaily(text || "", parsed.data);
+    }
     const sections = parseReflectionSections(text || "");
     const reflection = extractFrontmatterScalar(text, "reflection") || sections.reflection || "";
     const change = extractFrontmatterScalar(text, "change") || sections.change || "";
@@ -336,21 +340,25 @@
     }
 
     // F. Recent Reflections (Projected only)
+    // Scoped Dataview query (metadata cache) instead of a full-vault getMarkdownFiles()
+    // scan — the latter forces a filesystem enumeration that is slow on mobile over iCloud.
     const recentReflections = [];
-    const dailyFiles = app.vault.getMarkdownFiles()
-      .filter(f => f && f.path && f.path.startsWith("DAILY/DAILY/"))
-      .sort((a, b) => b.name.localeCompare(a.name));
-    
+    const dailyPages = dv.pages('"DAILY/DAILY"')
+      .where(p => p && p.file && p.file.path)
+      .sort((a, b) => String(b.file && b.file.name).localeCompare(String(a.file && a.file.name)));
+
     let processedDailies = 0;
-    for (const f of dailyFiles) {
+    for (const f of dailyPages) {
       if (processedDailies >= 3) break;
+      const file = app.vault.getAbstractFileByPath(f.file.path);
+      if (!file) continue;
       try {
-        const text = await app.vault.read(f);
+        const text = await app.vault.read(file);
         if (text.includes("status: completed") || text.includes("journal: personal daily")) {
           const fields = extractDailyReviewFields(text);
           recentReflections.push({
-            date: f.name.replace(".md", ""),
-            path: f.path,
+            date: String(f.file.name).replace(".md", ""),
+            path: f.file.path,
             reflection: fields.reflection,
             change: fields.change,
             nextExperiment: fields.next_experiment,

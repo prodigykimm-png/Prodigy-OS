@@ -74,7 +74,12 @@ const mockDv = {
     return {
       where: (filterFn) => {
         const mockPages = [];
-        if (query.includes("Auction")) {
+        if (query.includes("DAILY")) {
+          mockPages.push({
+            type: "daily",
+            file: { name: "2026-07-15.md", path: "DAILY/DAILY/2026-07-15.md", mtime: { toMillis: () => 1000000000000 } }
+          });
+        } else if (query.includes("Auction")) {
           mockPages.push({
             type: "auction_case",
             status: "bidding",

@@ -63,6 +63,14 @@
     const id = api.core.stableSourceId(source);
     const previous = await store.read(id);
     const state = api.store.createState(source, selection, previous);
+    // Persisted refined questions override the deterministic selection on reload.
+    if (state.questions && Object.keys(state.questions).length) {
+      selection.phases.forEach((phase) => {
+        if (Array.isArray(state.questions[phase.id]) && state.questions[phase.id].length) {
+          phase.questions = state.questions[phase.id];
+        }
+      });
+    }
     if (!previous || previous.source_path !== state.source_path || previous.strategy !== state.strategy) {
       await store.write(id, state);
     }
@@ -320,11 +328,11 @@
       saveBtn.addClass("reading-guide-save");
       saveBtn.onclick = () => this.saveAllToObject();
      const secondary = footer.createDiv({ attr: { class: "reading-guide-footer-secondary" } });
-     const geminiBtn = button(secondary, "Gemini로 질문 다듬기");
-      geminiBtn.onclick = () => { geminiBtn.disabled = true; geminiBtn.textContent = "정교화 중…"; this.requestGeminiRefinement().finally(() => { geminiBtn.disabled = false; geminiBtn.textContent = "Gemini로 질문 다듬기"; }); };
+     const refineBtn = button(secondary, "AI로 질문 다듬기");
+      refineBtn.onclick = () => { refineBtn.disabled = true; refineBtn.textContent = "정교화 중…"; this.requestRefinement().finally(() => { refineBtn.disabled = false; refineBtn.textContent = "AI로 질문 다듬기"; }); };
       if (this._originalQuestions) {
         const restoreBtn = button(secondary, "기본 질문으로 되돌리기");
-        restoreBtn.onclick = () => { this.data.selection.phases.forEach((phase) => { if (phase.id === this.activePhaseId && this._originalQuestions[phase.id]) { phase.questions = JSON.parse(JSON.stringify(this._originalQuestions[phase.id])); } }); this.renderGuide(); notice("기본 질문으로 되돌렸습니다."); };
+        restoreBtn.onclick = () => { this.data.selection.phases.forEach((phase) => { if (phase.id === this.activePhaseId && this._originalQuestions[phase.id]) { phase.questions = JSON.parse(JSON.stringify(this._originalQuestions[phase.id])); } }); this.persistSelection().catch(() => {}); this.renderGuide(); notice("기본 질문으로 되돌렸습니다."); };
       }
       button(secondary, "책 열기").onclick = async () => {
         if (await openBook(this.app, this.source)) this.close();
@@ -356,7 +364,32 @@
       };
     }
 
-    async requestGeminiRefinement() {
+    async persistSelection() {
+      // Sync any buffered answers so a concurrent draft write is not clobbered.
+      Object.keys(this.answerBuffers).forEach((questionId) => {
+        const value = String(this.answerBuffers[questionId] || "").trim();
+        if (value) this.data.state.drafts[questionId] = value;
+        else delete this.data.state.drafts[questionId];
+      });
+      const questions = {};
+      this.data.selection.phases.forEach((phase) => {
+        questions[phase.id] = (phase.questions || []).map((q) => ({
+          id: q.id,
+          label: q.label,
+          hint: q.hint || "",
+          kind: q.kind || "",
+          phase: q.phase || phase.id,
+          layer: q.layer || "common",
+          reason: q.reason || "",
+          memory_refs: Array.isArray(q.memory_refs) ? q.memory_refs.slice(0, 3) : [],
+        }));
+      });
+      this.data.state.questions = questions;
+      this.data.state.updated_at = new Date().toISOString();
+      await this.data.store.write(this.data.id, this.data.state);
+    }
+
+    async requestRefinement() {
       if (!root.ReadingQuestionAI || typeof root.ReadingQuestionAI.refineQuestions !== "function") {
         notice("Reading Question AI 모듈이 로드되지 않았습니다.");
         return;
@@ -375,7 +408,7 @@
           });
         } catch (_e) { /* memory unavailable is ok */ }
       }
-     notice("Gemini가 질문을 정교화하고 있습니다…");
+     notice("AI가 질문을 정교화하고 있습니다…");
       if (!this._originalQuestions) this._originalQuestions = {};
       if (!this._originalQuestions[this.activePhaseId]) {
         this._originalQuestions[this.activePhaseId] = JSON.parse(JSON.stringify(active.questions));
@@ -396,10 +429,11 @@
             if (!phase.questions.length) phase.questions = result.questions;
           }
         }.bind(this));
-        notice("Gemini 질문 초안이 적용되었습니다. 검토 후 저장하세요.");
+        await this.persistSelection();
+        notice("AI 질문 초안이 적용되었습니다. 검토 후 저장하세요.");
         this.renderGuide();
       } catch (error) {
-        notice("Gemini 정교화 실패: " + (error.message || error) + " — 기본 질문이 유지됩니다.");
+        notice("질문 정교화 실패: " + (error.message || error) + " — 기본 질문이 유지됩니다.");
       }
     }
 
@@ -411,7 +445,9 @@
         this.saveTimers = {};
         this.answerBuffers = {};
         await this.data.store.remove(this.data.id);
+        const refinedQuestions = this.data.state.questions || {};
         this.data.state = modules().store.createState(this.source, this.data.selection);
+        this.data.state.questions = refinedQuestions;
         this.renderGuide();
       };
       if (!hasDrafts) return reset();
