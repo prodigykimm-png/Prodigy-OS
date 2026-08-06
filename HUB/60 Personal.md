@@ -193,7 +193,7 @@ try {
         guard.fingerprint = initialSnapshot.fingerprint;
       } else {
         await guard.paintPeople({ force: true, snapshot: initialSnapshot });
-        if (typeof guard.paintAreas === "function") guard.paintAreas();
+        if (typeof guard.paintPlaces === "function") guard.paintPlaces();
       }
       if (scrollOwner && savedScrollTop) scrollOwner.scrollTop = savedScrollTop;
     }
@@ -206,8 +206,8 @@ try {
 
   // People surface (primary)
   const peopleMount = workspaceBody.createDiv({ attr: { class: "personal-people-mount" } });
-  // Areas surface (supporting)
-  const areasMount = workspaceBody.createDiv({ attr: { class: "personal-areas-mount prodigy-people-workspace" } });
+  // Places surface (supporting)
+  const placesMount = workspaceBody.createDiv({ attr: { class: "personal-places-mount prodigy-people-workspace" } });
 
   let workspaceApi = null;
 
@@ -263,33 +263,33 @@ try {
       workspaceApi,
       fingerprint,
       paintPeople,
-      paintAreas
+      paintPlaces
     });
     if (workspaceApi && workspaceApi.getState) {
       window.PeopleCore.writeWorkspaceState(window.sessionStorage, workspaceApi.getState());
     }
   };
 
-  const paintAreas = () => {
+  const paintPlaces = () => {
     if (window.PeopleView && window.PeopleView.ensureWorkspaceStyles) {
       window.PeopleView.ensureWorkspaceStyles();
     }
-    areasMount.empty();
-    areasMount.addClass("prodigy-people-workspace");
-    const wrap = areasMount.createEl("details", { attr: { class: "ppw-areas" } });
+    placesMount.empty();
+    placesMount.addClass("prodigy-people-workspace");
+    const wrap = placesMount.createEl("details", { attr: { class: "ppw-places" } });
     // Supporting section — collapsed by default on first paint
-    wrap.createEl("summary", { text: "지속 영역" });
+    wrap.createEl("summary", { text: "장소" });
     const body = wrap.createDiv({ attr: { style: "padding-top:10px;" } });
 
-    const areas = dv.pages('"PARA/AREAS"')
-      .where(p => p.type === "area_family" || p.type === "area_note")
+    const places = dv.pages('"PARA/RESOURCES/Venues"')
+      .where(p => p.type === "venue")
       .sort(p => p.file.name, "asc")
       .array()
       .map(p => ({
         title: p.file.name,
         path: p.file.path,
-        meta: [],
-        detail: p.summary || "",
+        meta: p.venue_category ? [String(p.venue_category)] : [],
+        detail: p.address || "",
         actions: []
       }));
 
@@ -298,13 +298,13 @@ try {
         app,
         container: body,
         title: "",
-        subtitle: "지속적으로 관리하는 삶의·운영 축입니다.",
+        subtitle: "반복 방문하는 장소의 현장 지식(조명·동선·촬영 포인트)을 보존합니다.",
         actions: [],
         sections: [
           {
-            title: "영역",
-            items: areas,
-            empty: "관리 중인 영역이 없습니다."
+            title: "장소",
+            items: places,
+            empty: "등록된 장소가 없습니다. Venue 템플릿으로 추가하세요."
           }
         ]
       });
@@ -312,12 +312,12 @@ try {
       const h1 = body.querySelector("h1");
       if (h1 && !String(h1.textContent || "").trim()) h1.style.display = "none";
     } else {
-      body.createEl("p", { text: "관리 중인 영역이 없습니다.", attr: { class: "ppw-empty" } });
+      body.createEl("p", { text: "등록된 장소가 없습니다.", attr: { class: "ppw-empty" } });
     }
   };
 
   await paintPeople({ snapshot: initialSnapshot });
-  paintAreas();
+  paintPlaces();
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "개인" });
