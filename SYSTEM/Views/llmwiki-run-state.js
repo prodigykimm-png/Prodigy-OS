@@ -3,7 +3,7 @@
 (function attach(root) {
   const STATES = Object.freeze([
     "idle", "selecting", "consent_required", "running", "review", "committing",
-    "committed", "committed_refresh_failed", "abstained", "failed", "cancelled",
+    "committed", "committed_audit_pending", "committed_refresh_failed", "abstained", "failed", "cancelled",
     "stale_reconfirm_required",
   ]);
   const EFFECT_KEYS = Object.freeze([
@@ -33,7 +33,13 @@
     capture_proposal: effectRow({ proposal_capture: 1 }),
     approve: effectRow(),
     commit_succeeded: effectRow({ canonical: 1, audit: 1, derived_snapshot: 1, memory: 1, index: 1 }),
+    commit_audit_pending: effectRow({ canonical: 1, audit: 1 }),
     commit_refresh_failed: effectRow({ canonical: 1, audit: 1, derived_failure: 1 }),
+    audit_repaired: effectRow({ audit: 1 }),
+    refresh_retry_succeeded: effectRow({ derived_snapshot: 1, memory: 1, index: 1 }),
+    refresh_retry_failed: effectRow({ derived_failure: 1 }),
+    repacket: effectRow(),
+    reconfirm: effectRow(),
     stale: effectRow(),
     cancel: effectRow(),
     tab_switch: effectRow(),
@@ -151,10 +157,29 @@
       if (current.state !== "review" && current.state !== "committing") return rejected(current, "invalid_transition");
       return accepted(current, "stale", { state: "stale_reconfirm_required", outcome: "stale" });
     }
-    if (action.type === "commit_succeeded" || action.type === "commit_refresh_failed") {
+    if (action.type === "commit_succeeded" || action.type === "commit_audit_pending" || action.type === "commit_refresh_failed") {
       if (current.state !== "committing") return rejected(current, "invalid_transition");
-      const state = action.type === "commit_succeeded" ? "committed" : "committed_refresh_failed";
+      const state = action.type === "commit_succeeded"
+        ? "committed"
+        : action.type === "commit_audit_pending" ? "committed_audit_pending" : "committed_refresh_failed";
       return accepted(current, action.type, { state, outcome: state });
+    }
+    if (action.type === "audit_repaired") {
+      if (current.state !== "committed_audit_pending") return rejected(current, "invalid_transition");
+      return accepted(current, "audit_repaired", { state: "committed_refresh_failed", outcome: "derived_refresh_required" });
+    }
+    if (action.type === "refresh_retry_succeeded" || action.type === "refresh_retry_failed") {
+      if (current.state !== "committed_refresh_failed") return rejected(current, "invalid_transition");
+      if (action.type === "refresh_retry_succeeded") return accepted(current, action.type, { state: "committed", outcome: "committed" });
+      return accepted(current, action.type, { state: "committed_refresh_failed", outcome: "committed_refresh_failed" });
+    }
+    if (action.type === "repacket") {
+      if (current.state !== "stale_reconfirm_required") return rejected(current, "invalid_transition");
+      return accepted(current, "repacket", { state: "review", outcome: "reconfirmation_required" });
+    }
+    if (action.type === "reconfirm") {
+      if (current.state !== "review" || current.outcome !== "reconfirmation_required") return rejected(current, "invalid_transition");
+      return accepted(current, "reconfirm", { outcome: "proposal_ready" });
     }
     return rejected(current, "invalid_transition");
   }

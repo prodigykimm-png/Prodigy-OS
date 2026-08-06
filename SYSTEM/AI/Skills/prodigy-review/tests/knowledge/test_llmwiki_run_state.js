@@ -10,7 +10,7 @@ const MODULE_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-run-state.js");
 
 const STATES = [
   "idle", "selecting", "consent_required", "running", "review", "committing",
-  "committed", "committed_refresh_failed", "abstained", "failed", "cancelled",
+  "committed", "committed_audit_pending", "committed_refresh_failed", "abstained", "failed", "cancelled",
   "stale_reconfirm_required",
 ];
 const EFFECT_KEYS = [
@@ -55,7 +55,13 @@ test("Given the lifecycle contract, When exports are inspected, Then every state
     capture_proposal: zeroEffects({ proposal_capture: 1 }),
     approve: zeroEffects(),
     commit_succeeded: zeroEffects({ canonical: 1, audit: 1, derived_snapshot: 1, memory: 1, index: 1 }),
+    commit_audit_pending: zeroEffects({ canonical: 1, audit: 1 }),
     commit_refresh_failed: zeroEffects({ canonical: 1, audit: 1, derived_failure: 1 }),
+    audit_repaired: zeroEffects({ audit: 1 }),
+    refresh_retry_succeeded: zeroEffects({ derived_snapshot: 1, memory: 1, index: 1 }),
+    refresh_retry_failed: zeroEffects({ derived_failure: 1 }),
+    repacket: zeroEffects(),
+    reconfirm: zeroEffects(),
     stale: zeroEffects(),
     cancel: zeroEffects(),
     tab_switch: zeroEffects(),
