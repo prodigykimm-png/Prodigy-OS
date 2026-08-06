@@ -13,6 +13,11 @@ const adapters = fs.readdirSync(DISCOVERY_ROOT, { withFileTypes: true })
   .sort();
 
 assert.ok(adapters.length > 0);
+assert.deepEqual(
+  ["prodigy-auction-brief", "prodigy-auction-region-research", "prodigy-daily-reflection"].every((skillName) => adapters.includes(skillName)),
+  true,
+  "baseline discovery adapters must remain present"
+);
 adapters.forEach((skillName) => {
   const adapterPath = path.join(DISCOVERY_ROOT, skillName, "SKILL.md");
   const canonicalPath = path.join(ROOT, "SYSTEM/AI/Skills", skillName, "SKILL.md");

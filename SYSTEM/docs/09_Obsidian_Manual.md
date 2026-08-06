@@ -205,12 +205,16 @@ Home = **Mission Control** (한글 UI).
 ### 5.7 저널 — `HUB/70 Journal.md`
 
 - Daily · Weekly · Monthly · Quarterly · Yearly 질문을 한 화면에서 탐색합니다.
+- Daily: 오늘 무엇이 나를 변화시켰는지 기록합니다. Weekly: 이번 주에 무엇이 반복되었고 무엇을 배웠는지 살펴봅니다. Monthly: 이번 달의 변화가 반복된 근거로 검증되는지 확인합니다. Quarterly: 검증된 변화와 결과를 바탕으로 지금의 방향이 맞는지 점검합니다. Yearly: 분기별 방향과 변화를 돌아보며 내가 어떤 사람이 되어가는지 성찰합니다.
 - Daily는 여러 Evidence Block을 남기며, 각각 Experience → Interpretation → Change → Next Experiment를 보존합니다.
 - Weekly는 월요일~일요일 Evidence를 Pattern → Learning으로 읽습니다. `AI 학습 분석`은 사용자가 직접 눌렀을 때만 실행하며, 실패 시 규칙 기반 결과를 유지합니다.
 - Weekly 저장 시 `type: journal`, `status: completed`를 frontmatter에 기록합니다.
-- Monthly는 저장된 Weekly 2개 이상과 서로 다른 주차의 반복 Principle이 있을 때 개방됩니다.
+- Monthly는 월을 이동하며 저장된 기록을 다시 열 수 있습니다. 완료 Weekly가 없거나 필수 입력이 깨진 경우만 새 기록을 막고, Weekly가 있지만 반복 Principle이 없으면 `question_only`로 열어 관찰 요약과 다음 달 방향을 저장합니다. 서로 다른 주차의 동일 normalized title Principle이 반복될 때만 사람의 검증 결정을 엽니다.
+- Monthly의 `AI 검증 보조`는 버튼을 눌렀을 때만 실행되며, 선택한 달의 구조화 Daily Evidence를 근거·반증·누락·질문·검증 사유 초안·다음 달 방향 초안으로 제안합니다. Principle 결정, 지식 문장, 요약, 저장은 사람이 합니다.
+- Monthly `question_only`의 `AI 관찰 질문 보조`는 누락·불확실성·관찰 질문·다음 달 방향만 제안하며 Principle 결정, 검증 사유 복사, Knowledge 문장, Candidate 생성은 하지 않습니다.
+- AI 실행 전 입력 기록 변경을 감지하면 `입력 기록 변경됨`으로 중단하고, Evidence가 없으면 `선택한 달에 AI가 검토할 구조화 Evidence가 없습니다`를 표시하며 provider를 호출하지 않습니다.
 - Monthly에서 `검증`한 Principle은 `source_type: monthly_validation` Knowledge Candidate로 저장되며, 기존 승인 화면에서 사람이 Knowledge 승격을 결정합니다.
-- Quarterly·Yearly는 readiness 화면만 제공합니다.
+- Quarterly·Yearly도 분기·연도를 이동하고 저장된 이전 기록을 다시 열 수 있습니다. 입력이 부족하면 확인할 질문과 draft 범위만 허용하고, 자동 리뷰 엔진·Direction·Identity 승격은 제공하지 않습니다.
 
 ---
 
