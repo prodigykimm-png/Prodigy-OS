@@ -432,6 +432,20 @@
           }
         };
       }
+      if (root.AuctionAiDecisionSupport && typeof root.AuctionAiDecisionSupport.openForAuction === "function") {
+        const decisionSupportButton = actions.createEl("button", { text: "AI 판단 보조", attr: { type: "button", class: "auction-decision-board-action", title: "내 기록과 지역 결과를 근거로 판단 보조를 확인합니다." } });
+        decisionSupportButton.onclick = async () => {
+          try {
+            await root.AuctionAiDecisionSupport.openForAuction(this.app, this.auction, {
+              returnFocus: decisionSupportButton,
+              context: this.options.decisionSupportContext || root.AuctionDecisionMirrorDashboardContext,
+              generationStartedAt: new Date().toISOString()
+            });
+          } catch (error) {
+            if (root.Notice) new root.Notice(error.message || String(error));
+          }
+        };
+      }
       const fullInfo = actions.createEl("button", { text: "지역 상세 보기", attr: { type: "button", class: "auction-decision-board-action" } });
       fullInfo.onclick = async () => {
         try {

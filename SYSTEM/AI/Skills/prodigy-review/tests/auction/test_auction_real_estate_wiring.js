@@ -15,8 +15,17 @@ test("Given the Auction dashboard loader, When source modules are loaded, Then l
   assert.match(hub, /loadProdigyScript\("SYSTEM\/Views\/auction-real-estate-research-core\.js"\)/u);
   assert.match(hub, /loadProdigyScript\("SYSTEM\/Views\/auction-real-estate-source-runner\.js"\)/u);
   assert.match(hub, /loadProdigyScript\("SYSTEM\/Views\/auction-real-estate-research\.js"\)/u);
+  assert.match(hub, /loadProdigyScript\("SYSTEM\/Views\/auction-ai-provider-resolver\.js"\)/u);
+  assert.ok(hub.indexOf('loadProdigyScript("SYSTEM/Views/auction-ai-provider-resolver.js")') < hub.indexOf('loadProdigyScript("SYSTEM/Views/auction-real-estate-research.js")'));
   assert.match(hub, /loadProdigyScript\("SYSTEM\/Views\/codex-exec-service\.js"\)/u);
   assert.match(hub, /loadProdigyScript\("SYSTEM\/Views\/antigravity-exec-service\.js"\)/u);
+});
+
+test("Given the research summary flow, When a provider is resolved, Then it delegates to the shared Auction resolver", () => {
+  const research = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-real-estate-research.js"), "utf8");
+  assert.match(research, /AuctionAiProviderResolver/u);
+  assert.match(research, /resolveAuctionAiProvider/u);
+  assert.doesNotMatch(research, /\[config\.defaultProvider,\s*"codex",\s*"antigravity"\]/u);
 });
 
 test("Given an Auction Object card, When research state is projected, Then the card keeps the investigation entry conditional and Korean", () => {

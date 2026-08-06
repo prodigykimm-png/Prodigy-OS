@@ -28,8 +28,8 @@ const EXPECTED_SECRET_IDS = [
   "prodigy-vworld-api-key",
   "prodigy-kosis-api-key",
   "prodigy-seoul-openapi-key",
-  "test-naver-client-id-placeholder",
-  "test-naver-client-secret-placeholder",
+  "prodigy-naver-client-id",
+  "prodigy-naver-client-secret",
   "prodigy-youtube-api-key"
 ];
 
@@ -65,8 +65,8 @@ describe("Region Secret Provisioning", () => {
     assert.equal(R.vworld, "prodigy-vworld-api-key");
     assert.equal(R.kosis, "prodigy-kosis-api-key");
     assert.equal(R.seoulOpenapi, "prodigy-seoul-openapi-key");
-    assert.equal(R.naverClientId, "test-naver-client-id-placeholder");
-    assert.equal(R.naverClientSecret, "test-naver-client-secret-placeholder");
+    assert.equal(R.naverClientId, "prodigy-naver-client-id");
+    assert.equal(R.naverClientSecret, "prodigy-naver-client-secret");
     assert.equal(R.youtube, "prodigy-youtube-api-key");
   });
 
@@ -131,7 +131,7 @@ describe("Region Secret Provisioning", () => {
     const collector = collectorService.createCollector({
       readFile: async (p) => files[p] || null,
       writeFile: async (p, t) => { files[p] = t; },
-      getSecret: async (id) => id === "test-naver-client-id-placeholder" ? secretValue : "",
+      getSecret: async (id) => id === "prodigy-naver-client-id" ? secretValue : "",
       requestUrl: async () => ({ status: 200, headers: {} }),
       now: () => Date.now(),
       randomUUID: () => "aaaaaaaa-bbbb-4ccc-9ddd-eeeeeeeeeeee",

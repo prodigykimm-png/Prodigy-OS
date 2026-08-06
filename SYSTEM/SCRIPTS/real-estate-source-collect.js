@@ -28,7 +28,7 @@ function validateObservedAt(value) {
   return text;
 }
 function parseScalar(block, key) {
-  const match = String(block).match(new RegExp(`^${key}:\\s*(.*?)\\s*$`, "mu"));
+  const match = String(block).match(new RegExp(`^${key}:[ \\t]*(.*?)[ \\t]*$`, "mu"));
   if (!match) return "";
   return match[1].replace(/^['"]|['"]$/gu, "").trim();
 }
@@ -150,7 +150,7 @@ function normalizeCourt(record, payload) {
   const result = Object.assign({}, item, latest, payload.caseInfo || {});
   const explicitOutcome = clean(result.auctionOutcome || result.outcome || result.result).toLowerCase();
   const candidate = {
-    case_number: result.caseNumber || record.case_number,
+    case_number: result.userCaseNumber || result.printCaseNumber || result.printCsNo || record.case_number,
     court: result.courtName || record.court,
     address: result.address || record.address,
     property_type: result.usage || record.property_type,
@@ -163,6 +163,31 @@ function normalizeCourt(record, payload) {
   };
   return { status: Object.keys(candidate).some((key) => candidate[key]) ? "success" : "empty", candidate, evidence: { case_info: payload.caseInfo || null, schedule }, raw: payload, source_url: "https://www.courtauction.go.kr" };
 }
+function deriveCourtParcelSelection(record, payload) {
+  const data = payload?.raw?.data || payload?.data || {};
+  const primary = Array.isArray(data.dlt_rletCsDspslObjctLst) ? data.dlt_rletCsDspslObjctLst : [];
+  const fallback = Array.isArray(data.dlt_dstrtDemnLstprdDts) ? data.dlt_dstrtDemnLstprdDts : [];
+  let rows = primary.length ? primary : fallback;
+  const itemNumber = clean(record?.item_number);
+  if (itemNumber) rows = rows.filter((row) => clean(row.dspslObjctSeq || row.itemSeq) === itemNumber);
+  if (rows.length !== 1) return {};
+  const row = rows[0];
+  const legalCodeParts = [clean(row.rprsAdongSdCd), clean(row.rprsAdongSggCd), clean(row.rprsAdongEmdCd), clean(row.rprsAdongRiCd || "00")];
+  const legalCode = legalCodeParts.join("");
+  const lot = identityCore.parseLotToken(row.rprsLtnoAddr);
+  const pnu = /^\d{10}$/u.test(legalCode) && lot
+    ? `${legalCode}${lot.mountain ? "2" : "1"}${lot.main.padStart(4, "0")}${lot.sub.padStart(4, "0")}`
+    : "";
+  const lotAddress = lot ? [row.adongSdNm, row.adongSggNm, row.adongEmdNm, row.adongRiNm, lot.text].map(clean).filter(Boolean).join(" ") : "";
+  const unitMatch = clean(row.bldDtlDts).replace(/\s+/gu, "").match(/(\d+(?:-\d+)?)호/u);
+  return Object.fromEntries(Object.entries({
+    pnu,
+    lot_address: lotAddress,
+    building_name: clean(row.bldNm),
+    unit_number: unitMatch ? unitMatch[1] : "",
+    lawd_cd: /^\d{10}$/u.test(legalCode) ? legalCode.slice(0, 5) : ""
+  }).filter(([, value]) => value));
+}
 function normalizeBuilding(record, payload) {
   const item = firstItem(payload) || {};
   if (!item || Object.keys(item).length === 0) return { status: "empty", candidate: {}, evidence: { records: [] }, raw: payload, source_url: "https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo" };
@@ -171,6 +196,20 @@ function normalizeBuilding(record, payload) {
 function normalizeTransactions(payload) { const items = Array.isArray(payload?.items) ? payload.items : []; return { status: items.length ? "success" : "empty", candidate: {}, evidence: { items, summary: payload?.summary || null, query: payload?.query || null }, raw: payload, source_url: "https://k-skill-proxy.nomadamas.org/v1/real-estate" }; }
 function normalizeOfficialPrice(payload) { const history = Array.isArray(payload?.history) ? payload.history : []; return { status: history.length ? "success" : "empty", candidate: {}, evidence: { status: payload?.status || null, selected: payload?.selected || null, history, source: payload?.source || null }, raw: payload, source_url: "https://www.realtyprice.kr" }; }
 function normalizeLandPrice(payload) { const history = Array.isArray(payload?.history) ? payload.history : []; return { status: payload?.latest || history.length ? "success" : "empty", candidate: {}, evidence: { address: payload?.address || null, latest: payload?.latest || null, history, yoy_change_pct: payload?.yoy_change_pct ?? null }, raw: payload, source_url: payload?.source_url || "https://www.realtyprice.kr/notice/gsindividual/search.htm" }; }
+async function lookupLandPriceByIdentity(identity, land) {
+  const pnu = identityCore.validPnu(identity?.pnu);
+  const parts = pnu.match(/^(\d{8})(\d{2})([12])(\d{4})(\d{4})$/u);
+  if (!parts || typeof land?.fetchGsiSearchList !== "function") return land.lookupGongsijiga(identity.parcel_query_address);
+  const main = String(Number(parts[4]));
+  const sub = Number(parts[5]) ? String(Number(parts[5])) : "";
+  const san = parts[3] === "2";
+  const rows = await land.fetchGsiSearchList({ regCode: parts[1].slice(0, 5), eubCode: parts[1], san, bun1: main, bun2: sub });
+  const history = rows.map((row) => land.normalizeSearchResult(row));
+  const base = history.length
+    ? land.buildResponse({ address: identity.parcel_query_address, jibun: sub ? `${main}-${sub}번지` : `${main}번지`, san, history })
+    : { address: identity.parcel_query_address, jibun: sub ? `${main}-${sub}번지` : `${main}번지`, san, latest: null, history: [], yoy_change_pct: null, source_url: "https://www.realtyprice.kr/notice/gsindividual/search.htm" };
+  return Object.assign({}, base, { pnu, query: { pnu, address: identity.parcel_query_address } });
+}
 async function httpJson(url, options = {}) {
   const attempts = Number.isInteger(options.attempts) ? Math.max(1, Math.min(options.attempts, 3)) : 2;
   let lastError;
@@ -197,6 +236,11 @@ function proxyBaseUrl() {
   try { parsed = new URL(value); } catch (_error) { throw new Error("k-skill 프록시 URL이 올바르지 않습니다."); }
   if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.hostname !== "k-skill-proxy.nomadamas.org") throw new Error("허용되지 않은 k-skill 프록시 URL입니다.");
   return value;
+}
+function buildingProxyUrl(identity, baseUrl = proxyBaseUrl()) {
+  const pnu = identityCore.validPnu(identity?.pnu);
+  if (!pnu) return "";
+  return `${clean(baseUrl).replace(/\/$/u, "")}/v1/building-register/title?pnu=${encodeURIComponent(pnu)}`;
 }
 function recentMonths(count) {
   const result = []; const date = new Date(); date.setUTCDate(1);
@@ -233,7 +277,7 @@ async function liveProvider(name, record, dependencies, identityContext) {
       }
     }
     if (plan.status !== "resolved") return unresolvedResult(plan.status, plan, sourceUrls.court, plan.reason || "법원사무소 코드와 사건번호가 필요합니다.", { candidates: plan.candidates || [] });
-    const payload = await court.getCaseByCaseNumber({ courtCode: identity.court_code, caseNumber: identity.case_number });
+    const payload = await court.getCaseByCaseNumber({ courtCode: identity.court_code, caseNumber: identity.case_number, includeRaw: true });
     const normalized = normalizeWithRaw((value) => normalizeCourt(record, value), payload);
     if (normalized.status === "empty") return resultWithMatch(normalized, Object.assign({}, plan, { match_verified: true, reason: "case_query_empty" }));
     return verifiedResult(name, normalized, record, identity, payload, plan.query, plan);
@@ -241,9 +285,14 @@ async function liveProvider(name, record, dependencies, identityContext) {
   if (name === "building") {
     const queryAddress = identity.road_address || identity.parcel_query_address || identity.address;
     if (!identity.pnu && directOrProxy !== "proxy") return unresolvedResult("needs_selection", identityCore.providerPlan(name, identity), sourceUrls.building, "건축물대장 공식 직접 조회에는 19자리 PNU가 필요합니다.");
-    const args = ["title", identity.pnu ? "--pnu" : "--address", identity.pnu || queryAddress, "--json"];
-    if (!identity.pnu) args.push("--proxy-base-url", proxyBaseUrl()); else args.push("--direct");
-    const payload = runKSkillScript(dependencies.cli, "building-register-search", "scripts/building_register.py", args);
+    let payload;
+    if (directOrProxy === "proxy" && identity.pnu) {
+      payload = await httpJson(buildingProxyUrl(identity));
+    } else {
+      const args = ["title", identity.pnu ? "--pnu" : "--address", identity.pnu || queryAddress, "--json"];
+      if (directOrProxy === "proxy") args.push("--proxy-base-url", proxyBaseUrl()); else args.push("--direct");
+      payload = runKSkillScript(dependencies.cli, "building-register-search", "scripts/building_register.py", args);
+    }
     const normalized = normalizeWithRaw((value) => normalizeBuilding(record, value), payload);
     if (normalized.status === "empty") return resultWithMatch(normalized, Object.assign({}, identityCore.providerPlan(name, identity), { match_verified: true, transport: directOrProxy, reason: "parcel_query_empty" }));
     return verifiedResult(name, normalized, record, identity, payload, identityCore.providerPlan(name, identity).query, Object.assign({}, identityCore.providerPlan(name, identity), { transport: directOrProxy }));
@@ -304,7 +353,7 @@ async function liveProvider(name, record, dependencies, identityContext) {
   if (name === "land-price") {
     const plan = identityCore.providerPlan(name, identity);
     if (!identity.parcel_query_address) return unresolvedResult("needs_selection", plan, sourceUrls["land-price"], "개별공시지가 조회에 사용할 지번 필지를 선택해야 합니다.");
-    const payload = await dependencies.land.lookupGongsijiga(identity.parcel_query_address);
+    const payload = await lookupLandPriceByIdentity(identity, dependencies.land);
     const normalized = normalizeWithRaw(normalizeLandPrice, payload);
     if (normalized.status === "empty") return resultWithMatch(normalized, Object.assign({}, plan, { match_verified: true, reason: "lot_query_empty" }));
     return verifiedResult(name, normalized, record, identity, payload, { lot_address: identity.parcel_query_address }, plan);
@@ -355,7 +404,7 @@ function writePackage(vaultRoot, record, observedAt, providerResults, lock, iden
 }
 function parseArgs(argv) { const options = { vaultRoot: process.cwd(), providers: core.PROVIDERS.slice(), fixtureDir: "", observedAt: nowIso(), selection: {} }; const selectionArgs = { "--court-code": "court_code", "--pnu": "pnu", "--lot-address": "lot_address", "--building-name": "building_name", "--building-dong": "building_dong", "--unit-number": "unit_number", "--apt-code": "apt_code", "--apt-notice-date": "apt_notice_date", "--dong-code": "dong_code", "--ho-code": "ho_code", "--lawd-cd": "lawd_cd" }; for (let index = 0; index < argv.length; index += 1) { const arg = argv[index]; const next = argv[index + 1]; if (arg === "--case") options.casePath = next; else if (arg === "--vault") options.vaultRoot = next; else if (arg === "--providers") options.providers = next.split(",").map((item) => item.trim()).filter(Boolean); else if (arg === "--fixture-dir") options.fixtureDir = next; else if (arg === "--observed-at") options.observedAt = next; else if (selectionArgs[arg]) options.selection[selectionArgs[arg]] = next; else throw new Error(`지원하지 않는 인자입니다: ${arg}`); index += 1; } if (!options.casePath) throw new Error("--case가 필요합니다."); options.providers.forEach((provider) => { if (!core.PROVIDERS.includes(provider)) throw new Error(`지원하지 않는 provider입니다: ${provider}`); }); validateObservedAt(options.observedAt); return options; }
 async function collect(options) {
-  const vaultRoot = fs.realpathSync(path.resolve(options.vaultRoot)); const objectPath = resolveCasePath(vaultRoot, options.casePath); const record = readAuctionObject(objectPath); record.object_path = path.relative(vaultRoot, objectPath).split(path.sep).join("/"); const objectIdentityContext = identityCore.normalizeAuctionIdentity(record, {}); const identityContext = identityCore.normalizeAuctionIdentity(record, options.selection || {}); const lock = readLock(); const providerResults = {}; let dependencies = null; const temporaryRoots = [];
+  const vaultRoot = fs.realpathSync(path.resolve(options.vaultRoot)); const objectPath = resolveCasePath(vaultRoot, options.casePath); const record = readAuctionObject(objectPath); record.object_path = path.relative(vaultRoot, objectPath).split(path.sep).join("/"); const objectIdentityContext = identityCore.normalizeAuctionIdentity(record, {}); const autoSelections = Object.assign({}, options.selection || {}); let identityContext = identityCore.normalizeAuctionIdentity(record, autoSelections); const lock = readLock(); const providerResults = {}; let dependencies = null; const temporaryRoots = [];
   try {
     if (!options.fixtureDir) {
       const cli = installKSkillCli(lock); temporaryRoots.push(cli.prefix);
@@ -377,13 +426,21 @@ async function collect(options) {
           : Object.assign({}, normalized, { match: match || Object.assign({}, plan, { status: result.status, match_verified: false, reason: "match_missing" }) });
         providerResults[name] = fixtureResultWithMatch;
         providerResults[name].raw = options.fixtureDir ? result : result.raw || result;
+        if (name === "court" && providerResults[name].match?.match_verified === true) {
+          const derived = deriveCourtParcelSelection(record, providerResults[name].raw);
+          const courtCode = providerResults[name].match?.selected?.court_code || identityContext.identity.court_code;
+          for (const [key, value] of Object.entries(Object.assign({ court_code: courtCode }, derived))) {
+            if (!clean(autoSelections[key]) && clean(value)) autoSelections[key] = value;
+          }
+          identityContext = identityCore.normalizeAuctionIdentity(record, autoSelections);
+        }
       } catch (error) { providerResults[name] = { status: "failed", candidate: {}, evidence: {}, raw: error.raw || { error: clean(redactSensitive(error.message)) }, source_url: "https://www.realtyprice.kr", warnings: [], error, match: Object.assign({}, identityCore.providerPlan(name, identityContext.identity), { status: "failed", match_verified: false, reason: error.code || "provider_error" }) }; }
     }
-    const autoSelections = Object.assign({}, options.selection || {}, { court_code: providerResults.court?.match?.selected?.court_code || identityContext.identity.court_code, apt_code: providerResults["official-price"]?.match?.selected?.candidate?.aptCode || identityContext.identity.apt_code, apt_notice_date: providerResults["official-price"]?.match?.selected?.candidate?.noticeDate || identityContext.identity.apt_notice_date, lawd_cd: providerResults.transactions?.match?.query?.lawd_cd || identityContext.identity.lawd_cd });
+    Object.assign(autoSelections, { court_code: autoSelections.court_code || providerResults.court?.match?.selected?.court_code || identityContext.identity.court_code, apt_code: autoSelections.apt_code || providerResults["official-price"]?.match?.selected?.candidate?.aptCode || identityContext.identity.apt_code, apt_notice_date: autoSelections.apt_notice_date || providerResults["official-price"]?.match?.selected?.candidate?.noticeDate || identityContext.identity.apt_notice_date, lawd_cd: autoSelections.lawd_cd || providerResults.transactions?.match?.query?.lawd_cd || identityContext.identity.lawd_cd });
     const finalIdentity = identityCore.normalizeAuctionIdentity(record, autoSelections);
     return writePackage(vaultRoot, record, validateObservedAt(options.observedAt), providerResults, lock, finalIdentity, objectIdentityContext);
   } finally { temporaryRoots.forEach((directory) => { try { fs.rmSync(directory, { recursive: true, force: true }); } catch (_error) {} }); }
 }
 if (require.main === module) collect(parseArgs(process.argv.slice(2))).then((result) => process.stdout.write(`${JSON.stringify({ package_path: result.package_path, package_id: result.package.package_id }, null, 2)}\n`)).catch((error) => { process.stderr.write(`${error.stack || error.message}\n`); process.exitCode = 1; });
 
-module.exports = Object.freeze({ CACHE_ROOT, PROVIDER_FILES, collect, normalizeBuilding, normalizeCourt, normalizeLandPrice, normalizeOfficialPrice, normalizeResult, normalizeTransactions, parseArgs, readAuctionObject, readLock, safeCaseKey: core.safeCaseKey, serializeRaw, validateObservedAt, verifyKSkillFiles });
+module.exports = Object.freeze({ CACHE_ROOT, PROVIDER_FILES, buildingProxyUrl, collect, deriveCourtParcelSelection, lookupLandPriceByIdentity, normalizeBuilding, normalizeCourt, normalizeLandPrice, normalizeOfficialPrice, normalizeResult, normalizeTransactions, parseArgs, readAuctionObject, readLock, safeCaseKey: core.safeCaseKey, serializeRaw, validateObservedAt, verifyKSkillFiles });

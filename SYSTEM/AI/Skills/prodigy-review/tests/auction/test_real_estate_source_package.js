@@ -63,6 +63,72 @@ test("Given a 19-digit PNU in Auction frontmatter, When the collector reads it, 
   } finally { fs.rmSync(vault, { recursive: true, force: true }); }
 });
 
+test("Given an empty Auction scalar, When the collector reads frontmatter, Then the next property name is not consumed as its value", () => {
+  const vault = fs.mkdtempSync(path.join(os.tmpdir(), "prodigy-real-estate-empty-scalar-"));
+  const target = path.join(vault, "case.md");
+  try {
+    fs.writeFileSync(target, "---\ntype: auction_case\ncase_number: 2025타경22459\nland_parcel_id:\nofficial_land_price_per_sqm:\n---\n", "utf8");
+    const record = collector.readAuctionObject(target);
+    assert.equal(record.land_parcel_id, undefined);
+  } finally { fs.rmSync(vault, { recursive: true, force: true }); }
+});
+
+test("Given one official court item with legal-dong codes, When parcel identity is derived, Then PNU and address selectors are automatic", () => {
+  const payload = {
+    raw: { data: { dlt_rletCsDspslObjctLst: [{
+      dspslObjctSeq: 1,
+      rprsAdongSdCd: "26",
+      rprsAdongSggCd: "230",
+      rprsAdongEmdCd: "104",
+      rprsAdongRiCd: "00",
+      rprsLtnoAddr: "848-8",
+      adongSdNm: "부산광역시",
+      adongSggNm: "부산진구",
+      adongEmdNm: "범천동",
+      bldNm: "부산 범일 로얄팰리스 2차",
+      bldDtlDts: " 8층801호"
+    }] } }
+  };
+  assert.deepEqual(collector.deriveCourtParcelSelection({ item_number: "1" }, payload), {
+    pnu: "2623010400108480008",
+    lot_address: "부산광역시 부산진구 범천동 848-8",
+    building_name: "부산 범일 로얄팰리스 2차",
+    unit_number: "801",
+    lawd_cd: "26230"
+  });
+  const normalized = collector.normalizeCourt({ case_number: "2025타경22459", court: "부산지방법원 본원" }, {
+    found: true,
+    caseInfo: { caseNumber: "20250130022459", userCaseNumber: "2025타경22459", courtName: "부산지방법원" },
+    items: [{ caseNumber: "20250130022459", courtCode: "B000410", address: "부산광역시 부산진구 범천동 848-8" }]
+  });
+  assert.equal(normalized.candidate.case_number, "2025타경22459");
+});
+
+test("Given an exact PNU, When land-price region discovery is unavailable, Then the direct parcel query returns an exact empty result", async () => {
+  let captured;
+  const land = {
+    fetchGsiSearchList: async (query) => { captured = query; return []; },
+    normalizeSearchResult: (row) => row,
+    buildResponse: () => { throw new Error("empty history must not be built"); }
+  };
+  const payload = await collector.lookupLandPriceByIdentity({
+    pnu: "2623010400108480008",
+    parcel_query_address: "부산광역시 부산진구 범천동 848-8"
+  }, land);
+  assert.deepEqual(captured, { regCode: "26230", eubCode: "26230104", san: false, bun1: "848", bun2: "8" });
+  assert.equal(payload.pnu, "2623010400108480008");
+  assert.equal(payload.address, "부산광역시 부산진구 범천동 848-8");
+  assert.deepEqual(payload.history, []);
+  assert.equal(payload.latest, null);
+});
+
+test("Given proxy opt-in and an exact PNU, When the building route is selected, Then hosted proxy is used without a direct API key", () => {
+  assert.equal(
+    collector.buildingProxyUrl({ pnu: "2623010400108480008" }, "https://k-skill-proxy.nomadamas.org"),
+    "https://k-skill-proxy.nomadamas.org/v1/building-register/title?pnu=2623010400108480008"
+  );
+});
+
 test("Given a complete source package, When it is validated, Then only the contract fields are accepted", () => {
   const base = {
     package_id: "2026타경10001-1-20260801T000000000Z",

@@ -78,11 +78,12 @@ function parseCanonicalAddress(address, fields) {
 }
 function rowCode(row) { return validCourtCode(row?.code || row?.courtCode || row?.cortOfcCd || row?.boCd); }
 function rowName(row) { return clean(row?.name || row?.courtName || row?.jiwonNm || row?.court); }
+function courtNameKey(value) { return compareText(value).replace(/본원$/u, ""); }
 function resolveCourtCode(record, rows) {
   const explicit = validCourtCode(record.court_code);
   if (explicit) return { status: "resolved", method: "object_identifier", selected: { court_code: explicit, court: clean(record.court) }, candidates: [] };
-  const name = compareText(record.court);
-  const candidates = (Array.isArray(rows) ? rows : []).map((row) => ({ code: rowCode(row), name: rowName(row) })).filter((row) => row.code && row.name && (!name || compareText(row.name) === name));
+  const name = courtNameKey(record.court);
+  const candidates = (Array.isArray(rows) ? rows : []).map((row) => ({ code: rowCode(row), name: rowName(row) })).filter((row) => row.code && row.name && (!name || courtNameKey(row.name) === name));
   if (candidates.length === 1) return { status: "resolved", method: "unique_court_name", selected: { court_code: candidates[0].code, court: candidates[0].name }, candidates };
   if (candidates.length > 1) return { status: "needs_selection", method: "court_name_ambiguous", selected: {}, candidates: candidates.slice(0, 20), reason: "법원명이 여러 법원사무소 코드와 일치합니다." };
   return { status: "needs_identifier", method: "court_code_missing", selected: {}, candidates: [], reason: "법원사무소 코드와 사건번호가 필요합니다." };
@@ -113,6 +114,8 @@ function providerPlan(provider, identity) {
 function normalizeAuctionIdentity(record, selections) {
   const source = Object.assign({}, record || {}, selections || {});
   const address = parseCanonicalAddress(source.address, source);
+  const selectedParcel = parseCanonicalAddress(source.land_address || source.lot_address, {});
+  const parcel = address.lot_number ? address : selectedParcel;
   const pnu = validPnu(source.pnu || source.land_parcel_id);
   const caseNumber = normalizeCaseNumber(source.case_number);
   const identity = {
@@ -122,12 +125,12 @@ function normalizeAuctionIdentity(record, selections) {
     court_code_source: validCourtCode(source.court_code) ? "object_identifier" : "",
     address: address.normalized,
     road_address: address.road_address,
-    lot_address: address.lot_address,
-    lot_number: address.lot_number,
-    lot_main: address.lot_main,
-    lot_sub: address.lot_sub,
-    mountain: address.mountain,
-    parcel_query_address: validParcelQueryAddress(source.land_address || source.lot_address || address.lot_address),
+    lot_address: parcel.lot_address,
+    lot_number: parcel.lot_number,
+    lot_main: parcel.lot_main,
+    lot_sub: parcel.lot_sub,
+    mountain: parcel.mountain,
+    parcel_query_address: validParcelQueryAddress(parcel.lot_address),
     pnu,
     region_sido: clean(source.region_sido),
     region_sigungu: clean(source.region_sigungu),
@@ -187,7 +190,7 @@ function verifyReturnedIdentity(provider, identity, payload, query) {
   if (provider === "court") {
     const item = Array.isArray(body.items) ? body.items[0] || {} : {};
     const result = Object.assign({}, body.caseInfo || {}, item);
-    const returnedCase = normalizeCaseNumber(result.caseNumber || result.case_number || body.caseNumber);
+    const returnedCase = normalizeCaseNumber(result.userCaseNumber || result.printCaseNumber || result.printCsNo || result.caseNumber || result.case_number || body.caseNumber);
     const returnedCourt = validCourtCode(result.courtCode || result.court_code || result.boCd);
     const caseMatch = Boolean(returnedCase && returnedCase === identity.case_number);
     const courtMatch = Boolean(returnedCourt && identity.court_code) && returnedCourt === identity.court_code;
@@ -195,7 +198,7 @@ function verifyReturnedIdentity(provider, identity, payload, query) {
   }
   if (provider === "building") {
     const item = Array.isArray(body.items) ? body.items[0] || {} : body.record || {};
-    const returnedPnu = validPnu(item.pnu || item.PNU || item.pnu19);
+    const returnedPnu = validPnu(item.pnu || item.PNU || item.pnu19 || body.query?.pnu);
     const returnedAddress = clean(item.address || item.platPlc || item.newPlatPlc || body.address);
     const verified = Boolean(identity.pnu && returnedPnu && returnedPnu === identity.pnu);
     return { match_verified: verified, reason: verified ? "parcel_identity_exact" : "parcel_identity_mismatch" };
@@ -225,7 +228,9 @@ function verifyReturnedIdentity(provider, identity, payload, query) {
   if (provider === "land-price") {
     const returnedPnu = validPnu(body.pnu || body.PNU || body.query?.pnu);
     const returned = clean(body.address || body.jibun || body.query?.address);
-    const verified = identity.pnu ? Boolean(returnedPnu && returnedPnu === identity.pnu) : sameAddress(returned, identity.parcel_query_address);
+    const pnuMatch = Boolean(identity.pnu && returnedPnu && returnedPnu === identity.pnu);
+    const addressMatch = Boolean(query?.lot_address && returned) && sameAddress(returned, query.lot_address);
+    const verified = pnuMatch || addressMatch;
     return { match_verified: verified, scope: "parcel", reason: verified ? "lot_identity_exact" : "lot_identity_mismatch" };
   }
   return { match_verified: false, reason: "unsupported_provider" };

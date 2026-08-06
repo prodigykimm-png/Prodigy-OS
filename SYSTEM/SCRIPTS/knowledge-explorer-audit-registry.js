@@ -7,12 +7,18 @@ const vm = require("node:vm");
 const ROOT = path.resolve(__dirname, "../..");
 const SCHEMA_PATH = path.join(ROOT, "SYSTEM/Prodigy/Schema/Knowledge_Explorer_Schema.md");
 const DISPLAY_PATH = path.join(ROOT, "SYSTEM/Views/display-registry.js");
+const KNOWLEDGE_REGISTRY_PATH = path.join(ROOT, "SYSTEM/Views/knowledge-explorer-registry.js");
 
 function loadDisplayRegistry() {
   const sandbox = { window: {} };
   const source = fs.readFileSync(DISPLAY_PATH, "utf8");
   vm.runInNewContext(source, sandbox, { filename: "display-registry.js" });
   return sandbox.window.prodigyDisplay || null;
+}
+
+function loadKnowledgeRegistry() {
+  delete require.cache[require.resolve(KNOWLEDGE_REGISTRY_PATH)];
+  return require(KNOWLEDGE_REGISTRY_PATH);
 }
 
 function readSchemaRegistry() {
@@ -104,16 +110,22 @@ function normalizeTopics(value, approvedTopics, options = {}) {
 }
 
 function buildRegistry() {
-  const schemaDomains = readSchemaRegistry();
+  const knowledgeRegistry = loadKnowledgeRegistry();
+  const domainTopics = new Map(
+    knowledgeRegistry.DOMAIN_ORDER.map((domain) => [
+      domain,
+      [...(knowledgeRegistry.TOPICS_BY_DOMAIN[domain] || [])]
+    ])
+  );
   const approvedTopics = new Set();
-  for (const topics of schemaDomains.values()) {
+  for (const topics of domainTopics.values()) {
     for (const topic of topics) approvedTopics.add(topic);
   }
   return Object.freeze({
     display: loadDisplayRegistry(),
-    domains: new Set(schemaDomains.keys()),
+    domains: new Set(knowledgeRegistry.DOMAIN_ORDER),
     topics: approvedTopics,
-    domainTopics: schemaDomains,
+    domainTopics,
   });
 }
 

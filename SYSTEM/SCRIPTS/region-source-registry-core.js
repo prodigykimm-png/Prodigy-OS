@@ -82,8 +82,8 @@ const SECRET_IDS = [
   "prodigy-vworld-api-key",
   "prodigy-kosis-api-key",
   "prodigy-seoul-openapi-key",
-  "test-naver-client-id-placeholder",
-  "test-naver-client-secret-placeholder",
+  "prodigy-naver-client-id",
+  "prodigy-naver-client-secret",
   "prodigy-youtube-api-key",
 ];
 
