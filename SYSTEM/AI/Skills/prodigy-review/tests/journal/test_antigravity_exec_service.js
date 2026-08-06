@@ -20,6 +20,7 @@ function fakeChildProcess(output, exitCode) {
 }
 
 async function testStructuredRequestUsesPrintModeAndSchema() {
+  assert.equal(antigravity.DEFAULT_PROVIDER.structuredTimeoutMs, 120000, "long structured analysis must not keep the 60-second timeout");
   const calls = [];
   const schema = { type: "object", properties: { ok: { type: "boolean" }, kind: { type: "string", enum: ["fixture"] } } };
   const child = fakeChildProcess(JSON.stringify({ status: "SUCCESS", structured_output: { ok: true } }), 0);
@@ -65,7 +66,7 @@ async function testMobileStructuredRequestUsesRelayAndSecretStorage() {
   const result = await service.requestStructuredJson({
     app: {
       isMobile: true,
-      secretStorage: { getSecret: async (name) => name === antigravity.RELAY_TOKEN_SECRET ? "test-relay-token-placeholder" : "" },
+      secretStorage: { getSecret: async (name) => name === antigravity.RELAY_TOKEN_SECRET ? "relay-secret" : "" },
       requestUrl: async (options) => {
         calls.push(options);
         return { status: 200, json: { structured_output: { ok: true } } };
@@ -81,7 +82,7 @@ async function testMobileStructuredRequestUsesRelayAndSecretStorage() {
   assert.deepEqual(result, { ok: true });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "https://youngjae-macmini-2.tail1992b9.ts.net:8443/v1/antigravity");
-  assert.equal(calls[0].headers.Authorization, "Bearer test-relay-token-placeholder");
+  assert.equal(calls[0].headers.Authorization, "Bearer relay-secret");
   const body = JSON.parse(calls[0].body);
   assert.equal(body.kind, "structured");
   assert.equal(body.model, "gemini-3.6-flash-medium");

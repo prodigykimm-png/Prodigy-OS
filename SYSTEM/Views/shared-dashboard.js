@@ -117,7 +117,15 @@ window.renderDashboardSection = function(options) {
   
   const filterCategory = fm.card_category || "전체";
   const filterStatus = fm.card_status || "전체";
-  const filterRegion = fm.card_region || "전체지역";
+  const regionScope = window.prodigyAuctionRegionScope && typeof window.prodigyAuctionRegionScope === "object"
+    ? window.prodigyAuctionRegionScope
+    : null;
+  const filterRegion = regionScope && regionScope.region_sido
+    ? regionScope.region_sido
+    : fm.card_region || "전체지역";
+  const filterSigungu = regionScope && regionScope.region_sigungu
+    ? String(regionScope.region_sigungu).trim()
+    : "";
   const filterType = fm.card_type || "전체종류";
   
   // Status filtering check
@@ -197,6 +205,7 @@ window.renderDashboardSection = function(options) {
       });
       
       sel.onchange = async () => {
+        if (field === "card_region") window.prodigyAuctionRegionScope = null;
         const dashboardPath = dataviewInstance.current()?.file?.path;
         if (dashboardPath) {
           const file = app.vault.getAbstractFileByPath(dashboardPath);
@@ -294,6 +303,9 @@ window.renderDashboardSection = function(options) {
   if (type === "auction_case") {
     if (filterRegion !== "전체지역") {
       pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
+    }
+    if (filterSigungu) {
+      pages = pages.where(p => (p.region_sigungu || "").includes(filterSigungu));
     }
     if (filterType !== "전체종류") {
       pages = pages.where(p => (p.property_type || "").includes(filterType));

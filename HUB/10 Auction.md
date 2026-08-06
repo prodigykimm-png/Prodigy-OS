@@ -102,10 +102,13 @@ try {
   await loadProdigyScript("SYSTEM/Views/auction-region-core.js");
   await loadProdigyScript("SYSTEM/Views/region-explorer-projection.js");
   await loadProdigyScript("SYSTEM/Views/region-decision-context-core.js");
-  await loadProdigyScript("SYSTEM/Views/auction-region-packet.js");
   await loadProdigyScript("SYSTEM/Views/region-decision-view-model.js");
   await loadProdigyScript("SYSTEM/Views/region-collection-health-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-decision-mirror-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-decision-support-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-ai-decision-support-core.js");
+  await loadProdigyScript("SYSTEM/Views/auction-ai-decision-support.js");
+  await loadProdigyScript("SYSTEM/Views/auction-region-packet.js");
   await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-store.js");
   await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-core.js");
   await loadProdigyScript("SYSTEM/Views/region-intelligence-popup-view.js");
@@ -129,6 +132,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/ai-context-envelope.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-config-service.js");
+  await loadProdigyScript("SYSTEM/Views/auction-ai-provider-resolver.js");
   await loadProdigyScript("SYSTEM/Views/auction-real-estate-research-core.js");
   await loadProdigyScript("SYSTEM/Views/auction-real-estate-source-runner.js");
   await loadProdigyScript("SYSTEM/Views/auction-real-estate-research.js");

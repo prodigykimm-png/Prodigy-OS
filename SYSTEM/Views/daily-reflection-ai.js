@@ -41,6 +41,7 @@
       "- If the raw reflection says no plan was chosen, next_experiment must be an empty string.",
       "- Object linking suggestions require an explicit person name, auction case, or project title from the raw reflection.",
       "- Resource candidates require an explicit place, property, business, book, or tool name from the raw reflection.",
+      "- Use venue only when the candidate itself is an explicit wedding-shooting hall, studio, or ceremony location; otherwise use resource or omit it. Never return an invalid venue.",
       "- Split the same paragraph into separate Evidence blocks when a future retrieval question, Object link, decision, or reusable context would differ.",
       "- Do not create an incidental meal/food-only block when it only provides social context and has no independent reusable judgment.",
       "- Tentative direction is not a separate event or next experiment; keep it as a related change only when the raw reflection expresses it.",
@@ -49,6 +50,17 @@
       "- Concrete reusable self-directives may become Knowledge candidates; slogans or encouragement must not.",
       "- Return at most one knowledge candidate for the same Evidence source set; merge synonymous candidates."
     ].join("\n");
+  }
+  function downgradeIneligibleVenueCandidates(payload) {
+    const venuePolicy = root.DailyReflectionVenuePolicy;
+    if (!venuePolicy || typeof venuePolicy.isVenueEligibleCandidate !== "function") return payload;
+    const blocks = (payload.evidence_blocks || []).map((block, index) => Object.assign({ evidence_id: String(index) }, block));
+    const resources = (payload.resource_candidates || []).map((item) => {
+      if (item.suggested_type !== "venue") return item;
+      const candidate = { name: item.name, suggested_type: item.suggested_type, source_evidence_ids: (item.source_evidence_indexes || []).map(String) };
+      return venuePolicy.isVenueEligibleCandidate(candidate, blocks) ? item : Object.assign({}, item, { suggested_type: "resource" });
+    });
+    return Object.assign({}, payload, { resource_candidates: resources });
   }
   function applyConservativeProposalPolicy(proposal, freeText, app) {
     return root.DailyReflectionConservativePolicy.applyConservativeProposalPolicy(proposal, freeText, app);
@@ -65,7 +77,7 @@
     if (!service || typeof service.requestStructuredJson !== "function") throw new Error("AI provider service is not loaded.");
     const basePrompt = buildPrompt({ contract: runtime.contract, dateStr: options.dateStr, existingBlocks: options.existingBlocks, freeText: clean(options.freeText), revisionRequest: options.revisionRequest, previousProposal: options.previousProposal });
     const rawPayload = await service.requestStructuredJson({ app: options.app, provider, prompt: buildProviderPrompt(basePrompt, provider), schema: runtime.schema, signal: options.signal });
-    const payload = root.DailyReflectionProposalContract.sanitizeProviderPayload(rawPayload);
+    const payload = downgradeIneligibleVenueCandidates(root.DailyReflectionProposalContract.sanitizeProviderPayload(rawPayload));
     const proposal = root.DailyReflectionProposalContract.normalizeProposal(payload, { dateStr: options.dateStr, existingBlocks: options.existingBlocks || [] });
     if (provider.capabilities && provider.capabilities.conservativeProposal === true) applyConservativeProposalPolicy(proposal, options.freeText, options.app);
     await root.DailyReflectionObjectLinks.resolveObjectLinks(options.app, proposal);

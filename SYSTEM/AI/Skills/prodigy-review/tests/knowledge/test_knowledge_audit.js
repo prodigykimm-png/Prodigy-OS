@@ -9,6 +9,7 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const fixtures = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/knowledge_explorer_fixtures.js"));
 const audit = require(path.join(ROOT, "SYSTEM/SCRIPTS/knowledge-explorer-audit.js"));
+const knowledgeRegistry = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-registry.js"));
 
 function hashFile(filePath) {
   return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
@@ -51,6 +52,12 @@ function assertAuditOutputShape(report) {
 
 function main() {
   assertTemplateBodies();
+
+  const schemaRegistry = audit.readSchemaRegistry();
+  assert.deepEqual([...schemaRegistry.entries()], knowledgeRegistry.DOMAIN_ORDER.map((domain) => [domain, [...knowledgeRegistry.TOPICS_BY_DOMAIN[domain]]]));
+  const runtimeRegistry = audit.buildRegistry();
+  assert.deepEqual([...runtimeRegistry.domains], knowledgeRegistry.DOMAIN_ORDER);
+  assert.deepEqual([...runtimeRegistry.domainTopics.entries()], [...schemaRegistry.entries()]);
 
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "knowledge-audit-"));
   const tempFixtures = fixtures.flattenCatalog(fixtures.catalog).slice(0, 5);

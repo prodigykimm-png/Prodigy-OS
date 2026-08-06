@@ -57,16 +57,29 @@ async function main() {
     WeeklyReviewStore: global.WeeklyReviewStore
   };
   const saved = [];
+  let persisted = null;
   try {
     global.WeeklyFilterCore = require(corePath);
-    global.WeeklyFilterRender = { renderWeeklyReview(container, review) { container.createEl("p", { text: review.period.week }); } };
+    global.WeeklyFilterRender = { renderWeeklyReview(container, review) {
+      container.createEl("p", { text: review.period.week });
+      container.createEl("p", { text: review.summary });
+    } };
     global.WeeklyFilterStyles = { ensureStyles() {} };
-    global.WeeklyReviewStore = { save: async (_app, review) => { saved.push(review); return { path: `DAILY/WEEKLY/${review.period.week}.md` }; } };
+    global.WeeklyReviewStore = {
+      read: async (_app, week) => persisted && persisted.period.week === week ? persisted : null,
+      save: async (_app, review) => {
+        saved.push(review);
+        persisted = { ...review, summary: "저장 후에 보존된 요약" };
+        return { path: `DAILY/WEEKLY/${review.period.week}.md` };
+      }
+    };
     delete require.cache[require.resolve(viewPath)];
     const view = require(viewPath);
     const container = element("div");
     const controller = view.mountWeeklyFilter(container, { app: appForWeek("2026-07-13"), initialDate: "2026-07-27" });
     await controller.ready;
+
+    assert.ok(find(container, (node) => node.textContent === "이번 주에 무엇이 반복되었고 무엇을 배웠는지 살펴봅니다.").length, "Weekly role copy is visible");
 
     const dateInput = find(container, (node) => node.tag === "input" && node.attributes.type === "date")[0];
     assert.ok(dateInput, "the weekly workspace exposes a selected-date control");
@@ -77,6 +90,8 @@ async function main() {
     const save = find(container, (node) => node.tag === "button" && node.text === "주간 리뷰 저장")[0];
     await save.onclick();
     assert.equal(saved[0].period.week, "2026-W29", "saving uses the week selected through the date control");
+    await controller.reload();
+    assert.ok(find(container, (node) => node.textContent === "저장 후에 보존된 요약").length, "reloading Weekly reflects the saved review instead of rebuilding only from Daily Evidence");
     console.log("Weekly filter date selection test passed");
   } finally {
     delete require.cache[require.resolve(viewPath)];

@@ -26,6 +26,8 @@ try {
   await loadProdigyScript("SYSTEM/Views/ai-provider-schema.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-error-policy.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-fallback.js");
+  await loadProdigyScript("SYSTEM/Views/codex-exec-service.js");
+  await loadProdigyScript("SYSTEM/Views/antigravity-exec-service.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-config-service.js");
   await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
@@ -66,8 +68,10 @@ try {
   await loadProdigyScript("SYSTEM/Views/weekly-filter-view.js");
   await loadProdigyScript("SYSTEM/Views/monthly-validation-core.js");
   await loadProdigyScript("SYSTEM/Views/monthly-validation-store.js");
+  await loadProdigyScript("SYSTEM/Views/monthly-validation-ai.js");
   await loadProdigyScript("SYSTEM/Views/monthly-validation-view.js");
   await loadProdigyScript("SYSTEM/Views/journal-period-core.js");
+  await loadProdigyScript("SYSTEM/Views/journal-period-store.js");
   await loadProdigyScript("SYSTEM/Views/journal-period-view.js");
 
   this.container.empty();

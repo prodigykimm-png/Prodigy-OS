@@ -34,9 +34,25 @@ function findAll(element, predicate, found = []) {
 const ids = core.PERIODS.map((period) => period.id);
 assert.deepEqual(ids, ["daily", "weekly", "monthly", "quarterly", "yearly"], "all five Journal questions remain navigable");
 assert.equal(core.getPeriod("WEEKLY").question, "무엇이 반복되고 무엇을 배웠는가?");
+assert.equal(core.getPeriod("daily").role, "오늘 무엇이 나를 변화시켰는지 기록합니다.");
+assert.equal(core.getPeriod("weekly").role, "이번 주에 무엇이 반복되었고 무엇을 배웠는지 살펴봅니다.");
+assert.equal(core.getPeriod("monthly").role, "이번 달의 변화가 반복된 근거로 검증되는지 확인합니다.");
+assert.equal(core.getPeriod("quarterly").role, "검증된 변화와 결과를 바탕으로 지금의 방향이 맞는지 점검합니다.");
+assert.equal(core.getPeriod("yearly").role, "분기별 방향과 변화를 돌아보며 내가 어떤 사람이 되어가는지 성찰합니다.");
 assert.equal(core.monthPrefix(new Date("2026-07-22T12:00:00")), "2026-07");
 assert.equal(core.quarterPrefix(new Date("2026-07-22T12:00:00")), "2026-Q3");
 assert.equal(core.yearPrefix(new Date("2026-07-22T12:00:00")), "2026");
+assert.equal(core.periodKey("monthly", "2026-07"), "2026-07");
+assert.equal(core.periodKey("quarterly", "2026-Q3"), "2026-Q3");
+assert.equal(core.periodKey("yearly", "2026"), "2026");
+assert.equal(core.periodInputValue("quarterly", "2026-Q3"), "2026-07");
+assert.equal(core.periodKeyFromInput("quarterly", "2026-10"), "2026-Q4");
+assert.equal(core.shiftPeriod("monthly", "2026-01", -1), "2025-12");
+assert.equal(core.shiftPeriod("quarterly", "2026-Q1", -1), "2025-Q4");
+assert.equal(core.shiftPeriod("yearly", "2026", 1), "2027");
+assert.deepEqual(core.periodBounds("quarterly", "2026-Q3"), { start: "2026-07-01", end: "2026-09-30" });
+assert.equal(core.periodDisplay("monthly", "2026-07"), "2026년 07월");
+assert.equal(core.periodPath("yearly", "2026"), "DAILY/YEARLY/2026.md");
 
 const monthly = core.readiness("monthly", { daily: 5, weekly: 2, principles: 1 });
 assert.match(monthly.message, /Weekly/);

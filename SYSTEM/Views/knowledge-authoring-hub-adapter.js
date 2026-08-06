@@ -69,6 +69,17 @@
     return modal;
   }
 
+  function directRegionOptions(app) {
+    const rootPath = "PARA/RESOURCES/Auction Regions/";
+    const files = app && app.vault && typeof app.vault.getMarkdownFiles === "function" ? app.vault.getMarkdownFiles() : [];
+    return files.filter((file) => file && typeof file.path === "string" && file.path.startsWith(rootPath)).map((file) => {
+      const cache = app.metadataCache && typeof app.metadataCache.getFileCache === "function" ? app.metadataCache.getFileCache(file) : null;
+      const frontmatter = cache && cache.frontmatter ? cache.frontmatter : {};
+      const fallback = String(file.basename || file.path.slice(rootPath.length).replace(/\.md$/i, "")).replace(/-/g, " ");
+      return { value: `[[${file.path.replace(/\.md$/i, "")}]]`, label: [frontmatter.region_sido, frontmatter.region_sigungu].filter(Boolean).join(" ") || fallback };
+    }).sort((left, right) => left.label.localeCompare(right.label, "ko"));
+  }
+
   function modalBase() {
     const Modal = root.obsidian && root.obsidian.Modal;
     if (!Modal) throw new Error("Obsidian Modal을 사용할 수 없습니다.");
@@ -102,6 +113,7 @@
     const modal = required("KnowledgeDirectAuthoringView").openDirectAuthoringModal(app, {
       candidateStore: config.candidateStore,
       validate: (input) => config.authoringCore.normalizeDirectStudy(input),
+      regionOptions: directRegionOptions(config.app),
       onSaved: refresh
     });
     return refreshAfterClose(modal, refresh);

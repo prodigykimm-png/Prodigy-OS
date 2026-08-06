@@ -53,6 +53,79 @@
     return REASON_LABELS[value] || "확인이 필요한 연결";
   }
 
+  const APPROVAL_KIND_LABELS = Object.freeze({
+    create: "추가",
+    update: "수정",
+    merge: "병합",
+    dispute: "충돌 보류",
+    abstain: "근거 부족 보류",
+    no_change: "보존"
+  });
+  const APPROVAL_STATUS_LABELS = Object.freeze({
+    proposal_unverified: "검토 전 제안",
+    requires_human_approval: "사람 승인 필요",
+    proposed: "검토 필요",
+    abstain: "근거 부족 보류",
+    no_change: "보존",
+    unresolved: "미해결",
+    disputed: "검토 필요"
+  });
+  const APPROVAL_CONFIDENCE_LABELS = Object.freeze({ explicit: "명시적 근거", inferred: "추론 근거", low: "낮은 확신" });
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function approvalKindLabel(value) {
+    return APPROVAL_KIND_LABELS[value] || "검토 항목";
+  }
+
+  function approvalResultCopy(result) {
+    const reason = result && result.reason;
+    if (reason === "stale_packet_hash" || reason === "target_revision_mismatch" || reason === "canonical_revision_mismatch") {
+      return { kind: "stale", message: "실행 결과가 변경되었습니다. 최신 revision을 불러온 뒤 다시 시도해 주세요." };
+    }
+    if (reason === "unresolved_conflict") return { kind: "error", message: "미해결 충돌이 있어 전체 승인을 진행할 수 없습니다. 충돌을 거절하거나 선택 승인으로 검토해 주세요." };
+    if (reason === "needs_more_evidence" || result && result.status === "needs_more_evidence") return { kind: "info", message: "근거를 더 요청했습니다. 현재 실행은 기록하지 않았습니다." };
+    if (reason === "rejected" || result && result.status === "rejected") return { kind: "rejected", message: "이 실행을 거절했습니다. 승인된 변경은 없습니다." };
+    if (result && result.status === "authorized") return { kind: "authorized", message: "선택한 변경을 결정적 기록 경계로 넘길 준비가 되었습니다." };
+    return { kind: "error", message: "승인 요청을 처리하지 못했습니다. 검토 내용을 확인한 뒤 다시 시도해 주세요." };
+  }
+
+  function buildApprovalReviewModel(packet) {
+    const source = isObject(packet) ? packet : {};
+    const operations = list(source.operations).map((operation) => ({
+      operation_id: operation.operation_id,
+      proposal_kind: operation.proposal_kind,
+      kind_label: approvalKindLabel(operation.proposal_kind),
+      title: operation.title || "제목 없는 검토 항목",
+      status_label: APPROVAL_STATUS_LABELS[operation.status] || operation.status || "검토 필요",
+      confidence: APPROVAL_CONFIDENCE_LABELS[operation.confidence] || "확신도 미상",
+      affected_canonical_files: list(operation.affected_canonical_files),
+      diff: clone(list(operation.diff)),
+      evidence: list(operation.evidence).map((item) => ({
+        source_id: item.source_id || "출처 미상",
+        locator: item.locators && item.locators[0] ? item.locators[0] : item.locator || "위치 미상",
+        source_url: item.source_url || ""
+      })),
+      conflicts: list(operation.conflicts).map((conflict) => ({
+        conflict_id: conflict.conflict_id || "충돌 미상",
+        status_label: APPROVAL_STATUS_LABELS[conflict.status] || "검토 필요",
+        claims: clone(list(conflict.claims))
+      })),
+      non_write_reason: operation.non_write_reason || ""
+    }));
+    return {
+      run_id: source.run_id || "실행 ID 미상",
+      provider_label: source.provider && source.provider.mode ? source.provider.mode === "synthetic" ? "합성 실행" : "직접 실행" : "실행 정보 미상",
+      trust_label: APPROVAL_STATUS_LABELS[source.trust_state] || "검토 전 제안",
+      approval_label: APPROVAL_STATUS_LABELS[source.approval_state] || "사람 승인 필요",
+      conflicts: clone(list(source.conflicts)),
+      unresolved_conflict_ids: list(source.unresolved_conflict_ids),
+      operations
+    };
+  }
+
   function relationItem(relation) {
     return {
       title: relation.target_title || relation.target_path,
@@ -181,7 +254,7 @@
     return byPath;
   }
 
-  const api = Object.freeze({ buildDetailSections, appendHydrationSection });
+  const api = Object.freeze({ buildDetailSections, appendHydrationSection, buildApprovalReviewModel, approvalResultCopy, approvalKindLabel });
   root.KnowledgeExplorerHubAdapter = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

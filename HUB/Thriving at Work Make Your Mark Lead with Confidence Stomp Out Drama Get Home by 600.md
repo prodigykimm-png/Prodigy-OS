@@ -59,6 +59,8 @@ const main = async () => {
     await loadProdigyScript("SYSTEM/Views/project-todoist-adapter.js");
     await loadProdigyScript("SYSTEM/Views/ai-provider-error-policy.js");
     await loadProdigyScript("SYSTEM/Views/ai-provider-fallback.js");
+    await loadProdigyScript("SYSTEM/Views/codex-exec-service.js");
+    await loadProdigyScript("SYSTEM/Views/antigravity-exec-service.js");
     await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
     await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");
     await loadProdigyScript("SYSTEM/Views/morning-context-core.js");

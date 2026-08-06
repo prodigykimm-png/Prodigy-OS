@@ -48,6 +48,8 @@ function text(node) { return walk(node, () => true).map((item) => item.text).fil
 function form(root) { return walk(root, (item) => item.tag === "form")[0] || null; }
 function field(root, name) { return walk(root, (item) => item.attr && item.attr.name === name)[0] || null; }
 function button(root, label) { return walk(root, (item) => item.tag === "button" && item.text === label)[0] || null; }
+function pickerOption(root, value) { return walk(root, (item) => item.attr && item.attr["data-picker-option"] === value)[0] || null; }
+function pickerSearch(root, name) { return walk(root, (item) => item.attr && item.attr["data-picker-search"] === name)[0] || null; }
 function deferred() { let resolve; let reject; const promise = new Promise((ok, no) => { resolve = ok; reject = no; }); return { promise, resolve, reject }; }
 async function flush() { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); }
 function pureLines(source) { return source.split("\n").filter((line) => line.trim() && !/^\s*\/\//.test(line)).length; }
@@ -60,9 +62,18 @@ function enter(root, name, value) {
 function choose(root, name, values) {
   const input = field(root, name);
   assert.ok(input, `${name} is rendered before selection`);
-  if (values.length === 1) input.value = values[0];
-  input.selectedOptions = values.map((value) => ({ value }));
-  input.onchange({ target: input });
+  if (input.tag === "select") {
+    if (values.length === 1) input.value = values[0];
+    input.selectedOptions = values.map((value) => ({ value }));
+    input.onchange({ target: input });
+    return;
+  }
+  input.click();
+  values.forEach((value) => {
+    const option = pickerOption(root, value);
+    assert.ok(option, `${name} option is rendered before selection`);
+    option.click();
+  });
 }
 
 function validDraft(overrides = {}) {
@@ -96,6 +107,7 @@ function mount(options = {}) {
     validate: options.validate || validate,
     saveCandidate: options.saveCandidate || (async (_app, input) => { calls.push(input); return { ...input, path: "PARA/RESOURCES/Knowledge/Candidates/직접 공부한 설계 원칙.md" }; }),
     opener,
+    regionOptions: options.regionOptions,
     onReview: options.onReview,
     initialValues: options.initialValues || validDraft()
   });
@@ -132,6 +144,38 @@ function testTopicfulTopiclessAndContextEditing() {
   assert.match(text(fixture.root), /세부 주제를 선택할 필요가 없습니다/);
   fixture.controller.setField("application_contexts", "reading\ncoding/typescript\nreading");
   assert.deepEqual(fixture.controller.values().application_contexts, ["reading", "coding/typescript"], "contexts are editable and duplicate-safe");
+}
+
+function testTypingKeepsFocusAndPickersSupportSearchAndSelection() {
+  const fixture = mount({
+    initialValues: validDraft({ suggested_domain: "", suggested_topics: [], connections: [] }),
+    regionOptions: [{ value: "[[PARA/RESOURCES/Auction Regions/서울특별시-중구]]", label: "서울특별시 중구" }]
+  });
+  const title = field(fixture.root, "title");
+  title.value = "ㄱ";
+  title.oninput({ target: title });
+  title.value = "기록";
+  title.oninput({ target: title });
+  assert.equal(field(fixture.root, "title"), title, "normal typing keeps the existing title input mounted");
+  assert.equal(fixture.controller.values().title, "기록", "normal typing does not lose the latest title value");
+
+  choose(fixture.root, "suggested_domain", ["coding"]);
+  assert.equal(fixture.controller.values().suggested_domain, "coding");
+  const topicPicker = field(fixture.root, "suggested_topics");
+  topicPicker.click();
+  assert.ok(pickerSearch(fixture.root, "suggested_topics"), "topic picker opens a search field");
+  pickerOption(fixture.root, "typescript").click();
+  assert.deepEqual(fixture.controller.values().suggested_topics, ["typescript"]);
+
+  const regionPicker = field(fixture.root, "connections");
+  regionPicker.click();
+  const regionSearch = pickerSearch(fixture.root, "connections");
+  assert.ok(regionSearch, "region picker opens a search field");
+  regionSearch.value = "중구";
+  regionSearch.oninput({ target: regionSearch });
+  assert.ok(pickerOption(fixture.root, "[[PARA/RESOURCES/Auction Regions/서울특별시-중구]]"), "region search keeps the matching option");
+  pickerOption(fixture.root, "[[PARA/RESOURCES/Auction Regions/서울특별시-중구]]").click();
+  assert.deepEqual(fixture.controller.values().connections, ["[[PARA/RESOURCES/Auction Regions/서울특별시-중구]]"]);
 }
 
 async function testRenderedInputEventsSubmitRetryCancelAndEscape() {
@@ -326,6 +370,7 @@ async function main() {
   testLabelsFieldsAndNoAutomationSurface();
   testViewStaysBelowPureLocCeiling();
   testTopicfulTopiclessAndContextEditing();
+  testTypingKeepsFocusAndPickersSupportSearchAndSelection();
   await testRenderedInputEventsSubmitRetryCancelAndEscape();
   await testRenderedStaleModalCloseSuppressesLateSave();
   await testValidationCancelSuccessAndNavigation();

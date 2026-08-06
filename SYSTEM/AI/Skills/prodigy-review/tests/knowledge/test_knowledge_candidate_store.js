@@ -22,6 +22,8 @@ function authoredCandidate(overrides) {
     reason: "개인 설계 검토에서 반복해 확인했다.", source_type: "manual_study",
     source_evidence_ids: [], source_objects: [], source_note: "설계 노트 첫 단락\n설계 노트 두 번째 단락",
     application_trigger: "다음 설계 검토", application_contexts: ["reading", "coding/typescript", "reading"],
+    connections: ["[[PARA/RESOURCES/Auction Regions/서울특별시-중구]]"],
+    invalidation_conditions: ["Region 정책이 바뀌면 다시 확인한다."],
     suggested_domain: "reading", suggested_topics: [], ...overrides,
   });
 }
@@ -101,6 +103,14 @@ async function testPromotionIsTwoPhaseAndIdempotent() {
   const saved = await createSaved(fixture);
   const result = await store.approveCandidate(fixture.app, saved.path, { title: "회상 학습", statement: "반복 회상은 이해를 오래 유지한다.", knowledge_domain: "coding", knowledge_topics: ["ai"], approval_note: "승인" }, { now: "2026-07-20T12:00:00Z" });
   const knowledgePath = "ZETA/PERMANENT/회상 학습.md";
+  const candidateBody = store.parseFrontmatter(fixture.files.get(saved.path)).body;
+  const expectedKnowledge = [
+    "---", "type: knowledge", "title: \"회상 학습\"", "knowledge_domain: \"coding\"", "knowledge_topics:", "  - \"ai\"",
+    "application_trigger: \"\"", "application_contexts: []", "statement: \"반복 회상은 이해를 오래 유지한다.\"", "connections:",
+    "  - \"[[PARA/RESOURCES/Knowledge/Candidates/반복 회상]]\"", "invalidation_conditions: []", "summary: \"\"",
+    "created: \"2026-07-20T12:00:00Z\"", "updated: \"2026-07-20T12:00:00Z\"", "---", candidateBody,
+  ].join("\n");
+  assert.equal(fixture.files.get(knowledgePath), expectedKnowledge);
   const approvedKnowledge = `${fixture.files.get(knowledgePath)}\n## 승격 후 메모\n\n사람이 Knowledge에서 직접 보완한 메모입니다.\n`;
   await fixture.app.vault.modify(fixture.app.vault.getAbstractFileByPath(knowledgePath), approvedKnowledge);
   const retried = await store.approveCandidate(fixture.app, saved.path, { title: "회상 학습", statement: "반복 회상은 이해를 오래 유지한다.", knowledge_domain: "coding", knowledge_topics: ["ai"], approval_note: "승인" }, { now: "2026-07-20T12:01:00Z" });
@@ -172,6 +182,8 @@ async function testAuthoredCandidateRoundTripsAndHumanApprovalPromotesOnce() {
   assert.equal(read.source_note, "설계 노트 첫 단락\n설계 노트 두 번째 단락");
   assert.equal(read.application_trigger, "다음 설계 검토");
   assert.deepEqual(read.application_contexts, ["reading", "coding/typescript"]);
+  assert.deepEqual(read.connections, ["[[PARA/RESOURCES/Auction Regions/서울특별시-중구]]"]);
+  assert.deepEqual(read.invalidation_conditions, ["Region 정책이 바뀌면 다시 확인한다."]);
   assert.equal(fixture.count("ZETA/PERMANENT/"), 0);
   assert.match(beforeApproval, /## 지식 문장\n\n먼저 회상하고 근거를 확인한다\./);
   assert.match(beforeApproval, /## 제안 이유\n\n개인 설계 검토에서 반복해 확인했다\./);
@@ -196,6 +208,11 @@ async function testAuthoredCandidateRoundTripsAndHumanApprovalPromotesOnce() {
   assert.equal(fixture.count("ZETA/PERMANENT/"), 1);
   assert.match(knowledge, /^application_trigger: "다음 설계 검토"$/m);
   assert.match(knowledge, /^application_contexts:\n  - "reading"\n  - "coding\/typescript"$/m);
+  assert.deepEqual(store.parseFrontmatter(knowledge).data.connections, [
+    "[[PARA/RESOURCES/Knowledge/Candidates/직접 학습한 회상]]",
+    "[[PARA/RESOURCES/Auction Regions/서울특별시-중구]]",
+  ]);
+  assert.deepEqual(store.parseFrontmatter(knowledge).data.invalidation_conditions, ["Region 정책이 바뀌면 다시 확인한다."]);
   assert.match(knowledge, /## 출처 메모\n\n설계 노트 첫 단락\n설계 노트 두 번째 단락/);
   assert.match(knowledge, /## 적용 조건\n\n다음 설계 검토/);
 }
@@ -294,6 +311,34 @@ async function testMalformedCandidateFrontmatterRejectsBeforePromotionWrites() {
   assert.equal(fixture.count("ZETA/PERMANENT/"), 0);
 }
 
+async function testForgedPromotionTargetsRejectBeforeWrites() {
+  // Given: persisted Candidates whose promotion target was forged outside the canonical direct-child boundary.
+  const targets = [
+    "PARA/RESOURCES/Knowledge/forbidden.md",
+    "PARA/RESOURCES/Knowledge/Candidates/forbidden.md",
+    "/tmp/forbidden.md",
+    "ZETA/PERMANENT/../forbidden.md",
+    "ZETA/PERMANENT/nested/forbidden.md",
+  ];
+
+  for (const [index, target] of targets.entries()) {
+    const fixture = makeVault();
+    const saved = await createSaved(fixture, { candidate_id: `candidate-forged-target-${index}`, title: `위조 대상 ${index}` });
+    fixture.files.set(saved.path, fixture.files.get(saved.path).replace(/^promotion_target: ""$/m, `promotion_target: ${JSON.stringify(target)}`));
+    const before = [...fixture.writes];
+
+    // When: human promotion reads the forged persisted target.
+    const action = () => store.approveCandidate(fixture.app, saved.path, {
+      title: `위조 대상 ${index}`, statement: "문장", knowledge_domain: "coding", knowledge_topics: ["ai"],
+    });
+
+    // Then: the canonical target guard rejects before Candidate or Knowledge writes.
+    await assert.rejects(action, /canonical_target_required|canonical Knowledge path/, target);
+    assert.deepEqual(fixture.writes, before, target);
+    assert.equal(fixture.files.has(target), false, target);
+  }
+}
+
 async function main() {
   await testCanonicalWriteAndLegacyReadsStayReadOnly();
   await testPromotionIsTwoPhaseAndIdempotent();
@@ -303,6 +348,7 @@ async function main() {
   await testPromotionUsesCurrentPersistedCandidateBodyAcrossRetry();
   await testAuthoredSourceBoundariesRejectWithoutWrites();
   await testMalformedCandidateFrontmatterRejectsBeforePromotionWrites();
+  await testForgedPromotionTargetsRejectBeforeWrites();
   await testDeferAndResumePersistRemediationStatus();
   console.log("Knowledge candidate store tests passed");
 }

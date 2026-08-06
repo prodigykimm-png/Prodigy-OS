@@ -25,7 +25,7 @@ function request(port, options) {
 async function withServer(service, run) {
   const logs = [];
   const instance = relay.createRelayServer({
-    config: { host: "127.0.0.1", port: 0, path: "/v1/antigravity", token: "test-relay-token-placeholder", model: "gemini-test", agyBin: "agy", cwd: ROOT },
+    config: { host: "127.0.0.1", port: 0, path: "/v1/antigravity", token: "relay-secret", model: "gemini-test", agyBin: "agy", cwd: ROOT },
     service,
     logger: (line) => logs.push(line)
   });
@@ -65,7 +65,7 @@ async function testStructuredRelayForwardsOnlyValidatedRequest() {
     const response = await request(port, {
       method: "POST",
       path: "/v1/antigravity",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer test-relay-token-placeholder" },
+      headers: { "Content-Type": "application/json", Authorization: "Bearer relay-secret" },
       body: JSON.stringify({ kind: "structured", model: "claude-sonnet-4-6", prompt: "fixture", schema: { type: "object" } })
     });
     assert.equal(response.status, 200);
@@ -73,7 +73,7 @@ async function testStructuredRelayForwardsOnlyValidatedRequest() {
     assert.equal(calls.length, 1);
     assert.equal(calls[0].provider.model, "claude-sonnet-4-6");
     assert.equal(calls[0].provider.command, "agy");
-    assert.doesNotMatch(logs.join("\n"), /test-relay-token-placeholder|fixture/);
+    assert.doesNotMatch(logs.join("\n"), /relay-secret|fixture/);
   });
 }
 
@@ -90,9 +90,9 @@ async function testRelaySerializesRequestsToLimitChildMemory() {
     requestChatText: async () => "unused"
   }, async (port) => {
     const body = JSON.stringify({ kind: "structured", prompt: "fixture", schema: { type: "object" } });
-    const first = request(port, { method: "POST", path: "/v1/antigravity", headers: { "Content-Type": "application/json", Authorization: "Bearer test-relay-token-placeholder" }, body });
+    const first = request(port, { method: "POST", path: "/v1/antigravity", headers: { "Content-Type": "application/json", Authorization: "Bearer relay-secret" }, body });
     await new Promise((resolve) => setTimeout(resolve, 10));
-    const second = await request(port, { method: "POST", path: "/v1/antigravity", headers: { "Content-Type": "application/json", Authorization: "Bearer test-relay-token-placeholder" }, body });
+    const second = await request(port, { method: "POST", path: "/v1/antigravity", headers: { "Content-Type": "application/json", Authorization: "Bearer relay-secret" }, body });
     assert.equal(second.status, 429);
     release();
     const firstResponse = await first;

@@ -103,6 +103,8 @@
     Object.freeze(candidate.source_objects);
     Object.freeze(candidate.application_contexts);
     Object.freeze(candidate.suggested_topics);
+    Object.freeze(candidate.connections);
+    Object.freeze(candidate.invalidation_conditions);
     return Object.freeze(candidate);
   }
 
@@ -151,6 +153,8 @@
    }
     const applicationTrigger = optionalText(input.application_trigger, "application_trigger");
     const applicationContexts = normalizedList(input.application_contexts === undefined ? [] : input.application_contexts, "application_contexts", applicationContext);
+    const connections = normalizedList(input.connections === undefined ? [] : input.connections, "connections", wikiLink);
+    const invalidationConditions = normalizedList(input.invalidation_conditions === undefined ? [] : input.invalidation_conditions, "invalidation_conditions", requiredText);
     const confidence = oneOf(input.confidence, "confidence", CONFIDENCE_SET);
     const domain = optionalText(input.suggested_domain, "suggested_domain");
     if (domain && !DOMAIN_SET.has(domain)) throw new Error("suggested_domain is invalid.");
@@ -173,6 +177,7 @@
     const idInput = {
       source_type: sourceType, title, statement, reason, source_evidence_ids: sourceEvidenceIds, source_objects: sourceObjects,
       source_note: sourceNote, application_trigger: applicationTrigger, application_contexts: applicationContexts,
+      connections, invalidation_conditions: invalidationConditions,
     };
     const candidateId = optionalText(input.candidate_id, "candidate_id") || stableCandidateId(idInput);
     if (mode.requireId && !input.candidate_id) throw new Error("candidate_id is required.");
@@ -180,6 +185,7 @@
       type: TYPE, candidate_id: candidateId, status, title, statement, reason, source_type: sourceType,
       source_evidence_ids: sourceEvidenceIds, source_objects: sourceObjects, confidence,
       source_note: sourceNote, application_trigger: applicationTrigger, application_contexts: applicationContexts,
+      connections, invalidation_conditions: invalidationConditions,
       suggested_domain: domain, suggested_topics: suggestedTopics,
       approval_note: optionalText(input.approval_note, "approval_note"),
       promotion_target: normalizedTarget, promoted_knowledge: normalizedPromoted,

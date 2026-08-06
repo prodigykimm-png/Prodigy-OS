@@ -83,6 +83,13 @@ async function main() {
   assert.ok(findButton(modal.contentEl, "취소"));
   assert.ok(JSON.stringify(modal.contentEl).includes("Todoist"));
   assert.ok(JSON.stringify(modal.contentEl).includes("REB OpenAPI"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("부동산 조사 API"));
+  assert.ok(JSON.stringify(modal.contentEl).includes("오피스텔 매매·전월세 실거래가"));
+  const dataGoKrInput = findElement(modal.contentEl, (element) => element.tag === "input" && element.attr["aria-label"] === "data.go.kr 서비스 키");
+  assert.ok(dataGoKrInput);
+  dataGoKrInput.value = "test-data-go-kr-key";
+  dataGoKrInput.oninput();
+  assert.equal(modal.state.secrets[global.ProdigyConfigService.REGION_SECRET_IDS.dataGoKr], "test-data-go-kr-key");
   assert.ok(JSON.stringify(modal.contentEl).includes("Groq"));
   assert.ok(JSON.stringify(modal.contentEl).includes("OpenRouter"));
   assert.ok(JSON.stringify(modal.contentEl).includes("Codex 구독"));
@@ -106,6 +113,8 @@ async function main() {
   assert.ok(files["SYSTEM/PRIVATE/prodigy.local.json"], modal.state.status);
   assert.equal(JSON.parse(files["SYSTEM/PRIVATE/prodigy.local.json"]).defaultProvider, "codex");
   assert.equal(files["SYSTEM/PRIVATE/prodigy.local.json"].includes("api-key"), true);
+  assert.equal(secrets[global.ProdigyConfigService.REGION_SECRET_IDS.dataGoKr], "test-data-go-kr-key");
+  assert.equal(files["SYSTEM/PRIVATE/prodigy.local.json"].includes("test-data-go-kr-key"), false);
   console.log("ProdigySettingsModal tests passed.");
 }
 

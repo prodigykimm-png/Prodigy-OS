@@ -1,6 +1,8 @@
 (function (root) {
   "use strict";
 
+  // allow: SIZE_OK — this IIFE is the frozen Candidate storage/promotion authority; splitting canonical serialization would create competing ownership.
+
   const CANDIDATE_DIR = "PARA/RESOURCES/Knowledge/Candidates";
   const LEGACY_CANDIDATE_DIRS = Object.freeze(["PARA/RESOURCES/Reading/Candidates", "ZETA/FLEETING/Knowledge Candidates"]);
   const KNOWLEDGE_DIR = "ZETA/PERMANENT";
@@ -16,6 +18,23 @@
   function clean(value) { return typeof value === "string" ? value.trim() : ""; }
   function stamp(value) { return value || new Date().toISOString(); }
   function linkFor(path) { return `[[${path.replace(/\.md$/i, "")}]]`; }
+  function canonicalKnowledgeDirectory() { return KNOWLEDGE_DIR; }
+  function canonicalKnowledgePath(title, suffix) {
+    const name = typeof title === "string" ? title : "";
+    const sequence = suffix === undefined ? 1 : suffix;
+    if (!name || name !== name.trim() || name === "." || name === ".." || name.length > 180
+      || /[\u0000-\u001f\u007f\\/:*?"<>|]/u.test(name) || name.includes("[[") || name.includes("]]")) {
+      throw new Error("invalid_title");
+    }
+    if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence > 1000) throw new Error("invalid_target_suffix");
+    return `${KNOWLEDGE_DIR}/${name}${sequence === 1 ? "" : ` ${sequence}`}.md`;
+  }
+  function isCanonicalKnowledgeTarget(value) {
+    if (typeof value !== "string" || !value.startsWith(`${KNOWLEDGE_DIR}/`) || !value.endsWith(".md")) return false;
+    const name = value.slice(KNOWLEDGE_DIR.length + 1, -3);
+    if (!name || name.includes("/")) return false;
+    try { return canonicalKnowledgePath(name) === value; } catch (_error) { return false; }
+  }
   function isLegacyPath(value) { return LEGACY_CANDIDATE_DIRS.some((folder) => value === folder || value.startsWith(`${folder}/`)); }
   function requireCanonicalCandidatePath(value) {
     if (!value.startsWith(`${CANDIDATE_DIR}/`)) throw new Error("레거시 Knowledge Candidate는 읽기 전용입니다.");
@@ -65,6 +84,35 @@
     return `${lines.join("\n")}\n---\n${body || ""}`;
   }
 
+  function renderCanonicalDocument(value) {
+    const issue = canonicalDocumentIssue(value);
+    if (issue) {
+      const error = new Error(issue.reason);
+      error.code = issue.reason;
+      throw error;
+    }
+    return renderFrontmatter({
+      type: "knowledge", title: value.title, knowledge_domain: value.knowledge_domain, knowledge_topics: value.knowledge_topics,
+      application_trigger: value.application_trigger || "", application_contexts: value.application_contexts || [],
+      statement: value.statement, connections: value.connections || [], invalidation_conditions: value.invalidation_conditions || [],
+      summary: value.summary || "", created: value.created, updated: value.updated,
+    }, value.body).replace(/^type: "knowledge"$/m, "type: knowledge");
+  }
+
+  function canonicalDocumentIssue(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return { field: "canonical_document", reason: "malformed_canonical_document" };
+    if (value.type !== undefined && value.type !== "knowledge") return { field: "canonical_document.type", reason: "canonical_type_required" };
+    const candidateCore = core();
+    if (!candidateCore.DOMAINS.includes(value.knowledge_domain)) {
+      return { field: "canonical_document.knowledge_domain", reason: "unregistered_knowledge_domain" };
+    }
+    if (Array.isArray(value.knowledge_topics)
+      && value.knowledge_topics.some((topic) => !candidateCore.TOPICS[value.knowledge_domain].includes(topic))) {
+      return { field: "canonical_document.knowledge_topics", reason: "unregistered_knowledge_topic" };
+    }
+    return null;
+  }
+
   async function ensureFolder(app, folder) {
     let current = "";
     for (const part of folder.split("/").filter(Boolean)) {
@@ -91,7 +139,8 @@
     const candidateCore = core();
     let normalized;
     try { normalized = candidateCore.validateCandidate(data); }
-    catch (_error) {
+    catch (error) {
+      if (!isLegacyPath(path)) throw error;
       const legacy = candidateCore.normalizeLegacyReadingCandidate({
         ...data,
         title: clean(data.title) || "Legacy Reading Candidate",
@@ -109,8 +158,10 @@
     const sourceNote = candidate.source_note || "-";
     const trigger = candidate.application_trigger || "-";
     const contexts = candidate.application_contexts.length ? candidate.application_contexts.map((context) => `- ${context}`).join("\n") : "-";
+    const connections = candidate.connections.length ? candidate.connections.map((connection) => `- ${connection}`).join("\n") : "-";
+    const invalidation = candidate.invalidation_conditions.length ? candidate.invalidation_conditions.map((condition) => `- ${condition}`).join("\n") : "-";
     const approvalNote = candidate.approval_note || "-";
-    return `# ${candidate.title}\n\n## 지식 문장\n\n${candidate.statement}\n\n## 제안 이유\n\n${candidate.reason}\n\n## 출처 메모\n\n${sourceNote}\n\n## 적용 조건\n\n${trigger}\n\n${contexts}\n\n## 승인 메모\n\n${approvalNote}\n`;
+    return `# ${candidate.title}\n\n## 지식 문장\n\n${candidate.statement}\n\n## 제안 이유\n\n${candidate.reason}\n\n## 출처 메모\n\n${sourceNote}\n\n## 적용 조건\n\n${trigger}\n\n${contexts}\n\n## 무효화 조건\n\n${invalidation}\n\n## 연결된 Region\n\n${connections}\n\n## 승인 메모\n\n${approvalNote}\n`;
   }
 
   async function readCandidate(app, candidatePath) {
@@ -184,16 +235,17 @@
     return {
       title, statement, knowledge_domain: domain, knowledge_topics: [...new Set(topics)],
       application_trigger: candidate.application_trigger, application_contexts: candidate.application_contexts,
+      connections: candidate.connections, invalidation_conditions: candidate.invalidation_conditions,
       approval_note: clean(request.approval_note || candidate.approval_note),
     };
   }
 
-  function knowledgeDocument(input, candidate, candidatePath, now) {
-    return renderFrontmatter({
-      type: "knowledge", title: input.title, knowledge_domain: input.knowledge_domain, knowledge_topics: input.knowledge_topics,
-      application_trigger: input.application_trigger, application_contexts: input.application_contexts,
-      statement: input.statement, connections: [linkFor(candidatePath)], summary: "", created: now, updated: now,
-    }, candidate.body).replace(/^type: "knowledge"$/m, "type: knowledge");
+  function knowledgeDocument(context) {
+    const { input, candidate, candidatePath, now } = context;
+    return renderCanonicalDocument({
+      ...input, connections: [...new Set([linkFor(candidatePath), ...(input.connections || [])])],
+      summary: "", created: now, updated: now, body: candidate.body,
+    });
   }
 
   async function ownedKnowledge(app, target, candidatePath) {
@@ -213,13 +265,14 @@
     if (candidate.status === "rejected") throw new Error("rejected candidates are terminal.");
     const input = promotionInput(request, candidate);
     const target = candidate.promotion_target || await uniquePath(app, KNOWLEDGE_DIR, input.title);
+    if (!isCanonicalKnowledgeTarget(target)) throw new Error("canonical_target_required");
     const targetCandidate = { ...candidate, approval_note: input.approval_note, updated: now };
     const targeted = candidate.promotion_target ? targetCandidate : core().setPromotionTarget(targetCandidate, target);
     const persisted = candidate.status === "approved" || (candidate.promotion_target && candidate.approval_note === input.approval_note)
       ? candidate
       : await writeCandidate(app, candidatePath, candidate, targeted);
     const knowledge = await ownedKnowledge(app, target, candidatePath);
-    const document = knowledgeDocument(input, candidate, candidatePath, now);
+    const document = knowledgeDocument({ input, candidate, candidatePath, now });
     if (!knowledge) {
       await ensureFolder(app, KNOWLEDGE_DIR);
       await app.vault.create(target, document);
@@ -252,7 +305,11 @@
     return writeCandidate(app, candidatePath, candidate, next);
   }
 
-  const api = Object.freeze({ CANDIDATE_DIR, LEGACY_CANDIDATE_DIRS, KNOWLEDGE_DIR, parseFrontmatter, readCandidate, listCandidates, saveCandidate, approveCandidate, rejectCandidate, deferCandidate, resumeCandidate });
+  const api = Object.freeze({
+    CANDIDATE_DIR, LEGACY_CANDIDATE_DIRS, KNOWLEDGE_DIR,
+    canonicalKnowledgeDirectory, canonicalKnowledgePath, isCanonicalKnowledgeTarget, canonicalDocumentIssue, renderCanonicalDocument,
+    parseFrontmatter, readCandidate, listCandidates, saveCandidate, approveCandidate, rejectCandidate, deferCandidate, resumeCandidate,
+  });
   root.KnowledgeCandidateStore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

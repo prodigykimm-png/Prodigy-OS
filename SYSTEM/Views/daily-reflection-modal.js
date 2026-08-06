@@ -38,7 +38,7 @@
       refreshApprovalFooter() {
         const count = this.selectedIds.size;
         const label = `${count}개 Evidence 승인·반영`;
-        if (this.approvalCountEl) this.approvalCountEl.setText(label);
+        if (this.approvalCountEl) this.approvalCountEl.setText(`선택됨 ${count}개`);
         if (this.confirmButton) {
           if (typeof this.confirmButton.setText === "function") this.confirmButton.setText(label);
           else this.confirmButton.textContent = label;

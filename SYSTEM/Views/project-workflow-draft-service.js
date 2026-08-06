@@ -140,7 +140,7 @@
     return normalizeProviderPayload(payload);
   }
 
-  const adapters = { "openai-compatible": generateWorkflowWithProvider, gemini: generateWorkflowWithProvider };
+  const adapters = { "openai-compatible": generateWorkflowWithProvider, gemini: generateWorkflowWithProvider, "codex-exec": generateWorkflowWithProvider, "antigravity-exec": generateWorkflowWithProvider };
 
   async function generateStructuredWorkflow(options) {
     const config = options.config || await loadProviderConfig(options.app);
