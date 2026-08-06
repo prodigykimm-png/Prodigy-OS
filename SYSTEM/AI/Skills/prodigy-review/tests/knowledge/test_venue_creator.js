@@ -161,6 +161,17 @@ async function testExactTitleCollisionOpensWithoutOverwrite() {
   });
 }
 
+async function testCreateWithoutDailyLink() {
+  await withVault(async (fixture) => {
+    const result = await creator.createVenue(fixture.app, validInput({ dailyPath: "" }), { now: "2026-07-20T10:00:00Z" });
+    const content = fixture.read("PARA/RESOURCES/Venues/메이필드호텔.md");
+    assert.equal(result.ok, true);
+    assert.match(content, /^connections: \[\]$/m);
+    assert.doesNotMatch(content, /^  - "\[\[DAILY\/DAILY/m);
+    for (const heading of creator.REQUIRED_HEADINGS) assert.match(content, new RegExp(`^## ${heading}$`, "m"));
+  });
+}
+
 async function testOpenOutcomesAreStructuredAndSingleSettlement() {
   const unavailable = await creator.open(null);
   assert.deepEqual(unavailable, {
@@ -207,6 +218,7 @@ async function main() {
   await testDailyFolderNamedMarkdownIsRejectedWithoutWrite();
   await testOptionalAddressAndSavedDailyAreStored();
   await testExactTitleCollisionOpensWithoutOverwrite();
+  await testCreateWithoutDailyLink();
   await testOpenOutcomesAreStructuredAndSingleSettlement();
   console.log("Venue creator tests passed");
 }

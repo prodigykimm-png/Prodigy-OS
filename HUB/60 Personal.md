@@ -26,6 +26,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/people-store.js");
   await loadProdigyScript("SYSTEM/Views/people-styles.js");
   await loadProdigyScript("SYSTEM/Views/people-view.js");
+  await loadProdigyScript("SYSTEM/Views/venue-creator.js");
 
   const rootEl = this.container;
   const personalHost = typeof rootEl.closest === "function"
@@ -204,10 +205,57 @@ try {
   const shell = window.ProdigyWorkspaceNavigation.mount(rootEl, { app, workspaceId: "personal", title: "개인" });
   const workspaceBody = shell.body;
 
-  // People surface (primary)
-  const peopleMount = workspaceBody.createDiv({ attr: { class: "personal-people-mount" } });
-  // Places surface (supporting)
-  const placesMount = workspaceBody.createDiv({ attr: { class: "personal-places-mount prodigy-people-workspace" } });
+  // Personal workspace tabs: People / Places
+  const ensurePersonalTabStyles = () => {
+    const doc = typeof document !== "undefined" ? document : null;
+    if (!doc || doc.getElementById("personal-tabs-styles")) return;
+    const style = doc.createElement("style");
+    style.id = "personal-tabs-styles";
+    style.textContent = [
+      ".personal-tablist{display:flex;gap:6px;margin:0 0 12px;border-bottom:1px solid var(--background-modifier-border);padding:0}",
+      ".personal-tab{min-height:36px;padding:6px 16px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-muted);font-weight:700;font-size:.88em;cursor:pointer}",
+      ".personal-tab:hover{color:var(--text-normal)}",
+      ".personal-tab[aria-selected=\"true\"]{color:var(--text-normal);border-bottom-color:var(--text-accent)}",
+      "@media(max-width:600px){.personal-tablist{flex-direction:column}.personal-tab{width:100%;min-height:44px}}"
+    ].join("\n");
+    doc.head.appendChild(style);
+  };
+  ensurePersonalTabStyles();
+
+  const personalTabs = (() => {
+    const tabs = Object.freeze([
+      Object.freeze({ id: "people", label: "사람" }),
+      Object.freeze({ id: "places", label: "장소" })
+    ]);
+    let active = "people";
+    const bar = workspaceBody.createDiv({ attr: { role: "tablist", class: "personal-tablist", "aria-label": "개인 워크스페이스" } });
+    const buttons = {};
+    const panels = {};
+    tabs.forEach((tab) => {
+      const btn = bar.createEl("button", {
+        text: tab.label,
+        attr: { type: "button", role: "tab", "aria-selected": String(tab.id === active), class: "personal-tab" }
+      });
+      btn.onclick = () => select(tab.id);
+      buttons[tab.id] = btn;
+      panels[tab.id] = workspaceBody.createDiv({ attr: { role: "tabpanel", class: "personal-tabpanel" } });
+    });
+    function select(id) {
+      if (!panels[id]) return;
+      active = id;
+      tabs.forEach((tab) => {
+        const selected = tab.id === active;
+        buttons[tab.id].setAttr("aria-selected", String(selected));
+        if (selected) panels[tab.id].removeAttribute("hidden");
+        else panels[tab.id].setAttribute("hidden", "");
+      });
+    }
+    select("people");
+    return { getPanel: (id) => panels[id] || null, select };
+  })();
+
+  const peopleMount = personalTabs.getPanel("people");
+  const placesMount = personalTabs.getPanel("places");
 
   let workspaceApi = null;
 
@@ -276,10 +324,19 @@ try {
     }
     placesMount.empty();
     placesMount.addClass("prodigy-people-workspace");
-    const wrap = placesMount.createEl("details", { attr: { class: "ppw-places" } });
-    // Supporting section — collapsed by default on first paint
-    wrap.createEl("summary", { text: "장소" });
-    const body = wrap.createDiv({ attr: { style: "padding-top:10px;" } });
+    const body = placesMount;
+
+    // 장소 추가 버튼 — VenueCreator 모달로 새 장소를 만든다 (저널 연결은 선택사양).
+    const placesHeader = placesMount.createDiv({ attr: { class: "personal-places-header", style: "display:flex;justify-content:flex-end;margin:0 0 8px;" } });
+    const addPlaceBtn = placesHeader.createEl("button", {
+      text: "장소 추가",
+      attr: { type: "button", class: "mod-cta" }
+    });
+    addPlaceBtn.onclick = async () => {
+      if (!window.VenueCreator || typeof window.VenueCreator.open !== "function") return;
+      await window.VenueCreator.open(app);
+      paintPlaces();
+    };
 
     const places = dv.pages('"PARA/RESOURCES/Venues"')
       .where(p => p.type === "venue")
@@ -297,14 +354,14 @@ try {
       window.ProdigyListWorkspace.render({
         app,
         container: body,
-        title: "",
-        subtitle: "반복 방문하는 장소의 현장 지식(조명·동선·촬영 포인트)을 보존합니다.",
+        title: "장소",
+        subtitle: "반복 방문하는 장소의 현장 지식을 보존·관리합니다. 이름을 클릭하면 상세를 엽니다.",
         actions: [],
         sections: [
           {
             title: "장소",
             items: places,
-            empty: "등록된 장소가 없습니다. Venue 템플릿으로 추가하세요."
+            empty: "등록된 장소가 없습니다. 위의 '장소 추가'로 추가하세요."
           }
         ]
       });

@@ -12,10 +12,9 @@
     "updated"
   ]);
   const REQUIRED_HEADINGS = Object.freeze([
-    "조명",
-    "동선",
-    "촬영 포인트",
-    "주의 사항",
+    "소개",
+    "방문 정보",
+    "메모",
     "관련 지식",
     "관련 저널"
   ]);
@@ -45,8 +44,9 @@
 
   function normalizeDailyPath(value) {
     const dailyPath = clean(value).replace(/\\/g, "/").replace(/^\/+/, "");
-    if (!dailyPath || !/\.md$/i.test(dailyPath) || dailyPath.split("/").some((part) => !part || part === "." || part === "..")) {
-      throw new Error("저장된 Daily 노트가 필요합니다.");
+    if (!dailyPath) return "";
+    if (!/\.md$/i.test(dailyPath) || dailyPath.split("/").some((part) => !part || part === "." || part === "..")) {
+      throw new Error("연결할 Daily 노트 경로가 올바르지 않습니다.");
     }
     return dailyPath;
   }
@@ -105,13 +105,16 @@
     const dailyPath = normalizeDailyPath(source.dailyPath);
     const created = timestamp(opts.now);
     const body = canonicalBody(template).replace(/<%\s*tp\.file\.title\s*%>/g, title);
+    // Daily(저널) 연결은 선택사양 — 없으면 빈 connections로 저장한다.
+    const connectionsLine = dailyPath
+      ? `connections:\n  - ${yamlString(dailyWikilink(dailyPath))}`
+      : "connections: []";
     const frontmatter = [
       "---",
       "type: venue",
       `venue_category: ${yamlString(category)}`,
       `address: ${yamlString(address)}`,
-      "connections:",
-      `  - ${yamlString(dailyWikilink(dailyPath))}`,
+      connectionsLine,
       `created: ${created}`,
       `updated: ${created}`,
       "---",
@@ -148,8 +151,8 @@
   }
 
   /**
-   * Creates one human-confirmed Venue from a saved Daily handoff.
-   * The caller must collect confirmation in its UI before invoking this function.
+   * Creates one Venue Object. Daily(저널) handoff는 선택사양 — 없으면
+   * 저널 연결 없이 순수 장소로 저장한다.
    */
   async function createVenue(app, input, options) {
     if (!app || !app.vault || typeof app.vault.getAbstractFileByPath !== "function" || typeof app.vault.create !== "function") {
@@ -158,8 +161,10 @@
     const source = input || {};
     const title = validateTitle(source.title);
     const dailyPath = normalizeDailyPath(source.dailyPath);
-    const daily = app.vault.getAbstractFileByPath(dailyPath);
-    if (!isMarkdownFile(daily)) throw new Error("저장된 Daily 노트는 실제 Markdown 파일이어야 합니다.");
+    if (dailyPath) {
+      const daily = app.vault.getAbstractFileByPath(dailyPath);
+      if (!isMarkdownFile(daily)) throw new Error("연결하려는 Daily 노트는 실제 Markdown 파일이어야 합니다.");
+    }
 
     // Validate and materialize before creating any Vault folder or Object file.
     const template = await readTemplate(app);
@@ -183,7 +188,7 @@
       ok: true,
       path: created && created.path ? created.path : targetPath,
       content,
-      message: "웨딩 촬영 장소를 저장했습니다."
+      message: "장소를 저장했습니다."
     };
   }
 
@@ -237,20 +242,17 @@
       if (!contentEl) return;
       contentEl.empty();
       contentEl.addClass("prodigy-venue-creator");
-      contentEl.createEl("h2", { text: "웨딩 촬영 장소 저장", attr: { style: "margin:0 0 8px;font-size:1.1em;" } });
+      contentEl.createEl("h2", { text: "장소 추가", attr: { style: "margin:0 0 8px;font-size:1.1em;" } });
       contentEl.createEl("p", {
-        text: "확인한 장소만 저장합니다. 저장 후에는 연결된 Daily에서만 근거를 확인합니다.",
+        text: "관리할 장소를 추가합니다. 연결 저널(Daily)은 선택사양입니다.",
         attr: { style: "margin:0 0 12px;color:var(--text-muted);font-size:0.84em;line-height:1.45;" }
       });
 
       const form = contentEl.createEl("div", { attr: { style: "display:grid;gap:10px;" } });
       this.renderField(form, "장소 이름", "예: 메이필드호텔", "title", true);
-      this.renderField(form, "장소 분류", "예: wedding_hall", "venue_category", true, "영어 snake_case");
+      this.renderField(form, "장소 분류", "예: cafe, gym, office", "venue_category", true, "영어 snake_case");
       this.renderField(form, "주소", "선택 입력", "address", false);
-      form.createEl("div", {
-        text: this.state.dailyPath ? `연결 Daily: ${this.state.dailyPath}` : "연결할 저장된 Daily가 없습니다.",
-        attr: { style: "font-size:0.78em;color:var(--text-muted);overflow-wrap:anywhere;" }
-      });
+      this.renderField(form, "연결 저널(Daily)", "선택: DAILY/DAILY/2026-08-06", "dailyPath", false, "저널과 연동하려면 Daily 경로를 입력하세요.");
       if (this.state.error) {
         form.createEl("div", { text: this.state.error, attr: { role: "alert", style: "font-size:0.82em;color:var(--text-error);" } });
       }
@@ -264,7 +266,7 @@
         text: this.state.busy ? "저장 중..." : "장소 저장",
         cls: "mod-cta"
       });
-      save.disabled = this.state.busy || !this.state.dailyPath;
+      save.disabled = Boolean(this.state.busy);
       save.onclick = () => this.save();
     }
 
