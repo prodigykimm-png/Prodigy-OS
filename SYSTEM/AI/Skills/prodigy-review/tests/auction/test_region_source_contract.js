@@ -168,7 +168,7 @@ describe("Region Source Contract", () => {
   it("rejects a secret-like value", () => {
     const modified = JSON.parse(JSON.stringify(registry));
     const row = modified.providers.find((r) => r.provider_id === "reb_stock");
-    row.scope = "api" + "_key=" + "placeholder_value_for_scan_test_123456";
+    row.scope = "api_key=placeholder_value_for_scan_test_123456";
     const errors = [];
     core.scanForSecrets(row, errors);
     assert.ok(errors.some((e) => e.includes("secret")));
