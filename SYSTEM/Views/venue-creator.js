@@ -3,22 +3,25 @@
 
   const TEMPLATE_PATH = "SYSTEM/TEMPLATE/FORMAT/template_venue.md";
   const VENUE_FOLDER = "PARA/RESOURCES/Venues";
-  const ALLOWED_FRONTMATTER_KEYS = Object.freeze([
-    "type",
-    "venue_category",
-    "address",
-    "connections",
-    "created",
-    "updated"
-  ]);
-  const REQUIRED_HEADINGS = Object.freeze([
-    "소개",
-    "방문 정보",
-    "메모",
-    "관련 지식",
-    "관련 저널"
-  ]);
-  const CATEGORY_PATTERN = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
+
+  // Single source of truth for venue schema lives in PeopleCore (shared with people).
+  // Fall back to local definitions only when PeopleCore is unavailable (standalone load).
+  function getCore() {
+    return root.PeopleCore || (typeof require === "function" ? require("./people-core.js") : null);
+  }
+  const __venueCore = getCore();
+  const ALLOWED_FRONTMATTER_KEYS = Object.freeze(
+    __venueCore && __venueCore.VENUE_FRONTMATTER_KEYS
+      ? Array.from(__venueCore.VENUE_FRONTMATTER_KEYS)
+      : ["type", "venue_category", "address", "connections", "created", "updated"]
+  );
+  const REQUIRED_HEADINGS = Object.freeze(
+    __venueCore && __venueCore.VENUE_REQUIRED_HEADINGS
+      ? Array.from(__venueCore.VENUE_REQUIRED_HEADINGS)
+      : ["소개", "방문 정보", "메모", "관련 지식", "관련 저널"]
+  );
+  const CATEGORY_PATTERN = (__venueCore && __venueCore.VENUE_CATEGORY_PATTERN)
+    || /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
 
   function clean(value) {
     return String(value == null ? "" : value).trim();

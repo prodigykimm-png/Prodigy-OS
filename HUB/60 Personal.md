@@ -26,6 +26,8 @@ try {
   await loadProdigyScript("SYSTEM/Views/people-store.js");
   await loadProdigyScript("SYSTEM/Views/people-styles.js");
   await loadProdigyScript("SYSTEM/Views/people-view.js");
+  await loadProdigyScript("SYSTEM/Views/venue-store.js");
+  await loadProdigyScript("SYSTEM/Views/venue-view.js");
   await loadProdigyScript("SYSTEM/Views/venue-creator.js");
 
   const rootEl = this.container;
@@ -324,36 +326,49 @@ try {
     }
     placesMount.empty();
     placesMount.addClass("prodigy-people-workspace");
-    const body = placesMount;
-
-    // 장소 추가 버튼 — VenueCreator 모달로 새 장소를 만든다 (저널 연결은 선택사양).
-    const placesHeader = placesMount.createDiv({ attr: { class: "personal-places-header", style: "display:flex;justify-content:flex-end;margin:0 0 8px;" } });
-    const addPlaceBtn = placesHeader.createEl("button", {
-      text: "장소 추가",
-      attr: { type: "button", class: "mod-cta" }
-    });
-    addPlaceBtn.onclick = async () => {
-      if (!window.VenueCreator || typeof window.VenueCreator.open !== "function") return;
-      await window.VenueCreator.open(app);
-      paintPlaces();
-    };
 
     const places = dv.pages('"PARA/RESOURCES/Venues"')
       .where(p => p.type === "venue")
       .sort(p => p.file.name, "asc")
       .array()
-      .map(p => ({
-        title: p.file.name,
-        path: p.file.path,
-        meta: p.venue_category ? [String(p.venue_category)] : [],
-        detail: p.address || "",
-        actions: []
-      }));
+      .map(p => {
+        // Venue `connections`는 배열 규약([wikilink, ...]). 사람과 동일한
+        // pageToSource/collectSourcePages 패턴으로 저널 역링크를 읽는다.
+        let conns = p.connections;
+        if (conns && typeof conns === "object" && !Array.isArray(conns)) {
+          try { conns = Array.from(conns); } catch (_e) { conns = String(conns); }
+        }
+        let journalLinks = [];
+        try {
+          if (p.file && p.file.outlinks) {
+            journalLinks = Array.from(p.file.outlinks)
+              .map((l) => (l && l.path) || String(l || ""))
+              .filter((l) => /^DAILY\/DAILY\//.test(l));
+          }
+        } catch (_e) { journalLinks = []; }
+        return {
+          title: p.file.name,
+          path: p.file.path,
+          meta: p.venue_category ? [String(p.venue_category)] : [],
+          detail: p.address || "",
+          connections: Array.isArray(conns) ? conns.map(String) : [],
+          journalLinks,
+          actions: []
+        };
+      });
 
-    if (window.ProdigyListWorkspace) {
+    if (window.VenueView && window.VenueView.renderVenuesWorkspace) {
+      window.VenueView.renderVenuesWorkspace({
+        app,
+        container: placesMount,
+        items: places,
+        title: "장소",
+        onRefresh: () => paintPlaces()
+      });
+    } else if (window.ProdigyListWorkspace) {
       window.ProdigyListWorkspace.render({
         app,
-        container: body,
+        container: placesMount,
         title: "장소",
         subtitle: "반복 방문하는 장소의 현장 지식을 보존·관리합니다. 이름을 클릭하면 상세를 엽니다.",
         actions: [],
@@ -365,11 +380,10 @@ try {
           }
         ]
       });
-      // Hide empty h1 from list workspace when title is blank
-      const h1 = body.querySelector("h1");
+      const h1 = placesMount.querySelector("h1");
       if (h1 && !String(h1.textContent || "").trim()) h1.style.display = "none";
     } else {
-      body.createEl("p", { text: "등록된 장소가 없습니다.", attr: { class: "ppw-empty" } });
+      placesMount.createEl("p", { text: "등록된 장소가 없습니다.", attr: { class: "ppw-empty" } });
     }
   };
 

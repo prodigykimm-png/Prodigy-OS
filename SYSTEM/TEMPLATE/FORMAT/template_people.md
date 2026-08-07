@@ -9,7 +9,7 @@ first_met:
 last_contact: 
 phone: 
 email: 
-connections: 
+connections: []
 tags: 
 ---
 
