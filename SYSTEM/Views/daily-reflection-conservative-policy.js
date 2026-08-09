@@ -163,11 +163,13 @@
     addExplicitBusinessResources(proposal, source);
     const seenSources = new Set();
     proposal.knowledge_candidates = (proposal.knowledge_candidates || []).filter((candidate) => {
-      const label = normalized(candidate.label);
+      const label = normalized(candidate.title || candidate.label);
+      const detail = normalized(candidate.detail || candidate.statement);
+      const candidateText = `${label} ${detail}`.trim();
       const sourceText = knowledgeSourceText(proposal, candidate);
-      if (sloganChange(label) || unsupportedHan(candidate.label, sourceText) || unsupportedKnowledge(label, sourceText)) return false;
-      if (partiallyGroundedKnowledge(label, sourceText)) candidate.confidence = "low";
-      const key = `${label}::${(candidate.source_evidence_ids || []).slice().sort().join("|")}`;
+      if (sloganChange(candidateText) || unsupportedHan(candidateText, sourceText) || unsupportedKnowledge(candidateText, sourceText)) return false;
+      if (partiallyGroundedKnowledge(candidateText, sourceText)) candidate.confidence = "low";
+      const key = `${candidateText}::${(candidate.source_evidence_ids || []).slice().sort().join("|")}`;
       if (!key || seenSources.has(key)) return false;
       seenSources.add(key);
       return true;

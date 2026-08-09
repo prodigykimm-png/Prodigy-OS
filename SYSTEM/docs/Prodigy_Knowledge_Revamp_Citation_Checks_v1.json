@@ -1,0 +1,20 @@
+{
+  "$schema": "https://prodigy-os.local/schemas/prodigy-knowledge-revamp-artifacts-v1.json",
+  "schema_version": "1.0",
+  "artifact_type": "citation_checks",
+  "payload": {
+    "checks_id": "prodigy-knowledge-revamp-citation-checks",
+    "schema_version": "1.0",
+    "artifact_type": "citation_checks",
+    "checks": [
+      { "citation_id": "launcher-workspaces", "excerpt_ref": "main:SYSTEM/Views/workspace-launcher-core.js#L10-L51", "excerpt_hash": "21fa0c4815603bf38bef7243ea800af5e142cbd0e23562cbc635cf119d14ffc9", "verifier": "node line-range hash spot check", "status": "verified", "disposition": "keep" },
+      { "citation_id": "knowledge-hub-mount", "excerpt_ref": "main:HUB/50 Knowledge.md#L103-L348", "excerpt_hash": "d53f6b900b0fb074438ed3354bdc3d7390368aa0c76a5d797d5c04b1c8a2f61b", "verifier": "node line-range hash spot check", "status": "verified", "disposition": "keep" },
+      { "citation_id": "brief-provider-default", "excerpt_ref": "main:SYSTEM/Views/knowledge-explorer-view.js#L48-L50", "excerpt_hash": "65258693ca1d0cdf5aec163a3a7eab8547d6922795ccb25ed5db1d0fe6ea7544", "verifier": "node line-range hash spot check", "status": "verified", "disposition": "keep" },
+      { "citation_id": "brief-recovery-copy", "excerpt_ref": "main:SYSTEM/Views/knowledge-explorer-brief-render.js#L20-L25", "excerpt_hash": "9a4677d47c48bb13c15ff216f00b5c45945f16d5525d28c3c69aa41b73d7eb58", "verifier": "node line-range hash spot check", "status": "verified", "disposition": "keep" },
+      { "citation_id": "hydration-controller", "excerpt_ref": "main:SYSTEM/Views/knowledge-explorer-view.js#L82-L100", "excerpt_hash": "d31199214b9372bae0d0edbc669a3729009d3eb24b3fcae4301b654989b8c0da", "verifier": "node line-range hash spot check", "status": "verified", "disposition": "keep" },
+      { "citation_id": "hydration-render", "excerpt_ref": "main:SYSTEM/Views/knowledge-explorer-hub-adapter.js#L87-L103", "excerpt_hash": "906d4980a5549aed7eea316ed6dbfd0a4d099e48eac18f679b9e2d312c148284", "verifier": "node line-range hash spot check", "status": "verified", "disposition": "keep" },
+      { "citation_id": "authoring-actions", "excerpt_ref": "main:SYSTEM/Views/knowledge-authoring-hub-adapter.js#L130-L143", "excerpt_hash": "b54c4922abc3b622ba5bbbee634795b0413e3a08f6e7b7e40646cbe73f7a7932", "verifier": "node line-range hash spot check", "status": "verified", "disposition": "keep" }
+    ],
+    "status": "ready"
+  }
+}

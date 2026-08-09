@@ -4,7 +4,9 @@
   var STYLE_ID = "knowledge-workspace-tabs-styles";
   var TABS = Object.freeze([
     Object.freeze({ id: "zettelkasten", label: "지식 구축 · 제텔카스텐", description: "후보·문헌·영구 지식을 검토하고 승인합니다." }),
-    Object.freeze({ id: "para", label: "지식 활용 · PARA", description: "프로젝트·영역·자료에 연결된 승인 지식을 탐색합니다." })
+    Object.freeze({ id: "para", label: "지식 활용 · PARA", description: "프로젝트·영역·자료에 연결된 승인 지식을 탐색합니다." }),
+    Object.freeze({ id: "llmwiki", label: "AI 지식 검토 · LLM Wiki", description: "자료를 선택하고 AI 지식 제안을 검토합니다." }),
+    Object.freeze({ id: "llmwiki-browse", label: "LLMWiki 탐색", description: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다." })
   ]);
 
   function ensureStyles(container) {
@@ -53,7 +55,7 @@
     if (!container) return null;
     ensureStyles(container);
     var opts = options || {};
-    var activeTab = opts.activeTab || "zettelkasten";
+    var activeTab = TABS.some(function (tab) { return tab.id === opts.activeTab; }) ? opts.activeTab : "zettelkasten";
     var onChange = typeof opts.onChange === "function" ? opts.onChange : function () {};
 
     var tablist = createEl(container, "div", { attr: { role: "tablist", "aria-label": "지식 워크스페이스", class: "knowledge-workspace-tabs" } });

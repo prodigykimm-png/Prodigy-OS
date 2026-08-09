@@ -323,7 +323,7 @@
           await sleep(RETRY_DELAYS_MS[attempt]);
           continue;
         }
-        if (!options.forcePlain && provider.adapter !== "gemini" && status === 400 && isFormatRejection(error)) {
+        if (!options.forcePlain && options.allowFormatDowngrade !== false && provider.adapter !== "gemini" && status === 400 && isFormatRejection(error)) {
           try {
             const plainResponse = await requestOpenAiCompatible(Object.assign({}, options, { forcePlain: true }), apiKey);
             return parseJsonPayload(extractJsonText(plainResponse));
@@ -365,6 +365,15 @@
       throw surfaced;
     }
   }
+  async function requestStructuredJsonOnce(options) {
+    const provider = options && options.provider;
+    if (!provider) throw new Error("AI provider is not configured.");
+    try {
+      return await requestProviderStructuredJson(Object.assign({}, options, { allowFormatDowngrade: false }));
+    } catch (error) {
+      throw userFacingProviderError(error, provider, options && options.app);
+    }
+  }
 
   async function requestChatText(options) {
     const provider = options && options.provider;
@@ -404,7 +413,7 @@
       .filter(Boolean);
   }
 
-  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, CHAT_TIMEOUT_MS, STRUCTURED_TIMEOUT_MS, SUBSCRIPTION_REJECTION, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, validateProviderSecurity, listModels, requestChatText, requestStructuredJson };
+  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, CHAT_TIMEOUT_MS, STRUCTURED_TIMEOUT_MS, SUBSCRIPTION_REJECTION, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, validateProviderSecurity, listModels, requestChatText, requestStructuredJson, requestStructuredJsonOnce };
 
   root.AIProviderService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

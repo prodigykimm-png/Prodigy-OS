@@ -67,6 +67,9 @@ Use the smallest unit useful for later search or grouping. Split when the future
 Propose one reusable concept per item when the input contains an explicit tip, checklist, transferable adaptation, or repeatable decision criterion.
 Candidates must be operational enough to reuse in a later decision or workflow.
 Do not propose thin comfort, mood, or social summaries as Knowledge unless the reflection states a repeatable behavior, criterion, or practice.
+- New candidates use a short word-sized `title`/headword and a distinct reusable `detail`; never copy the same sentence into both fields.
+- The legacy `label` shape remains accepted only for compatibility with existing provider responses and stored candidates; new prompts must use `title` + `detail`.
+- `suggested_domain` and `suggested_topics` are an atomic pair: both empty or a domain plus topics registered for that domain. Topics without a valid domain are rejected at candidate level.
 Operational labels must be supported by the cited Evidence's actual `experience` or `change`; do not narrow or add specifics such as time, date, account, receipt, or deadline unless the source says them.
 Remove Knowledge candidates with unsupported foreign characters, broken Korean tokens, or unsupported core nouns. It is valid to return no Knowledge candidate.
 When the raw reflection contains a concrete self-directive that is reusable as a behavior or decision rule, do not omit it as a Knowledge candidate. Vague encouragement or aspiration is not Knowledge.

@@ -4,14 +4,28 @@
   if (!root.DailyReflectionVenuePolicy && typeof require === "function") {
     root.DailyReflectionVenuePolicy = require("./daily-reflection-venue-policy.js");
   }
+  if (!root.KnowledgeExplorerRegistry && typeof require === "function") {
+    root.KnowledgeExplorerRegistry = require("./knowledge-explorer-registry.js");
+  }
 
   const TOP_LEVEL_KEYS = Object.freeze(["evidence_blocks", "knowledge_candidates", "resource_candidates", "object_linking_suggestions", "pre_routing_suggestions", "uncertainties"]);
   const BLOCK_KEYS = Object.freeze(["title", "context", "experience", "interpretation", "change", "next_experiment", "related_objects"]);
   const CONTEXTS = new Set(["", "people", "auction", "workout", "reading", "project", "work", "personal", "health", "decision", "integrity"]);
   const CONFIDENCE = new Set(["explicit", "inferred", "low"]);
   const CANDIDATE_TYPES = new Set(["resource", "venue"]);
+  const DOMAIN_ORDER = new Set(root.KnowledgeExplorerRegistry.DOMAIN_ORDER);
+  const TOPICS_BY_DOMAIN = root.KnowledgeExplorerRegistry.TOPICS_BY_DOMAIN;
 
   function clean(value) { return String(value == null ? "" : value).trim(); }
+  function taxonomy(item, label) {
+    const suggested_domain = clean(item.suggested_domain).toLowerCase();
+    const suggested_topics = Array.from(new Set((Array.isArray(item.suggested_topics) ? item.suggested_topics : []).map(clean).filter(Boolean)));
+    if (!suggested_domain && suggested_topics.length) throw new Error(`${label} topics require a valid domain.`);
+    if (suggested_domain && !DOMAIN_ORDER.has(suggested_domain)) throw new Error(`${label} domain is invalid.`);
+    const permitted = suggested_domain ? new Set(TOPICS_BY_DOMAIN[suggested_domain] || []) : new Set();
+    if (suggested_topics.some((topic) => !permitted.has(topic))) throw new Error(`${label} topics are invalid for the domain.`);
+    return { suggested_domain, suggested_topics };
+  }
   function assertPlainObject(value, label) { if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object.`); }
   function assertKeys(value, allowed, label) {
     assertPlainObject(value, label);
@@ -52,11 +66,24 @@
   function normalizeKnowledge(items, blocks) {
     if (!Array.isArray(items)) throw new Error("knowledge_candidates must be an array.");
     return items.map((item, index) => {
-      assertKeys(item, ["label", "source_evidence_indexes", "confidence"], `knowledge_candidates[${index}]`);
+      const label = `knowledge_candidates[${index}]`;
+      const hasNewShape = Object.prototype.hasOwnProperty.call(item || {}, "title")
+        || Object.prototype.hasOwnProperty.call(item || {}, "detail");
+      const allowed = hasNewShape
+        ? ["title", "detail", "source_evidence_indexes", "confidence", "suggested_domain", "suggested_topics"]
+        : ["label", "source_evidence_indexes", "confidence", "suggested_domain", "suggested_topics"];
+      assertKeys(item, allowed, label);
       const confidence = clean(item.confidence).toLowerCase();
-      if (!CONFIDENCE.has(confidence)) throw new Error(`knowledge_candidates[${index}].confidence is invalid.`);
-      const refs = sourceIndexes(item.source_evidence_indexes, blocks.length, `knowledge_candidates[${index}]`);
-      return { label: safeText(item.label, `knowledge_candidates[${index}].label`, true), source_evidence_ids: refs.map((ref) => blocks[ref].evidence_id), confidence };
+      if (!CONFIDENCE.has(confidence)) throw new Error(`${label}.confidence is invalid.`);
+      const refs = sourceIndexes(item.source_evidence_indexes, blocks.length, label);
+      const taxonomyFields = taxonomy(item, label);
+      if (hasNewShape) {
+        const title = safeText(item.title, `${label}.title`, true).slice(0, 160);
+        const detail = safeText(item.detail, `${label}.detail`, true).slice(0, 2000);
+        if (title === detail) throw new Error(`${label}.title and detail must be distinct.`);
+        return { title, detail, ...taxonomyFields, source_evidence_ids: refs.map((ref) => blocks[ref].evidence_id), confidence };
+      }
+      return { label: safeText(item.label, `${label}.label`, true).slice(0, 500), ...taxonomyFields, source_evidence_ids: refs.map((ref) => blocks[ref].evidence_id), confidence };
     });
   }
   function normalizeResources(items, blocks) {
@@ -98,7 +125,14 @@
     const indexById = new Map(blocks.map((block, index) => [block.evidence_id, index]));
     return {
       evidence_blocks: blocks.map((block) => ({ title: clean(block.title), context: clean(block.context), experience: clean(block.experience), interpretation: clean(block.interpretation), change: clean(block.change), next_experiment: clean(block.next_experiment), related_objects: [] })),
-      knowledge_candidates: (proposal.knowledge_candidates || []).map((item) => ({ label: clean(item.label), source_evidence_indexes: sourceIndexesFromIds(item.source_evidence_ids, indexById), confidence: clean(item.confidence) })),
+      knowledge_candidates: (proposal.knowledge_candidates || []).map((item) => {
+        const refs = sourceIndexesFromIds(item.source_evidence_ids, indexById);
+        const taxonomyFields = taxonomy(item, "knowledge_candidates");
+        if (clean(item.title) || clean(item.detail)) {
+          return { title: clean(item.title), detail: clean(item.detail), suggested_domain: taxonomyFields.suggested_domain, suggested_topics: taxonomyFields.suggested_topics, source_evidence_indexes: refs, confidence: clean(item.confidence) };
+        }
+        return { label: clean(item.label), suggested_domain: taxonomyFields.suggested_domain, suggested_topics: taxonomyFields.suggested_topics, source_evidence_indexes: refs, confidence: clean(item.confidence) };
+      }),
       resource_candidates: (proposal.resource_candidates || []).map((item) => ({ name: clean(item.name), suggested_type: clean(item.suggested_type), source_evidence_indexes: sourceIndexesFromIds(item.source_evidence_ids, indexById) })),
       object_linking_suggestions: (proposal.object_linking_suggestions || []).map((item) => ({ name: clean(item.name), object_kind: clean(item.object_kind), source_evidence_indexes: sourceIndexesFromIds(item.source_evidence_ids, indexById), existence: "unknown" })),
       pre_routing_suggestions: (proposal.pre_routing_suggestions || []).map((item) => ({ source_evidence_indexes: sourceIndexesFromIds(item.source_evidence_ids, indexById), path: Array.isArray(item.path) ? item.path.map(clean).filter(Boolean) : [], confidence: clean(item.confidence) })),
@@ -149,9 +183,23 @@
   }
   function sanitizeKnowledge(item) {
     if (!item || typeof item !== "object" || Array.isArray(item)) return null;
-    const label = clean(item.label) || clean(item.title) || clean(item.statement) || clean(item.name);
+    const hasNewShape = Object.prototype.hasOwnProperty.call(item, "title")
+      || Object.prototype.hasOwnProperty.call(item, "detail");
     const confidence = clean(item.confidence).toLowerCase();
-    return { label, source_evidence_indexes: coerceIndexes(item), confidence: CONFIDENCE.has(confidence) ? confidence : "inferred" };
+    const base = { source_evidence_indexes: coerceIndexes(item), confidence: CONFIDENCE.has(confidence) ? confidence : "inferred" };
+    try {
+      const taxonomyFields = taxonomy(item, "knowledge_candidates");
+      if (hasNewShape) {
+        const title = clean(item.title);
+        const detail = clean(item.detail);
+        if (!title || !detail || title === detail) return null;
+        return { title, detail, ...taxonomyFields, ...base };
+      }
+      const label = clean(item.label) || clean(item.statement) || clean(item.name);
+      return label ? { label, ...taxonomyFields, ...base } : null;
+    } catch (_error) {
+      return null;
+    }
   }
   function sanitizeResource(item) {
     if (!item || typeof item !== "object" || Array.isArray(item)) return null;

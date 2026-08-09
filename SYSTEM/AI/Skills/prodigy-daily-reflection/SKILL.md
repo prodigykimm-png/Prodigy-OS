@@ -25,6 +25,7 @@ The runtime contract is the single source for extraction, splitting, non-inventi
 
 - Use only the user's current reflection, active Daily note, and explicitly supplied context.
 - Produce all five proposal classes required by the runtime contract.
+- For new Knowledge candidates, return `title`/headword plus distinct `detail`; keep `label` only when preserving a legacy response and keep domain/topics as a validated pair.
 - After the model response, resolve Object suggestions against scoped local Vault paths. The model never decides existence.
 - Do not modify the Vault.
 - Ask the user to approve, edit, remove, merge, or split.
