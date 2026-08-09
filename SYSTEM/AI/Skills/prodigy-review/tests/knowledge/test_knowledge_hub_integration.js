@@ -30,6 +30,10 @@ async function testHubLoadsExplorerAndDetailSections() {
   const zettelPanel = findByAttrId(result.container, "knowledge-panel-zettelkasten");
   assert.ok(zettelPanel, "제텔카스텐 탭 패널이 존재해야 합니다.");
   const zettelText = collectText(zettelPanel);
+  assert.match(zettelText, /지식 구축/);
+  assert.match(zettelText, /지식 축적 현황/);
+  assert.match(zettelText, /영구 지식/);
+  assert.match(zettelText, /검증 대기/);
   assert.doesNotMatch(zettelText, /\b(Knowledge|Resources|Related Objects|Journal|Projects|recent learning|warnings|provenance)\b/);
   assert.doesNotMatch(zettelText, /\b(category|reason|provenance_label|provenance_source_path)\b/);
   assert.doesNotMatch(zettelText, /\b(auction_region|literature_note|permanent_note)\b/);

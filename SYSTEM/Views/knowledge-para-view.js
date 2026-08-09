@@ -282,15 +282,33 @@
     var state = { query: "", sourceType: "", sort: "source", selectedPath: "" };
 
     var section = createEl(container, "section", {
-      attr: { class: "knowledge-para-section", "aria-label": "지식 활용 · PARA" }
+      attr: {
+        class: "knowledge-para-section",
+        "aria-label": "지식 활용 · PARA",
+        "data-workspace-role": "knowledge-use"
+      }
     });
-    createEl(section, "h2", { text: "지식 활용 · PARA" });
+    var roleBanner = createEl(section, "header", {
+      attr: {
+        class: "knowledge-workspace-role-banner knowledge-para-role-banner",
+        "data-workspace-role": "knowledge-use",
+        "aria-label": "PARA 실행·맥락 계층"
+      }
+    });
+    createEl(roleBanner, "h2", { text: "지식 활용 · PARA" });
+    createEl(roleBanner, "p", {
+      text: "실행·맥락 계층: 프로젝트·영역·자료의 PARA Object를 관리하고 명시적으로 연결된 승인 Knowledge를 활용합니다. Zettelkasten(제텔카스텐)은 지식 검토·승인 계층입니다.",
+      attr: { class: "knowledge-para-role-description" }
+    });
     renderParaActions(section, opts);
-    createEl(section, "p", {
-      text: "프로젝트·영역·자료에서 명시적으로 연결된 승인 지식만 표시합니다. 후보나 미검증 자료는 여기에 나타나지 않습니다.",
-      attr: { class: "knowledge-explorer-meta" }
+    createEl(section, "aside", {
+      text: "경계: Candidates(후보)·Literature(문헌) 자료·미승인 제안은 승인 Knowledge로 표시하지 않습니다.",
+      attr: {
+        class: "knowledge-workspace-boundary-cue knowledge-para-boundary-cue",
+        role: "note",
+        "aria-label": "승인 Knowledge 표시 경계"
+      }
     });
-
     var summary = createEl(section, "p", { attr: { class: "knowledge-explorer-detail-summary" } });
     var workspace = createEl(section, "div", { attr: { class: "knowledge-para-workspace" } });
     var controls = createEl(workspace, "form", {

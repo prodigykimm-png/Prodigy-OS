@@ -138,6 +138,77 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
 
     // 제텔카스텐 탭: 기존 Explorer + 작성 버튼
     const zettelPanel = tabs.getPanel("zettelkasten");
+    const relationBuckets = relationsModel && relationsModel.relations_by_source
+      && typeof relationsModel.relations_by_source === "object"
+      ? relationsModel.relations_by_source : {};
+    const relationCount = Object.keys(relationBuckets).reduce((total, sourcePath) => {
+      const relations = relationBuckets[sourcePath];
+      return total + (Array.isArray(relations) ? relations.length : 0);
+    }, 0);
+    const candidateCount = candidateConfig && candidateConfig.candidateInbox
+      && Array.isArray(candidateConfig.candidateInbox.candidates)
+      ? candidateConfig.candidateInbox.candidates.length : 0;
+    const recentKnowledge = (Array.isArray(model.assets) ? model.assets : [])
+      .filter((asset) => asset && asset.kind === "knowledge")
+      .slice(0, 3);
+
+    const zettelRolePanel = zettelPanel.createDiv({
+      attr: {
+        class: "knowledge-workspace-role-panel",
+        "data-workspace-role": "knowledge-building",
+        "aria-label": "제텔카스텐 지식 구축 역할",
+        style: "margin:0 0 12px;padding:14px;border:1px solid var(--background-modifier-border);border-radius:10px;background:var(--background-secondary);"
+      }
+    });
+    zettelRolePanel.createEl("div", {
+      text: "지식 구축",
+      attr: { class: "knowledge-explorer-meta", style: "font-weight:700;color:var(--text-accent);" }
+    });
+    zettelRolePanel.createEl("h2", {
+      text: "제텔카스텐",
+      attr: { style: "margin:2px 0 4px;font-size:1.15em;" }
+    });
+    zettelRolePanel.createEl("p", {
+      text: "생각과 자료를 원자적 지식으로 만들고, 연결하고, 사람의 검토를 거쳐 보존합니다.",
+      attr: { class: "knowledge-explorer-meta", style: "margin:0;" }
+    });
+
+    const growthPanel = zettelPanel.createDiv({
+      attr: {
+        class: "knowledge-growth-summary",
+        "data-workspace-role": "knowledge-growth",
+        "aria-label": "지식 축적 현황",
+        style: "margin:0 0 14px;padding:12px;border:1px solid var(--background-modifier-border);border-radius:10px;"
+      }
+    });
+    growthPanel.createEl("h3", { text: "지식 축적 현황", attr: { style: "margin:0 0 8px;font-size:.95em;" } });
+    const growthStats = growthPanel.createDiv({
+      attr: { style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;" }
+    });
+    [
+      ["knowledge", "영구 지식", model.totals && model.totals.knowledge, "사람이 승인한 영구 지식"],
+      ["resources", "자료·맥락", model.totals && model.totals.resources, "문헌·연결 자료"],
+      ["pending", "검증 대기", candidateCount, "승인 전 후보"],
+      ["relations", "연결 관계", relationCount, "지식·자료를 잇는 탐색 경로"]
+    ].forEach(([key, label, value, hint]) => {
+      const card = growthStats.createDiv({
+        attr: {
+          class: "knowledge-growth-stat",
+          "data-growth-key": key,
+          style: "min-width:0;padding:8px;border-radius:8px;background:var(--background-secondary);"
+        }
+      });
+      card.createEl("div", { text: label, attr: { class: "knowledge-explorer-meta" } });
+      card.createEl("strong", { text: String(Number(value) || 0), attr: { style: "display:block;font-size:1.2em;" } });
+      card.createEl("small", { text: hint, attr: { class: "knowledge-explorer-meta" } });
+    });
+    growthPanel.createEl("p", {
+      text: recentKnowledge.length
+        ? `최근 쌓인 지식: ${recentKnowledge.map((asset) => asset.title).join(" · ")}`
+        : "아직 영구 지식이 없습니다. 검증을 통과한 지식이 이곳에 쌓입니다.",
+      attr: { class: "knowledge-explorer-meta", style: "margin:8px 0 0;" }
+    });
+
     const authoringMount = zettelPanel.createDiv({ attr: { class: "knowledge-authoring-hub-mount" } });
     const explorerMount = zettelPanel.createDiv({ attr: { class: "knowledge-explorer-hub-mount" } });
     KnowledgeExplorerHub.authoringActions = window.KnowledgeAuthoringHubAdapter.mountKnowledgeAuthoringActions(authoringMount, {

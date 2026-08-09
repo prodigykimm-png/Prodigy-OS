@@ -17,6 +17,160 @@
     return normalizeString(value).toLowerCase();
   }
 
+  function normalizeSearchText(value) {
+    if (typeof value !== "string") return "";
+    return value.normalize("NFC").trim().toLocaleLowerCase("en-US").replace(/\s+/g, " ");
+  }
+
+  function typeLabel(value) {
+    const labels = {
+      knowledge: "지식",
+      permanent_note: "기존 지식",
+      literature_note: "문헌 자료",
+      venue: "장소",
+      auction_region: "경매 지역",
+      Venues: "장소",
+      Regions: "경매 지역",
+      References: "문헌 자료"
+    };
+    return labels[value] || "";
+  }
+
+  function searchBlob(values) {
+    return normalizeSearchText(values.filter((value) => typeof value === "string" && value.trim()).join(" "));
+  }
+
+  function recencyForAssets(assets) {
+    return assets.reduce((latest, asset) => Math.max(latest, Number(asset && asset.recency) || 0), 0);
+  }
+
+  function filteredSection(section, matches) {
+    const assets = asArray(section && section.assets).filter((asset) => matches.has(normalizedKey(asset && asset.path)));
+    if (!assets.length) return null;
+    return {
+      ...section,
+      count: assets.length,
+      recency: recencyForAssets(assets),
+      assets
+    };
+  }
+
+  function selectionForDomains(domains, seed = {}) {
+    const model = { domains, selection: null };
+    const state = {
+      domain: seed.domain,
+      section_kind: seed.section_kind,
+      section_key: seed.section_key,
+      asset_path: seed.asset_path
+    };
+    const domain = domainByKey(model, seed.domainKey || state.domain);
+    const sections = middleSections(domain);
+    const section = matchingSection(sections, seed.middleKind || state.section_kind, seed.middleKey || state.section_key) || selectDefaultSection(sections);
+    const asset = section ? matchingAsset(section, seed.assetPath || state.asset_path) || selectDefaultAsset(section) : null;
+    return {
+      domain: domain ? domain.key : null,
+      section_kind: section ? section.kind : null,
+      section_key: section ? section.key : null,
+      asset_path: asset ? asset.path : null
+    };
+  }
+
+  function filterModelByQuery(model, query) {
+    const normalizedQuery = normalizeSearchText(query);
+    if (!normalizedQuery || !isObject(model)) return model;
+
+    const termsByPath = new Map();
+    const addTerms = (asset, terms) => {
+      const key = normalizedKey(asset && asset.path);
+      if (!key) return;
+      const current = termsByPath.get(key) || [];
+      current.push(...terms);
+      termsByPath.set(key, current);
+    };
+
+    for (const domain of listDomains(model)) {
+      if (!isObject(domain)) continue;
+      const domainTerms = [domain.key, domain.label];
+      const knowledge = asArray(domain.knowledge);
+      const resources = asArray(domain.resources);
+      for (const asset of [...knowledge, ...resources]) {
+        addTerms(asset, [
+          ...domainTerms,
+          asset && asset.path,
+          asset && asset.title,
+          asset && asset.type,
+          typeLabel(asset && asset.type),
+          asset && asset.kind,
+          asset && asset.resource_section,
+          asset && asset.resource_label,
+          asset && asset.type_label,
+          asset && asset.domain_label,
+          ...(Array.isArray(asset && asset.topics) ? asset.topics : []),
+          ...(Array.isArray(asset && asset.topic_labels) ? asset.topic_labels : [])
+        ]);
+      }
+      for (const section of asArray(domain.topic_sections)) {
+        for (const asset of asArray(section && section.assets)) addTerms(asset, [section.key, section.label, section.type, typeLabel(section.type)]);
+      }
+      for (const section of asArray(domain.resource_sections)) {
+        for (const asset of asArray(section && section.assets)) addTerms(asset, [section.key, section.label, section.type, typeLabel(section.type)]);
+      }
+    }
+    for (const asset of asArray(model.assets)) {
+      addTerms(asset, [
+        asset && asset.path,
+        asset && asset.title,
+        asset && asset.type,
+        typeLabel(asset && asset.type),
+        asset && asset.kind,
+        asset && asset.resource_section,
+        asset && asset.resource_label,
+        asset && asset.type_label,
+        asset && asset.domain_label,
+        ...(Array.isArray(asset && asset.topics) ? asset.topics : []),
+        ...(Array.isArray(asset && asset.topic_labels) ? asset.topic_labels : [])
+      ]);
+    }
+
+    const matches = new Set();
+    for (const [path, terms] of termsByPath.entries()) {
+      if (searchBlob(terms).includes(normalizedQuery)) matches.add(path);
+    }
+
+    const domains = [];
+    for (const domain of listDomains(model)) {
+      if (!isObject(domain)) continue;
+      const knowledge = asArray(domain.knowledge).filter((asset) => matches.has(normalizedKey(asset && asset.path)));
+      const resources = asArray(domain.resources).filter((asset) => matches.has(normalizedKey(asset && asset.path)));
+      const topicSections = asArray(domain.topic_sections).map((section) => filteredSection(section, matches)).filter(Boolean);
+      const resourceSections = asArray(domain.resource_sections).map((section) => filteredSection(section, matches)).filter(Boolean);
+      if (!knowledge.length && !resources.length) continue;
+      domains.push({
+        ...domain,
+        count: knowledge.length,
+        resource_count: resources.length,
+        recency: recencyForAssets([...knowledge, ...resources]),
+        knowledge,
+        resources,
+        topic_sections: topicSections,
+        resource_sections: resourceSections
+      });
+    }
+
+    const assets = asArray(model.assets).filter((asset) => matches.has(normalizedKey(asset && asset.path)));
+    const totals = { ...(isObject(model.totals) ? model.totals : {}) };
+    totals.knowledge = domains.reduce((sum, domain) => sum + domain.knowledge.length, 0);
+    totals.resources = domains.reduce((sum, domain) => sum + domain.resources.length, 0);
+    return {
+      ...model,
+      domains,
+      assets,
+      totals,
+      recency: recencyForAssets(assets),
+      selection: selectionForDomains(domains, model.selection || {})
+    };
+  }
+
   function freeze(value) {
     if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
     Object.freeze(value);
@@ -174,7 +328,7 @@
     return { state: Object.prototype.hasOwnProperty.call(copies, state) ? state : "rest", text: state, detail: copies[state] || copies.rest };
   }
 
-  const api = Object.freeze({ asArray, normalizeString, normalizedKey, createSelectionState, reduceSelectionState, listDomains, middleSections, sectionAssets, findCurrentDomain, findCurrentSection, findCurrentAsset, domainLabel, sectionLabel, assetLabel, detailSectionsFor, surfaceCopy });
+  const api = Object.freeze({ asArray, normalizeString, normalizedKey, normalizeSearchText, filterModelByQuery, createSelectionState, reduceSelectionState, listDomains, middleSections, sectionAssets, findCurrentDomain, findCurrentSection, findCurrentAsset, domainLabel, sectionLabel, assetLabel, detailSectionsFor, surfaceCopy });
   root.KnowledgeExplorerState = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

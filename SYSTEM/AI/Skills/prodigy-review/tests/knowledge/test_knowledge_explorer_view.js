@@ -221,6 +221,43 @@ function testRendererStatesAndStress() {
   assert.match(styleBlock.text, /knowledge-explorer-shell/);
 }
 
+function testMetadataGlobalSearchAndRecovery() {
+  let bodyReads = 0;
+  const { root, model, shell } = createShell({
+    hydrateAsset: async () => {
+      bodyReads += 1;
+      return { status: "ready", body: "should not be read during metadata search" };
+    }
+  });
+  const initialJson = JSON.stringify(model);
+  assert.equal(bodyReads, 0, "mounting metadata search must not read note bodies");
+  let search = walk(root, (node) => node.tag === "input" && node.attr && node.attr["data-group"] === "search" && node.attr["data-key"] === "global")[0];
+  assert.ok(search, "Explorer exposes a labeled global search input");
+  assert.equal(search.attr.type, "search");
+  assert.equal(search.attr["aria-label"], "Knowledge Explorer 메타데이터 검색");
+
+  search.value = "기존 영구 노트";
+  search.oninput({ target: search });
+  assert.equal(shell.searchQuery(), "기존 영구 노트");
+  assert.equal(Number(root.attr["data-search-results"]), 1);
+  assert.ok(shell.state().assetPath, "a metadata match selects a visible asset");
+  assert.equal(model.assets.some((asset) => asset.path === shell.state().assetPath), true);
+
+  search = walk(root, (node) => node.tag === "input" && node.attr && node.attr["data-group"] === "search" && node.attr["data-key"] === "global")[0];
+  search.value = "no-such-metadata";
+  search.oninput({ target: search });
+  assert.equal(Number(root.attr["data-search-results"]), 0);
+  assert.match(collectText(root), /검색 결과가 없습니다/);
+  assert.equal(shell.state().domainKey, null, "no-match search recovers selection deterministically");
+
+  const clear = walk(root, (node) => node.tag === "button" && node.attr && node.attr["data-action"] === "clear-search")[0];
+  assert.ok(clear, "no-match state offers clear search");
+  click(clear);
+  assert.equal(shell.searchQuery(), "");
+  assert.equal(Number(root.attr["data-search-results"]), model.assets.length);
+  assert.equal(JSON.stringify(model), initialJson, "metadata search must not mutate the source model");
+  assert.equal(bodyReads, 0, "metadata search must not hydrate note bodies");
+}
 async function testSelectedAssetHydrationPreservesFocusAndRetries() {
   // Given: a mounted Explorer with an otherwise cold selected-note body reader.
   let attempts = 0;
@@ -257,6 +294,7 @@ async function testSelectedAssetHydrationPreservesFocusAndRetries() {
 async function main() {
   testSelectionMachineAndKeyboard();
   testRendererStatesAndStress();
+  testMetadataGlobalSearchAndRecovery();
   await testSelectedAssetHydrationPreservesFocusAndRetries();
   console.log("Knowledge Explorer view tests passed");
 }

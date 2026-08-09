@@ -18,6 +18,40 @@ function descendants(root, predicate, hits = []) {
 function buttons(root) {
   return descendants(root, (node) => node.tag === "button" && node.attr?.role === "tab");
 }
+function roleCue(root) {
+  return descendants(root, (node) => node.attr?.id === "knowledge-tab-role-cue")[0] || null;
+}
+
+function testImmutableTabRoleMetadata() {
+  assert.deepEqual(
+    workspaceTabs.TABS.map(({ id, role, purpose }) => ({ id, role, purpose })),
+    [
+      { id: "zettelkasten", role: "지식 구축", purpose: "작성·연결·검증·보존" },
+      { id: "para", role: "승인 지식 활용", purpose: "승인된 지식을 Project·Area·Resource Objects에 적용하고 활용합니다." },
+      { id: "llmwiki", role: "AI 지식 검토", purpose: "자료를 선택하고 AI 지식 제안을 검토합니다." },
+      { id: "llmwiki-browse", role: "LLMWiki 탐색", purpose: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다." },
+    ],
+  );
+  assert.equal(Object.isFrozen(workspaceTabs.TABS), true);
+  for (const tab of workspaceTabs.TABS) assert.equal(Object.isFrozen(tab), true);
+}
+
+function testActiveRoleCue() {
+  const container = new FakeElement("section");
+  const mounted = workspaceTabs.mountTabs(container, { activeTab: "zettelkasten" });
+  const cue = roleCue(container);
+  assert.ok(cue);
+  assert.equal(cue.attr.role, "status");
+  assert.equal(cue.attr["aria-live"], "polite");
+  assert.equal(cue.attr["aria-atomic"], "true");
+  assert.equal(cue.text, "역할: 지식 구축 · 목적: 작성·연결·검증·보존");
+
+  const activeButton = buttons(container).find((button) => button.attr["aria-selected"] === "true");
+  assert.equal(activeButton.attr["aria-describedby"], "knowledge-tab-role-cue knowledge-tab-description");
+
+  mounted.select("para");
+  assert.equal(cue.text, "역할: 승인 지식 활용 · 목적: 승인된 지식을 Project·Area·Resource Objects에 적용하고 활용합니다.");
+}
 
 function testExactThreeTabContract() {
   assert.deepEqual(
@@ -71,6 +105,8 @@ function testMalformedTabStateRecoversWithoutChangingSelection() {
 }
 
 testExactThreeTabContract();
+testImmutableTabRoleMetadata();
+testActiveRoleCue();
 testAriaRelationshipsAndInMemoryIdentity();
 testMalformedTabStateRecoversWithoutChangingSelection();
 console.log("Knowledge workspace tabs tests passed");

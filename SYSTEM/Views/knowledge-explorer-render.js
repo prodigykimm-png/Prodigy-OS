@@ -36,11 +36,21 @@
     return el;
   }
 
+  const SEARCH_CSS = `
+.knowledge-explorer-shell > .knowledge-explorer-search { grid-column:1 / -1; }
+.knowledge-explorer-search { display:flex; flex-wrap:wrap; align-items:end; gap:var(--ke-space-2); min-inline-size:0; width:100%; margin-block-end:var(--ke-space-3); }
+.knowledge-explorer-search-label { display:flex; flex:1 1 16rem; flex-direction:column; gap:var(--ke-space-2); min-inline-size:0; color:var(--ke-color-muted); font-size:var(--ke-type-label); }
+.knowledge-explorer-search-input { width:100%; min-inline-size:0; min-height:var(--ke-touch-target,44px); padding:var(--ke-space-2) var(--ke-space-3); border:1px solid var(--ke-color-border); border-radius:var(--ke-radius-control); background:var(--ke-color-surface); color:var(--ke-color-text); font:inherit; }
+.knowledge-explorer-search-input:focus-visible, .knowledge-explorer-search-clear:focus-visible { outline:2px solid var(--ke-color-accent); outline-offset:2px; }
+.knowledge-explorer-search-clear { min-height:var(--ke-touch-target,44px); padding:var(--ke-space-2) var(--ke-space-3); border:1px solid var(--ke-color-border); border-radius:var(--ke-radius-control); background:var(--ke-color-surface-secondary); color:var(--ke-color-text); cursor:pointer; font:inherit; }
+.knowledge-explorer-search-clear[disabled] { opacity:.5; cursor:not-allowed; }
+.knowledge-explorer-search-status { flex:1 1 100%; min-inline-size:0; margin:0; color:var(--ke-color-muted); font-size:var(--ke-type-body); line-height:var(--ke-leading-body); overflow-wrap:anywhere; }
+`;
   function ensureStyle(container) {
     const doc = container && container.ownerDocument ? container.ownerDocument : typeof document !== "undefined" ? document : null;
     const styleId = "knowledge-explorer-view-styles";
     if (doc && doc.getElementById && doc.getElementById(styleId)) return;
-    const style = createEl(container, "style", { text: dependency("KnowledgeExplorerResponsive").CSS });
+    const style = createEl(container, "style", { text: `${dependency("KnowledgeExplorerResponsive").CSS}${SEARCH_CSS}` });
     setAttr(style, "id", styleId);
   }
 
@@ -70,11 +80,13 @@
       control.onkeydown = (event) => {
         if (!event || event.key === "Tab") return;
         if (["ArrowDown", "ArrowRight"].includes(event.key)) {
+          if (options.trapArrows === false) return;
           event.preventDefault();
           if (options.onMove) options.onMove(1, event);
           return;
         }
         if (["ArrowUp", "ArrowLeft"].includes(event.key)) {
+          if (options.trapArrows === false) return;
           event.preventDefault();
           if (options.onMove) options.onMove(-1, event);
           return;
@@ -116,6 +128,65 @@
     return section;
   }
 
+  function renderSearch(container, query, model, surface, onQuery) {
+    const value = typeof query === "string" ? query : "";
+    const disabled = surface.state === "disabled";
+    const form = createEl(container, "form", { attr: { class: "knowledge-explorer-search", role: "search", "aria-label": "Knowledge Explorer 전체 검색", "data-search-state": value.trim() ? "active" : "idle" } });
+    const label = createEl(form, "label", { text: "전체 검색", attr: { class: "knowledge-explorer-search-label" } });
+    const input = createEl(label, "input", {
+      attr: {
+        type: "search",
+        class: "knowledge-explorer-search-input",
+        "data-group": "search",
+        "data-key": "global",
+        "data-action": "search",
+        "aria-label": "Knowledge Explorer 메타데이터 검색",
+        placeholder: "제목·경로·유형·도메인·주제 검색",
+        "aria-disabled": disabled ? "true" : "false",
+        value
+      },
+      disabled
+    });
+    if (input) input.value = value;
+    const submit = (event) => {
+      if (event && event.preventDefault) event.preventDefault();
+      if (!disabled && typeof onQuery === "function") onQuery(input && typeof input.value === "string" ? input.value : value, event);
+    };
+    if (form && !disabled) form.onsubmit = submit;
+    if (input && !disabled) {
+      input.oninput = (event) => {
+        if (typeof onQuery === "function") onQuery(event && event.target && typeof event.target.value === "string" ? event.target.value : input.value, event);
+      };
+      input.onkeydown = (event) => {
+        if (event && event.key === "Enter") {
+          submit(event);
+          return;
+        }
+        if (event && event.key === "Escape") {
+          event.preventDefault();
+          if (typeof onQuery === "function") onQuery("", event);
+        }
+      };
+    }
+    button(form, {
+      text: "검색어 지우기",
+      className: "knowledge-explorer-search-clear",
+      group: "search",
+      key: "clear",
+      action: "clear-search",
+      ariaLabel: "전체 검색어 지우기",
+      disabled: disabled || !value.trim(),
+      trapArrows: false,
+      onAction: (event) => onQuery("", event)
+    });
+    if (value.trim()) {
+      const count = Number(model && model.assets && model.assets.length) || 0;
+      createEl(form, "p", {
+        text: count ? `검색 결과 ${count}개` : "검색 결과가 없습니다. 검색어를 지우고 다시 시도하세요.",
+        attr: { class: "knowledge-explorer-search-status", "data-search-results": String(count), "data-state": count ? "matched" : "no-match", "aria-live": "polite" }
+      });
+    }
+  }
   function addBack(parent, focusPane, onAction, disabled) {
     if (focusPane === "domain") return;
     const label = focusPane === "detail" ? "주제·자료로 돌아가기" : "도메인으로 돌아가기";
@@ -224,10 +295,18 @@
     if (!container) return null;
     empty(container);
     ensureStyle(container);
-    const selection = State.createSelectionState(model, options.selection || options.state || {});
-    const surface = State.surfaceCopy(options.surfaceState, model);
+    const sourceModel = model || { domains: [] };
+    const query = options.searchQuery !== undefined ? options.searchQuery : options.query;
+    const visibleModel = typeof State.filterModelByQuery === "function" ? State.filterModelByQuery(sourceModel, query) : sourceModel;
+    const selection = State.createSelectionState(visibleModel, options.selection || options.state || {});
+    const surface = State.surfaceCopy(options.surfaceState, visibleModel);
     const layout = options.layout || Responsive.layoutForWidth(options.logicalWidth);
     const visible = Responsive.visiblePanes(layout, selection.focusPane);
+    const dispatch = typeof options.onAction === "function" ? options.onAction : () => {};
+    const open = typeof options.onOpenBeside === "function" ? options.onOpenBeside : () => {};
+    const onQuery = typeof options.onSearch === "function"
+      ? options.onSearch
+      : (nextQuery, event) => dispatch({ type: "set-query", query: nextQuery }, event);
     setAttr(container, "data-shell", "knowledge-explorer-shell");
     setAttr(container, "data-layout", layout);
     setAttr(container, "data-surface-state", surface.state);
@@ -235,12 +314,15 @@
     setAttr(container, "data-selected-domain", selection.domainKey || "");
     setAttr(container, "data-selected-middle", selection.middleKey || "");
     setAttr(container, "data-selected-asset", selection.assetPath || "");
+    setAttr(container, "data-search-query", typeof query === "string" ? query : "");
+    setAttr(container, "data-search-results", String((visibleModel.assets || []).length));
+    const searchState = typeof query === "string" && query.trim() ? ((visibleModel.assets || []).length ? "matched" : "no-match") : "idle";
+    setAttr(container, "data-search-state", searchState);
     const shell = createEl(container, "section", { attr: { class: "knowledge-explorer-shell", "data-shell": "knowledge-explorer-shell", "data-layout": layout, "data-focus-pane": selection.focusPane } });
-    const dispatch = typeof options.onAction === "function" ? options.onAction : () => {};
-    const open = typeof options.onOpenBeside === "function" ? options.onOpenBeside : () => {};
-    if (visible.includes("domain")) renderDomain(shell, model, selection, surface, dispatch, layout === "narrow");
-    if (visible.includes("middle")) renderMiddle(shell, model, selection, surface, dispatch, layout === "narrow");
-    if (visible.includes("detail")) renderDetail(shell, model, selection, surface, dispatch, open, options.brief, options.candidateInbox);
+    renderSearch(shell, query, visibleModel, surface, onQuery);
+    if (visible.includes("domain")) renderDomain(shell, visibleModel, selection, surface, dispatch, layout === "narrow");
+    if (visible.includes("middle")) renderMiddle(shell, visibleModel, selection, surface, dispatch, layout === "narrow");
+    if (visible.includes("detail")) renderDetail(shell, visibleModel, selection, surface, dispatch, open, options.brief, options.candidateInbox);
     return container;
   }
 

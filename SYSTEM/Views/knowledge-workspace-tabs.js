@@ -3,10 +3,10 @@
 (function (root) {
   var STYLE_ID = "knowledge-workspace-tabs-styles";
   var TABS = Object.freeze([
-    Object.freeze({ id: "zettelkasten", label: "지식 구축 · 제텔카스텐", description: "후보·문헌·영구 지식을 검토하고 승인합니다." }),
-    Object.freeze({ id: "para", label: "지식 활용 · PARA", description: "프로젝트·영역·자료에 연결된 승인 지식을 탐색합니다." }),
-    Object.freeze({ id: "llmwiki", label: "AI 지식 검토 · LLM Wiki", description: "자료를 선택하고 AI 지식 제안을 검토합니다." }),
-    Object.freeze({ id: "llmwiki-browse", label: "LLMWiki 탐색", description: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다." })
+    Object.freeze({ id: "zettelkasten", label: "지식 구축 · 제텔카스텐", role: "지식 구축", purpose: "작성·연결·검증·보존", description: "후보·문헌·영구 지식을 검토하고 승인합니다." }),
+    Object.freeze({ id: "para", label: "지식 활용 · PARA", role: "승인 지식 활용", purpose: "승인된 지식을 Project·Area·Resource Objects에 적용하고 활용합니다.", description: "프로젝트·영역·자료에 연결된 승인 지식을 탐색합니다." }),
+    Object.freeze({ id: "llmwiki", label: "AI 지식 검토 · LLM Wiki", role: "AI 지식 검토", purpose: "자료를 선택하고 AI 지식 제안을 검토합니다.", description: "자료를 선택하고 AI 지식 제안을 검토합니다." }),
+    Object.freeze({ id: "llmwiki-browse", label: "LLMWiki 탐색", role: "LLMWiki 탐색", purpose: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다.", description: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다." })
   ]);
 
   function ensureStyles(container) {
@@ -21,6 +21,7 @@
       ".knowledge-workspace-tab:focus-visible{outline:2px solid var(--text-accent);outline-offset:-2px}",
       ".knowledge-workspace-tab[aria-selected=\"true\"]{color:var(--text-normal);border-bottom-color:var(--text-accent)}",
       ".knowledge-workspace-tab-desc{font-size:var(--ke-type-caption,.64rem);color:var(--text-faint);margin:0 0 var(--ke-space-2,4px)}",
+      ".knowledge-workspace-tab-role{font-size:var(--ke-type-caption,.64rem);color:var(--text-muted);font-weight:600;margin:0 0 var(--ke-space-1,2px)}",
       ".knowledge-workspace-panel{min-height:0}",
       "@media(max-width:600px){.knowledge-workspace-tabs{flex-wrap:wrap;overflow:visible}.knowledge-workspace-tab{box-sizing:border-box;flex:1 1 calc(50% - 2px);min-width:0;padding:10px 8px;white-space:normal;line-height:1.25;font-size:var(--ke-type-body,.84rem)}}"
     ].join("\n");
@@ -39,6 +40,13 @@
     if (!el) return;
     if (typeof el.removeAttribute === "function") return el.removeAttribute(name);
     if (el.attr && typeof el.attr === "object") { delete el.attr[name]; return; }
+  }
+
+  function setText(el, value) {
+    if (!el) return;
+    var text = value == null ? "" : String(value);
+    if (typeof el.setText === "function") return el.setText(text);
+    el.textContent = text;
   }
 
   function createEl(parent, tag, options) {
@@ -94,7 +102,22 @@
       buttons[tab.id] = btn;
     });
 
-    var descEl = createEl(container, "p", { attr: { class: "knowledge-workspace-tab-desc", "aria-live": "polite" } });
+    var descEl = createEl(container, "p", {
+      attr: {
+        id: "knowledge-tab-description",
+        class: "knowledge-workspace-tab-desc",
+        "aria-live": "polite"
+      }
+    });
+    var roleCueEl = createEl(container, "p", {
+      attr: {
+        id: "knowledge-tab-role-cue",
+        class: "knowledge-workspace-tab-role",
+        role: "status",
+        "aria-live": "polite",
+        "aria-atomic": "true"
+      }
+    });
 
     TABS.forEach(function (tab) {
       var panel = createEl(container, "div", {
@@ -117,11 +140,17 @@
         var selected = tab.id === activeTab;
         setAttr(buttons[tab.id], "aria-selected", selected ? "true" : "false");
         setAttr(buttons[tab.id], "tabindex", selected ? "0" : "-1");
-        if (selected) removeAttr(panels[tab.id], "hidden");
-        else setAttr(panels[tab.id], "hidden", "");
+        if (selected) {
+          setAttr(buttons[tab.id], "aria-describedby", "knowledge-tab-role-cue knowledge-tab-description");
+          removeAttr(panels[tab.id], "hidden");
+        } else {
+          removeAttr(buttons[tab.id], "aria-describedby");
+          setAttr(panels[tab.id], "hidden", "");
+        }
       });
       var current = TABS.find(function (t) { return t.id === activeTab; });
-      descEl.textContent = current ? current.description : "";
+      setText(descEl, current ? current.description : "");
+      setText(roleCueEl, current ? "역할: " + current.role + " · 목적: " + current.purpose : "");
       onChange(activeTab);
     }
 

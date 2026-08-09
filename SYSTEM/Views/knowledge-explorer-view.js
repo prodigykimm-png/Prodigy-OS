@@ -38,7 +38,10 @@
     const { State, Responsive, Brief } = dependencies();
     const container = options.container;
     const model = options.model || { domains: [] };
-    let selection = State.createSelectionState(model, options.selection || {});
+    let query = options.searchQuery !== undefined ? options.searchQuery : options.query;
+    if (typeof query !== "string") query = "";
+    const filteredModel = () => State.filterModelByQuery(model, query);
+    let selection = State.createSelectionState(filteredModel(), options.selection || {});
     let surfaceState = State.normalizeString(options.surfaceState) || "rest";
     let width = logicalWidth(container, options.logicalWidth);
     let returnFocus = null;
@@ -55,7 +58,7 @@
       ? CandidateView.createCandidateInboxController(options, () => rerender()) : null;
 
     function selectedAsset() {
-      return State.findCurrentAsset(model, selection);
+      return State.findCurrentAsset(filteredModel(), selection);
     }
 
     function isCurrentHydration(path, requestId) {
@@ -157,6 +160,7 @@
       renderKnowledgeExplorer(container, modelForRender(), {
         ...options,
         selection,
+        searchQuery: query,
         surfaceState,
         logicalWidth: width,
         layout: layout(),
@@ -180,24 +184,42 @@
       return null;
     }
 
-    function dispatchFromControl(action, event) {
-      const currentLayout = layout();
-      const origin = controlIdentity(action, event);
-      const nextAction = { ...action };
-      if (currentLayout === "compact" && action.type === "set-domain") nextAction.focusPane = "middle";
-      if (currentLayout === "compact" && action.type === "set-middle") nextAction.focusPane = "detail";
-      selection = State.reduceSelectionState(model, selection, nextAction);
-      if (nextAction.focusPane) selection = State.reduceSelectionState(model, selection, { type: "focus-pane", focusPane: nextAction.focusPane });
-      if (action.type === "back") returnFocus = origin;
+    function applyQuery(nextQuery) {
+      const previousAsset = selectedAsset();
+      query = typeof nextQuery === "string" ? nextQuery : "";
+      selection = State.createSelectionState(filteredModel(), selection);
+      const nextAsset = selectedAsset();
+      if (!previousAsset || !nextAsset || previousAsset.path !== nextAsset.path) {
+        hydrationRequestId += 1;
+        selectedHydration = null;
+      }
+      returnFocus = { group: "search", key: "global" };
       rerender();
-      if (action.type === "set-middle" || action.type === "set-asset" || action.type === "move-asset") void hydrateSelectedAsset();
+      return selection;
+    }
+    function dispatchFromControl(action, event) {
+      const next = action || {};
+      const type = State.normalizeString(next.type);
+      if (["set-query", "search", "clear-query", "clear-search", "set-search", "set-search-query"].includes(type)) return applyQuery(next.query, event);
+      const currentLayout = layout();
+      const origin = controlIdentity(next, event);
+      const nextAction = { ...next };
+      if (currentLayout === "compact" && next.type === "set-domain") nextAction.focusPane = "middle";
+      if (currentLayout === "compact" && next.type === "set-middle") nextAction.focusPane = "detail";
+      selection = State.reduceSelectionState(filteredModel(), selection, nextAction);
+      if (nextAction.focusPane) selection = State.reduceSelectionState(filteredModel(), selection, { type: "focus-pane", focusPane: nextAction.focusPane });
+      if (next.type === "back") returnFocus = origin;
+      rerender();
+      if (next.type === "set-middle" || next.type === "set-asset" || next.type === "move-asset") void hydrateSelectedAsset();
       return selection;
     }
 
     function dispatch(action) {
-      selection = State.reduceSelectionState(model, selection, action || {});
+      const next = action || {};
+      if (["set-query", "search", "clear-query", "clear-search", "set-search", "set-search-query"].includes(State.normalizeString(next.type))) return applyQuery(next.query);
+      selection = State.reduceSelectionState(filteredModel(), selection, next);
       rerender();
-      if (action && (action.type === "set-middle" || action.type === "set-asset" || action.type === "move-asset")) void hydrateSelectedAsset();
+      if (next.type === "set-middle" || next.type === "set-asset" || next.type === "move-asset") void hydrateSelectedAsset();
       return selection;
     }
 
@@ -224,6 +246,8 @@
       container,
       model,
       state: () => selection,
+      searchQuery: () => query,
+      setSearchQuery: (nextQuery) => applyQuery(nextQuery),
       dispatch,
       render: rerender,
       setLogicalWidth,
@@ -251,6 +275,7 @@
     SHELL_CLASS: "knowledge-explorer-shell",
     createSelectionState(model, seed) { return dependencies().State.createSelectionState(model, seed); },
     reduceSelectionState(model, state, action) { return dependencies().State.reduceSelectionState(model, state, action); },
+    filterModelByQuery(model, query) { return dependencies().State.filterModelByQuery(model, query); },
     renderKnowledgeExplorer,
     mountKnowledgeExplorer,
     layoutForWidth(width) { return (Responsive || dependencies().Responsive).layoutForWidth(width); }

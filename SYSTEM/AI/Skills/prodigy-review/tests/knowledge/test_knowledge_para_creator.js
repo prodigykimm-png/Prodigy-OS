@@ -252,6 +252,11 @@ async function main() {
   assert.match(viewSrc, /renderParaActions/, "view renders PARA creator actions");
   assert.match(viewSrc, /ParaObjectCreatorService/, "view uses shared service");
   assert.match(viewSrc, /연결된 지식 없음/, "view has fail-closed empty state");
+  assert.match(viewSrc, /knowledge-workspace-role-banner/, "view marks the PARA execution/context role");
+  assert.match(viewSrc, /"data-workspace-role":\s*"knowledge-use"/, "view exposes the PARA role marker");
+  assert.match(viewSrc, /knowledge-workspace-boundary-cue/, "view exposes the approved-Knowledge boundary cue");
+  assert.match(viewSrc, /Candidates\(후보\).*Literature\(문헌\).*미승인 제안/, "boundary cue excludes candidate, literature, and unapproved proposals");
+  assert.match(viewSrc, /Zettelkasten\(제텔카스텐\).*지식 검토·승인/, "role copy distinguishes Zettelkasten review");
 
   // --- HUB wiring loads the service and passes app to the PARA view ---
   const hub = read("HUB/50 Knowledge.md");
