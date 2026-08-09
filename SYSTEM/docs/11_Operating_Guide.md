@@ -363,6 +363,7 @@ node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/run_knowledge_decision_loop
 
 - **제텔카스텐 탭**: `+ 지식 후보 작성`, `+ 문헌노트 작성`, 검증 대기 Inbox, 도메인→주제→상세 탐색기를 포함한다. `fleeting_note`는 카운트에서 제외한다.
 - **PARA 탭**: `connections` 또는 wikilink로 연결된 `type: knowledge` / `type: permanent_note`만 표시한다. Candidate, literature_note, venue, auction_region은 "검증된 지식"으로 표시하지 않는다. 연결이 없으면 "연결된 지식 없음"으로 표시한다.
+- **PARA 실행 경로**: 원본 Object의 `connections`에 승인 Knowledge의 exact wikilink를 추가한다. 연결이 없으면 PARA 빈 상태의 `지식 구축에서 검증 대기 열기`를 사용하며, PARA의 문헌 노트 만들기는 canonical Literature writer로 위임한다.
 - 탭 상태는 Hub 재렌더 시 유지되며, 신규 로드 시 제텔카스텐 탭이 기본이다.
 - 기존 파일·Object 경로는 이동하지 않는다.
 

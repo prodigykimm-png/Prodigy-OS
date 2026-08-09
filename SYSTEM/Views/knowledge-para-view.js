@@ -277,6 +277,7 @@
     empty(container);
     var opts = options || {};
     var onOpenBeside = typeof opts.onOpenBeside === "function" ? opts.onOpenBeside : function () {};
+    var onOpenZettel = typeof opts.onOpenZettel === "function" ? opts.onOpenZettel : function () {};
     var Para = dependency("KnowledgeParaProjection");
     var model = paraModel && typeof paraModel === "object" ? paraModel : {};
     var state = { query: "", sourceType: "", sort: "source", selectedPath: "" };
@@ -382,10 +383,15 @@
       var totalSources = Number(model.total_sources || 0);
       setText(summary, "승인 지식 " + Number(model.total_knowledge || 0) + "개 중 " + totalSources + "개 Object에서 " + totalLinks + "건 연결됨");
       if (!totalLinks) {
-        createEl(results, "p", {
-          text: "연결된 지식 없음 — PARA Object에서 승인 지식을 명시적으로 연결하면 여기에 표시됩니다.",
-          attr: { class: "knowledge-explorer-empty", "data-state": "empty" }
+        var emptyState = createEl(results, "div", { attr: { class: "knowledge-explorer-empty", "data-state": "empty" } });
+        createEl(emptyState, "p", {
+          text: "연결된 지식 없음 — 원본 Object의 connections에 승인 Knowledge 링크를 추가한 뒤 다시 여세요."
         });
+        var openZettel = createEl(emptyState, "button", {
+          text: "지식 구축에서 검증 대기 열기",
+          attr: { type: "button", class: "knowledge-para-clear-no-match", "aria-label": "지식 구축에서 검증 대기 열기" }
+        });
+        openZettel.onclick = function () { onOpenZettel(); };
         return;
       }
 

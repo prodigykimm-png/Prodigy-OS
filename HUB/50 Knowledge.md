@@ -221,20 +221,26 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       text: "후보를 열어 제목·지식 문장·도메인·주제를 확인한 뒤 승인·보류·반려합니다.",
       attr: { class: "knowledge-explorer-meta", style: "margin:0 0 8px;" }
     });
+    const focusCandidateReview = () => {
+      const currentApi = KnowledgeExplorerHub.api || api;
+      if (currentApi && typeof currentApi.dispatch === "function") currentApi.dispatch({ type: "focus-pane", focusPane: "detail" });
+      const target = currentApi && currentApi.container ? currentApi.container : explorerMount;
+      if (target && typeof target.scrollIntoView === "function") target.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
     const reviewButton = reviewPanel.createEl("button", {
       text: "검증 대기 열기",
       attr: { type: "button", class: "knowledge-explorer-button", "aria-label": "검증 대기 열기" }
     });
     reviewButton.onclick = () => {
-      if (api && typeof api.dispatch === "function") api.dispatch({ type: "focus-pane", focusPane: "detail" });
-      if (explorerMount && typeof explorerMount.scrollIntoView === "function") explorerMount.scrollIntoView({ behavior: "smooth", block: "start" });
+      focusCandidateReview();
     };
 
     const authoringMount = zettelPanel.createDiv({ attr: { class: "knowledge-authoring-hub-mount" } });
     const explorerMount = zettelPanel.createDiv({ attr: { class: "knowledge-explorer-hub-mount" } });
     KnowledgeExplorerHub.authoringActions = window.KnowledgeAuthoringHubAdapter.mountKnowledgeAuthoringActions(authoringMount, {
       app: appRef,
-      onReload: retry
+      onReload: retry,
+      onReview: focusCandidateReview
     });
     const api = window.KnowledgeExplorerView.mountKnowledgeExplorer({
       app: appRef,
@@ -253,6 +259,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     window.KnowledgeParaView.renderParaPanel(paraPanel, paraModel, {
       app: appRef,
       onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath),
+      onOpenZettel: () => tabs.select("zettelkasten"),
+      actionOptions: {
+        ...(KnowledgeExplorerHub.authoringActions && KnowledgeExplorerHub.authoringActions.config
+          ? KnowledgeExplorerHub.authoringActions.config : {}),
+        onReload: retry
+      },
       onCreated: () => retry()
     });
 

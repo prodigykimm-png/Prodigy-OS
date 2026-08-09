@@ -3,10 +3,12 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 
-const { collectText, findByText } = require("./knowledge_explorer_view_fakes.js");
+const { FakeElement, collectText, findByText } = require("./knowledge_explorer_view_fakes.js");
 const { buildPages, firstElement, runHub, MODULE_PATHS, HUB_MODULE_PATHS } = require("./knowledge_hub_integration_harness.js");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const hubAdapter = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-hub-adapter.js"));
+const authoringAdapter = require(path.join(ROOT, "SYSTEM/Views/knowledge-authoring-hub-adapter.js"));
+const paraView = require(path.join(ROOT, "SYSTEM/Views/knowledge-para-view.js"));
 
 function testFixtureModulePathsMatchKnowledgeHub() {
   assert.deepEqual(MODULE_PATHS, HUB_MODULE_PATHS);
@@ -42,6 +44,12 @@ async function testHubLoadsExplorerAndDetailSections() {
   assert.ok(paraPanel, "PARA 탭 패널이 존재해야 합니다.");
   const paraText = collectText(paraPanel);
   assert.match(paraText, /지식 활용|연결된 지식 없음|승인 지식/);
+  const literatureAction = firstElement(paraPanel, "button", (node) => String(node.text || "").includes("문헌 노트 만들기"));
+  assert.ok(literatureAction, "PARA must expose a working Literature Note handoff");
+  literatureAction.onclick({ preventDefault() {} });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.match(collectText(result.openedModals.at(-1).contentEl), /문헌노트 한 건/);
   assert.equal(result.window.KnowledgeExplorerHub.error, undefined);
   const browsePanel = findByAttrId(result.container, "knowledge-panel-llmwiki-browse");
   assert.ok(browsePanel, "LLMWiki fourth-tab browse panel must be mounted.");
@@ -294,12 +302,81 @@ function testInvalidRecencyWarningUsesKoreanDisplayCopy() {
   assert.match(warning.detail, /업데이트 시각 형식을 확인해 주세요/);
   assert.doesNotMatch(warning.detail, /updated could not be parsed|source mtime/i);
 }
+async function testDirectReviewHandoffClosesAndFocuses() {
+  const previousView = globalThis.KnowledgeDirectAuthoringView;
+  let authoringOptions = null;
+  let closeCalls = 0;
+  let refreshCalls = 0;
+  let refreshInFlight = null;
+  let focusCalls = 0;
+  globalThis.KnowledgeDirectAuthoringView = {
+    openDirectAuthoringModal(_app, options) {
+      authoringOptions = options;
+      return {
+        onClose() {},
+        close() {
+          closeCalls += 1;
+          if (typeof this.onClose === "function") this.onClose();
+        }
+      };
+    }
+  };
+  const refresh = () => {
+    if (refreshInFlight) return refreshInFlight;
+    refreshCalls += 1;
+    refreshInFlight = Promise.resolve().finally(() => { refreshInFlight = null; });
+    return refreshInFlight;
+  };
+  try {
+    authoringAdapter.openDirectAuthoring({}, {
+      candidateStore: {},
+      authoringCore: { normalizeDirectStudy(input) { return input; } }
+    }, refresh, () => { focusCalls += 1; });
+    assert.ok(authoringOptions && typeof authoringOptions.onReview === "function");
+    await authoringOptions.onReview();
+    assert.equal(closeCalls, 1);
+    assert.equal(refreshCalls, 1);
+    assert.equal(focusCalls, 1);
+  } finally {
+    if (previousView === undefined) delete globalThis.KnowledgeDirectAuthoringView;
+    else globalThis.KnowledgeDirectAuthoringView = previousView;
+  }
+}
+function testParaEmptyStateOffersReviewRoute() {
+  const previousProjection = globalThis.KnowledgeParaProjection;
+  const previousCreator = globalThis.ParaObjectCreatorService;
+  let zettelOpens = 0;
+  globalThis.KnowledgeParaProjection = { sourceTypeLabel: (value) => String(value || "Object") };
+  globalThis.ParaObjectCreatorService = { ACTIONS: [], executeAction: async () => ({ ok: true }) };
+  try {
+    const root = new FakeElement("section");
+    paraView.renderParaPanel(root, {
+      total_knowledge: 2,
+      total_sources: 0,
+      total_links: 0,
+      groups: [],
+      source_type_options: []
+    }, { onOpenZettel: () => { zettelOpens += 1; } });
+    assert.match(collectText(root), /원본 Object의 connections/);
+    const open = firstElement(root, "button", (node) => node.text === "지식 구축에서 검증 대기 열기");
+    assert.ok(open, "empty PARA state must expose a route back to Knowledge review");
+    open.onclick({ preventDefault() {} });
+    assert.equal(zettelOpens, 1);
+  } finally {
+    if (previousProjection === undefined) delete globalThis.KnowledgeParaProjection;
+    else globalThis.KnowledgeParaProjection = previousProjection;
+    if (previousCreator === undefined) delete globalThis.ParaObjectCreatorService;
+    else globalThis.ParaObjectCreatorService = previousCreator;
+  }
+}
 
 async function main() {
   testFixtureModulePathsMatchKnowledgeHub();
   await testHubLoadsExplorerAndDetailSections();
   await testHubMountsAuthoringActionsWithoutChangingExplorerProjection();
   await testHubBuildsLargeExplorerWithoutEagerBodyReads();
+  await testDirectReviewHandoffClosesAndFocuses();
+  testParaEmptyStateOffersReviewRoute();
   await testRelationTargetsRemainMetadataOnlyAndClickable();
   await testSelectedBodyFallsBackToVaultReaderAfterDataviewFailure();
   await testMissingModuleProducesRecoverableError();

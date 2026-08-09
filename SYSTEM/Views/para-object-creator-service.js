@@ -201,7 +201,7 @@
   function openLiteratureAuthoring(app, options) {
     var opts = options || {};
     if (root.KnowledgeAuthoringHubAdapter && typeof root.KnowledgeAuthoringHubAdapter.openSourceAuthoring === "function") {
-      root.KnowledgeAuthoringHubAdapter.openSourceAuthoring(app, opts);
+      root.KnowledgeAuthoringHubAdapter.openSourceAuthoring(app, opts, opts.onReload);
       return { ok: true, deferred: true, message: "문헌 노트 작성 창을 열었습니다." };
     }
     if (root.KnowledgeSourceAuthoringView && typeof root.KnowledgeSourceAuthoringView.open === "function") {

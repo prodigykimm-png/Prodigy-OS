@@ -49,11 +49,12 @@
   function prevent(event) { if (event && typeof event.preventDefault === "function") event.preventDefault(); }
 
   function reloadOnce(onReload) {
-    let queued = false;
+    let queued = null;
     return () => {
-      if (queued || typeof onReload !== "function") return;
-      queued = true;
-      Promise.resolve().then(onReload).catch(() => {}).finally(() => { queued = false; });
+      if (queued) return queued;
+      if (typeof onReload !== "function") return Promise.resolve();
+      queued = Promise.resolve().then(onReload).catch(() => {}).finally(() => { queued = null; });
+      return queued;
     };
   }
 
@@ -109,12 +110,19 @@
     return modal;
   }
 
-  function openDirectAuthoring(app, config, refresh) {
-    const modal = required("KnowledgeDirectAuthoringView").openDirectAuthoringModal(app, {
+  function openDirectAuthoring(app, config, refresh, onReview) {
+    let modal = null;
+    modal = required("KnowledgeDirectAuthoringView").openDirectAuthoringModal(app, {
       candidateStore: config.candidateStore,
       validate: (input) => config.authoringCore.normalizeDirectStudy(input),
       regionOptions: directRegionOptions(config.app),
-      onSaved: refresh
+      onSaved: refresh,
+      onReview: async () => {
+        if (modal && typeof modal.close === "function") modal.close();
+        await refresh();
+        if (typeof onReview === "function") return onReview();
+        return undefined;
+      }
     });
     return refreshAfterClose(modal, refresh);
   }
@@ -150,7 +158,7 @@
       control.onclick = (event) => { prevent(event); open(); };
       return control;
     };
-    button("+ 지식 작성", () => openDirectAuthoring(config.app, config, refresh));
+    button("+ 지식 작성", () => openDirectAuthoring(config.app, config, refresh, options && options.onReview));
     button("+ 문헌노트 작성", () => openMaterialChooser(config.app, config, refresh));
     return Object.freeze({ section, config });
   }
