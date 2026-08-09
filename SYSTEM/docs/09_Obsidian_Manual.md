@@ -188,7 +188,7 @@ Home = **Mission Control** (한글 UI).
 
 - **+ 지식 작성**: 직접 공부한 내용을 AI 없이 `knowledge_candidate`로 저장. `source_note` 필수. 저장 후 `검증 대기`에서 사람 승인.
 - **+ 문헌노트 작성**: 기사·칼럼·YouTube·인강·논문·공식 문서를 `literature_note`로 저장. `문헌노트 한 건`(직접 입력)과 `문헌노트 묶음`(URL 1~20개 → AI 항목별 요약 + 사람 한 줄 필수) 두 경로.
-- **검증 대기 열기**: `HUB/50 Knowledge.md`의 지식 구축 탭에서 승인 전 후보를 열어 제목·지식 문장·도메인·주제를 확인한 뒤 승인·보류·반려.
+- **검증 대기 열기/닫기**: `HUB/50 Knowledge.md`의 지식 구축 탭에서 필요할 때만 승인 전 후보를 펼쳐 제목·지식 문장·도메인·주제를 확인한 뒤 승인·보류·반려.
 - **PARA 연결 방법**: 원본 Object의 `connections`에 승인 Knowledge의 exact wikilink를 추가한 뒤 지식 활용 탭을 다시 엽니다. 연결이 없으면 빈 상태의 `지식 구축에서 검증 대기 열기`로 검토 화면에 돌아갑니다.
 - `application_trigger`·`application_contexts`는 후보→승인→Knowledge 전 과정 보존.
 - URL 가져오기는 HTTP(S) 공개 페이지만. 로그인·유료벽 우회·영상 다운로드 없음. 실패 시 사용자 텍스트 fallback.

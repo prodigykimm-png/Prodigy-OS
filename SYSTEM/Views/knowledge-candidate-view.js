@@ -234,6 +234,7 @@
   }
 
   function renderCandidateInbox(parent, options = {}) {
+    if (options.expanded === false) return null;
     const candidates = activeCandidates(options.candidates);
     const section = createEl(parent, "section", { attr: { class: "knowledge-candidate-inbox knowledge-explorer-asset-section", "data-section-key": "candidate-inbox", "aria-label": "검증 대기" } });
     createEl(section, "h3", { text: `검증 대기 ${candidates.length}` });
@@ -253,6 +254,7 @@
 
   function createCandidateInboxController(options = {}, onChange = () => {}) {
     const initial = options.candidateInbox && typeof options.candidateInbox === "object" ? options.candidateInbox : {};
+    let expanded = initial.expanded !== false;
     let candidates = activeCandidates(initial.candidates);
     let phase = initial.phase === "loading" ? "loading" : "ready";
     let error = Boolean(initial.error);
@@ -331,15 +333,22 @@
     return Object.freeze({
       renderOptions(disabled, beforeAction) {
         return {
-          candidates, phase, error, disabled: Boolean(disabled || pending), draftFor,
+          candidates, phase, error, expanded, disabled: Boolean(disabled || pending), draftFor,
           onOpenSource: options.onOpenSource,
           onDraftChange: updateDraft,
           onAction(action) { if (typeof beforeAction === "function") beforeAction(action); void perform(action); },
           onRetry() { if (typeof beforeAction === "function") beforeAction(retryAction || { type: "retry" }); if (retryAction) void perform(retryAction); else void reload(); }
         };
       },
+      setExpanded(next) {
+        const nextExpanded = Boolean(next);
+        if (expanded === nextExpanded) return expanded;
+        expanded = nextExpanded;
+        onChange();
+        return expanded;
+      },
       replace(next) { candidates = activeCandidates(next); phase = "ready"; error = false; onChange(); },
-      state() { return { candidates: candidates.slice(), phase, error, pending }; }
+      state() { return { candidates: candidates.slice(), phase, error, expanded, pending }; }
     });
   }
 

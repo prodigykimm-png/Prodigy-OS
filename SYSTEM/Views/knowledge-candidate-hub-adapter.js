@@ -10,7 +10,7 @@
     const store = candidateStore();
     const loadCandidates = async () => store && typeof store.listCandidates === "function"
       ? store.listCandidates(app, { status: "active" }) : [];
-    const candidateInbox = { candidates: [], phase: "ready", error: false };
+    const candidateInbox = { candidates: [], phase: "ready", error: false, expanded: false };
     try { candidateInbox.candidates = await loadCandidates(); }
     catch (_error) { candidateInbox.error = true; }
     return { candidateInbox, candidateStore: store, loadCandidates };

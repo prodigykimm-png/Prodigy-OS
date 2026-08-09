@@ -89,9 +89,19 @@ async function testHubMountsAuthoringActionsWithoutChangingExplorerProjection() 
   const beforeTotals = { ...result.window.KnowledgeExplorerHub.model.totals };
   const review = firstElement(result.container, "button", (node) => node.text === "검증 대기 열기");
   assert.ok(review, "candidate review launcher must be visible");
+  const candidateInbox = () => firstElement(result.container, "section", (node) => node.attr && node.attr["data-section-key"] === "candidate-inbox");
+  assert.equal(candidateInbox(), null, "candidate Inbox is collapsed on initial mount");
   review.onclick({ preventDefault() {} });
   assert.equal(result.window.KnowledgeExplorerHub.api.state().focusPane, "detail");
   assert.match(collectText(result.container), /검증 대기 0/);
+  assert.equal(review.text, "검증 대기 닫기");
+  assert.equal(review.attr["aria-expanded"], "true");
+  assert.ok(candidateInbox(), "opening the launcher renders the candidate Inbox");
+  review.onclick({ preventDefault() {} });
+  assert.equal(review.text, "검증 대기 열기");
+  assert.equal(review.attr["aria-expanded"], "false");
+  assert.equal(candidateInbox(), null, "closing the launcher hides the candidate Inbox");
+  review.onclick({ preventDefault() {} });
   const direct = firstElement(result.container, "button", (node) => node.text === "+ 지식 작성");
   const material = firstElement(result.container, "button", (node) => node.text === "+ 문헌노트 작성");
 

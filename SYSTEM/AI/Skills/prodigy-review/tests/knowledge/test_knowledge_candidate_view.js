@@ -69,6 +69,28 @@ function testSeparateActiveInboxAndReadableMetadata() {
   assert.equal(click(button(root, "보류")), true);
   assert.deepEqual(actions, [{ type: "defer", candidateId: "candidate-1" }]);
 }
+function testInboxExpansionState() {
+  let changes = 0;
+  const controller = view.createCandidateInboxController(
+    { candidateInbox: { candidates: [candidate()], expanded: false } },
+    () => { changes += 1; }
+  );
+  const closed = new FakeElement("section");
+  view.renderCandidateInbox(closed, controller.renderOptions(false));
+  assert.equal(closed.children.length, 0, "collapsed Inbox keeps the Explorer detail clean");
+  assert.equal(controller.state().expanded, false);
+
+  controller.setExpanded(true);
+  assert.equal(controller.state().expanded, true);
+  assert.equal(changes, 1);
+  const open = new FakeElement("section");
+  view.renderCandidateInbox(open, controller.renderOptions(false));
+  assert.match(collectText(open), /검증 대기 1/);
+
+  controller.setExpanded(false);
+  assert.equal(controller.state().expanded, false);
+  assert.equal(changes, 2);
+}
 
 function testLoadingEmptyErrorDisabledAndThinRequirements() {
   const loading = new FakeElement("section");
@@ -189,6 +211,7 @@ function testStructuredReasonSectionsRemainReadable() {
 }
 async function main() {
   testSeparateActiveInboxAndReadableMetadata();
+  testInboxExpansionState();
   testLoadingEmptyErrorDisabledAndThinRequirements();
   testEditAndKeyboardActionsExposeHumanConfirmation();
   testStructuredReasonSectionsRemainReadable();

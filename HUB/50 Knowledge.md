@@ -219,21 +219,49 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     });
     reviewPanel.createEl("h3", { text: "승인 전 후보 검토", attr: { style: "margin:0 0 4px;font-size:.95em;" } });
     reviewPanel.createEl("p", {
-      text: "후보를 열어 제목·지식 문장·도메인·주제를 확인한 뒤 승인·보류·반려합니다.",
+      text: "필요할 때 검증 대기열을 열어 후보를 확인하고 승인·보류·반려합니다.",
       attr: { class: "knowledge-explorer-meta", style: "margin:0 0 8px;" }
     });
+    const candidateReviewOpen = () => {
+      const currentApi = KnowledgeExplorerHub.api || api;
+      return currentApi && typeof currentApi.candidateInboxOpen === "function"
+        ? currentApi.candidateInboxOpen()
+        : false;
+    };
+    const syncReviewButton = () => {
+      if (!reviewButton) return;
+      const open = candidateReviewOpen();
+      const label = open ? "검증 대기 닫기" : "검증 대기 열기";
+      if (typeof reviewButton.setText === "function") reviewButton.setText(label);
+      else reviewButton.textContent = label;
+      if (typeof reviewButton.setAttr === "function") {
+        reviewButton.setAttr("aria-label", label);
+        reviewButton.setAttr("aria-expanded", String(open));
+      } else if (typeof reviewButton.setAttribute === "function") {
+        reviewButton.setAttribute("aria-label", label);
+        reviewButton.setAttribute("aria-expanded", String(open));
+      }
+    };
     const focusCandidateReview = () => {
       const currentApi = KnowledgeExplorerHub.api || api;
+      if (currentApi && typeof currentApi.setCandidateInboxOpen === "function") currentApi.setCandidateInboxOpen(true);
       if (currentApi && typeof currentApi.dispatch === "function") currentApi.dispatch({ type: "focus-pane", focusPane: "detail" });
       const target = currentApi && currentApi.container ? currentApi.container : explorerMount;
       if (target && typeof target.scrollIntoView === "function") target.scrollIntoView({ behavior: "smooth", block: "start" });
+      syncReviewButton();
+    };
+    const closeCandidateReview = () => {
+      const currentApi = KnowledgeExplorerHub.api || api;
+      if (currentApi && typeof currentApi.setCandidateInboxOpen === "function") currentApi.setCandidateInboxOpen(false);
+      syncReviewButton();
     };
     const reviewButton = reviewPanel.createEl("button", {
       text: "검증 대기 열기",
-      attr: { type: "button", class: "knowledge-explorer-button", "aria-label": "검증 대기 열기" }
+      attr: { type: "button", class: "knowledge-explorer-button", "aria-label": "검증 대기 열기", "aria-expanded": "false" }
     });
     reviewButton.onclick = () => {
-      focusCandidateReview();
+      if (candidateReviewOpen()) closeCandidateReview();
+      else focusCandidateReview();
     };
 
     const authoringMount = zettelPanel.createDiv({ attr: { class: "knowledge-authoring-hub-mount" } });

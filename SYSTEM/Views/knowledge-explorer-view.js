@@ -242,6 +242,15 @@
       }
     }
 
+    function candidateInboxOpen() {
+      return Boolean(candidateInbox && candidateInbox.state().expanded);
+    }
+
+    function setCandidateInboxOpen(nextOpen) {
+      if (!candidateInbox || typeof candidateInbox.setExpanded !== "function") return false;
+      return candidateInbox.setExpanded(nextOpen);
+    }
+
     const api = {
       container,
       model,
@@ -251,6 +260,8 @@
       dispatch,
       render: rerender,
       setLogicalWidth,
+      candidateInboxOpen,
+      setCandidateInboxOpen,
       setSurfaceState(nextState) {
         surfaceState = State.normalizeString(nextState) || "rest";
         rerender();
