@@ -25,6 +25,44 @@
   function text(value) { return typeof value === "string" ? value.trim() : ""; }
   function list(value) { return Array.isArray(value) ? value.filter((item) => text(item)) : []; }
   function label(value, labels, fallback) { return labels[value] || fallback || text(value) || "확인 필요"; }
+  function reasonSections(value) {
+    const source = String(value == null ? "" : value).trim();
+    if (!source) return [];
+    const sections = [];
+    let current = { title: "제안 이유", lines: [] };
+    const flush = () => {
+      const body = current.lines.join("\n").trim();
+      if (body) sections.push(Object.freeze({ title: current.title, body }));
+    };
+    source.split(/\r?\n/).forEach((line) => {
+      const heading = line.match(/^##\s+(.+?)\s*$/);
+      if (heading) {
+        flush();
+        current = { title: text(heading[1]) || "세부 기록", lines: [] };
+      } else {
+        current.lines.push(line);
+      }
+    });
+    flush();
+    return sections;
+  }
+
+  function renderReason(parent, reason) {
+    const sections = reasonSections(reason);
+    if (sections.length <= 1 && (!sections.length || sections[0].title === "제안 이유")) {
+      createEl(parent, "p", { text: `제안 이유: ${text(reason)}`, attr: { class: "knowledge-explorer-detail-item-note" } });
+      return;
+    }
+    const wrapper = createEl(parent, "section", {
+      attr: { class: "knowledge-candidate-reason-sections", "aria-label": "제안 이유와 학습 기록" }
+    });
+    createEl(wrapper, "h5", { text: "제안 이유와 학습 기록", attr: { class: "knowledge-explorer-detail-item-meta" } });
+    sections.forEach((section) => {
+      const block = createEl(wrapper, "div", { attr: { class: "knowledge-candidate-reason-section" } });
+      createEl(block, "h6", { text: section.title, attr: { class: "knowledge-explorer-detail-item-meta" } });
+      createEl(block, "p", { text: section.body, attr: { class: "knowledge-explorer-detail-item-note" } });
+    });
+  }
 
   function activeCandidates(candidates) {
     const { Candidate } = dependencies();
@@ -110,6 +148,7 @@
     input(fieldset, { tag: "textarea", name: "statement", value: draft.statement, label: "사람이 확인한 지식 문장", onChange: (value) => update({ statement: value }) }).disabled = disabled;
     createEl(fieldset, "label", { text: "도메인", attr: { for: `candidate-domain-${candidate.candidate_id}` } });
     const domain = createEl(fieldset, "select", { attr: { name: "knowledge_domain", class: "knowledge-candidate-input", "aria-label": "사람이 확인한 지식 도메인" }, disabled });
+    createEl(domain, "option", { text: "분류 선택 — 승인 전에 확인", attr: { value: "", selected: draft.knowledge_domain ? undefined : "selected" } });
     Candidate.DOMAINS.forEach((key) => createEl(domain, "option", { text: label(key, { real_estate: "부동산", wedding: "웨딩", coding: "코딩", workout: "운동", reading: "독서", business: "비즈니스", personal_growth: "개인 성장" }), attr: { value: key, selected: key === draft.knowledge_domain ? "selected" : undefined } }));
     domain.value = draft.knowledge_domain;
     domain.onchange = (event) => update({ knowledge_domain: event && event.target ? event.target.value : domain.value, knowledge_topics: [] });
@@ -142,7 +181,7 @@
     const card = createEl(parent, "article", { attr: { class: "knowledge-candidate-card knowledge-explorer-detail-card", "data-candidate-id": candidate.candidate_id } });
     createEl(card, "h4", { text: candidate.title, attr: { class: "knowledge-explorer-detail-title" } });
     createEl(card, "p", { text: candidate.statement, attr: { class: "knowledge-explorer-detail-item-note" } });
-    createEl(card, "p", { text: `제안 이유: ${candidate.reason}`, attr: { class: "knowledge-explorer-detail-item-note" } });
+    renderReason(card, candidate.reason);
     provenance(card, candidate);
     createEl(card, "p", { text: `근거 품질: ${Quality.STATUS_LABELS[eligibility.status] || "확인 필요"}`, attr: { class: "knowledge-explorer-detail-item-meta" } });
     if (eligibility.requires_override) {
@@ -273,7 +312,7 @@
     });
   }
 
-  const api = Object.freeze({ activeCandidates, normalizedDraft, qualityFor, renderCandidateInbox, createCandidateInboxController });
+  const api = Object.freeze({ activeCandidates, normalizedDraft, qualityFor, reasonSections, renderCandidateInbox, createCandidateInboxController });
   root.KnowledgeCandidateView = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

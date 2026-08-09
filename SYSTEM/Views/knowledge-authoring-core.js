@@ -24,13 +24,26 @@
     uniqueList, canonicalLiteratureLink, evidenceIds, wikiLink, optionalLinks, optionalMachineId, connectionsWithRegions, invalidationConditions,
   } = validation;
 
-  function taxonomy(domainValue, topicsValue, domainField, topicsField) {
-    const domain = requiredText(domainValue, domainField || "knowledge_domain");
+  function taxonomy(domainValue, topicsValue, domainField, topicsField, options) {
+    const allowEmpty = Boolean(options && options.allowEmpty);
+    const domain = allowEmpty
+      ? optionalText(domainValue, domainField || "knowledge_domain")
+      : requiredText(domainValue, domainField || "knowledge_domain");
+    const emptyTopics = !domain && allowEmpty
+      && (topicsValue === undefined || topicsValue === null
+        || (typeof topicsValue === "string" && !topicsValue.trim()));
+    const suppliedTopics = emptyTopics ? [] : topicsValue;
+    if (!domain && allowEmpty) {
+      if (!Array.isArray(suppliedTopics) || suppliedTopics.length) {
+        throw new Error("유효하지 않은 지식 주제 경로입니다. 다시 선택해 주세요.");
+      }
+      return freezeDeep({ domain: "", topics: [] });
+    }
     const registeredTopics = registry.TOPICS_BY_DOMAIN[domain];
-    if (!registeredTopics || !Array.isArray(topicsValue)) {
+    if (!registeredTopics || !Array.isArray(suppliedTopics)) {
       throw new Error("유효하지 않은 지식 주제 경로입니다. 다시 선택해 주세요.");
     }
-    const topics = uniqueList(topicsValue, topicsField || "knowledge_topics", (value, field) => {
+    const topics = uniqueList(suppliedTopics, topicsField || "knowledge_topics", (value, field) => {
       const topic = requiredText(value, field);
       if (!registeredTopics.includes(topic)) throw new Error("유효하지 않은 지식 주제 경로입니다. 다시 선택해 주세요.");
       return topic;
@@ -68,6 +81,7 @@
     const classification = taxonomy(
       input.suggested_domain, input.suggested_topics,
       "suggested_domain", "suggested_topics",
+      sourceType === "manual_study" ? { allowEmpty: true } : undefined,
     );
     const sourceObjects = sourceType === "study_material"
       ? normalizeStudyMaterialLinks(input.source_objects)

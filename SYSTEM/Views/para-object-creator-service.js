@@ -16,10 +16,34 @@
   var DOCUMENTATION_FOLDER = "PARA/RESOURCES/DOCUMENTATIONS";
 
   var ACTIONS = Object.freeze([
-    Object.freeze({ id: "area", label: "영역 만들기", type: "area_family", icon: "📂", writes: true }),
-    Object.freeze({ id: "documentation", label: "문서 만들기", type: "documentation_note", icon: "📄", writes: true }),
-    Object.freeze({ id: "literature", label: "문헌 노트 만들기", type: "literature_note", icon: "📚", writes: false }),
-    Object.freeze({ id: "project", label: "프로젝트 만들기", type: "project", icon: "📁", writes: false })
+    Object.freeze({
+      id: "area", label: "영역 만들기", type: "area_family", icon: "📂", writes: true,
+      requires_title: true, aria_label: "영역 만들기", description: "새 지속 영역 Object를 만듭니다.",
+      prompt: "영역 제목을 입력하세요", title_error: "영역 제목을 입력해 주세요.",
+      pending_message: "영역 Object를 만드는 중입니다.", success_message: "영역 Object를 만들었습니다.",
+      error_message: "영역 Object를 만들지 못했습니다."
+    }),
+    Object.freeze({
+      id: "documentation", label: "문서 만들기", type: "documentation_note", icon: "📄", writes: true,
+      requires_title: true, aria_label: "문서 만들기", description: "새 문서 Object를 만듭니다.",
+      prompt: "문서 제목을 입력하세요", title_error: "문서 제목을 입력해 주세요.",
+      pending_message: "문서 Object를 만드는 중입니다.", success_message: "문서 Object를 만들었습니다.",
+      error_message: "문서 Object를 만들지 못했습니다."
+    }),
+    Object.freeze({
+      id: "literature", label: "문헌 노트 만들기", type: "literature_note", icon: "📚", writes: false,
+      requires_title: false, delegated: true, aria_label: "문헌 노트 만들기",
+      description: "기존 지식 작성 화면으로 문헌 노트 작성을 넘깁니다.",
+      pending_message: "문헌 노트 작성 화면을 여는 중입니다.", success_message: "문헌 노트 작성 화면을 열었습니다.",
+      error_message: "문헌 노트 작성 화면을 열지 못했습니다."
+    }),
+    Object.freeze({
+      id: "project", label: "프로젝트 만들기", type: "project", icon: "📁", writes: false,
+      requires_title: false, delegated: true, aria_label: "프로젝트 만들기",
+      description: "기존 Project Wizard로 프로젝트 작성을 넘깁니다.",
+      pending_message: "프로젝트 마법사를 여는 중입니다.", success_message: "프로젝트 마법사를 열었습니다.",
+      error_message: "프로젝트 마법사를 열지 못했습니다."
+    })
   ]);
 
   function clean(value) {
@@ -226,6 +250,13 @@
     }
     return { ok: true, deferred: true, path: "HUB/20 Reading.md", message: "독서 워크스페이스를 열었습니다." };
   }
+  function actionMetadata(actionId) {
+    var id = clean(actionId).toLowerCase();
+    for (var i = 0; i < ACTIONS.length; i++) {
+      if (ACTIONS[i].id === id) return ACTIONS[i];
+    }
+    return null;
+  }
 
   /**
    * Unified action dispatcher. Both entry points call this.
@@ -238,6 +269,10 @@
   async function executeAction(actionId, app, title, options) {
     var id = clean(actionId).toLowerCase();
     var opts = options || {};
+    var action = actionMetadata(id);
+    if (!action && id !== "reading") {
+      throw new Error("알 수 없는 PARA 액션입니다: " + (id || "(없음)"));
+    }
 
     if (id === "area") {
       return createArea(app, title, opts);
@@ -273,6 +308,7 @@
     openLiteratureAuthoring: openLiteratureAuthoring,
     openProjectWizard: openProjectWizard,
     openReadingHandoff: openReadingHandoff,
+    actionMetadata: actionMetadata,
     executeAction: executeAction
   });
 

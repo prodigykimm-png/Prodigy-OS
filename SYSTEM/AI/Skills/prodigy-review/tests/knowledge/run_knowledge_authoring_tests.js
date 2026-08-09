@@ -26,6 +26,8 @@ const SUITES = Object.freeze([
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_source_fetch_service.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_source_batch_service.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_direct_authoring_view.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_para_creator.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_venue_workspace.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_source_authoring_view.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_source_batch_view.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_hub_integration.js",

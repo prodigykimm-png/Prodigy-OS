@@ -33,6 +33,9 @@
     const source = value || {};
     return {
       title: String(source.title || ""), statement: String(source.statement || ""), body: String(source.body || ""), reason: String(source.reason || ""),
+      source_claim: String(source.source_claim || ""),
+      my_interpretation: String(source.my_interpretation || source.interpretation || ""),
+      reusable_knowledge: String(source.reusable_knowledge || ""),
       source_note: String(source.source_note || ""), suggested_domain: String(source.suggested_domain || ""), suggested_topics: topics(source.suggested_topics),
       application_trigger: String(source.application_trigger || ""), application_contexts: contexts(source.application_contexts),
       connections: links(source.connections), invalidation_conditions: contexts(source.invalidation_conditions)
@@ -42,8 +45,17 @@
   function inputForValidation(values) {
     const detail = clean(values.body);
     const reason = clean(values.reason);
-    // Candidate storage owns fixed Markdown sections. Keep the optional long study record in the existing human-authored reason section.
-    const persistedReason = detail ? `${reason}\n\n## 학습 기록\n\n${detail}` : reason;
+    const sourceClaim = clean(values.source_claim);
+    const interpretation = clean(values.my_interpretation);
+    const reusableKnowledge = clean(values.reusable_knowledge);
+    const sections = [];
+    if (reason) sections.push(reason);
+    if (sourceClaim) sections.push(`## 출처 주장\n\n${sourceClaim}`);
+    if (interpretation) sections.push(`## 내 해석\n\n${interpretation}`);
+    if (reusableKnowledge) sections.push(`## 재사용 가능한 지식\n\n${reusableKnowledge}`);
+    if (detail) sections.push(`## 학습 기록\n\n${detail}`);
+    // Candidate storage owns fixed Markdown sections. Keep the structured study record in the existing human-authored reason section.
+    const persistedReason = sections.join("\n\n");
     return {
       title: clean(values.title), statement: clean(values.statement), reason: persistedReason,
       source_note: clean(values.source_note), source_type: "manual_study", source_evidence_ids: [], source_objects: [], confidence: "explicit",
@@ -59,7 +71,10 @@
     if (/suggested_domain|knowledge_domain|지식 영역|Domain/i.test(message)) return { message: "지식 영역을 선택해 주세요.", focus: "suggested_domain" };
     if (/application_contexts|적용 맥락/i.test(message)) return { message: "적용 맥락은 지식 영역 또는 지식 영역/세부 주제로 입력해 주세요.", focus: "application_contexts" };
     if (/title/i.test(message)) return { message: "제목을 입력해 주세요.", focus: "title" };
-    if (/statement/i.test(message)) return { message: "지식 문장을 입력해 주세요.", focus: "statement" };
+    if (/statement/i.test(message)) return { message: "핵심 요약(지식 문장)을 입력해 주세요.", focus: "statement" };
+    if (/my_interpretation|내 해석|interpretation/i.test(message)) return { message: "내 해석을 확인해 주세요.", focus: "my_interpretation" };
+    if (/reusable_knowledge|재사용 가능한 지식/i.test(message)) return { message: "재사용 가능한 지식을 확인해 주세요.", focus: "reusable_knowledge" };
+    if (/body|학습 기록|학습 맥락/i.test(message)) return { message: "상세 학습 맥락을 확인해 주세요.", focus: "body" };
     if (/reason/i.test(message)) return { message: "제안 이유를 입력해 주세요.", focus: "reason" };
     return { message: "저장하지 못했습니다. 입력 내용은 유지되어 있으니 다시 시도해 주세요.", focus: "" };
   }

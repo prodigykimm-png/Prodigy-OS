@@ -164,10 +164,28 @@ async function testApprovalDelegatesEmptyTopicRejectionToStore() {
   assert.equal(controller.state().candidates.length, 1);
 }
 
+function testStructuredReasonSectionsRemainReadable() {
+  const reason = "검토할 가치가 있는 이유\n\n## 출처 주장\n자료가 실제로 말하는 내용\n\n## 내 해석\n다른 상황에 적용할 해석\n\n## 재사용 가능한 지식\n다음 검토에 쓸 규칙";
+  assert.deepEqual(view.reasonSections(reason), [
+    { title: "제안 이유", body: "검토할 가치가 있는 이유" },
+    { title: "출처 주장", body: "자료가 실제로 말하는 내용" },
+    { title: "내 해석", body: "다른 상황에 적용할 해석" },
+    { title: "재사용 가능한 지식", body: "다음 검토에 쓸 규칙" }
+  ]);
+  const root = new FakeElement("section");
+  view.renderCandidateInbox(root, {
+    candidates: [candidate({ reason })]
+  });
+  const rendered = collectText(root);
+  assert.match(rendered, /제안 이유와 학습 기록/);
+  assert.match(rendered, /출처 주장/);
+  assert.match(rendered, /다음 검토에 쓸 규칙/);
+}
 async function main() {
   testSeparateActiveInboxAndReadableMetadata();
   testLoadingEmptyErrorDisabledAndThinRequirements();
   testEditAndKeyboardActionsExposeHumanConfirmation();
+  testStructuredReasonSectionsRemainReadable();
   await testStoreActionsPreserveStateRetryAndTerminalRemoval();
   await testApprovalDelegatesEmptyTopicRejectionToStore();
   console.log("Knowledge candidate view tests passed");

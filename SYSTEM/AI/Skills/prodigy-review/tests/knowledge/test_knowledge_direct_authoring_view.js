@@ -118,11 +118,11 @@ function mount(options = {}) {
 function testLabelsFieldsAndNoAutomationSurface() {
   const fixture = mount();
   const rendered = text(fixture.root);
-  for (const label of ["제목", "지식 문장", "상세 학습 기록", "제안 이유", "직접 학습 출처 메모", "지식 영역", "세부 주제", "적용 계기", "적용 맥락", "검증 대기에 저장"]) assert.match(rendered, new RegExp(label));
-  for (const name of ["title", "statement", "body", "reason", "source_note", "suggested_domain", "suggested_topics", "application_trigger", "application_contexts"]) assert.ok(field(fixture.root, name), `${name} field renders`);
+  for (const label of ["제목", "핵심 요약 (지식 문장)", "출처 주장", "내 해석", "재사용 가능한 지식", "상세 학습 맥락 (상세 학습 기록)", "제안 이유", "직접 학습 출처 메모", "지식 영역 (선택)", "적용 계기", "적용 맥락", "검증 대기에 저장"]) assert.ok(rendered.includes(label), `${label} renders`);
+  for (const name of ["title", "statement", "source_claim", "my_interpretation", "reusable_knowledge", "body", "reason", "source_note", "suggested_domain", "suggested_topics", "application_trigger", "application_contexts"]) assert.ok(field(fixture.root, name), `${name} field renders`);
   assert.equal(field(fixture.root, "source_note").attr.required, "true");
   assert.equal(field(fixture.root, "statement").attr["aria-required"], "true");
-  assert.equal(field(fixture.root, "suggested_domain").attr["aria-label"], "지식 영역");
+  assert.equal(field(fixture.root, "suggested_domain").attr["aria-label"], "지식 영역 (선택)");
   assert.ok(button(fixture.root, "취소"));
   const source = ["knowledge-direct-authoring-view.js", "knowledge-direct-authoring-form.js"]
     .map((file) => fs.readFileSync(path.join(ROOT, "SYSTEM/Views", file), "utf8"))
@@ -144,6 +144,28 @@ function testTopicfulTopiclessAndContextEditing() {
   assert.match(text(fixture.root), /세부 주제를 선택할 필요가 없습니다/);
   fixture.controller.setField("application_contexts", "reading\ncoding/typescript\nreading");
   assert.deepEqual(fixture.controller.values().application_contexts, ["reading", "coding/typescript"], "contexts are editable and duplicate-safe");
+}
+async function testGeneralDraftWithoutClassification() {
+  const fixture = mount({
+    initialValues: validDraft({
+      suggested_domain: "",
+      suggested_topics: [],
+      application_contexts: [],
+      source_claim: "관찰이나 자료가 실제로 말한 내용",
+      my_interpretation: "핵심 요약을 내 경험으로 해석한 내용",
+      reusable_knowledge: "다음 문제에도 적용할 절차"
+    })
+  });
+  assert.match(text(fixture.root), /일반 메모/);
+  assert.ok(field(fixture.root, "my_interpretation"));
+  assert.ok(field(fixture.root, "reusable_knowledge"));
+  assert.ok(field(fixture.root, "source_claim"));
+  assert.equal(await fixture.controller.submit(), true);
+  assert.equal(fixture.calls[0].suggested_domain, "");
+  assert.deepEqual(fixture.calls[0].suggested_topics, []);
+  assert.match(fixture.calls[0].reason, /## 내 해석/);
+  assert.match(fixture.calls[0].reason, /## 재사용 가능한 지식/);
+  assert.match(fixture.calls[0].reason, /## 출처 주장/);
 }
 
 function testTypingKeepsFocusAndPickersSupportSearchAndSelection() {
@@ -372,6 +394,7 @@ async function main() {
   testTopicfulTopiclessAndContextEditing();
   testTypingKeepsFocusAndPickersSupportSearchAndSelection();
   await testRenderedInputEventsSubmitRetryCancelAndEscape();
+  await testGeneralDraftWithoutClassification();
   await testRenderedStaleModalCloseSuppressesLateSave();
   await testValidationCancelSuccessAndNavigation();
   await testUnavailableStorePreservesDraft();

@@ -27,19 +27,27 @@ updated: <% tp.file.creation_date("YYYY-MM-DD[T]HH:mm") %>
 # <% tp.file.title %>
 
 ## 지식 문장
+-
 
+## 출처 주장
+-
+
+## 내 해석
+-
+
+## 재사용 가능한 지식
+-
+
+## 학습 기록
 -
 
 ## 제안 이유
-
 -
 
 ## 출처
-
 - Evidence 본문을 복사하지 않고 Evidence ID와 실제 Object 링크만 연결합니다.
 
 ## 출처 메모
-
 - 직접 학습은 학습 맥락을, 학습 자료는 정확한 Literature Source 링크를 남깁니다. 자료 원문 전문은 복사하지 않습니다.
 
 ## 적용 조건

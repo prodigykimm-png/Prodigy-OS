@@ -4,13 +4,10 @@
   /**
    * Venue(장소) view — first-class UI matching the people experience.
    * Provides: list renderer, detail popup (preview), quick edit, delete,
-   * and related-journal reverse links. Schema comes from PeopleCore; data
-   * lives in VenueStore. People view functions are untouched.
+   * and related-journal reverse links. VenueStore owns reads/writes; this view
+   * renders only the read model and preserves existing action callbacks.
    */
 
-  function getCore() {
-    return root.PeopleCore || (typeof require === "function" ? require("./people-core.js") : null);
-  }
   function getStore() {
     return root.VenueStore || (typeof require === "function" ? require("./venue-store.js") : null);
   }
@@ -47,7 +44,13 @@
   function collectRelatedJournals(app, venuePath) {
     const out = [];
     if (!app || !app.vault || typeof app.vault.getFiles !== "function") return out;
-    const name = clean(venuePath).split("/").pop().replace(/\.md$/i, "");
+    const venueTarget = clean(venuePath).replace(/\\/g, "/").replace(/\.md$/i, "");
+    const venueName = venueTarget.split("/").pop();
+    const sameVenueTarget = (value) => {
+      const target = wikilinkToPath(value).replace(/\\/g, "/").replace(/\.md$/i, "").replace(/^\/+/, "");
+      if (!target) return false;
+      return target === venueTarget || (!target.includes("/") && target === venueName);
+    };
     const files = app.vault.getFiles().filter((f) => /^DAILY\/DAILY\//.test(f.path) && /\.md$/i.test(f.path));
     files.forEach((f) => {
       let hit = false;
@@ -56,16 +59,13 @@
           ? app.metadataCache.getFileCache(f)
           : null;
         if (cache && cache.links) {
-          hit = cache.links.some((l) => {
-            const lp = clean(l && (l.path || l.link));
-            return lp === name || lp.replace(/^DAILY\/DAILY\//, "") === name || lp.indexOf(name) !== -1;
-          });
+          hit = cache.links.some((l) => sameVenueTarget(l && (l.path || l.link)));
         }
         if (!hit && cache && cache.frontmatter && cache.frontmatter.connections) {
           const conns = Array.isArray(cache.frontmatter.connections)
             ? cache.frontmatter.connections
             : [cache.frontmatter.connections];
-          hit = conns.some((c) => String(c || "").indexOf(name) !== -1);
+          hit = conns.some((c) => sameVenueTarget(c));
         }
       } catch (_e) { /* skip */ }
       if (hit) out.push(f.path);
@@ -74,7 +74,8 @@
   }
 
   function ensureVenueStyles() {
-    if (typeof document === "undefined" || !document.getElementById("prodigy-venue-styles")) {
+    if (typeof document === "undefined" || !document.createElement || !document.head || typeof document.head.appendChild !== "function") return;
+    if (typeof document.getElementById !== "function" || !document.getElementById("prodigy-venue-styles")) {
       const style = document.createElement("style");
       style.id = "prodigy-venue-styles";
       style.textContent = [
@@ -88,7 +89,40 @@
         ".ppv-venue-section{margin:10px 0}",
         ".ppv-venue-section-label{font-size:.8em;font-weight:700;color:var(--text-muted);margin-bottom:4px}",
         ".ppv-venue-section-body{font-size:.9em;white-space:pre-wrap;color:var(--text-normal)}",
-        ".ppv-venue-empty{color:var(--text-muted);font-size:.85em}"
+        ".ppv-venue-empty{color:var(--text-muted);font-size:.85em}",
+        ".ppv-venue-workspace{display:flex;flex-direction:column;gap:10px}",
+        ".ppv-venue-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}",
+        ".ppv-venue-header h1{margin:0;font-size:1.35em}",
+        ".ppv-venue-header p{margin:4px 0 0;color:var(--text-muted);font-size:.84em}",
+        ".ppv-venue-toolbar{display:grid;gap:8px;padding:10px;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-secondary)}",
+        ".ppv-venue-toolbar-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
+        ".ppv-venue-toolbar-label{min-width:50px;color:var(--text-muted);font-size:.8em;font-weight:700}",
+        ".ppv-venue-search{flex:1;min-width:180px;min-height:34px;padding:6px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal)}",
+        ".ppv-venue-select{min-height:32px;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal)}",
+        ".ppv-venue-count{color:var(--text-muted);font-size:.82em}",
+        ".ppv-venue-master-detail{display:grid;grid-template-columns:minmax(240px, .9fr) minmax(300px, 1.1fr);gap:12px;min-height:220px}",
+        ".ppv-venue-list-pane,.ppv-venue-detail-pane{min-width:0}",
+        ".ppv-venue-list-pane{display:flex;flex-direction:column;gap:6px;max-height:68vh;overflow:auto;padding-right:2px}",
+        ".ppv-venue-card{padding:10px 12px;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-primary);cursor:pointer}",
+        ".ppv-venue-card:hover,.ppv-venue-card.is-selected{background:var(--background-modifier-hover);border-color:var(--text-accent)}",
+        ".ppv-venue-card:focus-visible{outline:2px solid var(--text-accent);outline-offset:2px}",
+        ".ppv-venue-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}",
+        ".ppv-venue-card-title{font-weight:700;font-size:.95em}",
+        ".ppv-venue-card-meta{margin-top:3px;color:var(--text-muted);font-size:.8em}",
+        ".ppv-venue-card-sub{margin-top:5px;color:var(--text-muted);font-size:.76em}",
+        ".ppv-venue-detail-pane{padding:14px;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-primary);overflow:auto;max-height:68vh}",
+        ".ppv-venue-detail-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:12px}",
+        ".ppv-venue-detail-head h2{margin:0;font-size:1.15em}",
+        ".ppv-venue-detail-back{display:none}",
+        ".ppv-venue-detail-section{margin:12px 0}",
+        ".ppv-venue-detail-section h3{margin:0 0 5px;font-size:.82em;color:var(--text-muted)}",
+        ".ppv-venue-detail-body{white-space:pre-wrap;font-size:.88em}",
+        ".ppv-venue-detail-link{display:block;width:100%;padding:4px 0;border:0;background:none;color:var(--text-accent);cursor:pointer;text-align:left}",
+        ".ppv-venue-detail-link:hover{text-decoration:underline}",
+        ".ppv-venue-detail-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--background-modifier-border)}",
+        ".ppv-venue-filter-button{min-height:30px;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:5px;background:var(--background-primary);color:var(--text-muted);cursor:pointer;font-size:.78em}",
+        ".ppv-venue-filter-button.is-active{background:var(--interactive-accent);border-color:var(--interactive-accent);color:var(--text-on-accent)}",
+        "@media(max-width:760px){.ppv-venue-master-detail{display:block}.ppv-venue-detail-pane{max-height:none}.ppv-venue-master-detail[data-selected=\"true\"] .ppv-venue-list-pane{display:none}.ppv-venue-master-detail[data-selected=\"false\"] .ppv-venue-detail-pane{display:none}.ppv-venue-detail-back{display:inline-flex}}"
       ].join("\n");
       document.head.appendChild(style);
     }
@@ -97,17 +131,16 @@
   /**
    * Detail popup — properties + editable sections + connections + related journals.
    */
-  async function openVenuePreview(app, path, onChanged) {
+  async function openVenuePreview(app, path, onChanged, options) {
     const host = app || root.app || (typeof window !== "undefined" ? window.app : null);
     const store = getStore();
-    const c = getCore();
-    if (!host || !store || !c) {
+    if (!host || !store) {
       notice("Venue 모듈을 불러오지 못했습니다.");
       return null;
     }
     let model;
     try {
-      model = await store.buildVenuePreviewModel(host, path);
+      model = await store.buildVenuePreviewModel(host, path, options || {});
     } catch (error) {
       notice(error.message || String(error), 9000);
       return null;
@@ -118,7 +151,7 @@
       return model;
     }
     ensureVenueStyles();
-    if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
+    if (root.ProdigyUI && typeof root.ProdigyUI.ensureStyles === "function") root.ProdigyUI.ensureStyles();
 
     const editableSections = ["소개", "방문 정보", "메모"];
 
@@ -149,34 +182,64 @@
           this.renderPropertyRow(propsEl, "주소", this.values.address);
           this.renderPropertyRow(propsEl, "연결", this.values.connections);
 
-          // Editable body sections
-          editableSections.forEach((title) => {
-            const raw = String(this.sectionValues[title] || "");
+          // Existing body sections remain visible. Only the original three
+          // sections are editable; dynamic/link sections stay read-only.
+          const renderedSections = Object.create(null);
+          const renderBodySection = (title, raw, editable) => {
             const block = contentEl.createDiv({ attr: { class: "ppv-venue-section" } });
             block.createEl("div", { text: title, attr: { class: "ppv-venue-section-label" } });
-            const ta = block.createEl("textarea", {
-              text: raw,
-              attr: {
-                rows: title === "메모" ? 5 : 3,
-                style: "width:100%;box-sizing:border-box;min-height:60px;padding:6px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);font:inherit;"
-              }
-            });
-            ta.oninput = () => { this.sectionValues[title] = ta.value; this.dirty = true; };
+            renderedSections[title] = true;
+            if (editable) {
+              const ta = block.createEl("textarea", {
+                text: raw,
+                attr: {
+                  rows: title === "메모" ? 5 : 3,
+                  "aria-label": `${title} 편집`,
+                  style: "width:100%;box-sizing:border-box;min-height:60px;padding:6px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);font:inherit;"
+                }
+              });
+              ta.oninput = () => { this.sectionValues[title] = ta.value; this.dirty = true; };
+            } else {
+              block.createEl("div", {
+                text: raw || "기록된 내용이 없습니다.",
+                attr: { class: "ppv-venue-section-body" }
+              });
+            }
+          };
+          (this.model.sections || []).forEach((section) => {
+            const title = String(section.title || "").trim();
+            if (!title) return;
+            renderBodySection(
+              title,
+              String(this.sectionValues[title] || ""),
+              editableSections.indexOf(title) !== -1
+            );
+          });
+          // Preserve the old editable slots when a legacy note omitted a
+          // required heading, without adding or changing note fields.
+          editableSections.forEach((title) => {
+            if (!renderedSections[title]) renderBodySection(title, String(this.sectionValues[title] || ""), true);
           });
 
           // Related journals (reverse links)
           const rel = contentEl.createDiv({ attr: { class: "ppv-venue-section" } });
-          rel.createEl("div", { text: "관련 저널", attr: { class: "ppv-venue-section-label" } });
+          rel.createEl("div", { text: "관련 저널 역링크", attr: { class: "ppv-venue-section-label" } });
           const relList = rel.createDiv({ attr: { class: "ppv-venue-section-body" } });
-          const journals = collectRelatedJournals(this.app, this.model.path);
+          const journals = Array.isArray(this.model.relatedJournals)
+            ? this.model.relatedJournals
+            : collectRelatedJournals(this.app, this.model.path);
           if (journals.length) {
             journals.forEach((jp) => {
               const row = relList.createDiv({ attr: { style: "margin:2px 0;" } });
               const btn = row.createEl("button", {
                 text: jp.replace(/\.md$/i, ""),
-                attr: { type: "button", style: "background:none;border:none;color:var(--text-accent);cursor:pointer;padding:0;text-align:left;" }
+                attr: { type: "button", class: "ppv-venue-detail-link", "aria-label": `${jp.replace(/\.md$/i, "")} 열기` }
               });
-              btn.onclick = () => openPath(this.app, jp);
+              btn.onclick = (event) => {
+                if (event && event.preventDefault) event.preventDefault();
+                if (event && event.stopPropagation) event.stopPropagation();
+                openPath(this.app, jp);
+              };
             });
           } else {
             relList.createEl("div", { text: "연결된 저널이 없습니다.", attr: { class: "ppv-venue-empty" } });
@@ -414,45 +477,414 @@
     const opts = options || {};
     const container = opts.container;
     const app = opts.app;
-    const items = opts.items || [];
-    if (!container) return null;
+    const store = getStore();
+    if (!container || !store) return null;
     ensureVenueStyles();
-    container.empty();
-    container.addClass("prodigy-people-workspace");
-    container.addClass("ppv-venue-list");
+    if (root.ProdigyUI && typeof root.ProdigyUI.ensureStyles === "function") root.ProdigyUI.ensureStyles();
 
-    const header = container.createDiv({ attr: { style: "display:flex;justify-content:flex-end;margin:0 0 8px;" } });
-    const addBtn = header.createEl("button", { text: "장소 추가", attr: { type: "button", class: "mod-cta" } });
-    addBtn.onclick = async () => {
-      if (root.VenueCreator && typeof root.VenueCreator.open === "function") {
-        await root.VenueCreator.open(app);
-        if (typeof opts.onRefresh === "function") opts.onRefresh();
-      }
+    let rawItems = Array.isArray(opts.items) ? opts.items.slice() : [];
+    const initialModel = opts.model || store.buildVenueWorkspaceModel(rawItems, {});
+    const state = {
+      query: clean(initialModel.query),
+      category: clean(initialModel.category || "all") || "all",
+      connection: clean(initialModel.connection || "all") || "all",
+      journal: clean(initialModel.journal || "all") || "all",
+      sort: clean(initialModel.sort || "name_asc") || "name_asc",
+      selectedPath: clean(opts.selectedPath)
     };
+    let model = initialModel;
+    let layoutNarrow = Number(container.clientWidth || 0) <= 760;
+    let resizeObserver = null;
 
-    if (!items.length) {
-      container.createDiv({ text: "등록된 장소가 없습니다. '장소 추가'로 추가하세요.", attr: { class: "ppv-venue-empty" } });
-      return container;
+    function button(parent, label, options) {
+      const o = options || {};
+      const classes = [o.className || "", o.primary ? "mod-cta" : ""].filter(Boolean).join(" ");
+      return parent.createEl("button", {
+        text: label,
+        attr: Object.assign(
+          { type: "button", class: classes },
+          o.ariaLabel ? { "aria-label": o.ariaLabel } : {}
+        )
+      });
     }
 
-    items.forEach((item) => {
-      const row = container.createDiv({ attr: { class: "ppv-venue-row" } });
-      const info = row.createDiv({ attr: { style: "flex:1;min-width:0;" } });
-      info.createDiv({ text: item.title, attr: { class: "ppv-venue-title" } });
-      const metaBits = [];
-      if (item.meta && item.meta.length) metaBits.push(item.meta.join(" · "));
-      if (item.detail) metaBits.push(item.detail);
-      if (metaBits.length) info.createDiv({ text: metaBits.join(" · "), attr: { class: "ppv-venue-meta" } });
-      if (item.journalLinks && item.journalLinks.length) {
-        info.createDiv({ text: `저널 ${item.journalLinks.length}`, attr: { class: "ppv-venue-meta" } });
+    function setElementAttribute(element, name, value) {
+      if (!element) return;
+      if (typeof element.setAttr === "function") element.setAttr(name, value);
+      else if (typeof element.setAttribute === "function") element.setAttribute(name, value);
+    }
+    function runSafely(handler, event) {
+      if (event && event.preventDefault) event.preventDefault();
+      if (event && event.stopPropagation) event.stopPropagation();
+      try {
+        const result = handler();
+        if (result && typeof result.catch === "function") {
+          result.catch((error) => notice(error && (error.message || String(error)), 9000));
+        }
+        return result;
+      } catch (error) {
+        notice(error && (error.message || String(error)), 9000);
+        return null;
       }
-      row.onclick = () => {
-        if (root.VenueView) root.VenueView.openVenuePreview(app, item.path, () => {
-          if (typeof opts.onRefresh === "function") opts.onRefresh();
-        });
-      };
+    }
+
+    function selectedVenue() {
+      return (model.venues || []).find((venue) => venue.path === state.selectedPath) || null;
+    }
+
+    function rebuildModel() {
+      model = store.buildVenueWorkspaceModel(rawItems, {
+        query: state.query,
+        category: state.category,
+        connection: state.connection,
+        journal: state.journal,
+        sort: state.sort
+      });
+      return model;
+    }
+
+    function refreshAfterEdit(path) {
+      if (path) state.selectedPath = path;
+      if (typeof opts.onRefresh === "function") return opts.onRefresh();
+      return paint();
+    }
+
+    // Static shell — setData/paint only replace list/detail contents, so
+    // repeated Dataview refreshes never create duplicate writers or controls.
+    container.empty();
+    container.addClass("prodigy-people-workspace");
+    container.addClass("ppv-venue-workspace");
+
+    const header = container.createDiv({ attr: { class: "ppv-venue-header" } });
+    const heading = header.createDiv();
+    heading.createEl("h1", { text: opts.title || "장소" });
+    heading.createEl("p", {
+      text: opts.subtitle || "반복 방문하는 장소의 정보와 연결된 기록을 한곳에서 이어갑니다."
     });
-    return container;
+    const headerActions = header.createDiv({ attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
+    const addBtn = button(headerActions, "장소 추가", { primary: true });
+    addBtn.onclick = () => runSafely(async () => {
+      if (root.VenueCreator && typeof root.VenueCreator.open === "function") {
+        await root.VenueCreator.open(app);
+        return refreshAfterEdit("");
+      }
+      notice("장소 생성기를 불러오지 못했습니다.", 9000);
+      return null;
+    });
+
+    const toolbar = container.createDiv({ attr: { class: "ppv-venue-toolbar" } });
+    const searchRow = toolbar.createDiv({ attr: { class: "ppv-venue-toolbar-row" } });
+    const searchInput = searchRow.createEl("input", {
+      attr: {
+        type: "search",
+        class: "ppv-venue-search",
+        placeholder: "이름·분류·주소·본문·연결 검색",
+        "aria-label": "장소 검색"
+      }
+    });
+    searchInput.value = state.query;
+    let composing = false;
+    searchInput.oncompositionstart = () => { composing = true; };
+    searchInput.oncompositionend = () => {
+      composing = false;
+      state.query = String(searchInput.value || "");
+      paint();
+    };
+    searchInput.oninput = () => {
+      if (composing) return;
+      state.query = String(searchInput.value || "");
+      paint();
+    };
+
+    function createSelectRow(label, ariaLabel, className) {
+      const row = toolbar.createDiv({ attr: { class: "ppv-venue-toolbar-row" } });
+      row.createEl("span", { text: label, attr: { class: "ppv-venue-toolbar-label" } });
+      const select = row.createEl("select", {
+        attr: { class: className || "ppv-venue-select", "aria-label": ariaLabel }
+      });
+      return select;
+    }
+
+    const categorySelect = createSelectRow("분류", "장소 분류 필터");
+    const connectionSelect = createSelectRow("연결", "장소 연결 상태 필터");
+    const journalSelect = createSelectRow("저널", "장소 저널 상태 필터");
+    const sortSelect = createSelectRow("정렬", "장소 정렬");
+
+    function fillSelect(select, entries, value) {
+      if (typeof select.empty === "function") select.empty();
+      else while (select.firstChild) select.removeChild(select.firstChild);
+      (entries || []).forEach((entry) => {
+        const option = select.createEl("option", {
+          text: entry.label,
+          attr: { value: entry.id }
+        });
+        if (String(entry.id) === String(value)) option.selected = true;
+      });
+      if (select.options && select.options.length && !Array.from(select.options).some((option) => option.value === String(value))) {
+        select.value = String(entries && entries.length ? entries[0].id : "");
+      }
+    }
+
+    categorySelect.onchange = () => {
+      state.category = String(categorySelect.value || "all");
+      paint();
+    };
+    connectionSelect.onchange = () => {
+      state.connection = String(connectionSelect.value || "all");
+      paint();
+    };
+    journalSelect.onchange = () => {
+      state.journal = String(journalSelect.value || "all");
+      paint();
+    };
+    sortSelect.onchange = () => {
+      state.sort = String(sortSelect.value || "name_asc");
+      paint();
+    };
+
+    const count = toolbar.createEl("div", {
+      text: "",
+      attr: { class: "ppv-venue-count", "aria-live": "polite" }
+    });
+    const masterDetail = container.createDiv({
+      attr: {
+        class: "ppv-venue-master-detail",
+        "data-selected": "false"
+      }
+    });
+    const listPane = masterDetail.createEl("section", {
+      attr: { class: "ppv-venue-list-pane", "aria-label": "장소 목록" }
+    });
+    const detailPane = masterDetail.createEl("section", {
+      attr: { class: "ppv-venue-detail-pane", "aria-label": "장소 상세" }
+    });
+
+    function applyPaneVisibility() {
+      setElementAttribute(masterDetail, "data-selected", state.selectedPath ? "true" : "false");
+      setElementAttribute(masterDetail, "data-layout-narrow", layoutNarrow ? "true" : "false");
+      if (layoutNarrow) {
+        listPane.hidden = !!state.selectedPath;
+        detailPane.hidden = !state.selectedPath;
+      } else {
+        listPane.hidden = false;
+        detailPane.hidden = false;
+      }
+    }
+
+    function selectVenue(path) {
+      state.selectedPath = clean(path);
+      applyPaneVisibility();
+      paint();
+    }
+
+    function openPreview(venue) {
+      if (!venue) return null;
+      return openVenuePreview(app, venue.path, (result) => refreshAfterEdit(result && result.path || venue.path), {
+        relatedJournals: venue.journalLinks || []
+      });
+    }
+
+    function paintDetail(venue) {
+      detailPane.empty();
+      if (!venue) {
+        detailPane.createEl("div", {
+          text: model.empty
+            ? "장소를 추가하면 주소·본문·연결된 기록을 이곳에서 확인할 수 있습니다."
+            : "목록에서 장소를 선택하면 주소·본문과 연결된 기록을 확인할 수 있습니다.",
+          attr: { class: "ppv-venue-empty" }
+        });
+        return;
+      }
+
+      const head = detailPane.createDiv({ attr: { class: "ppv-venue-detail-head" } });
+      const back = button(head, "목록", { className: "ppv-venue-detail-back", ariaLabel: "장소 목록으로 돌아가기" });
+      back.onclick = (event) => runSafely(() => {
+        state.selectedPath = "";
+        applyPaneVisibility();
+        paint();
+      }, event);
+      const titleWrap = head.createDiv();
+      titleWrap.createEl("h2", { text: venue.title });
+      const meta = [venue.venue_category || "분류 없음", venue.address || "주소 없음"];
+      titleWrap.createEl("div", { text: meta.join(" · "), attr: { class: "ppv-venue-meta" } });
+
+      const properties = detailPane.createEl("section", { attr: { class: "ppv-venue-detail-section" } });
+      properties.createEl("h3", { text: "기본 정보" });
+      properties.createEl("div", { text: `분류: ${venue.venue_category || "미분류"}`, attr: { class: "ppv-venue-detail-body" } });
+      properties.createEl("div", { text: `주소: ${venue.address || "기록된 주소가 없습니다."}`, attr: { class: "ppv-venue-detail-body" } });
+
+      (venue.sections || []).forEach((section) => {
+        const block = detailPane.createEl("section", { attr: { class: "ppv-venue-detail-section" } });
+        block.createEl("h3", { text: section.title });
+        block.createEl("div", {
+          text: section.bodyText || "기록된 내용이 없습니다.",
+          attr: { class: "ppv-venue-detail-body" }
+        });
+      });
+
+      const connections = detailPane.createEl("section", { attr: { class: "ppv-venue-detail-section" } });
+      connections.createEl("h3", { text: "연결된 Object" });
+      if (venue.connections && venue.connections.length) {
+        venue.connections.forEach((connection) => {
+          const target = wikilinkToPath(connection);
+          const linkBtn = button(connections, connection, { className: "ppv-venue-detail-link", ariaLabel: `${connection} 열기` });
+          linkBtn.onclick = (event) => runSafely(() => openPath(app, target || connection), event);
+        });
+      } else if (venue.connection_text) {
+        connections.createEl("div", { text: venue.connection_text, attr: { class: "ppv-venue-detail-body" } });
+      } else {
+        connections.createEl("div", { text: "연결된 Object가 없습니다.", attr: { class: "ppv-venue-empty" } });
+      }
+
+      const journals = detailPane.createEl("section", { attr: { class: "ppv-venue-detail-section" } });
+      journals.createEl("h3", { text: "관련 저널" });
+      if (venue.journalLinks && venue.journalLinks.length) {
+        venue.journalLinks.forEach((journalPath) => {
+          const linkBtn = button(journals, journalPath.replace(/\.md$/i, ""), {
+            className: "ppv-venue-detail-link",
+            ariaLabel: `${journalPath.replace(/\.md$/i, "")} 열기`
+          });
+          linkBtn.onclick = (event) => runSafely(() => openPath(app, journalPath), event);
+        });
+      } else {
+        journals.createEl("div", { text: "연결된 저널이 없습니다.", attr: { class: "ppv-venue-empty" } });
+      }
+
+      const actions = detailPane.createDiv({ attr: { class: "ppv-venue-detail-actions" } });
+      const edit = button(actions, "편집", { primary: true });
+      edit.onclick = (event) => runSafely(() => openVenueQuickEdit(app, venue.path, (result) => {
+        refreshAfterEdit(result && result.path || venue.path);
+      }), event);
+      const preview = button(actions, "미리보기/편집");
+      preview.onclick = (event) => runSafely(() => openPreview(venue), event);
+      const original = button(actions, "원본 노트");
+      original.onclick = (event) => runSafely(() => openPath(app, venue.path), event);
+      const remove = button(actions, "삭제");
+      remove.onclick = (event) => runSafely(() => openDeleteVenueFlow(app, venue.path, () => {
+        state.selectedPath = "";
+        refreshAfterEdit("");
+      }), event);
+    }
+
+    function paint() {
+      rebuildModel();
+      let visible = model.venues || [];
+      let resetState = false;
+      if (state.category !== "all" && !(model.category_filters || []).some((entry) => entry.id === state.category)) {
+        state.category = "all";
+        resetState = true;
+      }
+      if (!(model.connection_filters || []).some((entry) => entry.id === state.connection)) {
+        state.connection = "all";
+        resetState = true;
+      }
+      if (!(model.journal_filters || []).some((entry) => entry.id === state.journal)) {
+        state.journal = "all";
+        resetState = true;
+      }
+      if (!(model.sorts || []).some((entry) => entry.id === state.sort)) {
+        state.sort = "name_asc";
+        resetState = true;
+      }
+      if (resetState) {
+        rebuildModel();
+        visible = model.venues || [];
+      }
+      if (state.selectedPath && !selectedVenue()) state.selectedPath = "";
+      const hasMeasuredWidth = Number(container.clientWidth || 0) > 0;
+      if (!state.selectedPath && visible.length && !layoutNarrow && hasMeasuredWidth) state.selectedPath = visible[0].path;
+      fillSelect(categorySelect, model.category_filters || [], state.category);
+      fillSelect(connectionSelect, model.connection_filters || [], state.connection);
+      fillSelect(journalSelect, model.journal_filters || [], state.journal);
+      fillSelect(sortSelect, model.sorts || [], state.sort);
+      searchInput.value = state.query;
+      count.setText(model.empty
+        ? ""
+        : (model.no_match
+          ? "일치하는 장소가 없습니다."
+          : `${model.shown}곳 표시 · 전체 ${model.total}곳`));
+      if (typeof opts.onStateChange === "function") {
+        opts.onStateChange({
+          query: state.query,
+          category: state.category,
+          connection: state.connection,
+          journal: state.journal,
+          sort: state.sort,
+          selectedPath: state.selectedPath
+        });
+      }
+      applyPaneVisibility();
+      paintDetail(selectedVenue());
+      listPane.empty();
+
+      if (model.empty) {
+        listPane.createEl("div", {
+          text: "등록된 장소가 없습니다. '장소 추가'로 추가하세요.",
+          attr: { class: "ppv-venue-empty" }
+        });
+        return model;
+      }
+      if (model.no_match) {
+        listPane.createEl("div", {
+          text: model.empty_hint || "일치하는 장소가 없습니다.",
+          attr: { class: "ppv-venue-empty" }
+        });
+        return model;
+      }
+
+      visible.forEach((venue) => {
+        const card = listPane.createEl("article", {
+          attr: {
+            class: `ppv-venue-card${venue.path === state.selectedPath ? " is-selected" : ""}`,
+            tabindex: "0",
+            role: "button",
+            "aria-label": `${venue.title} 상세 보기`
+          }
+        });
+        const top = card.createDiv({ attr: { class: "ppv-venue-card-top" } });
+        top.createEl("div", { text: venue.title, attr: { class: "ppv-venue-card-title" } });
+        if (venue.venue_category) top.createEl("span", { text: venue.venue_category, attr: { class: "ppv-venue-chip" } });
+        if (venue.address) card.createEl("div", { text: venue.address, attr: { class: "ppv-venue-card-meta" } });
+        const sub = [];
+        if (venue.updated) sub.push(`수정 ${String(venue.updated).slice(0, 10)}`);
+        sub.push(venue.has_connections || venue.connection_text ? `연결 ${venue.connections.length || 1}` : "연결 없음");
+        sub.push(venue.journalLinks.length ? `저널 ${venue.journalLinks.length}` : "저널 없음");
+        card.createEl("div", { text: sub.join(" · "), attr: { class: "ppv-venue-card-sub" } });
+        card.onclick = (event) => runSafely(() => selectVenue(venue.path), event);
+        card.onkeydown = (event) => {
+          if (event && (event.key === "Enter" || event.key === " ")) {
+            runSafely(() => selectVenue(venue.path), event);
+          }
+        };
+      });
+      return model;
+    }
+
+    paint();
+    if (typeof root.ResizeObserver === "function") {
+      resizeObserver = new root.ResizeObserver((entries) => {
+        const width = entries && entries[0] && entries[0].contentRect
+          ? Number(entries[0].contentRect.width)
+          : Number(container.clientWidth || 0);
+        const nextNarrow = Number.isFinite(width) && width > 0 ? width <= 760 : layoutNarrow;
+        if (nextNarrow === layoutNarrow) return;
+        layoutNarrow = nextNarrow;
+        paint();
+      });
+      resizeObserver.observe(container);
+    }
+
+    return {
+      paint,
+      selectVenue,
+      setData: (nextItems) => {
+        rawItems = Array.isArray(nextItems) ? nextItems.slice() : [];
+        paint();
+      },
+      getState: () => Object.assign({}, state),
+      getModel: () => model,
+      destroy: () => { if (resizeObserver) resizeObserver.disconnect(); }
+    };
   }
 
   const api = Object.freeze({

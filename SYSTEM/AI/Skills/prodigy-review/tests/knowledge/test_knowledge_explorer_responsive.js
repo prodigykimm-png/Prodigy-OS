@@ -556,7 +556,7 @@ function assertMeasuredState(metrics, logicalWidth) {
   assert.equal(metrics.probe.scrollWidth, metrics.probe.clientWidth, `${logicalWidth}/${metrics.status}: Hub surface must not overflow`);
   assert.equal(metrics.lifecycle.scrollWidth, metrics.lifecycle.clientWidth, `${logicalWidth}/${metrics.status}: lifecycle must not overflow`);
   assert.deepEqual(metrics.nestedOverflow, [], `${logicalWidth}/${metrics.status}: nested horizontal overflow is forbidden`);
-  assert.equal(metrics.tabs.length, 3, `${logicalWidth}/${metrics.status}: all three Hub tabs must render`);
+  assert.equal(metrics.tabs.length, 4, `${logicalWidth}/${metrics.status}: all Knowledge workspace tabs must render`);
   assert.equal(metrics.tabs.every((tab) => tab.visible && tab.left >= 0 && tab.right <= metrics.document.clientWidth + 1), true, `${logicalWidth}/${metrics.status}: every Hub tab must remain visible`);
   assert.ok(metrics.source, `${logicalWidth}/${metrics.status}: selected source must remain visible`);
   assert.equal(metrics.source.scrollWidth, metrics.source.clientWidth, `${logicalWidth}/${metrics.status}: Korean and URL source text must not overflow`);

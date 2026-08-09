@@ -186,20 +186,22 @@ try {
       rootEl.empty();
       rootEl.appendChild(guard.shellElement);
     }
+    const scrollOwner = guard.shellElement.querySelector(".prodigy-app-shell-body");
+    const savedScrollTop = scrollOwner ? scrollOwner.scrollTop : 0;
+    // setData refreshes rows in place; a full repaint would reset the scroll
+    // offset and the caret even though the user never left the workspace.
     if (guard.fingerprint !== initialSnapshot.fingerprint) {
-      const scrollOwner = guard.shellElement.querySelector(".prodigy-app-shell-body");
-      const savedScrollTop = scrollOwner ? scrollOwner.scrollTop : 0;
-      // setData refreshes rows in place; a full repaint would reset the scroll
-      // offset and the caret even though the user never left the workspace.
       if (typeof guard.workspaceApi.setData === "function") {
         guard.workspaceApi.setData(initialSnapshot.rawPeople, initialSnapshot.sourcePages);
         guard.fingerprint = initialSnapshot.fingerprint;
       } else {
         await guard.paintPeople({ force: true, snapshot: initialSnapshot });
-        if (typeof guard.paintPlaces === "function") guard.paintPlaces();
       }
-      if (scrollOwner && savedScrollTop) scrollOwner.scrollTop = savedScrollTop;
     }
+    // Venue data has its own bounded snapshot and persistent view API. Refresh
+    // it even when the People fingerprint is unchanged.
+    if (typeof guard.paintPlaces === "function") await guard.paintPlaces({ force: true });
+    if (scrollOwner && savedScrollTop) scrollOwner.scrollTop = savedScrollTop;
     return;
   }
 
@@ -210,7 +212,7 @@ try {
   // Personal workspace tabs: People / Places
   const ensurePersonalTabStyles = () => {
     const doc = typeof document !== "undefined" ? document : null;
-    if (!doc || doc.getElementById("personal-tabs-styles")) return;
+    if (!doc || typeof doc.getElementById !== "function" || typeof doc.createElement !== "function" || !doc.head || typeof doc.head.appendChild !== "function" || doc.getElementById("personal-tabs-styles")) return;
     const style = doc.createElement("style");
     style.id = "personal-tabs-styles";
     style.textContent = [
@@ -233,6 +235,26 @@ try {
     const bar = workspaceBody.createDiv({ attr: { role: "tablist", class: "personal-tablist", "aria-label": "개인 워크스페이스" } });
     const buttons = {};
     const panels = {};
+    const setTabAttribute = (element, name, value) => {
+      if (!element) return;
+      if (typeof element.setAttr === "function") element.setAttr(name, value);
+      else if (typeof element.setAttribute === "function") element.setAttribute(name, value);
+      else {
+        element.attr = element.attr || {};
+        element.attr[name] = value;
+      }
+    };
+    const setTabVisible = (element, visible) => {
+      if (!element) return;
+      if (visible) {
+        if (typeof element.removeAttribute === "function") element.removeAttribute("hidden");
+        else if (element.attr) delete element.attr.hidden;
+        element.hidden = false;
+      } else {
+        setTabAttribute(element, "hidden", "");
+        element.hidden = true;
+      }
+    };
     tabs.forEach((tab) => {
       const btn = bar.createEl("button", {
         text: tab.label,
@@ -247,9 +269,8 @@ try {
       active = id;
       tabs.forEach((tab) => {
         const selected = tab.id === active;
-        buttons[tab.id].setAttr("aria-selected", String(selected));
-        if (selected) panels[tab.id].removeAttribute("hidden");
-        else panels[tab.id].setAttribute("hidden", "");
+        setTabAttribute(buttons[tab.id], "aria-selected", String(selected));
+        setTabVisible(panels[tab.id], selected);
       });
     }
     select("people");
@@ -320,75 +341,167 @@ try {
     }
   };
 
-  const paintPlaces = () => {
-    if (window.PeopleView && window.PeopleView.ensureWorkspaceStyles) {
-      window.PeopleView.ensureWorkspaceStyles();
-    }
-    placesMount.empty();
-    placesMount.addClass("prodigy-people-workspace");
+  let venueWorkspaceApi = null;
+  let venueDataFingerprint = "";
+  let venuePaintSerial = 0;
 
-    const places = dv.pages('"PARA/RESOURCES/Venues"')
-      .where(p => p.type === "venue")
-      .sort(p => p.file.name, "asc")
-      .array()
-      .map(p => {
-        // Venue `connections`는 배열 규약([wikilink, ...]). 사람과 동일한
-        // pageToSource/collectSourcePages 패턴으로 저널 역링크를 읽는다.
-        let conns = p.connections;
-        if (conns && typeof conns === "object" && !Array.isArray(conns)) {
-          try { conns = Array.from(conns); } catch (_e) { conns = String(conns); }
-        }
-        let journalLinks = [];
-        try {
-          if (p.file && p.file.outlinks) {
-            journalLinks = Array.from(p.file.outlinks)
-              .map((l) => (l && l.path) || String(l || ""))
-              .filter((l) => /^DAILY\/DAILY\//.test(l));
-          }
-        } catch (_e) { journalLinks = []; }
-        return {
-          title: p.file.name,
-          path: p.file.path,
-          meta: p.venue_category ? [String(p.venue_category)] : [],
-          detail: p.address || "",
-          connections: Array.isArray(conns) ? conns.map(String) : [],
-          journalLinks,
-          actions: []
-        };
+  const toArray = (value) => {
+    if (Array.isArray(value)) return value.slice();
+    if (value == null || typeof value === "string") return value == null ? [] : [value];
+    try { return Array.from(value); } catch (_e) { return [value]; }
+  };
+
+  const dateValue = (value) => {
+    if (value == null || value === "") return "";
+    if (typeof value === "number") return value;
+    try {
+      if (typeof value.toISO === "function") return String(value.toISO());
+      if (typeof value.toMillis === "function") return String(new Date(value.toMillis()).toISOString());
+    } catch (_e) { /* keep string fallback */ }
+    return String(value);
+  };
+
+  const referenceKey = (value) => String(value == null ? "" : value)
+    .replace(/^\[\[/, "")
+    .replace(/\]\]$/, "")
+    .split("|")[0]
+    .split("#")[0]
+    .replace(/\.md$/i, "")
+    .replace(/\\/g, "/")
+    .trim()
+    .toLowerCase();
+
+  const journalReferences = (page) => {
+    const refs = [];
+    toArray(page && page.file && page.file.outlinks).forEach((link) => {
+      refs.push(link && typeof link === "object" ? (link.path || link.link || "") : link);
+    });
+    toArray(page && page.outlinks).forEach((link) => {
+      refs.push(link && typeof link === "object" ? (link.path || link.link || "") : link);
+    });
+    let rawConnections = page && page.connections;
+    if (rawConnections && typeof rawConnections === "object" && !Array.isArray(rawConnections)) {
+      try { rawConnections = Array.from(rawConnections); } catch (_e) { /* keep original */ }
+    }
+    const connectionValues = window.VenueStore && window.VenueStore.normalizeConnections
+      ? window.VenueStore.normalizeConnections(rawConnections)
+      : toArray(rawConnections);
+    connectionValues.forEach((link) => {
+      refs.push(link && typeof link === "object" ? (link.path || link.link || "") : link);
+    });
+    return refs.map(referenceKey).filter(Boolean);
+  };
+
+  const collectVenueWorkspaceItems = async () => {
+    // Both scans are folder-bounded: Venue notes for current body, Daily pages
+    // for reverse links. No full-vault file enumeration is needed here.
+    const venuePages = dv.pages('"PARA/RESOURCES/Venues"')
+      .where(p => p && p.type === "venue")
+      .array();
+    const dailyPages = dv.pages('"DAILY/DAILY"').array();
+    const journalRows = dailyPages.map((page) => ({
+      path: page && page.file ? page.file.path : "",
+      title: page && page.file ? page.file.name : "",
+      refs: journalReferences(page)
+    })).filter((row) => row.path && /^DAILY\/DAILY\//.test(row.path));
+
+    const items = [];
+    for (const page of venuePages) {
+      const path = page && page.file ? page.file.path : "";
+      if (!path) continue;
+      let body = "";
+      try { body = await readNoteText(path); } catch (_e) { body = ""; }
+      const title = page.file.name || page.file.basename || path.split("/").pop().replace(/\.md$/i, "");
+      let connections = page.connections;
+      if (connections && typeof connections === "object" && !Array.isArray(connections)) {
+        try { connections = Array.from(connections); } catch (_e2) { connections = String(connections); }
+      }
+      const normalizedConnections = window.VenueStore && window.VenueStore.normalizeConnections
+        ? window.VenueStore.normalizeConnections(connections)
+        : toArray(connections).map((value) => String(value || "").trim()).filter(Boolean);
+      const venueKeys = [
+        referenceKey(path),
+        referenceKey(title),
+        referenceKey(`[[${title}]]`)
+      ].filter(Boolean);
+      const journalLinks = journalRows
+        .filter((journal) => journal.refs.some((ref) => venueKeys.some((key) => ref === key)))
+        .map((journal) => journal.path)
+        .sort((a, b) => a.localeCompare(b, "ko"));
+      items.push({
+        type: "venue",
+        title,
+        name: title,
+        path,
+        venue_category: page.venue_category || "",
+        address: page.address || "",
+        connections: normalizedConnections,
+        body,
+        updated: dateValue(page.updated || (page.file && page.file.mtime) || ""),
+        journalLinks,
+        meta: page.venue_category ? [String(page.venue_category)] : [],
+        detail: page.address || ""
       });
+    }
+    items.sort((a, b) => String(a.title).localeCompare(String(b.title), "ko") || a.path.localeCompare(b.path));
+    return items;
+  };
+
+  const paintPlaces = async (options) => {
+    const serial = ++venuePaintSerial;
+    const force = Boolean(options && options.force);
+    const places = await collectVenueWorkspaceItems();
+    if (serial !== venuePaintSerial) return null;
+    const fingerprint = window.VenueStore && typeof window.VenueStore.venueFingerprint === "function"
+      ? window.VenueStore.venueFingerprint(places)
+      : JSON.stringify(places);
+    if (!force && venueWorkspaceApi && fingerprint === venueDataFingerprint) return venueWorkspaceApi.getModel
+      ? venueWorkspaceApi.getModel()
+      : null;
 
     if (window.VenueView && window.VenueView.renderVenuesWorkspace) {
-      window.VenueView.renderVenuesWorkspace({
-        app,
-        container: placesMount,
-        items: places,
-        title: "장소",
-        onRefresh: () => paintPlaces()
-      });
-    } else if (window.ProdigyListWorkspace) {
+      if (venueWorkspaceApi && typeof venueWorkspaceApi.setData === "function") {
+        venueWorkspaceApi.setData(places);
+      } else {
+        venueWorkspaceApi = window.VenueView.renderVenuesWorkspace({
+          app,
+          container: placesMount,
+          items: places,
+          title: "장소",
+          subtitle: "반복 방문하는 장소의 현장 지식을 보존·관리합니다. 검색·필터·상세에서 맥락을 이어갑니다.",
+          onRefresh: () => paintPlaces({ force: true })
+        });
+      }
+      venueDataFingerprint = fingerprint;
+      return venueWorkspaceApi && venueWorkspaceApi.getModel ? venueWorkspaceApi.getModel() : null;
+    }
+
+    placesMount.empty();
+    placesMount.addClass("prodigy-people-workspace");
+    if (window.ProdigyListWorkspace) {
       window.ProdigyListWorkspace.render({
         app,
         container: placesMount,
         title: "장소",
         subtitle: "반복 방문하는 장소의 현장 지식을 보존·관리합니다. 이름을 클릭하면 상세를 엽니다.",
         actions: [],
-        sections: [
-          {
-            title: "장소",
-            items: places,
-            empty: "등록된 장소가 없습니다. 위의 '장소 추가'로 추가하세요."
-          }
-        ]
+        sections: [{
+          title: "장소",
+          items: places,
+          empty: "등록된 장소가 없습니다. 위의 '장소 추가'로 추가하세요."
+        }]
       });
       const h1 = placesMount.querySelector("h1");
       if (h1 && !String(h1.textContent || "").trim()) h1.style.display = "none";
     } else {
       placesMount.createEl("p", { text: "등록된 장소가 없습니다.", attr: { class: "ppw-empty" } });
     }
+    venueDataFingerprint = fingerprint;
+    return null;
   };
 
   await paintPeople({ snapshot: initialSnapshot });
-  paintPlaces();
+  await paintPlaces();
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "개인" });

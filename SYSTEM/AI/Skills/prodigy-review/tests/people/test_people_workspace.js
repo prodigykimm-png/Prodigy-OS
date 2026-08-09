@@ -320,7 +320,8 @@ function main() {
   assert.match(personal, /관계|원본 노트|미리보기/);
   assert.match(personal, /buildPeopleWorkspaceModel/);
   assert.match(personal, /renderPeopleWorkspace/);
-  assert.match(personal, /지속 영역/);
+  assert.match(personal, /장소/);
+  assert.match(personal, /paintPlaces|renderVenuesWorkspace/);
   assert.match(personal, /collectSourcePages/);
   assert.equal(personal.includes("HUB/People.md"), false);
   assert.equal(/미접촉|잠재 고객|인맥 관리|연락 관리/.test(personal), false);

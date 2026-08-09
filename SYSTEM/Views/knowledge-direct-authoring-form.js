@@ -137,17 +137,20 @@
     form.onsubmit = (event) => { if (event && event.preventDefault) event.preventDefault(); void controller.submit(); };
     form.onkeydown = (event) => { if (event && event.key === "Escape") { if (event.preventDefault) event.preventDefault(); if (controller.requestClose()) parent.empty(); } };
     form.createEl("h2", { text: "+ 지식 작성" });
-    form.createEl("p", { text: "직접 학습한 내용을 사람이 작성해 검증 대기에 보냅니다. 자동 생성이나 승인 없이 직접 입력합니다.", attr: { style: "color:var(--text-muted);" } });
+    form.createEl("p", { text: "직접 학습한 내용을 사람이 작성해 검증 대기에 보냅니다. 분야와 무관한 일반 메모로 남길 수 있습니다. 자동 생성이나 승인 없이 직접 입력합니다.", attr: { style: "color:var(--text-muted);" } });
     const disabled = status.pending || status.saved;
     field(form, { label: "제목", name: "title", value: current.title, required: true, disabled, onChange: (value) => controller.setField("title", value) });
-    field(form, { label: "지식 문장", name: "statement", value: current.statement, rows: 3, required: true, disabled, onChange: (value) => controller.setField("statement", value) });
-    field(form, { label: "상세 학습 기록", name: "body", value: current.body, rows: 5, disabled, help: "긴 학습 기록은 Candidate의 사람 작성 제안 이유에 함께 보존됩니다.", onChange: (value) => controller.setField("body", value) });
-    field(form, { label: "제안 이유", name: "reason", value: current.reason, rows: 3, required: true, disabled, onChange: (value) => controller.setField("reason", value) });
+    field(form, { label: "핵심 요약 (지식 문장)", name: "statement", value: current.statement, rows: 3, required: true, disabled, help: "이 메모에서 나중에 다시 꺼내 쓸 핵심을 한 문장으로 정리하세요.", onChange: (value) => controller.setField("statement", value) });
+    field(form, { label: "출처 주장", name: "source_claim", value: current.source_claim, rows: 3, disabled, help: "자료나 관찰이 실제로 말하는 내용을 내 해석과 분리해 적어 주세요.", onChange: (value) => controller.setField("source_claim", value) });
+    field(form, { label: "내 해석", name: "my_interpretation", value: current.my_interpretation, rows: 4, disabled, help: "핵심 요약이 왜 중요한지, 어떻게 이해했는지 적어 주세요.", onChange: (value) => controller.setField("my_interpretation", value) });
+    field(form, { label: "재사용 가능한 지식", name: "reusable_knowledge", value: current.reusable_knowledge, rows: 4, disabled, help: "다른 문제나 상황에 다시 적용할 수 있는 규칙·절차·질문을 적어 주세요.", onChange: (value) => controller.setField("reusable_knowledge", value) });
+    field(form, { label: "상세 학습 맥락 (상세 학습 기록)", name: "body", value: current.body, rows: 5, disabled, help: "학습한 과정, 관찰, 예시와 후속 메모를 Candidate의 기존 제안 이유 본문에 함께 보존합니다.", onChange: (value) => controller.setField("body", value) });
+    field(form, { label: "제안 이유", name: "reason", value: current.reason, rows: 3, required: true, disabled, help: "왜 검증 대기에 남길 가치가 있는지 적어 주세요.", onChange: (value) => controller.setField("reason", value) });
     field(form, { label: "직접 학습 출처 메모", name: "source_note", value: current.source_note, rows: 3, required: true, disabled, help: "직접 학습한 날짜, 실습 또는 참고 맥락을 남겨 주세요.", onChange: (value) => controller.setField("source_note", value) });
-    field(form, { label: "지식 영역", name: "suggested_domain", value: current.suggested_domain, select: true, required: true, disabled, options: [{ value: "", label: "선택하세요" }, ...domainOptions()], onChange: (value) => controller.setField("suggested_domain", value) });
+    field(form, { label: "지식 영역 (선택)", name: "suggested_domain", value: current.suggested_domain, select: true, disabled, options: [{ value: "", label: "선택하지 않음 — 일반 메모" }, ...domainOptions()], help: "분류 없이 일반 메모로 저장해도 됩니다. 선택하면 등록된 영역과 주제만 사용합니다.", onChange: (value) => controller.setField("suggested_domain", value) });
     const availableTopics = topicOptions(current.suggested_domain);
     if (current.suggested_domain && !availableTopics.length) form.createEl("p", { text: "이 지식 영역은 세부 주제를 선택할 필요가 없습니다.", attr: { "data-state": "topicless", style: "color:var(--text-muted);" } });
-    else if (current.suggested_domain) field(form, { label: "세부 주제", name: "suggested_topics", value: current.suggested_topics, select: true, multiple: true, required: true, disabled, options: availableTopics, help: "클릭해 목록을 열고 필요한 주제를 검색·선택하세요.", onChange: (value) => controller.setField("suggested_topics", value) });
+    else if (current.suggested_domain) field(form, { label: "세부 주제", name: "suggested_topics", value: current.suggested_topics, select: true, multiple: true, required: true, disabled, options: availableTopics, help: "선택한 영역에 등록된 주제를 하나 이상 선택하세요.", onChange: (value) => controller.setField("suggested_topics", value) });
     field(form, { label: "적용 계기", name: "application_trigger", value: current.application_trigger, rows: 2, disabled, onChange: (value) => controller.setField("application_trigger", value) });
     field(form, { label: "적용 맥락", name: "application_contexts", value: current.application_contexts.join("\n"), rows: 3, disabled, help: "한 줄에 하나씩 지식 영역 또는 지식 영역/세부 주제를 입력하세요.", onChange: (value) => controller.setField("application_contexts", value) });
     field(form, { label: "연결 Region", name: "connections", value: current.connections, select: true, multiple: true, disabled,

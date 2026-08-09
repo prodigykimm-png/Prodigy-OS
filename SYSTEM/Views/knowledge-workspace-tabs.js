@@ -22,7 +22,7 @@
       ".knowledge-workspace-tab[aria-selected=\"true\"]{color:var(--text-normal);border-bottom-color:var(--text-accent)}",
       ".knowledge-workspace-tab-desc{font-size:var(--ke-type-caption,.64rem);color:var(--text-faint);margin:0 0 var(--ke-space-2,4px)}",
       ".knowledge-workspace-panel{min-height:0}",
-      "@media(max-width:600px){.knowledge-workspace-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}.knowledge-workspace-tab{padding:10px 12px;font-size:var(--ke-type-body,.84rem)}}"
+      "@media(max-width:600px){.knowledge-workspace-tabs{flex-wrap:wrap;overflow:visible}.knowledge-workspace-tab{box-sizing:border-box;flex:1 1 calc(50% - 2px);min-width:0;padding:10px 8px;white-space:normal;line-height:1.25;font-size:var(--ke-type-body,.84rem)}}"
     ].join("\n");
     doc.head.appendChild(style);
   }

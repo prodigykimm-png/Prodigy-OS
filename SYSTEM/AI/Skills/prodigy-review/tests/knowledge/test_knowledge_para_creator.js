@@ -239,10 +239,16 @@ async function main() {
     assert.equal(model.total_links, 1);
     assert.equal(model.links[0].knowledge_path, "ZETA/PERMANENT/Note A");
     assert.equal(model.links[0].source_type, "project");
+    assert.deepEqual(model.source_type_counts, { project: 1 });
+    assert.deepEqual(model.link_counts.by_source, { "PARA/PROJECTS/Proj/2. Proj.md": 1 });
+    assert.equal(projection.getSourceDetail(model, "PARA/PROJECTS/Proj/2. Proj.md").link_count, 1);
   }
 
   // --- PARA view exposes actions + empty-state rendering ---
   const viewSrc = read("SYSTEM/Views/knowledge-para-view.js");
+  assert.match(viewSrc, /knowledge-para-search/, "view renders PARA search");
+  assert.match(viewSrc, /knowledge-para-source-filter/, "view renders source filter");
+  assert.match(viewSrc, /knowledge-para-selected-detail/, "view renders selected detail");
   assert.match(viewSrc, /renderParaActions/, "view renders PARA creator actions");
   assert.match(viewSrc, /ParaObjectCreatorService/, "view uses shared service");
   assert.match(viewSrc, /연결된 지식 없음/, "view has fail-closed empty state");

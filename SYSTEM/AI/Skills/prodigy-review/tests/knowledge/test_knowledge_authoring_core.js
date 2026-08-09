@@ -99,6 +99,22 @@ function testManualStudyNormalizationAndContexts() {
   assert.equal(Object.isFrozen(normalized.application_contexts), true);
   assert.equal(JSON.stringify(input), before);
 }
+function testManualStudyAllowsGeneralNotes() {
+  const input = {
+    ...validManualStudy(),
+    suggested_domain: "",
+    suggested_topics: [],
+    application_contexts: []
+  };
+  const normalized = core.normalizeDirectStudy(input);
+  assert.equal(normalized.suggested_domain, "");
+  assert.deepEqual(clone(normalized.suggested_topics), []);
+  assert.equal(Object.isFrozen(normalized.suggested_topics), true);
+  assert.throws(
+    () => core.normalizeDirectStudy({ ...input, suggested_topics: ["not_registered"] }),
+    /유효하지 않은 지식 주제 경로/
+  );
+}
 
 function testStudyMaterialNormalizationRequiresOneCanonicalSource() {
   // Given: a source-backed Candidate with exactly one canonical Literature Object link.
@@ -209,6 +225,7 @@ function main() {
   testManualStudyNormalizationAndContexts();
   testStudyMaterialNormalizationRequiresOneCanonicalSource();
   testManualAndSourceFailureBoundaries();
+  testManualStudyAllowsGeneralNotes();
   testSourceKindsUrlAndTopicfulTopiclessNormalization();
   testApplicationContextValidation();
   testBoundedBatchNormalization();
