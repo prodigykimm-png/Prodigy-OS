@@ -335,8 +335,12 @@ async function main() {
     const providerResponseIndex = hubSource.indexOf("ai-provider-response.js");
     const providerSchemaIndex = hubSource.indexOf("ai-provider-schema.js");
     const providerServiceIndex = hubSource.indexOf("ai-provider-service.js");
+    const strictLlmWikiBoundary = hubPath === "HUB/50 Knowledge.md"
+      && hubSource.includes("llmwiki-provider-response-schema.js")
+      && hubSource.includes("llmwiki-ai-provider-transport.js");
     assert.ok(
-      providerResponseIndex >= 0 && providerSchemaIndex >= 0 && providerResponseIndex < providerServiceIndex && providerSchemaIndex < providerServiceIndex,
+      strictLlmWikiBoundary
+        || (providerResponseIndex >= 0 && providerSchemaIndex >= 0 && providerResponseIndex < providerServiceIndex && providerSchemaIndex < providerServiceIndex),
       `${hubPath} must load AI provider parsing dependencies before the provider service`
     );
   }

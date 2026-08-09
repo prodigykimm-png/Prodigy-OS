@@ -26,6 +26,7 @@ function testExactThreeTabContract() {
       { id: "zettelkasten", label: "지식 구축 · 제텔카스텐" },
       { id: "para", label: "지식 활용 · PARA" },
       { id: "llmwiki", label: "AI 지식 검토 · LLM Wiki" },
+      { id: "llmwiki-browse", label: "LLMWiki 탐색" },
     ],
   );
 }
@@ -39,7 +40,7 @@ function testAriaRelationshipsAndInMemoryIdentity() {
     onChange(tabId) { state._lastTab = tabId; },
   });
 
-  assert.equal(buttons(container).length, 3);
+  assert.equal(buttons(container).length, 4);
   for (const tab of workspaceTabs.TABS) {
     const button = buttons(container).find((node) => node.attr.id === `knowledge-tab-${tab.id}`);
     const panel = mounted.getPanel(tab.id);
@@ -50,7 +51,7 @@ function testAriaRelationshipsAndInMemoryIdentity() {
     assert.equal(panel.attr.role, "tabpanel");
   }
 
-  for (const tabId of ["para", "llmwiki", "zettelkasten", "llmwiki"]) {
+  for (const tabId of ["para", "llmwiki", "llmwiki-browse", "zettelkasten", "llmwiki"]) {
     mounted.select(tabId);
     assert.equal(state._lastTab, tabId);
     assert.strictEqual(state.activeRun, activeRun);

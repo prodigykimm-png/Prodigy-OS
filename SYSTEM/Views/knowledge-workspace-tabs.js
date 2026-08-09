@@ -111,6 +111,7 @@
     });
 
     function select(tabId) {
+      if (!TABS.some(function (tab) { return tab.id === tabId; })) return;
       activeTab = tabId;
       TABS.forEach(function (tab) {
         var selected = tab.id === activeTab;

@@ -1023,7 +1023,14 @@
 
       const list = continueCard.createEl("div", { attr: { class: "continue-list" } });
       limited.forEach((c) => {
-        const row = list.createEl("div", { attr: { class: "continue-row" } });
+        const target = c.dashboard_path || c.object_path;
+        const row = list.createEl("button", {
+          attr: {
+            type: "button",
+            class: "continue-row",
+            "aria-label": `${c.title} 이어하기`
+          }
+        });
         const meta = row.createEl("div", {
           attr: { style: "display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;" }
         });
@@ -1041,16 +1048,11 @@
             attr: { style: "font-size:0.82em;color:var(--text-accent);font-weight:500;overflow-wrap:anywhere;" }
           });
         }
-        const target = c.dashboard_path || c.object_path;
-        const btn = row.createEl("button", {
+        row.createEl("span", {
           text: "이어하기",
-          attr: {
-            type: "button",
-            class: "action-btn action-btn-primary",
-            "aria-label": `${c.title} 이어하기`
-          }
+          attr: { class: "action-btn action-btn-primary" }
         });
-        btn.onclick = () => openPath(target);
+        row.onclick = () => openPath(target);
       });
     });
 
