@@ -215,6 +215,10 @@ function main() {
       connections: " unrelated "
     }
   ], { path: "PARA/RESOURCES/CONTACTS/테스트 인물.md", name: "테스트 인물" });
+  const titleOnly = core.discoverLinkedObjects([
+    { path: "PARA/PROJECTS/제목만.md", type: "project", title: "테스트 인물", connections: [], outlinks: [], body: "" }
+  ], { path: "PARA/RESOURCES/CONTACTS/테스트 인물.md", name: "테스트 인물" });
+  assert.equal(titleOnly.other.length, 0, "a page title alone is not an explicit People link");
 
   assert.equal(groups.project.length, 1);
   assert.equal(groups.journal.length, 1);

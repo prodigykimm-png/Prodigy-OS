@@ -367,7 +367,7 @@ function isKnownVenueCategory(value) {
         : clean(connections);
       const outlinks = Array.isArray(page.outlinks) ? page.outlinks.map(clean) : [];
       const body = clean(page.body);
-      const haystack = [connectionText, outlinks.join("\n"), body, clean(page.title)].join("\n").toLowerCase();
+      const haystack = [connectionText, outlinks.join("\n"), body].join("\n").toLowerCase();
 
       const linked = peopleLinkHints.some((hint) => {
         if (!hint) return false;
