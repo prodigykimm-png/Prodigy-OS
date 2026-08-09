@@ -1,0 +1,369 @@
+{
+  "architectReview": {
+    "architectureStatus": "CLEAR",
+    "productStatus": "CLEAR",
+    "codeStatus": "CLEAR",
+    "recommendation": "APPROVE",
+    "evidence": "Generation-2 re-review confirms the People provenance repair removes page.title from discoverLinkedObjects matching while retaining explicit connections, outlinks, and body-wikilink matching. Candidate provenance, shared workspace routing, human approval boundaries, and source navigation remain intact. The pre-existing responsive fixture timeout and unobservable native Obsidian window are documented verification limitations, not unresolved defects.",
+    "commands": [
+      "agent://3-G003ArchitectBounded"
+    ],
+    "blockers": []
+  },
+  "executorQa": {
+    "status": "passed",
+    "e2eStatus": "passed",
+    "redTeamStatus": "passed",
+    "evidence": "The repaired source passed the focused People foundation/workspace regression tests, the full G003 targeted suite, and the contract audit. Adversarial checks cover title-only false links, explicit connection/outlink/body links, candidate idempotency, source navigation, route recovery, journal retry, and human approval separation. Browser evidence exercises the actual candidate review module; native Obsidian desktop is not claimed because its window was unobservable.",
+    "e2eCommands": [
+      "node SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_foundation.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_workspace.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_view.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_candidate_handoff.js",
+      "node SYSTEM/SCRIPTS/prodigy-contract-audit.js"
+    ],
+    "redTeamCommands": [
+      "node SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_foundation.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_store.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_workspace_route.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_review_footer.js"
+    ],
+    "artifactRefs": [
+      {
+        "id": "g003-browser",
+        "kind": "browser-automation",
+        "path": "artifacts/g003-knowledge-integration/candidate-review-browser.json",
+        "description": "Live browser transcript for the candidate review module, source navigation, and separate approval controls."
+      },
+      {
+        "id": "g003-browser-screenshot",
+        "kind": "screenshot",
+        "path": "artifacts/g003-knowledge-integration/candidate-review-browser.png",
+        "description": "Non-uniform screenshot captured from the live candidate review surface."
+      },
+      {
+        "id": "g003-adversarial",
+        "kind": "adversarial-test-report",
+        "path": "artifacts/g003-knowledge-integration/adversarial-report.json",
+        "description": "Adversarial provenance and lifecycle checks, including the repaired title-only People case."
+      },
+      {
+        "id": "g003-manifest",
+        "kind": "test-report",
+        "path": "artifacts/g003-knowledge-integration/review-manifest.json",
+        "description": "Frozen source hash and final targeted verification manifest."
+      },
+      {
+        "id": "g003-cleanup",
+        "kind": "test-report",
+        "path": "artifacts/g003-knowledge-integration/ai-slop-cleanup-report.json",
+        "description": "Read-only cleanup report for the frozen change set."
+      }
+    ],
+    "contractCoverage": [
+      {
+        "id": "cc1",
+        "contractRef": "G003-candidate-provenance",
+        "obligation": "Repeat saves reuse one canonical Candidate path for the same stable source identity.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["s1"],
+        "adversarialCaseRefs": ["a1", "a2"]
+      },
+      {
+        "id": "cc2",
+        "contractRef": "G003-candidate-collision",
+        "obligation": "Different stable source identities do not overwrite or collapse one another.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["s2"],
+        "adversarialCaseRefs": ["a3"]
+      },
+      {
+        "id": "cc3",
+        "contractRef": "G003-review-route",
+        "obligation": "Every successful cross-workspace handoff exposes a recoverable route to Candidate review.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["s3"],
+        "adversarialCaseRefs": ["a4"]
+      },
+      {
+        "id": "cc4",
+        "contractRef": "G003-source-navigation",
+        "obligation": "Candidate review opens the explicit source Object without conflating it with approval.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["s4"],
+        "adversarialCaseRefs": ["a5"]
+      },
+      {
+        "id": "cc5",
+        "contractRef": "G003-journal-retry",
+        "obligation": "A failed Daily handoff preserves retry state and does not create a partial duplicate.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["s5"],
+        "adversarialCaseRefs": ["a6"]
+      },
+      {
+        "id": "cc6",
+        "contractRef": "G004-people-provenance-regression",
+        "obligation": "People discovery requires an explicit connection, outlink, or body wikilink and ignores title-only coincidence.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["s6"],
+        "adversarialCaseRefs": ["a7", "a8"]
+      },
+      {
+        "id": "cc7",
+        "contractRef": "G003-type-separation",
+        "obligation": "Approved Knowledge, Candidate, and Literature Note remain visibly distinct types and actions.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["s7"],
+        "adversarialCaseRefs": ["a9"]
+      },
+      {
+        "id": "cc8",
+        "contractRef": "G003-human-approval",
+        "obligation": "No AI or workspace handoff automatically approves a Candidate or promotes it to Knowledge.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["s8"],
+        "adversarialCaseRefs": ["a10"]
+      },
+      {
+        "id": "cc9",
+        "contractRef": "G003-body-boundary",
+        "obligation": "Handoffs preserve stable IDs and source links without copying Evidence bodies into Candidate content.",
+        "status": "covered",
+        "surfaceEvidenceRefs": ["s9"],
+        "adversarialCaseRefs": ["a11", "a12"]
+      }
+    ],
+    "surfaceEvidence": [
+      {
+        "id": "s1",
+        "contractRef": "G003-candidate-provenance",
+        "surface": "api",
+        "invocation": "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_store.js and node SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_store_loop.js",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial", "g003-manifest"]
+      },
+      {
+        "id": "s2",
+        "contractRef": "G003-candidate-collision",
+        "surface": "api",
+        "invocation": "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_store.js",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial", "g003-manifest"]
+      },
+      {
+        "id": "s3",
+        "contractRef": "G003-review-route",
+        "surface": "api",
+        "invocation": "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_workspace_route.js",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial", "g003-manifest"]
+      },
+      {
+        "id": "s4",
+        "contractRef": "G003-source-navigation",
+        "surface": "web",
+        "invocation": "browser_tool: load the frozen KnowledgeCandidateView, mount Candidate Inbox, observe #app, click the explicit source button, and capture the rendered review surface",
+        "verdict": "passed",
+        "artifactRefs": ["g003-browser", "g003-browser-screenshot"]
+      },
+      {
+        "id": "s5",
+        "contractRef": "G003-journal-retry",
+        "surface": "api",
+        "invocation": "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_review_footer.js and node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_candidate_handoff.js",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial", "g003-manifest"]
+      },
+      {
+        "id": "s6",
+        "contractRef": "G004-people-provenance-regression",
+        "surface": "api",
+        "invocation": "node SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_foundation.js and node SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_workspace.js",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial", "g003-manifest"]
+      },
+      {
+        "id": "s7",
+        "contractRef": "G003-type-separation",
+        "surface": "web",
+        "invocation": "browser_tool: mount Candidate review with approved and unapproved records and observe separate labels/actions",
+        "verdict": "passed",
+        "artifactRefs": ["g003-browser", "g003-browser-screenshot"]
+      },
+      {
+        "id": "s8",
+        "contractRef": "G003-human-approval",
+        "surface": "web",
+        "invocation": "browser_tool: observe Candidate review approval controls separately from source navigation",
+        "verdict": "passed",
+        "artifactRefs": ["g003-browser", "g003-browser-screenshot"]
+      },
+      {
+        "id": "s9",
+        "contractRef": "G003-body-boundary",
+        "surface": "api",
+        "invocation": "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_candidate_handoff.js and node SYSTEM/SCRIPTS/prodigy-contract-audit.js",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial", "g003-manifest"]
+      }
+    ],
+    "adversarialCases": [
+      {
+        "id": "a1",
+        "contractRef": "G003-candidate-provenance",
+        "scenario": "Save the same stable candidate twice.",
+        "expectedBehavior": "The existing canonical Candidate path is reused and no duplicate file is created.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial"]
+      },
+      {
+        "id": "a2",
+        "contractRef": "G003-candidate-provenance",
+        "scenario": "Repeat a handoff after the source already has a canonical candidate id.",
+        "expectedBehavior": "The canonical candidate identity remains stable.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial"]
+      },
+      {
+        "id": "a3",
+        "contractRef": "G003-candidate-collision",
+        "scenario": "Two sources have similar titles but different stable IDs.",
+        "expectedBehavior": "They remain separate candidates.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial"]
+      },
+      {
+        "id": "a4",
+        "contractRef": "G003-review-route",
+        "scenario": "The target Knowledge workspace is unavailable while opening review.",
+        "expectedBehavior": "The route returns false, clears stale focus, and leaves a recoverable notice.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial"]
+      },
+      {
+        "id": "a5",
+        "contractRef": "G003-source-navigation",
+        "scenario": "Click 원본 열기 from Candidate review.",
+        "expectedBehavior": "The canonical source Object is opened and approval remains a separate action.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-browser", "g003-browser-screenshot"]
+      },
+      {
+        "id": "a6",
+        "contractRef": "G003-journal-retry",
+        "scenario": "Daily candidate persistence fails once and is retried.",
+        "expectedBehavior": "The review action stays disabled until save succeeds and retry remains available without a partial duplicate.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial"]
+      },
+      {
+        "id": "a7",
+        "contractRef": "G004-people-provenance-regression",
+        "scenario": "A source page title equals the person name while connections, outlinks, and body are empty.",
+        "expectedBehavior": "People discovery ignores the page.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial"]
+      },
+      {
+        "id": "a8",
+        "contractRef": "G004-people-provenance-regression",
+        "scenario": "The person is referenced through a connection, outlink, or body wikilink.",
+        "expectedBehavior": "The explicit link is retained in the corresponding People bucket.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial"]
+      },
+      {
+        "id": "a9",
+        "contractRef": "G003-type-separation",
+        "scenario": "People view contains approved Knowledge, an unapproved Candidate, and a Literature Note.",
+        "expectedBehavior": "Each type and its available action remain distinct.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial"]
+      },
+      {
+        "id": "a10",
+        "contractRef": "G003-human-approval",
+        "scenario": "A Daily or Reading handoff reaches Candidate review.",
+        "expectedBehavior": "The handoff does not approve or promote knowledge automatically and preserves source provenance.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial", "g003-browser"]
+      },
+      {
+        "id": "a11",
+        "contractRef": "G003-body-boundary",
+        "scenario": "A Daily handoff includes stable Evidence IDs and explicit source Objects.",
+        "expectedBehavior": "The Candidate records provenance links without copying the Evidence body.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial", "g003-manifest"]
+      },
+      {
+        "id": "a12",
+        "contractRef": "G003-body-boundary",
+        "scenario": "The same source is handed off repeatedly after the first Candidate save.",
+        "expectedBehavior": "Stable identifiers and source links remain canonical and no duplicate body is introduced.",
+        "verdict": "passed",
+        "artifactRefs": ["g003-adversarial", "g003-manifest"]
+      }
+    ],
+    "blockers": []
+  },
+  "criticReview": {
+    "verdict": "OKAY",
+    "sourceHash": "sha256:4abe1b634dcfbe753add56fc270c825b8df47ecf0b1f932ae776ddcdbeaf3c4c",
+    "evidence": "Read-only terminal review confirms stable candidate provenance and idempotency, explicit Daily/Reading source links, shared Knowledge review routing, separate source navigation and human approval, and the People title-only false-link repair with regression coverage. Generation-2 architecture is CLEAR, QA/red-team and cleanup report no blockers. Browser transcript and screenshot exercise the actual Candidate review module; native Obsidian desktop remains unobserved and the pre-existing responsive readiness timeout remains a documented limitation rather than an unresolved defect.",
+    "blockers": []
+  },
+  "iteration": {
+    "status": "passed",
+    "evidence": "The repaired source was fully rerun through the final targeted suite, contract audit, browser evidence capture, cleanup review, architect review, and executor red-team review. No blocking findings remain. Native Obsidian desktop was not claimed; the documented responsive fixture timeout predates this repair.",
+    "fullRerun": true,
+    "rerunCommands": [
+      "node SYSTEM/SCRIPTS/prodigy-contract-audit.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_foundation.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_workspace.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_store.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_view.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_hub_integration.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_workspace_route.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_store_loop.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_candidate_lifecycle.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_workspace.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_candidate_handoff.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_modal.js",
+      "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_review_footer.js"
+    ],
+    "reviewCohort": {
+      "reviewGeneration": 2,
+      "sourceHash": "sha256:4abe1b634dcfbe753add56fc270c825b8df47ecf0b1f932ae776ddcdbeaf3c4c",
+      "joined": true,
+      "deltaOnly": true,
+      "priorGenerationSourceHash": "sha256:3edce22602a8aee232629527b56664cc727610a5d53db3bf80cd250ebec0c24",
+      "deltaPaths": [
+        "SYSTEM/Views/people-core.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_foundation.js"
+      ],
+      "lanes": {
+        "cleaner": {
+          "status": "passed",
+          "sourceHash": "sha256:4abe1b634dcfbe753add56fc270c825b8df47ecf0b1f932ae776ddcdbeaf3c4c",
+          "evidence": "AI SLOP CLEANUP REPORT: zero blocking findings after the title-only People provenance repair.",
+          "blockers": []
+        },
+        "architect": {
+          "status": "CLEAR",
+          "sourceHash": "sha256:4abe1b634dcfbe753add56fc270c825b8df47ecf0b1f932ae776ddcdbeaf3c4c",
+          "evidence": "Generation-2 architect re-review of the repaired People matcher and its regression coverage; architecture, product, and code statuses are CLEAR.",
+          "blockers": []
+        },
+        "qa": {
+          "status": "passed",
+          "sourceHash": "sha256:4abe1b634dcfbe753add56fc270c825b8df47ecf0b1f932ae776ddcdbeaf3c4c",
+          "evidence": "Generation-2 executor QA passed the focused suites and all listed adversarial cases; browser source-navigation evidence is valid and native desktop is explicitly unclaimed.",
+          "blockers": []
+        }
+      }
+    },
+    "blockers": []
+  }
+}
