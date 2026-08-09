@@ -79,6 +79,11 @@ async function testHubMountsAuthoringActionsWithoutChangingExplorerProjection() 
   // When: the Knowledge Hub mounts its authoring actions.
   const result = await runHub({ pages });
   const beforeTotals = { ...result.window.KnowledgeExplorerHub.model.totals };
+  const review = firstElement(result.container, "button", (node) => node.text === "검증 대기 열기");
+  assert.ok(review, "candidate review launcher must be visible");
+  review.onclick({ preventDefault() {} });
+  assert.equal(result.window.KnowledgeExplorerHub.api.state().focusPane, "detail");
+  assert.match(collectText(result.container), /검증 대기 0/);
   const direct = firstElement(result.container, "button", (node) => node.text === "+ 지식 작성");
   const material = firstElement(result.container, "button", (node) => node.text === "+ 문헌노트 작성");
 
