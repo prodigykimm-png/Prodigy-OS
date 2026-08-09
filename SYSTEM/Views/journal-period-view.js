@@ -248,7 +248,11 @@
       var panel = panels[selected];
       panel.empty();
       if (selected === "daily") return opts.renderDaily(panel);
-      if (selected === "weekly") return opts.renderWeekly(panel);
+      if (selected === "weekly") {
+        var child = opts.renderWeekly(panel);
+        activeChildController = child && typeof child.destroy === "function" ? child : null;
+        return child;
+      }
       return renderLongPeriod(panel, selected, periodKeys[selected], app, function (nextKey) {
         periodKeys[selected] = nextKey;
         return render();

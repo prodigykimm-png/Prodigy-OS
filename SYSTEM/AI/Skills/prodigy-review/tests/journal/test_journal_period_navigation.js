@@ -58,6 +58,7 @@ async function main() {
     yearly: [{ key: previousYear, display: core.periodDisplay("yearly", previousYear), title: "이전 연간 기록", path: "DAILY/YEARLY/2025.md", content: "이전 연간 기록 본문" }]
   };
   let monthlyDestroyCount = 0;
+  let weeklyDestroyCount = 0;
   try {
     global.JournalPeriodCore = core;
     global.ProdigyAdaptiveControls = controls;
@@ -78,11 +79,18 @@ async function main() {
       container: root,
       logicalWidth: tokens.BREAKPOINTS.wide,
       renderDaily: (container) => container.createEl("p", { text: "Daily" }),
-      renderWeekly: (container) => container.createEl("p", { text: "Weekly" })
+      renderWeekly: (container) => {
+        container.createEl("p", { text: "Weekly" });
+        return { destroy: () => { weeklyDestroyCount += 1; } };
+      }
     });
-
+    controller.select("weekly");
+    await waitForRender();
+    assert.ok(findAll(root, (element) => element.text === "Weekly").length, "Weekly renders when selected");
     controller.select("monthly");
     await waitForRender();
+    assert.equal(weeklyDestroyCount, 1, "switching periods destroys the Weekly child controller");
+
     assert.ok(findAll(root, (element) => element.text === "현재 월간 기록 본문").length, "Monthly shows the selected saved record");
     const previousMonthButton = findAll(root, (element) => element.tag === "button" && element.text === "이전 달")[0];
     assert.ok(previousMonthButton, "Monthly exposes previous-period navigation");

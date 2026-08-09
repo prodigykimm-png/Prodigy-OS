@@ -216,8 +216,17 @@
 
   async function ensureFolder(app) {
     if (!app || !app.vault) throw new Error("Vault를 사용할 수 없습니다.");
-    if (app.vault.getAbstractFileByPath(FOLDER)) return;
-    await app.vault.createFolder(FOLDER);
+    var current = "";
+    var parts = FOLDER.split("/");
+    for (var i = 0; i < parts.length; i++) {
+      current = current ? current + "/" + parts[i] : parts[i];
+      if (app.vault.getAbstractFileByPath(current)) continue;
+      try {
+        await app.vault.createFolder(current);
+      } catch (error) {
+        if (!app.vault.getAbstractFileByPath(current)) throw error;
+      }
+    }
   }
 
   async function read(app, week) {

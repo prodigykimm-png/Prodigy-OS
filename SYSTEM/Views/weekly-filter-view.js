@@ -92,7 +92,7 @@
       currentWeek = core.currentISOWeek(new Date());
     }
     dateInput.value = selectedDate;
-    var state = { review: null, evidenceItems: [], aiEnhanced: false, loading: false, aiLoading: false };
+    var state = { review: null, evidenceItems: [], aiEnhanced: false, loading: false, aiLoading: false, saving: false, aiRequestId: 0, aiAbortController: null, loadRequestId: 0, destroyed: false };
 
     function setStatus(msg, isError) {
       statusLine.textContent = msg || "";
@@ -105,7 +105,9 @@
     }
 
     async function load() {
-      if (state.loading) return;
+      if (state.destroyed || state.loading || state.saving) return null;
+      var loadRequestId = state.loadRequestId + 1;
+      state.loadRequestId = loadRequestId;
       state.loading = true;
       state.aiEnhanced = false;
       aiBtn.disabled = true;
@@ -117,6 +119,7 @@
         var savedReview = root.WeeklyReviewStore && typeof root.WeeklyReviewStore.read === "function"
           ? await root.WeeklyReviewStore.read(app, currentWeek)
           : null;
+        if (state.destroyed || loadRequestId !== state.loadRequestId) return null;
         if (savedReview) result.review = savedReview;
         state.review = result.review;
         state.evidenceItems = result.evidenceItems;
@@ -125,15 +128,22 @@
         renderCurrent();
         aiBtn.disabled = false;
         saveBtn.disabled = false;
+        return result;
       } catch (err) {
+        if (state.destroyed || loadRequestId !== state.loadRequestId) return null;
         setStatus("주간 리뷰를 생성하지 못했습니다: " + (err.message || err), true);
         contentArea.empty();
+        return null;
       } finally {
         state.loading = false;
       }
     }
 
     function loadForDate(nextDate) {
+      if (state.destroyed || state.loading || state.saving || state.aiLoading) {
+        setStatus("현재 작업이 끝난 뒤 주차를 변경해 주세요.", true);
+        return Promise.resolve();
+      }
       var nextWeek = core.isoWeekForDate(nextDate);
       if (!nextWeek) {
         setStatus("유효한 날짜를 선택해 주세요.", true);
@@ -147,11 +157,19 @@
     }
 
     async function runAI() {
-      if (state.aiLoading || !state.review || !state.evidenceItems.length) return;
+      if (state.destroyed || state.aiLoading || state.saving || !state.review || !state.evidenceItems.length) return null;
       var ai = root.WeeklyFilterAI;
-      if (!ai) { setStatus("WeeklyFilterAI 모듈이 로드되지 않았습니다.", true); return; }
+      if (!ai) { setStatus("WeeklyFilterAI 모듈이 로드되지 않았습니다.", true); return null; }
+      var requestId = state.aiRequestId + 1;
+      state.aiRequestId = requestId;
+      var AbortControllerCtor = typeof root.AbortController === "function"
+        ? root.AbortController
+        : (typeof AbortController === "function" ? AbortController : null);
+      var abortController = AbortControllerCtor ? new AbortControllerCtor() : null;
+      state.aiAbortController = abortController;
       state.aiLoading = true;
-      aiBtn.disabled = true;
+      aiBtn.disabled = false;
+      aiBtn.textContent = "AI 분석 취소";
       refreshBtn.disabled = true;
       saveBtn.disabled = true;
       setStatus("AI가 주간 Evidence를 분석 중입니다...");
@@ -159,36 +177,77 @@
         var aiResult = await ai.generateWeeklyAI({
           app: app,
           review: state.review,
-          evidenceItems: state.evidenceItems
+          evidenceItems: state.evidenceItems,
+          signal: abortController ? abortController.signal : undefined
         });
+        if (requestId !== state.aiRequestId || !state.aiLoading) return null;
         state.review = ai.mergeAIIntoReview(state.review, aiResult);
         state.aiEnhanced = true;
         setStatus("AI 학습 분석 완료 (" + (aiResult.provider || "") + " / " + (aiResult.model || "") + ")");
         renderCurrent();
+        return aiResult;
       } catch (err) {
+        if (requestId !== state.aiRequestId || !state.aiLoading) return null;
         setStatus("AI 분석 실패: " + (err.message || err) + " — deterministic 결과만 표시됩니다.", true);
+        return null;
       } finally {
-        state.aiLoading = false;
-        aiBtn.disabled = false;
-        refreshBtn.disabled = false;
-        saveBtn.disabled = false;
+        if (requestId === state.aiRequestId) {
+          state.aiLoading = false;
+          state.aiAbortController = null;
+          aiBtn.disabled = false;
+          aiBtn.textContent = "AI 학습 분석";
+          refreshBtn.disabled = false;
+          saveBtn.disabled = false;
+        }
       }
     }
 
+    function cancelAI() {
+      if (!state.aiLoading) return false;
+      state.aiRequestId += 1;
+      if (state.aiAbortController && typeof state.aiAbortController.abort === "function") {
+        state.aiAbortController.abort();
+      }
+      state.aiAbortController = null;
+      state.aiLoading = false;
+      aiBtn.disabled = false;
+      aiBtn.textContent = "AI 학습 분석";
+      refreshBtn.disabled = false;
+      saveBtn.disabled = false;
+      setStatus("AI 분석을 취소했습니다. 결정적 결과를 유지합니다.");
+      return true;
+    }
+
     async function saveReview() {
-      if (!state.review || state.loading || state.aiLoading) return;
+      if (state.destroyed || !state.review || state.loading || state.aiLoading || state.saving) return null;
       var store = root.WeeklyReviewStore;
-      if (!store) { setStatus("WeeklyReviewStore 모듈이 로드되지 않았습니다.", true); return; }
+      if (!store) { setStatus("WeeklyReviewStore 모듈이 로드되지 않았습니다.", true); return null; }
+      state.saving = true;
       saveBtn.disabled = true;
       setStatus("주간 리뷰를 저장 중입니다...");
       try {
         var result = await store.save(app, state.review);
-        setStatus("주간 리뷰 저장 완료: " + result.path);
+        if (!state.destroyed) setStatus("주간 리뷰 저장 완료: " + result.path);
+        return result;
       } catch (err) {
-        setStatus("주간 리뷰 저장 실패: " + (err.message || err), true);
+        if (!state.destroyed) setStatus("주간 리뷰 저장 실패: " + (err.message || err), true);
+        return null;
       } finally {
-        saveBtn.disabled = false;
+        state.saving = false;
+        if (!state.destroyed) saveBtn.disabled = false;
       }
+    }
+
+    function destroy() {
+      if (state.destroyed) return;
+      state.destroyed = true;
+      state.loadRequestId += 1;
+      state.aiRequestId += 1;
+      if (state.aiAbortController && typeof state.aiAbortController.abort === "function") {
+        state.aiAbortController.abort();
+      }
+      state.aiAbortController = null;
+      state.aiLoading = false;
     }
 
     refreshBtn.onclick = function () { return load(); };
@@ -196,10 +255,10 @@
     nextWeekBtn.onclick = function () { return loadForDate(core.shiftISODate(selectedDate, 7)); };
     todayBtn.onclick = function () { return loadForDate(core.formatDate(new Date())); };
     dateInput.onchange = function () { return loadForDate(dateInput.value); };
-    aiBtn.onclick = function () { runAI(); };
-    saveBtn.onclick = function () { saveReview(); };
+    aiBtn.onclick = function () { return state.aiLoading ? cancelAI() : runAI(); };
+    saveBtn.onclick = function () { return saveReview(); };
     var ready = load();
-    return Object.freeze({ wrapper: wrapper, ready: ready, reload: load, selectDate: loadForDate, runAI: runAI, save: saveReview });
+    return Object.freeze({ wrapper: wrapper, ready: ready, reload: load, selectDate: loadForDate, runAI: runAI, cancelAI: cancelAI, save: saveReview, destroy: destroy });
   }
 
   var api = Object.freeze({ mountWeeklyFilter: mountWeeklyFilter, buildReviewFromVault: buildReviewFromVault });
