@@ -48,6 +48,8 @@
       "- Keep outcomes attached to the correct subject or asset; never merge my result with another person's or asset's result.",
       "- Evidence titles must be factual, retrieval-sized, and 40 characters or fewer.",
       "- Concrete reusable self-directives may become Knowledge candidates; slogans or encouragement must not.",
+      "- Knowledge candidates must use a short word-sized title/headword plus distinct reusable detail; never duplicate title and detail.",
+      "- suggested_domain and suggested_topics must be both empty or a registry-valid domain/topic pair; never emit topics without a domain.",
       "- Return at most one knowledge candidate for the same Evidence source set; merge synonymous candidates."
     ].join("\n");
   }

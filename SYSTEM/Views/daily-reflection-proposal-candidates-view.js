@@ -16,12 +16,18 @@
     group.createEl("h4", { text: "지식 후보" });
     items.forEach((item, index) => {
       const row = group.createEl("div", { attr: { class: "reflection-candidate-row is-knowledge" } });
-      const check = row.createEl("input", { attr: { type: "checkbox", "aria-label": `${item.label || "지식 후보"} 저장 후보 선택` } });
+      const title = item.title || item.label || "지식 후보";
+      const check = row.createEl("input", { attr: { type: "checkbox", "aria-label": `${title} 저장 후보 선택` } });
       check.checked = modal.candidateHandoff.selectedIndexes.has(index);
       check.onchange = () => check.checked ? modal.candidateHandoff.selectedIndexes.add(index) : modal.candidateHandoff.selectedIndexes.delete(index);
-      const input = row.createEl("input", { attr: { type: "text", "aria-label": "지식 후보" } });
-      input.value = item.label || "";
-      input.oninput = () => { item.label = input.value; };
+      const titleInput = row.createEl("input", { attr: { type: "text", "aria-label": "지식 후보 표제" } });
+      titleInput.value = item.title || item.label || "";
+      titleInput.oninput = () => { if ("title" in item || "detail" in item) item.title = titleInput.value; else item.label = titleInput.value; };
+      if ("title" in item || "detail" in item) {
+        const detailInput = row.createEl("input", { attr: { type: "text", "aria-label": "지식 후보 세부내용" } });
+        detailInput.value = item.detail || "";
+        detailInput.oninput = () => { item.detail = detailInput.value; };
+      }
       confidenceSelect(row, item);
       const remove = row.createEl("button", { text: "삭제", attr: { type: "button", class: "prodigy-btn prodigy-btn-danger" } });
       remove.onclick = () => { items.splice(index, 1); root.DailyReflectionCandidateHandoffView.removeIndex(modal.candidateHandoff, index); modal.render(); };

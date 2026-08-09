@@ -10,6 +10,7 @@
   const reviewApi = root.LLMWikiApprovalReviewCommit || (typeof require === "function" ? require("./llmwiki-approval-review-commit.js") : null);
   const commitApi = root.LLMWikiDeterministicCommit || (typeof require === "function" ? require("./llmwiki-deterministic-commit.js") : null);
   const adapterApi = root.LLMWikiObsidianAdapter || (typeof require === "function" ? require("./llmwiki-obsidian-adapter.js") : null);
+  const configApi = root.ProdigyConfigService || (typeof require === "function" ? require("./prodigy-config-service.js") : null);
   const refreshApi = root.LLMWikiDerivedRefresh || (typeof require === "function" ? require("./llmwiki-derived-refresh.js") : null);
 
   const CONTROLLER_VERSION = "llmwiki_run_controller_v1";
@@ -17,7 +18,7 @@
   const HASH = /^[0-9a-f]{64}$/u;
   const COUNTER_KEYS = Object.freeze(["provider", "network", "canonical", "audit", "refresh", "git", "authorization"]);
   const RECOVERY_COUNTER_KEYS = Object.freeze(["audit_repair", "refresh_retry", "stale_repacket"]);
-  const TAB_IDS = Object.freeze(["zettelkasten", "para", "llm_wiki"]);
+  const TAB_IDS = Object.freeze(["zettelkasten", "para", "llmwiki", "llmwiki-browse"]);
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
@@ -39,18 +40,28 @@
     return Object.keys(intent).every((key) => allowed.has(key));
   }
 
-  function providerSelection(command) {
+  function providerSelection(command, config) {
     const legacyMode = trim(command.provider && (command.provider.mode || command.provider.provider_mode));
     if (legacyMode === "omniroute") return { ok: false, reason: "omniroute_requires_advanced_selection" };
     const advanced = plain(command.advanced_settings) ? command.advanced_settings : {};
     const mode = trim(advanced.provider_mode || "direct");
     if (!["direct", "omniroute"].includes(mode)) return { ok: false, reason: "invalid_provider_mode" };
-    const providerKey = trim(advanced.provider_key || (mode === "omniroute" ? "omniroute" : "direct"));
+    const resolver = configApi && configApi.resolveAIProfileProviderKey;
+    if (typeof resolver !== "function") return { ok: false, reason: "configuration_unavailable" };
+    let resolved;
+    try {
+      resolved = resolver(config, "llmwiki", mode);
+    } catch (_) {
+      return { ok: false, reason: "configuration_invalid" };
+    }
+    if (!resolved || resolved.ok !== true) return { ok: false, reason: resolved && resolved.code || "provider_unavailable" };
+    const requestedKey = trim(advanced.provider_key);
+    if (requestedKey && requestedKey !== resolved.provider_key) return { ok: false, reason: "provider_identity_mismatch" };
     const timeoutMs = Number(advanced.timeout_ms || 5000);
     return { ok: true, value: {
-      mode, timeout_ms: timeoutMs,
+      mode, provider_key: resolved.provider_key, provider: resolved.provider, timeout_ms: timeoutMs,
       retry_owner: mode === "omniroute" ? "gateway" : "prodigy",
-      request_metadata: { request_id: `request_${command.run_id}`, provider_key: providerKey },
+      request_metadata: { request_id: `request_${command.run_id}`, provider_key: resolved.provider_key },
     } };
   }
 
@@ -78,7 +89,7 @@
     };
   }
 
-  function boundedTransport(transport, request, signal) {
+  function boundedTransport(transport, request, signal, context = {}) {
     return new Promise((resolve, reject) => {
       let settled = false;
       const aborted = () => {
@@ -97,7 +108,8 @@
         if (signal.aborted) return aborted();
         signal.addEventListener("abort", aborted, { once: true });
       }
-      Promise.resolve().then(() => transport(request, { signal })).then((value) => finish(resolve, value), (error) => finish(reject, error));
+      const requestOptions = plain(context) ? { signal, ...context } : { signal };
+      Promise.resolve().then(() => transport(request, requestOptions)).then((value) => finish(resolve, value), (error) => finish(reject, error));
     });
   }
 
@@ -220,7 +232,7 @@
     async function startRun(command) {
       if (!plain(command) || !ID.test(trim(command.run_id))) return rejectWithoutMutation("invalid_run_id", { status: "failed" });
       if (!explicitSources(command)) return rejectWithoutMutation("explicit_source_selection_required", { status: "failed" });
-      const provider = providerSelection(command);
+      const provider = providerSelection(command, options.config);
       if (!provider.ok) return rejectWithoutMutation(provider.reason, { status: "failed" });
       const consentCommandHash = packetApi.sha256(stable({
         run_id: command.run_id,
@@ -296,7 +308,7 @@
             transport: async (normalized) => {
               counters.provider += 1;
               counters.network += 1;
-              return boundedTransport(options.transport, normalized, token.abort_controller && token.abort_controller.signal);
+              return boundedTransport(options.transport, normalized, token.abort_controller && token.abort_controller.signal, { consent: consentArtifact });
             },
           });
         },

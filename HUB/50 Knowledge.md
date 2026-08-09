@@ -35,12 +35,8 @@ KnowledgeExplorerHub.modulePaths = [
   "SYSTEM/Views/knowledge-source-batch-controller.js",
   "SYSTEM/Views/knowledge-source-batch-render.js",
   "SYSTEM/Views/knowledge-source-batch-view.js",
-  "SYSTEM/Views/ai-provider-response.js",
-  "SYSTEM/Views/ai-provider-schema.js",
   "SYSTEM/Views/ai-provider-error-policy.js",
   "SYSTEM/Views/ai-provider-fallback.js",
-  "SYSTEM/Views/codex-exec-service.js",
-  "SYSTEM/Views/antigravity-exec-service.js",
   "SYSTEM/Views/ai-provider-service.js",
   "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",
@@ -75,6 +71,12 @@ KnowledgeExplorerHub.modulePaths = [
   "SYSTEM/Views/llmwiki-derived-refresh.js",
   "SYSTEM/Views/llmwiki-run-controller.js",
   "SYSTEM/Views/llmwiki-lifecycle-view.js",
+  "SYSTEM/Views/llmwiki-ui-recovery.js",
+  "SYSTEM/Views/llmwiki-provider-response-schema.js",
+  "SYSTEM/Views/llmwiki-ai-provider-transport.js",
+  "SYSTEM/Views/llmwiki-wiki-read-adapter.js",
+  "SYSTEM/Views/llmwiki-wiki-read-service.js",
+  "SYSTEM/Views/llmwiki-wiki-surface.js",
   "SYSTEM/Views/knowledge-workspace-tabs.js",
   "SYSTEM/Views/para-object-creator-service.js",
   "SYSTEM/Views/knowledge-para-projection.js",
@@ -101,7 +103,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const shell = window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, workspaceId: "knowledge", title: "지식" });
     const workspaceBody = shell.body;
     const P = window.KnowledgeExplorerHubProjection;
-    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiLibrarianPipeline || !window.LLMWikiOutboundConsent || !window.LLMWikiRunState || !window.LLMWikiCanonicalPacket || !window.LLMWikiObsidianAdapter || !window.LLMWikiDerivedRefresh || !window.LLMWikiRunController || !window.LLMWikiLifecycleView || !window.LLMWikiApprovalReviewView || !window.LLMWikiDeterministicCommit) {
+    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiLifecycleView || !window.LLMWikiProviderResponseSchema || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface) {
       throw new Error("Knowledge Explorer modules failed to load.");
     }
     const dataSource = window.KnowledgeExplorerDataSource.createKnowledgeExplorerDataSource({
@@ -162,15 +164,17 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       onCreated: () => retry()
     });
 
-    // LLM Wiki 탭: controller가 소유하는 단일 lifecycle surface
+    // LLMWiki lifecycle tab: provider-backed proposal flow remains consent-first.
     const llmWikiPanel = tabs.getPanel("llmwiki");
+    const browsePanel = tabs.getPanel("llmwiki-browse");
     const llmWikiControllerOptions = { ...(KnowledgeExplorerHub.llmWikiControllerOptions || {}) };
+    const llmWikiConfig = await window.ProdigyConfigService.load(appRef);
     let selectedProviderMode = "direct";
-    let startupFailure = null;
-    let startupStatus = null;
     let selectedSource = null;
-    let selectedRunCommand = null;
     let sourceOptions = [];
+    let startupFailure = "";
+    let startupStatus = null;
+    let selectedRunCommand = null;
     const llmWikiHash = window.LLMWikiHash;
     const validSourceId = (value) => /^[a-z][a-z0-9_-]{2,127}$/u.test(String(value || "").trim());
     const eligibleSources = async () => {
@@ -180,44 +184,64 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         if (!file || typeof file.path !== "string" || !file.path.startsWith("ZETA/LITERATURE/") || !file.path.endsWith(".md")) continue;
         try {
           const source = await window.KnowledgeSourceStore.readSource(appRef, file.path);
-          if (!validSourceId(source.source_id) || !["public", "synthetic"].includes(String(source.sensitivity || source.source_kind || "").trim()) || !/^https?:\/\//u.test(String(source.source_url || "")) || !String(source.body || "").trim()) continue;
-          const outboundText = String(source.body || "").trim();
-          if (!outboundText) continue;
-          const contentHash = llmWikiHash.sha256(outboundText);
-          options.push(Object.freeze({ path: file.path, title: String(source.source_title || file.basename || file.path).trim(), source_id: source.source_id, content_hash: contentHash }));
+          const sensitivity = String(source.sensitivity || source.source_kind || "").trim();
+          const body = String(source.body || "").trim();
+          if (!validSourceId(source.source_id) || !["public", "synthetic"].includes(sensitivity) || !/^https?:\/\//u.test(String(source.source_url || "")) || !body) continue;
+          options.push(Object.freeze({ path: file.path, title: String(source.source_title || file.basename || file.path).trim(), source_id: source.source_id, content_hash: llmWikiHash.sha256(body) }));
         } catch (_error) {}
       }
       return options.sort((left, right) => left.title.localeCompare(right.title, "ko"));
     };
+    const resolveProvider = (mode) => window.ProdigyConfigService.resolveAIProfileProviderKey(llmWikiConfig, "llmwiki", mode);
     const defaultRunCommand = async (sourcePath, providerMode) => {
       const option = sourceOptions.find((item) => item.path === sourcePath);
-      if (!option) return null;
+      const selectedProvider = resolveProvider(providerMode);
+      if (!option || !selectedProvider || selectedProvider.ok !== true) return null;
       const source = await window.KnowledgeSourceStore.readSource(appRef, option.path);
-      const outboundText = String(source.body || "").trim();
-      const contentHash = llmWikiHash.sha256(outboundText);
-      if (!outboundText || contentHash !== option.content_hash || source.source_id !== option.source_id) return null;
+      const body = String(source.body || "").trim();
+      const contentHash = llmWikiHash.sha256(body);
+      if (!body || contentHash !== option.content_hash || source.source_id !== option.source_id) return null;
       const now = new Date().toISOString();
       const runId = `run_${llmWikiHash.sha256(`${option.path}:${contentHash}`).slice(0, 24)}`;
-      const manifest = {
-        source_id: option.source_id, content_hash: contentHash, requested_url: source.source_url, source_url: source.source_url,
-        fetched_at: now, parser_version: "knowledge_literature_picker_v1", extracted_text_hash: llmWikiHash.sha256(outboundText),
-        locator: option.path, refresh_revision: 1, raw_bytes: outboundText,
-        fetch_metadata: { requested_url: source.source_url, resolved_url: source.source_url, content_hash: contentHash },
-      };
       return {
         run_id: runId,
-        sources: [{ selected: true, display_name: option.title, sensitivity: "public", confidence: "explicit", outbound_text: outboundText, manifest }],
+        sources: [{ selected: true, display_name: option.title, sensitivity: "public", confidence: "explicit", outbound_text: body, manifest: {
+          source_id: option.source_id, content_hash: contentHash, requested_url: source.source_url, source_url: source.source_url,
+          fetched_at: now, parser_version: "knowledge_literature_picker_v1", extracted_text_hash: contentHash,
+          locator: option.path, refresh_revision: 1, raw_bytes: body,
+          fetch_metadata: { requested_url: source.source_url, resolved_url: source.source_url, content_hash: contentHash }
+        } }],
         source_scope: { allowed_source_ids: [option.source_id], allowed_locator_prefixes: ["ZETA/LITERATURE/"], allow_private_sources: false },
-        retrieval: { query: option.title, mode: "literature", scope: { paths: ["ZETA/LITERATURE/"], types: ["literature_note"] }, snapshot: { snapshot_revision: contentHash, current_revision: contentHash, documents: [{ document_id: option.source_id, type: "literature_note", path: option.path, title: option.title, statement: outboundText, source_ids: [option.source_id], citations: [{ source_id: option.source_id, locator: option.path }], updated: now, revision: contentHash }] } },
+        retrieval: { query: option.title, mode: "literature", scope: { paths: ["ZETA/LITERATURE/"], types: ["literature_note"] }, snapshot: { snapshot_revision: contentHash, current_revision: contentHash, documents: [{ document_id: option.source_id, type: "literature_note", path: option.path, title: option.title, statement: body, source_ids: [option.source_id], citations: [{ source_id: option.source_id, locator: option.path }], updated: now, revision: contentHash }] } },
         proposal_request: { instruction: "선택한 Literature 자료만 근거로 create 제안을 만듭니다." },
         consent: { issued_at: now, nonce: `consent_${runId.slice(4)}_0001` },
         approval: { expires_at: new Date(Date.now() + 3600000).toISOString(), nonce: `approval_${runId.slice(4)}_0001` },
-        advanced_settings: { provider_mode: providerMode, provider_key: providerMode },
-        canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "선택한 자료를 사람이 승인할 때", application_contexts: ["reading"], connections: [], invalidation_conditions: ["선택 근거가 바뀌면 다시 검토한다."], summary: "" },
+        advanced_settings: { provider_mode: providerMode, provider_key: selectedProvider.provider_key, timeout_ms: 60000 },
+        canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "선택한 자료를 사람이 승인할 때", application_contexts: ["reading"], connections: [], invalidation_conditions: ["선택 근거가 바뀌면 다시 검토한다."], summary: "" }
       };
+    };
+    const llmWikiTransport = async (normalized, requestOptions) => {
+      const response = await window.LLMWikiAIProviderTransport.requestProposal({
+        app: appRef,
+        config: llmWikiConfig,
+        normalized: { ...normalized, request_metadata: { ...(normalized.request_metadata || {}), provider_key: normalized.provider_key } },
+        signal: requestOptions && requestOptions.signal,
+        consent: requestOptions && requestOptions.consent,
+        providerService: window.AIProviderService,
+        validateProposalBundle: (bundle) => window.LLMWikiProposalBundle.validateProposalBundle(bundle),
+        schema: window.LLMWikiProviderResponseSchema,
+      });
+      if (!response || response.ok !== true) {
+        const error = new Error(response && response.message || "LLMWiki provider request failed.");
+        error.code = response && response.code || "provider_unavailable";
+        throw error;
+      }
+      return response.payload;
     };
     const llmWikiRunController = window.LLMWikiRunController.createRunController({
       app: appRef,
+      config: llmWikiConfig,
+      transport: llmWikiTransport,
       ...llmWikiControllerOptions
     });
     const lifecycleSnapshot = () => {
@@ -238,14 +262,13 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         if (!["direct", "omniroute"].includes(intent.provider_mode)) return { ok: false, status: "failed", reason: "invalid_provider_mode" };
         selectedProviderMode = intent.provider_mode;
         selectedRunCommand = null;
-        startupFailure = null;
+        startupFailure = "";
         return { ok: true, status: llmWikiRunController.getSnapshot().status, provider_mode: selectedProviderMode };
       }
-      if (!["select_source", "request_consent", "start_run"].includes(intent.action)) return null;
       if (intent.action === "select_source" && !intent.source_path) {
         sourceOptions = await eligibleSources();
         startupStatus = "selecting";
-        startupFailure = sourceOptions.length ? null : "선택할 수 있는 Literature 자료가 없습니다. ZETA/LITERATURE의 공개 자료를 확인해 주세요.";
+        startupFailure = sourceOptions.length ? "" : "선택할 수 있는 Literature 자료가 없습니다. ZETA/LITERATURE의 공개 자료를 확인해 주세요.";
         return { ok: sourceOptions.length > 0, status: "selecting", source_options: sourceOptions };
       }
       if (intent.action === "select_source") {
@@ -259,28 +282,25 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         selectedSource = option;
         selectedRunCommand = null;
         startupStatus = "selecting";
-        startupFailure = null;
+        startupFailure = "";
         return { ok: true, status: "selecting", source: option };
       }
+      if (!["request_consent", "start_run"].includes(intent.action)) return { ok: false, status: "failed", reason: "action_unavailable" };
       if (!selectedSource) {
         startupStatus = "selecting";
         startupFailure = "먼저 Literature 자료를 하나 선택해 주세요.";
         return { ok: false, status: "selecting", reason: "source_selection_required" };
       }
-      const explicitUserConsent = intent.action === "start_run";
-      const builder = typeof llmWikiControllerOptions.createRunCommand === "function" ? llmWikiControllerOptions.createRunCommand : null;
-      const command = selectedRunCommand || (builder ? await builder(intent, { provider_mode: selectedProviderMode, source: selectedSource }) : await defaultRunCommand(selectedSource.path, selectedProviderMode));
-      if (!command || typeof command !== "object") {
+      const command = selectedRunCommand || await defaultRunCommand(selectedSource.path, selectedProviderMode);
+      if (!command) {
         startupStatus = "selecting";
-        startupFailure = "선택한 Literature 자료를 안전한 실행 요청으로 만들지 못했습니다. 자료 정보를 확인해 주세요.";
+        startupFailure = "선택한 자료 또는 AI 제공자 설정을 확인해 주세요.";
         return { ok: false, status: "selecting", reason: "startup_command_unavailable" };
       }
       selectedRunCommand = command;
-      startupFailure = null;
+      startupFailure = "";
       startupStatus = null;
-      const result = await llmWikiRunController.startRun({ ...command, explicit_user_consent: explicitUserConsent });
-      if (explicitUserConsent && typeof llmWikiControllerOptions.transport !== "function") startupFailure = "AI 제공자 설정이 없습니다. 설정에서 직접 연결 제공자를 구성한 뒤 다시 시도해 주세요. 저장은 시작되지 않았습니다.";
-      return result;
+      return llmWikiRunController.startRun({ ...command, explicit_user_consent: intent.action === "start_run" });
     };
     let llmWikiLifecycle;
     const dispatchLifecycleAction = async (intent) => {
@@ -292,16 +312,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       else if (intent.action === "retry_refresh") pending = llmWikiRunController.retryRefresh(intent);
       else if (intent.action === "repacket_stale") pending = llmWikiRunController.repacketStale(intent);
       else if (intent.action === "reconfirm_stale") pending = llmWikiRunController.reconfirmStale(intent);
-      else if (["select_source", "request_consent", "start_run", "set_provider_mode"].includes(intent && intent.action)) pending = dispatchStartupIntent(intent);
-      else if (typeof KnowledgeExplorerHub.onLlmWikiLifecycleAction === "function") {
-        pending = KnowledgeExplorerHub.onLlmWikiLifecycleAction(intent, llmWikiRunController);
-      } else {
-        pending = { ok: false, status: llmWikiRunController.getSnapshot().status, reason: "action_unavailable" };
-      }
+      else pending = dispatchStartupIntent(intent);
       llmWikiLifecycle.update(lifecycleSnapshot());
-      const result = await pending;
+      const response = await pending;
       llmWikiLifecycle.update(lifecycleSnapshot());
-      return result;
+      return response;
     };
     llmWikiLifecycle = window.LLMWikiLifecycleView.mountLlmWikiLifecycleView({
       container: llmWikiPanel,
@@ -310,6 +325,27 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       reviewView: window.LLMWikiApprovalReviewView,
       reviewOptions: { onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath) }
     });
+    const llmWikiReadService = window.LLMWikiWikiReadService.create({
+      adapter: window.LLMWikiWikiReadAdapter,
+      registry: window.KnowledgeExplorerRegistry,
+      readBody: (request) => P.readSelectedNote(appRef, dvRef, request && request.path),
+      collectSnapshot: async () => ({
+        assets: dataSource.index(P.collectRecords(dataSource, dvRef)).assets,
+        candidates: await window.KnowledgeCandidateStore.listCandidates(appRef, { status: "active" }),
+        registry: window.KnowledgeExplorerRegistry
+      })
+    });
+    const llmWikiWikiSurface = window.LLMWikiWikiSurface.mountLlmWikiWikiSurface({
+      container: browsePanel,
+      readAdapter: window.LLMWikiWikiReadAdapter,
+      readService: llmWikiReadService,
+      collectSnapshot: async () => ({
+        assets: dataSource.index(P.collectRecords(dataSource, dvRef)).assets,
+        candidates: await window.KnowledgeCandidateStore.listCandidates(appRef, { status: "active" }),
+        registry: window.KnowledgeExplorerRegistry
+      }),
+      onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath)
+    });
 
     KnowledgeExplorerHub.api = api;
     KnowledgeExplorerHub.tabs = tabs;
@@ -317,7 +353,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     KnowledgeExplorerHub.paraModel = paraModel;
     KnowledgeExplorerHub.llmWikiRunController = llmWikiRunController;
     KnowledgeExplorerHub.llmWikiLifecycle = llmWikiLifecycle;
-    KnowledgeExplorerHub.refreshLlmWikiLifecycle = () => llmWikiLifecycle.update(lifecycleSnapshot());
+    KnowledgeExplorerHub.llmWikiBrowse = llmWikiWikiSurface;
     KnowledgeExplorerHub.dataSource = dataSource;
     return api;
   } catch (error) {

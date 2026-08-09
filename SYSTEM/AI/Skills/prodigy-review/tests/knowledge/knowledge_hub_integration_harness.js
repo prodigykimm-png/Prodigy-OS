@@ -40,12 +40,8 @@ const MODULE_PATHS = [
   "SYSTEM/Views/knowledge-source-batch-controller.js",
   "SYSTEM/Views/knowledge-source-batch-render.js",
   "SYSTEM/Views/knowledge-source-batch-view.js",
-  "SYSTEM/Views/ai-provider-response.js",
-  "SYSTEM/Views/ai-provider-schema.js",
   "SYSTEM/Views/ai-provider-error-policy.js",
   "SYSTEM/Views/ai-provider-fallback.js",
-  "SYSTEM/Views/codex-exec-service.js",
-  "SYSTEM/Views/antigravity-exec-service.js",
   "SYSTEM/Views/ai-provider-service.js",
   "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",
@@ -80,6 +76,12 @@ const MODULE_PATHS = [
   "SYSTEM/Views/llmwiki-derived-refresh.js",
   "SYSTEM/Views/llmwiki-run-controller.js",
   "SYSTEM/Views/llmwiki-lifecycle-view.js",
+  "SYSTEM/Views/llmwiki-ui-recovery.js",
+  "SYSTEM/Views/llmwiki-provider-response-schema.js",
+  "SYSTEM/Views/llmwiki-ai-provider-transport.js",
+  "SYSTEM/Views/llmwiki-wiki-read-adapter.js",
+  "SYSTEM/Views/llmwiki-wiki-read-service.js",
+  "SYSTEM/Views/llmwiki-wiki-surface.js",
   "SYSTEM/Views/knowledge-workspace-tabs.js",
   "SYSTEM/Views/para-object-creator-service.js",
   "SYSTEM/Views/knowledge-para-projection.js",
@@ -141,9 +143,6 @@ function buildPages() {
 function createVault(files) {
   const fileMap = new Map(Object.entries(files));
   return {
-    getMarkdownFiles() {
-      return [...fileMap.keys()].filter((filePath) => filePath.endsWith(".md")).map((path) => ({ path }));
-    },
     getAbstractFileByPath(filePath) {
       return fileMap.has(filePath) ? { path: filePath } : null;
     },
@@ -201,7 +200,7 @@ function createDv(pages, readCounts, bodyLoadError) {
   };
 }
 
-function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, approvalPacket = null, hubOptions = {} }) {
+function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null }) {
   const files = {};
   for (const modulePath of MODULE_PATHS) {
     if (omittedModulePaths.includes(modulePath)) continue;
@@ -213,6 +212,7 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, a
   const readCounts = { body: 0 };
   const app = { vault: createVault(files), workspace: createWorkspace() };
   const container = new FakeElement("section");
+  const windowObject = {};
   const openedModals = [];
   class FakeModal {
     constructor() {
@@ -227,24 +227,15 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, a
       if (typeof this.onClose === "function") this.onClose();
     }
   }
-  const sandbox = {
-    app,
-    dv: createDv(pages, readCounts, bodyLoadError),
-    obsidian: { Modal: FakeModal },
-    container,
-    console,
-    URL,
-    require, Buffer, AbortController, setTimeout, clearTimeout,
-    ...(approvalPacket ? { KnowledgeExplorerHub: { approvalPacket, ...hubOptions } } : {})
-  };
+  const sandbox = { app, dv: createDv(pages, readCounts, bodyLoadError), obsidian: { Modal: FakeModal }, container, console };
   // Browser modules intentionally use either window or globalThis. Model that identity in the VM.
   sandbox.window = sandbox;
   sandbox.document = undefined;
   return { sandbox, app, container, windowObject: sandbox, readCounts, openedModals };
 }
 
-async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null, approvalPacket = null, hubOptions = {} }) {
-  const { sandbox, app, container, windowObject, readCounts, openedModals } = createSandbox({ pages, omittedModulePaths, bodyLoadError, approvalPacket, hubOptions });
+async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null }) {
+  const { sandbox, app, container, windowObject, readCounts, openedModals } = createSandbox({ pages, omittedModulePaths, bodyLoadError });
   const code = extractDataviewJs(HUB_SOURCE);
   const script = new vm.Script(`(async function () {\n${code}\n}).call({ container });`, {
     filename: "HUB/50 Knowledge.md"

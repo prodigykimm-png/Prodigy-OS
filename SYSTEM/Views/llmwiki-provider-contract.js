@@ -2,6 +2,7 @@
   "use strict";
 
   const proposalBundleApi = root.LLMWikiProposalBundle || (typeof require === "function" ? require("./llmwiki-proposal-bundle.js") : null);
+  const configApi = root.ProdigyConfigService || (typeof require === "function" ? require("./prodigy-config-service.js") : null);
   const FEATURES = Object.freeze(["llmwiki"]);
   const PROVIDER_MODES = Object.freeze(["direct", "omniroute"]);
   const RETRY_OWNERS = Object.freeze(["prodigy", "gateway"]);
@@ -113,28 +114,34 @@
   }
 
   function providerKeyFor(request, context, providerMode) {
+    const resolver = configApi && configApi.resolveAIProfileProviderKey;
+    if (typeof resolver !== "function") return fail("configuration", "configuration_unavailable");
+    const config = plain(context && context.config) ? context.config : undefined;
+    let resolved;
+    try {
+      resolved = resolver(config, trim(request && request.feature), providerMode);
+    } catch (_) {
+      return fail("configuration", "configuration_invalid");
+    }
+    if (!resolved || resolved.ok !== true) {
+      return fail(resolved && resolved.field || "provider_key", resolved && resolved.code || "provider_unavailable");
+    }
     const metadataProvider = trim(request && request.request_metadata && request.request_metadata.provider_key);
-    if (metadataProvider) return metadataProvider;
-    const config = plain(context && context.config) ? context.config : {};
-    const profile = plain(config.aiProfiles) && plain(config.aiProfiles[trim(request && request.feature)]) ? config.aiProfiles[trim(request.feature)] : {};
-    const profileProvider = trim(profile.provider || profile.provider_key);
-    if (profileProvider) return profileProvider;
-    if (providerMode === "omniroute") return "omniroute";
-    return trim(config.defaultProvider) || "direct";
+    if (!metadataProvider || metadataProvider !== resolved.provider_key) {
+      return fail("request_metadata.provider_key", "provider_identity_mismatch");
+    }
+    return ok({ provider_key: resolved.provider_key, provider: resolved.provider });
   }
-
-  function profileModeFor(request, context) {
+  function profileModeFor(request) {
     if (request.provider_mode !== undefined) return trim(request.provider_mode);
-    const config = plain(context && context.config) ? context.config : {};
-    const profile = plain(config.aiProfiles) && plain(config.aiProfiles[trim(request.feature)]) ? config.aiProfiles[trim(request.feature)] : {};
-    return trim(profile.provider_mode || "direct");
+    return "direct";
   }
 
   function selectProviderProfile(request, context = {}) {
     if (!plain(request)) return fail("request", "malformed_request");
     const feature = trim(request.feature);
     if (!FEATURES.includes(feature)) return fail("feature", "unsupported_feature");
-    const providerMode = profileModeFor(request, context);
+    const providerMode = profileModeFor(request);
     if (!PROVIDER_MODES.includes(providerMode)) return fail("provider_mode", "invalid_provider_mode");
     const retryOwner = trim(request.retry_owner || (providerMode === "omniroute" ? "gateway" : "prodigy"));
     if (!RETRY_OWNERS.includes(retryOwner)) return fail("retry_owner", "invalid_retry_owner");
@@ -142,11 +149,14 @@
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120000) return fail("timeout_ms", "invalid_timeout");
     const requestMetadata = normalizeMetadata(request.request_metadata);
     if (requestMetadata.ok === false) return requestMetadata;
-    const providerKey = providerKeyFor(request, context, providerMode);
+    const providerResult = providerKeyFor(request, context, providerMode);
+    if (providerResult.ok === false) return providerResult;
+    const providerKey = providerResult.value.provider_key;
     return ok({
       feature,
       provider_mode: providerMode,
       provider_key: providerKey,
+      provider: providerResult.value.provider,
       explicit_provider: request.provider_mode !== undefined || Boolean(requestMetadata.provider_key),
       timeout_ms: timeoutMs,
       retry_owner: retryOwner,

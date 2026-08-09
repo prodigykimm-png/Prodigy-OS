@@ -2,17 +2,12 @@
 
 (function (root) {
   var STYLE_ID = "knowledge-workspace-tabs-styles";
-  var designTokens = root.ProdigyTokens || (typeof require === "function" ? require("./design-tokens.js") : null);
-  var compactMax = Number(designTokens && designTokens.BREAKPOINTS && designTokens.BREAKPOINTS.medium || 768) - 1;
   var TABS = Object.freeze([
     Object.freeze({ id: "zettelkasten", label: "지식 구축 · 제텔카스텐", description: "후보·문헌·영구 지식을 검토하고 승인합니다." }),
     Object.freeze({ id: "para", label: "지식 활용 · PARA", description: "프로젝트·영역·자료에 연결된 승인 지식을 탐색합니다." }),
-    Object.freeze({ id: "llmwiki", label: "AI 지식 검토 · LLM Wiki", description: "자료를 선택하고 AI 지식 제안을 검토합니다." })
+    Object.freeze({ id: "llmwiki", label: "AI 지식 검토 · LLM Wiki", description: "자료를 선택하고 AI 지식 제안을 검토합니다." }),
+    Object.freeze({ id: "llmwiki-browse", label: "LLMWiki 탐색", description: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다." })
   ]);
-
-  function validTabId(tabId) {
-    return TABS.some(function (tab) { return tab.id === tabId; });
-  }
 
   function ensureStyles(container) {
     var doc = container && container.ownerDocument ? container.ownerDocument : typeof document !== "undefined" ? document : null;
@@ -20,14 +15,14 @@
     var style = doc.createElement("style");
     style.id = STYLE_ID;
     style.textContent = [
-      ".knowledge-workspace-tabs{display:flex;gap:var(--ke-space-1);max-inline-size:100%;min-inline-size:0;margin:0 0 var(--ke-space-3);border-bottom:var(--ke-border-width) solid var(--ke-color-border);padding:0}",
-      ".knowledge-workspace-tab{max-inline-size:100%;min-inline-size:0;padding:var(--ke-space-3) var(--ke-space-5);border:none;border-bottom:var(--ke-focus-ring-width) solid transparent;background:none;color:var(--ke-color-muted);font-size:var(--ke-type-label);font-weight:var(--ke-font-weight-strong);cursor:pointer;white-space:nowrap;transition:color var(--ke-motion-fast),border-color var(--ke-motion-fast)}",
+      ".knowledge-workspace-tabs{display:flex;gap:2px;margin:0 0 var(--ke-space-3,8px);border-bottom:1px solid var(--background-modifier-border);padding:0}",
+      ".knowledge-workspace-tab{padding:8px 16px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-muted);font-size:var(--ke-type-label,.72rem);font-weight:600;cursor:pointer;white-space:nowrap;transition:color .15s,border-color .15s}",
       ".knowledge-workspace-tab:hover{color:var(--text-normal)}",
-      ".knowledge-workspace-tab:focus-visible{outline:var(--ke-focus-ring-width) solid var(--ke-color-accent);outline-offset:calc(var(--ke-focus-ring-width) * -1)}",
+      ".knowledge-workspace-tab:focus-visible{outline:2px solid var(--text-accent);outline-offset:-2px}",
       ".knowledge-workspace-tab[aria-selected=\"true\"]{color:var(--text-normal);border-bottom-color:var(--text-accent)}",
-      ".knowledge-workspace-tab-desc{font-size:var(--ke-type-label);color:var(--ke-color-muted);margin:0 0 var(--ke-space-2);word-break:keep-all;overflow-wrap:anywhere}",
-      ".knowledge-workspace-panel{max-inline-size:100%;min-inline-size:0;min-block-size:0}",
-      `@media(max-width:${compactMax}px){.knowledge-workspace-tabs{flex-wrap:wrap}.knowledge-workspace-tab{flex:1 1 100%;min-block-size:var(--ke-touch-target);padding:var(--ke-space-3) var(--ke-space-4);font-size:var(--ke-type-body);white-space:normal;word-break:keep-all;overflow-wrap:anywhere}}`
+      ".knowledge-workspace-tab-desc{font-size:var(--ke-type-caption,.64rem);color:var(--text-faint);margin:0 0 var(--ke-space-2,4px)}",
+      ".knowledge-workspace-panel{min-height:0}",
+      "@media(max-width:600px){.knowledge-workspace-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}.knowledge-workspace-tab{padding:10px 12px;font-size:var(--ke-type-body,.84rem)}}"
     ].join("\n");
     doc.head.appendChild(style);
   }
@@ -60,7 +55,7 @@
     if (!container) return null;
     ensureStyles(container);
     var opts = options || {};
-    var activeTab = validTabId(opts.activeTab) ? opts.activeTab : "zettelkasten";
+    var activeTab = TABS.some(function (tab) { return tab.id === opts.activeTab; }) ? opts.activeTab : "zettelkasten";
     var onChange = typeof opts.onChange === "function" ? opts.onChange : function () {};
 
     var tablist = createEl(container, "div", { attr: { role: "tablist", "aria-label": "지식 워크스페이스", class: "knowledge-workspace-tabs" } });
@@ -116,7 +111,6 @@
     });
 
     function select(tabId) {
-      if (!validTabId(tabId)) return;
       activeTab = tabId;
       TABS.forEach(function (tab) {
         var selected = tab.id === activeTab;

@@ -392,6 +392,44 @@ async function testLocalServerConnectionFailureHasActionableMessage() {
   );
 }
 
+async function testStructuredRequestOnceDoesNotFallbackOrDowngrade() {
+  const calls = [];
+  const fallbackProvider = {
+    adapter: "openai-compatible",
+    name: "Fallback",
+    baseURL: "https://fallback.example/v1",
+    endpointPath: "/chat/completions",
+    model: "fallback-model",
+    authMode: "none"
+  };
+  const providerConfig = {
+    adapter: "openai-compatible",
+    name: "Primary",
+    baseURL: "http://127.0.0.1:1234/v1",
+    endpointPath: "/chat/completions",
+    model: "primary-model",
+    authMode: "none",
+    capabilities: { structuredOutput: "json-schema" },
+    fallbackProvider
+  };
+  await assert.rejects(
+    provider.requestStructuredJsonOnce({
+      app: {
+        requestUrl: async (options) => {
+          calls.push(options);
+          return { status: 400, json: { error: { message: "Invalid value for response_format json_schema" } } };
+        }
+      },
+      provider: providerConfig,
+      prompt: "fixture",
+      schema: { type: "object" }
+    }),
+    /AI 제공자 요청에 실패|AI 요청/
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(JSON.parse(calls[0].body).response_format.type, "json_schema");
+}
+
 async function testProjectWorkflowReusesSharedProvider() {
   const previousProvider = global.AIProviderService;
   const previousCore = global.ProjectWizardCore;
@@ -420,6 +458,7 @@ async function main() {
   await testRetriesAndErrors();
   await testGroqFallbacksToOpenRouterOnlyForEligibleFailure();
   await testLocalServerConnectionFailureHasActionableMessage();
+  await testStructuredRequestOnceDoesNotFallbackOrDowngrade();
   await testProjectWorkflowReusesSharedProvider();
   console.log("AI provider service tests passed");
 }

@@ -33,6 +33,10 @@
     defaultProvider: "gemini",
     fallbackProvider: "",
     workflowPresets: {},
+    aiProfiles: {
+      schema_version: 1,
+      llmwiki: { direct_provider_key: "", omniroute_provider_key: "" }
+    },
     providers: {
       "lm-studio": {
         adapter: "openai-compatible", name: "LM Studio", baseURL: "http://127.0.0.1:1234/v1", endpointPath: "/chat/completions",
@@ -119,6 +123,66 @@
     return defaults ? clone(defaults) : null;
   }
 
+  const AI_PROFILE_SCHEMA_VERSION = 1;
+  const AI_PROFILE_KEYS = new Set(["schema_version", "llmwiki"]);
+  const LLMWIKI_PROFILE_KEYS = new Set(["direct_provider_key", "omniroute_provider_key"]);
+  const PROVIDER_KEY = /^[a-z][a-z0-9_-]{1,64}$/;
+
+  function defaultAiProfiles() {
+    return { schema_version: AI_PROFILE_SCHEMA_VERSION, llmwiki: { direct_provider_key: "", omniroute_provider_key: "" } };
+  }
+
+  function assertProfileObject(value, field) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${field} must be an object.`);
+  }
+
+  function validateProviderKey(value, field, providers) {
+    if (typeof value !== "string") throw new Error(`${field} must be a string.`);
+    const key = value.trim();
+    if (key && (!PROVIDER_KEY.test(key) || key === "direct" || key === "omniroute")) throw new Error(`${field} is invalid.`);
+    if (key && providers && !providers[key]) throw new Error(`${field} does not reference a configured provider.`);
+    return key;
+  }
+
+  function normalizeAiProfiles(value, providers) {
+    if (value === undefined || value === null) return defaultAiProfiles();
+    assertProfileObject(value, "aiProfiles");
+    const unknown = Object.keys(value).filter((key) => !AI_PROFILE_KEYS.has(key));
+    if (unknown.length) throw new Error(`aiProfiles has unknown fields: ${unknown.join(", ")}`);
+    if (value.schema_version !== AI_PROFILE_SCHEMA_VERSION) throw new Error("aiProfiles.schema_version is unsupported.");
+    assertProfileObject(value.llmwiki, "aiProfiles.llmwiki");
+    const profileUnknown = Object.keys(value.llmwiki).filter((key) => !LLMWIKI_PROFILE_KEYS.has(key));
+    if (profileUnknown.length) throw new Error(`aiProfiles.llmwiki has unknown fields: ${profileUnknown.join(", ")}`);
+    return {
+      schema_version: AI_PROFILE_SCHEMA_VERSION,
+      llmwiki: {
+        direct_provider_key: validateProviderKey(value.llmwiki.direct_provider_key, "aiProfiles.llmwiki.direct_provider_key", providers),
+        omniroute_provider_key: validateProviderKey(value.llmwiki.omniroute_provider_key, "aiProfiles.llmwiki.omniroute_provider_key", providers)
+      }
+    };
+  }
+
+  function mergeAiProfiles(base, override) {
+    const result = normalizeAiProfiles(base);
+    if (override === undefined) return result;
+    assertProfileObject(override, "aiProfiles");
+    const unknown = Object.keys(override).filter((key) => !AI_PROFILE_KEYS.has(key));
+    if (unknown.length) throw new Error(`aiProfiles has unknown fields: ${unknown.join(", ")}`);
+    if (override.schema_version !== undefined && override.schema_version !== AI_PROFILE_SCHEMA_VERSION) {
+      throw new Error("aiProfiles.schema_version is unsupported.");
+    }
+    if (override.llmwiki !== undefined) {
+      assertProfileObject(override.llmwiki, "aiProfiles.llmwiki");
+      const profileUnknown = Object.keys(override.llmwiki).filter((key) => !LLMWIKI_PROFILE_KEYS.has(key));
+      if (profileUnknown.length) throw new Error(`aiProfiles.llmwiki has unknown fields: ${profileUnknown.join(", ")}`);
+      for (const key of LLMWIKI_PROFILE_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(override.llmwiki, key)) {
+          result.llmwiki[key] = validateProviderKey(override.llmwiki[key], `aiProfiles.llmwiki.${key}`);
+        }
+      }
+    }
+    return result;
+  }
   function normalizeModels(provider, defaults) {
     const source = Array.isArray(provider && provider.models) && provider.models.length ? provider.models : defaults.models || [];
     return source.map((item) => typeof item === "string" ? { id: item, label: item } : { id: String(item && item.id || ""), label: String(item && item.label || item && item.id || "") }).filter((item) => item.id);
@@ -157,6 +221,7 @@
     if (override.defaultProvider) merged.defaultProvider = override.defaultProvider;
     if (typeof override.fallbackProvider === "string") merged.fallbackProvider = override.fallbackProvider;
     if (override.workflowPresets && typeof override.workflowPresets === "object") merged.workflowPresets = clone(override.workflowPresets);
+    if (Object.prototype.hasOwnProperty.call(override, "aiProfiles")) merged.aiProfiles = mergeAiProfiles(merged.aiProfiles, override.aiProfiles);
     if (override.providers && typeof override.providers === "object") {
       Object.keys(override.providers).forEach((key) => {
         merged.providers[key] = Object.assign({}, merged.providers[key] || {}, override.providers[key]);
@@ -179,7 +244,31 @@
         value: normalized.providers[normalized.fallbackProvider], enumerable: false
       });
     }
+    normalized.aiProfiles = normalizeAiProfiles(normalized.aiProfiles, normalized.providers);
     return normalized;
+  }
+  function resolveAIProfileProviderKey(config, feature, mode) {
+    const name = String(feature || "").trim();
+    const providerMode = String(mode || "direct").trim().toLowerCase();
+    if (name !== "llmwiki") {
+      return { ok: false, call_allowed: false, code: "feature_unsupported", field: "feature", message: "LLMWiki 기능을 확인하지 못했습니다." };
+    }
+    if (!["direct", "omniroute"].includes(providerMode)) {
+      return { ok: false, call_allowed: false, code: "provider_mode_invalid", field: "provider_mode", message: "LLMWiki AI 연결 모드가 올바르지 않습니다." };
+    }
+    const normalized = normalizeConfig(config || DEFAULT_CONFIG);
+    const profile = normalized.aiProfiles && normalized.aiProfiles[name];
+    if (!profile) {
+      return { ok: false, call_allowed: false, code: "profile_missing", field: "aiProfiles.llmwiki", message: "LLMWiki AI 프로필이 설정되지 않았습니다." };
+    }
+    const providerKey = providerMode === "direct" ? (profile.direct_provider_key || normalized.defaultProvider) : profile.omniroute_provider_key;
+    if (!providerKey) {
+      return { ok: false, call_allowed: false, code: "provider_unavailable", field: `aiProfiles.llmwiki.${providerMode}_provider_key`, message: "선택한 LLMWiki AI 연결을 사용할 수 없습니다." };
+    }
+    if (providerKey === "direct" || providerKey === "omniroute" || !normalized.providers[providerKey]) {
+      return { ok: false, call_allowed: false, code: "provider_missing", field: "provider_key", message: "LLMWiki에 연결할 AI 제공자 설정을 찾을 수 없습니다." };
+    }
+    return { ok: true, call_allowed: true, feature: name, provider_mode: providerMode, provider_key: providerKey, provider: normalized.providers[providerKey] };
   }
 
   async function readVaultJson(app, path) {
@@ -252,7 +341,7 @@
     if (settings && typeof settings.fallbackProvider === "string") next.fallbackProvider = settings.fallbackProvider;
     if (!next.providers[next.defaultProvider]) next.defaultProvider = DEFAULT_CONFIG.defaultProvider;
     const normalized = normalizeConfig(next);
-    await writeVaultJson(app, CONFIG_PATH, { defaultProvider: normalized.defaultProvider, fallbackProvider: normalized.fallbackProvider, workflowPresets: normalized.workflowPresets, providers: normalized.providers });
+    await writeVaultJson(app, CONFIG_PATH, { defaultProvider: normalized.defaultProvider, fallbackProvider: normalized.fallbackProvider, workflowPresets: normalized.workflowPresets, aiProfiles: normalized.aiProfiles, providers: normalized.providers });
     const secrets = settings && settings.secrets || {};
     for (const secretId of Object.keys(secrets)) if (secrets[secretId]) await setSecret(app, secretId, secrets[secretId]);
     for (const secretId of settings && settings.deleteSecretIds || []) await deleteSecret(app, secretId);
@@ -292,7 +381,7 @@
     return Object.fromEntries(entries);
   }
 
-  const api = { CONFIG_PATH, LEGACY_CONFIG_PATH, LAST_PROVIDER_SECRET, SECRET_IDS, LEGACY_SECRET_IDS, REGION_SECRET_IDS, DEFAULT_CONFIG, isSecretId, redactError, getProviderDefaults, applyProviderDefaults, mergeConfig, load, save, getDefaultProvider, getProvider, getSecret, hasSecret, setSecret, deleteSecret, getRegionSecretStatus };
+  const api = { CONFIG_PATH, LEGACY_CONFIG_PATH, LAST_PROVIDER_SECRET, SECRET_IDS, LEGACY_SECRET_IDS, REGION_SECRET_IDS, DEFAULT_CONFIG, isSecretId, redactError, getProviderDefaults, applyProviderDefaults, normalizeAiProfiles, mergeConfig, load, save, getDefaultProvider, getProvider, getSecret, hasSecret, setSecret, deleteSecret, getRegionSecretStatus, resolveAIProfileProviderKey };
   root.ProdigyConfigService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

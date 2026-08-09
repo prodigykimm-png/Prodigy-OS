@@ -1,0 +1,154 @@
+{
+  "$schema": "https://prodigy-os.local/schemas/prodigy-knowledge-revamp-artifacts-v1.json",
+  "schema_version": "1.0",
+  "artifact_type": "walkthrough",
+  "payload": {
+    "walkthrough_id": "prodigy-knowledge-workspace-walkthrough",
+    "schema_version": "1.0",
+    "artifact_type": "walkthrough",
+    "scope": "knowledge-workspace",
+    "counting_rules": [
+      "Counting starts after the Knowledge workspace is open.",
+      "Each state-changing activation, submitted text entry, facet change, tab or panel transition, result or detail selection, approval, back, retry, or refresh counts as one action.",
+      "Focus movement and automatic rendering count as zero actions.",
+      "Default selection counts as zero only when the selected content is already visible.",
+      "Recovery routes are listed separately and are not hidden in the happy-path total.",
+      "A workspace switch is never an accepted action in this v1 walkthrough."
+    ],
+    "citations": [
+      {
+        "citation_id": "tabs-mount",
+        "ref": "main",
+        "path": "SYSTEM/Views/knowledge-workspace-tabs.js",
+        "symbol": "mountTabs",
+        "line_start": 1,
+        "line_end": 140,
+        "claim": "The existing workspace tab primitive owns tab transitions, selected state, panels, and keyboard arrows; the registry now exposes four tabs, with LLMWiki browse as the accepted fourth-tab surface."
+      },
+      {
+        "citation_id": "hub-mount",
+        "ref": "main",
+        "path": "HUB/50 Knowledge.md",
+        "symbol": "KnowledgeExplorerHub.render",
+        "line_start": 132,
+        "line_end": 347,
+        "claim": "The Knowledge Hub opens one workspace shell, mounts the accepted LLMWiki lifecycle and browse panels alongside Zettelkasten and PARA, and does not introduce a second workspace route."
+      },
+      {
+        "citation_id": "candidate-card",
+        "ref": "main",
+        "path": "SYSTEM/Views/knowledge-candidate-view.js",
+        "symbol": "candidateCard",
+        "line_start": 103,
+        "line_end": 165,
+        "claim": "Candidate review exposes title/detail, taxonomy confirmation, provenance, and approval/defer/reject actions in the detail surface."
+      },
+      {
+        "citation_id": "explorer-state",
+        "ref": "main",
+        "path": "SYSTEM/Views/knowledge-explorer-state.js",
+        "symbol": "reduceSelectionState",
+        "line_start": 118,
+        "line_end": 123,
+        "claim": "Explorer selection transitions move from domain to middle section to detail and support back without a workspace switch."
+      },
+      {
+        "citation_id": "explorer-render",
+        "ref": "main",
+        "path": "SYSTEM/Views/knowledge-explorer-render.js",
+        "symbol": "renderDetail",
+        "line_start": 197,
+        "line_end": 210,
+        "claim": "The detail pane has an explicit scroll owner, back action, status copy, hydration sections, and candidate inbox region."
+      },
+      {
+        "citation_id": "hub-recovery",
+        "ref": "main",
+        "path": "HUB/50 Knowledge.md",
+        "symbol": "renderLoaderError",
+        "line_start": 151,
+        "line_end": 159,
+        "claim": "Hub loading failures render a bounded retry/error state inside the existing mount."
+      }
+    ],
+    "routes": [
+      {
+        "route_id": "candidate-review",
+        "before": ["Knowledge workspace opens on the existing Zettelkasten panel; candidate review is available in the detail surface."],
+        "after": ["Candidate title/detail, evidence quality, taxonomy confirmation, and approval actions remain on one review surface."],
+        "single_screen": true,
+        "single_screen_citation_ids": ["candidate-card", "explorer-render"],
+        "workspace_switches": 0,
+        "keyboard_equivalent": "Tab to the candidate card, Enter to select, Tab through title/detail/taxonomy, then Enter on 승인.",
+        "steps": [
+          { "step_id": "candidate-review-1", "screen_id": "candidate-inbox", "state": "candidate-visible", "visible_controls": ["title", "detail", "domain", "topics", "승인", "보류", "반려"], "action": "Select the candidate detail card.", "delta": 1, "cumulative": 1, "citation_ids": ["candidate-card"], "annotation": "Result/detail selection is one action; automatic candidate rendering is zero." },
+          { "step_id": "candidate-review-2", "screen_id": "candidate-review-form", "state": "human-edit", "visible_controls": ["title", "detail", "domain", "topics", "approval_note"], "action": "Submit the confirmed title/detail and taxonomy form.", "delta": 1, "cumulative": 2, "citation_ids": ["candidate-card"], "annotation": "The submitted form activation is one action; focus and keystrokes are not separate activations." },
+          { "step_id": "candidate-review-3", "screen_id": "candidate-review-form", "state": "ready-for-approval", "visible_controls": ["승인"], "action": "Approve the reviewed candidate.", "delta": 1, "cumulative": 3, "citation_ids": ["candidate-card"], "annotation": "Approval remains behind the existing Evidence Gate, Human Review Gate, and Knowledge Approval." }
+        ],
+        "current_total_actions": 3,
+        "proposed_total_actions": 3,
+        "action_budget": 3,
+        "recovery_route": { "route_id": "candidate-review-recovery", "trigger": "candidate load or validation failure", "steps": ["Keep entered content in the review surface.", "Render Korean recovery copy.", "Activate 다시 시도 without leaving the workspace."], "citation_ids": ["candidate-card", "hub-recovery"], "gate_disposition": "preserve" },
+        "citation_ids": ["candidate-card", "explorer-render"],
+        "owner": "Knowledge workspace owner",
+        "dependencies": ["Evidence Gate", "Human Review Gate", "Knowledge Approval"],
+        "priority": "P1",
+        "gate_disposition": "preserve",
+        "decision_status": "proposed",
+        "status": "ready"
+      },
+      {
+        "route_id": "wiki-search",
+        "before": ["The current Hub had no LLMWiki search route; the existing shell and tab primitive supplied the mount evidence."],
+        "after": ["With the accepted fourth_tab placement, search opens in the fourth Knowledge panel and keeps query, results, and read detail in the same surface."],
+        "single_screen": true,
+        "single_screen_citation_ids": ["hub-mount", "tabs-mount", "explorer-render"],
+        "workspace_switches": 0,
+        "keyboard_equivalent": "Tab to the LLMWiki search control, type the query, Enter to submit, then Arrow/Enter to select a result.",
+        "steps": [
+          { "step_id": "wiki-search-1", "screen_id": "llmwiki-search", "state": "search-ready", "visible_controls": ["query", "검색"], "action": "Open the accepted fourth-tab LLMWiki search panel.", "delta": 1, "cumulative": 1, "citation_ids": ["tabs-mount", "hub-mount"], "annotation": "The accepted placement is fourth_tab; standalone remains non-selectable under f11." },
+          { "step_id": "wiki-search-2", "screen_id": "llmwiki-search", "state": "query-submitted", "visible_controls": ["query", "검색", "결과 목록"], "action": "Submit the non-empty search query.", "delta": 1, "cumulative": 2, "citation_ids": ["explorer-state"], "annotation": "Text submission is one action; automatic result rendering is zero." },
+          { "step_id": "wiki-search-3", "screen_id": "llmwiki-search", "state": "result-selected", "visible_controls": ["결과 목록", "상세", "뒤로"], "action": "Select one result and reveal its read-only detail.", "delta": 1, "cumulative": 3, "citation_ids": ["explorer-state", "explorer-render"], "annotation": "Result/detail selection is one action and remains read-only." }
+        ],
+        "current_total_actions": 0,
+        "proposed_total_actions": 3,
+        "action_budget": 3,
+        "recovery_route": { "route_id": "wiki-search-recovery", "trigger": "empty query, unavailable source, stale result, or provider recovery state", "steps": ["Keep the current workspace surface mounted.", "Render Korean recovery copy without raw provider/source reasons.", "Offer retry or source reselection; do not switch workspace."], "citation_ids": ["explorer-render", "hub-recovery"], "gate_disposition": "preserve" },
+        "citation_ids": ["hub-mount", "tabs-mount", "explorer-state", "explorer-render"],
+        "owner": "LLMWiki surface owner",
+        "dependencies": ["accepted fourth_tab placement decision", "llmwiki lifecycle identity", "llmwiki-browse identity"],
+        "priority": "P1",
+        "gate_disposition": "preserve",
+        "decision_status": "proposed",
+        "status": "ready"
+      },
+      {
+        "route_id": "wiki-browse",
+        "before": ["The current Hub had no LLMWiki browse route; domain and topic projection primitives supplied the read-only Explorer evidence."],
+        "after": ["With the accepted fourth_tab placement, browse keeps domain, topic, result, and body read detail within the fourth Knowledge panel."],
+        "single_screen": true,
+        "single_screen_citation_ids": ["hub-mount", "explorer-state", "explorer-render"],
+        "workspace_switches": 0,
+        "keyboard_equivalent": "Tab to browse, Arrow/Enter through domain and topic, Enter for the result, then Tab to the read-only detail.",
+        "steps": [
+          { "step_id": "wiki-browse-1", "screen_id": "llmwiki-browse", "state": "browse-ready", "visible_controls": ["도메인", "주제", "결과"], "action": "Open the accepted LLMWiki browse panel in the fourth tab.", "delta": 1, "cumulative": 1, "citation_ids": ["hub-mount"], "annotation": "The accepted placement is fourth_tab; standalone remains non-selectable under f11." },
+          { "step_id": "wiki-browse-2", "screen_id": "llmwiki-browse", "state": "domain-filtered", "visible_controls": ["도메인", "주제", "결과"], "action": "Change the domain facet.", "delta": 1, "cumulative": 2, "citation_ids": ["explorer-state"], "annotation": "Facet changes count once; deterministic projection does not add an action." },
+          { "step_id": "wiki-browse-3", "screen_id": "llmwiki-browse", "state": "topic-filtered", "visible_controls": ["도메인", "주제", "결과"], "action": "Change the topic facet.", "delta": 1, "cumulative": 3, "citation_ids": ["explorer-state"], "annotation": "The route reuses the existing domain-to-section-to-detail focus model." },
+          { "step_id": "wiki-browse-4", "screen_id": "llmwiki-browse", "state": "body-visible", "visible_controls": ["결과", "본문", "뒤로"], "action": "Select one result and reveal its safe read-only body.", "delta": 1, "cumulative": 4, "citation_ids": ["explorer-render"], "annotation": "Body hydration is a read operation; no writer or workspace switch is accepted." }
+        ],
+        "current_total_actions": 0,
+        "proposed_total_actions": 4,
+        "action_budget": 4,
+        "recovery_route": { "route_id": "wiki-browse-recovery", "trigger": "empty facet, stale revision, body hydration failure, or unavailable source", "steps": ["Keep the selected facet and read surface visible.", "Render Korean recovery copy and stale/read retry state.", "Offer back or retry without changing workspace identity."], "citation_ids": ["explorer-state", "explorer-render", "hub-recovery"], "gate_disposition": "preserve" },
+        "citation_ids": ["hub-mount", "explorer-state", "explorer-render"],
+        "owner": "LLMWiki surface owner",
+        "dependencies": ["accepted fourth_tab placement decision", "provider-independent snapshot adapter", "safe body hydrator"],
+        "priority": "P1",
+        "gate_disposition": "preserve",
+        "decision_status": "proposed",
+        "status": "ready"
+      }
+    ],
+    "status": "ready"
+  }
+}

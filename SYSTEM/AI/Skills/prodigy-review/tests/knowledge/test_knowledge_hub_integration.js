@@ -36,6 +36,11 @@ async function testHubLoadsExplorerAndDetailSections() {
   const paraText = collectText(paraPanel);
   assert.match(paraText, /지식 활용|연결된 지식 없음|승인 지식/);
   assert.equal(result.window.KnowledgeExplorerHub.error, undefined);
+  const browsePanel = findByAttrId(result.container, "knowledge-panel-llmwiki-browse");
+  assert.ok(browsePanel, "LLMWiki fourth-tab browse panel must be mounted.");
+  assert.equal(result.window.KnowledgeWorkspaceTabs.TABS.length, 4);
+  assert.deepEqual(Array.from(result.window.KnowledgeWorkspaceTabs.TABS, (tab) => tab.id), ["zettelkasten", "para", "llmwiki", "llmwiki-browse"]);
+  assert.ok(result.window.KnowledgeExplorerHub.llmWikiBrowse);
   assert.ok(result.window.KnowledgeExplorerHub.model);
   assert.ok(result.window.KnowledgeExplorerHub.model.detail_sections_by_asset_path);
   assert.ok(findByText(result.container, "지식"));

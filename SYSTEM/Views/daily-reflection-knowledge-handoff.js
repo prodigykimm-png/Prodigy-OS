@@ -49,9 +49,19 @@
         blocked.push({ candidate_index: candidateIndex, message: "Evidence 보완 후 저장하거나, 보완이 어려우면 명시적 override 사유를 입력해 주세요.", quality: thin.quality });
         return;
       }
+      const title = clean(candidate.title) || clean(candidate.label);
+      const statement = clean(candidate.detail) || clean(candidate.statement) || clean(candidate.label);
+      if (!title || !statement) {
+        blocked.push({ candidate_index: candidateIndex, message: "표제와 세부내용이 있는 후보만 저장할 수 있습니다." });
+        return;
+      }
+      if (clean(candidate.title) && clean(candidate.detail) && title === statement) {
+        blocked.push({ candidate_index: candidateIndex, message: "표제와 세부내용이 같은 후보는 저장할 수 없습니다." });
+        return;
+      }
       const sourceObjects = Array.from(new Set(sourceBlocks.flatMap((block) => canonicalWikiLinks(block.related_objects))));
       if (dailyLink) sourceObjects.push(dailyLink);
-      ready.push({ title: clean(candidate.title) || clean(candidate.label), statement: clean(candidate.statement) || clean(candidate.label), reason: clean(candidate.reason) || sourceBlocks.map((block) => clean(block.title)).filter(Boolean).join(" · "), source_type: "daily_evidence", source_evidence_ids: sourceIds, source_objects: Array.from(new Set(sourceObjects)), confidence: clean(candidate.confidence) || "low", suggested_domain: clean(candidate.suggested_domain), suggested_topics: Array.isArray(candidate.suggested_topics) ? candidate.suggested_topics.map(clean).filter(Boolean) : [], approval_note: approvalNote });
+      ready.push({ title, statement, reason: clean(candidate.reason) || sourceBlocks.map((block) => clean(block.title)).filter(Boolean).join(" · "), source_type: "daily_evidence", source_evidence_ids: sourceIds, source_objects: Array.from(new Set(sourceObjects)), confidence: clean(candidate.confidence) || "low", suggested_domain: clean(candidate.suggested_domain), suggested_topics: Array.isArray(candidate.suggested_topics) ? candidate.suggested_topics.map(clean).filter(Boolean) : [], approval_note: approvalNote });
     });
     return { ready, blocked, guidance };
   }

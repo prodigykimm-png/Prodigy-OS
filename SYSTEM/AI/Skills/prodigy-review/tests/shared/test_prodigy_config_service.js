@@ -117,6 +117,60 @@ async function testFreeProviderDefaultsAndFallbackPersist() {
   assert.equal(Object.hasOwn(stored.providers.groq, "fallbackProvider"), false);
 }
 
+async function testAiProfileRoundTripAndResolver() {
+  const files = {};
+  const app = createApp(files, {});
+  const saved = await service.save(app, {
+    defaultProvider: "gemini",
+    config: {
+      aiProfiles: {
+        schema_version: 1,
+        llmwiki: { direct_provider_key: "groq", omniroute_provider_key: "openrouter" }
+      }
+    }
+  });
+  assert.deepEqual(saved.aiProfiles, {
+    schema_version: 1,
+    llmwiki: { direct_provider_key: "groq", omniroute_provider_key: "openrouter" }
+  });
+  const stored = JSON.parse(files[service.CONFIG_PATH]);
+  assert.deepEqual(stored.aiProfiles, saved.aiProfiles);
+  assert.equal(JSON.stringify(stored.aiProfiles).includes("api-key"), false);
+  assert.equal(JSON.stringify(stored.aiProfiles).includes("fallback"), false);
+
+  const loaded = await service.load(app);
+  assert.deepEqual(loaded.aiProfiles, saved.aiProfiles);
+  assert.equal(service.resolveAIProfileProviderKey(loaded, "llmwiki", "direct").provider_key, "groq");
+  assert.equal(service.resolveAIProfileProviderKey(loaded, "llmwiki", "omniroute").provider_key, "openrouter");
+
+  const defaulted = service.resolveAIProfileProviderKey(service.mergeConfig(service.DEFAULT_CONFIG, {
+    defaultProvider: "gemini",
+    aiProfiles: { schema_version: 1, llmwiki: { direct_provider_key: "", omniroute_provider_key: "" } }
+  }), "llmwiki", "direct");
+  assert.equal(defaulted.provider_key, "gemini");
+  assert.equal(service.resolveAIProfileProviderKey(loaded, "llmwiki", "invalid").call_allowed, false);
+  assert.equal(service.resolveAIProfileProviderKey(loaded, "llmwiki", "omniroute").provider_key !== "omniroute", true);
+
+  const unavailable = service.resolveAIProfileProviderKey(service.mergeConfig(service.DEFAULT_CONFIG, {
+    aiProfiles: { schema_version: 1, llmwiki: { direct_provider_key: "", omniroute_provider_key: "" } }
+  }), "llmwiki", "omniroute");
+  assert.equal(unavailable.ok, false);
+  assert.equal(unavailable.call_allowed, false);
+  assert.equal(unavailable.code, "provider_unavailable");
+}
+
+function testAiProfileRejectsUnknownShape() {
+  assert.throws(() => service.mergeConfig(service.DEFAULT_CONFIG, {
+    aiProfiles: { schema_version: 2, llmwiki: { direct_provider_key: "gemini", omniroute_provider_key: "" } }
+  }), /schema_version/);
+  assert.throws(() => service.mergeConfig(service.DEFAULT_CONFIG, {
+    aiProfiles: { schema_version: 1, llmwiki: { provider_mode: "direct", provider_key: "gemini" } }
+  }), /unknown fields/);
+  assert.throws(() => service.mergeConfig(service.DEFAULT_CONFIG, {
+    aiProfiles: { schema_version: 1, llmwiki: { direct_provider_key: "missing", omniroute_provider_key: "" } }
+  }), /configured provider/);
+}
+
 async function testSecretIdsRemainValid() {
   Object.values(service.SECRET_IDS).forEach((secretId) => {
     assert.match(secretId, /^[a-z0-9-]{1,64}$/);
@@ -151,6 +205,8 @@ function testAntigravityProviderUsesCliLoginWithSelectableModel() {
   await testCanonicalConfigBeatsLegacyAndOnlyDeletesRequestedSecret();
   await testLegacySecretCountsAsConfigured();
   await testFreeProviderDefaultsAndFallbackPersist();
+  await testAiProfileRoundTripAndResolver();
+  testAiProfileRejectsUnknownShape();
   await testSecretIdsRemainValid();
   testCodexProviderUsesCliLoginWithoutSecret();
   testAntigravityProviderUsesCliLoginWithSelectableModel();

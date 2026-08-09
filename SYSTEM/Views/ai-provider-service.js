@@ -7,16 +7,7 @@
   const STRUCTURED_TIMEOUT_MS = 60000;
   const SUBSCRIPTION_REJECTION = /구독|subscription|session|cookie|web[-_ ]ui|automation|consumer[-_ ]login|google[-_ ]account|chatgpt[-_ ](?:login|session|account)/i;
 
-  function canUseCommonJsRequire() {
-    return typeof module !== "undefined"
-      && module
-      && module.exports
-      && typeof module.filename === "string"
-      && typeof require === "function"
-      && !(typeof process !== "undefined" && process && process.type === "renderer");
-  }
-
-  if (canUseCommonJsRequire()) {
+  if (typeof require === "function") {
     if (!root.AIProviderErrorPolicy) root.AIProviderErrorPolicy = require("./ai-provider-error-policy.js");
     if (!root.AIProviderResponse) root.AIProviderResponse = require("./ai-provider-response.js");
     if (!root.AIProviderSchema) root.AIProviderSchema = require("./ai-provider-schema.js");
@@ -29,18 +20,8 @@
   }
   function contextEnvelopeApi() {
     if (root.AIContextEnvelope) return root.AIContextEnvelope;
-    if (canUseCommonJsRequire()) return require("./ai-context-envelope.js");
+    if (typeof require === "function") return require("./ai-context-envelope.js");
     throw new Error("AIContextEnvelope must load before contextual chat.");
-  }
-  function codexExecService() {
-    if (root.CodexExecService) return root.CodexExecService;
-    if (canUseCommonJsRequire()) return require("./codex-exec-service.js");
-    throw new Error("Codex 실행 서비스가 로드되지 않았습니다. Journal 또는 Home을 다시 여세요.");
-  }
-  function antigravityExecService() {
-    if (root.AntigravityExecService) return root.AntigravityExecService;
-    if (canUseCommonJsRequire()) return require("./antigravity-exec-service.js");
-    throw new Error("Antigravity 실행 서비스가 로드되지 않았습니다. Journal 또는 Home을 다시 여세요.");
   }
   function redactError(error) { return errorPolicy().redactError(error); }
   const TRANSIENT_HTTP_STATUSES = errorPolicy().TRANSIENT_HTTP_STATUSES;
@@ -63,17 +44,6 @@
     return String(provider && provider.baseURL || "");
   }
 
-  function isAllowedRelayURL(value) {
-    const raw = String(value || "").trim();
-    if (!raw) return true;
-    try {
-      const url = new URL(raw);
-      return url.protocol === "https:" && (url.hostname === "localhost" || url.hostname.endsWith(".ts.net"));
-    } catch (_error) {
-      return false;
-    }
-  }
-
   function providerSecurityError(message) {
     const error = new Error(message);
     error.name = "ProviderSecurityError";
@@ -83,19 +53,8 @@
   function validateProviderSecurity(provider) {
     const source = provider || {};
     const serialized = JSON.stringify(source).toLowerCase();
-    if (source.adapter === "codex-exec") {
-      if (source.authMode !== "codex-login") throw providerSecurityError("Codex provider는 공식 Codex CLI 로그인만 사용해야 합니다.");
-      if (source.apiKeySecret || source.baseURL || source.localBaseURL) throw providerSecurityError("Codex provider에는 API 키나 HTTP endpoint를 설정할 수 없습니다.");
-      return true;
-    }
-    if (source.adapter === "antigravity-exec") {
-      if (source.authMode !== "antigravity-login") throw providerSecurityError("Antigravity provider는 공식 agy CLI 로그인만 사용해야 합니다.");
-      if (source.apiKeySecret || source.baseURL || source.localBaseURL) throw providerSecurityError("Antigravity provider에는 API 키나 직접 HTTP endpoint를 설정할 수 없습니다.");
-      if (!isAllowedRelayURL(source.relayURL)) throw providerSecurityError("Antigravity 중계 URL은 HTTPS Tailscale 주소만 사용할 수 있습니다.");
-      return true;
-    }
     if (serialized.includes("antigravity") || /"agy"/.test(serialized)) {
-      throw providerSecurityError("Antigravity 또는 agy 브리지는 지원하지 않습니다. 공식 antigravity-exec 제공자만 사용할 수 있습니다.");
+      throw providerSecurityError("Antigravity 또는 agy 제공자는 지원하지 않습니다.");
     }
     if (/consumer.*oauth|oauth.*consumer/i.test(String(source.authMode || "")) || source.reuseConsumerOAuth === true || source.consumerOAuthReuse === true) {
       throw providerSecurityError("소비자 OAuth 재사용은 허용되지 않습니다.");
@@ -303,14 +262,6 @@
 
   async function requestProviderChatText(options) {
     const provider = options && options.provider;
-    if (provider && provider.adapter === "codex-exec") {
-      validateProviderSecurity(provider);
-      return codexExecService().requestChatText(options);
-    }
-    if (provider && provider.adapter === "antigravity-exec") {
-      validateProviderSecurity(provider);
-      return antigravityExecService().requestChatText(options);
-    }
     if (!provider || !provider.model) throw new Error("AI provider model is not configured.");
     if (provider.adapter === "openai-compatible" && !provider.model && provider.authMode !== "none") {
       throw new Error("로컬 AI 제공자에 모델 ID가 설정되지 않았습니다. 설정 → AI → 해당 제공자의 모델 ID를 입력해 주세요.");
@@ -345,14 +296,6 @@
 
   async function requestProviderStructuredJson(options) {
     const provider = options && options.provider;
-    if (provider && provider.adapter === "codex-exec") {
-      validateProviderSecurity(provider);
-      return codexExecService().requestStructuredJson(options);
-    }
-    if (provider && provider.adapter === "antigravity-exec") {
-      validateProviderSecurity(provider);
-      return antigravityExecService().requestStructuredJson(options);
-    }
     if (!provider || !provider.model) throw new Error("AI provider model is not configured.");
     validateProviderSecurity(provider);
     const apiKey = provider.authMode === "none" ? "" : await getProviderSecret(options.app, provider);
@@ -380,7 +323,7 @@
           await sleep(RETRY_DELAYS_MS[attempt]);
           continue;
         }
-        if (!options.forcePlain && provider.adapter !== "gemini" && status === 400 && isFormatRejection(error)) {
+        if (!options.forcePlain && options.allowFormatDowngrade !== false && provider.adapter !== "gemini" && status === 400 && isFormatRejection(error)) {
           try {
             const plainResponse = await requestOpenAiCompatible(Object.assign({}, options, { forcePlain: true }), apiKey);
             return parseJsonPayload(extractJsonText(plainResponse));
@@ -395,10 +338,7 @@
   }
 
   async function isProviderConfigured(app, provider) {
-    if (provider && provider.adapter === "antigravity-exec" && isMobileRuntime(app) && provider.relayURL) {
-      return Boolean(await getSecret(app, provider.relayTokenSecret || "prodigy-antigravity-relay-token"));
-    }
-    if (!provider || provider.authMode === "none" || provider.adapter === "codex-exec" || provider.adapter === "antigravity-exec") return true;
+    if (!provider || provider.authMode === "none") return true;
     return Boolean(await getProviderSecret(app, provider));
   }
 
@@ -423,6 +363,15 @@
         surfaced.message = `${primaryName} 요청 실패 후 ${fallbackName}도 응답하지 않았습니다. ${surfaced.message}`;
       }
       throw surfaced;
+    }
+  }
+  async function requestStructuredJsonOnce(options) {
+    const provider = options && options.provider;
+    if (!provider) throw new Error("AI provider is not configured.");
+    try {
+      return await requestProviderStructuredJson(Object.assign({}, options, { allowFormatDowngrade: false }));
+    } catch (error) {
+      throw userFacingProviderError(error, provider, options && options.app);
     }
   }
 
@@ -464,7 +413,7 @@
       .filter(Boolean);
   }
 
-  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, CHAT_TIMEOUT_MS, STRUCTURED_TIMEOUT_MS, SUBSCRIPTION_REJECTION, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, isAllowedRelayURL, validateProviderSecurity, listModels, isProviderConfigured, requestChatText, requestStructuredJson };
+  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, CHAT_TIMEOUT_MS, STRUCTURED_TIMEOUT_MS, SUBSCRIPTION_REJECTION, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, validateProviderSecurity, listModels, requestChatText, requestStructuredJson, requestStructuredJsonOnce };
 
   root.AIProviderService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
