@@ -19,6 +19,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-workspace-route.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
   await loadProdigyScript("SYSTEM/Views/workspace-list-view.js");
@@ -46,6 +47,10 @@ try {
           return l.path || String(l);
         }).filter(Boolean);
       }
+      let sourceObjects = p.source_objects;
+      if (sourceObjects && !Array.isArray(sourceObjects)) sourceObjects = [sourceObjects];
+      if (Array.isArray(sourceObjects)) outlinks.push(...sourceObjects);
+      if (p.promoted_knowledge) outlinks.push(p.promoted_knowledge);
     } catch (_e) {
       outlinks = [];
     }
@@ -128,7 +133,10 @@ try {
     const buckets = [
       dv.pages('"PARA/PROJECTS"'),
       dv.pages('"DAILY/DAILY"'),
-      dv.pages('"PARA/PROJECTS/Reading"')
+      dv.pages('"PARA/PROJECTS/Reading"'),
+      dv.pages('"ZETA/PERMANENT"'),
+      dv.pages('"ZETA/LITERATURE"'),
+      dv.pages('"PARA/RESOURCES/Knowledge/Candidates"')
     ];
     const out = [];
     const seen = Object.create(null);

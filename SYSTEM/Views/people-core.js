@@ -827,6 +827,9 @@ function isKnownVenueCategory(value) {
     Object.freeze({ id: "journal", label: "저널" }),
     Object.freeze({ id: "auction_case", label: "경매" }),
     Object.freeze({ id: "reading", label: "독서" }),
+    Object.freeze({ id: "knowledge", label: "지식" }),
+    Object.freeze({ id: "knowledge_candidate", label: "검증 대기" }),
+    Object.freeze({ id: "literature_note", label: "문헌" }),
     Object.freeze({ id: "other", label: "기타" })
   ]);
 
@@ -839,6 +842,10 @@ function isKnownVenueCategory(value) {
     journal: "저널",
     reading: "독서",
     reading_session: "독서",
+    knowledge: "지식",
+    permanent_note: "지식",
+    knowledge_candidate: "검증 대기",
+    literature_note: "문헌",
     other: "기타",
     unknown: "기록"
   });
@@ -1045,6 +1052,9 @@ function isKnownVenueCategory(value) {
     else if (type === "auction_case" || type === "auction") bucket = "auction_case";
     else if (type === "journal" || path.includes("DAILY/DAILY/")) bucket = "journal";
     else if (type === "reading" || type === "reading_session") bucket = "reading";
+    else if (type === "knowledge" || type === "permanent_note") bucket = "knowledge";
+    else if (type === "knowledge_candidate") bucket = "knowledge_candidate";
+    else if (type === "literature_note") bucket = "literature_note";
     return {
       path,
       type: type || "unknown",

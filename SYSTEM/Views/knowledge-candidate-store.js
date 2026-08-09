@@ -135,6 +135,18 @@
     return result;
   }
 
+  async function findCanonicalCandidateById(app, candidateId) {
+    const id = clean(candidateId);
+    if (!id) return null;
+    for (const file of await filesIn(app, [CANDIDATE_DIR])) {
+      try {
+        const candidate = await readCandidate(app, file.path);
+        if (candidate.candidate_id === id) return candidate;
+      } catch (_error) { /* malformed files remain untouched and do not block a new save */ }
+    }
+    return null;
+  }
+
   function normalizeCandidate(data, path) {
     const candidateCore = core();
     let normalized;
@@ -210,6 +222,8 @@
   async function saveCandidate(app, input, options) {
     const now = stamp(options && options.now);
     const candidate = core().createCandidate({ ...input, created: clean(input && input.created) || now, updated: now });
+    const existing = await findCanonicalCandidateById(app, candidate.candidate_id);
+    if (existing) return existing;
     const candidatePath = await uniquePath(app, CANDIDATE_DIR, candidate.title);
     await ensureFolder(app, CANDIDATE_DIR);
     await app.vault.create(candidatePath, renderFrontmatter(candidate, candidateBody(candidate)));

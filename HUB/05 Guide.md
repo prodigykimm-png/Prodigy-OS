@@ -82,6 +82,14 @@ Home에서 할 수 있는 것:
 - **연결 방법**: 원본 PARA Object의 `connections`에 승인 Knowledge의 exact wikilink를 추가한 뒤 지식 활용 탭을 다시 엽니다.
 - **문헌 노트 만들기**: PARA의 문헌 노트 만들기는 제텔카스텐의 동일한 문헌노트 작성 창을 엽니다. 별도 저장 경로를 만들지 않습니다.
 
+### 워크스페이스 간 지식 연결 규칙
+
+- **Daily/Journal**: Evidence를 먼저 저장한 뒤 `daily_evidence` 후보를 만듭니다. `source_evidence_ids`와 Daily wikilink만 provenance로 남기며, 후보 저장이 끝나면 **검증 대기 열기**로 승인 화면에 이동합니다.
+- **Reading**: Reading Session에서 **지식 후보 만들기**를 누르면 `reading_session` 후보와 세션 `source_objects`가 생깁니다. 후보 카드의 **세션 열기**와 Knowledge의 **원본 열기**는 본문을 복사하지 않고 같은 원본으로 돌아갑니다.
+- **Personal/People**: People Object에 명시된 `connections`·wikilink만 맥락으로 투영합니다. 상세 화면에서 **연결된 승인 지식**은 원본 Knowledge를 열고, **연결된 지식 후보**는 후보 원본과 **검증 대기 열기**를 제공합니다. 사람 기록만으로 후보를 자동 생성하지 않습니다.
+- **Literature**: 문헌노트는 `ZETA/LITERATURE/`의 canonical Source Object 하나를 `study_material` 후보의 `source_objects`로 가리킵니다. 자료 본문을 Candidate·Knowledge에 복제하지 않습니다.
+- **단일 규칙**: `candidate_id`는 source ID·source Object·내용으로 결정되며 canonical writer가 같은 ID를 재저장하면 기존 후보를 재사용합니다. 승인 후에는 `promoted_knowledge`, Knowledge의 exact wikilink, PARA Object의 `connections`로만 재사용합니다. `invalidation_conditions`는 후보에서 승인 지식으로 보존되며 자동 폐기·자동 승격은 없습니다.
+
 ---
 
 ## 저널 (Journal)

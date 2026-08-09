@@ -154,16 +154,22 @@ author: Author
     statement: "Knowledge statement",
     reason: "Because"
   });
-  assert.notEqual(duplicate.path, candidate.path);
+  assert.equal(duplicate.path, candidate.path, "stable candidate IDs reuse the existing Candidate");
   assert.equal(duplicate.candidate_id, candidate.candidate_id);
   assert.equal(app._map.get(candidate.path), canonicalBeforeDuplicate);
 
-  const rejected = await store.rejectCandidate(app, candidate.path);
-  assert.equal(rejected.status, "rejected");
-  const text = app._map.get(candidate.path);
+  const rejected = await store.saveCandidate(app, session, {
+    title: "Candidate Title",
+    statement: "Knowledge statement",
+    reason: "A separate review item"
+  });
+  assert.notEqual(rejected.path, candidate.path);
+  const rejectedResult = await store.rejectCandidate(app, rejected.path);
+  assert.equal(rejectedResult.status, "rejected");
+  const text = app._map.get(rejected.path);
   assert.match(text, /status: "rejected"/);
 
-  const approved = await store.approveCandidate(app, duplicate.path, {
+  const approved = await store.approveCandidate(app, candidate.path, {
     title: "Approved Reading Knowledge",
     statement: "Knowledge statement",
     knowledge_domain: "coding",

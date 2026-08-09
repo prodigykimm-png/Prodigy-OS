@@ -144,6 +144,8 @@
   }
 
   async function openKnowledgeExplorer(app) {
+    const route = root.KnowledgeWorkspaceRoute;
+    if (route && typeof route.openReview === "function") return route.openReview(app);
     const workspace = app && app.workspace;
     if (workspace && typeof workspace.openLinkText === "function") {
       try {

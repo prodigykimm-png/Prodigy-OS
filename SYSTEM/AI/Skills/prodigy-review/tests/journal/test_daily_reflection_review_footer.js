@@ -87,6 +87,7 @@ async function testRuntimeQualityAndHandoffControls() {
     const root = createElement("div");
     const notices = [];
     const saves = [];
+    let reviews = 0;
     let finishes = 0;
     const options = {
       contentEl: root,
@@ -98,12 +99,15 @@ async function testRuntimeQualityAndHandoffControls() {
       onCancel: () => {},
       onImprove: () => {},
       onFinish: async () => { finishes += 1; },
-      onSave: async (payload) => { saves.push(payload); return { blocked: [{ message: "보관됨" }] }; }
+      onSave: async (payload) => { saves.push(payload); return saves.length === 1 ? { blocked: [{ message: "보관됨" }] } : { saved: [{}] }; },
+      onReview: () => { reviews += 1; },
     };
     loaded.view.renderHandoff(options);
     const footer = findElement(root, (element) => element.attributes.class === "reflection-review-footer");
-    assert.deepEqual(footer.children.map((element) => element.text), ["취소", "완료", "선택한 후보 저장"]);
+    assert.deepEqual(footer.children.map((element) => element.text), ["취소", "완료", "선택한 후보 저장", "검증 대기 열기"]);
     const save = findElement(root, (element) => element.tag === "button" && element.text === "선택한 후보 저장");
+    const review = findElement(root, (element) => element.tag === "button" && element.text === "검증 대기 열기");
+    assert.equal(review.disabled, true);
     assert.match(save.attributes.class, /prodigy-btn-primary/, "the post-Evidence save control keeps primary-action semantics");
     assert.equal(save.disabled, false, "a selected Candidate enables the explicit save control");
     await save.onclick();
@@ -119,6 +123,11 @@ async function testRuntimeQualityAndHandoffControls() {
     await save.onclick();
     assert.deepEqual(saves[0].selectedKnowledgeCandidateIndexes, [0]);
     assert.deepEqual(saves[0].thinOverrides, { "daily-e01": "직접 확인했다." });
+    assert.equal(review.disabled, true, "review opens only after every selected candidate is saved");
+    await save.onclick();
+    assert.equal(review.disabled, false);
+    review.onclick();
+    assert.equal(reviews, 1);
     assert.equal(finishes, 0, "a blocked consumer response preserves the handoff state");
   } finally {
     loaded.restore();

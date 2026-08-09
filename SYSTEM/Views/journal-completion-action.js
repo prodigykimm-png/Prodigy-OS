@@ -22,6 +22,14 @@
   function render(actions, options) {
     const hasStagedDelete = Array.isArray(options.deleteEvidenceIds) && options.deleteEvidenceIds.length > 0;
     const fields = options.todayReview && options.todayReview.fields || {};
+    const openKnowledgeReview = () => {
+      const route = root.KnowledgeWorkspaceRoute;
+      if (route && typeof route.openReview === "function") return route.openReview(options.app);
+      const workspace = options.app && options.app.workspace;
+      if (workspace && typeof workspace.openLinkText === "function") return workspace.openLinkText("HUB/50 Knowledge", "", false);
+      if (window.Notice) new Notice("Knowledge 워크스페이스를 열 수 없습니다. HUB/50 Knowledge.md에서 검토해 주세요.");
+      return false;
+    };
     const openDiary = (startClassification) => options.openProposeEvidenceModal(options.app, options.today, async (proposed) => {
       const saved = await saveProposedEvidenceAtCommit(options.app, options.today, proposed, {
         deleteEvidenceIds: Array.isArray(options.deleteEvidenceIds) ? options.deleteEvidenceIds : []
@@ -34,6 +42,7 @@
       initialReflection: fields.reflection,
       startClassification: Boolean(startClassification),
       onReflectionCommit: ({ freeText }) => root.JournalStore.saveReflection(options.app, options.today, freeText),
+      onKnowledgeReview: openKnowledgeReview,
       onEvidenceSaved: async (handoff) => {
         const result = await saveSelectedKnowledgeCandidatesAfterEvidence(options.app, Object.assign({}, handoff, { evidenceConfirmed: true, selectedCandidateIndexes: handoff.selectedKnowledgeCandidateIndexes }));
         if (result.blocked.length && window.Notice) new Notice(result.blocked[0].message);

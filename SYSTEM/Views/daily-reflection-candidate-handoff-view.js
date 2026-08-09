@@ -100,7 +100,7 @@
   }
 
   function renderHandoff(options) {
-    const { contentEl, proposal, state, savedEvidence, styleText, onNotice, onImprove, onFinish, onSave } = options;
+    const { contentEl, proposal, state, savedEvidence, styleText, onNotice, onImprove, onFinish, onSave, onReview } = options;
     contentEl.empty();
     contentEl.addClass("prodigy-reflection-modal");
     contentEl.createEl("style").textContent = styleText;
@@ -137,6 +137,11 @@
     done.onclick = onFinish;
     const save = addButton(actions, "선택한 후보 저장", true);
     save.disabled = selectedIndexes(state).length === 0;
+    const review = typeof onReview === "function" ? addButton(actions, "검증 대기 열기") : null;
+    if (review) {
+      review.disabled = true;
+      review.onclick = () => onReview();
+    }
     save.onclick = async () => {
       const issue = handoffIssue(proposal, state, savedEvidence);
       if (issue) return onNotice(issue);
@@ -150,6 +155,7 @@
           save.disabled = false;
           return onNotice(result.blocked[0].message || "선택한 후보를 저장하지 못했습니다.");
         }
+        if (review) review.disabled = false;
       } catch (error) {
         save.disabled = false;
         return onNotice(error.message || String(error));

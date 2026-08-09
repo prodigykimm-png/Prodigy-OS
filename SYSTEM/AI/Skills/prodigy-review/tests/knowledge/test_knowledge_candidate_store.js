@@ -80,6 +80,9 @@ async function createSaved(fixture, extra) {
 async function testCanonicalWriteAndLegacyReadsStayReadOnly() {
   const fixture = makeVault();
   const saved = await createSaved(fixture, { extra_legacy_field: "must not be serialized" });
+  const retry = await createSaved(fixture);
+  assert.equal(retry.path, saved.path, "stable candidate IDs make a repeated save idempotent");
+  assert.equal(fixture.count("PARA/RESOURCES/Knowledge/Candidates/"), 1);
   const oldReading = { candidate_id: "legacy-old", status: "proposed", title: "기존 독서 후보", statement: "기존 독서 기록", source_session: "[[Reading/old]]", source_book: "old book", created: "2026-07-19", updated: "2026-07-19" };
   const oldFleeting = { type: "knowledge_candidate", status: "saved", title: "이전 후보", statement: "이전 기록", source_session: "[[Reading/older]]", source_book: "older book", created: "2026-07-18", updated: "2026-07-18" };
   fixture.put("PARA/RESOURCES/Reading/Candidates/old.md", document({ ...oldReading, legacy_flag: "keep" }));

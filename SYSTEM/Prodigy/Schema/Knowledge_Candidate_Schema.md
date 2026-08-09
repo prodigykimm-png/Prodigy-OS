@@ -42,6 +42,7 @@
 | `updated` | ISO date/datetime | 마지막 수정 시점 |
 
 `source_evidence_ids`, `source_objects`, `suggested_topics`, `application_contexts`의 canonical 저장 형식은 YAML list다. scalar/comma 형식은 새 writer가 저장하지 않는다. Candidate나 Knowledge에 Evidence 본문을 복사하지 않고 stable ID와 명시적 wikilink만 provenance로 저장한다.
+동일한 canonical provenance·내용으로 계산된 `candidate_id`가 이미 canonical Candidate 경로에 있으면 writer는 새 파일을 만들지 않고 기존 Candidate를 반환한다. 제목 충돌로 suffix를 붙이는 것은 `candidate_id`가 다른 후보에만 적용한다.
 
 ## 신규 writer validation 및 Korean recovery contract
 

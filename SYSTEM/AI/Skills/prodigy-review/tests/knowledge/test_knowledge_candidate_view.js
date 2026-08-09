@@ -43,9 +43,11 @@ function click(node) {
 function testSeparateActiveInboxAndReadableMetadata() {
   const root = new FakeElement("section");
   const actions = [];
+  const opened = [];
   view.renderCandidateInbox(root, {
     candidates: [candidate(), candidate({ candidate_id: "candidate-proposed", status: "proposed", title: "기존 독서 후보" }), candidate({ candidate_id: "candidate-rejected", status: "rejected", title: "종료 후보" })],
-    onAction: (action) => actions.push(action)
+    onAction: (action) => actions.push(action),
+    onOpenSource: (target) => opened.push(target)
   });
 
   const text = collectText(root);
@@ -53,6 +55,10 @@ function testSeparateActiveInboxAndReadableMetadata() {
   assert.match(text, /근거 기반 검토/);
   assert.match(text, /Daily Evidence: daily-2026-07-20-e01/);
   assert.match(text, /출처 Object: \[\[DAILY\/2026-07-20\]\]/);
+  const source = button(root, "원본 열기: DAILY/2026-07-20");
+  assert.ok(source);
+  assert.equal(click(source), true);
+  assert.deepEqual(opened, ["DAILY/2026-07-20"]);
   assert.match(text, /신뢰도: 명시적/);
   assert.match(text, /제안 경로: 코딩 · typescript/);
   assert.match(text, /근거 품질: 사용 가능/);

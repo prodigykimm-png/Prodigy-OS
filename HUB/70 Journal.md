@@ -19,6 +19,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
+  await loadProdigyScript("SYSTEM/Views/knowledge-workspace-route.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-adaptive-controls.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");

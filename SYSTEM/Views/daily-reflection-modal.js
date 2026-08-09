@@ -75,6 +75,7 @@
         root.DailyReflectionCandidateHandoffView.renderHandoff({
           contentEl: this.contentEl, proposal: this.proposal, state: this.candidateHandoff, savedEvidence: this.savedEvidence, styleText: root.DailyReflectionModalStyles,
           onNotice: showNotice, onCancel: () => this.close(), onImprove: (evidenceId) => { this.focusEvidenceId = evidenceId; this.phase = "confirm"; this.render(); }, onFinish: async () => this.finishSavedEvidence(),
+          onReview: () => typeof opts.onKnowledgeReview === "function" ? opts.onKnowledgeReview(app) : null,
           onSave: async ({ selectedKnowledgeCandidateIndexes, thinOverrides }) => {
             const result = await opts.onEvidenceSaved({ proposal: this.proposal, selectedKnowledgeCandidateIndexes, selectedEvidenceIds: this.savedEvidence.selectedEvidenceIds, selectedObjectPaths: Array.from(this.selectedObjectPaths), thinOverrides, saveResult: this.savedEvidence.saveResult });
             if (!result || !result.blocked || !result.blocked.length) await this.finishSavedEvidence();

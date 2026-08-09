@@ -14,6 +14,7 @@ KnowledgeExplorerHub.modulePaths = [
   "SYSTEM/Views/prodigy-workspace-state-store.js",
   "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
+  "SYSTEM/Views/knowledge-workspace-route.js",
   "SYSTEM/Views/display-registry.js",
   "SYSTEM/Views/knowledge-explorer-registry.js",
   "SYSTEM/Views/knowledge-authoring-validation.js",
@@ -248,6 +249,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       model,
       surfaceState,
       onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath),
+      onOpenSource: (targetPath) => P.openBeside(appRef, targetPath),
       briefService,
       hydrateAsset: dataSource.hydrate,
       ...candidateConfig
@@ -453,6 +455,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
 
     KnowledgeExplorerHub.api = api;
     KnowledgeExplorerHub.tabs = tabs;
+    if (KnowledgeExplorerHub._pendingFocus === "candidate-review") {
+      KnowledgeExplorerHub._pendingFocus = "";
+      tabs.select("zettelkasten");
+      focusCandidateReview();
+    }
     KnowledgeExplorerHub.model = model;
     KnowledgeExplorerHub.paraModel = paraModel;
     KnowledgeExplorerHub.llmWikiRunController = llmWikiRunController;

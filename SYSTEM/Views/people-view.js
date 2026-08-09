@@ -62,6 +62,18 @@
     if (!app || !path) return;
     return app.workspace.openLinkText(String(path).replace(/\.md$/, ""), "", false);
   }
+  async function openKnowledgeReview(app) {
+    const route = root.KnowledgeWorkspaceRoute;
+    if (route && typeof route.openReview === "function") return route.openReview(app);
+    if (app && app.workspace && typeof app.workspace.openLinkText === "function") {
+      try {
+        await app.workspace.openLinkText("HUB/50 Knowledge", "", false);
+        return true;
+      } catch (_error) { /* recovery notice below */ }
+    }
+    notice("Knowledge 워크스페이스를 열 수 없습니다. HUB/50 Knowledge.md에서 검토해 주세요.");
+    return false;
+  }
 
   const PEOPLE_SIDE_LEAF_KEY = "__prodigyPeopleSideLeaf";
 
@@ -2030,10 +2042,38 @@
         });
       }
 
+      const allLinked = person.linked_all || person.recent_context || [];
+      const linkedKnowledge = allLinked.filter((item) => item.bucket === "knowledge");
+      const linkedCandidates = allLinked.filter((item) => item.bucket === "knowledge_candidate");
+      if (linkedKnowledge.length) {
+        const knowledgeSection = detailPane.createEl("section", { attr: { class: "ppw-detail-section" } });
+        knowledgeSection.createEl("h3", { text: "연결된 승인 지식" });
+        linkedKnowledge.forEach((item) => {
+          const row = knowledgeSection.createEl("button", {
+            text: item.title,
+            attr: { type: "button", class: "ppw-context-item", "aria-label": `연결된 지식 열기: ${item.title}` }
+          });
+          row.onclick = () => openRecord(item.path);
+        });
+      }
+      if (linkedCandidates.length) {
+        const candidateSection = detailPane.createEl("section", { attr: { class: "ppw-detail-section" } });
+        candidateSection.createEl("h3", { text: "연결된 지식 후보" });
+        linkedCandidates.forEach((item) => {
+          const row = candidateSection.createEl("button", {
+            text: item.title,
+            attr: { type: "button", class: "ppw-context-item", "aria-label": `지식 후보 원본 열기: ${item.title}` }
+          });
+          row.onclick = () => openRecord(item.path);
+        });
+        const review = btn(candidateSection, "검증 대기 열기", { primary: true });
+        review.onclick = () => openKnowledgeReview(app);
+      }
+
       const contextSection = detailPane.createEl("section", { attr: { class: "ppw-detail-section" } });
       contextSection.createEl("h3", { text: "최근 맥락" });
       const context = contextSection.createDiv({ attr: { class: "ppw-detail-context" } });
-      const linked = person.linked_all || person.recent_context || [];
+      const linked = allLinked.filter((item) => !["knowledge", "knowledge_candidate", "literature_note"].includes(item.bucket));
       if (linked.length) {
         linked.forEach((item) => {
           const row = context.createEl("button", {

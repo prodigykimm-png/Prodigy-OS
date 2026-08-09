@@ -86,6 +86,7 @@ function testOnlyHumanSelectedRowsBecomeCandidateDrafts() {
     source_type: "daily_evidence",
     source_evidence_ids: ["daily-2026-07-20-e03"],
     source_objects: ["[[최진웅]]", "[[DAILY/DAILY/2026-07-20]]"],
+    connections: ["[[최진웅]]"],
     confidence: "explicit",
     suggested_domain: "wedding",
     suggested_topics: ["shooting"],

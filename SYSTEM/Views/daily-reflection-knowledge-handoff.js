@@ -59,9 +59,10 @@
         blocked.push({ candidate_index: candidateIndex, message: "표제와 세부내용이 같은 후보는 저장할 수 없습니다." });
         return;
       }
-      const sourceObjects = Array.from(new Set(sourceBlocks.flatMap((block) => canonicalWikiLinks(block.related_objects))));
+      const relatedObjects = Array.from(new Set(sourceBlocks.flatMap((block) => canonicalWikiLinks(block.related_objects))));
+      const sourceObjects = relatedObjects.slice();
       if (dailyLink) sourceObjects.push(dailyLink);
-      ready.push({ title, statement, reason: clean(candidate.reason) || sourceBlocks.map((block) => clean(block.title)).filter(Boolean).join(" · "), source_type: "daily_evidence", source_evidence_ids: sourceIds, source_objects: Array.from(new Set(sourceObjects)), confidence: clean(candidate.confidence) || "low", suggested_domain: clean(candidate.suggested_domain), suggested_topics: Array.isArray(candidate.suggested_topics) ? candidate.suggested_topics.map(clean).filter(Boolean) : [], approval_note: approvalNote });
+      ready.push({ title, statement, reason: clean(candidate.reason) || sourceBlocks.map((block) => clean(block.title)).filter(Boolean).join(" · "), source_type: "daily_evidence", source_evidence_ids: sourceIds, source_objects: Array.from(new Set(sourceObjects)), connections: relatedObjects, confidence: clean(candidate.confidence) || "low", suggested_domain: clean(candidate.suggested_domain), suggested_topics: Array.isArray(candidate.suggested_topics) ? candidate.suggested_topics.map(clean).filter(Boolean) : [], approval_note: approvalNote });
     });
     return { ready, blocked, guidance };
   }

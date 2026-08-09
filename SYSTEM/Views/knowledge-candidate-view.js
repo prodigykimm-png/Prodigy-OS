@@ -124,18 +124,48 @@
     return control;
   }
 
-  function provenance(parent, candidate) {
+  function sourceObjectTarget(value) {
+    let target = text(value).replace(/^\[\[/, "").replace(/\]\]$/, "");
+    const pipe = target.indexOf("|");
+    if (pipe >= 0) target = target.slice(0, pipe);
+    const hash = target.indexOf("#");
+    if (hash >= 0) target = target.slice(0, hash);
+    return target.trim();
+  }
+
+  function sourceObjectLabel(value, target) {
+    const raw = text(value).replace(/^\[\[/, "").replace(/\]\]$/, "");
+    const pipe = raw.indexOf("|");
+    return pipe >= 0 ? text(raw.slice(pipe + 1)) || target : target;
+  }
+
+  function provenance(parent, candidate, options) {
     const confidence = label(candidate.confidence, { explicit: "명시적", inferred: "추론", low: "낮음" });
+    const sourceObjects = list(candidate.source_objects);
     const route = [label(candidate.suggested_domain, { real_estate: "부동산", wedding: "웨딩", coding: "코딩", workout: "운동", reading: "독서", business: "비즈니스", personal_growth: "개인 성장" }, "미분류"), list(candidate.suggested_topics).join(", ")].filter(Boolean).join(" · ");
     const details = [
       `Daily Evidence: ${list(candidate.source_evidence_ids).join(", ") || "연결된 Evidence ID 없음"}`,
-      `출처 Object: ${list(candidate.source_objects).join(", ") || "연결된 Object 없음"}`,
+      `출처 Object: ${sourceObjects.join(", ") || "연결된 Object 없음"}`,
       `연결 Region: ${list(candidate.connections).filter((link) => typeof link === "string" && link.includes("Auction Regions")).join(", ") || "연결된 Region 없음"}`,
       `무효화 조건: ${list(candidate.invalidation_conditions).join("; ") || "없음"}`,
       `신뢰도: ${confidence}`,
       `제안 경로: ${route || "미분류"}`
     ];
     details.forEach((value) => createEl(parent, "p", { text: value, attr: { class: "knowledge-explorer-detail-item-meta" } }));
+    if (sourceObjects.length && typeof options.onOpenSource === "function") {
+      const sourceActions = createEl(parent, "div", { attr: { class: "knowledge-explorer-row-actions", "aria-label": "후보 출처 원본" } });
+      sourceObjects.forEach((sourceObject) => {
+        const target = sourceObjectTarget(sourceObject);
+        if (!target) return;
+        button(sourceActions, {
+          text: `원본 열기: ${sourceObjectLabel(sourceObject, target)}`,
+          action: "open-source",
+          candidateId: candidate.candidate_id,
+          disabled: options.disabled,
+          onAction: () => options.onOpenSource(target, candidate)
+        });
+      });
+    }
   }
 
   function draftFields(parent, candidate, draft, onDraftChange, disabled) {
@@ -182,7 +212,7 @@
     createEl(card, "h4", { text: candidate.title, attr: { class: "knowledge-explorer-detail-title" } });
     createEl(card, "p", { text: candidate.statement, attr: { class: "knowledge-explorer-detail-item-note" } });
     renderReason(card, candidate.reason);
-    provenance(card, candidate);
+    provenance(card, candidate, options);
     createEl(card, "p", { text: `근거 품질: ${Quality.STATUS_LABELS[eligibility.status] || "확인 필요"}`, attr: { class: "knowledge-explorer-detail-item-meta" } });
     if (eligibility.requires_override) {
       const override = createEl(card, "input", { attr: { type: "checkbox", name: "thin_override", "aria-label": "보완 필요 근거를 명시적으로 승인" }, disabled: options.disabled });
@@ -302,6 +332,7 @@
       renderOptions(disabled, beforeAction) {
         return {
           candidates, phase, error, disabled: Boolean(disabled || pending), draftFor,
+          onOpenSource: options.onOpenSource,
           onDraftChange: updateDraft,
           onAction(action) { if (typeof beforeAction === "function") beforeAction(action); void perform(action); },
           onRetry() { if (typeof beforeAction === "function") beforeAction(retryAction || { type: "retry" }); if (retryAction) void perform(retryAction); else void reload(); }

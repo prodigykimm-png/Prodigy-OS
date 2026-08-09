@@ -200,6 +200,20 @@ function main() {
       mtime: new Date("2026-07-01T12:00:00").getTime()
     },
     {
+      path: "ZETA/PERMANENT/침착한 확인.md",
+      type: "knowledge",
+      title: "침착한 확인",
+      connections: ["[[PARA/RESOURCES/CONTACTS/김대리.md]]"],
+      mtime: new Date("2026-07-02T12:00:00").getTime()
+    },
+    {
+      path: "PARA/RESOURCES/Knowledge/Candidates/촬영 후보.md",
+      type: "knowledge_candidate",
+      title: "촬영 후보",
+      outlinks: ["PARA/RESOURCES/CONTACTS/김대리.md"],
+      mtime: new Date("2026-07-03T12:00:00").getTime()
+    },
+    {
       path: "PARA/RESOURCES/CONTACTS/김대리.md",
       type: "people",
       title: "김대리",
@@ -217,6 +231,9 @@ function main() {
   assert.equal(kimLinks[0].path, "DAILY/DAILY/2026-07-16.md");
   // relation label is related context, not interaction
   assert.equal(kimLinks[0].relation_label, "관련 기록");
+  assert.ok(kimLinks.some((x) => x.bucket === "knowledge" && x.type_label === "지식"));
+  assert.ok(kimLinks.some((x) => x.bucket === "knowledge_candidate" && x.type_label === "검증 대기"));
+  assert.ok(core.filterContextItems(kimLinks, "knowledge").every((x) => x.bucket === "knowledge"));
 
   const preview = core.recentContextForPerson("PARA/RESOURCES/CONTACTS/김대리.md", index, 2);
   assert.equal(preview.length, 2);

@@ -382,6 +382,21 @@ node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/run_knowledge_decision_loop
 - `application_trigger`(언제 이 지식을 쓸지)와 `application_contexts`(어떤 도메인/주제에서 쓸지)는 후보→승인→Knowledge 전 과정에서 보존된다.
 - URL 가져오기는 HTTP(S) 공개 페이지만 지원하며, 로그인·유료벽 우회·영상 다운로드를 하지 않는다. 실패 시 사용자가 직접 텍스트를 입력하는 fallback이 제공된다.
 - 배경 크롤링, 사용 통계, 분석 대시보드, Knowledge 피드백 텔레메트리는 현재 구현하지 않는다.
+### Reading·Journal·Personal ↔ Knowledge provenance
+
+| 시작 workspace | Candidate 계약 | 사람이 확인하는 경로 | 원본·재사용 경로 |
+|---|---|---|---|
+| Journal/Daily | `daily_evidence` + `source_evidence_ids` + Daily wikilink | Evidence 저장 후 후보 저장 → **검증 대기 열기** | Candidate의 **원본 열기**, 승인 후 exact Knowledge link |
+| Reading | `reading_session` + Session `source_objects` | Session의 **지식 후보 만들기** → Knowledge Inbox | **세션 열기**와 Candidate의 **원본 열기** |
+| Personal/People | 명시된 `connections`·wikilink를 맥락으로 투영; People 자체는 후보를 자동 생성하지 않음 | 연결된 Candidate의 **검증 대기 열기** | **연결된 승인 지식**에서 canonical Knowledge 열기 |
+| Literature | canonical `[[ZETA/LITERATURE/...]]` 하나를 `study_material.source_objects`로 보존 | 문헌노트 작성 → Candidate 검토 | Literature Source Object를 원본으로 유지 |
+
+- provenance의 단일 source of truth는 stable `source_evidence_ids`, explicit `source_objects`, canonical `candidate_id`, 승인 후 `promoted_knowledge`와 Object의 exact `connections`다. Evidence·문헌·Knowledge 본문을 다른 Object에 복제하지 않는다.
+- 같은 canonical `candidate_id`를 다시 저장하면 canonical Candidate writer가 기존 파일을 반환한다. 제목 suffix는 ID가 다른 후보에만 사용한다. `invalidation_conditions`는 승인 시 보존하며 자동 폐기·자동 승격하지 않는다.
+- 수용 기준은 네 workspace에서 후보 생성 또는 연결 상태가 보이고, 원본 열기·승인 전 Inbox 열기·승인 Knowledge 열기가 모두 한 번의 명시적 동작으로 가능하며, 저장 실패·재시도 뒤 provenance와 사용자 입력이 유지되는 것이다.
+- 회귀 기준은 `test_knowledge_candidate_store.js`, `test_reading_store_loop.js`, `test_reading_candidate_lifecycle.js`, `test_daily_reflection_candidate_handoff.js`, `test_daily_reflection_review_footer.js`, `test_people_workspace.js`, `test_knowledge_candidate_view.js`, `test_knowledge_workspace_route.js`와 Knowledge Hub 통합 테스트다.
+- 기존 Object·Candidate·Literature·Knowledge 경로를 이동하거나 backfill하지 않는다. 새 연결은 새 writer와 사람이 누른 exact link에서만 생긴다.
+
 
 `HUB/50 Knowledge.md`의 **지식 탐색기**는 도메인 → 주제 또는 자료 → 상세의 순서로 검증된 지식과 근거를 읽는 화면이다. 제목과 브리핑의 출처 경로는 `옆에 열기`로 현재 탐색기를 보존한 채 분할 패널에서 연다.
 
