@@ -71,6 +71,7 @@
     var wrapper = el(container, "div", { attr: { class: "weekly-filter-mount" } });
     var header = el(wrapper, "div", { attr: { class: "weekly-filter-header" } });
     el(header, "h2", { text: "주간 학습 리뷰", attr: { class: "weekly-filter-title" } });
+    el(header, "p", { text: "이번 주에 무엇이 반복되었고 무엇을 배웠는지 살펴봅니다.", attr: { class: "weekly-filter-role" } });
     var weekLabel = el(header, "span", { text: "", attr: { class: "weekly-filter-week-label" } });
     var periodControls = el(header, "div", { attr: { class: "weekly-filter-period-controls", "aria-label": "주간 기준 날짜" } });
     var previousWeekBtn = el(periodControls, "button", { text: "이전 주", attr: { type: "button", class: "weekly-filter-btn" } });
@@ -113,10 +114,14 @@
       contentArea.empty();
       try {
         var result = await buildReviewFromVault(app, currentWeek);
+        var savedReview = root.WeeklyReviewStore && typeof root.WeeklyReviewStore.read === "function"
+          ? await root.WeeklyReviewStore.read(app, currentWeek)
+          : null;
+        if (savedReview) result.review = savedReview;
         state.review = result.review;
         state.evidenceItems = result.evidenceItems;
         weekLabel.textContent = result.review.period.week + " (" + result.review.period.start + " ~ " + result.review.period.end + ")";
-        setStatus("");
+        setStatus(savedReview ? "저장된 Weekly 리뷰를 불러왔습니다." : "");
         renderCurrent();
         aiBtn.disabled = false;
         saveBtn.disabled = false;

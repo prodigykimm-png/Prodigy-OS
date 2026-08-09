@@ -44,6 +44,36 @@
     "기타"
   ]);
 
+/**
+ * Venue(장소) — shared schema constants.
+ * Venue is a first-class Object just like people. These constants are the single
+ * source of truth for venue frontmatter keys and required headings; venue-creator.js
+ * imports them so the two never drift.
+ */
+const VENUE_TYPE = "venue";
+const VENUE_FOLDER = "PARA/RESOURCES/Venues";
+const VENUE_TEMPLATE = "SYSTEM/TEMPLATE/FORMAT/template_venue.md";
+const VENUE_FRONTMATTER_KEYS = Object.freeze([
+  "type",
+  "venue_category",
+  "address",
+  "connections",
+  "created",
+  "updated"
+]);
+const VENUE_REQUIRED_HEADINGS = Object.freeze([
+  "소개",
+  "방문 정보",
+  "메모",
+  "관련 지식",
+  "관련 저널"
+]);
+const VENUE_CATEGORY_PATTERN = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
+
+function isKnownVenueCategory(value) {
+  return VENUE_CATEGORY_PATTERN.test(clean(value));
+}
+
   function isKnownRelationshipType(value) {
     return RELATIONSHIP_TYPES.indexOf(clean(value)) !== -1;
   }
@@ -1604,6 +1634,13 @@
     LINK_FIELD,
     QUICK_EDIT_FIELDS,
     RELATIONSHIP_TYPES,
+    VENUE_TYPE,
+    VENUE_FOLDER,
+    VENUE_TEMPLATE,
+    VENUE_FRONTMATTER_KEYS,
+    VENUE_REQUIRED_HEADINGS,
+    VENUE_CATEGORY_PATTERN,
+    isKnownVenueCategory,
     isKnownRelationshipType,
     normalizeRelationshipType,
     INTERACTION_SECTION,

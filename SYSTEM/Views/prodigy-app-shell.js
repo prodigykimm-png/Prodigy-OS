@@ -82,8 +82,12 @@
     ensureStyles();
     const opts = options || {};
     const source = registry();
-    const items = source && typeof source.items === "function" ? source.items() : [];
     const activeId = opts.activeId || (opts.stateStore && opts.stateStore.getActiveWorkspace()) || "";
+    const registeredItems = source && typeof source.items === "function" ? source.items() : [];
+    const activeItem = source && typeof source.find === "function" ? source.find(activeId) : null;
+    const items = activeItem && !registeredItems.some((item) => item.id === activeItem.id)
+      ? [activeItem, ...registeredItems]
+      : registeredItems;
     const select = parent.createEl("select", { attr: { class: "prodigy-workspace-switcher", "aria-label": "워크스페이스 선택" } });
     items.forEach((item) => {
       const attr = { value: item.id };

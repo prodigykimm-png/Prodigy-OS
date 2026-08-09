@@ -104,6 +104,36 @@ Change:
   assert.equal(blocks[1].related_objects.includes("[[여자친구]]"), true);
   assert.equal(core.evidenceStatus(blocks), "partial");
 
+  const placeholderDaily = `---
+type: journal
+date: ${day}
+change: -
+next_experiment: -
+---
+# ${day}
+
+## Evidence
+
+### e01 · 업무 기록
+<!-- evidence_id: daily-${day}-e01 -->
+
+Experience:
+촬영 피드백을 정리했다.
+
+Change:
+촬영 전에 침착함을 먼저 확인한다.
+
+Next Experiment:
+촬영 전 체크리스트를 소리 내어 읽는다.
+`;
+  const projected = core.extractReviewFromDaily(
+    placeholderDaily,
+    core.parseFrontmatter(placeholderDaily).data
+  );
+  assert.equal(core.normalizeReviewFields({ change: "-" }).change, "");
+  assert.equal(projected.change, "촬영 전에 침착함을 먼저 확인한다.");
+  assert.equal(projected.next_experiment, "촬영 전 체크리스트를 소리 내어 읽는다.");
+
   const nextId = core.nextEvidenceId(blocks, day);
   assert.equal(nextId, `daily-${day}-e03`);
 

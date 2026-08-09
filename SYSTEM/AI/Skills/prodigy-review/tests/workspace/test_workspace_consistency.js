@@ -24,6 +24,17 @@ function textOf(node) { return [node.text, ...node.children.flatMap(textOf)].fil
 const CANONICAL_WORKSPACE_IDS = Object.freeze([
   "home", "auction", "region", "reading", "workout", "project", "knowledge", "personal", "journal",
 ]);
+const APP_SHELL_HUBS = Object.freeze([
+  { path: "HUB/00 Home.md", workspaceId: "home", title: "홈" },
+  { path: "HUB/10 Auction.md", workspaceId: "auction", title: "경매" },
+  { path: "HUB/15 Region.md", workspaceId: "region", title: "지역 비교" },
+  { path: "HUB/30 Workout.md", workspaceId: "workout", title: "운동" },
+  { path: "HUB/20 Reading.md", workspaceId: "reading", title: "독서" },
+  { path: "HUB/40 Project.md", workspaceId: "project", title: "프로젝트" },
+  { path: "HUB/50 Knowledge.md", workspaceId: "knowledge", title: "지식" },
+  { path: "HUB/60 Personal.md", workspaceId: "personal", title: "개인" },
+  { path: "HUB/70 Journal.md", workspaceId: "journal", title: "저널" },
+]);
 
 const CANONICAL_HUB_TITLES = Object.freeze({
   home: "홈",
@@ -345,6 +356,25 @@ async function main() {
   assert.match(homeHub, /journal-review-modal\.js/);
   assert.doesNotMatch(homeHub, /daily-reflection-ai\.js|journal-view\.js/);
   assert.match(home, /JournalReviewModal\.open/);
+  const allRegistryIds = workspaceRegistry.contextWorkspaceIds();
+  const canonicalHubIds = APP_SHELL_HUBS.map((hub) => hub.workspaceId);
+  const uniqueCanonicalIds = [...new Set(canonicalHubIds)];
+  assert.equal(uniqueCanonicalIds.length, 9, "9 unique canonical Hub workspaceIds");
+  for (const hubId of uniqueCanonicalIds) {
+    assert.ok(allRegistryIds.includes(hubId), `Hub workspaceId "${hubId}" must exist in workspace registry`);
+  }
+  const launcherIds = workspaceRegistry.launcherItems().map((item) => item.id);
+  assert.ok(!launcherIds.includes("region"), "Region must not appear in launcher");
+  const regionItem = workspaceRegistry.find("region");
+  assert.ok(regionItem !== null, "Region must exist in registry");
+  assert.equal(regionItem.launcher, false, "Region launcher flag must be false");
+  assert.equal(regionItem.dock, false, "Region dock flag must be false");
+  const homeItem = workspaceRegistry.find("home");
+  assert.ok(homeItem !== null, "Home must exist in registry");
+  assert.equal(homeItem.launcher, false, "Home launcher flag must be false");
+  assert.equal(homeItem.dock, false, "Home dock flag must be false");
+  assert.equal(launcherIds.length, 5, "Exactly 5 workspaces in launcher (excluding non-launcher contexts)");
+
 
   const receiptPath = writeIdentityReceipt(identity);
   const receiptNote = receiptPath ? `receipt: ${EVIDENCE_RELATIVE_PATH}` : "receipt skipped (no .omo evidence root)";

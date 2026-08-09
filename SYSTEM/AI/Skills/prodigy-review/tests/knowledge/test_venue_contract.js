@@ -17,10 +17,9 @@ const ALLOWED_KEYS = Object.freeze([
   "updated",
 ]);
 const REQUIRED_HEADINGS = Object.freeze([
-  "조명",
-  "동선",
-  "촬영 포인트",
-  "주의 사항",
+  "소개",
+  "방문 정보",
+  "메모",
   "관련 지식",
   "관련 저널",
 ]);

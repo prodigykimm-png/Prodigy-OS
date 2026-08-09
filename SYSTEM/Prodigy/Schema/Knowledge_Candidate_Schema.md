@@ -35,7 +35,7 @@
 | `connections` | explicit wikilink YAML list | 선택; exact canonical Region link를 포함한 명시적 관련 Object; 본문·좌표·모호한 지명에서 추론하지 않음 |
 | `invalidation_conditions` | 텍스트 YAML list | 선택; 이 지식이 무효화되는 조건; 사람이 작성하며 승격 시 보존 |
 | `approval_note` | 텍스트 | 인간 승인 또는 thin Evidence override의 근거 |
-| `promotion_target` | optional canonical target path | 승인 writer가 Knowledge 생성 전 기록하는 대상 |
+| `promotion_target` | optional `ZETA/PERMANENT/` canonical target path | 승인 writer가 Knowledge 생성 전 기록하는 대상; PARA/Candidate/legacy 경로 금지 |
 | `promoted_knowledge` | optional explicit wikilink | 생성 완료된 canonical Knowledge 링크 |
 | `created` | ISO date/datetime | 생성 시점 |
 | `updated` | ISO date/datetime | 마지막 수정 시점 |
@@ -62,6 +62,7 @@
 
 - Candidate 본문은 `지식 문장`, `제안 이유`, `출처 메모`, `적용 조건`, `승인 메모`를 분리한다. 직접 학습의 장문 기록은 본문에 보존할 수 있지만, 자료 원문 전문을 Candidate에 복사하지 않는다.
 - 사람이 승인해 canonical Knowledge를 생성할 때 `application_trigger`, `application_contexts`, `connections`, `invalidation_conditions`는 값을 바꾸거나 누락하지 않고 그대로 승격한다. 이 승격은 자동 승인이나 자동 Knowledge 생성이 아니다.
+- 승인 writer는 기존 Knowledge serializer로 `type: knowledge` 문서를 만들고 `ZETA/PERMANENT/`에만 신규 저장한다. `permanent_note` 또는 PARA 경로로 자동 변환·승격하지 않는다.
 - `connections`의 Region link는 exact canonical Region wikilink(`[[PARA/RESOURCES/Auction Regions/<region_key>]]`)만 허용한다. 본문 텍스트, 좌표, 모호한 동네 이름에서 Region link를 추론하지 않는다.
 
 ## 상태 전이

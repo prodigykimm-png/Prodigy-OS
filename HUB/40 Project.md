@@ -45,6 +45,8 @@ window.prodigyProjectReady = (async () => {
   await loadProdigyScript("SYSTEM/Views/ai-provider-schema.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-error-policy.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-fallback.js");
+  await loadProdigyScript("SYSTEM/Views/codex-exec-service.js");
+  await loadProdigyScript("SYSTEM/Views/antigravity-exec-service.js");
   await loadProdigyScript("SYSTEM/Views/ai-provider-service.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-config-service.js");
   await loadProdigyScript("SYSTEM/Views/project-workflow-draft-service.js");

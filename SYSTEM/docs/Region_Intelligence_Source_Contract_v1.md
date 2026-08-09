@@ -126,8 +126,8 @@ Secret values exist only in Obsidian `app.secretStorage` and are read only by th
 - `prodigy-vworld-api-key`
 - `prodigy-kosis-api-key`
 - `prodigy-seoul-openapi-key`
-- `test-naver-client-id-placeholder`
-- `test-naver-client-secret-placeholder`
+- `prodigy-naver-client-id`
+- `prodigy-naver-client-secret`
 - `prodigy-youtube-api-key`
 
 No secret may enter Vault JSON, Git, cache, receipt, error text, command line, environment export, or standalone Node subprocess.

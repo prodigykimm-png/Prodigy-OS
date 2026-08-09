@@ -1119,7 +1119,7 @@ Daily Evidence
 - 서로 다른 날짜에서 반복된 행동 변화만 Pattern으로 인정합니다. 같은 날의 Object·Context 중복은 집계하지 않습니다.
 - AI 실패 시 규칙 기반 결과를 보존합니다.
 - **Never** auto-creates Knowledge, approves principles, or rewrites Daily / Object notes.
-- Monthly·Quarterly·Yearly는 Workspace readiness 화면을 제공하지만, 실행 엔진과 자동화는 아직 열지 않습니다.
+- Journal 기간 역할은 Daily `오늘 무엇이 나를 변화시켰는지 기록`, Weekly `이번 주에 무엇이 반복되었고 무엇을 배웠는지 살펴봄`, Monthly `이번 달의 변화가 반복된 근거로 검증되는지 확인`, Quarterly `검증된 변화와 결과를 바탕으로 지금의 방향이 맞는지 점검`, Yearly `분기별 방향과 변화를 돌아보며 내가 어떤 사람이 되어가는지 성찰`로 고정합니다. Monthly·Quarterly·Yearly는 Workspace에서 기간 이동과 저장 기록 탐색을 제공합니다. Monthly는 입력이 없을 때만 새 기록을 막고, 반복 Principle이 없으면 `question_only` 관찰 기록을 허용합니다. Monthly의 `AI 검증 보조`와 `AI 관찰 질문 보조`는 명시적으로 실행할 때만 선택 월의 구조화 Evidence를 검토하며, 결정·지식 문장·저장·Candidate 생성은 사람의 저장 흐름에 남아 있습니다. Quarterly·Yearly에는 자동 리뷰 엔진을 붙이지 않습니다.
 
 ---
 

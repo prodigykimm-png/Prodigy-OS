@@ -26,6 +26,9 @@ try {
   await loadProdigyScript("SYSTEM/Views/people-store.js");
   await loadProdigyScript("SYSTEM/Views/people-styles.js");
   await loadProdigyScript("SYSTEM/Views/people-view.js");
+  await loadProdigyScript("SYSTEM/Views/venue-store.js");
+  await loadProdigyScript("SYSTEM/Views/venue-view.js");
+  await loadProdigyScript("SYSTEM/Views/venue-creator.js");
 
   const rootEl = this.container;
   const personalHost = typeof rootEl.closest === "function"
@@ -193,7 +196,7 @@ try {
         guard.fingerprint = initialSnapshot.fingerprint;
       } else {
         await guard.paintPeople({ force: true, snapshot: initialSnapshot });
-        if (typeof guard.paintAreas === "function") guard.paintAreas();
+        if (typeof guard.paintPlaces === "function") guard.paintPlaces();
       }
       if (scrollOwner && savedScrollTop) scrollOwner.scrollTop = savedScrollTop;
     }
@@ -204,10 +207,57 @@ try {
   const shell = window.ProdigyWorkspaceNavigation.mount(rootEl, { app, workspaceId: "personal", title: "개인" });
   const workspaceBody = shell.body;
 
-  // People surface (primary)
-  const peopleMount = workspaceBody.createDiv({ attr: { class: "personal-people-mount" } });
-  // Areas surface (supporting)
-  const areasMount = workspaceBody.createDiv({ attr: { class: "personal-areas-mount prodigy-people-workspace" } });
+  // Personal workspace tabs: People / Places
+  const ensurePersonalTabStyles = () => {
+    const doc = typeof document !== "undefined" ? document : null;
+    if (!doc || doc.getElementById("personal-tabs-styles")) return;
+    const style = doc.createElement("style");
+    style.id = "personal-tabs-styles";
+    style.textContent = [
+      ".personal-tablist{display:flex;gap:6px;margin:0 0 12px;border-bottom:1px solid var(--background-modifier-border);padding:0}",
+      ".personal-tab{min-height:36px;padding:6px 16px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-muted);font-weight:700;font-size:.88em;cursor:pointer}",
+      ".personal-tab:hover{color:var(--text-normal)}",
+      ".personal-tab[aria-selected=\"true\"]{color:var(--text-normal);border-bottom-color:var(--text-accent)}",
+      "@media(max-width:600px){.personal-tablist{flex-direction:column}.personal-tab{width:100%;min-height:44px}}"
+    ].join("\n");
+    doc.head.appendChild(style);
+  };
+  ensurePersonalTabStyles();
+
+  const personalTabs = (() => {
+    const tabs = Object.freeze([
+      Object.freeze({ id: "people", label: "사람" }),
+      Object.freeze({ id: "places", label: "장소" })
+    ]);
+    let active = "people";
+    const bar = workspaceBody.createDiv({ attr: { role: "tablist", class: "personal-tablist", "aria-label": "개인 워크스페이스" } });
+    const buttons = {};
+    const panels = {};
+    tabs.forEach((tab) => {
+      const btn = bar.createEl("button", {
+        text: tab.label,
+        attr: { type: "button", role: "tab", "aria-selected": String(tab.id === active), class: "personal-tab" }
+      });
+      btn.onclick = () => select(tab.id);
+      buttons[tab.id] = btn;
+      panels[tab.id] = workspaceBody.createDiv({ attr: { role: "tabpanel", class: "personal-tabpanel" } });
+    });
+    function select(id) {
+      if (!panels[id]) return;
+      active = id;
+      tabs.forEach((tab) => {
+        const selected = tab.id === active;
+        buttons[tab.id].setAttr("aria-selected", String(selected));
+        if (selected) panels[tab.id].removeAttribute("hidden");
+        else panels[tab.id].setAttribute("hidden", "");
+      });
+    }
+    select("people");
+    return { getPanel: (id) => panels[id] || null, select };
+  })();
+
+  const peopleMount = personalTabs.getPanel("people");
+  const placesMount = personalTabs.getPanel("places");
 
   let workspaceApi = null;
 
@@ -263,61 +313,82 @@ try {
       workspaceApi,
       fingerprint,
       paintPeople,
-      paintAreas
+      paintPlaces
     });
     if (workspaceApi && workspaceApi.getState) {
       window.PeopleCore.writeWorkspaceState(window.sessionStorage, workspaceApi.getState());
     }
   };
 
-  const paintAreas = () => {
+  const paintPlaces = () => {
     if (window.PeopleView && window.PeopleView.ensureWorkspaceStyles) {
       window.PeopleView.ensureWorkspaceStyles();
     }
-    areasMount.empty();
-    areasMount.addClass("prodigy-people-workspace");
-    const wrap = areasMount.createEl("details", { attr: { class: "ppw-areas" } });
-    // Supporting section — collapsed by default on first paint
-    wrap.createEl("summary", { text: "지속 영역" });
-    const body = wrap.createDiv({ attr: { style: "padding-top:10px;" } });
+    placesMount.empty();
+    placesMount.addClass("prodigy-people-workspace");
 
-    const areas = dv.pages('"PARA/AREAS"')
-      .where(p => p.type === "area_family" || p.type === "area_note")
+    const places = dv.pages('"PARA/RESOURCES/Venues"')
+      .where(p => p.type === "venue")
       .sort(p => p.file.name, "asc")
       .array()
-      .map(p => ({
-        title: p.file.name,
-        path: p.file.path,
-        meta: [],
-        detail: p.summary || "",
-        actions: []
-      }));
+      .map(p => {
+        // Venue `connections`는 배열 규약([wikilink, ...]). 사람과 동일한
+        // pageToSource/collectSourcePages 패턴으로 저널 역링크를 읽는다.
+        let conns = p.connections;
+        if (conns && typeof conns === "object" && !Array.isArray(conns)) {
+          try { conns = Array.from(conns); } catch (_e) { conns = String(conns); }
+        }
+        let journalLinks = [];
+        try {
+          if (p.file && p.file.outlinks) {
+            journalLinks = Array.from(p.file.outlinks)
+              .map((l) => (l && l.path) || String(l || ""))
+              .filter((l) => /^DAILY\/DAILY\//.test(l));
+          }
+        } catch (_e) { journalLinks = []; }
+        return {
+          title: p.file.name,
+          path: p.file.path,
+          meta: p.venue_category ? [String(p.venue_category)] : [],
+          detail: p.address || "",
+          connections: Array.isArray(conns) ? conns.map(String) : [],
+          journalLinks,
+          actions: []
+        };
+      });
 
-    if (window.ProdigyListWorkspace) {
+    if (window.VenueView && window.VenueView.renderVenuesWorkspace) {
+      window.VenueView.renderVenuesWorkspace({
+        app,
+        container: placesMount,
+        items: places,
+        title: "장소",
+        onRefresh: () => paintPlaces()
+      });
+    } else if (window.ProdigyListWorkspace) {
       window.ProdigyListWorkspace.render({
         app,
-        container: body,
-        title: "",
-        subtitle: "지속적으로 관리하는 삶의·운영 축입니다.",
+        container: placesMount,
+        title: "장소",
+        subtitle: "반복 방문하는 장소의 현장 지식을 보존·관리합니다. 이름을 클릭하면 상세를 엽니다.",
         actions: [],
         sections: [
           {
-            title: "영역",
-            items: areas,
-            empty: "관리 중인 영역이 없습니다."
+            title: "장소",
+            items: places,
+            empty: "등록된 장소가 없습니다. 위의 '장소 추가'로 추가하세요."
           }
         ]
       });
-      // Hide empty h1 from list workspace when title is blank
-      const h1 = body.querySelector("h1");
+      const h1 = placesMount.querySelector("h1");
       if (h1 && !String(h1.textContent || "").trim()) h1.style.display = "none";
     } else {
-      body.createEl("p", { text: "관리 중인 영역이 없습니다.", attr: { class: "ppw-empty" } });
+      placesMount.createEl("p", { text: "등록된 장소가 없습니다.", attr: { class: "ppw-empty" } });
     }
   };
 
   await paintPeople({ snapshot: initialSnapshot });
-  paintAreas();
+  paintPlaces();
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "개인" });

@@ -72,7 +72,7 @@
     const shell = modal.contentEl.createEl("div", { attr: { class: "reflection-review-shell" } });
     const body = shell.createEl("div", { attr: { class: "reflection-review-body" } });
     body.createEl("h3", { text: "AI 제안 검토" });
-    body.createEl("p", { text: `모든 증거 필드는 직접 수정할 수 있습니다. 체크한 증거와 선택한 기존 문서 연결만 저장됩니다. 후보는 제안 상태입니다. · ${modal.proposal.provider} / ${modal.proposal.model}`, attr: { style: "color:var(--text-muted);font-size:0.85em;margin:0 0 12px;" } });
+    body.createEl("p", { text: `모든 증거 필드는 직접 수정할 수 있습니다. 체크한 증거와 선택한 기존 문서 연결만 저장됩니다. 후보는 제안 상태입니다. · ${modal.proposal.provider} / ${modal.proposal.model}`, attr: { class: "reflection-review-intro", style: "color:var(--text-muted);font-size:0.85em;margin:0 0 12px;" } });
     renderEvidenceCards(body, modal, dateStr, onNotice);
     root.DailyReflectionProposalCandidatesView.render(body, modal, app, openPath);
     renderRevision(body, modal, app, dateStr, existingBlocks, onNotice);

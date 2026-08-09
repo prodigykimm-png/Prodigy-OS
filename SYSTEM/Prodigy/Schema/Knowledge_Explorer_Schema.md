@@ -9,10 +9,12 @@
 
 ```yaml
 canonical_knowledge_type: knowledge
+canonical_knowledge_directory: ZETA/PERMANENT
 legacy_knowledge_types: [permanent_note]
 supporting_resource_types: [literature_note, venue, auction_region]
 excluded_capture_types: [fleeting_note]
 excluded_candidate_types: [knowledge_candidate]
+knowledge_candidate_directory: PARA/RESOURCES/Knowledge/Candidates
 knowledge_domain: scalar
 knowledge_topics: yaml_list
 missing_or_invalid_projection: unclassified
@@ -20,11 +22,13 @@ global_domain_architecture: inactive
 ```
 
 - `knowledge`만 사람이 검증한 재사용 가능한 canonical Knowledge다.
+- 신규 canonical `knowledge`는 기존 Knowledge writer와 serializer를 통해 `ZETA/PERMANENT/`에만 저장한다. `PARA/RESOURCES/Knowledge/`의 기존 파일은 이동·rewrite·자동 변환하지 않는다.
 - `permanent_note`는 기존 파일을 읽기 위한 legacy Knowledge다. 자동으로 `knowledge`로 변경하지 않는다.
 - `literature_note`는 출처를 보존하는 supporting Resource다.
 - canonical 신규 `literature_note`는 `ZETA/LITERATURE/`에 저장한다. 세부 Source 계약과 기존 Literature read compatibility는 `Literature_Source_Schema.md`가 소유한다.
 - `fleeting_note`는 빠른 capture이며 검증된 Knowledge 카운트에서 제외한다.
 - `knowledge_candidate`는 아직 검증된 Knowledge가 아닌 별도 `검증 대기` Inbox Object다. Domain/Topic Knowledge 카운트, Brief signal, 기본 Knowledge 목록에 포함하지 않는다.
+- 신규 `knowledge_candidate`는 `PARA/RESOURCES/Knowledge/Candidates/`에 저장하며 사람 승인 전에는 `ZETA/PERMANENT/` canonical Knowledge가 아니다.
 - `venue`와 `auction_region`은 각자 전용 계약을 가진 Resource다. 범용 `resource` type은 없다.
 - AI는 분류 후보를 제안할 수 있지만 Knowledge 승인과 최종 분류는 사람이 수행한다.
 

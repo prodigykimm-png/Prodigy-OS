@@ -95,6 +95,7 @@
 
       this.renderAi(content);
       this.renderServiceSecrets(content);
+      this.renderRealEstateSecrets(content);
       this.renderRegionSecrets(content);
       if (this.state.status) content.createEl("div", { text: this.state.status, attr: { class: "prodigy-settings-status" } });
       this.renderFooter(content);
@@ -207,6 +208,21 @@
       this.renderSecretInput(reb, "REB OpenAPI 키", service.SECRET_IDS.reb, "지역 지표 수집용 키입니다. 수집 실행과 수치 기록은 별도 승인된 흐름에서만 수행됩니다.");
     }
 
+    renderRealEstateSecrets(parent) {
+      const service = configService();
+      const section = parent.createEl("section", { attr: { class: "prodigy-settings-section" } });
+      section.createEl("h3", { text: "부동산 조사 API" });
+      section.createEl("p", { text: "법원경매 카드의 부동산 조사에서 공식 자료를 직접 조회할 때 사용하는 키입니다. 키는 이 기기의 SecretStorage에만 저장되며 노트·조사 패키지·로그에는 기록되지 않습니다.", attr: { class: "prodigy-settings-intro" } });
+      const grid = section.createEl("div", { attr: { class: "prodigy-settings-grid prodigy-settings-service-grid" } });
+      const card = grid.createEl("div", { attr: { class: "prodigy-settings-card" } });
+      const secretId = service.REGION_SECRET_IDS.dataGoKr;
+      const present = this.state.secretStatus[secretId];
+      card.createEl("h4", { text: "공공데이터포털 서비스 키" });
+      const badge = card.createEl("span", { attr: { class: present ? "prodigy-settings-badge prodigy-settings-badge-present" : "prodigy-settings-badge prodigy-settings-badge-missing" } });
+      badge.textContent = present ? "저장됨" : "미설정";
+      this.renderSecretInput(card, "data.go.kr 서비스 키", secretId, "오피스텔 매매·전월세 실거래가와 건축물대장 등 국토교통부 API에 공통으로 사용합니다. 공공데이터포털에서 각 API 활용신청을 완료한 뒤 서비스 키 하나를 입력하세요.");
+    }
+
     renderRegionSecrets(parent) {
       const service = configService();
       const section = parent.createEl("section", { attr: { class: "prodigy-settings-section" } });
@@ -214,7 +230,6 @@
       section.createEl("p", { text: "지역 공식 데이터 수집에 사용하는 API 키입니다. 키는 이 기기의 SecretStorage에만 저장되며, 캐시·로그·Node로 전송되지 않습니다. 키가 없으면 해당 수집은 blocked_auth 상태로 보고됩니다.", attr: { class: "prodigy-settings-intro" } });
       const grid = section.createEl("div", { attr: { class: "prodigy-settings-grid prodigy-settings-service-grid" } });
       const regionKeys = [
-        { id: service.REGION_SECRET_IDS.dataGoKr, label: "data.go.kr 서비스 키", hint: "국토교통부 실거래가, 건축인허가, K-APT 등 공공데이터포털 API 키" },
         { id: service.REGION_SECRET_IDS.vworld, label: "VWorld API 키", hint: "공시지가, 행정경계 WFS 요청용 VWorld KEY" },
         { id: service.REGION_SECRET_IDS.kosis, label: "KOSIS API 키 (선택)", hint: "KOSIS 통계 API 키. 현재 비활성 상태이며 미래 게이트 통과 후 사용" },
         { id: service.REGION_SECRET_IDS.seoulOpenapi, label: "서울 열린데이터 키", hint: "서울시 지하철역 공식 데이터 요청용 API 키" },

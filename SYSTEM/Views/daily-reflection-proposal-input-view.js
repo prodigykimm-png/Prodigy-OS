@@ -58,6 +58,7 @@
       modal.freeText = area.value;
       if (classify) classify.disabled = String(modal.freeText || "").trim() !== modal.committedReflectionText;
     };
+    const classificationStatus = contentEl.createEl("div", { attr: { role: "status", "aria-live": "polite", style: "color:var(--text-muted);font-size:.78em;margin-top:8px;min-height:1.2em;" } });
     const actions = contentEl.createEl("div", { attr: { style: "display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;" } });
     const cancel = button(actions, "취소");
     cancel.onclick = () => modal.close();
@@ -78,6 +79,23 @@
     };
     classify = button(actions, "AI 분류");
     classify.disabled = !modal.committedReflectionText || String(modal.freeText || "").trim() !== modal.committedReflectionText;
+    let progressTimer = null;
+    const stopProgress = () => {
+      if (!progressTimer) return;
+      clearInterval(progressTimer);
+      progressTimer = null;
+    };
+    const startProgress = () => {
+      const startedAt = Date.now();
+      const provider = modal.providerConfig && modal.providerConfig.providers && modal.providerConfig.providers[modal.providerKey];
+      const providerLabel = provider && provider.name || modal.providerKey || "AI 제공자";
+      const updateProgress = () => {
+        const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+        classificationStatus.setText(`AI 분류 중… ${providerLabel} 분석 ${elapsedSeconds}초 경과`);
+      };
+      updateProgress();
+      progressTimer = setInterval(updateProgress, 1000);
+    };
     const runClassification = async () => {
       if (classify.disabled) return;
       const ai = root.DailyReflectionAI;
@@ -91,6 +109,7 @@
       classify.disabled = true;
       classify.textContent = "분류 중…";
       modal.busy = true;
+      startProgress();
       try {
         modal.proposal = await ai.generateProposal({ app, dateStr, freeText: modal.freeText, existingBlocks, providerKey: modal.providerKey, config: modal.providerConfig });
         modal.resetProposalSelection();
@@ -99,8 +118,10 @@
       } catch (error) {
         classify.disabled = false;
         classify.textContent = "AI 분류";
+        classificationStatus.setText("AI 분류에 실패했습니다. 다시 시도해 주세요.");
         onNotice(`일기는 저장되어 있습니다. AI 분류만 실패했습니다: ${error.message || error}`);
       } finally {
+        stopProgress();
         modal.busy = false;
       }
     };

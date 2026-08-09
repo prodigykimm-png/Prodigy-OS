@@ -6,6 +6,7 @@
   const STYLE_ID = "prodigy-auction-real-estate-research-style";
 
   function core() { return root.AuctionRealEstateResearchCore; }
+  function providerResolver() { return root.AuctionAiProviderResolver || (typeof require === "function" ? require("./auction-ai-provider-resolver.js") : null); }
   function writer() { return root.AuctionSourceApprovalWriter || (typeof require === "function" ? require("./auction-source-approval-writer.js") : null); }
   function packageCore() { return root.RealEstateSourcePackageCore || (typeof require === "function" ? require("../SCRIPTS/real-estate-source-package-core.js") : null); }
   function clean(value) { return value === undefined || value === null ? "" : String(value).trim(); }
@@ -307,17 +308,10 @@
     box.createEl("p", { text: error || "원문과 수치 근거는 아래에서 확인할 수 있습니다. AI 요약을 사용할 수 없어 원문 중심으로 표시합니다." });
   }
   async function resolveSummaryProvider(app) {
-    const configService = root.ProdigyConfigService;
-    const providerService = root.AIProviderService;
-    if (!configService || !providerService) return null;
-    const config = await configService.load(app);
-    const keys = [config.defaultProvider, "codex", "antigravity"].filter((key, index, all) => key && all.indexOf(key) === index);
-    for (const key of keys) {
-      const provider = config.providers?.[key];
-      if (!provider || !["codex-exec", "antigravity-exec"].includes(provider.adapter)) continue;
-      if (await providerService.isProviderConfigured(app, provider)) return provider;
-    }
-    return null;
+    const resolver = providerResolver();
+    if (!resolver || typeof resolver.resolveAuctionAiProvider !== "function") return null;
+    const resolved = await resolver.resolveAuctionAiProvider({ app });
+    return resolved && resolved.status === "ready" ? resolved.provider : null;
   }
   async function requestAiSummary(app, auction, pkg) {
     const provider = await resolveSummaryProvider(app);

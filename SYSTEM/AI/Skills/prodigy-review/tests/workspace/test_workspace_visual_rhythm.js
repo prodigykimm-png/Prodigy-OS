@@ -46,3 +46,9 @@ test("dense reading chrome does not fall below the shared chrome floor", () => {
   assert.doesNotMatch(reading, /font-size:\s*0\.62em/);
   assert.match(reading, /font-size:\s*var\(--ke-type-chrome/);
 });
+
+test("journal period role copy stays explicit in the Daily, Weekly, and Monthly surfaces", () => {
+  assert.match(source("SYSTEM/Views/journal-dashboard-view.js"), /오늘 무엇이 나를 변화시켰는지 기록합니다/);
+  assert.match(source("SYSTEM/Views/weekly-filter-view.js"), /이번 주에 무엇이 반복되었고 무엇을 배웠는지 살펴봅니다/);
+  assert.match(source("SYSTEM/Views/monthly-validation-view.js"), /이번 달의 변화가 반복된 근거로 검증되는지 확인합니다/);
+});

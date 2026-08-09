@@ -44,6 +44,8 @@ const MODULE_PATHS = [
   "SYSTEM/Views/ai-provider-schema.js",
   "SYSTEM/Views/ai-provider-error-policy.js",
   "SYSTEM/Views/ai-provider-fallback.js",
+  "SYSTEM/Views/codex-exec-service.js",
+  "SYSTEM/Views/antigravity-exec-service.js",
   "SYSTEM/Views/ai-provider-service.js",
   "SYSTEM/Views/prodigy-config-service.js",
   "SYSTEM/Views/project-workflow-draft-service.js",
@@ -62,6 +64,22 @@ const MODULE_PATHS = [
   "SYSTEM/Views/knowledge-explorer-responsive.js",
   "SYSTEM/Views/knowledge-explorer-render.js",
   "SYSTEM/Views/knowledge-explorer-view.js",
+  "SYSTEM/Views/llmwiki-hash.js",
+  "SYSTEM/Views/llmwiki-proposal-bundle.js",
+  "SYSTEM/Views/llmwiki-source-lineage.js",
+  "SYSTEM/Views/llmwiki-query-readonly.js",
+  "SYSTEM/Views/llmwiki-provider-contract.js",
+  "SYSTEM/Views/llmwiki-librarian-pipeline.js",
+  "SYSTEM/Views/llmwiki-outbound-consent.js",
+  "SYSTEM/Views/llmwiki-run-state.js",
+  "SYSTEM/Views/llmwiki-canonical-packet.js",
+  "SYSTEM/Views/llmwiki-approval-review-commit.js",
+  "SYSTEM/Views/llmwiki-deterministic-commit.js",
+  "SYSTEM/Views/llmwiki-approval-review-view.js",
+  "SYSTEM/Views/llmwiki-obsidian-adapter.js",
+  "SYSTEM/Views/llmwiki-derived-refresh.js",
+  "SYSTEM/Views/llmwiki-run-controller.js",
+  "SYSTEM/Views/llmwiki-lifecycle-view.js",
   "SYSTEM/Views/knowledge-workspace-tabs.js",
   "SYSTEM/Views/para-object-creator-service.js",
   "SYSTEM/Views/knowledge-para-projection.js",
@@ -123,6 +141,9 @@ function buildPages() {
 function createVault(files) {
   const fileMap = new Map(Object.entries(files));
   return {
+    getMarkdownFiles() {
+      return [...fileMap.keys()].filter((filePath) => filePath.endsWith(".md")).map((path) => ({ path }));
+    },
     getAbstractFileByPath(filePath) {
       return fileMap.has(filePath) ? { path: filePath } : null;
     },
@@ -180,7 +201,7 @@ function createDv(pages, readCounts, bodyLoadError) {
   };
 }
 
-function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null }) {
+function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, approvalPacket = null, hubOptions = {} }) {
   const files = {};
   for (const modulePath of MODULE_PATHS) {
     if (omittedModulePaths.includes(modulePath)) continue;
@@ -192,7 +213,6 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null })
   const readCounts = { body: 0 };
   const app = { vault: createVault(files), workspace: createWorkspace() };
   const container = new FakeElement("section");
-  const windowObject = {};
   const openedModals = [];
   class FakeModal {
     constructor() {
@@ -207,15 +227,24 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null })
       if (typeof this.onClose === "function") this.onClose();
     }
   }
-  const sandbox = { app, dv: createDv(pages, readCounts, bodyLoadError), obsidian: { Modal: FakeModal }, container, console };
+  const sandbox = {
+    app,
+    dv: createDv(pages, readCounts, bodyLoadError),
+    obsidian: { Modal: FakeModal },
+    container,
+    console,
+    URL,
+    require, Buffer, AbortController, setTimeout, clearTimeout,
+    ...(approvalPacket ? { KnowledgeExplorerHub: { approvalPacket, ...hubOptions } } : {})
+  };
   // Browser modules intentionally use either window or globalThis. Model that identity in the VM.
   sandbox.window = sandbox;
   sandbox.document = undefined;
   return { sandbox, app, container, windowObject: sandbox, readCounts, openedModals };
 }
 
-async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null }) {
-  const { sandbox, app, container, windowObject, readCounts, openedModals } = createSandbox({ pages, omittedModulePaths, bodyLoadError });
+async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null, approvalPacket = null, hubOptions = {} }) {
+  const { sandbox, app, container, windowObject, readCounts, openedModals } = createSandbox({ pages, omittedModulePaths, bodyLoadError, approvalPacket, hubOptions });
   const code = extractDataviewJs(HUB_SOURCE);
   const script = new vm.Script(`(async function () {\n${code}\n}).call({ container });`, {
     filename: "HUB/50 Knowledge.md"

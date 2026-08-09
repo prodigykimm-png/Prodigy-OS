@@ -19,8 +19,8 @@
     vworld: "prodigy-vworld-api-key",
     kosis: "prodigy-kosis-api-key",
     seoulOpenapi: "prodigy-seoul-openapi-key",
-    naverClientId: "test-naver-client-id-placeholder",
-    naverClientSecret: "test-naver-client-secret-placeholder",
+    naverClientId: "prodigy-naver-client-id",
+    naverClientSecret: "prodigy-naver-client-secret",
     youtube: "prodigy-youtube-api-key"
   });
   const LEGACY_SECRET_IDS = Object.freeze({
@@ -84,7 +84,7 @@
           { id: "claude-opus-4-6-thinking", label: "Claude Opus 4.6 · Thinking" },
           { id: "gpt-oss-120b-medium", label: "GPT-OSS 120B · Medium" }
         ],
-        sandbox: true, chatTimeoutMs: 30000, structuredTimeoutMs: 60000,
+        sandbox: true, chatTimeoutMs: 30000, structuredTimeoutMs: 120000,
         capabilities: { structuredOutput: "json-schema", strictStructuredOutput: true, conservativeProposal: true }
       },
       groq: {

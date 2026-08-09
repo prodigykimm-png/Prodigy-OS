@@ -16,29 +16,104 @@
     const registry = root.KnowledgeExplorerRegistry || (typeof require === "function" ? require("./knowledge-explorer-registry.js") : null);
     return registry && Array.isArray(registry.TOPICS_BY_DOMAIN[domain]) ? registry.TOPICS_BY_DOMAIN[domain] : [];
   }
-  function field(parent, config) {
+  function setNodeText(node, value) {
+    if (node && typeof node.setText === "function") node.setText(value);
+    else if (node) node.textContent = String(value || "");
+  }
+  function setNodeAttr(node, name, value) {
+    if (!node) return;
+    if (typeof node.setAttr === "function") node.setAttr(name, value);
+    else if (typeof node.setAttribute === "function") node.setAttribute(name, String(value));
+  }
+  function selectedLabels(options, values) {
+    const selected = Array.isArray(values) ? values : [values];
+    return options.filter((option) => selected.includes(option.value)).map((option) => option.label);
+  }
+  function pickerField(parent, config) {
     parent.createEl("label", { text: config.label, attr: { for: `knowledge-direct-${config.name}`, style: "display:block;font-weight:600;margin:10px 0 4px;" } });
-    const input = parent.createEl(config.rows ? "textarea" : (config.select ? "select" : "input"), { attr: {
-      id: `knowledge-direct-${config.name}`, name: config.name, type: config.select || config.rows ? undefined : "text", rows: config.rows ? String(config.rows) : undefined, multiple: config.multiple ? "true" : undefined,
+    const wrap = parent.createEl("div", { attr: { class: "knowledge-direct-picker", style: "position:relative;min-width:0;" } });
+    const options = Array.isArray(config.options) ? config.options : [];
+    let selected = Array.isArray(config.value) ? config.value.slice() : [config.value || ""];
+    let query = "";
+    let open = false;
+    const trigger = wrap.createEl("button", { text: "", attr: {
+      id: `knowledge-direct-${config.name}`, name: config.name, type: "button", "data-picker-trigger": config.name,
+      "aria-label": config.label, title: "클릭해 목록 열기", "aria-haspopup": "listbox", "aria-expanded": "false",
+      style: "display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:40px;box-sizing:border-box;padding:8px 10px;border-radius:6px;border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);text-align:left;white-space:normal;cursor:pointer;"
+    } });
+    trigger.disabled = Boolean(config.disabled);
+    const triggerValue = trigger.createEl("span", { attr: { style: "min-width:0;overflow-wrap:anywhere;line-height:1.4;" } });
+    const menuStyle = "position:absolute;z-index:20;left:0;right:0;bottom:calc(100% + 4px);padding:8px;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-primary);box-shadow:var(--shadow-s);";
+    const menuMount = wrap.createEl("div", { attr: { class: "knowledge-direct-picker-menu", style: `${menuStyle}display:none;` } });
+    function displayValue() {
+      const labels = selectedLabels(options, config.multiple ? selected : selected[0]);
+      return labels.length ? labels.join(", ") : "선택하세요";
+    }
+    function renderOptions(optionsMount) {
+      optionsMount.empty();
+      const needle = query.trim().toLocaleLowerCase();
+      const visible = options.filter((option) => !needle || `${option.label} ${option.value}`.toLocaleLowerCase().includes(needle));
+      if (!visible.length) {
+        optionsMount.createEl("p", { text: options.length ? "검색 결과가 없습니다." : "선택할 항목이 없습니다.", attr: { style: "margin:6px;color:var(--text-muted);" } });
+        return;
+      }
+      visible.forEach((option) => {
+        const isSelected = selected.includes(option.value);
+        const item = optionsMount.createEl("button", { text: `${isSelected ? "✓ " : ""}${option.label}`, attr: {
+          type: "button", "data-picker-option": option.value, role: "option", "aria-selected": isSelected ? "true" : "false",
+          style: "display:block;width:100%;padding:8px;border:0;border-radius:5px;background:transparent;color:var(--text-normal);text-align:left;cursor:pointer;"
+        } });
+        item.onclick = (event) => {
+          if (event && event.preventDefault) event.preventDefault();
+          if (config.multiple) {
+            selected = isSelected ? selected.filter((value) => value !== option.value) : [...selected, option.value];
+            config.onChange(selected.slice());
+            setNodeText(triggerValue, `${displayValue()}  ▼`);
+            renderOptions(optionsMount);
+          } else {
+            selected = [option.value];
+            open = false;
+            config.onChange(option.value);
+            render();
+          }
+        };
+      });
+    }
+    function render() {
+      setNodeText(triggerValue, `${displayValue()}  ▼`);
+      setNodeAttr(trigger, "aria-expanded", open ? "true" : "false");
+      setNodeAttr(menuMount, "style", open ? menuStyle : `${menuStyle}display:none;`);
+      menuMount.empty();
+      if (!open) return;
+      const search = menuMount.createEl("input", { attr: {
+        type: "search", "data-picker-search": config.name, placeholder: "검색…", "aria-label": `${config.label} 검색`,
+        style: "width:100%;box-sizing:border-box;margin-bottom:6px;padding:7px;border:1px solid var(--background-modifier-border);border-radius:5px;background:var(--background-primary);color:var(--text-normal);"
+      } });
+      search.value = query;
+      const optionsMount = menuMount.createEl("div", { attr: { role: "listbox", style: "max-height:220px;overflow:auto;" } });
+      search.oninput = (event) => { query = event && event.target ? event.target.value : search.value; renderOptions(optionsMount); };
+      renderOptions(optionsMount);
+    }
+    trigger.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); if (trigger.disabled) return; open = !open; query = ""; render(); };
+    render();
+    if (config.help) parent.createEl("p", { text: config.help, attr: { id: `knowledge-direct-${config.name}-help`, style: "margin:4px 0;color:var(--text-muted);font-size:0.85em;" } });
+    return trigger;
+  }
+  function field(parent, config) {
+    if (config.select) return pickerField(parent, config);
+    parent.createEl("label", { text: config.label, attr: { for: `knowledge-direct-${config.name}`, style: "display:block;font-weight:600;margin:10px 0 4px;" } });
+    const input = parent.createEl(config.rows ? "textarea" : "input", { attr: {
+      id: `knowledge-direct-${config.name}`, name: config.name, type: config.rows ? undefined : "text", rows: config.rows ? String(config.rows) : undefined,
       required: config.required ? "true" : undefined, "aria-required": config.required ? "true" : undefined, "aria-label": config.label,
       "aria-describedby": config.help ? `knowledge-direct-${config.name}-help` : undefined,
       style: "width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid var(--background-modifier-border);background:var(--background-primary);color:var(--text-normal);"
     } });
     input.value = config.value == null ? "" : config.value;
     input.disabled = Boolean(config.disabled);
-    if (config.select && Array.isArray(config.options)) config.options.forEach((option) => {
-      const node = input.createEl("option", { text: option.label, attr: { value: option.value } });
-      node.value = option.value;
-      node.selected = Array.isArray(config.value) ? config.value.includes(option.value) : config.value === option.value;
-    });
-    const read = (event) => {
-      const target = event && event.target ? event.target : input;
-      if (config.multiple && target.selectedOptions) return Array.from(target.selectedOptions).map((option) => option.value);
-      return target.value;
-    };
-    input.oninput = (event) => config.onChange(read(event));
-    input.onchange = (event) => config.onChange(read(event));
+    input.oninput = (event) => config.onChange(event && event.target ? event.target.value : input.value);
+    input.onchange = (event) => config.onChange(event && event.target ? event.target.value : input.value);
     if (config.help) parent.createEl("p", { text: config.help, attr: { id: `knowledge-direct-${config.name}-help`, style: "margin:4px 0;color:var(--text-muted);font-size:0.85em;" } });
+    return input;
   }
   function domainOptions() { return Object.keys(DOMAIN_LABELS).map((value) => ({ value, label: DOMAIN_LABELS[value] })); }
   function topicOptions(domain) { return registryTopics(domain).map((value) => ({ value, label: TOPIC_LABELS[value] || value })); }
@@ -72,10 +147,12 @@
     field(form, { label: "지식 영역", name: "suggested_domain", value: current.suggested_domain, select: true, required: true, disabled, options: [{ value: "", label: "선택하세요" }, ...domainOptions()], onChange: (value) => controller.setField("suggested_domain", value) });
     const availableTopics = topicOptions(current.suggested_domain);
     if (current.suggested_domain && !availableTopics.length) form.createEl("p", { text: "이 지식 영역은 세부 주제를 선택할 필요가 없습니다.", attr: { "data-state": "topicless", style: "color:var(--text-muted);" } });
-    else if (current.suggested_domain) field(form, { label: "세부 주제", name: "suggested_topics", value: current.suggested_topics, select: true, multiple: true, required: true, disabled, options: availableTopics, help: "하나 이상 선택하세요.", onChange: (value) => controller.setField("suggested_topics", value) });
+    else if (current.suggested_domain) field(form, { label: "세부 주제", name: "suggested_topics", value: current.suggested_topics, select: true, multiple: true, required: true, disabled, options: availableTopics, help: "클릭해 목록을 열고 필요한 주제를 검색·선택하세요.", onChange: (value) => controller.setField("suggested_topics", value) });
     field(form, { label: "적용 계기", name: "application_trigger", value: current.application_trigger, rows: 2, disabled, onChange: (value) => controller.setField("application_trigger", value) });
     field(form, { label: "적용 맥락", name: "application_contexts", value: current.application_contexts.join("\n"), rows: 3, disabled, help: "한 줄에 하나씩 지식 영역 또는 지식 영역/세부 주제를 입력하세요.", onChange: (value) => controller.setField("application_contexts", value) });
-    field(form, { label: "연결 Region", name: "connections", value: Array.isArray(current.connections) ? current.connections.join("\n") : "", rows: 2, disabled, help: "정확한 Region wikilink([[PARA/RESOURCES/Auction Regions/<시도-시군구>]])만 한 줄에 하나씩 입력하세요. 본문·좌표·모호한 지명은 Region link를 만들지 않습니다.", onChange: (value) => controller.setField("connections", value) });
+    field(form, { label: "연결 Region", name: "connections", value: current.connections, select: true, multiple: true, disabled,
+      options: controller.regionOptions ? controller.regionOptions() : [], help: "클릭해 목록을 열고 지역명으로 검색·선택하세요. 선택한 Region만 정확한 wikilink로 저장됩니다.",
+      onChange: (value) => controller.setField("connections", value) });
     field(form, { label: "무효화 조건", name: "invalidation_conditions", value: Array.isArray(current.invalidation_conditions) ? current.invalidation_conditions.join("\n") : "", rows: 2, disabled, help: "이 지식이 더 이상 유효하지 않게 되는 조건을 한 줄에 하나씩 입력하세요.", onChange: (value) => controller.setField("invalidation_conditions", value) });
     if (status.error) form.createEl("p", { text: status.error, attr: { role: "alert", "aria-live": "assertive", "data-state": "error" } });
     if (status.message) form.createEl("p", { text: status.message, attr: { role: "status", "aria-live": "polite", "data-state": "saved" } });

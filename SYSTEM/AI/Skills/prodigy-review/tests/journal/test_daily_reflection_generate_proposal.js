@@ -95,6 +95,25 @@ function providerPayload() {
   };
 }
 
+function invalidVenuePayload() {
+  return {
+    evidence_blocks: [{
+      title: "벡스코 촬영",
+      context: "work",
+      experience: "벡스코에서 촬영했다.",
+      interpretation: "",
+      change: "",
+      next_experiment: "",
+      related_objects: []
+    }],
+    knowledge_candidates: [],
+    resource_candidates: [{ name: "벡스코", suggested_type: "venue", source_evidence_indexes: [0] }],
+    object_linking_suggestions: [],
+    pre_routing_suggestions: [],
+    uncertainties: []
+  };
+}
+
 function fakeApp(writeLog) {
   const files = {
     [CONTRACT_PATH]: "runtime-v1",
@@ -210,6 +229,23 @@ async function testBadProviderDoesNotWrite() {
   return "bad-provider";
 }
 
+async function testInvalidVenueCandidateFallsBackToResource() {
+  const writeLog = [];
+  await withFakeConfig(async () => {
+    const proposal = await reflection.generateProposal({
+      app: fakeApp(writeLog),
+      dateStr: "2026-07-22",
+      freeText: "벡스코에서 촬영했다.",
+      providerService: { requestStructuredJson: async () => invalidVenuePayload() }
+    });
+    assert.deepEqual(proposal.resource_candidates.map((item) => ({ name: item.name, suggested_type: item.suggested_type })), [
+      { name: "벡스코", suggested_type: "resource" }
+    ]);
+    assert.deepEqual(writeLog, []);
+  });
+  return "invalid-venue-fallback";
+}
+
 async function main(mode) {
   if (mode === "bad-provider") {
     assert.equal(await testBadProviderDoesNotWrite(), "bad-provider");
@@ -219,7 +255,8 @@ async function main(mode) {
   const executed = [];
   executed.push(await testGenerateProposalFakeProviderNoWrite());
   executed.push(await testBadProviderDoesNotWrite());
-  assert.deepEqual(executed, ["normal", "bad-provider"]);
+  executed.push(await testInvalidVenueCandidateFallsBackToResource());
+  assert.deepEqual(executed, ["normal", "bad-provider", "invalid-venue-fallback"]);
   console.log("Daily reflection generateProposal tests passed");
 }
 

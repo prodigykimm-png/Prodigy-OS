@@ -21,7 +21,7 @@
     ]),
     sandbox: true,
     chatTimeoutMs: 30000,
-    structuredTimeoutMs: 60000,
+    structuredTimeoutMs: 120000,
     capabilities: Object.freeze({
       structuredOutput: "json-schema",
       strictStructuredOutput: true,

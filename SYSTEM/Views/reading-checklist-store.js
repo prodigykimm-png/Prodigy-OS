@@ -83,6 +83,7 @@
     const id = core.stableSourceId(source);
     const previousItems = previous && previous.items && typeof previous.items === "object" ? previous.items : {};
     const previousDrafts = previous && previous.drafts && typeof previous.drafts === "object" ? previous.drafts : {};
+    const previousQuestions = previous && previous.questions && typeof previous.questions === "object" ? previous.questions : {};
     const items = {};
     const drafts = {};
     selection.questions.forEach((question) => { items[question.id] = core.normalizeState(previousItems[question.id]); });
@@ -96,9 +97,10 @@
       source_path: core.normalizePath(source.source_path || (source.file && source.file.path)),
       object_id: String(source.id || ""),
       strategy: selection.type,
-      items,
-      drafts,
-      updated_at: previous && previous.updated_at ? previous.updated_at : "",
+    items,
+    drafts,
+    questions: previousQuestions,
+    updated_at: previous && previous.updated_at ? previous.updated_at : "",
     };
   }
 

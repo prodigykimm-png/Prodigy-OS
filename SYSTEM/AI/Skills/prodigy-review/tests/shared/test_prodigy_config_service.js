@@ -140,6 +140,7 @@ function testAntigravityProviderUsesCliLoginWithSelectableModel() {
   assert.equal(provider.model, "gemini-3.6-flash-medium");
   assert.equal(provider.relayURL, "");
   assert.equal(provider.relayTokenSecret, service.SECRET_IDS.antigravityRelay);
+  assert.equal(provider.structuredTimeoutMs, 120000, "Antigravity structured analysis must allow long-running reflection prompts");
   assert.ok(provider.models.some((item) => item.id === "claude-sonnet-4-6"));
   assert.equal(provider.sandbox, true);
 }

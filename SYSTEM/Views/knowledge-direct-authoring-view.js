@@ -24,12 +24,18 @@
   }
   function contexts(value) { return Array.isArray(value) ? unique(value) : unique(String(value || "").split(/[\n,]/)); }
   function topics(value) { return Array.isArray(value) ? unique(value) : unique(String(value || "").split(",")); }
+  function links(value) { return Array.isArray(value) ? unique(value) : unique(String(value || "").split(/[\n,]/)); }
+  function regionOptions(value) {
+    return Array.isArray(value) ? value.filter((item) => item && typeof item.value === "string" && typeof item.label === "string")
+      .map((item) => ({ value: item.value, label: item.label })) : [];
+  }
   function copyValues(value) {
     const source = value || {};
     return {
       title: String(source.title || ""), statement: String(source.statement || ""), body: String(source.body || ""), reason: String(source.reason || ""),
       source_note: String(source.source_note || ""), suggested_domain: String(source.suggested_domain || ""), suggested_topics: topics(source.suggested_topics),
-      application_trigger: String(source.application_trigger || ""), application_contexts: contexts(source.application_contexts)
+      application_trigger: String(source.application_trigger || ""), application_contexts: contexts(source.application_contexts),
+      connections: links(source.connections), invalidation_conditions: contexts(source.invalidation_conditions)
     };
   }
   function sameValues(left, right) { return JSON.stringify(copyValues(left)) === JSON.stringify(copyValues(right)); }
@@ -42,7 +48,8 @@
       title: clean(values.title), statement: clean(values.statement), reason: persistedReason,
       source_note: clean(values.source_note), source_type: "manual_study", source_evidence_ids: [], source_objects: [], confidence: "explicit",
       suggested_domain: clean(values.suggested_domain), suggested_topics: topics(values.suggested_topics),
-      application_trigger: clean(values.application_trigger), application_contexts: contexts(values.application_contexts)
+      application_trigger: clean(values.application_trigger), application_contexts: contexts(values.application_contexts),
+      connections: links(values.connections), invalidation_conditions: contexts(values.invalidation_conditions)
     };
   }
   function recovery(error) {
@@ -76,12 +83,15 @@
     let revision = 0;
     let onChange = typeof options.onChange === "function" ? options.onChange : () => {};
 
-    function emit() { if (mounted) onChange(); }
+    const availableRegions = regionOptions(options.regionOptions);
+    function emit(changedField) { if (mounted) onChange(changedField); }
     function state() { return { mounted, pending, saved, closeArmed, message, error, focus, dirty: !sameValues(values, initial) }; }
     function setField(name, value) {
       if (!mounted || pending || !Object.prototype.hasOwnProperty.call(values, name)) return;
       if (name === "suggested_topics") values[name] = topics(value);
       else if (name === "application_contexts") values[name] = contexts(value);
+      else if (name === "connections") values[name] = links(value);
+      else if (name === "invalidation_conditions") values[name] = contexts(value);
       else values[name] = typeof value === "string" ? value : "";
       if (name === "suggested_domain") {
         const allowed = registryTopics(values.suggested_domain);
@@ -92,7 +102,7 @@
       focus = "";
       closeArmed = false;
       revision += 1;
-      emit();
+      emit(name);
     }
     function setFields(next) { Object.keys(copyValues(next)).forEach((key) => setField(key, copyValues(next)[key])); }
     function valuesSnapshot() { return copyValues(values); }
@@ -165,6 +175,7 @@
       state, values: valuesSnapshot, setField, setFields, submit, review, requestClose, cancel: requestClose, unmount,
       setSaveCandidate(next) { saveCandidate = typeof next === "function" ? next : null; },
       setOnChange(next) { onChange = typeof next === "function" ? next : () => {}; },
+      regionOptions() { return availableRegions.slice(); },
       setValidator(next) { validator = typeof next === "function" ? next : validator; }
     };
   }
@@ -178,7 +189,9 @@
       render() { return renderDirectAuthoringView(parent, controller); },
       onKeydown(event) { if (event && event.key === "Escape") { if (event.preventDefault) event.preventDefault(); if (controller.requestClose()) parent.empty(); } }
     };
-    controller.setOnChange(mounted.render);
+    controller.setOnChange((changedField) => {
+      if (changedField === "suggested_domain" || !changedField) mounted.render();
+    });
     mounted.render();
     return mounted;
   }

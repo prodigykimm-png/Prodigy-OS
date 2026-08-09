@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 
-const ROOT = path.resolve(__dirname, "../../../../../..");
+  const ROOT = path.resolve(__dirname, "../../../../../..");
 
 function load(modulePath) {
   return require(path.join(ROOT, modulePath));
@@ -11,6 +11,7 @@ function load(modulePath) {
 
 async function main() {
   const morning = load("SYSTEM/Views/morning-context-core.js");
+  const journal = load("SYSTEM/Views/journal-core.js");
 
   assert.equal(morning.resolveRecommendLevel({ recommend_level: "강추", recommendation: "보통" }), "강추");
   assert.equal(morning.resolveRecommendLevel({ recommendation: "보통" }), "보통");
@@ -85,6 +86,33 @@ next_experiment: frontmatter 실험
   assert.equal(yFields.change, "frontmatter 변화");
   assert.equal(yFields.next_experiment, "frontmatter 실험");
   assert.equal(yFields.reflection, "본문 성찰");
+
+  const previousJournalCore = global.JournalCore;
+  try {
+    global.JournalCore = journal;
+    const evidenceFields = morning.extractDailyReviewFields(`---
+type: journal
+date: 2026-08-02
+change: -
+next_experiment: -
+---
+# 2026-08-02
+## Evidence
+### e01 · 촬영 기록
+<!-- evidence_id: daily-2026-08-02-e01 -->
+Experience:
+촬영 피드백을 정리했다.
+Change:
+촬영 전 침착함을 확인한다.
+Next Experiment:
+촬영 전 체크리스트를 읽는다.
+`);
+    assert.equal(evidenceFields.change, "촬영 전 침착함을 확인한다.");
+    assert.equal(evidenceFields.next_experiment, "촬영 전 체크리스트를 읽는다.");
+  } finally {
+    if (previousJournalCore === undefined) delete global.JournalCore;
+    else global.JournalCore = previousJournalCore;
+  }
 
   const previousMorningCore = global.MorningContextCore;
   const previousBriefService = global.MorningBriefService;

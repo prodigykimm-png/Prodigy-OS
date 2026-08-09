@@ -285,7 +285,7 @@ async function testMobileAntigravityRelayRequiresSecretStorageToken() {
   };
   assert.equal(provider.isAllowedRelayURL(providerConfig.relayURL), true);
   assert.equal(provider.isAllowedRelayURL("http://192.168.1.2:8787/v1/antigravity"), false);
-  assert.equal(await provider.isProviderConfigured({ isMobile: true, secretStorage: { getSecret: async () => "test-relay-token-placeholder" } }, Object.assign({}, providerConfig, { relayTokenSecret: "prodigy-antigravity-relay-token" })), true);
+  assert.equal(await provider.isProviderConfigured({ isMobile: true, secretStorage: { getSecret: async () => "relay-secret" } }, Object.assign({}, providerConfig, { relayTokenSecret: "prodigy-antigravity-relay-token" })), true);
   assert.equal(await provider.isProviderConfigured({ isMobile: true, secretStorage: { getSecret: async () => "" } }, Object.assign({}, providerConfig, { relayTokenSecret: "prodigy-antigravity-relay-token" })), false);
 }
 

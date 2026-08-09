@@ -45,7 +45,9 @@ function fakeApp() {
         files.set(target, file);
         return file;
       },
-      async modify(file, content) { file.content = content; }
+      async modify(file, content) { file.content = content; },
+      async cachedRead(file) { return file.content; },
+      async read(file) { return file.content; }
     },
     files,
     folders
@@ -76,6 +78,10 @@ async function main() {
   const second = await store.save(app, data);
   assert.deepEqual(second, { path: "DAILY/WEEKLY/2026-W30.md", created: false });
   assert.match(saved.content, /수정된 요약/, "saving the same week updates instead of duplicating it");
+  const loaded = await store.read(app, "2026-W30");
+  assert.equal(loaded.period.week, "2026-W30", "the saved Weekly note can be read back by week");
+  assert.equal(loaded.summary, "수정된 요약", "the saved Weekly summary survives a read-back");
+  assert.deepEqual(loaded.next_week_direction.continue_items, ["사전 확인"], "the saved direction survives a read-back");
   console.log("Weekly review store tests passed");
 }
 

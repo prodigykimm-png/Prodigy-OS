@@ -136,7 +136,7 @@ function createModalHarness(onConfirm, options) {
   global.EvidenceQualityCore = require(path.join(ROOT, "SYSTEM/Views/evidence-quality-core.js"));
   global.JournalStore = { saveReflection: async (_app, _date, freeText) => ({ fields: { reflection: freeText } }) };
   global.ProjectWorkflowDraftService = {
-    loadProviderConfig: async () => ({
+    loadProviderConfig: async () => options && options.providerConfig || {
       defaultProvider: "lm-studio",
       providers: {
         "lm-studio": {
@@ -149,7 +149,7 @@ function createModalHarness(onConfirm, options) {
           ]
         }
       }
-    }),
+    },
     listProviderModels: (_providerKey, config) => config.providers["lm-studio"].models,
     discoverProviderModels: async (_app, _providerKey, config) => config.providers["lm-studio"].models,
     saveProviderSettings: async (_app, settings) => settings.config
@@ -161,6 +161,7 @@ function createModalHarness(onConfirm, options) {
   global.DailyReflectionAI = {
     generateProposal: async (input) => {
       generatedInputs.push(input);
+      if (options && options.generatePromise) return options.generatePromise;
       if (options && options.generateError) throw options.generateError;
       return options && options.testProposal || createProposal();
     },
@@ -248,6 +249,52 @@ async function testSaveAndClassificationAreSeparate() {
     assert.equal(harness.generatedInputs.length, 1);
     assert.equal(harness.instance.freeText, "먼저 저장하고 나중에 분류할 일기");
     assert.ok(harness.notices.some((message) => /일기는 저장되어 있습니다/.test(message)));
+  } finally {
+    harness.restore();
+  }
+}
+
+async function testClassificationShowsLiveProgressWhileProviderRuns() {
+  let resolveProposal;
+  const pendingProposal = new Promise((resolve) => { resolveProposal = resolve; });
+  const harness = createModalHarness(async () => ({}), { generatePromise: pendingProposal });
+  try {
+    const area = findElement(harness.instance.contentEl, (element) => element.tag === "textarea");
+    area.value = "오래 걸릴 수 있는 분류 테스트";
+    area.oninput();
+    await harness.button("일기 저장").onclick();
+    const classification = harness.button("AI 분류");
+    const running = classification.onclick();
+    await new Promise((resolve) => setImmediate(resolve));
+    const status = findElement(harness.instance.contentEl, (element) => element.attributes.role === "status");
+    assert.ok(status, "long-running classification must expose a live status");
+    assert.match(status.text, /분류 중/);
+    resolveProposal(createProposal());
+    await running;
+  } finally {
+    harness.restore();
+  }
+}
+
+async function testClassificationShowsSelectedProviderInLiveProgress() {
+  let resolveProposal;
+  const pendingProposal = new Promise((resolve) => { resolveProposal = resolve; });
+  const harness = createModalHarness(async () => ({}), {
+    generatePromise: pendingProposal,
+    providerConfig: { defaultProvider: "gemini", providers: { gemini: { name: "Google Gemini", model: "gemini-3.5-flash" } } }
+  });
+  try {
+    const area = findElement(harness.instance.contentEl, (element) => element.tag === "textarea");
+    area.value = "선택한 제공자 표시 테스트";
+    area.oninput();
+    await harness.button("일기 저장").onclick();
+    const running = harness.button("AI 분류").onclick();
+    await new Promise((resolve) => setImmediate(resolve));
+    const status = findElement(harness.instance.contentEl, (element) => element.attributes.role === "status");
+    assert.match(status.text, /Google Gemini/);
+    assert.doesNotMatch(status.text, /Antigravity/);
+    resolveProposal(createProposal());
+    await running;
   } finally {
     harness.restore();
   }
@@ -413,6 +460,8 @@ async function main() {
   testNoModalFailsClosed();
   await testSharedProviderSettingsSummaryRenders();
   await testSaveAndClassificationAreSeparate();
+  await testClassificationShowsLiveProgressWhileProviderRuns();
+  await testClassificationShowsSelectedProviderInLiveProgress();
   await testApprovalButtonCountTracksSelectedEvidence();
   await testEvidenceSavedCallbackContract();
   console.log("Daily Reflection modal extraction tests passed");

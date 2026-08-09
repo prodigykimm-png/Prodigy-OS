@@ -21,7 +21,7 @@
   const {
     LITERATURE_PATH, MAX_TITLE_TEXT, freezeDeep, isRecord, optionalText, requiredText,
     hostileMarkup, safeTitle, canonicalId, sourceId, candidateId, url, exactEnum,
-    uniqueList, canonicalLiteratureLink, evidenceIds, wikiLink, optionalLinks, optionalMachineId,
+    uniqueList, canonicalLiteratureLink, evidenceIds, wikiLink, optionalLinks, optionalMachineId, connectionsWithRegions, invalidationConditions,
   } = validation;
 
   function taxonomy(domainValue, topicsValue, domainField, topicsField) {
@@ -87,6 +87,8 @@
       source_note: sourceNote,
       application_trigger: optionalText(input.application_trigger, "application_trigger"),
       application_contexts: normalizeApplicationContexts(input.application_contexts === undefined ? [] : input.application_contexts),
+      connections: input.connections === undefined ? [] : connectionsWithRegions(input.connections, "connections"),
+      invalidation_conditions: input.invalidation_conditions === undefined ? [] : invalidationConditions(input.invalidation_conditions),
       confidence: exactEnum(input.confidence === undefined ? "explicit" : input.confidence, "confidence", new Set(["explicit", "inferred", "low"])),
       suggested_domain: classification.domain,
       suggested_topics: classification.topics,

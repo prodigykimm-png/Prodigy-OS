@@ -30,8 +30,13 @@ Explorer code may consume the following aliases. A color alias must resolve dire
 | `--ke-space-3` | `8px` | Row and section inset |
 | `--ke-space-4` | `12px` | Pane separation |
 | `--ke-space-5` | `16px` | Major section separation |
+| `--ke-border-width` | `1px` | Theme-colored control and panel boundary |
+| `--ke-focus-ring-width` | `2px` | Visible focus and status emphasis width |
 | `--ke-radius-control` | `4px` | Buttons and focusable rows |
 | `--ke-radius-panel` | `8px` | Grouped information panels only |
+| `--ke-font-weight-strong` | `600` | Selected source and compact strong emphasis |
+| `--ke-opacity-disabled` | `0.6` | Disabled control visibility without hiding its label |
+| `--ke-metadata-label-min` | `7rem` | Preferred metadata label column floor |
 | `--ke-type-chrome` | `0.68rem` | Fixed-height dock and dense system chrome |
 | `--ke-type-label` | `0.72rem` | Navigation metadata and counts |
 | `--ke-type-body` | `0.84rem` | Dense operational copy |
@@ -81,6 +86,8 @@ Status uses semantic theme aliases rather than a fixed palette: active work uses
 | `asset-section` | Repeated typed result group | Uses a heading, count, rows, provenance, and local empty/error copy; repeated instances share this primitive. |
 | `drill-down` | Forward navigation control | Moves Domain to Topic/Resource to Detail, updates selected semantics, and transfers focus to the new pane heading. |
 | `back` | Reverse navigation control | Returns Detail to Topic/Resource, then to Domain, preserving selection and restoring focus to the invoking control. |
+| `journal-period-review` | Period-scoped journal surface | Keeps the selected month, quarter, or year visible while exposing previous/next/current navigation, read-only saved content, and the period-specific readiness or review surface. |
+| `journal-period-history` | Saved period history | Lists stored Monthly, Quarterly, and Yearly notes in reverse chronological order and reopens each record in the same selected-period surface. |
 
 <!-- explorer-composition:start -->
 - `knowledge-explorer-shell` composes `domain-nav`, `topic-nav`, and `detail-pane`.

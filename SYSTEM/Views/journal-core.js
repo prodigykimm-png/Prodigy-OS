@@ -22,7 +22,8 @@
   const EVIDENCE_SECTION_RE = /^##\s+Evidence\s*\n([\s\S]*?)(?=^#{1,2}\s+(?!#)|$(?![\s\S]))/im;
 
   function clean(value) {
-    return String(value == null ? "" : value).trim();
+    const text = String(value == null ? "" : value).trim();
+    return text === "-" ? "" : text;
   }
 
   function firstNonEmpty(source, keys) {
@@ -158,10 +159,17 @@
     const sections = root.MorningContextCore && root.MorningContextCore.parseReflectionSections
       ? root.MorningContextCore.parseReflectionSections(content || "")
       : { reflection: "", change: "", nextExperiment: "" };
+    const fromSections = normalizeReviewFields({
+      reflection: sections.reflection,
+      change: sections.change,
+      next_experiment: sections.nextExperiment
+    });
+    const date = clean((frontmatter || {}).date || (frontmatter || {})["journal-date"]);
+    const fromEvidence = aggregateLegacyFieldsFromBlocks(parseDailyEvidenceBlocks(content || "", date));
     return normalizeReviewFields({
-      reflection: fromFm.reflection || sections.reflection,
-      change: fromFm.change || sections.change,
-      next_experiment: fromFm.next_experiment || sections.nextExperiment
+      reflection: fromFm.reflection || fromSections.reflection || fromEvidence.reflection,
+      change: fromFm.change || fromSections.change || fromEvidence.change,
+      next_experiment: fromFm.next_experiment || fromSections.next_experiment || fromEvidence.next_experiment
     });
   }
 
