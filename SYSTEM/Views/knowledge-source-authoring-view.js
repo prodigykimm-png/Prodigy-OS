@@ -53,7 +53,7 @@
     return {
       title: source.source_title, statement: source.reusable_knowledge || source.my_interpretation,
       reason: source.source_claim || "자료를 읽고 사람이 해석한 내용입니다.", source_type: "study_material",
-      source_evidence_ids: [], source_objects: [sourceLink], source_note: `단일 자료: ${source.source_title}`,
+      source_evidence_ids: [], source_objects: [sourceLink], source_note: `문헌노트 한 건: ${source.source_title}`,
       application_trigger: source.application_trigger, application_contexts: source.application_contexts,
       confidence: "explicit", suggested_domain: source.knowledge_domain, suggested_topics: source.knowledge_topics,
     };
@@ -113,7 +113,7 @@
       } catch (_error) {
         if (closed || token !== epoch) return false;
         phase = "source_saved_candidate_error";
-        error = "후보를 만들지 못했습니다. 저장된 자료는 유지됩니다. 다시 시도해 주세요.";
+        error = "후보를 만들지 못했습니다. 저장된 문헌노트는 유지됩니다. 다시 시도해 주세요.";
         return false;
       } finally {
         if (!closed && token === epoch) {
@@ -135,7 +135,7 @@
       }
       const store = config.sourceStore;
       if (!store || typeof store.saveSource !== "function") {
-        error = "자료 저장소를 사용할 수 없습니다. 입력 내용은 유지됩니다.";
+        error = "문헌노트 저장소를 사용할 수 없습니다. 입력 내용은 유지됩니다.";
         report();
         return false;
       }
@@ -147,7 +147,7 @@
       try {
         const saved = await store.saveSource(config.app, normalized);
         if (closed || token !== epoch) return false;
-        if (!saved || !text(saved.link)) throw new Error("자료 저장 결과에 링크가 없습니다.");
+        if (!saved || !text(saved.link)) throw new Error("문헌노트 저장 결과에 링크가 없습니다.");
         source = Object.freeze({
           ...saved,
           input: Object.freeze({ ...normalized, application_trigger: draft.application_trigger, application_contexts: draft.application_contexts.slice() }),

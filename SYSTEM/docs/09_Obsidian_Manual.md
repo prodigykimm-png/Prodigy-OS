@@ -187,7 +187,7 @@ Home = **Mission Control** (한글 UI).
 ### 5.5 지식 — `HUB/50 Knowledge.md`
 
 - **+ 지식 작성**: 직접 공부한 내용을 AI 없이 `knowledge_candidate`로 저장. `source_note` 필수. 저장 후 `검증 대기`에서 사람 승인.
-- **+ 자료 정리**: 기사·칼럼·YouTube·인강·논문·공식 문서를 `literature_note`로 저장. `단일 자료`(직접 입력)와 `오늘의 자료 묶음`(URL 1~20개 → AI 항목별 요약 + 사람 한 줄 필수) 두 탭.
+- **+ 문헌노트 작성**: 기사·칼럼·YouTube·인강·논문·공식 문서를 `literature_note`로 저장. `문헌노트 한 건`(직접 입력)과 `문헌노트 묶음`(URL 1~20개 → AI 항목별 요약 + 사람 한 줄 필수) 두 경로.
 - `application_trigger`·`application_contexts`는 후보→승인→Knowledge 전 과정 보존.
 - URL 가져오기는 HTTP(S) 공개 페이지만. 로그인·유료벽 우회·영상 다운로드 없음. 실패 시 사용자 텍스트 fallback.
 - AI가 Candidate·Knowledge를 자동 생성·승인하지 않음. 배경 크롤링·사용 통계·분석 대시보드 없음.

@@ -62,8 +62,8 @@
 
   function renderMetadataFields(form, controller, draft, disabled) {
     const names = sourceKindFields(draft.source_kind);
-    label(form, "자료 제목", "source_title");
-    const title = control(form, controller, { name: "source_title", label: "자료 제목", value: draft.source_title, required: true, disabled });
+    label(form, "문헌 제목", "source_title");
+    const title = control(form, controller, { name: "source_title", label: "문헌 제목", value: draft.source_title, required: true, disabled });
     label(form, names.url, "source_url");
     control(form, controller, { name: "source_url", label: names.url, value: draft.source_url, type: "url", disabled });
     label(form, names.creator, "creator");
@@ -112,9 +112,9 @@
     optIn.onchange = (event) => controller.update({ create_candidate: Boolean(event && event.target && event.target.checked) });
     createEl(form, "span", { text: "후보도 만들어 검토 대기에 추가" });
     if (current.error) createEl(section, "p", { text: current.error, attr: { role: "alert", class: "knowledge-source-authoring-error" } });
-    if (current.source) createEl(section, "p", { text: `저장된 자료: ${current.source.link}`, attr: { class: "knowledge-source-authoring-success" } });
+    if (current.source) createEl(section, "p", { text: `저장된 문헌노트: ${current.source.link}`, attr: { class: "knowledge-source-authoring-success" } });
     const actions = createEl(section, "div", { attr: { class: "knowledge-source-authoring-actions", style: "display:flex;flex-wrap:wrap;gap:8px;" } });
-    const save = createEl(actions, "button", { text: current.pending ? "저장 중" : "자료 저장", attr: { type: "button", "aria-label": "자료 저장" }, disabled: disabled || Boolean(current.source) });
+    const save = createEl(actions, "button", { text: current.pending ? "저장 중" : "문헌노트 저장", attr: { type: "button", "aria-label": "문헌노트 저장" }, disabled: disabled || Boolean(current.source) });
     save.onclick = () => { void controller.submit(); };
     const retry = createEl(actions, "button", { text: "후보 만들기 다시 시도", attr: { type: "button", "aria-label": "후보 만들기 다시 시도" }, disabled: disabled || current.phase !== "source_saved_candidate_error" });
     retry.onclick = () => { void controller.retryCandidate(); };
@@ -123,17 +123,17 @@
   }
 
   function renderSourceAuthoringForm(parent, controller, options) {
-    if (!parent || !controller || typeof controller.state !== "function") throw new Error("자료 작성 controller가 필요합니다.");
+    if (!parent || !controller || typeof controller.state !== "function") throw new Error("문헌노트 작성 controller가 필요합니다.");
     const current = controller.state();
     const draft = current.draft;
     const disabled = current.pending || current.closed;
-    const section = createEl(parent, "section", { attr: { class: "knowledge-source-authoring", "aria-label": "단일 자료 정리" } });
+    const section = createEl(parent, "section", { attr: { class: "knowledge-source-authoring", "aria-label": "문헌노트 한 건 작성" } });
     section.onkeydown = (event) => { if (event && event.key === "Escape" && !current.pending) controller.cancel(); };
-    createEl(section, "h2", { text: "단일 자료" });
-    createEl(section, "p", { text: "자료를 먼저 저장하고, 필요할 때만 후보를 검토 대기에 추가합니다.", attr: { class: "knowledge-source-authoring-help" } });
-    const form = createEl(section, "fieldset", { attr: { class: "knowledge-source-authoring-fields", style: "min-width:0;display:grid;gap:8px;", "aria-label": "단일 자료 입력" }, disabled });
-    label(form, "자료 유형", "source_kind");
-    const kind = createEl(form, "select", { attr: { id: "source_kind", name: "source_kind", class: "knowledge-source-authoring-input", style: "min-width:0;width:100%;max-width:100%;box-sizing:border-box;", "aria-label": "자료 유형" }, disabled });
+    createEl(section, "h2", { text: "문헌노트 한 건" });
+    createEl(section, "p", { text: "논문·기사 등 하나의 문헌을 먼저 저장하고, 필요할 때만 지식 후보를 검토 대기에 추가합니다.", attr: { class: "knowledge-source-authoring-help" } });
+    const form = createEl(section, "fieldset", { attr: { class: "knowledge-source-authoring-fields", style: "min-width:0;display:grid;gap:8px;", "aria-label": "문헌노트 입력" }, disabled });
+    label(form, "문헌 유형", "source_kind");
+    const kind = createEl(form, "select", { attr: { id: "source_kind", name: "source_kind", class: "knowledge-source-authoring-input", style: "min-width:0;width:100%;max-width:100%;box-sizing:border-box;", "aria-label": "문헌 유형" }, disabled });
     SOURCE_KINDS.forEach((item) => createEl(kind, "option", { text: item.label, attr: { value: item.value, selected: item.value === draft.source_kind ? "selected" : undefined } }));
     kind.value = draft.source_kind;
     kind.onchange = (event) => controller.update({ source_kind: event && event.target ? event.target.value : kind.value });

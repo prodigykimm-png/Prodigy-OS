@@ -91,15 +91,15 @@
     class MaterialChooserModal extends Modal {
       onOpen() {
         this.contentEl.empty();
-        this.contentEl.createEl("h2", { text: "+ 자료 정리" });
-        this.contentEl.createEl("p", { text: "자료 한 건 또는 여러 공개 자료를 정리할 수 있습니다. 저장은 각 화면에서 직접 확인한 뒤에만 실행됩니다." });
+        this.contentEl.createEl("h2", { text: "+ 문헌노트 작성" });
+        this.contentEl.createEl("p", { text: "논문·기사 등 출처가 있는 문헌을 한 건 또는 묶음으로 기록합니다. 저장은 각 화면에서 직접 확인한 뒤에만 실행됩니다." });
         const actions = this.contentEl.createEl("div", { attr: { class: "knowledge-authoring-hub-actions", style: "display:flex;gap:8px;flex-wrap:wrap;" } });
         const choose = (label, open) => {
           const control = createEl(actions, "button", { text: label, attr: { type: "button", class: "knowledge-explorer-button", "aria-label": label } });
           control.onclick = (event) => { prevent(event); this.close(); open(); };
         };
-        choose("자료 한 건 정리", () => openSourceAuthoring(app, config, refresh));
-        choose("여러 자료 정리", () => openSourceBatch(app, config, refresh));
+        choose("문헌노트 한 건 작성", () => openSourceAuthoring(app, config, refresh));
+        choose("문헌노트 묶음 작성", () => openSourceBatch(app, config, refresh));
       }
       onClose() { this.contentEl.empty(); }
     }
@@ -143,7 +143,7 @@
     const config = createAuthoringHubConfig(options && options.app);
     const refresh = reloadOnce(options && options.onReload);
     const section = createEl(parent, "section", { attr: { class: "knowledge-authoring-hub", "aria-label": "지식 작성 작업" } });
-    section.createEl("p", { text: "지식과 자료는 작성 후 검토 대기에 분리해 보관합니다.", attr: { class: "knowledge-explorer-meta" } });
+    section.createEl("p", { text: "지식 후보는 생각·경험을, 문헌노트는 논문·기사 등 출처가 있는 자료를 기록합니다. 저장 후 검토 대기에서 따로 확인합니다.", attr: { class: "knowledge-explorer-meta" } });
     const actions = section.createEl("div", { attr: { class: "knowledge-authoring-hub-actions", style: "display:flex;gap:8px;flex-wrap:wrap;" } });
     const button = (label, open) => {
       const control = createEl(actions, "button", { text: label, attr: { type: "button", class: "knowledge-explorer-button", "aria-label": label } });
@@ -151,7 +151,7 @@
       return control;
     };
     button("+ 지식 작성", () => openDirectAuthoring(config.app, config, refresh));
-    button("+ 자료 정리", () => openMaterialChooser(config.app, config, refresh));
+    button("+ 문헌노트 작성", () => openMaterialChooser(config.app, config, refresh));
     return Object.freeze({ section, config });
   }
 

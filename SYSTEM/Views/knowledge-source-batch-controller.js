@@ -23,12 +23,12 @@
     async function retrieve() {
       if (data.closed || data.operation !== "idle" || data.saving || !session.isPreparedCurrent()) return false;
       const service = config.retrievalService;
-      if (!service || typeof service.retrieveArticle !== "function") return fail("기사 가져오기 서비스를 사용할 수 없습니다. 사용자 텍스트 또는 메모를 입력해 주세요.");
+      if (!service || typeof service.retrieveArticle !== "function") return fail("공개 자료 가져오기 서비스를 사용할 수 없습니다. 원문 텍스트 또는 메모를 입력해 주세요.");
       const token = ++data.epoch;
       data.activeController = new AbortController();
       data.operation = "retrieving";
       data.error = "";
-      data.message = "공개 기사만 가져오는 중입니다. 로그인·유료벽·동영상은 사용자 메모가 필요합니다.";
+      data.message = "공개 자료만 가져오는 중입니다. 로그인·유료벽·동영상은 사용자 메모가 필요합니다.";
       data.rows.forEach((row) => { if (!row.source && !State.rowReady(row)) { row.status = "retrieving"; row.pending = true; } });
       session.report();
       for (const row of data.rows) {
@@ -40,7 +40,7 @@
       if (isStale(token)) return false;
       data.activeController = null;
       data.operation = "idle";
-      data.message = data.rows.every(State.rowReady) ? "AI 요약을 만들 수 있습니다. 저장 전에는 각 자료의 내 한 줄을 작성해 주세요." : "사용자 텍스트 또는 메모가 필요한 자료가 있습니다.";
+      data.message = data.rows.every(State.rowReady) ? "AI 요약을 만들 수 있습니다. 저장 전에는 각 문헌노트의 내 한 줄을 작성해 주세요." : "원문 텍스트 또는 메모가 필요한 문헌노트가 있습니다.";
       session.report();
       return true;
     }
@@ -62,12 +62,12 @@
           row.published_at = row.published_at || State.clean(result.date) || State.clean(metadata.date);
         } else {
           row.status = "fallback";
-          row.row_error = "공개 기사 본문을 가져오지 못했습니다. 사용자 텍스트 또는 메모를 입력해 주세요.";
+          row.row_error = "공개 자료 본문을 가져오지 못했습니다. 원문 텍스트 또는 메모를 입력해 주세요.";
         }
       } catch (error) {
         if (!isStale(token)) {
           row.status = "error";
-          row.row_error = "기사 가져오기에 실패했습니다. 사용자 텍스트 또는 메모를 입력해 주세요.";
+          row.row_error = "공개 자료 가져오기에 실패했습니다. 원문 텍스트 또는 메모를 입력해 주세요.";
         }
       } finally { row.pending = false; }
     }
@@ -118,7 +118,7 @@
         row.candidate_error = "";
         return true;
       } catch (error) {
-        row.candidate_error = "후보를 만들지 못했습니다. 저장된 자료는 유지됩니다. 다시 시도해 주세요.";
+        row.candidate_error = "후보를 만들지 못했습니다. 저장된 문헌노트는 유지됩니다. 다시 시도해 주세요.";
         return false;
       } finally { row.pending = false; session.report(); }
     }
@@ -127,18 +127,18 @@
       if (!row.source) {
         let normalized;
         try { normalized = core.normalizeSourceInput(sourceInput(row)); }
-        catch (error) { row.row_error = State.friendlyError(error, "자료 입력을 확인해 주세요."); session.report(); return false; }
-        if (!config.sourceStore || typeof config.sourceStore.saveSource !== "function") { row.row_error = "자료 저장소를 사용할 수 없습니다. 입력 내용은 유지됩니다."; session.report(); return false; }
+        catch (error) { row.row_error = State.friendlyError(error, "문헌노트 입력을 확인해 주세요."); session.report(); return false; }
+        if (!config.sourceStore || typeof config.sourceStore.saveSource !== "function") { row.row_error = "문헌노트 저장소를 사용할 수 없습니다. 입력 내용은 유지됩니다."; session.report(); return false; }
         row.pending = true;
         session.report();
         try {
           const saved = await config.sourceStore.saveSource(config.app, normalized);
-          if (!saved || !State.clean(saved.link)) throw new Error("자료 저장 결과에 링크가 없습니다.");
+          if (!saved || !State.clean(saved.link)) throw new Error("문헌노트 저장 결과에 링크가 없습니다.");
           row.source = { ...saved, status: "saved" };
           row._savedInput = normalized;
           row.row_error = "";
         } catch (error) {
-          row.row_error = "자료를 저장하지 못했습니다. 입력 내용은 유지됩니다. 다시 시도해 주세요.";
+          row.row_error = "문헌노트를 저장하지 못했습니다. 입력 내용은 유지됩니다.";
           return false;
         } finally { row.pending = false; session.report(); }
       }

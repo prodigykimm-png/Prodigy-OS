@@ -8,11 +8,11 @@ const { testUrlEditAfterPrepareInvalidatesPreparedSnapshotBeforeAnyRetrieval, te
 
 function testKoreanDomStateAndInputBoundsAreSafeBeforeRetrieval() {
   const fixture = mount();
-  assert.match(allText(fixture.root), /오늘의 자료 묶음/);
+  assert.match(allText(fixture.root), /문헌노트 묶음/);
   assert.ok(field(fixture.root, "urls_text"));
-  assert.equal(field(fixture.root, "urls_text").attr["aria-label"], "자료 URL 목록");
+  assert.equal(field(fixture.root, "urls_text").attr["aria-label"], "문헌노트 URL 목록");
   assert.equal(field(fixture.root, "source_kind").value, "article");
-  assert.ok(button(fixture.root, "기사 가져오기"));
+  assert.ok(button(fixture.root, "공개 자료 가져오기"));
   assert.match(allText(fixture.root), /한 줄에 하나씩, 최대 20개/);
   assert.equal(fixture.controller.prepare(), true);
   assert.equal(fixture.controller.rows().length, 2);

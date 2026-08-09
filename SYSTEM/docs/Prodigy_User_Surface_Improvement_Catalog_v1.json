@@ -14,7 +14,7 @@
       { "citation_id": "brief-recovery-copy", "ref": "main", "path": "SYSTEM/Views/knowledge-explorer-brief-render.js", "symbol": "statusCopy", "line_start": 20, "line_end": 25, "claim": "Brief recovery is rendered as deterministic Korean status copy with a retry action, but does not identify the provider-gated state." },
       { "citation_id": "hydration-controller", "ref": "main", "path": "SYSTEM/Views/knowledge-explorer-view.js", "symbol": "hydrateSelectedAsset", "line_start": 82, "line_end": 100, "claim": "Body hydration tracks loading/error by request id and selected path, and converts failures to a generic error state." },
       { "citation_id": "hydration-render", "ref": "main", "path": "SYSTEM/Views/knowledge-explorer-hub-adapter.js", "symbol": "appendHydrationSection", "line_start": 87, "line_end": 103, "claim": "Hydration error copy asks the user to reselect but has no explicit retry action in the detail section." },
-      { "citation_id": "authoring-actions", "ref": "main", "path": "SYSTEM/Views/knowledge-authoring-hub-adapter.js", "symbol": "mountKnowledgeAuthoringActions", "line_start": 130, "line_end": 143, "claim": "The authoring entry surface presents equal '+ 지식 작성' and '+ 자료 정리' actions with a generic description." }
+      { "citation_id": "authoring-actions", "ref": "main", "path": "SYSTEM/Views/knowledge-authoring-hub-adapter.js", "symbol": "mountKnowledgeAuthoringActions", "line_start": 130, "line_end": 143, "claim": "The authoring entry surface presents equal '+ 지식 작성' and '+ 문헌노트 작성' actions with an explicit distinction between personal knowledge and source-backed Literature Notes." }
     ],
     "items": [
       {

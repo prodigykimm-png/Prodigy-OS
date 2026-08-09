@@ -83,7 +83,7 @@
           "ralplan:WP4",
           "deep-interview:artifact:general-improvement-ideas"
         ],
-        "sha256": "ed7e79a19bc9c336e7b58c8f86a6ede0d7415c65d8628e0e70c3e749083b25a4",
+        "sha256": "b804ae5e9752f8414a116e8f7bf4629bbe024137fc17026a7bec325748fc4c93",
         "owner": "user-facing surface owners",
         "dependencies": [
           "revamp-artifact-schema",

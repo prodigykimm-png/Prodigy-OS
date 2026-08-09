@@ -80,30 +80,30 @@ async function testHubMountsAuthoringActionsWithoutChangingExplorerProjection() 
   const result = await runHub({ pages });
   const beforeTotals = { ...result.window.KnowledgeExplorerHub.model.totals };
   const direct = firstElement(result.container, "button", (node) => node.text === "+ 지식 작성");
-  const material = firstElement(result.container, "button", (node) => node.text === "+ 자료 정리");
+  const material = firstElement(result.container, "button", (node) => node.text === "+ 문헌노트 작성");
 
   // Then: both actions are visible but never become Explorer assets or briefs.
   assert.ok(direct, "direct Knowledge authoring action must be visible");
   assert.ok(material, "material authoring action must be visible");
   assert.deepEqual(JSON.parse(JSON.stringify(result.window.KnowledgeExplorerHub.model.totals)), beforeTotals);
   assert.equal(result.window.KnowledgeExplorerHub.model.totals.knowledge, beforeTotals.knowledge);
-  assert.doesNotMatch(JSON.stringify(result.window.KnowledgeExplorerHub.model), /\+ 지식 작성|\+ 자료 정리/);
+  assert.doesNotMatch(JSON.stringify(result.window.KnowledgeExplorerHub.model), /\+ 지식 작성|\+ 문헌노트 작성/);
 
   // And when: the user opens each action and chooses both material workflows.
   direct.onclick({ preventDefault() {} });
   assert.match(collectText(result.openedModals.at(-1).contentEl), /검증 대기에 저장/);
   material.onclick({ preventDefault() {} });
   const chooser = result.openedModals.at(-1);
-  assert.match(collectText(chooser.contentEl), /자료 한 건 정리/);
-  assert.match(collectText(chooser.contentEl), /여러 자료 정리/);
-  const single = firstElement(chooser.contentEl, "button", (node) => node.text === "자료 한 건 정리");
-  const batch = firstElement(chooser.contentEl, "button", (node) => node.text === "여러 자료 정리");
+  assert.match(collectText(chooser.contentEl), /문헌노트 한 건 작성/);
+  assert.match(collectText(chooser.contentEl), /문헌노트 묶음 작성/);
+  const single = firstElement(chooser.contentEl, "button", (node) => node.text === "문헌노트 한 건 작성");
+  const batch = firstElement(chooser.contentEl, "button", (node) => node.text === "문헌노트 묶음 작성");
   single.onclick({ preventDefault() {} });
-  assert.match(collectText(result.openedModals.at(-1).contentEl), /단일 자료/);
+  assert.match(collectText(result.openedModals.at(-1).contentEl), /문헌노트 한 건/);
   material.onclick({ preventDefault() {} });
   const secondChooser = result.openedModals.at(-1);
-  firstElement(secondChooser.contentEl, "button", (node) => node.text === "여러 자료 정리").onclick({ preventDefault() {} });
-  assert.match(collectText(result.openedModals.at(-1).contentEl), /오늘의 자료 묶음/);
+  firstElement(secondChooser.contentEl, "button", (node) => node.text === "문헌노트 묶음 작성").onclick({ preventDefault() {} });
+  assert.match(collectText(result.openedModals.at(-1).contentEl), /문헌노트 묶음/);
   assert.equal(result.app.workspace.calls.length, 0, "opening authoring modals must not write or navigate");
 }
 

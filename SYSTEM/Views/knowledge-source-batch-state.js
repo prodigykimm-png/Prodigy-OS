@@ -45,7 +45,7 @@
       source_type: "study_material",
       source_evidence_ids: [],
       source_objects: [sourceLink],
-      source_note: `오늘의 자료 묶음: ${source.source_title}`,
+      source_note: `문헌노트 묶음: ${source.source_title}`,
       application_trigger: source.application_trigger,
       application_contexts: source.application_contexts,
       confidence: "explicit",
@@ -133,7 +133,7 @@
       data.rows = normalized.items.map((item) => createRow(item, prior.get(item.source_url), data.values));
       data.aiRequested = data.rows.some((row) => Boolean(row.ai_summary));
       data.error = "";
-      data.message = "자료 목록을 확인했습니다. ‘기사 가져오기’를 눌러 공개 기사만 가져오세요.";
+      data.message = "문헌노트 목록을 확인했습니다. ‘공개 자료 가져오기’를 눌러 공개 자료를 가져오세요.";
       report();
       return true;
     }

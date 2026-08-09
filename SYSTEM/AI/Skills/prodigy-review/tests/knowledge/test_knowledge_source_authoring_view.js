@@ -82,14 +82,14 @@ function testRendersKoreanFieldsKindsAndAccessibleLongCjkLayout() {
 
   // Then: every allowed source kind, required human line, optional metadata, and accessible actions are present.
   const text = collectText(root);
-  assert.match(text, /단일 자료/);
-  assert.match(text, /자료 유형/);
+  assert.match(text, /문헌노트 한 건/);
+  assert.match(text, /문헌 유형/);
   assert.match(text, /내 해석 한 줄/);
   assert.match(text, /AI 보조 요약/);
   assert.match(text, /후보도 만들어 검토 대기에 추가/);
   assert.deepEqual(view.SOURCE_KINDS.map((item) => item.value), ["article", "column", "youtube", "course", "paper", "official_document"]);
   assert.equal(field(root, "my_interpretation").attr["aria-required"], "true");
-  assert.equal(field(root, "source_title").attr["aria-label"], "자료 제목");
+  assert.equal(field(root, "source_title").attr["aria-label"], "문헌 제목");
   assert.match(field(root, "source_title").attr.class, /knowledge-source-authoring-input/);
   assert.match(field(root, "source_title").attr.style, /min-width:0/);
   assert.equal(field(root, "source_title").focused, true);
@@ -150,7 +150,7 @@ async function testExplicitCandidateUsesExactSavedLinkAndFailureRetriesOnlyCandi
 
   // When: source-plus-Candidate is submitted, then the Candidate is retried.
   assert.equal(await controller.submit(), false);
-  assert.match(controller.state().error, /저장된 자료는 유지/);
+  assert.match(controller.state().error, /저장된 문헌노트는 유지/);
   assert.doesNotMatch(controller.state().error, /candidate writer failed/);
   assert.equal(await controller.retryCandidate(), true);
 
@@ -179,7 +179,7 @@ async function testCandidatePreparationFailurePreservesSourceAndRetriesCandidate
 
   // When: Candidate preparation fails after the canonical source write, then is retried.
   assert.equal(await controller.submit(), false);
-  assert.match(controller.state().error, /저장된 자료는 유지/);
+  assert.match(controller.state().error, /저장된 문헌노트는 유지/);
   assert.equal(await controller.retryCandidate(), true);
 
   // Then: the saved source is retained and retry only performs the optional Candidate path.
