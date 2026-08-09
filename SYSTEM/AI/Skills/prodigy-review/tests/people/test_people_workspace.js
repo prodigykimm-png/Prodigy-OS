@@ -322,6 +322,10 @@ function main() {
   assert.match(personal, /renderPeopleWorkspace/);
   assert.match(personal, /장소/);
   assert.match(personal, /paintPlaces|renderVenuesWorkspace/);
+  assert.match(personal, /setOnSelect/);
+  assert.match(personal, /if \(tabId !== "places"\) return/);
+  assert.match(personal, /장소를 불러오는 중/);
+  assert.equal(personal.includes("await paintPlaces();"), false, "Places must not block the default People tab");
   assert.match(personal, /collectSourcePages/);
   assert.equal(personal.includes("HUB/People.md"), false);
   assert.equal(/미접촉|잠재 고객|인맥 관리|연락 관리/.test(personal), false);

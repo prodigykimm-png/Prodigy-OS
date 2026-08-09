@@ -198,9 +198,11 @@ try {
         await guard.paintPeople({ force: true, snapshot: initialSnapshot });
       }
     }
-    // Venue data has its own bounded snapshot and persistent view API. Refresh
-    // it even when the People fingerprint is unchanged.
-    if (typeof guard.paintPlaces === "function") await guard.paintPlaces({ force: true });
+    // Place data is intentionally lazy: the default People tab must not scan
+    // every Venue body and every Daily page before the workspace is usable.
+    if (guard.activeTab === "places" && guard.placesLoaded && typeof guard.paintPlaces === "function") {
+      await guard.paintPlaces({ force: true });
+    }
     if (scrollOwner && savedScrollTop) scrollOwner.scrollTop = savedScrollTop;
     return;
   }
@@ -232,6 +234,7 @@ try {
       Object.freeze({ id: "places", label: "장소" })
     ]);
     let active = "people";
+    let onSelect = () => {};
     const bar = workspaceBody.createDiv({ attr: { role: "tablist", class: "personal-tablist", "aria-label": "개인 워크스페이스" } });
     const buttons = {};
     const panels = {};
@@ -272,9 +275,15 @@ try {
         setTabAttribute(buttons[tab.id], "aria-selected", String(selected));
         setTabVisible(panels[tab.id], selected);
       });
+      onSelect(active);
     }
     select("people");
-    return { getPanel: (id) => panels[id] || null, select };
+    return {
+      getPanel: (id) => panels[id] || null,
+      select,
+      getActiveTab: () => active,
+      setOnSelect: (next) => { onSelect = typeof next === "function" ? next : () => {}; }
+    };
   })();
 
   const peopleMount = personalTabs.getPanel("people");
@@ -334,6 +343,8 @@ try {
       workspaceApi,
       fingerprint,
       paintPeople,
+      activeTab: personalTabs.getActiveTab(),
+      placesLoaded: false,
       paintPlaces
     });
     if (workspaceApi && workspaceApi.getState) {
@@ -344,6 +355,7 @@ try {
   let venueWorkspaceApi = null;
   let venueDataFingerprint = "";
   let venuePaintSerial = 0;
+  let placesLoaded = false;
 
   const toArray = (value) => {
     if (Array.isArray(value)) return value.slice();
@@ -450,6 +462,16 @@ try {
   const paintPlaces = async (options) => {
     const serial = ++venuePaintSerial;
     const force = Boolean(options && options.force);
+    placesLoaded = true;
+    const activeGuard = guardStore.get(personalHost);
+    if (activeGuard) activeGuard.placesLoaded = true;
+    if (!venueWorkspaceApi && placesMount && typeof placesMount.empty === "function" && typeof placesMount.createEl === "function") {
+      placesMount.empty();
+      placesMount.createEl("p", {
+        text: "장소를 불러오는 중…",
+        attr: { class: "ppw-empty", role: "status" }
+      });
+    }
     const places = await collectVenueWorkspaceItems();
     if (serial !== venuePaintSerial) return null;
     const fingerprint = window.VenueStore && typeof window.VenueStore.venueFingerprint === "function"
@@ -499,9 +521,23 @@ try {
     venueDataFingerprint = fingerprint;
     return null;
   };
+  personalTabs.setOnSelect((tabId) => {
+    const activeGuard = guardStore.get(personalHost);
+    if (activeGuard) activeGuard.activeTab = tabId;
+    if (tabId !== "places") return;
+    placesLoaded = true;
+    void paintPlaces().catch(() => {
+      if (placesMount && typeof placesMount.empty === "function" && typeof placesMount.createEl === "function") {
+        placesMount.empty();
+        placesMount.createEl("p", {
+          text: "장소를 불러오지 못했습니다.",
+          attr: { class: "ppw-empty", role: "alert" }
+        });
+      }
+    });
+  });
 
   await paintPeople({ snapshot: initialSnapshot });
-  await paintPlaces();
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "개인" });
