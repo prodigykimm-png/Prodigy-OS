@@ -25,6 +25,86 @@
       : Render.findFocusable(container, selection.focusPane, selection.focusPane === "domain" ? selection.domainKey : selection.focusPane === "middle" ? selection.middleKey : selection.assetPath);
     if (target && typeof target.focus === "function") target.focus();
   }
+  function readNodeAttr(node, name) {
+    if (!node) return "";
+    if (node.attr && node.attr[name] !== undefined) return String(node.attr[name]);
+    if (node.getAttribute) return String(node.getAttribute(name) || "");
+    return "";
+  }
+
+  function walkNodes(node, visitor) {
+    if (!node) return;
+    visitor(node);
+    (node.children || []).forEach((child) => walkNodes(child, visitor));
+  }
+
+  function focusIdentity(node) {
+    if (!node) return null;
+    const group = readNodeAttr(node, "data-group");
+    const key = readNodeAttr(node, "data-key");
+    const action = readNodeAttr(node, "data-action");
+    if (group) return { group, key };
+    if (action === "back") return { group: "back", key: "" };
+    return null;
+  }
+
+  function isContained(container, node) {
+    if (!container || !node) return false;
+    if (typeof container.contains === "function") return container.contains(node);
+    let found = false;
+    walkNodes(container, (candidate) => { if (candidate === node) found = true; });
+    return found;
+  }
+
+  function captureProjection(container, fallbackFocus) {
+    const snapshot = { focus: fallbackFocus || null, scroll: [] };
+    const documentRef = container && container.ownerDocument;
+    const active = documentRef && documentRef.activeElement;
+    if (active && isContained(container, active)) snapshot.focus = focusIdentity(active) || snapshot.focus;
+    walkNodes(container, (node) => {
+      const owner = readNodeAttr(node, "data-scroll-owner");
+      if (!owner) return;
+      snapshot.scroll.push({
+        owner,
+        top: Number.isFinite(Number(node.scrollTop)) ? Number(node.scrollTop) : null,
+        left: Number.isFinite(Number(node.scrollLeft)) ? Number(node.scrollLeft) : null
+      });
+    });
+    return snapshot;
+  }
+
+  function restoreProjection(container, snapshot, selection, returnFocus) {
+    if (!snapshot) return false;
+    const { Render } = dependencies();
+    const focus = returnFocus || snapshot.focus;
+    let focused = false;
+    if (focus) {
+      const target = focus.group === "back"
+        ? Render.findFocusable(container, "back", "")
+        : Render.findFocusable(container, focus.group, focus.key);
+      if (target && typeof target.focus === "function") {
+        target.focus();
+        focused = true;
+      }
+    }
+    if (!focused && selection && (returnFocus || snapshot.focus)) {
+      const target = Render.findFocusable(container, selection.focusPane, selection.focusPane === "domain" ? selection.domainKey : selection.focusPane === "middle" ? selection.middleKey : selection.assetPath);
+      if (target && typeof target.focus === "function") {
+        target.focus();
+        focused = true;
+      }
+    }
+    const restored = {};
+    (snapshot.scroll || []).forEach((position) => { restored[position.owner] = position; });
+    walkNodes(container, (node) => {
+      const owner = readNodeAttr(node, "data-scroll-owner");
+      const position = owner && restored[owner];
+      if (!position) return;
+      if (position.top !== null) node.scrollTop = position.top;
+      if (position.left !== null) node.scrollLeft = position.left;
+    });
+    return focused;
+  }
 
   function renderKnowledgeExplorer(container, model, options = {}) {
     const { Render, Responsive } = dependencies();
@@ -45,17 +125,36 @@
     let surfaceState = State.normalizeString(options.surfaceState) || "rest";
     let width = logicalWidth(container, options.logicalWidth);
     let returnFocus = null;
+    let lastFocus = null;
+    let destroyed = false;
     let resizeObserver = null;
     let resizeHandler = null;
     let briefRequestId = 0;
     let briefAbortController = null;
+    let briefInFlight = null;
     const briefService = options.briefService || Brief.createKnowledgeExplorerBriefService({ aiProviderService: {}, providerConfigService: {} });
     const briefsByDomain = new Map();
     let hydrationRequestId = 0;
+    let hydrationAbortController = null;
+    let hydrationInFlight = null;
     let selectedHydration = null;
     const CandidateView = root.KnowledgeCandidateView;
     const candidateInbox = CandidateView && typeof CandidateView.createCandidateInboxController === "function"
-      ? CandidateView.createCandidateInboxController(options, () => rerender()) : null;
+      ? CandidateView.createCandidateInboxController({
+        ...options,
+        onCandidateRemoved: (info) => {
+          if (info && info.next && info.next.candidate_id) {
+            returnFocus = { group: "candidate", key: info.next.candidate_id };
+            return;
+          }
+          const configured = typeof options.candidateFocusFallback === "function"
+            ? options.candidateFocusFallback(info)
+            : options.candidateFocusFallback;
+          returnFocus = configured && configured.group
+            ? { group: configured.group, key: configured.key || "" }
+            : { group: "search", key: "global" };
+        }
+      }, () => rerender()) : null;
 
     function selectedAsset() {
       return State.findCurrentAsset(filteredModel(), selection);
@@ -63,7 +162,7 @@
 
     function isCurrentHydration(path, requestId) {
       const asset = selectedAsset();
-      return requestId === hydrationRequestId && asset && asset.path === path;
+      return !destroyed && requestId === hydrationRequestId && asset && asset.path === path;
     }
 
     function modelForRender() {
@@ -84,23 +183,47 @@
 
     function hydrateSelectedAsset() {
       const asset = selectedAsset();
-      if (!asset || typeof options.hydrateAsset !== "function") return null;
+      if (destroyed || !asset || typeof options.hydrateAsset !== "function") return null;
+      if (hydrationInFlight && hydrationInFlight.path === asset.path) return hydrationInFlight.promise;
+      if (hydrationInFlight && hydrationAbortController && typeof hydrationAbortController.abort === "function") hydrationAbortController.abort();
       const requestId = ++hydrationRequestId;
+      const AbortControllerCtor = typeof AbortController === "function" ? AbortController : null;
+      hydrationAbortController = AbortControllerCtor ? new AbortControllerCtor() : null;
       selectedHydration = { status: "loading", path: asset.path };
-      rerender();
-      return Promise.resolve(options.hydrateAsset(asset)).then((result) => {
+      const projection = captureProjection(container, lastFocus);
+      rerender(projection);
+      let hydrationResult;
+      try {
+        hydrationResult = options.hydrateAsset(asset, {
+          signal: hydrationAbortController ? hydrationAbortController.signal : undefined,
+          requestTag: `knowledge-explorer-hydration:${asset.path}:${requestId}`
+        });
+      } catch (error) {
+        hydrationResult = Promise.reject(error);
+      }
+      const settleHydration = () => {
+        if (hydrationInFlight && hydrationInFlight.requestId === requestId) {
+          hydrationInFlight = null;
+          hydrationAbortController = null;
+        }
+      };
+      const promise = Promise.resolve(hydrationResult).then((result) => {
         if (isCurrentHydration(asset.path, requestId)) {
           selectedHydration = result && typeof result === "object" ? result : { status: "error", path: asset.path };
+          settleHydration();
           rerender();
         }
         return result;
       }, () => {
         if (isCurrentHydration(asset.path, requestId)) {
           selectedHydration = { status: "error", path: asset.path };
+          settleHydration();
           rerender();
         }
         return null;
-      });
+      }).finally(settleHydration);
+      hydrationInFlight = { path: asset.path, requestId, promise };
+      return promise;
     }
 
     function briefPacket() {
@@ -123,40 +246,71 @@
       briefsByDomain.set(briefPacket().domain, next);
     }
 
-    async function requestBrief() {
+    function requestBrief() {
+      if (destroyed) return Promise.resolve(null);
+      if (briefInFlight) return briefInFlight;
       const requestId = ++briefRequestId;
-      briefAbortController = new AbortController();
-      const hydration = hydrateSelectedAsset();
-      if (hydration) await hydration;
-      if (requestId !== briefRequestId) return;
-      const packet = briefPacket();
-      const deterministic = currentBrief();
-      saveBrief({ ...deterministic, phase: "loading", ai_summary: null, redacted_status: "" });
-      rerender();
-      try {
-        const result = await briefService.generateBrief(packet, { app: options.app, signal: briefAbortController.signal, requestTag: `knowledge-explorer:${packet.domain}:${requestId}` });
-        if (requestId !== briefRequestId) return;
-        const phase = result.status === "ai" ? "ai" : result.status === "cancelled" ? "cancelled" : "fallback";
-        saveBrief({ phase, lines: result.brief_lines.slice(), source_ids: result.deterministic && Array.isArray(result.deterministic.source_ids) ? result.deterministic.source_ids.slice() : deterministic.source_ids.slice(), ai_summary: result.ai_summary, redacted_status: result.redacted_status || "" });
-      } catch (_error) {
-        if (requestId !== briefRequestId) return;
-        saveBrief({ ...deterministic, phase: "fallback", redacted_status: "provider error: [redacted]" });
-      }
-      rerender();
+      if (briefAbortController && typeof briefAbortController.abort === "function") briefAbortController.abort();
+      const AbortControllerCtor = typeof AbortController === "function" ? AbortController : null;
+      briefAbortController = AbortControllerCtor ? new AbortControllerCtor() : null;
+      const operation = (async () => {
+        const hydration = hydrateSelectedAsset();
+        if (hydration) await hydration;
+        if (destroyed || requestId !== briefRequestId) return null;
+        const packet = briefPacket();
+        const deterministic = currentBrief();
+        saveBrief({ ...deterministic, phase: "loading", ai_summary: null, redacted_status: "" });
+        rerender();
+        try {
+          const result = await briefService.generateBrief(packet, {
+            app: options.app,
+            signal: briefAbortController ? briefAbortController.signal : undefined,
+            requestTag: `knowledge-explorer:${packet.domain}:${requestId}`
+          });
+          if (destroyed || requestId !== briefRequestId) return null;
+          const phase = result.status === "ai" ? "ai" : result.status === "cancelled" ? "cancelled" : "fallback";
+          saveBrief({
+            phase,
+            lines: Array.isArray(result.brief_lines) ? result.brief_lines.slice() : deterministic.lines.slice(),
+            source_ids: result.deterministic && Array.isArray(result.deterministic.source_ids) ? result.deterministic.source_ids.slice() : deterministic.source_ids.slice(),
+            ai_summary: result.ai_summary,
+            redacted_status: result.redacted_status || ""
+          });
+        } catch (_error) {
+          if (destroyed || requestId !== briefRequestId) return null;
+          saveBrief({ ...deterministic, phase: "fallback", redacted_status: "provider error: [redacted]" });
+        }
+        if (!destroyed && requestId === briefRequestId) rerender();
+        return null;
+      })();
+      const wrapped = operation.finally(() => {
+        if (briefInFlight === wrapped) {
+          briefInFlight = null;
+          briefAbortController = null;
+        }
+      });
+      briefInFlight = wrapped;
+      return wrapped;
     }
 
     function cancelBrief() {
-      if (briefAbortController) briefAbortController.abort();
+      if (destroyed) return false;
+      if (briefAbortController && typeof briefAbortController.abort === "function") briefAbortController.abort();
+      briefAbortController = null;
       briefRequestId += 1;
+      briefInFlight = null;
       saveBrief({ ...currentBrief(), phase: "cancelled", ai_summary: null, redacted_status: "request cancelled" });
       rerender();
+      return true;
     }
 
     function layout() {
       return Responsive.layoutForWidth(width);
     }
 
-    function rerender() {
+    function rerender(projection) {
+      if (destroyed) return api;
+      const snapshot = projection || captureProjection(container, lastFocus);
       renderKnowledgeExplorer(container, modelForRender(), {
         ...options,
         selection,
@@ -169,10 +323,8 @@
         brief: { brief: currentBrief(), onRequest: requestBrief, onCancel: cancelBrief },
         candidateInbox: candidateInbox && candidateInbox.renderOptions(surfaceState === "disabled", (action) => { if (action && action.candidateId) returnFocus = { group: "candidate", key: action.candidateId }; })
       });
-      if (returnFocus) {
-        focusControl(container, selection, returnFocus);
-        returnFocus = null;
-      }
+      restoreProjection(container, snapshot, selection, returnFocus);
+      if (returnFocus) returnFocus = null;
       return api;
     }
 
@@ -183,16 +335,31 @@
       if (action.type === "back") return { group: selection.focusPane === "detail" ? "middle" : "domain", key: selection.focusPane === "detail" ? selection.middleKey : selection.domainKey };
       return null;
     }
+    function invalidateBrief() {
+      briefRequestId += 1;
+      if (briefAbortController && typeof briefAbortController.abort === "function") briefAbortController.abort();
+      briefAbortController = null;
+      briefInFlight = null;
+    }
 
-    function applyQuery(nextQuery) {
+    function invalidateHydration() {
+      hydrationRequestId += 1;
+      if (hydrationAbortController && typeof hydrationAbortController.abort === "function") hydrationAbortController.abort();
+      hydrationAbortController = null;
+      hydrationInFlight = null;
+    }
+    function applyQuery(nextQuery, event) {
       const previousAsset = selectedAsset();
+      const origin = controlIdentity({ type: "set-query" }, event) || { group: "search", key: "global" };
       query = typeof nextQuery === "string" ? nextQuery : "";
       selection = State.createSelectionState(filteredModel(), selection);
       const nextAsset = selectedAsset();
       if (!previousAsset || !nextAsset || previousAsset.path !== nextAsset.path) {
-        hydrationRequestId += 1;
+        invalidateHydration();
         selectedHydration = null;
       }
+      invalidateBrief();
+      lastFocus = origin;
       returnFocus = { group: "search", key: "global" };
       rerender();
       return selection;
@@ -203,31 +370,34 @@
       if (["set-query", "search", "clear-query", "clear-search", "set-search", "set-search-query"].includes(type)) return applyQuery(next.query, event);
       const currentLayout = layout();
       const origin = controlIdentity(next, event);
+      if (origin) lastFocus = origin;
       const nextAction = { ...next };
       if (currentLayout === "compact" && next.type === "set-domain") nextAction.focusPane = "middle";
       if (currentLayout === "compact" && next.type === "set-middle") nextAction.focusPane = "detail";
+      if (["set-domain", "set-middle", "set-asset", "move-domain", "move-middle", "move-asset"].includes(type)) invalidateBrief();
       selection = State.reduceSelectionState(filteredModel(), selection, nextAction);
       if (nextAction.focusPane) selection = State.reduceSelectionState(filteredModel(), selection, { type: "focus-pane", focusPane: nextAction.focusPane });
       if (next.type === "back") returnFocus = origin;
       rerender();
-      if (next.type === "set-middle" || next.type === "set-asset" || next.type === "move-asset") void hydrateSelectedAsset();
+      if (["set-middle", "set-asset", "move-asset"].includes(type)) void hydrateSelectedAsset();
       return selection;
     }
-
     function dispatch(action) {
       const next = action || {};
-      if (["set-query", "search", "clear-query", "clear-search", "set-search", "set-search-query"].includes(State.normalizeString(next.type))) return applyQuery(next.query);
+      const type = State.normalizeString(next.type);
+      if (["set-query", "search", "clear-query", "clear-search", "set-search", "set-search-query"].includes(type)) return applyQuery(next.query);
+      if (["set-domain", "set-middle", "set-asset", "move-domain", "move-middle", "move-asset"].includes(type)) invalidateBrief();
       selection = State.reduceSelectionState(filteredModel(), selection, next);
       rerender();
-      if (next.type === "set-middle" || next.type === "set-asset" || next.type === "move-asset") void hydrateSelectedAsset();
+      if (["set-middle", "set-asset", "move-asset"].includes(type)) void hydrateSelectedAsset();
       return selection;
     }
-
     function setLogicalWidth(nextWidth) {
       width = logicalWidth(container, nextWidth);
       rerender();
       return layout();
     }
+
 
     function observeResize() {
       if (typeof ResizeObserver !== "undefined" && container) {
@@ -269,6 +439,16 @@
       },
       retrySelectedAsset: hydrateSelectedAsset,
       destroy() {
+        if (destroyed) return;
+        destroyed = true;
+        briefRequestId += 1;
+        hydrationRequestId += 1;
+        if (briefAbortController && typeof briefAbortController.abort === "function") briefAbortController.abort();
+        if (hydrationAbortController && typeof hydrationAbortController.abort === "function") hydrationAbortController.abort();
+        briefAbortController = null;
+        hydrationAbortController = null;
+        briefInFlight = null;
+        hydrationInFlight = null;
         if (resizeObserver) resizeObserver.disconnect();
         if (resizeHandler && typeof window !== "undefined" && window.removeEventListener) window.removeEventListener("resize", resizeHandler);
         dependencies().Render.empty(container);

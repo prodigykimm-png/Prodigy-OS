@@ -92,10 +92,14 @@ const renderWorkout = async () => {
     title: "운동"
   });
   const workoutMount = shell.body.createDiv({ attr: { class: "workout-workspace-content" } });
+  shell.body.setAttr("data-scroll-owner", "workout-workspace-body");
   if (result.optional_failures.length && window.prodigyDebugMode === true && console && console.warn) {
     console.warn("운동 선택 모듈 미로드:", result.optional_failures.map((f) => f.summary).join(" / "));
   }
-  await window.WorkoutView.renderDashboard(app, workoutMount);
+  await window.WorkoutView.renderDashboard(app, workoutMount, {
+    optionalFailures: result.optional_failures || [],
+    onRetry: retryWorkout
+  });
 };
 
 const retryWorkout = async () => {

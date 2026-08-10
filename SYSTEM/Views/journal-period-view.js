@@ -88,22 +88,26 @@
       var id = core.getPeriod(periodId).id;
       var selectedKey = core.periodKey(id, key || now);
       var bounds = core.periodBounds(id, selectedKey);
+      var countRecords = typeof core.countRecordsInBounds === "function"
+        ? function (sourceId) { return core.countRecordsInBounds(files, sourceId, bounds, { completed: true }); }
+        : function (sourceId) { return countByPrefix(files, core.periodFolder(sourceId), selectedKey); };
       return {
         daily: countByDateRange(files, "DAILY/DAILY", bounds),
         weekly: countByPrefix(files, "DAILY/WEEKLY", bounds.start.slice(0, 4)),
-        monthly: countByPrefix(files, "DAILY/MONTHLY", id === "monthly" ? selectedKey : bounds.start.slice(0, 4)),
-        quarterly: countByPrefix(files, "DAILY/QUARTERLY", id === "quarterly" ? selectedKey : bounds.start.slice(0, 4)),
-        directions: countByPrefix(files, "DAILY/QUARTERLY", id === "quarterly" ? selectedKey : bounds.start.slice(0, 4)),
+        monthly: countRecords("monthly"),
+        quarterly: countRecords("quarterly"),
+        directions: typeof core.countDirectionRecords === "function" ? core.countDirectionRecords(files, id, bounds) : countRecords("quarterly"),
         principles: 0,
         year: bounds.start.slice(0, 4)
       };
     }
+    var yearBounds = core.periodBounds("yearly", year);
     return {
       daily: countByPrefix(files, "DAILY/DAILY", month),
       weekly: countByPrefix(files, "DAILY/WEEKLY", year),
       monthly: countByPrefix(files, "DAILY/MONTHLY", year),
       quarterly: countByPrefix(files, "DAILY/QUARTERLY", year),
-      directions: countByPrefix(files, "DAILY/QUARTERLY", quarter),
+      directions: typeof core.countDirectionRecords === "function" ? core.countDirectionRecords(files, "yearly", yearBounds) : countByPrefix(files, "DAILY/QUARTERLY", quarter),
       principles: 0,
       year: year
     };
@@ -188,30 +192,48 @@
     }
   }
 
-  async function renderLongPeriod(container, periodId, selectedKey, app, onSelect, isCurrent, onChildMount) {
-    var shell = container.createEl("div", { attr: { class: "journal-period-review" } });
+  async function renderLongPeriod(container, periodId, selectedKey, app, onSelect, isCurrent, onChildMount, previousRecords, onRetry) {
+    var shell = container.createEl("div", { attr: { class: "journal-period-review", "aria-busy": "true" } });
     renderNavigation(shell, periodId, selectedKey, onSelect);
-    var status = shell.createEl("p", { text: "기록을 읽는 중...", attr: { class: "journal-period-status", role: "status" } });
+    var status = shell.createEl("p", { text: "기록을 읽는 중...", attr: { class: "journal-period-status", role: "status", "aria-live": "polite" } });
+    var retry = button(shell, "다시 시도", "기록 읽기 다시 시도");
+    retry.hidden = true;
     var body = shell.createEl("div", { attr: { class: "journal-period-panel" } });
-    var records = root.JournalPeriodStore ? await root.JournalPeriodStore.listRecords(app, periodId) : [];
-    if (typeof isCurrent === "function" && !isCurrent()) return [];
-    var record = records.find(function (item) { return item.key === selectedKey; });
-    status.textContent = "";
-    if (record) {
-      renderRecord(body, record, app, periodId === "monthly" && root.MonthlyValidationView ? function () {
-        body.empty();
-        var child = root.MonthlyValidationView.mount({ app: app, container: body, initialMonth: selectedKey, initialRecord: record, onSaved: function () { return onSelect(selectedKey); } });
+    var previous = Array.isArray(previousRecords) ? previousRecords : [];
+    var previousRecord = previous.find(function (item) { return item.key === selectedKey; });
+    if (previousRecord) renderRecord(body, previousRecord, app);
+    try {
+      var records = root.JournalPeriodStore ? await root.JournalPeriodStore.listRecords(app, periodId) : [];
+      if (typeof isCurrent === "function" && !isCurrent()) return [];
+      shell.setAttribute("aria-busy", "false");
+      status.textContent = "";
+      retry.hidden = true;
+      body.empty();
+      var record = records.find(function (item) { return item.key === selectedKey; });
+      if (record) {
+        renderRecord(body, record, app, periodId === "monthly" && root.MonthlyValidationView ? function () {
+          body.empty();
+          var child = root.MonthlyValidationView.mount({ app: app, container: body, initialMonth: selectedKey, initialRecord: record, onSaved: function () { return onSelect(selectedKey); } });
+          if (typeof onChildMount === "function") onChildMount(child);
+          return child;
+        } : null);
+      } else if (periodId === "monthly" && root.MonthlyValidationView) {
+        var child = root.MonthlyValidationView.mount({ app: app, container: body, initialMonth: selectedKey, onSaved: function () { return onSelect(selectedKey); } });
         if (typeof onChildMount === "function") onChildMount(child);
-        return child;
-      } : null);
-    } else if (periodId === "monthly" && root.MonthlyValidationView) {
-      var child = root.MonthlyValidationView.mount({ app: app, container: body, initialMonth: selectedKey, onSaved: function () { return onSelect(selectedKey); } });
-      if (typeof onChildMount === "function") onChildMount(child);
-    } else {
-      renderReadiness(body, periodId, app, selectedKey);
+      } else {
+        renderReadiness(body, periodId, app, selectedKey);
+      }
+      renderHistory(shell, records, selectedKey, onSelect);
+      return records;
+    } catch (error) {
+      if (typeof isCurrent === "function" && !isCurrent()) return [];
+      shell.setAttribute("aria-busy", "false");
+      status.textContent = "기록을 읽지 못했습니다. 이전 내용을 유지합니다. 다시 시도해 주세요.";
+      status.setAttribute("data-state", "error");
+      retry.hidden = false;
+      retry.onclick = function () { return typeof onRetry === "function" ? onRetry() : null; };
+      return previous;
     }
-    renderHistory(shell, records, selectedKey, onSelect);
-    return records;
   }
 
   function mount(options) {
@@ -225,6 +247,11 @@
     var selected = "daily";
     var activeChildController = null;
     var renderVersion = 0;
+    var destroyed = false;
+    var periodRecordCache = {};
+    var pendingIdentity = "";
+    var pendingPromise = null;
+    var lastIdentity = "";
     var periodKeys = {};
     root.JournalPeriodCore.PERIODS.forEach(function (period) {
       if (period.id === "monthly" || period.id === "quarterly" || period.id === "yearly") periodKeys[period.id] = root.JournalPeriodCore.periodKey(period.id, new Date());
@@ -241,29 +268,98 @@
       if (activeChildController && typeof activeChildController.destroy === "function") activeChildController.destroy();
       activeChildController = null;
     }
+    function snapshotChildren(panel) {
+      if (!panel || !panel.children) return null;
+      return Array.prototype.slice.call(panel.children);
+    }
+    function restoreChildren(panel, children) {
+      if (!panel || !Array.isArray(children)) return;
+      panel.empty();
+      if (typeof panel.appendChild === "function") {
+        children.forEach(function (child) { panel.appendChild(child); });
+      } else if (Array.isArray(panel.children)) {
+        panel.children = children.slice();
+      }
+    }
+
+    function renderFailure(panel, label, retry, children) {
+      restoreChildren(panel, children);
+      var status = panel.createEl("p", { text: label + " 기록을 읽지 못했습니다. 이전 내용을 유지합니다. 다시 시도해 주세요.", attr: { class: "journal-period-status", role: "status", "aria-live": "polite", "data-state": "error" } });
+      var control = button(panel, "다시 시도", label + " 기록 다시 시도");
+      control.onclick = retry;
+      return status;
+    }
 
     function render() {
+      if (destroyed) return null;
+      var identity = selected + ":" + (periodKeys[selected] || "");
+      if (pendingIdentity === identity && pendingPromise) return pendingPromise;
       var version = ++renderVersion;
       destroyChild();
       var panel = panels[selected];
-      panel.empty();
-      if (selected === "daily") return opts.renderDaily(panel);
-      if (selected === "weekly") {
-        var child = opts.renderWeekly(panel);
-        activeChildController = child && typeof child.destroy === "function" ? child : null;
-        return child;
+      var previousChildren = snapshotChildren(panel);
+      if (identity !== lastIdentity || (selected !== "daily" && selected !== "weekly")) panel.empty();
+      lastIdentity = identity;
+      if (selected === "daily" || selected === "weekly") {
+        panel.setAttribute("aria-busy", "true");
+        var renderer = selected === "daily" ? opts.renderDaily : opts.renderWeekly;
+        var result;
+        try {
+          result = typeof renderer === "function" ? renderer(panel) : null;
+        } catch (_error) {
+          panel.setAttribute("aria-busy", "false");
+          if (!destroyed && version === renderVersion) renderFailure(panel, selected === "daily" ? "Daily" : "Weekly", function () { return render(); }, previousChildren);
+          return null;
+        }
+        var child = selected === "weekly" && result && typeof result.destroy === "function" ? result : null;
+        if (child) activeChildController = child;
+        if (result && typeof result.then === "function") {
+          pendingIdentity = identity;
+          pendingPromise = Promise.resolve(result).catch(function () {
+            if (!destroyed && version === renderVersion) {
+              panel.setAttribute("aria-busy", "false");
+              renderFailure(panel, selected === "daily" ? "Daily" : "Weekly", function () { return render(); }, previousChildren);
+            }
+            return null;
+          }).finally(function () {
+            panel.setAttribute("aria-busy", "false");
+            if (pendingIdentity === identity) {
+              pendingIdentity = "";
+              pendingPromise = null;
+            }
+          });
+          return pendingPromise;
+        }
+        panel.setAttribute("aria-busy", "false");
+        return result;
       }
-      return renderLongPeriod(panel, selected, periodKeys[selected], app, function (nextKey) {
+      var selectedKey = periodKeys[selected];
+      var previousRecords = periodRecordCache[identity];
+      var promise = renderLongPeriod(panel, selected, selectedKey, app, function (nextKey) {
         periodKeys[selected] = nextKey;
         return render();
-      }, function () { return version === renderVersion; }, function (child) {
-        if (version !== renderVersion) {
-          if (child && typeof child.destroy === "function") child.destroy();
+      }, function () { return !destroyed && version === renderVersion; }, function (childController) {
+        if (destroyed || version !== renderVersion) {
+          if (childController && typeof childController.destroy === "function") childController.destroy();
           return;
         }
-        activeChildController = child || null;
+        activeChildController = childController || null;
+      }, previousRecords, function () {
+        if (!destroyed && version === renderVersion) return render();
       });
+      pendingIdentity = identity;
+      pendingPromise = Promise.resolve(promise).then(function (records) {
+        if (!destroyed && version === renderVersion && Array.isArray(records)) periodRecordCache[identity] = records;
+        return records;
+      }).finally(function () {
+        if (pendingIdentity === identity) {
+          pendingIdentity = "";
+          pendingPromise = null;
+        }
+      });
+      return pendingPromise;
     }
+
 
     function applyWidth(nextWidth) {
       var numeric = Number(nextWidth);
@@ -294,7 +390,16 @@
       select: function (id) { return adaptive.select(root.JournalPeriodCore.getPeriod(id).id, true); },
       setLogicalWidth: applyWidth,
       getSelected: function () { return selected; },
-      destroy: function () { renderVersion += 1; destroyChild(); if (observer) observer.disconnect(); }
+      destroy: function () {
+        if (destroyed) return;
+        destroyed = true;
+        renderVersion += 1;
+        pendingIdentity = "";
+        pendingPromise = null;
+        destroyChild();
+        if (observer) observer.disconnect();
+        if (adaptive && typeof adaptive.destroy === "function") adaptive.destroy();
+      }
     });
   }
 

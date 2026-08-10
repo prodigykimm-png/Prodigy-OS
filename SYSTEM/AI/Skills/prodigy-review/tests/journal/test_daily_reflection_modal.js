@@ -374,7 +374,7 @@ async function testEvidenceSavedCallbackContract() {
     assert.deepEqual(received[0].selectedObjectPaths, ["PARA/PROJECTS/Project.md"]);
     assert.deepEqual(received[0].thinOverrides, {});
     assert.notEqual(callbackSawClosed, true, "the candidate callback runs before modal close");
-    assert.equal(success.instance.closed, true, "the callback runs before the modal closes");
+    assert.notEqual(success.instance.closed, true, "candidate handoff stays open until an explicit review/done action");
   } finally {
     success.restore();
   }

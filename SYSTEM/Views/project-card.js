@@ -1,185 +1,288 @@
-window.normalizeProjectType = function(value) {
-  if (window.ProjectWizardCore && window.ProjectWizardCore.normalizeProjectType) {
-    return window.ProjectWizardCore.normalizeProjectType(value);
+(function (root) {
+  "use strict";
+
+  function normalizeProjectType(value) {
+    if (root.ProjectWizardCore && root.ProjectWizardCore.normalizeProjectType) {
+      return root.ProjectWizardCore.normalizeProjectType(value);
+    }
+    const raw = String(value == null ? "" : value).trim().toLowerCase();
+    if (["business", "work", "personal"].includes(raw)) return raw;
+    return "uncategorized";
   }
-  const raw = String(value == null ? "" : value).trim().toLowerCase();
-  if (raw === "business" || raw === "work" || raw === "personal") return raw;
-  return "uncategorized";
-};
 
-window.projectTypeLabel = function(value) {
-  if (window.ProjectWizardCore && window.ProjectWizardCore.projectTypeLabel) {
-    return window.ProjectWizardCore.projectTypeLabel(value);
+  function projectTypeLabel(value) {
+    if (root.ProjectWizardCore && root.ProjectWizardCore.projectTypeLabel) {
+      return root.ProjectWizardCore.projectTypeLabel(value);
+    }
+    return {
+      business: "사업",
+      work: "회사",
+      personal: "개인",
+      uncategorized: "미분류"
+    }[normalizeProjectType(value)] || "미분류";
   }
-  const labels = { business: "사업", work: "회사", personal: "개인", uncategorized: "미분류" };
-  return labels[window.normalizeProjectType(value)] || "미분류";
-};
 
-window.renderProjectCard = function(p, container) {
-  if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
-  const display = window.prodigyDisplay;
-  const color = display?.statusInfo(p.status).color || C.neutral800 || "#555";
-  const projectType = window.normalizeProjectType(p.project_type);
-  const projectTypeLabel = window.projectTypeLabel(projectType);
-  const typeColors = {
-    business: C.info || "#3b82f6",
-    work: C.warning || "#f97316",
-    personal: C.accentAlt || "#a855f7",
-    uncategorized: C.neutral500 || "#8e8e93"
-  };
-  const typeColor = typeColors[projectType] || typeColors.uncategorized;
-  
-  const card = container.createEl('div', {
-    attr: {
-      style: `border: 1px solid var(--background-modifier-border); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px ${T.SHADOWS ? T.SHADOWS.md : "0 2px 6px rgba(0,0,0,0.08)"};`
+  function createButton(parent, label, options) {
+    const opts = options || {};
+    if (root.ProdigyUI && typeof root.ProdigyUI.button === "function") {
+      return root.ProdigyUI.button(parent, label, opts);
     }
-  });
-  
-  // Header
-  const header = card.createEl('div', {
-    attr: { style: 'display: flex; justify-content: space-between; align-items: center;' }
-  });
-  
-  const titleContainer = header.createEl('div', {
-    attr: { style: 'display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap;' }
-  });
-
-  titleContainer.createEl('span', {
-    text: projectTypeLabel,
-    attr: {
-      style: `font-size:0.68em;font-weight:700;color:${typeColor};background:${typeColor}18;border:1px solid ${typeColor}55;padding:1px 6px;border-radius:999px;white-space:nowrap;`
-    }
-  });
-
-  const title = titleContainer.createEl('a', {
-    text: p.file.name,
-    attr: {
-      class: 'internal-link',
-      style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow-wrap: anywhere;'
-    }
-  });
-  title.onclick = () => app.workspace.openLinkText(p.file.name, p.file.path);
-  
-  // Delete Button (Trash Icon) next to Title link
-  const deleteBtn = titleContainer.createEl('span', {
-    text: '🗑️',
-    attr: {
-      style: 'cursor: pointer; opacity: 0.4; font-size: 0.85em; transition: opacity 0.2s; flex-shrink: 0;',
-      title: '이 프로젝트 노트를 삭제(휴지통 이동)합니다.'
-    }
-  });
-  deleteBtn.onmouseenter = () => deleteBtn.style.opacity = '1';
-  deleteBtn.onmouseleave = () => deleteBtn.style.opacity = '0.4';
-  deleteBtn.onclick = async (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    
-    const confirmDelete = confirm(`[${p.file.name}] 프로젝트 노트를 휴지통으로 이동하시겠습니까?`);
-    if (confirmDelete) {
-      try {
-        const file = app.vault.getAbstractFileByPath(p.file.path);
-        if (file) {
-          await app.vault.trash(file, true);
-          new Notice(`[${p.file.name}] 노트를 휴지통으로 이동했습니다.`);
-        } else {
-          new Notice("파일을 찾을 수 없습니다.");
-        }
-      } catch (err) {
-        console.error("파일 삭제 중 오류 발생:", err);
-        new Notice("노트 삭제 중 오류가 발생했습니다.");
-      }
-    }
-  };
-  
-  // Priority Badge
-  const rightHeader = header.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 6px;' } });
-  const priorityLabel = display?.priority(p.priority) || p.priority || '보통';
-  const priColor = priorityLabel === '높음' || priorityLabel === '매우 높음'
-    ? C.error || "#ef4444"
-    : priorityLabel === '낮음' || priorityLabel === '매우 낮음'
-      ? C.neutral500 || "#8e8e93"
-      : 'var(--text-accent)';
-  rightHeader.createEl('span', {
-    text: priorityLabel,
-    attr: { style: `font-size: 0.72em; font-weight: bold; color: ${priColor}; background: ${priColor}15; padding: 1px 4px; border-radius: 4px;` }
-  });
-  
-  // Category & Dates
-  const subHeader = card.createEl('div', {
-    attr: { style: 'font-size: 0.8em; color: var(--text-muted); display: flex; gap: 6px; align-items: center;' }
-  });
-  subHeader.createEl('span', { text: p.category || "미지정" });
-  if (p.due_date) {
-    subHeader.createEl('span', { text: '·', attr: { style: 'color: var(--text-muted);' } });
-    subHeader.createEl('span', { text: `마감일: ${p.due_date}` });
+    const classes = ["prodigy-btn", opts.className || ""].filter(Boolean).join(" ");
+    return parent.createEl("button", {
+      text: label || "",
+      attr: { type: opts.type || "button", class: classes }
+    });
   }
-  
-  // Next Action
-  const actionRow = card.createEl('div', {
-    attr: { style: 'font-size: 0.85em; color: var(--text-normal); margin-top: 2px;' }
-  });
-  actionRow.createEl('strong', { text: '다음 행동: ', attr: { style: 'color: var(--text-accent);' } });
-  actionRow.createEl('span', { text: p.next_action || "설정 필요" });
-  
-  // Buttons
+
+  function setAccessibleName(element, label) {
+    if (!element) return;
+    if (typeof element.setAttribute === "function") {
+      element.setAttribute("aria-label", label);
+      element.setAttribute("title", label);
+    } else {
+      element.ariaLabel = label;
+      element.title = label;
+    }
+  }
+
+  function setIcon(element, iconName, fallback) {
+    const setter = root.setIcon || (root.obsidian && root.obsidian.setIcon);
+    if (typeof setter === "function") {
+      setter(element, iconName);
+      return;
+    }
+    if (element) element.textContent = fallback || "";
+  }
+
+  function statusColorToken(status) {
+    const key = String(status || "").trim().toLowerCase();
+    if (["blocked", "lost"].includes(key)) return "var(--text-error)";
+    if (["completed", "archived", "won"].includes(key)) return "var(--text-success, var(--interactive-accent))";
+    if (["planning", "bidding", "reviewing"].includes(key)) return "var(--text-warning, var(--text-accent))";
+    if (["doing", "active"].includes(key)) return "var(--text-accent)";
+    return "var(--text-muted)";
+  }
+
+  function projectTypeColorToken(type) {
+    if (type === "business") return "var(--text-accent)";
+    if (type === "work") return "var(--text-warning, var(--text-accent))";
+    if (type === "personal") return "var(--text-success, var(--interactive-accent))";
+    return "var(--text-muted)";
+  }
+
+  function priorityColorToken(label) {
+    if (label === "높음" || label === "매우 높음") return "var(--text-error)";
+    if (label === "낮음" || label === "매우 낮음") return "var(--text-muted)";
+    return "var(--text-accent)";
+  }
+
   const getTransitions = (currentStatus) => {
-    const trans = {
-      idea: [{ key: 'planning' }],
-      planning: [
-        { key: 'doing' },
-        { key: 'blocked' }
-      ],
-      doing: [
-        { key: 'completed' },
-        { key: 'blocked' }
-      ],
-      blocked: [
-        { key: 'doing' },
-        { key: 'planning' }
-      ],
-      completed: [{ key: 'reviewing' }],
-      reviewing: [{ key: 'archived' }],
+    const transitions = {
+      idea: [{ key: "planning" }],
+      planning: [{ key: "doing" }, { key: "blocked" }],
+      doing: [{ key: "completed" }, { key: "blocked" }],
+      blocked: [{ key: "doing" }, { key: "planning" }],
+      completed: [{ key: "reviewing" }],
+      reviewing: [{ key: "archived" }],
       archived: []
     };
-    return trans[currentStatus] || [];
+    return transitions[currentStatus] || [];
   };
-  
-  const buttons = getTransitions(p.status || 'idea');
-  if (buttons.length > 0) {
-    const btnBox = card.createEl('div', {
-      attr: { class: 'prodigy-card-actions', style: 'margin-top: 6px; border-top: 1px solid var(--background-modifier-border); padding-top: 8px;' }
-    });
-    btnBox.createEl('span', { text: '상태 변경', attr: { style: 'font-size: 0.75em; color: var(--text-muted); display: flex; align-items: center; margin-right: 2px;' } });
-    buttons.forEach(opt => {
-      const statusInfo = display?.statusInfo(opt.key) || { label: opt.key, color: C.neutral800 || "#555" };
-      const btn = window.ProdigyUI
-        ? window.ProdigyUI.button(btnBox, statusInfo.label, {
-          chip: true,
-          onClick: async () => {
-            btn.disabled = true;
-            const tFile = app.vault.getAbstractFileByPath(p.file.path);
-            if (tFile) {
-              await app.fileManager.processFrontMatter(tFile, (fm) => {
-                fm.status = opt.key;
-                fm.updated = new Date().toISOString().split('T')[0];
-              });
-            }
-          }
-        })
-        : btnBox.createEl('button', { text: statusInfo.label, attr: { type: 'button', class: 'prodigy-btn prodigy-btn-chip' } });
-      if (!window.ProdigyUI) {
-        btn.onclick = async (e) => {
-          e.preventDefault();
-          btn.disabled = true;
-          const tFile = app.vault.getAbstractFileByPath(p.file.path);
-          if (tFile) {
-            await app.fileManager.processFrontMatter(tFile, (fm) => {
-              fm.status = opt.key;
-              fm.updated = new Date().toISOString().split('T')[0];
-            });
-          }
-        };
+
+  root.normalizeProjectType = normalizeProjectType;
+  root.projectTypeLabel = projectTypeLabel;
+
+  root.renderProjectCard = function (p, container) {
+    if (!p || !container) return null;
+    if (root.ProdigyUI && typeof root.ProdigyUI.ensureStyles === "function") root.ProdigyUI.ensureStyles();
+    const app = root.app || (typeof window !== "undefined" ? window.app : null);
+    const display = root.prodigyDisplay;
+    const file = p.file || {};
+    const path = String(file.path || p.path || "");
+    const titleText = String(file.name || p.title || path.split("/").pop() || "프로젝트").replace(/\.md$/i, "");
+    const status = String(p.status || "idea").trim().toLowerCase();
+    const projectType = normalizeProjectType(p.project_type);
+    const typeColor = projectTypeColorToken(projectType);
+    const statusColor = statusColorToken(status);
+
+    const card = container.createEl("article", {
+      attr: {
+        class: "prodigy-project-card",
+        "data-project-path": path,
+        "data-project-status": status,
+        style: `border:1px solid var(--background-modifier-border);border-inline-start:4px solid ${statusColor};border-radius:var(--ke-radius-panel,8px);padding:var(--ke-space-3,8px) var(--ke-space-4,12px);margin-block-end:var(--ke-space-3,8px);background:var(--background-secondary);display:flex;flex-direction:column;gap:var(--ke-space-2,4px);min-inline-size:0;overflow-wrap:anywhere;`
       }
     });
-  }
-};
+
+    const header = card.createEl("div", {
+      attr: { class: "prodigy-project-card-header", style: "display:flex;justify-content:space-between;align-items:center;gap:var(--ke-space-2,4px);min-inline-size:0;" }
+    });
+    const titleContainer = header.createEl("div", {
+      attr: { class: "prodigy-project-card-title-row", style: "display:flex;align-items:center;gap:var(--ke-space-2,4px);min-inline-size:0;flex-wrap:wrap;" }
+    });
+    const typeBadge = titleContainer.createEl("span", {
+      text: projectTypeLabel,
+      attr: {
+        class: "prodigy-project-card-type",
+        style: `font-size:var(--ke-type-chrome,.68rem);font-weight:700;color:${typeColor};background:color-mix(in srgb, ${typeColor} 12%, var(--background-secondary));border:1px solid color-mix(in srgb, ${typeColor} 42%, var(--background-modifier-border));padding:var(--ke-space-1,2px) var(--ke-space-2,4px);border-radius:999px;white-space:nowrap;`
+      }
+    });
+    typeBadge.setAttribute("data-project-type", projectType);
+
+    const title = titleContainer.createEl("a", {
+      text: titleText,
+      attr: {
+        class: "internal-link",
+        href: path ? `#${path}` : "#",
+        style: "font-weight:700;font-size:var(--ke-type-body,.84rem);color:var(--text-normal);text-decoration:none;cursor:pointer;overflow-wrap:anywhere;min-inline-size:0;"
+      }
+    });
+    title.onclick = (event) => {
+      if (event && event.preventDefault) event.preventDefault();
+      if (app && app.workspace && typeof app.workspace.openLinkText === "function" && path) {
+        return app.workspace.openLinkText(titleText, path, false);
+      }
+      return null;
+    };
+
+    const deleteLabel = `${titleText} 삭제`;
+    const deleteBtn = createButton(titleContainer, "", { danger: true, className: "project-card-delete" });
+    setAccessibleName(deleteBtn, deleteLabel);
+    if (deleteBtn && deleteBtn.style) {
+      deleteBtn.style.minInlineSize = "var(--ke-touch-target,44px)";
+      deleteBtn.style.minBlockSize = "var(--ke-touch-target,44px)";
+      deleteBtn.style.padding = "var(--ke-space-2,4px)";
+      deleteBtn.style.background = "transparent";
+      deleteBtn.style.borderColor = "transparent";
+      deleteBtn.style.color = "var(--text-muted)";
+    }
+    setIcon(deleteBtn, "trash-2", "삭제");
+    deleteBtn.onclick = async (event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const confirmDelete = typeof root.confirm === "function"
+        ? root.confirm(`[${titleText}] 프로젝트 노트를 휴지통으로 이동하시겠습니까?`)
+        : (typeof confirm === "function" ? confirm(`[${titleText}] 프로젝트 노트를 휴지통으로 이동하시겠습니까?`) : true);
+      if (!confirmDelete) return;
+      try {
+        const target = app && app.vault && typeof app.vault.getAbstractFileByPath === "function"
+          ? app.vault.getAbstractFileByPath(path)
+          : null;
+        if (!target || !app.vault || typeof app.vault.trash !== "function") throw new Error("프로젝트 파일을 찾을 수 없습니다.");
+        await app.vault.trash(target, true);
+        const Notice = root.Notice || (typeof window !== "undefined" && window.Notice);
+        if (typeof Notice === "function") new Notice(`[${titleText}] 노트를 휴지통으로 이동했습니다.`);
+      } catch (error) {
+        const Notice = root.Notice || (typeof window !== "undefined" && window.Notice);
+        if (typeof Notice === "function") new Notice(`노트 삭제 실패: ${error && (error.message || String(error))}`);
+      }
+    };
+
+    const rightHeader = header.createEl("div", {
+      attr: { class: "prodigy-project-card-priority-wrap", style: "display:flex;align-items:center;gap:var(--ke-space-2,4px);min-inline-size:0;" }
+    });
+    const priorityLabel = display && typeof display.priority === "function"
+      ? display.priority(p.priority)
+      : (p.priority || "보통");
+    const priorityColor = priorityColorToken(priorityLabel);
+    rightHeader.createEl("span", {
+      text: priorityLabel,
+      attr: {
+        class: "prodigy-project-card-priority",
+        style: `font-size:var(--ke-type-chrome,.68rem);font-weight:700;color:${priorityColor};background:color-mix(in srgb, ${priorityColor} 10%, var(--background-secondary));padding:var(--ke-space-1,2px) var(--ke-space-2,4px);border-radius:var(--ke-radius-control,4px);white-space:nowrap;`
+      }
+    });
+
+    const subHeader = card.createEl("div", {
+      attr: { class: "prodigy-project-card-meta", style: "font-size:var(--ke-type-label,.72rem);color:var(--text-muted);display:flex;gap:var(--ke-space-2,4px);align-items:center;flex-wrap:wrap;overflow-wrap:anywhere;" }
+    });
+    subHeader.createEl("span", { text: p.category || "미지정" });
+    if (p.due_date) {
+      subHeader.createEl("span", { text: "·", attr: { "aria-hidden": "true" } });
+      subHeader.createEl("span", { text: `마감일: ${p.due_date}` });
+    }
+
+    const actionRow = card.createEl("div", {
+      attr: { class: "prodigy-project-card-next-action", style: "font-size:var(--ke-type-body,.84rem);color:var(--text-normal);margin-block-start:var(--ke-space-1,2px);overflow-wrap:anywhere;" }
+    });
+    const nextAction = String(p.next_action || "").trim()
+      || (root.ProjectWizardCore && typeof root.ProjectWizardCore.firstExecutableWorkflowAction === "function"
+        ? root.ProjectWizardCore.firstExecutableWorkflowAction(p.workflow)
+        : "");
+    actionRow.createEl("strong", { text: "다음 행동: ", attr: { style: "color:var(--text-accent);" } });
+    actionRow.createEl("span", { text: nextAction || "설정 필요" });
+
+    const transitions = getTransitions(status);
+    if (transitions.length > 0) {
+      const buttons = card.createEl("div", {
+        attr: { class: "prodigy-card-actions", style: "margin-block-start:var(--ke-space-2,4px);border-block-start:1px solid var(--background-modifier-border);padding-block-start:var(--ke-space-3,8px);" }
+      });
+      buttons.createEl("span", {
+        text: "상태 변경",
+        attr: { style: "font-size:var(--ke-type-label,.72rem);color:var(--text-muted);display:inline-flex;align-items:center;margin-inline-end:var(--ke-space-1,2px);" }
+      });
+      const errorHost = card.createEl("div", {
+        attr: { class: "prodigy-project-card-action-error", role: "alert", hidden: "", style: "display:none;color:var(--text-error);font-size:var(--ke-type-label,.72rem);overflow-wrap:anywhere;" }
+      });
+      errorHost.hidden = true;
+      const showActionError = (error, retry) => {
+        errorHost.empty();
+        errorHost.hidden = false;
+        errorHost.style.display = "flex";
+        errorHost.style.alignItems = "center";
+        errorHost.style.gap = "var(--ke-space-2,4px)";
+        errorHost.createEl("span", { text: `상태 저장 실패: ${error && (error.message || String(error))}` });
+        const retryButton = createButton(errorHost, "다시 시도", { quiet: true, className: "project-card-action-retry" });
+        retryButton.setAttribute("aria-label", "상태 저장 다시 시도");
+        retryButton.onclick = (event) => {
+          if (event && event.preventDefault) event.preventDefault();
+          void retry();
+        };
+      };
+      const clearActionError = () => {
+        errorHost.hidden = true;
+        errorHost.style.display = "none";
+        errorHost.empty();
+      };
+      const writeStatus = async (button, option) => {
+        if (!button || button.disabled) return;
+        button.disabled = true;
+        clearActionError();
+        try {
+          const target = app && app.vault && typeof app.vault.getAbstractFileByPath === "function"
+            ? app.vault.getAbstractFileByPath(path)
+            : null;
+          if (!target) throw new Error("프로젝트 파일을 찾을 수 없습니다.");
+          if (!app.fileManager || typeof app.fileManager.processFrontMatter !== "function") {
+            throw new Error("프로젝트 상태 저장기를 사용할 수 없습니다.");
+          }
+          await app.fileManager.processFrontMatter(target, (fm) => {
+            fm.status = option.key;
+            fm.updated = new Date().toISOString().split("T")[0];
+          });
+          p.status = option.key;
+          p.updated = new Date().toISOString().split("T")[0];
+          if (typeof p.onRefresh === "function") await p.onRefresh();
+        } catch (error) {
+          showActionError(error, () => writeStatus(button, option));
+        } finally {
+          button.disabled = false;
+        }
+      };
+      transitions.forEach((option) => {
+        const info = display && typeof display.statusInfo === "function"
+          ? display.statusInfo(option.key)
+          : { label: option.key };
+        const button = createButton(buttons, info.label || option.key, { chip: true });
+        button.onclick = (event) => {
+          if (event && event.preventDefault) event.preventDefault();
+          if (event && event.stopPropagation) event.stopPropagation();
+          void writeStatus(button, option);
+        };
+      });
+    }
+    return card;
+  };
+})(typeof globalThis !== "undefined" ? globalThis : this);

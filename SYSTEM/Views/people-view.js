@@ -62,17 +62,115 @@
     if (!app || !path) return;
     return app.workspace.openLinkText(String(path).replace(/\.md$/, ""), "", false);
   }
-  async function openKnowledgeReview(app) {
+  async function openKnowledgeReview(app, target) {
     const route = root.KnowledgeWorkspaceRoute;
-    if (route && typeof route.openReview === "function") return route.openReview(app);
+    const item = target && typeof target === "object" ? target : null;
+    const hub = root.KnowledgeExplorerHub || (root.KnowledgeExplorerHub = {});
+    if (item && item.candidate_id) hub._pendingCandidateId = String(item.candidate_id);
+    if (item && item.candidate_path) hub._pendingCandidatePath = String(item.candidate_path);
+    if (route && typeof route.openReview === "function") {
+      const result = await route.openReview(app);
+      if (item && item.candidate_id && typeof setTimeout === "function") {
+        setTimeout(() => focusKnowledgeCandidate(item.candidate_id), 200);
+      }
+      return result;
+    }
     if (app && app.workspace && typeof app.workspace.openLinkText === "function") {
       try {
         await app.workspace.openLinkText("HUB/50 Knowledge", "", false);
         return true;
       } catch (_error) { /* recovery notice below */ }
     }
+    if (item && item.candidate_path) return openBeside(app, item.candidate_path);
     notice("Knowledge 워크스페이스를 열 수 없습니다. HUB/50 Knowledge.md에서 검토해 주세요.");
     return false;
+  }
+
+  function contextPath(value) {
+    return String(value == null ? "" : value)
+      .replace(/^\[\[/, "")
+      .replace(/\]\]$/, "")
+      .split("|")[0]
+      .split("#")[0]
+      .trim()
+      .replace(/\\/g, "/");
+  }
+
+  function contextValues(value) {
+    if (Array.isArray(value)) return value.map((entry) => String(entry == null ? "" : entry).trim()).filter(Boolean);
+    if (value == null || value === "") return [];
+    return [String(value).trim()].filter(Boolean);
+  }
+
+  function typedKnowledgeRow(item, source) {
+    const raw = Object.assign({}, source || {}, item || {});
+    const path = contextPath(raw.path || raw.candidate_path || raw.approved_path || raw.source_path);
+    if (!path) return null;
+    const bucket = String(raw.context_kind || raw.bucket || raw.type || "").trim().toLowerCase();
+    const candidatePath = contextPath(raw.candidate_path || (bucket === "knowledge_candidate" || /knowledge[\\/]candidates/i.test(path) ? path : ""));
+    const approvedPath = contextPath(raw.approved_path || (bucket === "knowledge" || bucket === "permanent_note" || /zeta[\\/]permanent/i.test(path) ? path : ""));
+    const status = String(raw.status || raw.knowledge_status || raw.candidate_status || "").trim();
+    const qualitySource = raw.evidence_quality && typeof raw.evidence_quality === "object" ? raw.evidence_quality : null;
+    const quality = String(raw.quality || (qualitySource && (qualitySource.status || qualitySource.label)) || "").trim();
+    const sourceRefs = contextValues(raw.source_objects || raw.source_refs || raw.source_paths || raw.source_evidence_ids);
+    const kind = candidatePath ? "candidate" : approvedPath ? "approved" : "source";
+    const candidateId = String(raw.candidate_id || raw.knowledge_candidate_id || "").trim();
+    return Object.assign({}, raw, {
+      path,
+      title: String(raw.title || path.split("/").pop().replace(/\.md$/i, "") || "연결 기록").trim(),
+      context_kind: kind,
+      source_path: contextPath(raw.source_path || (kind === "source" ? path : "")),
+      candidate_path: candidatePath,
+      approved_path: approvedPath,
+      status,
+      quality,
+      source_refs: sourceRefs,
+      candidate_id: candidateId,
+      review_target: kind === "candidate" ? candidatePath : kind === "approved" ? approvedPath : path
+    });
+  }
+
+  function contextRowLabel(item) {
+    const labels = { source: "출처", candidate: "검증 대기", approved: "승인 지식" };
+    const kind = labels[item && item.context_kind] || "기록";
+    const meta = [kind, item && item.status, item && item.quality].filter(Boolean);
+    return `${item && item.title ? item.title : "연결 기록"} · ${meta.join(" · ")}`;
+  }
+
+  function applyContextMetadata(element, item) {
+    if (!element || !item) return;
+    const attrs = {
+      "data-context-kind": item.context_kind || "source",
+      "data-source-path": item.source_path || "",
+      "data-candidate-path": item.candidate_path || "",
+      "data-approved-path": item.approved_path || "",
+      "data-status": item.status || "",
+      "data-quality": item.quality || "",
+      "data-candidate-id": item.candidate_id || "",
+      "data-review-target": item.review_target || item.path || ""
+    };
+    Object.keys(attrs).forEach((key) => {
+      if (typeof element.setAttribute === "function" && attrs[key]) element.setAttribute(key, attrs[key]);
+    });
+  }
+
+  function focusKnowledgeCandidate(candidateId) {
+    if (typeof document === "undefined" || !document.querySelector || !candidateId) return;
+    const escaped = String(candidateId).replace(/["\\\\]/g, "\\\\$&");
+    const card = document.querySelector(`[data-candidate-id="${escaped}"]`);
+    if (!card) return;
+    if (typeof card.scrollIntoView === "function") card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const target = typeof card.querySelector === "function"
+      ? card.querySelector("button, input, textarea, select")
+      : null;
+    if (target && typeof target.focus === "function") target.focus();
+  }
+
+  async function openKnowledgeContext(app, item) {
+    const row = typedKnowledgeRow(item);
+    if (!row) return null;
+    if (row.context_kind === "candidate") return openKnowledgeReview(app, row);
+    return openPath(app, row.review_target || row.path);
   }
 
   const PEOPLE_SIDE_LEAF_KEY = "__prodigyPeopleSideLeaf";
@@ -1810,15 +1908,41 @@
     let rawPeople = opts.rawPeople || null;
     let sourcePages = opts.sourcePages || null;
     let bodiesHydrated = false;
+    const readState = Object.create(null);
+    const sourceByPath = () => {
+      const map = Object.create(null);
+      (sourcePages || []).forEach((page) => {
+        const path = contextPath(page && page.path);
+        if (path) map[path] = page;
+      });
+      return map;
+    };
+
+    function enrichPeopleModel(nextModel) {
+      const sources = sourceByPath();
+      const enrich = (person) => {
+        const linked = (person.linked_all || person.recent_context || [])
+          .map((item) => typedKnowledgeRow(item, sources[contextPath(item && item.path)]) || item);
+        const stateForPath = readState[contextPath(person.path)] || null;
+        return Object.assign({}, person, {
+          linked_all: linked,
+          recent_context: linked.slice(0, 3),
+          read_state: stateForPath
+        });
+      };
+      const people = (nextModel.people || []).map(enrich);
+      const all = Array.isArray(nextModel._all) ? nextModel._all.map(enrich) : nextModel._all;
+      return Object.assign({}, nextModel, { people, _all: all });
+    }
 
     function rebuildModel() {
       if (rawPeople && core.buildPeopleWorkspaceModel) {
-        model = core.buildPeopleWorkspaceModel(rawPeople, sourcePages || [], {
+        model = enrichPeopleModel(core.buildPeopleWorkspaceModel(rawPeople, sourcePages || [], {
           query: state.query,
           filter: state.filter,
           sort: state.sort,
           maxPreview: 3
-        });
+        }));
       } else if (opts.model && rawPeople == null) {
         // filter existing enriched list client-side
         const base = opts.allPeople || opts.model.people || [];
@@ -1826,7 +1950,7 @@
         const full = opts.allPeople || model._all || base;
         const filtered = core.filterPeopleList(full, { query: state.query, filter: state.filter });
         const sorted = core.sortPeopleList(filtered, { sort: state.sort });
-        model = {
+        model = enrichPeopleModel({
           people: sorted,
           total: full.length,
           shown: sorted.length,
@@ -1838,7 +1962,7 @@
           empty: full.length === 0,
           no_match: full.length > 0 && sorted.length === 0,
           _all: full
-        };
+        });
       }
     }
 
@@ -1846,6 +1970,33 @@
      * Ensure each raw person has note body so # 메모 can show on cards.
      * Hub may pass empty body if Dataview file objects were mis-read.
      */
+    async function readPersonBody(row) {
+      const path = contextPath(row && row.path);
+      if (!path || !app || !app.vault) return false;
+      readState[path] = { status: "loading", error: "" };
+      try {
+        const af = typeof app.vault.getAbstractFileByPath === "function"
+          ? app.vault.getAbstractFileByPath(path)
+          : null;
+        if (!af) throw new Error("사람 노트를 찾을 수 없습니다.");
+        const text = typeof app.vault.cachedRead === "function"
+          ? await app.vault.cachedRead(af)
+          : await app.vault.read(af);
+        row.body = String(text == null ? "" : text);
+        readState[path] = {
+          status: row.body.length ? "success" : "empty",
+          error: ""
+        };
+        return true;
+      } catch (error) {
+        readState[path] = {
+          status: "error",
+          error: String(error && (error.message || error) || "본문을 읽지 못했습니다.")
+        };
+        return false;
+      }
+    }
+
     async function hydratePeopleBodies() {
       if (bodiesHydrated || !rawPeople || !Array.isArray(rawPeople) || !app || !app.vault) return false;
       if (typeof core.extractMemoLines !== "function") return false;
@@ -1853,24 +2004,29 @@
       for (let i = 0; i < rawPeople.length; i += 1) {
         const row = rawPeople[i];
         if (!row || !row.path) continue;
-        const hasSection = /#\s*메모/m.test(String(row.body || ""));
-        if (hasSection && core.extractMemoLines(row.body).length) continue;
-        try {
-          const af = typeof app.vault.getAbstractFileByPath === "function"
-            ? app.vault.getAbstractFileByPath(row.path)
-            : null;
-          if (!af) continue;
-          const text = typeof app.vault.cachedRead === "function"
-            ? await app.vault.cachedRead(af)
-            : await app.vault.read(af);
-          if (text && String(text).length) {
-            row.body = String(text);
-            changed = true;
-          }
-        } catch (_e) { /* ignore one file */ }
+        const path = contextPath(row.path);
+        const hasBody = String(row.body || "").length > 0;
+        if (hasBody && !readState[path]) {
+          readState[path] = { status: "success", error: "" };
+          continue;
+        }
+        const before = readState[path] && readState[path].status;
+        await readPersonBody(row);
+        const after = readState[path] && readState[path].status;
+        if (before !== after || after === "success") changed = true;
       }
       bodiesHydrated = true;
       return changed;
+    }
+
+    async function retryPersonRead(path) {
+      const target = (rawPeople || []).find((row) => contextPath(row && row.path) === contextPath(path));
+      if (!target) return false;
+      bodiesHydrated = false;
+      const result = await readPersonBody(target);
+      bodiesHydrated = true;
+      paint();
+      return result;
     }
 
     // Name click → editable relation popup (single entry point)
@@ -2028,6 +2184,18 @@
       const titleWrap = head.createDiv();
       titleWrap.createEl("h2", { text: person.name, attr: { class: "ppw-detail-title" } });
       if (person.meta_line) titleWrap.createEl("div", { text: person.meta_line, attr: { class: "ppw-meta" } });
+      if (person.read_state && person.read_state.status === "error") {
+        const error = detailPane.createDiv({ attr: { class: "ppw-read-error", role: "alert" } });
+        error.createEl("span", { text: `본문을 읽지 못했습니다. 원본: ${person.path}` });
+        const retry = btn(error, "다시 읽기");
+        retry.setAttribute("aria-label", `${person.name} 본문 다시 읽기`);
+        retry.onclick = () => { void retryPersonRead(person.path); };
+      } else if (person.read_state && person.read_state.status === "empty") {
+        detailPane.createEl("div", {
+          text: `본문이 비어 있습니다. 원본: ${person.path}`,
+          attr: { class: "ppw-read-empty" }
+        });
+      }
 
       const insightSection = detailPane.createEl("section", { attr: { class: "ppw-detail-section" } });
       insightSection.createEl("h3", { text: "핵심 상호작용" });
@@ -2043,31 +2211,44 @@
       }
 
       const allLinked = person.linked_all || person.recent_context || [];
-      const linkedKnowledge = allLinked.filter((item) => item.bucket === "knowledge");
-      const linkedCandidates = allLinked.filter((item) => item.bucket === "knowledge_candidate");
+      const linkedKnowledge = allLinked
+        .map((item) => typedKnowledgeRow(item) || item)
+        .filter((item) => item.context_kind === "approved");
+      const linkedCandidates = allLinked
+        .map((item) => typedKnowledgeRow(item) || item)
+        .filter((item) => item.context_kind === "candidate");
+      const renderKnowledgeRows = (parent, items, label) => {
+        items.forEach((item) => {
+          const row = parent.createEl("button", {
+            text: contextRowLabel(item),
+            attr: {
+              type: "button",
+              class: "ppw-context-item",
+              "aria-label": `${label}: ${item.title}`,
+              style: "inline-size:100%;border:0;background:transparent;color:inherit;text-align:start;font:inherit;word-break:keep-all;overflow-wrap:anywhere;"
+            }
+          });
+          applyContextMetadata(row, item);
+          row.onclick = () => openKnowledgeContext(app, item);
+          if (item.source_refs && item.source_refs.length) {
+            row.createEl("span", {
+              text: `출처: ${item.source_refs.join(", ")}`,
+              attr: { class: "ppw-context-meta" }
+            });
+          }
+        });
+      };
       if (linkedKnowledge.length) {
         const knowledgeSection = detailPane.createEl("section", { attr: { class: "ppw-detail-section" } });
         knowledgeSection.createEl("h3", { text: "연결된 승인 지식" });
-        linkedKnowledge.forEach((item) => {
-          const row = knowledgeSection.createEl("button", {
-            text: item.title,
-            attr: { type: "button", class: "ppw-context-item", "aria-label": `연결된 지식 열기: ${item.title}` }
-          });
-          row.onclick = () => openRecord(item.path);
-        });
+        renderKnowledgeRows(knowledgeSection, linkedKnowledge, "승인 지식 열기");
       }
       if (linkedCandidates.length) {
         const candidateSection = detailPane.createEl("section", { attr: { class: "ppw-detail-section" } });
         candidateSection.createEl("h3", { text: "연결된 지식 후보" });
-        linkedCandidates.forEach((item) => {
-          const row = candidateSection.createEl("button", {
-            text: item.title,
-            attr: { type: "button", class: "ppw-context-item", "aria-label": `지식 후보 원본 열기: ${item.title}` }
-          });
-          row.onclick = () => openRecord(item.path);
-        });
+        renderKnowledgeRows(candidateSection, linkedCandidates, "지식 후보 검토 열기");
         const review = btn(candidateSection, "검증 대기 열기", { primary: true });
-        review.onclick = () => openKnowledgeReview(app);
+        review.onclick = () => openKnowledgeReview(app, linkedCandidates[0]);
       }
 
       const contextSection = detailPane.createEl("section", { attr: { class: "ppw-detail-section" } });
@@ -2234,6 +2415,21 @@
             : "연결된 기록 없음"
         );
         card.createEl("div", { text: subBits.join(" · "), attr: { class: "ppw-sub" } });
+        const readStatus = person.read_state && person.read_state.status;
+        if (readStatus === "error") {
+          const readError = card.createDiv({ attr: { class: "ppw-read-error", role: "alert" } });
+          readError.createEl("span", {
+            text: `본문을 읽지 못했습니다. 원본: ${person.path}`
+          });
+          const retry = btn(readError, "다시 읽기");
+          retry.setAttribute("aria-label", `${person.name} 본문 다시 읽기`);
+          retry.onclick = () => { void retryPersonRead(person.path); };
+        } else if (readStatus === "empty") {
+          card.createEl("div", {
+            text: `본문이 비어 있습니다. 원본: ${person.path}`,
+            attr: { class: "ppw-read-empty" }
+          });
+        }
 
         if (person.relationship_needs_classify) {
           card.createEl("div", {
@@ -2376,11 +2572,24 @@
         }
 
         function appendContextRow(parent, item) {
-          const row = parent.createDiv({ attr: { class: "ppw-context-item" } });
-          row.createEl("strong", { text: item.title });
-          const meta = [item.type_label || "기록"];
-          row.createEl("span", { text: meta.join(" · ") });
-          row.onclick = () => openRecord(item.path);
+          const typed = typedKnowledgeRow(item) || item;
+          const row = parent.createEl("button", {
+            text: contextRowLabel(typed),
+            attr: {
+              type: "button",
+              class: "ppw-context-item",
+              "aria-label": `${contextRowLabel(typed)} 열기`,
+              style: "inline-size:100%;border:0;background:transparent;color:inherit;text-align:start;font:inherit;word-break:keep-all;overflow-wrap:anywhere;"
+            }
+          });
+          applyContextMetadata(row, typed);
+          row.onclick = () => openKnowledgeContext(app, typed);
+          if (typed.source_refs && typed.source_refs.length) {
+            row.createEl("span", {
+              text: `출처: ${typed.source_refs.join(", ")}`,
+              attr: { class: "ppw-context-meta" }
+            });
+          }
         }
 
         if (!allLinkedRaw.length) {
@@ -2504,6 +2713,8 @@
     openDeletePersonFlow,
     resolvePeoplePaneLayout,
     renderPeopleWorkspace,
+    typedKnowledgeRow,
+    openKnowledgeContext,
     ensureWorkspaceStyles
   };
 

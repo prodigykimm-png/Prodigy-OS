@@ -216,9 +216,91 @@
     renderRows(scroll, model, dispatch, options); renderComparison(scroll, model, layout); return container;
   }
   function mountRegionExplorer(options = {}) {
-    const State = stateApi(); let projection = options.projection || { rows: [] }; let state = State.createState(options.state); let notice = null; let width = options.logicalWidth;
-    const render = () => renderRegionExplorer(options.container, projection, { state, notice, logicalWidth: width, onAddRegionExperience: options.onAddRegionExperience, onViewRegionDetail: options.onViewRegionDetail, onViewRegionAuctions: options.onViewRegionAuctions, onAction: (action) => { const result = State.transition(state, action); state = result.state; notice = result.message; if (typeof options.onStateChange === "function") options.onStateChange(state, notice); render(); } });
-    render(); return Object.freeze({ state: () => state, setLogicalWidth: (value) => { width = value; render(); }, setProjection: (value) => { projection = value || { rows: [] }; render(); }, setNotice: (value) => { notice = text(value) || null; render(); } });
+    const State = stateApi();
+    let projection = options.projection || { rows: [] };
+    let state = State.createState(options.state);
+    let notice = null;
+    let width = options.logicalWidth;
+    let renderToken = 0;
+    const captureContext = () => {
+      const container = options.container;
+      if (!container) return { focus: null, scroll: [] };
+      const active = container.ownerDocument && container.ownerDocument.activeElement;
+      const attr = (element, name) => element && typeof element.getAttribute === "function" ? element.getAttribute(name) : "";
+      const focus = active ? {
+        action: attr(active, "data-action"),
+        regionKey: attr(active, "data-region-key"),
+        ariaLabel: attr(active, "aria-label"),
+        id: attr(active, "id")
+      } : null;
+      const scroll = typeof container.querySelectorAll === "function"
+        ? Array.from(container.querySelectorAll(".region-explorer-scroll")).map((element) => ({
+          top: Number(element.scrollTop) || 0,
+          left: Number(element.scrollLeft) || 0
+        }))
+        : [];
+      return { focus, scroll };
+    };
+    const restoreContext = (snapshot) => {
+      if (!snapshot || !options.container) return;
+      const token = ++renderToken;
+      const restore = () => {
+        if (token !== renderToken || !options.container) return;
+        const scrollNodes = typeof options.container.querySelectorAll === "function"
+          ? Array.from(options.container.querySelectorAll(".region-explorer-scroll"))
+          : [];
+        scrollNodes.forEach((element, index) => {
+          const saved = snapshot.scroll[index];
+          if (!saved) return;
+          element.scrollTop = saved.top;
+          element.scrollLeft = saved.left;
+        });
+        const focus = snapshot.focus;
+        if (!focus || typeof options.container.querySelectorAll !== "function") return;
+        const candidates = Array.from(options.container.querySelectorAll("button,input,select,textarea,[tabindex]"));
+        const target = candidates.find((element) => {
+          const action = typeof element.getAttribute === "function" ? element.getAttribute("data-action") : "";
+          const regionKey = typeof element.getAttribute === "function" ? element.getAttribute("data-region-key") : "";
+          return (focus.action && action === focus.action && (!focus.regionKey || regionKey === focus.regionKey))
+            || (focus.ariaLabel && element.getAttribute("aria-label") === focus.ariaLabel)
+            || (focus.id && element.id === focus.id);
+        });
+        if (target && typeof target.focus === "function") {
+          try { target.focus({ preventScroll: true }); }
+          catch (_) { target.focus(); }
+        }
+      };
+      restore();
+      const runtime = typeof window !== "undefined" ? window : globalThis;
+      if (runtime && typeof runtime.requestAnimationFrame === "function") runtime.requestAnimationFrame(restore);
+      else if (runtime && typeof runtime.setTimeout === "function") runtime.setTimeout(restore, 0);
+    };
+    const render = (snapshot) => {
+      renderRegionExplorer(options.container, projection, {
+        state,
+        notice,
+        logicalWidth: width,
+        onAddRegionExperience: options.onAddRegionExperience,
+        onViewRegionDetail: options.onViewRegionDetail,
+        onViewRegionAuctions: options.onViewRegionAuctions,
+        onAction: (action) => {
+          const context = captureContext();
+          const result = State.transition(state, action);
+          state = result.state;
+          notice = result.message;
+          if (typeof options.onStateChange === "function") options.onStateChange(state, notice);
+          render(context);
+        }
+      });
+      restoreContext(snapshot);
+    };
+    render();
+    return Object.freeze({
+      state: () => state,
+      setLogicalWidth: (value) => { const context = captureContext(); width = value; render(context); },
+      setProjection: (value) => { const context = captureContext(); projection = value || { rows: [] }; render(context); },
+      setNotice: (value) => { const context = captureContext(); notice = text(value) || null; render(context); }
+    });
   }
 
   const api = Object.freeze({ CSS, layoutFor, mountRegionExplorer, renderRegionExplorer });

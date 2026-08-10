@@ -16,21 +16,173 @@ container.empty();
 window.obsidian = obsidian;
 window.app = app;
 
-// Consume an exact Auction handoff once. Each status section reports when it has
-// rendered, then this session-only runtime reveals and focuses the matching card.
+// Mount-scoped, bounded readiness polling shared by every Auction section. A
+// section may stay pending while optional scripts arrive, but it can never keep
+// a detached timer alive or leave the user with an unbounded spinner.
+window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
+  const active = new WeakMap();
+  const mounted = (container) => {
+    if (!container || container.isConnected === false) return false;
+    const doc = container.ownerDocument;
+    return !doc || !doc.documentElement || typeof doc.documentElement.contains !== "function"
+      || doc.documentElement.contains(container);
+  };
+  const findStatus = (container) => container && typeof container.querySelector === "function"
+    ? container.querySelector("[data-auction-loader-status]")
+    : null;
+  const renderStatus = (state, message, terminal) => {
+    if (!mounted(state.container)) return;
+    let status = findStatus(state.container);
+    if (!status && typeof state.container.createEl === "function") {
+      status = state.container.createEl("div", {
+        attr: {
+          "data-auction-loader-status": "true",
+          role: terminal ? "alert" : "status",
+          style: "display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--text-muted);font-size:0.82em;margin:4px 0;"
+        }
+      });
+    }
+    if (!status) return;
+    if (typeof status.empty === "function") status.empty();
+    else status.textContent = "";
+    if (typeof status.createEl !== "function") {
+      status.textContent = message;
+      return;
+    }
+    if (typeof status.setAttr === "function") status.setAttr("role", terminal ? "alert" : "status");
+    else if (typeof status.setAttribute === "function") status.setAttribute("role", terminal ? "alert" : "status");
+    status.createEl("span", { text: message });
+    if (terminal) {
+      const retry = status.createEl("button", { text: "다시 시도", attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" } });
+      retry.onclick = () => state.retry();
+      const cancel = status.createEl("button", { text: "중단", attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" } });
+      cancel.onclick = () => {
+        state.dispose();
+        renderStatus(state, "불러오기를 중단했습니다.", false);
+      };
+    }
+  };
+  const clear = (state) => {
+    if (state.timer !== null) {
+      window.clearTimeout(state.timer);
+      state.timer = null;
+    }
+    if (state.observer && typeof state.observer.disconnect === "function") state.observer.disconnect();
+    state.observer = null;
+  };
+  const start = (config = {}) => {
+    const container = config.container;
+    if (!container || typeof config.run !== "function") return { dispose() {} };
+    const prior = active.get(container);
+    if (prior && typeof prior.dispose === "function") prior.dispose();
+    const state = {
+      container,
+      config: { ...config },
+      attempts: 0,
+      timer: null,
+      observer: null,
+      disposed: false,
+      rendered: false,
+      retry: () => start(state.config),
+      dispose: () => {
+        if (state.disposed) return;
+        state.disposed = true;
+        clear(state);
+        if (active.get(container) === state) active.delete(container);
+      }
+    };
+    active.set(container, state);
+    const finish = (result) => {
+      if (result === true) {
+        state.rendered = true;
+        clear(state);
+        if (active.get(container) === state) active.delete(container);
+        return true;
+      }
+      return false;
+    };
+    const attempt = () => {
+      if (state.disposed || !mounted(container)) {
+        state.dispose();
+        return;
+      }
+      state.attempts += 1;
+      let result = false;
+      try {
+        result = config.run() === true;
+      } catch (error) {
+        state.error = error;
+      }
+      if (finish(result)) return;
+      if (!state.rendered && !findStatus(container)) {
+        renderStatus(state, `${config.label || "Auction"} 리소스를 불러오는 중...`, false);
+      }
+      if (state.attempts >= (Number(config.maxAttempts) || 100)) {
+        renderStatus(state, `${config.label || "Auction"}을 불러오지 못했습니다. ${state.error?.message || "필수 리소스가 준비되지 않았습니다."}`, true);
+        state.dispose();
+        return;
+      }
+      state.timer = window.setTimeout(attempt, Number(config.interval) || 100);
+    };
+    if (typeof MutationObserver === "function" && container.ownerDocument?.body) {
+      state.observer = new MutationObserver(() => {
+        if (!mounted(container)) state.dispose();
+      });
+      state.observer.observe(container.ownerDocument.body, { childList: true, subtree: true });
+    }
+    attempt();
+    return Object.freeze({ dispose: state.dispose, retry: state.retry });
+  };
+  return Object.freeze({
+    start,
+    dispose(container) {
+      const state = active.get(container);
+      if (state) state.dispose();
+    }
+  });
+})();
+
+// Consume one exact Auction handoff only after every destination section has
+// reported readiness. Until then the request and scope stay replayable.
 const auctionNavigationRequest = window.prodigyAuctionNavigationRequest && typeof window.prodigyAuctionNavigationRequest === "object"
   ? window.prodigyAuctionNavigationRequest
   : null;
-delete window.prodigyAuctionNavigationRequest;
+const auctionRegionScope = window.prodigyAuctionRegionScope && typeof window.prodigyAuctionRegionScope === "object"
+  ? window.prodigyAuctionRegionScope
+  : null;
+const expectedSections = new Set(["bidding", "watching", "reviewing", "won", "lost", "skipped", "archived"]);
+const renderedSections = new Set();
+let navigationAcknowledged = false;
+const setNavigationStatus = (status, error) => {
+  if (!auctionNavigationRequest) return;
+  try {
+    auctionNavigationRequest.status = status;
+    auctionNavigationRequest.updated_at = new Date().toISOString();
+    if (error) auctionNavigationRequest.error = String(error && error.message ? error.message : error);
+  } catch (_) {
+    // A caller may freeze its request object; preserving it is safer than failing load.
+  }
+};
+const acknowledgeNavigation = () => {
+  if (navigationAcknowledged || renderedSections.size !== expectedSections.size) return;
+  navigationAcknowledged = true;
+  setNavigationStatus("consumed");
+  if (window.prodigyAuctionNavigationRequest === auctionNavigationRequest) delete window.prodigyAuctionNavigationRequest;
+  if (auctionRegionScope && window.prodigyAuctionRegionScope === auctionRegionScope) window.prodigyAuctionRegionScope = null;
+  window.prodigyAuctionNavigationReceipt = Object.freeze({
+    request_id: auctionNavigationRequest && auctionNavigationRequest.request_id || null,
+    status: "consumed",
+    consumed_at: new Date().toISOString()
+  });
+};
+setNavigationStatus("loading");
 window.ProdigyAuctionNavigationFocus = null;
 if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path === "string" && auctionNavigationRequest.auction_path.trim()) {
   const targetPath = auctionNavigationRequest.auction_path.trim();
-  const expectedSections = new Set(["bidding", "watching", "reviewing", "won", "lost", "skipped", "archived"]);
-  const renderedSections = new Set();
-  let completed = false;
+  let focusCompleted = false;
   let fallbackScheduled = false;
   const locate = () => {
-    if (completed || typeof document === "undefined") return false;
+    if (focusCompleted || typeof document === "undefined") return false;
     const card = Array.from(document.querySelectorAll("[data-auction-path]")).find((element) => element.getAttribute("data-auction-path") === targetPath);
     if (!card) return false;
     const collapsed = typeof card.closest === "function" ? card.closest("details") : null;
@@ -41,9 +193,8 @@ if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path ===
       try { card.focus({ preventScroll: true }); }
       catch (_) { card.focus(); }
     }
-    completed = true;
+    focusCompleted = true;
     window.setTimeout(() => card.removeAttribute("data-navigation-focus"), 1800);
-    window.ProdigyAuctionNavigationFocus = null;
     return true;
   };
   const scheduleLocate = () => {
@@ -51,20 +202,28 @@ if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path ===
     else window.setTimeout(locate, 0);
   };
   const markSection = (status) => {
-    if (completed) return;
     if (expectedSections.has(status)) renderedSections.add(status);
     scheduleLocate();
-    if (renderedSections.size === expectedSections.size && !fallbackScheduled) {
-      fallbackScheduled = true;
-      window.setTimeout(() => {
-        if (locate()) return;
-        completed = true;
-        window.ProdigyAuctionNavigationFocus = null;
-        if (typeof Notice !== "undefined") new Notice("선택한 경매 카드가 현재 필터에 보이지 않습니다. 지역 필터와 카드 상태를 확인해 주세요.");
-      }, 120);
+    if (renderedSections.size === expectedSections.size) {
+      acknowledgeNavigation();
+      if (!fallbackScheduled) {
+        fallbackScheduled = true;
+        window.setTimeout(() => {
+          if (locate()) return;
+          focusCompleted = true;
+          window.ProdigyAuctionNavigationFocus = null;
+          if (typeof Notice !== "undefined") new Notice("선택한 경매 카드가 현재 필터에 보이지 않습니다. 지역 필터와 카드 상태를 확인해 주세요.");
+        }, 120);
+      }
     }
   };
   window.ProdigyAuctionNavigationFocus = Object.freeze({ targetPath, markSection });
+} else if (auctionRegionScope) {
+  // Scope-only opens still clear once all sections have consumed the destination.
+  window.ProdigyAuctionNavigationFocus = Object.freeze({ markSection: (status) => {
+    if (expectedSections.has(status)) renderedSections.add(status);
+    acknowledgeNavigation();
+  } });
 }
 
 // Dynamic script loader helper
@@ -83,7 +242,9 @@ const loadProdigyScript = async (path) => {
   }
 };
 
-try {
+const initializeAuctionWorkspace = async () => {
+  setNavigationStatus("loading");
+  try {
   await loadProdigyScript("SYSTEM/Views/design-tokens.js");
   await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
@@ -169,16 +330,28 @@ try {
         : []
     }
   });
+  setNavigationStatus("ready");
 } catch (err) {
+  setNavigationStatus("error", err);
   const failedStage = err && err.prodigyLoadPath ? err.prodigyLoadPath : activeLoadPath;
+  window.ProdigyAuctionWorkspaceRetry = initializeAuctionWorkspace;
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
-    window.ProdigyWorkspaceNavigation.renderLoaderError(container, err, { title: "경매", failedStage });
+    window.ProdigyWorkspaceNavigation.renderLoaderError(container, err, {
+      title: "경매",
+      failedStage,
+      message: "필수 리소스를 준비하지 못했습니다. 같은 지역 요청을 유지한 채 다시 시도하세요.",
+      retry: () => window.ProdigyAuctionWorkspaceRetry()
+    });
   } else {
     container.empty();
-    container.createEl("p", { text: "경매 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
+    const errorBox = container.createEl("p", { text: "경매 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
+    const retry = errorBox.createEl("button", { text: "다시 시도", attr: { type: "button" } });
+    retry.onclick = () => window.ProdigyAuctionWorkspaceRetry();
   }
-  return;
 }
+};
+window.ProdigyAuctionWorkspaceRetry = initializeAuctionWorkspace;
+await initializeAuctionWorkspace();
 ```
 
 [[15 Region|지역 비교]] — 기존 지역 Object의 지표와 근거를 읽기 전용으로 비교합니다.
@@ -357,15 +530,11 @@ const run = () => {
   }
   return false;
 };
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", {
-    text: "⌛ 입찰 일정 캘린더를 불러오는 중...",
-    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
-  });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "입찰 일정 캘린더",
+  run
+});
 ```
 
 ---
@@ -480,15 +649,11 @@ const run = () => {
   }
   return false;
 };
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", {
-    text: "⌛ 대시보드 리소스를 불러오는 중...",
-    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
-  });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "입찰 예정",
+  run
+});
 ```
 
 ---
@@ -520,15 +685,11 @@ const run = () => {
   }
   return false;
 };
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", {
-    text: "⌛ 대시보드 리소스를 불러오는 중...",
-    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
-  });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "관심",
+  run
+});
 ```
 
 ---
@@ -652,15 +813,11 @@ const run = () => {
   });
   return true;
 };
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", {
-    text: "⌛ 복기 대기 큐를 불러오는 중...",
-    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
-  });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "복기 대기 큐",
+  run
+});
 ```
 
 ---
@@ -686,15 +843,11 @@ const run = () => {
   }
   return false;
 };
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", {
-    text: "⌛ 대시보드 리소스를 불러오는 중...",
-    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
-  });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "복기 중",
+  run
+});
 ```
 
 ---
@@ -723,15 +876,11 @@ const run = () => {
   }
   return false;
 };
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", {
-    text: "⌛ 대시보드 리소스를 불러오는 중...",
-    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
-  });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "낙찰",
+  run
+});
 ```
 
 ## 💔 패찰
@@ -758,15 +907,11 @@ const run = () => {
   }
   return false;
 };
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", {
-    text: "⌛ 대시보드 리소스를 불러오는 중...",
-    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
-  });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "패찰",
+  run
+});
 ```
 
 ## ❌ 입찰 포기
@@ -793,15 +938,11 @@ const run = () => {
   }
   return false;
 };
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", {
-    text: "⌛ 대시보드 리소스를 불러오는 중...",
-    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
-  });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "입찰 포기",
+  run
+});
 ```
 
 ## 📦 보관
@@ -828,14 +969,10 @@ const run = () => {
   }
   return false;
 };
-if (!run()) {
-  this.container.empty();
-  this.container.createEl("span", {
-    text: "⌛ 대시보드 리소스를 불러오는 중...",
-    attr: { style: "color: var(--text-muted); font-size: 0.82em; font-style: italic; margin: 4px 0; display: block;" }
-  });
-  const t = setInterval(() => { if (run()) clearInterval(t); }, 100);
-  setTimeout(() => clearInterval(t), 10000);
-}
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "보관",
+  run
+});
 ```
 ```

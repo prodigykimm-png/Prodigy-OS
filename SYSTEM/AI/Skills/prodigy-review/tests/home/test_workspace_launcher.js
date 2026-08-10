@@ -144,7 +144,7 @@ function main() {
   assert.match(viewSource, /min-height:\s*148px|min-height: 148px/);
   assert.match(viewSource, /min-height:\s*0/);
   assert.match(viewSource, /padding:\s*1px 6px/);
-  assert.match(viewSource, /openLinkText/);
+  assert.match(viewSource, /openPath|ProdigyWorkspaceNavigation/);
   assert.match(viewSource, /card\.path/);
   assert.equal(viewSource.includes("processFrontMatter"), false);
 

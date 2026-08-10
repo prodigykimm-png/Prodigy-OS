@@ -353,8 +353,10 @@ async function main() {
   assert.equal(journalHub.includes("dv.table"), false);
   assert.equal(journalHub.includes("Recent Journals"), false);
   const home = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/home-view.js"), "utf8");
-  assert.match(home, /HUB\/30 Workout\.md/);
-  assert.match(home, /HUB\/50 Knowledge\.md/);
+  assert.match(home, /workspacePathFor/);
+  assert.match(home, /workspaceRegistry\.pathFor/);
+  assert.equal(workspaceRegistry.pathFor("workout"), "HUB/30 Workout.md");
+  assert.equal(workspaceRegistry.pathFor("knowledge"), "HUB/50 Knowledge.md");
   assert.match(home, /workout: "운동"/);
   const homeHub = fs.readFileSync(path.join(ROOT, "HUB/00 Home.md"), "utf8");
   assert.match(homeHub, /journal-review-modal\.js/);

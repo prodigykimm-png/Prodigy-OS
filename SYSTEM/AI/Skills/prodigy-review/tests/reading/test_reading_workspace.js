@@ -368,6 +368,7 @@ function main() {
   assert.match(readingHub, /stale_reading|finish_soon/);
   assert.match(readingHub, /ProdigyAdaptiveControls\.AdaptiveActionBar/);
   assert.match(readingHub, /mountResponsiveWorkspace/);
+  assert.match(readingHub, /focusCard/);
   assert.match(readingHub, /ProdigyTokens\.BREAKPOINTS\.wide/);
   assert.doesNotMatch(readingHub, /window\.innerWidth|globalThis\.innerWidth/);
   // Card-first: do not mount full progressive wall on hub

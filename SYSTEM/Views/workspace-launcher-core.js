@@ -7,12 +7,29 @@
    * Does not edit Objects or invent work.
    */
 
-  const WORKSPACES = Object.freeze([
+  function resolveRegistry() {
+    if (root.ProdigyWorkspaceRegistry) return root.ProdigyWorkspaceRegistry;
+    if (typeof require === "function") {
+      try { return require("./workspace-registry.js"); } catch (_error) { return null; }
+    }
+    return null;
+  }
+
+  function routePath(workspaceId) {
+    const registry = resolveRegistry();
+    if (registry && typeof registry.pathFor === "function") return registry.pathFor(workspaceId);
+    if (registry && typeof registry.find === "function") {
+      const item = registry.find(workspaceId);
+      return item ? item.path : "";
+    }
+    return "";
+  }
+
+  const WORKSPACE_CONFIG = Object.freeze([
     Object.freeze({
       id: "auction",
       icon: "🏛",
       name: "경매",
-      path: "HUB/10 Auction.md",
       actionVerb: "계속",
       emptyActionVerb: "둘러보기"
     }),
@@ -20,7 +37,6 @@
       id: "workout",
       icon: "🏋",
       name: "운동",
-      path: "HUB/30 Workout.md",
       actionVerb: "시작",
       emptyActionVerb: "열기"
     }),
@@ -28,7 +44,6 @@
       id: "reading",
       icon: "📚",
       name: "독서",
-      path: "HUB/20 Reading.md",
       actionVerb: "이어 읽기",
       emptyActionVerb: "둘러보기"
     }),
@@ -36,7 +51,6 @@
       id: "project",
       icon: "📁",
       name: "프로젝트",
-      path: "HUB/40 Project.md",
       actionVerb: "계속",
       emptyActionVerb: "열기"
     }),
@@ -44,11 +58,18 @@
       id: "personal",
       icon: "👤",
       name: "개인",
-      path: "HUB/70 Journal.md",
       actionVerb: "열기",
       emptyActionVerb: "열기"
     })
   ]);
+
+  function workspaceDefinitions() {
+    return WORKSPACE_CONFIG.map(function (config) {
+      return Object.freeze(Object.assign({}, config, { path: routePath(config.id) }));
+    });
+  }
+
+  const WORKSPACES = Object.freeze(workspaceDefinitions());
 
   function clean(value) {
     if (value === undefined || value === null) return "";
@@ -405,7 +426,7 @@
       personal: () => pickPersonal(opts.journalStatus)
     };
 
-    return WORKSPACES.map((ws) => {
+    return workspaceDefinitions().map((ws) => {
       let pick = null;
       try {
         pick = pickViaEngine(ws.id, pkg, opts);
@@ -434,13 +455,32 @@
           cont = null;
         }
       }
-      // Presentation: prefer "Continue" context when something is waiting
+      // Dashboard routes remain registry-owned even when an engine summary carries a stale path.
+      if (cont) {
+        cont = Object.assign({}, cont, {
+          workspace: ws.id,
+          dashboard_path: ws.path || cont.dashboard_path || ""
+        });
+      }
+      const exactContinuationPath = clean(
+        (cont && (cont.object_path || cont.target_path || cont.source_path))
+        || pick.objectPath
+        || ""
+      );
+      const hasExactContinuation = !!exactContinuationPath && exactContinuationPath !== ws.path;
       const empty = !!pick.empty;
+      const candidateVerb = pick.actionVerb
+        || (cont && cont.verb)
+        || (empty ? ws.emptyActionVerb : ws.actionVerb);
+      const dashboardOnly = !empty
+        && !hasExactContinuation
+        && (candidateVerb === "계속" || candidateVerb === "이어 읽기");
+      const actionVerb = dashboardOnly ? "워크스페이스 열기" : candidateVerb;
       let contextLabel = pick.contextLabel || "";
-      if (!empty && cont) {
+      if (!empty && cont && hasExactContinuation) {
         contextLabel = "Continue";
       } else if (!empty && !contextLabel) {
-        contextLabel = ws.actionVerb || "Open";
+        contextLabel = actionVerb || "Open";
       }
       const title = pick.title || (cont && cont.label) || "";
       const detail = pick.detail
@@ -457,8 +497,11 @@
         contextLabel,
         title,
         detail: detail || "",
-        objectPath: pick.objectPath || (cont && cont.object_path) || "",
-        actionVerb: pick.actionVerb || (cont && cont.verb) || (empty ? ws.emptyActionVerb : ws.actionVerb),
+        objectPath: pick.objectPath || "",
+        continuation_path: hasExactContinuation ? exactContinuationPath : "",
+        has_exact_continuation: hasExactContinuation,
+        dashboard_only: dashboardOnly,
+        actionVerb,
         continue_target: cont,
         continue_reason: cont && cont.reason ? cont.reason : "",
         next_action: pick.next_action != null ? pick.next_action : (pick.state && pick.state.next_action) || null,
@@ -469,7 +512,10 @@
 
   const api = {
     WORKSPACES,
+    WORKSPACE_CONFIG,
     clean,
+    routePath,
+    workspaceDefinitions,
     buildLauncherCards,
     loadWorkoutSnapshot,
     pickAuction,

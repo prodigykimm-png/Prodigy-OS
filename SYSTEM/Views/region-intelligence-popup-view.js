@@ -139,15 +139,19 @@ const BADGE_CLASSES = Object.freeze({
  * @returns {string} HTML
  */
 function renderTrustBadges(badges) {
+  const source = badges || {};
   const items = [
-    { key: "freshness", label: "최신성", badge: badges.freshness },
-    { key: "verification", label: "검증", badge: badges.verification },
-    { key: "coverage", label: "출처", badge: badges.coverage },
-    { key: "schema", label: "스키마", badge: badges.schema }
+    { key: "freshness", label: "최신성", badge: source.freshness },
+    { key: "verification", label: "검증", badge: source.verification },
+    { key: "coverage", label: "출처", badge: source.coverage },
+    { key: "schema", label: "스키마", badge: source.schema }
   ];
   return `<div class="region-trust-badges" role="list" aria-label="신뢰도 배지">${items.map((item) => {
-    const cls = BADGE_CLASSES[item.badge.level] || "region-badge-unavailable";
-    return `<div class="region-trust-badge ${cls}" role="listitem" aria-label="${item.label}: ${item.badge.label}"><span class="region-badge-key">${item.label}</span><span class="region-badge-value">${item.badge.label}</span></div>`;
+    const badge = item.badge || {};
+    const label = String(item.label || "상태");
+    const value = String(badge.label || "확인 불가");
+    const cls = BADGE_CLASSES[badge.level] || "region-badge-unavailable";
+    return `<div class="region-trust-badge ${cls}" role="listitem" aria-label="${escapeHtml(`${label}: ${value}`)}"><span class="region-badge-key">${escapeHtml(label)}</span><span class="region-badge-value">${escapeHtml(value)}</span></div>`;
   }).join("")}</div>`;
 }
 
@@ -158,16 +162,16 @@ function renderCollectionHealth(health) {
   const selected = health.selected_region;
   const selectedText = !selected || !selected.covered
     ? "이 지역 스냅샷 없음"
-    : `이 지역 ${escapeHtml(selected.latest_metrics_as_of || "기준월 없음")} · ${selected.snapshot_count}회 수집`;
+    : `이 지역 ${escapeHtml(selected.latest_metrics_as_of || "기준월 없음")} · ${escapeHtml(selected.snapshot_count)}회 수집`;
   const warningParts = [];
   if (health.missing_region_keys.length) warningParts.push(`미수집 ${health.missing_region_keys.length}곳`);
   if (health.stale_region_keys.length) warningParts.push(`만료 ${health.stale_region_keys.length}곳`);
   if (health.duplicate_months.length) warningParts.push(`동일 기준월 반복 ${health.duplicate_months.length}건`);
   const warning = warningParts.length ? warningParts.join(" · ") : "전체 수집 상태 정상";
   return `<div class="region-collection-health${health.status === "attention" ? " is-attention" : ""}" role="status" aria-label="지역 데이터 수집 상태">
-    <div><span class="region-health-label">수집 커버리지</span><strong>${health.covered_count}/${health.expected_count} (${health.coverage_percent}%)</strong></div>
+    <div><span class="region-health-label">수집 커버리지</span><strong>${escapeHtml(`${health.covered_count}/${health.expected_count} (${health.coverage_percent}%)`)}</strong></div>
     <div>${selectedText}</div>
-    <div>${warning}</div>
+    <div>${escapeHtml(warning)}</div>
   </div>`;
 }
 
@@ -181,7 +185,9 @@ function renderTabBar(tabs, activeIndex) {
   return `<div class="region-popup-tabs" role="tablist" aria-label="지역 정보 탭" style="overflow-x:auto;display:flex">${tabs.map((tab, i) => {
     const selected = i === activeIndex;
     const disabled = !tab.available && tab.id !== "site_visit";
-    return `<button class="region-popup-tab${selected ? " is-active" : ""}" role="tab" id="region-tab-${tab.id}" aria-selected="${selected}" aria-controls="region-panel-${tab.id}" ${disabled ? 'aria-disabled="true"' : ""} data-tab-index="${i}" style="${touchStyle()}">${tab.label}</button>`;
+    const tabId = escapeHtml(tab.id || `tab-${i}`);
+    const tabLabel = escapeHtml(tab.label || "지역 정보");
+    return `<button class="region-popup-tab${selected ? " is-active" : ""}" role="tab" id="region-tab-${tabId}" aria-selected="${selected}" aria-controls="region-panel-${tabId}" ${disabled ? 'aria-disabled="true"' : ""} data-tab-index="${i}" style="${touchStyle()}">${tabLabel}</button>`;
   }).join("")}</div>`;
 }
 
@@ -196,18 +202,18 @@ function renderDecisionOutcome(content) {
 
   const summary = content.bid_rate_summary || {};
   const sampleText = summary.sample_count > 0
-    ? `낙찰가율 평균 ${summary.average_percent}% · 표본 ${summary.sample_count}건${summary.sample_state === "small" ? " (표본 적음)" : ""}`
+    ? `낙찰가율 평균 ${escapeHtml(summary.average_percent)}% · 표본 ${escapeHtml(summary.sample_count)}건${summary.sample_state === "small" ? " (표본 적음)" : ""}`
     : "낙찰가율을 계산할 정규 결과가 없습니다.";
   const outcomes = Array.isArray(content.outcomes) ? content.outcomes : [];
   const outcomeRows = outcomes.length > 0 ? outcomes.slice(0, 10).map((item) => {
     const outcomeLabel = item.outcome === "won" ? "낙찰" : item.outcome === "lost" ? "패찰" : "포기";
-    return `<tr><td>${escapeHtml(item.result_date)}</td><td>${outcomeLabel}</td><td>${escapeHtml(item.region_dong || "구 기준")}</td><td>${item.bid_rate_percent == null ? "계산 불가" : `${item.bid_rate_percent}%`}</td><td>${escapeHtml(item.decision_reason || "근거 기록 없음")}</td></tr>`;
+    return `<tr><td>${escapeHtml(item.result_date)}</td><td>${outcomeLabel}</td><td>${escapeHtml(item.region_dong || "구 기준")}</td><td>${item.bid_rate_percent == null ? "계산 불가" : `${escapeHtml(item.bid_rate_percent)}%`}</td><td>${escapeHtml(item.decision_reason || "근거 기록 없음")}</td></tr>`;
   }).join("") : "";
   const outcomeTable = outcomeRows
     ? `<div class="region-outcome-table-wrap"><table class="region-popup-table region-outcome-table"><thead><tr><th>결과일</th><th>결과</th><th>범위</th><th>낙찰가율</th><th>당시 판단</th></tr></thead><tbody>${outcomeRows}</tbody></table></div>`
     : `<div class="region-popup-empty">${escapeHtml(content.empty_state || "정규 결과 기록이 없습니다.")}</div>`;
   const legacyNotice = content.legacy_pending_count > 0
-    ? `<p class="region-outcome-note">과거 상태 기록 ${content.legacy_pending_count}건은 정규 결과로 계산하지 않습니다.</p>`
+    ? `<p class="region-outcome-note">과거 상태 기록 ${escapeHtml(content.legacy_pending_count)}건은 정규 결과로 계산하지 않습니다.</p>`
     : "";
 
   return `<div class="region-decision-outcome">
@@ -216,7 +222,7 @@ function renderDecisionOutcome(content) {
       ${reasonRows}${bidLine}
     </section>
     <section aria-labelledby="region-outcome-history-title">
-      <div class="region-section-head"><h3 id="region-outcome-history-title">실제 결과 대조</h3><span>정규 결과 ${content.canonical_outcome_count || 0}건</span></div>
+      <div class="region-section-head"><h3 id="region-outcome-history-title">실제 결과 대조</h3><span>정규 결과 ${escapeHtml(content.canonical_outcome_count || 0)}건</span></div>
       <p class="region-outcome-summary">${sampleText}</p>
       ${outcomeTable}${legacyNotice}
     </section>
@@ -255,7 +261,7 @@ function renderConnectedAuctions(content) {
 function renderSectionContent(tab) {
   let content;
   if (!tab.available && tab.id !== "site_visit") {
-    content = `<div class="region-popup-empty">${tab.unavailableReason || "수집 데이터 없음"}</div>`;
+    content = `<div class="region-popup-empty">${escapeHtml(tab.unavailableReason || "수집 데이터 없음")}</div>`;
   } else if (tab.id === "core" && tab.content) {
     content = renderMetricTable(tab.content, "현재 지역 지표");
   } else if (tab.id === "change" && tab.content) {
@@ -281,7 +287,7 @@ function renderSectionContent(tab) {
   } else if (tab.content) {
     content = `<div class="region-popup-empty">표시할 지역 정보가 없습니다.</div>`;
   } else {
-    content = `<div class="region-popup-empty">${tab.unavailableReason || "수집 데이터 없음"}</div>`;
+    content = `<div class="region-popup-empty">${escapeHtml(tab.unavailableReason || "수집 데이터 없음")}</div>`;
   }
   return content;
 }
@@ -311,11 +317,12 @@ function renderGroupedSections(tab) {
 
 function renderTabPanel(tab, index, active) {
   const hidden = active ? "" : " hidden";
+  const tabId = escapeHtml(tab.id || `tab-${index}`);
   let content;
   if (tab.id === "decision_context") content = renderDecisionContext(tab.content);
   else if (tab.id === "region_evidence" || tab.id === "cases_visit") content = renderGroupedSections(tab);
   else content = renderSectionContent(tab);
-  return `<div class="region-popup-panel" role="tabpanel" id="region-panel-${tab.id}" aria-labelledby="region-tab-${tab.id}"${hidden}>${content}</div>`;
+  return `<div class="region-popup-panel" role="tabpanel" id="region-panel-${tabId}" aria-labelledby="region-tab-${tabId}"${hidden}>${content}</div>`;
 }
 
 /**
@@ -325,14 +332,15 @@ function renderTabPanel(tab, index, active) {
  */
 function renderPopup(popupState) {
   const { projection, activeTabIndex } = popupState;
+  const title = escapeHtml(projection.title || "지역");
   const badges = renderTrustBadges(projection.trustBadges);
   const collectionHealth = renderCollectionHealth(projection.collectionHealth);
   const tabBar = renderTabBar(projection.tabs, activeTabIndex);
   const panels = projection.tabs.map((tab, i) => renderTabPanel(tab, i, i === activeTabIndex)).join("");
 
-  return `<div class="region-intelligence-popup" role="dialog" aria-label="${projection.title} 지역 정보" style="max-width:100%;overflow-x:hidden">
+  return `<div class="region-intelligence-popup" role="dialog" aria-modal="true" aria-labelledby="region-popup-title" style="max-width:100%;overflow-x:hidden">
   <div class="region-popup-header">
-    <h2 class="region-popup-title">${projection.title}</h2>
+    <h2 class="region-popup-title" id="region-popup-title">${title}</h2>
     <button class="region-popup-close" style="${touchStyle()}" aria-label="닫기" data-action="close">닫기</button>
   </div>
   ${badges}
@@ -479,30 +487,93 @@ function mountPopup(container, popupState, options) {
   return Object.freeze({ getState: () => state });
 }
 
+function trapOverlayFocus(event, modal) {
+  if (!event || event.key !== "Tab" || !modal) return false;
+  const items = typeof modal.querySelectorAll === "function"
+    ? Array.from(modal.querySelectorAll("button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])"))
+    : [];
+  const focus = (target) => {
+    if (!target || typeof target.focus !== "function") return;
+    event.preventDefault();
+    try { target.focus({ preventScroll: true }); }
+    catch (_) { target.focus(); }
+  };
+  if (!items.length) {
+    focus(modal);
+    return true;
+  }
+  const first = items[0];
+  const last = items[items.length - 1];
+  const current = event.target || event.relatedTarget || null;
+  const inside = typeof modal.contains === "function" ? modal.contains(current) : items.includes(current);
+  if (!inside) {
+    focus(event.shiftKey ? last : first);
+    return true;
+  }
+  if (event.shiftKey && current === first) {
+    focus(last);
+    return true;
+  }
+  if (!event.shiftKey && current === last) {
+    focus(first);
+    return true;
+  }
+  return false;
+}
+
 function openOverlay(popupState, options) {
   if (typeof document === "undefined" || !document.body) return null;
   const opts = options || {};
   ensurePopupStyles(document);
+  const opener = opts.returnFocus && typeof opts.returnFocus.focus === "function"
+    ? opts.returnFocus
+    : document.activeElement && document.activeElement !== document.body
+      ? document.activeElement
+      : null;
   const overlay = document.createElement("div");
   overlay.className = "region-popup-overlay";
   overlay.style.cssText = "position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;background:var(--background-modifier-cover);padding:12px";
+  overlay.setAttribute("data-region-popup-backdrop", "true");
   const modal = document.createElement("div");
   modal.className = "region-popup-modal";
   modal.style.cssText = "background:var(--background-primary);border-radius:8px;max-width:720px;width:min(96vw,720px);max-height:90vh;overflow-y:auto;padding:16px";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "region-popup-title");
+  modal.tabIndex = -1;
   overlay.appendChild(modal);
+  const focusable = () => Array.from(modal.querySelectorAll("button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])"));
+  const focusFirst = () => {
+    const target = focusable()[0] || modal;
+    if (target && typeof target.focus === "function") {
+      try { target.focus({ preventScroll: true }); }
+      catch (_) { target.focus(); }
+    }
+  };
   let closed = false;
   const close = () => {
     if (closed) return;
     closed = true;
     document.removeEventListener("keydown", onKeydown);
     overlay.remove();
-    if (opts.returnFocus && typeof opts.returnFocus.focus === "function") opts.returnFocus.focus();
+    if (opener && opener.isConnected !== false && typeof opener.focus === "function") {
+      try { opener.focus({ preventScroll: true }); }
+      catch (_) { opener.focus(); }
+    }
   };
-  const onKeydown = (event) => { if (event.key === "Escape") close(); };
+  const onKeydown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (trapOverlayFocus(event, modal)) return;
+  };
   overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
   document.addEventListener("keydown", onKeydown);
   document.body.appendChild(overlay);
   mountPopup(modal, popupState, { onClose: close, onOpenAuction: opts.onOpenAuction });
+  focusFirst();
   return Object.freeze({ overlay, close });
 }
 
@@ -516,6 +587,7 @@ const api = Object.freeze({
   renderPopup,
   popupStyles,
   mountPopup,
+  trapOverlayFocus,
   openOverlay
 });
 

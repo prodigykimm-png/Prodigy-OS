@@ -965,21 +965,39 @@ window.renderAuctionCard = function(p, container, options) {
 
             // Open Decision Capture Modal
             class DecisionCaptureModal extends window.obsidian.Modal {
-              constructor(appInstance, statusKey, onSave) {
+              constructor(appInstance, statusKey, onSave, onSettled) {
                 super(appInstance);
                 this.statusKey = statusKey;
                 this.onSave = onSave;
+                this.onSettled = onSettled;
                 this.selectedReason = "";
+                this.pending = false;
+                this._closeGuarded = false;
+              }
+              setStatus(message, role = "status") {
+                if (!this.statusEl) return;
+                if (typeof this.statusEl.setText === "function") this.statusEl.setText(message);
+                else this.statusEl.textContent = message;
+                if (typeof this.statusEl.setAttr === "function") this.statusEl.setAttr("role", role);
+                else if (typeof this.statusEl.setAttribute === "function") this.statusEl.setAttribute("role", role);
               }
               onOpen() {
                 const { contentEl } = this;
                 contentEl.empty();
-                
+                if (!this._closeGuarded) {
+                  const close = this.close.bind(this);
+                  this.close = (...args) => {
+                    if (this.pending) return;
+                    return close(...args);
+                  };
+                  this._closeGuarded = true;
+                }
+
                 let title = "";
                 let question = "";
                 let reasons = [];
                 let placeholderText = "";
-                
+
                 if (this.statusKey === 'won') {
                   title = "🏆 낙찰";
                   question = "이번 입찰의 핵심 이유는 무엇인가?";
@@ -996,19 +1014,19 @@ window.renderAuctionCard = function(p, container, options) {
                   reasons = ["수익성 부족", "권리 문제", "임장 결과", "자금 부족", "전략적 포기", "기타"];
                   placeholderText = "포기 메모";
                 }
-                
+
                 contentEl.createEl("h3", { text: title, attr: { style: "margin-bottom: 12px; font-size: 1.15em;" } });
                 contentEl.createEl("p", { text: question, attr: { style: "font-size: 0.9em; color: var(--text-muted); margin-bottom: 12px;" } });
-                
+
                 const reasonsContainer = contentEl.createEl("div", {
                   attr: { style: "display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;" }
                 });
-                
+
                 reasons.forEach((reason, index) => {
                   const label = reasonsContainer.createEl("label", {
                     attr: { style: "display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9em;" }
                   });
-                  
+
                   const radio = label.createEl("input", {
                     attr: { type: "radio", name: "decision_reason", value: reason }
                   });
@@ -1016,106 +1034,148 @@ window.renderAuctionCard = function(p, container, options) {
                     radio.checked = true;
                     this.selectedReason = reason;
                   }
-                  
+
                   radio.onchange = () => {
-                    if (radio.checked) {
-                      this.selectedReason = reason;
-                    }
+                    if (radio.checked) this.selectedReason = reason;
                   };
-                  
+
                   label.createEl("span", { text: reason });
                 });
-                
+
                 const noteContainer = contentEl.createEl("div", {
                   attr: { style: "margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px;" }
                 });
-                
                 const noteInput = noteContainer.createEl("textarea", {
-                  attr: { 
+                  attr: {
                     placeholder: placeholderText + " (선택)",
                     style: "width: 100%; height: 60px; padding: 6px; border-radius: 4px; border: 1px solid var(--background-modifier-border); font-size: 0.85em; color: var(--text-normal); background: var(--background-primary); resize: none;"
                   }
                 });
-                
+                this.statusEl = contentEl.createEl("p", {
+                  text: "필수 이유를 선택하고 저장하세요.",
+                  attr: { role: "status", "data-decision-status": "true", style: "min-height:1.4em;margin:0 0 10px;color:var(--text-muted);font-size:0.82em;" }
+                });
+
                 if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
                 const btnRow = contentEl.createEl("div", {
                   attr: { class: "prodigy-btn-row", style: "justify-content: flex-end;" }
                 });
-                
+
                 const cancelBtn = window.ProdigyUI
                   ? window.ProdigyUI.button(btnRow, "취소", { onClick: () => this.close() })
                   : btnRow.createEl("button", { text: "취소", attr: { type: "button", class: "prodigy-btn" } });
                 if (!window.ProdigyUI) cancelBtn.onclick = () => this.close();
-                
+
                 const saveBtn = window.ProdigyUI
                   ? window.ProdigyUI.button(btnRow, "저장", { primary: true })
                   : btnRow.createEl("button", { text: "저장", attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" } });
-                
-                saveBtn.onclick = () => {
+
+                const setBusy = (busy) => {
+                  this.pending = busy;
+                  saveBtn.disabled = busy;
+                  cancelBtn.disabled = busy;
+                  saveBtn.style.opacity = busy ? "0.5" : "1";
+                };
+                saveBtn.onclick = async () => {
+                  if (this.pending) return;
                   if (!this.selectedReason) {
+                    this.setStatus("이유를 선택해주세요.", "alert");
                     new Notice("이유를 선택해주세요.");
                     return;
                   }
-                  this.onSave(this.selectedReason, noteInput.value.trim());
-                  this.close();
+                  setBusy(true);
+                  this.setStatus("결정 기록을 저장하는 중입니다...", "status");
+                  try {
+                    const receipt = await this.onSave(this.selectedReason, noteInput.value.trim());
+                    if (!receipt || receipt.ok !== true) throw new Error("결정 기록 결과를 확인하지 못했습니다.");
+                    this.lastReceipt = Object.freeze(receipt);
+                    const resultLabel = receipt.result && typeof receipt.result === "object"
+                      ? Object.keys(receipt.result).filter((key) => receipt.result[key]).join(" · ")
+                      : "기록 완료";
+                    this.setStatus(`저장 완료 · 원본 ${receipt.source || "경매 Object"} · 결과 ${resultLabel || "기록 완료"}`, "status");
+                    new Notice(`결정 내용이 기록되었습니다. 원본: ${receipt.source || p.file.path} · 결과: ${resultLabel || "기록 완료"}`);
+                    this.pending = false;
+                    this.close();
+                  } catch (error) {
+                    this.setStatus(`저장하지 못했습니다. ${error && error.message ? error.message : String(error)} 다시 시도하세요.`, "alert");
+                    new Notice(`결정 기록 실패: ${error && error.message ? error.message : String(error)}`);
+                  } finally {
+                    if (this.pending) setBusy(false);
+                  }
                 };
               }
               onClose() {
                 this.contentEl.empty();
+                this.statusEl = null;
+                if (typeof this.onSettled === "function") this.onSettled();
               }
             }
             
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
             new DecisionCaptureModal(app, opt.key, async (reason, note) => {
-              btn.disabled = true;
-              btn.style.opacity = '0.5';
               const tFile = app.vault.getAbstractFileByPath(p.file.path);
-              if (tFile) {
-                const todayStr = new Date().toISOString().split('T')[0];
-                
-                // 1. Update frontmatter
+              if (!tFile) throw new Error("경매 Object를 찾을 수 없습니다.");
+              const todayStr = new Date().toISOString().split("T")[0];
+              const originalContent = await app.vault.read(tFile);
+              let decisionHeader = "# Investment Decision";
+              let decisionIndex = originalContent.indexOf(decisionHeader);
+              if (decisionIndex === -1) {
+                decisionHeader = "# Decision";
+                decisionIndex = originalContent.indexOf(decisionHeader);
+              }
+              if (decisionIndex === -1) {
+                throw new Error("결정 기록에 필요한 '# Investment Decision' 또는 '# Decision' 제목이 없습니다.");
+              }
+
+              const nextH1Match = originalContent.slice(decisionIndex + decisionHeader.length).match(/\n#[^#\n]/);
+              let endIndex = originalContent.length;
+              if (nextH1Match) endIndex = decisionIndex + decisionHeader.length + nextH1Match.index + 1;
+              const section = originalContent.slice(decisionIndex, endIndex);
+              const separator = /\n---[ \t]*\n?$/.exec(section);
+              const insertAt = separator ? decisionIndex + separator.index : endIndex;
+              const safeNote = String(note || "-").replace(/[\r\n]+/g, " ").trim() || "-";
+              const entry = [
+                "",
+                `### ${todayStr} · ${display.status(opt.key)}`,
+                "",
+                `- ${display.property("decision_reason")}: ${reason}`,
+                `- ${display.property("my_opinion")}: ${safeNote}`,
+                ""
+              ].join("\n");
+              const updatedContent = originalContent.slice(0, insertAt).trimEnd() + "\n" + entry + originalContent.slice(insertAt);
+              let bodyWritten = false;
+              try {
+                await app.vault.modify(tFile, updatedContent);
+                bodyWritten = true;
                 await app.fileManager.processFrontMatter(tFile, (fm) => {
                   fm.status = opt.key;
                   fm.decision_reason = reason;
                   fm.decision_date = todayStr;
                   fm.updated = todayStr;
                   fm.my_opinion = note || "";
-                  
-                 if (opt.key === 'won' || opt.key === 'lost') {
-                   if (actualBid) fm.my_bid_price = Number(actualBid) || actualBid;
-                 }
-                });
-                
-                let content = await app.vault.read(tFile);
-                let decisionHeader = "# Investment Decision";
-                let decisionIndex = content.indexOf(decisionHeader);
-                if (decisionIndex === -1) {
-                  decisionHeader = "# Decision";
-                  decisionIndex = content.indexOf(decisionHeader);
-                }
-                if (decisionIndex !== -1) {
-                  const nextH1Match = content.slice(decisionIndex + decisionHeader.length).match(/\n#[^#\n]/);
-                  let endIndex = content.length;
-                  if (nextH1Match) {
-                    endIndex = decisionIndex + decisionHeader.length + nextH1Match.index + 1;
+                  if (opt.key === "won" || opt.key === "lost") {
+                    if (actualBid) fm.my_bid_price = Number(actualBid) || actualBid;
                   }
-                  const section = content.slice(decisionIndex, endIndex);
-                  const separator = /\n---[ \t]*\n?$/.exec(section);
-                  const insertAt = separator ? decisionIndex + separator.index : endIndex;
-                  const safeNote = String(note || "-").replace(/[\r\n]+/g, " ").trim() || "-";
-                  const entry = [
-                    "",
-                    `### ${todayStr} · ${display.status(opt.key)}`,
-                    "",
-                    `- ${display.property("decision_reason")}: ${reason}`,
-                    `- ${display.property("my_opinion")}: ${safeNote}`,
-                    ""
-                  ].join("\n");
-                  const updatedContent = content.slice(0, insertAt).trimEnd() + "\n" + entry + content.slice(insertAt);
-                  await app.vault.modify(tFile, updatedContent);
+                });
+              } catch (error) {
+                if (bodyWritten) {
+                  try {
+                    await app.vault.modify(tFile, originalContent);
+                  } catch (rollbackError) {
+                    error.message = `${error.message || String(error)} (본문 롤백 실패: ${rollbackError.message || String(rollbackError)})`;
+                  }
                 }
-                
-                new Notice(`결정 내용이 성공적으로 포착되고 기록되었습니다.`);
+                throw error;
               }
+              return {
+                ok: true,
+                source: p.file.path,
+                result: { body: true, frontmatter: true, decision_header: decisionHeader }
+              };
+            }, () => {
+              btn.disabled = false;
+              btn.style.opacity = "1";
             }).open();
             return;
           } else {

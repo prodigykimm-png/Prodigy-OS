@@ -120,6 +120,76 @@
     if (!folder) return "";
     return folder + "/" + periodKey(periodId, key) + ".md";
   }
+  function recordName(file) {
+    return String(file && (file.name || file.path || "")).split("/").pop().replace(/\.md$/i, "");
+  }
+
+  function recordFrontmatter(file) {
+    if (!file || typeof file !== "object") return {};
+    if (file.frontmatter && typeof file.frontmatter === "object") return file.frontmatter;
+    if (file.metadata && file.metadata.frontmatter && typeof file.metadata.frontmatter === "object") return file.metadata.frontmatter;
+    if (file.cache && file.cache.frontmatter && typeof file.cache.frontmatter === "object") return file.cache.frontmatter;
+    return {};
+  }
+
+  function recordKeyFromFile(periodId, file) {
+    var id = getPeriod(periodId).id;
+    var frontmatter = recordFrontmatter(file);
+    var start = frontmatter["journal-start-date"] || frontmatter.date || frontmatter.created;
+    if (start) return periodKey(id, start);
+    var name = recordName(file);
+    var pattern = id === "monthly" ? /(\d{4}-\d{2})/ : id === "quarterly" ? /(\d{4}-Q[1-4])/i : /(?:^|\/)(\d{4})(?:\.md)?$/i;
+    var match = name.match(pattern);
+    return match ? periodKey(id, match[1]) : "";
+  }
+
+  function isCompletedRecord(file) {
+    var frontmatter = recordFrontmatter(file);
+    var status = frontmatter.status;
+    if (status === undefined || status === null || String(status).trim() === "") return true;
+    return ["completed", "complete", "validated", "approved", "saved", "done"].indexOf(String(status).trim().toLowerCase()) >= 0;
+  }
+
+  function directionValue(file) {
+    var frontmatter = recordFrontmatter(file);
+    var frontmatterKeys = ["direction", "next_direction", "next-month-direction", "next_month_direction", "next-quarter-direction", "next_quarter_direction", "next-year-direction", "next_year_direction"];
+    for (var i = 0; i < frontmatterKeys.length; i++) {
+      var value = frontmatter[frontmatterKeys[i]];
+      if (value !== undefined) return String(value || "").trim();
+    }
+    var content = file && (file.content || file.text);
+    if (typeof content !== "string") return null;
+    var match = content.match(/^##\s+Next[^#\n]*Direction\s*\n([\s\S]*?)(?=^##\s+|\s*$)/im);
+    if (!match) return "";
+    var body = match[1].trim();
+    return body && body !== "- 기록 없음" ? body : "";
+  }
+
+  function countRecordsInBounds(files, periodId, bounds, options) {
+    var id = getPeriod(periodId).id;
+    var folder = periodFolder(id);
+    if (!folder || !bounds) return 0;
+    var config = options || {};
+    return (Array.isArray(files) ? files : []).filter(function (file) {
+      if (!file || (file.extension && String(file.extension).toLowerCase() !== "md") || String(file.path || "").indexOf(folder + "/") !== 0) return false;
+      var key = recordKeyFromFile(id, file);
+      if (!key) return false;
+      var recordBounds = periodBounds(id, key);
+      if (recordBounds.end < bounds.start || recordBounds.start > bounds.end) return false;
+      if (config.completed !== false && !isCompletedRecord(file)) return false;
+      if (config.direction === true && directionValue(file) === "") return false;
+      return true;
+    }).length;
+  }
+
+  function directionSourcePeriod(periodId) {
+    var id = getPeriod(periodId).id;
+    return id === "quarterly" ? "monthly" : id === "yearly" ? "quarterly" : id;
+  }
+
+  function countDirectionRecords(files, periodId, bounds) {
+    return countRecordsInBounds(files, directionSourcePeriod(periodId), bounds, { completed: true, direction: true });
+  }
 
   function readiness(periodId, counts) {
     var period = getPeriod(periodId);
@@ -151,6 +221,11 @@
     periodDisplay: periodDisplay,
     periodFolder: periodFolder,
     periodPath: periodPath,
+    recordKeyFromFile: recordKeyFromFile,
+    isCompletedRecord: isCompletedRecord,
+    countRecordsInBounds: countRecordsInBounds,
+    directionSourcePeriod: directionSourcePeriod,
+    countDirectionRecords: countDirectionRecords,
     readiness: readiness
   });
   root.JournalPeriodCore = api;

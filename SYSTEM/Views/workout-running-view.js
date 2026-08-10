@@ -12,132 +12,144 @@
   /**
    * Render the running tab panel.
    */
- async function renderRunningPanel(app, panel) {
-   // options is optional — { width, breakpoint }
-   const opts = arguments[2] || {};
-   if (!running || !projection || !healthStoreApi || !storeApi) throw new Error("Running modules are unavailable.");
+async function renderRunningPanel(app, panel) {
+  // options is optional — { width, breakpoint }
+  const opts = arguments[2] || {};
+  if (!running || !projection || !healthStoreApi || !storeApi) throw new Error("Running modules are unavailable.");
+  const isCurrent = typeof opts.isCurrent === "function" ? opts.isCurrent : () => true;
 
-    const adapter = storeApi.createObsidianAdapter(app);
-    const store = healthStoreApi.createHealthStore(adapter);
-    const strengthStore = storeApi.createWorkoutStore(adapter);
+  const adapter = storeApi.createObsidianAdapter(app);
+  const store = healthStoreApi.createHealthStore(adapter);
+  const strengthStore = storeApi.createWorkoutStore(adapter);
+  let renderGeneration = 0;
 
-    async function loadAll() {
-      const [activities, sessions] = await Promise.all([
-        store.list("runActivities"),
-        strengthStore.listSessions(),
-      ]);
-      return projection.buildRunningModel(activities, sessions);
+  async function loadAll() {
+    const [activities, sessions] = await Promise.all([
+      store.list("runActivities"),
+      strengthStore.listSessions(),
+    ]);
+    return projection.buildRunningModel(activities, sessions);
+  }
+
+  function render() {
+    const generation = ++renderGeneration;
+    const previousError = panel.querySelector && panel.querySelector(".workout-panel-error");
+    if (previousError) panel.empty();
+    if (panel.setAttribute) panel.setAttribute("aria-busy", "true");
+    let loading = panel.querySelector && panel.querySelector(".workout-panel-loading");
+    if (!loading) {
+      loading = panel.createEl("p", { text: "러닝 데이터를 불러오는 중…", attr: { class: "workout-muted workout-panel-loading", role: "status", "aria-live": "polite" } });
     }
-
-    function render() {
+    return loadAll().then(({ activities, legacy, all }) => {
+      if (!isCurrent() || generation !== renderGeneration) return;
+      if (panel.setAttribute) panel.setAttribute("aria-busy", "false");
       panel.empty();
 
-      loadAll().then(({ activities, legacy, all }) => {
-        panel.empty();
-
-        // Latest activity summary
-        if (all.length) {
-          const latest = all[0];
-          const summaryCard = panel.createDiv({ attr: { class: "workout-running-latest" } });
-          summaryCard.createEl("h3", { text: "최근 활동" });
-          const grid = summaryCard.createDiv({ attr: { class: "workout-running-stats" } });
-          const stats = [
-            { label: "거리", value: running.formatDistance(latest.distance_m) },
-            { label: "시간", value: running.formatDuration(latest.elapsed_s) },
-            { label: "페이스", value: running.formatPace(latest.pace_s_per_km) },
-          ];
-          if (latest.avg_hr) stats.push({ label: "평균 심박", value: `${latest.avg_hr} bpm` });
-          if (latest.elevation_gain_m) stats.push({ label: "획득 고도", value: `${latest.elevation_gain_m} m` });
-          if (latest.calories_kcal) stats.push({ label: "칼로리", value: `${latest.calories_kcal} kcal` });
-          stats.forEach((s) => {
-            const chip = grid.createDiv({ attr: { class: "workout-running-stat" } });
-            chip.createEl("span", { text: s.label, attr: { class: "workout-running-stat-label" } });
-            chip.createEl("strong", { text: s.value, attr: { class: "workout-running-stat-value" } });
-          });
-          summaryCard.createEl("p", { text: clean(latest.start_time).slice(0, 16).replace("T", " "), attr: { class: "workout-muted" } });
-          if (latest.data_quality === "summary_only") {
-            summaryCard.createEl("p", { text: "요약 기록 (구간 정보 없음)", attr: { class: "workout-muted workout-running-quality" } });
-          }
-
-          // Splits
-          if (latest.splits && latest.splits.length) {
-            const splitsArea = panel.createDiv({ attr: { class: "workout-running-splits" } });
-            splitsArea.createEl("h3", { text: "구간" });
-            const table = splitsArea.createEl("table", { attr: { class: "workout-running-split-table" } });
-            const thead = table.createEl("thead");
-            const headRow = thead.createEl("tr");
-            ["#", "거리", "시간", "페이스"].forEach((h) => headRow.createEl("th", { text: h }));
-            const tbody = table.createEl("tbody");
-            latest.splits.forEach((s) => {
-              const row = tbody.createEl("tr");
-              row.createEl("td", { text: String(s.split_index + 1) });
-              row.createEl("td", { text: running.formatDistance(s.distance_m) });
-              row.createEl("td", { text: running.formatDuration(s.duration_s) });
-              row.createEl("td", { text: running.formatPace(s.pace_s_per_km) });
-            });
-          }
-        } else {
-          panel.createEl("p", { text: "러닝 기록이 없습니다. 파일을 가져오거나 직접 기록하세요.", attr: { class: "workout-empty" } });
+      // Latest activity summary
+      if (all.length) {
+        const latest = all[0];
+        const summaryCard = panel.createDiv({ attr: { class: "workout-running-latest" } });
+        summaryCard.createEl("h3", { text: "최근 활동" });
+        const grid = summaryCard.createDiv({ attr: { class: "workout-running-stats" } });
+        const stats = [
+          { label: "거리", value: running.formatDistance(latest.distance_m) },
+          { label: "시간", value: running.formatDuration(latest.elapsed_s) },
+          { label: "페이스", value: running.formatPace(latest.pace_s_per_km) },
+        ];
+        if (latest.avg_hr) stats.push({ label: "평균 심박", value: `${latest.avg_hr} bpm` });
+        if (latest.elevation_gain_m) stats.push({ label: "획득 고도", value: `${latest.elevation_gain_m} m` });
+        if (latest.calories_kcal) stats.push({ label: "칼로리", value: `${latest.calories_kcal} kcal` });
+        stats.forEach((s) => {
+          const chip = grid.createDiv({ attr: { class: "workout-running-stat" } });
+          chip.createEl("span", { text: s.label, attr: { class: "workout-running-stat-label" } });
+          chip.createEl("strong", { text: s.value, attr: { class: "workout-running-stat-value" } });
+        });
+        summaryCard.createEl("p", { text: clean(latest.start_time).slice(0, 16).replace("T", " "), attr: { class: "workout-muted" } });
+        if (latest.data_quality === "summary_only") {
+          summaryCard.createEl("p", { text: "요약 기록 (구간 정보 없음)", attr: { class: "workout-muted workout-running-quality" } });
         }
 
-        // Weekly trends
-        if (all.length) {
-          const trends = running.weeklyTrends(all, today(), 6);
-          const trendArea = panel.createDiv({ attr: { class: "workout-running-trends" } });
-          trendArea.createEl("h3", { text: "최근 6주" });
-          const trendGrid = trendArea.createDiv({ attr: { class: "workout-running-trend-grid" } });
-          trends.forEach((w) => {
-            const cell = trendGrid.createDiv({ attr: { class: "workout-running-trend-cell" } });
-            cell.createEl("span", { text: w.start.slice(5), attr: { class: "workout-muted" } });
-            cell.createEl("strong", { text: w.distance_m > 0 ? `${(w.distance_m / 1000).toFixed(1)} km` : "—" });
-            cell.createEl("span", { text: w.count ? `${w.count}회` : "", attr: { class: "workout-muted" } });
+        // Splits
+        if (latest.splits && latest.splits.length) {
+          const splitsArea = panel.createDiv({ attr: { class: "workout-running-splits" } });
+          splitsArea.createEl("h3", { text: "구간" });
+          const table = splitsArea.createEl("table", { attr: { class: "workout-running-split-table" } });
+          const thead = table.createEl("thead");
+          const headRow = thead.createEl("tr");
+          ["#", "거리", "시간", "페이스"].forEach((h) => headRow.createEl("th", { text: h }));
+          const tbody = table.createEl("tbody");
+          latest.splits.forEach((s) => {
+            const row = tbody.createEl("tr");
+            row.createEl("td", { text: String(s.split_index + 1) });
+            row.createEl("td", { text: running.formatDistance(s.distance_m) });
+            row.createEl("td", { text: running.formatDuration(s.duration_s) });
+            row.createEl("td", { text: running.formatPace(s.pace_s_per_km) });
           });
+        }
+      } else {
+        panel.createEl("p", { text: "러닝 기록이 없습니다. 파일을 가져오거나 직접 기록하세요.", attr: { class: "workout-empty" } });
+      }
 
-          // Weighted pace
-          const avgPace = running.weightedAveragePace(all, today(), 4);
-          if (avgPace) {
-            trendArea.createEl("p", { text: `최근 4주 평균 페이스: ${running.formatPace(avgPace)}`, attr: { class: "workout-muted workout-running-avg-pace" } });
+      // Weekly trends
+      if (all.length) {
+        const trends = running.weeklyTrends(all, today(), 6);
+        const trendArea = panel.createDiv({ attr: { class: "workout-running-trends" } });
+        trendArea.createEl("h3", { text: "최근 6주" });
+        const trendGrid = trendArea.createDiv({ attr: { class: "workout-running-trend-grid" } });
+        trends.forEach((w) => {
+          const cell = trendGrid.createDiv({ attr: { class: "workout-running-trend-cell" } });
+          cell.createEl("span", { text: w.start.slice(5), attr: { class: "workout-muted" } });
+          cell.createEl("strong", { text: w.distance_m > 0 ? `${(w.distance_m / 1000).toFixed(1)} km` : "—" });
+          cell.createEl("span", { text: w.count ? `${w.count}회` : "", attr: { class: "workout-muted" } });
+        });
+
+        // Weighted pace
+        const avgPace = running.weightedAveragePace(all, today(), 4);
+        if (avgPace) {
+          trendArea.createEl("p", { text: `최근 4주 평균 페이스: ${running.formatPace(avgPace)}`, attr: { class: "workout-muted workout-running-avg-pace" } });
+        }
+      }
+
+      // History list
+      if (all.length > 1) {
+        const historyArea = panel.createDiv({ attr: { class: "workout-running-history" } });
+        historyArea.createEl("h3", { text: "활동 기록" });
+        all.slice(0, 20).forEach((act) => {
+          const row = historyArea.createDiv({ attr: { class: "workout-running-history-row" } });
+          const info = row.createDiv({ attr: { class: "workout-running-history-info" } });
+          info.createEl("strong", { text: running.formatDistance(act.distance_m) });
+          info.createEl("span", { text: `${running.formatDuration(act.elapsed_s)} · ${running.formatPace(act.pace_s_per_km)}`, attr: { class: "workout-muted" } });
+          const meta = row.createDiv({ attr: { class: "workout-running-history-meta" } });
+          meta.createEl("span", { text: clean(act.start_time).slice(0, 10), attr: { class: "workout-muted" } });
+          if (act.source === "legacy_quick_session") {
+            meta.createEl("span", { text: act._legacy_title || "빠른 운동", attr: { class: "workout-running-legacy-tag" } });
+          } else if (act.data_quality === "summary_only") {
+            meta.createEl("span", { text: "요약", attr: { class: "workout-running-summary-tag" } });
           }
-        }
+        });
+      }
 
-        // History list
-        if (all.length > 1) {
-          const historyArea = panel.createDiv({ attr: { class: "workout-running-history" } });
-          historyArea.createEl("h3", { text: "활동 기록" });
-          all.slice(0, 20).forEach((act) => {
-            const row = historyArea.createDiv({ attr: { class: "workout-running-history-row" } });
-            const info = row.createDiv({ attr: { class: "workout-running-history-info" } });
-            info.createEl("strong", { text: running.formatDistance(act.distance_m) });
-            info.createEl("span", { text: `${running.formatDuration(act.elapsed_s)} · ${running.formatPace(act.pace_s_per_km)}`, attr: { class: "workout-muted" } });
-            const meta = row.createDiv({ attr: { class: "workout-running-history-meta" } });
-            meta.createEl("span", { text: clean(act.start_time).slice(0, 10), attr: { class: "workout-muted" } });
-            if (act.source === "legacy_quick_session") {
-              meta.createEl("span", { text: act._legacy_title || "빠른 운동", attr: { class: "workout-running-legacy-tag" } });
-            } else if (act.data_quality === "summary_only") {
-              meta.createEl("span", { text: "요약", attr: { class: "workout-running-summary-tag" } });
-            }
-          });
-        }
+      // Actions
+      const actions = panel.createDiv({ attr: { class: "workout-running-actions" } });
+      const importBtn = actions.createEl("button", { text: "러닝 기록 가져오기", attr: { class: "workout-button mod-cta", type: "button" } });
+      const manualBtn = actions.createEl("button", { text: "직접 기록", attr: { class: "workout-button", type: "button" } });
+      const appleBtn = actions.createEl("button", { text: "Apple Health 과거 기록 1회 가져오기", attr: { class: "workout-button", type: "button" } });
 
-        // Actions
-        const actions = panel.createDiv({ attr: { class: "workout-running-actions" } });
-        const importBtn = actions.createEl("button", { text: "러닝 기록 가져오기", attr: { class: "workout-button mod-cta", type: "button" } });
-        const manualBtn = actions.createEl("button", { text: "직접 기록", attr: { class: "workout-button", type: "button" } });
-        const appleBtn = actions.createEl("button", { text: "Apple Health 과거 기록 1회 가져오기", attr: { class: "workout-button", type: "button" } });
-
-        importBtn.onclick = () => openRunImportModal(app, store, render);
-        manualBtn.onclick = () => openRunManualModal(app, store, render);
-        appleBtn.onclick = () => openAppleHealthModal(app, store, render);
-      }).catch((err) => {
-        panel.empty();
-        panel.createEl("p", { text: `러닝 데이터를 불러오지 못했습니다: ${err.message}`, attr: { class: "workout-error" } });
-        const retryBtn = panel.createEl("button", { text: "다시 시도", attr: { class: "workout-button", type: "button" } });
-        retryBtn.onclick = render;
-      });
-    }
-
-    render();
+      importBtn.onclick = () => openRunImportModal(app, store, render);
+      manualBtn.onclick = () => openRunManualModal(app, store, render);
+      appleBtn.onclick = () => openAppleHealthModal(app, store, render);
+    }).catch((err) => {
+      if (!isCurrent() || generation !== renderGeneration) return;
+      if (panel.setAttribute) panel.setAttribute("aria-busy", "false");
+      panel.empty();
+      panel.createEl("p", { text: `러닝 데이터를 불러오지 못했습니다: ${err.message}`, attr: { class: "workout-error" } });
+      const retryBtn = panel.createEl("button", { text: "다시 시도", attr: { class: "workout-button", type: "button" } });
+      retryBtn.onclick = render;
+    });
   }
+
+  return render();
+}
 
   function openRunImportModal(app, store, onDone) {
     const ModalBase = (root.obsidian && root.obsidian.Modal) || (typeof root.Modal === "function" ? root.Modal : null);

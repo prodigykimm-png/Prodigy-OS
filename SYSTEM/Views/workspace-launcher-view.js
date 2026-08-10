@@ -130,9 +130,29 @@
     style.textContent = CSS;
   }
 
-  function openPath(app, path) {
-    if (!app || !path || !app.workspace || !app.workspace.openLinkText) return;
-    app.workspace.openLinkText(path, path, false);
+  function resolveNavigation() {
+    if (root.ProdigyWorkspaceNavigation) return root.ProdigyWorkspaceNavigation;
+    if (typeof require === "function") {
+      try { return require("./workspace-navigation.js"); } catch (_error) { return null; }
+    }
+    return null;
+  }
+
+  function openPath(app, path, options) {
+    const navigation = resolveNavigation();
+    if (navigation && typeof navigation.openPath === "function") {
+      return navigation.openPath(app, path, options || {});
+    }
+    const opts = options || {};
+    if (opts.container && navigation && typeof navigation.renderOpenError === "function") {
+      navigation.renderOpenError(opts.container, new Error("workspace navigation unavailable"), {
+        title: opts.title || "워크스페이스",
+        retry: () => openPath(app, path, opts)
+      });
+    } else if (typeof root.Notice === "function") {
+      new root.Notice("워크스페이스를 열 수 없습니다. 다시 시도해 주세요.");
+    }
+    return Promise.resolve({ ok: false, path: path || "" });
   }
 
   /**
@@ -240,15 +260,26 @@
       });
       btn.onclick = (ev) => {
         if (ev && ev.stopPropagation) ev.stopPropagation();
-        // Launcher navigates to Workspace Dashboard only
-        openPath(app, card.path);
+        const exactTarget = card.continuation_path
+          || (card.continue_target && (card.continue_target.object_path
+            || card.continue_target.target_path
+            || card.continue_target.source_path))
+          || "";
+        const isContinue = verb === "계속" || verb === "이어 읽기";
+        const target = isContinue && exactTarget ? exactTarget : card.path;
+        openPath(app, target, {
+          container: rootEl,
+          title: card.name || "워크스페이스",
+          label: card.name || "워크스페이스"
+        });
       };
     });
   }
 
   const api = {
     render,
-    ensureStyles
+    ensureStyles,
+    openPath
   };
 
   root.WorkspaceLauncherView = api;

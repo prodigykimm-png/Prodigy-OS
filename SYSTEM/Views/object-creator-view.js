@@ -73,6 +73,9 @@
 .poc-footer button{min-height:40px;padding:6px 14px;font:inherit}
 .poc-status{margin-top:8px;font-size:0.78em;color:var(--text-muted);min-height:1.2em}
 .poc-status.is-error{color:var(--text-error)}
+.poc-status.is-success{color:var(--text-success,var(--text-accent))}
+.poc-source{margin:0 0 10px;padding:7px 9px;border-radius:7px;background:var(--background-secondary);border:1px solid var(--background-modifier-border);font-size:.78em;color:var(--text-muted);overflow-wrap:anywhere}
+.poc-source strong{color:var(--text-normal)}
 @media(max-width:480px){
   .poc-dup-actions button{width:100%}
   .poc-footer{flex-direction:column}
@@ -98,13 +101,51 @@
       new Notice(msg, t || 5000);
     }
   }
+  function activeElement() {
+    const browserWindow = typeof window !== "undefined" ? window : root;
+    const doc = root.document || browserWindow.document;
+    return doc && doc.activeElement ? doc.activeElement : null;
+  }
+
+  function restoreFocus(element) {
+    if (!element || typeof element.focus !== "function") return;
+    if (element.isConnected === false) return;
+    try { element.focus(); } catch (_e) { /* ignore */ }
+  }
+
+  function confirmClose(options, modal) {
+    if (!options || !options.confirmBeforeClose) return true;
+    if (typeof options.confirmBeforeClose === "function") {
+      return options.confirmBeforeClose(modal) !== false;
+    }
+    const browserWindow = typeof window !== "undefined" ? window : root;
+    return typeof browserWindow.confirm === "function"
+      ? browserWindow.confirm("Object Creator를 닫을까요? 입력한 내용은 유지되지 않습니다.")
+      : true;
+  }
+
+  function sourceLabel(source) {
+    if (!source) return "";
+    if (typeof source === "string") return source.trim();
+    return String(source.path || source.title || source.label || "").trim();
+  }
 
   /**
+   * Open the existing Object creation boundary.
    * @param {object} app
    * @param {object} [options]
    * @param {object} [options.pkg] Morning package for similar/recent
    * @param {string} [options.initialText]
+   * @param {object|string} [options.source] Source metadata retained for callbacks
+   * @param {HTMLElement} [options.openerEl] Element to focus after close
+   * @param {boolean} [options.keepOpenOnSuccess] Keep the modal open after a delegated save
+   * @param {boolean|function} [options.confirmBeforeClose] Require explicit close confirmation
+   * @param {function} [options.onStateChange] Lifecycle callback: pending/success/error/closed
+   * @param {function} [options.onSuccess] Called after the existing creator succeeds
+   * @param {function} [options.onReview] Called when the explicit review action is chosen
+   * @param {function} [options.onClose] Called after the modal closes
    */
+
   function open(app, options) {
     const opts = options || {};
     const host = app || root.app || (typeof window !== "undefined" ? window.app : null);
@@ -137,13 +178,35 @@
     class UniversalObjectCreatorModal extends Modal {
       constructor(appInstance) {
         super(appInstance);
+        this.app = appInstance;
         this.text = String(opts.initialText || "");
         this.selectedId = "";
         this.classification = core.classify(this.text);
         this.busy = false;
+        this.source = opts.source || null;
+        this.openerEl = opts.openerEl || activeElement();
+        this.lastResult = null;
+        this.lifecycleState = "idle";
+        this.reviewBtn = null;
         if (this.classification.selected) {
           this.selectedId = this.classification.selected.id;
         }
+      }
+      notifyState(state, extra) {
+        this.lifecycleState = state;
+        if (typeof opts.onStateChange !== "function") return;
+        try {
+          opts.onStateChange(Object.assign({
+            state,
+            source: this.source,
+            modal: this
+          }, extra || {}));
+        } catch (_e) { /* lifecycle observers must not break creation */ }
+      }
+      closeWithConfirmation() {
+        if (this.busy || !confirmClose(opts, this)) return false;
+        this.close();
+        return true;
       }
 
       reclassify() {
@@ -175,6 +238,13 @@
           text: "무엇을 만드는지 적으면 유형을 제안합니다. 실행은 기존 생성 흐름을 씁니다.",
           attr: { class: "poc-sub" }
         });
+        const sourcePath = sourceLabel(this.source);
+        if (sourcePath) {
+          contentEl.createEl("div", {
+            text: `원본: ${sourcePath}`,
+            attr: { class: "poc-source", "aria-label": `원본 ${sourcePath}` }
+          });
+        }
 
         contentEl.createEl("label", {
           text: "무엇을 만드시나요?",
@@ -195,25 +265,42 @@
         const dupBox = contentEl.createDiv({ attr: { class: "poc-dup" } });
         const recentBox = contentEl.createDiv({ attr: { class: "poc-recent" } });
         const footer = contentEl.createDiv({ attr: { class: "poc-footer" } });
-        const statusEl = contentEl.createEl("div", { text: "", attr: { class: "poc-status" } });
+        const statusEl = contentEl.createEl("div", { text: "", attr: { class: "poc-status", role: "status", "aria-live": "polite" } });
 
-        const cancelBtn = footer.createEl("button", { text: "취소", attr: { type: "button" } });
-        cancelBtn.onclick = () => this.close();
+        const cancelBtn = footer.createEl("button", {
+          text: "취소",
+          attr: { type: "button", "aria-label": "Object Creator 닫기" }
+        });
+        cancelBtn.onclick = () => this.closeWithConfirmation();
 
         this.createBtn = footer.createEl("button", {
           text: "새로 만들기",
           attr: { type: "button", class: "mod-cta" }
         });
+        if (opts.keepOpenOnSuccess || typeof opts.onReview === "function") {
+          this.reviewBtn = footer.createEl("button", {
+            text: "검증 대기 열기",
+            attr: { type: "button" }
+          });
+          this.reviewBtn.disabled = true;
+        }
 
         const paint = () => {
           const hasText = !!String(this.text || "").trim();
           const sel = this.selectedCandidate();
-          this.createBtn.disabled = !hasText || this.busy || !this.selectedId;
+          this.createBtn.disabled = !hasText || this.busy || !this.selectedId || this.lifecycleState === "success";
           this.createBtn.setText(
-            hasText && this.selectedId && core.createActionLabel
-              ? core.createActionLabel(this.selectedId)
-              : "새로 만들기"
+            this.lifecycleState === "success"
+              ? "완료"
+              : this.lifecycleState === "error"
+                ? "다시 시도"
+                : hasText && this.selectedId && core.createActionLabel
+                  ? core.createActionLabel(this.selectedId)
+                  : "새로 만들기"
           );
+          if (this.reviewBtn) {
+            this.reviewBtn.disabled = this.busy || this.lifecycleState !== "success";
+          }
           suggestSection.empty();
           reasonBox.empty();
           dupBox.empty();
@@ -371,28 +458,75 @@
 
         // Create-anyway — always available; never blocked by duplicates
         this.createBtn.onclick = async () => {
-          if (this.busy || !String(this.text || "").trim() || !this.selectedId) return;
+          if (this.busy || !String(this.text || "").trim() || !this.selectedId || this.lifecycleState === "success") return;
           this.busy = true;
+          this.lifecycleState = "pending";
           this.createBtn.disabled = true;
           statusEl.removeClass("is-error");
+          statusEl.removeClass("is-success");
           statusEl.setText("만드는 중…");
+          this.notifyState("pending", { typeId: this.selectedId, text: this.text });
           try {
             const result = await core.launchExistingCreator(
               this.app,
               this.selectedId,
-              this.text
+              this.text,
+              { source: this.source }
             );
-            notice(result.message || "완료했습니다.");
-            this.close();
+            this.lastResult = result || { ok: true };
+            this.busy = false;
+            this.lifecycleState = "success";
+            statusEl.addClass("is-success");
+            statusEl.setText("완료했습니다. 검증 대기를 열 수 있습니다.");
+            notice(this.lastResult.message || "완료했습니다.");
+            if (typeof opts.onSuccess === "function") {
+              try { await opts.onSuccess({ result: this.lastResult, source: this.source, modal: this }); } catch (_e) { /* observer only */ }
+            }
+            this.notifyState("success", { result: this.lastResult, typeId: this.selectedId, text: this.text });
+            paint();
+            if (!opts.keepOpenOnSuccess) this.close();
           } catch (error) {
             this.busy = false;
+            this.lifecycleState = "error";
             this.createBtn.disabled = false;
+            statusEl.removeClass("is-success");
             statusEl.addClass("is-error");
-            statusEl.setText(error.message || String(error));
+            statusEl.setText(`오류: ${error.message || String(error)} — 다시 시도해 주세요.`);
             notice(error.message || String(error), 9000);
+            this.notifyState("error", { error, typeId: this.selectedId, text: this.text, retry: true });
             paint();
           }
         };
+
+        if (this.reviewBtn) {
+          this.reviewBtn.onclick = async () => {
+            if (this.busy || this.lifecycleState !== "success") return;
+            this.busy = true;
+            this.reviewBtn.disabled = true;
+            statusEl.removeClass("is-error");
+            statusEl.setText("검증 대기를 여는 중…");
+            try {
+              let result;
+              if (typeof opts.onReview === "function") {
+                result = await opts.onReview({ result: this.lastResult, source: this.source, modal: this });
+              } else if (this.lastResult && this.lastResult.path && typeof core.openExistingObject === "function") {
+                result = await core.openExistingObject(this.app, this.lastResult);
+              }
+              if (result && result.ok === false) throw new Error(result.error || "검증 대기를 열 수 없습니다.");
+              statusEl.removeClass("is-error");
+              statusEl.addClass("is-success");
+              statusEl.setText("검증 대기를 열었습니다.");
+              this.notifyState("review", { result: result || this.lastResult, source: this.source });
+            } catch (error) {
+              statusEl.addClass("is-error");
+              statusEl.setText(`검증 대기를 열 수 없습니다. ${error.message || String(error)} — 다시 시도해 주세요.`);
+              this.notifyState("error", { error, action: "review", retry: true });
+            } finally {
+              this.busy = false;
+              paint();
+            }
+          };
+        }
 
         input.onkeydown = (e) => {
           if (e && e.key === "Enter" && !e.isComposing) {
@@ -409,6 +543,11 @@
 
       onClose() {
         this.contentEl.empty();
+        this.notifyState("closed", { result: this.lastResult });
+        restoreFocus(this.openerEl);
+        if (typeof opts.onClose === "function") {
+          try { opts.onClose({ result: this.lastResult, source: this.source, modal: this }); } catch (_e) { /* observer only */ }
+        }
       }
     }
 

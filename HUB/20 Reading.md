@@ -146,14 +146,6 @@ const ensureRuntimeModel = (force) => {
   }
 };
 
-const scrollToReadingPath = (path) => {
-  if (!path) return;
-  const root = document;
-  const el = root.querySelector && root.querySelector(`[data-reading-path="${CSS && CSS.escape ? CSS.escape(path) : path}"]`);
-  if (el && el.scrollIntoView) {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-};
 
 const openContinueSession = (cont) => {
   if (!cont || !cont.object_path || !window.ReadingView || !window.ReadingCore) return;
@@ -240,7 +232,14 @@ const run = () => {
     const read = window.ProdigyUI.button(actions, "오늘 읽기", { primary: true });
     read.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); openContinueSession(target); };
     const focusButton = window.ProdigyUI.button(actions, "이 책 포커스");
-    focusButton.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); scrollToReadingPath(target.focus_path || target.object_path); };
+    focusButton.onclick = (event) => {
+      if (event && event.preventDefault) event.preventDefault();
+      if (responsive && typeof responsive.focusCard === "function") {
+        responsive.focusCard(target.focus_path || target.object_path, { opener: focusButton });
+        return;
+      }
+      if (window.Notice) new window.Notice("독서 목록이 아직 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.");
+    };
     const knowledge = window.ProdigyUI.button(actions, "Knowledge Explorer에서 검토");
     knowledge.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); window.ReadingView.openKnowledgeExplorer(app); };
   };

@@ -36,6 +36,63 @@
   function wikilinkToPath(link) {
     return String(link || "").replace(/^\[\[/, "").replace(/\]\]$/, "").split("|")[0].split("#")[0].trim();
   }
+  function venueKnowledgeRow(item) {
+    if (root.PeopleView && typeof root.PeopleView.typedKnowledgeRow === "function") {
+      return root.PeopleView.typedKnowledgeRow(item);
+    }
+    const raw = item && typeof item === "object" ? item : { path: item };
+    const path = wikilinkToPath(raw.path || raw.candidate_path || raw.approved_path);
+    if (!path) return null;
+    const type = String(raw.bucket || raw.type || "").toLowerCase();
+    const candidatePath = raw.candidate_path || (type === "knowledge_candidate" || /knowledge[\\/]candidates/i.test(path) ? path : "");
+    const approvedPath = raw.approved_path || (type === "knowledge" || type === "permanent_note" || /zeta[\\/]permanent/i.test(path) ? path : "");
+    const kind = candidatePath ? "candidate" : approvedPath ? "approved" : "source";
+    return Object.assign({}, raw, {
+      path,
+      title: String(raw.title || path.split("/").pop().replace(/\.md$/i, "")),
+      context_kind: kind,
+      source_path: raw.source_path || (kind === "source" ? path : ""),
+      candidate_path: candidatePath,
+      approved_path: approvedPath,
+      status: String(raw.status || ""),
+      quality: String(raw.quality || ""),
+      source_refs: Array.isArray(raw.source_refs) ? raw.source_refs.slice() : [],
+      candidate_id: String(raw.candidate_id || ""),
+      review_target: candidatePath || approvedPath || path
+    });
+  }
+
+  function applyVenueKnowledgeMetadata(element, item) {
+    if (!element || !item || typeof element.setAttribute !== "function") return;
+    const attrs = {
+      "data-context-kind": item.context_kind || "source",
+      "data-source-path": item.source_path || "",
+      "data-candidate-path": item.candidate_path || "",
+      "data-approved-path": item.approved_path || "",
+      "data-status": item.status || "",
+      "data-quality": item.quality || "",
+      "data-candidate-id": item.candidate_id || "",
+      "data-review-target": item.review_target || item.path || ""
+    };
+    Object.keys(attrs).forEach((key) => {
+      if (attrs[key]) element.setAttribute(key, attrs[key]);
+    });
+  }
+
+  async function openVenueKnowledgeContext(app, item) {
+    const row = venueKnowledgeRow(item);
+    if (!row) return null;
+    if (root.PeopleView && typeof root.PeopleView.openKnowledgeContext === "function") {
+      return root.PeopleView.openKnowledgeContext(app, row);
+    }
+    if (row.context_kind === "candidate") {
+      const hub = root.KnowledgeExplorerHub || (root.KnowledgeExplorerHub = {});
+      if (row.candidate_id) hub._pendingCandidateId = row.candidate_id;
+      const route = root.KnowledgeWorkspaceRoute;
+      if (route && typeof route.openReview === "function") return route.openReview(app);
+    }
+    return openPath(app, row.review_target || row.path);
+  }
 
   /**
    * Reverse-index related journal links: scan DAILY/DAILY pages for outlinks /
@@ -79,50 +136,52 @@
       const style = document.createElement("style");
       style.id = "prodigy-venue-styles";
       style.textContent = [
-        ".ppv-venue-list{display:flex;flex-direction:column;gap:6px}",
-        ".ppv-venue-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--background-modifier-border);border-radius:8px;cursor:pointer}",
+        ".ppv-venue-list{display:flex;flex-direction:column;gap:var(--ke-space-2,4px);min-inline-size:0}",
+        ".ppv-venue-row{display:flex;align-items:center;gap:var(--ke-space-3,8px);padding:var(--ke-space-3,8px) var(--ke-space-4,12px);border:1px solid var(--background-modifier-border);border-radius:var(--ke-radius-panel,8px);cursor:pointer;min-block-size:var(--ke-touch-target,44px);min-inline-size:0;overflow-wrap:anywhere}",
         ".ppv-venue-row:hover{background:var(--background-modifier-hover)}",
-        ".ppv-venue-title{font-weight:700;font-size:.95em}",
-        ".ppv-venue-meta{font-size:.78em;color:var(--text-muted)}",
-        ".ppv-venue-actions{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--background-modifier-border)}",
-        ".ppv-venue-chip{display:inline-block;padding:2px 8px;border-radius:10px;background:var(--background-modifier-hover);font-size:.76em;margin:2px 4px 0 0}",
-        ".ppv-venue-section{margin:10px 0}",
-        ".ppv-venue-section-label{font-size:.8em;font-weight:700;color:var(--text-muted);margin-bottom:4px}",
-        ".ppv-venue-section-body{font-size:.9em;white-space:pre-wrap;color:var(--text-normal)}",
-        ".ppv-venue-empty{color:var(--text-muted);font-size:.85em}",
-        ".ppv-venue-workspace{display:flex;flex-direction:column;gap:10px}",
-        ".ppv-venue-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}",
-        ".ppv-venue-header h1{margin:0;font-size:1.35em}",
-        ".ppv-venue-header p{margin:4px 0 0;color:var(--text-muted);font-size:.84em}",
-        ".ppv-venue-toolbar{display:grid;gap:8px;padding:10px;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-secondary)}",
-        ".ppv-venue-toolbar-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
-        ".ppv-venue-toolbar-label{min-width:50px;color:var(--text-muted);font-size:.8em;font-weight:700}",
-        ".ppv-venue-search{flex:1;min-width:180px;min-height:34px;padding:6px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal)}",
-        ".ppv-venue-select{min-height:32px;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal)}",
-        ".ppv-venue-count{color:var(--text-muted);font-size:.82em}",
-        ".ppv-venue-master-detail{display:grid;grid-template-columns:minmax(240px, .9fr) minmax(300px, 1.1fr);gap:12px;min-height:220px}",
-        ".ppv-venue-list-pane,.ppv-venue-detail-pane{min-width:0}",
-        ".ppv-venue-list-pane{display:flex;flex-direction:column;gap:6px;max-height:68vh;overflow:auto;padding-right:2px}",
-        ".ppv-venue-card{padding:10px 12px;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-primary);cursor:pointer}",
+        ".ppv-venue-title{font-weight:700;font-size:var(--ke-type-body,.84rem);overflow-wrap:anywhere}",
+        ".ppv-venue-meta{font-size:var(--ke-type-label,.72rem);color:var(--text-muted);overflow-wrap:anywhere}",
+        ".ppv-venue-actions{display:flex;gap:var(--ke-space-2,4px);margin-block-start:var(--ke-space-3,8px);padding-block-start:var(--ke-space-3,8px);border-block-start:1px solid var(--background-modifier-border);flex-wrap:wrap}",
+        ".ppv-venue-chip{display:inline-block;padding:var(--ke-space-1,2px) var(--ke-space-2,4px);border-radius:999px;background:var(--background-modifier-hover);font-size:var(--ke-type-chrome,.68rem);margin:var(--ke-space-1,2px) var(--ke-space-2,4px) 0 0;overflow-wrap:anywhere}",
+        ".ppv-venue-section{margin-block:var(--ke-space-3,8px);min-inline-size:0}",
+        ".ppv-venue-section-label{font-size:var(--ke-type-label,.72rem);font-weight:700;color:var(--text-muted);margin-block-end:var(--ke-space-1,2px);overflow-wrap:anywhere}",
+        ".ppv-venue-section-body{font-size:var(--ke-type-body,.84rem);white-space:pre-wrap;color:var(--text-normal);overflow-wrap:anywhere;word-break:keep-all}",
+        ".ppv-venue-empty{color:var(--text-muted);font-size:var(--ke-type-label,.72rem);overflow-wrap:anywhere}",
+        ".ppv-venue-workspace{display:flex;flex-direction:column;gap:var(--ke-space-3,8px);min-inline-size:0;word-break:keep-all;overflow-wrap:anywhere}",
+        ".ppv-venue-header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--ke-space-3,8px);flex-wrap:wrap;min-inline-size:0}",
+        ".ppv-venue-header h1{margin:0;font-size:var(--ke-type-title,1.05rem);overflow-wrap:anywhere}",
+        ".ppv-venue-header p{margin:var(--ke-space-1,2px) 0 0;color:var(--text-muted);font-size:var(--ke-type-body,.84rem);overflow-wrap:anywhere}",
+        ".ppv-venue-toolbar{display:grid;gap:var(--ke-space-2,4px);padding:var(--ke-space-3,8px);border:1px solid var(--background-modifier-border);border-radius:var(--ke-radius-panel,8px);background:var(--background-secondary);min-inline-size:0}",
+        ".ppv-venue-toolbar-row{display:flex;align-items:center;gap:var(--ke-space-2,4px);flex-wrap:wrap;min-inline-size:0}",
+        ".ppv-venue-toolbar-label{min-inline-size:50px;color:var(--text-muted);font-size:var(--ke-type-label,.72rem);font-weight:700;word-break:keep-all}",
+        ".ppv-venue-search,.ppv-venue-select{box-sizing:border-box;min-block-size:var(--ke-touch-target,44px);padding-inline:var(--ke-space-3,8px);border:1px solid var(--background-modifier-border);border-radius:var(--ke-radius-control,4px);background:var(--background-primary);color:var(--text-normal);font:inherit;min-inline-size:0}",
+        ".ppv-venue-search{flex:1;min-inline-size:10rem}",
+        ".ppv-venue-count{color:var(--text-muted);font-size:var(--ke-type-label,.72rem);overflow-wrap:anywhere}",
+        ".ppv-venue-master-detail{display:grid;grid-template-columns:minmax(240px,.9fr) minmax(300px,1.1fr);gap:var(--ke-space-3,8px);min-block-size:0;min-inline-size:0;overflow:visible}",
+        ".ppv-venue-list-pane,.ppv-venue-detail-pane{min-inline-size:0;min-block-size:0;overflow:visible;word-break:keep-all;overflow-wrap:anywhere}",
+        ".ppv-venue-list-pane{display:flex;flex-direction:column;gap:var(--ke-space-2,4px);padding-inline-end:var(--ke-space-1,2px)}",
+        ".ppv-venue-card{padding:var(--ke-space-3,8px) var(--ke-space-4,12px);border:1px solid var(--background-modifier-border);border-radius:var(--ke-radius-panel,8px);background:var(--background-primary);cursor:pointer;min-inline-size:0;overflow-wrap:anywhere}",
         ".ppv-venue-card:hover,.ppv-venue-card.is-selected{background:var(--background-modifier-hover);border-color:var(--text-accent)}",
         ".ppv-venue-card:focus-visible{outline:2px solid var(--text-accent);outline-offset:2px}",
-        ".ppv-venue-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}",
-        ".ppv-venue-card-title{font-weight:700;font-size:.95em}",
-        ".ppv-venue-card-meta{margin-top:3px;color:var(--text-muted);font-size:.8em}",
-        ".ppv-venue-card-sub{margin-top:5px;color:var(--text-muted);font-size:.76em}",
-        ".ppv-venue-detail-pane{padding:14px;border:1px solid var(--background-modifier-border);border-radius:8px;background:var(--background-primary);overflow:auto;max-height:68vh}",
-        ".ppv-venue-detail-head{display:flex;align-items:flex-start;gap:8px;margin-bottom:12px}",
-        ".ppv-venue-detail-head h2{margin:0;font-size:1.15em}",
+        ".ppv-venue-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--ke-space-2,4px);min-inline-size:0;flex-wrap:wrap}",
+        ".ppv-venue-card-title{font-weight:700;font-size:var(--ke-type-body,.84rem);overflow-wrap:anywhere;min-inline-size:0}",
+        ".ppv-venue-card-meta{margin-block-start:var(--ke-space-1,2px);color:var(--text-muted);font-size:var(--ke-type-label,.72rem);overflow-wrap:anywhere}",
+        ".ppv-venue-card-sub{margin-block-start:var(--ke-space-2,4px);color:var(--text-muted);font-size:var(--ke-type-chrome,.68rem);overflow-wrap:anywhere}",
+        ".ppv-venue-detail-pane{padding:var(--ke-space-4,12px);border:1px solid var(--background-modifier-border);border-radius:var(--ke-radius-panel,8px);background:var(--background-primary)}",
+        ".ppv-venue-detail-head{display:flex;align-items:flex-start;gap:var(--ke-space-2,4px);margin-block-end:var(--ke-space-3,8px);min-inline-size:0}",
+        ".ppv-venue-detail-head h2{margin:0;font-size:var(--ke-type-title,1.05rem);overflow-wrap:anywhere}",
         ".ppv-venue-detail-back{display:none}",
-        ".ppv-venue-detail-section{margin:12px 0}",
-        ".ppv-venue-detail-section h3{margin:0 0 5px;font-size:.82em;color:var(--text-muted)}",
-        ".ppv-venue-detail-body{white-space:pre-wrap;font-size:.88em}",
-        ".ppv-venue-detail-link{display:block;width:100%;padding:4px 0;border:0;background:none;color:var(--text-accent);cursor:pointer;text-align:left}",
+        ".ppv-venue-detail-section{margin-block:var(--ke-space-3,8px);min-inline-size:0}",
+        ".ppv-venue-detail-section h3{margin:0 0 var(--ke-space-1,2px);font-size:var(--ke-type-label,.72rem);color:var(--text-muted);overflow-wrap:anywhere}",
+        ".ppv-venue-detail-body{white-space:pre-wrap;font-size:var(--ke-type-body,.84rem);overflow-wrap:anywhere;word-break:keep-all}",
+        ".ppv-venue-detail-link{display:block;width:100%;min-block-size:var(--ke-touch-target,44px);padding:var(--ke-space-2,4px) 0;border:0;background:none;color:var(--text-accent);cursor:pointer;text-align:start;font:inherit;overflow-wrap:anywhere;word-break:keep-all}",
         ".ppv-venue-detail-link:hover{text-decoration:underline}",
-        ".ppv-venue-detail-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--background-modifier-border)}",
-        ".ppv-venue-filter-button{min-height:30px;padding:4px 8px;border:1px solid var(--background-modifier-border);border-radius:5px;background:var(--background-primary);color:var(--text-muted);cursor:pointer;font-size:.78em}",
+        ".ppv-venue-detail-link:focus-visible,.ppv-venue-detail-actions button:focus-visible,.ppv-venue-detail-back:focus-visible{outline:2px solid var(--text-accent);outline-offset:2px}",
+        ".ppv-venue-detail-actions{display:flex;gap:var(--ke-space-2,4px);flex-wrap:wrap;margin-block-start:var(--ke-space-4,12px);padding-block-start:var(--ke-space-3,8px);border-block-start:1px solid var(--background-modifier-border)}",
+        ".ppv-venue-detail-actions button,.ppv-venue-detail-back{min-block-size:var(--ke-touch-target,44px);word-break:keep-all;overflow-wrap:anywhere}",
+        ".ppv-venue-filter-button{min-block-size:var(--ke-touch-target,44px);padding-inline:var(--ke-space-3,8px);border:1px solid var(--background-modifier-border);border-radius:var(--ke-radius-control,4px);background:var(--background-primary);color:var(--text-muted);cursor:pointer;font-size:var(--ke-type-label,.72rem);overflow-wrap:anywhere}",
         ".ppv-venue-filter-button.is-active{background:var(--interactive-accent);border-color:var(--interactive-accent);color:var(--text-on-accent)}",
-        "@media(max-width:760px){.ppv-venue-master-detail{display:block}.ppv-venue-detail-pane{max-height:none}.ppv-venue-master-detail[data-selected=\"true\"] .ppv-venue-list-pane{display:none}.ppv-venue-master-detail[data-selected=\"false\"] .ppv-venue-detail-pane{display:none}.ppv-venue-detail-back{display:inline-flex}}"
+        "@media(max-width:760px){.ppv-venue-master-detail{display:block}.ppv-venue-master-detail[data-selected=\"true\"] .ppv-venue-list-pane{display:none}.ppv-venue-master-detail[data-selected=\"false\"] .ppv-venue-detail-pane{display:none}.ppv-venue-detail-back{display:inline-flex}}"
       ].join("\n");
       document.head.appendChild(style);
     }
@@ -495,6 +554,21 @@
     let model = initialModel;
     let layoutNarrow = Number(container.clientWidth || 0) <= 760;
     let resizeObserver = null;
+    const readState = Object.create(null);
+
+    function knowledgeRowsForVenue(venue) {
+      const raw = venue && (venue.knowledge_context || venue.knowledge_rows || venue.connections);
+      const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+      return values.map((item) => venueKnowledgeRow(item)).filter(Boolean);
+    }
+
+    function enrichVenueModel(nextModel) {
+      const venues = (nextModel.venues || []).map((venue) => Object.assign({}, venue, {
+        read_state: readState[clean(venue.path)] || null,
+        knowledge_rows: knowledgeRowsForVenue(venue)
+      }));
+      return Object.assign({}, nextModel, { venues });
+    }
 
     function button(parent, label, options) {
       const o = options || {};
@@ -533,13 +607,13 @@
     }
 
     function rebuildModel() {
-      model = store.buildVenueWorkspaceModel(rawItems, {
+      model = enrichVenueModel(store.buildVenueWorkspaceModel(rawItems, {
         query: state.query,
         category: state.category,
         connection: state.connection,
         journal: state.journal,
         sort: state.sort
-      });
+      }));
       return model;
     }
 
@@ -547,6 +621,59 @@
       if (path) state.selectedPath = path;
       if (typeof opts.onRefresh === "function") return opts.onRefresh();
       return paint();
+    }
+    async function readVenueBody(item) {
+      const path = clean(item && item.path);
+      if (!path || !app || !app.vault) return false;
+      readState[path] = { status: "loading", error: "" };
+      try {
+        const af = typeof app.vault.getAbstractFileByPath === "function"
+          ? app.vault.getAbstractFileByPath(path)
+          : null;
+        if (!af) throw new Error("장소 노트를 찾을 수 없습니다.");
+        const text = typeof app.vault.cachedRead === "function"
+          ? await app.vault.cachedRead(af)
+          : await app.vault.read(af);
+        item.body = String(text == null ? "" : text);
+        readState[path] = {
+          status: item.body.length ? "success" : "empty",
+          error: ""
+        };
+        return true;
+      } catch (error) {
+        readState[path] = {
+          status: "error",
+          error: String(error && (error.message || error) || "본문을 읽지 못했습니다.")
+        };
+        return false;
+      }
+    }
+
+    async function hydrateVenueBodies() {
+      let changed = false;
+      for (let i = 0; i < rawItems.length; i += 1) {
+        const item = rawItems[i];
+        if (!item || !item.path) continue;
+        const path = clean(item.path);
+        const hasBody = String(item.body || "").length > 0;
+        if (hasBody && !readState[path]) {
+          readState[path] = { status: "success", error: "" };
+          continue;
+        }
+        const before = readState[path] && readState[path].status;
+        await readVenueBody(item);
+        const after = readState[path] && readState[path].status;
+        if (before !== after || after === "success") changed = true;
+      }
+      return changed;
+    }
+
+    async function retryVenueRead(path) {
+      const item = rawItems.find((entry) => clean(entry && entry.path) === clean(path));
+      if (!item) return false;
+      const result = await readVenueBody(item);
+      paint();
+      return result;
     }
 
     // Static shell — setData/paint only replace list/detail contents, so
@@ -662,6 +789,9 @@
     function applyPaneVisibility() {
       setElementAttribute(masterDetail, "data-selected", state.selectedPath ? "true" : "false");
       setElementAttribute(masterDetail, "data-layout-narrow", layoutNarrow ? "true" : "false");
+      setElementAttribute(masterDetail, "data-scroll-owner", "workspace");
+      setElementAttribute(listPane, "data-scroll-owner", "workspace");
+      setElementAttribute(detailPane, "data-scroll-owner", "workspace");
       if (layoutNarrow) {
         listPane.hidden = !!state.selectedPath;
         detailPane.hidden = !state.selectedPath;
@@ -707,6 +837,18 @@
       titleWrap.createEl("h2", { text: venue.title });
       const meta = [venue.venue_category || "분류 없음", venue.address || "주소 없음"];
       titleWrap.createEl("div", { text: meta.join(" · "), attr: { class: "ppv-venue-meta" } });
+      const readStatus = venue.read_state && venue.read_state.status;
+      if (readStatus === "error") {
+        const readError = detailPane.createDiv({ attr: { class: "ppv-venue-read-error", role: "alert" } });
+        readError.createEl("span", { text: `본문을 읽지 못했습니다. 원본: ${venue.path}` });
+        const retry = button(readError, "다시 읽기", { ariaLabel: `${venue.title} 본문 다시 읽기` });
+        retry.onclick = (event) => runSafely(() => retryVenueRead(venue.path), event);
+      } else if (readStatus === "empty") {
+        detailPane.createEl("div", {
+          text: `본문이 비어 있습니다. 원본: ${venue.path}`,
+          attr: { class: "ppv-venue-empty" }
+        });
+      }
 
       const properties = detailPane.createEl("section", { attr: { class: "ppv-venue-detail-section" } });
       properties.createEl("h3", { text: "기본 정보" });
@@ -734,6 +876,30 @@
         connections.createEl("div", { text: venue.connection_text, attr: { class: "ppv-venue-detail-body" } });
       } else {
         connections.createEl("div", { text: "연결된 Object가 없습니다.", attr: { class: "ppv-venue-empty" } });
+      }
+      const knowledgeRows = (venue.knowledge_rows || []).filter((item) => item && item.path);
+      if (knowledgeRows.length) {
+        const knowledge = detailPane.createEl("section", { attr: { class: "ppv-venue-detail-section" } });
+        knowledge.createEl("h3", { text: "지식 맥락" });
+        knowledgeRows.forEach((item) => {
+          const kindLabel = item.context_kind === "candidate"
+            ? "검증 대기"
+            : item.context_kind === "approved" ? "승인 지식" : "출처";
+          const meta = [kindLabel, item.status, item.quality].filter(Boolean).join(" · ");
+          const label = `${item.title || item.path}${meta ? ` · ${meta}` : ""}`;
+          const linkBtn = button(knowledge, label, {
+            className: "ppv-venue-detail-link",
+            ariaLabel: `${label} 열기`
+          });
+          applyVenueKnowledgeMetadata(linkBtn, item);
+          linkBtn.onclick = (event) => runSafely(() => openVenueKnowledgeContext(app, item), event);
+          if (item.source_refs && item.source_refs.length) {
+            knowledge.createEl("div", {
+              text: `출처: ${item.source_refs.join(", ")}`,
+              attr: { class: "ppv-venue-empty" }
+            });
+          }
+        });
       }
 
       const journals = detailPane.createEl("section", { attr: { class: "ppv-venue-detail-section" } });
@@ -850,6 +1016,18 @@
         sub.push(venue.has_connections || venue.connection_text ? `연결 ${venue.connections.length || 1}` : "연결 없음");
         sub.push(venue.journalLinks.length ? `저널 ${venue.journalLinks.length}` : "저널 없음");
         card.createEl("div", { text: sub.join(" · "), attr: { class: "ppv-venue-card-sub" } });
+        const readStatus = venue.read_state && venue.read_state.status;
+        if (readStatus === "error") {
+          const error = card.createDiv({ attr: { class: "ppv-venue-empty", role: "alert" } });
+          error.createEl("span", { text: `본문 읽기 실패 · 원본: ${venue.path}` });
+          const retry = button(error, "다시 읽기", { ariaLabel: `${venue.title} 본문 다시 읽기` });
+          retry.onclick = (event) => runSafely(() => retryVenueRead(venue.path), event);
+        } else if (readStatus === "empty") {
+          card.createEl("div", {
+            text: `본문 비어 있음 · 원본: ${venue.path}`,
+            attr: { class: "ppv-venue-empty" }
+          });
+        }
         card.onclick = (event) => runSafely(() => selectVenue(venue.path), event);
         card.onkeydown = (event) => {
           if (event && (event.key === "Enter" || event.key === " ")) {
@@ -861,6 +1039,9 @@
     }
 
     paint();
+    hydrateVenueBodies().then((changed) => {
+      if (changed) paint();
+    }).catch(() => { /* preserve per-item read state */ });
     if (typeof root.ResizeObserver === "function") {
       resizeObserver = new root.ResizeObserver((entries) => {
         const width = entries && entries[0] && entries[0].contentRect
@@ -880,6 +1061,9 @@
       setData: (nextItems) => {
         rawItems = Array.isArray(nextItems) ? nextItems.slice() : [];
         paint();
+        hydrateVenueBodies().then((changed) => {
+          if (changed) paint();
+        }).catch(() => { /* preserve per-item read state */ });
       },
       getState: () => Object.assign({}, state),
       getModel: () => model,
@@ -894,6 +1078,8 @@
     openVenuePreview,
     openVenueQuickEdit,
     openDeleteVenueFlow,
+    venueKnowledgeRow,
+    openVenueKnowledgeContext,
     renderVenuesWorkspace
   });
 

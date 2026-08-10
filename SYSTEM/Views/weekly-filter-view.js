@@ -82,7 +82,7 @@
     var refreshBtn = el(actions, "button", { text: "새로고침", attr: { type: "button", class: "weekly-filter-btn" } });
     var aiBtn = el(actions, "button", { text: "AI 학습 분석", attr: { type: "button", class: "weekly-filter-btn weekly-filter-btn-ai" } });
     var saveBtn = el(actions, "button", { text: "주간 리뷰 저장", attr: { type: "button", class: "weekly-filter-btn" } });
-    var statusLine = el(wrapper, "p", { text: "", attr: { class: "weekly-filter-status" } });
+    var statusLine = el(wrapper, "p", { text: "", attr: { class: "weekly-filter-status", role: "status", "aria-live": "polite" } });
     var contentArea = el(wrapper, "div", { attr: { class: "weekly-filter-content" } });
 
     var selectedDate = options && options.initialDate ? options.initialDate : core.formatDate(new Date());
@@ -92,11 +92,15 @@
       currentWeek = core.currentISOWeek(new Date());
     }
     dateInput.value = selectedDate;
-    var state = { review: null, evidenceItems: [], aiEnhanced: false, loading: false, aiLoading: false, saving: false, aiRequestId: 0, aiAbortController: null, loadRequestId: 0, destroyed: false };
+    var state = { review: null, evidenceItems: [], aiEnhanced: false, loading: false, aiLoading: false, saving: false, aiRequestId: 0, aiAbortController: null, loadRequestId: 0, loadPromise: null, destroyed: false };
 
     function setStatus(msg, isError) {
       statusLine.textContent = msg || "";
       statusLine.setAttribute("class", "weekly-filter-status" + (isError ? " weekly-filter-status-error" : ""));
+    }
+    function setBusy(busy) {
+      wrapper.setAttribute("aria-busy", busy ? "true" : "false");
+      contentArea.setAttribute("aria-busy", busy ? "true" : "false");
     }
 
     function renderCurrent() {
@@ -104,39 +108,54 @@
       if (state.review) render.renderWeeklyReview(contentArea, state.review);
     }
 
-    async function load() {
-      if (state.destroyed || state.loading || state.saving) return null;
+    function load() {
+      if (state.destroyed) return null;
+      if (state.loading) return state.loadPromise;
+      if (state.saving || state.aiLoading) return null;
       var loadRequestId = state.loadRequestId + 1;
       state.loadRequestId = loadRequestId;
       state.loading = true;
-      state.aiEnhanced = false;
-      aiBtn.disabled = true;
-      saveBtn.disabled = true;
+      setBusy(true);
+      refreshBtn.textContent = "새로고침";
+      refreshBtn.disabled = false;
+      aiBtn.disabled = !state.review || !state.evidenceItems.length;
+      saveBtn.disabled = !state.review;
       setStatus("주간 Evidence를 분석 중...");
-      contentArea.empty();
-      try {
-        var result = await buildReviewFromVault(app, currentWeek);
-        var savedReview = root.WeeklyReviewStore && typeof root.WeeklyReviewStore.read === "function"
-          ? await root.WeeklyReviewStore.read(app, currentWeek)
-          : null;
-        if (state.destroyed || loadRequestId !== state.loadRequestId) return null;
-        if (savedReview) result.review = savedReview;
-        state.review = result.review;
-        state.evidenceItems = result.evidenceItems;
-        weekLabel.textContent = result.review.period.week + " (" + result.review.period.start + " ~ " + result.review.period.end + ")";
-        setStatus(savedReview ? "저장된 Weekly 리뷰를 불러왔습니다." : "");
-        renderCurrent();
-        aiBtn.disabled = false;
-        saveBtn.disabled = false;
-        return result;
-      } catch (err) {
-        if (state.destroyed || loadRequestId !== state.loadRequestId) return null;
-        setStatus("주간 리뷰를 생성하지 못했습니다: " + (err.message || err), true);
-        contentArea.empty();
-        return null;
-      } finally {
-        state.loading = false;
-      }
+      var promise = (async function () {
+        try {
+          var result = await buildReviewFromVault(app, currentWeek);
+          var savedReview = root.WeeklyReviewStore && typeof root.WeeklyReviewStore.read === "function"
+            ? await root.WeeklyReviewStore.read(app, currentWeek)
+            : null;
+          if (state.destroyed || loadRequestId !== state.loadRequestId) return null;
+          if (savedReview) result.review = savedReview;
+          state.review = result.review;
+          state.evidenceItems = result.evidenceItems;
+          state.aiEnhanced = false;
+          weekLabel.textContent = result.review.period.week + " (" + result.review.period.start + " ~ " + result.review.period.end + ")";
+          setStatus(savedReview ? "저장된 Weekly 리뷰를 불러왔습니다." : "");
+          renderCurrent();
+          aiBtn.disabled = !state.evidenceItems.length;
+          saveBtn.disabled = false;
+          return result;
+        } catch (err) {
+          if (state.destroyed || loadRequestId !== state.loadRequestId) return null;
+          var prior = state.review ? " 이전 결과를 유지합니다." : "";
+          setStatus("주간 리뷰를 새로고침하지 못했습니다: " + (err.message || err) + "." + prior + " 다시 시도해 주세요.", true);
+          refreshBtn.textContent = "다시 시도";
+          aiBtn.disabled = !state.review || !state.evidenceItems.length;
+          saveBtn.disabled = !state.review;
+          return null;
+        } finally {
+          if (loadRequestId === state.loadRequestId) {
+            state.loading = false;
+            state.loadPromise = null;
+            setBusy(state.aiLoading);
+          }
+        }
+      })();
+      state.loadPromise = promise;
+      return promise;
     }
 
     function loadForDate(nextDate) {
@@ -157,7 +176,7 @@
     }
 
     async function runAI() {
-      if (state.destroyed || state.aiLoading || state.saving || !state.review || !state.evidenceItems.length) return null;
+      if (state.destroyed || state.loading || state.aiLoading || state.saving || !state.review || !state.evidenceItems.length) return null;
       var ai = root.WeeklyFilterAI;
       if (!ai) { setStatus("WeeklyFilterAI 모듈이 로드되지 않았습니다.", true); return null; }
       var requestId = state.aiRequestId + 1;
@@ -168,6 +187,7 @@
       var abortController = AbortControllerCtor ? new AbortControllerCtor() : null;
       state.aiAbortController = abortController;
       state.aiLoading = true;
+      setBusy(true);
       aiBtn.disabled = false;
       aiBtn.textContent = "AI 분석 취소";
       refreshBtn.disabled = true;
@@ -198,6 +218,7 @@
           aiBtn.textContent = "AI 학습 분석";
           refreshBtn.disabled = false;
           saveBtn.disabled = false;
+          setBusy(state.loading);
         }
       }
     }
@@ -210,6 +231,7 @@
       }
       state.aiAbortController = null;
       state.aiLoading = false;
+      setBusy(state.loading);
       aiBtn.disabled = false;
       aiBtn.textContent = "AI 학습 분석";
       refreshBtn.disabled = false;
@@ -248,6 +270,9 @@
       }
       state.aiAbortController = null;
       state.aiLoading = false;
+      state.loading = false;
+      state.loadPromise = null;
+      setBusy(false);
     }
 
     refreshBtn.onclick = function () { return load(); };

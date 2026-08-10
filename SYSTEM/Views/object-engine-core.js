@@ -27,13 +27,21 @@
     none: "none"
   });
 
+  function registryPath(id, fallback) {
+    const registry = root.ProdigyWorkspaceRegistry
+      || (typeof require === "function" ? (() => {
+        try { return require("./workspace-registry.js"); } catch (_error) { return null; }
+      })() : null);
+    return registry && typeof registry.pathFor === "function" ? registry.pathFor(id) : fallback;
+  }
+
   const WORKSPACE_PATHS = Object.freeze({
-    auction: "HUB/10 Auction.md",
-    reading: "HUB/20 Reading.md",
-    workout: "HUB/30 Workout.md",
-    project: "HUB/40 Project.md",
-    personal: "HUB/70 Journal.md",
-    journal: "HUB/70 Journal.md"
+    auction: registryPath("auction", "HUB/10 Auction.md"),
+    reading: registryPath("reading", "HUB/20 Reading.md"),
+    workout: registryPath("workout", "HUB/30 Workout.md"),
+    project: registryPath("project", "HUB/40 Project.md"),
+    personal: registryPath("personal", "HUB/60 Personal.md"),
+    journal: registryPath("journal", "HUB/70 Journal.md")
   });
 
   const WORKSPACE_VERBS = Object.freeze({

@@ -8,6 +8,7 @@
 .reading-responsive-workspace[data-reading-layout="compact"] .reading-responsive-grid,.reading-responsive-workspace[data-reading-layout="medium"] .reading-responsive-grid{grid-template-columns:minmax(0,1fr)}
 .reading-responsive-pane{min-block-size:0;min-inline-size:0;overflow:auto;word-break:keep-all;overflow-wrap:anywhere}
 .reading-responsive-pane:focus-visible{outline:2px solid var(--text-accent);outline-offset:2px}
+.reading-focus-target{outline:2px solid var(--text-accent);outline-offset:3px}
 .reading-responsive-workspace[data-reading-layout="compact"] .prodigy-adaptive-tab{min-block-size:var(--reading-touch-target)}
 @media(prefers-reduced-motion:reduce){.reading-responsive-workspace *{transition:none!important;animation:none!important;transform:none!important}}
 `;
@@ -99,6 +100,76 @@
     return { element: shell, grid, list, detail, tabs, layout };
   }
 
+  function escapeReadingSelector(value) {
+    const text = String(value == null ? "" : value);
+    const css = root.CSS || (typeof CSS !== "undefined" ? CSS : null);
+    if (css && typeof css.escape === "function") return css.escape(text);
+    return text.replace(/["\\]/g, "\\$&");
+  }
+
+  /**
+   * Reveal and focus one Reading card inside the mounted workspace only.
+   * The caller may pass the rendered mount returned by mountResponsiveWorkspace
+   * to avoid a document-wide lookup when multiple Reading leaves are open.
+   */
+  function focusReadingCard(options) {
+    const opts = options || {};
+    const rendered = opts.rendered || null;
+    const scope = rendered && rendered.element
+      ? rendered.element
+      : (opts.container || (typeof document !== "undefined" ? document : null));
+    if (!scope) return { ok: false, reason: "workspace_missing" };
+    const shell = rendered && rendered.element
+      ? rendered.element
+      : (typeof scope.querySelector === "function"
+        ? (scope.matches && scope.matches(".reading-responsive-workspace")
+          ? scope
+          : scope.querySelector(".reading-responsive-workspace") || scope)
+        : scope);
+    const list = (rendered && rendered.list)
+      || (shell && typeof shell.querySelector === "function"
+        ? shell.querySelector('[data-reading-pane="list"]')
+        : null);
+    const detail = (rendered && rendered.detail)
+      || (shell && typeof shell.querySelector === "function"
+        ? shell.querySelector('[data-reading-pane="detail"]')
+        : null);
+    if (!list) return { ok: false, reason: "list_pane_missing" };
+
+    if (rendered && rendered.tabs && typeof rendered.tabs.select === "function") {
+      rendered.tabs.select("list", false);
+    }
+    setHidden(list, false);
+    if (detail && (rendered ? rendered.layout !== "wide" : layoutForWidth(Number.isFinite(Number(opts.logicalWidth)) ? Number(opts.logicalWidth) : 1024) !== "wide")) {
+      setHidden(detail, true);
+    }
+
+    const path = String(opts.path || opts.readingPath || "").trim();
+    if (!path || typeof list.querySelector !== "function") return { ok: false, reason: "path_missing" };
+    const selector = `[data-reading-path="${escapeReadingSelector(path)}"]`;
+    const target = list.querySelector(selector)
+      || (typeof shell.querySelector === "function" ? shell.querySelector(selector) : null);
+    if (!target) return { ok: false, reason: "card_not_found", path };
+
+    if (typeof target.setAttribute === "function" && !(typeof target.getAttribute === "function" ? target.getAttribute("tabindex") : target.tabIndex != null ? target.tabIndex : "")) {
+      target.setAttribute("tabindex", "-1");
+    }
+    if (typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    if (typeof target.focus === "function") target.focus();
+    if (target.classList && typeof target.classList.add === "function") {
+      target.classList.add("reading-focus-target");
+      setTimeout(() => target.classList.remove("reading-focus-target"), 1200);
+    }
+
+    const invoker = opts.opener || opts.invoker || null;
+    if (opts.restoreFocus !== false && invoker && typeof invoker.focus === "function") {
+      setTimeout(() => invoker.focus(), 0);
+    }
+    return { ok: true, element: target, pane: list, path };
+  }
+
   function mountResponsiveWorkspace(options) {
     const opts = options || {};
     let logicalWidth = opts.logicalWidth;
@@ -128,6 +199,13 @@
       },
       selectPane(value) { activePane = value === "detail" ? "detail" : "list"; return render(); },
       setModel(value) { model = value; return render(); },
+      focusCard(path, options) {
+        return focusReadingCard(Object.assign({}, options || {}, {
+          path,
+          container: opts.container,
+          rendered
+        }));
+      },
       getLayout() { return layoutForWidth(logicalWidth); },
       getActivePane() { return activePane; }
     });
@@ -793,6 +871,7 @@
   const api = {
     layoutForWidth,
     renderResponsiveWorkspace,
+    focusReadingCard,
     mountResponsiveWorkspace,
     openSessionModal,
     openQuickSession,

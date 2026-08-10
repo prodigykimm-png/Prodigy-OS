@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "goalId": "G002",
+  "reportKind": "cross-workspace-ui-wave1-repair-evidence",
+  "status": "implemented-with-verification-limits",
+  "baseCommit": "7fdaa4b7c9a7b033de61c06916b21648a81ddf31",
+  "workingTreeDiffSha256": "926079afa3b724817f71e2bedc17e14a9e25a6e12764f8eff6a8c3b16a6b3676",
+  "scope": {
+    "manifest": "SYSTEM/AI/Reports/prodigy-ui-wave0-change-manifest.json",
+    "repairedJourneys": [
+      "registry-derived workspace routes and safe open/retry fallback",
+      "Knowledge Explorer and candidate Inbox lifecycle, focus, and stale-response handling",
+      "Journal period loading/count boundaries and explicit Evidence-to-candidate handoff",
+      "Reading compact focus scoped to the mounted leaf",
+      "People/Places provenance rows, retry state, and Knowledge review handoff",
+      "Project next-action and retryable status continuity",
+      "Auction/Region handoff, polling disposal, decision persistence, popup focus, and retry",
+      "Workout read-only startup, draft save recovery, optional health lifecycle",
+      "Inbox standalone source-to-Object review utility with explicit close/reopen controls"
+    ],
+    "preservedBoundaries": [
+      "existing writers and schemas",
+      "source provenance",
+      "human approval gates",
+      "legacy readers",
+      "Inbox remains outside the workspace registry",
+      "no automatic People/Places candidate generation",
+      "no archive policy change",
+      "no .obsidian mutation"
+    ]
+  },
+  "verification": {
+    "syntax": "node --check passed for every changed JavaScript file",
+    "format": "git diff --check passed",
+    "contractAudit": {
+      "command": "node SYSTEM/SCRIPTS/prodigy-contract-audit.js",
+      "status": "passed",
+      "errors": 0,
+      "surfaces": 9,
+      "linkFilesScanned": 49
+    },
+    "focusedSuites": "Changed-surface Home, Journal, Knowledge, Reading, Personal, Project, Auction, Region, Workout, Inbox, loader, route, and Object Engine suites passed.",
+    "specificRegression": [
+      "Journal candidate handoff remains mounted after candidate save until Review or Done is explicitly selected.",
+      "Reading focus invokes the mounted workspace focusCard API rather than a document-wide lookup.",
+      "Personal and Journal callers derive canonical paths from the workspace registry.",
+      "Object Creator close/retry/review lifecycle restores the invoking control focus."
+    ]
+  },
+  "limitations": [
+    "Physical mobile and native Obsidian GUI success are not claimed.",
+    "Knowledge controller-backed responsive fixture did not become ready within its bounded 10-second wait; width/zoom and cleanup checks passed.",
+    "The broader contract-audit test harness still fails its historical protected-article assertion because commit b4db0df98e003589efa6ef4e0a2ec57545713eb8 lacks SYSTEM/docs/00_Constitution.md; the direct current contract audit passes.",
+    "No .obsidian plugin or mobile-workspace setting was changed; performance attribution remains Wave 3 work."
+  ]
+}

@@ -425,9 +425,29 @@
         startMode,
         status: PROJECT_STATUSES[startMode],
         description: String(input.description || "").trim(),
+        next_action: normalizeNextAction(input.next_action || input.nextAction),
         workflow: workflowResult.workflow
       }
     };
+  }
+  function normalizeNextAction(value) {
+    const text = String(value == null ? "" : value).trim().replace(/\s+/g, " ");
+    return text && !["정보 없음", "설정 필요", "-"].includes(text) ? text : "";
+  }
+
+  /**
+   * Keep the first unfinished workflow item executable when a wizard result
+   * does not provide an explicit next_action. Workflow items are intentionally
+   * projected without changing their existing writer/schema contract.
+   */
+  function firstExecutableWorkflowAction(items) {
+    const list = Array.isArray(items) ? items : [];
+    for (const item of list) {
+      if (!item || item.completed === true || item.done === true || item.status === "completed") continue;
+      const label = normalizeNextAction(typeof item === "string" ? item : item.label);
+      if (label) return label;
+    }
+    return "";
   }
 
   function sanitizeProjectFileName(name) {
@@ -568,7 +588,9 @@
     fm = setFrontmatterValue(fm, "created", opts.created || todayIso(opts.now));
     fm = setFrontmatterValue(fm, "start_date", value.startDate || "");
     fm = setFrontmatterValue(fm, "due_date", value.dueDate);
-    fm = setFrontmatterValue(fm, "next_action", "");
+    const nextAction = normalizeNextAction(value.next_action || value.nextAction)
+      || firstExecutableWorkflowAction(workflow);
+    fm = setFrontmatterValue(fm, "next_action", nextAction);
     fm = setFrontmatterValue(fm, "todoist_project_id", "");
     fm = setFrontmatterValue(fm, "todoist_sync_status", value.startMode === "planning" ? "pending" : "pending");
     fm = setFrontmatterValue(fm, "todoist_last_error", "");
@@ -587,7 +609,8 @@
     }
     return {
       content: `---\n${fm.trim()}\n---\n${body.startsWith("\n") ? body : "\n" + body}`,
-      workflow
+      workflow,
+      next_action: nextAction
     };
   }
 
@@ -646,7 +669,9 @@
     setProjectSyncStatus,
     setTodoistProjectId,
     setWorkflowTaskId,
-    splitFrontmatter
+    splitFrontmatter,
+    normalizeNextAction,
+    firstExecutableWorkflowAction
   };
 
   root.ProjectWizardCore = api;

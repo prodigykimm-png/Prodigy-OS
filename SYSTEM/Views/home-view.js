@@ -112,11 +112,13 @@
     try { await ensureProdigySettings(app); } catch (_settingsError) { /* Home remains usable without settings. */ }
     try {
       await loadOptionalProdigyScript(app, "SYSTEM/Views/workspace-registry.js", "ProdigyWorkspaceRegistry");
+      await loadOptionalProdigyScript(app, "SYSTEM/Views/workspace-navigation.js", "ProdigyWorkspaceNavigation");
       await loadOptionalProdigyScript(app, "SYSTEM/Views/home-workspace-bar-core.js", "HomeWorkspaceBarCore");
       await loadOptionalProdigyScript(app, "SYSTEM/Views/prodigy-adaptive-controls.js", "ProdigyAdaptiveControls");
     } catch (_workspaceModuleError) { /* Home remains usable when optional loading is unavailable. */ }
 
     const workspaceRegistry = resolveViewModule("ProdigyWorkspaceRegistry", "./workspace-registry.js");
+    const workspaceNavigation = resolveViewModule("ProdigyWorkspaceNavigation", "./workspace-navigation.js");
     const workspaceBarCore = resolveViewModule("HomeWorkspaceBarCore", "./home-workspace-bar-core.js");
     const adaptiveControls = resolveViewModule("ProdigyAdaptiveControls", "./prodigy-adaptive-controls.js");
 
@@ -458,24 +460,44 @@
     });
 
     const workspacePathFor = (sourceType) => {
-      const t = String(sourceType || "").toLowerCase();
-      if (workspaceRegistry && typeof workspaceRegistry.find === "function") {
-        const found = workspaceRegistry.find(t);
-        if (found) return found.path;
+      const raw = String(sourceType || "").trim().toLowerCase();
+      const aliases = {
+        auction_case: "auction",
+        project_note: "project",
+        project_family: "project",
+        people: "personal",
+        person: "personal"
+      };
+      const workspaceId = aliases[raw] || raw;
+      if (workspaceRegistry && typeof workspaceRegistry.pathFor === "function") {
+        return workspaceRegistry.pathFor(workspaceId);
       }
-      if (t === "auction" || t === "auction_case") return "HUB/10 Auction.md";
-      if (t === "reading") return "HUB/20 Reading.md";
-      if (t === "workout") return "HUB/30 Workout.md";
-      if (t === "project" || t === "project_note" || t === "project_family") return "HUB/40 Project.md";
-      if (t === "people" || t === "personal" || t === "person") return "HUB/60 Personal.md";
-      if (t === "journal") return "HUB/70 Journal.md";
-      if (t === "knowledge") return "HUB/50 Knowledge.md";
+      if (workspaceRegistry && typeof workspaceRegistry.find === "function") {
+        const found = workspaceRegistry.find(workspaceId);
+        return found ? found.path : "";
+      }
       return "";
     };
 
-    const openPath = (p) => {
-      if (!p) return;
-      try { app.workspace.openLinkText(p, p, false); } catch (_e) { /* ignore */ }
+    let openScope = stack;
+    const openPath = (p, openOptions) => {
+      const opts = Object.assign({
+        container: openScope,
+        title: "홈",
+        label: "홈"
+      }, openOptions || {});
+      if (workspaceNavigation && typeof workspaceNavigation.openPath === "function") {
+        return workspaceNavigation.openPath(app, p, opts);
+      }
+      if (opts.container && workspaceNavigation && typeof workspaceNavigation.renderOpenError === "function") {
+        workspaceNavigation.renderOpenError(opts.container, new Error("workspace navigation unavailable"), {
+          title: opts.title,
+          retry: () => openPath(p, opts)
+        });
+      } else if (typeof root.Notice === "function") {
+        new root.Notice("파일을 열 수 없습니다. 다시 시도해 주세요.");
+      }
+      return Promise.resolve({ ok: false, path: p || "" });
     };
 
     const renderWorkspaceDock = (parent) => {
@@ -729,7 +751,7 @@
             }, { focusHints: [] });
             return;
           }
-          openPath((yesterdayReview && yesterdayReview.path) || (yDate ? "DAILY/DAILY/" + yDate + ".md" : "HUB/70 Journal.md"));
+          openPath((yesterdayReview && yesterdayReview.path) || (yDate ? "DAILY/DAILY/" + yDate + ".md" : workspacePathFor("journal")));
         };
       }
 
@@ -761,7 +783,7 @@
             }, { focusHints });
             return;
           }
-          openPath("HUB/70 Journal.md");
+          openPath(workspacePathFor("journal"));
         };
       }
     });
@@ -1217,9 +1239,7 @@
         attr: { class: "action-btn", type: "button" }
       });
       guideBtn.onclick = () => {
-        if (app.workspace && typeof app.workspace.openLinkText === "function") {
-          app.workspace.openLinkText("HUB/05 Guide", "HUB/05 Guide.md", false);
-        }
+        openPath("HUB/05 Guide.md");
       };
       const doctorBtn = row.createEl("button", {
         text: "상태 점검",

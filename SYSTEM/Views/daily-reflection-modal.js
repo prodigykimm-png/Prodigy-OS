@@ -3,6 +3,14 @@
   function showNotice(message) { const NoticeClass = root.Notice || (typeof window !== "undefined" && window.Notice); if (typeof NoticeClass === "function") new NoticeClass(message); }
   function showUnavailable(browserWindow) { const message = "AI 성찰 제안 화면을 불러오지 못했습니다. Obsidian을 다시 열어 주세요."; const NoticeClass = root.Notice || browserWindow.Notice; if (typeof NoticeClass === "function") new NoticeClass(message); else if (typeof browserWindow.alert === "function") browserWindow.alert(message); }
   function openPath(app, path) { if (root.JournalView && typeof root.JournalView.openPath === "function") root.JournalView.openPath(app, path); }
+  function activeElement(browserWindow) {
+    const doc = root.document || (browserWindow && browserWindow.document);
+    return doc && doc.activeElement ? doc.activeElement : null;
+  }
+  function restoreFocus(element) {
+    if (!element || typeof element.focus !== "function" || element.isConnected === false) return;
+    try { element.focus(); } catch (_e) { /* ignore */ }
+  }
   function ready() { return root.DailyReflectionModalStyles && root.DailyReflectionModalState && root.DailyReflectionProposalInputView && root.DailyReflectionProposalCandidatesView && root.DailyReflectionEvidenceReviewView && root.DailyReflectionCandidateHandoffView && root.DailyReflectionPostSave; }
   function openProposeEvidenceModal(app, dateStr, onConfirm, options) {
     const opts = options || {};
@@ -12,13 +20,34 @@
     class ProposeModal extends obsidianModule.Modal {
       constructor(appInstance) {
         super(appInstance);
-        this.freeText = String(opts.initialReflection || ""); this.committedReflectionText = this.freeText.trim(); this.startClassification = Boolean(opts.startClassification);
-        this.proposal = null; this.selectedIds = new Set(); this.selectedObjectPaths = new Set(); this.dismissedEvidenceIds = new Set(); this.dismissedExperienceTexts = new Set();
-        this.candidateHandoff = root.DailyReflectionCandidateHandoffView.createState(); this.savedEvidence = null; this.focusEvidenceId = "";
-        this.selectedVenueCandidates = new Set(); this.selectedPlaceCandidates = new Set(); this.revisionRequest = ""; this.phase = "input"; this.busy = false;
+        this.app = appInstance;
+        this.freeText = String(opts.initialReflection || "");
+        this.committedReflectionText = this.freeText.trim();
+        this.startClassification = Boolean(opts.startClassification);
+        this.proposal = null;
+        this.selectedIds = new Set();
+        this.selectedObjectPaths = new Set();
+        this.dismissedEvidenceIds = new Set();
+        this.dismissedExperienceTexts = new Set();
+        this.candidateHandoff = root.DailyReflectionCandidateHandoffView.createState();
+        this.savedEvidence = null;
+        this.focusEvidenceId = "";
+        this.selectedVenueCandidates = new Set();
+        this.selectedPlaceCandidates = new Set();
+        this.revisionRequest = "";
+        this.phase = "input";
+        this.busy = false;
+        this.finishPromise = null;
+        this.openerEl = opts.openerEl || activeElement(browserWindow);
       }
       onOpen() { this.render(); }
-      onClose() { this.contentEl.empty(); }
+      onClose() {
+        this.contentEl.empty();
+        restoreFocus(this.openerEl);
+        if (typeof opts.onClose === "function") {
+          try { opts.onClose({ modal: this, savedEvidence: this.savedEvidence }); } catch (_e) { /* observer only */ }
+        }
+      }
       resetProposalSelection() { root.DailyReflectionModalState.reset(this); }
       async commitReflection() {
         const text = String(this.freeText || "").trim();
@@ -52,11 +81,22 @@
         }
       }
       async finishSavedEvidence() {
+        if (!this.savedEvidence) return;
+        if (this.finishPromise) return this.finishPromise;
         const saveResult = this.savedEvidence.saveResult;
-        this.close();
-        const dailyPath = await root.DailyReflectionPostSave.resolveSavedDailyPath(app, dateStr, saveResult);
-        if (!dailyPath) { if (this.selectedVenueCandidates.size || this.selectedPlaceCandidates.size) showNotice("Evidence는 저장되었습니다. 저장된 Daily를 확인할 수 없어 후보 생성은 진행하지 않았습니다."); return; }
-        await root.DailyReflectionPostSave.runHandoffs(this, app, dailyPath, showNotice);
+        this.finishPromise = (async () => {
+          this.close();
+          await Promise.resolve();
+          const dailyPath = await root.DailyReflectionPostSave.resolveSavedDailyPath(app, dateStr, saveResult);
+          if (!dailyPath) {
+            if (this.selectedVenueCandidates.size || this.selectedPlaceCandidates.size) {
+              showNotice("Evidence는 저장되었습니다. 저장된 Daily를 확인할 수 없어 후보 생성은 진행하지 않았습니다.");
+            }
+            return;
+          }
+          await root.DailyReflectionPostSave.runHandoffs(this, app, dailyPath, showNotice);
+        })();
+        return this.finishPromise;
       }
       async confirmEvidence() {
         const ai = root.DailyReflectionAI;
@@ -74,12 +114,27 @@
       renderHandoff() {
         root.DailyReflectionCandidateHandoffView.renderHandoff({
           contentEl: this.contentEl, proposal: this.proposal, state: this.candidateHandoff, savedEvidence: this.savedEvidence, styleText: root.DailyReflectionModalStyles,
-          onNotice: showNotice, onCancel: () => this.close(), onImprove: (evidenceId) => { this.focusEvidenceId = evidenceId; this.phase = "confirm"; this.render(); }, onFinish: async () => this.finishSavedEvidence(),
-          onReview: () => typeof opts.onKnowledgeReview === "function" ? opts.onKnowledgeReview(app) : null,
+          onNotice: showNotice,
+          openerEl: this.openerEl,
+          onCancel: () => this.close(),
+          onImprove: (evidenceId) => { this.focusEvidenceId = evidenceId; this.phase = "confirm"; this.render(); },
+          onFinish: async () => this.finishSavedEvidence(),
+          onReview: async () => {
+            if (typeof opts.onKnowledgeReview !== "function") return null;
+            await this.finishSavedEvidence();
+            await Promise.resolve();
+            return opts.onKnowledgeReview(app);
+          },
           onSave: async ({ selectedKnowledgeCandidateIndexes, thinOverrides }) => {
-            const result = await opts.onEvidenceSaved({ proposal: this.proposal, selectedKnowledgeCandidateIndexes, selectedEvidenceIds: this.savedEvidence.selectedEvidenceIds, selectedObjectPaths: Array.from(this.selectedObjectPaths), thinOverrides, saveResult: this.savedEvidence.saveResult });
-            if (!result || !result.blocked || !result.blocked.length) await this.finishSavedEvidence();
-            return result;
+            // Keep the handoff mounted until the human explicitly chooses Review or Done.
+            return opts.onEvidenceSaved({
+              proposal: this.proposal,
+              selectedKnowledgeCandidateIndexes,
+              selectedEvidenceIds: this.savedEvidence.selectedEvidenceIds,
+              selectedObjectPaths: Array.from(this.selectedObjectPaths),
+              thinOverrides,
+              saveResult: this.savedEvidence.saveResult
+            });
           }
         });
       }
@@ -93,7 +148,9 @@
         root.DailyReflectionEvidenceReviewView.render({ modal: this, app, dateStr, existingBlocks: Array.isArray(opts.existingBlocks) ? opts.existingBlocks : [], openPath, onNotice: showNotice, onConfirm: () => this.confirmEvidence() });
       }
     }
-    new ProposeModal(app).open();
+    const modal = new ProposeModal(app);
+    modal.open();
+    return modal;
   }
   const api = { openProposeEvidenceModal, safeDailyPath: (value) => root.DailyReflectionPostSave.safeDailyPath(value), isSavedDailyFile: (app, value) => root.DailyReflectionPostSave.isSavedDailyFile(app, value), isVenueHandoffEligible: (ai, candidate, proposal) => root.DailyReflectionPostSave.isVenueHandoffEligible(ai, candidate, proposal) };
   root.DailyReflectionModal = api;

@@ -249,7 +249,11 @@ const renderSourceLedgerStatus = (sourceLedger) => {
 };
 
 let sourceCommandMount = null;
-const renderMoisCollectionGuide = () => {
+let sourceCommandReturnFocus = null;
+const renderMoisCollectionGuide = (event) => {
+  sourceCommandReturnFocus = event && event.currentTarget && typeof event.currentTarget.focus === "function"
+    ? event.currentTarget
+    : null;
   if (!sourceCommandMount) return null;
   sourceCommandMount.empty();
   const panel = sourceCommandMount.createEl("section", {
@@ -334,23 +338,42 @@ const renderMoisCollectionGuide = () => {
   build.onclick = buildCommand;
   copy.onclick = async () => {
     if (!command.value || copy.disabled) return;
-    if (window.navigator?.clipboard?.writeText) {
+    if (!window.navigator?.clipboard?.writeText) {
+      status.setText("이 환경에서는 클립보드를 사용할 수 없습니다. 명령을 직접 선택해 복사하세요.");
+      status.setAttr("class", "region-source-command-status is-error");
+      status.setAttr("role", "alert");
+      command.focus?.();
+      command.select?.();
+      return;
+    }
+    try {
       await window.navigator.clipboard.writeText(command.value);
       status.setText("명령을 클립보드에 복사했습니다.");
       status.setAttr("class", "region-source-command-status");
       status.setAttr("role", "status");
-    } else {
-      status.setText("이 환경에서는 클립보드를 사용할 수 없습니다. 명령을 직접 복사하세요.");
+    } catch (error) {
+      status.setText(`클립보드 복사에 실패했습니다. 명령을 직접 선택해 복사하세요${error && error.message ? ` · ${error.message}` : ""}.`);
       status.setAttr("class", "region-source-command-status is-error");
       status.setAttr("role", "alert");
+      command.focus?.();
+      command.select?.();
     }
   };
-  close.onclick = () => sourceCommandMount.empty();
+  close.onclick = () => {
+    sourceCommandMount.empty();
+    const returnFocus = sourceCommandReturnFocus;
+    sourceCommandReturnFocus = null;
+    if (returnFocus && returnFocus.isConnected !== false) {
+      try { returnFocus.focus({ preventScroll: true }); }
+      catch (_) { returnFocus.focus(); }
+    }
+  };
   periodInput.focus?.();
   return panel;
 };
 
-try {
+const initializeRegionWorkspace = async () => {
+  try {
   for (const modulePath of RegionExplorerHub.modulePaths) await loadReadOnlyModule(modulePath);
   const shell = window.ProdigyWorkspaceNavigation.mount(this.container, {
     app,
@@ -455,15 +478,34 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
       explorer.setNotice("경매 워크스페이스를 열 수 없습니다. Obsidian 창을 다시 시도해 주세요.");
       return null;
     }
-    window.prodigyAuctionRegionScope = { region_key: key, region_sido: sido, region_sigungu: sigungu };
-    if (auctionPath) window.prodigyAuctionNavigationRequest = { region_sido: sido, region_sigungu: sigungu, auction_path: auctionPath };
+    const handoffId = `auction-region-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const scope = { region_key: key, region_sido: sido, region_sigungu: sigungu };
+    window.prodigyAuctionRegionScope = scope;
+    const request = {
+      request_id: handoffId,
+      status: "pending",
+      created_at: new Date().toISOString(),
+      region_sido: sido,
+      region_sigungu: sigungu,
+      auction_path: auctionPath || null
+    };
+    window.prodigyAuctionNavigationRequest = request;
     try {
-      return await app.workspace.openLinkText("HUB/10 Auction", "HUB/15 Region.md", false);
-    } catch (_error) {
-      if (window.prodigyAuctionNavigationRequest && window.prodigyAuctionNavigationRequest.auction_path === auctionPath) delete window.prodigyAuctionNavigationRequest;
-      explorer.setNotice("경매 워크스페이스를 열지 못했습니다. 다시 시도해 주세요.");
+      const result = await app.workspace.openLinkText("HUB/10 Auction", "HUB/15 Region.md", false);
+      if (window.prodigyAuctionNavigationRequest === request) {
+        request.status = "opened";
+        request.updated_at = new Date().toISOString();
+      }
+      return result;
+    } catch (error) {
+      if (window.prodigyAuctionNavigationRequest === request) {
+        request.status = "error";
+        request.error = String(error && error.message ? error.message : error);
+        request.updated_at = new Date().toISOString();
+      }
+      explorer.setNotice("경매 워크스페이스를 열지 못했습니다. 같은 지역 요청을 유지한 채 다시 시도해 주세요.");
       return null;
-  }
+    }
 };
   const auctionRowsForRegion = () => {
     const dataview = app.plugins?.plugins?.dataview?.api;
@@ -514,10 +556,19 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
   coverageNotice(explorerMount, coveredProjection);
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
-    window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "지역 비교" });
+    window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, {
+      title: "지역 비교",
+      message: "Region Object와 공식 원문은 읽기 전용입니다. 모듈을 준비하지 못했지만 다시 시도할 수 있습니다.",
+      retry: () => window.ProdigyRegionWorkspaceRetry()
+    });
   } else {
     this.container.empty();
-    this.container.createEl("p", { text: "지역 비교 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
+    const errorBox = this.container.createEl("p", { text: "지역 비교 워크스페이스를 불러오지 못했습니다.", attr: { role: "alert" } });
+    const retry = errorBox.createEl("button", { text: "다시 시도", attr: { type: "button" } });
+    retry.onclick = () => window.ProdigyRegionWorkspaceRetry();
   }
 }
+};
+window.ProdigyRegionWorkspaceRetry = initializeRegionWorkspace;
+await initializeRegionWorkspace();
 ```

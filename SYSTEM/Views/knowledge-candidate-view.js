@@ -279,6 +279,16 @@
       if (!eligibility.allowed) throw new Error(eligibility.reasons.join(" "));
       return { ...draft, evidence_quality: evidenceQuality };
     }
+    function removeCandidate(candidate, action) {
+      const index = candidates.findIndex((item) => item.candidate_id === candidate.candidate_id);
+      candidates = candidates.filter((item) => item.candidate_id !== candidate.candidate_id);
+      const next = candidates[index] || candidates[index - 1] || null;
+      if (typeof options.onCandidateRemoved === "function") {
+        try {
+          options.onCandidateRemoved({ removed: candidate, action, next, candidates: candidates.slice() });
+        } catch (_error) {}
+      }
+    }
 
     async function perform(action) {
       if (pending || !action) return;
@@ -286,6 +296,7 @@
       if (!candidate) return;
       if (action.type === "retry") return perform(retryAction);
       pending = true;
+      phase = "loading";
       error = false;
       retryAction = action;
       onChange();
@@ -294,11 +305,11 @@
         if (!store || !options.app) throw new Error("Knowledge Candidate 저장소를 사용할 수 없습니다.");
         if (action.type === "approve") {
           const result = await store.approveCandidate(options.app, candidate.path, requestFor(candidate, action.draft || draftFor(candidate.candidate_id)));
-          candidates = candidates.filter((item) => item.candidate_id !== candidate.candidate_id);
+          removeCandidate(candidate, action);
           if (result && result.path && typeof options.onOpenBeside === "function") await options.onOpenBeside(result.path);
         } else if (action.type === "reject") {
           await store.rejectCandidate(options.app, candidate.path);
-          candidates = candidates.filter((item) => item.candidate_id !== candidate.candidate_id);
+          removeCandidate(candidate, action);
         } else if (action.type === "defer") {
           await store.deferCandidate(options.app, candidate.path);
           candidates = candidates.map((item) => item.candidate_id === candidate.candidate_id ? { ...item, status: "needs_more_evidence" } : item);
@@ -306,8 +317,10 @@
           await store.resumeCandidate(options.app, candidate.path);
           candidates = candidates.map((item) => item.candidate_id === candidate.candidate_id ? { ...item, status: "saved" } : item);
         }
+        phase = "ready";
         retryAction = null;
       } catch (_error) {
+        phase = "error";
         error = true;
       } finally {
         pending = false;
@@ -318,11 +331,14 @@
     async function reload() {
       if (pending || typeof options.loadCandidates !== "function") return;
       pending = true;
+      phase = "loading";
       error = false;
       onChange();
       try {
         candidates = activeCandidates(await options.loadCandidates());
+        phase = "ready";
       } catch (_error) {
+        phase = "error";
         error = true;
       } finally {
         pending = false;

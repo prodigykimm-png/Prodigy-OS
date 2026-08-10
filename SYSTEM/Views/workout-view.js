@@ -33,6 +33,7 @@
     || (typeof root.Modal === "function" ? root.Modal : null)
     || FallbackModal;
   let saveQueue = Promise.resolve();
+  const draftSaveStates = new Map();
 
   function notice(message) { const Notice = root.obsidian && root.obsidian.Notice ? root.obsidian.Notice : root.Notice; if (Notice) new Notice(message); }
   function today() { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
@@ -110,10 +111,6 @@
     const programsById = new Map(cachedPrograms.map((program) => [program.id, program]));
     objectPrograms.forEach((program) => programsById.set(program.id, program));
     const programs = [...programsById.values()].sort((left, right) => left.title.localeCompare(right.title, "ko"));
-    // Sequential cache sync — avoid racing index.json writes on dashboard open
-    for (const program of objectPrograms) {
-      await store.saveProgram(program);
-    }
     const activeRun = runs.find((run) => run.status === "active") || null;
     const libraryProgram = activeRun ? programs.find((program) => program.id === activeRun.program_id) || null : null;
     // Version safety: Run snapshot wins over library edits
@@ -123,9 +120,16 @@
     const strengthDrafts = sessions
       .filter((session) => session && session.status === "draft" && core.normalizeSessionKind(session) !== "quick")
       .sort((left, right) => String(right.started_at || right.date).localeCompare(String(left.started_at || left.date)));
-    const draft = strengthDrafts.find((session) => session.runner_active === true) || strengthDrafts[0] || null;
+    const persistedDraft = strengthDrafts.find((session) => session.runner_active === true) || strengthDrafts[0] || null;
+    const draftState = persistedDraft && draftSaveStates.get(persistedDraft.session_id);
+    const draft = draftState && (draftState.dirty || draftState.pending || draftState.failed)
+      ? draftState.session
+      : persistedDraft;
+    const effectiveSessions = draft && draftState && (draftState.dirty || draftState.pending || draftState.failed)
+      ? sessions.map((session) => session.session_id === draft.session_id ? draft : session)
+      : sessions;
     const base = {
-      store, programs, runs, sessions, activeRun, activeProgram, libraryProgram, draft,
+      store, programs, runs, sessions: effectiveSessions, activeRun, activeProgram, libraryProgram, draft,
       metrics: await journalMetrics(app),
       workoutNotes
     };
@@ -316,9 +320,81 @@
     });
   }
 
+  function draftSaveStateFor(session) {
+    const sessionId = session && session.session_id;
+    if (!sessionId) return null;
+    let state = draftSaveStates.get(sessionId);
+    if (!state) {
+      state = {
+        session,
+        dirty: false,
+        pending: false,
+        failed: null,
+        promise: null,
+        version: 0,
+      };
+      draftSaveStates.set(sessionId, state);
+    } else {
+      state.session = session;
+    }
+    return state;
+  }
+
+  function enqueueDraftSave(store, session, snapshot, options = {}) {
+    const state = draftSaveStateFor(session);
+    if (!state) return Promise.reject(new Error("초안 세션 식별자가 없습니다."));
+    state.dirty = true;
+    state.pending = true;
+    state.failed = null;
+    const version = ++state.version;
+    const payload = clone(snapshot || session);
+    const run = saveQueue.then(() => store.saveSession(payload));
+    state.promise = run;
+    // A failed write must not poison the queue for later retries.
+    saveQueue = run.catch(() => {});
+    run.then(() => {
+      if (state.version !== version) return;
+      state.dirty = false;
+      state.pending = false;
+      state.failed = null;
+    }).catch((error) => {
+      if (state.version !== version) return;
+      state.dirty = true;
+      state.pending = false;
+      state.failed = error;
+      if (options.notify !== false) notice("운동 기록을 저장하지 못했습니다. 입력은 유지됩니다. 다시 시도하세요.");
+      if (root.prodigyDebugMode === true) console.error(error);
+    });
+    return run;
+  }
+
   function queueDraftSave(store, session) {
-    saveQueue = saveQueue.then(() => store.saveSession(session)).catch((error) => { notice("운동 기록을 저장하지 못했습니다."); if (root.prodigyDebugMode === true) console.error(error); });
-    return saveQueue;
+    return enqueueDraftSave(store, session, session);
+  }
+
+  function queueCompletedSave(store, draftSession, completedSession) {
+    return enqueueDraftSave(store, draftSession, completedSession, { notify: false });
+  }
+
+  async function waitForDraftSave(session) {
+    const state = draftSaveStateFor(session);
+    if (!state || !state.promise) return state;
+    try {
+      await state.promise;
+    } catch (_error) {
+      // The state retains the failure so completion can gate and retry.
+    }
+    return state;
+  }
+
+  function markDraftSaveFailure(session, error) {
+    const state = draftSaveStateFor(session);
+    if (!state) return;
+    state.dirty = true;
+    state.pending = false;
+    state.failed = error;
+    state.promise = Promise.reject(error);
+    state.promise.catch(() => {});
   }
 
   function setInput(parent, label, value, options = {}) {
@@ -529,6 +605,49 @@
     }
 
     const dayActions = area.createDiv({ attr: { class: "workout-inline-actions" } });
+    const saveFeedback = area.createDiv({ attr: { class: "workout-draft-save-status", role: "status", "aria-live": "polite" } });
+    const paintSaveFeedback = () => {
+      const saveState = draftSaveStateFor(session);
+      saveFeedback.empty();
+      if (!saveState || (!saveState.dirty && !saveState.pending && !saveState.failed)) return;
+      if (saveState.pending) {
+        saveFeedback.createEl("span", { text: "입력 저장 중…", attr: { class: "workout-muted" } });
+        return;
+      }
+      if (saveState.failed) {
+        saveFeedback.createEl("span", { text: "저장하지 못했습니다. 입력은 유지됩니다.", attr: { class: "workout-error" } });
+        const retry = saveFeedback.createEl("button", { text: "저장 다시 시도", attr: { class: "workout-button workout-chip-btn", type: "button" } });
+        retry.onclick = async () => {
+          const wasFocused = typeof document !== "undefined" && document.activeElement === retry;
+          retry.disabled = true;
+          retry.textContent = "저장 중…";
+          try {
+            await queueDraftSave(state.store, session);
+            paintSaveFeedback();
+            if (wasFocused) {
+              const input = area.querySelector && area.querySelector(".workout-field input, .workout-field textarea");
+              if (input && input.focus) input.focus();
+            }
+            notice("운동 기록을 저장했습니다.");
+          } catch (_error) {
+            paintSaveFeedback();
+            if (wasFocused) {
+              const nextRetry = saveFeedback.querySelector && saveFeedback.querySelector("button");
+              if (nextRetry && nextRetry.focus) nextRetry.focus();
+            }
+          }
+        };
+        return;
+      }
+      saveFeedback.createEl("span", { text: "저장 대기 중…", attr: { class: "workout-muted" } });
+    };
+    paintSaveFeedback();
+    const requestDraftSave = () => {
+      const pending = queueDraftSave(state.store, session);
+      paintSaveFeedback();
+      pending.then(paintSaveFeedback).catch(paintSaveFeedback);
+      return pending;
+    };
     button(dayActions, "초안 버리기").onclick = async () => {
       if (root.confirm && !root.confirm("진행 중 초안을 삭제할까요?")) return;
       await saveQueue;
@@ -605,11 +724,15 @@
         const copyAll = button(prevBox, "전부 이전과 동일");
         copyAll.className = "workout-button workout-chip-btn";
         copyAll.onclick = async () => {
-          const next = core.applyPreviousToExercise(session, exercise.exercise_id, previous);
-          Object.assign(session, next);
-          await queueDraftSave(state.store, session);
-          notice(`${exercise.name}: 이전 기록 적용`);
-          await refresh();
+          try {
+            const next = core.applyPreviousToExercise(session, exercise.exercise_id, previous);
+            Object.assign(session, next);
+            await requestDraftSave();
+            notice(`${exercise.name}: 이전 기록 적용`);
+            await refresh();
+          } catch (error) {
+            notice(error.message || "기록 적용 실패");
+          }
         };
       }
       sessionUI.renderExerciseActions(prevBox, { app: root.app, state, session, exercise, refresh });
@@ -622,7 +745,7 @@
         try {
           const next = core.addSetResult(session, exercise.exercise_id, { copy_last: true });
           Object.assign(session, next);
-          await queueDraftSave(state.store, session);
+          await requestDraftSave();
           await refresh();
         } catch (error) {
           notice(error.message || "세트 추가 실패");
@@ -640,7 +763,7 @@
         const update = (patch) => {
           const next = core.updateSetResult(session, exercise.exercise_id, setIndex, patch);
           Object.assign(session, next);
-          queueDraftSave(state.store, session);
+          requestDraftSave();
         };
         complete.onchange = () => {
           update({ completed: complete.checked });
@@ -663,7 +786,7 @@
             Object.assign(session, next);
             weight.value = previous.weight || "";
             reps.value = previous.reps || "";
-            queueDraftSave(state.store, session);
+            requestDraftSave();
           };
         }
         // Immediate delete — one tap ×
@@ -682,7 +805,7 @@
           try {
             const next = core.removeSetResult(session, exercise.exercise_id, setIndex);
             Object.assign(session, next);
-            await queueDraftSave(state.store, session);
+            await requestDraftSave();
             await refresh();
           } catch (error) {
             notice(error.message || "세트 삭제 실패");
@@ -702,8 +825,16 @@
     const finish = button(area, "운동 완료", true);
     finish.onclick = async () => {
       finish.disabled = true;
-      await saveQueue;
       try {
+        const saveState = await waitForDraftSave(session);
+        paintSaveFeedback();
+        if (saveState && (saveState.pending || saveState.failed || saveState.dirty)) {
+          notice(saveState.pending
+            ? "입력 저장이 끝날 때까지 완료할 수 없습니다."
+            : "저장에 실패했습니다. 입력을 보존한 뒤 다시 시도하세요.");
+          finish.disabled = false;
+          return;
+        }
         let note = "";
         if (typeof root.obsidianPrompt === "function") {
           const input = await root.obsidianPrompt("운동 완료", "한 줄 메모 (선택):", "");
@@ -726,7 +857,15 @@
           state.activeRun,
           state.sessions.filter((item) => item.session_id !== session.session_id)
         );
-        await state.store.saveSession({ ...result.session, runner_active: false });
+        try {
+          await queueCompletedSave(state.store, session, { ...result.session, runner_active: false });
+        } catch (error) {
+          markDraftSaveFailure(session, error);
+          paintSaveFeedback();
+          finish.disabled = false;
+          notice(error.message || "완료 저장 실패. 입력을 유지했습니다.");
+          return;
+        }
         if (core.normalizeSessionKind(session) === "programmed") {
           await state.store.saveRun(result.run);
           const nextLabel = result.run.suggested_day && state.activeProgram
@@ -1082,6 +1221,7 @@
 .workout-next-set-btn{white-space:nowrap}
 .workout-health-tablist{gap:0}.workout-health-tab{flex:1;padding:8px 6px;font-size:var(--ke-type-label,.72rem);line-height:var(--ke-leading-control,1.35);min-height:44px}.workout-nutrition-summary{gap:6px}.workout-nutrition-chip{min-width:60px;padding:8px 10px}.workout-nutrition-actions,.workout-running-actions{flex-direction:column}.workout-nutrition-actions .workout-button,.workout-running-actions .workout-button{width:100%;min-height:44px}.workout-running-stats{gap:6px}.workout-running-stat{min-width:56px;padding:6px 8px}.workout-running-trend-grid{grid-template-columns:repeat(3,1fr)}.workout-running-history-row{flex-direction:column;align-items:flex-start}.workout-running-history-meta{align-items:flex-start}}
 ` });
+    container.createEl("style", { text: `.workout-button{min-height:var(--ke-touch-target,44px)!important}.workout-chip-btn,.workout-set-remove,.workout-exercise-note-link{min-height:var(--ke-touch-target,44px)!important}.workout-set-remove{min-width:var(--ke-touch-target,44px)!important}.workout-exercise-link{min-height:var(--ke-touch-target,44px);display:inline-flex;align-items:center}.workout-set-more summary,.workout-more-menu summary{min-height:var(--ke-touch-target,44px);display:inline-flex;align-items:center}.workout-draft-save-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:var(--ke-touch-target,44px);margin:4px 0 8px}.workout-import-details,.workout-editor-days,.workout-exercise-body,.workout-replace-list{max-height:none;overflow:visible}` });
   }
 
   // ─── Workout v2: Analysis & Observation Section (Todo 10) ─────────────
@@ -1193,30 +1333,49 @@
 
   async function renderDashboard(app, container, options) {
     if (!core || !storeApi || !importer || !objects) throw new Error("Workout Workspace modules are unavailable.");
+    const renderOptions = options || {};
+    if (shellController && typeof shellController.dispose === "function") shellController.dispose();
+    shellController = null;
     root.app = app;
     container.empty(); container.addClass("prodigy-workout-dashboard"); injectStyles(container);
+
+    const optionalFailures = Array.isArray(renderOptions.optionalFailures) ? renderOptions.optionalFailures : [];
+    const failurePaths = optionalFailures.map((failure) => String(failure && (failure.path || failure.summary) || failure).toLowerCase());
+    const hasOptionalFailure = (...parts) => failurePaths.some((path) => parts.some((part) => path.includes(part)));
+    const tabAvailability = Object.assign({}, renderOptions.tabAvailability || {});
+    if (hasOptionalFailure("nutrition", "health-store", "health-core")) tabAvailability.nutrition = "식단 선택 모듈을 사용할 수 없습니다. 동기화 후 다시 시도하세요.";
+    if (hasOptionalFailure("running", "health-store", "running-core", "running-projection")) tabAvailability.running = "러닝 선택 모듈을 사용할 수 없습니다. 동기화 후 다시 시도하세요.";
 
     const shell = root.WorkoutHealthShell;
     const nutritionView = root.WorkoutNutritionView;
     const runningView = root.WorkoutRunningView;
 
-    // If shell module is unavailable, fall back to strength-only
+    // If shell module is unavailable, keep the health capability visible with retry.
     if (!shell || !shell.renderShell) {
       const state = await loadState(app);
-      const refresh = () => renderDashboard(app, container, options);
+      const refresh = () => renderDashboard(app, container, renderOptions);
       await renderStrengthDashboard(app, container, state, refresh);
+      const healthStatus = container.createDiv({ attr: { class: "workout-panel-error", role: "status" } });
+      healthStatus.createEl("h2", { text: "건강 탭" });
+      healthStatus.createEl("p", { text: "건강 탭 쉘을 사용할 수 없습니다. 근력 기록은 계속 사용할 수 있습니다.", attr: { class: "workout-error" } });
+      const retry = healthStatus.createEl("button", { text: "건강 탭 다시 시도", attr: { class: "workout-button", type: "button" } });
+      retry.onclick = () => {
+        if (typeof renderOptions.onRetry === "function") renderOptions.onRetry("health-shell");
+        else renderDashboard(app, container, renderOptions);
+      };
       return;
     }
 
+    const shellOptions = Object.assign({}, renderOptions, { tabAvailability });
     shellController = shell.renderShell(container, {
       strength: async (panel) => {
         const state = await loadState(app);
-        const refresh = () => renderDashboard(app, container, options);
+        const refresh = () => renderDashboard(app, container, renderOptions);
         await renderStrengthDashboard(app, panel, state, refresh);
       },
-      nutrition: nutritionView ? (panel) => nutritionView.renderNutritionPanel(app, panel) : null,
-      running: runningView ? (panel) => runningView.renderRunningPanel(app, panel) : null,
-    }, options || {});
+      nutrition: nutritionView && !tabAvailability.nutrition ? (panel, context) => nutritionView.renderNutritionPanel(app, panel, context) : null,
+      running: runningView && !tabAvailability.running ? (panel, context) => runningView.renderRunningPanel(app, panel, context) : null,
+    }, shellOptions);
   }
 
   const api = {
@@ -1227,6 +1386,7 @@
     openExercisePopup, openExerciseNoteSide, renderDashboard,
     renderContinueStrip, renderDraftQueue, renderStaleQueue,
     appendExerciseToProgram, persistProgram,
+    queueDraftSave, waitForDraftSave, draftSaveStateFor,
     openTab: (tabId) => { if (shellController) shellController.openTab(tabId); },
   };
   root.WorkoutView = api;
