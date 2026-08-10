@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "goalId": "G004",
+  "reportKind": "prodigy-ui-wave3-final-matrix",
+  "status": "pass_with_limitation",
+  "implementationFinalGitSha": "39ff8721c5350205103d407eac3312641e7d3362",
+  "implementationSourceSha256": "dab3c1fd6442957b27fc9eb268af401f110064e524fed2c96cadc6e6caf00201",
+  "matrixEvidenceLevel": "source_contract_and_harness",
+  "surfaces": [
+    {"id":"home","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"knowledge","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"journal.daily","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"journal.weekly","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"journal.monthly","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"reading","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"personal.people","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"personal.places","readiness":"deferred_predicate_implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"project","readiness":"implemented","journey":"prior_wave_harness_passed","physical_mobile":"not_run"},
+    {"id":"auction","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"workout","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"region","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
+    {"id":"inbox","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"}
+  ],
+  "measurementEvidence": {
+    "syntheticContractCampaign": {
+      "status": "passed_as_contract_probe_only",
+      "sampleCount": 2,
+      "coldSamples": 1,
+      "warmSamples": 1,
+      "p50Ms": 510,
+      "p95Ms": 750,
+      "maxMs": 750,
+      "failureCount": 0,
+      "missingMarkCount": 0,
+      "discardedSampleCount": 0,
+      "attribution": "external-start-dominated",
+      "physicalClaim": false,
+      "notFinalSLOEvidence": true
+    },
+    "requiredFinalCampaign": {
+      "minimumValidCold": 20,
+      "minimumValidWarm": 20,
+      "status": "not_run",
+      "p50Ms": null,
+      "p95Ms": null,
+      "failureCount": null,
+      "variance": null
+    }
+  },
+  "verification": {
+    "wave3FocusedTests": "35 passed",
+    "priorWaveRegressionSuites": "42 listed suites passed",
+    "syntaxAndSchema": "passed",
+    "contractAudit": "0 errors across 9 surfaces and 49 link files",
+    "finalSampleGate": "underfilled final campaign rejected as required",
+    "settingsMutation": false,
+    "physicalDeviceSuccess": false
+  },
+  "limitations": [
+    "No user-attributable physical iPhone/iPad Obsidian Mobile cold/warm receipt was available; no physical success is claimed.",
+    "The current workspace-mobile bytes/hash differ from the Wave 0 frozen baseline and are recorded as unattributed external drift; no rollback or mutation was attempted.",
+    "The existing Knowledge controller-backed responsive fixture remains a known readiness limitation.",
+    "Synthetic p50/p95 values validate the recorder/report math and external attribution path only; they are not product performance measurements."
+  ],
+  "completionStatus": {
+    "implementation": "complete",
+    "operatorPhysicalCampaign": "human_blocked",
+    "settingsComparison": "human_blocked_until_drift_attribution_and_exact_approval",
+    "aggregateGoal": "not_complete"
+  }
+}
