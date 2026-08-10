@@ -169,11 +169,11 @@ test("Given Obsidian already owns the document scroll, When Home renders on mobi
   const shell = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-app-shell.js"), "utf8");
   const mobileHomeShell = ruleBody(
     shell,
-    '.prodigy-app-shell[data-workspace-id="home"]{'
+    '.prodigy-app-shell[data-workspace-id="home"] {'
   );
   const mobileHomeBody = ruleBody(
     shell,
-    '.prodigy-app-shell[data-workspace-id="home"]>.prodigy-app-shell-body{'
+    '.prodigy-app-shell[data-workspace-id="home"] > .prodigy-app-shell-body {'
   );
 
   assert.match(
@@ -181,8 +181,8 @@ test("Given Obsidian already owns the document scroll, When Home renders on mobi
     /--prodigy-mobile-toolbar-clearance/,
     "the App Shell must expose a mobile toolbar clearance token",
   );
-  assert.match(mobileHomeShell, /max-block-size:none/, "mobile Home must not remain capped at 100dvb");
-  assert.match(mobileHomeShell, /grid-template-rows:auto auto auto/, "mobile Home rows must retain their intrinsic height");
-  assert.match(mobileHomeBody, /overflow:visible/, "mobile Home must delegate scrolling to the reading view");
-  assert.match(mobileHomeBody, /padding-block-end:0/, "only the Home root should own the final toolbar clearance");
+  assert.match(mobileHomeShell, /max-block-size\s*:\s*none/, "mobile Home must not remain capped at 100dvb");
+  assert.match(mobileHomeShell, /grid-template-rows\s*:\s*auto\s+auto\s+auto/, "mobile Home rows must retain their intrinsic height");
+  assert.match(mobileHomeBody, /overflow\s*:\s*visible/, "mobile Home must delegate scrolling to the reading view");
+  assert.match(mobileHomeBody, /padding-block-end\s*:\s*0/, "only the Home root should own the final toolbar clearance");
 });

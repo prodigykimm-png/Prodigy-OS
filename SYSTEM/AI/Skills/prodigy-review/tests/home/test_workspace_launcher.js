@@ -139,11 +139,11 @@ function main() {
   assert.equal(emptyCards.find((c) => c.id === "workout").empty, true);
   assert.match(emptyCards.find((c) => c.id === "reading").detail, /없/);
 
-  // View: equal layout, navigation to workspace, Home compact density
+  // View: tokenized layout, navigation to workspace, and compact action affordances
   assert.match(viewSource, /prodigy-launcher-card/);
-  assert.match(viewSource, /min-height:\s*148px|min-height: 148px/);
-  assert.match(viewSource, /min-height:\s*0/);
-  assert.match(viewSource, /padding:\s*1px 6px/);
+  assert.match(viewSource, /grid-template-columns:\s*repeat\(auto-fit/);
+  assert.match(viewSource, /block-size:\s*100%/);
+  assert.match(viewSource, /ProdigyUI\.button|prodigy-btn/);
   assert.match(viewSource, /openPath|ProdigyWorkspaceNavigation/);
   assert.match(viewSource, /card\.path/);
   assert.equal(viewSource.includes("processFrontMatter"), false);

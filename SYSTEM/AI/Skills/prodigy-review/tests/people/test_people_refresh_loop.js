@@ -9,6 +9,7 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const HUB_PATH = "HUB/60 Personal.md";
 const core = require(path.join(ROOT, "SYSTEM/Views/people-core.js"));
 const view = require(path.join(ROOT, "SYSTEM/Views/people-view.js"));
+const adaptiveControls = require(path.join(ROOT, "SYSTEM/Views/prodigy-adaptive-controls.js"));
 
 class FakeElement {
   constructor(tag = "div", options = {}) {
@@ -185,7 +186,12 @@ test("Given 189 people and six unchanged 2.5-second reruns, When Personal stays 
     pages: (query) => dataArray(query.includes("CONTACTS") ? pages : [])
   };
   const host = new FakeElement("div", { attr: { class: "workspace-leaf-content" } });
-  const fakeDocument = { activeElement: null, getElementById: () => null };
+  const fakeDocument = {
+    activeElement: null,
+    getElementById: () => null,
+    createElement: () => ({ id: "", textContent: "" }),
+    head: { appendChild() {} }
+  };
   const previousDocument = global.document;
   const previousSessionStorage = global.sessionStorage;
   const previousWindow = global.window;
@@ -193,6 +199,7 @@ test("Given 189 people and six unchanged 2.5-second reruns, When Personal stays 
   global.window = global;
   global.sessionStorage = sessionStorage;
   global.PeopleCore = core;
+  global.ProdigyAdaptiveControls = adaptiveControls;
   global.PeopleStyles = {
     ensureWorkspaceStyles() {},
     responsiveContract: () => ({ compactMax: 767, mediumMin: 768, wideMin: 1024, actionBarHeight: 52, touchTarget: 44 })
@@ -279,6 +286,7 @@ test("Given 189 people and six unchanged 2.5-second reruns, When Personal stays 
     delete global.PeopleView;
     delete global.ProdigyWorkspaceNavigation;
     delete global.ProdigyListWorkspace;
+    delete global.ProdigyAdaptiveControls;
     global.document = previousDocument;
     global.sessionStorage = previousSessionStorage;
     global.window = previousWindow;

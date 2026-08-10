@@ -5,121 +5,132 @@
 
   const CSS = `
 .prodigy-workspace-launcher {
-  margin: 0;
+  min-inline-size: 0;
+  color: var(--text-normal);
+  font-size: var(--ke-type-body, .84rem);
+  line-height: var(--ke-leading-body, 1.45);
+  overflow-wrap: anywhere;
 }
 .prodigy-workspace-launcher .home-header {
-  margin-bottom: 10px;
+  margin: 0;
+  font-size: var(--ke-type-title, 1.05rem);
+  line-height: var(--ke-leading-body, 1.45);
+}
+.prodigy-launcher-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ke-space-3, 8px);
+  flex-wrap: wrap;
+  margin-block-end: var(--ke-space-2, 4px);
+  min-inline-size: 0;
+}
+.prodigy-launcher-description {
+  margin: 0 0 var(--ke-space-4, 12px);
+  color: var(--text-muted);
+  font-size: var(--ke-type-label, .72rem);
+  line-height: var(--ke-leading-body, 1.45);
+  overflow-wrap: anywhere;
 }
 .prodigy-launcher-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-.prodigy-home.home-wide .prodigy-launcher-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: var(--ke-space-3, 8px);
+  min-inline-size: 0;
 }
 .prodigy-launcher-card {
   display: flex;
   flex-direction: column;
-  min-height: 148px;
-  height: 100%;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 10px;
-  background: var(--background-primary);
-  padding: 12px;
+  min-inline-size: 0;
+  block-size: 100%;
   box-sizing: border-box;
-  gap: 6px;
+  gap: var(--ke-space-2, 4px);
+  padding: var(--ke-space-4, 12px);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--ke-radius-panel, 8px);
+  background: var(--background-primary);
+  overflow-wrap: anywhere;
 }
-.prodigy-launcher-card.is-empty {
-  opacity: 0.92;
-}
+.prodigy-launcher-card.is-empty { opacity: .92; }
 .prodigy-launcher-top {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.prodigy-launcher-icon {
-  font-size: 1.15em;
-  line-height: 1;
-  flex: none;
+  gap: var(--ke-space-2, 4px);
+  min-inline-size: 0;
 }
 .prodigy-launcher-name {
-  font-weight: 800;
-  font-size: 0.95em;
+  min-inline-size: 0;
   color: var(--text-normal);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: var(--ke-type-heading, .92rem);
+  font-weight: 700;
+  line-height: var(--ke-leading-control, 1.35);
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 .prodigy-launcher-context {
-  font-size: 0.78em;
-  font-weight: 700;
+  min-inline-size: 0;
+  margin-block-start: var(--ke-space-1, 2px);
   color: var(--text-accent);
-  margin-top: 2px;
+  font-size: var(--ke-type-label, .72rem);
+  font-weight: 700;
+  line-height: var(--ke-leading-control, 1.35);
+  overflow-wrap: anywhere;
 }
 .prodigy-launcher-title {
-  font-size: 0.92em;
-  font-weight: 700;
-  color: var(--text-normal);
-  overflow-wrap: anywhere;
-  line-height: 1.35;
   flex: 1 1 auto;
+  min-inline-size: 0;
+  color: var(--text-normal);
+  font-size: var(--ke-type-body, .84rem);
+  font-weight: 700;
+  line-height: var(--ke-leading-body, 1.45);
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 .prodigy-launcher-detail {
-  font-size: 0.82em;
+  min-inline-size: 0;
+  min-block-size: 0;
   color: var(--text-muted);
-  line-height: 1.4;
+  font-size: var(--ke-type-label, .72rem);
+  line-height: var(--ke-leading-body, 1.45);
   overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 2.3em;
+  word-break: keep-all;
 }
 .prodigy-launcher-actions {
-  margin-top: auto;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  padding-top: 6px;
-}
-.prodigy-launcher-actions button {
-  /* Match Home compact action-btn density (Home CSS may further enforce) */
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-height: 0;
-  height: auto;
-  min-width: 0;
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid var(--text-accent);
-  background: var(--background-secondary);
-  color: var(--text-accent);
-  font-weight: 700;
-  font-size: 0.7em;
-  line-height: 1.15;
-  cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
-  -webkit-tap-highlight-color: transparent;
-  box-sizing: border-box;
-  white-space: nowrap;
+  gap: var(--ke-space-2, 4px);
+  margin-block-start: auto;
+  padding-block-start: var(--ke-space-2, 4px);
+  min-inline-size: 0;
 }
-.prodigy-launcher-actions button:active {
-  transform: translateY(1px);
+.prodigy-launcher-actions .prodigy-btn {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
-@media (max-width: 520px) {
-  .prodigy-launcher-card {
-    min-height: 132px;
-  }
-  .prodigy-launcher-actions button {
-    width: auto;
+.prodigy-launcher-actions .prodigy-btn:focus-visible {
+  outline: 2px solid var(--text-accent);
+  outline-offset: 2px;
+}
+@media (max-width: 767px) {
+  .prodigy-launcher-grid { grid-template-columns: minmax(0, 1fr); }
+  .prodigy-launcher-actions { gap: var(--ke-space-1, 2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .prodigy-workspace-launcher *,
+  .prodigy-workspace-launcher *::before,
+  .prodigy-workspace-launcher *::after {
+    transition: none !important;
+    animation: none !important;
   }
 }
 `;
 
   function ensureStyles() {
+    if (root.ProdigyUI && typeof root.ProdigyUI.ensureStyles === "function") root.ProdigyUI.ensureStyles();
     if (typeof document === "undefined") return;
     let style = document.getElementById(STYLE_ID);
     if (!style) {
@@ -154,6 +165,31 @@
     }
     return Promise.resolve({ ok: false, path: path || "" });
   }
+  function launcherActionRow(parent) {
+    if (root.ProdigyUI && typeof root.ProdigyUI.actionRow === "function") {
+      return root.ProdigyUI.actionRow(parent, "prodigy-launcher-actions");
+    }
+    return parent.createEl("div", { attr: { class: "prodigy-btn-row prodigy-launcher-actions" } });
+  }
+
+  function launcherButton(parent, text, options) {
+    const opts = options || {};
+    if (root.ProdigyUI && typeof root.ProdigyUI.button === "function") {
+      return root.ProdigyUI.button(parent, text, {
+        quiet: true,
+        className: opts.className || "prodigy-launcher-action",
+        title: opts.title || ""
+      });
+    }
+    return parent.createEl("button", {
+      text,
+      attr: {
+        type: "button",
+        class: `prodigy-btn prodigy-btn-quiet ${opts.className || "prodigy-launcher-action"}`,
+        title: opts.title || ""
+      }
+    });
+  }
 
   /**
    * @param {object} options
@@ -176,17 +212,18 @@
       attr: { class: "prodigy-workspace-launcher home-card emphasis-primary" }
     });
     const headRow = rootEl.createEl("div", {
-      attr: { style: "display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px;" }
+      attr: { class: "prodigy-launcher-head" }
     });
     headRow.createEl("div", {
-      text: "🚀 Workspace Launcher",
-      attr: { class: "home-header", style: "margin:0;" }
+      text: "Workspace Launcher",
+      attr: { class: "home-header" }
     });
     if (showCreator && root.ObjectCreatorView && typeof root.ObjectCreatorView.open === "function") {
-      const plus = headRow.createEl("button", {
-        text: "+ 새 Object",
-        attr: { type: "button", title: "Universal Object Creator" }
+      const plus = launcherButton(headRow, "+ 새 Object", {
+        className: "prodigy-launcher-create",
+        title: "새 Object 만들기"
       });
+      if (typeof plus.setAttribute === "function") plus.setAttribute("aria-label", "새 Object 만들기");
       plus.onclick = (ev) => {
         if (ev && ev.stopPropagation) ev.stopPropagation();
         root.ObjectCreatorView.open(app, { pkg: opts.pkg || null });
@@ -194,7 +231,7 @@
     }
     rootEl.createEl("div", {
       text: "What is waiting for me? · 실행은 각 Workspace에서 합니다.",
-      attr: { style: "font-size:0.8em;color:var(--text-muted);margin:-4px 0 10px;line-height:1.4;" }
+      attr: { class: "prodigy-launcher-description" }
     });
 
     const grid = rootEl.createEl("div", { attr: { class: "prodigy-launcher-grid" } });
@@ -209,10 +246,6 @@
       });
 
       const top = el.createEl("div", { attr: { class: "prodigy-launcher-top" } });
-      top.createEl("span", {
-        text: card.icon || "",
-        attr: { class: "prodigy-launcher-icon" }
-      });
       top.createEl("span", {
         text: card.name || "",
         attr: { class: "prodigy-launcher-name" }
@@ -252,12 +285,13 @@
         });
       }
 
-      const actions = el.createEl("div", { attr: { class: "prodigy-launcher-actions" } });
+      const actions = launcherActionRow(el);
       const verb = card.actionVerb || "열기";
-      const btn = actions.createEl("button", {
-        text: `▶ ${verb}`,
-        attr: { type: "button" }
+      const actionName = `${card.name || "워크스페이스"} ${verb}`;
+      const btn = launcherButton(actions, verb, {
+        title: actionName
       });
+      if (typeof btn.setAttribute === "function") btn.setAttribute("aria-label", actionName);
       btn.onclick = (ev) => {
         if (ev && ev.stopPropagation) ev.stopPropagation();
         const exactTarget = card.continuation_path

@@ -179,8 +179,15 @@
         ".ppv-venue-detail-link:focus-visible,.ppv-venue-detail-actions button:focus-visible,.ppv-venue-detail-back:focus-visible{outline:2px solid var(--text-accent);outline-offset:2px}",
         ".ppv-venue-detail-actions{display:flex;gap:var(--ke-space-2,4px);flex-wrap:wrap;margin-block-start:var(--ke-space-4,12px);padding-block-start:var(--ke-space-3,8px);border-block-start:1px solid var(--background-modifier-border)}",
         ".ppv-venue-detail-actions button,.ppv-venue-detail-back{min-block-size:var(--ke-touch-target,44px);word-break:keep-all;overflow-wrap:anywhere}",
-        ".ppv-venue-filter-button{min-block-size:var(--ke-touch-target,44px);padding-inline:var(--ke-space-3,8px);border:1px solid var(--background-modifier-border);border-radius:var(--ke-radius-control,4px);background:var(--background-primary);color:var(--text-muted);cursor:pointer;font-size:var(--ke-type-label,.72rem);overflow-wrap:anywhere}",
-        ".ppv-venue-filter-button.is-active{background:var(--interactive-accent);border-color:var(--interactive-accent);color:var(--text-on-accent)}",
+        ".ppv-venue-search:focus-visible,.ppv-venue-select:focus-visible,.ppv-venue-card:focus-visible,.ppv-venue-detail-link:focus-visible,.ppv-venue-detail-actions button:focus-visible,.ppv-venue-detail-back:focus-visible{outline:2px solid var(--ke-color-accent,var(--text-accent));outline-offset:2px}",
+        ".ppv-venue-card{min-block-size:var(--ke-touch-target,44px)}",
+        ".prodigy-venue-preview,.prodigy-venue-modal{min-inline-size:0;word-break:keep-all;overflow-wrap:anywhere;color:var(--ke-color-text,var(--text-normal));font-size:var(--ke-type-body,.84rem);line-height:var(--ke-leading-body,1.45)}",
+        ".prodigy-venue-preview{max-block-size:min(82vh,760px);overflow:auto;overscroll-behavior:contain}",
+        ".prodigy-venue-preview input,.prodigy-venue-preview select,.prodigy-venue-preview textarea,.prodigy-venue-modal input,.prodigy-venue-modal select,.prodigy-venue-modal textarea{box-sizing:border-box;inline-size:100%;min-block-size:var(--ke-touch-target,44px);padding:var(--ke-space-2,4px) var(--ke-space-3,8px);border:1px solid var(--ke-color-border,var(--background-modifier-border));border-radius:var(--ke-radius-control,4px);background:var(--ke-color-surface,var(--background-primary));color:var(--ke-color-text,var(--text-normal));font:inherit;line-height:var(--ke-leading-body,1.45);word-break:keep-all;overflow-wrap:anywhere}",
+        ".prodigy-venue-preview textarea{min-block-size:60px;resize:vertical;white-space:pre-wrap}",
+        ".prodigy-venue-preview button,.prodigy-venue-modal button{box-sizing:border-box;min-block-size:var(--ke-touch-target,44px);padding:var(--ke-space-2,4px) var(--ke-space-3,8px);word-break:keep-all;overflow-wrap:anywhere}",
+        ".prodigy-venue-preview input:focus-visible,.prodigy-venue-preview select:focus-visible,.prodigy-venue-preview textarea:focus-visible,.prodigy-venue-modal input:focus-visible,.prodigy-venue-modal select:focus-visible,.prodigy-venue-modal textarea:focus-visible{outline:2px solid var(--ke-color-accent,var(--text-accent));outline-offset:2px}",
+        "@media(prefers-reduced-motion:reduce){.ppv-venue-workspace *,.prodigy-venue-preview *,.prodigy-venue-modal *{transition:none!important;animation:none!important;scroll-behavior:auto!important}}",
         "@media(max-width:760px){.ppv-venue-master-detail{display:block}.ppv-venue-master-detail[data-selected=\"true\"] .ppv-venue-list-pane{display:none}.ppv-venue-master-detail[data-selected=\"false\"] .ppv-venue-detail-pane{display:none}.ppv-venue-detail-back{display:inline-flex}}"
       ].join("\n");
       document.head.appendChild(style);
@@ -209,8 +216,8 @@
       await openPath(host, model.path);
       return model;
     }
-    ensureVenueStyles();
     if (root.ProdigyUI && typeof root.ProdigyUI.ensureStyles === "function") root.ProdigyUI.ensureStyles();
+    ensureVenueStyles();
 
     const editableSections = ["소개", "방문 정보", "메모"];
 
@@ -335,7 +342,7 @@
           });
         }
         renderPropertyRow(parent, label, value) {
-          const row = parent.createDiv({ attr: { style: "display:flex;gap:8px;font-size:.85em;margin:2px 0;" } });
+          const row = parent.createDiv({ attr: { style: "display:flex;gap:var(--ke-space-2,4px);font-size:.85em;margin:2px 0;" } });
           row.createEl("span", { text: `${label}:`, attr: { style: "color:var(--text-muted);min-width:44px;" } });
           row.createEl("span", { text: Array.isArray(value) ? value.join(" · ") : String(value || "—") });
         }
@@ -416,12 +423,13 @@
           onOpen() {
             const { contentEl } = this;
             contentEl.empty();
+            contentEl.addClass("prodigy-venue-modal");
             contentEl.createEl("h2", { text: `장소 빠른 수정 — ${this.props.title}`, attr: { style: "margin:0 0 12px;font-size:1.1em;" } });
-            const formEl = contentEl.createDiv({ attr: { style: "display:grid;gap:8px;" } });
+            const formEl = contentEl.createDiv({ attr: { style: "display:grid;gap:var(--ke-space-2,4px);" } });
             this.field(formEl, "분류", "venue_category", "예: cafe, gym", false);
             this.field(formEl, "주소", "address", "선택", false);
             this.field(formEl, "연결", "connections", "저널/지식 wikilink, 콤마 구분", false);
-            const footer = contentEl.createDiv({ attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:12px;" } });
+            const footer = contentEl.createDiv({ attr: { style: "display:flex;justify-content:flex-end;gap:var(--ke-space-2,4px);margin-block-start:var(--ke-space-4,12px);" } });
             footer.createEl("button", { text: "취소" }).onclick = () => { this.close(); resolve(null); };
             const save = footer.createEl("button", { text: "저장", cls: "mod-cta" });
             save.onclick = () => this.save();
@@ -434,7 +442,7 @@
               attr: {
                 value: this.form[key] || "",
                 placeholder,
-                style: "width:100%;box-sizing:border-box;min-height:34px;padding:6px 8px;border:1px solid var(--background-modifier-border);border-radius:4px;background:var(--background-primary);color:var(--text-normal);"
+                style: "width:100%;box-sizing:border-box;min-height:var(--ke-touch-target,44px);padding:var(--ke-space-2,4px) var(--ke-space-3,8px);border:1px solid var(--ke-color-border,var(--background-modifier-border));border-radius:var(--ke-radius-control,4px);background:var(--ke-color-surface,var(--background-primary));color:var(--ke-color-text,var(--text-normal));font:inherit;line-height:var(--ke-leading-body,1.45);word-break:keep-all;overflow-wrap:anywhere;"
               }
             });
             input.oninput = () => { this.form[key] = input.value; };
@@ -495,10 +503,11 @@
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
+          contentEl.addClass("prodigy-venue-modal");
           contentEl.createEl("h2", { text: "장소 삭제", attr: { style: "margin:0 0 8px;font-size:1.15em;" } });
           contentEl.createEl("p", { text: `「${name}」 장소 Object를 삭제할까요?`, attr: { style: "font-size:.95em;margin:0 0 8px;font-weight:700;" } });
           contentEl.createEl("p", { text: "노트 파일은 휴지통으로 이동합니다.", attr: { style: "font-size:.82em;color:var(--text-muted);margin:0 0 14px;" } });
-          const footer = contentEl.createDiv({ attr: { style: "display:flex;justify-content:flex-end;gap:8px;" } });
+          const footer = contentEl.createDiv({ attr: { style: "display:flex;justify-content:flex-end;gap:var(--ke-space-2,4px);" } });
           footer.createEl("button", { text: "취소" }).onclick = () => { this.close(); resolve(null); };
           const del = footer.createEl("button", {
             text: "삭제",
@@ -538,8 +547,8 @@
     const app = opts.app;
     const store = getStore();
     if (!container || !store) return null;
-    ensureVenueStyles();
     if (root.ProdigyUI && typeof root.ProdigyUI.ensureStyles === "function") root.ProdigyUI.ensureStyles();
+    ensureVenueStyles();
 
     let rawItems = Array.isArray(opts.items) ? opts.items.slice() : [];
     const initialModel = opts.model || store.buildVenueWorkspaceModel(rawItems, {});
@@ -572,6 +581,16 @@
 
     function button(parent, label, options) {
       const o = options || {};
+      if (root.ProdigyUI && typeof root.ProdigyUI.button === "function") {
+        const shared = root.ProdigyUI.button(parent, label, {
+          primary: !!o.primary,
+          className: o.className || ""
+        });
+        if (o.ariaLabel && shared && typeof shared.setAttribute === "function") {
+          shared.setAttribute("aria-label", o.ariaLabel);
+        }
+        return shared;
+      }
       const classes = [o.className || "", o.primary ? "mod-cta" : ""].filter(Boolean).join(" ");
       return parent.createEl("button", {
         text: label,
@@ -688,7 +707,7 @@
     heading.createEl("p", {
       text: opts.subtitle || "반복 방문하는 장소의 정보와 연결된 기록을 한곳에서 이어갑니다."
     });
-    const headerActions = header.createDiv({ attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
+    const headerActions = header.createDiv({ attr: { style: "display:flex;gap:var(--ke-space-2,4px);flex-wrap:wrap;" } });
     const addBtn = button(headerActions, "장소 추가", { primary: true });
     addBtn.onclick = () => runSafely(async () => {
       if (root.VenueCreator && typeof root.VenueCreator.open === "function") {

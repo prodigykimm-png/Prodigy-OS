@@ -160,6 +160,8 @@ function liveAuction(status) {
 }
 
 async function main() {
+  const auctionCardSourceForInline = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-card.js"), "utf8");
+  const inlineActionRule = auctionCardSourceForInline.match(/\.auction-region-inline-action\s*\{([^}]*)\}/)[1];
   const auction = page("PARA/PROJECTS/Auction/current.md", "auction_case", {
     status: "bidding", region_sido: "부산광역시", region_sigungu: "금정구", knowledge_topics: ["bidding"]
   });
@@ -237,12 +239,10 @@ async function main() {
   const mobileAuction = liveAuction("bidding");
   global.window.renderAuctionCard(mobileAuction, mobileRoot, { decisionPacketContext: context });
   const regionDecisionButton = button(mobileRoot, "판단 보드");
-  [regionDecisionButton].forEach((control) => {
-    assert.equal(control.attr.class, "auction-region-inline-action");
-    assert.match(control.attr.style, /border:\s*0/);
-    assert.match(control.attr.style, /background:\s*transparent/);
-    assert.doesNotMatch(control.attr.style, /border-radius/);
-  });
+  assert.equal(regionDecisionButton.attr.class, "auction-region-inline-action");
+  assert.match(inlineActionRule, /border:\s*0/);
+  assert.match(inlineActionRule, /background:\s*transparent/);
+  assert.doesNotMatch(inlineActionRule, /border-radius/);
   await regionDecisionButton.onclick({ preventDefault() {}, stopPropagation() {} });
   assert.equal(regionPacketRequests.length, 1, "inline 판단 action opens the Region decision packet");
   assert.equal(regionPacketRequests[0].app, app);

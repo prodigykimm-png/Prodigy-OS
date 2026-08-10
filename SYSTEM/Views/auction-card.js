@@ -1,6 +1,197 @@
+function ensureAuctionCardStyles() {
+  if (window.ProdigyUI && typeof window.ProdigyUI.ensureStyles === "function") window.ProdigyUI.ensureStyles();
+  if (!window.document
+    || !window.document.head
+    || typeof window.document.getElementById !== "function"
+    || typeof window.document.createElement !== "function") return;
+  const styleId = "prodigy-auction-card-local-styles";
+  let style = window.document.getElementById(styleId);
+  if (!style) {
+    style = window.document.createElement("style");
+    style.id = styleId;
+    window.document.head.appendChild(style);
+  }
+  style.textContent = `
+.auction-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ke-space-2, 4px);
+  min-inline-size: 0;
+  box-sizing: border-box;
+  margin-block-end: var(--ke-space-3, 8px);
+  padding: var(--ke-space-3, 8px) var(--ke-space-4, 12px);
+  border: 1px solid var(--ke-color-border, var(--background-modifier-border));
+  border-inline-start: var(--ke-space-2, 4px) solid var(--auction-status-color, var(--ke-color-accent, var(--text-accent)));
+  border-radius: var(--ke-radius-panel, 8px);
+  background: var(--ke-color-surface-secondary, var(--background-secondary));
+  color: var(--ke-color-text, var(--text-normal));
+  overflow-wrap: anywhere;
+}
+.auction-card *,
+.auction-card *::before,
+.auction-card *::after { box-sizing: border-box; min-inline-size: 0; }
+.auction-card-title-row,
+.auction-card-title-wrap,
+.auction-card-badges,
+.auction-card-detail-row {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+}
+.auction-card-title-row {
+  justify-content: space-between;
+  gap: var(--ke-space-3, 8px);
+  inline-size: 100%;
+}
+.auction-card-title-wrap {
+  gap: var(--ke-space-2, 4px);
+  max-inline-size: 70%;
+  overflow: hidden;
+}
+.auction-card-title-link {
+  min-inline-size: 0;
+  color: var(--ke-color-text, var(--text-normal));
+  font-size: var(--ke-type-body, .84rem);
+  font-weight: 700;
+  line-height: var(--ke-leading-control, 1.35);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.auction-card-title-link:hover { text-decoration: underline; }
+.auction-card-delete {
+  flex: 0 0 auto;
+  padding-inline: var(--ke-space-2, 4px) !important;
+  color: var(--text-muted) !important;
+}
+.auction-card-badges {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ke-space-1, 2px);
+}
+.auction-card-dday,
+.auction-card-external-link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--ke-space-5, 16px);
+  padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px);
+  border: 1px solid var(--ke-color-border, var(--background-modifier-border));
+  border-radius: var(--ke-radius-control, 4px);
+  font-size: var(--ke-type-chrome, .68rem);
+  font-weight: 700;
+  line-height: var(--ke-leading-control, 1.35);
+  overflow-wrap: anywhere;
+}
+.auction-card-dday { color: var(--ke-color-text, var(--text-normal)); background: var(--ke-color-hover, var(--background-modifier-hover)); }
+.auction-card-dday.is-urgent { color: var(--ke-color-on-interactive, var(--text-on-accent, var(--text-normal))); background: var(--ke-color-accent, var(--text-accent)); border-color: var(--ke-color-accent, var(--text-accent)); }
+.auction-card-external-link { text-decoration: none; cursor: pointer; }
+.auction-card-external-link[data-source="naver"] { background: color-mix(in srgb, var(--text-accent) 12%, var(--background-primary)); }
+.auction-card-external-link[data-source="cafe"] { background: color-mix(in srgb, var(--text-accent) 12%, var(--background-primary)); }
+.auction-card-detail-row {
+  flex-wrap: wrap;
+  gap: var(--ke-space-2, 4px);
+  margin-block-start: var(--ke-space-1, 2px);
+  color: var(--ke-color-muted, var(--text-muted));
+  font-size: var(--ke-type-label, .72rem);
+  line-height: var(--ke-leading-body, 1.45);
+}
+.auction-card-finance-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ke-space-2, 4px) var(--ke-space-3, 8px);
+  margin-block-start: var(--ke-space-1, 2px);
+  color: var(--ke-color-text, var(--text-normal));
+  font-size: var(--ke-type-label, .72rem);
+  line-height: var(--ke-leading-body, 1.45);
+}
+.auction-card-finance-note {
+  color: var(--ke-color-muted, var(--text-muted));
+  font-size: var(--ke-type-chrome, .68rem);
+  line-height: var(--ke-leading-control, 1.35);
+  overflow-wrap: anywhere;
+}
+.auction-card-detail-row strong,
+.auction-card-property-name { color: var(--ke-color-text, var(--text-normal)); font-weight: 700; }
+.auction-card-separator { color: var(--ke-color-border, var(--background-modifier-border)); }
+.auction-region-inline-actions { display: inline-flex; align-items: center; gap: var(--ke-space-1, 2px); }
+.auction-region-inline-action {
+  min-block-size: 0;
+  padding-inline: var(--ke-space-1, 2px);
+  border: 0;
+  background: transparent;
+  color: var(--ke-color-accent, var(--text-accent));
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: var(--ke-space-1, 2px);
+  cursor: pointer;
+}
+.auction-card-price-pair { display: flex; align-items: center; flex-wrap: wrap; gap: var(--ke-space-1, 2px); min-inline-size: 0; }
+.auction-card-inline-editable {
+  padding-inline: var(--ke-space-1, 2px);
+  border-radius: var(--ke-radius-control, 4px);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.auction-card-inline-editable:hover,
+.auction-card-inline-editable:focus-visible { background: var(--ke-color-hover, var(--background-modifier-hover)); }
+.auction-card-inline-editable:focus-visible,
+.auction-card a:focus-visible,
+.auction-card button:focus-visible,
+.auction-card [role="button"]:focus-visible {
+  outline: 2px solid var(--ke-color-accent, var(--text-accent));
+  outline-offset: 2px;
+}
+.auction-card-accent-value { color: var(--ke-color-accent, var(--text-accent)); }
+.auction-card-profit-positive { color: var(--text-accent); }
+.auction-card-profit-negative { color: var(--text-error); }
+.auction-card-profit-neutral { color: var(--text-muted); }
+.auction-card-decision,
+.auction-card-opinion,
+.auction-card-memo { min-inline-size: 0; color: var(--ke-color-text, var(--text-normal)); font-size: var(--ke-type-label, .72rem); line-height: var(--ke-leading-body, 1.45); overflow-wrap: anywhere; }
+.auction-card-decision { margin-block-start: var(--ke-space-1, 2px); }
+.auction-card-opinion { margin-block-start: var(--ke-space-1, 2px); padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px); cursor: pointer; border-radius: var(--ke-radius-control, 4px); }
+.auction-card-memo { margin-block-start: var(--ke-space-1, 2px); padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px); }
+.auction-card-memo-body { margin-block-start: var(--ke-space-1, 2px); padding-block-start: var(--ke-space-2, 4px); border-block-start: 1px dashed var(--ke-color-border, var(--background-modifier-border)); }
+.auction-card-memo-secondary { margin-block-start: var(--ke-space-1, 2px); color: var(--ke-color-muted, var(--text-muted)); }
+.auction-card-modal-title { margin: 0 0 var(--ke-space-3, 8px); font-size: var(--ke-type-title, 1.05rem); line-height: var(--ke-leading-body, 1.45); overflow-wrap: anywhere; }
+.auction-card-profit-modal-title { margin: 0 0 var(--ke-space-4, 12px); font-size: var(--ke-type-title, 1.05rem); line-height: var(--ke-leading-body, 1.45); overflow-wrap: anywhere; }
+.auction-card-modal-question { margin-block-end: var(--ke-space-3, 8px); color: var(--ke-color-muted, var(--text-muted)); font-size: var(--ke-type-body, .84rem); line-height: var(--ke-leading-body, 1.45); overflow-wrap: anywhere; }
+.auction-card-modal-reasons { display: flex; flex-direction: column; gap: var(--ke-space-2, 4px); margin-block-end: var(--ke-space-4, 12px); }
+.auction-card-modal-reason { display: flex; align-items: center; gap: var(--ke-space-2, 4px); min-block-size: var(--ke-touch-target, 44px); cursor: pointer; font-size: var(--ke-type-body, .84rem); }
+.auction-card-modal-note { display: flex; flex-direction: column; gap: var(--ke-space-2, 4px); margin-block-end: var(--ke-space-4, 12px); }
+.auction-card-modal-note textarea { inline-size: 100%; min-block-size: var(--ke-touch-target, 44px); padding: var(--ke-space-2, 4px); border: 1px solid var(--ke-color-border, var(--background-modifier-border)); border-radius: var(--ke-radius-control, 4px); background: var(--ke-color-surface, var(--background-primary)); color: var(--ke-color-text, var(--text-normal)); font: inherit; resize: vertical; overflow-wrap: anywhere; }
+.auction-card-modal-status { min-block-size: var(--ke-leading-body, 1.45em); margin: 0 0 var(--ke-space-3, 8px); color: var(--ke-color-muted, var(--text-muted)); font-size: var(--ke-type-label, .72rem); line-height: var(--ke-leading-body, 1.45); overflow-wrap: anywhere; }
+.auction-card-modal-actions { justify-content: flex-end; }
+.auction-card-separator.is-mobile-hidden { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .auction-card *,
+  .auction-card *::before,
+  .auction-card *::after { transition: none !important; animation: none !important; }
+}
+`;
+}
+
+function makeAuctionCardInteractive(element, label) {
+  if (!element || typeof element.setAttribute !== "function") return element;
+  element.setAttribute("role", "button");
+  element.setAttribute("tabindex", "0");
+  element.setAttribute("aria-label", label);
+  if (typeof element.addEventListener === "function") {
+    element.addEventListener("keydown", (event) => {
+      if (!event || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      if (typeof element.click === "function") element.click();
+    });
+  }
+  return element;
+}
+
 window.renderAuctionCard = function(p, container, options) {
   try {
-    const T = window.ProdigyTokens || {}; const C = T.COLORS || {};
+    ensureAuctionCardStyles();
+    const T = window.ProdigyTokens || {};
     const display = window.prodigyDisplay;
     if (!display) throw new Error("표시 Registry가 로드되지 않았습니다.");
     const parser = window.parsePrice || Number;
@@ -11,7 +202,7 @@ window.renderAuctionCard = function(p, container, options) {
         class: 'auction-card',
         'data-auction-path': (p.file && p.file.path) || p.path || '',
         tabindex: '-1',
-        style: `border: 1px solid var(--background-modifier-border); border-left: 4px solid ${color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);`
+        style: `--auction-status-color:${color};`
       }
     });
     
@@ -49,8 +240,8 @@ window.renderAuctionCard = function(p, container, options) {
       const { profit, loanRatio, interestRate } = pInfo;
       const man = Math.round(profit / 10000);
       const sign = man > 0 ? "+" : "";
-      const color = man > 0 ? "var(--text-accent)" : "var(--text-error)";
-      return `<span style="color: ${color}; font-weight: bold;">${sign}${man.toLocaleString()}만</span> <span style="font-size:0.85em; color:var(--text-muted);">(${Math.round(loanRatio*100)}%대출, ${(interestRate*100).toFixed(1)}%금리)</span>`;
+      const valueClass = man > 0 ? "auction-card-profit-positive" : man < 0 ? "auction-card-profit-negative" : "auction-card-profit-neutral";
+      return `<span class="${valueClass}"><strong>${sign}${man.toLocaleString()}만</strong></span> <span class="auction-card-finance-note">(${Math.round(loanRatio*100)}%대출, ${(interestRate*100).toFixed(1)}%금리)</span>`;
     };
     
     const toEok = (v) => {
@@ -147,23 +338,20 @@ window.renderAuctionCard = function(p, container, options) {
 
     // Line 1: Title (Case Number + Property name) and Status/Links Badge Group
     const titleRow = card.createEl('div', {
-      attr: { style: 'display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;' }
+      attr: { class: 'auction-card-title-row' }
     });
-
     const leftContainer = titleRow.createEl('div', {
-      attr: { style: 'display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%;' }
+      attr: { class: 'auction-card-title-wrap' }
     });
-
     const displayCase = p.case_number || p.file.name.replace(/\.md$/, '');
     const displayTitle = getPropertyName(p.address);
-    const fullTitleText = `⚖️ ${displayCase}`;
-
+    const fullTitleText = displayCase;
     const titleLink = leftContainer.createEl('a', {
       text: fullTitleText,
       attr: {
-        class: 'internal-link',
-        style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
-        title: '클릭하여 사건 노트를 엽니다.'
+        class: 'internal-link auction-card-title-link',
+        title: '클릭하여 사건 노트를 엽니다.',
+        'aria-label': `${displayCase} 사건 노트 열기`
       }
     });
     titleLink.onclick = (e) => {
@@ -186,7 +374,8 @@ window.renderAuctionCard = function(p, container, options) {
         attr: {
           type: 'button',
           class: 'auction-header-bid-sheet',
-          title: '이 사건의 입찰표를 엽니다.'
+          title: '이 사건의 입찰표를 엽니다.',
+          'aria-label': `${displayCase} 입찰표 열기`
         }
       });
       headerBidSheet.onclick = async (e) => {
@@ -219,15 +408,18 @@ window.renderAuctionCard = function(p, container, options) {
       };
     }
 
-    const deleteBtn = leftContainer.createEl('span', {
-      text: '🗑️',
-      attr: {
-        style: 'cursor: pointer; opacity: 0.4; font-size: 0.85em; transition: opacity 0.2s; flex-shrink: 0;',
-        title: '이 사건 노트를 삭제(휴지통 이동)합니다.'
-      }
-    });
-    deleteBtn.onmouseenter = () => deleteBtn.style.opacity = '1';
-    deleteBtn.onmouseleave = () => deleteBtn.style.opacity = '0.4';
+    const deleteLabel = `${displayCase} 사건 노트 삭제`;
+    const deleteBtn = window.ProdigyUI && typeof window.ProdigyUI.button === "function"
+      ? window.ProdigyUI.button(leftContainer, "삭제", { quiet: true, className: "auction-card-delete", title: "이 사건 노트를 삭제(휴지통 이동)합니다." })
+      : leftContainer.createEl('button', {
+        text: "삭제",
+        attr: {
+          type: "button",
+          class: "prodigy-btn prodigy-btn-quiet auction-card-delete",
+          title: "이 사건 노트를 삭제(휴지통 이동)합니다."
+        }
+      });
+    if (typeof deleteBtn.setAttribute === "function") deleteBtn.setAttribute("aria-label", deleteLabel);
     deleteBtn.onclick = async (e) => {
       e.stopPropagation();
       e.preventDefault();
@@ -250,39 +442,38 @@ window.renderAuctionCard = function(p, container, options) {
     };
 
     const rightBadges = titleRow.createEl('div', {
-      attr: { style: 'display: flex; align-items: center; gap: 4px; flex-shrink: 0;' }
+      attr: { class: 'auction-card-badges' }
     });
-
     // D-Day Badge
     if (ddayStr !== "-") {
       rightBadges.createEl('span', {
         text: ddayStr,
-        attr: {
-          style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.72em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
-        }
+        attr: { class: `auction-card-dday${isUrgent ? " is-urgent" : ""}` }
       });
     }
-
-    // Naver Icon Button
+    // Naver Link
     if (naverLink) {
-      rightBadges.createEl('a', {
-        text: '🌐',
+      const naver = rightBadges.createEl('a', {
+        text: '네이버',
         href: naverLink,
         attr: {
-          style: `font-size: 0.75em; background: ${T.withAlpha ? T.withAlpha(C.success || "#22c55e", 0.12) : "#22c55e20"}; padding: 2px 4px; border-radius: 4px; text-decoration: none; cursor: pointer;`,
-          title: '네이버 부동산 바로가기'
+          class: 'prodigy-btn auction-card-external-link',
+          'data-source': 'naver',
+          title: '네이버 부동산 바로가기',
+          'aria-label': '네이버 부동산 바로가기'
         }
       });
     }
-
-    // Cafe Icon Button
+    // Cafe Link
     if (cafeLink) {
-      rightBadges.createEl('a', {
-        text: '💬',
+      const cafe = rightBadges.createEl('a', {
+        text: '카페',
         href: cafeLink,
         attr: {
-          style: `font-size: 0.75em; background: ${T.withAlpha ? T.withAlpha(C.info || "#3b82f6", 0.12) : "#3b82f620"}; padding: 2px 4px; border-radius: 4px; text-decoration: none; cursor: pointer;`,
-          title: '카페 바로가기'
+          class: 'prodigy-btn auction-card-external-link',
+          'data-source': 'cafe',
+          title: '카페 바로가기',
+          'aria-label': '카페 바로가기'
         }
       });
     }
@@ -296,17 +487,13 @@ window.renderAuctionCard = function(p, container, options) {
         .join(" ") || "지역 미정";
 
     const detailRow1 = card.createEl('div', {
-      attr: { style: 'font-size: 0.76em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
+      attr: { class: 'auction-card-detail-row' }
     });
-    detailRow1.createEl('span', { text: `📍 ${regionText}` });
+    detailRow1.createEl('span', { text: `지역 ${regionText}` });
     const hasRegionDecision = Boolean(window.AuctionRegionPacket);
-    const regionActionStyle = 'font: inherit; color: var(--text-accent); background: transparent; border: 0; box-shadow: none; padding: 0 2px; min-height: 0; height: auto; cursor: pointer; text-decoration: underline; text-underline-offset: 2px;';
     const regionActions = hasRegionDecision
       ? detailRow1.createEl('span', {
-          attr: {
-            class: 'auction-region-inline-actions',
-            style: 'display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;'
-          }
+          attr: { class: 'auction-region-inline-actions' }
         })
       : null;
     if (hasRegionDecision) {
@@ -315,7 +502,6 @@ window.renderAuctionCard = function(p, container, options) {
         attr: {
           type: 'button',
           class: 'auction-region-inline-action',
-          style: regionActionStyle,
           title: '지역 근거와 조사 상태를 한 화면에서 확인합니다.',
           'aria-label': '판단 보드 열기'
         }
@@ -338,36 +524,32 @@ window.renderAuctionCard = function(p, container, options) {
         }
       };
     }
-    detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+    detailRow1.createEl('span', { text: '·', attr: { class: 'auction-card-separator' } });
     detailRow1.createEl('span', { text: p.property_type || "용도 미정" });
-
     if (displayTitle && displayTitle !== "물건명 미지정") {
-      detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
-      detailRow1.createEl('span', { text: `🏢 ${displayTitle}`, attr: { style: 'font-weight: bold; color: var(--text-normal);' } });
+      detailRow1.createEl('span', { text: '·', attr: { class: 'auction-card-separator' } });
+      detailRow1.createEl('span', { text: `건물명 ${displayTitle}`, attr: { class: 'auction-card-property-name' } });
     }
-
     // Line 3: Court & Date
     const detailRow2 = card.createEl('div', {
-      attr: { style: 'font-size: 0.72em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
+      attr: { class: 'auction-card-detail-row' }
     });
-
     let hasCourtOrDate = false;
     if (p.court) {
-      detailRow2.createEl('span', { text: p.court, attr: { style: 'font-weight: bold;' } });
+      detailRow2.createEl('span', { text: p.court, attr: { class: 'auction-card-property-name' } });
       hasCourtOrDate = true;
     }
-
     if (p.auction_datetime) {
       if (hasCourtOrDate) {
-        detailRow2.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+        detailRow2.createEl('span', { text: '·', attr: { class: 'auction-card-separator' } });
       }
-      detailRow2.createEl('span', { text: `📅 ${dateStr}` });
+      detailRow2.createEl('span', { text: `경매일 ${dateStr}` });
     }
     
-   // Finance Row
-   const financeRow = card.createEl('div', {
-     attr: { class: 'auction-card-finance-row', style: `display: flex; flex-wrap: wrap; align-items: center; gap: ${isMobile ? '4px 6px' : '8px'}; font-size: ${isMobile ? '0.72em' : '0.78em'}; color: var(--text-normal); margin-top: 1px;` }
-   });
+    // Finance Row
+    const financeRow = card.createEl('div', {
+      attr: { class: 'auction-card-finance-row' }
+    });
     
     let minRateStr = "";
     if (!isClosedWatching && p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") {
@@ -400,19 +582,17 @@ window.renderAuctionCard = function(p, container, options) {
     // The acquisition/outcome pair is the first thing a completed card must communicate.
     // Keep it together so "내 입찰가 → 낙찰가" is not visually split by editable estimates.
     const pricePair = priceGroup.createEl('div', {
-      attr: { class: 'auction-card-price-pair', style: 'display:flex; align-items:center; gap:4px; flex-wrap:wrap;' }
+      attr: { class: 'auction-card-price-pair' }
     });
-   const minEl = pricePair.createEl('div', { attr: { class: 'auction-card-result-price' } });
-   minEl.innerHTML = `${formatProjectedPrice(priceProjection.left)}${priceProjection.left.key === "minimum_bid" ? minRateStr : ""}`;
-
-   // Terminal cards: make left price (my_bid / expected_bid) clickable to edit
-   const terminalLeftEditable = ["won", "lost", "skipped", "reviewing"].includes(p.status)
-     && (priceProjection.left.key === "my_bid_price" || priceProjection.left.key === "expected_bid");
-   if (terminalLeftEditable) {
-     minEl.style.cssText = 'cursor:pointer;padding:0 2px;border-radius:3px;transition:background-color 0.2s;';
-     minEl.title = `${priceProjection.left.label} 수정`;
-     minEl.addEventListener('mouseenter', () => { minEl.style.backgroundColor = 'var(--background-modifier-hover)'; });
-     minEl.addEventListener('mouseleave', () => { minEl.style.backgroundColor = 'transparent'; });
+    const minEl = pricePair.createEl('div', { attr: { class: 'auction-card-result-price' } });
+    minEl.innerHTML = `${formatProjectedPrice(priceProjection.left)}${priceProjection.left.key === "minimum_bid" ? minRateStr : ""}`;
+    // Terminal cards: make left price (my_bid / expected_bid) clickable to edit
+    const terminalLeftEditable = ["won", "lost", "skipped", "reviewing"].includes(p.status)
+      && (priceProjection.left.key === "my_bid_price" || priceProjection.left.key === "expected_bid");
+    if (terminalLeftEditable) {
+      minEl.className = "auction-card-result-price auction-card-inline-editable";
+      minEl.title = `${priceProjection.left.label} 수정`;
+      makeAuctionCardInteractive(minEl, `${priceProjection.left.label} 수정`);
      minEl.addEventListener('click', async (e) => {
        e.preventDefault(); e.stopPropagation();
        const current = p[priceProjection.left.key] || "";
@@ -434,25 +614,15 @@ window.renderAuctionCard = function(p, container, options) {
      });
    }
 
-   pricePair.createEl('span', { text: '→', attr: { style: 'color: var(--text-muted); font-weight: 700;' } });
-    
-    const expectedBidEditable = priceProjection.right.key === "expected_bid" && ["watching", "bidding"].includes(p.status);
-    const expEl = pricePair.createEl('div', {
-      attr: {
-        style: expectedBidEditable ? 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;' : '',
-        title: expectedBidEditable ? `${priceProjection.right.label} 수정` : ''
-      }
-    });
-    
-    // Add hover style for expected bid
-    if (expectedBidEditable) {
-      expEl.addEventListener('mouseenter', () => {
-        expEl.style.backgroundColor = 'var(--background-modifier-hover)';
-      });
-      expEl.addEventListener('mouseleave', () => {
-        expEl.style.backgroundColor = 'transparent';
-      });
-    }
+  pricePair.createEl('span', { text: '→', attr: { class: 'auction-card-separator' } });
+   const expectedBidEditable = priceProjection.right.key === "expected_bid" && ["watching", "bidding"].includes(p.status);
+   const expEl = pricePair.createEl('div', {
+     attr: {
+       class: `auction-card-result-price${expectedBidEditable ? " auction-card-inline-editable" : ""}`,
+       title: expectedBidEditable ? `${priceProjection.right.label} 수정` : ''
+     }
+   });
+   if (expectedBidEditable) makeAuctionCardInteractive(expEl, `${priceProjection.right.label} 수정`);
     
     expEl.innerHTML = `<span class="auction-card-result-price">${formatProjectedPrice(priceProjection.right)}</span>`;
     
@@ -492,11 +662,13 @@ window.renderAuctionCard = function(p, container, options) {
    if (deposit > 0) {
      const depositStr = toWon(deposit);
      const depositEl = priceGroup.createEl('div', {
-       attr: { style: 'white-space:nowrap;cursor:pointer;padding:0 2px;border-radius:3px;transition:background-color 0.2s;', title: `보증금: ${toWon(deposit)} (최저가 ÷ 10) — 클릭하여 수정` }
+       attr: {
+         class: 'auction-card-inline-editable',
+         title: `보증금: ${toWon(deposit)} (최저가 ÷ 10) — 클릭하여 수정`
+       }
      });
-       depositEl.innerHTML = `보증금: <strong style="color:var(--text-accent);">${depositStr}</strong>`;
-       depositEl.addEventListener('mouseenter', () => { depositEl.style.backgroundColor = 'var(--background-modifier-hover)'; });
-       depositEl.addEventListener('mouseleave', () => { depositEl.style.backgroundColor = 'transparent'; });
+     makeAuctionCardInteractive(depositEl, `보증금 ${depositStr} 수정`);
+     depositEl.innerHTML = `보증금: <strong class="auction-card-accent-value">${depositStr}</strong>`;
        depositEl.addEventListener('click', async (e) => {
          e.preventDefault(); e.stopPropagation();
          const currentDeposit = p.bid_deposit || "";
@@ -516,7 +688,7 @@ window.renderAuctionCard = function(p, container, options) {
            new Notice("보증금이 업데이트되었습니다.");
          }
        });
-      priceGroup.createEl('span', { text: '·', attr: { class: 'auction-card-finance-separator', style: isMobile ? 'display: none;' : '' } });
+      priceGroup.createEl('span', { text: '·', attr: { class: `auction-card-finance-separator${isMobile ? " is-mobile-hidden" : ""}` } });
     }
   }
 
@@ -528,11 +700,11 @@ window.renderAuctionCard = function(p, container, options) {
      const exit = parser(p.exit_price);
      const acquisition = parser(priceProjection.left.value);
      if (!isNaN(exit) && !isNaN(acquisition) && isFinite(exit) && isFinite(acquisition)) {
-       const diff = exit - acquisition;
-       spreadInfo = {
-         value: toEok(diff),
-         color: diff > 0 ? "var(--text-accent)" : diff < 0 ? "var(--text-error)" : "var(--text-muted)"
-       };
+      const diff = exit - acquisition;
+        spreadInfo = {
+          value: toEok(diff),
+          tone: diff > 0 ? "positive" : diff < 0 ? "negative" : "neutral"
+        };
      }
    }
    const incomeGroup = hasExitPrice || spreadInfo || profitInfo
@@ -545,17 +717,16 @@ window.renderAuctionCard = function(p, container, options) {
    }
 
    if (hasExitPrice && incomeGroup) {
-   const exitEl = incomeGroup.createEl('div', {
+    const exitEl = incomeGroup.createEl('div', {
       attr: {
-        style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
+        class: 'auction-card-inline-editable',
         title: `${display.property("exit_price")} 수정`
       }
     });
-    exitEl.addEventListener('mouseenter', () => { exitEl.style.backgroundColor = 'var(--background-modifier-hover)'; });
-    exitEl.addEventListener('mouseleave', () => { exitEl.style.backgroundColor = 'transparent'; });
-   const exitColor = p.exit_price && p.exit_price !== "정보 없음" ? 'var(--text-success)' : 'var(--text-normal)';
-   const exitDisplay = ["won", "lost", "skipped"].includes(p.status) ? toWon(p.exit_price) : toEok(p.exit_price);
-   exitEl.innerHTML = `${display.property("exit_price")}: <strong style="color:${exitColor};">${exitDisplay}</strong>`;
+    makeAuctionCardInteractive(exitEl, `${display.property("exit_price")} 수정`);
+    const exitValueClass = p.exit_price && p.exit_price !== "정보 없음" ? "auction-card-accent-value" : "";
+    const exitDisplay = ["won", "lost", "skipped"].includes(p.status) ? toWon(p.exit_price) : toEok(p.exit_price);
+    exitEl.innerHTML = `${display.property("exit_price")}: <strong class="${exitValueClass}">${exitDisplay}</strong>`;
     exitEl.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -582,29 +753,23 @@ window.renderAuctionCard = function(p, container, options) {
    
    // 차익·월수익: 터미널 상태(won/lost/skipped)에서는 숨김
    if (!isTerminalStatus && incomeGroup && (spreadInfo || profitInfo)) {
-     if (spreadInfo) {
-       const diffEl = incomeGroup.createEl('div');
-       diffEl.innerHTML = `차익: <strong style="color:${spreadInfo.color};">${spreadInfo.value}</strong>`;
-     }
+    if (spreadInfo) {
+      const diffEl = incomeGroup.createEl('div');
+      diffEl.innerHTML = `차익: <strong class="auction-card-profit-${spreadInfo.tone}">${spreadInfo.value}</strong>`;
+    }
 
-     if (spreadInfo && profitInfo) {
-       incomeGroup.createEl('span', { text: '·', attr: { class: 'auction-card-finance-separator', style: isMobile ? 'display: none;' : '' } });
-     }
+    if (spreadInfo && profitInfo) {
+      incomeGroup.createEl('span', { text: '·', attr: { class: `auction-card-finance-separator${isMobile ? " is-mobile-hidden" : ""}` } });
+    }
 
-     if (profitInfo) {
-     const profitEl = incomeGroup.createEl('div', {
-       attr: {
-         style: 'cursor: pointer; padding: 0 2px; border-radius: 3px; transition: background-color 0.2s;',
-         title: '클릭하여 예상 월세, 대출비율, 이율을 수정합니다.'
-       }
-     });
-     
-     profitEl.addEventListener('mouseenter', () => {
-       profitEl.style.backgroundColor = 'var(--background-modifier-hover)';
-     });
-     profitEl.addEventListener('mouseleave', () => {
-       profitEl.style.backgroundColor = 'transparent';
-     });
+    if (profitInfo) {
+      const profitEl = incomeGroup.createEl('div', {
+        attr: {
+          class: 'auction-card-inline-editable',
+          title: '클릭하여 예상 월세, 대출비율, 이율을 수정합니다.'
+        }
+      });
+      makeAuctionCardInteractive(profitEl, '예상 월세, 대출비율, 이율 수정');
 
     profitEl.innerHTML = `월수익: ${formatProfit(profitInfo)}`;
 
@@ -634,7 +799,7 @@ window.renderAuctionCard = function(p, container, options) {
         }
         onOpen() {
           const { contentEl } = this;
-          contentEl.createEl("h3", { text: `[${p.case_number || p.file.name}] 월수익 계산 정보 수정`, attr: { style: "margin-bottom: 16px; font-size: 1.2em;" } });
+          contentEl.createEl("h3", { text: `[${p.case_number || p.file.name}] 월수익 계산 정보 수정`, attr: { class: "auction-card-profit-modal-title" } });
           
           new Setting(contentEl)
             .setName(display.property("expected_monthly_rent"))
@@ -738,34 +903,27 @@ window.renderAuctionCard = function(p, container, options) {
     
    if (["won", "lost", "skipped"].includes(p.status)) {
       const decisionEl = card.createEl('div', {
-        attr: { style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 1px;' }
+        attr: { class: 'auction-card-decision' }
       });
       
       const reason = p.decision_reason || "미지정";
-      const icon = p.status === "won" ? "🏆" : p.status === "lost" ? "❌" : "🚫";
-
-      decisionEl.createSpan({ text: `${icon} ` });
+      const decisionLabel = typeof display.status === "function" ? display.status(p.status) : p.status;
+      decisionEl.createEl('span', { text: `${decisionLabel} · ` });
       decisionEl.createEl('strong', {
         text: `${display.property("decision_reason")}:`,
-        attr: { style: 'color:var(--text-accent); font-weight:bold;' }
+        attr: { class: 'auction-card-accent-value' }
       });
       decisionEl.createSpan({ text: ` ${reason}` });
     }
     
     // Opinion Row (Clickable)
     const opinionEl = card.createEl('div', {
-      attr: { 
-        style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 2px; padding: 2px 4px; border-radius: 4px; cursor: pointer; transition: background-color 0.2s;' 
+      attr: {
+        class: 'auction-card-opinion',
+        title: `${display.property("my_opinion")} 수정`
       }
     });
-    
-    // Add hover effect
-    opinionEl.addEventListener('mouseenter', () => {
-      opinionEl.style.backgroundColor = 'var(--background-modifier-hover)';
-    });
-    opinionEl.addEventListener('mouseleave', () => {
-      opinionEl.style.backgroundColor = 'transparent';
-    });
+    makeAuctionCardInteractive(opinionEl, `${display.property("my_opinion")} 수정`);
     
     const myOpinion = p.my_opinion;
     const userNote = p.auction_note;
@@ -778,14 +936,13 @@ window.renderAuctionCard = function(p, container, options) {
       return val && val !== "정보 없음" && val !== "메모 없음" && String(val).trim() !== "";
     };
     
-    opinionEl.createSpan({ text: '💭 ' });
     opinionEl.createEl('strong', {
       text: `${display.property("my_opinion")}:`,
-      attr: { style: 'color:var(--text-accent); font-weight:bold;' }
+      attr: { class: 'auction-card-accent-value' }
     });
     opinionEl.createSpan({
       text: isValid(myOpinion) ? ` ${String(myOpinion).trim()}` : ' 의견 없음 (클릭하여 입력...)',
-      attr: isValid(myOpinion) ? {} : { style: 'color:var(--text-muted); font-style:italic;' }
+      attr: isValid(myOpinion) ? {} : { class: 'auction-card-finance-note' }
     });
     opinionEl.title = `${display.property("my_opinion")} 수정`;
 
@@ -818,33 +975,28 @@ window.renderAuctionCard = function(p, container, options) {
 
     // Reference Memo Row (Not Clickable, below opinionEl)
     const memoEl = card.createEl('div', {
-      attr: { 
-        style: 'font-size: 0.78em; color: var(--text-normal); margin-top: 2px; padding: 2px 4px;' 
-      }
+      attr: { class: 'auction-card-memo' }
     });
-
     const userText = isValid(userNote) ? String(userNote).trim() : "";
     const recText = isValid(recNote) ? String(recNote).trim() : "";
-
     if (userText || recText) {
       const memoBody = memoEl.createEl('div', {
-        attr: { style: 'border-top: 1px dashed var(--background-modifier-border); padding-top: 4px; margin-top: 4px;' }
+        attr: { class: 'auction-card-memo-body' }
       });
       const primaryMemo = memoBody.createEl('div');
-      primaryMemo.createSpan({ text: '📝 ' });
       primaryMemo.createEl('strong', {
         text: '참고사항:',
-        attr: { style: 'color:var(--text-accent); font-weight:bold;' }
+        attr: { class: 'auction-card-accent-value' }
       });
       primaryMemo.createSpan({ text: ` ${userText || recText}` });
       if (userText && recText) {
         memoBody.createEl('div', {
           text: recText,
-          attr: { style: 'margin-left: 18px; color: var(--text-muted); margin-top: 2px;' }
+          attr: { class: 'auction-card-memo-secondary' }
         });
       }
     } else {
-      memoEl.style.display = 'none';
+      memoEl.hidden = true;
     }
     
     // Transition status buttons
@@ -862,7 +1014,7 @@ window.renderAuctionCard = function(p, container, options) {
         const info = display.statusInfo(key);
         // Card UI uses a shorter label so mobile rows stay compact.
         const shortLabel = key === "skipped" ? "포기" : info.label;
-        return { key, label: `${info.icon} ${shortLabel}`.trim(), color: info.color };
+        return { key, label: shortLabel, color: info.color };
       });
     };
     
@@ -877,8 +1029,7 @@ window.renderAuctionCard = function(p, container, options) {
             mode: "inline",
             row: card.createEl('div', {
               attr: {
-                class: 'prodigy-card-actions auction-card-actions',
-                style: 'margin-top: 3px; border-top: 1px solid var(--background-modifier-border); padding-top: 3px; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px;'
+                class: 'prodigy-card-actions auction-card-actions is-compact'
               }
             })
           };
@@ -927,12 +1078,14 @@ window.renderAuctionCard = function(p, container, options) {
       }
 
       buttons.forEach(opt => {
+        const actionLabel = `${displayCase} ${opt.label}`;
         const btn = window.ProdigyUI
-          ? window.ProdigyUI.button(buttonContainer, opt.label, { chip: true })
+          ? window.ProdigyUI.button(buttonContainer, opt.label, { chip: true, title: actionLabel })
           : buttonContainer.createEl('button', {
             text: opt.label,
-            attr: { type: 'button', class: 'prodigy-btn prodigy-btn-chip' }
+            attr: { type: 'button', class: 'prodigy-btn prodigy-btn-chip', title: actionLabel }
           });
+        if (typeof btn.setAttribute === "function") btn.setAttribute("aria-label", actionLabel);
         
         btn.onclick = async (e) => {
           e.preventDefault();
@@ -999,34 +1152,31 @@ window.renderAuctionCard = function(p, container, options) {
                 let placeholderText = "";
 
                 if (this.statusKey === 'won') {
-                  title = "🏆 낙찰";
+                  title = "낙찰";
                   question = "이번 입찰의 핵심 이유는 무엇인가?";
                   reasons = ["수익성 우수", "시세 대비 저렴", "희소성", "장기 투자", "기타"];
                   placeholderText = "입찰 판단 메모";
                 } else if (this.statusKey === 'lost') {
-                  title = "❌ 패찰";
+                  title = "패찰";
                   question = "패찰 원인은 무엇인가?";
                   reasons = ["경쟁 과열", "예상가 부족", "전략적 패찰", "기타"];
                   placeholderText = "패찰 메모";
                 } else if (this.statusKey === 'skipped') {
-                  title = "🚫 입찰 포기";
+                  title = "입찰 포기";
                   question = "입찰을 포기한 이유는 무엇인가?";
                   reasons = ["수익성 부족", "권리 문제", "임장 결과", "자금 부족", "전략적 포기", "기타"];
                   placeholderText = "포기 메모";
                 }
 
-                contentEl.createEl("h3", { text: title, attr: { style: "margin-bottom: 12px; font-size: 1.15em;" } });
-                contentEl.createEl("p", { text: question, attr: { style: "font-size: 0.9em; color: var(--text-muted); margin-bottom: 12px;" } });
-
+                contentEl.createEl("h3", { text: title, attr: { class: "auction-card-modal-title" } });
+                contentEl.createEl("p", { text: question, attr: { class: "auction-card-modal-question" } });
                 const reasonsContainer = contentEl.createEl("div", {
-                  attr: { style: "display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;" }
+                  attr: { class: "auction-card-modal-reasons" }
                 });
-
                 reasons.forEach((reason, index) => {
                   const label = reasonsContainer.createEl("label", {
-                    attr: { style: "display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9em;" }
+                    attr: { class: "auction-card-modal-reason" }
                   });
-
                   const radio = label.createEl("input", {
                     attr: { type: "radio", name: "decision_reason", value: reason }
                   });
@@ -1034,31 +1184,28 @@ window.renderAuctionCard = function(p, container, options) {
                     radio.checked = true;
                     this.selectedReason = reason;
                   }
-
                   radio.onchange = () => {
                     if (radio.checked) this.selectedReason = reason;
                   };
-
                   label.createEl("span", { text: reason });
                 });
-
                 const noteContainer = contentEl.createEl("div", {
-                  attr: { style: "margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px;" }
+                  attr: { class: "auction-card-modal-note" }
                 });
                 const noteInput = noteContainer.createEl("textarea", {
                   attr: {
                     placeholder: placeholderText + " (선택)",
-                    style: "width: 100%; height: 60px; padding: 6px; border-radius: 4px; border: 1px solid var(--background-modifier-border); font-size: 0.85em; color: var(--text-normal); background: var(--background-primary); resize: none;"
+                    class: "auction-card-modal-textarea",
+                    "aria-label": placeholderText + " (선택)"
                   }
                 });
                 this.statusEl = contentEl.createEl("p", {
                   text: "필수 이유를 선택하고 저장하세요.",
-                  attr: { role: "status", "data-decision-status": "true", style: "min-height:1.4em;margin:0 0 10px;color:var(--text-muted);font-size:0.82em;" }
+                  attr: { role: "status", "data-decision-status": "true", class: "auction-card-modal-status" }
                 });
-
                 if (window.ProdigyUI) window.ProdigyUI.ensureStyles();
                 const btnRow = contentEl.createEl("div", {
-                  attr: { class: "prodigy-btn-row", style: "justify-content: flex-end;" }
+                  attr: { class: "prodigy-btn-row auction-card-modal-actions" }
                 });
 
                 const cancelBtn = window.ProdigyUI
@@ -1074,7 +1221,6 @@ window.renderAuctionCard = function(p, container, options) {
                   this.pending = busy;
                   saveBtn.disabled = busy;
                   cancelBtn.disabled = busy;
-                  saveBtn.style.opacity = busy ? "0.5" : "1";
                 };
                 saveBtn.onclick = async () => {
                   if (this.pending) return;
@@ -1112,7 +1258,6 @@ window.renderAuctionCard = function(p, container, options) {
             }
             
             btn.disabled = true;
-            btn.style.opacity = "0.5";
             new DecisionCaptureModal(app, opt.key, async (reason, note) => {
               const tFile = app.vault.getAbstractFileByPath(p.file.path);
               if (!tFile) throw new Error("경매 Object를 찾을 수 없습니다.");
@@ -1175,13 +1320,11 @@ window.renderAuctionCard = function(p, container, options) {
               };
             }, () => {
               btn.disabled = false;
-              btn.style.opacity = "1";
             }).open();
             return;
           } else {
             // Normal status update flow (for other statuses like reviewing, archived, etc.)
             btn.disabled = true;
-            btn.style.opacity = '0.5';
             const tFile = app.vault.getAbstractFileByPath(p.file.path);
             if (tFile) {
               await app.fileManager.processFrontMatter(tFile, (fm) => {
@@ -1204,16 +1347,20 @@ window.renderAuctionCard = function(p, container, options) {
           : progress && progress.done > 0
             ? `현장 ${progress.done}/${progress.total}`
             : "현장 방문";
+        const siteVisitLabel = `${displayCase} ${label}`;
         const siteVisitButton = window.ProdigyUI
-          ? window.ProdigyUI.button(buttonContainer, label, { chip: true, primary: true })
+          ? window.ProdigyUI.button(buttonContainer, label, { chip: true, primary: true, title: siteVisitLabel })
           : buttonContainer.createEl('button', {
             text: label,
             attr: {
               type: 'button',
               class: 'prodigy-btn prodigy-btn-chip prodigy-btn-primary',
-              'data-site-visit-path': p.file.path
+              'data-site-visit-path': p.file.path,
+              'aria-label': siteVisitLabel,
+              title: siteVisitLabel
             }
           });
+        if (typeof siteVisitButton.setAttribute === "function") siteVisitButton.setAttribute("aria-label", siteVisitLabel);
         siteVisitButton.setAttribute('data-site-visit-path', p.file.path);
         siteVisitButton.onclick = (e) => {
           e.preventDefault();

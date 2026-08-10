@@ -28,35 +28,30 @@
   const WORKSPACE_CONFIG = Object.freeze([
     Object.freeze({
       id: "auction",
-      icon: "🏛",
       name: "경매",
       actionVerb: "계속",
       emptyActionVerb: "둘러보기"
     }),
     Object.freeze({
       id: "workout",
-      icon: "🏋",
       name: "운동",
       actionVerb: "시작",
       emptyActionVerb: "열기"
     }),
     Object.freeze({
       id: "reading",
-      icon: "📚",
       name: "독서",
       actionVerb: "이어 읽기",
       emptyActionVerb: "둘러보기"
     }),
     Object.freeze({
       id: "project",
-      icon: "📁",
       name: "프로젝트",
       actionVerb: "계속",
       emptyActionVerb: "열기"
     }),
     Object.freeze({
       id: "personal",
-      icon: "👤",
       name: "개인",
       actionVerb: "열기",
       emptyActionVerb: "열기"
@@ -490,7 +485,7 @@
         || "";
       return {
         id: ws.id,
-        icon: ws.icon,
+        icon: ws.name,
         name: ws.name,
         path: ws.path,
         empty,

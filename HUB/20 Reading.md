@@ -27,6 +27,178 @@ const loadProdigyScript = async (path) => {
     throw wrapped;
   }
 };
+const ensureReadingHubStyles = () => {
+  if (typeof document === "undefined" || !document.head) return;
+  const styleId = "prodigy-reading-hub-adoption-styles";
+  let style = document.getElementById(styleId);
+  if (!style) {
+    style = document.createElement("style");
+    style.id = styleId;
+    document.head.appendChild(style);
+  }
+  style.textContent = `
+    .reading-hub-body,
+    .reading-hub-section {
+      min-inline-size: 0;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      color: var(--ke-color-text, var(--text-normal));
+    }
+    .reading-hub-body *,
+    .reading-hub-section * {
+      box-sizing: border-box;
+      min-inline-size: 0;
+    }
+    .reading-hub-body {
+      scroll-padding-block-end: var(--prodigy-mobile-toolbar-clearance, 0px);
+    }
+    .reading-hub-section > * {
+      min-inline-size: 0;
+      max-inline-size: 100%;
+    }
+    .reading-hub-empty,
+    .reading-hub-error,
+    .reading-hub-note {
+      color: var(--ke-color-muted, var(--text-muted));
+      font-size: var(--ke-type-body, .84rem);
+      line-height: var(--ke-leading-body, 1.45);
+      overflow-wrap: anywhere;
+    }
+    .reading-hub-empty {
+      font-style: italic;
+    }
+    .reading-hub-error {
+      color: var(--ke-color-error, var(--text-error));
+    }
+    .reading-continue-strip {
+      margin-block-end: var(--ke-space-4, 12px);
+      padding: var(--ke-space-4, 12px);
+      border: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
+      border-radius: var(--ke-radius-panel, 8px);
+      background: var(--ke-color-surface-secondary, var(--background-secondary));
+      min-inline-size: 0;
+      overflow-wrap: anywhere;
+    }
+    .reading-continue-title {
+      margin: 0 0 var(--ke-space-2, 4px);
+      color: var(--ke-color-accent, var(--text-accent));
+      font-size: var(--ke-type-title, 1.05rem);
+      line-height: var(--ke-leading-body, 1.45);
+    }
+    .reading-continue-context {
+      margin-block-start: var(--ke-space-2, 4px);
+      color: var(--ke-color-muted, var(--text-muted));
+      font-size: var(--ke-type-body, .84rem);
+      line-height: var(--ke-leading-body, 1.45);
+      overflow-wrap: anywhere;
+    }
+    .reading-continue-actions {
+      margin-block-start: var(--ke-space-3, 8px);
+    }
+    .reading-continue-book-title {
+      display: block;
+      min-inline-size: 0;
+      font-size: var(--ke-type-heading, .92rem);
+      line-height: var(--ke-leading-body, 1.45);
+      overflow-wrap: anywhere;
+    }
+    .reading-continue-detail {
+      margin-block-start: var(--ke-space-2, 4px);
+      line-height: var(--ke-leading-body, 1.45);
+    }
+    .reading-continue-detail-muted {
+      color: var(--ke-color-muted, var(--text-muted));
+      font-size: var(--ke-type-label, .72rem);
+    }
+    .reading-hub-action-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--ke-space-2, 4px);
+      min-inline-size: 0;
+    }
+    .reading-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+      gap: var(--ke-space-4, 12px);
+      margin-block-start: var(--ke-space-3, 8px);
+      min-inline-size: 0;
+    }
+    .reading-filter-label {
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    .reading-filter-container {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: var(--ke-space-3, 8px);
+      margin-block-end: var(--ke-space-3, 8px);
+      min-inline-size: 0;
+    }
+    .reading-filter-control {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--ke-space-1, 2px);
+      min-inline-size: 0;
+      color: var(--ke-color-muted, var(--text-muted));
+      font-size: var(--ke-type-label, .72rem);
+    }
+    .reading-filter-select {
+      min-inline-size: 0;
+      max-inline-size: 100%;
+      padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px);
+      border: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
+      border-radius: var(--ke-radius-control, 4px);
+      background: var(--ke-color-surface, var(--background-primary));
+      color: var(--ke-color-text, var(--text-normal));
+      font: inherit;
+      line-height: var(--ke-leading-control, 1.35);
+    }
+    .reading-filter-divider {
+      color: var(--ke-color-border, var(--background-modifier-border));
+      font-size: var(--ke-type-label, .72rem);
+    }
+    .reading-hub-body button:focus-visible,
+    .reading-hub-section button:focus-visible,
+    .reading-hub-section select:focus-visible {
+      outline: 2px solid var(--ke-color-accent, var(--text-accent));
+      outline-offset: 2px;
+    }
+    @media (max-width: 767px) {
+      .reading-hub-body .prodigy-btn,
+      .reading-hub-body .prodigy-action-bar button,
+      .reading-hub-section button,
+      .reading-hub-section select {
+        min-block-size: var(--ke-touch-target, 44px);
+        height: auto;
+      }
+      .reading-hub-section .reading-hub-action-row > * {
+        flex: 1 1 12rem;
+        max-inline-size: 100%;
+      }
+      .reading-filter-container {
+        justify-content: flex-start;
+      }
+      .reading-filter-control {
+        flex: 1 1 12rem;
+      }
+      .reading-filter-select {
+        flex: 1 1 auto;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .reading-hub-body *,
+      .reading-hub-section * {
+        scroll-behavior: auto !important;
+        transition: none !important;
+        animation: none !important;
+        transform: none !important;
+      }
+    }
+  `;
+};
 
 let workspaceBody = container;
 try {
@@ -69,7 +241,12 @@ try {
   await loadProdigyScript("SYSTEM/Views/reading-strategy-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-workspace-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-card.js");
-  workspaceBody = window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "reading", title: "독서" }).body;
+  const readingShell = window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "reading", title: "독서" });
+  workspaceBody = readingShell.body;
+  workspaceBody.classList.add("reading-hub-body");
+  if (typeof workspaceBody.setAttr === "function") workspaceBody.setAttr("data-scroll-owner", "reading-workspace-body");
+  else if (typeof workspaceBody.setAttribute === "function") workspaceBody.setAttribute("data-scroll-owner", "reading-workspace-body");
+  ensureReadingHubStyles();
 } catch (err) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(container, err, { title: "독서" });
@@ -164,6 +341,7 @@ const openContinueSession = (cont) => {
 };
 
 const run = () => {
+  this.container.classList.add("reading-hub-section");
   if (!window.renderReadingCard) return false;
   this.container.empty();
 
@@ -173,7 +351,7 @@ const run = () => {
     if (pages.length === 0) {
       listPane.createEl("span", {
         text: "진행 중인 독서가 없습니다.",
-        attr: { style: "color:var(--text-muted);font-style:italic;font-size:0.9em;" }
+        attr: { class: "reading-hub-empty" }
       });
       return;
     }
@@ -203,32 +381,29 @@ const run = () => {
       reason: model.today.reason
     } : null;
     const detail = detailPane.createEl("div", {
-      attr: {
-        class: "reading-continue-strip",
-        style: "padding:var(--ke-space-4,12px);border-radius:var(--ke-radius-panel,8px);border:1px solid var(--background-modifier-border);background:var(--background-secondary);"
-      }
+      attr: { class: "reading-continue-strip" }
     });
     detail.createEl("h2", {
       text: "이어 읽기",
-      attr: { style: "margin:0 0 var(--ke-space-2,4px);font-size:var(--ke-type-title,1.05rem);color:var(--text-accent);" }
+      attr: { class: "reading-continue-title" }
     });
     if (!target) {
       detail.createEl("p", {
         text: "진행 중인 독서가 없습니다.",
-        attr: { style: "color:var(--text-muted);font-size:var(--ke-type-body,.84rem);" }
+        attr: { class: "reading-hub-empty" }
       });
       return;
     }
-    detail.createEl("strong", { text: target.title || "현재 책" });
-    const context = detail.createEl("div", { attr: { style: "margin-top:var(--ke-space-2,4px);color:var(--text-muted);font-size:var(--ke-type-body,.84rem);" } });
+    detail.createEl("strong", { text: target.title || "현재 책", attr: { class: "reading-continue-book-title" } });
+    const context = detail.createEl("div", { attr: { class: "reading-continue-context" } });
     context.createEl("span", { text: target.action || "이어 읽기" });
     if (target.progress) context.createEl("span", { text: ` · ${target.progress}` });
-    if (target.next_action) detail.createEl("p", { text: `다음 · ${target.next_action}`, attr: { style: "margin:var(--ke-space-2,4px) 0 0;" } });
-    if (target.reason) detail.createEl("p", { text: `이유 · ${target.reason}`, attr: { style: "margin:var(--ke-space-2,4px) 0 0;color:var(--text-muted);font-size:var(--ke-type-label,.72rem);" } });
+    if (target.next_action) detail.createEl("p", { text: `다음 · ${target.next_action}`, attr: { class: "reading-continue-detail" } });
+    if (target.reason) detail.createEl("p", { text: `이유 · ${target.reason}`, attr: { class: "reading-continue-detail reading-continue-detail-muted" } });
     if (model.strategy && !model.strategy.empty && model.strategy.strategy_label) {
-      detail.createEl("p", { text: `전략 · ${model.strategy.strategy_label}`, attr: { style: "margin:var(--ke-space-2,4px) 0 0;color:var(--text-muted);font-size:var(--ke-type-label,.72rem);" } });
+      detail.createEl("p", { text: `전략 · ${model.strategy.strategy_label}`, attr: { class: "reading-continue-detail reading-continue-detail-muted" } });
     }
-    const actions = detail.createEl("div", { attr: { class: "prodigy-btn-row", style: "margin-top:var(--ke-space-3,8px);" } });
+    const actions = detail.createEl("div", { attr: { class: "prodigy-btn-row reading-continue-actions" } });
     const read = window.ProdigyUI.button(actions, "오늘 읽기", { primary: true });
     read.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); openContinueSession(target); };
     const focusButton = window.ProdigyUI.button(actions, "이 책 포커스");
@@ -277,6 +452,7 @@ if (!run()) {
 
 ```js-engine
 if (!container) return;
+container.classList.add("reading-hub-section");
 container.empty();
 window.obsidian = obsidian;
 window.app = app;
@@ -299,13 +475,13 @@ try {
   else {
     container.createEl("span", {
       text: "최근 세션이 없습니다.",
-      attr: { style: "color:var(--text-muted);font-style:italic;font-size:0.9em;" }
+      attr: { class: "reading-hub-empty" }
     });
   }
 } catch (error) {
   container.createEl("p", {
     text: "세션 기록을 불러오지 못했습니다.",
-    attr: { style: "color:var(--text-error);font-size:0.85em;" }
+    attr: { class: "reading-hub-error" }
   });
   if (window.prodigyDebugMode) {
     container.createEl("pre", { text: error.stack || error.message });
@@ -319,17 +495,18 @@ try {
 
 ```dataviewjs
 const run = () => {
+  this.container.classList.add("reading-hub-section");
   if (window.renderReadingCard) {
     this.container.empty();
     const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "queue");
     if (pages.length === 0) {
       this.container.createEl("span", {
         text: "독서 대기열이 비어 있습니다.",
-        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+        attr: { class: "reading-hub-empty" }
       });
     } else {
       const grid = this.container.createEl("div", {
-        attr: { style: "display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px;" }
+        attr: { class: "reading-card-grid" }
       });
       pages.forEach(p => window.renderReadingCard(p, grid, "grid"));
     }
@@ -351,6 +528,7 @@ if (!run()) {
 
 ```dataviewjs
 const run = () => {
+  this.container.classList.add("reading-hub-section");
   if (!window.renderReadingCard) return false;
   this.container.empty();
   const model = window.__readingWorkspaceModel;
@@ -362,12 +540,12 @@ const run = () => {
     if (pages.length === 0) {
       this.container.createEl("span", {
         text: "오래 방치된 독서가 없습니다.",
-        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+        attr: { class: "reading-hub-empty" }
       });
     } else {
       this.container.createEl("div", {
         text: "Runtime lifecycle · 오래 갱신되지 않은 읽는 중 책",
-        attr: { style: "font-size:0.78em;color:var(--text-muted);margin-bottom:8px;" }
+        attr: { class: "reading-hub-note" }
       });
       pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
     }
@@ -375,7 +553,7 @@ const run = () => {
   }
   this.container.createEl("span", {
     text: "오래 방치된 독서가 없습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+    attr: { class: "reading-hub-empty" }
   });
   return true;
 };
@@ -395,6 +573,7 @@ if (!run()) {
 
 ```dataviewjs
 const run = () => {
+  this.container.classList.add("reading-hub-section");
   if (!window.renderReadingCard) return false;
   this.container.empty();
   const model = window.__readingWorkspaceModel;
@@ -406,12 +585,12 @@ const run = () => {
     if (pages.length === 0) {
       this.container.createEl("span", {
         text: "완독 임박 책이 없습니다.",
-        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+        attr: { class: "reading-hub-empty" }
       });
     } else {
       this.container.createEl("div", {
         text: "진행 75% 이상 · 상태 전환은 직접 결정",
-        attr: { style: "font-size:0.78em;color:var(--text-muted);margin-bottom:8px;" }
+        attr: { class: "reading-hub-note" }
       });
       pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
     }
@@ -419,7 +598,7 @@ const run = () => {
   }
   this.container.createEl("span", {
     text: "완독 임박 책이 없습니다.",
-    attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+    attr: { class: "reading-hub-empty" }
   });
   return true;
 };
@@ -439,6 +618,7 @@ if (!run()) {
 
 ```dataviewjs
 const run = () => {
+  this.container.classList.add("reading-hub-section");
   if (window.renderReadingCard) {
     this.container.empty();
     // Prefer Runtime-derived waiting list when preloaded; else status reviewing
@@ -453,7 +633,7 @@ const run = () => {
       if (pages.length === 0) {
         this.container.createEl("span", {
           text: "읽을 복기 대상이 없습니다.",
-          attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+          attr: { class: "reading-hub-empty" }
         });
       } else {
         pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
@@ -464,7 +644,7 @@ const run = () => {
     if (pages.length === 0) {
       this.container.createEl("span", {
         text: "읽을 복기 대상이 없습니다.",
-        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+        attr: { class: "reading-hub-empty" }
       });
     } else {
       pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
@@ -489,6 +669,7 @@ if (!run()) {
 
 ```dataviewjs
 const run = () => {
+  this.container.classList.add("reading-hub-section");
   if (window.renderReadingCard) {
     this.container.empty();
     const current = dv.current();
@@ -496,17 +677,15 @@ const run = () => {
     const filterRating = Number(current.filter_rating);
 
     const filterContainer = this.container.createEl("div", {
-      attr: { style: "display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px;" }
+      attr: { class: "reading-filter-container" }
     });
 
     const makeSelectInline = (parent, label, field, options, currentVal) => {
-      const wrapper = parent.createEl('div', { attr: { style: 'display: flex; align-items: center; gap: 4px; font-size: 0.78em; color: var(--text-muted);' } });
-      wrapper.createEl('span', { text: label, attr: { style: 'font-weight: bold;' } });
+      const wrapper = parent.createEl('div', { attr: { class: "reading-filter-control" } });
+      wrapper.createEl('span', { text: label, attr: { class: "reading-filter-label" } });
       
       const sel = wrapper.createEl('select', { 
-        attr: { 
-          style: 'font-size: 0.95em; padding: 1px 4px; border-radius: 4px; background: var(--background-modifier-hover); color: var(--text-normal); border: 1px solid var(--background-modifier-border); cursor: pointer;' 
-        } 
+        attr: { class: "reading-filter-select" }
       });
       
       options.forEach(o => {
@@ -533,7 +712,7 @@ const run = () => {
       { text: '3점 이상', value: '3' }
     ], current.filter_rating);
 
-    filterContainer.createEl('span', { text: '|', attr: { style: 'color: var(--background-modifier-border); font-size: 0.8em;' } });
+    filterContainer.createEl('span', { text: '|', attr: { class: "reading-filter-divider" } });
 
     makeSelectInline(filterContainer, '정렬:', 'sort_completed_by', [
       { text: '최근 완독 순', value: 'date' },
@@ -555,7 +734,7 @@ const run = () => {
     if (pages.length === 0) {
       this.container.createEl("span", {
         text: "최근 완독 기록이 없습니다.",
-        attr: { style: "color:var(--text-muted); font-style:italic; font-size:0.9em;" }
+        attr: { class: "reading-hub-empty" }
       });
     } else {
       pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
@@ -578,6 +757,7 @@ if (!run()) {
 # 객체 라이프사이클
 
 ```dataviewjs
+this.container.classList.add("reading-hub-section");
 if (window.ObjectLifecycleCore && window.ObjectLifecycleView) {
   const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading").array();
   const evaluation = window.ObjectLifecycleCore.evaluateCollection(pages);
@@ -589,7 +769,7 @@ if (window.ObjectLifecycleCore && window.ObjectLifecycleView) {
 } else {
   this.container.createEl("span", {
     text: "객체 라이프사이클 모듈을 불러오는 중...",
-    attr: { style: "color:var(--text-muted);font-size:0.82em;" }
+    attr: { class: "reading-hub-note" }
   });
 }
 ```

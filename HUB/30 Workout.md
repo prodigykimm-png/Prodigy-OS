@@ -19,6 +19,69 @@ if (typeof obsidian !== "undefined" && obsidian) {
 }
 
 const BOOTSTRAP_PATH = "SYSTEM/Views/prodigy-hub-loader.js";
+const ensureWorkoutHubStyles = () => {
+  if (typeof document === "undefined" || !document.head) return;
+  const styleId = "prodigy-workout-hub-adoption-styles";
+  let style = document.getElementById(styleId);
+  if (!style) {
+    style = document.createElement("style");
+    style.id = styleId;
+    document.head.appendChild(style);
+  }
+  style.textContent = `
+    .workout-hub-shell,
+    .workout-hub-shell .workout-workspace-content {
+      min-inline-size: 0;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+    .workout-hub-shell *,
+    .workout-hub-shell .workout-workspace-content * {
+      box-sizing: border-box;
+      min-inline-size: 0;
+    }
+    .workout-hub-shell .workout-workspace-content > * {
+      min-inline-size: 0;
+      max-inline-size: 100%;
+    }
+    .workout-hub-shell [data-scroll-owner="workout-workspace-body"] {
+      scroll-padding-block-end: var(--prodigy-mobile-toolbar-clearance, 0px);
+    }
+    .workout-hub-shell button:focus-visible,
+    .workout-hub-shell select:focus-visible,
+    .workout-hub-shell input:focus-visible,
+    .workout-hub-shell textarea:focus-visible {
+      outline: 2px solid var(--ke-color-accent, var(--text-accent));
+      outline-offset: 2px;
+    }
+    .workout-hub-loader-fallback {
+      min-inline-size: 0;
+      color: var(--ke-color-error, var(--text-error));
+      font-size: var(--ke-type-body, .84rem);
+      line-height: var(--ke-leading-body, 1.45);
+      overflow-wrap: anywhere;
+    }
+    @media (max-width: 767px) {
+      .workout-hub-shell .workout-workspace-content button,
+      .workout-hub-shell .workout-workspace-content select,
+      .workout-hub-shell .workout-workspace-content input,
+      .workout-hub-shell .workout-workspace-content textarea {
+        min-block-size: var(--ke-touch-target, 44px);
+        height: auto;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .workout-hub-shell *,
+      .workout-hub-shell [data-scroll-owner="workout-workspace-body"] {
+        scroll-behavior: auto !important;
+        transition: none !important;
+        animation: none !important;
+        transform: none !important;
+      }
+    }
+  `;
+};
+ensureWorkoutHubStyles();
 
 const WORKOUT_MANIFEST = {
   required: [
@@ -91,6 +154,7 @@ const renderWorkout = async () => {
     workspaceId: "workout",
     title: "운동"
   });
+  if (shell.element && shell.element.classList) shell.element.classList.add("workout-hub-shell");
   const workoutMount = shell.body.createDiv({ attr: { class: "workout-workspace-content" } });
   shell.body.setAttr("data-scroll-owner", "workout-workspace-body");
   if (result.optional_failures.length && window.prodigyDebugMode === true && console && console.warn) {
@@ -128,7 +192,7 @@ const showWorkoutError = (error) => {
     return;
   }
   container.empty();
-  const card = container.createEl("section", { attr: { role: "alert" } });
+  const card = container.createEl("section", { attr: { class: "workout-hub-loader-fallback", role: "alert" } });
   card.createEl("p", { text: `운동 워크스페이스를 불러오지 못했습니다. ${message}` });
   const button = card.createEl("button", { text: "다시 시도", attr: { type: "button" } });
   button.onclick = retryWorkout;

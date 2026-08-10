@@ -405,6 +405,7 @@
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
+          contentEl.addClass("ppw-modal-surface");
           contentEl.createEl("h2", {
             text: "사람 삭제",
             attr: { style: "margin:0 0 8px;font-size:1.15em;" }
@@ -419,7 +420,7 @@
           });
 
           const footer = contentEl.createEl("div", {
-            attr: { style: "display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;" }
+            attr: { style: "display:flex;justify-content:flex-end;gap:var(--ke-space-2,4px);flex-wrap:wrap;" }
           });
           const cancel = footer.createEl("button", { text: "취소", attr: { type: "button" } });
           cancel.onclick = () => {
@@ -703,12 +704,12 @@
           if (this.model.is_legacy) {
             titleMain.createEl("span", { text: "레거시", attr: { class: "ppw-badge" } });
           }
-          const previewTrash = titleRow.createEl("span", {
-            text: "🗑️",
+          const previewTrash = titleRow.createEl("button", {
+            text: "삭제",
             attr: {
+              type: "button",
               class: "ppw-trash ppw-preview-trash",
               title: "이 사람 노트를 삭제(휴지통 이동)합니다.",
-              role: "button",
               "aria-label": `${this.model.name} 삭제`
             }
           });
@@ -1002,6 +1003,7 @@
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
+          contentEl.addClass("ppw-modal-surface");
           contentEl.createEl("h2", { text: "사람 추가", attr: { style: "margin:0 0 8px;font-size:1.15em;" } });
           contentEl.createEl("p", {
             text: "이름만 입력하면 추가 후 관계 팝업이 열립니다.",
@@ -1028,7 +1030,7 @@
           };
 
           const footer = contentEl.createEl("div", {
-            attr: { style: "display:flex;justify-content:flex-end;gap:8px;margin-top:14px;" }
+            attr: { style: "display:flex;justify-content:flex-end;gap:var(--ke-space-2,4px);margin-block-start:var(--ke-space-4,12px);" }
           });
           const cancel = contentEl.ownerDocument
             ? footer.createEl("button", { text: "취소", attr: { type: "button" } })
@@ -1225,6 +1227,7 @@
       onOpen() {
         const { contentEl } = this;
         contentEl.empty();
+        contentEl.addClass("ppw-modal-surface");
         contentEl.createEl("h2", { text: "사람 찾기", attr: { style: "margin:0 0 6px;font-size:1.15em;" } });
         contentEl.createEl("p", {
           text: "이름, 구분, 소속, 역할, 메모를 찾습니다. 목록을 선택하면 관계와 최근 맥락을 바로 확인할 수 있습니다.",
@@ -1352,6 +1355,7 @@
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
+          contentEl.addClass("ppw-modal-surface");
           contentEl.createEl("h2", {
             text: `사건 추가 · ${title}`,
             attr: { style: "margin:0 0 6px;font-size:1.12em;" }
@@ -1402,7 +1406,7 @@
           );
 
           const footer = contentEl.createEl("div", {
-            attr: { style: "display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;" }
+            attr: { style: "display:flex;justify-content:flex-end;align-items:center;gap:var(--ke-space-2,4px);margin-block-start:var(--ke-space-4,12px);flex-wrap:wrap;" }
           });
 
           const cancel = footer.createEl("button", { text: "취소", attr: { type: "button" } });
@@ -1505,6 +1509,7 @@
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
+          contentEl.addClass("ppw-modal-surface");
           contentEl.createEl("h2", {
             text: "메모 삭제",
             attr: { style: "margin:0 0 8px;font-size:1.12em;" }
@@ -1520,7 +1525,7 @@
             }
           });
           const footer = contentEl.createEl("div", {
-            attr: { style: "display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;" }
+            attr: { style: "display:flex;justify-content:flex-end;gap:var(--ke-space-2,4px);flex-wrap:wrap;" }
           });
           const cancel = footer.createEl("button", { text: "취소", attr: { type: "button" } });
           cancel.onclick = () => {
@@ -1618,6 +1623,7 @@
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
+          contentEl.addClass("ppw-modal-surface");
           contentEl.createEl("h2", {
             text: "사건 삭제",
             attr: { style: "margin:0 0 8px;font-size:1.12em;" }
@@ -1633,7 +1639,7 @@
             }
           });
           const footer = contentEl.createEl("div", {
-            attr: { style: "display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;" }
+            attr: { style: "display:flex;justify-content:flex-end;gap:var(--ke-space-2,4px);flex-wrap:wrap;" }
           });
           const cancel = footer.createEl("button", { text: "취소", attr: { type: "button" } });
           cancel.onclick = () => {
@@ -1740,6 +1746,7 @@
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
+          contentEl.addClass("ppw-modal-surface");
           contentEl.createEl("h2", {
             text: `메모 추가 · ${title}`,
             attr: { style: "margin:0 0 6px;font-size:1.12em;" }
@@ -1764,7 +1771,7 @@
           area.oninput = () => { this.text = area.value; };
 
           const footer = contentEl.createEl("div", {
-            attr: { style: "display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap;" }
+            attr: { style: "display:flex;justify-content:flex-end;align-items:center;gap:var(--ke-space-2,4px);margin-block-start:var(--ke-space-4,12px);flex-wrap:wrap;" }
           });
 
           const cancel = footer.createEl("button", { text: "취소", attr: { type: "button" } });
@@ -2054,7 +2061,7 @@
     heading.createEl("p", {
       text: opts.subtitle || "중요한 사람을 찾고, 함께한 기록과 관계의 맥락을 이어갑니다."
     });
-    const headerActions = header.createDiv({ attr: { style: "display:flex;gap:8px;flex-wrap:wrap;" } });
+    const headerActions = header.createDiv({ attr: { style: "display:flex;gap:var(--ke-space-2,4px);flex-wrap:wrap;" } });
     const addBtn = btn(headerActions, "사람 추가", { primary: true });
     addBtn.onclick = async () => {
       await openCreateFlow(app);
@@ -2380,12 +2387,12 @@
           }
         };
         // Auction/Project card pattern: trash icon beside title
-        const trashBtn = left.createEl("span", {
-          text: "🗑️",
+        const trashBtn = left.createEl("button", {
+          text: "삭제",
           attr: {
+            type: "button",
             class: "ppw-trash",
             title: "이 사람 노트를 삭제(휴지통 이동)합니다.",
-            role: "button",
             "aria-label": `${person.name} 삭제`
           }
         });

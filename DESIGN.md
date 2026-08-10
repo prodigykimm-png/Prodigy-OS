@@ -18,6 +18,7 @@ Explorer code may consume the following aliases. A color alias must resolve dire
 | `--ke-color-surface` | `var(--background-primary)` | Main pane surface |
 | `--ke-color-surface-secondary` | `var(--background-secondary)` | Grouped supporting surface |
 | `--ke-color-hover` | `var(--background-modifier-hover)` | Hover and selected fill |
+| `--ke-color-backdrop` | `var(--background-modifier-cover)` | BottomSheet scrim |
 | `--ke-color-border` | `var(--background-modifier-border)` | Dividers and panel boundaries |
 | `--ke-color-text` | `var(--text-normal)` | Primary text |
 | `--ke-color-muted` | `var(--text-muted)` | Secondary text and counts |
@@ -95,16 +96,16 @@ Status uses semantic theme aliases rather than a fixed palette: active work uses
 - `drill-down` and `back` provide the same forward/reverse navigation model at every adaptive layout.
 <!-- explorer-composition:end -->
 
-Shared controls retain the existing compact Prodigy patterns: action buttons use 4px radius, high contrast, visible hover/focus, and concise labels; grouped controls use panels only when their relationship needs a boundary. Do not use emoji as icons. If an icon is necessary, use an Obsidian-provided icon with an accessible text name.
-
+Shared controls retain the existing compact Prodigy patterns: action buttons use 4px radius, high contrast, visible hover/focus, and concise labels; grouped controls use panels only when their relationship needs a boundary. Do not use emoji as icons. If an icon is necessary, use an Obsidian-provided icon with an accessible text name. The shared CSS consumes the `--ke-color-*` theme aliases (with Obsidian semantic variables as fallbacks); no primitive introduces a raw palette.
 ### Shared visual rhythm
-
 - Workspace titles use `--ke-type-title`; card and section headings use `--ke-type-heading`; operational copy uses `--ke-type-body`; metadata, filters, and button labels use `--ke-type-label`; fixed-height dock labels may use `--ke-type-chrome`.
 - Korean body copy uses `--ke-leading-body`. Buttons, tabs, chips, and other controls use `--ke-leading-control` so glyphs do not touch their control edges.
 - Repeated spacing follows the 2/4/8/12/16px `--ke-space-*` scale. A control's default inset is `--ke-space-1` vertically and `--ke-space-3` horizontally; compact variants may reduce horizontal inset to `--ke-space-2` but must retain readable leading.
 - Letter spacing is neutral (`0`) for Korean workspace chrome and headings. Fixed-height controls must not compensate for narrow geometry with negative tracking.
-- Compact layout keeps 44px touch targets for primary navigation and workflow actions. Desktop density may use intrinsic control height when the same action remains easy to target with a pointer.
-- On mobile widths the App Shell body reserves `--ke-mobile-toolbar-height` plus `env(safe-area-inset-bottom)` at its scroll end. `100dvb` still includes the strip the floating Obsidian toolbar paints over, so a workspace that only budgets the in-app Action Bar leaves its last row unreachable.
+- Compact layout is the `<768px` contract: primary actions, tabs, context actions, and sheet close/more controls use `var(--ke-touch-target)` (44px from `CONTROL_HEIGHTS.touchTarget`). Medium and wide layouts retain the 32px pointer-density baseline where the same action remains easy to target.
+- Controls wrap CJK and long labels with `word-break: keep-all`, `overflow-wrap: anywhere`, and `min-inline-size: 0`; labels are not made accessible by clipping or horizontal overflow.
+- `.prodigy-app-shell-body` is the App Shell's only document scroll owner (`overflow: auto` with inline overflow clipped). Adaptive tabs wrap instead of creating a horizontal scroll owner; the sticky Action Bar does not scroll independently. Hidden secondary lanes remain non-scrollable.
+- BottomSheet is a bounded overlay: its panel clips overflow, and `.prodigy-bottom-sheet-body` is its sole overlay scroll owner. Safe-area clearance is applied to the App Shell body, Action Bar, and sheet panel so the Obsidian toolbar and device inset do not cover the last action.
 - A workspace that repaints on a data refresh restores the scroll offset of `.prodigy-app-shell-body` and updates rows in place. Rebuilding the subtree resets scroll position and caret even when the user never navigated.
 
 ## 5. Component States
@@ -158,13 +159,13 @@ Physical-device 성공은 `physical iPhone` 실기기에서 사용자가 직접 
 
 | Primitive | 책임 | 계약 |
 |---|---|---|
-| `AppShell` | Workspace bar, context, 단일 body scroll owner를 조합한다. | compact는 `768px` 미만, medium은 `768px`부터 `1023px`, wide는 `1024px` 이상이다. |
-| | | 분기점은 `SYSTEM/Views/design-tokens.js`에서 `BREAKPOINTS`와 `CONTROL_HEIGHTS`로 내보낸다. |
-| `ContextBar` | 선택·필터·동기화 같은 현재 문맥을 짧게 표시한다. | 한글/CJK는 자연스럽게 줄바꿈하며 긴 값이 수평 스크롤을 만들지 않는다. |
-| `WorkspaceSwitcher` | Workspace registry의 id/path/label로 HUB를 전환한다. | registry 외 별도 목록을 만들지 않으며 Obsidian Workspace API fallback을 유지한다. |
-| `AdaptiveTabs` | 동일한 tab 의미와 키보드 순서를 폭에 맞게 유지한다. | Arrow, Home, End와 선택 semantics를 제공한다. |
-| `AdaptiveActionBar` | compact의 주요/보조 작업을 `52px` Action Bar와 sheet로 나눈다. | 터치 대상은 최소 `44px`이며 lane 고유 작업을 제거하지 않는다. |
-| `BottomSheet` | compact 보조 작업과 Inspector shell의 bounded overlay다. | 최대 높이는 `min(70vh, 560px)`이고 body 하나만 scroll을 소유한다. |
+| `AppShell` | Workspace bar, context, and one body scroll owner. | compact is `<768px`; medium is `768px`–`1023px`; wide is `>=1024px`. The body reserves mobile-toolbar and safe-area clearance; it is the only document scroll owner. |
+| | | Breakpoints and `CONTROL_HEIGHTS.touchTarget` come from `SYSTEM/Views/design-tokens.js`; shared CSS maps them through `--ke-*` aliases. |
+| `ContextBar` | Shows selection, filters, and sync context briefly. | Korean/CJK and long values wrap naturally; actions retain visible focus and reach the compact touch target. |
+| `WorkspaceSwitcher` | Switches HUB by registry id/path/label. | It never creates a second list; the Obsidian Workspace API fallback remains. |
+| `AdaptiveTabs` | Keeps tab meaning and keyboard order at each width. | Arrow, Home, End, selected semantics, wrapping labels, and no horizontal scroll owner. |
+| `AdaptiveActionBar` | Splits compact primary/secondary work between the `52px` Action Bar and sheet. | Primary and More controls are at least `44px` in compact; sticky positioning does not create a scroll owner; safe-area padding is shared. |
+| `BottomSheet` | Bounded overlay for compact secondary work and the Inspector shell. | Max height is `min(70vh, 560px)`; panel overflow is clipped and its body alone scrolls; Escape, focus return, visible focus, and safe-area clearance are explicit. |
 | `StatusLine` | loading/동기화 상태를 비파괴적으로 알린다. | polite live region과 텍스트 상태를 사용한다. |
 | `InlineError` | 문맥을 보존한 recoverable 오류를 표시한다. | concise Korean copy와 선택적 복구 작업을 제공한다. |
 | `AIInspector` | Task 21이 채울 빈 Inspector frame이다. | compact는 bottom sheet, medium/wide는 `min(38%, 420px)` side panel이다. |

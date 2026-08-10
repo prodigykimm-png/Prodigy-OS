@@ -18,20 +18,24 @@
   align-items: center;
   justify-content: center;
   gap: var(--ke-space-1, 2px);
-  min-height: 0;
+  min-height: 32px;
   height: auto;
   padding: var(--ke-space-1, 2px) var(--ke-space-3, 8px);
   border-radius: var(--ke-radius-control, 4px);
   font-size: var(--ke-type-label, 0.72rem);
   font-weight: 600;
   line-height: var(--ke-leading-control, 1.35);
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-primary);
-  color: var(--text-normal);
+  border: 1px solid var(--ke-color-border, var(--background-modifier-border));
+  background: var(--ke-color-surface, var(--background-primary));
+  color: var(--ke-color-text, var(--text-normal));
   cursor: pointer;
   box-sizing: border-box;
-  white-space: nowrap;
-  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+  min-inline-size: 0;
+  white-space: normal;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  transition: background-color var(--ke-motion-fast, 150ms) ease, border-color var(--ke-motion-fast, 150ms) ease, opacity var(--ke-motion-fast, 150ms) ease, transform 100ms ease;
   -webkit-appearance: none;
   appearance: none;
 }
@@ -45,7 +49,7 @@
 .prodigy-list-workspace .workspace-list-open:hover,
 .prodigy-project-type-filter button:hover,
 .prodigy-card-actions button:hover {
-  background: var(--background-modifier-hover);
+  background: var(--ke-color-hover, var(--background-modifier-hover));
 }
 
 .prodigy-btn:active,
@@ -64,9 +68,15 @@
 
 .prodigy-btn:focus-visible,
 .prodigy-home .action-btn:focus-visible,
+.prodigy-journal-workspace .journal-actions button:focus-visible,
+.prodigy-journal-workspace .journal-row button:focus-visible,
 .reading-loop-actions button:focus-visible,
-.prodigy-card-actions button:focus-visible {
-  outline: 2px solid var(--text-accent);
+.prodigy-list-workspace .workspace-list-actions button:focus-visible,
+.prodigy-list-workspace .workspace-list-open:focus-visible,
+.prodigy-project-type-filter button:focus-visible,
+.prodigy-card-actions button:focus-visible,
+.auction-header-bid-sheet:focus-visible {
+  outline: 2px solid var(--ke-color-accent, var(--text-accent));
   outline-offset: 2px;
 }
 
@@ -78,9 +88,9 @@
 .reading-loop-actions button.mod-cta,
 .prodigy-journal-workspace .journal-actions button.mod-cta,
 .prodigy-card-actions button.prodigy-btn-primary {
-  background: var(--interactive-accent) !important;
-  color: var(--text-on-accent) !important;
-  border-color: var(--interactive-accent) !important;
+  background: var(--ke-color-interactive, var(--interactive-accent)) !important;
+  color: var(--ke-color-on-interactive, var(--text-on-accent)) !important;
+  border-color: var(--ke-color-interactive, var(--interactive-accent)) !important;
 }
 
 .prodigy-btn-primary:hover,
@@ -89,7 +99,7 @@
 .prodigy-home button.action-btn-primary:hover,
 .reading-loop-actions button.mod-cta:hover,
 .prodigy-journal-workspace .journal-actions button.mod-cta:hover {
-  background: var(--interactive-accent-hover, var(--interactive-accent)) !important;
+  background: var(--interactive-accent-hover, var(--ke-color-interactive, var(--interactive-accent))) !important;
   filter: brightness(1.03);
 }
 
@@ -97,21 +107,21 @@
 .prodigy-btn-danger,
 .reading-loop-actions button.prodigy-btn-danger,
 .prodigy-card-actions button.prodigy-btn-danger {
-  color: var(--text-error) !important;
-  border-color: color-mix(in srgb, var(--text-error) 40%, var(--background-modifier-border)) !important;
-  background: color-mix(in srgb, var(--text-error) 8%, var(--background-primary)) !important;
+  color: var(--ke-color-error, var(--text-error)) !important;
+  border-color: color-mix(in srgb, var(--ke-color-error, var(--text-error)) 40%, var(--ke-color-border, var(--background-modifier-border))) !important;
+  background: color-mix(in srgb, var(--ke-color-error, var(--text-error)) 8%, var(--ke-color-surface, var(--background-primary))) !important;
 }
 
 /* Quiet / secondary */
 .prodigy-btn-quiet {
-  background: var(--background-modifier-hover);
+  background: var(--ke-color-hover, var(--background-modifier-hover));
   border-color: transparent;
 }
 
 /* Compact chip-style (status change, filters) */
 .prodigy-btn-chip,
 .prodigy-project-type-filter button {
-  min-height: 0;
+  min-height: 30px;
   height: auto;
   padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px);
   border-radius: 999px;
@@ -121,9 +131,9 @@
 
 .prodigy-project-type-filter button.is-active,
 .prodigy-btn-chip.is-active {
-  border-color: var(--text-accent) !important;
-  background: color-mix(in srgb, var(--text-accent) 16%, var(--background-secondary)) !important;
-  color: var(--text-normal) !important;
+  border-color: var(--ke-color-accent, var(--text-accent)) !important;
+  background: color-mix(in srgb, var(--ke-color-accent, var(--text-accent)) 16%, var(--ke-color-surface-secondary, var(--background-secondary))) !important;
+  color: var(--ke-color-text, var(--text-normal)) !important;
   font-weight: 700;
 }
 
@@ -140,18 +150,6 @@
   align-items: center;
 }
 
-/* Home prioritizes content density over large touch targets */
-.prodigy-home .action-btn,
-.prodigy-home button.action-btn,
-.prodigy-home .prodigy-launcher-actions button,
-.prodigy-home .home-launcher-mount button {
-  min-height: 0 !important;
-  height: auto !important;
-  padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
-  font-size: var(--ke-type-label, 0.72rem) !important;
-  line-height: var(--ke-leading-control, 1.35) !important;
-  border-radius: 4px !important;
-}
 .prodigy-home .focus-actions,
 .prodigy-home .focus-footer {
   gap: var(--ke-space-2, 4px);
@@ -171,7 +169,7 @@
 .auction-card-actions > button {
   flex: 0 0 auto !important;
   width: auto !important;
-  min-height: 0 !important;
+  min-height: 32px;
   height: auto !important;
   padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
   font-size: var(--ke-type-chrome, 0.68rem) !important;
@@ -189,10 +187,10 @@
   align-items: center;
   min-inline-size: 0;
   padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px);
-  border: 1px solid var(--background-modifier-border);
+  border: 1px solid var(--ke-color-border, var(--background-modifier-border));
   border-radius: 999px;
-  background: var(--background-modifier-hover);
-  color: var(--text-muted);
+  background: var(--ke-color-hover, var(--background-modifier-hover));
+  color: var(--ke-color-muted, var(--text-muted));
   font-size: var(--ke-type-chrome, .68rem);
   font-weight: 700;
   line-height: var(--ke-leading-control, 1.35);
@@ -200,7 +198,7 @@
   overflow-wrap: anywhere;
 }
 .auction-card[data-navigation-focus="true"] {
-  outline: 2px solid var(--text-accent);
+  outline: 2px solid var(--ke-color-accent, var(--text-accent));
   outline-offset: 3px;
 }
 
@@ -218,24 +216,26 @@
 }
 .auction-card-finance-group + .auction-card-finance-group {
   padding-inline-start: var(--ke-space-3, 8px);
-  border-inline-start: 1px solid var(--background-modifier-border);
+  border-inline-start: 1px solid var(--ke-color-border, var(--background-modifier-border));
 }
 .auction-card-finance-label {
-  color: var(--text-muted);
+  color: var(--ke-color-muted, var(--text-muted));
   font-size: var(--ke-type-chrome, .68rem);
   font-weight: 700;
   line-height: var(--ke-leading-control, 1.35);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .auction-card-finance-separator {
-  color: var(--text-muted);
+  color: var(--ke-color-muted, var(--text-muted));
 }
 .auction-card-next-action-label {
-  color: var(--text-muted);
+  color: var(--ke-color-muted, var(--text-muted));
   font-size: var(--ke-type-chrome, .68rem);
   font-weight: 700;
   line-height: var(--ke-leading-control, 1.35);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   padding-inline-end: var(--ke-space-1, 2px);
 }
 
@@ -269,40 +269,43 @@
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
-.prodigy-status-line { color: var(--text-muted); }
-.prodigy-status-line.is-busy { color: var(--text-normal); }
+.prodigy-status-line { color: var(--ke-color-muted, var(--text-muted)); }
+.prodigy-status-line.is-busy { color: var(--ke-color-text, var(--text-normal)); }
 .prodigy-inline-error {
   display: flex;
   align-items: center;
   gap: var(--ke-space-3, 8px);
   padding: var(--ke-space-3, 8px);
-  border: 1px solid var(--background-modifier-border);
+  border: 1px solid var(--ke-color-border, var(--background-modifier-border));
   border-radius: var(--ke-radius-control, 4px);
-  color: var(--text-error);
+  color: var(--ke-color-error, var(--text-error));
 }
 .prodigy-inline-error .prodigy-btn { flex: 0 0 auto; }
 
-@media (max-width: 600px) {
-  /* Mobile: absolute minimum vertical space for controls */
+@media (max-width: 767px) {
+  /* Compact controls retain the shared touch target; only desktop uses dense geometry. */
   .prodigy-btn,
   .reading-loop-actions button,
   .prodigy-journal-workspace .journal-actions button,
   .prodigy-card-actions button,
   .prodigy-list-workspace .workspace-list-actions button,
   .prodigy-list-workspace .workspace-list-open,
-  .auction-card-actions > .prodigy-btn,
-  .auction-card-actions > button {
-    min-height: 0 !important;
+  .auction-card-actions > button,
+  .prodigy-home .action-btn,
+  .prodigy-home .prodigy-launcher-actions button,
+  .prodigy-home .home-launcher-mount button,
+  .auction-header-bid-sheet {
+    min-height: var(--ke-touch-target, 44px) !important;
     height: auto !important;
     padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
-    font-size: var(--ke-type-chrome, 0.68rem) !important;
+    font-size: var(--ke-type-label, 0.72rem) !important;
     line-height: var(--ke-leading-control, 1.35) !important;
     border-radius: var(--ke-radius-control, 4px) !important;
   }
 
   .prodigy-btn-chip,
   .prodigy-project-type-filter button {
-    min-height: 0 !important;
+    min-height: var(--ke-touch-target, 44px) !important;
     padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
     font-size: var(--ke-type-chrome, 0.68rem) !important;
     line-height: var(--ke-leading-control, 1.35) !important;
@@ -319,11 +322,6 @@
   }
 
   .prodigy-home .action-btn {
-    min-height: 0 !important;
-    height: auto !important;
-    padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px) !important;
-    font-size: var(--ke-type-chrome, 0.68rem) !important;
-    line-height: var(--ke-leading-control, 1.35) !important;
     flex: 0 1 auto !important;
   }
 
@@ -375,30 +373,45 @@
 }
 .auction-card-actions.is-compact > .prodigy-btn,
 .auction-card-actions.is-compact > button {
-  min-height: var(--prodigy-auction-touch-target) !important;
+  min-height: var(--prodigy-auction-touch-target, var(--ke-touch-target, 44px)) !important;
   padding-inline: var(--ke-space-3, 8px) !important;
   font-size: var(--ke-type-label, .72rem) !important;
   word-break: keep-all;
 }
 .auction-header-bid-sheet {
   flex-shrink: 0;
-  min-height: 0;
+  min-height: 32px;
   padding: var(--ke-space-1, 2px) var(--ke-space-3, 8px);
-  border: 1px solid var(--background-modifier-border);
+  border: 1px solid var(--ke-color-border, var(--background-modifier-border));
   border-radius: var(--ke-radius-control, 4px);
-  background: var(--background-primary);
-  color: var(--text-normal);
+  background: var(--ke-color-surface, var(--background-primary));
+  color: var(--ke-color-text, var(--text-normal));
   font-size: var(--ke-type-label, 0.72rem);
   line-height: var(--ke-leading-control, 1.35);
-  white-space: nowrap;
+  min-inline-size: 0;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 .auction-header-bid-sheet:hover {
-  background: var(--background-modifier-hover);
+  background: var(--ke-color-hover, var(--background-modifier-hover));
 }
 .auction-header-bid-sheet:focus-visible {
-  outline: 2px solid var(--text-accent);
+  outline: 2px solid var(--ke-color-accent, var(--text-accent));
   outline-offset: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .prodigy-btn,
+  .prodigy-home .action-btn,
+  .reading-loop-actions button,
+  .prodigy-journal-workspace .journal-actions button,
+  .prodigy-card-actions button,
+  .auction-header-bid-sheet {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
 }
 `;
 

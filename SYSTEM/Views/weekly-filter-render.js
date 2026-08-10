@@ -14,7 +14,10 @@
 
   function renderRefs(parent, refs) {
     if (!refs || !refs.length) return;
-    el(parent, "span", { text: "근거: " + refs.join(", "), attr: { class: "weekly-filter-refs" } });
+    el(parent, "span", {
+      text: "근거: " + refs.join(", "),
+      attr: { class: "weekly-filter-refs", style: "overflow-wrap:anywhere;word-break:break-word;" }
+    });
   }
 
   function renderKeyLearnings(parent, learnings) {
@@ -88,7 +91,10 @@
       var card = el(section, "div", { attr: { class: "weekly-filter-principle-card" } });
       el(card, "strong", { text: p.title || p.statement || "원칙 후보" });
       el(card, "p", { text: p.reason || "", attr: { class: "weekly-filter-body" } });
-      el(card, "span", { text: "ID: " + (p.proposal_id || "") + " · Strength: " + (p.evidence_strength || "limited") + " · Status: Pending Human Review", attr: { class: "weekly-filter-meta" } });
+      el(card, "span", {
+        text: "Strength: " + (p.evidence_strength || "limited") + " · Status: Pending Human Review",
+        attr: { class: "weekly-filter-meta", style: "overflow-wrap:anywhere;word-break:break-word;" }
+      });
       renderRefs(card, p.evidence_refs);
     }
     return section;
@@ -98,18 +104,18 @@
     var section = el(parent, "section", { attr: { class: "weekly-filter-section" } });
     el(section, "h3", { text: "다음 주 방향 (Next Week Direction)", attr: { class: "weekly-filter-heading" } });
     var hasContent = false;
-    function renderGroup(label, items, icon) {
+    function renderGroup(label, items) {
       if (!items || !items.length) return;
       hasContent = true;
-      el(section, "h4", { text: icon + " " + label, attr: { class: "weekly-filter-direction-label" } });
+      el(section, "h4", { text: label, attr: { class: "weekly-filter-direction-label" } });
       var list = el(section, "ul", { attr: { class: "weekly-filter-list" } });
       for (var i = 0; i < items.length; i++) el(list, "li", { text: items[i] });
     }
     if (typeof direction === "object" && direction !== null && !Array.isArray(direction)) {
-      renderGroup("Continue (유지)", direction.continue_items, "✔");
-      renderGroup("Observe (관찰)", direction.observe_items, "👁");
-      renderGroup("Increase Attention (주의)", direction.increase_attention, "⚡");
-      renderGroup("Pending (보류)", direction.pending_items, "⏳");
+      renderGroup("Continue (유지)", direction.continue_items);
+      renderGroup("Observe (관찰)", direction.observe_items);
+      renderGroup("Increase Attention (주의)", direction.increase_attention);
+      renderGroup("Pending (보류)", direction.pending_items);
     } else if (Array.isArray(direction)) {
       var list2 = el(section, "ul", { attr: { class: "weekly-filter-list" } });
       for (var j = 0; j < direction.length; j++) el(list2, "li", { text: direction[j] });

@@ -3,7 +3,7 @@ cssclasses:
   - hide-properties_editing
   - hide-properties_reading
 ---
-# 📥 Inbox
+# Inbox
 
 > **미분류 기록 검토함**
 > 임시로 캡처된 정보와 빠른 기록(Fleeting Notes)을 검토하는 공간입니다.
@@ -12,10 +12,11 @@ cssclasses:
 
 ---
 
-## 📝 대기 중인 임시 기록 (Fleeting Notes)
+## 대기 중인 임시 기록 (Fleeting Notes)
 
 ```dataviewjs
 const inboxRoot = dv.container;
+if (inboxRoot && inboxRoot.classList) inboxRoot.classList.add("inbox-utility");
 const browserWindow = typeof window !== "undefined" ? window : globalThis;
 const creatorPaths = [
   "SYSTEM/Views/object-engine-core.js",
@@ -25,15 +26,137 @@ const creatorPaths = [
 let creatorLoadPromise = null;
 
 inboxRoot.createEl("style").textContent = `
-.inbox-utility-table{width:100%;border-collapse:collapse}
-.inbox-utility-table th,.inbox-utility-table td{padding:8px 6px;border-bottom:1px solid var(--background-modifier-border);vertical-align:top;text-align:left}
-.inbox-utility-table th{font-size:.78em;color:var(--text-muted)}
-.inbox-utility-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.inbox-utility-actions button{min-height:34px;padding:5px 10px;font:inherit}
-.inbox-utility-status{font-size:.78em;color:var(--text-muted);min-height:1.3em}
-.inbox-utility-status.is-error{color:var(--text-error)}
-.inbox-utility-status.is-success{color:var(--text-success,var(--text-accent))}
-.inbox-utility-retry{display:none}
+.inbox-utility {
+  min-inline-size: 0;
+  color: var(--ke-color-text, var(--text-normal));
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.inbox-utility,
+.inbox-utility * {
+  box-sizing: border-box;
+  min-inline-size: 0;
+}
+.inbox-utility-table {
+  width: 100%;
+  max-inline-size: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.inbox-utility-table th,
+.inbox-utility-table td {
+  min-inline-size: 0;
+  padding: var(--ke-space-3, 8px) var(--ke-space-2, 4px);
+  border-bottom: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
+  vertical-align: top;
+  text-align: left;
+  line-height: var(--ke-leading-body, 1.45);
+  overflow-wrap: anywhere;
+}
+.inbox-utility-table th {
+  color: var(--ke-color-muted, var(--text-muted));
+  font-size: var(--ke-type-label, .72rem);
+  font-weight: 700;
+}
+.inbox-utility-table th:nth-child(1),
+.inbox-utility-table td:nth-child(1) { width: 38%; }
+.inbox-utility-table th:nth-child(2),
+.inbox-utility-table td:nth-child(2) { width: 22%; }
+.inbox-utility-table th:nth-child(3),
+.inbox-utility-table td:nth-child(3) { width: 40%; }
+.inbox-utility-table a {
+  min-inline-size: 0;
+  color: var(--ke-color-accent, var(--text-accent));
+  overflow-wrap: anywhere;
+}
+.inbox-utility-table a:focus-visible,
+.inbox-utility-actions button:focus-visible {
+  outline: 2px solid var(--ke-color-accent, var(--text-accent));
+  outline-offset: 2px;
+}
+.inbox-utility-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ke-space-2, 4px);
+  min-inline-size: 0;
+}
+.inbox-utility-actions button {
+  min-inline-size: 0;
+  min-block-size: 32px;
+  max-inline-size: 100%;
+  padding: var(--ke-space-1, 2px) var(--ke-space-3, 8px);
+  border: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
+  border-radius: var(--ke-radius-control, 4px);
+  background: var(--ke-color-surface, var(--background-primary));
+  color: var(--ke-color-text, var(--text-normal));
+  font: inherit;
+  line-height: var(--ke-leading-control, 1.35);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.inbox-utility-actions button:hover {
+  background: var(--ke-color-hover, var(--background-modifier-hover));
+}
+.inbox-utility-status {
+  min-inline-size: 0;
+  min-height: 1.3em;
+  color: var(--ke-color-muted, var(--text-muted));
+  font-size: var(--ke-type-label, .72rem);
+  line-height: var(--ke-leading-control, 1.35);
+  overflow-wrap: anywhere;
+}
+.inbox-utility-status.is-error { color: var(--ke-color-error, var(--text-error)); }
+.inbox-utility-status.is-success { color: var(--text-success, var(--ke-color-accent, var(--text-accent))); }
+.inbox-utility-retry { display: none; }
+.inbox-utility-empty,
+.inbox-utility-review-empty {
+  color: var(--ke-color-muted, var(--text-muted));
+  font-size: var(--ke-type-body, .84rem);
+  font-style: italic;
+  line-height: var(--ke-leading-body, 1.45);
+  overflow-wrap: anywhere;
+}
+.inbox-utility-review-table {
+  width: 100%;
+  max-inline-size: 100%;
+  table-layout: fixed;
+}
+.inbox-utility table:not(.inbox-utility-table) {
+  width: 100%;
+  max-inline-size: 100%;
+  table-layout: fixed;
+}
+.inbox-utility table:not(.inbox-utility-table) th,
+.inbox-utility table:not(.inbox-utility-table) td {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+@media (max-width: 767px) {
+  .inbox-utility-table th,
+  .inbox-utility-table td {
+    padding-block: var(--ke-space-3, 8px);
+  }
+  .inbox-utility-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .inbox-utility-actions button {
+    inline-size: 100%;
+    min-block-size: var(--ke-touch-target, 44px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inbox-utility *,
+  .inbox-utility *::before,
+  .inbox-utility *::after {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}
 `;
 
 const clean = (value) => String(value == null ? "" : value).trim();
@@ -68,7 +191,10 @@ const pages = dv.pages('"ZETA/FLEETING"')
   .sort((p) => p.file.mtime, "desc");
 
 if (pages.length === 0) {
-  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>대기 중인 임시 기록이 없습니다.</span>");
+  inboxRoot.createEl("span", {
+    text: "대기 중인 임시 기록이 없습니다.",
+    attr: { class: "inbox-utility-empty" }
+  });
 } else {
   const table = inboxRoot.createEl("table", { attr: { class: "inbox-utility-table" } });
   const head = table.createEl("thead").createEl("tr");
@@ -181,15 +307,19 @@ if (pages.length === 0) {
 
 ---
 
-## ⚠️ 정보 보완 필요 (Auction)
+## 정보 보완 필요 (Auction)
 
 ```dataviewjs
+if (this.container && this.container.classList) this.container.classList.add("inbox-utility");
 let pages = dv.pages('"PARA/PROJECTS/Auction"')
   .where(p => p.type === "auction_case" && ["watching", "bidding", "reviewing"].includes(p.status))
   .where(p => !p.next_action || p.next_action === "정보 없음" || !p.expected_bid || p.expected_bid === "정보 없음");
 
 if (pages.length === 0) {
-  dv.paragraph("<span style='color:var(--text-muted);font-style:italic;font-size:0.9em;'>보완이 필요한 경매 물건이 없습니다.</span>");
+  this.container.createEl("span", {
+    text: "보완이 필요한 경매 물건이 없습니다.",
+    attr: { class: "inbox-utility-review-empty" }
+  });
 } else {
   const tableData = [];
   pages.forEach(p => {

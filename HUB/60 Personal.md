@@ -22,6 +22,7 @@ try {
   await loadProdigyScript("SYSTEM/Views/knowledge-workspace-route.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-adaptive-controls.js");
   await loadProdigyScript("SYSTEM/Views/workspace-list-view.js");
   await loadProdigyScript("SYSTEM/Views/people-core.js");
   await loadProdigyScript("SYSTEM/Views/people-store.js");
@@ -220,80 +221,57 @@ try {
   const workspaceBody = shell.body;
 
   // Personal workspace tabs: People / Places
-  const ensurePersonalTabStyles = () => {
-    const doc = typeof document !== "undefined" ? document : null;
-    if (!doc || typeof doc.getElementById !== "function" || typeof doc.createElement !== "function" || !doc.head || typeof doc.head.appendChild !== "function" || doc.getElementById("personal-tabs-styles")) return;
-    const style = doc.createElement("style");
-    style.id = "personal-tabs-styles";
-    style.textContent = [
-      ".personal-tablist{display:flex;gap:6px;margin:0 0 12px;border-bottom:1px solid var(--background-modifier-border);padding:0}",
-      ".personal-tab{min-height:36px;padding:6px 16px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-muted);font-weight:700;font-size:.88em;cursor:pointer}",
-      ".personal-tab:hover{color:var(--text-normal)}",
-      ".personal-tab[aria-selected=\"true\"]{color:var(--text-normal);border-bottom-color:var(--text-accent)}",
-      "@media(max-width:600px){.personal-tablist{flex-direction:column}.personal-tab{width:100%;min-height:44px}}"
-    ].join("\n");
-    doc.head.appendChild(style);
-  };
-  ensurePersonalTabStyles();
-
-  const personalTabs = (() => {
-    const tabs = Object.freeze([
-      Object.freeze({ id: "people", label: "사람" }),
-      Object.freeze({ id: "places", label: "장소" })
-    ]);
-    let active = "people";
-    let onSelect = () => {};
-    const bar = workspaceBody.createDiv({ attr: { role: "tablist", class: "personal-tablist", "aria-label": "개인 워크스페이스" } });
-    const buttons = {};
-    const panels = {};
-    const setTabAttribute = (element, name, value) => {
-      if (!element) return;
-      if (typeof element.setAttr === "function") element.setAttr(name, value);
-      else if (typeof element.setAttribute === "function") element.setAttribute(name, value);
-      else {
-        element.attr = element.attr || {};
-        element.attr[name] = value;
-      }
-    };
-    const setTabVisible = (element, visible) => {
-      if (!element) return;
-      if (visible) {
-        if (typeof element.removeAttribute === "function") element.removeAttribute("hidden");
-        else if (element.attr) delete element.attr.hidden;
-        element.hidden = false;
-      } else {
-        setTabAttribute(element, "hidden", "");
-        element.hidden = true;
-      }
-    };
-    tabs.forEach((tab) => {
-      const btn = bar.createEl("button", {
-        text: tab.label,
-        attr: { type: "button", role: "tab", "aria-selected": String(tab.id === active), class: "personal-tab" }
-      });
-      btn.onclick = () => select(tab.id);
-      buttons[tab.id] = btn;
-      panels[tab.id] = workspaceBody.createDiv({ attr: { role: "tabpanel", class: "personal-tabpanel" } });
-    });
-    function select(id) {
-      if (!panels[id]) return;
-      active = id;
-      tabs.forEach((tab) => {
-        const selected = tab.id === active;
-        setTabAttribute(buttons[tab.id], "aria-selected", String(selected));
-        setTabVisible(panels[tab.id], selected);
-      });
-      onSelect(active);
+  const personalTabStateKey = "prodigy.personal.workspace-tab.v1";
+  const validPersonalTab = (value) => value === "people" || value === "places";
+  const readPersonalTab = () => {
+    const storage = typeof window !== "undefined" ? window.sessionStorage : null;
+    if (!storage || typeof storage.getItem !== "function") return "";
+    try {
+      const value = String(storage.getItem(personalTabStateKey) || "");
+      return validPersonalTab(value) ? value : "";
+    } catch (_error) {
+      return "";
     }
-    select("people");
-    return {
-      getPanel: (id) => panels[id] || null,
-      select,
-      getActiveTab: () => active,
-      setOnSelect: (next) => { onSelect = typeof next === "function" ? next : () => {}; }
-    };
-  })();
-
+  };
+  const writePersonalTab = (value) => {
+    if (!validPersonalTab(value)) return false;
+    const storage = typeof window !== "undefined" ? window.sessionStorage : null;
+    if (!storage || typeof storage.setItem !== "function") return false;
+    try {
+      storage.setItem(personalTabStateKey, value);
+      return true;
+    } catch (_error) {
+      return false;
+    }
+  };
+  const initialPersonalTab = validPersonalTab(guard && guard.activeTab)
+    ? guard.activeTab
+    : (readPersonalTab() || "people");
+  writePersonalTab(initialPersonalTab);
+  const personalTabHost = workspaceBody.createDiv({ attr: { class: "personal-tabs" } });
+  const personalPanels = {
+    people: workspaceBody.createDiv({ attr: { class: "personal-tabpanel" } }),
+    places: workspaceBody.createDiv({ attr: { class: "personal-tabpanel" } })
+  };
+  let handlePersonalTabChange = () => {};
+  const adaptiveControls = window.ProdigyAdaptiveControls;
+  if (!adaptiveControls || typeof adaptiveControls.AdaptiveTabs !== "function") {
+    throw new Error("개인 워크스페이스 반응형 탭을 불러오지 못했습니다.");
+  }
+  const adaptivePersonalTabs = adaptiveControls.AdaptiveTabs(personalTabHost, {
+    label: "개인 워크스페이스",
+    activeId: initialPersonalTab,
+    tabs: [
+      { id: "people", label: "사람", panel: personalPanels.people },
+      { id: "places", label: "장소", panel: personalPanels.places }
+    ],
+    onChange: (tabId) => handlePersonalTabChange(tabId)
+  });
+  const personalTabs = {
+    getPanel: (id) => personalPanels[id] || null,
+    select: (id) => adaptivePersonalTabs.select(id, true),
+    getActiveTab: () => adaptivePersonalTabs.getActiveTab()
+  };
   const peopleMount = personalTabs.getPanel("people");
   const placesMount = personalTabs.getPanel("places");
 
@@ -529,23 +507,25 @@ try {
     venueDataFingerprint = fingerprint;
     return null;
   };
-  personalTabs.setOnSelect((tabId) => {
+  handlePersonalTabChange = (tabId) => {
+    writePersonalTab(tabId);
     const activeGuard = guardStore.get(personalHost);
     if (activeGuard) activeGuard.activeTab = tabId;
     if (tabId !== "places") return;
     placesLoaded = true;
     void paintPlaces().catch(() => {
-      if (placesMount && typeof placesMount.empty === "function" && typeof placesMount.createEl === "function") {
-        placesMount.empty();
-        placesMount.createEl("p", {
+      if (personalPanels.places && typeof personalPanels.places.empty === "function" && typeof personalPanels.places.createEl === "function") {
+        personalPanels.places.empty();
+        personalPanels.places.createEl("p", {
           text: "장소를 불러오지 못했습니다.",
           attr: { class: "ppw-empty", role: "alert" }
         });
       }
     });
-  });
+  };
 
   await paintPeople({ snapshot: initialSnapshot });
+  if (personalTabs.getActiveTab() === "places") await paintPlaces();
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "개인" });

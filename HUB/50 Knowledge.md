@@ -158,20 +158,20 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         class: "knowledge-workspace-role-panel",
         "data-workspace-role": "knowledge-building",
         "aria-label": "제텔카스텐 지식 구축 역할",
-        style: "margin:0 0 12px;padding:14px;border:1px solid var(--background-modifier-border);border-radius:10px;background:var(--background-secondary);"
+        style: "margin-block-end:var(--ke-space-3);padding:var(--ke-space-4);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-panel);background:var(--ke-color-surface-secondary);min-inline-size:0;overflow-wrap:anywhere;"
       }
     });
     zettelRolePanel.createEl("div", {
       text: "지식 구축",
-      attr: { class: "knowledge-explorer-meta", style: "font-weight:700;color:var(--text-accent);" }
+      attr: { class: "knowledge-explorer-meta", style: "font-weight:700;color:var(--ke-color-accent);" }
     });
     zettelRolePanel.createEl("h2", {
       text: "제텔카스텐",
-      attr: { style: "margin:2px 0 4px;font-size:1.15em;" }
+      attr: { style: "margin:var(--ke-space-1) 0 var(--ke-space-2);font-size:var(--ke-type-title);line-height:var(--ke-leading-body);overflow-wrap:anywhere;" }
     });
     zettelRolePanel.createEl("p", {
       text: "생각과 자료를 원자적 지식으로 만들고, 연결하고, 사람의 검토를 거쳐 보존합니다.",
-      attr: { class: "knowledge-explorer-meta", style: "margin:0;" }
+      attr: { class: "knowledge-explorer-meta", style: "margin:0;overflow-wrap:anywhere;" }
     });
 
     const growthPanel = zettelPanel.createDiv({
@@ -179,12 +179,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         class: "knowledge-growth-summary",
         "data-workspace-role": "knowledge-growth",
         "aria-label": "지식 축적 현황",
-        style: "margin:0 0 14px;padding:12px;border:1px solid var(--background-modifier-border);border-radius:10px;"
+        style: "margin-block-end:var(--ke-space-4);padding:var(--ke-space-3);border:1px solid var(--ke-color-border);border-radius:var(--ke-radius-panel);background:var(--ke-color-surface-secondary);min-inline-size:0;"
       }
     });
-    growthPanel.createEl("h3", { text: "지식 축적 현황", attr: { style: "margin:0 0 8px;font-size:.95em;" } });
+    growthPanel.createEl("h3", { text: "지식 축적 현황", attr: { style: "margin:0 0 var(--ke-space-3);font-size:var(--ke-type-heading);line-height:var(--ke-leading-body);overflow-wrap:anywhere;" } });
     const growthStats = growthPanel.createDiv({
-      attr: { style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;" }
+      attr: { style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(7rem,1fr));gap:var(--ke-space-2);min-inline-size:0;" }
     });
     [
       ["knowledge", "영구 지식", model.totals && model.totals.knowledge, "사람이 승인한 영구 지식"],
@@ -196,31 +196,31 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         attr: {
           class: "knowledge-growth-stat",
           "data-growth-key": key,
-          style: "min-width:0;padding:8px;border-radius:8px;background:var(--background-secondary);"
+          style: "min-inline-size:0;padding:var(--ke-space-3);border-radius:var(--ke-radius-control);background:var(--ke-color-surface);overflow-wrap:anywhere;"
         }
       });
       card.createEl("div", { text: label, attr: { class: "knowledge-explorer-meta" } });
-      card.createEl("strong", { text: String(Number(value) || 0), attr: { style: "display:block;font-size:1.2em;" } });
+      card.createEl("strong", { text: String(Number(value) || 0), attr: { style: "display:block;font-size:var(--ke-type-title);line-height:var(--ke-leading-control);" } });
       card.createEl("small", { text: hint, attr: { class: "knowledge-explorer-meta" } });
     });
     growthPanel.createEl("p", {
       text: recentKnowledge.length
         ? `최근 쌓인 지식: ${recentKnowledge.map((asset) => asset.title).join(" · ")}`
         : "아직 영구 지식이 없습니다. 검증을 통과한 지식이 이곳에 쌓입니다.",
-      attr: { class: "knowledge-explorer-meta", style: "margin:8px 0 0;" }
+      attr: { class: "knowledge-explorer-meta", style: "margin-block-start:var(--ke-space-3);overflow-wrap:anywhere;" }
     });
     const reviewPanel = zettelPanel.createDiv({
       attr: {
         class: "knowledge-candidate-review-launcher",
         "data-workspace-role": "knowledge-review",
         "aria-label": "승인 전 후보 검토",
-        style: "margin:0 0 14px;padding:12px;border:1px solid var(--interactive-accent);border-radius:10px;background:var(--background-secondary);"
+        style: "margin-block-end:var(--ke-space-4);padding:var(--ke-space-3);border:1px solid var(--ke-color-accent);border-radius:var(--ke-radius-panel);background:var(--ke-color-surface-secondary);min-inline-size:0;overflow-wrap:anywhere;"
       }
     });
-    reviewPanel.createEl("h3", { text: "승인 전 후보 검토", attr: { style: "margin:0 0 4px;font-size:.95em;" } });
+    reviewPanel.createEl("h3", { text: "승인 전 후보 검토", attr: { style: "margin:0 0 var(--ke-space-2);font-size:var(--ke-type-heading);line-height:var(--ke-leading-body);overflow-wrap:anywhere;" } });
     reviewPanel.createEl("p", {
       text: "필요할 때 검증 대기열을 열어 후보를 확인하고 승인·보류·반려합니다.",
-      attr: { class: "knowledge-explorer-meta", style: "margin:0 0 8px;" }
+      attr: { class: "knowledge-explorer-meta", style: "margin:0 0 var(--ke-space-3);overflow-wrap:anywhere;" }
     });
     const candidateReviewOpen = () => {
       const currentApi = KnowledgeExplorerHub.api || api;
@@ -247,7 +247,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (currentApi && typeof currentApi.setCandidateInboxOpen === "function") currentApi.setCandidateInboxOpen(true);
       if (currentApi && typeof currentApi.dispatch === "function") currentApi.dispatch({ type: "focus-pane", focusPane: "detail" });
       const target = currentApi && currentApi.container ? currentApi.container : explorerMount;
-      if (target && typeof target.scrollIntoView === "function") target.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (target && typeof target.scrollIntoView === "function") {
+        const reduceMotion = typeof window !== "undefined"
+          && typeof window.matchMedia === "function"
+          && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        target.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      }
       syncReviewButton();
     };
     const closeCandidateReview = () => {
@@ -255,10 +260,25 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (currentApi && typeof currentApi.setCandidateInboxOpen === "function") currentApi.setCandidateInboxOpen(false);
       syncReviewButton();
     };
-    const reviewButton = reviewPanel.createEl("button", {
-      text: "검증 대기 열기",
-      attr: { type: "button", class: "knowledge-explorer-button", "aria-label": "검증 대기 열기", "aria-expanded": "false" }
-    });
+    const reviewButton = window.ProdigyUI && typeof window.ProdigyUI.button === "function"
+      ? window.ProdigyUI.button(reviewPanel, "검증 대기 열기", {
+        quiet: true,
+        className: "knowledge-explorer-button"
+      })
+      : reviewPanel.createEl("button", {
+        text: "검증 대기 열기",
+        attr: {
+          type: "button",
+          class: "prodigy-btn prodigy-btn-quiet knowledge-explorer-button"
+        }
+      });
+    if (typeof reviewButton.setAttr === "function") {
+      reviewButton.setAttr("aria-label", "검증 대기 열기");
+      reviewButton.setAttr("aria-expanded", "false");
+    } else if (typeof reviewButton.setAttribute === "function") {
+      reviewButton.setAttribute("aria-label", "검증 대기 열기");
+      reviewButton.setAttribute("aria-expanded", "false");
+    }
     reviewButton.onclick = () => {
       if (candidateReviewOpen()) closeCandidateReview();
       else focusCandidateReview();

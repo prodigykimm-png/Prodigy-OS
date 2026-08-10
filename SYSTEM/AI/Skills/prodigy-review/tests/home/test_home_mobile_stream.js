@@ -504,7 +504,7 @@ async function testCompactWorkspaceBarSingleRowContract() {
   );
   assert.equal(buttons[0].attributes["aria-label"], "운동 워크스페이스 열기");
   buttons[0].onclick();
-  assert.deepEqual(app.openedPaths, ["HUB/30 Workout.md"]);
+  assert.deepEqual(app.openedPaths, ["HUB/30 Workout"]);
 
   // When: the overflow action is opened
   buttons[3].onclick();
@@ -521,7 +521,7 @@ async function testCompactWorkspaceBarSingleRowContract() {
   );
   const workoutSheetButton = sheetButtons.find((button) => button.attributes["data-workspace"] === "workout");
   workoutSheetButton.onclick();
-  assert.deepEqual(app.openedPaths, ["HUB/30 Workout.md", "HUB/30 Workout.md"]);
+  assert.deepEqual(app.openedPaths, ["HUB/30 Workout", "HUB/30 Workout"]);
   assert.equal(sheets[0].hidden, true);
   assert.equal(buttons[3].attributes["aria-expanded"], "false");
   assert.equal(global.document.activeElement, buttons[3]);

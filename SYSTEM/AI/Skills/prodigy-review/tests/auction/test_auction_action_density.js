@@ -41,21 +41,21 @@ test("Given the auction action row consumes vertical space, When it renders, The
   assert.ok(Number(paddingTop[1]) <= 2, "액션 행 padding-top이 2px를 넘으면 공간을 더 차지한다: " + paddingTop[1]);
 });
 
-test("Given a bidding case with a bid date, When the card renders, Then 입찰표 열기 sits in the header beside the trash icon rather than the bottom action row", () => {
+test("Given a bidding case with a bid date, When the card renders, Then 입찰표 열기 sits in the header beside the accessible delete action rather than the bottom action row", () => {
   const source = cardSource();
 
-  const trashIndex = source.indexOf("text: '🗑️'");
-  const bidSheetIndex = source.indexOf("auction-header-bid-sheet");
-  assert.ok(trashIndex > 0, "휴지통 아이콘을 찾지 못했다");
+  const deleteIndex = source.indexOf("const deleteBtn");
+  const bidSheetIndex = source.indexOf("const headerBidSheet");
+  assert.ok(deleteIndex > 0, "접근 가능한 삭제 버튼을 찾지 못했다");
   assert.ok(bidSheetIndex > 0, "헤더 입찰표 버튼을 찾지 못했다");
 
   assert.ok(
-    bidSheetIndex < trashIndex,
-    "입찰표 열기가 휴지통보다 뒤에 생성되면 하단 액션 행에 남아 있는 것이다 (bidSheet=" + bidSheetIndex + ", trash=" + trashIndex + ")"
+    bidSheetIndex < deleteIndex,
+    "입찰표 열기는 삭제 버튼보다 먼저 헤더에 생성되어야 한다"
   );
 
   assert.doesNotMatch(
-    source.slice(trashIndex),
+    source.slice(deleteIndex),
     /ProdigyUI\.button\(buttonContainer, "입찰표 열기"/,
     "하단 액션 행에 입찰표 열기 칩이 남아 있으면 안 된다"
   );
@@ -63,7 +63,7 @@ test("Given a bidding case with a bid date, When the card renders, Then 입찰�
 
 test("Given the header bid-sheet control, When it renders, Then it is small and does not reuse the full-size chip button", () => {
   const source = cardSource();
-  const headerRegion = source.slice(0, source.indexOf("text: '🗑️'"));
+  const headerRegion = source.slice(0, source.indexOf("const deleteBtn"));
 
   assert.match(headerRegion, /auction-header-bid-sheet/, "헤더 입찰표 버튼에 전용 클래스가 있어야 한다");
 });

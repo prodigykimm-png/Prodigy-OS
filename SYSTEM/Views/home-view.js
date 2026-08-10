@@ -4,6 +4,383 @@
   const T = root.ProdigyTokens || {};
   const BREAKPOINTS = T.BREAKPOINTS || {};
   const CONTROL_HEIGHTS = T.CONTROL_HEIGHTS || {};
+  function ensureHomeAdoptionStyles() {
+    if (typeof document === "undefined" || !document.head) return;
+    const styleId = "prodigy-home-adoption-styles";
+    let style = document.getElementById(styleId);
+    if (!style) {
+      style = document.createElement("style");
+      style.id = styleId;
+      document.head.appendChild(style);
+    }
+    style.textContent = `
+      .prodigy-home[data-scroll-owner="home-workspace-body"] {
+        min-inline-size: 0;
+        word-break: keep-all;
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-view-loading,
+      .prodigy-home .home-region-error {
+        min-inline-size: 0;
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-body, .84rem);
+        line-height: var(--ke-leading-body, 1.45);
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-view-loading {
+        display: block;
+        padding: var(--ke-space-5, 16px);
+        text-align: center;
+        font-style: italic;
+      }
+      .prodigy-home .home-title {
+        margin: 0;
+        min-inline-size: 0;
+        font-size: var(--ke-type-title, 1.05rem);
+        line-height: var(--ke-leading-body, 1.45);
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-subtitle {
+        display: block;
+        min-inline-size: 0;
+        margin-block-start: var(--ke-space-1, 2px);
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-body, .84rem);
+        line-height: var(--ke-leading-body, 1.45);
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-brief-kicker {
+        margin-inline-start: var(--ke-space-1, 2px);
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+        font-weight: 600;
+        line-height: var(--ke-leading-control, 1.35);
+      }
+      .prodigy-home .home-brief-text {
+        margin: 0 0 var(--ke-space-3, 8px);
+        white-space: pre-wrap;
+      }
+      .prodigy-home .home-brief-context {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ke-space-1, 2px);
+        margin-block-start: var(--ke-space-1, 2px);
+        font-size: var(--ke-type-body, .84rem);
+      }
+      .prodigy-home .home-brief-action {
+        margin-block-start: var(--ke-space-3, 8px);
+      }
+      .prodigy-home .home-yesterday-missing,
+      .prodigy-home .home-evening-close {
+        margin-block-start: var(--ke-space-4, 12px);
+        padding-block-start: var(--ke-space-3, 8px);
+        border-block-start: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-body, .84rem);
+        line-height: var(--ke-leading-body, 1.45);
+      }
+      .prodigy-home .home-yesterday-missing {
+        border-block-start-style: dashed;
+      }
+      .prodigy-home .home-brief-mode {
+        margin-inline-start: auto;
+      }
+      .prodigy-home .home-evening-copy {
+        margin-block-end: var(--ke-space-2, 4px);
+      }
+      .prodigy-home .home-stale-badge {
+        margin-inline-start: auto;
+        padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px);
+        border-radius: var(--ke-radius-control, 4px);
+        background: var(--ke-color-hover, var(--background-modifier-hover));
+        color: var(--ke-color-accent, var(--text-accent));
+        font-size: var(--ke-type-label, .72rem);
+        font-weight: 700;
+        line-height: var(--ke-leading-control, 1.35);
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-action-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: var(--ke-space-2, 4px);
+        min-inline-size: 0;
+      }
+      .prodigy-home .home-focus-suggestions-footer {
+        border-block-start: 0;
+        padding-block-start: 0;
+      }
+      .prodigy-home .home-focus-suggestion-title {
+        color: var(--ke-color-text, var(--text-normal));
+        font-size: var(--ke-type-body, .84rem);
+        font-weight: 700;
+        margin-block-end: var(--ke-space-2, 4px);
+      }
+      .prodigy-home .home-focus-suggestion-note {
+        margin-block-end: var(--ke-space-3, 8px);
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+      }
+      .prodigy-home .home-focus-reason {
+        padding-inline-start: 0;
+      }
+      .prodigy-home .home-focus-empty-title {
+        color: var(--ke-color-text, var(--text-normal));
+        font-size: var(--ke-type-body, .84rem);
+        font-weight: 600;
+      }
+      .prodigy-home .home-focus-empty-note {
+        margin-block: var(--ke-space-1, 2px) var(--ke-space-4, 12px);
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-body, .84rem);
+      }
+      .prodigy-home .home-focus-approved {
+        margin-inline-start: auto;
+      }
+      .prodigy-home .home-continue-empty-title {
+        color: var(--ke-color-text, var(--text-normal));
+        font-size: var(--ke-type-body, .84rem);
+        font-weight: 600;
+      }
+      .prodigy-home .home-continue-empty-note {
+        margin-block-start: var(--ke-space-1, 2px);
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-body, .84rem);
+        font-style: italic;
+      }
+      .prodigy-home .home-continue-meta {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: var(--ke-space-1, 2px);
+        min-inline-size: 0;
+      }
+      .prodigy-home .home-continue-workspace {
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+        font-weight: 700;
+      }
+      .prodigy-home .home-continue-title {
+        font-size: var(--ke-type-body, .84rem);
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-continue-action {
+        color: var(--ke-color-accent, var(--text-accent));
+        font-size: var(--ke-type-body, .84rem);
+        font-weight: 500;
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-attention-workspace {
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+        font-weight: 700;
+      }
+      .prodigy-home .home-attention-title-text {
+        color: var(--ke-color-text, var(--text-normal));
+        font-size: var(--ke-type-body, .84rem);
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-attention-badge {
+        inline-size: fit-content;
+      }
+      .prodigy-home .home-attention-reason-label {
+        margin-block-end: var(--ke-space-1, 2px);
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+        font-weight: 700;
+      }
+      .prodigy-home .home-attention-evidence {
+        line-height: var(--ke-leading-body, 1.45);
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-action-row > * {
+        min-inline-size: 0;
+        max-inline-size: 100%;
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-todoist-label {
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+        font-weight: 700;
+      }
+      .prodigy-home .home-todoist-count {
+        margin-block-start: var(--ke-space-1, 2px);
+        font-size: var(--ke-type-title, 1.05rem);
+        font-weight: 800;
+      }
+      .prodigy-home .home-todoist-overdue {
+        margin-block-start: var(--ke-space-1, 2px);
+        color: var(--ke-color-error, var(--text-error));
+        font-size: var(--ke-type-body, .84rem);
+        font-weight: 700;
+      }
+      .prodigy-home .home-todoist-action {
+        margin-block-start: var(--ke-space-3, 8px);
+      }
+      .prodigy-home .home-launcher-status,
+      .prodigy-home .home-launcher-error,
+      .prodigy-home .home-launcher-details,
+      .prodigy-home .home-lifecycle-error {
+        min-inline-size: 0;
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-launcher-status {
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+      }
+      .prodigy-home .home-launcher-error,
+      .prodigy-home .home-lifecycle-error {
+        color: var(--ke-color-error, var(--text-error));
+        font-size: var(--ke-type-label, .72rem);
+      }
+      .prodigy-home .home-launcher-details {
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+      }
+      .prodigy-home .home-system-header {
+        margin-block-end: var(--ke-space-2, 4px);
+        font-size: var(--ke-type-body, .84rem);
+      }
+      .prodigy-home .home-weekly-draft {
+        margin-block-end: var(--ke-space-3, 8px);
+        padding: var(--ke-space-3, 8px) var(--ke-space-4, 12px);
+        border: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
+        border-radius: var(--ke-radius-panel, 8px);
+        background: var(--ke-color-surface, var(--background-primary));
+        min-inline-size: 0;
+      }
+      .prodigy-home .home-weekly-draft-label {
+        margin-block-end: var(--ke-space-1, 2px);
+        color: var(--ke-color-accent, var(--text-accent));
+        font-size: var(--ke-type-label, .72rem);
+        font-weight: 700;
+      }
+      .prodigy-home .home-weekly-draft-copy {
+        margin-block-end: var(--ke-space-2, 4px);
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+      }
+      .prodigy-home .home-system-metrics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ke-space-4, 12px);
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+      }
+      .prodigy-home .home-system-pill {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ke-space-1, 2px);
+        min-inline-size: 5.5rem;
+      }
+      .prodigy-home .home-system-pill-label {
+        color: var(--text-faint, var(--ke-color-muted, var(--text-muted)));
+        font-weight: 700;
+      }
+      .prodigy-home .home-system-pill-value {
+        font-weight: 700;
+      }
+      .prodigy-home .home-system-pill-value.is-ok {
+        color: var(--text-success, var(--ke-color-accent, var(--text-accent)));
+      }
+      .prodigy-home .home-system-pill-value.is-warning {
+        color: var(--text-warning, var(--ke-color-muted, var(--text-muted)));
+      }
+      .prodigy-home .home-lifecycle-fold {
+        margin-block-start: var(--ke-space-3, 8px);
+      }
+      .prodigy-home .home-attention-row {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ke-space-3, 8px);
+        padding-block: var(--ke-space-4, 12px);
+        border-block-start: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
+        font-size: var(--ke-type-body, .84rem);
+      }
+      .prodigy-home .home-attention-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ke-space-1, 2px);
+      }
+      .prodigy-home .home-attention-empty {
+        padding-block: var(--ke-space-2, 4px);
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-body, .84rem);
+        font-style: italic;
+        line-height: var(--ke-leading-body, 1.45);
+      }
+      .prodigy-home .home-attention-header {
+        color: var(--ke-color-error, var(--text-error));
+      }
+      .prodigy-home .home-attention-fallback {
+        margin-inline-start: var(--ke-space-2, 4px);
+      }
+      .prodigy-home .home-region-error {
+        margin-block: var(--ke-space-2, 4px);
+        color: var(--ke-color-error, var(--text-error));
+      }
+      .prodigy-home .home-region-error-details {
+        color: var(--ke-color-muted, var(--text-muted));
+        font-size: var(--ke-type-label, .72rem);
+      }
+      .prodigy-home .home-brief-text {
+        min-inline-size: 0;
+        color: var(--ke-color-text, var(--text-normal));
+        line-height: var(--ke-leading-body, 1.45);
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-yesterday-review {
+        color: var(--ke-color-muted, var(--text-muted));
+        line-height: var(--ke-leading-body, 1.45);
+      }
+      .prodigy-home .home-yesterday-review > * {
+        min-inline-size: 0;
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home .home-attention-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--ke-space-3, 8px);
+        min-inline-size: 0;
+      }
+      .prodigy-home .home-attention-top > * {
+        min-inline-size: 0;
+      }
+      .prodigy-home .home-attention-title {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: var(--ke-space-1, 2px);
+        min-inline-size: 0;
+      }
+      .prodigy-home .home-attention-item {
+        min-inline-size: 0;
+        overflow-wrap: anywhere;
+      }
+      @media (max-width: 767px) {
+        .prodigy-home button {
+          min-block-size: var(--ke-touch-target, 44px);
+          height: auto;
+          padding: var(--ke-space-3, 8px) var(--ke-space-4, 12px);
+          font-size: var(--ke-type-body, .84rem);
+          line-height: var(--ke-leading-body, 1.45);
+          white-space: normal;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .prodigy-home .home-action-row > *,
+        .prodigy-home button,
+        .prodigy-home summary {
+          transition: none !important;
+          animation: none !important;
+          transform: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    `;
+  }
 
   const SOURCE_TYPE_LABELS = Object.freeze({
     auction: "경매",
@@ -124,6 +501,8 @@
 
     container.empty();
     container.classList.add("prodigy-home");
+    if (typeof container.setAttr === "function") container.setAttr("data-scroll-owner", "home-workspace-body");
+    else if (typeof container.setAttribute === "function") container.setAttribute("data-scroll-owner", "home-workspace-body");
     const workspaceLeaf = container.closest?.(".workspace-leaf-content");
     const getElementWidth = (element) => {
       try {
@@ -192,6 +571,7 @@
     if (root.HomeStyles && typeof root.HomeStyles.ensureHomeStyles === "function") {
       root.HomeStyles.ensureHomeStyles();
     }
+    ensureHomeAdoptionStyles();
 
     const todayStr = root.MorningContextCore.getTodayIsoDate();
     const weekId = root.MorningContextCore.getWeekId(new Date());
@@ -199,7 +579,7 @@
     // Display loader — external failures must never block Home.
     const mainLoader = container.createEl("div", {
       text: "오늘의 운영 화면을 준비하는 중...",
-      attr: { style: "color: var(--text-muted); font-size: 0.9em; font-style: italic; padding: 20px; text-align: center;" }
+      attr: { class: "home-view-loading" }
     });
 
     let token = "";
@@ -371,8 +751,8 @@
     });
     
     const leftTitle = titleRow.createEl("div");
-    leftTitle.createEl("h2", { text: `오늘 · ${todayStr}`, attr: { style: "margin:0;" } });
-    leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting} · 지금 무엇에 집중할까?`, attr: { style: "font-size: 0.85em; color: var(--text-muted);" } });
+    leftTitle.createEl("h2", { text: `오늘 · ${todayStr}`, attr: { class: "home-title" } });
+    leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting} · 지금 무엇에 집중할까?`, attr: { class: "home-subtitle" } });
 
     const rightActions = titleRow.createEl("div", { attr: { class: "home-toolbar" } });
 
@@ -431,7 +811,7 @@
     if (isStale) {
       rightActions.createEl("span", { 
         text: "새 정보 감지됨",
-        attr: { style: "font-size: 0.72em; color: var(--text-accent); font-weight: bold; background: var(--background-modifier-hover); padding: 2px 6px; border-radius: 4px;" }
+        attr: { class: "home-stale-badge" }
       });
     }
 
@@ -638,12 +1018,12 @@
       } catch (error) {
         const err = stack.createEl("div", {
           text: label + " 영역을 표시하지 못했습니다.",
-          attr: { style: "font-size:0.82em;color:var(--text-error);margin:6px 0;" }
+          attr: { class: "home-region-error", role: "alert" }
         });
         if (window.prodigyDebugMode) {
           err.createEl("div", {
             text: String(error.message || error),
-            attr: { style: "font-size:0.75em;color:var(--text-muted);" }
+            attr: { class: "home-region-error-details" }
           });
         }
         return null;
@@ -673,21 +1053,20 @@
       briefHead.createEl("span", { text: "오늘" });
       briefHead.createEl("span", {
         text: "모닝 브리프",
-        attr: { style: "font-size:0.78em;font-weight:600;color:var(--text-muted);margin-left:4px;" }
+        attr: { class: "home-brief-kicker" }
       });
       const briefMode = result.brief_mode || (result.principle && result.principle.source) || "";
       if (briefMode === "rule_based" || briefMode === "fallback" || String(result.result_id || "").includes("rule-based") || String(result.result_id || "").includes("fallback")) {
         briefHead.createEl("span", {
           text: "규칙 기반",
-          attr: { class: "badge badge-gray", style: "margin-left:auto;font-size:0.72em;" }
+          attr: { class: "badge badge-gray home-brief-mode" }
         });
       }
 
       briefCard.createEl("p", {
         text: clampBriefLines(result.brief, 2),
         attr: {
-          class: "home-brief-text",
-          style: "font-size:0.92em;line-height:1.55;color:var(--text-normal);margin:0 0 8px 0;white-space:pre-wrap;"
+          class: "home-brief-text"
         }
       });
 
@@ -704,18 +1083,15 @@
 
       if (contextLines.length) {
         const ctxBox = briefCard.createEl("div", {
-          attr: {
-            class: "home-yesterday-review",
-            style: "margin-top:4px;display:flex;flex-direction:column;gap:3px;font-size:0.84em;line-height:1.4;color:var(--text-muted);"
-          }
+          attr: { class: "home-yesterday-review home-brief-context" }
         });
         contextLines.slice(0, 3).forEach((line) => {
-          ctxBox.createEl("div", { text: line, attr: { style: "overflow-wrap:anywhere;" } });
+          ctxBox.createEl("div", { text: line, attr: { class: "home-brief-context-line" } });
         });
         if (yesterdayReview && (yLearning || yNext) && yesterdayReview.path) {
           const openY = briefCard.createEl("button", {
             text: "어제 저널 열기",
-            attr: { class: "action-btn", style: "margin-top:8px;" }
+            attr: { class: "action-btn home-brief-action" }
           });
           openY.onclick = () => openPath(yesterdayReview.path || ("DAILY/DAILY/" + (yesterdayReview.date || "") + ".md"));
         }
@@ -728,15 +1104,12 @@
       );
       if (yMissing && !isEvening) {
         const miss = briefCard.createEl("div", {
-          attr: {
-            class: "home-yesterday-missing",
-            style: "margin-top:10px;padding-top:8px;border-top:1px dashed var(--background-modifier-border);font-size:0.82em;color:var(--text-muted);"
-          }
+          attr: { class: "home-yesterday-missing" }
         });
         miss.createEl("div", { text: "어제 성찰이 비어 있습니다 · 필수는 아닙니다." });
         const missBtn = miss.createEl("button", {
           text: "2분 성찰",
-          attr: { class: "action-btn", style: "margin-top:6px;" }
+          attr: { class: "action-btn home-brief-action" }
         });
         missBtn.onclick = async () => {
           const yDate = (yesterdayReview && yesterdayReview.date)
@@ -757,11 +1130,11 @@
 
       if (isEvening) {
         const eve = briefCard.createEl("div", {
-          attr: { style: "margin-top:10px;padding-top:8px;border-top:1px solid var(--background-modifier-border);" }
+          attr: { class: "home-evening-close" }
         });
         eve.createEl("div", {
           text: "오늘 마무리 · 2분 Review로 Focus를 닫습니다.",
-          attr: { style: "font-size:0.84em;color:var(--text-muted);margin-bottom:6px;" }
+          attr: { class: "home-evening-copy" }
         });
         const openJournalBtn = eve.createEl("button", {
           text: "2분 성찰 작성",
@@ -856,17 +1229,17 @@
           : ((result && Array.isArray(result.focus)) ? result.focus : []);
         const suggestions = (proposal || []).filter(Boolean).slice(0, 3);
         const actions = focusCard.createEl("div", {
-          attr: { class: "focus-footer", style: "border-top:none;padding-top:0;" }
+          attr: { class: "focus-footer home-focus-suggestions-footer" }
         });
 
         if (suggestions.length) {
           focusCard.createEl("div", {
             text: "오늘의 집중 제안",
-            attr: { style: "font-size:0.9em;color:var(--text-normal);font-weight:700;margin-bottom:6px;" }
+            attr: { class: "home-focus-suggestion-title" }
           });
           focusCard.createEl("div", {
             text: "읽기 전용 · 승인만 Home에서 합니다. 편집은 브리핑에서.",
-            attr: { style: "font-size:0.78em;color:var(--text-muted);margin-bottom:8px;" }
+            attr: { class: "home-focus-suggestion-note" }
           });
           const listDiv = focusCard.createEl("div", { attr: { class: "focus-list" } });
           suggestions.forEach((item, idx) => {
@@ -885,7 +1258,7 @@
             if (next) {
               row.createEl("div", {
                 text: next,
-                attr: { class: "focus-reason", style: "padding-left:0;" }
+                attr: { class: "focus-reason home-focus-reason" }
               });
             }
           });
@@ -914,11 +1287,11 @@
         } else {
           focusCard.createEl("div", {
             text: "아직 제안된 집중 항목이 없습니다.",
-            attr: { style: "font-size:0.9em;color:var(--text-normal);font-weight:600;" }
+            attr: { class: "home-focus-empty-title" }
           });
           focusCard.createEl("div", {
             text: "오늘의 기록이나 다음 행동을 먼저 추가하세요.",
-            attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:4px;margin-bottom:10px;" }
+            attr: { class: "home-focus-empty-note" }
           });
         }
 
@@ -932,7 +1305,7 @@
 
       head.createEl("span", {
         text: "승인됨",
-        attr: { class: "badge badge-high", style: "margin-left:auto;font-size:0.72em;" }
+        attr: { class: "badge badge-high home-focus-approved" }
       });
 
       const listDiv = focusCard.createEl("div", { attr: { class: "focus-list" } });
@@ -950,7 +1323,7 @@
         if (next) {
           row.createEl("div", {
             text: next,
-            attr: { class: "focus-reason", style: "padding-left:0;" }
+            attr: { class: "focus-reason home-focus-reason" }
           });
         }
         const btnRow = row.createEl("div", { attr: { class: "focus-actions" } });
@@ -1034,11 +1407,11 @@
       if (!limited.length) {
         continueCard.createEl("div", {
           text: "이어할 항목이 없습니다.",
-          attr: { style: "font-size:0.9em;font-weight:600;" }
+          attr: { class: "home-continue-empty-title" }
         });
         continueCard.createEl("div", {
           text: "오늘은 새 출발입니다.",
-          attr: { style: "font-size:0.84em;color:var(--text-muted);margin-top:4px;font-style:italic;" }
+          attr: { class: "home-continue-empty-note" }
         });
         return;
       }
@@ -1054,20 +1427,20 @@
           }
         });
         const meta = row.createEl("div", {
-          attr: { style: "display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;" }
+          attr: { class: "home-continue-meta" }
         });
         meta.createEl("div", {
           text: c.workspace_label || "워크스페이스",
-          attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-muted);" }
+          attr: { class: "home-continue-workspace" }
         });
         meta.createEl("strong", {
           text: c.title,
-          attr: { style: "font-size:0.95em;overflow-wrap:anywhere;" }
+          attr: { class: "home-continue-title" }
         });
         if (c.next_action) {
           meta.createEl("div", {
             text: c.next_action,
-            attr: { style: "font-size:0.82em;color:var(--text-accent);font-weight:500;overflow-wrap:anywhere;" }
+            attr: { class: "home-continue-action" }
           });
         }
         row.createEl("span", {
@@ -1127,13 +1500,13 @@
         attr: { class: "home-card emphasis-risk home-needs-attention" }
       });
       const rHead = riskCard.createEl("div", {
-        attr: { class: "home-header", style: "color: var(--text-error);" }
+        attr: { class: "home-header home-attention-header" }
       });
       rHead.createEl("span", { text: "주의가 필요함" });
       if (briefContext && briefContext.engine_ok === false) {
         rHead.createEl("span", {
           text: "엔진 폴백",
-          attr: { class: "badge badge-gray", style: "margin-left:6px;" }
+          attr: { class: "badge badge-gray home-attention-fallback" }
         });
       }
 
@@ -1141,38 +1514,35 @@
         riskCard.createEl("div", {
           text: (briefContext && briefContext.empty_attention_message)
             || "오늘은 주의할 Object가 없습니다.",
-          attr: {
-            style: "font-size:0.9em;color:var(--text-muted);font-style:italic;padding:6px 0;line-height:1.45;"
-          }
+          attr: { class: "home-attention-empty" }
         });
         return;
       }
 
       const rList = riskCard.createEl("div", {
-        attr: { style: "display:flex;flex-direction:column;gap:4px;" }
+        attr: { class: "home-attention-list" }
       });
       risks.forEach((risk) => {
         const rItem = rList.createEl("div", {
           attr: {
-            class: "home-attention-item",
-            style: "font-size:0.88em;display:flex;flex-direction:column;gap:6px;padding:12px 0;border-top:1px solid var(--background-modifier-border);"
+            class: "home-attention-item home-attention-row"
           }
         });
         const topRow = rItem.createEl("div", {
-          attr: { style: "display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;" }
+          attr: { class: "home-attention-top" }
         });
         const titleWrap = topRow.createEl("div", {
-          attr: { style: "display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 auto;" }
+          attr: { class: "home-attention-title" }
         });
         if (risk.workspace_label) {
           titleWrap.createEl("span", {
             text: risk.workspace_label,
-            attr: { style: "font-size:0.78em;color:var(--text-muted);font-weight:700;" }
+            attr: { class: "home-attention-workspace" }
           });
         }
         titleWrap.createEl("strong", {
           text: risk.label,
-          attr: { style: "color:var(--text-normal);font-size:1.02em;overflow-wrap:anywhere;" }
+          attr: { class: "home-attention-title-text" }
         });
         // Human labels only — never raw lifecycle tokens as primary copy
         if (risk.attention_level) {
@@ -1181,8 +1551,7 @@
             titleWrap.createEl("span", {
               text: lvl === "critical" ? "긴급" : "높음",
               attr: {
-                class: lvl === "critical" ? "badge badge-high" : "badge badge-medium",
-                style: "width:fit-content;"
+                class: lvl === "critical" ? "badge badge-high home-attention-badge" : "badge badge-medium home-attention-badge"
               }
             });
           }
@@ -1199,7 +1568,7 @@
         const reasonBox = rItem.createEl("div");
         reasonBox.createEl("div", {
           text: "이유",
-          attr: { style: "font-size:0.75em;font-weight:700;color:var(--text-muted);margin-bottom:2px;" }
+          attr: { class: "home-attention-reason-label" }
         });
         const reasonList = Array.isArray(risk.evidence) && risk.evidence.length
           ? risk.evidence
@@ -1210,7 +1579,7 @@
           reasonList.slice(0, 3).forEach((ev) => {
             reasonBox.createEl("div", {
               text: "· " + String(ev).replace(/\s*\(site_visit_date\)/g, ""),
-              attr: { style: "line-height:1.45;overflow-wrap:anywhere;" }
+              attr: { class: "home-attention-evidence" }
             });
           });
         }
@@ -1222,7 +1591,7 @@
       const qa = lower.createEl("div", { attr: { class: "home-card emphasis-secondary home-quick-actions" } });
       qa.createEl("div", { text: "빠른 실행", attr: { class: "home-header" } });
       const row = qa.createEl("div", {
-        attr: { style: "display:flex;flex-wrap:wrap;gap:8px;" }
+        attr: { class: "home-action-row" }
       });
       const newDaily = row.createEl("button", {
         text: "+ 오늘 Daily",
@@ -1268,21 +1637,21 @@
         const overdueCount = todoist.overdueCount || 0;
         execCard.createEl("div", {
           text: "오늘",
-          attr: { style: "font-size:0.8em;color:var(--text-muted);font-weight:700;" }
+          attr: { class: "home-todoist-label" }
         });
         execCard.createEl("div", {
           text: todayCount + "개 업무",
-          attr: { style: "font-size:1.15em;font-weight:800;margin-top:2px;" }
+          attr: { class: "home-todoist-count" }
         });
         if (overdueCount > 0) {
           execCard.createEl("div", {
             text: overdueCount + " Overdue",
-            attr: { style: "font-size:0.9em;color:var(--text-error);font-weight:700;margin-top:2px;" }
+            attr: { class: "home-todoist-overdue" }
           });
         }
         const todoBtn = execCard.createEl("button", {
           text: "Todoist 열기",
-          attr: { class: "action-btn action-btn-primary", style: "margin-top:10px;" }
+          attr: { class: "action-btn action-btn-primary home-todoist-action" }
         });
         todoBtn.onclick = () => {
           try { window.open("todoist://"); } catch (_e) {
@@ -1316,18 +1685,18 @@
         } else {
           launcherMount.createEl("div", {
             text: "워크스페이스 런처를 불러오지 못했습니다.",
-            attr: { style: "font-size:0.82em;color:var(--text-muted);" }
+            attr: { class: "home-launcher-status" }
           });
         }
       } catch (launcherError) {
         launcherMount.createEl("div", {
           text: "워크스페이스 런처를 표시하지 못했습니다.",
-          attr: { style: "font-size:0.82em;color:var(--text-error);" }
+          attr: { class: "home-launcher-error" }
         });
         if (window.prodigyDebugMode) {
           launcherMount.createEl("div", {
             text: String(launcherError.message || launcherError),
-            attr: { style: "font-size:0.75em;color:var(--text-muted);" }
+            attr: { class: "home-launcher-details" }
           });
         }
       }
@@ -1340,7 +1709,7 @@
       });
       status.createEl("div", {
         text: "시스템 상태",
-        attr: { class: "home-header", style: "font-size:0.9em;margin-bottom:8px;" }
+        attr: { class: "home-header home-system-header" }
       });
       const engineHealthy = !(briefContext && briefContext.engine_ok === false);
       const warnings = Array.isArray(pkg.warnings) ? pkg.warnings : [];
@@ -1369,17 +1738,15 @@
       })();
       if (weeklyDraftPath) {
         const weekRow = status.createEl("div", {
-          attr: {
-            style: "margin-bottom:10px;padding:8px 10px;border-radius:8px;border:1px solid var(--background-modifier-border);background:var(--background-primary);"
-          }
+          attr: { class: "home-weekly-draft" }
         });
         weekRow.createEl("div", {
           text: "주간 복기 (읽을 파일)",
-          attr: { style: "font-size:0.78em;font-weight:700;color:var(--text-accent);margin-bottom:4px;" }
+          attr: { class: "home-weekly-draft-label" }
         });
         weekRow.createEl("div", {
           text: "Weekly Review 초안 · 내부 리포트와 구분",
-          attr: { style: "font-size:0.75em;color:var(--text-muted);margin-bottom:6px;" }
+          attr: { class: "home-weekly-draft-copy" }
         });
         const openDraft = weekRow.createEl("button", {
           text: "주간 복기 초안 열기",
@@ -1389,18 +1756,16 @@
       }
 
       const row = status.createEl("div", {
-        attr: {
-          style: "display:flex;flex-wrap:wrap;gap:12px 18px;font-size:0.8em;color:var(--text-muted);"
-        }
+        attr: { class: "home-system-metrics" }
       });
       const pill = (label, value, ok) => {
         const el = row.createEl("div", {
-          attr: { style: "display:flex;flex-direction:column;gap:2px;min-width:90px;" }
+          attr: { class: "home-system-pill" }
         });
-        el.createEl("span", { text: label, attr: { style: "font-weight:700;color:var(--text-faint);" } });
+        el.createEl("span", { text: label, attr: { class: "home-system-pill-label" } });
         el.createEl("span", {
           text: value,
-          attr: { style: "font-weight:700;color:" + (ok ? "var(--text-success, var(--text-accent))" : "var(--text-warning, var(--text-muted))") + ";" }
+          attr: { class: "home-system-pill-value " + (ok ? "is-ok" : "is-warning") }
         });
       };
       pill("Object Engine", engineHealthy ? "정상" : "제한", engineHealthy);
@@ -1410,7 +1775,7 @@
       // Collapsed lifecycle remains available for debug (not Mission Control primary)
       if (root.ObjectLifecycleCore && root.ObjectLifecycleView) {
         const lifecycleFold = status.createEl("details", {
-          attr: { class: "home-lifecycle-fold", style: "margin-top:10px;" }
+          attr: { class: "home-lifecycle-fold" }
         });
         lifecycleFold.createEl("summary", {
           text: "객체 라이프사이클 · 접힘 (주의 요약)"
@@ -1447,7 +1812,7 @@
         } catch (_lc) {
           lifecycleCard.createEl("div", {
             text: "라이프사이클 요약을 표시하지 못했습니다.",
-            attr: { style: "font-size:0.8em;color:var(--text-muted);" }
+            attr: { class: "home-lifecycle-error" }
           });
         }
       }
