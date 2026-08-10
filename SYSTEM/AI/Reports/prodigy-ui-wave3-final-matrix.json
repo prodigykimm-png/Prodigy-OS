@@ -3,8 +3,8 @@
   "goalId": "G004",
   "reportKind": "prodigy-ui-wave3-final-matrix",
   "status": "pass_with_limitation",
-  "implementationFinalGitSha": "4b63becd28d0db68a542fcf8d8ddcadf894708d0",
-  "implementationSourceSha256": "7713c2a417f72d609f90e62e194f0f717c5af3e6d178a1209349b6f1850c5597",
+  "implementationFinalGitSha": "3528393b9a38c5c83377263d7d8ac9d34c05c2da",
+  "implementationSourceSha256": "889b436f1d65dbd25fc77499e296add55a95e008a0f3e52e993b14774ebdf26c",
   "matrixEvidenceLevel": "source_contract_and_harness",
   "surfaces": [
     {"id":"home","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
@@ -59,7 +59,7 @@
   },
   "productionMeasurementBridge": {
     "status": "wired",
-    "commit": "4b63becd28d0db68a542fcf8d8ddcadf894708d0",
+    "commit": "3528393b9a38c5c83377263d7d8ac9d34c05c2da",
     "hubCallsites": 9,
     "phaseMarks": ["hub_start", "module_start/end", "shell_mounted", "data_scan_start/end", "projection_start/end", "dom_render_start/end", "primary_action_ready"],
     "externalReceiptWrite": "explicit-confirmation-only"

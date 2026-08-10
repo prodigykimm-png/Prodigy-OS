@@ -1,10 +1,13 @@
 {
-  "headCommit": "4b63becd28d0db68a542fcf8d8ddcadf894708d0",
+  "headCommit": "3528393b9a38c5c83377263d7d8ac9d34c05c2da",
   "workingTreeDirty": [
-    "M SYSTEM/AI/Reports/prodigy-ui-wave3-final-matrix.json",
-    "?? artifacts/g005-wave3-production/"
+    "M artifacts/g005-wave3-production/executor-qa.json",
+    " M artifacts/g005-wave3-production/responsive-current/responsive-metrics.json",
+    " M artifacts/g005-wave3-production/responsive-current/viewport-1024.png",
+    " M artifacts/g005-wave3-production/responsive-current/viewport-375.png",
+    "?? artifacts/g005-wave3-production/focused-test-transcript.json"
   ],
-  "workingTreeSourceSha256": "7713c2a417f72d609f90e62e194f0f717c5af3e6d178a1209349b6f1850c5597",
+  "workingTreeSourceSha256": "889b436f1d65dbd25fc77499e296add55a95e008a0f3e52e993b14774ebdf26c",
   "focusedTests": [
     {
       "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_performance_recorder.js",
@@ -320,7 +323,7 @@
     {
       "path": "artifacts/g005-wave3-production/responsive-current/viewport-375.png",
       "bytes": 45871,
-      "sha256": "a1549955f4bf42793160dacef4df2bc70ed2dde42381b6c3eae71df90f4d16bb",
+      "sha256": "7b36802f511a419380783285a585ae8c089462007764af3d275feb7411cfafa0",
       "png": {
         "width": 375,
         "height": 900
@@ -329,7 +332,7 @@
     {
       "path": "artifacts/g005-wave3-production/responsive-current/viewport-768.png",
       "bytes": 50818,
-      "sha256": "54f94884821d0b94c85a8b31edc01396c398fc3eb9e2e09f243bfd06edaf530d",
+      "sha256": "7ada78222a0bb8d922bf3e10815dc5a618df8f15274f5113ac82300257a00a8b",
       "png": {
         "width": 768,
         "height": 900
@@ -338,7 +341,7 @@
     {
       "path": "artifacts/g005-wave3-production/responsive-current/viewport-1024.png",
       "bytes": 54059,
-      "sha256": "e053fe2e7b561c8de868a453f71cb30680fc8edd6a6abd240fede1b89f69a906",
+      "sha256": "d416684249f58102ef6e5ff63a85e5862c8db1f149f48020f6a2f50262862bb4",
       "png": {
         "width": 1024,
         "height": 900
@@ -368,46 +371,5 @@
     "Existing .obsidian drift and operator/device campaign remain human-only follow-up.",
     "Actual full Hub/View execution was exercised for Home; all nine entrypoint lifecycle/readiness contracts were inspected against current source."
   ],
-  "recheck": {
-    "scenario": {
-      "initialPreview": "initial.controller.preview({ exportOptions: { destinationRoot, vaultRoot, approved: true } }) before any binding; expected missing_cold_warm.",
-      "boundLifecycle": "session marks shell_mounted, data_scan/projection/dom_render start/end, markReady('knowledge', { status: 'deterministic', enabledAction: { id: 'knowledge.open', enabled: true } }), then controller.dispose(options) with explicit options.",
-      "options": {
-        "cold_warm": "warm",
-      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "settings_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "final_git_sha": "cccccccccccccccccccccccccccccccccccccccc",
-        "campaign_id": "g005-controller"
-      },
-      "exportOnlyPreview": "controller.preview({ exportOptions: { destinationRoot, vaultRoot, approved: true } }) after dispose; no receiptOptions supplied."
-    },
-    "priorAttempts": [
-      {
-        "assertion": "assert.equal(ready.ready, true) at /private/tmp/g005-qa-current.js:165",
-        "expected": true,
-        "actual": false,
-        "classification": "qa_harness_mismatch",
-        "reason": "The harness used unregistered selector g005-controller; rerun used registered selector knowledge."
-      },
-      {
-        "failure": "missing_cold_warm at /private/tmp/g005-qa-current.js:173, measurement.js:180",
-        "classification": "real_product_bug",
-        "reason": "dispose(options) finalized a receipt but did not bind it to controller preview state for export-only reuse."
-      },
-      {
-        "failure": "ReferenceError: lastReceipt is not defined at measurement.js:364",
-        "classification": "real_product_bug",
-        "reason": "The first leader fix wrote controller-local state from createSession disposal scope."
-      }
-    ],
-    "finalRerun": {
-      "status": "PASS",
-      "headCommit": "4b63becd28d0db68a542fcf8d8ddcadf894708d0",
-      "caseStatus": "PASS",
-      "previewReady": true,
-      "initialBindingStillRequired": true,
-      "disposeIdempotent": true
-    }
-  },
   "failures": 0
 }
