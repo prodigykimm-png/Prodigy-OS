@@ -121,7 +121,7 @@
     return Object.freeze(controller);
   }
 
-  function createController(session, config) {
+  function createController(session, config, sharedState) {
     var ExporterApi = resolve("ProdigyPerformanceExporter", "./prodigy-performance-exporter.js");
     var available = !!(session && session.available === true
       && ExporterApi
@@ -134,7 +134,8 @@
     }
 
     var exporter = null;
-    var lastReceipt = null;
+    var controllerState = sharedState && typeof sharedState === "object" ? sharedState : { lastReceipt: null };
+    var lastReceipt = controllerState.lastReceipt || null;
     var lastPreview = null;
     var options = config && typeof config === "object" ? config : {};
 
@@ -157,6 +158,7 @@
       var value = receiptOptions(receiptInput);
       var receipt = session.finalize(value);
       lastReceipt = receipt;
+      controllerState.lastReceipt = receipt;
       if (ExporterApi && typeof ExporterApi.prepareExportReceipt === "function") {
         try { lastPreview = ExporterApi.prepareExportReceipt(receipt); } catch (_error) { lastPreview = null; }
       }
@@ -176,7 +178,7 @@
 
     function preview(input) {
       var split = splitPreviewOptions(input);
-      var receipt = split.hasReceipt ? finalize(split.receipt) : lastReceipt;
+      var receipt = split.hasReceipt ? finalize(split.receipt) : (controllerState.lastReceipt || lastReceipt);
       if (!receipt) receipt = finalize(split.receipt || {});
       var instance = ensureExporter(split.exportOptions, receipt);
       if (!instance || typeof instance.preview !== "function") return null;
@@ -291,6 +293,7 @@
     var lastExportPreview = null;
     var disposedMarked = false;
     var disposedReceipt = null;
+    var controllerState = { lastReceipt: null };
     var controller = null;
 
     function call(method, args) {
@@ -347,6 +350,7 @@
     function finalize(receiptInput) {
       var optionsValue = receiptOptions(receiptInput);
       var receipt = strictCall("finalize", [optionsValue]);
+      if (receipt) controllerState.lastReceipt = receipt;
       var ExporterApi = resolve("ProdigyPerformanceExporter", "./prodigy-performance-exporter.js");
       if (receipt && ExporterApi && typeof ExporterApi.prepareExportReceipt === "function") {
         try { lastExportPreview = ExporterApi.prepareExportReceipt(receipt); } catch (_error) { lastExportPreview = null; }
@@ -361,6 +365,7 @@
       if (!disposedMarked) {
         if (valid) {
           disposedReceipt = strictCall("dispose", [receiptOptions(optionsValue)]);
+          controllerState.lastReceipt = disposedReceipt;
           disposedMarked = true;
           var ExporterApi = resolve("ProdigyPerformanceExporter", "./prodigy-performance-exporter.js");
           if (disposedReceipt && ExporterApi && typeof ExporterApi.prepareExportReceipt === "function") {
@@ -374,6 +379,7 @@
       }
       if (valid) {
         disposedReceipt = strictCall("finalize", [receiptOptions(optionsValue)]);
+        controllerState.lastReceipt = disposedReceipt;
         var FinalExporterApi = resolve("ProdigyPerformanceExporter", "./prodigy-performance-exporter.js");
         if (disposedReceipt && FinalExporterApi && typeof FinalExporterApi.prepareExportReceipt === "function") {
           try { lastExportPreview = FinalExporterApi.prepareExportReceipt(disposedReceipt); } catch (_error) { lastExportPreview = null; }
@@ -417,7 +423,7 @@
       dispose: dispose,
       get disposed() { return disposedMarked; }
     };
-    controller = createController(session, config);
+    controller = createController(session, config, controllerState);
     session.controller = controller;
     session.campaign = controller;
     call("mark", ["hub_start", { scope: workspaceId, status: "started" }]);
