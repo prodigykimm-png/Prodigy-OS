@@ -12,6 +12,24 @@ if (!container) return;
 container.empty();
 
 // Expose globals for external scripts
+window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "auction"
+  ? window.__prodigyMeasurementEntry
+  : { workspaceId: "auction" };
+const OPTIONAL_MEASUREMENT_PATHS = new Set([
+  "SYSTEM/Views/prodigy-performance-recorder.js",
+  "SYSTEM/Views/prodigy-workspace-readiness.js",
+  "SYSTEM/Views/prodigy-performance-exporter.js",
+  "SYSTEM/Views/prodigy-workspace-measurement.js"
+]);
+const recordMeasurementFailure = (path, error) => {
+  const failure = {
+    path,
+    code: error && error.code ? String(error.code) : "measurement_load_failed",
+    message: error && error.message ? String(error.message).slice(0, 240) : "measurement module unavailable"
+  };
+  window.__prodigyMeasurementLoadFailures = (window.__prodigyMeasurementLoadFailures || []).concat(failure);
+  if (window.prodigyDebugMode === true && console && console.warn) console.warn("선택적 성능 측정 모듈 미로드:", failure);
+};
 // Last reload: 2026-07-12T16:22:00
 window.obsidian = obsidian;
 window.app = app;
@@ -515,14 +533,30 @@ if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path ===
 
 // Dynamic script loader helper
 let activeLoadPath = "로더 시작";
-const loadProdigyScript = async (path) => {
+const loadProdigyScript = async (path, options = {}) => {
   activeLoadPath = path;
-  const tFile = app.vault.getAbstractFileByPath(path);
-  if (!tFile) throw new Error(`필수 스크립트 파일이 없습니다: ${path}`);
-  const content = await app.vault.read(tFile);
+  const optional = options.optional === true || OPTIONAL_MEASUREMENT_PATHS.has(path);
   try {
-    (new Function(content))();
+    const tFile = app.vault.getAbstractFileByPath(path);
+    if (!tFile) {
+      const missing = new Error(`필수 스크립트 파일이 없습니다: ${path}`);
+      missing.code = "sync_pending";
+      if (optional) {
+        recordMeasurementFailure(path, missing);
+        return null;
+      }
+      throw missing;
+    }
+    const content = await app.vault.read(tFile);
+    const evaluate = () => (new Function(content))();
+    const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+    if (session && typeof session.measureModule === "function") return await session.measureModule(path, evaluate);
+    return evaluate();
   } catch (error) {
+    if (optional) {
+      recordMeasurementFailure(path, error);
+      return null;
+    }
     const wrapped = error instanceof Error ? error : new Error(String(error));
     wrapped.prodigyLoadPath = path;
     throw wrapped;
@@ -532,15 +566,17 @@ const loadProdigyScript = async (path) => {
 ensureAuctionHubStyles();
 const initializeAuctionWorkspace = async () => {
   setNavigationStatus("loading");
+  let performance = null;
+  let measurement = null;
   try {
+  await loadProdigyScript("SYSTEM/Views/prodigy-performance-recorder.js", { optional: true });
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-readiness.js", { optional: true });
+  await loadProdigyScript("SYSTEM/Views/prodigy-performance-exporter.js", { optional: true });
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-measurement.js", { optional: true });
   await loadProdigyScript("SYSTEM/Views/design-tokens.js");
   await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-performance-recorder.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-readiness.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-performance-exporter.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-measurement.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-ui.js");
@@ -592,16 +628,35 @@ const initializeAuctionWorkspace = async () => {
   // Snapshot the full Dataview index once for this dashboard render. Cards and
   // Auction Day only consume this immutable context; they never re-query Vault.
   activeLoadPath = "Dataview 결정 패킷 인덱스";
+  performance = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+  measurement = {
+    performance: performance || null,
+    dataScan: performance && performance.start("data_scan", { scope: "auction" }),
+    projection: null,
+    domRender: null,
+    readinessMarked: false,
+    shell: null
+  };
+  window.__auctionWorkspaceMeasurement = measurement;
   const packetDataview = app.plugins?.plugins?.dataview?.api;
   const packetPages = packetDataview && typeof packetDataview.pages === "function"
     ? packetDataview.pages("").array()
     : [];
+  if (performance) {
+    performance.end(measurement.dataScan, { scope: "auction", status: "loaded" });
+    measurement.dataScan = null;
+    measurement.projection = performance.start("projection", { scope: "auction" });
+  }
   window.AuctionDecisionPacketDashboardContext = window.AuctionDecisionPacket
     ? window.AuctionDecisionPacket.createDashboardContext(packetPages)
     : null;
   window.AuctionDecisionMirrorDashboardContext = window.AuctionDecisionMirrorCore
     ? window.AuctionDecisionMirrorCore.snapshotAuctionCases(packetPages)
     : null;
+  if (performance) {
+    performance.end(measurement.projection, { scope: "auction", status: "projected" });
+    measurement.projection = null;
+  }
   await loadProdigyScript("SYSTEM/Views/auction-card.js");
   await loadProdigyScript("SYSTEM/Views/bid-calendar-core.js");
   await loadProdigyScript("SYSTEM/Views/bid-calendar-view.js");
@@ -611,32 +666,58 @@ const initializeAuctionWorkspace = async () => {
   const regionScope = window.prodigyAuctionRegionScope && typeof window.prodigyAuctionRegionScope === "object"
     ? window.prodigyAuctionRegionScope
     : null;
-  const auctionShell = window.ProdigyWorkspaceNavigation.mount(container, {
-    app,
-    workspaceId: "auction",
-    title: "경매",
-    context: {
-      label: "현재 문맥",
-      items: regionScope && regionScope.region_sido && regionScope.region_sigungu
-        ? [`지역 필터 · ${regionScope.region_sido} ${regionScope.region_sigungu}`]
-        : []
+  let domRender = performance && performance.start("dom_render", { scope: "auction" });
+  measurement.domRender = domRender;
+  try {
+    const auctionShell = window.ProdigyWorkspaceNavigation.mount(container, {
+      app,
+      workspaceId: "auction",
+      title: "경매",
+      context: {
+        label: "현재 문맥",
+        items: regionScope && regionScope.region_sido && regionScope.region_sigungu
+          ? [`지역 필터 · ${regionScope.region_sido} ${regionScope.region_sigungu}`]
+          : []
+      }
+    });
+    if (auctionShell.element && auctionShell.element.classList) auctionShell.element.classList.add("auction-hub-shell");
+    if (auctionShell.body) {
+      if (typeof auctionShell.body.setAttr === "function") auctionShell.body.setAttr("data-scroll-owner", "auction-workspace-body");
+      else if (typeof auctionShell.body.setAttribute === "function") auctionShell.body.setAttribute("data-scroll-owner", "auction-workspace-body");
     }
-  });
-  if (auctionShell.element && auctionShell.element.classList) auctionShell.element.classList.add("auction-hub-shell");
-  if (auctionShell.body) {
-    if (typeof auctionShell.body.setAttr === "function") auctionShell.body.setAttr("data-scroll-owner", "auction-workspace-body");
-    else if (typeof auctionShell.body.setAttribute === "function") auctionShell.body.setAttribute("data-scroll-owner", "auction-workspace-body");
-  }
-  const performance = auctionShell.performance;
-  if (performance) {
-    performance.mark("data_scan_start", { scope: "auction" });
-    performance.mark("data_scan_end", { scope: "auction", status: "loaded" });
-    performance.mark("projection_end", { scope: "auction", status: "projected" });
-    performance.mark("dom_render_end", { scope: "auction", status: "rendered" });
-    performance.markWorkspaceReady();
+    const mountedPerformance = auctionShell.performance || performance;
+    measurement.shell = auctionShell;
+    measurement.performance = mountedPerformance || null;
+    if (mountedPerformance) {
+      mountedPerformance.end(domRender, { scope: "auction", status: "rendered" });
+      measurement.domRender = null;
+      if (typeof auctionShell.readinessSnapshot === "function") {
+        mountedPerformance.markReady("auction", auctionShell.readinessSnapshot("auction"));
+        measurement.readinessMarked = true;
+      }
+    }
+  } catch (error) {
+    if (performance) performance.end(domRender, { scope: "auction", status: "failed" });
+    measurement.domRender = null;
+    throw error;
   }
   setNavigationStatus("ready");
 } catch (err) {
+  if (performance) {
+    if (measurement.dataScan) {
+      performance.end(measurement.dataScan, { scope: "auction", status: "failed" });
+      measurement.dataScan = null;
+    }
+    if (measurement.projection) {
+      performance.end(measurement.projection, { scope: "auction", status: "failed" });
+      measurement.projection = null;
+    }
+    if (measurement.domRender) {
+      performance.end(measurement.domRender, { scope: "auction", status: "failed" });
+      measurement.domRender = null;
+    }
+    if (typeof performance.fail === "function") performance.fail(err, { phase: "error", scope: "auction" });
+  }
   setNavigationStatus("error", err);
   const failedStage = err && err.prodigyLoadPath ? err.prodigyLoadPath : activeLoadPath;
   window.ProdigyAuctionWorkspaceRetry = initializeAuctionWorkspace;
@@ -859,7 +940,10 @@ if (!window.prodigyDisplay) {
   const registryFile = app.vault.getAbstractFileByPath("SYSTEM/Views/display-registry.js");
   if (!registryFile) throw new Error("Display Registry 파일을 찾을 수 없습니다.");
   const registrySource = await app.vault.read(registryFile);
-  (new Function(registrySource))();
+  const evaluate = () => (new Function(registrySource))();
+  const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+  if (session && typeof session.measureModule === "function") await session.measureModule("SYSTEM/Views/display-registry.js", evaluate);
+  else evaluate();
 }
 
 const counts = { watching: 0, bidding: 0, skipped: 0, won: 0, lost: 0, reviewing: 0, archived: 0 };

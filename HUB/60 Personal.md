@@ -6,22 +6,62 @@ cssclasses:
 ```dataviewjs
 window.app = app;
 window.obsidian = obsidian;
+window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "personal"
+  ? window.__prodigyMeasurementEntry
+  : { workspaceId: "personal" };
+const personalMeasurementOptionalPaths = new Set([
+  "SYSTEM/Views/prodigy-performance-recorder.js",
+  "SYSTEM/Views/prodigy-workspace-readiness.js",
+  "SYSTEM/Views/prodigy-performance-exporter.js",
+  "SYSTEM/Views/prodigy-workspace-measurement.js"
+]);
+window.__prodigyMeasurementLoadFailures = Array.isArray(window.__prodigyMeasurementLoadFailures)
+  ? window.__prodigyMeasurementLoadFailures
+  : [];
 
 const loadProdigyScript = async (path) => {
-  const tFile = app.vault.getAbstractFileByPath(path);
-  if (!tFile) throw new Error(`Missing script: ${path}`);
-  (new Function(await app.vault.read(tFile)))();
+  const optional = personalMeasurementOptionalPaths.has(path);
+  try {
+    const tFile = app.vault.getAbstractFileByPath(path);
+    if (!tFile) throw new Error(`Missing script: ${path}`);
+    const content = await app.vault.read(tFile);
+    const evaluate = () => (new Function(content))();
+    const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+    if (session && typeof session.measureModule === "function") {
+      return await session.measureModule(path, evaluate);
+    }
+    return evaluate();
+  } catch (error) {
+    if (!optional) throw error;
+    window.__prodigyMeasurementLoadFailures.push({
+      path,
+      code: String(error && error.code || "measurement_module_load_failed")
+    });
+    return false;
+  }
 };
 
+let personalPerformance = null;
+let personalShell = null;
+let personalDataScanToken = null;
+let personalProjectionToken = null;
+let personalDomRenderToken = null;
+let personalPlacesReadyMarked = false;
+const personalMeasurementClosed = { data_scan: false, projection: false, dom_render: false };
+const endPersonalMeasurement = (phase, token, fields) => {
+  if (!personalPerformance || !token || personalMeasurementClosed[phase]) return;
+  personalPerformance.end(token, fields);
+  personalMeasurementClosed[phase] = true;
+};
 try {
-  await loadProdigyScript("SYSTEM/Views/design-tokens.js");
-  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-performance-recorder.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-readiness.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-performance-exporter.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-measurement.js");
+  await loadProdigyScript("SYSTEM/Views/design-tokens.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-workspace-route.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
@@ -180,8 +220,14 @@ try {
       fingerprint: workspaceFingerprint(rawPeople, sourcePages)
     };
   };
+  const measurementModule = window.ProdigyWorkspaceMeasurement;
+  personalPerformance = measurementModule && typeof measurementModule.getOrCreateSession === "function"
+    ? measurementModule.getOrCreateSession({ workspace_id: "personal" })
+    : null;
+  personalDataScanToken = personalPerformance && personalPerformance.start("data_scan", { scope: "personal", status: "scanning" });
 
   const initialSnapshot = await collectWorkspaceSnapshot();
+  endPersonalMeasurement("data_scan", personalDataScanToken, { scope: "personal", status: "loaded" });
   const guardStore = window.__prodigyPersonalRenderGuard instanceof WeakMap
     ? window.__prodigyPersonalRenderGuard
     : new WeakMap();
@@ -221,10 +267,9 @@ try {
   }
 
   rootEl.empty();
-  const shell = window.ProdigyWorkspaceNavigation.mount(rootEl, { app, workspaceId: "personal", title: "개인" });
-  const performance = shell.performance;
-  if (performance) performance.mark("data_scan_start", { scope: "personal" });
-  const workspaceBody = shell.body;
+  personalShell = window.ProdigyWorkspaceNavigation.mount(rootEl, { app, workspaceId: "personal", title: "개인" });
+  personalPerformance = personalPerformance || personalShell.performance;
+  const workspaceBody = personalShell.body;
 
   // Personal workspace tabs: People / Places
   const personalTabStateKey = "prodigy.personal.workspace-tab.v1";
@@ -303,6 +348,9 @@ try {
       && workspaceApi
     );
     if (shouldSkipRepaint) return;
+    if (!personalProjectionToken && personalPerformance && !personalMeasurementClosed.projection) {
+      personalProjectionToken = personalPerformance.start("projection", { scope: "personal", status: "projecting" });
+    }
 
     // Dataview can replace this code-block container after an index change.
     // Persisted state survives that replacement when the old DOM cannot be reused.
@@ -315,6 +363,10 @@ try {
       sort: st && st.sort ? st.sort : "name_asc",
       maxPreview: 3
     });
+    endPersonalMeasurement("projection", personalProjectionToken, { scope: "personal", status: "projected" });
+    if (!personalDomRenderToken && personalPerformance && !personalMeasurementClosed.dom_render) {
+      personalDomRenderToken = personalPerformance.start("dom_render", { scope: "personal", status: "rendering" });
+    }
     peopleMount.empty();
     workspaceApi = window.PeopleView.renderPeopleWorkspace({
       app,
@@ -328,9 +380,10 @@ try {
       onRefresh: () => paintPeople({ force: true }),
       onStateChange: (next) => window.PeopleCore.writeWorkspaceState(window.sessionStorage, next)
     });
+    endPersonalMeasurement("dom_render", personalDomRenderToken, { scope: "personal", status: "rendered" });
     guardStore.set(personalHost, {
       rootEl,
-      shellElement: shell.element,
+      shellElement: personalShell.element,
       mount: peopleMount,
       workspaceApi,
       fingerprint,
@@ -342,6 +395,13 @@ try {
     if (workspaceApi && workspaceApi.getState) {
       window.PeopleCore.writeWorkspaceState(window.sessionStorage, workspaceApi.getState());
     }
+  };
+  const markPlacesReady = () => {
+    if (personalPlacesReadyMarked || !personalPerformance || typeof personalPerformance.markReady !== "function") return;
+    if (!personalShell || typeof personalShell.readinessSnapshot !== "function") return;
+    const snapshot = personalShell.readinessSnapshot("personal.places");
+    const result = personalPerformance.markReady("personal.places", snapshot, { activated: true });
+    if (result && result.ready === true) personalPlacesReadyMarked = true;
   };
 
   let venueWorkspaceApi = null;
@@ -454,6 +514,7 @@ try {
   const paintPlaces = async (options) => {
     const serial = ++venuePaintSerial;
     const force = Boolean(options && options.force);
+    const activation = Boolean(options && options.activation);
     placesLoaded = true;
     const activeGuard = guardStore.get(personalHost);
     if (activeGuard) activeGuard.placesLoaded = true;
@@ -469,9 +530,10 @@ try {
     const fingerprint = window.VenueStore && typeof window.VenueStore.venueFingerprint === "function"
       ? window.VenueStore.venueFingerprint(places)
       : JSON.stringify(places);
-    if (!force && venueWorkspaceApi && fingerprint === venueDataFingerprint) return venueWorkspaceApi.getModel
-      ? venueWorkspaceApi.getModel()
-      : null;
+    if (!force && venueWorkspaceApi && fingerprint === venueDataFingerprint) {
+      if (activation) markPlacesReady();
+      return venueWorkspaceApi.getModel ? venueWorkspaceApi.getModel() : null;
+    }
 
     if (window.VenueView && window.VenueView.renderVenuesWorkspace) {
       if (venueWorkspaceApi && typeof venueWorkspaceApi.setData === "function") {
@@ -487,6 +549,7 @@ try {
         });
       }
       venueDataFingerprint = fingerprint;
+      if (activation) markPlacesReady();
       return venueWorkspaceApi && venueWorkspaceApi.getModel ? venueWorkspaceApi.getModel() : null;
     }
 
@@ -511,6 +574,7 @@ try {
       placesMount.createEl("p", { text: "등록된 장소가 없습니다.", attr: { class: "ppw-empty" } });
     }
     venueDataFingerprint = fingerprint;
+    if (activation) markPlacesReady();
     return null;
   };
   handlePersonalTabChange = (tabId) => {
@@ -519,7 +583,7 @@ try {
     if (activeGuard) activeGuard.activeTab = tabId;
     if (tabId !== "places") return;
     placesLoaded = true;
-    void paintPlaces().catch(() => {
+    void paintPlaces({ activation: true }).catch(() => {
       if (personalPanels.places && typeof personalPanels.places.empty === "function" && typeof personalPanels.places.createEl === "function") {
         personalPanels.places.empty();
         personalPanels.places.createEl("p", {
@@ -531,14 +595,18 @@ try {
   };
 
   await paintPeople({ snapshot: initialSnapshot });
-  if (performance) {
-    performance.mark("data_scan_end", { scope: "personal", status: "loaded" });
-    performance.mark("projection_end", { scope: "personal", status: "projected" });
-    performance.mark("dom_render_end", { scope: "personal", status: "rendered" });
-    performance.markWorkspaceReady();
-  }
+  const peopleSnapshot = personalShell && typeof personalShell.readinessSnapshot === "function"
+    ? personalShell.readinessSnapshot("personal.people")
+    : null;
+  if (personalPerformance && peopleSnapshot) personalPerformance.markReady("personal.people", peopleSnapshot);
   if (personalTabs.getActiveTab() === "places") await paintPlaces();
 } catch (error) {
+  endPersonalMeasurement("data_scan", personalDataScanToken, { scope: "personal", status: "failed" });
+  endPersonalMeasurement("projection", personalProjectionToken, { scope: "personal", status: "failed" });
+  endPersonalMeasurement("dom_render", personalDomRenderToken, { scope: "personal", status: "failed" });
+  if (personalPerformance && typeof personalPerformance.fail === "function") {
+    personalPerformance.fail(error, { phase: "error", scope: "personal" });
+  }
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "개인" });
   } else {

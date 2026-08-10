@@ -13,6 +13,25 @@ cssclasses:
 ```js-engine
 if (!container) return;
 window.app = app;
+window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "workout"
+  ? window.__prodigyMeasurementEntry
+  : { workspaceId: "workout" };
+const OPTIONAL_MEASUREMENT_PATHS = new Set([
+  "SYSTEM/Views/prodigy-performance-recorder.js",
+  "SYSTEM/Views/prodigy-workspace-readiness.js",
+  "SYSTEM/Views/prodigy-performance-exporter.js",
+  "SYSTEM/Views/prodigy-workspace-measurement.js"
+]);
+const recordMeasurementFailure = (failure) => {
+  if (!failure) return;
+  const item = {
+    path: failure.path,
+    code: failure.code || "measurement_load_failed",
+    message: failure.summary || failure.message || "measurement module unavailable"
+  };
+  window.__prodigyMeasurementLoadFailures = (window.__prodigyMeasurementLoadFailures || []).concat(item);
+  if (window.prodigyDebugMode === true && console && console.warn) console.warn("선택적 성능 측정 모듈 미로드:", item);
+};
 // js-engine may expose `obsidian`; never leave Modal undefined for class extends
 if (typeof obsidian !== "undefined" && obsidian) {
   window.obsidian = obsidian;
@@ -82,6 +101,10 @@ const ensureWorkoutHubStyles = () => {
   `;
 };
 ensureWorkoutHubStyles();
+const MEASUREMENT_MANIFEST = {
+  required: [],
+  optional: Array.from(OPTIONAL_MEASUREMENT_PATHS)
+};
 
 const WORKOUT_MANIFEST = {
   required: [
@@ -89,10 +112,6 @@ const WORKOUT_MANIFEST = {
     "SYSTEM/Views/workspace-registry.js",
     "SYSTEM/Views/prodigy-workspace-state-store.js",
     "SYSTEM/Views/prodigy-app-shell.js",
-    "SYSTEM/Views/prodigy-performance-recorder.js",
-    "SYSTEM/Views/prodigy-workspace-readiness.js",
-    "SYSTEM/Views/prodigy-performance-exporter.js",
-    "SYSTEM/Views/prodigy-workspace-measurement.js",
     "SYSTEM/Views/workspace-navigation.js",
     "SYSTEM/Views/display-registry.js",
     "SYSTEM/Views/object-engine-core.js",
@@ -134,54 +153,119 @@ const bootstrapLoader = async () => {
     err.prodigySyncPending = true;
     throw err;
   }
-  (new Function(await app.vault.read(file)))();
+  const content = await app.vault.read(file);
+  const evaluate = () => (new Function(content))();
+  const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+  if (session && typeof session.measureModule === "function") await session.measureModule(BOOTSTRAP_PATH, evaluate);
+  else evaluate();
   return window.ProdigyHubLoader;
 };
+const loadMeasurementModules = async (loader) => {
+  const result = await loader.loadManifest(app, MEASUREMENT_MANIFEST);
+  (result.optional_failures || []).forEach(recordMeasurementFailure);
+  return result;
+};
+const waitForWorkoutSettled = (mount) => new Promise((resolve) => {
+  const panel = () => mount && typeof mount.querySelector === "function"
+    ? mount.querySelector(".workout-health-panel")
+    : null;
+  const settled = () => {
+    const activePanel = panel();
+    if (!activePanel) return true;
+    const busy = typeof activePanel.getAttribute === "function" ? activePanel.getAttribute("aria-busy") : null;
+    if (busy !== "false") return null;
+    if (typeof activePanel.querySelector === "function" && activePanel.querySelector(".workout-panel-loading")) return null;
+    return !(typeof activePanel.querySelector === "function" && activePanel.querySelector(".workout-panel-error"));
+  };
+  const initial = settled();
+  if (initial !== null) {
+    resolve(initial);
+    return;
+  }
+  if (typeof MutationObserver !== "function") {
+    resolve(true);
+    return;
+  }
+  const observer = new MutationObserver(() => {
+    const result = settled();
+    if (result === null) return;
+    observer.disconnect();
+    resolve(result);
+  });
+  observer.observe(mount, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-busy"] });
+});
 
 const renderWorkout = async () => {
   container.empty();
-  await bootstrapLoader();
-  const result = await window.ProdigyHubLoader.loadManifest(app, WORKOUT_MANIFEST);
-
-  if (result.required_failures.length) {
-    const err = new Error(result.required_failures.map((f) => f.summary).join(" / "));
-    err.prodigySyncPending = result.sync_pending;
-    err.prodigyRetryPaths = result.required_failures.map((f) => f.path);
-    throw err;
+  const loader = await bootstrapLoader();
+  await loadMeasurementModules(loader);
+  const performance = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+  const measurable = performance && performance.available !== false;
+  const dataScan = measurable && performance.start("data_scan", { scope: "workout" });
+  let result;
+  try {
+    result = await loader.loadManifest(app, WORKOUT_MANIFEST, { recorder: measurable ? performance : undefined });
+    if (result.required_failures.length) {
+      const err = new Error(result.required_failures.map((f) => f.summary).join(" / "));
+      err.prodigySyncPending = result.sync_pending;
+      err.prodigyRetryPaths = result.required_failures.map((f) => f.path);
+      throw err;
+    }
+    if (measurable) performance.end(dataScan, { scope: "workout", status: "loaded" });
+  } catch (error) {
+    if (measurable) performance.end(dataScan, { scope: "workout", status: "failed" });
+    throw error;
   }
+
   if (!window.WorkoutView || typeof window.WorkoutView.renderDashboard !== "function") {
     throw new Error("WorkoutView.renderDashboard 가 없습니다. workout-view.js 로드를 확인하세요.");
   }
 
-  const shell = window.ProdigyWorkspaceNavigation.mount(container, {
-    app,
-    workspaceId: "workout",
-    title: "운동"
-  });
-  const performance = shell.performance;
-  if (performance) performance.mark("data_scan_start", { scope: "workout" });
-  if (shell.element && shell.element.classList) shell.element.classList.add("workout-hub-shell");
-  const workoutMount = shell.body.createDiv({ attr: { class: "workout-workspace-content" } });
-  shell.body.setAttr("data-scroll-owner", "workout-workspace-body");
+  const projection = measurable && performance.start("projection", { scope: "workout" });
+  let shell;
+  let workoutMount;
+  try {
+    shell = window.ProdigyWorkspaceNavigation.mount(container, {
+      app,
+      workspaceId: "workout",
+      title: "운동"
+    });
+    if (shell.element && shell.element.classList) shell.element.classList.add("workout-hub-shell");
+    workoutMount = shell.body.createDiv({ attr: { class: "workout-workspace-content" } });
+    shell.body.setAttr("data-scroll-owner", "workout-workspace-body");
+    if (measurable) performance.end(projection, { scope: "workout", status: "projected" });
+  } catch (error) {
+    if (measurable) performance.end(projection, { scope: "workout", status: "failed" });
+    throw error;
+  }
+
   if (result.optional_failures.length && window.prodigyDebugMode === true && console && console.warn) {
     console.warn("운동 선택 모듈 미로드:", result.optional_failures.map((f) => f.summary).join(" / "));
   }
-  await window.WorkoutView.renderDashboard(app, workoutMount, {
-    optionalFailures: result.optional_failures || [],
-    onRetry: retryWorkout
-  });
-  if (performance) {
-    performance.mark("data_scan_end", { scope: "workout", status: "loaded" });
-    performance.mark("projection_end", { scope: "workout", status: "projected" });
-    performance.mark("dom_render_end", { scope: "workout", status: "rendered" });
-    performance.markWorkspaceReady();
+
+  const domRender = measurable && performance.start("dom_render", { scope: "workout" });
+  try {
+    await window.WorkoutView.renderDashboard(app, workoutMount, {
+      optionalFailures: result.optional_failures || [],
+      onRetry: retryWorkout
+    });
+    if (measurable) {
+      const settled = await waitForWorkoutSettled(workoutMount);
+      performance.end(domRender, { scope: "workout", status: settled ? "rendered" : "failed" });
+      if (settled && shell && typeof shell.readinessSnapshot === "function") {
+        performance.markReady("workout", shell.readinessSnapshot("workout"));
+      }
+    }
+  } catch (error) {
+    if (measurable) performance.end(domRender, { scope: "workout", status: "failed" });
+    throw error;
   }
 };
 
 const retryWorkout = async () => {
   const loader = window.ProdigyHubLoader;
   if (loader && typeof loader.retry === "function") {
-    loader.retry(WORKOUT_MANIFEST.required.concat(WORKOUT_MANIFEST.optional), { rerun_loaded: true });
+    loader.retry(MEASUREMENT_MANIFEST.optional.concat(WORKOUT_MANIFEST.required, WORKOUT_MANIFEST.optional), { rerun_loaded: true });
   }
   try {
     await renderWorkout();

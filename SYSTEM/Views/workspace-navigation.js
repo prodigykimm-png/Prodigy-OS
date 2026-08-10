@@ -232,6 +232,56 @@
       label: opts.label || item.label || "워크스페이스"
     }));
   }
+  function readinessSnapshot(mounted, workspaceId, selector) {
+    const actions = {
+      home: "home.open",
+      knowledge: "knowledge.open",
+      "journal.daily": "journal.daily.open",
+      "journal.weekly": "journal.weekly.open",
+      "journal.monthly": "journal.monthly.open",
+      reading: "reading.open",
+      "personal.people": "personal.people.open",
+      "personal.places": "personal.places.open",
+      project: "project.open",
+      auction: "auction.open",
+      workout: "workout.open",
+      region: "region.open",
+      inbox: "inbox.open"
+    };
+    const action = actions[selector] || actions[workspaceId] || "";
+    const switcher = mounted && mounted.switcher;
+    const active = !switcher || !("value" in switcher) || String(switcher.value) === String(workspaceId);
+    const enabled = active && !(switcher && switcher.disabled === true);
+    return {
+      status: enabled ? "deterministic" : "unavailable",
+      settled: enabled,
+      enabledAction: { id: action, enabled },
+      activated: selector === "personal.places" ? false : undefined
+    };
+  }
+
+  function unavailableMeasurement(reason) {
+    const run = typeof reason === "string" && reason ? reason : "measurement_unavailable";
+    return Object.freeze({
+      available: false,
+      reason: run,
+      mark: function () { return null; },
+      record: function () { return null; },
+      start: function () { return null; },
+      end: function () { return null; },
+      measure: function (_phase, operation) { return typeof operation === "function" ? operation() : undefined; },
+      retry: function () { return null; },
+      fail: function () { return null; },
+      readiness: function () { return null; },
+      markReady: function () { return null; },
+      recordMissing: function () { return null; },
+      measureModule: function (_path, operation) { return typeof operation === "function" ? operation() : undefined; },
+      finalize: function () { return null; },
+      previewExport: function () { return null; },
+      createExporter: function () { return null; },
+      dispose: function () { return null; }
+    });
+  }
 
   function mount(container, options) {
     if (!container || typeof container.createEl !== "function") return null;
@@ -245,9 +295,12 @@
     const workspaceId = String(opts.workspaceId || "");
     let measurement = null;
     const measurementModule = resolveModule("ProdigyWorkspaceMeasurement", "./prodigy-workspace-measurement.js");
-    if (measurementModule && typeof measurementModule.createSession === "function") {
+    const suppliedMeasurement = opts.performanceSession || opts.performance_session;
+    if (suppliedMeasurement && typeof suppliedMeasurement === "object") {
+      measurement = suppliedMeasurement;
+    } else if (measurementModule && typeof measurementModule.getOrCreateSession === "function") {
       try {
-        measurement = measurementModule.createSession({
+        measurement = measurementModule.getOrCreateSession({
           workspace_id: workspaceId,
           run_id: opts.performanceRunId || opts.performance_run_id,
           correlation_id: opts.performanceCorrelationId || opts.performance_correlation_id,
@@ -263,6 +316,13 @@
       } catch (_measurementError) {
         measurement = null;
       }
+    } else if (measurementModule && typeof measurementModule.createSession === "function") {
+      try { measurement = measurementModule.createSession({ workspace_id: workspaceId }); } catch (_measurementError) { measurement = null; }
+    }
+    if (!measurement) {
+      const failures = root && Array.isArray(root.__prodigyMeasurementLoadFailures) ? root.__prodigyMeasurementLoadFailures : [];
+      const failure = failures.find((item) => item && item.path);
+      measurement = unavailableMeasurement(failure ? `${failure.code}:${failure.path}` : "measurement_module_unavailable");
     }
     if (store && registeredWorkspace(workspaceId)) store.setActiveWorkspace(workspaceId);
     const suppliedContext = opts.context || {};
@@ -286,13 +346,60 @@
       mounted.element.style.setProperty("--prodigy-touch-target", `${tokens.heights.touchTarget}px`);
     }
     ensureStyles();
+    Object.defineProperty(mounted, "readinessSnapshot", {
+      value: function (selector) { return readinessSnapshot(mounted, workspaceId, selector || workspaceId); },
+      enumerable: false,
+      configurable: true
+    });
+    const campaignFactory = measurementModule && (
+      typeof measurementModule.createCampaignController === "function"
+        ? measurementModule.createCampaignController
+        : typeof measurementModule.createCampaign === "function"
+          ? measurementModule.createCampaign
+          : null
+    );
+    let campaign = null;
+    if (campaignFactory && measurement && measurement.available === true) {
+      try {
+        campaign = campaignFactory({
+          session: measurement,
+          workspace_id: workspaceId,
+          workspaceId,
+          campaign_id: opts.campaignId || opts.campaign_id
+        });
+      } catch (_campaignError) {
+        campaign = null;
+      }
+    }
+    Object.defineProperty(mounted, "performance", { value: measurement, enumerable: false, configurable: true });
+    if (campaign) {
+      Object.defineProperty(mounted, "performanceCampaign", { value: campaign, enumerable: false, configurable: true });
+      Object.defineProperty(mounted, "campaign", { value: campaign, enumerable: false, configurable: true });
+      const campaignRegistry = root && root.ProdigyPerformanceCampaign;
+      if (campaignRegistry && typeof campaignRegistry.register === "function") {
+        try { campaignRegistry.register(workspaceId, campaign); } catch (_registryError) { /* observability remains local */ }
+      }
+    }
+    if (mounted.element && typeof mounted.element.setAttribute === "function") {
+      mounted.element.setAttribute("data-prodigy-measurement", measurement && measurement.available === true ? "available" : "unavailable");
+      if (measurement && measurement.reason) mounted.element.setAttribute("data-prodigy-measurement-reason", String(measurement.reason));
+    }
     if (measurement && measurement.available === true) {
       measurement.mark("shell_mounted", { scope: workspaceId, status: "mounted" });
-      measurement.mark("dom_render", { scope: workspaceId, status: "shell_rendered" });
-      Object.defineProperty(mounted, "performance", { value: measurement, enumerable: false, configurable: true });
-      const scope = opts.mountScope || opts.mount_scope;
-      if (scope && typeof scope.track === "function") scope.track(() => measurement.dispose());
+    } else if (measurement && typeof measurement.recordMissing === "function") {
+      measurement.recordMissing("measurement_module");
     }
+    let disposed = false;
+    const dispose = function (fields) {
+      if (disposed) return false;
+      disposed = true;
+      if (campaign && typeof campaign.dispose === "function") return campaign.dispose(fields);
+      if (measurement && typeof measurement.dispose === "function") return measurement.dispose(fields);
+      return false;
+    };
+    Object.defineProperty(mounted, "dispose", { value: dispose, enumerable: false, configurable: true });
+    const scope = opts.mountScope || opts.mount_scope;
+    if (scope && typeof scope.track === "function") scope.track(dispose);
     return mounted;
   }
 

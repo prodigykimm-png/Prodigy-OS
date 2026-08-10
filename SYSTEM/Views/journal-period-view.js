@@ -290,9 +290,21 @@
       return status;
     }
 
+    function notifyReady(status, period) {
+      if (typeof opts.onReady !== "function") return;
+      var selector = period || selected;
+      opts.onReady({
+        selector: "journal." + selector,
+        status: status === "deterministic" ? "deterministic" : "error",
+        settled: true,
+        enabledAction: { id: "journal." + selector + ".open", enabled: status === "deterministic" }
+      });
+    }
+
     function render() {
       if (destroyed) return null;
       var identity = selected + ":" + (periodKeys[selected] || "");
+      var period = selected;
       if (pendingIdentity === identity && pendingPromise) return pendingPromise;
       var version = ++renderVersion;
       destroyChild();
@@ -309,13 +321,16 @@
         } catch (_error) {
           panel.setAttribute("aria-busy", "false");
           if (!destroyed && version === renderVersion) renderFailure(panel, selected === "daily" ? "Daily" : "Weekly", function () { return render(); }, previousChildren);
+          notifyReady("error", period);
           return null;
         }
         var child = selected === "weekly" && result && typeof result.destroy === "function" ? result : null;
         if (child) activeChildController = child;
         if (result && typeof result.then === "function") {
           pendingIdentity = identity;
+          var renderStatus = "deterministic";
           pendingPromise = Promise.resolve(result).catch(function () {
+            renderStatus = "error";
             if (!destroyed && version === renderVersion) {
               panel.setAttribute("aria-busy", "false");
               renderFailure(panel, selected === "daily" ? "Daily" : "Weekly", function () { return render(); }, previousChildren);
@@ -323,6 +338,7 @@
             return null;
           }).finally(function () {
             panel.setAttribute("aria-busy", "false");
+            notifyReady(renderStatus, period);
             if (pendingIdentity === identity) {
               pendingIdentity = "";
               pendingPromise = null;
@@ -331,6 +347,7 @@
           return pendingPromise;
         }
         panel.setAttribute("aria-busy", "false");
+        notifyReady("deterministic", period);
         return result;
       }
       var selectedKey = periodKeys[selected];
@@ -350,6 +367,7 @@
       pendingIdentity = identity;
       pendingPromise = Promise.resolve(promise).then(function (records) {
         if (!destroyed && version === renderVersion && Array.isArray(records)) periodRecordCache[identity] = records;
+        notifyReady(Array.isArray(records) ? "deterministic" : "error", period);
         return records;
       }).finally(function () {
         if (pendingIdentity === identity) {

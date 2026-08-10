@@ -8,15 +8,27 @@ window.app = app;
 window.KnowledgeExplorerHub = window.KnowledgeExplorerHub || {};
 
 const KnowledgeExplorerHub = window.KnowledgeExplorerHub;
+window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "knowledge"
+  ? window.__prodigyMeasurementEntry
+  : { workspaceId: "knowledge" };
+const knowledgeMeasurementOptionalPaths = new Set([
+  "SYSTEM/Views/prodigy-performance-recorder.js",
+  "SYSTEM/Views/prodigy-workspace-readiness.js",
+  "SYSTEM/Views/prodigy-performance-exporter.js",
+  "SYSTEM/Views/prodigy-workspace-measurement.js"
+]);
+window.__prodigyMeasurementLoadFailures = Array.isArray(window.__prodigyMeasurementLoadFailures)
+  ? window.__prodigyMeasurementLoadFailures
+  : [];
 KnowledgeExplorerHub.modulePaths = [
-  "SYSTEM/Views/design-tokens.js",
-  "SYSTEM/Views/workspace-registry.js",
-  "SYSTEM/Views/prodigy-workspace-state-store.js",
-  "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/prodigy-performance-recorder.js",
   "SYSTEM/Views/prodigy-workspace-readiness.js",
   "SYSTEM/Views/prodigy-performance-exporter.js",
   "SYSTEM/Views/prodigy-workspace-measurement.js",
+  "SYSTEM/Views/design-tokens.js",
+  "SYSTEM/Views/workspace-registry.js",
+  "SYSTEM/Views/prodigy-workspace-state-store.js",
+  "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
   "SYSTEM/Views/knowledge-workspace-route.js",
   "SYSTEM/Views/display-registry.js",
@@ -89,9 +101,24 @@ KnowledgeExplorerHub.modulePaths = [
 ];
 
 const loadProdigyScript = async (modulePath) => {
-  const tFile = app.vault.getAbstractFileByPath(modulePath);
-  if (!tFile) throw new Error(`Missing module: ${modulePath}`);
-  (new Function(await app.vault.read(tFile)))();
+  const optional = knowledgeMeasurementOptionalPaths.has(modulePath);
+  try {
+    const tFile = app.vault.getAbstractFileByPath(modulePath);
+    if (!tFile) throw new Error(`Missing module: ${modulePath}`);
+    const evaluate = async () => (new Function(await app.vault.read(tFile)))();
+    const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+    if (session && typeof session.measureModule === "function") {
+      return await session.measureModule(modulePath, evaluate);
+    }
+    return await evaluate();
+  } catch (error) {
+    if (!optional) throw error;
+    window.__prodigyMeasurementLoadFailures.push({
+      path: modulePath,
+      code: String(error && error.code || "measurement_module_load_failed")
+    });
+    return false;
+  }
 };
 
 KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidian: hubObsidian }) => {
@@ -103,12 +130,21 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
   const retry = () => KnowledgeExplorerHub.render({ app: appRef, dv: dvRef, container: mountPoint, obsidian: obsidianRef });
 
   mountPoint.empty();
+  let performance = null;
+  let shell = null;
+  let dataScanToken = null;
+  let projectionToken = null;
+  let domRenderToken = null;
+  const measurementClosed = { data_scan: false, projection: false, dom_render: false };
+  const endMeasurement = (phase, token, fields) => {
+    if (!performance || !token || measurementClosed[phase]) return;
+    performance.end(token, fields);
+    measurementClosed[phase] = true;
+  };
   try {
     for (const modulePath of KnowledgeExplorerHub.modulePaths) await loadProdigyScript(modulePath);
-    const shell = window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, workspaceId: "knowledge", title: "지식" });
-    const performance = shell.performance;
-    if (performance) performance.mark("data_scan_start", { scope: "knowledge" });
-    const workspaceBody = shell.body;
+    shell = window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, workspaceId: "knowledge", title: "지식" });
+    performance = shell.performance;
     const P = window.KnowledgeExplorerHubProjection;
     if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiLifecycleView || !window.LLMWikiProviderResponseSchema || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface) {
       throw new Error("Knowledge Explorer modules failed to load.");
@@ -118,14 +154,16 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       schemaVersion: window.KnowledgeExplorerCore.SCHEMA_VERSION,
       readBody: (asset) => P.readSelectedNote(appRef, dvRef, asset && asset.path)
     });
+    dataScanToken = performance && performance.start("data_scan", { scope: "knowledge", status: "scanning" });
     const records = P.collectRecords(dataSource, dvRef);
     const relationRecords = P.collectRelationRecords(dvRef);
-    if (performance) performance.mark("data_scan_end", { scope: "knowledge", status: "loaded" });
+    endMeasurement("data_scan", dataScanToken, { scope: "knowledge", status: "loaded" });
     const snapshot = JSON.stringify(records);
     const relationSnapshot = JSON.stringify(relationRecords);
+    projectionToken = performance && performance.start("projection", { scope: "knowledge", status: "projecting" });
     const model = window.KnowledgeExplorerCore.projectKnowledgeExplorer(records, window.KnowledgeExplorerRegistry);
     const relationsModel = window.KnowledgeExplorerRelations.projectRelations(relationRecords);
-    if (performance) performance.mark("projection_end", { scope: "knowledge", status: "projected" });
+    endMeasurement("projection", projectionToken, { scope: "knowledge", status: "projected" });
     if (JSON.stringify(records) !== snapshot) throw new Error("Knowledge Explorer records were mutated.");
     if (JSON.stringify(relationRecords) !== relationSnapshot) throw new Error("Knowledge Explorer relation records were mutated.");
     const candidateConfig = await window.KnowledgeCandidateHubAdapter.createCandidateInboxConfig(appRef);
@@ -138,6 +176,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       providerConfigService: window.ProjectWorkflowDraftService || {}
     });
 
+    const workspaceBody = shell.body;
+    domRenderToken = performance && performance.start("dom_render", { scope: "knowledge", status: "rendering" });
     // 탭 시스템 마운트
     const tabsMount = workspaceBody.createDiv({ attr: { class: "knowledge-workspace-tabs-mount" } });
     const tabs = window.KnowledgeWorkspaceTabs.mountTabs(tabsMount, {
@@ -522,12 +562,19 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     KnowledgeExplorerHub.llmWikiLifecycle = llmWikiLifecycle;
     KnowledgeExplorerHub.llmWikiBrowse = llmWikiWikiSurface;
     KnowledgeExplorerHub.dataSource = dataSource;
-    if (performance) {
-      performance.mark("dom_render_end", { scope: "knowledge", status: "rendered" });
-      performance.markWorkspaceReady();
-    }
+    endMeasurement("dom_render", domRenderToken, { scope: "knowledge", status: "rendered" });
+    const readinessSnapshot = shell && typeof shell.readinessSnapshot === "function"
+      ? shell.readinessSnapshot("knowledge")
+      : null;
+    if (performance && readinessSnapshot) performance.markReady("knowledge", readinessSnapshot);
     return api;
   } catch (error) {
+    endMeasurement("data_scan", dataScanToken, { scope: "knowledge", status: "failed" });
+    endMeasurement("projection", projectionToken, { scope: "knowledge", status: "failed" });
+    endMeasurement("dom_render", domRenderToken, { scope: "knowledge", status: "failed" });
+    if (performance && typeof performance.fail === "function") {
+      performance.fail(error, { phase: "error", scope: "knowledge" });
+    }
     KnowledgeExplorerHub.error = error;
     if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
       window.ProdigyWorkspaceNavigation.renderLoaderError(mountPoint, error, { title: "지식", message: "지식 탐색기를 불러오지 못했습니다.", retry });

@@ -6,22 +6,50 @@ cssclasses:
 ```dataviewjs
 window.obsidian = obsidian;
 window.app = app;
+window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "journal"
+  ? window.__prodigyMeasurementEntry
+  : { workspaceId: "journal" };
+const journalMeasurementOptionalPaths = new Set([
+  "SYSTEM/Views/prodigy-performance-recorder.js",
+  "SYSTEM/Views/prodigy-workspace-readiness.js",
+  "SYSTEM/Views/prodigy-performance-exporter.js",
+  "SYSTEM/Views/prodigy-workspace-measurement.js"
+]);
+window.__prodigyMeasurementLoadFailures = Array.isArray(window.__prodigyMeasurementLoadFailures)
+  ? window.__prodigyMeasurementLoadFailures
+  : [];
 
 const loadProdigyScript = async (path) => {
-  const tFile = app.vault.getAbstractFileByPath(path);
-  if (!tFile) throw new Error(`Missing script: ${path}`);
-  (new Function(await app.vault.read(tFile)))();
+  const optional = journalMeasurementOptionalPaths.has(path);
+  try {
+    const tFile = app.vault.getAbstractFileByPath(path);
+    if (!tFile) throw new Error(`Missing script: ${path}`);
+    const content = await app.vault.read(tFile);
+    const evaluate = () => (new Function(content))();
+    const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+    if (session && typeof session.measureModule === "function") {
+      return await session.measureModule(path, evaluate);
+    }
+    return evaluate();
+  } catch (error) {
+    if (!optional) throw error;
+    window.__prodigyMeasurementLoadFailures.push({
+      path,
+      code: String(error && error.code || "measurement_module_load_failed")
+    });
+    return false;
+  }
 };
 
 try {
-  await loadProdigyScript("SYSTEM/Views/design-tokens.js");
-  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-performance-recorder.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-readiness.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-performance-exporter.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-measurement.js");
+  await loadProdigyScript("SYSTEM/Views/design-tokens.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-workspace-route.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-adaptive-controls.js");
@@ -82,21 +110,52 @@ try {
   this.container.empty();
   var shell = window.ProdigyWorkspaceNavigation.mount(this.container, { app: app, workspaceId: "journal", title: "저널" });
   var performance = shell.performance;
-  if (performance) performance.mark("data_scan_start", { scope: "journal" });
+  var dataScan = performance && performance.start("data_scan", { scope: "journal" });
+  var domRender = performance && performance.start("dom_render", { scope: "journal" });
+  var projection = null;
+  var lifecycleClosed = { data_scan: false, projection: false, dom_render: false };
+  var readinessMarked = false;
+  var closeToken = function (phase, token, status) {
+    if (!performance || !token || lifecycleClosed[phase]) return;
+    performance.end(token, { scope: "journal", status: status });
+    lifecycleClosed[phase] = true;
+  };
   var periodMount = shell.body.createDiv({ attr: { class: "journal-period-mount" } });
+  var startProjection = function () {
+    if (!performance || projection || readinessMarked) return;
+    projection = performance.start("projection", { scope: "journal", status: "projecting" });
+  };
   window.JournalPeriodView.mount({
     app: app,
     container: periodMount,
-    renderDaily: function (mount) { return window.JournalView.renderDashboard(app, mount); },
-    renderWeekly: function (mount) { return window.WeeklyFilterView.mountWeeklyFilter(mount, { app: app }); }
+    renderDaily: function (mount) {
+      startProjection();
+      return window.JournalView.renderDashboard(app, mount);
+    },
+    renderWeekly: function (mount) {
+      startProjection();
+      return window.WeeklyFilterView.mountWeeklyFilter(mount, { app: app });
+    },
+    onReady: function (snapshot) {
+      if (!performance || !snapshot) return;
+      closeToken("data_scan", dataScan, snapshot.status);
+      closeToken("projection", projection, snapshot.status);
+      closeToken("dom_render", domRender, snapshot.status);
+      if (readinessMarked || snapshot.selector !== "journal.daily") return;
+      readinessMarked = true;
+      performance.markReady("journal.daily", snapshot);
+    }
   });
-  if (performance) {
-    performance.mark("data_scan_end", { scope: "journal", status: "loaded" });
-    performance.mark("projection_end", { scope: "journal", status: "projected" });
-    performance.mark("dom_render_end", { scope: "journal", status: "rendered" });
-    performance.markWorkspaceReady();
-  }
 } catch (error) {
+  if (!readinessMarked && typeof closeToken === "function") {
+    readinessMarked = true;
+    closeToken("data_scan", dataScan, "failed");
+    closeToken("projection", projection, "failed");
+    closeToken("dom_render", domRender, "failed");
+    if (performance && typeof performance.fail === "function") {
+      performance.fail(error, { phase: "error", scope: "journal" });
+    }
+  }
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "저널" });
   } else {

@@ -10,6 +10,24 @@ if (!this.container) return;
 this.container.empty();
 
 window.app = app;
+window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "region"
+  ? window.__prodigyMeasurementEntry
+  : { workspaceId: "region" };
+const OPTIONAL_MEASUREMENT_PATHS = new Set([
+  "SYSTEM/Views/prodigy-performance-recorder.js",
+  "SYSTEM/Views/prodigy-workspace-readiness.js",
+  "SYSTEM/Views/prodigy-performance-exporter.js",
+  "SYSTEM/Views/prodigy-workspace-measurement.js"
+]);
+const recordMeasurementFailure = (path, error) => {
+  const failure = {
+    path,
+    code: error && error.code ? String(error.code) : "measurement_load_failed",
+    message: error && error.message ? String(error.message).slice(0, 240) : "measurement module unavailable"
+  };
+  window.__prodigyMeasurementLoadFailures = (window.__prodigyMeasurementLoadFailures || []).concat(failure);
+  if (window.prodigyDebugMode === true && console && console.warn) console.warn("선택적 성능 측정 모듈 미로드:", failure);
+};
 window.RegionExplorerHub = window.RegionExplorerHub || {};
 
 const RegionExplorerHub = window.RegionExplorerHub;
@@ -19,14 +37,14 @@ const REGISTRY_INDEX_PATH = "SYSTEM/SCRIPTS/region-metrics-manifest-index.json";
 const SOURCE_SUPPORT_MATRIX_PATH = "SYSTEM/SCRIPTS/region-provider-support-matrix.json";
 const SCRIPTS_ROOT = "SYSTEM/SCRIPTS/";
 RegionExplorerHub.modulePaths = [
-  "SYSTEM/Views/design-tokens.js",
-  "SYSTEM/Views/workspace-registry.js",
-  "SYSTEM/Views/prodigy-workspace-state-store.js",
-  "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/prodigy-performance-recorder.js",
   "SYSTEM/Views/prodigy-workspace-readiness.js",
   "SYSTEM/Views/prodigy-performance-exporter.js",
   "SYSTEM/Views/prodigy-workspace-measurement.js",
+  "SYSTEM/Views/design-tokens.js",
+  "SYSTEM/Views/workspace-registry.js",
+  "SYSTEM/Views/prodigy-workspace-state-store.js",
+  "SYSTEM/Views/prodigy-app-shell.js",
   "SYSTEM/Views/workspace-navigation.js",
   "SYSTEM/SCRIPTS/region-source-mois-command-core.js",
   "SYSTEM/SCRIPTS/region-source-snapshot-core.js",
@@ -81,16 +99,37 @@ const fallbackRequire = (moduleName) => {
 };
 
 const loadReadOnlyModule = async (modulePath) => {
-  const tFile = app.vault.getAbstractFileByPath(modulePath);
-  if (!tFile) throw new Error(`Region Explorer 모듈을 찾을 수 없습니다: ${modulePath}`);
-  const module = { exports: {} };
-  const localRequire = typeof require === "function" ? require : fallbackRequire;
-  const source = await app.vault.read(tFile);
-  (new Function("module", "exports", "require", "window", "globalThis", source))(module, module.exports, localRequire, window, window);
-  if (modulePath.endsWith("region-metrics-registry-core.js")) window.RegionMetricsRegistryCore = module.exports;
-  if (modulePath.endsWith("region-source-mois-command-core.js")) window.RegionSourceMoisCommandCore = module.exports;
-  if (modulePath.endsWith("region-source-snapshot-core.js")) window.RegionSourceSnapshotCore = module.exports;
-  if (modulePath.endsWith("region-source-ledger-read-core.js")) window.RegionSourceLedgerReadCore = module.exports;
+  const optional = OPTIONAL_MEASUREMENT_PATHS.has(modulePath);
+  try {
+    const tFile = app.vault.getAbstractFileByPath(modulePath);
+    if (!tFile) {
+      const missing = new Error(`Region Explorer 모듈을 찾을 수 없습니다: ${modulePath}`);
+      missing.code = "sync_pending";
+      if (optional) {
+        recordMeasurementFailure(modulePath, missing);
+        return null;
+      }
+      throw missing;
+    }
+    const module = { exports: {} };
+    const localRequire = typeof require === "function" ? require : fallbackRequire;
+    const source = await app.vault.read(tFile);
+    const evaluate = () => (new Function("module", "exports", "require", "window", "globalThis", source))(module, module.exports, localRequire, window, window);
+    const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+    if (session && typeof session.measureModule === "function") await session.measureModule(modulePath, evaluate);
+    else evaluate();
+    if (modulePath.endsWith("region-metrics-registry-core.js")) window.RegionMetricsRegistryCore = module.exports;
+    if (modulePath.endsWith("region-source-mois-command-core.js")) window.RegionSourceMoisCommandCore = module.exports;
+    if (modulePath.endsWith("region-source-snapshot-core.js")) window.RegionSourceSnapshotCore = module.exports;
+    if (modulePath.endsWith("region-source-ledger-read-core.js")) window.RegionSourceLedgerReadCore = module.exports;
+    return module.exports;
+  } catch (error) {
+    if (optional) {
+      recordMeasurementFailure(modulePath, error);
+      return null;
+    }
+    throw error;
+  }
 };
 
 const regionExperienceModuleRevision = () => RegionExplorerHub.regionExperienceModulePaths.map((modulePath) => {
@@ -390,7 +429,7 @@ const initializeRegionWorkspace = async () => {
     }
   });
   const performance = shell.performance;
-  if (performance) performance.mark("data_scan_start", { scope: "region" });
+  const dataScan = performance && performance.start("data_scan", { scope: "region" });
   shell.body.setAttr("data-scroll-owner", "region-workspace-body");
   sourceLedgerMount = shell.body.createDiv({ attr: { class: "region-source-ledger-mount" } });
   sourceCommandMount = shell.body.createDiv({ attr: { class: "region-source-command-mount" } });
@@ -404,8 +443,12 @@ const initializeRegionWorkspace = async () => {
   ]);
   const sourceLedger = await loadSourceLedger(registry);
   renderSourceLedgerStatus(sourceLedger);
+  if (performance) {
+    performance.end(dataScan, { scope: "region", status: "loaded" });
+  }
+  const projectionToken = performance && performance.start("projection", { scope: "region" });
   const coveredProjection = attachSourceEvidence(coverageProjection(projection, registry), sourceLedger);
-  if (performance) performance.mark("data_scan_end", { scope: "region", status: "loaded" });
+  if (performance) performance.end(projectionToken, { scope: "region", status: "projected" });
   let explorer = null;
   let activeRegionExperienceModal = null;
   let regionExperienceOpening = null;
@@ -544,6 +587,7 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
       return null;
     }
   };
+  const domRender = performance && performance.start("dom_render", { scope: "region" });
   const initialLogicalWidth = explorerMount.clientWidth > 0 ? explorerMount.clientWidth : window.ProdigyTokens.BREAKPOINTS.wide;
   explorer = window.RegionExplorerView.mountRegionExplorer({
     container: explorerMount,
@@ -562,9 +606,11 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
   }
   coverageNotice(explorerMount, coveredProjection);
   if (performance) {
-    performance.mark("projection_end", { scope: "region", status: "projected" });
-    performance.mark("dom_render_end", { scope: "region", status: "rendered" });
-    performance.markWorkspaceReady();
+    performance.end(domRender, { scope: "region", status: "rendered" });
+    if (typeof shell.readinessSnapshot === "function") {
+      const snapshot = shell.readinessSnapshot("region");
+      if (snapshot) performance.markReady("region", snapshot);
+    }
   }
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {

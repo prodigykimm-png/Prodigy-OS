@@ -11,30 +11,59 @@ container.empty();
 // Expose globals for external scripts
 window.obsidian = obsidian;
 window.app = app;
+window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "project"
+  ? window.__prodigyMeasurementEntry
+  : { workspaceId: "project" };
+const projectMeasurementOptionalPaths = new Set([
+  "SYSTEM/Views/prodigy-performance-recorder.js",
+  "SYSTEM/Views/prodigy-workspace-readiness.js",
+  "SYSTEM/Views/prodigy-performance-exporter.js",
+  "SYSTEM/Views/prodigy-workspace-measurement.js"
+]);
+window.__prodigyMeasurementLoadFailures = Array.isArray(window.__prodigyMeasurementLoadFailures)
+  ? window.__prodigyMeasurementLoadFailures
+  : [];
 
 // Dynamic script loader helper
 const loadProdigyScript = async (path) => {
-  const tFile = app.vault.getAbstractFileByPath(path);
-  if (!tFile) throw new Error(`필수 스크립트 파일이 없습니다: ${path}`);
-  const content = await app.vault.read(tFile);
+  const optional = projectMeasurementOptionalPaths.has(path);
   try {
-    (new Function(content))();
+    const tFile = app.vault.getAbstractFileByPath(path);
+    if (!tFile) throw new Error(`필수 스크립트 파일이 없습니다: ${path}`);
+    const content = await app.vault.read(tFile);
+    const evaluate = () => {
+      try {
+        (new Function(content))();
+      } catch (error) {
+        const wrapped = error instanceof Error ? error : new Error(String(error));
+        wrapped.prodigyLoadPath = path;
+        throw wrapped;
+      }
+    };
+    const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+    if (session && typeof session.measureModule === "function") {
+      return await session.measureModule(path, evaluate);
+    }
+    return evaluate();
   } catch (error) {
-    const wrapped = error instanceof Error ? error : new Error(String(error));
-    wrapped.prodigyLoadPath = path;
-    throw wrapped;
+    if (!optional) throw error;
+    window.__prodigyMeasurementLoadFailures.push({
+      path,
+      code: String(error && error.code || "measurement_module_load_failed")
+    });
+    return false;
   }
 };
 
 window.prodigyProjectReady = (async () => {
-  await loadProdigyScript("SYSTEM/Views/design-tokens.js");
-  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-performance-recorder.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-readiness.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-performance-exporter.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-measurement.js");
+  await loadProdigyScript("SYSTEM/Views/design-tokens.js");
+  await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
+  await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-adaptive-controls.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/display-registry.js");
@@ -82,8 +111,14 @@ window.prodigyProjectReady = (async () => {
     return true;
   };
   const projectShell = window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "project", title: "프로젝트" });
-  window.__prodigyProjectPerformance = projectShell.performance;
-  if (window.__prodigyProjectPerformance) window.__prodigyProjectPerformance.mark("data_scan_start", { scope: "project" });
+  window.__prodigyProjectShell = projectShell;
+  window.__prodigyProjectMeasurement = {
+    performance: projectShell.performance,
+    dataScanToken: null,
+    projectionToken: null,
+    domRenderToken: null,
+    closed: { data_scan: false, projection: false, dom_render: false }
+  };
 })();
 
 try {
@@ -265,6 +300,17 @@ if (window.ObjectLifecycleCore && window.ObjectLifecycleView) {
 
 ```dataviewjs
 await window.prodigyProjectReady;
+const projectMeasurement = window.__prodigyProjectMeasurement;
+const projectPerformance = projectMeasurement && projectMeasurement.performance;
+const endProjectMeasurement = (phase, token, fields) => {
+  if (!projectMeasurement || !projectPerformance || !token || projectMeasurement.closed[phase]) return;
+  projectPerformance.end(token, fields);
+  projectMeasurement.closed[phase] = true;
+};
+if (projectMeasurement && projectPerformance && !projectMeasurement.dataScanToken && !projectMeasurement.closed.data_scan) {
+  projectMeasurement.dataScanToken = projectPerformance.start("data_scan", { scope: "project", status: "scanning" });
+}
+try {
 const now = new Date();
 const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -294,6 +340,10 @@ allProjects.forEach(p => {
     }
   }
 });
+endProjectMeasurement("data_scan", projectMeasurement && projectMeasurement.dataScanToken, { scope: "project", status: "loaded" });
+if (projectMeasurement && projectPerformance && !projectMeasurement.projectionToken && !projectMeasurement.closed.projection) {
+  projectMeasurement.projectionToken = projectPerformance.start("projection", { scope: "project", status: "projecting" });
+}
 
 activeProjects.sort((a, b) => {
   const statusWeight = { doing: 1, planning: 2, idea: 3, blocked: 4 };
@@ -324,6 +374,10 @@ try {
   }
 } catch (_e) {
   engineContinue = null;
+}
+endProjectMeasurement("projection", projectMeasurement && projectMeasurement.projectionToken, { scope: "project", status: "projected" });
+if (projectMeasurement && projectPerformance && !projectMeasurement.domRenderToken && !projectMeasurement.closed.dom_render) {
+  projectMeasurement.domRenderToken = projectPerformance.start("dom_render", { scope: "project", status: "rendering" });
 }
 
 const todayTokens = window.ProdigyTokens;
@@ -384,13 +438,20 @@ if (nextProj) {
 } else {
   actionBox.createEl('div', { text: '진행 중인 작업이 없습니다.', attr: { style: 'font-size:0.85em;color:var(--text-muted);text-align:center;margin-top:12px;' } });
 }
-  const projectPerformance = window.__prodigyProjectPerformance;
-  if (projectPerformance) {
-    projectPerformance.mark("data_scan_end", { scope: "project", status: "loaded" });
-    projectPerformance.mark("projection_end", { scope: "project", status: "projected" });
-    projectPerformance.mark("dom_render_end", { scope: "project", status: "rendered" });
-    projectPerformance.markWorkspaceReady();
+endProjectMeasurement("dom_render", projectMeasurement && projectMeasurement.domRenderToken, { scope: "project", status: "rendered" });
+const projectShell = window.__prodigyProjectShell;
+const readinessSnapshot = projectShell && typeof projectShell.readinessSnapshot === "function"
+  ? projectShell.readinessSnapshot("project")
+  : null;
+if (projectPerformance && readinessSnapshot) projectPerformance.markReady("project", readinessSnapshot);
+} catch (error) {
+  endProjectMeasurement("data_scan", projectMeasurement && projectMeasurement.dataScanToken, { scope: "project", status: "failed" });
+  endProjectMeasurement("projection", projectMeasurement && projectMeasurement.projectionToken, { scope: "project", status: "failed" });
+  endProjectMeasurement("dom_render", projectMeasurement && projectMeasurement.domRenderToken, { scope: "project", status: "failed" });
+  if (projectPerformance && typeof projectPerformance.fail === "function") {
+    projectPerformance.fail(error, { phase: "error", scope: "project" });
   }
+}
 ```
 
 ---

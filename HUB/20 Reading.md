@@ -13,15 +13,49 @@ container.empty();
 // Expose globals for external scripts
 window.obsidian = obsidian;
 window.app = app;
+window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "reading"
+  ? window.__prodigyMeasurementEntry
+  : { workspaceId: "reading" };
+const OPTIONAL_MEASUREMENT_PATHS = new Set([
+  "SYSTEM/Views/prodigy-performance-recorder.js",
+  "SYSTEM/Views/prodigy-workspace-readiness.js",
+  "SYSTEM/Views/prodigy-performance-exporter.js",
+  "SYSTEM/Views/prodigy-workspace-measurement.js"
+]);
+const recordMeasurementFailure = (path, error) => {
+  const failure = {
+    path,
+    code: error && error.code ? String(error.code) : "measurement_load_failed",
+    message: error && error.message ? String(error.message).slice(0, 240) : "measurement module unavailable"
+  };
+  window.__prodigyMeasurementLoadFailures = (window.__prodigyMeasurementLoadFailures || []).concat(failure);
+  if (window.prodigyDebugMode === true && console && console.warn) console.warn("선택적 성능 측정 모듈 미로드:", failure);
+};
 
 // Dynamic script loader helper
-const loadProdigyScript = async (path) => {
-  const tFile = app.vault.getAbstractFileByPath(path);
-  if (!tFile) throw new Error(`필수 스크립트 파일이 없습니다: ${path}`);
-  const content = await app.vault.read(tFile);
+const loadProdigyScript = async (path, options = {}) => {
+  const optional = options.optional === true || OPTIONAL_MEASUREMENT_PATHS.has(path);
   try {
-    (new Function(content))();
+    const tFile = app.vault.getAbstractFileByPath(path);
+    if (!tFile) {
+      const missing = new Error(`필수 스크립트 파일이 없습니다: ${path}`);
+      missing.code = "sync_pending";
+      if (optional) {
+        recordMeasurementFailure(path, missing);
+        return null;
+      }
+      throw missing;
+    }
+    const content = await app.vault.read(tFile);
+    const evaluate = () => (new Function(content))();
+    const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+    if (session && typeof session.measureModule === "function") return await session.measureModule(path, evaluate);
+    return evaluate();
   } catch (error) {
+    if (optional) {
+      recordMeasurementFailure(path, error);
+      return null;
+    }
     const wrapped = error instanceof Error ? error : new Error(String(error));
     wrapped.prodigyLoadPath = path;
     throw wrapped;
@@ -202,14 +236,14 @@ const ensureReadingHubStyles = () => {
 
 let workspaceBody = container;
 try {
+  await loadProdigyScript("SYSTEM/Views/prodigy-performance-recorder.js", { optional: true });
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-readiness.js", { optional: true });
+  await loadProdigyScript("SYSTEM/Views/prodigy-performance-exporter.js", { optional: true });
+  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-measurement.js", { optional: true });
   await loadProdigyScript("SYSTEM/Views/design-tokens.js");
   await loadProdigyScript("SYSTEM/Views/workspace-registry.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-workspace-state-store.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-app-shell.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-performance-recorder.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-readiness.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-performance-exporter.js");
-  await loadProdigyScript("SYSTEM/Views/prodigy-workspace-measurement.js");
   await loadProdigyScript("SYSTEM/Views/prodigy-adaptive-controls.js");
   await loadProdigyScript("SYSTEM/Views/workspace-navigation.js");
   await loadProdigyScript("SYSTEM/Views/knowledge-workspace-route.js");
@@ -247,7 +281,17 @@ try {
   await loadProdigyScript("SYSTEM/Views/reading-card.js");
   const readingShell = window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "reading", title: "독서" });
   const readingPerformance = readingShell.performance;
-  if (readingPerformance) readingPerformance.mark("data_scan_start", { scope: "reading" });
+  const readingMeasurement = {
+    performance: readingPerformance || null,
+    dataScan: null,
+    projection: null,
+    domRender: null,
+    dataScanFinished: false,
+    projectionFinished: false,
+    readinessMarked: false,
+    shell: readingShell
+  };
+  window.__readingWorkspaceMeasurement = readingMeasurement;
   workspaceBody = readingShell.body;
   workspaceBody.classList.add("reading-hub-body");
   if (typeof workspaceBody.setAttr === "function") workspaceBody.setAttr("data-scroll-owner", "reading-workspace-body");
@@ -284,12 +328,6 @@ window.ProdigyAdaptiveControls.AdaptiveActionBar(workspaceBody, {
   sheetTitle: "독서 등록",
   moreLabel: "등록 방법"
 });
-  if (readingPerformance) {
-    readingPerformance.mark("data_scan_end", { scope: "reading", status: "loaded" });
-    readingPerformance.mark("projection_end", { scope: "reading", status: "projected" });
-    readingPerformance.mark("dom_render_end", { scope: "reading", status: "rendered" });
-    readingPerformance.markWorkspaceReady();
-  }
   window.__readingWorkspacePerformance = readingPerformance;
 
 ```
@@ -358,8 +396,18 @@ const run = () => {
   if (!window.renderReadingCard) return false;
   this.container.empty();
 
+  const measurement = window.__readingWorkspaceMeasurement;
+  const performance = measurement && measurement.performance;
+  if (performance && measurement && !measurement.dataScanFinished && !measurement.dataScan) {
+    measurement.dataScan = performance.start("data_scan", { scope: "reading" });
+  }
   const model = ensureRuntimeModel();
   const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading");
+  if (performance && measurement && !measurement.dataScanFinished) {
+    performance.end(measurement.dataScan, { scope: "reading", status: "loaded" });
+    measurement.dataScanFinished = true;
+    measurement.projection = performance.start("projection", { scope: "reading" });
+  }
   const renderList = (listPane) => {
     if (pages.length === 0) {
       listPane.createEl("span", {
@@ -432,6 +480,11 @@ const run = () => {
     knowledge.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); window.ReadingView.openKnowledgeExplorer(app); };
   };
 
+  if (performance && measurement && !measurement.projectionFinished) {
+    performance.end(measurement.projection, { scope: "reading", status: "projected" });
+    measurement.projectionFinished = true;
+    measurement.domRender = performance.start("dom_render", { scope: "reading" });
+  }
   const logicalWidth = Number(this.container.clientWidth) || window.ProdigyTokens.BREAKPOINTS.wide;
   const responsive = window.ReadingView.mountResponsiveWorkspace({
     container: this.container,
@@ -448,6 +501,16 @@ const run = () => {
     });
     observer.observe(this.container);
     this.container.__readingResponsiveObserver = observer;
+  }
+  if (performance && measurement && !measurement.readinessMarked) {
+    performance.end(measurement.domRender, { scope: "reading", status: "rendered" });
+    if (measurement.shell && typeof measurement.shell.readinessSnapshot === "function") {
+      const snapshot = measurement.shell.readinessSnapshot("reading");
+      if (snapshot) {
+        performance.markReady("reading", snapshot);
+        measurement.readinessMarked = true;
+      }
+    }
   }
   return true;
 };
@@ -472,7 +535,12 @@ window.app = app;
 
 const loadProdigyScript = async (path) => {
   const tFile = app.vault.getAbstractFileByPath(path);
-  if (tFile) (new Function(await app.vault.read(tFile)))();
+  if (!tFile) return;
+  const source = await app.vault.read(tFile);
+  const evaluate = () => (new Function(source))();
+  const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+  if (session && typeof session.measureModule === "function") await session.measureModule(path, evaluate);
+  else evaluate();
 };
 
 try {
