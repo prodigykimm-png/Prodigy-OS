@@ -627,6 +627,14 @@ const initializeAuctionWorkspace = async () => {
     if (typeof auctionShell.body.setAttr === "function") auctionShell.body.setAttr("data-scroll-owner", "auction-workspace-body");
     else if (typeof auctionShell.body.setAttribute === "function") auctionShell.body.setAttribute("data-scroll-owner", "auction-workspace-body");
   }
+  const performance = auctionShell.performance;
+  if (performance) {
+    performance.mark("data_scan_start", { scope: "auction" });
+    performance.mark("data_scan_end", { scope: "auction", status: "loaded" });
+    performance.mark("projection_end", { scope: "auction", status: "projected" });
+    performance.mark("dom_render_end", { scope: "auction", status: "rendered" });
+    performance.markWorkspaceReady();
+  }
   setNavigationStatus("ready");
 } catch (err) {
   setNavigationStatus("error", err);

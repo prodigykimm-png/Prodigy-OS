@@ -389,6 +389,8 @@ const initializeRegionWorkspace = async () => {
       actions: [{ label: "공식 원문 수집", onClick: renderMoisCollectionGuide }]
     }
   });
+  const performance = shell.performance;
+  if (performance) performance.mark("data_scan_start", { scope: "region" });
   shell.body.setAttr("data-scroll-owner", "region-workspace-body");
   sourceLedgerMount = shell.body.createDiv({ attr: { class: "region-source-ledger-mount" } });
   sourceCommandMount = shell.body.createDiv({ attr: { class: "region-source-command-mount" } });
@@ -403,6 +405,7 @@ const initializeRegionWorkspace = async () => {
   const sourceLedger = await loadSourceLedger(registry);
   renderSourceLedgerStatus(sourceLedger);
   const coveredProjection = attachSourceEvidence(coverageProjection(projection, registry), sourceLedger);
+  if (performance) performance.mark("data_scan_end", { scope: "region", status: "loaded" });
   let explorer = null;
   let activeRegionExperienceModal = null;
   let regionExperienceOpening = null;
@@ -558,6 +561,11 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
     RegionExplorerHub.resizeObserver.observe(explorerMount);
   }
   coverageNotice(explorerMount, coveredProjection);
+  if (performance) {
+    performance.mark("projection_end", { scope: "region", status: "projected" });
+    performance.mark("dom_render_end", { scope: "region", status: "rendered" });
+    performance.markWorkspaceReady();
+  }
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, {

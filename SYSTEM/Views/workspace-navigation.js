@@ -289,7 +289,6 @@
     if (measurement && measurement.available === true) {
       measurement.mark("shell_mounted", { scope: workspaceId, status: "mounted" });
       measurement.mark("dom_render", { scope: workspaceId, status: "shell_rendered" });
-      measurement.markWorkspaceReady();
       Object.defineProperty(mounted, "performance", { value: measurement, enumerable: false, configurable: true });
       const scope = opts.mountScope || opts.mount_scope;
       if (scope && typeof scope.track === "function") scope.track(() => measurement.dispose());

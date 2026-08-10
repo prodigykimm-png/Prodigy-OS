@@ -222,6 +222,8 @@ try {
 
   rootEl.empty();
   const shell = window.ProdigyWorkspaceNavigation.mount(rootEl, { app, workspaceId: "personal", title: "개인" });
+  const performance = shell.performance;
+  if (performance) performance.mark("data_scan_start", { scope: "personal" });
   const workspaceBody = shell.body;
 
   // Personal workspace tabs: People / Places
@@ -529,6 +531,12 @@ try {
   };
 
   await paintPeople({ snapshot: initialSnapshot });
+  if (performance) {
+    performance.mark("data_scan_end", { scope: "personal", status: "loaded" });
+    performance.mark("projection_end", { scope: "personal", status: "projected" });
+    performance.mark("dom_render_end", { scope: "personal", status: "rendered" });
+    performance.markWorkspaceReady();
+  }
   if (personalTabs.getActiveTab() === "places") await paintPlaces();
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {

@@ -81,6 +81,8 @@ try {
 
   this.container.empty();
   var shell = window.ProdigyWorkspaceNavigation.mount(this.container, { app: app, workspaceId: "journal", title: "저널" });
+  var performance = shell.performance;
+  if (performance) performance.mark("data_scan_start", { scope: "journal" });
   var periodMount = shell.body.createDiv({ attr: { class: "journal-period-mount" } });
   window.JournalPeriodView.mount({
     app: app,
@@ -88,6 +90,12 @@ try {
     renderDaily: function (mount) { return window.JournalView.renderDashboard(app, mount); },
     renderWeekly: function (mount) { return window.WeeklyFilterView.mountWeeklyFilter(mount, { app: app }); }
   });
+  if (performance) {
+    performance.mark("data_scan_end", { scope: "journal", status: "loaded" });
+    performance.mark("projection_end", { scope: "journal", status: "projected" });
+    performance.mark("dom_render_end", { scope: "journal", status: "rendered" });
+    performance.markWorkspaceReady();
+  }
 } catch (error) {
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, { title: "저널" });

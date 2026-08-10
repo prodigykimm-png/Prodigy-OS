@@ -158,6 +158,8 @@ const renderWorkout = async () => {
     workspaceId: "workout",
     title: "운동"
   });
+  const performance = shell.performance;
+  if (performance) performance.mark("data_scan_start", { scope: "workout" });
   if (shell.element && shell.element.classList) shell.element.classList.add("workout-hub-shell");
   const workoutMount = shell.body.createDiv({ attr: { class: "workout-workspace-content" } });
   shell.body.setAttr("data-scroll-owner", "workout-workspace-body");
@@ -168,6 +170,12 @@ const renderWorkout = async () => {
     optionalFailures: result.optional_failures || [],
     onRetry: retryWorkout
   });
+  if (performance) {
+    performance.mark("data_scan_end", { scope: "workout", status: "loaded" });
+    performance.mark("projection_end", { scope: "workout", status: "projected" });
+    performance.mark("dom_render_end", { scope: "workout", status: "rendered" });
+    performance.markWorkspaceReady();
+  }
 };
 
 const retryWorkout = async () => {

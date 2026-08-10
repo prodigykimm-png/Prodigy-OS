@@ -246,6 +246,8 @@ try {
   await loadProdigyScript("SYSTEM/Views/reading-workspace-core.js");
   await loadProdigyScript("SYSTEM/Views/reading-card.js");
   const readingShell = window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "reading", title: "독서" });
+  const readingPerformance = readingShell.performance;
+  if (readingPerformance) readingPerformance.mark("data_scan_start", { scope: "reading" });
   workspaceBody = readingShell.body;
   workspaceBody.classList.add("reading-hub-body");
   if (typeof workspaceBody.setAttr === "function") workspaceBody.setAttr("data-scroll-owner", "reading-workspace-body");
@@ -282,6 +284,13 @@ window.ProdigyAdaptiveControls.AdaptiveActionBar(workspaceBody, {
   sheetTitle: "독서 등록",
   moreLabel: "등록 방법"
 });
+  if (readingPerformance) {
+    readingPerformance.mark("data_scan_end", { scope: "reading", status: "loaded" });
+    readingPerformance.mark("projection_end", { scope: "reading", status: "projected" });
+    readingPerformance.mark("dom_render_end", { scope: "reading", status: "rendered" });
+    readingPerformance.markWorkspaceReady();
+  }
+  window.__readingWorkspacePerformance = readingPerformance;
 
 ```
 

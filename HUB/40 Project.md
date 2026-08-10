@@ -81,7 +81,9 @@ window.prodigyProjectReady = (async () => {
     }));
     return true;
   };
-  window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "project", title: "프로젝트" });
+  const projectShell = window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "project", title: "프로젝트" });
+  window.__prodigyProjectPerformance = projectShell.performance;
+  if (window.__prodigyProjectPerformance) window.__prodigyProjectPerformance.mark("data_scan_start", { scope: "project" });
 })();
 
 try {
@@ -382,6 +384,13 @@ if (nextProj) {
 } else {
   actionBox.createEl('div', { text: '진행 중인 작업이 없습니다.', attr: { style: 'font-size:0.85em;color:var(--text-muted);text-align:center;margin-top:12px;' } });
 }
+  const projectPerformance = window.__prodigyProjectPerformance;
+  if (projectPerformance) {
+    projectPerformance.mark("data_scan_end", { scope: "project", status: "loaded" });
+    projectPerformance.mark("projection_end", { scope: "project", status: "projected" });
+    projectPerformance.mark("dom_render_end", { scope: "project", status: "rendered" });
+    projectPerformance.markWorkspaceReady();
+  }
 ```
 
 ---

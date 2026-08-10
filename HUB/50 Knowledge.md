@@ -106,6 +106,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
   try {
     for (const modulePath of KnowledgeExplorerHub.modulePaths) await loadProdigyScript(modulePath);
     const shell = window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, workspaceId: "knowledge", title: "지식" });
+    const performance = shell.performance;
+    if (performance) performance.mark("data_scan_start", { scope: "knowledge" });
     const workspaceBody = shell.body;
     const P = window.KnowledgeExplorerHubProjection;
     if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiLifecycleView || !window.LLMWikiProviderResponseSchema || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface) {
@@ -118,10 +120,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     });
     const records = P.collectRecords(dataSource, dvRef);
     const relationRecords = P.collectRelationRecords(dvRef);
+    if (performance) performance.mark("data_scan_end", { scope: "knowledge", status: "loaded" });
     const snapshot = JSON.stringify(records);
     const relationSnapshot = JSON.stringify(relationRecords);
     const model = window.KnowledgeExplorerCore.projectKnowledgeExplorer(records, window.KnowledgeExplorerRegistry);
     const relationsModel = window.KnowledgeExplorerRelations.projectRelations(relationRecords);
+    if (performance) performance.mark("projection_end", { scope: "knowledge", status: "projected" });
     if (JSON.stringify(records) !== snapshot) throw new Error("Knowledge Explorer records were mutated.");
     if (JSON.stringify(relationRecords) !== relationSnapshot) throw new Error("Knowledge Explorer relation records were mutated.");
     const candidateConfig = await window.KnowledgeCandidateHubAdapter.createCandidateInboxConfig(appRef);
@@ -518,6 +522,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     KnowledgeExplorerHub.llmWikiLifecycle = llmWikiLifecycle;
     KnowledgeExplorerHub.llmWikiBrowse = llmWikiWikiSurface;
     KnowledgeExplorerHub.dataSource = dataSource;
+    if (performance) {
+      performance.mark("dom_render_end", { scope: "knowledge", status: "rendered" });
+      performance.markWorkspaceReady();
+    }
     return api;
   } catch (error) {
     KnowledgeExplorerHub.error = error;

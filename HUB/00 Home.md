@@ -71,11 +71,19 @@ const main = async () => {
 
     if (window.HomeView) {
       const shell = window.ProdigyWorkspaceNavigation.mount(this.container, { app, workspaceId: "home", title: "홈" });
+      const performance = shell.performance;
+      if (performance) performance.mark("data_scan_start", { scope: "home" });
       await window.HomeView.renderHome({
         app: app,
         dv: dv,
         container: shell.body
       });
+      if (performance) {
+        performance.mark("data_scan_end", { scope: "home", status: "loaded" });
+        performance.mark("projection_end", { scope: "home", status: "projected" });
+        performance.mark("dom_render_end", { scope: "home", status: "rendered" });
+        performance.markWorkspaceReady();
+      }
     } else {
       throw new Error("HomeView 모듈을 불러오지 못했습니다.");
     }
