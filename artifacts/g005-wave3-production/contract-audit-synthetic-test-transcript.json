@@ -1,0 +1,7 @@
+{
+  "command": "node SYSTEM/AI/Skills/prodigy-review/tests/test_prodigy_contract_audit.js --synthetic-only",
+  "status": 0,
+  "signal": null,
+  "stdout": "PASS synthetic clean fixture\nPASS synthetic two canonical UI-contract targets\nPASS synthetic missing canonical UI-contract target\nPASS synthetic bad fixture (3 distinct error codes)\nPASS synthetic schema-template link break\nPASS malformed / missing contract map handling\nContract audit synthetic tests passed\nCLEANUP removed 9 temp fixture root(s)\n",
+  "stderr": ""
+}
