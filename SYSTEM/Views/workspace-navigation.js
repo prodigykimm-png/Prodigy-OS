@@ -243,6 +243,27 @@
     const tokens = responsiveTokens();
     const store = opts.stateStore || stateStore();
     const workspaceId = String(opts.workspaceId || "");
+    let measurement = null;
+    const measurementModule = resolveModule("ProdigyWorkspaceMeasurement", "./prodigy-workspace-measurement.js");
+    if (measurementModule && typeof measurementModule.createSession === "function") {
+      try {
+        measurement = measurementModule.createSession({
+          workspace_id: workspaceId,
+          run_id: opts.performanceRunId || opts.performance_run_id,
+          correlation_id: opts.performanceCorrelationId || opts.performance_correlation_id,
+          mount_id: opts.performanceMountId || opts.performance_mount_id,
+          clock: opts.performanceClock || opts.performance_clock,
+          performance: opts.performanceObject || opts.performance_object,
+          cold_warm: opts.coldWarm || opts.cold_warm,
+          source_sha256: opts.sourceSha256 || opts.source_sha256,
+          settings_sha256: opts.settingsSha256 || opts.settings_sha256,
+          configuration_sha256: opts.configurationSha256 || opts.configuration_sha256,
+          campaign_id: opts.campaignId || opts.campaign_id
+        });
+      } catch (_measurementError) {
+        measurement = null;
+      }
+    }
     if (store && registeredWorkspace(workspaceId)) store.setActiveWorkspace(workspaceId);
     const suppliedContext = opts.context || {};
     const homeAction = workspaceId === "home" ? [] : [{ label: "홈", onClick: function () { return openHome(opts.app); } }];
@@ -265,6 +286,14 @@
       mounted.element.style.setProperty("--prodigy-touch-target", `${tokens.heights.touchTarget}px`);
     }
     ensureStyles();
+    if (measurement && measurement.available === true) {
+      measurement.mark("shell_mounted", { scope: workspaceId, status: "mounted" });
+      measurement.mark("dom_render", { scope: workspaceId, status: "shell_rendered" });
+      measurement.markWorkspaceReady();
+      Object.defineProperty(mounted, "performance", { value: measurement, enumerable: false, configurable: true });
+      const scope = opts.mountScope || opts.mount_scope;
+      if (scope && typeof scope.track === "function") scope.track(() => measurement.dispose());
+    }
     return mounted;
   }
 

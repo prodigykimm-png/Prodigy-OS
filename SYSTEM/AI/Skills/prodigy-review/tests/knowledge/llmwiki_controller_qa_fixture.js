@@ -109,7 +109,7 @@
       explicit_user_consent: explicitConsent,
       consent: { issued_at: NOW, nonce: "consent_controller_surface_0001" },
       approval: { expires_at: "2026-08-03T01:00:00.000Z", nonce: "approval_controller_surface_0001" },
-      advanced_settings: { provider_mode: providerMode, provider_key: providerMode },
+      advanced_settings: { provider_mode: providerMode, provider_key: providerMode === "direct" ? "gemini" : "" },
       canonical_defaults: {
         knowledge_domain: "reading",
         knowledge_topics: [],

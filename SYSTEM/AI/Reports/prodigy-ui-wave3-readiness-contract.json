@@ -34,7 +34,7 @@
       {"selector": "journal.monthly", "workspace": "journal", "predicateVersion": "readiness.journal.monthly.v1", "enabledAction": "journal.monthly.open", "periodSelection": "selected_required"},
       {"selector": "reading", "workspace": "reading", "predicateVersion": "readiness.reading.v1", "enabledAction": "reading.open"},
       {"selector": "personal.people", "workspace": "personal", "predicateVersion": "readiness.personal.people.v1", "enabledAction": "personal.people.open"},
-      {"selector": "personal.places", "workspace": "personal", "predicateVersion": "readiness.personal.places.v1", "enabledAction": "personal.places.open", "deferred": true},
+      {"selector": "personal.places", "workspace": "personal", "predicateVersion": "readiness.personal.places.v1", "enabledAction": "personal.places.open", "deferred": true, "activationRequired": true},
       {"selector": "project", "workspace": "project", "predicateVersion": "readiness.project.v1", "enabledAction": "project.open"},
       {"selector": "auction", "workspace": "auction", "predicateVersion": "readiness.auction.v1", "enabledAction": "auction.open"},
       {"selector": "auction.site_visit", "workspace": "auction", "predicateVersion": "readiness.auction.site_visit.v1", "enabledAction": "auction.site_visit.open", "separateReadiness": true},

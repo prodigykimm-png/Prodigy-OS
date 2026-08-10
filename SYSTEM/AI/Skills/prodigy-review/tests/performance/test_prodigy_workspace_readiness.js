@@ -102,8 +102,21 @@ function testSelectedJournalPeriodsAndSeparateSiteVisit() {
   assert.notEqual(auction.predicateVersion, siteVisit.predicateVersion);
 }
 
-function testDeferredSurfacesNeverClaimReadiness() {
-  for (const selector of ["personal.places", "workout.health", "workout.import"]) {
+function testDeferredSurfacesRequireExplicitActivation() {
+  const places = readiness.evaluateReadiness("personal.places", state("personal.places"));
+  assert.equal(places.ready, false);
+  assert.equal(places.available, false);
+  assert.equal(places.deferred, true);
+  assert.equal(places.reasonCode, "DEFERRED_SURFACE");
+
+  const activatedPlaces = readiness.evaluateReadiness("personal.places", state("personal.places", "empty", { activated: true }));
+  assert.equal(activatedPlaces.ready, true);
+  assert.equal(activatedPlaces.available, true);
+  assert.equal(activatedPlaces.deferred, true);
+  assert.equal(activatedPlaces.activated, true);
+  assert.equal(activatedPlaces.reasonCode, "READY");
+
+  for (const selector of ["workout.health", "workout.import"]) {
     const result = readiness.evaluateReadiness(selector, state(selector));
     assert.equal(result.ready, false, selector);
     assert.equal(result.available, false, selector);
@@ -137,7 +150,7 @@ function main() {
     ["sync-pending and unavailable reasons", testSyncPendingAndUnavailableReasons],
     ["exact action is required", testExactActionIsRequired],
     ["selected periods and separate site visit", testSelectedJournalPeriodsAndSeparateSiteVisit],
-    ["deferred surfaces", testDeferredSurfacesNeverClaimReadiness],
+    ["deferred surfaces require explicit activation", testDeferredSurfacesRequireExplicitActivation],
     ["all selectors and observable reader", testAllSelectorsAndObservableReader]
   ];
   let failures = 0;

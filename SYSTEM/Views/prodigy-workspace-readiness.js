@@ -63,7 +63,7 @@
     "journal.monthly": Object.freeze({ workspace: "journal", selector: "journal.monthly", action: "journal.monthly.open", predicateVersion: "readiness.journal.monthly.v1", requiresSelectedPeriod: true }),
     reading: Object.freeze({ workspace: "reading", selector: "reading", action: "reading.open", predicateVersion: "readiness.reading.v1" }),
     "personal.people": Object.freeze({ workspace: "personal", selector: "personal.people", action: "personal.people.open", predicateVersion: "readiness.personal.people.v1" }),
-    "personal.places": Object.freeze({ workspace: "personal", selector: "personal.places", action: "personal.places.open", predicateVersion: "readiness.personal.places.v1", deferred: true }),
+    "personal.places": Object.freeze({ workspace: "personal", selector: "personal.places", action: "personal.places.open", predicateVersion: "readiness.personal.places.v1", deferred: true, deferredReady: true }),
     project: Object.freeze({ workspace: "project", selector: "project", action: "project.open", predicateVersion: "readiness.project.v1" }),
     auction: Object.freeze({ workspace: "auction", selector: "auction", action: "auction.open", predicateVersion: "readiness.auction.v1" }),
     "auction.site_visit": Object.freeze({ workspace: "auction", selector: "auction.site_visit", action: "auction.site_visit.open", predicateVersion: "readiness.auction.site_visit.v1" }),
@@ -317,6 +317,17 @@
     var selected = selectedPeriod(input);
 
     var state = stateResult(input, spec);
+    var deferredActivated = spec.deferred && spec.deferredReady === true
+      && (opts.activated === true || input.activated === true || input.deferredReady === true);
+    if (deferredActivated) {
+      if (!state.ok) {
+        var activatedUnavailableAction = actionResult(input, expectedAction);
+        return resultFor(spec, input, state, activatedUnavailableAction, selected, state.reasonCode, { activated: true });
+      }
+      var activatedAction = actionResult(input, expectedAction);
+      if (!activatedAction.ok) return resultFor(spec, input, state, activatedAction, selected, activatedAction.reasonCode, { activated: true });
+      return resultFor(spec, input, state, activatedAction, selected, REASON_CODES.READY, { deferred: true, activated: true });
+    }
     if (spec.deferred) {
       var deferredAction = actionResult(input, expectedAction);
       var deferredReasons = [REASON_CODES.DEFERRED_SURFACE];
