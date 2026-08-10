@@ -401,3 +401,116 @@ test("Given legacy loadScript, When a module is already loaded, Then the API res
   assert.equal(loader.isLoaded("A.js"), true);
   delete global.__hubEvents;
 });
+test("Given optional recorder hooks, When modules load, Then evaluation and outcome hooks stay ordered and source-independent", async () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  global.__hubEvents = [];
+  const events = [];
+  const app = createApp({ "A.js": moduleSource("A") });
+  const recorder = {
+    onModuleEvaluationStart(event) { events.push([event.type, event.path, Object.prototype.hasOwnProperty.call(event, "content")]); },
+    onModuleEvaluationEnd(event) { events.push([event.type, event.path, event.ok]); },
+    onLoadOutcome(event) { events.push([event.type, event.path, event.outcome, event.code || null]); }
+  };
+
+  const result = await loader.loadManifest(app, { required: ["A.js"], optional: [] }, { recorder, attempt_id: 44 });
+
+  assert.deepEqual(result.loaded, ["A.js"]);
+  assert.deepEqual(events, [
+    ["module_evaluation_start", "A.js", false],
+    ["module_evaluation_end", "A.js", true],
+    ["load_outcome", "A.js", "loaded", null]
+  ]);
+  delete global.__hubEvents;
+});
+
+test("Given a cached module and a failed module, When retry is requested, Then recorder observes cache, retry, and fresh evaluation without changing loaded order", async () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  global.__hubEvents = [];
+  const events = [];
+  const app = createApp({ "A.js": moduleSource("A"), "B.js": throwingModuleSource("secret") });
+  const recorder = {
+    onLoadOutcome(event) { events.push(["outcome", event.path, event.outcome, event.cached]); },
+    onRetry(event) { events.push(["retry", event.paths, event.invalidated]); },
+    onModuleEvaluationStart(event) { events.push(["start", event.path]); }
+  };
+
+  await loader.loadManifest(app, { required: ["A.js", "B.js"], optional: [] }, { recorder });
+  await loader.loadManifest(app, { required: ["A.js", "B.js"], optional: [] }, { recorder });
+  app.setModule("B.js", moduleSource("B"));
+  const retry = loader.retry(["B.js"], { recorder });
+  const recovered = await loader.loadManifest(app, { required: ["A.js", "B.js"], optional: [] }, { recorder });
+
+  assert.deepEqual(retry.invalidated, ["B.js"]);
+  assert.deepEqual(recovered.loaded, ["B.js"]);
+  assert.deepEqual(events.filter((event) => event[0] === "retry"), [["retry", ["B.js"], ["B.js"]]]);
+  assert.equal(events.some((event) => event[0] === "outcome" && event[1] === "A.js" && event[2] === "cached" && event[3] === true), true);
+  assert.equal(events.filter((event) => event[0] === "start" && event[1] === "B.js").length, 2);
+  delete global.__hubEvents;
+});
+
+test("Given a pending and then stale attempt, When retry changes the module version, Then recorder receives specialized status hooks without source data", async () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  const events = [];
+  const app = createHeldReadApp({ "A.js": moduleSource("old") });
+  const recorder = {
+    onSyncPending(event) { events.push(["sync_pending", event.path, Object.prototype.hasOwnProperty.call(event, "content")]); },
+    onStale(event) { events.push(["stale", event.path, event.code]); },
+    onLoadOutcome(event) { events.push(["outcome", event.path, event.outcome]); }
+  };
+
+  const pendingApp = createApp({});
+  const pending = await loader.loadManifest(pendingApp, { required: ["missing.js"], optional: [] }, { recorder });
+  const older = loader.loadManifest(app, { required: ["A.js"], optional: [] }, { recorder });
+  await Promise.resolve();
+  loader.retry(["A.js"], { recorder });
+  app.heldReads[1] && app.heldReads[1].resolve();
+  const newer = loader.loadManifest(app, { required: ["A.js"], optional: [] }, { recorder });
+  await Promise.resolve();
+  if (app.heldReads[1]) app.heldReads[1].resolve();
+  if (app.heldReads[0]) app.heldReads[0].resolve();
+  await Promise.all([older, newer]);
+
+  assert.equal(pending.sync_pending, true);
+  assert.deepEqual(events.filter((event) => event[0] === "sync_pending"), [["sync_pending", "missing.js", false]]);
+  assert.equal(events.some((event) => event[0] === "stale" && event[1] === "A.js"), true);
+});
+
+test("Given a mount scope with timers, listeners, observers, and custom cleanup, When disposed twice, Then every resource is released once and guarded callbacks stop", async () => {
+  const lifecycle = require(path.join(ROOT, "SYSTEM/Views/prodigy-mount-lifecycle.js"));
+  const listeners = [];
+  const observer = { disconnectCount: 0, disconnect() { this.disconnectCount += 1; } };
+  const host = {
+    addEventListener(type, handler) { listeners.push({ type, handler }); },
+    removeEventListener(type, handler) {
+      const index = listeners.findIndex((item) => item.type === type && item.handler === handler);
+      if (index !== -1) listeners.splice(index, 1);
+    }
+  };
+  const scope = lifecycle.createMountScope(host);
+  let intervalTicks = 0;
+  let cleanups = 0;
+  scope.listen("change", () => {});
+  scope.observe(observer);
+  scope.track(() => { cleanups += 1; });
+  scope.interval(() => { intervalTicks += 1; }, 1);
+  const guarded = scope.guard(() => { intervalTicks += 100; });
+
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const beforeDispose = intervalTicks;
+  assert.equal(beforeDispose > 0, true);
+  assert.equal(scope.signal.aborted, false);
+  scope.dispose();
+  scope.dispose();
+  guarded();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+
+  assert.equal(scope.signal.aborted, true);
+  assert.equal(scope.disposed, true);
+  assert.equal(intervalTicks, beforeDispose);
+  assert.equal(listeners.length, 0);
+  assert.equal(observer.disconnectCount, 1);
+  assert.equal(cleanups, 1);
+});

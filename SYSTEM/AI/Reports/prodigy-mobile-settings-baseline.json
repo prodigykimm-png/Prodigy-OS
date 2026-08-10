@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "report_kind": "prodigy-mobile-settings-baseline",
+  "captured_at": "2026-08-10",
+  "method": "Read-only byte/hash capture of frozen Obsidian settings sources; no Vault or .obsidian writes.",
+  "settings_mutated": false,
+  "physical_mobile_claimed": false,
+  "physical_mobile_status": "not_claimed",
+  "targets": [
+    {
+      "target_path": ".obsidian/community-plugins.json",
+      "sha256": "5ed6c01c9cb60985b12dcfbce303b0e242799597cb803a762ee728c78328f72f",
+      "bytes": 1091,
+      "redacted_structure": {
+        "kind": "enabled-plugin-list",
+        "plugin_ids": [
+          "obsidian-admonition",
+          "obsidian42-brat",
+          "obsidian-checklist-plugin",
+          "cmdr",
+          "custom-sort",
+          "datacore",
+          "dataview",
+          "editing-toolbar",
+          "obsidian-view-mode-by-frontmatter",
+          "obsidian-hider",
+          "home-tab",
+          "homepage",
+          "obsidian-hotkeys-for-specific-files",
+          "obsidian-hover-editor",
+          "templater-obsidian",
+          "obsidian-tasks-plugin",
+          "tag-wrangler",
+          "tabs",
+          "obsidian-style-settings",
+          "statusbar-organizer",
+          "settings-search",
+          "quickadd",
+          "quick-explorer",
+          "obsidian-projects",
+          "pomodoro-timer",
+          "obsidian-outliner",
+          "note-toolbar",
+          "nldates-obsidian",
+          "obsidian-minimal-settings",
+          "obsidian-meta-bind-plugin",
+          "js-engine",
+          "journals",
+          "iconic",
+          "obsidian-grandfather",
+          "recent-files-obsidian",
+          "obsidian-excalidraw-plugin",
+          "obsidian-trash-explorer",
+          "obsidian-list-callouts",
+          "highlightr-plugin",
+          "obsidian-paste-image-rename",
+          "url-into-selection",
+          "garble-text",
+          "obsidian-custom-frames",
+          "todoist-sync-plugin",
+          "novel-word-count",
+          "obsidian-chartsview-plugin",
+          "buttons",
+          "kr-book-info-plugin"
+        ],
+        "enabled_plugin_count": 48
+      }
+    },
+    {
+      "target_path": ".obsidian/workspace-mobile.json",
+      "sha256": "1b6c2fde29018d8d967fda50c60d310eef6147fcc0a1d7184d3c57a857be25bf",
+      "bytes": 9474,
+      "redacted_structure": {
+        "kind": "mobile-workspace-leaf-identity",
+        "tabs": [
+          {
+            "section": "main",
+            "container_id": "57834249c8bdbe93",
+            "current_tab": 7,
+            "leaf_ids": [
+              "1a30f76d9c972345",
+              "2bcc69669d6c5d9f",
+              "a0b905aa04ee1969",
+              "dcdbaf8ce702d498",
+              "e0ba2c8bec9df00c",
+              "fd2124d113180a5c",
+              "f7efb1bea712878f",
+              "57ed2ad762362475"
+            ]
+          }
+        ],
+        "leaf_identity": [
+          { "section": "main", "leaf_id": "1a30f76d9c972345", "type": "markdown", "file": "HUB/60 Personal.md", "mode": "preview" },
+          { "section": "main", "leaf_id": "2bcc69669d6c5d9f", "type": "markdown", "file": "HUB/50 Knowledge.md", "mode": "preview" },
+          { "section": "main", "leaf_id": "a0b905aa04ee1969", "type": "markdown", "file": "HUB/50 Knowledge.md", "mode": "preview" },
+          { "section": "main", "leaf_id": "dcdbaf8ce702d498", "type": "markdown", "file": "HUB/60 Personal.md", "mode": "preview" },
+          { "section": "main", "leaf_id": "e0ba2c8bec9df00c", "type": "markdown", "file": "HUB/50 Knowledge.md", "mode": "preview" },
+          { "section": "main", "leaf_id": "fd2124d113180a5c", "type": "markdown", "file": "HUB/50 Knowledge.md", "mode": "preview" },
+          { "section": "main", "leaf_id": "f7efb1bea712878f", "type": "markdown", "file": "HUB/50 Knowledge.md", "mode": "preview" },
+          { "section": "main", "leaf_id": "57ed2ad762362475", "type": "markdown", "file": "HUB/00 Home.md", "mode": "preview" },
+          { "section": "left", "leaf_id": "98dd2e75ead27d52", "type": "file-explorer", "file": null, "mode": null },
+          { "section": "left", "leaf_id": "8d274fe093f6adea", "type": "search", "file": null, "mode": null },
+          { "section": "left", "leaf_id": "efc87b91b771138b", "type": "tag", "file": null, "mode": null },
+          { "section": "left", "leaf_id": "dc5da22ddaf5714b", "type": "bookmarks", "file": null, "mode": null },
+          { "section": "right", "leaf_id": "e1231a7e6388d39f", "type": "outline", "file": "HUB/50 Knowledge.md", "mode": null },
+          { "section": "right", "leaf_id": "db35561d9f80ec65", "type": "todo", "file": null, "mode": null },
+          { "section": "right", "leaf_id": "6f72544a3c727427", "type": "journal-calendar", "file": null, "mode": null }
+        ],
+        "leaf_count": 15,
+        "active_leaf_id": "57ed2ad762362475",
+        "last_open_files_count": 38
+      }
+    }
+  ],
+  "prior_baseline": {
+    "source": "SYSTEM/AI/Reports/prodigy-ui-wave0-baseline.json",
+    "authority": "Wave 0 frozen baseline",
+    "targets": [
+      { "target_path": ".obsidian/community-plugins.json", "sha256": "5ed6c01c9cb60985b12dcfbce303b0e242799597cb803a762ee728c78328f72f", "bytes": 1091 },
+      { "target_path": ".obsidian/workspace-mobile.json", "sha256": "1b6c2fde29018d8d967fda50c60d310eef6147fcc0a1d7184d3c57a857be25bf", "bytes": 9474 }
+    ]
+  },
+  "observed_drift": {
+    "status": "unattributed_external_drift",
+    "captured_at": "2026-08-10",
+    "operator_attribution": "not_claimed",
+    "settings_mutated_by_this_batch": false,
+    "targets": [
+      { "target_path": ".obsidian/workspace-mobile.json", "sha256": "41d571d631744018050e548527d35ab309af62feeea27b1936477a9e9a0cdc13", "bytes": 6834,
+        "redacted_structure": {
+          "kind": "mobile-workspace-leaf-identity",
+          "tabs": [
+            { "section": "main", "container_id": "57834249c8bdbe93", "current_tab": null, "leaf_ids": ["1a30f76d9c972345", "2bcc69669d6c5d9f"] }
+          ],
+          "leaf_identity": [
+            { "section": "main", "leaf_id": "1a30f76d9c972345", "type": "markdown", "file": "HUB/60 Personal.md", "mode": "preview" },
+            { "section": "main", "leaf_id": "2bcc69669d6c5d9f", "type": "markdown", "file": "HUB/70 Journal.md", "mode": "preview" },
+            { "section": "left", "leaf_id": "98dd2e75ead27d52", "type": "file-explorer", "file": null, "mode": null },
+            { "section": "left", "leaf_id": "8d274fe093f6adea", "type": "search", "file": null, "mode": null },
+            { "section": "left", "leaf_id": "efc87b91b771138b", "type": "tag", "file": null, "mode": null },
+            { "section": "left", "leaf_id": "dc5da22ddaf5714b", "type": "bookmarks", "file": null, "mode": null },
+            { "section": "right", "leaf_id": "e1231a7e6388d39f", "type": "outline", "file": "HUB/60 Personal.md", "mode": null },
+            { "section": "right", "leaf_id": "db35561d9f80ec65", "type": "todo", "file": null, "mode": null },
+            { "section": "right", "leaf_id": "6f72544a3c727427", "type": "journal-calendar", "file": null, "mode": null }
+          ],
+          "leaf_count": 9,
+          "active_leaf_id": "1a30f76d9c972345",
+          "last_open_files_count": 40
+        }
+      }
+    ]
+  },
+  "mutation_policy": "Any later mutation requires an external byte-exact backup, explicit hash-bound approval, one unambiguous variable, and verified rollback. Plugin disable/delete/update and mobile tab close/delete/reorder remain forbidden.",
+  "evidence_boundary": "This baseline is static/read-only evidence. It does not establish iPhone, iPad, Obsidian Mobile, iCloud, or plugin-startup success."
+}

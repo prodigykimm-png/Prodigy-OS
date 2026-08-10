@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "Prodigy_Performance_Receipt_v1.schema.json",
+  "title": "Prodigy Wave 3 Performance Receipt and Campaign Manifest v1",
+  "description": "Strict, redacted, non-Vault performance evidence. Durations use performance.now(); wall-clock fields are correlation labels only.",
+  "oneOf": [
+    { "$ref": "#/$defs/receipt" },
+    { "$ref": "#/$defs/campaign" }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gitSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40,64}$"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "hub_start",
+        "module_start",
+        "module_end",
+        "shell_mounted",
+        "data_scan",
+        "data_scan_start",
+        "data_scan_end",
+        "data_read",
+        "data_read_start",
+        "data_read_end",
+        "projection",
+        "projection_start",
+        "projection_end",
+        "dom_render",
+        "dom_render_start",
+        "dom_render_end",
+        "primary_action_ready",
+        "optional_start",
+        "optional_end",
+        "error",
+        "retry",
+        "disposed"
+      ]
+    },
+    "mark": {
+      "type": "object",
+      "required": ["sequence", "phase", "kind", "at_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "phase": { "$ref": "#/$defs/phase" },
+        "kind": { "type": "string", "enum": ["mark", "start", "end", "failure", "retry"] },
+        "at_ms": { "type": "number", "minimum": 0 },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "module_path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)(?!.*://)[^\\u0000]+$" },
+        "scope": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "status": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "code": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "attempt_id": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "cached": { "type": "boolean" },
+        "count": { "type": "number", "minimum": 0 },
+        "bytes": { "type": "number", "minimum": 0 },
+        "reason": { "type": "string", "maxLength": 240 },
+        "missing_start": { "type": "boolean" }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "phase": { "$ref": "#/$defs/phase" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 240 }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "required": ["applied", "user_content_excluded", "secrets_removed"],
+      "additionalProperties": false,
+      "properties": {
+        "applied": { "const": true },
+        "user_content_excluded": { "const": true },
+        "secrets_removed": { "const": true },
+        "fields_removed": { "type": "array", "maxItems": 64, "items": { "type": "string", "maxLength": 80 } }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "required": ["external_start_status", "external_start_duration_ms", "icloud_status", "product_status"],
+      "additionalProperties": false,
+      "properties": {
+        "external_start_status": { "type": "string", "enum": ["measured", "dominated", "not_measured", "pending"] },
+        "external_start_duration_ms": { "type": ["number", "null"], "minimum": 0 },
+        "icloud_status": { "type": "string", "enum": ["measured", "pending", "not_measured", "clear"] },
+        "product_status": { "type": "string", "enum": ["measured", "not_measured", "failed"] }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_id": { "$ref": "#/$defs/id" },
+        "correlation_id": { "$ref": "#/$defs/id" },
+        "mount_id": { "$ref": "#/$defs/id" },
+        "workspace_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "module_path": { "type": "string", "minLength": 1, "maxLength": 240 }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "receipt_type",
+        "run_id",
+        "correlation_id",
+        "correlation_started_at_ms",
+        "control_clock",
+        "mode",
+        "instrumented",
+        "cold_warm",
+        "metadata",
+        "marks",
+        "failures",
+        "missing_marks",
+        "duration_ms",
+        "physical_claim_status",
+        "physical_device_success",
+        "redaction",
+        "attribution",
+        "source_sha256",
+        "settings_sha256",
+        "final_git_sha",
+        "receipt_sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": 1 },
+        "receipt_type": { "const": "prodigy-performance-receipt" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "correlation_id": { "$ref": "#/$defs/id" },
+        "correlation_started_at_ms": { "type": "integer", "minimum": 0 },
+        "control_clock": {
+          "type": "object",
+          "required": ["name", "monotonic", "unit"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "const": "performance.now" },
+            "monotonic": { "const": true },
+            "unit": { "const": "ms" }
+          }
+        },
+        "mode": { "type": "string", "enum": ["instrumented", "uninstrumented"] },
+        "instrumented": { "type": "boolean" },
+        "cold_warm": { "type": "string", "enum": ["cold", "warm"] },
+        "metadata": { "$ref": "#/$defs/metadata" },
+        "marks": { "type": "array", "minItems": 1, "maxItems": 512, "items": { "$ref": "#/$defs/mark" } },
+        "failures": { "type": "array", "maxItems": 128, "items": { "$ref": "#/$defs/failure" } },
+        "missing_marks": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/phase" } },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scanned": { "type": "number", "minimum": 0 },
+            "read": { "type": "number", "minimum": 0 },
+            "projected": { "type": "number", "minimum": 0 },
+            "rendered": { "type": "number", "minimum": 0 },
+            "bytes": { "type": "number", "minimum": 0 }
+          }
+        },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "settings_sha256": { "$ref": "#/$defs/sha256" },
+        "configuration_sha256": { "$ref": "#/$defs/sha256" },
+        "final_git_sha": { "$ref": "#/$defs/gitSha" },
+        "campaign_id": { "$ref": "#/$defs/id" },
+        "sample_id": { "$ref": "#/$defs/id" },
+        "receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "discarded": { "type": "boolean" },
+        "physical_claim_status": { "const": "not_proven" },
+        "physical_device_success": { "const": false },
+        "redaction": { "$ref": "#/$defs/redaction" },
+        "attribution": { "$ref": "#/$defs/attribution" }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "required": ["sample_id", "receipt_path", "cold_warm"],
+      "additionalProperties": false,
+      "properties": {
+        "sample_id": { "$ref": "#/$defs/id" },
+        "receipt_path": { "type": "string", "minLength": 1, "maxLength": 240, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[^\\u0000]+$" },
+        "cold_warm": { "type": "string", "enum": ["cold", "warm"] },
+        "discarded": { "type": "boolean" }
+      }
+    },
+    "campaign": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "campaign_type",
+        "campaign_id",
+        "source_sha256",
+        "settings_sha256",
+        "final_git_sha",
+        "samples",
+        "redaction"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": 1 },
+        "campaign_type": { "const": "prodigy-performance-campaign" },
+        "campaign_stage": { "type": "string", "enum": ["exploratory", "final"], "default": "exploratory" },
+        "sample_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minimum_valid_cold": { "type": "integer", "minimum": 0 },
+            "minimum_valid_warm": { "type": "integer", "minimum": 0 },
+            "exploratory_valid_cold": { "type": "integer", "minimum": 0 },
+            "exploratory_valid_warm": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "campaign_id": { "$ref": "#/$defs/id" },
+        "created_at_ms": { "type": "integer", "minimum": 0 },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "settings_sha256": { "$ref": "#/$defs/sha256" },
+        "configuration_sha256": { "$ref": "#/$defs/sha256" },
+        "final_git_sha": { "$ref": "#/$defs/gitSha" },
+        "samples": { "type": "array", "minItems": 1, "maxItems": 10000, "items": { "$ref": "#/$defs/sample" } },
+        "redaction": { "$ref": "#/$defs/redaction" }
+      }
+    }
+  }
+}
