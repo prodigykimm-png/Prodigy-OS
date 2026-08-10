@@ -1,0 +1,413 @@
+{
+  "headCommit": "4b63becd28d0db68a542fcf8d8ddcadf894708d0",
+  "workingTreeDirty": [
+    "M SYSTEM/AI/Reports/prodigy-ui-wave3-final-matrix.json",
+    "?? artifacts/g005-wave3-production/"
+  ],
+  "workingTreeSourceSha256": "7713c2a417f72d609f90e62e194f0f717c5af3e6d178a1209349b6f1850c5597",
+  "focusedTests": [
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_performance_recorder.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: canonical bytes sort object keys and hash without self-hash recursion\nok 1 - canonical bytes sort object keys and hash without self-hash recursion\n  ---\n  duration_ms: 2.196125\n  type: 'test'\n  ...\n# Subtest: recorder uses the monotonic control clock for durations\nok 2 - recorder uses the monotonic control clock for durations\n  ---\n  duration_ms: 1.098958\n  type: 'test'\n  ...\n# Subtest: receipt contains bounded marks, redaction, attribution, and required lifecycle marks\nok 3 - receipt contains bounded marks, redaction, attribution, and required lifecycle marks\n  ---\n  duration_ms: 1.050583\n  type: 'test'\n  ...\n# Subtest: unsafe module paths and user content fail closed\nok 4 - unsafe module paths and user content fail closed\n  ---\n  duration_ms: 0.539667\n  type: 'test'\n  ...\n# Subtest: uninstrumented receipt is explicit and never claims physical success\nok 5 - uninstrumented receipt is explicit and never claims physical success\n  ---\n  duration_ms: 0.280583\n  type: 'test'\n  ...\n1..5\n# tests 5\n# suites 0\n# pass 5\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 8.703916\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_workspace_readiness.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "PASS deterministic state and exact action\nPASS empty and settled error states\nPASS timer cannot satisfy readiness\nPASS sync-pending and unavailable reasons\nPASS exact action is required\nPASS selected periods and separate site visit\nPASS deferred surfaces require explicit activation\nPASS all selectors and observable reader\n8/8 workspace readiness checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_performance_exporter.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "PASS redacted preview\nPASS explicit confirm and external save\nPASS approval and unsafe destination refusal\nPASS failure retention and retry\nPASS hash and unsupported-claim fail closed\n5/5 performance exporter checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_workspace_measurement.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "2/2 workspace measurement integration checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_hub_loader.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: Given legacy loadScripts, When a missing module appears between valid modules, Then observable execution stays sequential and rejects after continuing\nok 1 - Given legacy loadScripts, When a missing module appears between valid modules, Then observable execution stays sequential and rejects after continuing\n  ---\n  duration_ms: 4.829583\n  type: 'test'\n  ...\n# Subtest: Given required and optional manifest paths, When loadManifest runs, Then modules execute once in required-before-optional order\nok 2 - Given required and optional manifest paths, When loadManifest runs, Then modules execute once in required-before-optional order\n  ---\n  duration_ms: 3.985875\n  type: 'test'\n  ...\n# Subtest: Given duplicate required and optional paths, When loadManifest runs, Then duplicates are suppressed across the manifest\nok 3 - Given duplicate required and optional paths, When loadManifest runs, Then duplicates are suppressed across the manifest\n  ---\n  duration_ms: 4.329708\n  type: 'test'\n  ...\n# Subtest: Given a missing optional module, When loadManifest runs, Then it reports optional failure and preserves loaded required modules\nok 4 - Given a missing optional module, When loadManifest runs, Then it reports optional failure and preserves loaded required modules\n  ---\n  duration_ms: 3.348167\n  type: 'test'\n  ...\n# Subtest: Given a missing required module, When loadManifest runs, Then it returns required failure without throwing and still loads optional modules\nok 5 - Given a missing required module, When loadManifest runs, Then it returns required failure without throwing and still loads optional modules\n  ---\n  duration_ms: 2.933791\n  type: 'test'\n  ...\n# Subtest: Given a module throws during evaluation, When loadManifest runs, Then the structured failure exposes path and safe summary only\nok 6 - Given a module throws during evaluation, When loadManifest runs, Then the structured failure exposes path and safe summary only\n  ---\n  duration_ms: 4.21625\n  type: 'test'\n  ...\n# Subtest: Given a failed module is restored, When retry invalidates the path, Then only that module executes on the next manifest load\nok 7 - Given a failed module is restored, When retry invalidates the path, Then only that module executes on the next manifest load\n  ---\n  duration_ms: 5.081375\n  type: 'test'\n  ...\n# Subtest: Given a missing required module is restored, When retry invalidates the path, Then the recovered module executes without reloading prior successes\nok 8 - Given a missing required module is restored, When retry invalidates the path, Then the recovered module executes without reloading prior successes\n  ---\n  duration_ms: 4.456459\n  type: 'test'\n  ...\n# Subtest: Given concurrent callers request the same module, When loadManifest runs in parallel, Then read and evaluation are de-duplicated in flight\nok 9 - Given concurrent callers request the same module, When loadManifest runs in parallel, Then read and evaluation are de-duplicated in flight\n  ---\n  duration_ms: 12.383375\n  type: 'test'\n  ...\n# Subtest: Given an older failed attempt resolves after a newer retry succeeds, When both finish, Then stale failure state does not overwrite the newer loaded state\nok 10 - Given an older failed attempt resolves after a newer retry succeeds, When both finish, Then stale failure state does not overwrite the newer loaded state\n  ---\n  duration_ms: 22.0195\n  type: 'test'\n  ...\n# Subtest: Given an in-flight read is retried before it resolves, When newer source succeeds and older valid source resolves later, Then only newer source executes and stale result is not loaded\nok 11 - Given an in-flight read is retried before it resolves, When newer source succeeds and older valid source resolves later, Then only newer source executes and stale result is not loaded\n  ---\n  duration_ms: 0.541625\n  type: 'test'\n  ...\n# Subtest: Given one failed cached path and one loaded path, When retry receives both, Then it invalidates failed entries only\nok 12 - Given one failed cached path and one loaded path, When retry receives both, Then it invalidates failed entries only\n  ---\n  duration_ms: 3.036333\n  type: 'test'\n  ...\n# Subtest: Given malformed manifest inputs, When loadManifest runs, Then it fails closed with structured required failure\nok 13 - Given malformed manifest inputs, When loadManifest runs, Then it fails closed with structured required failure\n  ---\n  duration_ms: 0.306583\n  type: 'test'\n  ...\n# Subtest: Given legacy loadScript, When a module is already loaded, Then the API resolves without reading or executing it again\nok 14 - Given legacy loadScript, When a module is already loaded, Then the API resolves without reading or executing it again\n  ---\n  duration_ms: 1.636542\n  type: 'test'\n  ...\n# Subtest: Given optional recorder hooks, When modules load, Then evaluation and outcome hooks stay ordered and source-independent\nok 15 - Given optional recorder hooks, When modules load, Then evaluation and outcome hooks stay ordered and source-independent\n  ---\n  duration_ms: 1.59075\n  type: 'test'\n  ...\n# Subtest: Given a cached module and a failed module, When retry is requested, Then recorder observes cache, retry, and fresh evaluation without changing loaded order\nok 16 - Given a cached module and a failed module, When retry is requested, Then recorder observes cache, retry, and fresh evaluation without changing loaded order\n  ---\n  duration_ms: 4.277875\n  type: 'test'\n  ...\n# Subtest: Given a pending and then stale attempt, When retry changes the module version, Then recorder receives specialized status hooks without source data\nok 17 - Given a pending and then stale attempt, When retry changes the module version, Then recorder receives specialized status hooks without source data\n  ---\n  duration_ms: 0.342875\n  type: 'test'\n  ...\n# Subtest: Given a mount scope with timers, listeners, observers, and custom cleanup, When disposed twice, Then every resource is released once and guarded callbacks stop\nok 18 - Given a mount scope with timers, listeners, observers, and custom cleanup, When disposed twice, Then every resource is released once and guarded callbacks stop\n  ---\n  duration_ms: 13.409459\n  type: 'test'\n  ...\n1..18\n# tests 18\n# suites 0\n# pass 18\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 95.501042\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_hub_execution_contract.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: Given proven module metadata, When the execution contract is validated, Then all explicit ABI kinds and lifecycle metadata are retained\nok 1 - Given proven module metadata, When the execution contract is validated, Then all explicit ABI kinds and lifecycle metadata are retained\n  ---\n  duration_ms: 1.117875\n  type: 'test'\n  ...\n# Subtest: Given a module path without an explicit evaluator, When the contract is validated, Then it fails closed without inspecting source or extension\nok 2 - Given a module path without an explicit evaluator, When the contract is validated, Then it fails closed without inspecting source or extension\n  ---\n  duration_ms: 0.092916\n  type: 'test'\n  ...\n# Subtest: Given unsafe paths, duplicate order, unknown dependencies, and invalid retry metadata, When validation runs, Then no executable contract is produced\nok 3 - Given unsafe paths, duplicate order, unknown dependencies, and invalid retry metadata, When validation runs, Then no executable contract is produced\n  ---\n  duration_ms: 0.567417\n  type: 'test'\n  ...\n# Subtest: Given a validated contract, When a module is looked up, Then the lookup is explicit and unknown modules remain rejected\nok 4 - Given a validated contract, When a module is looked up, Then the lookup is explicit and unknown modules remain rejected\n  ---\n  duration_ms: 0.299333\n  type: 'test'\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 5.756125\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_workspace_navigation_contract.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "Workspace navigation contract tests passed\n",
+      "stderr": ""
+    }
+  ],
+  "responsiveTest": {
+    "command": "TASK15_EVIDENCE_DIR=artifacts/g005-wave3-production/responsive-current node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_responsive.js",
+    "status": 0,
+    "signal": null,
+    "stdout": "TASK15_METRICS {\"kind\":\"width\",\"logicalWidth\":375,\"assertions\":[\"clientWidth=scrollWidth\",\"nestedOverflow=[]\",\"tabs visible\",\"actions visible and >=44px\",\"Korean/URL wraps\",\"role=status aria-live=polite\"],\"states\":[{\"status\":\"selecting\",\"viewport\":{\"innerWidth\":375,\"visualWidth\":375,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":375,\"scrollWidth\":375},\"probe\":{\"clientWidth\":375,\"scrollWidth\":375},\"lifecycle\":{\"clientWidth\":375,\"scrollWidth\":375},\"source\":{\"clientWidth\":357,\"scrollWidth\":357,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":4,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":186.5,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":188.5,\"right\":375,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":0,\"right\":186.5,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":188.5,\"right\":375,\"width\":186.5,\"height\":38.796875,\"visible\":true}],\"actions\":[{\"action\":\"select-source\",\"disabled\":false,\"width\":375,\"height\":44,\"left\":0,\"right\":375,\"visible\":true},{\"action\":\"request-consent\",\"disabled\":false,\"width\":375,\"height\":44,\"left\":0,\"right\":375,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다.\"},\"cssZoom\":\"1\"},{\"status\":\"consent_required\",\"viewport\":{\"innerWidth\":375,\"visualWidth\":375,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":375,\"scrollWidth\":375},\"probe\":{\"clientWidth\":375,\"scrollWidth\":375},\"lifecycle\":{\"clientWidth\":375,\"scrollWidth\":375},\"source\":{\"clientWidth\":357,\"scrollWidth\":357,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":4,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":186.5,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":188.5,\"right\":375,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":0,\"right\":186.5,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":188.5,\"right\":375,\"width\":186.5,\"height\":38.796875,\"visible\":true}],\"actions\":[{\"action\":\"start-run\",\"disabled\":false,\"width\":375,\"height\":44,\"left\":0,\"right\":375,\"visible\":true},{\"action\":\"cancel-run\",\"disabled\":false,\"width\":375,\"height\":44,\"left\":0,\"right\":375,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"cssZoom\":\"1\"},{\"status\":\"running\",\"viewport\":{\"innerWidth\":375,\"visualWidth\":375,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":375,\"scrollWidth\":375},\"probe\":{\"clientWidth\":375,\"scrollWidth\":375},\"lifecycle\":{\"clientWidth\":375,\"scrollWidth\":375},\"source\":{\"clientWidth\":357,\"scrollWidth\":357,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":4,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":186.5,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":188.5,\"right\":375,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":0,\"right\":186.5,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":188.5,\"right\":375,\"width\":186.5,\"height\":38.796875,\"visible\":true}],\"actions\":[{\"action\":\"start-run\",\"disabled\":true,\"width\":375,\"height\":44,\"left\":0,\"right\":375,\"visible\":true},{\"action\":\"cancel-run\",\"disabled\":false,\"width\":375,\"height\":44,\"left\":0,\"right\":375,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료를 바탕으로 제안을 만들고 있습니다.\"},\"cssZoom\":\"1\"}]}\nTASK15_METRICS {\"kind\":\"width\",\"logicalWidth\":768,\"assertions\":[\"clientWidth=scrollWidth\",\"nestedOverflow=[]\",\"tabs visible\",\"actions visible and >=44px\",\"Korean/URL wraps\",\"role=status aria-live=polite\"],\"states\":[{\"status\":\"selecting\",\"viewport\":{\"innerWidth\":768,\"visualWidth\":768,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":768,\"scrollWidth\":768},\"probe\":{\"clientWidth\":768,\"scrollWidth\":768},\"lifecycle\":{\"clientWidth\":768,\"scrollWidth\":768},\"source\":{\"clientWidth\":750,\"scrollWidth\":750,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":2,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":135.125,\"width\":135.125,\"height\":31,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":137.125,\"right\":254.21875,\"width\":117.09375,\"height\":31,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":256.21875,\"right\":406.6875,\"width\":150.46875,\"height\":31,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":408.6875,\"right\":511.078125,\"width\":102.390625,\"height\":31,\"visible\":true}],\"actions\":[{\"action\":\"select-source\",\"disabled\":false,\"width\":95.109375,\"height\":44,\"left\":0,\"right\":95.109375,\"visible\":true},{\"action\":\"request-consent\",\"disabled\":false,\"width\":106.734375,\"height\":44,\"left\":99.109375,\"right\":205.84375,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다.\"},\"cssZoom\":\"1\"},{\"status\":\"consent_required\",\"viewport\":{\"innerWidth\":768,\"visualWidth\":768,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":768,\"scrollWidth\":768},\"probe\":{\"clientWidth\":768,\"scrollWidth\":768},\"lifecycle\":{\"clientWidth\":768,\"scrollWidth\":768},\"source\":{\"clientWidth\":750,\"scrollWidth\":750,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":2,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":135.125,\"width\":135.125,\"height\":31,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":137.125,\"right\":254.21875,\"width\":117.09375,\"height\":31,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":256.21875,\"right\":406.6875,\"width\":150.46875,\"height\":31,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":408.6875,\"right\":511.078125,\"width\":102.390625,\"height\":31,\"visible\":true}],\"actions\":[{\"action\":\"start-run\",\"disabled\":false,\"width\":129.984375,\"height\":44,\"left\":0,\"right\":129.984375,\"visible\":true},{\"action\":\"cancel-run\",\"disabled\":false,\"width\":41.265625,\"height\":44,\"left\":133.984375,\"right\":175.25,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"cssZoom\":\"1\"},{\"status\":\"running\",\"viewport\":{\"innerWidth\":768,\"visualWidth\":768,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":768,\"scrollWidth\":768},\"probe\":{\"clientWidth\":768,\"scrollWidth\":768},\"lifecycle\":{\"clientWidth\":768,\"scrollWidth\":768},\"source\":{\"clientWidth\":750,\"scrollWidth\":750,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":2,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":135.125,\"width\":135.125,\"height\":31,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":137.125,\"right\":254.21875,\"width\":117.09375,\"height\":31,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":256.21875,\"right\":406.6875,\"width\":150.46875,\"height\":31,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":408.6875,\"right\":511.078125,\"width\":102.390625,\"height\":31,\"visible\":true}],\"actions\":[{\"action\":\"start-run\",\"disabled\":true,\"width\":95.109375,\"height\":44,\"left\":0,\"right\":95.109375,\"visible\":true},{\"action\":\"cancel-run\",\"disabled\":false,\"width\":41.265625,\"height\":44,\"left\":99.109375,\"right\":140.375,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료를 바탕으로 제안을 만들고 있습니다.\"},\"cssZoom\":\"1\"}]}\nTASK15_METRICS {\"kind\":\"width\",\"logicalWidth\":1024,\"assertions\":[\"clientWidth=scrollWidth\",\"nestedOverflow=[]\",\"tabs visible\",\"actions visible and >=44px\",\"Korean/URL wraps\",\"role=status aria-live=polite\"],\"states\":[{\"status\":\"selecting\",\"viewport\":{\"innerWidth\":1024,\"visualWidth\":1024,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":1024,\"scrollWidth\":1024},\"probe\":{\"clientWidth\":1024,\"scrollWidth\":1024},\"lifecycle\":{\"clientWidth\":1024,\"scrollWidth\":1024},\"source\":{\"clientWidth\":1006,\"scrollWidth\":1006,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":2,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":135.125,\"width\":135.125,\"height\":31,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":137.125,\"right\":254.21875,\"width\":117.09375,\"height\":31,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":256.21875,\"right\":406.6875,\"width\":150.46875,\"height\":31,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":408.6875,\"right\":511.078125,\"width\":102.390625,\"height\":31,\"visible\":true}],\"actions\":[{\"action\":\"select-source\",\"disabled\":false,\"width\":95.109375,\"height\":44,\"left\":0,\"right\":95.109375,\"visible\":true},{\"action\":\"request-consent\",\"disabled\":false,\"width\":106.734375,\"height\":44,\"left\":99.109375,\"right\":205.84375,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다.\"},\"cssZoom\":\"1\"},{\"status\":\"consent_required\",\"viewport\":{\"innerWidth\":1024,\"visualWidth\":1024,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":1024,\"scrollWidth\":1024},\"probe\":{\"clientWidth\":1024,\"scrollWidth\":1024},\"lifecycle\":{\"clientWidth\":1024,\"scrollWidth\":1024},\"source\":{\"clientWidth\":1006,\"scrollWidth\":1006,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":2,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":135.125,\"width\":135.125,\"height\":31,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":137.125,\"right\":254.21875,\"width\":117.09375,\"height\":31,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":256.21875,\"right\":406.6875,\"width\":150.46875,\"height\":31,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":408.6875,\"right\":511.078125,\"width\":102.390625,\"height\":31,\"visible\":true}],\"actions\":[{\"action\":\"start-run\",\"disabled\":false,\"width\":129.984375,\"height\":44,\"left\":0,\"right\":129.984375,\"visible\":true},{\"action\":\"cancel-run\",\"disabled\":false,\"width\":41.265625,\"height\":44,\"left\":133.984375,\"right\":175.25,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"cssZoom\":\"1\"},{\"status\":\"running\",\"viewport\":{\"innerWidth\":1024,\"visualWidth\":1024,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":1024,\"scrollWidth\":1024},\"probe\":{\"clientWidth\":1024,\"scrollWidth\":1024},\"lifecycle\":{\"clientWidth\":1024,\"scrollWidth\":1024},\"source\":{\"clientWidth\":1006,\"scrollWidth\":1006,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":2,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":135.125,\"width\":135.125,\"height\":31,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":137.125,\"right\":254.21875,\"width\":117.09375,\"height\":31,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":256.21875,\"right\":406.6875,\"width\":150.46875,\"height\":31,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":408.6875,\"right\":511.078125,\"width\":102.390625,\"height\":31,\"visible\":true}],\"actions\":[{\"action\":\"start-run\",\"disabled\":true,\"width\":95.109375,\"height\":44,\"left\":0,\"right\":95.109375,\"visible\":true},{\"action\":\"cancel-run\",\"disabled\":false,\"width\":41.265625,\"height\":44,\"left\":99.109375,\"right\":140.375,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료를 바탕으로 제안을 만들고 있습니다.\"},\"cssZoom\":\"1\"}]}\nTASK15_METRICS {\"kind\":\"zoom\",\"logicalWidth\":375,\"zoomPercent\":200,\"assertions\":[\"cssZoom=2\",\"clientWidth=scrollWidth\",\"nestedOverflow=[]\",\"actions visible and >=44px\",\"Korean/URL wraps\",\"zoom recovery cssZoom=1\"],\"states\":[{\"status\":\"selecting\",\"viewport\":{\"innerWidth\":375,\"visualWidth\":360,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":180,\"scrollWidth\":180},\"lifecycle\":{\"clientWidth\":180,\"scrollWidth\":180},\"source\":{\"clientWidth\":162,\"scrollWidth\":162,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":16,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":178,\"width\":178,\"height\":111.1875,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":182,\"right\":360,\"width\":178,\"height\":111.1875,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":0,\"right\":178,\"width\":178,\"height\":111.1875,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":182,\"right\":360,\"width\":178,\"height\":111.1875,\"visible\":true}],\"actions\":[{\"action\":\"select-source\",\"disabled\":false,\"width\":360,\"height\":88,\"left\":0,\"right\":360,\"visible\":true},{\"action\":\"request-consent\",\"disabled\":false,\"width\":360,\"height\":88,\"left\":0,\"right\":360,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다.\"},\"cssZoom\":\"2\"},{\"status\":\"consent_required\",\"viewport\":{\"innerWidth\":375,\"visualWidth\":360,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":180,\"scrollWidth\":180},\"lifecycle\":{\"clientWidth\":180,\"scrollWidth\":180},\"source\":{\"clientWidth\":162,\"scrollWidth\":162,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":16,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":178,\"width\":178,\"height\":111.1875,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":182,\"right\":360,\"width\":178,\"height\":111.1875,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":0,\"right\":178,\"width\":178,\"height\":111.1875,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":182,\"right\":360,\"width\":178,\"height\":111.1875,\"visible\":true}],\"actions\":[{\"action\":\"start-run\",\"disabled\":false,\"width\":360,\"height\":88,\"left\":0,\"right\":360,\"visible\":true},{\"action\":\"cancel-run\",\"disabled\":false,\"width\":360,\"height\":88,\"left\":0,\"right\":360,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"cssZoom\":\"2\"},{\"status\":\"running\",\"viewport\":{\"innerWidth\":375,\"visualWidth\":360,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":180,\"scrollWidth\":180},\"lifecycle\":{\"clientWidth\":180,\"scrollWidth\":180},\"source\":{\"clientWidth\":162,\"scrollWidth\":162,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":16,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":178,\"width\":178,\"height\":111.1875,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":182,\"right\":360,\"width\":178,\"height\":111.1875,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":0,\"right\":178,\"width\":178,\"height\":111.1875,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":182,\"right\":360,\"width\":178,\"height\":111.1875,\"visible\":true}],\"actions\":[{\"action\":\"start-run\",\"disabled\":true,\"width\":360,\"height\":88,\"left\":0,\"right\":360,\"visible\":true},{\"action\":\"cancel-run\",\"disabled\":false,\"width\":360,\"height\":88,\"left\":0,\"right\":360,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료를 바탕으로 제안을 만들고 있습니다.\"},\"cssZoom\":\"2\"}],\"recovered\":{\"status\":\"consent_required\",\"viewport\":{\"innerWidth\":375,\"visualWidth\":375,\"visualScale\":1,\"devicePixelRatio\":1},\"document\":{\"clientWidth\":375,\"scrollWidth\":375},\"probe\":{\"clientWidth\":375,\"scrollWidth\":375},\"lifecycle\":{\"clientWidth\":375,\"scrollWidth\":375},\"source\":{\"clientWidth\":357,\"scrollWidth\":357,\"text\":\"반응형 검증을 위한 아주 긴 한국어 제목과 https://example.invalid/this-is-an-intentionally-unbroken-url-without-natural-breakpoints/and-more-content-for-wrapping\",\"renderedLines\":4,\"overflowWrap\":\"anywhere\"},\"nestedOverflow\":[],\"tabs\":[{\"text\":\"지식 구축 · 제텔카스텐\",\"left\":0,\"right\":186.5,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"지식 활용 · PARA\",\"left\":188.5,\"right\":375,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"AI 지식 검토 · LLM Wiki\",\"left\":0,\"right\":186.5,\"width\":186.5,\"height\":38.796875,\"visible\":true},{\"text\":\"LLMWiki 탐색\",\"left\":188.5,\"right\":375,\"width\":186.5,\"height\":38.796875,\"visible\":true}],\"actions\":[{\"action\":\"start-run\",\"disabled\":false,\"width\":375,\"height\":44,\"left\":0,\"right\":375,\"visible\":true},{\"action\":\"cancel-run\",\"disabled\":false,\"width\":375,\"height\":44,\"left\":0,\"right\":375,\"visible\":true}],\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"cssZoom\":\"1\"}}\nTASK15_20_OPERATIONS {\"kind\":\"20-operations\",\"operationCount\":20,\"logicalWidth\":375,\"zoomPercent\":200,\"assertions\":[\"operation count=20\",\"Korean/URL readable and wrapping\",\"document/probe/lifecycle clientWidth=scrollWidth\",\"nestedOverflow=[]\",\"primary actions visible\",\"enabled primary actions >=88px\",\"role=status aria-live=polite\",\"one lifecycle mount\",\"zero forbidden writes\",\"zero external requests\"],\"operations\":[{\"operationIndex\":1,\"action\":\"select-source\",\"status\":\"selecting\",\"controllerStatus\":\"idle\",\"intentCount\":1,\"intents\":[{\"action\":\"select_source\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다.\"},\"primaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":2,\"action\":\"request-consent\",\"status\":\"consent_required\",\"controllerStatus\":\"consent_required\",\"intentCount\":2,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":3,\"action\":\"start-run\",\"status\":\"running\",\"controllerStatus\":\"running\",\"intentCount\":3,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료를 바탕으로 제안을 만들고 있습니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":true,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":4,\"action\":\"cancel-run\",\"status\":\"cancelled\",\"controllerStatus\":\"cancelled\",\"intentCount\":4,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"검토가 취소되었습니다. 저장된 변경은 없습니다.\"},\"primaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":5,\"action\":\"select-source\",\"status\":\"selecting\",\"controllerStatus\":\"cancelled\",\"intentCount\":5,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다.\"},\"primaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":6,\"action\":\"request-consent\",\"status\":\"consent_required\",\"controllerStatus\":\"consent_required\",\"intentCount\":6,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":7,\"action\":\"start-run\",\"status\":\"running\",\"controllerStatus\":\"running\",\"intentCount\":7,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료를 바탕으로 제안을 만들고 있습니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":true,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":8,\"action\":\"cancel-run\",\"status\":\"cancelled\",\"controllerStatus\":\"cancelled\",\"intentCount\":8,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"검토가 취소되었습니다. 저장된 변경은 없습니다.\"},\"primaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":9,\"action\":\"select-source\",\"status\":\"selecting\",\"controllerStatus\":\"cancelled\",\"intentCount\":9,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다.\"},\"primaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":10,\"action\":\"request-consent\",\"status\":\"consent_required\",\"controllerStatus\":\"consent_required\",\"intentCount\":10,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":11,\"action\":\"start-run\",\"status\":\"running\",\"controllerStatus\":\"running\",\"intentCount\":11,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료를 바탕으로 제안을 만들고 있습니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":true,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":12,\"action\":\"cancel-run\",\"status\":\"cancelled\",\"controllerStatus\":\"cancelled\",\"intentCount\":12,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"검토가 취소되었습니다. 저장된 변경은 없습니다.\"},\"primaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":13,\"action\":\"select-source\",\"status\":\"selecting\",\"controllerStatus\":\"cancelled\",\"intentCount\":13,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다.\"},\"primaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":14,\"action\":\"request-consent\",\"status\":\"consent_required\",\"controllerStatus\":\"consent_required\",\"intentCount\":14,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":15,\"action\":\"start-run\",\"status\":\"running\",\"controllerStatus\":\"running\",\"intentCount\":15,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료를 바탕으로 제안을 만들고 있습니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":true,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":16,\"action\":\"cancel-run\",\"status\":\"cancelled\",\"controllerStatus\":\"cancelled\",\"intentCount\":16,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"검토가 취소되었습니다. 저장된 변경은 없습니다.\"},\"primaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":17,\"action\":\"select-source\",\"status\":\"selecting\",\"controllerStatus\":\"cancelled\",\"intentCount\":17,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다.\"},\"primaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"request-consent\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":18,\"action\":\"request-consent\",\"status\":\"consent_required\",\"controllerStatus\":\"consent_required\",\"intentCount\":18,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"start-run\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":19,\"action\":\"start-run\",\"status\":\"running\",\"controllerStatus\":\"running\",\"intentCount\":19,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"자료를 바탕으로 제안을 만들고 있습니다.\"},\"primaryActions\":[{\"action\":\"start-run\",\"disabled\":true,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"},{\"operationIndex\":20,\"action\":\"cancel-run\",\"status\":\"cancelled\",\"controllerStatus\":\"cancelled\",\"intentCount\":20,\"intents\":[{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"},{\"action\":\"select_source\"},{\"action\":\"request_consent\"},{\"action\":\"start_run\",\"provider_mode\":\"direct\"},{\"action\":\"cancel\"}],\"document\":{\"clientWidth\":360,\"scrollWidth\":360},\"probe\":{\"clientWidth\":148,\"scrollWidth\":148},\"lifecycle\":{\"clientWidth\":148,\"scrollWidth\":148},\"nestedOverflow\":[],\"source\":{\"text\":\"20회 operation 동안 읽을 수 있어야 하는 아주 긴 한국어 자료와 https://example.invalid/twenty-operation-controller-backed-url-without-natural-breakpoints\",\"clientWidth\":146,\"scrollWidth\":146,\"renderedLines\":18,\"overflowWrap\":\"anywhere\"},\"statusRegion\":{\"role\":\"status\",\"ariaLive\":\"polite\",\"text\":\"검토가 취소되었습니다. 저장된 변경은 없습니다.\"},\"primaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"enabledPrimaryActions\":[{\"action\":\"select-source\",\"disabled\":false,\"visible\":true,\"width\":296,\"height\":88,\"left\":32,\"right\":328}],\"lifecycleMountCount\":1,\"writes\":{\"create\":0,\"modify\":0,\"createFolder\":0},\"externalRequests\":[],\"cssZoom\":\"2\"}]}\nTASK15_ASIDE_CLEANUP {\"binary\":\"/Applications/Aside.app/Contents/MacOS/Aside\",\"browser\":\"Chrome/150.0.7871.183\",\"protocolVersion\":\"1.3\",\"port\":64366,\"browserPid\":11501,\"processGroupPid\":11501,\"profileRemoved\":true,\"profileProcesses\":[],\"portFree\":true,\"allocatorDiagnostic\":false}\nTASK15_HTTP_CLEANUP {\"port\":64365,\"portFree\":true}\nKnowledge Explorer responsive tests passed\n",
+    "stderr": ""
+  },
+  "cases": [
+    {
+      "name": "missing recorder global fails closed",
+      "status": "PASS",
+      "detail": {
+        "available": false,
+        "controllerAvailable": false,
+        "reason": "recorder_unavailable"
+      }
+    },
+    {
+      "name": "missing readiness global does not block measured session",
+      "status": "PASS",
+      "detail": {
+        "available": true,
+        "controllerAvailable": true,
+        "readiness": null,
+        "primaryActionMarks": 0
+      }
+    },
+    {
+      "name": "missing exporter global preserves recorder/readiness but blocks export",
+      "status": "PASS",
+      "detail": {
+        "available": true,
+        "exporterAvailable": false,
+        "controllerAvailable": false,
+        "readiness": "READY",
+        "preview": null
+      }
+    },
+    {
+      "name": "Places requires explicit activation",
+      "status": "PASS",
+      "detail": {
+        "implicit": "DEFERRED_SURFACE",
+        "activated": "READY",
+        "wrongAction": "ACTION_MISMATCH",
+        "action": "personal.places.open"
+      }
+    },
+    {
+      "name": "redacted preview and disposal never write before explicit confirmation",
+      "status": "PASS",
+      "detail": {
+        "previewReady": false,
+        "reasonCode": "SECRET_PRESENT",
+        "writesBeforeConfirm": 0,
+        "physicalMobileClaim": "not_proven"
+      }
+    },
+    {
+      "name": "controller disposal, receipt binding, preview, and retry stay idempotent",
+      "status": "PASS",
+      "detail": {
+        "initialPreviewBinding": "missing_cold_warm",
+        "readiness": "READY",
+        "marks": [
+          "hub_start",
+          "shell_mounted",
+          "data_scan_start",
+          "data_scan_end",
+          "projection_start",
+          "projection_end",
+          "dom_render_start",
+          "dom_render_end",
+          "primary_action_ready",
+          "disposed"
+        ],
+        "receiptHashVerified": true,
+        "disposeIdempotent": true,
+        "previewReady": true,
+        "externalRootCreated": false
+      }
+    },
+    {
+      "name": "navigation routes, fallback, readiness snapshot, and supplied measurement mount",
+      "status": "PASS",
+      "detail": {
+        "linked": "HUB/50 Knowledge.md",
+        "fallback": "HUB/60 Personal.md",
+        "readiness": "READY",
+        "measured": true,
+        "cleanupTracked": true
+      }
+    },
+    {
+      "name": "optional Hub modules fail observably while required modules continue",
+      "status": "PASS",
+      "detail": {
+        "loaded": [
+          "required.js"
+        ],
+        "requiredFailures": 0,
+        "optionalFailurePaths": [
+          "missing-optional.js"
+        ]
+      }
+    },
+    {
+      "name": "actual Home Hub render completion records readiness",
+      "status": "PASS",
+      "detail": {
+        "workspaceId": "home",
+        "phases": [
+          "hub_start",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "module_start",
+          "module_end",
+          "shell_mounted",
+          "data_scan_start",
+          "dom_render_start",
+          "data_scan_end",
+          "projection_start",
+          "projection_end",
+          "dom_render_end",
+          "primary_action_ready",
+          "disposed"
+        ],
+        "readiness": "primary_action_ready",
+        "physical": "not_proven"
+      }
+    },
+    {
+      "name": "all nine Hub entrypoints include render-bound lifecycle/readiness calls",
+      "status": "PASS",
+      "detail": {
+        "count": 9,
+        "details": [
+          {
+            "file": "HUB/00 Home.md",
+            "readinessCalls": 1,
+            "readinessSnapshots": 1
+          },
+          {
+            "file": "HUB/10 Auction.md",
+            "readinessCalls": 1,
+            "readinessSnapshots": 2
+          },
+          {
+            "file": "HUB/15 Region.md",
+            "readinessCalls": 1,
+            "readinessSnapshots": 2
+          },
+          {
+            "file": "HUB/20 Reading.md",
+            "readinessCalls": 1,
+            "readinessSnapshots": 2
+          },
+          {
+            "file": "HUB/30 Workout.md",
+            "readinessCalls": 1,
+            "readinessSnapshots": 2
+          },
+          {
+            "file": "HUB/40 Project.md",
+            "readinessCalls": 1,
+            "readinessSnapshots": 5
+          },
+          {
+            "file": "HUB/50 Knowledge.md",
+            "readinessCalls": 1,
+            "readinessSnapshots": 5
+          },
+          {
+            "file": "HUB/60 Personal.md",
+            "readinessCalls": 2,
+            "readinessSnapshots": 4
+          },
+          {
+            "file": "HUB/70 Journal.md",
+            "readinessCalls": 1,
+            "readinessSnapshots": 0
+          }
+        ]
+      }
+    }
+  ],
+  "screenshotReceipt": [
+    {
+      "path": "artifacts/g005-wave3-production/responsive-current/viewport-375.png",
+      "bytes": 45871,
+      "sha256": "a1549955f4bf42793160dacef4df2bc70ed2dde42381b6c3eae71df90f4d16bb",
+      "png": {
+        "width": 375,
+        "height": 900
+      }
+    },
+    {
+      "path": "artifacts/g005-wave3-production/responsive-current/viewport-768.png",
+      "bytes": 50818,
+      "sha256": "54f94884821d0b94c85a8b31edc01396c398fc3eb9e2e09f243bfd06edaf530d",
+      "png": {
+        "width": 768,
+        "height": 900
+      }
+    },
+    {
+      "path": "artifacts/g005-wave3-production/responsive-current/viewport-1024.png",
+      "bytes": 54059,
+      "sha256": "e053fe2e7b561c8de868a453f71cb30680fc8edd6a6abd240fede1b89f69a906",
+      "png": {
+        "width": 1024,
+        "height": 900
+      }
+    },
+    {
+      "path": "artifacts/g005-wave3-production/responsive-current/zoom-200.png",
+      "bytes": 80004,
+      "sha256": "e4f1efe63efa8263eccd8475be3108483c246733352d76d1d3bb689f206501eb",
+      "png": {
+        "width": 375,
+        "height": 900
+      }
+    },
+    {
+      "path": "artifacts/g005-wave3-production/responsive-current/20-operations/operation-20-zoom-200.png",
+      "bytes": 251455,
+      "sha256": "df8d56f04186c2c69290c7409822b25573acc66794de1dce271c07c01d91bd15",
+      "png": {
+        "width": 360,
+        "height": 2658
+      }
+    }
+  ],
+  "limitations": [
+    "Physical Obsidian Mobile and native desktop evidence was not exercised.",
+    "Existing .obsidian drift and operator/device campaign remain human-only follow-up.",
+    "Actual full Hub/View execution was exercised for Home; all nine entrypoint lifecycle/readiness contracts were inspected against current source."
+  ],
+  "recheck": {
+    "scenario": {
+      "initialPreview": "initial.controller.preview({ exportOptions: { destinationRoot, vaultRoot, approved: true } }) before any binding; expected missing_cold_warm.",
+      "boundLifecycle": "session marks shell_mounted, data_scan/projection/dom_render start/end, markReady('knowledge', { status: 'deterministic', enabledAction: { id: 'knowledge.open', enabled: true } }), then controller.dispose(options) with explicit options.",
+      "options": {
+        "cold_warm": "warm",
+      "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "settings_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "final_git_sha": "cccccccccccccccccccccccccccccccccccccccc",
+        "campaign_id": "g005-controller"
+      },
+      "exportOnlyPreview": "controller.preview({ exportOptions: { destinationRoot, vaultRoot, approved: true } }) after dispose; no receiptOptions supplied."
+    },
+    "priorAttempts": [
+      {
+        "assertion": "assert.equal(ready.ready, true) at /private/tmp/g005-qa-current.js:165",
+        "expected": true,
+        "actual": false,
+        "classification": "qa_harness_mismatch",
+        "reason": "The harness used unregistered selector g005-controller; rerun used registered selector knowledge."
+      },
+      {
+        "failure": "missing_cold_warm at /private/tmp/g005-qa-current.js:173, measurement.js:180",
+        "classification": "real_product_bug",
+        "reason": "dispose(options) finalized a receipt but did not bind it to controller preview state for export-only reuse."
+      },
+      {
+        "failure": "ReferenceError: lastReceipt is not defined at measurement.js:364",
+        "classification": "real_product_bug",
+        "reason": "The first leader fix wrote controller-local state from createSession disposal scope."
+      }
+    ],
+    "finalRerun": {
+      "status": "PASS",
+      "headCommit": "4b63becd28d0db68a542fcf8d8ddcadf894708d0",
+      "caseStatus": "PASS",
+      "previewReady": true,
+      "initialBindingStillRequired": true,
+      "disposeIdempotent": true
+    }
+  },
+  "failures": 0
+}

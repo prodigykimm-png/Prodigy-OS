@@ -3,8 +3,8 @@
   "goalId": "G004",
   "reportKind": "prodigy-ui-wave3-final-matrix",
   "status": "pass_with_limitation",
-  "implementationFinalGitSha": "39ff8721c5350205103d407eac3312641e7d3362",
-  "implementationSourceSha256": "dab3c1fd6442957b27fc9eb268af401f110064e524fed2c96cadc6e6caf00201",
+  "implementationFinalGitSha": "4b63becd28d0db68a542fcf8d8ddcadf894708d0",
+  "implementationSourceSha256": "7713c2a417f72d609f90e62e194f0f717c5af3e6d178a1209349b6f1850c5597",
   "matrixEvidenceLevel": "source_contract_and_harness",
   "surfaces": [
     {"id":"home","readiness":"implemented","journey":"harness_passed","physical_mobile":"not_run"},
@@ -48,18 +48,26 @@
     }
   },
   "verification": {
-    "wave3FocusedTests": "35 passed",
+    "wave3FocusedTests": "9 focused suites passed; workspace measurement integration 2/2",
     "priorWaveRegressionSuites": "42 listed suites passed",
-    "syntaxAndSchema": "passed",
+    "syntaxAndSchema": "39 Hub Dataview/JS blocks parsed; changed JavaScript syntax passed",
     "contractAudit": "0 errors across 9 surfaces and 49 link files",
+    "knowledgeResponsiveController": "passed with real Aside transcript and screenshots",
     "finalSampleGate": "underfilled final campaign rejected as required",
     "settingsMutation": false,
     "physicalDeviceSuccess": false
   },
+  "productionMeasurementBridge": {
+    "status": "wired",
+    "commit": "4b63becd28d0db68a542fcf8d8ddcadf894708d0",
+    "hubCallsites": 9,
+    "phaseMarks": ["hub_start", "module_start/end", "shell_mounted", "data_scan_start/end", "projection_start/end", "dom_render_start/end", "primary_action_ready"],
+    "externalReceiptWrite": "explicit-confirmation-only"
+  },
   "limitations": [
     "No user-attributable physical iPhone/iPad Obsidian Mobile cold/warm receipt was available; no physical success is claimed.",
     "The current workspace-mobile bytes/hash differ from the Wave 0 frozen baseline and are recorded as unattributed external drift; no rollback or mutation was attempted.",
-    "The existing Knowledge controller-backed responsive fixture remains a known readiness limitation.",
+    "Knowledge controller-backed responsive fixture now passes dependency loading and the 20-operation 200% zoom flow; browser evidence is stored under artifacts/g005-wave3-production/responsive-current.",
     "Synthetic p50/p95 values validate the recorder/report math and external attribution path only; they are not product performance measurements."
   ],
   "completionStatus": {
