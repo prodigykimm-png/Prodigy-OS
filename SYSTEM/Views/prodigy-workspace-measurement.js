@@ -165,14 +165,19 @@
 
     function splitPreviewOptions(input) {
       var value = exportValue(input);
-      var receiptInput = own(value, "receiptOptions") ? value.receiptOptions : value;
+      var hasReceiptInput = own(value, "receiptOptions")
+        || ["cold_warm", "source_sha256", "settings_sha256", "final_git_sha"].some(function (key) { return own(value, key); });
+      var receiptInput = hasReceiptInput
+        ? (own(value, "receiptOptions") ? value.receiptOptions : value)
+        : null;
       var exportInput = own(value, "exportOptions") ? value.exportOptions : value;
-      return { receipt: receiptInput, exportOptions: exportInput };
+      return { receipt: receiptInput, hasReceipt: hasReceiptInput, exportOptions: exportInput };
     }
 
     function preview(input) {
       var split = splitPreviewOptions(input);
-      var receipt = finalize(split.receipt);
+      var receipt = split.hasReceipt ? finalize(split.receipt) : lastReceipt;
+      if (!receipt) receipt = finalize(split.receipt || {});
       var instance = ensureExporter(split.exportOptions, receipt);
       if (!instance || typeof instance.preview !== "function") return null;
       return instance.preview();
