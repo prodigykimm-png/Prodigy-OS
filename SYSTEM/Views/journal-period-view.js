@@ -204,7 +204,7 @@
     if (previousRecord) renderRecord(body, previousRecord, app);
     try {
       var records = root.JournalPeriodStore ? await root.JournalPeriodStore.listRecords(app, periodId) : [];
-      if (typeof isCurrent === "function" && !isCurrent()) return [];
+      if (typeof isCurrent === "function" && !isCurrent()) return { records: [], status: "stale" };
       shell.setAttribute("aria-busy", "false");
       status.textContent = "";
       retry.hidden = true;
@@ -224,15 +224,15 @@
         renderReadiness(body, periodId, app, selectedKey);
       }
       renderHistory(shell, records, selectedKey, onSelect);
-      return records;
+      return { records: records, status: "deterministic" };
     } catch (error) {
-      if (typeof isCurrent === "function" && !isCurrent()) return [];
+      if (typeof isCurrent === "function" && !isCurrent()) return { records: [], status: "stale" };
       shell.setAttribute("aria-busy", "false");
       status.textContent = "기록을 읽지 못했습니다. 이전 내용을 유지합니다. 다시 시도해 주세요.";
       status.setAttribute("data-state", "error");
       retry.hidden = false;
       retry.onclick = function () { return typeof onRetry === "function" ? onRetry() : null; };
-      return previous;
+      return { records: previous, status: "error" };
     }
   }
 
@@ -292,12 +292,17 @@
 
     function notifyReady(status, period) {
       if (typeof opts.onReady !== "function") return;
-      var selector = period || selected;
+      var selector = String(period || selected);
+      var successful = status === "deterministic";
       opts.onReady({
         selector: "journal." + selector,
-        status: status === "deterministic" ? "deterministic" : "error",
+        period: selector,
+        selectedPeriod: selector,
+        status: successful ? "deterministic" : "error",
+        deterministic: successful,
+        failed: !successful,
         settled: true,
-        enabledAction: { id: "journal." + selector + ".open", enabled: status === "deterministic" }
+        enabledAction: { id: "journal." + selector + ".open", enabled: successful }
       });
     }
 
@@ -320,16 +325,30 @@
           result = typeof renderer === "function" ? renderer(panel) : null;
         } catch (_error) {
           panel.setAttribute("aria-busy", "false");
-          if (!destroyed && version === renderVersion) renderFailure(panel, selected === "daily" ? "Daily" : "Weekly", function () { return render(); }, previousChildren);
-          notifyReady("error", period);
+          if (!destroyed && version === renderVersion) {
+            renderFailure(panel, selected === "daily" ? "Daily" : "Weekly", function () { return render(); }, previousChildren);
+            notifyReady("error", period);
+          }
           return null;
         }
         var child = selected === "weekly" && result && typeof result.destroy === "function" ? result : null;
         if (child) activeChildController = child;
+        var resultPromise = null;
         if (result && typeof result.then === "function") {
+          resultPromise = Promise.resolve(result).then(function (value) {
+            if (value === null || value === false) throw new Error("저널 기간 렌더링이 완료되지 않았습니다.");
+            return value;
+          });
+        } else if (result && result.ready && typeof result.ready.then === "function") {
+          resultPromise = Promise.resolve(result.ready).then(function (value) {
+            if (value === null || value === false) throw new Error("저널 기간 렌더링이 완료되지 않았습니다.");
+            return result;
+          });
+        }
+        if (resultPromise) {
           pendingIdentity = identity;
           var renderStatus = "deterministic";
-          pendingPromise = Promise.resolve(result).catch(function () {
+          pendingPromise = resultPromise.catch(function () {
             renderStatus = "error";
             if (!destroyed && version === renderVersion) {
               panel.setAttribute("aria-busy", "false");
@@ -337,8 +356,10 @@
             }
             return null;
           }).finally(function () {
-            panel.setAttribute("aria-busy", "false");
-            notifyReady(renderStatus, period);
+            if (!destroyed && version === renderVersion) {
+              panel.setAttribute("aria-busy", "false");
+              notifyReady(renderStatus, period);
+            }
             if (pendingIdentity === identity) {
               pendingIdentity = "";
               pendingPromise = null;
@@ -347,7 +368,7 @@
           return pendingPromise;
         }
         panel.setAttribute("aria-busy", "false");
-        notifyReady("deterministic", period);
+        notifyReady(result === null || result === false ? "error" : "deterministic", period);
         return result;
       }
       var selectedKey = periodKeys[selected];
@@ -365,10 +386,17 @@
         if (!destroyed && version === renderVersion) return render();
       });
       pendingIdentity = identity;
-      pendingPromise = Promise.resolve(promise).then(function (records) {
-        if (!destroyed && version === renderVersion && Array.isArray(records)) periodRecordCache[identity] = records;
-        notifyReady(Array.isArray(records) ? "deterministic" : "error", period);
+      pendingPromise = Promise.resolve(promise).then(function (result) {
+        var status = result && result.status;
+        var records = result && Array.isArray(result.records) ? result.records : [];
+        if (!destroyed && version === renderVersion && status === "deterministic") periodRecordCache[identity] = records;
+        if (!destroyed && version === renderVersion && status !== "stale") {
+          notifyReady(status === "deterministic" ? "deterministic" : "error", period);
+        }
         return records;
+      }, function () {
+        if (!destroyed && version === renderVersion) notifyReady("error", period);
+        return previousRecords;
       }).finally(function () {
         if (pendingIdentity === identity) {
           pendingIdentity = "";

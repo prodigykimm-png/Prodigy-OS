@@ -114,7 +114,7 @@ try {
   var domRender = performance && performance.start("dom_render", { scope: "journal" });
   var projection = null;
   var lifecycleClosed = { data_scan: false, projection: false, dom_render: false };
-  var readinessMarked = false;
+  var readinessMarked = new Set();
   var closeToken = function (phase, token, status) {
     if (!performance || !token || lifecycleClosed[phase]) return;
     performance.end(token, { scope: "journal", status: status });
@@ -122,7 +122,7 @@ try {
   };
   var periodMount = shell.body.createDiv({ attr: { class: "journal-period-mount" } });
   var startProjection = function () {
-    if (!performance || projection || readinessMarked) return;
+    if (!performance || projection || readinessMarked.size) return;
     projection = performance.start("projection", { scope: "journal", status: "projecting" });
   };
   window.JournalPeriodView.mount({
@@ -138,17 +138,20 @@ try {
     },
     onReady: function (snapshot) {
       if (!performance || !snapshot) return;
-      closeToken("data_scan", dataScan, snapshot.status);
-      closeToken("projection", projection, snapshot.status);
-      closeToken("dom_render", domRender, snapshot.status);
-      if (readinessMarked || snapshot.selector !== "journal.daily") return;
-      readinessMarked = true;
-      performance.markReady("journal.daily", snapshot);
+      var phaseStatus = snapshot.status === "deterministic" ? "rendered" : "failed";
+      closeToken("data_scan", dataScan, phaseStatus);
+      closeToken("projection", projection, phaseStatus);
+      closeToken("dom_render", domRender, phaseStatus);
+      if (snapshot.status !== "deterministic") return;
+      var selector = String(snapshot.selector || "");
+      if (["journal.daily", "journal.weekly", "journal.monthly"].indexOf(selector) === -1 || readinessMarked.has(selector)) return;
+      if (typeof performance.markReady !== "function") return;
+      var result = performance.markReady(selector, snapshot);
+      if (result && result.ready === true) readinessMarked.add(selector);
     }
   });
 } catch (error) {
-  if (!readinessMarked && typeof closeToken === "function") {
-    readinessMarked = true;
+  if (typeof closeToken === "function") {
     closeToken("data_scan", dataScan, "failed");
     closeToken("projection", projection, "failed");
     closeToken("dom_render", domRender, "failed");

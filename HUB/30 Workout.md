@@ -253,7 +253,11 @@ const renderWorkout = async () => {
       const settled = await waitForWorkoutSettled(workoutMount);
       performance.end(domRender, { scope: "workout", status: settled ? "rendered" : "failed" });
       if (settled && shell && typeof shell.readinessSnapshot === "function") {
-        performance.markReady("workout", shell.readinessSnapshot("workout"));
+        performance.markReady("workout", shell.readinessSnapshot("workout", {
+          status: "deterministic",
+          settled: true,
+          enabledAction: { id: "workout.open", enabled: true }
+        }));
       }
     }
   } catch (error) {

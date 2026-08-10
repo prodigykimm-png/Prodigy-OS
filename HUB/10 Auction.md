@@ -358,6 +358,9 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
       retry.onclick = () => state.retry();
       const cancel = status.createEl("button", { text: "중단", attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" } });
       cancel.onclick = () => {
+        if (state.config && typeof state.config.onError === "function") {
+          try { state.config.onError(new Error("Auction section load cancelled")); } catch (_) {}
+        }
         state.dispose();
         renderStatus(state, "불러오기를 중단했습니다.", false);
       };
@@ -383,6 +386,7 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
       timer: null,
       observer: null,
       disposed: false,
+      errorReported: false,
       rendered: false,
       retry: () => start(state.config),
       dispose: () => {
@@ -390,6 +394,14 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
         state.disposed = true;
         clear(state);
         if (active.get(container) === state) active.delete(container);
+      }
+    };
+    const reportError = (error) => {
+      state.error = error || new Error("Auction section render failed");
+      if (state.errorReported) return;
+      state.errorReported = true;
+      if (typeof config.onError === "function") {
+        try { config.onError(state.error); } catch (_) {}
       }
     };
     active.set(container, state);
@@ -404,6 +416,7 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
     };
     const attempt = () => {
       if (state.disposed || !mounted(container)) {
+        if (!state.disposed) reportError(new Error("Auction section container detached"));
         state.dispose();
         return;
       }
@@ -412,13 +425,14 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
       try {
         result = config.run() === true;
       } catch (error) {
-        state.error = error;
+        reportError(error);
       }
       if (finish(result)) return;
       if (!state.rendered && !findStatus(container)) {
         renderStatus(state, `${config.label || "Auction"} 리소스를 불러오는 중...`, false);
       }
       if (state.attempts >= (Number(config.maxAttempts) || 100)) {
+        reportError(state.error || new Error("Auction section render did not settle"));
         renderStatus(state, `${config.label || "Auction"}을 불러오지 못했습니다. ${state.error?.message || "필수 리소스가 준비되지 않았습니다."}`, true);
         state.dispose();
         return;
@@ -453,7 +467,23 @@ const auctionRegionScope = window.prodigyAuctionRegionScope && typeof window.pro
   : null;
 const expectedSections = new Set(["bidding", "watching", "reviewing", "won", "lost", "skipped", "archived"]);
 const renderedSections = new Set();
+const renderFailures = new Set();
 let navigationAcknowledged = false;
+const maybeMarkAuctionReady = () => {
+  if (renderedSections.size !== expectedSections.size || renderFailures.size > 0) return;
+  setNavigationStatus("ready");
+  const callback = window.__prodigyAuctionReadinessCommit;
+  if (typeof callback !== "function") return;
+  delete window.__prodigyAuctionReadinessCommit;
+  callback();
+};
+const reportSectionFailure = (status, error) => {
+  if (status) renderFailures.add(status);
+  if (error) setNavigationStatus("error", error);
+  const callback = window.__prodigyAuctionReadinessFailure;
+  if (typeof callback === "function") callback(status, error);
+};
+window.ProdigyAuctionSectionFailure = reportSectionFailure;
 const setNavigationStatus = (status, error) => {
   if (!auctionNavigationRequest) return;
   try {
@@ -465,7 +495,7 @@ const setNavigationStatus = (status, error) => {
   }
 };
 const acknowledgeNavigation = () => {
-  if (navigationAcknowledged || renderedSections.size !== expectedSections.size) return;
+  if (navigationAcknowledged || renderedSections.size !== expectedSections.size || renderFailures.size > 0) return;
   navigationAcknowledged = true;
   setNavigationStatus("consumed");
   if (window.prodigyAuctionNavigationRequest === auctionNavigationRequest) delete window.prodigyAuctionNavigationRequest;
@@ -509,6 +539,7 @@ if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path ===
   const markSection = (status) => {
     if (expectedSections.has(status)) renderedSections.add(status);
     scheduleLocate();
+    maybeMarkAuctionReady();
     if (renderedSections.size === expectedSections.size) {
       acknowledgeNavigation();
       if (!fallbackScheduled) {
@@ -528,7 +559,15 @@ if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path ===
   window.ProdigyAuctionNavigationFocus = Object.freeze({ markSection: (status) => {
     if (expectedSections.has(status)) renderedSections.add(status);
     acknowledgeNavigation();
+    maybeMarkAuctionReady();
   } });
+} else {
+  window.ProdigyAuctionNavigationFocus = Object.freeze({
+    markSection: (status) => {
+      if (expectedSections.has(status)) renderedSections.add(status);
+      maybeMarkAuctionReady();
+    }
+  });
 }
 
 // Dynamic script loader helper
@@ -566,6 +605,8 @@ const loadProdigyScript = async (path, options = {}) => {
 ensureAuctionHubStyles();
 const initializeAuctionWorkspace = async () => {
   setNavigationStatus("loading");
+  delete window.__prodigyAuctionReadinessCommit;
+  delete window.__prodigyAuctionReadinessFailure;
   let performance = null;
   let measurement = null;
   try {
@@ -689,21 +730,46 @@ const initializeAuctionWorkspace = async () => {
     measurement.shell = auctionShell;
     measurement.performance = mountedPerformance || null;
     if (mountedPerformance) {
-      mountedPerformance.end(domRender, { scope: "auction", status: "rendered" });
-      measurement.domRender = null;
-      if (typeof auctionShell.readinessSnapshot === "function") {
-        mountedPerformance.markReady("auction", auctionShell.readinessSnapshot("auction"));
-        measurement.readinessMarked = true;
-      }
+      window.__prodigyAuctionReadinessCommit = () => {
+        if (measurement.readinessMarked || measurement.dataScan || measurement.projection) return;
+        if (measurement.domRender) {
+          mountedPerformance.end(measurement.domRender, { scope: "auction", status: "rendered" });
+          measurement.domRender = null;
+        }
+        const evidence = {
+          status: "deterministic",
+          settled: true,
+          enabledAction: { id: "auction.open", enabled: true }
+        };
+        const snapshot = typeof auctionShell.readinessSnapshot === "function"
+          ? auctionShell.readinessSnapshot("auction", evidence)
+          : evidence;
+        const result = mountedPerformance.markReady("auction", snapshot);
+        measurement.readinessMarked = !!(result && result.ready === true);
+      };
+      window.__prodigyAuctionReadinessFailure = (status, error) => {
+        if (measurement.readinessMarked) return;
+        if (measurement.domRender) {
+          mountedPerformance.end(measurement.domRender, { scope: "auction", status: "failed", section: status });
+          measurement.domRender = null;
+        }
+        if (typeof mountedPerformance.fail === "function") {
+          mountedPerformance.fail(error || new Error("Auction section render failed"), { phase: "dom_render", scope: "auction", section: status });
+        }
+        delete window.__prodigyAuctionReadinessCommit;
+        delete window.__prodigyAuctionReadinessFailure;
+      };
+      maybeMarkAuctionReady();
     }
   } catch (error) {
     if (performance) performance.end(domRender, { scope: "auction", status: "failed" });
     measurement.domRender = null;
     throw error;
   }
-  setNavigationStatus("ready");
 } catch (err) {
-  if (performance) {
+  delete window.__prodigyAuctionReadinessCommit;
+  delete window.__prodigyAuctionReadinessFailure;
+  if (performance && measurement) {
     if (measurement.dataScan) {
       performance.end(measurement.dataScan, { scope: "auction", status: "failed" });
       measurement.dataScan = null;
@@ -917,7 +983,8 @@ const run = () => {
 window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "입찰 일정 캘린더",
-  run
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("calendar", error)
 });
 ```
 
@@ -1041,7 +1108,8 @@ const run = () => {
 window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "입찰 예정",
-  run
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("bidding", error)
 });
 ```
 
@@ -1078,7 +1146,8 @@ const run = () => {
 window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "관심",
-  run
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("watching", error)
 });
 ```
 
@@ -1203,7 +1272,8 @@ const run = () => {
 window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "복기 대기 큐",
-  run
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("review_queue", error)
 });
 ```
 
@@ -1234,7 +1304,8 @@ const run = () => {
 window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "복기 중",
-  run
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("reviewing", error)
 });
 ```
 
@@ -1268,7 +1339,8 @@ const run = () => {
 window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "낙찰",
-  run
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("won", error)
 });
 ```
 
@@ -1300,7 +1372,8 @@ const run = () => {
 window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "패찰",
-  run
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("lost", error)
 });
 ```
 
@@ -1332,7 +1405,8 @@ const run = () => {
 window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "입찰 포기",
-  run
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("skipped", error)
 });
 ```
 
@@ -1364,7 +1438,8 @@ const run = () => {
 window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "보관",
-  run
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("archived", error)
 });
 ```
 ```

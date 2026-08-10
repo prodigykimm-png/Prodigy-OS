@@ -416,6 +416,22 @@ const renderMoisCollectionGuide = (event) => {
 };
 
 const initializeRegionWorkspace = async () => {
+  let performance = null;
+  const phaseTokens = { dataScan: null, projection: null, domRender: null };
+  const endPhase = (phase, status) => {
+    const token = phaseTokens[phase];
+    phaseTokens[phase] = null;
+    if (!performance || !token || typeof performance.end !== "function") return;
+    performance.end(token, { scope: "region", status });
+  };
+  const failMeasurement = (error) => {
+    endPhase("dataScan", "failed");
+    endPhase("projection", "failed");
+    endPhase("domRender", "failed");
+    if (performance && typeof performance.fail === "function") {
+      performance.fail(error, { phase: "error", scope: "region" });
+    }
+  };
   try {
   for (const modulePath of RegionExplorerHub.modulePaths) await loadReadOnlyModule(modulePath);
   const shell = window.ProdigyWorkspaceNavigation.mount(this.container, {
@@ -428,8 +444,8 @@ const initializeRegionWorkspace = async () => {
       actions: [{ label: "공식 원문 수집", onClick: renderMoisCollectionGuide }]
     }
   });
-  const performance = shell.performance;
-  const dataScan = performance && performance.start("data_scan", { scope: "region" });
+  performance = shell.performance;
+  phaseTokens.dataScan = performance && performance.start("data_scan", { scope: "region" });
   shell.body.setAttr("data-scroll-owner", "region-workspace-body");
   sourceLedgerMount = shell.body.createDiv({ attr: { class: "region-source-ledger-mount" } });
   sourceCommandMount = shell.body.createDiv({ attr: { class: "region-source-command-mount" } });
@@ -443,12 +459,10 @@ const initializeRegionWorkspace = async () => {
   ]);
   const sourceLedger = await loadSourceLedger(registry);
   renderSourceLedgerStatus(sourceLedger);
-  if (performance) {
-    performance.end(dataScan, { scope: "region", status: "loaded" });
-  }
-  const projectionToken = performance && performance.start("projection", { scope: "region" });
+  endPhase("dataScan", "loaded");
+  phaseTokens.projection = performance && performance.start("projection", { scope: "region" });
   const coveredProjection = attachSourceEvidence(coverageProjection(projection, registry), sourceLedger);
-  if (performance) performance.end(projectionToken, { scope: "region", status: "projected" });
+  endPhase("projection", "projected");
   let explorer = null;
   let activeRegionExperienceModal = null;
   let regionExperienceOpening = null;
@@ -587,7 +601,7 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
       return null;
     }
   };
-  const domRender = performance && performance.start("dom_render", { scope: "region" });
+  phaseTokens.domRender = performance && performance.start("dom_render", { scope: "region" });
   const initialLogicalWidth = explorerMount.clientWidth > 0 ? explorerMount.clientWidth : window.ProdigyTokens.BREAKPOINTS.wide;
   explorer = window.RegionExplorerView.mountRegionExplorer({
     container: explorerMount,
@@ -605,14 +619,17 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
     RegionExplorerHub.resizeObserver.observe(explorerMount);
   }
   coverageNotice(explorerMount, coveredProjection);
-  if (performance) {
-    performance.end(domRender, { scope: "region", status: "rendered" });
-    if (typeof shell.readinessSnapshot === "function") {
-      const snapshot = shell.readinessSnapshot("region");
-      if (snapshot) performance.markReady("region", snapshot);
-    }
+  endPhase("domRender", "rendered");
+  if (performance && typeof shell.readinessSnapshot === "function") {
+    const snapshot = shell.readinessSnapshot("region", {
+      status: "deterministic",
+      settled: true,
+      enabledAction: { id: "region.open", enabled: true }
+    });
+    if (snapshot) performance.markReady("region", snapshot);
   }
 } catch (error) {
+  failMeasurement(error);
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, {
       title: "지역 비교",

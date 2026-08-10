@@ -441,7 +441,11 @@ if (nextProj) {
 endProjectMeasurement("dom_render", projectMeasurement && projectMeasurement.domRenderToken, { scope: "project", status: "rendered" });
 const projectShell = window.__prodigyProjectShell;
 const readinessSnapshot = projectShell && typeof projectShell.readinessSnapshot === "function"
-  ? projectShell.readinessSnapshot("project")
+  ? projectShell.readinessSnapshot("project", {
+      status: "deterministic",
+      settled: true,
+      enabledAction: { id: "project.open", enabled: true }
+    })
   : null;
 if (projectPerformance && readinessSnapshot) projectPerformance.markReady("project", readinessSnapshot);
 } catch (error) {

@@ -391,6 +391,23 @@ const openContinueSession = (cont) => {
   }, { progress: cont.progress_number || cont.progress, next_action: cont.next_action });
 };
 
+const closeReadingPhase = (measurement, phase, status) => {
+  const token = measurement && measurement[phase];
+  if (measurement) measurement[phase] = null;
+  const performance = measurement && measurement.performance;
+  if (!performance || !token || typeof performance.end !== "function") return;
+  performance.end(token, { scope: "reading", status });
+};
+const failReadingMeasurement = (measurement, error) => {
+  closeReadingPhase(measurement, "dataScan", "failed");
+  closeReadingPhase(measurement, "projection", "failed");
+  closeReadingPhase(measurement, "domRender", "failed");
+  const performance = measurement && measurement.performance;
+  if (performance && typeof performance.fail === "function") {
+    performance.fail(error, { phase: "error", scope: "reading" });
+  }
+};
+
 const run = () => {
   this.container.classList.add("reading-hub-section");
   if (!window.renderReadingCard) return false;
@@ -398,16 +415,17 @@ const run = () => {
 
   const measurement = window.__readingWorkspaceMeasurement;
   const performance = measurement && measurement.performance;
-  if (performance && measurement && !measurement.dataScanFinished && !measurement.dataScan) {
-    measurement.dataScan = performance.start("data_scan", { scope: "reading" });
-  }
+  try {
+    if (performance && measurement && !measurement.dataScanFinished && !measurement.dataScan) {
+      measurement.dataScan = performance.start("data_scan", { scope: "reading" });
+    }
   const model = ensureRuntimeModel();
   const pages = dv.pages('"PARA/PROJECTS/Reading"').where(p => p.type === "reading" && p.status === "reading");
-  if (performance && measurement && !measurement.dataScanFinished) {
-    performance.end(measurement.dataScan, { scope: "reading", status: "loaded" });
-    measurement.dataScanFinished = true;
-    measurement.projection = performance.start("projection", { scope: "reading" });
-  }
+    if (performance && measurement && !measurement.dataScanFinished) {
+      closeReadingPhase(measurement, "dataScan", "loaded");
+      measurement.dataScanFinished = true;
+      measurement.projection = performance.start("projection", { scope: "reading" });
+    }
   const renderList = (listPane) => {
     if (pages.length === 0) {
       listPane.createEl("span", {
@@ -480,11 +498,13 @@ const run = () => {
     knowledge.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); window.ReadingView.openKnowledgeExplorer(app); };
   };
 
-  if (performance && measurement && !measurement.projectionFinished) {
-    performance.end(measurement.projection, { scope: "reading", status: "projected" });
-    measurement.projectionFinished = true;
-    measurement.domRender = performance.start("dom_render", { scope: "reading" });
-  }
+    if (performance && measurement && !measurement.projectionFinished) {
+      closeReadingPhase(measurement, "projection", "projected");
+      measurement.projectionFinished = true;
+    }
+    if (performance && measurement && measurement.projectionFinished && !measurement.readinessMarked && !measurement.domRender) {
+      measurement.domRender = performance.start("dom_render", { scope: "reading" });
+    }
   const logicalWidth = Number(this.container.clientWidth) || window.ProdigyTokens.BREAKPOINTS.wide;
   const responsive = window.ReadingView.mountResponsiveWorkspace({
     container: this.container,
@@ -502,17 +522,25 @@ const run = () => {
     observer.observe(this.container);
     this.container.__readingResponsiveObserver = observer;
   }
-  if (performance && measurement && !measurement.readinessMarked) {
-    performance.end(measurement.domRender, { scope: "reading", status: "rendered" });
-    if (measurement.shell && typeof measurement.shell.readinessSnapshot === "function") {
-      const snapshot = measurement.shell.readinessSnapshot("reading");
-      if (snapshot) {
-        performance.markReady("reading", snapshot);
-        measurement.readinessMarked = true;
+    if (performance && measurement && !measurement.readinessMarked) {
+      closeReadingPhase(measurement, "domRender", "rendered");
+      if (measurement.shell && typeof measurement.shell.readinessSnapshot === "function") {
+        const snapshot = measurement.shell.readinessSnapshot("reading", {
+          status: "deterministic",
+          settled: true,
+          enabledAction: { id: "reading.open", enabled: true }
+        });
+        if (snapshot) {
+          performance.markReady("reading", snapshot);
+          measurement.readinessMarked = true;
+        }
       }
     }
+    return true;
+  } catch (error) {
+    failReadingMeasurement(measurement, error);
+    throw error;
   }
-  return true;
 };
 if (!run()) {
   this.container.empty();

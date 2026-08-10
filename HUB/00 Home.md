@@ -118,7 +118,11 @@ const main = async () => {
           const projection = performance.start("projection", { scope: "home" });
           performance.end(projection, { scope: "home", status: "projected" });
           performance.end(domRender, { scope: "home", status: "rendered" });
-          performance.markReady("home", shell.readinessSnapshot("home"));
+          performance.markReady("home", shell.readinessSnapshot("home", {
+            status: "deterministic",
+            settled: true,
+            enabledAction: { id: "home.open", enabled: true }
+          }));
         }
       } catch (error) {
         if (performance) {

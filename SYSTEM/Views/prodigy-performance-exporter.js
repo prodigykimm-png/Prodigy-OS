@@ -466,7 +466,6 @@
     if (value === true) value = { approved: true };
     if (!value || typeof value !== "object") value = {};
     if (value.approved === true || value.confirmed === true) this._approved = true;
-    else if (confirmation === undefined && !own(this._options, "approved")) this._approved = true;
     var validation = inspectReceipt(this._receipt, this._options, true);
     if (!validation.ok) {
       this._state = "blocked";

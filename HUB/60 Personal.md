@@ -399,7 +399,12 @@ try {
   const markPlacesReady = () => {
     if (personalPlacesReadyMarked || !personalPerformance || typeof personalPerformance.markReady !== "function") return;
     if (!personalShell || typeof personalShell.readinessSnapshot !== "function") return;
-    const snapshot = personalShell.readinessSnapshot("personal.places");
+    const snapshot = personalShell.readinessSnapshot("personal.places", {
+      status: "deterministic",
+      settled: true,
+      enabledAction: { id: "personal.places.open", enabled: true },
+      activated: true
+    });
     const result = personalPerformance.markReady("personal.places", snapshot, { activated: true });
     if (result && result.ready === true) personalPlacesReadyMarked = true;
   };
@@ -596,7 +601,11 @@ try {
 
   await paintPeople({ snapshot: initialSnapshot });
   const peopleSnapshot = personalShell && typeof personalShell.readinessSnapshot === "function"
-    ? personalShell.readinessSnapshot("personal.people")
+    ? personalShell.readinessSnapshot("personal.people", {
+        status: "deterministic",
+        settled: true,
+        enabledAction: { id: "personal.people.open", enabled: true }
+      })
     : null;
   if (personalPerformance && peopleSnapshot) personalPerformance.markReady("personal.people", peopleSnapshot);
   if (personalTabs.getActiveTab() === "places") await paintPlaces();

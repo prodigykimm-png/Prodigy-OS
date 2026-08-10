@@ -232,7 +232,7 @@
       label: opts.label || item.label || "워크스페이스"
     }));
   }
-  function readinessSnapshot(mounted, workspaceId, selector) {
+  function readinessSnapshot(mounted, workspaceId, selector, evidence) {
     const actions = {
       home: "home.open",
       knowledge: "knowledge.open",
@@ -249,15 +249,22 @@
       inbox: "inbox.open"
     };
     const action = actions[selector] || actions[workspaceId] || "";
-    const switcher = mounted && mounted.switcher;
-    const active = !switcher || !("value" in switcher) || String(switcher.value) === String(workspaceId);
-    const enabled = active && !(switcher && switcher.disabled === true);
-    return {
-      status: enabled ? "deterministic" : "unavailable",
-      settled: enabled,
-      enabledAction: { id: action, enabled },
-      activated: selector === "personal.places" ? false : undefined
-    };
+    const supplied = evidence && typeof evidence === "object" && !Array.isArray(evidence)
+      ? Object.assign({}, evidence)
+      : {};
+    if (!Object.prototype.hasOwnProperty.call(supplied, "settled")) supplied.settled = false;
+    if (!Object.prototype.hasOwnProperty.call(supplied, "status")) {
+      supplied.status = supplied.settled === true ? "deterministic" : "pending";
+    }
+    if (!Object.prototype.hasOwnProperty.call(supplied, "enabledAction")) {
+      supplied.enabledAction = { id: action, enabled: false };
+    }
+    if (selector === "personal.places" && !Object.prototype.hasOwnProperty.call(supplied, "activated")) {
+      supplied.activated = false;
+    } else if (!Object.prototype.hasOwnProperty.call(supplied, "activated")) {
+      supplied.activated = undefined;
+    }
+    return supplied;
   }
 
   function unavailableMeasurement(reason) {
@@ -347,7 +354,7 @@
     }
     ensureStyles();
     Object.defineProperty(mounted, "readinessSnapshot", {
-      value: function (selector) { return readinessSnapshot(mounted, workspaceId, selector || workspaceId); },
+      value: function (selector, evidence) { return readinessSnapshot(mounted, workspaceId, selector || workspaceId, evidence); },
       enumerable: false,
       configurable: true
     });

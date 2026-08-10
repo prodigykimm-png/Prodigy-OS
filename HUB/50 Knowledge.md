@@ -564,7 +564,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     KnowledgeExplorerHub.dataSource = dataSource;
     endMeasurement("dom_render", domRenderToken, { scope: "knowledge", status: "rendered" });
     const readinessSnapshot = shell && typeof shell.readinessSnapshot === "function"
-      ? shell.readinessSnapshot("knowledge")
+      ? shell.readinessSnapshot("knowledge", {
+          status: "deterministic",
+          settled: true,
+          enabledAction: { id: "knowledge.open", enabled: true }
+        })
       : null;
     if (performance && readinessSnapshot) performance.markReady("knowledge", readinessSnapshot);
     return api;
