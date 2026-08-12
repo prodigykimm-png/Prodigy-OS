@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "algorithm": "sha256",
+  "fixtures": [
+    {
+      "path": "approval-root/receipts/synthetic-not-applied.json",
+      "sha256": "f7ebcb3ed12d75d614810d8e1a1be9436562076beef313e0a66c38dd2ebf8556"
+    },
+    {
+      "path": "baseline-v1.json",
+      "sha256": "4e6908c6853f1c32d6f723530d50dbe6bd16671d33a17e5644c86386ab472678"
+    },
+    {
+      "path": "frontend-design-state.md",
+      "sha256": "caa2b88193ee6fc5d2eff1850b277001558da21f7de8dfb2a21e0138e4402e9e"
+    },
+    {
+      "path": "ownership-v1.json",
+      "sha256": "1ad7c0aee39b34c19590ebb8757e05ad7d67a3de574e901ecc97b5614a120830"
+    },
+    {
+      "path": "plan.md",
+      "sha256": "41338b24148c650274fc21e0787a11390356f96dfaaac104eb420db89a63e1ee"
+    },
+    {
+      "path": "source-inventory-v1.json",
+      "sha256": "c6f404de67a05d962ad632927c31f171acfc052a69e0b35579ac0472e0bc2129"
+    }
+  ]
+}

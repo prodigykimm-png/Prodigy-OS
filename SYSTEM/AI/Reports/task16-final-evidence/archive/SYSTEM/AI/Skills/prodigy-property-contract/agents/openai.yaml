@@ -1,0 +1,6 @@
+interface:
+  display_name: "Prodigy Property Contract"
+  short_description: "Property와 표시 계층 계약 위반을 검사합니다"
+  default_prompt: "Use $prodigy-property-contract to audit this Property or status change before implementation."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,69 @@
+{
+  "headCommit": "3528393b9a38c5c83377263d7d8ac9d34c05c2da",
+  "sourceSha256": "889b436f1d65dbd25fc77499e296add55a95e008a0f3e52e993b14774ebdf26c",
+  "results": [
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_performance_recorder.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: canonical bytes sort object keys and hash without self-hash recursion\nok 1 - canonical bytes sort object keys and hash without self-hash recursion\n  ---\n  duration_ms: 2.102209\n  type: 'test'\n  ...\n# Subtest: recorder uses the monotonic control clock for durations\nok 2 - recorder uses the monotonic control clock for durations\n  ---\n  duration_ms: 1.025458\n  type: 'test'\n  ...\n# Subtest: receipt contains bounded marks, redaction, attribution, and required lifecycle marks\nok 3 - receipt contains bounded marks, redaction, attribution, and required lifecycle marks\n  ---\n  duration_ms: 1.000833\n  type: 'test'\n  ...\n# Subtest: unsafe module paths and user content fail closed\nok 4 - unsafe module paths and user content fail closed\n  ---\n  duration_ms: 0.489916\n  type: 'test'\n  ...\n# Subtest: uninstrumented receipt is explicit and never claims physical success\nok 5 - uninstrumented receipt is explicit and never claims physical success\n  ---\n  duration_ms: 0.277792\n  type: 'test'\n  ...\n1..5\n# tests 5\n# suites 0\n# pass 5\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 8.499625\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_workspace_readiness.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "PASS deterministic state and exact action\nPASS empty and settled error states\nPASS timer cannot satisfy readiness\nPASS sync-pending and unavailable reasons\nPASS exact action is required\nPASS selected periods and separate site visit\nPASS deferred surfaces require explicit activation\nPASS all selectors and observable reader\n8/8 workspace readiness checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_performance_exporter.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "PASS redacted preview\nPASS explicit confirm and external save\nPASS approval and unsafe destination refusal\nPASS failure retention and retry\nPASS hash and unsupported-claim fail closed\n5/5 performance exporter checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_mobile_settings_change.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: schema and read-only baseline captures both frozen sources without reading live Vault settings\nok 1 - schema and read-only baseline captures both frozen sources without reading live Vault settings\n  ---\n  duration_ms: 1.182292\n  type: 'test'\n  ...\n# Subtest: validator accepts deterministic external community-plugin fixture\nok 2 - validator accepts deterministic external community-plugin fixture\n  ---\n  duration_ms: 2.979083\n  type: 'test'\n  ...\n# Subtest: validator accepts one mobile leaf replacement while preserving tab identity\nok 3 - validator accepts one mobile leaf replacement while preserving tab identity\n  ---\n  duration_ms: 1.048958\n  type: 'test'\n  ...\n# Subtest: validator fails closed for approval, multi-change, in-vault backup, and tab closure\nok 4 - validator fails closed for approval, multi-change, in-vault backup, and tab closure\n  ---\n  duration_ms: 2.411333\n  type: 'test'\n  ...\n# Subtest: report keeps baseline, settings, and product attribution separate and unclaimed\nok 5 - report keeps baseline, settings, and product attribution separate and unclaimed\n  ---\n  duration_ms: 7.521125\n  type: 'test'\n  ...\n# Subtest: report CLI reads only external synthetic receipts\nok 6 - report CLI reads only external synthetic receipts\n  ---\n  duration_ms: 28.615375\n  type: 'test'\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 6\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 48.492584\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_workspace_measurement.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "2/2 workspace measurement integration checks passed\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_hub_execution_contract.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: Given proven module metadata, When the execution contract is validated, Then all explicit ABI kinds and lifecycle metadata are retained\nok 1 - Given proven module metadata, When the execution contract is validated, Then all explicit ABI kinds and lifecycle metadata are retained\n  ---\n  duration_ms: 1.138583\n  type: 'test'\n  ...\n# Subtest: Given a module path without an explicit evaluator, When the contract is validated, Then it fails closed without inspecting source or extension\nok 2 - Given a module path without an explicit evaluator, When the contract is validated, Then it fails closed without inspecting source or extension\n  ---\n  duration_ms: 0.095834\n  type: 'test'\n  ...\n# Subtest: Given unsafe paths, duplicate order, unknown dependencies, and invalid retry metadata, When validation runs, Then no executable contract is produced\nok 3 - Given unsafe paths, duplicate order, unknown dependencies, and invalid retry metadata, When validation runs, Then no executable contract is produced\n  ---\n  duration_ms: 0.643625\n  type: 'test'\n  ...\n# Subtest: Given a validated contract, When a module is looked up, Then the lookup is explicit and unknown modules remain rejected\nok 4 - Given a validated contract, When a module is looked up, Then the lookup is explicit and unknown modules remain rejected\n  ---\n  duration_ms: 0.361875\n  type: 'test'\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 6.468125\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_hub_loader.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "TAP version 13\n# Subtest: Given legacy loadScripts, When a missing module appears between valid modules, Then observable execution stays sequential and rejects after continuing\nok 1 - Given legacy loadScripts, When a missing module appears between valid modules, Then observable execution stays sequential and rejects after continuing\n  ---\n  duration_ms: 4.867125\n  type: 'test'\n  ...\n# Subtest: Given required and optional manifest paths, When loadManifest runs, Then modules execute once in required-before-optional order\nok 2 - Given required and optional manifest paths, When loadManifest runs, Then modules execute once in required-before-optional order\n  ---\n  duration_ms: 5.233291\n  type: 'test'\n  ...\n# Subtest: Given duplicate required and optional paths, When loadManifest runs, Then duplicates are suppressed across the manifest\nok 3 - Given duplicate required and optional paths, When loadManifest runs, Then duplicates are suppressed across the manifest\n  ---\n  duration_ms: 4.67575\n  type: 'test'\n  ...\n# Subtest: Given a missing optional module, When loadManifest runs, Then it reports optional failure and preserves loaded required modules\nok 4 - Given a missing optional module, When loadManifest runs, Then it reports optional failure and preserves loaded required modules\n  ---\n  duration_ms: 3.194875\n  type: 'test'\n  ...\n# Subtest: Given a missing required module, When loadManifest runs, Then it returns required failure without throwing and still loads optional modules\nok 5 - Given a missing required module, When loadManifest runs, Then it returns required failure without throwing and still loads optional modules\n  ---\n  duration_ms: 3.185875\n  type: 'test'\n  ...\n# Subtest: Given a module throws during evaluation, When loadManifest runs, Then the structured failure exposes path and safe summary only\nok 6 - Given a module throws during evaluation, When loadManifest runs, Then the structured failure exposes path and safe summary only\n  ---\n  duration_ms: 4.213541\n  type: 'test'\n  ...\n# Subtest: Given a failed module is restored, When retry invalidates the path, Then only that module executes on the next manifest load\nok 7 - Given a failed module is restored, When retry invalidates the path, Then only that module executes on the next manifest load\n  ---\n  duration_ms: 4.933791\n  type: 'test'\n  ...\n# Subtest: Given a missing required module is restored, When retry invalidates the path, Then the recovered module executes without reloading prior successes\nok 8 - Given a missing required module is restored, When retry invalidates the path, Then the recovered module executes without reloading prior successes\n  ---\n  duration_ms: 4.499625\n  type: 'test'\n  ...\n# Subtest: Given concurrent callers request the same module, When loadManifest runs in parallel, Then read and evaluation are de-duplicated in flight\nok 9 - Given concurrent callers request the same module, When loadManifest runs in parallel, Then read and evaluation are de-duplicated in flight\n  ---\n  duration_ms: 14.650833\n  type: 'test'\n  ...\n# Subtest: Given an older failed attempt resolves after a newer retry succeeds, When both finish, Then stale failure state does not overwrite the newer loaded state\nok 10 - Given an older failed attempt resolves after a newer retry succeeds, When both finish, Then stale failure state does not overwrite the newer loaded state\n  ---\n  duration_ms: 22.96675\n  type: 'test'\n  ...\n# Subtest: Given an in-flight read is retried before it resolves, When newer source succeeds and older valid source resolves later, Then only newer source executes and stale result is not loaded\nok 11 - Given an in-flight read is retried before it resolves, When newer source succeeds and older valid source resolves later, Then only newer source executes and stale result is not loaded\n  ---\n  duration_ms: 0.559625\n  type: 'test'\n  ...\n# Subtest: Given one failed cached path and one loaded path, When retry receives both, Then it invalidates failed entries only\nok 12 - Given one failed cached path and one loaded path, When retry receives both, Then it invalidates failed entries only\n  ---\n  duration_ms: 4.345417\n  type: 'test'\n  ...\n# Subtest: Given malformed manifest inputs, When loadManifest runs, Then it fails closed with structured required failure\nok 13 - Given malformed manifest inputs, When loadManifest runs, Then it fails closed with structured required failure\n  ---\n  duration_ms: 0.356459\n  type: 'test'\n  ...\n# Subtest: Given legacy loadScript, When a module is already loaded, Then the API resolves without reading or executing it again\nok 14 - Given legacy loadScript, When a module is already loaded, Then the API resolves without reading or executing it again\n  ---\n  duration_ms: 1.688708\n  type: 'test'\n  ...\n# Subtest: Given optional recorder hooks, When modules load, Then evaluation and outcome hooks stay ordered and source-independent\nok 15 - Given optional recorder hooks, When modules load, Then evaluation and outcome hooks stay ordered and source-independent\n  ---\n  duration_ms: 1.866958\n  type: 'test'\n  ...\n# Subtest: Given a cached module and a failed module, When retry is requested, Then recorder observes cache, retry, and fresh evaluation without changing loaded order\nok 16 - Given a cached module and a failed module, When retry is requested, Then recorder observes cache, retry, and fresh evaluation without changing loaded order\n  ---\n  duration_ms: 4.55675\n  type: 'test'\n  ...\n# Subtest: Given a pending and then stale attempt, When retry changes the module version, Then recorder receives specialized status hooks without source data\nok 17 - Given a pending and then stale attempt, When retry changes the module version, Then recorder receives specialized status hooks without source data\n  ---\n  duration_ms: 0.636667\n  type: 'test'\n  ...\n# Subtest: Given a mount scope with timers, listeners, observers, and custom cleanup, When disposed twice, Then every resource is released once and guarded callbacks stop\nok 18 - Given a mount scope with timers, listeners, observers, and custom cleanup, When disposed twice, Then every resource is released once and guarded callbacks stop\n  ---\n  duration_ms: 13.506584\n  type: 'test'\n  ...\n1..18\n# tests 18\n# suites 0\n# pass 18\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 102.882625\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_workspace_navigation_contract.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "Workspace navigation contract tests passed\n",
+      "stderr": ""
+    },
+    {
+      "command": "node SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_period_navigation.js",
+      "status": 0,
+      "signal": null,
+      "stdout": "Journal period navigation tests passed\n",
+      "stderr": ""
+    }
+  ]
+}

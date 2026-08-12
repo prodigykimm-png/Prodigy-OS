@@ -1,0 +1,16 @@
+{
+  "schema_version": "task16-focused-fixed-seams-v1",
+  "seams": [
+    {
+      "id": "knowledge_para_compact_activation",
+      "status": "fixed_focused_pass",
+      "command": "node --test SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_para_real_obsidian_390.js",
+      "proof": {
+        "rows": 32,
+        "viewport_settlement": "ResizeObserver_before_metrics_trigger",
+        "state_assertion": "exact_data_focus_pane_after_activation"
+      },
+      "closure_authority": "full_authoritative_workflow_only"
+    }
+  ]
+}

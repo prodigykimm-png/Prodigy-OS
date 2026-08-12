@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "review_id": "weekly-review-2026-W29",
+  "review_type": "learning",
+  "question": "이번 주의 경험에서 무엇이 반복되었고, 무엇을 배웠는가?",
+  "summary": "1개의 일일 성찰과 0개의 연결 Object를 검토했다. 반복 패턴은 충분한 복수 증거로 확인되지 않았다.",
+  "findings": [],
+  "meaningful_changes": [
+    {
+      "title": "즉시 처리 기준의 변화",
+      "reason": "- 나의 행동양상을 바꿔야 한다. 금방 처리하고 해결할 수 있는 일을 조금만 더 있다가 조금만 더 있다가 하며 미루는 경향이 있다. 앞으로 즉각즉각 처리할 것이다.",
+      "evidence_refs": [
+        "daily-2026-07-13"
+      ]
+    }
+  ],
+  "experiments": [
+    {
+      "title": "다음 실험",
+      "description": "- 회사에서 바로 처리할 수 있는 작은 일이 생긴다면 바로 시행하기.",
+      "evidence_refs": [
+        "daily-2026-07-13"
+      ]
+    }
+  ],
+  "suggested_principles": [],
+  "next_week_direction": [
+    "Try: - 회사에서 바로 처리할 수 있는 작은 일이 생긴다면 바로 시행하기.",
+    "Observe: 같은 지연 패턴이 반복되는지 추가 증거를 모은다."
+  ],
+  "limitations": [
+    "No repeated pattern identified.",
+    "Only one Daily available.",
+    "No linked Objects."
+  ],
+  "references": [
+    "DAILY/DAILY/2026-07-13.md"
+  ]
+}

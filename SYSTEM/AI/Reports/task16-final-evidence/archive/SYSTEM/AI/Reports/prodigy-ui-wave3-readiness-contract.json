@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "reportKind": "prodigy-ui-wave3-readiness-and-receipt-export-contract",
+  "contractVersion": "wave3-workspace-readiness-v1",
+  "status": "implemented",
+  "scope": {
+    "readinessModule": "SYSTEM/Views/prodigy-workspace-readiness.js",
+    "exportModule": "SYSTEM/Views/prodigy-performance-exporter.js",
+    "vaultMutation": false,
+    "obsidianSettingsMutation": false
+  },
+  "readiness": {
+    "predicateVersionPrefix": "readiness.",
+    "settledStateKinds": ["deterministic", "error", "empty"],
+    "timerInference": false,
+    "requiredFields": ["settled state", "exact enabled action"],
+    "reasonCodes": [
+      "READY",
+      "STATE_NOT_SETTLED",
+      "SYNC_PENDING",
+      "UNAVAILABLE",
+      "DEFERRED_SURFACE",
+      "PERIOD_NOT_SELECTED",
+      "ACTION_UNAVAILABLE",
+      "ACTION_DISABLED",
+      "ACTION_MISMATCH",
+      "ACTION_AMBIGUOUS"
+    ],
+    "selectors": [
+      {"selector": "home", "workspace": "home", "predicateVersion": "readiness.home.v1", "enabledAction": "home.open"},
+      {"selector": "knowledge", "workspace": "knowledge", "predicateVersion": "readiness.knowledge.v1", "enabledAction": "knowledge.open"},
+      {"selector": "journal.daily", "workspace": "journal", "predicateVersion": "readiness.journal.daily.v1", "enabledAction": "journal.daily.open", "periodSelection": "not_required"},
+      {"selector": "journal.weekly", "workspace": "journal", "predicateVersion": "readiness.journal.weekly.v1", "enabledAction": "journal.weekly.open", "periodSelection": "selected_required"},
+      {"selector": "journal.monthly", "workspace": "journal", "predicateVersion": "readiness.journal.monthly.v1", "enabledAction": "journal.monthly.open", "periodSelection": "selected_required"},
+      {"selector": "reading", "workspace": "reading", "predicateVersion": "readiness.reading.v1", "enabledAction": "reading.open"},
+      {"selector": "personal.people", "workspace": "personal", "predicateVersion": "readiness.personal.people.v1", "enabledAction": "personal.people.open"},
+      {"selector": "personal.places", "workspace": "personal", "predicateVersion": "readiness.personal.places.v1", "enabledAction": "personal.places.open", "deferred": true, "activationRequired": true},
+      {"selector": "project", "workspace": "project", "predicateVersion": "readiness.project.v1", "enabledAction": "project.open"},
+      {"selector": "auction", "workspace": "auction", "predicateVersion": "readiness.auction.v1", "enabledAction": "auction.open"},
+      {"selector": "auction.site_visit", "workspace": "auction", "predicateVersion": "readiness.auction.site_visit.v1", "enabledAction": "auction.site_visit.open", "separateReadiness": true},
+      {"selector": "workout", "workspace": "workout", "predicateVersion": "readiness.workout.v1", "enabledAction": "workout.open"},
+      {"selector": "workout.health", "workspace": "workout", "predicateVersion": "readiness.workout.health.v1", "enabledAction": "workout.health.open", "deferred": true},
+      {"selector": "workout.import", "workspace": "workout", "predicateVersion": "readiness.workout.import.v1", "enabledAction": "workout.import.open", "deferred": true},
+      {"selector": "region", "workspace": "region", "predicateVersion": "readiness.region.v1", "enabledAction": "region.open"},
+      {"selector": "inbox", "workspace": "inbox", "predicateVersion": "readiness.inbox.v1", "enabledAction": "inbox.open"}
+    ]
+  },
+  "physicalMobileBoundary": {
+    "status": "not_proven",
+    "claimAllowed": false,
+    "requiredEvidence": "A controlled physical iPhone/iPad Obsidian Mobile receipt supplied by the user/device campaign.",
+    "logicalWidthsAndBrowserHarnessAreNotPhysicalEvidence": true
+  },
+  "export": {
+    "module": "SYSTEM/Views/prodigy-performance-exporter.js",
+    "input": "in-memory receipt only",
+    "preview": {
+      "redacted": true,
+      "writes": false,
+      "preserves": ["run_id", "correlation_id", "campaign_id", "source_sha256", "settings_sha256", "final_git_sha"],
+      "redacts": ["absolute paths", "Vault paths", "note/content/body/raw values", "tokens/secrets/credentials"],
+      "physicalMobileClaim": "not_proven"
+    },
+    "confirmation": {
+      "explicitConfirmRequired": true,
+      "explicitApprovalRequired": true,
+      "saveWithoutConfirm": "refused",
+      "unapprovedWrite": "refused"
+    },
+    "destination": {
+      "externalOnly": true,
+      "vaultWrite": false,
+      "pathTemplate": "<external_receipt_root>/<final_git_sha>/<run_id>/receipt.json",
+      "finalSha": "required and bound to receipt",
+      "runId": "required and path-safe",
+      "pathTraversal": "refused",
+      "overwrite": "refused",
+      "vaultBoundary": "destination must be outside the supplied vaultRoot"
+    },
+    "failureAndRetry": {
+      "failedWrite": "receipt remains in memory",
+      "retry": "explicit retry() reuses the retained receipt",
+      "partialOrExistingDestination": "never overwritten"
+    },
+    "failClosed": [
+      "missing or mixed SHA/configuration hashes",
+      "unsafe destination paths",
+      "secrets",
+      "unsupported physical-mobile claims",
+      "unapproved settings changes"
+    ]
+  },
+  "compatibility": {
+    "browser": "IIFE attaches ProdigyWorkspaceReadiness and ProdigyPerformanceExporter to the global object; filesystem access is injected.",
+    "commonjs": "Both modules export their API through module.exports.",
+    "obsidianDom": "Readiness rendering uses createEl/setAttribute without requiring a framework."
+  },
+  "verification": {
+    "focusedTests": [
+      "SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_workspace_readiness.js",
+      "SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_performance_exporter.js"
+    ],
+    "physicalDeviceTest": "not_run",
+    "projectWideGates": "intentionally skipped per Wave 3 assignment"
+  }
+}

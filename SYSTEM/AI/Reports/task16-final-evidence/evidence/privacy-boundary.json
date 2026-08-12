@@ -1,0 +1,45 @@
+{
+  "schema_version": "task16-receipt-privacy-v1",
+  "campaign_binding": {
+    "receipt_count": 2,
+    "receipts": [
+      {
+        "receipt_sha256": "64d9924b41406122afda955c2f1b3c696614788c1cfd11503fabfd1aac706150"
+      },
+      {
+        "receipt_sha256": "937e03c1a381fdad4cfbbd646cb69cfb6f1d600471bfe86f00df4d7b499cb40c"
+      }
+    ],
+    "aggregate_sha256": "d82c27325d6f97b9568e81faef5270f876573d1ea1e87f0f73f03995c7c34811"
+  },
+  "personal_boundary": {
+    "authorization": "no_personal_data_access_authorized",
+    "before": {
+      "algorithm": "sha256",
+      "entry_count": 0,
+      "aggregate_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "after": {
+      "algorithm": "sha256",
+      "entry_count": 0,
+      "aggregate_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "exact": true,
+    "paths_disclosed": false,
+    "content_disclosed": false,
+    "mutations": 0
+  },
+  "reviewer_boundary_incident": {
+    "reported": true,
+    "summary": "A reviewer invocation inherited a personal-vault working directory and created a temporary archive.",
+    "source_writes": 0,
+    "actual_vault_mutations": 0,
+    "personal_content_accessed_by_this_campaign": false,
+    "cleanup_status": "verified_absent_by_task_owned_temp_scan"
+  },
+  "persisted_receipt_scan": {
+    "scanned_file_count": 1229,
+    "hits": []
+  },
+  "digest": "80293f07ddd9023bb12c8df700c5c84809274d6d5771aec4098d829c66d03d33"
+}

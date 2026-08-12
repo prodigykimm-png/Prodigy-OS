@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"invalid-property","kind":"property_audit","content":"---\nid: invalid-property\ntype: project\nstatus: active\nprivate_owner: forbidden\n---\n# Invalid Property\n","expect":{"property":"private_owner","write_attempts":0,"write_count":0,"manifest_unchanged":true}}

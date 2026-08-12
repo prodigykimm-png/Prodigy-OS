@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "region-source-registry.schema.json",
+  "title": "Region Intelligence Source Registry",
+  "description": "Frozen provider registry for the Prodigy Region Intelligence system. Every provider row must exist with exact planned status, fixture policy, transport contract, and enablement gate.",
+  "type": "object",
+  "required": [
+    "version",
+    "plan",
+    "provider_count",
+    "providers"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "plan": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_count": {
+      "type": "integer",
+      "const": 32
+    },
+    "providers": {
+      "type": "array",
+      "minItems": 32,
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/provider_row"
+      }
+    }
+  },
+  "$defs": {
+    "fixture_object": {
+      "type": "object",
+      "required": [
+        "role",
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+$",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^/]"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "transport_object": {
+      "type": "object",
+      "required": [
+        "method",
+        "url",
+        "query",
+        "headers",
+        "body",
+        "pagination",
+        "response_encoding",
+        "response_columns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "POST"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "body": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "pagination": {
+          "type": "object",
+          "required": [
+            "kind",
+            "max_requests"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "none"
+              ]
+            },
+            "max_requests": {
+              "type": "integer",
+              "const": 1
+            }
+          }
+        },
+        "response_encoding": {
+          "type": "string",
+          "minLength": 1
+        },
+        "response_columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "provider_row": {
+      "type": "object",
+      "required": [
+        "provider_id",
+        "status",
+        "canonical_source_url",
+        "auth_placement",
+        "scope",
+        "cadence",
+        "parser_version",
+        "units",
+        "correction_semantics",
+        "retention",
+        "license_url",
+        "network_allowed",
+        "fixture_policy",
+        "fixtures",
+        "fixture_missing_reason",
+        "transport",
+        "transport_missing_reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provider_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "planned_enabled",
+            "blocked_coverage",
+            "blocked_fixture",
+            "disabled",
+            "accepted_legacy",
+            "candidate",
+            "manual"
+          ]
+        },
+        "canonical_source_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "auth_placement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cadence": {
+          "type": "string",
+          "enum": [
+            "monthly",
+            "half-year",
+            "annual",
+            "provider revision",
+            "official file revision",
+            "seven-day revision poll",
+            "revision polling",
+            "manual/weekly",
+            "manual",
+            "none"
+          ]
+        },
+        "parser_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "units": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "correction_semantics": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retention": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "network_allowed": {
+          "type": "boolean"
+        },
+        "fixture_policy": {
+          "type": "string",
+          "enum": [
+            "required",
+            "parser_seed",
+            "grandfathered_set",
+            "absent_blocked",
+            "manual_no_fetch"
+          ]
+        },
+        "fixtures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fixture_object"
+          }
+        },
+        "fixture_missing_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transport": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/transport_object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transport_missing_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Prodigy Visual QA"
+  short_description: "Obsidian UI를 실제 화면에서 검증합니다"
+  default_prompt: "Use $prodigy-visual-qa to verify this Prodigy OS UI change in Obsidian."
+policy:
+  allow_implicit_invocation: true

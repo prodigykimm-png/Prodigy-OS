@@ -29,7 +29,7 @@ async function testStructuredRequestUsesPrintModeAndSchema() {
       calls.push({ command, args, options });
       return child;
     },
-    getCommand: () => "/Users/test/.local/bin/agy"
+    getCommand: () => "agy"
   });
 
   const payload = await service.requestStructuredJson({
@@ -40,7 +40,7 @@ async function testStructuredRequestUsesPrintModeAndSchema() {
 
   assert.deepEqual(payload, { ok: true });
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].command, "/Users/test/.local/bin/agy");
+  assert.equal(calls[0].command, "agy");
   assert.equal(calls[0].options.shell, false);
   assert.equal(calls[0].args[0], "-p");
   assert.match(calls[0].args[1], /저널 분석 fixture/);
@@ -89,10 +89,153 @@ async function testMobileStructuredRequestUsesRelayAndSecretStorage() {
   assert.equal(body.prompt, "모바일 저널 분석 fixture");
 }
 
+async function testMobileRelayRejectsDirectTokenInjection() {
+  let requests = 0;
+  const service = antigravity.createService();
+  await assert.rejects(
+    service.requestStructuredJson({
+      app: {
+        isMobile: true,
+        secretStorage: { getSecret: async () => "" },
+        requestUrl: async () => { requests += 1; return { status: 200, json: { structured_output: { ok: true } } }; }
+      },
+      provider: Object.assign({}, antigravity.DEFAULT_PROVIDER, {
+        relayURL: "https://fixture.ts.net/v1/antigravity"
+      }),
+      relayToken: "direct-bypass",
+      prompt: "fixture",
+      schema: { type: "object" }
+    }),
+    /SecretStorage|직접.*토큰|허용되지/u
+  );
+  assert.equal(requests, 0, "direct relay token must fail before network");
+}
+
+async function testRejectsCallerSelectedBinaryAndDisabledSandboxBeforeSpawn() {
+  let spawns = 0;
+  const service = antigravity.createService({ spawn: () => { spawns += 1; return fakeChildProcess("", 0); } });
+  await assert.rejects(service.requestChatText({ provider: { ...antigravity.DEFAULT_PROVIDER, command: "/tmp/unapproved" }, prompt: "fixture" }), /공식 agy/u);
+  await assert.rejects(service.requestChatText({ provider: { ...antigravity.DEFAULT_PROVIDER, command: "agy", sandbox: false }, prompt: "fixture" }), /sandbox/u);
+  assert.equal(spawns, 0);
+}
+
+async function testRejectsEveryUnknownPublicOptionBeforeBoundaryEffects() {
+  const attacks = [
+    { executionMode: "unsafe" },
+    { allowTools: true },
+    { unknownScalar: 7 },
+    { unknownObject: { enabled: true } },
+    { unknownFunction() {} }
+  ];
+  let spawns = 0;
+  const service = antigravity.createService({ spawn: () => { spawns += 1; return fakeChildProcess("", 0); } });
+  for (const attack of attacks) {
+    await assert.rejects(service.requestChatText({ provider: antigravity.DEFAULT_PROVIDER, prompt: "fixture", ...attack }), /알 수 없는.*옵션/u);
+  }
+  await assert.rejects(
+    service.requestChatText({ provider: { ...antigravity.DEFAULT_PROVIDER, unknownObject: {} }, prompt: "fixture" }),
+    /알 수 없는.*provider/u
+  );
+  assert.equal(spawns, 0);
+}
+
+async function testEnvironmentCannotOverrideOfficialExecutable() {
+  const previous = process.env.AGY_BIN;
+  try {
+    for (const attack of ["/tmp/env-evil", "./agy", "agy; touch /tmp/pwn", "alternate-agy"]) {
+      process.env.AGY_BIN = attack;
+      let spawns = 0;
+      const service = antigravity.createService({ spawn: () => { spawns += 1; return fakeChildProcess("", 0); } });
+      await assert.rejects(service.requestChatText({ provider: antigravity.DEFAULT_PROVIDER, prompt: "fixture" }), /AGY_BIN|공식.*실행/u);
+      assert.equal(spawns, 0);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.AGY_BIN;
+    else process.env.AGY_BIN = previous;
+  }
+}
+
+async function testRelayUrlValidationPrecedesSecretAndNetwork() {
+  const attacks = [
+    "https://evil.example/v1/antigravity",
+    "http://fixture.ts.net/v1/antigravity",
+    "https://user:pass@fixture.ts.net/v1/antigravity",
+    "https://fixture.ts.net/v1/antigravity#fragment",
+    "https://localhost/v1/antigravity",
+    "https://127.0.0.1/v1/antigravity",
+    "not a URL"
+  ];
+  const service = antigravity.createService();
+  for (const relayURL of attacks) {
+    let secretReads = 0;
+    let requests = 0;
+    await assert.rejects(service.requestChatText({
+      app: {
+        isMobile: true,
+        secretStorage: { getSecret: async () => { secretReads += 1; return "relay-secret"; } },
+        requestUrl: async () => { requests += 1; return { status: 200, json: { response: "unsafe" } }; }
+      },
+      provider: { ...antigravity.DEFAULT_PROVIDER, relayURL },
+      prompt: "fixture"
+    }), /Tailscale|중계 URL/u);
+    assert.equal(secretReads, 0, `${relayURL} read SecretStorage before URL rejection`);
+    assert.equal(requests, 0, `${relayURL} reached network`);
+  }
+}
+
+async function testRelayErrorsAreSanitizedBeforeTheyBecomeUserFacing() {
+  const secrets = [
+    "SENSITIVE_TOKEN_12345678901234567890",
+    "BEARER_SECRET_12345678901234567890",
+    "API_KEY_SECRET_12345678901234567890",
+    "JSON_SECRET_12345678901234567890"
+  ];
+  const payloads = [
+    { error: `Antigravity token ${secrets[0]}` },
+    { error: `Authorization: Bearer ${secrets[1]}` },
+    { error: `api_key=${secrets[2]}` },
+    { error: JSON.stringify({ secret: secrets[3], stack: "/private/source.js:1" }) }
+  ];
+  const service = antigravity.createService();
+  for (const payload of payloads) {
+    await assert.rejects(service.requestChatText({
+      app: {
+        isMobile: true,
+        secretStorage: { getSecret: async () => "relay-secret" },
+        requestUrl: async () => ({ status: 502, json: payload })
+      },
+      provider: { ...antigravity.DEFAULT_PROVIDER, relayURL: "https://fixture.ts.net/v1/antigravity" },
+      prompt: "fixture"
+    }), (error) => {
+      const surfaced = `${error.message}\n${error.stack || ""}`;
+      for (const secret of secrets) assert.equal(surfaced.includes(secret), false);
+      assert.doesNotMatch(surfaced, /api_key|Authorization: Bearer|\/private\/source\.js/u);
+      assert.match(error.message, /Antigravity 중계.*HTTP 502/u);
+      return true;
+    });
+  }
+
+  await assert.rejects(service.requestChatText({
+    app: {
+      isMobile: true,
+      secretStorage: { getSecret: async () => "relay-secret" },
+      requestUrl: async () => ({ status: 503, json: { error: { code: "UPSTREAM_BUSY", message: "safe detail" } } })
+    },
+    provider: { ...antigravity.DEFAULT_PROVIDER, relayURL: "https://fixture.ts.net/v1/antigravity" },
+    prompt: "fixture"
+  }), /HTTP 503.*UPSTREAM_BUSY/u);
+}
+
 async function main() {
   await testStructuredRequestUsesPrintModeAndSchema();
   await testChatRequestExtractsJsonResponse();
+  await testRejectsCallerSelectedBinaryAndDisabledSandboxBeforeSpawn();
+  await testRejectsEveryUnknownPublicOptionBeforeBoundaryEffects();
+  await testEnvironmentCannotOverrideOfficialExecutable();
+  await testRelayUrlValidationPrecedesSecretAndNetwork();
+  await testRelayErrorsAreSanitizedBeforeTheyBecomeUserFacing();
   await testMobileStructuredRequestUsesRelayAndSecretStorage();
+  await testMobileRelayRejectsDirectTokenInjection();
   console.log("Antigravity exec service tests passed");
 }
 

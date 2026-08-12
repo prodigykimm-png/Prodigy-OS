@@ -1,0 +1,1133 @@
+{
+  "schema_version": "task16-independent-real-rendered-journeys-v2",
+  "workspaces": [
+    "home",
+    "auction",
+    "reading",
+    "workout",
+    "project",
+    "knowledge",
+    "personal",
+    "journal"
+  ],
+  "journeys": [
+    {
+      "workspace_id": "home",
+      "states": [
+        "happy",
+        "invalid_failure",
+        "retry",
+        "recovered",
+        "home_return"
+      ],
+      "controls": {
+        "happy_driver": "workspace-state-adapter",
+        "failure_driver": "workspace-state-adapter",
+        "failure_contract_selectors": [
+          {
+            "selector": "[data-prodigy-state-owner=\"home\"][data-state=\"error\"]",
+            "scope": "shell",
+            "count": 1
+          }
+        ],
+        "input_events": {
+          "seed": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": null,
+              "prompt": null
+            }
+          ],
+          "enter": [
+            {
+              "type": "input-complete",
+              "key": "Enter"
+            }
+          ],
+          "escapeBeforeTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ],
+          "tab": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": "2",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Tab"
+            }
+          ],
+          "escapeAfterTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ]
+        },
+        "home_return": {
+          "selector": ".prodigy-workspace-switcher",
+          "eventType": "click",
+          "eventBeforeTrigger": true,
+          "file": "HUB/00 Home.md",
+          "workspaceId": "home"
+        }
+      },
+      "ownership": {
+        "workspace_id": "home",
+        "mount_generation": 1,
+        "mount_execution": 1,
+        "block_execution": {
+          "status": "rendered",
+          "language": "dataviewjs",
+          "sha256": "39a7b225d1d2ff3572732541b135a5cb08c99bf523217c07d54637ec6e7b091e",
+          "blocks": 1,
+          "executions": 1,
+          "generation": 1,
+          "errors": [],
+          "at": 1786503310075
+        },
+        "source_file": "HUB/00 Home.md",
+        "source_sha256": "39a7b225d1d2ff3572732541b135a5cb08c99bf523217c07d54637ec6e7b091e",
+        "registry_live": true
+      },
+      "recovery": {
+        "reset": {
+          "ok": true,
+          "pending": 0,
+          "focusRestored": true,
+          "eventBeforeTrigger": true
+        },
+        "connector": null,
+        "event_before_trigger": true,
+        "validation": {
+          "ok": true,
+          "error": null
+        }
+      },
+      "authorization": {
+        "source_write_count": 0,
+        "trapped_write_count": 0,
+        "network_count": 0
+      },
+      "launch_contract": {
+        "mock_keychain_count": 1,
+        "child_home_task_owned": true,
+        "inherited_real_home": false
+      },
+      "cleanup": {
+        "vault_hash_equal": true,
+        "protected_identity_exact": true,
+        "runtime_removed": true,
+        "port_reusable": true
+      },
+      "digest": "2a932959ba977a9ec493ddc511bca6b9c06a2a129f05303d3509dbcb2e2e0ed5"
+    },
+    {
+      "workspace_id": "auction",
+      "states": [
+        "happy",
+        "invalid_failure",
+        "retry",
+        "recovered",
+        "home_return"
+      ],
+      "controls": {
+        "happy_driver": "workspace-state-adapter",
+        "failure_driver": "workspace-state-adapter",
+        "failure_contract_selectors": [
+          {
+            "selector": "[data-prodigy-state-owner=\"auction\"][data-state=\"error\"]",
+            "scope": "shell",
+            "count": 1
+          }
+        ],
+        "input_events": {
+          "seed": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": null,
+              "prompt": null
+            }
+          ],
+          "enter": [
+            {
+              "type": "input-complete",
+              "key": "Enter"
+            }
+          ],
+          "escapeBeforeTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ],
+          "tab": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": null,
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Tab"
+            }
+          ],
+          "escapeAfterTab": [
+            {
+              "type": "focusin",
+              "tag": "SELECT",
+              "order": "0",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ]
+        },
+        "home_return": {
+          "selector": ".prodigy-context-action",
+          "eventType": "click",
+          "eventBeforeTrigger": true,
+          "file": "HUB/00 Home.md",
+          "workspaceId": "home"
+        }
+      },
+      "ownership": {
+        "workspace_id": "auction",
+        "mount_generation": 1,
+        "mount_execution": 1,
+        "block_execution": {
+          "status": "rendered",
+          "language": "dataviewjs",
+          "sha256": "eb1ee3057ded9f871114ae0ee2da148a1bfe7cabd0ccc0afd13e8a70b0e58574",
+          "blocks": 12,
+          "executions": 12,
+          "generation": 1,
+          "errors": [],
+          "at": 1786503317974
+        },
+        "source_file": "HUB/10 Auction.md",
+        "source_sha256": "003228f740bcf960bb835b69491c2483f8c74c1552dbaf11b2992f40584c6af8",
+        "registry_live": true
+      },
+      "recovery": {
+        "reset": {
+          "ok": true,
+          "pending": 0,
+          "focusRestored": true,
+          "eventBeforeTrigger": true
+        },
+        "connector": null,
+        "event_before_trigger": true,
+        "validation": {
+          "ok": true,
+          "error": null
+        }
+      },
+      "authorization": {
+        "source_write_count": 0,
+        "trapped_write_count": 0,
+        "network_count": 0
+      },
+      "launch_contract": {
+        "mock_keychain_count": 1,
+        "child_home_task_owned": true,
+        "inherited_real_home": false
+      },
+      "cleanup": {
+        "vault_hash_equal": true,
+        "protected_identity_exact": true,
+        "runtime_removed": true,
+        "port_reusable": true
+      },
+      "digest": "b11b2e9cf23fa0c782074368bac6f113f44216c839e72b033800605dd44cb9e1"
+    },
+    {
+      "workspace_id": "reading",
+      "states": [
+        "happy",
+        "invalid_failure",
+        "retry",
+        "recovered",
+        "home_return"
+      ],
+      "controls": {
+        "happy_driver": "reading-dashboard-controller",
+        "failure_driver": "reading-dashboard-controller",
+        "failure_contract_selectors": [
+          {
+            "selector": ".reading-hub-error[role=\"alert\"]",
+            "scope": "leaf",
+            "count": 1
+          },
+          {
+            "selector": ".reading-hub-error button",
+            "scope": "leaf",
+            "count": 1
+          }
+        ],
+        "input_events": {
+          "seed": [],
+          "enter": [],
+          "escapeBeforeTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ],
+          "tab": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": "1",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Tab"
+            }
+          ],
+          "escapeAfterTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ]
+        },
+        "home_return": {
+          "selector": ".prodigy-context-action",
+          "eventType": "click",
+          "eventBeforeTrigger": true,
+          "file": "HUB/00 Home.md",
+          "workspaceId": "home"
+        }
+      },
+      "ownership": {
+        "workspace_id": "reading",
+        "mount_generation": 1,
+        "mount_execution": 1,
+        "block_execution": {
+          "status": "rendered",
+          "language": "dataviewjs",
+          "sha256": "8d292ac73c2b881ceadbb9d96bcc64102dd442bc4f07b044fb542b456f24cc60",
+          "blocks": 9,
+          "executions": 9,
+          "generation": 1,
+          "errors": [],
+          "at": 1786503325744
+        },
+        "source_file": "HUB/20 Reading.md",
+        "source_sha256": "244fe41ecb8726a430986e4f44166d88cb54803b05a0a0ae7f007e345c34d0ba",
+        "registry_live": true
+      },
+      "recovery": {
+        "reset": {
+          "ok": true,
+          "pending": 0,
+          "providerRestored": true
+        },
+        "connector": null,
+        "event_before_trigger": true,
+        "validation": {
+          "ok": true,
+          "error": null
+        }
+      },
+      "authorization": {
+        "source_write_count": 0,
+        "trapped_write_count": 0,
+        "network_count": 0
+      },
+      "launch_contract": {
+        "mock_keychain_count": 1,
+        "child_home_task_owned": true,
+        "inherited_real_home": false
+      },
+      "cleanup": {
+        "vault_hash_equal": true,
+        "protected_identity_exact": true,
+        "runtime_removed": true,
+        "port_reusable": true
+      },
+      "digest": "896b54446f7d9fe3a7d838b50f33cb6ef3f3f7d5ce7693e85583a0a63ad761d9"
+    },
+    {
+      "workspace_id": "workout",
+      "states": [
+        "happy",
+        "invalid_failure",
+        "retry",
+        "recovered",
+        "home_return"
+      ],
+      "controls": {
+        "happy_driver": "workout-published-controller",
+        "failure_driver": "workout-published-controller",
+        "failure_contract_selectors": [
+          {
+            "selector": ".workout-error",
+            "scope": "shell",
+            "count": 1
+          },
+          {
+            "selector": ".workout-health-panel button",
+            "scope": "shell",
+            "count": 1
+          }
+        ],
+        "input_events": {
+          "seed": [],
+          "enter": [],
+          "escapeBeforeTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ],
+          "tab": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": "1",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Tab"
+            }
+          ],
+          "escapeAfterTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ]
+        },
+        "home_return": {
+          "selector": ".prodigy-context-action",
+          "eventType": "click",
+          "eventBeforeTrigger": true,
+          "file": "HUB/00 Home.md",
+          "workspaceId": "home"
+        }
+      },
+      "ownership": {
+        "workspace_id": "workout",
+        "mount_generation": 1,
+        "mount_execution": 1,
+        "block_execution": {
+          "status": "rendered",
+          "language": "js-engine",
+          "sha256": "53b4ff788e1bf359a3285a63e8bedf2f148fb14dac55570197c8301b5c5b42dc",
+          "blocks": 1,
+          "executions": 1,
+          "generation": 1,
+          "errors": [],
+          "at": 1786503333598
+        },
+        "source_file": "HUB/30 Workout.md",
+        "source_sha256": "53b4ff788e1bf359a3285a63e8bedf2f148fb14dac55570197c8301b5c5b42dc",
+        "registry_live": true
+      },
+      "recovery": {
+        "reset": {
+          "ok": true,
+          "pending": 0,
+          "providerRestored": true
+        },
+        "connector": null,
+        "event_before_trigger": true,
+        "validation": {
+          "ok": true,
+          "error": null
+        }
+      },
+      "authorization": {
+        "source_write_count": 0,
+        "trapped_write_count": 0,
+        "network_count": 0
+      },
+      "launch_contract": {
+        "mock_keychain_count": 1,
+        "child_home_task_owned": true,
+        "inherited_real_home": false
+      },
+      "cleanup": {
+        "vault_hash_equal": true,
+        "protected_identity_exact": true,
+        "runtime_removed": true,
+        "port_reusable": true
+      },
+      "digest": "753053923048b009d7daccedd7b8c9e70390431f4dd99efaad4bd11a550a80fd"
+    },
+    {
+      "workspace_id": "project",
+      "states": [
+        "happy",
+        "invalid_failure",
+        "retry",
+        "recovered",
+        "home_return"
+      ],
+      "controls": {
+        "happy_driver": "project-wizard-controller",
+        "failure_driver": "project-wizard-controller",
+        "failure_contract_selectors": [
+          {
+            "selector": ".prodigy-project-wizard div",
+            "scope": "document",
+            "count": 1
+          },
+          {
+            "selector": ".prodigy-project-approval-bar button:not(:disabled)",
+            "scope": "document",
+            "count": 1
+          },
+          {
+            "selector": ".prodigy-project-approval-bar button:disabled",
+            "scope": "document",
+            "count": 1
+          }
+        ],
+        "input_events": {
+          "seed": [
+            {
+              "type": "focusin",
+              "tag": "SELECT",
+              "order": null,
+              "prompt": null
+            },
+            {
+              "type": "focusin",
+              "tag": "INPUT",
+              "order": null,
+              "prompt": {
+                "owned": true,
+                "closed": false,
+                "scope": "external",
+                "kind": "native-obsidian-dialog"
+              }
+            }
+          ],
+          "enter": [
+            {
+              "type": "focusin",
+              "tag": "SELECT",
+              "order": null,
+              "prompt": null
+            },
+            {
+              "type": "focusin",
+              "tag": "INPUT",
+              "order": null,
+              "prompt": {
+                "owned": true,
+                "closed": false,
+                "scope": "external",
+                "kind": "native-obsidian-dialog"
+              }
+            }
+          ],
+          "escapeBeforeTab": [
+            {
+              "type": "focusin",
+              "tag": "SELECT",
+              "order": "0",
+              "prompt": null
+            },
+            {
+              "type": "focusin",
+              "tag": "INPUT",
+              "order": null,
+              "prompt": {
+                "owned": true,
+                "closed": false,
+                "scope": "external",
+                "kind": "native-obsidian-dialog"
+              }
+            },
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ],
+          "tab": [
+            {
+              "type": "focusin",
+              "tag": "SELECT",
+              "order": "0",
+              "prompt": null
+            },
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": "1",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Tab"
+            }
+          ],
+          "escapeAfterTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ]
+        },
+        "home_return": {
+          "selector": ".prodigy-context-action",
+          "eventType": "click",
+          "eventBeforeTrigger": true,
+          "file": "HUB/00 Home.md",
+          "workspaceId": "home"
+        }
+      },
+      "ownership": {
+        "workspace_id": "project",
+        "mount_generation": 1,
+        "mount_execution": 1,
+        "block_execution": {
+          "status": "rendered",
+          "language": "dataviewjs",
+          "sha256": "a0f07377b11a046087114f96e4b53d395ad688e5796305a7a0714a63cce4e854",
+          "blocks": 12,
+          "executions": 12,
+          "generation": 1,
+          "errors": [],
+          "at": 1786503341370
+        },
+        "source_file": "HUB/40 Project.md",
+        "source_sha256": "e38122d15c834a538f3428f64bdcf5e23b1fa3d8409f84ac6f0866d7d6f126cf",
+        "registry_live": true
+      },
+      "recovery": {
+        "reset": {
+          "ok": true,
+          "pending": 0,
+          "providerRestored": true
+        },
+        "connector": {
+          "kind": "project-wizard-controller",
+          "transitionApplied": true,
+          "eventObserved": true,
+          "consumedNonce": true,
+          "identityRestored": true,
+          "pendingDeferred": 0,
+          "syntheticOperations": [
+            {
+              "method": "vault.create",
+              "path": "PARA/PROJECTS/TASK13A Project State.md",
+              "label": "in_memory_synthetic",
+              "at": 1786503341710
+            },
+            {
+              "method": "vault.read",
+              "path": "PARA/PROJECTS/TASK13A Project State.md",
+              "label": "in_memory_synthetic",
+              "at": 1786503341714
+            },
+            {
+              "method": "vault.modify",
+              "path": "PARA/PROJECTS/TASK13A Project State.md",
+              "label": "in_memory_synthetic",
+              "at": 1786503341714
+            }
+          ],
+          "realOperations": [
+            {
+              "method": "adapter.write",
+              "path": ".obsidian/core-plugins.json",
+              "label": "real",
+              "at": 1786503341514,
+              "stack": [
+                "    at owner.<computed> [as write] (plugin:task13a-local-dv:11:897)",
+                "    at t.<anonymous> (app://obsidian.md/app.js:1:1134005)",
+                "    at app://obsidian.md/app.js:1:250088",
+                "    at Object.next (app://obsidian.md/app.js:1:250193)"
+              ]
+            }
+          ],
+          "approvalActions": 0,
+          "status": "Todoist 동기화 실패: [redacted]"
+        },
+        "event_before_trigger": true,
+        "validation": {
+          "ok": true,
+          "error": null
+        }
+      },
+      "authorization": {
+        "source_write_count": 0,
+        "trapped_write_count": 1,
+        "network_count": 0
+      },
+      "launch_contract": {
+        "mock_keychain_count": 1,
+        "child_home_task_owned": true,
+        "inherited_real_home": false
+      },
+      "cleanup": {
+        "vault_hash_equal": true,
+        "protected_identity_exact": true,
+        "runtime_removed": true,
+        "port_reusable": true
+      },
+      "digest": "ce80abd0b8e264f3f8e2c1f2940e1618345207db0554088342a16fbd6e354b32"
+    },
+    {
+      "workspace_id": "knowledge",
+      "states": [
+        "happy",
+        "invalid_failure",
+        "retry",
+        "recovered",
+        "home_return"
+      ],
+      "controls": {
+        "happy_driver": "knowledge-published-apis",
+        "failure_driver": "knowledge-published-apis",
+        "failure_contract_selectors": [
+          {
+            "selector": "[data-surface=\"llmwiki-lifecycle\"][data-state=\"failed\"]",
+            "scope": "shell",
+            "count": 1
+          },
+          {
+            "selector": ".llmwiki-lifecycle__status[data-state=\"error\"]",
+            "scope": "shell",
+            "count": 1
+          },
+          {
+            "selector": "[data-action=\"select-source\"]:not(:disabled)",
+            "scope": "shell",
+            "count": 1
+          }
+        ],
+        "input_events": {
+          "seed": [],
+          "enter": [],
+          "escapeBeforeTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ],
+          "tab": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": "1",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Tab"
+            }
+          ],
+          "escapeAfterTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ]
+        },
+        "home_return": {
+          "selector": ".prodigy-context-action",
+          "eventType": "click",
+          "eventBeforeTrigger": true,
+          "file": "HUB/00 Home.md",
+          "workspaceId": "home"
+        }
+      },
+      "ownership": {
+        "workspace_id": "knowledge",
+        "mount_generation": 1,
+        "mount_execution": 1,
+        "block_execution": {
+          "status": "rendered",
+          "language": "dataviewjs",
+          "sha256": "53c71a5f5d43e76d1603a6ca6ad775059614dd6d5e63f6707ecdefab347aae39",
+          "blocks": 1,
+          "executions": 1,
+          "generation": 1,
+          "errors": [],
+          "at": 1786503349318
+        },
+        "source_file": "HUB/50 Knowledge.md",
+        "source_sha256": "53c71a5f5d43e76d1603a6ca6ad775059614dd6d5e63f6707ecdefab347aae39",
+        "registry_live": true
+      },
+      "recovery": {
+        "reset": {
+          "ok": true,
+          "pending": 0,
+          "providerRestored": true,
+          "controllerStatus": "idle"
+        },
+        "connector": {
+          "kind": "knowledge-published-apis",
+          "transitionApplied": true,
+          "eventObserved": true,
+          "consumedNonce": true,
+          "identityRestored": true,
+          "pendingDeferred": 0,
+          "activeDeferred": 0,
+          "syntheticOperations": [],
+          "realOperations": [
+            {
+              "method": "adapter.write",
+              "path": ".obsidian/core-plugins.json",
+              "label": "real",
+              "at": 1786503349465,
+              "stack": [
+                "    at owner.<computed> [as write] (plugin:task13a-local-dv:11:897)",
+                "    at t.<anonymous> (app://obsidian.md/app.js:1:1134005)",
+                "    at app://obsidian.md/app.js:1:250088",
+                "    at Object.next (app://obsidian.md/app.js:1:250193)"
+              ]
+            }
+          ],
+          "approvalActions": 0,
+          "counters": {
+            "provider": 1,
+            "network": 1,
+            "canonical": 0,
+            "audit": 0,
+            "refresh": 0,
+            "git": 0,
+            "authorization": 0
+          },
+          "controllerStatus": "failed"
+        },
+        "event_before_trigger": true,
+        "validation": {
+          "ok": true,
+          "error": null
+        }
+      },
+      "authorization": {
+        "source_write_count": 0,
+        "trapped_write_count": 3,
+        "network_count": 0
+      },
+      "launch_contract": {
+        "mock_keychain_count": 1,
+        "child_home_task_owned": true,
+        "inherited_real_home": false
+      },
+      "cleanup": {
+        "vault_hash_equal": true,
+        "protected_identity_exact": true,
+        "runtime_removed": true,
+        "port_reusable": true
+      },
+      "digest": "b41a2847d51263e8d2eec45ee00cbbd68d394abda83d5e4ef668a70986c2538c"
+    },
+    {
+      "workspace_id": "personal",
+      "states": [
+        "happy",
+        "invalid_failure",
+        "retry",
+        "recovered",
+        "home_return"
+      ],
+      "controls": {
+        "happy_driver": "personal-published-controllers",
+        "failure_driver": "personal-published-controllers",
+        "failure_contract_selectors": [
+          {
+            "selector": ".ppw-read-error[role=\"alert\"]",
+            "scope": "shell",
+            "count": 1
+          },
+          {
+            "selector": "button[aria-label=\"TASK13A Person 본문 다시 읽기\"]",
+            "scope": "shell",
+            "count": 1
+          }
+        ],
+        "input_events": {
+          "seed": [],
+          "enter": [],
+          "escapeBeforeTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ],
+          "tab": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": "1",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Tab"
+            }
+          ],
+          "escapeAfterTab": [
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ]
+        },
+        "home_return": {
+          "selector": ".prodigy-context-action",
+          "eventType": "click",
+          "eventBeforeTrigger": true,
+          "file": "HUB/00 Home.md",
+          "workspaceId": "home"
+        }
+      },
+      "ownership": {
+        "workspace_id": "personal",
+        "mount_generation": 1,
+        "mount_execution": 1,
+        "block_execution": {
+          "status": "rendered",
+          "language": "dataviewjs",
+          "sha256": "bec805e4ff655a4e81818528645d4daedc4fc4fdabd7a3eea795aa295eacd5c5",
+          "blocks": 1,
+          "executions": 1,
+          "generation": 1,
+          "errors": [],
+          "at": 1786503357265
+        },
+        "source_file": "HUB/60 Personal.md",
+        "source_sha256": "bec805e4ff655a4e81818528645d4daedc4fc4fdabd7a3eea795aa295eacd5c5",
+        "registry_live": true
+      },
+      "recovery": {
+        "reset": {
+          "ok": true,
+          "pending": 0,
+          "focusRestored": true,
+          "scrollRestored": true
+        },
+        "connector": {
+          "kind": "personal-published-controllers",
+          "stub": false,
+          "transitionApplied": true,
+          "eventObserved": true,
+          "consumedNonce": true,
+          "identityRestored": true,
+          "pendingDeferred": 0,
+          "pendingProgress": 0,
+          "callbackCaptured": true,
+          "controllersCaptured": true,
+          "focusContract": true,
+          "scrollContract": true,
+          "remounted": false,
+          "fakeDom": false,
+          "syntheticOperations": [],
+          "realOperations": [
+            {
+              "method": "adapter.write",
+              "path": ".obsidian/core-plugins.json",
+              "label": "real",
+              "at": 1786503357409,
+              "stack": [
+                "    at owner.<computed> [as write] (plugin:task13a-local-dv:11:897)",
+                "    at t.<anonymous> (app://obsidian.md/app.js:1:1134005)",
+                "    at app://obsidian.md/app.js:1:250088",
+                "    at Object.next (app://obsidian.md/app.js:1:250193)"
+              ]
+            }
+          ],
+          "approvalActions": 0
+        },
+        "event_before_trigger": true,
+        "validation": {
+          "ok": true,
+          "error": null
+        }
+      },
+      "authorization": {
+        "source_write_count": 0,
+        "trapped_write_count": 1,
+        "network_count": 0
+      },
+      "launch_contract": {
+        "mock_keychain_count": 1,
+        "child_home_task_owned": true,
+        "inherited_real_home": false
+      },
+      "cleanup": {
+        "vault_hash_equal": true,
+        "protected_identity_exact": true,
+        "runtime_removed": true,
+        "port_reusable": true
+      },
+      "digest": "062c6fc1b168b2b2973a28e1daec8b6fa49201afc0cd5651d969d76704001e5d"
+    },
+    {
+      "workspace_id": "journal",
+      "states": [
+        "happy",
+        "invalid_failure",
+        "retry",
+        "recovered",
+        "home_return"
+      ],
+      "controls": {
+        "happy_driver": "journal-published-controllers",
+        "failure_driver": "journal-published-controllers",
+        "failure_contract_selectors": [
+          {
+            "selector": ".prodigy-reflection-modal .prodigy-status-line[role=\"status\"]",
+            "scope": "document",
+            "count": 1
+          },
+          {
+            "selector": ".prodigy-reflection-modal button:not(:disabled)",
+            "scope": "document",
+            "count": 1
+          }
+        ],
+        "input_events": {
+          "seed": [],
+          "enter": [],
+          "escapeBeforeTab": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": "2",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ],
+          "tab": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": "3",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Tab"
+            }
+          ],
+          "escapeAfterTab": [
+            {
+              "type": "focusin",
+              "tag": "BUTTON",
+              "order": "2",
+              "prompt": null
+            },
+            {
+              "type": "input-complete",
+              "key": "Escape"
+            }
+          ]
+        },
+        "home_return": {
+          "selector": ".prodigy-context-action",
+          "eventType": "click",
+          "eventBeforeTrigger": true,
+          "file": "HUB/00 Home.md",
+          "workspaceId": "home"
+        }
+      },
+      "ownership": {
+        "workspace_id": "journal",
+        "mount_generation": 1,
+        "mount_execution": 1,
+        "block_execution": {
+          "status": "rendered",
+          "language": "dataviewjs",
+          "sha256": "21e5722c3bcd86c29cc63f6676c89c4b58bee1ea6df0c6a03d90f32966644cc3",
+          "blocks": 1,
+          "executions": 1,
+          "generation": 1,
+          "errors": [],
+          "at": 1786503364944
+        },
+        "source_file": "HUB/70 Journal.md",
+        "source_sha256": "21e5722c3bcd86c29cc63f6676c89c4b58bee1ea6df0c6a03d90f32966644cc3",
+        "registry_live": true
+      },
+      "recovery": {
+        "reset": {
+          "ok": true,
+          "pending": 0,
+          "focusRestored": true,
+          "providerRestored": true
+        },
+        "connector": {
+          "kind": "journal-published-controllers",
+          "stub": false,
+          "transitionApplied": true,
+          "eventObserved": true,
+          "consumedNonce": true,
+          "identityRestored": true,
+          "pendingDeferred": 0,
+          "pendingProgress": 0,
+          "callbackCaptured": true,
+          "controllersCaptured": true,
+          "focusContract": true,
+          "scrollContract": true,
+          "remounted": false,
+          "fakeDom": false,
+          "syntheticOperations": [],
+          "realOperations": [
+            {
+              "method": "adapter.write",
+              "path": ".obsidian/core-plugins.json",
+              "label": "real",
+              "at": 1786503365098,
+              "stack": [
+                "    at owner.<computed> [as write] (plugin:task13a-local-dv:11:897)",
+                "    at t.<anonymous> (app://obsidian.md/app.js:1:1134005)",
+                "    at app://obsidian.md/app.js:1:250088",
+                "    at Object.next (app://obsidian.md/app.js:1:250193)"
+              ]
+            }
+          ],
+          "approvalActions": 0
+        },
+        "event_before_trigger": true,
+        "validation": {
+          "ok": true,
+          "error": null
+        }
+      },
+      "authorization": {
+        "source_write_count": 0,
+        "trapped_write_count": 1,
+        "network_count": 0
+      },
+      "launch_contract": {
+        "mock_keychain_count": 1,
+        "child_home_task_owned": true,
+        "inherited_real_home": false
+      },
+      "cleanup": {
+        "vault_hash_equal": true,
+        "protected_identity_exact": true,
+        "runtime_removed": true,
+        "port_reusable": true
+      },
+      "digest": "75e524eae086b48538174a8d54ad55ae841b88ce776ff65b43bae51921270dbb"
+    }
+  ],
+  "digest": "77d6eb189c2a26cea4c1a781dd268373d3e7905623285ac9f400ce1e0e46cb1f"
+}

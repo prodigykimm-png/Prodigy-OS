@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "package_id": "weekly-learning-2026-W29",
+  "review_type": "learning",
+  "workspace": "journal",
+  "question": "이번 주의 경험에서 무엇이 반복되었고, 무엇을 배웠는가?",
+  "period": {
+    "start": "2026-07-13",
+    "end": "2026-07-19",
+    "week": "2026-W29"
+  },
+  "primary_evidence_count": 1,
+  "supporting_evidence_count": 1,
+  "missing_count": 1,
+  "statistics": {
+    "daily_files_found": 2,
+    "daily_files_used": 1,
+    "linked_objects_found": 2,
+    "linked_objects_used": 1,
+    "linked_objects_excluded": 0,
+    "empty_reflections": 1,
+    "evidence_blocks": 1,
+    "missing_links": 1
+  }
+}

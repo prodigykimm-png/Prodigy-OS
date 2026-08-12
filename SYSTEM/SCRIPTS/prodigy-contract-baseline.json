@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "documentPath": "SYSTEM/docs/00_Constitution.md",
+  "normalizationVersion": 1,
+  "articles": [
+    {
+      "article": 3,
+      "normalizedText": "# Article 3 — Capture First\n모든 것은 Capture에서 시작한다.\nCapture는 가능한 한 빠르고 단순해야 한다.\n목표는\n**3초 안에 기록을 시작하는 것**이다.\nCapture 단계에서는\n- 폴더를 고르지 않는다.\n- Property를 입력하지 않는다.\n- 긴 Template를 작성하지 않는다.\nHome Article 3 최소 Capture 예외: Home에서 시작한 Capture가 3초 입력을 넘어 분류·정리·판단을 요구하면, Home에서 계속 처리하지 않고 Inbox 또는 해당 Workspace에서 검토한다.\n모바일 성공 주장은 `physical iPhone` 실기기에서 사용자가 직접 확인한 경우에만 `user-evidence-only gate`를 통과한다. 데스크톱 폭 조절이나 추정 결과는 Article 3 Capture의 모바일 성공 근거가 아니다.\n사람은 최소한만 입력한다.\n나머지는 AI가 구조화한다.\nObject 변경을 실행하는 Capture의 public 상태는 `capture_started` → `ai_proposal` → `human_review` → `human_confirmed` → `object_committed`만 사용한다. Terminal outcome은 `rejected`, `cancelled`, `no_change`, `stale`, `conflict`, `error`다. 첫 번째 trusted interaction은 정확한 제안을 화면에 검토 상태로 남기고 0회 저장한다. 같은 live mount/session/review에 대한 별도의 두 번째 Confirm interaction만 한 번의 canonical mutation을 허용한다. AI, 단일 이벤트, 자동화된 handler, 이전 승인, 또는 키보드 shortcut은 두 단계를 합칠 수 없다.",
+      "sha256": "613e2cd31d4d1e35c728b35828917349e480469c2ae8c332b8f5a26c6bbc3c64"
+    },
+    {
+      "article": 8,
+      "normalizedText": "# Article 8 — Homepage Philosophy\nHomepage는 Dashboard가 아니다.\nHomepage는\n**Mission Control**이다.\nHomepage에서는\n- 지금 무엇을 해야 하는가 (What should I do right now?)\n- 승인된 Focus · Continue · Needs Attention\n- 어디로 들어가 실행할 것인가 (Workspace navigation)\n만 보여준다.\n실행·기록·복기는 Workspace Dashboard에서 수행한다.\n통계, 그래프, ROI 등 분석 정보는 Homepage에서 보여주지 않는다.\n분석은 각 Object / Workspace 내부에서 수행한다.",
+      "sha256": "c559d964265f6afe7dbd3f7751c2a3b1dfb102c11dda0e0a3ce815b969f83a35"
+    },
+    {
+      "article": 9,
+      "normalizedText": "# Article 9 — Simplicity\nProdigy OS는 단순함을 최우선으로 한다.\n새로운 기능보다\n기존 구조를 재사용하는 것을 우선한다.\nProperty는 최소화한다.\nWorkflow는 최소화한다.\nTemplate는 최소화한다.\n복잡성이 증가하면\n새로운 기능보다 기존 구조를 개선한다.",
+      "sha256": "4557f6e661d80d42affab9d27e54e54fdc929a45fb5d8dddf8860a7463c4ae93"
+    },
+    {
+      "article": 14,
+      "normalizedText": "# Article 14 — Simplicity First\n새로운 개념을 만들기 전에\n기존 개념을 개선할 수 있는지 먼저 검토한다.\n새로운 문서를 만들기 전에\n기존 문서를 확장할 수 있는지 먼저 검토한다.\n새로운 Layer를 만들기 전에\n기존 Layer를 재사용할 수 있는지 먼저 검토한다.\nProdigy OS는\n추상화보다\n실사용을 우선한다.",
+      "sha256": "28219a256e21b084e1073fa10a5098d3595200dc9f3ebf97648f7f72b3bc9267"
+    }
+  ],
+  "requiredFragments": [
+    {
+      "article": 3,
+      "text": "`physical iPhone` 실기기에서 사용자가 직접 확인한 경우에만 `user-evidence-only gate`를 통과한다"
+    },
+    {
+      "article": 8,
+      "text": "통계, 그래프, ROI 등 분석 정보는 Homepage에서 보여주지 않는다"
+    }
+  ],
+  "exceptionPolicy": {
+    "article": 8,
+    "exactText": "> **용어:** 현재 UI 구현에서 Homepage는 Home과 동의어로 사용됨.",
+    "occurrences": 1,
+    "afterNormalizedLine": "Homepage는 Dashboard가 아니다.",
+    "beforeNormalizedLine": "Homepage는"
+  }
+}

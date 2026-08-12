@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "plan_sha256": "41338b24148c650274fc21e0787a11390356f96dfaaac104eb420db89a63e1ee",
+  "todos": {
+    "0": ["SYSTEM/SCRIPTS/prodigy-consolidation-baseline.js"],
+    "1": ["SYSTEM/docs/Region_Intelligence_Source_Contract_v1.md"],
+    "2": ["SYSTEM/SCRIPTS/region-run-state-core.js"],
+    "3": ["SYSTEM/SCRIPTS/collectors/mois-households.js"],
+    "4": ["SYSTEM/SCRIPTS/collectors/reb-stock.js"],
+    "5": ["SYSTEM/docs/Region_Transit_Provider_Contract_v2.md"],
+    "6": ["SYSTEM/Views/region-collector-service.js"],
+    "7": [
+      "SYSTEM/SCRIPTS/region-approval-claim-core.js",
+      "SYSTEM/SCRIPTS/region-target-identity-core.js",
+      "SYSTEM/SCRIPTS/region-approved-apply.js"
+    ],
+    "8": ["SYSTEM/Views/auction-outcome-writer.js"],
+    "9": ["SYSTEM/Views/knowledge-candidate-core.js"],
+    "10": ["SYSTEM/Views/workout-core.js"],
+    "11": ["SYSTEM/Views/reading-book-create.js"],
+    "12": ["SYSTEM/Views/para-object-creator-service.js"],
+    "13": ["SYSTEM/Views/display-registry.js"],
+    "14": ["SYSTEM/Views/region-intelligence-popup-view.js"],
+    "15": ["SYSTEM/SCRIPTS/prodigy-consolidation-final-audit.js"]
+  },
+  "finals": {
+    "F1": ["SYSTEM/SCRIPTS/prodigy-consolidation-plan-audit.js"],
+    "F2": ["SYSTEM/SCRIPTS/prodigy-consolidation-security-audit.js"],
+    "F3": ["SYSTEM/SCRIPTS/prodigy-consolidation-visual-receipt.js"],
+    "F4": ["SYSTEM/SCRIPTS/prodigy-consolidation-final-audit.js"]
+  }
+}

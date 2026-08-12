@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "fixture": true,
+  "status": "not_applied",
+  "writer_id": "metrics",
+  "mutation_performed": false
+}

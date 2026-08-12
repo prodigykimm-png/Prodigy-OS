@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "package_id": "weekly-learning-2026-W29",
+  "review_type": "learning",
+  "workspace": "journal",
+  "question": "이번 주의 경험에서 무엇이 반복되었고, 무엇을 배웠는가?",
+  "period": {
+    "start": "2026-07-13",
+    "end": "2026-07-19",
+    "week": "2026-W29"
+  },
+  "primary_evidence": [
+    {
+      "evidence_id": "daily-2026-07-13",
+      "evidence_type": "daily_reflection",
+      "source_path": "DAILY/DAILY/2026-07-13.md",
+      "source_link": "[[2026-07-13]]",
+      "date": "2026-07-13",
+      "recency_days": 0,
+      "projection": {
+        "reflection": "- 교육훈련비 협의(서종식 선배)를 한달을 넘게 끌다가 오늘에서야 시작했다. 사실 품이 많이 들어가는 일도 아니고, 힘든 일도 아닌데 그냥 계속 미뤘다. 기록이 아니였다면 오늘도 안했을 거 같다. 바로 해결할 수 있는 일은 바로하자.\n- Chatgpt와 함께 Prodigy OS를 만드는 작업을 하고 있는 것이 즐겁다. 나의 경험을 AI를 통해 정리하고 내가 검증하여 지식화하는 개념으로 나를 객관화시킬 수 있을 것이다. 메타인지야 말로 현 시점에서 가장 중요한 능력이다.",
+        "change": "- 나의 행동양상을 바꿔야 한다. 금방 처리하고 해결할 수 있는 일을 조금만 더 있다가 조금만 더 있다가 하며 미루는 경향이 있다. 앞으로 즉각즉각 처리할 것이다.",
+        "next_experiment": "- 회사에서 바로 처리할 수 있는 작은 일이 생긴다면 바로 시행하기.",
+        "references": ""
+      },
+      "linked_objects": []
+    }
+  ],
+  "supporting_evidence": [],
+  "relationships": [],
+  "coverage": {
+    "daily_found": 1,
+    "daily_used": 1,
+    "linked_found": 0,
+    "linked_used": 0,
+    "missing": 0
+  },
+  "recency": {
+    "latest": "2026-07-13",
+    "oldest": "2026-07-13"
+  },
+  "statistics": {
+    "daily_files_found": 1,
+    "daily_files_used": 1,
+    "linked_objects_found": 0,
+    "linked_objects_used": 0,
+    "linked_objects_excluded": 0,
+    "empty_reflections": 0,
+    "missing_links": 0,
+    "estimated_characters": 699
+  },
+  "missing": [],
+  "warnings": [],
+  "references": [
+    "DAILY/DAILY/2026-07-13.md"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "region-retention.schema.json",
+  "title": "Region Intelligence Retention",
+  "description": "Retention computation for a provider. Computes visible_periods and future_archive_eligible only; performs no move, archive, prune, unlink, overwrite or restoration.",
+  "type": "object",
+  "required": [
+    "provider_id",
+    "retention_policy",
+    "visible_periods",
+    "total_generations"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "retention_policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visible_periods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "period",
+          "generation_count"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "period": {
+            "type": "string",
+            "minLength": 1
+          },
+          "generation_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "latest_run_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "total_generations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "future_archive_eligible": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,1466 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-08-11",
+  "delivery": {
+    "mode": "projected_worktree",
+    "head_inclusion": "deferred_to_authorized_final_merge",
+    "non_delivery_exclusions": [
+      ".git",
+      ".omo",
+      ".gjc",
+      ".codex",
+      "DAILY",
+      "PARA",
+      "ZETA",
+      "SYSTEM/PRIVATE",
+      "SYSTEM/CACHE",
+      "**/__pycache__",
+      "**/*.pyc",
+      "SYSTEM/docs/Prodigy_Knowledge_Inbox_Execution_Scope_v1.json",
+      "SYSTEM/docs/Prodigy_Knowledge_Inbox_Proposal_v1.md"
+    ],
+    "derived_delivery_evidence_exclusions": [
+      {
+        "path": "SYSTEM/AI/Reports/task16-final-release-receipt.json",
+        "reason": "post_projection_derived_receipt_self_reference"
+      },
+      {
+        "path": "SYSTEM/AI/Reports/task16-final-evidence/**",
+        "reason": "post_projection_retained_authoritative_evidence"
+      }
+    ],
+    "projected_path_manifest_sha256": "e370c2994b40b40e87f141dbbb262f181b26d992745da5161eb97f7eee114629",
+    "projected_paths": [
+      {
+        "path": ".github/workflows/prodigy-full-tests.yml",
+        "sha256": "2229ebd760683151d0adfa4369b0a766fea0b2e0eb1cafa453fb36bdb1e8eebe",
+        "hash_mode": "raw"
+      },
+      {
+        "path": ".github/workflows/prodigy-stability-smoke.yml",
+        "sha256": "d333c934b06ae6968f0fc21fae8c16753e4fdca606ca17797b53105d53fc18d8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "DESIGN.md",
+        "sha256": "556ccbb725014d2eccdeae9d45ed64bfd9ece2528f6e59dd040e41a0c0c9a041",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/00 Home.md",
+        "sha256": "af84dbcf011bf1bb9d0a2061c65393d860e704347536a13e93c9624b3851d604",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/10 Auction.md",
+        "sha256": "e3c344d7142206c83921251502defde6643096f8264c9d69b0fe6010cfa31ea7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/20 Reading.md",
+        "sha256": "833c68446920bd9753f64fcfb3b020c666b58092744b63a1ee6d797550abfdc1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/30 Workout.md",
+        "sha256": "0cd2318281326b60294f5eac73948ca9a21a28e168683d970a90db04a1b02377",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/40 Project.md",
+        "sha256": "6a8684d5bb88e2521175374be47830e5f863a4129125aca3a3e1eacfbb11476d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/50 Knowledge.md",
+        "sha256": "f2e20c22aa847f19d9f0fd297c972d6c75328d3ea6a008a485b650536d23cc17",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/60 Personal.md",
+        "sha256": "d3769d8ff7eec38f37f2b1148723863298f12e5d0630e8a992957cecb7a1f9e8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/70 Journal.md",
+        "sha256": "fe1c1359b16c2069ced04e77ea641846e6b4a681a05149e1d02303f57a85ed57",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "README.md",
+        "sha256": "a89409086ac5b47ad60b28994e8c9206f42c5ecc3024c4d6fc43a899734df2ee",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_ai_decision_support.js",
+        "sha256": "13905e4fb19d313f80b85695987320085202e599ef4331a28259e7a68352865c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_day.js",
+        "sha256": "2d59ebbbb577220ddcbde3cdeaf7d655104d8c83db789c440ed6b317bb23040e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_hub_readiness.js",
+        "sha256": "8a7f1bb47f8efe5983c1d06ceb0be3ec6d53bf34126432c395bc86e41dd9f426",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_mobile_compat.py",
+        "sha256": "0de179aa13e9f13c64a48c18ed7f728c6f1cdd2a6a5077189dfd27d3c04d3c35",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_presentation_contract.js",
+        "sha256": "77a813aa358fdf108b14f0f7b44b44be0bf32fe2755f4685eb6b77681a838123",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_real_estate_wiring.js",
+        "sha256": "05be2db1f8704a2c0d434f0a97611b5ae95b98b957c3f5a6107a2d83be3f9898",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_real_obsidian_context_action.js",
+        "sha256": "3a335c70ed3d35d5b1a0aff9482e6e447c74d7166e76882783586bd76de1ef1f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_region.js",
+        "sha256": "80e700e8d1465a8d02f294796c6b728b627b451561a06a722c6b717b2b2ae057",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_bid_calendar.js",
+        "sha256": "8e565dff12486bedb22528f6f61c02b435871e5318c97fa1d965f09a00165e2f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_display_registry.py",
+        "sha256": "ba8f57656565f9fbc5c858e57b6e746443604a887edee9cf8afa0179c121118c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_experience_modal.js",
+        "sha256": "31058cc355f90cd517dca0760452799202a17977f2a0844e4b6faae5a3bc6548",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_explorer_hub.js",
+        "sha256": "9e22fd3c857919b8e6c1502223bf85dbd819f955dc5517aa66ee0f08623e8a1e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_mobile_field_mode.js",
+        "sha256": "565f2c0371be8c1e17b16899f46d4cf8b3cd41596cef032753c1b65aa10c79a7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_source_mois_command_core.js",
+        "sha256": "fb035c5634dc759ed10e8efdb2eb6015f92d021f1ddf970405b2d4667b98cb83",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/capture/test_capture_approval_state_machine.js",
+        "sha256": "f03efaf023e8fb116cc7a411d3ae744a92559029a93e53febeffe6265286aec0",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/capture/test_capture_callsite_integration.js",
+        "sha256": "243500b423d38f68104f04cfef37e3098be21ae4d7d2521fb32452aa31f8ea01",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/capture/test_capture_listener_lifecycle.js",
+        "sha256": "38f3756b6e4528184f85e42f2c959ead87fd0d44e1af5d79d48864317fd2e9e6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/capture/test_capture_recovery_contract.js",
+        "sha256": "aa06370f9c869a6c96962cf24d8c057331498a60d032867d1f8cc8302bbb8daf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/capture/test_capture_security_attacks.js",
+        "sha256": "5b9cf06f3030114d7d8e6e83e2a236f60453016ae86e1ab0051468c68ad155d7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/run_js_tests.js",
+        "sha256": "4a18fd44c29eb47b9432c4a2f78ac176d9eea91207e9dd2b30f41291fc317ea9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_ai_provider_dataview_runtime.js",
+        "sha256": "33fdca350dd98ca2f5be4c6dbf52f5b1ff9364e1f087749b4361ac2bfce93107",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_apple_presentation.js",
+        "sha256": "68324103fa8edeb23588d989992e40514bec44d4d35ee86252f2b23cc5e0bdee",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_horizontal_fit.js",
+        "sha256": "7f7e6a93de0c66c45fc58008f882ce8939e20df5a110522c077e33a9650d0cfc",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_mobile_stream.js",
+        "sha256": "3614f1851d038abb4bfbbccb0fc5526b0817b46a0c15bfcf96726d8a481fe54d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_required_dependencies.js",
+        "sha256": "9bf840b866184d51698867de28a071533231825e81dddfa72f7977f4e5eac659",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_seams.js",
+        "sha256": "b5122ec7e941526790951e3562bc2743283a1345bcd4e417071f65b3713b4fb0",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_morning_brief_context.js",
+        "sha256": "a514fb21b2a84ebaaadf9317b060012b37e4a0153f3cdf2efaa51b9a0c6ebb59",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_object_creator.js",
+        "sha256": "38e13cb0208197da47a0472ec1df8ab42d65f5f1493f4cc93c5d417a8b1f6a08",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_task13a_home_presentation.js",
+        "sha256": "d7210873c042bc5fc9f9e4d72cd8595f58d0970ff1e8095b12df7539252295e8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_workspace_launcher.js",
+        "sha256": "2715b15f64c920774c0362f2a40bb1f46cdb071d4492184cf3dc5da851fec073",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_ai_chat_security.js",
+        "sha256": "33cf5877e866559f3c32213bbbcfe189a2c24cd223dfed380d949066b7630284",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_ai_provider_service.js",
+        "sha256": "67f3dd78c855ad372c0b824bb88942404bc28003c860b77d2a8ef79f6e4f65e1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_antigravity_exec_service.js",
+        "sha256": "6a0a6f461e43edd2bff806ccfb6dca7c83cde3ed9df979d961bf25f5d51ff360",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_codex_exec_service.js",
+        "sha256": "222433afb0cf3baceb3d0611711e6cab8700248682147c986bc99ead467eded7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_modal.js",
+        "sha256": "27ca8db6a27a4e2c78e833881b9cb1cc3db50b821ed7c9b643b3fedcd4c57630",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_people_handoff.js",
+        "sha256": "52459db326b5e81368644bd25ec04ae8173d619359d19fd9a35649b0244dbea6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_dashboard.js",
+        "sha256": "e9a8f4c8b156db1f47346468a7e83e2e75d2715129c747acc9761674c4c013c0",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_dashboard_state_seams.js",
+        "sha256": "761a543a52afbbca03fd16792746609b9f2f11251222b274f363371be5b19398",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_period_core.js",
+        "sha256": "f8b5eba10fdddfcd4dcf4008dd52aaf99985738e918859c5ced148f405047064",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_real_obsidian_compact_actions.js",
+        "sha256": "df3d39c6376b9679464273261937026e05cbac84f791c36c90dcf8b8385edcaf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_real_obsidian_focus.js",
+        "sha256": "39cb9a2443f401514b3a35a27a4b5f712e4fc80f0cfda4a264a11663897f1d53",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_task13a_journal_presentation.js",
+        "sha256": "6c935a85c6afb60752a1877fb6bcf4404288bd29be6f2bd6e7fa1d9ac152e892",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_workspace_navigation_contract.js",
+        "sha256": "106d3b16caf988d13c111ccb6acfcaf9ce796ab61dde91d800bf8c19509e9b8c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/knowledge_hub_integration_harness.js",
+        "sha256": "964dfff8322d7bce91bc489a7bd455f3c77893be22fa0573064175777c25a846",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/llmwiki_controller_qa_fixture.js",
+        "sha256": "4556b005fcc046c556fc8ab0b0e4b2859c15cd5ce34171435c3cd789e4ca6905",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/llmwiki_librarian_pipeline_fixtures.js",
+        "sha256": "fc173845f55d9d7c81ead0af4588e4e8086a738ed1d8836aeac69d99f3128031",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_store_real_obsidian.js",
+        "sha256": "bfeddd37bfd334f8bb867045306bfa8a859496a3a36dfe7f6b2814b4869a8547",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_design_contract.js",
+        "sha256": "2741fc053ac52d627b52982f570a2a103e143329bff33aedf1c1123594a2a6af",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_brief_ui.js",
+        "sha256": "96906e9d757c20ee9843db42f19ab750f5adb0af7b17e78b99e4f30c7a9fcd95",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_responsive.js",
+        "sha256": "841a023dcc795ff7c70cefc54f5c16fec11506811f778c2dce019858292c563a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_view.js",
+        "sha256": "eaa1f11447b1f380a7390736e809b152ed4878605db123f3ffd04c16edc5d38d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_hub_integration.js",
+        "sha256": "08294d3f6fb06bfb7402ea2758104b11b3db6a0659b958931c7790e0890ce74e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_para_creator.js",
+        "sha256": "9f48e71d171e93210e1f303433dc2defdf6c096139c5408a54092c2d3041aabe",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_para_real_obsidian_390.js",
+        "sha256": "42c8a6c78ff44fb5ecf3f5dfb9d950d7f3e7c805082f4f33a5d1920c1013c0e1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_workspace_tabs.js",
+        "sha256": "ee420b03e0627c7c9036e1c6a6990597ccebfd0b1366631ef9aa3040cd115c48",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_approval_review_view.js",
+        "sha256": "949c2385e9ab2c473d7a7162c93e06566c98d0a78668d76967f62b31ae6c50d3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_failure_modes.js",
+        "sha256": "d9bafe8c7a390f10d94c8a2c5cd868e58b4b3874bd1862f29d9461bbed7eaad9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_lifecycle_view.js",
+        "sha256": "0974456d8ea8637c891cbf2d33f5815fad2f452ab1baedc60c9ab1dd79bff994",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_outbound_consent.js",
+        "sha256": "8b23b8f295dea690fbb72b7faf729b637a5bdc506c5676a34013654f7df46712",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_review_surface.js",
+        "sha256": "78de4802da5b095cdccc1f389d5d9a8033ece41731be1978d8d113899161d6c8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_skill_contract.js",
+        "sha256": "ca4ef2782d46916bfddc679d8db5cb5edc92889825ccca4b47aeb943947fd8f4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_ui_recovery.js",
+        "sha256": "b43692576ee9411e156b5cb08c468a3aeeb90dc62352ecefe1fc9b51b97c77aa",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_wiki_surface.js",
+        "sha256": "0a148c928ad2204f9a0b2d11f0edc501ff89cc57d3ff17c233c6de2786317e12",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_knowledge_revamp_artifacts.js",
+        "sha256": "83d39bb6302779c2217592aea3e800a94596a77180ad2f9f3bf12af4dda8c969",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_task13a_knowledge_presentation.js",
+        "sha256": "16cb5e8ceefdb5af612cdce9b0df1296f00a04a3f83704b997e0d698e19fdb62",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/lifecycle/test_object_engine.js",
+        "sha256": "267a47686584fb2e536066c0d9d6627f934f9fa66a1f1119e1eb2b16586b8595",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/people/fixtures/quickadd-people-v1.json",
+        "sha256": "5e7ed272823c5a919f1bd0b06e87bc1c46bc2fa3259c345152a2baedbc78734a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_creation_authority.js",
+        "sha256": "d9e866a7af97af7e47e9bca091a4a6ecafbb5ed2814ab689c93349a21a6175b3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_foundation.js",
+        "sha256": "bd2c2f932e5ebc49384fa8a70d244876d611d88b9480594b6942742dad43337c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_presentation_contract.js",
+        "sha256": "72ff9c4d40035b354ba339312d4d248aa169927bd76c73b9019301346cbcdde3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_refresh_loop.js",
+        "sha256": "af5c1e80d7c0ef5d9a514ab441f9c8e47559f062d1dde3483f031be8de0c956a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_workspace.js",
+        "sha256": "94e3bf6c468d7291653e88c616332a45c777ebf423c6f97be0198ae2fc187d75",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_workspace_seams.js",
+        "sha256": "63d10f414b8e13c6e27fabd6065f11087bdd3aeeafc0dc73bea72ca95d5ec01c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/people/test_venue_state_seams.js",
+        "sha256": "cc22a80fee8add3ea86af0756fddbb97457b57acffdfbd18a68890d38468bfe5",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_apple_presentation.js",
+        "sha256": "a4b0dcc3f7da8ce1010c28df0ad99b257ff5505641b401ee00be3fc19d6bb6fe",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_real_obsidian_focus_adapter.js",
+        "sha256": "39129fbd0815927af1e8960083fe4cf746b27e330209d4fad60c4bcbcd15d7dd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_responsive.js",
+        "sha256": "b73732815621e9fc7580c91b51d02781dae68bbbe46916e547e998ebfd21f18b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_wizard.py",
+        "sha256": "4e232695250ccd05bc4de2ec492f603ef352d96340366d8058a662161dc57560",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_checklist.js",
+        "sha256": "4b42e63b7c1eb880c8294beddd51163f45a114b3e6f5494354e78a6fa33fb741",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_memory_view.js",
+        "sha256": "fbe7ad8f95c14d1f85506acc6e2de6feca70c252fd8a729ab10eb9fdd51cd445",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_presentation_contract.js",
+        "sha256": "30569d5a0786903adfab55a35c76068de4ed068d77a27eb980a6828cd9bd4ae1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_real_obsidian_bootstrap.js",
+        "sha256": "9bb58ec73da6e9f377411955760247ceaf019aadb04d2865c155090838eea048",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_real_obsidian_controls.js",
+        "sha256": "5f876e0107945535bb6e0faf41d49758281eb3f4963cf4497c0d1326617c35c5",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_simplification.py",
+        "sha256": "c70d5261880e65231159c7d232df6c1f7dd31d67719c0246141b1ce716515efe",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_single_mount_controller.js",
+        "sha256": "0f215152ca5b5b5ac1a714e8f954ced61f4ec4dc1293eb1adbf4575edb23bafa",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_strategy.js",
+        "sha256": "fdd5d28de1a1ac9af86340352e65c12472e70e40f168cb2f6eafc356b39ffac8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_workspace.js",
+        "sha256": "3282d7cd0171257b825a2eef8052a2836fd6ef84f699e72ca3b0dc4fae54ede1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/run_stability_smoke_tests.js",
+        "sha256": "e26d30b91c007c710fffc74085ff766119de67cb42ffb96bc2556359a0cd9da7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/aside_cdp_harness.js",
+        "sha256": "67cb53bb1afb97b81bef6770927500a4b1b4200655192485295ca46309f68feb",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/design_color_scanner.js",
+        "sha256": "392ee0e5ee6b7b32dc2fb660a668d4ccb22f13181140ea5a7f47a3630881a719",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/capability-custom-success.txt",
+        "sha256": "4c55aa7ff6d5bc12d318d3eb32f5016300edafe8e38a444787d156ae8c10fde4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/capability-node24-spec-success.txt",
+        "sha256": "f2e878f42d0bd2fed2eb6f4dde82360ff9cf932042318fbcd1e1ecb90c43b581",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/real-hub-blocks-v1.json",
+        "sha256": "59d7079899d2f81338408caa3cf8babb353131528b8b2238d4a5e35bb404ab37",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json",
+        "sha256": "838a1020e57d2d330c03a93f8e6b9c3ad71a8977468d80f16402348455ed1db0",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/real_obsidian_harness.js",
+        "sha256": "3fb3a1323721620ecbf7bdbaf4b5b9999a631170916012ce09e52274a63531d0",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_ai_provider_security.js",
+        "sha256": "f9c3bfb1783db48e5ead917d37591c566921d5f43d7e04c255927c2c5034a338",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_aside_cdp_harness.js",
+        "sha256": "9034fff7b57f8f38a52623ae9295885914101375b021348addfa39be2eb40800",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_design_theme_browser.js",
+        "sha256": "b45274c2edcba0cdceb42dbc993d1d96685d27116e838888e33040d256113243",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_design_theme_contract.js",
+        "sha256": "b77d835bb1204214f9d46d72de0b16b0daea0695928466087ffa3b7078380807",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_hub_loader.js",
+        "sha256": "7dd439570b58dff9d5f511a025903d98c49d281208c23274fd6982b9c97c5667",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_workspace_manifest.js",
+        "sha256": "74a09e46aca6a4b4f602a3ba67c389dc1bfc98c95926d1e6656214c60aa72b58",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_hub_lifecycle.js",
+        "sha256": "8cf9edf697d5637956a01182795cfc688533cd3eeacbc0ec3971459edc2e78c8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_hub_transition_lifecycle.js",
+        "sha256": "37c8aa68fcfd77237cbc26ff5931703411fe0794e81da60c81592f89a6bac535",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_obsidian_diagnostic_gate.js",
+        "sha256": "df55c73ea58a8b87e80be6d66379a3ca72fda8b8e162e81970aaf931213f4558",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_obsidian_harness.js",
+        "sha256": "aeede637b46511bc2fa8f95b02a564080870d4b10ada23aa6f1adfefe2213c6e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_obsidian_journeys.js",
+        "sha256": "5572b9370fa07aba8febea5c4a51d425a6e861831ff5f8852846134ffbb285cf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_obsidian_structural_scenarios.js",
+        "sha256": "f5492cd3e397e00ac0304a1ce4e9cdf933563d15690b24a5ec5fa902065e60fd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_workspace_state_adapters.js",
+        "sha256": "673966e00057ba68c2a6667487447a2a7946072e44a54abd7d9f91b75d7f1a12",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_shared_real_obsidian_controls.js",
+        "sha256": "61186c2795c229a00c942f7da63f242dce650e85db6cdb989b24d287023064ac",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_workspace_state_adapters.js",
+        "sha256": "f4dfafb168ffa8590e86a73e27c795fb34a7a330514607efae2113dbd2fb09c9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_audit_adversarial.js",
+        "sha256": "ea51021c83d41a5fad385518625e25530127fb681f1cfa8345e9924695c777f1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_literal_git_archive.js",
+        "sha256": "647c81b3af08d91f33878acf602cbea1eb5d95e6d2805cfb70d53a92a79c14f4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_release_fixtures.js",
+        "sha256": "12702ef3afe196532dd60baaa7960c02b289e60d56fcbc4066a1036b5d6f35bc",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_design_color_contract.js",
+        "sha256": "ea074aa51767af58a0352c3315dd56ac1dee25e0606af5f35dd1a1ec830bd6f6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_final_receipt_provenance.js",
+        "sha256": "4e064251458a5e1c4782dbf20e523faf629f9de73ba8929fa7fc5cdb27a66c30",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_prodigy_consolidation_baseline.js",
+        "sha256": "302a30d3ef81ff050ae0d2bf83ed95d17e25efc4a252115b28f86b2f2af41bf9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_prodigy_contract_audit.js",
+        "sha256": "445e57fdaaae96f232f5f4e4a50de43dd514a05aedc4c2ee03f1eeec94886b0a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_release_fixture_journeys.js",
+        "sha256": "668f44b36bdd5d3727898c544c5fc74b8cc3282170d14b0ead905518558410f4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_release_gate.js",
+        "sha256": "7053be8cec47ec83d34f714650f6bc255d6ef431a213ce98fdb8dbd2ac2c6b3e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_stability_ci_contract.js",
+        "sha256": "57fe07c7780e481f39812ffca8f5211a5faaa9805f8441af626401e5948a4a4e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_task15_recovery_proof.js",
+        "sha256": "56b46ca8ac7ae8123a419a60baa8ff311e7b76a8cc2feaf0163f3f90b2aaa9a8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_hub_controller_publication.js",
+        "sha256": "2ec43eb15af2670922b787fdc93e14f8d7913e48f51a72117fcf9c401580fd67",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_hub_sync_recovery.js",
+        "sha256": "1c67aade5527b629306f9c47ac3fa7f8f6eb9e9de82853013c5a9b60c2cb31e9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_import_storage_bytes.js",
+        "sha256": "343affe9db8cc73e4d59a4debf36db8195f449797d344336e7a5db7450e5fa61",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_modal_dependencies.js",
+        "sha256": "8f5e29e0c03132f725fe8fce9d8cca1fdc65805d5f6ec453c47fff2df4a7c8d3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_presentation_contract.js",
+        "sha256": "4ccf01ee774d0cdad79a5f0afab3d37a17ab5ee4edaf4ca8f1646476743e7495",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_real_controller_publication.js",
+        "sha256": "8c8f81bfadb5c672770d74654db527c84e2a6af7736c89298d2b29c720e97fd3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_real_obsidian_context_action.js",
+        "sha256": "0687b9e6e0bb6898c88b934b21be4b88997a9c7fea0cef690a4703d0452e081b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_real_obsidian_visibility.js",
+        "sha256": "a89e430e1dc2bda2d61723e8098fe840b8b4880d4db94dc7ae90d47ef314deb9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_responsive.js",
+        "sha256": "57eb0cd783d7aafc1794dd6bf19df7d09431eb292da0837e525852ecd514c9e3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_view.js",
+        "sha256": "d3fd8f13628ee8d1898b709642c035256f33bcc85cc68c27e748f455efff0f5f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_view_lifecycle.js",
+        "sha256": "13eabe6f4b5c609e1f321d19d3f86f113fd16cf48409e2779c73368f16fef2ab",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_workspace.js",
+        "sha256": "2d95e7a7ea860106e669cd19ad33e9e665ed17a80ff05e881667d476d7f8eb30",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workspace/test_workspace_consistency.js",
+        "sha256": "309e33ee60f5c337bbbb92e55a0313a1512382bb6b4628b12547a0b49f2b9f5a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workspace/test_workspace_visual_rhythm.js",
+        "sha256": "b77316c017c119313636158e6d3de888ecd27f2ab74774152e633dc20139ffff",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/consolidation-fixture-contract.js",
+        "sha256": "d176ff4721bf74c5f1c9568282d048cc8230f3bf7422cd8ecece69b8bdfc9cc1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/consolidation/approval-root/receipts/synthetic-not-applied.json",
+        "sha256": "f7ebcb3ed12d75d614810d8e1a1be9436562076beef313e0a66c38dd2ebf8556",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/consolidation/baseline-v1.json",
+        "sha256": "4e6908c6853f1c32d6f723530d50dbe6bd16671d33a17e5644c86386ab472678",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/consolidation/fixture-manifest.json",
+        "sha256": "dabd24e17365a73dad0fcd9d6047b2bd85ef48e87005dae7b534c2b9757b81b8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/consolidation/frontend-design-state.md",
+        "sha256": "caa2b88193ee6fc5d2eff1850b277001558da21f7de8dfb2a21e0138e4402e9e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/consolidation/ownership-v1.json",
+        "sha256": "1ad7c0aee39b34c19590ebb8757e05ad7d67a3de574e901ecc97b5614a120830",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/consolidation/plan.md",
+        "sha256": "41338b24148c650274fc21e0787a11390356f96dfaaac104eb420db89a63e1ee",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/consolidation/source-inventory-v1.json",
+        "sha256": "c6f404de67a05d962ad632927c31f171acfc052a69e0b35579ac0472e0bc2129",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/cases/duplicate-object.json",
+        "sha256": "ce558af25b889e266c2501e12200dc336cf81f63772d3c096198896a51c766bd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/cases/empty-vault.json",
+        "sha256": "f060060187d9de83aeb2e9a23311faf1b83d5f948bbbbb0dea4affd37b5922c6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/cases/invalid-property.json",
+        "sha256": "d70391a7939244bca9ca4aa2d9c8032e86aa91697432bdabc75e509c6c3a305c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/cases/minimal-valid-object.json",
+        "sha256": "5ca7e0a82b1b987bf1f9095efddfa9583bb7ff5f0ecf17292557e20747d9104e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/cases/missing-optional-module.json",
+        "sha256": "af09f3170ba4e266b41ae3e6bdb7fda7bf3b73d886b97166c472c6da1e2391bc",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/cases/provider-401.json",
+        "sha256": "00dd2fca879f84e2fe20ed8f856060094502506a29ae84fddddd60be001c9784",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/cases/provider-429.json",
+        "sha256": "6842bf0190c930c8545a04454ef1e2083c0651c52044baffa787be06123d6243",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/cases/provider-timeout.json",
+        "sha256": "5929898eaa684a8b1e8bb4069b3d3b711307896e83043fd94c37616c1a637e5b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/cases/stale-source.json",
+        "sha256": "e5a457fe8877bb2741ef7658cc892674843697703df1b8d971e070c2e1c5dbf0",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/fixture-manifest.json",
+        "sha256": "b393a5f9234038b36cc84385992cc3dc8ae419f566535db5b66b88b8dcdc2b34",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/fixtures/release-vault/suite-registry.json",
+        "sha256": "8e94df8f40c678c7b92a4415ece1fbad47e10c8521cafeaafc29ad84effbb79b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/recovery-proof-harness.js",
+        "sha256": "c265d9689bad77bdbbbd94628ed6db8b06dacec0da1dac0aede2cfc6408e2f93",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/release-fixture-harness.js",
+        "sha256": "2f27d917f508178f58f4b80f9d02491e21ecf7a36073fe584be491c8bdd4f7d6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/release-gate-manifest.json",
+        "sha256": "2220011d3bafaae988b5a444882e559c69c14af90fe658fb612c7cfcc67a23f8",
+        "hash_mode": "canonical_self"
+      },
+      {
+        "path": "SYSTEM/CI/repository-data-backup.js",
+        "sha256": "bd1c29ca0bb84b5356d67b796af9eabf7fba5fd45e914ee29ad515798485ebd1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/run-final-release.sh",
+        "sha256": "7be8ade23db1457c16815eafa19082eaf8ac8add2cdf1179bee26fee55e76c19",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/run-release-gate.sh",
+        "sha256": "6dc9ab72580b93e4182d8df4d4905b63b1b8a7a330043a019ec82c2194547d75",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/task16-final-receipt-builder.js",
+        "sha256": "774eed66198920753887ebc35360b9733367c43b2d81dad9765370498a282a5c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/task16-final-receipt-verifier.js",
+        "sha256": "a9b9734f8e9e3e5a15765cfad1d810c0659682294c5fa294230e102192475bf6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/task16-receipt-security.js",
+        "sha256": "151a467429c52eaf154ac6c1cc8f349e12bc5cbef15bc95337633e3b2166924d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/task16-scrub-retained-artifacts.js",
+        "sha256": "00e3d81dc07ffd7133ada723c73e4f4ff6d55a26ae45e0c7fc813989d0b4831b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/CI/validate-consolidation-fixtures.js",
+        "sha256": "dd27189d4d7b2fac0d80a647c6209edbabd2b0f9bc78cec6ea72182f723920b4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/SCRIPTS/prodigy-consolidation-final-audit.js",
+        "sha256": "4aab5a6df5a68c91707f739801752173225c567161b5085365c4ff7e4f406794",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/SCRIPTS/prodigy-consolidation-plan-audit.js",
+        "sha256": "e2001623e06eab874756148f319c10fd7f8d500dec4fc197f04600a6aa1bad6a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/SCRIPTS/prodigy-consolidation-security-audit.js",
+        "sha256": "4b77bf9ce0d006134eb6cae1cc8957c5ee89fc5daa6ae89214add961010b9bc6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/SCRIPTS/prodigy-consolidation-visual-receipt.js",
+        "sha256": "2626ae6105c040cafe71a8ff4ee194e4594895de33beaa02f62a2f3b0b4ed617",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/SCRIPTS/prodigy-contract-audit.js",
+        "sha256": "dc5c7ac75f42635b8171e5c747aacc84e8e0e668a5c4ae746bed22577d9da6e6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/SCRIPTS/prodigy-contract-baseline.json",
+        "sha256": "6b55c303edb35032ceb33c2c8db4a447d878584ee26b99e229d3842c9c11b2fa",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/SCRIPTS/prodigy-full-audit-runtime-fixture.js",
+        "sha256": "68e6a499c43abeccf53529d5d53dd884c48b34f7d5ea8d5dadaacf0fb8037a31",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/ai-provider-service.js",
+        "sha256": "727df488b5f160a09aee08ceb9df7d353ffc8d29485dc06e9d999bf4a4537d88",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/antigravity-exec-service.js",
+        "sha256": "def43d104b00f1527eab94cb6fe89be5d2e14d58d2e7c825fcdc85f6f75c8fa1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/auction-ai-decision-support.js",
+        "sha256": "bf8c4077b10f4983d797f6895791bf457968a85afec88ab0807ec733a00ae0ea",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/auction-card.js",
+        "sha256": "1cffb8c80dde97be7c90872302594fc198a448c716f409478e9e7950986845ef",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/auction-day-view.js",
+        "sha256": "ea7906edeed46a4851c5f87ba261d3514e041ee5e40e473a383cb1bdcadea736",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/auction-real-estate-research.js",
+        "sha256": "5184a2d01f8acffa58e20957998bc13e9263d31aaff0f51fb17ae4aaab5f816d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/auction-region-packet.js",
+        "sha256": "32438b8530f749e150f125221bd095075c1337ec53ee3235fda749983dfea218",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/bid-calendar-view.js",
+        "sha256": "d76156ae5c158e4225dfa55d12014851158e3cae1206db30f93b7edde3111256",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/capture-action-runtime.js",
+        "sha256": "2827069fd6b49734402c7a7db90ec88ba2ca9823404e770624fcbaf6fa504870",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/capture-authorized-writer.js",
+        "sha256": "1758a228f72f8cce3082d98b690de66461519da16c8887c1cef0d306fd276192",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/capture-state-contract.js",
+        "sha256": "a3b7e3d137ef53afc8b2d2633117a8de16ce3de236e02bb2b65aa0dd3de95ede",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/codex-exec-service.js",
+        "sha256": "9dc5d59d7c38e06bb90f7dd5d2d80b9feebf7ea8b4f32dafdd75eddf4f8a5e20",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/daily-reflection-evidence-review-view.js",
+        "sha256": "ed6407a26553c4530b1dd071766b5c851d183eed03a7307316e47f7caa473f26",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/daily-reflection-modal-styles.js",
+        "sha256": "206cacb6ceb6162ba1e26efe020683f61b0a118ec3e2404649560fdfded754d1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/daily-reflection-modal.js",
+        "sha256": "9aa8ca490a0fd1d20194a473bd92d52e2dc7af244b720275ecddc0ef3d54c381",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/daily-reflection-post-save.js",
+        "sha256": "ec9570bf260d55c1a88e75cd693e9106e83174cfd16fde7e68bef652abd14c18",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/daily-reflection-proposal-input-view.js",
+        "sha256": "3b43e8671f5d22a2c30e43699b80269374e2d024fd71a378dbcb1e5d8b22f65b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/design-tokens.js",
+        "sha256": "db886a67cc3d8d6d7192b09f68f3ae6bea32b94e8cdab434576e312da62d6a90",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/home-controller.js",
+        "sha256": "44bc234ba85a50d2c6872d59f16963e201112929519dc32720ef7d02edb64a04",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/home-model.js",
+        "sha256": "e18e99c31f182b827d5123c30ea407569a1c97ff0852a07590c050eab9d38242",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/home-sections.js",
+        "sha256": "69311fa5c189982addee2dcde090005880cc19bdcfc6ff79fa231556395ab1cc",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/home-styles.js",
+        "sha256": "88bdab964bd70a49066c41a6912529097a31acb003f8bdae86f6169bb8ee2869",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/home-view.js",
+        "sha256": "a2ae5dedd5d61e67462ac39d5f52dcfb919e3027d3bc5ed588b7c8d1c0b7840a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/journal-dashboard-view.js",
+        "sha256": "010967fa5acc1e496ef88a34ebb9717f3f2b850205829f9a983823b27702c1c5",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/journal-evidence-block-modal.js",
+        "sha256": "81179dc1a40ef2e4e6920f8c372789e01a594e6eeefb1b2e08160db37abbbc7c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/journal-period-view.js",
+        "sha256": "77c8fe25a4c16f76ebd952d4aa74e1ba6952c5b7a617682c1cc7c90cb3213a26",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/journal-review-modal.js",
+        "sha256": "62530c2412f5f845a2472a963c16e2f8002ff0bbe02595c8704124a116126bcf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/journal-view.js",
+        "sha256": "62efebb4e5eb44470209a87acc2c9d233279a45cb863d69389cde274e3197e76",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-candidate-store.js",
+        "sha256": "0cbfae36eb9b2066a919b5d2b518dffa672517d6ebcb58c019d959bfc9143238",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-direct-authoring-form.js",
+        "sha256": "f5015d2f667048460a1640ac01e8e477b9b96b9741e31c0dc4eb33607aa6e264",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-explorer-render.js",
+        "sha256": "caa67d5315f2ee54b6bfbb4252d11e1c80918e4d4339a90d16e340af77d85fe8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-explorer-responsive.js",
+        "sha256": "48faef087f9855852fe1c9487988aeaee46762c171201e82f422754fb8955c71",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-explorer-view.js",
+        "sha256": "50fa8b93d71b50dd18515ccb89d6d4fd4c6a0c3a681ba0d41ac862dbf3498c65",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-para-view.js",
+        "sha256": "76c947931b7eb4e29e93d6a046e3e37f47a0607ba9fc2d16d7dca182412506e3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-source-authoring-form.js",
+        "sha256": "f2feb0da8bba690f87ba3ee505f1172cd8dee248642f9b9a1c2f6f91f770660d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-use-record-ui.js",
+        "sha256": "92ea84963ddfc09e2d71747e01234ac1c6b708d9b319833c9a75291f84d17f82",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-workspace-tabs.js",
+        "sha256": "3bb0ade18687b66888518730bf499ef9e7b192e911c296bc8eadc2e41bd6dd6c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-approval-review-view.js",
+        "sha256": "84ea2f4097c5f271da577b5bda634cd93ac604e7201e4e806dbb8a47c056b1d2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-lifecycle-view.js",
+        "sha256": "c9c223b1ed09f0667470924d0c2baf907d9ba865ead0560143cb3cc9bae48add",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-ui-recovery.js",
+        "sha256": "c9e21369375cb7389153270bdd2ac831f59efccfa9df8725175b0271fd76482d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-wiki-surface.js",
+        "sha256": "d789371d53890589f3195d0046784a081994cbd17ae77c49df0accfce8e2bea6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/monthly-validation-view.js",
+        "sha256": "0d85f66c0f05608ceb12f705233a61c7e2223b50fd19b9d8cccc1e1b1f6bb24a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/object-creator-core.js",
+        "sha256": "eabd3117597c7ca45a75edffceabf48d58ca09bcfe4c28d1122b8acd1137b5a5",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/object-creator-view.js",
+        "sha256": "9a52804ded481570cbaadb44741dde4c8f155acb76749e4dfd433cfc3cf0caa4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/para-object-creator-service.js",
+        "sha256": "39c400d1e8007767fb6554cf0f1ce877a314bef7e5145a4781ad1fec3199837e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/people-context-render.js",
+        "sha256": "906786d4dedb41f9f8de1ed8fb5066000e483c58ec3165326f1cd4ceeda61f42",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/people-store.js",
+        "sha256": "0dea89fde1d668fbbf51823b5e5d895a4591f376ea47feda0ce997d28ff94aee",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/people-styles.js",
+        "sha256": "c40917fab6e8467e3a42ef74b2f6503fa93991d579b15fde539ca89e531ab013",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/people-view.js",
+        "sha256": "6316c85db06dc56f5c9621fc121e83b3a0ae350bf32580be9774fef0f5a7d70b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/people-workspace-events.js",
+        "sha256": "fe18acaa54db7772607a0d79e799fadda205fc3a5d1d0058f853951c83d774c9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/people-workspace-model.js",
+        "sha256": "0773fe13974fac514c06e0dfebb2e71e07f5473e66e8436deab3cb93f0cf858b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/prodigy-adaptive-controls.js",
+        "sha256": "40aef652d3d9339d1b2d2693f6934772078ca93906edca272d52a430c26a4734",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/prodigy-app-shell.js",
+        "sha256": "f37c55c2aaa9efc2c9e48e2b93a8c0a91f34157a21b60e8067b2e53da9f7b3f8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/prodigy-hub-loader.js",
+        "sha256": "dca9dc613bdd00c16717917e57b55c7084cbece41db0541470d8faac6c5e6cc9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/prodigy-ui.js",
+        "sha256": "6f92bcf08acaa433da4226d130a623b371e3e5e481fedae6e6ba07ee8a48daa9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/prodigy-workspace-manifest.js",
+        "sha256": "16b082bf69f3f3002ddd1b584815c96774d383959ec01a4a3719ee0967cc61c3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/prodigy-workspace-state-adapters.js",
+        "sha256": "733fea17e1bc767ff07dc98386ca33535942d5bbb5a92e942c434ed38fc52ca9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/project-card.js",
+        "sha256": "1f7b7ad800d7a6b2cbf1f00f8c1b6d46c29fb9d41c4e9231ed587de8a0ec98df",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/project-wizard.js",
+        "sha256": "825dfc21654b881956afab60f00c849c92a88a5e8954ee358759d96d4680881f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/reading-card.js",
+        "sha256": "64a6cd193628bf19ff477fb545f2c51646cd0c647a38fbd5cffa74c84f5728c9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/reading-checklist-view.js",
+        "sha256": "4f6e5013a2ffc5b29b700c5e37e2ec2a6ce1503c322489f99a1078a5cc4fb758",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/reading-memory-view.js",
+        "sha256": "3c1163e868e0a9f5a0ea05ae121224cff4a1ba486223f450d43a58ce7c984226",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/reading-view.js",
+        "sha256": "ed2df0d56a5e18113df5e2ff1f84c450033e946997e57c80bc5ecf13ee06ab07",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/region-experience-modal.js",
+        "sha256": "b2ccd0037849327229695d1cc41894688a1157e007ab89b19d3020b426c0a35b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/region-intelligence-popup-view.js",
+        "sha256": "3776282a7e8391ac54e1da39127b33baceb10d03a6b89d647490fc61724de3ef",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/shared-dashboard.js",
+        "sha256": "df76164ab1ed8d12d003e3a270757cad6e918989967d1b6dff4ccdc9ca66ef5c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/venue-view.js",
+        "sha256": "db2a1099da6153b19b6563efd741abda72df98df23ed3190becc3027f8615f2c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/weekly-filter-render.js",
+        "sha256": "61606f165ae187eeb72928dd70e851437b93d8732a91ca6c1c70ccec22cebeee",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/weekly-filter-styles.js",
+        "sha256": "ae5eb187e3c655806dcab0688164f3fbd2019493d28f882a2bf607a7ede7784a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-capture-writer.js",
+        "sha256": "c33ec40a35a819150f1fa19ea4664439d56645b46d6c9c6c315a298c218cfc5b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-health-responsive.js",
+        "sha256": "c25d7fbc69bd54556b3943cf9fa6a68624db227049352899f893408258fedd92",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-health-shell.js",
+        "sha256": "e550d84f3a3f99951df05972e3d098782bb1654a2e7709e8dfb7e77d7d6dac9f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-health-store.js",
+        "sha256": "646c86d1749eb167196dcb2c73e4d61b57bc0743bbc1e528da47937ed859cfda",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-modals.js",
+        "sha256": "cf1bc57674c3a6922f2e59a339bb473573fd00551f45bac5b0dd9b8f012d7ad7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-nutrition-view.js",
+        "sha256": "cf0cdd9d95ffadc8503dd4b7141edb9e04a009f11ae95f1bb988a580c919d2f2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-program-objects.js",
+        "sha256": "f4a927fed665cb26e69165f7cb4f6b169850062c38483f1412822911848bbf5c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-running-view.js",
+        "sha256": "9bdf42001c15ea49e501e9c06ec67fa71944b4f99a226c008c4384863f45abf3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-session-flow.js",
+        "sha256": "ffe4567fcaa27a7e4fc93b1602542023bef31b8b9321da3e0ef102f5e546ca81",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-session-ui.js",
+        "sha256": "f6439fbcffd156e132af2dd4a21341d559732e291d5ac3b4a4274ded6e5fd9a8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-store.js",
+        "sha256": "1f631d3b4e32b315b878f62b1ec7bfd05e2610a599125fb165654e78958057bb",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-view.js",
+        "sha256": "6fb10ab5b33b56ed69599157f2a6d95dcdb1d1461c4eef0a98404b49a4296907",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workspace-launcher-view.js",
+        "sha256": "11d25b343ab5d96def619e23442e232dd0ba8206f50ee703df07df607a91fdef",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workspace-list-view.js",
+        "sha256": "97b22e7132c344a2bd5ec9100229a84b8aca4184cd87f3d17f9cffe88f5d158b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workspace-navigation.js",
+        "sha256": "46181c23718754dfc0c60796212f876c4f5ee9107a2d5abd985f2ba3dab649d2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/00_Constitution.md",
+        "sha256": "9fa184ca2965e0629980c8b02f1628391d99af69277b7a2d0b6656b170f5459e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/04_Capture_System.md",
+        "sha256": "a3cbb07b14d419199573ab92672b40f94bb50478fa8603e4fdc081bebf8c1b98",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/05_Home.md",
+        "sha256": "c11ea839650e89e7e28f9b0ecd2985af4228f8b93e4e1f99c3febef4a84d6718",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/06_AI_System.md",
+        "sha256": "ab3555d4991615ca29c3ced0ceadad7ede50551f635398e7e5c0e2cc13b8c78b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/07_Implementation_Guide.md",
+        "sha256": "71c8a4d9a63f35401022fb8b466920a284340f8084897d0687fb4120634e8e2a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/09_Obsidian_Manual.md",
+        "sha256": "2d2639c8baa96bc2f6832619461b0769e259e95dec2538fe80ae0104f66e2a5b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/11_Operating_Guide.md",
+        "sha256": "565e8f4835eb74292eb9a7a45a95b9ee1e5073b73c29d465e2054a2963e9c7a2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/ADR/ADR-003-ai-capture.md",
+        "sha256": "6aab29cee85faa94638083886366e113a4932852dcaac33afefa5292eba22916",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/Apple_Design_Analysis_v1.md",
+        "sha256": "07a985776a27179cd6be98edd5e0fd201f4b23fd2d32b05927760ea891e2b5f4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/DESIGN.md",
+        "sha256": "0735935615bbc35c018cf6179efd479ff021ec8e7e7dc150c035273282017c8f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/Prodigy_Knowledge_Revamp_Citation_Checks_v1.json",
+        "sha256": "914e388534296753822a0a6cfbbfad4f1d683a781034ced5793d580b80e48f1f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/Prodigy_Knowledge_Revamp_Manifest_v1.json",
+        "sha256": "b22a7afb5bdb6796eb94e9c6d29c128a3379c70b872115b53f29be4ea1812a5b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/docs/Prodigy_User_Surface_Improvement_Catalog_v1.json",
+        "sha256": "faeaf0bb77c464caa237c6d6ff19f9599ac1294ea8d6e51020fe5a32416316cf",
+        "hash_mode": "raw"
+      }
+    ]
+  },
+  "toolchain": {
+    "node_recorded": "v24.19.0",
+    "node_required_major": 24,
+    "uv_recorded": "0.11.16",
+    "python_local_recorded": "3.14.5",
+    "python_ci": "3.12",
+    "setup_uv_action": "astral-sh/setup-uv@v5"
+  },
+  "discovery": {
+    "view_syntax_files": 265,
+    "javascript_suite_files": 331,
+    "python_suite_files": 18
+  },
+  "fixed_commands": {
+    "node_version": 1,
+    "node_major_contract": 1,
+    "property_contract_audit": 1,
+    "stability_smoke": 1,
+    "consolidation_fixture_manifest": 1,
+    "consolidation_audits": 4,
+    "release_fixture_journeys": 1,
+    "task15_recovery_proof": 1,
+    "repository_data_backup_drill": 1
+  },
+  "total_commands": 626
+}

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "kind": "browser-automation-transcript",
+  "reviewedCommits": ["f6e1b5e", "5546a12"],
+  "command": "node SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_responsive.js",
+  "environment": {
+    "browserBinary": "/Applications/Aside.app/Contents/MacOS/Aside",
+    "browser": "Chrome/150.0.7871.183",
+    "logicalWidths": [375, 768, 1024],
+    "zoomPercent": 200,
+    "controllerOperations": 20
+  },
+  "observedOutput": [
+    "Knowledge Explorer responsive tests passed",
+    "TASK15_ASIDE_CLEANUP reported profileRemoved=true, profileProcesses=[], portFree=true, allocatorDiagnostic=false",
+    "TASK15_HTTP_CLEANUP reported portFree=true"
+  ],
+  "artifacts": [
+    "artifacts/g005-wave3-production/responsive/responsive-metrics.json",
+    "artifacts/g005-wave3-production/responsive/viewport-375.png",
+    "artifacts/g005-wave3-production/responsive/viewport-768.png",
+    "artifacts/g005-wave3-production/responsive/viewport-1024.png",
+    "artifacts/g005-wave3-production/responsive/zoom-200.png",
+    "artifacts/g005-wave3-production/responsive/20-operations/metrics.json",
+    "artifacts/g005-wave3-production/responsive/20-operations/operation-20-zoom-200.png"
+  ],
+  "verdict": "passed",
+  "limitations": ["This is a browser/Aside fixture, not physical Obsidian Mobile or native desktop evidence."]
+}

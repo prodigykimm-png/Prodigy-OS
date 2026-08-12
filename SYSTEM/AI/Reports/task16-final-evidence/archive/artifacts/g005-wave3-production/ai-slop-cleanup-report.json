@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "kind": "ai-slop-cleanup-report",
+  "sourceCommits": ["f6e1b5e", "5546a12"],
+  "scope": "cumulative G005 production measurement/readiness/exporter bridge and its Hub/View callsites",
+  "pathsReviewed": [
+    "SYSTEM/Views/prodigy-workspace-measurement.js",
+    "SYSTEM/Views/prodigy-workspace-readiness.js",
+    "SYSTEM/Views/workspace-navigation.js",
+    "HUB/00 Home.md",
+    "HUB/10 Auction.md",
+    "HUB/15 Region.md",
+    "HUB/20 Reading.md",
+    "HUB/30 Workout.md",
+    "HUB/40 Project.md",
+    "HUB/50 Knowledge.md",
+    "HUB/60 Personal.md",
+    "HUB/70 Journal.md"
+  ],
+  "method": [
+    "read-only changed-file review for fallback masking, needless duplication, boundary violations, UI slop, and missing guards",
+    "Hub code-block syntax parse for all 39 dataviewjs/js-engine blocks",
+    "focused integration tests and contract audit"
+  ],
+  "status": "passed",
+  "blockingFindings": [],
+  "advisoryFindings": [
+    {
+      "code": "physical-mobile-evidence-pending",
+      "severity": "advisory",
+      "evidence": "Physical Obsidian Mobile/iCloud cold-warm evidence remains an operator campaign and is intentionally not inferred from the browser fixture."
+    },
+    {
+      "code": "external-export-explicit-only",
+      "severity": "advisory",
+      "evidence": "External receipt persistence remains behind explicit preview/confirmation/exporter calls; no automatic external write was added."
+    }
+  ],
+  "verdict": "zero blocking findings"
+}

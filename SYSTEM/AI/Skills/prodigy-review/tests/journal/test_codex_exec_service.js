@@ -67,9 +67,56 @@ async function testChatRequestExtractsAgentMessage() {
   assert.equal(result, "Codex 응답");
 }
 
+async function testRejectsCallerSelectedBinaryAndUnsafeSandboxBeforeSpawn() {
+  let spawns = 0;
+  const service = codex.createService({ spawn: () => { spawns += 1; return fakeChildProcess("", 0); } });
+  await assert.rejects(service.requestChatText({ provider: { ...codex.DEFAULT_PROVIDER, command: "/tmp/unapproved" }, prompt: "fixture" }), /공식 codex/u);
+  await assert.rejects(service.requestChatText({ provider: { ...codex.DEFAULT_PROVIDER, command: "codex", sandbox: "danger-full-access" }, prompt: "fixture" }), /read-only/u);
+  assert.equal(spawns, 0);
+}
+
+async function testRejectsEveryUnknownPublicOptionBeforeSpawn() {
+  const attacks = [
+    { executionMode: "unsafe" },
+    { allowTools: true },
+    { unknownScalar: 7 },
+    { unknownObject: { enabled: true } },
+    { unknownFunction() {} }
+  ];
+  let spawns = 0;
+  const service = codex.createService({ spawn: () => { spawns += 1; return fakeChildProcess("", 0); } });
+  for (const attack of attacks) {
+    await assert.rejects(service.requestChatText({ provider: codex.DEFAULT_PROVIDER, prompt: "fixture", ...attack }), /알 수 없는.*옵션/u);
+  }
+  await assert.rejects(
+    service.requestChatText({ provider: { ...codex.DEFAULT_PROVIDER, unknownObject: {} }, prompt: "fixture" }),
+    /알 수 없는.*provider/u
+  );
+  assert.equal(spawns, 0);
+}
+
+async function testEnvironmentCannotOverrideOfficialExecutable() {
+  const previous = process.env.CODEX_BIN;
+  try {
+    for (const attack of ["/tmp/env-evil", "./codex", "codex; touch /tmp/pwn", "alternate-codex"]) {
+      process.env.CODEX_BIN = attack;
+      let spawns = 0;
+      const service = codex.createService({ spawn: () => { spawns += 1; return fakeChildProcess("", 0); } });
+      await assert.rejects(service.requestChatText({ provider: codex.DEFAULT_PROVIDER, prompt: "fixture" }), /CODEX_BIN|공식.*실행/u);
+      assert.equal(spawns, 0);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.CODEX_BIN;
+    else process.env.CODEX_BIN = previous;
+  }
+}
+
 async function main() {
   await testStructuredRequestUsesOfficialCliBoundary();
   await testChatRequestExtractsAgentMessage();
+  await testRejectsCallerSelectedBinaryAndUnsafeSandboxBeforeSpawn();
+  await testRejectsEveryUnknownPublicOptionBeforeSpawn();
+  await testEnvironmentCannotOverrideOfficialExecutable();
   console.log("Codex exec service tests passed");
 }
 

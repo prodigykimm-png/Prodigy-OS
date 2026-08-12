@@ -1,0 +1,320 @@
+{
+  "command": "node <task-temp>/g005-first-class-hub-parser.js",
+  "count": 39,
+  "pass": 39,
+  "fail": 0,
+  "results": [
+    {
+      "file": "HUB/00 Home.md",
+      "block": 1,
+      "language": "dataviewjs",
+      "lines": 141,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 1,
+      "language": "js-engine",
+      "lines": 798,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 2,
+      "language": "dataviewjs",
+      "lines": 144,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 3,
+      "language": "dataviewjs",
+      "lines": 24,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 4,
+      "language": "js-engine",
+      "lines": 80,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 5,
+      "language": "dataviewjs",
+      "lines": 31,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 6,
+      "language": "dataviewjs",
+      "lines": 31,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 7,
+      "language": "dataviewjs",
+      "lines": 119,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 8,
+      "language": "dataviewjs",
+      "lines": 25,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 9,
+      "language": "dataviewjs",
+      "lines": 28,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 10,
+      "language": "dataviewjs",
+      "lines": 28,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 11,
+      "language": "dataviewjs",
+      "lines": 28,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/10 Auction.md",
+      "block": 12,
+      "language": "dataviewjs",
+      "lines": 28,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/15 Region.md",
+      "block": 1,
+      "language": "dataviewjs",
+      "lines": 640,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/20 Reading.md",
+      "block": 1,
+      "language": "js-engine",
+      "lines": 325,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/20 Reading.md",
+      "block": 2,
+      "language": "dataviewjs",
+      "lines": 213,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/20 Reading.md",
+      "block": 3,
+      "language": "js-engine",
+      "lines": 41,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/20 Reading.md",
+      "block": 4,
+      "language": "dataviewjs",
+      "lines": 26,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/20 Reading.md",
+      "block": 5,
+      "language": "dataviewjs",
+      "lines": 36,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/20 Reading.md",
+      "block": 6,
+      "language": "dataviewjs",
+      "lines": 36,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/20 Reading.md",
+      "block": 7,
+      "language": "dataviewjs",
+      "lines": 42,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/20 Reading.md",
+      "block": 8,
+      "language": "dataviewjs",
+      "lines": 81,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/20 Reading.md",
+      "block": 9,
+      "language": "dataviewjs",
+      "lines": 15,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/30 Workout.md",
+      "block": 1,
+      "language": "js-engine",
+      "lines": 292,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 1,
+      "language": "js-engine",
+      "lines": 129,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 2,
+      "language": "js-engine",
+      "lines": 113,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 3,
+      "language": "dataviewjs",
+      "lines": 39,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 4,
+      "language": "dataviewjs",
+      "lines": 157,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 5,
+      "language": "js-engine",
+      "lines": 50,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 6,
+      "language": "dataviewjs",
+      "lines": 23,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 7,
+      "language": "dataviewjs",
+      "lines": 23,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 8,
+      "language": "dataviewjs",
+      "lines": 23,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 9,
+      "language": "dataviewjs",
+      "lines": 26,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 10,
+      "language": "dataviewjs",
+      "lines": 26,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 11,
+      "language": "dataviewjs",
+      "lines": 26,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/40 Project.md",
+      "block": 12,
+      "language": "dataviewjs",
+      "lines": 26,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/50 Knowledge.md",
+      "block": 1,
+      "language": "dataviewjs",
+      "lines": 596,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/60 Personal.md",
+      "block": 1,
+      "language": "dataviewjs",
+      "lines": 619,
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "file": "HUB/70 Journal.md",
+      "block": 1,
+      "language": "dataviewjs",
+      "lines": 162,
+      "status": "PASS",
+      "error": null
+    }
+  ]
+}

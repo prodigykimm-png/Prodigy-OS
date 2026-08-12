@@ -35,6 +35,17 @@ function geminiProvider() {
   };
 }
 
+function validContextEnvelope() {
+  return {
+    workspace: "journal",
+    tab: "reflection",
+    selection: { path: "DAILY/2026-07-30.md", type: "daily", title: "2026-07-30" },
+    snapshot: [{ key: "mood", value: "calm" }],
+    citations: ["PARA/Projects/context.md"],
+    locale: "ko"
+  };
+}
+
 async function testGeminiStructuredRequest() {
   const calls = [];
   const app = {
@@ -136,6 +147,314 @@ async function testCodexProviderUsesCliSessionWithoutApiKey() {
     assert.equal(calls[0].provider.adapter, "codex-exec");
   } finally {
     global.CodexExecService = previous;
+  }
+}
+
+async function testExecProvidersRejectUnapprovedExecutionSettingsBeforeDispatch() {
+  const previousCodex = global.CodexExecService;
+  const previousAntigravity = global.AntigravityExecService;
+  let dispatches = 0;
+  global.CodexExecService = { requestStructuredJson: async () => { dispatches += 1; return validPayload(); } };
+  global.AntigravityExecService = { requestStructuredJson: async () => { dispatches += 1; return validPayload(); } };
+  const attacks = [
+    { adapter: "codex-exec", authMode: "codex-login", command: "/tmp/unapproved", sandbox: "read-only" },
+    { adapter: "codex-exec", authMode: "codex-login", command: "codex", sandbox: "danger-full-access" },
+    { adapter: "codex-exec", authMode: "codex-login", command: "codex", sandbox: "workspace-write" },
+    { adapter: "codex-exec", authMode: "codex-login", command: "codex", sandbox: "read-only", executionMode: "unsafe" },
+    { adapter: "antigravity-exec", authMode: "antigravity-login", command: "/tmp/unapproved", sandbox: true },
+    { adapter: "antigravity-exec", authMode: "antigravity-login", command: "agy", sandbox: false },
+    { adapter: "antigravity-exec", authMode: "antigravity-login", command: "agy", sandbox: true, allowTools: true }
+  ];
+  try {
+    for (const candidate of attacks) {
+      await assert.rejects(
+        provider.requestStructuredJson({ app: {}, provider: candidate, prompt: "fixture", schema: { type: "object" } }),
+        (error) => error && error.name === "ProviderSecurityError"
+      );
+    }
+    assert.equal(dispatches, 0, "unsafe exec settings must fail before service dispatch");
+  } finally {
+    global.CodexExecService = previousCodex;
+    global.AntigravityExecService = previousAntigravity;
+  }
+}
+
+async function testOuterRequestSchemaRejectsUnknownOptionsBeforeEveryEntryPath() {
+  const previousCodex = global.CodexExecService;
+  const previousAntigravity = global.AntigravityExecService;
+  const counters = { dispatch: 0, secretReads: 0, network: 0 };
+  const app = {
+    secretStorage: { getSecret: async () => { counters.secretReads += 1; return "stored-secret"; } },
+    requestUrl: async () => { counters.network += 1; return { status: 200, json: {} }; }
+  };
+  global.CodexExecService = {
+    requestStructuredJson: async () => { counters.dispatch += 1; return validPayload(); },
+    requestChatText: async () => { counters.dispatch += 1; return "fixture"; }
+  };
+  global.AntigravityExecService = global.CodexExecService;
+  const codexProvider = { adapter: "codex-exec", authMode: "codex-login", command: "codex", sandbox: "read-only" };
+  const antigravityProvider = { adapter: "antigravity-exec", authMode: "antigravity-login", command: "agy", sandbox: true };
+  const httpProvider = Object.assign(geminiProvider(), {
+    fallbackProvider: { adapter: "openai-compatible", name: "Fallback", baseURL: "https://fallback.example/v1", model: "fixture", authMode: "none" }
+  });
+  const attacks = [
+    () => provider.requestStructuredJson({ app, provider: httpProvider, prompt: "fixture", schema: { type: "object" }, executionMode: "unsafe" }),
+    () => provider.requestStructuredJsonOnce({ app, provider: codexProvider, prompt: "fixture", schema: { type: "object" }, allowTools: true }),
+    () => provider.requestChatText({ app, provider: antigravityProvider, prompt: "fixture", contextEnvelope: validContextEnvelope(), request: { executionMode: "unsafe" } }),
+    () => provider.requestStructuredJson({ app, provider: codexProvider, prompt: "fixture", schema: { type: "object" }, timeoutMS: 1 }),
+    () => provider.requestStructuredJson({ app, provider: codexProvider, prompt: "fixture", schema: { type: "object" }, unknownObject: { nested: true } }),
+    () => provider.requestStructuredJson({ app, provider: codexProvider, prompt: "fixture", schema: { type: "object" }, unknownFunction() {} })
+  ];
+  try {
+    for (const attack of attacks) {
+      await assert.rejects(attack(), (error) => error && error.name === "ProviderSecurityError");
+    }
+    assert.deepEqual(counters, { dispatch: 0, secretReads: 0, network: 0 });
+  } finally {
+    global.CodexExecService = previousCodex;
+    global.AntigravityExecService = previousAntigravity;
+  }
+}
+
+async function testCodexRejectsInapplicableStructuredOptionsBeforeAllEffects() {
+  const previousCodex = global.CodexExecService;
+  const previousFallback = global.AIProviderFallback;
+  const originalConsole = { log: console.log, warn: console.warn, error: console.error };
+  const counters = { dispatch: 0, secretReads: 0, network: 0, fallback: 0, logs: 0 };
+  const app = {
+    secretStorage: { getSecret: async () => { counters.secretReads += 1; return "stored-secret"; } },
+    requestUrl: async () => { counters.network += 1; return { status: 200, json: {} }; }
+  };
+  const codexProvider = { adapter: "codex-exec", authMode: "codex-login", command: "codex", sandbox: "read-only" };
+  global.CodexExecService = {
+    requestStructuredJson: async () => { counters.dispatch += 1; return validPayload(); }
+  };
+  global.AIProviderFallback = {
+    requestWithFallback: async (options) => {
+      counters.fallback += 1;
+      return { payload: await options.request(options.provider), provider: options.provider, usedFallback: false };
+    }
+  };
+  console.log = () => { counters.logs += 1; };
+  console.warn = () => { counters.logs += 1; };
+  console.error = () => { counters.logs += 1; };
+  const attacks = [
+    { sleep: async () => {} },
+    { allowFormatDowngrade: false },
+    { requestTag: "codex-inapplicable" }
+  ];
+  try {
+    const errors = [];
+    for (const attack of attacks) {
+      try {
+        await provider.requestStructuredJson(Object.assign({ app, provider: codexProvider, prompt: "fixture", schema: { type: "object" } }, attack));
+        errors.push(null);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    assert.deepEqual(errors.map((error) => error && error.name), ["ProviderSecurityError", "ProviderSecurityError", "ProviderSecurityError"]);
+    assert.deepEqual(counters, { dispatch: 0, secretReads: 0, network: 0, fallback: 0, logs: 0 });
+  } finally {
+    console.log = originalConsole.log;
+    console.warn = originalConsole.warn;
+    console.error = originalConsole.error;
+    global.CodexExecService = previousCodex;
+    global.AIProviderFallback = previousFallback;
+  }
+}
+
+async function testAdapterApplicabilityRejectsAntigravityMalformedValuesAndFallbackTransitions() {
+  const previousCodex = global.CodexExecService;
+  const previousAntigravity = global.AntigravityExecService;
+  const previousFallback = global.AIProviderFallback;
+  const originalConsole = { log: console.log, warn: console.warn, error: console.error };
+  const counters = { dispatch: 0, secretReads: 0, network: 0, fallback: 0, logs: 0 };
+  const app = {
+    secretStorage: { getSecret: async () => { counters.secretReads += 1; return "stored-secret"; } },
+    requestUrl: async (options) => {
+      counters.network += 1;
+      const body = JSON.parse(options.body);
+      return body.messages
+        ? { status: 200, json: { choices: [{ message: { content: JSON.stringify(validPayload()) } }] } }
+        : { status: 200, json: { outputs: [{ type: "text", text: JSON.stringify(validPayload()) }] } };
+    }
+  };
+  const codexProvider = { adapter: "codex-exec", authMode: "codex-login", command: "codex", sandbox: "read-only" };
+  const antigravityProvider = { adapter: "antigravity-exec", authMode: "antigravity-login", command: "agy", sandbox: true };
+  const openAiProvider = { adapter: "openai-compatible", name: "Local", baseURL: "http://127.0.0.1:1234/v1", model: "fixture", authMode: "none" };
+  global.CodexExecService = { requestStructuredJson: async () => { counters.dispatch += 1; return validPayload(); } };
+  global.AntigravityExecService = global.CodexExecService;
+  global.AIProviderFallback = {
+    requestWithFallback: async (options) => {
+      counters.fallback += 1;
+      return { payload: await options.request(options.provider), provider: options.provider, usedFallback: false };
+    }
+  };
+  console.log = () => { counters.logs += 1; };
+  console.warn = () => { counters.logs += 1; };
+  console.error = () => { counters.logs += 1; };
+  const attacks = [
+    Object.assign({ app, provider: antigravityProvider, prompt: "fixture", schema: { type: "object" } }, { sleep: async () => {} }),
+    Object.assign({ app, provider: antigravityProvider, prompt: "fixture", schema: { type: "object" } }, { allowFormatDowngrade: false }),
+    Object.assign({ app, provider: antigravityProvider, prompt: "fixture", schema: { type: "object" } }, { requestTag: "inapplicable" }),
+    Object.assign({ app, provider: openAiProvider, prompt: "fixture", schema: { type: "object" } }, { sleep: "not-a-function" }),
+    Object.assign({ app, provider: openAiProvider, prompt: "fixture", schema: { type: "object" } }, { allowFormatDowngrade: "false" }),
+    Object.assign({ app, provider: openAiProvider, prompt: "fixture", schema: { type: "object" } }, { requestTag: { malformed: true } }),
+    { app, provider: Object.assign({}, openAiProvider, { fallbackProvider: codexProvider }), prompt: "fixture", schema: { type: "object" }, requestTag: "http-only" },
+    { app, provider: Object.assign({}, openAiProvider, { fallbackProvider: antigravityProvider }), prompt: "fixture", schema: { type: "object" }, sleep: async () => {} },
+    { app, provider: Object.assign(geminiProvider(), { fallbackProvider: openAiProvider }), prompt: "fixture", schema: { type: "object" }, allowFormatDowngrade: false }
+  ];
+  try {
+    const errors = [];
+    for (const attack of attacks) {
+      try {
+        await provider.requestStructuredJson(attack);
+        errors.push(null);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    assert.deepEqual(errors.map((error) => error && error.name), Array(attacks.length).fill("ProviderSecurityError"));
+    assert.deepEqual(counters, { dispatch: 0, secretReads: 0, network: 0, fallback: 0, logs: 0 });
+  } finally {
+    console.log = originalConsole.log;
+    console.warn = originalConsole.warn;
+    console.error = originalConsole.error;
+    global.CodexExecService = previousCodex;
+    global.AntigravityExecService = previousAntigravity;
+    global.AIProviderFallback = previousFallback;
+  }
+}
+
+async function testAdapterRequestKindAcceptanceMatrix() {
+  const previousCodex = global.CodexExecService;
+  const previousAntigravity = global.AntigravityExecService;
+  const previousFallback = global.AIProviderFallback;
+  const calls = { http: 0, codex: 0, antigravity: 0 };
+  const app = {
+    secretStorage: { getSecret: async () => "http-secret" },
+    requestUrl: async (options) => {
+      calls.http += 1;
+      const body = JSON.parse(options.body);
+      if (body.messages) return { status: 200, json: { choices: [{ message: { content: JSON.stringify(validPayload()) } }] } };
+      return { status: 200, json: { outputs: [{ type: "text", text: JSON.stringify(validPayload()) }] } };
+    }
+  };
+  const codexProvider = { adapter: "codex-exec", authMode: "codex-login", command: "codex", sandbox: "read-only" };
+  const antigravityProvider = { adapter: "antigravity-exec", authMode: "antigravity-login", command: "agy", sandbox: true };
+  const openAiProvider = { adapter: "openai-compatible", name: "Local", baseURL: "http://127.0.0.1:1234/v1", model: "fixture", authMode: "none" };
+  global.CodexExecService = {
+    requestStructuredJson: async () => { calls.codex += 1; return validPayload(); },
+    requestChatText: async () => { calls.codex += 1; return "codex"; }
+  };
+  global.AntigravityExecService = {
+    requestStructuredJson: async () => { calls.antigravity += 1; return validPayload(); },
+    requestChatText: async () => { calls.antigravity += 1; return "antigravity"; }
+  };
+  global.AIProviderFallback = null;
+  try {
+    await provider.requestStructuredJson({ app, provider: openAiProvider, prompt: "fixture", schema: { type: "object" }, sleep: async () => {}, allowFormatDowngrade: false, requestTag: "http-structured" });
+    await provider.requestStructuredJson({ app, provider: geminiProvider(), prompt: "fixture", schema: { type: "object" }, sleep: async () => {}, requestTag: "gemini-structured" });
+    await provider.requestChatText({ app, provider: openAiProvider, prompt: "fixture", contextEnvelope: validContextEnvelope(), sleep: async () => {} });
+    await provider.requestStructuredJsonOnce({ app, provider: openAiProvider, prompt: "fixture", schema: { type: "object" }, sleep: async () => {}, providerKey: "openrouter", providerMode: "direct", requestMetadata: { request_id: "fixture" }, consent: { consent_hash: "a".repeat(64) } });
+
+    await provider.requestStructuredJson({ app, provider: codexProvider, prompt: "fixture", schema: { type: "object" } });
+    await provider.requestChatText({ app, provider: codexProvider, prompt: "fixture", contextEnvelope: validContextEnvelope() });
+    await provider.requestStructuredJsonOnce({ app, provider: codexProvider, prompt: "fixture", schema: { type: "object" } });
+    await provider.requestStructuredJson({ app, provider: antigravityProvider, prompt: "fixture", schema: { type: "object" } });
+    await provider.requestChatText({ app, provider: antigravityProvider, prompt: "fixture", contextEnvelope: validContextEnvelope() });
+    await provider.requestStructuredJsonOnce({ app, provider: antigravityProvider, prompt: "fixture", schema: { type: "object" } });
+
+    assert.deepEqual(calls, { http: 4, codex: 3, antigravity: 3 });
+  } finally {
+    global.CodexExecService = previousCodex;
+    global.AntigravityExecService = previousAntigravity;
+    global.AIProviderFallback = previousFallback;
+  }
+}
+
+async function testMalformedValuesAndWrongRequestKindsRejectBeforeEffects() {
+  const previousCodex = global.CodexExecService;
+  const previousAntigravity = global.AntigravityExecService;
+  const counters = { dispatch: 0, secretReads: 0, network: 0 };
+  const app = {
+    secretStorage: { getSecret: async () => { counters.secretReads += 1; return "stored-secret"; } },
+    requestUrl: async () => { counters.network += 1; return { status: 200, json: {} }; }
+  };
+  const openAiProvider = { adapter: "openai-compatible", name: "Local", baseURL: "http://127.0.0.1:1234/v1", model: "fixture", authMode: "none" };
+  const codexProvider = { adapter: "codex-exec", authMode: "codex-login", command: "codex", sandbox: "read-only" };
+  const antigravityProvider = { adapter: "antigravity-exec", authMode: "antigravity-login", command: "agy", sandbox: true };
+  global.CodexExecService = {
+    requestStructuredJson: async () => { counters.dispatch += 1; return validPayload(); },
+    requestChatText: async () => { counters.dispatch += 1; return "fixture"; }
+  };
+  global.AntigravityExecService = global.CodexExecService;
+  const attacks = [
+    () => provider.requestChatText({ app, provider: openAiProvider, prompt: "fixture", contextEnvelope: validContextEnvelope(), sleep: "invalid" }),
+    () => provider.requestStructuredJsonOnce({ app, provider: openAiProvider, prompt: "fixture", schema: { type: "object" }, providerMode: "invalid" }),
+    () => provider.requestStructuredJsonOnce({ app, provider: openAiProvider, prompt: "fixture", schema: { type: "object" }, requestMetadata: [] }),
+    () => provider.requestStructuredJson({ app, provider: openAiProvider, prompt: "fixture", schema: { type: "object" }, timeoutMs: 0 }),
+    () => provider.requestChatText({ app, provider: codexProvider, prompt: "fixture", contextEnvelope: validContextEnvelope(), sleep: async () => {} }),
+    () => provider.requestStructuredJsonOnce({ app, provider: codexProvider, prompt: "fixture", schema: { type: "object" }, providerKey: "codex" }),
+    () => provider.requestStructuredJsonOnce({ app, provider: antigravityProvider, prompt: "fixture", schema: { type: "object" }, consent: {} })
+  ];
+  try {
+    for (const attack of attacks) await assert.rejects(attack(), (error) => error && error.name === "ProviderSecurityError");
+    assert.deepEqual(counters, { dispatch: 0, secretReads: 0, network: 0 });
+  } finally {
+    global.CodexExecService = previousCodex;
+    global.AntigravityExecService = previousAntigravity;
+  }
+}
+
+async function testOuterBoundaryRejectsRelayTokenWithoutSideEffectsOrDisclosure() {
+  const previous = global.AntigravityExecService;
+  const originalConsole = { log: console.log, warn: console.warn, error: console.error };
+  const injectedSecret = "INJECTED_RELAY_SECRET_12345678901234567890";
+  const providerConfig = {
+    adapter: "antigravity-exec", name: "Antigravity 구독", authMode: "antigravity-login",
+    command: "agy", model: "gemini-3.6-flash-medium", sandbox: true,
+    relayURL: "https://fixture.ts.net/v1/antigravity"
+  };
+  const cases = ["", "different-stored-secret"];
+  try {
+    for (const storedToken of cases) {
+      const counters = { dispatch: 0, secretReads: 0, network: 0 };
+      const logs = [];
+      global.AntigravityExecService = {
+        requestStructuredJson: async () => { counters.dispatch += 1; return validPayload(); }
+      };
+      console.log = (...args) => { logs.push(args.join(" ")); };
+      console.warn = (...args) => { logs.push(args.join(" ")); };
+      console.error = (...args) => { logs.push(args.join(" ")); };
+      let rejected;
+      try {
+        await provider.requestStructuredJsonOnce({
+          app: {
+            isMobile: true,
+            secretStorage: { getSecret: async () => { counters.secretReads += 1; return storedToken; } },
+            requestUrl: async () => { counters.network += 1; return { status: 200, json: {} }; }
+          },
+          provider: providerConfig,
+          prompt: "fixture",
+          schema: { type: "object" },
+          relayToken: injectedSecret
+        });
+        assert.fail("public relayToken must reject");
+      } catch (error) {
+        rejected = error;
+      }
+      const surfaced = `${rejected && rejected.message}\n${rejected && rejected.stack || ""}\n${logs.join("\n")}`;
+      assert.equal(rejected && rejected.name, "ProviderSecurityError");
+      assert.equal(surfaced.includes(injectedSecret), false);
+      assert.deepEqual(counters, { dispatch: 0, secretReads: 0, network: 0 });
+    }
+  } finally {
+    console.log = originalConsole.log;
+    console.warn = originalConsole.warn;
+    console.error = originalConsole.error;
+    global.AntigravityExecService = previous;
   }
 }
 
@@ -275,6 +594,40 @@ function testTailnetProviderUsesLocalUrlOnlyOnDesktop() {
   };
   assert.equal(provider.resolveBaseURL(lmStudio, { isMobile: false }), "http://127.0.0.1:1234/v1");
   assert.equal(provider.resolveBaseURL(lmStudio, { isMobile: true }), "https://youngjae-macmini-2.tail1992b9.ts.net/v1");
+}
+
+async function testAntigravityRelaySecretErrorsStayRedactedThroughProviderBoundary() {
+  const previous = global.AntigravityExecService;
+  global.AntigravityExecService = require(path.join(ROOT, "SYSTEM/Views/antigravity-exec-service.js"));
+  const secret = "SENSITIVE_TOKEN_12345678901234567890";
+  try {
+    await assert.rejects(provider.requestStructuredJsonOnce({
+      app: {
+        isMobile: true,
+        secretStorage: { getSecret: async () => "relay-secret" },
+        requestUrl: async () => ({ status: 502, json: { error: `Antigravity token ${secret}` } })
+      },
+      provider: {
+        adapter: "antigravity-exec",
+        name: "Antigravity 구독",
+        authMode: "antigravity-login",
+        command: "agy",
+        model: "gemini-3.6-flash-medium",
+        sandbox: true,
+        relayURL: "https://fixture.ts.net/v1/antigravity"
+      },
+      prompt: "fixture",
+      schema: { type: "object" }
+    }), (error) => {
+      const surfaced = `${error.message}\n${error.stack || ""}`;
+      assert.equal(surfaced.includes(secret), false);
+      assert.doesNotMatch(surfaced, /Antigravity token|SENSITIVE_TOKEN/u);
+      assert.match(error.message, /Antigravity 중계.*HTTP 502/u);
+      return true;
+    });
+  } finally {
+    global.AntigravityExecService = previous;
+  }
 }
 
 async function testMobileAntigravityRelayRequiresSecretStorageToken() {
@@ -448,12 +801,20 @@ async function main() {
   await testGeminiStructuredRequest();
   await testLocalStructuredRequestNeedsNoSecretAndUsesTtl();
   await testCodexProviderUsesCliSessionWithoutApiKey();
+  await testExecProvidersRejectUnapprovedExecutionSettingsBeforeDispatch();
+  await testOuterBoundaryRejectsRelayTokenWithoutSideEffectsOrDisclosure();
+  await testOuterRequestSchemaRejectsUnknownOptionsBeforeEveryEntryPath();
+  await testAdapterApplicabilityRejectsAntigravityMalformedValuesAndFallbackTransitions();
+  await testCodexRejectsInapplicableStructuredOptionsBeforeAllEffects();
+  await testAdapterRequestKindAcceptanceMatrix();
+  await testMalformedValuesAndWrongRequestKindsRejectBeforeEffects();
   await testAntigravityProviderUsesCliSessionAndModelWithoutApiKey();
   await testChatTextRequestKeepsCitationsWithoutVaultWrites();
   await testChatTextAcceptsBuilderTruncatedEnvelope();
   await testStructuredFormatRejectionStillFallsBackToPlainJsonMode();
   testResponseExtraction();
   testTailnetProviderUsesLocalUrlOnlyOnDesktop();
+  await testAntigravityRelaySecretErrorsStayRedactedThroughProviderBoundary();
   await testMobileAntigravityRelayRequiresSecretStorageToken();
   await testRetriesAndErrors();
   await testGroqFallbacksToOpenRouterOnlyForEligibleFailure();

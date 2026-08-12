@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "region-approval.schema.json",
+  "title": "Region Intelligence Approval Envelope",
+  "description": "Immutable UUIDv4 nonce envelope for human approval of Region changes. Binds selected receipt hashes, canonical payload hash, target path/preimage, rendered output hash, writer version, and parameters. 30-minute TTL.",
+  "type": "object",
+  "required": [
+    "nonce",
+    "created_at",
+    "expires_at",
+    "writer_id",
+    "target_path",
+    "preimage_sha256",
+    "payload_sha256",
+    "rendered_sha256",
+    "selection_receipt_sha256",
+    "writer_version",
+    "parameters"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "writer_id": {
+      "type": "string",
+      "enum": [
+        "metrics",
+        "research",
+        "transit",
+        "land_price"
+      ]
+    },
+    "target_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_key": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "preimage_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payload_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "rendered_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "selection_receipt_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "writer_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "parameters": {
+      "type": "object"
+    },
+    "region_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    }
+  }
+}

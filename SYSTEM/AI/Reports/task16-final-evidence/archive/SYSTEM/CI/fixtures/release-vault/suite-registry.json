@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "suites": [
+    { "id": "project", "workspace_id": "project", "command": ["--journey", "project"] },
+    { "id": "people", "workspace_id": "personal", "command": ["--journey", "people"] },
+    { "id": "reading", "workspace_id": "reading", "command": ["--journey", "reading"] },
+    { "id": "home", "workspace_id": "home", "command": ["--journey", "home"] },
+    { "id": "journal", "workspace_id": "journal", "command": ["--journey", "journal"] },
+    { "id": "workout", "workspace_id": "workout", "command": ["--journey", "workout"] }
+  ]
+}

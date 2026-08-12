@@ -1,0 +1,465 @@
+{
+  "schema_version": "task16-task-wave-provenance-v1",
+  "task_count": 16,
+  "wave_count": 8,
+  "requirement_count": 24,
+  "artifact_binding_count": 72,
+  "requirements": [
+    {
+      "id": "task-01",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_prodigy_contract_audit.js",
+          "sha256": "445e57fdaaae96f232f5f4e4a50de43dd514a05aedc4c2ee03f1eeec94886b0a"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_prodigy_contract_audit.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_prodigy_contract_audit.js"
+        }
+      ]
+    },
+    {
+      "id": "task-02",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/workspace/test_workspace_consistency.js",
+          "sha256": "309e33ee60f5c337bbbb92e55a0313a1512382bb6b4628b12547a0b49f2b9f5a"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/workspace/test_workspace_consistency.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/workspace/test_workspace_consistency.js"
+        }
+      ]
+    },
+    {
+      "id": "task-03",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_day.js",
+          "sha256": "2d59ebbbb577220ddcbde3cdeaf7d655104d8c83db789c440ed6b317bb23040e"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_day.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_day.js"
+        }
+      ]
+    },
+    {
+      "id": "task-04",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_view.js",
+          "sha256": "eaa1f11447b1f380a7390736e809b152ed4878605db123f3ffd04c16edc5d38d"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_view.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_view.js"
+        }
+      ]
+    },
+    {
+      "id": "task-05",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_dashboard.js",
+          "sha256": "e9a8f4c8b156db1f47346468a7e83e2e75d2715129c747acc9761674c4c013c0"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_dashboard.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_dashboard.js"
+        }
+      ]
+    },
+    {
+      "id": "task-06",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_workspace.js",
+          "sha256": "3282d7cd0171257b825a2eef8052a2836fd6ef84f699e72ca3b0dc4fae54ede1"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_workspace.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_workspace.js"
+        }
+      ]
+    },
+    {
+      "id": "task-07",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_workspace.js",
+          "sha256": "94e3bf6c468d7291653e88c616332a45c777ebf423c6f97be0198ae2fc187d75"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_workspace.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_workspace.js"
+        }
+      ]
+    },
+    {
+      "id": "task-08",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_responsive.js",
+          "sha256": "b73732815621e9fc7580c91b51d02781dae68bbbe46916e547e998ebfd21f18b"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_responsive.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_responsive.js"
+        }
+      ]
+    },
+    {
+      "id": "task-09",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_workspace.js",
+          "sha256": "2d95e7a7ea860106e669cd19ad33e9e665ed17a80ff05e881667d476d7f8eb30"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_workspace.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_workspace.js"
+        }
+      ]
+    },
+    {
+      "id": "task-10",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_hub_integration.js",
+          "sha256": "08294d3f6fb06bfb7402ea2758104b11b3db6a0659b958931c7790e0890ce74e"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_hub_integration.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_hub_integration.js"
+        }
+      ]
+    },
+    {
+      "id": "task-11",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_stability_ci_contract.js",
+          "sha256": "57fe07c7780e481f39812ffca8f5211a5faaa9805f8441af626401e5948a4a4e"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_stability_ci_contract.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_stability_ci_contract.js"
+        }
+      ]
+    },
+    {
+      "id": "task-12",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_strategy.js",
+          "sha256": "fdd5d28de1a1ac9af86340352e65c12472e70e40f168cb2f6eafc356b39ffac8"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_strategy.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_strategy.js"
+        }
+      ]
+    },
+    {
+      "id": "task-13",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_ai_decision_support.js",
+          "sha256": "13905e4fb19d313f80b85695987320085202e599ef4331a28259e7a68352865c"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_ai_decision_support.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_ai_decision_support.js"
+        }
+      ]
+    },
+    {
+      "id": "task-14",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_release_fixture_journeys.js",
+          "sha256": "668f44b36bdd5d3727898c544c5fc74b8cc3282170d14b0ead905518558410f4"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_release_fixture_journeys.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_release_fixture_journeys.js"
+        }
+      ]
+    },
+    {
+      "id": "task-15",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_task15_recovery_proof.js",
+          "sha256": "56b46ca8ac7ae8123a419a60baa8ff311e7b76a8cc2feaf0163f3f90b2aaa9a8"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_task15_recovery_proof.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_task15_recovery_proof.js"
+        }
+      ]
+    },
+    {
+      "id": "task-16",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_final_receipt_provenance.js",
+          "sha256": "ea9ddf593fdd261e6a5e34a4d475994f1159ad5e875f60d43c7e0cd1096cb398"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_final_receipt_provenance.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_final_receipt_provenance.js"
+        }
+      ]
+    },
+    {
+      "id": "wave-01",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_workspace_manifest.js",
+          "sha256": "74a09e46aca6a4b4f602a3ba67c389dc1bfc98c95926d1e6656214c60aa72b58"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_workspace_manifest.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_workspace_manifest.js"
+        }
+      ]
+    },
+    {
+      "id": "wave-02",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/shared/test_design_theme_contract.js",
+          "sha256": "b77d835bb1204214f9d46d72de0b16b0daea0695928466087ffa3b7078380807"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/shared/test_design_theme_contract.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/shared/test_design_theme_contract.js"
+        }
+      ]
+    },
+    {
+      "id": "wave-03",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_design_color_contract.js",
+          "sha256": "ea074aa51767af58a0352c3315dd56ac1dee25e0606af5f35dd1a1ec830bd6f6"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_design_color_contract.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_design_color_contract.js"
+        }
+      ]
+    },
+    {
+      "id": "wave-04",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_release_fixtures.js",
+          "sha256": "12702ef3afe196532dd60baaa7960c02b289e60d56fcbc4066a1036b5d6f35bc"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_release_fixtures.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_release_fixtures.js"
+        }
+      ]
+    },
+    {
+      "id": "wave-05",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_audit_adversarial.js",
+          "sha256": "a319004353f19c9b135ec51ead541e6b9286cb01406714b9e86a21ea9a24084f"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_audit_adversarial.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_audit_adversarial.js"
+        }
+      ]
+    },
+    {
+      "id": "wave-06",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_literal_git_archive.js",
+          "sha256": "647c81b3af08d91f33878acf602cbea1eb5d95e6d2805cfb70d53a92a79c14f4"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_literal_git_archive.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_literal_git_archive.js"
+        }
+      ]
+    },
+    {
+      "id": "wave-07",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_release_gate.js",
+          "sha256": "7053be8cec47ec83d34f714650f6bc255d6ef431a213ce98fdb8dbd2ac2c6b3e"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_release_gate.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_release_gate.js"
+        }
+      ]
+    },
+    {
+      "id": "wave-08",
+      "artifacts": [
+        {
+          "artifact_path": "archive/SYSTEM/AI/Skills/prodigy-review/tests/test_stability_ci_contract.js",
+          "sha256": "57fe07c7780e481f39812ffca8f5211a5faaa9805f8441af626401e5948a4a4e"
+        },
+        {
+          "artifact_path": "artifacts/portable-working/gate-output.log",
+          "sha256": "8be2f6db2593749c96b739705a3d3f15cc526f7b42f09704faf046e520727412",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_stability_ci_contract.js"
+        },
+        {
+          "artifact_path": "artifacts/portable-clean/gate-output.log",
+          "sha256": "ee07dd1a6ae0d227e87ae01a932422e44036bc69107866791218d02b293c5c06",
+          "required_pass_token": "PASS: javascript-test: SYSTEM/AI/Skills/prodigy-review/tests/test_stability_ci_contract.js"
+        }
+      ]
+    }
+  ]
+}

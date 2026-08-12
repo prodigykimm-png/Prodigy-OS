@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "goalId": "G003",
+  "reportKind": "cross-workspace-ui-wave2-convergence-evidence",
+  "capturedAt": "2026-08-10T01:22:31Z",
+  "status": "implemented-and-harness-verified",
+  "baseCommit": "07b60974b3003ed7c2618fbbc9da06e716a31a98",
+  "workingTreeSourceHash": "sha256:c0b870926357041678f8f25d4dc28e2a77c9d4778048787b11f1428dda5e2fea",
+  "hashScope": "25 implementation/test files in the current G003 diff; this evidence report is excluded to avoid self-reference",
+  "changedFileCount": 25,
+  "adoptedSurfaces": {
+    "shared": [
+      "SYSTEM/Views/prodigy-app-shell.js",
+      "SYSTEM/Views/prodigy-ui.js",
+      "SYSTEM/Views/prodigy-adaptive-controls.js",
+      "DESIGN.md"
+    ],
+    "homeAndNavigation": [
+      "SYSTEM/Views/home-view.js",
+      "SYSTEM/Views/workspace-launcher-core.js",
+      "SYSTEM/Views/workspace-launcher-view.js"
+    ],
+    "knowledgeJournalReading": [
+      "HUB/50 Knowledge.md",
+      "SYSTEM/Views/weekly-filter-render.js",
+      "HUB/20 Reading.md"
+    ],
+    "personalAndPlaces": [
+      "HUB/60 Personal.md",
+      "SYSTEM/Views/people-styles.js",
+      "SYSTEM/Views/people-view.js",
+      "SYSTEM/Views/venue-view.js"
+    ],
+    "auctionWorkoutInbox": [
+      "HUB/10 Auction.md",
+      "SYSTEM/Views/auction-card.js",
+      "HUB/30 Workout.md",
+      "HUB/Inbox.md"
+    ]
+  },
+  "sharedContracts": [
+    "Theme aliases resolve to Obsidian semantic variables; no raw hex/RGB presentation remains in the audited wave files.",
+    "Compact primary controls, tabs, modal close controls, and context actions use the shared 44px touch target.",
+    "AdaptiveTabs wraps, exposes selected semantics, supports Arrow/Home/End keyboard movement, and does not create a horizontal scroll owner.",
+    "BottomSheet owns only its body overflow, restores opener focus, handles Escape, and applies safe-area clearance.",
+    "AppShell body is the document scroll owner, clips inline overflow, and reserves mobile toolbar/safe-area clearance.",
+    "Reduced-motion media rules remove nonessential transitions and animations.",
+    "CJK and long values use keep-all/anywhere wrapping and min-inline-size:0 constraints."
+  ],
+  "functionalContinuity": [
+    "Personal tabs use the shared AdaptiveTabs contract and sessionStorage state; Places remains lazy and preserves the existing loader adapter.",
+    "Reading focus handoff remains mount-scoped and uses the existing responsive focus/scroll contract.",
+    "Knowledge, Weekly, Launcher, Auction, Workout, and Inbox visual changes retain their existing projections, routes, writers, and retry/error behavior.",
+    "People and Places preserve typed provenance, candidate/approved review boundaries, and no-auto-candidate behavior.",
+    "Auction body attributes use guarded Obsidian setAttr/setAttribute access, preserving older host adapters."
+  ],
+  "verification": {
+    "changedSurfaceSuites": [
+      "Home/shared: 7 focused suites passed",
+      "Personal/Places: 7 focused suites passed",
+      "Knowledge: 7 focused suites passed",
+      "Auction/Region: 7 focused suites passed",
+      "Reading/Journal/Workout/Inbox: 13 focused suites passed"
+    ],
+    "staticChecks": [
+      "node --check on all 11 changed JavaScript view modules passed",
+      "node SYSTEM/SCRIPTS/prodigy-contract-audit.js passed with 0 errors across 9 surfaces and 49 link files",
+      "git diff --check passed",
+      "DataviewJS parse passed for 21 blocks across 6 changed Hub files",
+      "Theme-token audit passed for 18 audited files",
+      "Emoji/icon audit passed for 18 audited files"
+    ]
+  },
+  "preservedBoundaries": [
+    "No .obsidian file was changed.",
+    "No writer, schema, provenance, candidate approval, or domain store was replaced.",
+    "Inbox remains a standalone utility and archive policy remains out of scope.",
+    "People/Places do not auto-create knowledge candidates without Evidence."
+  ],
+  "limitations": [
+    "No physical iPhone/mobile or native Obsidian GUI execution was performed; desktop resizing and harness results are not mobile-device evidence.",
+    "The 320/375/390/430 width, theme, keyboard/touch, focus, reduced-motion, and scroll claims are source-contract and harness evidence in this wave, not a physical-device pass.",
+    "The existing controller-backed Knowledge responsive fixture readiness limitation remains open and is not reported as a pass.",
+    "Wave 3 owns durable cold/warm measurement, external receipt import, final-SHA binding, and approved .obsidian comparison/rollback evidence."
+  ]
+}

@@ -7,7 +7,7 @@ const command = require("../../../../../SCRIPTS/region-source-mois-command-core.
 
 test("Given a valid MOIS collection request, When a command is built, Then it runs from the Vault root with explicit dates and registry", () => {
   const result = command.buildCommand({
-    vault_root: "/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk",
+    vault_root: "/tmp/prodigy-synthetic-vault",
     period: "2026-05",
     published_at: "2026-06-20T00:00:00.000Z",
     registry: "expansion"
