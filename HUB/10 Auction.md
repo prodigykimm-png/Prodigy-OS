@@ -407,9 +407,19 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
       return false;
     };
     const attempt = () => {
-      if (state.disposed || !mounted(container)) {
-        if (!state.disposed) reportError(new Error("Auction section container detached"));
-        state.dispose();
+      if (state.disposed) {
+        return;
+      }
+      if (!mounted(container)) {
+        state.attempts += 1;
+        if (state.attempts >= (Number(config.maxAttempts) || 100)) {
+          reportError(new Error("Auction section container did not connect"));
+          state.dispose();
+          return;
+        }
+        state.timer = state.scope && typeof state.scope.timeout === "function"
+          ? state.scope.timeout(attempt, Number(config.interval) || 100)
+          : window.setTimeout(attempt, Number(config.interval) || 100);
         return;
       }
       state.attempts += 1;
@@ -455,14 +465,25 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
   });
 })();
 
-// Consume one exact Auction handoff only after every destination section has
-// reported readiness. Until then the request and scope stay replayable.
-const auctionNavigationRequest = window.prodigyAuctionNavigationRequest && typeof window.prodigyAuctionNavigationRequest === "object"
+// Consume one fresh Region → Auction handoff once. The markdown preview mounts
+// lower card blocks lazily, so a process-global scope must never outlive its
+// Auction mount and filter a later ordinary visit.
+const rawAuctionNavigationRequest = window.prodigyAuctionNavigationRequest && typeof window.prodigyAuctionNavigationRequest === "object"
   ? window.prodigyAuctionNavigationRequest
   : null;
-const auctionRegionScope = window.prodigyAuctionRegionScope && typeof window.prodigyAuctionRegionScope === "object"
+const auctionRequestCreatedAt = rawAuctionNavigationRequest && Date.parse(String(rawAuctionNavigationRequest.created_at || ""));
+const auctionNavigationRequest = rawAuctionNavigationRequest
+  && Number.isFinite(auctionRequestCreatedAt)
+  && Date.now() - auctionRequestCreatedAt < 60000
+  ? rawAuctionNavigationRequest
+  : null;
+const auctionRegionScope = auctionNavigationRequest && window.prodigyAuctionRegionScope && typeof window.prodigyAuctionRegionScope === "object"
   ? window.prodigyAuctionRegionScope
   : null;
+if (!auctionNavigationRequest) {
+  if (window.prodigyAuctionNavigationRequest === rawAuctionNavigationRequest) delete window.prodigyAuctionNavigationRequest;
+  delete window.prodigyAuctionRegionScope;
+}
 const expectedSections = new Set(["bidding", "watching", "reviewing", "won", "lost", "skipped", "archived"]);
 const renderedSections = new Set();
 const renderFailures = new Set();
@@ -589,9 +610,18 @@ const initializeAuctionWorkspace = async () => {
       container,
       renderers: { auction: async (mountContext) => {
   window.__prodigyAuctionMountScope = mountContext.scope;
+  const activeAuctionRegionScope = auctionRegionScope ? { ...auctionRegionScope } : null;
+  if (activeAuctionRegionScope) {
+    window.__prodigyAuctionActiveRegionScope = activeAuctionRegionScope;
+    if (window.prodigyAuctionRegionScope === auctionRegionScope) delete window.prodigyAuctionRegionScope;
+    if (window.prodigyAuctionNavigationRequest === auctionNavigationRequest) delete window.prodigyAuctionNavigationRequest;
+  } else {
+    delete window.__prodigyAuctionActiveRegionScope;
+  }
   ensureAuctionHubStyles();
   mountContext.scope.track(() => {
     if (window.__prodigyAuctionMountScope === mountContext.scope) delete window.__prodigyAuctionMountScope;
+    if (window.__prodigyAuctionActiveRegionScope === activeAuctionRegionScope) delete window.__prodigyAuctionActiveRegionScope;
     delete window.__prodigyAuctionReadinessCommit;
     delete window.__prodigyAuctionReadinessFailure;
   });

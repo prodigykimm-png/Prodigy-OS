@@ -117,8 +117,8 @@ window.renderDashboardSection = function(options) {
   
   const filterCategory = fm.card_category || "전체";
   const filterStatus = fm.card_status || "전체";
-  const regionScope = window.prodigyAuctionRegionScope && typeof window.prodigyAuctionRegionScope === "object"
-    ? window.prodigyAuctionRegionScope
+  const regionScope = window.__prodigyAuctionActiveRegionScope && typeof window.__prodigyAuctionActiveRegionScope === "object"
+    ? window.__prodigyAuctionActiveRegionScope
     : null;
   const filterRegion = regionScope && regionScope.region_sido
     ? regionScope.region_sido
@@ -205,7 +205,7 @@ window.renderDashboardSection = function(options) {
       });
       
       sel.onchange = async () => {
-        if (field === "card_region") window.prodigyAuctionRegionScope = null;
+        if (field === "card_region") window.__prodigyAuctionActiveRegionScope = null;
         const dashboardPath = dataviewInstance.current()?.file?.path;
         if (dashboardPath) {
           const file = app.vault.getAbstractFileByPath(dashboardPath);
@@ -271,8 +271,10 @@ window.renderDashboardSection = function(options) {
   
   let pages = dataviewInstance.pages(`"${folderPath}"`).where(p => p.type === type && p.status === status);
 
-  // Apply search query filter for auction cases globally
-  if (type === "auction_case" && window.auctionSearchQuery) {
+  // The search input exists only in the bidding section. Keeping its transient
+  // value out of every other status prevents a stale query from hiding the
+  // watching cards that have no visible way to clear it.
+  if (type === "auction_case" && status === "bidding" && window.auctionSearchQuery) {
     const q = window.auctionSearchQuery.toLowerCase().trim();
     pages = pages.where(p => {
       const caseNum = String(p.case_number || p.file.name || "").toLowerCase();

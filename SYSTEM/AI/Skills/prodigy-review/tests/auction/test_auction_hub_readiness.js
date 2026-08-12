@@ -37,7 +37,7 @@ function universal() {
   return proxy;
 }
 
-function actualAuctionExecution(readiness) {
+function actualAuctionExecution(readiness, initialGlobals = {}) {
   const container = new Element();
   const generic = universal();
   let decisionPacketInitializations = 0;
@@ -60,13 +60,14 @@ function actualAuctionExecution(readiness) {
     AuctionDecisionMirrorCore: { snapshotAuctionCases: () => ({}) },
     ProdigyHubLoader: { async mountWorkspace(_app, _manifest, options) { rendererCalls += 1; return options.renderers.auction({ app, container, manifest, scope, signal: scope.signal, optional_ready: Promise.resolve({ optional_failures: [] }), onOptionalReady(callback) { optionalCallback = callback; }, retry() {}, reloadRequired: async () => ({ ok: true }) }); } }
   };
-  const target = Object.assign({}, known);
+  const target = Object.assign({}, known, initialGlobals);
   const sandbox = new Proxy(target, { has: () => true, get(object, key) { if (key === "window" || key === "globalThis") return sandbox; return key in object ? object[key] : generic; }, set(object, key, value) { object[key] = value; return true; } });
   target.window = sandbox; target.globalThis = sandbox;
   const script = new vm.Script(`(async function (app, obsidian, container) {\n${ACTUAL_BLOCK}\n}).call({ container }, app, obsidian, container)`, { filename: "HUB/10 Auction.md" });
   return {
     task: script.runInNewContext(sandbox),
     counts: () => ({ rendererCalls, decisionPacketInitializations }),
+    global: (key) => target[key],
     continuation: () => target.__prodigyMeasurementContinuations && target.__prodigyMeasurementContinuations[0],
     settleOptional(session, failures = []) { target.__prodigyMeasurementEntry = session ? { workspaceId: "auction", session } : { workspaceId: "auction" }; optionalCallback({ optional_failures: failures }); }
   };
@@ -81,6 +82,44 @@ test("the actual Auction Hub block gates decision-packet initialization on site-
   readiness.resolve();
   await execution.task;
   assert.deepEqual(execution.counts(), { rendererCalls: 1, decisionPacketInitializations: 1 });
+});
+
+test("the actual Auction Hub clears a region scope no live handoff owns", async () => {
+  const readiness = deferred();
+  readiness.resolve();
+  const execution = actualAuctionExecution(readiness, {
+    prodigyAuctionRegionScope: { region_key: "stale", region_sido: "서울", region_sigungu: "강남구" }
+  });
+  await execution.task;
+  assert.equal(execution.global("prodigyAuctionRegionScope"), undefined);
+});
+
+test("the actual Auction Hub makes a fresh Region scope mount-local", async () => {
+  const readiness = deferred();
+  readiness.resolve();
+  const regionScope = { region_key: "fresh", region_sido: "서울", region_sigungu: "강남구" };
+  const request = { request_id: "fresh", status: "pending", created_at: new Date().toISOString() };
+  const execution = actualAuctionExecution(readiness, {
+    prodigyAuctionNavigationRequest: request,
+    prodigyAuctionRegionScope: regionScope
+  });
+  await execution.task;
+  assert.equal(JSON.stringify(execution.global("__prodigyAuctionActiveRegionScope")), JSON.stringify(regionScope));
+  assert.equal(execution.global("prodigyAuctionNavigationRequest"), undefined);
+  assert.equal(execution.global("prodigyAuctionRegionScope"), undefined);
+});
+
+test("the actual Auction Hub discards an expired Region handoff", async () => {
+  const readiness = deferred();
+  readiness.resolve();
+  const execution = actualAuctionExecution(readiness, {
+    prodigyAuctionNavigationRequest: { request_id: "expired", status: "opened", created_at: "2020-01-01T00:00:00.000Z" },
+    prodigyAuctionRegionScope: { region_key: "expired", region_sido: "서울", region_sigungu: "강남구" }
+  });
+  await execution.task;
+  assert.equal(execution.global("__prodigyAuctionActiveRegionScope"), undefined);
+  assert.equal(execution.global("prodigyAuctionNavigationRequest"), undefined);
+  assert.equal(execution.global("prodigyAuctionRegionScope"), undefined);
 });
 
 test("the actual Auction renderer records an explicit continuation when measurement arrives after rendering", async () => {
