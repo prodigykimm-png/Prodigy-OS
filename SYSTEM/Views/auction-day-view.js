@@ -27,7 +27,7 @@
 .prodigy-aday-title {
   font-weight: 800;
   font-size: 1.05em;
-  color: var(--text-accent);
+  color: var(--ke-color-accent, var(--text-accent));
 }
 .prodigy-aday-sub {
   font-size: 0.85em;
@@ -63,8 +63,8 @@
 }
 .prodigy-aday-result-btn.is-primary,
 .prodigy-aday-save-bid.is-primary {
-  border-color: var(--text-accent);
-  color: var(--text-accent);
+  border-color: var(--ke-color-accent, var(--text-accent));
+  color: var(--ke-color-accent, var(--text-accent));
 }
 .prodigy-aday-result-btn.is-danger { border-inline-start-width: 3px; }
 .prodigy-aday-result-btn.is-ok { border-block-end-width: 3px; }
@@ -97,7 +97,7 @@
 .prodigy-aday-court-count {
   font-size: 0.82em;
   font-weight: 700;
-  color: var(--text-accent);
+  color: var(--ke-color-accent, var(--text-accent));
 }
 .prodigy-aday-section-label {
   font-size: 0.78em;
@@ -138,7 +138,7 @@
 }
 .prodigy-aday-card {
   border: 1px solid var(--background-modifier-border);
-  border-left: 4px solid var(--text-accent);
+  border-left: 4px solid var(--ke-color-accent, var(--text-accent));
   border-radius: 8px;
   padding: 10px;
   margin-bottom: 10px;
@@ -146,7 +146,7 @@
   scroll-margin-top: 12px;
 }
 .prodigy-aday-card.is-focus {
-  outline: 2px solid var(--interactive-accent);
+  outline: 2px solid var(--ke-color-interactive, var(--interactive-accent));
   outline-offset: 2px;
 }
 .prodigy-aday-card-title {
@@ -302,7 +302,7 @@
 .prodigy-auction-day button:focus-visible,
 .prodigy-auction-day input:focus-visible,
 .prodigy-auction-day textarea:focus-visible {
-  outline: 2px solid var(--interactive-accent);
+  outline: 2px solid var(--ke-color-interactive, var(--interactive-accent));
   outline-offset: 2px;
 }
 .prodigy-auction-day button:active { transform: scale(.95); }

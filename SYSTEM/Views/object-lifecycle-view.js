@@ -56,7 +56,7 @@
       }
       row.createEl("span", {
         text: String(item.count || 0),
-        attr: { style: "font-size:1.15em;font-weight:800;color:var(--text-accent);flex:none;" }
+        attr: { style: "font-size:1.15em;font-weight:800;color:var(--ke-color-accent, var(--text-accent));flex:none;" }
       });
       row.onclick = () => openPath(app, item.workspace_path);
     });

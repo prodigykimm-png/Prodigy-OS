@@ -381,7 +381,7 @@ function main() {
     ].every((pattern) => pattern.test(source));
     assert.equal(creatorTouchContract(viewSrc), true, "every shipped Object Creator target preserves the canonical touch target");
     assert.match(viewSrc, /recentBox\.createEl\("button"[\s\S]*?type: "button"[\s\S]*?class: "poc-recent-item"/, "recent rows use native button keyboard semantics");
-    assert.match(viewSrc, /\.poc-input:focus-visible\{[^}]*outline:2px solid var\(--interactive-accent\)[^}]*box-shadow:none/s, "focus remains visible without decorative chrome shadow");
+    assert.match(viewSrc, /\.poc-input:focus-visible\{[^}]*outline:2px solid var\(--ke-color-interactive, var\(--interactive-accent\)\)[^}]*box-shadow:none/s, "focus remains visible without decorative chrome shadow");
     assert.match(viewSrc, /@media\(forced-colors:active\)/, "forced colors remain explicit");
     assert.match(viewSrc, /@media\(prefers-reduced-motion:reduce\)/, "reduced motion remains explicit");
     assert.doesNotMatch(viewSrc, /linear-gradient|radial-gradient|box-shadow:(?!none)/, "Object Creator has no gradients or chrome shadows");
@@ -394,8 +394,8 @@ function main() {
     }
     assert.match(creatorCoreSrc, /normalizeDuplicateResults|listDuplicateCandidates|openExistingObject/);
     assert.match(homeSrc, /ObjectCreatorView|\+ 새 Object|metaKey|ctrlKey/);
-    const homeRequired = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.required;
-    assert.ok(homeRequired.includes("SYSTEM/Views/object-creator-core.js") || homeRequired.includes("SYSTEM/Views/object-creator-view.js"));
+    const homeOptional = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.optional;
+    assert.ok(homeOptional.includes("SYSTEM/Views/object-creator-core.js") || homeOptional.includes("SYSTEM/Views/object-creator-view.js"));
     assert.match(launcherView, /ObjectCreatorView|\+ 새 Object/);
     assert.match(guide, /Universal Object Creator|classify\(|classifyInput|Object Engine/);
     assert.match(guide, /getLifecycle|getAttention|findDuplicates|getContinueTarget/);

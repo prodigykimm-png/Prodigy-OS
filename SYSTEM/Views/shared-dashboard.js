@@ -372,6 +372,7 @@ window.renderDashboardSection = function(options) {
   };
   
   pages = pages.sort(p => getSortKey(p, activeSortField), activeSortOrder);
+  const pageList = typeof pages.array === "function" ? pages.array() : Array.from(pages || []);
   
   // Setup container
   let targetContainer = container;
@@ -389,7 +390,7 @@ window.renderDashboardSection = function(options) {
   }
   
   // Render
-  if (pages.length === 0) {
+  if (pageList.length === 0) {
     if (isCollapsed) {
       targetContainer.createEl("span", {
         text: emptyMessage,
@@ -405,6 +406,6 @@ window.renderDashboardSection = function(options) {
       });
     }
   } else {
-    pages.forEach(p => renderer(p, targetContainer));
+    pageList.forEach(p => renderer(p, targetContainer));
   }
 };

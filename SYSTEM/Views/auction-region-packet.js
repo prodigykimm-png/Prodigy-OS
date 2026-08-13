@@ -149,7 +149,7 @@
       .auction-region-packet-list { margin-block: 0; padding-inline-start: var(--size-4-6); }
       .auction-region-packet-list li { overflow-wrap: anywhere; }
       .auction-region-packet-checks { background: var(--background-secondary); border-radius: var(--radius-s); padding-inline: var(--size-4-3); padding-bottom: var(--size-4-3); }
-      .auction-region-packet-authority { color: var(--text-accent); font-weight: var(--font-semibold); margin-top: 0; }
+      .auction-region-packet-authority { color: var(--ke-color-accent, var(--text-accent)); font-weight: var(--font-semibold); margin-top: 0; }
       .auction-region-packet-error { color: var(--text-error); overflow-wrap: anywhere; }
       .auction-region-packet-actions { display: flex; gap: var(--size-4-2); flex-wrap: wrap; }
       .auction-decision-board-status { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--size-4-2); }

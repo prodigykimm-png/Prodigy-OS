@@ -39,9 +39,9 @@ function evaluateDataviewService() {
 
 function assertHomeProviderDependencies() {
   const source = fs.readFileSync(HOME_PATH, "utf8");
-  const loadOrder = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.required;
+  const loadOrder = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.optional;
   const serviceIndex = loadOrder.indexOf("SYSTEM/Views/ai-provider-service.js");
-  assert.ok(serviceIndex >= 0, "Home must load AIProviderService.");
+  assert.ok(serviceIndex >= 0, "Home must defer AIProviderService.");
   [
     "SYSTEM/Views/ai-provider-response.js",
     "SYSTEM/Views/ai-provider-schema.js",
@@ -49,7 +49,7 @@ function assertHomeProviderDependencies() {
     "SYSTEM/Views/ai-provider-fallback.js"
   ].forEach((dependency) => {
     const dependencyIndex = loadOrder.indexOf(dependency);
-    assert.ok(dependencyIndex >= 0 && dependencyIndex < serviceIndex, `Home must load ${dependency} before AIProviderService.`);
+    assert.ok(dependencyIndex >= 0 && dependencyIndex < serviceIndex, `Home must defer ${dependency} before AIProviderService.`);
   });
   assert.doesNotMatch(
     source,

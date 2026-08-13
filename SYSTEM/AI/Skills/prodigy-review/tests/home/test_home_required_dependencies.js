@@ -14,6 +14,7 @@ const REQUIRED_SEAMS = Object.freeze([
   "SYSTEM/Views/home-controller.js",
   "SYSTEM/Views/home-sections.js"
 ]);
+const DEFERRED_FEATURE_MODULE = "SYSTEM/Views/project-wizard.js";
 
 function assertHomeSeamOrder(entry) {
   const required = entry && entry.required || [];
@@ -35,6 +36,10 @@ function testManifestMutationsRed() {
   assertHomeSeamOrder(production);
   assertHomeSeamOrder(frozen);
   assert.deepEqual(JSON.parse(JSON.stringify(production)), frozen);
+  [production, frozen].forEach((entry) => {
+    assert.equal(entry.required.includes(DEFERRED_FEATURE_MODULE), false, "conditionally used Home features must not block the initial mount");
+    assert.equal(entry.optional.includes(DEFERRED_FEATURE_MODULE), true, "conditionally used Home features must load after the initial mount");
+  });
 
   const omitted = { ...frozen, required: frozen.required.filter((modulePath) => modulePath !== REQUIRED_SEAMS[1]) };
   assert.throws(() => assertHomeSeamOrder(omitted), /home-controller\.js must be required exactly once/);
@@ -65,6 +70,31 @@ class Node {
   setAttribute(name, value) { this.attributes[name] = String(value); }
   addEventListener(type, callback) { this.listeners.set(type, callback); }
   removeEventListener(type, callback) { if (this.listeners.get(type) === callback) this.listeners.delete(type); }
+}
+
+async function testMissingDeferredFeatureStillMountsHome() {
+  const manifests = global.ProdigyWorkspaceManifest || require(MANIFEST_PATH);
+  const manifest = manifests.get("home");
+  delete require.cache[require.resolve(LOADER_PATH)];
+  delete global.ProdigyHubLoader;
+  const loader = require(LOADER_PATH);
+  loader.resetLoaded();
+  const files = new Map(manifest.required.concat(manifest.optional).map((modulePath) => [modulePath, ""]));
+  files.delete(DEFERRED_FEATURE_MODULE);
+  const app = { vault: {
+    getAbstractFileByPath(modulePath) { return files.has(modulePath) ? { path: modulePath } : null; },
+    async read(file) { return files.get(file.path); }
+  } };
+  const host = new Node();
+  let rendererCalls = 0;
+  const mounted = await loader.mountWorkspace(app, manifest, { container: host, renderers: { home() { rendererCalls += 1; } } });
+  const optional = await mounted.optional_ready;
+
+  assert.equal(rendererCalls, 1, "a missing deferred Home feature must not block rendering");
+  assert.equal(host.children.some((child) => child.attributes.class === "prodigy-required-recovery"), false, "a missing deferred feature must not render required recovery");
+  assert.deepEqual(optional.optional_failures.map((failure) => failure.path), [DEFERRED_FEATURE_MODULE]);
+  assert.equal(optional.optional_failures[0].code, "sync_pending");
+  mounted.dispose();
 }
 
 async function testMissingRequiredRecovery() {
@@ -109,6 +139,7 @@ async function testMissingRequiredRecovery() {
 
 async function main() {
   testManifestMutationsRed();
+  await testMissingDeferredFeatureStillMountsHome();
   await testMissingRequiredRecovery();
   console.log("Home required dependency tests passed");
 }

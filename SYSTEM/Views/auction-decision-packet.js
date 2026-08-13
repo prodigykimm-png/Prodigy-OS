@@ -155,7 +155,7 @@
       attr: {
         type: "button",
         class: "prodigy-decision-packet-record",
-        style: "border:0;background:transparent;color:var(--text-accent);padding:0;text-align:left;cursor:pointer;font:inherit;"
+        style: "border:0;background:transparent;color:var(--ke-color-accent, var(--text-accent));padding:0;text-align:left;cursor:pointer;font:inherit;"
       }
     });
     row.onclick = async (event) => {
@@ -182,7 +182,7 @@
     const box = parent.createEl("div", {
       attr: {
         class: "prodigy-auction-decision-packet",
-        style: "margin-top:4px;padding:6px 8px;border-left:2px solid var(--text-accent);background:var(--background-primary-alt, var(--background-primary));font-size:0.76em;line-height:1.45;display:flex;flex-direction:column;gap:2px;"
+        style: "margin-top:4px;padding:6px 8px;border-left:2px solid var(--ke-color-accent, var(--text-accent));background:var(--background-primary-alt, var(--background-primary));font-size:0.76em;line-height:1.45;display:flex;flex-direction:column;gap:2px;"
       }
     });
     box.createEl("div", { text: "결정 패킷", attr: { style: "font-weight:700;color:var(--text-normal);" } });

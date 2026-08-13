@@ -26,7 +26,7 @@
         contentEl.createEl("p", { text: "오늘 무엇이 달라졌는지, 무엇을 배웠는지, 다음에 무엇을 시험할지 짧게 기록합니다.", attr: { style: "color:var(--text-muted);margin:0 0 12px;" } });
         if (focusHints.length) {
           const focusBox = contentEl.createEl("div", { attr: { class: "prodigy-full-bleed is-parchment", style: "margin:0 0 12px;" } });
-          focusBox.createEl("div", { text: "오늘 Focus 돌아보기", attr: { style: "font-weight:700;margin-bottom:4px;color:var(--text-accent);" } });
+          focusBox.createEl("div", { text: "오늘 Focus 돌아보기", attr: { style: "font-weight:700;margin-bottom:4px;color:var(--ke-color-accent, var(--text-accent));" } });
           ["오늘 Focus를 마쳤나요?", "무엇이 완료를 막았나요?", "내일 무엇을 바꾸면 좋을까요?"].forEach((text) => focusBox.createEl("div", { text: `· ${text}`, attr: { style: "color:var(--text-muted);" } }));
           focusHints.forEach((label) => focusBox.createEl("div", { text: `→ ${label}`, attr: { style: "font-weight:600;margin-top:2px;" } }));
         }

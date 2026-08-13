@@ -18,6 +18,7 @@ const FILES = [
   "SYSTEM/Views/journal-review-modal.js"
 ];
 const source = FILES.map(file => fs.readFileSync(path.join(ROOT, file), "utf8")).join("\n");
+const shellSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-app-shell.js"), "utf8");
 const periodSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/journal-period-view.js"), "utf8");
 const dashboardSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/journal-dashboard-view.js"), "utf8");
 
@@ -63,6 +64,17 @@ test("owned Journal controls override native Obsidian geometry and chrome withou
   assert.match(dashboardSource, /\.prodigy-journal-workspace button\.prodigy-btn\{[^}]*min-inline-size:44px[^}]*min-block-size:44px[^}]*block-size:auto[^}]*box-shadow:none/);
   assert.match(dashboardSource, /\.journal-date-nav input\[type=date\]\{[^}]*min-inline-size:44px[^}]*min-block-size:44px[^}]*block-size:auto/);
   assert.match(dashboardSource, /@media\(max-width:480px\)\{\.prodigy-app-shell\[data-workspace-id="journal"\]>.prodigy-workspace-bar\{padding-inline:4px\}\.prodigy-app-shell\[data-workspace-id="journal"\] \.journal-card:not\(\.prodigy-full-bleed\)\{padding-inline:2px\}\}/);
+});
+
+test("Journal delegates iPad vertical scrolling to the enclosing Markdown preview", () => {
+  assert.match(
+    shellSource,
+    /\.prodigy-app-shell\[data-workspace-id="journal"\]\s*\{\s*grid-template-rows:\s*auto auto auto;\s*max-block-size:\s*none;\s*overflow:\s*visible;\s*\}/,
+  );
+  assert.match(
+    shellSource,
+    /\.prodigy-app-shell\[data-workspace-id="journal"\]\s*>\s*\.prodigy-app-shell-body\s*\{\s*overflow:\s*visible;\s*overscroll-behavior-block:\s*auto;\s*\}/,
+  );
 });
 
 test("Journal preserves native button semantics and Escape focus return", () => {

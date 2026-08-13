@@ -103,9 +103,9 @@
       this.contentEl.createEl("h2", { text: "현장 방문 체크리스트" });
       this.contentEl.createEl("p", { text: objectSubtitle(this.page), attr: { style: "color: var(--text-muted); margin-top: -8px;" } });
       const progress = workflow().progress(this.state);
-      this.contentEl.createEl("div", { text: `${progress.done} / ${progress.total} 완료`, attr: { style: "font-weight: 700; color: var(--text-accent); margin-bottom: 10px;" } });
+      this.contentEl.createEl("div", { text: `${progress.done} / ${progress.total} 완료`, attr: { style: "font-weight: 700; color: var(--ke-color-accent, var(--text-accent)); margin-bottom: 10px;" } });
       const progressEl = this.contentEl.createEl("div", { attr: { style: "height: 6px; background: var(--background-modifier-border); border-radius: 3px; margin-bottom: 16px; overflow: hidden;" } });
-      progressEl.createEl("div", { attr: { style: `height: 100%; width: ${progress.total ? (progress.done / progress.total) * 100 : 0}%; background: var(--text-accent); transition: width 160ms ease;` } });
+      progressEl.createEl("div", { attr: { style: `height: 100%; width: ${progress.total ? (progress.done / progress.total) * 100 : 0}%; background: var(--ke-color-accent, var(--text-accent)); transition: width 160ms ease;` } });
       const navigation = this.contentEl.createEl("div", { attr: { style: "display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;" } });
       this.button(navigation, "현장 방문 열기", () => this.openObjectSection(["현장 방문", "임장", "Site Visit", "Site Visit Report"]));
       this.button(navigation, "사진 열기", () => this.scrollToPopupSection("photos"));
@@ -285,7 +285,7 @@
     }
 
     button(parent, text, onClick, primary = false) {
-      const button = parent.createEl("button", { text, attr: { style: `padding: 5px 8px; border-radius: 5px; border: 1px solid ${primary ? "var(--text-accent)" : "var(--background-modifier-border)"}; background: ${primary ? "var(--text-accent)" : "var(--background-secondary)"}; color: ${primary ? "var(--text-on-accent, white)" : "var(--text-normal)"}; cursor: pointer; font-size: 0.8em;` } });
+      const button = parent.createEl("button", { text, attr: { style: `padding: 5px 8px; border-radius: 5px; border: 1px solid ${primary ? "var(--ke-color-accent, var(--text-accent))" : "var(--background-modifier-border)"}; background: ${primary ? "var(--ke-color-accent, var(--text-accent))" : "var(--background-secondary)"}; color: ${primary ? "var(--text-on-accent, white)" : "var(--text-normal)"}; cursor: pointer; font-size: 0.8em;` } });
       button.onclick = onClick;
       return button;
     }

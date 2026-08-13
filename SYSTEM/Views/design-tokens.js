@@ -9,9 +9,9 @@
   const NAME = "Apple-design-analysis";
 
   const ACCENTS = Object.freeze({
-    action: "#0066cc",
-    focus: "#0071e3",
-    onDark: "#2997ff",
+    action: "#007aff",
+    focus: "#007aff",
+    onDark: "#0a84ff",
   });
 
   // Obsidian owns canvases, ink, borders, and status roles. The alpha values
@@ -204,6 +204,29 @@
     withAlpha,
     badgeBg,
   });
+
+  // Shared accent tokens must resolve outside the App Shell too. The shell
+  // defines --ke-* scoped to .prodigy-app-shell, so every other view fell back
+  // to Obsidian's theme accent (--text-accent / --interactive-accent) and
+  // rendered the user's theme color instead of the canonical Apple system blue.
+  // Installing the accent family on :root makes one blue resolve in every view.
+  function installSharedAccentTokens() {
+    if (typeof document === "undefined" || !document.head || typeof document.createElement !== "function") return;
+    const styleId = "prodigy-shared-accent-tokens";
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = [
+      ":root{",
+      "--ke-color-accent:" + ACCENTS.action + ";",
+      "--ke-color-interactive:" + ACCENTS.action + ";",
+      "--ke-color-interactive-dark:" + ACCENTS.onDark + ";",
+      "--ke-color-on-interactive:" + SEMANTIC_COLORS.onAction + ";",
+      "}"
+    ].join("");
+    document.head.appendChild(style);
+  }
+  installSharedAccentTokens();
 
   root.ProdigyTokens = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

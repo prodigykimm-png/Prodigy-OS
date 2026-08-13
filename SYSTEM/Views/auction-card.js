@@ -85,8 +85,8 @@ function ensureAuctionCardStyles() {
 .auction-card-dday { min-block-size: var(--ke-space-5, 16px); color: var(--ke-color-text, var(--text-normal)); background: var(--ke-color-hover, var(--background-modifier-hover)); }
 .auction-card-dday.is-urgent { border-width: 2px; font-weight: 800; }
 .auction-card-external-link { min-block-size: var(--ke-touch-target, 44px); text-decoration: none; cursor: pointer; }
-.auction-card-external-link[data-source="naver"] { background: color-mix(in srgb, var(--text-accent) 12%, var(--background-primary)); }
-.auction-card-external-link[data-source="cafe"] { background: color-mix(in srgb, var(--text-accent) 12%, var(--background-primary)); }
+.auction-card-external-link[data-source="naver"] { background: color-mix(in srgb, var(--ke-color-accent, var(--text-accent)) 12%, var(--background-primary)); }
+.auction-card-external-link[data-source="cafe"] { background: color-mix(in srgb, var(--ke-color-accent, var(--text-accent)) 12%, var(--background-primary)); }
 .auction-card-detail-row {
   flex-wrap: wrap;
   gap: var(--ke-space-2, 4px);

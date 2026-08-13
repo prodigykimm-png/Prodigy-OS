@@ -555,11 +555,11 @@ test("Given an optional measurement module is missing, When a workspace mount se
   delete global.__prodigyMeasurementLoadFailures;
 });
 
-test("Given a required registry evaluated without its global, When the renderer requests recovery, Then the shared loader re-evaluates only that required path", async () => {
+test("Given a required Home seam evaluated without its global, When the renderer requests recovery, Then the shared loader re-evaluates only that required path", async () => {
   const manifests = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js"));
   const manifest = manifests.get("home");
   const modules = Object.fromEntries(manifest.required.map((modulePath) => [modulePath, ""]));
-  const registryPath = "SYSTEM/Views/display-registry.js";
+  const registryPath = "SYSTEM/Views/home-model.js";
   const loader = loadFreshLoader();
   loader.resetLoaded();
   delete global.__displayRecovered;

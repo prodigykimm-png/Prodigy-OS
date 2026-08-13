@@ -179,7 +179,7 @@
     if (packet.knowledge.length) {
       var kHead = section.createEl("div", {
         text: "참조 지식 (" + packet.knowledge.length + ")",
-        attr: { style: "font-size:0.72em;font-weight:700;color:var(--text-accent);margin-bottom:4px;" }
+        attr: { style: "font-size:0.72em;font-weight:700;color:var(--ke-color-accent, var(--text-accent));margin-bottom:4px;" }
       });
       packet.knowledge.forEach(function (k) {
         var row = section.createEl("div", {
@@ -187,7 +187,7 @@
         });
         row.createEl("span", { text: "·", attr: { style: "color:var(--text-muted);" } });
         var kReason = Array.isArray(k.reasons) && k.reasons.length ? k.reasons.join(" · ") : "";
-        var link = row.createEl("a", { text: k.title + (kReason ? " — " + kReason : ""), attr: { href: k.path, style: "color:var(--text-accent);text-decoration:none;" } });
+        var link = row.createEl("a", { text: k.title + (kReason ? " — " + kReason : ""), attr: { href: k.path, style: "color:var(--ke-color-accent, var(--text-accent));text-decoration:none;" } });
         link.onclick = function (e) {
           e.preventDefault();
           if (root.app && root.app.workspace) root.app.workspace.openLinkText(k.path, k.path, false);
@@ -198,7 +198,7 @@
     if (packet.prior_workouts.length) {
       var pHead = section.createEl("div", {
         text: "이전 운동 (" + packet.prior_workouts.length + ")",
-        attr: { style: "font-size:0.72em;font-weight:700;color:var(--text-accent);margin-top:6px;margin-bottom:4px;" }
+        attr: { style: "font-size:0.72em;font-weight:700;color:var(--ke-color-accent, var(--text-accent));margin-top:6px;margin-bottom:4px;" }
       });
       packet.prior_workouts.forEach(function (p) {
         var row = section.createEl("div", {
@@ -206,7 +206,7 @@
         });
         row.createEl("span", { text: "·", attr: { style: "color:var(--text-muted);" } });
         var pReason = Array.isArray(p.reasons) && p.reasons.length ? p.reasons.join(" · ") : "";
-        var link = row.createEl("a", { text: p.title + (pReason ? " — " + pReason : ""), attr: { href: p.path, style: "color:var(--text-accent);text-decoration:none;" } });
+        var link = row.createEl("a", { text: p.title + (pReason ? " — " + pReason : ""), attr: { href: p.path, style: "color:var(--ke-color-accent, var(--text-accent));text-decoration:none;" } });
         link.onclick = function (e) {
           e.preventDefault();
           if (root.app && root.app.workspace) root.app.workspace.openLinkText(p.path, p.path, false);

@@ -7,8 +7,8 @@
 .reading-responsive-grid{display:grid;grid-template-columns:minmax(min(18rem,100%),4fr) minmax(min(22rem,100%),6fr);gap:var(--ke-space-4,12px);min-block-size:0;min-inline-size:0}
 .reading-responsive-workspace[data-reading-layout="compact"] .reading-responsive-grid,.reading-responsive-workspace[data-reading-layout="medium"] .reading-responsive-grid{grid-template-columns:minmax(0,1fr)}
 .reading-responsive-pane{min-block-size:0;min-inline-size:0;overflow:visible;word-break:keep-all;overflow-wrap:anywhere}
-.reading-responsive-pane:focus-visible{outline:2px solid var(--text-accent);outline-offset:2px}
-.reading-focus-target{outline:2px solid var(--text-accent);outline-offset:3px}
+.reading-responsive-pane:focus-visible{outline:2px solid var(--ke-color-accent, var(--text-accent));outline-offset:2px}
+.reading-focus-target{outline:2px solid var(--ke-color-accent, var(--text-accent));outline-offset:3px}
 .reading-responsive-workspace[data-reading-layout="compact"] .prodigy-adaptive-tab{min-block-size:var(--reading-touch-target)}
 .prodigy-app-shell[data-workspace-id="reading"]>.prodigy-workspace-bar{padding-inline:4px}
 @media(prefers-reduced-motion:reduce){.reading-responsive-workspace *{transition:none!important;animation:none!important;transform:none!important}}
@@ -738,7 +738,7 @@
 .reading-session-row:first-of-type{border-top:0;padding-top:0}
 .reading-session-meta{color:var(--text-muted);font-size:0.78em;display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
 .reading-session-detail{font-size:0.86em;line-height:1.45;margin-top:5px;overflow-wrap:anywhere}
-.reading-session-delta{margin-top:6px;padding:8px 10px;border-left:2px solid var(--text-accent);background:var(--background-primary);border-radius:0 6px 6px 0;font-size:0.86em;line-height:1.45}
+.reading-session-delta{margin-top:6px;padding:8px 10px;border-left:2px solid var(--ke-color-accent, var(--text-accent));background:var(--background-primary);border-radius:0 6px 6px 0;font-size:0.86em;line-height:1.45}
 `;
     const wrap = container.createEl("div", { attr: { class: "reading-session-history" } });
 
@@ -798,7 +798,7 @@
           const delta = row.createEl("div", { attr: { class: "reading-session-delta" } });
           delta.createEl("div", {
             text: "생각의 변화",
-            attr: { style: "font-size:0.72em;font-weight:700;color:var(--text-accent);margin-bottom:3px;" }
+            attr: { style: "font-size:0.72em;font-weight:700;color:var(--ke-color-accent, var(--text-accent));margin-bottom:3px;" }
           });
           delta.createEl("div", { text: session.thinking_delta });
         }

@@ -18,7 +18,7 @@
   border:1px solid var(--background-modifier-border);background:var(--background-primary);box-shadow:none;
   color:var(--text-normal);font:inherit;font-size:0.95em;line-height:1.4;
 }
-.poc-input:focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px;border-color:var(--interactive-accent);box-shadow:none}
+.poc-input:focus-visible{outline:2px solid var(--ke-color-interactive, var(--interactive-accent));outline-offset:2px;border-color:var(--ke-color-interactive, var(--interactive-accent));box-shadow:none}
 .poc-section{margin-top:14px}
 .poc-section-title{font-size:0.72em;font-weight:800;color:var(--text-muted);letter-spacing:0.04em;margin:0 0 8px;text-transform:uppercase}
 .poc-types{display:flex;flex-direction:column;gap:4px;max-height:min(40vh,280px);overflow:auto}
@@ -30,11 +30,11 @@
 }
 .poc-type:hover{background:var(--background-modifier-hover)}
 .poc-type.is-active{
-  border-color:var(--interactive-accent);
-  background:color-mix(in srgb,var(--interactive-accent) 14%,var(--background-secondary));
+  border-color:var(--ke-color-interactive, var(--interactive-accent));
+  background:color-mix(in srgb,var(--ke-color-interactive, var(--interactive-accent)) 14%,var(--background-secondary));
 }
 .poc-type-radio{flex:0 0 auto;margin-top:2px;font-size:0.9em;color:var(--text-muted)}
-.poc-type.is-active .poc-type-radio{color:var(--interactive-accent);font-weight:800}
+.poc-type.is-active .poc-type-radio{color:var(--ke-color-interactive, var(--interactive-accent));font-weight:800}
 .poc-type-body{flex:1 1 auto;min-width:0}
 .poc-type-name{font-weight:700;font-size:0.92em}
 .poc-type-reason{font-size:0.78em;color:var(--text-muted);margin-top:2px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
@@ -71,7 +71,7 @@
   color:var(--text-normal);font:inherit;text-align:left;-webkit-appearance:none;appearance:none;
 }
 .poc-recent-item:hover{background:var(--background-modifier-hover)}
-.poc-recent-item:focus-visible{outline:2px solid var(--interactive-accent);outline-offset:2px;box-shadow:none}
+.poc-recent-item:focus-visible{outline:2px solid var(--ke-color-interactive, var(--interactive-accent));outline-offset:2px;box-shadow:none}
 .poc-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap}
 .poc-footer button{min-height:44px;padding:6px 14px;font:inherit}
 .prodigy-object-creator button,.prodigy-object-creator button:hover,.prodigy-object-creator button:focus-visible{box-shadow:none}

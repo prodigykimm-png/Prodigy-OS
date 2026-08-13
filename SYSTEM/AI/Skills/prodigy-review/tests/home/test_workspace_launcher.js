@@ -151,9 +151,9 @@ function main() {
   // Home wiring
   assert.match(homeSource, /WorkspaceLauncherCore|WorkspaceLauncherView/);
   assert.match(homeSource, /Workspace Launcher|워크스페이스 런처|launcherCards|home-launcher-mount/);
-  const homeRequired = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.required;
-  assert.ok(homeRequired.includes("SYSTEM/Views/workspace-launcher-core.js"));
-  assert.ok(homeRequired.includes("SYSTEM/Views/workspace-launcher-view.js"));
+  const homeOptional = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.optional;
+  assert.ok(homeOptional.includes("SYSTEM/Views/workspace-launcher-core.js"));
+  assert.ok(homeOptional.includes("SYSTEM/Views/workspace-launcher-view.js"));
 
   // Operating Guide
   assert.match(guide, /Workspace Launcher/);

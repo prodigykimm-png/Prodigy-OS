@@ -99,7 +99,7 @@
       ".prodigy-ai-inspector-citation{display:inline-flex;align-items:center;min-block-size:32px;padding-inline:var(--ke-space-2,4px);border:1px solid var(--background-modifier-border);border-radius:var(--ke-radius-control,4px);background:var(--background-secondary);color:var(--text-muted);font-size:var(--ke-type-label,.72rem);cursor:pointer}",
       ".prodigy-ai-inspector-kind{display:inline-block;font-size:var(--ke-type-label,.72rem);padding-inline:var(--ke-space-2,4px);border-radius:var(--ke-radius-control,4px);margin-inline-end:var(--ke-space-2,4px)}",
       ".prodigy-ai-inspector-kind-explain{background:var(--background-modifier-hover);color:var(--text-muted)}",
-      ".prodigy-ai-inspector-kind-suggest{background:var(--background-modifier-hover);color:var(--text-accent)}",
+      ".prodigy-ai-inspector-kind-suggest{background:var(--background-modifier-hover);color:var(--ke-color-accent, var(--text-accent))}",
       ".prodigy-ai-inspector-kind-approve{background:var(--background-modifier-hover);color:var(--text-warning)}",
       ".prodigy-ai-inspector-input-area{display:grid;gap:var(--ke-space-2,4px);padding:var(--ke-space-3,8px);border-top:1px solid var(--background-modifier-border)}",
       ".prodigy-ai-inspector-input-row{display:flex;gap:var(--ke-space-2,4px)}",

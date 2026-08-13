@@ -153,7 +153,7 @@ function assertScopeUsable(root) {
 function assertTokenSourceIsSemantic(root, files) {
   const tokenSource = readText(root, TOKENS_REL);
   const approvedAlphaHex = new Set([
-    "#000000", "#0066cc", "#0071e3", "#1d1d1f", "#272729", "#2997ff",
+    "#000000", "#007aff", "#0a84ff", "#1d1d1f", "#272729",
     "#7a7a7a", "#cccccc", "#e0e0e0", "#f0f0f0", "#f5f5f7", "#fafafc", "#ffffff"
   ]);
   const unapprovedTokenHex = normalizedHexes(tokenSource).filter((hex) => !approvedAlphaHex.has(hex));

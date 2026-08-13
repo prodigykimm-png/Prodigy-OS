@@ -67,9 +67,16 @@ function waitForExactSignal(label, subscribe, timeoutMs = 2000) {
   return promise;
 }
 
-function createRuntime(entry, mutation = "none") {
+function createRuntime(entry, mutation = "none", environment = {}) {
   const { workspaceId, hubPath: relative } = entry;
-  const missingRequiredPath = "SYSTEM/Views/design-tokens.js";
+  const mobile = environment.mobile === true;
+  const globalIife = environment.globalIife === true;
+  const lexicalApp = !globalIife && environment.lexicalApp !== false;
+  const thisApp = environment.thisApp === true || (!globalIife && environment.thisApp !== false);
+  const dvApp = environment.dvApp === true;
+  const missingRequiredPath = mutation === "missing-home-core"
+    ? "SYSTEM/Views/home-model.js"
+    : "SYSTEM/Views/design-tokens.js";
   let missingLookups = 0;
   let resolveRetryLookup;
   const retryLookupSignal = new Promise((resolve) => { resolveRetryLookup = resolve; });
@@ -157,6 +164,7 @@ function createRuntime(entry, mutation = "none") {
   }
 
   const head = new Element("head"); const body = new Element("body");
+  if (mobile) body.classList.add("is-mobile");
   const document = {
     head, body, activeElement: null,
     createElement: (tag) => new Element(tag, {}, document),
@@ -167,6 +175,7 @@ function createRuntime(entry, mutation = "none") {
   head.ownerDocument = document; body.ownerDocument = document;
   const leaf = new Element("section", { attr: { class: "workspace-leaf-content" } }, document);
   const container = leaf.createDiv({ attr: { class: "block-language-dataviewjs" } });
+  if (mobile) { leaf.clientWidth = 390; container.clientWidth = 390; }
   body.appendChild(leaf);
 
   const windowEvents = {};
@@ -193,11 +202,12 @@ function createRuntime(entry, mutation = "none") {
   }
 
   const files = new Map();
+  const reads = [];
   for (const entry of fs.readdirSync(path.join(ROOT, "SYSTEM/Views"))) {
     if (entry.endsWith(".js")) files.set(`SYSTEM/Views/${entry}`, fs.readFileSync(path.join(ROOT, "SYSTEM/Views", entry), "utf8"));
   }
   const requiredSource = files.get(missingRequiredPath);
-  if (mutation === "missing-required" || mutation === "sync-retry-throw") files.delete(missingRequiredPath);
+  if (mutation === "missing-required" || mutation === "missing-home-core" || mutation === "sync-retry-throw") files.delete(missingRequiredPath);
   if (mutation === "sync-retry-throw") {
     const key = "SYSTEM/Views/prodigy-hub-loader.js";
     files.set(key, files.get(key).replace(
@@ -229,37 +239,53 @@ function createRuntime(entry, mutation = "none") {
     vault: {
       adapter: { exists: async () => false, read: async () => "", write: async () => {}, mkdir: async () => {}, remove: async () => {}, rename: async () => {}, list: async () => ({ files: [], folders: [] }), stat: async () => null },
       getAbstractFileByPath(modulePath) { if (modulePath === missingRequiredPath) { missingLookups += 1; if (missingLookups >= 2) resolveRetryLookup(); } return files.has(modulePath) ? { path: modulePath, extension: path.extname(modulePath).slice(1) } : null; },
-      async read(file) { return files.get(file.path) || ""; }, async cachedRead(file) { return files.get(file.path) || ""; }, getFiles: () => []
+      async read(file) { reads.push(file.path); return files.get(file.path) || ""; }, async cachedRead(file) { return files.get(file.path) || ""; }, getFiles: () => []
     },
+    isMobile: mobile,
     workspace,
     metadataCache: { getFileCache: () => ({ frontmatter: {} }), on: () => null, offref() {} },
     plugins: { plugins: { dataview: { api: { pages: () => ({ array: () => [] }) } } } }
   };
   const target = {
     console, Error, TypeError, Object, Array, String, Number, Boolean, Set, Map, WeakMap, Promise, Date, Math, JSON, RegExp, Symbol,
-    document, app, container, obsidian: { Modal: class { constructor() { this.contentEl = new Element("section", {}, document); } open() {} close() {} } },
+    document, container,
     AbortController, ResizeObserver: TrackedResizeObserver, MutationObserver: mutation === "no-removal-observer" ? undefined : class { constructor(callback) { this.callback = callback; } observe(target, options) { mutationObservers.set(this, { target, options: options || {} }); } disconnect() { mutationObservers.delete(this); } },
     setTimeout: trackedSetTimeout, clearTimeout: trackedClearTimeout, setInterval: trackedSetInterval, clearInterval: trackedClearInterval,
-    requestAnimationFrame: (callback) => callback(), cancelAnimationFrame() {}, innerWidth: 1280,
+    requestAnimationFrame: (callback) => callback(), cancelAnimationFrame() {}, innerWidth: mobile ? 390 : 1280,
+    visualViewport: mobile ? { width: 390, height: 844 } : undefined,
     addEventListener: windowEvents.addEventListener, removeEventListener: windowEvents.removeEventListener,
     sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} }, localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
     require: undefined, module: undefined, exports: undefined, Notice: class {}, moment: () => ({ format: () => "2026-08-10" })
   };
+  if (!globalIife) {
+    target.app = app;
+    target.obsidian = { Modal: class { constructor() { this.contentEl = new Element("section", {}, document); } open() {} close() {} } };
+  }
+  const lexicalAmbientUnavailable = !Object.hasOwn(target, "app") && !Object.hasOwn(target, "obsidian");
+  const dataviewContext = { container };
+  if (thisApp) dataviewContext.app = app;
   const sandbox = target;
-  target.window = sandbox; target.globalThis = sandbox;
-  target.dv = { pages: () => ({ array: () => [] }), io: { load: async () => "" }, current: () => ({}) };
+  target.window = sandbox; target.globalThis = sandbox; target.__dataviewContext = dataviewContext;
+  target.dv = {
+    pages: () => ({ array: () => [] }), io: { load: async () => "" }, current: () => ({}),
+    ...(dvApp ? { app } : {})
+  };
   const context = vm.createContext(sandbox);
   target.Function = vm.runInContext("Function", context);
   target.eval = vm.runInContext("eval", context);
 
   let block = executableBlock(entry);
   let leakedCallback = null;
+  if (mutation === "legacy-ambient-prelude") block = `window.obsidian = obsidian;\nwindow.app = app;\n${block}`;
   if (mutation === "listener-leak") {
     leakedCallback = function leakedProductionRegistration() {};
     target.__task6LeakedCallback = leakedCallback;
     block = block.replace(/([a-z]+):\s*async\s*\(mountContext\)\s*=>\s*\{/, "$& window.addEventListener(\"task6-leak\", window.__task6LeakedCallback);");
   }
-  const script = new vm.Script(`(async function (app, dv, obsidian, container) {\n${block}\n}).call({ container }, app, dv, obsidian, container)`, { filename: relative });
+  const invocation = globalIife
+    ? `(async function () {\n${block}\n}).call(__dataviewContext)`
+    : `(async function (app, dv, obsidian, container) {\n${block}\n}).call(__dataviewContext, ${lexicalApp ? "app" : "undefined"}, dv, obsidian, container)`;
+  const script = new vm.Script(invocation, { filename: relative });
 
   function rawListenerCount() { let total = 0; for (const types of listenerTargets.values()) for (const callbacks of types.values()) for (const count of callbacks.values()) total += count; return total; }
   function vector() {
@@ -303,7 +329,27 @@ function createRuntime(entry, mutation = "none") {
   function listenerDetails() { const out = []; for (const [eventTarget, types] of listenerTargets) for (const [type, callbacks] of types) if (!(eventTarget instanceof Element) || body.contains(eventTarget)) out.push({ target: eventTarget.tag || (eventTarget === document ? "document" : "window"), type, count: callbacks.size, className: eventTarget.attr && eventTarget.attr.class, error: eventTarget.__prodigyError && eventTarget.__prodigyError.message }); return out; }
   function recoveryNodes() { return container.querySelectorAll(".prodigy-required-recovery"); }
   function recoveryState() { const surfaces = recoveryNodes(); return { surfaces: surfaces.length, buttons: surfaces.reduce((sum, surface) => sum + surface.querySelectorAll("button").length, 0), headings: surfaces.reduce((sum, surface) => sum + surface.querySelectorAll("h2").length, 0) }; }
-  return { run, awaitResourceCommit, dispose, detachLeaf, emitLayoutChange, closeLeaf, vector, rawListenerCount, listenerDetails, recoveryState, cleanupLeak, shutdown, workspaceListenerCount: () => [...workspaceEvents.values()].reduce((sum, refs) => sum + refs.size, 0), restoreRequired, retryLookup, shellMount, missingLookups: () => missingLookups, button: () => findTag(container, "button"), buttonCount: () => findTags(container, "button").length, onRecovery: (callback) => container.addEventListener("prodigy-loader-recovery", callback), offRecovery: (callback) => container.removeEventListener("prodigy-loader-recovery", callback), text, renderer: () => target.ProdigyHubLoader.currentWorkspace(container)?.manifest.renderer || null };
+  function mobileBootstrapContract() {
+    return {
+      appIsMobile: app.isMobile,
+      viewportWidth: target.innerWidth,
+      visualViewportWidth: target.visualViewport && target.visualViewport.width,
+      commonJsGlobalsUnavailable: typeof target.require === "undefined" && typeof target.module === "undefined",
+      lexicalAmbientUnavailable,
+      lexicalAppInjected: lexicalApp,
+      dvAppInjected: target.dv.app === app,
+      thisAppInjected: dataviewContext.app === app,
+      bootstrapReads: reads.slice(0, 2),
+      manifestBootstrapped: Boolean(target.ProdigyWorkspaceManifest),
+      loaderBootstrapped: Boolean(target.ProdigyHubLoader),
+      shells: container.querySelectorAll(".prodigy-app-shell").length,
+      compactHomes: container.querySelectorAll(".home-compact").length,
+      recovery: recoveryState(),
+      genericRecovery: text().includes("홈 워크스페이스를 불러오지 못했습니다."),
+      genericRecoveryAlerts: findTags(container, "p").filter((node) => node.attr.role === "alert" && node.textContent === "홈 워크스페이스를 불러오지 못했습니다.").length
+    };
+  }
+  return { run, awaitResourceCommit, dispose, detachLeaf, emitLayoutChange, closeLeaf, vector, rawListenerCount, listenerDetails, recoveryState, mobileBootstrapContract, cleanupLeak, shutdown, workspaceListenerCount: () => [...workspaceEvents.values()].reduce((sum, refs) => sum + refs.size, 0), restoreRequired, retryLookup, shellMount, missingLookups: () => missingLookups, button: () => findTag(container, "button"), buttonCount: () => findTags(container, "button").length, onRecovery: (callback) => container.addEventListener("prodigy-loader-recovery", callback), offRecovery: (callback) => container.removeEventListener("prodigy-loader-recovery", callback), text, renderer: () => target.ProdigyHubLoader.currentWorkspace(container)?.manifest.renderer || null };
 }
 
 test("exact-signal guards reject with labels and clear timers on every settlement", async () => {
@@ -347,6 +393,127 @@ test("the frozen oracle independently binds all eight production blocks and rend
   }
   assert.equal(executableBlockCount, BLOCK_FIXTURE.currentExecutableBlockCount, "exact current production executable block count");
   assert.equal(new Set(HUBS.map((entry) => entry.blockSha256)).size, 8, "raw production block hashes must be distinct");
+});
+
+test("exact Home dataviewjs bootstrap mounts compact Home through every supported app injection path", async (t) => {
+  const home = HUBS.find((entry) => entry.workspaceId === "home");
+  verifyFixtureEntry(home);
+  const paths = [
+    ["lexical app", { mobile: true, lexicalApp: true, thisApp: false }, { lexicalAmbientUnavailable: false, lexicalAppInjected: true, thisAppInjected: false, dvAppInjected: false }],
+    ["this.app", { mobile: true, globalIife: true, thisApp: true }, { lexicalAmbientUnavailable: true, lexicalAppInjected: false, thisAppInjected: true, dvAppInjected: false }],
+    ["dv.app", { mobile: true, globalIife: true, dvApp: true }, { lexicalAmbientUnavailable: true, lexicalAppInjected: false, thisAppInjected: false, dvAppInjected: true }]
+  ];
+  for (const [name, environment, injection] of paths) {
+    await t.test(name, async () => {
+      const runtime = createRuntime(home, "none", environment);
+      try {
+        const mounted = await runtime.run();
+        assert.ok(mounted, `${name}: the exact Home block must retain its production mount`);
+        assert.equal(runtime.renderer(), "home");
+        assert.deepEqual(runtime.mobileBootstrapContract(), {
+          appIsMobile: true,
+          viewportWidth: 390,
+          visualViewportWidth: 390,
+          commonJsGlobalsUnavailable: true,
+          ...injection,
+          bootstrapReads: [
+            "SYSTEM/Views/prodigy-workspace-manifest.js",
+            "SYSTEM/Views/prodigy-hub-loader.js"
+          ],
+          manifestBootstrapped: true,
+          loaderBootstrapped: true,
+          shells: 1,
+          compactHomes: 1,
+          recovery: { surfaces: 0, buttons: 0, headings: 0 },
+          genericRecovery: false,
+          genericRecoveryAlerts: 0
+        });
+      } finally { runtime.shutdown(); }
+    });
+  }
+});
+
+test("exact Home mobile global-IIFE bootstrap renders recovery when no Dataview app context is injected", async () => {
+  const home = HUBS.find((entry) => entry.workspaceId === "home");
+  verifyFixtureEntry(home);
+  const runtime = createRuntime(home, "none", { mobile: true, globalIife: true });
+  try {
+    assert.equal(await runtime.run(), undefined);
+    assert.deepEqual(runtime.mobileBootstrapContract(), {
+      appIsMobile: true,
+      viewportWidth: 390,
+      visualViewportWidth: 390,
+      commonJsGlobalsUnavailable: true,
+      lexicalAmbientUnavailable: true,
+      lexicalAppInjected: false,
+      dvAppInjected: false,
+      thisAppInjected: false,
+      bootstrapReads: [],
+      manifestBootstrapped: false,
+      loaderBootstrapped: false,
+      shells: 0,
+      compactHomes: 0,
+      recovery: { surfaces: 0, buttons: 0, headings: 0 },
+      genericRecovery: true,
+      genericRecoveryAlerts: 1
+    });
+  } finally { runtime.shutdown(); }
+});
+
+test("the mobile global-IIFE context regression is red for the pre-fix ambient app and obsidian prelude", async () => {
+  const home = HUBS.find((entry) => entry.workspaceId === "home");
+  const runtime = createRuntime(home, "legacy-ambient-prelude", { mobile: true, globalIife: true, dvApp: true });
+  try {
+    await assert.rejects(() => runtime.run(), /obsidian is not defined/);
+    assert.deepEqual(runtime.mobileBootstrapContract().bootstrapReads, []);
+    assert.equal(runtime.mobileBootstrapContract().genericRecovery, false);
+  } finally { runtime.shutdown(); }
+});
+
+test("exact Home mobile bootstrap renders required-core recovery before a restored retry remounts", async () => {
+  const home = HUBS.find((entry) => entry.workspaceId === "home");
+  verifyFixtureEntry(home);
+  const runtime = createRuntime(home, "missing-home-core", { mobile: true });
+  try {
+    await runtime.run();
+    assert.equal(runtime.renderer(), null, "missing required Home core must block the renderer");
+    assert.deepEqual(runtime.mobileBootstrapContract(), {
+      appIsMobile: true,
+      viewportWidth: 390,
+      visualViewportWidth: 390,
+      commonJsGlobalsUnavailable: true,
+      lexicalAmbientUnavailable: false,
+      lexicalAppInjected: true,
+      dvAppInjected: false,
+      thisAppInjected: true,
+      bootstrapReads: [
+        "SYSTEM/Views/prodigy-workspace-manifest.js",
+        "SYSTEM/Views/prodigy-hub-loader.js"
+      ],
+      manifestBootstrapped: true,
+      loaderBootstrapped: true,
+      shells: 0,
+      compactHomes: 0,
+      recovery: { surfaces: 1, buttons: 1, headings: 1 },
+      genericRecovery: false,
+      genericRecoveryAlerts: 0
+    });
+    assert.match(runtime.text(), /SYSTEM\/Views\/home-model\.js/);
+
+    const button = runtime.button();
+    runtime.restoreRequired();
+    const retryLookup = runtime.retryLookup();
+    const shellMount = runtime.shellMount();
+    const retry = button.dispatchEvent({ type: "click", preventDefault() {} });
+    await retryLookup;
+    await retry;
+    await shellMount;
+
+    assert.equal(runtime.renderer(), "home");
+    assert.deepEqual(runtime.mobileBootstrapContract().recovery, { surfaces: 0, buttons: 0, headings: 0 });
+    assert.equal(runtime.mobileBootstrapContract().shells, 1);
+    assert.equal(runtime.mobileBootstrapContract().compactHomes, 1);
+  } finally { runtime.shutdown(); }
 });
 
 test("Home leaf close disposes the actual dataviewjs mount after container detachment", async () => {

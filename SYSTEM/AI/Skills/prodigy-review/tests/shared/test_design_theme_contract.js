@@ -18,9 +18,9 @@ function freshTokens() {
 }
 
 const EXPECTED_ACCENTS = Object.freeze({
-  action: "#0066cc",
-  focus: "#0071e3",
-  onDark: "#2997ff",
+  action: "#007aff",
+  focus: "#007aff",
+  onDark: "#0a84ff",
 });
 
 const EXPECTED_SPACING = Object.freeze({ xxs: 4, xs: 8, sm: 12, md: 17, lg: 24, xl: 32, xxl: 48, section: 80 });
@@ -74,7 +74,7 @@ test("alpha identity, Action Blue trio, and Obsidian semantic fallbacks are exac
   assert.equal(api.VERSION, "alpha");
   assert.equal(api.NAME, "Apple-design-analysis");
   assert.deepEqual(api.ACCENTS, EXPECTED_ACCENTS);
-  assert.equal(new Set(Object.values(api.ACCENTS)).size, 3);
+  assert.equal(new Set(Object.values(api.ACCENTS)).size, 2);
   assert.deepEqual(api.SEMANTIC_COLORS, {
     canvas: "var(--background-primary, #ffffff)",
     canvasParchment: "var(--background-secondary, #f5f5f7)",
@@ -89,9 +89,9 @@ test("alpha identity, Action Blue trio, and Obsidian semantic fallbacks are exac
     muted: "var(--text-muted, #7a7a7a)",
     bodyMutedOnDark: "var(--text-muted, #cccccc)",
     onDark: "var(--text-on-accent, #ffffff)",
-    action: "#0066cc",
-    focus: "#0071e3",
-    actionOnDark: "#2997ff",
+    action: "#007aff",
+    focus: "#007aff",
+    actionOnDark: "#0a84ff",
     onAction: "#ffffff",
     success: "var(--text-success, var(--text-normal, #1d1d1f))",
     warning: "var(--text-warning, var(--text-normal, #1d1d1f))",
@@ -121,7 +121,7 @@ test("canonical spacing, radii, typography, controls, imagery, and breakpoint co
 test("alpha and color inputs fail closed and canonical colors emit valid bounded color-mix", () => {
   const api = freshTokens();
   for (const [alpha, percent] of [[0, "0%"], [0.25, "25%"], [1, "100%"], [-1, "0%"], [2, "100%"]]) {
-    assert.equal(api.withAlpha(api.SEMANTIC_COLORS.action, alpha), `color-mix(in srgb, #0066cc ${percent}, transparent)`);
+    assert.equal(api.withAlpha(api.SEMANTIC_COLORS.action, alpha), `color-mix(in srgb, #007aff ${percent}, transparent)`);
   }
   assert.equal(api.badgeBg(api.SEMANTIC_COLORS.success), `color-mix(in srgb, ${api.SEMANTIC_COLORS.success} 10%, transparent)`);
   for (const alpha of [undefined, NaN, Infinity, -Infinity, "", " ", "bad", {}, []]) {

@@ -135,7 +135,6 @@ test("validator accepts deterministic external community-plugin fixture", () => 
     fs.rmSync(temp, { recursive: true, force: true });
   }
 });
-
 test("validator accepts one mobile leaf replacement while preserving tab identity", () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "prodigy-mobile-settings-test-"));
   try {
@@ -206,3 +205,4 @@ test("report CLI reads only external synthetic receipts", () => {
     fs.rmSync(temp, { recursive: true, force: true });
   }
 });
+

@@ -299,7 +299,7 @@ function main() {
   }
 
   // Wiring
-  assert.ok(require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.required.includes("SYSTEM/Views/morning-brief-context.js"));
+  assert.ok(require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.optional.includes("SYSTEM/Views/morning-brief-context.js"));
   assert.match(homeSource, /MorningBriefContext|buildMorningBriefContext|toHomeRiskItems/);
   assert.match(homeSource, /engine_states|주의가 필요함|Needs Attention|home-needs-attention/);
   assert.match(homeSource, /journalStatusForOps|workoutSnapshotForOps/);

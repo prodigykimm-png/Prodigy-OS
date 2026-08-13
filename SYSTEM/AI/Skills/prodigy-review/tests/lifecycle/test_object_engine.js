@@ -239,7 +239,7 @@ function main() {
   assert.equal(cards.find((c) => c.id === "personal").actionVerb, "열기");
 
   // Wiring
-  assert.ok(require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.required.includes("SYSTEM/Views/object-engine-core.js"));
+  assert.ok(require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.optional.includes("SYSTEM/Views/object-engine-core.js"));
   assert.match(guide, /Object Engine/);
   assert.match(guide, /Derived state is not stored in YAML|YAML/);
 

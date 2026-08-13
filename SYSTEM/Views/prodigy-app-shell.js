@@ -243,6 +243,15 @@
   scroll-padding-block-end: var(--prodigy-mobile-toolbar-clearance, 0px);
   overscroll-behavior-block: contain;
 }
+.prodigy-app-shell[data-workspace-id="journal"] {
+  grid-template-rows: auto auto auto;
+  max-block-size: none;
+  overflow: visible;
+}
+.prodigy-app-shell[data-workspace-id="journal"] > .prodigy-app-shell-body {
+  overflow: visible;
+  overscroll-behavior-block: auto;
+}
 @media (max-width: 833px) {
   .prodigy-app-shell {
     --prodigy-mobile-toolbar-clearance: calc(

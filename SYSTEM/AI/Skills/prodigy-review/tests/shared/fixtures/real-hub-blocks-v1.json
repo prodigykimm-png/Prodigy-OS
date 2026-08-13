@@ -7,7 +7,7 @@
       "hubPath": "HUB/00 Home.md",
       "executableBlockCount": 1,
       "executableBlock": { "ordinal": 1, "language": "dataviewjs" },
-      "blockSha256": "39a7b225d1d2ff3572732541b135a5cb08c99bf523217c07d54637ec6e7b091e",
+      "blockSha256": "af3c9add9eaa6ef30446338306eb1c1dfb958720adf5b4770a1eb6dbb3cef3ef",
       "renderer": { "identity": "home", "sentinel": "home: async (mountContext) => {" }
     },
     {

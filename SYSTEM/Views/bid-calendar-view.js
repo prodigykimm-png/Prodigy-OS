@@ -28,7 +28,7 @@
 .prodigy-bid-cal-title {
   font-weight: 700;
   font-size: 0.98em;
-  color: var(--text-accent);
+  color: var(--ke-color-accent, var(--text-accent));
   min-width: 0;
 }
 .prodigy-bid-cal-nav {
@@ -67,9 +67,9 @@
   flex-wrap: wrap;
 }
 .prodigy-bid-cal-modes button.is-active {
-  border-color: var(--text-accent);
-  color: var(--text-accent);
-  background: color-mix(in srgb, var(--text-accent) 12%, var(--background-primary));
+  border-color: var(--ke-color-accent, var(--text-accent));
+  color: var(--ke-color-accent, var(--text-accent));
+  background: color-mix(in srgb, var(--ke-color-accent, var(--text-accent)) 12%, var(--background-primary));
 }
 .prodigy-bid-cal-grid {
   display: grid;
@@ -106,10 +106,10 @@
   cursor: pointer;
 }
 .prodigy-bid-cal-cell.in-month:hover {
-  border-color: var(--text-accent);
+  border-color: var(--ke-color-accent, var(--text-accent));
 }
 .prodigy-bid-cal-cell.is-today {
-  outline: 2px solid var(--text-accent);
+  outline: 2px solid var(--ke-color-accent, var(--text-accent));
   outline-offset: -2px;
 }
 .prodigy-bid-cal-cell.has-events {
@@ -128,7 +128,7 @@
 .prodigy-bid-cal-cell .event-dot {
   font-size: 0.68em;
   font-weight: 700;
-  color: var(--text-accent);
+  color: var(--ke-color-accent, var(--text-accent));
   line-height: 1;
   min-height: 12px;
 }
@@ -160,7 +160,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 .prodigy-bid-cal-agenda-toggle:hover {
-  border-color: var(--text-accent);
+  border-color: var(--ke-color-accent, var(--text-accent));
 }
 .prodigy-bid-cal-agenda-toggle .toggle-label {
   color: var(--text-muted);
@@ -176,7 +176,7 @@
   flex-shrink: 0;
 }
 .prodigy-bid-cal-agenda-toggle .toggle-chevron {
-  color: var(--text-accent);
+  color: var(--ke-color-accent, var(--text-accent));
   font-size: 0.95em;
   line-height: 1;
 }
@@ -206,7 +206,7 @@
 .prodigy-bid-cal-court-name {
   font-weight: 600;
   font-size: 0.84em;
-  color: var(--text-accent);
+  color: var(--ke-color-accent, var(--text-accent));
   margin-bottom: 2px;
 }
 .prodigy-bid-cal-type-line {
@@ -252,7 +252,7 @@
 .prodigy-bid-cal-type-head {
   font-weight: 700;
   font-size: 0.9em;
-  color: var(--text-accent);
+  color: var(--ke-color-accent, var(--text-accent));
   margin-bottom: 6px;
 }
 .prodigy-bid-cal-item {
@@ -285,7 +285,7 @@
 }
 .prodigy-bid-calendar button:focus-visible,
 .prodigy-bid-cal-cell.in-month:focus-visible {
-  outline: 2px solid var(--text-accent);
+  outline: 2px solid var(--ke-color-accent, var(--text-accent));
   outline-offset: 2px;
 }
 @media (forced-colors: active) {

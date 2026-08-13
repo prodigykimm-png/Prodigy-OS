@@ -178,7 +178,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     });
     row.createEl("span", {
       text: "다음 ",
-      attr: { style: "font-weight:800;color:var(--text-accent);margin-right:4px;" }
+      attr: { style: "font-weight:800;color:var(--ke-color-accent, var(--text-accent));margin-right:4px;" }
     });
     row.createEl("span", { text });
   };
@@ -395,7 +395,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
           class: 'reading-generated-cover',
           type: 'button',
           'aria-label': `${bookTitle} 표지 없음`,
-          style: `${size}background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-inline-start:3px solid var(--text-accent);border-radius:var(--ke-radius-card,18px);display:flex;flex-direction:column;justify-content:space-between;padding:17px 12px;color:var(--text-normal);font-family:var(--font-interface);cursor:pointer;`
+          style: `${size}background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-inline-start:3px solid var(--ke-color-accent, var(--text-accent));border-radius:var(--ke-radius-card,18px);display:flex;flex-direction:column;justify-content:space-between;padding:17px 12px;color:var(--text-normal);font-family:var(--font-interface);cursor:pointer;`
         }
       });
       cover.createEl('div', {
@@ -457,7 +457,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     });
   };
   
-  const focusBorder = isFocus ? "2px solid var(--text-accent)" : "1px solid var(--background-modifier-border)";
+  const focusBorder = isFocus ? "2px solid var(--ke-color-accent, var(--text-accent))" : "1px solid var(--background-modifier-border)";
 
   if (mode === "hero") {
     // Cover + meta on top row; actions always full-width below so mobile never covers the image.
@@ -467,7 +467,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
         'data-reading-path': pathOf(),
         'data-reading-status': p.status || '',
         tabindex: '-1',
-        style: `border:${focusBorder};border-radius:var(--ke-radius-card,18px);padding:clamp(17px,4vw,32px);margin-bottom:17px;background:var(--background-primary);display:flex;flex-direction:column;gap:24px;${isFocus ? "outline:2px solid var(--text-accent);outline-offset:3px;" : ""}`
+        style: `border:${focusBorder};border-radius:var(--ke-radius-card,18px);padding:clamp(17px,4vw,32px);margin-bottom:17px;background:var(--background-primary);display:flex;flex-direction:column;gap:24px;${isFocus ? "outline:2px solid var(--ke-color-accent, var(--text-accent));outline-offset:3px;" : ""}`
       }
     });
 
@@ -493,7 +493,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     if (isFocus) {
       contentBox.createEl('div', {
         text: '▶ 이어 읽기 포커스',
-        attr: { style: 'font-size:0.72em;font-weight:800;color:var(--text-accent);' }
+        attr: { style: 'font-size:0.72em;font-weight:800;color:var(--ke-color-accent, var(--text-accent));' }
       });
     }
 
@@ -563,7 +563,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       attr: {
         class: 'reading-card reading-card-simple' + (isFocus ? ' is-focus' : ''),
         'data-reading-path': pathOf(),
-        style: `border:1px solid var(--background-modifier-border);${isFocus ? 'border-inline-start:3px solid var(--text-accent);' : ''}border-radius:var(--ke-radius-panel,8px);padding:12px 17px;margin-bottom:8px;background:var(--background-secondary);display:flex;flex-direction:column;gap:10px;`
+        style: `border:1px solid var(--background-modifier-border);${isFocus ? 'border-inline-start:3px solid var(--ke-color-accent, var(--text-accent));' : ''}border-radius:var(--ke-radius-panel,8px);padding:12px 17px;margin-bottom:8px;background:var(--background-secondary);display:flex;flex-direction:column;gap:10px;`
       }
     });
     
