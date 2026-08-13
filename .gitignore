@@ -8,6 +8,10 @@ DAILY/
 PARA/
 ZETA/
 
+# Personal knowledge inbox & classification architecture (under design — never committed)
+INBOX/
+artifacts/prodigy-knowledge-inbox/
+
 # Obsidian personal / runtime state
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
