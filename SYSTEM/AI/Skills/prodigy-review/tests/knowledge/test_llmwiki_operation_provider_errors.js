@@ -79,6 +79,7 @@ test("operation provider preserves quota exhaustion instead of reporting no conn
 
 test("operation provider deterministically binds after_bytes to the canonical serializer", async () => {
   const target = "ZETA/PERMANENT/fixture.md";
+  const normalizedTarget = "ZETA/PERMANENT/fixture (_fixture).md";
   let classifiedEnvelope;
   const provider = production.createProductionOperationProvider({
     app: {},
@@ -109,7 +110,7 @@ test("operation provider deterministically binds after_bytes to the canonical se
         classifiedEnvelope = JSON.parse(serialized);
         if (classifiedEnvelope.canonical_proposal.knowledge_topics.length !== 0) return { ok: false, reason: "unregistered_knowledge_topic" };
         const operation = JSON.parse(classifiedEnvelope.serialized_operation);
-        if (operation.after_bytes[target] !== "deterministic canonical bytes") return { ok: false, reason: "canonical_proposal_destination_bytes_mismatch" };
+        if (operation.after_bytes[normalizedTarget] !== "deterministic canonical bytes") return { ok: false, reason: "canonical_proposal_destination_bytes_mismatch" };
         return { ok: true, value: { status: "review", operation } };
       },
     },
@@ -117,7 +118,106 @@ test("operation provider deterministically binds after_bytes to the canonical se
   });
   const result = await provider(INPUT);
   assert.equal(result.ok, true);
-  assert.equal(JSON.parse(classifiedEnvelope.serialized_operation).after_bytes[target], "deterministic canonical bytes");
+  assert.equal(JSON.parse(classifiedEnvelope.serialized_operation).after_bytes[normalizedTarget], "deterministic canonical bytes");
+});
+
+test("operation provider canonicalizes unsafe create envelope fields before classification", async () => {
+  let classifiedOperation;
+  const provider = production.createProductionOperationProvider({
+    app: {},
+    config: {},
+    configApi: {
+      resolveAIProfileProviderKey: () => ({
+        ok: true,
+        provider_mode: "direct",
+        provider_key: "antigravity",
+        provider: { adapter: "antigravity-exec", name: "Antigravity" },
+      }),
+    },
+    providerService: {
+      requestStructuredJsonOnce: async () => ({
+        status: "ok",
+        serialized_operation: JSON.stringify({
+          contract_version: "llmwiki_operation_contract_v1",
+          operation_id: "Invalid operation id",
+          kind: "create",
+          destination_ids: ["PARA/RESOURCES/unsafe.md"],
+          base_revisions: {},
+          before_bytes: {},
+          after_bytes: { "PARA/RESOURCES/unsafe.md": "provider bytes" },
+          source_citations: [],
+          risk_tier: "low",
+          effects: { deprecations: [], supersessions: [] },
+        }),
+        canonical_proposal: { title: "fixture" },
+        provider_confidence: 0.9,
+      }),
+    },
+    knowledgeKindApi: {
+      parseProposal: () => ({ ok: true, approval_eligible: true, document: {} }),
+      serializeProposal: () => "deterministic canonical bytes",
+    },
+    classifier: {
+      classifyProviderOperation: (serialized) => {
+        classifiedOperation = JSON.parse(JSON.parse(serialized).serialized_operation);
+        return { ok: true, value: { status: "review", operation: classifiedOperation } };
+      },
+    },
+    getProviderMode: () => "direct",
+  });
+  const result = await provider(INPUT);
+  assert.equal(result.ok, true);
+  assert.equal(classifiedOperation.operation_id, "operation_source_fixture");
+  assert.deepEqual(classifiedOperation.destination_ids, ["ZETA/PERMANENT/fixture (_fixture).md"]);
+  assert.deepEqual(classifiedOperation.conflicts, []);
+  assert.deepEqual(classifiedOperation.after_bytes, {
+    "ZETA/PERMANENT/fixture (_fixture).md": "deterministic canonical bytes",
+  });
+});
+
+test("operation provider retries one contract-invalid response and then succeeds", async () => {
+  const target = "ZETA/PERMANENT/repaired.md";
+  let requestCalls = 0;
+  let classifierCalls = 0;
+  const provider = production.createProductionOperationProvider({
+    app: {},
+    config: {},
+    configApi: {
+      resolveAIProfileProviderKey: () => ({
+        ok: true,
+        provider_mode: "direct",
+        provider_key: "antigravity",
+        provider: { adapter: "antigravity-exec", name: "Antigravity" },
+      }),
+    },
+    providerService: {
+      requestStructuredJsonOnce: async () => {
+        requestCalls += 1;
+        return {
+          status: "ok",
+          serialized_operation: JSON.stringify({ destination_ids: [target], after_bytes: { [target]: "provider bytes" } }),
+          canonical_proposal: { title: "fixture" },
+          provider_confidence: 0.9,
+        };
+      },
+    },
+    knowledgeKindApi: {
+      parseProposal: () => ({ ok: true, approval_eligible: true, document: {} }),
+      serializeProposal: () => "deterministic canonical bytes",
+    },
+    classifier: {
+      classifyProviderOperation: (serialized) => {
+        classifierCalls += 1;
+        if (classifierCalls === 1) return { ok: false, reason: "invalid_operation_id" };
+        return { ok: true, value: { status: "review", operation: JSON.parse(JSON.parse(serialized).serialized_operation) } };
+      },
+    },
+    getProviderMode: () => "direct",
+  });
+  const result = await provider(INPUT);
+  assert.equal(result.ok, true);
+  assert.equal(requestCalls, 2);
+  assert.equal(classifierCalls, 2);
 });
 
 test("operation provider resolves the newly saved provider only on the next analysis call", async () => {

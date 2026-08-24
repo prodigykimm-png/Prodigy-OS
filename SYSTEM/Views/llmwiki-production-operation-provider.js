@@ -41,6 +41,15 @@
   });
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
   function failure(reason, details = {}) { return Object.freeze({ ok: false, status: "provider_unavailable", reason, ...details }); }
+  function uniqueCanonicalTarget(title, sourceId) {
+    const safeTitle = [...trim(title).normalize("NFC")
+      .replace(/[^\p{L}\p{N}\p{M} _().-]+/gu, " ")
+      .replace(/\s+/gu, " ")
+      .replace(/^[ .-]+|[ .]+$/gu, "")]
+      .slice(0, 80)
+      .join("") || "Knowledge";
+    return `ZETA/PERMANENT/${safeTitle} (${sourceId.slice(-8)}).md`;
+  }
   function providerPrompt(input, sourceId, contentHash, locator) {
     const now = new Date().toISOString();
     return JSON.stringify({
@@ -78,6 +87,17 @@
       response_rule: "serialized_operation is JSON.stringify(operation object). canonical_proposal contains only its exact fields. canonical bytes must render byte-for-byte from canonical_proposal.",
     });
   }
+  function providerRepairPrompt(input, sourceId, contentHash, locator, priorFailure) {
+    const prompt = JSON.parse(providerPrompt(input, sourceId, contentHash, locator));
+    return JSON.stringify({
+      ...prompt,
+      repair: {
+        prior_failure: priorFailure,
+        attempt: 1,
+        requirement: "Return a fresh response that satisfies every declared schema and contract exactly.",
+      },
+    });
+  }
   function createProductionOperationProvider(options = {}) {
     const configApi = options.configApi || root.ProdigyConfigService;
     const service = options.providerService || root.AIProviderService;
@@ -101,64 +121,95 @@
       const sourceId = trim(source.source_id || input.source_id);
       const contentHash = trim(source.content_hash || input.content_hash);
       if (!sourceId || !contentHash || !locator || !trim(input.extracted_text)) return failure("provider_source_boundary_invalid");
-      let response;
-      try {
-        response = await service.requestStructuredJsonOnce({
-          app: options.app,
-          provider: selected.provider,
-          prompt: providerPrompt(input, sourceId, contentHash, locator),
-          schema: TYPED_SCHEMA,
-          signal: context.signal,
-          timeoutMs: Number(selected.provider && selected.provider.structuredTimeoutMs) || 60000,
+      let priorFailure = "";
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        let response;
+        try {
+          response = await service.requestStructuredJsonOnce({
+            app: options.app,
+            provider: selected.provider,
+            prompt: attempt === 0
+              ? providerPrompt(input, sourceId, contentHash, locator)
+              : providerRepairPrompt(input, sourceId, contentHash, locator, priorFailure),
+            schema: TYPED_SCHEMA,
+            signal: context.signal,
+            timeoutMs: Number(selected.provider && selected.provider.structuredTimeoutMs) || 60000,
+          });
+        } catch (error) {
+          if (error && error.name === "AbortError") return failure("provider_aborted", { provider_mode: selected.provider_mode });
+          if (error && error.code === "ANTIGRAVITY_AUTH_REQUIRED") {
+            return failure("provider_auth_required", { provider_mode: selected.provider_mode, message: trim(error.message) });
+          }
+          if (error && error.code === "ANTIGRAVITY_SANDBOX_BLOCKED") {
+            return failure("provider_tool_blocked", { provider_mode: selected.provider_mode, message: trim(error.message) });
+          }
+          if (error && error.code === "ANTIGRAVITY_QUOTA_EXHAUSTED") {
+            return failure("provider_quota_exhausted", { provider_mode: selected.provider_mode, message: trim(error.message) });
+          }
+          return failure("provider_unavailable", { provider_mode: selected.provider_mode });
+        }
+        if (!knowledgeKindApi || typeof knowledgeKindApi.parseProposal !== "function" || typeof knowledgeKindApi.serializeProposal !== "function") {
+          return failure("knowledge_kind_contract_unavailable", { provider_mode: selected.provider_mode });
+        }
+        try {
+          const rawProposal = response && response.canonical_proposal;
+          if (rawProposal && typeof rawProposal === "object" && !Array.isArray(rawProposal) && candidateCore && candidateCore.TOPICS) {
+            const allowed = new Set(candidateCore.TOPICS[trim(rawProposal.knowledge_domain)] || []);
+            const topics = Array.isArray(rawProposal.knowledge_topics)
+              ? [...new Set(rawProposal.knowledge_topics.filter((topic) => allowed.has(trim(topic))).map(trim))]
+              : [];
+            response = { ...response, canonical_proposal: { ...rawProposal, knowledge_topics: topics } };
+          }
+          const proposal = knowledgeKindApi.parseProposal(response && response.canonical_proposal);
+          if (!proposal || proposal.ok !== true) {
+            priorFailure = trim(proposal && proposal.reason) || "invalid_canonical_proposal";
+            if (attempt === 0) continue;
+            return failure(priorFailure, { provider_mode: selected.provider_mode });
+          }
+          const canonicalBytes = knowledgeKindApi.serializeProposal(proposal);
+          const operation = JSON.parse(trim(response && response.serialized_operation));
+          if (!operation || typeof operation !== "object" || Array.isArray(operation)) throw new TypeError("operation_object_required");
+          const target = uniqueCanonicalTarget(rawProposal.title, sourceId);
+          const normalizedOperation = {
+            ...operation,
+            contract_version: "llmwiki_operation_contract_v1",
+            operation_id: `operation_${sourceId}`.slice(0, 128),
+            kind: "create",
+            destination_ids: [target],
+            base_revisions: {},
+            before_bytes: {},
+            after_bytes: { [target]: canonicalBytes },
+            source_citations: [{
+              source_id: sourceId,
+              content_hash: contentHash,
+              source_url: trim(source.source_url) || null,
+              locators: [locator],
+              source_archive_id: null,
+              confidence: "explicit",
+            }],
+            conflicts: [],
+            risk_tier: "low",
+            effects: { deprecations: [], supersessions: [] },
+          };
+          response = { ...response, serialized_operation: JSON.stringify(normalizedOperation) };
+        } catch (_error) {
+          priorFailure = "canonical_proposal_serialization_failed";
+          if (attempt === 0) continue;
+          return failure(priorFailure, { provider_mode: selected.provider_mode });
+        }
+        const serialized = typeof response === "string" ? response : JSON.stringify(response);
+        const classified = classifier.classifyProviderOperation(serialized, {
+          selected_sources: [{ source_id: sourceId, content_hash: contentHash, locator }],
+          provider_confidence: response && response.provider_confidence,
+          current_canonical_revisions: {},
         });
-      } catch (error) {
-        if (error && error.name === "AbortError") return failure("provider_aborted", { provider_mode: selected.provider_mode });
-        if (error && error.code === "ANTIGRAVITY_AUTH_REQUIRED") {
-          return failure("provider_auth_required", { provider_mode: selected.provider_mode, message: trim(error.message) });
+        if (classified && classified.ok === true) {
+          return Object.freeze({ ok: true, status: classified.value.status, operation: classified.value.operation, provider_mode: selected.provider_mode, provider_key: selected.provider_key, privacy_decision: input.privacy_decision });
         }
-        if (error && error.code === "ANTIGRAVITY_SANDBOX_BLOCKED") {
-          return failure("provider_tool_blocked", { provider_mode: selected.provider_mode, message: trim(error.message) });
-        }
-        if (error && error.code === "ANTIGRAVITY_QUOTA_EXHAUSTED") {
-          return failure("provider_quota_exhausted", { provider_mode: selected.provider_mode, message: trim(error.message) });
-        }
-        return failure("provider_unavailable", { provider_mode: selected.provider_mode });
+        priorFailure = classified && classified.reason || "invalid_provider_operation";
+        if (attempt === 1) return failure(priorFailure, { provider_mode: selected.provider_mode });
       }
-      if (!knowledgeKindApi || typeof knowledgeKindApi.parseProposal !== "function" || typeof knowledgeKindApi.serializeProposal !== "function") {
-        return failure("knowledge_kind_contract_unavailable", { provider_mode: selected.provider_mode });
-      }
-      try {
-        const rawProposal = response && response.canonical_proposal;
-        if (rawProposal && typeof rawProposal === "object" && !Array.isArray(rawProposal) && candidateCore && candidateCore.TOPICS) {
-          const allowed = new Set(candidateCore.TOPICS[trim(rawProposal.knowledge_domain)] || []);
-          const topics = Array.isArray(rawProposal.knowledge_topics)
-            ? [...new Set(rawProposal.knowledge_topics.filter((topic) => allowed.has(trim(topic))).map(trim))]
-            : [];
-          response = { ...response, canonical_proposal: { ...rawProposal, knowledge_topics: topics } };
-        }
-        const proposal = knowledgeKindApi.parseProposal(response && response.canonical_proposal);
-        if (!proposal || proposal.ok !== true) {
-          return failure(trim(proposal && proposal.reason) || "invalid_canonical_proposal", { provider_mode: selected.provider_mode });
-        }
-        const canonicalBytes = knowledgeKindApi.serializeProposal(proposal);
-        const operation = JSON.parse(trim(response && response.serialized_operation));
-        const destinations = operation && Array.isArray(operation.destination_ids) ? operation.destination_ids : [];
-        if (destinations.length !== 1 || !operation.after_bytes || typeof operation.after_bytes !== "object" || Array.isArray(operation.after_bytes)) {
-          return failure("canonical_proposal_destination_ambiguous", { provider_mode: selected.provider_mode });
-        }
-        operation.after_bytes = { ...operation.after_bytes, [destinations[0]]: canonicalBytes };
-        response = { ...response, serialized_operation: JSON.stringify(operation) };
-      } catch (_error) {
-        return failure("canonical_proposal_serialization_failed", { provider_mode: selected.provider_mode });
-      }
-      const serialized = typeof response === "string" ? response : JSON.stringify(response);
-      const classified = classifier.classifyProviderOperation(serialized, {
-        selected_sources: [{ source_id: sourceId, content_hash: contentHash, locator }],
-        provider_confidence: response && response.provider_confidence,
-        current_canonical_revisions: {},
-      });
-      if (!classified || classified.ok !== true) return failure(classified && classified.reason || "invalid_provider_operation", { provider_mode: selected.provider_mode });
-      return Object.freeze({ ok: true, status: classified.value.status, operation: classified.value.operation, provider_mode: selected.provider_mode, provider_key: selected.provider_key, privacy_decision: input.privacy_decision });
+      return failure(priorFailure || "invalid_provider_operation", { provider_mode: selected.provider_mode });
     };
   }
   const api = Object.freeze({ TYPED_SCHEMA, createProductionOperationProvider });

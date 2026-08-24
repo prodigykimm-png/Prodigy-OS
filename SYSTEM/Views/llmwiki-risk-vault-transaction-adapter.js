@@ -13,14 +13,19 @@
   }
   function counts(canonical = 0, audit = 0) { return frozen({ ...ZERO, canonical, audit }); }
   function result(status, details = {}) { return frozen({ ok: ["committed", "duplicate", "restored", "recorded"].includes(status), status, write_counts: details.write_counts || counts(), ...details }); }
-  function sameBytes(left, right) { return Array.isArray(left) && Array.isArray(right) ? left.length === right.length && left.every((value, index) => value === right[index]) : left === right; }
-  function sameState(left, right) { return left.exists === right.exists && left.encoding === right.encoding && sameBytes(left.bytes, right.bytes) && left.mode === right.mode && left.symlink === right.symlink; }
+  function sameState(left, right) {
+    if (left.exists !== right.exists || left.encoding !== right.encoding || left.mode !== right.mode || left.symlink !== right.symlink) return false;
+    if (!left.exists) return true;
+    if (typeof left.sha256 === "string" && typeof right.sha256 === "string") return left.sha256 === right.sha256;
+    return left.size === right.size && left.mtime === right.mtime;
+  }
 
   function createRiskVaultTransactionAdapter(options = {}) {
     const packetApi = options.packetApi || root.LLMWikiRiskApprovalPacket;
     const writeSetApi = options.writeSetApi || root.LLMWikiRiskWriteSet;
     const hashApi = root.LLMWikiHash;
     const vault = options.app?.vault;
+    const storage = vault?.adapter;
     if (!packetApi || !writeSetApi || !hashApi) throw new Error("risk_transaction_contract_unavailable");
     if (!vault || typeof vault.getAbstractFileByPath !== "function" || typeof vault.read !== "function" || typeof vault.modify !== "function" || typeof vault.create !== "function") throw new Error("app_vault_unavailable");
     if (typeof vault.getFiles !== "function" || typeof vault.on !== "function" || typeof vault.offref !== "function") throw new Error("independent_vault_observer_unavailable");
@@ -30,6 +35,29 @@
     let boundary = null;
     let observing = false;
 
+    function hiddenPath(filePath) { return typeof filePath === "string" && filePath.startsWith("."); }
+    function hiddenStorageAvailable() {
+      return storage && ["exists", "read", "write", "remove", "mkdir"].every((name) => typeof storage[name] === "function");
+    }
+    async function pathExists(filePath) {
+      if (hiddenPath(filePath) && hiddenStorageAvailable()) return Boolean(await storage.exists(filePath));
+      return Boolean(vault.getAbstractFileByPath(filePath));
+    }
+    async function ensureFolder(filePath) {
+      if (hiddenPath(filePath) && hiddenStorageAvailable()) {
+        if (!await storage.exists(filePath)) await storage.mkdir(filePath);
+        return;
+      }
+      if (!vault.getAbstractFileByPath(filePath)) await vault.createFolder(filePath);
+    }
+    async function writeText(filePath, bytes) {
+      if (hiddenPath(filePath) && hiddenStorageAvailable()) {
+        await storage.write(filePath, bytes);
+        return;
+      }
+      await vault.create(filePath, bytes);
+    }
+
     function modeOf(file, filePath) {
       if (!file) return null;
       if (typeof vault.mode === "function") return vault.mode(filePath);
@@ -37,10 +65,20 @@
       return 0o644;
     }
     function textPath(filePath) { return /\.(?:md|txt|json|js|css|html|xml|csv|yaml|yml)$/iu.test(filePath); }
-    async function readState(filePath) {
+    async function readState(filePath, options = {}) {
+      if (hiddenPath(filePath) && hiddenStorageAvailable()) {
+        if (!await storage.exists(filePath)) return absentState(filePath);
+        const bytes = await storage.read(filePath);
+        return frozen({ path: filePath, exists: true, encoding: "text", bytes, sha256: hashApi.sha256(bytes), size: bytes.length, mtime: 0, mode: 0o644, symlink: false, restorable: true });
+      }
       const file = vault.getAbstractFileByPath(filePath);
       if (!file) return absentState(filePath);
       const encoding = textPath(filePath) ? "text" : "binary";
+      const size = Number(file.stat?.size || 0);
+      const mtime = Number(file.stat?.mtime || 0);
+      if (encoding === "binary" && options.retainBytes === false) {
+        return frozen({ path: filePath, exists: true, encoding, bytes: null, sha256: null, size, mtime, mode: modeOf(file, filePath), symlink: Boolean(file?.stat?.symlink), restorable: false });
+      }
       let bytes;
       if (encoding === "text") bytes = await vault.read(file);
       else {
@@ -48,21 +86,32 @@
         bytes = Array.from(new Uint8Array(await vault.readBinary(file)));
       }
       const digest = encoding === "text" ? hashApi.sha256(bytes) : hashApi.sha256Bytes(Uint8Array.from(bytes));
-      return frozen({ path: filePath, exists: true, encoding, bytes, sha256: digest, mode: modeOf(file, filePath), symlink: Boolean(file?.stat?.symlink) });
+      return frozen({ path: filePath, exists: true, encoding, bytes, sha256: digest, size, mtime, mode: modeOf(file, filePath), symlink: Boolean(file?.stat?.symlink), restorable: true });
     }
-    function absentState(filePath) { return frozen({ path: filePath, exists: false, encoding: null, bytes: null, sha256: null, mode: null, symlink: false }); }
+    function absentState(filePath) { return frozen({ path: filePath, exists: false, encoding: null, bytes: null, sha256: null, size: 0, mtime: 0, mode: null, symlink: false, restorable: true }); }
     async function inventory() {
       const files = vault.getFiles();
       if (!Array.isArray(files)) throw new Error("independent_vault_inventory_unavailable");
       const rows = new Map();
       for (const file of files.slice().sort((a, b) => String(a?.path).localeCompare(String(b?.path)))) {
         if (!file || typeof file.path !== "string") throw new Error("invalid_vault_inventory_entry");
-        rows.set(file.path, await readState(file.path));
+        rows.set(file.path, await readState(file.path, { retainBytes: textPath(file.path) }));
       }
       return rows;
     }
     async function setMode(filePath, mode) { if (mode !== null && typeof vault.setMode === "function") await vault.setMode(filePath, mode); }
     async function restoreState(prior) {
+      if (hiddenPath(prior.path) && hiddenStorageAvailable()) {
+        const live = await storage.exists(prior.path);
+        if (!prior.exists && live) await storage.remove(prior.path);
+        else if (prior.exists) {
+          if (prior.restorable === false || typeof prior.bytes !== "string") throw new Error("independent_restoration_bytes_unavailable");
+          await storage.write(prior.path, prior.bytes);
+        }
+        const verified = await readState(prior.path);
+        if (!sameState(verified, prior)) throw new Error("independent_restoration_verify_failed");
+        return;
+      }
       const live = vault.getAbstractFileByPath(prior.path);
       if (!prior.exists) {
         if (live) {
@@ -70,6 +119,7 @@
           await vault.delete(live, true);
         }
       } else {
+        if (prior.restorable === false) throw new Error("independent_restoration_bytes_unavailable");
         if (prior.encoding === "binary") {
           const binary = Uint8Array.from(prior.bytes).buffer;
           if (live) {
@@ -139,7 +189,7 @@
       if (!verified.ok) return result("rejected", { reason: verified.reason });
       const expected = packetSet(packet);
       if (!checkBoundary(packet, expected)) return result("rejected", { reason: "write_set_boundary_mismatch" });
-      if (vault.getAbstractFileByPath(itemAuditPath(packet))) return result("rejected", { reason: "item_audit_conflict" });
+      if (await pathExists(itemAuditPath(packet))) return result("rejected", { reason: "item_audit_conflict" });
       const before = {};
       for (const filePath of expected) before[filePath] = await readState(filePath);
       const operation = packet.operation;
@@ -159,10 +209,10 @@
     }
     async function writeItemAudit(packet, snapshot) {
       const filePath = itemAuditPath(packet);
-      if (!vault.getAbstractFileByPath(".llmwiki-audit")) await vault.createFolder(".llmwiki-audit");
-      if (!vault.getAbstractFileByPath(".llmwiki-audit/risk-items")) await vault.createFolder(".llmwiki-audit/risk-items");
+      await ensureFolder(".llmwiki-audit");
+      await ensureFolder(".llmwiki-audit/risk-items");
       const bytes = `${JSON.stringify({ audit_version: "llmwiki_risk_item_audit_v1", packet_id: packet.packet_id, packet_hash: packet.packet_hash, operation_id: packet.operation.operation_id, canonical_paths: snapshot.expected_paths, result: "committed" }, null, 2)}\n`;
-      await vault.create(filePath, bytes);
+      await writeText(filePath, bytes);
       if ((await readState(filePath)).bytes !== bytes) throw new Error("item_audit_verify_failed");
       return filePath;
     }
@@ -219,12 +269,12 @@
       if (typeof auditId !== "string" || !auditId) return result("rejected", { reason: "invalid_batch_audit" });
       if (audits.has(auditId)) return result("duplicate", { receipt: audits.get(auditId) });
       const filePath = `.llmwiki-audit/risk-batches/${auditId}.json`;
-      if (vault.getAbstractFileByPath(filePath)) return result("rejected", { reason: "batch_audit_conflict" });
+      if (await pathExists(filePath)) return result("rejected", { reason: "batch_audit_conflict" });
       const bytes = `${JSON.stringify(audit, null, 2)}\n`;
       const observed = await observeExact([filePath], async () => {
-        if (!vault.getAbstractFileByPath(".llmwiki-audit")) await vault.createFolder(".llmwiki-audit");
-        if (!vault.getAbstractFileByPath(".llmwiki-audit/risk-batches")) await vault.createFolder(".llmwiki-audit/risk-batches");
-        await vault.create(filePath, bytes);
+        await ensureFolder(".llmwiki-audit");
+        await ensureFolder(".llmwiki-audit/risk-batches");
+        await writeText(filePath, bytes);
       });
       if (!observed.ok) return result("failed", { reason: observed.reason });
       const verified = await readState(filePath);

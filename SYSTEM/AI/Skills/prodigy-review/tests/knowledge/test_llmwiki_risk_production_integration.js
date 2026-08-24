@@ -57,19 +57,46 @@ function click(node) { assert.equal(typeof node?.onclick, "function"); node.oncl
 
 function filesystemVault(rootDir, controls = {}) {
   const touched = [];
+  const binaryReads = [];
   const listeners = new Map(["create", "modify", "delete", "rename"].map((name) => [name, new Set()]));
   function absolute(relative) { return path.join(rootDir, ...relative.split("/")); }
-  function file(relative) { const target = absolute(relative); return fs.existsSync(target) ? { path: relative, stat: { mode: fs.statSync(target).mode } } : null; }
+  function file(relative) {
+    if (controls.hideDotPaths && relative.startsWith(".")) return null;
+    const target = absolute(relative);
+    if (!fs.existsSync(target)) return null;
+    const stat = fs.statSync(target);
+    return { path: relative, stat: { mode: stat.mode, size: stat.size, mtime: stat.mtimeMs } };
+  }
   function emit(name, ...args) { for (const listener of listeners.get(name) || []) listener(...args); }
-  function files(directory = rootDir, prefix = "") { return fs.existsSync(directory) ? fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? files(path.join(directory, entry.name), prefix ? `${prefix}/${entry.name}` : entry.name) : [file(prefix ? `${prefix}/${entry.name}` : entry.name)]) : []; }
+  function files(directory = rootDir, prefix = "") {
+    if (controls.hideDotPaths && prefix.startsWith(".")) return [];
+    return fs.existsSync(directory)
+      ? fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => entry.isDirectory()
+        ? files(path.join(directory, entry.name), prefix ? `${prefix}/${entry.name}` : entry.name)
+        : [file(prefix ? `${prefix}/${entry.name}` : entry.name)]).filter(Boolean)
+      : [];
+  }
   return {
     touched,
+    binaryReads,
+    adapter: {
+      async exists(relative) { return fs.existsSync(absolute(relative)); },
+      async read(relative) { return fs.readFileSync(absolute(relative), "utf8"); },
+      async write(relative, bytes) { fs.mkdirSync(path.dirname(absolute(relative)), { recursive: true }); fs.writeFileSync(absolute(relative), bytes, "utf8"); },
+      async remove(relative) { if (fs.existsSync(absolute(relative))) fs.rmSync(absolute(relative), { recursive: true, force: true }); },
+      async mkdir(relative) { fs.mkdirSync(absolute(relative), { recursive: true }); },
+    },
     getAbstractFileByPath: file,
     getFiles() { return files(); },
     on(name, listener) { listeners.get(name).add(listener); return { name, listener }; },
     offref(ref) { listeners.get(ref.name).delete(ref.listener); },
     listenerCount(name) { return listeners.get(name)?.size || 0; },
     async read(entry) { return fs.readFileSync(absolute(entry.path), "utf8"); },
+    async readBinary(entry) {
+      binaryReads.push(entry.path);
+      const value = fs.readFileSync(absolute(entry.path));
+      return value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength);
+    },
     async createFolder(relative) { fs.mkdirSync(absolute(relative), { recursive: true }); },
     async create(relative, bytes) { touched.push(relative); fs.mkdirSync(path.dirname(absolute(relative)), { recursive: true }); fs.writeFileSync(absolute(relative), bytes, { mode: 0o640 }); const created = file(relative); emit("create", created); return created; },
     async modify(entry, bytes) { touched.push(entry.path); if (controls.failPath === entry.path) throw new Error("injected_write_failure"); fs.writeFileSync(absolute(entry.path), bytes, "utf8"); const modified = file(entry.path); emit("modify", modified); return modified; },
@@ -78,7 +105,7 @@ function filesystemVault(rootDir, controls = {}) {
     mode(relative) { return fs.statSync(absolute(relative)).mode & 0o777; },
   };
 }
-function makeVault() { const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "llmwiki-risk-production-")); return { rootDir, app: { vault: filesystemVault(rootDir) } }; }
+function makeVault(controls = {}) { const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "llmwiki-risk-production-")); return { rootDir, app: { vault: filesystemVault(rootDir, controls) } }; }
 function seed(fixture, relative, bytes, mode = 0o640) { const target = path.join(fixture.rootDir, ...relative.split("/")); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, bytes, { mode }); }
 
 test("production manifest directly asserts the complete risk integration closure", () => {
@@ -126,8 +153,9 @@ test("production adapter fails closed when independent vault observation is unav
 });
 
 test("real vault adapter proves exact selected path set, bytes, modes, replay, and unexpected-path refusal", async () => {
-  const fixture = makeVault();
+  const fixture = makeVault({ hideDotPaths: true });
   try {
+    seed(fixture, "MEDIA/unrelated-large.bin", Buffer.alloc(1024 * 1024, 7));
     const first = packet(operation("create", "operation_vault_a", { after: "alpha\n" }));
     const second = packet(operation("create", "operation_vault_b", { after: "beta\n" }));
     const packets = [first, second].sort((a, b) => a.packet_id.localeCompare(b.packet_id));
@@ -138,6 +166,7 @@ test("real vault adapter proves exact selected path set, bytes, modes, replay, a
     assert.deepEqual(committed.receipt.actual_touched_paths, packets.flatMap((row) => row.operation.destination_ids).sort());
     assert.equal(committed.receipt.path_boundary_verified, true);
     assert.deepEqual(committed.write_counts, { canonical: 2, audit: 3, refresh: 0, git: 0 });
+    assert.deepEqual(fixture.app.vault.binaryReads, []);
     for (const row of packets) assert.equal(fs.readFileSync(path.join(fixture.rootDir, row.operation.destination_ids[0]), "utf8"), row.operation.after_bytes[row.operation.destination_ids[0]]);
     assert.equal((await batchApi.commitExactBatch({ packets, authorization, adapter })).status, "duplicate");
 

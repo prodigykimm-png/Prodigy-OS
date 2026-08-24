@@ -485,6 +485,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     let inboxScanController = null;
     let inboxScanGeneration = 0;
     const inboxPrivacyDecisions = new Map();
+    const usesDefaultInboxAnalysisTransport = typeof llmWikiControllerOptions.inboxAnalysisTransport !== "function";
+    let inboxProposalCollector = null;
+    let pendingInboxCompletions = [];
     const inboxRegistry = window.LLMWikiSourceRegistry.createSourceRegistry({ extractors: [
       { extractor_id: "extractor_markdown", extractor_version: "1.0.0", media_kinds: ["text/markdown"] },
       { extractor_id: "extractor_plain_text", extractor_version: "1.0.0", media_kinds: ["text/plain"] }
@@ -538,8 +541,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           : window.LLMWikiOperationContract.parseOperation(typeof providedOperation === "string" ? providedOperation : providedOperation && providedOperation.serialized_operation);
         if (!parsed || parsed.ok !== true) return { ok: false, reason: parsed && parsed.reason || "invalid_operation" };
         if (work.signal && work.signal.aborted) return { ok: false, reason: "provider_aborted" };
-        const opened = llmWikiRunController.openPreparedRiskReview({ run_id: runId, proposals: [{ operation: parsed.value, title: "INBOX 지식 제안" }] });
-        return opened && opened.ok === true ? { ok: true, risk_review: opened } : { ok: false, reason: opened && opened.reason || "risk_review_unavailable" };
+        if (!(inboxProposalCollector instanceof Map)) return { ok: false, reason: "inbox_batch_context_unavailable" };
+        inboxProposalCollector.set(work.source_id, { run_id: runId, operation: parsed.value, title: "INBOX 지식 제안" });
+        return { ok: true };
       }
     });
     const publishInbox = (next) => {
@@ -558,9 +562,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       ? appRef.metadataCache.getFileCache(file)?.frontmatter || {} : {};
     const serializeInboxFile = async ({ file, decision }) => {
       const body = await appRef.vault.cachedRead(file);
+      const analysisText = body.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/gu, "");
       const sourceId = `source_${llmWikiHash.sha256(file.path).slice(0, 24)}`;
-      const contentHash = llmWikiHash.sha256(body);
-      const input = JSON.stringify({ source_id: sourceId, source_path: file.path, modified_revision: contentHash, media_kind: "text/markdown", source_kind: "markdown", source_text: body, text: body, content_hash: contentHash, route_hint: decision.route, privacy_class: decision.privacy_class, provider_eligibility: decision.provider_eligibility });
+      const contentHash = llmWikiHash.sha256(analysisText);
+      const input = JSON.stringify({ source_id: sourceId, source_path: file.path, modified_revision: contentHash, media_kind: "text/markdown", source_kind: "markdown", source_text: analysisText, text: analysisText, content_hash: contentHash, route_hint: decision.route, privacy_class: decision.privacy_class, provider_eligibility: decision.provider_eligibility });
       inboxPrivacyDecisions.set(sourceId, decision);
       return { source_id: sourceId, source_path: file.path, content_hash: contentHash, input };
     };
@@ -569,8 +574,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const forceAnalysis = scanOptions && scanOptions.force === true;
       const scanGeneration = inboxScanGeneration + 1;
       const scanController = new AbortController();
+      const proposalCollector = new Map();
       inboxScanGeneration = scanGeneration;
       inboxScanController = scanController;
+      if (usesDefaultInboxAnalysisTransport) inboxProposalCollector = proposalCollector;
       inboxSettled = new Promise((resolve) => { resolveInboxSettled = resolve; });
       const activePromise = (async () => {
         const files = (appRef.vault.getMarkdownFiles ? appRef.vault.getMarkdownFiles() : [])
@@ -605,7 +612,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         let failed = 0;
         let failureReason = "";
         let failureMessage = "";
+        const completedEntries = [];
         const providerWideFailures = new Set([
+          "analysis_failed",
           "analysis_provider_unavailable",
           "analysis_state_write_failed",
           "configuration_unavailable",
@@ -636,14 +645,17 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) break;
           results.push(result);
           if (result && result.ok === true && result.state === "completed") {
-            try {
-              await inboxIncrementalState.markCompleted(prepared);
-              succeeded += 1;
-            } catch (_error) {
-              failed += 1;
-              failureReason = "analysis_state_write_failed";
-              failureMessage = "증분 분석 상태를 저장하지 못해 자동 분석을 중단했습니다.";
-              break;
+            if (usesDefaultInboxAnalysisTransport) completedEntries.push(prepared);
+            else {
+              try {
+                await inboxIncrementalState.markCompleted(prepared);
+                succeeded += 1;
+              } catch (_error) {
+                failed += 1;
+                failureReason = "analysis_state_write_failed";
+                failureMessage = "증분 분석 상태를 저장하지 못해 자동 분석을 중단했습니다.";
+                break;
+              }
             }
           }
           else if (!result || result.state !== "cancelled") {
@@ -654,10 +666,51 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           }
         }
         if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) return { ok: false, status: "cancelled", total: files.length, results };
+        if (usesDefaultInboxAnalysisTransport && completedEntries.length > 0) {
+          const proposalItems = completedEntries.map((prepared) => ({ prepared, proposal: proposalCollector.get(prepared.source_id) }));
+          const missingItems = proposalItems.filter((item) => !item.proposal);
+          if (missingItems.length > 0) {
+            failed += missingItems.length;
+            failureReason = "inbox_batch_context_unavailable";
+            failureMessage = "분석 결과를 검토 대기열로 묶지 못해 자동 분석을 중단했습니다.";
+          }
+          const reviewItems = [];
+          const packetApi = window.LLMWikiRiskApprovalPacket;
+          const batchRunId = proposalItems.find((item) => item.proposal)?.proposal.run_id || "";
+          for (const item of proposalItems.filter((candidate) => candidate.proposal)) {
+            const proposal = item.proposal;
+            const preflight = packetApi && typeof packetApi.buildRiskApprovalPacket === "function"
+              ? packetApi.buildRiskApprovalPacket({
+                run_id: batchRunId,
+                run_revision: 1,
+                packet_revision: 1,
+                operation: proposal.operation,
+                summary: proposal.title,
+                provenance: { source: "librarian_pipeline", source_ids: proposal.operation.source_citations.map((citation) => citation.source_id) },
+              })
+              : { ok: false, reason: "risk_review_runtime_unavailable" };
+            if (preflight && preflight.ok === true) reviewItems.push(item);
+            else {
+              failed += 1;
+              failureReason = preflight && preflight.reason || "risk_review_unavailable";
+            }
+          }
+          if (reviewItems.length > 0) {
+            const opened = llmWikiRunController.openPreparedRiskReview({ run_id: batchRunId, proposals: reviewItems.map((item) => item.proposal) });
+            if (!opened || opened.ok !== true) {
+              failed += reviewItems.length;
+              failureReason = opened && opened.reason || "risk_review_unavailable";
+            } else {
+              pendingInboxCompletions = reviewItems.map((item) => item.prepared);
+              succeeded += reviewItems.length;
+            }
+          }
+        }
         const finalState = failed === 0 ? "complete" : succeeded === 0 ? "error" : "partial";
         const state = settleInbox({ ...base, state: finalState, processed: results.length, succeeded, failed, reason: failed ? failureReason || "analysis_failed" : "", message: failed ? failureMessage : "" });
         return { ok: failed === 0, status: state.state, total: files.length, results };
       })().finally(() => {
+        if (inboxProposalCollector === proposalCollector) inboxProposalCollector = null;
         if (scanGeneration === inboxScanGeneration) {
           inboxScanPromise = null;
           inboxScanController = null;
@@ -665,6 +718,18 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       });
       inboxScanPromise = activePromise;
       return activePromise;
+    };
+    const flushPendingInboxCompletions = async () => {
+      const entries = pendingInboxCompletions;
+      for (let index = 0; index < entries.length; index += 1) {
+        try { await inboxIncrementalState.markCompleted(entries[index]); }
+        catch (_error) {
+          pendingInboxCompletions = entries.slice(index);
+          return { ok: false, reason: "analysis_state_write_failed", persisted: index, remaining: entries.length - index };
+        }
+      }
+      pendingInboxCompletions = [];
+      return { ok: true, persisted: entries.length, remaining: 0 };
     };
     const startLlmWikiMigration = async (sourceInputs, action = "migration_dry_run") => {
       const result = await llmWikiRunController.startMigrationDryRun({
@@ -830,7 +895,13 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       else pending = dispatchStartupIntent(intent);
       if (!["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) llmWikiLifecycle.update(lifecycleSnapshot());
       pokeMaintenance();
-      const response = await pending;
+      let response = await pending;
+      if (response && response.ok === true && ["approve_risk", "approve_risk_batch"].includes(intent.action)) {
+        const persisted = await flushPendingInboxCompletions();
+        if (!persisted.ok) response = { ...response, inbox_analysis_state: persisted };
+      } else if (response && response.ok === true && intent.action === "reject_risk") {
+        pendingInboxCompletions = [];
+      }
       if (intent.action === "enable_rollout_phase") {
         if (response && response.ok === true) rolloutActivationFailure = "";
         else if (response && response.reason === "prior_rollout_gate_unavailable") rolloutActivationFailure = "이전 단계를 먼저 활성화해 주세요.";
