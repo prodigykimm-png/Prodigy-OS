@@ -95,6 +95,7 @@
   root.renderProjectCard = function (p, container) {
     if (!p || !container) return null;
     if (root.ProdigyUI && typeof root.ProdigyUI.ensureStyles === "function") root.ProdigyUI.ensureStyles();
+    if (root.ProjectStyles && typeof root.ProjectStyles.ensureProjectStyles === "function") root.ProjectStyles.ensureProjectStyles();
     const app = root.app || (typeof window !== "undefined" ? window.app : null);
     const display = root.prodigyDisplay;
     const file = p.file || {};
@@ -121,7 +122,7 @@
       attr: { class: "prodigy-project-card-title-row", style: "display:flex;align-items:center;gap:var(--ke-space-2,4px);min-inline-size:0;flex-wrap:wrap;" }
     });
     const typeBadge = titleContainer.createEl("span", {
-      text: projectTypeLabel,
+      text: projectTypeLabel(projectType),
       attr: {
         class: "prodigy-project-card-type",
         style: `font-size:var(--ke-type-chrome,.68rem);font-weight:700;color:${typeColor};background:color-mix(in srgb, ${typeColor} 12%, var(--ke-color-surface-secondary));border:1px solid color-mix(in srgb, ${typeColor} 42%, var(--ke-color-border));padding:var(--ke-space-1,2px) var(--ke-space-2,4px);border-radius:var(--ke-radius-pill);white-space:nowrap;`

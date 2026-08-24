@@ -12,6 +12,7 @@ const AUCTION_PRESENTATION = [
   "SYSTEM/Views/auction-card.js",
   "SYSTEM/Views/auction-day-view.js",
   "SYSTEM/Views/bid-calendar-view.js",
+  "SYSTEM/Views/auction-hub-styles.js",
   "SYSTEM/Views/auction-ai-decision-support.js",
   "SYSTEM/Views/auction-decision-packet.js",
   "SYSTEM/Views/auction-real-estate-research.js",
@@ -23,8 +24,9 @@ const FORBIDDEN_COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?)\s*\(/i;
 const FORBIDDEN_DECORATION = /(?:linear|radial)-gradient\s*\(|(?:box|text)-shadow\s*:/i;
 
 function assertAuctionPresentation(source, label) {
+  const presentation = source.replace(/(?:box|text)-shadow\s*:\s*none(?:\s*!important)?\s*;/gi, "");
   assert.doesNotMatch(source, FORBIDDEN_COLOR, `${label}: raw color`);
-  assert.doesNotMatch(source, FORBIDDEN_DECORATION, `${label}: decorative gradient or chrome shadow`);
+  assert.doesNotMatch(presentation, FORBIDDEN_DECORATION, `${label}: decorative gradient or chrome shadow`);
   assert.doesNotMatch(source, FORBIDDEN_PRIVATE_BREAKPOINT, `${label}: private breakpoint`);
 }
 
@@ -47,6 +49,31 @@ test("Auction presentation contains no frozen raw color, gradient, chrome shadow
   assert.match(`${day}\n${calendar}`, /forced-colors:\s*active/);
   assert.match(`${day}\n${calendar}`, /prefers-reduced-motion:\s*reduce/);
   assert.match(read("SYSTEM/Views/prodigy-app-shell.js"), /\.prodigy-app-shell\[data-workspace-id="auction"\] > \.prodigy-workspace-bar,[\s\S]*?\.prodigy-app-shell\[data-workspace-id="reading"\] > \.prodigy-workspace-bar \{[\s\S]*?flex-direction: column;[\s\S]*?align-items: stretch;[\s\S]*?padding-inline: 4px;/, "Auction title must own the full AppShell compact row without type shrink");
+  const hub = read("HUB/10 Auction.md");
+  const hubStyles = read("SYSTEM/Views/auction-hub-styles.js");
+  assert.doesNotMatch(hub, /auction-hub-editorial-(?:hero|kicker|title|support)/);
+  assert.doesNotMatch(hub, /auction-native-pane-header/);
+  assert.match(hub, /auction-native-sidebar/);
+  assert.match(hubStyles, /@media \(min-width: 1069px\)[\s\S]*?\.auction-hub-section\.auction-hub-today[\s\S]*?grid-template-columns:\s*260px\s+minmax\(0,\s*1fr\)/);
+  assert.match(hubStyles, /\.auction-native-sidebar[\s\S]*?background:\s*var\(--ke-color-surface-secondary/);
+  assert.match(hubStyles, /@media \(min-width: 1069px\)[\s\S]*?\.auction-hub-continue[\s\S]*?border:\s*0/);
+  assert.match(hubStyles, /@media \(min-width: 1069px\)[\s\S]*?\.auction-hub-continue-title[\s\S]*?font-size:\s*var\(--ke-type-heading/);
+  assert.doesNotMatch(
+    hubStyles,
+    /\.auction-native-pane-title\s*\{[^}]*?(?:#[0-9a-f]{3,8}|rgba?\(|linear-gradient|box-shadow)/i
+  );
+  assert.doesNotMatch(hubStyles, /font-size:\s*var\(--ke-type-display/);
+});
+
+test("Auction integrates Calendar into the three-pane workspace and keeps the canonical renderer", () => {
+  const hub = read("HUB/10 Auction.md");
+  assert.match(hub, /label:\s*"달력"/);
+  assert.doesNotMatch(hub, /revealAuctionCalendar|revealAfterOwnerSettles/);
+  assert.match(hub, /auctionNativeSceneController\?\.focusCalendar\(\)/);
+  assert.match(hub, /context:\s*\{[\s\S]*?actions:\s*\[\s*calendarAction\s*\]/);
+  assert.match(hub, /ProdigyAuctionNativeScenes\.register\("calendar",\s*this\.container\)/);
+  assert.match(hub, /window\.BidCalendarView\.render\(\{/);
+  assert.match(hub, /label:\s*"입찰 일정 캘린더"/);
 });
 
 test("Auction mutation oracle kills every frozen presentation residual class", () => {

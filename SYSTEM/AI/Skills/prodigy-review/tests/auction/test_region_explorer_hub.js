@@ -9,6 +9,7 @@ const test = require("node:test");
 const ROOT = path.resolve(__dirname, "../../../../../../");
 const REGION_ROOT = "PARA/RESOURCES/Auction Regions/";
 const HUB_PATH = "HUB/15 Region.md";
+const REGION_STYLE_SOURCE = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/region-styles.js"), "utf8");
 const SOURCE_SUPPORT_MATRIX_PATH = "SYSTEM/SCRIPTS/region-provider-support-matrix.json";
 const REGISTRY_PATHS = [
   "SYSTEM/SCRIPTS/region-metrics-manifest-index.json",
@@ -30,6 +31,7 @@ const MODULE_PATHS = [
   "SYSTEM/Views/region-explorer-projection.js",
   "SYSTEM/Views/region-explorer-data-source.js",
   "SYSTEM/Views/region-explorer-state.js",
+  "SYSTEM/Views/region-styles.js",
   "SYSTEM/Views/region-explorer-view.js",
   "SYSTEM/Views/auction-region-core.js",
   "SYSTEM/Views/region-collection-health-core.js",
@@ -112,10 +114,9 @@ function walk(node, predicate, found = []) {
 
 function controlLayout(container, width) {
   const controls = walk(container, (node) => node.attr && node.attr.class === "region-explorer-controls")[0];
-  const style = walk(container, (node) => node.tag === "style" && node.attr && node.attr["data-region-explorer-style"] === "true")[0];
   const compact = width < 768;
   const stacked = Boolean(controls && controls.attr && controls.attr["data-control-layout"] === "stacked");
-  const fullWidthRule = style && /\[data-control-layout="stacked"\][^{]*\.region-explorer-control,[^{]*\[data-control-layout="stacked"\][^{]*\.region-explorer-add-action\{min-inline-size:100%;inline-size:100%/.test(style.text);
+  const fullWidthRule = /\.region-explorer-controls\[data-control-layout="stacked"\] \.region-explorer-control,[^{]*\.region-explorer-controls\[data-control-layout="stacked"\] \.region-explorer-add-action\{min-inline-size:100%;inline-size:100%/.test(REGION_STYLE_SOURCE);
   const items = (controls && controls.children || []).filter((node) => node.attr && /(region-explorer-control|region-explorer-add-action)/.test(node.attr.class || ""));
   const itemWidths = items.map(() => compact && stacked && fullWidthRule ? width : Math.min(width, 192));
   const scrollWidth = itemWidths.length ? Math.max(...itemWidths) : 0;
@@ -397,12 +398,12 @@ test("Given a 599px Region Hub fixture When the experience trigger renders Then 
   const hub = await runHub({ [`${REGION_ROOT}부산광역시-해운대구.md`]: validRegion({ sido: "부산광역시", sigungu: "해운대구" }) }, { container });
   const shell = walk(hub.container, (node) => node.attr && node.attr["data-shell"] === "region-explorer-shell")[0];
   const trigger = walk(hub.container, (node) => node.attr && node.attr["data-action"] === "add-region-experience")[0];
-  const css = walk(hub.container, (node) => node.tag === "style" && node.attr && node.attr["data-region-explorer-style"] === "true")[0].text;
+  const css = REGION_STYLE_SOURCE;
 
   assert.equal(shell.attr["data-layout"], "compact");
   assert.equal(trigger.attr["aria-label"], "지역 경험 추가");
   assert.match(css, /\.region-explorer-button\{[^}]*min-inline-size:0[^}]*word-break:keep-all[^}]*overflow-wrap:anywhere/);
-  assert.match(css, /\[data-control-layout="stacked"\][^{]*\.region-explorer-control,[^{]*\[data-control-layout="stacked"\][^{]*\.region-explorer-add-action\{min-inline-size:100%;inline-size:100%/);
+  assert.match(css, /\.region-explorer-controls\[data-control-layout="stacked"\] \.region-explorer-control,[^{]*\.region-explorer-controls\[data-control-layout="stacked"\] \.region-explorer-add-action\{min-inline-size:100%;inline-size:100%/);
 });
 
 test("Given 375px and 599px Hub fixtures When the Region Experience trigger renders Then controls stack without a horizontal-overflow signal", async () => {

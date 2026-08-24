@@ -2,7 +2,13 @@
   "use strict";
 
   function clean(value) {
-    return String(value == null ? "" : value).trim();
+    if (value == null) return "";
+    if (typeof value === "object") {
+      if (value.path) return String(value.path).trim();
+      if (value.fileName) return String(value.fileName).trim();
+      if (value.link) return String(value.link).trim();
+    }
+    return String(value).trim();
   }
 
   function stableHash(value) {
@@ -60,7 +66,7 @@
       rating: source.rating == null || source.rating === "" ? null : Number(source.rating),
       key_takeaway: clean(source.key_takeaway),
       next_action: clean(source.next_action),
-      cover_url: clean(source.cover_url || source.cover || source.cover_image || source.book_cover || source.image),
+      cover_url: clean(source.cover_url || source.cover || source.cover_image || source.book_cover || source.image || source.banner || source.thumbnail || source.coverUrl || source.coverImage),
       identifier: clean(source.identifier),
       publisher: clean(source.publisher),
       source_url: clean(source.source_url),

@@ -12,6 +12,7 @@ const READING_PRESENTATION = [
   "SYSTEM/Views/reading-card.js",
   "SYSTEM/Views/reading-checklist-view.js",
   "SYSTEM/Views/reading-memory-view.js",
+  "SYSTEM/Views/reading-styles.js",
   "SYSTEM/Views/reading-view.js"
 ];
 const FORBIDDEN_PRIVATE_BREAKPOINT = /@media[^\n{]*(?:480|599|600|760|767)px/i;
@@ -48,8 +49,9 @@ test("Reading presentation removes frozen palette, generated decoration, card sh
   assert.match(card, /reading-card-content-hero/);
   assert.match(card, /min-(?:height|block-size):\s*(?:var\([^)]*44px\)|44px)/);
   const view = read("SYSTEM/Views/reading-view.js");
+  const styles = read("SYSTEM/Views/reading-styles.js");
   assert.doesNotMatch(view, /reading-responsive-pane\{[^}]*overflow:\s*auto/);
-  assert.match(view, /\.prodigy-app-shell\[data-workspace-id="reading"\]>.prodigy-workspace-bar\{padding-inline:4px\}/);
+  assert.match(styles, /\.prodigy-app-shell\[data-workspace-id="reading"\]\s*>\s*\.prodigy-workspace-bar\s*\{[^}]*padding-inline:\s*4px/);
   assert.match(read("SYSTEM/Views/prodigy-app-shell.js"), /\.prodigy-app-shell\[data-workspace-id="auction"\] > \.prodigy-workspace-bar,[\s\S]*?\.prodigy-app-shell\[data-workspace-id="reading"\] > \.prodigy-workspace-bar \{[\s\S]*?flex-direction: column;[\s\S]*?align-items: stretch;[\s\S]*?padding-inline: 4px;/, "Reading title must own the full AppShell compact row without type shrink");
 });
 

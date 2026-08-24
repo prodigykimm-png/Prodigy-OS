@@ -449,6 +449,9 @@
 
   function disposeHome(container) {
     const controller = resolveViewModule("HomeController", "./home-controller.js");
+    const priorCaptureScope = container.__prodigyQuickCaptureScope;
+    if (priorCaptureScope && typeof priorCaptureScope.dispose === "function") priorCaptureScope.dispose();
+    delete container.__prodigyQuickCaptureScope;
     if (controller) controller.disposeHome(container);
   }
 
@@ -506,6 +509,27 @@
     if (!homeModel || !homeController || !homeSections) throw new Error("Home modules are unavailable.");
 
     disposeHome(container);
+    const parentScope = options.mountScope || null;
+    const renderScope = {
+      signal: parentScope && parentScope.signal ? parentScope.signal : { aborted: false },
+      disposed: false,
+      cleanups: [],
+      track(fn) {
+        if (typeof fn !== "function") return fn;
+        if (!this.disposed) {
+          this.cleanups.push(fn);
+          if (parentScope && typeof parentScope.track === "function") parentScope.track(fn);
+        }
+        return fn;
+      },
+      dispose() {
+        if (this.disposed) return false;
+        this.disposed = true;
+        this.cleanups.splice(0).reverse().forEach((fn) => { try { fn(); } catch (_cleanupError) { /* best-effort */ } });
+        return true;
+      }
+    };
+    container.__prodigyQuickCaptureScope = renderScope;
     const lifecycle = {
       dispose() {
         if (container.__prodigyHomeLifecycle === lifecycle) disposeHome(container);
@@ -572,6 +596,22 @@
         container.style.marginLeft = "";
         if (typeof container.style.setProperty === "function") {
           container.style.setProperty("--home-measured-width", `${homeWidth}px`);
+          container.style.setProperty(
+            "--home-primary-cta-height",
+            `${T.DEVICE_TABLE.primaryCta.phone.visualHeight}px`
+          );
+          container.style.setProperty(
+            "--home-primary-cta-font-size",
+            `${T.DEVICE_TABLE.primaryCta.phone.fontSize}px`
+          );
+          container.style.setProperty(
+            "--home-primary-cta-padding-inline",
+            `${T.DEVICE_TABLE.primaryCta.phone.paddingInline}px`
+          );
+          container.style.setProperty(
+            "--home-primary-cta-radius",
+            `${T.DEVICE_TABLE.primaryCta.phone.radius}px`
+          );
         }
         container.classList.toggle("home-compact", variant === "compact");
         container.classList.toggle("home-medium", variant === "medium");
@@ -769,14 +809,16 @@
     if (isAfternoon) greeting = "즐거운 오후입니다. 오늘 계획을 힘차게 실행하세요!";
     if (isEvening) greeting = "오늘 하루도 수고하셨습니다. 성찰을 통해 하루를 차분히 마무리하세요.";
 
-    // Render Title & Status bar
+    // Native macOS content header: title/context on the leading edge and
+    // compact toolbar actions on the trailing edge.
     const titleRow = container.createEl("div", {
-      attr: { class: "home-title-row" }
+      attr: { class: "home-title-row home-native-header" }
     });
     
     const leftTitle = titleRow.createEl("div");
-    leftTitle.createEl("h2", { text: `오늘 · ${todayStr}`, attr: { class: "home-title" } });
-    leftTitle.createEl("span", { text: `${pkg.day_of_week || ""} · ${greeting} · 지금 무엇에 집중할까?`, attr: { class: "home-subtitle" } });
+    leftTitle.createEl("p", { text: `${pkg.day_of_week || ""} · ${todayStr}`, attr: { class: "home-native-context" } });
+    leftTitle.createEl("h2", { text: "오늘", attr: { class: "home-title" } });
+    leftTitle.createEl("span", { text: greeting, attr: { class: "home-subtitle" } });
 
     const rightActions = titleRow.createEl("div", { attr: { class: "home-toolbar" } });
 
@@ -801,7 +843,7 @@
       text: "+ 새 Object",
       attr: {
         type: "button",
-        class: "action-btn action-btn-primary",
+        class: "action-btn action-btn-primary home-toolbar-primary",
         title: "새 Object (⌘/Ctrl+N)"
       }
     });
@@ -830,10 +872,10 @@
       });
     }
 
-    const refreshBtn = rightActions.createEl("button", { text: "새로고침", attr: { class: "action-btn" } });
+    const refreshBtn = rightActions.createEl("button", { text: "새로고침", attr: { class: "action-btn home-toolbar-utility" } });
     refreshBtn.onclick = () => renderHome(options);
 
-    const regenerateBtn = rightActions.createEl("button", { text: "브리핑 다시 생성", attr: { class: "action-btn" } });
+    const regenerateBtn = rightActions.createEl("button", { text: "우선순위 다시 계산", attr: { class: "action-btn home-toolbar-utility" } });
     regenerateBtn.onclick = async () => {
       regenerateBtn.disabled = true;
       regenerateBtn.text = "생성 중...";
@@ -843,7 +885,7 @@
         await root.MorningCache.clearApprovedFocus(app, todayStr);
         renderHome(options);
       } catch (err) {
-        new Notice("브리핑 갱신 실패: " + err.message);
+        new Notice("우선순위 갱신 실패: " + err.message);
         regenerateBtn.disabled = false;
         regenerateBtn.text = "브리핑 다시 생성";
       }
@@ -853,7 +895,6 @@
     const stack = container.createEl("div", {
       attr: { class: "home-grid home-mc-stack home-column col-span-12" }
     });
-
     const workspacePathFor = (sourceType) => {
       const raw = String(sourceType || "").trim().toLowerCase();
       const aliases = {
@@ -923,6 +964,7 @@
 
     const clampBriefLines = homeModel.clampBriefLines;
 
+    let workspaceDock = null;
     safeRenderRegion("Workspace Shortcuts", () => {
       const dock = homeSections.renderWorkspaceDock({
         parent: stack,
@@ -934,15 +976,100 @@
         openPath
       });
       if (!dock) return;
+      workspaceDock = dock;
     });
+
+    // ── 1.5 Quick Capture (grouped row; trusted-interaction gated local writes) ──
+    safeRenderRegion("Quick Capture", () => {
+      const quickCaptureView = resolveViewModule("QuickCaptureView", "./quick-capture-view.js");
+      if (!quickCaptureView || typeof quickCaptureView.mountQuickCapture !== "function") return;
+      quickCaptureView.mountQuickCapture({
+        app,
+        container: stack,
+        sessionId: "home-quick-capture",
+        scope: renderScope,
+        notify: (message) => new Notice(message)
+      });
+    });
+
+    // ── 2. Ranked next-action deck (real state first, AI proposal second) ──
+    const homeActionQueue = resolveViewModule("HomeActionQueue", "./home-action-queue.js");
+    const queueFocusBase = (approvedFocus && Array.isArray(approvedFocus.focus))
+      ? approvedFocus.focus
+      : (Array.isArray(result.focus) ? result.focus : []);
+    const queueFocusItems = root.MorningContextCore.selectFocusItems
+      ? root.MorningContextCore.selectFocusItems({
+        pinnedFocus,
+        focusItems: queueFocusBase,
+        pkg,
+        localDate: todayStr
+      })
+      : queueFocusBase;
+    const queueFocusKeys = Object.create(null);
+    (queueFocusItems || []).forEach((item) => {
+      const key = homeModel.dedupeKeyFor(item && item.object_path, item && item.source_type, item && (item.label || item.title));
+      if (key) queueFocusKeys[key] = true;
+    });
+    const queueContinueCards = homeModel.buildContinueCards({
+      focusKeys: queueFocusKeys,
+      continueByWorkspace: (briefContext && briefContext.continue_by_workspace) || {},
+      candidates: (pkg.context && pkg.context.continue_candidates) || [],
+      workspacePathFor,
+      getSourceTypeLabel
+    });
+    let queueRisks = (briefContext && root.MorningBriefContext && root.MorningBriefContext.toHomeRiskItems)
+      ? root.MorningBriefContext.toHomeRiskItems(briefContext)
+      : ((pkg.context && pkg.context.risks) || []);
+    const queueAuctionStatusOk = (status) => {
+      const engine = root.ObjectEngine || root.ObjectEngineCore;
+      if (engine && typeof engine.isAuctionHomeAttentionStatus === "function") return engine.isAuctionHomeAttentionStatus(status);
+      return String(status || "").toLowerCase() === "bidding";
+    };
+    queueRisks = homeModel.filterAttentionRisks(queueRisks, (pkg.context && pkg.context.auctions) || [], queueAuctionStatusOk);
+    const privateInboxPath = /(?:^|\/)(?:private|protected|sensitive|people|contacts?)(?:\/|$)/iu;
+    const inboxCount = app.vault && typeof app.vault.getMarkdownFiles === "function"
+      ? app.vault.getMarkdownFiles().filter((file) => file && typeof file.path === "string" && file.path.startsWith("INBOX/") && !privateInboxPath.test(file.path)).length
+      : 0;
+    const queueMode = String(result.brief_mode || (result.principle && result.principle.source) || "").toLowerCase();
+    if (homeActionQueue && typeof homeActionQueue.buildActionQueue === "function" && typeof homeActionQueue.renderActionQueue === "function") {
+      const queueActions = homeActionQueue.buildActionQueue({
+        now: new Date(),
+        pkg,
+        attention: queueRisks,
+        focusItems: queueFocusItems,
+        focusApproved: Boolean(approvedFocus),
+        continueCards: queueContinueCards,
+        inboxCount,
+        journalStatus: journalStatusForOps.status,
+        workspacePathFor
+      });
+      homeActionQueue.renderActionQueue({
+        parent: stack,
+        actions: queueActions,
+        aiBacked: !["rule_based", "fallback"].includes(queueMode),
+        onAction: async (action) => {
+          if (action.kind === "focus_proposal" && action.focus_item) {
+            approvedFocus = await root.MorningCache.saveApprovedFocus(app, todayStr, [action.focus_item], false);
+            new Notice("오늘의 집중으로 승인했습니다.");
+            await renderHome(options);
+            return;
+          }
+          if (action.target_path) openPath(action.target_path);
+        }
+      });
+    }
+
+    // Former primary narrative stays available as secondary context, collapsed by default.
+    const legacyContext = stack.createEl("details", { attr: { class: "home-context-details" } });
+    legacyContext.createEl("summary", { text: "브리핑 기록" });
+    const legacyBody = legacyContext.createEl("div", { attr: { class: "home-context-details-body" } });
 
     // ── 1. TODAY · Morning Brief ──
     safeRenderRegion("Morning Brief", () => {
-      const briefCard = stack.createEl("div", {
-        attr: { class: "home-card home-brief prodigy-utility-card " + (isMorning ? "emphasis-primary" : "emphasis-secondary") }
+      const briefCard = legacyBody.createEl("div", {
+        attr: { class: "home-card home-native-group home-brief prodigy-utility-card " + (isMorning ? "emphasis-primary" : "emphasis-secondary") }
       });
       const briefHead = briefCard.createEl("div", { attr: { class: "home-header" } });
-      briefHead.createEl("span", { text: "오늘" });
       briefHead.createEl("span", {
         text: "모닝 브리프",
         attr: { class: "home-brief-kicker" }
@@ -1030,7 +1157,7 @@
         });
         const openJournalBtn = eve.createEl("button", {
           text: "2분 성찰 작성",
-          attr: { class: "action-btn action-btn-primary" }
+          attr: { class: "action-btn home-evening-action" }
         });
         openJournalBtn.onclick = async () => {
           const focusHints = [];
@@ -1065,8 +1192,8 @@
     };
 
     safeRenderRegion("Today's Focus", () => {
-      const focusCard = stack.createEl("div", {
-        attr: { class: "home-focus-card prodigy-full-bleed home-card " + (isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
+      const focusCard = legacyBody.createEl("div", {
+        attr: { class: "home-focus-card home-card home-native-group " + (isMorning || isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
       });
       const head = focusCard.createEl("div", { attr: { class: "home-header" } });
       head.createEl("span", { text: "오늘의 집중" });
@@ -1163,7 +1290,7 @@
         }
 
         const regenHint = actions.createEl("button", {
-          text: "브리핑 다시 생성",
+          text: "제안 다시 계산",
           attr: { class: "action-btn" }
         });
         regenHint.onclick = () => regenerateBtn.click();
@@ -1209,6 +1336,35 @@
           openObj.onclick = () => openPath(item.object_path);
         }
       });
+
+      // ── One primary action for the approved Focus narrative ──
+      // Actions on the primary object resolve to the workspace today, otherwise
+      // to the object itself. This single CTA is the Brief→Focus→one action tail;
+      // Continue/MicroLog/Disclosure follow it in the same narrative order.
+      const primaryFocus = currentFocus[0];
+      if (primaryFocus) {
+        const ctaTarget = workspacePathFor(primaryFocus.source_type) || primaryFocus.object_path;
+        if (ctaTarget) {
+          const focusCta = focusCard.createEl("button", {
+            attr: {
+              type: "button",
+              class: "action-btn action-btn-primary home-primary-cta",
+              "aria-label": (primaryFocus.label || "오늘의 집중") + " 시작하기"
+            }
+          });
+          focusCta.createEl("span", {
+            text: "오늘의 집중 시작하기"
+          });
+          const ctaNext = primaryFocus.next_action || primaryFocus.reason || "";
+          if (ctaNext) {
+            focusCta.createEl("span", {
+              text: ctaNext,
+              attr: { class: "home-primary-cta-sub" }
+            });
+          }
+          focusCta.onclick = () => openPath(ctaTarget);
+        }
+      }
     });
 
     // Primary mission blocks stay above the fold on all sizes
@@ -1224,7 +1380,7 @@
         getSourceTypeLabel
       });
       homeSections.renderContinueSection({
-        parent: primary,
+        parent: legacyBody,
         cards: continueCards,
         isAfternoon,
         openPath
@@ -1238,10 +1394,22 @@
     fold.createEl("summary", { text: "더 보기 · 주의 · 빠른 실행 · 런처" });
     const lower = fold.createEl("div", { attr: { class: "home-secondary-fold-body home-mc-lower" } });
     let foldVariant = "";
+    const syncWorkspaceDockPosition = (variant) => {
+      if (!workspaceDock || workspaceDock.parentElement !== stack) return;
+      if (variant === "medium") {
+        if (stack.lastElementChild !== workspaceDock) stack.appendChild(workspaceDock);
+        return;
+      }
+      if (stack.firstElementChild !== workspaceDock) {
+        stack.insertBefore(workspaceDock, stack.firstElementChild);
+      }
+    };
     container.__prodigyHomeVariantChange = (variant) => {
-      if (variant === foldVariant) return;
-      foldVariant = variant;
-      fold.open = variant !== "compact";
+      if (variant !== foldVariant) {
+        foldVariant = variant;
+        fold.open = variant !== "compact";
+      }
+      syncWorkspaceDockPosition(variant);
     };
     container.__prodigyHomeVariantChange(currentHomeVariant || getHomeVariant(getLogicalWidth()));
 

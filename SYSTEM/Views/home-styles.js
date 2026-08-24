@@ -48,6 +48,9 @@
           max-inline-size: 100%;
           overflow-wrap: anywhere;
         }
+        .prodigy-app-shell[data-workspace-id="home"] > .prodigy-workspace-bar .prodigy-workspace-title {
+          display: none;
+        }
         .prodigy-app-shell[data-workspace-id="home"] > .prodigy-workspace-bar,
         .prodigy-app-shell[data-workspace-id="home"] > .prodigy-context-bar,
         .prodigy-app-shell[data-workspace-id="home"] .prodigy-context-actions {
@@ -90,6 +93,12 @@
             );
             scroll-padding-block-end: var(--home-mobile-bottom-clearance);
           }
+          /* AppShell already exposes the active-workspace switcher on compact
+             widths. Hiding the duplicate four-button dock keeps Capture→ActionQueue
+             and its one primary action inside the first iPhone viewport. */
+          .prodigy-home.home-compact .home-ws-dock {
+            display: none;
+          }
         }
         .home-grid { display: grid; grid-template-columns: 1fr; gap: var(--ke-space-5, 16px); margin-bottom: var(--ke-space-5, 16px); }
         .home-column { display: flex; flex-direction: column; gap: var(--ke-space-5, 16px); min-width: 0; }
@@ -97,10 +106,77 @@
         .home-mc-lower .home-card { border-color: var(--ke-color-border); }
         .home-system-status { opacity: 0.92; padding: var(--ke-space-4) var(--ke-space-5) !important; }
         .home-quick-actions .action-btn { min-height: var(--ke-touch-target) !important; padding: var(--ke-space-2, 4px) var(--ke-space-4, 12px) !important; font-size: var(--ke-type-label, 0.72rem) !important; line-height: var(--ke-leading-control, 1.35) !important; }
-        .prodigy-home.home-wide .home-grid { grid-template-columns: 1fr; }
-        .prodigy-home.home-wide .col-span-8 { grid-column: span 1; }
-        .prodigy-home.home-wide .col-span-4 { grid-column: span 1; }
-        .prodigy-home.home-wide .col-span-12 { grid-column: span 1; }
+        /* Home action queue: compose Capture→Action→Context→MicroLog→Disclosure
+           as one container-driven column beside the wide workspace source list. */
+        .prodigy-home.home-wide .home-mc-stack {
+          display: grid;
+          gap: 0 var(--ke-space-5, 24px);
+          grid-template-columns: 260px minmax(0, 1fr);
+          grid-template-areas:
+            "sidebar  capture"
+            "sidebar  action"
+            "sidebar  context"
+            "sidebar  microlog"
+            "sidebar  fold";
+        }
+        .prodigy-home.home-medium .home-mc-stack {
+          display: grid;
+          gap: 0;
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-areas:
+            "capture"
+            "action"
+            "context"
+            "microlog"
+            "fold"
+            "dock";
+        }
+        .prodigy-app-shell[data-tier="medium"] .prodigy-home .home-mc-stack {
+          display: grid;
+          gap: 0;
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-areas:
+            "capture"
+            "action"
+            "context"
+            "microlog"
+            "fold"
+            "dock";
+        }
+        .prodigy-home.home-wide .home-ws-dock,
+        .prodigy-home.home-medium .home-ws-dock { grid-area: dock; }
+        .prodigy-home.home-wide .home-mc-stack > .quick-capture-row,
+        .prodigy-home.home-medium .home-mc-stack > .quick-capture-row { grid-area: capture; }
+        .prodigy-home.home-wide .home-action-queue,
+        .prodigy-home.home-medium .home-action-queue { grid-area: action; }
+        .prodigy-home.home-wide .home-context-details,
+        .prodigy-home.home-medium .home-context-details { grid-area: context; }
+        .prodigy-home.home-wide .home-brief,
+        .prodigy-home.home-medium .home-brief { grid-area: brief; }
+        .prodigy-home.home-wide .home-focus-card,
+        .prodigy-home.home-medium .home-focus-card { grid-area: focus; }
+        .prodigy-home.home-wide .home-continue-section,
+        .prodigy-home.home-medium .home-continue-section { grid-area: continue; }
+        .prodigy-home.home-wide .home-micro-log-slot,
+        .prodigy-home.home-medium .home-micro-log-slot { grid-area: microlog; }
+        .prodigy-home.home-wide .home-secondary-fold,
+        .prodigy-home.home-medium .home-secondary-fold { grid-area: fold; }
+        /* The one primary action tail of the approved Focus narrative. */
+        .home-primary-cta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: var(--ke-space-2, 4px) var(--ke-space-4, 12px);
+          width: 100%;
+          margin-block-start: var(--ke-space-5, 16px);
+        }
+        .home-primary-cta-sub {
+          font-size: var(--ke-type-label, 0.72rem);
+          font-weight: 600;
+          opacity: 0.92;
+          overflow-wrap: anywhere;
+        }
         .home-card {
           min-inline-size: 0;
           padding: var(--ke-space-5);
@@ -108,12 +184,158 @@
           border-radius: var(--ke-radius-panel);
           background: var(--ke-color-surface);
         }
-        .home-focus-card {
-          padding-block: var(--ke-space-7);
-          background: var(--ke-color-surface-secondary);
+        .home-action-queue {
+          min-inline-size: 0;
+          border-block: var(--ke-border-width) solid var(--ke-color-border);
+          background: var(--ke-color-surface);
         }
-        .home-focus-card.emphasis-primary,
-        .home-focus-card.emphasis-secondary { border-inline-start: 0; }
+        .home-action-queue-head {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: var(--ke-space-4);
+          padding: var(--ke-space-5) 0 var(--ke-space-4);
+        }
+        .home-action-queue-kicker {
+          margin: 0 0 var(--ke-space-1);
+          color: var(--ke-color-interactive);
+          font-size: var(--ke-type-label);
+          font-weight: 700;
+        }
+        .home-action-queue-title {
+          margin: 0;
+          color: var(--ke-color-text);
+          font-size: var(--ke-type-title);
+        }
+        .home-action-list {
+          border-block-start: var(--ke-border-width) solid var(--ke-color-border);
+        }
+        .home-action-row {
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto;
+          align-items: center;
+          gap: var(--ke-space-4);
+          min-inline-size: 0;
+          padding: var(--ke-space-4) 0;
+          border-block-end: var(--ke-border-width) solid var(--ke-color-border);
+        }
+        .home-action-row.is-primary {
+          padding-inline: var(--ke-space-4);
+          background: var(--ke-color-surface-secondary);
+          border-inline-start: var(--ke-space-1) solid var(--ke-color-interactive);
+        }
+        .home-action-rank {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          inline-size: 28px;
+          block-size: 28px;
+          border-radius: var(--ke-radius-control);
+          background: var(--ke-color-surface-secondary);
+          color: var(--ke-color-muted);
+          font-size: var(--ke-type-label);
+          font-weight: 700;
+        }
+        .home-action-copy { min-inline-size: 0; }
+        .home-action-title-line {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: var(--ke-space-2);
+        }
+        .home-action-title {
+          color: var(--ke-color-text);
+          overflow-wrap: anywhere;
+          word-break: keep-all;
+        }
+        .home-action-reason {
+          margin: var(--ke-space-1) 0 0;
+          color: var(--ke-color-muted);
+          font-size: var(--ke-type-body);
+          overflow-wrap: anywhere;
+          word-break: keep-all;
+        }
+        .home-action-button { min-block-size: var(--ke-touch-target); }
+        .home-action-queue-empty {
+          margin: 0;
+          padding: var(--ke-space-5) 0;
+          color: var(--ke-color-muted);
+        }
+        .home-context-details {
+          min-inline-size: 0;
+          border-block-end: var(--ke-border-width) solid var(--ke-color-border);
+        }
+        .home-context-details > summary {
+          min-block-size: var(--ke-touch-target);
+          display: flex;
+          align-items: center;
+          color: var(--ke-color-muted);
+          cursor: pointer;
+          font-size: var(--ke-type-label);
+          font-weight: 700;
+        }
+        .home-context-details-body {
+          display: flex;
+          flex-direction: column;
+          gap: var(--ke-space-4);
+          padding-block-end: var(--ke-space-5);
+        }
+        .home-context-details:not([open]) > .home-context-details-body {
+          display: none;
+        }
+        @media (max-width: ${compactMax}px) {
+          .home-action-queue-head {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+          .home-action-row {
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: start;
+          }
+          .home-action-button {
+            grid-column: 2;
+            justify-self: stretch;
+          }
+        }
+        .prodigy-home .home-focus-card {
+          padding-block: var(--ke-space-7);
+          background: var(--ke-color-surface);
+          border-color: var(--ke-color-border);
+          color: var(--ke-color-text);
+        }
+        .home-focus-card .home-section-title,
+        .home-focus-card .home-section-heading,
+        .home-focus-card .home-focus-summary,
+        .home-focus-card .home-section-body,
+        .home-focus-card .prodigy-surface-description,
+        .home-focus-card .home-card-title {
+          color: var(--ke-color-text) !important;
+        }
+        .home-focus-card .home-card-subtitle,
+        .home-focus-card .home-focus-support,
+        .home-focus-card .prodigy-surface-kicker {
+          color: var(--ke-color-muted) !important;
+        }
+        .home-focus-card .focus-title,
+        .home-focus-card .home-focus-suggestion-title,
+        .home-focus-card .home-header,
+        .home-focus-card .home-header > span {
+          color: var(--ke-color-text) !important;
+        }
+        .home-focus-card .focus-reason,
+        .home-focus-card .home-focus-suggestion-note {
+          color: var(--ke-color-muted) !important;
+        }
+        .home-focus-card .badge {
+          background: var(--ke-color-surface-secondary) !important;
+          color: var(--ke-color-text) !important;
+        }
+        .prodigy-home .home-focus-card.emphasis-primary,
+        .prodigy-home .home-focus-card.emphasis-secondary {
+          background: var(--ke-color-surface);
+          border-color: var(--ke-color-border);
+          border-inline-start: 0;
+        }
         .emphasis-primary {
           background: var(--ke-color-surface-secondary);
           border-inline-start: var(--ke-space-1) solid var(--ke-color-interactive);
@@ -207,6 +429,38 @@
         .prodigy-home .action-btn-primary:hover {
           background: var(--ke-color-interactive) !important;
         }
+        /* macOS built-in apps keep toolbar chrome quiet and reserve a filled
+           accent for the one decision in the content pane. The 44px element
+           remains the hit target; its resting visual is text/icon only. */
+        .prodigy-home .home-toolbar .action-btn {
+          min-block-size: var(--ke-touch-target) !important;
+          padding-inline: var(--ke-space-3, 12px) !important;
+          border-color: transparent !important;
+          border-radius: var(--ke-radius-control) !important;
+          background: transparent !important;
+          color: var(--ke-color-text) !important;
+          font-size: var(--ke-type-label, 14px) !important;
+          font-weight: 500 !important;
+        }
+        .prodigy-home .home-toolbar .home-toolbar-primary {
+          color: var(--ke-color-interactive) !important;
+          font-weight: 600 !important;
+        }
+        .prodigy-home .home-toolbar .action-btn:hover {
+          background: var(--ke-color-hover) !important;
+        }
+        .prodigy-home .home-toolbar .home-settings-button {
+          inline-size: var(--ke-touch-target);
+          padding: 0 !important;
+        }
+        .prodigy-home.home-wide .home-evening-action {
+          border-color: transparent;
+          background: color-mix(in srgb, var(--ke-color-interactive) 10%, var(--ke-color-surface-secondary));
+          color: var(--ke-color-interactive);
+        }
+        .prodigy-home.home-wide .home-evening-action:hover {
+          background: color-mix(in srgb, var(--ke-color-interactive) 16%, var(--ke-color-surface-secondary));
+        }
         /* Launcher CTA: compact size, accent border like other home actions */
         .prodigy-home .prodigy-launcher-actions button {
           min-width: 0 !important;
@@ -227,8 +481,162 @@
           background: var(--ke-color-surface);
           color: var(--ke-color-text);
         }
+        .prodigy-app-shell[data-tier="wide"] .home-focus-card {
+          min-block-size: 0;
+          padding: var(--ke-space-5);
+        }
         .home-title-row { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-        .home-title-row h2 { margin: 0; font-size: var(--ke-type-title, 1.05rem); line-height: var(--ke-leading-body, 1.45); letter-spacing: 0; }
+        .home-title-row h2,
+        .home-title-row h3 { margin: 0; font-size: var(--ke-type-title, 1.05rem); line-height: var(--ke-leading-body, 1.45); letter-spacing: 0; }
+        .home-native-header {
+          padding: var(--ke-space-4) 0;
+          border-block-end: var(--ke-border-width) solid var(--ke-color-border);
+        }
+        .home-native-context {
+          margin: 0 0 var(--ke-space-1);
+          color: var(--ke-color-muted);
+          font-size: var(--ke-type-label);
+        }
+        .prodigy-home.home-wide .home-ws-dock {
+          grid-area: sidebar;
+          align-self: stretch;
+          block-size: 100%;
+          margin-block-start: 0;
+          padding: var(--ke-space-2);
+          border: 0;
+          border-radius: var(--ke-radius-none, 0px);
+          background: var(--ke-color-surface-secondary);
+        }
+        .prodigy-home.home-wide .home-ws-dock-row {
+          display: grid;
+          grid-template-columns: 1fr;
+          grid-auto-rows: var(--ke-touch-target);
+          align-content: start;
+          flex: 0 0 auto;
+          gap: var(--ke-space-1);
+        }
+        .prodigy-home.home-wide .home-native-sidebar-label,
+        .prodigy-home.home-medium .home-native-sidebar-label {
+          padding: var(--ke-space-3) var(--ke-space-3) var(--ke-space-2);
+          font-size: var(--ke-type-label);
+          font-weight: 600;
+        }
+        .prodigy-home.home-wide .home-title {
+          font-size: var(--ke-type-heading);
+          font-weight: 700;
+          line-height: var(--ke-leading-tight);
+          letter-spacing: 0;
+        }
+        .prodigy-home.home-medium .home-title {
+          font-size: var(--ke-type-heading);
+          font-weight: 700;
+          line-height: var(--ke-leading-tight);
+          letter-spacing: 0;
+        }
+        .prodigy-home.home-wide .home-subtitle,
+        .prodigy-home.home-medium .home-subtitle,
+        .prodigy-home.home-wide .home-toolbar-utility,
+        .prodigy-home.home-medium .home-toolbar-utility {
+          font-size: var(--ke-type-label);
+          line-height: var(--ke-leading-body);
+          letter-spacing: 0;
+        }
+        .prodigy-home.home-wide .home-header,
+        .prodigy-home.home-medium .home-header {
+          font-size: var(--ke-type-section);
+          line-height: var(--ke-leading-tight);
+          letter-spacing: 0;
+        }
+        .prodigy-home.home-wide .home-native-group,
+        .prodigy-home.home-medium .home-native-group {
+          margin: 0;
+          padding: var(--ke-space-5) var(--ke-space-3);
+          border: 0;
+          border-block-end: var(--ke-border-width) solid var(--ke-color-border);
+          border-radius: var(--ke-radius-none);
+          background: transparent;
+        }
+        .prodigy-home.home-wide .home-native-group:last-of-type,
+        .prodigy-home.home-medium .home-native-group:last-of-type {
+          border-block-end: 0;
+        }
+        .prodigy-home.home-wide .home-card,
+        .prodigy-home.home-medium .home-card {
+          border-radius: var(--ke-radius-none);
+          background: transparent;
+        }
+        .prodigy-home.home-wide .home-ws-dock-btn {
+          justify-content: flex-start;
+          inline-size: 100%;
+          border-color: transparent;
+          background: transparent;
+          text-align: start;
+        }
+        .prodigy-home.home-wide .home-ws-dock-btn:first-child {
+          border-color: transparent;
+          background: color-mix(in srgb, var(--ke-color-interactive) 12%, var(--ke-color-surface-secondary));
+          color: var(--ke-color-text);
+          font-weight: 600;
+        }
+        .prodigy-home.home-medium .home-ws-dock {
+          align-self: auto;
+          block-size: auto;
+          margin-block-start: var(--ke-space-5);
+          padding: var(--ke-space-2);
+          border: 0;
+          border-radius: var(--ke-radius-configurator);
+          background: var(--ke-color-surface-secondary);
+        }
+        .prodigy-app-shell[data-tier="medium"] .prodigy-home .home-ws-dock {
+          grid-area: dock;
+          align-self: auto;
+          block-size: auto;
+          margin-block-start: var(--ke-space-5);
+          padding: var(--ke-space-2);
+          border: 0;
+          border-radius: var(--ke-radius-configurator);
+          background: var(--ke-color-surface-secondary);
+        }
+        .prodigy-home.home-medium .home-ws-dock-row {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(var(--ke-touch-target), 1fr));
+          grid-auto-rows: var(--ke-touch-target);
+          align-content: start;
+          gap: var(--ke-space-1);
+        }
+        .prodigy-home.home-medium .home-ws-dock-btn {
+          justify-content: center;
+          inline-size: 100%;
+          border-color: transparent;
+          background: transparent;
+          text-align: center;
+        }
+        .prodigy-home.home-medium .home-ws-dock-btn:first-child {
+          border-color: transparent;
+          background: color-mix(in srgb, var(--ke-color-interactive) 12%, var(--ke-color-surface-secondary));
+          color: var(--ke-color-text);
+          font-weight: 600;
+        }
+        .prodigy-app-shell[data-tier="medium"] .prodigy-home .home-ws-dock-row {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(var(--ke-touch-target), 1fr));
+          grid-auto-rows: var(--ke-touch-target);
+          align-content: start;
+          gap: var(--ke-space-1);
+        }
+        .prodigy-app-shell[data-tier="medium"] .prodigy-home .home-ws-dock-btn {
+          justify-content: center;
+          inline-size: 100%;
+          border-color: transparent;
+          background: transparent;
+          text-align: center;
+        }
+        .prodigy-app-shell[data-tier="medium"] .prodigy-home .home-ws-dock-btn:first-child {
+          border-color: transparent;
+          background: color-mix(in srgb, var(--ke-color-interactive) 12%, var(--ke-color-surface-secondary));
+          color: var(--ke-color-text);
+          font-weight: 600;
+        }
         .home-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .focus-list { display: flex; flex-direction: column; margin: 0 -2px; }
         .focus-row { display: flex; flex-direction: column; gap: 7px; padding: 14px 2px; border-top: 1px solid var(--ke-color-border); }
@@ -244,15 +652,15 @@
         .focus-actions { margin-top: 4px; }
         .focus-footer { padding-top: 12px; border-top: 1px solid var(--ke-color-border); }
         .continue-list { display: flex; flex-direction: column; }
-        .workspace-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-        .continue-row, .workspace-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-block-size: var(--ke-touch-target); padding: 10px 0; border-top: 1px solid var(--ke-color-border); }
-        .continue-row > .home-continue-meta { flex: 1 1 12rem; }
-        .continue-row > .action-btn { flex: 0 1 auto; }
-        .continue-row:first-child { border-top: 0; padding-top: 0; }
-        .continue-row:last-child { padding-bottom: 0; }
-        .continue-row { cursor: pointer; }
-        .continue-row:hover, .workspace-row:hover { background: var(--ke-color-hover); }
-        .workspace-row {
+        .prodigy-home .workspace-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+        .prodigy-home .continue-row, .prodigy-home .workspace-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-block-size: var(--ke-touch-target); padding: 10px 0; border-top: 1px solid var(--ke-color-border); }
+        .prodigy-home .continue-row > .home-continue-meta { flex: 1 1 12rem; }
+        .prodigy-home .continue-row > .action-btn { flex: 0 1 auto; }
+        .prodigy-home .continue-row:first-child { border-top: 0; padding-top: 0; }
+        .prodigy-home .continue-row:last-child { padding-bottom: 0; }
+        .prodigy-home .continue-row { cursor: pointer; }
+        .prodigy-home .continue-row:hover, .prodigy-home .workspace-row:hover { background: var(--ke-color-hover); }
+        .prodigy-home .workspace-row {
           min-height: 40px;
           justify-content: space-between;
           padding: 8px 10px;
@@ -260,9 +668,9 @@
           border-radius: var(--ke-radius-control);
           cursor: pointer;
         }
-        .workspace-row:focus-visible { outline: 2px solid var(--ke-color-accent); outline-offset: 2px; }
-        .workspace-label { display: flex; align-items: center; gap: 8px; min-width: 0; }
-        .workspace-arrow { color: var(--ke-color-muted); font-size: 1.2em; line-height: 1; }
+        .prodigy-home .workspace-row:focus-visible { outline: 2px solid var(--ke-color-accent); outline-offset: 2px; }
+        .prodigy-home .workspace-label { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .prodigy-home .workspace-arrow { color: var(--ke-color-muted); font-size: 1.2em; line-height: 1; }
         .prodigy-home:not(.home-wide) .home-title-row { align-items: flex-start; }
         .prodigy-home:not(.home-wide) .home-toolbar { width: 100%; }
         .prodigy-home:not(.home-wide) .home-toolbar .action-btn { flex: 0 1 auto; }
@@ -345,6 +753,11 @@
         .prodigy-home.home-compact .home-title-row {
           margin-bottom: 10px;
           gap: 8px;
+        }
+        .prodigy-home.home-compact .home-stale-badge {
+          margin-inline-start: 0;
+          flex: 0 1 auto;
+          max-inline-size: 100%;
         }
         .prodigy-home.home-compact .home-title-row h2 {
           font-size: var(--ke-type-title, 1.05rem);
@@ -583,6 +996,13 @@
           white-space: normal;
           overflow-wrap: anywhere;
         }
+        .prodigy-home.home-compact .focus-footer .action-btn-primary {
+          min-height: var(--home-primary-cta-height) !important;
+          padding-inline: var(--home-primary-cta-padding-inline) !important;
+          border-radius: var(--home-primary-cta-radius) !important;
+          font-size: var(--home-primary-cta-font-size) !important;
+          font-weight: 600 !important;
+        }
         .prodigy-home .home-state-fixtures {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(var(--ke-touch-target), 1fr));
@@ -648,13 +1068,33 @@
           .prodigy-home .emphasis-primary,
           .prodigy-home .emphasis-risk { border-inline-start-width: var(--ke-focus-ring-width); }
         }
+        /* Native controls change color or border without floating above the window. */
+        .home-card, .home-focus-card, .home-brief {
+          transition: border-color 0.15s ease;
+          border-radius: var(--ke-radius-panel, 12px);
+        }
+        .action-btn, .prodigy-home button, .home-workspace-sheet-btn, .prodigy-app-shell[data-workspace-id="home"] .prodigy-context-action {
+          will-change: transform;
+          transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease;
+        }
+        .action-btn:active, .prodigy-home button:active, .home-workspace-sheet-btn:active {
+          transform: scale(0.96);
+        }
+        .prodigy-app-shell[data-workspace-id="home"] > .prodigy-workspace-bar {
+          background: color-mix(in srgb, var(--ke-color-surface, var(--background-primary)) 85%, transparent);
+          backdrop-filter: blur(16px) saturate(180%);
+          -webkit-backdrop-filter: blur(16px) saturate(180%);
+        }
+
         @media (prefers-reduced-motion: reduce) {
           .prodigy-home *,
           .prodigy-home *::before,
-          .prodigy-home *::after {
+          .prodigy-home *::after,
+          .home-card, .home-focus-card, .action-btn {
             transition: none !important;
             transform: none !important;
             scroll-behavior: auto !important;
+            will-change: auto !important;
           }
         }
     `;

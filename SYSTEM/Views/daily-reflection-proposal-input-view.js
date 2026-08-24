@@ -50,7 +50,7 @@
     connection.createEl("p", { text: "기본 AI 제공자와 API 키는 Prodigy OS 설정에서 공통으로 관리합니다.", attr: { style: "color:var(--text-muted);margin:8px 0;" } });
     renderProviderSummary(connection, modal, app, onNotice);
 
-    const area = contentEl.createEl("textarea", { attr: { rows: "8", class: "prodigy-configurator-chip", style: "width:100%;min-height:140px;resize:vertical;color:var(--text-normal);" } });
+    const area = contentEl.createEl("textarea", { attr: { rows: "8", class: "prodigy-reflection-textarea", style: "width:100%;min-height:140px;resize:vertical;color:var(--text-normal);border-radius:var(--ke-radius-control, 8px);" } });
     area.placeholder = "오늘 있었던 일, 실수, 배운 점, 다음에 바꾸고 싶은 점을 그대로 적어 주세요.";
     area.value = modal.freeText;
     let classify;

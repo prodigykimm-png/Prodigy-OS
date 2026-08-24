@@ -170,28 +170,7 @@
       if (!Number.isFinite(compactMax)) throw new Error("Reading checklist requires the shared compact breakpoint.");
       this.contentEl.empty();
       this.contentEl.addClass("prodigy-reading-guide");
-      this.contentEl.createEl("style", {
-        text: [
-          ".prodigy-reading-guide{max-width:640px}",
-          ".prodigy-reading-guide .reading-guide-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 10px}",
-          ".prodigy-reading-guide .reading-guide-tab{flex:1 1 0;min-width:88px;min-height:44px;border-radius:8px;font-weight:700;font-size:.88em}",
-          ".prodigy-reading-guide .reading-guide-tab.is-active{outline:2px solid var(--ke-color-accent, var(--text-accent));outline-offset:0}",
-          ".prodigy-reading-guide .reading-guide-meta{font-size:.8em;font-weight:700;color:var(--text-muted);margin-bottom:8px}",
-          ".prodigy-reading-guide .reading-guide-body{max-height:62vh;overflow-y:auto;overscroll-behavior:contain;padding-right:2px}",
-          ".prodigy-reading-guide .reading-guide-phase-title{font-weight:800;font-size:.92em;color:var(--ke-color-accent, var(--text-accent));margin:0 0 4px}",
-          ".prodigy-reading-guide .reading-guide-phase-q{font-size:.8em;color:var(--text-muted);margin:0 0 12px;line-height:1.4}",
-          ".prodigy-reading-guide .reading-guide-item{padding:12px 0;border-bottom:1px solid var(--background-modifier-border)}",
-          ".prodigy-reading-guide .reading-guide-question{font-size:.95em;font-weight:650;line-height:1.45;overflow-wrap:anywhere}",
-          ".prodigy-reading-guide .reading-guide-hint{color:var(--text-muted);font-size:.78em;line-height:1.45;margin-top:6px}",
-          ".prodigy-reading-guide .reading-guide-answer{margin-top:8px}",
-          ".prodigy-reading-guide .reading-guide-answer textarea{box-sizing:border-box;width:100%;min-height:88px;max-height:180px;resize:vertical;border-radius:8px;padding:10px;font:inherit;line-height:1.45}",
-          ".prodigy-reading-guide .reading-guide-button{min-height:44px;border-radius:6px}",
-          ".prodigy-reading-guide .reading-guide-footer{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;position:sticky;bottom:0;background:var(--background-primary);padding:12px 0 6px;border-top:1px solid var(--background-modifier-border)}",
-          ".prodigy-reading-guide .reading-guide-footer .reading-guide-save{flex:1 1 100%;min-height:44px;font-weight:700}",
-          ".prodigy-reading-guide .reading-guide-footer-secondary{display:flex;gap:8px;flex-wrap:wrap;width:100%}",
-          `@media(max-width:${compactMax}px){.prodigy-reading-guide{padding-bottom:env(safe-area-inset-bottom)}.prodigy-reading-guide .reading-guide-tabs{flex-direction:column}.prodigy-reading-guide .reading-guide-tab{width:100%}.prodigy-reading-guide .reading-guide-body{max-height:58vh}.prodigy-reading-guide .reading-guide-answer textarea{font-size:16px;min-height:100px}.prodigy-reading-guide .reading-guide-footer-secondary{flex-direction:column}.prodigy-reading-guide .reading-guide-footer-secondary .reading-guide-button{width:100%}}`,
-        ].join(""),
-      });
+      if (root.ReadingStyles) root.ReadingStyles.ensureStyles();
       this.contentEl.createEl("h2", { text: "독서 질답", attr: { style: "margin:0 0 4px;font-size:1.18em;" } });
       this.contentEl.createEl("div", {
         text: "단계별로 답을 쓴 뒤, 맨 아래 저장을 누르세요.",

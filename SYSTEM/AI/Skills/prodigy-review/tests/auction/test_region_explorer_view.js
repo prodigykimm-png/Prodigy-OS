@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const view = require("../../../../../Views/region-explorer-view.js");
+const regionStyles = fs.readFileSync(path.resolve(__dirname, "../../../../../Views/region-styles.js"), "utf8");
 
 const ROOT = path.resolve(__dirname, "../../../../../../");
 const READ_ONLY_SURFACES = Object.freeze([
@@ -92,7 +93,7 @@ test("Given valid and incomplete Region rows When the wide Explorer renders Then
   assert.doesNotMatch(rendered, /sale_volume_3m|move_in_12m|score|rank|추천|지도/i);
   assert.equal(walk(root, (node) => node.attr && node.attr["data-scroll-owner"] === "region-explorer-content").length, 0, "the shared AppShell body remains the only scroll owner");
   assert.ok(walk(root, (node) => node.tag === "svg").length >= 1, "valid history must render a native SVG sparkline");
-  assert.ok(walk(root, (node) => node.tag === "style")[0].text.includes("@container region-explorer"));
+  assert.ok(regionStyles.includes("@container region-explorer"));
 });
 
 test("Given a mounted Explorer When three rows are selected and a fourth is requested Then the Korean limit notice appears without a stale selection leak", () => {
@@ -113,7 +114,7 @@ test("Given compact, long-label, null, and malformed fixtures When the Explorer 
   assert.doesNotThrow(() => view.renderRegionExplorer(compact, projection, { logicalWidth: 375, state: { selected_region_keys: projection.rows.slice(0, 3).map((item) => item.identity.region_key) } }));
   assert.equal(compact.attr["data-layout"], "compact");
   assert.equal(walk(compact, (node) => node.attr && node.attr["data-comparison-layout"] === "horizontal").length, 1);
-  assert.match(walk(compact, (node) => node.tag === "style")[0].text, /overflow-x:auto/);
+  assert.match(regionStyles, /overflow-x:\s*auto/);
   assert.match(text(compact), /아주길고긴한국어지역명과공백없는세부설명문자열/);
   assert.doesNotThrow(() => view.renderRegionExplorer(new FakeElement("section"), { rows: [null, { identity: null, metrics: null }] }, { logicalWidth: 375 }));
 });

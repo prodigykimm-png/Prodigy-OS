@@ -19,7 +19,7 @@
   }
   function renderPreview(parent, review, blocks, onStageDelete) {
     var preview = parent.createEl("div", { attr: { "class": "journal-preview" } });
-    if (!blocks.length && review.status === "empty") return preview.setText("\uC544\uC9C1 \uAE30\uB85D\uB41C \uACBD\uD5D8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \u300C+ \uACBD\uD5D8 \uCD94\uAC00\u300D\uB85C \uAC00\uBE58\uAC8C \uB0A8\uAE30\uC138\uC694.");
+    if (!blocks.length && review.status === "empty") return preview.setText("\uC544\uC9C1 \uAE30\uB85D\uB41C \uACBD\uD5D8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \u300C+ \uACBD\uD5D8 \uCD94\uAC00\u300D\uB85C \uAC00\uBCCD\uAC8C \uB0A8\uAE30\uC138\uC694.");
     if (!blocks.length) {
       preview.createEl("div", { text: "\uC131\uCC30: " + (displayText(review.fields.reflection) || "\u2014") });
       preview.createEl("div", { text: "\uBCC0\uD654: " + (displayText(review.fields.change) || "\u2014") });
@@ -35,8 +35,8 @@
         remove.addClass("journal-block-delete");
         remove.onclick = function () { return onStageDelete(block); };
       }
-      item.createEl("div", { text: displayText(block.title) || "(\uC81C\uBAA9 \uC5C6\uC74C)", attr: { style: "font-weight:600;" } });
-      item.createEl("div", { text: displayText(block.experience), attr: { style: "color:var(--text-muted);margin-top:2px;" } });
+      item.createEl("div", { text: displayText(block.title) || "(\uC81C\uBAA9 \uC5C6\uC74C)", attr: { "class": "journal-font-weight-600" } });
+      item.createEl("div", { text: displayText(block.experience), attr: { "class": "journal-text-muted-mt-2" } });
     });
   }
   function renderRecentCard(container, title, items, emptyText, value) {
@@ -45,7 +45,7 @@
     if (!items.length) return card.createEl("div", { text: emptyText, attr: { "class": "journal-meta" } });
     items.forEach(function (item) {
       var row = card.createEl("div", { attr: { "class": "journal-row" } });
-      row.createEl("strong", { text: item.date, attr: { style: "display:block;margin-bottom:4px;" } });
+      row.createEl("strong", { text: item.date, attr: { "class": "journal-display-block-mb-4" } });
       row.createEl("div", { text: displayText(value(item)), attr: { "class": "journal-preview" } });
     });
   }
@@ -63,13 +63,17 @@
     container.empty();
     container.addClass("prodigy-journal-workspace");
     if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
+    if (root.JournalStyles && typeof root.JournalStyles.ensureJournalStyles === "function") {
+      root.JournalStyles.ensureJournalStyles();
+    }
+
     var tokens = responsiveTokens();
     var breakpoints = tokens.BREAKPOINTS;
     var heights = tokens.CONTROL_HEIGHTS;
-    container.createEl("style").textContent = `.prodigy-journal-workspace{inline-size:100%;max-inline-size:1440px;min-inline-size:0;margin:0 auto;padding-block-end:48px;font-size:var(--ke-type-body);line-height:var(--ke-leading-body);overflow-x:clip;overflow-wrap:anywhere;word-break:keep-all}.journal-card{max-inline-size:100%;min-inline-size:0;margin-block-end:17px}.journal-card h2{max-inline-size:100%;margin:0 0 12px;font-size:var(--ke-type-heading);overflow-wrap:anywhere}.journal-meta{max-inline-size:100%;min-inline-size:0;color:var(--text-muted);margin-block-end:8px;overflow-wrap:anywhere}.journal-preview{max-inline-size:100%;min-inline-size:0;color:var(--text-normal);white-space:pre-wrap;overflow-wrap:anywhere}.journal-primary-actions,.journal-actions{display:flex;flex-wrap:wrap;gap:8px;max-inline-size:100%;min-inline-size:0}.journal-primary-actions{margin:12px 0}.prodigy-journal-workspace button.prodigy-btn{min-inline-size:44px;min-block-size:44px;block-size:auto;max-inline-size:100%;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;box-shadow:none}.journal-pending-delete{max-inline-size:100%;overflow-wrap:anywhere}.journal-pending-delete .prodigy-btn{margin-inline-start:12px}.journal-row{max-inline-size:100%;min-inline-size:0;padding:12px 0;border-top:1px solid var(--background-modifier-border);overflow-wrap:anywhere}.journal-row:first-child{border-top:0}.journal-status{display:inline-flex;align-items:center;min-block-size:44px;color:var(--text-muted);font-weight:600}.journal-status[data-state="complete"]{color:var(--text-success,var(--text-normal))}.journal-status[data-state="partial"]{color:var(--text-warning,var(--text-normal))}.journal-block{max-inline-size:100%;min-inline-size:0;padding:12px 0;margin:8px 0;border-top:1px solid var(--background-modifier-border)}.journal-block-head{display:flex;align-items:center;gap:12px;max-inline-size:100%;min-inline-size:0}.journal-block-delete{margin-inline-start:auto}.journal-block .bid{min-inline-size:0;color:var(--text-muted);overflow-wrap:anywhere}.journal-date-nav{display:flex;align-items:center;gap:12px;max-inline-size:100%;min-inline-size:0;margin-block-end:17px;flex-wrap:wrap}.journal-date-nav input[type=date]{flex:1 1 9rem;min-inline-size:44px;min-block-size:44px;block-size:auto;max-inline-size:100%;color:var(--text-normal);font:inherit;box-shadow:none}.journal-card :focus-visible,.journal-date-nav :focus-visible{outline:2px solid var(--ke-color-accent,var(--text-accent));outline-offset:2px}@media(max-width:833px){.journal-primary-actions .prodigy-btn,.journal-actions .prodigy-btn{flex:1 1 calc(50% - 8px)}.journal-block-head,.journal-row{flex-wrap:wrap}}@media(max-width:480px){.prodigy-app-shell[data-workspace-id="journal"]>.prodigy-workspace-bar{padding-inline:4px}.prodigy-app-shell[data-workspace-id="journal"] .journal-card:not(.prodigy-full-bleed){padding-inline:2px}}@media(max-width:419px){.journal-card.prodigy-full-bleed{padding-inline:0}.journal-primary-actions .prodigy-btn,.journal-actions .prodigy-btn{flex-basis:100%}.journal-pending-delete .prodigy-btn{margin-inline-start:0}}@media(forced-colors:active){.journal-status[data-state]{border:1px solid CanvasText}.journal-card :focus-visible,.journal-date-nav :focus-visible{outline:2px solid Highlight;outline-offset:2px}}@media(prefers-reduced-motion:reduce){.prodigy-journal-workspace *{transition:none!important;animation:none!important;scroll-behavior:auto!important;transform:none!important}}`;
+
     var blocks = (activeReview.blocks || []).filter(function (block) { return !block.legacy; });
     var visibleBlocks = blocks.filter(function (block) { return !state.pendingDeletedEvidenceIds.has(block.evidence_id); });
-    var dateNav = container.createEl("div", { attr: { "class": "journal-date-nav" } });
+    var dateNav = container.createEl("div", { attr: { "class": "journal-date-nav", "role": "toolbar", "aria-label": "날짜 이동" } });
     var prevBtn = addButton(dateNav, "\u2190");
     prevBtn.setAttribute("aria-label", "\uC774\uC804 \uB0A0");
     prevBtn.onclick = function () { return state.__controller.refresh(shiftDate(activeDate, -1)); };
@@ -87,8 +91,8 @@
     todayCard.createEl("h2", { text: isToday ? "\uC624\uB298 \uACBD\uD5D8 \u00B7 \uC99D\uAC70" : activeDate + " \uACBD\uD5D8 \u00B7 \uC99D\uAC70" });
     var meta = todayCard.createEl("div", { attr: { "class": "journal-meta" } });
     meta.createEl("span", { text: activeDate });
-    meta.createEl("span", { text: activeReview.statusLabel, attr: { "class": "journal-status prodigy-status-line", "data-state": activeReview.status, style: "margin-left:8px;" } });
-    meta.createEl("span", { text: " \u00B7 \uBE14\uB85D " + visibleBlocks.length + "\uAC1C", attr: { style: "margin-left:4px;" } });
+    meta.createEl("span", { text: activeReview.statusLabel, attr: { "class": "journal-status prodigy-status-line journal-status-ml-8", "data-state": activeReview.status } });
+    meta.createEl("span", { text: " \u00B7 \uBE14\uB85D " + visibleBlocks.length + "\uAC1C", attr: { "class": "journal-status-ml-4" } });
     var primaryActions = todayCard.createEl("div", { attr: { "class": "journal-primary-actions prodigy-btn-row" } });
     root.JournalCompletionAction.render(primaryActions, {
       app: app,
@@ -127,16 +131,19 @@
     }); };
     var open = addButton(actions, isToday ? "\uC624\uB298 \uB178\uD2B8 \uC5F4\uAE30" : activeDate + " \uB178\uD2B8 \uC5F4\uAE30");
     open.onclick = async function () { await root.JournalStore.ensureDailyNote(app, activeDate); openPath(app, activeReview.path); };
+    if (root.JournalHeatmap && typeof root.JournalHeatmap.render === "function") {
+      root.JournalHeatmap.render(container, recent, function (targetDate) { return state.__controller.refresh(targetDate); });
+    }
     renderRecentCard(container, "\uCD5C\uADFC \uBCC0\uD654", recent.filter(function (item) { return item.fields.change; }).slice(0, 7), "\uCD5C\uADFC 7\uC77C\uAC04 \uAE30\uB85D\uB41C \uBCC0\uD654\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.", function (item) { return item.fields.change; });
     renderRecentCard(container, "\uB2E4\uC74C \uC2E4\uD5D8", recent.filter(function (item) { return item.fields.next_experiment; }).slice(0, 7), "\uCD5C\uADFC \uC791\uC131\uB41C \uB2E4\uC74C \uC2E4\uD5D8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.", function (item) { return item.fields.next_experiment; });
-    var recentCard = container.createEl("div", { attr: { "class": "journal-card prodigy-utility-card" } });
+    var recentCard = container.createEl("div", { attr: { "class": "journal-card" } });
     recentCard.createEl("h2", { text: "\uCD5C\uADFC \uAE30\uB85D" });
     recent.slice(0, 14).forEach(function (item) {
-      var row = recentCard.createEl("div", { attr: { "class": "journal-row", style: "display:flex;justify-content:space-between;gap:12px;align-items:center;" } });
+      var row = recentCard.createEl("div", { attr: { "class": "journal-row journal-flex-between-center" } });
       var left = row.createEl("div");
       left.createEl("strong", { text: item.date });
-      left.createEl("span", { text: item.statusLabel, attr: { "class": "journal-status prodigy-status-line", "data-state": item.status, style: "margin-left:8px;" } });
-      if (item.blockCount) left.createEl("span", { text: " \u00B7 " + item.blockCount + "\uBE14\uB85D", attr: { style: "color:var(--text-muted);margin-left:4px;" } });
+      left.createEl("span", { text: item.statusLabel, attr: { "class": "journal-status prodigy-status-line journal-status-ml-8", "data-state": item.status } });
+      if (item.blockCount) left.createEl("span", { text: " \u00B7 " + item.blockCount + "\uBE14\uB85D", attr: { "class": "journal-status-ml-4", style: "color:var(--text-muted);" } });
       var button = addButton(row, "\uC5F4\uAE30");
       button.setAttribute("aria-label", item.date + " 기록 열기");
       button.onclick = function () { return openPath(app, item.path); };

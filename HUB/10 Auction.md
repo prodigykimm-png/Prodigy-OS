@@ -1,5 +1,6 @@
 ---
 cssclasses:
+  - prodigy-hub-note
   - hide-properties_reading
 card_region: 전체지역
 card_type: 전체종류
@@ -22,288 +23,20 @@ window.__prodigyAuctionSchedule = (callback, delay) => {
   const scope = window.__prodigyAuctionMountScope;
   return scope && typeof scope.timeout === "function" ? scope.timeout(callback, delay) : window.setTimeout(callback, delay);
 };
-const ensureAuctionHubStyles = () => {
+const ensureAuctionHubStyles = async () => {
   if (typeof document === "undefined" || !document.head) return;
-  const compactMax = window.ProdigyTokens?.RESPONSIVE_BREAKPOINTS?.compactMax;
-  if (!Number.isFinite(compactMax)) throw new Error("경매 프레젠테이션 반응형 토큰을 불러오지 못했습니다.");
-  const styleId = "prodigy-auction-hub-adoption-styles";
-  let style = document.getElementById(styleId);
-  if (!style) {
-    style = document.createElement("style");
-    style.id = styleId;
-    document.head.appendChild(style);
+  // Presentation lives in the shared module so the Hub note keeps orchestration
+  // and Dataview queries only. Load it on demand, then install idempotently.
+  if (!window.AuctionHubStyles && typeof loadWorkspaceBootstrap === "function") {
+    await loadWorkspaceBootstrap("SYSTEM/Views/auction-hub-styles.js");
   }
-  style.textContent = `
-    .auction-hub-shell,
-    .auction-hub-section {
-      min-inline-size: 0;
-      word-break: keep-all;
-      overflow-wrap: anywhere;
+  if (window.AuctionHubStyles && typeof window.AuctionHubStyles.ensure === "function") {
+    try {
+      window.AuctionHubStyles.ensure();
+    } catch (_styleError) {
+      // Presentation is best-effort; never block the workspace if styling fails.
     }
-    .auction-hub-shell *:not(.prodigy-context-action),
-    .auction-hub-section *:not(.prodigy-context-action) {
-      box-sizing: border-box;
-      min-inline-size: 0;
-    }
-    .auction-hub-shell [data-scroll-owner="auction-workspace-body"] {
-      scroll-padding-block-end: var(--prodigy-mobile-toolbar-clearance, 0px);
-    }
-    .auction-hub-status {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: var(--ke-space-3, 8px);
-      min-inline-size: 0;
-      margin-block: var(--ke-space-2, 4px);
-      color: var(--ke-color-muted, var(--text-muted));
-      font-size: var(--ke-type-body, .84rem);
-      line-height: var(--ke-leading-body, 1.45);
-      overflow-wrap: anywhere;
-    }
-    .auction-hub-status > * {
-      min-inline-size: 0;
-      max-inline-size: 100%;
-      overflow-wrap: anywhere;
-    }
-    .auction-hub-stat-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--ke-space-4, 12px);
-      margin-block-end: var(--ke-space-3, 8px);
-      min-inline-size: 0;
-    }
-    .auction-hub-stat-panel,
-    .auction-hub-continue,
-    .auction-hub-review-queue,
-    .auction-hub-pipeline {
-      min-inline-size: 0;
-      padding: var(--ke-space-4, 12px);
-      border: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
-      border-radius: var(--ke-radius-panel, 8px);
-      background: var(--ke-color-surface-secondary, var(--background-secondary));
-      overflow-wrap: anywhere;
-    }
-    .auction-hub-stat-panel {
-      display: flex;
-      flex-direction: column;
-      gap: var(--ke-space-2, 4px);
-    }
-    .auction-hub-stat-heading {
-      padding-block-end: var(--ke-space-2, 4px);
-      border-block-end: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
-      color: var(--ke-color-accent, var(--text-accent));
-      font-size: var(--ke-type-heading, .92rem);
-      font-weight: 700;
-      line-height: var(--ke-leading-body, 1.45);
-    }
-    .auction-hub-stat-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--ke-space-3, 8px);
-      min-inline-size: 0;
-      color: var(--ke-color-text, var(--text-normal));
-      font-size: var(--ke-type-body, .84rem);
-      line-height: var(--ke-leading-body, 1.45);
-    }
-    .auction-hub-stat-row > * {
-      min-inline-size: 0;
-      overflow-wrap: anywhere;
-    }
-    .auction-hub-stat-label {
-      font-weight: 600;
-    }
-    .auction-hub-stat-value {
-      flex: 0 0 auto;
-      padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px);
-      border-radius: var(--ke-radius-control, 4px);
-      font-weight: 700;
-      overflow-wrap: anywhere;
-    }
-    .auction-hub-stat-value.is-highlight { background: var(--ke-color-hover, var(--background-modifier-hover)); }
-    .auction-hub-stat-value[class*="tone-"] { color: var(--ke-color-text, var(--text-normal)); }
-    .auction-hub-continue {
-      margin-block: var(--ke-space-3, 8px);
-    }
-    .auction-hub-continue-heading {
-      margin-block-end: var(--ke-space-2, 4px);
-      color: var(--ke-color-accent, var(--text-accent));
-      font-size: var(--ke-type-heading, .92rem);
-      font-weight: 800;
-      line-height: var(--ke-leading-body, 1.45);
-    }
-    .auction-hub-continue-title {
-      display: block;
-      min-inline-size: 0;
-      font-size: var(--ke-type-heading, .92rem);
-      font-weight: 700;
-      line-height: var(--ke-leading-body, 1.45);
-      overflow-wrap: anywhere;
-    }
-    .auction-hub-continue-action {
-      margin-block-start: var(--ke-space-1, 2px);
-      color: var(--ke-color-muted, var(--text-muted));
-      font-size: var(--ke-type-body, .84rem);
-    }
-    .auction-hub-continue-reason {
-      margin-block-start: var(--ke-space-2, 4px);
-      color: var(--text-faint, var(--ke-color-muted, var(--text-muted)));
-      font-size: var(--ke-type-label, .72rem);
-    }
-    .auction-hub-pipeline {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: var(--ke-space-3, 8px);
-      overflow-wrap: anywhere;
-    }
-    .auction-hub-pipeline-step {
-      display: flex;
-      flex: 0 1 auto;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--ke-space-1, 2px);
-      min-inline-size: 4.5rem;
-      max-inline-size: 100%;
-      padding: var(--ke-space-2, 4px) var(--ke-space-3, 8px);
-      border: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
-      border-radius: var(--ke-radius-control, 4px);
-      background: var(--ke-color-hover, var(--background-modifier-hover));
-      overflow-wrap: anywhere;
-    }
-    .auction-hub-pipeline-label {
-      color: var(--ke-color-muted, var(--text-muted));
-      font-size: var(--ke-type-label, .72rem);
-      font-weight: 700;
-      line-height: var(--ke-leading-control, 1.35);
-      text-align: center;
-      white-space: normal;
-    }
-    .auction-hub-pipeline-count {
-      font-size: var(--ke-type-heading, .92rem);
-      font-weight: 700;
-      line-height: var(--ke-leading-control, 1.35);
-    }
-    .auction-hub-pipeline-step[class*="tone-"] { border-color: var(--ke-color-border, var(--background-modifier-border)); }
-    .auction-hub-pipeline-count[class*="tone-"] { color: var(--ke-color-text, var(--text-normal)); }
-    .auction-hub-pipeline-arrow {
-      color: var(--ke-color-muted, var(--text-muted));
-      font-size: var(--ke-type-heading, .92rem);
-      font-weight: 700;
-    }
-    .auction-hub-pipeline-group {
-      display: flex;
-      flex-direction: column;
-      gap: var(--ke-space-2, 4px);
-      min-inline-size: 0;
-    }
-    .auction-hub-review-queue {
-      margin-block: var(--ke-space-2, 4px) var(--ke-space-4, 12px);
-    }
-    .auction-hub-review-heading {
-      margin-block-end: var(--ke-space-2, 4px);
-      color: var(--ke-color-accent, var(--text-accent));
-      font-size: var(--ke-type-heading, .92rem);
-      font-weight: 800;
-    }
-    .auction-hub-review-copy {
-      margin-block-end: var(--ke-space-3, 8px);
-      color: var(--ke-color-muted, var(--text-muted));
-      font-size: var(--ke-type-label, .72rem);
-      line-height: var(--ke-leading-body, 1.45);
-    }
-    .auction-hub-review-empty {
-      padding-block: var(--ke-space-2, 4px);
-      color: var(--ke-color-muted, var(--text-muted));
-      font-size: var(--ke-type-body, .84rem);
-      font-style: italic;
-    }
-    .auction-hub-review-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: var(--ke-space-3, 8px);
-      min-inline-size: 0;
-      padding-block: var(--ke-space-4, 12px);
-      border-block-start: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
-    }
-    .auction-hub-review-detail {
-      flex: 1 1 14rem;
-      min-inline-size: 0;
-    }
-    .auction-hub-review-detail > * {
-      min-inline-size: 0;
-      overflow-wrap: anywhere;
-    }
-    .auction-hub-review-meta {
-      margin-block-start: var(--ke-space-1, 2px);
-      color: var(--ke-color-muted, var(--text-muted));
-      font-size: var(--ke-type-label, .72rem);
-    }
-    .auction-hub-review-reason {
-      margin-block-start: var(--ke-space-2, 4px);
-      color: var(--ke-color-text, var(--text-normal));
-      font-size: var(--ke-type-body, .84rem);
-      line-height: var(--ke-leading-body, 1.45);
-    }
-    .auction-hub-review-actions {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: var(--ke-space-2, 4px);
-      min-inline-size: 0;
-    }
-    .auction-hub-review-actions > * {
-      min-inline-size: 0;
-      max-inline-size: 100%;
-    }
-    .auction-hub-shell button,
-    .auction-hub-section button {
-      min-block-size: var(--ke-touch-target, 44px);
-      height: auto;
-    }
-    .auction-hub-shell button:focus-visible,
-    .auction-hub-section button:focus-visible {
-      outline: 2px solid var(--ke-color-accent, var(--text-accent));
-      outline-offset: 2px;
-    }
-    .auction-hub-shell button:active,
-    .auction-hub-section button:active { transform: scale(.95); }
-    .auction-hub-shell .prodigy-context-action:active {
-      transform: none;
-      background: var(--ke-color-hover, var(--background-modifier-hover));
-    }
-    @media (forced-colors: active) {
-      .auction-hub-shell button:focus-visible,
-      .auction-hub-section button:focus-visible { outline: 2px solid CanvasText; }
-    }
-    @media (max-width: ${compactMax}px) {
-      .auction-hub-stat-grid {
-        grid-template-columns: 1fr;
-      }
-      .auction-hub-pipeline {
-        justify-content: flex-start;
-      }
-      .auction-hub-review-actions {
-        inline-size: 100%;
-      }
-      .auction-hub-review-actions > button {
-        flex: 1 1 12rem;
-        min-block-size: var(--ke-touch-target, 44px);
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .auction-hub-shell *,
-      .auction-hub-section * {
-        scroll-behavior: auto !important;
-        transition: none !important;
-        animation: none !important;
-        transform: none !important;
-      }
-    }
-  `;
+  }
 };
 
 // Mount-scoped, bounded readiness polling shared by every Auction section. A
@@ -605,6 +338,7 @@ const initializeAuctionWorkspace = async () => {
   try {
     if (!window.ProdigyWorkspaceManifest) await loadWorkspaceBootstrap("SYSTEM/Views/prodigy-workspace-manifest.js");
     if (!window.ProdigyHubLoader) await loadWorkspaceBootstrap("SYSTEM/Views/prodigy-hub-loader.js");
+    if (!window.ProdigyAuctionNativeScenes) await loadWorkspaceBootstrap("SYSTEM/Views/auction-native-scenes.js");
     const manifest = window.ProdigyWorkspaceManifest.get("auction");
     await window.ProdigyHubLoader.mountWorkspace(app, manifest, {
       container,
@@ -690,6 +424,11 @@ const initializeAuctionWorkspace = async () => {
   let domRender = performance && performance.start("dom_render", { scope: "auction" });
   measurement.domRender = domRender;
   try {
+    let auctionNativeSceneController = null;
+    const calendarAction = {
+      label: "달력",
+      onClick: () => auctionNativeSceneController?.focusCalendar()
+    };
     const stateAdapter = window.ProdigyWorkspaceStateAdapters && window.ProdigyWorkspaceStateAdapters.claim("auction");
     const auctionShell = window.ProdigyWorkspaceNavigation.mount(container, {
       app,
@@ -699,9 +438,8 @@ const initializeAuctionWorkspace = async () => {
       stateAdapter,
       context: {
         label: "현재 문맥",
-        items: regionScope && regionScope.region_sido && regionScope.region_sigungu
-          ? [`지역 필터 · ${regionScope.region_sido} ${regionScope.region_sigungu}`]
-          : []
+        items: [],
+        actions: [calendarAction]
       }
     });
     if (auctionShell.element && auctionShell.element.classList) auctionShell.element.classList.add("auction-hub-shell");
@@ -709,6 +447,15 @@ const initializeAuctionWorkspace = async () => {
       if (typeof auctionShell.body.setAttr === "function") auctionShell.body.setAttr("data-scroll-owner", "auction-workspace-body");
       else if (typeof auctionShell.body.setAttribute === "function") auctionShell.body.setAttribute("data-scroll-owner", "auction-workspace-body");
     }
+    const auctionKnowledge = await window.AuctionContextAdapter.mountResurfacing({
+      app,
+      signal: mountContext.signal,
+      container: auctionShell.body
+    });
+    if (auctionKnowledge && typeof auctionKnowledge.dispose === "function") mountContext.scope.track(auctionKnowledge.dispose);
+    auctionNativeSceneController = window.ProdigyAuctionNativeScenes.mount({
+      body: auctionShell.body
+    });
     const mountedPerformance = auctionShell.performance || performance;
     measurement.shell = auctionShell;
     measurement.performance = mountedPerformance || null;
@@ -795,16 +542,23 @@ await window.ProdigyAuctionWorkspaceReady;
 
 [[15 Region|지역 비교]] — 기존 지역 Object의 지표와 근거를 읽기 전용으로 비교합니다.
 
+
+---
+
 # 오늘
 
 ```dataviewjs
 if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-today");
+window.ProdigyAuctionNativeScenes.register("today", this.container);
 // Calculate counts and progress stats
 let todayBiddingCount = 0;
 let pendingSiteVisitsCount = 0;
 let missingExpectedCount = 0;
 let wonThisMonthCount = 0;
 let reviewsCompletedThisMonthCount = 0;
+// Nearest upcoming (strictly after today) bid date + how many run that day.
+let nextBidIso = null;
+let nextBidCount = 0;
 
 const now = new Date();
 const currentYear = now.getFullYear();
@@ -826,11 +580,19 @@ const dashboardLogicalWidth = this.container.clientWidth > 0
 const compactDashboard = dashboardLogicalWidth <= responsiveTokens.RESPONSIVE_BREAKPOINTS.phoneMax;
 
 toPlainArray(cases).forEach(p => {
-  // 1. Today Bidding
+  // 1. Today Bidding + nearest upcoming bid
   if (p.status === "bidding" && p.auction_datetime) {
     const cleanStr = String(p.auction_datetime).split(' ')[0].split('T')[0];
     if (cleanStr === todayStr) {
       todayBiddingCount++;
+    }
+    if (cleanStr > todayStr) {
+      if (nextBidIso === null || cleanStr < nextBidIso) {
+        nextBidIso = cleanStr;
+        nextBidCount = 1;
+      } else if (cleanStr === nextBidIso) {
+        nextBidCount++;
+      }
     }
   }
   
@@ -870,15 +632,24 @@ toPlainArray(cases).forEach(p => {
 const mainBox = this.container.createEl('div', {
   attr: { class: "auction-hub-stat-grid" }
 });
+const nativeSidebar = mainBox.createEl("aside", {
+  attr: { class: "auction-native-sidebar", "aria-label": "경매 요약" }
+});
+nativeSidebar.createEl("div", {
+  text: "오늘",
+  attr: { class: "auction-native-sidebar-title" }
+});
 
 // Left Box: Actions Needed
-const statsBox = mainBox.createEl('div', {
+const statsBox = nativeSidebar.createEl('div', {
   attr: { class: "auction-hub-stat-panel" }
 });
 statsBox.createEl('div', { text: '오늘 할 일', attr: { class: "auction-hub-stat-heading" } });
 
-const addStatItem = (parent, label, count, color, isHighlight) => {
-  const row = parent.createEl('div', { attr: { class: "auction-hub-stat-row" } });
+const addStatItem = (parent, label, count, color, isHighlight, isPrimary = false) => {
+  const row = parent.createEl('div', {
+    attr: { class: `auction-hub-stat-row${isPrimary ? " is-primary" : ""}` }
+  });
   row.createEl('span', { text: label, attr: { class: "auction-hub-stat-label" } });
   row.createEl('span', {
     text: `${count}건`,
@@ -886,12 +657,23 @@ const addStatItem = (parent, label, count, color, isHighlight) => {
   });
 };
 
-addStatItem(statsBox, '오늘 입찰', todayBiddingCount, 'error', todayBiddingCount > 0);
+addStatItem(statsBox, '오늘 입찰', todayBiddingCount, 'error', todayBiddingCount > 0, true);
 addStatItem(statsBox, '임장 미완료', pendingSiteVisitsCount, 'accent', pendingSiteVisitsCount > 0);
 addStatItem(statsBox, '예상입찰가 누락', missingExpectedCount, 'warning', missingExpectedCount > 0);
 
+// Nearest upcoming event (today empty state still names it).
+const nextBidRow = statsBox.createEl('div', { attr: { class: "auction-hub-stat-row" } });
+nextBidRow.createEl('span', { text: '다음 입찰', attr: { class: "auction-hub-stat-label" } });
+const nextBidValue = nextBidIso
+  ? (nextBidCount > 1 ? `${nextBidIso} · ${nextBidCount}건` : nextBidIso)
+  : '없음';
+nextBidRow.createEl('span', {
+  text: nextBidValue,
+  attr: { class: "auction-hub-stat-value" + (nextBidIso ? " tone-accent is-highlight" : " tone-muted") }
+});
+
 // Right Box: Monthly Progress
-const progressBox = mainBox.createEl('div', {
+const progressBox = nativeSidebar.createEl('div', {
   attr: { class: "auction-hub-stat-panel" }
 });
 progressBox.createEl('div', { text: '이번 달 진행 현황', attr: { class: "auction-hub-stat-heading" } });
@@ -899,160 +681,10 @@ progressBox.createEl('div', { text: '이번 달 진행 현황', attr: { class: "
 addStatItem(progressBox, '이번 달 낙찰', wonThisMonthCount, 'success', wonThisMonthCount > 0);
 addStatItem(progressBox, '이번 달 복기 완료', reviewsCompletedThisMonthCount, 'warning', reviewsCompletedThisMonthCount > 0);
 
-// Continue target from Object Engine Runtime (same as Launcher; no layout redesign)
-try {
-  if (window.ObjectEngine && window.ObjectEngine.evaluateObjects && window.ObjectEngine.buildWorkspaceSummary) {
-    const pages = toPlainArray(cases).map(p => Object.assign({}, p, {
-      type: p.type || "auction_case",
-      path: (p.file && p.file.path) || p.path || "",
-      name: p.case_number || (p.file && p.file.name) || p.name || ""
-    }));
-    const states = window.ObjectEngine.evaluateObjects(pages);
-    const summary = window.ObjectEngine.buildWorkspaceSummary(states, "auction", {});
-    const cont = summary && summary.continue_target;
-    const contBox = this.container.createEl("div", {
-      attr: { class: "auction-hub-continue" }
-    });
-    contBox.createEl("div", {
-      text: "▶ 계속",
-      attr: { class: "auction-hub-continue-heading" }
-    });
-    if (cont) {
-      contBox.createEl("div", {
-        text: cont.label || "경매 물건",
-        attr: { class: "auction-hub-continue-title" }
-      });
-      contBox.createEl("div", {
-        text: cont.action || "",
-        attr: { class: "auction-hub-continue-action" }
-      });
-      if (cont.reason) {
-        contBox.createEl("div", {
-          text: cont.reason,
-          attr: { class: "auction-hub-continue-reason" }
-        });
-      }
-    } else {
-      contBox.createEl("div", {
-        text: "진행 중인 작업이 없습니다.",
-        attr: { class: "auction-hub-review-empty" }
-      });
-    }
-  }
-} catch (_engineErr) {
-  // Engine optional — Today stats remain
-}
 ```
 
 ---
 
-# 입찰 일정
-
-```dataviewjs
-// Bid Calendar: time navigation only (does not edit Objects)
-const run = () => {
-  if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-calendar");
-  if (window.BidCalendarCore && window.BidCalendarView) {
-    this.container.empty();
-    const pages = dv.pages('"PARA/PROJECTS/Auction"')
-      .where(p => p.type === "auction_case")
-      .array();
-    window.BidCalendarView.render({
-      container: this.container,
-      pages,
-      app: app,
-      now: new Date()
-    });
-    return true;
-  }
-  return false;
-};
-window.ProdigyAuctionLifecycle.start({
-  container: this.container,
-  label: "입찰 일정 캘린더",
-  run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("calendar", error)
-});
-```
-
----
-
-# 경매 진행 현황
-
-```js-engine
-const file = app.workspace.getActiveFile();
-if (!file) return;
-if (!container) return;
-if (container.classList) container.classList.add("auction-hub-section", "auction-hub-pipeline-section");
-container.empty();
-
-const files = app.vault.getFiles().filter(f =>
-  f.path.startsWith("PARA/PROJECTS/Auction/") && f.extension === "md"
-);
-
-await window.ProdigyAuctionWorkspaceReady;
-
-const counts = { watching: 0, bidding: 0, skipped: 0, won: 0, lost: 0, reviewing: 0, archived: 0 };
-
-files.forEach(f => {
-  const c = app.metadataCache.getFileCache(f);
-  const fm = c?.frontmatter;
-  if (fm?.type === "auction_case") {
-    if (counts[fm.status] !== undefined) {
-      counts[fm.status]++;
-    }
-  }
-});
-
-const pipelineBox = container.createEl('div', {
-  attr: { class: "auction-hub-pipeline" }
-});
-
-const makeStep = (parent, label, count, color) => {
-  const step = parent.createEl('div', {
-    attr: { class: `auction-hub-pipeline-step tone-${color}` }
-  });
-  step.createEl('span', { text: label, attr: { class: "auction-hub-pipeline-label" } });
-  step.createEl('span', { text: String(count), attr: { class: `auction-hub-pipeline-count tone-${color}` } });
-  return step;
-};
-
-const makeGroup = (parent) => {
-  return parent.createEl('div', {
-    attr: { class: "auction-hub-pipeline-group" }
-  });
-};
-
-const makeArrow = (parent) => {
-  parent.createEl('div', {
-    text: '→',
-    attr: { class: "auction-hub-pipeline-arrow" }
-  });
-};
-
-const display = window.prodigyDisplay;
-const statusStep = (status) => {
-  const info = display.statusInfo(status);
-  return `${info.icon} ${info.label}`.trim();
-};
-
-makeStep(pipelineBox, statusStep('watching'), counts.watching, 'muted');
-makeArrow(pipelineBox);
-makeStep(pipelineBox, statusStep('bidding'), counts.bidding, 'accent');
-makeArrow(pipelineBox);
-
-const grp1 = makeGroup(pipelineBox);
-makeStep(grp1, statusStep('won'), counts.won, 'success');
-makeStep(grp1, statusStep('lost'), counts.lost, 'error');
-
-makeArrow(pipelineBox);
-makeStep(pipelineBox, statusStep('reviewing'), counts.reviewing, 'warning');
-makeArrow(pipelineBox);
-
-const grp2 = makeGroup(pipelineBox);
-makeStep(grp2, statusStep('skipped'), counts.skipped, 'muted');
-makeStep(grp2, statusStep('archived'), counts.archived, 'muted');
-```
 
 ---
 
@@ -1061,6 +693,7 @@ makeStep(grp2, statusStep('archived'), counts.archived, 'muted');
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-bidding");
+  window.ProdigyAuctionNativeScenes.register("bidding", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
     const logicalWidth = this.container.clientWidth > 0
@@ -1094,11 +727,15 @@ window.ProdigyAuctionLifecycle.start({
 
 ---
 
+
+---
+
 ## 관심
 
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-watching");
+  window.ProdigyAuctionNativeScenes.register("watching", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
     const logicalWidth = this.container.clientWidth > 0
@@ -1132,12 +769,138 @@ window.ProdigyAuctionLifecycle.start({
 
 ---
 
+
+---
+
+# 입찰 일정
+
+```dataviewjs
+// Bid Calendar: time navigation only (does not edit Objects)
+const run = () => {
+  if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-calendar");
+  window.ProdigyAuctionNativeScenes.register("calendar", this.container);
+  if (window.BidCalendarCore && window.BidCalendarView) {
+    this.container.empty();
+    const pages = dv.pages('"PARA/PROJECTS/Auction"')
+      .where(p => p.type === "auction_case")
+      .array();
+    window.BidCalendarView.render({
+      container: this.container,
+      pages,
+      app: app,
+      now: new Date()
+    });
+    return true;
+  }
+  return false;
+};
+window.ProdigyAuctionLifecycle.start({
+  container: this.container,
+  label: "입찰 일정 캘린더",
+  run,
+  onError: (error) => window.ProdigyAuctionSectionFailure?.("calendar", error)
+});
+```
+
+---
+
+
+---
+
+# 경매 진행 현황
+
+```js-engine
+const file = app.workspace.getActiveFile();
+if (!file) return;
+if (!container) return;
+if (container.classList) container.classList.add("auction-hub-section", "auction-hub-pipeline-section");
+window.ProdigyAuctionNativeScenes.register("pipeline", container);
+container.empty();
+
+const files = app.vault.getFiles().filter(f =>
+  f.path.startsWith("PARA/PROJECTS/Auction/") && f.extension === "md"
+);
+
+await window.ProdigyAuctionWorkspaceReady;
+
+const counts = { watching: 0, bidding: 0, skipped: 0, won: 0, lost: 0, reviewing: 0, archived: 0 };
+
+files.forEach(f => {
+  const c = app.metadataCache.getFileCache(f);
+  const fm = c?.frontmatter;
+  if (fm?.type === "auction_case") {
+    if (counts[fm.status] !== undefined) {
+      counts[fm.status]++;
+    }
+  }
+});
+
+container.createEl('div', {
+  text: '경매 진행 현황',
+  attr: { class: "auction-hub-pipeline-heading" }
+});
+const pipelineBox = container.createEl('div', {
+  attr: { class: "auction-hub-pipeline auction-hub-pipeline-compact" }
+});
+
+const makeStep = (parent, label, count, color) => {
+  const step = parent.createEl('div', {
+    attr: { class: `auction-hub-pipeline-step tone-${color}` }
+  });
+  step.createEl('span', { text: label, attr: { class: "auction-hub-pipeline-label" } });
+  step.createEl('span', { text: String(count), attr: { class: `auction-hub-pipeline-count tone-${color}` } });
+  return step;
+};
+
+const makeGroup = (parent) => {
+  return parent.createEl('div', {
+    attr: { class: "auction-hub-pipeline-group" }
+  });
+};
+
+const makeArrow = (parent) => {
+  parent.createEl('div', {
+    text: '→',
+    attr: { class: "auction-hub-pipeline-arrow" }
+  });
+};
+
+const display = window.prodigyDisplay;
+const statusStep = (status) => {
+  const info = display.statusInfo(status);
+  return info.label;
+};
+
+makeStep(pipelineBox, statusStep('watching'), counts.watching, 'muted');
+makeArrow(pipelineBox);
+makeStep(pipelineBox, statusStep('bidding'), counts.bidding, 'accent');
+makeArrow(pipelineBox);
+
+const grp1 = makeGroup(pipelineBox);
+makeStep(grp1, statusStep('won'), counts.won, 'success');
+makeStep(grp1, statusStep('lost'), counts.lost, 'error');
+
+makeArrow(pipelineBox);
+makeStep(pipelineBox, statusStep('reviewing'), counts.reviewing, 'warning');
+makeArrow(pipelineBox);
+
+const grp2 = makeGroup(pipelineBox);
+makeStep(grp2, statusStep('skipped'), counts.skipped, 'muted');
+makeStep(grp2, statusStep('archived'), counts.archived, 'muted');
+```
+
+---
+
+
+---
+
 ## 복기 대기
 
 ```dataviewjs
 // Post-result queue: won/lost before reviewing, reviewing in progress, skipped before archive
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-review-queue");
+  window.ProdigyAuctionNativeScenes.register("review-queue", this.container);
   if (!window.AuctionDayCore || !window.AuctionDayCore.buildReviewQueue) return false;
   this.container.empty();
   const pages = dv.pages('"PARA/PROJECTS/Auction"')
@@ -1149,7 +912,16 @@ const run = () => {
       file: p.file
     }));
   const queue = window.AuctionDayCore.buildReviewQueue(pages);
-  const box = this.container.createEl("div", {
+  // Review work is secondary to decision-first Today, so it collapses into a
+  // disclosure while its approval/archive behavior stays identical.
+  const disclosure = this.container.createEl("details", {
+    attr: { class: "auction-hub-disclosure" }
+  });
+  disclosure.createEl("summary", { text: "복기 대기" });
+  const disclosureBody = disclosure.createEl("div", {
+    attr: { class: "auction-hub-disclosure-body" }
+  });
+  const box = disclosureBody.createEl("div", {
     attr: { class: "auction-hub-review-queue" }
   });
   box.createEl("div", {
@@ -1159,8 +931,7 @@ const run = () => {
   box.createEl("div", {
     text: "결과 기록 후 닫을 일. 새 Property 없이 기존 status만 사용합니다.",
     attr: { class: "auction-hub-review-copy" }
-  });
-  if (!queue.length) {
+  });  if (!queue.length) {
     box.createEl("div", {
       text: "복기 대기 물건이 없습니다.",
       attr: { class: "auction-hub-review-empty" }
@@ -1258,11 +1029,15 @@ window.ProdigyAuctionLifecycle.start({
 
 ---
 
+
+---
+
 ## 복기 중
 
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-reviewing");
+  window.ProdigyAuctionNativeScenes.register("reviewing", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
     window.renderDashboardSection({
@@ -1290,11 +1065,15 @@ window.ProdigyAuctionLifecycle.start({
 
 ---
 
+
+---
+
 ## 낙찰
 
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-won");
+  window.ProdigyAuctionNativeScenes.register("won", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
     window.renderDashboardSection({
@@ -1323,11 +1102,15 @@ window.ProdigyAuctionLifecycle.start({
 });
 ```
 
+
+---
+
 ## 패찰
 
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-lost");
+  window.ProdigyAuctionNativeScenes.register("lost", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
     window.renderDashboardSection({
@@ -1356,11 +1139,15 @@ window.ProdigyAuctionLifecycle.start({
 });
 ```
 
-## ❌ 입찰 포기
+
+---
+
+## 입찰 포기
 
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-skipped");
+  window.ProdigyAuctionNativeScenes.register("skipped", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
     window.renderDashboardSection({
@@ -1371,7 +1158,7 @@ const run = () => {
       renderer: window.renderAuctionCard,
       emptyMessage: "해당 조건의 입찰 포기 물건이 없습니다.",
       isCollapsed: true,
-      summaryText: "❌ 입찰 포기 물건 목록",
+      summaryText: "입찰 포기 물건 목록",
       summaryColor: "var(--text-muted)",
       sortField: "auction_datetime",
       sortOrder: "desc"
@@ -1389,11 +1176,15 @@ window.ProdigyAuctionLifecycle.start({
 });
 ```
 
+
+---
+
 ## 보관
 
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-archived");
+  window.ProdigyAuctionNativeScenes.register("archived", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
     window.renderDashboardSection({
@@ -1420,5 +1211,4 @@ window.ProdigyAuctionLifecycle.start({
   run,
   onError: (error) => window.ProdigyAuctionSectionFailure?.("archived", error)
 });
-```
 ```

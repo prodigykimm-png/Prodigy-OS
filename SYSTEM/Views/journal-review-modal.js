@@ -32,7 +32,7 @@
         }
         const makeField = (label, key, rows, placeholder) => {
           contentEl.createEl("label", { text: label, attr: { style: "display:block;font-weight:600;margin:10px 0 4px;" } });
-          const area = contentEl.createEl("textarea", { attr: { rows: String(rows), class: "prodigy-configurator-chip", style: "width:100%;min-height:88px;resize:vertical;color:var(--text-normal);" } });
+          const area = contentEl.createEl("textarea", { attr: { rows: String(rows), class: "prodigy-reflection-textarea", style: "width:100%;min-height:88px;resize:vertical;color:var(--text-normal);border-radius:var(--ke-radius-control, 8px);" } });
           area.placeholder = placeholder || "";
           area.value = this.values[key] || "";
           area.oninput = () => { this.values[key] = area.value; };

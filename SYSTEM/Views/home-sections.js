@@ -29,7 +29,7 @@
     const model = core.buildWorkspaceBarModel(registry, opts.selection || {});
     const dock = opts.parent.createEl("div", {
       attr: {
-        class: "home-ws-dock",
+        class: "home-ws-dock home-native-sidebar",
         role: "navigation",
         "aria-label": "워크스페이스 바로가기",
         "data-height": String(opts.controlHeight)
@@ -37,11 +37,11 @@
     });
     dock.createEl("div", {
       text: registry.items().length > 0 ? "워크스페이스 바로가기" : "워크스페이스 바로가기 · 비어 있음",
-      attr: { class: "home-ws-dock-label" }
+      attr: { class: "home-ws-dock-label home-native-sidebar-label" }
     });
     const row = dock.createEl("div", {
       attr: {
-        class: "home-ws-dock-row",
+        class: "home-ws-dock-row home-native-sidebar-group",
         "data-row-count": String(model.layout.rowCount),
         "data-wrap": model.layout.wrap ? "wrap" : "nowrap",
         "data-horizontal-scroll": String(model.layout.horizontalScroll)
@@ -91,7 +91,7 @@
   function renderMicroLogSlot(parent) {
     if (!parent) return null;
     const slot = parent.createEl("div", {
-      attr: { class: "home-card prodigy-utility-card home-micro-log-slot emphasis-secondary", role: "region", "aria-label": "Micro Log" }
+      attr: { class: "home-card home-native-group prodigy-utility-card home-micro-log-slot emphasis-secondary", role: "region", "aria-label": "Micro Log" }
     });
     slot.createEl("div", { text: "Micro Log", attr: { class: "home-header" } });
     slot.createEl("div", { text: "빠른 기록 슬롯", attr: { class: "home-micro-log-label" } });
@@ -102,7 +102,7 @@
   function renderContinueSection(options) {
     const opts = options || {};
     const card = opts.parent.createEl("div", {
-      attr: { class: "home-card prodigy-utility-card " + (opts.isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
+      attr: { class: "home-card home-native-group prodigy-utility-card home-continue-section " + (opts.isAfternoon ? "emphasis-primary" : "emphasis-secondary") }
     });
     card.createEl("div", { text: "이어하기", attr: { class: "home-header" } });
 

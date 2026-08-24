@@ -355,20 +355,59 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     });
   };
 
-  // Existing Object cover content is the only imagery and the only surface
-  // allowed to consume the approved image shadow token.
-  const renderBookCover = (parentEl) => {
-    const coverPath = p.cover || p.cover_image || p.cover_url || p.book_cover || p.image;
-    const heroCover = mode === "hero";
-    const size = heroCover
-      ? "inline-size:min(42vw,168px);block-size:min(60vw,240px);"
-      : "inline-size:90px;block-size:130px;";
-    if (coverPath) {
-      let src = coverPath;
-      if (!coverPath.startsWith("http://") && !coverPath.startsWith("https://") && !coverPath.startsWith("app://")) {
-        const file = app.metadataCache.getFirstLinkpathDest(coverPath, pathOf());
-        if (file) src = app.vault.getResourcePath(file);
+  const renderGeneratedCoverFallback = (parentEl, size) => {
+    const bookTitle = titleOf(), author = p.author || "저자 미상";
+    const cover = parentEl.createEl('button', {
+      attr: {
+        class: 'reading-generated-cover',
+        type: 'button',
+        'aria-label': `${bookTitle} 표지 없음`,
+        style: `${size}background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-inline-start:3px solid var(--ke-color-accent, var(--text-accent));border-radius:var(--ke-radius-card,12px);display:flex;flex-direction:column;justify-content:space-between;padding:10px 8px;color:var(--text-normal);font-family:var(--font-interface);cursor:pointer;`
       }
+    });
+    cover.createEl('div', {
+      text: bookTitle,
+      attr: { style: 'font-size:0.75em;font-weight:700;line-height:1.2;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;' }
+    });
+    cover.createEl('div', {
+      text: author,
+      attr: { style: 'font-size:0.65em;line-height:1.2;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;' }
+    });
+    cover.onclick = () => app.workspace.openLinkText(p.file ? p.file.name : titleOf(), pathOf());
+  };
+
+  const renderBookCover = (parentEl, modeOverride) => {
+    const rawCover = p.cover_url || p.cover || p.cover_image || p.book_cover || p.image || p.banner || p.thumbnail || p.coverUrl || p.coverImage;
+    let coverPath = "";
+    if (rawCover) {
+      if (typeof rawCover === "object") {
+        coverPath = rawCover.path || rawCover.fileName || rawCover.link || String(rawCover);
+      } else {
+        coverPath = String(rawCover).trim();
+      }
+    }
+    coverPath = coverPath.replace(/^\[\[/, "").replace(/\]\]$/, "").trim();
+
+    const targetMode = modeOverride || mode;
+    const size = targetMode === "hero"
+      ? "inline-size:min(42vw,168px);block-size:min(60vw,240px);"
+      : targetMode === "simple"
+        ? "inline-size:64px;block-size:92px;flex:0 0 auto;"
+        : "inline-size:90px;block-size:130px;";
+
+    if (coverPath && coverPath !== "[object Object]") {
+      let src = coverPath;
+      if (!coverPath.startsWith("http://") && !coverPath.startsWith("https://") && !coverPath.startsWith("app://") && !coverPath.startsWith("data:")) {
+        const file = app.metadataCache.getFirstLinkpathDest(coverPath, pathOf());
+        if (file) {
+          src = app.vault.getResourcePath(file);
+        } else {
+          const fileNameOnly = coverPath.split("/").pop();
+          const altFile = app.metadataCache.getFirstLinkpathDest(fileNameOnly, pathOf());
+          if (altFile) src = app.vault.getResourcePath(altFile);
+        }
+      }
+
       const img = parentEl.createEl('img', {
         attr: {
           src,
@@ -376,11 +415,17 @@ window.renderReadingCard = function(p, container, mode = "simple") {
           role: 'button',
           tabindex: '0',
           referrerpolicy: 'no-referrer',
-          style: `${size}object-fit:cover;border-radius:var(--ke-radius-card,18px);cursor:pointer;`
+          style: `${size}object-fit:cover;border-radius:var(--ke-radius-card,12px);cursor:pointer;`
         }
       });
       const approvedImageShadow = T.SHADOWS && T.SHADOWS.image;
       if (img.style && approvedImageShadow) img.style.boxShadow = approvedImageShadow;
+
+      img.onerror = () => {
+        img.remove();
+        renderGeneratedCoverFallback(parentEl, size);
+      };
+
       const openCover = () => app.workspace.openLinkText(p.file ? p.file.name : titleOf(), pathOf());
       img.onclick = openCover;
       img.onkeydown = (event) => {
@@ -389,24 +434,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
         openCover();
       };
     } else {
-      const bookTitle = titleOf(), author = p.author || "저자 미상";
-      const cover = parentEl.createEl('button', {
-        attr: {
-          class: 'reading-generated-cover',
-          type: 'button',
-          'aria-label': `${bookTitle} 표지 없음`,
-          style: `${size}background:var(--background-secondary);border:1px solid var(--background-modifier-border);border-inline-start:3px solid var(--ke-color-accent, var(--text-accent));border-radius:var(--ke-radius-card,18px);display:flex;flex-direction:column;justify-content:space-between;padding:17px 12px;color:var(--text-normal);font-family:var(--font-interface);cursor:pointer;`
-        }
-      });
-      cover.createEl('div', {
-        text: bookTitle,
-        attr: { style: 'font-size:0.8em;font-weight:700;line-height:1.2;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;' }
-      });
-      cover.createEl('div', {
-        text: author,
-        attr: { style: 'font-size:var(--ke-type-chrome,0.68rem);line-height:var(--ke-leading-control,1.35);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;' }
-      });
-      cover.onclick = () => app.workspace.openLinkText(p.file ? p.file.name : titleOf(), pathOf());
+      renderGeneratedCoverFallback(parentEl, size);
     }
   };
 
@@ -563,16 +591,25 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       attr: {
         class: 'reading-card reading-card-simple' + (isFocus ? ' is-focus' : ''),
         'data-reading-path': pathOf(),
-        style: `border:1px solid var(--background-modifier-border);${isFocus ? 'border-inline-start:3px solid var(--ke-color-accent, var(--text-accent));' : ''}border-radius:var(--ke-radius-panel,8px);padding:12px 17px;margin-bottom:8px;background:var(--background-secondary);display:flex;flex-direction:column;gap:10px;`
+        style: `border:1px solid var(--background-modifier-border);${isFocus ? 'border-inline-start:4px solid var(--ke-color-accent, var(--text-accent));' : ''}border-radius:var(--ke-radius-panel,12px);padding:14px 18px;margin-bottom:10px;background:var(--background-secondary);display:flex;flex-direction:column;gap:12px;`
       }
     });
     
-    const left = card.createEl('div', { attr: { style: 'display: flex; flex-direction: column; gap: 2px; min-width: 0;' } });
+    const topRow = card.createEl('div', {
+      attr: { style: 'display: flex; gap: 14px; align-items: flex-start; min-width: 0;' }
+    });
+
+    const coverBox = topRow.createEl('div', {
+      attr: { class: 'reading-card-cover', style: 'flex: 0 0 auto;' }
+    });
+    renderBookCover(coverBox, "simple");
+
+    const left = topRow.createEl('div', { attr: { style: 'display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;' } });
     const title = left.createEl('a', {
       text: titleOf(),
       attr: {
         class: 'internal-link',
-        style: 'font-weight: bold; font-size: 0.9em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow-wrap: anywhere;'
+        style: 'font-weight: bold; font-size: 0.95em; color: var(--text-normal); text-decoration: none; cursor: pointer; overflow-wrap: anywhere;'
       }
     });
     title.onclick = () => app.workspace.openLinkText(p.file ? p.file.name : titleOf(), pathOf());

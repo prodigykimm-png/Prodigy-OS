@@ -1,5 +1,6 @@
 ---
 cssclasses:
+  - prodigy-hub-note
   - hide-properties_reading
 sort_completed_by: rating
 filter_rating: 
@@ -248,6 +249,12 @@ try {
   workspaceBody.classList.add("reading-hub-body");
   if (typeof workspaceBody.setAttr === "function") workspaceBody.setAttr("data-scroll-owner", "reading-workspace-body");
   else if (typeof workspaceBody.setAttribute === "function") workspaceBody.setAttribute("data-scroll-owner", "reading-workspace-body");
+  const readingKnowledge = await window.ReadingContextAdapter.mountResurfacing({
+    app,
+    signal: mountContext.signal,
+    container: workspaceBody
+  });
+  if (readingKnowledge && typeof readingKnowledge.dispose === "function") mountContext.scope.track(readingKnowledge.dispose);
   ensureReadingHubStyles();
     } }
   });
@@ -556,7 +563,7 @@ if (!await installDashboard()) {
 
 ---
 
-## 최근 세션
+## 최근 독서 기록
 
 ```js-engine
 if (!container) return;
@@ -571,13 +578,13 @@ try {
   if (render) await render(app, container);
   else {
     container.createEl("span", {
-      text: "최근 세션이 없습니다.",
+      text: "최근 독서 기록이 없습니다.",
       attr: { class: "reading-hub-empty" }
     });
   }
 } catch (error) {
   container.createEl("p", {
-    text: "세션 기록을 불러오지 못했습니다.",
+    text: "최근 독서 기록을 불러오지 못했습니다.",
     attr: { class: "reading-hub-error" }
   });
   if (window.prodigyDebugMode) {

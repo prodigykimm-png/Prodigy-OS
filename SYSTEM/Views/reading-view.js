@@ -1,18 +1,8 @@
 (function (root) {
   "use strict";
 
-  const RESPONSIVE_CSS = `
-.reading-responsive-workspace{display:grid;grid-template-rows:auto minmax(0,1fr);gap:var(--ke-space-3,8px);min-block-size:0;min-inline-size:0;color:var(--text-normal)}
-.reading-responsive-tabs[hidden],.reading-responsive-pane[hidden]{display:none}
-.reading-responsive-grid{display:grid;grid-template-columns:minmax(min(18rem,100%),4fr) minmax(min(22rem,100%),6fr);gap:var(--ke-space-4,12px);min-block-size:0;min-inline-size:0}
-.reading-responsive-workspace[data-reading-layout="compact"] .reading-responsive-grid,.reading-responsive-workspace[data-reading-layout="medium"] .reading-responsive-grid{grid-template-columns:minmax(0,1fr)}
-.reading-responsive-pane{min-block-size:0;min-inline-size:0;overflow:visible;word-break:keep-all;overflow-wrap:anywhere}
-.reading-responsive-pane:focus-visible{outline:2px solid var(--ke-color-accent, var(--text-accent));outline-offset:2px}
-.reading-focus-target{outline:2px solid var(--ke-color-accent, var(--text-accent));outline-offset:3px}
-.reading-responsive-workspace[data-reading-layout="compact"] .prodigy-adaptive-tab{min-block-size:var(--reading-touch-target)}
-.prodigy-app-shell[data-workspace-id="reading"]>.prodigy-workspace-bar{padding-inline:4px}
-@media(prefers-reduced-motion:reduce){.reading-responsive-workspace *{transition:none!important;animation:none!important;transform:none!important}}
-`;
+  if (root.ReadingStyles) root.ReadingStyles.ensureStyles();
+
 
   function resolveModule(globalName, relativePath) {
     if (root[globalName]) return root[globalName];
@@ -65,8 +55,7 @@
 
     if (typeof container.empty === "function") container.empty();
     setAttribute(container, "data-reading-layout", layout);
-    const style = container.createEl("style", { text: RESPONSIVE_CSS, attr: { "data-reading-responsive-style": "true" } });
-    style.textContent = RESPONSIVE_CSS;
+
     const shell = container.createEl("section", {
       attr: {
         class: "reading-responsive-workspace",
@@ -731,15 +720,7 @@
     container.empty();
     if (root.ProdigyUI) root.ProdigyUI.ensureStyles();
 
-    const style = container.createEl("style");
-    style.textContent = `
-.reading-session-history{max-width:980px;margin:0 auto 8px}
-.reading-session-row{padding:12px 0;border-top:1px solid var(--background-modifier-border)}
-.reading-session-row:first-of-type{border-top:0;padding-top:0}
-.reading-session-meta{color:var(--text-muted);font-size:0.78em;display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
-.reading-session-detail{font-size:0.86em;line-height:1.45;margin-top:5px;overflow-wrap:anywhere}
-.reading-session-delta{margin-top:6px;padding:8px 10px;border-left:2px solid var(--ke-color-accent, var(--text-accent));background:var(--background-primary);border-radius:0 6px 6px 0;font-size:0.86em;line-height:1.45}
-`;
+    if (root.ReadingStyles) root.ReadingStyles.ensureStyles();
     const wrap = container.createEl("div", { attr: { class: "reading-session-history" } });
 
     const btn = (parent, text, options) => {
@@ -762,46 +743,24 @@
     const refresh = () => renderSessionHistory(app, container);
 
     let sessions = [];
-    let candidates = [];
     try {
-      sessions = await root.ReadingStore.listSessions(app, 10);
-      candidates = await root.ReadingStore.listCandidates(app, { status: "active" });
+      sessions = await root.ReadingStore.listSessions(app, 3);
     } catch (error) {
-      empty(wrap, `세션 기록을 불러오지 못했습니다: ${error.message || error}`);
+      empty(wrap, `최근 독서 기록을 불러오지 못했습니다: ${error.message || error}`);
       return;
     }
 
-    // Recent sessions — thinking delta is shown inline, not as a separate system.
-    const sessionCard = section(wrap, "최근 세션");
+    const sessionCard = wrap.createEl("div", { attr: { class: "reading-recent-records" } });
     if (!sessions.length) {
-      empty(sessionCard, "아직 기록된 세션이 없습니다. 위 「읽는 중」에서 오늘 읽기를 남기면 여기에 쌓입니다.");
+      empty(sessionCard, "아직 기록된 독서 기록이 없습니다. 위 「읽는 중」에서 오늘 읽기를 남기면 여기에 쌓입니다.");
     } else {
-      sessions.forEach((session) => {
+      sessions.slice(0, 3).forEach((session) => {
         const row = sessionCard.createEl("div", { attr: { class: "reading-session-row" } });
         row.createEl("strong", { text: `${session.date || "날짜 없음"} · ${session.book_title || "책"}` });
         const meta = row.createEl("div", { attr: { class: "reading-session-meta" } });
         meta.createEl("span", { text: session.reading_range || "진행 기록 없음" });
         if (session.duration) meta.createEl("span", { text: String(session.duration) });
-        if (session.key_content) {
-          row.createEl("div", {
-            text: session.key_content.slice(0, 160),
-            attr: { class: "reading-session-detail" }
-          });
-        }
-        if (session.my_thought) {
-          row.createEl("div", {
-            text: `생각: ${String(session.my_thought).slice(0, 160)}`,
-            attr: { class: "reading-session-detail", style: "color:var(--text-muted);" }
-          });
-        }
-        if (session.thinking_delta) {
-          const delta = row.createEl("div", { attr: { class: "reading-session-delta" } });
-          delta.createEl("div", {
-            text: "생각의 변화",
-            attr: { style: "font-size:0.72em;font-weight:700;color:var(--ke-color-accent, var(--text-accent));margin-bottom:3px;" }
-          });
-          delta.createEl("div", { text: session.thinking_delta });
-        }
+        if (session.next_action) meta.createEl("span", { text: `다음 · ${String(session.next_action)}` });
         const actions = row.createEl("div", { attr: { class: "reading-loop-actions", style: "margin-top:8px;" } });
         btn(actions, "세션 열기", { onClick: () => openPath(app, session.path) });
         btn(actions, "지식 후보 만들기", {
@@ -811,38 +770,6 @@
       });
     }
 
-    // Candidates are a compact reading projection. The shared Inbox owns review,
-    // approval, rejection, and any Knowledge creation.
-    const candidateCard = section(wrap, "지식 후보");
-    if (!candidates.length) {
-      empty(candidateCard, "아직 지식 후보가 없습니다. 세션에서 만들 수 있습니다.");
-    } else {
-      candidates.forEach((candidate) => {
-        const projected = projectReadingCandidate(candidate);
-        const row = candidateCard.createEl("div", { attr: { class: "reading-session-row" } });
-        const titleRow = row.createEl("div", { attr: { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap;" } });
-        titleRow.createEl("strong", { text: projected.title });
-        titleRow.createEl("span", {
-          text: projected.status_label,
-          attr: { style: "font-size:0.72em;font-weight:700;color:var(--text-muted);background:var(--background-modifier-hover);padding:1px 6px;border-radius:999px;" }
-        });
-        row.createEl("div", { text: projected.statement, attr: { class: "reading-session-detail" } });
-        const meta = row.createEl("div", { attr: { class: "reading-session-meta" } });
-        meta.createEl("span", { text: projected.source_session ? `출처 세션: ${projected.source_session}` : "출처 세션을 확인할 수 없습니다." });
-        meta.createEl("span", { text: `근거 품질: ${projected.quality.label}` });
-        meta.createEl("span", { text: String(candidate.created || "").slice(0, 10) });
-        const actions = row.createEl("div", { attr: { class: "reading-loop-actions", style: "margin-top:8px;" } });
-        if (projected.source_session) {
-          btn(actions, "세션 열기", {
-            onClick: () => {
-              const link = projected.source_session.replace(/^\[\[|\]\]$/g, "");
-              openPath(app, link);
-            }
-          });
-        }
-        btn(actions, "Knowledge Explorer에서 검토", { primary: true, onClick: () => openKnowledgeExplorer(app) });
-      });
-    }
   }
 
   // Backward-compatible alias (old call sites / tests)

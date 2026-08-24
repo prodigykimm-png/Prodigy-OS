@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
+const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
@@ -281,7 +282,7 @@ async function main() {
   assert.ok(findText(container, "운동 완료"));
   assert.ok(findText(container, "초안 버리기"));
   assert.match(rendered, /스미스 머신 스쿼트 → 핵 스쿼트/);
-  const css = container.children.find((child) => child.tag === "style").text;
+  const css = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/workout-styles.js"), "utf8");
   assert.doesNotMatch(css, /@media\([^)]*(?:600|767)px/);
   assert.match(css, /min-block-size:var\(--ke-touch-target\)/);
   assert.match(css, /prodigy-workout-dashboard|workout-progress-track|workout-set-row/);

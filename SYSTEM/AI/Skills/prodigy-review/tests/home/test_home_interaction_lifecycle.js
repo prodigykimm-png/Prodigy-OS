@@ -483,18 +483,18 @@ async function testActivationOpensTargetOnce() {
   assert.equal(app.openedPaths.length - before, 1, "one activation opens exactly one target");
 }
 
-async function testRerenderKeepsOneListenerAndDisconnectsPreviousObserver() {
-  // Given: a mounted Home with one keydown listener and one observer
+async function testRerenderKeepsOwnedListenersAndDisconnectsPreviousObserver() {
+  // Given: a mounted Home with one shortcut listener, one capture-trust listener, and one observer
   const { home, container } = await mountHome(1440);
-  assert.equal(global.document.keydownListeners.length, 1, "first render registers one keydown listener");
+  assert.equal(global.document.keydownListeners.length, 2, "first render registers one shortcut and one capture keydown listener");
   assert.equal(FakeResizeObserver.instances.length, 1, "first render creates one ResizeObserver");
 
   // When: the same container is rendered twice more
   await home.renderHome({ app: createApp(), dv: {}, container });
   await home.renderHome({ app: createApp(), dv: {}, container });
 
-  // Then: exactly one live listener remains and every earlier observer is disconnected
-  assert.equal(global.document.keydownListeners.length, 1, "rerender removes the previous keydown listener");
+  // Then: exactly two owned listeners remain and every earlier observer is disconnected
+  assert.equal(global.document.keydownListeners.length, 2, "rerender removes both prior listeners before registering replacements");
   assert.equal(FakeResizeObserver.instances.length, 3, "each render owns its observer");
   assert.deepEqual(
     FakeResizeObserver.instances.map((observer) => observer.closed),
@@ -588,7 +588,7 @@ const TESTS = [
   ["no clickable div anywhere on Home", testNoClickableDivAnywhereOnHome],
   ["audit rejects clickable div and double activation", testAuditDetectsClickableDivAndDoubleActivation],
   ["activation opens exactly one target", testActivationOpensTargetOnce],
-  ["rerender keeps one listener and disconnects previous observer", testRerenderKeepsOneListenerAndDisconnectsPreviousObserver],
+  ["rerender keeps owned listeners and disconnects previous observer", testRerenderKeepsOwnedListenersAndDisconnectsPreviousObserver],
   ["dispose releases listener and observer", testDisposeReleasesBothResources],
   ["shortcut ignores editable targets", testShortcutIgnoresEditableTargets],
   ["Task 7 dedupe and single creator preserved", testTask7BehaviorPreserved]

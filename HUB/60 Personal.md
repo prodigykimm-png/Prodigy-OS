@@ -1,5 +1,6 @@
 ---
 cssclasses:
+  - prodigy-hub-note
   - hide-properties_editing
   - hide-properties_reading
 ---

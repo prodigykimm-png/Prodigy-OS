@@ -1,13 +1,9 @@
 ---
 cssclasses:
+  - prodigy-hub-note
   - hide-properties_editing
   - hide-properties_reading
 ---
-# 운동
-
-> **프로그램 실행**
-> 이어하기 → 최소 입력으로 세션 기록 → 다음 Day.
-
 <!-- 계속 스트립 · 세션 · 현재 프로그램 · 미완료 · 오래 방치 · WO 계획 · 라이브러리 · 기록 -->
 
 ```js-engine
@@ -98,6 +94,12 @@ const renderWorkout = async (mountContext) => {
     if (shell.element && shell.element.classList) shell.element.classList.add("workout-hub-shell");
     workoutMount = shell.body.createDiv({ attr: { class: "workout-workspace-content" } });
     shell.body.setAttr("data-scroll-owner", "workout-workspace-body");
+    const workoutKnowledge = await window.WorkoutContextAdapter.mountResurfacing({
+      app,
+      signal: mountContext.signal,
+      container: shell.body
+    });
+    if (workoutKnowledge && typeof workoutKnowledge.dispose === "function") mountContext.scope.track(workoutKnowledge.dispose);
     if (measurable) performance.end(projection, { scope: "workout", status: "projected" });
   } catch (error) {
     if (measurable) performance.end(projection, { scope: "workout", status: "failed" });

@@ -422,8 +422,9 @@ function main() {
 
   // --- Minimal session modal (one memo, not a form wall) ---
   const viewSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-view.js"), "utf8");
-  assert.match(viewSrc, /grid-template-columns:minmax\(min\(18rem,100%\),4fr\) minmax\(min\(22rem,100%\),6fr\)/);
-  assert.doesNotMatch(viewSrc, /grid-template-columns:[^;]*,minmax\(0,/);
+  const stylesSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-styles.js"), "utf8");
+  assert.match(stylesSrc, /grid-template-columns:\s*240px minmax\(0,\s*1fr\)/);
+  assert.doesNotMatch(stylesSrc, /grid-template-columns:[^;]*,minmax\(0,/);
   assert.match(viewSrc, /openSessionModal|saveQuickSession/);
   assert.match(viewSrc, /한 줄 메모/);
   assert.match(viewSrc, /한 줄이면 충분/);

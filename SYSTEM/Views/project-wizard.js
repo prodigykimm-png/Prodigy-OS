@@ -4,24 +4,7 @@
   const TEMPLATE_PATH = "SYSTEM/TEMPLATE/FORMAT/template_project.md";
   const PROJECT_FOLDER = "PARA/PROJECTS";
 
-  const PRESENTATION_CSS = `
-.prodigy-project-wizard,.prodigy-project-type-manager{inline-size:100%;max-inline-size:100%;min-inline-size:0;color:var(--ke-color-text);font:400 var(--ke-type-body)/var(--ke-leading-body) var(--ke-font-text);word-break:keep-all;overflow-wrap:anywhere}
-.prodigy-project-wizard *,.prodigy-project-type-manager *{box-sizing:border-box;min-inline-size:0}
-.prodigy-project-wizard button,.prodigy-project-type-manager button,.prodigy-project-wizard input,.prodigy-project-wizard select,.prodigy-project-wizard textarea,.prodigy-project-type-manager input{min-inline-size:var(--ke-touch-target);min-block-size:var(--ke-touch-target);max-inline-size:100%;box-shadow:none!important}
-.prodigy-project-wizard button,.prodigy-project-type-manager button{border-radius:var(--ke-radius-control);white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
-.prodigy-project-wizard button:active,.prodigy-project-type-manager button:active{transform:scale(0.95)}
-.prodigy-project-wizard button:focus-visible,.prodigy-project-type-manager button:focus-visible,.prodigy-project-wizard input:focus-visible,.prodigy-project-wizard select:focus-visible,.prodigy-project-wizard textarea:focus-visible{outline:var(--ke-focus-ring-width) solid var(--ke-color-accent);outline-offset:var(--ke-space-1)}
-.prodigy-project-wizard button:disabled{cursor:not-allowed!important;opacity:var(--ke-opacity-disabled);transform:none}
-.prodigy-project-wizard .prodigy-type-name,.prodigy-project-wizard .prodigy-wizard-column{min-inline-size:0;overflow-wrap:anywhere}
-.prodigy-project-wizard .prodigy-date-grid>*,.prodigy-project-wizard .prodigy-date-stack input{min-inline-size:0}
-.prodigy-project-approval-bar{display:flex;justify-content:flex-end;gap:var(--ke-space-2);min-block-size:var(--ke-action-bar-height);margin-block-start:var(--ke-space-3);padding-block-start:var(--ke-space-3);border-block-start:var(--ke-border-width) solid var(--ke-color-border);flex-wrap:wrap}
-.prodigy-project-type-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--ke-space-2);align-items:center}
-.prodigy-project-wizard[data-density=compact] .prodigy-workflow-row,.prodigy-project-type-manager[data-density=compact] .prodigy-project-type-add,.prodigy-project-wizard[data-density=compact] .prodigy-project-approval-bar,.prodigy-project-type-manager[data-density=compact] .prodigy-project-approval-bar,.prodigy-project-wizard[data-density=compact] .prodigy-workflow-head{display:grid!important;grid-template-columns:minmax(0,1fr)!important}
-.prodigy-project-wizard[data-density=compact] .prodigy-workflow-index{text-align:start!important}.prodigy-project-wizard[data-density=compact] .prodigy-workflow-controls{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(var(--ke-touch-target),1fr));inline-size:100%}
-.prodigy-project-wizard[data-density=compact] .prodigy-workflow-head-actions{display:flex;flex-wrap:wrap}
-.prodigy-project-wizard input,.prodigy-project-wizard textarea,.prodigy-project-wizard select,.prodigy-project-type-manager input{inline-size:100%;box-sizing:border-box;min-block-size:var(--ke-control-height);padding:var(--ke-space-2) var(--ke-space-3);border:var(--ke-border-width) solid var(--ke-color-border);border-radius:var(--ke-radius-control);background:var(--ke-color-surface);color:var(--ke-color-text);font:400 var(--ke-type-body)/var(--ke-leading-body) var(--ke-font-text)}
-@media (prefers-reduced-motion: reduce){.prodigy-project-wizard *,.prodigy-project-type-manager *{transition:none!important;animation:none!important;transform:none!important}}
-@media (forced-colors: active){.prodigy-project-wizard button:focus-visible,.prodigy-project-type-manager button:focus-visible{outline-color:Highlight}.prodigy-project-wizard [aria-pressed="true"]{border-width:var(--ke-focus-ring-width)}}`;
+
 
   function projectLayout(core, element, logicalWidth) {
     const explicit = Number(logicalWidth);
@@ -33,49 +16,13 @@
     return core.resolveProjectWorkspaceLayout(width);
   }
 
-  function applyPresentationTokens(element) {
-    const design = root.ProdigyTokens || {};
-    const type = design.TYPE_SCALE || {};
-    const space = design.SPACE_SCALE || {};
-    const radii = design.RADII || {};
-    const heights = design.CONTROL_HEIGHTS || {};
-    const colors = design.SEMANTIC_COLORS || {};
-    const body = type.body || {};
-    const caption = type.caption || {};
-    const title = type.tagline || {};
-    const properties = {
-      "--ke-type-body": `${body.fontSize || 17}px`,
-      "--ke-type-title": `${title.fontSize || 21}px`,
-      "--ke-type-label": `${caption.fontSize || 14}px`,
-      "--ke-leading-body": String(body.lineHeight || 1.47),
-      "--ke-leading-control": String(caption.lineHeight || 1.43),
-      "--ke-font-text": body.fontFamily || "system-ui, -apple-system, sans-serif",
-      "--ke-space-1": `${space.xxs || 4}px`,
-      "--ke-space-2": `${space.xs || 8}px`,
-      "--ke-space-3": `${space.sm || 12}px`,
-      "--ke-border-width": "1px",
-      "--ke-focus-ring-width": "2px",
-      "--ke-radius-control": `${radii.sm || 8}px`,
-      "--ke-opacity-disabled": "0.6",
-      "--ke-color-surface": colors.canvas || "var(--background-primary)",
-      "--ke-color-surface-secondary": colors.canvasParchment || "var(--background-secondary)",
-      "--ke-color-border": colors.border || "var(--background-modifier-border)",
-      "--ke-color-text": colors.ink || "var(--text-normal)",
-      "--ke-color-muted": colors.muted || "var(--text-muted)",
-      "--ke-color-accent": colors.focus || "var(--text-accent)",
-      "--ke-color-interactive": colors.action || "var(--interactive-accent)",
-      "--ke-color-on-interactive": colors.onAction || "var(--text-on-accent)",
-      "--ke-control-height": `${heights.native || 44}px`,
-      "--ke-touch-target": `${heights.touchTarget || 44}px`,
-      "--ke-action-bar-height": `${heights.actionBar || 52}px`,
-    };
-    if (element && element.style && typeof element.style.setProperty === "function") {
-      Object.entries(properties).forEach(([name, value]) => element.style.setProperty(name, value));
-    }
-  }
-
   function applyResponsiveSurface(element, layout) {
-    applyPresentationTokens(element);
+    if (root.ProjectStyles) root.ProjectStyles.ensureProjectStyles();
+    const tokens = root.ProdigyTokens;
+    if (tokens && element && element.style && typeof element.style.setProperty === "function") {
+      element.style.setProperty("--ke-touch-target", `${tokens.CONTROL_HEIGHTS.touchTarget}px`);
+      element.style.setProperty("--ke-control-height", `${tokens.CONTROL_HEIGHTS.native}px`);
+    }
     element.setAttribute("data-density", layout.density);
   }
 
@@ -224,7 +171,7 @@
       contentEl.empty();
       const layout = projectLayout(root.ProjectWizardCore, this.modalEl || contentEl, this.logicalWidth);
       applyResponsiveSurface(contentEl, layout);
-      contentEl.createEl("style", { text: PRESENTATION_CSS });
+      if (root.ProjectStyles) root.ProjectStyles.ensureProjectStyles();
       contentEl.addClass("prodigy-project-type-manager");
       contentEl.createEl("h2", { text: "프로젝트 유형", attr: { style: "margin:0 0 8px;font-size:var(--ke-type-title);" } });
       contentEl.createEl("div", {
@@ -354,7 +301,7 @@
       contentEl.addClass("prodigy-project-wizard");
       const layout = projectLayout(this.core, this.modalEl || contentEl, this.logicalWidth);
       applyResponsiveSurface(contentEl, layout);
-      contentEl.createEl("style", { text: PRESENTATION_CSS });
+      if (root.ProjectStyles) root.ProjectStyles.ensureProjectStyles();
       contentEl.createEl("h2", { text: "프로젝트 시작", attr: { style: "margin:0 0 12px;font-size:var(--ke-type-title);" } });
 
       const shell = contentEl.createEl("div", {

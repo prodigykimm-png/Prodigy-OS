@@ -317,18 +317,28 @@
   overscroll-behavior-block: contain;
   -webkit-overflow-scrolling: touch;
 }
-.prodigy-app-shell[data-workspace-id="journal"],
+.prodigy-app-shell[data-workspace-id="journal"] {
+  grid-template-rows: auto auto auto;
+  max-block-size: none;
+  overflow: visible;
+}
 .prodigy-app-shell[data-workspace-id="home"] {
   grid-template-rows: auto auto auto;
   max-block-size: none;
   overflow: visible;
 }
-.prodigy-app-shell[data-workspace-id="journal"] > .prodigy-app-shell-body,
+.prodigy-app-shell[data-workspace-id="journal"] > .prodigy-app-shell-body {
+  overflow: visible;
+  overscroll-behavior-block: auto;
+}
 .prodigy-app-shell[data-workspace-id="home"] > .prodigy-app-shell-body {
   overflow: visible;
+  overscroll-behavior-block: auto;
+}
+.prodigy-app-shell[data-workspace-id="journal"] > .prodigy-app-shell-body,
+.prodigy-app-shell[data-workspace-id="home"] > .prodigy-app-shell-body {
   padding-block-end: 0;
   scroll-padding-block-end: 0;
-  overscroll-behavior-block: auto;
 }
 .markdown-preview-view.prodigy-hub-note:has(
   .prodigy-app-shell:is(
@@ -338,7 +348,7 @@
 ) {
   overflow-y: auto !important;
 }
-.prodigy-app-shell[data-workspace-id="auction"] {
+.prodigy-app-shell[data-workspace-id="auction"]:not([data-tier="medium"]) {
   display: flex !important;
   flex-direction: column !important;
   height: calc(100vh - var(--header-height, 48px) - 20px) !important;
@@ -351,7 +361,7 @@
 .prodigy-app-shell[data-workspace-id="auction"] > .prodigy-context-bar {
   flex: 0 0 auto !important;
 }
-.prodigy-app-shell[data-workspace-id="auction"] > .prodigy-app-shell-body {
+.prodigy-app-shell[data-workspace-id="auction"]:not([data-tier="medium"]) > .prodigy-app-shell-body {
   flex: 1 1 0% !important;
   min-height: 0 !important;
   max-height: 100% !important;
@@ -361,6 +371,14 @@
   -webkit-overflow-scrolling: touch !important;
   scrollbar-width: thin;
   scrollbar-gutter: auto;
+}
+.prodigy-app-shell[data-tier="medium"][data-workspace-id="auction"] {
+  max-block-size: none;
+  overflow: visible;
+}
+.prodigy-app-shell[data-tier="medium"][data-workspace-id="auction"] > .prodigy-app-shell-body {
+  overflow: visible;
+  overscroll-behavior-block: auto;
 }
 .prodigy-app-shell[data-workspace-id="auction"] > .prodigy-app-shell-body::-webkit-scrollbar {
   width: 5px;

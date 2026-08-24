@@ -964,11 +964,23 @@
           super(appInstance);
           this.name = "";
           this.busy = false;
+          this.scope = null;
         }
         onOpen() {
           const { contentEl } = this;
           contentEl.empty();
           contentEl.addClass("ppw-modal-surface");
+          this.scope = root.ProdigyMountLifecycle && typeof root.ProdigyMountLifecycle.createMountScope === "function"
+            ? root.ProdigyMountLifecycle.createMountScope(contentEl)
+            : { track(fn) { (this._cleanups = this._cleanups || []).push(fn); }, dispose() { (this._cleanups || []).splice(0).reverse().forEach(fn => { try { fn(); } catch (_) {} }); } };
+          if (root.CaptureActionRuntime && typeof root.CaptureActionRuntime.mountTrustedInteractions === "function") {
+            root.CaptureActionRuntime.mountTrustedInteractions({
+              root: contentEl,
+              document: contentEl.ownerDocument || root.document || (typeof document !== "undefined" ? document : null),
+              scope: this.scope,
+              session_id: "people-create"
+            });
+          }
           contentEl.createEl("h2", { text: "사람 추가", attr: { style: "margin:0 0 var(--ke-space-2);font-size:var(--ke-type-title);" } });
           contentEl.createEl("p", {
             text: "이름만 입력하면 추가 후 관계 팝업이 열립니다.",
@@ -1017,19 +1029,45 @@
         }
         async submit() {
           if (this.busy) return;
+          const trimmed = String(this.name || "").trim();
+          if (!trimmed) {
+            this.statusEl.setText("이름을 입력해 주세요.");
+            this.statusEl.style.color = "var(--ke-color-error)";
+            return;
+          }
           this.busy = true;
           this.createBtn.disabled = true;
           this.statusEl.setText("만드는 중...");
+          this.statusEl.style.color = "var(--ke-color-muted)";
           try {
-            const result = await createAndOpen(this.app, this.name);
+            const result = await createAndOpen(this.app, trimmed);
             if (result && result.review_required) {
               this.busy = false;
               const runtime = root.CaptureActionRuntime;
               const review = result.capture.record;
-              runtime.renderReview(this.statusEl, review, {
-                confirm: async () => { const committed = await createAndOpen(this.app, this.name, { captureReview: review, human: runtime.humanConfirmation("people-create", review.approval_evidence.review.session_id) }); this.close(); resolve(committed); },
-                reject: () => { runtime.decideHumanReview(review, runtime.humanConfirmation("people-create", review.approval_evidence.review.session_id), "people-create", "reject"); this.close(); resolve(null); },
-                cancel: () => { runtime.decideHumanReview(review, runtime.humanConfirmation("people-create", review.approval_evidence.review.session_id), "people-create", "cancel"); this.close(); resolve(null); }
+              runtime.renderReview(this.contentEl, review, {
+                confirm: async () => {
+                  try {
+                    const committed = await createAndOpen(this.app, trimmed, {
+                      captureReview: review,
+                      human: runtime.humanConfirmation("people-create", review.approval_evidence.review.session_id)
+                    });
+                    this.close();
+                    resolve(committed);
+                  } catch (err) {
+                    notice(err.message || String(err), 9000);
+                  }
+                },
+                reject: () => {
+                  runtime.decideHumanReview(review, runtime.humanConfirmation("people-create", review.approval_evidence.review.session_id), "people-create", "reject");
+                  this.close();
+                  resolve(null);
+                },
+                cancel: () => {
+                  runtime.decideHumanReview(review, runtime.humanConfirmation("people-create", review.approval_evidence.review.session_id), "people-create", "cancel");
+                  this.close();
+                  resolve(null);
+                }
               });
               return;
             }
@@ -1042,6 +1080,9 @@
           }
         }
         onClose() {
+          if (this.scope && typeof this.scope.dispose === "function") {
+            this.scope.dispose();
+          }
           this.contentEl.empty();
         }
       }

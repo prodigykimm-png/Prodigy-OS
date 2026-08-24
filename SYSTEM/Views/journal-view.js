@@ -6,6 +6,7 @@
     if (!root.JournalEvidenceBlockModal) root.JournalEvidenceBlockModal = require("./journal-evidence-block-modal.js");
     if (!root.JournalCompletionAction) root.JournalCompletionAction = require("./journal-completion-action.js");
     if (!root.JournalDashboardView) root.JournalDashboardView = require("./journal-dashboard-view.js");
+    if (!root.JournalStyles) root.JournalStyles = require("./journal-styles.js");
   }
 
   function openProposeEvidenceModal(...args) {
@@ -23,7 +24,12 @@
   function openEvidenceBlockModal(...args) { return root.JournalEvidenceBlockModal.open(...args); }
   function saveProposedEvidenceAtCommit(...args) { return root.JournalCompletionAction.saveProposedEvidenceAtCommit(...args); }
   function saveSelectedKnowledgeCandidatesAfterEvidence(...args) { return root.JournalCompletionAction.saveSelectedKnowledgeCandidatesAfterEvidence(...args); }
-  function renderDashboard(app, container, options) { return root.JournalDashboardView.renderDashboard(app, container, openProposeEvidenceModal, options); }
+  function renderDashboard(app, container, options) {
+    if (root.JournalStyles && typeof root.JournalStyles.ensureJournalStyles === "function") {
+      root.JournalStyles.ensureJournalStyles();
+    }
+    return root.JournalDashboardView.renderDashboard(app, container, openProposeEvidenceModal, options);
+  }
 
   const api = { openReviewModal, openEvidenceBlockModal, openProposeEvidenceModal, saveProposedEvidenceAtCommit, saveSelectedKnowledgeCandidatesAfterEvidence, renderDashboard, openPath };
   root.JournalView = api;

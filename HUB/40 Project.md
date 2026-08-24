@@ -1,5 +1,6 @@
 ---
 cssclasses:
+  - prodigy-hub-note
   - hide-properties_reading
 ---
 ```js-engine
@@ -59,6 +60,12 @@ window.prodigyProjectReady = window.ProdigyHubLoader.mountWorkspace(app, project
   });
   const projectShell = window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "project", title: "프로젝트", mountScope: mountContext.scope });
   projectShell.body.createEl("style", { text: '.prodigy-app-shell[data-workspace-id="project"]>.prodigy-workspace-bar{padding-inline:4px}' });
+  const projectKnowledge = await window.ProjectContextAdapter.mountResurfacing({
+    app,
+    signal: mountContext.signal,
+    container: projectShell.body
+  });
+  if (projectKnowledge && typeof projectKnowledge.dispose === "function") mountContext.scope.track(projectKnowledge.dispose);
   window.__prodigyProjectShell = projectShell;
   window.__prodigyProjectMeasurement = {
     performance: projectShell.performance,

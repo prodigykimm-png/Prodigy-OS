@@ -1,5 +1,6 @@
 ---
 cssclasses:
+  - prodigy-hub-note
   - hide-properties_editing
   - hide-properties_reading
 ---
@@ -25,6 +26,12 @@ try {
 
   this.container.empty();
   var shell = window.ProdigyWorkspaceNavigation.mount(this.container, { app: app, workspaceId: "journal", title: "저널", mountScope: mountContext.scope });
+  var journalKnowledge = await window.JournalContextAdapter.mountResurfacing({
+    app: app,
+    signal: mountContext.signal,
+    container: shell.body
+  });
+  if (journalKnowledge && typeof journalKnowledge.dispose === "function") mountContext.scope.track(journalKnowledge.dispose);
   var performance = shell.performance;
   var dataScan = performance && performance.start("data_scan", { scope: "journal" });
   var domRender = performance && performance.start("dom_render", { scope: "journal" });

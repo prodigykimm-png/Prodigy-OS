@@ -7,7 +7,7 @@
 
 ## 1. Principles
 
-- Use Apple-like hierarchy: full-bleed product storytelling, restrained utility cards, generous whitespace, and clear configurator controls. This is operational UI, not promotional ornament.
+- Use Apple built-in-app hierarchy: one window toolbar, a continuous source list, stable list/detail regions, grouped rows, and quiet utility controls. Product-page storytelling is not an application-shell primitive.
 - Obsidian semantic variables own canvases, ink, borders, and status colors. Action Blue is the only product accent family.
 - No decorative gradients, chrome shadows, remote presentation assets, invented iconography, or local domain palettes.
 - Image content alone may use the canonical imagery shadow. Shared and domain chrome uses no shadow.
@@ -239,3 +239,87 @@ Workspace UI 상태는 schema `v1`로 분리한다. `prodigy.ui.workspace-state.
 ## 12. 정리 감사 (Cleanup Audit)
 
 `SYSTEM/SCRIPTS/prodigy-cleanup-audit.js`는 기본적으로 dry-run 모드로 동작하며, 실제 삭제는 `--apply`와 함께 일치하는 receipt 해시가 필요하다. 드리프트가 감지되면 실패로 종료된다. 재고 조사는 52개 플러그인과 29개 템플릿을 대상으로 했으며, 미참조 템플릿은 0개였다. `password-protection`, `table-editor-obsidian`, `SYSTEM/TEMPLATE` 루트, `SYSTEM/CACHE`는 보존되었다.
+
+## 13. Apple 기본 앱 화면·기기 계약 (Apple UI Redesign)
+
+> 이 계약은 Prodigy Hub 전용 Apple built-in-app 프레젠테이션의 단일 문서다. 실행 토큰은 `SYSTEM/Views/design-tokens.js`가 독점 공급한다. `SYSTEM/AI/Skills/prodigy-review/tests/shared/test_design_theme_contract.js`가 아래 값을 정확히 잠근다. **공식 Apple 요구와 Prodigy 프로젝트 기본값은 명확히 구분된다.**
+
+### 13.0 Prodigy-first 우선순위
+
+- **기능·정보 구조는 Prodigy OS이고, 시각 언어·레이아웃·컨트롤·상호작용은 가능한 한 Apple 기본 앱에 가깝게 구현한다.** Apple은 단순 참고나 마지막 polish가 아니라 UI 품질의 직접적인 목표다.
+- 둘이 충돌하면 Prodigy OS의 정보 구조, 사용자 흐름, 도메인 의미는 보존하되, 그것을 표현하는 화면은 macOS/iOS/iPadOS 기본 앱의 toolbar, source list, grouped rows, pane transition, typography, spacing, color, selection, button hierarchy를 최대한 충실하게 사용한다.
+- Apple 유사성을 높인다는 이유로 Morning Brief, Focus, 승인 흐름, Object 근거, Evidence·Reality·Judgement·Learning·Knowledge 연결, 다음 행동을 숨기거나 축소하거나 제거하지 않는다.
+- 화면 단순화는 핵심 정보를 없애는 작업이 아니라, Prodigy OS의 핵심 브리핑 → 판단 대상 → 근거 → 다음 행동 순서를 더 빠르게 읽게 만드는 작업이다.
+- Auction에서는 `주요 브리핑`, canonical Auction Card, Bid Calendar가 모두 핵심이다. 카드 가시성을 높이더라도 브리핑을 접거나 밀어내지 않고, 브리핑을 강조하더라도 카드와 달력의 판단·실행 기능을 약화하지 않는다.
+- 최종 시각 검토는 두 질문을 모두 통과해야 한다. 먼저 “이 화면만 보고 오늘 무엇을 판단하고 무엇을 해야 하는지 알 수 있는가”를 확인하고, 이어서 “custom Obsidian dashboard가 아니라 Apple 기본 앱처럼 보이고 작동하는가”를 독립적으로 확인한다. 어느 하나만 통과하면 실패다.
+
+### 13.1 공식 Apple 요구 vs Prodigy 프로젝트 기본값
+
+**공식 Apple 사실 (`ProdigyTokens.APPLE_SPEC`)** — Apple HIG와 기기 스펙에서 직접 가져온 값:
+
+- iPhone/iPad 기본 터치/클릭 hit target은 `44×44pt`이며 절대 최소는 `28×28pt`다.
+- macOS 네이티브 컨트롤 기본 크기는 `28×28pt`, 절대 최소는 `20×20pt`다.
+- safe area를 존중하고 `200%` 텍스트 확대(`textEnlargement: 2`)를 지원한다. iOS/iPadOS는 시스템 텍스트 확대, macOS는 브라우저 zoom을 통한다.
+- Apple은 custom button 높이/측면 여백을 단일 수치로 규정하지 않는다.
+
+**Prodigy 프로젝트 기본값 (`ProdigyTokens.DEVICE_TABLE`)** — 위 원칙을 세 기기 계열에 적용한 설계 결정:
+
+- 접근성과 cross-device consistency를 위해 모든 컨트롤은 기기와 무관하게 비중첩 `44px` hit wrapper를 갖는다. Mac의 작은 visual control(32/36px)도 44px wrapper 안에 둔다.
+- `visualHeight`/`visualSize`와 `hitTarget`/`hitSize`는 분리된 token이며, Mac wrapper는 인접 hit area와 겹치지 않고 pointer hover는 inner visual에만, keyboard focus는 wrapper 전체의 2px outline으로 드러난다.
+- 아래 기기 표의 CTA 높이·padding·gutter·radius는 Apple type/target 원칙을 Prodigy에 적용한 결정이다.
+
+### 13.2 화면 문법
+
+- 모든 Hub는 **window toolbar → continuous source list → list/detail content** 순서로 읽힌다. Markdown 제목, AppShell 제목, 화면 본문 제목을 중복하지 않으며 AppShell만 workspace title과 toolbar action을 소유한다.
+- **Home**은 macOS Home·Reminders 계열의 **source list + grouped rows** 문법이다. Morning Brief→승인된 Focus→한 개 primary action의 단일 서사를 유지하되, 반복 콘텐츠는 rounded card가 아니라 separator가 있는 row/group으로 렌더링한다.
+- **Auction**은 Reminders·Notes 계열의 **source list + auction list + selected detail** 문법이다. Today source list는 현재 범위를 선택하고, canonical Auction Card는 독립 list item 경계를 유지하며, 선택된 판단과 작업만 detail pane에 나타난다.
+- Auction의 **목록과 달력은 동일 문서의 위아래 목적지가 아니라 서로 배타적인 pane scene**이다. `홈 | 달력` 선택은 active scene을 바꾸고, sidebar·필터·선택 상태는 유지하며, 모바일에서는 scene이 전체 content region을 소유한다.
+- 장면 안에서 surface 경계는 정보 책임을 따라야 한다. source list는 하나의 연속 material, 반복 정보는 row separator, 입력·오류·독립 Auction Card만 bounded container를 사용한다. 카드 안에 다시 일반 카드를 중첩하지 않는다.
+- Hub는 Obsidian Default theme를 repository baseline으로 하며, Action Blue만 product accent family다. raw hex는 `design-tokens.js`와 이 문서에서만 선언한다.
+
+### 13.3 기기별 metric 표 (Prodigy 기본값)
+
+| 역할 | iPhone 15 Pro Max | iPad Pro 13-inch | Mac |
+| --- | --- | --- | --- |
+| Primary CTA | 50px 높이, 17px/600, line-height 1.24, 좌우 20px, radius 25px | 48px, 17px/600, 좌우 20px, radius 24px | 44px, 15px/600, 좌우 18px, radius 22px |
+| Secondary CTA | 44px, 15px/600, 좌우 16px, radius 22px | 44px, 15px/600, 좌우 16px, radius 22px | 36px visual / 44px hit, 14px/600, 좌우 14px, radius 18px |
+| Filter/utility | 44px, 15px/500, 좌우 16px | 44px, 14px/500, 좌우 16px | 32px visual / 44px hit, 13px/500, 좌우 12px |
+| Icon control | 44×44px visual/hit, 18px glyph | 44×44px, 18px glyph | 32×32px visual / 44×44px hit, 16px glyph |
+| Search/input | 48px, 17px/400, 좌우 17px | 44px, 17px/400, 좌우 17px | 36px visual / 44px hit, 13px/400, 좌우 12px |
+| Focus | 2px Action Blue outline + 2px offset | 동일 | 동일 |
+| Body / metadata | 17px/400/1.47, 14px/400/1.43 | 동일 | editorial 17px, dense 13px/400/1.23, metadata 12–13px |
+| Hero | 34px/600/1.12 | portrait 40px/600/1.10, landscape 48px/600/1.08 | 56px/600/1.07 |
+| Section / card title | 28px/600, 21px/600 | 32px/600, 21px/600 | 40px/600, 24px/600 |
+| Page gutter | 20px | portrait 32px, landscape 48px | 48px, 1440px 이상 80px |
+| Auction Card gap | 12px | 17px | 17px |
+
+### 13.4 컨테이너 tier와 safe area
+
+- layout tier는 viewport가 아니라 **측정된 `.prodigy-app-shell-body` 폭**으로 정한다. `window.innerWidth`는 layout source of truth가 아니고 private breakpoint를 추가하지 않는다.
+- tier 구간(`ProdigyTokens.CONTAINER_TIERS`): `compact ≤ 640`, `medium 641–1068`, `wide ≥ 1069`, content max `1440`.
+- 공용 canonical 반응형 경계는 `419 / 640 / 735 / 833 / 1023 / 1068 / 1440px`이며 tier는 이 경계에서 파생된다.
+- iPhone safe area·모바일 toolbar·action bar clearance를 유지해 마지막 action이 tool overlay에 덮이지 않는다. iPad split view, Mac 좁은 창, 단일 scroll owner를 유지한다.
+
+### 13.5 card boundary·typography·contrast·motion·accessibility
+
+- **Auction Card boundary**: 기본 1px semantic boundary. light/dark 값은 `ProdigyTokens.CARD_BOUNDARY`를 사용한다. card surface와 바탕은 각각 `SEMANTIC_COLORS.surface`와 `SEMANTIC_COLORS.surfaceSecondary`, dark graphite 계열은 대응 dark semantic token을 사용한다. hover는 fill/border만, focus는 2px Action Blue + offset, selected/urgent는 card separation을 대체하지 않는다.
+- **Containment budget**: Home의 일반 정보는 card를 사용하지 않는다. Morning Brief, Focus, Continue, Micro Log는 grouped row 또는 detail section이며 separator와 spacing이 경계를 만든다. Auction Card는 사용자가 요청한 case별 구분을 위해 유일한 반복 card primitive로 남는다.
+- **Action Blue family** (`ProdigyTokens.ACCENTS`): primary/focus, body link, dark-surface action/link, on-action 색상은 각각 `ACCENTS.primary`, `ACCENTS.link`, `ACCENTS.darkLink`, `ACCENTS.onAction`을 사용한다. 옛 alpha alias는 철회되어 두 blue family가 공존하지 않는다.
+- **Mac native control hierarchy**: Action Blue fill은 화면의 현재 결정에 해당하는 한 개 primary action에만 사용한다. Toolbar utility는 transparent rest + neutral hover, toolbar add/navigation은 accent text, selected source-list row는 저채도 accent tint + normal ink를 사용한다. Selection은 persistent focus outline을 사용하지 않으며, 2px outline은 `:focus-visible`일 때만 나타난다.
+- **Mac native material cadence**: source-list는 `--background-secondary`의 연속 면이고 내부 요약은 중첩된 흰 카드 대신 separator와 spacing으로 나눈다. Detail pane은 `--background-primary`, 보조 control은 theme hover/surface 역할을 사용한다. Raw blue alpha나 별도 회색 palette는 만들지 않고 `color-mix()`와 Obsidian semantic variables로 파생한다.
+- **typography**: SF Pro Display/Text system stack (원격 다운로드 없음). workspace title은 한 번만 나타나고, Mac은 window title 20–24px, section title 17–20px, body 14–15px, sidebar row 14–15px, toolbar label 13px의 계층을 사용한다. Korean/CJK 제목·버튼은 **negative tracking을 사용하지 않고** neutral tracking(`ProdigyTokens.KOREAN_TYPE.tracking === 0`) + `word-break: keep-all` + `overflow-wrap: anywhere`로 자연 줄바꿈한다.
+- **contrast**: text `≥ 4.5:1`, large text `≥ 3:1` (WCAG 1.4.3). `test_design_theme_contract.js`가 대비 쌍을 잠근다.
+- **motion**: nonessential transition/scale은 `prefers-reduced-motion`에서 제거된다. forced colors 환경에서 상태는 색상 단독이 아닌 경계·outline으로 구분된다.
+- **accessibility**: 모든 인터랙션 hit target은 `≥ 44px`, keyboard focus는 명시적 2px outline, Korean 자연 줄바꿈, 200% reflow, 단일 문서 scroll owner.
+
+### 13.6 Mac native pilot acceptance
+
+- Home 첫 화면은 실제 AppShell content bounds 안에서 full-height source list와 grouped content를 구성한다. 본문 속 floating sidebar card, 중복 `홈` 제목, 반복 rounded information card가 보이면 실패다.
+- Auction 첫 화면은 full-height Today source list와 list/detail content를 구성한다. case별 Auction Card 경계와 기존 콘텐츠·순서·동작은 유지하되 카드 내부의 보조 정보는 row hierarchy를 사용한다.
+- `달력`은 scroll-to action이 아니라 active pane scene을 바꾸는 segmented navigation이다. Calendar renderer의 월간·주간·오늘 동작은 변경하지 않는다.
+- Hub 범위에서 Obsidian inline title, properties, 불필요한 Markdown heading은 시각적으로 억제한다. Obsidian 전역 chrome은 전역 설정을 변경하지 않고 해당 Hub leaf 안에서만 조용하게 만든다.
+- Mac 파일럿은 실제 Obsidian clone 1440px light 화면에서 Home, Auction list/detail, Auction calendar의 fresh screenshot을 만들고, 해당 세 화면이 문서형 dashboard보다 built-in productivity app으로 먼저 읽힐 때만 통과한다.
+
+### 13.7 물리 기기 증거 한계
+
+물리 iPhone/iPad 실기기 검증은 `user-evidence-only gate`를 통과해야만 성공으로 주장할 수 있다. 데스크톱 폭 조절, headless logical-width harness, 스크린샷 추정은 모바일 증명으로 인정하지 않는다. 기기 성공은 실제 기기 사용자 증거가 있을 때까지 `physical_claim_status: not_proven`으로 유지된다. 다만 iOS/iPadOS `200%` 텍스트 확대와 macOS browser zoom을 통한 `200%` reflow 재검증은 각 플랫폼 입력 방식에 맞추어 수행한다.

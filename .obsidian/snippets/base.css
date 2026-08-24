@@ -2,6 +2,106 @@
     display: none;
 }
 
+/* Native Apple app pilot approval — scoped to HUB/Apple 기본 앱 UI 승인.md. */
+.markdown-preview-view.prodigy-native-approval .markdown-preview-sizer {
+    width: min(1280px, calc(100% - 48px)) !important;
+    max-width: 1280px !important;
+}
+.markdown-preview-view.prodigy-native-approval .metadata-container,
+.markdown-preview-view.prodigy-native-approval .inline-title {
+    display: none !important;
+}
+.prodigy-native-approval .native-approval-root {
+    display: grid;
+    gap: 80px;
+    padding-block: 32px 80px;
+}
+.prodigy-native-approval .native-approval-chapter {
+    display: grid;
+    gap: 12px;
+}
+.prodigy-native-approval .native-approval-kicker,
+.prodigy-native-approval .native-approval-title,
+.prodigy-native-approval .native-approval-question,
+.prodigy-native-approval .native-approval-frame {
+    margin: 0;
+}
+.prodigy-native-approval .native-approval-kicker {
+    color: var(--text-accent);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .04em;
+}
+.prodigy-native-approval .native-approval-title {
+    font-size: clamp(30px, 4vw, 44px);
+    line-height: 1.08;
+    letter-spacing: -.02em;
+}
+.prodigy-native-approval .native-approval-question {
+    max-width: 42rem;
+    color: var(--text-muted);
+    font-size: 17px;
+}
+.prodigy-native-approval .native-approval-comparison {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 16px;
+    margin-top: 20px;
+}
+.prodigy-native-approval .native-approval-frame {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 16px;
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    text-decoration: none;
+}
+.prodigy-native-approval .native-approval-frame img {
+    display: block;
+    width: 100%;
+    min-height: 360px;
+    max-height: 560px;
+    object-fit: contain;
+    background: var(--background-primary);
+}
+.prodigy-native-approval .native-approval-frame.is-pilot {
+    grid-column: span 1;
+}
+.prodigy-native-approval .native-approval-caption {
+    padding: 12px 14px 14px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+.prodigy-native-approval .native-approval-points {
+    display: grid;
+    gap: 6px;
+    margin: 4px 0 0;
+    padding-inline-start: 20px;
+    color: var(--text-muted);
+}
+.prodigy-native-approval .native-approval-decision {
+    padding: 28px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 16px;
+    background: var(--background-secondary);
+}
+.prodigy-native-approval .native-approval-decision h2,
+.prodigy-native-approval .native-approval-decision p {
+    margin: 0;
+}
+.prodigy-native-approval .native-approval-decision p {
+    margin-top: 8px;
+    color: var(--text-muted);
+}
+@media (max-width: 800px) {
+    .prodigy-native-approval .native-approval-comparison {
+        grid-template-columns: 1fr;
+    }
+}
+
 
 .hide-properties_reading {
     --metadata-display-reading: none;
@@ -13,6 +113,86 @@
 }
 
 
+/* Shared host-chrome containment for Hub notes. Scoped strictly beneath
+   .prodigy-hub-note so ordinary notes and other Hubs keep their full chrome.
+   Replaces per-note hide-properties_* and inline-title hiding with one scope. */
+.prodigy-hub-note {
+    --metadata-display-reading: none;
+    --metadata-display-editing: none;
+    --file-margins: 0px !important;
+}
+.markdown-preview-view.prodigy-hub-note,
+.markdown-source-view.prodigy-hub-note,
+.prodigy-hub-note.view-content,
+.prodigy-hub-note {
+    padding-top: 0 !important;
+    padding-block-start: 0 !important;
+    margin-top: 0 !important;
+    margin-block-start: 0 !important;
+}
+.prodigy-hub-note .metadata-container,
+.prodigy-hub-note .metadata-properties,
+.prodigy-hub-note .inline-title,
+.prodigy-hub-note .markdown-preview-pusher {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+.prodigy-hub-note .markdown-preview-sizer,
+.prodigy-hub-note .markdown-preview-section,
+.prodigy-hub-note .cm-sizer,
+.prodigy-hub-note .cm-content,
+.prodigy-hub-note .cm-scroller {
+    padding-top: 0 !important;
+    padding-block-start: 0 !important;
+    margin-top: 0 !important;
+    margin-block-start: 0 !important;
+    min-height: 0 !important;
+}
+.prodigy-hub-note .el-pre,
+.prodigy-hub-note .block-language-dataviewjs,
+.prodigy-hub-note .block-language-js-engine,
+.prodigy-hub-note .cm-embed-block {
+    margin-top: 0 !important;
+    margin-block-start: 0 !important;
+    padding-top: 0 !important;
+    padding-block-start: 0 !important;
+}
+.prodigy-hub-note .markdown-preview-section > :first-child {
+    margin-block-start: 0;
+}
+.prodigy-hub-note .markdown-preview-section > :last-child {
+    margin-block-end: 0;
+}
+
+/* Mac Hub: let the built-in-app surface own the active workspace leaf instead
+   of inheriting Obsidian's prose-width column. Compact and tablet widths remain
+   unchanged until their native-app composition is approved. */
+@media (min-width: 1069px) {
+    .markdown-preview-view.prodigy-hub-note .markdown-preview-sizer,
+    .markdown-source-view.prodigy-hub-note .cm-sizer {
+        width: min(1180px, calc(100% - 96px)) !important;
+        max-width: 1180px !important;
+        padding-top: 0 !important;
+        padding-block-start: 0 !important;
+        margin-top: 0 !important;
+    }
+    .markdown-preview-view.prodigy-hub-note .markdown-preview-section,
+    .markdown-source-view.prodigy-hub-note .cm-content {
+        width: 100% !important;
+        max-width: none !important;
+        padding-top: 0 !important;
+        padding-block-start: 0 !important;
+        margin-top: 0 !important;
+    }
+    .workspace-leaf.mod-active:has(.markdown-preview-view.prodigy-hub-note) .view-header,
+    .workspace-leaf.mod-active:has(.markdown-source-view.prodigy-hub-note) .view-header {
+        display: none !important;
+    }
+}
 
 /* THIS IS FOR AUTO HIDING PROPERTIES AND EXPANDING ON CURSOR HOVER */
 /* .metadata-properties-title {

@@ -81,31 +81,46 @@ function testDeferredCandidateStaysVisibleWithoutApprovalOrPromotion() {
   assert.deepEqual(workspace.buildHistory([saved, deferred]).items, []);
 }
 
-async function testDeferredCandidateRendersDeferredLabelInReadingHistory() {
-  // Given: the Reading store hands the view one deferred active Candidate.
+async function testReadingHistoryShowsOnlyThreeRecentSessions() {
+  // Given: Reading has more session records than the compact recent list should show.
   const root = new FakeElement("section");
+  let requestedLimit = 0;
+  let candidateReads = 0;
   const previousStore = global.ReadingStore;
   const previousCore = global.ReadingCore;
   const previousWindow = global.window;
   global.ReadingCore = {};
   global.ReadingStore = {
-    async listSessions() { return []; },
+    async listSessions(_app, limit) {
+      requestedLimit = limit;
+      return [
+        { date: "2026-08-05", book_title: "다섯째", reading_range: "5장", path: "sessions/5.md" },
+        { date: "2026-08-04", book_title: "넷째", reading_range: "4장", path: "sessions/4.md" },
+        { date: "2026-08-03", book_title: "셋째", reading_range: "3장", path: "sessions/3.md" },
+        { date: "2026-08-02", book_title: "둘째", reading_range: "2장", path: "sessions/2.md" },
+        { date: "2026-08-01", book_title: "첫째", reading_range: "1장", path: "sessions/1.md" }
+      ];
+    },
     async listCandidates() {
-      return [candidate({ candidate_id: "deferred-view-candidate", status: "needs_more_evidence", confidence: "inferred" })];
+      candidateReads += 1;
+      return [candidate()];
     }
   };
   global.window = { Notice: function Notice() {} };
 
   try {
-    // When: the Reading history surface renders that Candidate.
+    // When: the Reading history surface renders.
     await view.renderSessionHistory({ workspace: { async openLinkText() {} } }, root);
     const text = collectText(root);
 
-    // Then: the deferred state is named instead of mislabeled as a fresh proposal,
-    // and Reading still owns no approval control.
-    assert.match(text, /증거 보강/);
-    assert.equal(text.includes("제안됨"), false);
-    assert.equal(text.includes("승인"), false);
+    // Then: Reading owns only the three newest execution records, not the Candidate inbox.
+    assert.equal(requestedLimit, 3);
+    assert.equal(candidateReads, 0);
+    assert.equal((text.match(/세션 열기/g) || []).length, 3);
+    assert.match(text, /다섯째/);
+    assert.match(text, /셋째/);
+    assert.equal(text.includes("둘째"), false);
+    assert.equal(text.includes("후보: 근거"), false);
   } finally {
     global.ReadingStore = previousStore;
     global.ReadingCore = previousCore;
@@ -113,41 +128,35 @@ async function testDeferredCandidateRendersDeferredLabelInReadingHistory() {
   }
 }
 
-async function testReadingHistoryNavigatesToSharedInboxWithoutApprovalControls() {
-  // Given: Reading can load a shared active Candidate but cannot itself approve it.
+async function testReadingHistoryKeepsCandidateCreationAsTheHandoff() {
+  // Given: Reading has one completed session and a Candidate already owned by Knowledge.
   const root = new FakeElement("section");
-  const opened = [];
-  const notices = [];
   const previousStore = global.ReadingStore;
   const previousCore = global.ReadingCore;
   const previousWindow = global.window;
   global.ReadingCore = {};
   global.ReadingStore = {
-    async listSessions() { return []; },
+    async listSessions() {
+      return [{
+        date: "2026-08-05",
+        book_title: "생각을 만드는 독서",
+        reading_range: "1장",
+        path: "PARA/RESOURCES/Reading/Sessions/session.md"
+      }];
+    },
     async listCandidates() { return [candidate()]; }
   };
-  global.window = { Notice: function Notice(message) { notices.push(message); } };
-  const app = { workspace: { async openLinkText(link) { opened.push(link); } } };
+  global.window = { Notice: function Notice() {} };
 
   try {
-    // When: the Reading history surface renders and the review handoff is chosen.
-    await view.renderSessionHistory(app, root);
+    // When: the Reading history surface renders.
+    await view.renderSessionHistory({ workspace: { async openLinkText() {} } }, root);
     const text = collectText(root);
-    await findByText(root, "Knowledge Explorer에서 검토").onclick();
 
-    // Then: it shows source/quality context, delegates to the Explorer, and owns no approval UI.
-    assert.match(text, /저장됨/);
-    assert.match(text, /출처 세션/);
-    assert.match(text, /근거 품질: 사용 가능/);
-    assert.equal(text.includes("승인"), false);
-    assert.equal(text.includes("거절"), false);
-    assert.deepEqual(opened, ["HUB/50 Knowledge"]);
-
-    // When: Explorer navigation is unavailable.
-    await view.openKnowledgeExplorer({ workspace: {} });
-
-    // Then: Reading gives a compact, recoverable route without mutating the Candidate.
-    assert.deepEqual(notices, ["Knowledge Explorer를 열 수 없습니다. HUB/50 Knowledge.md에서 검토해 주세요."]);
+    // Then: it keeps the creation handoff but does not duplicate Knowledge's review queue.
+    assert.ok(findByText(root, "지식 후보 만들기"));
+    assert.equal(text.includes("Knowledge Explorer에서 검토"), false);
+    assert.equal(text.includes("후보: 근거"), false);
   } finally {
     global.ReadingStore = previousStore;
     global.ReadingCore = previousCore;
@@ -158,8 +167,8 @@ async function testReadingHistoryNavigatesToSharedInboxWithoutApprovalControls()
 async function main() {
   testCandidateProjectionPreservesLifecycleAndExcludesKnowledge();
   testDeferredCandidateStaysVisibleWithoutApprovalOrPromotion();
-  await testReadingHistoryNavigatesToSharedInboxWithoutApprovalControls();
-  await testDeferredCandidateRendersDeferredLabelInReadingHistory();
+  await testReadingHistoryShowsOnlyThreeRecentSessions();
+  await testReadingHistoryKeepsCandidateCreationAsTheHandoff();
   console.log("Reading Candidate lifecycle tests passed");
 }
 

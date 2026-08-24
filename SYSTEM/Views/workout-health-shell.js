@@ -47,12 +47,13 @@
   let responsiveParticipant = null;
 
   // Apply responsive layout classes using the mounted pane width, not the window.
-  const Whr = root.WorkoutHealthResponsive;
+    const Whr = root.WorkoutHealthResponsive;
   const measuredWidth = Number(container && (container.clientWidth || container.offsetWidth));
   const logicalWidth = Number(shellOptions.width) || measuredWidth || (typeof window !== "undefined" ? window.innerWidth : 1024);
   if (Whr && typeof Whr.applyLayout === "function") {
     Whr.applyLayout(container, logicalWidth);
-    if (typeof Whr.injectResponsiveCss === "function") Whr.injectResponsiveCss();
+    if (root.WorkoutStyles) root.WorkoutStyles.ensureStyles();
+    if (Whr && typeof Whr.injectResponsiveCss === "function") Whr.injectResponsiveCss(container.ownerDocument);
     if (shellOptions.scope && typeof shellOptions.scope.observe === "function" && typeof ResizeObserver === "function") {
       let responsiveGeneration = 0;
       const publish = (width) => {

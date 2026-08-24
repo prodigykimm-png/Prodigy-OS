@@ -14,6 +14,7 @@ const files = [
   "SYSTEM/Views/workout-health-responsive.js",
   "SYSTEM/Views/workout-nutrition-view.js",
   "SYSTEM/Views/workout-running-view.js",
+  "SYSTEM/Views/workout-styles.js",
 ];
 const source = (file) => fs.readFileSync(path.join(ROOT, file), "utf8");
 const production = () => files.map(source).join("\n");

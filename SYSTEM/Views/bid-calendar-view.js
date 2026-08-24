@@ -9,6 +9,9 @@
 
   const CSS = `
 .prodigy-bid-calendar {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 10px;
@@ -73,7 +76,7 @@
 }
 .prodigy-bid-cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
   margin-bottom: 12px;
 }
@@ -307,7 +310,63 @@
     min-height: 44px;
   }
 }
+.prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-grid,
+.prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-dow {
+  display: none;
+}
+:root[style*="zoom: 2"] .prodigy-app-shell[data-tier="compact"] .prodigy-bid-calendar {
+  min-inline-size: 0;
+  padding-inline: var(--ke-space-2, 8px);
+}
+:root[style*="zoom: 2"] .prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+:root[style*="zoom: 2"] .prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-title,
+:root[style*="zoom: 2"] .prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-nav,
+:root[style*="zoom: 2"] .prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-modes {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+:root[style*="zoom: 2"] .prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-title {
+  inline-size: 100%;
+}
+:root[style*="zoom: 2"] .prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-nav,
+:root[style*="zoom: 2"] .prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-modes {
+  display: flex;
+  flex-wrap: wrap;
+}
+:root[style*="zoom: 2"] .prodigy-app-shell[data-tier="compact"] .prodigy-bid-cal-agenda-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ke-space-1, 4px);
+  white-space: normal;
+}
 @media (max-width: ${compactMax}px) {
+  .prodigy-bid-calendar {
+    padding-inline: 8px;
+  }
+  .prodigy-bid-cal-header,
+  .prodigy-bid-cal-nav,
+  .prodigy-bid-cal-modes {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .prodigy-bid-cal-header {
+    align-items: stretch;
+  }
+  .prodigy-bid-cal-title {
+    flex-basis: 100%;
+  }
+  .prodigy-bid-cal-nav,
+  .prodigy-bid-cal-modes {
+    flex: 1 1 auto;
+  }
+  .prodigy-bid-cal-grid {
+    display: none;
+  }
+  .prodigy-bid-cal-dow { display: none; }
   .prodigy-bid-cal-nav button,
   .prodigy-bid-cal-modes button,
   .prodigy-bid-cal-item-open,

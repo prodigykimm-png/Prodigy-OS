@@ -6,7 +6,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
-const paths = ["HUB/40 Project.md", "SYSTEM/Views/project-card.js", "SYSTEM/Views/project-wizard.js"];
+const paths = ["HUB/40 Project.md", "SYSTEM/Views/project-card.js", "SYSTEM/Views/project-styles.js", "SYSTEM/Views/project-wizard.js"];
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), "utf8");
 
 function validateProjectPresentation(sources) {
@@ -29,11 +29,13 @@ function validateProjectPresentation(sources) {
   assert.match(joined, /var\(--ke-space-/);
   assert.match(joined, /var\(--ke-radius-/);
   assert.match(joined, /var\(--ke-touch-target/);
-  assert.match(sources["SYSTEM/Views/project-wizard.js"], /min-inline-size:\s*var\(--ke-touch-target/);
-  assert.match(sources["SYSTEM/Views/project-wizard.js"], /box-shadow:\s*none\s*!important/);
+  assert.match(sources["SYSTEM/Views/project-styles.js"], /min-inline-size:\s*var\(--ke-touch-target/);
+  assert.match(sources["SYSTEM/Views/project-styles.js"], /box-shadow:\s*none\s*!important/);
   assert.match(sources["HUB/40 Project.md"], /prodigy-project-today prodigy-full-bleed/);
   assert.match(sources["HUB/40 Project.md"], /prodigy-project-pipeline prodigy-utility-card/);
   assert.match(sources["SYSTEM/Views/project-card.js"], /prodigy-utility-card/);
+  assert.match(sources["SYSTEM/Views/project-card.js"], /text:\s*projectTypeLabel\(projectType\)/);
+  assert.doesNotMatch(sources["SYSTEM/Views/project-card.js"], /text:\s*projectTypeLabel\s*,/);
   assert.match(sources["SYSTEM/Views/project-wizard.js"], /prodigy-utility-card/);
   assert.match(joined, /focus-visible/);
   assert.match(joined, /forced-colors:\s*active/);

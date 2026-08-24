@@ -85,11 +85,11 @@ async function testModalStatesAndNavigation() {
   await open.onclick();
   assert.deepEqual(notices, ["원본 독서 기록을 찾을 수 없습니다."]);
   assert.equal(collectText(modal.contentEl).includes(related.path), false);
-  const css = modal.contentEl.children.find((child) => child.tag === "style").text;
-  assert.match(css, /@media\(max-width:\d+px\)/);
+  const css = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-styles.js"), "utf8");
+  assert.match(css, /@media\s*\(\s*max-width:\s*(?:\d+|\$\{compactMax\})px\s*\)/);
   assert.match(fs.readFileSync(VIEW_PATH, "utf8"), /RESPONSIVE_BREAKPOINTS.*compactMax/);
-  assert.match(css, /overflow-y:auto/);
-  assert.match(css, /min-height:44px/);
+  assert.match(css, /overflow-y:\s*auto/);
+  assert.match(css, /min-(?:height|block-size):\s*(?:var\(--ke-touch-target(?:,[^)]*44px)?\)|44px)/);
 }
 
 async function testMalformedCandidateIsSkipped() {

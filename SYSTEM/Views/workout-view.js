@@ -263,7 +263,7 @@
     const wrap = parent.createDiv({ attr: { class: "workout-target-filter" } });
     wrap.createEl("div", {
       text: options.label || "부위 (target)",
-      attr: { class: "workout-muted", style: "margin-bottom:var(--ke-space-2);font-weight:650;" }
+      attr: { class: "workout-muted workout-target-filter-label" }
     });
     const row = wrap.createDiv({ attr: { class: "workout-target-chips" } });
     const paint = () => {
@@ -448,19 +448,19 @@
     if (cont.progress_label) {
       box.createEl("div", {
         text: cont.progress_label,
-        attr: { class: "workout-muted", style: "font-weight:700;" }
+        attr: { class: "workout-muted workout-continue-reason-label" }
       });
     }
     if (cont.reason) {
       const r = box.createDiv({ attr: { class: "workout-continue-reason" } });
-      r.createEl("span", { text: "이유 ", attr: { style: "font-weight:700;color:var(--ke-color-muted);" } });
+      r.createEl("span", { text: "이유 ", attr: { class: "workout-continue-reason-label" } });
       r.createEl("span", { text: cont.reason });
     }
     if (state.metrics && state.metrics.length) {
       const bits = state.metrics.map(([k, v]) => `${k} ${v}`).join(" · ");
-      box.createEl("div", { text: bits, attr: { class: "workout-muted", style: "margin-top:var(--ke-space-2);" } });
+      box.createEl("div", { text: bits, attr: { class: "workout-muted workout-continue-metrics" } });
     }
-    const actions = box.createDiv({ attr: { class: "workout-inline-actions", style: "margin-top:var(--ke-space-3);" } });
+    const actions = box.createDiv({ attr: { class: "workout-inline-actions workout-inline-actions-mt3" } });
     if (cont.kind === "resume_draft") {
       button(actions, "이어서 기록", true).onclick = () => {
         const el = parent.querySelector && parent.querySelector(".workout-session-live");
@@ -985,57 +985,9 @@
   const ImportProgramModal = M.ImportProgramModal;
 
   function injectStyles(container) {
-    container.createEl("style", { text: `
-.prodigy-workout-dashboard{max-inline-size:100%;min-inline-size:0;padding-block-end:var(--ke-space-7);font-family:var(--ke-font-text);font-size:var(--ke-type-body);line-height:var(--ke-leading-body);word-break:keep-all;overflow-wrap:anywhere}
-.prodigy-workout-dashboard *{box-sizing:border-box;min-inline-size:0}
-.prodigy-workout-dashboard :is(button,input,select,textarea){min-inline-size:var(--ke-touch-target);min-block-size:var(--ke-touch-target);max-inline-size:100%;box-shadow:none!important}
-.workout-toolbar,.workout-inline-actions,.workout-modal-actions,.workout-metrics,.workout-nutrition-actions,.workout-running-actions,.workout-rest-controls,.workout-target-chips{display:flex;align-items:center;flex-wrap:wrap;gap:var(--ke-space-2);min-inline-size:0;max-inline-size:100%}
-.workout-toolbar,.workout-modal-actions{justify-content:flex-end;margin-block:var(--ke-space-3)}
-.workout-button{font:inherit;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
-.workout-button:active,.workout-health-tab:active,.workout-exercise-link:active{transform:scale(0.95)}
-.workout-button:disabled,.workout-health-tab:disabled{opacity:var(--ke-opacity-disabled);cursor:not-allowed;transform:none}
-.workout-button:focus-visible,.workout-health-tab:focus-visible,.workout-exercise-link:focus-visible,.workout-exercise-note-link:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:var(--ke-focus-ring-width) solid var(--ke-color-accent);outline-offset:var(--ke-space-1)}
-.workout-section{padding-block:var(--ke-space-5);border-block-end:var(--ke-border-width) solid var(--ke-color-border)}
-.workout-section h2,.workout-section h3,.workout-start-path h3,.workout-running-latest h3{margin:0;font-family:var(--ke-font-display);font-size:var(--ke-type-heading);line-height:var(--ke-leading-control);font-weight:var(--ke-font-weight-strong)}
-.workout-section-copy,.workout-muted,.workout-empty,.workout-previous,.workout-record-strip,.workout-error{font-size:var(--ke-type-label);line-height:var(--ke-leading-body);color:var(--ke-color-muted);overflow-wrap:anywhere}
-.workout-error,[data-state="error"]{color:var(--ke-color-error)}
-.workout-panel-loading,[data-state="loading"],[aria-busy="true"]{cursor:progress}
-.workout-empty,[data-state="empty"]{color:var(--ke-color-muted)}
-.workout-current,.workout-library-row,.workout-history-row,.workout-exercise-heading,.workout-running-history-row{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--ke-space-3)}
-.workout-start-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr));gap:var(--ke-space-3)}
-.workout-start-path,.workout-exercise-card,.workout-running-latest,.workout-import-replace,.workout-exercise-body{padding:var(--ke-space-4);border:var(--ke-border-width) solid var(--ke-color-border);border-radius:var(--ke-radius-configurator);background:var(--ke-color-surface-secondary)}
-.workout-session-live{inline-size:100%;margin-inline:0;padding-inline:var(--ke-space-4);scroll-margin-block-start:var(--ke-space-5)}
-.workout-session-bar{position:sticky;inset-block-start:0;z-index:10;display:flex;align-items:center;flex-wrap:wrap;gap:var(--ke-space-3);padding:var(--ke-space-3);background:var(--ke-color-surface);border-block-end:var(--ke-border-width) solid var(--ke-color-border)}
-.workout-session-bar-info{display:flex;align-items:baseline;gap:var(--ke-space-2);flex:1}
-.workout-progress{margin-block-start:var(--ke-space-2)}
-.workout-progress-track{block-size:var(--ke-space-2);border-radius:var(--ke-radius-pill);background:var(--ke-color-border)}
-.workout-progress-fill{block-size:100%;border-radius:inherit;background:var(--ke-color-interactive)}
-.workout-set-list,.workout-library-row,.workout-history-row,.workout-editor-day,.workout-editor-exercise,.workout-nutrition-meal{border-block-start:var(--ke-border-width) solid var(--ke-color-border)}
-.workout-set-row{display:grid;grid-template-columns:var(--ke-touch-target) minmax(0,1fr);align-items:center;gap:var(--ke-space-2);padding-block:var(--ke-space-3)}
-.workout-set-fields,.workout-set-fields-min,.workout-modal-grid,.workout-editor-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:var(--ke-space-2);grid-column:1/-1}
-.workout-field{display:grid;gap:var(--ke-space-1)}
-.workout-field label,.workout-nutrition-chip-label,.workout-running-stat-label{font-size:var(--ke-type-label);color:var(--ke-color-muted)}
-.workout-field input,.workout-field textarea,.workout-modal input,.workout-modal select,.workout-modal textarea{inline-size:100%;min-block-size:var(--ke-touch-target)}
-.workout-chip-btn,.workout-health-tab,.workout-nutrition-source-tag,.workout-running-legacy-tag,.workout-running-summary-tag{border-radius:var(--ke-radius-pill)}
-.workout-health-tablist{display:flex;flex-wrap:wrap;gap:var(--ke-space-1);border-block-end:var(--ke-border-width) solid var(--ke-color-border)}
-.workout-health-tab{min-block-size:var(--ke-touch-target);padding-inline:var(--ke-space-4);border:0;background:transparent;color:var(--ke-color-muted);font:inherit;cursor:pointer}
-.workout-health-tab[aria-selected="true"],.workout-health-tab.is-active{color:var(--ke-color-interactive);border-block-end:var(--ke-focus-ring-width) solid var(--ke-color-interactive)}
-.workout-nutrition-summary,.workout-running-stats,.workout-running-trend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));gap:var(--ke-space-2)}
-.workout-nutrition-chip,.workout-running-stat,.workout-running-trend-cell{display:grid;justify-items:center;gap:var(--ke-space-1);padding:var(--ke-space-3);background:var(--ke-color-surface-secondary);border-radius:var(--ke-radius-configurator)}
-.workout-running-split-table,.workout-import-table{inline-size:100%;table-layout:fixed;border-collapse:collapse}
-.workout-running-split-table th,.workout-running-split-table td,.workout-import-table th,.workout-import-table td{padding:var(--ke-space-2);border-block-end:var(--ke-border-width) solid var(--ke-color-border);text-align:start}
-.workout-import-details,.workout-editor-days,.workout-exercise-body,.workout-replace-list{max-block-size:none;overflow:visible}
-.workout-modal{max-inline-size:min(100%,42rem)}.workout-program-editor{max-inline-size:min(100%,55rem)}
-.workout-day-chooser,.workout-editor-heading,.workout-editor-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--ke-space-2)}
-.workout-editor-set,.workout-editor-day-head{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));gap:var(--ke-space-2)}
-.workout-exercise-link,.workout-exercise-note-link{min-block-size:var(--ke-touch-target);display:inline-flex;align-items:center;border:0;background:transparent;color:var(--ke-color-interactive);font:inherit;cursor:pointer}
-.workout-rest-timer[hidden]{display:none}
-.workout-rest-label{font-variant-numeric:tabular-nums;color:var(--ke-color-interactive);font-weight:var(--ke-font-weight-strong)}
-.whr-compact .workout-section.prodigy-utility-card{padding-inline:var(--ke-space-2)}
-.whr-compact .workout-start-path.prodigy-utility-card{padding:var(--ke-space-1)}
-@media(forced-colors:active){.workout-progress-fill,.workout-health-tab[aria-selected="true"],.workout-health-tab.is-active{forced-color-adjust:auto}.workout-button:focus-visible,.workout-health-tab:focus-visible{outline-color:Highlight}}
-@media(prefers-reduced-motion:reduce){.prodigy-workout-dashboard *{animation:none!important;transition:none!important;scroll-behavior:auto!important}.workout-button:active,.workout-health-tab:active,.workout-exercise-link:active{transform:none}}
-` });
+    if (root.WorkoutStyles && typeof root.WorkoutStyles.ensureStyles === "function") {
+      root.WorkoutStyles.ensureStyles();
+    }
   }
 
   // ─── Workout v2: Analysis & Observation Section (Todo 10) ─────────────
@@ -1058,7 +1010,7 @@
 
     // Top exercises by volume
     if (vol.by_exercise.length) {
-      area.createEl("h3", { text: "운동별 볼륨", attr: { style: "margin:var(--ke-space-3) 0 var(--ke-space-2);font-size:var(--ke-type-heading);line-height:var(--ke-leading-body);letter-spacing:0;" } });
+      area.createEl("h3", { text: "운동별 볼륨", attr: { class: "workout-analysis-heading" } });
       vol.by_exercise.slice(0, 5).forEach((ex) => {
         const row = area.createDiv({ attr: { class: "workout-history-row" } });
         row.createEl("strong", { text: ex.name });
@@ -1074,7 +1026,7 @@
       const catalog = exerciseLibrary.createLibrary();
       const dist = analysis.sessionMuscleDistribution(latest, catalog);
       if (dist.length) {
-        area.createEl("h3", { text: "최근 세션 근육 분포", attr: { style: "margin:var(--ke-space-3) 0 var(--ke-space-2);font-size:var(--ke-type-heading);line-height:var(--ke-leading-body);letter-spacing:0;" } });
+        area.createEl("h3", { text: "최근 세션 근육 분포", attr: { class: "workout-analysis-heading" } });
         const distRow = area.createDiv({ attr: { class: "workout-metrics" } });
         dist.slice(0, 6).forEach((d) => {
           const chip = distRow.createDiv({ attr: { class: "workout-metric" } });
@@ -1090,7 +1042,7 @@
     const noteInput = area.createEl("textarea", {
       attr: { placeholder: "오늘 운동 관측을 적어 주세요. 예: 스쿼트 3세트에서 좌우 불균형 느껴짐", rows: "3", class: "workout-observation-input" }
     });
-    const actions = area.createDiv({ attr: { class: "workout-inline-actions", style: "margin-top:var(--ke-space-2);" } });
+    const actions = area.createDiv({ attr: { class: "workout-inline-actions workout-inline-actions-mt2" } });
     button(actions, "관측 저장", true).onclick = async () => {
       const text = String(noteInput.value || "").trim();
       if (!text) return notice("관측 내용을 입력해 주세요.");

@@ -11,6 +11,7 @@ const files = [
   "SYSTEM/Views/people-styles.js",
   "SYSTEM/Views/people-view.js",
   "SYSTEM/Views/people-context-render.js",
+  "SYSTEM/Views/venue-styles.js",
   "SYSTEM/Views/venue-view.js",
 ];
 const source = (file) => fs.readFileSync(path.join(ROOT, file), "utf8");
@@ -33,12 +34,12 @@ test("Personal presentation consumes shared Apple roles without local chrome", (
   assert.match(text, /var\(--ke-touch-target/);
   assert.match(text, /box-shadow:none/);
   assert.match(text, /\.ppw-trash\.ppw-trash,\.ppw-memo-del\.ppw-memo-del\{[^}]*box-shadow:none/, "People icon controls must outrank Obsidian's native button shadow");
-  assert.match(text, /\.ppv-venue-search\.ppv-venue-search,\.ppv-venue-select\.ppv-venue-select[^}]*box-shadow:none/, "Venue form controls must outrank Obsidian's native control shadow");
-  assert.match(text, /\.ppv-venue-select\{[^}]*flex:1 1 10rem[^}]*max-inline-size:100%/, "Venue selects must wrap and shrink at 200% zoom");
-  assert.match(text, /@media\(max-width:\$\{venueSinglePaneMax\(\)\}px\)\{[^}]*\.ppv-venue-toolbar-row\{display:grid;grid-template-columns:minmax\(0,1fr\)/, "Venue filter rows must have stable single-column geometry at compact and 200% zoom widths");
-  assert.match(text, /@media\(max-width:480px\)\{\.prodigy-app-shell\[data-workspace-id="personal"\]>.prodigy-workspace-bar\{padding-inline:4px\}\.prodigy-app-shell\[data-workspace-id="personal"\] \.ppv-venue-toolbar\{padding-inline:4px\}\}/, "Personal must return owned bar and filter width at 200% zoom");
-  assert.match(text, /\.ppw-detail-back\{display:inline-flex\}/, "People Back exists only while the single pane is active and must remain measurable");
-  assert.match(text, /\.ppv-venue-detail-back\{display:inline-flex\}/, "Venue Back exists only while the single pane is active and must remain measurable");
+  assert.match(text, /\.ppv-venue-search\.ppv-venue-search,\s*\.ppv-venue-select\.ppv-venue-select[^{}]*\{[^}]*box-shadow\s*:\s*none/, "Venue form controls must outrank Obsidian's native control shadow");
+  assert.match(text, /\.ppv-venue-select\s*\{[^}]*flex:\s*1 1 10rem[^}]*max-inline-size:\s*100%/, "Venue selects must wrap and shrink at 200% zoom");
+  assert.match(text, /@media\s*\(\s*max-width:\s*\$\{(?:venueSinglePaneMax\(\)|singlePaneMax)\}px\s*\)\s*\{[\s\S]*?\.ppv-venue-toolbar-row\s*\{\s*display:\s*grid;\s*grid-template-columns:\s*minmax\(0,\s*1fr\)/, "Venue filter rows must have stable single-column geometry at compact and 200% zoom widths");
+  assert.match(text, /@media\s*\(\s*max-width:\s*480px\s*\)\s*\{[\s\S]*?\.prodigy-app-shell\[data-workspace-id="personal"\]\s*>\s*\.prodigy-workspace-bar\s*\{\s*padding-inline:\s*4px[\s\S]*?\.prodigy-app-shell\[data-workspace-id="personal"\] \.ppv-venue-toolbar\s*\{\s*padding-inline:\s*4px/, "Personal must return owned bar and filter width at 200% zoom");
+  assert.match(text, /\.ppw-detail-back\s*\{\s*display:\s*inline-flex/, "People Back exists only while the single pane is active and must remain measurable");
+  assert.match(text, /\.ppv-venue-detail-back\s*\{\s*display:\s*inline-flex/, "Venue Back exists only while the single pane is active and must remain measurable");
   assert.doesNotMatch(text, /detail-back\{display:none\}/, "conditionally mounted Back controls must not be synthetically hidden");
   assert.match(text, /\.ppw-name[^}]*min-block-size:var\(--ke-touch-target\)/);
   assert.match(text, /:focus-visible/);

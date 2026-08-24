@@ -10,6 +10,7 @@ const FILES = [
   "HUB/70 Journal.md",
   "SYSTEM/Views/journal-dashboard-view.js",
   "SYSTEM/Views/journal-period-view.js",
+  "SYSTEM/Views/journal-styles.js",
   "SYSTEM/Views/weekly-filter-styles.js",
   "SYSTEM/Views/monthly-validation-view.js",
   "SYSTEM/Views/daily-reflection-modal-styles.js",
@@ -21,9 +22,12 @@ const source = FILES.map(file => fs.readFileSync(path.join(ROOT, file), "utf8"))
 const shellSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-app-shell.js"), "utf8");
 const periodSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/journal-period-view.js"), "utf8");
 const dashboardSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/journal-dashboard-view.js"), "utf8");
+const stylesSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/journal-styles.js"), "utf8");
 
 function assertPresentationContract(css) {
-  assert.doesNotMatch(css, /box-shadow\s*:\s*(?!none\b)[^;]+/i, "private shadow grammar is forbidden");
+  for (const declaration of css.matchAll(/box-shadow\s*:\s*([^;}]+)/gi)) {
+    assert.match(declaration[1].trim(), /^none(?:\s*!important)?$/i, "private shadow grammar is forbidden");
+  }
   assert.doesNotMatch(css, /(?:linear|radial|conic)-gradient\s*\(/i);
   assert.doesNotMatch(css, /url\s*\(\s*["']?https?:/i);
   assert.doesNotMatch(css, /--ke-(?:type|leading|radius|space|touch|control|panel)-(?:[\w-]+)\s*:/i, "private type/radius/spacing grammar is forbidden");
@@ -58,12 +62,12 @@ test("Journal presentation retains shared focus, forced-color, reduced-motion, a
 });
 
 test("owned Journal controls override native Obsidian geometry and chrome without a horizontal scroller", () => {
-  assert.match(periodSource, /\.journal-period-tabs \.prodigy-adaptive-tabs\{[^}]*flex-wrap:wrap[^}]*overflow:visible/);
-  assert.match(periodSource, /\.journal-period-tabs \.prodigy-adaptive-tab\{[^}]*min-inline-size:44px[^}]*min-block-size:44px[^}]*block-size:auto[^}]*box-shadow:none/);
-  assert.doesNotMatch(periodSource, /\.journal-period-tabs \.prodigy-adaptive-tabs\{[^}]*overflow-x:(?:auto|scroll)/);
-  assert.match(dashboardSource, /\.prodigy-journal-workspace button\.prodigy-btn\{[^}]*min-inline-size:44px[^}]*min-block-size:44px[^}]*block-size:auto[^}]*box-shadow:none/);
-  assert.match(dashboardSource, /\.journal-date-nav input\[type=date\]\{[^}]*min-inline-size:44px[^}]*min-block-size:44px[^}]*block-size:auto/);
-  assert.match(dashboardSource, /@media\(max-width:480px\)\{\.prodigy-app-shell\[data-workspace-id="journal"\]>.prodigy-workspace-bar\{padding-inline:4px\}\.prodigy-app-shell\[data-workspace-id="journal"\] \.journal-card:not\(\.prodigy-full-bleed\)\{padding-inline:2px\}\}/);
+  assert.match(stylesSource, /\.journal-period-tabs \.prodigy-adaptive-tabs\s*\{[^}]*flex-wrap:\s*wrap[^}]*overflow:\s*visible/);
+  assert.match(stylesSource, /\.journal-period-tabs \.prodigy-adaptive-tab\s*\{[^}]*min-inline-size:[^;]*44px[^}]*min-block-size:[^;]*44px[^}]*block-size:\s*auto[^}]*box-shadow:\s*none/);
+  assert.doesNotMatch(stylesSource, /\.journal-period-tabs \.prodigy-adaptive-tabs\s*\{[^}]*overflow-x:\s*(?:auto|scroll)/);
+  assert.match(stylesSource, /\.prodigy-journal-workspace button\.prodigy-btn[^{}]*\{[^}]*min-inline-size:[^;]*44px[^}]*min-block-size:[^;]*44px[^}]*block-size:\s*auto[^}]*box-shadow:\s*none/);
+  assert.match(stylesSource, /\.journal-date-nav input\[type=date\]\s*\{[^}]*min-inline-size:[^;]*44px[^}]*min-block-size:[^;]*44px[^}]*block-size:\s*auto/);
+  assert.match(stylesSource, /@media\(max-width:\s*480px\)\s*\{[\s\S]*?\.prodigy-app-shell\[data-workspace-id="journal"\]\s*>\s*\.prodigy-workspace-bar\s*\{\s*padding-inline:\s*4px[\s\S]*?\.prodigy-app-shell\[data-workspace-id="journal"\] \.journal-card:not\(\.prodigy-full-bleed\)\s*\{\s*padding-inline:\s*2px/);
 });
 
 test("Journal delegates iPad vertical scrolling to the enclosing Markdown preview", () => {

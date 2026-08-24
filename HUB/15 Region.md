@@ -1,10 +1,8 @@
 ---
 cssclasses:
+  - prodigy-hub-note
   - hide-properties_reading
 ---
-
-# 지역 비교
-
 ```dataviewjs
 if (!this.container) return;
 this.container.empty();
@@ -53,6 +51,7 @@ RegionExplorerHub.modulePaths = [
   "SYSTEM/Views/region-explorer-projection.js",
   "SYSTEM/Views/region-explorer-data-source.js",
   "SYSTEM/Views/region-explorer-state.js",
+  "SYSTEM/Views/region-styles.js",
   "SYSTEM/Views/region-explorer-view.js",
   "SYSTEM/Views/auction-region-core.js",
   "SYSTEM/Views/region-collection-health-core.js",
