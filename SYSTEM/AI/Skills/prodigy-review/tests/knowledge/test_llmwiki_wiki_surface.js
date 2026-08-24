@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const registry = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-registry.js"));
 const adapter = require(path.join(ROOT, "SYSTEM/Views/llmwiki-wiki-read-adapter.js"));
 const surfaceApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-wiki-surface.js"));
+const stylesApi = require(path.join(ROOT, "SYSTEM/Views/knowledge-styles.js"));
 
 function fakeDocument() {
   let document;
@@ -55,6 +56,74 @@ function snapshot() {
     candidates: [{ type: "knowledge_candidate", path: "PARA/RESOURCES/Knowledge/Candidates/pending.md", title: "Pending", statement: "Pending statement", suggested_domain: "coding", suggested_topics: ["ai"], status: "saved", mtime: 20 }],
   });
 }
+
+function descendants(root) {
+  return [root, ...(root && Array.isArray(root.children) ? root.children.flatMap(descendants) : [])];
+}
+
+test("clicking a knowledge result opens hydrated detail in an Obsidian modal", async () => {
+  const { document, container } = fakeDocument();
+  const modals = [];
+  class FakeModal {
+    constructor() {
+      this.modalEl = document.createElement("div");
+      this.contentEl = document.createElement("div");
+      this.modalEl.appendChild(this.contentEl);
+      modals.push(this);
+    }
+    open() {
+      this.opened = true;
+      if (typeof this.onOpen === "function") this.onOpen();
+    }
+    close() {
+      this.opened = false;
+      if (typeof this.onClose === "function") this.onClose();
+    }
+  }
+  const readService = {
+    browseRead(input) {
+      return adapter.browseRead({ ...input, registry });
+    },
+    hydrateBody(input) {
+      return Promise.resolve({ ok: true, status: "ready", path: input.path, body: "popup body", writer_count: 0, provider_count: 0 });
+    },
+  };
+  const previousDocument = global.document;
+  global.document = document;
+  try {
+    const surface = surfaceApi.mountLlmWikiWikiSurface({
+      app: {},
+      container,
+      snapshot: snapshot(),
+      readAdapter: adapter,
+      readService,
+      obsidian: { Modal: FakeModal },
+    });
+    surface.setMode("verified");
+    const resultButton = descendants(container).find((node) => node.attributes && node.attributes.class === "llmwiki-wiki-surface__result");
+    assert.ok(resultButton);
+    resultButton.onclick();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(modals.length, 1);
+    assert.equal(modals[0].opened, true);
+    const modalText = descendants(modals[0].contentEl).map((node) => node.textContent).filter(Boolean).join(" ");
+    assert.match(modalText, /Alpha/u);
+    assert.match(modalText, /popup body/u);
+    assert.equal(descendants(container).some((node) => node.attributes && node.attributes["data-component"] === "WikiDetailPane"), false);
+    modals[0].close();
+    assert.equal(surface.getState().selection.path, null);
+  } finally {
+    global.document = previousDocument;
+  }
+});
+
+test("compact modal keeps its sticky close footer inside the native dialog", () => {
+  const { document } = fakeDocument();
+  stylesApi.ensureStyles(document);
+  const css = document.head.children.find((node) => node.attributes && node.attributes["data-knowledge-styles"] !== undefined).textContent;
+  assert.match(css, /\.llmwiki-wiki-detail-modal__article\s*\{[^}]*grid-template-rows:\s*auto minmax\(0,\s*1fr\) auto;[^}]*max-block-size:\s*80vh;/u);
+  assert.doesNotMatch(css, /\.llmwiki-wiki-detail-modal__article\s*\{\s*max-block-size:\s*(?:8[1-9]|9\d|100)vh/u);
+});
 
 test("fourth-tab browse surface renders read-only facets, selection, and hydrated detail", async () => {
   const { document, container } = fakeDocument();

@@ -954,6 +954,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       })
     });
     llmWikiWikiSurface = window.LLMWikiWikiSurface.mountLlmWikiWikiSurface({
+      app: appRef,
+      obsidian: obsidianRef,
       container: browsePanel,
       readAdapter: window.LLMWikiWikiReadAdapter,
       readService: llmWikiReadService,

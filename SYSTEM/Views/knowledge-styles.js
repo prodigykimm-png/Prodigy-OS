@@ -176,26 +176,69 @@
       .llmwiki-approval-review__conflict, .llmwiki-approval-review__notice[data-state="error"] { color: var(--text-error); }
       .llmwiki-wiki-surface, .llmwiki-wiki-surface * { box-sizing: border-box; }
       .llmwiki-wiki-surface { display: grid; gap: var(--ke-space-3, 12px); inline-size: 100%; max-inline-size: 100%; min-inline-size: 0; color: var(--text-normal); line-height: var(--ke-leading-body, 1.45); }
-      .llmwiki-wiki-surface__header, .llmwiki-wiki-surface__controls, .llmwiki-wiki-surface__content, .llmwiki-wiki-surface__detail { min-inline-size: 0; max-inline-size: 100%; }
-      .llmwiki-wiki-surface__header h2, .llmwiki-wiki-surface__header p, .llmwiki-wiki-surface__detail h3, .llmwiki-wiki-surface__detail p { margin: 0; overflow-wrap: anywhere; word-break: keep-all; }
+      .llmwiki-wiki-surface__header, .llmwiki-wiki-surface__controls, .llmwiki-wiki-surface__content { min-inline-size: 0; max-inline-size: 100%; }
+      .llmwiki-wiki-surface__header h2, .llmwiki-wiki-surface__header p { margin: 0; overflow-wrap: anywhere; word-break: keep-all; }
       .llmwiki-wiki-surface__controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ke-space-2, 8px); align-items: end; }
       .llmwiki-wiki-surface__search, .llmwiki-wiki-surface__filters { display: flex; flex-wrap: wrap; gap: var(--ke-space-2, 8px); min-inline-size: 0; }
       .llmwiki-wiki-surface input, .llmwiki-wiki-surface select, .llmwiki-wiki-surface button { min-block-size: var(--ke-touch-target, ${touchTarget}px); max-inline-size: 100%; min-inline-size: 0; font: inherit; }
       .llmwiki-wiki-surface button { cursor: pointer; }
       .llmwiki-wiki-surface button:focus-visible, .llmwiki-wiki-surface input:focus-visible, .llmwiki-wiki-surface select:focus-visible { outline: 2px solid var(--ke-color-accent, var(--text-accent)); outline-offset: 2px; }
       .llmwiki-wiki-surface__content { display: grid; grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr); gap: var(--ke-space-3, 12px); }
-      .llmwiki-wiki-surface__facet-rail, .llmwiki-wiki-surface__results, .llmwiki-wiki-surface__detail { min-inline-size: 0; }
+      .llmwiki-wiki-surface__facet-rail, .llmwiki-wiki-surface__results { min-inline-size: 0; }
       .llmwiki-wiki-surface__facet-rail, .llmwiki-wiki-surface__facet-group, .llmwiki-wiki-surface__result-list { display: grid; align-content: start; gap: var(--ke-space-2, 8px); }
       .llmwiki-wiki-surface__facet-button, .llmwiki-wiki-surface__result { inline-size: 100%; text-align: start; }
       .llmwiki-wiki-surface__result-list { list-style: none; margin: 0; padding: 0; }
       .llmwiki-wiki-surface__result { display: grid; gap: 2px; padding: var(--ke-space-2, 8px); border: 1px solid transparent; background: var(--background-secondary); }
-      .llmwiki-wiki-surface__result[aria-current="true"], .llmwiki-wiki-surface__facet-button[aria-pressed="true"] { border-color: var(--ke-color-accent, var(--text-accent)); }
+      .llmwiki-wiki-surface__result[aria-expanded="true"], .llmwiki-wiki-surface__facet-button[aria-pressed="true"] { border-color: var(--ke-color-accent, var(--text-accent)); }
       .llmwiki-wiki-surface__result-title { font-weight: 700; }
       .llmwiki-wiki-surface__result-title, .llmwiki-wiki-surface__result-meta, .llmwiki-wiki-surface__muted, .llmwiki-wiki-surface__body { min-inline-size: 0; overflow-wrap: anywhere; word-break: keep-all; }
       .llmwiki-wiki-surface__result-meta, .llmwiki-wiki-surface__muted { color: var(--text-muted); }
       .llmwiki-wiki-surface__body { white-space: pre-wrap; }
       .llmwiki-wiki-surface__status { padding: var(--ke-space-2, 8px); border-inline-start: 3px solid var(--ke-color-accent, var(--text-accent)); color: var(--text-muted); }
       .llmwiki-wiki-surface__status[data-state="error"], .llmwiki-wiki-surface__status[data-state="stale"] { border-inline-start-color: var(--text-error); color: var(--text-error); }
+      .llmwiki-wiki-detail-modal {
+        inline-size: min(52rem, calc(100vw - var(--ke-space-6, 32px)));
+        max-inline-size: calc(100vw - var(--ke-space-6, 32px));
+      }
+      .llmwiki-wiki-detail-modal .modal-content.llmwiki-wiki-detail-modal__content {
+        min-inline-size: 0; padding: 0; overflow: hidden;
+        color: var(--text-normal); line-height: var(--ke-leading-body, 1.45);
+      }
+      .llmwiki-wiki-detail-modal__article {
+        display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+        max-block-size: 80vh; min-inline-size: 0;
+      }
+      .llmwiki-wiki-detail-modal__header {
+        display: grid; gap: var(--ke-space-1, 4px); min-inline-size: 0;
+        padding: var(--ke-space-5, 24px) var(--ke-space-7, 48px) var(--ke-space-4, 17px) var(--ke-space-5, 24px);
+        border-block-end: 1px solid var(--ke-color-border, var(--background-modifier-border));
+      }
+      .llmwiki-wiki-detail-modal__header h2, .llmwiki-wiki-detail-modal__header p, .llmwiki-wiki-detail-modal__summary {
+        margin: 0; min-inline-size: 0; word-break: keep-all; overflow-wrap: anywhere;
+      }
+      .llmwiki-wiki-detail-modal__header h2 { font-size: var(--ke-type-heading); line-height: var(--ke-leading-heading, 1.25); }
+      .llmwiki-wiki-detail-modal__scroll {
+        min-block-size: 0; min-inline-size: 0; overflow-y: auto; overflow-x: hidden;
+        padding: var(--ke-space-5, 24px);
+        overscroll-behavior: contain;
+      }
+      .llmwiki-wiki-detail-modal__summary {
+        margin-block-end: var(--ke-space-4, 17px);
+        padding-block-end: var(--ke-space-4, 17px);
+        border-block-end: 1px solid var(--ke-color-border, var(--background-modifier-border));
+        font-weight: 600;
+      }
+      .llmwiki-wiki-detail-modal__footer {
+        display: flex; justify-content: flex-end; gap: var(--ke-space-2, 8px);
+        padding: var(--ke-space-3, 12px) var(--ke-space-5, 24px);
+        border-block-start: 1px solid var(--ke-color-border, var(--background-modifier-border));
+        background: var(--ke-color-surface, var(--background-primary));
+      }
+      .llmwiki-wiki-detail-modal__footer button {
+        min-block-size: var(--ke-touch-target, ${touchTarget}px); min-inline-size: var(--ke-touch-target, ${touchTarget}px);
+        padding-inline: var(--ke-space-4, 17px); font: inherit; cursor: pointer;
+      }
+      .llmwiki-wiki-detail-modal__footer button:focus-visible { outline: 2px solid var(--ke-color-accent, var(--text-accent)); outline-offset: 2px; }
 
       .knowledge-explorer-shell { display: grid; gap: var(--ke-space-4); }
       .knowledge-explorer-shell input, .knowledge-explorer-shell select, .knowledge-explorer-shell textarea {
@@ -237,6 +280,10 @@
         .llmwiki-approval-review__decision-strip button:disabled { display: none; }
         .llmwiki-approval-review__operation { padding: var(--ke-space-2, 8px); }
         .llmwiki-wiki-surface__controls, .llmwiki-wiki-surface__content { grid-template-columns: minmax(0, 1fr); }
+        .llmwiki-wiki-detail-modal { inline-size: calc(100vw - var(--ke-space-4, 17px)); max-inline-size: calc(100vw - var(--ke-space-4, 17px)); }
+        .llmwiki-wiki-detail-modal__header, .llmwiki-wiki-detail-modal__scroll { padding: var(--ke-space-4, 17px); }
+        .llmwiki-wiki-detail-modal__header { padding-inline-end: var(--ke-space-7, 48px); }
+        .llmwiki-wiki-detail-modal__footer { padding: var(--ke-space-3, 12px) var(--ke-space-4, 17px); }
       }
       /* True 200% zoom (effective shell width ~128-220 CSS px) shrinks the
          shell far below the 419/640 compact tier intended. Reflow the bar and
@@ -280,7 +327,7 @@
         .llmwiki-lifecycle button:focus-visible, .llmwiki-lifecycle summary:focus-visible, .llmwiki-lifecycle a:focus-visible, .llmwiki-lifecycle input:focus-visible { outline-color: Highlight; }
       }
       @media (prefers-reduced-motion: reduce) {
-        .knowledge-para-section *, button.knowledge-para-action-btn, button.knowledge-workspace-tab, .llmwiki-lifecycle button {
+        .knowledge-para-section *, button.knowledge-para-action-btn, button.knowledge-workspace-tab, .llmwiki-lifecycle button, .llmwiki-wiki-surface *, .llmwiki-wiki-detail-modal * {
           scroll-behavior: auto !important; transition: none !important; animation: none !important; transform: none !important; will-change: auto !important;
         }
       }

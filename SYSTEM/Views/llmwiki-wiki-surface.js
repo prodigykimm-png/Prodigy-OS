@@ -38,6 +38,15 @@
     if (typeof element.removeAttribute === "function") element.removeAttribute(key);
     else if (element.attr) delete element.attr[key];
   }
+  function addClass(element, name) {
+    if (!element || !name) return;
+    if (typeof element.addClass === "function") element.addClass(name);
+    else if (element.classList && typeof element.classList.add === "function") element.classList.add(name);
+    else {
+      const current = typeof element.getAttribute === "function" ? element.getAttribute("class") : element.attributes && element.attributes.class;
+      setAttr(element, "class", `${current || ""} ${name}`.trim());
+    }
+  }
   function focus(element) { if (element && typeof element.focus === "function") element.focus(); }
   function safeRows(value) { return list(value).filter((row) => plain(row) && text(row.path)); }
   function safeStatus(value) { return ["loading", "ready", "empty", "error", "stale"].includes(value) ? value : "error"; }
@@ -54,6 +63,8 @@
     if (!container) throw new TypeError("container is required");
     const adapter = opts.readAdapter || root.LLMWikiWikiReadAdapter;
     const service = opts.readService || root.LLMWikiWikiReadService;
+    const appRef = opts.app || root.app;
+    const Modal = opts.obsidian && opts.obsidian.Modal || root.obsidian && root.obsidian.Modal;
     if (!adapter || typeof adapter.browseRead !== "function") throw new TypeError("LLMWikiWikiReadAdapter is required");
     const styles = root.KnowledgeStyles || (typeof require === "function" ? require("./knowledge-styles.js") : null);
     if (styles && typeof styles.ensureStyles === "function") styles.ensureStyles(container.ownerDocument);
@@ -73,6 +84,9 @@
     };
     let rootEl = null;
     let lastResultButton = null;
+    let lastResultPath = "";
+    let activeModal = null;
+    let activeModalPath = "";
     let requestSequence = 0;
     let visibilityObserver = null;
     const panel = typeof container.closest === "function" ? container.closest('[role="tabpanel"]') : null;
@@ -161,22 +175,68 @@
         button.onclick = () => applyBrowse({ [key]: value, path: "", selection: { ...state.selection, path: null, detail_state: "rest" } });
       });
     }
-    function renderDetail(parent) {
+    function clearSelection(restoreFocus) {
+      requestSequence += 1;
+      state = { ...state, selection: { ...state.selection, path: null, detail_state: "rest" }, body: null, bodyState: "empty" };
+      render();
+      if (restoreFocus !== false) {
+        const current = rootEl && typeof rootEl.querySelector === "function" && lastResultPath
+          ? rootEl.querySelector(`[data-result-path="${typeof CSS !== "undefined" && CSS.escape ? CSS.escape(lastResultPath) : lastResultPath}"]`)
+          : null;
+        focus(current || lastResultButton);
+      }
+    }
+    function closeDetailModal() {
+      if (!activeModal || typeof activeModal.close !== "function") return;
+      activeModal.close();
+    }
+    function renderDetailModal() {
+      if (!activeModal || !activeModal.contentEl) return;
+      const parent = activeModal.contentEl;
+      empty(parent);
+      addClass(parent, "llmwiki-wiki-detail-modal__content");
       const detail = state.selection && state.selection.path ? safeRows(state.result && (state.result.rows || state.result.results)).find((row) => row.path === state.selection.path) : null;
       if (!detail) {
-        createEl(parent, "p", { text: "결과를 선택하면 읽기 전용 상세가 표시됩니다.", attr: { class: "llmwiki-wiki-surface__muted" } });
+        createEl(parent, "p", { text: "선택한 지식을 표시할 수 없습니다.", attr: { class: "llmwiki-wiki-surface__status", "data-state": "error", role: "alert" } });
         return;
       }
-      createEl(parent, "h3", { text: "선택한 지식" });
-      createEl(parent, "p", { text: `${detail.title || "제목 없음"} · ${TRUST_LABELS[detail.trust] || "읽기"} · ${detail.path}`, attr: { class: "llmwiki-wiki-surface__result-meta" } });
-      if (detail.statement || detail.summary) createEl(parent, "p", { text: detail.statement || detail.summary });
-      if (state.bodyState === "loading") createEl(parent, "p", { text: "본문을 불러오는 중입니다.", attr: { class: "llmwiki-wiki-surface__status", role: "status", "aria-live": "polite" } });
-      else if (state.bodyState === "ready") createEl(parent, "div", { text: state.body, attr: { class: "llmwiki-wiki-surface__body" } });
-      else if (state.bodyState === "stale") createEl(parent, "p", { text: "자료가 변경되어 본문을 표시하지 않았습니다. 결과를 다시 선택해 주세요.", attr: { class: "llmwiki-wiki-surface__status", "data-state": "stale", role: "alert" } });
-      else if (state.bodyState === "error") createEl(parent, "p", { text: "본문을 불러오지 못했습니다. 결과를 다시 선택해 주세요.", attr: { class: "llmwiki-wiki-surface__status", "data-state": "error", role: "alert" } });
-      else createEl(parent, "p", { text: "표시할 본문이 없습니다.", attr: { class: "llmwiki-wiki-surface__muted" } });
-      const back = createEl(parent, "button", { text: "목록으로 돌아가기", attr: { type: "button", "data-action": "back" } });
-      back.onclick = () => { const opener = lastResultButton; state = { ...state, selection: { ...state.selection, path: null, detail_state: "rest" }, body: null, bodyState: "empty" }; render(); focus(opener); };
+      const article = createEl(parent, "article", { attr: { class: "llmwiki-wiki-detail-modal__article", "aria-labelledby": "llmwiki-wiki-detail-title" } });
+      const header = createEl(article, "header", { attr: { class: "llmwiki-wiki-detail-modal__header" } });
+      createEl(header, "p", { text: `${TRUST_LABELS[detail.trust] || "읽기"} · ${detail.domain || "미분류"}`, attr: { class: "llmwiki-wiki-surface__result-meta" } });
+      createEl(header, "h2", { text: detail.title || "제목 없음", attr: { id: "llmwiki-wiki-detail-title" } });
+      createEl(header, "p", { text: detail.path, attr: { class: "llmwiki-wiki-surface__result-meta" } });
+      const scroll = createEl(article, "div", { attr: { class: "llmwiki-wiki-detail-modal__scroll" } });
+      if (detail.statement || detail.summary) createEl(scroll, "p", { text: detail.statement || detail.summary, attr: { class: "llmwiki-wiki-detail-modal__summary" } });
+      if (state.bodyState === "loading") createEl(scroll, "p", { text: "본문을 불러오는 중입니다.", attr: { class: "llmwiki-wiki-surface__status", role: "status", "aria-live": "polite" } });
+      else if (state.bodyState === "ready") createEl(scroll, "div", { text: state.body, attr: { class: "llmwiki-wiki-surface__body" } });
+      else if (state.bodyState === "stale") createEl(scroll, "p", { text: "자료가 변경되어 본문을 표시하지 않았습니다. 닫은 뒤 다시 선택해 주세요.", attr: { class: "llmwiki-wiki-surface__status", "data-state": "stale", role: "alert" } });
+      else if (state.bodyState === "error") createEl(scroll, "p", { text: "본문을 불러오지 못했습니다. 닫은 뒤 다시 선택해 주세요.", attr: { class: "llmwiki-wiki-surface__status", "data-state": "error", role: "alert" } });
+      else createEl(scroll, "p", { text: "표시할 본문이 없습니다.", attr: { class: "llmwiki-wiki-surface__muted" } });
+      const footer = createEl(article, "footer", { attr: { class: "llmwiki-wiki-detail-modal__footer" } });
+      const close = createEl(footer, "button", { text: "닫기", attr: { type: "button", "data-action": "close-detail-modal" } });
+      close.onclick = closeDetailModal;
+    }
+    function openDetailModal(path) {
+      if (!Modal || !appRef || !path) return false;
+      const modal = new Modal(appRef);
+      activeModal = modal;
+      activeModalPath = path;
+      modal.onOpen = () => {
+        if (modal.modalEl) {
+          addClass(modal.modalEl, "llmwiki-wiki-detail-modal");
+          setAttr(modal.modalEl, "data-surface", "llmwiki-knowledge-detail-modal");
+        }
+        renderDetailModal();
+      };
+      modal.onClose = () => {
+        if (activeModal !== modal) return;
+        activeModal = null;
+        activeModalPath = "";
+        clearSelection(true);
+      };
+      modal.open();
+      render();
+      return true;
     }
     function render() {
       if (panelHidden()) {
@@ -186,16 +246,6 @@
       if (!rootEl) {
         empty(container);
         rootEl = createEl(container, "section", { attr: { class: "llmwiki-wiki-surface prodigy-full-bleed", "data-surface": "llmwiki-browse", "aria-label": "LLMWiki 탐색" } });
-        rootEl.onkeydown = (event) => {
-          if (!event || event.key !== "Escape") return;
-          if (state.selection && state.selection.path) {
-            event.preventDefault();
-            const opener = lastResultButton;
-            state = { ...state, selection: { ...state.selection, path: null, detail_state: "rest" }, body: null, bodyState: "empty" };
-            render();
-            focus(opener);
-          }
-        };
       }
       empty(rootEl);
       const header = createEl(rootEl, "header", { attr: { class: "llmwiki-wiki-surface__header" } });
@@ -227,14 +277,18 @@
       const listEl = createEl(resultsPanel, "ol", { attr: { class: "llmwiki-wiki-surface__result-list" } });
       rows.forEach((row) => {
         const li = createEl(listEl, "li");
-        const button = createEl(li, "button", { attr: { type: "button", class: "llmwiki-wiki-surface__result", "aria-current": state.selection.path === row.path ? "true" : "false" } });
+        const button = createEl(li, "button", { attr: { type: "button", class: "llmwiki-wiki-surface__result", "aria-haspopup": "dialog", "aria-expanded": activeModalPath === row.path ? "true" : "false", "data-result-path": row.path } });
         createEl(button, "span", { text: `${TRUST_LABELS[row.trust] || "읽기"} · ${row.title || row.path}`, attr: { class: "llmwiki-wiki-surface__result-title" } });
         createEl(button, "span", { text: `${row.domain || "unclassified"} · ${row.path}`, attr: { class: "llmwiki-wiki-surface__result-meta" } });
-        button.onclick = () => { lastResultButton = button; applyBrowse({ selection: { ...state.selection, path: row.path, detail_state: "loading" } , path: row.path }); };
+        button.onclick = () => {
+          lastResultButton = button;
+          lastResultPath = row.path;
+          applyBrowse({ selection: { ...state.selection, path: row.path, detail_state: "loading" }, path: row.path });
+          openDetailModal(row.path);
+        };
       });
       if (!rows.length) createEl(resultsPanel, "p", { text: state.status === "loading" ? "스냅샷을 준비하는 중입니다." : "표시할 결과가 없습니다.", attr: { class: "llmwiki-wiki-surface__muted" } });
-      const detail = createEl(content, "article", { attr: { class: "llmwiki-wiki-surface__detail prodigy-utility-card", "data-component": "WikiDetailPane", "aria-label": "LLMWiki 상세" } });
-      renderDetail(detail);
+      renderDetailModal();
     }
 
     const api = Object.freeze({
@@ -248,6 +302,12 @@
       destroy() {
         if (visibilityObserver) visibilityObserver.disconnect();
         visibilityObserver = null;
+        if (activeModal && typeof activeModal.close === "function") {
+          activeModal.onClose = null;
+          activeModal.close();
+        }
+        activeModal = null;
+        activeModalPath = "";
         empty(container);
         rootEl = null;
       }

@@ -195,6 +195,13 @@ Workspace UI 상태는 schema `v1`로 분리한다. `prodigy.ui.workspace-state.
 - `region-experience-modal` is the reusable, Obsidian-native intake primitive for one already-existing `auction_region`. It preserves a caller's focus-return control and opens and cancels without provider or vault work. It selects an available canonical Region by default; Korean invalid-region recovery appears only after an invalid action.
 - Its review shell owns the body scroll. `region-experience-review-footer` remains sticky at the modal bottom and contains the explicit `Evidence 승인·반영` action; it is disabled while busy or without selected Evidence. After Evidence is saved, Region reflection and Knowledge candidate saving remain separate, explicit approvals and never run automatically.
 
+### LLMWiki knowledge detail modal
+
+- `llmwiki-knowledge-detail-modal` opens one read-only knowledge result from `LLMWiki 탐색` without replacing or duplicating the result list. The invoking result remains the focus-return target.
+- The modal uses the native Obsidian dialog lifecycle: Escape, the native close control, backdrop dismissal, and the explicit `닫기` action all close the same surface. Result buttons expose `aria-haspopup="dialog"` and their expanded state.
+- The modal header owns trust, domain, title, and source path. Its body is the sole modal scroll owner and renders loading, ready, empty, stale, and error states without enabling writes or provider calls.
+- Wide and compact layouts reuse semantic surfaces, borders, type, spacing, the 44px touch target, Korean/CJK wrapping, visible focus, and reduced-motion rules. No inline detail pane remains beside the result list.
+
 ### Region decision popup
 
 - `region-collection-health` is a compact status band, not a score. It shows canonical Region coverage, the selected Region's latest metrics month and run count, and explicit missing, stale, or repeated-month warnings without changing any Region Object.
