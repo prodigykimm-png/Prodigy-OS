@@ -143,14 +143,16 @@
     const confidence = label(candidate.confidence, { explicit: "명시적", inferred: "추론", low: "낮음" });
     const sourceObjects = list(candidate.source_objects);
     const route = [label(candidate.suggested_domain, { real_estate: "부동산", wedding: "웨딩", coding: "코딩", workout: "운동", reading: "독서", business: "비즈니스", personal_growth: "개인 성장" }, "미분류"), list(candidate.suggested_topics).join(", ")].filter(Boolean).join(" · ");
+    const sourceType = label(candidate.source_type, { reading_session: "독서 세션", daily_reflection: "Daily Evidence" }, "");
     const details = [
+      sourceType ? `출처 유형: ${sourceType}` : "",
       `Daily Evidence: ${list(candidate.source_evidence_ids).join(", ") || "연결된 Evidence ID 없음"}`,
       `출처 Object: ${sourceObjects.join(", ") || "연결된 Object 없음"}`,
       `연결 Region: ${list(candidate.connections).filter((link) => typeof link === "string" && link.includes("Auction Regions")).join(", ") || "연결된 Region 없음"}`,
       `무효화 조건: ${list(candidate.invalidation_conditions).join("; ") || "없음"}`,
       `신뢰도: ${confidence}`,
       `제안 경로: ${route || "미분류"}`
-    ];
+    ].filter(Boolean);
     details.forEach((value) => createEl(parent, "p", { text: value, attr: { class: "knowledge-explorer-detail-item-meta" } }));
     if (sourceObjects.length && typeof options.onOpenSource === "function") {
       const sourceActions = createEl(parent, "div", { attr: { class: "knowledge-explorer-row-actions", "aria-label": "후보 출처 원본" } });
@@ -168,63 +170,20 @@
     }
   }
 
-  function draftFields(parent, candidate, draft, onDraftChange, disabled) {
-    const { Candidate } = dependencies();
-    const fieldset = createEl(parent, "fieldset", { attr: { class: "knowledge-candidate-fields", "aria-label": `${candidate.title} 승인 확인` } });
-    const update = (patch) => onDraftChange({ ...draft, ...patch });
-    createEl(fieldset, "label", { text: "제목", attr: { for: `candidate-title-${candidate.candidate_id}` } });
-    input(fieldset, { name: "title", value: draft.title, label: "사람이 확인한 제목", onChange: (value) => update({ title: value }) }).disabled = disabled;
-    createEl(fieldset, "label", { text: "지식 문장", attr: { for: `candidate-statement-${candidate.candidate_id}` } });
-    input(fieldset, { tag: "textarea", name: "statement", value: draft.statement, label: "사람이 확인한 지식 문장", onChange: (value) => update({ statement: value }) }).disabled = disabled;
-    createEl(fieldset, "label", { text: "도메인", attr: { for: `candidate-domain-${candidate.candidate_id}` } });
-    const domain = createEl(fieldset, "select", { attr: { name: "knowledge_domain", class: "knowledge-candidate-input", "aria-label": "사람이 확인한 지식 도메인" }, disabled });
-    createEl(domain, "option", { text: "분류 선택 — 승인 전에 확인", attr: { value: "", selected: draft.knowledge_domain ? undefined : "selected" } });
-    Candidate.DOMAINS.forEach((key) => createEl(domain, "option", { text: label(key, { real_estate: "부동산", wedding: "웨딩", coding: "코딩", workout: "운동", reading: "독서", business: "비즈니스", personal_growth: "개인 성장" }), attr: { value: key, selected: key === draft.knowledge_domain ? "selected" : undefined } }));
-    domain.value = draft.knowledge_domain;
-    domain.onchange = (event) => update({ knowledge_domain: event && event.target ? event.target.value : domain.value, knowledge_topics: [] });
-    const topics = Candidate.TOPICS[draft.knowledge_domain] || [];
-    createEl(fieldset, "p", { text: topics.length ? "주제(사람이 확인)" : "이 도메인에는 확인할 주제가 없습니다.", attr: { class: "knowledge-explorer-meta" } });
-    topics.forEach((topic) => {
-      const checked = draft.knowledge_topics.includes(topic);
-      const topicInput = createEl(fieldset, "input", { attr: { type: "checkbox", name: "knowledge_topics", value: topic, "aria-label": `주제 ${topic}` }, disabled });
-      topicInput.checked = checked;
-      topicInput.onchange = (event) => {
-        const next = event && event.target && event.target.checked ? [...draft.knowledge_topics, topic] : draft.knowledge_topics.filter((item) => item !== topic);
-        update({ knowledge_topics: [...new Set(next)] });
-      };
-      createEl(fieldset, "span", { text: topic, attr: { class: "knowledge-explorer-meta" } });
-    });
-    const topicsConfirmed = createEl(fieldset, "input", { attr: { type: "checkbox", name: "topics_confirmed", "aria-label": "주제를 사람이 확인함" }, disabled });
-    topicsConfirmed.checked = draft.topics_confirmed;
-    topicsConfirmed.onchange = (event) => update({ topics_confirmed: Boolean(event && event.target && event.target.checked) });
-    createEl(fieldset, "span", { text: "주제를 사람이 확인했습니다.", attr: { class: "knowledge-explorer-meta" } });
-    createEl(fieldset, "label", { text: "승인 사유", attr: { for: `candidate-note-${candidate.candidate_id}` } });
-    input(fieldset, { tag: "textarea", name: "approval_note", value: draft.approval_note, label: "승인 또는 override 사유", onChange: (value) => update({ approval_note: value }) }).disabled = disabled;
-  }
-
   function candidateCard(parent, candidate, options) {
     const { Quality } = dependencies();
-    const suppliedDraft = typeof options.draftFor === "function" ? options.draftFor(candidate.candidate_id) : options.drafts && options.drafts[candidate.candidate_id];
-    const draft = normalizedDraft(candidate, suppliedDraft);
     const quality = qualityFor(candidate);
-    const eligibility = Quality.checkPromotionEligibility(quality, { override: draft.thin_override, approval_note: draft.approval_note });
     const card = createEl(parent, "article", { attr: { class: "knowledge-candidate-card knowledge-explorer-detail-card", "data-candidate-id": candidate.candidate_id } });
     createEl(card, "h4", { text: candidate.title, attr: { class: "knowledge-explorer-detail-title" } });
     createEl(card, "p", { text: candidate.statement, attr: { class: "knowledge-explorer-detail-item-note" } });
     renderReason(card, candidate.reason);
     provenance(card, candidate, options);
-    createEl(card, "p", { text: `근거 품질: ${Quality.STATUS_LABELS[eligibility.status] || "확인 필요"}`, attr: { class: "knowledge-explorer-detail-item-meta" } });
-    if (eligibility.requires_override) {
-      const override = createEl(card, "input", { attr: { type: "checkbox", name: "thin_override", "aria-label": "보완 필요 근거를 명시적으로 승인" }, disabled: options.disabled });
-      override.checked = draft.thin_override;
-      override.onchange = (event) => options.onDraftChange(candidate.candidate_id, { ...draft, thin_override: Boolean(event && event.target && event.target.checked) });
-      createEl(card, "span", { text: "명시적 override와 승인 사유가 필요합니다.", attr: { class: "knowledge-explorer-meta" } });
-    }
-    draftFields(card, candidate, draft, (next) => options.onDraftChange(candidate.candidate_id, next), options.disabled);
+    createEl(card, "p", { text: `근거 품질: ${Quality.STATUS_LABELS[quality.status] || "확인 필요"}`, attr: { class: "knowledge-explorer-detail-item-meta" } });
+    createEl(card, "p", { text: "내부 필드는 LLM Wiki가 준비합니다. 원문과 변경안만 확인하면 됩니다.", attr: { class: "knowledge-explorer-detail-item-meta" } });
     const actions = createEl(card, "div", { attr: { class: "knowledge-explorer-row-actions" } });
     const deferred = candidate.status === "needs_more_evidence";
-    if (deferred) createEl(card, "p", { text: "증거 보강 대기 — 검토를 재개한 뒤에만 승인할 수 있습니다.", attr: { class: "knowledge-explorer-meta" } });
-    button(actions, { text: "승인", action: "approve", candidateId: candidate.candidate_id, disabled: options.disabled || deferred, onAction: () => options.onAction({ type: "approve", candidateId: candidate.candidate_id, draft }) });
+    if (deferred) createEl(card, "p", { text: "증거 보강 대기 — 검토를 재개한 뒤에만 LLM Wiki로 보낼 수 있습니다.", attr: { class: "knowledge-explorer-meta" } });
+    button(actions, { text: "LLM Wiki에서 검토", action: "llmwiki-handoff", candidateId: candidate.candidate_id, disabled: options.disabled || deferred, onAction: () => options.onAction({ type: "handoff", candidateId: candidate.candidate_id }) });
     if (deferred) {
       button(actions, { text: "검토 재개", action: "resume", candidateId: candidate.candidate_id, disabled: options.disabled, onAction: () => options.onAction({ type: "resume", candidateId: candidate.candidate_id }) });
     } else {
@@ -303,10 +262,10 @@
       try {
         const store = options.candidateStore;
         if (!store || !options.app) throw new Error("Knowledge Candidate 저장소를 사용할 수 없습니다.");
-        if (action.type === "approve") {
-          const result = await store.approveCandidate(options.app, candidate.path, requestFor(candidate, action.draft || draftFor(candidate.candidate_id)));
-          removeCandidate(candidate, action);
-          if (result && result.path && typeof options.onOpenBeside === "function") await options.onOpenBeside(result.path);
+        if (action.type === "handoff") {
+          if (typeof options.onLlmWikiHandoff !== "function") throw new Error("LLM Wiki 검토 경로를 사용할 수 없습니다.");
+          const result = await options.onLlmWikiHandoff(candidate);
+          if (!result || result.ok !== true) throw new Error("LLM Wiki 검토를 시작하지 못했습니다.");
         } else if (action.type === "reject") {
           await store.rejectCandidate(options.app, candidate.path);
           removeCandidate(candidate, action);

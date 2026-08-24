@@ -1,0 +1,19 @@
+{
+  "fixture_version": "llmwiki_maintenance_corpus_v1",
+  "snapshot_revision_seed": "maintenance-snapshot-v1",
+  "documents": [
+    { "document_id": "knowledge_stale", "revision_seed": "knowledge-stale-v1", "source_ids": ["source_stale"] },
+    { "document_id": "knowledge_conflict", "revision_seed": "knowledge-conflict-v1", "source_ids": ["source_conflict_a", "source_conflict_b"] },
+    { "document_id": "knowledge_orphan", "revision_seed": "knowledge-orphan-v1", "source_ids": [] },
+    { "document_id": "knowledge_changed", "revision_seed": "knowledge-changed-v1", "source_ids": ["source_changed"] },
+    { "document_id": "knowledge_old", "revision_seed": "knowledge-old-v1", "source_ids": ["source_old"] },
+    { "document_id": "knowledge_current", "revision_seed": "knowledge-current-v1", "source_ids": ["source_current"] }
+  ],
+  "triggers": [
+    { "trigger_id": "trigger_stale", "type": "stale", "revision_seed": "trigger-stale-v1", "canonical_ids": ["knowledge_stale"], "source_ids": ["source_stale"], "source_snapshots": [{ "source_id": "source_stale", "revision_seed": "source-stale-v3", "extractor_seed": "extractor-stale-v2" }], "evidence_ids": ["evidence_stale"] },
+    { "trigger_id": "trigger_contradiction", "type": "contradiction", "revision_seed": "trigger-contradiction-v1", "canonical_ids": ["knowledge_conflict"], "source_ids": ["source_conflict_a", "source_conflict_b"], "source_snapshots": [{ "source_id": "source_conflict_a", "revision_seed": "source-conflict-a-v2", "extractor_seed": "extractor-conflict-v1" }, { "source_id": "source_conflict_b", "revision_seed": "source-conflict-b-v4", "extractor_seed": "extractor-conflict-v1" }], "evidence_ids": ["evidence_conflict"] },
+    { "trigger_id": "trigger_orphan", "type": "orphan", "revision_seed": "trigger-orphan-v1", "canonical_ids": ["knowledge_orphan"], "source_ids": [], "source_snapshots": [], "evidence_ids": ["evidence_orphan"] },
+    { "trigger_id": "trigger_changed_source", "type": "changed_source", "revision_seed": "trigger-changed-v1", "canonical_ids": ["knowledge_changed"], "source_ids": ["source_changed"], "source_snapshots": [{ "source_id": "source_changed", "revision_seed": "source-changed-v7", "extractor_seed": "extractor-changed-v3" }], "evidence_ids": ["evidence_changed"] },
+    { "trigger_id": "trigger_superseded", "type": "superseded", "revision_seed": "trigger-superseded-v1", "canonical_ids": ["knowledge_old", "knowledge_current"], "source_ids": ["source_old", "source_current"], "source_snapshots": [{ "source_id": "source_old", "revision_seed": "source-old-v1", "extractor_seed": "extractor-common-v1" }, { "source_id": "source_current", "revision_seed": "source-current-v5", "extractor_seed": "extractor-common-v1" }], "evidence_ids": ["evidence_superseded"] }
+  ]
+}

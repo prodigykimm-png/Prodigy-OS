@@ -1,0 +1,41 @@
+{
+  "fixture_revision": "llmwiki_knowledge_kind_corpus_v1",
+  "canonical_documents": [
+    {
+      "title": "회복탄력성은 적응 반응이다",
+      "statement": "회복탄력성은 역경에 대한 적응 반응이다.",
+      "knowledge_domain": "reading",
+      "knowledge_topics": [],
+      "application_trigger": "역경 대응을 검토할 때",
+      "application_contexts": ["reading"],
+      "connections": ["[[ZETA/LITERATURE/Masten, A.S. (2001). Resilience Theory in Developmental Psychology]]"],
+      "invalidation_conditions": [],
+      "summary": "",
+      "created": "2026-08-14T00:00:00.000Z",
+      "updated": "2026-08-14T00:00:00.000Z",
+      "body": "# 회복탄력성은 적응 반응이다\n\n기존 canonical serializer의 대표 문서다.\n"
+    },
+    {
+      "title": "승인 바이트를 보존한다",
+      "statement": "승인된 바이트만 canonical Knowledge로 보존한다.",
+      "knowledge_domain": "coding",
+      "knowledge_topics": ["ai"],
+      "application_trigger": "지식 승격 전",
+      "application_contexts": ["coding/ai"],
+      "connections": [],
+      "invalidation_conditions": ["serializer 계약이 바뀌면 재검토한다."],
+      "summary": "",
+      "created": "2026-08-14T00:00:00.000Z",
+      "updated": "2026-08-14T00:00:00.000Z",
+      "body": "# 승인 바이트를 보존한다\n\n현재 writer 경로의 대표 문서다.\n"
+    }
+  ],
+  "corpus": [
+    { "id": "claim", "knowledge_kind": "claim", "statement": "측정 가능한 주장은 근거와 함께 검토한다." },
+    { "id": "principle", "knowledge_kind": "principle", "statement": "승인된 바이트만 보존한다." },
+    { "id": "procedure", "knowledge_kind": "procedure", "statement": "읽고, 검증하고, 승인한다." },
+    { "id": "concept", "knowledge_kind": "concept", "statement": "회복탄력성은 역경에 대한 적응 반응이다." },
+    { "id": "explicit-unclassified", "knowledge_kind": "unclassified", "statement": "아직 안정적인 종류를 정할 근거가 없다." },
+    { "id": "legacy", "type": "permanent_note", "statement": "기존 permanent note", "tags": ["permanent_note"], "legacy_extra": "must survive" }
+  ]
+}

@@ -192,26 +192,34 @@
     const defaults = getProviderDefaults(providerKey);
     if (!defaults) return clone(provider || {});
     const value = provider || {};
-    return Object.assign({}, value, {
+    const base = Object.assign({}, value, {
       adapter: defaults.adapter,
       name: defaults.name,
-      baseURL: value.baseURL || defaults.baseURL,
-      endpointPath: value.endpointPath || defaults.endpointPath,
       authMode: value.authMode || defaults.authMode,
-      apiKeyHeader: value.apiKeyHeader || defaults.apiKeyHeader,
-      endpointURL: value.endpointURL || defaults.endpointURL,
       model: value.model || defaults.model,
       hint: defaults.hint,
-      apiKeySecret: defaults.apiKeySecret,
-      legacyApiKeySecret: defaults.legacyApiKeySecret,
       relayURL: value.relayURL || defaults.relayURL,
       relayTokenSecret: defaults.relayTokenSecret,
       capabilities: Object.assign({}, defaults.capabilities || {}, value.capabilities || {}),
       models: normalizeModels(value, defaults),
-      ttl: Number(value.ttl) > 0 ? Number(value.ttl) : defaults.ttl,
-      maxTokens: Number(value.maxTokens) > 0 ? Number(value.maxTokens) : defaults.maxTokens,
       chatTimeoutMs: Number(value.chatTimeoutMs) > 0 ? Number(value.chatTimeoutMs) : (defaults.chatTimeoutMs || 30000),
       structuredTimeoutMs: Number(value.structuredTimeoutMs) > 0 ? Number(value.structuredTimeoutMs) : (defaults.structuredTimeoutMs || 60000)
+    });
+    // Exec adapters (official CLI login) must never carry HTTP-only keys:
+    // AIProviderService exec validation rejects unknown provider settings.
+    if (defaults.adapter === "codex-exec" || defaults.adapter === "antigravity-exec") {
+      ["baseURL", "endpointPath", "apiKeyHeader", "endpointURL", "apiKeySecret", "legacyApiKeySecret", "ttl", "maxTokens"].forEach((key) => { delete base[key]; });
+      return base;
+    }
+    return Object.assign(base, {
+      baseURL: value.baseURL || defaults.baseURL,
+      endpointPath: value.endpointPath || defaults.endpointPath,
+      apiKeyHeader: value.apiKeyHeader || defaults.apiKeyHeader,
+      endpointURL: value.endpointURL || defaults.endpointURL,
+      apiKeySecret: defaults.apiKeySecret,
+      legacyApiKeySecret: defaults.legacyApiKeySecret,
+      ttl: Number(value.ttl) > 0 ? Number(value.ttl) : defaults.ttl,
+      maxTokens: Number(value.maxTokens) > 0 ? Number(value.maxTokens) : defaults.maxTokens
     });
   }
 
@@ -269,6 +277,26 @@
       return { ok: false, call_allowed: false, code: "provider_missing", field: "provider_key", message: "LLMWiki에 연결할 AI 제공자 설정을 찾을 수 없습니다." };
     }
     return { ok: true, call_allowed: true, feature: name, provider_mode: providerMode, provider_key: providerKey, provider: normalized.providers[providerKey] };
+  }
+
+  function listAIProfileProviderOptions(config, feature, mode = "direct") {
+    if (String(feature || "").trim() !== "llmwiki" || !["direct", "omniroute"].includes(String(mode || "").trim())) return Object.freeze([]);
+    const normalized = normalizeConfig(config || DEFAULT_CONFIG);
+    const allowedAdapters = new Set(["antigravity-exec", "codex-exec", "gemini", "openai-compatible"]);
+    const structuredModes = new Set(["json-schema", "json-mode", "json-prompt"]);
+    const options = Object.entries(normalized.providers).flatMap(([providerKey, provider]) => {
+      const adapter = String(provider && provider.adapter || "").trim();
+      const structuredOutput = String(provider && provider.capabilities && provider.capabilities.structuredOutput || "").trim();
+      const exec = adapter === "antigravity-exec" || adapter === "codex-exec";
+      if (!allowedAdapters.has(adapter) || !structuredModes.has(structuredOutput) || (!exec && !String(provider && provider.model || "").trim())) return [];
+      return [{
+        provider_key: providerKey,
+        name: String(provider.name || providerKey).trim(),
+        adapter,
+        model: String(provider.model || "").trim(),
+      }];
+    }).sort((left, right) => left.name.localeCompare(right.name, "ko"));
+    return Object.freeze(options.map((option) => Object.freeze(option)));
   }
 
   async function readVaultJson(app, path) {
@@ -381,7 +409,7 @@
     return Object.fromEntries(entries);
   }
 
-  const api = { CONFIG_PATH, LEGACY_CONFIG_PATH, LAST_PROVIDER_SECRET, SECRET_IDS, LEGACY_SECRET_IDS, REGION_SECRET_IDS, DEFAULT_CONFIG, isSecretId, redactError, getProviderDefaults, applyProviderDefaults, normalizeAiProfiles, mergeConfig, load, save, getDefaultProvider, getProvider, getSecret, hasSecret, setSecret, deleteSecret, getRegionSecretStatus, resolveAIProfileProviderKey };
+  const api = { CONFIG_PATH, LEGACY_CONFIG_PATH, LAST_PROVIDER_SECRET, SECRET_IDS, LEGACY_SECRET_IDS, REGION_SECRET_IDS, DEFAULT_CONFIG, isSecretId, redactError, getProviderDefaults, applyProviderDefaults, normalizeAiProfiles, mergeConfig, load, save, getDefaultProvider, getProvider, getSecret, hasSecret, setSecret, deleteSecret, getRegionSecretStatus, resolveAIProfileProviderKey, listAIProfileProviderOptions };
   root.ProdigyConfigService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

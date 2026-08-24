@@ -1,33 +1,15 @@
 "use strict";
 
 (function (root) {
-  var STYLE_ID = "knowledge-workspace-tabs-styles";
+
   var TABS = Object.freeze([
-    Object.freeze({ id: "zettelkasten", label: "지식 구축 · 제텔카스텐", role: "지식 구축", purpose: "작성·연결·검증·보존", description: "후보·문헌·영구 지식을 검토하고 승인합니다." }),
-    Object.freeze({ id: "para", label: "지식 활용 · PARA", role: "승인 지식 활용", purpose: "승인된 지식을 Project·Area·Resource Objects에 적용하고 활용합니다.", description: "프로젝트·영역·자료에 연결된 승인 지식을 탐색합니다." }),
-    Object.freeze({ id: "llmwiki", label: "AI 지식 검토 · LLM Wiki", role: "AI 지식 검토", purpose: "자료를 선택하고 AI 지식 제안을 검토합니다.", description: "자료를 선택하고 AI 지식 제안을 검토합니다." }),
-    Object.freeze({ id: "llmwiki-browse", label: "LLMWiki 탐색", role: "LLMWiki 탐색", purpose: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다.", description: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다." })
+    Object.freeze({ id: "zettelkasten", label: "지식 구축 · 제텔카스텐", compactLabel: "구축", role: "지식 구축", purpose: "작성·연결·검증·보존", description: "후보·문헌·영구 지식을 검토하고 승인합니다." }),
+    Object.freeze({ id: "para", label: "지식 활용 · PARA", compactLabel: "활용", role: "승인 지식 활용", purpose: "승인된 지식을 Project·Area·Resource Objects에 적용하고 활용합니다.", description: "프로젝트·영역·자료에 연결된 승인 지식을 탐색합니다." }),
+    Object.freeze({ id: "llmwiki", label: "AI 지식 검토 · LLM Wiki", compactLabel: "AI", role: "AI 지식 검토", purpose: "자료를 선택하고 AI 지식 제안을 검토합니다.", description: "자료를 선택하고 AI 지식 제안을 검토합니다." }),
+    Object.freeze({ id: "llmwiki-browse", label: "LLMWiki 탐색", compactLabel: "탐색", role: "LLMWiki 탐색", purpose: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다.", description: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다." })
   ]);
 
-  function ensureStyles(container) {
-    var doc = container && container.ownerDocument ? container.ownerDocument : typeof document !== "undefined" ? document : null;
-    if (!doc || (doc.getElementById && doc.getElementById(STYLE_ID))) return;
-    var style = doc.createElement("style");
-    style.id = STYLE_ID;
-    style.textContent = [
-      ".knowledge-workspace-tabs-mount,.knowledge-workspace-panel-host,.knowledge-workspace-panel{box-sizing:border-box;inline-size:100%;max-inline-size:100%;min-inline-size:0;min-block-size:0}",
-      ".knowledge-workspace-tabs{box-sizing:border-box;display:flex;flex-wrap:wrap;gap:8px;inline-size:100%;max-inline-size:100%;min-inline-size:0;margin-block-end:17px;padding:0}",
-      "button.knowledge-workspace-tab{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;flex:1 1 12rem;min-inline-size:0;min-block-size:44px;height:auto;box-shadow:none;cursor:pointer;white-space:normal}",
-      ".knowledge-workspace-tab:focus-visible{outline:2px solid var(--ke-color-accent,var(--text-accent));outline-offset:2px}",
-      ".knowledge-workspace-tab[aria-selected=\"true\"]{border-color:var(--ke-color-interactive,var(--text-accent));color:var(--ke-color-interactive,var(--text-accent))}",
-      ".knowledge-workspace-tab-desc,.knowledge-workspace-tab-role{margin:0;color:var(--text-muted);overflow-wrap:anywhere;word-break:keep-all}",
-      ".knowledge-workspace-tab-role{font-weight:600}",
-      "@media(max-width:833px){.knowledge-workspace-tab{flex-basis:100%}}",
-      "@media(forced-colors:active){.knowledge-workspace-tab[aria-selected=\"true\"]{border:2px solid Highlight}.knowledge-workspace-tab:focus-visible{outline-color:Highlight}}",
-      "@media(prefers-reduced-motion:reduce){.knowledge-workspace-tab{transition:none!important}}"
-    ].join("\n");
-    doc.head.appendChild(style);
-  }
+
 
   function setAttr(el, name, value) {
     if (!el) return;
@@ -62,7 +44,7 @@
 
   function mountTabs(container, options) {
     if (!container) return null;
-    ensureStyles(container);
+    if (root.KnowledgeStyles) root.KnowledgeStyles.ensureStyles();
     var opts = options || {};
     var activeTab = TABS.some(function (tab) { return tab.id === opts.activeTab; }) ? opts.activeTab : "zettelkasten";
     var onChange = typeof opts.onChange === "function" ? opts.onChange : function () {};
@@ -73,17 +55,20 @@
 
     TABS.forEach(function (tab) {
       var btn = createEl(tablist, "button", {
-        text: tab.label,
         attr: {
           type: "button",
           role: "tab",
           id: "knowledge-tab-" + tab.id,
+          "aria-label": tab.label,
+          title: tab.label,
           "aria-selected": tab.id === activeTab ? "true" : "false",
           "aria-controls": "knowledge-panel-" + tab.id,
           tabindex: tab.id === activeTab ? "0" : "-1",
           class: "knowledge-workspace-tab prodigy-configurator-chip"
         }
       });
+      createEl(btn, "span", { text: tab.label, attr: { class: "knowledge-workspace-tab-label knowledge-workspace-tab-label--full", "aria-hidden": "true" } });
+      createEl(btn, "span", { text: tab.compactLabel, attr: { class: "knowledge-workspace-tab-label knowledge-workspace-tab-label--compact", "aria-hidden": "true" } });
       btn.onclick = function () { select(tab.id); };
       btn.onkeydown = function (event) {
         if (!event) return;

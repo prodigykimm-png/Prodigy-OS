@@ -1,38 +1,7 @@
 "use strict";
 
 (function (root) {
-  var STYLE_ID = "knowledge-para-view-styles";
 
-  function ensureStyles(container) {
-    var doc = container && container.ownerDocument ? container.ownerDocument : typeof document !== "undefined" ? document : null;
-    if (!doc || (doc.getElementById && doc.getElementById(STYLE_ID))) return;
-    var tokens = root.ProdigyTokens || (typeof require === "function" ? require("./design-tokens.js") : null);
-    if (!tokens || !tokens.RESPONSIVE_BREAKPOINTS) throw new Error("Knowledge PARA responsive tokens must load before the view.");
-    var compactMax = tokens.RESPONSIVE_BREAKPOINTS.collapsedNavMax;
-    var style = doc.createElement("style");
-    style.id = STYLE_ID;
-    style.textContent = [
-      ".knowledge-para-section,.knowledge-para-workspace,.knowledge-para-results,.knowledge-para-results-layout,.knowledge-para-source-list,.knowledge-para-selected-detail,.knowledge-para-detail-pane{box-sizing:border-box;min-inline-size:0;max-inline-size:100%}",
-      ".knowledge-para-role-description,.knowledge-para-boundary-cue,.knowledge-para-action-status,.knowledge-para-section p,.knowledge-para-section dt,.knowledge-para-section dd,.knowledge-para-section h2,.knowledge-para-section h3,.knowledge-para-section h4{overflow-wrap:anywhere;word-break:keep-all}",
-      ".knowledge-para-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-inline-size:0;max-inline-size:100%}",
-      "button.knowledge-para-action-btn,button.knowledge-para-clear,button.knowledge-para-clear-no-match,button.knowledge-para-source-select{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-inline-size:44px;min-block-size:44px;max-inline-size:100%;box-shadow:none;white-space:normal;overflow-wrap:anywhere;word-break:keep-all}",
-      ".knowledge-para-action-status{flex:1 1 100%;min-inline-size:0}",
-      ".knowledge-para-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;min-inline-size:0;max-inline-size:100%}",
-      ".knowledge-para-control-label{display:flex;flex:1 1 12rem;flex-direction:column;gap:8px;min-inline-size:0;max-inline-size:100%;overflow-wrap:anywhere;word-break:keep-all}",
-      "input.knowledge-para-search,select.knowledge-para-source-filter,select.knowledge-para-sort{box-sizing:border-box;inline-size:100%;min-inline-size:44px;min-block-size:44px;max-inline-size:100%;box-shadow:none;font:inherit;white-space:normal;overflow-wrap:anywhere;word-break:keep-all}",
-      ".knowledge-para-action-btn:focus-visible,.knowledge-para-search:focus-visible,.knowledge-para-source-filter:focus-visible,.knowledge-para-sort:focus-visible,.knowledge-para-clear:focus-visible,.knowledge-para-clear-no-match:focus-visible,.knowledge-para-source-select:focus-visible,.knowledge-para-open-link:focus-visible{outline:2px solid var(--ke-color-accent,var(--text-accent));outline-offset:2px}",
-      ".knowledge-para-results-layout{display:grid;grid-template-columns:minmax(12rem,.7fr) minmax(0,1.3fr);gap:17px;inline-size:100%}",
-      ".knowledge-para-source-list,.knowledge-para-selected-detail,.knowledge-para-detail-pane,.knowledge-para-source-row,.knowledge-para-source-detail,.knowledge-para-linked-knowledge,.knowledge-para-link-list,.knowledge-para-link-item{min-inline-size:0;max-inline-size:100%}",
-      ".knowledge-para-source-row,.knowledge-para-link-item{display:flex;flex-wrap:wrap;align-items:center;gap:8px}",
-      ".knowledge-para-source-select{flex:1 1 10rem}",
-      ".knowledge-para-source-metadata{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:8px;min-inline-size:0;max-inline-size:100%}",
-      ".knowledge-para-source-metadata dt,.knowledge-para-source-metadata dd{min-inline-size:0;margin:0}",
-      "@media(max-width:" + compactMax + "px){.knowledge-para-action-btn,.knowledge-para-control-label,button.knowledge-para-clear{flex-basis:100%;inline-size:100%}.knowledge-para-results-layout{grid-template-columns:minmax(0,1fr)}.knowledge-para-source-metadata{grid-template-columns:minmax(0,1fr)}}",
-      "@media(forced-colors:active){.knowledge-para-action-btn:focus-visible,.knowledge-para-search:focus-visible,.knowledge-para-source-filter:focus-visible,.knowledge-para-sort:focus-visible,.knowledge-para-clear:focus-visible,.knowledge-para-clear-no-match:focus-visible,.knowledge-para-source-select:focus-visible,.knowledge-para-open-link:focus-visible{outline-color:Highlight}}",
-      "@media(prefers-reduced-motion:reduce){.knowledge-para-section *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}"
-    ].join("\n");
-    doc.head.appendChild(style);
-  }
 
   function dependency(name) {
     var value = root[name];
@@ -338,7 +307,7 @@
 
   function renderParaPanel(container, paraModel, options) {
     if (!container) return;
-    ensureStyles(container);
+    if (root.KnowledgeStyles) root.KnowledgeStyles.ensureStyles();
     empty(container);
     var opts = options || {};
     var onOpenBeside = typeof opts.onOpenBeside === "function" ? opts.onOpenBeside : function () {};

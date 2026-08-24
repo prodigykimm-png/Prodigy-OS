@@ -141,6 +141,7 @@
     let hydrationInFlight = null;
     let selectedHydration = null;
     const CandidateView = root.KnowledgeCandidateView;
+    let candidateRenderSuppressed = false;
     const candidateInbox = CandidateView && typeof CandidateView.createCandidateInboxController === "function"
       ? CandidateView.createCandidateInboxController({
         ...options,
@@ -156,7 +157,7 @@
             ? { group: configured.group, key: configured.key || "" }
             : { group: "search", key: "global" };
         }
-      }, () => rerender()) : null;
+      }, () => { if (!candidateRenderSuppressed) rerender(); }) : null;
 
     function selectedAsset() {
       return State.findCurrentAsset(filteredModel(), selection);
@@ -450,6 +451,19 @@
       return candidateInbox.setExpanded(nextOpen);
     }
 
+    function openCandidateInbox() {
+      if (!candidateInbox || typeof candidateInbox.setExpanded !== "function") return false;
+      candidateRenderSuppressed = true;
+      try {
+        candidateInbox.setExpanded(true);
+        selection = State.reduceSelectionState(filteredModel(), selection, { type: "focus-pane", focusPane: "detail" });
+      } finally {
+        candidateRenderSuppressed = false;
+      }
+      rerender();
+      return candidateInboxOpen();
+    }
+
     const api = {
       container,
       model,
@@ -472,6 +486,7 @@
       },
       candidateInboxOpen,
       setCandidateInboxOpen,
+      openCandidateInbox,
       setSurfaceState(nextState) {
         surfaceState = State.normalizeString(nextState) || "rest";
         rerender();

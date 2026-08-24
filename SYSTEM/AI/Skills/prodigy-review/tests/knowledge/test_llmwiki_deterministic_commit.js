@@ -11,6 +11,7 @@ const COMMIT_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-deterministic-commit.j
 const REVIEW_COMMIT_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-commit.js");
 const CANONICAL_PACKET_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-packet.js");
 const STORE_PATH = path.join(ROOT, "SYSTEM/Views/knowledge-candidate-store.js");
+const OPERATION_CONTRACT_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js");
 
 const ZERO_WRITES = Object.freeze({ canonical: 0, audit: 0, derived: 0, provider: 0, network: 0, git: 0 });
 const NOW = "2026-08-03T00:00:00.000Z";
@@ -53,17 +54,51 @@ function document(overrides = {}) {
   };
 }
 
+const operationContract = fresh(OPERATION_CONTRACT_PATH);
+
+function brandedCanonicalOperation(canonicalDocument, overrides = {}) {
+  const operationId = overrides.operation_id || "operation_packet_bound_create";
+  const proposalId = overrides.proposal_id || "proposal_packet_bound_create";
+  const destinationId = "knowledge_packet_bound_commit";
+  const serialized = JSON.stringify({
+    contract_version: operationContract.CONTRACT_VERSION,
+    operation_id: operationId,
+    kind: "create",
+    destination_ids: [destinationId],
+    base_revisions: {},
+    before_bytes: {},
+    after_bytes: { [destinationId]: stable(canonicalDocument) },
+    source_citations: [{ source_id: "source_packet_bound", content_hash: "b".repeat(64), source_url: "https://example.com/packet-bound", locators: ["ZETA/LITERATURE/packet-bound.md#claim"], source_archive_id: null, confidence: "explicit" }],
+    conflicts: [],
+    risk_tier: "low",
+    effects: { deprecations: [], supersessions: [] },
+  });
+  const parsed = operationContract.parseOperation(serialized);
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  assert.equal(operationContract.isOperationRecord(parsed.value), true);
+  const canonical = operationContract.parseCanonicalOperation(JSON.stringify({
+    operation_id: parsed.value.operation_id,
+    proposal_id: proposalId,
+    proposal_kind: parsed.value.kind,
+    payload_hash: sha256(stable(canonicalDocument)),
+  }));
+  assert.equal(canonical.ok, true, JSON.stringify(canonical));
+  assert.equal(operationContract.isCanonicalOperationRecord(canonical.value), true);
+  return canonical.value;
+}
+
+function brandedPacketOperation(canonicalDocument, overrides = {}) {
+  const transformed = operationContract.deriveCanonicalPacketOperation(brandedCanonicalOperation(canonicalDocument, overrides));
+  assert.equal(transformed.ok, true, JSON.stringify(transformed));
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(transformed.value), true);
+  return transformed.value;
+}
+
 function canonicalRequest(overrides = {}) {
   const canonicalDocument = overrides.canonical_document || document();
   return {
     run_id: "run_packet_bound_commit",
     consent_hash: "a".repeat(64),
-    operation: {
-      operation_id: "operation_packet_bound_create",
-      proposal_id: "proposal_packet_bound_create",
-      proposal_kind: "create",
-      payload_hash: sha256(stable(canonicalDocument)),
-    },
     canonical_document: canonicalDocument,
     source_citations: [{
       source_id: "source_packet_bound",
@@ -77,6 +112,7 @@ function canonicalRequest(overrides = {}) {
     expires_at: "2099-01-01T00:00:00.000Z",
     nonce: "nonce_packet_bound_commit_0001",
     ...overrides,
+    operation: brandedCanonicalOperation(canonicalDocument),
   };
 }
 
@@ -123,8 +159,14 @@ function packetIdentity(packet) {
   return identity;
 }
 
-function rehashPacket(packet, mutate) {
+function packetCloneWithBrand(packet) {
   const changed = clone(packet);
+  changed.operation = packet.operation;
+  return changed;
+}
+
+function rehashPacket(packet, mutate) {
+  const changed = packetCloneWithBrand(packet);
   mutate(changed);
   const identity = packetIdentity(changed);
   changed.canonical_serialization = stable(identity);
@@ -233,7 +275,7 @@ test("recomputed prompt, target, property, and operation mutations cannot reuse 
       packet.live_revision = sha256(stable({ before_sha256: packet.before_sha256, target_path: packet.target_path }));
     },
     property(packet) { packet.allowed_properties = [...packet.allowed_properties, "/frontmatter/admin"]; },
-    operation_change(packet) { packet.operation.operation_id = "operation_caller_replaced"; },
+    operation_change(packet) { packet.operation = brandedPacketOperation(document(), { operation_id: "operation_caller_replaced" }); },
     operation_remove(packet) { delete packet.operation; },
   };
 
@@ -252,7 +294,7 @@ test("recomputed prompt, target, property, and operation mutations cannot reuse 
 test("packet tamper, authorization tamper, missing authority, malformed input, and expiry fail closed", async () => {
   const commit = fresh(COMMIT_PATH);
   const cases = [
-    ["packet_tamper", ({ request }) => ({ ...request, packet: { ...clone(request.packet), after_bytes: `${request.packet.after_bytes}tampered\n` } }), "packet_tampered"],
+    ["packet_tamper", ({ request }) => ({ ...request, packet: { ...packetCloneWithBrand(request.packet), after_bytes: `${request.packet.after_bytes}tampered\n` } }), "packet_tampered"],
     ["authorization_hash", ({ request }) => ({ ...request, authorization: { ...clone(request.authorization), authorization_hash: "0".repeat(64) } }), "authorization_tampered"],
     ["authorization_selection", ({ request }) => ({ ...request, authorization: { ...clone(request.authorization), selection_set: [] } }), "authorization_replay_failed"],
     ["missing_packet", ({ request }) => ({ authorization: request.authorization, adapter: request.adapter }), "packet_required"],
@@ -275,7 +317,7 @@ test("packet tamper, authorization tamper, missing authority, malformed input, a
   assert.equal(expiredResult.reason, "approval_expired", JSON.stringify(expiredResult));
   assert.deepEqual(expiredResult.write_counts, ZERO_WRITES);
   assertNoMutation(expired.live, "expired");
-  console.log(`TASK7_ASSERT malformed_tamper_expiry_cases=${cases.length + 1} zero_mutation=${cases.length + 1}`);
+  console.log(`TASK7_ASSERT malformed_tamper_expiry_cases=${cases.length + 1} zero_mutation=${cases.length + 1} real_packet_tamper=packet_tampered writerCalls=0`);
 });
 
 test("stale live create bytes reject before adapter mutation and preserve the raced bytes", async () => {

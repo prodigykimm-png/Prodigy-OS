@@ -235,6 +235,9 @@
   -webkit-appearance: none;
   appearance: none;
 }
+textarea.prodigy-configurator-chip {
+  border-radius: var(--ke-radius-control, 8px);
+}
 .prodigy-configurator-chip[aria-selected="true"],
 .prodigy-configurator-chip[aria-pressed="true"] {
   border-width: var(--ke-focus-ring-width, 2px);
@@ -543,12 +546,102 @@
   .reading-loop-actions button,
   .prodigy-journal-workspace .journal-actions button,
   .prodigy-card-actions button,
-  .auction-header-bid-sheet {
+  .auction-header-bid-sheet,
+  .prodigy-disclosure-toggle {
     transition: none !important;
     animation: none !important;
     transform: none !important;
   }
 }
+
+/* ── Apple Hybrid primitive grammar (DESIGN.md §2.2 shared presentation, §5 states) ── */
+.prodigy-disclosure-section {
+  min-inline-size: 0;
+  border: 1px solid var(--ke-color-border, var(--background-modifier-border));
+  border-radius: var(--ke-radius-control, 8px);
+  background: var(--ke-color-surface, var(--background-primary));
+  box-shadow: none;
+}
+.prodigy-disclosure-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  inline-size: 100%;
+  min-block-size: var(--ke-touch-target, 44px);
+  padding: var(--ke-space-3, 8px) var(--ke-space-4, 17px);
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--ke-color-text, var(--text-normal));
+  font: 600 15px/1.35 var(--ke-font-text, system-ui, -apple-system, sans-serif);
+  cursor: pointer;
+  min-inline-size: 0;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.prodigy-disclosure-toggle:hover {
+  background: var(--ke-color-hover, var(--background-modifier-hover));
+}
+.prodigy-disclosure-marker {
+  flex: 0 0 auto;
+  margin-inline-start: var(--ke-space-3, 8px);
+  color: var(--ke-color-muted, var(--text-muted));
+}
+.prodigy-disclosure-region {
+  display: block;
+  min-inline-size: 0;
+  padding: 0 var(--ke-space-4, 17px) var(--ke-space-5, 24px);
+}
+.prodigy-disclosure-toggle[aria-expanded="false"] + .prodigy-disclosure-region {
+  display: none;
+}
+.prodigy-primitive:focus-visible,
+.prodigy-disclosure-toggle:focus-visible {
+  outline: var(--ke-focus-ring-width, 2px) solid var(--ke-color-accent, var(--text-accent));
+  outline-offset: 2px;
+}
+.prodigy-primitive.is-disabled,
+.prodigy-primitive:disabled {
+  opacity: var(--ke-opacity-disabled, 0.6);
+  cursor: not-allowed;
+  transform: none;
+}
+.prodigy-status-line[data-state="disabled"] {
+  opacity: var(--ke-opacity-disabled, 0.6);
+}
+
+/* Showcase tiles get the bordered tile so every state cue is measurable. In
+ * production the primary/full-bleed surface stays borderless; the showcase
+ * scoping keeps that intent without shipping a local palette. */
+.primitive-showcase .prodigy-full-bleed,
+.primitive-showcase .prodigy-utility-card,
+.primitive-showcase .prodigy-configurator,
+.primitive-showcase .prodigy-disclosure-section,
+.primitive-showcase .prodigy-btn-row {
+  min-inline-size: 0;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--ke-color-border, var(--background-modifier-border));
+  box-shadow: none;
+}
+.primitive-showcase .prodigy-configurator { display: inline-flex; }
+.primitive-showcase [data-primitive][data-state="selected"] {
+  border-width: var(--ke-focus-ring-width, 2px);
+  border-color: var(--ke-color-accent, var(--text-accent));
+}
+.primitive-showcase [data-primitive][data-state="loading"] { border-style: dashed; }
+.primitive-showcase [data-primitive][data-state="empty"] {
+  border-style: dotted;
+  color: var(--ke-color-muted, var(--text-muted));
+}
+.primitive-showcase [data-primitive][data-state="error"] {
+  border-style: double;
+  color: var(--ke-color-error, var(--text-error));
+}
+.primitive-showcase [data-primitive][data-state="disabled"] { opacity: var(--ke-opacity-disabled, 0.6); }
 `;
 
   function ensureStyles() {
@@ -667,6 +760,7 @@
         class: classes.join(" "),
         role: "status",
         "data-state": state,
+        "data-primitive": "StatusLine",
         "aria-live": opts.live || "polite",
         "aria-busy": opts.busy ? "true" : "false"
       }
@@ -685,6 +779,124 @@
     return box;
   }
 
+  /* ── Apple Hybrid shared primitives (DESIGN.md §2.2, §5) ───────────────────
+   * Reusable state grammar for Home (Quiet Editorial) and Auction
+   * (Store/configurator). Every primitive renders every state before product
+   * wiring: rest / selected / loading / empty / error / disabled (+ focus-visible).
+   * Interactive primitives keep the shared 44px touch target and the 2px accent
+   * focus outline; Korean/CJK labels wrap naturally. */
+  let disclosureId = 0;
+
+  // Normalize a state option to a machine data-state; keep prior content intact.
+  function applyPrimitiveState(el, opts) {
+    const o = opts || {};
+    const state = o.state != null ? o.state
+      : o.loading ? "loading"
+      : o.selected ? "selected"
+      : o.disabled ? "disabled"
+      : "rest";
+    el.setAttribute("data-primitive", String(o.primitive || el.getAttribute("data-primitive") || "primitive"));
+    el.setAttribute("data-state", state);
+    if (state === "selected") el.setAttribute("aria-selected", "true");
+    if (state === "loading") el.setAttribute("aria-busy", "true");
+    if (state === "disabled") el.setAttribute("aria-disabled", "true");
+    if (state === "disabled") el.classList.add("is-disabled");
+    if (o.disabled && el.disabled !== undefined && !el.disabled) el.disabled = true;
+    return el;
+  }
+
+  // PrimarySurface: edge-to-edge primary narrative surface (Home hero).
+  function PrimarySurface(parent, options) {
+    ensureStyles();
+    const opts = options || {};
+    const cls = ["prodigy-primary-surface", opts.className].filter(Boolean).join(" ");
+    const el = surface(parent, "fullBleed", { ...opts, className: cls });
+    applyPrimitiveState(el, { ...opts, primitive: "PrimarySurface" });
+    if (opts.title != null) el.createEl("h2", { text: String(opts.title) });
+    if (opts.body != null) el.createEl("div", { text: opts.body });
+    return el;
+  }
+
+  // UtilityCard: bounded supporting information without decorative elevation.
+  function UtilityCard(parent, options) {
+    ensureStyles();
+    const opts = options || {};
+    const cls = ["prodigy-utility-card", opts.className].filter(Boolean).join(" ");
+    const el = utilityCard(parent, { ...opts, className: cls });
+    applyPrimitiveState(el, { ...opts, primitive: "UtilityCard" });
+    if (opts.title != null) el.createEl("h3", { text: String(opts.title) });
+    if (opts.body != null) el.createEl("div", { text: opts.body });
+    return el;
+  }
+
+  // Configurator: compact selectable configuration control.
+  function Configurator(parent, options) {
+    ensureStyles();
+    const opts = options || {};
+    const cls = ["prodigy-configurator", opts.className].filter(Boolean).join(" ");
+    const el = surface(parent, "configurator", { ...opts, className: cls });
+    applyPrimitiveState(el, { ...opts, primitive: "Configurator" });
+    el.textContent = opts.label != null ? String(opts.label) : "";
+    el.setAttribute("data-interactive", "configurator");
+    if (opts.selected) el.setAttribute("aria-pressed", "true");
+    if (!opts.disabled && typeof opts.onClick === "function") el.onclick = opts.onClick;
+    return el;
+  }
+
+  // ActionRow: one flex flow of actions sharing the state grammar.
+  function ActionRow(parent, options) {
+    ensureStyles();
+    const opts = options || {};
+    const row = actionRow(parent, opts.className || "prodigy-btn-row");
+    applyPrimitiveState(row, { ...opts, primitive: "ActionRow" });
+    const actions = Array.isArray(opts.actions) ? opts.actions : (opts.buttons || []);
+    for (const item of actions) {
+      const b = button(row, item.label != null ? String(item.label) : "", item);
+      b.setAttribute("data-interactive", "action");
+      if (opts.state === "disabled" || opts.disabled || item.disabled) b.disabled = true;
+    }
+    return row;
+  }
+
+  // DisclosureSection: collapsible secondary surface with explicit disclosure
+  // semantics and the shared state/geometry grammar.
+  function DisclosureSection(parent, options) {
+    ensureStyles();
+    const opts = options || {};
+    const id = "prodigy-disclosure-" + (++disclosureId);
+    const section = parent.createEl("section", {
+      attr: { class: "prodigy-disclosure-section prodigy-primitive" }
+    });
+    applyPrimitiveState(section, { ...opts, primitive: "DisclosureSection" });
+    const toggle = section.createEl("button", {
+      attr: {
+        class: "prodigy-disclosure-toggle prodigy-primitive",
+        type: "button",
+        "aria-expanded": opts.open ? "true" : "false",
+        "aria-controls": id,
+        "data-interactive": "disclosure"
+      }
+    });
+    toggle.createEl("span", { text: opts.label != null ? String(opts.label) : "" });
+    toggle.createEl("span", { attr: { class: "prodigy-disclosure-marker", "aria-hidden": "true" }, text: opts.open ? "−" : "+" });
+    if (opts.disabled || opts.state === "disabled") {
+      toggle.disabled = true;
+      toggle.setAttribute("aria-disabled", "true");
+    }
+    if (opts.state === "loading") toggle.setAttribute("aria-busy", "true");
+    if (typeof opts.onToggle === "function") {
+      toggle.onclick = (event) => {
+        event.preventDefault();
+        const open = toggle.getAttribute("aria-expanded") === "false";
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        opts.onToggle(event, open);
+      };
+    }
+    const region = section.createEl("div", { attr: { class: "prodigy-disclosure-region", id } });
+    if (opts.body != null) region.createEl("div", { text: opts.body });
+    return section;
+  }
+
   const api = {
     ensureStyles,
     button,
@@ -695,6 +907,11 @@
     auctionActionRow,
     StatusLine,
     InlineError,
+    PrimarySurface,
+    UtilityCard,
+    Configurator,
+    ActionRow,
+    DisclosureSection,
     STYLE_ID
   };
 

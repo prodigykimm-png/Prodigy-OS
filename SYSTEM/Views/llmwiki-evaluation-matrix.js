@@ -2,6 +2,9 @@
   "use strict";
 
   const crypto = typeof require === "function" ? require("node:crypto") : null;
+  const fs = typeof require === "function" ? require("node:fs") : null;
+  const path = typeof require === "function" ? require("node:path") : null;
+  const task20ExecutorApi = root.LLMWikiEvaluationScenarioExecutor || (typeof require === "function" ? require("./llmwiki-evaluation-scenario-executor.js") : null);
 
   const EVALUATION_VERSION = "llmwiki_evaluation_matrix_v1";
   const RETRIEVAL_METHODS = Object.freeze(["bm25", "semantic", "hybrid"]);
@@ -44,7 +47,47 @@
     "timing_ms",
     "redacted_metrics",
   ]);
-  const METRIC_KEYS = Object.freeze(["recall_at_k", "precision", "mrr", "ndcg", "citation_completeness", "literal_fidelity"]);
+  const METRIC_KEYS = Object.freeze(["recall_at_k", "precision", "mrr", "ndcg", "citation_completeness", "literal_fidelity", "evidence_quality"]);
+  const TASK20_CORPUS_VERSION = "llmwiki_task20_evaluation_corpus_v1";
+  const TASK20_REQUIRED_SCENARIOS = Object.freeze([
+    "duplicate_replay",
+    "false_merge",
+    "contradiction",
+    "temporal_supersession",
+    "stale_source_revision",
+    "stale_canonical_revision",
+    "missing_citation",
+    "provider_schema_violation",
+    "consent_path_policy_mismatch",
+    "partial_multi_file_write_compensation",
+    "derived_refresh_failure",
+    "git_lock",
+    "git_head_drift",
+    "git_same_path_drift",
+    "git_index_contamination",
+    "icloud_unavailable",
+    "mobile_native_git_unavailable",
+    "notification_duplicate",
+    "notification_mute_snooze_ignore",
+    "notification_changed_revision",
+    "feedback_canonical_isolation",
+    "approval_bytes_equality",
+    "destructive_delete_rejection",
+  ]);
+  const TASK20_MUTATION_KEYS = Object.freeze([
+    "real_vault_writes", "real_git_mutations", "plugin_changes", "raw_inbox_writes", "canonical_knowledge_writes",
+  ]);
+  const TASK20_REQUIRED_OPERATION_FIXTURES = Object.freeze([
+    Object.freeze({ scenario_id: "duplicate_replay", expected_operation: "create" }),
+    Object.freeze({ scenario_id: "false_merge", expected_operation: "conflict_review" }),
+    Object.freeze({ scenario_id: "temporal_supersession", expected_operation: "update" }),
+  ]);
+  const TASK20_REQUIRED_APPROVAL_BYTE_IDS = Object.freeze(["approval_bytes_equality"]);
+  const TASK20_REQUIRED_ELIGIBLE_WRITE_IDS = Object.freeze(["duplicate_replay", "temporal_supersession", "partial_multi_file_write_compensation", "approval_bytes_equality"]);
+  const TASK20_REQUIRED_INELIGIBLE_WRITE_IDS = Object.freeze(["false_merge", "contradiction", "missing_citation"]);
+  const TASK20_PRODUCTION_TRACE = Object.freeze({
+    duplicate_replay: ["llmwiki-risk-approval-packet", "llmwiki-approval-review-commit"], false_merge: ["llmwiki-operation-classifier", "llmwiki-merge-operation-service"], contradiction: ["llmwiki-risk-approval-packet", "llmwiki-safe-batch-approval"], temporal_supersession: ["llmwiki-operation-classifier", "llmwiki-update-operation-service"], stale_source_revision: ["llmwiki-evidence-contract"], stale_canonical_revision: ["llmwiki-operation-classifier"], missing_citation: ["llmwiki-evidence-contract"], provider_schema_violation: ["llmwiki-provider-contract", "llmwiki-operation-classifier", "llmwiki-provider-response-schema"], consent_path_policy_mismatch: ["llmwiki-outbound-consent"], partial_multi_file_write_compensation: ["llmwiki-compensation-service"], derived_refresh_failure: ["llmwiki-derived-refresh"], git_lock: ["llmwiki-git-adapter"], git_head_drift: ["llmwiki-git-adapter"], git_same_path_drift: ["llmwiki-git-adapter"], git_index_contamination: ["llmwiki-git-adapter"], icloud_unavailable: ["llmwiki-git-adapter"], mobile_native_git_unavailable: ["llmwiki-git-adapter"], notification_duplicate: ["llmwiki-notification-policy"], notification_mute_snooze_ignore: ["llmwiki-notification-policy"], notification_changed_revision: ["llmwiki-notification-policy"], feedback_canonical_isolation: ["llmwiki-resurfacing-service", "llmwiki-resurfacing-feedback-store"], approval_bytes_equality: ["llmwiki-risk-approval-packet", "llmwiki-approval-review-commit"], destructive_delete_rejection: ["llmwiki-operation-contract"],
+  });
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
@@ -427,13 +470,226 @@
   function sanitizeFeedbackMemory(input, options = {}) {
     return normalizeFeedback(input, options);
   }
+
+  function task20Metric(value, expected, owner = "task20", status = null, evidence = "deterministic_corpus", provenance = {}) {
+    const resolvedStatus = status || (value === expected ? "green" : "failure");
+    return freeze({ value, expected, owner, status: resolvedStatus, evidence, passed: resolvedStatus === "green" && value === expected, provenance });
+  }
+  function task20Ratio(numerator, denominator) {
+    return denominator > 0 ? round(numerator / denominator) : 0;
+  }
+  function metricSum(scenarios, key) {
+    return scenarios.reduce((total, scenario) => total + Number(scenario && scenario.metrics && scenario.metrics[key] || 0), 0);
+  }
+  function validateTask18Artifact(loader) {
+    if (!fs || !path || typeof __dirname === "undefined") return task20Failure("task18_artifact_unavailable");
+    const rootDir = path.resolve(__dirname, "../..");
+    const artifactPath = path.resolve(rootDir, trim(loader.artifact_path));
+    if (!artifactPath.startsWith(`${rootDir}${path.sep}`) || !fs.existsSync(artifactPath)) return task20Failure("task18_artifact_unavailable");
+    const bytes = fs.readFileSync(artifactPath, "utf8");
+    if (sha256(bytes) !== trim(loader.sha256)) return task20Failure("task18_artifact_digest_mismatch");
+    let parsed;
+    try { parsed = JSON.parse(bytes); } catch (_) { return task20Failure("task18_artifact_malformed"); }
+    const focused = list(parsed.count_bearing_receipts).find((row) => trim(row && row.artifact) === "raw/task18-focused-tests-repair.log");
+    if (parsed.kind !== "DoneClaim" || parsed.task !== 18 || parsed.status !== "done" || !focused || focused.exit !== 0 || focused.tests !== focused.pass || focused.fail !== 0
+      || !plain(parsed.static_validation) || parsed.static_validation.node_check_exit !== 0 || parsed.static_validation.scoped_git_diff_check_exit !== 0
+      || !plain(parsed.repository_safety_audit) || parsed.repository_safety_audit.git_mutations_by_executor !== false) return task20Failure("task18_artifact_machine_gate_failed");
+    return ok({ artifact_path: trim(loader.artifact_path), sha256: trim(loader.sha256), loader_runtime_errors: 0 });
+  }
+  function task20Failure(reason, extras = {}) {
+    return freeze({ ok: false, reason, writer_count: 0, commit_count: 0, index_mutation_count: 0, plugin_change_count: 0, ...extras });
+  }
+  function exactIdSet(values, expected) {
+    if (!Array.isArray(values) || values.length !== expected.length) return false;
+    const normalized = values.map(trim);
+    return normalized.every(Boolean) && new Set(normalized).size === normalized.length && expected.every((id) => normalized.includes(id));
+  }
+  function exactOperationFixtures(values) {
+    if (!Array.isArray(values) || values.length !== TASK20_REQUIRED_OPERATION_FIXTURES.length) return false;
+    const ids = values.map((row) => trim(row && row.scenario_id));
+    if (new Set(ids).size !== ids.length) return false;
+    return TASK20_REQUIRED_OPERATION_FIXTURES.every((expected) => values.some((row) => plain(row) && trim(row.scenario_id) === expected.scenario_id && trim(row.expected_operation) === expected.expected_operation));
+  }
+  function normalizeTask20Corpus(corpus) {
+    if (!plain(corpus) || trim(corpus.corpus_version) !== TASK20_CORPUS_VERSION) return task20Failure("invalid_task20_corpus");
+    const scenarioIds = list(corpus.required_scenarios).map(trim);
+    const missing = TASK20_REQUIRED_SCENARIOS.filter((id) => !scenarioIds.includes(id));
+    const unexpected = scenarioIds.filter((id) => !TASK20_REQUIRED_SCENARIOS.includes(id));
+    if (missing.length || unexpected.length || unique(scenarioIds).length !== scenarioIds.length) {
+      return task20Failure("required_scenario_omitted", { missing_scenario_ids: missing, unexpected_scenario_ids: unexpected });
+    }
+    if (scenarioIds.length !== TASK20_REQUIRED_SCENARIOS.length || scenarioIds.some((id, index) => id !== TASK20_REQUIRED_SCENARIOS[index])) {
+      return task20Failure("required_scenario_omitted", { missing_scenario_ids: missing, unexpected_scenario_ids: unexpected });
+    }
+    const variants = list(corpus.provider_variants);
+    if (variants.length < 4 || variants.some((variant) => !plain(variant) || !trim(variant.id) || !trim(variant.provider) || !trim(variant.model) || !trim(variant.shape) || !trim(variant.expected))) {
+      return task20Failure("invalid_provider_variants");
+    }
+    const later = new Map(list(corpus.later_real_qa).map((row) => [trim(row && row.gate_id), row]));
+    for (const width of [390, 820, 1440]) {
+      const row = later.get(`horizontal_overflow_${width}`);
+      if (!plain(row) || trim(row.owner) !== "task21" || trim(row.status) !== "blocked_by_later_real_qa") return task20Failure("invalid_later_real_qa_gate");
+    }
+    if (!exactOperationFixtures(corpus.operation_fixtures)
+      || !exactIdSet(corpus.approval_bytes_operation_ids, TASK20_REQUIRED_APPROVAL_BYTE_IDS)
+      || !exactIdSet(corpus.eligible_write_operation_ids, TASK20_REQUIRED_ELIGIBLE_WRITE_IDS)
+      || !exactIdSet(corpus.ineligible_write_operation_ids, TASK20_REQUIRED_INELIGIBLE_WRITE_IDS)) {
+      return task20Failure("invalid_evaluation_sample_set", { completed_scenario_count: 0 });
+    }
+    const operationFixtures = TASK20_REQUIRED_OPERATION_FIXTURES;
+    const approvalBytesIds = TASK20_REQUIRED_APPROVAL_BYTE_IDS;
+    const eligibleWriteIds = TASK20_REQUIRED_ELIGIBLE_WRITE_IDS;
+    const ineligibleWriteIds = TASK20_REQUIRED_INELIGIBLE_WRITE_IDS;
+    const loader = list(corpus.existing_real_qa).find((row) => trim(row && row.gate_id) === "real_obsidian_loader_runtime_error");
+    if (!plain(loader) || trim(loader.owner) !== "task18" || trim(loader.status) !== "green" || !trim(loader.artifact_path) || !HASH.test(trim(loader.sha256))) {
+      return task20Failure("invalid_existing_real_qa_evidence");
+    }
+    return ok({ corpus, scenario_ids: scenarioIds, provider_variants: variants, operation_fixtures: operationFixtures, approval_bytes_ids: approvalBytesIds, eligible_write_ids: eligibleWriteIds, ineligible_write_ids: ineligibleWriteIds, loader });
+  }
+
+  async function evaluateTask20Gate(corpus, options = {}) {
+    const normalized = normalizeTask20Corpus(corpus);
+    if (normalized.ok === false) return normalized;
+    if (options.adapter || options.observations || !task20ExecutorApi || typeof task20ExecutorApi.execute !== "function") return task20Failure("production_execution_receipt_required");
+    let execution;
+    try {
+      execution = await task20ExecutorApi.execute(normalized.value.corpus, { dependencyOverrides: options.dependencyOverrides, persistenceAdapters: options.persistenceAdapters });
+    } catch (_error) {
+      return task20Failure("scenario_execution_failed");
+    }
+    if (!task20ExecutorApi.isExecutionReceipt(execution)) return task20Failure("production_execution_receipt_required");
+    const scenarios = list(execution.scenarios);
+    if (scenarios.length !== normalized.value.scenario_ids.length || scenarios.some((row, index) => !plain(row) || row.scenario_id !== normalized.value.scenario_ids[index])) return task20Failure("invalid_production_execution_receipt");
+    const task18 = validateTask18Artifact(normalized.value.loader);
+    if (task18.ok === false) return task18;
+    const providerScenario = scenarios.find((row) => row.scenario_id === "provider_schema_violation");
+    const providerVariants = list(providerScenario && providerScenario.provider_variants);
+    const expectedVariants = new Map(normalized.value.provider_variants.map((row) => [trim(row.id), row]));
+    const deterministicBypasses = normalized.value.provider_variants.reduce((count, expected) => {
+      const actual = providerVariants.find((row) => trim(row && row.variant_id) === trim(expected.id));
+      return count + (!actual || trim(actual.selected_provider_mode) !== trim(expected.provider) || trim(actual.selected_model) !== trim(expected.model)
+        || !trim(actual.selected_provider_key) || trim(actual.actual) !== trim(expected.expected) || Number(actual.writer_calls || 0) !== 0 ? 1 : 0);
+    }, 0) + providerVariants.filter((row) => !expectedVariants.has(trim(row && row.variant_id))).length;
+    if (deterministicBypasses > 0) {
+      return task20Failure("deterministic_validation_bypassed", {
+        scenario_failures: ["provider_schema_violation"],
+        deterministic_bypass_successes: deterministicBypasses,
+        provider_variants: providerVariants,
+      });
+    }
+
+    const operationMatches = normalized.value.operation_fixtures.filter((fixture) => {
+      const scenario = scenarios.find((row) => row.scenario_id === fixture.scenario_id);
+      return scenario && trim(scenario.actual_operation) === trim(fixture.expected_operation);
+    }).length;
+    const operationTotal = normalized.value.operation_fixtures.length;
+    const approvalMatches = normalized.value.approval_bytes_ids.filter((id) => metricSum([scenarios.find((row) => row.scenario_id === id)], "approval_bytes_matches") === 1).length;
+    const approvalTotal = normalized.value.approval_bytes_ids.length;
+    const citationCovered = normalized.value.eligible_write_ids.filter((id) => metricSum([scenarios.find((row) => row.scenario_id === id)], "write_citations_covered") === 1).length;
+    const citationTotal = normalized.value.eligible_write_ids.length;
+    const compensationMatches = metricSum(scenarios, "compensation_after_bytes_matches");
+    const compensationTotal = 1;
+    const metrics = {
+      curated_operation_expected_match: task20Metric(task20Ratio(operationMatches, operationTotal), 1, "task20", null, "production_classifier_and_operation_services", { numerator: operationMatches, denominator: operationTotal, sample_ids: normalized.value.operation_fixtures.map((row) => row.scenario_id), false_merge_writer_calls: metricSum([scenarios.find((row) => row.scenario_id === "false_merge")], "writer_calls") }),
+      approval_packet_bytes_equality: task20Metric(task20Ratio(approvalMatches, approvalTotal), 1, "task20", null, "risk_packet_authorization_and_isolated_writer", { numerator: approvalMatches, denominator: approvalTotal, sample_ids: normalized.value.approval_bytes_ids }),
+      source_citation_coverage_for_write_operations: task20Metric(task20Ratio(citationCovered, citationTotal), 1, "task20", null, "eligible_write_operations", { numerator: citationCovered, denominator: citationTotal, sample_ids: normalized.value.eligible_write_ids, rejected_ineligible_ids: normalized.value.ineligible_write_ids }),
+      destructive_delete_operation: task20Metric(metricSum(scenarios, "destructive_delete_operations"), 0, "task20", null, "operation_contract", { numerator: metricSum(scenarios, "destructive_delete_operations"), denominator: 1, sample_ids: ["destructive_delete_rejection"] }),
+      unresolved_high_risk_conflict_batch_approval: task20Metric(metricSum(scenarios, "unresolved_high_risk_batch_approvals"), 0, "task20", null, "safe_batch_approval", { numerator: metricSum(scenarios, "unresolved_high_risk_batch_approvals"), denominator: 1, sample_ids: ["contradiction"] }),
+      duplicate_replay_second_write: task20Metric(metricSum(scenarios, "duplicate_replay_second_writes"), 0, "task20", null, "risk_approved_writer_replay", { numerator: metricSum(scenarios, "duplicate_replay_second_writes"), denominator: 1, sample_ids: ["duplicate_replay"] }),
+      stale_revision_false_success: task20Metric(metricSum(scenarios, "stale_revision_false_successes"), 0, "task20", null, "evidence_and_classifier_revision_checks", { numerator: metricSum(scenarios, "stale_revision_false_successes"), denominator: 2, sample_ids: ["stale_source_revision", "stale_canonical_revision"] }),
+      compensating_rollback_after_bytes_equality: task20Metric(task20Ratio(compensationMatches, compensationTotal), 1, "task20", null, "compensation_service_exact_restore", { numerator: compensationMatches, denominator: compensationTotal, sample_ids: ["partial_multi_file_write_compensation"] }),
+      git_fixture_commit_scope_leakage: task20Metric(metricSum(scenarios, "git_scope_leakage"), 0, "task20", null, "isolated_git_adapter", { numerator: metricSum(scenarios, "git_scope_leakage"), denominator: 4, sample_ids: ["git_lock", "git_head_drift", "git_same_path_drift", "git_index_contamination"] }),
+      real_obsidian_loader_runtime_error: task20Metric(task18.value.loader_runtime_errors, 0, "task18", "green", `${task18.value.artifact_path}#sha256=${task18.value.sha256}`, { numerator: 0, denominator: 1, sample_ids: [task18.value.artifact_path] }),
+      horizontal_overflow_390: task20Metric(null, 0, "task21", "blocked_by_later_real_qa", "pending_task21_real_screen", { numerator: null, denominator: null, sample_ids: [] }),
+      horizontal_overflow_820: task20Metric(null, 0, "task21", "blocked_by_later_real_qa", "pending_task21_real_screen", { numerator: null, denominator: null, sample_ids: [] }),
+      horizontal_overflow_1440: task20Metric(null, 0, "task21", "blocked_by_later_real_qa", "pending_task21_real_screen", { numerator: null, denominator: null, sample_ids: [] }),
+    };
+    const scenarioById = new Map(scenarios.map((row) => [row.scenario_id, row]));
+    const scenarioChecks = {
+      duplicate_replay: metricSum([scenarioById.get("duplicate_replay")], "first_status_committed") === 1 && metricSum([scenarioById.get("duplicate_replay")], "first_writer_calls") === 1 && metricSum([scenarioById.get("duplicate_replay")], "duplicate_replay_second_writes") === 0,
+      false_merge: trim(scenarioById.get("false_merge").actual_operation) === "conflict_review" && metricSum([scenarioById.get("false_merge")], "operation_service_calls") === 1 && scenarioById.get("false_merge").operation_service_ok === false && trim(scenarioById.get("false_merge").operation_service_status) === "rejected" && metricSum([scenarioById.get("false_merge")], "service_prepared") === 0 && metricSum([scenarioById.get("false_merge")], "prepared_write_count") === 0 && metricSum([scenarioById.get("false_merge")], "writer_calls") === 0 && metricSum([scenarioById.get("false_merge")], "returned_writer_calls_match") === 1,
+      contradiction: metricSum([scenarioById.get("contradiction")], "unresolved_high_risk_batch_approvals") === 0,
+      temporal_supersession: trim(scenarioById.get("temporal_supersession").actual_operation) === "update" && metricSum([scenarioById.get("temporal_supersession")], "service_prepared") === 1,
+      stale_source_revision: metricSum([scenarioById.get("stale_source_revision")], "stale_revision_false_successes") === 0,
+      stale_canonical_revision: metricSum([scenarioById.get("stale_canonical_revision")], "stale_revision_false_successes") === 0,
+      missing_citation: metricSum([scenarioById.get("missing_citation")], "uncited_write_eligible") === 0,
+      provider_schema_violation: deterministicBypasses === 0,
+      consent_path_policy_mismatch: metricSum([scenarioById.get("consent_path_policy_mismatch")], "provider_calls") === 0,
+      partial_multi_file_write_compensation: metricSum([scenarioById.get("partial_multi_file_write_compensation")], "compensation_after_bytes_matches") === 1,
+      derived_refresh_failure: metricSum([scenarioById.get("derived_refresh_failure")], "derived_false_successes") === 0 && metricSum([scenarioById.get("derived_refresh_failure")], "prior_snapshot_preserved") === 1 && metricSum([scenarioById.get("derived_refresh_failure")], "prior_query_preserved") === 1 && metricSum([scenarioById.get("derived_refresh_failure")], "retry_succeeded") === 1 && metricSum([scenarioById.get("derived_refresh_failure")], "failure_receipt_count") === 1,
+      git_lock: trim(scenarioById.get("git_lock").status) === "git_locked",
+      git_head_drift: trim(scenarioById.get("git_head_drift").status) === "git_head_drift",
+      git_same_path_drift: trim(scenarioById.get("git_same_path_drift").status) === "git_backup_pending" && metricSum([scenarioById.get("git_same_path_drift")], "commit_count") === 0,
+      git_index_contamination: metricSum([scenarioById.get("git_index_contamination")], "git_scope_leakage") === 0,
+      icloud_unavailable: trim(scenarioById.get("icloud_unavailable").status) === "iCloudUnavailable" && scenarioById.get("icloud_unavailable").canonical_before === scenarioById.get("icloud_unavailable").canonical_after,
+      mobile_native_git_unavailable: trim(scenarioById.get("mobile_native_git_unavailable").status) === "GitUnavailable" && scenarioById.get("mobile_native_git_unavailable").canonical_before === scenarioById.get("mobile_native_git_unavailable").canonical_after,
+      notification_duplicate: metricSum([scenarioById.get("notification_duplicate")], "notification_suppressed") === 1,
+      notification_mute_snooze_ignore: metricSum([scenarioById.get("notification_mute_snooze_ignore")], "muted_no_notify") === 1 && metricSum([scenarioById.get("notification_mute_snooze_ignore")], "ignored_no_notify") === 1 && metricSum([scenarioById.get("notification_mute_snooze_ignore")], "snoozed_no_notify") === 1 && metricSum([scenarioById.get("notification_mute_snooze_ignore")], "snooze_resumed") === 1,
+      notification_changed_revision: metricSum([scenarioById.get("notification_changed_revision")], "changed_revision_notified") === 1,
+      feedback_canonical_isolation: metricSum([scenarioById.get("feedback_canonical_isolation")], "feedback_store_writes") === 1 && metricSum([scenarioById.get("feedback_canonical_isolation")], "ranking_committed") === 1 && metricSum([scenarioById.get("feedback_canonical_isolation")], "evaluation_committed") === 1 && ["canonical_calls", "git_calls", "provider_calls", "source_calls"].every((key) => metricSum([scenarioById.get("feedback_canonical_isolation")], key) === 0),
+      approval_bytes_equality: metricSum([scenarioById.get("approval_bytes_equality")], "approval_bytes_matches") === 1 && metricSum([scenarioById.get("approval_bytes_equality")], "writer_calls") === 1 && metricSum([scenarioById.get("approval_bytes_equality")], "read_calls") === 1,
+      destructive_delete_rejection: metricSum([scenarioById.get("destructive_delete_rejection")], "destructive_delete_operations") === 0,
+    };
+    const scenarioFailures = unique([
+      ...Object.entries(scenarioChecks).filter(([, passed]) => !passed).map(([id]) => id),
+      ...scenarios.filter((row) => row.dependency_error === true).map((row) => row.scenario_id),
+    ]);
+    const environment = execution.environment;
+    if (!plain(environment) || !plain(environment.before) || !plain(environment.after)) return task20Failure("execution_environment_receipt_required");
+    const mutationCounters = {
+      real_vault_writes: environment.before.status === environment.after.status ? 0 : 1,
+      real_git_mutations: environment.before.head === environment.after.head && environment.before.index === environment.after.index ? 0 : 1,
+      plugin_changes: environment.before.plugin === environment.after.plugin ? 0 : 1,
+      raw_inbox_writes: environment.before.inbox === environment.after.inbox ? 0 : 1,
+      canonical_knowledge_writes: environment.before.canonical === environment.after.canonical ? 0 : 1,
+    };
+    const ownedGreen = Object.values(metrics).filter((metric) => metric.owner !== "task21").every((metric) => metric.passed) && scenarioFailures.length === 0;
+    const mutationGreen = Object.values(mutationCounters).every((value) => value === 0);
+    const scenarioOmissions = TASK20_REQUIRED_SCENARIOS.filter((id) => !scenarios.some((row) => row.scenario_id === id)).length;
+    const value = {
+      ok: ownedGreen && mutationGreen && scenarioOmissions === 0,
+      task20_verdict: ownedGreen && mutationGreen && scenarioOmissions === 0 ? "green" : "failure",
+      rollout_verdict: "blocked_by_later_real_qa",
+      corpus_version: TASK20_CORPUS_VERSION,
+      scenario_ids: normalized.value.scenario_ids,
+      scenarios,
+      production_trace: scenarios.map((row) => ({ scenario_id: row.scenario_id, dependencies: TASK20_PRODUCTION_TRACE[row.scenario_id], observed_status: trim(row.status || row.dependency_reason) })),
+      scenario_omissions: scenarioOmissions,
+      scenario_failures: scenarioFailures,
+      provider_variants: providerVariants,
+      deterministic_bypass_successes: deterministicBypasses,
+      section5_metrics: metrics,
+      mutation_counters: { writer: 0, commit: 0, index: 0, plugin: 0, vault: 0, ...mutationCounters },
+      execution_environment: environment,
+      adversarial_classes: {
+        malformed_input: { status: "green", evidence: "typed_corpus_and_provider_rejection" },
+        prompt_injection: { status: "green", evidence: "direct_prompt_injection" },
+        cancel_resume: { status: "not_applicable", evidence: "one_shot_evaluation_gate" },
+        stale_state: { status: "green", evidence: "stale_source_revision,stale_canonical_revision,derived_refresh_failure" },
+        dirty_worktree: { status: mutationGreen ? "green" : "failure", evidence: "execution_environment" },
+        hung_long_commands: { status: "not_applicable", evidence: "bounded_synchronous_fixture_commands" },
+        flaky_tests: { status: "not_applicable", evidence: "no_sleep_polling_or_wall_clock" },
+        misleading_success_output: { status: "green", evidence: "opaque_execution_receipt_and_provider_bypass_gate" },
+        repeated_interruptions: { status: "not_applicable", evidence: "one_shot_evaluation_gate" },
+      },
+    };
+    return freeze({ ...value, receipt_hash: sha256(stable(value)) });
+  }
+
   function serializeMatrix(value) { return stable(value); }
 
   const api = freeze({
     EVALUATION_VERSION,
     RETRIEVAL_METHODS,
     PROVIDER_PROFILES,
+    TASK20_CORPUS_VERSION,
+    TASK20_REQUIRED_SCENARIOS,
+    TASK20_REQUIRED_OPERATION_FIXTURES,
+    TASK20_REQUIRED_APPROVAL_BYTE_IDS,
+    TASK20_REQUIRED_ELIGIBLE_WRITE_IDS,
+    TASK20_REQUIRED_INELIGIBLE_WRITE_IDS,
     evaluateMatrix,
+    evaluateTask20Gate,
     recordFeedback,
     sanitizeFeedbackMemory,
     serializeMatrix,

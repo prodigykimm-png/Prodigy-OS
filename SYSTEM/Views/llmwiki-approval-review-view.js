@@ -50,6 +50,7 @@
   }
   function button(parent, label, action, onClick, options = {}) {
     const control = createEl(parent, "button", { text: label, attr: { type: "button", "data-action": action, "data-primary": options.primary ? "true" : "false", "aria-label": options.ariaLabel || label }, disabled: options.disabled });
+    control.disabled = Boolean(options.disabled);
     if (!options.disabled) control.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); onClick(event); };
     return control;
   }
@@ -98,7 +99,7 @@
   }
 
   function renderOperation(parent, operation, state, callbacks) {
-    const card = createEl(parent, "article", { attr: { class: "llmwiki-approval-review__operation prodigy-utility-card", "data-operation-id": operation.operation_id } });
+    const card = createEl(parent, "article", { attr: { class: "llmwiki-approval-review__operation prodigy-utility-card" } });
     const head = createEl(card, "div", { attr: { class: "llmwiki-approval-review__operation-head" } });
     if (callbacks.allowlist.has(operation.operation_id)) {
       const label = createEl(head, "label", { attr: { class: "llmwiki-approval-review__source" } });
@@ -136,8 +137,9 @@
     createEl(evidence, "h4", { text: "근거 및 출처" });
     operation.evidence.forEach((item) => {
       const row = createEl(evidence, "div", { attr: { class: "llmwiki-approval-review__source" } });
-      createEl(row, "span", { text: `${item.source_id} · ${item.locator}` });
-      button(row, "출처 옆에 열기", "open-source", () => callbacks.onOpenBeside(sourcePath(item.locator)), { ariaLabel: `출처 옆에 열기 ${item.locator}` });
+      const readableSource = sourcePath(item.locator).split("/").pop() || "선택한 자료";
+      createEl(row, "span", { text: readableSource });
+      button(row, "출처 옆에 열기", "open-source", () => callbacks.onOpenBeside(sourcePath(item.locator)), { ariaLabel: `${readableSource} 옆에 열기` });
     });
     return card;
   }
@@ -250,9 +252,7 @@
       const meta = createEl(frame, "section", { attr: { class: "llmwiki-approval-review__meta prodigy-utility-card" } });
       createEl(meta, "h3", { text: "실행 정보" });
       const fields = createEl(meta, "dl");
-      field(fields, "실행 ID", model.run_id);
-      field(fields, "제공자", model.provider_label);
-      field(fields, "신뢰 상태", model.trust_label);
+      field(fields, "검토 상태", model.trust_label);
       field(fields, "승인 상태", model.approval_label);
       const actions = createEl(meta, "div", { attr: { class: "llmwiki-approval-review__actions" } });
       button(actions, "선택 승인", "approve-selected", () => submit("selected"), { primary: true, disabled: state.authorizationInvalidated || state.selectedIds.size === 0 });
@@ -294,8 +294,10 @@
   }
 
   const api = Object.freeze({
+    testOnly: Object.freeze({ createSyntheticApprovalPacket }),
     buildPreviewCommitRequest: (...args) => commitBuilder().buildPreviewCommitRequest(...args),
-    createSyntheticApprovalPacket,
+    buildRiskApprovalReviewModel: (...args) => root.LLMWikiRiskApprovalReviewView.buildRiskApprovalReviewModel(...args),
+    mountRiskApprovalReview: (options = {}) => root.LLMWikiRiskApprovalReviewView.mountRiskApprovalReview({ ...options, ensureStyle }),
     mountLlmWikiApprovalReview
   });
   root.LLMWikiApprovalReviewView = api;

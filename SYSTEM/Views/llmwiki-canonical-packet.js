@@ -5,12 +5,12 @@
 
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
   const knowledgeApi = root.KnowledgeCandidateStore || (typeof require === "function" ? require("./knowledge-candidate-store.js") : null);
+  const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
 
   const PACKET_VERSION = "llmwiki_canonical_packet_v1";
   const HASH = /^[0-9a-f]{64}$/u;
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const NONCE = /^[A-Za-z0-9_-]{16,128}$/u;
-  const EXISTING_TARGET_KINDS = new Set(["update", "merge", "dispute"]);
   const DOCUMENT_FIELDS = new Set([
     "application_contexts", "application_trigger", "body", "connections", "created", "invalidation_conditions",
     "knowledge_domain", "knowledge_topics", "statement", "summary", "title", "type", "updated",
@@ -18,7 +18,6 @@
   const CITATION_FIELDS = new Set([
     "confidence", "content_hash", "locator", "locators", "source_archive_id", "source_id", "source_url", "text",
   ]);
-  const OPERATION_FIELDS = new Set(["operation_id", "payload_hash", "proposal_id", "proposal_kind"]);
   const REQUEST_FIELDS = new Set([
     "allowed_properties", "canonical_document", "consent_hash", "expires_at", "nonce", "operation", "run_id",
     "source_citations", "target_path",
@@ -42,8 +41,16 @@
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
-  function clone(value) { return JSON.parse(JSON.stringify(value)); }
+  function clone(value) {
+    if (operationApi?.isOperationRecord?.(value) || operationApi?.isCanonicalOperationRecord?.(value)) return value;
+    if (Array.isArray(value)) return value.map(clone);
+    if (!plain(value)) return value;
+    const result = Object.getPrototypeOf(value) === null ? Object.create(null) : {};
+    for (const [key, item] of Object.entries(value)) Object.defineProperty(result, key, { value: clone(item), enumerable: true, writable: true, configurable: true });
+    return result;
+  }
   function freeze(value) {
+    if (operationApi?.isOperationRecord?.(value) || operationApi?.isCanonicalOperationRecord?.(value)) return value;
     if (Array.isArray(value)) return Object.freeze(value.map(freeze));
     if (!plain(value)) return value;
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)])));
@@ -146,14 +153,9 @@
   }
 
   function validateOperation(value) {
-    if (!plain(value)) return fail("operation", "malformed_operation");
-    for (const key of Object.keys(value)) if (!OPERATION_FIELDS.has(key)) return fail(`operation.${key}`, "unknown_operation_field");
-    if (!ID.test(trim(value.operation_id))) return fail("operation.operation_id", "invalid_operation_id");
-    if (!ID.test(trim(value.proposal_id))) return fail("operation.proposal_id", "invalid_proposal_id");
-    const kind = trim(value.proposal_kind);
-    if (kind !== "create" && !EXISTING_TARGET_KINDS.has(kind)) return fail("operation.proposal_kind", "unsupported_operation_kind");
-    if (!HASH.test(trim(value.payload_hash))) return fail("operation.payload_hash", "invalid_payload_hash");
-    return { operation_id: trim(value.operation_id), proposal_id: trim(value.proposal_id), proposal_kind: kind, payload_hash: trim(value.payload_hash) };
+    if (!operationApi?.isCanonicalOperationRecord?.(value) && typeof value !== "string") return fail("operation", "serialized_operation_required");
+    const parsed = operationApi?.parseCanonicalOperation?.(value);
+    return parsed?.ok === true ? parsed.value : parsed || fail("operation", "malformed_operation");
   }
 
   function validateRequest(request, adapter) {
@@ -187,15 +189,10 @@
   function liveRevision(targetPath, beforeSha256) { return sha256(stable({ before_sha256: beforeSha256, target_path: targetPath })); }
 
   function packetBody(request, operation, targetPath, beforeBytes, afterBytes, allowedProperties, citations) {
-    const create = operation.proposal_kind === "create";
     return {
       packet_version: PACKET_VERSION,
       run_id: trim(request.run_id),
-      operation: {
-        ...operation,
-        authorization_state: create ? "authorizable" : "disabled",
-        authorization_reason: create ? "phase_1_create_only" : "future_existing_target_operation",
-      },
+      operation,
       target_path: targetPath,
       allowed_properties: allowedProperties.slice(),
       before_bytes: beforeBytes,
@@ -227,6 +224,8 @@
 
   function verifyCanonicalPacket(packet) {
     if (!plain(packet)) return fail("packet", "malformed_packet");
+    if (!operationApi?.isCanonicalPacketOperationRecord?.(packet.operation)) return fail("packet", "packet_tampered");
+    const operation = packet.operation;
     const identity = packetIdentity(packet);
     const canonicalSerialization = stable(identity);
     if (packet.canonical_serialization !== canonicalSerialization || packet.packet_hash !== sha256(canonicalSerialization)) return fail("packet", "packet_tampered");
@@ -238,15 +237,8 @@
     if (!HASH.test(trim(packet.consent_hash)) || !validIso(packet.expires_at) || !NONCE.test(trim(packet.nonce))) return fail("packet", "packet_payload_invalid");
     const citations = validateCitations(packet.source_citations);
     if ((plain(citations) && citations.ok === false) || !same(citations, packet.source_citations)) return fail("packet", "packet_payload_invalid");
-    const operation = validateOperation(plain(packet.operation) ? {
-      operation_id: packet.operation.operation_id,
-      proposal_id: packet.operation.proposal_id,
-      proposal_kind: packet.operation.proposal_kind,
-      payload_hash: packet.operation.payload_hash,
-    } : packet.operation);
-    if (plain(operation) && operation.ok === false) return fail("packet", "packet_payload_invalid");
     const create = operation.proposal_kind === "create";
-    if (packet.operation.authorization_state !== (create ? "authorizable" : "disabled")) return fail("packet", "packet_payload_invalid");
+    if (operation.authorization_state !== (create ? "authorizable" : "disabled")) return fail("packet", "packet_payload_invalid");
     if (create && packet.before_bytes !== "") return fail("packet", "packet_payload_invalid");
     try {
       const parsed = knowledgeApi.parseFrontmatter(packet.after_bytes);
@@ -287,8 +279,10 @@
       beforeBytes = liveBytes;
     }
 
+    const packetOperation = operationApi?.deriveCanonicalPacketOperation?.(operation);
+    if (!packetOperation || packetOperation.ok !== true) return packetOperation || fail("operation", "canonical_operation_transform_unavailable");
     const afterBytes = knowledgeApi.renderCanonicalDocument(request.canonical_document);
-    const packet = attachHash(packetBody(request, operation, targetPath, beforeBytes, afterBytes, allowedProperties, citations));
+    const packet = attachHash(packetBody(request, packetOperation.value, targetPath, beforeBytes, afterBytes, allowedProperties, citations));
     if (collision) return success("stale_reconfirm_required", packet, { reason: "create_target_collision" });
     return success(create ? "ready_for_review" : "authorization_disabled", packet);
   }

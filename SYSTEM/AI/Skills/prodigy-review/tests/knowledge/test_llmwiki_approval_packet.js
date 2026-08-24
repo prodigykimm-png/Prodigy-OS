@@ -11,6 +11,7 @@ const ROOT = path.resolve(__dirname, "../../../../../../");
 const PACKET_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-approval-packet.js");
 const BUNDLE_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-proposal-bundle.js");
 const PIPELINE_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-librarian-pipeline.js");
+const OPERATION_CONTRACT_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js");
 
 function packetApi() {
   assert.equal(fs.existsSync(PACKET_PATH), true, "LLMWiki approval packet module must exist");
@@ -26,6 +27,10 @@ function bundleApi() {
 function pipelineApi() {
   delete require.cache[PIPELINE_PATH];
   return require(PIPELINE_PATH);
+}
+
+function operationApi() {
+  return require(OPERATION_CONTRACT_PATH);
 }
 
 async function librarianEnvelope(overrides = {}) {
@@ -46,6 +51,68 @@ function operationByKind(packet, kind) {
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function rawTypedOperation(kind) {
+  const destinationA = "PARA/RESOURCES/Knowledge/source-a.md";
+  const destinationB = "PARA/RESOURCES/Knowledge/source-b.md";
+  const destinationMerged = "PARA/RESOURCES/Knowledge/merged-reading.md";
+  const revisionA = "a".repeat(64);
+  const revisionB = "b".repeat(64);
+  const revisionMerged = "c".repeat(64);
+  const operation = {
+    contract_version: operationApi().CONTRACT_VERSION,
+    operation_id: `operation_typed_${kind}`,
+    kind,
+    destination_ids: [destinationA],
+    base_revisions: { [destinationA]: revisionA },
+    before_bytes: { [destinationA]: "before\n" },
+    after_bytes: { [destinationA]: kind === "noop" ? "before\n" : "after\n" },
+    source_citations: [{
+      source_id: "source_related_alpha",
+      content_hash: revisionA,
+      source_url: "https://example.com/source_related_alpha/final",
+      locators: ["ZETA/LITERATURE/source_related_alpha.md#claim"],
+      source_archive_id: null,
+      confidence: "explicit",
+    }],
+    conflicts: [],
+    risk_tier: "low",
+    effects: { deprecations: [], supersessions: [] },
+  };
+  if (kind === "create") {
+    operation.base_revisions = {};
+    operation.before_bytes = {};
+  } else if (kind === "merge") {
+    operation.destination_ids = [destinationMerged];
+    operation.source_ids = [destinationA, destinationB];
+    operation.base_revisions = { [destinationA]: revisionA, [destinationB]: revisionB, [destinationMerged]: revisionMerged };
+    operation.before_bytes = { [destinationA]: "a before\n", [destinationB]: "b before\n", [destinationMerged]: "merged before\n" };
+    operation.after_bytes = { [destinationMerged]: "merged after\n" };
+    operation.risk_tier = "high";
+  }
+  return operation;
+}
+
+function brandedTypedOperation(kind) {
+  const parsed = operationApi().parseOperation(JSON.stringify(rawTypedOperation(kind)));
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  assert.equal(operationApi().isOperationRecord(parsed.value), true);
+  return parsed.value;
+}
+
+function packetWithTypedOperation(kind, proposalKind) {
+  const proposals = fixtures.sixKindProviderResponse("run_librarian_typed_operation", fixtures.requestInput().sources).proposal_bundle.proposals;
+  const proposal = proposals.find((item) => item.kind === proposalKind);
+  assert.ok(proposal, `missing ${proposalKind} proposal fixture`);
+  proposal.operation = brandedTypedOperation(kind);
+  const built = bundleApi().buildProposalBundle({
+    run_id: "run_librarian_typed_operation",
+    validation_context: { context_id: "validation_context_typed_operation", logical_scope: "run_scoped", persistence: "none" },
+    proposals,
+  });
+  assert.equal(built.ok, true, JSON.stringify(built));
+  return packetApi().buildApprovalPacket({ run_id: "run_librarian_typed_operation", provider_metadata: { mode: "direct" }, proposal_bundle: built.value });
 }
 
 test("Todo 3/6 baseline remains a six-kind unverified proposal bundle with no persistent writes", async () => {
@@ -345,6 +412,52 @@ test("packet build and actions never call writer/provider/network/git hooks and 
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }
+});
+
+test("serialized create operation reaches approval only as the parser-branded record", () => {
+  const packet = packetWithTypedOperation("create", "create");
+  assert.equal(packet.ok, true, JSON.stringify(packet));
+  const contract = operationByKind(packet.value, "create").operation_contract;
+  assert.equal(operationApi().isOperationRecord(contract), true);
+  assert.equal(contract.approval_eligible, true);
+  assert.equal(operationByKind(packet.value, "create").authorization_state, "authorizable");
+});
+
+test("serialized update, merge, and noop operations preserve brand and refusal outcomes", () => {
+  for (const [kind, proposalKind] of [["update", "update"], ["merge", "merge"], ["noop", "no_change"]]) {
+    const packet = packetWithTypedOperation(kind, proposalKind);
+    assert.equal(packet.ok, true, `${kind}: ${JSON.stringify(packet)}`);
+    const operation = operationByKind(packet.value, proposalKind);
+    assert.equal(operationApi().isOperationRecord(operation.operation_contract), true, kind);
+    assert.equal(operation.authorization_state, proposalKind === "no_change" ? "no_write" : "non_authorizable", kind);
+  }
+});
+
+test("raw operation fixtures remain rejected at the approval seam", () => {
+  const proposals = fixtures.sixKindProviderResponse("run_librarian_raw_operation", fixtures.requestInput().sources).proposal_bundle.proposals;
+  proposals[0].operation = rawTypedOperation("create");
+  const built = bundleApi().buildProposalBundle({
+    run_id: "run_librarian_raw_operation",
+    validation_context: { context_id: "validation_context_raw_operation", logical_scope: "run_scoped", persistence: "none" },
+    proposals,
+  });
+  assert.equal(built.ok, false);
+  assert.equal(built.reason, "serialized_operation_required");
+});
+
+test("copied unbranded operation records cannot inherit approval authority", () => {
+  const proposals = fixtures.sixKindProviderResponse("run_librarian_copied_operation", fixtures.requestInput().sources).proposal_bundle.proposals;
+  proposals[0].operation = clone(brandedTypedOperation("create"));
+  const result = packetApi().buildApprovalPacket({
+    run_id: "run_librarian_copied_operation",
+    proposal_bundle: {
+      run_id: "run_librarian_copied_operation",
+      validation_context: { context_id: "validation_context_copied_operation", logical_scope: "run_scoped", persistence: "none" },
+      proposals,
+    },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "serialized_operation_required");
 });
 
 test("direct bundle with create/update preserve/merge/dispute supersession/abstain/no_change renders every operation explicitly", () => {

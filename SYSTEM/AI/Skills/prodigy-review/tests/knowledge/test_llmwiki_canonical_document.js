@@ -9,6 +9,7 @@ const { test } = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const canonical = require(path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-packet.js"));
+const operationContract = require(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"));
 const reviewCommit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-commit.js"));
 const commit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-deterministic-commit.js"));
 const store = require(path.join(ROOT, "SYSTEM/Views/knowledge-candidate-store.js"));
@@ -78,16 +79,25 @@ function canonicalDocument(overrides = {}) {
   };
 }
 
+function canonicalOperation(document = canonicalDocument(), overrides = {}) {
+  const parsed = operationContract.parseCanonicalOperation(JSON.stringify({
+    operation_id: "operation_canonical_document_create",
+    proposal_id: "proposal_canonical_document_create",
+    proposal_kind: "create",
+    payload_hash: sha256(stable(document)),
+    ...overrides,
+  }));
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  assert.equal(operationContract.isCanonicalOperationRecord(parsed.value), true);
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(parsed.value), false);
+  return parsed.value;
+}
+
 function packetRequest(document = canonicalDocument(), overrides = {}) {
   return {
     run_id: "run_canonical_document_fixture",
     consent_hash: "c".repeat(64),
-    operation: {
-      operation_id: "operation_canonical_document_create",
-      proposal_id: "proposal_canonical_document_create",
-      proposal_kind: "create",
-      payload_hash: sha256(stable(document)),
-    },
+    operation: canonicalOperation(document),
     canonical_document: document,
     source_citations: [{
       source_id: "source_related_alpha",
@@ -107,6 +117,8 @@ function packetRequest(document = canonicalDocument(), overrides = {}) {
 async function approvedRequest(adapter, document = canonicalDocument(), overrides = {}) {
   const assembled = await canonical.assembleCanonicalPacket(packetRequest(document, overrides), adapter);
   assert.equal(assembled.ok, true, JSON.stringify(assembled));
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(assembled.value.operation), true);
+  assert.strictEqual(operationContract.deriveCanonicalPacketOperation(assembled.value.operation).value, assembled.value.operation);
   const authorized = reviewCommit.authorizeCanonicalPacket(assembled.value, {
     action: "approve_selected",
     selection_ids: [assembled.value.operation.operation_id],
@@ -192,6 +204,17 @@ test("Given a canonical preview with instruction-like body text, When an approve
   try {
     const live = fileAdapter(temp.root);
     const approved = await approvedRequest(live.adapter);
+    const tamperedPacket = {
+      ...JSON.parse(JSON.stringify(approved.packet)),
+      operation: approved.packet.operation,
+      after_bytes: `${approved.packet.after_bytes}tampered\n`,
+    };
+    assert.equal(operationContract.isCanonicalPacketOperationRecord(tamperedPacket.operation), true);
+    const tampered = await commit.commitApprovedCanonical({ ...approved.request, packet: tamperedPacket }, { now: "2026-08-02T08:00:30.000Z" });
+    assert.equal(tampered.reason, "packet_tampered", JSON.stringify(tampered));
+    assert.deepEqual(tampered.write_counts, ZERO_WRITES);
+    assert.equal(live.mutations.length, 0);
+
     const result = await commit.commitApprovedCanonical(approved.request, { now: "2026-08-02T08:01:00.000Z" });
     const absolute = path.join(temp.root, approved.packet.target_path);
     assert.equal(result.status, "committed", JSON.stringify(result));
@@ -232,9 +255,29 @@ test("Given forbidden caller targets and malformed canonical documents, When pac
       assert.equal(result.reason, reason, name);
       assert.deepEqual(result.write_counters, { canonical: 0, audit: 0, provider: 0, network: 0, git: 0 }, name);
     }
+
+    const branded = canonicalOperation();
+    const packetOperation = operationContract.deriveCanonicalPacketOperation(branded);
+    assert.equal(packetOperation.ok, true, JSON.stringify(packetOperation));
+    const unbrandedControls = [
+      ["raw", {
+        operation_id: branded.operation_id,
+        proposal_id: branded.proposal_id,
+        proposal_kind: branded.proposal_kind,
+        payload_hash: branded.payload_hash,
+      }],
+      ["spread", { ...branded }],
+      ["copied", JSON.parse(JSON.stringify(branded))],
+      ["unbranded authorization", JSON.parse(JSON.stringify(packetOperation.value))],
+    ];
+    for (const [name, operation] of unbrandedControls) {
+      const result = await canonical.assembleCanonicalPacket(packetRequest(canonicalDocument(), { operation }), live.adapter);
+      assert.equal(result.reason, "serialized_operation_required", name);
+      assert.deepEqual(result.write_counters, { canonical: 0, audit: 0, provider: 0, network: 0, git: 0 }, name);
+    }
     assert.equal(live.mutations.length, 0);
     assert.deepEqual(fileIdentity(sentinelPath), before);
-    console.log(`TASK2_GUARDS rejections=${targetCases.length + 6} writes=${live.mutations.length} existing_hash=${before.hash} existing_mtime_ms=${before.mtimeMs}`);
+    console.log(`TASK2_GUARDS rejections=${targetCases.length + 6} unbranded_controls=${unbrandedControls.length} writerCalls=${live.mutations.length} existing_hash=${before.hash} existing_mtime_ms=${before.mtimeMs}`);
   } finally { temp.cleanup(); }
 });
 

@@ -9,6 +9,21 @@
     return container.closest(".workspace-leaf-content") || container;
   }
 
+  // Container-driven tier (Todo 5): keyed exclusively off the MEASURED
+  // .prodigy-app-shell-body width through the canonical CONTAINER_TIERS token.
+  // compact <=640, medium 641-1068, wide >=1069. Never window.innerWidth, and
+  // no private breakpoint — the token is the single source of truth.
+  function tierForWidth(width, tiers) {
+    const scheme = tiers || {};
+    const compact = scheme.compact || {};
+    const medium = scheme.medium || {};
+    const compactMax = typeof compact.max === "number" ? compact.max : 640;
+    const mediumMax = typeof medium.max === "number" ? medium.max : 1068;
+    if (width <= compactMax) return "compact";
+    if (width <= mediumMax) return "medium";
+    return "wide";
+  }
+
   function designTokens() {
     if (root.ProdigyTokens) return root.ProdigyTokens;
     if (typeof require === "function") {
@@ -33,6 +48,9 @@
       "--ke-type-title:1.05rem",
       "--ke-leading-body:1.45",
       `--ke-font-display:${(type.heroDisplay && type.heroDisplay.fontFamily) || "SF Pro Display, system-ui, -apple-system, sans-serif"}`,
+      `--ke-type-display:${(type.heroDisplay && type.heroDisplay.fontSize) || 56}px`,
+      `--ke-leading-display:${(type.heroDisplay && type.heroDisplay.lineHeight) || 1.07}`,
+      `--ke-tracking-display:${(type.heroDisplay && type.heroDisplay.letterSpacing) || -0.28}px`,
       `--ke-font-text:${body.fontFamily || "SF Pro Text, system-ui, -apple-system, sans-serif"}`,
       `--ke-type-body:${body.fontSize || 17}px`,
       `--ke-type-title:${title.fontSize || 21}px`,
@@ -62,6 +80,7 @@
       `--ke-color-surface-secondary:${colors.canvasParchment || "var(--background-secondary)"}`,
       `--ke-color-surface-pearl:${colors.surfacePearl || "var(--background-primary-alt)"}`,
       `--ke-color-dark:${colors.surfaceTile || "var(--background-secondary-alt)"}`,
+    `--ke-color-graphite:${colors.graphite || "var(--text-normal)"}`,
       `--ke-color-hover:${colors.hover || "var(--background-modifier-hover)"}`,
       `--ke-color-backdrop:${colors.backdrop || "var(--background-modifier-cover)"}`,
       `--ke-color-border:${colors.border || "var(--background-modifier-border)"}`,
@@ -71,6 +90,9 @@
       `--ke-color-interactive:${colors.action || "var(--interactive-accent)"}`,
       `--ke-color-interactive-dark:${colors.actionOnDark || "var(--text-accent)"}`,
       `--ke-color-on-interactive:${colors.onAction || "var(--text-on-accent)"}`,
+      `--ke-color-on-dark:${colors.onDark || "var(--text-on-accent)"}`,
+      `--ke-color-secondary-on-dark:${colors.onDarkMuted || "var(--text-muted)"}`,
+      `--ke-color-separator-on-dark:${colors.separatorOnDark || "var(--background-modifier-border)"}`,
       `--ke-color-success:${colors.success || "var(--text-success)"}`,
       `--ke-color-warning:${colors.warning || "var(--text-warning)"}`,
       `--ke-color-error:${colors.error || "var(--text-error)"}`,
@@ -112,6 +134,9 @@
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
+.prodigy-app-shell[data-context-placement="inline"] {
+  grid-template-rows: auto minmax(0, 1fr);
+}
 .prodigy-workspace-bar {
   display: flex;
   align-items: center;
@@ -125,12 +150,22 @@
 .prodigy-workspace-title {
   margin: 0;
   min-inline-size: 0;
-  font-size: var(--ke-type-title, 1.05rem);
+  font-size: var(--ke-type-body, 0.84rem);
+  font-weight: 500;
   line-height: var(--ke-leading-body, 1.45);
   letter-spacing: 0;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: keep-all;
+}
+/* Quiet shell chrome: the workspace bar is a calm strip, never a competing
+   64px hero header. The body PrimarySurface owns the hero title/message, so
+   the bar title stays at chrome scale on every container tier. */
+.prodigy-app-shell[data-tier="wide"] > .prodigy-workspace-bar {
+  min-block-size: var(--ke-touch-target, 44px);
+}
+.prodigy-app-shell[data-tier="wide"] > .prodigy-workspace-bar .prodigy-workspace-title {
+  font-weight: 600;
 }
 .prodigy-workspace-switcher {
   min-block-size: var(--ke-control-height, 44px);
@@ -164,6 +199,15 @@
   font-size: var(--ke-type-label, .72rem);
   line-height: var(--ke-leading-control, 1.35);
   border-bottom: 1px solid var(--ke-color-border, var(--background-modifier-border));
+}
+.prodigy-context-bar.prodigy-context-bar-inline {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  padding: 0;
+  border-bottom: 0;
+}
+.prodigy-context-bar-inline .prodigy-context-items {
+  display: none;
 }
 .prodigy-context-items,
 .prodigy-context-actions {
@@ -227,6 +271,35 @@
   outline: var(--ke-focus-ring-width, 2px) solid var(--ke-color-accent, var(--text-accent));
   outline-offset: 0;
 }
+/* Wide Mac native-app treatment: selection is a persistent tint, while the
+   blue ring belongs exclusively to keyboard focus. */
+.prodigy-app-shell[data-tier="wide"] [aria-selected="true"],
+.prodigy-app-shell[data-tier="wide"] [aria-pressed="true"],
+.prodigy-app-shell[data-tier="wide"] [data-state="selected"] {
+  color: var(--ke-color-text, var(--text-normal));
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ke-color-accent, var(--text-accent)) 12%, var(--ke-color-surface-secondary, var(--background-secondary)));
+  outline: none;
+}
+.prodigy-app-shell[data-tier="wide"] [aria-selected="true"]:focus-visible,
+.prodigy-app-shell[data-tier="wide"] [aria-pressed="true"]:focus-visible,
+.prodigy-app-shell[data-tier="wide"] [data-state="selected"]:focus-visible {
+  outline: var(--ke-focus-ring-width, 2px) solid var(--ke-color-accent, var(--text-accent));
+  outline-offset: 2px;
+}
+.prodigy-app-shell .prodigy-context-action {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ke-color-accent, var(--text-accent));
+  font-weight: 500;
+}
+.prodigy-app-shell .prodigy-context-action:hover {
+  background: var(--ke-color-hover, var(--background-modifier-hover));
+}
+.prodigy-app-shell .prodigy-context-action:focus-visible {
+  outline: var(--ke-focus-ring-width, 2px) solid var(--ke-color-accent, var(--text-accent));
+  outline-offset: 2px;
+}
 .prodigy-app-shell :disabled,
 .prodigy-app-shell [aria-disabled="true"],
 .prodigy-app-shell [data-state="disabled"] {
@@ -242,15 +315,143 @@
   padding-block-end: var(--prodigy-mobile-toolbar-clearance, 0px);
   scroll-padding-block-end: var(--prodigy-mobile-toolbar-clearance, 0px);
   overscroll-behavior-block: contain;
+  -webkit-overflow-scrolling: touch;
 }
-.prodigy-app-shell[data-workspace-id="journal"] {
+.prodigy-app-shell[data-workspace-id="journal"],
+.prodigy-app-shell[data-workspace-id="home"] {
   grid-template-rows: auto auto auto;
   max-block-size: none;
   overflow: visible;
 }
-.prodigy-app-shell[data-workspace-id="journal"] > .prodigy-app-shell-body {
+.prodigy-app-shell[data-workspace-id="journal"] > .prodigy-app-shell-body,
+.prodigy-app-shell[data-workspace-id="home"] > .prodigy-app-shell-body {
   overflow: visible;
+  padding-block-end: 0;
+  scroll-padding-block-end: 0;
   overscroll-behavior-block: auto;
+}
+.markdown-preview-view.prodigy-hub-note:has(
+  .prodigy-app-shell:is(
+    [data-workspace-id="journal"],
+    [data-workspace-id="home"]
+  )
+) {
+  overflow-y: auto !important;
+}
+.prodigy-app-shell[data-workspace-id="auction"] {
+  display: flex !important;
+  flex-direction: column !important;
+  height: calc(100vh - var(--header-height, 48px) - 20px) !important;
+  max-height: calc(100vh - var(--header-height, 48px) - 20px) !important;
+  overflow: hidden !important;
+}
+.prodigy-app-shell[data-workspace-id="auction"] > .prodigy-workspace-bar {
+  flex: 0 0 auto !important;
+}
+.prodigy-app-shell[data-workspace-id="auction"] > .prodigy-context-bar {
+  flex: 0 0 auto !important;
+}
+.prodigy-app-shell[data-workspace-id="auction"] > .prodigy-app-shell-body {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: thin;
+  scrollbar-gutter: auto;
+}
+.prodigy-app-shell[data-workspace-id="auction"] > .prodigy-app-shell-body::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+  background: transparent;
+}
+.prodigy-app-shell[data-workspace-id="auction"] > .prodigy-app-shell-body::-webkit-scrollbar-thumb {
+  background: var(--ke-color-border, var(--background-modifier-border));
+  border-radius: 9999px;
+}
+.prodigy-app-shell[data-workspace-id="auction"] > .prodigy-app-shell-body::-webkit-scrollbar-thumb:hover {
+  background: var(--ke-color-muted, var(--text-muted));
+}
+.prodigy-app-shell:is([data-tier="compact"],[data-tier="medium"]):is(
+  [data-workspace-id="workout"],
+  [data-workspace-id="knowledge"],
+  [data-workspace-id="personal"],
+  [data-workspace-id="region"]
+) {
+  grid-template-rows: auto auto auto;
+  max-block-size: none;
+  overflow: visible;
+}
+.prodigy-app-shell:is([data-tier="compact"],[data-tier="medium"]):is(
+  [data-workspace-id="workout"],
+  [data-workspace-id="knowledge"],
+  [data-workspace-id="personal"],
+  [data-workspace-id="region"]
+) > .prodigy-app-shell-body {
+  overflow: visible;
+  padding-block-end: 0;
+  scroll-padding-block-end: 0;
+  overscroll-behavior-block: auto;
+}
+/* Obsidian's status bar is external to the AppShell. Reserve its semantic
+   height plus one spacing token so the final Knowledge action remains fully
+   scrollable above native bottom chrome at every container tier. Runtime QA
+   still measures the real status-bar rectangle rather than trusting this
+   fallback metric. */
+.prodigy-app-shell[data-workspace-id="knowledge"] {
+  --prodigy-external-chrome-clearance: calc(
+    var(--status-bar-height, var(--ke-touch-target, 44px))
+    + var(--ke-space-3, 12px)
+    + env(safe-area-inset-bottom, 0px)
+  );
+}
+.prodigy-app-shell[data-workspace-id="knowledge"] > .prodigy-app-shell-body {
+  padding-block-end: max(
+    var(--prodigy-mobile-toolbar-clearance, 0px),
+    var(--prodigy-external-chrome-clearance)
+  );
+  scroll-padding-block-end: max(
+    var(--prodigy-mobile-toolbar-clearance, 0px),
+    var(--prodigy-external-chrome-clearance)
+  );
+}
+.prodigy-app-shell:is([data-tier="compact"],[data-tier="medium"])[data-workspace-id="knowledge"] {
+  margin-block-end: var(--prodigy-external-chrome-clearance);
+}
+.prodigy-app-shell[data-tier="wide"]:is(
+  [data-workspace-id="workout"],
+  [data-workspace-id="knowledge"],
+  [data-workspace-id="personal"],
+  [data-workspace-id="region"]
+) {
+  max-block-size: calc(100dvb - var(--header-height, 40px));
+}
+/* Structural and plugin-mounted Obsidian surfaces can place the production
+   block directly under the leaf instead of a markdown-preview scroller. In
+   compact/medium tiers that leaf is the same outer document owner promised by
+   the layout contract; scope the override to the active Knowledge shell. */
+.workspace-leaf-content:has(
+  .prodigy-app-shell:is([data-tier="compact"],[data-tier="medium"])[data-workspace-id="knowledge"]
+) {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-block-end: var(--ke-space-4, 17px) !important;
+  scroll-padding-block-end: calc(
+    var(--ke-touch-target, 44px)
+    + var(--ke-space-3, 12px)
+  );
+}
+.markdown-preview-view.prodigy-hub-note:has(
+  .prodigy-app-shell[data-tier="wide"]:is(
+    [data-workspace-id="workout"],
+    [data-workspace-id="knowledge"],
+    [data-workspace-id="personal"],
+    [data-workspace-id="region"]
+  )
+) {
+  overflow-y: hidden;
 }
 @media (max-width: 833px) {
   .prodigy-app-shell {
@@ -271,24 +472,42 @@
     scroll-padding-block-end: 0;
     overscroll-behavior-block: auto;
   }
-  .prodigy-workspace-bar {
-    align-items: stretch;
-    flex-direction: column;
-    justify-content: center;
-    padding-block: var(--ke-space-2, 4px);
-  }
-  .prodigy-workspace-switcher {
-    inline-size: 100%;
-    max-inline-size: none;
-    min-block-size: var(--prodigy-touch-target);
-  }
-  .prodigy-context-bar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .prodigy-context-actions > * {
-    min-block-size: var(--prodigy-touch-target);
-  }
+}
+.prodigy-app-shell[data-tier="compact"]:not([data-workspace-id="home"]):not([data-workspace-id="auction"]) > .prodigy-workspace-bar {
+  align-items: stretch;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: var(--ke-space-2, 4px);
+}
+.prodigy-app-shell[data-tier="compact"]:not([data-workspace-id="home"]):not([data-workspace-id="auction"]) .prodigy-workspace-switcher {
+  inline-size: 100%;
+  max-inline-size: none;
+  min-block-size: var(--prodigy-touch-target);
+}
+.prodigy-app-shell[data-tier="compact"]:not([data-workspace-id="home"]):not([data-workspace-id="auction"]) > .prodigy-context-bar {
+  align-items: stretch;
+  flex-direction: column;
+}
+.prodigy-app-shell[data-tier="compact"]:not([data-workspace-id="home"]):not([data-workspace-id="auction"]) .prodigy-context-actions > * {
+  min-block-size: var(--prodigy-touch-target);
+}
+.prodigy-app-shell[data-tier="medium"]:not([data-workspace-id="home"]):not([data-workspace-id="auction"]) > .prodigy-workspace-bar {
+  align-items: center;
+  flex-direction: row;
+  justify-content: flex-start;
+  padding-block: 0;
+}
+.prodigy-app-shell[data-tier="medium"]:is([data-workspace-id="reading"],[data-workspace-id="project"]) {
+  --prodigy-mobile-toolbar-clearance: 0px;
+}
+.prodigy-app-shell[data-tier="medium"]:not([data-workspace-id="home"]):not([data-workspace-id="auction"]) .prodigy-workspace-switcher {
+  flex: 0 1 13rem;
+  inline-size: auto;
+  max-inline-size: min(13rem, 40%);
+}
+.prodigy-app-shell[data-tier="medium"]:not([data-workspace-id="home"]):not([data-workspace-id="auction"]) > .prodigy-context-bar {
+  align-items: center;
+  flex-direction: row;
 }
 @media (max-width: 419px) {
   .prodigy-app-shell { --prodigy-hero-size: 28px; }
@@ -423,12 +642,18 @@
   function ContextBar(parent, options) {
     ensureStyles();
     const opts = options || {};
-    const bar = parent.createEl("div", { attr: { class: "prodigy-context-bar", role: "region", "aria-label": opts.label || "현재 문맥" } });
-    const items = bar.createEl("div", { attr: { class: "prodigy-context-items" } });
-    (opts.items || []).forEach((item) => items.createEl("span", { text: typeof item === "string" ? item : item.label, attr: { class: "prodigy-context-item" } }));
-    const actions = bar.createEl("div", { attr: { class: "prodigy-context-actions" } });
-    (opts.actions || []).forEach((action) => {
-      const button = actions.createEl("button", { text: action.label, attr: { type: "button", class: "prodigy-btn prodigy-context-action" } });
+    const items = opts.items || [];
+    const actions = opts.actions || [];
+    // Quiet shell chrome: the ContextBar only exists when it has actual
+    // content or a contextual action. An empty bar would add noise.
+    if (items.length === 0 && actions.length === 0) return null;
+    const bar = parent.createEl("div", { attr: { class: `prodigy-context-bar${opts.inline === true ? " prodigy-context-bar-inline" : ""}`, role: "region", "aria-label": opts.label || "현재 문맥" } });
+    const itemsEl = bar.createEl("div", { attr: { class: "prodigy-context-items" } });
+    items.forEach((item) => itemsEl.createEl("span", { text: typeof item === "string" ? item : item.label, attr: { class: "prodigy-context-item" } }));
+    const actionsEl = bar.createEl("div", { attr: { class: "prodigy-context-actions" } });
+    actions.forEach((action) => {
+      const label = action.ariaLabel || action.label;
+      const button = actionsEl.createEl("button", { text: action.label, attr: { type: "button", class: "prodigy-btn prodigy-context-action", "aria-label": label, title: label } });
       button.onclick = action.onClick || null;
     });
     return bar;
@@ -441,11 +666,15 @@
     const prior = ownerShells.get(owner);
     if (prior) prior.dispose();
     if (opts.replace !== false && typeof container.empty === "function") container.empty();
-    const shell = container.createEl("section", { attr: { class: "prodigy-app-shell", "data-workspace-id": opts.workspaceId || "", style: shellVariables() } });
+    const contextOptions = opts.context || {};
+    const contextItems = contextOptions.items || [];
+    const contextActions = contextOptions.actions || [];
+    const inlineContext = opts.workspaceId !== "home" && opts.workspaceId !== "auction" && contextItems.length === 0 && contextActions.length > 0;
+    const shell = container.createEl("section", { attr: { class: "prodigy-app-shell", "data-workspace-id": opts.workspaceId || "", "data-context-placement": inlineContext ? "inline" : "stacked", style: shellVariables() } });
     const workspaceBar = shell.createEl("header", { attr: { class: "prodigy-workspace-bar" } });
     const switcher = WorkspaceSwitcher(workspaceBar, { app: opts.app, activeId: opts.workspaceId, stateStore: opts.stateStore, onChange: opts.onWorkspaceChange });
     const title = workspaceBar.createEl("h1", { text: opts.title || "워크스페이스", attr: { class: "prodigy-workspace-title" } });
-    const contextBar = ContextBar(shell, opts.context || {});
+    const contextBar = ContextBar(inlineContext ? workspaceBar : shell, { ...contextOptions, inline: inlineContext });
     const body = shell.createEl("main", { attr: { class: "prodigy-app-shell-body", tabindex: "-1" } });
     if (typeof opts.renderBody === "function") opts.renderBody(body);
     let disposed = false;
@@ -455,14 +684,13 @@
     const documentRef = container && container.ownerDocument;
     const view = documentRef && documentRef.defaultView || root;
     function ensureVisibleOwner() {
-      if (disposed || !shell.isConnected || owner.isConnected === false || container.parentElement === owner || typeof owner.appendChild !== "function" || typeof shell.getBoundingClientRect !== "function") return;
-      const rect = shell.getBoundingClientRect();
-      if (rect.width === 0 && rect.height === 0) owner.appendChild(container);
+      if (disposed || container.isConnected === false || shell.isConnected) return;
+      if (typeof container.appendChild === "function") container.appendChild(shell);
     }
     const Observer = view && view.MutationObserver;
     if (owner && typeof Observer === "function") {
       reconnectObserver = new Observer(function () {
-        if (!disposed && shell.isConnected === false && container.isConnected !== false && owner.isConnected !== false && typeof container.appendChild === "function") container.appendChild(shell);
+        if (!disposed && shell.isConnected === false && container.isConnected !== false && typeof container.appendChild === "function") container.appendChild(shell);
       });
       try { reconnectObserver.observe(owner, { childList: true, subtree: true }); }
       catch (_error) { reconnectObserver = null; }
@@ -472,6 +700,25 @@
       sizeObserver = new SizeObserver(function () { ensureVisibleOwner(); });
       try { sizeObserver.observe(shell); }
       catch (_error) { sizeObserver = null; }
+    }
+    // Container-tier ownership: measure the BODY, never the outer viewport.
+    // Changing the window resizes the leaf unless the container follows it, so
+    // the tier is derived from the observed body width alone. ResizeObserver
+    // fires once on observe and again on any real container resize.
+    let observerTier = null;
+    const tierScheme = (designTokens() || {}).CONTAINER_TIERS;
+    if (owner && typeof SizeObserver === "function") {
+      observerTier = new SizeObserver(function () {
+        let width = 0;
+        if (body && typeof body.getBoundingClientRect === "function") width = body.getBoundingClientRect().width;
+        else if (body && typeof body.offsetWidth === "number") width = body.offsetWidth;
+        const tier = tierForWidth(width, tierScheme);
+        if (shell && typeof shell.getAttribute === "function" && typeof shell.setAttribute === "function" && shell.getAttribute("data-tier") !== tier) {
+          shell.setAttribute("data-tier", tier);
+        }
+      });
+      try { observerTier.observe(body); }
+      catch (_error) { observerTier = null; }
     }
     if (view && typeof view.addEventListener === "function") {
       resizeListener = function () { ensureVisibleOwner(); };
@@ -483,6 +730,7 @@
       disposed = true;
       if (reconnectObserver) { reconnectObserver.disconnect(); reconnectObserver = null; }
       if (sizeObserver) { sizeObserver.disconnect(); sizeObserver = null; }
+      if (observerTier) { observerTier.disconnect(); observerTier = null; }
       if (resizeListener && view && typeof view.removeEventListener === "function") { view.removeEventListener("resize", resizeListener); resizeListener = null; }
       switcher.onchange = null;
       if (contextBar && typeof contextBar.querySelectorAll === "function") {

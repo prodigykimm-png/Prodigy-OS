@@ -1,11 +1,12 @@
 (function (root) {
   "use strict";
 
-  const crypto = typeof require === "function" ? require("node:crypto") : null;
   const lineageApi = root.LLMWikiSourceLineage || (typeof require === "function" ? require("./llmwiki-source-lineage.js") : null);
   const queryApi = root.LLMWikiQueryReadOnly || (typeof require === "function" ? require("./llmwiki-query-readonly.js") : null);
   const providerApi = root.LLMWikiProviderContract || (typeof require === "function" ? require("./llmwiki-provider-contract.js") : null);
   const bundleApi = root.LLMWikiProposalBundle || (typeof require === "function" ? require("./llmwiki-proposal-bundle.js") : null);
+  const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
+  const classifierApi = root.LLMWikiOperationClassifier || (typeof require === "function" ? require("./llmwiki-operation-classifier.js") : null);
 
   const PIPELINE_VERSION = "llmwiki_librarian_pipeline_v1";
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
@@ -14,6 +15,7 @@
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
   function freeze(value) {
+    if (operationApi?.isOperationRecord?.(value) || operationApi?.isCanonicalOperationRecord?.(value)) return value;
     if (Array.isArray(value)) return Object.freeze(value.map(freeze));
     if (!plain(value)) return value;
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)])));
@@ -23,9 +25,16 @@
     if (!plain(value)) return JSON.stringify(value);
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
   }
-  function sha256(value) {
-    if (!crypto) throw new Error("crypto unavailable");
-    return crypto.createHash("sha256").update(String(value), "utf8").digest("hex");
+  async function sha256(value) {
+    const subtle = root.crypto && root.crypto.subtle;
+    const Encoder = root.TextEncoder;
+    if (!subtle || typeof subtle.digest !== "function" || typeof Encoder !== "function") return null;
+    try {
+      const digest = await subtle.digest("SHA-256", new Encoder().encode(String(value)));
+      return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    } catch (_error) {
+      return null;
+    }
   }
   function ok(value) { return freeze({ ok: true, value }); }
   function fail(field, reason, extras = {}) {
@@ -131,7 +140,29 @@
     return freeze({ conflicts, abstentions, uncertainty });
   }
 
-  function envelope(input, selected, retrieval, providerResult, captureResult, phaseStatuses) {
+  function classifyOperations(input, selected, providerResult) {
+    const classifications = [];
+    for (const proposal of providerResult.value.proposal_envelope.proposals) {
+      if (!proposal.operation) continue;
+      const result = classifierApi.classifyOperation(proposal.operation, {
+        current_canonical_revisions: plain(input.current_canonical_revisions) ? input.current_canonical_revisions : {},
+        current_canonical_bytes: plain(input.current_canonical_bytes) ? input.current_canonical_bytes : {},
+        canonical_candidates: input.canonical_candidates,
+        selected_sources: providerSources(selected.sources).map((source) => ({
+          source_id: source.source_id,
+          content_hash: source.content_hash,
+          locator: source.locator,
+        })),
+        evidence: plain(input.operation_evidence) ? input.operation_evidence[proposal.operation.operation_id] : undefined,
+        canonical_proposal: proposal.canonical_proposal,
+      });
+      if (result.ok === false) return result;
+      classifications.push(result.value);
+    }
+    return ok(classifications);
+  }
+
+  async function envelope(input, selected, retrieval, providerResult, captureResult, operationClassifications, phaseStatuses) {
     const bundle = providerResult.value.proposal_envelope;
     const lint = lintBundle(bundle);
     const captureCount = captureResult && captureResult.value && captureResult.value.captured ? 1 : 0;
@@ -145,6 +176,7 @@
       selected_source_ids: selected.sources.map((source) => source.manifest.source_id),
       retrieval_envelope: retrieval,
       proposal_bundle: bundle,
+      operation_classifications: operationClassifications,
       provider_metadata: providerResult.value.provider_metadata,
       trust_state: providerResult.value.trust_state,
       approval_state: providerResult.value.approval_state,
@@ -154,7 +186,8 @@
       capture: captureResult ? captureResult.value : { captured: false, reason: "capture_not_requested" },
       write_counters: counters(captureCount),
     };
-    return ok({ ...value, envelope_hash: sha256(stable(value)) });
+    const envelopeHash = await sha256(stable(value));
+    return envelopeHash ? ok({ ...value, envelope_hash: envelopeHash }) : fail("crypto", "crypto_unavailable", { write_counters: counters(captureCount) });
   }
 
   async function runLibrarian(input, options = {}) {
@@ -185,13 +218,15 @@
       phase("conflict_lint", "completed"),
       phase("proposal_bundle", "completed"),
     ];
+    const operationClassifications = classifyOperations(input, selected.value, providerResult);
+    if (operationClassifications.ok === false) return fail(operationClassifications.field, operationClassifications.reason, { phase_statuses: phaseStatuses, write_counters: counters() });
     const captureResult = bundleApi.captureProposalBundle(providerResult.value.proposal_envelope, {
       capture_requested: input.capture_requested === true,
       target: trim(input.capture_target),
       writer: options.captureWriter,
     });
     if (captureResult.ok === false) return fail(captureResult.field, captureResult.reason, { phase_statuses: phaseStatuses, write_counters: counters() });
-    const result = envelope(input, selected.value, retrieval.value, providerResult, captureResult, phaseStatuses);
+    const result = await envelope(input, selected.value, retrieval.value, providerResult, captureResult, operationClassifications.value, phaseStatuses);
     contexts.set(runId, freeze({ validation_context: selected.value.validation_context, bundle_hash: providerResult.value.proposal_envelope.bundle_hash }));
     return result;
   }

@@ -1,0 +1,115 @@
+{
+  "schema_version": "llmwiki_productization_rebaseline_v1",
+  "rebaselined_at": "2026-08-14",
+  "scope": "create_only_trust_core",
+  "plan_gates": [
+    {
+      "path": ".omo/plans/prodigy-ai-gateway-llmwiki.md",
+      "disposition": "historical_not_gate",
+      "replacement": "live_create_only_manifest"
+    },
+    {
+      "path": ".omo/plans/prodigy-llmwiki-autonomous-approval.md",
+      "disposition": "superseded",
+      "replacement": "prodigy-llmwiki-productization-ux:todos_1_16"
+    },
+    {
+      "path": ".omo/plans/prodigy-llmwiki-productization-ux.md",
+      "disposition": "rebaseline_authority",
+      "replacement": null
+    }
+  ],
+  "locked_invariants": [
+    {
+      "id": "outbound_consent_snapshot",
+      "production": {
+        "path": "SYSTEM/Views/llmwiki-outbound-consent.js",
+        "symbol": "createConsentArtifact"
+      },
+      "evidence": {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_productization_rebaseline.js",
+        "symbol": "Baseline characterization: create-only trust invariants remain observable"
+      }
+    },
+    {
+      "id": "canonical_packet_to_bytes_binding",
+      "production": {
+        "path": "SYSTEM/Views/llmwiki-deterministic-commit.js",
+        "symbol": "commitApprovedCanonical"
+      },
+      "evidence": {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_deterministic_commit.js",
+        "symbol": "caller-supplied writes and allowlists cannot append or replace packet authority"
+      }
+    },
+    {
+      "id": "stale_refusal",
+      "production": {
+        "path": "SYSTEM/Views/llmwiki-deterministic-commit.js",
+        "symbol": "target_revision_mismatch"
+      },
+      "evidence": {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_deterministic_commit.js",
+        "symbol": "stale live create bytes reject before adapter mutation and preserve the raced bytes"
+      }
+    },
+    {
+      "id": "deterministic_create",
+      "production": {
+        "path": "SYSTEM/Views/llmwiki-canonical-packet.js",
+        "symbol": "assembleCanonicalPacket"
+      },
+      "evidence": {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_deterministic_commit.js",
+        "symbol": "exact approved canonical create passes packet bytes to the adapter once and duplicate nonce/packet is idempotent"
+      }
+    },
+    {
+      "id": "one_active_run",
+      "production": {
+        "path": "SYSTEM/Views/llmwiki-run-state.js",
+        "symbol": "run_in_progress"
+      },
+      "evidence": {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_run_state.js",
+        "symbol": "Given an active mounted run, When another run starts, Then admission returns run_in_progress without changing identity or counters"
+      }
+    }
+  ],
+  "approval_surfaces": [
+    {
+      "id": "llmwiki",
+      "label": "LLM Wiki",
+      "user_facing": true,
+      "canonical_approval_owner": true,
+      "disposition": "active",
+      "handoff_to": null,
+      "gap": "",
+      "production": {
+        "path": "SYSTEM/Views/llmwiki-run-controller.js",
+        "symbol": "async function approve"
+      },
+      "evidence": {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_deterministic_commit.js",
+        "symbol": "exact approved canonical create passes packet bytes to the adapter once and duplicate nonce/packet is idempotent"
+      }
+    },
+    {
+      "id": "knowledge_candidate",
+      "label": "Knowledge Candidate",
+      "user_facing": true,
+      "canonical_approval_owner": false,
+      "disposition": "migration_gap",
+      "handoff_to": "llmwiki",
+      "gap": "The legacy Candidate Inbox still exposes a direct 승인 action backed by approveCandidate; migrate that action to an LLM Wiki handoff before treating Candidate as a canonical approval owner.",
+      "production": {
+        "path": "SYSTEM/Views/knowledge-candidate-view.js",
+        "symbol": "approveCandidate"
+      },
+      "evidence": {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_view.js",
+        "symbol": "successful approval removes active candidate from Inbox"
+      }
+    }
+  ]
+}

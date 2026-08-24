@@ -84,6 +84,29 @@ function createHeldReadApp(modules) {
   };
 }
 
+function createVersionedApp(modules) {
+  const files = new Map(Object.entries(modules));
+  const versions = new Map([...files.keys()].map((key) => [key, 1]));
+  const reads = [];
+  return {
+    vault: {
+      getAbstractFileByPath(modulePath) {
+        if (!files.has(modulePath)) return null;
+        return { path: modulePath, stat: { mtime: versions.get(modulePath), size: Buffer.byteLength(files.get(modulePath), "utf8") } };
+      },
+      read(tFile) {
+        reads.push(tFile.path);
+        return Promise.resolve(files.get(tFile.path));
+      },
+    },
+    reads,
+    setModule(modulePath, source) {
+      files.set(modulePath, source);
+      versions.set(modulePath, (versions.get(modulePath) || 0) + 1);
+    },
+  };
+}
+
 function moduleSource(label) {
   return `globalThis.__hubEvents.push("${label}");`;
 }
@@ -101,6 +124,7 @@ function manifestFailureShape(failure, expectedPath) {
 
 test("Given legacy loadScripts, When a missing module appears between valid modules, Then observable execution stays sequential and rejects after continuing", async () => {
   const loader = loadFreshLoader();
+  assert.equal(loader.version, 2);
   loader.resetLoaded();
   global.__hubEvents = [];
   const app = createApp({
@@ -355,6 +379,25 @@ test("Given an in-flight read is retried before it resolves, When newer source s
   assert.equal(loader.isLoaded("A.js"), true);
   assert.deepEqual(cachedResult.loaded, []);
   assert.deepEqual(cachedResult.required_failures, []);
+  delete global.__hubEvents;
+});
+
+test("Given a loaded real Obsidian file changes mtime, When the Hub renders again, Then the new module replaces the stale cached provider", async () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  global.__hubEvents = [];
+  const app = createVersionedApp({ "A.js": moduleSource("old-provider") });
+
+  await loader.loadManifest(app, { required: ["A.js"], optional: [] });
+  app.setModule("A.js", moduleSource("new-provider"));
+  const refreshed = await loader.loadManifest(app, { required: ["A.js"], optional: [] });
+  const cached = await loader.loadManifest(app, { required: ["A.js"], optional: [] });
+
+  assert.deepEqual(global.__hubEvents, ["old-provider", "new-provider"]);
+  assert.deepEqual(app.reads, ["A.js", "A.js"]);
+  assert.deepEqual(refreshed.loaded, ["A.js"]);
+  assert.deepEqual(cached.loaded, []);
+  assert.deepEqual(cached.required_failures, []);
   delete global.__hubEvents;
 });
 

@@ -6,6 +6,7 @@ const { test } = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const store = require(path.join(ROOT, "SYSTEM/Views/knowledge-candidate-store.js"));
+const operationContract = require(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"));
 let canonicalPacket = null;
 try {
   canonicalPacket = require(path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-packet.js"));
@@ -55,15 +56,23 @@ function citation(overrides = {}) {
   };
 }
 
+function canonicalOperation(overrides = {}) {
+  const parsed = operationContract.parseCanonicalOperation(JSON.stringify({
+    operation_id: "operation_canonical_create",
+    proposal_id: "proposal_canonical_create",
+    proposal_kind: "create",
+    payload_hash: HASH_B,
+    ...overrides,
+  }));
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  assert.equal(operationContract.isCanonicalOperationRecord(parsed.value), true);
+  return parsed.value;
+}
+
 function request(overrides = {}) {
   return {
     run_id: "run_canonical_packet",
-    operation: {
-      operation_id: "operation_canonical_create",
-      proposal_id: "proposal_canonical_create",
-      proposal_kind: "create",
-      payload_hash: HASH_B,
-    },
+    operation: canonicalOperation(),
     canonical_document: document(),
     source_citations: [citation()],
     consent_hash: "c".repeat(64),
@@ -124,7 +133,7 @@ test("Given one approved create and an injected live-byte adapter, When a canoni
   console.log(`TASK6_ASSERT exact_bytes=1 target=${packet.target_path} after_sha256=${packet.after_sha256} reads=${live.counters.reads} writes=${live.counters.writes}`);
 });
 
-test("Given an exact packet, When target, property, before, after, provenance, consent, or revision changes, Then each mutation has a different identity and stale hashes reject", async () => {
+test("Given an exact packet, When target, property, before, after, provenance, consent, or revision changes, Then each mutation has a different identity and stale hashes reject", async (t) => {
   const packet = (await api().assembleCanonicalPacket(request(), liveAdapter().adapter)).value;
   const mutations = {
     target: (value) => { value.target_path = "ZETA/PERMANENT/다른 대상.md"; },
@@ -137,13 +146,15 @@ test("Given an exact packet, When target, property, before, after, provenance, c
   };
 
   for (const [name, mutate] of Object.entries(mutations)) {
-    const changed = clone(packet);
-    mutate(changed);
-    assert.notEqual(api().computePacketHash(changed), packet.packet_hash, name);
-    const rejected = api().verifyCanonicalPacket(changed);
-    assert.equal(rejected.ok, false, name);
-    assert.equal(rejected.reason, "packet_tampered", name);
-    assert.deepEqual(rejected.write_counters, ZERO_WRITES, name);
+    await t.test(name, () => {
+      const changed = clone(packet);
+      mutate(changed);
+      assert.notEqual(api().computePacketHash(changed), packet.packet_hash, name);
+      const rejected = api().verifyCanonicalPacket(changed);
+      assert.equal(rejected.ok, false, name);
+      assert.equal(rejected.reason, "packet_tampered", name);
+      assert.deepEqual(rejected.write_counters, ZERO_WRITES, name);
+    });
   }
   console.log(`TASK6_ASSERT identity_mutations=${Object.keys(mutations).length} rejected=${Object.keys(mutations).length}`);
 });
@@ -173,7 +184,7 @@ test("Given a future existing-target operation, When assembled, Then exact live 
   const live = liveAdapter({ [targetPath]: beforeBytes });
   const updateRequest = request({
     target_path: targetPath,
-    operation: { ...request().operation, operation_id: "operation_canonical_update", proposal_id: "proposal_canonical_update", proposal_kind: "update" },
+    operation: canonicalOperation({ operation_id: "operation_canonical_update", proposal_id: "proposal_canonical_update", proposal_kind: "update" }),
   });
   const assembled = await api().assembleCanonicalPacket(updateRequest, live.adapter);
 
@@ -201,7 +212,7 @@ test("Given malformed title, target, property, source, or citation input, When a
     ["unsafe title", request({ canonical_document: document({ title: "../escape" }) }), "invalid_title"],
     ["wikilink title", request({ canonical_document: document({ title: "[[escape]]" }) }), "invalid_title"],
     ["create target injection", request({ target_path: "/tmp/escape.md" }), "target_forbidden_for_create"],
-    ["unsafe existing target", request({ target_path: "ZETA/PERMANENT/../escape.md", operation: { ...request().operation, proposal_kind: "update" } }), "invalid_target"],
+    ["unsafe existing target", request({ target_path: "ZETA/PERMANENT/../escape.md", operation: canonicalOperation({ proposal_kind: "update" }) }), "invalid_target"],
     ["property expansion", request({ allowed_properties: ["/frontmatter/admin"] }), "unauthorized_property"],
     ["missing source", request({ source_citations: [] }), "source_citation_required"],
     ["malformed source hash", request({ source_citations: [citation({ content_hash: "bad" })] }), "invalid_source_hash"],
@@ -217,6 +228,61 @@ test("Given malformed title, target, property, source, or citation input, When a
     assert.equal(live.counters.writes, 0, name);
   }
   console.log(`TASK6_ASSERT malformed_cases=${cases.length} zero_write_cases=${cases.length}`);
+});
+
+test("serialized canonical operation fixtures retain their parser-owned identity", () => {
+  const operation = canonicalOperation();
+  assert.equal(operationContract.isCanonicalOperationRecord(operation), true);
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(operation), false);
+  assert.strictEqual(operationContract.parseCanonicalOperation(operation).value, operation);
+});
+
+test("raw and copied canonical authorization records remain rejected before live reads", async () => {
+  const live = liveAdapter();
+  const raw = await api().assembleCanonicalPacket(request({ operation: {
+    operation_id: "operation_canonical_create",
+    proposal_id: "proposal_canonical_create",
+    proposal_kind: "create",
+    payload_hash: HASH_B,
+  } }), live.adapter);
+  const authorizationRecord = operationContract.deriveCanonicalPacketOperation(canonicalOperation());
+  assert.equal(authorizationRecord.ok, true, JSON.stringify(authorizationRecord));
+  const copied = await api().assembleCanonicalPacket(request({ operation: clone(authorizationRecord.value) }), live.adapter);
+
+  for (const result of [raw, copied]) {
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "serialized_operation_required");
+    assert.deepEqual(result.write_counters, ZERO_WRITES);
+  }
+  assert.deepEqual(live.counters, { reads: 0, writes: 0 });
+});
+
+test("canonical assembly applies the exact private packet authorization transform", async () => {
+  const sourceOperation = canonicalOperation();
+  const packet = (await api().assembleCanonicalPacket(request({ operation: sourceOperation }), liveAdapter().adapter)).value;
+  const expected = operationContract.deriveCanonicalPacketOperation(packet.operation);
+
+  assert.equal(expected.ok, true, JSON.stringify(expected));
+  assert.strictEqual(expected.value, packet.operation);
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(packet.operation), true);
+  assert.deepEqual(packet.operation, {
+    operation_id: "operation_canonical_create",
+    proposal_id: "proposal_canonical_create",
+    proposal_kind: "create",
+    payload_hash: HASH_B,
+    authorization_state: "authorizable",
+    authorization_reason: "phase_1_create_only",
+  });
+});
+
+test("real packet tamper preserves the private operation identity and remains packet_tampered", async () => {
+  const packet = (await api().assembleCanonicalPacket(request(), liveAdapter().adapter)).value;
+  const tampered = { ...clone(packet), operation: packet.operation, after_bytes: `${packet.after_bytes}tampered\n` };
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(tampered.operation), true);
+  const rejected = api().verifyCanonicalPacket(tampered);
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.reason, "packet_tampered");
+  assert.deepEqual(rejected.write_counters, ZERO_WRITES);
 });
 
 test("Given instruction-shaped source text, When a create packet is assembled, Then the text remains inert provenance and cannot expand canonical properties", async () => {

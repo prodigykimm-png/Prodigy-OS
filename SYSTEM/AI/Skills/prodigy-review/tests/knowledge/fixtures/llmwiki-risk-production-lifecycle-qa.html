@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden}body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;background:#fff;color:#222}#surface{width:100%;max-width:100%;padding:8px;box-sizing:border-box}</style></head><body><main id="surface"></main><pre id="qa-result"></pre>
+<script src="../../../../../../Views/design-tokens.js"></script>
+<script src="../../../../../../Views/llmwiki-hash.js"></script>
+<script src="../../../../../../Views/llmwiki-operation-contract.js"></script>
+<script src="../../../../../../Views/llmwiki-write-boundary-policy.js"></script>
+<script src="../../../../../../Views/llmwiki-risk-approval-packet.js"></script>
+<script src="../../../../../../Views/llmwiki-risk-write-set.js"></script>
+<script src="../../../../../../Views/llmwiki-safe-batch-approval.js"></script>
+<script src="../../../../../../Views/llmwiki-risk-approval-review-view.js"></script>
+<script src="../../../../../../Views/llmwiki-approval-review-view.js"></script>
+<script src="../../../../../../Views/llmwiki-lifecycle-view.js"></script>
+<script src="../../../../../../Views/knowledge-workspace-tabs.js"></script>
+<script>
+(() => {
+  const query = new URLSearchParams(location.search); const state = query.get("state") || "low-risk"; const targetWidth = Number(query.get("width") || innerWidth); document.querySelector("#surface").style.width = `${targetWidth}px`;
+  const target = "ZETA/PERMANENT/production-responsive.md"; const before = "정확한 기존 지식 문장입니다.\n"; const sourceId = "source_production_responsive";
+  const kind = state === "low-risk" || state === "repacket" ? "create" : "update";
+  const operation = LLMWikiOperationContract.parseOperation(JSON.stringify({ contract_version: LLMWikiOperationContract.CONTRACT_VERSION, operation_id: "operation_production_responsive_" + state.replace(/-/g,"_"), kind, destination_ids: [target], base_revisions: kind === "create" ? {} : { [target]: LLMWikiHash.sha256(before) }, before_bytes: kind === "create" ? {} : { [target]: before }, after_bytes: { [target]: "출처를 반영한 정확한 새 지식 문장과 매우 긴 한국어 연결 설명입니다. 화면 너비가 좁아도 글자가 잘리거나 가로로 넘치지 않아야 합니다.\n" }, source_citations: [{ source_id: sourceId, content_hash: "a".repeat(64), source_url: "https://example.com/manual", locators: ["ZETA/LITERATURE/manual.md#검증된-문장"], source_archive_id: null, confidence: "explicit" }], conflicts: state === "high-risk-conflict" ? [{ conflict_id: "conflict_production_responsive", status: "unresolved", source_ids: [sourceId], summary: "두 출처의 결론이 다릅니다" }] : [], risk_tier: "low", effects: { deprecations: [], supersessions: [] } })).value;
+  const packet = LLMWikiRiskApprovalPacket.buildRiskApprovalPacket({ run_id: "run_production_responsive", run_revision: state === "repacket" ? 2 : 1, packet_revision: state === "repacket" ? 2 : 1, operation, summary: "초보자도 읽을 수 있는 변경 요약과 출처 흐름", provenance: { source: "chrome_qa", source_ids: [sourceId] }, repacket: state === "repacket" ? { original_packet_id: "packet_original_responsive", original_packet_hash: "b".repeat(64), guidance_hash: "c".repeat(64), invalidated_run_revision: 1 } : null }).value;
+  const surface = document.querySelector("#surface"); surface.dataset.productionGateway = "HUB/50 Knowledge.md";
+  const tabs = KnowledgeWorkspaceTabs.mountTabs(surface, { activeTab: "llmwiki" });
+  LLMWikiLifecycleView.mountLlmWikiLifecycleView({ container: tabs.getPanel("llmwiki"), snapshot: { status: "review", run_id: packet.run_id, run_revision: packet.run_revision, approval_packet: packet, risk_packets: [packet] }, reviewView: LLMWikiApprovalReviewView, onAction() {} });
+  const descendants = [...surface.querySelectorAll("*")];
+  const clipped = descendants.filter((node) => node.scrollWidth > node.clientWidth + 1).map((node) => ({ tag: node.tagName, class: node.className, scroll_width: node.scrollWidth, client_width: node.clientWidth })).slice(0,10);
+  const result = { state, viewport_width: targetWidth, browser_inner_width: innerWidth, surface_client_width: surface.clientWidth, surface_scroll_width: surface.scrollWidth, horizontal_overflow: surface.scrollWidth > surface.clientWidth + 1 || document.documentElement.scrollWidth > document.documentElement.clientWidth + 1, clipped_elements: clipped, cjk_present: /[가-힣]/.test(surface.textContent), risk_surface_mounted: Boolean(surface.querySelector('[data-surface="llmwiki-risk-approval-review"]')), hub_tabs: [...surface.querySelectorAll('[role="tab"]')].map((node) => node.id), production_gateway: surface.dataset.productionGateway, controls: [...surface.querySelectorAll("[data-action]")].map((node) => node.dataset.action).sort(), checkboxes: surface.querySelectorAll('input[type="checkbox"]').length };
+  document.querySelector("#qa-result").textContent = JSON.stringify(result);
+})();
+</script></body></html>

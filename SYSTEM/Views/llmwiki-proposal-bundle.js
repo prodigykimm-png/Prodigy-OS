@@ -1,8 +1,8 @@
 (function (root) {
   "use strict";
 
-  const crypto = typeof require === "function" ? require("node:crypto") : null;
-  const hashApi = root.LLMWikiHash;
+  const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
+  const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
   const BUNDLE_VERSION = "llmwiki_proposal_bundle_v1";
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const HASH = /^[0-9a-f]{64}$/u;
@@ -16,15 +16,13 @@
   function success(value) { return Object.freeze({ ok: true, value: freeze(value) }); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
   function freeze(value) {
+    if (operationApi && typeof operationApi.isOperationRecord === "function" && operationApi.isOperationRecord(value)) return value;
     if (Array.isArray(value)) return Object.freeze(value.map(freeze));
     if (!plain(value)) return value;
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)])));
   }
-  function sha256(value) {
-    if (hashApi && typeof hashApi.sha256 === "function") return hashApi.sha256(String(value));
-    if (!crypto) throw new Error("crypto unavailable");
-    return crypto.createHash("sha256").update(String(value), "utf8").digest("hex");
-  }
+  function hashAvailable() { return Boolean(hashApi && typeof hashApi.sha256 === "function"); }
+  function sha256(value) { return hashApi.sha256(String(value)); }
   function stable(value) {
     if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
     if (!plain(value)) return JSON.stringify(value);
@@ -69,7 +67,7 @@
     if (plain(sourceId)) return sourceId;
     const contentHash = validHash(input.content_hash, `source_citations.${index}.content_hash`);
     if (plain(contentHash)) return contentHash;
-    const sourceUrl = input.source_url === undefined ? null : url(input.source_url, `source_citations.${index}.source_url`);
+    const sourceUrl = input.source_url === undefined || input.source_url === null ? null : url(input.source_url, `source_citations.${index}.source_url`);
     if (plain(sourceUrl)) return sourceUrl;
     const rawLocators = input.locators === undefined ? [input.locator] : input.locators;
     const list = Array.isArray(rawLocators) ? rawLocators : [rawLocators];
@@ -214,7 +212,20 @@
     const conflictList = conflicts(input.conflicts, citationIds);
     const conflictFailure = hasFailure(conflictList);
     if (conflictFailure) return conflictFailure;
+    let operation = null;
+    if (input.operation !== undefined) {
+      if (!operationApi || typeof operationApi.parseOperation !== "function") return failure("operation", "operation_contract_unavailable");
+      const parsed = operationApi.parseOperation(input.operation);
+      if (!parsed || parsed.ok === false) return parsed || failure("operation", "malformed_operation");
+      const expectedKind = kind === "no_change" ? "noop" : kind;
+      if (parsed.value.kind !== expectedKind) return failure("operation.kind", "proposal_operation_kind_mismatch");
+      operation = parsed.value;
+    }
     const draft = { kind, title: trim(input.title), status: trim(input.status || (kind === "abstain" ? "abstain" : kind === "no_change" ? "no_change" : "proposed")), confidence, source_citations: sourceCitations, claims: claimList, affected_targets: affectedTargets, target, target_revision: targetRevision, conflicts: conflictList, abstention_reason: trim(input.abstention_reason), no_change_reason: trim(input.no_change_reason), write_intent: { target: "none", persistence: "none" } };
+    if (operation) {
+      draft.operation = operation;
+      if (Object.hasOwn(input, "canonical_proposal")) draft.canonical_proposal = input.canonical_proposal;
+    }
     if (kind === "create" && (target || input.diff !== undefined)) return failure("create", "create_target_or_diff_forbidden");
     if (kind === "update") { const diff = diffEntries(input.diff, citationIds); if (plain(diff) && diff.ok === false) return diff; Object.assign(draft, { diff }); }
     if (kind === "merge") {
@@ -256,13 +267,18 @@
     return { ...envelope, canonical_serialization: stable(envelope), bundle_hash: sha256(stable(envelope)) };
   }
   function buildProposalBundle(input) {
+    if (!hashAvailable()) return failure("hash", "hash_unavailable");
     const bundle = normalizeBundle(input);
     return plain(bundle) && bundle.ok === false ? bundle : success(bundle);
   }
   function serializeProposalBundle(bundle) { return typeof bundle?.canonical_serialization === "string" ? bundle.canonical_serialization : stable(bundle); }
-  function hashProposalBundle(bundle) { return typeof bundle?.bundle_hash === "string" ? bundle.bundle_hash : sha256(serializeProposalBundle(bundle)); }
+  function hashProposalBundle(bundle) {
+    if (!hashAvailable()) return failure("hash", "hash_unavailable");
+    return typeof bundle?.bundle_hash === "string" ? bundle.bundle_hash : sha256(serializeProposalBundle(bundle));
+  }
   function validateProposalBundle(input) { return buildProposalBundle(input); }
   function captureProposalBundle(bundle, options = {}) {
+    if (!hashAvailable()) return failure("hash", "hash_unavailable");
     if (!plain(bundle) || !HASH.test(trim(bundle.bundle_hash))) return failure("bundle", "malformed_bundle");
     if (options.capture_requested !== true) return success({ captured: false, reason: "capture_not_requested" });
     const target = trim(options.target);

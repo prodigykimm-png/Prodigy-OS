@@ -5,6 +5,11 @@
   const FORMAT_REJECTION = /요청 형식|response_format|json_schema|output format|JSON 출력 형식|Invalid value for 'response_format'|'response_format'|invalid_request_error/i;
   const SENSITIVE_DIAGNOSTIC = /authorization|headers?|\bbody\b|prompt|messages?|secret(?:storage)?|api[-_ ]?key|bearer\s+|\btoken\b|prodigy-[a-z0-9-]*(?:api-key|token|secret|client-id)/i;
   const ALREADY_USER_FACING = /^설정 →|^AI 요청 시간이 초과|^AI 요청이 취소|^AI 제공자는 로컬|^공개.*LAN|^Antigravity|^소비자|^구독|^Codex|^로컬 AI 제공자/;
+  const PRESERVED_ERROR_CODES = new Set([
+    "ANTIGRAVITY_AUTH_REQUIRED",
+    "ANTIGRAVITY_QUOTA_EXHAUSTED",
+    "ANTIGRAVITY_SANDBOX_BLOCKED",
+  ]);
 
   function redactError(error) {
     const text = error && error.message ? error.message : String(error || "Unknown provider error");
@@ -39,6 +44,7 @@
     if (isAlreadyUserFacing && !status) {
       const preserved = new Error(rawMessage);
       if (error && error.name) preserved.name = error.name;
+      if (error && PRESERVED_ERROR_CODES.has(error.code)) preserved.code = error.code;
       return preserved;
     }
     const isLocalConnectionFailure = provider

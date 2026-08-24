@@ -10,6 +10,8 @@
   const WRITE_TARGETS = Object.freeze(["none", "run_context", "source_archive", "canonical_knowledge"]);
   const PERSISTENCE_MODES = Object.freeze(["none", "ephemeral", "persistent"]);
   const PROVENANCE_ACTORS = Object.freeze(["system", "human", "llm"]);
+  const PRIVACY_CLASSES = Object.freeze(["public", "internal", "private"]);
+  const PROVIDER_ELIGIBILITY = Object.freeze(["direct", "omniroute"]);
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const HASH = /^[0-9a-f]{64}$/u;
   const PROVENANCE_KEYS = new Set([
@@ -109,6 +111,21 @@
       actor, source_ids: sourceIds, source_archive_ids: archiveIds, source_url: sourceUrl,
       locators, basis_hash: basisHash, snapshot_revision: snapshot, proposal_ids: proposalIds
     };
+  }
+
+  function validateSourceAccess(input) {
+    if (!plainObject(input)) return reject("source_access", "malformed_source_access");
+    const privacyClass = trimmed(input.privacy_class);
+    if (!PRIVACY_CLASSES.includes(privacyClass)) return reject("privacy_class", "invalid_privacy_class");
+    if (!Array.isArray(input.provider_eligibility)) return reject("provider_eligibility", "invalid_provider_eligibility");
+    const providers = [];
+    for (const value of input.provider_eligibility) {
+      const provider = trimmed(value);
+      if (!PROVIDER_ELIGIBILITY.includes(provider)) return reject("provider_eligibility", "invalid_provider_eligibility");
+      if (!providers.includes(provider)) providers.push(provider);
+    }
+    if (privacyClass === "private" && providers.length > 0) return reject("provider_eligibility", "private_provider_forbidden");
+    return success({ privacy_class: privacyClass, provider_eligibility: providers });
   }
 
   function validateWriteIntent(intent, allowedTargets) {
@@ -220,7 +237,8 @@
 
   const api = Object.freeze({
     CONTRACT_VERSION, PROPOSAL_VERSION, OPERATIONS, PROPOSAL_KINDS, OPERATION_STATUSES, PROPOSAL_STATUSES,
-    WRITE_TARGETS, PERSISTENCE_MODES, validateOperation, validateCapability: validateOperation,
+    WRITE_TARGETS, PERSISTENCE_MODES, PRIVACY_CLASSES, PROVIDER_ELIGIBILITY,
+    validateOperation, validateCapability: validateOperation, validateSourceAccess,
     validateProposal, validateChangeProposal: validateProposal, validateWriteIntent,
   });
   root.LLMWikiContract = api;

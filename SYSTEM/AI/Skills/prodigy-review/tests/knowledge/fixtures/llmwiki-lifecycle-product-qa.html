@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Knowledge lifecycle production QA</title>
+  <style>
+    :root{--background-primary:#f5f5f7;--background-secondary:#fff;--background-modifier-border:#d2d2d7;--text-normal:#1d1d1f;--text-muted:#6e6e73;--text-error:#b42318;--text-accent:#0066cc;--text-on-accent:#fff;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif}body{margin:0;background:var(--background-primary);color:var(--text-normal)}main{box-sizing:border-box;inline-size:min(100%,920px);min-block-size:100vh;margin:auto;padding:24px}button,input,select{border:1px solid var(--background-modifier-border);border-radius:8px;padding:8px 12px;background:#fff;color:inherit}.prodigy-utility-card,.llmwiki-lifecycle__status{background:#fff;padding:12px;border-radius:12px}
+  </style>
+  <script src="../../../../../../Views/design-tokens.js"></script>
+  <script src="../../../../../../Views/knowledge-styles.js"></script>
+  <script src="../../../../../../Views/llmwiki-hash.js"></script>
+  <script src="../../../../../../Views/llmwiki-operation-contract.js"></script>
+  <script src="../../../../../../Views/llmwiki-risk-approval-packet.js"></script>
+  <script src="../../../../../../Views/llmwiki-safe-batch-approval.js"></script>
+  <script src="../../../../../../Views/llmwiki-risk-approval-review-view.js"></script>
+  <script src="../../../../../../Views/llmwiki-lifecycle-view.js"></script>
+</head>
+<body><main data-scroll-owner="knowledge-content"><div id="surface"></div></main>
+<script>
+(function(){
+  const state=new URLSearchParams(location.search).get("state")||"first-run";
+  const path="ZETA/PERMANENT/초보자-지식.md";
+  function operation(conflict){return LLMWikiOperationContract.parseOperation(JSON.stringify({contract_version:"llmwiki_operation_contract_v1",operation_id:`operation_qa_${conflict?"conflict":"ready"}`,kind:"create",destination_ids:[path],base_revisions:{},before_bytes:{},after_bytes:{[path]:"---\ntitle: 내부 메타데이터\nprovider: 숨김\n---\n# 승인할 지식\n\n사람이 읽고 이해할 수 있는 최종 내용입니다.\n"},source_citations:[{source_id:"source_internal_qa",content_hash:"a".repeat(64),source_url:"https://example.com/qa",locators:["ZETA/LITERATURE/읽기 쉬운 자료.md#근거"],source_archive_id:null,confidence:"explicit"}],conflicts:conflict?[{conflict_id:"conflict_internal_qa",status:"unresolved",source_ids:["source_internal_qa"],summary:"기존 지식과 설명이 다릅니다."}]:[],risk_tier:"low",effects:{deprecations:[],supersessions:[]}})).value}
+  function packet(conflict){const built=LLMWikiRiskApprovalPacket.buildRiskApprovalPacket({run_id:`run_qa_${conflict?"conflict":"ready"}`,run_revision:1,packet_revision:1,operation:operation(conflict),summary:conflict?"기존 지식과 다른 부분을 먼저 확인합니다.":"자료에서 확인한 내용을 새 지식으로 만듭니다.",provenance:{source:"chrome",source_ids:["source_internal_qa"]}});document.documentElement.dataset.packetResult=built.ok?"ok":`${built.field}:${built.reason}`;return built.value}
+  const base={status:"idle",provider_mode:"direct",links:{canonical:{path},audit:{path:"SYSTEM/AUDIT/지식 기록.json"}}};
+  const states={
+    "first-run":{...base,inbox:{state:"empty",total:0}},queued:{...base,inbox:{state:"queued",source_id:"source_hidden"}},processing:{...base,inbox:{state:"importing",source_id:"source_hidden"}},
+    approval:{...base,status:"review",risk_packets:[packet(false)]},conflict:{...base,status:"review",risk_packets:[packet(true)]},committed:{...base,status:"committed"},
+    "refresh-failure":{...base,operation_run:{status:"committed",canonical_outcome:{status:"committed"},follow_up:{status:"failed",refresh:{status:"failed"},git:{status:"pending"}}}},
+    "git-failure":{...base,operation_run:{status:"committed",canonical_outcome:{status:"committed"},follow_up:{status:"failed",refresh:{status:"succeeded"},git:{status:"failed"}}}},
+    recovery:{...base,status:"committed_audit_pending"},error:{...base,inbox:{state:"error",source_id:"source_hidden"}}
+  };
+  window.__qaActions=[];
+  LLMWikiLifecycleView.mountLlmWikiLifecycleView({container:document.getElementById("surface"),snapshot:states[state]||states.error,reviewView:LLMWikiRiskApprovalReviewView,onAction(intent){window.__qaActions.push(intent);return{ok:true,status:intent.action}}});
+  document.documentElement.dataset.ready="true";document.documentElement.dataset.qaState=state;
+})();
+</script></body></html>

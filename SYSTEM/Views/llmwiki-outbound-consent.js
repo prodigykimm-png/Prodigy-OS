@@ -3,8 +3,11 @@
 
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
   const providerApi = root.LLMWikiProviderContract || (typeof require === "function" ? require("./llmwiki-provider-contract.js") : null);
+  const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
   const nodeCrypto = typeof require === "function" ? require("node:crypto") : null;
   const CONSENT_VERSION = "llmwiki_outbound_consent_v1";
+  const STANDING_POLICY_VERSION = "llmwiki_standing_outbound_policy_v1";
+  const STANDING_REDACTION_POLICIES = Object.freeze(["metadata_only", "selected_source_text_only"]);
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const HASH = /^[0-9a-f]{64}$/u;
   const NONCE = /^[A-Za-z0-9_-]{16,128}$/u;
@@ -32,6 +35,7 @@
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
   function freeze(value) {
+    if (operationApi?.isOperationRecord?.(value) || operationApi?.isCanonicalOperationRecord?.(value)) return value;
     if (Array.isArray(value)) return Object.freeze(value.map(freeze));
     if (!plain(value)) return value;
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)])));
@@ -137,6 +141,55 @@
     });
   }
 
+  function normalizeStandingPolicy(value) {
+    if (!plain(value)) return fail("standing_policy", "invalid_standing_policy");
+    const keys = Object.keys(value).sort().join("\n");
+    if (keys !== "allowed_path_prefixes\ndenied_path_prefixes\npolicy_version\nprovider_key\nredaction_policy") {
+      return fail("standing_policy", "invalid_standing_policy");
+    }
+    const policyVersion = trim(value.policy_version);
+    const providerKey = trim(value.provider_key);
+    if (!ID.test(policyVersion) || !ID.test(providerKey)) return fail("standing_policy", "invalid_standing_policy");
+    if (!STANDING_REDACTION_POLICIES.includes(value.redaction_policy)) return fail("standing_policy.redaction_policy", "invalid_standing_policy");
+    const normalizePrefixes = (items) => {
+      if (!Array.isArray(items)) return null;
+      const result = [];
+      for (const item of items) {
+        const prefix = trim(item);
+        if (!prefix.startsWith("INBOX/") || prefix.includes("..") || prefix.includes("\\") || /[\u0000-\u001f\u007f]/u.test(prefix)) return null;
+        if (!result.includes(prefix)) result.push(prefix);
+      }
+      return result.sort();
+    };
+    const allowed = normalizePrefixes(value.allowed_path_prefixes);
+    const denied = normalizePrefixes(value.denied_path_prefixes);
+    if (!allowed || allowed.length === 0 || !denied) return fail("standing_policy", "invalid_standing_policy");
+    return ok({
+      policy_version: policyVersion,
+      provider_key: providerKey,
+      allowed_path_prefixes: allowed,
+      denied_path_prefixes: denied,
+      redaction_policy: value.redaction_policy,
+    });
+  }
+
+  function createStandingPolicySnapshot(policy) {
+    const normalized = normalizeStandingPolicy(policy);
+    if (normalized.ok === false) return normalized;
+    const policyHash = hashApi.sha256(stable(normalized.value));
+    return ok({ snapshot_version: STANDING_POLICY_VERSION, policy_hash: policyHash, policy: normalized.value });
+  }
+
+  function validateStandingPolicySnapshot(snapshot, currentPolicy) {
+    if (!plain(snapshot) || snapshot.snapshot_version !== STANDING_POLICY_VERSION || !HASH.test(trim(snapshot.policy_hash))) {
+      return fail("standing_policy", "invalid_standing_policy_snapshot");
+    }
+    const current = createStandingPolicySnapshot(currentPolicy);
+    if (current.ok === false) return current;
+    if (stable(snapshot) !== stable(current.value)) return fail("standing_policy", "consent_required");
+    return ok({ policy: current.value.policy, policy_hash: current.value.policy_hash });
+  }
+
   function validIssuedAt(value) {
     const issuedAt = trim(value);
     const milliseconds = Date.parse(issuedAt);
@@ -215,7 +268,17 @@
     return freeze({ ...result, provider_network: providerNetwork, write_counters: WRITE_COUNTERS });
   }
 
-  const api = freeze({ CONSENT_VERSION, PERSISTENT_WRITE_COUNTERS: WRITE_COUNTERS, createConsentArtifact, validateConsentArtifact, invokeProposalProvider });
+  const api = freeze({
+    CONSENT_VERSION,
+    STANDING_POLICY_VERSION,
+    STANDING_REDACTION_POLICIES,
+    PERSISTENT_WRITE_COUNTERS: WRITE_COUNTERS,
+    createStandingPolicySnapshot,
+    validateStandingPolicySnapshot,
+    createConsentArtifact,
+    validateConsentArtifact,
+    invokeProposalProvider,
+  });
   root.LLMWikiOutboundConsent = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

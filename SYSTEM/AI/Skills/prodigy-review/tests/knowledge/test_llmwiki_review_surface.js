@@ -78,10 +78,11 @@ test("Given the corrected provider response, When the controller packet reaches 
   if (opener) click(opener);
 
   const packet = controllerSnapshot.review_packets[0];
-  const preview = walk(root, (node) => node.tag === "pre" && node.attr && node.attr["aria-label"] === "승인할 지식 내용")[0];
-  assert.ok(preview, "canonical packet lifecycle review must expose an exact-byte pre block");
-  assert.equal(preview.text, packet.after_bytes, "rendered review bytes must equal canonical packet after_bytes byte-for-string");
-  assert.equal(preview.text.endsWith("\n"), true, "canonical trailing newline must remain rendered");
+  const preview = walk(root, (node) => node.tag === "div" && node.attr && node.attr["aria-label"] === "승인할 지식 내용")[0];
+  assert.ok(preview, "canonical packet lifecycle review must expose a human-readable final preview");
+  assert.match(preview.text, /선택한 근거만 사용한다\./);
+  assert.doesNotMatch(preview.text, /^---|knowledge_domain:|provider:|after_bytes/i, "default review must quarantine raw frontmatter and internal fields");
+  assert.equal(packet.after_bytes.startsWith("---\n"), true, "controller packet retains exact canonical authority outside the default UI");
 
   const rendered = collectText(root);
   assert.match(rendered, /선택한 근거만 사용한다\./, "provider claim must reach the mounted review body");

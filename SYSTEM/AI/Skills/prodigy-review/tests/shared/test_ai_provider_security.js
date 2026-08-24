@@ -298,6 +298,11 @@ function testNoSecretReachesDiagnostics() {
     "http://127.0.0.1:1234/v1"
   );
   assert.doesNotMatch(userFacing.message, /FAKE_SECRET|Bearer|Authorization|prompt|secretStorage/);
+  const quota = new Error("Antigravity 사용 한도를 모두 사용했습니다. 1시간 후 다시 시도해 주세요.");
+  quota.name = "AntigravityQuotaError";
+  quota.code = "ANTIGRAVITY_QUOTA_EXHAUSTED";
+  const preservedQuota = errorPolicy.userFacingProviderError(quota, { name: "Antigravity" }, "");
+  assert.equal(preservedQuota.code, "ANTIGRAVITY_QUOTA_EXHAUSTED");
   console.log("  PASS: no secret value reaches diagnostics");
 }
 

@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
+const { webcrypto } = require("node:crypto");
 const path = require("node:path");
 const vm = require("node:vm");
 
@@ -70,6 +71,7 @@ const LEGACY_MODULE_PATHS = [
   "SYSTEM/Views/llmwiki-run-state.js",
   "SYSTEM/Views/llmwiki-canonical-packet.js",
   "SYSTEM/Views/llmwiki-approval-review-commit.js",
+  "SYSTEM/Views/llmwiki-merge-transaction.js",
   "SYSTEM/Views/llmwiki-deterministic-commit.js",
   "SYSTEM/Views/llmwiki-approval-review-view.js",
   "SYSTEM/Views/llmwiki-obsidian-adapter.js",
@@ -144,18 +146,41 @@ function buildPages() {
 
 function createVault(files) {
   const fileMap = new Map(Object.entries(files));
+  const modes = new Map([...fileMap.keys()].map((filePath) => [filePath, 0o644]));
+  const directories = new Set();
+  const listeners = new Map(["create", "modify", "delete", "rename"].map((name) => [name, new Set()]));
+  const touched = [];
+  const readPaths = [];
+  const fileFor = (filePath) => fileMap.has(filePath) ? { path: filePath, stat: { mode: modes.get(filePath) || 0o644 } } : directories.has(filePath) ? { path: filePath, children: [] } : null;
+  const emit = (name, ...args) => { for (const listener of listeners.get(name) || []) listener(...args); };
   return {
-    getAbstractFileByPath(filePath) {
-      return fileMap.has(filePath) ? { path: filePath } : null;
+    touched,
+    readPaths,
+    adapter: {
+      async read(filePath) {
+        if (!fileMap.has(filePath)) throw new Error(`Missing file: ${filePath}`);
+        return fileMap.get(filePath);
+      },
     },
+    getAbstractFileByPath: fileFor,
+    getFiles() { return [...fileMap.keys()].sort().map(fileFor); },
+    getMarkdownFiles() { return [...fileMap.keys()].filter((filePath) => filePath.endsWith(".md")).sort().map(fileFor); },
+    on(name, listener) { if (!listeners.has(name)) listeners.set(name, new Set()); listeners.get(name).add(listener); return { name, listener }; },
+    offref(ref) { if (ref) listeners.get(ref.name)?.delete(ref.listener); },
     async read(file) {
       const filePath = typeof file === "string" ? file : file && file.path;
       if (!fileMap.has(filePath)) throw new Error(`Missing file: ${filePath}`);
+      readPaths.push(filePath);
       return fileMap.get(filePath);
     },
-    async cachedRead(file) {
-      return this.read(file);
-    }
+    async cachedRead(file) { return this.read(file); },
+    async createFolder(filePath) { directories.add(filePath); },
+    async create(filePath, bytes) { if (fileMap.has(filePath)) throw new Error("file_exists"); fileMap.set(filePath, bytes); modes.set(filePath, 0o644); touched.push(["create", filePath]); const file = fileFor(filePath); emit("create", file); return file; },
+    async modify(file, bytes) { const filePath = typeof file === "string" ? file : file?.path; if (!fileMap.has(filePath)) throw new Error("missing_file"); fileMap.set(filePath, bytes); touched.push(["modify", filePath]); emit("modify", fileFor(filePath)); return fileFor(filePath); },
+    async delete(file) { const filePath = typeof file === "string" ? file : file?.path; fileMap.delete(filePath); modes.delete(filePath); touched.push(["delete", filePath]); emit("delete", { path: filePath }); },
+    async rename(file, nextPath) { const oldPath = file.path; const bytes = fileMap.get(oldPath); const mode = modes.get(oldPath); fileMap.delete(oldPath); modes.delete(oldPath); fileMap.set(nextPath, bytes); modes.set(nextPath, mode); touched.push(["rename", oldPath, nextPath]); emit("rename", fileFor(nextPath), oldPath); },
+    mode(filePath) { return modes.get(filePath) || 0o644; },
+    async setMode(filePath, mode) { modes.set(filePath, mode); }
   };
 }
 
@@ -202,7 +227,13 @@ function createDv(pages, readCounts, bodyLoadError) {
   };
 }
 
-function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null }) {
+function task21RolloutStorage() {
+  const phases = ["create", "update", "merge", "maintenance", "git", "resurfacing"];
+  let serialized = JSON.stringify({ version: "llmwiki_rollout_state_v1", enabled_phases: phases, gate_receipts: Object.fromEntries(phases.map((phase) => [phase, { available: true, status: "green", receipt_id: `fixture_${phase}` }])) });
+  return { async load() { return serialized; }, async save(next) { serialized = next; return true; } };
+}
+
+function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, extraFiles = {}, llmWikiControllerOptions = null }) {
   const files = {
     "SYSTEM/Views/prodigy-workspace-manifest.js": fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js"), "utf8"),
     "SYSTEM/Views/prodigy-hub-loader.js": fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-hub-loader.js"), "utf8")
@@ -211,11 +242,30 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null })
     if (omittedModulePaths.includes(modulePath)) continue;
     files[modulePath] = fs.readFileSync(path.join(ROOT, modulePath), "utf8");
   }
+  Object.assign(files, extraFiles);
   for (const page of pages) {
     if (page && page.path) files[page.path] = page.content || "";
   }
   const readCounts = { body: 0 };
-  const app = { vault: createVault(files), workspace: createWorkspace() };
+  // Mirrors production inboxMetadata(): frontmatter of the raw markdown body.
+  const metadataCache = {
+    getFileCache(file) {
+      const body = String((file && file.path ? files[file.path] : undefined) || "");
+      if (!body.startsWith("---\n")) return { frontmatter: {} };
+      const end = body.indexOf("\n---", 4);
+      if (end < 0) return { frontmatter: {} };
+      const frontmatter = {};
+      for (const line of body.slice(4, end).split("\n")) {
+        const separator = line.indexOf(":");
+        if (separator <= 0) continue;
+        const key = line.slice(0, separator).trim();
+        const value = line.slice(separator + 1).trim().replace(/^["']|["']$/g, "");
+        if (key) frontmatter[key] = value === "true" ? true : value === "false" ? false : value;
+      }
+      return { frontmatter };
+    },
+  };
+  const app = { vault: createVault(files), workspace: createWorkspace(), metadataCache };
   const container = new FakeElement("section");
   const windowObject = {};
   const openedModals = [];
@@ -232,15 +282,18 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null })
       if (typeof this.onClose === "function") this.onClose();
     }
   }
-  const sandbox = { app, dv: createDv(pages, readCounts, bodyLoadError), obsidian: { Modal: FakeModal }, container, console };
+  const sandbox = { app, dv: createDv(pages, readCounts, bodyLoadError), obsidian: { Modal: FakeModal }, container, console, URL, TextEncoder, TextDecoder, Uint8Array, ArrayBuffer, AbortController, crypto: webcrypto, setTimeout, clearTimeout };
+  const controllerOptions = { ...(llmWikiControllerOptions || {}) };
+  if (!controllerOptions.rollout_storage) controllerOptions.rollout_storage = task21RolloutStorage();
+  sandbox.KnowledgeExplorerHub = { llmWikiControllerOptions: controllerOptions };
   // Browser modules intentionally use either window or globalThis. Model that identity in the VM.
   sandbox.window = sandbox;
   sandbox.document = undefined;
   return { sandbox, app, container, windowObject: sandbox, readCounts, openedModals };
 }
 
-async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null }) {
-  const { sandbox, app, container, windowObject, readCounts, openedModals } = createSandbox({ pages, omittedModulePaths, bodyLoadError });
+async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null, extraFiles = {}, llmWikiControllerOptions = null }) {
+  const { sandbox, app, container, windowObject, readCounts, openedModals } = createSandbox({ pages, omittedModulePaths, bodyLoadError, extraFiles, llmWikiControllerOptions });
   const code = extractDataviewJs(HUB_SOURCE);
   const script = new vm.Script(`(async function () {\n${code}\n}).call({ container });`, {
     filename: "HUB/50 Knowledge.md"

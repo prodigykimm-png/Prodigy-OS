@@ -1,7 +1,13 @@
 (function initOntologyProjection(root) {
   "use strict";
 
-  const crypto = typeof require === "function" ? require("node:crypto") : null;
+  const hashApi = (() => {
+    if (root.LLMWikiHash && typeof root.LLMWikiHash.sha256 === "function") return root.LLMWikiHash;
+    if (typeof require === "function") {
+      try { return require("./llmwiki-hash.js"); } catch (_) { return null; }
+    }
+    return null;
+  })();
   const PROJECTION_VERSION = "prodigy_ontology_projection_v1";
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const HASH = /^[0-9a-f]{64}$/u;
@@ -46,8 +52,8 @@
   }
 
   function sha256(value) {
-    if (!crypto) throw new Error("crypto unavailable");
-    return crypto.createHash("sha256").update(String(value), "utf8").digest("hex");
+    if (!hashApi || typeof hashApi.sha256 !== "function") return "";
+    try { return hashApi.sha256(String(value)); } catch (_) { return ""; }
   }
 
   function ok(value) {
@@ -374,6 +380,7 @@
 
   function buildProjection(input) {
     if (!plain(input)) return fail("input", "malformed_input");
+    if (!hashApi || typeof hashApi.sha256 !== "function") return fail("hash", "hash_unavailable");
     const runId = validId(input.run_id, "run_id");
     if (plain(runId)) return runId;
     const sourceMap = normalizeSources(input);
@@ -424,6 +431,22 @@
     return typeof projection?.projection_hash === "string" ? projection.projection_hash : sha256(serializeProjection(projection));
   }
 
+  function canonicalRelationsForRetrieval(input) {
+    const records = Array.isArray(input) ? input : list(input && input.canonical_relations);
+    const relations = [];
+    for (const raw of records) {
+      if (!plain(raw) || trim(raw.status) !== "canonical") continue;
+      const fromDocumentId = trim(raw.from_document_id || raw.document_id);
+      const targetDocumentId = trim(raw.target_document_id || raw.to_document_id);
+      const relation = trim(raw.relation);
+      if (!fromDocumentId || !targetDocumentId || !LINK_RELATIONS.includes(relation)) continue;
+      relations.push({ from_document_id: fromDocumentId, target_document_id: targetDocumentId, relation, status: "canonical" });
+    }
+    relations.sort((left, right) => `${left.from_document_id}:${left.relation}:${left.target_document_id}`
+      .localeCompare(`${right.from_document_id}:${right.relation}:${right.target_document_id}`, "en"));
+    return freeze(relations.filter((item, index) => index === 0 || stable(item) !== stable(relations[index - 1])));
+  }
+
   const api = freeze({
     PROJECTION_VERSION,
     CONFIDENCE,
@@ -432,6 +455,7 @@
     projectOntology,
     serializeProjection,
     hashProjection,
+    canonicalRelationsForRetrieval,
     zeroWriteCounters,
   });
   root.OntologyProjection = api;

@@ -199,6 +199,39 @@ function testAntigravityProviderUsesCliLoginWithSelectableModel() {
   assert.equal(provider.sandbox, true);
 }
 
+function testExecProvidersStayFreeOfHttpOnlyDefaultKeys() {
+  // Regression: applyProviderDefaults used to inject openai-compatible HTTP keys into
+  // exec adapters, which the AIProviderService exec validation then rejects on every call.
+  const httpOnly = ["baseURL", "endpointPath", "apiKeyHeader", "endpointURL", "apiKeySecret", "legacyApiKeySecret", "ttl", "maxTokens"];
+  const merged = service.mergeConfig(service.DEFAULT_CONFIG, {
+    aiProfiles: { schema_version: 1, llmwiki: { direct_provider_key: "antigravity", omniroute_provider_key: "" } },
+    providers: { antigravity: { model: "gemini-3.6-flash-medium" } }
+  });
+  for (const key of httpOnly) assert.equal(key in merged.providers.antigravity, false, `antigravity must not carry ${key}`);
+  const resolved = service.resolveAIProfileProviderKey(merged, "llmwiki", "direct");
+  assert.equal(resolved.ok, true);
+  for (const key of httpOnly) assert.equal(key in resolved.provider, false, `resolved llmwiki provider must not carry ${key}`);
+  assert.equal(resolved.provider.model, "gemini-3.6-flash-medium");
+  // Non-exec adapters keep their HTTP defaults.
+  const withStudio = service.mergeConfig(service.DEFAULT_CONFIG, { providers: { "lm-studio": {} } });
+  assert.equal("baseURL" in withStudio.providers["lm-studio"], true);
+}
+
+function testLlmWikiProviderOptionsComeFromCompatibleExistingSettings() {
+  const config = service.mergeConfig(service.DEFAULT_CONFIG, {
+    providers: {
+      unsupported: { adapter: "custom-unsupported", name: "Unsupported", model: "fixture", capabilities: { structuredOutput: "json-schema" } },
+      blankmodel: { adapter: "openai-compatible", name: "Blank Model", model: "", authMode: "bearer", capabilities: { structuredOutput: "json-schema" } },
+    },
+  });
+  const options = service.listAIProfileProviderOptions(config, "llmwiki", "direct");
+  const keys = options.map((option) => option.provider_key);
+  for (const key of ["antigravity", "codex", "gemini", "lm-studio"]) assert.ok(keys.includes(key), key);
+  assert.equal(keys.includes("unsupported"), false);
+  assert.equal(keys.includes("blankmodel"), false);
+  assert.equal(JSON.stringify(options).includes("apiKeySecret"), false);
+}
+
 (async () => {
   await testLegacyConfigLoadsWithoutWriting();
   await testSaveWritesCanonicalConfigAndKeepsSecretsOut();
@@ -210,6 +243,8 @@ function testAntigravityProviderUsesCliLoginWithSelectableModel() {
   await testSecretIdsRemainValid();
   testCodexProviderUsesCliLoginWithoutSecret();
   testAntigravityProviderUsesCliLoginWithSelectableModel();
+  testExecProvidersStayFreeOfHttpOnlyDefaultKeys();
+  testLlmWikiProviderOptionsComeFromCompatibleExistingSettings();
   console.log("ProdigyConfigService tests passed.");
 })().catch((error) => {
   console.error(error.stack || error.message);

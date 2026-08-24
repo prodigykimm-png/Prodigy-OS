@@ -5,6 +5,7 @@ const { test } = require("node:test");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "../../../../../../");
 const BUNDLE_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-proposal-bundle.js");
@@ -91,6 +92,44 @@ function bundleInput(overrides = {}) {
     ...overrides,
   };
 }
+
+test("proposal bundle recursive closure is Node-scheme-free and loads in a require-free browser VM", () => {
+  const closure = new Set();
+  function visit(filePath) {
+    if (closure.has(filePath)) return;
+    closure.add(filePath);
+    const sourceText = fs.readFileSync(filePath, "utf8");
+    for (const match of sourceText.matchAll(/require\(["'](\.\.?\/[^"']+)["']\)/gu)) {
+      visit(path.resolve(path.dirname(filePath), match[1]));
+    }
+  }
+  visit(BUNDLE_PATH);
+  const closureSource = [...closure].map((filePath) => fs.readFileSync(filePath, "utf8")).join("\n");
+  assert.doesNotMatch(closureSource, /node:/u);
+  assert.doesNotMatch(closureSource, /\bBuffer\b/u);
+
+  const hashSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-hash.js"), "utf8");
+  const operationSource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"), "utf8");
+  const bundleSource = fs.readFileSync(BUNDLE_PATH, "utf8");
+  function browserApi({ withHash }) {
+    const sandbox = { module: { exports: {} }, URL, TextEncoder };
+    sandbox.globalThis = sandbox;
+    if (withHash) vm.runInNewContext(hashSource, sandbox, { filename: "llmwiki-hash.js" });
+    vm.runInNewContext(operationSource, sandbox, { filename: "llmwiki-operation-contract.js" });
+    vm.runInNewContext(bundleSource, sandbox, { filename: "llmwiki-proposal-bundle.js" });
+    return { api: sandbox.module.exports, sandbox };
+  }
+  const input = { run_id: "run_browser_proposal", validation_context: { context_id: "validation_browser_proposal" }, proposals: [proposal("create")] };
+  const available = browserApi({ withHash: true });
+  available.sandbox.__input = JSON.stringify(input);
+  const built = vm.runInNewContext("module.exports.buildProposalBundle(JSON.parse(__input))", available.sandbox);
+  assert.equal(built.ok, true, JSON.stringify(built));
+  const unavailable = browserApi({ withHash: false });
+  unavailable.sandbox.__input = JSON.stringify(input);
+  const rejected = vm.runInNewContext("module.exports.buildProposalBundle(JSON.parse(__input))", unavailable.sandbox);
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.reason, "hash_unavailable");
+});
 
 test("build serializes six proposal kinds deterministically with stable ids, hash, locators, confidence, and unresolved merge conflict", () => {
   const llmwiki = api();

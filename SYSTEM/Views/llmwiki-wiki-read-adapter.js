@@ -139,7 +139,10 @@
       try { return root.LLMWikiHash.sha256(String(value)); } catch (_) { /* use local implementation */ }
     }
     if (typeof require === "function") {
-      try { return require("node:crypto").createHash("sha256").update(String(value), "utf8").digest("hex"); } catch (_) { /* browser or restricted require */ }
+      try {
+        const hashApi = require("./llmwiki-hash.js");
+        if (hashApi && typeof hashApi.sha256 === "function") return hashApi.sha256(String(value));
+      } catch (_) { /* browser or restricted require */ }
     }
     return sha256Fallback(value);
   }
@@ -374,11 +377,28 @@
       status,
       trust,
       source_revision: sourceRevision,
+      source_ids: [...new Set(list(merged.source_ids).map(trim).filter(Boolean))].sort((a, b) => a.localeCompare(b, "en")),
+      source_policy: plain(merged.source_policy) ? merged.source_policy : { decision: "allowed" },
+      relations: list(merged.relations),
     };
     const rowRevision = sha256(stable(identity));
     const mode = trust === "pending" ? "pending" : trust === "literature" ? "literature" : "verified";
     const statement = typeof merged.statement === "string" ? trim(merged.statement) : typeof merged.body === "string" ? merged.body : "";
     const summary = typeof merged.summary === "string" ? trim(merged.summary) : "";
+    const sourceIds = [...new Set(list(merged.source_ids).map(trim).filter(Boolean))].sort((a, b) => a.localeCompare(b, "en"));
+    const citations = list(merged.citations).filter(plain).map((citation) => ({
+      source_id: trim(citation.source_id),
+      locator: trim(citation.locator),
+      ...(trim(citation.content_hash) ? { content_hash: trim(citation.content_hash) } : {}),
+    })).filter((citation) => citation.source_id && citation.locator);
+    const sourcePolicy = plain(merged.source_policy)
+      ? { decision: token(merged.source_policy.decision || "allowed"), ...(trim(merged.source_policy.policy_id) ? { policy_id: trim(merged.source_policy.policy_id) } : {}) }
+      : { decision: "allowed" };
+    const relations = list(merged.relations).filter(plain).map((relation) => ({
+      target_document_id: trim(relation.target_document_id),
+      relation: token(relation.relation),
+      status: token(relation.status),
+    })).filter((relation) => relation.target_document_id && relation.relation && relation.status);
     return {
       document_id: `wiki_${sha256(path).slice(0, 24)}`,
       path,
@@ -402,6 +422,10 @@
       knowledge_topics: identity.topics,
       statement,
       summary,
+      source_ids: sourceIds,
+      citations,
+      source_policy: sourcePolicy,
+      relations,
     };
   }
 
@@ -422,6 +446,9 @@
       status: row.status,
       trust: row.trust,
       source_revision: row.source_revision || "",
+      source_ids: row.source_ids || [],
+      source_policy: row.source_policy || { decision: "allowed" },
+      relations: row.relations || [],
     };
   }
 

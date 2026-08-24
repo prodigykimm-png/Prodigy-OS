@@ -1,0 +1,52 @@
+{
+  "corpus_version": "llmwiki_task20_evaluation_corpus_v1",
+  "required_scenarios": [
+    "duplicate_replay",
+    "false_merge",
+    "contradiction",
+    "temporal_supersession",
+    "stale_source_revision",
+    "stale_canonical_revision",
+    "missing_citation",
+    "provider_schema_violation",
+    "consent_path_policy_mismatch",
+    "partial_multi_file_write_compensation",
+    "derived_refresh_failure",
+    "git_lock",
+    "git_head_drift",
+    "git_same_path_drift",
+    "git_index_contamination",
+    "icloud_unavailable",
+    "mobile_native_git_unavailable",
+    "notification_duplicate",
+    "notification_mute_snooze_ignore",
+    "notification_changed_revision",
+    "feedback_canonical_isolation",
+    "approval_bytes_equality",
+    "destructive_delete_rejection"
+  ],
+  "operation_fixtures": [
+    { "scenario_id": "duplicate_replay", "expected_operation": "create" },
+    { "scenario_id": "false_merge", "expected_operation": "conflict_review" },
+    { "scenario_id": "temporal_supersession", "expected_operation": "update" }
+  ],
+  "approval_bytes_operation_ids": ["approval_bytes_equality"],
+  "eligible_write_operation_ids": ["duplicate_replay", "temporal_supersession", "partial_multi_file_write_compensation", "approval_bytes_equality"],
+  "ineligible_write_operation_ids": ["false_merge", "contradiction", "missing_citation"],
+  "provider_variants": [
+    { "id": "direct_valid", "provider": "direct", "model": "model_a", "shape": "valid", "expected": "accepted_for_review" },
+    { "id": "omniroute_valid", "provider": "omniroute", "model": "model_b", "shape": "valid", "expected": "accepted_for_review" },
+    { "id": "direct_unknown_field", "provider": "direct", "model": "model_a", "shape": "unknown_field", "expected": "rejected" },
+    { "id": "omniroute_delete", "provider": "omniroute", "model": "model_b", "shape": "delete", "expected": "rejected" },
+    { "id": "direct_prompt_injection", "provider": "direct", "model": "model_c", "shape": "prompt_injection", "expected": "accepted_as_data_only" },
+    { "id": "omniroute_malformed", "provider": "omniroute", "model": "model_d", "shape": "malformed", "expected": "rejected" }
+  ],
+  "later_real_qa": [
+    { "gate_id": "horizontal_overflow_390", "owner": "task21", "status": "blocked_by_later_real_qa" },
+    { "gate_id": "horizontal_overflow_820", "owner": "task21", "status": "blocked_by_later_real_qa" },
+    { "gate_id": "horizontal_overflow_1440", "owner": "task21", "status": "blocked_by_later_real_qa" }
+  ],
+  "existing_real_qa": [
+    { "gate_id": "real_obsidian_loader_runtime_error", "owner": "task18", "status": "green", "artifact_path": ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/task-18/task18-evidence-repair-done-claim.json", "sha256": "817527103d97cd6fcb1e68bc32815348027344b04b4282770383eecf5592e866" }
+  ]
+}

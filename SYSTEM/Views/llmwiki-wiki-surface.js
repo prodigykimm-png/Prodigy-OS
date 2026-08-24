@@ -47,47 +47,6 @@
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, clone(item)]));
   }
 
-  function injectStyles(container) {
-    const doc = container && container.ownerDocument ? container.ownerDocument : typeof document !== "undefined" ? document : null;
-    if (!doc || !doc.head || doc.getElementById("llmwiki-wiki-surface-styles")) return;
-    const style = doc.createElement("style");
-    style.id = "llmwiki-wiki-surface-styles";
-    style.textContent = [
-      ".llmwiki-wiki-surface{display:grid;gap:12px;inline-size:100%;max-inline-size:100%;min-width:0;color:var(--text-normal);line-height:1.45}",
-      ".llmwiki-wiki-surface,.llmwiki-wiki-surface *{box-sizing:border-box}",
-      ".llmwiki-wiki-surface__header,.llmwiki-wiki-surface__controls,.llmwiki-wiki-surface__content,.llmwiki-wiki-surface__detail{min-width:0}",
-      ".llmwiki-wiki-surface__header h2,.llmwiki-wiki-surface__header p,.llmwiki-wiki-surface__detail h3,.llmwiki-wiki-surface__detail p{margin:0;overflow-wrap:anywhere}",
-      ".llmwiki-wiki-surface__controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}",
-      ".llmwiki-wiki-surface__search{display:flex;gap:8px;min-width:0}",
-      ".llmwiki-wiki-surface input,.llmwiki-wiki-surface select,.llmwiki-wiki-surface button{min-height:44px;font:inherit}",
-      ".llmwiki-wiki-surface input,.llmwiki-wiki-surface select{min-width:0;color:var(--text-normal)}",
-      ".llmwiki-wiki-surface button{cursor:pointer}",
-      ".llmwiki-wiki-surface input:not([type=checkbox]):not([type=radio]),.llmwiki-wiki-surface select,.llmwiki-wiki-surface button:not(.clickable-icon){box-shadow:none}",
-      ".llmwiki-wiki-surface button:hover{border-color:var(--ke-color-accent, var(--text-accent))}",
-      ".llmwiki-wiki-surface button:focus-visible,.llmwiki-wiki-surface input:focus-visible,.llmwiki-wiki-surface select:focus-visible{outline:2px solid var(--ke-color-accent, var(--text-accent));outline-offset:2px}",
-      ".llmwiki-wiki-surface__filters{display:flex;flex-wrap:wrap;gap:8px}",
-      ".llmwiki-wiki-surface__content{display:grid;grid-template-columns:minmax(150px,220px) minmax(0,1fr);gap:12px;min-height:260px}",
-      ".llmwiki-wiki-surface__facet-rail,.llmwiki-wiki-surface__results,.llmwiki-wiki-surface__detail{min-inline-size:0}",
-      ".llmwiki-wiki-surface__facet-rail{display:grid;align-content:start;gap:8px}",
-      ".llmwiki-wiki-surface__facet-group{display:grid;gap:4px}",
-      ".llmwiki-wiki-surface__facet-button{width:100%;text-align:left;padding:7px 8px;min-height:44px}",
-      ".llmwiki-wiki-surface__facet-button[aria-pressed=\"true\"]{border-color:var(--ke-color-accent, var(--text-accent));color:var(--ke-color-accent, var(--text-accent))}",
-      ".llmwiki-wiki-surface__result-list{display:grid;gap:6px;list-style:none;margin:0;padding:0;max-height:480px;overflow:auto}",
-      ".llmwiki-wiki-surface__result{display:grid;gap:2px;width:100%;text-align:left;min-height:44px;padding:8px;border:1px solid transparent;background:var(--background-secondary)}",
-      ".llmwiki-wiki-surface__result[aria-current=\"true\"]{border-color:var(--ke-color-accent, var(--text-accent))}",
-      ".llmwiki-wiki-surface__result-title{min-inline-size:0;font-weight:700;overflow-wrap:anywhere;word-break:keep-all}",
-      ".llmwiki-wiki-surface__result-meta,.llmwiki-wiki-surface__muted{min-inline-size:0;color:var(--text-muted);overflow-wrap:anywhere;word-break:keep-all}",
-      ".llmwiki-wiki-surface__trust{display:inline-block;margin-inline-end:5px;color:var(--ke-color-accent, var(--text-accent))}",
-      ".llmwiki-wiki-surface__detail{min-height:260px;max-height:480px;overflow:auto;scrollbar-gutter:stable}",
-      ".llmwiki-wiki-surface__body{white-space:pre-wrap;overflow-wrap:anywhere}",
-      ".llmwiki-wiki-surface__status{padding:8px;border-inline-start:3px solid var(--ke-color-accent, var(--text-accent));color:var(--text-muted)}",
-      ".llmwiki-wiki-surface__status[data-state=\"error\"],.llmwiki-wiki-surface__status[data-state=\"stale\"]{border-inline-start-color:var(--text-error);color:var(--text-error)}",
-      "@media(max-width:833px){.llmwiki-wiki-surface__controls{grid-template-columns:1fr}.llmwiki-wiki-surface__content{grid-template-columns:1fr}.llmwiki-wiki-surface__detail{max-height:none}.llmwiki-wiki-surface__result-list{max-height:300px}}",
-      "@media(forced-colors:active){.llmwiki-wiki-surface button[aria-current=\"true\"],.llmwiki-wiki-surface button[aria-pressed=\"true\"]{border:2px solid Highlight}.llmwiki-wiki-surface button:focus-visible,.llmwiki-wiki-surface input:focus-visible,.llmwiki-wiki-surface select:focus-visible{outline-color:Highlight}}",
-      "@media(prefers-reduced-motion:reduce){.llmwiki-wiki-surface *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}"
-    ].join("\n");
-    doc.head.appendChild(style);
-  }
 
   function mountLlmWikiWikiSurface(options) {
     const opts = options || {};
@@ -96,7 +55,8 @@
     const adapter = opts.readAdapter || root.LLMWikiWikiReadAdapter;
     const service = opts.readService || root.LLMWikiWikiReadService;
     if (!adapter || typeof adapter.browseRead !== "function") throw new TypeError("LLMWikiWikiReadAdapter is required");
-    injectStyles(container);
+    const styles = root.KnowledgeStyles || (typeof require === "function" ? require("./knowledge-styles.js") : null);
+    if (styles && typeof styles.ensureStyles === "function") styles.ensureStyles(container.ownerDocument);
     const initialSnapshot = opts.snapshot && opts.snapshot.ok === true && opts.snapshot.value ? opts.snapshot.value : opts.snapshot;
     let snapshot = initialSnapshot || null;
     let result = null;
@@ -207,8 +167,8 @@
         createEl(parent, "p", { text: "결과를 선택하면 읽기 전용 상세가 표시됩니다.", attr: { class: "llmwiki-wiki-surface__muted" } });
         return;
       }
-      createEl(parent, "h3", { text: detail.title || detail.path });
-      createEl(parent, "p", { text: `${TRUST_LABELS[detail.trust] || "읽기"} · ${detail.path}`, attr: { class: "llmwiki-wiki-surface__result-meta" } });
+      createEl(parent, "h3", { text: "선택한 지식" });
+      createEl(parent, "p", { text: `${detail.title || "제목 없음"} · ${TRUST_LABELS[detail.trust] || "읽기"} · ${detail.path}`, attr: { class: "llmwiki-wiki-surface__result-meta" } });
       if (detail.statement || detail.summary) createEl(parent, "p", { text: detail.statement || detail.summary });
       if (state.bodyState === "loading") createEl(parent, "p", { text: "본문을 불러오는 중입니다.", attr: { class: "llmwiki-wiki-surface__status", role: "status", "aria-live": "polite" } });
       else if (state.bodyState === "ready") createEl(parent, "div", { text: state.body, attr: { class: "llmwiki-wiki-surface__body" } });

@@ -1,7 +1,13 @@
 (function (root) {
   "use strict";
 
-  const crypto = typeof require === "function" ? require("node:crypto") : null;
+  const hashApi = (() => {
+    if (root.LLMWikiHash && typeof root.LLMWikiHash.sha256 === "function") return root.LLMWikiHash;
+    if (typeof require === "function") {
+      try { return require("./llmwiki-hash.js"); } catch (_) { return null; }
+    }
+    return null;
+  })();
   const QUERY_VERSION = "llmwiki_query_read_v1";
   const MODES = Object.freeze(["verified", "literature", "candidate", "proposal", "all"]);
   const TYPES = Object.freeze(["knowledge", "permanent_note", "literature_note", "knowledge_candidate"]);
@@ -20,6 +26,8 @@
   });
   const TYPE_RANK = Object.freeze({ knowledge: 0, permanent_note: 1, literature_note: 2, knowledge_candidate: 3, proposal: 4 });
   const HASH = /^[0-9a-f]{64}$/u;
+  const MAX_QUERY_LENGTH = 1024;
+  const MAX_RESULTS = 50;
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
@@ -34,10 +42,10 @@
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
   }
   function sha256(value) {
-    if (!crypto) throw new Error("crypto unavailable");
-    return crypto.createHash("sha256").update(String(value), "utf8").digest("hex");
+    if (!hashApi || typeof hashApi.sha256 !== "function") return "";
+    try { return hashApi.sha256(String(value)); } catch (_) { return ""; }
   }
-  function failure(field, reason) { return freeze({ ok: false, field, reason, writer_count: 0 }); }
+  function failure(field, reason) { return freeze({ ok: false, field, reason, writer_count: 0, provider_count: 0 }); }
   function safePath(value) {
     const path = trim(value).replace(/\\/gu, "/");
     if (!path || path.startsWith("/") || /^[A-Za-z]:/u.test(path) || path.includes("[[") || path.includes("]]")) return null;
@@ -140,6 +148,11 @@
       title: trim(row.title),
       statement: trim(row.statement),
       path: trim(row.path),
+      canonical_revision: trim(row.row_revision || row.revision),
+      domain: trim(row.domain || row.knowledge_domain),
+      topics: uniqSorted(list(row.topics || row.knowledge_topics)),
+      source_policy: plain(row.source_policy) ? row.source_policy : { decision: "allowed" },
+      relations: list(row.relations),
       source_ids: sourceIds,
       citations,
     });
@@ -180,8 +193,10 @@
   }
   function queryRead(input) {
     if (!plain(input)) return failure("query", "malformed_query");
+    if (!hashApi || typeof hashApi.sha256 !== "function") return failure("hash", "hash_unavailable");
     const query = trim(input.query);
     if (!query) return failure("query", "empty_query");
+    if (query.length > MAX_QUERY_LENGTH) return failure("query", "query_too_large");
     const mode = trim(input.mode || "verified");
     if (!MODES.includes(mode)) return failure("mode", "unknown_mode");
     const scope = normalizeScope(input.scope, mode);
@@ -195,7 +210,7 @@
     const docs = rankedRows(snapshot.documents.filter((row) => inScope(row, scope, mode)), terms);
     const proposals = rankedRows(snapshot.proposals.filter((row) => proposalInScope(row, scope, mode)), terms);
     const rows = [];
-    for (const [index, item] of [...docs, ...proposals].entries()) {
+    for (const [index, item] of [...docs, ...proposals].slice(0, MAX_RESULTS).entries()) {
       const result = resultFrom(item.row, { snapshot_revision: snapshot.snapshot_revision, mode, query, kind: item.row.proposal_id ? "proposal" : "document" }, index + 1);
       if (result.ok === false) return result;
       rows.push(result);
@@ -204,7 +219,7 @@
   }
   function serializeEnvelope(value) { return stable(value); }
 
-  const api = freeze({ QUERY_VERSION, MODES, queryRead, serializeEnvelope });
+  const api = freeze({ QUERY_VERSION, MODES, MAX_QUERY_LENGTH, MAX_RESULTS, queryRead, serializeEnvelope });
   root.LLMWikiQueryReadOnly = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

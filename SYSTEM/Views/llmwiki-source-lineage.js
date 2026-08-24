@@ -1,9 +1,7 @@
 (function (root) {
   "use strict";
 
-  const crypto = typeof require === "function" ? require("node:crypto") : null;
-  const fs = typeof require === "function" ? require("node:fs/promises") : null;
-  const path = typeof require === "function" ? require("node:path") : null;
+  const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
 
   const MANIFEST_VERSION = "llmwiki_source_manifest_v1";
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
@@ -22,8 +20,35 @@
   function plainObject(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function isFailure(value) { return plainObject(value) && value.ok === false; }
 
+  function utf8Bytes(value) {
+    const text = String(value ?? "");
+    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(text);
+    const bytes = [];
+    for (let index = 0; index < text.length; index += 1) {
+      let codePoint = text.charCodeAt(index);
+      if (codePoint >= 0xd800 && codePoint <= 0xdbff) {
+        const next = text.charCodeAt(index + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) {
+          codePoint = 0x10000 + ((codePoint - 0xd800) << 10) + (next - 0xdc00);
+          index += 1;
+        } else codePoint = 0xfffd;
+      } else if (codePoint >= 0xdc00 && codePoint <= 0xdfff) codePoint = 0xfffd;
+      if (codePoint <= 0x7f) bytes.push(codePoint);
+      else if (codePoint <= 0x7ff) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f));
+      else if (codePoint <= 0xffff) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
+      else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 0x3f), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
+    }
+    return Uint8Array.from(bytes);
+  }
+
   function sha256(value) {
-    return crypto.createHash("sha256").update(Buffer.isBuffer(value) ? value : Buffer.from(String(value ?? ""), "utf8")).digest("hex");
+    if (!hashApi || typeof hashApi.sha256 !== "function") return null;
+    if (value instanceof Uint8Array && typeof hashApi.sha256Bytes === "function") return hashApi.sha256Bytes(value);
+    if (typeof value === "string") return hashApi.sha256(value);
+    if (value instanceof Uint8Array && typeof TextDecoder !== "undefined") {
+      try { return hashApi.sha256(new TextDecoder("utf-8", { fatal: true }).decode(value)); } catch { return null; }
+    }
+    return hashApi.sha256(String(value ?? ""));
   }
 
   function normalizeUrl(value, field) {
@@ -38,6 +63,76 @@
   function optionalUrl(value, field) {
     if (value === undefined || value === null || trimmed(value) === "") return null;
     return normalizeUrl(value, field);
+  }
+
+  function validateSourceReference(input) {
+    if (!plainObject(input)) return reject("source_reference", "malformed_source_reference");
+    const sourcePath = trimmed(input.source_path);
+    const sourceUrl = trimmed(input.source_url);
+    if (sourcePath && sourceUrl) return reject("source_reference", "ambiguous_source_reference");
+    if (!sourcePath && !sourceUrl) return reject("source_reference", "source_reference_required");
+    if (sourceUrl) {
+      const normalized = normalizeUrl(sourceUrl, "source_url");
+      return isFailure(normalized) ? reject("source_url", "invalid_source_url") : success({ source_path: null, source_url: normalized });
+    }
+    const normalized = validateSourcePath(sourcePath);
+    return isFailure(normalized) ? normalized : success({ source_path: normalized, source_url: null });
+  }
+
+  function unsafeVaultPath(value) {
+    const segments = value.split("/");
+    return !value || value.length > 1024
+      || /[\u0000-\u001f\u007f?#]/u.test(value)
+      || value.includes("\\")
+      || value.startsWith("/")
+      || value.startsWith("~")
+      || /^[A-Za-z][A-Za-z0-9+.-]*:/u.test(value)
+      || segments.some((segment) => !segment || segment === "." || segment === "..");
+  }
+
+  function decodePercentLayer(value) {
+    if (/%[0-9a-f](?![0-9a-f])/iu.test(value)) return { invalid: true };
+    let invalid = false;
+    let decodedAny = false;
+    const decoded = value.replace(/(?:%[0-9a-f]{2})+/giu, (encoded) => {
+      decodedAny = true;
+      const bytes = encoded.match(/[0-9a-f]{2}/giu).map((hex) => Number.parseInt(hex, 16));
+      let text;
+      try {
+        if (typeof TextDecoder === "undefined") throw new Error("TextDecoder unavailable");
+        text = new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(bytes));
+      } catch {
+        invalid = true;
+        return encoded;
+      }
+      if (/[\/\\\u0000-\u001f\u007f]/u.test(text)) invalid = true;
+      return text;
+    });
+    return { invalid, decodedAny, value: decoded };
+  }
+
+  function encodedPathHazard(value) {
+    const legacyUnicodeEscape = /%u[0-9a-f]{4}/iu;
+    const encodedSeparatorOrControl = /%(?:25)*(?:2f|5c|0[0-9a-f]|1[0-9a-f]|7f)/iu;
+    const encodedDot = "(?:\\.|%(?:25)*2e)";
+    const encodedDotSegment = new RegExp(`^(?:${encodedDot}){1,2}$`, "iu");
+    return legacyUnicodeEscape.test(value)
+      || encodedSeparatorOrControl.test(value)
+      || value.split("/").some((segment) => encodedDotSegment.test(segment));
+  }
+
+  function validateSourcePath(value) {
+    const sourcePath = trimmed(value);
+    let decoded = sourcePath;
+    for (let depth = 0; depth < 8; depth += 1) {
+      if (unsafeVaultPath(decoded) || encodedPathHazard(decoded)) return reject("source_path", "invalid_source_path");
+      const layer = decodePercentLayer(decoded);
+      if (layer.invalid) return reject("source_path", "invalid_source_path");
+      if (!layer.decodedAny) return sourcePath;
+      decoded = layer.value;
+    }
+    return /%(?:[0-9a-f]{2}|u[0-9a-f]{4})/iu.test(decoded)
+      ? reject("source_path", "invalid_source_path") : sourcePath;
   }
 
   function validateLocator(value) {
@@ -71,14 +166,17 @@
   }
 
   function rawBuffer(input) {
-    if (Buffer.isBuffer(input.raw_bytes)) return input.raw_bytes;
-    if (Buffer.isBuffer(input.rawBytes)) return input.rawBytes;
-    if (typeof input.raw_bytes === "string") return Buffer.from(input.raw_bytes, "utf8");
-    if (typeof input.rawBytes === "string") return Buffer.from(input.rawBytes, "utf8");
+    if (input.raw_bytes instanceof Uint8Array) return input.raw_bytes;
+    if (input.rawBytes instanceof Uint8Array) return input.rawBytes;
+    if (typeof input.raw_bytes === "string") return utf8Bytes(input.raw_bytes);
+    if (typeof input.rawBytes === "string") return utf8Bytes(input.rawBytes);
     return null;
   }
 
   function normalizeManifest(input) {
+    if (!hashApi || typeof hashApi.sha256 !== "function" || typeof hashApi.sha256Bytes !== "function") {
+      return reject("hash_capability", "lineage_capability_unavailable");
+    }
     if (!plainObject(input)) return reject("manifest", "malformed_manifest");
     if (Object.hasOwn(input, "final_url")) return reject("final_url", "competing_url_authority");
     const sourceId = trimmed(input.source_id);
@@ -153,27 +251,31 @@
   function manifestIdFor(manifest) {
     return `${manifest.source_id}/revision_${padRevision(manifest.refresh_revision)}_${manifest.content_hash.slice(0, 16)}`;
   }
-  function sourceDir(rootDir, sourceId) { return path.join(rootDir, "manifests", sourceId); }
-  function manifestPath(rootDir, manifestId) { return path.join(rootDir, "manifests", `${manifestId}.json`); }
-  function rawPath(rootDir, hash) { return path.join(rootDir, "raw", hash.slice(0, 2), `${hash}.bin`); }
-  function latestPath(rootDir, sourceId) { return path.join(rootDir, "latest", `${sourceId}.json`); }
-
-  async function readJson(filePath) {
-    return JSON.parse(await fs.readFile(filePath, "utf8"));
+  function joinPath(rootDir, ...parts) {
+    return `${rootDir.replace(/\/+$/u, "")}/${parts.map((part) => String(part).replace(/^\/+|\/+$/gu, "")).join("/")}`;
   }
-
-  async function exists(filePath) {
-    try { await fs.access(filePath); return true; } catch { return false; }
-  }
+  function parentPath(value) { return value.slice(0, value.lastIndexOf("/")) || "/"; }
+  function sourceDir(rootDir, sourceId) { return joinPath(rootDir, "manifests", sourceId); }
+  function manifestPath(rootDir, manifestId) { return joinPath(rootDir, "manifests", `${manifestId}.json`); }
+  function rawPath(rootDir, hash) { return joinPath(rootDir, "raw", hash.slice(0, 2), `${hash}.bin`); }
+  function latestPath(rootDir, sourceId) { return joinPath(rootDir, "latest", `${sourceId}.json`); }
 
   function createSourceArchiveStore(options = {}) {
-    const rootDir = path.resolve(trimmed(options.rootDir || ""));
-    if (!rootDir) throw new Error("rootDir is required");
+    const capability = options.capabilities || root.LLMWikiSourceArchiveCapability;
+    const fs = capability && capability.fs;
+    const required = ["access", "mkdir", "readFile", "writeFile", "readdir"];
+    if (!fs || required.some((method) => typeof fs[method] !== "function")) {
+      return reject("archive_capability", "archive_capability_unavailable");
+    }
+    const rootDir = trimmed(options.rootDir).replace(/\/+$/u, "");
+    if (!rootDir || (!rootDir.startsWith("/") && !/^[A-Za-z]:\//u.test(rootDir))) return reject("rootDir", "invalid_archive_root");
 
+    async function readJson(filePath) { return JSON.parse(await fs.readFile(filePath, "utf8")); }
+    async function exists(filePath) { try { await fs.access(filePath); return true; } catch { return false; } }
     async function ensureArchiveDirs(sourceId, contentHash) {
       await fs.mkdir(sourceDir(rootDir, sourceId), { recursive: true });
-      await fs.mkdir(path.dirname(rawPath(rootDir, contentHash)), { recursive: true });
-      await fs.mkdir(path.join(rootDir, "latest"), { recursive: true });
+      await fs.mkdir(parentPath(rawPath(rootDir, contentHash)), { recursive: true });
+      await fs.mkdir(joinPath(rootDir, "latest"), { recursive: true });
     }
 
     async function listManifests(sourceId) {
@@ -182,7 +284,7 @@
       const dir = sourceDir(rootDir, id);
       try {
         const names = (await fs.readdir(dir)).filter((name) => name.endsWith(".json")).sort();
-        return Promise.all(names.map((name) => readJson(path.join(dir, name))));
+        return Promise.all(names.map((name) => readJson(joinPath(dir, name))));
       } catch (error) {
         if (error && error.code === "ENOENT") return [];
         throw error;
@@ -245,6 +347,7 @@
   const api = freezeValue({
     MANIFEST_VERSION,
     validateSourceManifest,
+    validateSourceReference,
     createSourceArchiveStore,
     sha256,
   });

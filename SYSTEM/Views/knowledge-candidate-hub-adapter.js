@@ -13,7 +13,12 @@
     const candidateInbox = { candidates: [], phase: "ready", error: false, expanded: false };
     try { candidateInbox.candidates = await loadCandidates(); }
     catch (_error) { candidateInbox.error = true; }
-    return { candidateInbox, candidateStore: store, loadCandidates };
+    const onLlmWikiHandoff = async (candidate) => {
+      const hub = root.KnowledgeExplorerHub || (typeof globalThis !== "undefined" && globalThis.KnowledgeExplorerHub);
+      if (!hub || typeof hub.handoffCandidateToLlmWiki !== "function") return { ok: false, status: "failed", reason: "llmwiki_handoff_unavailable" };
+      return hub.handoffCandidateToLlmWiki(candidate);
+    };
+    return { candidateInbox, candidateStore: store, loadCandidates, onLlmWikiHandoff };
   }
 
   const api = Object.freeze({ createCandidateInboxConfig });

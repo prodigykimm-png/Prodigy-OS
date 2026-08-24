@@ -2,6 +2,7 @@
   "use strict";
 
   const proposalBundleApi = root.LLMWikiProposalBundle || (typeof require === "function" ? require("./llmwiki-proposal-bundle.js") : null);
+  const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
   const configApi = root.ProdigyConfigService || (typeof require === "function" ? require("./prodigy-config-service.js") : null);
   const FEATURES = Object.freeze(["llmwiki"]);
   const PROVIDER_MODES = Object.freeze(["direct", "omniroute"]);
@@ -15,6 +16,7 @@
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
   function freeze(value) {
+    if (operationApi?.isOperationRecord?.(value) || operationApi?.isCanonicalOperationRecord?.(value)) return value;
     if (Array.isArray(value)) return Object.freeze(value.map(freeze));
     if (!plain(value)) return value;
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)])));

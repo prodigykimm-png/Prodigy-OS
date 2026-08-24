@@ -15,6 +15,7 @@
     "stale_reconfirm_required",
   ]);
   const ID = /^[a-z][a-z0-9_-]{2,127}$/;
+  const OPERATION_KINDS = Object.freeze(["create", "update", "merge", "noop"]);
 
   function effectRow(overrides) {
     const values = overrides || {};
@@ -196,7 +197,7 @@
     });
   }
 
-  const api = Object.freeze({ STATES, EFFECT_KEYS, EFFECT_MATRIX, initialRunState, transitionRunState, createRunState });
+  const api = Object.freeze({ STATES, EFFECT_KEYS, EFFECT_MATRIX, OPERATION_KINDS, initialRunState, transitionRunState, createRunState });
   root.LLMWikiRunState = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

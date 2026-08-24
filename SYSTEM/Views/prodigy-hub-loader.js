@@ -160,8 +160,16 @@
 
   function recordFor(paths, path) {
     var record = paths.get(path);
-    if (!record) { record = { generation: 0, state: "empty", promise: null, failure: null }; paths.set(path, record); }
+    if (!record) { record = { generation: 0, state: "empty", promise: null, failure: null, version: "" }; paths.set(path, record); }
     return record;
+  }
+
+  function fileVersion(file) {
+    var stat = file && file.stat;
+    var mtime = Number(stat && stat.mtime);
+    var size = Number(stat && stat.size);
+    if (!Number.isFinite(mtime) || mtime <= 0) return "";
+    return String(mtime) + ":" + (Number.isFinite(size) && size >= 0 ? String(size) : "");
   }
 
   function safeFailure(path, code, generation) {
@@ -206,6 +214,15 @@
     if (!path) return Promise.resolve({ ok: false, failure: safeFailure("<invalid>", "invalid", 0) });
     var paths = cacheFor(config.vault, config.realm);
     var record = recordFor(paths, path);
+    var file;
+    try { file = config.vault && config.vault.getAbstractFileByPath(path); } catch (_) { file = null; }
+    var version = fileVersion(file);
+    if ((record.state === "loaded" || record.state === "failed") && version && record.version !== version) {
+      record.generation += 1;
+      record.state = "empty";
+      record.promise = null;
+      record.failure = null;
+    }
     if (record.state === "loaded") {
       emit(config, "outcome", { type: "load_outcome", path: path, module_path: path, outcome: "cached", ok: true, cached: true });
       return Promise.resolve({ ok: true, path: path, cached: true, generation: record.generation });
@@ -217,11 +234,9 @@
     if (record.state === "loading" && record.promise) return record.promise;
 
     var generation = record.generation;
-    var file;
-    try { file = config.vault && config.vault.getAbstractFileByPath(path); } catch (_) { file = null; }
     if (!file) {
       var missing = safeFailure(path, "sync_pending", generation);
-      if (record.generation === generation) { record.state = "failed"; record.failure = missing; }
+      if (record.generation === generation) { record.state = "failed"; record.failure = missing; record.version = ""; }
       emit(config, "outcome", { type: "load_outcome", path: path, module_path: path, outcome: "sync_pending", ok: false, code: missing.code, cached: false });
       return Promise.resolve({ ok: false, failure: missing, generation: generation });
     }
@@ -244,18 +259,18 @@
         else operation();
       } catch (_) {
         var thrown = safeFailure(path, "throw", generation);
-        if (record.generation === generation) { record.state = "failed"; record.failure = thrown; record.promise = null; }
+        if (record.generation === generation) { record.state = "failed"; record.failure = thrown; record.promise = null; record.version = version; }
         emit(config, "end", { type: "module_evaluation_end", path: path, module_path: path, ok: false, code: thrown.code });
         emit(config, "outcome", { type: "load_outcome", path: path, module_path: path, outcome: "failed", ok: false, code: thrown.code, cached: false });
         return { ok: false, failure: thrown, generation: generation };
       }
-      if (record.generation === generation) { record.state = "loaded"; record.failure = null; record.promise = null; }
+      if (record.generation === generation) { record.state = "loaded"; record.failure = null; record.promise = null; record.version = version; }
       emit(config, "end", { type: "module_evaluation_end", path: path, module_path: path, ok: true });
       emit(config, "outcome", { type: "load_outcome", path: path, module_path: path, outcome: "loaded", ok: true, cached: false });
       return { ok: true, path: path, generation: generation };
     }, function () {
       var failure = safeFailure(path, "load_failed", generation);
-      if (record.generation === generation) { record.state = "failed"; record.failure = failure; record.promise = null; }
+      if (record.generation === generation) { record.state = "failed"; record.failure = failure; record.promise = null; record.version = version; }
       emit(config, "outcome", { type: "load_outcome", path: path, module_path: path, outcome: "load_failed", ok: false, code: failure.code, cached: false });
       return { ok: false, failure: failure, generation: generation };
     });
@@ -621,6 +636,7 @@
   }
 
   var api = Object.freeze({
+    version: 2,
     mountWorkspace: mountWorkspace,
     loadManifest: loadManifest,
     loadScript: loadScript,

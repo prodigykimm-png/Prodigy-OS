@@ -13,19 +13,28 @@
   ]);
   const INITIAL_STATE = Object.freeze([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
 
-  function bytesFor(value) {
-    const encoded = encodeURIComponent(String(value));
+  function utf8Bytes(value) {
+    const text = String(value);
+    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(text);
     const bytes = [];
-    for (let index = 0; index < encoded.length; index += 1) {
-      if (encoded[index] === "%") {
-        bytes.push(Number.parseInt(encoded.slice(index + 1, index + 3), 16));
-        index += 2;
-      } else {
-        bytes.push(encoded.charCodeAt(index));
-      }
+    for (let index = 0; index < text.length; index += 1) {
+      let codePoint = text.charCodeAt(index);
+      if (codePoint >= 0xd800 && codePoint <= 0xdbff) {
+        const next = text.charCodeAt(index + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) {
+          codePoint = 0x10000 + ((codePoint - 0xd800) << 10) + (next - 0xdc00);
+          index += 1;
+        } else codePoint = 0xfffd;
+      } else if (codePoint >= 0xdc00 && codePoint <= 0xdfff) codePoint = 0xfffd;
+      if (codePoint <= 0x7f) bytes.push(codePoint);
+      else if (codePoint <= 0x7ff) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f));
+      else if (codePoint <= 0xffff) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
+      else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 0x3f), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f));
     }
     return Uint8Array.from(bytes);
   }
+
+  function utf8ByteLength(value) { return utf8Bytes(value).length; }
 
   function rotateRight(value, bits) { return (value >>> bits) | (value << (32 - bits)); }
   function choose(x, y, z) { return (x & y) ^ (~x & z); }
@@ -35,8 +44,8 @@
   function gamma0(x) { return rotateRight(x, 7) ^ rotateRight(x, 18) ^ (x >>> 3); }
   function gamma1(x) { return rotateRight(x, 17) ^ rotateRight(x, 19) ^ (x >>> 10); }
 
-  function sha256(value) {
-    const input = bytesFor(value);
+  function sha256Bytes(value) {
+    const input = value instanceof Uint8Array ? value : Uint8Array.from(value || []);
     const bitLength = input.length * 8;
     const paddedLength = Math.ceil((input.length + 9) / 64) * 64;
     const padded = new Uint8Array(paddedLength);
@@ -69,7 +78,9 @@
     return state.map((word) => word.toString(16).padStart(8, "0")).join("");
   }
 
-  const api = Object.freeze({ sha256 });
+  function sha256(value) { return sha256Bytes(utf8Bytes(value)); }
+
+  const api = Object.freeze({ sha256, sha256Bytes, utf8Bytes, utf8ByteLength });
   root.LLMWikiHash = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

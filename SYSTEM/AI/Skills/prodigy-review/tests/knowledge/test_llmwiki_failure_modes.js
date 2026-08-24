@@ -165,7 +165,7 @@ function createRowObservation(faultClass) {
   }
   async function appendSourceRevision(manifest) {
     const archiveRoot = path.join(root, "source-archive");
-    const store = view("llmwiki-source-lineage.js").createSourceArchiveStore({ rootDir: archiveRoot });
+    const store = view("llmwiki-source-lineage.js").createSourceArchiveStore({ rootDir: archiveRoot, capabilities: { fs: fs.promises } });
     const beforeFiles = tree(archiveRoot);
     const result = await store.appendRevision(manifest);
     const afterFiles = tree(archiveRoot);
@@ -328,15 +328,19 @@ function currentDocument(overrides = {}) {
 
 function canonicalRequest(overrides = {}) {
   const document = overrides.canonical_document || currentDocument();
+  const operationContract = view("llmwiki-operation-contract.js");
+  const parsedOperation = operationContract.parseCanonicalOperation(JSON.stringify({
+    operation_id: "operation_failure_matrix_create",
+    proposal_id: "proposal_failure_matrix_create",
+    proposal_kind: "create",
+    payload_hash: sha256(stable(document)),
+  }));
+  assert.equal(parsedOperation.ok, true, JSON.stringify(parsedOperation));
+  assert.equal(operationContract.isCanonicalOperationRecord(parsedOperation.value), true);
   return {
     run_id: "run_failure_matrix_packet",
     consent_hash: "c".repeat(64),
-    operation: {
-      operation_id: "operation_failure_matrix_create",
-      proposal_id: "proposal_failure_matrix_create",
-      proposal_kind: "create",
-      payload_hash: sha256(stable(document)),
-    },
+    operation: parsedOperation.value,
     canonical_document: document,
     source_citations: [{
       source_id: "source_failure_matrix",
@@ -386,6 +390,7 @@ async function currentCanonicalFixture(options = {}) {
   const requestInput = canonicalRequest(options.request || {});
   const assembled = await canonical.assembleCanonicalPacket(requestInput, live.adapter);
   assert.equal(assembled.ok, true, JSON.stringify(assembled));
+  assert.equal(view("llmwiki-operation-contract.js").isCanonicalPacketOperationRecord(assembled.value.operation), true);
   const authorized = reviewCommit.authorizeCanonicalPacket(assembled.value, {
     action: "approve_selected",
     selection_ids: [assembled.value.operation.operation_id],
@@ -406,6 +411,22 @@ function rehashPacket(packet, mutate) {
   const changed = clone(packet);
   mutate(changed);
   const identity = packetIdentity(changed);
+  changed.canonical_serialization = stable(identity);
+  changed.packet_hash = sha256(changed.canonical_serialization);
+  return changed;
+}
+
+function tamperPacketAtBrandedAuthorizationSeam(packet, mutate) {
+  const changed = clone(packet);
+  changed.operation = packet.operation;
+  mutate(changed);
+  return changed;
+}
+
+function rehashPacketAtBrandedAuthorizationSeam(packet, mutate) {
+  const changed = tamperPacketAtBrandedAuthorizationSeam(packet, mutate);
+  const identity = packetIdentity(changed);
+  identity.operation = packet.operation;
   changed.canonical_serialization = stable(identity);
   changed.packet_hash = sha256(changed.canonical_serialization);
   return changed;
@@ -784,7 +805,7 @@ test("source lineage failures quarantine or reject without promoting redirects, 
   const lineage = view("llmwiki-source-lineage.js");
   const guard = guardedRoot("llmwiki-lineage-failure-");
   try {
-    const store = lineage.createSourceArchiveStore({ rootDir: path.join(guard.root, "archive") });
+    const store = lineage.createSourceArchiveStore({ rootDir: path.join(guard.root, "archive"), capabilities: { fs: fs.promises } });
     const first = await store.appendRevision(fixtures.sourceFixture("source_related_alpha", "trusted text").manifest);
     assert.equal(first.ok, true, JSON.stringify(first));
     const activeLatest = await store.latestForSource("source_related_alpha");
@@ -860,6 +881,16 @@ test("query, provider, proposal, ontology, evaluation, and skill red-team inputs
 
 test("approval and packet-bound commit reject stale/repacket, collision, packet mutations, expiry, and replay with exact effects", async () => {
   const commit = view("llmwiki-deterministic-commit.js");
+  const canonical = view("llmwiki-canonical-packet.js");
+  const rawMutationLive = memoryCommitAdapter();
+  const brandedRequest = canonicalRequest();
+  const rawFixtureMutation = await canonical.assembleCanonicalPacket({
+    ...brandedRequest,
+    operation: { ...brandedRequest.operation },
+  }, rawMutationLive.adapter);
+  assert.equal(rawFixtureMutation.reason, "serialized_operation_required");
+  assert.equal(rawMutationLive.calls.length, 0, "raw operation fixture mutation must not invoke the writer");
+
   const staleObservation = createRowObservation("stale_repacket");
   const stale = await currentCanonicalFixture({ live: staleObservation.memoryAdapter() });
   stale.live.files.set(stale.packet.target_path, "raced canonical bytes\n");
@@ -910,16 +941,23 @@ test("approval and packet-bound commit reject stale/repacket, collision, packet 
     Object.fromEntries(replay.live.files),
     Object.fromEntries(replay.live.receipts),
   );
-  const conflictingPacket = rehashPacket(replay.packet, (packet) => {
+  const mutateApprovedBytes = (packet) => {
     packet.after_bytes = `${packet.after_bytes}\n충돌하는 승인 바이트\n`;
     packet.after_sha256 = sha256(packet.after_bytes);
-  });
+  };
+  const tamperedPacket = tamperPacketAtBrandedAuthorizationSeam(replay.packet, mutateApprovedBytes);
+  const tamperVerdict = await commit.commitApprovedCanonical({ packet: tamperedPacket, authorization: replay.authorization, adapter: replayLive.adapter }, { now: "2026-08-03T00:01:00.000Z" });
+  assert.equal(tamperVerdict.reason, "packet_tampered", JSON.stringify(tamperVerdict));
+  assert.equal(replayLive.calls.length, 0, "tampered packet must not invoke the writer");
+
+  const conflictingPacket = rehashPacketAtBrandedAuthorizationSeam(replay.packet, mutateApprovedBytes);
   const conflictingAuthorization = replay.reviewCommit.authorizeCanonicalPacket(conflictingPacket, { action: "approve_selected", selection_ids: [conflictingPacket.operation.operation_id] });
   assert.equal(conflictingAuthorization.ok, true, JSON.stringify(conflictingAuthorization));
   const replayResult = await commit.commitApprovedCanonical({ packet: conflictingPacket, authorization: conflictingAuthorization.value, adapter: replayLive.adapter }, { now: "2026-08-03T00:01:00.000Z" });
   assert.equal(replayResult.status, "conflict", JSON.stringify(replayResult));
   assert.equal(replayResult.reason, "nonce_replay_conflict");
-  completeMatrixRow(replayObservation, "replay", `${replayResult.status}:${replayResult.reason}`, [replayResult]);
+  assert.equal(replayLive.calls.length, 0, "replay conflict must not invoke the writer");
+  completeMatrixRow(replayObservation, "replay", `${replayResult.status}:${replayResult.reason}`, [tamperVerdict, replayResult]);
 
   let refreshCalls = 0;
   const refresh = view("llmwiki-derived-refresh.js");

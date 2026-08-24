@@ -17,6 +17,7 @@ const reviewModulePaths = Object.freeze([
   "SYSTEM/Views/knowledge-candidate-core.js",
   "SYSTEM/Views/evidence-quality-core.js",
   "SYSTEM/Views/knowledge-candidate-store.js",
+  "SYSTEM/Views/llmwiki-operation-contract.js",
   "SYSTEM/Views/llmwiki-canonical-packet.js",
   "SYSTEM/Views/llmwiki-approval-review-commit.js",
   "SYSTEM/Views/llmwiki-deterministic-commit.js",
@@ -99,12 +100,12 @@ const createPacketBoundPreview = async (approvalPacket, { stale = false } = {}) 
   const assembled = await window.LLMWikiCanonicalPacket.assembleCanonicalPacket({
     run_id: approvalPacket.run_id,
     consent_hash: "c".repeat(64),
-    operation: {
+    operation: JSON.stringify({
       operation_id: operation.operation_id,
       proposal_id: operation.proposal_id,
       proposal_kind: "create",
       payload_hash: operation.payload_hash
-    },
+    }),
     canonical_document: {
       title: reviewed.title,
       statement,
@@ -158,7 +159,7 @@ prepareButton.onclick = async () => {
       buildCommitRequest: KnowledgeExplorerHub.buildCommitRequest
     };
     for (const modulePath of reviewModulePaths) await loadProdigyScript(modulePath);
-    const packet = window.LLMWikiApprovalReviewView.createSyntheticApprovalPacket();
+    const packet = window.LLMWikiApprovalReviewView.testOnly.createSyntheticApprovalPacket();
     const buildCommitRequest = await createPacketBoundPreview(packet);
     KnowledgeExplorerHub.approvalPacket = packet;
     KnowledgeExplorerHub.commitOptions = { preview: true };
@@ -190,7 +191,7 @@ stalePrepareButton.onclick = async () => {
       buildCommitRequest: KnowledgeExplorerHub.buildCommitRequest
     };
     for (const modulePath of reviewModulePaths) await loadProdigyScript(modulePath);
-    const packet = window.LLMWikiApprovalReviewView.createSyntheticApprovalPacket();
+    const packet = window.LLMWikiApprovalReviewView.testOnly.createSyntheticApprovalPacket();
     const buildCommitRequest = await createPacketBoundPreview(packet, { stale: true });
     KnowledgeExplorerHub.approvalPacket = packet;
     KnowledgeExplorerHub.commitOptions = { preview: true };

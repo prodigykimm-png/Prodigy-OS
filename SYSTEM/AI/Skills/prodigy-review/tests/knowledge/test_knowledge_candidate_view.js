@@ -63,7 +63,7 @@ function testSeparateActiveInboxAndReadableMetadata() {
   assert.match(text, /제안 경로: 코딩 · typescript/);
   assert.match(text, /근거 품질: 사용 가능/);
   assert.doesNotMatch(text, /종료 후보/);
-  assert.ok(findByText(root, "승인"));
+  assert.ok(findByText(root, "LLM Wiki에서 검토"));
   assert.ok(findByText(root, "보류"));
   assert.ok(findByText(root, "반려"));
   assert.equal(click(button(root, "보류")), true);
@@ -109,61 +109,55 @@ function testLoadingEmptyErrorDisabledAndThinRequirements() {
 
   const disabled = new FakeElement("section");
   view.renderCandidateInbox(disabled, { candidates: [candidate()], disabled: true });
-  assert.equal(button(disabled, "승인").disabled, true);
+  assert.equal(button(disabled, "LLM Wiki에서 검토").disabled, true);
 
   const thin = new FakeElement("section");
   view.renderCandidateInbox(thin, { candidates: [candidate({ evidence_quality: { status: "thin" } })] });
-  assert.match(collectText(thin), /명시적 override와 승인 사유가 필요합니다/);
-  assert.ok(input(thin, "thin_override"));
-  assert.ok(input(thin, "approval_note"));
+  assert.match(collectText(thin), /근거 품질: 보완 필요/);
+  assert.equal(input(thin, "thin_override"), null);
+  assert.equal(input(thin, "approval_note"), null);
 }
 
 function testEditAndKeyboardActionsExposeHumanConfirmation() {
   const root = new FakeElement("section");
   const actions = [];
-  view.renderCandidateInbox(root, {
-    candidates: [candidate()],
-    drafts: { "candidate-1": { title: "수정한 제목", statement: "수정한 문장", knowledge_domain: "coding", knowledge_topics: ["typescript"], topics_confirmed: true, approval_note: "사람이 확인함", thin_override: false } },
-    onAction: (action) => actions.push(action)
-  });
-  const approve = button(root, "승인");
+  view.renderCandidateInbox(root, { candidates: [candidate()], onAction: (action) => actions.push(action) });
+  const handoff = button(root, "LLM Wiki에서 검토");
   let prevented = false;
-  approve.onkeydown({ key: "Enter", preventDefault() { prevented = true; } });
+  handoff.onkeydown({ key: "Enter", preventDefault() { prevented = true; } });
   assert.equal(prevented, true);
-  assert.equal(actions.length, 1);
-  assert.equal(actions[0].type, "approve");
-  assert.equal(actions[0].candidateId, "candidate-1");
-  assert.deepEqual(actions[0].draft, { title: "수정한 제목", statement: "수정한 문장", knowledge_domain: "coding", knowledge_topics: ["typescript"], topics_confirmed: true, approval_note: "사람이 확인함", thin_override: false });
+  assert.deepEqual(actions, [{ type: "handoff", candidateId: "candidate-1" }]);
+  assert.equal(input(root, "title"), null);
+  assert.equal(input(root, "statement"), null);
 }
 
 async function testStoreActionsPreserveStateRetryAndTerminalRemoval() {
   let attempts = 0;
-  const opened = [];
+  let directWrites = 0;
   const controller = view.createCandidateInboxController({
     app: {}, candidateInbox: { candidates: [candidate()] },
     candidateStore: {
-      async approveCandidate(_app, _path, request) {
-        attempts += 1;
-        assert.equal(request.topics_confirmed, true);
-        if (attempts === 1) throw new Error("write failed");
-        return { path: "ZETA/PERMANENT/수정한 제목.md" };
-      },
+      async approveCandidate() { directWrites += 1; },
       async rejectCandidate() { return candidate({ status: "rejected" }); }
     },
-    onOpenBeside: async (target) => opened.push(target)
+    async onLlmWikiHandoff() {
+      attempts += 1;
+      if (attempts === 1) return { ok: false, status: "failed" };
+      return { ok: true, status: "review" };
+    }
   });
-  const draft = { title: "수정한 제목", statement: "수정한 문장", knowledge_domain: "coding", knowledge_topics: ["typescript"], topics_confirmed: true, approval_note: "사람이 확인함", thin_override: false };
 
-  await controller.renderOptions(false).onAction({ type: "approve", candidateId: "candidate-1", draft });
+  controller.renderOptions(false).onAction({ type: "handoff", candidateId: "candidate-1" });
+  await Promise.resolve();
   await Promise.resolve();
   assert.equal(controller.state().error, true);
-  assert.equal(controller.state().candidates.length, 1, "failed approval keeps the candidate and edit state");
+  assert.equal(controller.state().candidates.length, 1, "failed handoff keeps the source candidate");
   controller.renderOptions(false).onRetry();
   await Promise.resolve();
   await Promise.resolve();
-  assert.equal(attempts, 2, "retry repeats the same candidate writer request once");
-  assert.deepEqual(opened, ["ZETA/PERMANENT/수정한 제목.md"]);
-  assert.equal(controller.state().candidates.length, 0, "successful approval removes active candidate from Inbox");
+  assert.equal(attempts, 2, "retry repeats only the LLM Wiki handoff");
+  assert.equal(directWrites, 0);
+  assert.equal(controller.state().candidates.length, 1, "review handoff preserves the source candidate");
 
   const terminal = view.createCandidateInboxController({ app: {}, candidateInbox: { candidates: [candidate()] }, candidateStore: { async rejectCandidate() { return candidate({ status: "rejected" }); } } });
   terminal.renderOptions(false).onAction({ type: "reject", candidateId: "candidate-1" });
@@ -175,20 +169,17 @@ async function testStoreActionsPreserveStateRetryAndTerminalRemoval() {
 }
 
 async function testApprovalDelegatesEmptyTopicRejectionToStore() {
-  let calls = 0;
+  let directCalls = 0;
   const controller = view.createCandidateInboxController({
     app: {}, candidateInbox: { candidates: [candidate()] },
-    candidateStore: { async approveCandidate() { calls += 1; throw new Error("Knowledge 제목, 문장, Domain, Topics를 확인해 주세요."); } }
+    candidateStore: { async approveCandidate() { directCalls += 1; } },
+    async onLlmWikiHandoff() { return { ok: true, status: "review" }; }
   });
-
-  controller.renderOptions(false).onAction({
-    type: "approve", candidateId: "candidate-1",
-    draft: { title: "제목", statement: "문장", knowledge_domain: "coding", knowledge_topics: [], topics_confirmed: true, approval_note: "", thin_override: false }
-  });
+  controller.renderOptions(false).onAction({ type: "handoff", candidateId: "candidate-1" });
   await Promise.resolve();
-
-  assert.equal(calls, 1, "shared Store must receive and reject the empty Topics request");
-  assert.equal(controller.state().error, true);
+  await Promise.resolve();
+  assert.equal(directCalls, 0, "legacy store never receives a canonical approval request");
+  assert.equal(controller.state().error, false);
   assert.equal(controller.state().candidates.length, 1);
 }
 
@@ -209,12 +200,27 @@ function testStructuredReasonSectionsRemainReadable() {
   assert.match(rendered, /출처 주장/);
   assert.match(rendered, /다음 검토에 쓸 규칙/);
 }
+
+function testReadingCandidateShowsItsKnowledgeHandoffSource() {
+  const root = new FakeElement("section");
+  view.renderCandidateInbox(root, {
+    candidates: [candidate({
+      source_type: "reading_session",
+      source_objects: ["[[PARA/RESOURCES/Reading/Sessions/2026-08-05 - 생각을 만드는 독서]]"]
+    })]
+  });
+  const rendered = collectText(root);
+  assert.match(rendered, /독서 세션/);
+  assert.match(rendered, /생각을 만드는 독서/);
+}
+
 async function main() {
   testSeparateActiveInboxAndReadableMetadata();
   testInboxExpansionState();
   testLoadingEmptyErrorDisabledAndThinRequirements();
   testEditAndKeyboardActionsExposeHumanConfirmation();
   testStructuredReasonSectionsRemainReadable();
+  testReadingCandidateShowsItsKnowledgeHandoffSource();
   await testStoreActionsPreserveStateRetryAndTerminalRemoval();
   await testApprovalDelegatesEmptyTopicRejectionToStore();
   console.log("Knowledge candidate view tests passed");

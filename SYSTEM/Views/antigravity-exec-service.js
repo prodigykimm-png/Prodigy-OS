@@ -135,18 +135,51 @@
     return assertOfficialCommand(env.AGY_BIN || bundledCommand() || "agy", "Antigravity 실행 경로");
   }
 
-  function cwdFor(app) {
-    const adapter = app && app.vault && app.vault.adapter;
-    if (!adapter) return undefined;
-    if (typeof adapter.basePath === "string" && adapter.basePath) return adapter.basePath;
-    if (typeof adapter.getBasePath === "function") return adapter.getBasePath();
-    return undefined;
+  function executionCwd(dependencies) {
+    if (dependencies && typeof dependencies.getCwd === "function") return String(dependencies.getCwd() || "").trim() || undefined;
+    const nodeRequire = resolveRequire();
+    if (!nodeRequire) return undefined;
+    try { return nodeRequire("os").tmpdir(); } catch (_error) { return undefined; }
   }
 
   function abortError() {
     const error = new Error("Antigravity 분석이 취소되었습니다.");
     error.name = "AbortError";
     return error;
+  }
+
+  function failedExitError(stdout, stderr, code) {
+    let detail = "";
+    try {
+      const envelope = parseEnvelope(stdout);
+      detail = String(envelope && envelope.error || "");
+    } catch (_error) {}
+    detail = `${detail}\n${String(stderr || "")}`.trim();
+    if (/individual\s+quota\s+reached|quota\s+(?:reached|exhausted)|usage\s+limit\s+reached/iu.test(detail)) {
+      const reset = /resets?\s+in\s+(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/iu.exec(detail);
+      const resetParts = reset
+        ? [[reset[1], "시간"], [reset[2], "분"], [reset[3], "초"]].filter(([value]) => value).map(([value, unit]) => `${Number(value)}${unit}`)
+        : [];
+      const error = new Error(resetParts.length
+        ? `Antigravity 사용 한도를 모두 사용했습니다. ${resetParts.join(" ")} 후 다시 시도해 주세요.`
+        : "Antigravity 사용 한도를 모두 사용했습니다. 한도가 초기화된 후 다시 시도해 주세요.");
+      error.name = "AntigravityQuotaError";
+      error.code = "ANTIGRAVITY_QUOTA_EXHAUSTED";
+      return error;
+    }
+    if (/google\s+login|login\s+required|sign[\s-]?in|required\s+authentication|oauth/iu.test(detail)) {
+      const error = new Error("Antigravity Google 로그인이 필요합니다. 터미널에서 `agy -p \"연결 확인\"`을 한 번 실행해 로그인한 뒤 지식 INBOX를 다시 확인해 주세요.");
+      error.name = "AntigravityAuthError";
+      error.code = "ANTIGRAVITY_AUTH_REQUIRED";
+      return error;
+    }
+    if (/permission check failed|user denied permission|sandbox/iu.test(detail)) {
+      const error = new Error("Antigravity가 프로젝트 도구 실행을 시도해 안전 모드에서 차단되었습니다. 잠시 후 지식 INBOX를 다시 확인해 주세요.");
+      error.name = "AntigravitySandboxError";
+      error.code = "ANTIGRAVITY_SANDBOX_BLOCKED";
+      return error;
+    }
+    return new Error(`Antigravity CLI가 종료 코드 ${code == null ? "unknown" : code}로 종료되었습니다. agy 로그인 상태와 권한을 확인해 주세요.`);
   }
 
   function parseJsonPayload(text) {
@@ -302,11 +335,12 @@
     const spawn = dependencies && dependencies.spawn ? dependencies.spawn : childProcessModule().spawn;
     const command = commandFor(provider, dependencies);
     const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : (Number(defaultTimeoutMs) > 0 ? Number(defaultTimeoutMs) : 60000);
-    const spawnOptions = { cwd: cwdFor(options.app), shell: false, stdio: ["ignore", "pipe", "pipe"] };
+    const spawnOptions = { cwd: executionCwd(dependencies), shell: false, stdio: ["ignore", "pipe", "pipe"] };
 
     return new Promise((resolve, reject) => {
       let child;
       let stdout = "";
+      let stderr = "";
       let settled = false;
       let timer = null;
       let abortHandler = null;
@@ -337,14 +371,14 @@
         return;
       }
       child.stdout.on("data", (chunk) => { stdout += String(chunk); });
-      child.stderr.on("data", () => {});
+      child.stderr.on("data", (chunk) => { if (stderr.length < 8192) stderr += String(chunk || "").slice(0, 8192 - stderr.length); });
       child.once("error", (error) => {
         if (error && error.code === "ENOENT") fail(new Error("Antigravity CLI를 찾지 못했습니다. `agy` 설치와 PATH 또는 AGY_BIN 설정을 확인해 주세요."));
         else fail(new Error("Antigravity CLI 프로세스를 실행하지 못했습니다."));
       });
       child.once("close", (code) => {
         if (code !== 0) {
-          fail(new Error(`Antigravity CLI가 종료 코드 ${code == null ? "unknown" : code}로 종료되었습니다. ` + "agy" + " 로그인 상태와 권한을 확인해 주세요."));
+          fail(failedExitError(stdout, stderr, code));
           return;
         }
         finish(resolve, stdout);

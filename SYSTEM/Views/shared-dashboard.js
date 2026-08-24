@@ -139,6 +139,7 @@ window.renderDashboardSection = function(options) {
 
     const filterContainer = container.createEl("div", {
       attr: {
+        class: "auction-filter-bar",
         style: isMobile
           ? "display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; width: 100%;"
           : "display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px; width: 100%;"
@@ -151,6 +152,7 @@ window.renderDashboardSection = function(options) {
       value: window.auctionSearchQuery || "",
       placeholder: "사건번호/물건명 검색...",
       attr: {
+        class: "auction-filter-search",
         style: isMobile
           ? "font-size:var(--ke-type-body);padding:var(--ke-space-2) var(--ke-space-3);border-radius:var(--ke-radius-control);border:1px solid var(--ke-color-border,var(--background-modifier-border));background:var(--ke-color-surface,var(--background-primary));color:var(--ke-color-text,var(--text-normal));width:100%;min-block-size:var(--ke-touch-target);box-sizing:border-box;"
           : "font-size:var(--ke-type-label);padding:var(--ke-space-2) var(--ke-space-3);border-radius:var(--ke-radius-control);border:1px solid var(--ke-color-border,var(--background-modifier-border));background:var(--ke-color-surface,var(--background-primary));color:var(--ke-color-text,var(--text-normal));width:150px;margin-inline-end:auto;min-block-size:var(--ke-touch-target);box-sizing:border-box;"
@@ -181,12 +183,12 @@ window.renderDashboardSection = function(options) {
     let dropdownParent = filterContainer;
     if (isMobile) {
       dropdownParent = filterContainer.createEl("div", {
-        attr: { style: "display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%;" }
+        attr: { class: "auction-filter-selects", style: "display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%;" }
       });
     }
 
     const makeSelectInline = (parent, label, field, options, currentVal) => {
-      const wrapper = parent.createEl('div', { attr: { style: 'display:flex;align-items:center;gap:var(--ke-space-2);font-size:var(--ke-type-label);color:var(--ke-color-muted,var(--text-muted));' } });
+      const wrapper = parent.createEl('div', { attr: { class: "auction-filter-select", style: 'display:flex;align-items:center;gap:var(--ke-space-2);font-size:var(--ke-type-label);color:var(--ke-color-muted,var(--text-muted));' } });
       wrapper.createEl('span', { text: label, attr: { style: 'font-weight: bold;' } });
       
       const sel = wrapper.createEl('select', { 

@@ -29,10 +29,12 @@ async function testStructuredRequestUsesPrintModeAndSchema() {
       calls.push({ command, args, options });
       return child;
     },
-    getCommand: () => "agy"
+    getCommand: () => "agy",
+    getCwd: () => "/tmp/prodigy-antigravity-runtime"
   });
 
   const payload = await service.requestStructuredJson({
+    app: { vault: { adapter: { basePath: "/vault/with-agent-instructions" } } },
     provider: antigravity.DEFAULT_PROVIDER,
     prompt: "저널 분석 fixture",
     schema
@@ -42,6 +44,8 @@ async function testStructuredRequestUsesPrintModeAndSchema() {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "agy");
   assert.equal(calls[0].options.shell, false);
+  assert.equal(calls[0].options.cwd, "/tmp/prodigy-antigravity-runtime", "structured requests run outside the vault so the model has no project tools to inspect");
+  assert.notEqual(calls[0].options.cwd, "/vault/with-agent-instructions");
   assert.equal(calls[0].args[0], "-p");
   assert.match(calls[0].args[1], /저널 분석 fixture/);
   assert.equal(calls[0].args.at(-1), "--disable-slash-commands");
@@ -226,6 +230,58 @@ async function testRelayErrorsAreSanitizedBeforeTheyBecomeUserFacing() {
   }), /HTTP 503.*UPSTREAM_BUSY/u);
 }
 
+async function testLoginFailureIsActionableWithoutRawDiagnostics() {
+  const child = fakeChildProcess(JSON.stringify({
+    status: "ERROR",
+    response: "",
+    error: "Google login required before this request"
+  }), 1);
+  const service = antigravity.createService({
+    spawn: () => child,
+    getCommand: () => "agy",
+    getCwd: () => "/tmp/prodigy-antigravity-runtime"
+  });
+  await assert.rejects(
+    service.requestStructuredJson({
+      provider: antigravity.DEFAULT_PROVIDER,
+      prompt: "fixture",
+      schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] }
+    }),
+    (error) => {
+      assert.match(error.message, /Antigravity Google 로그인이 필요합니다/u);
+      assert.doesNotMatch(error.message, /Google login required before this request/u);
+      return true;
+    }
+  );
+}
+
+async function testQuotaFailureIsDistinctFromConnectionFailure() {
+  const child = fakeChildProcess(JSON.stringify({
+    status: "ERROR",
+    response: "",
+    error: "Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 1h49m58s."
+  }), 1);
+  const service = antigravity.createService({
+    spawn: () => child,
+    getCommand: () => "agy",
+    getCwd: () => "/tmp/prodigy-antigravity-runtime"
+  });
+  await assert.rejects(
+    service.requestStructuredJson({
+      provider: antigravity.DEFAULT_PROVIDER,
+      prompt: "fixture",
+      schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] }
+    }),
+    (error) => {
+      assert.equal(error.code, "ANTIGRAVITY_QUOTA_EXHAUSTED");
+      assert.match(error.message, /사용 한도/u);
+      assert.match(error.message, /1시간 49분 58초/u);
+      assert.doesNotMatch(error.message, /upgrade your subscription/u);
+      return true;
+    }
+  );
+}
+
 async function main() {
   await testStructuredRequestUsesPrintModeAndSchema();
   await testChatRequestExtractsJsonResponse();
@@ -236,6 +292,8 @@ async function main() {
   await testRelayErrorsAreSanitizedBeforeTheyBecomeUserFacing();
   await testMobileStructuredRequestUsesRelayAndSecretStorage();
   await testMobileRelayRejectsDirectTokenInjection();
+  await testLoginFailureIsActionableWithoutRawDiagnostics();
+  await testQuotaFailureIsDistinctFromConnectionFailure();
   console.log("Antigravity exec service tests passed");
 }
 

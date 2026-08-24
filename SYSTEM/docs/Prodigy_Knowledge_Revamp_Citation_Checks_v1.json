@@ -17,7 +17,7 @@
       },
       {
         "citation_id": "knowledge-hub-mount",
-        "excerpt_ref": "main:HUB/50 Knowledge.md#L508-L513",
+        "excerpt_ref": "main:HUB/50 Knowledge.md#L509-L514",
         "excerpt_hash": "7ea5868cad528c6d5780adac19cd65b13ec2394327e2973d7e767d90db67b3e0",
         "verifier": "node line-range hash spot check",
         "status": "verified",

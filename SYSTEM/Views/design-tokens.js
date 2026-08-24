@@ -8,10 +8,15 @@
   const VERSION = "alpha";
   const NAME = "Apple-design-analysis";
 
+  // Apple web Action Blue family. `action` and `focus` share the primary
+  // #0071e3 (Apple web system blue); `link` is the body-link blue and
+  // `onDark` is the dark-surface action/link blue. The former alpha aliases
+  // (#007aff / #0a84ff) are retired so the two blue families never coexist.
   const ACCENTS = Object.freeze({
-    action: "#007aff",
-    focus: "#007aff",
-    onDark: "#0a84ff",
+    action: "#0071e3", // primary and focus
+    focus: "#0071e3",
+    link: "#0066cc", // body link
+    onDark: "#2997ff", // dark-surface action / link
   });
 
   // Obsidian owns canvases, ink, borders, and status roles. The alpha values
@@ -22,6 +27,7 @@
     surfacePearl: "var(--background-primary-alt, #fafafc)",
     surfaceTile: "var(--background-secondary-alt, #272729)",
     surfaceBlack: "var(--background-primary, #000000)",
+    graphite: "#1d1d1f",
     hover: "var(--background-modifier-hover, #f0f0f0)",
     backdrop: "var(--background-modifier-cover, #1d1d1f)",
     border: "var(--background-modifier-border, #e0e0e0)",
@@ -30,16 +36,27 @@
     muted: "var(--text-muted, #7a7a7a)",
     bodyMutedOnDark: "var(--text-muted, #cccccc)",
     onDark: "var(--text-on-accent, #ffffff)",
+    onDarkMuted: "#d2d2d7",
+    separatorOnDark: "#424245",
     action: ACCENTS.action,
     focus: ACCENTS.focus,
     actionOnDark: ACCENTS.onDark,
     onAction: "#ffffff",
+    // Auction Card 1px semantic boundary (light / dark).
+    cardBoundaryLight: "#d2d2d7",
+    cardBoundaryDark: "#424245",
     success: "var(--text-success, var(--text-normal, #1d1d1f))",
     warning: "var(--text-warning, var(--text-normal, #1d1d1f))",
     error: "var(--text-error, var(--text-normal, #1d1d1f))",
   });
 
   // Legacy registry names are stable aliases, not a second palette.
+  // Auction Card boundary values are raw card chrome, not product accents.
+  const CARD_BOUNDARY = Object.freeze({
+    light: "#d2d2d7",
+    dark: "#424245",
+  });
+
   const COLORS = Object.freeze({
     success: SEMANTIC_COLORS.success,
     successDark: SEMANTIC_COLORS.success,
@@ -157,6 +174,93 @@
     mobileToolbar: 56,
   });
 
+  // Official Apple human-interface facts (separate from the Prodigy project
+  // defaults below). iPhone/iPad base hit target is 44x44pt with an absolute
+  // minimum of 28x28pt; macOS native controls are 28x28pt by default with a
+  // 20x20pt absolute minimum. Apple requires safe-area respect and 200% text
+  // enlargement (system text on iOS/iPadOS, browser zoom on macOS).
+  const APPLE_SPEC = Object.freeze({
+    phonePadHitTargetPt: 44,
+    phonePadAbsoluteMinPt: 28,
+    macNativeDefaultPt: 28,
+    macAbsoluteMinPt: 20,
+    textEnlargement: 2, // 200% text-enlargement support
+  });
+
+  // Prodigy project-default device metrics: one shared Apple-style hierarchy
+  // projected per device family. Controls split a small visual box from the
+  // non-overlapping 44px hit wrapper so Mac visuals stay 32/36px while their
+  // hit targets remain 44px. Container tiers key off the measured
+  // `.prodigy-app-shell-body` width, never window.innerWidth.
+  const CONTAINER_TIERS = Object.freeze({
+    compact: { min: 0, max: 640 },
+    medium: { min: 641, max: 1068 },
+    wide: { min: 1069 },
+    contentMax: 1440,
+  });
+
+  const DEVICE_TABLE = Object.freeze({
+    primaryCta: {
+      phone: { visualHeight: 50, hitTarget: 50, fontSize: 17, fontWeight: 600, lineHeight: 1.24, paddingInline: 20, radius: 25 },
+      pad: { visualHeight: 48, hitTarget: 48, fontSize: 17, fontWeight: 600, paddingInline: 20, radius: 24 },
+      mac: { visualHeight: 44, hitTarget: 44, fontSize: 15, fontWeight: 600, paddingInline: 18, radius: 22 },
+    },
+    secondaryCta: {
+      phone: { visualHeight: 44, hitTarget: 44, fontSize: 15, fontWeight: 600, paddingInline: 16, radius: 22 },
+      pad: { visualHeight: 44, hitTarget: 44, fontSize: 15, fontWeight: 600, paddingInline: 16, radius: 22 },
+      mac: { visualHeight: 36, hitTarget: 44, fontSize: 14, fontWeight: 600, paddingInline: 14, radius: 18 },
+    },
+    filterUtility: {
+      phone: { visualHeight: 44, hitTarget: 44, fontSize: 15, fontWeight: 500, paddingInline: 16 },
+      pad: { visualHeight: 44, hitTarget: 44, fontSize: 14, fontWeight: 500, paddingInline: 16 },
+      mac: { visualHeight: 32, hitTarget: 44, fontSize: 13, fontWeight: 500, paddingInline: 12 },
+    },
+    iconControl: {
+      phone: { visualSize: 44, hitSize: 44, glyphSize: 18 },
+      pad: { visualSize: 44, hitSize: 44, glyphSize: 18 },
+      mac: { visualSize: 32, hitSize: 44, glyphSize: 16 },
+    },
+    searchInput: {
+      phone: { visualHeight: 48, hitTarget: 48, fontSize: 17, fontWeight: 400, paddingInline: 17 },
+      pad: { visualHeight: 44, hitTarget: 44, fontSize: 17, fontWeight: 400, paddingInline: 17 },
+      mac: { visualHeight: 36, hitTarget: 44, fontSize: 13, fontWeight: 400, paddingInline: 12 },
+    },
+    focus: {
+      phone: { outlineWidth: 2, offset: 2 },
+      pad: { outlineWidth: 2, offset: 2 },
+      mac: { outlineWidth: 2, offset: 2 },
+    },
+    bodyMetadata: {
+      phone: { bodyFontSize: 17, bodyWeight: 400, bodyLineHeight: 1.47, metadataFontSize: 14, metadataWeight: 400, metadataLineHeight: 1.43 },
+      pad: { bodyFontSize: 17, bodyWeight: 400, bodyLineHeight: 1.47, metadataFontSize: 14, metadataWeight: 400, metadataLineHeight: 1.43 },
+      mac: { bodyFontSize: 17, bodyWeight: 400, bodyLineHeight: 1.47, denseFontSize: 13, denseWeight: 400, denseLineHeight: 1.23, metadataMinFontSize: 12, metadataMaxFontSize: 13 },
+    },
+    hero: {
+      phone: { fontSize: 34, fontWeight: 600, lineHeight: 1.12 },
+      pad: { portrait: { fontSize: 40, fontWeight: 600, lineHeight: 1.1 }, landscape: { fontSize: 48, fontWeight: 600, lineHeight: 1.08 } },
+      mac: { fontSize: 56, fontWeight: 600, lineHeight: 1.07 },
+    },
+    sectionCardTitle: {
+      phone: { sectionFontSize: 28, cardFontSize: 21, fontWeight: 600 },
+      pad: { sectionFontSize: 32, cardFontSize: 21, fontWeight: 600 },
+      mac: { sectionFontSize: 40, cardFontSize: 24, fontWeight: 600 },
+    },
+    gutter: {
+      phone: 20,
+      pad: { portrait: 32, landscape: 48 },
+      mac: { default: 48, atContentMax: 80 },
+    },
+    auctionCardGap: { phone: 12, pad: 17, mac: 17 },
+  });
+
+  // Korean/CJK chrome never uses negative tracking. Latin SF retains its own
+  // native negative tracking; CJK roles are neutral and wrap naturally.
+  const KOREAN_TYPE = Object.freeze({
+    tracking: 0,
+    wordBreak: "keep-all",
+    overflowWrap: "anywhere",
+  });
+
   const SHADOWS = Object.freeze({
     none: "none",
     sm: "none",
@@ -171,6 +275,7 @@
 
   const CANONICAL_COLORS = new Set([
     ...Object.values(ACCENTS),
+    ...Object.values(CARD_BOUNDARY),
     ...Object.values(SEMANTIC_COLORS),
     ...Object.values(COLORS),
   ]);
@@ -190,6 +295,7 @@
     VERSION,
     NAME,
     ACCENTS,
+    CARD_BOUNDARY,
     SEMANTIC_COLORS,
     COLORS,
     SPACE_SCALE,
@@ -200,7 +306,12 @@
     RESPONSIVE_BREAKPOINTS,
     BREAKPOINTS,
     CONTROL_HEIGHTS,
+    CONTAINER_TIERS,
+    DEVICE_TABLE,
+    KOREAN_TYPE,
+    APPLE_SPEC,
     SHADOWS,
+    CANONICAL_COLORS,
     withAlpha,
     badgeBg,
   });

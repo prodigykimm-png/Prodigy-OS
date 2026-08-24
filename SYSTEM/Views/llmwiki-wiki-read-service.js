@@ -1,6 +1,13 @@
 (function (root) {
   "use strict";
 
+  const READ_SERVICES = new WeakSet();
+  const RETRIEVAL_SNAPSHOTS = new WeakSet();
+  const REVALIDATED_CANDIDATES = new WeakSet();
+  const REVALIDATION_REQUESTS = new WeakSet();
+  const REVALIDATION_READERS = new WeakSet();
+  const REVALIDATION_OWNERS = new WeakMap();
+
   function plain(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
@@ -160,13 +167,19 @@
     return deepFreeze({ ok: true, status, writer_count: 0, provider_count: 0, ...fields });
   }
 
-  function create(options) {
+  function create(options, retrievalAuthority) {
     const settings = plain(options) ? options : {};
     const adapter = settings.adapter || adapterFor();
     const collectSnapshot = typeof settings.collectSnapshot === "function" ? settings.collectSnapshot : null;
     const readBody = typeof settings.readBody === "function" ? settings.readBody : null;
     let currentSnapshot = null;
     const cache = new Map();
+    const revalidationOwner = Object.freeze({});
+    const revalidationReader = retrievalAuthority === true ? Object.freeze({}) : null;
+    if (revalidationReader) {
+      REVALIDATION_READERS.add(revalidationReader);
+      REVALIDATION_OWNERS.set(revalidationReader, revalidationOwner);
+    }
 
     async function publishSnapshot(input) {
       if (!collectSnapshot) return failure("collectSnapshot", "collector_required");
@@ -187,6 +200,7 @@
         });
       }
       currentSnapshot = deepFreeze(cloneValue(second));
+      RETRIEVAL_SNAPSHOTS.add(currentSnapshot);
       cache.clear();
       return deepFreeze({
         ok: true,
@@ -201,6 +215,10 @@
     }
 
     function getSnapshot() {
+      return currentSnapshot;
+    }
+
+    function getRetrievalSnapshot() {
       return currentSnapshot;
     }
 
@@ -361,16 +379,128 @@
       return pending;
     }
 
+    function createRevalidationCandidate(documentIdValue, pathValue, snapshotRevisionValue, canonicalRevisionValue) {
+      if ([documentIdValue, pathValue, snapshotRevisionValue, canonicalRevisionValue].some((value) => typeof value !== "string")) {
+        return failure("candidate", "primitive_candidate_fields_required");
+      }
+      const documentId = trim(documentIdValue);
+      const path = safePath(adapter, pathValue);
+      const snapshotRevision = trim(snapshotRevisionValue);
+      const canonicalRevision = trim(canonicalRevisionValue);
+      if (!documentId || !path || !snapshotRevision || !canonicalRevision) return failure("candidate", "invalid_revalidation_candidate");
+      if (retrievalAuthority !== true) return failure("candidate", "retrieval_authority_required");
+      const candidate = deepFreeze({ document_id: documentId, path, snapshot_revision: snapshotRevision, canonical_revision: canonicalRevision });
+      REVALIDATION_REQUESTS.add(candidate);
+      REVALIDATION_OWNERS.set(candidate, revalidationOwner);
+      return candidate;
+    }
+
+    function getRevalidationReaderCapability() {
+      return revalidationReader;
+    }
+
+    async function revalidateCandidate(input, readerCapability) {
+      const inputObject = Boolean(input) && (typeof input === "object" || typeof input === "function");
+      const readerObject = Boolean(readerCapability) && (typeof readerCapability === "object" || typeof readerCapability === "function");
+      if (!inputObject || !REVALIDATION_REQUESTS.has(input) || REVALIDATION_OWNERS.get(input) !== revalidationOwner) {
+        return failure("candidate", "untrusted_revalidation_candidate");
+      }
+      if (!readerObject || !REVALIDATION_READERS.has(readerCapability)
+        || REVALIDATION_OWNERS.get(readerCapability) !== revalidationOwner) {
+        return failure("reader", "untrusted_revalidation_reader");
+      }
+      const request = input;
+      if (!currentSnapshot) return failure("snapshot", "snapshot_unavailable");
+      const requestedRevision = trim(request.snapshot_revision);
+      const snapshotRevision = revisionOf(currentSnapshot);
+      if (!requestedRevision || requestedRevision !== snapshotRevision) {
+        return stale("stale_snapshot", { snapshot_revision: requestedRevision, current_revision: snapshotRevision });
+      }
+      const requestedPath = request.path === undefined ? "" : safePath(adapter, request.path);
+      if (request.path !== undefined && !requestedPath) return failure("path", "unsafe_path");
+      const documentId = trim(request.document_id);
+      const publishedRow = rowsFor(currentSnapshot).find((row) => row
+        && ((requestedPath && row.path === requestedPath) || (documentId && trim(row.document_id) === documentId))) || null;
+      if (!publishedRow) return stale("canonical_candidate_missing", { path: requestedPath || undefined, document_id: documentId || undefined });
+      const checked = await currentRevision("before", { ...request, row: publishedRow, snapshot: currentSnapshot });
+      if (!checked || checked.ok === false) return checked || failure("snapshot", "snapshot_collection_failed");
+      const currentRow = rowsFor(checked).find((row) => row
+        && ((requestedPath && row.path === requestedPath) || (documentId && trim(row.document_id) === documentId))) || null;
+      if (revisionOf(checked) !== snapshotRevision || currentOf(checked) !== currentOf(currentSnapshot) || !currentRow
+        || rowRevision(currentRow) !== rowRevision(publishedRow)) {
+        return stale("canonical_candidate_missing", {
+          path: requestedPath || undefined,
+          document_id: documentId || undefined,
+          snapshot_revision: snapshotRevision,
+          current_revision: currentOf(checked),
+        });
+      }
+      const result = deepFreeze({
+        ok: true,
+        status: "current",
+        row: cloneValue(currentRow),
+        snapshot_revision: snapshotRevision,
+        canonical_revision: rowRevision(currentRow),
+        stale_rechecked: Boolean(trim(request.canonical_revision || request.row_revision))
+          && trim(request.canonical_revision || request.row_revision) !== rowRevision(currentRow),
+        writer_count: 0,
+        provider_count: 0,
+      });
+      REVALIDATED_CANDIDATES.add(result);
+      return result;
+    }
+
     function clearCache() {
       const size = cache.size;
       cache.clear();
       return deepFreeze({ ok: true, status: "cleared", cleared: size, writer_count: 0, provider_count: 0 });
     }
 
-    return Object.freeze({ publishSnapshot, getSnapshot, browseRead, hydrateBody, clearCache });
+    const service = Object.freeze({
+      publishSnapshot,
+      getSnapshot,
+      getRetrievalSnapshot,
+      browseRead,
+      hydrateBody,
+      createRevalidationCandidate,
+      getRevalidationReaderCapability,
+      revalidateCandidate,
+      clearCache,
+    });
+    if (retrievalAuthority === true) READ_SERVICES.add(service);
+    return service;
   }
 
-  const api = Object.freeze({ create });
+  function createRetrievalReadService(collectSerializedSnapshot) {
+    if (typeof collectSerializedSnapshot !== "function") return create({}, false);
+    const collectSnapshot = (input) => {
+      let serialized;
+      try { serialized = collectSerializedSnapshot(input); } catch (_) { return failure("snapshot", "snapshot_collection_failed"); }
+      if (typeof serialized !== "string") return failure("snapshot", "serialized_snapshot_required");
+      if (!serialized || serialized.length > 8 * 1024 * 1024) return failure("snapshot", "serialized_snapshot_limit_exceeded");
+      try {
+        const parsed = JSON.parse(serialized);
+        return plain(parsed) ? parsed : failure("snapshot", "invalid_serialized_snapshot");
+      } catch (_) {
+        return failure("snapshot", "invalid_serialized_snapshot");
+      }
+    };
+    return create({ collectSnapshot }, true);
+  }
+
+  function isRetrievalReadService(value) {
+    return Boolean(value) && (typeof value === "object" || typeof value === "function") && READ_SERVICES.has(value);
+  }
+
+  function isRetrievalSnapshot(value) {
+    return Boolean(value) && (typeof value === "object" || typeof value === "function") && RETRIEVAL_SNAPSHOTS.has(value);
+  }
+
+  function isRevalidatedCandidate(value) {
+    return Boolean(value) && (typeof value === "object" || typeof value === "function") && REVALIDATED_CANDIDATES.has(value);
+  }
+
+  const api = Object.freeze({ create, createRetrievalReadService, isRetrievalReadService, isRetrievalSnapshot, isRevalidatedCandidate });
   root.LLMWikiWikiReadService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -3,13 +3,20 @@
 
   const hashApi = root.LLMWikiHash
     || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
+  const mergeTransactionApi = root.LLMWikiMergeTransaction
+    || (typeof require === "function" ? require("./llmwiki-merge-transaction.js") : null);
 
   const CANONICAL_PREFIX = "ZETA/PERMANENT/";
   const AUDIT_DIRECTORY = ".llmwiki-audit";
   const AUDIT_PREFIX = ".llmwiki-audit/";
+  const IMMUTABLE_AUDIT_DIRECTORY = `${AUDIT_DIRECTORY}/immutable`;
+  const IMMUTABLE_AUDIT_HEAD_PATH = `${IMMUTABLE_AUDIT_DIRECTORY}/head.json`;
   const HASH = /^[0-9a-f]{64}$/u;
+  const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const NONCE = /^[A-Za-z0-9_-]{16,128}$/u;
   const ZERO_WRITES = Object.freeze({ canonical: 0, audit: 0, derived: 0, provider: 0, network: 0, git: 0 });
+  const FINALIZED_AUTHORITIES = new WeakSet();
+  const AUTHORITY_DATA = new WeakMap();
   const MUTATION_FIELDS = new Set([
     "target_path", "before_bytes", "before_sha256", "after_bytes", "after_sha256", "allowed_properties",
     "source_citations", "live_revision", "packet_hash", "authorization_hash", "operation_id", "nonce", "audit",
@@ -20,9 +27,15 @@
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
+  function stable(value) {
+    if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+    if (!plain(value)) return JSON.stringify(value);
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
+  }
+  function immutableHash(value) { const copy = clone(value); delete copy.audit_hash; return sha256(stable(copy)); }
   function result(status, extras = {}) {
     return Object.freeze({
-      ok: status === "committed" || status === "repaired" || status === "duplicate",
+      ok: status === "committed" || status === "repaired" || status === "duplicate" || status === "appended" || status === "restored" || status === "replaced",
       status,
       write_counts: ZERO_WRITES,
       ...extras,
@@ -42,6 +55,26 @@
   function auditPath(nonce) {
     if (typeof nonce !== "string" || !NONCE.test(nonce)) return null;
     return `${AUDIT_PREFIX}${nonce}.json`;
+  }
+  function immutableAuditPath(auditHash) {
+    return typeof auditHash === "string" && HASH.test(auditHash)
+      ? `${IMMUTABLE_AUDIT_DIRECTORY}/${auditHash}.json`
+      : null;
+  }
+  function immutableAuditEntries(vault) {
+    if (typeof vault.getFiles !== "function") return [];
+    return vault.getFiles().filter((file) => file.path.startsWith(`${IMMUTABLE_AUDIT_DIRECTORY}/`) && file.path.endsWith(".json") && file.path !== IMMUTABLE_AUDIT_HEAD_PATH);
+  }
+  function immutableAuditHead(value) {
+    return plain(value)
+      && value.continuity_version === "llmwiki_immutable_audit_head_v1"
+      && (value.head_hash === null || HASH.test(value.head_hash))
+      && Number.isInteger(value.count) && value.count >= 0;
+  }
+
+  function mergeFailureAuditPath(nonce) {
+    if (typeof nonce !== "string" || !NONCE.test(nonce)) return null;
+    return `${AUDIT_PREFIX}${nonce}.merge-failure.json`;
   }
 
   function validAuditPath(value) {
@@ -187,11 +220,100 @@
       if (!file) return { file: null, bytes: null };
       return { file, bytes: await vault.read(file) };
     }
+    const dataAdapter = vault.adapter;
+    const directImmutableStorage = Boolean(dataAdapter
+      && ["exists", "mkdir", "read", "write", "list"].every((method) => typeof dataAdapter[method] === "function"));
+    async function readImmutableEntry(filePath) {
+      if (!directImmutableStorage) return readEntry(filePath);
+      if (!await dataAdapter.exists(filePath)) return { file: null, bytes: null };
+      return { file: { path: filePath }, bytes: await dataAdapter.read(filePath) };
+    }
+    async function immutableAuditPaths() {
+      if (!directImmutableStorage) return immutableAuditEntries(vault).map((file) => file.path);
+      if (!await dataAdapter.exists(IMMUTABLE_AUDIT_DIRECTORY)) return [];
+      const listed = await dataAdapter.list(IMMUTABLE_AUDIT_DIRECTORY);
+      return (Array.isArray(listed?.files) ? listed.files : [])
+        .filter((filePath) => filePath.startsWith(`${IMMUTABLE_AUDIT_DIRECTORY}/`) && filePath.endsWith(".json") && filePath !== IMMUTABLE_AUDIT_HEAD_PATH);
+    }
+    async function ensureImmutableAuditDirectories() {
+      for (const directory of [AUDIT_DIRECTORY, IMMUTABLE_AUDIT_DIRECTORY]) {
+        if (directImmutableStorage) {
+          if (!await dataAdapter.exists(directory)) await dataAdapter.mkdir(directory);
+        } else if (!vault.getAbstractFileByPath(directory)) await vault.createFolder(directory);
+      }
+    }
+    async function writeImmutableEntry(filePath, bytes) {
+      if (directImmutableStorage) return dataAdapter.write(filePath, bytes);
+      const entry = await readEntry(filePath);
+      return entry.file ? vault.modify(entry.file, bytes) : vault.create(filePath, bytes);
+    }
 
     async function readBytes(targetPath) {
       if (!validCanonicalPath(targetPath)) throw adapterError("invalid_canonical_path");
       const entry = await readEntry(targetPath);
       return entry.file ? entry.bytes : null;
+    }
+
+    async function readCanonical(targetPath) {
+      const bytes = await readBytes(targetPath);
+      if (bytes === null) throw adapterError("canonical_target_missing");
+      return { path: targetPath, bytes, revision: sha256(bytes), metadata: { mode: 0o644, symlink: false, contained: true } };
+    }
+
+    function mergeAuthority() {
+      const api = root.LLMWikiMergeTransaction || mergeTransactionApi;
+      if (!api) throw adapterError("merge_transaction_runtime_unavailable");
+      return api;
+    }
+
+    async function atomicReplace(request) {
+      const authority = mergeAuthority();
+      if (!request || !validCanonicalPath(request.target_path)) throw adapterError("unbranded_merge_replace_request");
+      const entry = await readEntry(request.target_path);
+      if (!entry.file) throw adapterError("canonical_target_missing");
+      authority.assertAtomicReplaceRequest(request, { bytes: entry.bytes, metadata: { mode: 0o644 } });
+      await vault.modify(entry.file, request.after_bytes);
+      const verified = await readEntry(request.target_path);
+      if (!verified.file || verified.bytes !== request.after_bytes) throw adapterError("written_bytes_mismatch");
+      return { ok: true, status: "replaced", path: request.target_path };
+    }
+
+    async function replaceCompensationExact(request) {
+      if (!plain(request) || !validCanonicalPath(request.path)
+        || typeof request.expected_bytes !== "string" || typeof request.next_bytes !== "string"
+        || !HASH.test(request.expected_revision)) {
+        return rejected("malformed_compensation_replace");
+      }
+      const entry = await readEntry(request.path);
+      if (!entry.file) return rejected("canonical_target_missing");
+      if (entry.bytes !== request.expected_bytes || sha256(entry.bytes) !== request.expected_revision) {
+        return rejected("stale_compensation_revision");
+      }
+      await vault.modify(entry.file, request.next_bytes);
+      const verified = await readEntry(request.path);
+      if (!verified.file || verified.bytes !== request.next_bytes) return rejected("written_bytes_mismatch");
+      return result("replaced", { path: request.path, revision: sha256(verified.bytes) });
+    }
+
+    async function restoreExact(request) {
+      const authority = mergeAuthority();
+      if (!request || !validCanonicalPath(request.target_path)) throw adapterError("unbranded_merge_restore_request");
+      const entry = await readEntry(request.target_path);
+      if (!entry.file) throw adapterError("canonical_target_missing");
+      authority.assertRestoreRequest(request, { bytes: entry.bytes, metadata: { mode: 0o644 } });
+      await vault.modify(entry.file, request.restore_bytes);
+      const verified = await readEntry(request.target_path);
+      if (!verified.file || verified.bytes !== request.restore_bytes) throw adapterError("restore_verify_failed");
+      return { ok: true, status: "restored", path: request.target_path };
+    }
+
+    async function recordMergeAudit(request) {
+      mergeAuthority().assertAuditRequest(request);
+      const filePath = mergeFailureAuditPath(request.nonce);
+      if (!filePath || vault.getAbstractFileByPath(filePath)) return rejected("merge_audit_conflict");
+      if (!vault.getAbstractFileByPath(AUDIT_DIRECTORY)) await vault.createFolder(AUDIT_DIRECTORY);
+      await vault.create(filePath, jsonBytes(request.audit));
+      return { ok: true, status: "recorded", path: filePath };
     }
 
     async function readReceipt(nonce) {
@@ -296,14 +418,135 @@
       return result("repaired", { write_counts: { ...ZERO_WRITES, audit: 1 } });
     }
 
+    async function appendImmutableAudit(request) {
+      const immutablePath = plain(request) && typeof request.audit_bytes === "string"
+        ? immutableAuditPath(request.audit_hash)
+        : null;
+      if (!immutablePath || typeof request.audit_id !== "string" || !request.audit_id
+        || !Number.isInteger(request.audit_count) || request.audit_count < 1
+        || (request.previous_audit_hash !== null && !HASH.test(request.previous_audit_hash))) {
+        return rejected("malformed_immutable_audit");
+      }
+      let audit;
+      try { audit = JSON.parse(request.audit_bytes); }
+      catch (_error) { return rejected("malformed_immutable_audit"); }
+      if (!plain(audit) || audit.audit_hash !== request.audit_hash || audit.audit_id !== request.audit_id
+        || audit.audit_count !== request.audit_count || audit.previous_audit_hash !== request.previous_audit_hash) {
+        return rejected("immutable_audit_request_mismatch");
+      }
+      const existing = await readImmutableEntry(immutablePath);
+      if (existing.file) return rejected("immutable_audit_replay");
+      const continuity = await readImmutableAuditContinuity();
+      if (!continuity.ok) return continuity;
+      if (request.previous_audit_hash !== continuity.head_hash || request.audit_count !== continuity.count + 1) {
+        return rejected("immutable_audit_continuity_mismatch");
+      }
+      for (const filePath of await immutableAuditPaths()) {
+        const entry = await readImmutableEntry(filePath);
+        try {
+          if (entry.bytes && JSON.parse(entry.bytes).audit_id === request.audit_id) return rejected("immutable_audit_replay");
+        } catch (_error) { return rejected("immutable_audit_record_malformed"); }
+      }
+      try { await ensureImmutableAuditDirectories(); }
+      catch (_error) { return rejected("immutable_audit_directory_failed"); }
+      try {
+        await writeImmutableEntry(immutablePath, request.audit_bytes);
+        const nextHead = jsonBytes({
+          continuity_version: "llmwiki_immutable_audit_head_v1",
+          head_hash: request.audit_hash,
+          count: request.audit_count,
+        });
+        await writeImmutableEntry(IMMUTABLE_AUDIT_HEAD_PATH, nextHead);
+        return result("appended", { audit_path: immutablePath, write_counts: { ...ZERO_WRITES, audit: 2 } });
+      } catch (_error) {
+        return rejected("immutable_audit_head_update_failed");
+      }
+    }
+
+    async function readImmutableAuditContinuity() {
+      const head = await readImmutableEntry(IMMUTABLE_AUDIT_HEAD_PATH);
+      const entries = await immutableAuditPaths();
+      if (!head.file) {
+        return entries.length
+          ? rejected("immutable_audit_continuity_missing")
+          : { ok: true, head_hash: null, count: 0 };
+      }
+      let value;
+      try { value = JSON.parse(head.bytes); }
+      catch (_error) { return rejected("immutable_audit_continuity_invalid"); }
+      if (!immutableAuditHead(value)) return rejected("immutable_audit_continuity_invalid");
+      if (entries.length !== value.count) return rejected("immutable_audit_continuity_gap");
+      return { ok: true, head_hash: value.head_hash, count: value.count };
+    }
+
+    async function readImmutableAudit(auditHash) {
+      const filePath = immutableAuditPath(auditHash);
+      if (!filePath) return null;
+      const entry = await readImmutableEntry(filePath);
+      return entry.file ? entry.bytes : null;
+    }
+
+    async function readFinalizedCanonicalAuthorities() {
+      const continuity = await readImmutableAuditContinuity();
+      if (!continuity.ok || continuity.count < 1 || !HASH.test(continuity.head_hash)) return Object.freeze([]);
+      const entries = [];
+      for (const filePath of await immutableAuditPaths()) {
+        const entry = await readImmutableEntry(filePath);
+        let audit;
+        try { audit = JSON.parse(entry.bytes); } catch (_) { return Object.freeze([]); }
+        if (!plain(audit) || audit.audit_type !== "canonical_committed" || audit.audit_version !== "llmwiki_immutable_compensation_audit_v1"
+          || !HASH.test(audit.audit_hash) || audit.audit_hash !== immutableHash(audit)
+          || !Number.isInteger(audit.audit_count) || !Array.isArray(audit.resurfacing_bindings)) return Object.freeze([]);
+        entries.push(audit);
+      }
+      entries.sort((a, b) => a.audit_count - b.audit_count);
+      let previous = null;
+      const usedCanonical = new Set(), usedNonce = new Set(), authorities = [];
+      for (const [index, audit] of entries.entries()) {
+        if (audit.audit_count !== index + 1 || audit.previous_audit_hash !== previous) return Object.freeze([]);
+        previous = audit.audit_hash;
+        for (const binding of audit.resurfacing_bindings) {
+          if (!plain(binding) || !ID.test(binding.canonical_id) || !validCanonicalPath(binding.path) || !HASH.test(binding.revision)
+            || auditPath(binding.nonce) === null || !HASH.test(binding.final_audit_sha256)
+            || !HASH.test(binding.packet_hash) || !HASH.test(binding.authorization_hash)
+            || binding.packet_hash !== audit.packet_hash || usedCanonical.has(binding.canonical_id) || usedNonce.has(binding.nonce)) return Object.freeze([]);
+          const finalized = await readEntry(auditPath(binding.nonce));
+          if (!finalized.file || sha256(finalized.bytes) !== binding.final_audit_sha256) return Object.freeze([]);
+          let finalAudit;
+          try { finalAudit = JSON.parse(finalized.bytes); } catch (_) { return Object.freeze([]); }
+          if (!plain(finalAudit) || finalAudit.result !== "committed" || finalAudit.canonical_id !== binding.canonical_id
+            || finalAudit.target_path !== binding.path || finalAudit.after_sha256 !== binding.revision
+            || finalAudit.nonce !== binding.nonce || finalAudit.packet_hash !== binding.packet_hash
+            || finalAudit.authorization_hash !== binding.authorization_hash || !HASH.test(finalAudit.before_sha256)
+            || !HASH.test(finalAudit.live_revision) || !HASH.test(finalAudit.consent_hash)
+            || !Array.isArray(finalAudit.source_ids) || typeof finalAudit.committed_at !== "string" || !Number.isFinite(Date.parse(finalAudit.committed_at))) return Object.freeze([]);
+          const authority = Object.freeze({});
+          FINALIZED_AUTHORITIES.add(authority);
+          AUTHORITY_DATA.set(authority, Object.freeze({ canonical_id: binding.canonical_id, path: binding.path, revision: binding.revision, nonce: binding.nonce, packet_hash: binding.packet_hash, authorization_hash: binding.authorization_hash, immutable_audit_hash: audit.audit_hash }));
+          usedCanonical.add(binding.canonical_id); usedNonce.add(binding.nonce); authorities.push(authority);
+        }
+      }
+      if (entries.length !== continuity.count || previous !== continuity.head_hash) return Object.freeze([]);
+      return Object.freeze(authorities);
+    }
+
     return Object.freeze({
       readBytes,
+      readCanonical,
       readReceipt,
       createCanonical,
       modifyCanonical,
+      atomicReplace,
+      replaceCompensationExact,
+      restoreExact,
+      recordMergeAudit,
       prepareAudit,
       finalizeAudit,
       repairAudit,
+      appendImmutableAudit,
+      readImmutableAuditContinuity,
+      readImmutableAudit,
+      readFinalizedCanonicalAuthorities,
       commitExact,
     });
   }
@@ -316,9 +559,15 @@
   const api = Object.freeze({
     CANONICAL_PREFIX,
     AUDIT_DIRECTORY,
+    IMMUTABLE_AUDIT_DIRECTORY,
+    IMMUTABLE_AUDIT_HEAD_PATH,
     auditPath,
+    immutableAuditPath,
+    mergeFailureAuditPath,
     createObsidianAdapter,
     resolveObsidianAdapter,
+    isFinalizedCanonicalAuthority: function (value) { return Boolean(value) && FINALIZED_AUTHORITIES.has(value); },
+    finalizedCanonicalAuthorityData: function (value) { return FINALIZED_AUTHORITIES.has(value) ? AUTHORITY_DATA.get(value) : null; },
   });
   root.LLMWikiObsidianAdapter = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

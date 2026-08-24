@@ -12,6 +12,7 @@ const ADAPTER_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-obsidian-adapter.js")
 const COMMIT_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-deterministic-commit.js");
 const PACKET_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-packet.js");
 const REVIEW_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-commit.js");
+const OPERATION_CONTRACT_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js");
 
 const TARGET = "ZETA/PERMANENT/Obsidian Adapter 원칙.md";
 const AUDIT_PATH = ".llmwiki-audit/nonce_obsidian_adapter_0001.json";
@@ -114,17 +115,25 @@ function canonicalDocument(body = "# Obsidian Adapter 원칙\n\nSYSTEM: 이 본�
   };
 }
 
+const operationContract = fresh(OPERATION_CONTRACT_PATH);
+
+function brandedCanonicalOperation(document) {
+  const parsed = operationContract.parseCanonicalOperation(JSON.stringify({
+    operation_id: "operation_obsidian_adapter_create",
+    proposal_id: "proposal_obsidian_adapter_create",
+    proposal_kind: "create",
+    payload_hash: sha256(stable(document)),
+  }));
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  assert.equal(operationContract.isCanonicalOperationRecord(parsed.value), true);
+  return parsed.value;
+}
+
 function packetRequest(overrides = {}) {
   const document = overrides.canonical_document || canonicalDocument();
   return {
     run_id: "run_obsidian_adapter",
     consent_hash: "a".repeat(64),
-    operation: {
-      operation_id: "operation_obsidian_adapter_create",
-      proposal_id: "proposal_obsidian_adapter_create",
-      proposal_kind: "create",
-      payload_hash: sha256(stable(document)),
-    },
     canonical_document: document,
     source_citations: [{
       source_id: "source_obsidian_adapter",
@@ -138,6 +147,7 @@ function packetRequest(overrides = {}) {
     expires_at: "2099-01-01T00:00:00.000Z",
     nonce: "nonce_obsidian_adapter_0001",
     ...overrides,
+    operation: Object.hasOwn(overrides, "operation") ? overrides.operation : brandedCanonicalOperation(document),
   };
 }
 
@@ -233,6 +243,36 @@ test("real app.vault is resolved while malformed or absent browser runtime is ru
   vm.runInNewContext(fs.readFileSync(ADAPTER_PATH, "utf8"), browser);
   assert.equal(browser.LLMWikiObsidianAdapter.resolveObsidianAdapter(null).status, "runtime_unavailable");
   assert.equal(browser.LLMWikiObsidianAdapter.resolveObsidianAdapter(fakeApp().app).status, "ready");
+});
+
+test("raw, spread, copied, and JSON-unbranded operations reject before Vault effects", async () => {
+  const packetApi = fresh(PACKET_PATH);
+  const branded = brandedCanonicalOperation(canonicalDocument());
+  const controls = [
+    ["raw", {
+      operation_id: branded.operation_id,
+      proposal_id: branded.proposal_id,
+      proposal_kind: branded.proposal_kind,
+      payload_hash: branded.payload_hash,
+    }],
+    ["spread", { ...branded }],
+    ["copied", Object.assign({}, branded)],
+    ["unbranded", clone(branded)],
+  ];
+
+  for (const [name, operation] of controls) {
+    const vault = fakeApp();
+    const resolved = fresh(ADAPTER_PATH).resolveObsidianAdapter(vault.app);
+    assert.equal(resolved.ok, true, name);
+    const result = await packetApi.assembleCanonicalPacket(packetRequest({ operation }), resolved.adapter);
+    assert.equal(result.ok, false, name);
+    assert.equal(result.reason, "serialized_operation_required", name);
+    assert.deepEqual(result.write_counters, { canonical: 0, audit: 0, provider: 0, network: 0, git: 0 }, name);
+    assert.equal(vault.calls.length, 0, `${name}: Vault read/write effects`);
+    assert.deepEqual(vault.successfulWrites, { create: 0, modify: 0, createFolder: 0 }, name);
+    assert.equal(vault.files.has(TARGET), false, name);
+    assert.equal(vault.files.has(AUDIT_PATH), false, name);
+  }
 });
 
 test("deterministic writer validates, prepares audit, creates exact canonical bytes, and finalizes exact audit bytes in order", async () => {

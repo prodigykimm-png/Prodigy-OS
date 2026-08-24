@@ -1,5 +1,6 @@
 ---
 cssclasses:
+  - prodigy-hub-note
   - hide-properties_editing
   - hide-properties_reading
 ---
@@ -41,9 +42,15 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     shell = window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, workspaceId: "knowledge", title: "지식", mountScope: mountContext.scope });
     performance = shell.performance;
     const P = window.KnowledgeExplorerHubProjection;
-    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiLifecycleView || !window.LLMWikiProviderResponseSchema || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface) {
+    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiCompensationService || !window.LLMWikiLifecycleView || !window.LLMWikiProviderResponseSchema || !window.LLMWikiSourceRegistry || !window.LLMWikiSourceAdapters || !window.LLMWikiMigrationRollout || !window.LLMWikiInboxPrivacyBoundary || !window.LLMWikiProductionOperationProvider || !window.LLMWikiIncrementalAnalysisState || !window.LLMWikiInboxAutopilot || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface || !window.LLMWikiGitGateway) {
       throw new Error("Knowledge Explorer modules failed to load.");
     }
+    // Active maintenance scheduling state signal: wired after the LLM Wiki
+    // surface mounts; re-scans read-only on controller state changes.
+    let maintenanceTicker = null;
+    const pokeMaintenance = () => {
+      if (maintenanceTicker) { try { maintenanceTicker(); } catch (_error) { /* best-effort */ } }
+    };
     const dataSource = window.KnowledgeExplorerDataSource.createKnowledgeExplorerDataSource({
       registry: window.KnowledgeExplorerRegistry,
       schemaVersion: window.KnowledgeExplorerCore.SCHEMA_VERSION,
@@ -117,6 +124,24 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       attr: { class: "knowledge-explorer-meta", style: "margin:0;overflow-wrap:anywhere;" }
     });
 
+    // 빠른 캡처 행: 제텔카스텐 표면에 두 동작을 직접 노출한다.
+    // 자료 넣기는 파일 생성 이벤트로 기존 INBOX 자동 스캔을 트리거한다.
+    const quickCaptureMount = zettelPanel.createDiv({ attr: { class: "quick-capture-mount", style: "margin-block-end:17px;min-inline-size:0;" } });
+    let quickCaptureHandle = null;
+    if (window.QuickCaptureView && typeof window.QuickCaptureView.mountQuickCapture === "function") {
+      quickCaptureHandle = window.QuickCaptureView.mountQuickCapture({
+        app: appRef,
+        container: quickCaptureMount,
+        sessionId: "knowledge-quick-capture",
+        scope: mountContext && mountContext.scope || null
+      });
+      if (mountContext && mountContext.scope && typeof mountContext.scope.track === "function") {
+        mountContext.scope.track(() => {
+          if (quickCaptureHandle && typeof quickCaptureHandle.dispose === "function") quickCaptureHandle.dispose();
+        });
+      }
+    }
+
     const growthPanel = zettelPanel.createDiv({
       attr: {
         class: "knowledge-growth-summary prodigy-full-bleed is-parchment",
@@ -187,8 +212,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     };
     const focusCandidateReview = () => {
       const currentApi = KnowledgeExplorerHub.api || api;
-      if (currentApi && typeof currentApi.setCandidateInboxOpen === "function") currentApi.setCandidateInboxOpen(true);
-      if (currentApi && typeof currentApi.dispatch === "function") currentApi.dispatch({ type: "focus-pane", focusPane: "detail" });
+      if (currentApi && typeof currentApi.openCandidateInbox === "function") currentApi.openCandidateInbox();
       const target = currentApi && currentApi.container ? currentApi.container : explorerMount;
       if (target && typeof target.scrollIntoView === "function") {
         const reduceMotion = typeof window !== "undefined"
@@ -271,14 +295,77 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const llmWikiPanel = tabs.getPanel("llmwiki");
     const browsePanel = tabs.getPanel("llmwiki-browse");
     const llmWikiControllerOptions = { ...(KnowledgeExplorerHub.llmWikiControllerOptions || {}) };
-    const llmWikiConfig = await window.ProdigyConfigService.load(appRef);
+    const rolloutClosure = Object.freeze({
+      path: ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/completion-audit/final-confirmed/state-closure.json",
+      sha256: "397d1eda1afaebe2eede3289ece2cd2c87f746bd6a3e434839d9d3b28bfb2713",
+      auditPath: ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/completion-audit/final-confirmed/completion-audit.json",
+      auditSha256: "5f8bbddb785eb6164649aa92859b3f9bfc239733a0416e9dc1411e6731465546",
+      phases: Object.freeze(["create", "update", "merge", "maintenance", "git", "resurfacing"]),
+    });
+    const defaultRolloutGateProvider = async (phase) => {
+      if (!rolloutClosure.phases.includes(phase)) return null;
+      const adapter = appRef && appRef.vault && appRef.vault.adapter;
+      if (!adapter || typeof adapter.read !== "function" || !window.LLMWikiHash || typeof window.LLMWikiHash.sha256 !== "function") return null;
+      let bytes;
+      try { bytes = await adapter.read(rolloutClosure.path); } catch (_error) { return null; }
+      if (typeof bytes !== "string" || window.LLMWikiHash.sha256(bytes) !== rolloutClosure.sha256) return null;
+      let closure;
+      try { closure = JSON.parse(bytes); } catch (_error) { return null; }
+      const plan = closure && closure.plan;
+      const audit = closure && closure.decisive_audit;
+      const todo = closure && closure.todo;
+      const gates = closure && closure.gates;
+      const cleanup = closure && closure.cleanup;
+      if (!closure || closure.schema !== "omo.start-work-state-closure/v1" || closure.event !== "plan-completed"
+        || !plan || plan.completed !== 26 || plan.total !== 26 || plan.open !== 0 || plan.unchanged !== true
+        || !audit || audit.path !== rolloutClosure.auditPath || audit.sha256 !== rolloutClosure.auditSha256 || audit.verdict !== "confirmed"
+        || !todo || todo.open !== 0
+        || !gates || !gates.full_llmwiki || gates.full_llmwiki.fail !== 0
+        || !gates.F4 || gates.F4.verdict !== "confirmed" || !gates.F5 || gates.F5.verdict !== "confirmed"
+        || !cleanup || cleanup.pass !== true || cleanup.resources_remaining !== 0) return null;
+      return Object.freeze({ available: true, status: "green", receipt_id: `llmwiki-rollout:${phase}:${rolloutClosure.sha256}` });
+    };
+    const rolloutGateProvider = typeof llmWikiControllerOptions.rollout_gate_provider === "function"
+      ? llmWikiControllerOptions.rollout_gate_provider : defaultRolloutGateProvider;
+    let llmWikiConfig = await window.ProdigyConfigService.load(appRef);
+    const configuredProviderOptions = async (config) => {
+      const options = window.ProdigyConfigService.listAIProfileProviderOptions(config, "llmwiki", "direct");
+      return Promise.all(options.map(async (option) => {
+        const provider = config.providers && config.providers[option.provider_key];
+        let configured = false;
+        try { configured = await window.AIProviderService.isProviderConfigured(appRef, provider); } catch (_error) {}
+        return Object.freeze({ ...option, configured });
+      }));
+    };
+    let providerOptions = await configuredProviderOptions(llmWikiConfig);
     let selectedProviderMode = "direct";
     let selectedSource = null;
     let sourceOptions = [];
     let startupFailure = "";
+    let providerSelectionFailure = "";
+    let rolloutActivationFailure = "";
     let startupStatus = null;
     let selectedRunCommand = null;
     const llmWikiHash = window.LLMWikiHash;
+    let llmWikiWikiSurface = null;
+    const operationOutcomeRoot = "SYSTEM/PRIVATE/llmwiki-operation-outcomes";
+    const operationOutcomeStore = {
+      async save(outcome) {
+        const vault = appRef.vault;
+        for (const folder of ["SYSTEM/PRIVATE", operationOutcomeRoot]) if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
+        const path = `${operationOutcomeRoot}/${outcome.run_id}.json`;
+        const bytes = `${JSON.stringify(outcome, null, 2)}\n`;
+        const file = vault.getAbstractFileByPath(path);
+        if (file) await vault.modify(file, bytes); else await vault.create(path, bytes);
+      },
+      async load(runId) {
+        const file = appRef.vault.getAbstractFileByPath(`${operationOutcomeRoot}/${runId}.json`);
+        if (!file) return null;
+        try { return JSON.parse(await appRef.vault.read(file)); } catch (_error) { return null; }
+      }
+    };
+    const productionOperationProvider = window.LLMWikiProductionOperationProvider.createProductionOperationProvider({ app: appRef, config: llmWikiConfig, getConfig: () => llmWikiConfig, getProviderMode: () => selectedProviderMode });
+    const operationProvider = typeof llmWikiControllerOptions.operation_provider === "function" ? llmWikiControllerOptions.operation_provider : productionOperationProvider;
     const validSourceId = (value) => /^[a-z][a-z0-9_-]{2,127}$/u.test(String(value || "").trim());
     const eligibleSources = async () => {
       const files = appRef && appRef.vault && typeof appRef.vault.getMarkdownFiles === "function" ? appRef.vault.getMarkdownFiles() : [];
@@ -341,32 +428,345 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       return response.payload;
     };
+    const rolloutStorage = llmWikiControllerOptions.rollout_storage || {
+      async load() {
+        try { return localStorage.getItem("prodigy.llmwiki.rollout-state.v1"); } catch (_error) { return null; }
+      },
+      async save(serialized) {
+        try { localStorage.setItem("prodigy.llmwiki.rollout-state.v1", serialized); return true; } catch (_error) { throw new Error("rollout_persistence_unavailable"); }
+      }
+    };
+    const llmWikiGitReceiptAuthority = window.LLMWikiOperationRunService.createPostEligibilityGitReceiptAuthority();
+    const llmWikiGitService = window.LLMWikiGitAutomationAdapter.create({
+      gateway: llmWikiControllerOptions.git_gateway || window.LLMWikiGitGateway,
+      receiptAuthority: llmWikiGitReceiptAuthority,
+    });
     const llmWikiRunController = window.LLMWikiRunController.createRunController({
       app: appRef,
       config: llmWikiConfig,
       transport: llmWikiTransport,
+      enable_risk_review: true,
+      operation_provider: operationProvider,
+      operation_outcome_store: operationOutcomeStore,
+      rollout_storage: rolloutStorage,
+      rollout_gate_provider: rolloutGateProvider,
+      migration_transaction_adapter: llmWikiControllerOptions.migration_transaction_adapter,
+      migration_options: {
+        ...(llmWikiControllerOptions.migration_options || {}),
+        sourceAdapters: llmWikiControllerOptions.migration_source_adapters || window.LLMWikiSourceAdapters.createSourceAdapters(),
+      },
+      maintenance_action: llmWikiControllerOptions.maintenance_action,
+      resurfacing_action: llmWikiControllerOptions.resurfacing_action,
+      compensation_refresh: async () => {
+        if (!llmWikiWikiSurface || typeof llmWikiWikiSurface.refresh !== "function") return { ok: false, reason: "refresh_surface_unavailable" };
+        return llmWikiWikiSurface.refresh();
+      },
+      postEligibilityGitReceiptAuthority: llmWikiGitReceiptAuthority,
+      postEligibilityGit: async (input) => {
+        const receipt = llmWikiGitReceiptAuthority.mint(input);
+        return llmWikiGitService.recordEligibleReceipt({ receipt, signal: input.signal });
+      },
+      operation_follow_ups: {
+        async refresh() {
+          if (!llmWikiWikiSurface || typeof llmWikiWikiSurface.refresh !== "function") return { ok: false, reason: "refresh_surface_unavailable" };
+          try { await llmWikiWikiSurface.refresh(); return { ok: true }; } catch (_error) { return { ok: false, reason: "refresh_failed" }; }
+        },
+        async git(input) {
+          return llmWikiGitService.recordEligibleReceipt({ receipt: input.trusted_receipt, guarded_entry: input.guarded_entry, signal: input.signal });
+        }
+      },
       ...llmWikiControllerOptions
     });
+    await llmWikiRunController.initializeTask21();
+    let inboxState = { state: "empty", total: 0, scanned_total: 0, eligible: 0, held: 0, processed: 0, succeeded: 0, failed: 0, current_path: "", current_title: "", source_id: "", reason: "" };
+    let resolveInboxSettled = null;
+    let inboxSettled = new Promise((resolve) => { resolveInboxSettled = resolve; });
+    let inboxScanPromise = null;
+    let inboxScanController = null;
+    let inboxScanGeneration = 0;
+    const inboxPrivacyDecisions = new Map();
+    const inboxRegistry = window.LLMWikiSourceRegistry.createSourceRegistry({ extractors: [
+      { extractor_id: "extractor_markdown", extractor_version: "1.0.0", media_kinds: ["text/markdown"] },
+      { extractor_id: "extractor_plain_text", extractor_version: "1.0.0", media_kinds: ["text/plain"] }
+    ] });
+    const inboxSourceAdapter = window.LLMWikiSourceAdapters.createSourceAdapters({ registry: inboxRegistry });
+    const inboxIncrementalState = llmWikiControllerOptions.inboxIncrementalState
+      || window.LLMWikiIncrementalAnalysisState.createIncrementalAnalysisState({ vault: appRef.vault });
+    KnowledgeExplorerHub.handoffCandidateToLlmWiki = async (candidate) => {
+      tabs.select("llmwiki");
+      const sourceInput = JSON.stringify({ source_kind: "knowledge_candidate", source_path: candidate.path, record: { ...candidate, type: "knowledge_candidate" } });
+      const result = await llmWikiRunController.startMigrationDryRun({
+        source_inputs: [sourceInput],
+        classify: async (sourceSnapshot) => {
+          const runId = `run_${sourceSnapshot.snapshot_id.replace(/^source_snapshot_/u, "")}`;
+          const supplied = await operationProvider({ action: "candidate_handoff", run_id: runId, source_snapshot: sourceSnapshot, extracted_text: sourceSnapshot.content.text, outbound_allowed: true }, { signal: null });
+          if (!supplied || supplied.ok === false) throw new Error(supplied && supplied.reason || "analysis_provider_unavailable");
+          const providedOperation = supplied.operation || supplied;
+          const parsed = window.LLMWikiOperationContract.isOperationRecord(providedOperation)
+            ? { ok: true, value: providedOperation }
+            : window.LLMWikiOperationContract.parseOperation(typeof providedOperation === "string" ? providedOperation : providedOperation && providedOperation.serialized_operation);
+          if (!parsed || parsed.ok !== true) throw new Error(parsed && parsed.reason || "invalid_operation");
+          return parsed.value;
+        }
+      });
+      if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
+      return result;
+    };
+    const inboxAutopilot = window.LLMWikiInboxAutopilot.createInboxAutopilot({
+      registry: inboxRegistry,
+      sourceAdapter: inboxSourceAdapter,
+      standingPolicy: {
+        policy_version: "knowledge_inbox_policy_v1",
+        provider_key: "direct",
+        allowed_path_prefixes: ["INBOX/"],
+        denied_path_prefixes: [],
+        redaction_policy: "selected_source_text_only"
+      },
+      analysisTransport: async (work) => {
+        if (work.signal && work.signal.aborted) return { ok: false, reason: "provider_aborted" };
+        if (typeof llmWikiControllerOptions.inboxAnalysisTransport === "function") return llmWikiControllerOptions.inboxAnalysisTransport(work, llmWikiRunController);
+        const runId = `run_${work.snapshot.snapshot_id.replace(/^source_snapshot_/u, "")}`;
+        const decision = inboxPrivacyDecisions.get(work.source_id);
+        if (!decision || decision.outbound_allowed !== true) return { ok: false, reason: decision && decision.reason || "outbound_consent_required" };
+        const supplied = await operationProvider({ action: "inbox_analysis", run_id: runId, source_snapshot: work.snapshot, extracted_text: work.extracted_text, outbound_allowed: true, privacy_decision: decision.reason }, { signal: work.signal });
+        if (work.signal && work.signal.aborted) return { ok: false, reason: "provider_aborted" };
+        if (!supplied) return { ok: false, reason: "analysis_provider_unavailable" };
+        if (supplied.ok === false) return { ok: false, reason: supplied.reason || "analysis_provider_unavailable", message: supplied.message || "" };
+        const providedOperation = supplied.operation || supplied;
+        const parsed = window.LLMWikiOperationContract.isOperationRecord(providedOperation)
+          ? { ok: true, value: providedOperation }
+          : window.LLMWikiOperationContract.parseOperation(typeof providedOperation === "string" ? providedOperation : providedOperation && providedOperation.serialized_operation);
+        if (!parsed || parsed.ok !== true) return { ok: false, reason: parsed && parsed.reason || "invalid_operation" };
+        if (work.signal && work.signal.aborted) return { ok: false, reason: "provider_aborted" };
+        const opened = llmWikiRunController.openPreparedRiskReview({ run_id: runId, proposals: [{ operation: parsed.value, title: "INBOX 지식 제안" }] });
+        return opened && opened.ok === true ? { ok: true, risk_review: opened } : { ok: false, reason: opened && opened.reason || "risk_review_unavailable" };
+      }
+    });
+    const publishInbox = (next) => {
+      inboxState = { ...next };
+      if (typeof llmWikiLifecycle !== "undefined" && llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
+      pokeMaintenance();
+      if (typeof llmWikiControllerOptions.onInboxState === "function") llmWikiControllerOptions.onInboxState({ ...inboxState });
+      return { ok: true, status: inboxState.state, inbox: { ...inboxState } };
+    };
+    const settleInbox = (state) => {
+      publishInbox(state);
+      if (resolveInboxSettled) { resolveInboxSettled({ ...inboxState }); resolveInboxSettled = null; }
+      return { ...inboxState };
+    };
+    const inboxMetadata = (file) => appRef.metadataCache && typeof appRef.metadataCache.getFileCache === "function"
+      ? appRef.metadataCache.getFileCache(file)?.frontmatter || {} : {};
+    const serializeInboxFile = async ({ file, decision }) => {
+      const body = await appRef.vault.cachedRead(file);
+      const sourceId = `source_${llmWikiHash.sha256(file.path).slice(0, 24)}`;
+      const contentHash = llmWikiHash.sha256(body);
+      const input = JSON.stringify({ source_id: sourceId, source_path: file.path, modified_revision: contentHash, media_kind: "text/markdown", source_kind: "markdown", source_text: body, text: body, content_hash: contentHash, route_hint: decision.route, privacy_class: decision.privacy_class, provider_eligibility: decision.provider_eligibility });
+      inboxPrivacyDecisions.set(sourceId, decision);
+      return { source_id: sourceId, source_path: file.path, content_hash: contentHash, input };
+    };
+    const scanInbox = (scanOptions = {}) => {
+      if (inboxScanPromise && inboxScanController && !inboxScanController.signal.aborted) return inboxScanPromise;
+      const forceAnalysis = scanOptions && scanOptions.force === true;
+      const scanGeneration = inboxScanGeneration + 1;
+      const scanController = new AbortController();
+      inboxScanGeneration = scanGeneration;
+      inboxScanController = scanController;
+      inboxSettled = new Promise((resolve) => { resolveInboxSettled = resolve; });
+      const activePromise = (async () => {
+        const files = (appRef.vault.getMarkdownFiles ? appRef.vault.getMarkdownFiles() : [])
+          .filter((file) => file && typeof file.path === "string" && file.path.startsWith("INBOX/") && file.path.endsWith(".md"))
+          .sort((left, right) => left.path.localeCompare(right.path, "ko"));
+        const classified = files.map((file) => {
+          const decision = window.LLMWikiInboxPrivacyBoundary.classifyInboxSource({ source_path: file.path, metadata: inboxMetadata(file) });
+          return { file, decision, title: file.path.split("/").pop() || "자료" };
+        });
+        const eligibleFiles = classified.filter(({ decision }) => decision.outbound_allowed === true);
+        const discovery = { total: files.length, scanned_total: files.length, eligible: eligibleFiles.length, held: files.length - eligibleFiles.length, pending: 0, unchanged: 0, processed: 0, succeeded: 0, failed: 0, current_path: "", current_title: "", source_id: "", reason: "", message: "" };
+        if (eligibleFiles.length === 0) {
+          const state = settleInbox({ ...discovery, state: files.length ? "protected" : "empty" });
+          return { ok: true, status: state.state, total: files.length, results: [] };
+        }
+        const preparedEntries = [];
+        let unchanged = 0;
+        for (const entry of eligibleFiles) {
+          const prepared = await serializeInboxFile(entry);
+          const completed = !forceAnalysis && await inboxIncrementalState.isCompleted(prepared);
+          if (completed) unchanged += 1;
+          else preparedEntries.push({ entry, prepared });
+        }
+        const base = { ...discovery, pending: preparedEntries.length, unchanged };
+        if (preparedEntries.length === 0) {
+          const state = settleInbox({ ...base, state: "up_to_date" });
+          return { ok: true, status: state.state, total: files.length, results: [] };
+        }
+        publishInbox({ ...base, state: "queued" });
+        const results = [];
+        let succeeded = 0;
+        let failed = 0;
+        let failureReason = "";
+        let failureMessage = "";
+        const providerWideFailures = new Set([
+          "analysis_provider_unavailable",
+          "analysis_state_write_failed",
+          "configuration_unavailable",
+          "provider_auth_required",
+          "provider_quota_exhausted",
+          "provider_tool_blocked",
+          "provider_unavailable",
+          "transport_unavailable",
+        ]);
+        for (const pendingEntry of preparedEntries) {
+          if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) break;
+          const { entry, prepared } = pendingEntry;
+          const sourceId = prepared.source_id;
+          publishInbox({ ...base, state: "analyzing", processed: results.length, succeeded, failed, current_path: entry.file.path, current_title: entry.title, source_id: sourceId });
+          if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) break;
+          let removeAbort = () => {};
+          const aborted = new Promise((resolve) => {
+            const onAbort = () => resolve({ ok: true, state: "cancelled", reason: "cancelled" });
+            if (scanController.signal.aborted) onAbort();
+            else {
+              scanController.signal.addEventListener("abort", onAbort, { once: true });
+              removeAbort = () => scanController.signal.removeEventListener("abort", onAbort);
+            }
+          });
+          const dispatched = inboxAutopilot.dispatch(prepared.input, { signal: scanController.signal, force: forceAnalysis });
+          const result = await Promise.race([dispatched, aborted]);
+          removeAbort();
+          if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) break;
+          results.push(result);
+          if (result && result.ok === true && result.state === "completed") {
+            try {
+              await inboxIncrementalState.markCompleted(prepared);
+              succeeded += 1;
+            } catch (_error) {
+              failed += 1;
+              failureReason = "analysis_state_write_failed";
+              failureMessage = "증분 분석 상태를 저장하지 못해 자동 분석을 중단했습니다.";
+              break;
+            }
+          }
+          else if (!result || result.state !== "cancelled") {
+            failed += 1;
+            failureReason = result && typeof result.reason === "string" ? result.reason : "analysis_failed";
+            failureMessage = result && typeof result.message === "string" ? result.message : "";
+            if (providerWideFailures.has(failureReason)) break;
+          }
+        }
+        if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) return { ok: false, status: "cancelled", total: files.length, results };
+        const finalState = failed === 0 ? "complete" : succeeded === 0 ? "error" : "partial";
+        const state = settleInbox({ ...base, state: finalState, processed: results.length, succeeded, failed, reason: failed ? failureReason || "analysis_failed" : "", message: failed ? failureMessage : "" });
+        return { ok: failed === 0, status: state.state, total: files.length, results };
+      })().finally(() => {
+        if (scanGeneration === inboxScanGeneration) {
+          inboxScanPromise = null;
+          inboxScanController = null;
+        }
+      });
+      inboxScanPromise = activePromise;
+      return activePromise;
+    };
+    const startLlmWikiMigration = async (sourceInputs, action = "migration_dry_run") => {
+      const result = await llmWikiRunController.startMigrationDryRun({
+        source_inputs: sourceInputs,
+        classify: async (sourceSnapshot) => {
+          const runId = `run_${sourceSnapshot.snapshot_id.replace(/^source_snapshot_/u, "")}`;
+          const supplied = await operationProvider({ action, run_id: runId, source_snapshot: sourceSnapshot, extracted_text: sourceSnapshot.content.text, outbound_allowed: true }, { signal: null });
+          if (!supplied || supplied.ok === false) throw new Error(supplied && supplied.reason || "migration_provider_unavailable");
+          const value = supplied.operation || supplied;
+          const parsed = window.LLMWikiOperationContract.isOperationRecord(value) ? { ok: true, value }
+            : window.LLMWikiOperationContract.parseOperation(typeof value === "string" ? value : value && value.serialized_operation);
+          if (!parsed || parsed.ok !== true) throw new Error(parsed && parsed.reason || "invalid_operation");
+          return parsed.value;
+        }
+      });
+      if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
+      return result;
+    };
+    const scanExistingZetaMigration = async () => {
+      const files = (appRef.vault.getMarkdownFiles ? appRef.vault.getMarkdownFiles() : []).filter((file) => file.path.startsWith("ZETA/PERMANENT/")).sort((a, b) => a.path.localeCompare(b.path));
+      const inputs = [];
+      for (const file of files) inputs.push(JSON.stringify({ source_kind: "markdown", source_path: file.path, text: await appRef.vault.cachedRead(file) }));
+      return inputs.length ? startLlmWikiMigration(inputs, "existing_zeta_migration_dry_run") : { ok: false, status: "empty", reason: "existing_zeta_empty" };
+    };
     const lifecycleSnapshot = () => {
       const snapshot = llmWikiRunController.getSnapshot();
+      const directProvider = resolveProvider("direct");
       return {
         ...snapshot,
         ...(snapshot.provider_mode ? {} : { provider_mode: selectedProviderMode }),
+        provider_key: directProvider && directProvider.ok === true ? directProvider.provider_key : "",
+        provider_options: providerOptions,
+        ...(providerSelectionFailure ? { provider_selection_error: providerSelectionFailure } : {}),
         ...(selectedSource ? { source_selection: { selected: true, display_name: selectedSource.title } } : {}),
         source_options: sourceOptions,
         ...(startupStatus ? { status: startupStatus } : {}),
         ...(startupFailure ? { status: "failed", reason: startupFailure } : {}),
-        approval_packet: Array.isArray(snapshot.review_packets) ? snapshot.review_packets[0] || null : null
+        ...(rolloutActivationFailure ? { rollout_activation_failure: rolloutActivationFailure } : {}),
+        inbox: { ...inboxState },
+        approval_packet: snapshot.approval_packet || (Array.isArray(snapshot.review_packets) ? snapshot.review_packets[0] || null : null)
       };
     };
     const dispatchStartupIntent = async (intent) => {
       if (!intent || typeof intent.action !== "string") return { ok: false, status: "failed", reason: "malformed_action" };
+      if (intent.action === "scan_inbox") return scanInbox();
+      if (intent.action === "force_reanalyze_inbox") return scanInbox({ force: true });
+      if (intent.action === "scan_migration") return scanExistingZetaMigration();
+      if (intent.action === "cancel_inbox") {
+        if (!["queued", "analyzing"].includes(inboxState.state) || !inboxScanPromise || !inboxScanController || inboxScanController.signal.aborted) return { ok: false, status: inboxState.state, reason: "inbox_scan_not_active" };
+        const cancelledController = inboxScanController;
+        const cancelledSourceId = inboxState.source_id;
+        cancelledController.abort();
+        inboxScanGeneration += 1;
+        inboxScanPromise = null;
+        inboxScanController = null;
+        const cancelled = inboxAutopilot.cancel(cancelledSourceId);
+        const cancelledState = settleInbox({ ...inboxState, state: "cancelled", current_path: "", current_title: "", reason: "cancelled" });
+        const controllerState = llmWikiRunController.getSnapshot();
+        const packet = Array.isArray(controllerState.risk_packets) ? controllerState.risk_packets[0] : null;
+        if (packet) await llmWikiRunController.dispatchRiskAction({ action: "reject_risk", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id });
+        else {
+          const operation = llmWikiRunController.getOperationSnapshot();
+          if (["provider_pending", "review", "authorizing", "committing", "stale"].includes(operation.status)) await llmWikiRunController.cancelOperation({ action: "cancel" });
+        }
+        return { ...cancelled, status: "cancelled", inbox: cancelledState };
+      }
+      if (intent.action === "retry_inbox") return scanInbox();
       if (intent.action === "set_provider_mode") {
         if (!["direct", "omniroute"].includes(intent.provider_mode)) return { ok: false, status: "failed", reason: "invalid_provider_mode" };
         selectedProviderMode = intent.provider_mode;
         selectedRunCommand = null;
         startupFailure = "";
         return { ok: true, status: llmWikiRunController.getSnapshot().status, provider_mode: selectedProviderMode };
+      }
+      if (intent.action === "set_provider") {
+        const operationStatus = llmWikiRunController.getSnapshot().status;
+        if (["queued", "analyzing"].includes(inboxState.state) || ["running", "committing"].includes(operationStatus)) {
+          return { ok: false, status: operationStatus, reason: "provider_selection_busy" };
+        }
+        const providerKey = String(intent.provider_key || "").trim();
+        const option = providerOptions.find((item) => item.provider_key === providerKey);
+        if (!option || option.configured !== true) return { ok: false, status: "failed", reason: "provider_selection_unavailable" };
+        try {
+          const profile = llmWikiConfig.aiProfiles.llmwiki;
+          llmWikiConfig = await window.ProdigyConfigService.save(appRef, {
+            config: {
+              aiProfiles: {
+                schema_version: llmWikiConfig.aiProfiles.schema_version,
+                llmwiki: { ...profile, direct_provider_key: providerKey },
+              },
+            },
+          });
+          providerOptions = await configuredProviderOptions(llmWikiConfig);
+          selectedProviderMode = "direct";
+          selectedRunCommand = null;
+          startupFailure = "";
+          providerSelectionFailure = "";
+          return { ok: true, status: llmWikiRunController.getSnapshot().status, provider_mode: "direct", provider_key: providerKey };
+        } catch (_error) {
+          providerSelectionFailure = "AI 제공자 선택을 저장하지 못했습니다.";
+          return { ok: false, status: "failed", reason: "provider_selection_save_failed" };
+        }
       }
       if (intent.action === "select_source" && !intent.source_path) {
         sourceOptions = await eligibleSources();
@@ -401,6 +801,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return { ok: false, status: "selecting", reason: "startup_command_unavailable" };
       }
       selectedRunCommand = command;
+      KnowledgeExplorerHub.llmWikiSelectedRunCommand = command;
       startupFailure = "";
       startupStatus = null;
       return llmWikiRunController.startRun({ ...command, explicit_user_consent: intent.action === "start_run" });
@@ -408,24 +809,67 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     let llmWikiLifecycle;
     const dispatchLifecycleAction = async (intent) => {
       let pending;
-      if (intent.action === "approve") pending = llmWikiRunController.approve(intent);
+      if (["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) pending = llmWikiRunController.dispatchRiskAction(intent);
+      else if (intent.action === "enable_rollout_phase") pending = llmWikiRunController.enableRolloutPhase(intent);
+      else if (intent.action === "review_migration") pending = llmWikiRunController.prepareMigrationPacket(intent);
+      else if (intent.action === "approve_migration") pending = llmWikiRunController.approveMigration(intent);
+      else if (["retry_migration_refresh", "retry_migration_git"].includes(intent.action)) pending = llmWikiRunController.retryMigrationFollowUp(intent);
+      else if (intent.action === "migration_recovery") pending = llmWikiRunController.acknowledgeMigrationRecovery(intent);
+      else if (intent.action === "resurfacing_feedback") pending = llmWikiRunController.recordResurfacingFeedback(intent);
+      else if (intent.action === "approve") pending = llmWikiRunController.approve(intent);
       else if (intent.action === "cancel") pending = llmWikiRunController.cancel(intent);
       else if (intent.action === "reload") pending = llmWikiRunController.reload(intent);
       else if (intent.action === "repair_audit") pending = llmWikiRunController.repairAudit(intent);
       else if (intent.action === "retry_refresh") pending = llmWikiRunController.retryRefresh(intent);
       else if (intent.action === "repacket_stale") pending = llmWikiRunController.repacketStale(intent);
       else if (intent.action === "reconfirm_stale") pending = llmWikiRunController.reconfirmStale(intent);
+      else if (intent.action === "request_compensation") pending = llmWikiRunController.requestCompensation(intent);
+      else if (intent.action === "confirm_compensation") pending = llmWikiRunController.confirmCompensation(intent);
+      else if (intent.action === "retry_follow_up") pending = llmWikiRunController.retryOperationFollowUp(intent);
+      else if (intent.action === "recover_operation") pending = llmWikiRunController.recoverOperation(intent);
       else pending = dispatchStartupIntent(intent);
-      llmWikiLifecycle.update(lifecycleSnapshot());
+      if (!["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) llmWikiLifecycle.update(lifecycleSnapshot());
+      pokeMaintenance();
       const response = await pending;
+      if (intent.action === "enable_rollout_phase") {
+        if (response && response.ok === true) rolloutActivationFailure = "";
+        else if (response && response.reason === "prior_rollout_gate_unavailable") rolloutActivationFailure = "이전 단계를 먼저 활성화해 주세요.";
+        else if (response && response.reason === "rollout_persistence_failed") rolloutActivationFailure = "활성화 상태를 저장하지 못했습니다. 다시 시도해 주세요.";
+        else if (response && response.reason === "unknown_rollout_phase") rolloutActivationFailure = "지원하지 않는 활성화 단계입니다.";
+        else rolloutActivationFailure = "활성화 확인 자료를 검증하지 못했습니다. 완료 상태가 최신인지 확인한 뒤 다시 시도해 주세요.";
+      }
+      KnowledgeExplorerHub.lastLlmWikiAction = { intent, response };
       llmWikiLifecycle.update(lifecycleSnapshot());
+      if (typeof llmWikiControllerOptions.onLifecycleAction === "function") llmWikiControllerOptions.onLifecycleAction({ intent, response });
+      pokeMaintenance();
       return response;
+    };
+    const requestRevisionGuidance = (packet) => {
+      if (typeof llmWikiControllerOptions.requestRevisionGuidance === "function") return llmWikiControllerOptions.requestRevisionGuidance(packet);
+      return new Promise((resolve) => {
+        const modal = new obsidianRef.Modal(appRef);
+        let settled = false;
+        modal.onOpen = () => {
+          modal.contentEl.empty();
+          modal.contentEl.createEl("h2", { text: "수정 요청" });
+          modal.contentEl.createEl("p", { text: "바꾸고 싶은 내용을 자연어로 적어 주세요." });
+          const input = modal.contentEl.createEl("textarea", { attr: { "aria-label": "수정 요청 내용", rows: "5" } });
+          const actions = modal.contentEl.createDiv({ attr: { class: "llmwiki-lifecycle__actions" } });
+          const cancel = actions.createEl("button", { text: "취소", attr: { type: "button" } });
+          const submit = actions.createEl("button", { text: "수정 요청 보내기", attr: { type: "button", "data-primary": "true" } });
+          cancel.onclick = () => { if (!settled) { settled = true; resolve(""); } modal.close(); };
+          submit.onclick = () => { const guidance = String(input.value || "").trim(); if (!guidance || settled) return; settled = true; resolve(guidance); modal.close(); };
+        };
+        modal.onClose = () => { if (!settled) { settled = true; resolve(""); } };
+        modal.open();
+      });
     };
     llmWikiLifecycle = window.LLMWikiLifecycleView.mountLlmWikiLifecycleView({
       container: llmWikiPanel,
       snapshot: lifecycleSnapshot(),
       onAction: dispatchLifecycleAction,
-      reviewView: window.LLMWikiApprovalReviewView,
+      requestRevisionGuidance,
+      reviewView: window.LLMWikiRiskApprovalReviewView,
       reviewOptions: { onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath) }
     });
     const llmWikiReadService = window.LLMWikiWikiReadService.create({
@@ -438,7 +882,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         registry: window.KnowledgeExplorerRegistry
       })
     });
-    const llmWikiWikiSurface = window.LLMWikiWikiSurface.mountLlmWikiWikiSurface({
+    llmWikiWikiSurface = window.LLMWikiWikiSurface.mountLlmWikiWikiSurface({
       container: browsePanel,
       readAdapter: window.LLMWikiWikiReadAdapter,
       readService: llmWikiReadService,
@@ -450,6 +894,73 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath)
     });
 
+    // --- Active maintenance scheduling: real production start edge ---
+    // Reads real Knowledge state through a snapshot provider (overridable via
+    // KnowledgeExplorerHub.maintenanceSnapshotProvider for deterministic tests),
+    // scans read-only, feeds actionable proposals through the quiet notification
+    // policy, and surfaces any notice into a single in-flow badge inside
+    // #knowledge-panel-llmwiki. Started exactly once per mount; disposed on
+    // mount-scope teardown. Never mutates canonical knowledge.
+    const buildMaintenanceSnapshot = KnowledgeExplorerHub.maintenanceSnapshotProvider || (() => {
+      try {
+        const assets = dataSource.index(P.collectRecords(dataSource, dvRef)).assets || [];
+        const sourceIds = (row) => (Array.isArray(row && row.source_ids) && row.source_ids.length ? row.source_ids : (row && row.path ? [String(row.path)] : []));
+        const idSeed = assets.map((row) => String((row && row.path) || "")).sort();
+        const snapshotRevision = (window.LLMWikiHash && typeof window.LLMWikiHash.sha256 === "function")
+          ? window.LLMWikiHash.sha256(JSON.stringify(idSeed))
+          : String(idSeed.length);
+        const canonicalDocuments = assets.map((row, index) => ({
+          document_id: String((row && row.path) || "knowledge_asset_" + index),
+          canonical_revision: snapshotRevision,
+          source_ids: sourceIds(row)
+        }));
+        const brandL = window.LLMWikiKnowledgeLifecycle && window.LLMWikiKnowledgeLifecycle.createMaintenanceSnapshot;
+        const brandR = window.LLMWikiRetrievalService && window.LLMWikiRetrievalService.createMaintenanceRetrievalRecord;
+        const brandE = window.LLMWikiEvidenceContract && window.LLMWikiEvidenceContract.createMaintenanceEvidenceRecord;
+        if (!brandL || !brandR || !brandE) return null;
+        const l = brandL(JSON.stringify({ snapshot_revision: snapshotRevision, current_revision: snapshotRevision, canonical_documents: canonicalDocuments, triggers: [], feedback: [] }));
+        const r = brandR(JSON.stringify({ snapshot_revision: snapshotRevision, candidates: canonicalDocuments.map((row) => ({ document_id: row.document_id, canonical_revision: row.canonical_revision })), denied_source_ids: [], hint_status: "advisory" }));
+        const e = brandE(JSON.stringify({ snapshot_revision: snapshotRevision, records: [] }));
+        if (!(l && l.ok && r && r.ok && e && e.ok)) return null;
+        return { lifecycle: l.value, retrieval: r.value, evidence: e.value };
+      } catch (_error) { return null; }
+    });
+    const injectedMaintenanceSchedule = typeof KnowledgeExplorerHub.maintenanceSchedule === "function"
+      ? KnowledgeExplorerHub.maintenanceSchedule : null;
+    const maintenanceSchedule = (onDue) => {
+      if (injectedMaintenanceSchedule) {
+        try {
+          const stop = injectedMaintenanceSchedule(onDue);
+          return typeof stop === "function" ? stop : () => {};
+        } catch (_error) { return () => {}; }
+      }
+      if (typeof onDue === "function") { try { onDue(0); } catch (_error) { /* best-effort */ } } // deterministic initial scan on mount
+      return () => {}; // state re-scans are driven by pokeMaintenance at lifecycle update sites
+    };
+    let maintenanceFollower = null;
+    try {
+      if (window.LLMWikiMaintenanceFollower && window.LLMWikiMaintenanceService && window.LLMWikiNotificationPolicy) {
+        maintenanceFollower = window.LLMWikiMaintenanceFollower.create({
+          maintenance: window.LLMWikiMaintenanceService,
+          policyModule: window.LLMWikiNotificationPolicy,
+          clock: (typeof KnowledgeExplorerHub.maintenanceClock === "function" ? KnowledgeExplorerHub.maintenanceClock : () => Date.now()),
+          snapshots: buildMaintenanceSnapshot,
+          schedule: maintenanceSchedule,
+          surface: window.LLMWikiMaintenanceFollower.defaultNoticeSurface(llmWikiPanel)
+        });
+        maintenanceFollower.start();
+        maintenanceTicker = () => { if (maintenanceFollower) { try { maintenanceFollower.tick(Date.now()); } catch (_error) { /* best-effort */ } } };
+        if (mountContext && mountContext.scope && typeof mountContext.scope.track === "function") {
+          mountContext.scope.track(() => {
+            if (maintenanceFollower) { try { maintenanceFollower.dispose(); } catch (_error) { /* best-effort */ } }
+            maintenanceFollower = null;
+            maintenanceTicker = null;
+          });
+        }
+        KnowledgeExplorerHub.maintenanceFollower = maintenanceFollower;
+      }
+    } catch (_error) { /* active maintenance scheduling is best-effort and non-fatal */ }
+
     KnowledgeExplorerHub.api = api;
     KnowledgeExplorerHub.tabs = tabs;
     if (KnowledgeExplorerHub._pendingFocus === "candidate-review") {
@@ -459,10 +970,31 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     }
     KnowledgeExplorerHub.model = model;
     KnowledgeExplorerHub.paraModel = paraModel;
+    const inboxRef = appRef.vault.on && appRef.vault.on("create", (file) => {
+      if (file && typeof file.path === "string" && file.path.startsWith("INBOX/") && file.path.endsWith(".md")) scanInbox();
+    });
+    if (inboxRef && mountContext.scope && typeof mountContext.scope.track === "function") mountContext.scope.track(() => appRef.vault.offref && appRef.vault.offref(inboxRef));
+    scanInbox();
+    KnowledgeExplorerHub.inboxAutopilot = inboxAutopilot;
+    KnowledgeExplorerHub.startLlmWikiMigration = startLlmWikiMigration;
+    KnowledgeExplorerHub.scanExistingZetaMigration = scanExistingZetaMigration;
+    KnowledgeExplorerHub.scanKnowledgeInbox = scanInbox;
+    KnowledgeExplorerHub.whenKnowledgeInboxSettled = () => inboxSettled;
     KnowledgeExplorerHub.llmWikiRunController = llmWikiRunController;
     KnowledgeExplorerHub.llmWikiLifecycle = llmWikiLifecycle;
+    KnowledgeExplorerHub.dispatchLlmWikiAction = dispatchLifecycleAction;
+    KnowledgeExplorerHub.llmWikiLifecycleSnapshot = lifecycleSnapshot;
     KnowledgeExplorerHub.llmWikiBrowse = llmWikiWikiSurface;
     KnowledgeExplorerHub.dataSource = dataSource;
+    KnowledgeExplorerHub.llmWikiProductionMeasurements = () => {
+      const lifecycle = llmWikiPanel.querySelector && llmWikiPanel.querySelector('[data-surface="llmwiki-lifecycle"]');
+      const candidates = [mountPoint.closest && mountPoint.closest(".markdown-preview-view"), shell.root || shell.container, shell.body, lifecycle].filter(Boolean);
+      const rows = candidates.map((node) => {
+        const style = typeof getComputedStyle === "function" ? getComputedStyle(node) : { overflowY: "visible" };
+        return { class_name: String(node.className || ""), surface: node.getAttribute && node.getAttribute("data-surface"), overflow_y: style.overflowY, scroll_height: Number(node.scrollHeight || 0), client_height: Number(node.clientHeight || 0) };
+      });
+      return { scope: "active_llmwiki_lifecycle_scene", effective_vertical_owners: rows.filter((row) => ["auto", "scroll"].includes(row.overflow_y) && row.scroll_height > row.client_height).length, rows };
+    };
     endMeasurement("dom_render", domRenderToken, { scope: "knowledge", status: "rendered" });
     const readinessSnapshot = shell && typeof shell.readinessSnapshot === "function"
       ? shell.readinessSnapshot("knowledge", {
@@ -502,7 +1034,7 @@ KnowledgeExplorerHub.collectRecords = () => {
 };
 
 if (!window.ProdigyWorkspaceManifest) await loadWorkspaceBootstrap("SYSTEM/Views/prodigy-workspace-manifest.js");
-if (!window.ProdigyHubLoader) await loadWorkspaceBootstrap("SYSTEM/Views/prodigy-hub-loader.js");
+if (!window.ProdigyHubLoader || window.ProdigyHubLoader.version !== 2) await loadWorkspaceBootstrap("SYSTEM/Views/prodigy-hub-loader.js");
 const manifest = window.ProdigyWorkspaceManifest.get("knowledge");
 try {
   await window.ProdigyHubLoader.mountWorkspace(app, manifest, {

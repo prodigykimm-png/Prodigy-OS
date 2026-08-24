@@ -2,17 +2,22 @@
 
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
+const fs = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
+const REBASELINE_MANIFEST_PATH = path.join(ROOT, "SYSTEM/docs/LLMWiki_Productization_Rebaseline_v1.json");
 const approval = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-packet.js"));
 const canonical = require(path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-packet.js"));
+const operationContract = require(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"));
+const consent = require(path.join(ROOT, "SYSTEM/Views/llmwiki-outbound-consent.js"));
 const reviewCommit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-commit.js"));
 const commit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-deterministic-commit.js"));
 const pipeline = require(path.join(ROOT, "SYSTEM/Views/llmwiki-librarian-pipeline.js"));
 const proposalBundle = require(path.join(ROOT, "SYSTEM/Views/llmwiki-proposal-bundle.js"));
 const review = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-view.js"));
+const runState = require(path.join(ROOT, "SYSTEM/Views/llmwiki-run-state.js"));
 const fixtures = require("./llmwiki_librarian_pipeline_fixtures.js");
 const { FakeElement } = require("./knowledge_explorer_view_fakes.js");
 
@@ -72,11 +77,14 @@ function liveAdapter() {
   const files = new Map();
   const receipts = new Map();
   const calls = [];
+  const counters = { reads: 0 };
   return {
     files,
+    receipts,
     calls,
+    counters,
     adapter: {
-      readBytes(targetPath) { return files.has(targetPath) ? files.get(targetPath) : null; },
+      readBytes(targetPath) { counters.reads += 1; return files.has(targetPath) ? files.get(targetPath) : null; },
       readReceipt(nonce) { return receipts.has(nonce) ? clone(receipts.get(nonce)) : null; },
       commitExact(mutation) {
         calls.push(clone(mutation));
@@ -88,19 +96,27 @@ function liveAdapter() {
   };
 }
 
-async function canonicalContext(approvalPacket, live = liveAdapter()) {
-  const create = operation(approvalPacket);
+function canonicalOperation(create) {
+  const serialized = JSON.stringify({
+    operation_id: create.operation_id,
+    proposal_id: create.proposal_id,
+    proposal_kind: "create",
+    payload_hash: create.payload_hash,
+  });
+  const parsed = operationContract.parseCanonicalOperation(serialized);
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  assert.equal(operationContract.isCanonicalOperationRecord(parsed.value), true);
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(parsed.value), false);
+  return { value: parsed.value, serialized };
+}
+
+function canonicalRequest(approvalPacket, create, operationRecord) {
   const reviewed = create.reviewed_payload;
   const statement = reviewed.claims[0].text;
-  const assembled = await canonical.assembleCanonicalPacket({
+  return {
     run_id: approvalPacket.run_id,
     consent_hash: "c".repeat(64),
-    operation: {
-      operation_id: create.operation_id,
-      proposal_id: create.proposal_id,
-      proposal_kind: "create",
-      payload_hash: create.payload_hash,
-    },
+    operation: operationRecord,
     canonical_document: {
       title: reviewed.title,
       statement,
@@ -118,13 +134,46 @@ async function canonicalContext(approvalPacket, live = liveAdapter()) {
     source_citations: create.source_citations,
     expires_at: "2099-01-01T00:00:00.000Z",
     nonce: `nonce_rebaseline_${approvalPacket.packet_hash.slice(0, 24)}`,
-  }, live.adapter);
+  };
+}
+
+async function canonicalContext(approvalPacket, live = liveAdapter()) {
+  const create = operation(approvalPacket);
+  const canonicalOperationRecord = canonicalOperation(create);
+  const unbrandedControls = [
+    ["raw", JSON.parse(canonicalOperationRecord.serialized)],
+    ["spread", { ...canonicalOperationRecord.value }],
+    ["copied", Object.assign({}, canonicalOperationRecord.value)],
+    ["unbranded", clone(canonicalOperationRecord.value)],
+  ];
+  for (const [name, operationRecord] of unbrandedControls) {
+    const rejectedLive = liveAdapter();
+    const rejected = await canonical.assembleCanonicalPacket(
+      canonicalRequest(approvalPacket, create, operationRecord),
+      rejectedLive.adapter,
+    );
+    assert.equal(rejected.ok, false, name);
+    assert.equal(rejected.reason, "serialized_operation_required", name);
+    assert.equal(rejectedLive.counters.reads, 0, `${name}: live reads`);
+    assert.equal(rejectedLive.calls.length, 0, `${name}: writer calls`);
+    assert.equal(rejectedLive.files.size, 0, `${name}: canonical writes`);
+    assert.equal(rejectedLive.receipts.size, 0, `${name}: audit writes`);
+  }
+
+  const assembled = await canonical.assembleCanonicalPacket(
+    canonicalRequest(approvalPacket, create, canonicalOperationRecord.value),
+    live.adapter,
+  );
   assert.equal(assembled.ok, true, JSON.stringify(assembled));
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(assembled.value.operation), true);
+  const packetOperation = assembled.value.operation;
   const authorized = reviewCommit.authorizeCanonicalPacket(assembled.value, {
     action: "approve_selected",
     selection_ids: [create.operation_id],
   });
   assert.equal(authorized.ok, true, JSON.stringify(authorized));
+  assert.strictEqual(assembled.value.operation, packetOperation, "authorization must preserve the packet-operation private brand");
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(assembled.value.operation), true);
   return {
     approvalPacket,
     operation: create,
@@ -146,14 +195,62 @@ function packetBoundBuilder(contexts) {
 
 function rehashPacket(packet, mutate) {
   const changed = clone(packet);
+  changed.operation = packet.operation;
   mutate(changed);
   const identity = clone(changed);
+  identity.operation = packet.operation;
   delete identity.packet_hash;
   delete identity.canonical_serialization;
   changed.canonical_serialization = stable(identity);
   changed.packet_hash = sha256(changed.canonical_serialization);
   return changed;
 }
+
+test("Baseline characterization: create-only trust invariants remain observable", async () => {
+  const consentRequest = {
+    feature: "llmwiki",
+    source_scope: { allowed_source_ids: ["source_rebaseline"], allowed_locator_prefixes: ["ZETA/LITERATURE/"], allow_private_sources: false },
+    outbound_policy: { include_unselected_vault_data: false, include_credentials: false, include_cookies: false },
+    timeout_ms: 5000,
+    retry_owner: "prodigy",
+    request_metadata: { request_id: "request_rebaseline", provider_key: "gemini" },
+    sources: [{
+      source_id: "source_rebaseline", content_hash: "a".repeat(64), selected: true,
+      outbound_text: "Selected source bytes remain data.",
+    }],
+    proposal_request: { run_id: "run_rebaseline_consent", instruction: "Create one bounded proposal." },
+  };
+  const consentSnapshot = consent.createConsentArtifact(consentRequest, {
+    explicit_user_consent: true,
+    issued_at: "2026-08-02T03:04:05.000Z",
+    nonce: "nonce_rebaseline_consent_0001",
+    config: {
+      defaultProvider: "gemini",
+      aiProfiles: { schema_version: 1, llmwiki: { direct_provider_key: "gemini", omniroute_provider_key: "openrouter" } },
+    },
+  });
+  assert.equal(consentSnapshot.ok, true, JSON.stringify(consentSnapshot));
+  assert.deepEqual(clone(consentSnapshot.value), {
+    consent_version: "llmwiki_outbound_consent_v1",
+    run_id: "run_rebaseline_consent",
+    provider_mode: "direct",
+    provider_key: "gemini",
+    selected_sources: [{ source_id: "source_rebaseline", content_hash: "a".repeat(64) }],
+    outbound_policy_hash: sha256(stable({ include_source_text: false, include_unselected_vault_data: false, include_credentials: false, include_cookies: false })),
+    outbound_text_hash: sha256(stable([{ source_id: "source_rebaseline", content_hash: "a".repeat(64), outbound_text: "Selected source bytes remain data." }])),
+    issued_at: "2026-08-02T03:04:05.000Z",
+    nonce: "nonce_rebaseline_consent_0001",
+    consent_hash: consentSnapshot.value.consent_hash,
+  });
+  assert.equal(JSON.stringify(consentSnapshot.value).includes("Selected source bytes remain data."), false);
+
+  const state = runState.createRunState();
+  assert.equal(state.dispatch({ type: "start", run_id: "run_rebaseline_active" }).ok, true);
+  const secondStart = state.dispatch({ type: "start", run_id: "run_rebaseline_second" });
+  assert.equal(secondStart.ok, false);
+  assert.equal(secondStart.reason, "run_in_progress");
+  assert.equal(secondStart.state.run_id, "run_rebaseline_active");
+});
 
 test("Current contract: injected approval packet is rendered as the supplied run packet", async () => {
   const packet = await packetFixture();
@@ -280,4 +377,37 @@ test("Current contract: repeated unchanged capture remains proposal-only and rep
   proposalBundle.captureProposalBundle(built.value, { capture_requested: true, target: "knowledge_candidate", writer });
   const expected = `capture_${sha256(`knowledge_candidate:${built.value.bundle_hash}`).slice(0, 24)}`;
   assert.deepEqual(receipts, [expected, expected]);
+});
+
+test("Rebaseline outcome: locked invariants have executable evidence and LLM Wiki solely owns canonical approval", () => {
+  assert.equal(fs.existsSync(REBASELINE_MANIFEST_PATH), true, "rebaseline manifest is missing");
+  const manifest = JSON.parse(fs.readFileSync(REBASELINE_MANIFEST_PATH, "utf8"));
+  assert.equal(manifest.schema_version, "llmwiki_productization_rebaseline_v1");
+  assert.deepEqual(manifest.plan_gates, [
+    { path: ".omo/plans/prodigy-ai-gateway-llmwiki.md", disposition: "historical_not_gate", replacement: "live_create_only_manifest" },
+    { path: ".omo/plans/prodigy-llmwiki-autonomous-approval.md", disposition: "superseded", replacement: "prodigy-llmwiki-productization-ux:todos_1_16" },
+    { path: ".omo/plans/prodigy-llmwiki-productization-ux.md", disposition: "rebaseline_authority", replacement: null },
+  ]);
+  assert.deepEqual(manifest.locked_invariants.map((entry) => entry.id).sort(), [
+    "canonical_packet_to_bytes_binding",
+    "deterministic_create",
+    "one_active_run",
+    "outbound_consent_snapshot",
+    "stale_refusal",
+  ]);
+  for (const invariant of manifest.locked_invariants) {
+    for (const binding of [invariant.production, invariant.evidence]) {
+      const absolute = path.join(ROOT, binding.path);
+      assert.equal(fs.existsSync(absolute), true, `${invariant.id} missing ${binding.path}`);
+      assert.match(fs.readFileSync(absolute, "utf8"), new RegExp(binding.symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"), `${invariant.id} missing symbol ${binding.symbol}`);
+    }
+  }
+  const owners = manifest.approval_surfaces.filter((surface) => surface.canonical_approval_owner === true).map((surface) => surface.id).sort();
+  assert.deepEqual(owners, ["llmwiki"]);
+  const legacy = manifest.approval_surfaces.find((surface) => surface.id === "knowledge_candidate");
+  assert.ok(legacy, "legacy Candidate approval must be accounted for");
+  assert.equal(legacy.canonical_approval_owner, false);
+  assert.ok(["handoff", "migration_gap"].includes(legacy.disposition));
+  assert.equal(legacy.handoff_to, "llmwiki");
+  assert.ok(legacy.gap && legacy.gap.length > 0, "legacy Candidate migration gap must be explicit");
 });

@@ -63,6 +63,8 @@
   </div>
   <script src="../../../../../Views/design-tokens.js"></script>
   <script src="../../../../../Views/llmwiki-hash.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-contract.js"></script>
+  <script src="../../../../../Views/llmwiki-write-boundary-policy.js"></script>
   <script src="../../../../../Views/prodigy-config-service.js"></script>
   <script>
     class FixtureBuffer extends Uint8Array {}
@@ -74,6 +76,7 @@
       if (name === "node:crypto") return { createHash() { let bytes = ""; return { update(value) { bytes = value instanceof Uint8Array ? new TextDecoder().decode(value) : String(value); return this; }, digest() { return LLMWikiHash.sha256(bytes); } }; } };
       if (name === "node:fs/promises") return Object.freeze({});
       if (name === "node:path") return Object.freeze({});
+      if (name === "node:util") return { types: { isProxy() { return false; } } };
       throw new Error(`Fixture dependency unavailable: ${name}`);
     };
   </script>
@@ -81,22 +84,45 @@
   <script src="../../../../../Views/knowledge-candidate-core.js"></script>
   <script src="../../../../../Views/evidence-quality-core.js"></script>
   <script src="../../../../../Views/knowledge-candidate-store.js"></script>
+  <script src="../../../../../Views/llmwiki-knowledge-kind-contract.js"></script>
   <script src="../../../../../Views/llmwiki-proposal-bundle.js"></script>
   <script src="../../../../../Views/llmwiki-source-lineage.js"></script>
   <script src="../../../../../Views/llmwiki-query-readonly.js"></script>
+  <script src="../../../../../Views/llmwiki-provider-response-schema.js"></script>
   <script src="../../../../../Views/llmwiki-provider-contract.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-classifier.js"></script>
   <script src="../../../../../Views/llmwiki-librarian-pipeline.js"></script>
   <script src="../../../../../Views/llmwiki-outbound-consent.js"></script>
   <script src="../../../../../Views/llmwiki-run-state.js"></script>
   <script src="../../../../../Views/llmwiki-canonical-packet.js"></script>
   <script src="../../../../../Views/llmwiki-approval-packet.js"></script>
   <script src="../../../../../Views/llmwiki-approval-review-commit.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-writer.js"></script>
+  <script src="../../../../../Views/llmwiki-compensation-service.js"></script>
+  <script src="../../../../../Views/llmwiki-merge-transaction.js"></script>
   <script src="../../../../../Views/llmwiki-deterministic-commit.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-run-state.js"></script>
+  <script src="../../../../../Views/llmwiki-create-operation-service.js"></script>
+  <script src="../../../../../Views/llmwiki-update-operation-service.js"></script>
+  <script src="../../../../../Views/llmwiki-merge-operation-service.js"></script>
+  <script src="../../../../../Views/llmwiki-noop-operation-service.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-approval-callback.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-command-binding.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-follow-up-guard.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-outcome-persistence.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-run-commands.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-follow-up-runner.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-run-approval.js"></script>
+  <script src="../../../../../Views/llmwiki-operation-run-service.js"></script>
   <script src="../../../../../Views/knowledge-explorer-hub-adapter.js"></script>
   <script src="../../../../../Views/llmwiki-approval-review-view.js"></script>
   <script src="../../../../../Views/llmwiki-obsidian-adapter.js"></script>
   <script src="../../../../../Views/llmwiki-derived-refresh.js"></script>
+  <script src="../../../../../Views/llmwiki-source-adapters.js"></script>
+  <script src="../../../../../Views/llmwiki-risk-approval-packet.js"></script>
+  <script src="../../../../../Views/llmwiki-migration-rollout.js"></script>
   <script src="../../../../../Views/llmwiki-run-controller.js"></script>
+  <script src="../../../../../Views/knowledge-styles.js"></script>
   <script src="../../../../../Views/llmwiki-lifecycle-view.js"></script>
   <script src="../../../../../Views/knowledge-workspace-tabs.js"></script>
   <script src="./llmwiki_controller_qa_fixture.js"></script>

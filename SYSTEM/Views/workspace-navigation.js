@@ -340,7 +340,11 @@
     }
     if (store && registeredWorkspace(workspaceId)) store.setActiveWorkspace(workspaceId);
     const suppliedContext = opts.context || {};
-    const homeAction = workspaceId === "home" ? [] : [{ label: "홈", onClick: function () { return openHome(opts.app); } }];
+    const homeAction = workspaceId === "home" ? [] : [{
+      label: "홈",
+      ariaLabel: workspaceId === "knowledge" ? "홈 워크스페이스로 이동" : "홈",
+      onClick: function () { return openHome(opts.app); }
+    }];
     const mounted = shellModule.AppShell(container, {
       app: opts.app,
       workspaceId,

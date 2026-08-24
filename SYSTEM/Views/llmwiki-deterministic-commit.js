@@ -7,6 +7,10 @@
     || (typeof require === "function" ? require("./llmwiki-approval-review-commit.js") : null);
   const knowledgeApi = root.KnowledgeCandidateStore
     || (typeof require === "function" ? require("./knowledge-candidate-store.js") : null);
+  const operationWriterApi = root.LLMWikiOperationWriter
+    || (typeof require === "function" ? require("./llmwiki-operation-writer.js") : null);
+  const mergeTransactionApi = root.LLMWikiMergeTransaction
+    || (typeof require === "function" ? require("./llmwiki-merge-transaction.js") : null);
 
   const REQUEST_FIELDS = new Set(["packet", "authorization", "adapter"]);
   const REPAIR_REQUEST_FIELDS = new Set(["adapter", "repair"]);
@@ -227,6 +231,14 @@
   }
 
   function commitApprovedCanonical(request, options = {}) {
+    const mergeTransaction = root.LLMWikiMergeTransaction || mergeTransactionApi;
+    if (plain(request) && mergeTransaction?.isMergeAuthorization?.(request.authorization)) {
+      return mergeTransaction.commitApprovedMerge(request, options);
+    }
+    const updateWriter = root.LLMWikiOperationWriter || operationWriterApi;
+    if (plain(request) && updateWriter?.isUpdateApproval?.(request.authorization)) {
+      return updateWriter.commitApprovedUpdate(request, options);
+    }
     const malformed = validateShape(request);
     if (malformed) return malformed;
     const packetInvalid = validatePacket(request.packet, request.authorization);

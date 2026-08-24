@@ -1,0 +1,33 @@
+{
+  "fixture_version": "llmwiki_update_operation_fixture_v1",
+  "canonical_id": "knowledge_revision_bound_update",
+  "target_path": "ZETA/PERMANENT/revision-bound-update.md",
+  "before_document": {
+    "title": "revision-bound-update",
+    "statement": "Approved updates replace only the bound revision.",
+    "knowledge_domain": "coding",
+    "knowledge_topics": ["ai"],
+    "application_trigger": "Before a canonical update",
+    "application_contexts": ["coding/trust"],
+    "connections": [],
+    "invalidation_conditions": ["The packet contract changes"],
+    "summary": "Original revision",
+    "created": "2026-08-14T00:00:00.000Z",
+    "updated": "2026-08-14T00:00:00.000Z",
+    "body": "# Revision-bound update\n\nOriginal exact bytes.\n"
+  },
+  "after_document": {
+    "title": "revision-bound-update",
+    "statement": "Approved updates atomically replace only the exact bound revision.",
+    "knowledge_domain": "coding",
+    "knowledge_topics": ["ai"],
+    "application_trigger": "Immediately before a canonical update",
+    "application_contexts": ["coding/trust"],
+    "connections": [],
+    "invalidation_conditions": ["The packet contract changes"],
+    "summary": "Reviewed revision",
+    "created": "2026-08-14T00:00:00.000Z",
+    "updated": "2026-08-14T01:00:00.000Z",
+    "body": "# Revision-bound update\n\nReviewed exact after bytes.\n"
+  }
+}

@@ -11,6 +11,7 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 global.window = global.window || global;
 const approval = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-packet.js"));
 const commit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-deterministic-commit.js"));
+const operationContract = require(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"));
 const canonicalPacket = require(path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-packet.js"));
 const reviewCommit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-commit.js"));
 const fixtures = require("./llmwiki_librarian_pipeline_fixtures.js");
@@ -80,46 +81,86 @@ function liveCommitAdapter() {
   return { adapter, files, receipts, calls };
 }
 
+function canonicalOperation(create) {
+  const serialized = JSON.stringify({
+    operation_id: create.operation_id,
+    proposal_id: create.proposal_id,
+    proposal_kind: "create",
+    payload_hash: create.payload_hash,
+  });
+  const parsed = operationContract.parseCanonicalOperation(serialized);
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  assert.equal(operationContract.isCanonicalOperationRecord(parsed.value), true);
+  assert.equal(operationContract.isCanonicalPacketOperationRecord(parsed.value), false);
+  return { operation: parsed.value, serialized };
+}
+
+function canonicalRequest(approvalPacket, create, operationRecord) {
+  const reviewed = create.reviewed_payload;
+  const statement = reviewed.claims[0].text;
+  return {
+    run_id: approvalPacket.run_id,
+    consent_hash: "c".repeat(64),
+    operation: operationRecord,
+    canonical_document: {
+      title: reviewed.title,
+      statement,
+      knowledge_domain: "reading",
+      knowledge_topics: [],
+      application_trigger: "",
+      application_contexts: [],
+      connections: [],
+      invalidation_conditions: [],
+      summary: "",
+      created: "2026-08-02T00:00:00.000Z",
+      updated: "2026-08-02T00:00:00.000Z",
+      body: `# ${reviewed.title}\n\n${statement}\n`,
+    },
+    source_citations: create.source_citations,
+    expires_at: "2099-01-01T00:00:00.000Z",
+    nonce: `nonce_review_${approvalPacket.packet_hash.slice(0, 24)}`,
+  };
+}
+
 async function packetBoundCommitFixtures(packets) {
   const contexts = new Map();
   for (const approvalPacket of packets) {
     const create = operation(approvalPacket, "create");
-    const reviewed = create.reviewed_payload;
-    const statement = reviewed.claims[0].text;
+    const canonical = canonicalOperation(create);
+    const unbrandedControls = [
+      ["raw", JSON.parse(canonical.serialized)],
+      ["spread", { ...canonical.operation }],
+      ["copied", Object.assign({}, canonical.operation)],
+      ["unbranded", JSON.parse(JSON.stringify(canonical.operation))],
+    ];
+    for (const [name, operationRecord] of unbrandedControls) {
+      const rejectedLive = liveCommitAdapter();
+      const rejected = await canonicalPacket.assembleCanonicalPacket(
+        canonicalRequest(approvalPacket, create, operationRecord),
+        rejectedLive.adapter,
+      );
+      assert.equal(rejected.ok, false, name);
+      assert.equal(rejected.reason, "serialized_operation_required", name);
+      assert.equal(rejectedLive.calls.length, 0, `${name}: writerCalls`);
+      assert.equal(rejectedLive.files.size, 0, `${name}: canonical writes`);
+      assert.equal(rejectedLive.receipts.size, 0, `${name}: audit writes`);
+    }
+
     const live = liveCommitAdapter();
-    const assembled = await canonicalPacket.assembleCanonicalPacket({
-      run_id: approvalPacket.run_id,
-      consent_hash: "c".repeat(64),
-      operation: {
-        operation_id: create.operation_id,
-        proposal_id: create.proposal_id,
-        proposal_kind: "create",
-        payload_hash: create.payload_hash,
-      },
-      canonical_document: {
-        title: reviewed.title,
-        statement,
-        knowledge_domain: "reading",
-        knowledge_topics: [],
-        application_trigger: "",
-        application_contexts: [],
-        connections: [],
-        invalidation_conditions: [],
-        summary: "",
-        created: "2026-08-02T00:00:00.000Z",
-        updated: "2026-08-02T00:00:00.000Z",
-        body: `# ${reviewed.title}\n\n${statement}\n`,
-      },
-      source_citations: create.source_citations,
-      expires_at: "2099-01-01T00:00:00.000Z",
-      nonce: `nonce_review_${approvalPacket.packet_hash.slice(0, 24)}`,
-    }, live.adapter);
+    const assembled = await canonicalPacket.assembleCanonicalPacket(
+      canonicalRequest(approvalPacket, create, canonical.operation),
+      live.adapter,
+    );
     assert.equal(assembled.ok, true, JSON.stringify(assembled));
+    assert.equal(operationContract.isCanonicalPacketOperationRecord(assembled.value.operation), true);
+    const packetOperation = assembled.value.operation;
     const authorized = reviewCommit.authorizeCanonicalPacket(assembled.value, {
       action: "approve_selected",
       selection_ids: [create.operation_id],
     });
     assert.equal(authorized.ok, true, JSON.stringify(authorized));
+    assert.strictEqual(assembled.value.operation, packetOperation, "authorization must preserve the parser-owned packet operation brand");
+    assert.equal(operationContract.isCanonicalPacketOperationRecord(assembled.value.operation), true);
     contexts.set(approvalPacket.packet_hash, { packet: assembled.value, authorization: authorized.value, live, operation: create });
   }
   return {
@@ -298,8 +339,8 @@ test("Given no supplied packet, When the Knowledge Hub mounts, Then it renders a
   const result = await runHub({ pages: buildPages() });
   assert.equal(result.window.KnowledgeExplorerHub.approvalReview, undefined);
   const text = collectText(result.container);
-  assert.match(text, /자료를 선택하면 AI가 새 지식 또는 수정안을 제안합니다\. 승인 전에는 저장되지 않습니다\./);
-  assert.match(text, /새 검토 시작/);
+  assert.match(text, /INBOX에 분석할 자료가 없습니다\./);
+  assert.match(text, /INBOX 확인/);
   assert.doesNotMatch(text, /합성 빈 상태 미리보기|Librarian 실행 검토|검토 열기|선택 승인|전체 승인/);
   assert.ok(firstElement(result.container, "section", (node) => node.attr && node.attr["data-surface"] === "llmwiki-lifecycle"));
   assert.equal(firstElement(result.container, "section", (node) => node.attr && node.attr["data-surface"] === "llmwiki-approval-review"), null);

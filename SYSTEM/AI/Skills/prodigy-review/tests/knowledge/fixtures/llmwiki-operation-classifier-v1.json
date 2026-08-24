@@ -1,0 +1,9 @@
+{
+  "fixture_version": "llmwiki_operation_classifier_fixture_v1",
+  "cases": [
+    { "id": "new_identity", "providerKind": "create", "expectedOperation": "create", "destinationExists": false },
+    { "id": "exact_identity_change", "providerKind": "update", "expectedOperation": "update", "destinationExists": true },
+    { "id": "multi_source_consolidation", "providerKind": "merge", "expectedOperation": "merge", "destinationExists": true },
+    { "id": "duplicate_bytes", "providerKind": "noop", "expectedOperation": "noop", "destinationExists": true }
+  ]
+}

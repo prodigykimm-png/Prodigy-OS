@@ -168,7 +168,7 @@ test("fixture is disposable, synthetic, tracked-production-only, and residue-sen
   try {
     const fixture = buildFixture(root);
     const before = treeHash(fixture.vault);
-    assert.equal(Object.keys(fixture.manifest).length, 8);
+    assert.equal(Object.keys(fixture.manifest).length, 9);
     assert.match(fs.readFileSync(path.join(fixture.vault, "PARA/PROJECTS/Synthetic.md"), "utf8"), /한글 프로젝트/u);
     fs.writeFileSync(path.join(fixture.vault, "FORBIDDEN.md"), "write residue");
     const after = treeHash(fixture.vault);
@@ -308,6 +308,23 @@ test("strict real-render gate rejects every overflow, undersized target, chrome 
   assert.throws(() => assertDiagnosticClean(broken), /real Obsidian diagnostic failures/);
   assert.throws(() => assertDiagnosticClean({ ...broken, shell: { count: 2, roots: [] }, offenders: { overflow: [], targetSize: [], chromeShadow: [] }, resourceRecovery: { present: false }, keyboard: { failures: [] }, states: { missing: [], duplicates: [] } }), /duplicate_shell/);
   assert.doesNotThrow(() => assertDiagnosticClean({ offenders: { overflow: [], targetSize: [], chromeShadow: [] }, shell: { count: 1, roots: [{}] }, resourceRecovery: { present: false, elements: [] }, keyboard: { failures: [] }, states: { missing: [], duplicates: [] } }));
+});
+
+test("strict real-render gate ignores controls inside inactive hidden scenes", () => {
+  const source = fs.readFileSync(path.join(__dirname, "real_obsidian_harness.js"), "utf8");
+  assert.match(
+    source,
+    /const controls=all\.filter\(element=>element\.matches\('[^']+'\)&&!element\.closest\('\[hidden\],\[aria-hidden="true"\]'\)\)/
+  );
+});
+
+test("strict real-render gate excludes unpainted hidden scenes and closed disclosure bodies", () => {
+  const source = fs.readFileSync(path.join(__dirname, "real_obsidian_harness.js"), "utf8");
+  assert.match(source, /collectElements\(roots\)\.filter\(element=>\{/);
+  assert.match(source, /element\.closest\('\[hidden\],\[aria-hidden="true"\]'\)/);
+  assert.match(source, /element\.closest\('details:not\(\[open\]\)'\)/);
+  assert.match(source, /element!==details\.querySelector\(':scope > summary'\)/);
+  assert.match(source, /element\.getClientRects\(\)\.length>0/);
 });
 
 test("layout settlement rejects stale, pre-trigger, absent, replaced-owner, and pre-settlement sampling mutations", () => {

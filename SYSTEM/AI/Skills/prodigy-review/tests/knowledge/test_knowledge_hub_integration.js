@@ -6,12 +6,15 @@ const path = require("node:path");
 const { FakeElement, collectText, findByText } = require("./knowledge_explorer_view_fakes.js");
 const { buildPages, firstElement, runHub, MODULE_PATHS, HUB_MODULE_PATHS } = require("./knowledge_hub_integration_harness.js");
 const ROOT = path.resolve(__dirname, "../../../../../..");
+const workspaceManifest = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js"));
 const hubAdapter = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-hub-adapter.js"));
 const authoringAdapter = require(path.join(ROOT, "SYSTEM/Views/knowledge-authoring-hub-adapter.js"));
 const paraView = require(path.join(ROOT, "SYSTEM/Views/knowledge-para-view.js"));
 
 function testFixtureModulePathsMatchKnowledgeHub() {
   assert.deepEqual(MODULE_PATHS, HUB_MODULE_PATHS);
+  const liveKnowledgeManifest = workspaceManifest.get("knowledge");
+  assert.deepEqual(HUB_MODULE_PATHS, liveKnowledgeManifest.required.concat(liveKnowledgeManifest.optional));
 }
 
 async function testHubLoadsExplorerAndDetailSections() {
@@ -88,13 +91,16 @@ async function testHubMountsAuthoringActionsWithoutChangingExplorerProjection() 
   assert.ok(review, "candidate review launcher must be visible");
   const candidateInbox = () => firstElement(result.container, "section", (node) => node.attr && node.attr["data-section-key"] === "candidate-inbox");
   assert.equal(candidateInbox(), null, "candidate Inbox is collapsed on initial mount");
+  assert.equal(result.window.KnowledgeExplorerHub.api.candidateInboxOpen(), false);
   review.onclick({ preventDefault() {} });
+  assert.equal(result.window.KnowledgeExplorerHub.api.candidateInboxOpen(), true);
   assert.equal(result.window.KnowledgeExplorerHub.api.state().focusPane, "detail");
   assert.match(collectText(result.container), /검증 대기 0/);
   assert.equal(review.text, "검증 대기 닫기");
   assert.equal(review.attr["aria-expanded"], "true");
   assert.ok(candidateInbox(), "opening the launcher renders the candidate Inbox");
   review.onclick({ preventDefault() {} });
+  assert.equal(result.window.KnowledgeExplorerHub.api.candidateInboxOpen(), false);
   assert.equal(review.text, "검증 대기 열기");
   assert.equal(review.attr["aria-expanded"], "false");
   assert.equal(candidateInbox(), null, "closing the launcher hides the candidate Inbox");
@@ -125,6 +131,31 @@ async function testHubMountsAuthoringActionsWithoutChangingExplorerProjection() 
   firstElement(secondChooser.contentEl, "button", (node) => node.text === "문헌노트 묶음 작성").onclick({ preventDefault() {} });
   assert.match(collectText(result.openedModals.at(-1).contentEl), /문헌노트 묶음/);
   assert.equal(result.app.workspace.calls.length, 0, "opening authoring modals must not write or navigate");
+}
+
+async function testCandidateLauncherOpensAtomicDetailWithOneEnabledHandoff() {
+  const candidateAdapter = `"use strict";(function(root){root.KnowledgeCandidateHubAdapter=Object.freeze({async createCandidateInboxConfig(){return{candidateInbox:{expanded:false,candidates:[{type:"knowledge_candidate",candidate_id:"candidate-task21",status:"saved",title:"Task 21 Candidate",statement:"Atomic launcher statement",reason:"Real launcher regression",source_type:"daily_evidence",source_evidence_ids:["task21-evidence"],source_objects:["[[DAILY/2026-08-21]]"],confidence:"explicit",suggested_domain:"coding",suggested_topics:["typescript"],application_trigger:"review",application_contexts:["coding"],connections:[],invalidation_conditions:["source changes"],approval_note:"",promotion_target:"",promoted_knowledge:"",created:"2026-08-21T00:00:00.000Z",updated:"2026-08-21T00:00:00.000Z",evidence_quality:{status:"usable"},path:"PARA/RESOURCES/Knowledge/Candidates/Task 21 Candidate.md"}]},candidateStore:{},loadCandidates:async()=>[],onLlmWikiHandoff:async()=>({ok:true,status:"review"})}}})})(typeof window!=="undefined"?window:globalThis);`;
+  const result = await runHub({
+    pages: [],
+    extraFiles: { "SYSTEM/Views/knowledge-candidate-hub-adapter.js": candidateAdapter }
+  });
+  const api = result.window.KnowledgeExplorerHub.api;
+  assert.equal(api.state().assetPath, null, "launcher scenario starts without a selected asset");
+  assert.equal(typeof api.openCandidateInbox, "function", "Explorer must own one atomic Candidate detail operation");
+  const review = firstElement(result.container, "button", (node) => node.text === "검증 대기 열기");
+  assert.ok(review, "real Candidate review launcher must be present");
+
+  review.onclick({ preventDefault() {} });
+
+  const handoffs = [];
+  (function walk(node) {
+    if (!node) return;
+    if (node.tag === "button" && node.attr && node.attr["data-action"] === "llmwiki-handoff") handoffs.push(node);
+    for (const child of node.children || []) walk(child);
+  })(result.container);
+  assert.equal(api.state().focusPane, "detail");
+  assert.equal(handoffs.length, 1, "Candidate detail scene must contain exactly one handoff");
+  assert.equal(handoffs[0].disabled, false, "Candidate handoff must be enabled");
 }
 
 async function testHubBuildsLargeExplorerWithoutEagerBodyReads() {
@@ -383,6 +414,7 @@ async function main() {
   testFixtureModulePathsMatchKnowledgeHub();
   await testHubLoadsExplorerAndDetailSections();
   await testHubMountsAuthoringActionsWithoutChangingExplorerProjection();
+  await testCandidateLauncherOpensAtomicDetailWithOneEnabledHandoff();
   await testHubBuildsLargeExplorerWithoutEagerBodyReads();
   await testDirectReviewHandoffClosesAndFocuses();
   testParaEmptyStateOffersReviewRoute();

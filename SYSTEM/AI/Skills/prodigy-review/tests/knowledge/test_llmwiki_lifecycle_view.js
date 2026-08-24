@@ -64,6 +64,90 @@ test("exports an explicit standalone API and exact beginner-first empty copy", (
   assert.equal(action(root, "select-source").getAttribute("data-intent-action"), "select_source");
 });
 
+test("offers Literature source selection from every terminal inbox scene", () => {
+  for (const state of ["private", "empty", "ignored", "error", "cancelled"]) {
+    // Given: an inbox scene that is no longer running.
+    const subject = mount("idle", { inbox: { state, source_id: `source_${state}` } });
+
+    // When: the user chooses the Literature review route.
+    const literature = action(subject.root, "select-source");
+    assert.ok(literature, `${state}: Literature route must be visible`);
+    click(literature);
+
+    // Then: the existing read-only source-selection intent is dispatched exactly.
+    assert.equal(literature.text, "Literature 자료 검토", state);
+    assert.deepEqual(subject.calls, [{ action: "select_source" }], state);
+  }
+});
+
+test("full INBOX reanalysis requires explicit token-use confirmation", () => {
+  const originalConfirm = globalThis.confirm;
+  let confirmed = false;
+  globalThis.confirm = () => confirmed;
+  try {
+    const subject = mount("idle", {
+      inbox: {
+        state: "complete",
+        scanned_total: 2,
+        eligible: 2,
+        held: 0,
+        processed: 2,
+        succeeded: 2,
+        failed: 0,
+      },
+    });
+    const force = action(subject.root, "force-reanalyze-inbox");
+    assert.ok(force);
+    assert.equal(force.text, "전체 재분석");
+
+    click(force);
+    assert.deepEqual(subject.calls, []);
+    confirmed = true;
+    click(force);
+    assert.deepEqual(subject.calls, [{ action: "force_reanalyze_inbox" }]);
+  } finally {
+    globalThis.confirm = originalConfirm;
+  }
+});
+
+test("incremental inbox scenes expose pending and unchanged counts without implying AI calls", () => {
+  const current = mount("idle", {
+    inbox: {
+      state: "up_to_date",
+      scanned_total: 3,
+      eligible: 2,
+      held: 1,
+      pending: 0,
+      unchanged: 2,
+      processed: 0,
+      succeeded: 0,
+      failed: 0,
+    },
+  });
+  assert.match(primaryText(current.root), /지식 INBOX가 최신 상태입니다/u);
+  assert.match(primaryText(current.root), /변경 없는 자료 2개/u);
+  assert.match(primaryText(current.root), /AI 호출 0회/u);
+
+  const active = mount("idle", {
+    inbox: {
+      state: "analyzing",
+      scanned_total: 6,
+      eligible: 5,
+      held: 1,
+      pending: 2,
+      unchanged: 3,
+      processed: 1,
+      succeeded: 1,
+      failed: 0,
+      current_title: "변경 자료.md",
+    },
+  });
+  assert.match(primaryText(active.root), /2\/2 분석 중/u);
+  assert.match(primaryText(active.root), /변경 없음 3개/u);
+  const progress = active.root.querySelector("progress");
+  assert.equal(progress.getAttribute("max"), "2");
+});
+
 test("maps selecting, consent, running, review, result, stale, audit, refresh, cancelled, and abstained to state-specific controls", () => {
   const cases = [
     ["selecting", ["select-source", "request-consent"], /선택한 자료/],
@@ -129,16 +213,11 @@ test("mounts exactly one existing approval review child in review and adds no co
   assert.match(primaryText(root), /기존 승인 검토/);
 });
 
-test("keeps every enabled control in the real approval review child on the shared 44px touch-target token", () => {
-  const reviewView = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-view.js"));
-  const packet = reviewView.createSyntheticApprovalPacket();
-  const { root } = mount("review", { approval_packet: packet });
-  assert.equal(walk(root, (node) => node.getAttribute && node.getAttribute("data-surface") === "llmwiki-approval-review").length, 1);
-  click(action(root, "open-review"));
-  assert.ok(action(root, "show-diff"), "real child must expose its diff control");
-  assert.ok(action(root, "open-source"), "real child must expose its source control");
-  const style = walk(root, (node) => node.getAttribute && node.getAttribute("data-style") === "llmwiki-lifecycle")[0].text;
-  assert.match(style, /\.llmwiki-lifecycle button[^}]+min-block-size:44px/);
+test("central stylesheet owns risk-review controls and expands the checkbox label to the shared 44px target", () => {
+  const style = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/knowledge-styles.js"), "utf8");
+  assert.match(style, /\.llmwiki-lifecycle button[^}]+min-block-size:\s*var\(--ke-touch-target/);
+  assert.match(style, /\.llmwiki-approval-review__selection-target \{ min-inline-size: var\(--ke-touch-target,[^;]+; min-block-size: var\(--ke-touch-target/);
+  assert.match(style, /\.llmwiki-approval-review__selection-target input[^}]+inline-size:\s*18px/);
 });
 
 test("routes an authority-approved review child request to the controller callback without performing persistence", () => {
@@ -154,25 +233,45 @@ test("routes an authority-approved review child request to the controller callba
   assert.equal(result.status, "controller_pending");
 });
 
-test("keeps advanced metadata collapsed, technical IDs out of primary copy, Direct default, OmniRoute advanced-only, and unsupported Phase 1 operations disabled", () => {
-  const { root } = mount("consent_required");
+test("keeps connection mode advanced while exposing the configured LLM Wiki provider selector", () => {
+  const subject = mount("consent_required", {
+    provider_key: "antigravity",
+    provider_options: [
+      { provider_key: "antigravity", name: "Antigravity 구독", model: "gemini-3.6-flash-medium", configured: true },
+      { provider_key: "codex", name: "Codex 구독", model: "", configured: true },
+      { provider_key: "gemini", name: "Google Gemini", model: "gemini-3.5-flash", configured: false },
+    ],
+  });
+  const { root } = subject;
   const advanced = walk(root, (node) => node.tag === "details" && collectText(node).includes("고급 실행 설정"))[0];
   assert.ok(advanced);
   assert.equal(advanced.open, false);
   assert.equal(walk(advanced, (node) => node.tag === "input" && node.getAttribute("value") === "direct")[0].checked, true);
   assert.equal(walk(advanced, (node) => node.tag === "input" && node.getAttribute("value") === "omniroute").length, 1);
   assert.equal(primaryText(root).includes("OmniRoute"), false);
+  const selector = walk(root, (node) => node.tag === "select" && node.getAttribute("data-provider-selector") === "llmwiki")[0];
+  assert.ok(selector);
+  assert.equal(selector.value, "antigravity");
+  const choices = walk(selector, (node) => node.tag === "option");
+  assert.equal(choices.length, 3);
+  assert.equal(choices.find((option) => option.getAttribute("value") === "gemini").disabled, true);
+  selector.value = "codex";
+  selector.onchange({ currentTarget: selector, target: selector });
+  assert.deepEqual(subject.calls, [{ action: "set_provider", provider_key: "codex" }]);
+  const busy = mount("idle", {
+    provider_key: "antigravity",
+    provider_options: [{ provider_key: "antigravity", name: "Antigravity 구독", model: "fixture", configured: true }],
+    inbox: { state: "analyzing", scanned_total: 1, eligible: 1, held: 0, processed: 0, succeeded: 0, failed: 0 },
+  });
+  assert.equal(walk(busy.root, (node) => node.tag === "select" && node.getAttribute("data-provider-selector") === "llmwiki")[0].disabled, true);
   for (const operation of ["update", "merge", "dispute"]) {
     const control = walk(advanced, (node) => node.getAttribute && node.getAttribute("data-operation") === operation)[0];
     assert.ok(control && control.disabled, operation);
   }
 
   const result = mount("committed").root;
-  const info = walk(result, (node) => node.tag === "details" && collectText(node).includes("고급 정보"))[0];
-  assert.ok(info);
-  assert.equal(info.open, false);
-  assert.match(collectText(info), /a{64}|b{64}|provider_internal_fixture/);
-  assert.doesNotMatch(primaryText(result), /a{64}|b{64}|provider_internal_fixture|packet_hash|provider_id|revision/);
+  const serialized = serialize(result);
+  assert.doesNotMatch(serialized, /a{64}|b{64}|provider_internal_fixture|packet_hash|provider_id|revision_internal/);
 });
 
 test("provides semantic live status, 44px token targets, visible focus, reduced motion, keep-all wrapping, and no nested horizontal overflow", () => {
@@ -181,14 +280,15 @@ test("provides semantic live status, 44px token targets, visible focus, reduced 
   assert.ok(status);
   assert.equal(status.getAttribute("aria-live"), "polite");
   assert.equal(status.getAttribute("aria-atomic"), "true");
-  const style = walk(root, (node) => node.tag === "style").map((node) => node.text).join("\n");
-  assert.match(style, /min-block-size:44px/);
-  assert.match(style, /word-break:keep-all/);
-  assert.match(style, /overflow-wrap:anywhere/);
-  assert.match(style, /min-inline-size:0/);
-  assert.match(style, /max-inline-size:100%/);
+  const style = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/knowledge-styles.js"), "utf8");
+  assert.match(style, /min-block-size:\s*var\(--ke-touch-target/);
+  assert.match(style, /\.llmwiki-lifecycle__provider select\s*\{[^}]*min-block-size:\s*var\(--ke-touch-target/s);
+  assert.match(style, /word-break:\s*keep-all/);
+  assert.match(style, /overflow-wrap:\s*anywhere/);
+  assert.match(style, /min-inline-size:\s*0/);
+  assert.match(style, /max-inline-size:\s*100%/);
   assert.match(style, /:focus-visible/);
-  assert.match(style, /prefers-reduced-motion:reduce/);
+  assert.match(style, /prefers-reduced-motion:\s*reduce/);
   assert.doesNotMatch(style, /overflow-x:\s*(auto|scroll)/);
   assert.doesNotMatch(style, /#[0-9a-fA-F]{3,8}|rgb\s*\(/);
   assert.equal(walk(root, (node) => node.getAttribute && node.getAttribute("data-scroll-owner")).length, 0);

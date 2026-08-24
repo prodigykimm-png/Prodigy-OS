@@ -1,0 +1,13 @@
+{
+  "fixture_revision": "llmwiki_source_adapters_fixture_v1",
+  "markdown": { "source_kind": "markdown", "source_path": "ZETA/LITERATURE/adapter.md", "text": "# Adapter\n\nBounded Markdown." },
+  "plain_text": { "source_kind": "plain_text", "source_path": "INBOX/adapter.txt", "text": "Plain source text." },
+  "current_note": { "source_kind": "current_note", "source_path": "DAILY/2026-08-14.md", "text": "Current note body." },
+  "current_selection": { "source_kind": "current_selection", "source_path": "DAILY/2026-08-14.md", "text": "Current note body.", "selection": { "text": "note", "start": 8, "end": 12 } },
+  "saved_web_snapshot": { "source_kind": "saved_web_snapshot", "source_url": "https://example.com/article", "requested_url": "https://example.com/start", "extracted_text": "Saved article text.", "fetched_at": "2026-08-14T00:00:00.000Z" },
+  "text_layer_pdf": { "source_kind": "text_layer_pdf", "source_path": "ZETA/LITERATURE/paper.pdf", "extracted_text": "PDF text layer, page one.", "page_count": 1 },
+  "transcript": { "source_kind": "transcript", "source_path": "ZETA/LITERATURE/interview.txt", "transcript_text": "Speaker: transcript text." },
+  "reading_session": { "source_kind": "reading_session", "source_path": "PARA/RESOURCES/Reading/Sessions/session.md", "record": { "type": "reading_session", "session_id": "reading-session-1", "book_title": "Sources", "key_content": "A source is immutable." } },
+  "daily_evidence": { "source_kind": "daily_evidence", "source_path": "DAILY/2026-08-14.md", "record": { "evidence_id": "daily-2026-08-14-e01", "title": "Observed", "experience": "The source did not change.", "interpretation": "Identity was preserved." } },
+  "knowledge_candidate": { "source_kind": "knowledge_candidate", "source_path": "PARA/RESOURCES/Knowledge/Candidates/source.md", "record": { "type": "knowledge_candidate", "candidate_id": "candidate-source-1", "status": "saved", "title": "Immutable sources", "statement": "Source adapters do not write.", "source_type": "daily_evidence", "source_evidence_ids": ["daily-2026-08-14-e01"] } }
+}

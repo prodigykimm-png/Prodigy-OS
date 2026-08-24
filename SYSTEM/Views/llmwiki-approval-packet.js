@@ -4,6 +4,7 @@
   const crypto = typeof require === "function" ? require("node:crypto") : null;
   const hashApi = root.LLMWikiHash;
   const bundleApi = root.LLMWikiProposalBundle || (typeof require === "function" ? require("./llmwiki-proposal-bundle.js") : null);
+  const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
 
   const PACKET_VERSION = "llmwiki_approval_packet_v1";
   const TRUST_STATE = "proposal_unverified";
@@ -20,8 +21,16 @@
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
-  function clone(value) { return JSON.parse(JSON.stringify(value)); }
+  function clone(value) {
+    if (operationApi?.isOperationRecord?.(value)) return value;
+    if (Array.isArray(value)) return value.map(clone);
+    if (!plain(value)) return value;
+    const result = Object.getPrototypeOf(value) === null ? Object.create(null) : {};
+    for (const [key, item] of Object.entries(value)) Object.defineProperty(result, key, { value: clone(item), enumerable: true, writable: true, configurable: true });
+    return result;
+  }
   function freeze(value) {
+    if (operationApi?.isOperationRecord?.(value)) return value;
     if (Array.isArray(value)) return Object.freeze(value.map(freeze));
     if (!plain(value)) return value;
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)])));
@@ -89,9 +98,20 @@
   function normalizeBundle(envelope) {
     if (!plain(envelope) || !plain(envelope.proposal_bundle)) return fail("bundle", "malformed_bundle");
     const bundle = envelope.proposal_bundle;
+    const validatedOperations = new Map();
+    if (Array.isArray(bundle.proposals)) {
+      for (const proposal of bundle.proposals) {
+        if (!plain(proposal) || !Object.hasOwn(proposal, "operation")) continue;
+        if (!operationApi || typeof operationApi.parseOperation !== "function") return fail("operation", "operation_contract_unavailable");
+        const parsed = operationApi.parseOperation(proposal.operation);
+        if (!parsed || parsed.ok === false) return parsed || fail("operation", "malformed_operation");
+        validatedOperations.set(proposal, parsed.value);
+      }
+    }
     const proposals = Array.isArray(bundle.proposals) ? bundle.proposals.map((proposal) => {
       if (!plain(proposal)) return proposal;
       const copy = clone(proposal);
+      if (validatedOperations.has(proposal)) copy.operation = validatedOperations.get(proposal);
       if (copy.target === null) delete copy.target;
       if (copy.target_revision === null) delete copy.target_revision;
       delete copy.proposal_id;
@@ -188,6 +208,7 @@
       conflicts: clone(proposal.conflicts || []),
       diff: renderedDiff(proposal),
     };
+    if (proposal.operation) operation.operation_contract = clone(proposal.operation);
     if (proposal.kind === "abstain") operation.non_write_reason = proposal.abstention_reason;
     if (proposal.kind === "no_change") operation.non_write_reason = proposal.no_change_reason;
     if (proposal.kind === "dispute") operation.dispute_or_supersession = clone(proposal.dispute);
@@ -199,7 +220,11 @@
     const operations = bundle.proposals.map((proposal, index) => renderOperation(runId, proposal, index));
     let createExposed = false;
     for (const operation of operations) {
-      if (operation.proposal_kind === "create" && !createExposed) {
+      if (operation.operation_contract?.conflicts?.some((conflict) => conflict.status === "unresolved")) {
+        operation.authorization_state = "non_authorizable";
+        operation.authorization_reason = "unresolved_conflict";
+        operation.authorization_label = "충돌 해결 필요";
+      } else if (operation.proposal_kind === "create" && !createExposed) {
         operation.authorization_state = "authorizable";
         operation.authorization_reason = "phase_1_create_only";
         operation.authorization_label = "승인 가능";
@@ -216,7 +241,10 @@
       }
     }
     const conflicts = [];
-    for (const proposal of bundle.proposals) for (const conflict of proposal.conflicts || []) conflicts.push(clone(conflict));
+    for (const proposal of bundle.proposals) {
+      for (const conflict of proposal.conflicts || []) conflicts.push(clone(conflict));
+      for (const conflict of proposal.operation?.conflicts || []) conflicts.push(clone(conflict));
+    }
     const unresolved = uniqueSorted(conflicts.filter((conflict) => conflict.status === "unresolved").map((conflict) => conflict.conflict_id));
     const selectionAllowlist = operations
       .filter((operation) => operation.authorization_state === "authorizable")

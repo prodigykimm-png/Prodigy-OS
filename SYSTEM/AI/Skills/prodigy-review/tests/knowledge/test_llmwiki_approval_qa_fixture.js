@@ -193,7 +193,7 @@ test("Given the isolated LLMWiki QA fixture, When its source contract is inspect
   // Then: packet creation and Hub handoff are gated by the visible action and remain preview-only.
   assert.match(source, /["']data-action["']\s*:\s*["']prepare-llmwiki-qa-packet["']/u);
   assert.ok(prepareHandler, "packet preparation must be inside the prepare button handler");
-  assert.match(prepareHandler[1], /LLMWikiApprovalReviewView\.createSyntheticApprovalPacket\(\)/u);
+  assert.match(prepareHandler[1], /LLMWikiApprovalReviewView\.testOnly\.createSyntheticApprovalPacket\(\)/u);
   assert.match(prepareHandler[1], /createPacketBoundPreview\(packet\)/u);
   assert.match(prepareHandler[1], /KnowledgeExplorerHub\.approvalPacket\s*=\s*packet/u);
   assert.match(prepareHandler[1], /KnowledgeExplorerHub\.commitOptions\s*=\s*\{\s*preview:\s*true\s*\}/u);
@@ -222,7 +222,7 @@ test("Given the isolated LLMWiki QA fixture, When the stale action is inspected,
   assert.ok(stalePrepareHandler, "stale packet preparation must be inside its visible action handler");
 
   // Then: the stale fixture changes only its in-memory live target and reset owns its restoration.
-  assert.match(stalePrepareHandler[1], /LLMWikiApprovalReviewView\.createSyntheticApprovalPacket\(\)/u);
+  assert.match(stalePrepareHandler[1], /LLMWikiApprovalReviewView\.testOnly\.createSyntheticApprovalPacket\(\)/u);
   assert.match(stalePrepareHandler[1], /KnowledgeExplorerHub\.commitOptions\s*=\s*\{\s*preview:\s*true\s*\}/u);
   assert.match(stalePrepareHandler[1], /createPacketBoundPreview\(packet,\s*\{\s*stale:\s*true\s*\}\)/u);
   assert.match(stalePrepareHandler[1], /KnowledgeExplorerHub\.buildCommitRequest\s*=\s*buildCommitRequest/u);
