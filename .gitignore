@@ -34,6 +34,7 @@ artifacts/prodigy-knowledge-inbox/
 .obsidian/plugins/*/data.json
 .obsidian/plugins/*/data.json.backup*
 .obsidian/plugins/*/*.backup*
+.obsidian/plugins/obsidian-git/
 
 # Local tooling / session artifacts
 .gjc/
