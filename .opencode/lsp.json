@@ -1,0 +1,15 @@
+{
+  "lsp": {
+    "biome": {
+      "disabled": true
+    },
+    "typescript": {
+      "initialization": {
+        "tsserver": {
+          "path": "/opt/homebrew/lib/node_modules/typescript/lib/tsserver.js"
+        }
+      },
+      "priority": 100
+    }
+  }
+}
