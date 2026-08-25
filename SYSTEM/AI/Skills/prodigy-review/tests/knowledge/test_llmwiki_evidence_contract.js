@@ -2,7 +2,6 @@
 
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
-const fs = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
 
@@ -77,6 +76,15 @@ function humanJustified() {
     current_source_snapshots: {},
   });
 }
+
+test("characterization: existing evidence evaluation remains a zero-write, source-bound approval decision", () => {
+  const result = api().evaluateEvidence(fixture());
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.value.approval_eligible, true);
+  assert.equal(result.value.stale, false);
+  assert.deepEqual(result.value.write_counters, { canonical: 0, maintenance: 0, writer: 0, git: 0 });
+  assert.equal(result.value.claim_lineage[0].citations[0].source_content_hash, HASH_C);
+});
 
 test("claim provenance binds source spans and extractor revisions to verification metadata", () => {
   const result = api().evaluateEvidence(fixture());

@@ -5,6 +5,7 @@
   const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
   const riskApi = root.LLMWikiRiskApprovalPacket || (typeof require === "function" ? require("./llmwiki-risk-approval-packet.js") : null);
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
+  const sensitivePolicyApi = root.LLMWikiSensitiveContentPolicy || (typeof require === "function" ? require("./llmwiki-sensitive-content-policy.js") : null);
 
   const MIGRATION_VERSION = "llmwiki_migration_packet_v1";
   const ROLLOUT_VERSION = "llmwiki_rollout_state_v1";
@@ -63,7 +64,10 @@
       for (const input of inputs) {
         const adapted = await adapters.extract(input);
         if (!adapted || adapted.ok !== true) return freeze({ ...(adapted || fail("source_extraction_failed")), writer_calls: 0, user_authored_schema_fields: 0 });
-        sources.push(adapted.value);
+        const source = adapted.value;
+        const sensitive = sensitivePolicyApi && sensitivePolicyApi.inspect({ source_path: source.source_path || source.path, source_text: source.source_text || source.text || source.content, metadata: source.frontmatter || source.metadata });
+        if (sensitive && sensitive.type === "hold") return fail("sensitive_content_hold", { status: "hold", source_index: sources.length, policy: sensitive });
+        sources.push(source);
       }
       return freeze({ ok: true, status: "normalized", sources, writer_calls: 0, user_authored_schema_fields: 0 });
     }

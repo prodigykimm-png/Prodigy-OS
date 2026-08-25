@@ -6,6 +6,25 @@ const fs = require("node:fs");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const core = require(path.join(ROOT, "SYSTEM/Views/auction-region-core.js"));
+require(path.join(ROOT, "SYSTEM/Views/design-tokens.js"));
+require(path.join(ROOT, "SYSTEM/Views/region-styles.js"));
+const regionStyles = global.RegionStyles;
+
+function renderedRegionStyles() {
+  const previousDocument = global.document;
+  const style = { id: "", textContent: "" };
+  global.document = {
+    getElementById: () => null,
+    createElement: () => style,
+    head: { appendChild() {} }
+  };
+  try {
+    regionStyles.ensureRegionStyles();
+    return style.textContent;
+  } finally {
+    global.document = previousDocument;
+  }
+}
 
 function main() {
   assert.equal(core.normalizeSido("인천"), "인천광역시");
@@ -190,8 +209,9 @@ function main() {
   const popupView = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-view.js"), "utf8");
   assert.match(popupView, /renderPopup/);
   assert.match(popupView, /CONTROL_HEIGHTS\.touchTarget/);
+  assert.match(popupView, /RegionStyles\.ensureRegionStyles/);
   assert.doesNotMatch(popupView, /min-height:\s*44px/);
-  assert.match(require(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-view.js")).popupStyles(), /min-height:\s*44px/);
+  assert.match(renderedRegionStyles(), /min-height:\s*44px/);
   const decisionVM = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/region-decision-view-model.js"), "utf8");
   assert.match(decisionVM, /projectRegionPopup/);
   assert.match(decisionVM, /computeTrustBadges/);
@@ -200,6 +220,8 @@ function main() {
   assert.match(hub, /region-intelligence-popup-store\.js/);
   assert.match(hub, /region-intelligence-popup-core\.js/);
   assert.ok(hub.indexOf("region-intelligence-popup-store.js") < hub.indexOf("region-intelligence-popup-core.js"));
+  assert.match(hub, /region-styles\.js/);
+  assert.ok(hub.indexOf("region-styles.js") < hub.indexOf("region-intelligence-popup-view.js"));
   assert.match(hub, /region-intelligence-popup-view\.js/);
   // Auction card exposes the single decision-board entry point.
   assert.match(card, /AuctionRegionPacket/);

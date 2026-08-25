@@ -138,11 +138,16 @@ test("isolated real Obsidian shows protected counts and barrier-controlled inbox
     for (const width of [390, 1440]) captures.push(await capture(harness, "incremental-up-to-date", width, /지식 INBOX가 최신 상태입니다.*변경 없는 자료 2개.*AI 호출 0회/s));
     assert.deepEqual(harness.osNetworkAttempts, []);
   } finally {
-    if (harness) cleanups.push(await harness.close({
-      expectedJson: expectedIncrementalState
+    if (harness) {
+      const expectedJson = expectedIncrementalState
         ? { "SYSTEM/PRIVATE/llmwiki-incremental-analysis-state.json": expectedIncrementalState }
-        : {},
-    }));
+        : {};
+      for (const relative of ["SYSTEM/PRIVATE/llmwiki-analysis-cache.json", "SYSTEM/PRIVATE/llmwiki-chunk-coverage.json", "SYSTEM/PRIVATE/llmwiki-inbox-proposals.json"]) {
+        const absolute = path.join(harness.runtime.vault, relative);
+        if (fs.existsSync(absolute)) expectedJson[relative] = JSON.parse(fs.readFileSync(absolute, "utf8"));
+      }
+      cleanups.push(await harness.close({ expectedJson }));
+    }
   }
 
   assert.deepEqual(exceptions, []);

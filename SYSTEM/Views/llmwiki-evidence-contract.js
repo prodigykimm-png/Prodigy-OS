@@ -2,6 +2,7 @@
   "use strict";
 
   const crypto = typeof require === "function" ? require("node:crypto") : null;
+  const claimProvenance = root.LLMWikiClaimProvenance || (typeof require === "function" ? require("./llmwiki-claim-provenance.js") : null);
   const CONTRACT_VERSION = "llmwiki_evidence_contract_v1";
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const HASH = /^[0-9a-f]{64}$/u;
@@ -325,7 +326,20 @@
     });
   }
 
-  const api = freeze({ CONTRACT_VERSION, MAX_MAINTENANCE_RECORDS, createMaintenanceEvidenceRecord, isMaintenanceEvidenceRecord, evaluateEvidence });
+  function createClaimSet(input) {
+    return claimProvenance && typeof claimProvenance.createClaimSet === "function"
+      ? claimProvenance.createClaimSet(input) : fail("claim_provenance", "claim_provenance_unavailable");
+  }
+  function authorizeClaimSet(claimSet, authorization) {
+    return claimProvenance && typeof claimProvenance.transitionClaimSet === "function"
+      ? claimProvenance.transitionClaimSet(claimSet, authorization) : fail("claim_provenance", "claim_provenance_unavailable");
+  }
+  function assessClaimStaleness(claimSet, currentSnapshots) {
+    return claimProvenance && typeof claimProvenance.assessClaimStaleness === "function"
+      ? claimProvenance.assessClaimStaleness(claimSet, currentSnapshots) : fail("claim_provenance", "claim_provenance_unavailable");
+  }
+
+  const api = freeze({ CONTRACT_VERSION, MAX_MAINTENANCE_RECORDS, createMaintenanceEvidenceRecord, isMaintenanceEvidenceRecord, evaluateEvidence, createClaimSet, authorizeClaimSet, assessClaimStaleness });
   root.LLMWikiEvidenceContract = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

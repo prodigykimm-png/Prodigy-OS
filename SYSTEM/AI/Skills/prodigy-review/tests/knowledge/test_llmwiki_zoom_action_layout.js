@@ -141,7 +141,14 @@ test("Given the real Knowledge review, When zoom reaches 200% and recovers, Then
       }
     }
   } finally {
-    if (harness) cleanup = await harness.close();
+    if (harness) {
+      const expectedJson = {};
+      for (const relative of ["SYSTEM/PRIVATE/llmwiki-incremental-analysis-state.json", "SYSTEM/PRIVATE/llmwiki-analysis-cache.json", "SYSTEM/PRIVATE/llmwiki-chunk-coverage.json", "SYSTEM/PRIVATE/llmwiki-inbox-proposals.json"]) {
+        const absolute = path.join(harness.runtime.vault, relative);
+        if (fs.existsSync(absolute)) expectedJson[relative] = JSON.parse(fs.readFileSync(absolute, "utf8"));
+      }
+      cleanup = await harness.close({ expectedJson });
+    }
     if (RECEIPT_PATH) {
       fs.mkdirSync(path.dirname(RECEIPT_PATH), { recursive: true });
       fs.writeFileSync(RECEIPT_PATH, `${JSON.stringify({ schema: "ZoomActionLayout/v1", pass: rows.length === 12 && rows.every((row) => { try { assertRow(row); return true; } catch { return false; } }), rows, cleanup }, null, 2)}\n`);

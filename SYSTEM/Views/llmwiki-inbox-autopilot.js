@@ -5,6 +5,8 @@
   const consentApi = root.LLMWikiOutboundConsent || (typeof require === "function" ? require("./llmwiki-outbound-consent.js") : null);
   const recoveryApi = root.LLMWikiUIRecovery || (typeof require === "function" ? require("./llmwiki-ui-recovery.js") : null);
   const privacyBoundaryApi = root.LLMWikiInboxPrivacyBoundary || (typeof require === "function" ? require("./llmwiki-inbox-privacy-boundary.js") : null);
+  const sensitivePolicyApi = root.LLMWikiSensitiveContentPolicy || (typeof require === "function" ? require("./llmwiki-sensitive-content-policy.js") : null);
+  const scopeApi = root.LLMWikiAnalysisScope || (typeof require === "function" ? require("./llmwiki-analysis-scope.js") : null);
   const nodeCrypto = typeof require === "function" ? require("node:crypto") : null;
 
   const ROUTES = Object.freeze(["knowledge", "people", "project", "venue", "auction", "hold"]);
@@ -132,10 +134,14 @@
   function createInboxAutopilot(options = {}) {
     const registry = options.registry;
     const extract = resolveExtractor(options.sourceAdapter);
+    const createScope = options.sourceAdapter && typeof options.sourceAdapter.createAnalysisScope === "function"
+      ? options.sourceAdapter.createAnalysisScope.bind(options.sourceAdapter) : scopeApi?.createAnalysisScope;
     const transport = options.analysisTransport;
     const maxSourceBytes = Number.isSafeInteger(options.maxSourceBytes) && options.maxSourceBytes > 0
       ? options.maxSourceBytes : DEFAULT_MAX_SOURCE_BYTES;
     const sourceRegistryRecords = options.sourceRegistryRecords instanceof WeakMap ? options.sourceRegistryRecords : null;
+    const chunkOrchestrator = options.chunkOrchestrator || null;
+    if (chunkOrchestrator && typeof chunkOrchestrator.analyze !== "function") throw new TypeError("chunk_orchestrator_required");
     if (!registry || typeof registry.register !== "function") throw new TypeError("source_registry_required");
     if (!extract) throw new TypeError("source_adapter_required");
     if (typeof transport !== "function") throw new TypeError("analysis_transport_required");
@@ -146,6 +152,7 @@
     const revisions = new Map();
     const generations = new Map();
     const inputs = new Map();
+    const chunkRequests = new Map();
 
     function emit(event) {
       const safeEvent = freeze(event);
@@ -177,6 +184,8 @@
     function cancel(sourceId) {
       const id = trim(sourceId);
       generations.set(id, generation(id) + 1);
+      const activeRequest = chunkRequests.get(id);
+      if (activeRequest) activeRequest.authority.cancel(activeRequest.request);
       for (const [key, state] of revisions) if (key.startsWith(`${id}\u0000`) && state.status === "running") state.status = "cancelled";
       emit({ type: "analysis_cancelled", source_id: id });
       return freeze({ ok: true, state: "cancelled", source_id: id });
@@ -200,6 +209,8 @@
         && !denied
         && trim(sourceInput.privacy_class).toLowerCase() !== "private"
         && matchesPrefix(source.source_path, standing.value.policy.allowed_path_prefixes);
+      const sensitive = allowedKnowledge && sensitivePolicyApi && sensitivePolicyApi.inspect({ source_path: source.source_path, source_text: sourceInput.source_text, metadata: sourceInput });
+      if (sensitive && sensitive.type === "hold") return rejected("sensitive_content_hold", { route: "hold", policy: sensitive });
       const revisionKey = `${source.source_id}\u0000${source.modified_revision}`;
       const existing = revisions.get(revisionKey);
       if (existing && existing.content_hash !== source.content_hash) return rejected("source_revision_content_mismatch", { route, replayed: false });
@@ -256,22 +267,40 @@
         return success({ route, state: "completed", replayed: true, snapshot_id: snapshot.snapshot_id, receipt: receiptFor(source, route, "completed", snapshot.snapshot_id, 0) });
       }
 
+      for (const [key, prior] of revisions) {
+        if (key !== revisionKey && key.startsWith(`${source.source_id}\u0000`) && prior.status === "running") cancel(source.source_id);
+      }
       const runGeneration = generation(source.source_id);
+      let chunkRequest = null;
+      if (chunkOrchestrator) {
+        if (typeof createScope !== "function") return rejected("analysis_scope_unavailable", { route });
+        const scope = createScope({ source_id: source.source_id, source_path: source.source_path, content_hash: source.content_hash, source_text: sourceInput.source_text });
+        const authority = scopeApi.createAnalysisRequestAuthority();
+        chunkRequest = { authority, request: authority.begin(scope) };
+        chunkRequests.set(source.source_id, chunkRequest);
+      }
       revisions.set(revisionKey, { status: "running", snapshot_id: snapshot.snapshot_id, content_hash: source.content_hash });
       emit({ type: "analysis_queued", source_id: source.source_id, modified_revision: source.modified_revision, snapshot_id: snapshot.snapshot_id });
       let analysis;
       try {
-        analysis = await transport(freeze({
-          route,
-          source_id: source.source_id,
-          modified_revision: source.modified_revision,
-          content_hash: source.content_hash,
-          snapshot,
-          extracted_text: standing.value.policy.redaction_policy === "selected_source_text_only"
-            ? trim(extracted.value.extracted_text || extractedContent.text) : "",
-          policy: standing.value,
-          signal: context.signal,
-        }));
+        analysis = chunkOrchestrator
+          ? await chunkOrchestrator.analyze({
+            source_id: source.source_id, source_path: source.source_path, content_hash: source.content_hash,
+            snapshot, extracted_text: sourceInput.source_text, authority: chunkRequest.authority, request: chunkRequest.request,
+            signal: context.signal, force: forceAnalysis,
+            provider: (work) => transport(freeze({ ...work, route, modified_revision: source.modified_revision, content_hash: source.content_hash, policy: standing.value, signal: context.signal })),
+          })
+          : await transport(freeze({
+            route,
+            source_id: source.source_id,
+            modified_revision: source.modified_revision,
+            content_hash: source.content_hash,
+            snapshot,
+            extracted_text: standing.value.policy.redaction_policy === "selected_source_text_only"
+              ? trim(extracted.value.extracted_text || extractedContent.text) : "",
+            policy: standing.value,
+            signal: context.signal,
+          }));
       } catch (_error) {
         if (generation(source.source_id) !== runGeneration) return success({ route, state: "cancelled", replayed: false, snapshot_id: snapshot.snapshot_id, receipt: receiptFor(source, route, "cancelled", snapshot.snapshot_id, 0) });
         revisions.set(revisionKey, { status: "failed", snapshot_id: snapshot.snapshot_id, content_hash: source.content_hash });
@@ -280,14 +309,23 @@
       if (generation(source.source_id) !== runGeneration || revisions.get(revisionKey).status === "cancelled") {
         return success({ route, state: "cancelled", replayed: false, snapshot_id: snapshot.snapshot_id, receipt: receiptFor(source, route, "cancelled", snapshot.snapshot_id, 0) });
       }
+      if (typeof registry.isCurrentSnapshot === "function" && !registry.isCurrentSnapshot(source.source_id, snapshot.snapshot_id)) {
+        revisions.set(revisionKey, { status: "failed", snapshot_id: snapshot.snapshot_id, content_hash: source.content_hash, reason: "stale_source_revision" });
+        return rejected("stale_source_revision", { route, snapshot_id: snapshot.snapshot_id });
+      }
       if (!analysis || analysis.ok !== true) {
         const reason = analysis && analysis.reason || "analysis_failed";
         revisions.set(revisionKey, { status: "failed", snapshot_id: snapshot.snapshot_id, content_hash: source.content_hash, reason });
         return rejected(reason, { route, snapshot_id: snapshot.snapshot_id, message: trim(analysis && analysis.message) });
       }
+      if (chunkOrchestrator && (!analysis.coverage || analysis.coverage.complete !== true || analysis.coverage.durable !== true || analysis.coverage.exactCoverage !== true)) {
+        revisions.set(revisionKey, { status: "failed", snapshot_id: snapshot.snapshot_id, content_hash: source.content_hash, reason: "incomplete_coverage" });
+        return rejected("incomplete_coverage", { route, snapshot_id: snapshot.snapshot_id });
+      }
       revisions.set(revisionKey, { status: "completed", snapshot_id: snapshot.snapshot_id, content_hash: source.content_hash });
+      if (chunkRequests.get(source.source_id) === chunkRequest) chunkRequests.delete(source.source_id);
       emit({ type: "analysis_completed", source_id: source.source_id, modified_revision: source.modified_revision, snapshot_id: snapshot.snapshot_id });
-      return success({ route, state: "completed", replayed: false, analysis_runs: 1, snapshot_id: snapshot.snapshot_id, receipt: receiptFor(source, route, "completed", snapshot.snapshot_id, 1) });
+      return success({ route, state: "completed", replayed: false, analysis_runs: 1, snapshot_id: snapshot.snapshot_id, analysis: chunkOrchestrator ? analysis : undefined, receipt: receiptFor(source, route, "completed", snapshot.snapshot_id, 1) });
     }
 
     function resume(inputOrSourceId, context = {}) {

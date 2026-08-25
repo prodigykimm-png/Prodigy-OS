@@ -503,7 +503,7 @@ function taskRows(runtime, rows = processRows()) {
 }
 
 function processIdentity(pid) {
-  const output = run("ps", ["-p", String(pid), "-o", "lstart=", "-o", "comm="], "process identity snapshot").trim();
+  const output = run("/usr/bin/env", ["LC_ALL=C", "ps", "-p", String(pid), "-o", "lstart=", "-o", "comm="], "process identity snapshot").trim();
   const match = output.match(/^(.{24})\s+([\s\S]+)$/u);
   if (!match) throw new Error(`unable to parse process identity for PID ${pid}`);
   return { pid, startTime: match[1], executable: normalizePath(match[2].trim()) };

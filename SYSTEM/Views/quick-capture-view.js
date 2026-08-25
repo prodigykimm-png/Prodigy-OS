@@ -61,6 +61,10 @@
     if (!content) throw new Error("생각 내용이 비어 있습니다.");
     const now = options && options.now instanceof Date ? options.now : new Date(options && options.now || Date.now());
     const line = thoughtLine(content, now);
+    const lifecycleStore = root.KnowledgeFleetingStore;
+    if (lifecycleStore && typeof lifecycleStore.saveThought === "function") {
+      return lifecycleStore.saveThought(app, { date: localDateKey(now), text: line });
+    }
     const filePath = `${FLEETING_FOLDER}/${localDateKey(now)}.md`;
     const file = app.vault.getAbstractFileByPath(filePath);
     if (file) {
@@ -186,12 +190,14 @@
       saving = true;
       saveButton.disabled = true;
       try {
+        const savedMode = mode;
         let receipt;
-        if (mode === "thought") receipt = await saveFleetingThought(app, { content: inputValue(), now: typeof opts.now === "function" ? opts.now() : new Date() });
+        if (savedMode === "thought") receipt = await saveFleetingThought(app, { content: inputValue(), now: typeof opts.now === "function" ? opts.now() : new Date() });
         else receipt = await saveMaterial(app, { title: titleInput.value, content: inputValue() });
         closeEditor();
         showStatus(`저장됨: ${receipt.path}`);
         if (notify) notify(`저장됨: ${receipt.path}`);
+        if (typeof opts.onSaved === "function") opts.onSaved(Object.freeze({ mode: savedMode, receipt }));
       } catch (error) {
         showStatus(String(error && error.message || error));
       } finally {

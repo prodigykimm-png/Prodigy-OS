@@ -10,6 +10,7 @@
   const TYPES = new Set(["stale", "contradiction", "orphan", "changed_source", "superseded"]);
   const FEEDBACK = new Set(["ignored", "denied", "rejected"]);
   const SNAPSHOTS = new WeakSet();
+  const TRUSTED_INPUTS = new WeakSet();
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim().normalize("NFC") : ""; }
@@ -50,6 +51,7 @@
       || left.trigger_id.localeCompare(right.trigger_id, "en");
   }
   function parse(serialized) {
+    if (plain(serialized) && TRUSTED_INPUTS.has(serialized)) return serialized;
     if (typeof serialized !== "string") return fail("snapshot", "serialized_snapshot_required");
     if (!serialized || serialized.length > MAX_SERIALIZED_INPUT) return fail("snapshot", "snapshot_size_limit_exceeded");
     try {
@@ -70,6 +72,8 @@
     const documentMap = new Map();
     for (const [index, row] of input.canonical_documents.entries()) {
       if (!plain(row) || !ID.test(trim(row.document_id)) || !HASH.test(trim(row.canonical_revision))) return fail(`canonical_documents.${index}`, "invalid_canonical_document");
+      const trust = root.LLMWikiCanonicalTrust || (typeof require === "function" ? require("./llmwiki-canonical-trust.js") : null);
+      if (!trust || typeof trust.isVerifiedRow !== "function" || !trust.isVerifiedRow(row)) return fail(`canonical_documents.${index}`, "canonical_trust_required");
       const sourceIds = ids(row.source_ids, `canonical_documents.${index}.source_ids`, true);
       if (sourceIds.ok === false) return sourceIds;
       if (documentMap.has(trim(row.document_id))) return fail(`canonical_documents.${index}.document_id`, "duplicate_canonical_document");
@@ -111,11 +115,19 @@
     return Object.freeze({ ok: true, value });
   }
 
+  function createTrustedMaintenanceSnapshot(input) {
+    if (!plain(input) || !Array.isArray(input.canonical_documents)) return fail("snapshot", "trusted_snapshot_required");
+    const trust = root.LLMWikiCanonicalTrust || (typeof require === "function" ? require("./llmwiki-canonical-trust.js") : null);
+    if (!trust || typeof trust.isVerifiedRow !== "function" || input.canonical_documents.some((row) => !trust.isVerifiedRow(row))) return fail("canonical_documents", "canonical_trust_required");
+    TRUSTED_INPUTS.add(input);
+    return createMaintenanceSnapshot(input);
+  }
+
   function isMaintenanceSnapshot(value) {
     return Boolean(value) && (typeof value === "object" || typeof value === "function") && SNAPSHOTS.has(value);
   }
 
-  const api = freeze({ LIFECYCLE_VERSION, MAX_SERIALIZED_INPUT, MAX_DOCUMENTS, MAX_TRIGGERS, createMaintenanceSnapshot, isMaintenanceSnapshot });
+  const api = freeze({ LIFECYCLE_VERSION, MAX_SERIALIZED_INPUT, MAX_DOCUMENTS, MAX_TRIGGERS, createMaintenanceSnapshot, createTrustedMaintenanceSnapshot, isMaintenanceSnapshot });
   root.LLMWikiKnowledgeLifecycle = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

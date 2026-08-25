@@ -81,7 +81,7 @@ test("protected snapshot reads only executable, bundle, start, PGID, and loopbac
   const snapshot = snapshotProtected();
   assert.match(snapshot.hash, /^[a-f0-9]{64}$/u);
   for (const record of snapshot.records) {
-    assert.deepEqual(Object.keys(record).sort(), ["bundle", "executable", "kind", "pgid", "pid", "ports", "start"].sort());
+    assert.deepEqual(Object.keys(record).sort(), ["bundle", "executable", "executableSha256", "kind", "pgid", "pid", "ports", "start"].sort());
     assert.doesNotMatch(JSON.stringify(record), /user-data-dir|Library\/Application Support|vault/i);
   }
 });

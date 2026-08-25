@@ -27,6 +27,11 @@
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
+  function cloneFrozen(value) {
+    if (Array.isArray(value)) return Object.freeze(value.map(cloneFrozen));
+    if (!plain(value)) return value;
+    return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, child]) => [key, cloneFrozen(child)])));
+  }
   function stable(value) {
     if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
     if (!plain(value)) return JSON.stringify(value);
@@ -70,6 +75,20 @@
       && value.continuity_version === "llmwiki_immutable_audit_head_v1"
       && (value.head_hash === null || HASH.test(value.head_hash))
       && Number.isInteger(value.count) && value.count >= 0;
+  }
+  function validV2Authority(value, binding) {
+    return plain(value)
+      && value.schema_version === 2
+      && value.canonical_id === binding.canonical_id
+      && value.canonical_sha256 === binding.revision
+      && HASH.test(value.claim_set_hash)
+      && HASH.test(value.promotion_receipt_hash)
+      && plain(value.claim_set) && value.claim_set.claim_set_hash === value.claim_set_hash
+      && plain(value.promotion_receipt)
+      && Array.isArray(value.sources) && value.sources.length > 0
+      && Array.isArray(value.relations)
+      && typeof value.ai_enrichment_status === "string" && value.ai_enrichment_status
+      && value.status === "active";
   }
 
   function mergeFailureAuditPath(nonce) {
@@ -501,15 +520,17 @@
       }
       entries.sort((a, b) => a.audit_count - b.audit_count);
       let previous = null;
-      const usedCanonical = new Set(), usedNonce = new Set(), authorities = [];
+      const usedNonce = new Set(), authorities = [];
+      const authorityIndexByCanonical = new Map();
       for (const [index, audit] of entries.entries()) {
         if (audit.audit_count !== index + 1 || audit.previous_audit_hash !== previous) return Object.freeze([]);
         previous = audit.audit_hash;
+        const boundInThisAudit = new Set();
         for (const binding of audit.resurfacing_bindings) {
           if (!plain(binding) || !ID.test(binding.canonical_id) || !validCanonicalPath(binding.path) || !HASH.test(binding.revision)
             || auditPath(binding.nonce) === null || !HASH.test(binding.final_audit_sha256)
             || !HASH.test(binding.packet_hash) || !HASH.test(binding.authorization_hash)
-            || binding.packet_hash !== audit.packet_hash || usedCanonical.has(binding.canonical_id) || usedNonce.has(binding.nonce)) return Object.freeze([]);
+            || binding.packet_hash !== audit.packet_hash || usedNonce.has(binding.nonce) || boundInThisAudit.has(binding.canonical_id)) return Object.freeze([]);
           const finalized = await readEntry(auditPath(binding.nonce));
           if (!finalized.file || sha256(finalized.bytes) !== binding.final_audit_sha256) return Object.freeze([]);
           let finalAudit;
@@ -520,10 +541,30 @@
             || finalAudit.authorization_hash !== binding.authorization_hash || !HASH.test(finalAudit.before_sha256)
             || !HASH.test(finalAudit.live_revision) || !HASH.test(finalAudit.consent_hash)
             || !Array.isArray(finalAudit.source_ids) || typeof finalAudit.committed_at !== "string" || !Number.isFinite(Date.parse(finalAudit.committed_at))) return Object.freeze([]);
+          const v2Authority = audit.canonical_v2_authority;
+          if (v2Authority !== undefined && !validV2Authority(v2Authority, binding)) return Object.freeze([]);
           const authority = Object.freeze({});
+          const authorityData = cloneFrozen({
+            canonical_id: binding.canonical_id,
+            path: binding.path,
+            revision: binding.revision,
+            nonce: binding.nonce,
+            packet_hash: binding.packet_hash,
+            authorization_hash: binding.authorization_hash,
+            immutable_audit_hash: audit.audit_hash,
+            ...(v2Authority ? { canonical_v2_authority: v2Authority } : {}),
+          });
           FINALIZED_AUTHORITIES.add(authority);
-          AUTHORITY_DATA.set(authority, Object.freeze({ canonical_id: binding.canonical_id, path: binding.path, revision: binding.revision, nonce: binding.nonce, packet_hash: binding.packet_hash, authorization_hash: binding.authorization_hash, immutable_audit_hash: audit.audit_hash }));
-          usedCanonical.add(binding.canonical_id); usedNonce.add(binding.nonce); authorities.push(authority);
+          AUTHORITY_DATA.set(authority, authorityData);
+          usedNonce.add(binding.nonce); boundInThisAudit.add(binding.canonical_id);
+          const existingIndex = authorityIndexByCanonical.get(binding.canonical_id);
+          if (existingIndex === undefined) {
+            authorityIndexByCanonical.set(binding.canonical_id, authorities.length);
+            authorities.push(authority);
+          } else {
+            // A later finalized commit supersedes the earlier revision of the same canonical identity.
+            authorities[existingIndex] = authority;
+          }
         }
       }
       if (entries.length !== continuity.count || previous !== continuity.head_hash) return Object.freeze([]);
@@ -567,7 +608,9 @@
     createObsidianAdapter,
     resolveObsidianAdapter,
     isFinalizedCanonicalAuthority: function (value) { return Boolean(value) && FINALIZED_AUTHORITIES.has(value); },
-    finalizedCanonicalAuthorityData: function (value) { return FINALIZED_AUTHORITIES.has(value) ? AUTHORITY_DATA.get(value) : null; },
+    finalizedCanonicalAuthorityData: function (value) {
+      return FINALIZED_AUTHORITIES.has(value) ? cloneFrozen(AUTHORITY_DATA.get(value)) : null;
+    },
   });
   root.LLMWikiObsidianAdapter = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

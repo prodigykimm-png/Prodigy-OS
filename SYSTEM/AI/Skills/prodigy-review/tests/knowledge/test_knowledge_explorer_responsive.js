@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const childProcess = require("node:child_process");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
@@ -23,6 +24,7 @@ const { FakeElement, collectText } = require("./knowledge_explorer_view_fakes.js
 const { catalog, flattenCatalog } = require("./knowledge_explorer_fixtures.js");
 const registry = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-registry.js"));
 const core = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-core.js"));
+const { createDisposableOwnership } = require("../shared/real_obsidian_harness.js");
 const { RESPONSIVE_BREAKPOINTS, CONTROL_HEIGHTS } = require(path.join(ROOT, "SYSTEM/Views/design-tokens.js"));
 const MEDIUM_MIN = RESPONSIVE_BREAKPOINTS.collapsedNavMax + 1;
 const WIDE_MIN = RESPONSIVE_BREAKPOINTS.utilityTwoColumnMax + 1;
@@ -223,7 +225,7 @@ async function createAsidePage(browser, port) {
 }
 
 class AsideHarness {
-  constructor(runtimeRoot, profile, port, browserPid, processGroupPid, launch, browser, page, version, stderrChunks, launchSpec) {
+  constructor(runtimeRoot, profile, port, browserPid, processGroupPid, launch, browser, page, version, stderrChunks, launchSpec, ownership) {
     this.runtimeRoot = runtimeRoot;
     this.profile = profile;
     this.port = port;
@@ -235,6 +237,7 @@ class AsideHarness {
     this.version = version;
     this.stderrChunks = stderrChunks;
     this.launchSpec = launchSpec;
+    this.ownership = ownership;
   }
 
   static launchSpecForTest(runtimeRoot, port, inheritedEnv = process.env) {
@@ -266,6 +269,9 @@ class AsideHarness {
     const { profile } = launchSpec;
     fs.mkdirSync(profile, { recursive: true });
     for (const key of ["HOME", "TMPDIR", "XDG_CONFIG_HOME"]) fs.mkdirSync(launchSpec.env[key], { recursive: true });
+    const nonce = crypto.randomBytes(8).toString("hex");
+    const ownership = createDisposableOwnership({ runtimeRoot, executable: ASIDE_BINARY, profile, target: "about:blank", port, nonce });
+    launchSpec.args.splice(-1, 0, `--task13a-nonce=${nonce}`, ...ownership.args);
     let launch = null;
     try {
       const stderrChunks = [];
@@ -292,7 +298,8 @@ class AsideHarness {
       const browserPid = Number(lsof.stdout.trim().split(/\s+/u)[0]);
       assert.equal(Number.isInteger(browserPid) && browserPid > 0, true, "Aside listener PID must be discoverable for bounded cleanup");
       assert.equal(asidePidsForProfile(profile).includes(browserPid), true, "Aside listener must belong to the task-owned profile");
-      return new AsideHarness(runtimeRoot, profile, port, browserPid, launch.pid, launch, browser, primaryTarget.page, version, stderrChunks, launchSpec);
+      ownership.bindApplicationPid(browserPid);
+      return new AsideHarness(runtimeRoot, profile, port, browserPid, launch.pid, launch, browser, primaryTarget.page, version, stderrChunks, launchSpec, ownership);
     } catch (error) {
       if (launch && Number.isInteger(launch.pid)) {
         const exited = launch.exitCode === null ? new Promise((resolve) => launch.once("exit", resolve)) : Promise.resolve();
@@ -335,6 +342,7 @@ class AsideHarness {
       profileProcesses: asidePidsForProfile(this.profile),
       portFree: await canBindLoopbackPort(this.port),
       allocatorDiagnostic: /Trying to load the allocator multiple times/u.test(stderr),
+      ownershipAudit: { token: this.ownership.token, owner: this.ownership.metadata.owner, application: this.ownership.metadata.application },
     };
     console.log(`TASK15_ASIDE_CLEANUP ${JSON.stringify(receipt)}`);
     assert.deepEqual(receipt.profileProcesses, [], "Aside profile processes must be cleaned up");
@@ -413,7 +421,8 @@ async function navigateAndAssertReady(harness, url, expression, message) {
   await harness.page.send("Page.navigate", { url });
   await loaded;
   const ready = await harness.page.send("Runtime.evaluate", { expression, returnByValue: true });
-  assert.equal(ready.result && ready.result.value, true, message);
+  const diagnostics = await harness.page.send("Runtime.evaluate", { expression: "window.__task15FixtureErrors || []", returnByValue: true });
+  assert.equal(ready.result && ready.result.value, true, `${message}: ${JSON.stringify(diagnostics.result && diagnostics.result.value)}`);
 }
 
 async function loadBrowserFixture(harness) {

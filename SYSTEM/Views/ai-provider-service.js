@@ -99,6 +99,7 @@
   const HTTP_STRUCTURED_REQUEST_KEYS = new Set(COMMON_REQUEST_KEYS.concat(["schema", "sleep", "allowFormatDowngrade", "requestTag"]));
   const GEMINI_STRUCTURED_REQUEST_KEYS = new Set(COMMON_REQUEST_KEYS.concat(["schema", "sleep", "requestTag"]));
   const HTTP_STRUCTURED_ONCE_REQUEST_KEYS = new Set(COMMON_REQUEST_KEYS.concat(["schema", "sleep", "providerKey", "providerMode", "requestMetadata", "consent"]));
+  const STRUCTURED_NO_RETRY_REQUEST_KEYS = new Set(COMMON_REQUEST_KEYS.concat(["schema", "timeoutScheduler"]));
   const HTTP_CHAT_REQUEST_KEYS = new Set(COMMON_REQUEST_KEYS.concat(["contextEnvelope", "sleep"]));
 
   function rejectUnknownExecProviderKeys(source, allowed) {
@@ -154,6 +155,7 @@
     const adapter = String(provider && provider.adapter || "");
     const isExec = adapter === "codex-exec" || adapter === "antigravity-exec";
     if (kind === "chat") return isExec ? EXEC_CHAT_REQUEST_KEYS : HTTP_CHAT_REQUEST_KEYS;
+    if (kind === "structured-no-retry") return STRUCTURED_NO_RETRY_REQUEST_KEYS;
     if (kind === "structured-once") return isExec ? EXEC_STRUCTURED_ONCE_REQUEST_KEYS : HTTP_STRUCTURED_ONCE_REQUEST_KEYS;
     if (isExec) return EXEC_STRUCTURED_REQUEST_KEYS;
     return adapter === "gemini" ? GEMINI_STRUCTURED_REQUEST_KEYS : HTTP_STRUCTURED_REQUEST_KEYS;
@@ -171,6 +173,9 @@
     }
     if (options.requestTag !== undefined && typeof options.requestTag !== "string") {
       throw providerSecurityError("AI provider requestTag 옵션은 문자열이어야 합니다.");
+    }
+    if (options.timeoutScheduler !== undefined && typeof options.timeoutScheduler !== "function") {
+      throw providerSecurityError("AI provider timeoutScheduler 옵션은 함수여야 합니다.");
     }
     if (options.providerKey !== undefined && typeof options.providerKey !== "string") {
       throw providerSecurityError("AI provider providerKey 옵션은 문자열이어야 합니다.");
@@ -255,6 +260,7 @@
         method: options.method || "POST",
         headers: options.headers || {},
         body: options.body,
+        signal: options.signal,
         throw: false
       });
       const status = Number(response.status || 0);
@@ -482,12 +488,12 @@
         return parseJsonPayload(extractJsonText(response));
       } catch (error) {
         const status = Number(error && error.status || 0);
-        const shouldRetry = TRANSIENT_HTTP_STATUSES.has(status) && attempt < RETRY_DELAYS_MS.length;
+        const shouldRetry = options.noRetry !== true && TRANSIENT_HTTP_STATUSES.has(status) && attempt < RETRY_DELAYS_MS.length;
         if (shouldRetry) {
           await sleep(RETRY_DELAYS_MS[attempt]);
           continue;
         }
-        if (!options.forcePlain && options.allowFormatDowngrade !== false && provider.adapter !== "gemini" && status === 400 && isFormatRejection(error)) {
+        if (options.noRetry !== true && !options.forcePlain && options.allowFormatDowngrade !== false && provider.adapter !== "gemini" && status === 400 && isFormatRejection(error)) {
           try {
             const plainResponse = await requestOpenAiCompatible(Object.assign({}, options, { forcePlain: true }), apiKey);
             return parseJsonPayload(extractJsonText(plainResponse));
@@ -543,6 +549,77 @@
       throw userFacingProviderError(error, provider, options && options.app);
     }
   }
+  function timeoutError() {
+    const error = new Error("AI 요청 시간이 초과되었습니다. 네트워크 상태와 제공자 설정을 확인해 주세요.");
+    error.name = "TimeoutError";
+    error.code = "ETIMEDOUT";
+    return error;
+  }
+  function abortError() {
+    const error = new Error("AI 요청이 취소되었습니다.");
+    error.name = "AbortError";
+    return error;
+  }
+  function schedulerFor(options) {
+    return typeof options.timeoutScheduler === "function"
+      ? options.timeoutScheduler
+      : (callback, timeoutMs) => {
+        const timer = setTimeout(callback, timeoutMs);
+        return () => clearTimeout(timer);
+      };
+  }
+  function requestStructuredJsonBounded(options, timeoutMs) {
+    const Controller = typeof AbortController === "function" ? AbortController : null;
+    const controller = Controller ? new Controller() : null;
+    const sourceSignal = options.signal;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let cancelTimeout = () => {};
+      const cleanup = () => {
+        cancelTimeout();
+        if (sourceSignal && typeof sourceSignal.removeEventListener === "function") sourceSignal.removeEventListener("abort", sourceAborted);
+      };
+      const finish = (settle, value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        settle(value);
+      };
+      const sourceAborted = () => {
+        if (controller) controller.abort();
+        finish(reject, abortError());
+      };
+      if (sourceSignal && sourceSignal.aborted) { sourceAborted(); return; }
+      if (sourceSignal && typeof sourceSignal.addEventListener === "function") sourceSignal.addEventListener("abort", sourceAborted, { once: true });
+      const request = requestProviderStructuredJson(Object.assign({}, options, { signal: controller ? controller.signal : sourceSignal, allowFormatDowngrade: false, noRetry: true }));
+      const scheduledCancellation = schedulerFor(options)(() => {
+        if (controller) controller.abort();
+        finish(reject, timeoutError());
+      }, timeoutMs);
+      cancelTimeout = typeof scheduledCancellation === "function" ? scheduledCancellation : () => {};
+      if (settled) cancelTimeout();
+      Promise.resolve(request).then(
+        (value) => finish(resolve, value),
+        (error) => finish(reject, error),
+      );
+    });
+  }
+  async function requestStructuredJsonNoRetry(options) {
+    validatePublicRequestOptions(options, "structured-no-retry");
+    const provider = options && options.provider;
+    if (!provider) throw new Error("AI provider is not configured.");
+    const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : (Number(provider.structuredTimeoutMs) > 0 ? Number(provider.structuredTimeoutMs) : STRUCTURED_TIMEOUT_MS);
+    try {
+      return await requestStructuredJsonBounded(options, timeoutMs);
+    } catch (error) {
+      const surfaced = userFacingProviderError(error, provider, options && options.app);
+      if (error && ["ETIMEDOUT", "OUTCOME_UNKNOWN"].includes(error.code)) {
+        surfaced.code = error.code;
+        surfaced.cause = error;
+      }
+      throw surfaced;
+    }
+  }
 
   async function requestChatText(options) {
     validatePublicRequestOptions(options, "chat");
@@ -583,7 +660,7 @@
       .filter(Boolean);
   }
 
-  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, CHAT_TIMEOUT_MS, STRUCTURED_TIMEOUT_MS, SUBSCRIPTION_REJECTION, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, isAllowedRelayURL, validateProviderSecurity, listModels, isProviderConfigured, requestChatText, requestStructuredJson, requestStructuredJsonOnce };
+  const api = { GEMINI_ENDPOINT, RETRY_DELAYS_MS, CHAT_TIMEOUT_MS, STRUCTURED_TIMEOUT_MS, SUBSCRIPTION_REJECTION, redactError, providerHttpError, userFacingProviderError, httpRequest, getSecret, setSecret, getProviderSecret, extractJsonText, parseJsonPayload, authHeaders, normalizeGeminiSchema, normalizeStructuredSchema, isMobileRuntime, resolveBaseURL, isAllowedRelayURL, validateProviderSecurity, listModels, isProviderConfigured, requestChatText, requestStructuredJson, requestStructuredJsonOnce, requestStructuredJsonNoRetry };
 
   root.AIProviderService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

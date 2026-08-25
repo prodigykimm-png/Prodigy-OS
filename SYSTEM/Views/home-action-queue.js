@@ -116,6 +116,20 @@
       });
     });
 
+    const fleetingCount = Number(opts.fleetingCount) || 0;
+    if (fleetingCount > 0) {
+      add({
+        kind: "fleeting",
+        priority: 81,
+        title: `미정리 생각 ${fleetingCount}개`,
+        reason: "직접 저장한 생각 중 아직 검토하지 않은 블록입니다.",
+        workspace: "knowledge",
+        action_label: "생각 정리",
+        target_path: pathFor("knowledge") || "HUB/50 Knowledge.md",
+        object_path: "",
+      });
+    }
+
     const inboxCount = Number(opts.inboxCount) || 0;
     if (inboxCount > 0) {
       add({

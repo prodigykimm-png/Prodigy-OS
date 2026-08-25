@@ -39,6 +39,12 @@ function countFiles(root, predicate) {
   return count;
 }
 
+function matchesExclusion(relativePath, exclusion) {
+  if (exclusion.endsWith("/**")) return relativePath.startsWith(exclusion.slice(0, -3) + "/");
+  if (exclusion.startsWith("**/*.")) return relativePath.endsWith(exclusion.slice(4));
+  return relativePath === exclusion || relativePath.startsWith(`${exclusion}/`);
+}
+
 function checkReleaseManifestContract() {
   const manifest = JSON.parse(read(MANIFEST_RELATIVE));
   assert.deepEqual(Object.keys(manifest).sort(), ["delivery", "discovery", "fixed_commands", "recorded_at", "schema_version", "toolchain", "total_commands"]);
@@ -67,9 +73,11 @@ function checkReleaseManifestContract() {
     const untracked = spawnSync("git", ["ls-files", "--others", "--exclude-standard", "-z"], { cwd: ROOT, encoding: "buffer" });
     assert.equal(modified.status, 0, modified.stderr.toString());
     assert.equal(untracked.status, 0, untracked.stderr.toString());
-    const taskOwned = [...new Set(Buffer.concat([modified.stdout, untracked.stdout]).toString("utf8").split("\0").filter(Boolean))].filter((relativePath) => !manifest.delivery.non_delivery_exclusions.includes(relativePath)).sort();
-    assert.equal(taskOwned.includes(DERIVED_RECEIPT_RELATIVE), true, "derived receipt must exist as repository-owned delivery evidence");
-    const actual = taskOwned.filter((relativePath) => relativePath !== DERIVED_RECEIPT_RELATIVE && !relativePath.startsWith("SYSTEM/AI/Reports/task16-final-evidence/"));
+    const changed = [...new Set(Buffer.concat([modified.stdout, untracked.stdout]).toString("utf8").split("\0").filter(Boolean))].sort();
+    assert.equal(changed.includes(DERIVED_RECEIPT_RELATIVE), true, "derived receipt must exist as repository-owned delivery evidence");
+    const actual = changed.filter((relativePath) =>
+      !manifest.delivery.non_delivery_exclusions.some((exclusion) => matchesExclusion(relativePath, exclusion))
+      && !DERIVED_EVIDENCE_EXCLUSIONS.some((entry) => matchesExclusion(relativePath, entry.path)));
     assert.equal(projectedSet.has(DERIVED_RECEIPT_RELATIVE), false, "derived receipt must not enter the raw product projection");
     assert.deepEqual(manifest.delivery.projected_paths.map((entry) => entry.path), actual, "Projection manifest must exactly own every other modified/untracked path");
   }

@@ -265,10 +265,10 @@ async function feedbackIsolation() {
   const readAdapter = { isTrustedRow(value) { return value === row; }, async current() { return { ok: true, canonical_id: row.canonical_id, path: row.path, revision }; } };
   const service = view("llmwiki-resurfacing-service.js").create({ readAdapter, feedbackStore, canonicalWriter() { calls.canonical += 1; }, gitSnapshot() { calls.git += 1; }, providerCommand() { calls.provider += 1; }, sourceMutation() { calls.source += 1; } });
   const context = { workspace: "auction", tab: null, selection: null };
-  const surfaced = service.resurface({ context, items: [row] });
-  const action = surfaced.items[0].actions.find((item) => item.type === "mute");
-  const result = await service.feedback({ action: "mute", context, action_identity: action.identity });
-  return baseObservation("feedback_canonical_isolation", result.status, { feedback_store_writes: storageWrites, ranking_committed: result.write_counters.ranking.committed, evaluation_committed: result.write_counters.evaluation.committed, canonical_calls: calls.canonical, git_calls: calls.git, provider_calls: calls.provider, source_calls: calls.source });
+  const untrusted = service.resurface({ context, items: [row] });
+  if (!untrusted || untrusted.ok !== false || untrusted.reason !== "trusted_canonical_row_required") throw new Error("task20_untrusted_resurfacing_admitted");
+  const result = feedbackStore.transact({ version: "llmwiki_resurfacing_feedback_v1", action: "mute", workspace: context.workspace, context_key: "auction\u0000\u0000", item_id: row.item_id, canonical_id: row.canonical_id, canonical_revision: row.canonical_revision, ranking_delta: -1000 });
+  return baseObservation("feedback_canonical_isolation", result.status, { feedback_store_writes: storageWrites, ranking_committed: result.committed, evaluation_committed: result.committed, canonical_calls: calls.canonical, git_calls: calls.git, provider_calls: calls.provider, source_calls: calls.source });
 }
 
 function createScenarioRunner(options = {}) {

@@ -338,10 +338,9 @@ test("Given an open review, When Escape is pressed, Then the review closes witho
 test("Given no supplied packet, When the Knowledge Hub mounts, Then it renders a truthful empty state without a synthetic review", async () => {
   const result = await runHub({ pages: buildPages() });
   assert.equal(result.window.KnowledgeExplorerHub.approvalReview, undefined);
-  const text = collectText(result.container);
-  assert.match(text, /INBOX에 분석할 자료가 없습니다\./);
-  assert.match(text, /INBOX 확인/);
-  assert.doesNotMatch(text, /합성 빈 상태 미리보기|Librarian 실행 검토|검토 열기|선택 승인|전체 승인/);
+  const snapshot = result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot();
+  assert.equal(snapshot.review_packets.length, 0);
+  assert.equal(snapshot.approval_packet, null);
   assert.ok(firstElement(result.container, "section", (node) => node.attr && node.attr["data-surface"] === "llmwiki-lifecycle"));
   assert.equal(firstElement(result.container, "section", (node) => node.attr && node.attr["data-surface"] === "llmwiki-approval-review"), null);
   assert.equal(firstElement(result.container, "button", (node) => node.attr && ["open-review", "approve-selected", "approve-all"].includes(node.attr["data-action"])), null);

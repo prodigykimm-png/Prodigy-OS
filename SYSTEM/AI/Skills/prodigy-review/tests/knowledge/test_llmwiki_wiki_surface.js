@@ -9,6 +9,7 @@ const registry = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-regist
 const adapter = require(path.join(ROOT, "SYSTEM/Views/llmwiki-wiki-read-adapter.js"));
 const surfaceApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-wiki-surface.js"));
 const stylesApi = require(path.join(ROOT, "SYSTEM/Views/knowledge-styles.js"));
+const { createTrustedFixture } = require("./fixtures/llmwiki-canonical-v2-trust-fixture.js");
 
 function fakeDocument() {
   let document;
@@ -48,20 +49,39 @@ function fakeDocument() {
   return { document, container: make("div") };
 }
 
+function legacyAsset() {
+  return { source_path: "ZETA/PERMANENT/alpha.md", path: "ZETA/PERMANENT/alpha.md", type: "knowledge", title: "Alpha", mtime: 10, frontmatter: { type: "knowledge", knowledge_domain: "coding", knowledge_topics: ["ai"] } };
+}
+
 function snapshot() {
   return adapter.buildSnapshot({
     registry,
     collection_revision: "surface-fixture",
-    assets: [{ source_path: "ZETA/PERMANENT/alpha.md", path: "ZETA/PERMANENT/alpha.md", type: "knowledge", title: "Alpha", mtime: 10, frontmatter: { type: "knowledge", knowledge_domain: "coding", knowledge_topics: ["ai"] } }],
+    assets: [legacyAsset()],
     candidates: [{ type: "knowledge_candidate", path: "PARA/RESOURCES/Knowledge/Candidates/pending.md", title: "Pending", statement: "Pending statement", suggested_domain: "coding", suggested_topics: ["ai"], status: "saved", mtime: 20 }],
   });
+}
+
+async function snapshotWithTrustedRow() {
+  const genuine = await createTrustedFixture();
+  const current = adapter.buildSnapshot({
+    registry,
+    collection_revision: genuine.revision,
+    assets: [genuine.row, legacyAsset()],
+    candidates: [{ type: "knowledge_candidate", path: "PARA/RESOURCES/Knowledge/Candidates/pending.md", title: "Pending", statement: "Pending statement", suggested_domain: "coding", suggested_topics: ["ai"], status: "saved", mtime: 20 }],
+  });
+  assert.equal(current.counts.verified, 1, JSON.stringify(current.counts));
+  assert.equal(current.rows.find((row) => row.trust === "verified").path, genuine.path);
+  assert.equal(current.rows.find((row) => row.trust === "maintenance" && row.path === "ZETA/PERMANENT/alpha.md") !== undefined, true, "legacy knowledge row without finalized authority stays maintenance");
+  return { genuine, current };
 }
 
 function descendants(root) {
   return [root, ...(root && Array.isArray(root.children) ? root.children.flatMap(descendants) : [])];
 }
 
-test("clicking a knowledge result opens hydrated detail in an Obsidian modal", async () => {
+test("clicking a verified canonical v2 result opens hydrated detail in an Obsidian modal while legacy rows stay excluded", async () => {
+  const { genuine, current } = await snapshotWithTrustedRow();
   const { document, container } = fakeDocument();
   const modals = [];
   class FakeModal {
@@ -94,12 +114,13 @@ test("clicking a knowledge result opens hydrated detail in an Obsidian modal", a
     const surface = surfaceApi.mountLlmWikiWikiSurface({
       app: {},
       container,
-      snapshot: snapshot(),
+      snapshot: current,
       readAdapter: adapter,
       readService,
       obsidian: { Modal: FakeModal },
     });
     surface.setMode("verified");
+    assert.equal(descendants(container).some((node) => typeof node.textContent === "string" && node.textContent.includes("Alpha")), false, "legacy row is never rendered as a verified result");
     const resultButton = descendants(container).find((node) => node.attributes && node.attributes.class === "llmwiki-wiki-surface__result");
     assert.ok(resultButton);
     resultButton.onclick();
@@ -107,7 +128,7 @@ test("clicking a knowledge result opens hydrated detail in an Obsidian modal", a
     assert.equal(modals.length, 1);
     assert.equal(modals[0].opened, true);
     const modalText = descendants(modals[0].contentEl).map((node) => node.textContent).filter(Boolean).join(" ");
-    assert.match(modalText, /Alpha/u);
+    assert.match(modalText, /Fixture authority/u);
     assert.match(modalText, /popup body/u);
     assert.equal(descendants(container).some((node) => node.attributes && node.attributes["data-component"] === "WikiDetailPane"), false);
     modals[0].close();

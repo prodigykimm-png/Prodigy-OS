@@ -36,9 +36,10 @@
     canonical: Object.freeze(["knowledge"]),
     legacy: Object.freeze(["permanent_note"]),
     resource: Object.freeze(["literature_note", "venue", "auction_region"]),
-    excluded: Object.freeze(["fleeting_note"]),
+    excluded: Object.freeze(["fleeting_note", "knowledge_candidate"]),
     related: Object.freeze(["people", "project", "journal", "reading"])
   });
+  const TRUST_TIERS = Object.freeze({ verified: "verified", legacy_review: "legacy_review", supporting: "supporting", pending: "pending", maintenance: "maintenance" });
 
   const domainSet = new Set(DOMAIN_ORDER);
   const topicSets = Object.freeze(Object.fromEntries(
@@ -81,6 +82,12 @@
     return Object.freeze(result.length ? result : [UNCLASSIFIED]);
   }
 
+  function isVerifiedCanonical(source) {
+    const trust = root.LLMWikiCanonicalTrust || (typeof require === "function" ? (() => { try { return require("./llmwiki-canonical-trust.js"); } catch (_) { return null; } })() : null);
+    return Boolean(source) && normalizeToken(source.type) === "knowledge"
+      && trust && typeof trust.isVerifiedRow === "function" && trust.isVerifiedRow(source);
+  }
+
   function resolveResourceRole(source) {
     if (!source || typeof source !== "object") return null;
     const type = normalizeToken(source.type);
@@ -114,6 +121,8 @@
     TOPICS_BY_DOMAIN,
     RESOURCE_ROLES,
     SOURCE_TYPE_POLICY,
+    TRUST_TIERS,
+    isVerifiedCanonical,
     normalizeDomain,
     normalizeTopics,
     resolveResourceRole,

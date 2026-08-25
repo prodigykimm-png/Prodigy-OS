@@ -6,18 +6,12 @@ const { test } = require("node:test");
 const { buildPages, runHub } = require("./knowledge_hub_integration_harness.js");
 
 const beforeBytes = "# 기존 지식\n\n원래 내용입니다.\n";
-const canonicalProposal = Object.freeze({
-  type: "knowledge", title: "기존 지식", statement: "승인 후 내용입니다.", knowledge_kind: "principle",
-  knowledge_domain: "reading", knowledge_topics: [], application_trigger: "보상 경로를 검증할 때",
-  application_contexts: ["reading"], connections: [], invalidation_conditions: [], summary: "승인 후 지식",
-  created: "2026-08-21T00:00:00.000Z", updated: "2026-08-21T00:00:00.000Z", body: "# 기존 지식\n\n승인 후 내용입니다.\n",
-});
-const afterBytes = require("../../../../../Views/knowledge-candidate-store.js").renderCanonicalDocument(canonicalProposal);
+const afterBytes = "# 승인 후 내용입니다.\n\n승인 후 내용입니다.\n";
 const targetPath = "ZETA/PERMANENT/task17-production-update.md";
 const sha256 = (value) => crypto.createHash("sha256").update(value, "utf8").digest("hex");
 
 function updateProviderSource() {
-  return `(function(root){root.AIProviderService=Object.freeze({async requestStructuredJsonOnce(request){const selected=JSON.parse(request.prompt).selected_source;return {status:"ok",serialized_operation:JSON.stringify({contract_version:"llmwiki_operation_contract_v1",operation_id:"operation_task17_production",kind:"update",destination_ids:["${targetPath}"],base_revisions:{"${targetPath}":"${sha256(beforeBytes)}"},before_bytes:{"${targetPath}":${JSON.stringify(beforeBytes)}},after_bytes:{"${targetPath}":${JSON.stringify(afterBytes)}},source_citations:[{source_id:selected.source_id,content_hash:selected.content_hash,source_url:null,locators:[selected.locator],source_archive_id:null,confidence:"explicit"}],conflicts:[],risk_tier:"low",effects:{deprecations:[],supersessions:[]}}),canonical_proposal:${JSON.stringify(canonicalProposal)},provider_confidence:.99,response_metadata:{response_id:"response_task17"}}}})})(globalThis);`;
+  return `(function(root) { root.AIProviderService = Object.freeze({ async requestStructuredJsonOnce(request) { const payload = JSON.parse(request.prompt); const chunk_results = payload.changed_chunks.map(function(chunk) { return { key: chunk.key, semantic_units: [{ temporary_span_alias: "span_task17", start: 0, end: Math.min(12, chunk.text.length), origin_hint: "source_extract", disposition: "propose", uncertainty: { level: "low", reasons: [] }, claims: [{ text: "승인 후 내용입니다.", temporary_span_alias: "span_task17" }] }] }; }); return { status: "ok", chunk_results: chunk_results }; } }); })(globalThis);`;
 }
 
 async function mountedHub() {
@@ -27,6 +21,13 @@ async function mountedHub() {
       "INBOX/Knowledge/task17.md": "# Task 17 fixture\n\n근거입니다.\n",
       [targetPath]: beforeBytes,
       "SYSTEM/Views/ai-provider-service.js": updateProviderSource(),
+    },
+    llmWikiControllerOptions: {
+      inboxLocalIdentityIndex: [{
+        identity_id: "identity_task17_local",
+        identity_key: `identity_${sha256("# Task 17 fixture\n\n근거입니다.").slice(0, 24)}`,
+        content_hash: sha256(beforeBytes), revision: sha256(beforeBytes), path: targetPath, before_bytes: beforeBytes,
+      }],
     },
   });
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();

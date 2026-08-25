@@ -64,10 +64,11 @@ async function testHubLoadsExplorerAndDetailSections() {
   assert.equal(typeof result.window.KnowledgeExplorerHub.openBeside, "function");
   assert.equal(result.window.KnowledgeExplorerHub.openBeside.length, 1, "open-beside handler must remain a direct single-argument function");
 
-  const clickable = firstElement(paraPanel, "a", (node) => node.attr && String(node.attr.class || "").includes("knowledge-para-open-link"));
-  assert.ok(clickable, "expected at least one clickable PARA source title");
+  const clickable = firstElement(result.container, "a", (node) => node.attr && String(node.attr.class || "").includes("knowledge-explorer-brief-source"));
+  assert.ok(clickable, "expected at least one clickable read-only source title");
   assert.equal(typeof clickable.onclick, "function");
-  const targetPath = "SYNTHETIC/knowledge-explorer/project/knowledge-explorer.md";
+  const targetPath = clickable.attr["data-asset-path"];
+  assert.equal(typeof targetPath, "string");
   const beforeLeaves = result.app.workspace.leaves.length;
   let prevented = false;
   clickable.onclick({ preventDefault: () => { prevented = true; } });

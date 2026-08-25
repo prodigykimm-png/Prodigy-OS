@@ -40,7 +40,10 @@ async function main() {
     assert.ok(state >= 0 && state < writerIndex && writerIndex < runtimeIndex, `${workspace} Capture dependency order`);
     return runtimeIndex;
   };
-  assert.ok(requiredOrder("home") < manifest.get("home").required.indexOf("SYSTEM/Views/object-creator-view.js"));
+  const homeManifest = manifest.get("home");
+  assert.ok(requiredOrder("home") < homeManifest.required.indexOf("SYSTEM/Views/quick-capture-view.js"));
+  assert.equal(homeManifest.required.includes("SYSTEM/Views/object-creator-view.js"), false, "deferred Home creator does not block mount");
+  assert.equal(homeManifest.optional.includes("SYSTEM/Views/object-creator-view.js"), true, "deferred Home creator remains loader-owned");
   assert.ok(requiredOrder("personal") < manifest.get("personal").required.indexOf("SYSTEM/Views/people-view.js"));
   assert.ok(requiredOrder("workout") < manifest.get("workout").required.indexOf("SYSTEM/Views/workout-capture-writer.js"));
   assert.ok(requiredOrder("journal") < manifest.get("journal").required.indexOf("SYSTEM/Views/daily-reflection-post-save.js"));

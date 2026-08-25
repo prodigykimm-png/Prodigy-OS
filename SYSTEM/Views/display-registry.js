@@ -3,7 +3,7 @@
   const T = (typeof globalThis !== "undefined" ? globalThis : this).ProdigyTokens;
   const C = T ? T.COLORS : {};
   const PROPERTY_LABELS = Object.freeze({
-    id: "식별자", type: "유형", status: "상태", created: "생성일", updated: "수정일",
+    id: "식별자", schema_version: "스키마 버전", type: "유형", status: "상태", created: "생성일", updated: "수정일",
     next_action: "다음 행동", due_date: "마감일", start_date: "시작일", priority: "우선순위",
     review_status: "복기 상태", connections: "연결", source: "출처", auction: "옥션원",
     naver: "네이버 부동산", cafe: "네이버 카페", recommend: "추천 여부",

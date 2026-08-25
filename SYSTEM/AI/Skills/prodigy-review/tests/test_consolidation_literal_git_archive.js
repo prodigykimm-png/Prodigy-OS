@@ -64,8 +64,16 @@ function deriveTaskOwnedPaths() {
   ])].filter((relativePath) => !EXTERNAL_KNOWLEDGE_INBOX.includes(relativePath)).sort();
 }
 
+function matchesExclusion(relativePath, exclusion) {
+  if (exclusion.endsWith("/**")) return relativePath.startsWith(exclusion.slice(0, -3) + "/");
+  if (exclusion.startsWith("**/*.")) return relativePath.endsWith(exclusion.slice(4));
+  return relativePath === exclusion || relativePath.startsWith(`${exclusion}/`);
+}
+
 function deriveProjectedPaths() {
-  return deriveTaskOwnedPaths().filter((relativePath) => !DERIVED_EVIDENCE_EXCLUSIONS.some((entry) => entry.path.endsWith("/**") ? relativePath.startsWith(entry.path.slice(0, -2)) : relativePath === entry.path));
+  return deriveTaskOwnedPaths().filter((relativePath) =>
+    !NON_DELIVERY_EXCLUSIONS.some((exclusion) => matchesExclusion(relativePath, exclusion))
+    && !DERIVED_EVIDENCE_EXCLUSIONS.some((entry) => matchesExclusion(relativePath, entry.path)));
 }
 
 function assertSafeRelativePath(relativePath) {

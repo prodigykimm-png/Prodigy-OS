@@ -94,11 +94,13 @@ test("keeps approval-ready and blocking conflict queues separate and excludes co
 
 test("production Hub loads and owns inbox intake, cancellation, retry, Task14 review and operation recovery routes", () => {
   const manifest = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js")).get("knowledge").required;
-  for (const name of ["llmwiki-source-registry.js", "llmwiki-source-adapters.js", "llmwiki-inbox-autopilot.js"]) {
+  for (const name of ["llmwiki-source-registry.js", "llmwiki-source-adapters.js", "llmwiki-inbox-autopilot.js", "knowledge-fleeting-store.js", "knowledge-command-controller.js", "knowledge-explorer-detail-modal.js", "knowledge-explorer-controller.js"]) {
     const modulePath = `SYSTEM/Views/${name}`;
     assert.equal(manifest.filter((entry) => entry === modulePath).length, 1, modulePath);
   }
   assert.ok(manifest.indexOf("SYSTEM/Views/llmwiki-outbound-consent.js") < manifest.indexOf("SYSTEM/Views/llmwiki-inbox-autopilot.js"));
+  assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-command-controller.js") < manifest.indexOf("SYSTEM/Views/knowledge-explorer-detail-modal.js"));
+  assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-explorer-detail-modal.js") < manifest.indexOf("SYSTEM/Views/knowledge-explorer-controller.js"));
   assert.ok(manifest.indexOf("SYSTEM/Views/llmwiki-ui-recovery.js") < manifest.indexOf("SYSTEM/Views/llmwiki-inbox-autopilot.js"));
   assert.ok(manifest.indexOf("SYSTEM/Views/llmwiki-ui-recovery.js") < manifest.indexOf("SYSTEM/Views/llmwiki-ai-provider-transport.js"));
   const maintenanceModules = [
@@ -117,6 +119,7 @@ test("production Hub loads and owns inbox intake, cancellation, retry, Task14 re
   assert.match(HUB, /scanned_total/);
   assert.match(HUB, /eligibleFiles/);
   assert.match(HUB, /openPreparedRiskReview/);
+  assert.match(HUB, /mountKnowledgeReviewWorkbench/);
   assert.match(HUB, /retryOperationFollowUp/);
   assert.match(HUB, /recoverOperation/);
   assert.match(HUB, /LLMWikiMaintenanceFollower/);
@@ -125,36 +128,63 @@ test("production Hub loads and owns inbox intake, cancellation, retry, Task14 re
 });
 
 test("real Hub intake reaches Task14 review, treats idle inbox cancel as a no-op, and preserves typed risk rejection", async () => {
-  const target = "ZETA/PERMANENT/inbox-product-fixture.md";
-  const serializedOperation = JSON.stringify({
-    contract_version: "llmwiki_operation_contract_v1", operation_id: "operation_inbox_product_fixture", kind: "create",
-    destination_ids: [target], base_revisions: {}, before_bytes: {}, after_bytes: { [target]: "# 읽기 쉬운 지식\n\n승인 전에는 저장하지 않습니다.\n" },
-    source_citations: [{ source_id: "source_inbox_product", content_hash: "a".repeat(64), source_url: "https://example.com/inbox", locators: ["INBOX/Knowledge/product-fixture.md#근거"], source_archive_id: null, confidence: "explicit" }],
-    conflicts: [], risk_tier: "low", effects: { deprecations: [], supersessions: [] },
-  });
+  const sourcePath = "INBOX/Knowledge/product-fixture.md", rawSource = "# 제품 자료\n\n검토할 근거입니다.\n";
+  const providerCalls = [];
   let resolveReview;
   const reachedReview = new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("inbox review event timeout")), 1000);
-    resolveReview = (state) => { if (state.state !== "complete") return; clearTimeout(timer); resolve(state); };
+    resolveReview = (state) => { if (state.state !== "complete" || state.proposal_pending !== 1) return; clearTimeout(timer); resolve(state); };
   });
   const result = await runHub({
-    pages: buildPages(), extraFiles: { "INBOX/Knowledge/product-fixture.md": "# 제품 자료\n\n검토할 근거입니다.\n" },
-    llmWikiControllerOptions: { operation_provider: async () => serializedOperation, onInboxState: resolveReview },
+    pages: buildPages(), extraFiles: { [sourcePath]: rawSource },
+    llmWikiControllerOptions: {
+      onInboxState: resolveReview,
+      inboxAnalysisTransport: async (work) => {
+        providerCalls.push(work);
+        return { ok: true, chunk_results: work.changed_chunks.map((chunk) => ({ key: chunk.key, semantic_units: [{ temporary_span_alias: "span_product", start: 0, end: Math.min(chunk.text.length, 12), origin_hint: "source_extract", disposition: "propose", uncertainty: { level: "low", reasons: [] }, claims: [{ text: "검토할 근거입니다.", temporary_span_alias: "span_product" }] }] })) };
+      },
+    },
   });
   const inbox = await reachedReview;
+  assert.equal(providerCalls.length, 1);
+  assert.deepEqual(Array.from(providerCalls[0].changed_chunks, (chunk) => chunk.text), [rawSource]);
+  for (const field of ["destination", "path", "operation", "serialized_operation", "canonical_bytes"]) assert.equal(Object.hasOwn(providerCalls[0], field), false);
   assert.deepEqual({ scanned_total: inbox.scanned_total, eligible: inbox.eligible, held: inbox.held, processed: inbox.processed, succeeded: inbox.succeeded, failed: inbox.failed }, { scanned_total: 1, eligible: 1, held: 0, processed: 1, succeeded: 1, failed: 0 });
+  assert.deepEqual({ pending: inbox.proposal_pending, complete: inbox.proposal_complete, blocked: inbox.proposal_blocked }, { pending: 1, complete: 1, blocked: 0 });
   const hub = result.window.KnowledgeExplorerHub;
   const controller = hub.llmWikiRunController.getSnapshot();
   assert.equal(controller.status, "review");
   assert.equal(controller.risk_packets.length, 1);
-  assert.equal(controller.risk_packets[0].operation.operation_id, "operation_inbox_product_fixture");
+  const packet = controller.risk_packets[0];
+  const target = packet.operation.destination_ids[0];
+  assert.equal(packet.operation.kind, "create");
+  assert.match(target, /^ZETA\/PERMANENT\/unit_[a-f0-9]{24}\.md$/u);
+  assert.equal(packet.operation.after_bytes[target], "# 검토할 근거입니다.\n\n검토할 근거입니다.\n");
   assert.match(collectText(result.container), /검토할 제안이 준비되었습니다/);
   assert.match(collectText(result.container), /INBOX 확인 완료.*분석 대상 1개.*보호 유지 0개.*처리 1개/);
-  assert.equal(result.app.vault.touched.some((row) => row[1] === target), false, "canonical target remains absent before approval");
+  assert.equal(await result.app.vault.cachedRead(result.app.vault.getAbstractFileByPath(sourcePath)), rawSource);
+  assert.equal(result.app.vault.touched.some((row) => row[1] === sourcePath || row[1].startsWith("ZETA/") || row[1].startsWith("PARA/") || row[1].startsWith(".llmwiki-audit/")), false, "intake persists review state without source or pre-approval destination writes");
+  const durablePaths = ["SYSTEM/PRIVATE/llmwiki-incremental-analysis-state.json", "SYSTEM/PRIVATE/llmwiki-chunk-coverage.json", "SYSTEM/PRIVATE/llmwiki-analysis-cache.json", "SYSTEM/PRIVATE/llmwiki-inbox-proposals.json"];
+  const persisted = Object.fromEntries(await Promise.all(durablePaths.map(async (filePath) => [filePath, await result.app.vault.cachedRead(result.app.vault.getAbstractFileByPath(filePath))])));
+  const coverageRecords = Object.values(JSON.parse(persisted[durablePaths[1]]).manifests), proposalRecords = Object.values(JSON.parse(persisted[durablePaths[3]]).manifests);
+  assert.equal(Object.keys(coverageRecords[0].receipts).length, providerCalls[0].changed_chunks.length);
+  assert.equal(Object.keys(proposalRecords[0].chunks).length, providerCalls[0].changed_chunks.length);
+
+  let restartProviderCalls = 0, resolveRestartReview;
+  const restartedReview = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("restarted inbox review event timeout")), 1000);
+    resolveRestartReview = (state) => { if (state.state !== "complete" || state.proposal_state !== "review") return; clearTimeout(timer); resolve(state); };
+  });
+  const restarted = await runHub({ pages: buildPages(), extraFiles: { [sourcePath]: rawSource, ...persisted }, llmWikiControllerOptions: { onInboxState: resolveRestartReview, inboxAnalysisTransport: async () => { restartProviderCalls += 1; throw new Error("provider replay is forbidden"); } } });
+  const restartedInbox = await restartedReview;
+  assert.equal(restartProviderCalls, 0);
+  assert.deepEqual({ pending: restartedInbox.proposal_pending, complete: restartedInbox.proposal_complete, blocked: restartedInbox.proposal_blocked }, { pending: 1, complete: 1, blocked: 0 });
+  assert.equal(restarted.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().risk_packets[0].operation.operation_id, packet.operation.operation_id);
+  assert.equal(restarted.app.vault.touched.some((row) => row[1].startsWith("ZETA/") || row[1].startsWith("PARA/") || row[1].startsWith(".llmwiki-audit/")), false);
+
   const idleCancel = await hub.dispatchLlmWikiAction({ action: "cancel_inbox", source_id: hub.llmWikiLifecycleSnapshot().inbox.source_id });
   assert.deepEqual(JSON.parse(JSON.stringify(idleCancel)), { ok: false, status: "complete", reason: "inbox_scan_not_active" });
   assert.equal(hub.llmWikiRunController.getSnapshot().status, "review");
-  const packet = controller.risk_packets[0];
   const rejected = await hub.dispatchLlmWikiAction({ action: "reject_risk", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id });
   assert.equal(rejected.ok, true);
   assert.equal(hub.llmWikiRunController.getSnapshot().status, "cancelled");
@@ -176,7 +206,9 @@ test("central Knowledge stylesheet is the only lifecycle and browse selector sou
   assert.match(shared, /\.llmwiki-wiki-surface/);
   assert.match(shared, /max-width:\s*\$\{compactMax\}px/);
   assert.match(shared, /min-block-size:\s*var\(--ke-touch-target/);
-  assert.doesNotMatch(shared, /overflow-(?:x|y):\s*(?:auto|scroll)|max-height:\s*\d/);
+  assert.doesNotMatch(shared, /\.llmwiki-lifecycle(?:__[\w-]+)?\s*\{[^}]*overflow-(?:x|y):\s*(?:auto|scroll)/);
+  assert.match(shared, /\.llmwiki-wiki-detail-modal__scroll\s*\{[^}]*overflow-y:\s*auto/);
+  assert.match(shared, /\.knowledge-review-detail-modal__scroll\s*\{[^}]*overflow-y:\s*auto/);
   assert.doesNotMatch(lifecycleSource, /createEl\(container, "style"/);
   assert.doesNotMatch(browseSource, /function injectStyles|llmwiki-wiki-surface-styles/);
 });

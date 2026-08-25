@@ -422,7 +422,7 @@ async function main() {
     // A knowledge record with NO connections must not appear (fail-closed).
     const records = [{ path: "ZETA/PERMANENT/Note A.md", type: "knowledge", title: "Note A" }];
     const model = projection.projectParaKnowledge(records, []);
-    assert.equal(model.total_knowledge, 1, "knowledge indexed");
+    assert.equal(model.total_knowledge, 0, "an unbranded plain row is not trusted as verified knowledge");
     assert.equal(model.total_links, 0, "no connections → no links");
   }
   {
@@ -437,7 +437,7 @@ async function main() {
     assert.equal(model.total_knowledge, 0, "non-verified types excluded from knowledge index");
   }
   {
-    // A verified knowledge note explicitly connected from a Project IS surfaced.
+    // A plain, unbranded row cannot become verified merely because a Project links it.
     const records = [{ path: "ZETA/PERMANENT/Note A.md", type: "knowledge", title: "Note A" }];
     const relations = [{
       path: "PARA/PROJECTS/Proj/2. Proj.md",
@@ -446,12 +446,10 @@ async function main() {
       connections: ["[[Note A]]"]
     }];
     const model = projection.projectParaKnowledge(records, relations);
-    assert.equal(model.total_links, 1);
-    assert.equal(model.links[0].knowledge_path, "ZETA/PERMANENT/Note A");
-    assert.equal(model.links[0].source_type, "project");
-    assert.deepEqual(model.source_type_counts, { project: 1 });
-    assert.deepEqual(model.link_counts.by_source, { "PARA/PROJECTS/Proj/2. Proj.md": 1 });
-    assert.equal(projection.getSourceDetail(model, "PARA/PROJECTS/Proj/2. Proj.md").link_count, 1);
+    assert.equal(model.total_links, 0);
+    assert.deepEqual(model.source_type_counts, {});
+    assert.deepEqual(model.link_counts.by_source, {});
+    assert.equal(projection.getSourceDetail(model, "PARA/PROJECTS/Proj/2. Proj.md"), null);
   }
 
   // --- PARA view exposes actions + empty-state rendering ---

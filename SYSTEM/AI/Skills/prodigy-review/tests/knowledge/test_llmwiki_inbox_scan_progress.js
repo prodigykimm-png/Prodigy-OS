@@ -10,7 +10,7 @@ const { firstElement, runHub } = require("./knowledge_hub_integration_harness.js
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const privacyBoundary = require(path.join(ROOT, "SYSTEM/Views/llmwiki-inbox-privacy-boundary.js"));
 const incrementalState = require(path.join(ROOT, "SYSTEM/Views/llmwiki-incremental-analysis-state.js"));
-const knowledgeContract = require(path.join(ROOT, "SYSTEM/Views/llmwiki-knowledge-kind-contract.js"));
+const coverage = require(path.join(ROOT, "SYSTEM/Views/llmwiki-chunk-coverage-store.js"));
 
 function syntheticProtectedRootFiles(count) {
   return Object.fromEntries(Array.from({ length: count }, (_, index) => [
@@ -99,6 +99,21 @@ test("actual scan_inbox reports zero eligible and twenty-four protected root fil
   assert.equal(transportCalls.length, 0);
   assert.equal(result.app.vault.touched.length, 0);
   assert.equal(button.focused, true);
+});
+
+test("held INBOX source stays local while scan progress settles protected", async () => {
+  const calls = [];
+  const result = await runHub({
+    pages: [],
+    extraFiles: { "INBOX/Private/개인 자료.md": "# 개인 자료\n\n비공개 내용\n" },
+    llmWikiControllerOptions: { inboxAnalysisTransport: async (work) => { calls.push(work); return { ok: true }; } },
+  });
+  const settled = await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  assert.deepEqual({ state: settled.state, eligible: settled.eligible, held: settled.held, processed: settled.processed }, {
+    state: "protected", eligible: 0, held: 1, processed: 0,
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(result.app.vault.touched.length, 0);
 });
 
 test("provider auth failure tells the user how to restore Antigravity login", async () => {
@@ -197,70 +212,23 @@ test("unexpected analysis exception stops the inbox batch after the first file",
   assert.equal(settled.reason, "analysis_failed");
 });
 
-test("default inbox analysis keeps valid proposals when one batch packet is invalid", async () => {
+test("default inbox analysis rejects a provider-selected operation envelope", async () => {
   let providerCalls = 0;
   const result = await runHub({
     pages: [],
-    extraFiles: {
-      "INBOX/배치 첫째.md": "# 배치 첫째\n",
-      "INBOX/배치 둘째.md": "# 배치 둘째\n",
-      "INBOX/배치 셋째.md": "# 배치 셋째\n",
-    },
+    extraFiles: { "INBOX/배치 첫째.md": "# 배치 첫째\n", "INBOX/배치 둘째.md": "# 배치 둘째\n" },
     llmWikiControllerOptions: {
-      operation_provider: async (input) => {
+      operation_provider: async () => {
         providerCalls += 1;
-        const validPacket = providerCalls < 3;
-        const destination = (validPacket ? "ZETA/PERMANENT/" : "PARA/RESOURCES/Knowledge/") + "inbox-batch-" + providerCalls + ".md";
-        const proposal = knowledgeContract.parseProposal({
-          type: "knowledge",
-          title: "Inbox batch " + providerCalls,
-          statement: "Batch analysis must preserve every successful source.",
-          knowledge_kind: "principle",
-          knowledge_domain: "coding",
-          knowledge_topics: [],
-          application_trigger: "When multiple inbox sources are analyzed together",
-          application_contexts: ["coding"],
-          connections: [],
-          invalidation_conditions: [],
-          summary: "Batch risk review fixture",
-          created: "2026-08-24T00:00:00.000Z",
-          updated: "2026-08-24T00:00:00.000Z",
-          body: "# Inbox batch " + providerCalls + "\n\nBatch analysis fixture.\n",
-        });
-        assert.equal(proposal.ok, true, JSON.stringify(proposal));
-        const operation = {
-          contract_version: "llmwiki_operation_contract_v1",
-          operation_id: "operation_inbox_batch_" + providerCalls,
-          kind: "create",
-          destination_ids: [destination],
-          base_revisions: {},
-          before_bytes: {},
-          after_bytes: { [destination]: validPacket ? knowledgeContract.serializeProposal(proposal) : "# Invalid canonical target\n" },
-          source_citations: [{
-            source_id: input.source_snapshot.source.source_id,
-            content_hash: input.source_snapshot.source.content_hash,
-            source_url: null,
-            locators: [input.source_snapshot.source.source_path],
-            source_archive_id: null,
-            confidence: "explicit",
-          }],
-          conflicts: [],
-          risk_tier: "low",
-          effects: { deprecations: [], supersessions: [] },
-        };
-        return { ok: true, serialized_operation: JSON.stringify(operation) };
+        return { ok: true, serialized_operation: "{}" };
       },
     },
   });
   const settled = await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
-  const review = result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot();
-  assert.equal(providerCalls, 3);
-  assert.equal(settled.state, "partial", JSON.stringify({ providerCalls, settled, review }));
-  assert.equal(settled.succeeded, 2);
-  assert.equal(settled.failed, 1);
-  assert.equal(review.status, "review");
-  assert.equal(review.risk_packets.length, 2);
-  assert.equal(result.app.vault.touched.some(([, filePath]) => filePath === incrementalState.DEFAULT_STATE_PATH), false);
+  assert.equal(providerCalls, 1);
+  assert.equal(settled.state, "error");
+  assert.equal(settled.reason, "invalid_chunk_response");
+  assert.equal((result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().risk_packets || []).length, 0);
 });
 
 test("automatic scans persist completed revisions and only analyze changed files after restart", async () => {
@@ -434,10 +402,10 @@ test("actual scan_inbox exposes queued and per-file progress through transport b
   assert.equal(
     result.app.vault.touched.every(([kind, filePath]) => (
       (kind === "modify" && filePath.startsWith("INBOX/"))
-      || filePath === incrementalState.DEFAULT_STATE_PATH
+      || [incrementalState.DEFAULT_STATE_PATH, coverage.DEFAULT_COVERAGE_PATH, "SYSTEM/PRIVATE/llmwiki-analysis-cache.json", "SYSTEM/PRIVATE/llmwiki-inbox-proposals.json"].includes(filePath)
     )),
     true,
-    "only synthetic setup revisions and local hash-only analysis state changed",
+    "only synthetic setup revisions and local durable analysis artifacts changed",
   );
 });
 

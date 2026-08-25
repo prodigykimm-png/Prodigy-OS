@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const registry = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-registry.js"));
 const adapter = require(path.join(ROOT, "SYSTEM/Views/llmwiki-wiki-read-adapter.js"));
 const serviceApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-wiki-read-service.js"));
+const { createTrustedFixture } = require("./fixtures/llmwiki-canonical-v2-trust-fixture.js");
 
 function asset(pathName, type, mtime, domain = "coding", topics = ["ai"], extra = {}) {
   return {
@@ -64,9 +65,9 @@ test("buildSnapshot is path-stable, hashed, frozen, and trust-separated", () => 
     "ZETA/PERMANENT/legacy.md",
     "ZETA/PERMANENT/zulu.md",
   ]);
-  assert.deepEqual(first.counts, { verified: 2, legacy_verified: 1, literature: 1, pending: 1, total: 5 });
+  assert.deepEqual(first.counts, { verified: 0, legacy_review: 1, literature: 1, pending: 1, maintenance: 2, total: 5 });
   assert.deepEqual(Object.fromEntries(Object.entries(first.tiers).map(([key, rows]) => [key, rows.length])), {
-    verified: 2, legacy_verified: 1, literature: 1, pending: 1,
+    verified: 0, legacy_review: 1, literature: 1, pending: 1, maintenance: 2,
   });
   assert.match(first.snapshot_revision, /^[0-9a-f]{64}$/u);
   assert.equal(first.writer_count, 0);
@@ -82,7 +83,9 @@ test("browseRead defaults to verified, explicitly intersects literature/pending 
   const current = snapshot();
   const defaultBrowse = adapter.browseRead({ snapshot: current, registry });
   assert.equal(defaultBrowse.ok, true);
-  assert.deepEqual(defaultBrowse.rows.map((row) => row.trust), ["verified", "verified", "legacy_verified"]);
+  assert.deepEqual(defaultBrowse.rows.map((row) => row.trust), []);
+  const legacy = adapter.browseRead({ snapshot: current, registry, mode: "legacy_review" });
+  assert.deepEqual(legacy.rows.map((row) => row.trust), ["legacy_review"]);
 
   const literature = adapter.browseRead({ snapshot: current, registry, mode: "literature" });
   assert.deepEqual(literature.rows.map((row) => row.path), ["ZETA/LITERATURE/lit.md"]);
@@ -91,7 +94,7 @@ test("browseRead defaults to verified, explicitly intersects literature/pending 
   assert.equal(pending.counts.verified, 0);
   const reset = adapter.browseRead({ snapshot: current, registry, mode: "literature", reset: true });
   assert.equal(reset.mode, "verified");
-  assert.deepEqual(reset.rows.map((row) => row.trust), ["verified", "verified", "legacy_verified"]);
+  assert.deepEqual(reset.rows.map((row) => row.trust), []);
 });
 
 test("browseRead delegates only non-empty queries and rejects unsafe selections", () => {
@@ -100,15 +103,15 @@ test("browseRead delegates only non-empty queries and rejects unsafe selections"
   const queryRead = (request) => {
     queryCalls += 1;
     assert.equal(request.query, "alpha");
-    return { ok: true, value: { status: "ok", results: [{ path: "ZETA/PERMANENT/alpha.md" }] } };
+    return { ok: true, value: { status: "ok", results: [{ path: "ZETA/PERMANENT/legacy.md" }] } };
   };
   const blank = adapter.browseRead({ snapshot: current, registry, query: "", queryRead, writer: () => { throw new Error("writer"); }, provider: () => { throw new Error("provider"); } });
   assert.equal(blank.ok, true);
   assert.equal(queryCalls, 0);
-  const searched = adapter.browseRead({ snapshot: current, registry, query: "alpha", queryRead });
+  const searched = adapter.browseRead({ snapshot: current, registry, mode: "legacy_review", query: "alpha", queryRead });
   assert.equal(searched.ok, true);
   assert.equal(queryCalls, 1);
-  assert.deepEqual(searched.rows.map((row) => row.path), ["ZETA/PERMANENT/alpha.md"]);
+  assert.deepEqual(searched.rows.map((row) => row.path), ["ZETA/PERMANENT/legacy.md"]);
   for (const bad of [
     { path: "../secret.md" },
     { path: "/absolute.md" },
@@ -120,6 +123,13 @@ test("browseRead delegates only non-empty queries and rejects unsafe selections"
     assert.equal(result.writer_count, 0);
     assert.equal(result.provider_count, 0);
   }
+});
+
+test("finalized immutable audit produces exactly one verified browse row", async () => {
+  const genuine = await createTrustedFixture();
+  const current = adapter.buildSnapshot({ collection_revision: genuine.revision, assets: [genuine.row] });
+  assert.equal(current.counts.verified, 1);
+  assert.deepEqual(adapter.browseRead({ snapshot: current }).rows.map((row) => row.path), [genuine.path]);
 });
 
 test("service publishes on an agreeing two-pass revision and hydrates with cache and stale discard", async () => {

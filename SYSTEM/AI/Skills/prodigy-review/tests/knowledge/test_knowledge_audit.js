@@ -26,13 +26,9 @@ function writeTempFixture(baseDir, fixture) {
 function assertTemplateBodies() {
   const knowledgeTemplate = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_knowledge.md"), "utf8");
   const permanentTemplate = fs.readFileSync(path.join(ROOT, "SYSTEM/TEMPLATE/FORMAT/template_permanent_note.md"), "utf8");
-  assert.match(knowledgeTemplate, /type: knowledge/);
-  assert.match(knowledgeTemplate, /knowledge_domain:\nknowledge_topics: \[\]\n/);
-  assert.match(knowledgeTemplate, /application_contexts: \[\]\nsummary:/);
-  assert.match(knowledgeTemplate, /## 핵심 요약/);
-  assert.match(knowledgeTemplate, /## 연결된 Object/);
-  assert.match(knowledgeTemplate, /## 본문/);
-  assert.doesNotMatch(knowledgeTemplate.split("---\n").pop(), /knowledge_domain|knowledge_topics|summary|connections/);
+  assert.match(knowledgeTemplate, /schema_version: 2\ntype: knowledge/);
+  assert.match(knowledgeTemplate, /status: active/);
+  assert.doesNotMatch(knowledgeTemplate, /^(?:knowledge_domain|knowledge_topics|application_contexts|summary|connections):/m);
   assert.match(permanentTemplate, /type: permanent_note/);
   assert.match(permanentTemplate, /knowledge_domain:\nknowledge_topics:/);
   assert.doesNotMatch(permanentTemplate.split("---\n").pop(), /knowledge_domain|knowledge_topics/);

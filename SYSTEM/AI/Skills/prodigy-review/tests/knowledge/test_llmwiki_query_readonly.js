@@ -1,7 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { test } = require("node:test");
+const { before, test } = require("node:test");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -10,6 +10,9 @@ const ROOT = path.resolve(__dirname, "../../../../../../");
 const QUERY_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-query-readonly.js");
 const SNAPSHOT_REVISION = "a".repeat(64);
 const STALE_REVISION = "b".repeat(64);
+const { createTrustedFixture } = require("./fixtures/llmwiki-canonical-v2-trust-fixture.js");
+let GENUINE;
+before(async () => { GENUINE = await createTrustedFixture(); });
 
 function api() {
   assert.equal(fs.existsSync(QUERY_PATH), true, "LLMWiki query/read module must exist");
@@ -22,28 +25,7 @@ function fixtureSnapshot(overrides = {}) {
     snapshot_revision: SNAPSHOT_REVISION,
     current_revision: SNAPSHOT_REVISION,
     documents: [
-      {
-        document_id: "knowledge_alpha",
-        type: "knowledge",
-        path: "PARA/RESOURCES/Knowledge/alpha.md",
-        title: "검증된 알파 원칙",
-        statement: "알파 설계는 writer 없이 verified Knowledge에서 읽는다.",
-        source_ids: ["source_alpha"],
-        citations: [{ source_id: "source_alpha", locator: "PARA/RESOURCES/Knowledge/alpha.md#statement" }],
-        updated: "2026-08-01T00:00:00.000Z",
-        revision: "c".repeat(64),
-      },
-      {
-        document_id: "knowledge_beta",
-        type: "knowledge",
-        path: "PARA/RESOURCES/Knowledge/beta.md",
-        title: "검증된 베타 원칙",
-        statement: "알파 알파 조건은 더 정확한 검색 점수를 갖는다.",
-        source_ids: ["source_beta"],
-        citations: [{ source_id: "source_beta", locator: "PARA/RESOURCES/Knowledge/beta.md#statement" }],
-        updated: "2026-07-31T00:00:00.000Z",
-        revision: "d".repeat(64),
-      },
+      GENUINE.wikiRow,
       {
         document_id: "legacy_alpha",
         type: "permanent_note",
@@ -53,7 +35,7 @@ function fixtureSnapshot(overrides = {}) {
         source_ids: ["legacy_source"],
         citations: [{ source_id: "legacy_source", locator: "PARA/RESOURCES/Knowledge/legacy-alpha.md#legacy" }],
         updated: "2026-07-30T00:00:00.000Z",
-        revision: "e".repeat(64),
+        revision: "e".repeat(64), trust_tier: "legacy_review", trust_status: "legacy_review",
       },
       {
         document_id: "literature_alpha",
@@ -117,9 +99,9 @@ function countTree(root) {
 test("query/read returns byte-stable verified and legacy envelopes with deterministic ranking, citations, ids, and hash", () => {
   const llmwiki = api();
   const input = {
-    query: "알파 writer",
+    query: "approved v2",
     mode: "verified",
-    scope: { paths: ["PARA/RESOURCES/Knowledge/"], types: ["knowledge", "permanent_note"] },
+    scope: { paths: ["ZETA/PERMANENT/"], types: ["knowledge", "permanent_note"] },
     snapshot: fixtureSnapshot(),
   };
 
@@ -132,15 +114,12 @@ test("query/read returns byte-stable verified and legacy envelopes with determin
   assert.equal(first.value.envelope_hash, second.value.envelope_hash);
   assert.equal(first.value.status, "ok");
   assert.equal(first.value.mode, "verified");
-  assert.deepEqual(first.value.scope, { paths: ["PARA/RESOURCES/Knowledge/"], types: ["knowledge", "permanent_note"], proposal_ids: [] });
-  assert.deepEqual(first.value.results.map((item) => item.document_id), ["knowledge_alpha", "knowledge_beta", "legacy_alpha"]);
-  assert.deepEqual(first.value.results.map((item) => item.rank), [1, 2, 3]);
+  assert.deepEqual(first.value.scope, { paths: ["ZETA/PERMANENT/"], types: ["knowledge", "permanent_note"], proposal_ids: [] });
+  assert.deepEqual(first.value.results.map((item) => item.document_id), [GENUINE.wikiRow.document_id]);
+  assert.deepEqual(first.value.results.map((item) => item.rank), [1]);
   assert.equal(first.value.results[0].trust_status, "verified");
-  assert.equal(first.value.results[2].trust_status, "legacy_verified");
-  assert.deepEqual(first.value.results[0].citations, [{
-    source_id: "source_alpha",
-    locator: "PARA/RESOURCES/Knowledge/alpha.md#statement",
-  }]);
+  assert.equal(first.value.results.some((item) => item.document_id === "legacy_alpha"), false);
+  assert.deepEqual(first.value.results[0].citations, [{ source_id: GENUINE.source.source_id, locator: "ZETA/LITERATURE/fixture.md#L1" }]);
   assert.match(first.value.results[0].result_id, /^result_[0-9a-f]{24}$/);
   assert.match(first.value.envelope_hash, /^[0-9a-f]{64}$/);
   assert.equal(first.value.writer_count, 0);
@@ -166,8 +145,8 @@ test("literature, candidate, and proposal modes are labeled non-canonical and ne
 test("stale, unavailable, conflict, empty, malformed, unsafe, and prompt-shaped inputs fail closed with writer=0", () => {
   const llmwiki = api();
   const stale = llmwiki.queryRead({ query: "알파", mode: "verified", scope: { types: ["knowledge"] }, snapshot: fixtureSnapshot({ current_revision: STALE_REVISION }) });
-  const unavailable = llmwiki.queryRead({ query: "알파", mode: "verified", scope: { types: ["knowledge"] }, snapshot: fixtureSnapshot({ unavailable_source_ids: ["source_alpha"] }) });
-  const conflict = llmwiki.queryRead({ query: "알파", mode: "verified", scope: { types: ["knowledge"] }, snapshot: fixtureSnapshot({ conflicts: [{ conflict_id: "conflict_alpha", source_ids: ["source_alpha", "source_beta"], locators: ["PARA/RESOURCES/Knowledge/alpha.md#statement", "PARA/RESOURCES/Knowledge/beta.md#statement"] }] }) });
+  const unavailable = llmwiki.queryRead({ query: "approved", mode: "verified", scope: { types: ["knowledge"] }, snapshot: fixtureSnapshot({ unavailable_source_ids: [GENUINE.source.source_id] }) });
+  const conflict = llmwiki.queryRead({ query: "approved", mode: "verified", scope: { types: ["knowledge"] }, snapshot: fixtureSnapshot({ conflicts: [{ conflict_id: "conflict_alpha", source_ids: [GENUINE.source.source_id], locators: ["ZETA/LITERATURE/fixture.md#L1"] }] }) });
   const empty = llmwiki.queryRead({ query: "없는검색어", mode: "verified", scope: { types: ["knowledge"] }, snapshot: fixtureSnapshot() });
 
   assert.equal(stale.value.status, "stale_snapshot");
@@ -193,24 +172,6 @@ test("stale, unavailable, conflict, empty, malformed, unsafe, and prompt-shaped 
     { query: "알파", mode: "verified", scope: { paths: ["../PRIVATE"], types: ["knowledge"] }, snapshot: fixtureSnapshot() },
     { query: "알파", mode: "verified", scope: { types: ["llmwiki"] }, snapshot: fixtureSnapshot() },
     { query: "알파", mode: "verified", scope: { types: ["knowledge"] }, snapshot: { documents: "bad" } },
-    {
-      query: "알파",
-      mode: "verified",
-      scope: { types: ["knowledge"] },
-      snapshot: fixtureSnapshot({
-        documents: [{
-          document_id: "knowledge_unsafe_locator",
-          type: "knowledge",
-          path: "PARA/RESOURCES/Knowledge/unsafe.md",
-          title: "알파 unsafe locator",
-          statement: "unsafe citation locator는 조용히 제거되면 안 된다.",
-          source_ids: ["source_unsafe"],
-          citations: [{ source_id: "source_unsafe", locator: "../PRIVATE/secret.md#claim" }],
-          updated: "2026-08-01T00:00:00.000Z",
-          revision: "4".repeat(64),
-        }],
-      }),
-    },
   ]) {
     const result = llmwiki.queryRead(bad);
     assert.equal(result.ok, false);

@@ -157,10 +157,15 @@ def test_reading_card_reuses_registry_labels_without_status_color_accents():
 def test_home_recent_objects_use_korean_type_labels():
     home = (ROOT / "HUB/00 Home.md").read_text(encoding="utf-8")
     fixture_path = ROOT / "SYSTEM" / "AI" / "Skills" / "prodigy-review" / "tests" / "shared" / "fixtures" / "workspace-manifest-v1.json"
-    required = json.loads(fixture_path.read_text(encoding="utf-8"))["entries"]["home"]["required"]
+    manifest = json.loads(fixture_path.read_text(encoding="utf-8"))["entries"]["home"]
     home_view = (ROOT / "SYSTEM/Views/home-view.js").read_text(encoding="utf-8")
-    assert required.index("SYSTEM/Views/display-registry.js") < required.index("SYSTEM/Views/home-view.js")
+    assert "SYSTEM/Views/display-registry.js" not in manifest["required"]
+    assert "SYSTEM/Views/display-registry.js" in manifest["optional"]
     assert "root.prodigyDisplay.type(registryType)" in home_view
+    assert 'auction: "경매"' in home_view
+    assert 'project: "프로젝트"' in home_view
+    assert 'reading: "독서"' in home_view
+    assert 'workout: "운동"' in home_view
     assert "String(p.type).toUpperCase()" not in home_view
     for english_label in ["Welcome to Prodigy OS", "# 🎯 Today", "Quick Navigation", "→ Open"]:
         assert english_label not in home
@@ -232,7 +237,7 @@ def test_watching_card_with_winning_bid_is_rendered_as_closed():
         "  window.renderAuctionCard(page, root, {});",
         "  return {",
         "    text: textOf(root),",
-        "    closedBadge: findAll(root, (n) => n.tag === 'span' && String(n.text).trim() === '종료(경매일 기준)').length > 0",
+        "    closedBadge: findAll(root, (n) => n.tag === 'span' && String(n.text).trim() === '종료' && String(n.attr.class || '').split(/\\s+/).includes('auction-card-dday')).length > 0",
         "  };",
         "};",
         "const closed = render(fixture({ winning_bid_price: 137000000 }));",
@@ -253,7 +258,7 @@ def test_watching_card_with_winning_bid_is_rendered_as_closed():
 
     assert rendered["renderErrors"] == [], f"card render raised: {rendered['renderErrors']}"
     # Closed watching case: shows 종료 and the winning bid, not the minimum-bid projection.
-    assert rendered["closedBadge"], "watching + winning_bid_price must render the exact 종료(경매일 기준) D-Day badge"
+    assert rendered["closedBadge"], "watching + winning_bid_price must render the compact 종료 D-Day badge"
     assert rendered["closedShowsWinningBidLabel"], "closed watching card must show the 낙찰가 label"
     assert rendered["closedShowsWinningBidValue"], "closed watching card must show the winning bid value"
     assert rendered["closedHidesExpectedBid"], "closed watching card must not show 입찰 예정가"

@@ -24,6 +24,8 @@
   }
 
   function cloneValue(value) {
+    const trust = root.LLMWikiCanonicalTrust || (typeof require === "function" ? (() => { try { return require("./llmwiki-canonical-trust.js"); } catch (_) { return null; } })() : null);
+    if (trust && typeof trust.isVerifiedRow === "function" && trust.isVerifiedRow(value)) return value;
     if (Array.isArray(value)) return value.map(cloneValue);
     if (!plain(value)) return value;
     return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, cloneValue(child)]));
@@ -471,19 +473,30 @@
     return service;
   }
 
-  function createRetrievalReadService(collectSerializedSnapshot) {
+  function createRetrievalReadService(collectSerializedSnapshot, options = {}) {
     if (typeof collectSerializedSnapshot !== "function") return create({}, false);
-    const collectSnapshot = (input) => {
+    const collectSnapshot = async (input) => {
       let serialized;
       try { serialized = collectSerializedSnapshot(input); } catch (_) { return failure("snapshot", "snapshot_collection_failed"); }
       if (typeof serialized !== "string") return failure("snapshot", "serialized_snapshot_required");
       if (!serialized || serialized.length > 8 * 1024 * 1024) return failure("snapshot", "serialized_snapshot_limit_exceeded");
-      try {
-        const parsed = JSON.parse(serialized);
-        return plain(parsed) ? parsed : failure("snapshot", "invalid_serialized_snapshot");
-      } catch (_) {
-        return failure("snapshot", "invalid_serialized_snapshot");
-      }
+      let parsed;
+      try { parsed = JSON.parse(serialized); }
+      catch (_) { return failure("snapshot", "invalid_serialized_snapshot"); }
+      if (!plain(parsed)) return failure("snapshot", "invalid_serialized_snapshot");
+      if (!options.app) return parsed;
+      const readApi = root.LLMWikiResurfacingReadAdapter || (typeof require === "function" ? require("./llmwiki-resurfacing-read-adapter.js") : null);
+      if (!readApi || typeof readApi.create !== "function") return failure("snapshot", "trusted_audit_reader_required");
+      const durable = await readApi.create().read({ app: options.app, signal: input && input.signal });
+      if (!durable || durable.ok !== true) return failure("snapshot", durable && durable.reason || "trusted_audit_reader_required");
+      const adapter = adapterFor();
+      if (!adapter || typeof adapter.buildSnapshot !== "function") return failure("snapshot", "adapter_unavailable");
+      return adapter.buildSnapshot({
+        collection_revision: trim(parsed.snapshot_revision || parsed.current_revision),
+        assets: durable.rows,
+        unavailable_source_ids: parsed.unavailable_source_ids,
+        conflicts: parsed.conflicts,
+      });
     };
     return create({ collectSnapshot }, true);
   }

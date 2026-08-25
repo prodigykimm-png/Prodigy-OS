@@ -9,7 +9,7 @@
     return null;
   })();
   const QUERY_VERSION = "llmwiki_query_read_v1";
-  const MODES = Object.freeze(["verified", "literature", "candidate", "proposal", "all"]);
+  const MODES = Object.freeze(["verified", "legacy_review", "literature", "candidate", "proposal", "maintenance", "all"]);
   const TYPES = Object.freeze(["knowledge", "permanent_note", "literature_note", "knowledge_candidate"]);
   const TYPE_MODE = Object.freeze({
     knowledge: "verified",
@@ -73,9 +73,11 @@
     return freeze({ paths: uniqSorted(paths), types: uniqSorted(rawTypes), proposal_ids: proposalIds });
   }
   function defaultTypes(mode) {
-    if (mode === "verified") return ["knowledge", "permanent_note"];
+    if (mode === "verified") return ["knowledge"];
+    if (mode === "legacy_review") return ["knowledge", "permanent_note"];
     if (mode === "literature") return ["literature_note"];
     if (mode === "candidate") return ["knowledge_candidate"];
+    if (mode === "maintenance") return ["knowledge"];
     if (mode === "proposal") return [];
     return [...TYPES];
   }
@@ -102,6 +104,10 @@
   function sourceIdsFor(row, citations) {
     return uniqSorted([...list(row.source_ids), ...citations.map((item) => item.source_id)]);
   }
+  function trustedCanonicalRow(row) {
+    const trust = root.LLMWikiCanonicalTrust || (typeof require === "function" ? (() => { try { return require("./llmwiki-canonical-trust.js"); } catch (_) { return null; } })() : null);
+    return Boolean(trust && typeof trust.isVerifiedRow === "function" && trust.isVerifiedRow(row));
+  }
   function textFor(row) {
     return [row.title, row.statement, row.body, row.summary].map(trim).join("\n").toLocaleLowerCase("ko-KR");
   }
@@ -120,8 +126,12 @@
   function inScope(row, scope, mode) {
     const type = trim(row.type);
     const path = safePath(row.path || "");
+    const tier = trim(row.trust_tier || row.trust_status);
     if (!type || !path || !scope.types.includes(type)) return false;
-    if (mode !== "all" && TYPE_MODE[type] !== mode) return false;
+    if (mode === "verified" && !(type === "knowledge" && trustedCanonicalRow(row))) return false;
+    if (mode === "legacy_review" && !((type === "knowledge" || type === "permanent_note") && tier === "legacy_review")) return false;
+    if (mode === "maintenance" && tier !== "maintenance") return false;
+    if (mode !== "all" && !["verified", "legacy_review", "maintenance"].includes(mode) && TYPE_MODE[type] !== mode) return false;
     return scope.paths.length === 0 || scope.paths.some((prefix) => path.startsWith(prefix));
   }
   function proposalInScope(row, scope, mode) {
@@ -141,9 +151,9 @@
       rank,
       document_id: proposal ? trim(row.proposal_id) : trim(row.document_id),
       type,
-      mode: proposal ? "proposal" : TYPE_MODE[type],
-      trust_status: proposal ? TRUST.proposal : TRUST[type],
-      canonical: type === "knowledge" || type === "permanent_note",
+      mode: proposal ? "proposal" : context.mode === "legacy_review" || context.mode === "maintenance" ? context.mode : TYPE_MODE[type],
+      trust_status: proposal ? TRUST.proposal : trustedCanonicalRow(row) ? "verified" : trim(row.trust_status || TRUST[type]),
+      canonical: type === "knowledge" && trustedCanonicalRow(row),
       status: proposal ? trim(row.status || "proposed") : trim(row.status || "active"),
       title: trim(row.title),
       statement: trim(row.statement),
@@ -168,7 +178,7 @@
   function statusFor(mode, results, snapshot) {
     const sources = new Set(results.flatMap((item) => item.source_ids));
     if (snapshot.unavailable_source_ids.some((id) => sources.has(id))) return "unavailable_source";
-    if (snapshot.conflicts.length && results.some((result) => result.trust_status === "verified" || result.trust_status === "legacy_verified")) return "conflict";
+    if (snapshot.conflicts.length && results.some((result) => result.trust_status === "verified")) return "conflict";
     if (mode === "proposal" && results.length > 1) return "ambiguous_proposal";
     if (results.length === 0) return mode === "verified" ? "no_verified_answer" : "empty";
     return "ok";

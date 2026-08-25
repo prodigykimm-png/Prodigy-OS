@@ -246,8 +246,26 @@ function testNeedsMoreEvidenceRemediationLifecycle(core) {
   assert.throws(() => core.createCandidate({ ...savedDailyCandidate(), status: "needs_more_evidence" }), /saved/);
 }
 
+function testCharacterizesTerminalAndPendingCandidateBehavior(core) {
+  const saved = core.createCandidate(savedDailyCandidate());
+  const rejected = core.transitionCandidate(saved, "rejected");
+  const approved = core.finalizePromotion(
+    core.setPromotionTarget(saved, "ZETA/PERMANENT/characterization.md"),
+    "[[ZETA/PERMANENT/characterization]]"
+  );
+
+  assert.equal(core.isActive(saved), true);
+  assert.equal(core.isTerminal(saved), false);
+  assert.equal(core.isActive(rejected), false);
+  assert.equal(core.isTerminal(rejected), true);
+  assert.equal(core.isActive(approved), false);
+  assert.equal(core.isTerminal(approved), true);
+  assert.equal(core.tierForType(saved.type), "pending");
+}
+
 function main() {
   const core = loadCore();
+  testCharacterizesTerminalAndPendingCandidateBehavior(core);
   testNewDailyCandidateHasCanonicalImmutableShape(core);
   testLegacyReadingNormalizationAndStableIds(core);
   testAuthoredCandidateProvenanceAndApplicationMetadata(core);

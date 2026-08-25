@@ -126,8 +126,9 @@ function testLegacyLiteratureCharacterization() {
   const template = read(LITERATURE_TEMPLATE_PATH);
   const display = loadDisplayRegistry();
 
+  assert.match(template, /^schema_version:\s*2$/m);
   assert.match(template, /^type:\s*literature_note$/m);
-  assert.match(template, /^reference:/m);
+  assert.doesNotMatch(template, /^reference:/m);
   assert.equal(display.type("literature_note"), "문헌");
 }
 
@@ -144,7 +145,7 @@ function testNewAuthoringContract() {
   const sourceKinds = enumValues(literatureSchema, "source_kind");
   const summaryOrigins = enumValues(literatureSchema, "summary_origin");
   const literatureTemplateKeys = Object.freeze([
-    ...literatureKeys.slice(0, -2), "tags", ...literatureKeys.slice(-2),
+    "schema_version", "type", "status", "source_kind", "summary_origin", "created", "updated", "tags",
   ]);
 
   assert.match(literatureSchema, /canonical 신규 저장 경로는 `ZETA\/LITERATURE\/`/);
@@ -160,8 +161,8 @@ function testNewAuthoringContract() {
 
   const candidateKeys = storedPropertyKeys(candidateSchema);
   const candidateSourceTypes = enumValues(candidateSchema, "source_type");
-  const knowledgeApplicationKeys = ["application_trigger", "application_contexts"];
-  assert.deepEqual(frontmatterKeys(candidateTemplate), candidateKeys);
+  const knowledgeApplicationKeys = [];
+  assert.deepEqual(frontmatterKeys(candidateTemplate), ["schema_version", "type", "status", "created", "updated"]);
   for (const value of candidateSourceTypes) assert.match(display.knowledgeSourceType(value), /[가-힣]/,
     `missing Korean source-type label: ${value}`);
   for (const value of LEGACY_CANDIDATE_SOURCE_TYPES) {
@@ -173,12 +174,14 @@ function testNewAuthoringContract() {
     assert.match(explorerSchema, new RegExp("`" + key + "`"));
     assert.ok(frontmatterKeys(knowledgeTemplate).includes(key), `Knowledge template is missing ${key}`);
   }
-  assert.match(frontmatter(knowledgeTemplate), /^knowledge_topics:\s*\[\]\s*$/m,
-    "topicless Knowledge Domains must use the canonical YAML empty list");
+  assert.match(frontmatter(knowledgeTemplate), /^schema_version:\s*2\s*$/m);
+  assert.doesNotMatch(frontmatter(knowledgeTemplate), /^knowledge_topics:/m);
   assert.match(explorerSchema, /승격[\s\S]*application_trigger[\s\S]*application_contexts|application_trigger[\s\S]*application_contexts[\s\S]*승격/);
   assert.match(explorerSchema, /knowledge_candidate[\s\S]*(?:count|카운트)[\s\S]*(?:제외|포함하지 않)|(?:count|카운트)[\s\S]*(?:제외|포함하지 않)[\s\S]*knowledge_candidate/i);
 
+  assert.deepEqual(frontmatterKeys(candidateTemplate), ["schema_version", "type", "status", "created", "updated"]);
   assert.deepEqual(frontmatterKeys(literatureTemplate), literatureTemplateKeys);
+  assert.match(frontmatter(literatureTemplate), /^schema_version:\s*2$/m);
   assert.match(frontmatter(literatureTemplate), /^type:\s*literature_note$/m);
   assert.match(frontmatter(literatureTemplate), /^status:\s*active$/m);
   assert.match(frontmatter(literatureTemplate), /^source_kind:\s*article$/m);

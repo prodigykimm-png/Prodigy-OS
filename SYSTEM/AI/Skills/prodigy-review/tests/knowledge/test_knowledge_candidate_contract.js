@@ -93,15 +93,11 @@ function testTemplateAndKoreanDisplay() {
   const template = read(TEMPLATE_PATH);
   const display = loadDisplayRegistry();
 
-  assert.deepEqual(frontmatterKeys(template), TEMPLATE_KEYS);
+  assert.deepEqual(frontmatterKeys(template), ["schema_version", "type", "status", "created", "updated"]);
+  assert.match(frontmatter(template), /^schema_version:\s*2$/m);
   assert.match(frontmatter(template), /^type:\s*knowledge_candidate$/m);
-  assert.match(frontmatter(template), /^status:\s*saved$/m);
-  assert.match(frontmatter(template), /^source_evidence_ids:\s*\[\]$/m);
-  assert.match(frontmatter(template), /^source_objects:\s*\[\]$/m);
-  assert.match(frontmatter(template), /^source_note:\s*$/m);
-  assert.match(frontmatter(template), /^application_trigger:\s*$/m);
-  assert.match(frontmatter(template), /^application_contexts:\s*\[\]$/m);
-  assert.match(frontmatter(template), /^suggested_topics:\s*\[\]$/m);
+  assert.match(frontmatter(template), /^status:\s*needs_more_evidence$/m);
+  assert.doesNotMatch(frontmatter(template), /^\w+:\s*(?:\[\]|)$/m);
   assert.equal(display.type("knowledge_candidate"), "지식 후보");
   assert.equal(display.status("proposed"), "제안");
   assert.equal(display.status("saved"), "보관");

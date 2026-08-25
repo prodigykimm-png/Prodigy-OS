@@ -86,7 +86,7 @@
       var todayBtn = addButton(dateNav, "\uC624\uB298");
       todayBtn.onclick = function () { return state.__controller.refresh(today); };
     }
-    container.createEl("p", { text: "오늘 무엇이 나를 변화시켰는지 기록합니다.", attr: { "class": "journal-meta journal-period-role" } });
+    container.createEl("p", { text: "오늘 무엇이 나를 변화시켰는지 기록합니다.", attr: { "class": "journal-meta journal-period-role", style: "font-size:var(--ke-type-body);line-height:var(--ke-leading-body);" } });
     var todayCard = container.createEl("div", { attr: { "class": "journal-card prodigy-full-bleed" } });
     todayCard.createEl("h2", { text: isToday ? "\uC624\uB298 \uACBD\uD5D8 \u00B7 \uC99D\uAC70" : activeDate + " \uACBD\uD5D8 \u00B7 \uC99D\uAC70" });
     var meta = todayCard.createEl("div", { attr: { "class": "journal-meta" } });

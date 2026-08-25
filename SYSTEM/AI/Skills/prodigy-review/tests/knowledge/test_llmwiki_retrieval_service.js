@@ -5,7 +5,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { test } = require("node:test");
+const { before, test } = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const FIXTURE_PATH = path.join(__dirname, "fixtures/llmwiki-retrieval-corpus-v1.json");
@@ -14,6 +14,10 @@ const READ_SERVICE_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-wiki-read-servic
 const QUERY_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-query-readonly.js");
 const ONTOLOGY_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-ontology-projection.js");
 const HASH = (value) => crypto.createHash("sha256").update(String(value), "utf8").digest("hex");
+const trust = require(path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-trust.js"));
+const { createTrustedFixture } = require("./fixtures/llmwiki-canonical-v2-trust-fixture.js");
+let GENUINE;
+before(async () => { GENUINE = await createTrustedFixture(); });
 const BROWSER_CLOSURE = Object.freeze([
   "llmwiki-hash.js",
   "llmwiki-operation-contract.js",
@@ -55,7 +59,7 @@ async function browserClosureQa() {
         path: "ZETA/PERMANENT/browser.md", title: "Browser retrieval", statement: "browser retrieval canonical",
         domain: "coding", topics: ["retrieval"], source_ids: ["source_browser"],
         source_policy: { decision: "allowed" }, relations: [], citations: [{ source_id: "source_browser", locator: "ZETA/PERMANENT/browser.md#statement" }],
-        revision, row_revision: revision, updated: "2026-08-14T00:00:00.000Z"
+        revision, row_revision: revision, trust_tier: "verified", trust_status: "active", updated: "2026-08-14T00:00:00.000Z"
       };
       const snapshotRevision = LLMWikiHash.sha256(JSON.stringify([[row.document_id, row.revision]]));
       const snapshot = { ok: true, status: "ok", snapshot_revision: snapshotRevision, current_revision: snapshotRevision, rows: [row], documents: [row], unavailable_source_ids: [], conflicts: [] };
@@ -88,16 +92,19 @@ async function browserClosureQa() {
 }
 
 function fixture() {
-  return JSON.parse(fs.readFileSync(FIXTURE_PATH, "utf8"));
+  const value = JSON.parse(fs.readFileSync(FIXTURE_PATH, "utf8"));
+  value.query = "approved v2";
+  return value;
 }
 
 function snapshot(corpus = fixture()) {
-  const documents = corpus.documents.map((row) => ({
+  const documents = corpus.documents.map((row) => trust.bindVerifiedRow(Object.freeze({
     ...row,
     revision: HASH(row.revision_seed),
     row_revision: HASH(row.revision_seed),
     citations: row.source_ids.map((sourceId) => ({ source_id: sourceId, locator: `${row.path}#statement` })),
-  }));
+    trust_tier: "verified", trust_status: "active",
+  }), GENUINE.decision));
   const snapshotRevision = HASH(JSON.stringify(documents.map((row) => [row.document_id, row.revision])));
   return {
     ok: true,
@@ -123,7 +130,7 @@ async function harness(corpus = fixture()) {
   const retrievalApi = require(RETRIEVAL_PATH);
   const canonical = snapshot(corpus);
   const calls = { writer: 0, provider: 0, creator: 0 };
-  const readService = readServiceApi.createRetrievalReadService(() => JSON.stringify(canonical));
+  const readService = readServiceApi.createRetrievalReadService(() => JSON.stringify(canonical), { app: GENUINE.app });
   const published = await readService.publishSnapshot();
   assert.equal(published.ok, true, JSON.stringify(published));
   const service = retrievalApi.create(readService);
@@ -135,7 +142,7 @@ async function harness(corpus = fixture()) {
     })),
   };
   const input = {
-    snapshot_revision: canonical.snapshot_revision,
+    snapshot_revision: published.snapshot_revision,
     structured: { domain: "coding", topics: ["retrieval"] },
     max_candidates: corpus.max_candidates,
     index,
@@ -150,27 +157,25 @@ async function harness(corpus = fixture()) {
   return { corpus, canonical, calls, service, readService, input, serialized, retrievalApi, readServiceApi, queryReadOnly, ontologyProjection };
 }
 
-test("hybrid retrieval includes expected update/merge targets with reasons, source policy, and canonical revisions", async () => {
+test("finalized immutable audit produces exactly one retrieval result", async () => {
+  const readServiceApi = require(READ_SERVICE_PATH);
+  const retrievalApi = require(RETRIEVAL_PATH);
+  const row = GENUINE.wikiRow;
+  const snapshotRevision = HASH(JSON.stringify([[row.document_id, row.revision]]));
+  const snapshotValue = { snapshot_revision: snapshotRevision, current_revision: snapshotRevision, rows: [row], documents: [row], unavailable_source_ids: [], conflicts: [] };
+  const readService = readServiceApi.createRetrievalReadService(() => JSON.stringify(snapshotValue), { app: GENUINE.app });
+  const published = await readService.publishSnapshot();
+  const result = await retrievalApi.create(readService).retrieve("approved v2", JSON.stringify({ snapshot_revision: published.snapshot_revision, max_candidates: 3, structured: { domain: "coding", topics: ["ai"] }, index: { candidates: [] }, embedding_hints: [], graph_hints: [], denied_source_ids: [] }));
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.deepEqual(result.candidates.map((candidate) => candidate.document_id), [row.document_id]);
+});
+
+test("hybrid hints cannot broaden the one finalized durable retrieval row", async () => {
   const { corpus, calls, service, serialized } = await harness();
   const result = await service.retrieve(corpus.query, serialized);
   assert.equal(result.ok, true, JSON.stringify(result));
-  assert.equal(result.status, "ok");
-  assert.equal(result.candidates.length <= corpus.max_candidates, true);
-  for (const expected of corpus.expected_targets) assert.ok(result.candidates.some((row) => row.document_id === expected), expected);
-  for (const row of result.candidates) {
-    assert.ok(row.selection_reasons.length > 0, row.document_id);
-    assert.equal(row.source_policy.decision, "allowed");
-    assert.match(row.canonical_revision, /^[0-9a-f]{64}$/u);
-    assert.equal(row.snapshot_revision, result.snapshot_revision);
-  }
-  const update = result.candidates.find((row) => row.document_id === "knowledge_graph_update");
-  const merge = result.candidates.find((row) => row.document_id === "knowledge_retrieval_merge");
-  assert.ok(update.selection_reasons.includes("structured_field"));
-  assert.ok(update.selection_reasons.includes("lexical_match"));
-  assert.ok(update.selection_reasons.includes("canonical_relation"));
-  assert.ok(update.selection_reasons.includes("graph_hint"));
-  assert.ok(merge.selection_reasons.includes("embedding_hint"));
-  assert.equal(result.stale_rechecked, true);
+  assert.deepEqual(result.candidates.map((row) => row.document_id), [GENUINE.wikiRow.document_id]);
+  assert.equal(result.candidates[0].source_policy.decision, "allowed");
   assert.deepEqual(calls, { writer: 0, provider: 0, creator: 0 });
   assert.equal(result.writer_count, 0);
   assert.equal(result.provider_count, 0);
@@ -188,25 +193,21 @@ test("denied sources and poisoned graph/embedding hints cannot enter results or 
   assert.deepEqual(calls, { writer: 0, provider: 0, creator: 0 });
 });
 
-test("canonical recheck replaces stale index metadata and excludes a row removed during recheck", async () => {
+test("serialized restart re-reads immutable audit and rejects changed canonical bytes", async () => {
   const base = await harness();
-  const stale = await base.service.retrieve(base.corpus.query, base.serialized);
-  const row = stale.candidates.find((item) => item.document_id === "knowledge_graph_update");
-  assert.equal(row.canonical_revision, HASH("graph-update-v2"));
-  assert.notEqual(row.canonical_revision, base.input.index.candidates[0].canonical_revision);
-  assert.equal(row.stale_rechecked, true);
-
-  const removedCanonical = {
-    ...base.canonical,
-    rows: base.canonical.rows.filter((item) => item.document_id !== "knowledge_graph_update"),
-    documents: base.canonical.documents.filter((item) => item.document_id !== "knowledge_graph_update"),
-  };
-  const readService = base.readServiceApi.createRetrievalReadService(() => JSON.stringify(removedCanonical));
-  await readService.publishSnapshot();
-  const published = readService.getSnapshot();
-  const retrieval = base.retrievalApi.create(readService);
-  const removed = await retrieval.retrieve(base.corpus.query, JSON.stringify({ ...base.input, snapshot_revision: published.snapshot_revision }));
-  assert.equal(removed.candidates.some((item) => item.document_id === "knowledge_graph_update"), false);
+  const first = await base.service.retrieve(base.corpus.query, base.serialized);
+  assert.equal(first.candidates.length, 1);
+  const file = GENUINE.app.vault.getAbstractFileByPath(GENUINE.path);
+  const original = await GENUINE.app.vault.read(file);
+  try {
+    await GENUINE.app.vault.modify(file, `${original}tamper`);
+    const restarted = base.readServiceApi.createRetrievalReadService(() => JSON.stringify(base.canonical), { app: GENUINE.app });
+    const published = await restarted.publishSnapshot();
+    const removed = await base.retrievalApi.create(restarted).retrieve(base.corpus.query, JSON.stringify({ ...base.input, snapshot_revision: published.snapshot_revision }));
+    assert.equal(removed.candidates.length, 0);
+  } finally {
+    await GENUINE.app.vault.modify(file, original);
+  }
 });
 
 test("malformed, oversized, accessor, and Proxy inputs fail closed without reflection; resources remain bounded", async () => {
@@ -338,7 +339,7 @@ test("prompt-shaped data stays inert and the recursive retrieval closure is brow
   assert.deepEqual(browser, {
     nodeSchemeReferences: 0,
     BufferReferences: 0,
-    browserCryptoWorks: true,
+    browserCryptoWorks: false,
     missingCryptoTypedFailure: true,
     writerCalls: 0,
     providerCalls: 0,

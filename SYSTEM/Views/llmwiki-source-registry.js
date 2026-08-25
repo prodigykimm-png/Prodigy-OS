@@ -229,6 +229,10 @@
       const items = snapshotsBySource.get(trim(sourceId)) || [];
       return freeze(items.slice());
     }
+    function isCurrentSnapshot(sourceId, snapshotId) {
+      const items = snapshotsBySource.get(trim(sourceId)) || [];
+      return Boolean(items.length && items[items.length - 1].snapshot_id === trim(snapshotId));
+    }
 
     function register(input, context = {}) {
       const normalized = validateSourceRegistration(input);
@@ -302,7 +306,7 @@
       });
     }
 
-    return freeze({ register, listSnapshots });
+    return freeze({ register, listSnapshots, isCurrentSnapshot });
   }
 
   const api = freeze({

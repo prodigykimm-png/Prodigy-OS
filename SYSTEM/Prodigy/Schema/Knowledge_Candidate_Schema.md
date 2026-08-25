@@ -1,17 +1,17 @@
 # Prodigy OS — Knowledge Candidate Schema
 
 > 여러 Domain의 Evidence에서 나온 지식 제안을 사람이 검토·승인하기 전까지 보존하는 임시 Object 계약.
-> Version: 1.0
+> Version: 1.1
 
 ---
 
 ## 저장 경계
 
-- canonical 신규 저장 경로는 `PARA/RESOURCES/Knowledge/Candidates/`다.
-- 기존 Reading 후보는 `PARA/RESOURCES/Reading/Candidates/`와 `ZETA/FLEETING/Knowledge Candidates/`에서 읽기 호환한다. 기존 파일을 이동·rewrite·migration하지 않는다.
+- canonical 신규 저장 경로는 `ZETA/CANDIDATES/`다.
+- 기존 Reading 후보는 `PARA/RESOURCES/Knowledge/Candidates/`, `PARA/RESOURCES/Reading/Candidates/`, `ZETA/FLEETING/Knowledge Candidates/`에서 읽기 호환한다. 기존 파일을 이동·rewrite·migration하지 않는다.
 - `knowledge_candidate`는 검증된 `knowledge`가 아니다. Knowledge Explorer에서는 별도 `검증 대기` Inbox로만 투영하며 Knowledge Domain/Topic count와 Brief signal에 포함하지 않는다.
 - 새 Daily writer는 사용자 명시 저장 시 `status: saved`를 쓴다. 기존 Reading writer의 `status: proposed` 후보는 활성 상태로 계속 읽는다.
-- AI는 후보를 제안할 수 있지만 자동 저장·승인·승격하지 않는다. promotion은 사람이 승인한 뒤의 별도 writer가 수행한다.
+- AI는 후보를 제안할 수 있지만 자동 저장·승인·승격하지 않는다. `LLMWikiPromotionContract`가 content/relation hard gap이 남은 unit만 Candidate로 보낸다. 모든 hard gap이 통과하고 승인만 대기 중인 unit은 Candidate를 만들지 않고 canonical review로 보낸다.
 
 ## 저장 Property
 
@@ -35,13 +35,18 @@
 | Daily AI proposal mapping | New provider rows use `title`(headword)+`detail`; handoff maps to `title`+`statement`. Legacy `label` rows remain readable/approvable and map to both fields only at handoff. | 자동 migration 없음; 새 후보 생성 시점에만 새 형태 적용 |
 | `connections` | explicit wikilink YAML list | 선택; exact canonical Region link를 포함한 명시적 관련 Object; 본문·좌표·모호한 지명에서 추론하지 않음 |
 | `invalidation_conditions` | 텍스트 YAML list | 선택; 이 지식이 무효화되는 조건; 사람이 작성하며 승격 시 보존 |
-| `approval_note` | 텍스트 | 인간 승인 또는 thin Evidence override의 근거 |
+| `approval_note` | 텍스트 | 인간 승인 기록 |
+| `promotion_unit` | canonical structured promotion input | receipt를 재계산할 완전한 typed unit; stable key order로 저장 |
+| `promotion_input_binding` | deterministic canonical input binding | `promotion_unit`과 receipt의 exact subject/input binding |
+| `promotion_receipt` | canonical structured promotion receipt | locally recomputed gate/disposition/eligibility result |
+| `promotion_gaps` | machine-readable gap YAML list | `gate_id`, `phase`, `state`, `reason_code`, `evidence_refs`를 가진 모든 미해결 승격 gate |
+| `blocking_content_gaps` | machine-readable gap YAML list | Candidate 저장을 정당화하는 content/relation gap의 부분집합; authorization-only gap은 포함하지 않음 |
 | `promotion_target` | optional `ZETA/PERMANENT/` canonical target path | 승인 writer가 Knowledge 생성 전 기록하는 대상; PARA/Candidate/legacy 경로 금지 |
 | `promoted_knowledge` | optional explicit wikilink | 생성 완료된 canonical Knowledge 링크 |
 | `created` | ISO date/datetime | 생성 시점 |
 | `updated` | ISO date/datetime | 마지막 수정 시점 |
 
-`source_evidence_ids`, `source_objects`, `suggested_topics`, `application_contexts`의 canonical 저장 형식은 YAML list다. scalar/comma 형식은 새 writer가 저장하지 않는다. Candidate나 Knowledge에 Evidence 본문을 복사하지 않고 stable ID와 명시적 wikilink만 provenance로 저장한다.
+`source_evidence_ids`, `source_objects`, `suggested_topics`, `application_contexts`, `promotion_gaps`, `blocking_content_gaps`의 canonical 저장 형식은 YAML list다. scalar/comma 형식은 새 writer가 저장하지 않는다. Candidate나 Knowledge에 Evidence 본문을 복사하지 않고 stable ID와 명시적 wikilink만 provenance로 저장한다.
 동일한 canonical provenance·내용으로 계산된 `candidate_id`가 이미 canonical Candidate 경로에 있으면 writer는 새 파일을 만들지 않고 기존 Candidate를 반환한다. 제목 충돌로 suffix를 붙이는 것은 `candidate_id`가 다른 후보에만 적용한다.
 
 ## 신규 writer validation 및 Korean recovery contract
@@ -60,10 +65,20 @@
 
 `manual_study`는 비어 있지 않은 `source_note`로 직접 학습의 출처를 남기며 Object/Evidence 링크를 요구하지 않는다. `study_material`은 정확히 하나의 canonical Literature Source Object wikilink를 `source_objects`에 남긴다. `monthly_validation`은 Monthly Validation에서 검증된 Principle이 Knowledge Candidate로 저장될 때 사용하며, `source_objects`에 Monthly Note wikilink, `source_evidence_ids`에 선택된 Weekly들이 참조한 stable Evidence ID 합집합을 보존한다. 세 새 source type도 기존 `daily_evidence`와 `reading_session` 후보의 읽기 호환을 변경하지 않는다.
 
+## Hard promotion gate contract
+
+모든 gate는 `pass` | `fail` | `pending` | `not_applicable` 상태, reason code, evidence ref를 기록한다. 점수나 threshold는 promotion authority가 아니다. common gate는 `unit_scope`, `statement`, `evidence_refs`, `claim_support`, `ai_claim_review`, `relation_resolution`, `authorization`이다. kind gate는 Claim `claim_scope`; Principle `principle_boundaries`, `principle_rationale`; Procedure `procedure_preconditions`, `procedure_steps`, `procedure_outcome`; Concept `concept_definition`, `concept_boundaries`다.
+
+- `blocking_content_gaps`가 하나라도 있으면 Candidate로만 저장하며 approval은 이를 우회하지 못한다. `createCandidateFromPromotion`은 `llmwiki_promotion_contract_v1` receipt와 완전한 `promotion_unit`을 받아 locally recompute한 exact receipt만 받는다. Caller-supplied `locally_validated` marker는 authority가 없다.
+- evidence identity는 stable `evidence_id` 하나당 정확히 하나여야 한다. source span이 서로 다른 duplicate와 byte-identical duplicate 모두 `duplicate_evidence_id` hard failure다.
+- relation duplicate/conflict/pending도 Candidate gap이다. operational/mixed/stale unit과 rejected authorization은 Candidate가 아니라 blocked/rejected 결과다.
+- hard content/relation gap이 비어 있고 approval만 `pending`인 완전한 unit은 canonical review eligible이다. Candidate는 `검증 대기`/`검증 전` lifecycle label만 가지며 browse/query에서 verified로 취급하지 않는다.
+- `approved`와 `rejected`는 terminal이다. terminal 결과를 다시 Candidate로 분류하거나 verified로 표시하지 않는다.
+
 ## 본문 및 승격 계약
 
 - Candidate 본문은 `지식 문장`, 선택적인 `출처 주장`, `내 해석`, `재사용 가능한 지식`, `학습 기록`, `제안 이유`, `출처 메모`, `적용 조건`, `승인 메모`를 분리해 보존할 수 있다. 직접 학습의 장문 기록은 본문에 보존할 수 있지만, 자료 원문 전문을 Candidate에 복사하지 않는다. 기존 후보의 고정 섹션과 알 수 없는 본문은 그대로 읽고 보존한다.
-- 사람이 승인해 canonical Knowledge를 생성할 때 `application_trigger`, `application_contexts`, `connections`, `invalidation_conditions`는 값을 바꾸거나 누락하지 않고 그대로 승격한다. 이 승격은 자동 승인이나 자동 Knowledge 생성이 아니다.
+- 사람이 승인해 canonical Knowledge를 생성할 때 `application_trigger`, `application_contexts`, `connections`, `invalidation_conditions`는 값을 바꾸거나 누락하지 않고 그대로 승격한다. approval은 unresolved `blocking_content_gaps`를 우회하지 않는다. 이 승격은 자동 승인이나 자동 Knowledge 생성이 아니다.
 - 승인 writer는 기존 Knowledge serializer로 `type: knowledge` 문서를 만들고 `ZETA/PERMANENT/`에만 신규 저장한다. `permanent_note` 또는 PARA 경로로 자동 변환·승격하지 않는다.
 - `connections`의 Region link는 exact canonical Region wikilink(`[[PARA/RESOURCES/Auction Regions/<region_key>]]`)만 허용한다. 본문 텍스트, 좌표, 모호한 동네 이름에서 Region link를 추론하지 않는다.
 

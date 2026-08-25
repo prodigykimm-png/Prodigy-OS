@@ -45,7 +45,39 @@
     return deps.service.mount({ container: opts.container, context: opts.context || buildContext(opts), items: feed.rows, readAdapter: deps.reader });
   }
 
-  var api = Object.freeze({ buildContext: buildContext, resurface: resurface, mountResurfacing: mountResurfacing, PROMPTS: PROMPTS, LABEL: LABEL });
+  function handoffMarker(input) {
+    return `<!-- llmwiki-object-handoff:${input.handoff_id}:${input.linked_lifecycle_ids.join(",")} -->`;
+  }
+  function appendHandoffSection(content, heading, input) {
+    var source = String(content);
+    var expression = new RegExp(`^${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\r?$`, "gm");
+    var matches = Array.from(source.matchAll(expression));
+    if (matches.length !== 1) throw new Error("project_section_invalid");
+    var marker = handoffMarker(input);
+    if (source.includes(marker)) return source;
+    var start = matches[0].index + matches[0][0].length;
+    var rest = source.slice(start);
+    var nextHeading = rest.search(/^#{1,3} [^\r\n]+\r?$/m);
+    var end = nextHeading < 0 ? source.length : start + nextHeading;
+    return `${source.slice(0, end).replace(/\s*$/, "")}\n- ${input.text}\n${marker}\n${source.slice(end)}`;
+  }
+  async function appendProjectSection(app, object, input, heading) {
+    var file = app.vault.getAbstractFileByPath(object.path);
+    if (!file || file.path !== object.path || file.extension !== "md") throw new Error("project_target_missing");
+    var original = await app.vault.read(file);
+    if (!/^type:\s*project\s*$/m.test(original)) throw new Error("project_type_mismatch");
+    var next = appendHandoffSection(original, heading, input);
+    if (next !== original) await app.vault.modify(file, next);
+    return { path: object.path, status: next === original ? "unchanged" : "appended", content: next };
+  }
+  function appendProgressNote(app, object, input) {
+    return appendProjectSection(app, object, input, "## ✍️ 메모 및 진행 상황");
+  }
+  function appendReviewLesson(app, object, input) {
+    return appendProjectSection(app, object, input, "### 다음 프로젝트에서는");
+  }
+
+  var api = Object.freeze({ buildContext: buildContext, resurface: resurface, mountResurfacing: mountResurfacing, appendProgressNote: appendProgressNote, appendReviewLesson: appendReviewLesson, PROMPTS: PROMPTS, LABEL: LABEL });
   root.ProjectContextAdapter = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

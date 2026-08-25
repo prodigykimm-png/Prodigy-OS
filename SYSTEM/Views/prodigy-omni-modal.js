@@ -11,7 +11,7 @@
       .prodigy-omni-overlay {
         position: fixed; inset: 0; z-index: 9999; display: flex; align-items: flex-start; justify-content: center;
         padding-top: max(8vh, 40px); padding-inline: 16px;
-        background: color-mix(in srgb, var(--background-modifier-cover, rgba(0,0,0,0.4)) 80%, transparent);
+        background: color-mix(in srgb, var(--ke-color-backdrop, var(--background-modifier-cover)) 80%, transparent);
         backdrop-filter: blur(16px) saturate(180%);
         -webkit-backdrop-filter: blur(16px) saturate(180%);
         animation: prodigyOmniFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -25,7 +25,7 @@
         border: 1px solid var(--ke-color-border, var(--background-modifier-border));
         border-radius: var(--ke-radius-panel, 16px);
         background: var(--ke-color-surface, var(--background-primary));
-        box-shadow: 0 20px 48px rgba(0, 0, 0, 0.22); overflow: hidden;
+        box-shadow: 0 20px 48px color-mix(in srgb, var(--ke-color-backdrop, var(--background-modifier-cover)) 22%, transparent); overflow: hidden;
       }
       .prodigy-omni-header {
         display: flex; align-items: center; gap: 12px; padding: 12px 16px;

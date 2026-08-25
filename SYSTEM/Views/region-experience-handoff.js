@@ -185,7 +185,39 @@
     return Object.freeze({ contract: seams.contract, saveEvidence, approveRegion, saveKnowledgeCandidates });
   }
 
-  const api = Object.freeze({ createHandoff, createManualEvidenceProposal });
+  async function appendObjectHandoffSection(app, object, input, heading) {
+    const path = clean(object && object.path).replace(/\\/g, "/");
+    if (!path.startsWith("PARA/RESOURCES/Auction Regions/") || !path.endsWith(".md")) throw new Error("Region target is outside its authority.");
+    const file = app.vault.getAbstractFileByPath(path);
+    if (!file || file.path !== path || file.extension !== "md") throw new Error("Region target is unavailable.");
+    const original = await app.vault.read(file);
+    if (!/^type:\s*auction_region\s*$/m.test(original)) throw new Error("Region target type changed.");
+    const expression = new RegExp(`^${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\r?$`, "gm");
+    const matches = Array.from(original.matchAll(expression));
+    if (matches.length !== 1) throw new Error("Region target section changed.");
+    const marker = `<!-- llmwiki-object-handoff:${input.handoff_id}:${input.linked_lifecycle_ids.join(",")} -->`;
+    let next = original;
+    if (!original.includes(marker)) {
+      const start = matches[0].index + matches[0][0].length;
+      const rest = original.slice(start);
+      const nextHeading = rest.search(/^#{1,3} [^\r\n]+\r?$/m);
+      const end = nextHeading < 0 ? original.length : start + nextHeading;
+      next = `${original.slice(0, end).replace(/\s*$/, "")}\n- ${input.text}\n${marker}\n${original.slice(end)}`;
+    }
+    if (next !== original) await app.vault.modify(file, next);
+    return { ok: true, path, status: next === original ? "unchanged" : "appended", content: next };
+  }
+  function appendDirectExperience(app, object, input) {
+    return appendObjectHandoffSection(app, object, input, "## 임장 포인트");
+  }
+  function appendResearchReference(app, object, input) {
+    return appendObjectHandoffSection(app, object, input, "## 출처·리서치");
+  }
+  function appendBriefingMemo(app, object, input) {
+    return appendObjectHandoffSection(app, object, input, "## 브리핑 메모");
+  }
+
+  const api = Object.freeze({ createHandoff, createManualEvidenceProposal, appendDirectExperience, appendResearchReference, appendBriefingMemo });
   root.RegionExperienceHandoff = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

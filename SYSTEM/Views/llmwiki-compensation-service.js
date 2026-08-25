@@ -228,6 +228,7 @@
         refresh_outcome: original_receipt.refresh_outcome,
         git_outcome: original_receipt.git_outcome,
         resurfacing_bindings: clone(bindings),
+        ...(plain(original_receipt.canonical_v2_authority) ? { canonical_v2_authority: clone(original_receipt.canonical_v2_authority) } : {}),
       });
       return appendAndPersist(audit);
     }

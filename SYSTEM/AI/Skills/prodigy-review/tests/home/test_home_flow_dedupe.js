@@ -390,17 +390,14 @@ async function renderHomeAtWidth(width, fixture) {
 function regionOrder(container) {
   const stack = container.findAll((element) => element.hasClass("home-mc-stack"))[0];
   assert.ok(stack, "Home renders one Mission Control stack");
-  return stack.children
-    .filter((child) => child.hasClass("home-card") || child.tagName === "DETAILS")
-    .map((child) => {
-      if (child.tagName === "DETAILS") return "Fold";
-      const text = child.textTree();
-      if (/모닝 브리프/.test(text)) return "Morning Brief";
-      if (/오늘의 집중/.test(text)) return "Today's Focus";
-      if (/이어하기/.test(text)) return "Continue";
-      if (/Micro Log/.test(text)) return "Micro Log";
-      return text.slice(0, 24);
-    });
+  return stack.children.map((child) => {
+    if (child.hasClass("quick-capture-row")) return "Capture";
+    if (child.hasClass("home-action-queue")) return "Action Queue";
+    if (child.hasClass("home-context-details")) return "Context";
+    if (child.hasClass("home-micro-log-slot")) return "Micro Log";
+    if (child.hasClass("home-secondary-fold")) return "Fold";
+    return null;
+  }).filter(Boolean);
 }
 
 function findCardByLabel(container, pattern) {
@@ -430,9 +427,12 @@ function launcherCardEls(container) {
 }
 
 function cssRule(css, selector) {
-  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(css);
-  return match ? match[1] : "";
+  const target = selector.trim().replace(/\s*\{$/, "") + " {";
+  const index = css.indexOf(target);
+  if (index < 0) return "";
+  const open = index + target.length - 1;
+  const close = css.indexOf("}", open + 1);
+  return close < 0 ? "" : css.slice(open + 1, close);
 }
 
 async function testRegionOrderAtEveryWidth() {
@@ -444,8 +444,8 @@ async function testRegionOrderAtEveryWidth() {
     // Then: Brief to Focus to Continue to Micro Log stays linear before folded chrome
     assert.deepEqual(
       regionOrder(rendered.container),
-      ["Morning Brief", "Today's Focus", "Continue", "Micro Log", "Fold"],
-      `width ${width} keeps the linear Mission Control order`
+      ["Capture", "Action Queue", "Context", "Micro Log", "Fold"],
+      `width ${width} keeps the linear action-first Mission Control order`
     );
   }
 }
@@ -760,15 +760,15 @@ async function testLauncherAllEmptyCompactStillRendersRegion() {
   assert.equal(/표시하지 못했습니다|불러오지 못했습니다/.test(mount.textTree()), false);
 }
 
-async function testNoAnalyticsAndSingleColumnCss() {
+async function testNoAnalyticsAndActionQueueLayout() {
   // Given: a wide Home render
   const { container, css } = await renderHomeAtWidth(1440);
   const homeText = container.textTree();
 
   // When: layout CSS and copy are inspected
-  // Then: Home stays single-axis with no analytics surfaces
-  assert.match(cssRule(css, ".home-grid"), /grid-template-columns:\s*1fr/);
-  assert.match(cssRule(css, ".prodigy-home.home-wide .home-grid"), /grid-template-columns:\s*1fr/);
+  // Then: the base flow is one column and wide Home adds only a workspace sidebar
+  assert.match(cssRule(css, ".home-grid {"), /grid-template-columns:\s*1fr/);
+  assert.match(cssRule(css, ".prodigy-home.home-wide .home-mc-stack {"), /grid-template-columns:\s*260px\s+minmax\(0,\s*1fr\)/);
   assert.equal(/통계|그래프|차트|analytics/i.test(homeText), false);
 }
 
@@ -789,7 +789,7 @@ async function main() {
     testStandaloneLauncherKeepsCreator,
     testLauncherEmptyCardVisibilityByWidth,
     testLauncherAllEmptyCompactStillRendersRegion,
-    testNoAnalyticsAndSingleColumnCss
+    testNoAnalyticsAndActionQueueLayout
   ];
   const failures = [];
   for (const test of tests) {

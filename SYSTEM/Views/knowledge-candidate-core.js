@@ -17,6 +17,7 @@
   const SOURCE_TYPE_SET = new Set(SOURCE_TYPES);
   const CONFIDENCE_SET = new Set(CONFIDENCE);
   const DOMAIN_SET = new Set(DOMAINS);
+  const LIFECYCLE_LABELS = Object.freeze({ pending: "검증 대기", unverified: "검증 전" });
 
   function isRecord(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -50,6 +51,24 @@
       }
     });
     return result;
+  }
+
+  function promotionContract() {
+    const contract = root.LLMWikiPromotionContract
+      || (typeof require === "function" ? require("./llmwiki-promotion-contract.js") : null);
+    if (!contract || typeof contract.validateCandidateReceipt !== "function") {
+      throw new Error("LLMWiki promotion contract is required for Candidate persistence.");
+    }
+    return contract;
+  }
+
+  function promotionBinding(input, supplied) {
+    const hasPromotionFields = input.promotion_unit !== undefined || input.promotion_receipt !== undefined
+      || (Array.isArray(input.promotion_gaps) && input.promotion_gaps.length > 0)
+      || (Array.isArray(input.blocking_content_gaps) && input.blocking_content_gaps.length > 0);
+    if (!hasPromotionFields) return null;
+    if (supplied) return supplied;
+    return promotionContract().validateCandidateReceipt(input.promotion_receipt, input.promotion_unit);
   }
 
   function wikiLink(value, field) {
@@ -105,6 +124,8 @@
     Object.freeze(candidate.suggested_topics);
     Object.freeze(candidate.connections);
     Object.freeze(candidate.invalidation_conditions);
+    Object.freeze(candidate.promotion_gaps);
+    Object.freeze(candidate.blocking_content_gaps);
     return Object.freeze(candidate);
   }
 
@@ -162,10 +183,16 @@
     const permittedTopics = new Set(domain ? TOPICS[domain] : []);
     if (suggestedTopics.some((topic) => !permittedTopics.has(topic))) throw new Error("suggested_topics are invalid for suggested_domain.");
     const status = oneOf(input.status, "status", STATUS_SET);
+    const promotion = promotionBinding(input, mode.promotion_binding);
+    const promotionGaps = promotion ? promotion.promotion_gaps : [];
+    const blockingContentGaps = promotion ? promotion.blocking_content_gaps : [];
     const target = optionalText(input.promotion_target, "promotion_target");
     const promoted = optionalText(input.promoted_knowledge, "promoted_knowledge");
     const normalizedTarget = target ? targetPath(target) : "";
     const normalizedPromoted = promoted ? wikiLink(promoted, "promoted_knowledge") : "";
+    if (blockingContentGaps.length && (status === "approved" || normalizedTarget || normalizedPromoted)) {
+      throw new Error("content or relation promotion gaps must be resolved before approval.");
+    }
     if (status === "approved" && (!normalizedTarget || !normalizedPromoted)) {
       throw new Error("approved candidates require promotion_target and promoted_knowledge.");
     }
@@ -181,16 +208,23 @@
     };
     const candidateId = optionalText(input.candidate_id, "candidate_id") || stableCandidateId(idInput);
     if (mode.requireId && !input.candidate_id) throw new Error("candidate_id is required.");
-    return frozen({
+    const candidate = {
       type: TYPE, candidate_id: candidateId, status, title, statement, reason, source_type: sourceType,
       source_evidence_ids: sourceEvidenceIds, source_objects: sourceObjects, confidence,
       source_note: sourceNote, application_trigger: applicationTrigger, application_contexts: applicationContexts,
       connections, invalidation_conditions: invalidationConditions,
       suggested_domain: domain, suggested_topics: suggestedTopics,
       approval_note: optionalText(input.approval_note, "approval_note"),
+      promotion_gaps: promotionGaps, blocking_content_gaps: blockingContentGaps,
       promotion_target: normalizedTarget, promoted_knowledge: normalizedPromoted,
       created: requiredText(input.created, "created"), updated: requiredText(input.updated, "updated")
-    });
+    };
+    if (promotion) {
+      candidate.promotion_unit = promotion.promotion_input;
+      candidate.promotion_input_binding = promotion.promotion_input_binding;
+      candidate.promotion_receipt = promotion.promotion_receipt;
+    }
+    return frozen(candidate);
   }
 
   function createCandidate(input) {
@@ -198,6 +232,9 @@
     if (input.status === "approved") throw new Error("Knowledge candidate creation does not promote Knowledge.");
     if (input.status === "needs_more_evidence") throw new Error("Knowledge candidate creation starts as saved; evidence remediation is a review transition.");
     if (input.promotion_target || input.promoted_knowledge) throw new Error("Knowledge candidate creation does not promote Knowledge.");
+    if (input.promotion_unit !== undefined || input.promotion_receipt !== undefined || input.promotion_gaps !== undefined || input.blocking_content_gaps !== undefined) {
+      throw new Error("Candidate promotion gaps require a validated promotion receipt.");
+    }
     return normalizeCandidate({ ...input, type: TYPE, status: input.status || "saved", promotion_target: "", promoted_knowledge: "" });
   }
 
@@ -220,12 +257,35 @@
     return normalizeCandidate(candidate, { requireId: true });
   }
 
+  function createCandidateFromPromotion(input, receipt) {
+    if (!isRecord(input)) throw new Error("candidate must be an object.");
+    if (input.status === "approved" || input.status === "needs_more_evidence" || input.promotion_target || input.promoted_knowledge) {
+      throw new Error("Knowledge candidate creation does not promote Knowledge.");
+    }
+    const validated = promotionContract().validateCandidateReceipt(receipt, input.promotion_unit);
+    return normalizeCandidate({
+      ...input,
+      type: TYPE,
+      status: input.status || "saved",
+      promotion_unit: validated.promotion_input,
+      promotion_receipt: validated.promotion_receipt,
+      promotion_gaps: validated.promotion_gaps,
+      blocking_content_gaps: validated.blocking_content_gaps,
+      promotion_target: "",
+      promoted_knowledge: ""
+    }, { promotion_binding: validated });
+  }
+
   function isActive(candidate) {
     return ["proposed", "saved", "needs_more_evidence"].includes(validateCandidate(candidate).status);
   }
 
   function isTerminal(candidate) {
     return ["approved", "rejected"].includes(validateCandidate(candidate).status);
+  }
+
+  function isPendingOnly(candidate) {
+    return isActive(candidate);
   }
 
   function transitionCandidate(candidate, nextStatus) {
@@ -250,6 +310,7 @@
     if (current.status === "rejected") throw new Error("rejected candidates are terminal.");
     if (current.status === "needs_more_evidence") throw new Error("needs_more_evidence candidates must be resumed to saved before promotion.");
     if (current.status !== "saved") throw new Error("promotion target may be set only while a candidate is saved.");
+    if (current.blocking_content_gaps.length) throw new Error("content or relation promotion gaps must be resolved before promotion.");
     const target = targetPath(value);
     if (current.promotion_target && current.promotion_target !== target) throw new Error("promotion target is already set and cannot be changed.");
     return normalizeCandidate({ ...current, promotion_target: target });
@@ -264,6 +325,7 @@
       return validateCandidate(current);
     }
     if (current.status === "needs_more_evidence") throw new Error("needs_more_evidence candidates must be resumed to saved before finalization.");
+    if (current.blocking_content_gaps.length) throw new Error("content or relation promotion gaps must be resolved before finalization.");
     if (current.status !== "saved" || !current.promotion_target) throw new Error("saved candidate with a promotion target is required before finalization.");
     if (!promotionTargetMatches(current.promotion_target, promoted)) {
       throw new Error("promoted_knowledge must match promotion_target.");
@@ -273,7 +335,7 @@
 
   // --- Region evidence tier grouping ---
   // knowledge = verified, permanent_note = legacy verified, literature_note = related material,
-  // knowledge_candidate = pending. Candidate/literature are never verified.
+  // knowledge_candidate = pending and unverified. Candidate/literature are never verified.
   const TIER_ORDER = Object.freeze(["verified", "legacy", "material", "pending"]);
   const TIER_BY_TYPE = Object.freeze({
     knowledge: "verified",
@@ -407,9 +469,9 @@
 
   root.KnowledgeCandidateCore = Object.freeze({
     TYPE, STATUSES, SOURCE_TYPES, CONFIDENCE, DOMAINS, TOPICS, stableCandidateId,
-    createCandidate, normalizeLegacyReadingCandidate, validateCandidate, isActive, isTerminal,
+    createCandidate, createCandidateFromPromotion, normalizeLegacyReadingCandidate, validateCandidate, isActive, isTerminal, isPendingOnly,
     transitionCandidate, setPromotionTarget, finalizePromotion,
-    TIER_ORDER, TIER_BY_TYPE, tierForType, groupByTier,
+    LIFECYCLE_LABELS, TIER_ORDER, TIER_BY_TYPE, tierForType, groupByTier,
     REGION_ROOT, connectionList, regionLinksForRow, invalidationList, projectRegionThesis
   });
   if (typeof module !== "undefined" && module.exports) module.exports = root.KnowledgeCandidateCore;

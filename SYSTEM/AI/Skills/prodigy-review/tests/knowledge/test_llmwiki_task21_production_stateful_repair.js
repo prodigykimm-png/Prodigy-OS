@@ -7,7 +7,6 @@ const path = require("node:path");
 const test = require("node:test");
 const { buildPages, firstElement, runHub } = require("./knowledge_hub_integration_harness.js");
 const { collectText } = require("./knowledge_explorer_view_fakes.js");
-const { operation } = require("./llmwiki_real_product_fixtures.js");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const source = (name) => fs.readFileSync(path.join(ROOT, name), "utf8");
@@ -183,7 +182,24 @@ test("persisted corrupt and out-of-order rollout states fail closed at actual pr
     const result = await runHub({
       pages: buildPages(),
       extraFiles: { "INBOX/Knowledge/task21-rollout.md": "# rollout gate" },
-      llmWikiControllerOptions: { rollout_storage, operation_provider: async () => JSON.stringify(operation("create", "rollout-block")) },
+      llmWikiControllerOptions: {
+        rollout_storage,
+        inboxAnalysisTransport: async (work) => ({
+          ok: true,
+          chunk_results: work.changed_chunks.map((chunk) => ({
+            key: chunk.key,
+            semantic_units: [{
+              temporary_span_alias: "span_rollout",
+              start: 0,
+              end: Math.min(chunk.text.length, 12),
+              origin_hint: "source_extract",
+              disposition: "propose",
+              uncertainty: { level: "low", reasons: [] },
+              claims: [{ text: "rollout gate", temporary_span_alias: "span_rollout" }],
+            }],
+          })),
+        }),
+      },
     });
     await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
     const controller = result.window.KnowledgeExplorerHub.llmWikiRunController;

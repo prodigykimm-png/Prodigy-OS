@@ -39,9 +39,10 @@ function evaluateDataviewService() {
 
 function assertHomeProviderDependencies() {
   const source = fs.readFileSync(HOME_PATH, "utf8");
-  const loadOrder = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home.optional;
+  const home = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json")).entries.home;
+  const loadOrder = home.required;
   const serviceIndex = loadOrder.indexOf("SYSTEM/Views/ai-provider-service.js");
-  assert.ok(serviceIndex >= 0, "Home must defer AIProviderService.");
+  assert.ok(serviceIndex >= 0, "Home must require AIProviderService.");
   [
     "SYSTEM/Views/ai-provider-response.js",
     "SYSTEM/Views/ai-provider-schema.js",
@@ -49,8 +50,10 @@ function assertHomeProviderDependencies() {
     "SYSTEM/Views/ai-provider-fallback.js"
   ].forEach((dependency) => {
     const dependencyIndex = loadOrder.indexOf(dependency);
-    assert.ok(dependencyIndex >= 0 && dependencyIndex < serviceIndex, `Home must defer ${dependency} before AIProviderService.`);
+    assert.ok(dependencyIndex >= 0 && dependencyIndex < serviceIndex, `Home must require ${dependency} before AIProviderService.`);
+    assert.equal(home.optional.includes(dependency), false, `Home must not duplicate required ${dependency} as optional.`);
   });
+  assert.equal(home.optional.includes("SYSTEM/Views/ai-provider-service.js"), false, "Home must not duplicate required AIProviderService as optional.");
   assert.doesNotMatch(
     source,
     /SYSTEM\/Views\/(?:daily-reflection-ai|journal-view)\.js/,

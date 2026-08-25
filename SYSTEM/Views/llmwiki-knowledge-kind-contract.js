@@ -15,6 +15,7 @@
   const PROPOSAL_FIELDS = new Set([
     "application_contexts", "application_trigger", "body", "connections", "created", "invalidation_conditions",
     "knowledge_domain", "knowledge_kind", "knowledge_topics", "statement", "summary", "title", "type", "updated",
+    "schema_version", "canonical_id", "status", "sources", "relations", "claim_set_hash", "promotion_receipt_hash", "ai_enrichment_status",
   ]);
   const REQUIRED_TEXT_FIELDS = Object.freeze([
     "title", "statement", "knowledge_domain", "application_trigger", "summary", "created", "updated", "body",
@@ -83,13 +84,20 @@
     catch (_error) { return rejected("invalid_knowledge_kind", "knowledge_kind"); }
     if (kind === "unclassified") return rejected("unclassified_not_approval_eligible", "knowledge_kind");
     if (value.type !== undefined && value.type !== "knowledge") return rejected("canonical_type_required", "type");
+    const v2 = value.schema_version !== undefined;
+    if (v2 && value.schema_version !== 2) return rejected("unknown_schema_version", "schema_version");
     for (const field of REQUIRED_TEXT_FIELDS) {
+      if (field === "summary" && v2 && value[field] === undefined) continue;
       if (typeof value[field] !== "string") return rejected("invalid_proposal_text", field);
     }
     for (const field of REQUIRED_LIST_FIELDS) {
       if (!Array.isArray(value[field]) || value[field].some((item) => typeof item !== "string")) {
         return rejected("invalid_proposal_list", field);
       }
+    }
+    if (v2) {
+      try { knowledgeStore.validateLifecycleDocument({ ...value, type: "knowledge" }); }
+      catch (error) { return rejected(error.code || "invalid_lifecycle_document", "proposal"); }
     }
     try { knowledgeStore.renderCanonicalDocument(value); }
     catch (error) { return rejected(error.code || error.message || "invalid_canonical_document", "proposal"); }

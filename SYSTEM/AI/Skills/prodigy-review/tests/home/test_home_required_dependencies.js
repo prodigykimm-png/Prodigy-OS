@@ -11,6 +11,7 @@ const FIXTURE_PATH = path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shar
 const HOME_VIEW_PATH = path.join(ROOT, "SYSTEM/Views/home-view.js");
 const REQUIRED_SEAMS = Object.freeze([
   "SYSTEM/Views/home-model.js",
+  "SYSTEM/Views/home-action-queue.js",
   "SYSTEM/Views/home-controller.js",
   "SYSTEM/Views/home-sections.js"
 ]);
@@ -25,7 +26,7 @@ function assertHomeSeamOrder(entry) {
     assert.equal((entry.optional || []).includes(modulePath), false, `${modulePath} must never be optional`);
     return required.indexOf(modulePath);
   });
-  assert.deepEqual(indexes, [homeViewIndex - 3, homeViewIndex - 2, homeViewIndex - 1], "Home seams must load in model/controller/sections order immediately before home-view");
+  assert.deepEqual(indexes, [homeViewIndex - 4, homeViewIndex - 3, homeViewIndex - 2, homeViewIndex - 1], "Home seams must load in model/action-queue/controller/sections order immediately before home-view");
 }
 
 function testManifestMutationsRed() {
@@ -42,13 +43,13 @@ function testManifestMutationsRed() {
   });
 
   const omitted = { ...frozen, required: frozen.required.filter((modulePath) => modulePath !== REQUIRED_SEAMS[1]) };
-  assert.throws(() => assertHomeSeamOrder(omitted), /home-controller\.js must be required exactly once/);
+  assert.throws(() => assertHomeSeamOrder(omitted), /home-action-queue\.js must be required exactly once/);
 
   const reorderedPaths = frozen.required.slice();
   const modelIndex = reorderedPaths.indexOf(REQUIRED_SEAMS[0]);
   const controllerIndex = reorderedPaths.indexOf(REQUIRED_SEAMS[1]);
   [reorderedPaths[modelIndex], reorderedPaths[controllerIndex]] = [reorderedPaths[controllerIndex], reorderedPaths[modelIndex]];
-  assert.throws(() => assertHomeSeamOrder({ ...frozen, required: reorderedPaths }), /model\/controller\/sections order/);
+  assert.throws(() => assertHomeSeamOrder({ ...frozen, required: reorderedPaths }), /model\/action-queue\/controller\/sections order/);
 
   const source = fs.readFileSync(HOME_VIEW_PATH, "utf8");
   REQUIRED_SEAMS.forEach((modulePath) => {

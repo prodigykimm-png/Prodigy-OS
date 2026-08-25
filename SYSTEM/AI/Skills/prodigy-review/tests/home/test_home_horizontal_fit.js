@@ -14,9 +14,12 @@ function styleSource() {
 }
 
 function ruleBody(source, selector) {
-  const index = source.indexOf(selector);
+  const trimmed = selector.trim();
+  const grouped = trimmed.endsWith(",");
+  const target = grouped ? trimmed : trimmed.replace(/\s*\{$/, "") + " {";
+  const index = source.lastIndexOf(target);
   if (index < 0) return "";
-  const open = source.indexOf("{", index);
+  const open = grouped ? source.indexOf("{", index + target.length) : index + target.length - 1;
   if (open < 0) return "";
   let depth = 0;
   for (let i = open; i < source.length; i += 1) {
@@ -27,6 +30,30 @@ function ruleBody(source, selector) {
     }
   }
   return "";
+}
+
+function ruleBodies(source, selector) {
+  const target = selector.trim().replace(/\s*\{$/, "") + " {";
+  const bodies = [];
+  let from = 0;
+  while (from < source.length) {
+    const index = source.indexOf(target, from);
+    if (index < 0) break;
+    const open = index + target.length - 1;
+    let depth = 0;
+    for (let i = open; i < source.length; i += 1) {
+      if (source[i] === "{") depth += 1;
+      else if (source[i] === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          bodies.push(source.slice(open + 1, i));
+          from = i + 1;
+          break;
+        }
+      }
+    }
+  }
+  return bodies;
 }
 
 function cssNumericValue(body, property, unit) {
@@ -160,7 +187,7 @@ test("Given a fixed-height workspace dock button, When icon and label stack insi
 
 test("Given Home runs inside the mobile Obsidian chrome, When the user reaches the bottom, Then the last content can clear the action bar and iPhone safe area", () => {
   const source = styleSource();
-  const compact = ruleBody(source, ".prodigy-home.home-compact {");
+  const compact = ruleBodies(source, ".prodigy-home.home-compact {").join("\n");
   const scrollOwner = ruleBody(
     source,
     '.prodigy-app-shell[data-workspace-id="home"] > .prodigy-app-shell-body {'

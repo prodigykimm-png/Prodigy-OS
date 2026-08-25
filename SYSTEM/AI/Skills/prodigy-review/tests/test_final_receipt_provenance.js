@@ -16,8 +16,21 @@ const gitProbe = cp.spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encodin
 const HAS_GIT = gitProbe.status === 0;
 const HEAD = HAS_GIT ? gitProbe.stdout.trim() : "f".repeat(40);
 const GREEN = "Release gate: 3/3 executed commands passed\nExecuted: 3\nSkipped: 0\nNot applicable: 2\nFailures: 0\nVERDICT: GREEN\n";
-const GREEN_AUTHORITY = "Release gate: 609/609 executed commands passed\nExecuted: 609\nSkipped: 0\nNot applicable: 17\nFailures: 0\nVERDICT: GREEN\n";
-const RED_AUTHORITY = "Release gate: 608/609 executed commands passed\nExecuted: 609\nSkipped: 0\nNot applicable: 17\nFailures: 1\nVERDICT: RED\n";
+function realObsidianCapability(name) {
+  return name === "test_knowledge_explorer_responsive.js" || /^test_.*_real_obsidian_.*\.js$/u.test(name) || /^test_real_obsidian_.*\.js$/u.test(name)
+    || ["test_real_hub_transition_lifecycle.js", "test_shared_real_obsidian_controls.js", "test_workout_real_controller_publication.js"].includes(name);
+}
+function countCapabilities(directory) {
+  return fs.readdirSync(directory, { withFileTypes: true }).reduce((sum, entry) => {
+    const absolute = path.join(directory, entry.name);
+    return sum + (entry.isDirectory() ? countCapabilities(absolute) : entry.isFile() && realObsidianCapability(entry.name) ? 1 : 0);
+  }, 0);
+}
+const MANIFEST_TOTAL = JSON.parse(fs.readFileSync(path.join(ROOT, "SYSTEM/CI/release-gate-manifest.json"), "utf8")).total_commands;
+const AUTHORITY_NOT_APPLICABLE = countCapabilities(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests"));
+const AUTHORITY_TOTAL = MANIFEST_TOTAL - AUTHORITY_NOT_APPLICABLE;
+const GREEN_AUTHORITY = `Release gate: ${AUTHORITY_TOTAL}/${AUTHORITY_TOTAL} executed commands passed\nExecuted: ${AUTHORITY_TOTAL}\nSkipped: 0\nNot applicable: ${AUTHORITY_NOT_APPLICABLE}\nFailures: 0\nVERDICT: GREEN\n`;
+const RED_AUTHORITY = `Release gate: ${AUTHORITY_TOTAL - 1}/${AUTHORITY_TOTAL} executed commands passed\nExecuted: ${AUTHORITY_TOTAL}\nSkipped: 0\nNot applicable: ${AUTHORITY_NOT_APPLICABLE}\nFailures: 1\nVERDICT: RED\n`;
 const CAPABILITY_FIXTURES = [
   "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/capability-custom-success.txt",
   "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/capability-node24-spec-success.txt",
@@ -67,7 +80,7 @@ test("both internally consistent RED gates reject before candidate write and ind
     const artifacts = path.join(temp, "artifacts"); fs.mkdirSync(path.join(artifacts, "portable-working"), { recursive: true }); fs.mkdirSync(path.join(artifacts, "portable-clean"), { recursive: true });
     for (const relative of ["portable-working/gate-output.log", "portable-clean/gate-output.log"]) fs.writeFileSync(path.join(artifacts, relative), RED_AUTHORITY);
     const digest = require("node:crypto").createHash("sha256").update(RED_AUTHORITY).digest("hex");
-    const redGate = { output_sha256: digest, commands_passed: 608, commands_total: 609, skipped: 0, not_applicable: 17, failures: 1, verdict: "RED" };
+    const redGate = { output_sha256: digest, commands_passed: AUTHORITY_TOTAL - 1, commands_total: AUTHORITY_TOTAL, skipped: 0, not_applicable: AUTHORITY_NOT_APPLICABLE, failures: 1, verdict: "RED" };
     const forged = { schema_version: "task16-final-release-receipt-v3", verdict: "PASS", canonical_gates: { working_tree: { ...redGate, artifact_path: "portable-working/gate-output.log" }, metadata_free_clean_projection: { ...redGate, artifact_path: "portable-clean/gate-output.log" } }, validation: { canonical_self_sha256: null } };
     forged.validation.canonical_self_sha256 = verifier.canonicalSelfSha256(forged);
     assert.equal(forged.validation.canonical_self_sha256, verifier.canonicalSelfSha256(forged), "forgery has a valid canonical self-hash");
@@ -210,7 +223,7 @@ test("fresh builder cannot read, copy, or merge a poisoned legacy final receipt"
 });
 
 test("recomputed self-hash never authorizes named, gate-authority, or generic claim forgeries", () => {
-  const greenGate = { output_sha256: "a".repeat(64), commands_passed: 609, commands_total: 609, skipped: 0, not_applicable: 17, failures: 0, verdict: "GREEN", artifact_path: "gate.log" };
+  const greenGate = { output_sha256: "a".repeat(64), commands_passed: AUTHORITY_TOTAL, commands_total: AUTHORITY_TOTAL, skipped: 0, not_applicable: AUTHORITY_NOT_APPLICABLE, failures: 0, verdict: "GREEN", artifact_path: "gate.log" };
   const expected = { schema_version: "x", verdict: "PASS", canonical_gates: { working_tree: greenGate, metadata_free_clean_projection: { ...greenGate } }, frozen_projection: { literal_checks_passed: 7, same_path_mutation_rejected: true, restored_exactly: true }, evidence: { focused_responsive: { working: "GREEN" } }, count: 3, validation: { canonical_self_sha256: null } };
   expected.validation.canonical_self_sha256 = verifier.canonicalSelfSha256(expected);
   for (const claimPath of verifier.leafPaths(expected)) {
@@ -242,7 +255,8 @@ test("retained gate/archive and live revision claims reject temporary-copy forge
   const parsed = verifier.parseGateLog(path.join(artifacts, "working.log"));
   const receipt = { verdict: "PASS", revision: { baseline: verifier.BASELINE, detached_head: HEAD, history_modified: false }, retained_artifact_redaction: { sha256: verifier.fileSha256 ? verifier.fileSha256(redactionFile) : require("node:crypto").createHash("sha256").update(fs.readFileSync(redactionFile)).digest("hex"), file_count: redaction.file_count, replacement_count: redaction.replacement_count }, frozen_projection: { archive_sha256: verifier.archiveFingerprint(archive, redactionFile, temp) }, canonical_gates: { working_tree: { ...parsed, artifact_path: "working.log" }, metadata_free_clean_projection: { ...parsed, artifact_path: "clean.log" } } };
   const receiptFile = path.join(temp, "receipt.json"); fs.writeFileSync(receiptFile, JSON.stringify(receipt));
-  assert.equal(invoke(receiptFile, artifacts, archive).status, 0, "control provenance must verify");
+  const control = invoke(receiptFile, artifacts, archive);
+  assert.equal(control.status, 0, `control provenance must verify:\n${control.stdout}\n${control.stderr}`);
   const forgeries = [
     ["gate digest", (value) => { value.canonical_gates.working_tree.output_sha256 = "0".repeat(64); }],
     ["archive digest", (value) => { value.frozen_projection.archive_sha256 = "0".repeat(64); }]
@@ -256,7 +270,7 @@ test("retained gate/archive and live revision claims reject temporary-copy forge
     assert.notEqual(invoke(receiptFile, artifacts, archive).status, 0, `${label} forgery must exit nonzero`);
   }
   fs.writeFileSync(receiptFile, JSON.stringify(receipt));
-  fs.writeFileSync(path.join(artifacts, "working.log"), GREEN_AUTHORITY.replace("609/609", "608/609"));
+  fs.writeFileSync(path.join(artifacts, "working.log"), GREEN_AUTHORITY.replace(`${AUTHORITY_TOTAL}/${AUTHORITY_TOTAL}`, `${AUTHORITY_TOTAL - 1}/${AUTHORITY_TOTAL}`));
   assert.notEqual(invoke(receiptFile, artifacts, archive).status, 0, "mismatched command count must exit nonzero");
   fs.writeFileSync(path.join(artifacts, "working.log"), `${RED_AUTHORITY}/Users/forged/path\n`);
   const changedRedaction = scrub(temp, redactionFile), changedReceipt = JSON.parse(JSON.stringify(receipt)), crypto = require("node:crypto");

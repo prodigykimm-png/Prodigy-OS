@@ -92,6 +92,11 @@ function approvalSandbox() {
   load(sandbox, "llmwiki-hash.js");
   load(sandbox, "llmwiki-operation-contract.js");
   load(sandbox, "llmwiki-canonical-packet.js");
+  load(sandbox, "llmwiki-operation-writer-core.js");
+  load(sandbox, "llmwiki-finalized-revision-bridge.js");
+  load(sandbox, "llmwiki-update-authority.js");
+  load(sandbox, "llmwiki-canonical-v2-authority.js");
+  load(sandbox, "llmwiki-lifecycle-migration-authority.js");
   load(sandbox, "llmwiki-operation-writer.js");
   return sandbox;
 }

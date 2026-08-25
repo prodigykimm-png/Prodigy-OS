@@ -30,7 +30,7 @@ test("publishes only an agreeing two-pass snapshot and keeps trust rows separate
   assert.equal(result.status, "published");
   assert.equal(result.published, true);
   assert.equal(calls, 2);
-  assert.deepEqual(service.getSnapshot().counts, { verified: 1, legacy_verified: 0, literature: 0, pending: 1, total: 2 });
+  assert.deepEqual(service.getSnapshot().counts, { verified: 0, legacy_review: 0, literature: 0, pending: 1, maintenance: 1, total: 2 });
   assert.equal(service.getSnapshot().writer_count, 0);
   assert.equal(service.getSnapshot().provider_count, 0);
 });

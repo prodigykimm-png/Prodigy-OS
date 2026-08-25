@@ -126,10 +126,6 @@
     const policy = sourcePolicy(row);
     return policy.decision !== "allowed" || policy.source_ids.some((sourceId) => deniedIds.has(sourceId));
   }
-  function terms(value) {
-    return [...new Set(trim(value).toLocaleLowerCase("ko-KR").split(/[^\p{L}\p{N}_-]+/u).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b, "en"));
-  }
   function normalizeStructured(value) {
     if (value === undefined) return { domain: "", topics: [], types: [] };
     if (!plain(value)) return failure("structured", "invalid_structured_filter");
@@ -189,6 +185,10 @@
     if (contract.denied_source_ids !== undefined && !Array.isArray(contract.denied_source_ids)) return failure("denied_source_ids", "invalid_denied_sources");
     return { query, contract, maxCandidates, structured, index, embeddingHints, graphHints };
   }
+  function trustedCanonicalRow(row) {
+    const trust = root.LLMWikiCanonicalTrust || (typeof require === "function" ? (() => { try { return require("./llmwiki-canonical-trust.js"); } catch (_) { return null; } })() : null);
+    return Boolean(trust && typeof trust.isVerifiedRow === "function" && trust.isVerifiedRow(row));
+  }
   function canonicalRelations(rows, ontologyProjection) {
     const raw = rows.flatMap((row) => list(row.relations).map((relation) => ({
       from_document_id: trim(row.document_id),
@@ -240,7 +240,7 @@
       const lexical = lexicalIds(queryReadOnly, query, snapshot);
       if (lexical && lexical.ok === false) return lexical;
       const deniedIds = new Set(list(normalized.contract.denied_source_ids).map(trim).filter(Boolean));
-      const rows = rowsFor(snapshot).filter((row) => plain(row) && ["knowledge", "permanent_note"].includes(trim(row.type)));
+      const rows = rowsFor(snapshot).filter((row) => plain(row) && trim(row.type) === "knowledge" && trustedCanonicalRow(row));
       const relations = canonicalRelations(rows, ontologyProjection);
       const relationIds = new Set(relations.flatMap((item) => [item.from_document_id, item.target_document_id]));
       const embeddingIds = new Set(normalized.embeddingHints);

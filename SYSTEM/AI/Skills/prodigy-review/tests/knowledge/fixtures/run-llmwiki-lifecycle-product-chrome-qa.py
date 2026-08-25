@@ -2,7 +2,7 @@
 """Capture the production lifecycle modules at the Task 15 viewport/state matrix."""
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-import json, os, shutil, signal, subprocess, tempfile, time, urllib.parse
+import json, os, shutil, signal, subprocess, tempfile, urllib.parse
 
 ROOT = Path(__file__).resolve().parents[7]
 FIXTURE = Path(__file__).with_name("llmwiki-lifecycle-product-qa.html")
@@ -21,16 +21,14 @@ def capture(spec):
     url = FIXTURE.as_uri() + "?state=" + urllib.parse.quote(state)
     command = [str(CHROME), "--headless=new", "--disable-gpu", "--no-sandbox", "--disable-component-update", "--disable-background-networking", "--disable-features=OptimizationHints", "--allow-file-access-from-files", f"--user-data-dir={profile}", f"--window-size={width},{height}", f"--force-device-scale-factor={scale}", "--virtual-time-budget=500", f"--screenshot={target}", url]
     process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    deadline = time.monotonic() + 12
-    while time.monotonic() < deadline and not target.exists() and process.poll() is None:
-        time.sleep(0.05)
-    try: os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError: pass
-    try: process.wait(timeout=2)
+    try:
+        process.wait(timeout=12)
     except subprocess.TimeoutExpired:
         try: os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError: pass
-    shutil.rmtree(profile, ignore_errors=True)
+        process.wait(timeout=2)
+    finally:
+        shutil.rmtree(profile, ignore_errors=True)
     if not target.exists() or target.stat().st_size == 0: raise RuntimeError(f"capture_failed:{name}")
     return {"state": state, "width": width, "height": height, "scale": scale, "path": str(target.relative_to(ROOT)), "bytes": target.stat().st_size}
 

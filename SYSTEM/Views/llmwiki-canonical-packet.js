@@ -11,9 +11,12 @@
   const HASH = /^[0-9a-f]{64}$/u;
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const NONCE = /^[A-Za-z0-9_-]{16,128}$/u;
+  const KNOWLEDGE_KINDS = new Set(["claim", "principle", "procedure", "concept"]);
   const DOCUMENT_FIELDS = new Set([
     "application_contexts", "application_trigger", "body", "connections", "created", "invalidation_conditions",
     "knowledge_domain", "knowledge_topics", "statement", "summary", "title", "type", "updated",
+    "schema_version", "canonical_id", "knowledge_kind", "status", "sources", "relations", "claim_set_hash",
+    "promotion_receipt_hash", "ai_enrichment_status",
   ]);
   const CITATION_FIELDS = new Set([
     "confidence", "content_hash", "locator", "locators", "source_archive_id", "source_id", "source_url", "text",
@@ -24,19 +27,29 @@
   ]);
   const ALLOWED_PROPERTIES = Object.freeze([
     "/body",
+    "/frontmatter/ai_enrichment_status",
     "/frontmatter/application_contexts",
     "/frontmatter/application_trigger",
+    "/frontmatter/canonical_id",
+    "/frontmatter/claim_set_hash",
     "/frontmatter/connections",
     "/frontmatter/created",
     "/frontmatter/invalidation_conditions",
     "/frontmatter/knowledge_domain",
+    "/frontmatter/knowledge_kind",
     "/frontmatter/knowledge_topics",
+    "/frontmatter/promotion_receipt_hash",
+    "/frontmatter/relations",
+    "/frontmatter/schema_version",
+    "/frontmatter/sources",
+    "/frontmatter/status",
     "/frontmatter/statement",
     "/frontmatter/summary",
     "/frontmatter/title",
     "/frontmatter/type",
     "/frontmatter/updated",
   ]);
+  const V2_ALLOWED_PROPERTIES = Object.freeze(ALLOWED_PROPERTIES.filter((property) => property !== "/frontmatter/summary"));
   const WRITE_COUNTERS = Object.freeze({ canonical: 0, audit: 0, provider: 0, network: 0, git: 0 });
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
@@ -100,20 +113,35 @@
     for (const field of ["knowledge_topics", "application_contexts", "connections", "invalidation_conditions"]) {
       if (!Array.isArray(value[field]) || value[field].some((item) => typeof item !== "string")) return fail(`canonical_document.${field}`, "invalid_document_list");
     }
-    for (const field of ["application_trigger", "summary", "body"]) {
+    for (const field of ["application_trigger", "body"]) {
       if (typeof value[field] !== "string") return fail(`canonical_document.${field}`, "invalid_document_text");
     }
+    if (value.summary !== undefined && typeof value.summary !== "string") return fail("canonical_document.summary", "invalid_document_text");
     if (!validIso(value.created) || !validIso(value.updated)) return fail("canonical_document.timestamp", "invalid_document_timestamp");
+    if (value.schema_version !== undefined) {
+      if (value.schema_version !== 2) return fail("canonical_document.schema_version", "unknown_schema_version");
+      if (value.summary !== undefined) return fail("canonical_document.summary", "duplicate_v2_summary");
+      if (!KNOWLEDGE_KINDS.has(value.knowledge_kind)) return fail("canonical_document.knowledge_kind", "invalid_knowledge_kind");
+      if (value.status !== "active" || !HASH.test(trim(value.claim_set_hash)) || !HASH.test(trim(value.promotion_receipt_hash))
+        || typeof value.ai_enrichment_status !== "string" || !value.ai_enrichment_status) return fail("canonical_document", "invalid_lifecycle_metadata");
+      try { knowledgeApi.validateLifecycleDocument({ ...value, type: "knowledge" }); }
+      catch (error) { return fail("canonical_document", error.code || "invalid_lifecycle_document"); }
+    }
     const issue = knowledgeApi.canonicalDocumentIssue(value);
     if (issue) return fail(issue.field, issue.reason);
     return null;
   }
 
-  function validateProperties(value) {
-    if (value === undefined) return ALLOWED_PROPERTIES;
-    if (!Array.isArray(value) || value.length !== ALLOWED_PROPERTIES.length || new Set(value).size !== value.length) return fail("allowed_properties", "unauthorized_property");
+  function allowedPropertiesFor(document) {
+    return document && document.schema_version === 2 ? V2_ALLOWED_PROPERTIES : ALLOWED_PROPERTIES;
+  }
+
+  function validateProperties(value, document) {
+    const allowed = allowedPropertiesFor(document);
+    if (value === undefined) return allowed;
+    if (!Array.isArray(value) || value.length !== allowed.length || new Set(value).size !== value.length) return fail("allowed_properties", "unauthorized_property");
     const normalized = value.slice().sort();
-    return same(normalized, ALLOWED_PROPERTIES) ? normalized : fail("allowed_properties", "unauthorized_property");
+    return same(normalized, allowed) ? normalized : fail("allowed_properties", "unauthorized_property");
   }
 
   function normalizedUrl(value) {
@@ -229,7 +257,11 @@
     const identity = packetIdentity(packet);
     const canonicalSerialization = stable(identity);
     if (packet.canonical_serialization !== canonicalSerialization || packet.packet_hash !== sha256(canonicalSerialization)) return fail("packet", "packet_tampered");
-    if (!validTarget(packet.target_path) || !same(packet.allowed_properties, ALLOWED_PROPERTIES)) return fail("packet", "packet_payload_invalid");
+    if (!validTarget(packet.target_path)) return fail("packet", "packet_payload_invalid");
+    let document;
+    try { document = knowledgeApi.parseFrontmatter(packet.after_bytes).data; }
+    catch (_error) { return fail("packet", "packet_payload_invalid"); }
+    if (!same(packet.allowed_properties, allowedPropertiesFor(document))) return fail("packet", "packet_payload_invalid");
     if (typeof packet.before_bytes !== "string" || sha256(packet.before_bytes) !== packet.before_sha256) return fail("packet", "packet_payload_invalid");
     if (typeof packet.after_bytes !== "string" || sha256(packet.after_bytes) !== packet.after_sha256) return fail("packet", "packet_payload_invalid");
     if (packet.live_revision !== liveRevision(packet.target_path, packet.before_sha256)) return fail("packet", "packet_payload_invalid");
@@ -241,8 +273,11 @@
     if (operation.authorization_state !== (create ? "authorizable" : "disabled")) return fail("packet", "packet_payload_invalid");
     if (create && packet.before_bytes !== "") return fail("packet", "packet_payload_invalid");
     try {
-      const parsed = knowledgeApi.parseFrontmatter(packet.after_bytes);
-      if (knowledgeApi.renderCanonicalDocument({ ...parsed.data, body: parsed.body }) !== packet.after_bytes) return fail("packet", "packet_payload_invalid");
+      const frontmatter = knowledgeApi.parseFrontmatter(packet.after_bytes);
+      const parsed = frontmatter.data.schema_version === 2
+        ? knowledgeApi.parseLifecycleDocument(packet.after_bytes)
+        : { ...frontmatter.data, body: frontmatter.body };
+      if (knowledgeApi.renderCanonicalDocument(parsed) !== packet.after_bytes) return fail("packet", "packet_payload_invalid");
     } catch (_error) { return fail("packet", "packet_payload_invalid"); }
     return success("verified", freeze({ packet_hash: packet.packet_hash }));
   }
@@ -252,7 +287,7 @@
     if (invalid) return invalid;
     const operation = validateOperation(request.operation);
     if (plain(operation) && operation.ok === false) return operation;
-    const allowedProperties = validateProperties(request.allowed_properties);
+    const allowedProperties = validateProperties(request.allowed_properties, request.canonical_document);
     if (plain(allowedProperties) && allowedProperties.ok === false) return allowedProperties;
     const citations = validateCitations(request.source_citations);
     if (plain(citations) && citations.ok === false) return citations;
@@ -288,7 +323,7 @@
   }
 
   const api = freeze({
-    PACKET_VERSION, ALLOWED_PROPERTIES, WRITE_COUNTERS, assembleCanonicalPacket, computePacketHash, verifyCanonicalPacket, sha256,
+    PACKET_VERSION, ALLOWED_PROPERTIES, V2_ALLOWED_PROPERTIES, WRITE_COUNTERS, assembleCanonicalPacket, computePacketHash, verifyCanonicalPacket, sha256,
     canonicalKnowledgeDirectory: knowledgeApi.canonicalKnowledgeDirectory,
     renderCanonicalDocument: knowledgeApi.renderCanonicalDocument,
   });

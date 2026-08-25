@@ -13,8 +13,12 @@
     return root.KnowledgeCandidateStore;
   }
 
-  const CANDIDATE_DIR = "PARA/RESOURCES/Knowledge/Candidates";
-  const CANDIDATE_LEGACY_DIRS = Object.freeze(["PARA/RESOURCES/Reading/Candidates", "ZETA/FLEETING/Knowledge Candidates"]);
+  const CANDIDATE_DIR = "ZETA/CANDIDATES";
+  const CANDIDATE_LEGACY_DIRS = Object.freeze([
+    "PARA/RESOURCES/Knowledge/Candidates",
+    "PARA/RESOURCES/Reading/Candidates",
+    "ZETA/FLEETING/Knowledge Candidates"
+  ]);
 
   async function ensureFolder(app, folderPath) {
     if (!folderPath) return;
@@ -159,7 +163,12 @@
 
   async function saveCandidate(app, session, formValues) {
     const candidate = root.ReadingCore.createKnowledgeCandidate(session, formValues);
-    const saved = await candidateStore().saveCandidate(app, candidate);
+    const {
+      promotion_gaps: _promotionGaps,
+      blocking_content_gaps: _blockingContentGaps,
+      ...creationInput
+    } = candidate;
+    const saved = await candidateStore().saveCandidate(app, creationInput);
 
     if (session.path) {
       const sessionFile = app.vault.getAbstractFileByPath(session.path);

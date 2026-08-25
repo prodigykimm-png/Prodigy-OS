@@ -169,7 +169,7 @@
     metaBody.createEl("p", { text: `현재 revision / conflict 기준: ${review.approval_evidence.review.current_revision}`, style: "margin:2px 0;" });
 
     const actions = panel.createDiv({ attr: { class: "capture-review-actions", style: "display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:8px;" } });
-    const add = (label, name, primary) => { const button = actions.createEl("button", { text: label, attr: { type: "button", class: primary ? "mod-cta" : "", style: "min-height:38px;padding:6px 16px;border-radius:var(--ke-radius-control, 8px);" } }); button.onclick = (event) => controls[name] && controls[name](event, review); return button; };
+    const add = (label, name, primary) => { const button = actions.createEl("button", { text: label, attr: { type: "button", class: primary ? "mod-cta" : "", style: "min-height:44px;padding:6px 16px;border-radius:var(--ke-radius-control, 8px);" } }); button.onclick = (event) => controls[name] && controls[name](event, review); return button; };
     const rendered = Object.freeze({ panel, confirm: add("확인", "confirm", true), reject: add("거절", "reject", false), cancel: add("취소", "cancel", false) });
     if (rendered.confirm && typeof rendered.confirm.focus === "function") rendered.confirm.focus();
     return rendered;

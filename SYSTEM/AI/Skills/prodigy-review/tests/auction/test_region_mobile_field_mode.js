@@ -8,6 +8,24 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const popupView = require(path.join(ROOT, "SYSTEM/Views/region-intelligence-popup-view.js"));
 const viewModel = require(path.join(ROOT, "SYSTEM/Views/region-decision-view-model.js"));
 const tokens = require(path.join(ROOT, "SYSTEM/Views/design-tokens.js"));
+require(path.join(ROOT, "SYSTEM/Views/region-styles.js"));
+const regionStyles = global.RegionStyles;
+
+function renderedRegionStyles() {
+  const previousDocument = global.document;
+  const style = { id: "", textContent: "" };
+  global.document = {
+    getElementById: () => null,
+    createElement: () => style,
+    head: { appendChild() {} }
+  };
+  try {
+    regionStyles.ensureRegionStyles();
+    return style.textContent;
+  } finally {
+    global.document = previousDocument;
+  }
+}
 
 function sampleProjection() {
   return viewModel.projectRegionPopup({
@@ -32,7 +50,7 @@ test("320px: no element exceeds viewport width", () => {
     assert.ok(parseInt(m[1]) <= 320, `Fixed width ${m[1]}px exceeds 320px`);
   }
   // CSS also constrains
-  const css = popupView.popupStyles();
+  const css = renderedRegionStyles();
   assert.match(css, /max-width:\s*100vw/);
 });
 
@@ -40,7 +58,7 @@ test("390px: no horizontal overflow", () => {
   const html = popupView.renderPopup({ projection: sampleProjection(), activeTabIndex: 0 });
   assert.match(html, /overflow-x:\s*hidden/);
   // CSS provides tab bar scroll
-  const css = popupView.popupStyles();
+  const css = renderedRegionStyles();
   assert.match(css, /overflow-x:\s*auto/);
   assert.match(css, /-webkit-overflow-scrolling:\s*touch/);
 });
@@ -55,13 +73,13 @@ test("touch targets: all buttons ≥ 44px", () => {
   }
   assert.ok(count >= 2, "Should have at least close + tab buttons");
   // CSS also enforces
-  const css = popupView.popupStyles();
-  assert.match(css, /min-height:\s*44px/);
+  const css = renderedRegionStyles();
+  assert.match(css, new RegExp(`min-height:\\s*${tokens.CONTROL_HEIGHTS.touchTarget}px`));
 });
 
 test("tab bar: scrollable on narrow", () => {
   // Tab bar scroll is in CSS, not inline HTML
-  const css = popupView.popupStyles();
+  const css = renderedRegionStyles();
   assert.match(css, /\.region-popup-tabs\s*\{[^}]*overflow-x:\s*auto/);
   assert.match(css, /flex-shrink:\s*0/);
   // Tab bar HTML has correct role
@@ -75,7 +93,7 @@ test("modal: full-screen compact, dialog desktop", () => {
   assert.match(html, /role="dialog"/);
   assert.match(html, /aria-label/);
   // CSS handles responsive
-  const css = popupView.popupStyles();
+  const css = renderedRegionStyles();
   assert.match(css, new RegExp(`@media\\s*\\(max-width:\\s*${tokens.RESPONSIVE_BREAKPOINTS.compactMax}px\\)`));
   assert.match(css, /width:\s*100vw/);
 });

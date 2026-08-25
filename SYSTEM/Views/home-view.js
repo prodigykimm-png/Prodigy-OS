@@ -1030,6 +1030,18 @@
     const inboxCount = app.vault && typeof app.vault.getMarkdownFiles === "function"
       ? app.vault.getMarkdownFiles().filter((file) => file && typeof file.path === "string" && file.path.startsWith("INBOX/") && !privateInboxPath.test(file.path)).length
       : 0;
+    let fleetingCount = 0;
+    const fleetingReviewApi = root.KnowledgeFleetingReviewState;
+    if (fleetingReviewApi && typeof fleetingReviewApi.createFleetingReviewState === "function") {
+      try {
+        const localReviewState = fleetingReviewApi.createFleetingReviewState({
+          vault: app.vault,
+          analyze: async () => ({ ok: false, reason: "knowledge_review_required", completed_block_ids: [], reviews: [] }),
+        });
+        const localReviewSnapshot = await localReviewState.refresh();
+        fleetingCount = Number(localReviewSnapshot.pending_count) || 0;
+      } catch (_error) { fleetingCount = 0; }
+    }
     const queueMode = String(result.brief_mode || (result.principle && result.principle.source) || "").toLowerCase();
     if (homeActionQueue && typeof homeActionQueue.buildActionQueue === "function" && typeof homeActionQueue.renderActionQueue === "function") {
       const queueActions = homeActionQueue.buildActionQueue({
@@ -1040,6 +1052,7 @@
         focusApproved: Boolean(approvedFocus),
         continueCards: queueContinueCards,
         inboxCount,
+        fleetingCount,
         journalStatus: journalStatusForOps.status,
         workspacePathFor
       });

@@ -67,15 +67,20 @@
   function normalizeItem(item, context, readAdapter) {
     // WeakSet-backed trust is checked before any reflection. In no-require
     // runtimes an arbitrary Proxy therefore cannot execute an ownKeys trap.
-    if (!readAdapter || typeof readAdapter.isTrustedRow !== "function" || !readAdapter.isTrustedRow(item)) return fail("item", "trusted_canonical_row_required");
+    const readApi = root.LLMWikiResurfacingReadAdapter || (typeof require === "function" ? require("./llmwiki-resurfacing-read-adapter.js") : null);
+    if (!readApi || typeof readApi.isReadAdapter !== "function" || !readApi.isReadAdapter(readAdapter)
+      || !readAdapter.isTrustedRow(item)) return fail("item", "trusted_canonical_row_required");
     if (!ID.test(trim(item.item_id)) || !ID.test(trim(item.canonical_id)) || !HASH.test(trim(item.canonical_revision))) return fail("item", "invalid_canonical_identity");
     if (!trim(item.title) || !safePath(item.path)) return fail("item", "invalid_canonical_display");
-    const relations = Array.isArray(item.relations) ? item.relations.filter((relation) => plain(relation) && relation.workspace === context.workspace && ID.test(trim(relation.relation)) && ID.test(trim(relation.target_id))) : [];
+    const relations = Array.isArray(item.relations) ? item.relations.filter((relation) => plain(relation)
+      && (relation.workspace === context.workspace || trim(relation.target_id).startsWith(`${context.workspace}_`))
+      && ID.test(trim(relation.relation || relation.type)) && ID.test(trim(relation.target_id))).map((relation) => ({ ...relation, relation: trim(relation.relation || relation.type) })) : [];
     if (relations.length === 0) return freeze({ ok: true, skip: true });
     const sources = Array.isArray(item.sources) ? item.sources.filter((source) => plain(source) && ID.test(trim(source.source_id)) && HASH.test(trim(source.source_revision)) && typeof source.locator === "string") : [];
     if (sources.length === 0) return fail("item.sources", "trusted_source_required");
     if (item.deadline !== null && item.deadline !== undefined && !/^\d{4}-\d{2}-\d{2}$/u.test(item.deadline)) return fail("item.deadline", "iso_date_or_null_required");
-    if (!["current", "stale", "unknown"].includes(item.stale_state) || typeof item.unresolved_judgement !== "boolean") return fail("item.why", "complete_machine_why_required");
+    if (!['current', 'stale', 'unknown'].includes(item.stale_state) || typeof item.unresolved_judgement !== "boolean") return fail("item.why", "complete_machine_why_required");
+    if (item.stale_state !== "current") return freeze({ ok: true, skip: true, maintenance_status: item.stale_state === "stale" ? "stale_source" : "maintenance_required" });
     const rank = Number(item.rank === undefined ? 0 : item.rank);
     if (!Number.isFinite(rank)) return fail("item.rank", "finite_number_required");
     return freeze({ ok: true, value: { item_id: item.item_id, canonical_id: item.canonical_id, canonical_revision: item.canonical_revision, title: item.title, path: item.path, relation: relations[0], source: sources[0], deadline: item.deadline || null, stale_state: item.stale_state, unresolved_judgement: item.unresolved_judgement, rank } });

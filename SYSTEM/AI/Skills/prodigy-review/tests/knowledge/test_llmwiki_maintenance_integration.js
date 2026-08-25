@@ -3,11 +3,15 @@
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const path = require("node:path");
-const { test } = require("node:test");
+const { before, test } = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const VIEW = (name) => require(path.join(ROOT, "SYSTEM/Views", name));
 const HASH = (value) => crypto.createHash("sha256").update(String(value), "utf8").digest("hex");
+const trust = VIEW("llmwiki-canonical-trust.js");
+const { createTrustedFixture } = require("./fixtures/llmwiki-canonical-v2-trust-fixture.js");
+let GENUINE;
+before(async () => { GENUINE = await createTrustedFixture(); });
 
 // Build ONE actionable "stale" maintenance trigger through the real branding
 // modules (lifecycle / retrieval / evidence), exactly as the maintenance
@@ -16,12 +20,12 @@ const HASH = (value) => crypto.createHash("sha256").update(String(value), "utf8"
 // dedup key.
 function staleSnapshot(revisionSuffix) {
   const sourceRevision = HASH(revisionSuffix ? `source-stale-v3:${revisionSuffix}` : "source-stale-v3");
-  const document = { document_id: "knowledge_stale", canonical_revision: HASH("knowledge-stale-v1"), source_ids: ["source_stale"] };
+  const document = trust.bindVerifiedRow(Object.freeze({ document_id: GENUINE.document.canonical_id, canonical_revision: GENUINE.revision, source_ids: [GENUINE.source.source_id] }), GENUINE.decision);
   const trigger = {
     trigger_id: "trigger_stale",
     type: "stale",
     trigger_revision: HASH("trigger-stale-v1"),
-    canonical_ids: ["knowledge_stale"],
+    canonical_ids: [GENUINE.document.canonical_id],
     source_ids: ["source_stale"],
     source_snapshots: [{ source_id: "source_stale", source_revision: sourceRevision, extractor_revision: HASH("extractor-stale-v2") }],
     evidence_ids: ["evidence_stale"],
@@ -36,7 +40,7 @@ function staleSnapshot(revisionSuffix) {
   };
   const retrieval = {
     snapshot_revision: snapshotRevision,
-    candidates: [{ document_id: "knowledge_stale", canonical_revision: document.canonical_revision }],
+    candidates: [{ document_id: document.document_id, canonical_revision: document.canonical_revision }],
     denied_source_ids: [],
     hint_status: "advisory",
   };
@@ -53,7 +57,7 @@ function staleSnapshot(revisionSuffix) {
     records: [{
       evidence_id: "evidence_stale",
       evidence_revision: HASH("evidence_stale:v1"),
-      canonical_ids: ["knowledge_stale"],
+      canonical_ids: [GENUINE.document.canonical_id],
       source_ids: ["source_stale"],
       citations: [citation],
       claims: [{ claim_id: "claim_stale_0", citation_ids: ["citation_stale_0"] }],
@@ -61,7 +65,9 @@ function staleSnapshot(revisionSuffix) {
     }],
   };
   function brand(moduleName, fn, input) {
-    const res = VIEW(moduleName)[fn](JSON.stringify(input));
+    const res = moduleName === "llmwiki-knowledge-lifecycle.js"
+      ? VIEW(moduleName).createTrustedMaintenanceSnapshot(input)
+      : VIEW(moduleName)[fn](JSON.stringify(input));
     assert.equal(res.ok, true, `${moduleName}.${fn} failed: ${JSON.stringify(res)}`);
     return res.value;
   }

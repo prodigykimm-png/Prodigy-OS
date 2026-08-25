@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const path = require("node:path");
 const { test } = require("node:test");
 const { collectText } = require("./knowledge_explorer_view_fakes.js");
@@ -117,6 +118,9 @@ for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles bef
   click(actionButton(result.container, "scan-inbox"));
   await states.waitFor((state) => state.state === "analyzing", `${lateOutcome} analyzing`);
   await waitForGate(1);
+  const rawHashAtCancel = crypto.createHash("sha256").update(await result.app.vault.cachedRead(result.app.vault.getAbstractFileByPath(sourcePath))).digest("hex");
+  const durableArtifactsAtCancel = result.app.vault.touched.filter(([, filePath]) => filePath.startsWith("SYSTEM/PRIVATE/")).map((row) => [...row]);
+  const controllerAtCancel = JSON.parse(JSON.stringify(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot()));
   const cancelledEvent = states.waitFor((state) => state.state === "cancelled", `${lateOutcome} cancelled`);
   click(actionButton(result.container, "cancel-inbox"));
   const cancelled = await cancelledEvent;
@@ -129,13 +133,16 @@ for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles bef
   else gates[0].reject(new Error("late synthetic rejection"));
   await waitForLate(1);
   assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.state, "cancelled");
+  assert.deepEqual(result.app.vault.touched.filter(([, filePath]) => filePath.startsWith("SYSTEM/PRIVATE/")).map((row) => [...row]), durableArtifactsAtCancel, "late transport cannot append durable artifacts or completion state");
+  assert.equal(crypto.createHash("sha256").update(await result.app.vault.cachedRead(result.app.vault.getAbstractFileByPath(sourcePath))).digest("hex"), rawHashAtCancel);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot())), controllerAtCancel, "late transport cannot open or mutate review state");
 
   controlled = false;
   const freshComplete = states.waitFor((state) => state.state === "complete", `${lateOutcome} fresh complete`);
   click(actionButton(result.container, "scan-inbox"));
   const restarted = await freshComplete;
   assert.deepEqual({ processed: restarted.processed, succeeded: restarted.succeeded, failed: restarted.failed }, { processed: 1, succeeded: 1, failed: 0 });
-  assert.equal(result.app.vault.touched.filter(([kind]) => kind !== "modify").length, 0);
+  assert.ok(result.app.vault.touched.filter(([, filePath]) => filePath.startsWith("SYSTEM/PRIVATE/")).length >= durableArtifactsAtCancel.length, "fresh scan may retain or append only its own durable receipts");
 });
 
 test("cancel when no inbox scan is active fails closed as a typed no-op", async () => {

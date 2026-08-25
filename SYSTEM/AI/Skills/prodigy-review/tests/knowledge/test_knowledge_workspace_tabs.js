@@ -44,8 +44,11 @@ function assertCompactTabContract(css, tabs) {
   // The compressed (true 200%-zoom) layout must keep every tab's FULL readable
   // label on the screen as a wrapped single-column row, never collapse to a
   // two-glyph snippet or hide the full label behind 22px compact chips.
-  assert.match(css, /@container knowledge-shell \(max-width: 220px\)/);
-  assert.match(css, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(
+    css,
+    /@container knowledge-shell \(max-width: 220px\)[\s\S]*?\.knowledge-workspace-tabs\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+    "true-200% container must make the full-label tabs one column"
+  );
   assert.match(css, /knowledge-workspace-tab-label--full\s*\{\s*display:\s*inline/);
   assert.match(css, /knowledge-workspace-tab-label--compact\s*\{\s*display:\s*none/);
   assert.match(css, /button\.knowledge-workspace-tab\s*\{[^}]*min-block-size:\s*var\(--ke-touch-target,\s*44px\)/);
@@ -190,7 +193,7 @@ function testUltraCompactFullLabelMutationIsRejected() {
     .replace("grid-template-columns: minmax(0, 1fr); gap: 6px", "grid-template-columns: repeat(2, minmax(22px, 1fr)); gap: 4px")
     .replace(".knowledge-workspace-tab-label--full { display: inline; white-space: normal; }", ".knowledge-workspace-tab-label--full { display: none; }")
     .replace(".knowledge-workspace-tab-label--compact { display: none; white-space: normal; }", ".knowledge-workspace-tab-label--compact { display: inline; white-space: nowrap; }");
-  assert.throws(() => assertCompactTabContract(collapsedToTwoGlyph, workspaceTabs.TABS), /display|repeat/);
+  assert.throws(() => assertCompactTabContract(collapsedToTwoGlyph, workspaceTabs.TABS), /display|repeat|one column/);
   console.log("TASK15_TRUE_ZOOM_MUTATION " + JSON.stringify({ mutation: "collapse-to-two-glyph-compact", detected: true }));
 }
 

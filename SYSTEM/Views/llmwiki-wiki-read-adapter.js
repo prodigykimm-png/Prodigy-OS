@@ -2,34 +2,27 @@
   "use strict";
 
   const SNAPSHOT_VERSION = "llmwiki_wiki_read_v1";
-  const HASH = /^[0-9a-f]{64}$/u;
-  const TRUST_ORDER = Object.freeze({ verified: 0, legacy_verified: 1, literature: 2, pending: 3 });
+  const TRUST_ORDER = Object.freeze({ verified: 0, legacy_review: 1, literature: 2, pending: 3, maintenance: 4 });
   const TRUST_BY_TYPE = Object.freeze({
-    knowledge: "verified",
-    permanent_note: "legacy_verified",
+    permanent_note: "legacy_review",
     literature_note: "literature",
     knowledge_candidate: "pending",
+    fleeting_note: "pending",
   });
-  const MODE_ORDER = Object.freeze(["verified", "literature", "pending", "all"]);
+  const MODE_ORDER = Object.freeze(["verified", "legacy_review", "literature", "pending", "maintenance", "all"]);
   const TYPE_BY_MODE = Object.freeze({
-    verified: Object.freeze(["knowledge", "permanent_note"]),
+    verified: Object.freeze(["knowledge"]),
+    legacy_review: Object.freeze(["knowledge", "permanent_note"]),
     literature: Object.freeze(["literature_note"]),
-    pending: Object.freeze(["knowledge_candidate"]),
-    all: Object.freeze(["knowledge", "permanent_note", "literature_note", "knowledge_candidate"]),
+    pending: Object.freeze(["knowledge_candidate", "fleeting_note"]),
+    maintenance: Object.freeze(["knowledge"]),
+    all: Object.freeze(["knowledge", "permanent_note", "literature_note", "knowledge_candidate", "fleeting_note"]),
   });
   const DEFAULT_CANDIDATE_ROOT = "PARA/RESOURCES/Knowledge/Candidates";
   const DEFAULT_LEGACY_CANDIDATE_ROOTS = Object.freeze([
     "PARA/RESOURCES/Reading/Candidates",
     "ZETA/FLEETING/Knowledge Candidates",
   ]);
-  const DEFAULT_PREFIXES = Object.freeze({
-    verified: Object.freeze(["ZETA/PERMANENT/"]),
-    literature: Object.freeze(["ZETA/LITERATURE/"]),
-    pending: Object.freeze([
-      `${DEFAULT_CANDIDATE_ROOT}/`,
-      ...DEFAULT_LEGACY_CANDIDATE_ROOTS.map((value) => `${value}/`),
-    ]),
-  });
 
   const ROUND_CONSTANTS = Object.freeze([
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -249,6 +242,21 @@
     return null;
   }
 
+  function canonicalTrustFor(raw) {
+    const trust = root.LLMWikiCanonicalTrust
+      || (typeof require === "function" ? (() => { try { return require("./llmwiki-canonical-trust.js"); } catch (_) { return null; } })() : null);
+    if (!trust || typeof trust.decide !== "function") return { tier: "maintenance", status: "trust_authority_unavailable" };
+    const receipt = raw && raw.trust_receipt;
+    const obsidian = root.LLMWikiObsidianAdapter || (typeof require === "function" ? (() => { try { return require("./llmwiki-obsidian-adapter.js"); } catch (_) { return null; } })() : null);
+    void obsidian;
+    return typeof trust.decideFinalized === "function" ? trust.decideFinalized({
+      receipt,
+      bytes: raw && (raw.canonical_bytes || raw.bytes),
+      revision: raw && (raw.canonical_revision || raw.revision),
+      source_revisions: raw && raw.source_revisions,
+    }) : { tier: "maintenance", status: "trust_authority_unavailable" };
+  }
+
   function dataSourceFor() {
     if (root.KnowledgeExplorerDataSource) return root.KnowledgeExplorerDataSource;
     if (typeof require === "function") {
@@ -345,11 +353,14 @@
     const path = safePath(raw.source_path || raw.path || (raw.file && raw.file.path) || "");
     if (!path) return null;
     const type = token(kind === "candidate" ? "knowledge_candidate" : raw.type || data.type);
-    const trust = TRUST_BY_TYPE[type];
+    const trustDecision = type === "knowledge" || type === "permanent_note" || type === "literature_note" || type === "knowledge_candidate" || type === "fleeting_note"
+      ? canonicalTrustFor(raw) : null;
+    const trust = type === "knowledge"
+      ? trustDecision.tier === "verified" ? "verified" : trustDecision.tier === "legacy_review" || trustDecision.tier === "legacy_readable" ? "legacy_review" : "maintenance"
+      : type === "permanent_note" ? "legacy_review" : TRUST_BY_TYPE[type];
     if (!trust) return null;
     const prefixKind = prefixFor(path, prefixes);
-    if (!prefixKind || (trust === "verified" && prefixKind !== "verified")
-      || (trust === "legacy_verified" && prefixKind !== "verified")
+    if (!prefixKind || ((trust === "verified" || trust === "legacy_review" || trust === "maintenance") && prefixKind !== "verified")
       || (trust === "literature" && prefixKind !== "literature")
       || (trust === "pending" && prefixKind !== "pending")) return null;
 
@@ -376,6 +387,7 @@
       topics: [...new Set(topics)].sort((a, b) => a < b ? -1 : a > b ? 1 : 0),
       status,
       trust,
+      trust_status: trustDecision ? trustDecision.status : trust,
       source_revision: sourceRevision,
       source_ids: [...new Set(list(merged.source_ids).map(trim).filter(Boolean))].sort((a, b) => a.localeCompare(b, "en")),
       source_policy: plain(merged.source_policy) ? merged.source_policy : { decision: "allowed" },
@@ -399,14 +411,14 @@
       relation: token(relation.relation),
       status: token(relation.status),
     })).filter((relation) => relation.target_document_id && relation.relation && relation.status);
-    return {
+    const row = {
       document_id: `wiki_${sha256(path).slice(0, 24)}`,
       path,
       title,
       type,
       mode,
       trust,
-      trust_status: trust,
+      trust_status: trustDecision ? trustDecision.status : trust,
       trust_tier: trust,
       canonical: trust === "verified" || trust === "legacy_verified",
       status,
@@ -427,6 +439,8 @@
       source_policy: sourcePolicy,
       relations,
     };
+    return trust === "verified" && root.LLMWikiCanonicalTrust && typeof root.LLMWikiCanonicalTrust.bindVerifiedRow === "function"
+      ? root.LLMWikiCanonicalTrust.bindVerifiedRow(Object.freeze(row), trustDecision) : Object.freeze(row);
   }
 
   function rowCompare(left, right) {
@@ -453,13 +467,13 @@
   }
 
   function tierRows(rows) {
-    const result = { verified: [], legacy_verified: [], literature: [], pending: [] };
+    const result = { verified: [], legacy_review: [], literature: [], pending: [], maintenance: [] };
     for (const row of rows) if (result[row.trust]) result[row.trust].push(row);
     return result;
   }
 
   function countRows(rows) {
-    const counts = { verified: 0, legacy_verified: 0, literature: 0, pending: 0 };
+    const counts = { verified: 0, legacy_review: 0, literature: 0, pending: 0, maintenance: 0 };
     for (const row of rows) if (Object.prototype.hasOwnProperty.call(counts, row.trust)) counts[row.trust] += 1;
     return { ...counts, total: rows.length };
   }
@@ -553,16 +567,17 @@
   function normalizeMode(value) {
     const normalized = token(value || "verified");
     if (normalized === "candidate") return "pending";
-    if (normalized === "legacy" || normalized === "legacy_verified") return "legacy_verified";
-    return MODE_ORDER.includes(normalized) || normalized === "legacy_verified" ? normalized : null;
+    if (normalized === "legacy" || normalized === "legacy_verified") return "legacy_review";
+    return MODE_ORDER.includes(normalized) ? normalized : null;
   }
 
   function modeTiers(mode) {
-    if (mode === "verified") return ["verified", "legacy_verified"];
-    if (mode === "legacy_verified") return ["legacy_verified"];
+    if (mode === "verified") return ["verified"];
+    if (mode === "legacy_review") return ["legacy_review"];
     if (mode === "literature") return ["literature"];
     if (mode === "pending") return ["pending"];
-    return ["verified", "legacy_verified", "literature", "pending"];
+    if (mode === "maintenance") return ["maintenance"];
+    return ["verified", "legacy_review", "literature", "pending", "maintenance"];
   }
 
   function filterValue(value) {
@@ -652,7 +667,7 @@
         rows: [],
         results: [],
         facets: { domains: [], topics: [] },
-        counts: { verified: 0, legacy_verified: 0, literature: 0, pending: 0, total: 0 },
+        counts: { verified: 0, legacy_review: 0, literature: 0, pending: 0, maintenance: 0, total: 0 },
         total: 0,
         writer_count: 0,
         provider_count: 0,
@@ -683,7 +698,7 @@
             : input.LLMWikiQueryReadOnly && typeof input.LLMWikiQueryReadOnly.queryRead === "function" ? input.LLMWikiQueryReadOnly.queryRead
               : root.LLMWikiQueryReadOnly && root.LLMWikiQueryReadOnly.queryRead;
       if (typeof queryApi !== "function") return failure("query", "query_read_unavailable");
-      const queryMode = mode === "pending" ? "candidate" : mode === "legacy_verified" ? "verified" : mode;
+      const queryMode = mode === "pending" ? "candidate" : mode === "legacy_review" || mode === "maintenance" ? "all" : mode;
       const types = TYPE_BY_MODE[mode] || TYPE_BY_MODE.all;
       let delegated;
       try {

@@ -65,12 +65,12 @@
     {
       "path": "SYSTEM/Views/display-registry.js",
       "type": "regular-file",
-      "sha256": "ba0b7831e4b0b7f052bf6801a13d274d5555a3e86c9b06d7e9bc506ddd22cefa"
+      "sha256": "89b0ae8f947f58afc87971f28022f3daef7455d36329444a4c5cd3fb0b473c53"
     },
     {
       "path": "SYSTEM/Views/knowledge-candidate-core.js",
       "type": "regular-file",
-      "sha256": "c3cab2ee264b85896bd2ee2061ba2b69d4f9391c9172dc88eb78092d36646147"
+      "sha256": "22cfab616c45435a3aeaa3a6cc49238db1b6537e0f2dbbb361d2d674d10c923d"
     },
     {
       "path": "SYSTEM/Views/para-object-creator-service.js",
@@ -90,7 +90,7 @@
     {
       "path": "SYSTEM/Views/region-intelligence-popup-view.js",
       "type": "regular-file",
-      "sha256": "3776282a7e8391ac54e1da39127b33baceb10d03a6b89d647490fc61724de3ef"
+      "sha256": "813d2f1e5859d3e2e156812ead2182cb23fa07345807f11b15af4ada35dbe023"
     },
     {
       "path": "SYSTEM/Views/workout-core.js",

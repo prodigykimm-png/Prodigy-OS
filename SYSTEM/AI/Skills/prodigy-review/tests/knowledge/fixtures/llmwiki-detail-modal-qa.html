@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Task12 detail modal QA fixture</title>
+<script src="../../../../../../Views/design-tokens.js"></script>
+<script src="../../../../../../Views/knowledge-styles.js"></script>
+<style>
+  /* Minimal Obsidian-native modal grammar emulation (app.css subset) */
+  body { margin: 0; font-family: -apple-system, sans-serif; }
+  .modal-container { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--size-4-4, 16px); }
+  /* Minimal Obsidian-native modal grammar emulation (app.css subset).
+     NOTE: no definite block-size on .modal itself — the product CSS must
+     establish compact-height containment on its own. */
+  .modal { position: relative; border-radius: var(--radius-m, 12px); background: var(--background-primary, #fff); box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+  .modal-content { padding: var(--size-4-3, 12px); }
+</style>
+</head>
+<body>
+<div id="mount"></div>
+<script src="../../../../../../Views/knowledge-explorer-detail-modal.js"></script>
+<script>
+KnowledgeStyles.ensureStyles(document);
+const detailItem = {
+  review_id: "rev-001",
+  title: "지식 후보 상세 검토 — LLM 위키 라이프사이클 라우팅 및 근거 계약",
+  acceptance_state: "pending",
+  sources: [
+    { locator: "SYSTEM/Notes/deep-work-summary.md#chapter-3" },
+    { locator: "https://example.com/attention-is-all-you-need" },
+    { locator: "HUB/50 Knowledge.md#llm-wiki" }
+  ],
+  claim_set: {
+    claims: [
+      { claim_id: "c1", origin: "literature", derived_from_claim_ids: ["c0"] },
+      { claim_id: "c2", origin: "inference", derived_from_claim_ids: ["c1","c0"] },
+      { claim_id: "c3", origin: "observation", derived_from_claim_ids: [] },
+      { claim_id: "c4", origin: "inference", derived_from_claim_ids: ["c3"] },
+      { claim_id: "c5", origin: "literature", derived_from_claim_ids: ["c4","c1"] }
+    ],
+    citations: [ { citation_id: "r1" }, { citation_id: "r2" } ],
+    disputes: [ { dispute_id: "d1" }, { dispute_id: "d2" }, { dispute_id: "d3" } ]
+  },
+  review_history: [
+    { state: "pending", at: "2026-08-20T09:00:00Z" },
+    { state: "scanned", at: "2026-08-21T10:00:00Z" },
+    { state: "analyzed", at: "2026-08-22T11:00:00Z" }
+  ],
+  coverage: { status: "완료", receipt_id: "rcpt-abc123" },
+  accepted_ai_labels: ["요약", "분류", "근거 추출"],
+  correction_conflicts: [{ conflict_id: "cf1", reason: "제목 충돌" }]
+};
+class FakeModal {
+  constructor(app) {
+    this.container = document.createElement("div");
+    this.container.className = "modal-container";
+    this.modalEl = document.createElement("div");
+    this.modalEl.className = "modal";
+    this.closeButton = document.createElement("button");
+    this.closeButton.className = "modal-close-button";
+    this.closeButton.type = "button";
+    this.closeButton.setAttribute("aria-label", "대화상자 닫기");
+    this.closeButton.textContent = "닫기";
+    this.closeButton.addEventListener("click", () => this.close());
+    this.contentEl = document.createElement("div");
+    this.contentEl.className = "modal-content";
+    this.modalEl.append(this.closeButton, this.contentEl);
+    this.container.appendChild(this.modalEl);
+    document.body.appendChild(this.container);
+  }
+  open() { if (typeof this.onOpen === "function") this.onOpen(); }
+  close() { if (typeof this.onClose === "function") this.onClose(); this.container.remove(); }
+}
+const controller = KnowledgeExplorerDetailModal.createKnowledgeExplorerDetailModal({
+  app: {}, Modal: FakeModal,
+  onOpenSource: () => {}
+});
+controller.open(detailItem, document.activeElement);
+window.__detailModal = controller;
+window.__measure = function () {
+  const footer = document.querySelector(".knowledge-review-detail-modal__content > article > footer");
+  const article = document.querySelector(".knowledge-review-detail-modal__content > article");
+  const scroll = document.getElementById("knowledge-review-detail-scroll");
+  const footerClose = document.querySelector("[data-action='close-review-detail']");
+  const nativeClose = document.querySelector(".modal-close-button");
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const fr = footer.getBoundingClientRect(), ar = article.getBoundingClientRect();
+  const fcr = footerClose.getBoundingClientRect(), ncr = nativeClose.getBoundingClientRect();
+  const inArticle = article.contains(footer) && fr.top >= ar.top - 1 && fr.bottom <= ar.bottom + 1;
+  const visible = (r) => r.top >= 0 && r.left >= 0 && r.bottom <= vh && r.right <= vw && r.height > 0;
+  const overflowOwners = [...document.querySelectorAll("body *")].filter((node) => {
+    const style = getComputedStyle(node);
+    return ["auto", "scroll"].includes(style.overflowY) && node.scrollHeight > node.clientHeight;
+  });
+  return {
+    viewport: { w: vw, h: vh },
+    scroll_owner_count: document.querySelectorAll("[data-scroll-owner='knowledge-review-detail']").length,
+    overflowing_scroll_owner_count: overflowOwners.length,
+    overflowing_scroll_owner_ids: overflowOwners.map((node) => node.id || node.className),
+    scroll_overflow: scroll.scrollHeight > scroll.clientHeight,
+    footer_visible: visible(fr),
+    footer_within_article: inArticle,
+    footer_close_visible: visible(fcr),
+    footer_close_height: fcr.height,
+    native_close_visible: visible(ncr),
+    native_close_height: ncr.height,
+    article_bottom: ar.bottom, footer_top: fr.top, footer_bottom: fr.bottom,
+    scroll_client: scroll.clientHeight, scroll_scroll: scroll.scrollHeight,
+    horizontal_clipping: document.documentElement.scrollWidth > vw
+  };
+};
+</script>
+</body>
+</html>

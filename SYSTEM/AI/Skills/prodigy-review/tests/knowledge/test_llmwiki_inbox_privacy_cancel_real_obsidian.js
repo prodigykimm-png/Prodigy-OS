@@ -106,7 +106,14 @@ test("isolated Obsidian holds malformed paths and cancels an uncooperative inbox
     for (const width of [390, 1440]) captures.push(await capture(harness, "fresh-rescan-complete", width, /2\/2 분석 완료.*성공 2개.*실패 0개/s));
     assert.deepEqual(harness.osNetworkAttempts, []);
   } finally {
-    if (harness) cleanups.push(await harness.close());
+    if (harness) {
+      const expectedJson = {};
+      for (const relative of ["SYSTEM/PRIVATE/llmwiki-incremental-analysis-state.json", "SYSTEM/PRIVATE/llmwiki-analysis-cache.json", "SYSTEM/PRIVATE/llmwiki-chunk-coverage.json", "SYSTEM/PRIVATE/llmwiki-inbox-proposals.json"]) {
+        const absolute = path.join(harness.runtime.vault, relative);
+        if (fs.existsSync(absolute)) expectedJson[relative] = JSON.parse(fs.readFileSync(absolute, "utf8"));
+      }
+      cleanups.push(await harness.close({ expectedJson }));
+    }
   }
 
   assert.deepEqual(exceptions, []);

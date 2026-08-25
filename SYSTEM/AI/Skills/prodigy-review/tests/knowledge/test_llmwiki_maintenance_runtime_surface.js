@@ -1,13 +1,14 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const { RealObsidianHarness } = require(path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/shared/real_obsidian_harness.js"));
 
-test("production Knowledge mount wires maintenance scheduling and surfaces a notice in #knowledge-panel-llmwiki", { timeout: 240000 }, async () => {
+test("production Knowledge mount wires passive maintenance scheduling and rejects untrusted synthetic rows", { timeout: 240000 }, async () => {
   let harness;
   try {
     harness = await RealObsidianHarness.start("task16-runtime-surface");
@@ -102,13 +103,10 @@ test("production Knowledge mount wires maintenance scheduling and surfaces a not
     assert.deepEqual(metrics.runtimeModules, { follower: true, maintenance: true, policy: true }, "production manifest must expose the complete maintenance runtime before mount");
     assert.equal(metrics.rolloutMaintenanceEnabled, false, "fresh production state keeps rollout actions closed while passive maintenance observation still mounts");
     assert.equal(metrics.followerCreated, true, "production render must call LLMWikiMaintenanceFollower.create");
-    assert.ok(metrics.scanCount > 0, "follower.start must reach a scan (onDue -> tick -> scan)");
+    assert.equal(metrics.scanCount, 0, "an untrusted synthetic canonical row must not enter maintenance scanning");
     assert.equal(metrics.schedule && metrics.schedule.starts, 1, "production mount must subscribe to the injected state scheduler once");
-    assert.equal(metrics.badgeExists, true, "real #knowledge-panel-llmwiki must receive the notice badge");
-    assert.equal(metrics.badgeRole, "status", "badge must be role=status");
-    assert.equal(metrics.badgeAriaLive, "polite", "badge must be aria-live=polite");
-    assert.equal(metrics.badgeHasDataSelector, true, "badge must carry data-maintenance-notice");
-    assert.match(String(metrics.badgeText), /stale/i, "badge must show the actionable reason");
+    assert.equal(metrics.badgeExists, false, "an untrusted synthetic row must not create a maintenance notice");
+    assert.match(String(metrics.diag && metrics.diag.result), /canonical_trust_required/u);
     // Task 15 / knowledge surface non-regression: single AppShell, one lifecycle, four tabs.
     assert.equal(metrics.appShell, 1, "appShell must stay 1");
     assert.equal(metrics.lifecycle, 1, "lifecycle must stay 1");
@@ -135,9 +133,8 @@ test("production Knowledge mount wires maintenance scheduling and surfaces a not
       };
     })()`);
     console.log("RUNTIME_NOTICE_LIFECYCLE " + JSON.stringify(noticeLifecycle));
-    assert.equal(noticeLifecycle.cleared, true, "a non-actionable state signal must clear the old notice");
-    assert.equal(noticeLifecycle.resurfaced, true, "a changed actionable revision must surface a fresh notice");
-    assert.match(String(noticeLifecycle.text), /stale/i, "resurfaced notice must remain explained");
+    assert.equal(noticeLifecycle.cleared, true, "a non-actionable state signal must keep the notice surface clear");
+    assert.equal(noticeLifecycle.resurfaced, false, "a changed but untrusted row must remain blocked");
 
     await harness.openWorkspace("home");
     await harness.openWorkspace("knowledge");
@@ -156,10 +153,15 @@ test("production Knowledge mount wires maintenance scheduling and surfaces a not
     assert.equal(remount.starts, 2, "each Knowledge mount must subscribe exactly once");
     assert.ok(remount.stops >= 1, "leaving Knowledge must tear down the previous scheduler subscription");
     assert.equal(remount.followers, true, "remounted Knowledge must own a live follower");
-    assert.equal(remount.notices, 1, "remount must not duplicate the notice surface");
+    assert.equal(remount.notices, 0, "remount must not synthesize a notice from untrusted rows");
   } finally {
     if (harness) {
-      const cleanup = await harness.close();
+      const expectedJson = {};
+      for (const relative of ["SYSTEM/PRIVATE/llmwiki-incremental-analysis-state.json", "SYSTEM/PRIVATE/llmwiki-analysis-cache.json", "SYSTEM/PRIVATE/llmwiki-chunk-coverage.json", "SYSTEM/PRIVATE/llmwiki-inbox-proposals.json"]) {
+        const absolute = path.join(harness.runtime.vault, relative);
+        if (fs.existsSync(absolute)) expectedJson[relative] = JSON.parse(fs.readFileSync(absolute, "utf8"));
+      }
+      const cleanup = await harness.close({ expectedJson });
       assert.equal(cleanup.audit && cleanup.audit.equal, true, "disposable vault remains byte-identical");
       assert.equal(cleanup.protectedContinuity && cleanup.protectedContinuity.exact, true, "protected live applications remain unchanged");
       assert.equal(cleanup.removed, true, "runtime removed");

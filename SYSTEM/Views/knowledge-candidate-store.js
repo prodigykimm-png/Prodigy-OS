@@ -1,10 +1,10 @@
 (function (root) {
   "use strict";
 
-  // allow: SIZE_OK — this IIFE is the frozen Candidate storage/promotion authority; splitting canonical serialization would create competing ownership.
+  // allow: SIZE_OK — this IIFE owns Candidate storage and the exact LLM Wiki review handoff boundary.
 
-  const CANDIDATE_DIR = "PARA/RESOURCES/Knowledge/Candidates";
-  const LEGACY_CANDIDATE_DIRS = Object.freeze(["PARA/RESOURCES/Reading/Candidates", "ZETA/FLEETING/Knowledge Candidates"]);
+  const CANDIDATE_DIR = "ZETA/CANDIDATES";
+  const LEGACY_CANDIDATE_DIRS = Object.freeze(["PARA/RESOURCES/Knowledge/Candidates", "PARA/RESOURCES/Reading/Candidates", "ZETA/FLEETING/Knowledge Candidates"]);
   const KNOWLEDGE_DIR = "ZETA/PERMANENT";
 
   if (!root.KnowledgeCandidateCore && typeof require === "function") require("./knowledge-candidate-core.js");
@@ -17,9 +17,14 @@
     return root.KnowledgeCandidateCore;
   }
 
+  function promotionContract() {
+    const contract = root.LLMWikiPromotionContract || (typeof require === "function" ? require("./llmwiki-promotion-contract.js") : null);
+    if (!contract || typeof contract.evaluatePromotion !== "function") throw lifecycleError("promotion_contract_required");
+    return contract;
+  }
+
   function clean(value) { return typeof value === "string" ? value.trim() : ""; }
   function stamp(value) { return value || new Date().toISOString(); }
-  function linkFor(path) { return `[[${path.replace(/\.md$/i, "")}]]`; }
   function canonicalKnowledgeDirectory() { return KNOWLEDGE_DIR; }
   function canonicalKnowledgePath(title, suffix) {
     const name = typeof title === "string" ? title : "";
@@ -39,7 +44,7 @@
   }
   function isLegacyPath(value) { return LEGACY_CANDIDATE_DIRS.some((folder) => value === folder || value.startsWith(`${folder}/`)); }
   function requireCanonicalCandidatePath(value) {
-    if (!value.startsWith(`${CANDIDATE_DIR}/`)) throw new Error("레거시 Knowledge Candidate는 읽기 전용입니다.");
+    if (!value.startsWith(`${CANDIDATE_DIR}/`)) throw lifecycleError("legacy_read_only: 레거시 Knowledge Candidate는 읽기 전용입니다.");
   }
   function safeName(value) {
     const name = clean(value).replace(/[\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ");
@@ -47,10 +52,20 @@
     return name;
   }
 
+  function lifecycleError(code) {
+    const error = new Error(code);
+    error.code = code;
+    return error;
+  }
+  function structured(value) { return value.startsWith("[") || value.startsWith("{"); }
   function parseValue(value) {
     const text = value.trim();
-    if (text === "[]") return [];
+    if (structured(text)) {
+      try { return JSON.parse(text); }
+      catch (_error) { throw lifecycleError("malformed_structured_value"); }
+    }
     if (/^"(?:[^"\\]|\\.)*"$/.test(text)) return JSON.parse(text);
+    if (/^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(text)) return JSON.parse(text);
     return text;
   }
 
@@ -75,6 +90,11 @@
   }
 
   function scalar(value) { return JSON.stringify(value == null ? "" : String(value)); }
+  function stableJson(value) {
+    if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+    if (!value || typeof value !== "object") return JSON.stringify(value);
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  }
   function renderFrontmatter(data, body) {
     const lines = ["---"];
     Object.entries(data).forEach(([key, value]) => {
@@ -86,6 +106,133 @@
     return `${lines.join("\n")}\n---\n${body || ""}`;
   }
 
+  const LIFECYCLE_TYPES = new Set(["literature_note", "fleeting_note", "knowledge_candidate", "knowledge"]);
+  const LIFECYCLE_IDS = Object.freeze({ literature_note: "source_id", fleeting_note: "fleeting_id", knowledge_candidate: "candidate_id", knowledge: "canonical_id" });
+  const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
+  const MAX_STRUCTURED_ENTRIES = 64;
+  const MAX_STRUCTURED_BYTES = 32 * 1024;
+  const MAX_STRUCTURED_TEXT = 1024;
+  const LIFECYCLE_FIELD_ORDER = Object.freeze({
+    fleeting_note: ["schema_version", "type", "fleeting_id", "created", "updated", "blocks"],
+    literature_note: ["schema_version", "type", "source_id", "source_batch_id", "source_kind", "source_url", "creator", "publisher", "published_at", "summary_origin", "knowledge_domain", "knowledge_topics", "connections", "sources", "relations", "created", "updated"],
+    knowledge_candidate: ["schema_version", "type", "candidate_id", "status", "statement", "reason", "source_type", "source_evidence_ids", "source_objects", "source_note", "application_trigger", "application_contexts", "confidence", "suggested_domain", "suggested_topics", "connections", "invalidation_conditions", "promotion_input", "promotion_input_binding", "promotion_receipt", "promotion_gaps", "blocking_content_gaps", "approval_note", "promotion_target", "promoted_knowledge", "review_handoff", "sources", "relations", "created", "updated"],
+    knowledge: ["schema_version", "type", "canonical_id", "knowledge_kind", "status", "statement", "knowledge_domain", "knowledge_topics", "application_trigger", "application_contexts", "connections", "invalidation_conditions", "sources", "relations", "claim_set_hash", "promotion_receipt_hash", "ai_enrichment_status", "created", "updated"],
+  });
+  const STRUCTURED_FIELDS = Object.freeze({ source: new Set(["source_id", "span", "locator"]), relation: new Set(["relation_id", "target_id", "type"]) });
+  const PROMOTION_GAP_FIELDS = new Set(["gate_id", "phase", "state", "reason_code", "evidence_refs"]);
+  function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
+  function boundedText(value, code) {
+    if (typeof value !== "string" || !value || value.length > MAX_STRUCTURED_TEXT) throw lifecycleError(code);
+    return value;
+  }
+  function boundedJson(value) {
+    if (new TextEncoder().encode(stableJson(value)).length > MAX_STRUCTURED_BYTES) throw lifecycleError("structured_value_too_large");
+  }
+  function span(value, code) {
+    if (!plain(value) || Object.keys(value).some((key) => key !== "start" && key !== "end")
+      || !Number.isSafeInteger(value.start) || !Number.isSafeInteger(value.end) || value.start < 0 || value.end < value.start) throw lifecycleError(code);
+  }
+  function structuredEntries(entries, kind) {
+    if (!Array.isArray(entries) || entries.length > MAX_STRUCTURED_ENTRIES) throw lifecycleError("structured_value_too_large");
+    boundedJson(entries);
+    const id = kind === "source" ? "source_id" : "relation_id";
+    const seen = new Set();
+    for (const entry of entries) {
+      if (!plain(entry)) throw lifecycleError(`malformed_structured_${kind}`);
+      for (const key of Object.keys(entry)) if (!STRUCTURED_FIELDS[kind].has(key)) throw lifecycleError(`unknown_structured_${kind}_field`);
+      if (!ID.test(boundedText(entry[id], `malformed_structured_${kind}`)) || seen.has(entry[id])) throw lifecycleError("duplicate_stable_id");
+      seen.add(entry[id]);
+      if (kind === "source") {
+        if ((entry.span === undefined) === (entry.locator === undefined)) throw lifecycleError("malformed_structured_source");
+        span(entry.span === undefined ? entry.locator : entry.span, "malformed_structured_source");
+      } else {
+        if (!ID.test(boundedText(entry.target_id, "malformed_structured_relation")) || !/^[a-z][a-z0-9_-]{2,127}$/u.test(boundedText(entry.type, "malformed_structured_relation"))) throw lifecycleError("malformed_structured_relation");
+      }
+    }
+  }
+  function validateStructuredBindings(data) {
+    if (data.sources !== undefined) structuredEntries(data.sources, "source");
+    if (data.relations !== undefined) structuredEntries(data.relations, "relation");
+  }
+  function promotionGaps(entries) {
+    if (!Array.isArray(entries) || entries.length > MAX_STRUCTURED_ENTRIES) throw lifecycleError("structured_value_too_large");
+    boundedJson(entries);
+    const gates = new Set();
+    for (const entry of entries) {
+      if (!plain(entry)) throw lifecycleError("malformed_promotion_gap");
+      for (const key of Object.keys(entry)) if (!PROMOTION_GAP_FIELDS.has(key)) throw lifecycleError("unknown_promotion_gap_field");
+      for (const key of ["gate_id", "phase", "state", "reason_code"]) boundedText(entry[key], "malformed_promotion_gap");
+      if (gates.has(entry.gate_id)) throw lifecycleError("duplicate_stable_id");
+      gates.add(entry.gate_id);
+      if (!Array.isArray(entry.evidence_refs) || entry.evidence_refs.length > MAX_STRUCTURED_ENTRIES) throw lifecycleError("malformed_promotion_gap");
+      for (const evidenceRef of entry.evidence_refs) boundedText(evidenceRef, "malformed_promotion_gap");
+    }
+  }
+  function lifecycleBodyTitle(body) {
+    const match = String(body || "").match(/^#\s+(.+)$/m);
+    return match ? match[1] : "";
+  }
+  function validateLifecycle(data, body) {
+    if (data.schema_version === undefined || data.schema_version === 1) return { ...data, body, legacy: true };
+    if (data.schema_version !== 2) throw lifecycleError("unknown_schema_version");
+    if (!LIFECYCLE_TYPES.has(data.type)) throw lifecycleError("unknown_lifecycle_type");
+    const id = LIFECYCLE_IDS[data.type];
+    if (!ID.test(boundedText(data[id], "stable_id_required"))) throw lifecycleError("stable_id_required");
+    if (data.type === "knowledge" && data.summary !== undefined) throw lifecycleError("duplicate_v2_summary");
+    const allowed = new Set(LIFECYCLE_FIELD_ORDER[data.type]);
+    for (const key of Object.keys(data)) if (!allowed.has(key)) throw lifecycleError("unknown_lifecycle_field");
+    validateStructuredBindings(data);
+    if (data.type === "knowledge_candidate") {
+      if (data.promotion_gaps !== undefined) promotionGaps(data.promotion_gaps);
+      if (data.blocking_content_gaps !== undefined) promotionGaps(data.blocking_content_gaps);
+      if (data.review_handoff !== undefined) reviewHandoffShape(data.review_handoff);
+      if (data.promotion_input !== undefined || data.promotion_receipt !== undefined || data.promotion_input_binding !== undefined) {
+        boundedJson(data.promotion_input);
+        boundedJson(data.promotion_receipt);
+        const binding = promotionContract().validateCandidateReceipt(data.promotion_receipt, data.promotion_input);
+        if (data.promotion_input_binding !== binding.promotion_input_binding) throw lifecycleError("invalid_promotion_packet");
+      }
+    }
+    if (data.type === "knowledge" && (!/^[0-9a-f]{64}$/u.test(data.claim_set_hash || "") || !/^[0-9a-f]{64}$/u.test(data.promotion_receipt_hash || "")
+      || typeof data.ai_enrichment_status !== "string" || !data.ai_enrichment_status || !["active", "superseded", "quarantined"].includes(data.status))) {
+      throw lifecycleError("invalid_lifecycle_metadata");
+    }
+    if (data.type === "fleeting_note" && data.blocks !== undefined) {
+      if (!Array.isArray(data.blocks) || data.blocks.length > MAX_STRUCTURED_ENTRIES) throw lifecycleError("structured_value_too_large");
+      for (const block of data.blocks) {
+        if (!plain(block) || Object.keys(block).some((key) => !["block_id", "sources", "text"].includes(key)) || !ID.test(boundedText(block.block_id, "malformed_fleeting_block"))) throw lifecycleError("malformed_fleeting_block");
+        if (block.sources !== undefined) structuredEntries(block.sources, "source");
+        if (block.text !== undefined) boundedText(block.text, "malformed_fleeting_block");
+      }
+    }
+    return { ...data, title: data.title || lifecycleBodyTitle(body), body, legacy: false };
+  }
+  function parseLifecycleDocument(content) {
+    const parsed = parseFrontmatter(content);
+    return validateLifecycle(parsed.data, parsed.body);
+  }
+  function validateLifecycleDocument(value) {
+    if (!plain(value)) throw lifecycleError("malformed_lifecycle_document");
+    const { body, title: _title, legacy: _legacy, ...data } = value;
+    return validateLifecycle(data, body || "");
+  }
+  function renderLifecycleDocument(value) {
+    const input = validateLifecycleDocument(value);
+    const lines = ["---"];
+    for (const key of LIFECYCLE_FIELD_ORDER[input.type]) {
+      const item = input[key];
+      if (item === "" || item === undefined || item === null || (Array.isArray(item) && !item.length)) continue;
+      lines.push(`${key}: ${item && typeof item === "object" ? stableJson(item) : typeof item === "string" ? scalar(item) : String(item)}`);
+    }
+    return `${lines.join("\n")}\n---\n${input.body || ""}`;
+  }
+  function renderFleetingDocument(value) {
+    return renderLifecycleDocument({ ...value, type: "fleeting_note" });
+  }
+  function renderLifecycleCandidateDocument(value) {
+    return renderLifecycleDocument({ ...value, type: "knowledge_candidate" });
+  }
+
   function renderCanonicalDocument(value) {
     const issue = canonicalDocumentIssue(value);
     if (issue) {
@@ -93,6 +240,7 @@
       error.code = issue.reason;
       throw error;
     }
+    if (value.schema_version === 2) return renderLifecycleDocument({ ...value, type: "knowledge" });
     return renderFrontmatter({
       type: "knowledge", title: value.title, knowledge_domain: value.knowledge_domain, knowledge_topics: value.knowledge_topics,
       application_trigger: value.application_trigger || "", application_contexts: value.application_contexts || [],
@@ -181,33 +329,58 @@
   async function readCandidate(app, candidatePath) {
     const file = app.vault.getAbstractFileByPath(candidatePath);
     if (!file) throw new Error("Knowledge Candidate 파일을 찾을 수 없습니다.");
-    const parsed = parseFrontmatter(await app.vault.read(file));
+    const content = await app.vault.read(file);
+    const parsed = parseFrontmatter(content);
+    if (parsed.data.schema_version === 2) {
+      const lifecycle = parseLifecycleDocument(content);
+      if (lifecycle.type !== "knowledge_candidate") throw new Error("Knowledge Candidate 파일이 아닙니다.");
+      return Object.freeze({
+        ...lifecycle,
+        promotion_unit: lifecycle.promotion_input,
+        source_evidence_ids: lifecycle.source_evidence_ids || [], source_objects: lifecycle.source_objects || [],
+        application_contexts: lifecycle.application_contexts || [], suggested_topics: lifecycle.suggested_topics || [],
+        connections: lifecycle.connections || [], invalidation_conditions: lifecycle.invalidation_conditions || [],
+        promotion_gaps: lifecycle.promotion_gaps || [], blocking_content_gaps: lifecycle.blocking_content_gaps || [],
+        source_note: lifecycle.source_note || "", application_trigger: lifecycle.application_trigger || "",
+        approval_note: lifecycle.approval_note || "", promotion_target: lifecycle.promotion_target || "", promoted_knowledge: lifecycle.promoted_knowledge || "",
+        path: file.path, legacy_read_only: false,
+      });
+    }
+    if (parsed.data.schema_version !== undefined && parsed.data.schema_version !== 1) parseLifecycleDocument(content);
     if (parsed.data.type && parsed.data.type !== "knowledge_candidate") throw new Error("Knowledge Candidate 파일이 아닙니다.");
     if (!parsed.data.type && !isLegacyPath(file.path)) throw new Error("Knowledge Candidate 파일이 아닙니다.");
-    return { ...normalizeCandidate({ ...parsed.data, type: "knowledge_candidate" }, file.path), body: parsed.body };
+    return Object.freeze({ ...normalizeCandidate({ ...parsed.data, type: "knowledge_candidate" }, file.path), body: parsed.body, legacy_read_only: true });
   }
 
   async function listCandidates(app, options) {
     const request = options || {};
-    const result = [];
+    const byId = new Map();
     for (const file of await filesIn(app, [CANDIDATE_DIR, ...LEGACY_CANDIDATE_DIRS])) {
       try {
         const candidate = await readCandidate(app, file.path);
-        if (request.status === "active" && !core().isActive(candidate)) continue;
+        if (request.status === "active" && !(candidate.legacy_read_only ? core().isActive(candidate) : ["proposed", "saved", "needs_more_evidence"].includes(candidate.status))) continue;
         if (request.status && request.status !== "all" && request.status !== "active" && candidate.status !== request.status) continue;
-        result.push(candidate);
-      } catch (_error) { /* malformed legacy data remains untouched and excluded */ }
+        const prior = byId.get(candidate.candidate_id);
+        if (!prior || (prior.legacy_read_only && !candidate.legacy_read_only)) byId.set(candidate.candidate_id, candidate);
+      } catch (_error) { /* malformed files remain untouched and excluded */ }
     }
-    return result.sort((left, right) => String(right.created).localeCompare(String(left.created)) || left.path.localeCompare(right.path));
+    return [...byId.values()].sort((left, right) => String(right.created).localeCompare(String(left.created)) || left.path.localeCompare(right.path));
+  }
+
+  function requireMutableCandidate(candidate) {
+    if (!candidate || candidate.legacy_read_only !== false) throw lifecycleError("legacy_read_only");
   }
 
   async function writeCandidate(app, candidatePath, current, next) {
     requireCanonicalCandidatePath(candidatePath);
+    requireMutableCandidate(current);
     const file = app.vault.getAbstractFileByPath(candidatePath);
     const parsed = parseFrontmatter(await app.vault.read(file));
-    const content = renderFrontmatter({ ...parsed.data, ...next }, parsed.body);
+    if (parsed.data.schema_version !== 2) throw lifecycleError("legacy_read_only");
+    const { promotion_unit: _promotionUnit, path: _path, legacy_read_only: _legacyReadOnly, ...nextFields } = next;
+    const content = renderLifecycleCandidateDocument({ ...parsed.data, ...nextFields, body: parsed.body });
     await app.vault.modify(file, content);
-    return { ...current, ...next, path: candidatePath };
+    return { ...current, ...next, path: candidatePath, legacy_read_only: false };
   }
 
   async function uniquePath(app, folder, title) {
@@ -222,87 +395,104 @@
   }
 
   async function saveCandidate(app, input, options) {
-    const now = stamp(options && options.now);
-    const candidate = core().createCandidate({ ...input, created: clean(input && input.created) || now, updated: now });
+    const request = options || {};
+    const unit = input && input.promotion_unit;
+    const suppliedReceipt = request.promotion_receipt || input && input.promotion_receipt;
+    const now = stamp(request.now);
+    let candidate;
+    if (unit || suppliedReceipt) {
+      if (!unit || !suppliedReceipt) throw lifecycleError("promotion_gap_packet_required");
+      const contract = promotionContract();
+      const receipt = contract.evaluatePromotion(unit);
+      if (stableJson(receipt) !== stableJson(suppliedReceipt)) throw lifecycleError("invalid_promotion_packet");
+      if (receipt.disposition === "canonical_review") {
+        return Object.freeze({ disposition: "canonical_review", candidate: null, candidate_id: null, reused: true });
+      }
+      if (receipt.disposition !== "candidate") throw lifecycleError("candidate_promotion_gap_required");
+      candidate = core().createCandidateFromPromotion({
+        ...input, created: clean(input && input.created) || now, updated: request.updated || now,
+      }, receipt);
+    } else {
+      candidate = core().createCandidate({ ...input, created: clean(input && input.created) || now, updated: request.updated || now });
+    }
     const existing = await findCanonicalCandidateById(app, candidate.candidate_id);
     if (existing) return existing;
     const candidatePath = await uniquePath(app, CANDIDATE_DIR, candidate.title);
     await ensureFolder(app, CANDIDATE_DIR);
-    await app.vault.create(candidatePath, renderFrontmatter(candidate, candidateBody(candidate)));
-    return { ...candidate, path: candidatePath };
+    const { promotion_unit, promotion_input_binding, promotion_receipt, ...candidateFields } = candidate;
+    await app.vault.create(candidatePath, renderLifecycleCandidateDocument({
+      ...candidateFields, schema_version: 2, ...(promotion_unit ? {
+        promotion_input: promotion_unit, promotion_input_binding, promotion_receipt,
+      } : {}), body: candidateBody(candidate),
+    }));
+    return { ...candidate, path: candidatePath, legacy_read_only: false };
   }
 
-  function promotionInput(value, candidate) {
-    const request = value || {};
-    const title = safeName(request.title || candidate.title);
-    const statement = clean(request.statement || candidate.statement);
-    const domain = clean(request.knowledge_domain || candidate.suggested_domain);
-    const topics = Array.isArray(request.knowledge_topics) ? request.knowledge_topics.map(clean).filter(Boolean) : [];
-    const registeredTopics = core().TOPICS[domain];
-    if (!statement || !core().DOMAINS.includes(domain) || !Array.isArray(registeredTopics)
-      || (registeredTopics.length && !topics.length) || (!registeredTopics.length && topics.length)
-      || topics.some((topic) => !registeredTopics.includes(topic))) {
-      throw new Error("Knowledge 제목, 문장, Domain, Topics를 확인해 주세요.");
+  const REVIEW_HANDOFF_VERSION = "llmwiki_candidate_review_handoff_v1";
+  const REVIEW_HANDOFF_FIELDS = Object.freeze(["handoff_version", "candidate_id", "candidate_path", "candidate_binding"]);
+
+  function reviewHandoffShape(value) {
+    if (!plain(value) || Object.keys(value).length !== REVIEW_HANDOFF_FIELDS.length
+      || REVIEW_HANDOFF_FIELDS.some((key) => !Object.hasOwn(value, key))
+      || value.handoff_version !== REVIEW_HANDOFF_VERSION
+      || !ID.test(value.candidate_id)
+      || !isCanonicalCandidatePath(value.candidate_path)
+      || typeof value.candidate_binding !== "string" || !value.candidate_binding || value.candidate_binding.length > MAX_STRUCTURED_BYTES) {
+      throw lifecycleError("invalid_llmwiki_handoff");
     }
-    if (request.evidence_quality && root.EvidenceQualityCore) {
-      const eligibility = root.EvidenceQualityCore.checkPromotionEligibility(request.evidence_quality, { override: request.thin_override, approval_note: request.approval_note });
-      if (!eligibility.allowed) throw new Error(eligibility.reasons.join(" "));
+    return value;
+  }
+
+  function isCanonicalCandidatePath(value) {
+    return typeof value === "string" && value.startsWith(`${CANDIDATE_DIR}/`) && value.endsWith(".md")
+      && !value.slice(CANDIDATE_DIR.length + 1, -3).includes("/");
+  }
+
+  function reviewPacket(candidate, candidatePath) {
+    const record = Object.fromEntries(Object.entries(candidate).filter(([key]) => !["body", "path", "legacy_read_only", "promotion_unit", "review_handoff"].includes(key)));
+    const binding = stableJson({ candidate_path: candidatePath, candidate: record });
+    return Object.freeze({ handoff_version: REVIEW_HANDOFF_VERSION, candidate_id: candidate.candidate_id, candidate_path: candidatePath, candidate_binding: binding });
+  }
+
+  function validatedReviewPacket(candidate, candidatePath, receipt) {
+    reviewHandoffShape(receipt);
+    const expected = reviewPacket(candidate, candidatePath);
+    if (receipt.candidate_id !== expected.candidate_id || receipt.candidate_path !== expected.candidate_path || receipt.candidate_binding !== expected.candidate_binding) {
+      throw lifecycleError("invalid_llmwiki_handoff");
     }
-    return {
-      title, statement, knowledge_domain: domain, knowledge_topics: [...new Set(topics)],
-      application_trigger: candidate.application_trigger, application_contexts: candidate.application_contexts,
-      connections: candidate.connections, invalidation_conditions: candidate.invalidation_conditions,
-      approval_note: clean(request.approval_note || candidate.approval_note),
-    };
+    return expected;
   }
 
-  function knowledgeDocument(context) {
-    const { input, candidate, candidatePath, now } = context;
-    return renderCanonicalDocument({
-      ...input, connections: [...new Set([linkFor(candidatePath), ...(input.connections || [])])],
-      summary: "", created: now, updated: now, body: candidate.body,
-    });
+  function llmWikiHandoff(options) {
+    if (options && typeof options.llmWikiHandoff === "function") return options.llmWikiHandoff;
+    const hub = root.KnowledgeExplorerHub || (typeof globalThis !== "undefined" && globalThis.KnowledgeExplorerHub);
+    return hub && typeof hub.handoffCandidateToLlmWiki === "function" ? hub.handoffCandidateToLlmWiki.bind(hub) : null;
   }
 
-  async function ownedKnowledge(app, target, candidatePath) {
-    const file = app.vault.getAbstractFileByPath(target);
-    if (!file) return null;
-    const parsed = parseFrontmatter(await app.vault.read(file)).data;
-    if (parsed.type !== "knowledge" || !Array.isArray(parsed.connections) || !parsed.connections.includes(linkFor(candidatePath))) {
-      throw new Error("기존 Knowledge 대상이 다른 Candidate에 속합니다.");
-    }
-    return file;
-  }
-
-  async function approveCandidate(app, candidatePath, request, options) {
+  async function approveCandidate(app, candidatePath, _request, options) {
     requireCanonicalCandidatePath(candidatePath);
-    const now = stamp(options && options.now);
     const candidate = await readCandidate(app, candidatePath);
-    if (candidate.status === "rejected") throw new Error("rejected candidates are terminal.");
-    const input = promotionInput(request, candidate);
-    const target = candidate.promotion_target || await uniquePath(app, KNOWLEDGE_DIR, input.title);
-    if (!isCanonicalKnowledgeTarget(target)) throw new Error("canonical_target_required");
-    const targetCandidate = { ...candidate, approval_note: input.approval_note, updated: now };
-    const targeted = candidate.promotion_target ? targetCandidate : core().setPromotionTarget(targetCandidate, target);
-    const persisted = candidate.status === "approved" || (candidate.promotion_target && candidate.approval_note === input.approval_note)
-      ? candidate
-      : await writeCandidate(app, candidatePath, candidate, targeted);
-    const knowledge = await ownedKnowledge(app, target, candidatePath);
-    const document = knowledgeDocument({ input, candidate, candidatePath, now });
-    if (!knowledge) {
-      await ensureFolder(app, KNOWLEDGE_DIR);
-      await app.vault.create(target, document);
-    } else if (candidate.status !== "approved" && await app.vault.read(knowledge) !== document) {
-      await app.vault.modify(knowledge, document);
+    requireMutableCandidate(candidate);
+    if (candidate.status === "rejected" || candidate.status === "approved") throw new Error(`${candidate.status} candidates are terminal.`);
+    if (candidate.status !== "saved") throw lifecycleError("candidate_review_unavailable");
+    if (candidate.promotion_target || candidate.promoted_knowledge) throw lifecycleError("canonical_promotion_ownership_retired");
+    if (candidate.review_handoff) {
+      const receipt = validatedReviewPacket(candidate, candidatePath, candidate.review_handoff);
+      return Object.freeze({ path: candidatePath, candidate, handoff: "llmwiki", receipt, reused: true });
     }
-    const finalized = core().finalizePromotion({ ...persisted, updated: now }, linkFor(target));
-    if (persisted.status !== "approved") await writeCandidate(app, candidatePath, persisted, finalized);
-    return { path: target, candidate: { ...finalized, path: candidatePath } };
+    const handoff = llmWikiHandoff(options);
+    if (!handoff) throw lifecycleError("llmwiki_handoff_unavailable");
+    const receipt = reviewPacket(candidate, candidatePath);
+    const result = await handoff(candidate, receipt);
+    if (!result || result.ok !== true || result.status !== "review") throw lifecycleError(`llmwiki_handoff_failed:${clean(result && result.reason) || "review_unavailable"}`);
+    const persisted = await writeCandidate(app, candidatePath, candidate, { ...candidate, review_handoff: receipt });
+    return Object.freeze({ path: candidatePath, candidate: persisted, handoff: "llmwiki", receipt, reused: false });
   }
 
   async function rejectCandidate(app, candidatePath, options) {
     requireCanonicalCandidatePath(candidatePath);
     const candidate = await readCandidate(app, candidatePath);
+    requireMutableCandidate(candidate);
     const next = core().transitionCandidate({ ...candidate, updated: stamp(options && options.now) }, "rejected");
     return writeCandidate(app, candidatePath, candidate, next);
   }
@@ -310,6 +500,7 @@
   async function deferCandidate(app, candidatePath, options) {
     requireCanonicalCandidatePath(candidatePath);
     const candidate = await readCandidate(app, candidatePath);
+    requireMutableCandidate(candidate);
     const next = core().transitionCandidate({ ...candidate, updated: stamp(options && options.now) }, "needs_more_evidence");
     return writeCandidate(app, candidatePath, candidate, next);
   }
@@ -317,6 +508,7 @@
   async function resumeCandidate(app, candidatePath, options) {
     requireCanonicalCandidatePath(candidatePath);
     const candidate = await readCandidate(app, candidatePath);
+    requireMutableCandidate(candidate);
     const next = core().transitionCandidate({ ...candidate, updated: stamp(options && options.now) }, "saved");
     return writeCandidate(app, candidatePath, candidate, next);
   }
@@ -324,7 +516,9 @@
   const api = Object.freeze({
     CANDIDATE_DIR, LEGACY_CANDIDATE_DIRS, KNOWLEDGE_DIR,
     canonicalKnowledgeDirectory, canonicalKnowledgePath, isCanonicalKnowledgeTarget, canonicalDocumentIssue, renderCanonicalDocument,
-    parseFrontmatter, readCandidate, listCandidates, saveCandidate, approveCandidate, rejectCandidate, deferCandidate, resumeCandidate,
+    LIFECYCLE_FIELD_ORDER, validateStructuredBindings, validateLifecycleDocument,
+    parseFrontmatter, parseLifecycleDocument, renderFleetingDocument, renderLifecycleCandidateDocument,
+    isCanonicalCandidatePath, readCandidate, listCandidates, saveCandidate, approveCandidate, rejectCandidate, deferCandidate, resumeCandidate,
   });
   root.KnowledgeCandidateStore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

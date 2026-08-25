@@ -29,7 +29,7 @@
         "reason": "post_projection_retained_authoritative_evidence"
       }
     ],
-    "projected_path_manifest_sha256": "e370c2994b40b40e87f141dbbb262f181b26d992745da5161eb97f7eee114629",
+    "projected_path_manifest_sha256": "5d9d01c8325287bbf543243a59f5916d2a32995bc335a58c47facbc381b5d019",
     "projected_paths": [
       {
         "path": ".github/workflows/prodigy-full-tests.yml",
@@ -42,48 +42,88 @@
         "hash_mode": "raw"
       },
       {
+        "path": ".gitignore",
+        "sha256": "ec7976308663e4478d485753a4faedc28325adae091cd6afd3e595cf842656cb",
+        "hash_mode": "raw"
+      },
+      {
+        "path": ".obsidian/plugins/obsidian-minimal-settings/main.js",
+        "sha256": "2aba659130a4bd73b7a5ab2b5780223dd747812d1e7e6ac50d242cb0533c75ff",
+        "hash_mode": "raw"
+      },
+      {
+        "path": ".obsidian/plugins/obsidian-minimal-settings/manifest.json",
+        "sha256": "2038f9c1f5ca026ebc1f3e156bad97c671d2c401a20718384508ef72071e8c5f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": ".obsidian/snippets/base.css",
+        "sha256": "1e25e4e818d59b88e2ea70b755a89b59edbcce6458ee791a3eac1b654e67725c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": ".opencode/lsp.json",
+        "sha256": "5880eca1de5183be26e7c525c938b5b90473354b2dc6cc18d916345f52ce2b5f",
+        "hash_mode": "raw"
+      },
+      {
         "path": "DESIGN.md",
-        "sha256": "556ccbb725014d2eccdeae9d45ed64bfd9ece2528f6e59dd040e41a0c0c9a041",
+        "sha256": "150ff50441771357414bce01ecbafd336bc23009520586e74c99736b2f27cad6",
         "hash_mode": "raw"
       },
       {
         "path": "HUB/00 Home.md",
-        "sha256": "af84dbcf011bf1bb9d0a2061c65393d860e704347536a13e93c9624b3851d604",
+        "sha256": "fafbdbd60e825fab4d0806a402bdb6e8d711629ce310d633711aa4f254321bd4",
         "hash_mode": "raw"
       },
       {
         "path": "HUB/10 Auction.md",
-        "sha256": "e3c344d7142206c83921251502defde6643096f8264c9d69b0fe6010cfa31ea7",
+        "sha256": "5f21f4d3d5e90c6942659a7f3bd993d00cc7af5450e0f3f9da0ad6c0c5947c5b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/15 Region.md",
+        "sha256": "4ba564c5bb4e95f6dd839cde7bd33d00b768870078d3793c90ef753c1837a712",
         "hash_mode": "raw"
       },
       {
         "path": "HUB/20 Reading.md",
-        "sha256": "833c68446920bd9753f64fcfb3b020c666b58092744b63a1ee6d797550abfdc1",
+        "sha256": "d996bd14d57d19c0ad8515ee0eb304e1c84eb5f325dc95fff7ea7966dc4b9df2",
         "hash_mode": "raw"
       },
       {
         "path": "HUB/30 Workout.md",
-        "sha256": "0cd2318281326b60294f5eac73948ca9a21a28e168683d970a90db04a1b02377",
+        "sha256": "1b21cf23122d7c01d59f6a8c4e2081197830c0b8a2d2df9dc747a73bf7286991",
         "hash_mode": "raw"
       },
       {
         "path": "HUB/40 Project.md",
-        "sha256": "6a8684d5bb88e2521175374be47830e5f863a4129125aca3a3e1eacfbb11476d",
+        "sha256": "e3dc1ef15555f00cf44d9dbad7bd1b1aa85090a1da0144a73965ad8ea6c4829f",
         "hash_mode": "raw"
       },
       {
         "path": "HUB/50 Knowledge.md",
-        "sha256": "f2e20c22aa847f19d9f0fd297c972d6c75328d3ea6a008a485b650536d23cc17",
+        "sha256": "468cd2065e1c3c306caf2f4a370d31f187971bdc52b692c7a21c34f78ce2dd06",
         "hash_mode": "raw"
       },
       {
         "path": "HUB/60 Personal.md",
-        "sha256": "d3769d8ff7eec38f37f2b1148723863298f12e5d0630e8a992957cecb7a1f9e8",
+        "sha256": "912e32a88ecc499c9446719fa22430ad9e993a31e5ec7b569e7a21978936e7c4",
         "hash_mode": "raw"
       },
       {
         "path": "HUB/70 Journal.md",
-        "sha256": "fe1c1359b16c2069ced04e77ea641846e6b4a681a05149e1d02303f57a85ed57",
+        "sha256": "118cabdf307742e5c77a33db09ecb505dccef956fdbfa3d6fb4f07f4b800c572",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "HUB/Apple 기본 앱 UI 승인.md",
+        "sha256": "ef5114a199b5232b7971127aecd8be69955da7de2b0bdd00ae66abe1a13c56a3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "LLMWiki Approval QA.md",
+        "sha256": "38eab11a19eab4dc3fdba8dc2dd6c8b56e4757b8b8b562a9adc59ea4fc824e3b",
         "hash_mode": "raw"
       },
       {
@@ -97,23 +137,48 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_card_boundary_style.js",
+        "sha256": "f4abb5ad816819bc6974220175df107caccf4885d255f53de00de1e0b3e1b798",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_card_content_lock.js",
+        "sha256": "fb5617fe6ea10aa4e48b62bcc26a8cc471a49401caa114d28ff5c556bb436757",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_dashboard_search_scope.js",
+        "sha256": "b3861a273adacedee165cf72b2c900239b4ebc518f5a135ef598938bd107c194",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_day.js",
         "sha256": "2d59ebbbb577220ddcbde3cdeaf7d655104d8c83db789c440ed6b317bb23040e",
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_decision_packet.js",
+        "sha256": "a2763b944d25683af9633b4d11758f2a8a888ac1b72ef7301fd700f9d00cc450",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_hub_presentation_order.js",
+        "sha256": "2131c81fbf7925fe04bf8da3dd4b91aafb619eb2b5dfc26340fd360acea9c950",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_hub_readiness.js",
-        "sha256": "8a7f1bb47f8efe5983c1d06ceb0be3ec6d53bf34126432c395bc86e41dd9f426",
+        "sha256": "a7ab2c175a5461685b59b9fe0d3c0269d199f19da3e7f6696c2b6701edbaf0b1",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_mobile_compat.py",
-        "sha256": "0de179aa13e9f13c64a48c18ed7f728c6f1cdd2a6a5077189dfd27d3c04d3c35",
+        "sha256": "0e0a9da5153e407f2253d0a383186b31df55201fee40aac8b2a9b8b73f80409f",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_presentation_contract.js",
-        "sha256": "77a813aa358fdf108b14f0f7b44b44be0bf32fe2755f4685eb6b77681a838123",
+        "sha256": "9847702689bde97627cf7ce496660c45fce2d9457c1a98919f5006fac7ccefce",
         "hash_mode": "raw"
       },
       {
@@ -127,8 +192,13 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_real_obsidian_watching_card.js",
+        "sha256": "1f48d749fd08f5e18b6cfce23fa8746d994603c2af9210654052dd72ecdfca4f",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_region.js",
-        "sha256": "80e700e8d1465a8d02f294796c6b728b627b451561a06a722c6b717b2b2ae057",
+        "sha256": "888963ee092f110220a253c11368b998c26e4a79d703e9695f747118d97a065b",
         "hash_mode": "raw"
       },
       {
@@ -138,7 +208,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_display_registry.py",
-        "sha256": "ba8f57656565f9fbc5c858e57b6e746443604a887edee9cf8afa0179c121118c",
+        "sha256": "16951035c651e1424773707e1c57227839691a3bd2b7c7c6bee3080665aa0c92",
         "hash_mode": "raw"
       },
       {
@@ -148,12 +218,17 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_explorer_hub.js",
-        "sha256": "9e22fd3c857919b8e6c1502223bf85dbd819f955dc5517aa66ee0f08623e8a1e",
+        "sha256": "45382a6beb97dd899a1f9f5525a1050e3a31b81538fd36cb3ac419630a4ff022",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_explorer_view.js",
+        "sha256": "8dea6373d7988842b17568df967aa5538357065f8df730caa216c705fd1974f9",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_mobile_field_mode.js",
-        "sha256": "565f2c0371be8c1e17b16899f46d4cf8b3cd41596cef032753c1b65aa10c79a7",
+        "sha256": "3d14268ceff3a23abb6355606969fedf04dc8ae9c0b0d21d70dfc96cfb8e3faa",
         "hash_mode": "raw"
       },
       {
@@ -168,7 +243,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/capture/test_capture_callsite_integration.js",
-        "sha256": "243500b423d38f68104f04cfef37e3098be21ae4d7d2521fb32452aa31f8ea01",
+        "sha256": "68cab8728b4cd6981811b9317fbf958bd585e254bdb971a3b4ce648bb59d6873",
         "hash_mode": "raw"
       },
       {
@@ -193,27 +268,47 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_ai_provider_dataview_runtime.js",
-        "sha256": "33fdca350dd98ca2f5be4c6dbf52f5b1ff9364e1f087749b4361ac2bfce93107",
+        "sha256": "71eaa476c6cdeea83bcfe844a0da371558101da9abe013370d0749527af4f6eb",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_action_queue.js",
+        "sha256": "e4960c8537190e43242eb330ec894dfab6b9510cce044a22c2010dc0c2a3fc6f",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_apple_presentation.js",
-        "sha256": "68324103fa8edeb23588d989992e40514bec44d4d35ee86252f2b23cc5e0bdee",
+        "sha256": "8be61b432715fe3c0a33c5054b22ecc10515284726c83a920ee049899ba24602",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_flow_dedupe.js",
+        "sha256": "88910bf688501e762f228e4b1cc5630902062e316daadedc79a103cdc79e8e8c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_focus_stack_hierarchy.js",
+        "sha256": "b545b1f760e6b3c9af79328d2925c7828a3f9115a0b6460bb0bbac196ddb30a8",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_horizontal_fit.js",
-        "sha256": "7f7e6a93de0c66c45fc58008f882ce8939e20df5a110522c077e33a9650d0cfc",
+        "sha256": "6e29b5f683aeb285181606fca4578d216353dcca52dfb633e601c172937f09fd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_interaction_lifecycle.js",
+        "sha256": "5b7050ad4b81b37bc05256ff2303bf26d1586a77abbcc01ddd86c789b2ae0675",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_mobile_stream.js",
-        "sha256": "3614f1851d038abb4bfbbccb0fc5526b0817b46a0c15bfcf96726d8a481fe54d",
+        "sha256": "b4cbc584ce667c23a8b96661eb6704ac506414b5f2fad07083d9ff2e04de3a47",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_required_dependencies.js",
-        "sha256": "9bf840b866184d51698867de28a071533231825e81dddfa72f7977f4e5eac659",
+        "sha256": "74a0e224ca34c2d7ab76c928398f883d71c179670ec3f5843fb773d2698888bd",
         "hash_mode": "raw"
       },
       {
@@ -223,12 +318,22 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_morning_brief_context.js",
-        "sha256": "a514fb21b2a84ebaaadf9317b060012b37e4a0153f3cdf2efaa51b9a0c6ebb59",
+        "sha256": "805e01ae8f4d8f1d05ebcd9ff6a92a83d3fbb009531f3734193a3d8240fb8e7b",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_object_creator.js",
-        "sha256": "38e13cb0208197da47a0472ec1df8ab42d65f5f1493f4cc93c5d417a8b1f6a08",
+        "sha256": "cd90aac591218679d92f74b79feeadb375f0e8ef726a07a005786674c629e034",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_quick_capture_phase1.js",
+        "sha256": "4837d74efdcb65560e1effeaec5e6aba73556ed488cec70f59f902f050556ee5",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_quick_capture_real_obsidian.js",
+        "sha256": "34efe191b1c76067e88a015e5f806fb9883dedfbec1778d0c1add3263f31f7f7",
         "hash_mode": "raw"
       },
       {
@@ -238,7 +343,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/home/test_workspace_launcher.js",
-        "sha256": "2715b15f64c920774c0362f2a40bb1f46cdb071d4492184cf3dc5da851fec073",
+        "sha256": "a4f3293d1155f674d4e34c5e11d270855db597e2ea2b268a35a4136816c643fc",
         "hash_mode": "raw"
       },
       {
@@ -253,7 +358,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_antigravity_exec_service.js",
-        "sha256": "6a0a6f461e43edd2bff806ccfb6dca7c83cde3ed9df979d961bf25f5d51ff360",
+        "sha256": "2746ddef16d152157caeb3ce7930dddc12c5909eab3a9d1c1b8daf50fd9b53cb",
         "hash_mode": "raw"
       },
       {
@@ -297,8 +402,13 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_real_obsidian_scroll_delegation.js",
+        "sha256": "bde218fb47bf6e45efa60e6f354b812fba1a32b81cfd72cf43907eefdbb6ee2d",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/journal/test_task13a_journal_presentation.js",
-        "sha256": "6c935a85c6afb60752a1877fb6bcf4404288bd29be6f2bd6e7fa1d9ac152e892",
+        "sha256": "315375a04942532451efc99f96294c353ea580e3c3200ffc11bb418870bc9da4",
         "hash_mode": "raw"
       },
       {
@@ -307,8 +417,118 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-canonical-v2-trust-fixture.js",
+        "sha256": "2ae4551fba97ece821c708bab96a3fc1ec794d28515bcc0b2a07b84667d85dea",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-detail-modal-qa.html",
+        "sha256": "daed09b33e7c11fffa5f57d9765f8af4c1ad9cdb037957fc550776020113b9e0",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-evaluation-corpus-v1.json",
+        "sha256": "a6b9934057fce941308f5b107a0b2ca6be9a9b8f74e28fd097f8e1c7425033ab",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-knowledge-kind-corpus-v1.json",
+        "sha256": "17d3d522dd2d48dc5ef1e15ddfc368556d3b54fc6d3f791843727a1b18a9d813",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-lifecycle-product-qa.html",
+        "sha256": "88cdab90b30a6ce191ad9681181e50894b3bd6ff2abd04a32d45b0b01a49fcae",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-maintenance-corpus-v1.json",
+        "sha256": "aa5daee207abde77ff23ef561974ae2e745b0f0443021b6fc2c5c623d0ffe6bf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-merge-transaction-manual-qa.js",
+        "sha256": "e3198b8c40ff0a2c7ffdb71dd089252646fcff9bd7503cb839ff67e1f38479b6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-operation-classifier-v1.json",
+        "sha256": "43a09f1c5e096f42fbfe6383c69798c9ce1bcedd0fb1719f0ad1a90434b3fbcb",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-production-hub-qa.html",
+        "sha256": "7b4882ff563ea78b5ab536c0e667a294924d4680b88fac2dca29fe98aee12782",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-retrieval-corpus-v1.json",
+        "sha256": "e4bf42e55af642ceb59773bed3cfcb93491cde093c92b36955f3563d85cea965",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-risk-approval-manual-qa.js",
+        "sha256": "022d977957a4418cfdc9d19bc622fbd7e5c91e16cb7a4f17b80f545b208c3779",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-risk-production-lifecycle-qa.html",
+        "sha256": "ac1393a76fd20aaa36153c7b93fe24b3109fa9fc553dcb26021cfc338ab6fdf0",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-run-controller-operations-manual-qa.js",
+        "sha256": "2ccb0ac73cc3bbeb45fd9d14448ba4b8983937db806181d8605b409cd626e6f1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-run-controller-repair-manual-qa.js",
+        "sha256": "f932a688dbe28e5f32b22354c604f19172b9fa0483a96e060323bb5b539b7e2f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-source-adapters-v1.json",
+        "sha256": "42c03dc28fe23636d083b3e1e9f126f6355b0cf5dd0b0d55a0bcce84e70eb407",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-update-operation-manual-qa.js",
+        "sha256": "f020caeb832310b2cc727ec6b6b79a382e125010ee8f38049700c564fee19448",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/llmwiki-update-operation-v1.json",
+        "sha256": "6c1e775a1184c08822924d78cdcce7f01b1f598865d1b5a84d8187bb42d441ae",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/run-llmwiki-lifecycle-product-chrome-qa.py",
+        "sha256": "97499e30f0ced620aa6e0f37ce2f9ec56dc30e93c1ac4243dd39abc1257788c4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/run-llmwiki-production-hub-chrome-qa.py",
+        "sha256": "7045285577c26db0d52502dc6b63f8dc99c0663f4d67a080afd82256920e040d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/fixtures/run-task15-home-auction-nonregression.py",
+        "sha256": "b78acf51978a3838d275877cf1803aa99db58a1e08575eb34395c6a83025540d",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/knowledge_hub_integration_harness.js",
-        "sha256": "964dfff8322d7bce91bc489a7bd455f3c77893be22fa0573064175777c25a846",
+        "sha256": "db81b263338e54274cb8553e403633672273222f77df46c410683bb4b402fa29",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/knowledge_hub_llmwiki_contract.js",
+        "sha256": "5a4e0ccc8e027502e72fea6d2c1b38feb92dc985218cdf6667bb777edcdc6761",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/llmwiki_controller_qa_fixture.html",
+        "sha256": "6982375f2d0bc7a862c4cf9f9b0a901c32b2c5f9e7894e3303007c6f6e7259ca",
         "hash_mode": "raw"
       },
       {
@@ -322,8 +542,63 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/llmwiki_lifecycle_view_fixture.html",
+        "sha256": "016c00bde40292966e9c0d5bcf20fa8710934b9aa3253f8a8196a0c0ab023f26",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/llmwiki_maintenance_follower_manual_qa.js",
+        "sha256": "56520b40511efcc0630b022c204bdc05968ba57eae5b9c99a74691fe526040be",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/llmwiki_notification_policy_manual_qa.js",
+        "sha256": "15f710de5837db5f79e893164c21ba9c77b68e40ea4c059ca3c3cc2ce2a133b7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/llmwiki_real_product_fixtures.js",
+        "sha256": "f3e9f394f0d0cc8458f63b3a154f8089984bd767da580d0f8a32747fd7f58d64",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/task21_stateful_terminal_contract.js",
+        "sha256": "e81323575c24fe99fa8447fa59cc5ad24a624854961fb3b180c36a8efa713a5a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_audit.js",
+        "sha256": "6cf7587314f086af5d5d8f3475bf2409d176f8cf6c3b8219351e15398b8f3ece",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_authoring_contract.js",
+        "sha256": "d7c31ad0377599687e58b70081a85eba03e393f0003af36fcea79db858ad62f9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_contract.js",
+        "sha256": "d582ff2629b9c1325df772e40ecebc7107755552dc41c6fef9500131aed9bc2a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_core.js",
+        "sha256": "47ee328dac1f6a36babb028e2952564705a87a0205822933709fbcd1ccd7c718",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_store.js",
+        "sha256": "418ee9922eb73e171663ebecc6a810f5243d18048b203a9dc17bc83b75327701",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_store_real_obsidian.js",
         "sha256": "bfeddd37bfd334f8bb867045306bfa8a859496a3a36dfe7f6b2814b4869a8547",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_candidate_view.js",
+        "sha256": "ecf87dd947176b9a14a5c261fff141cb0fc2b321d0f2ea62b9a07317e713515f",
         "hash_mode": "raw"
       },
       {
@@ -337,8 +612,13 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_detail_modal.js",
+        "sha256": "da9cac9f7120deda60a950311761e5d1b82432bf90e4a8a40a05b123375a3150",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_explorer_responsive.js",
-        "sha256": "841a023dcc795ff7c70cefc54f5c16fec11506811f778c2dce019858292c563a",
+        "sha256": "5ab82426ac812fb9d571ee2aaa0fad032e5de1ee85dfd21e35c5e5be3b76dbdb",
         "hash_mode": "raw"
       },
       {
@@ -348,12 +628,27 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_hub_integration.js",
-        "sha256": "08294d3f6fb06bfb7402ea2758104b11b3db6a0659b958931c7790e0890ce74e",
+        "sha256": "794c7606d189fe1ee7cb04b24b3e07694aa7c84673468e1d7b69380c94c459ad",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_lifecycle_stores.js",
+        "sha256": "347ed69b8f4cfeba1deac101c5a90d839bc90c28eb0bbaebc69e7209f90eaa03",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_lifecycle_templates.js",
+        "sha256": "1eef01f47d301cdd08d9bbc5915f9faaceb8dcf63010f17eff46e1d221a43f47",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_lifecycle_templates_repair.js",
+        "sha256": "f7bae9ec065ad5e3fb657306b97f9dc888c60570b0c616ec0e6c4a7099504f69",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_para_creator.js",
-        "sha256": "9f48e71d171e93210e1f303433dc2defdf6c096139c5408a54092c2d3041aabe",
+        "sha256": "c2186c97326da340b62e81f95f872d6b81fbd1e2c5d6104656e76bdea35a9595",
         "hash_mode": "raw"
       },
       {
@@ -362,23 +657,243 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_review_groups.js",
+        "sha256": "05e44f85fb3b11506025cf6c593d651ba066550474cb06e1c7e02f05dcd5f835",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_workspace_tabs.js",
-        "sha256": "ee420b03e0627c7c9036e1c6a6990597ccebfd0b1366631ef9aa3040cd115c48",
+        "sha256": "4963ec8f182677918c216351a42369e09ef2375b05bc308f2ad481813ec6f35c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_antigravity_manifest.js",
+        "sha256": "0ae157742a5a3ab55c3638c33c343e311bdd224a9896cc830162d069ae0f7020",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_approval_packet.js",
+        "sha256": "68a3f2f65a64408b08816bf0a696f45ec1def8add65bcdc3f9db5374bd87e3ff",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_approval_qa_fixture.js",
+        "sha256": "449300e1ecd682a526e8ef5dc36952cc539c73d31e53e8b9a0d755540ee83773",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_approval_review_view.js",
-        "sha256": "949c2385e9ab2c473d7a7162c93e06566c98d0a78668d76967f62b31ae6c50d3",
+        "sha256": "e2f0c313cf5cc970a63fa9ddb21af1b394a65e91588732a67bd71bcbda7b4e66",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_canonical_document.js",
+        "sha256": "6613ed489dc890fd778d07c9bed26688220a5133ba0a73ecd5cb81a632b690c3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_canonical_packet.js",
+        "sha256": "b9171eead12cc9e90602161658e06d4f9cab5ed3f3786715e9a5d0855ae5d7e5",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_canonical_v2.js",
+        "sha256": "562827c17268a560aff2d77d2e77944cc3b6e2301a2632035d7a7173bb331bda",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_canonical_v2_trust.js",
+        "sha256": "708a99064bf134a50e6589ce2cd656573347b52827fa64547817b477d2937a67",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_chunk_analysis_provider.js",
+        "sha256": "d8f7ec2797fba80236a456f9c8c255d00a8759dd6b7973a888ef41cb133c3ee9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_chunk_coverage.js",
+        "sha256": "d1904ab4701575478df3c52559c6eefa9a3cdba8176f7bf46a134a1f9d0437cf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_claim_provenance.js",
+        "sha256": "7392b15a4cb76783294c50a56a122954ed9290473c2994cd1194383178b61d77",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_claim_provenance_modules.js",
+        "sha256": "106a6b98991ddcd73da606ec35a9988badd21f457a6031e559fd00cd00a02a25",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_compensation.js",
+        "sha256": "3932b5ccfae7a449a3532ba4f8947e0da333931bf651ee763456d44d7ffd9e94",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_compensation_production_route.js",
+        "sha256": "b08835707dec0bedcfcdffa77d2de212b80983b52f24a1c22d5f44643b283582",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_deterministic_commit.js",
+        "sha256": "1bd26271e2eea954c0583997b6a91f5e76167c8399736adeddf3f2b273a7be36",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_evaluation_matrix.js",
+        "sha256": "c23835d4e6861605599d7800fa3145eda4c06747e92fb299f388943a52059d80",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_evidence_contract.js",
+        "sha256": "f6ba603aec1f9e3a9cec288404cfb88df0ae0d3718a4d461634e336bf47ce140",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_failure_modes.js",
-        "sha256": "d9bafe8c7a390f10d94c8a2c5cd868e58b4b3874bd1862f29d9461bbed7eaad9",
+        "sha256": "805ee44e20f40da83653f2b115d8e25406d3cac7ad9a75161a5371d8660cfe08",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_git_adapter.js",
+        "sha256": "9c5b51291358f22eeb7bddc05889f2e9daf16d4afe8147877d2d570289502427",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_git_automation_adapter.js",
+        "sha256": "d804176b824e1638fdf781810835bcc92c9b5be49197ca0f6133699061a7126d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_inbox_autopilot.js",
+        "sha256": "5f86b0f26a5c49da0fa2ae4cb100e22b4bcf8222db99ae10dab2424e59612bc6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_inbox_chunk_progress.js",
+        "sha256": "60efb2c900f2ce07c3da016914d717a640117cda1dc92859d995c95ddf2a22f6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_inbox_privacy_cancel.js",
+        "sha256": "687962fa659f032ff39ffb986ff79ab541c2de9076b878525d1150523bcdda6b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_inbox_privacy_cancel_real_obsidian.js",
+        "sha256": "a3fa83aac7fc8cda11dea74c6fea71028553c2b11477046b521f13579ee0a245",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_inbox_scan_progress.js",
+        "sha256": "2edbaf64387bed59f9a14e2c170b027e09c80e182833e0fbaf990be665c8c020",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_inbox_scan_progress_real_obsidian.js",
+        "sha256": "3fb3ecdf6e2d9a972d83d10ce5e8937f1f8b66129665762e74d0f2a78194964f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_incremental_analysis_state.js",
+        "sha256": "684d997112e669d275f397609f32416f137d8e2929e072dfe83d9557a796ee93",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_knowledge_kind_contract.js",
+        "sha256": "c5f5c411425ad07edecd888122f310001635b9fd76539fe5833c36a569caa099",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_lifecycle_migration.js",
+        "sha256": "4f55d86f7dab7105a83e347801fead04941b0166793b679e44d5cdba606324a7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_lifecycle_migration_v2.js",
+        "sha256": "cade845f9bbaacf9b548f0031f1a8059a942efaf956b447648981853cf3eb61f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_lifecycle_product.js",
+        "sha256": "36bfe8060e2cffb85b41fa9bbb1a9c60e60bd17da8b6329c6cb1c927b0bfda97",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_lifecycle_routing_contract.js",
+        "sha256": "2c33dcb71da857343961f439ebcd9cca980ea657fd3057bd72699d82c7160632",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_lifecycle_snapshot_integrity.js",
+        "sha256": "08d5ae5d73bc8f95f0d2d8b11b5aa11493dd7016c1862cc769dcea07d851efa9",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_lifecycle_view.js",
-        "sha256": "0974456d8ea8637c891cbf2d33f5815fad2f452ab1baedc60c9ab1dd79bff994",
+        "sha256": "f47bec13739386e048324e6414ed98854e3210f3c11efe9a6a5283497626eba8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_live_onboarding_real_obsidian.js",
+        "sha256": "120c1d1411c9187e417d68fa883f868e546eec5ae8de463e65e7108266c4a0e4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_maintenance_integration.js",
+        "sha256": "d7399e3c01746fefe6377c25e590bbcb8caca1609dd98ba61f9895c5b97cb51c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_maintenance_runtime_surface.js",
+        "sha256": "c8c222cb855ba3bd924de8c41e4f1140ab30a851eb310b31843b3d99b74c1d63",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_maintenance_service.js",
+        "sha256": "0c9a60174f973daa5a404a2c29d440e045af7e2b7cf380c8a76038db84829b86",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_merge_transaction.js",
+        "sha256": "1410dae50440ab7820b3543bb4d03c72267b77f0b9d27956a948bc12b4c5ca26",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_notification_policy.js",
+        "sha256": "d2d1a0b335a817199fc68d8a3257cd3a5e19216373a8708e22b98677d6401fbb",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_object_handoff.js",
+        "sha256": "3c55b2f313eaacbac4b50a0f05621d2135d8f3c731f8e599530d05c215e603dd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_obsidian_adapter.js",
+        "sha256": "0d639b3a41e99231847116eb047b3bf4c6e45e8a89f4590b7fcf1121a8863cbf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_operation_classifier.js",
+        "sha256": "0444e09a5a35792eb19831744dba57e7706fad53580374a3fcbc518a2220e4e2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_operation_contract.js",
+        "sha256": "0077b7110aadad01cef645b929b8da89d15ea1aac7d8d833072d570c12aa61d1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_operation_provider_errors.js",
+        "sha256": "aaa85ef5bfcbe925a74d63471913ab718bad96fa5e88d30f9c5940c8645eed33",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_operation_writer_structure.js",
+        "sha256": "a36fb3cb2eaf35621aa69e59f750bb37f60051055353d9469dfbf67fac10cc05",
         "hash_mode": "raw"
       },
       {
@@ -387,8 +902,98 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_plan_compliance.js",
+        "sha256": "e481a43039ed63580f05708aee03eb6de2637b3e0a0f2478e871b6fb5d70864f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_productization_rebaseline.js",
+        "sha256": "8f97c908ec04fca6ee84bb52d2942c3d1c9da3c03009fb51ce7e31a2e40efd03",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_promotion_contract.js",
+        "sha256": "aa6382d9e9992b2222c922c0f1a8b93dbb6ca57785fb7ee96be41f5c1aca87a7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_proposal_bundle.js",
+        "sha256": "c929f26d82d1d47fc44b67438206aed17ab99586dfa87ab4d00021de1c1ee879",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_provenance_ui.js",
+        "sha256": "075f70cc928e821611c6de83950d8173b75c177fac3f64f59f44bd2d04ea7f84",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_provider_selection.js",
+        "sha256": "2f737be6b79e894cd7ff0542638787e5e226aa0439b4e3b1a3d02648f72a0fe9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_query_readonly.js",
+        "sha256": "c4286e2af2c16ce9cf386b35135f1b9307cea4e84b757ad8481ca38bd35d7796",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_real_obsidian_manifest_mount.js",
+        "sha256": "a3e89f5f154bf5af36c50830d4d30a67fc4fdb93a963a5942cf4c68e0f1cbfd6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_real_obsidian_product.js",
+        "sha256": "1627d138b49c49fe09242ff7f7dcba3d1f92ff5c4e657a3df621520fe627713d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_resurfacing.js",
+        "sha256": "978ea3f1c87c99ec048a875efe69c4250aa3d0ff48f06e26c1f227041ad69e72",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_retrieval_service.js",
+        "sha256": "7c357cefa7c86cfdceebbf6e2721ef8fb9c83fb1da7d87b2fc083931927fbc86",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_review_surface.js",
-        "sha256": "78de4802da5b095cdccc1f389d5d9a8033ece41731be1978d8d113899161d6c8",
+        "sha256": "a1a832472590a7ac0aab42e27087bb798d1f603e0e6f0986e068d1801e1d518f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_risk_approval.js",
+        "sha256": "0813c9546eb16aee0502b4690e1a6368528d91e57666f2defc331a7e2e1401f7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_risk_hub_production_integration.js",
+        "sha256": "a6035290745d0c65de965548e025bf9406c76d3b8e0041305694d31c8d066f7e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_risk_production_integration.js",
+        "sha256": "454677514c3f80217abc68fdffc795ea6786b285b9b627ed862962f35ddca275",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_run_controller_operations.js",
+        "sha256": "91f7cd17b89db25d1d43cf7c54e4f854deb2fb6e6fa34e7cfd9bde853e9991dd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_scope_fidelity.js",
+        "sha256": "385ec0659182345f05442b1191f0bd36b6245ce545b08a0d109e07de3afce95b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_security_contract.js",
+        "sha256": "b78406c267bd778dce9baeca1d1f49b13f9903bf5de4f62b8c719d7055717c0c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_sensitive_content_policy.js",
+        "sha256": "f539c03eb22156d2a955de86aa680bb0da988ce183cdcad89ee1462e32769f81",
         "hash_mode": "raw"
       },
       {
@@ -397,13 +1002,78 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_source_adapters.js",
+        "sha256": "096e4f92f16f284b9bcc4a218595e999724fc11ac26b687860b09e0f67d53a03",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_source_lineage.js",
+        "sha256": "37727646e535281f7498061afc8a0c55143030b90f61d9b12ef2ffcd5cd1515f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_source_registry.js",
+        "sha256": "eb41a982cb10947de6cecb074427a45b6fc03dfcd9fc272cfbf6a0cf51d913d4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task10_update_approval.js",
+        "sha256": "0b5b1e3995aebed89272093fdb40f8415c50af343a447baec052911338fdd813",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task15_actual_obsidian_evidence.js",
+        "sha256": "b8da60f015a6be45f4b1387d22457eeab238a605dbecfeb24370fea90c124efd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task15_lifecycle_routing.js",
+        "sha256": "0e86bde906bedf3d24cb20d5c4647036c15f80c452a35dc06ab3df2beeffbbf8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task15_production_audit.js",
+        "sha256": "1ea738beb595e8c8c6db253274f2c982157712447caf0609536fc9dd786380ea",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task18_obsidian_git_reload_probe.js",
+        "sha256": "15d6224511aa1f7feb1c9397f927b23af9e111f47f43eedf1c41aed9baf2e16a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task21_production_stateful_repair.js",
+        "sha256": "af60dd59dc3aa98ce22b6d94bfcc2ea82da044613795076046a1b4b9b012ab9e",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_ui_recovery.js",
         "sha256": "b43692576ee9411e156b5cb08c468a3aeeb90dc62352ecefe1fc9b51b97c77aa",
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_update_operation.js",
+        "sha256": "7bea489a575b5d1f52b88e0500537df46c34c4ecb2abbf607d1bc3151e187ff5",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_wiki_read_adapter.js",
+        "sha256": "5d5858b6903a8eb982f9f1a9f487098de4c7b4353fb9f81b25af09a84f4d8211",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_wiki_read_service.js",
+        "sha256": "e1c6f4d1ea6ba56599d5a7c467fb25fa4988127d34caa72aaa1b90aef94a26c4",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_wiki_surface.js",
-        "sha256": "0a148c928ad2204f9a0b2d11f0edc501ff89cc57d3ff17c233c6de2786317e12",
+        "sha256": "3676c579285f36be85afb97eef9d313d1311d50bb0221da9e1d112b8a6801dc9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_zoom_action_layout.js",
+        "sha256": "4457ab87d4f2ccd09a57846bf08f034c055a37c35eccd20bf9626e4c3c4a324f",
         "hash_mode": "raw"
       },
       {
@@ -418,7 +1088,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/lifecycle/test_object_engine.js",
-        "sha256": "267a47686584fb2e536066c0d9d6627f934f9fa66a1f1119e1eb2b16586b8595",
+        "sha256": "4fec63e4e6c57c33fdfb63775010e9efb78a58b43396ccd41622698278cd9c08",
         "hash_mode": "raw"
       },
       {
@@ -438,7 +1108,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/people/test_people_presentation_contract.js",
-        "sha256": "72ff9c4d40035b354ba339312d4d248aa169927bd76c73b9019301346cbcdde3",
+        "sha256": "f277053330afe4d3514d727aa83f8ca0d14ba2bb0819f2ed1fd027d94cff2b03",
         "hash_mode": "raw"
       },
       {
@@ -462,8 +1132,13 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/performance/test_prodigy_mobile_settings_change.js",
+        "sha256": "d51dde0d2ec141d17592800547d401c61729860c83e00024c0f3f37d63a02010",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_apple_presentation.js",
-        "sha256": "a4b0dcc3f7da8ce1010c28df0ad99b257ff5505641b401ee00be3fc19d6bb6fe",
+        "sha256": "253dea29da3109f5dc28ce506f9fa7fcc254812c18ef51cee5973d07a0bde53d",
         "hash_mode": "raw"
       },
       {
@@ -482,18 +1157,23 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_candidate_lifecycle.js",
+        "sha256": "5f2a74fd736d85e5b1e22c40bca8c999b5733e58eee1269052ef6dde8922dba7",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_checklist.js",
         "sha256": "4b42e63b7c1eb880c8294beddd51163f45a114b3e6f5494354e78a6fa33fb741",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_memory_view.js",
-        "sha256": "fbe7ad8f95c14d1f85506acc6e2de6feca70c252fd8a729ab10eb9fdd51cd445",
+        "sha256": "76c5b9c4bd488e42e04ae3aa589c7de5165f40aeab18640f16d499d79a11e508",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_presentation_contract.js",
-        "sha256": "30569d5a0786903adfab55a35c76068de4ed068d77a27eb980a6828cd9bd4ae1",
+        "sha256": "1c22b94286ce8eaa44149c8676626d566b0f4ea177cb98e8064d0e99d56c54ab",
         "hash_mode": "raw"
       },
       {
@@ -517,13 +1197,18 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_store_loop.js",
+        "sha256": "c75663845fdc4a6c0aa099ac1c310a43e8559d0d60736dd650f6f0b33a7cf237",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_strategy.js",
         "sha256": "fdd5d28de1a1ac9af86340352e65c12472e70e40f168cb2f6eafc356b39ffac8",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_workspace.js",
-        "sha256": "3282d7cd0171257b825a2eef8052a2836fd6ef84f699e72ca3b0dc4fae54ede1",
+        "sha256": "317bf4dddc58ba34c43b2484f872feb17035c6aec278b5d73747afada31a3739",
         "hash_mode": "raw"
       },
       {
@@ -533,12 +1218,12 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/aside_cdp_harness.js",
-        "sha256": "67cb53bb1afb97b81bef6770927500a4b1b4200655192485295ca46309f68feb",
+        "sha256": "1fb5cc554acb86000f54dff3c72a865445bf3e8e3854d485e51c792f83a5e241",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/design_color_scanner.js",
-        "sha256": "392ee0e5ee6b7b32dc2fb660a668d4ccb22f13181140ea5a7f47a3630881a719",
+        "sha256": "0b7847f93933463e81a20f1167425a2f383d6a96f201eb030f6e598b72d83ac5",
         "hash_mode": "raw"
       },
       {
@@ -553,22 +1238,32 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/real-hub-blocks-v1.json",
-        "sha256": "59d7079899d2f81338408caa3cf8babb353131528b8b2238d4a5e35bb404ab37",
+        "sha256": "7e1942883ed77c650f60ccbc645281a4de7149f33cff53ca3c1f9c14c2aa644e",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json",
-        "sha256": "838a1020e57d2d330c03a93f8e6b9c3ad71a8977468d80f16402348455ed1db0",
+        "sha256": "d36583ecce4b69cdbf81310ff03e0085260bf84e2080b88661e98e9f41678d32",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/real_obsidian_harness.js",
-        "sha256": "3fb3a1323721620ecbf7bdbaf4b5b9999a631170916012ce09e52274a63531d0",
+        "sha256": "60a353daa898002c7f135e3462b5177943b412b8b896637a6e041680cc163990",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_ai_provider_security.js",
-        "sha256": "f9c3bfb1783db48e5ead917d37591c566921d5f43d7e04c255927c2c5034a338",
+        "sha256": "45e126ff79612aa146534ab6aafd5d90a28f3d9fa695ed49f130aff1e49de963",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_app_shell_container_tiers.js",
+        "sha256": "304ca3ce3a0aa55ee01aec849812bb4193f36c9248bc29e5508a10a571592bca",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_apple_ui_real_obsidian_matrix.js",
+        "sha256": "387d8f11c37bd98ece2d581ae12390d9c61c50f46947a68cd87aeca579fa85cc",
         "hash_mode": "raw"
       },
       {
@@ -578,32 +1273,62 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_design_theme_browser.js",
-        "sha256": "b45274c2edcba0cdceb42dbc993d1d96685d27116e838888e33040d256113243",
+        "sha256": "5d28f9befb98eb4b0a8fec786d033d2eca7eebd86694b67250f4b9d568387008",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_design_theme_contract.js",
-        "sha256": "b77d835bb1204214f9d46d72de0b16b0daea0695928466087ffa3b7078380807",
+        "sha256": "d7c5d1270606eeec0ccb6867280cffaab9935e1af67c9bed7b680088280b15d6",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_hub_host_chrome_scope.js",
+        "sha256": "b3679ef0d014e91b18746eec218887af1932c5215682f9288fdac9ae1cf73f83",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_native_approval_note.js",
+        "sha256": "caa018dd49d28134097627e9930637a729e8a37bd3b8b285f13adb6beffb908e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_native_device_expansion.js",
+        "sha256": "6b61bc62adf707d8f6ed6ec5a14b8b2ad1235d8303cb8c27398596f1e08dfd0f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_native_mac_pilot.js",
+        "sha256": "3c42ee129d5f77338581dc53f7cc457259f2a7897c52ff71025f907cc06ddea2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_config_service.js",
+        "sha256": "7bdcef7ac1a05845985c7fd652155c562673f5f13e9ec8481d97698c013a57fe",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_hub_loader.js",
-        "sha256": "7dd439570b58dff9d5f511a025903d98c49d281208c23274fd6982b9c97c5667",
+        "sha256": "55b6310be61fdcf6ca71c0828c1b745a4fd192de807a689fbfb2e42317097025",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_workspace_manifest.js",
-        "sha256": "74a09e46aca6a4b4f602a3ba67c389dc1bfc98c95926d1e6656214c60aa72b58",
+        "sha256": "1b07b1ef2fb349155984f7bf6d2955905d6176c060797dcb96e605d0987e635b",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_hub_lifecycle.js",
-        "sha256": "8cf9edf697d5637956a01182795cfc688533cd3eeacbc0ec3971459edc2e78c8",
+        "sha256": "bfd5f0016b428f5d51d585003c85e0175b9170381d20d6555601cf697f57d860",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_hub_transition_lifecycle.js",
         "sha256": "37c8aa68fcfd77237cbc26ff5931703411fe0794e81da60c81592f89a6bac535",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_obsidian_concurrent_ownership.js",
+        "sha256": "558ac4db052e769c155559d911a653146f321a9a667ee67770aed283ea8cb984",
         "hash_mode": "raw"
       },
       {
@@ -613,7 +1338,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_real_obsidian_harness.js",
-        "sha256": "aeede637b46511bc2fa8f95b02a564080870d4b10ada23aa6f1adfefe2213c6e",
+        "sha256": "db25653b27494de37cc1c45ffa4f35c78129e6d131371efeea2db21d4fc09316",
         "hash_mode": "raw"
       },
       {
@@ -648,7 +1373,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_literal_git_archive.js",
-        "sha256": "647c81b3af08d91f33878acf602cbea1eb5d95e6d2805cfb70d53a92a79c14f4",
+        "sha256": "a18701ae20c34483c9f3fc77901affab360e06201e45b3cd6eb5ed5d0bc449f8",
         "hash_mode": "raw"
       },
       {
@@ -663,7 +1388,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_final_receipt_provenance.js",
-        "sha256": "4e064251458a5e1c4782dbf20e523faf629f9de73ba8929fa7fc5cdb27a66c30",
+        "sha256": "99293cb7cd51a8d2d099001e5bae1fa16c40c90f05cd1a54f1d83280fb748eba",
         "hash_mode": "raw"
       },
       {
@@ -683,7 +1408,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/test_release_gate.js",
-        "sha256": "7053be8cec47ec83d34f714650f6bc255d6ef431a213ce98fdb8dbd2ac2c6b3e",
+        "sha256": "7b9246118d9a80b79c8c0a3fa0b6f10022d69b5c76b97a78bee4972cccad72b4",
         "hash_mode": "raw"
       },
       {
@@ -718,7 +1443,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_presentation_contract.js",
-        "sha256": "4ccf01ee774d0cdad79a5f0afab3d37a17ab5ee4edaf4ca8f1646476743e7495",
+        "sha256": "4b3edc3e97f7787e836917378100fac1ae5dea8ceef9f87a3c363b8bcf7a2786",
         "hash_mode": "raw"
       },
       {
@@ -743,7 +1468,7 @@
       },
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/workout/test_workout_view.js",
-        "sha256": "d3fd8f13628ee8d1898b709642c035256f33bcc85cc68c27e748f455efff0f5f",
+        "sha256": "5d92700c58ceef462c340a2dac8a6f4b3d1b4fe5b4f3275ad4854c77b535207b",
         "hash_mode": "raw"
       },
       {
@@ -759,6 +1484,11 @@
       {
         "path": "SYSTEM/AI/Skills/prodigy-review/tests/workspace/test_workspace_consistency.js",
         "sha256": "309e33ee60f5c337bbbb92e55a0313a1512382bb6b4628b12547a0b49f2b9f5a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/AI/Skills/prodigy-review/tests/workspace/test_workspace_style_manifest.js",
+        "sha256": "c3b420d5a2b5848c866f0938b6448b0330995a435081c4655e20873e4b101a20",
         "hash_mode": "raw"
       },
       {
@@ -783,7 +1513,7 @@
       },
       {
         "path": "SYSTEM/CI/fixtures/consolidation/fixture-manifest.json",
-        "sha256": "dabd24e17365a73dad0fcd9d6047b2bd85ef48e87005dae7b534c2b9757b81b8",
+        "sha256": "006e607e311c37e558469b9612258af4f6c0b1978ce7791d7a2c20caf6f7591e",
         "hash_mode": "raw"
       },
       {
@@ -803,7 +1533,7 @@
       },
       {
         "path": "SYSTEM/CI/fixtures/consolidation/source-inventory-v1.json",
-        "sha256": "c6f404de67a05d962ad632927c31f171acfc052a69e0b35579ac0472e0bc2129",
+        "sha256": "f3815eb3299fb485c3aec34a34bd47373706b0fdd5008da74a66a9b25dac3444",
         "hash_mode": "raw"
       },
       {
@@ -863,7 +1593,7 @@
       },
       {
         "path": "SYSTEM/CI/recovery-proof-harness.js",
-        "sha256": "c265d9689bad77bdbbbd94628ed6db8b06dacec0da1dac0aede2cfc6408e2f93",
+        "sha256": "a3fd3381b966091137a5f7d9ce758471cfe1cc5afdcaea1101a1b487b1e62fe5",
         "hash_mode": "raw"
       },
       {
@@ -873,7 +1603,7 @@
       },
       {
         "path": "SYSTEM/CI/release-gate-manifest.json",
-        "sha256": "2220011d3bafaae988b5a444882e559c69c14af90fe658fb612c7cfcc67a23f8",
+        "sha256": "77d6294296461842319fb961cf5e9f90f75a3c1f86adad95051466e92ded0a98",
         "hash_mode": "canonical_self"
       },
       {
@@ -917,6 +1647,16 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/Prodigy/Schema/Core_Property_Schema.md",
+        "sha256": "22e4e961b407e7d2666bf4043612d0460742e7a6e116b53dac4c27dcf72d120c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Prodigy/Schema/Knowledge_Candidate_Schema.md",
+        "sha256": "f7ddcc1b1c17048f9d693135cb4796208f395c2d4b9c706235078cd01cdb0c49",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/SCRIPTS/prodigy-consolidation-final-audit.js",
         "sha256": "4aab5a6df5a68c91707f739801752173225c567161b5085365c4ff7e4f406794",
         "hash_mode": "raw"
@@ -952,13 +1692,48 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/TEMPLATE/FORMAT/template_fleeting_note.md",
+        "sha256": "df71edd2c334a7b0ea8a6e0cccf8f5abc75d3168d5e641e5fa56973f6ff97c9a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/TEMPLATE/FORMAT/template_knowledge.md",
+        "sha256": "1dea19ae791471a7f040d42f4f51b01e3f058f6cc344cd53d18c376b406498bd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/TEMPLATE/FORMAT/template_knowledge_candidate.md",
+        "sha256": "cf338108d2038fdc81d915bf78bba4bd17ac9b9e5a1dd431707d80c9db28ae17",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/TEMPLATE/FORMAT/template_literature_note.md",
+        "sha256": "6523b83b148c6ac6a2d617929d492c58d015be196c3ccaee2b1396d4a3b8d603",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/ai-inspector-styles.js",
+        "sha256": "9e33e2af8513dbb506c49d139a48a96837d8a9bf9a62b83c7b121c12c9beddf2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/ai-inspector.js",
+        "sha256": "3cd3a0b10632212c7330567a70c555fd0d27e3407700220397804a3e3283db8d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/ai-provider-error-policy.js",
+        "sha256": "52b411632e25cb31bc8a29cd9c189fd6e77f83148a711e4bbe5de663d71deb1c",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/Views/ai-provider-service.js",
-        "sha256": "727df488b5f160a09aee08ceb9df7d353ffc8d29485dc06e9d999bf4a4537d88",
+        "sha256": "aa90eec24d455fdc45519a760c03645e7d0e4668518667048474cda061e48ec4",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/antigravity-exec-service.js",
-        "sha256": "def43d104b00f1527eab94cb6fe89be5d2e14d58d2e7c825fcdc85f6f75c8fa1",
+        "sha256": "8eddc2d4424710e34c8818ad1ce3962c20993df6c7e5f8ecbc106d9335a8c600",
         "hash_mode": "raw"
       },
       {
@@ -968,12 +1743,32 @@
       },
       {
         "path": "SYSTEM/Views/auction-card.js",
-        "sha256": "1cffb8c80dde97be7c90872302594fc198a448c716f409478e9e7950986845ef",
+        "sha256": "17b11003ad6c3f839ddc14f7eabbca5db26323b7104ddb6557d280cbd696a01c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/auction-context-adapter.js",
+        "sha256": "2a179c4a7e3b53c1658a7e784ccda5c788671ec2ee594a477569b1d87baef4d3",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/auction-day-view.js",
-        "sha256": "ea7906edeed46a4851c5f87ba261d3514e041ee5e40e473a383cb1bdcadea736",
+        "sha256": "3e57eae7f89a9226713ce55c262fb64def21f166ccdbde718d146767bfd2c641",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/auction-decision-packet.js",
+        "sha256": "ca5c2c19b7afd08d04cc515fd239f3364456d25436ba7a35c487f4c1b6b9a59a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/auction-hub-styles.js",
+        "sha256": "657e630bd75f3007ac8e15a9d938a0be064f9d08b024180425a6a78746790d47",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/auction-native-scenes.js",
+        "sha256": "ce70f65af85f04ebf203c128ec9c4c3155f90454dba1d35c9cb1ebdf3080f992",
         "hash_mode": "raw"
       },
       {
@@ -983,17 +1778,17 @@
       },
       {
         "path": "SYSTEM/Views/auction-region-packet.js",
-        "sha256": "32438b8530f749e150f125221bd095075c1337ec53ee3235fda749983dfea218",
+        "sha256": "608ca11aa7d2be7b6ceddcc56616a7a706bb884b8d9bc4d2a9028136228523c7",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/bid-calendar-view.js",
-        "sha256": "d76156ae5c158e4225dfa55d12014851158e3cae1206db30f93b7edde3111256",
+        "sha256": "82bed445b009eb9d94cc3ebebd6fcb366752c4b709b69ee3763661dd01aa2b24",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/capture-action-runtime.js",
-        "sha256": "2827069fd6b49734402c7a7db90ec88ba2ca9823404e770624fcbaf6fa504870",
+        "sha256": "ea3bd3b2683cb239aed389cbbac0e7638e7db6cebb9ecd932c2b535b0daa8455",
         "hash_mode": "raw"
       },
       {
@@ -1018,7 +1813,7 @@
       },
       {
         "path": "SYSTEM/Views/daily-reflection-modal-styles.js",
-        "sha256": "206cacb6ceb6162ba1e26efe020683f61b0a118ec3e2404649560fdfded754d1",
+        "sha256": "95b2eaf51aab1861202b7b34a92e0706a6cd0fc7f5b65a1d47a1159bf94d2b00",
         "hash_mode": "raw"
       },
       {
@@ -1033,12 +1828,22 @@
       },
       {
         "path": "SYSTEM/Views/daily-reflection-proposal-input-view.js",
-        "sha256": "3b43e8671f5d22a2c30e43699b80269374e2d024fd71a378dbcb1e5d8b22f65b",
+        "sha256": "58e0003979ccaed77b091b7f6ae54f6d587f299c276ae639df090e2427ff2720",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/design-tokens.js",
-        "sha256": "db886a67cc3d8d6d7192b09f68f3ae6bea32b94e8cdab434576e312da62d6a90",
+        "sha256": "a713c0bea4cb1e374f825eac60b1b2194fdbd0675ff973a836b64ac89f3052d0",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/display-registry.js",
+        "sha256": "89b0ae8f947f58afc87971f28022f3daef7455d36329444a4c5cd3fb0b473c53",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/home-action-queue.js",
+        "sha256": "404260bbfe414553eadd5c5a5e22120e410fa7894fccf8c6585505d1fe240fb2",
         "hash_mode": "raw"
       },
       {
@@ -1053,52 +1858,102 @@
       },
       {
         "path": "SYSTEM/Views/home-sections.js",
-        "sha256": "69311fa5c189982addee2dcde090005880cc19bdcfc6ff79fa231556395ab1cc",
+        "sha256": "08fc5e6c6510255f7c9a3f97c44cdabd5adf4926e6c8f53498dd89ad91529225",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/home-styles.js",
-        "sha256": "88bdab964bd70a49066c41a6912529097a31acb003f8bdae86f6169bb8ee2869",
+        "sha256": "a18a156a58a4401be23558231634414c737f696908d3c3cdf90ae4f5e81728f6",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/home-view.js",
-        "sha256": "a2ae5dedd5d61e67462ac39d5f52dcfb919e3027d3bc5ed588b7c8d1c0b7840a",
+        "sha256": "87af716e525c7dfaeeaafe049237581ea2636d1123e19e8d4e9b10cd40cf8e9e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/journal-context-adapter.js",
+        "sha256": "1aaba16539fb4a37075422ed975609d8f718f0316aa18a2da2b8ac163afe9a25",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/journal-dashboard-view.js",
-        "sha256": "010967fa5acc1e496ef88a34ebb9717f3f2b850205829f9a983823b27702c1c5",
+        "sha256": "217e5c8d4aeb7bad020a613bb45b6855686858bb57ad866d77d9a9dcebf05e58",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/journal-evidence-block-modal.js",
-        "sha256": "81179dc1a40ef2e4e6920f8c372789e01a594e6eeefb1b2e08160db37abbbc7c",
+        "sha256": "faf21f859fbcef563be0c1417b98db71fe52fe4c700fee67b9a95df63509a7f3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/journal-heatmap.js",
+        "sha256": "3311cd7d0ba328e40485d0e70c7e207d0930d2f92893fc1bd4ff5869b422828d",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/journal-period-view.js",
-        "sha256": "77c8fe25a4c16f76ebd952d4aa74e1ba6952c5b7a617682c1cc7c90cb3213a26",
+        "sha256": "e5727160badf0576034dd0ecde62028b01e8fe85fb617787f31097373e3281e1",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/journal-review-modal.js",
-        "sha256": "62530c2412f5f845a2472a963c16e2f8002ff0bbe02595c8704124a116126bcf",
+        "sha256": "20adc85bd185cb767fe3d8fb0a33742b68a92b94108a486b44adcec59fc6985f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/journal-styles.js",
+        "sha256": "c1636e4f346ebb8aa3ebd928a87a3685ff0c6dd2ef14e4121b73dbe1409126f5",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/journal-view.js",
-        "sha256": "62efebb4e5eb44470209a87acc2c9d233279a45cb863d69389cde274e3197e76",
+        "sha256": "f63bf281d051ec733ccf05a22e589a5132590cc99b7a78ef0e6e5a8c13985fb2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-candidate-core.js",
+        "sha256": "22cfab616c45435a3aeaa3a6cc49238db1b6537e0f2dbbb361d2d674d10c923d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-candidate-hub-adapter.js",
+        "sha256": "d83c8d51ed63a044014159b5f0521a8d39529fe3fb46950d789a48e3d0ebd701",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/knowledge-candidate-store.js",
-        "sha256": "0cbfae36eb9b2066a919b5d2b518dffa672517d6ebcb58c019d959bfc9143238",
+        "sha256": "e69832edc64e522987ced8e797965f05dfb1f999264d340f3d826d5158523180",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-candidate-view.js",
+        "sha256": "40bcc776b456a19eb80145e889b88bb3b5b6fb00e162b2925af71f24792f137e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-command-controller.js",
+        "sha256": "3941cde76d916356b469b3eecb4e9de6f0b87317fcbbec4d3fc90a9b115a66de",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/knowledge-direct-authoring-form.js",
         "sha256": "f5015d2f667048460a1640ac01e8e477b9b96b9741e31c0dc4eb33607aa6e264",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-explorer-controller.js",
+        "sha256": "3a55b707dc3b02cee9a5ea2df117a1ad54eafe5b9090799952a89aa8f67dc759",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-explorer-detail-modal.js",
+        "sha256": "45e35467bfc6e09b7ec462923dc8956a322385b10d845e379875c9d28d7baec7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-explorer-registry.js",
+        "sha256": "c1a9049b886fdcaa0486eb8e71c11886a674781f1e54206dcad751ba3d868512",
         "hash_mode": "raw"
       },
       {
@@ -1113,17 +1968,42 @@
       },
       {
         "path": "SYSTEM/Views/knowledge-explorer-view.js",
-        "sha256": "50fa8b93d71b50dd18515ccb89d6d4fd4c6a0c3a681ba0d41ac862dbf3498c65",
+        "sha256": "da598e89174a23fb0b5ab8f4c3fb5a02d10cc17b4cfa82b8fae08edb67378bf7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-fleeting-review-state.js",
+        "sha256": "4d26d9ae0edb319b81fececc8afd755a7d1fa290c7d3a151c778230f7ce31fdf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-fleeting-store.js",
+        "sha256": "846f8b2c08eefcf1a47e414e3deab7ca73e823e3c82e56a1527a64dcfd9ebd22",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-para-projection.js",
+        "sha256": "46b5edc7c48ff0851329d133abd6104aa9efa3215c5098985b8c59547bdd6778",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/knowledge-para-view.js",
-        "sha256": "76c947931b7eb4e29e93d6a046e3e37f47a0607ba9fc2d16d7dca182412506e3",
+        "sha256": "28943dd9b7a3b16389021b17feb9402107be457ff2c75b497a863deaeca52d8b",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/knowledge-source-authoring-form.js",
         "sha256": "f2feb0da8bba690f87ba3ee505f1172cd8dee248642f9b9a1c2f6f91f770660d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-source-store.js",
+        "sha256": "b576664d3a363cc9722781798f3d0ea5cc573ba8d988e865526ab2663e168185",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/knowledge-styles.js",
+        "sha256": "efe90efb99a9af5229861c3de54d89cb9e39598a798d1fe58faf36a82c91edf0",
         "hash_mode": "raw"
       },
       {
@@ -1133,27 +2013,507 @@
       },
       {
         "path": "SYSTEM/Views/knowledge-workspace-tabs.js",
-        "sha256": "3bb0ade18687b66888518730bf499ef9e7b192e911c296bc8eadc2e41bd6dd6c",
+        "sha256": "694afef49ff278fdd353eb67955ff17844b58f2d975bddfdb456b89e05d424dd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-analysis-cache.js",
+        "sha256": "a87a18ecdd5385b82bb53e9fa26e01f5a28e8bfb3a42226f8dab08235008ca8e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-analysis-scope.js",
+        "sha256": "f5ae8653a1a8fda073151a8eff9af9cb5e6cc72f1ab4a4184937b6a22a2e6d74",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-approval-packet.js",
+        "sha256": "b9e7d16e36005625180d7851b0e71a97b707b1d85f74d68eafa7d68cc41dfda5",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-approval-repacket-service.js",
+        "sha256": "06e41ae3d93e8dde16d95bc0b2412245a57d0f915339b69c77c9aa14c4b69297",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-approval-review-commit.js",
+        "sha256": "a4a912d9d8188d3670c7061df76222deb7b47403aa2bee9387c9468ba822253a",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/llmwiki-approval-review-view.js",
-        "sha256": "84ea2f4097c5f271da577b5bda634cd93ac604e7201e4e806dbb8a47c056b1d2",
+        "sha256": "ee54c19ad766f35cac0d89ec09ef1a2e16756b1810089b16ca67fc098aff58e3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-canonical-packet.js",
+        "sha256": "abf1479049505f3646d770646e45dabdf419337f8976a699cc92efb0f1907a99",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-canonical-trust.js",
+        "sha256": "49041404d7c7753a98045a917600b9e4fca5f60fb2bab4c5c8921d11d3a3b5bb",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-canonical-v2-authority.js",
+        "sha256": "12cbe1edc4496a16d9d8e3cb62041b96a7fcab2ee4a38be63aaaa5346a400acc",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-chunk-coverage-store.js",
+        "sha256": "962a6388c784a61301709599a5c9b7bfe2a86baeb6d616472855d9eaed5aec1c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-chunk-manifest.js",
+        "sha256": "9fa4f7160ae8a420df77c68631e4244edda0d379c463591045ba3c555d78b33a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-claim-provenance-boundary.js",
+        "sha256": "874c3058d49846cd874c21e60c72302c508edf445a5493a3c96243a637f2e479",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-claim-provenance-core.js",
+        "sha256": "45e22d881c38b9aa27023bf8f2be48da3019839ea5d93ddc2da449afe4c468a1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-claim-provenance-graph.js",
+        "sha256": "d1a2a191a558b41d4d64ad67cd388191b22dc691dd133782dd93aeaab11bcc56",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-claim-provenance-lifecycle.js",
+        "sha256": "56eac7daa320758f37994b7efdf5bffb449bfa3a1eeb56e03f6aa1a26a21eb52",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-claim-provenance.js",
+        "sha256": "106f7db9fc0d9c8f40798def64dea3e756c965ce668e691cd5732bdea398f8c1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-compensation-service.js",
+        "sha256": "505b6cb7d306a836c0106c581d8020176605e31f4ae581ce0d5e92874ad8544e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-contract.js",
+        "sha256": "05d9c8665f5cdf0f9d1e4088e91a1a3f4b35aa4df3b8d7d0763135d9c1afa5ef",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-create-operation-service.js",
+        "sha256": "14c6e5fc8e17da28b9171a7cb984edefadab8475780607870a72ddc3218b8caf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-deterministic-commit.js",
+        "sha256": "208602ade91324c09103850c9afd51a1ba9a5be6aa1f8be022125e0abfc21397",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-evaluation-matrix.js",
+        "sha256": "dcff1f166e3e44140d8e37eaf6eea77e83c2da87da485321902cccfb289f284f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-evaluation-scenario-executor.js",
+        "sha256": "589d103b49c113c805cdbfa3e9a1e22d6d1f0cc16072e4da9910ecf997ba9cd9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-evidence-contract.js",
+        "sha256": "bc0db678b83d22bd0b649ef8340316874dd207423abe8b1fcf394d4026c4b38e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-finalized-revision-bridge.js",
+        "sha256": "6ef58a3e180dd4e3b398a8ff9431beca23181229755b4ff613e6d8686902d464",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-git-adapter.js",
+        "sha256": "5b32d3b2226a5fe6b0bc4076981f2706e58cc1f538c6787f449fa9914f147131",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-git-automation-adapter.js",
+        "sha256": "85e63d0d38c106af85e7b7fdd0e1d5e3cd711944c0cba571e81e02ab235b8104",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-hash.js",
+        "sha256": "28a83ee91ad7957edd65fc81f87869c8c75fd4562e107d47531b871a636793f2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-identity-resolution.js",
+        "sha256": "03615842ee7153575a4f3417bf61c13e4b4af1c81c18eb515d3b10951e241819",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-inbox-autopilot.js",
+        "sha256": "30de2f79b9fe1185b0a40b95327f3602437765cc72614bd7e402d3092dfae7f1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-inbox-chunk-orchestrator.js",
+        "sha256": "494e92fcf44b0ca442ceb3a93be33fd565017ce0e97f47dc6969585c68b788cf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-inbox-privacy-boundary.js",
+        "sha256": "d7d1eb7fc5cc949543c8f60fefa5bdfc3d889f8a8ff6a06689e947839162b805",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-inbox-proposal-materializer.js",
+        "sha256": "f5ffa840f3c4922a071cc24a6a7e51e05232a653db20cd08e7e06a74ac58e4ea",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-incremental-analysis-state.js",
+        "sha256": "1a1157c1a07f4ecee8ecd83e81e4c059be963dc7637132720a5551c6c97c71ae",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-knowledge-kind-contract.js",
+        "sha256": "4c29299e4c3c4036ba924e4e9941f08a3a139ffbb1e3df036fe4a32eb05f5ee8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-knowledge-lifecycle.js",
+        "sha256": "7b54fa44c1c8d7005d000f4f1c805095a100c98facd69cb2e7afe6e7551c4a8f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-librarian-pipeline.js",
+        "sha256": "3dc6e150d3b65f9498414ae1c0228797788f52149261814f6e98bae07d00d105",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-lifecycle-migration-authority.js",
+        "sha256": "771d0e65ede10e390783b8579a52afa7130caa41e41cde27aee4b9be26ebc408",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-lifecycle-migration-flows.js",
+        "sha256": "5cdfd887bbffe86b579ef600a8ea50d3001fcfe7c9cce1490023839455cd04ab",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-lifecycle-migration-obsidian-adapter.js",
+        "sha256": "69d2fc0c873de49a55310e82df73ef5ddbed3e0d6aa539d42832b5a9ce86c87b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-lifecycle-migration-plan.js",
+        "sha256": "f4b15610b622def4b476337b6cdc1e39edf7847df99f3c55fea65345377ac95c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-lifecycle-migration-transaction.js",
+        "sha256": "02e3d2d97097da1a90bcec9c08c0d19de450d8e5eb04fd4db5cd356acbf26253",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-lifecycle-migration.js",
+        "sha256": "4adfd800fa01856361ba7a2ce6715dc52dbfefe92672aade6be205ffea31e387",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-lifecycle-routing-contract.js",
+        "sha256": "0a500788ff55060cc7e1bf784e8a95af3b186a22252bb88801fc362656a1b985",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/llmwiki-lifecycle-view.js",
-        "sha256": "c9c223b1ed09f0667470924d0c2baf907d9ba865ead0560143cb3cc9bae48add",
+        "sha256": "639819661226a6cbee166c594a8435003e02ec990a1d20f030b070b06b483bba",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-maintenance-follower.js",
+        "sha256": "33d56f72618f6800373da77010ca29cd67415a2a38eeea9c183dedef327c7f9e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-maintenance-service.js",
+        "sha256": "7a55090c657790877042f22fca0ed06bb124ecd73713df9eb22ac3e71bf4b2e2",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-merge-operation-service.js",
+        "sha256": "8bf025101dfe304ba8f39df8807c3ea3c7fe310a0ab0d47441a0a0110acc12fd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-merge-transaction.js",
+        "sha256": "f26d745413a0ef4e30af9e39a041956f8e33417cf8c3efde6bc4bced0d3b5484",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-migration-rollout.js",
+        "sha256": "eacb47a44811353c65d3550e2152df8df905fe2f2e6f6c9f1f3e680d6ea31ebf",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-noop-operation-service.js",
+        "sha256": "8b8bd527eaa5ab7b6a1f6f591fcb0576466376dfa6bada3c33e870219062bb8c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-notification-policy.js",
+        "sha256": "2f70dd10bdcfb28bdb114db507adab14f57ad3cdab4e14a3e5e6da661b2e94d3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-object-handoff-contract.js",
+        "sha256": "ad8f90d121748c61a9a8d6bc63d1d4d78f299f5a7c24d2359716f7e7a6a670c1",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-obsidian-adapter.js",
+        "sha256": "6e2335483edab96b50929d61894b6f86f53a0cf5ca38c6bd11d6d5c095a442c4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-ontology-projection.js",
+        "sha256": "7ffa1ebc1c761f3e88fe67467de92d96ec32b5139c27cc5329392060ddf2ae96",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-approval-callback.js",
+        "sha256": "0403e752423cdcfbc80faee9f5472ce5a7bd9318867d9f96c2452c02888ffc08",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-classifier.js",
+        "sha256": "f33ca358f2f4f3554d366d160a03400ab8c374d6b366bf8e6822081353d435f4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-command-binding.js",
+        "sha256": "d575f47c3d7dbe60594c37627d02b0e9a93545e50e210f1c094710f9bf52f84c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-contract.js",
+        "sha256": "390e1bab2c40255cd9ac37f1ac942bb933c0cc15f9d04c10f64ad6804b799352",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-follow-up-guard.js",
+        "sha256": "7d62c28470378a4826bb66e147c853f85d2ef2d8cd9cc7bfe9a5531175c9b111",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-follow-up-runner.js",
+        "sha256": "ed3a148175a470b7092ad9c66b4b619135c7f5e1c711c43f3202234db36d2a2f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-outcome-persistence.js",
+        "sha256": "df5279c2d13f2250fed43136c3e43f19a111678bba539b2ce823c36b54f39102",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-run-approval.js",
+        "sha256": "509ef2d0a0b8afa1317f284cdc743e6ae788f819067d0c959ac1a42d9aae4a8e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-run-commands.js",
+        "sha256": "92e1579d6a12e6119a75f34b9aa00b403f01ffc961eddd4eafa41c741f569688",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-run-service.js",
+        "sha256": "84e4fb2958ade3228f1fcee4441c2986c3f632ef26f8581d11fa1bdd87a73230",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-run-state.js",
+        "sha256": "592a582b4c9aa2b33c8295a24f568c8d7479e28d21e74445f07cfd56a9225e77",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-writer-core.js",
+        "sha256": "72c1cf7615b3100a41311835c80f804d75bdb1e291e02bf0f68ea8b5292000b4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-operation-writer.js",
+        "sha256": "45a96d662b617b9e8b9093da035d8c02c70e29ce0ee5e366ee971cee0b99c89a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-outbound-consent.js",
+        "sha256": "47016140195656172510f116b80ec31a93d0442aabd593e717222c12a56263fd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-production-operation-provider.js",
+        "sha256": "9a82b4932235fbd094969500370167a8305eb5da77d544e124c6f7853272891a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-promotion-contract.js",
+        "sha256": "dc09dc3bea8091e7cf5711b2b37ec1083f4be19a7e486e1efbefa0961abf04e8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-promotion-evaluation.js",
+        "sha256": "978696ce2fa947d25f374e41a8b4d1eb5ff256a985226e9e408e46c3466bddb3",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-promotion-normalization.js",
+        "sha256": "658612cc3f2f73e27925de06f16975fb54c9b2f22702fb79e7e07633773b39f4",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-proposal-bundle.js",
+        "sha256": "608fa2c88b5cd10e27ebf969e51d19a34f356524ac42c6c77df57cf07eeff364",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-provider-contract.js",
+        "sha256": "9e3669e767e436ebbcaec980f0a8c7b23c4fa9b1b30f6943f5ba6eed2f2f7444",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-provider-response-schema.js",
+        "sha256": "1cc0d80b0d2b7ea32b40ee172822f9cf3c29ee852d96f4c9121a02b91fb980cb",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-query-readonly.js",
+        "sha256": "4678c51052b893e741b233d1571314e6553f8f11d3dad9cdcf6cf519ba12ee31",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-resurfacing-feedback-store.js",
+        "sha256": "27c631025daccad3b3fa751972fde78498411786eebb709aa5d1983befe69313",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-resurfacing-read-adapter.js",
+        "sha256": "064201da4f7bb49089befd40e411049902e0b94bdf22bdaae2cc9ffb1b399ae9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-resurfacing-service.js",
+        "sha256": "8d97bd4334ece988a36f8110968c6f74fc6b13191228fd24563192bc350e1917",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-retrieval-service.js",
+        "sha256": "24c4b84d8dd9ce4d57c5393822b78b2f357cb0cb2c1475d9c4a43c3d5604a529",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-risk-approval-packet.js",
+        "sha256": "97bf029420d553d264dc717473130011287fb112e1c8446847c42597c2f90b4f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-risk-approval-review-view.js",
+        "sha256": "98d6a3b2dd542ea00a6f9f4bb3f93f4de5b5de261c446ec30f72f5c6a7d107ac",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-risk-review-controller.js",
+        "sha256": "6d625a254340f77cc5a292f2acf4649c8d09bfc9bdbb4b430a396f25fafb8371",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-risk-vault-transaction-adapter.js",
+        "sha256": "ca42dda8c4323b5004d6407ba39dced60e769db98665e5a24884a828a3153d13",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-risk-write-set.js",
+        "sha256": "f059184ef77676422e41bb5fc5474a71a1100d2d0a1c0c160e0cc918b251ba10",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-run-controller.js",
+        "sha256": "4447af11c0b39bb765202154663bc12564f9943437dec9a14d7759bfd7cf627f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-run-state.js",
+        "sha256": "89020821a42d5c93c72cb1005c46e51fb9dc0f7438d226dbee1ac622760c8b4a",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-safe-batch-approval.js",
+        "sha256": "9c52d3f5598066f5a9b8a2000cd82565c774f4bb14f4468954339efd19078a4d",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-sensitive-content-policy.js",
+        "sha256": "763b3ecc5e9b8b3d58b83ad2bd5a14dca24ea6c29a2777923231b94fe25c2216",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-source-adapters.js",
+        "sha256": "58dbcd82401136e1e1cd04348c9e6299ec6e9bd10cdd1bde53685e8e53163ea9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-source-lineage.js",
+        "sha256": "eb554943c33124db846a7636cd9d02ffb003d514911e573c3878b93c237befc8",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-source-registry.js",
+        "sha256": "930ce0ae356e5da90dd30b5b82287f49423bb089383f13b13bb695b35863b19a",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/llmwiki-ui-recovery.js",
-        "sha256": "c9e21369375cb7389153270bdd2ac831f59efccfa9df8725175b0271fd76482d",
+        "sha256": "46904d92f8a1e8ce66c1d61d7e162db044ba4d4e06247f9ef05405ab7b7d9e7e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-update-authority.js",
+        "sha256": "8573230b222b7770a684ed4f0d944c52477a359390d4450c0129bcec22b45303",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-update-operation-service.js",
+        "sha256": "53a6f3dd3d9a6534a585b5e4938521aee42f34b1889a218b4a401f92f07b6b1f",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-vault-safety.js",
+        "sha256": "51aa7d6492e593206e533758343f24b4e83d4767da9e33cd083a5c612c1fb487",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-wiki-read-adapter.js",
+        "sha256": "289670073011a67a0dd5c3a3530e5e5d0e131aa8ffb5de51886fb965d853754c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-wiki-read-service.js",
+        "sha256": "dafce1b3c634c6dfc7f241e34ea34605adbe6414ef8eeaca7b6811e521db60bb",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/llmwiki-wiki-surface.js",
-        "sha256": "d789371d53890589f3195d0046784a081994cbd17ae77c49df0accfce8e2bea6",
+        "sha256": "0cf73c2e5d0ac746640d446b704fd18aa76844eb246de54f154d026f890958fd",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/llmwiki-write-boundary-policy.js",
+        "sha256": "5440123ba6eca6b01939cadc556b7af493c2273315fa3c95fb2c3000accc4fa2",
         "hash_mode": "raw"
       },
       {
@@ -1168,7 +2528,12 @@
       },
       {
         "path": "SYSTEM/Views/object-creator-view.js",
-        "sha256": "9a52804ded481570cbaadb44741dde4c8f155acb76749e4dfd433cfc3cf0caa4",
+        "sha256": "780efcade36fbf6110e4a960cc4a4f5f0fed9aee72bbd9cbba2dbc52a7e3e805",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/object-lifecycle-view.js",
+        "sha256": "b2a041dfb4a2324762b6ccdcfb0dd6c2ecdf0ff30f521efdae1685c57177ff89",
         "hash_mode": "raw"
       },
       {
@@ -1183,17 +2548,17 @@
       },
       {
         "path": "SYSTEM/Views/people-store.js",
-        "sha256": "0dea89fde1d668fbbf51823b5e5d895a4591f376ea47feda0ce997d28ff94aee",
+        "sha256": "d5256f72cfd750bc520629cb47bdf051f6cd4896c35ed35093ec44d1f77c3cdc",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/people-styles.js",
-        "sha256": "c40917fab6e8467e3a42ef74b2f6503fa93991d579b15fde539ca89e531ab013",
+        "sha256": "278ae6957b36847bcd87d9212f33e2404f87d1e9f52fa262dfa17b4dc2cc1db3",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/people-view.js",
-        "sha256": "6316c85db06dc56f5c9621fc121e83b3a0ae350bf32580be9774fef0f5a7d70b",
+        "sha256": "fbcc581b8c8621f83677cc81217aea558cabeb9e2c50e0ab617b03be602327f5",
         "hash_mode": "raw"
       },
       {
@@ -1213,22 +2578,32 @@
       },
       {
         "path": "SYSTEM/Views/prodigy-app-shell.js",
-        "sha256": "f37c55c2aaa9efc2c9e48e2b93a8c0a91f34157a21b60e8067b2e53da9f7b3f8",
+        "sha256": "d4ef33d369f4cd5657172e3b4fe62ffc7dfb8945b5f04b5d1d5584dbcb392388",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/prodigy-config-service.js",
+        "sha256": "63f57c85ed215b297d1da1c5acf7991fc1a0555f1e681956398c38b4d9bdecc0",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/prodigy-hub-loader.js",
-        "sha256": "dca9dc613bdd00c16717917e57b55c7084cbece41db0541470d8faac6c5e6cc9",
+        "sha256": "04854947870992c7393fff372cc12e4359111f220a11ae8a92050b83504b30c9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/prodigy-omni-modal.js",
+        "sha256": "7b9efd9456c37f33efeb05c9f8848c1bcf75f4b6c3ade17e9b6b51c8eb0061a8",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/prodigy-ui.js",
-        "sha256": "6f92bcf08acaa433da4226d130a623b371e3e5e481fedae6e6ba07ee8a48daa9",
+        "sha256": "f3d13d7b89360130b68486a7d5bf0c8c649d64f1068e31162dcd2a51a6cac8be",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/prodigy-workspace-manifest.js",
-        "sha256": "16b082bf69f3f3002ddd1b584815c96774d383959ec01a4a3719ee0967cc61c3",
+        "sha256": "f707df5df6fc8412dc534bbe4708968461859a35f44e59e3e471aaa05aa3d441",
         "hash_mode": "raw"
       },
       {
@@ -1238,32 +2613,72 @@
       },
       {
         "path": "SYSTEM/Views/project-card.js",
-        "sha256": "1f7b7ad800d7a6b2cbf1f00f8c1b6d46c29fb9d41c4e9231ed587de8a0ec98df",
+        "sha256": "411d3b8c56e8d4428cc21b808b7a0f304e8a828f12eb653ab364af26c804980b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/project-context-adapter.js",
+        "sha256": "32d6528084208d67b8a76ce480fcc6950c86af6b832ce9644536c904c1ed276c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/project-styles.js",
+        "sha256": "0acbbab9476975b34258bc2faa767497921a6fd74b5d3f85ec4838e2e5b52cb6",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/project-wizard.js",
-        "sha256": "825dfc21654b881956afab60f00c849c92a88a5e8954ee358759d96d4680881f",
+        "sha256": "fda0ae6e5c9f9c97aaa464214f4e99278c61896d6a4d4ee3d7df646e76108041",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/quick-capture-view.js",
+        "sha256": "beb0ffd0c6ef0664a8d0d80a79be271ef5542c335540527eb2af663f2faade43",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/reading-card.js",
-        "sha256": "64a6cd193628bf19ff477fb545f2c51646cd0c647a38fbd5cffa74c84f5728c9",
+        "sha256": "dff2c14166021180b555ace93d9c595203b03b45c33c9b5aa64e16b703c14aa6",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/reading-checklist-view.js",
-        "sha256": "4f6e5013a2ffc5b29b700c5e37e2ec2a6ce1503c322489f99a1078a5cc4fb758",
+        "sha256": "d28a915e74dbe5e725693a3ee2535c8ab5a1a728b7d4340fb0eeb26b4bb4ed8b",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/reading-context-adapter.js",
+        "sha256": "4fd2d5fb1208e24c4b1db8ba402a4fdf13fc244903e1e24865beeb3822d5ebc9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/reading-core.js",
+        "sha256": "b5004f96dfcb6581f99120c1f4d3a164c1dd75363f36e47a6cc5f977e68b4a9e",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/reading-memory-view.js",
-        "sha256": "3c1163e868e0a9f5a0ea05ae121224cff4a1ba486223f450d43a58ce7c984226",
+        "sha256": "33ca8bbceb3101a91f7b219cb38d6fc8f4a876fbeaa39633a8f2ec62ef1a7749",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/reading-store.js",
+        "sha256": "01fc5759f9c8b2125315612abb99487e6bbc6026b0266e6e956fcfc5d6c7ea5e",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/reading-styles.js",
+        "sha256": "46f295bbabd1566135a1b895ac88465db6f5f67a29966fcb07002f3c6e878a7d",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/reading-view.js",
-        "sha256": "ed2df0d56a5e18113df5e2ff1f84c450033e946997e57c80bc5ecf13ee06ab07",
+        "sha256": "1b7078e86f473710d0208e731b32fdec3a2cbb8a5e899dc227705be588ecb3d9",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/region-experience-handoff.js",
+        "sha256": "373c13af1637544e5c8247d0542191ebd11816bb4cbba93ce003293142f65567",
         "hash_mode": "raw"
       },
       {
@@ -1272,18 +2687,43 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/Views/region-explorer-view.js",
+        "sha256": "e4794ff5877283800d8276576cfb51ca4ebb4cd98fcd6c7df6440252f7243314",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/Views/region-intelligence-popup-view.js",
-        "sha256": "3776282a7e8391ac54e1da39127b33baceb10d03a6b89d647490fc61724de3ef",
+        "sha256": "813d2f1e5859d3e2e156812ead2182cb23fa07345807f11b15af4ada35dbe023",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/region-styles.js",
+        "sha256": "220f4b3f943d720c9830840d0ec45932a0feb5fd515f896e7810bbc66de5dc14",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/shared-dashboard.js",
-        "sha256": "df76164ab1ed8d12d003e3a270757cad6e918989967d1b6dff4ccdc9ca66ef5c",
+        "sha256": "45889755d2078f276489e547801310bb8106447dfa602ed5323f7350b9792692",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/site-visit-workflow.js",
+        "sha256": "6f503ca9081b5c110e61b54c5857f4eb324a19a250287324d17cf84f7fffe249",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/venue-store.js",
+        "sha256": "3952fe15f898f14dde4eb4b5d9fa762920bcf5ae8371102f42cf6f9764a10c21",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/venue-styles.js",
+        "sha256": "fc4ac14b43007672ecba863be4321eba9f54c3eab240926738db62ae7beb3aba",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/venue-view.js",
-        "sha256": "db2a1099da6153b19b6563efd741abda72df98df23ed3190becc3027f8615f2c",
+        "sha256": "ac529758ba587362074faf74e9d626791d07338842fa5defcbfa42d5372782b9",
         "hash_mode": "raw"
       },
       {
@@ -1302,13 +2742,23 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/Views/workout-context-adapter.js",
+        "sha256": "05aa30ce61e3c3e569c60a76be076a72783765e27a740586cd345520602f1dc7",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "SYSTEM/Views/workout-decision-packet.js",
+        "sha256": "59eac5320b6d3ff06d7fdfaed3e4b2484c62733b42e16aa5aa798ecdaba3eb1b",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/Views/workout-health-responsive.js",
         "sha256": "c25d7fbc69bd54556b3943cf9fa6a68624db227049352899f893408258fedd92",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/Views/workout-health-shell.js",
-        "sha256": "e550d84f3a3f99951df05972e3d098782bb1654a2e7709e8dfb7e77d7d6dac9f",
+        "sha256": "456ad5d18a86653807db91ab9a241c93566599f668345a323cf760c10eceaeb6",
         "hash_mode": "raw"
       },
       {
@@ -1352,8 +2802,13 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/Views/workout-styles.js",
+        "sha256": "a9493322fae9e817b0ca274f206bb7bc31fe70dacc51de8d2a0cc37a5a45f7ed",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/Views/workout-view.js",
-        "sha256": "6fb10ab5b33b56ed69599157f2a6d95dcdb1d1461c4eef0a98404b49a4296907",
+        "sha256": "e6e0bb1fae88b5d8908f57cdab1b50bcf9ff2198782a674bcc286cf3c546d821",
         "hash_mode": "raw"
       },
       {
@@ -1368,7 +2823,7 @@
       },
       {
         "path": "SYSTEM/Views/workspace-navigation.js",
-        "sha256": "46181c23718754dfc0c60796212f876c4f5ee9107a2d5abd985f2ba3dab649d2",
+        "sha256": "5754f6a3cb9c7ad7cda26537ec3258ead9b0936125d541a1853668cb4d43140c",
         "hash_mode": "raw"
       },
       {
@@ -1422,18 +2877,28 @@
         "hash_mode": "raw"
       },
       {
+        "path": "SYSTEM/docs/LLMWiki_Productization_Rebaseline_v1.json",
+        "sha256": "7ff8988c76d937a7f34c57f6e5fba01472fd738898611cdbd65abce119487764",
+        "hash_mode": "raw"
+      },
+      {
         "path": "SYSTEM/docs/Prodigy_Knowledge_Revamp_Citation_Checks_v1.json",
-        "sha256": "914e388534296753822a0a6cfbbfad4f1d683a781034ced5793d580b80e48f1f",
+        "sha256": "31ff60c10225948e582ab576905b96cdce6093aae31e7edeed57b12ee3407120",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/docs/Prodigy_Knowledge_Revamp_Manifest_v1.json",
-        "sha256": "b22a7afb5bdb6796eb94e9c6d29c128a3379c70b872115b53f29be4ea1812a5b",
+        "sha256": "8726b646546ca066cec5e65c99f0157c430f24f68c3e46926e5851c5d1de4e8d",
         "hash_mode": "raw"
       },
       {
         "path": "SYSTEM/docs/Prodigy_User_Surface_Improvement_Catalog_v1.json",
-        "sha256": "faeaf0bb77c464caa237c6d6ff19f9599ac1294ea8d6e51020fe5a32416316cf",
+        "sha256": "e6e89639fa9c59fc384c95be05e48e4610522854ae8abaacb65f88b301f3c92c",
+        "hash_mode": "raw"
+      },
+      {
+        "path": "script/migrate-llmwiki-lifecycle.js",
+        "sha256": "7e75d0ebc289065639354523fe9524e3a6d04b770deace6d3bfc5e1f4d71358b",
         "hash_mode": "raw"
       }
     ]
@@ -1447,8 +2912,8 @@
     "setup_uv_action": "astral-sh/setup-uv@v5"
   },
   "discovery": {
-    "view_syntax_files": 265,
-    "javascript_suite_files": 331,
+    "view_syntax_files": 359,
+    "javascript_suite_files": 415,
     "python_suite_files": 18
   },
   "fixed_commands": {
@@ -1462,5 +2927,5 @@
     "task15_recovery_proof": 1,
     "repository_data_backup_drill": 1
   },
-  "total_commands": 626
+  "total_commands": 804
 }

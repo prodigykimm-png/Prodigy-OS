@@ -491,6 +491,7 @@ test("real Obsidian drives populated production lifecycle states and keyboard ac
     fs.writeFileSync(path.join(REPAIR_EVIDENCE, "real-stateful-interaction-receipt.json"), JSON.stringify({ schema: "Task21StatefulInteractionReceipt/v2", ok: true, empty_only: false, interactions, keyboard, compensation: compensationEvidence, final_counters: await stateCounters() }, null, 2) + "\n");
   } finally {
     if (harness) {
+      await harness.evaluate(`(async()=>{for(const path of ['SYSTEM/PRIVATE/llmwiki-incremental-analysis-state.json','SYSTEM/PRIVATE/llmwiki-chunk-coverage.json','SYSTEM/PRIVATE/llmwiki-analysis-cache.json','SYSTEM/PRIVATE/llmwiki-inbox-proposals.json','SYSTEM/PRIVATE/llmwiki-fleeting-review-state.json']){const file=app.vault.getAbstractFileByPath(path);if(file)await app.vault.delete(file,true)}return true})()`);
       const cleanup = await harness.close();
       assert.equal(cleanup.audit.equal, true);
       assert.equal(cleanup.protectedContinuity.exact, true);

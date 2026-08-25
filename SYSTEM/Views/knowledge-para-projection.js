@@ -39,7 +39,8 @@
   }
 
   function isKnowledge(record) {
-    return KNOWLEDGE_TYPES.has(text(record && record.type));
+    var registry = root.KnowledgeExplorerRegistry || (typeof require === "function" ? require("./knowledge-explorer-registry.js") : null);
+    return Boolean(registry && typeof registry.isVerifiedCanonical === "function" && registry.isVerifiedCanonical(record));
   }
 
   function sourceTypeLabel(type) {
@@ -384,6 +385,38 @@
       model.source_details_by_path[key.replace(/\.md$/i, "")] || null;
   }
 
+  async function appendRelatedKnowledge(app, object, input) {
+    var types = { project: "project", venue: "venue", auction: "auction_case", region: "auction_region" };
+    var expectedType = types[text(object && object.object_type)];
+    var path = text(object && object.path).replace(/\\/g, "/");
+    var allowedPath = expectedType === "project" ? path.startsWith("PARA/PROJECTS/")
+      : expectedType === "auction_case" ? path.startsWith("PARA/PROJECTS/Auction/")
+        : expectedType === "venue" ? path.startsWith("PARA/RESOURCES/Venues/")
+          : expectedType === "auction_region" ? path.startsWith("PARA/RESOURCES/Auction Regions/") : false;
+    if (!expectedType || !allowedPath || !path.endsWith(".md")) throw new Error("PARA link target is outside its authority.");
+    var file = app.vault.getAbstractFileByPath(path);
+    if (!file || file.path !== path || file.extension !== "md") throw new Error("PARA link target is unavailable.");
+    var original = await app.vault.read(file);
+    if (!(new RegExp(`^type:\\s*${expectedType}\\s*$`, "m")).test(original)) throw new Error("PARA link target type changed.");
+    if (!/^\[\[[^\r\n]+\]\]$/u.test(input.text)) throw new Error("Related Knowledge requires one canonical local wikilink.");
+    var marker = `<!-- llmwiki-object-handoff:${input.handoff_id}:${input.linked_lifecycle_ids.join(",")} -->`;
+    var next = original;
+    if (!original.includes(marker)) {
+      var matches = Array.from(original.matchAll(/^## 관련 지식\r?$/gm));
+      if (matches.length > 1) throw new Error("Related Knowledge section is ambiguous.");
+      if (matches.length === 0) next = `${original.replace(/\s*$/, "")}\n\n## 관련 지식\n- ${input.text}\n${marker}\n`;
+      else {
+        var start = matches[0].index + matches[0][0].length;
+        var rest = original.slice(start);
+        var nextHeading = rest.search(/^#{1,3} [^\r\n]+\r?$/m);
+        var end = nextHeading < 0 ? original.length : start + nextHeading;
+        next = `${original.slice(0, end).replace(/\s*$/, "")}\n- ${input.text}\n${marker}\n${original.slice(end)}`;
+      }
+    }
+    if (next !== original) await app.vault.modify(file, next);
+    return { path: path, status: next === original ? "unchanged" : "appended", content: next };
+  }
+
   var api = Object.freeze({
     metadataSearchValues: metadataSearchValues,
     KNOWLEDGE_TYPES: KNOWLEDGE_TYPES,
@@ -397,6 +430,7 @@
     collectLinkedKnowledge: collectLinkedKnowledge,
     groupBySource: groupBySource,
     projectParaKnowledge: projectParaKnowledge,
+    appendRelatedKnowledge: appendRelatedKnowledge,
     getSourceDetail: getSourceDetail,
     findSourceDetail: getSourceDetail,
     sourceTypeLabel: sourceTypeLabel

@@ -199,6 +199,28 @@
     throw new Error("Vault 삭제 API를 사용할 수 없습니다.");
   }
 
+  async function appendHandoffMemo(app, object, input) {
+    const filePath = clean(object && object.path).replace(/\\/g, "/");
+    if (!isVenueFile(filePath)) throw new Error("Venues 폴더의 장소 노트만 수정할 수 있습니다.");
+    const file = app.vault.getAbstractFileByPath(filePath);
+    if (!file || file.extension !== "md") throw new Error(`장소 Object를 찾을 수 없습니다: ${filePath}`);
+    const original = await app.vault.read(file);
+    if (!/^type:\s*venue\s*$/m.test(original)) throw new Error("type: venue 장소 노트만 수정할 수 있습니다.");
+    const matches = Array.from(original.matchAll(/^## 메모\r?$/gm));
+    if (matches.length !== 1) throw new Error("venue_memo_section_invalid");
+    const marker = `<!-- llmwiki-object-handoff:${input.handoff_id}:${input.linked_lifecycle_ids.join(",")} -->`;
+    let next = original;
+    if (!original.includes(marker)) {
+      const start = matches[0].index + matches[0][0].length;
+      const rest = original.slice(start);
+      const nextHeading = rest.search(/^#{1,3} [^\r\n]+\r?$/m);
+      const end = nextHeading < 0 ? original.length : start + nextHeading;
+      next = `${original.slice(0, end).replace(/\s*$/, "")}\n- ${input.text}\n${marker}\n${original.slice(end)}`;
+    }
+    if (next !== original) await app.vault.modify(file, next);
+    return { path: filePath, status: next === original ? "unchanged" : "appended", content: next };
+  }
+
   function splitSections(content) {
     // Split body into sections by `## ` headings.
     const source = String(content || "");
@@ -612,6 +634,7 @@
     venueFingerprint,
     readVenueProperties,
     updateVenueProperties,
+    appendHandoffMemo,
     deleteVenue,
     buildVenuePreviewModel,
     splitSections

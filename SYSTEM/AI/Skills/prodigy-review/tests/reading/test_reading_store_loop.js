@@ -143,9 +143,9 @@ author: Author
     statement: "Knowledge statement",
     reason: "Because"
   });
-  assert.ok(candidate.path.startsWith("PARA/RESOURCES/Knowledge/Candidates/"));
+  assert.ok(candidate.path.startsWith("ZETA/CANDIDATES/"));
   assert.equal(candidate.status, "saved");
-  assert.match(app._map.get(candidate.path), /source_objects:\n  - "\[\[PARA\/RESOURCES\/Reading\/Sessions\//);
+  assert.match(app._map.get(candidate.path), /source_objects: \["\[\[PARA\/RESOURCES\/Reading\/Sessions\//);
   assert.match(app._map.get(session.path), /knowledge_candidate_ids:/);
 
   const canonicalBeforeDuplicate = app._map.get(candidate.path);
@@ -169,17 +169,29 @@ author: Author
   const text = app._map.get(rejected.path);
   assert.match(text, /status: "rejected"/);
 
-  const approved = await store.approveCandidate(app, candidate.path, {
+  const approvalRequest = {
     title: "Approved Reading Knowledge",
     statement: "Knowledge statement",
     knowledge_domain: "coding",
     knowledge_topics: ["ai"],
     approval_note: "사람이 승인했습니다."
+  };
+  await assert.rejects(
+    () => store.approveCandidate(app, candidate.path, approvalRequest),
+    (error) => error && error.code === "llmwiki_handoff_unavailable"
+  );
+  let handoffCalls = 0;
+  const reviewed = await store.approveCandidate(app, candidate.path, approvalRequest, {
+    llmWikiHandoff: async (_candidate, receipt) => {
+      handoffCalls += 1;
+      assert.equal(receipt.candidate_path, candidate.path);
+      return { ok: true, status: "review" };
+    }
   });
-  assert.equal(approved.candidate.status, "approved");
-  assert.ok(app._map.has(approved.path));
-  assert.match(app._map.get(approved.path), /^knowledge_domain: "coding"$/m);
-  assert.match(app._map.get(approved.path), /^knowledge_topics:\n  - "ai"$/m);
+  assert.equal(handoffCalls, 1);
+  assert.equal(reviewed.handoff, "llmwiki");
+  assert.equal(reviewed.candidate.status, "saved");
+  assert.equal(reviewed.candidate.promoted_knowledge, "");
 
   // legacy path remains readable without migration
   app._folders.add("PARA/PROJECTS/Reading/Sessions");

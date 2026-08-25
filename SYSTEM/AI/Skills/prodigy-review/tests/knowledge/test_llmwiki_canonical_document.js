@@ -130,7 +130,7 @@ async function approvedRequest(adapter, document = canonicalDocument(), override
   };
 }
 
-test("Given one approved Candidate, When human promotion and LLMWiki preview render it, Then their canonical bytes are identical", async () => {
+test("Given one saved Candidate, When approval starts, Then only an exact LLM Wiki review handoff occurs", async () => {
   const files = new Map();
   const file = (entryPath) => ({ path: entryPath, name: path.posix.basename(entryPath), basename: path.posix.basename(entryPath, ".md"), extension: "md" });
   const app = { vault: {
@@ -154,15 +154,18 @@ test("Given one approved Candidate, When human promotion and LLMWiki preview ren
     approval_note: "", promotion_target: "", promoted_knowledge: "", created: now, updated: now,
   };
   const saved = await store.saveCandidate(app, candidate, { now });
-  const persisted = await store.readCandidate(app, saved.path);
-  const promoted = await store.approveCandidate(app, saved.path, {
-    title: candidate.title, statement: candidate.statement, knowledge_domain: "coding", knowledge_topics: ["ai"], approval_note: "사람 승인",
-  }, { now });
-  const previewBytes = canonical.renderCanonicalDocument(canonicalDocument({ connections: [`[[${saved.path.replace(/\.md$/, "")}]]`], body: persisted.body }));
+  const handoffs = [];
+  const result = await store.approveCandidate(app, saved.path, { title: "forged canonical title" }, {
+    llmWikiHandoff: async (received, receipt) => { handoffs.push({ received, receipt }); return { ok: true, status: "review" }; }
+  });
   assert.equal(store.canonicalKnowledgeDirectory(), "ZETA/PERMANENT");
   assert.equal(canonical.renderCanonicalDocument, store.renderCanonicalDocument);
-  assert.equal(Buffer.compare(Buffer.from(files.get(promoted.path)), Buffer.from(previewBytes)), 0);
-  console.log(`TASK2_ASSERT bytes_identical=1 bytes_sha256=${sha256(previewBytes)}`);
+  assert.equal(result.handoff, "llmwiki");
+  assert.equal(handoffs.length, 1);
+  assert.equal(handoffs[0].receipt.candidate_path, saved.path);
+  assert.equal(handoffs[0].receipt.candidate_binding.includes("forged canonical title"), false);
+  assert.equal([...files.keys()].filter((entryPath) => entryPath.startsWith("ZETA/PERMANENT/")).length, 0);
+  console.log("TASK2_ASSERT candidate_handoff=1 canonical_writes=0");
 });
 
 test("Given a safe canonical title, When the shared target contract resolves it, Then the target is accepted only under ZETA/PERMANENT", () => {
@@ -172,7 +175,7 @@ test("Given a safe canonical title, When the shared target contract resolves it,
   // When: the canonical authority resolves and validates its create target.
   const target = store.canonicalKnowledgePath(title);
 
-  // Then: both LLMWiki and human promotion share the exact canonical target boundary.
+  // Then: only the LLM Wiki canonical authority can resolve this target boundary.
   assert.equal(target, "ZETA/PERMANENT/공유 직렬화 원칙.md");
   assert.equal(store.isCanonicalKnowledgeTarget(target), true);
   assert.equal(store.isCanonicalKnowledgeTarget("PARA/RESOURCES/Knowledge/공유 직렬화 원칙.md"), false);

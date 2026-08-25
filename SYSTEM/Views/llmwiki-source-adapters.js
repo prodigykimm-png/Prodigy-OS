@@ -3,6 +3,7 @@
 
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
   const lineageApi = root.LLMWikiSourceLineage || (typeof require === "function" ? require("./llmwiki-source-lineage.js") : null);
+  const scopeApi = root.LLMWikiAnalysisScope || (typeof require === "function" ? require("./llmwiki-analysis-scope.js") : null);
 
   const SNAPSHOT_VERSION = "llmwiki_source_adapter_snapshot_v1";
   const FIXTURE_REVISION = "llmwiki_source_adapters_fixture_v1";
@@ -464,7 +465,12 @@
       return staleAtReturn || result;
     }
 
-    return deepFreeze({ extract, validateSourceSnapshot });
+    function createAnalysisScope(input) {
+      const api = root.LLMWikiAnalysisScope || scopeApi;
+      if (!api || typeof api.createAnalysisScope !== "function") throw new Error("analysis_scope_unavailable");
+      return api.createAnalysisScope(input);
+    }
+    return deepFreeze({ extract, validateSourceSnapshot, createAnalysisScope });
   }
 
   async function extractSourceSnapshot(input, options = {}) {

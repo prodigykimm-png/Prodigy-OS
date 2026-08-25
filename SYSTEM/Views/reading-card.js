@@ -371,7 +371,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     });
     cover.createEl('div', {
       text: author,
-      attr: { style: 'font-size:0.65em;line-height:1.2;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;' }
+      attr: { style: 'font-size:var(--ke-type-chrome, 0.68rem);line-height:var(--ke-leading-control, 1.2);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;' }
     });
     cover.onclick = () => app.workspace.openLinkText(p.file ? p.file.name : titleOf(), pathOf());
   };

@@ -2,7 +2,6 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -17,14 +16,29 @@ const STYLES = source("SYSTEM/Views/knowledge-styles.js");
 const { buildPages, runHub } = require("./knowledge_hub_integration_harness.js");
 const { mountRoot, serialize } = require("./llmwiki_lifecycle_view_fixture.js");
 
-function providerServiceSource({ failFirst = false, conflict = false, existingBytes = null, invalidKind = false } = {}) {
-  const existingRevision = existingBytes === null ? null : crypto.createHash("sha256").update(existingBytes, "utf8").digest("hex");
-  return `(function(root){root.__task15ProviderCalls=[];root.AIProviderService=Object.freeze({async requestStructuredJsonOnce(request){root.__task15ProviderCalls.push(request);if(${failFirst}&&root.__task15ProviderCalls.length===1)return {status:"invalid"};const selected=JSON.parse(request.prompt).selected_source;const target="ZETA/PERMANENT/task15-production.md";const canonical_proposal={type:"knowledge",title:"승인된 제품 지식",statement:"실제 Hub 경로입니다.",knowledge_kind:${invalidKind ? "\"rumor\"" : "\"principle\""},knowledge_domain:"reading",knowledge_topics:[],application_trigger:"제품 지식을 검토할 때",application_contexts:["reading"],connections:[],invalidation_conditions:[],summary:"실제 Hub 제품 지식",created:"2026-08-21T00:00:00.000Z",updated:"2026-08-21T00:00:00.000Z",body:"# 승인된 제품 지식\\n\\n실제 Hub 경로입니다.\\n"};const after=root.KnowledgeCandidateStore.renderCanonicalDocument(canonical_proposal);return {status:"ok",serialized_operation:JSON.stringify({contract_version:"llmwiki_operation_contract_v1",operation_id:"operation_task15_production",kind:${existingBytes === null ? "\"create\"" : "\"update\""},destination_ids:[target],base_revisions:${existingBytes === null ? "{}" : `{[target]:${JSON.stringify(existingRevision)}}`},before_bytes:${existingBytes === null ? "{}" : `{[target]:${JSON.stringify(existingBytes)}}`},after_bytes:{[target]:after},source_citations:[{source_id:selected.source_id,content_hash:selected.content_hash,source_url:null,locators:[selected.locator],source_archive_id:null,confidence:"explicit"}],conflicts:${conflict ? "[{conflict_id:\"conflict_task15\",status:\"unresolved\",source_ids:[selected.source_id],summary:\"검토 필요\"}]" : "[]"},risk_tier:"low",effects:{deprecations:[],supersessions:[]}}),canonical_proposal,provider_confidence:.99,response_metadata:{response_id:"response_task15_"+root.__task15ProviderCalls.length}}}})})(globalThis);`;
+function providerServiceSource({ failFirst = false, invalidKind = false } = {}) {
+  return `(function(root){root.__task15ProviderCalls=[];root.AIProviderService=Object.freeze({async requestStructuredJsonOnce(request){root.__task15ProviderCalls.push(request);if(${failFirst}&&root.__task15ProviderCalls.length<=2)return {status:"invalid"};const prompt=JSON.parse(request.prompt);return {status:"ok",chunk_results:prompt.changed_chunks.map((chunk)=>({key:chunk.key,semantic_units:[{temporary_span_alias:"span_task15",start:0,end:Math.min(chunk.text.length,12),origin_hint:"source_extract",disposition:"propose",uncertainty:{level:"low",reasons:[]},claims:[{text:"실제 Hub 제품 지식",temporary_span_alias:"span_task15"}]${invalidKind ? ",destination:\"ZETA/PERMANENT/forged.md\"" : ""}}]}))}}})})(globalThis);`;
 }
 
 async function productionHub(options = {}, llmWikiControllerOptions = {}) {
   const extraFiles = { "INBOX/Knowledge/task15.md": "# 제품 자료\\n\\n검토할 근거입니다.\\n", "SYSTEM/Views/ai-provider-service.js": providerServiceSource(options), ...(options.extraFiles || {}) };
-  const result = await runHub({ pages: buildPages(), extraFiles, llmWikiControllerOptions });
+  const phases = ["create", "update", "merge", "maintenance", "git", "resurfacing"];
+  const rolloutState = JSON.stringify({ version: "llmwiki_rollout_state_v1", enabled_phases: phases, gate_receipts: Object.fromEntries(phases.map((phase) => [phase, { available: true, status: "green", receipt_id: `task15-${phase}-gate` }])) });
+  const rollout_storage = llmWikiControllerOptions.rollout_storage || { async load() { return rolloutState; }, async save() { return true; } };
+  let inboxLocalIdentityIndex = llmWikiControllerOptions.inboxLocalIdentityIndex;
+  if (typeof options.existingBytes === "string") {
+    const hash = require(path.join(ROOT, "SYSTEM/Views/llmwiki-hash.js"));
+    const scopeApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-analysis-scope.js"));
+    const manifestApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-chunk-manifest.js"));
+    const sourceText = extraFiles["INBOX/Knowledge/task15.md"];
+    const sourcePath = "INBOX/Knowledge/task15.md";
+    const sourceId = `source_${hash.sha256(sourcePath).slice(0, 24)}`;
+    const contentHash = hash.sha256(sourceText);
+    const scope = scopeApi.createAnalysisScope({ source_id: sourceId, source_path: sourcePath, content_hash: contentHash, source_text: sourceText });
+    const chunk = manifestApi.createChunkManifest(scope).chunks[0];
+    inboxLocalIdentityIndex = [{ identity_id: "knowledge_task15_existing", identity_key: `identity_${chunk.semantic_id.replace(/^semantic_/u, "")}`, content_hash: hash.sha256(options.existingBytes), revision: hash.sha256(options.existingBytes), path: "ZETA/PERMANENT/task15-production.md", before_bytes: options.existingBytes }];
+  }
+  const result = await runHub({ pages: buildPages(), extraFiles, llmWikiControllerOptions: { rollout_storage, inboxLocalIdentityIndex, ...llmWikiControllerOptions } });
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
   return result;
 }
@@ -38,11 +52,11 @@ test("P1 unavailable production provider fails visibly and typed without a netwo
   assert.equal(result.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/PERMANENT/")), false);
 });
 
-test("P1 invalid canonical knowledge kind fails before review and permanent writes", async () => {
+test("P1 provider authority fields fail before review and permanent writes", async () => {
   const result = await productionHub({ invalidKind: true });
-  assert.equal(result.window.__task15ProviderCalls.length, 1);
+  assert.equal(result.window.__task15ProviderCalls.length, 2);
   assert.notEqual(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().status, "review");
-  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.reason, "invalid_knowledge_kind");
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.reason, "invalid_chunk_response");
   assert.equal(result.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/PERMANENT/")), false);
 });
 
@@ -51,8 +65,8 @@ test("P1 default production operation provider reaches review without controller
   const result = await productionHub();
   assert.equal(result.window.__task15ProviderCalls.length, 1);
   assert.equal(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().status, "review");
-  assert.equal(result.window.KnowledgeExplorerHub.llmWikiRunController.getOperationSnapshot().operation_id, "operation_task15_production");
-  assert.equal(result.app.vault.touched.some((row) => row[1] === "ZETA/PERMANENT/task15-production.md"), false);
+  assert.match(result.window.KnowledgeExplorerHub.llmWikiRunController.getOperationSnapshot().operation_id, /^operation_[0-9a-f]{24}$/u);
+  assert.equal(result.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/PERMANENT/")), false);
 });
 
 test("P1 risk approval commits once through Task13 and persists exact follow-up truth", async () => {
@@ -61,21 +75,22 @@ test("P1 risk approval commits once through Task13 and persists exact follow-up 
   const result = await productionHub();
   const hub = result.window.KnowledgeExplorerHub;
   const packet = hub.llmWikiRunController.getSnapshot().risk_packets[0];
+  const targetPath = packet.operation.destination_ids[0];
   const approved = await hub.dispatchLlmWikiAction({ action: "approve_risk", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id });
   assert.equal(approved.status, "committed");
   const operation = hub.llmWikiRunController.getOperationSnapshot();
   assert.equal(operation.status, "committed");
-  assert.equal(operation.canonical_outcome.operation_id, "operation_task15_production");
+  assert.equal(operation.canonical_outcome.operation_id, packet.operation.operation_id);
   const expectedInitialFollowUp = {
     status: "failed",
     refresh: { status: "succeeded", attempts: 1, reason: null },
     git: { status: "failed", attempts: 1, reason: "GitUnavailable" },
   };
   assert.deepEqual(JSON.parse(JSON.stringify(operation.follow_up)), expectedInitialFollowUp);
-  assert.equal(result.app.vault.touched.filter((row) => row[0] === "create" && row[1] === "ZETA/PERMANENT/task15-production.md").length, 1);
+  assert.equal(result.app.vault.touched.filter((row) => row[0] === "create" && row[1] === targetPath).length, 1);
   const duplicate = await hub.dispatchLlmWikiAction({ action: "approve_risk", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id });
   assert.equal(duplicate.reason, "stale_risk_action");
-  assert.equal(result.app.vault.touched.filter((row) => row[0] === "create" && row[1] === "ZETA/PERMANENT/task15-production.md").length, 1);
+  assert.equal(result.app.vault.touched.filter((row) => row[0] === "create" && row[1] === targetPath).length, 1);
   const retried = await hub.dispatchLlmWikiAction({ action: "retry_follow_up", follow_up: "git" });
   const expectedRetriedFollowUp = {
     status: "failed",
@@ -83,7 +98,7 @@ test("P1 risk approval commits once through Task13 and persists exact follow-up 
     git: { status: "failed", attempts: 2, reason: "GitUnavailable" },
   };
   assert.deepEqual(JSON.parse(JSON.stringify(retried.follow_up)), expectedRetriedFollowUp);
-  assert.equal(result.app.vault.touched.filter((row) => row[0] === "create" && row[1] === "ZETA/PERMANENT/task15-production.md").length, 1, "Git retry must not repeat the canonical write");
+  assert.equal(result.app.vault.touched.filter((row) => row[0] === "create" && row[1] === targetPath).length, 1, "Git retry must not repeat the canonical write");
   assert.equal(result.app.vault.touched.some((row) => String(row[1]).includes("llmwiki-operation-outcomes/")), true);
   const persisted = JSON.parse(await result.app.vault.read(result.app.vault.getAbstractFileByPath(`SYSTEM/PRIVATE/llmwiki-operation-outcomes/${packet.run_id}.json`)));
   assert.equal(persisted.outcome_version, "llmwiki_operation_run_outcome_v1");
@@ -102,7 +117,7 @@ test("P1 risk approval commits once through Task13 and persists exact follow-up 
   assert.deepEqual(JSON.parse(await result.app.vault.read(result.app.vault.getAbstractFileByPath(`SYSTEM/PRIVATE/llmwiki-operation-outcomes/${packet.run_id}.json`))), persisted);
   const recovered = await hub.llmWikiRunController.recoverOperation({ run_id: packet.run_id });
   assert.equal(recovered.ok, true, JSON.stringify(recovered));
-  assert.equal(recovered.canonical_outcome.operation_id, "operation_task15_production");
+  assert.equal(recovered.canonical_outcome.operation_id, packet.operation.operation_id);
   assert.deepEqual(JSON.parse(JSON.stringify(recovered.follow_up)), expectedRetriedFollowUp);
 });
 
@@ -125,11 +140,12 @@ test("P1 production available gateway snapshots only after immutable eligibility
     git_gateway: gateway,
   });
   const hub = result.window.KnowledgeExplorerHub;
-  const packet = hub.llmWikiRunController.getSnapshot().risk_packets[0];
+  const packet = hub.llmWikiRunController.getSnapshot().risk_packets?.[0];
+  assert.ok(packet, JSON.stringify(hub.llmWikiLifecycleSnapshot()));
   const approved = await hub.dispatchLlmWikiAction({ action: "approve_risk", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id });
 
   assert.equal(approved.status, "committed");
-  assert.equal(approved.compensation.eligible, true);
+  assert.equal(approved.compensation.eligible, true, JSON.stringify(approved));
   assert.equal(snapshots.length, 1);
   assert.deepEqual([...snapshots[0].paths], [
     "ZETA/PERMANENT/task15-production.md",
@@ -166,11 +182,11 @@ test("P1 failed analysis retry executes the provider again instead of replaying 
   const result = await productionHub({ failFirst: true });
   const hub = result.window.KnowledgeExplorerHub;
   assert.equal(hub.llmWikiLifecycleSnapshot().inbox.state, "error");
-  assert.equal(result.window.__task15ProviderCalls.length, 1);
+  assert.equal(result.window.__task15ProviderCalls.length, 2);
   const retry = await hub.dispatchLlmWikiAction({ action: "retry_inbox", source_id: hub.llmWikiLifecycleSnapshot().inbox.source_id });
   assert.equal(retry.status, "complete");
   assert.equal(retry.results[0].analysis_runs, 1);
-  assert.equal(result.window.__task15ProviderCalls.length, 2);
+  assert.equal(result.window.__task15ProviderCalls.length, 3);
   assert.equal(hub.llmWikiRunController.getSnapshot().status, "review");
 });
 

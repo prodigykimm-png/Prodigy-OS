@@ -17,8 +17,8 @@
       },
       {
         "citation_id": "knowledge-hub-mount",
-        "excerpt_ref": "main:HUB/50 Knowledge.md#L509-L514",
-        "excerpt_hash": "7ea5868cad528c6d5780adac19cd65b13ec2394327e2973d7e767d90db67b3e0",
+        "excerpt_ref": "main:HUB/50 Knowledge.md#L1284-L1291",
+        "excerpt_hash": "c1b487ceccb36160db3a3b29ce3a0d0481b39a1b85b62c7b4b50c0238136dd0f",
         "verifier": "node line-range hash spot check",
         "status": "verified",
         "disposition": "keep"
@@ -42,7 +42,7 @@
       {
         "citation_id": "hydration-controller",
         "excerpt_ref": "main:SYSTEM/Views/knowledge-explorer-view.js#L184-L227",
-        "excerpt_hash": "e5eef8ae0c97c56197d625afeeb4ed037878c4d6d251ef12a1f5c303ade69d88",
+        "excerpt_hash": "74197ec3cccddd87db4f0bff6eb1a1ad9e078d46e8219bb5f3460ca96494681a",
         "verifier": "node line-range hash spot check",
         "status": "verified",
         "disposition": "keep"

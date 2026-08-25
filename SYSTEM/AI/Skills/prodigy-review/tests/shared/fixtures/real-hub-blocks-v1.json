@@ -15,7 +15,7 @@
       "hubPath": "HUB/10 Auction.md",
       "executableBlockCount": 12,
       "executableBlock": { "ordinal": 1, "language": "js-engine" },
-      "blockSha256": "003228f740bcf960bb835b69491c2483f8c74c1552dbaf11b2992f40584c6af8",
+      "blockSha256": "838edb76256b09b7c24bf52b3912d669b06b1330df2be7249a77654792e850c2",
       "renderer": { "identity": "auction", "sentinel": "renderers: { auction: async (mountContext) => {" }
     },
     {
@@ -23,7 +23,7 @@
       "hubPath": "HUB/20 Reading.md",
       "executableBlockCount": 9,
       "executableBlock": { "ordinal": 1, "language": "js-engine" },
-      "blockSha256": "244fe41ecb8726a430986e4f44166d88cb54803b05a0a0ae7f007e345c34d0ba",
+      "blockSha256": "76b0d9e93463b9b68564609405a35f2add6719f458f49744e5b723e5a46e69b2",
       "renderer": { "identity": "reading", "sentinel": "renderers: { reading: async (mountContext) => {" }
     },
     {
@@ -31,7 +31,7 @@
       "hubPath": "HUB/30 Workout.md",
       "executableBlockCount": 1,
       "executableBlock": { "ordinal": 1, "language": "js-engine" },
-      "blockSha256": "53b4ff788e1bf359a3285a63e8bedf2f148fb14dac55570197c8301b5c5b42dc",
+      "blockSha256": "8c4667b45ff7366abbe9d6e73772726a7495565c0265a0738c263758bdfa305a",
       "renderer": { "identity": "workout", "sentinel": "renderers: { workout: renderWorkout }" }
     },
     {
@@ -39,7 +39,7 @@
       "hubPath": "HUB/40 Project.md",
       "executableBlockCount": 12,
       "executableBlock": { "ordinal": 1, "language": "js-engine" },
-      "blockSha256": "e38122d15c834a538f3428f64bdcf5e23b1fa3d8409f84ac6f0866d7d6f126cf",
+      "blockSha256": "7f962d9b4f91cc2edc786510f7e8b39ba5c4728b303a341098dcd9e84cdccc00",
       "renderer": { "identity": "project", "sentinel": "renderers: { project: async (mountContext) => {" }
     },
     {
@@ -47,7 +47,7 @@
       "hubPath": "HUB/50 Knowledge.md",
       "executableBlockCount": 1,
       "executableBlock": { "ordinal": 1, "language": "dataviewjs" },
-      "blockSha256": "53c71a5f5d43e76d1603a6ca6ad775059614dd6d5e63f6707ecdefab347aae39",
+      "blockSha256": "af20c59dfb15ae832c50915121c78a72b8e2043096d29e959b44e3f9c7f83343",
       "renderer": { "identity": "knowledge", "sentinel": "knowledge: (mountContext) => KnowledgeExplorerHub.render({ app, dv, container: this.container, obsidian, mountContext })" }
     },
     {
@@ -63,7 +63,7 @@
       "hubPath": "HUB/70 Journal.md",
       "executableBlockCount": 1,
       "executableBlock": { "ordinal": 1, "language": "dataviewjs" },
-      "blockSha256": "21e5722c3bcd86c29cc63f6676c89c4b58bee1ea6df0c6a03d90f32966644cc3",
+      "blockSha256": "e2549ddb83b346e901d9e9102af67ec36241a59d45d3a7cd20c8951c1e5c8b61",
       "renderer": { "identity": "journal", "sentinel": "renderers: { journal: async (mountContext) => {" }
     }
   ]

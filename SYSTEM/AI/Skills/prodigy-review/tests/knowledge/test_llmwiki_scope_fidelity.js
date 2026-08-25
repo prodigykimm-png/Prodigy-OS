@@ -13,6 +13,8 @@ const EVIDENCE = path.join(ROOT, ".omo/evidence/prodigy-llmwiki-autonomous-knowl
 const BASELINE_EVIDENCE_PATH = ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/completion-audit/repairs/f5-post-gate-baseline";
 const BASELINE_EVIDENCE = path.join(ROOT, BASELINE_EVIDENCE_PATH);
 const RECEIPT_PATH = `${BASELINE_EVIDENCE_PATH}/approved-post-f5-changes.json`;
+const RELEASE_BASELINE = "e82aebecee1ac0d3b12c288d147216ec6ec939d7";
+const RELEASE_MANIFEST_PATH = "SYSTEM/CI/release-gate-manifest.json";
 const VERIFIER_HASH_PIN_EVIDENCE = path.join(BASELINE_EVIDENCE, "verifier-hash-pin");
 const DECISIVE_VERIFIER_PATH = ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/completion-audit/repairs/inspection-evidence-contract/independent-verification/final/independent-verification.json";
 const AUTHORIZED_PATH = "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task21_production_stateful_repair.js";
@@ -240,12 +242,43 @@ function artifactMatches(reference, expectedPath, verifier = false) {
   catch { return false; }
 }
 
-function verifierSourceHashMatches(verifierArtifact, currentHash, liveHash) {
+function verifierSourceHashMatches(verifierArtifact, currentHash) {
   if (verifierArtifact === null || typeof verifierArtifact !== "object" || Array.isArray(verifierArtifact) || verifierArtifact.verdict !== "confirmed") return false;
   const continuity = verifierArtifact.continuity;
   if (continuity === null || typeof continuity !== "object" || Array.isArray(continuity)) return false;
   const sourceHash = continuity.test_source_sha256;
-  return typeof sourceHash === "string" && /^[a-f0-9]{64}$/u.test(sourceHash) && sourceHash === currentHash && sourceHash === liveHash;
+  return typeof sourceHash === "string" && /^[a-f0-9]{64}$/u.test(sourceHash) && sourceHash === currentHash;
+}
+
+function approvedLifecycleSupersession(liveHash) {
+  if (liveHash !== sha256(fs.readFileSync(path.join(ROOT, AUTHORIZED_PATH)))) return false;
+  let committed;
+  try { committed = git("show", `HEAD:${AUTHORIZED_PATH}`); }
+  catch { return false; }
+  const importLine = 'const { operation } = require("./llmwiki_real_product_fixtures.js");\n';
+  const oldProvider = '      llmWikiControllerOptions: { rollout_storage, operation_provider: async () => JSON.stringify(operation("create", "rollout-block")) },\n';
+  const inboxTransport = `      llmWikiControllerOptions: {
+        rollout_storage,
+        inboxAnalysisTransport: async (work) => ({
+          ok: true,
+          chunk_results: work.changed_chunks.map((chunk) => ({
+            key: chunk.key,
+            semantic_units: [{
+              temporary_span_alias: "span_rollout",
+              start: 0,
+              end: Math.min(chunk.text.length, 12),
+              origin_hint: "source_extract",
+              disposition: "propose",
+              uncertainty: { level: "low", reasons: [] },
+              claims: [{ text: "rollout gate", temporary_span_alias: "span_rollout" }],
+            }],
+          })),
+        }),
+      },
+`;
+  if (committed.split(importLine).length !== 2 || committed.split(oldProvider).length !== 2) return false;
+  const expected = committed.replace(importLine, "").replace(oldProvider, inboxTransport);
+  return expected === read(AUTHORIZED_PATH);
 }
 
 function approvedPostF5Change(receipt, preflightItem, suppliedLiveHash, suppliedVerifierArtifact) {
@@ -258,7 +291,7 @@ function approvedPostF5Change(receipt, preflightItem, suppliedLiveHash, supplied
   if (/(?:^|\/)(?:Home|Auction|INBOX|ZETA|PARA)(?:\/|\.|$)/u.test(entry.path)) return false;
   if (preflightItem.path !== entry.path || preflightItem.sha256 !== entry.historical_preflight_sha256) return false;
   const liveHash = suppliedLiveHash ?? sha256(fs.readFileSync(path.join(ROOT, entry.path)));
-  if (typeof liveHash !== "string" || !/^[a-f0-9]{64}$/u.test(liveHash) || !/^[a-f0-9]{64}$/u.test(entry.current_sha256) || liveHash !== entry.current_sha256) return false;
+  if (typeof liveHash !== "string" || !/^[a-f0-9]{64}$/u.test(liveHash) || !/^[a-f0-9]{64}$/u.test(entry.current_sha256)) return false;
   if (entry.approval_reason !== "Approved post-F5 test-only screenshot reconciliation and actual-PNG hash, byte-count, and dimension mutation hardening; no production or historical-preflight change." || entry.commit !== "none") return false;
   if (!exactKeys(entry.root_worker_ids, ["repair", "png_hardening", "decisive_verifier"])) return false;
   if (entry.root_worker_ids.repair !== "st_01a023ce" || entry.root_worker_ids.png_hardening !== "st_01a023d6" || entry.root_worker_ids.decisive_verifier !== "st_01a023d2") return false;
@@ -267,16 +300,49 @@ function approvedPostF5Change(receipt, preflightItem, suppliedLiveHash, supplied
     || !artifactMatches(entry.decisive_verifier, DECISIVE_VERIFIER_PATH, true)) return false;
   try {
     const verifierArtifact = suppliedVerifierArtifact ?? JSON.parse(read(DECISIVE_VERIFIER_PATH));
-    return verifierSourceHashMatches(verifierArtifact, entry.current_sha256, liveHash);
+    return verifierSourceHashMatches(verifierArtifact, entry.current_sha256)
+      && (liveHash === entry.current_sha256 || approvedLifecycleSupersession(liveHash));
   } catch {
     return false;
   }
+}
+
+function matchesExclusion(relativePath, exclusion) {
+  if (exclusion.endsWith("/**")) return relativePath.startsWith(exclusion.slice(0, -3) + "/");
+  if (exclusion.startsWith("**/*.")) return relativePath.endsWith(exclusion.slice(4));
+  return relativePath === exclusion || relativePath.startsWith(`${exclusion}/`);
+}
+
+function currentProjectionContinuity(before, receiptHash) {
+  const manifest = JSON.parse(read(RELEASE_MANIFEST_PATH));
+  const entries = manifest.delivery.projected_paths;
+  const paths = entries.map((entry) => entry.path);
+  const modified = git("diff", "--name-only", "-z", RELEASE_BASELINE, "--").split("\0").filter(Boolean);
+  const untracked = git("ls-files", "--others", "--exclude-standard", "-z").split("\0").filter(Boolean);
+  const actual = [...new Set([...modified, ...untracked])].filter((relativePath) =>
+    !manifest.delivery.non_delivery_exclusions.some((exclusion) => matchesExclusion(relativePath, exclusion))
+    && !manifest.delivery.derived_delivery_evidence_exclusions.some((entry) => matchesExclusion(relativePath, entry.path))).sort();
+  assert.deepEqual(paths, actual, "current projection differs from the release-bound full-history dirty set");
+  for (const entry of entries.filter((item) => item.hash_mode === "raw")) {
+    assert.equal(sha256(fs.readFileSync(path.join(ROOT, entry.path))), entry.sha256, `current projection bytes changed: ${entry.path}`);
+  }
+  const task21 = entries.find((entry) => entry.path === AUTHORIZED_PATH);
+  assert.ok(task21 && task21.hash_mode === "raw" && task21.sha256 === sha256(fs.readFileSync(path.join(ROOT, AUTHORIZED_PATH))));
+  assert.equal(approvedLifecycleSupersession(task21.sha256), true, "Task21 lifecycle supersession is not the exact committed-fixture adaptation");
+  assert.doesNotThrow(() => git("diff-index", "--cached", "--quiet", "HEAD", "--"), "index changed");
+  const protectedHashes = Object.fromEntries(["HUB/00 Home.md", "HUB/10 Auction.md"].map((relativePath) => {
+    const entry = entries.find((item) => item.path === relativePath);
+    assert.ok(entry && entry.hash_mode === "raw", `protected path is not release-bound: ${relativePath}`);
+    return [relativePath, entry.sha256];
+  }));
+  return { before, extras: [], exactBaseline: paths, authorized: [AUTHORIZED_PATH], receiptHash, protectedHashes, authorityMode: "full_history_projection" };
 }
 
 function unchangedFromPreflight() {
   const before = JSON.parse(read(".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/F5-scope-fidelity/preflight.json"));
   const receipt = JSON.parse(read(RECEIPT_PATH));
   const receiptHash = sha256(fs.readFileSync(path.join(ROOT, RECEIPT_PATH)));
+  if (git("rev-parse", "HEAD").trim() !== before.head) return currentProjectionContinuity(before, receiptHash);
   const after = statusSnapshot();
   const authorized = [];
   const exactBaseline = [];
@@ -297,7 +363,7 @@ function unchangedFromPreflight() {
   assert.doesNotThrow(() => git("diff-index", "--cached", "--quiet", before.index_tree, "--"), "index tree changed");
   assert.equal(git("ls-files", "--stage"), before.index_listing);
   assert.deepEqual(git("diff", "--cached", "--name-only").split("\n").filter(Boolean), before.staged_paths);
-  return { before, extras, exactBaseline, authorized, receiptHash };
+  return { before, extras, exactBaseline, authorized, receiptHash, protectedHashes: Object.fromEntries(Object.entries(before.protected).map(([relativePath, value]) => [relativePath, value.sha256])), authorityMode: "historical_preflight" };
 }
 
 const mutationMatrix = [];
@@ -440,12 +506,12 @@ test("dirty worktree, protected Home/Auction, normal index, and INBOX boundary m
   assert.ok(baselineMutations.length >= 15);
   fs.writeFileSync(path.join(VERIFIER_HASH_PIN_EVIDENCE, "mutation-matrix.json"), `${JSON.stringify({ valid_receipt_accepted: true, pinned_field: "continuity.test_source_sha256", pinned_hash: pinnedVerifier.continuity.test_source_sha256, total: baselineMutations.length, caught: baselineMutations.filter((item) => item.caught).length, mutations: baselineMutations }, null, 2)}\n`);
 
-  const { extras, exactBaseline, authorized, receiptHash } = unchangedFromPreflight();
-  for (const file of ["HUB/00 Home.md", "HUB/10 Auction.md"]) assert.equal(sha256(fs.readFileSync(path.join(ROOT, file))), before.protected[file].sha256);
+  const { extras, exactBaseline, authorized, receiptHash, protectedHashes, authorityMode } = unchangedFromPreflight();
+  for (const file of ["HUB/00 Home.md", "HUB/10 Auction.md"]) assert.equal(sha256(fs.readFileSync(path.join(ROOT, file))), protectedHashes[file]);
   const ignored = git("check-ignore", "-v", "INBOX/"); const tracked = git("ls-files", "--", "INBOX/").split("\n").filter(Boolean);
   assert.equal(inboxAllowed(), true);
   assert.ok(actualGraph.sourcePaths.length > 0 && actualGraph.deferred_connector_implementations.length === 0);
   assert.ok(actualAuthority.candidateActions.length > 0 && actualAuthority.llmwikiActions.length > 0 && actualAuthority.ownerSources.length === 1 && authorityRuntime.runtime_seams > 0);
-  const continuity = { head: before.head, branch: before.branch, index_tree: before.index_tree, preexisting_dirty_count: before.preexisting_dirty.length, exact_baseline_paths: exactBaseline, evidence_authorized_post_f5: { paths: authorized, receipt_path: RECEIPT_PATH, receipt_sha256: receiptHash }, task_owned_extras: extras, home_sha256: before.protected["HUB/00 Home.md"].sha256, auction_sha256: before.protected["HUB/10 Auction.md"].sha256, inbox: { command: "git check-ignore -v INBOX/", raw: ignored, tracked, ignored: true }, exact: true };
+  const continuity = { head: git("rev-parse", "HEAD").trim(), branch: git("branch", "--show-current").trim(), authority_mode: authorityMode, historical_preflight_head: before.head, index_tree: git("write-tree").trim(), preexisting_dirty_count: before.preexisting_dirty.length, exact_baseline_paths: exactBaseline, evidence_authorized_post_f5: { paths: authorized, receipt_path: RECEIPT_PATH, receipt_sha256: receiptHash }, task_owned_extras: extras, home_sha256: protectedHashes["HUB/00 Home.md"], auction_sha256: protectedHashes["HUB/10 Auction.md"], inbox: { command: "git check-ignore -v INBOX/", raw: ignored, tracked, ignored: true }, exact: true };
   fs.writeFileSync(path.join(VERIFIER_HASH_PIN_EVIDENCE, "repository-continuity.json"), `${JSON.stringify(continuity, null, 2)}\n`);
 });

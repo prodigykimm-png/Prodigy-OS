@@ -119,6 +119,7 @@
     const operation = plain(snapshot.operation_run) ? snapshot.operation_run : {};
     const followUp = plain(operation.follow_up) ? operation.follow_up : plain(operation.durable_outcome && operation.durable_outcome.follow_up) ? operation.durable_outcome.follow_up : null;
     const inbox = plain(snapshot.inbox) ? snapshot.inbox : null;
+    const fleeting = plain(snapshot.fleeting) ? snapshot.fleeting : null;
     const risks = Array.isArray(snapshot.risk_packets) ? snapshot.risk_packets : [];
     const conflicts = risks.filter((packet) => Array.isArray(packet?.conflict?.blocking_conflict_ids) && packet.conflict.blocking_conflict_ids.length > 0);
     const approvals = risks.filter((packet) => !conflicts.includes(packet));
@@ -136,7 +137,7 @@
     else if (["idle", "selecting"].includes(snapshot.status) && operation.status === "no_change") productState = "inbox_ignored";
     else if (["idle", "selecting"].includes(snapshot.status) && inbox && ["empty", "queued", "analyzing", "complete", "partial", "protected", "up_to_date", "importing", "ignored", "private", "error", "cancelled"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
     if (plain(snapshot.migration) && snapshot.migration.status && risks.length === 0) productState = `migration_${snapshot.migration.status}`;
-    return Object.freeze({ productState, inbox, followUp, approvals, conflicts, rollout: plain(snapshot.rollout) ? snapshot.rollout : null, migration: plain(snapshot.migration) ? snapshot.migration : null });
+    return Object.freeze({ productState, inbox, fleeting, followUp, approvals, conflicts, rollout: plain(snapshot.rollout) ? snapshot.rollout : null, migration: plain(snapshot.migration) ? snapshot.migration : null });
   }
 
   function mountLlmWikiLifecycleView(options = {}) {
@@ -285,11 +286,11 @@
       const next = phases.find((phase) => !enabled.includes(phase));
       const section = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__rollout prodigy-utility-card", "data-surface": "llmwiki-rollout", "aria-label": "LLM Wiki 단계적 활성화" } });
       createEl(section, "h3", { text: "단계적 활성화" });
+      if (next) actionButton(section, `${ROLLOUT_LABELS[next]} 활성화`, "enable-rollout-phase", { action: "enable_rollout_phase", phase: next }, { primary: enabled.length === 0 });
       createEl(section, "p", { text: enabled.length ? `활성화됨: ${enabled.map((phase) => ROLLOUT_LABELS[phase]).join(" → ")}` : "아직 쓰기 단계가 활성화되지 않았습니다.", attr: { class: "llmwiki-lifecycle__muted" } });
       createEl(section, "p", { text: "각 단계는 한 번씩, 표시된 순서대로 직접 활성화합니다. 활성화만으로 지식을 쓰지는 않습니다.", attr: { class: "llmwiki-lifecycle__muted" } });
       const failure = text(snapshot.rollout_activation_failure);
       if (failure) createEl(section, "p", { text: failure, attr: { class: "llmwiki-lifecycle__error", role: "alert" } });
-      if (next) actionButton(section, `${ROLLOUT_LABELS[next]} 활성화`, "enable-rollout-phase", { action: "enable_rollout_phase", phase: next }, { primary: enabled.length === 0 });
     }
 
     function renderMigration(parent, projected) {
@@ -556,6 +557,27 @@
       );
     }
 
+    function renderFleeting(parent, fleeting) {
+      if (!plain(fleeting)) return;
+      const count = Number.isSafeInteger(fleeting.pending_count) && fleeting.pending_count >= 0 ? fleeting.pending_count : 0;
+      const state = text(fleeting.status) || "idle";
+      if (count === 0 && ["idle", "complete"].includes(state) && (!Array.isArray(fleeting.reviews) || fleeting.reviews.length === 0)) return;
+      const section = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__fleeting", "data-fleeting-status": state, "data-fleeting-pending-count": String(count), "aria-label": "미정리 생각" } });
+      const copy = state === "blocked"
+        ? "미정리 생각 상태를 읽지 못했습니다. 로컬 상태를 복구한 뒤 다시 확인해 주세요."
+        : state === "analyzing" ? `미정리 생각 ${count}개를 검토하고 있습니다.`
+          : state === "cancelled" ? `생각 정리를 취소했습니다. 미정리 생각 ${count}개가 그대로 남아 있습니다.`
+            : state === "partial" || state === "error" ? `일부 생각을 정리하지 못했습니다. 미정리 생각 ${count}개를 다시 확인해 주세요.`
+              : `미정리 생각 ${count}개`;
+      statusRegion(section, copy, ["blocked", "partial", "error"].includes(state) ? "error" : "info");
+      const actions = actionRow(section);
+      if (state === "blocked") actionButton(actions, "로컬 상태 복구", "repair-fleeting-state", { action: "repair_fleeting_state" }, { primary: true });
+      else if (state === "analyzing") {
+        actionButton(actions, "생각 정리 중", "review-fleeting", { action: "review_fleeting" }, { disabled: true, primary: true });
+        actionButton(actions, "정리 취소", "cancel-fleeting", { action: "cancel_fleeting" });
+      } else if (count > 0) actionButton(actions, "생각 정리", "review-fleeting", { action: "review_fleeting" }, { primary: true });
+    }
+
     function renderInbox(parent, state) {
       const inbox = plain(snapshot.inbox) ? snapshot.inbox : {};
       const counts = inboxCounts(inbox);
@@ -583,9 +605,9 @@
         const copies = { importing: "새 자료를 읽고 기존 지식과 비교하고 있습니다.", ignored: "지식으로 처리하지 않는 자료입니다.", private: "보호된 자료는 기기 안에서만 읽고 외부 AI에는 보내지 않았습니다.", error: "자료 분석을 완료하지 못했습니다.", cancelled: "자료 분석을 취소했습니다.", empty: "INBOX에 분석할 자료가 없습니다." };
         copy = copies[state] || copies.error;
       }
+      const actions = actionRow(parent);
       statusRegion(parent, copy, ["error", "partial"].includes(state) ? "error" : "info");
       if (counts && ["queued", "analyzing"].includes(state)) createEl(parent, "progress", { attr: { value: String(counts.processed), max: String(counts.pending), "aria-label": `지식 INBOX 분석 ${counts.processed}/${counts.pending}` } });
-      const actions = actionRow(parent);
       if (["queued", "analyzing", "importing"].includes(state)) {
         actionButton(actions, "지식 INBOX 확인 중", "scan-inbox", { action: "scan_inbox" }, { disabled: true });
         actionButton(actions, "분석 취소", "cancel-inbox", { action: "cancel_inbox", source_id: text(inbox.source_id) }, { primary: true });
@@ -675,14 +697,15 @@
           "data-surface": "llmwiki-lifecycle",
           "data-state": projected.productState,
           "aria-label": "LLM Wiki 검토 흐름",
-          "aria-busy": ["running", "committing", "compensation_committing"].includes(snapshot.status) || ["queued", "analyzing"].includes(projected.inbox && projected.inbox.state) ? "true" : "false",
+          "aria-busy": ["running", "committing", "compensation_committing"].includes(snapshot.status) || ["queued", "analyzing"].includes(projected.inbox && projected.inbox.state) || projected.fleeting && projected.fleeting.status === "analyzing" ? "true" : "false",
         },
       });
       frame.onkeydown = escape;
       const header = createEl(frame, "header");
       createEl(header, "h2", { text: "LLM Wiki", attr: { tabindex: "-1", "data-lifecycle-heading": "", "data-focus-key": "heading" } });
-      providerPicker(frame);
       renderRollout(frame, projected);
+      providerPicker(frame);
+      renderFleeting(frame, projected.fleeting);
 
       if (projected.productState.startsWith("migration_") && renderMigration(frame, projected)) { /* migration owns the active lifecycle scene */ }
       else if (projected.productState.startsWith("inbox_")) renderInbox(frame, projected.productState.slice(6));

@@ -84,11 +84,18 @@ function createRuntime(entry, mutation = "none", environment = {}) {
   const shellMountSignal = new Promise((resolve) => { resolveShellMount = resolve; });
   const listenerTargets = new Map();
   const resourceWaiters = [];
+  const isMountResourceListener = (eventTarget, type, callback) => !(
+    eventTarget === windowEvents
+    && type === "prodigy-site-visit-updated"
+    && callback === target.prodigySiteVisitCardListener
+  );
   const connectedListenerCount = () => {
     let total = 0;
     for (const [eventTarget, types] of listenerTargets) {
       if (typeof Element !== "undefined" && eventTarget instanceof Element && !body.contains(eventTarget)) continue;
-      for (const callbacks of types.values()) for (const count of callbacks.values()) total += count;
+      for (const [type, callbacks] of types) {
+        for (const [callback, count] of callbacks) if (isMountResourceListener(eventTarget, type, callback)) total += count;
+      }
     }
     return total;
   };
@@ -138,6 +145,7 @@ function createRuntime(entry, mutation = "none", environment = {}) {
     setText(value) { this.textContent = String(value); }
     appendText(value) { this.textContent += String(value); }
     appendChild(child) { child.parentElement = this; this.children.push(child); if (child.classList.contains("prodigy-app-shell")) resolveShellMount(child); notifyMutation(this, { type: "childList", addedNodes: [child], removedNodes: [] }); notifyResourceWaiters(); return child; }
+    insertBefore(child, reference) { const index = this.children.indexOf(reference); if (index < 0) return this.appendChild(child); if (child.parentElement) child.remove(); child.parentElement = this; this.children.splice(index, 0, child); notifyMutation(this, { type: "childList", addedNodes: [child], removedNodes: [] }); notifyResourceWaiters(); return child; }
     replaceChildren(...children) { this.empty(); children.forEach((child) => this.appendChild(child)); }
     empty() { const removed = this.children.splice(0); removed.forEach((child) => { child.parentElement = null; }); this.textContent = ""; if (removed.length) notifyMutation(this, { type: "childList", addedNodes: [], removedNodes: removed }); }
     remove() { if (!this.parentElement) return; const parent = this.parentElement; const index = parent.children.indexOf(this); if (index >= 0) parent.children.splice(index, 1); this.parentElement = null; notifyMutation(parent, { type: "childList", addedNodes: [], removedNodes: [this] }); }
@@ -239,7 +247,7 @@ function createRuntime(entry, mutation = "none", environment = {}) {
     vault: {
       adapter: { exists: async () => false, read: async () => "", write: async () => {}, mkdir: async () => {}, remove: async () => {}, rename: async () => {}, list: async () => ({ files: [], folders: [] }), stat: async () => null },
       getAbstractFileByPath(modulePath) { if (modulePath === missingRequiredPath) { missingLookups += 1; if (missingLookups >= 2) resolveRetryLookup(); } return files.has(modulePath) ? { path: modulePath, extension: path.extname(modulePath).slice(1) } : null; },
-      async read(file) { reads.push(file.path); return files.get(file.path) || ""; }, async cachedRead(file) { return files.get(file.path) || ""; }, getFiles: () => []
+      async read(file) { reads.push(file.path); return files.get(file.path) || ""; }, async cachedRead(file) { return files.get(file.path) || ""; }, async create(filePath, bytes) { files.set(filePath, bytes); }, async modify(file, bytes) { files.set(file.path, bytes); }, getFiles: () => [], getMarkdownFiles: () => []
     },
     isMobile: mobile,
     workspace,
@@ -326,7 +334,7 @@ function createRuntime(entry, mutation = "none", environment = {}) {
   function findTag(node, tag) { return findTags(node, tag)[0] || null; }
   function text(node = container) { return [node.textContent].concat(node.children.map((child) => text(child))).join(" ").trim(); }
   function restoreRequired() { files.set(missingRequiredPath, requiredSource); }
-  function listenerDetails() { const out = []; for (const [eventTarget, types] of listenerTargets) for (const [type, callbacks] of types) if (!(eventTarget instanceof Element) || body.contains(eventTarget)) out.push({ target: eventTarget.tag || (eventTarget === document ? "document" : "window"), type, count: callbacks.size, className: eventTarget.attr && eventTarget.attr.class, error: eventTarget.__prodigyError && eventTarget.__prodigyError.message }); return out; }
+  function listenerDetails() { const out = []; for (const [eventTarget, types] of listenerTargets) for (const [type, callbacks] of types) if (!(eventTarget instanceof Element) || body.contains(eventTarget)) { const count = [...callbacks].reduce((sum, [callback, registrations]) => sum + (isMountResourceListener(eventTarget, type, callback) ? registrations : 0), 0); if (count) out.push({ target: eventTarget.tag || (eventTarget === document ? "document" : "window"), type, count, className: eventTarget.attr && eventTarget.attr.class, error: eventTarget.__prodigyError && eventTarget.__prodigyError.message }); } return out; }
   function recoveryNodes() { return container.querySelectorAll(".prodigy-required-recovery"); }
   function recoveryState() { const surfaces = recoveryNodes(); return { surfaces: surfaces.length, buttons: surfaces.reduce((sum, surface) => sum + surface.querySelectorAll("button").length, 0), headings: surfaces.reduce((sum, surface) => sum + surface.querySelectorAll("h2").length, 0) }; }
   function mobileBootstrapContract() {
@@ -659,7 +667,7 @@ test("Home rejected Enter recovery is removed after restored Space retry mounts"
     await Promise.resolve();
 
     assert.equal(runtime.renderer(), "home");
-    assert.deepEqual(runtime.vector(), { shells: 1, listeners: 5, timers: 0, observers: 2 });
+    assert.deepEqual(runtime.vector(), { shells: 1, listeners: 5, timers: 0, observers: 3 });
     assert.deepEqual(runtime.recoveryState(), { surfaces: 0, buttons: 0, headings: 0 });
     assert.deepEqual(unhandled, []);
 
@@ -745,7 +753,7 @@ test("all eight production Hub blocks use the actual loader/navigation/AppShell 
         assert.equal(runtime.renderer(), entry.renderer.identity);
         await runtime.awaitResourceCommit();
         const first = runtime.vector();
-        const captureEnabled = ["home", "workout", "personal", "journal"].includes(workspaceId);
+        const captureEnabled = ["home", "workout", "knowledge", "personal", "journal"].includes(workspaceId);
         const firstCapturePair = runtime.listenerDetails().filter((item) => item.target === "document" && (item.type === "click" || item.type === "keydown"));
         assert.deepEqual(firstCapturePair.map((item) => item.type).sort(), captureEnabled ? ["click", "keydown"] : [], `${workspaceId}: exact Capture listener pair`);
         assert.deepEqual(firstCapturePair.map((item) => [item.type, item.count]).sort(), captureEnabled ? [["click", 1], ["keydown", workspaceId === "home" ? 2 : 1]] : [], `${workspaceId}: Capture pair plus known domain listeners only`);

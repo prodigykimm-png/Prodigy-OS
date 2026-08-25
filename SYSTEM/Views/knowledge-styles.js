@@ -239,6 +239,48 @@
         padding-inline: var(--ke-space-4, 17px); font: inherit; cursor: pointer;
       }
       .llmwiki-wiki-detail-modal__footer button:focus-visible { outline: 2px solid var(--ke-color-accent, var(--text-accent)); outline-offset: 2px; }
+      .knowledge-review-workbench { display: grid; gap: var(--ke-space-3, 12px); min-inline-size: 0; color: var(--text-normal); }
+      .knowledge-review-workbench__controls { display: flex; flex-wrap: wrap; gap: var(--ke-space-2, 8px); }
+      .knowledge-review-workbench button, .knowledge-review-detail-modal button { min-block-size: var(--ke-touch-target, ${touchTarget}px); min-inline-size: var(--ke-touch-target, ${touchTarget}px); max-inline-size: 100%; font: inherit; word-break: keep-all; overflow-wrap: anywhere; }
+      .knowledge-review-workbench button:focus-visible, .knowledge-review-detail-modal button:focus-visible { outline: 2px solid var(--ke-color-accent, var(--text-accent)); outline-offset: 2px; }
+      .knowledge-review-workbench__group { display: grid; gap: var(--ke-space-2, 8px); min-inline-size: 0; padding-block: var(--ke-space-3, 12px); border-block-start: 1px solid var(--ke-color-border, var(--background-modifier-border)); }
+      .knowledge-review-workbench__group h3 { margin: 0; font-size: var(--ke-type-heading); line-height: var(--ke-leading-heading, 1.25); }
+      .knowledge-review-workbench__group output { color: var(--text-muted); }
+      .knowledge-review-workbench__group article { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ke-space-2, 8px); min-inline-size: 0; padding-block: var(--ke-space-2, 8px); border-block-start: 1px solid var(--ke-color-border, var(--background-modifier-border)); }
+      .knowledge-review-workbench__group article strong, .knowledge-review-workbench__group article code { flex: 1 1 14rem; min-inline-size: 0; overflow-wrap: anywhere; word-break: keep-all; }
+      .knowledge-review-workbench__group details { flex: 1 1 100%; min-inline-size: 0; }
+      .knowledge-review-detail-modal__dialog {
+        display: flex; flex-direction: column;
+        inline-size: min(52rem, calc(100vw - var(--ke-space-6, 32px)));
+        max-inline-size: calc(100vw - var(--ke-space-6, 32px));
+        block-size: min(80vh, calc(100vh - var(--ke-space-6, 32px)));
+        block-size: min(80dvh, calc(100dvh - var(--ke-space-6, 32px)));
+        max-block-size: calc(100dvh - var(--ke-space-6, 32px));
+        overflow: hidden;
+      }
+      .knowledge-review-detail-modal__dialog > .modal-close-button {
+        position: absolute; inset-block-start: var(--ke-space-2, 8px); inset-inline-end: var(--ke-space-2, 8px); z-index: 1;
+        min-block-size: var(--ke-touch-target, ${touchTarget}px); min-inline-size: var(--ke-touch-target, ${touchTarget}px);
+      }
+      .knowledge-review-detail-modal__dialog > .modal-content.knowledge-review-detail-modal__content {
+        display: flex; flex: 1 1 auto; flex-direction: column;
+        block-size: 100%; min-block-size: 0; padding: 0; overflow: hidden;
+      }
+      .knowledge-review-detail-modal__content > article {
+        display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+        block-size: 100%; min-block-size: 0; min-inline-size: 0;
+      }
+      .knowledge-review-detail-modal__content > article > header {
+        min-inline-size: 0; padding: var(--ke-space-5, 24px) var(--ke-space-7, 48px) var(--ke-space-4, 17px) var(--ke-space-5, 24px);
+        border-block-end: 1px solid var(--ke-color-border, var(--background-modifier-border));
+      }
+      .knowledge-review-detail-modal__content > article > header h2 { margin: 0; font-size: var(--ke-type-heading); line-height: var(--ke-leading-heading, 1.25); word-break: keep-all; overflow-wrap: anywhere; }
+      .knowledge-review-detail-modal__scroll { min-block-size: 0; min-inline-size: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: var(--ke-space-5, 24px); }
+      .knowledge-review-detail-modal__scroll section { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ke-space-2, 8px); min-inline-size: 0; padding-block-end: var(--ke-space-3, 12px); border-block-end: 1px solid var(--ke-color-border, var(--background-modifier-border)); }
+      .knowledge-review-detail-modal__scroll button { inline-size: 100%; white-space: normal; text-align: start; }
+      .knowledge-review-detail-modal__scroll ul { margin: 0; padding-inline-start: var(--ke-space-5, 24px); }
+      .knowledge-review-detail-modal__scroll li { overflow-wrap: anywhere; word-break: keep-all; }
+      .knowledge-review-detail-modal__content > article > footer { display: flex; justify-content: flex-end; padding: var(--ke-space-3, 12px) var(--ke-space-5, 24px); border-block-start: 1px solid var(--ke-color-border, var(--background-modifier-border)); background: var(--ke-color-surface, var(--background-primary)); }
 
       .knowledge-explorer-shell { display: grid; gap: var(--ke-space-4); }
       .knowledge-explorer-shell input, .knowledge-explorer-shell select, .knowledge-explorer-shell textarea {
@@ -284,13 +326,15 @@
         .llmwiki-wiki-detail-modal__header, .llmwiki-wiki-detail-modal__scroll { padding: var(--ke-space-4, 17px); }
         .llmwiki-wiki-detail-modal__header { padding-inline-end: var(--ke-space-7, 48px); }
         .llmwiki-wiki-detail-modal__footer { padding: var(--ke-space-3, 12px) var(--ke-space-4, 17px); }
+        .knowledge-review-detail-modal__dialog { inline-size: calc(100vw - var(--ke-space-4, 17px)); max-inline-size: calc(100vw - var(--ke-space-4, 17px)); }
+        .knowledge-review-detail-modal__scroll { padding: var(--ke-space-4, 17px); }
+        .knowledge-review-workbench__group article > button { flex: 1 1 100%; }
       }
       /* True 200% zoom (effective shell width ~128-220 CSS px) shrinks the
          shell far below the 419/640 compact tier intended. Reflow the bar and
-         the four Knowledge tabs into a readable single column: every control
-         keeps the 44px touch target, the Home label stays as text (never an
-         icon-only glyph), and each tab renders its full CJK label wrapped on
-         its own row instead of collapsing to a two-glyph snippet. */
+         the four Knowledge tabs into single-column rows: every control
+         keeps the 44px touch target, the Home label stays as text, and each
+         tab retains its full CJK label without burying the active panel. */
       @container knowledge-shell (max-width: 220px) {
         .prodigy-app-shell[data-workspace-id="knowledge"] > .prodigy-workspace-bar {
           align-items: stretch; flex-direction: column; gap: 4px; padding-block: 4px;
@@ -309,11 +353,16 @@
           display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-block-end: 6px; padding: 6px;
         }
         .prodigy-app-shell[data-workspace-id="knowledge"] button.knowledge-workspace-tab {
-          inline-size: 100%; min-inline-size: 0; min-block-size: var(--ke-touch-target, ${touchTarget}px); height: auto; white-space: normal;
+          inline-size: 100%; min-inline-size: 0; min-block-size: var(--ke-touch-target, ${touchTarget}px); height: auto; padding-inline: var(--ke-space-1, 4px); white-space: normal;
         }
         .prodigy-app-shell[data-workspace-id="knowledge"] .knowledge-workspace-tab-label--compact { display: none; white-space: normal; }
-        .prodigy-app-shell[data-workspace-id="knowledge"] .knowledge-workspace-tab-label--full { display: inline; white-space: normal; }
+        .prodigy-app-shell[data-workspace-id="knowledge"] .knowledge-workspace-tab-label--full {
+          display: inline; white-space: normal; word-break: keep-all; overflow-wrap: normal; text-wrap: balance;
+        }
         .prodigy-app-shell[data-workspace-id="knowledge"] .llmwiki-lifecycle { gap: 8px; }
+        .prodigy-app-shell[data-workspace-id="knowledge"] .llmwiki-lifecycle.prodigy-full-bleed { padding-block: var(--ke-space-1, 4px); }
+        .prodigy-app-shell[data-workspace-id="knowledge"] .llmwiki-lifecycle > header > h2,
+        .prodigy-app-shell[data-workspace-id="knowledge"] .llmwiki-lifecycle__rollout > h3 { margin-block: 0; }
       }
       @media (max-width: 240px) {
         .llmwiki-lifecycle__queue { padding: 0; border: 0; }

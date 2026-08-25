@@ -39,6 +39,9 @@ function fakeElement(tag, options) {
     addEventListener(type, listener) {
       this.listeners[type] = listener;
     },
+    setAttribute(name, value) {
+      this.attr[name] = String(value);
+    },
     setText(value) {
       this.text = String(value);
       this.textContent = String(value);
@@ -160,8 +163,6 @@ function liveAuction(status) {
 }
 
 async function main() {
-  const auctionCardSourceForInline = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-card.js"), "utf8");
-  const inlineActionRule = auctionCardSourceForInline.match(/\.auction-region-inline-action\s*\{([^}]*)\}/)[1];
   const auction = page("PARA/PROJECTS/Auction/current.md", "auction_case", {
     status: "bidding", region_sido: "부산광역시", region_sigungu: "금정구", knowledge_topics: ["bidding"]
   });
@@ -240,6 +241,7 @@ async function main() {
   global.window.renderAuctionCard(mobileAuction, mobileRoot, { decisionPacketContext: context });
   const regionDecisionButton = button(mobileRoot, "판단 보드");
   assert.equal(regionDecisionButton.attr.class, "auction-region-inline-action");
+  const inlineActionRule = String(regionDecisionButton.attr.style || "");
   assert.match(inlineActionRule, /border:\s*0/);
   assert.match(inlineActionRule, /background:\s*transparent/);
   assert.doesNotMatch(inlineActionRule, /border-radius/);

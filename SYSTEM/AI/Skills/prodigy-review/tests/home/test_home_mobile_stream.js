@@ -192,9 +192,19 @@ function clearModules() {
 }
 
 function cssRule(css, selector) {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`).exec(css);
-  return match ? match[1] : "";
+  const source = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const target = selector.trim().replace(/\s*\{$/, "") + " {";
+  let index = source.indexOf(target);
+  while (index >= 0) {
+    const prefix = source.slice(0, index).trimEnd();
+    if (!prefix || prefix.endsWith("}") || prefix.endsWith("{")) {
+      const open = index + target.length - 1;
+      const close = source.indexOf("}", open + 1);
+      return close < 0 ? "" : source.slice(open + 1, close);
+    }
+    index = source.indexOf(target, index + target.length);
+  }
+  return "";
 }
 
 function installHomeDependencies({ registryAvailable = true, registryItems = null } = {}) {
@@ -416,21 +426,14 @@ async function renderHomeWithDocumentOnlyWidth(width) {
 
 function topLevelSections(container) {
   const stack = container.findAll((element) => element.hasClass("home-mc-stack"))[0];
-  return stack.children
-    .filter((child) => child.hasClass("home-card") || child.tagName === "DETAILS")
-    .map((child) => {
-      if (child.tagName === "DETAILS") return "Fold";
-      const text = child.textTree();
-      if (/모닝 브리프/.test(text)) return "Morning Brief";
-      if (/오늘의 집중/.test(text)) return "Today's Focus";
-      if (/이어하기/.test(text)) return "Continue";
-      if (/Micro Log|마이크로 로그/.test(text)) return "Micro Log";
-      if (/주의가 필요함/.test(text)) return "Needs Attention";
-      if (/빠른 실행/.test(text)) return "Quick Actions";
-      if (/런처|프로젝트/.test(text) && child.hasClass("home-launcher-mount")) return "Launcher";
-      if (/시스템 상태/.test(text)) return "System Status";
-      return text.slice(0, 24);
-    });
+  return stack.children.map((child) => {
+    if (child.hasClass("quick-capture-row")) return "Capture";
+    if (child.hasClass("home-action-queue")) return "Action Queue";
+    if (child.hasClass("home-context-details")) return "Context";
+    if (child.hasClass("home-micro-log-slot")) return "Micro Log";
+    if (child.hasClass("home-secondary-fold")) return "Fold";
+    return null;
+  }).filter(Boolean);
 }
 
 function foldedSections(container) {
@@ -455,16 +458,19 @@ async function testCompactQuickStreamOrder() {
   const { container } = await renderHomeAtWidth(390, { mobile: false });
 
   // When: the compact stream is inspected
-  // Then: it is one Home, ordered for quick review before folded secondary chrome
+  // Then: it is one Home, ordered around capture and ranked action before secondary context
   assert.equal(container.hasClass("home-compact"), true);
   assert.equal(container.findAll((element) => element.hasClass("prodigy-home")).length, 1);
   assert.deepEqual(topLevelSections(container), [
-    "Morning Brief",
-    "Today's Focus",
-    "Continue",
+    "Capture",
+    "Action Queue",
+    "Context",
     "Micro Log",
     "Fold"
   ]);
+  const context = container.findAll((element) => element.hasClass("home-context-details"))[0];
+  assert.ok(context, "compact Home retains the brief, Focus, and Continue disclosure");
+  assert.notEqual(context.open, true, "secondary narrative stays collapsed on compact Home");
   assert.deepEqual(foldedSections(container), [
     "Needs Attention",
     "Quick Actions",
@@ -497,12 +503,18 @@ async function testCompactWorkspaceBarSingleRowContract() {
   assert.equal(rows[0].attributes["data-wrap"], "nowrap");
   assert.equal(rows[0].attributes["data-horizontal-scroll"], "false");
   const dockRule = cssRule(css, ".prodigy-home .home-ws-dock");
+  const compactDockRule = cssRule(css, ".prodigy-home.home-compact .home-ws-dock");
   const rowRule = cssRule(css, ".prodigy-home .home-ws-dock-row");
   const labelRule = cssRule(css, ".prodigy-home .home-ws-dock-name");
   assert.match(
+    compactDockRule,
+    /display:\s*none/,
+    "compact Home hides its duplicate dock because App Shell owns the visible workspace switcher"
+  );
+  assert.match(
     dockRule,
-    new RegExp(`(?:block-size|height):\\s*${DESIGN_TOKENS.CONTROL_HEIGHTS.workspaceBar}px`),
-    "390px Home applies the canonical 48px workspace-bar height"
+    new RegExp(`min-block-size:\\s*${DESIGN_TOKENS.CONTROL_HEIGHTS.workspaceBar}px`),
+    "the fallback dock retains the canonical workspace-bar minimum control height"
   );
   assert.match(rowRule, /grid-template-columns:\s*repeat\(4,/, "the base dock preserves direct-item order without clipping");
   assert.doesNotMatch(rowRule, /overflow-x:\s*(auto|scroll|hidden)|overflow:\s*(hidden|clip)/);
@@ -708,7 +720,7 @@ async function testFocusAndTouchContracts() {
   // When: focus order and touch CSS are inspected
   // Then: buttons remain in DOM order and compact primary controls never override to min-height:0
   assert.ok(buttons.length >= 6);
-  assert.match(buttons.map((button) => button.textTree()).join(" > "), /새 Object.*새로고침.*브리핑 다시 생성.*워크스페이스 열기/s);
+  assert.match(buttons.map((button) => button.textTree()).join(" > "), /새 Object.*새로고침.*우선순위 다시 계산.*워크스페이스 열기/s);
   assert.doesNotMatch(buttons.map((button) => button.textTree()).join(" > "), /일기 쓰기|AI 분류/);
   assert.doesNotMatch(css, /home-compact[\s\S]*min-height:\s*0\s*!important/);
   assert.match(css, /home-compact[\s\S]*min-height:\s*var\(--ke-touch-target\)/);

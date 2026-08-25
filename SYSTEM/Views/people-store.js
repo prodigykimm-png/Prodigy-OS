@@ -291,6 +291,34 @@
   }
 
   /**
+   * Append one reviewed People insight under # 핵심 상호작용.
+   * This is intentionally separate from dated interaction events: it does not
+   * alter last_contact and preserves a no-op replay without a vault write.
+   */
+  async function appendPeopleInsight(app, path, input) {
+    const core = getCore();
+    if (!core) throw new Error("PeopleCore를 불러오지 못했습니다.");
+    if (!app || !app.vault) throw new Error("Obsidian Vault를 사용할 수 없습니다.");
+    const filePath = core.clean(path);
+    if (!core.isUnderPeopleFolder(filePath)) throw new Error("Contacts 폴더의 사람 노트만 수정할 수 있습니다.");
+    const file = app.vault.getAbstractFileByPath(filePath);
+    if (!file) throw new Error(`사람 Object를 찾을 수 없습니다: ${filePath}`);
+    const line = core.formatPeopleInsightLine(input || {});
+    const original = await app.vault.read(file);
+    let next = core.appendPeopleInteractionToContent(original, line);
+    const handoffId = core.clean(input && input.handoff_id);
+    const linkedIds = Array.isArray(input && input.linked_lifecycle_ids) ? input.linked_lifecycle_ids.map(core.clean).filter(Boolean) : [];
+    if (handoffId && linkedIds.length) {
+      const marker = `<!-- llmwiki-object-handoff:${handoffId}:${linkedIds.join(",")} -->`;
+      if (!next.includes(marker)) next = `${next.replace(/\s*$/, "")}\n${marker}\n`;
+    }
+    if (next === original) return { path: filePath, line, content: original, status: "unchanged" };
+    if (typeof app.vault.modify !== "function") throw new Error("Vault modify API를 사용할 수 없습니다.");
+    await app.vault.modify(file, next);
+    return { path: filePath, line, content: next, status: "appended" };
+  }
+
+  /**
    * Append a factual memo line under # 메모.
    * Does not update last_contact (not an interaction event).
    * @returns {{ path: string, line: string, content: string }}
@@ -305,7 +333,13 @@
 
     const line = core.formatMemoLine(input || {});
     const original = await app.vault.read(file);
-    const next = core.appendMemoToContent(original, line);
+    let next = core.appendMemoToContent(original, line);
+    const handoffId = core.clean(input && input.handoff_id);
+    const linkedIds = Array.isArray(input && input.linked_lifecycle_ids) ? input.linked_lifecycle_ids.map(core.clean).filter(Boolean) : [];
+    if (handoffId && linkedIds.length) {
+      const marker = `<!-- llmwiki-object-handoff:${handoffId}:${linkedIds.join(",")} -->`;
+      if (!next.includes(marker)) next = `${next.replace(/\s*$/, "")}\n${marker}\n`;
+    }
     if (typeof app.vault.modify !== "function") {
       throw new Error("Vault modify API를 사용할 수 없습니다.");
     }
@@ -466,6 +500,7 @@
     readPeopleProperties,
     updatePeopleProperties,
     appendKeyInteraction,
+    appendPeopleInsight,
     appendMemo,
     removeMemo,
     removeInteraction,
