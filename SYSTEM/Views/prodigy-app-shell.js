@@ -310,12 +310,16 @@
 .prodigy-app-shell-body {
   min-block-size: 0;
   min-inline-size: 0;
+  box-sizing: border-box;
   overflow: auto;
   overflow-x: hidden;
   padding-block-end: var(--prodigy-mobile-toolbar-clearance, 0px);
   scroll-padding-block-end: var(--prodigy-mobile-toolbar-clearance, 0px);
   overscroll-behavior-block: contain;
   -webkit-overflow-scrolling: touch;
+}
+.prodigy-app-shell[data-tier="medium"] > .prodigy-app-shell-body {
+  padding-inline: var(--ke-space-6, 32px);
 }
 .prodigy-app-shell[data-workspace-id="journal"] {
   grid-template-rows: auto auto auto;

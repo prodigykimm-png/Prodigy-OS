@@ -29,23 +29,32 @@
           --home-workspace-bar-height: ${workspaceBarHeight}px;
           --ke-touch-target: ${touchTarget}px;
           width: 100%;
-          max-inline-size: min(100%, var(--home-measured-width, 1180px));
+          max-inline-size: min(100%, 1180px);
           box-sizing: border-box;
           margin: 0 auto;
-          padding: 0 8px 32px;
+          padding: 0 var(--ke-space-7, 48px) var(--ke-space-7, 48px);
           font-size: var(--ke-type-body, 0.84rem);
           line-height: var(--ke-leading-body, 1.45);
           letter-spacing: 0;
           word-break: keep-all;
           overflow-wrap: anywhere;
         }
+        .prodigy-app-shell[data-tier="medium"] .prodigy-home {
+          padding-inline: var(--ke-space-6, 32px);
+        }
+        .prodigy-app-shell[data-tier="compact"] .prodigy-home {
+          padding-inline: var(--ke-space-5, 20px);
+        }
         .prodigy-home *,
         .prodigy-home *::before,
         .prodigy-home *::after { box-sizing: border-box; min-inline-size: 0; max-inline-size: 100%; }
-        .prodigy-app-shell[data-workspace-id="home"],
-        .prodigy-app-shell[data-workspace-id="home"] * {
+        .prodigy-app-shell[data-workspace-id="home"] {
           min-inline-size: 0;
           max-inline-size: 100%;
+          overflow-wrap: anywhere;
+        }
+        .prodigy-app-shell[data-workspace-id="home"] * {
+          min-inline-size: 0;
           overflow-wrap: anywhere;
         }
         .prodigy-app-shell[data-workspace-id="home"] > .prodigy-workspace-bar .prodigy-workspace-title {
@@ -110,7 +119,8 @@
            as one container-driven column beside the wide workspace source list. */
         .prodigy-home.home-wide .home-mc-stack {
           display: grid;
-          gap: 0 var(--ke-space-5, 24px);
+          column-gap: var(--ke-space-5, 24px);
+          row-gap: var(--ke-space-4, 17px);
           grid-template-columns: 260px minmax(0, 1fr);
           grid-template-areas:
             "sidebar  capture"
@@ -121,7 +131,7 @@
         }
         .prodigy-home.home-medium .home-mc-stack {
           display: grid;
-          gap: 0;
+          row-gap: var(--ke-space-4, 17px);
           grid-template-columns: minmax(0, 1fr);
           grid-template-areas:
             "capture"
@@ -133,7 +143,7 @@
         }
         .prodigy-app-shell[data-tier="medium"] .prodigy-home .home-mc-stack {
           display: grid;
-          gap: 0;
+          row-gap: var(--ke-space-4, 17px);
           grid-template-columns: minmax(0, 1fr);
           grid-template-areas:
             "capture"

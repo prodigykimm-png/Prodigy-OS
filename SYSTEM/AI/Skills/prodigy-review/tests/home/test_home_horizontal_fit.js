@@ -8,6 +8,7 @@ const test = require("node:test");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const STYLES_PATH = path.join(ROOT, "SYSTEM/Views/home-styles.js");
 const VIEW_PATH = path.join(ROOT, "SYSTEM/Views/home-view.js");
+const APP_SHELL_PATH = path.join(ROOT, "SYSTEM/Views/prodigy-app-shell.js");
 
 function styleSource() {
   return fs.readFileSync(STYLES_PATH, "utf8");
@@ -56,6 +57,23 @@ function ruleBodies(source, selector) {
   return bodies;
 }
 
+function exactRuleBody(source, selector) {
+  const target = selector.trim().replace(/\s*\{$/, "");
+  const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`(?:^|\\n)\\s*${escaped}\\s*\\{`, "g").exec(source);
+  if (!match) return "";
+  const open = source.indexOf("{", match.index + match[0].lastIndexOf(target));
+  let depth = 0;
+  for (let i = open; i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    else if (source[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(open + 1, i);
+    }
+  }
+  return "";
+}
+
 function cssNumericValue(body, property, unit) {
   const direct = body.match(new RegExp(property + "\\s*:\\s*([0-9.]+)" + unit));
   if (direct) return Number(direct[1]);
@@ -73,10 +91,41 @@ test("Given Home must fit any leaf width, When it sizes itself, Then it must not
 });
 
 test("Given Home carries horizontal padding, When it renders, Then border-box keeps the padding inside the measured width", () => {
-  const body = ruleBody(styleSource(), ".prodigy-home {");
+  const body = exactRuleBody(styleSource(), ".prodigy-home {");
 
   assert.match(body, /padding:/);
   assert.match(body, /box-sizing:\s*border-box/);
+});
+
+test("Given desktop Home, When the leaf is wider than the reading surface, Then measured width cannot stretch content past 1180px", () => {
+  const source = styleSource();
+  const body = exactRuleBody(source, ".prodigy-home {");
+  const shellChildren = ruleBody(source, '.prodigy-app-shell[data-workspace-id="home"] * {');
+
+  assert.match(body, /max-inline-size:\s*min\(100%,\s*1180px\)/);
+  assert.doesNotMatch(body, /max-inline-size:[^;]*--home-measured-width/);
+  assert.doesNotMatch(shellChildren, /max-inline-size/, "Home shell descendants must not override the Home reading-surface cap");
+});
+
+test("Given iPad and compact layouts, When Home and shared workspace bodies render, Then canonical page gutters keep content off the screen edge", () => {
+  const home = styleSource();
+  const shell = fs.readFileSync(APP_SHELL_PATH, "utf8");
+  const mediumHome = exactRuleBody(home, '.prodigy-app-shell[data-tier="medium"] .prodigy-home {');
+  const compactHome = exactRuleBody(home, '.prodigy-app-shell[data-tier="compact"] .prodigy-home {');
+  const mediumBody = exactRuleBody(shell, '.prodigy-app-shell[data-tier="medium"] > .prodigy-app-shell-body {');
+
+  assert.match(mediumHome, /padding-inline:\s*var\(--ke-space-6,\s*32px\)/);
+  assert.match(compactHome, /padding-inline:\s*var\(--ke-space-5,\s*20px\)/);
+  assert.match(mediumBody, /padding-inline:\s*var\(--ke-space-6,\s*32px\)/);
+});
+
+test("Given Home sections on iPad and desktop, When the command stream renders, Then sections retain canonical breathing space", () => {
+  const source = styleSource();
+  const medium = exactRuleBody(source, '.prodigy-app-shell[data-tier="medium"] .prodigy-home .home-mc-stack {');
+  const wide = exactRuleBody(source, ".prodigy-home.home-wide .home-mc-stack {");
+
+  assert.match(medium, /row-gap:\s*var\(--ke-space-4,\s*17px\)/);
+  assert.match(wide, /row-gap:\s*var\(--ke-space-4,\s*17px\)/);
 });
 
 test("Given a narrow phone width, When Home renders, Then it keeps a horizontal gutter instead of pinning cards to the screen edge", () => {
@@ -88,7 +137,7 @@ test("Given a narrow phone width, When Home renders, Then it keeps a horizontal 
 
 test("Given Home content, When any child is wider than its column, Then Home fits by sizing and wrapping rather than hiding overflow", () => {
   const source = styleSource();
-  const body = ruleBody(source, ".prodigy-home {");
+  const body = exactRuleBody(source, ".prodigy-home {");
 
   assert.match(body, /max-inline-size:\s*min\(100%/, "Home 폭 상한은 부모를 넘지 않는 min(100%, …) 형태여야 한다");
   assert.match(body, /overflow-wrap:\s*anywhere/);
