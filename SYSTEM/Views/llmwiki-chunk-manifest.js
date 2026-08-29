@@ -26,11 +26,18 @@
   }
   function sliceEnd(text, start, maxBytes) {
     let end = start;
+    let bytes = 0;
     while (end < text.length) {
-      let next = end + 1;
-      if (text.charCodeAt(end) >= 0xd800 && text.charCodeAt(end) <= 0xdbff && text.charCodeAt(end + 1) >= 0xdc00 && text.charCodeAt(end + 1) <= 0xdfff) next += 1;
-      if (byteLength(text.slice(start, next)) > maxBytes) break;
-      end = next;
+      const code = text.charCodeAt(end);
+      let width = 1;
+      let cost = code <= 0x7f ? 1 : code <= 0x7ff ? 2 : 3;
+      if (code >= 0xd800 && code <= 0xdbff && text.charCodeAt(end + 1) >= 0xdc00 && text.charCodeAt(end + 1) <= 0xdfff) {
+        width = 2;
+        cost = 4;
+      }
+      if (bytes + cost > maxBytes) break;
+      bytes += cost;
+      end += width;
     }
     return safeEnd(text, start, end);
   }
@@ -40,13 +47,14 @@
       : kind === "paragraph" ? /\n[ \t]*\n/gu
         : kind === "sentence" ? /[.!?](?:[ \t]+|\n|$)/gu
           : /\n/gu;
+    let last = -1;
     for (const match of section.matchAll(expression)) {
       let boundary;
       if (kind === "heading") boundary = start + match.index + (match[0].startsWith("\n") ? 1 : 0);
       else boundary = start + match.index + match[0].length;
-      if (boundary > start && boundary <= end) return boundary;
+      if (boundary > start && boundary <= end) last = boundary;
     }
-    return -1;
+    return last;
   }
   function nextChunk(text, start, maxBytes) {
     const limit = sliceEnd(text, start, maxBytes);
@@ -93,7 +101,7 @@
       const textHash = hashApi.sha256(text);
       chunks.push(freeze({
         semantic_id: semanticId,
-        instance_id: `instance_${hashApi.sha256(stable({ semantic_id: semanticId, occurrence, text_hash: textHash })).slice(0, 24)}`,
+        instance_id: `instance_${hashApi.sha256(stable({ semantic_id: semanticId, occurrence, source_id: scope.source_id, text_hash: textHash })).slice(0, 24)}`,
         occurrence, start: scope.start + localStart, end: scope.start + next.end, text, text_hash: textHash, boundary_kind: next.boundary_kind,
       }));
       localStart = next.end;

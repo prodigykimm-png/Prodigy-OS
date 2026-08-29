@@ -16,15 +16,32 @@ const STYLES = source("SYSTEM/Views/knowledge-styles.js");
 const { buildPages, runHub } = require("./knowledge_hub_integration_harness.js");
 const { mountRoot, serialize } = require("./llmwiki_lifecycle_view_fixture.js");
 
+// Task 11 repoint: the provider override speaks the single compact batch
+// schema; analysis is an explicit user action (analyze_inbox), never a mount
+// or scan side effect.
 function providerServiceSource({ failFirst = false, invalidKind = false } = {}) {
-  return `(function(root){root.__task15ProviderCalls=[];root.AIProviderService=Object.freeze({async requestStructuredJsonOnce(request){root.__task15ProviderCalls.push(request);if(${failFirst}&&root.__task15ProviderCalls.length<=2)return {status:"invalid"};const prompt=JSON.parse(request.prompt);return {status:"ok",chunk_results:prompt.changed_chunks.map((chunk)=>({key:chunk.key,semantic_units:[{temporary_span_alias:"span_task15",start:0,end:Math.min(chunk.text.length,12),origin_hint:"source_extract",disposition:"propose",uncertainty:{level:"low",reasons:[]},claims:[{text:"실제 Hub 제품 지식",temporary_span_alias:"span_task15"}]${invalidKind ? ",destination:\"ZETA/PERMANENT/forged.md\"" : ""}}]}))}}})})(globalThis);`;
+  const extraField = invalidKind ? `,destination:"ZETA/PERMANENT/forged.md"` : "";
+  return [
+    "(function(root){root.__task15ProviderCalls=[];",
+    "root.AIProviderService=Object.freeze({async requestStructuredJsonOnce(request){",
+    "root.__task15ProviderCalls.push(request);",
+    `if(${failFirst}&&root.__task15ProviderCalls.length<=1)return {status:"invalid"};`,
+    "const prompt=JSON.parse(request.prompt);",
+    "return {status:\"ok\",results:prompt.chunks.map((chunk)=>({chunk_key:chunk.key,outcome:\"proposals\",",
+    `items:[{role:\"source_summary\",evidence_quote:chunk.text.trim().slice(0,6),claims:[\"실제 Hub 제품 지식\"],review_reasons:[],related_candidate_ids:[]${extraField}}]}))};`,
+    "}})})(globalThis);",
+  ].join("");
+}
+
+function allPhasesRolloutStorage() {
+  const phases = ["create", "update", "merge", "maintenance", "git", "resurfacing"];
+  const rolloutState = JSON.stringify({ version: "llmwiki_rollout_state_v1", enabled_phases: phases, gate_receipts: Object.fromEntries(phases.map((phase) => [phase, { available: true, status: "green", receipt_id: `task15-${phase}-gate` }])) });
+  return { async load() { return rolloutState; }, async save() { return true; } };
 }
 
 async function productionHub(options = {}, llmWikiControllerOptions = {}) {
   const extraFiles = { "INBOX/Knowledge/task15.md": "# 제품 자료\\n\\n검토할 근거입니다.\\n", "SYSTEM/Views/ai-provider-service.js": providerServiceSource(options), ...(options.extraFiles || {}) };
-  const phases = ["create", "update", "merge", "maintenance", "git", "resurfacing"];
-  const rolloutState = JSON.stringify({ version: "llmwiki_rollout_state_v1", enabled_phases: phases, gate_receipts: Object.fromEntries(phases.map((phase) => [phase, { available: true, status: "green", receipt_id: `task15-${phase}-gate` }])) });
-  const rollout_storage = llmWikiControllerOptions.rollout_storage || { async load() { return rolloutState; }, async save() { return true; } };
+  const rollout_storage = llmWikiControllerOptions.rollout_storage || allPhasesRolloutStorage();
   let inboxLocalIdentityIndex = llmWikiControllerOptions.inboxLocalIdentityIndex;
   if (typeof options.existingBytes === "string") {
     const hash = require(path.join(ROOT, "SYSTEM/Views/llmwiki-hash.js"));
@@ -40,28 +57,33 @@ async function productionHub(options = {}, llmWikiControllerOptions = {}) {
   }
   const result = await runHub({ pages: buildPages(), extraFiles, llmWikiControllerOptions: { rollout_storage, inboxLocalIdentityIndex, ...llmWikiControllerOptions } });
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  // Task 11 contract: analysis is explicit and bounded.
+  const analyzed = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
+  result.__analyzed = analyzed;
   return result;
 }
 
 test("P1 unavailable production provider fails visibly and typed without a network or key assumption", async () => {
   const result = await runHub({ pages: buildPages(), extraFiles: { "INBOX/Knowledge/unavailable.md": "# 로컬 자료", "SYSTEM/Views/ai-provider-service.js": "globalThis.AIProviderService=Object.freeze({});" } });
   const settled = await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
-  assert.equal(settled.state, "error");
-  assert.equal(settled.reason, "transport_unavailable");
+  assert.equal(settled.state, "queued");
+  const analyzed = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
+  assert.equal(analyzed.ok, false);
+  assert.equal(analyzed.reason, "transport_unavailable");
   assert.equal(result.window.KnowledgeExplorerHub.llmWikiRunController.getOperationSnapshot().status, "idle");
   assert.equal(result.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/PERMANENT/")), false);
 });
 
 test("P1 provider authority fields fail before review and permanent writes", async () => {
   const result = await productionHub({ invalidKind: true });
-  assert.equal(result.window.__task15ProviderCalls.length, 2);
+  assert.equal(result.window.__task15ProviderCalls.length, 1);
   assert.notEqual(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().status, "review");
-  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.reason, "invalid_chunk_response");
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.reason, "forbidden_authority");
   assert.equal(result.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/PERMANENT/")), false);
 });
 
-test("P1 default production operation provider reaches review without controller test options", async () => {
-  assert.match(MANIFEST, /llmwiki-production-operation-provider\.js/);
+test("P1 canonical batch provider reaches review without controller test options", async () => {
+  assert.match(MANIFEST, /llmwiki-batch-provider\.js/);
   const result = await productionHub();
   assert.equal(result.window.__task15ProviderCalls.length, 1);
   assert.equal(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().status, "review");
@@ -132,13 +154,31 @@ test("P1 production available gateway snapshots only after immutable eligibility
       return { ok: true, receipt: { commit_id: "task15-post-eligibility", paths: input.paths, pushed: false } };
     },
   };
-  const existingBytes = "# 기존 제품 지식\\n";
-  const result = await productionHub({
-    existingBytes,
-    extraFiles: { "ZETA/PERMANENT/task15-production.md": existingBytes },
-  }, {
-    git_gateway: gateway,
+  const existingBytes = "# 기존 제품 지식\n";
+  // Task 11 repoint: PERMANENT updates are not minted by the batch core; the
+  // typed update enters through the production risk-review API so the retained
+  // compensation/git eligibility authorities stay under test.
+  const { operation } = require("./llmwiki_real_product_fixtures.js");
+  const targetPath = "ZETA/PERMANENT/task15-production.md";
+  const afterBytes = "# 승인된 제품 지식\n";
+  const result = await runHub({
+    pages: buildPages(),
+    extraFiles: { [targetPath]: existingBytes },
+    llmWikiControllerOptions: { git_gateway: gateway, rollout_storage: allPhasesRolloutStorage() },
   });
+  await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const parsed = result.window.LLMWikiOperationContract.parseOperation(JSON.stringify(operation("update", "production", {
+    operation_id: "operation_task15_production_update",
+    destination_ids: [targetPath],
+    base_revisions: { [targetPath]: require("node:crypto").createHash("sha256").update(existingBytes).digest("hex") },
+    before_bytes: { [targetPath]: existingBytes },
+    after_bytes: { [targetPath]: afterBytes },
+    source_citations: [{ source_id: "source_task15", content_hash: require("node:crypto").createHash("sha256").update(existingBytes).digest("hex"), source_url: null, locators: ["INBOX/Knowledge/task15.md"], source_archive_id: null, confidence: "explicit" }],
+  })));
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  const opened = result.window.KnowledgeExplorerHub.llmWikiRunController.openPreparedRiskReview({ run_id: "run_task15_production_update", proposals: [{ operation: parsed.value, title: "승인된 제품 지식" }] });
+  assert.equal(opened.ok, true, JSON.stringify(opened));
+  void existingBytes;
   const hub = result.window.KnowledgeExplorerHub;
   const packet = hub.llmWikiRunController.getSnapshot().risk_packets?.[0];
   assert.ok(packet, JSON.stringify(hub.llmWikiLifecycleSnapshot()));
@@ -181,13 +221,25 @@ test("P1 Inbox privacy is derived locally and protected/People sources never cal
 test("P1 failed analysis retry executes the provider again instead of replaying false completion", async () => {
   const result = await productionHub({ failFirst: true });
   const hub = result.window.KnowledgeExplorerHub;
-  assert.equal(hub.llmWikiLifecycleSnapshot().inbox.state, "error");
-  assert.equal(result.window.__task15ProviderCalls.length, 2);
-  const retry = await hub.dispatchLlmWikiAction({ action: "retry_inbox", source_id: hub.llmWikiLifecycleSnapshot().inbox.source_id });
+  assert.equal(hub.llmWikiLifecycleSnapshot().inbox.state, "blocked");
+  assert.equal(result.window.__task15ProviderCalls.length, 1);
+  // Explicit 다시 분석 re-enters the blocked job exactly once.
+  const retry = await hub.dispatchLlmWikiAction({ action: "retry_inbox" });
   assert.equal(retry.status, "complete");
-  assert.equal(retry.results[0].analysis_runs, 1);
-  assert.equal(result.window.__task15ProviderCalls.length, 3);
+  assert.equal(result.window.__task15ProviderCalls.length, 2);
   assert.equal(hub.llmWikiRunController.getSnapshot().status, "review");
+});
+
+test("P1 retry lifecycle actions dispatch explicit retry runs without fallback", async () => {
+  assert.match(HUB, /if \(intent\.action === "analyze_inbox"\) return runInboxBatch\(\);/);
+  assert.match(HUB, /if \(\["retry_inbox", "retry_analysis"\]\.includes\(intent\.action\)\) return runInboxBatch\(\{ explicitRetry: true \}\);/);
+  assert.doesNotMatch(HUB, /if \(intent\.action === "analyze_inbox"\)[\\s\\S]{0,120}force_reanalyze_inbox/);
+  for (const action of ["retry_analysis", "retry_inbox"]) {
+    const result = await productionHub({ failFirst: true });
+    const retried = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action });
+    assert.equal(retried.ok, true, JSON.stringify(retried));
+    assert.equal(result.window.__task15ProviderCalls.length, 2);
+  }
 });
 
 test("P2 production Hub Chrome fixture executes the real composition", () => {

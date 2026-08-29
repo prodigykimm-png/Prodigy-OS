@@ -44,7 +44,7 @@
     const claims = list(claimSet(item).claims).filter(plain);
     const citations = list(claimSet(item).citations).filter(plain);
     const citationIds = new Set(citations.map((citation) => text(citation.citation_id)));
-    field(scroll, "support", claims.filter((claim) => list(claim.citation_ids).some((id) => citationIds.has(id))).map((claim) => text(claim.claim_id)));
+    field(scroll, "support", claims.filter((claim) => list(claim.citation_ids).some((id) => citationIds.has(id))).map((claim) => text(claim.text, text(claim.claim_id))));
     field(scroll, "contradictions", list(claimSet(item).disputes).filter(plain).map((dispute) => text(dispute.dispute_id)));
     field(scroll, "origins", claims.map((claim) => `${text(claim.claim_id)}:${text(claim.origin)}`));
     field(scroll, "derivation", claims.filter((claim) => list(claim.derived_from_claim_ids).length).map((claim) => `${text(claim.claim_id)}:${list(claim.derived_from_claim_ids).join(",")}`));

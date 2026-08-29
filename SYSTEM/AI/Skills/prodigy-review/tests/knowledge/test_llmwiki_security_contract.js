@@ -21,7 +21,6 @@ const riskPacket = load("llmwiki-risk-approval-packet.js");
 const operationState = load("llmwiki-operation-run-state.js");
 const migration = load("llmwiki-migration-rollout.js");
 const gitGateway = load("llmwiki-git-adapter.js");
-const autopilotApi = load("llmwiki-inbox-autopilot.js");
 const manifest = load("prodigy-workspace-manifest.js").get("knowledge");
 
 function citation() {
@@ -114,9 +113,10 @@ test("operation discriminants are derived once and classifier/risk/lifecycle/mig
 test("core -> service -> adapter -> controller/view dependency direction is acyclic and production manifest ordered", () => {
   const required = manifest.required;
   const chain = [
-    "llmwiki-operation-contract.js", "llmwiki-operation-classifier.js", "llmwiki-production-operation-provider.js",
+    "llmwiki-operation-contract.js", "llmwiki-operation-classifier.js",
     "llmwiki-operation-writer.js", "llmwiki-git-adapter.js", "llmwiki-git-automation-adapter.js", "llmwiki-run-controller.js", "llmwiki-lifecycle-view.js",
   ].map((name) => required.indexOf(`SYSTEM/Views/${name}`));
+  assert.ok(required.indexOf("SYSTEM/Views/llmwiki-batch-provider.js") < required.indexOf("SYSTEM/Views/llmwiki-run-controller.js"));
   assert.equal(chain.every((index) => index >= 0), true, JSON.stringify(chain));
   assert.equal(chain.every((index, position) => position === 0 || index > chain[position - 1]), true, JSON.stringify(chain));
   const lowerLayers = ["llmwiki-operation-contract.js", "llmwiki-operation-classifier.js", "llmwiki-operation-writer.js", "llmwiki-git-adapter.js"];
@@ -191,39 +191,6 @@ test("provider-controlled paths and commit text are typed-rejected before filesy
   }
 });
 
-function policy(overrides = {}) {
-  return { policy_version: "policy_security_v1", provider_key: "gemini", allowed_path_prefixes: ["INBOX/Knowledge/"], denied_path_prefixes: ["INBOX/Private/", "INBOX/People/"], redaction_policy: "selected_source_text_only", ...overrides };
-}
-function source(sourcePath, overrides = {}) {
-  const text = overrides.source_text || "bounded fixture";
-  return JSON.stringify({ source_id: "source_security", source_path: sourcePath, modified_revision: overrides.modified_revision || "revision_1", media_kind: "text/markdown", source_kind: "markdown", source_text: text, content_hash: hash(text), route_hint: "knowledge", privacy_class: "internal", ...overrides });
-}
-function autopilotHarness() {
-  let providerCalls = 0;
-  let outboundBytes = 0;
-  const api = autopilotApi.createInboxAutopilot({
-    standingPolicy: policy(),
-    registry: { register(input) { return { ok: true, value: { replayed: false, snapshot: { snapshot_id: `snapshot_${input.content_hash.slice(0, 24)}`, source: input } } }; } },
-    sourceAdapter: { extract(serialized) { const input = JSON.parse(serialized); return { ok: true, value: { content_hash: input.content_hash, extracted_text: input.source_text, media_kind: input.media_kind } }; } },
-    analysisTransport(work) { providerCalls += 1; outboundBytes += Buffer.byteLength(JSON.stringify(work)); return { ok: true }; },
-  });
-  return { api, counters: () => ({ providerCalls, outboundBytes }) };
-}
-
-test("denylist, policy mismatch, revoked consent, and secret-like source are rejected before provider transport", async () => {
-  for (const [input, context] of [
-    [source("INBOX/Private/secret.md"), {}],
-    [source("INBOX/Knowledge/policy.md", { modified_revision: "revision_policy" }), { currentPolicy: policy({ provider_key: "other" }) }],
-    [source("INBOX/Knowledge/revoked.md", { modified_revision: "revision_revoked" }), { currentPolicy: policy({ policy_version: "policy_revoked" }) }],
-    [source("INBOX/Knowledge/secret.md", { modified_revision: "revision_secret", privacy_class: "private", source_text: "token=sk-secret password=hunter2" }), {}],
-  ]) {
-    const harness = autopilotHarness();
-    const result = await harness.api.dispatch(input, context);
-    assert.equal(result.analysis_runs, 0, JSON.stringify(result));
-    assert.deepEqual(harness.counters(), { providerCalls: 0, outboundBytes: 0 });
-  }
-});
-
 test("static runtime scan forbids source deletion, destructive Git and shell execution while allowing bounded temp cleanup", () => {
   const files = fs.readdirSync(views).filter((name) => name.startsWith("llmwiki-") && name.endsWith(".js"));
   const findings = [];
@@ -234,7 +201,7 @@ test("static runtime scan forbids source deletion, destructive Git and shell exe
       ["shell_exec", /childProcess\.(?:exec|execSync)\s*\(|shell\s*:\s*true/gu],
     ]) for (const match of source.matchAll(pattern)) findings.push({ name, label, token: match[0] });
   }
-  for (const name of ["llmwiki-source-adapters.js", "llmwiki-source-registry.js", "llmwiki-inbox-autopilot.js"]) {
+  for (const name of ["llmwiki-source-adapters.js", "llmwiki-source-registry.js", "llmwiki-inbox-discovery-queue.js"]) {
     const source = fs.readFileSync(path.join(views, name), "utf8");
     assert.doesNotMatch(source, /(?:fs|vault|adapter)\.(?:unlinkSync|unlink|rmSync|rm|delete|trash)\s*\(/u, name);
   }

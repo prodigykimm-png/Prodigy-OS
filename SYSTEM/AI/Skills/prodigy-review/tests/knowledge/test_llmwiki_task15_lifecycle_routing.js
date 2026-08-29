@@ -13,7 +13,10 @@ const LIFECYCLE_MODULES = Object.freeze([
   "SYSTEM/Views/llmwiki-chunk-manifest.js",
   "SYSTEM/Views/llmwiki-chunk-coverage-store.js",
   "SYSTEM/Views/llmwiki-analysis-cache.js",
-  "SYSTEM/Views/llmwiki-inbox-chunk-orchestrator.js",
+  "SYSTEM/Views/llmwiki-batch-job-store.js",
+  "SYSTEM/Views/llmwiki-batch-provider.js",
+  "SYSTEM/Views/llmwiki-batch-analyzer.js",
+  "SYSTEM/Views/llmwiki-inbox-discovery-queue.js",
   "SYSTEM/Views/llmwiki-identity-resolution.js",
   "SYSTEM/Views/llmwiki-lifecycle-routing-contract.js",
   "SYSTEM/Views/llmwiki-object-handoff-contract.js",
@@ -22,7 +25,6 @@ const LIFECYCLE_MODULES = Object.freeze([
   "SYSTEM/Views/llmwiki-promotion-contract.js",
   "SYSTEM/Views/knowledge-fleeting-store.js",
   "SYSTEM/Views/knowledge-fleeting-review-state.js",
-  "SYSTEM/Views/llmwiki-production-operation-provider.js",
   "SYSTEM/Views/llmwiki-canonical-trust.js",
   "SYSTEM/Views/llmwiki-lifecycle-migration.js",
   "SYSTEM/Views/llmwiki-lifecycle-migration-plan.js",
@@ -163,18 +165,24 @@ test("real Knowledge analyzes Fleeting only after the user action and restores r
     extraFiles: { [sourcePath]: sourceBytes },
     llmWikiControllerOptions: {
       rollout_storage,
-      fleetingAnalysisTransport: async (work) => {
+      batchIdentity: {
+        provider_key: "openrouter",
+        model: "test/model-1",
+        structured_mode: "json_schema",
+        schema_id: "llmwiki_compact_v1",
+        prompt_version: "p11-fleeting",
+      },
+      batchProvider: async (input) => {
         providerCalls += 1;
-        return { ok: true, chunk_results: work.changed_chunks.map((chunk) => ({
-          key: chunk.key,
-          semantic_units: [{
-            temporary_span_alias: "span_fleeting_real",
-            start: 0,
-            end: Math.min(chunk.text.length, 12),
-            origin_hint: "source_extract",
-            disposition: "propose",
-            uncertainty: { level: "low", reasons: [] },
-            claims: [{ text: "명시적 Fleeting 검토", temporary_span_alias: "span_fleeting_real" }],
+        return { ok: true, artifacts: input.chunks.map((chunk) => ({
+          chunk_key: chunk.key,
+          outcome: "proposals",
+          items: [{
+            role: "source_summary",
+            evidence_quote: chunk.text.trim().slice(0, 12),
+            claims: ["명시적 Fleeting 검토"],
+            review_reasons: [],
+            related_candidate_ids: [],
           }],
         })) };
       },
@@ -200,7 +208,14 @@ test("real Knowledge analyzes Fleeting only after the user action and restores r
     extraFiles: { [sourcePath]: sourceBytes, [statePath]: persistedState },
     llmWikiControllerOptions: {
       rollout_storage,
-      fleetingAnalysisTransport: async () => { replayCalls += 1; return { ok: false, reason: "provider_replay_forbidden" }; },
+      batchIdentity: {
+        provider_key: "openrouter",
+        model: "test/model-1",
+        structured_mode: "json_schema",
+        schema_id: "llmwiki_compact_v1",
+        prompt_version: "p11-fleeting",
+      },
+      batchProvider: async () => { replayCalls += 1; return { ok: false, reason: "provider_replay_forbidden" }; },
     },
   });
   assert.equal(typeof reloaded.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled, "function", String(reloaded.window.KnowledgeExplorerHub.error && reloaded.window.KnowledgeExplorerHub.error.stack || "reload mount failed"));

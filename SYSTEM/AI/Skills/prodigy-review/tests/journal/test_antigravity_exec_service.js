@@ -2,21 +2,180 @@
 
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
+const { spawn: spawnChild } = require("node:child_process");
 const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const antigravity = require(path.join(ROOT, "SYSTEM/Views/antigravity-exec-service.js"));
 
-function fakeChildProcess(output, exitCode) {
+function fixtureStream() {
+  const stream = new EventEmitter();
+  stream.destroyed = false;
+  stream.destroyCalls = 0;
+  stream.unrefCalls = 0;
+  stream.destroy = () => { stream.destroyed = true; stream.destroyCalls += 1; };
+  stream.unref = () => { stream.unrefCalls += 1; };
+  return stream;
+}
+
+function processFixture(schedule, options = {}) {
   const child = new EventEmitter();
-  child.stdout = new EventEmitter();
-  child.stderr = new EventEmitter();
-  child.once = child.once.bind(child);
-  process.nextTick(() => {
+  child.stdout = fixtureStream();
+  child.stderr = fixtureStream();
+  child.killCalls = [];
+  child.unrefCalls = 0;
+  child.kill = (signal) => { child.killCalls.push(signal); return options.killResult === undefined ? true : options.killResult; };
+  child.unref = () => { child.unrefCalls += 1; };
+  process.nextTick(() => schedule(child));
+  return child;
+}
+
+function fakeChildProcess(output, exitCode) {
+  return processFixture((child) => {
     if (output) child.stdout.emit("data", Buffer.from(output));
+    child.stdout.emit("end");
+    child.stderr.emit("end");
     child.emit("close", exitCode, null);
   });
-  return child;
+}
+
+function serviceForChild(child, dependencies = {}) {
+  return antigravity.createService({
+    spawn: () => child,
+    getCommand: () => "agy",
+    ...dependencies
+  });
+}
+
+function serviceForRealFixture(mode, dependencies = {}) {
+  const fixture = path.join(__dirname, "fixtures/antigravity_process_child.js");
+  return antigravity.createService({
+    spawn: () => spawnChild(process.execPath, [fixture, mode], { stdio: ["ignore", "pipe", "pipe"] }),
+    getCommand: () => "agy",
+    ...dependencies
+  });
+}
+
+const VALID_STRUCTURED_PREFIX = '{"status":"SUCCESS","structured_output":';
+const VALID_STRUCTURED_SUFFIX = '{"ok":true}}';
+
+async function requestFixture(service, options = {}) {
+  return service.requestStructuredJson({
+    provider: antigravity.DEFAULT_PROVIDER,
+    prompt: "provider-free lifecycle fixture",
+    schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] },
+    ...options
+  });
+}
+
+async function testRealChildExitCompletesWhenDescendantRetainsStdio() {
+  const result = await requestFixture(serviceForRealFixture("exit-retained-stdio", { drainTimeoutMs: 10 }), { timeoutMs: 1000 });
+  assert.deepEqual(result, { ok: true });
+}
+
+async function testRealChildExitCapturesDelayedBoundedDrain() {
+  const result = await requestFixture(serviceForRealFixture("exit-delayed-drain", { drainTimeoutMs: 1000 }), { timeoutMs: 1000 });
+  assert.deepEqual(result, { ok: true });
+}
+
+async function testRealChildNormalClosePath() {
+  const result = await requestFixture(serviceForRealFixture("normal-close"), { timeoutMs: 1000 });
+  assert.deepEqual(result, { ok: true });
+}
+
+async function testSuccessfulExitCompletesWithoutCloseAfterBoundedDrain() {
+  const child = processFixture((fixture) => {
+    fixture.stdout.emit("data", Buffer.from(VALID_STRUCTURED_PREFIX + VALID_STRUCTURED_SUFFIX));
+    fixture.emit("exit", 0, null);
+  });
+  const result = await requestFixture(serviceForChild(child, { drainTimeoutMs: 5 }), { timeoutMs: 100 });
+  assert.deepEqual(result, { ok: true });
+  assert.equal(child.stdout.destroyCalls, 1);
+  assert.equal(child.stderr.destroyCalls, 1);
+  assert.equal(child.stdout.unrefCalls, 1);
+  assert.equal(child.stderr.unrefCalls, 1);
+  assert.equal(child.unrefCalls, 1, "an exited child with retained descendant stdio must be detached after bounded drain");
+  assert.deepEqual(child.killCalls, [], "successful exit must not be reported as a termination request");
+}
+
+async function testExitWaitsForDelayedBoundedStdoutAndStderrDrain() {
+  const child = processFixture((fixture) => {
+    fixture.stdout.emit("data", Buffer.from(VALID_STRUCTURED_PREFIX));
+    fixture.emit("exit", 0, null);
+    setImmediate(() => {
+      fixture.stderr.emit("data", Buffer.from("bounded diagnostic"));
+      fixture.stdout.emit("data", Buffer.from(VALID_STRUCTURED_SUFFIX));
+      fixture.stdout.emit("end");
+      fixture.stderr.emit("end");
+    });
+  });
+  const result = await requestFixture(serviceForChild(child, { drainTimeoutMs: 100 }), { timeoutMs: 100 });
+  assert.deepEqual(result, { ok: true });
+  assert.equal(child.stdout.destroyCalls, 0, "completed stream drain must not be destroyed");
+  assert.equal(child.stderr.destroyCalls, 0);
+}
+
+async function testNormalCloseFallbackStillCompletes() {
+  const child = fakeChildProcess(VALID_STRUCTURED_PREFIX + VALID_STRUCTURED_SUFFIX, 0);
+  assert.deepEqual(await requestFixture(serviceForChild(child)), { ok: true });
+}
+
+async function testLifecycleFailuresAndTerminationDeliveryAreHonest() {
+  const spawnErrorChild = processFixture((fixture) => fixture.emit("error", Object.assign(new Error("spawn failed"), { code: "EACCES" })));
+  await assert.rejects(requestFixture(serviceForChild(spawnErrorChild)), /프로세스를 실행하지 못했습니다/u);
+
+  const nonzeroChild = processFixture((fixture) => {
+    fixture.stderr.emit("data", Buffer.from("bounded failure"));
+    fixture.stdout.emit("end");
+    fixture.stderr.emit("end");
+    fixture.emit("exit", 7, null);
+  });
+  await assert.rejects(requestFixture(serviceForChild(nonzeroChild)), (error) => error.exitCode === 7 && error.signal === null);
+
+  const signalChild = processFixture((fixture) => {
+    fixture.stdout.emit("end");
+    fixture.stderr.emit("end");
+    fixture.emit("exit", null, "SIGKILL");
+  });
+  await assert.rejects(requestFixture(serviceForChild(signalChild)), (error) => error.exitCode === null && error.signal === "SIGKILL" && /SIGKILL/u.test(error.message));
+
+  const timeoutChild = processFixture(() => {}, { killResult: false });
+  await assert.rejects(requestFixture(serviceForChild(timeoutChild), { timeoutMs: 5 }), (error) => {
+    assert.deepEqual(error.termination, { requestedSignal: "SIGTERM", signalDeliveryReported: false });
+    return /초과/u.test(error.message);
+  });
+  assert.deepEqual(timeoutChild.killCalls, ["SIGTERM"]);
+
+  const deliveryReportedChild = processFixture(() => {}, { killResult: true });
+  await assert.rejects(requestFixture(serviceForChild(deliveryReportedChild), { timeoutMs: 5 }), (error) => {
+    assert.deepEqual(error.termination, { requestedSignal: "SIGTERM", signalDeliveryReported: true });
+    assert.equal(Object.prototype.hasOwnProperty.call(error.termination, "processExited"), false, "signal delivery must not claim unobserved process death");
+    return true;
+  });
+
+  const controller = new AbortController();
+  const abortChild = processFixture(() => {}, { killResult: false });
+  const pending = requestFixture(serviceForChild(abortChild), { signal: controller.signal, timeoutMs: 100 });
+  controller.abort();
+  await assert.rejects(pending, (error) => {
+    assert.equal(error.name, "AbortError");
+    assert.deepEqual(error.termination, { requestedSignal: "SIGTERM", signalDeliveryReported: false });
+    return true;
+  });
+  assert.deepEqual(abortChild.killCalls, ["SIGTERM"]);
+}
+
+async function testExitCloseRaceSettlesExactlyOnce() {
+  const child = processFixture((fixture) => {
+    fixture.stdout.emit("data", Buffer.from(VALID_STRUCTURED_PREFIX + VALID_STRUCTURED_SUFFIX));
+    fixture.stdout.emit("end");
+    fixture.stderr.emit("end");
+    fixture.emit("exit", 0, null);
+    fixture.emit("close", 9, null);
+    fixture.emit("error", new Error("late error must not replace settled success"));
+  });
+  assert.deepEqual(await requestFixture(serviceForChild(child)), { ok: true });
+  assert.deepEqual(child.killCalls, []);
 }
 
 async function testStructuredRequestUsesPrintModeAndSchema() {
@@ -283,6 +442,14 @@ async function testQuotaFailureIsDistinctFromConnectionFailure() {
 }
 
 async function main() {
+  await testRealChildExitCompletesWhenDescendantRetainsStdio();
+  await testRealChildExitCapturesDelayedBoundedDrain();
+  await testRealChildNormalClosePath();
+  await testSuccessfulExitCompletesWithoutCloseAfterBoundedDrain();
+  await testExitWaitsForDelayedBoundedStdoutAndStderrDrain();
+  await testNormalCloseFallbackStillCompletes();
+  await testLifecycleFailuresAndTerminationDeliveryAreHonest();
+  await testExitCloseRaceSettlesExactlyOnce();
   await testStructuredRequestUsesPrintModeAndSchema();
   await testChatRequestExtractsJsonResponse();
   await testRejectsCallerSelectedBinaryAndDisabledSandboxBeforeSpawn();

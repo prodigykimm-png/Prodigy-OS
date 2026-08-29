@@ -5,12 +5,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
-const fixtures = require("./llmwiki_librarian_pipeline_fixtures.js");
+const fixtures = require("./llmwiki_proposal_fixtures.js");
 
 const ROOT = path.resolve(__dirname, "../../../../../../");
 const PACKET_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-approval-packet.js");
 const BUNDLE_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-proposal-bundle.js");
-const PIPELINE_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-librarian-pipeline.js");
 const OPERATION_CONTRACT_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js");
 
 function packetApi() {
@@ -24,21 +23,12 @@ function bundleApi() {
   return require(BUNDLE_PATH);
 }
 
-function pipelineApi() {
-  delete require.cache[PIPELINE_PATH];
-  return require(PIPELINE_PATH);
-}
-
 function operationApi() {
   return require(OPERATION_CONTRACT_PATH);
 }
 
-async function librarianEnvelope(overrides = {}) {
-  const pipeline = pipelineApi();
-  const input = fixtures.requestInput(overrides);
-  const result = await pipeline.runLibrarian(input, {
-    transport: async () => fixtures.sixKindProviderResponse(input.run_id, input.sources),
-  });
+async function proposalEnvelope(overrides = {}) {
+  const result = await fixtures.proposalEnvelope(overrides);
   assert.equal(result.ok, true, JSON.stringify(result));
   return result.value;
 }
@@ -116,7 +106,7 @@ function packetWithTypedOperation(kind, proposalKind) {
 }
 
 test("Todo 3/6 baseline remains a six-kind unverified proposal bundle with no persistent writes", async () => {
-  const envelope = await librarianEnvelope();
+  const envelope = await proposalEnvelope();
   assert.equal(envelope.trust_state, "proposal_unverified");
   assert.equal(envelope.approval_state, "requires_human_approval");
   assert.deepEqual(envelope.proposal_bundle.proposals.map((proposal) => proposal.kind), ["create", "update", "merge", "dispute", "abstain", "no_change"]);
@@ -136,7 +126,7 @@ test("Todo 3/6 baseline remains a six-kind unverified proposal bundle with no pe
 
 test("buildApprovalPacket renders the immutable six-kind packet with operations, evidence, conflicts, provider identity, and rollback identities", async () => {
   const approval = packetApi();
-  const envelope = await librarianEnvelope();
+  const envelope = await proposalEnvelope();
   const first = approval.buildApprovalPacket(envelope);
   const second = approval.buildApprovalPacket(envelope);
 
@@ -193,7 +183,7 @@ test("buildApprovalPacket renders the immutable six-kind packet with operations,
 
 test("Phase 1 approve_selected authorizes exactly one create and explicitly rejects a non-create payload", async () => {
   const approval = packetApi();
-  const packet = approval.buildApprovalPacket(await librarianEnvelope()).value;
+  const packet = approval.buildApprovalPacket(await proposalEnvelope()).value;
   const create = operationByKind(packet, "create");
   const update = operationByKind(packet, "update");
   const result = approval.applyApprovalAction(packet, {
@@ -220,11 +210,11 @@ test("Phase 1 approve_selected authorizes exactly one create and explicitly reje
 
 test("selected conflict, approve-all conflict, hidden non-create selection, stale hashes, and malformed selections fail closed", async () => {
   const approval = packetApi();
-  const packet = approval.buildApprovalPacket(await librarianEnvelope()).value;
+  const packet = approval.buildApprovalPacket(await proposalEnvelope()).value;
   const create = operationByKind(packet, "create");
   const update = operationByKind(packet, "update");
 
-  const conflictedEnvelope = clone(await librarianEnvelope({ run_id: "run_librarian_conflicted_create" }));
+  const conflictedEnvelope = clone(await proposalEnvelope({ run_id: "run_librarian_conflicted_create" }));
   conflictedEnvelope.proposal_bundle.proposals[0].conflicts = [{
     conflict_id: "create_claim_conflict",
     status: "unresolved",
@@ -272,7 +262,7 @@ test("selected conflict, approve-all conflict, hidden non-create selection, stal
 
 test("abstain, no-change, evidence-more, and reject are explicit no-write outcomes", async () => {
   const approval = packetApi();
-  const packet = approval.buildApprovalPacket(await librarianEnvelope()).value;
+  const packet = approval.buildApprovalPacket(await proposalEnvelope()).value;
   const more = approval.applyApprovalAction(packet, { action: "evidence_more", packet_hash: packet.packet_hash });
   const reject = approval.applyApprovalAction(packet, { action: "reject", packet_hash: packet.packet_hash });
 
@@ -302,7 +292,7 @@ test("abstain, no-change, evidence-more, and reject are explicit no-write outcom
 
 test("edit_then_approve remains non-committable until Todo 19", async () => {
   const approval = packetApi();
-  const packet = approval.buildApprovalPacket(await librarianEnvelope()).value;
+  const packet = approval.buildApprovalPacket(await proposalEnvelope()).value;
   const create = operationByKind(packet, "create");
   const result = approval.applyApprovalAction(packet, {
     action: "edit_then_approve",
@@ -328,7 +318,7 @@ test("edit_then_approve remains non-committable until Todo 19", async () => {
 
 test("malformed bundles, missing evidence, prompt injection, unauthorized targets, and unauthorized properties fail closed or remain untrusted data", async () => {
   const approval = packetApi();
-  const envelope = await librarianEnvelope();
+  const envelope = await proposalEnvelope();
   const packet = approval.buildApprovalPacket(envelope).value;
   const update = operationByKind(packet, "update");
 
@@ -384,7 +374,7 @@ test("packet build and actions never call writer/provider/network/git hooks and 
   try {
     fs.writeFileSync(path.join(temp, "sentinel.txt"), "unchanged");
     const before = fixtures.countTree(temp);
-    const packet = approval.buildApprovalPacket(await librarianEnvelope({ root_dir: temp }), {
+    const packet = approval.buildApprovalPacket(await proposalEnvelope({ root_dir: temp }), {
       writers: {
         canonical: () => { throw new Error("canonical writer must not run"); },
         candidate: () => { throw new Error("candidate writer must not run"); },

@@ -81,13 +81,13 @@ async function testExactDirectAndOmniIdentity() {
 
   assert.equal(direct.ok, true, JSON.stringify(direct));
   assert.equal(omni.ok, true, JSON.stringify(omni));
-  assert.deepEqual(calls.map((item) => item.providerKey), ["groq", "openrouter"]);
+  assert.deepEqual(calls.map((item) => item.providerKey), ["gemini", "openrouter"]);
   assert.deepEqual(calls.map((item) => item.providerMode), ["direct", "omniroute"]);
-  assert.deepEqual(calls[0].provider, config.providers.groq);
+  assert.deepEqual(calls[0].provider, config.providers.gemini);
   assert.deepEqual(calls[1].provider, config.providers.openrouter);
   assert.equal(calls[0].timeoutMs, 4321);
   assert.equal(calls[0].signal, signal);
-  assert.equal(calls[0].requestMetadata.provider_key, "groq");
+  assert.equal(calls[0].requestMetadata.provider_key, "gemini");
   assert.equal(calls[1].requestMetadata.provider_key, "openrouter");
   assert.deepEqual(calls[0].consent, consent);
   assert.equal(calls[0].prompt.includes("api_key"), false);

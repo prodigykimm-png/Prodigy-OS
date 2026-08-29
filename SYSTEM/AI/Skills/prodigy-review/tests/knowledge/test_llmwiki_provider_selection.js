@@ -4,12 +4,13 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { buildPages, runHub } = require("./knowledge_hub_integration_harness.js");
 
-test("LLM Wiki saves a compatible existing provider without starting analysis", async () => {
+test("LLM Wiki inherits the global provider and rejects feature-specific overrides", async () => {
   let operationCalls = 0;
   const result = await runHub({
     pages: buildPages(),
     extraFiles: {
       "SYSTEM/PRIVATE/prodigy.local.json": JSON.stringify({
+        defaultProvider: "codex",
         aiProfiles: {
           schema_version: 1,
           llmwiki: { direct_provider_key: "antigravity", omniroute_provider_key: "" },
@@ -26,22 +27,21 @@ test("LLM Wiki saves a compatible existing provider without starting analysis", 
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
 
   const beforeTouches = result.app.vault.touched.length;
-  const changed = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({
-    action: "set_provider",
-    provider_key: "codex",
-  });
-
-  assert.equal(changed.ok, true);
-  assert.equal(changed.provider_key, "codex");
-  assert.equal(operationCalls, 0);
-  assert.equal(result.app.vault.touched.length, beforeTouches + 1);
-  const configFile = result.app.vault.getAbstractFileByPath("SYSTEM/PRIVATE/prodigy.local.json");
-  const persisted = JSON.parse(await result.app.vault.read(configFile));
-  assert.equal(persisted.aiProfiles.llmwiki.direct_provider_key, "codex");
   const snapshot = result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot();
   assert.equal(snapshot.provider_key, "codex");
-  assert.ok(snapshot.provider_options.some((option) => option.provider_key === "antigravity"));
-  assert.ok(snapshot.provider_options.some((option) => option.provider_key === "codex"));
+  const changed = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({
+    action: "set_provider",
+    provider_key: "antigravity",
+  });
+
+  assert.equal(changed.ok, false);
+  assert.equal(changed.reason, "action_unavailable");
+  assert.equal(operationCalls, 0);
+  assert.equal(result.app.vault.touched.length, beforeTouches);
+  const configFile = result.app.vault.getAbstractFileByPath("SYSTEM/PRIVATE/prodigy.local.json");
+  const persisted = JSON.parse(await result.app.vault.read(configFile));
+  assert.equal(persisted.defaultProvider, "codex");
+  assert.equal(persisted.aiProfiles.llmwiki.direct_provider_key, "antigravity");
 });
 
 test("LLM Wiki rejects provider changes while an inbox analysis is active", async () => {
@@ -60,12 +60,22 @@ test("LLM Wiki rejects provider changes while an inbox analysis is active", asyn
       }),
     },
     llmWikiControllerOptions: {
-      inboxAnalysisTransport: async () => {
+      batchIdentity: {
+        provider_key: "openrouter",
+        model: "test/model-1",
+        structured_mode: "json_schema",
+        schema_id: "llmwiki_compact_v1",
+        prompt_version: "p11-selection",
+      },
+      batchProvider: async () => {
         markStarted();
         return new Promise((resolve) => { releaseAnalysis = resolve; });
       },
     },
   });
+  await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  // Subscribe before triggering: the batch provider gate marks the start.
+  const analyzeDispatch = result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
   await started;
 
   const changed = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({
@@ -74,10 +84,11 @@ test("LLM Wiki rejects provider changes while an inbox analysis is active", asyn
   });
 
   assert.equal(changed.ok, false);
-  assert.equal(changed.reason, "provider_selection_busy");
+  assert.equal(changed.reason, "action_unavailable");
   const configFile = result.app.vault.getAbstractFileByPath("SYSTEM/PRIVATE/prodigy.local.json");
   const persisted = JSON.parse(await result.app.vault.read(configFile));
   assert.equal(persisted.aiProfiles.llmwiki.direct_provider_key, "antigravity");
-  releaseAnalysis({ ok: false, reason: "provider_quota_exhausted" });
+  releaseAnalysis({ ok: true, artifacts: [] });
+  await analyzeDispatch;
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
 });

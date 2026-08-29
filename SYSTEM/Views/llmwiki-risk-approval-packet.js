@@ -98,7 +98,7 @@
     if (!summary) return fail("summary", "summary_required");
     if (!plain(input.provenance) || !Array.isArray(input.provenance.source_ids)) return fail("provenance", "complete_provenance_required");
     const operation = input.operation;
-    const authorityPaths = [...operation.destination_ids, ...(operation.source_ids || []), ...operation.effects.deprecations.map((item) => item.destination_id), ...operation.effects.supersessions.map((item) => item.destination_id)];
+    const authorityPaths = [...operation.destination_ids, ...operation.effects.deprecations.map((item) => item.destination_id), ...operation.effects.supersessions.map((item) => item.destination_id)];
     if (!authorityPaths.every(canonicalPath)) return fail("operation.destination_ids", "canonical_target_required");
     const sourceIds = sorted(operation.source_citations.map((item) => item.source_id));
     if (duplicate(input.provenance.source_ids) || stable(sorted(input.provenance.source_ids)) !== stable(sourceIds)) return fail("provenance.source_ids", "source_lineage_mismatch");

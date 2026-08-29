@@ -65,6 +65,7 @@ test("renders provenance fields in a one-scroll-owner read-only modal and does n
   assert.equal(sourceButtons.length, 1);
   assert.equal(sourceButtons[0].parentElement.tagName, "LI");
   assert.equal(walk(modal.contentEl, (node) => node.textContent === "ZETA/LITERATURE/source.md#anchor").length, 1);
+  assert.equal(walk(modal.contentEl, (node) => node.textContent === "근거 주장").length, 1);
   assert.equal(sourceButtons[0].onclick, undefined);
   const article = modal.contentEl.querySelector("article");
   assert.equal(typeof article.onclick, "function");

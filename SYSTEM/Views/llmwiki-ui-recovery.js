@@ -5,7 +5,16 @@
     profile_missing: { copy: "LLMWiki AI 프로필이 설정되지 않았습니다.", action: "open_settings" },
     provider_mode_invalid: { copy: "LLMWiki AI 연결 모드를 확인해 주세요.", action: "open_settings" },
     provider_unavailable: { copy: "선택한 LLMWiki AI 연결을 사용할 수 없습니다.", action: "open_settings" },
-    provider_quota_exhausted: { copy: "Antigravity 사용 한도가 초기화된 후 다시 시도해 주세요.", action: "retry" },
+    provider_quota_exhausted: { copy: "현재 AI 제공자의 사용 한도를 확인한 뒤 다시 시도해 주세요.", action: "retry" },
+    provider_auth_required: { copy: "현재 AI 제공자의 인증 설정을 확인해 주세요.", action: "open_settings" },
+    secret_missing: { copy: "현재 AI 제공자의 인증 정보가 없습니다.", action: "open_settings" },
+    config_invalid: { copy: "LLMWiki AI 설정을 확인해 주세요.", action: "open_settings" },
+    configuration_unavailable: { copy: "LLMWiki AI 설정을 불러오지 못했습니다.", action: "open_settings" },
+    outcome_unknown: { copy: "이전 요청의 결과를 확인할 수 없습니다.", action: "retry_later" },
+    stale: { copy: "검토 중 원본이 변경되었습니다.", action: "review_sources" },
+    stale_reconfirm_required: { copy: "검토 중 원본이 변경되었습니다.", action: "review_sources" },
+    repacket: { copy: "새 검토 패킷이 필요합니다.", action: "review_sources" },
+    blocked: { copy: "분석이 중단되었습니다.", action: "retry_later" },
     provider_missing: { copy: "LLMWiki에 연결할 AI 제공자 설정을 찾을 수 없습니다.", action: "open_settings" },
     provider_identity_mismatch: { copy: "LLMWiki AI 제공자 확인이 만료되었습니다. 다시 시도해 주세요.", action: "retry" },
     transport_unavailable: { copy: "LLMWiki AI 연결을 준비하지 못했습니다. 설정을 확인해 주세요.", action: "open_settings" },
@@ -41,16 +50,72 @@
 
   function text(value) { return typeof value === "string" ? value.trim() : ""; }
 
+  const RECOVERY_ACTIONS = Object.freeze({
+    config: Object.freeze([
+      Object.freeze({ action: "open_ai_settings", label: "AI 설정 열기", primary: true }),
+      Object.freeze({ action: "retry_analysis", label: "다시 분석" }),
+      Object.freeze({ action: "later", label: "나중에" }),
+    ]),
+    auth: Object.freeze([
+      Object.freeze({ action: "open_ai_settings", label: "AI 설정 열기", primary: true }),
+      Object.freeze({ action: "retry_analysis", label: "다시 분석" }),
+      Object.freeze({ action: "later", label: "나중에" }),
+    ]),
+    quota: Object.freeze([
+      Object.freeze({ action: "retry_analysis", label: "다시 분석", primary: true }),
+      Object.freeze({ action: "open_ai_settings", label: "AI 설정 열기" }),
+      Object.freeze({ action: "later", label: "나중에" }),
+    ]),
+    provider: Object.freeze([
+      Object.freeze({ action: "open_ai_settings", label: "AI 설정 열기", primary: true }),
+      Object.freeze({ action: "retry_analysis", label: "다시 분석" }),
+      Object.freeze({ action: "later", label: "나중에" }),
+    ]),
+    outcome_unknown: Object.freeze([
+      Object.freeze({ action: "retry_analysis", label: "다시 분석", primary: true }),
+      Object.freeze({ action: "later", label: "나중에" }),
+    ]),
+    stale: Object.freeze([
+      Object.freeze({ action: "repacket", label: "새 검토 패킷 만들기", primary: true }),
+      Object.freeze({ action: "later", label: "나중에" }),
+    ]),
+    repacket: Object.freeze([
+      Object.freeze({ action: "repacket", label: "새 검토 패킷 만들기", primary: true }),
+      Object.freeze({ action: "later", label: "나중에" }),
+    ]),
+    blocked: Object.freeze([
+      Object.freeze({ action: "retry_analysis", label: "다시 분석", primary: true }),
+      Object.freeze({ action: "later", label: "나중에" }),
+    ]),
+  });
+
   function reasonFor(input) {
     const value = input && typeof input === "object" ? input : {};
     const code = text(value.code || value.reason || value.field);
     const status = Number(value.status || value.httpStatus || 0);
-    if (code === "ETIMEDOUT" || code === "timeout" || /timeout|timed out/i.test(text(value.message))) return "provider_timeout";
+    if (code === "ETIMEDOUT" || code === "timeout") return "provider_timeout";
     if (code === "AbortError" || code === "aborted" || value.name === "AbortError") return "provider_aborted";
     if (status === 429 || code === "provider_rate_limited") return "provider_rate_limited";
     if (status === 503 || status === 502 || status === 504) return "provider_unavailable_route";
     if (status >= 400 && status < 500 && code === "provider_failed") return "provider_unavailable";
     return Object.prototype.hasOwnProperty.call(COPY, code) ? code : "unknown";
+  }
+
+  function recoveryVariantFor(input) {
+    const code = reasonFor(input);
+    if (["profile_missing", "provider_mode_invalid", "provider_missing", "config_invalid", "configuration_unavailable"].includes(code)) return "config";
+    if (["provider_auth_required", "secret_missing"].includes(code)) return "auth";
+    if (["provider_quota_exhausted", "provider_rate_limited"].includes(code)) return "quota";
+    if (code === "outcome_unknown") return "outcome_unknown";
+    if (["stale", "stale_reconfirm_required"].includes(code)) return "stale";
+    if (code === "repacket") return "repacket";
+    if (code === "blocked") return "blocked";
+    return "provider";
+  }
+
+  function recoveryActions(variant) {
+    const actions = RECOVERY_ACTIONS[text(variant)] || RECOVERY_ACTIONS.blocked;
+    return Object.freeze(actions.map((item) => item));
   }
 
   function mapRecovery(input) {
@@ -65,7 +130,7 @@
     return Object.freeze({ ok: value.ok === true, status: value.ok === true ? "ready" : "recovery", copy: mapped.copy, action: mapped.action, code: mapped.code });
   }
 
-  const api = Object.freeze({ mapRecovery, toUiState });
+  const api = Object.freeze({ RECOVERY_ACTIONS, reasonFor, recoveryVariantFor, recoveryActions, mapRecovery, toUiState });
   root.LLMWikiUIRecovery = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

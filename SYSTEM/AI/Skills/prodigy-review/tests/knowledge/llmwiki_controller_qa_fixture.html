@@ -107,7 +107,6 @@
   <script src="../../../../../Views/llmwiki-provider-response-schema.js"></script>
   <script src="../../../../../Views/llmwiki-provider-contract.js"></script>
   <script src="../../../../../Views/llmwiki-operation-classifier.js"></script>
-  <script src="../../../../../Views/llmwiki-librarian-pipeline.js"></script>
   <script src="../../../../../Views/llmwiki-outbound-consent.js"></script>
   <script src="../../../../../Views/llmwiki-run-state.js"></script>
   <script src="../../../../../Views/llmwiki-canonical-packet.js"></script>
@@ -142,12 +141,23 @@
   <script src="../../../../../Views/llmwiki-approval-review-view.js"></script>
   <script src="../../../../../Views/llmwiki-derived-refresh.js"></script>
   <script src="../../../../../Views/llmwiki-analysis-scope.js"></script>
+  <script src="../../../../../Views/llmwiki-ui-recovery.js"></script>
   <script src="../../../../../Views/llmwiki-source-adapters.js"></script>
   <script src="../../../../../Views/llmwiki-risk-approval-packet.js"></script>
   <script src="../../../../../Views/llmwiki-migration-rollout.js"></script>
   <script src="../../../../../Views/llmwiki-run-controller.js"></script>
   <script src="../../../../../Views/knowledge-styles.js"></script>
   <script src="../../../../../Views/llmwiki-lifecycle-view.js"></script>
+  <script>
+    (() => {
+      const loaded = [...document.scripts].map((script) => new URL(script.src || location.href).pathname.split("/").pop());
+      const recoveryIndex = loaded.indexOf("llmwiki-ui-recovery.js");
+      const lifecycleIndex = loaded.indexOf("llmwiki-lifecycle-view.js");
+      if (typeof window.LLMWikiUIRecovery?.mapRecovery !== "function") throw new Error("Retained LLMWiki UI recovery authority unavailable");
+      if (recoveryIndex < 0 || lifecycleIndex < 0 || recoveryIndex >= lifecycleIndex) throw new Error("LLMWiki fixture loader order diverged from the Knowledge workspace manifest");
+      window.__task15FixtureLoader = Object.freeze({ recoveryIndex, lifecycleIndex, recoveryAvailable: true });
+    })();
+  </script>
   <script src="../../../../../Views/knowledge-workspace-tabs.js"></script>
   <script src="./llmwiki_controller_qa_fixture.js"></script>
 </body>

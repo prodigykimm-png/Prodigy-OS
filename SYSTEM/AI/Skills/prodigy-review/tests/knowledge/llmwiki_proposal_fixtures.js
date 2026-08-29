@@ -237,6 +237,40 @@ function requestInput(overrides = {}) {
   };
 }
 
+async function proposalEnvelope(overrides = {}, mutateResponse) {
+  const input = requestInput(overrides);
+  const response = sixKindProviderResponse(input.run_id, input.sources);
+  if (typeof mutateResponse === "function") mutateResponse(response);
+  const proposalBundle = require("../../../../../Views/llmwiki-proposal-bundle.js");
+  const built = proposalBundle.buildProposalBundle(response.proposal_bundle);
+  if (!built.ok) return built;
+  const conflicts = built.value.proposals.flatMap((proposal) => proposal.conflicts || []);
+  const abstentions = built.value.proposals.filter((proposal) => proposal.kind === "abstain").map((proposal) => ({ proposal_id: proposal.proposal_id, reason: proposal.abstention_reason }));
+  const uncertainty = built.value.proposals.filter((proposal) => proposal.confidence === "low").map((proposal) => ({ proposal_id: proposal.proposal_id, confidence: "low" }));
+  const value = {
+    pipeline_version: "llmwiki_proposal_fixture_v1",
+    run_id: input.run_id,
+    phase: "proposal_bundle",
+    status: "completed",
+    phase_statuses: [],
+    selected_source_lineage_ids: [],
+    selected_source_ids: input.sources.map((source) => source.manifest.source_id),
+    retrieval_envelope: {},
+    proposal_bundle: built.value,
+    operation_classifications: [],
+    provider_metadata: { mode: "direct", feature: "llmwiki", response: response.response_metadata, retry: { owner: "none", timeout_ms: 0, fallback_allowed: false } },
+    trust_state: "proposal_unverified",
+    approval_state: "requires_human_approval",
+    conflicts,
+    abstentions,
+    uncertainty,
+    capture: { captured: false, reason: "capture_not_requested" },
+    write_counters: { canonical: 0, candidate: 0, index: 0, memory: 0, feedback: 0, git: 0, validation_workspace: 0, capture: 0 },
+  };
+  value.envelope_hash = sha256(JSON.stringify(value));
+  return { ok: true, value };
+}
+
 function retrievalFor(sources, overrides = {}) {
   return {
     query: "독서 루틴",
@@ -272,5 +306,6 @@ module.exports = {
   citation,
   sixKindProviderResponse,
   requestInput,
+  proposalEnvelope,
   retrievalFor,
 };

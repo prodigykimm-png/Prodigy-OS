@@ -30,6 +30,7 @@
   });
 
   const RELAY_TOKEN_SECRET = "prodigy-antigravity-relay-token";
+  const PROCESS_DRAIN_TIMEOUT_MS = 250;
 
   function resolveRequire() {
     if (typeof require === "function") return require;
@@ -148,7 +149,7 @@
     return error;
   }
 
-  function failedExitError(stdout, stderr, code) {
+  function failedExitError(stdout, stderr, code, signal) {
     let detail = "";
     try {
       const envelope = parseEnvelope(stdout);
@@ -179,7 +180,9 @@
       error.code = "ANTIGRAVITY_SANDBOX_BLOCKED";
       return error;
     }
-    return new Error(`Antigravity CLI가 종료 코드 ${code == null ? "unknown" : code}로 종료되었습니다. agy 로그인 상태와 권한을 확인해 주세요.`);
+    return new Error(code == null && signal
+      ? `Antigravity CLI가 신호 ${signal}로 종료되었습니다. agy 로그인 상태와 권한을 확인해 주세요.`
+      : `Antigravity CLI가 종료 코드 ${code == null ? "unknown" : code}로 종료되었습니다. agy 로그인 상태와 권한을 확인해 주세요.`);
   }
 
   function parseJsonPayload(text) {
@@ -343,9 +346,13 @@
       let stderr = "";
       let settled = false;
       let timer = null;
+      let drainTimer = null;
       let abortHandler = null;
+      let completion = null;
+      const streamDone = { stdout: false, stderr: false };
       const cleanup = () => {
         if (timer) clearTimeout(timer);
+        if (drainTimer) clearTimeout(drainTimer);
         if (options.signal && abortHandler && typeof options.signal.removeEventListener === "function") options.signal.removeEventListener("abort", abortHandler);
       };
       const finish = (callback, value) => {
@@ -355,6 +362,56 @@
         callback(value);
       };
       const fail = (error) => finish(reject, error instanceof Error ? error : new Error(String(error || "Antigravity CLI 실행에 실패했습니다.")));
+      const detachOpenHandles = () => {
+        [child && child.stdout, child && child.stderr].forEach((stream) => {
+          if (!stream) return;
+          if (typeof stream.unref === "function") stream.unref();
+          if (!stream.destroyed && typeof stream.destroy === "function") stream.destroy();
+        });
+        if (child && typeof child.unref === "function") child.unref();
+      };
+      const requestTermination = () => {
+        let signalDeliveryReported = false;
+        try {
+          signalDeliveryReported = Boolean(child && typeof child.kill === "function" && child.kill("SIGTERM"));
+        } catch (_error) {}
+        return { requestedSignal: "SIGTERM", signalDeliveryReported };
+      };
+      const finishCompletion = () => {
+        if (settled || !completion) return;
+        const { code, signal } = completion;
+        if (code !== 0 || signal) {
+          const error = failedExitError(stdout, stderr, code, signal);
+          error.exitCode = code == null ? null : code;
+          error.signal = signal || null;
+          fail(error);
+          return;
+        }
+        finish(resolve, stdout);
+      };
+      const streamsDrained = () => streamDone.stdout && streamDone.stderr;
+      const markStreamDone = (name) => {
+        streamDone[name] = true;
+        if (completion && streamsDrained()) finishCompletion();
+      };
+      const beginCompletion = (code, signal, closeObserved) => {
+        if (settled) return;
+        if (!completion) completion = { code: code == null ? null : code, signal: signal || null };
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (closeObserved || streamsDrained()) {
+          finishCompletion();
+          return;
+        }
+        if (drainTimer) return;
+        const drainTimeoutMs = Number(dependencies && dependencies.drainTimeoutMs) >= 0
+          ? Number(dependencies.drainTimeoutMs)
+          : PROCESS_DRAIN_TIMEOUT_MS;
+        drainTimer = setTimeout(() => {
+          drainTimer = null;
+          detachOpenHandles();
+          finishCompletion();
+        }, drainTimeoutMs);
+      };
 
       if (options.signal && options.signal.aborted) {
         fail(abortError());
@@ -370,27 +427,32 @@
         fail(new Error("Antigravity CLI 프로세스 인터페이스를 사용할 수 없습니다."));
         return;
       }
-      child.stdout.on("data", (chunk) => { stdout += String(chunk); });
-      child.stderr.on("data", (chunk) => { if (stderr.length < 8192) stderr += String(chunk || "").slice(0, 8192 - stderr.length); });
+      child.stdout.on("data", (chunk) => { if (!settled) stdout += String(chunk); });
+      child.stderr.on("data", (chunk) => { if (!settled && stderr.length < 8192) stderr += String(chunk || "").slice(0, 8192 - stderr.length); });
+      child.stdout.once("end", () => markStreamDone("stdout"));
+      child.stdout.once("close", () => markStreamDone("stdout"));
+      child.stderr.once("end", () => markStreamDone("stderr"));
+      child.stderr.once("close", () => markStreamDone("stderr"));
       child.once("error", (error) => {
+        if (settled) return;
+        detachOpenHandles();
         if (error && error.code === "ENOENT") fail(new Error("Antigravity CLI를 찾지 못했습니다. `agy` 설치와 PATH 또는 AGY_BIN 설정을 확인해 주세요."));
         else fail(new Error("Antigravity CLI 프로세스를 실행하지 못했습니다."));
       });
-      child.once("close", (code) => {
-        if (code !== 0) {
-          fail(failedExitError(stdout, stderr, code));
-          return;
-        }
-        finish(resolve, stdout);
-      });
+      child.once("exit", (code, signal) => beginCompletion(code, signal, false));
+      child.once("close", (code, signal) => beginCompletion(code, signal, true));
       abortHandler = () => {
-        if (child && typeof child.kill === "function") child.kill("SIGTERM");
-        fail(abortError());
+        const error = abortError();
+        error.termination = requestTermination();
+        detachOpenHandles();
+        fail(error);
       };
       if (options.signal && typeof options.signal.addEventListener === "function") options.signal.addEventListener("abort", abortHandler, { once: true });
       timer = setTimeout(() => {
-        if (child && typeof child.kill === "function") child.kill("SIGTERM");
-        fail(new Error("Antigravity 분석 시간이 초과되었습니다. `agy` 로그인 상태와 네트워크를 확인해 주세요."));
+        const error = new Error("Antigravity 분석 시간이 초과되었습니다. `agy` 로그인 상태와 네트워크를 확인해 주세요.");
+        error.termination = requestTermination();
+        detachOpenHandles();
+        fail(error);
       }, timeoutMs);
     });
   }

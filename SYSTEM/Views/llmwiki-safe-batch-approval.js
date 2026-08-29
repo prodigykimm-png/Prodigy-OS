@@ -93,8 +93,11 @@
 
   async function audit(adapter, authorization, status, details) {
     const record = freeze({ audit_version: "llmwiki_safe_batch_audit_v1", batch_identity: authorization.batch_identity, authorization_hash: authorization.authorization_hash, exact_selection_set: authorization.selection_set, packet_snapshots: authorization.packet_snapshots, status, ...details });
-    try { return { ok: (await adapter.auditBatch(record))?.ok === true, record }; }
-    catch (_error) { return { ok: false, record }; }
+    try {
+      const audited = await adapter.auditBatch(record);
+      return { ok: audited?.ok === true, record, reason: audited?.reason || (audited?.ok === true ? undefined : "batch_audit_failed") };
+    }
+    catch (error) { return { ok: false, record, reason: error.message || "batch_audit_failed" }; }
   }
 
   async function compensate(adapter, committed) {
@@ -154,7 +157,7 @@
           const compensation = await compensate(request.adapter, toRestore);
           const netCanonical = compensation.failures.length ? toRestore.reduce((sum, row) => sum + Number(row.write_counts.canonical || 0), 0) : 0;
           const audited = await audit(request.adapter, authorization, "failed", { reason, committed_packet_ids: toRestore.map((row) => row.packet.packet_id), actual_touched_paths: touched?.actual || [], restored_packet_ids: compensation.restored, compensation_failures: compensation.failures, net_canonical_writes: netCanonical, preflight });
-          return result(false, "failed", { reason, full_success: false, compensation_status: compensation.failures.length ? "manual_restore_required" : "restored", compensation, failure_audit: audited.record, write_counts: counts({ canonical: netCanonical, audit: audited.ok ? 1 : 0 }) });
+          return result(false, "failed", { reason, ...(audited.ok ? {} : { audit_reason: audited.reason }), full_success: false, compensation_status: compensation.failures.length ? "manual_restore_required" : "restored", compensation, failure_audit: audited.record, write_counts: counts({ canonical: netCanonical, audit: audited.ok ? 1 : 0 }) });
         }
         committed.push({ packet, receipt: written.receipt, write_counts: written.write_counts || {} });
       }
@@ -164,7 +167,7 @@
       if (!audited.ok) {
         const compensation = await compensate(request.adapter, committed);
         const netCanonical = compensation.failures.length ? canonical : 0;
-        return result(false, "failed", { reason: "batch_audit_failed", full_success: false, compensation_status: compensation.failures.length ? "manual_restore_required" : "restored", compensation, write_counts: counts({ canonical: netCanonical }) });
+        return result(false, "failed", { reason: "batch_audit_failed", audit_reason: audited.reason, full_success: false, compensation_status: compensation.failures.length ? "manual_restore_required" : "restored", compensation, write_counts: counts({ canonical: netCanonical }) });
       }
       const actualTouchedPaths = committed.flatMap((row) => row.receipt.actual_touched_paths).sort(compare);
       const receipt = freeze({ receipt_version: "llmwiki_safe_batch_receipt_v1", status: "committed", batch_identity: authorization.batch_identity, authorization_hash: authorization.authorization_hash, exact_selection_set: authorization.selection_set, allowed_write_set: authorization.allowed_write_set, actual_touched_paths: actualTouchedPaths, path_boundary_verified: writeSetApi().samePaths(actualTouchedPaths, authorization.allowed_write_set), packet_snapshots: authorization.packet_snapshots, deterministic_order: authorization.selection_set, counters: { selected: request.packets.length, committed: request.packets.length, canonical_writes: canonical, audit_writes: itemAudits + 1 } });

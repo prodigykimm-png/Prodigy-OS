@@ -14,67 +14,6 @@ function load(sandbox, name) {
   vm.runInContext(source(name), sandbox, { filename: name });
 }
 
-function pipelineSandbox({ withCrypto }) {
-  const sandbox = vm.createContext({
-    console,
-    TextEncoder,
-    Uint8Array,
-    DataView,
-    ArrayBuffer,
-    LLMWikiSourceLineage: Object.freeze({ validateSourceManifest: (manifest) => ({ ok: true, value: manifest }) }),
-    LLMWikiQueryReadOnly: Object.freeze({ queryRead: () => ({ ok: true, value: { status: "ok", envelope_hash: HASH } }) }),
-    LLMWikiProviderContract: Object.freeze({ selectProviderProfile: () => ({ ok: true, value: {} }) }),
-    LLMWikiProposalBundle: Object.freeze({ captureProposalBundle: () => ({ ok: true, value: { captured: false } }) }),
-    LLMWikiOperationContract: Object.freeze({
-      isOperationRecord: () => false,
-      isCanonicalOperationRecord: () => false,
-    }),
-    LLMWikiOperationClassifier: Object.freeze({ classifyOperation: () => ({ ok: false, reason: "unexpected_operation" }) }),
-  });
-  load(sandbox, "llmwiki-hash.js");
-  if (withCrypto) {
-    sandbox.crypto = Object.freeze({
-      subtle: Object.freeze({
-        async digest(algorithm, bytes) {
-          assert.equal(algorithm, "SHA-256");
-          const hex = sandbox.LLMWikiHash.sha256Bytes(new Uint8Array(bytes));
-          return Uint8Array.from(hex.match(/../gu), (pair) => Number.parseInt(pair, 16)).buffer;
-        },
-      }),
-    });
-  }
-  load(sandbox, "llmwiki-librarian-pipeline.js");
-  sandbox.input = {
-    run_id: "run_task10_browser_approval",
-    sources: [{
-      selected: true,
-      manifest: {
-        source_id: "source_task10_browser",
-        content_hash: HASH,
-        source_url: "https://example.com/task10",
-        locators: ["ZETA/LITERATURE/task10.md#claim"],
-        refresh_revision: 1,
-      },
-    }],
-    source_scope: {},
-    retrieval: {},
-    provider: {},
-    proposal_request: {},
-  };
-  sandbox.options = {
-    providerInvoker: async () => ({
-      ok: true,
-      value: {
-        proposal_envelope: { proposals: [], bundle_hash: "b".repeat(64) },
-        provider_metadata: {},
-        trust_state: "proposal_unverified",
-        approval_state: "requires_human_approval",
-      },
-    }),
-  };
-  return sandbox;
-}
-
 function approvalSandbox() {
   const sandbox = vm.createContext({ console, URL, TextEncoder, Uint8Array, DataView, ArrayBuffer });
   sandbox.KnowledgeCandidateStore = Object.freeze({
@@ -123,22 +62,6 @@ function updateDocument(summary) {
     body: `# Task10 browser update\n\n${summary}\n`,
   };
 }
-
-test("Task10 approval VM keeps missing crypto typed and accepts an explicit browser-equivalent hash capability", async () => {
-  const missing = pipelineSandbox({ withCrypto: false });
-  const unavailable = await vm.runInContext("LLMWikiLibrarianPipeline.runLibrarian(input, options)", missing);
-  assert.equal(unavailable.ok, false);
-  assert.equal(unavailable.reason, "crypto_unavailable");
-  assert.deepEqual(JSON.parse(JSON.stringify(unavailable.write_counters)), {
-    canonical: 0, candidate: 0, index: 0, memory: 0, feedback: 0, git: 0, validation_workspace: 0, capture: 0,
-  });
-
-  const browser = pipelineSandbox({ withCrypto: true });
-  const result = await vm.runInContext("LLMWikiLibrarianPipeline.runLibrarian(input, options)", browser);
-  assert.equal(result.ok, true, JSON.stringify(result));
-  assert.match(result.value.envelope_hash, /^[0-9a-f]{64}$/u);
-  assert.equal(vm.runInContext("typeof require === 'undefined' && typeof Buffer === 'undefined'", browser), true);
-});
 
 test("Task10 browser update approval requires serialized private brands and the authorization transform", async () => {
   const browser = approvalSandbox();

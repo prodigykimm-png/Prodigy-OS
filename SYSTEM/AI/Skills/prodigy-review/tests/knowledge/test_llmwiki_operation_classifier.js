@@ -10,9 +10,7 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const classifier = require(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-classifier.js"));
 const knowledgeContract = require(path.join(ROOT, "SYSTEM/Views/llmwiki-knowledge-kind-contract.js"));
 const operationContract = require(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"));
-const pipeline = require(path.join(ROOT, "SYSTEM/Views/llmwiki-librarian-pipeline.js"));
 const providerSchema = require(path.join(ROOT, "SYSTEM/Views/llmwiki-provider-response-schema.js"));
-const pipelineFixtures = require("./llmwiki_librarian_pipeline_fixtures.js");
 const corpus = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/llmwiki-operation-classifier-v1.json"), "utf8"));
 
 const A = "a".repeat(64);
@@ -297,10 +295,10 @@ test("prompt-shaped bytes and dirty-worktree metadata cannot add delete, path, w
   assert.equal(JSON.stringify(result).includes("canonical_write"), false);
 });
 
-test("provider schema exposes the typed-operation contract and runs in a codec-free browser VM with strict UTF-8", async () => {
+test("provider schema exposes the typed-operation contract and runs in a codec-free browser VM with strict UTF-8", () => {
   const schemaPath = path.join(ROOT, "SYSTEM/Views/llmwiki-provider-response-schema.js");
   const schemaSource = fs.readFileSync(schemaPath, "utf8");
-  for (const file of ["llmwiki-provider-contract.js", "llmwiki-provider-response-schema.js", "llmwiki-librarian-pipeline.js"]) {
+  for (const file of ["llmwiki-provider-contract.js", "llmwiki-provider-response-schema.js"]) {
     const source = fs.readFileSync(path.join(ROOT, "SYSTEM/Views", file), "utf8");
     assert.equal(/node:|\bBuffer\b/u.test(source), false, file);
   }
@@ -313,25 +311,6 @@ test("provider schema exposes the typed-operation contract and runs in a codec-f
   vm.runInContext(fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-provider-contract.js"), "utf8"), providerBrowser, { filename: "llmwiki-provider-contract.js" });
   providerBrowser.request = { feature: "llmwiki", provider_mode: "direct", timeout_ms: 1000, retry_owner: "prodigy", request_metadata: { provider_key: "browser_provider" } };
   assert.equal(vm.runInContext("LLMWikiProviderContract.selectProviderProfile(request).ok", providerBrowser), true);
-  const pipelineBrowser = vm.createContext({
-    LLMWikiSourceLineage: Object.freeze({ validateSourceManifest: (manifest) => ({ ok: true, value: manifest }) }),
-    LLMWikiQueryReadOnly: Object.freeze({ queryRead: () => ({ ok: true, value: { status: "ok", envelope_hash: "a".repeat(64) } }) }),
-    LLMWikiProviderContract: Object.freeze({ selectProviderProfile: () => ({ ok: true, value: {} }) }),
-    LLMWikiProposalBundle: Object.freeze({ captureProposalBundle: () => ({ ok: true, value: { captured: false } }) }),
-    LLMWikiOperationContract: Object.freeze({ isOperationRecord: () => false, isCanonicalOperationRecord: () => false }),
-    LLMWikiOperationClassifier: Object.freeze({ classifyOperation: () => ({ ok: false, reason: "unexpected_operation" }) }),
-  });
-  vm.runInContext(fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-librarian-pipeline.js"), "utf8"), pipelineBrowser, { filename: "llmwiki-librarian-pipeline.js" });
-  pipelineBrowser.input = {
-    run_id: "run_browser_crypto_absent",
-    sources: [{ manifest: { source_id: "source_browser", content_hash: "a".repeat(64), source_url: "https://example.com/source", locators: ["ZETA/LITERATURE/source.md#claim"], refresh_revision: 1 }, selected: true }],
-    source_scope: {}, retrieval: {}, provider: {}, proposal_request: {},
-  };
-  pipelineBrowser.options = { providerInvoker: async () => ({ ok: true, value: { proposal_envelope: { proposals: [], bundle_hash: "b".repeat(64) }, provider_metadata: {}, trust_state: "proposal_unverified", approval_state: "requires_human_approval" } }) };
-  const noCrypto = await vm.runInContext("LLMWikiLibrarianPipeline.runLibrarian(input, options)", pipelineBrowser);
-  assert.equal(noCrypto.ok, false);
-  assert.equal(noCrypto.reason, "crypto_unavailable");
-  assert.equal(noCrypto.writer_count, 0);
   const browser = vm.createContext({});
   vm.runInContext(schemaSource, browser, { filename: "llmwiki-provider-response-schema.js" });
   const browserSchema = vm.runInContext("LLMWikiProviderResponseSchema", browser);
@@ -366,28 +345,4 @@ test("provider schema exposes the typed-operation contract and runs in a codec-f
   assert.equal(typeof providerSchema.utf8ByteLength, "function");
   assert.equal(providerSchema.$defs.proposal.properties.operation.type, "string");
   assert.equal(providerSchema.$defs.proposal.properties.operation.contentMediaType, "application/json");
-});
-
-test("pipeline preserves the private operation brand and baseline untyped create lifecycle", async () => {
-  const input = pipelineFixtures.requestInput();
-  const typed = pipelineFixtures.sixKindProviderResponse(input.run_id, input.sources);
-  const created = operation("create", {
-    source_citations: [{ ...citation(input.sources[0].manifest.source_id, input.sources[0].manifest.content_hash), source_url: input.sources[0].manifest.source_url, locators: [input.sources[0].manifest.locator] }],
-  });
-  typed.proposal_bundle.proposals = [{ ...typed.proposal_bundle.proposals[0], operation: JSON.stringify(created), canonical_proposal: canonicalProposal("create") }];
-  const classified = await pipeline.runLibrarian(input, { transport: async () => typed });
-  assert.equal(classified.ok, true, JSON.stringify(classified));
-  const proposalOperation = classified.value.proposal_bundle.proposals[0].operation;
-  assert.equal(operationContract.isOperationRecord(proposalOperation), true);
-  assert.equal(classified.value.operation_classifications.length, 1);
-  assert.equal(classified.value.operation_classifications[0].operation, proposalOperation);
-  assert.equal(operationContract.isOperationRecord(classified.value.operation_classifications[0].operation), true);
-  assert.equal(classified.value.operation_classifications[0].status, "conflict_review");
-  assert.ok(classified.value.operation_classifications[0].conflict_reasons.includes("missing_provider_confidence"));
-  assert.equal(classified.value.operation_classifications[0].approval_eligible, false);
-
-  const baseline = await pipeline.runLibrarian(input, { transport: async () => ({ status: "ok", proposal_bundle: { run_id: input.run_id, validation_context: { context_id: `validation_context_${input.run_id}` }, proposals: [pipelineFixtures.sixKindProviderResponse(input.run_id, input.sources).proposal_bundle.proposals[0]] } }) });
-  assert.equal(baseline.ok, true, JSON.stringify(baseline));
-  assert.deepEqual(baseline.value.operation_classifications, []);
-  assert.equal(baseline.value.proposal_bundle.proposals[0].kind, "create");
 });

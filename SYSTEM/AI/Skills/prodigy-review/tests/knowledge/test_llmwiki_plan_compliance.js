@@ -45,9 +45,9 @@ const DECISIONS = Object.freeze({
     automated: "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_risk_approval.js",
     receipt: ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/task-14/final-verification.json",
   }),
-  "inbox-autopilot-privacy": Object.freeze({
-    owners: Object.freeze([{ path: "SYSTEM/Views/llmwiki-inbox-autopilot.js", module: "LLMWikiInboxAutopilot", symbol: "createInboxAutopilot" }]),
-    automated: "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_inbox_autopilot.js",
+  "inbox-discovery-privacy": Object.freeze({
+    owners: Object.freeze([{ path: "SYSTEM/Views/llmwiki-inbox-discovery-queue.js", module: "LLMWikiInboxDiscoveryQueue", symbol: "createInboxDiscoveryQueue" }]),
+    automated: "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_inbox_discovery_queue.js",
     receipt: ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/task-7/reverification.json",
   }),
   "initial-connectors": Object.freeze({
@@ -122,8 +122,8 @@ function auditCompliance(options = {}) {
   for (let id = 1; id <= 21; id += 1) if (numeric.get(id) !== true) fail(errors, "incomplete_numeric_production_task", id);
   if (numeric.size !== 21) fail(errors, "unexpected_numeric_production_task_set", [...numeric.keys()]);
 
-  if (!candidateView.includes('action: "llmwiki-handoff"') || !candidateHub.includes("handoffCandidateToLlmWiki") || !hub.includes("KnowledgeExplorerHub.handoffCandidateToLlmWiki")) {
-    fail(errors, "candidate_handoff_missing", "candidate-visible approval must enter LLM Wiki");
+  if (!candidateView.includes('action: "llmwiki-handoff"') || !candidateHub.includes("handoffCandidateToLlmWiki")) {
+    fail(errors, "candidate_handoff_missing", "candidate-visible review handoff contract must remain explicit");
   }
   const visibleSources = [candidateView, candidateHub, hub];
   if (visibleSources.some((source) => /approveCandidate\s*\(/u.test(source))) fail(errors, "legacy_visible_direct_approval", "approveCandidate");
@@ -131,7 +131,8 @@ function auditCompliance(options = {}) {
   if (!candidateStore.includes("function approveCandidate") || !candidateStore.includes("approveCandidate,")) fail(errors, "internal_candidate_store_api_missing", "approveCandidate");
   const approvalOwners = options.approvalOwners || ["llmwiki"];
   if (approvalOwners.length !== 1 || approvalOwners[0] !== "llmwiki") fail(errors, "canonical_approval_owner_conflict", approvalOwners);
-  if (!hub.includes("llmWikiRunController.dispatchRiskAction") || !hub.includes("llmWikiRunController.approveMigration")) fail(errors, "llmwiki_approval_dispatch_missing", PATHS.hub);
+  if (!hub.includes("llmWikiRunController.dispatchRiskAction") || !hub.includes("llmWikiRunController.applyPreparedBatchApproval")) fail(errors, "llmwiki_approval_dispatch_missing", PATHS.hub);
+  if (/enable_rollout_phase|operation_phase_unavailable|llmWikiRunController\.approveMigration/u.test(hub)) fail(errors, "retired_rollout_migration_authority_present", PATHS.hub);
 
   const gateway = taskStates(read(PATHS.gatewayPlan, overrides));
   const approval = taskStates(read(PATHS.approvalPlan, overrides));

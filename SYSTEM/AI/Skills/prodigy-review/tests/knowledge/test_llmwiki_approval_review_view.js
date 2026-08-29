@@ -14,7 +14,7 @@ const commit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-deterministic-commi
 const operationContract = require(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"));
 const canonicalPacket = require(path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-packet.js"));
 const reviewCommit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-commit.js"));
-const fixtures = require("./llmwiki_librarian_pipeline_fixtures.js");
+const fixtures = require("./llmwiki_proposal_fixtures.js");
 const { FakeElement, collectText } = require("./knowledge_explorer_view_fakes.js");
 const { buildPages, firstElement, runHub } = require("./knowledge_hub_integration_harness.js");
 const adapter = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-hub-adapter.js"));
@@ -38,21 +38,15 @@ function click(node) {
   node.onclick({ preventDefault() {} });
 }
 
-async function packetFixture({ resolvedConflicts = false, conflictOnCreate = false, runId = "run_librarian_todo14_review" } = {}) {
-  const pipeline = require(path.join(ROOT, "SYSTEM/Views/llmwiki-librarian-pipeline.js"));
-  const input = fixtures.requestInput({ run_id: runId });
-  const result = await pipeline.runLibrarian(input, {
-    transport: async () => {
-      const response = fixtures.sixKindProviderResponse(input.run_id, input.sources);
-      if (resolvedConflicts) response.proposal_bundle.proposals[3].conflicts[0].status = "disputed";
-      if (conflictOnCreate) response.proposal_bundle.proposals[0].conflicts = [{
-        conflict_id: "create_claim_conflict",
-        status: "unresolved",
-        claims: ["create claim A", "create claim B"],
-        source_ids: ["source_related_alpha"],
-      }];
-      return response;
-    }
+async function packetFixture({ resolvedConflicts = false, conflictOnCreate = false, runId = "run_proposal_todo14_review" } = {}) {
+  const result = await fixtures.proposalEnvelope({ run_id: runId }, (response) => {
+    if (resolvedConflicts) response.proposal_bundle.proposals[3].conflicts[0].status = "disputed";
+    if (conflictOnCreate) response.proposal_bundle.proposals[0].conflicts = [{
+      conflict_id: "create_claim_conflict",
+      status: "unresolved",
+      claims: ["create claim A", "create claim B"],
+      source_ids: ["source_related_alpha"],
+    }];
   });
   assert.equal(result.ok, true, JSON.stringify(result));
   const built = approval.buildApprovalPacket(result.value);

@@ -25,6 +25,35 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
   const dvRef = hubDv || dv;
   const obsidianRef = hubObsidian || obsidian;
   const retry = mountContext && mountContext.retry;
+  const llmWikiSession = KnowledgeExplorerHub._llmWikiSession && KnowledgeExplorerHub._llmWikiSession.version === 1
+    ? KnowledgeExplorerHub._llmWikiSession
+    : {
+        version: 1,
+        runController: null,
+        controllerReady: null,
+        bindings: {},
+        viewState: {
+          selectedProviderMode: "direct",
+          selectedSource: null,
+          selectedRunCommand: null,
+          sourceOptions: [],
+          startupStatus: null,
+          startupFailure: "",
+          providerSelectionFailure: "",
+          inboxState: null,
+        },
+        inboxScanPromise: null,
+        inboxScanController: null,
+        inboxScanGeneration: 0,
+        inboxSettled: null,
+        inboxDiscoveryQueue: null,
+        inboxSubscribers: new Set(),
+        batchJobStore: null,
+        batchCache: null,
+        batchCoverage: null,
+      };
+  KnowledgeExplorerHub._llmWikiSession = llmWikiSession;
+  llmWikiSession.bindings.app = appRef;
 
   mountPoint.empty();
   let performance = null;
@@ -42,7 +71,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     shell = window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, workspaceId: "knowledge", title: "지식", mountScope: mountContext.scope });
     performance = shell.performance;
     const P = window.KnowledgeExplorerHubProjection;
-    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiCompensationService || !window.LLMWikiLifecycleView || !window.LLMWikiProviderResponseSchema || !window.LLMWikiSourceRegistry || !window.LLMWikiSourceAdapters || !window.LLMWikiMigrationRollout || !window.LLMWikiInboxPrivacyBoundary || !window.LLMWikiProductionOperationProvider || !window.LLMWikiAnalysisScope || !window.LLMWikiChunkManifest || !window.LLMWikiChunkCoverageStore || !window.LLMWikiAnalysisCache || !window.LLMWikiInboxChunkOrchestrator || !window.LLMWikiIdentityResolution || !window.LLMWikiLifecycleRoutingContract || !window.LLMWikiInboxProposalMaterializer || !window.LLMWikiIncrementalAnalysisState || !window.LLMWikiInboxAutopilot || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface || !window.KnowledgeCommandController || !window.KnowledgeExplorerDetailModal || !window.KnowledgeExplorerController || !window.KnowledgeFleetingStore || !window.KnowledgeFleetingReviewState || !window.LLMWikiCanonicalTrust || !window.LLMWikiLifecycleMigrationFlows || !window.LLMWikiGitGateway) {
+    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiCompensationService || !window.LLMWikiLifecycleView || !window.LLMWikiProviderResponseSchema || !window.LLMWikiSourceRegistry || !window.LLMWikiSourceAdapters || !window.LLMWikiMigrationRollout || !window.LLMWikiInboxPrivacyBoundary || !window.LLMWikiAnalysisScope || !window.LLMWikiChunkManifest || !window.LLMWikiChunkCoverageStore || !window.LLMWikiAnalysisCache || !window.LLMWikiIdentityResolution || !window.LLMWikiLifecycleRoutingContract || !window.LLMWikiDocumentAssembler || !window.LLMWikiInboxProposalMaterializer || !window.LLMWikiIncrementalAnalysisState || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface || !window.KnowledgeCommandController || !window.KnowledgeExplorerDetailModal || !window.KnowledgeExplorerController || !window.KnowledgeFleetingStore || !window.KnowledgeFleetingReviewState || !window.LLMWikiCanonicalTrust || !window.LLMWikiLifecycleMigrationFlows || !window.LLMWikiGitGateway || !window.LLMWikiBatchAnalyzer || !window.LLMWikiBatchProvider || !window.LLMWikiBatchJobStore || !window.LLMWikiInboxDiscoveryQueue || !window.LLMWikiBatchApprovalAdapter || !window.LLMWikiProcessedSourceService || !window.LLMWikiAnalysisCache || !window.LLMWikiChunkCoverageStore) {
       throw new Error("Knowledge Explorer modules failed to load.");
     }
     // Active maintenance scheduling state signal: wired after the LLM Wiki
@@ -311,57 +340,46 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const llmWikiPanel = tabs.getPanel("llmwiki");
     const browsePanel = tabs.getPanel("llmwiki-browse");
     const llmWikiControllerOptions = { ...(KnowledgeExplorerHub.llmWikiControllerOptions || {}) };
-    const rolloutClosure = Object.freeze({
-      path: ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/completion-audit/final-confirmed/state-closure.json",
-      sha256: "397d1eda1afaebe2eede3289ece2cd2c87f746bd6a3e434839d9d3b28bfb2713",
-      auditPath: ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/completion-audit/final-confirmed/completion-audit.json",
-      auditSha256: "5f8bbddb785eb6164649aa92859b3f9bfc239733a0416e9dc1411e6731465546",
-      phases: Object.freeze(["create", "update", "merge", "maintenance", "git", "resurfacing"]),
-    });
-    const defaultRolloutGateProvider = async (phase) => {
-      if (!rolloutClosure.phases.includes(phase)) return null;
-      const adapter = appRef && appRef.vault && appRef.vault.adapter;
-      if (!adapter || typeof adapter.read !== "function" || !window.LLMWikiHash || typeof window.LLMWikiHash.sha256 !== "function") return null;
-      let bytes;
-      try { bytes = await adapter.read(rolloutClosure.path); } catch (_error) { return null; }
-      if (typeof bytes !== "string" || window.LLMWikiHash.sha256(bytes) !== rolloutClosure.sha256) return null;
-      let closure;
-      try { closure = JSON.parse(bytes); } catch (_error) { return null; }
-      const plan = closure && closure.plan;
-      const audit = closure && closure.decisive_audit;
-      const todo = closure && closure.todo;
-      const gates = closure && closure.gates;
-      const cleanup = closure && closure.cleanup;
-      if (!closure || closure.schema !== "omo.start-work-state-closure/v1" || closure.event !== "plan-completed"
-        || !plan || plan.completed !== 26 || plan.total !== 26 || plan.open !== 0 || plan.unchanged !== true
-        || !audit || audit.path !== rolloutClosure.auditPath || audit.sha256 !== rolloutClosure.auditSha256 || audit.verdict !== "confirmed"
-        || !todo || todo.open !== 0
-        || !gates || !gates.full_llmwiki || gates.full_llmwiki.fail !== 0
-        || !gates.F4 || gates.F4.verdict !== "confirmed" || !gates.F5 || gates.F5.verdict !== "confirmed"
-        || !cleanup || cleanup.pass !== true || cleanup.resources_remaining !== 0) return null;
-      return Object.freeze({ available: true, status: "green", receipt_id: `llmwiki-rollout:${phase}:${rolloutClosure.sha256}` });
-    };
-    const rolloutGateProvider = typeof llmWikiControllerOptions.rollout_gate_provider === "function"
-      ? llmWikiControllerOptions.rollout_gate_provider : defaultRolloutGateProvider;
     let llmWikiConfig = await window.ProdigyConfigService.load(appRef);
+    llmWikiSession.bindings.config = llmWikiConfig;
     const configuredProviderOptions = async (config) => {
       const options = window.ProdigyConfigService.listAIProfileProviderOptions(config, "llmwiki", "direct");
       return Promise.all(options.map(async (option) => {
         const provider = config.providers && config.providers[option.provider_key];
-        let configured = false;
-        try { configured = await window.AIProviderService.isProviderConfigured(appRef, provider); } catch (_error) {}
+        // Task 11: verification stays with AIProviderService when it exposes a
+        // verifier; otherwise the request boundary fails typed on its own.
+        const verifier = window.AIProviderService && window.AIProviderService.isProviderConfigured;
+        let configured = typeof verifier !== "function";
+        if (typeof verifier === "function") {
+          try { configured = await verifier(appRef, provider) === true; } catch (_error) { configured = false; }
+        }
         return Object.freeze({ ...option, configured });
       }));
     };
     let providerOptions = await configuredProviderOptions(llmWikiConfig);
-    let selectedProviderMode = "direct";
-    let selectedSource = null;
-    let sourceOptions = [];
-    let startupFailure = "";
-    let providerSelectionFailure = "";
-    let rolloutActivationFailure = "";
-    let startupStatus = null;
-    let selectedRunCommand = null;
+    let selectedProviderMode = llmWikiSession.viewState.selectedProviderMode || "direct";
+    let selectedSource = llmWikiSession.viewState.selectedSource || null;
+    let sourceOptions = Array.isArray(llmWikiSession.viewState.sourceOptions) ? llmWikiSession.viewState.sourceOptions : [];
+    let startupFailure = llmWikiSession.viewState.startupFailure || "";
+    let providerSelectionFailure = llmWikiSession.viewState.providerSelectionFailure || "";
+    let startupStatus = llmWikiSession.viewState.startupStatus || null;
+    let selectedRunCommand = llmWikiSession.viewState.selectedRunCommand || null;
+    const persistLlmWikiSessionView = () => {
+      llmWikiSession.viewState = {
+        ...llmWikiSession.viewState,
+        selectedProviderMode,
+        selectedSource,
+        selectedRunCommand,
+        sourceOptions,
+        startupStatus,
+        startupFailure,
+        providerSelectionFailure,
+        inboxState: llmWikiSession.viewState.inboxState,
+      };
+      llmWikiSession.bindings.config = llmWikiConfig;
+      llmWikiSession.bindings.providerMode = selectedProviderMode;
+    };
+    persistLlmWikiSessionView();
     const llmWikiHash = window.LLMWikiHash;
     let llmWikiWikiSurface = null;
     const operationOutcomeRoot = "SYSTEM/PRIVATE/llmwiki-operation-outcomes";
@@ -380,8 +398,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         try { return JSON.parse(await appRef.vault.read(file)); } catch (_error) { return null; }
       }
     };
-    const productionOperationProvider = window.LLMWikiProductionOperationProvider.createProductionOperationProvider({ app: appRef, config: llmWikiConfig, getConfig: () => llmWikiConfig, getProviderMode: () => selectedProviderMode });
-    const operationProvider = typeof llmWikiControllerOptions.operation_provider === "function" ? llmWikiControllerOptions.operation_provider : productionOperationProvider;
+    const operationProvider = typeof llmWikiControllerOptions.operation_provider === "function" ? llmWikiControllerOptions.operation_provider : null;
     const validSourceId = (value) => /^[a-z][a-z0-9_-]{2,127}$/u.test(String(value || "").trim());
     const eligibleSources = async () => {
       const files = appRef && appRef.vault && typeof appRef.vault.getMarkdownFiles === "function" ? appRef.vault.getMarkdownFiles() : [];
@@ -398,11 +415,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       return options.sort((left, right) => left.title.localeCompare(right.title, "ko"));
     };
-    const resolveProvider = (mode) => window.ProdigyConfigService.resolveAIProfileProviderKey(llmWikiConfig, "llmwiki", mode);
-    const defaultRunCommand = async (sourcePath, providerMode) => {
+    const resolveProvider = (mode) => window.ProdigyConfigService.resolveAIProfileProviderKey(llmWikiSession.bindings.config, "llmwiki", mode);
+    // Task 11 cutover: selected-source/Literature runs enter the same canonical
+    // one-source batch as INBOX runs. No librarian pipeline, no second transport.
+    const defaultBatchCommand = async (sourcePath) => {
       const option = sourceOptions.find((item) => item.path === sourcePath);
-      const selectedProvider = resolveProvider(providerMode);
-      if (!option || !selectedProvider || selectedProvider.ok !== true) return null;
+      if (!option) return null;
       const source = await window.KnowledgeSourceStore.readSource(appRef, option.path);
       const body = String(source.body || "").trim();
       const contentHash = llmWikiHash.sha256(body);
@@ -411,102 +429,268 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const runId = `run_${llmWikiHash.sha256(`${option.path}:${contentHash}`).slice(0, 24)}`;
       return {
         run_id: runId,
-        sources: [{ selected: true, display_name: option.title, sensitivity: "public", confidence: "explicit", outbound_text: body, manifest: {
-          source_id: option.source_id, content_hash: contentHash, requested_url: source.source_url, source_url: source.source_url,
-          fetched_at: now, parser_version: "knowledge_literature_picker_v1", extracted_text_hash: contentHash,
-          locator: option.path, refresh_revision: 1, raw_bytes: body,
-          fetch_metadata: { requested_url: source.source_url, resolved_url: source.source_url, content_hash: contentHash }
-        } }],
-        source_scope: { allowed_source_ids: [option.source_id], allowed_locator_prefixes: ["ZETA/LITERATURE/"], allow_private_sources: false },
-        retrieval: { query: option.title, mode: "literature", scope: { paths: ["ZETA/LITERATURE/"], types: ["literature_note"] }, snapshot: { snapshot_revision: contentHash, current_revision: contentHash, documents: [{ document_id: option.source_id, type: "literature_note", path: option.path, title: option.title, statement: body, source_ids: [option.source_id], citations: [{ source_id: option.source_id, locator: option.path }], updated: now, revision: contentHash }] } },
-        proposal_request: { instruction: "선택한 Literature 자료만 근거로 create 제안을 만듭니다." },
+        sources: [{ selected: true, display_name: option.title, sensitivity: "public", confidence: "explicit", extracted_text: body, source_path: option.path, manifest: { source_id: option.source_id, content_hash: contentHash, locator: option.path } }],
+        retrieval: { snapshot: { documents: [] } },
         consent: { issued_at: now, nonce: `consent_${runId.slice(4)}_0001` },
         approval: { expires_at: new Date(Date.now() + 3600000).toISOString(), nonce: `approval_${runId.slice(4)}_0001` },
-        advanced_settings: { provider_mode: providerMode, provider_key: selectedProvider.provider_key, timeout_ms: 60000 },
-        canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "선택한 자료를 사람이 승인할 때", application_contexts: ["reading"], connections: [], invalidation_conditions: ["선택 근거가 바뀌면 다시 검토한다."], summary: "" }
+        advanced_settings: { provider_mode: selectedProviderMode, timeout_ms: 60000 },
+        canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "사람이 승인할 때", application_contexts: ["reading"], connections: [], invalidation_conditions: ["선택 근거가 바뀌면 다시 검토한다."], summary: "" }
       };
     };
-    const llmWikiTransport = async (normalized, requestOptions) => {
-      const response = await window.LLMWikiAIProviderTransport.requestProposal({
-        app: appRef,
-        config: llmWikiConfig,
-        normalized: { ...normalized, request_metadata: { ...(normalized.request_metadata || {}), provider_key: normalized.provider_key } },
-        signal: requestOptions && requestOptions.signal,
-        consent: requestOptions && requestOptions.consent,
-        providerService: window.AIProviderService,
-        validateProposalBundle: (bundle) => window.LLMWikiProposalBundle.validateProposalBundle(bundle),
-        schema: window.LLMWikiProviderResponseSchema,
-      });
-      if (!response || response.ok !== true) {
-        const error = new Error(response && response.message || "LLMWiki provider request failed.");
-        error.code = response && response.code || "provider_unavailable";
-        throw error;
-      }
-      return response.payload;
-    };
-    const rolloutStorage = llmWikiControllerOptions.rollout_storage || {
-      async load() {
-        try { return localStorage.getItem("prodigy.llmwiki.rollout-state.v1"); } catch (_error) { return null; }
+    // Task 11 cutover: the single canonical analysis boundary. Exactly one
+    // durable job store, one analyzer construction, one provider request
+    // boundary; identity is frozen from the global default provider per Task 4.
+    const batchIdentity = llmWikiControllerOptions.batchIdentity || (() => {
+      const resolved = resolveProvider("direct");
+      if (!resolved || resolved.ok !== true) return null;
+      const configured = providerOptions.find((option) => option.provider_key === resolved.provider_key && option.configured === true);
+      if (!configured) return null;
+      const providerRecord = (llmWikiConfig.providers || {})[resolved.provider_key] || {};
+      if (!providerRecord.model) return null;
+      return Object.freeze({ provider_key: resolved.provider_key, model: providerRecord.model, structured_mode: "json_schema", schema_id: "llmwiki_compact_v1", prompt_version: "llmwiki_batch_compact_v1", provider: resolved.provider });
+    })();
+    const batchProvider = llmWikiControllerOptions.batchProvider
+      || (batchIdentity ? window.LLMWikiBatchProvider.createBatchAnalysisProvider({ app: appRef, identity: batchIdentity }) : null);
+    const batchJobStore = llmWikiSession.batchJobStore || llmWikiControllerOptions.batchJobStore || window.LLMWikiBatchJobStore.createBatchJobStore({ storage: {
+      async exists(name) { return Boolean(appRef.vault.getAbstractFileByPath(`SYSTEM/CACHE/llmwiki/${name}`)); },
+      async read(name) { return appRef.vault.cachedRead(appRef.vault.getAbstractFileByPath(`SYSTEM/CACHE/llmwiki/${name}`)); },
+      async writeAtomic(name, text) {
+        const filePath = `SYSTEM/CACHE/llmwiki/${name}`;
+        const file = appRef.vault.getAbstractFileByPath(filePath);
+        if (file) await appRef.vault.modify(file, text); else {
+          for (const folder of ["SYSTEM/CACHE", "SYSTEM/CACHE/llmwiki"]) if (!appRef.vault.getAbstractFileByPath(folder)) await appRef.vault.createFolder(folder);
+          await appRef.vault.create(filePath, text);
+        }
       },
-      async save(serialized) {
-        try { localStorage.setItem("prodigy.llmwiki.rollout-state.v1", serialized); return true; } catch (_error) { throw new Error("rollout_persistence_unavailable"); }
-      }
+      async quarantine(name) {
+        const filePath = `SYSTEM/CACHE/llmwiki/${name}`;
+        const file = appRef.vault.getAbstractFileByPath(filePath);
+        if (!file) return;
+        const bytes = await appRef.vault.read(file);
+        await appRef.vault.create(`${filePath}.quarantine`, bytes);
+        await appRef.vault.modify(file, JSON.stringify({ schema_version: 2, jobs: {}, packs: {}, legacy: [], recovery: null }));
+      },
+    } });
+    llmWikiSession.batchJobStore = batchJobStore;
+    const batchJobState = await batchJobStore.load();
+    let durableRecovery = batchJobStore.getRecoverySnapshot();
+    const batchApprovalVault = {
+      async readBytes(targetPath) {
+        const file = appRef.vault.getAbstractFileByPath(targetPath);
+        return file ? appRef.vault.cachedRead(file) : null;
+      },
+      async writeExact(targetPath, bytes) {
+        const segments = targetPath.split("/");
+        for (let index = 1; index < segments.length; index += 1) {
+          const folder = segments.slice(0, index).join("/");
+          if (folder && !appRef.vault.getAbstractFileByPath(folder)) {
+            try { await appRef.vault.createFolder(folder); }
+            catch (error) {
+              if (!/Folder already exists\.?/iu.test(String(error && error.message || error))) throw error;
+            }
+          }
+        }
+        const file = appRef.vault.getAbstractFileByPath(targetPath);
+        if (file) await appRef.vault.modify(file, bytes); else await appRef.vault.create(targetPath, bytes);
+        return { ok: true };
+      },
+      async deleteExact(targetPath) {
+        const file = appRef.vault.getAbstractFileByPath(targetPath);
+        if (!file) return { ok: false, reason: "missing" };
+        await appRef.vault.delete(file);
+        return { ok: true };
+      },
     };
+    const inboxDiscoveryQueue = llmWikiSession.inboxDiscoveryQueue || window.LLMWikiInboxDiscoveryQueue.createInboxDiscoveryQueue({
+      registry: window.LLMWikiSourceRegistry.createSourceRegistry({ extractors: [{ extractor_id: "extractor_markdown", extractor_version: "1.0.0", media_kinds: ["text/markdown"] }] }),
+      jobStore: batchJobStore,
+    });
+    llmWikiSession.inboxDiscoveryQueue = inboxDiscoveryQueue;
+    const durableUnknownJob = Object.values(batchJobState.jobs || {}).find((job) => job.status === "outcome_unknown") || null;
+    const approvalGroups = new Map();
+    if (durableRecovery && durableRecovery.active_tab === "llmwiki") {
+      KnowledgeExplorerHub._lastTab = "llmwiki";
+      tabs.select("llmwiki");
+    }
+    const batchCache = llmWikiSession.batchCache || window.LLMWikiAnalysisCache.createAnalysisCache({ vault: appRef.vault });
+    const batchCoverage = llmWikiSession.batchCoverage || window.LLMWikiChunkCoverageStore.createChunkCoverageStore({ vault: appRef.vault });
+    llmWikiSession.batchCache = batchCache;
+    llmWikiSession.batchCoverage = batchCoverage;
+    const MAX_INBOX_ANALYSIS_BYTES = 4 * 1024;
+    const inboxAnalysisText = (extractedText) => {
+      let end = 0;
+      let total = 0;
+      while (end < extractedText.length) {
+        const code = extractedText.charCodeAt(end);
+        const paired = code >= 0xd800 && code <= 0xdbff && extractedText.charCodeAt(end + 1) >= 0xdc00 && extractedText.charCodeAt(end + 1) <= 0xdfff;
+        const width = paired ? 2 : 1;
+        const byteLength = paired ? 4 : code <= 0x7f ? 1 : code <= 0x7ff ? 2 : 3;
+        if (total + byteLength > MAX_INBOX_ANALYSIS_BYTES) break;
+        total += byteLength;
+        end += width;
+      }
+      return extractedText.slice(0, end);
+    };
+    const batchAnalyzer = batchIdentity && batchProvider ? window.LLMWikiBatchAnalyzer.createBatchAnalyzer({
+      jobStore: batchJobStore,
+      provider: batchProvider,
+      identity: batchIdentity,
+      cache: batchCache,
+      coverage: batchCoverage,
+    }) : null;
+    const compactArtifactsFromHits = (hits) => hits.map((hit) => Object.freeze({
+      chunk_key: hit.artifact.semantic_id,
+      outcome: hit.artifact.outcome,
+      // Provider artifacts carry string claims; the local materializer contract
+      // carries typed { text } claims. Pure local mapping, no authority change.
+      items: JSON.parse(JSON.stringify(hit.artifact.items)).map((item) => ({ ...item, claims: (item.claims || []).map((claim) => typeof claim === "string" ? { text: claim } : claim) })),
+    }));
+    // One canonical composition: analyzer artifacts -> local materialization ->
+    // typed lifecycle proposals. Zero writes; approval stays on the retained
+    // controller surface.
+    const runCanonicalBatch = async ({ sources, candidates = [], signal, explicitRetry = false, retryIntentId = null }) => {
+      if (!batchAnalyzer) return { ok: false, reason: "provider_selection_unavailable", provider_calls: 0 };
+      const analyzed = await batchAnalyzer.analyze({ sources, candidates, signal, explicit_retry: explicitRetry, ...(retryIntentId ? { retry_intent_id: retryIntentId } : {}) });
+      const providerCalls = analyzed.metrics ? analyzed.metrics.provider_calls : 0;
+      if (!analyzed.ok || analyzed.state !== "review_ready") return { ok: false, reason: analyzed.reason || analyzed.state || "batch_analysis_failed", provider_calls: providerCalls, job_id: analyzed.job_id, batch_id: analyzed.batch_id };
+      const proposals = [];
+      const objectReviewProposals = [];
+      const holds = [];
+      const noChanges = [];
+      const sourceGroups = [];
+      const artifactsBySource = new Map();
+      for (const sourceRow of sources) {
+        const analysisText = sourceRow.analysis_text || sourceRow.extracted_text;
+        const scope = window.LLMWikiAnalysisScope.createAnalysisScope({ source_id: sourceRow.source_id, source_path: sourceRow.source_path, content_hash: llmWikiHash.sha256(analysisText), source_text: analysisText });
+        const manifest = window.LLMWikiChunkManifest.createChunkManifest(scope);
+        const lookup = await batchCache.lookup(manifest, scope, { request_key: analyzed.request_key });
+        if (!lookup.ok) return { ok: false, reason: lookup.reason || "cache_lookup_failed", provider_calls: providerCalls };
+        const artifacts = compactArtifactsFromHits(lookup.hits);
+        artifactsBySource.set(sourceRow.source_id, artifacts);
+        const materialized = await materializeInboxProposals({ artifacts, source: { source_id: sourceRow.source_id, source_path: sourceRow.source_path, content_hash: llmWikiHash.sha256(sourceRow.extracted_text) } });
+        if (!materialized.ok) return { ok: false, reason: materialized.reason || "local_materialization_failed", provider_calls: providerCalls };
+        proposals.push(...materialized.proposals);
+        holds.push(...materialized.holds);
+        noChanges.push(...materialized.no_changes);
+        objectReviewProposals.push(...materialized.object_review_proposals);
+        const grouped = window.LLMWikiBatchApprovalAdapter.groupProposalsBySource({
+          source: { source_id: sourceRow.source_id, source_path: sourceRow.source_path, content_hash: llmWikiHash.sha256(sourceRow.extracted_text) },
+          materializeResult: { ok: true, proposals: materialized.proposals, holds: materialized.holds, para_drafts: materialized.para_drafts },
+        });
+        if (!grouped.ok) return { ok: false, reason: grouped.reason, provider_calls: providerCalls };
+        sourceGroups.push(grouped.value);
+      }
+      return { ok: true, provider_calls: providerCalls, proposals, object_review_proposals: objectReviewProposals, holds, no_changes: noChanges, source_groups: sourceGroups, batch_id: analyzed.batch_id, job_id: analyzed.job_id, metrics: analyzed.metrics, artifacts_by_source: artifactsBySource };
+    };
+    // The persistent controller delegates through the latest mount binding so
+    // an explicit retry freezes the current global provider/model identity,
+    // never the identity captured by an older remount.
+    llmWikiSession.bindings.runCanonicalBatch = runCanonicalBatch;
     const llmWikiGitReceiptAuthority = window.LLMWikiOperationRunService.createPostEligibilityGitReceiptAuthority();
     const llmWikiGitService = window.LLMWikiGitAutomationAdapter.create({
       gateway: llmWikiControllerOptions.git_gateway || window.LLMWikiGitGateway,
       receiptAuthority: llmWikiGitReceiptAuthority,
     });
-    const llmWikiRunController = window.LLMWikiRunController.createRunController({
-      app: appRef,
-      config: llmWikiConfig,
-      transport: llmWikiTransport,
-      enable_risk_review: true,
-      operation_provider: operationProvider,
-      operation_outcome_store: operationOutcomeStore,
-      rollout_storage: rolloutStorage,
-      rollout_gate_provider: rolloutGateProvider,
-      migration_transaction_adapter: llmWikiControllerOptions.migration_transaction_adapter,
-      migration_options: {
-        ...(llmWikiControllerOptions.migration_options || {}),
-        sourceAdapters: llmWikiControllerOptions.migration_source_adapters || window.LLMWikiSourceAdapters.createSourceAdapters(),
-      },
-      maintenance_action: llmWikiControllerOptions.maintenance_action,
-      resurfacing_action: llmWikiControllerOptions.resurfacing_action,
-      compensation_refresh: async () => {
-        if (!llmWikiWikiSurface || typeof llmWikiWikiSurface.refresh !== "function") return { ok: false, reason: "refresh_surface_unavailable" };
-        return llmWikiWikiSurface.refresh();
-      },
-      postEligibilityGitReceiptAuthority: llmWikiGitReceiptAuthority,
-      postEligibilityGit: async (input) => {
-        const receipt = llmWikiGitReceiptAuthority.mint(input);
-        return llmWikiGitService.recordEligibleReceipt({ receipt, signal: input.signal });
-      },
-      operation_follow_ups: {
-        async refresh() {
-          if (!llmWikiWikiSurface || typeof llmWikiWikiSurface.refresh !== "function") return { ok: false, reason: "refresh_surface_unavailable" };
-          try { await llmWikiWikiSurface.refresh(); return { ok: true }; } catch (_error) { return { ok: false, reason: "refresh_failed" }; }
+    let llmWikiRunController = llmWikiSession.runController;
+    if (!llmWikiRunController) {
+      llmWikiRunController = window.LLMWikiRunController.createRunController({
+        app: appRef,
+        config: llmWikiConfig,
+        // Task 11 cutover: analysis delegates into the single canonical batch
+        // core; the legacy transport/librarian options are removed.
+        analyze_batch: async ({ command, signal }) => {
+          const sources = command.sources.map((row) => ({
+            source_id: row.manifest.source_id,
+            source_path: row.source_path || row.manifest.locator,
+            extracted_text: row.extracted_text || row.outbound_text,
+            ...(row.analysis_text !== undefined ? { analysis_text: row.analysis_text } : {}),
+            content_hash: row.manifest.content_hash,
+          }));
+          const documents = command.retrieval && command.retrieval.snapshot && Array.isArray(command.retrieval.snapshot.documents)
+            ? command.retrieval.snapshot.documents : [];
+          const candidates = documents.map((doc) => ({ document_id: doc.document_id, canonical_revision: doc.revision || doc.canonical_revision || "" }));
+          const outcome = await llmWikiSession.bindings.runCanonicalBatch({ sources, candidates, signal, explicitRetry: command.task13_explicit_retry === true, retryIntentId: command.task13_retry_intent_id || null });
+          if (!outcome.ok) return outcome;
+          return { ...outcome, consent_hash: llmWikiHash.sha256(`batch_consent:${command.run_id}:${sources.map((row) => row.content_hash).sort().join(":")}`) };
         },
-        async git(input) {
-          return llmWikiGitService.recordEligibleReceipt({ receipt: input.trusted_receipt, guarded_entry: input.guarded_entry, signal: input.signal });
-        }
-      },
-      ...llmWikiControllerOptions
-    });
-    await llmWikiRunController.initializeTask21();
-    let inboxState = { state: "empty", total: 0, scanned_total: 0, eligible: 0, held: 0, processed: 0, succeeded: 0, failed: 0, current_path: "", current_title: "", source_id: "", reason: "", object_review_proposals: [] };
+        enable_risk_review: true,
+        batch_approval_apply: async (input) => {
+          const apply = llmWikiSession.bindings.applyBatchApproval;
+          return typeof apply === "function" ? apply(input) : { ok: false, reason: "batch_approval_runtime_unavailable" };
+        },
+        operation_provider: operationProvider,
+        operation_outcome_store: operationOutcomeStore,
+        maintenance_action: llmWikiControllerOptions.maintenance_action,
+        resurfacing_action: llmWikiControllerOptions.resurfacing_action,
+        compensation_refresh: async () => {
+          const wikiSurface = llmWikiSession.bindings.wikiSurface;
+          if (!wikiSurface || typeof wikiSurface.refresh !== "function") return { ok: false, reason: "refresh_surface_unavailable" };
+          return wikiSurface.refresh();
+        },
+        postEligibilityGitReceiptAuthority: llmWikiGitReceiptAuthority,
+        postEligibilityGit: async (input) => {
+          const receipt = llmWikiGitReceiptAuthority.mint(input);
+          return llmWikiGitService.recordEligibleReceipt({ receipt, signal: input.signal });
+        },
+        operation_follow_ups: {
+          async refresh() {
+            const wikiSurface = llmWikiSession.bindings.wikiSurface;
+            if (!wikiSurface || typeof wikiSurface.refresh !== "function") return { ok: false, reason: "refresh_surface_unavailable" };
+            try { await wikiSurface.refresh(); return { ok: true }; } catch (_error) { return { ok: false, reason: "refresh_failed" }; }
+          },
+          async git(input) {
+            return llmWikiGitService.recordEligibleReceipt({ receipt: input.trusted_receipt, guarded_entry: input.guarded_entry, signal: input.signal });
+          }
+        },
+        ...llmWikiControllerOptions
+      });
+      llmWikiSession.runController = llmWikiRunController;
+      llmWikiSession.controllerReady = Promise.resolve({ ok: true, status: "ready" });
+    }
+    await llmWikiSession.controllerReady;
+    let inboxState = llmWikiSession.viewState.inboxState || (durableRecovery || durableUnknownJob ? {
+      state: durableRecovery?.review ? "complete" : "blocked",
+      total: durableRecovery?.review?.proposals?.length || 0,
+      scanned_total: durableRecovery?.review?.proposals?.length || 0,
+      eligible: durableRecovery?.review?.proposals?.length || 0,
+      held: 0, processed: 0, succeeded: 0, failed: 0,
+      current_path: "", current_title: "", source_id: "",
+      reason: durableRecovery?.review ? "" : "outcome_unknown",
+      recovery_variant: durableRecovery?.review ? undefined : "outcome_unknown",
+      proposal_pending: durableRecovery?.review?.proposals?.length || 0,
+      proposal_state: durableRecovery?.review ? "review" : "blocked",
+      object_review_proposals: [],
+    } : { state: "empty", total: 0, scanned_total: 0, eligible: 0, held: 0, processed: 0, succeeded: 0, failed: 0, current_path: "", current_title: "", source_id: "", reason: "", object_review_proposals: [] });
     let resolveInboxSettled = null;
-    let inboxSettled = new Promise((resolve) => { resolveInboxSettled = resolve; });
-    let inboxScanPromise = null;
-    let inboxScanController = null;
-    let inboxScanGeneration = 0;
-    const inboxPrivacyDecisions = new Map();
+    let inboxSettled = llmWikiSession.inboxSettled || new Promise((resolve) => { resolveInboxSettled = resolve; });
+    llmWikiSession.inboxSettled = inboxSettled;
+    let inboxScanPromise = llmWikiSession.inboxScanPromise;
+    const canonicalDocuments = await Promise.all(records
+      .filter((record) => record && record.type === "knowledge" && typeof record.path === "string" && record.path.startsWith("ZETA/PERMANENT/"))
+      .map(async (record) => {
+        const file = appRef.vault.getAbstractFileByPath(record.path);
+        const content = file ? await appRef.vault.cachedRead(file) : "";
+        return {
+          document_id: `canonical_${llmWikiHash.sha256(record.path).slice(0, 24)}`,
+          path: record.path,
+          title: String(record.title || record.frontmatter && record.frontmatter.title || ""),
+          statement: String(record.frontmatter && record.frontmatter.statement || ""),
+          summary: String(record.frontmatter && record.frontmatter.summary || ""),
+          content,
+          revision: llmWikiHash.sha256(content),
+        };
+      }));
+    const configuredRelatedCandidates = Array.isArray(llmWikiControllerOptions.relatedCandidates) ? llmWikiControllerOptions.relatedCandidates : [];
+    const configuredAllowedCandidateIds = Array.isArray(llmWikiControllerOptions.allowedCandidateIds) ? llmWikiControllerOptions.allowedCandidateIds : [];
     const inboxProposalMaterializer = window.LLMWikiInboxProposalMaterializer.createInboxProposalMaterializer({
       localIdentityIndex: Array.isArray(llmWikiControllerOptions.inboxLocalIdentityIndex) ? llmWikiControllerOptions.inboxLocalIdentityIndex : [],
       // Controller configuration is trusted local state. Copy it into this
       // Dataview realm before the Object resolver validates its exact records.
       localObjectIndex: Array.isArray(llmWikiControllerOptions.inboxLocalObjectIndex) ? JSON.parse(JSON.stringify(llmWikiControllerOptions.inboxLocalObjectIndex)) : [],
       localObjectRoutes: Array.isArray(llmWikiControllerOptions.inboxLocalObjectRoutes) ? llmWikiControllerOptions.inboxLocalObjectRoutes : [],
+      canonicalDocuments,
+      relatedCandidates: configuredRelatedCandidates,
+      allowedCandidateIds: configuredAllowedCandidateIds,
     });
     const materializeInboxProposals = async (input) => {
       const materialized = inboxProposalMaterializer.materialize(input);
@@ -517,64 +701,112 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         if (!proposed || proposed.ok !== true) return { ok: false, reason: proposed && proposed.reason || "object_handoff_unavailable" };
         object_review_proposals.push(proposed.value);
       }
-      return { ok: true, proposals: materialized.proposals, object_review_proposals };
+      return { ok: true, proposals: materialized.proposals, holds: materialized.holds || [], no_changes: materialized.no_changes || [], para_drafts: materialized.para_drafts || [], object_review_proposals };
     };
-    const inboxRegistry = window.LLMWikiSourceRegistry.createSourceRegistry({ extractors: [
-      { extractor_id: "extractor_markdown", extractor_version: "1.0.0", media_kinds: ["text/markdown"] },
-      { extractor_id: "extractor_plain_text", extractor_version: "1.0.0", media_kinds: ["text/plain"] }
-    ] });
-    const inboxSourceAdapter = window.LLMWikiSourceAdapters.createSourceAdapters({ registry: inboxRegistry });
-    const inboxIncrementalState = llmWikiControllerOptions.inboxIncrementalState
-      || window.LLMWikiIncrementalAnalysisState.createIncrementalAnalysisState({ vault: appRef.vault });
-    const inboxChunkOrchestrator = llmWikiControllerOptions.inboxChunkOrchestrator
-      || window.LLMWikiInboxChunkOrchestrator.createInboxChunkOrchestrator({
-        vault: appRef.vault,
-        cache: llmWikiControllerOptions.inboxAnalysisCache,
-        coverage: llmWikiControllerOptions.inboxChunkCoverageStore,
-        proposals: llmWikiControllerOptions.inboxProposalStore,
-      });
-    KnowledgeExplorerHub.handoffCandidateToLlmWiki = async (candidate) => {
-      tabs.select("llmwiki");
-      const sourceInput = JSON.stringify({ source_kind: "knowledge_candidate", source_path: candidate.path, record: { ...candidate, type: "knowledge_candidate" } });
-      const result = await llmWikiRunController.startMigrationDryRun({
-        source_inputs: [sourceInput],
-        classify: async (sourceSnapshot) => {
-          const runId = `run_${sourceSnapshot.snapshot_id.replace(/^source_snapshot_/u, "")}`;
-          const supplied = await operationProvider({ action: "candidate_handoff", run_id: runId, source_snapshot: sourceSnapshot, extracted_text: sourceSnapshot.content.text, outbound_allowed: true }, { signal: null });
-          if (!supplied || supplied.ok === false) throw new Error(supplied && supplied.reason || "analysis_provider_unavailable");
-          const providedOperation = supplied.operation || supplied;
-          const parsed = window.LLMWikiOperationContract.isOperationRecord(providedOperation)
-            ? { ok: true, value: providedOperation }
-            : window.LLMWikiOperationContract.parseOperation(typeof providedOperation === "string" ? providedOperation : providedOperation && providedOperation.serialized_operation);
-          if (!parsed || parsed.ok !== true) throw new Error(parsed && parsed.reason || "invalid_operation");
-          return parsed.value;
-        }
-      });
-      if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
-      return result;
-    };
-    const inboxAutopilot = window.LLMWikiInboxAutopilot.createInboxAutopilot({
-      registry: inboxRegistry,
-      sourceAdapter: inboxSourceAdapter,
-      standingPolicy: {
-        policy_version: "knowledge_inbox_policy_v1",
-        provider_key: "direct",
-        allowed_path_prefixes: ["INBOX/"],
-        denied_path_prefixes: [],
-        redaction_policy: "selected_source_text_only"
-      },
-      chunkOrchestrator: inboxChunkOrchestrator,
-      analysisTransport: async (work) => {
-        if (work.signal && work.signal.aborted) return { ok: false, reason: "provider_aborted" };
-        if (typeof llmWikiControllerOptions.inboxAnalysisTransport === "function") return llmWikiControllerOptions.inboxAnalysisTransport(work, llmWikiRunController);
-        const runId = `run_${work.snapshot.snapshot_id.replace(/^source_snapshot_/u, "")}`;
-        const decision = inboxPrivacyDecisions.get(work.source_id);
-        if (!decision || decision.outbound_allowed !== true) return { ok: false, reason: decision && decision.reason || "outbound_consent_required" };
-        const supplied = await operationProvider({ action: "inbox_chunk_analysis", run_id: runId, changed_chunks: work.changed_chunks, outbound_allowed: true, external_research: 0, privacy_decision: decision.reason }, { signal: work.signal });
-        if (work.signal && work.signal.aborted) return { ok: false, reason: "provider_aborted" };
-        return supplied || { ok: false, reason: "analysis_provider_unavailable" };
+    const DOCUMENT_REVIEW_CONTRACT = window.LLMWikiDocumentAssembler.CONTRACT_VERSION;
+    const repacketLegacyDocumentReview = async () => {
+      if (!durableRecovery?.review?.proposals?.length || durableRecovery.review.document_contract_version === DOCUMENT_REVIEW_CONTRACT) {
+        return { ok: true, status: "not_required", provider_calls: 0 };
       }
-    });
+      if (durableRecovery.operation_outcomes.some((row) => ["committed", "duplicate"].includes(row.status))) {
+        return { ok: false, status: "blocked", reason: "legacy_partial_apply_requires_manual_recovery", provider_calls: 0 };
+      }
+      const job = batchJobStore.getJob(durableRecovery.selected_batch_id);
+      if (!job || typeof job.request_key !== "string") return { ok: false, status: "blocked", reason: "legacy_batch_job_unavailable", provider_calls: 0 };
+      const proposals = [];
+      const sourceGroups = [];
+      let noChangeCount = 0;
+      const staleSources = [];
+      for (const sourceRow of durableRecovery.approval_sources || []) {
+        const file = appRef.vault.getAbstractFileByPath(sourceRow.source_path);
+        if (!file) { staleSources.push(sourceRow.source_path); continue; }
+        const extractedText = await appRef.vault.cachedRead(file);
+        const analysisText = inboxAnalysisText(extractedText);
+        const scope = window.LLMWikiAnalysisScope.createAnalysisScope({
+          source_id: sourceRow.source_id, source_path: sourceRow.source_path,
+          content_hash: llmWikiHash.sha256(analysisText), source_text: analysisText,
+        });
+        const manifest = window.LLMWikiChunkManifest.createChunkManifest(scope);
+        const lookup = await batchCache.lookup(manifest, scope, { request_key: job.request_key });
+        if (!lookup.ok || lookup.misses.length > 0 || lookup.hits.length !== manifest.chunks.length) {
+          staleSources.push(sourceRow.source_path);
+          continue;
+        }
+        const source = { source_id: sourceRow.source_id, source_path: sourceRow.source_path, content_hash: llmWikiHash.sha256(extractedText) };
+        const materialized = await materializeInboxProposals({ artifacts: compactArtifactsFromHits(lookup.hits), source });
+        if (!materialized.ok) return { ok: false, status: "blocked", reason: materialized.reason || "legacy_materialization_failed", provider_calls: 0 };
+        proposals.push(...materialized.proposals);
+        noChangeCount += materialized.no_changes.length;
+        const grouped = window.LLMWikiBatchApprovalAdapter.groupProposalsBySource({
+          source,
+          materializeResult: { ok: true, proposals: materialized.proposals, holds: materialized.holds, para_drafts: materialized.para_drafts },
+        });
+        if (!grouped.ok) return { ok: false, status: "blocked", reason: grouped.reason, provider_calls: 0 };
+        sourceGroups.push(grouped.value);
+      }
+      const nextRecovery = {
+        active_tab: "llmwiki",
+        selected_batch_id: durableRecovery.selected_batch_id,
+        review: {
+          run_id: durableRecovery.review.run_id,
+          document_contract_version: DOCUMENT_REVIEW_CONTRACT,
+          selected_operation_ids: [],
+          proposals: proposals.map((proposal) => ({
+            operation_id: proposal.operation.operation_id,
+            packet_id: `repacket_${proposal.operation.operation_id}`,
+            summary: proposal.title,
+            serialized_operation: JSON.stringify(proposal.operation),
+            status: "review",
+          })),
+        },
+        operation_outcomes: proposals.map((proposal) => ({ operation_id: proposal.operation.operation_id, status: "review" })),
+        approval_sources: sourceGroups.map((group) => ({
+          source_id: group.source_id, source_path: group.source_path, content_hash: group.content_hash,
+          operation_ids: group.proposals.map((proposal) => proposal.operation.operation_id),
+          unresolved_holds: group.holds.length, unresolved_para_drafts: group.para_drafts.length,
+        })),
+        archive_receipts: [],
+      };
+      const priorProposalCount = durableRecovery.review.proposals.length;
+      durableRecovery = await batchJobStore.saveRecoverySnapshot(nextRecovery);
+      return {
+        ok: true, status: "repacketized", provider_calls: 0,
+        prior_proposals: priorProposalCount,
+        document_proposals: proposals.length, no_changes: noChangeCount,
+        ...(staleSources.length ? { stale_sources: staleSources.length, stale_source_paths: staleSources } : {}),
+      };
+    };
+    KnowledgeExplorerHub.repacketCurrentReview = repacketLegacyDocumentReview;
+    const legacyDocumentRepacket = await repacketLegacyDocumentReview();
+    KnowledgeExplorerHub.lastDocumentRepacket = legacyDocumentRepacket;
+    if (durableRecovery?.review?.proposals?.length && llmWikiRunController.getSnapshot().status === "idle") {
+      const restoredProposals = [];
+      const completedOperations = new Set(durableRecovery.operation_outcomes.filter((row) => ["committed", "duplicate"].includes(row.status)).map((row) => row.operation_id));
+      let restoreValid = true;
+      for (const row of durableRecovery.review.proposals) {
+        if (completedOperations.has(row.operation_id)) continue;
+        const parsed = window.LLMWikiOperationContract.parseOperation(row.serialized_operation);
+        if (!parsed || parsed.ok !== true) { restoreValid = false; break; }
+        restoredProposals.push({ operation: parsed.value, title: row.summary || "복원된 검토 제안" });
+      }
+      if (restoreValid) {
+        const operations = new Map();
+        for (const row of durableRecovery.review.proposals) {
+          const parsed = window.LLMWikiOperationContract.parseOperation(row.serialized_operation);
+          if (parsed?.ok) operations.set(row.operation_id, parsed.value);
+        }
+        for (const source of durableRecovery.approval_sources || []) approvalGroups.set(source.source_id, Object.freeze({
+          source_id: source.source_id, source_path: source.source_path, content_hash: source.content_hash,
+          proposals: Object.freeze(source.operation_ids.map((operationId) => ({ operation: operations.get(operationId), class: operations.get(operationId)?.kind || "create", unit_id: operationId })).filter((row) => row.operation)),
+          holds: Object.freeze(Array.from({ length: source.unresolved_holds || 0 }, () => ({ reason: "unresolved_hold" }))),
+          para_drafts: Object.freeze(Array.from({ length: source.unresolved_para_drafts || 0 }, () => ({ reason: "unresolved_para_draft" }))),
+        }));
+        if (restoredProposals.length > 0) llmWikiRunController.openPreparedRiskReview({ run_id: durableRecovery.review.run_id, proposals: restoredProposals });
+      }
+    }
+    // Task 11 cutover: durable batch job state replaces the legacy incremental
+    // and per-source chunk-orchestrator paths; the candidate-to-migration handoff
+    // and inboxAutopilot dispatch are removed from production.
     const fleetingReviewService = window.KnowledgeFleetingReviewState.createFleetingReviewState({
       vault: appRef.vault,
       analyze: async ({ blocks, signal }) => {
@@ -589,35 +821,25 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         const proposals = [];
         for (const [sourcePath, sourceBlocks] of grouped) {
           if (signal.aborted) return { ok: false, reason: "cancelled", completed_block_ids: completedBlockIds, reviews };
+          // Task 11 cutover: fleeting blocks enter the same canonical batch core
+          // as one synthetic ZETA/FLEETING source; no per-chunk provider path.
           const extractedText = sourceBlocks.map((block) => `<!-- fleeting-block-id: ${block.block_id} -->\n## 생각 저장\n\n${block.text}`).join("\n\n");
           const contentHash = llmWikiHash.sha256(extractedText);
           const sourceId = `source_fleeting_${llmWikiHash.sha256(sourcePath).slice(0, 24)}`;
-          const scope = window.LLMWikiAnalysisScope.createAnalysisScope({ source_id: sourceId, source_path: sourcePath, content_hash: contentHash, source_text: extractedText });
-          const authority = window.LLMWikiAnalysisScope.createAnalysisRequestAuthority();
-          const request = authority.begin(scope);
-          const analyzed = await inboxChunkOrchestrator.analyze({
-            source_id: sourceId,
-            source_path: sourcePath,
-            content_hash: contentHash,
-            snapshot: { snapshot_id: `snapshot_${contentHash.slice(0, 24)}` },
-            extracted_text: extractedText,
-            authority,
-            request,
+          const batchSourcePath = `ZETA/FLEETING/${sourceId}.md`;
+          const outcome = await runCanonicalBatch({
+            sources: [{ source_id: sourceId, source_path: batchSourcePath, extracted_text: extractedText, content_hash: contentHash }],
             signal,
-            provider: (work) => typeof llmWikiControllerOptions.fleetingAnalysisTransport === "function"
-              ? llmWikiControllerOptions.fleetingAnalysisTransport(work, llmWikiRunController)
-              : operationProvider({ action: "fleeting_review", run_id: `run_fleeting_${contentHash.slice(0, 24)}`, changed_chunks: work.changed_chunks, outbound_allowed: true, external_research: 0 }, { signal }),
           });
-          if (!analyzed || analyzed.ok !== true) return { ok: false, reason: analyzed && analyzed.reason || "fleeting_analysis_failed", completed_block_ids: completedBlockIds, reviews };
-          const source = { source_id: sourceId, source_path: sourcePath, content_hash: contentHash };
-          const materialized = await materializeInboxProposals({ artifacts: analyzed.artifacts, source });
-          if (!materialized.ok) return { ok: false, reason: materialized.reason || "local_materialization_failed", completed_block_ids: completedBlockIds, reviews };
-          proposals.push(...materialized.proposals);
-          for (const proposal of materialized.proposals) reviews.push({
+          if (!outcome || outcome.ok !== true) return { ok: false, reason: outcome && outcome.reason || "batch_analysis_failed", completed_block_ids: completedBlockIds, reviews };
+          const source = { source_id: sourceId, source_path: batchSourcePath, content_hash: contentHash };
+          const artifacts = outcome.artifacts_by_source.get(sourceId) || [];
+          proposals.push(...outcome.proposals);
+          for (const proposal of outcome.proposals) reviews.push({
             review_id: proposal.operation.operation_id,
             destination: proposal.decision.destination,
             title: proposal.title,
-            proposal_input: { artifacts: analyzed.artifacts, source },
+            proposal_input: { artifacts, source },
           });
           completedBlockIds.push(...sourceBlocks.map((block) => block.block_id));
         }
@@ -658,12 +880,21 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (typeof llmWikiLifecycle !== "undefined" && llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
       return fleetingReviewState;
     };
-    const publishInbox = (next) => {
+    const applyInboxState = (next) => {
       inboxState = { ...next };
       if (typeof llmWikiLifecycle !== "undefined" && llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
       if (typeof knowledgeReviewWorkbench !== "undefined" && knowledgeReviewWorkbench) knowledgeReviewWorkbench.update({ items: reviewItems() });
       pokeMaintenance();
       if (typeof llmWikiControllerOptions.onInboxState === "function") llmWikiControllerOptions.onInboxState({ ...inboxState });
+    };
+    llmWikiSession.inboxSubscribers.add(applyInboxState);
+    if (mountContext && mountContext.scope && typeof mountContext.scope.track === "function") {
+      mountContext.scope.track(() => llmWikiSession.inboxSubscribers.delete(applyInboxState));
+    }
+    const publishInbox = (next) => {
+      inboxState = { ...next };
+      llmWikiSession.viewState.inboxState = { ...inboxState };
+      for (const subscriber of llmWikiSession.inboxSubscribers) subscriber(inboxState);
       return { ok: true, status: inboxState.state, inbox: { ...inboxState } };
     };
     const settleInbox = (state) => {
@@ -671,204 +902,176 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (resolveInboxSettled) { resolveInboxSettled({ ...inboxState }); resolveInboxSettled = null; }
       return { ...inboxState };
     };
-    const inboxMetadata = (file) => appRef.metadataCache && typeof appRef.metadataCache.getFileCache === "function"
-      ? appRef.metadataCache.getFileCache(file)?.frontmatter || {} : {};
-    const serializeInboxFile = async ({ file, decision }) => {
-      const body = await appRef.vault.cachedRead(file);
-      const analysisText = body.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/gu, "");
-      const sourceId = `source_${llmWikiHash.sha256(file.path).slice(0, 24)}`;
-      const contentHash = llmWikiHash.sha256(analysisText);
-      const input = JSON.stringify({ source_id: sourceId, source_path: file.path, modified_revision: contentHash, media_kind: "text/markdown", source_kind: "markdown", source_text: analysisText, text: analysisText, content_hash: contentHash, route_hint: decision.route, privacy_class: decision.privacy_class, provider_eligibility: decision.provider_eligibility });
-      inboxPrivacyDecisions.set(sourceId, decision);
-      const scope = window.LLMWikiAnalysisScope.createAnalysisScope({ source_id: sourceId, source_path: file.path, content_hash: contentHash, source_text: analysisText });
-      return { source_id: sourceId, source_path: file.path, content_hash: contentHash, scope, input };
+    // The manifest-loaded discovery queue is the sole classification/hash/
+    // pending-snapshot authority. The Hub only supplies raw vault entries and
+    // adapts the queue's body-free result for rendering.
+    const readInboxDiscoveryEntries = async () => {
+      const files = (appRef.vault.getMarkdownFiles ? appRef.vault.getMarkdownFiles() : [])
+        .filter((file) => file && typeof file.path === "string" && file.path.startsWith("INBOX/") && !file.path.startsWith("INBOX/Processed/") && file.path.endsWith(".md"))
+        .sort((left, right) => left.path.localeCompare(right.path, "ko"));
+      const entries = [];
+      for (const file of files) entries.push({
+        source_path: file.path,
+        read_source_text: () => appRef.vault.cachedRead(file),
+        metadata: appRef.metadataCache && typeof appRef.metadataCache.getFileCache === "function"
+          ? appRef.metadataCache.getFileCache(file)?.frontmatter || {} : {},
+      });
+      return entries;
     };
-    const scanInbox = (scanOptions = {}) => {
-      if (inboxScanPromise && inboxScanController && !inboxScanController.signal.aborted) return inboxScanPromise;
-      const forceAnalysis = scanOptions && scanOptions.force === true;
-      const scanGeneration = inboxScanGeneration + 1;
-      const scanController = new AbortController();
-      inboxScanGeneration = scanGeneration;
-      inboxScanController = scanController;
+    const sourceCoverageComplete = async (source) => {
+      try {
+        const analysisText = inboxAnalysisText(source.extracted_text);
+        const scope = window.LLMWikiAnalysisScope.createAnalysisScope({ source_id: source.source_id, source_path: source.source_path, content_hash: llmWikiHash.sha256(analysisText), source_text: analysisText });
+        const manifest = window.LLMWikiChunkManifest.createChunkManifest(scope);
+        const status = await batchCoverage.status(manifest, scope);
+        return Boolean(status && status.ok === true && status.complete === true && status.exactCoverage === true);
+      } catch (_error) { return false; }
+    };
+    const adaptQueueDiscovery = async () => {
+      const queueResult = await inboxDiscoveryQueue.discover(await readInboxDiscoveryEntries());
+      const pending = [];
+      let unchanged = 0;
+      const classificationBySourceId = new Map(queueResult.entries.map((entry) => [entry.source_id, entry.classification]));
+      const recoveredSourceIds = new Set((durableRecovery?.approval_sources || []).map((source) => source.source_id));
+      for (const source of inboxDiscoveryQueue.currentSources()) {
+        const excludedFromRecoveredReview = Boolean(durableRecovery?.review) && !recoveredSourceIds.has(source.source_id);
+        if (!excludedFromRecoveredReview && classificationBySourceId.get(source.source_id) === "unchanged" && await sourceCoverageComplete(source)) unchanged += 1;
+        else pending.push(source);
+      }
+      const protectedItems = queueResult.entries.filter((row) => row.classification === "held").map((row) => Object.freeze({
+        filename: String(row.source_path.split("/").pop() || row.source_path), reason: String(row.reason || "protected_source"),
+      }));
+      return {
+        total: queueResult.counters.discovered_total,
+        scannedTotal: queueResult.counters.eligible_total + queueResult.counters.held_total,
+        eligible: queueResult.counters.eligible_total,
+        held: queueResult.counters.held_total,
+        protectedItems, pending, unchanged, queueResult,
+      };
+    };
+    const refreshInboxViewFromQueue = () => {
+      if (inboxScanPromise) return inboxScanPromise;
       inboxSettled = new Promise((resolve) => { resolveInboxSettled = resolve; });
+      llmWikiSession.inboxSettled = inboxSettled;
       const activePromise = (async () => {
-        const files = (appRef.vault.getMarkdownFiles ? appRef.vault.getMarkdownFiles() : [])
-          .filter((file) => file && typeof file.path === "string" && file.path.startsWith("INBOX/") && file.path.endsWith(".md"))
-          .sort((left, right) => left.path.localeCompare(right.path, "ko"));
-        const classified = files.map((file) => {
-          const decision = window.LLMWikiInboxPrivacyBoundary.classifyInboxSource({ source_path: file.path, metadata: inboxMetadata(file) });
-          return { file, decision, title: file.path.split("/").pop() || "자료" };
-        });
-        const eligibleFiles = classified.filter(({ decision }) => decision.outbound_allowed === true);
-        const discovery = { total: files.length, scanned_total: files.length, eligible: eligibleFiles.length, held: files.length - eligibleFiles.length, pending: 0, unchanged: 0, processed: 0, succeeded: 0, failed: 0, current_path: "", current_title: "", source_id: "", reason: "", message: "" };
-        if (eligibleFiles.length === 0) {
-          const state = settleInbox({ ...discovery, state: files.length ? "protected" : "empty" });
-          return { ok: true, status: state.state, total: files.length, results: [] };
+        try {
+          const discovery = await adaptQueueDiscovery();
+          const base = { total: discovery.total, scanned_total: discovery.scannedTotal, eligible: discovery.eligible, held: discovery.held, protected_items: discovery.protectedItems, pending: discovery.pending.length, unchanged: discovery.unchanged, processed: 0, succeeded: 0, failed: 0, current_path: "", current_title: "", source_id: "", reason: "", message: "", object_review_proposals: [] };
+          const interrupted = durableUnknownJob && !durableRecovery;
+          const state = settleInbox({ ...base, ...(interrupted ? { reason: "outcome_unknown", recovery_variant: "outcome_unknown", proposal_state: "blocked" } : {}), state: interrupted ? "blocked" : discovery.total === 0 ? "empty" : discovery.eligible === 0 ? "protected" : discovery.pending.length > 0 ? "queued" : "up_to_date" });
+          return { ok: true, status: state.state, total: discovery.total, results: [] };
+        } catch (error) {
+          const state = settleInbox({ total: 0, scanned_total: 0, eligible: 0, held: 0, pending: 0, unchanged: 0, processed: 0, succeeded: 0, failed: 0, current_path: "", current_title: "", source_id: "", reason: error && error.message || "scan_failed", message: "", object_review_proposals: [], state: "error" });
+          return { ok: false, status: state.state, total: 0, results: [] };
         }
-        const preparedEntries = [];
-        const resumedArtifacts = [];
-        const resumedReviewProposals = [];
-        const resumedObjectReviewProposals = [];
-        let proposalRecoveryReason = "";
-        let unchanged = 0;
-        for (const entry of eligibleFiles) {
-          const prepared = await serializeInboxFile(entry);
-          const completed = !forceAnalysis && await inboxIncrementalState.isCompleted(prepared);
-          if (completed) {
-            unchanged += 1;
-            const manifest = window.LLMWikiChunkManifest.createChunkManifest(prepared.scope);
-            const restored = await inboxChunkOrchestrator.proposals.read(manifest);
-            if (!restored.ok) proposalRecoveryReason = restored.reason || "corrupt_proposals_quarantined";
-            else {
-              resumedArtifacts.push(...restored.artifacts);
-              const materialized = await materializeInboxProposals({ artifacts: restored.artifacts, source: prepared });
-              if (!materialized.ok) proposalRecoveryReason = materialized.reason || "local_materialization_failed";
-              else { resumedReviewProposals.push(...materialized.proposals); resumedObjectReviewProposals.push(...materialized.object_review_proposals); }
-            }
-          } else preparedEntries.push({ entry, prepared });
-        }
-        const base = { ...discovery, pending: preparedEntries.length, unchanged, proposal_pending: resumedArtifacts.length, proposal_complete: resumedArtifacts.length, proposal_blocked: 0, proposal_state: resumedArtifacts.length ? "resumable" : "empty" };
-        if (preparedEntries.length === 0) {
-          if (proposalRecoveryReason) {
-            const state = settleInbox({ ...base, state: "blocked", proposal_blocked: resumedArtifacts.length || unchanged, proposal_state: "blocked", reason: proposalRecoveryReason });
-            return { ok: false, status: state.state, total: files.length, results: [] };
-          }
-          if (resumedReviewProposals.length > 0 || resumedObjectReviewProposals.length > 0) {
-            if (resumedReviewProposals.length > 0) {
-              const runId = `run_inbox_${llmWikiHash.sha256(resumedReviewProposals.map((proposal) => proposal.operation.operation_id).sort().join(":" )).slice(0, 24)}`;
-              const opened = llmWikiRunController.openPreparedRiskReview({ run_id: runId, proposals: resumedReviewProposals });
-              if (!opened || opened.ok !== true) {
-                const state = settleInbox({ ...base, state: "blocked", proposal_blocked: resumedReviewProposals.length, proposal_state: "blocked", reason: opened && opened.reason || "risk_review_unavailable" });
-                return { ok: false, status: state.state, total: files.length, results: [] };
-              }
-            }
-            const state = settleInbox({ ...base, state: "complete", proposal_pending: resumedReviewProposals.length + resumedObjectReviewProposals.length, proposal_complete: resumedArtifacts.length, proposal_state: "review", object_review_proposals: resumedObjectReviewProposals });
-            return { ok: true, status: state.state, total: files.length, results: [] };
-          }
-          const state = settleInbox({ ...base, state: "up_to_date" });
-          return { ok: true, status: state.state, total: files.length, results: [] };
-        }
-        publishInbox({ ...base, state: "queued" });
-        const results = [];
-        let succeeded = 0;
-        let failed = 0;
-        let failureReason = "";
-        let failureMessage = "";
-        const materializedProposals = [];
-        const materializedObjectReviewProposals = [];
-        const providerWideFailures = new Set([
-          "analysis_failed",
-          "analysis_provider_unavailable",
-          "invalid_chunk_response",
-          "analysis_state_write_failed",
-          "configuration_unavailable",
-          "provider_auth_required",
-          "provider_quota_exhausted",
-          "provider_tool_blocked",
-          "provider_unavailable",
-          "transport_unavailable",
-        ]);
-        for (const pendingEntry of preparedEntries) {
-          if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) break;
-          const { entry, prepared } = pendingEntry;
-          const sourceId = prepared.source_id;
-          publishInbox({ ...base, state: "analyzing", processed: results.length, succeeded, failed, current_path: entry.file.path, current_title: entry.title, source_id: sourceId });
-          if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) break;
-          let removeAbort = () => {};
-          const aborted = new Promise((resolve) => {
-            const onAbort = () => resolve({ ok: true, state: "cancelled", reason: "cancelled" });
-            if (scanController.signal.aborted) onAbort();
-            else {
-              scanController.signal.addEventListener("abort", onAbort, { once: true });
-              removeAbort = () => scanController.signal.removeEventListener("abort", onAbort);
-            }
-          });
-          const dispatched = inboxAutopilot.dispatch(prepared.input, { signal: scanController.signal, force: forceAnalysis });
-          const result = await Promise.race([dispatched, aborted]);
-          removeAbort();
-          if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) break;
-          results.push(result);
-          if (result && result.ok === true && result.state === "completed") {
-            try {
-              const analysis = result.analysis;
-              await inboxIncrementalState.markCompleted({ scope: analysis.scope, manifest: analysis.manifest, coverage: analysis.coverage });
-              const materialized = await materializeInboxProposals({ artifacts: analysis.artifacts, source: prepared });
-              if (!materialized.ok) throw Object.assign(new Error(materialized.reason || "local_materialization_failed"), { code: "local_materialization_blocked" });
-              materializedProposals.push(...materialized.proposals);
-              materializedObjectReviewProposals.push(...materialized.object_review_proposals);
-              succeeded += 1;
-            } catch (error) {
-              failed += 1;
-              failureReason = error && error.code === "local_materialization_blocked" ? "local_materialization_blocked" : error && error.message === "local_materialization_required" ? "local_materialization_required" : "analysis_state_write_failed";
-              failureMessage = "청크 분석 결과를 안전하게 저장하지 못해 자동 분석을 중단했습니다.";
-              break;
-            }
-          }
-          else if (!result || result.state !== "cancelled") {
-            failed += 1;
-            failureReason = result && typeof result.reason === "string" ? result.reason : "analysis_failed";
-            failureMessage = result && typeof result.message === "string" ? result.message : "";
-            if (providerWideFailures.has(failureReason)) break;
-          }
-        }
-        if (scanController.signal.aborted || scanGeneration !== inboxScanGeneration) return { ok: false, status: "cancelled", total: files.length, results };
-        if (failed === 0 && materializedProposals.length > 0) {
-          const runId = `run_inbox_${llmWikiHash.sha256(materializedProposals.map((proposal) => proposal.operation.operation_id).sort().join(":" )).slice(0, 24)}`;
-          const opened = llmWikiRunController.openPreparedRiskReview({ run_id: runId, proposals: materializedProposals });
-          if (!opened || opened.ok !== true) { failed += materializedProposals.length; failureReason = opened && opened.reason || "risk_review_unavailable"; }
-        }
-        const finalState = failed === 0 ? "complete" : failureReason === "local_materialization_blocked" ? "blocked" : succeeded === 0 ? "error" : "partial";
-        const state = settleInbox({ ...base, state: finalState, processed: results.length, succeeded, failed, proposal_pending: resumedArtifacts.length + succeeded, proposal_complete: resumedArtifacts.length + succeeded, proposal_blocked: failed, proposal_state: failed ? "blocked" : "resumable", reason: failed ? failureReason || "analysis_failed" : "", message: failed ? failureMessage : "", object_review_proposals: failed ? [] : materializedObjectReviewProposals });
-        return { ok: failed === 0, status: state.state, total: files.length, results };
       })().finally(() => {
-        if (scanGeneration === inboxScanGeneration) {
+        if (inboxScanPromise === activePromise) {
           inboxScanPromise = null;
-          inboxScanController = null;
+          llmWikiSession.inboxScanPromise = null;
         }
       });
       inboxScanPromise = activePromise;
+      llmWikiSession.inboxScanPromise = activePromise;
       return activePromise;
     };
-    const startLlmWikiMigration = async (sourceInputs, action = "migration_dry_run") => {
-      const result = await llmWikiRunController.startMigrationDryRun({
-        source_inputs: sourceInputs,
-        classify: async (sourceSnapshot) => {
-          const runId = `run_${sourceSnapshot.snapshot_id.replace(/^source_snapshot_/u, "")}`;
-          const supplied = await operationProvider({ action, run_id: runId, source_snapshot: sourceSnapshot, extracted_text: sourceSnapshot.content.text, outbound_allowed: true }, { signal: null });
-          if (!supplied || supplied.ok === false) throw new Error(supplied && supplied.reason || "migration_provider_unavailable");
-          const value = supplied.operation || supplied;
-          const parsed = window.LLMWikiOperationContract.isOperationRecord(value) ? { ok: true, value }
-            : window.LLMWikiOperationContract.parseOperation(typeof value === "string" ? value : value && value.serialized_operation);
-          if (!parsed || parsed.ok !== true) throw new Error(parsed && parsed.reason || "invalid_operation");
-          return parsed.value;
-        }
+    // Task 11 cutover: the explicit user-triggered batch. One click is consent
+    // for the frozen batch; duplicate clicks are typed no-ops; cancel makes any
+    // late batch result a bounded no-op.
+    let inboxBatchToken = 0;
+    let retrySequence = 0;
+    let activeInboxRun = null;
+    const runInboxBatch = ({ explicitRetry = false } = {}) => {
+      if (!batchAnalyzer) return Promise.resolve({ ok: false, status: "blocked", reason: "provider_selection_unavailable" });
+      const controllerStatus = llmWikiRunController.getSnapshot().status;
+      if (explicitRetry && ["review", "committing", "committed"].includes(controllerStatus)) {
+        return Promise.resolve({ ok: true, status: controllerStatus, reason: "review_already_ready", provider_calls: 0 });
+      }
+      if (activeInboxRun && !explicitRetry) return activeInboxRun.promise;
+      const token = ++inboxBatchToken;
+      const activePromise = (async () => {
+      const discovery = await adaptQueueDiscovery();
+      if (token !== inboxBatchToken) return { ok: false, status: "cancelled", reason: "run_superseded" };
+      const frozenBatch = await inboxDiscoveryQueue.freezeBatch();
+      const pendingIds = new Set(discovery.pending.map((row) => row.source_id));
+      const sources = explicitRetry ? frozenBatch.sources : frozenBatch.sources.filter((row) => pendingIds.has(row.source_id));
+      const baseCounts = { total: discovery.total, scanned_total: discovery.scannedTotal, eligible: discovery.eligible, held: discovery.held, protected_items: discovery.protectedItems, pending: sources.length, unchanged: discovery.unchanged };
+      if (sources.length === 0) {
+        const state = settleInbox({ ...baseCounts, processed: 0, succeeded: 0, failed: 0, current_path: "", current_title: "", source_id: "", reason: "", message: "", object_review_proposals: [], state: discovery.total === 0 ? "empty" : "up_to_date" });
+        return { ok: true, status: state.state, provider_calls: 0, run_id: null, job_id: null };
+      }
+      const runId = `run_inbox_${llmWikiHash.sha256(sources.map((row) => `${row.source_id}:${row.content_hash}`).sort().join(":")).slice(0, 24)}`;
+      const now = new Date().toISOString();
+      publishInbox({ ...baseCounts, state: "analyzing", processed: 0, succeeded: 0, failed: 0, current_title: "INBOX 배치 분석", current_path: sources[0].source_path, source_id: sources[0].source_id, reason: "", message: "", object_review_proposals: [] });
+      if (explicitRetry) retrySequence += 1;
+      const retryIntentId = explicitRetry ? `retry_${runId}_${retrySequence}` : null;
+      const response = await llmWikiRunController.startRun({
+        run_id: runId,
+        sources: sources.map((row) => ({ selected: true, display_name: row.source_path.split("/").pop() || "자료", extracted_text: row.extracted_text, analysis_text: inboxAnalysisText(row.extracted_text), source_path: row.source_path, manifest: { source_id: row.source_id, content_hash: row.content_hash, locator: row.source_path } })),
+        retrieval: { snapshot: { documents: [] } },
+        consent: { issued_at: now, nonce: `consent_${runId.slice(4)}_0001` },
+        approval: { expires_at: new Date(Date.now() + 3600000).toISOString(), nonce: `approval_${runId.slice(4)}_0001` },
+        advanced_settings: { provider_mode: selectedProviderMode, timeout_ms: 120000 },
+        canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "사람이 승인할 때", application_contexts: ["reading"], connections: [], invalidation_conditions: [], summary: "" },
+        explicit_user_consent: true,
+        ...(explicitRetry ? { task13_explicit_retry: true, task13_retry_intent_id: retryIntentId } : {}),
       });
-      if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
-      return result;
-    };
-    const scanExistingZetaMigration = async () => {
-      const files = (appRef.vault.getMarkdownFiles ? appRef.vault.getMarkdownFiles() : []).filter((file) => file.path.startsWith("ZETA/PERMANENT/")).sort((a, b) => a.path.localeCompare(b.path));
-      const inputs = [];
-      for (const file of files) inputs.push(JSON.stringify({ source_kind: "markdown", source_path: file.path, text: await appRef.vault.cachedRead(file) }));
-      return inputs.length ? startLlmWikiMigration(inputs, "existing_zeta_migration_dry_run") : { ok: false, status: "empty", reason: "existing_zeta_empty" };
+      if (token !== inboxBatchToken) return { ok: false, status: "cancelled", reason: "run_superseded", late_result_ignored: true };
+      if (!response || response.ok !== true) {
+        const reason = response && response.reason || "batch_analysis_failed";
+        const recoveryVariant = window.LLMWikiUIRecovery && typeof window.LLMWikiUIRecovery.recoveryVariantFor === "function"
+          ? window.LLMWikiUIRecovery.recoveryVariantFor({ code: reason }) : "blocked";
+        const state = settleInbox({ ...baseCounts, state: "blocked", recovery_variant: recoveryVariant, processed: 0, succeeded: 0, failed: sources.length, proposal_blocked: sources.length, proposal_state: "blocked", reason, message: "", object_review_proposals: [] });
+        return { ok: false, status: state.state, reason, provider_calls: response && response.counters ? response.counters.provider : 0 };
+      }
+      const packets = Array.isArray(response.risk_packets) ? response.risk_packets : [];
+      const packTotal = response.batch_metrics && Number.isSafeInteger(response.batch_metrics.pack_count) ? response.batch_metrics.pack_count : 0;
+      const state = settleInbox({ ...baseCounts, state: "complete", processed: sources.length, succeeded: sources.length, failed: 0, pack_progress: { completed: packTotal, total: packTotal, current: packTotal }, proposal_pending: packets.length, proposal_complete: sources.length, proposal_state: packets.length ? "review" : "complete", reason: "", message: "", object_review_proposals: [] });
+      if (packets.length > 0) {
+        for (const group of response.source_groups || []) approvalGroups.set(group.source_id, group);
+        durableRecovery = await batchJobStore.saveRecoverySnapshot({
+          active_tab: "llmwiki",
+          selected_batch_id: response.batch_id || llmWikiHash.sha256(runId),
+          review: { run_id: runId, document_contract_version: DOCUMENT_REVIEW_CONTRACT, selected_operation_ids: [], proposals: packets.map((packet) => ({ operation_id: packet.operation.operation_id, packet_id: packet.packet_id, summary: packet.summary, serialized_operation: JSON.stringify(packet.operation), status: "review" })) },
+          operation_outcomes: packets.map((packet) => ({ operation_id: packet.operation.operation_id, status: "review" })),
+          approval_sources: (response.source_groups || []).map((group) => ({ source_id: group.source_id, source_path: group.source_path, content_hash: group.content_hash, operation_ids: group.proposals.map((proposal) => proposal.operation.operation_id), unresolved_holds: group.holds.length, unresolved_para_drafts: group.para_drafts.length })),
+          archive_receipts: [],
+        });
+      }
+      return { ok: true, status: state.state, provider_calls: response.counters ? response.counters.provider : 0, proposals: packets.length, run_id: runId, job_id: response.job_id || response.batch_id || null, batch_id: response.batch_id || null };
+      })().finally(() => { if (activeInboxRun && activeInboxRun.promise === activePromise) activeInboxRun = null; });
+      activeInboxRun = { promise: activePromise };
+      return activePromise;
     };
     const lifecycleSnapshot = () => {
       const snapshot = llmWikiRunController.getSnapshot();
       const directProvider = resolveProvider("direct");
+      const durableProcessed = Boolean(durableRecovery
+        && Array.isArray(durableRecovery.operation_outcomes)
+        && durableRecovery.operation_outcomes.length > 0
+        && durableRecovery.operation_outcomes.every((row) => row.status === "committed")
+        && Array.isArray(durableRecovery.archive_receipts)
+        && durableRecovery.archive_receipts.length > 0);
       return {
         ...snapshot,
         ...(snapshot.provider_mode ? {} : { provider_mode: selectedProviderMode }),
         provider_key: directProvider && directProvider.ok === true ? directProvider.provider_key : "",
         provider_options: providerOptions,
+        provider_readiness: (() => {
+          const selected = directProvider && directProvider.ok === true ? providerOptions.find((option) => option.provider_key === directProvider.provider_key) : null;
+          return { ready: Boolean(selected && selected.configured === true), code: selected && selected.configured === true ? "ready" : String(directProvider && directProvider.code || "configuration_required") };
+        })(),
+        display_variant: "local",
         ...(providerSelectionFailure ? { provider_selection_error: providerSelectionFailure } : {}),
         ...(selectedSource ? { source_selection: { selected: true, display_name: selectedSource.title } } : {}),
         source_options: sourceOptions,
         ...(startupStatus ? { status: startupStatus } : {}),
         ...(startupFailure ? { status: "failed", reason: startupFailure } : {}),
-        ...(rolloutActivationFailure ? { rollout_activation_failure: rolloutActivationFailure } : {}),
+        ...(durableProcessed && !startupFailure ? { status: "processed", reason: "" } : {}),
         inbox: { ...inboxState },
         fleeting: { ...fleetingReviewState },
-        approval_packet: snapshot.approval_packet || (Array.isArray(snapshot.review_packets) ? snapshot.review_packets[0] || null : null)
+        approval_packet: snapshot.approval_packet || (Array.isArray(snapshot.review_packets) ? snapshot.review_packets[0] || null : null),
+        durable_review_selection: durableRecovery?.review?.selected_operation_ids || [],
+        durable_operation_outcomes: durableRecovery?.operation_outcomes || [],
       };
     };
     const dispatchStartupIntent = async (intent) => {
@@ -892,29 +1095,31 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         renderFleetingSummary(fleetingReviewState);
         return { ok: fleetingReviewState.status !== "blocked", status: fleetingReviewState.status, fleeting: { ...fleetingReviewState }, reason: fleetingReviewState.reason || "" };
       }
-      if (intent.action === "scan_inbox") return scanInbox();
-      if (intent.action === "force_reanalyze_inbox") return scanInbox({ force: true });
-      if (intent.action === "scan_migration") return scanExistingZetaMigration();
+      if (intent.action === "scan_inbox") return refreshInboxViewFromQueue();
+      if (intent.action === "analyze_inbox") return runInboxBatch();
       if (intent.action === "cancel_inbox") {
-        if (!["queued", "analyzing"].includes(inboxState.state) || !inboxScanPromise || !inboxScanController || inboxScanController.signal.aborted) return { ok: false, status: inboxState.state, reason: "inbox_scan_not_active" };
-        const cancelledController = inboxScanController;
-        const cancelledSourceId = inboxState.source_id;
-        cancelledController.abort();
-        inboxScanGeneration += 1;
-        inboxScanPromise = null;
-        inboxScanController = null;
-        const cancelled = inboxAutopilot.cancel(cancelledSourceId);
-        const cancelledState = settleInbox({ ...inboxState, state: "cancelled", current_path: "", current_title: "", reason: "cancelled" });
-        const controllerState = llmWikiRunController.getSnapshot();
-        const packet = Array.isArray(controllerState.risk_packets) ? controllerState.risk_packets[0] : null;
-        if (packet) await llmWikiRunController.dispatchRiskAction({ action: "reject_risk", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id });
-        else {
-          const operation = llmWikiRunController.getOperationSnapshot();
-          if (["provider_pending", "review", "authorizing", "committing", "stale"].includes(operation.status)) await llmWikiRunController.cancelOperation({ action: "cancel" });
+        // Task 11 cutover: cancel invalidates the active run token so any late
+        // batch result is a bounded no-op; it can never open or mutate review.
+        if (!["queued", "analyzing"].includes(inboxState.state)) return { ok: false, status: inboxState.state, reason: "inbox_scan_not_active" };
+        inboxBatchToken += 1;
+        const controllerStatus = llmWikiRunController.getSnapshot().status;
+        if (["running", "review", "consent_required", "committing"].includes(controllerStatus)) {
+          try { await llmWikiRunController.cancel({ action: "cancel" }); } catch (_error) { /* bounded no-op on late settle */ }
         }
-        return { ...cancelled, status: "cancelled", inbox: cancelledState };
+        const cancelledState = settleInbox({ ...inboxState, state: "cancelled", processed: 0, succeeded: 0, failed: 0, current_path: "", current_title: "", reason: "cancelled" });
+        return { ok: true, status: "cancelled", reason: "cancelled", inbox: cancelledState };
       }
-      if (intent.action === "retry_inbox") return scanInbox();
+      if (["retry_inbox", "retry_analysis"].includes(intent.action)) return runInboxBatch({ explicitRetry: true });
+      if (intent.action === "open_ai_settings") {
+        try {
+          await ensureProdigySettings(appRef);
+          if (!window.ProdigySettingsModal || typeof window.ProdigySettingsModal.open !== "function") return { ok: false, status: "blocked", reason: "settings_unavailable" };
+          window.ProdigySettingsModal.open(appRef);
+          return { ok: true, status: inboxState.state, provider_calls: 0 };
+        } catch (_error) { return { ok: false, status: "blocked", reason: "settings_unavailable", provider_calls: 0 }; }
+      }
+      if (intent.action === "later") return { ok: true, status: inboxState.state, provider_calls: 0 };
+      if (intent.action === "repacket") return llmWikiRunController.repacketStale({ action: "repacket_stale" });
       if (intent.action === "set_provider_mode") {
         if (!["direct", "omniroute"].includes(intent.provider_mode)) return { ok: false, status: "failed", reason: "invalid_provider_mode" };
         selectedProviderMode = intent.provider_mode;
@@ -923,33 +1128,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return { ok: true, status: llmWikiRunController.getSnapshot().status, provider_mode: selectedProviderMode };
       }
       if (intent.action === "set_provider") {
-        const operationStatus = llmWikiRunController.getSnapshot().status;
-        if (["queued", "analyzing"].includes(inboxState.state) || ["running", "committing"].includes(operationStatus)) {
-          return { ok: false, status: operationStatus, reason: "provider_selection_busy" };
-        }
-        const providerKey = String(intent.provider_key || "").trim();
-        const option = providerOptions.find((item) => item.provider_key === providerKey);
-        if (!option || option.configured !== true) return { ok: false, status: "failed", reason: "provider_selection_unavailable" };
-        try {
-          const profile = llmWikiConfig.aiProfiles.llmwiki;
-          llmWikiConfig = await window.ProdigyConfigService.save(appRef, {
-            config: {
-              aiProfiles: {
-                schema_version: llmWikiConfig.aiProfiles.schema_version,
-                llmwiki: { ...profile, direct_provider_key: providerKey },
-              },
-            },
-          });
-          providerOptions = await configuredProviderOptions(llmWikiConfig);
-          selectedProviderMode = "direct";
-          selectedRunCommand = null;
-          startupFailure = "";
-          providerSelectionFailure = "";
-          return { ok: true, status: llmWikiRunController.getSnapshot().status, provider_mode: "direct", provider_key: providerKey };
-        } catch (_error) {
-          providerSelectionFailure = "AI 제공자 선택을 저장하지 못했습니다.";
-          return { ok: false, status: "failed", reason: "provider_selection_save_failed" };
-        }
+        return { ok: false, status: "failed", reason: "action_unavailable" };
       }
       if (intent.action === "select_source" && !intent.source_path) {
         sourceOptions = await eligibleSources();
@@ -977,7 +1156,17 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         startupFailure = "먼저 Literature 자료를 하나 선택해 주세요.";
         return { ok: false, status: "selecting", reason: "source_selection_required" };
       }
-      const command = selectedRunCommand || await defaultRunCommand(selectedSource.path, selectedProviderMode);
+      const resolvedProvider = resolveProvider(selectedProviderMode);
+      const providerOption = resolvedProvider && resolvedProvider.ok === true
+        ? providerOptions.find((option) => option.provider_key === resolvedProvider.provider_key)
+        : null;
+      const providerGateOk = Boolean(llmWikiControllerOptions.batchProvider || llmWikiControllerOptions.batchIdentity)
+        || Boolean(providerOption && providerOption.configured === true);
+      if (!providerGateOk) {
+        providerSelectionFailure = "설정 → AI에서 기본 제공자의 인증 설정을 확인해 주세요.";
+        return { ok: false, status: "failed", reason: "provider_selection_unavailable" };
+      }
+      const command = selectedRunCommand || await defaultBatchCommand(selectedSource.path);
       if (!command) {
         startupStatus = "selecting";
         startupFailure = "선택한 자료 또는 AI 제공자 설정을 확인해 주세요.";
@@ -985,12 +1174,17 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       selectedRunCommand = command;
       KnowledgeExplorerHub.llmWikiSelectedRunCommand = command;
+      providerSelectionFailure = "";
       startupFailure = "";
       startupStatus = null;
       return llmWikiRunController.startRun({ ...command, explicit_user_consent: intent.action === "start_run" });
     };
     const reviewItems = () => {
       const configured = Array.isArray(llmWikiControllerOptions.review_items) ? llmWikiControllerOptions.review_items : [];
+      const reviewSnapshot = llmWikiRunController.getSnapshot();
+      const proposalByOperationId = new Map((Array.isArray(reviewSnapshot.proposals) ? reviewSnapshot.proposals : [])
+        .filter((proposal) => proposal && proposal.operation && typeof proposal.operation.operation_id === "string")
+        .map((proposal) => [proposal.operation.operation_id, proposal]));
       const fleetingRows = (Array.isArray(fleetingReviewState.reviews) ? fleetingReviewState.reviews : []).map((review) => ({
         review_id: review.review_id,
         destination: review.destination,
@@ -1010,9 +1204,49 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           review_history: Array.isArray(candidate.review_history) ? candidate.review_history : [],
           acceptance_state: candidate.status,
         })) : [];
-      const packetRows = (Array.isArray(llmWikiRunController.getSnapshot().risk_packets) ? llmWikiRunController.getSnapshot().risk_packets : [])
+      const packetRows = (Array.isArray(reviewSnapshot.risk_packets) ? reviewSnapshot.risk_packets : [])
         .filter((packet) => packet && typeof packet.packet_id === "string")
-        .map((packet) => ({ review_id: packet.packet_id, destination: "canonical_knowledge", review_state: "pending", analysis_state: "complete", title: packet.summary || "정본 검토", sources: packet.provenance && Array.isArray(packet.provenance.sources) ? packet.provenance.sources : [] }));
+        .map((packet) => {
+          const destinations = packet.operation && Array.isArray(packet.operation.destination_ids) ? packet.operation.destination_ids : [];
+          const destination = destinations.every((path) => String(path).startsWith("ZETA/LITERATURE/"))
+            ? "literature"
+            : destinations.every((path) => String(path).startsWith("ZETA/CANDIDATES/"))
+              ? "knowledge_candidate"
+              : "canonical_knowledge";
+          const proposal = proposalByOperationId.get(packet.operation.operation_id);
+          const lineage = Array.isArray(packet.source_lineage) ? packet.source_lineage : [];
+          const sources = lineage.flatMap((citation) => (Array.isArray(citation.locators) ? citation.locators : []).map((locator) => ({
+            source_id: citation.source_id,
+            locator,
+          })));
+          const citations = lineage.map((citation, index) => ({
+            citation_id: `citation_${index + 1}`,
+            source_id: citation.source_id,
+            locators: Array.isArray(citation.locators) ? citation.locators : [],
+          }));
+          const citationIds = citations.map((citation) => citation.citation_id);
+          const restoredClaimTexts = destinations.flatMap((destinationPath) => {
+            const body = String(packet.operation.after_bytes && packet.operation.after_bytes[destinationPath] || "");
+            const section = /## 핵심 내용\s*\n+([\s\S]*?)\n+## 출처/u.exec(body);
+            return section ? section[1].split("\n").map((line) => line.replace(/^\s*-\s*/u, "").trim()).filter(Boolean) : [];
+          });
+          const documentClaims = proposal && proposal.document && Array.isArray(proposal.document.claims)
+            ? proposal.document.claims : restoredClaimTexts.map((text) => ({ text }));
+          const claims = documentClaims
+            .map((claim, index) => ({
+              claim_id: `claim_${index + 1}`,
+              text: String(claim.text || ""),
+              origin: "ai_synthesis",
+              citation_ids: citationIds,
+              derived_from_claim_ids: [],
+            }));
+          return {
+            review_id: packet.packet_id, destination, review_state: "pending", analysis_state: "complete",
+            title: packet.summary || "지식 문서 검토", sources,
+            claim_set: { claims, citations, disputes: [] },
+            coverage: { complete: sources.length > 0, status: sources.length > 0 ? "완료" : "확인 필요" },
+          };
+        });
       const objectRows = Array.isArray(inboxState.object_review_proposals) ? inboxState.object_review_proposals
         .filter((proposal) => proposal && typeof proposal.handoff_id === "string" && proposal.target)
         .map((proposal) => ({ review_id: proposal.handoff_id, destination: "para_object", review_state: "pending", analysis_state: "complete", title: proposal.text || proposal.knowledge && proposal.knowledge.path || "PARA 전달", object_handoff: { handoff_id: proposal.handoff_id, target_path: proposal.target.path, target_revision: proposal.before && proposal.before.revision || "", before_bytes: proposal.before && proposal.before.bytes || "", before_diff: proposal.text ? [{ kind: "add", line: proposal.text }] : proposal.knowledge && proposal.knowledge.link ? [{ kind: "add", line: proposal.knowledge.link }] : [] } })) : [];
@@ -1025,14 +1259,73 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const refreshReviewWorkbench = () => {
       if (knowledgeReviewWorkbench) knowledgeReviewWorkbench.update({ items: reviewItems() });
     };
+    const applyBatchApproval = async ({ selected_operation_ids: selectedOperationIds, user_action: userAction }) => {
+      if (userAction !== window.LLMWikiBatchApprovalAdapter.EXPLICIT_ACTION || !durableRecovery?.review) return { ok: false, reason: "explicit_user_approval_required", status: "review" };
+      const outcomeById = new Map(durableRecovery.operation_outcomes.map((row) => [row.operation_id, row]));
+      if (selectedOperationIds.every((id) => ["committed", "duplicate"].includes(outcomeById.get(id)?.status))) return { ok: true, status: "duplicate", write_counts: { canonical: 0, audit: 0, source: 0 }, results: [] };
+      const allResults = [];
+      const archiveReceipts = [...(durableRecovery.archive_receipts || [])];
+      let canonicalWrites = 0;
+      let auditWrites = 0;
+      let sourceWrites = 0;
+      for (const group of approvalGroups.values()) {
+        const selectedForSource = selectedOperationIds.filter((id) => group.proposals.some((proposal) => proposal.operation.operation_id === id));
+        if (selectedForSource.length === 0) continue;
+        const matrixResult = window.LLMWikiBatchApprovalAdapter.preselectionMatrix(group, {
+          allowedCandidateIds: Array.isArray(llmWikiControllerOptions.allowedCandidateIds) ? llmWikiControllerOptions.allowedCandidateIds : [],
+          relatedCandidates: Array.isArray(llmWikiControllerOptions.relatedCandidates) ? llmWikiControllerOptions.relatedCandidates : [],
+        });
+        if (!matrixResult.ok) return { ok: false, reason: matrixResult.reason, status: "review" };
+        const authorized = window.LLMWikiBatchApprovalAdapter.authorizeBatch(matrixResult.value, {
+          selected_operation_ids: selectedForSource,
+          user_action: userAction,
+          run_id: durableRecovery.review.run_id,
+        });
+        if (!authorized.ok) return { ok: false, reason: authorized.reason, status: "review" };
+        const applied = await window.LLMWikiBatchApprovalAdapter.applyBatch({ group, selection: authorized.value, vault: batchApprovalVault });
+        if (!applied.ok) return { ok: false, reason: applied.reason, status: "review" };
+        canonicalWrites += applied.value.write_counts.canonical;
+        auditWrites += applied.value.write_counts.audit;
+        for (const row of applied.value.results) {
+          const durableRow = ["committed", "duplicate"].includes(row.status) ? { ...row, receipt_id: row.operation_id } : row;
+          outcomeById.set(row.operation_id, durableRow);
+          allResults.push(durableRow);
+        }
+
+        const aggregate = { results: group.proposals.map((proposal) => outcomeById.get(proposal.operation.operation_id) || { operation_id: proposal.operation.operation_id, status: "review" }) };
+        const eligibility = window.LLMWikiBatchApprovalAdapter.archivalEligibility({ group, applyResult: aggregate });
+        if (eligibility.eligible && !archiveReceipts.some((receipt) => receipt.source_id === group.source_id)) {
+          const archived = await window.LLMWikiProcessedSourceService.archiveProcessed({ source_path: group.source_path, expected_sha256: group.content_hash, vault: batchApprovalVault });
+          if (!archived.ok) return { ok: false, reason: archived.reason, status: "committed", results: allResults, write_counts: { canonical: canonicalWrites, audit: auditWrites, source: sourceWrites } };
+          archiveReceipts.push({ source_id: group.source_id, ...archived.value });
+          if (archived.value.status === "archived") sourceWrites += 1;
+        }
+      }
+      const outcomes = durableRecovery.operation_outcomes.map((row) => ({ ...row, ...(outcomeById.get(row.operation_id) || {}) }));
+      durableRecovery = await batchJobStore.saveRecoverySnapshot({ ...durableRecovery, operation_outcomes: outcomes, archive_receipts: archiveReceipts });
+      const fullyResolved = outcomes.every((row) => ["committed", "duplicate"].includes(row.status));
+      if (fullyResolved) await batchJobStore.setJobState(durableRecovery.selected_batch_id, "resolved");
+      return { ok: true, status: sourceWrites > 0 ? "processed" : fullyResolved ? "committed" : "review", results: allResults, archive_receipts: archiveReceipts, write_counts: { canonical: canonicalWrites, audit: auditWrites, source: sourceWrites } };
+    };
+    llmWikiSession.bindings.applyBatchApproval = applyBatchApproval;
     const dispatchLifecycleAction = async (intent) => {
       let pending;
-      if (["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) pending = llmWikiRunController.dispatchRiskAction(intent);
-      else if (intent.action === "enable_rollout_phase") pending = llmWikiRunController.enableRolloutPhase(intent);
-      else if (intent.action === "review_migration") pending = llmWikiRunController.prepareMigrationPacket(intent);
-      else if (intent.action === "approve_migration") pending = llmWikiRunController.approveMigration(intent);
-      else if (["retry_migration_refresh", "retry_migration_git"].includes(intent.action)) pending = llmWikiRunController.retryMigrationFollowUp(intent);
-      else if (intent.action === "migration_recovery") pending = llmWikiRunController.acknowledgeMigrationRecovery(intent);
+      const durableProposal = durableRecovery?.review?.proposals?.find((row) => row.packet_id === intent.packet_id)
+        || durableRecovery?.review?.proposals?.find((row) => row.packet_id === intent.invalidated_packet_id)
+        || null;
+      const affectedOperationId = durableProposal?.operation_id || null;
+      if (intent.action === "persist_review_selection") {
+        if (!durableRecovery?.review || !Array.isArray(intent.operation_ids)) return { ok: false, status: "rejected", reason: "review_selection_unavailable" };
+        durableRecovery = await batchJobStore.saveRecoverySnapshot({ ...durableRecovery, review: { ...durableRecovery.review, selected_operation_ids: [...new Set(intent.operation_ids)].sort() } });
+        llmWikiLifecycle.update(lifecycleSnapshot());
+        return { ok: true, status: "review", provider_calls: 0, write_counts: { canonical: 0, audit: 0, refresh: 0, git: 0 } };
+      }
+      if (["approve_risk", "approve_risk_batch"].includes(intent.action) && durableRecovery?.approval_sources) {
+        const packetIds = intent.action === "approve_risk" ? [intent.packet_id] : Array.isArray(intent.selection_ids) ? intent.selection_ids : [];
+        const operationIds = durableRecovery.review.proposals.filter((row) => packetIds.includes(row.packet_id)).map((row) => row.operation_id);
+        pending = llmWikiRunController.applyPreparedBatchApproval({ user_action: window.LLMWikiBatchApprovalAdapter.EXPLICIT_ACTION, selected_operation_ids: operationIds });
+      }
+      else if (["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) pending = llmWikiRunController.dispatchRiskAction(intent);
       else if (intent.action === "resurfacing_feedback") pending = llmWikiRunController.recordResurfacingFeedback(intent);
       else if (intent.action === "approve") pending = llmWikiRunController.approve(intent);
       else if (intent.action === "cancel") pending = llmWikiRunController.cancel(intent);
@@ -1050,13 +1343,40 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       refreshReviewWorkbench();
       pokeMaintenance();
       let response = await pending;
-      if (intent.action === "enable_rollout_phase") {
-        if (response && response.ok === true) rolloutActivationFailure = "";
-        else if (response && response.reason === "prior_rollout_gate_unavailable") rolloutActivationFailure = "이전 단계를 먼저 활성화해 주세요.";
-        else if (response && response.reason === "rollout_persistence_failed") rolloutActivationFailure = "활성화 상태를 저장하지 못했습니다. 다시 시도해 주세요.";
-        else if (response && response.reason === "unknown_rollout_phase") rolloutActivationFailure = "지원하지 않는 활성화 단계입니다.";
-        else rolloutActivationFailure = "활성화 확인 자료를 검증하지 못했습니다. 완료 상태가 최신인지 확인한 뒤 다시 시도해 주세요.";
+      if (durableRecovery?.review && response?.ok !== true && affectedOperationId) {
+        const currentOutcome = durableRecovery.operation_outcomes.find((row) => row.operation_id === affectedOperationId);
+        const reason = String(response?.reason || "");
+        const invalidationReason = ["target_revision_mismatch", "source_revision_mismatch", "stale_source", "stale_source_revision"].includes(reason)
+          ? "source_hash_changed"
+          : ["packet_invalidated", "invalidated_batch_packet", "stale_risk_action", "risk_packet_snapshot_mismatch"].includes(reason)
+            ? "packet_changed"
+            : response?.invalidated_packet_id || reason.startsWith("repacket_") || ["typed_repacket_failed", "replacement_run_activation_failed"].includes(reason)
+              ? "repacket_required" : null;
+        if (invalidationReason && currentOutcome && !["committed", "duplicate"].includes(currentOutcome.status)) {
+          await batchJobStore.invalidateRecoveryOperation({ operation_id: affectedOperationId, reason: invalidationReason });
+          durableRecovery = batchJobStore.getRecoverySnapshot();
+        }
       }
+      if (durableRecovery?.review && response?.ok === true && ["approve_risk", "approve_risk_batch"].includes(intent.action) && !durableRecovery.approval_sources) {
+        const selectedPacketIds = intent.action === "approve_risk" ? [intent.packet_id] : intent.selection_ids || [];
+        const selectedOperationIds = durableRecovery.review.proposals.filter((row) => selectedPacketIds.includes(row.packet_id)).map((row) => row.operation_id);
+        const outcomes = durableRecovery.operation_outcomes.map((row) => selectedOperationIds.includes(row.operation_id)
+          ? { ...row, status: "committed", receipt_id: response.receipt?.packet_snapshot?.packet_id || response.receipt?.packet_id || response.committed?.receipt?.packet_id || row.receipt_id || "durable_commit_receipt" }
+          : row);
+        durableRecovery = await batchJobStore.saveRecoverySnapshot({ ...durableRecovery, operation_outcomes: outcomes });
+      }
+      if (durableRecovery?.review && response?.ok === true && intent.action === "request_risk_revision") {
+        const packets = llmWikiRunController.getSnapshot().risk_packets || [];
+        const packetByOperation = new Map(packets.map((packet) => [packet.operation.operation_id, packet]));
+        const proposals = durableRecovery.review.proposals.map((row) => {
+          const packet = packetByOperation.get(row.operation_id);
+          return packet ? { operation_id: packet.operation.operation_id, packet_id: packet.packet_id, summary: packet.summary, serialized_operation: JSON.stringify(packet.operation), status: "review" } : row;
+        });
+        for (const packet of packets) if (!proposals.some((row) => row.operation_id === packet.operation.operation_id)) proposals.push({ operation_id: packet.operation.operation_id, packet_id: packet.packet_id, summary: packet.summary, serialized_operation: JSON.stringify(packet.operation), status: "review" });
+        const outcomes = durableRecovery.operation_outcomes.map((row) => row.operation_id === affectedOperationId ? { operation_id: row.operation_id, status: "review", action: "retry" } : row);
+        durableRecovery = await batchJobStore.saveRecoverySnapshot({ ...durableRecovery, review: { ...durableRecovery.review, selected_operation_ids: durableRecovery.review.selected_operation_ids.filter((id) => id !== affectedOperationId), proposals }, operation_outcomes: outcomes });
+      }
+      persistLlmWikiSessionView();
       KnowledgeExplorerHub.lastLlmWikiAction = { intent, response };
       llmWikiLifecycle.update(lifecycleSnapshot());
       refreshReviewWorkbench();
@@ -1137,6 +1457,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }),
       onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath)
     });
+    llmWikiSession.bindings.wikiSurface = llmWikiWikiSurface;
+    if (mountContext && mountContext.scope && typeof mountContext.scope.track === "function") {
+      mountContext.scope.track(() => {
+        if (llmWikiSession.bindings.wikiSurface === llmWikiWikiSurface) llmWikiSession.bindings.wikiSurface = null;
+      });
+    }
 
     // --- Active maintenance scheduling: real production start edge ---
     // Reads real Knowledge state through a snapshot provider (overridable via
@@ -1215,16 +1541,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     KnowledgeExplorerHub.model = model;
     KnowledgeExplorerHub.paraModel = paraModel;
     const inboxRef = appRef.vault.on && appRef.vault.on("create", (file) => {
-      if (file && typeof file.path === "string" && file.path.startsWith("INBOX/") && file.path.endsWith(".md")) scanInbox();
+      if (file && typeof file.path === "string" && file.path.startsWith("INBOX/") && !file.path.startsWith("INBOX/Processed/") && file.path.endsWith(".md")) refreshInboxViewFromQueue();
     });
     if (inboxRef && mountContext.scope && typeof mountContext.scope.track === "function") mountContext.scope.track(() => appRef.vault.offref && appRef.vault.offref(inboxRef));
-    scanInbox();
-    KnowledgeExplorerHub.inboxAutopilot = inboxAutopilot;
+    refreshInboxViewFromQueue();
     KnowledgeExplorerHub.fleetingReviewService = fleetingReviewService;
     KnowledgeExplorerHub.refreshFleetingReview = refreshFleetingSurface;
-    KnowledgeExplorerHub.startLlmWikiMigration = startLlmWikiMigration;
-    KnowledgeExplorerHub.scanExistingZetaMigration = scanExistingZetaMigration;
-    KnowledgeExplorerHub.scanKnowledgeInbox = scanInbox;
     KnowledgeExplorerHub.whenKnowledgeInboxSettled = () => inboxSettled;
     KnowledgeExplorerHub.llmWikiRunController = llmWikiRunController;
     KnowledgeExplorerHub.llmWikiLifecycle = llmWikiLifecycle;

@@ -64,6 +64,45 @@ test("exports an explicit standalone API and exact beginner-first empty copy", (
   assert.equal(action(root, "select-source").getAttribute("data-intent-action"), "select_source");
 });
 
+test("routes durable success ahead of terminal failure and rejects failed durable outcomes", () => {
+  const lifecycle = api();
+  const durable = {
+    status: "failed",
+    durable_operation_outcomes: [{ status: "committed" }],
+    inbox: { state: "complete", succeeded: 1, failed: 0 },
+  };
+  assert.equal(lifecycle.durableSuccess(durable), true);
+  const subject = mount("failed", durable);
+  assert.match(primaryText(subject.root), /지식 반영 완료/);
+  assert.doesNotMatch(primaryText(subject.root), /저장된 변경은 없습니다/);
+
+  const failedOutcome = { ...durable, durable_operation_outcomes: [{ status: "failed" }] };
+  assert.equal(lifecycle.durableSuccess(failedOutcome), false);
+  assert.match(primaryText(mount("failed", failedOutcome).root), /저장된 변경은 없습니다/);
+
+  const failedInbox = { ...durable, inbox: { state: "complete", succeeded: 1, failed: 1 } };
+  assert.equal(lifecycle.durableSuccess(failedInbox), false);
+  assert.match(primaryText(mount("failed", failedInbox).root), /저장된 변경은 없습니다/);
+});
+
+test("mounts a processed inbox snapshot with a committed durable outcome", () => {
+  const { root } = mountRoot();
+  const snapshot = {
+    status: "processed",
+    inbox: { state: "processed" },
+    operation_run: { status: "committed", durable_outcome: { status: "complete" } },
+  };
+  assert.doesNotThrow(() => api().mountLlmWikiLifecycleView({ container: root, snapshot, onAction() {} }));
+  assert.match(primaryText(root), /지식 반영 완료/);
+  assert.doesNotMatch(primaryText(root), /처리할 수 없습니다|오류/);
+});
+
+test("renders a complete snapshot as committed success", () => {
+  const subject = mount("complete");
+  assert.match(primaryText(subject.root), /지식 반영 완료/);
+  assert.doesNotMatch(primaryText(subject.root), /제안을 만들지 못했습니다/);
+});
+
 test("offers Literature source selection from every terminal inbox scene", () => {
   for (const state of ["private", "empty", "ignored", "error", "cancelled"]) {
     // Given: an inbox scene that is no longer running.
@@ -143,7 +182,7 @@ test("incremental inbox scenes expose pending and unchanged counts without imply
     },
   });
   assert.match(primaryText(active.root), /2\/2 분석 중/u);
-  assert.match(primaryText(active.root), /변경 없음 3개/u);
+  assert.match(primaryText(active.root), /변경 없는 자료 3개/u);
   const progress = active.root.querySelector("progress");
   assert.equal(progress.getAttribute("max"), "2");
 });
@@ -233,7 +272,28 @@ test("routes an authority-approved review child request to the controller callba
   assert.equal(result.status, "controller_pending");
 });
 
-test("keeps connection mode advanced while exposing the configured LLM Wiki provider selector", () => {
+test("splits long provider models at the most balanced hyphen and preserves exact text", () => {
+  const lifecycle = api();
+  assert.deepEqual(lifecycle.modelSegments("short"), ["short"]);
+  assert.deepEqual(lifecycle.modelSegments("abcdefghijklmn"), ["abcdefghijklmn"]);
+  assert.deepEqual(lifecycle.modelSegments("gemini-3.6-flash-medium"), ["gemini-3.6-", "flash-medium"]);
+  const subject = mount("consent_required", {
+    provider_key: "antigravity",
+    provider_options: [{ provider_key: "antigravity", name: "Antigravity 구독", model: "gemini-3.6-flash-medium", configured: true }],
+  });
+  const model = walk(subject.root, (node) => node.getAttribute && node.getAttribute("class") === "llmwiki-lifecycle__provider-model")[0];
+  assert.deepEqual((model.children || []).map((line) => [line.tagName, line.textContent]), [["DIV", "gemini-3.6-"], ["DIV", "flash-medium"]]);
+  assert.equal((model.children || []).map((line) => line.textContent).join(""), "gemini-3.6-flash-medium");
+  assert.equal(model.parentElement.tagName, "DIV");
+  const style = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/knowledge-styles.js"), "utf8");
+  assert.match(style, /\.llmwiki-lifecycle__provider-model \{ display: block; inline-size: 100%;/);
+  assert.match(style, /\.llmwiki-lifecycle__provider-model-line \{ display: block; white-space: nowrap; \}/);
+  assert.doesNotMatch(style, /\.llmwiki-lifecycle__provider-model\s*\{[^}]*flex(?:-wrap|:)/s);
+  assert.doesNotMatch(style, /\.llmwiki-lifecycle__provider-model-line \{[^}]*flex(?:\s|-)/s);
+  assert.match(style, /@media \(min-width: 600px\) \{[\s\S]*?\.llmwiki-lifecycle__provider-model \{ display: inline-flex; inline-size: auto; gap: 0; flex-wrap: nowrap; white-space: nowrap; overflow: visible; \}[\s\S]*?\.llmwiki-lifecycle__provider-model-line \{ display: inline; flex: 0 0 auto; \}/);
+});
+
+test("keeps connection mode advanced while showing the inherited global provider read-only", () => {
   const subject = mount("consent_required", {
     provider_key: "antigravity",
     provider_options: [
@@ -249,21 +309,27 @@ test("keeps connection mode advanced while exposing the configured LLM Wiki prov
   assert.equal(walk(advanced, (node) => node.tag === "input" && node.getAttribute("value") === "direct")[0].checked, true);
   assert.equal(walk(advanced, (node) => node.tag === "input" && node.getAttribute("value") === "omniroute").length, 1);
   assert.equal(primaryText(root).includes("OmniRoute"), false);
-  const selector = walk(root, (node) => node.tag === "select" && node.getAttribute("data-provider-selector") === "llmwiki")[0];
-  assert.ok(selector);
-  assert.equal(selector.value, "antigravity");
-  const choices = walk(selector, (node) => node.tag === "option");
-  assert.equal(choices.length, 3);
-  assert.equal(choices.find((option) => option.getAttribute("value") === "gemini").disabled, true);
-  selector.value = "codex";
-  selector.onchange({ currentTarget: selector, target: selector });
-  assert.deepEqual(subject.calls, [{ action: "set_provider", provider_key: "codex" }]);
+  const inherited = walk(root, (node) => node.getAttribute && node.getAttribute("data-provider-inheritance") === "global")[0];
+  assert.ok(inherited);
+  assert.equal(inherited.getAttribute("data-provider-key"), "antigravity");
+  assert.equal(inherited.getAttribute("data-provider-inheritance"), "global");
+  assert.equal(inherited.getAttribute("data-provider-model"), "gemini-3.6-flash-medium");
+  assert.equal(inherited.getAttribute("data-provider-ready"), "false");
+  assert.equal(inherited.getAttribute("data-provider-readiness-code"), "ready");
+  assert.equal(walk(inherited, (node) => node.getAttribute && node.getAttribute("class") === "llmwiki-lifecycle__provider-name")[0].textContent, "Antigravity 구독");
+  const detail = walk(inherited, (node) => node.getAttribute && node.getAttribute("class") === "llmwiki-lifecycle__provider-detail")[0];
+  assert.ok(detail);
+  assert.equal(collectText(detail), "· gemini-3.6- flash-medium");
+  assert.equal(walk(detail, (node) => node.getAttribute && node.getAttribute("class") === "llmwiki-lifecycle__provider-separator")[0].getAttribute("aria-hidden"), "true");
+  assert.equal(collectText(inherited), "Antigravity 구독 · gemini-3.6- flash-medium");
+  assert.equal(walk(root, (node) => node.tag === "select" && node.getAttribute("data-provider-selector") === "llmwiki").length, 0);
+  assert.deepEqual(subject.calls, []);
   const busy = mount("idle", {
     provider_key: "antigravity",
     provider_options: [{ provider_key: "antigravity", name: "Antigravity 구독", model: "fixture", configured: true }],
     inbox: { state: "analyzing", scanned_total: 1, eligible: 1, held: 0, processed: 0, succeeded: 0, failed: 0 },
   });
-  assert.equal(walk(busy.root, (node) => node.tag === "select" && node.getAttribute("data-provider-selector") === "llmwiki")[0].disabled, true);
+  assert.equal(walk(busy.root, (node) => node.getAttribute && node.getAttribute("data-provider-inheritance") === "global").length, 1);
   for (const operation of ["update", "merge", "dispute"]) {
     const control = walk(advanced, (node) => node.getAttribute && node.getAttribute("data-operation") === operation)[0];
     assert.ok(control && control.disabled, operation);
@@ -282,7 +348,13 @@ test("provides semantic live status, 44px token targets, visible focus, reduced 
   assert.equal(status.getAttribute("aria-atomic"), "true");
   const style = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/knowledge-styles.js"), "utf8");
   assert.match(style, /min-block-size:\s*var\(--ke-touch-target/);
-  assert.match(style, /\.llmwiki-lifecycle__provider select\s*\{[^}]*min-block-size:\s*var\(--ke-touch-target/s);
+  assert.match(style, /\.llmwiki-lifecycle__provider-current\s*\{[^}]*word-break:\s*keep-all[^}]*overflow-wrap:\s*anywhere/s);
+  assert.match(style, /\.llmwiki-lifecycle__provider-detail\s*\{[^}]*display:\s*block[^}]*inline-size:\s*100%[^}]*min-inline-size:\s*0[^}]*max-inline-size:\s*100%/s);
+  assert.match(style, /\.llmwiki-lifecycle__provider-model\s*\{[^}]*font-size:\s*var\(--ke-type-label\)[^}]*line-height:\s*var\(--ke-leading-control\)[^}]*white-space:\s*normal[^}]*word-break:\s*normal[^}]*overflow-wrap:\s*anywhere/s);
+  assert.match(style, /\.llmwiki-lifecycle__provider-detail \.llmwiki-lifecycle__provider-separator\s*\{\s*display:\s*none;\s*\}/);
+  assert.doesNotMatch(style, /\.llmwiki-lifecycle__provider-detail\s*\{[^}]*white-space:\s*nowrap/s);
+  assert.doesNotMatch(style, /\.llmwiki-lifecycle__provider-model\s*\{[^}]*white-space:\s*nowrap/s);
+  assert.doesNotMatch(style, /\.llmwiki-lifecycle__provider-readiness\s*\{[^}]*white-space:\s*nowrap/s);
   assert.match(style, /word-break:\s*keep-all/);
   assert.match(style, /overflow-wrap:\s*anywhere/);
   assert.match(style, /min-inline-size:\s*0/);

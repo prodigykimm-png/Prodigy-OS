@@ -66,7 +66,6 @@ const LEGACY_MODULE_PATHS = [
   "SYSTEM/Views/llmwiki-source-lineage.js",
   "SYSTEM/Views/llmwiki-query-readonly.js",
   "SYSTEM/Views/llmwiki-provider-contract.js",
-  "SYSTEM/Views/llmwiki-librarian-pipeline.js",
   "SYSTEM/Views/llmwiki-outbound-consent.js",
   "SYSTEM/Views/llmwiki-run-state.js",
   "SYSTEM/Views/llmwiki-canonical-packet.js",
@@ -292,15 +291,35 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, e
   return { sandbox, app, container, windowObject: sandbox, readCounts, openedModals };
 }
 
-async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null, extraFiles = {}, llmWikiControllerOptions = null }) {
-  const { sandbox, app, container, windowObject, readCounts, openedModals } = createSandbox({ pages, omittedModulePaths, bodyLoadError, extraFiles, llmWikiControllerOptions });
+async function executeHub(runtime) {
+  const { sandbox, container } = runtime;
   const code = extractDataviewJs(HUB_SOURCE);
   const script = new vm.Script(`(async function () {\n${code}\n}).call({ container });`, {
     filename: "HUB/50 Knowledge.md"
   });
   const result = script.runInNewContext(sandbox);
   if (result && typeof result.then === "function") await result;
-  return { app, container, window: windowObject, readCounts, openedModals };
+}
+
+function runtimeResult(runtime) {
+  const { app, container, windowObject, readCounts, openedModals } = runtime;
+  return { app, container, window: windowObject, readCounts, openedModals, runtime };
+}
+
+async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null, extraFiles = {}, llmWikiControllerOptions = null }) {
+  const runtime = createSandbox({ pages, omittedModulePaths, bodyLoadError, extraFiles, llmWikiControllerOptions });
+  await executeHub(runtime);
+  return runtimeResult(runtime);
+}
+
+async function remountHub(runtime) {
+  if (!runtime || !runtime.sandbox || !runtime.container) throw new TypeError("invalid_hub_runtime");
+  const loader = runtime.sandbox.ProdigyHubLoader;
+  if (!loader || typeof loader.disposeWorkspace !== "function") throw new TypeError("hub_loader_dispose_unavailable");
+  loader.disposeWorkspace(runtime.container);
+  runtime.container.empty();
+  await executeHub(runtime);
+  return runtimeResult(runtime);
 }
 
 function walk(node, predicate, hits = []) {
@@ -314,4 +333,4 @@ function firstElement(root, tag, predicate) {
   return walk(root, (node) => node.tag === tag && (!predicate || predicate(node)))[0] || null;
 }
 
-module.exports = { buildPages, firstElement, runHub, MODULE_PATHS, HUB_MODULE_PATHS };
+module.exports = { buildPages, firstElement, runHub, remountHub, MODULE_PATHS, HUB_MODULE_PATHS };

@@ -197,6 +197,21 @@ test("safe batch preflights all, writes only exact deterministic set, audits cou
   assert.equal(events.some((event) => event.startsWith("commit:")), false);
 });
 
+test("committed batch audit exceptions expose a machine-readable reason after compensation", async () => {
+  const item = packet("create", "operation_audit_write_probe");
+  const authorization = batchApi.authorizeExactBatch([item], [item.packet_id]).value;
+  const adapter = memoryAdapter();
+  adapter.auditBatch = async () => { throw new Error("audit_write_probe_failed"); };
+
+  const result = await batchApi.commitExactBatch({ packets: [item], authorization, adapter });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "batch_audit_failed");
+  assert.equal(result.audit_reason, "audit_write_probe_failed");
+  assert.deepEqual(result.compensation.restored, [item.packet_id]);
+  assert.deepEqual(adapter.calls.compensate, [item.packet_id]);
+});
+
 test("actual touched-path receipt mutation outside the authorized set rejects and compensates", async () => {
   const packets = [packet("create", "operation_boundary_a"), packet("create", "operation_boundary_b")].sort((a, b) => a.packet_id.localeCompare(b.packet_id));
   const authorization = batchApi.authorizeExactBatch(packets, packets.map((item) => item.packet_id)).value;

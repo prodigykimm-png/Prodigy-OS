@@ -10,6 +10,33 @@ const { firstElement, runHub } = require("./knowledge_hub_integration_harness.js
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const privacyBoundary = require(path.join(ROOT, "SYSTEM/Views/llmwiki-inbox-privacy-boundary.js"));
 
+// Task 11 repoint: the provider override speaks the single compact batch
+// schema; analysis is an explicit user action (analyze_inbox), never a mount
+// or scan side effect.
+const BATCH_IDENTITY = {
+  provider_key: "openrouter",
+  model: "test/model-1",
+  structured_mode: "json_schema",
+  schema_id: "llmwiki_compact_v1",
+  prompt_version: "p11-privacy",
+};
+function compactArtifacts(input) {
+  return {
+    ok: true,
+    artifacts: input.chunks.map((chunk) => ({
+      chunk_key: chunk.key,
+      outcome: "proposals",
+      items: [{
+        role: "source_summary",
+        evidence_quote: chunk.text.trim().slice(0, 12),
+        claims: ["batch claim"],
+        review_reasons: [],
+        related_candidate_ids: [],
+      }],
+    })),
+  };
+}
+
 function actionButton(container, action) {
   return firstElement(container, "button", (node) => node.attr && node.attr["data-action"] === action);
 }
@@ -70,20 +97,23 @@ test("strict privacy path parsing holds raw, encoded, double-encoded, separator,
 
 test("Hub counts malformed Knowledge paths as held without reading, serializing, or dispatching them", async () => {
   const malformedPath = "INBOX/Knowledge/%252e%252e/secret.md";
-  const transportCalls = [];
+  const providerCalls = [];
   const result = await runHub({
     pages: [],
     extraFiles: { [malformedPath]: "# must remain unread\n" },
-    llmWikiControllerOptions: { inboxAnalysisTransport: async (work) => { transportCalls.push(work); return { ok: true }; } },
+    llmWikiControllerOptions: {
+      batchIdentity: BATCH_IDENTITY,
+      batchProvider: async (input) => { providerCalls.push(input); return compactArtifacts(input); },
+    },
   });
   const settled = await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
   assert.deepEqual({ state: settled.state, scanned_total: settled.scanned_total, eligible: settled.eligible, held: settled.held }, { state: "protected", scanned_total: 1, eligible: 0, held: 1 });
   assert.equal(result.app.vault.readPaths.includes(malformedPath), false);
-  assert.equal(transportCalls.length, 0);
+  assert.equal(providerCalls.length, 0);
   assert.equal(result.app.vault.touched.length, 0);
 });
 
-for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles before late transport ${lateOutcome} and a fresh scan succeeds`, async () => {
+for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles before late batch provider ${lateOutcome} and a fresh scan succeeds`, async () => {
   const states = observer("onState");
   const actions = observer("onAction");
   const gates = [];
@@ -99,8 +129,9 @@ for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles bef
     llmWikiControllerOptions: {
       onInboxState: states.onState,
       onLifecycleAction: actions.onAction,
-      inboxAnalysisTransport: async () => {
-        if (!controlled) return { ok: true };
+      batchIdentity: BATCH_IDENTITY,
+      batchProvider: async (input) => {
+        if (!controlled) return compactArtifacts(input);
         const gate = {};
         gates.push(gate);
         for (const waiter of [...gateWaiters]) if (gates.length >= waiter.count) { gateWaiters.splice(gateWaiters.indexOf(waiter), 1); waiter.resolve(); }
@@ -115,31 +146,38 @@ for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles bef
   await result.app.vault.modify(result.app.vault.getAbstractFileByPath(sourcePath), `# cancellation fixture\n${lateOutcome}\n`);
   controlled = true;
 
-  click(actionButton(result.container, "scan-inbox"));
-  await states.waitFor((state) => state.state === "analyzing", `${lateOutcome} analyzing`);
+  // Subscribe before triggering: the analyzing state must be observed, never polled.
+  const analyzing = states.waitFor((state) => state.state === "analyzing", `${lateOutcome} analyzing`);
+  click(actionButton(result.container, "analyze-inbox"));
+  await analyzing;
   await waitForGate(1);
   const rawHashAtCancel = crypto.createHash("sha256").update(await result.app.vault.cachedRead(result.app.vault.getAbstractFileByPath(sourcePath))).digest("hex");
   const durableArtifactsAtCancel = result.app.vault.touched.filter(([, filePath]) => filePath.startsWith("SYSTEM/PRIVATE/")).map((row) => [...row]);
-  const controllerAtCancel = JSON.parse(JSON.stringify(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot()));
   const cancelledEvent = states.waitFor((state) => state.state === "cancelled", `${lateOutcome} cancelled`);
+  const cancelAction = actions.waitFor((event) => event.intent.action === "cancel_inbox", `${lateOutcome} cancel settled`);
   click(actionButton(result.container, "cancel-inbox"));
   const cancelled = await cancelledEvent;
-  const scanAction = await actions.waitFor((event) => event.intent.action === "scan_inbox", `${lateOutcome} scan settled on abort`);
+  await cancelAction;
   assert.deepEqual({ state: cancelled.state, processed: cancelled.processed, succeeded: cancelled.succeeded, failed: cancelled.failed }, { state: "cancelled", processed: 0, succeeded: 0, failed: 0 });
-  assert.equal(scanAction.response.status, "cancelled");
   assert.match(collectText(result.container), /자료 분석을 취소했습니다/);
+  // Cancellation itself may settle review state; nothing after this point may.
 
-  if (lateOutcome === "resolve") gates[0].resolve({ ok: true });
+  if (lateOutcome === "resolve") gates[0].resolve({ ok: true, artifacts: compactArtifacts({ chunks: [{ key: "late", text: "late" }] }).artifacts });
   else gates[0].reject(new Error("late synthetic rejection"));
   await waitForLate(1);
+  // The explicit batch action settles only after the late provider settles;
+  // its outcome must be a bounded typed cancellation, never a completion.
+  const analyzeAction = await actions.waitFor((event) => event.intent.action === "analyze_inbox", `${lateOutcome} analyze settled on abort`);
+  assert.equal(analyzeAction.response.status, "cancelled");
+  const controllerAtCancel = JSON.parse(JSON.stringify(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot()));
   assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.state, "cancelled");
   assert.deepEqual(result.app.vault.touched.filter(([, filePath]) => filePath.startsWith("SYSTEM/PRIVATE/")).map((row) => [...row]), durableArtifactsAtCancel, "late transport cannot append durable artifacts or completion state");
   assert.equal(crypto.createHash("sha256").update(await result.app.vault.cachedRead(result.app.vault.getAbstractFileByPath(sourcePath))).digest("hex"), rawHashAtCancel);
   assert.deepEqual(JSON.parse(JSON.stringify(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot())), controllerAtCancel, "late transport cannot open or mutate review state");
-
   controlled = false;
   const freshComplete = states.waitFor((state) => state.state === "complete", `${lateOutcome} fresh complete`);
-  click(actionButton(result.container, "scan-inbox"));
+  const freshRun = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
+  assert.equal(freshRun.ok, true, freshRun && freshRun.reason);
   const restarted = await freshComplete;
   assert.deepEqual({ processed: restarted.processed, succeeded: restarted.succeeded, failed: restarted.failed }, { processed: 1, succeeded: 1, failed: 0 });
   assert.ok(result.app.vault.touched.filter(([, filePath]) => filePath.startsWith("SYSTEM/PRIVATE/")).length >= durableArtifactsAtCancel.length, "fresh scan may retain or append only its own durable receipts");

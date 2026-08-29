@@ -1,8 +1,9 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const path = require("node:path");
-const fixtures = require("./llmwiki_librarian_pipeline_fixtures.js");
+const fixtures = require("./llmwiki_proposal_fixtures.js");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const controllerApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-run-controller.js"));
@@ -127,14 +128,36 @@ function harness(responseFactory) {
   const vault = fakeApp();
   const providerCalls = [];
   const providerSignals = [];
+  // Task14: legacy proposal-bundle response adapter retained only for suites
+  // not yet rewritten at the compact-artifact boundary. Production Hub never
+  // supplies this adapter; it delegates into the real batch core instead.
   const controller = controllerApi.createRunController({
     app: vault.app,
     now: () => NOW,
     derived_root: DERIVED_ROOT,
-    transport: async (request, context = {}) => {
+    analyze_batch: async ({ command }) => {
+      const request = {
+        outbound_payload: {
+          sources: command.sources.map((source) => ({
+            source_id: source.manifest.source_id,
+            content_hash: source.manifest.content_hash,
+            source_url: source.manifest.source_url,
+            locator: source.manifest.locator,
+          })),
+          proposal_request: { run_id: command.run_id, validation_context: { context_id: `validation_context_${command.run_id}`, logical_scope: "run_scoped", persistence: "none" } },
+        },
+      };
       providerCalls.push(request);
-      providerSignals.push(context.signal || request.signal || null);
-      return responseFactory(request);
+      providerSignals.push(null);
+      const response = responseFactory(request);
+      const bundle = response && response.proposal_bundle;
+      if (!bundle) return { ok: false, reason: (response && response.message) || "fixture_bundle_required", provider_calls: 1 };
+      const proposals = bundle.proposals.map((proposal, index) => ({
+        ...proposal,
+        proposal_id: `proposal_${crypto.createHash("sha256").update(`${command.run_id}:${index}`).digest("hex").slice(0, 24)}`,
+        payload_hash: crypto.createHash("sha256").update(JSON.stringify(proposal)).digest("hex"),
+      }));
+      return { ok: true, proposals, provider_calls: 1, consent_hash: crypto.createHash("sha256").update(`fixture_consent:${command.run_id}`).digest("hex") };
     },
   });
   return { controller, providerCalls, providerSignals, vault };

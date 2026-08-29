@@ -14,7 +14,9 @@
   }
   function fail(reason) { return Object.freeze({ ok: false, reason }); }
   function validPath(value) {
-    return typeof value === "string" && (value.startsWith("INBOX/") || value.startsWith("ZETA/FLEETING/")) && !value.includes("\\")
+    // Task 11 cutover: selected Literature sources enter the canonical batch
+    // analyzer as one-source batches, so ZETA/LITERATURE joins the local scope.
+    return typeof value === "string" && (value.startsWith("INBOX/") || value.startsWith("ZETA/FLEETING/") || value.startsWith("ZETA/LITERATURE/")) && !value.includes("\\")
       && !value.split("/").some(part => !part || part === "." || part === "..");
   }
   function stable(value) {

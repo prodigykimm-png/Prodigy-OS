@@ -42,6 +42,23 @@
     return el;
   }
 
+  function renderFullLabel(button, label) {
+    var separator = label.indexOf(" · ");
+    var full = createEl(button, "span", { attr: { class: "knowledge-workspace-tab-label knowledge-workspace-tab-label--full", "aria-hidden": "true" } });
+    if (separator < 0) createEl(full, "span", { text: label });
+    else {
+      createEl(full, "span", { text: label.slice(0, separator) });
+      createEl(full, "span", {
+        text: label.slice(separator + 1),
+        attr: { class: "knowledge-workspace-tab-label__atomic-suffix", "data-tab-atomic-suffix": "true" }
+      });
+    }
+    // The in-memory Obsidian fixture stores direct text separately from child
+    // nodes; keep its semantic mirror without changing browser rendering.
+    if (typeof full.tag === "string") full.text = label;
+    return full;
+  }
+
   function mountTabs(container, options) {
     if (!container) return null;
     if (root.KnowledgeStyles) root.KnowledgeStyles.ensureStyles();
@@ -67,7 +84,7 @@
           class: "knowledge-workspace-tab prodigy-configurator-chip"
         }
       });
-      createEl(btn, "span", { text: tab.label, attr: { class: "knowledge-workspace-tab-label knowledge-workspace-tab-label--full", "aria-hidden": "true" } });
+      renderFullLabel(btn, tab.label);
       createEl(btn, "span", { text: tab.compactLabel, attr: { class: "knowledge-workspace-tab-label knowledge-workspace-tab-label--compact", "aria-hidden": "true" } });
       btn.onclick = function () { select(tab.id); };
       btn.onkeydown = function (event) {

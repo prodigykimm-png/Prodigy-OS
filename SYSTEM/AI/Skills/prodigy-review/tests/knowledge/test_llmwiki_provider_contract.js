@@ -49,8 +49,8 @@ test("provider selection resolves configured keys without label aliases", () => 
   const omni = contract.selectProviderProfile(request(config, "omniroute"), { config });
 
   assert.equal(direct.ok, true, JSON.stringify(direct));
-  assert.equal(direct.value.provider_key, "groq");
-  assert.deepEqual(direct.value.provider, config.providers.groq);
+  assert.equal(direct.value.provider_key, "gemini");
+  assert.deepEqual(direct.value.provider, config.providers.gemini);
   assert.equal(omni.ok, true, JSON.stringify(omni));
   assert.equal(omni.value.provider_key, "openrouter");
   assert.deepEqual(omni.value.provider, config.providers.openrouter);

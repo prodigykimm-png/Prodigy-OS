@@ -1,5 +1,7 @@
 # LLMWiki Predecessor Disposition Ledger v1
 
+> 2026-08-26 Task 14 status: `.omo/plans/llmwiki-batch-core-simplification.md` supersession is now manifest-closed. The four obsolete per-source runtime paths and their compatibility-only tests were retired after the Task 6 archive passed 117/117 byte verification. Retained hash, privacy, source, operation, approval, write, compensation, and recovery authorities remain loaded. This status does not mark or reopen any unchecked predecessor-plan row.
+
 > Todo 1의 선행 Gateway/LLMWiki 산출물 disposition 기록. `discard-without-deleting`은 파일을 삭제한다는 뜻이 아니라 새 계약의 입력·권위로 사용하지 않는다는 뜻이다.
 
 | predecessor artifact | disposition | Todo 1 decision | reason / re-verification |

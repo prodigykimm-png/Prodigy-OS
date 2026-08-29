@@ -1,0 +1,296 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const path = require("node:path");
+const { test } = require("node:test");
+
+const ROOT = path.resolve(__dirname, "../../../../../..");
+const hash = require(path.join(ROOT, "SYSTEM/Views/llmwiki-hash.js"));
+const analyzerApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-batch-analyzer.js"));
+const storeApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-batch-job-store.js"));
+
+const CACHE_PATH = "SYSTEM/PRIVATE/llmwiki-test-cache.json";
+const COVERAGE_PATH = "SYSTEM/PRIVATE/llmwiki-test-coverage.json";
+
+function vault(seed = {}) {
+  const files = { ...seed };
+  return {
+    files,
+    getAbstractFileByPath(p) { return Object.hasOwn(files, p) ? { path: p } : null; },
+    async cachedRead(file) { return files[file.path]; },
+    async createFolder(p) { files[p] = "__folder__"; },
+    async create(p, text) { files[p] = text; },
+    async modify(file, text) { files[file.path] = text; },
+  };
+}
+
+function memoryStorage() {
+  const files = new Map();
+  return {
+    files,
+    async exists(name) { return files.has(name); },
+    async read(name) { return files.get(name); },
+    async writeAtomic(name, text) { files.set(name, text); },
+    async quarantine(name) { files.set(`${name}.quarantine`, ""); files.delete(name); },
+  };
+}
+
+function baseIdentity(overrides = {}) {
+  return {
+    provider_key: "openrouter",
+    model: "test/model-1",
+    structured_mode: "json_schema",
+    schema_id: "llmwiki_compact_v1",
+    prompt_version: "p1",
+    ...overrides,
+  };
+}
+
+function candidates(count) {
+  return Array.from({ length: count }, (_, i) => ({ document_id: `doc_${i}`, canonical_revision: "a".repeat(64) }));
+}
+
+// Deterministic fake transport: parses the batch-provider prompt envelope and
+// answers every chunk with one exact unique quote taken from its own text.
+function fakeService(box) {
+  const state = { calls: 0, requests: [] };
+  return {
+    state,
+    requestStructuredJsonNoRetry: async (requestOptions) => {
+      state.calls += 1;
+      if (box.failOnCall && state.calls === box.failOnCall) throw new Error("provider boom");
+      const envelope = JSON.parse(requestOptions.prompt);
+      state.requests.push(envelope);
+      return {
+        status: "ok",
+        results: envelope.chunks.map((chunk) => ({
+          chunk_key: chunk.key,
+          outcome: "proposals",
+          items: [{
+            role: "source_summary",
+            evidence_quote: chunk.text.slice(0, 8),
+            claims: ["bounded claim"],
+            review_reasons: [],
+            related_candidate_ids: [],
+          }],
+        })),
+      };
+    },
+  };
+}
+
+function buildHarness() {
+  const v = vault();
+  const storage = memoryStorage();
+  const box = {};
+  const service = fakeService(box);
+  const jobStore = storeApi.createBatchJobStore({ storage });
+  const batchProvider = require(path.join(ROOT, "SYSTEM/Views/llmwiki-batch-provider.js"));
+  function fresh(identityOverrides = {}) {
+    const frozenIdentity = baseIdentity(identityOverrides);
+    const provider = batchProvider.createBatchAnalysisProvider({
+      identity: { ...frozenIdentity, provider_mode: "direct", provider: { adapter: "fixture" } },
+      providerService: service,
+    });
+    return analyzerApi.createBatchAnalyzer({
+      jobStore,
+      provider,
+      identity: frozenIdentity,
+      vault: v,
+      cachePath: CACHE_PATH,
+      coveragePath: COVERAGE_PATH,
+    });
+  }
+  return { v, storage, service, jobStore, box, analyzer: fresh(), fresh };
+}
+
+function source(id, text, analysisText) {
+  return {
+    source_id: id,
+    source_path: `INBOX/${id}.md`,
+    extracted_text: text,
+    ...(analysisText === undefined ? {} : { analysis_text: analysisText }),
+  };
+}
+
+function smallText(label, index) {
+  return `${label} 문단 ${index}입니다. 지식 순환 원칙은 배치 실행이다.\n\n두 번째 문단은 보조 설명이다 ${index}.`;
+}
+
+test("identical text from two sources reaches review_ready with unique provider keys", async () => {
+  const h = buildHarness();
+  const sources = [source("src_one", smallText("동일", 1)), source("src_two", smallText("동일", 1))];
+  const result = await h.analyzer.analyze({ sources });
+  assert.equal(result.ok, true);
+  assert.equal(result.state, "review_ready");
+  assert.equal(result.metrics.cache_misses, 2);
+  assert.equal(result.metrics.provider_calls, 1);
+});
+
+test("four small changed sources produce exactly one provider call", async () => {
+  const h = buildHarness();
+  const result = await h.analyzer.analyze({
+    sources: ["b", "a", "d", "c"].map((id, i) => source(`src_${id}`, smallText("소스", i))),
+    candidates: candidates(3),
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.state, "review_ready");
+  assert.equal(result.metrics.provider_calls, 1);
+  assert.equal(result.metrics.cache_misses, 4);
+  assert.equal(result.metrics.cache_hits, 0);
+  assert.equal(result.metrics.pack_count, 1);
+  assert.equal(result.metrics.fallback_attempts, 0);
+  assert.equal(result.metrics.automatic_retries, 0);
+  assert.equal(result.metrics.automatic_repairs, 0);
+  assert.equal(result.metrics.canonical_writes, 0);
+  assert.equal(result.metrics.source_writes, 0);
+  assert.equal(result.metrics.audit_writes, 0);
+  assert.equal(result.metrics.git_writes, 0);
+  assert.ok(result.metrics.candidate_context_bytes <= 4 * 1024);
+});
+
+test("exact rerun with same hashes and request key makes zero provider calls", async () => {
+  const h = buildHarness();
+  const sources = [source("src_alpha", smallText("반복", 1)), source("src_beta", smallText("반복", 2))];
+  const first = await h.analyzer.analyze({ sources });
+  assert.equal(first.metrics.provider_calls, 1);
+  const second = await h.fresh().analyze({ sources });
+  assert.equal(second.ok, true);
+  assert.equal(second.state, "review_ready");
+  assert.equal(second.metrics.provider_calls, 0);
+  assert.equal(second.metrics.cache_hits, 2);
+  assert.equal(second.metrics.cache_misses, 0);
+});
+
+test("model, schema, prompt-version, context, or source change causes an intentional miss", async () => {
+  const h = buildHarness();
+  const sources = [source("src_delta", smallText("변경", 1))];
+  await h.analyzer.analyze({ sources });
+
+  const byModel = await h.fresh({ model: "test/model-2" }).analyze({ sources });
+  assert.equal(byModel.metrics.cache_hits, 0);
+  assert.equal(byModel.metrics.provider_calls, 1);
+
+  const bySchema = await h.fresh({ schema_id: "llmwiki_compact_v2" }).analyze({ sources });
+  assert.equal(bySchema.metrics.cache_hits, 0);
+
+  const byPrompt = await h.fresh({ prompt_version: "p2" }).analyze({ sources });
+  assert.equal(byPrompt.metrics.cache_hits, 0);
+
+  const byContext = await h.fresh().analyze({ sources, candidates: candidates(4) });
+  assert.equal(byContext.metrics.cache_hits, 0);
+
+  const changed = [source("src_delta", `${smallText("변경", 1)}\n\n새로운 문단이 추가되었다.`)];
+  const bySource = await h.fresh().analyze({ sources: changed });
+  assert.equal(bySource.metrics.cache_hits, 0);
+  assert.equal(bySource.metrics.provider_calls, 1);
+});
+
+function utf8Prefix(text, limit = 4 * 1024) {
+  let prefix = "";
+  for (const character of text) {
+    if (hash.utf8ByteLength(prefix + character) > limit) break;
+    prefix += character;
+  }
+  return prefix;
+}
+
+function bigBody(targetKiB) {
+  let body = "";
+  let i = 0;
+  while (hash.utf8ByteLength(body) < targetKiB * 1024) {
+    let section = `## 절 ${i}\n`;
+    while (hash.utf8ByteLength(section) < 7 * 1024) {
+      section += `관찰 ${i}: 배치 분석은 결정적으로 동작해야 한다. 재현 가능성이 핵심 계약이다.\n`;
+    }
+    body += `${section}\n`;
+    i += 1;
+  }
+  return body;
+}
+
+test("100 KiB INBOX source uses one bounded exact-prefix routing chunk while retaining its full revision", async () => {
+  const h = buildHarness();
+  const extractedText = bigBody(100);
+  const analysisText = utf8Prefix(extractedText);
+  const sources = [source("src_big", extractedText, analysisText)];
+  const first = await h.analyzer.analyze({ sources });
+  assert.equal(first.ok, true);
+  assert.equal(first.metrics.source_bytes, hash.utf8ByteLength(analysisText));
+  assert.equal(first.metrics.pack_count, 1);
+  assert.equal(first.metrics.provider_calls, 1);
+  assert.equal(h.service.state.requests.length, 1);
+  assert.equal(h.service.state.requests[0].mode, "source_routing");
+  assert.equal(h.service.state.requests[0].chunks.length, 1);
+  assert.equal(h.service.state.requests[0].chunks[0].text, analysisText);
+  assert.equal(h.service.state.requests[0].chunks[0].source_hint, "INBOX/src_big.md");
+  assert.ok(hash.utf8ByteLength(h.service.state.requests[0].chunks[0].text) <= 4 * 1024);
+  assert.equal(h.jobStore.getJob(first.batch_id).sources.src_big, hash.sha256(extractedText));
+  assert.equal(first.coverage_reports[0].complete, true);
+  assert.equal(first.coverage_reports[0].exactCoverage, true);
+  const second = await h.fresh().analyze({ sources });
+  assert.equal(second.metrics.provider_calls, 0);
+  assert.equal(second.metrics.cache_hits, 1);
+  assert.deepEqual(second.manifest_digests, first.manifest_digests);
+});
+
+test("analysis_text rejects non-prefix, oversized, and split-surrogate excerpts", async () => {
+  const h = buildHarness();
+  const splitSource = `${"a".repeat(4093)}😀suffix`;
+  for (const item of [
+    source("src_prefix", "prefix body", "other"),
+    source("src_large", "x".repeat(5000), "x".repeat(4097)),
+    source("src_split", splitSource, `${"a".repeat(4093)}\ud83d`),
+  ]) {
+    const result = await h.analyzer.analyze({ sources: [item] });
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "invalid_analysis_text");
+  }
+  assert.equal(h.service.state.calls, 0);
+});
+
+test("sources without analysis_text retain full-text analysis", async () => {
+  const h = buildHarness();
+  const extractedText = bigBody(100);
+  const result = await h.analyzer.analyze({ sources: [source("src_full", extractedText)] });
+  assert.equal(result.ok, true);
+  assert.equal(result.metrics.source_bytes, hash.utf8ByteLength(extractedText));
+  assert.ok(h.service.state.requests[0].chunks.length > 1);
+  assert.equal(h.service.state.requests[0].mode, "semantic");
+  assert.equal(Object.hasOwn(h.service.state.requests[0].chunks[0], "source_hint"), false);
+  assert.equal(h.jobStore.getJob(result.batch_id).sources.src_full, hash.sha256(extractedText));
+});
+
+test("pack 3 failure preserves packs 1-2 through restart and makes no fourth call", async () => {
+  const h = buildHarness();
+  const sources = [source("src_fail", bigBody(60))];
+  h.box.failOnCall = 3;
+  const failed = await h.analyzer.analyze({ sources });
+  assert.equal(failed.ok, false);
+  assert.equal(failed.reason, "provider_unavailable");
+  assert.equal(failed.metrics.provider_calls, 3);
+  assert.equal(failed.metrics.automatic_retries, 0);
+  assert.equal(failed.metrics.automatic_repairs, 0);
+  assert.equal(failed.preserved_pack_receipts.length, 2);
+  const jobAfterFailure = await h.jobStore.load().then(() => h.jobStore.getJob(failed.batch_id));
+  assert.equal(jobAfterFailure.status, "blocked");
+
+  const restarted = await h.fresh().analyze({ sources });
+  assert.equal(restarted.metrics.provider_calls, 0);
+  assert.equal(restarted.state, "blocked");
+  assert.ok(restarted.unresolved_pending.length > 0);
+  const job = h.jobStore.getJob(failed.batch_id);
+  assert.equal(job.sources["src_fail"], hash.sha256(sources[0].extracted_text));
+});
+
+test("candidate ranking is bounded at 8 and outbound projection at top 5 / 4 KiB", async () => {
+  const h = buildHarness();
+  const result = await h.analyzer.analyze({
+    sources: [source("src_ctx", smallText("맥락", 1))],
+    candidates: candidates(20),
+  });
+  assert.equal(result.ok, true);
+  assert.ok(result.outbound_candidates.length <= 5);
+  assert.ok(result.ranked_candidate_count <= 8);
+  assert.ok(result.metrics.candidate_context_bytes <= 4 * 1024);
+});

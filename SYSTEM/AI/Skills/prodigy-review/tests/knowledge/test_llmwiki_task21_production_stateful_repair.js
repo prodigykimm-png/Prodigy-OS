@@ -5,12 +5,10 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { buildPages, firstElement, runHub } = require("./knowledge_hub_integration_harness.js");
-const { collectText } = require("./knowledge_explorer_view_fakes.js");
+const { buildPages, runHub } = require("./knowledge_hub_integration_harness.js");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const source = (name) => fs.readFileSync(path.join(ROOT, name), "utf8");
-const MODULE = source("SYSTEM/Views/llmwiki-migration-rollout.js");
 const CONTROLLER = source("SYSTEM/Views/llmwiki-run-controller.js");
 const HUB = source("HUB/50 Knowledge.md");
 const LIFECYCLE = source("SYSTEM/Views/llmwiki-lifecycle-view.js");
@@ -19,19 +17,6 @@ const REAL_PRODUCT = source("SYSTEM/AI/Skills/prodigy-review/tests/knowledge/tes
 const APP_SHELL = source("SYSTEM/Views/prodigy-app-shell.js");
 const REPAIR = path.join(ROOT, ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/task-21/repair-production-stateful-qa");
 const F4_FINAL = path.join(ROOT, ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/F4-real-visual/final-run");
-const ROLLOUT_CLOSURE_PATH = ".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/completion-audit/final-confirmed/state-closure.json";
-const ROLLOUT_CLOSURE = source(ROLLOUT_CLOSURE_PATH);
-const ROLLOUT_CLOSURE_SHA256 = "397d1eda1afaebe2eede3289ece2cd2c87f746bd6a3e434839d9d3b28bfb2713";
-
-function emptyRolloutStorage() {
-  const saves = [];
-  return {
-    saves,
-    async load() { return null; },
-    async save(serialized) { saves.push(serialized); return true; },
-  };
-}
-
 function reconcileCurrentStateInspection(manifest, inspection, images, required, widths) {
   assert.equal(manifest.schema, "F4FinalScreenshotManifest/v1", "current manifest schema mismatch");
   assert.equal(manifest.current_build, true, "current manifest must identify the current build");
@@ -82,132 +67,16 @@ function reconcileCurrentStateInspection(manifest, inspection, images, required,
   return { captures: manifest.state_matrix.rows.length, inspections: inspectionRows.length, unique_paths: uniquePaths.size };
 }
 
-function consumers(symbol) {
-  const files = [
-    ["controller", CONTROLLER], ["hub", HUB], ["lifecycle", LIFECYCLE],
-  ];
-  return files.filter(([, body]) => new RegExp(`\\b${symbol}\\b`, "u").test(body)).map(([name]) => name);
-}
-
-test("migration and rollout exports have real controller, Hub, and lifecycle consumers", () => {
-  assert.deepEqual(consumers("createMigrationService").sort(), ["controller"]);
-  assert.deepEqual(consumers("restoreRolloutState").sort(), ["controller"]);
-  assert.deepEqual(consumers("enableRolloutPhase").sort(), ["controller", "hub"]);
-  assert.match(HUB, /initializeTask21/);
-  assert.match(HUB, /startMigrationDryRun/);
-  assert.match(LIFECYCLE, /approve_migration/);
-  assert.match(LIFECYCLE, /enable_rollout_phase/);
-  assert.doesNotMatch(MODULE, /globalThis\.__.*(?:QA|TEST)|process\.env.*(?:QA|TEST)/u);
-});
-
-test("production Hub enables create from the pinned closure with no injected rollout provider", { timeout: 5000 }, async () => {
-  // Given: the production Hub, an empty rollout state, and no host/test gate provider.
-  const rollout_storage = emptyRolloutStorage();
-  let resolveAction;
-  const actionSettled = new Promise((resolve) => { resolveAction = resolve; });
-  const result = await runHub({
-    pages: buildPages(),
-    extraFiles: { [ROLLOUT_CLOSURE_PATH]: ROLLOUT_CLOSURE },
-    llmWikiControllerOptions: {
-      rollout_storage,
-      onLifecycleAction(event) {
-        if (event.intent.action === "enable_rollout_phase") resolveAction(event);
-      },
-    },
-  });
+test("Task21 retained assertions follow the active plan after rollout removal", async () => {
+  for (const text of [CONTROLLER, HUB, LIFECYCLE]) {
+    assert.doesNotMatch(text, /enable_rollout_phase|enable-rollout-phase|operation_phase_unavailable/u);
+  }
+  assert.doesNotMatch(HUB, /rollout_storage|rolloutGateProvider|initializeTask21|startMigrationDryRun|approveMigration/u);
+  const result = await runHub({ pages: buildPages(), llmWikiControllerOptions: {
+    rollout_storage: { async load() { return JSON.stringify({ version: "llmwiki_rollout_state_v1", enabled_phases: [], gate_receipts: {} }); }, async save() { throw new Error("retired rollout write"); } },
+  } });
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
-  const button = firstElement(result.container, "button", (node) => node.attr?.["data-action"] === "enable-rollout-phase");
-  assert.ok(button, "the actual rollout activation control must be present");
-
-  // When: the user clicks the actual create activation action.
-  button.onclick({ preventDefault() {} });
-  const event = await actionSettled;
-
-  // Then: authority comes from the pinned closure and only create is persisted.
-  assert.equal(event.response.ok, true);
-  assert.equal(event.response.phase, "create");
-  assert.deepEqual(Array.from(event.response.rollout.enabled_phases), ["create"]);
-  assert.equal(event.response.rollout.gate_receipts.create.receipt_id, `llmwiki-rollout:create:${ROLLOUT_CLOSURE_SHA256}`);
-  assert.equal(rollout_storage.saves.length, 1);
-  assert.match(collectText(result.container), /활성화됨: 새 지식\(create\)/);
-});
-
-test("production Hub rejects missing or tampered completion closure with visible Korean failure and no persistence", { timeout: 5000 }, async () => {
-  for (const [name, extraFiles] of [
-    ["missing", {}],
-    ["hash-mismatch", { [ROLLOUT_CLOSURE_PATH]: `${ROLLOUT_CLOSURE}\n` }],
-    ["stale-schema", { [ROLLOUT_CLOSURE_PATH]: ROLLOUT_CLOSURE.replace("omo.start-work-state-closure/v1", "omo.start-work-state-closure/v0") }],
-    ["malformed-values", { [ROLLOUT_CLOSURE_PATH]: ROLLOUT_CLOSURE.replace('"fail": 0', '"fail": "0"') }],
-  ]) {
-    // Given: one invalid completion-authority artifact and no injected provider.
-    const rollout_storage = emptyRolloutStorage();
-    let resolveAction;
-    const actionSettled = new Promise((resolve) => { resolveAction = resolve; });
-    const result = await runHub({
-      pages: buildPages(),
-      extraFiles,
-      llmWikiControllerOptions: {
-        rollout_storage,
-        onLifecycleAction(event) {
-          if (event.intent.action === "enable_rollout_phase") resolveAction(event);
-        },
-      },
-    });
-    await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
-
-    // When: create activation is attempted through the real lifecycle action.
-    const button = firstElement(result.container, "button", (node) => node.attr?.["data-action"] === "enable-rollout-phase");
-    button.onclick({ preventDefault() {} });
-    const event = await actionSettled;
-
-    // Then: the gate fails closed, tells the user what to do, and writes no rollout state.
-    assert.equal(event.response.ok, false, name);
-    assert.deepEqual(Array.from(event.response.rollout.enabled_phases), [], name);
-    assert.equal(rollout_storage.saves.length, 0, name);
-    assert.match(collectText(result.container), /활성화 확인 자료를 검증하지 못했습니다/, name);
-  }
-});
-
-test("persisted corrupt and out-of-order rollout states fail closed at actual production action gates", async () => {
-  assert.match(CONTROLLER, /rollout_storage/);
-  assert.match(CONTROLLER, /operation_phase_unavailable/);
-  assert.match(CONTROLLER, /gateRolloutPhase/);
-  assert.match(CONTROLLER, /openPreparedRiskReview[\s\S]*gateRolloutPhase/u);
-  assert.match(CONTROLLER, /dispatchRiskAction[\s\S]*gateRolloutPhase/u);
-  assert.match(HUB, /rolloutStorage/);
-  assert.match(HUB, /restoreRolloutState|initializeTask21/);
-
-  for (const stored of ["{bad-json", JSON.stringify({ version: "llmwiki_rollout_state_v1", enabled_phases: ["merge"], gate_receipts: { merge: { available: true, status: "green", receipt_id: "forged" } } })]) {
-    const rollout_storage = { async load() { return stored; }, async save() { throw new Error("save_forbidden"); } };
-    const result = await runHub({
-      pages: buildPages(),
-      extraFiles: { "INBOX/Knowledge/task21-rollout.md": "# rollout gate" },
-      llmWikiControllerOptions: {
-        rollout_storage,
-        inboxAnalysisTransport: async (work) => ({
-          ok: true,
-          chunk_results: work.changed_chunks.map((chunk) => ({
-            key: chunk.key,
-            semantic_units: [{
-              temporary_span_alias: "span_rollout",
-              start: 0,
-              end: Math.min(chunk.text.length, 12),
-              origin_hint: "source_extract",
-              disposition: "propose",
-              uncertainty: { level: "low", reasons: [] },
-              claims: [{ text: "rollout gate", temporary_span_alias: "span_rollout" }],
-            }],
-          })),
-        }),
-      },
-    });
-    await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
-    const controller = result.window.KnowledgeExplorerHub.llmWikiRunController;
-    assert.equal(controller.getRolloutSnapshot().enabled_phases.length, 0);
-    assert.equal((controller.getSnapshot().risk_packets || []).length, 0);
-    assert.equal(result.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/PERMANENT/")), false);
-    assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.reason, "operation_phase_unavailable");
-  }
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().rollout, undefined);
 });
 
 test("a new risk review supersedes a completed migration scene", () => {
@@ -277,15 +146,14 @@ test("real capture measures the required action against external Obsidian chrome
   ]) assert.ok(REAL_PRODUCT.includes(sentinel), `missing real-surface geometry sentinel: ${sentinel}`);
 });
 
-test("compact Knowledge outer owner reserves real bottom content clearance for short lifecycle states", () => {
-  const rule = APP_SHELL.match(/\.workspace-leaf-content:has\(\s*\.prodigy-app-shell:is\(\[data-tier="compact"\],\[data-tier="medium"\]\)\[data-workspace-id="knowledge"\]\s*\)\s*\{([^}]+)\}/u);
-  assert.ok(rule, "active compact/medium Knowledge outer-owner rule missing");
-  assert.match(rule[1], /overflow-y:\s*auto\s*!important/u);
-  assert.match(
-    rule[1],
-    /padding-block-end:\s*var\(--ke-space-4,\s*17px\)/u,
-    "the outer owner needs canonical content padding so short states gain usable scroll range",
-  );
+test("Knowledge AppShell body is the sole bounded scroll owner at every tier", () => {
+  const bodyRule = APP_SHELL.match(/\.prodigy-app-shell\[data-workspace-id="knowledge"\]\s*>\s*\.prodigy-app-shell-body\s*\{([^}]+)\}/u);
+  assert.ok(bodyRule, "Knowledge body scroll-owner rule missing");
+  assert.match(bodyRule[1], /overflow-y:\s*auto/u);
+  assert.match(bodyRule[1], /padding-block-end:\s*max\(/u);
+  const hostRule = APP_SHELL.match(/\.workspace-leaf-content:has\([\s\S]*?\.prodigy-app-shell\[data-workspace-id="knowledge"\][\s\S]*?\)\s*\{([^}]+)\}/u);
+  assert.ok(hostRule, "Knowledge host containment rule missing");
+  assert.match(hostRule[1], /overflow-y:\s*hidden\s*!important/u);
 });
 
 test("real partial-failure fixture observes a first write and exact byte restoration instead of trusting counters", () => {

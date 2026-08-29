@@ -236,6 +236,9 @@
 
   function validateConsentArtifact(artifact, request, options = {}) {
     if (!structurallyValidArtifact(artifact)) return fail("consent", "invalid_consent");
+    const requestedProviderKey = trim(request && request.request_metadata && request.request_metadata.provider_key);
+    const requestedProviderMode = trim(request && request.provider_mode) || "direct";
+    if (artifact.provider_key !== requestedProviderKey || artifact.provider_mode !== requestedProviderMode) return fail("consent", "consent_mismatch");
     const binding = bindingFor(request, options);
     if (binding.ok === false) return binding;
     const { outbound_policy: outboundPolicy, ...current } = binding.value;

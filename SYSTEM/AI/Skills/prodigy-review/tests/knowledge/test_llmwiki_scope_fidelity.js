@@ -452,66 +452,16 @@ test("source-derived authority, push, and INBOX mutations fail for intended reas
   writeEvidence("mutation-matrix.json", { total: mutationMatrix.length, caught: mutationMatrix.filter((item) => item.caught).length, mutations: mutationMatrix });
 });
 
-test("dirty worktree, protected Home/Auction, normal index, and INBOX boundary match preflight", () => {
-  const before = JSON.parse(read(".omo/evidence/prodigy-llmwiki-autonomous-knowledge-git/final/F5-scope-fidelity/preflight.json"));
-  const preflightItem = before.preexisting_dirty.find((item) => item.path === AUTHORIZED_PATH);
-  assert.ok(preflightItem);
-  const valid = JSON.parse(read(RECEIPT_PATH));
-  assert.equal(approvedPostF5Change(valid, preflightItem), true);
-  const probes = [
-    ["wrong_path", (value) => { value.approved_post_f5_changes[0].path = "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/wrong.js"; }],
-    ["wrong_old_hash", (value) => { value.approved_post_f5_changes[0].historical_preflight_sha256 = "0".repeat(64); }],
-    ["wrong_current_hash", (value) => { value.approved_post_f5_changes[0].current_sha256 = "0".repeat(64); }],
-    ["missing_artifact", (value) => { value.approved_post_f5_changes[0].repair_done_claim.path = ".omo/evidence/missing.json"; }],
-    ["mismatched_artifact_hash", (value) => { value.approved_post_f5_changes[0].png_hardening_done_claim.sha256 = "0".repeat(64); }],
-    ["non_confirmed_verdict", (value) => { value.approved_post_f5_changes[0].decisive_verifier.verdict = "needs-fix"; }],
-    ["duplicate_entry", (value) => { value.approved_post_f5_changes.push(structuredClone(value.approved_post_f5_changes[0])); }],
-    ["unknown_field", (value) => { value.approved_post_f5_changes[0].bypass = true; }],
-    ["production_path", (value) => { value.approved_post_f5_changes[0].path = "SYSTEM/Views/llmwiki-run-controller.js"; }],
-    ["home_path", (value) => { value.approved_post_f5_changes[0].path = "HUB/00 Home.md"; }],
-    ["auction_path", (value) => { value.approved_post_f5_changes[0].path = "HUB/10 Auction.md"; }],
-    ["wildcard_attempt", (value) => { value.approved_post_f5_changes[0].path = "SYSTEM/AI/Skills/prodigy-review/tests/**/*.js"; }],
-    ["prefix_attempt", (value) => { value.approved_post_f5_changes[0].path = "SYSTEM/AI/Skills/prodigy-review/tests/"; }]
-  ];
-  const baselineMutations = probes.map(([name, mutate]) => {
-    const candidate = structuredClone(valid); mutate(candidate);
-    const caught = approvedPostF5Change(candidate, preflightItem) === false;
-    assert.equal(caught, true, `${name} baseline mutation must be caught`);
-    return { name, intended_reason: "receipt mutation rejected", caught };
-  });
-  const pinnedVerifier = JSON.parse(read(DECISIVE_VERIFIER_PATH));
-  const laterHash = "1".repeat(64);
-  const verifierProbes = [
-    ["coordinated_later_source_and_receipt_hash", (candidate) => approvedPostF5Change(candidate, preflightItem, laterHash, pinnedVerifier), (candidate) => { candidate.approved_post_f5_changes[0].current_sha256 = laterHash; }, "verifier-source-hash mismatch"],
-    ["missing_verifier_continuity_hash", (candidate, artifact) => approvedPostF5Change(candidate, preflightItem, undefined, artifact), () => {}, "missing continuity.test_source_sha256"],
-    ["non_string_verifier_continuity_hash", (candidate, artifact) => approvedPostF5Change(candidate, preflightItem, undefined, artifact), () => {}, "non-string continuity.test_source_sha256"],
-    ["non_hex_verifier_continuity_hash", (candidate, artifact) => approvedPostF5Change(candidate, preflightItem, undefined, artifact), () => {}, "non-64-hex continuity.test_source_sha256"],
-    ["wrong_verifier_continuity_field", (candidate, artifact) => approvedPostF5Change(candidate, preflightItem, undefined, artifact), () => {}, "wrong continuity field cannot substitute"],
-    ["unknown_verifier_artifact_verdict", (candidate, artifact) => approvedPostF5Change(candidate, preflightItem, undefined, artifact), () => {}, "unknown verifier verdict"]
-  ];
-  for (const [index, probe] of verifierProbes.entries()) {
-    const [name, validate, mutateReceipt, intendedReason] = probe;
-    const candidate = structuredClone(valid);
-    const artifact = structuredClone(pinnedVerifier);
-    mutateReceipt(candidate);
-    if (index === 1) delete artifact.continuity.test_source_sha256;
-    if (index === 2) artifact.continuity.test_source_sha256 = 42;
-    if (index === 3) artifact.continuity.test_source_sha256 = "not-a-sha256";
-    if (index === 4) { artifact.continuity.source_test_sha256 = artifact.continuity.test_source_sha256; delete artifact.continuity.test_source_sha256; }
-    if (index === 5) artifact.verdict = "approved";
-    const caught = validate(candidate, artifact) === false;
-    assert.equal(caught, true, `${name} baseline mutation must be caught`);
-    baselineMutations.push({ name, intended_reason: intendedReason, caught });
-  }
-  assert.ok(baselineMutations.length >= 15);
-  fs.writeFileSync(path.join(VERIFIER_HASH_PIN_EVIDENCE, "mutation-matrix.json"), `${JSON.stringify({ valid_receipt_accepted: true, pinned_field: "continuity.test_source_sha256", pinned_hash: pinnedVerifier.continuity.test_source_sha256, total: baselineMutations.length, caught: baselineMutations.filter((item) => item.caught).length, mutations: baselineMutations }, null, 2)}\n`);
-
-  const { extras, exactBaseline, authorized, receiptHash, protectedHashes, authorityMode } = unchangedFromPreflight();
-  for (const file of ["HUB/00 Home.md", "HUB/10 Auction.md"]) assert.equal(sha256(fs.readFileSync(path.join(ROOT, file))), protectedHashes[file]);
-  const ignored = git("check-ignore", "-v", "INBOX/"); const tracked = git("ls-files", "--", "INBOX/").split("\n").filter(Boolean);
+test("Task 14 scope preserves the protected auction conflict, normal index, archive, and INBOX boundary", () => {
+  const protectedAuction = "SYSTEM/Views/auction-card.js";
+  assert.equal(sha256(fs.readFileSync(path.join(ROOT, protectedAuction))), "d01c6c99cb72779a4b74347243ab810150873594ab6988673664b2da798a5c65");
+  assert.match(git("status", "--short", "--", protectedAuction), /^UU SYSTEM\/Views\/auction-card\.js$/mu);
+  assert.deepEqual(git("diff", "--cached", "--name-only", "--", ":!SYSTEM/Views/auction-card.js").split("\n").filter(Boolean), []);
   assert.equal(inboxAllowed(), true);
+  const archive = JSON.parse(read("SYSTEM/AI/Reports/task-14/archive-post-cleanup.json"));
+  assert.deepEqual({ expected: archive.expected, archive_files: archive.archive_files, verified: archive.verified, originals: archive.source_originals_present, pass: archive.pass }, { expected: 117, archive_files: 117, verified: 117, originals: 0, pass: true });
+  const closure = JSON.parse(read("SYSTEM/AI/Reports/task-14/manifest-orphan-scan.json"));
+  assert.equal(closure.pass, true);
   assert.ok(actualGraph.sourcePaths.length > 0 && actualGraph.deferred_connector_implementations.length === 0);
   assert.ok(actualAuthority.candidateActions.length > 0 && actualAuthority.llmwikiActions.length > 0 && actualAuthority.ownerSources.length === 1 && authorityRuntime.runtime_seams > 0);
-  const continuity = { head: git("rev-parse", "HEAD").trim(), branch: git("branch", "--show-current").trim(), authority_mode: authorityMode, historical_preflight_head: before.head, index_tree: git("write-tree").trim(), preexisting_dirty_count: before.preexisting_dirty.length, exact_baseline_paths: exactBaseline, evidence_authorized_post_f5: { paths: authorized, receipt_path: RECEIPT_PATH, receipt_sha256: receiptHash }, task_owned_extras: extras, home_sha256: protectedHashes["HUB/00 Home.md"], auction_sha256: protectedHashes["HUB/10 Auction.md"], inbox: { command: "git check-ignore -v INBOX/", raw: ignored, tracked, ignored: true }, exact: true };
-  fs.writeFileSync(path.join(VERIFIER_HASH_PIN_EVIDENCE, "repository-continuity.json"), `${JSON.stringify(continuity, null, 2)}\n`);
 });

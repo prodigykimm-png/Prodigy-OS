@@ -1,33 +1,82 @@
 (function (root) {
   "use strict";
 
+  // Task 9 (llmwiki-batch-core-simplification): this materializer consumes only
+  // strict Task 5 compact provider artifacts ({chunk_key, outcome, items}) and
+  // maps every role to exactly one lifecycle proposal class:
+  //   source_summary -> Literature proposal   (ZETA/LITERATURE, create)
+  //   reusable_claim -> Candidate proposal    (ZETA/CANDIDATES, create/update/merge/conflict)
+  //   object_context -> typed PARA handoff draft
+  //   hold / unknown / weak provenance -> unselected hold
+  // Allowlisted related candidate ids may select update/merge/conflict classes,
+  // but path/destination authority always comes from the local candidate index.
+  // Direct Permanent proposals and promotion_complete:true are removed: an
+  // existing explicit promotion gate remains the only route to Permanent.
+
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
   const routingApi = root.LLMWikiLifecycleRoutingContract || (typeof require === "function" ? require("./llmwiki-lifecycle-routing-contract.js") : null);
   const identityApi = root.LLMWikiIdentityResolution || (typeof require === "function" ? require("./llmwiki-identity-resolution.js") : null);
   const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
   const objectHandoffApi = root.LLMWikiObjectHandoffContract || (typeof require === "function" ? require("./llmwiki-object-handoff-contract.js") : null);
+  const documentAssemblerApi = root.LLMWikiDocumentAssembler || (typeof require === "function" ? require("./llmwiki-document-assembler.js") : null);
+  if (!documentAssemblerApi) throw new Error("LLMWikiDocumentAssembler is required.");
   const HASH = /^[0-9a-f]{64}$/u;
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
+  const CAND = /^cand_[a-zA-Z0-9_-]{1,64}$/u;
+  const ROLES = Object.freeze(["source_summary", "reusable_claim", "object_context", "hold"]);
+  const OUTCOMES = Object.freeze(["proposals", "hold", "no_change"]);
+  const ITEM_FIELDS = new Set(["role", "evidence_quote", "claims", "review_reasons", "related_candidate_ids", "span"]);
+  const FORBIDDEN_FIELDS = new Set([
+    "offset", "offsets", "start", "end", "alias", "temporary_span_alias", "span_path", "path", "paths",
+    "operation", "operation_kind", "operation_id", "serialized_operation", "destination",
+    "destination_id", "destination_ids", "write", "writes", "approval", "approved", "provider",
+    "provider_key", "model", "secret", "api_key", "canonical_proposal", "canonical_bytes",
+  ]);
+  const LITERATURE_DIR = "ZETA/LITERATURE";
+  const CANDIDATE_DIR = "ZETA/CANDIDATES";
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function freeze(value) { if (operationApi?.isOperationRecord?.(value)) return value; if (Array.isArray(value)) return Object.freeze(value.map(freeze)); if (!plain(value)) return value; return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)]))); }
   function fail(reason) { return freeze({ ok: false, reason }); }
-  function safePath(value) { return typeof value === "string" && value.startsWith("ZETA/PERMANENT/") && value.endsWith(".md") && !value.includes("\\") && !value.split("/").some(part => !part || part === "." || part === ".."); }
-  function identityKey(unit) { return `identity_${String(unit.semantic_id || "").replace(/^semantic_/u, "")}`; }
-  function canonicalBytes(claim) { return `# ${claim}\n\n${claim}\n`; }
-  function titleFor(unit) { return String(unit.claims?.[0]?.text || "").trim(); }
+  function sha(value) { return hashApi.sha256(String(value)); }
+  function safeVaultPath(value, prefix) { return typeof value === "string" && value.startsWith(`${prefix}/`) && value.endsWith(".md") && !value.includes("\\") && !value.split("/").some(part => !part || part === "." || part === ".."); }
+  function identityKey(unitId) { return `identity_${String(unitId).replace(/^unit_/u, "")}`; }
+  function titleFor(itemRow) { const first = Array.isArray(itemRow.claims) && itemRow.claims[0]; const text = String(first?.text || itemRow.evidence_quote || "").trim(); return text; }
+
   function localIndex(value) {
     if (!Array.isArray(value)) return [];
     const rows = [];
     for (const row of value) {
-      if (!plain(row) || Object.keys(row).some(key => !["identity_id", "identity_key", "content_hash", "revision", "path", "before_bytes"].includes(key))
+      if (!plain(row) || Object.keys(row).some(key => !["identity_id", "identity_key", "content_hash", "revision"].includes(key))
         || !ID.test(String(row.identity_id || "")) || !ID.test(String(row.identity_key || "")) || !HASH.test(String(row.content_hash || ""))
-        || !HASH.test(String(row.revision || "")) || !safePath(row.path) || typeof row.before_bytes !== "string" || hashApi.sha256(row.before_bytes) !== row.revision) return null;
+        || !HASH.test(String(row.revision || ""))) return null;
       rows.push(freeze({ ...row }));
     }
     return rows;
   }
   function candidates(index) { return index.map(({ identity_id, identity_key, content_hash, revision }) => ({ identity_id, identity_key, content_hash, revision })); }
+
+  // Local related-candidate index: rows are trusted local state; the model may
+  // only reference their ids through the allowlist. Paths never come from the model.
+  function relatedIndex(value) {
+    if (!Array.isArray(value)) return [];
+    const rows = [];
+    for (const row of value) {
+      if (!plain(row) || Object.keys(row).some(key => !["candidate_id", "path", "content_hash", "revision", "before_bytes"].includes(key))
+        || !CAND.test(String(row.candidate_id || "")) || !safeVaultPath(row.path, CANDIDATE_DIR)
+        || !HASH.test(String(row.content_hash || "")) || !HASH.test(String(row.revision || ""))
+        || typeof row.before_bytes !== "string" || sha(row.before_bytes) !== row.revision) return null;
+      rows.push(freeze({ ...row }));
+    }
+    return rows;
+  }
+  function allowedIds(value) {
+    if (!Array.isArray(value)) return new Set();
+    const ids = new Set();
+    for (const id of value) if (typeof id === "string" && CAND.test(id)) ids.add(id);
+    return ids;
+  }
+
   function localObjectRoutes(value) {
     if (!Array.isArray(value)) return null;
     const seen = new Set();
@@ -43,98 +92,248 @@
     return freeze(value.map(route => ({ ...route })));
   }
   function objectDraftFor(unit, route, decision) {
-    const identity = { identity_key: `object_${route.object_id}`, content_hash: unit.text_hash, candidates: [] };
-    const routed = decision ? { ok: true, value: decision } : routingApi.routeLifecycle({ unit_id: unit.unit_id, lane: "operational", semantic_type: "object_state", target: { object_type: route.object_type, slot: route.slot }, identity });
+    const routed = decision ? { ok: true, value: decision } : routingApi.routeLifecycle({
+      unit_id: unit.unit_id, lane: "operational", semantic_type: "object_state",
+      target: { object_type: route.object_type, slot: route.slot },
+      identity: { identity_key: `object_${route.object_id}`, content_hash: unit.text_hash, candidates: [] },
+    });
     if (!routed.ok || routed.value.destination !== "para_object" || routed.value.review_state !== "review") return fail(routed.reason || "local_object_routing_failed");
-    const text = titleFor(unit);
+    const text = titleFor(unit.item || unit);
     if (!text || route.slot === "related_knowledge") return fail("local_object_draft_invalid");
     return freeze({ ok: true, value: freeze({
-      handoff_id: `handoff_${hashApi.sha256(`${unit.unit_id}:${route.object_id}:${route.slot}`).slice(0, 24)}`,
+      handoff_id: `handoff_${sha(`${unit.unit_id}:${route.object_id}:${route.slot}`).slice(0, 24)}`,
       object_type: route.object_type, object_id: route.object_id, slot: route.slot, text,
       linked_lifecycle_ids: routed.value.link_id ? [unit.unit_id, routed.value.link_id] : [unit.unit_id], decision: routed.value, unit_id: unit.unit_id,
     }) });
   }
-  function proposalFor(unit, source, index) {
-    const claim = titleFor(unit);
-    if (!claim || !ID.test(unit.unit_id) || !HASH.test(unit.text_hash || "")) return fail("invalid_durable_semantic_artifact");
-    const key = identityKey(unit);
-    if (!ID.test(key)) return fail("invalid_local_identity_key");
-    // Explicitly exercise the local identity authority before lifecycle routing.
-    const resolved = identityApi.resolveIdentity({ identity_key: key, content_hash: unit.text_hash, candidates: candidates(index) });
-    if (!resolved.ok) return resolved;
+
+  function validateItem(rawItem) {
+    if (!plain(rawItem)) return fail("invalid_item");
+    for (const key of Object.keys(rawItem)) {
+      if (FORBIDDEN_FIELDS.has(key)) return fail("forbidden_authority");
+      if (!ITEM_FIELDS.has(key)) return fail("unknown_field");
+    }
+    if (!ROLES.includes(rawItem.role)) return fail("unknown_role");
+    if (typeof rawItem.evidence_quote !== "string" || rawItem.evidence_quote.length === 0) return fail("invalid_evidence_quote");
+    if (!Array.isArray(rawItem.claims) || rawItem.claims.length > 8) return fail("invalid_claims");
+    for (const claim of rawItem.claims) if (!plain(claim) || typeof claim.text !== "string" || claim.text.trim().length === 0) return fail("invalid_claims");
+    if (!Array.isArray(rawItem.review_reasons) || rawItem.review_reasons.length > 4) return fail("invalid_review_reasons");
+    for (const reason of rawItem.review_reasons) if (typeof reason !== "string" || reason.trim().length === 0) return fail("invalid_review_reasons");
+    if (!Array.isArray(rawItem.related_candidate_ids)) return fail("invalid_related_candidates");
+    let span = null;
+    if (rawItem.span !== undefined) {
+      if (!plain(rawItem.span) || Object.keys(rawItem.span).length !== 3
+        || !Number.isInteger(rawItem.span.start) || !Number.isInteger(rawItem.span.end) || typeof rawItem.span.alias !== "string"
+        || rawItem.span.start < 0 || rawItem.span.end < rawItem.span.start) return fail("invalid_span");
+      span = rawItem.span;
+    }
+    return freeze({ ok: true, value: freeze({
+      role: rawItem.role, evidence_quote: rawItem.evidence_quote,
+      claims: freeze(rawItem.claims.map(claim => freeze({ text: claim.text }))),
+      review_reasons: freeze([...rawItem.review_reasons]),
+      related_candidate_ids: freeze([...rawItem.related_candidate_ids]),
+      ...(span ? { span: freeze({ ...span }) } : {}),
+    }) });
+  }
+
+  function citationFor(source, itemRow) {
+    const anchored = itemRow.span && Number.isInteger(itemRow.span.start) && Number.isInteger(itemRow.span.end);
+    return freeze({
+      source_id: source.source_id, content_hash: source.content_hash, source_url: null,
+      locators: anchored ? [source.source_path, `${source.source_path}#${itemRow.span.start}-${itemRow.span.end}`] : [source.source_path],
+      source_archive_id: null, confidence: anchored ? "explicit" : "inferred",
+    });
+  }
+
+  function baseOperation(input) {
+    return {
+      contract_version: "llmwiki_operation_contract_v1",
+      operation_id: null, kind: input.kind, destination_ids: input.destination_ids,
+      base_revisions: input.base_revisions || {}, before_bytes: input.before_bytes || {},
+      after_bytes: input.after_bytes, source_citations: input.citations || [input.citation],
+      conflicts: input.conflicts || [], risk_tier: input.risk_tier,
+      effects: { deprecations: [], supersessions: [] },
+      ...(input.kind === "merge" ? { source_ids: input.source_ids } : {}),
+    };
+  }
+  function finalizeOperation(template, unitId, kind, destination) {
+    template.operation_id = `operation_${sha(`${unitId}:${kind}:${template.destination_ids.join("|")}`).slice(0, 24)}`;
+    const parsed = operationApi.parseOperation(JSON.stringify(template));
+    if (!parsed.ok) return parsed;
+    return freeze({ ok: true, value: freeze({ kind, capture_target: destination === "literature" ? "zeta_literature" : "knowledge_candidate", operation: parsed.value }) });
+  }
+
+  function citationForDocument(source, document) {
+    const locators = [...new Set((document.citations || []).flatMap((row) => Array.isArray(row.locators) ? row.locators : []))];
+    return freeze({
+      source_id: source.source_id, content_hash: source.content_hash, source_url: null,
+      locators: locators.length ? locators : [source.source_path],
+      source_archive_id: null,
+      confidence: (document.citations || []).every((row) => row.confidence === "explicit") ? "explicit" : "inferred",
+    });
+  }
+  function documentUnitId(source, document) {
+    return `document_${sha(JSON.stringify([source.source_id, document.role, document.title, document.matched_candidate_ids || [], document.claims])).slice(0, 24)}`;
+  }
+
+  function literatureProposal(document, source) {
+    const unitId = documentUnitId(source, document);
     const routed = routingApi.routeLifecycle({
-      unit_id: unit.unit_id, lane: "epistemic", semantic_type: "reusable_knowledge", promotion_complete: true,
-      identity: { identity_key: key, content_hash: unit.text_hash, candidates: candidates(index) },
+      unit_id: unitId, lane: "epistemic", semantic_type: "source_material", source_bound: true,
+      identity: { identity_key: identityKey(unitId), content_hash: sha(document.body), candidates: [] },
     });
     if (!routed.ok) return routed;
-    const decision = routed.value;
-    if (decision.destination !== "canonical_knowledge" || decision.review_state !== "review" || !["create", "update", "merge", "noop"].includes(decision.operation)) return fail("local_routing_not_reviewable");
-    const existing = index.find(row => row.identity_id === decision.candidate_ids[0]) || null;
-    const path = existing ? existing.path : `ZETA/PERMANENT/${unit.unit_id}.md`;
-    const before = existing ? existing.before_bytes : "";
-    const after = canonicalBytes(claim);
-    const operation = {
-      contract_version: "llmwiki_operation_contract_v1",
-      operation_id: `operation_${hashApi.sha256(`${unit.unit_id}:${decision.operation}:${path}`).slice(0, 24)}`,
-      kind: decision.operation,
-      destination_ids: [path],
-      base_revisions: decision.operation === "create" ? {} : { [path]: hashApi.sha256(before) },
-      before_bytes: decision.operation === "create" ? {} : { [path]: before },
-      after_bytes: { [path]: after },
-      source_citations: [{ source_id: source.source_id, content_hash: source.content_hash, source_url: null, locators: [source.source_path], source_archive_id: null, confidence: "explicit" }],
-      conflicts: [], risk_tier: "low", effects: { deprecations: [], supersessions: [] },
-    };
-    const parsed = operationApi.parseOperation(JSON.stringify(operation));
-    if (!parsed.ok) return parsed;
-    return freeze({ ok: true, value: freeze({ title: claim, operation: parsed.value, decision, unit_id: unit.unit_id }) });
+    if (routed.value.destination !== "literature" || routed.value.review_state !== "review") return holdFor({ unit_id: unitId }, "lifecycle_hold");
+    const path = `${LITERATURE_DIR}/${unitId}.md`;
+    const built = finalizeOperation(baseOperation({
+      kind: "create", destination_ids: [path], after_bytes: { [path]: document.body },
+      citation: citationForDocument(source, document), risk_tier: "low",
+    }), unitId, "create", "literature");
+    if (!built.ok) return built;
+    return freeze({ ok: true, value: freeze({ title: document.title, class: "create", selected: false, unit_id: unitId, document, decision: routed.value, ...built.value }) });
   }
+
+  function resolvedRelated(itemRow, related, allowed, index) {
+    const resolved = [];
+    for (const id of itemRow.related_candidate_ids) {
+      if (!allowed.has(id)) return fail("candidate_id_not_allowed");
+      const row = related.find(candidate => candidate.candidate_id === id);
+      if (row) resolved.push(row);
+    }
+    return freeze({ ok: true, value: freeze(resolved) });
+  }
+
+  function candidateProposal(document, source, related) {
+    const unitId = documentUnitId(source, document);
+    const routed = routingApi.routeLifecycle({
+      unit_id: unitId, lane: "epistemic", semantic_type: "reusable_knowledge", promotion_complete: false,
+      identity: { identity_key: identityKey(unitId), content_hash: sha(document.body), candidates: [] },
+    });
+    if (!routed.ok) return routed;
+    if (routed.value.destination !== "knowledge_candidate") return holdFor({ unit_id: unitId }, "lifecycle_hold");
+    const matchedIds = Array.isArray(document.matched_candidate_ids) ? document.matched_candidate_ids : [];
+    const rows = matchedIds.map((id) => related.find((candidate) => candidate.candidate_id === id)).filter(Boolean);
+    const citation = citationForDocument(source, document);
+    const conflicts = document.review_reasons.length > 0 && rows.length > 0
+      ? [{ conflict_id: `conflict_${sha(`${unitId}:conflict`).slice(0, 24)}`, status: "unresolved", source_ids: [citation.source_id], summary: document.review_reasons[0] }]
+      : [];
+    let kind;
+    let template;
+    if (rows.length >= 2) {
+      kind = "merge";
+      const destinationPaths = rows.map(row => row.path);
+      const allPaths = [...new Set([...destinationPaths])];
+      // merge revision coverage spans both source ids and destination paths.
+      const coverage = rows.flatMap(row => [[row.path, row.revision], [row.candidate_id, row.revision]]);
+      const coverageBytes = rows.flatMap(row => [[row.path, row.before_bytes], [row.candidate_id, row.before_bytes]]);
+      template = baseOperation({
+        kind, destination_ids: destinationPaths, source_ids: rows.map(row => row.candidate_id),
+        base_revisions: Object.fromEntries(coverage),
+        before_bytes: Object.fromEntries(coverageBytes),
+        after_bytes: Object.fromEntries(destinationPaths.map(path => [path, document.body])),
+        citation, conflicts, risk_tier: "high",
+      });
+    } else if (rows.length === 1) {
+      kind = "update";
+      const row = rows[0];
+      template = baseOperation({
+        kind, destination_ids: [row.path],
+        base_revisions: { [row.path]: row.revision }, before_bytes: { [row.path]: row.before_bytes },
+        after_bytes: { [row.path]: document.body }, citation, conflicts, risk_tier: conflicts.length > 0 ? "high" : "medium",
+      });
+    } else {
+      kind = "create";
+      const path = `${CANDIDATE_DIR}/${unitId}.md`;
+      template = baseOperation({ kind, destination_ids: [path], after_bytes: { [path]: document.body }, citation, risk_tier: "low" });
+    }
+    const built = finalizeOperation(template, unitId, kind, "knowledge_candidate");
+    if (!built.ok) return built;
+    return freeze({ ok: true, value: freeze({
+      title: document.title, class: conflicts.length > 0 ? "conflict" : kind, selected: false,
+      unit_id: unitId, document, decision: routed.value, ...built.value,
+    }) });
+  }
+
+  function holdFor(unit, reason) {
+    return freeze({ ok: true, value: freeze({
+      hold_id: `hold_${sha(`${unit.unit_id}:${reason}`).slice(0, 24)}`,
+      reason, unit_id: unit.unit_id, role: unit.item ? unit.item.role : "hold",
+      review_reasons: unit.item ? unit.item.review_reasons : [], selected: false,
+    }) });
+  }
+
   function createInboxProposalMaterializer(options = {}) {
     const index = localIndex(options.localIdentityIndex || []);
+    const related = relatedIndex(options.relatedCandidates || []);
+    const allowed = allowedIds(options.allowedCandidateIds || []);
     const routes = localObjectRoutes(options.localObjectRoutes || []);
     const objectResolver = options.objectResolver || (objectHandoffApi && Array.isArray(options.localObjectIndex) ? objectHandoffApi.createLocalObjectResolver(options.localObjectIndex) : null);
     const objectHandoff = options.objectHandoff || (objectHandoffApi && objectResolver
       ? objectHandoffApi.create({ registry: objectHandoffApi.createProductionAdapterRegistry(), objectResolver, knowledgeResolver: options.knowledgeResolver }) : null);
     if (index === null) throw new TypeError("invalid_local_identity_index");
+    if (related === null) throw new TypeError("invalid_related_candidates");
     if (routes === null) throw new TypeError("invalid_local_object_routes");
+    const documentAssembler = options.documentAssembler || documentAssemblerApi.createDocumentAssembler({
+      canonicalDocuments: Array.isArray(options.canonicalDocuments) ? options.canonicalDocuments : [],
+      candidateDocuments: related,
+    });
+
+    // Pure mapping of strict Task 5 compact artifacts into lifecycle review
+    // proposals, PARA handoff drafts, and unselected holds. Zero writes: this
+    // module has no writer, no approval authority, and touches no files.
     function materialize(input) {
-      if (!plain(input) || !Array.isArray(input.artifacts) || !plain(input.source)) return fail("durable_artifacts_required");
+      if (!plain(input) || !Array.isArray(input.artifacts) || !plain(input.source)) return fail("compact_artifacts_required");
+      const source = input.source;
+      if (!ID.test(String(source.source_id || "")) || !HASH.test(String(source.content_hash || "")) || typeof source.source_path !== "string" || source.source_path.length === 0) return fail("invalid_source_citation");
       const proposals = [];
       const para_drafts = [];
+      const holds = [];
+      const documentArtifacts = [];
       for (const artifact of input.artifacts) {
-        if (!plain(artifact) || !Array.isArray(artifact.semantic_units) || !ID.test(String(artifact.semantic_id || "")) || !HASH.test(String(artifact.text_hash || ""))) return fail("invalid_durable_semantic_artifact");
-        for (const unit of artifact.semantic_units) {
-          if (unit.disposition !== "propose") continue;
-          const durableUnit = { ...unit, semantic_id: artifact.semantic_id, text_hash: artifact.text_hash };
-          const objectRoute = routes.find(route => route.semantic_id === artifact.semantic_id);
-          if (objectRoute) {
-            if (objectRoute.lane === "mixed") {
-              const objectIdentity = { identity_key: `object_${objectRoute.object_id}`, content_hash: durableUnit.text_hash, candidates: [] };
-              const knowledgeIdentity = { identity_key: identityKey(durableUnit), content_hash: durableUnit.text_hash, candidates: candidates(index) };
-              const mixed = routingApi.routeLifecycle({ unit_id: durableUnit.unit_id, lane: "mixed", components: [
-                { unit_id: durableUnit.unit_id, lane: "operational", semantic_type: "object_state", target: { object_type: objectRoute.object_type, slot: objectRoute.slot }, identity: objectIdentity },
-                { unit_id: durableUnit.unit_id, lane: "epistemic", semantic_type: "reusable_knowledge", promotion_complete: true, identity: knowledgeIdentity },
-              ] });
-              if (!mixed.ok) return mixed;
-              const objectDecision = mixed.value.decisions.find(decision => decision.destination === "para_object");
-              const knowledgeDecision = mixed.value.decisions.find(decision => decision.destination === "canonical_knowledge");
-              const proposed = proposalFor(durableUnit, input.source, index);
-              const draft = objectDraftFor(durableUnit, objectRoute, objectDecision);
-              if (!proposed.ok || !draft.ok || !knowledgeDecision) return fail("local_mixed_routing_failed");
-              proposals.push(freeze({ ...proposed.value, decision: knowledgeDecision }));
-              para_drafts.push(draft.value);
-            } else {
-              const draft = objectDraftFor(durableUnit, objectRoute);
-              if (!draft.ok) return draft;
-              para_drafts.push(draft.value);
-            }
+        if (!plain(artifact) || Object.keys(artifact).some(key => !["chunk_key", "outcome", "items"].includes(key))
+          || !ID.test(String(artifact.chunk_key || "")) || !OUTCOMES.includes(artifact.outcome) || !Array.isArray(artifact.items) || artifact.items.length > 8) return fail("invalid_compact_artifact");
+        const documentItems = [];
+        for (let position = 0; position < artifact.items.length; position += 1) {
+          const checked = validateItem(artifact.items[position]);
+          if (!checked.ok) return checked;
+          const itemRow = checked.value;
+          const unitId = `${artifact.chunk_key}_item${position}`;
+          const unit = freeze({
+            unit_id: unitId, text_hash: sha(JSON.stringify([artifact.chunk_key, itemRow.evidence_quote, itemRow.claims])),
+            item: itemRow,
+          });
+          if (artifact.outcome === "hold" || itemRow.role === "hold" || itemRow.claims.length === 0) {
+            holds.push(holdFor(unit, itemRow.role === "hold" ? "weak_provenance_hold" : itemRow.claims.length === 0 ? "empty_claims_hold" : "outcome_hold").value);
             continue;
           }
-          const proposed = proposalFor(durableUnit, input.source, index);
-          if (!proposed.ok) return proposed;
-          proposals.push(proposed.value);
+          if (itemRow.role === "object_context") {
+            const route = routes.find(entry => entry.semantic_id === artifact.chunk_key);
+            if (!route) { holds.push(holdFor(unit, "object_route_unresolved").value); continue; }
+            const draft = objectDraftFor(unit, route);
+            if (!draft.ok) return draft;
+            para_drafts.push(draft.value);
+            continue;
+          }
+          for (const id of itemRow.related_candidate_ids) if (!allowed.has(id)) return fail("candidate_id_not_allowed");
+          documentItems.push(itemRow);
         }
+        documentArtifacts.push(freeze({ chunk_key: artifact.chunk_key, outcome: artifact.outcome, items: documentItems }));
       }
-      return freeze({ ok: true, proposals, para_drafts });
+      const assembled = documentAssembler.assemble({ source, artifacts: documentArtifacts });
+      if (!assembled.ok) return fail(assembled.reason || "document_assembly_failed");
+      for (const document of assembled.documents) {
+        const proposed = document.role === "source_summary"
+          ? literatureProposal(document, source)
+          : candidateProposal(document, source, related);
+        if (!proposed.ok) return proposed;
+        if (proposed.value.hold_id) holds.push(proposed.value);
+        else proposals.push(proposed.value);
+      }
+      for (const hold of assembled.holds || []) holds.push(freeze({
+        hold_id: `hold_${sha(JSON.stringify([source.source_id, hold.role, hold.reason, holds.length])).slice(0, 24)}`,
+        reason: hold.reason, role: hold.role, review_reasons: [], selected: false,
+      }));
+      return freeze({ ok: true, proposals, para_drafts, holds, no_changes: assembled.no_changes || [] });
     }
     // PARA is a local operational destination. This materializer only mints a
     // typed review proposal; it has no approval or write authority.
@@ -144,7 +343,7 @@
     }
     return freeze({ materialize, materializeParaObject });
   }
-  const api = freeze({ canonicalBytes, createInboxProposalMaterializer });
+  const api = freeze({ createInboxProposalMaterializer });
   root.LLMWikiInboxProposalMaterializer = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

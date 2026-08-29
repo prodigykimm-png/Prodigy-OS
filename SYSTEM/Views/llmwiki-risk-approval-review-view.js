@@ -15,13 +15,31 @@
     return element;
   }
   function empty(element) { if (typeof element.empty === "function") element.empty(); else while (element.firstChild) element.removeChild(element.firstChild); }
+  let disabledReasonSequence = 0;
   function button(parent, label, action, onClick, options = {}) {
-    const control = createEl(parent, "button", { text: label, attr: { type: "button", "data-action": action, "data-emitted-action": options.emittedAction || action, "data-primary": options.primary ? "true" : "false" }, disabled: options.disabled });
+    const disabledReason = options.disabled ? String(options.disabledReason || "이 작업은 현재 사용할 수 없습니다.") : "";
+    const reasonId = disabledReason ? `llmwiki-disabled-reason-${action}-${++disabledReasonSequence}` : "";
+    const control = createEl(parent, "button", { text: label, attr: { type: "button", "data-action": action, "data-emitted-action": options.emittedAction || action, "data-primary": options.primary ? "true" : "false", ...(reasonId ? { "aria-describedby": reasonId } : {}) }, disabled: options.disabled });
     control.disabled = Boolean(options.disabled);
     if (!options.disabled) control.onclick = (event) => { event?.preventDefault?.(); onClick(); };
+    if (reasonId) createEl(parent, "span", { text: disabledReason, attr: { id: reasonId, class: "llmwiki-approval-review__disabled-reason llmwiki-cjk-prose", "data-disabled-reason-for": action } });
     return control;
   }
-  function field(parent, label, value) { createEl(parent, "dt", { text: label }); createEl(parent, "dd", { text: value }); }
+  function field(parent, label, value, attr = {}) { createEl(parent, "dt", { text: label }); createEl(parent, "dd", { text: value, attr }); }
+  function prettyField(parent, label, value, attr = {}) {
+    createEl(parent, "dt", { text: label });
+    const body = createEl(parent, "dd", { attr });
+    const words = String(value || "").trim().split(/\s+/u).filter(Boolean);
+    const splitAt = Math.max(0, words.length - 3);
+    if (splitAt > 0) createEl(body, "span", { text: `${words.slice(0, splitAt).join(" ")} ` });
+    createEl(body, "span", {
+      text: words.slice(splitAt).join(" "),
+      attr: {
+        class: "llmwiki-approval-review__atomic-tail",
+        "data-approval-pretty-tail": "true",
+      },
+    });
+  }
   function readableDocument(value) {
     if (value === null) return "새 지식이라 이전 내용이 없습니다.";
     const bytes = typeof value === "string" ? value : "";
@@ -46,7 +64,7 @@
       summary: packet.summary,
       provenance: packet.source_lineage.map((item) => item.locators.map((locator) => String(locator).split("#")[0].split("/").pop()).filter(Boolean).join(" · ") || "선택한 자료"),
       before_after: packet.before_after.map((item) => ({ destination: visibleDestination(item.destination_id), before: readableDocument(item.before), after: readableDocument(item.after) })),
-      risk: `${TIER_LABELS[packet.risk.tier]} · ${packet.risk.reasons.map((reason) => REASON_LABELS[reason] || reason).join(" · ")}`,
+      riskItems: [TIER_LABELS[packet.risk.tier], ...packet.risk.reasons.map((reason) => REASON_LABELS[reason] || reason)],
       conflict: packet.conflict.state === "clear" ? "없음" : packet.conflict.state === "resolved" ? "해결됨" : `검토 필요 · ${packet.conflict.blocking_conflict_ids.length}건`,
       selectable: packet.batch_eligible === true,
       approvable: packet.approval_eligible === true,
@@ -59,7 +77,10 @@
     const batchApi = options.batchApi || root.LLMWikiSafeBatchApproval;
     if (!container || !packetApi || !batchApi || !Array.isArray(options.packets) || options.packets.length === 0) throw new TypeError("risk_approval_review_dependencies_required");
     const model = Object.freeze(options.packets.map((packet) => buildRiskApprovalReviewModel(packet, packetApi)));
-    const state = { selected: new Set(), activeIndex: 0, lastResult: null };
+    const allowedInitial = new Set(model.filter((item) => item.selectable).map((item) => item.packet.packet_id));
+    const initialSelected = Array.isArray(options.initialSelectedIds) ? options.initialSelectedIds.filter((id) => allowedInitial.has(id)) : [];
+    const state = { selected: new Set(initialSelected), activeIndex: 0, lastResult: null };
+    function publishSelection() { if (typeof options.onSelectionChange === "function") options.onSelectionChange(sorted([...state.selected])); }
     function active() { return model[state.activeIndex] || model[0]; }
     function invoke(name, value) { state.lastResult = typeof options[name] === "function" ? options[name](value) : { ok: true, status: name }; return state.lastResult; }
     function requestRevision(guidance) {
@@ -79,12 +100,12 @@
       const frame = createEl(container, "section", { attr: { class: "llmwiki-approval-review prodigy-full-bleed", "data-surface": "llmwiki-risk-approval-review", "aria-label": "지식 변경 검토" } });
       const heading = createEl(frame, "header");
       createEl(heading, "h2", { text: "지식 변경 검토" });
-      createEl(heading, "p", { text: "바뀌는 내용과 출처, 위험을 읽고 결정하세요. 승인 전에는 저장되지 않습니다.", attr: { class: "llmwiki-approval-review__muted" } });
+      createEl(heading, "p", { text: "바뀌는 내용과 출처, 위험을 읽고 결정하세요. 승인 전에는 저장되지 않습니다.", attr: { class: "llmwiki-approval-review__muted llmwiki-cjk-prose", "data-typography-role": "intro" } });
       const actions = createEl(heading, "div", { attr: { class: "llmwiki-approval-review__actions llmwiki-approval-review__decision-strip", role: "toolbar", "aria-label": "검토 결정" } });
-      button(actions, "승인", "approve", () => invoke("onApprove", active().packet), { primary: options.primaryEnabled !== false && active().approvable, disabled: !active().approvable, emittedAction: "approve_risk" });
+      button(actions, "승인", "approve", () => invoke("onApprove", active().packet), { primary: options.primaryEnabled !== false && active().approvable, disabled: !active().approvable, disabledReason: "이 제안은 현재 승인할 수 없습니다.", emittedAction: "approve_risk" });
       button(actions, "거절", "reject", () => invoke("onReject", active().packet), { emittedAction: "reject_risk" });
       button(actions, "수정 요청", "request-revision", () => invoke("onRequestRevisionPrompt", { packet: active().packet, submit: requestRevision }), { primary: options.primaryEnabled !== false && !active().approvable, emittedAction: "request_risk_revision" });
-      button(actions, "안전한 묶음 승인", "approve-batch", approveBatch, { disabled: state.selected.size === 0 });
+      button(actions, "안전한 묶음 승인", "approve-batch", approveBatch, { disabled: state.selected.size === 0, disabledReason: "승인할 묶음을 선택하세요." });
       const cards = createEl(frame, "section", { attr: { class: "llmwiki-approval-review__operations" } });
       model.forEach((item, index) => {
         const card = createEl(cards, "article", { attr: { class: "llmwiki-approval-review__operation prodigy-utility-card", "data-risk-tier": item.packet.risk.tier, "data-conflict-state": item.packet.conflict.state } });
@@ -93,7 +114,7 @@
           const label = createEl(head, "label", { attr: { class: "llmwiki-approval-review__source llmwiki-approval-review__selection-target" } });
           const input = createEl(label, "input", { attr: { type: "checkbox", "aria-label": `${item.operation} 묶음 선택` } });
           input.checked = state.selected.has(item.packet.packet_id);
-          input.onchange = () => { if (input.checked) state.selected.add(item.packet.packet_id); else state.selected.delete(item.packet.packet_id); state.activeIndex = index; render(); };
+          input.onchange = () => { if (input.checked) state.selected.add(item.packet.packet_id); else state.selected.delete(item.packet.packet_id); state.activeIndex = index; publishSelection(); render(); };
           createEl(label, "span", { text: "묶음 선택" });
         }
         createEl(head, "h3", { text: item.operation });
@@ -101,14 +122,19 @@
         item.before_after.forEach((row) => {
           createEl(preview, "p", { text: `지식: ${row.destination}` });
           createEl(preview, "h5", { text: "변경 전" });
-          createEl(preview, "div", { text: row.before, attr: { class: "llmwiki-lifecycle__document-preview" } });
+          createEl(preview, "div", { text: row.before, attr: { class: "llmwiki-lifecycle__document-preview llmwiki-cjk-prose", "data-typography-role": "document-preview" } });
           createEl(preview, "h5", { text: "변경 후" });
-          createEl(preview, "div", { text: row.after, attr: { class: "llmwiki-lifecycle__document-preview" } });
+          createEl(preview, "div", { text: row.after, attr: { class: "llmwiki-lifecycle__document-preview llmwiki-cjk-prose", "data-typography-role": "document-preview" } });
         });
         const fields = createEl(card, "dl");
-        field(fields, "요약", item.summary); field(fields, "위험", item.risk); field(fields, "충돌 상태", item.conflict);
+        prettyField(fields, "요약", item.summary, { class: "llmwiki-cjk-prose", "data-typography-role": "summary" });
+        createEl(fields, "dt", { text: "위험" });
+        const risk = createEl(fields, "dd", { attr: { class: "llmwiki-cjk-prose", "data-typography-role": "risk" } });
+        const reasons = createEl(risk, "span", { attr: { class: "llmwiki-approval-review__risk-reasons", "data-risk-reasons": "structured" } });
+        item.riskItems.forEach((reason) => createEl(reasons, "span", { text: reason, attr: { "data-risk-reason": "true" } }));
+        field(fields, "충돌 상태", item.conflict);
         const lineage = createEl(card, "section"); createEl(lineage, "h4", { text: "출처 흐름" });
-        item.provenance.forEach((row) => createEl(lineage, "p", { text: row }));
+        item.provenance.forEach((row) => createEl(lineage, "p", { text: row, attr: { class: "llmwiki-cjk-prose", "data-typography-role": "provenance" } }));
       });
       return frame;
     }

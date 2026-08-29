@@ -93,23 +93,25 @@ test("PARA materializer consumes local Object identity into review without appro
   assert.equal(app.writeCount(), 0);
 });
 
-test("local mixed route emits linked canonical and PARA review artifacts", async () => {
+test("compact object_context emits only one typed PARA review handoff", async () => {
   const crypto = require("node:crypto");
   const textHash = crypto.createHash("sha256").update("mixed source").digest("hex");
   const materializer = materializerApi.createInboxProposalMaterializer({
     localObjectIndex: [{ object_id: "project_alpha", object_type: "project", path: "PARA/PROJECTS/Alpha.md", revision: "revision_alpha", bytes: "# Alpha\n" }],
-    localObjectRoutes: [{ semantic_id: "semantic_mixed_01", object_type: "project", object_id: "project_alpha", slot: "progress_note", lane: "mixed" }],
+    localObjectRoutes: [{ semantic_id: "chunk_mixed_01", object_type: "project", object_id: "project_alpha", slot: "progress_note", lane: "operational" }],
   });
   const result = materializer.materialize({
     source: { source_id: "source_mixed_01", source_path: "INBOX/Knowledge/mixed.md", content_hash: textHash },
-    artifacts: [{ semantic_id: "semantic_mixed_01", text_hash: textHash, semantic_units: [{ unit_id: "unit_mixed_01", disposition: "propose", claims: [{ text: "Keep Alpha moving" }] }] }],
+    artifacts: [{ chunk_key: "chunk_mixed_01", outcome: "proposals", items: [{ role: "object_context", evidence_quote: "mixed source", claims: [{ text: "Keep Alpha moving" }], review_reasons: [], related_candidate_ids: [] }] }],
   });
   assert.equal(result.ok, true);
-  assert.equal(result.proposals.length, 1);
+  assert.equal(result.proposals.length, 0, "object_context cannot mint a parallel canonical proposal");
   assert.equal(result.para_drafts.length, 1);
-  assert.equal(result.proposals[0].decision.link_id, result.para_drafts[0].decision.link_id);
-  assert.ok(result.para_drafts[0].linked_lifecycle_ids.includes(result.proposals[0].decision.link_id));
-  const proposal = await materializer.materializeParaObject({ handoff_id: result.para_drafts[0].handoff_id, object_type: "project", object_id: "project_alpha", slot: "progress_note", text: result.para_drafts[0].text, linked_lifecycle_ids: result.para_drafts[0].linked_lifecycle_ids });
+  const draft = result.para_drafts[0];
+  const proposal = await materializer.materializeParaObject({
+    handoff_id: draft.handoff_id, object_type: draft.object_type, object_id: draft.object_id,
+    slot: draft.slot, text: draft.text, linked_lifecycle_ids: draft.linked_lifecycle_ids,
+  });
   assert.equal(proposal.ok, true);
   assert.equal(proposal.value.target.path, "PARA/PROJECTS/Alpha.md");
 });

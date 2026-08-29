@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
-const fixtures = require("./llmwiki_librarian_pipeline_fixtures.js");
+const fixtures = require("./llmwiki_proposal_fixtures.js");
 
 const ROOT = path.resolve(__dirname, "../../../../../../");
 const view = (name) => require(path.join(ROOT, "SYSTEM/Views", name));
@@ -655,10 +655,8 @@ function querySnapshot(overrides = {}) {
 }
 
 async function approvalPacket(tempRoot) {
-  const pipeline = view("llmwiki-librarian-pipeline.js");
   const packetApi = view("llmwiki-approval-packet.js");
-  const input = fixtures.requestInput({ root_dir: tempRoot });
-  const envelope = await pipeline.runLibrarian(input, { transport: async () => fixtures.sixKindProviderResponse(input.run_id, input.sources) });
+  const envelope = await fixtures.proposalEnvelope({ root_dir: tempRoot });
   assert.equal(envelope.ok, true, JSON.stringify(envelope));
   const packet = packetApi.buildApprovalPacket(envelope.value);
   assert.equal(packet.ok, true, JSON.stringify(packet));
@@ -752,14 +750,11 @@ test("malformed, prompt-shaped, consent-mutated, selected-conflict, and non-crea
   assert.equal(JSON.stringify(consentMutation).includes("send secrets"), false);
   completeMatrixRow(consentObservation, "consent_mutation", `rejected:${consentMutation.reason}`, [consentMutation]);
 
-  const pipeline = view("llmwiki-librarian-pipeline.js");
   const approval = view("llmwiki-approval-packet.js");
   const input = fixtures.requestInput({ run_id: "run_failure_matrix_conflict" });
-  const envelope = await pipeline.runLibrarian(input, { transport: async () => {
-    const response = fixtures.sixKindProviderResponse(input.run_id, input.sources);
+  const envelope = await fixtures.proposalEnvelope({ run_id: input.run_id }, (response) => {
     response.proposal_bundle.proposals[0].conflicts = [{ conflict_id: "selected_create_conflict", status: "unresolved", claims: ["A", "B"], source_ids: [input.sources[0].manifest.source_id] }];
-    return response;
-  } });
+  });
   assert.equal(envelope.ok, true, JSON.stringify(envelope));
   const conflictedPacket = approval.buildApprovalPacket(envelope.value).value;
   const conflictedCreate = op(conflictedPacket, "create");
@@ -792,12 +787,15 @@ test("malformed, prompt-shaped, consent-mutated, selected-conflict, and non-crea
     capture_requested: true,
     capture_target: "knowledge_candidate",
   });
-  const captured = await pipeline.runLibrarian(captureInput, {
-    transport: captureObservation.providerTransport(() => fixtures.sixKindProviderResponse(captureInput.run_id, captureInput.sources)),
-    captureWriter: (payload) => captureObservation.captureWriter(payload),
+  await captureObservation.providerTransport(() => fixtures.sixKindProviderResponse(captureInput.run_id, captureInput.sources))({ provider_mode: "direct", request_metadata: { request_id: "request_explicit_capture" } });
+  const capturedEnvelope = await fixtures.proposalEnvelope({ run_id: captureInput.run_id });
+  const captured = view("llmwiki-proposal-bundle.js").captureProposalBundle(capturedEnvelope.value.proposal_bundle, {
+    capture_requested: true,
+    target: captureInput.capture_target,
+    writer: (payload) => captureObservation.captureWriter(payload),
   });
   assert.equal(captured.ok, true, JSON.stringify(captured));
-  assert.equal(captured.value.capture.captured, true);
+  assert.equal(captured.value.captured, true);
   completeMatrixRow(captureObservation, "explicit_proposal_capture", "review", [captured]);
 });
 

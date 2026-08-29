@@ -691,6 +691,7 @@ function assertTwentyOperationMetric(metric, expected) {
 }
 
 async function controllerOperationMetric(harness, expected) {
+  console.error(`TASK15_OPERATION_TRIGGER ${JSON.stringify(expected)}`);
   const armed = await harness.page.send("Runtime.evaluate", {
     expression: `(() => {
       const expected={operationIndex:${expected.operationIndex},status:${JSON.stringify(expected.status)}};
@@ -699,7 +700,7 @@ async function controllerOperationMetric(harness, expected) {
       window.__task15OperationSignal=new Promise((resolve,reject)=>{
         const finish=event=>{const detail=event.detail||{};if(detail.intentCount!==expected.operationIndex||detail.status!==expected.status)return;window.removeEventListener('task15-controller-settled',finish);clearTimeout(guard);resolve(true)};
         window.addEventListener('task15-controller-settled',finish);
-        const guard=setTimeout(()=>{window.removeEventListener('task15-controller-settled',finish);reject(new Error('controller operation timeout'))},10000);
+        const guard=setTimeout(()=>{window.removeEventListener('task15-controller-settled',finish);reject(new Error('TASK15_CONTROLLER_OPERATION_TIMEOUT:'+JSON.stringify({expected,lifecycle:document.querySelector('[data-surface="llmwiki-lifecycle"]')?.dataset.state,receipt:document.querySelector('#qa-receipt')?.textContent,errors:window.__task15FixtureErrors||[]})))},5000);
       });
       return true;
     })()`, returnByValue: true,
@@ -711,6 +712,7 @@ async function controllerOperationMetric(harness, expected) {
   assert.equal(clickResponse.exceptionDetails, undefined, `operation ${expected.operationIndex}: real controller action click must not throw`);
   const settled = await harness.page.send("Runtime.evaluate", { expression: "window.__task15OperationSignal", awaitPromise: true, returnByValue: true });
   assert.equal(settled.exceptionDetails, undefined, `operation ${expected.operationIndex}: controller must reach ${expected.status}`);
+  console.error(`TASK15_OPERATION_SETTLED ${JSON.stringify(expected)}`);
   const response = await harness.page.send("Runtime.evaluate", {
     expression: `(() => {
       const fixture = window.__task15ControllerFixture;

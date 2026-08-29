@@ -550,6 +550,7 @@ test("canonical assembly and verification reject raw operation proxies/getters w
   }
 
   const runtimeConfig = configService.mergeConfig(configService.DEFAULT_CONFIG, {
+    defaultProvider: "groq",
     aiProfiles: { schema_version: 1, llmwiki: { direct_provider_key: "groq", omniroute_provider_key: "openrouter" } },
     providers: {
       groq: { adapter: "openai-compatible", model: "operation-lifecycle", authMode: "none" },
@@ -672,7 +673,7 @@ test("canonical assembly and verification reject raw operation proxies/getters w
     app: validApp.app,
     config: runtimeConfig,
     now: () => "2026-08-14T00:00:00.000Z",
-    transport: async () => ({ status: "ok", proposal_bundle: validLifecycle.providerBundle }),
+    analyze_batch: async () => ({ ok: true, provider_calls: 1, proposals: validLifecycle.built.value.proposals }),
   });
   let providerFlowAlternateParseCalls = 0;
   JSON.parse = (...args) => {
@@ -733,14 +734,17 @@ test("canonical assembly and verification reject raw operation proxies/getters w
     const controller = runController.createRunController({
       app: app.app,
       config: runtimeConfig,
-      transport: async () => ({ status: "ok", proposal_bundle: fixture.providerBundle }),
+      analyze_batch: async () => {
+        const parsed = rawOperationContract.parseOperation(fixture.providerBundle.proposals[0].operation);
+        return parsed.ok ? { ok: true, provider_calls: 1, proposals: fixture.providerBundle.proposals } : { ok: false, provider_calls: 1, reason: parsed.reason };
+      },
     });
     const failedRun = await controller.startRun(fixture.command);
     assert.equal(failedRun.ok, false);
     assert.equal(failedRun.status, "failed");
     assert.equal(failedRun.reason, expectedReason);
     assert.equal(failedRun.counters.provider, 1);
-    assert.equal(failedRun.counters.network, 1);
+    assert.equal(failedRun.counters.network, 0);
     assert.equal(failedRun.counters.authorization, 0);
     assert.equal(app.counts.canonicalReads, 0);
     assert.equal(app.counts.writerCalls, 0);

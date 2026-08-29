@@ -21,12 +21,15 @@ test("Knowledge loads official exec services before AIProviderService", () => {
   assert.equal(required.filter((item) => item === "SYSTEM/Views/codex-exec-service.js").length, 1);
 });
 
-test("Knowledge loads incremental analysis state before inbox autopilot", () => {
+test("Knowledge loads one durable batch core in dependency order", () => {
   const required = manifest.get("knowledge").required;
-  const incremental = required.indexOf("SYSTEM/Views/llmwiki-incremental-analysis-state.js");
-  const autopilot = required.indexOf("SYSTEM/Views/llmwiki-inbox-autopilot.js");
-  assert.ok(incremental >= 0, "Knowledge loads persistent incremental analysis state");
-  assert.ok(autopilot >= 0, "Knowledge loads inbox autopilot");
-  assert.ok(incremental < autopilot, "incremental state must exist before the Hub starts automatic analysis");
-  assert.equal(required.filter((item) => item === "SYSTEM/Views/llmwiki-incremental-analysis-state.js").length, 1);
+  const jobStore = required.indexOf("SYSTEM/Views/llmwiki-batch-job-store.js");
+  const provider = required.indexOf("SYSTEM/Views/llmwiki-batch-provider.js");
+  const analyzer = required.indexOf("SYSTEM/Views/llmwiki-batch-analyzer.js");
+  const discovery = required.indexOf("SYSTEM/Views/llmwiki-inbox-discovery-queue.js");
+  for (const modulePath of ["SYSTEM/Views/llmwiki-batch-job-store.js", "SYSTEM/Views/llmwiki-batch-provider.js", "SYSTEM/Views/llmwiki-batch-analyzer.js", "SYSTEM/Views/llmwiki-inbox-discovery-queue.js"]) {
+    assert.equal(required.filter((item) => item === modulePath).length, 1, modulePath);
+  }
+  assert.ok(jobStore >= 0 && provider >= 0 && analyzer >= 0 && discovery >= 0);
+  assert.ok(jobStore < analyzer);
 });

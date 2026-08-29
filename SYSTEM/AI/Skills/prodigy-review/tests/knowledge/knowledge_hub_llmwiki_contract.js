@@ -17,7 +17,6 @@ const REQUIRED_MODULES = Object.freeze([
   "SYSTEM/Views/llmwiki-promotion-evaluation.js",
   "SYSTEM/Views/llmwiki-promotion-contract.js",
   "SYSTEM/Views/knowledge-candidate-core.js",
-  "SYSTEM/Views/llmwiki-librarian-pipeline.js",
   "SYSTEM/Views/llmwiki-outbound-consent.js",
   "SYSTEM/Views/llmwiki-run-state.js",
   "SYSTEM/Views/llmwiki-canonical-packet.js",

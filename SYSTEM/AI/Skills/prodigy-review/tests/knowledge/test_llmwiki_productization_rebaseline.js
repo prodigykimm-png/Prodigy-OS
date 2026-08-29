@@ -14,11 +14,10 @@ const operationContract = require(path.join(ROOT, "SYSTEM/Views/llmwiki-operatio
 const consent = require(path.join(ROOT, "SYSTEM/Views/llmwiki-outbound-consent.js"));
 const reviewCommit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-commit.js"));
 const commit = require(path.join(ROOT, "SYSTEM/Views/llmwiki-deterministic-commit.js"));
-const pipeline = require(path.join(ROOT, "SYSTEM/Views/llmwiki-librarian-pipeline.js"));
 const proposalBundle = require(path.join(ROOT, "SYSTEM/Views/llmwiki-proposal-bundle.js"));
 const review = require(path.join(ROOT, "SYSTEM/Views/llmwiki-approval-review-view.js"));
 const runState = require(path.join(ROOT, "SYSTEM/Views/llmwiki-run-state.js"));
-const fixtures = require("./llmwiki_librarian_pipeline_fixtures.js");
+const fixtures = require("./llmwiki_proposal_fixtures.js");
 const { FakeElement } = require("./knowledge_explorer_view_fakes.js");
 
 function sha256(value) {
@@ -59,8 +58,7 @@ function click(node) {
 }
 
 async function packetFixture(runId = "run_productization_rebaseline") {
-  const input = fixtures.requestInput({ run_id: runId });
-  const envelope = await pipeline.runLibrarian(input, { transport: async () => fixtures.sixKindProviderResponse(input.run_id, input.sources) });
+  const envelope = await fixtures.proposalEnvelope({ run_id: runId });
   assert.equal(envelope.ok, true, JSON.stringify(envelope));
   const built = approval.buildApprovalPacket(envelope.value);
   assert.equal(built.ok, true, JSON.stringify(built));

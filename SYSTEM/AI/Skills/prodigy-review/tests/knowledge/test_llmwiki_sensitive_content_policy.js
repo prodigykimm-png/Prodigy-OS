@@ -4,7 +4,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const policy = require(path.join(ROOT, "SYSTEM/Views/llmwiki-sensitive-content-policy.js"));
-const autopilot = require(path.join(ROOT, "SYSTEM/Views/llmwiki-inbox-autopilot.js"));
+const discovery = require(path.join(ROOT, "SYSTEM/Views/llmwiki-inbox-discovery-queue.js"));
 const migrationSource = require(path.join(ROOT, "SYSTEM/Views/llmwiki-migration-rollout.js"));
 const fakeToken = "sk-test-01234567890123456789";
 const fakePassword = "password=not-a-real-password-123";
@@ -35,6 +35,6 @@ test("allowlisted migration sources keep content scanning without inheriting INB
 });
 
 test("production seams load the policy consumers", () => {
-  assert.equal(typeof autopilot.createInboxAutopilot, "function");
+  assert.equal(typeof discovery.createInboxDiscoveryQueue, "function");
   assert.equal(typeof migrationSource.createMigrationService, "function");
 });

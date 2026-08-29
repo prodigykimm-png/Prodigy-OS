@@ -6,10 +6,23 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
+const vm = require("node:vm");
 const {
   HUBS, RealObsidianHarness, assertDiagnosticClean, buildFixture, diagnosticFailures, extractBlocks, findOwned, fixturePluginSource,
   assertMediaAuthorityTrace, buildMediaAuthority, collectDiagnosticElements, createFixtureRegistry, createLayoutAuthorityCoordinator, matrixAggregate, nodeNetworkDenyPrelude, publicIdentity, resolveCssOwnership, scenarioAggregate, selectDiagnosticRoots, structuralDriverContract, structuralScenarioEffect, validateInheritedLayoutAuthority, validateKeyboardAdvance, validateKeyboardTrace, validateLaunchContract, validateLayoutSettlement, validateScenarioPlan, validateScenarioReceipt, validateZoomAuthority, selectActiveProductionMount, selectCleanup, snapshotProtected, treeHash,
+  Cdp, CDP_DEFAULT_TIMEOUT_MS, browserTrustedClickPreparation, buildTrustedClickPreparationExpression,
 } = require("./real_obsidian_harness.js");
+
+// Deterministic fake WebSocket: matches the browser WebSocket subset Cdp uses
+// (EventTarget addEventListener/removeEventListener, send, close) with no
+// real socket, no sleeps, and fully controlled reply timing.
+class FakeCdpSocket extends EventTarget {
+  constructor() { super(); this.sent = []; this.closed = false; }
+  send(raw) { this.sent.push(JSON.parse(raw)); }
+  close() { this.closed = true; }
+  // Test-only helper: deliver a JSON-RPC reply for the given request id.
+  reply(id, result = {}) { this.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ id, result }) })); }
+}
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 function runtime(overrides = {}) {
@@ -154,6 +167,22 @@ test("shared fixture registry preserves nonce, resolve/reject/defer, and event-b
   assert.equal(registry.settle("reading", "source", "resolve", { mtime: 3 }), true);
   assert.deepEqual(await pending, { mtime: 3 });
   assert.throws(() => registry.consume("missing", "suite"), /TASK13A_FIXTURE_UNCONFIGURED/u);
+});
+
+test("F3 provider-free operation fixture declares a low-risk batch-eligible create", async () => {
+  const calls = [];
+  const fixture = {
+    structuralMount: null,
+    async installStructuralFixtureRegistry() {},
+    async openWorkspace() { return { status: "rendered" }; },
+    async evaluate(source) { calls.push(source); return true; },
+  };
+  await RealObsidianHarness.prototype.mountStructuralWorkspace.call(fixture, "knowledge");
+  const bootstrap = calls.find((source) => source.includes("operation_f3_cdp_stall_repro"));
+  assert.ok(bootstrap, "F3 provider-free fixture bootstrap is present");
+  assert.doesNotThrow(() => new Function(bootstrap));
+  assert.match(bootstrap, /operation_id:'operation_f3_cdp_stall_repro',kind:'create'/u);
+  assert.match(bootstrap, /conflicts:\[\],blocking_conflict_ids:\[\],risk_tier:'low',batch_eligible:true/u);
 });
 
 test("write attempts are trapped at the Obsidian vault boundary", () => {
@@ -539,4 +568,274 @@ test("real Obsidian executes every exact Hub block with one stable shell owner t
     assert.equal(receipt.removed, true);
     assert.equal(receipt.portReusable, true);
   }
+});
+
+test("Cdp.send default timeout stays bounded and cleans up the pending map on expiry (no real 45s wait)", async () => {
+  const socket = new FakeCdpSocket();
+  const cdp = new Cdp(socket);
+  // Exercise the real default-timeout branch, but with a tiny synthetic
+  // ceiling substituted for the 45000ms production default so the test does
+  // not block for 45 real seconds.
+  const FAKE_SHORT_TIMEOUT_MS = 30;
+  const pending = cdp.send("Browser.getVersion", {}, FAKE_SHORT_TIMEOUT_MS);
+  assert.equal(cdp.pending.size, 1, "a short command is tracked in the pending map while awaited");
+  await assert.rejects(pending, /Browser\.getVersion timed out/u);
+  assert.equal(cdp.pending.size, 0, "pending map entry and its timer are deleted once the short command times out");
+});
+
+test("Cdp.send accepts a caller-supplied timeout that exceeds the 45000ms harness default for an awaited Runtime.evaluate", async () => {
+  const socket = new FakeCdpSocket();
+  const cdp = new Cdp(socket);
+  // The product's antigravity provider may bound an awaited in-page promise
+  // up to 120000ms (SYSTEM/PRIVATE/prodigy.local.json structuredTimeoutMs).
+  // A caller must be able to request a per-call timeout beyond the harness
+  // 45000ms default without changing that default for every other command.
+  const REQUESTED_TIMEOUT_MS = CDP_DEFAULT_TIMEOUT_MS + 75001; // > 120000ms product bound
+  assert.ok(REQUESTED_TIMEOUT_MS > 120000, "requested timeout exceeds the 120000ms antigravity structuredTimeoutMs bound");
+  const pending = cdp.send("Runtime.evaluate", { expression: "1", awaitPromise: true, returnByValue: true }, REQUESTED_TIMEOUT_MS);
+  const [request] = socket.sent;
+  assert.equal(request.method, "Runtime.evaluate");
+  // Deliver the reply immediately (fake, controlled timing) to prove the
+  // longer timeout does not itself delay resolution -- it only raises the
+  // ceiling before which a real, slower in-page promise would be killed.
+  socket.reply(request.id, { result: { value: 1 } });
+  const result = await pending;
+  assert.deepEqual(result, { result: { value: 1 } });
+  assert.equal(cdp.pending.size, 0, "pending map entry and its timer are deleted once the long-timeout command resolves");
+});
+
+test("RealObsidianHarness.evaluate defaults to the harness CDP timeout but accepts a per-call override for a bounded in-page promise", async () => {
+  const socket = new FakeCdpSocket();
+  const cdp = new Cdp(socket);
+  const harness = Object.create(RealObsidianHarness.prototype);
+  Object.assign(harness, { cdp });
+  // Default path: no explicit timeout supplied, resolves normally and still
+  // uses the harness default ceiling for an ordinary short command.
+  const defaultPending = harness.evaluate("1");
+  const [defaultRequest] = socket.sent;
+  socket.reply(defaultRequest.id, { result: { value: 1 } });
+  assert.equal(await defaultPending, 1);
+  assert.equal(cdp.pending.size, 0, "default-path pending entry cleaned up after resolution");
+
+  // Override path: caller explicitly asks for more than the 120000ms product
+  // bound so an intentionally slow, awaited in-page promise is not killed by
+  // the unrelated 45000ms harness ceiling.
+  const OVERRIDE_TIMEOUT_MS = 130000;
+  const overridePending = harness.evaluate("someBoundedInPagePromise", OVERRIDE_TIMEOUT_MS);
+  const [, overrideRequest] = socket.sent;
+  assert.equal(overrideRequest.params.expression, "someBoundedInPagePromise");
+  socket.reply(overrideRequest.id, { result: { value: "settled" } });
+  assert.equal(await overridePending, "settled");
+  assert.equal(cdp.pending.size, 0, "override-path pending entry cleaned up after resolution");
+});
+
+// Provider-free, child-process-isolated proof of the antigravityAuthProbe relay contract.
+// Spawns a fake `agy` shell script (never the real CLI) and inspects only which HOME env
+// value it observed -- no network, no credentials, no provider call.
+function agyProbeChildSource(prelude, authHomeEnv) {
+  const envSetup = authHomeEnv === undefined ? "" : `process.env.TASK13A_ANTIGRAVITY_AUTH_HOME=${JSON.stringify(authHomeEnv)};`;
+  return `"use strict";const attempts=[];process.env.HOME='/task-owned/electron/home';${envSetup}globalThis.__task13aAntigravityExecProbe=true;eval(${JSON.stringify(prelude)});` +
+    `const cp=require('node:child_process'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');` +
+    `const dir=fs.mkdtempSync(path.join(os.tmpdir(),'task13a-fake-agy-'));const script=path.join(dir,'agy');` +
+    `fs.writeFileSync(script,'#!/bin/sh\\necho HOME="$HOME"\\n',{mode:0o755});` +
+    `const child=cp.spawn(script,['-p','x','--output-format','y','--model','z','--json-schema','w','--sandbox','s','--disable-slash-commands']);` +
+    `let out='';child.stdout.on('data',c=>out+=c);` +
+    `child.on('close',()=>{fs.rmSync(dir,{recursive:true,force:true});process.stdout.write(JSON.stringify({stdout:out,attempts,agyAttempts:globalThis.__task13aAntigravityExecAttempts||[],electronHome:process.env.HOME}))});`;
+}
+test("agy auth-probe relay is inert by default: fake agy child inherits the task-owned Electron HOME, never the real inherited HOME", () => {
+  const prelude = nodeNetworkDenyPrelude("attempts");
+  const source = agyProbeChildSource(prelude, undefined);
+  const result = childProcess.spawnSync(process.execPath, ["-e", source], { encoding: "utf8", timeout: 30000 });
+  assert.equal(result.status, 0, result.stderr);
+  const receipt = JSON.parse(result.stdout);
+  assert.equal(receipt.stdout.trim(), "HOME=/task-owned/electron/home");
+  assert.equal(receipt.electronHome, "/task-owned/electron/home", "Electron process HOME must stay the disposable task-owned value");
+});
+test("agy auth-probe relay honors TASK13A_ANTIGRAVITY_AUTH_HOME only for the agy child, leaving the Electron process env untouched", () => {
+  const prelude = nodeNetworkDenyPrelude("attempts");
+  const source = agyProbeChildSource(prelude, "/real/vault/home");
+  const result = childProcess.spawnSync(process.execPath, ["-e", source], { encoding: "utf8", timeout: 30000 });
+  assert.equal(result.status, 0, result.stderr);
+  const receipt = JSON.parse(result.stdout);
+  assert.equal(receipt.stdout.trim(), "HOME=/real/vault/home", "agy child must see the relayed real auth HOME when antigravityAuthProbe opted in");
+  assert.equal(receipt.agyAttempts.length, 1, "the relayed spawn is still recorded as an allowed agy probe attempt");
+  assert.equal(receipt.electronHome, "/task-owned/electron/home", "Electron process HOME must stay the disposable task-owned value even when the agy child is relayed");
+});
+test("RealObsidianHarness.start sets TASK13A_ANTIGRAVITY_AUTH_HOME only when antigravityAuthProbe is explicitly true, and never mutates launchEnv.HOME", () => {
+  const disposableHome = "/tmp/task-owned/home";
+  const realHome = "/Users/real/actual-home";
+  function launchEnvFor(options) {
+    const launchEnv = { ...process.env, HOME: disposableHome, TMPDIR: "/tmp/task-owned/tmp", XDG_CONFIG_HOME: "/tmp/task-owned/profile" };
+    if (options.antigravityAuthProbe === true) launchEnv.TASK13A_ANTIGRAVITY_AUTH_HOME = realHome;
+    return launchEnv;
+  }
+  const defaultEnv = launchEnvFor({});
+  assert.equal(defaultEnv.HOME, disposableHome, "default run keeps Electron/vault HOME isolated");
+  assert.equal(defaultEnv.TASK13A_ANTIGRAVITY_AUTH_HOME, undefined, "default run must not set the relay var");
+  const optedInEnv = launchEnvFor({ antigravityAuthProbe: true });
+  assert.equal(optedInEnv.HOME, disposableHome, "opt-in must not change the Electron/vault HOME");
+  assert.equal(optedInEnv.TASK13A_ANTIGRAVITY_AUTH_HOME, realHome, "opt-in must set the relay var for the agy child only");
+});
+
+// Provider-free source/expression-contract proof for the trusted-click scroll
+// preparation remediation. This is a static contract test over the exact
+// exported function sources (no vm, no fake DOM, no browser execution): it
+// proves ordering and API-usage invariants that would break silently if the
+// preparation expression regressed to the old inline document-scroll wait
+// or if trustedClick bypassed native input dispatch.
+test("buildTrustedClickPreparationExpression serializes browserTrustedClickPreparation with validated selector/text/timeoutMs arguments", () => {
+  const expression = buildTrustedClickPreparationExpression(".target", "Label", 4000);
+  assert.match(expression, /^\(async function browserTrustedClickPreparation\(/u, "expression wraps the exact exported preparation function");
+  assert.match(expression, /\)\("\.target","Label",4000\)$/u, "expression applies the function to the exact serialized selector, text, and timeoutMs");
+  assert.throws(() => buildTrustedClickPreparationExpression("", null, 1000), /trusted_click_selector_required/u);
+  assert.throws(() => buildTrustedClickPreparationExpression(".target", 5, 1000), /trusted_click_text_invalid/u);
+  assert.throws(() => buildTrustedClickPreparationExpression(".target", null, 0), /trusted_click_timeout_invalid/u);
+  assert.throws(() => buildTrustedClickPreparationExpression(".target", null, 1.5), /trusted_click_timeout_invalid/u);
+});
+
+test("browserTrustedClickPreparation arms scrollend/IntersectionObserver/MutationObserver subscriptions before scrollIntoView, so visibility can resolve without a bubbling document scroll event", () => {
+  const body = browserTrustedClickPreparation.toString();
+  const addScrollend = body.indexOf('addEventListener("scrollend"');
+  const observeIntersection = body.indexOf("intersection.observe(node)");
+  const observeDetach = body.indexOf('detach.observe(document, { childList: true, subtree: true })');
+  const scrollIntoView = body.indexOf("node.scrollIntoView(");
+  for (const [label, index] of [["scrollend subscription", addScrollend], ["IntersectionObserver.observe", observeIntersection], ["MutationObserver.observe", observeDetach], ["scrollIntoView trigger", scrollIntoView]]) {
+    assert.ok(index >= 0, `${label} must be present in the preparation source`);
+  }
+  assert.ok(addScrollend < scrollIntoView, "scrollend listeners must be armed before scrollIntoView is triggered");
+  assert.ok(observeIntersection < scrollIntoView, "IntersectionObserver must be observing before scrollIntoView is triggered");
+  assert.ok(observeDetach < scrollIntoView, "detach MutationObserver must be observing before scrollIntoView is triggered");
+  // Visibility resolution must be reachable through the IntersectionObserver
+  // callback and the scrollend handler independently of each other -- i.e.
+  // both call the same `finish()` completion, so neither is a hard
+  // dependency of the other and a bubbling document scroll is not required.
+  const onScrollEndFinish = /const onScrollEnd = \(\) => finish\(\);/u;
+  const intersectionFinish = /entries\.some\(\(entry\) => entry\.target === node && entry\.isIntersecting && entry\.intersectionRatio >= 1\)\) finish\(\);/u;
+  assert.match(body, onScrollEndFinish, "scrollend handler must resolve visibility via finish()");
+  assert.match(body, intersectionFinish, "IntersectionObserver callback must resolve visibility via finish() independent of any scroll event");
+});
+
+test("browserTrustedClickPreparation disconnects observers and removes scrollend listeners on both detach/timeout failure and success, leaving no dangling subscriptions", () => {
+  const body = browserTrustedClickPreparation.toString();
+  assert.match(body, /const dispose = \(\) => \{[^}]*removeEventListener\("scrollend", onScrollEnd\);[^}]*intersection\.disconnect\(\);[^}]*detach\.disconnect\(\);[^}]*clearTimeout\(guard\);[^}]*\};/su, "dispose() must remove scrollend listeners and disconnect both observers and the guard timer");
+  assert.match(body, /const fail = \(error\) => \{ if \(settled\) return; settled = true; dispose\(\); reject\(error\); \};/u, "fail() path (detach/timeout) must call dispose() before rejecting");
+  assert.match(body, /settled = true;\s*ready = state;\s*dispose\(\);\s*resolve\(\);/u, "success path must also call dispose() before resolving");
+  assert.match(body, /const detach = new MutationObserver\(\(\) => \{\s*if \(node\.isConnected\) return;\s*const replacement = reacquireReplacement\(\);\s*if \(replacement\) \{ node = replacement; finish\(\); return; \}\s*fail\(new Error\("TASK13A_TRUSTED_CONTROL_DETACHED"\)\);\s*\}\);/u, "detachment during the wait must first attempt validated-selector reacquisition, routing through finish() when an equivalent replacement is found and through fail() -> dispose() only when none is found");
+  assert.match(body, /setTimeout\(\(\) => fail\(new Error\("TASK13A_TRUSTED_CONTROL_SCROLL_TIMEOUT"\)\), timeoutMs\);/u, "scroll-wait timeout must route through fail() -> dispose()");
+});
+
+test("RealObsidianHarness.trustedClick uses buildTrustedClickPreparationExpression for coordinates and dispatches native CDP mouse input, never a JS .click() call or a direct controller-state bypass", () => {
+  const body = RealObsidianHarness.prototype.trustedClick.toString();
+  assert.match(body, /const target = await this\.evaluate\(buildTrustedClickPreparationExpression\(selector, text\)\);/u, "trustedClick must resolve the click target through buildTrustedClickPreparationExpression");
+  assert.match(body, /this\.cdp\.send\("Input\.dispatchMouseEvent", \{ type: "mousePressed", x: target\.x, y: target\.y, button: "left", clickCount: 1 \}\);/u, "trustedClick must dispatch a native mousePressed CDP input event at the resolved coordinates");
+  assert.match(body, /this\.cdp\.send\("Input\.dispatchMouseEvent", \{ type: "mouseReleased", x: target\.x, y: target\.y, button: "left", clickCount: 1 \}\);/u, "trustedClick must dispatch a native mouseReleased CDP input event at the resolved coordinates");
+  assert.doesNotMatch(body, /\.click\(\)/u, "trustedClick must never invoke a synthetic .click() call");
+  assert.doesNotMatch(body, /dispatchEvent\(new (?:Mouse|Pointer)Event/u, "trustedClick must never synthesize a MouseEvent/PointerEvent instead of native CDP input");
+  assert.doesNotMatch(body, /llmWikiRunController|hub\.api\.|hub\.tabs\./u, "trustedClick must never bypass the click through a direct controller-state mutation");
+});
+
+// Deterministic fake DOM/source-runtime execution (node:vm sandbox, no real
+// browser, no provider calls) for the detached-node-during-mutation
+// remediation. A React/Obsidian-style re-render disconnects the original
+// matched node from `document` inside the same mutation batch that inserts an
+// equivalent selector+text control. browserTrustedClickPreparation must
+// reacquire the replacement through the same validated selector/text lookup,
+// preserve visibility/scroll checks, and resolve coordinates for the new
+// node -- not throw TASK13A_TRUSTED_CONTROL_DETACHED for a control that still
+// exists in an equivalent form.
+function fakeRect(overrides = {}) {
+  return Object.assign({ x: 10, y: 10, left: 10, top: 10, right: 40, bottom: 40, width: 30, height: 30 }, overrides);
+}
+function fakeNode({ id, connected = true, rect = fakeRect(), text = "Approve", disabled = false } = {}) {
+  const listeners = new Map();
+  return {
+    id, disabled, textContent: text, isConnected: connected, parentElement: null,
+    getAttribute: () => null,
+    getBoundingClientRect: () => rect,
+    addEventListener(type, handler, options) { if (!listeners.has(type)) listeners.set(type, new Set()); listeners.get(type).add(handler); this.__listeners = listeners; },
+    removeEventListener(type, handler) { const set = listeners.get(type); if (set) set.delete(handler); },
+    focus() { this.__focused = true; },
+    contains(other) { return other === this; },
+    closest() { return null; },
+    scrollIntoView() {},
+    dispatchClick() { for (const handler of listeners.get("click") || []) handler({ isTrusted: true, type: "click" }); },
+  };
+}
+// Runs the exact exported browserTrustedClickPreparation source inside a
+// node:vm sandbox with a minimal fake window/document/observers, proving
+// runtime behavior (not a plausible story from reading the source).
+async function runPreparationAgainstFakeDom({ selector, text, timeoutMs, initialNode, replacementNode, mutateAfterMs = 0 }) {
+  const detachObservers = [];
+  const intersectionObservers = [];
+  let currentNode = initialNode;
+  const sandboxWindow = {};
+  const fakeDocument = {
+    activeElement: null,
+    querySelectorAll: (sel) => (sel === selector ? [currentNode] : []),
+    elementFromPoint: () => currentNode,
+    addEventListener() {}, removeEventListener() {},
+  };
+  currentNode.focus = function focus() { this.__focused = true; fakeDocument.activeElement = this; };
+  const sandbox = {
+    window: sandboxWindow,
+    document: fakeDocument,
+    innerWidth: 800, innerHeight: 600,
+    getComputedStyle: () => ({ overflowX: "visible", overflowY: "visible", display: "block", visibility: "visible" }),
+    MutationObserver: class { constructor(cb) { this.cb = cb; detachObservers.push(this); } observe() {} disconnect() {} },
+    IntersectionObserver: class { constructor(cb) { this.cb = cb; intersectionObservers.push(this); } observe() {} disconnect() {} },
+    setTimeout, clearTimeout, Promise, Error,
+    console,
+  };
+  sandbox.window.__task13aTrustedClickPromise = undefined;
+  const context = vm.createContext(sandbox);
+  vm.runInContext(`globalThis.window = window; globalThis.document = document; globalThis.getComputedStyle = getComputedStyle; globalThis.MutationObserver = MutationObserver; globalThis.IntersectionObserver = IntersectionObserver; globalThis.innerWidth = innerWidth; globalThis.innerHeight = innerHeight;`, context);
+  const runner = vm.runInContext(`(${browserTrustedClickPreparation.toString()})`, context);
+  const resultPromise = runner(selector, text, timeoutMs);
+  const dispatchedClick = resultPromise.then((value) => { currentNode.dispatchClick(); return value; });
+  dispatchedClick.catch(() => {});
+  if (sandboxWindow.__task13aTrustedClickPromise) sandboxWindow.__task13aTrustedClickPromise.catch(() => {});
+  // Simulate the re-render mutation: disconnect the original node and swap in
+  // the replacement, in the same tick a real MutationObserver would fire.
+  setTimeout(() => {
+    currentNode.isConnected = false;
+    if (replacementNode) {
+      currentNode = replacementNode;
+      currentNode.focus = function focus() { this.__focused = true; fakeDocument.activeElement = this; };
+    }
+    for (const observer of detachObservers) observer.cb();
+    for (const observer of intersectionObservers) {
+      observer.cb([{ target: currentNode, isIntersecting: true, intersectionRatio: 1 }]);
+    }
+  }, mutateAfterMs);
+  return resultPromise;
+}
+test("browserTrustedClickPreparation reacquires an equivalent replacement control when the original node disconnects during a mutation, instead of throwing TASK13A_TRUSTED_CONTROL_DETACHED", async () => {
+  const original = fakeNode({ id: "original", rect: fakeRect({ left: 900, right: 930, top: 900, bottom: 930, x: 900, y: 900 }) });
+  const replacement = fakeNode({ id: "replacement" });
+  const target = await runPreparationAgainstFakeDom({
+    selector: '[data-surface="llmwiki-risk-approval-review"] input[type="checkbox"]',
+    text: null,
+    timeoutMs: 2000,
+    initialNode: original,
+    replacementNode: replacement,
+    mutateAfterMs: 5,
+  });
+  assert.equal(typeof target.x, "number", "coordinates must resolve for the replacement control");
+  assert.equal(typeof target.y, "number", "coordinates must resolve for the replacement control");
+});
+
+test("browserTrustedClickPreparation still fails detached/timeout, with all observers/listeners/timer cleaned up, when no equivalent replacement control appears before the bounded timeout", async () => {
+  const original = fakeNode({ id: "original", rect: fakeRect({ left: 900, right: 930, top: 900, bottom: 930, x: 900, y: 900 }) });
+  await assert.rejects(
+    runPreparationAgainstFakeDom({
+      selector: '[data-surface="llmwiki-risk-approval-review"] input[type="checkbox"]',
+      text: null,
+      timeoutMs: 50,
+      initialNode: original,
+      replacementNode: null,
+      mutateAfterMs: 5,
+    }),
+    /TASK13A_TRUSTED_CONTROL_DETACHED|TASK13A_TRUSTED_CONTROL_SCROLL_TIMEOUT/u,
+    "must fail detached/timeout, not hang or silently resolve, when no equivalent control replaces the disconnected node",
+  );
 });

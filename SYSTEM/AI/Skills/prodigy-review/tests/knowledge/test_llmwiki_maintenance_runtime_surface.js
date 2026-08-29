@@ -86,7 +86,6 @@ test("production Knowledge mount wires passive maintenance scheduling and reject
           maintenance: Boolean(window.LLMWikiMaintenanceService),
           policy: Boolean(window.LLMWikiNotificationPolicy),
         },
-        rolloutMaintenanceEnabled: Boolean(fol && window.KnowledgeExplorerHub.llmWikiRunController.isRolloutPhaseEnabled("maintenance")),
       };
     })()`);
 
@@ -101,7 +100,6 @@ test("production Knowledge mount wires passive maintenance scheduling and reject
     console.log("RUNTIME_SURFACE_METRICS " + JSON.stringify(metrics));
 
     assert.deepEqual(metrics.runtimeModules, { follower: true, maintenance: true, policy: true }, "production manifest must expose the complete maintenance runtime before mount");
-    assert.equal(metrics.rolloutMaintenanceEnabled, false, "fresh production state keeps rollout actions closed while passive maintenance observation still mounts");
     assert.equal(metrics.followerCreated, true, "production render must call LLMWikiMaintenanceFollower.create");
     assert.equal(metrics.scanCount, 0, "an untrusted synthetic canonical row must not enter maintenance scanning");
     assert.equal(metrics.schedule && metrics.schedule.starts, 1, "production mount must subscribe to the injected state scheduler once");

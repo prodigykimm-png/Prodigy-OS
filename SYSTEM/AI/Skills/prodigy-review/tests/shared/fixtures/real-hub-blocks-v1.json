@@ -6,65 +6,113 @@
       "workspaceId": "home",
       "hubPath": "HUB/00 Home.md",
       "executableBlockCount": 1,
-      "executableBlock": { "ordinal": 1, "language": "dataviewjs" },
+      "executableBlock": {
+        "ordinal": 1,
+        "language": "dataviewjs"
+      },
       "blockSha256": "af3c9add9eaa6ef30446338306eb1c1dfb958720adf5b4770a1eb6dbb3cef3ef",
-      "renderer": { "identity": "home", "sentinel": "home: async (mountContext) => {" }
+      "renderer": {
+        "identity": "home",
+        "sentinel": "home: async (mountContext) => {"
+      }
     },
     {
       "workspaceId": "auction",
       "hubPath": "HUB/10 Auction.md",
       "executableBlockCount": 12,
-      "executableBlock": { "ordinal": 1, "language": "js-engine" },
+      "executableBlock": {
+        "ordinal": 1,
+        "language": "js-engine"
+      },
       "blockSha256": "838edb76256b09b7c24bf52b3912d669b06b1330df2be7249a77654792e850c2",
-      "renderer": { "identity": "auction", "sentinel": "renderers: { auction: async (mountContext) => {" }
+      "renderer": {
+        "identity": "auction",
+        "sentinel": "renderers: { auction: async (mountContext) => {"
+      }
     },
     {
       "workspaceId": "reading",
       "hubPath": "HUB/20 Reading.md",
       "executableBlockCount": 9,
-      "executableBlock": { "ordinal": 1, "language": "js-engine" },
+      "executableBlock": {
+        "ordinal": 1,
+        "language": "js-engine"
+      },
       "blockSha256": "76b0d9e93463b9b68564609405a35f2add6719f458f49744e5b723e5a46e69b2",
-      "renderer": { "identity": "reading", "sentinel": "renderers: { reading: async (mountContext) => {" }
+      "renderer": {
+        "identity": "reading",
+        "sentinel": "renderers: { reading: async (mountContext) => {"
+      }
     },
     {
       "workspaceId": "workout",
       "hubPath": "HUB/30 Workout.md",
       "executableBlockCount": 1,
-      "executableBlock": { "ordinal": 1, "language": "js-engine" },
+      "executableBlock": {
+        "ordinal": 1,
+        "language": "js-engine"
+      },
       "blockSha256": "8c4667b45ff7366abbe9d6e73772726a7495565c0265a0738c263758bdfa305a",
-      "renderer": { "identity": "workout", "sentinel": "renderers: { workout: renderWorkout }" }
+      "renderer": {
+        "identity": "workout",
+        "sentinel": "renderers: { workout: renderWorkout }"
+      }
     },
     {
       "workspaceId": "project",
       "hubPath": "HUB/40 Project.md",
       "executableBlockCount": 12,
-      "executableBlock": { "ordinal": 1, "language": "js-engine" },
+      "executableBlock": {
+        "ordinal": 1,
+        "language": "js-engine"
+      },
       "blockSha256": "7f962d9b4f91cc2edc786510f7e8b39ba5c4728b303a341098dcd9e84cdccc00",
-      "renderer": { "identity": "project", "sentinel": "renderers: { project: async (mountContext) => {" }
+      "renderer": {
+        "identity": "project",
+        "sentinel": "renderers: { project: async (mountContext) => {"
+      }
     },
     {
       "workspaceId": "knowledge",
       "hubPath": "HUB/50 Knowledge.md",
       "executableBlockCount": 1,
-      "executableBlock": { "ordinal": 1, "language": "dataviewjs" },
-      "blockSha256": "af20c59dfb15ae832c50915121c78a72b8e2043096d29e959b44e3f9c7f83343",
-      "renderer": { "identity": "knowledge", "sentinel": "knowledge: (mountContext) => KnowledgeExplorerHub.render({ app, dv, container: this.container, obsidian, mountContext })" }
+      "executableBlock": {
+        "ordinal": 1,
+        "language": "dataviewjs"
+      },
+      "blockSha256": "5d0364a0e199d51aee3cae298249f3723df3bc9a03b4f520a84ebccbc4f4cbee",
+      "renderer": {
+        "identity": "knowledge",
+        "sentinel": "knowledge: (mountContext) => KnowledgeExplorerHub.render({ app, dv, container: this.container, obsidian, mountContext })"
+      }
     },
     {
       "workspaceId": "personal",
       "hubPath": "HUB/60 Personal.md",
       "executableBlockCount": 1,
-      "executableBlock": { "ordinal": 1, "language": "dataviewjs" },
+      "executableBlock": {
+        "ordinal": 1,
+        "language": "dataviewjs"
+      },
       "blockSha256": "bec805e4ff655a4e81818528645d4daedc4fc4fdabd7a3eea795aa295eacd5c5",
-      "renderer": { "identity": "personal", "sentinel": "renderers: { personal: async (mountContext) => {" }
+      "renderer": {
+        "identity": "personal",
+        "sentinel": "renderers: { personal: async (mountContext) => {"
+      }
     },
     {
       "workspaceId": "journal",
       "hubPath": "HUB/70 Journal.md",
       "executableBlockCount": 1,
-      "executableBlock": { "ordinal": 1, "language": "dataviewjs" },
+      "executableBlock": {
+        "ordinal": 1,
+        "language": "dataviewjs"
+      },
       "blockSha256": "e2549ddb83b346e901d9e9102af67ec36241a59d45d3a7cd20c8951c1e5c8b61",
-      "renderer": { "identity": "journal", "sentinel": "renderers: { journal: async (mountContext) => {" }
+      "renderer": {
+        "identity": "journal",
+        "sentinel": "renderers: { journal: async (mountContext) => {"
+      }
     }
   ]
 }

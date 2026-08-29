@@ -3,8 +3,9 @@
 
   // allow: SIZE_OK — the run controller is one security-sensitive lifecycle state machine and consent binding must remain atomic.
 
-  const pipelineApi = root.LLMWikiLibrarianPipeline || (typeof require === "function" ? require("./llmwiki-librarian-pipeline.js") : null);
-  const consentApi = root.LLMWikiOutboundConsent || (typeof require === "function" ? require("./llmwiki-outbound-consent.js") : null);
+  // Task 11 cutover: analysis is delegated into the single canonical batch core
+  // via options.analyze_batch. The legacy librarian/autopilot/provider request
+  // paths are removed from production; fail closed when no core is supplied.
   const runStateApi = root.LLMWikiRunState || (typeof require === "function" ? require("./llmwiki-run-state.js") : null);
   const packetApi = root.LLMWikiCanonicalPacket || (typeof require === "function" ? require("./llmwiki-canonical-packet.js") : null);
   const compensationApi = root.LLMWikiCompensationService || (typeof require === "function" ? require("./llmwiki-compensation-service.js") : null);
@@ -28,7 +29,6 @@
   const runCommandsApi = root.LLMWikiOperationRunCommands || (typeof require === "function" ? require("./llmwiki-operation-run-commands.js") : null);
   const followUpRunnerApi = root.LLMWikiOperationFollowUpRunner || (typeof require === "function" ? require("./llmwiki-operation-follow-up-runner.js") : null);
   const runApprovalApi = root.LLMWikiOperationRunApproval || (typeof require === "function" ? require("./llmwiki-operation-run-approval.js") : null);
-  const migrationRolloutApi = root.LLMWikiMigrationRollout || (typeof require === "function" ? require("./llmwiki-migration-rollout.js") : null);
   const operationRunApi = root.LLMWikiOperationRunService || (typeof require === "function" ? require("./llmwiki-operation-run-service.js") : null);
   const riskPacketApi = root.LLMWikiRiskApprovalPacket;
   const riskTransactionApi = root.LLMWikiRiskVaultTransactionAdapter;
@@ -119,6 +119,9 @@
     };
   }
 
+  // Task14: legacy librarian validation-context registry retired with the pipeline;
+  // retained as a typed no-op until Task 14 removes the call sites.
+  const CANONICAL_WRITE_PREFIXES = Object.freeze(["ZETA/PERMANENT/", "ZETA/LITERATURE/", "ZETA/CANDIDATES/"]);
   function boundedTransport(transport, request, signal, context = {}) {
     return new Promise((resolve, reject) => {
       let settled = false;
@@ -145,14 +148,6 @@
 
   function createRunController(options = {}) {
     const state = runStateApi.createRunState();
-    const task21Active = Boolean(options.rollout_storage || options.migration_options || options.migration_transaction_adapter);
-    let rolloutState = task21Active && migrationRolloutApi ? migrationRolloutApi.createRolloutState() : null;
-    let rolloutInitialized = !task21Active;
-    let migrationService = null;
-    let migrationState = null;
-    let resurfacingState = null;
-    const operationPhase = (kind) => kind === "update" ? "update" : kind === "merge" ? "merge" : "create";
-    const rolloutAllows = (phase) => !task21Active || Boolean(rolloutInitialized && rolloutState?.enabled_phases?.includes(phase));
     const counters = zeroCounters(COUNTER_KEYS);
     const recoveryCounters = zeroCounters(RECOVERY_COUNTER_KEYS);
     const adapterResolution = adapterApi.resolveObsidianAdapter(options.app);
@@ -165,17 +160,8 @@
       noop: noopOperationApi.create({ operationApi }),
     };
     const suppliedFollowUps = options.operation_follow_ups || {};
-    const gatedFollowUps = {
-      ...suppliedFollowUps,
-      async git(input) {
-        if (!rolloutAllows("git")) return { ok: false, status: "pending", reason: "rollout_phase_unavailable" };
-        return typeof suppliedFollowUps.git === "function" ? suppliedFollowUps.git(input) : { ok: false, status: "pending", reason: "GitUnavailable" };
-      },
-    };
-    const gatedPostEligibilityGit = async (input) => {
-      if (!rolloutAllows("git")) return { ok: false, status: "pending", reason: "rollout_phase_unavailable" };
-      return typeof options.postEligibilityGit === "function" ? options.postEligibilityGit(input) : { ok: false, status: "pending", reason: "GitUnavailable" };
-    };
+    const postEligibilityGit = async (input) => typeof options.postEligibilityGit === "function"
+      ? options.postEligibilityGit(input) : { ok: false, status: "pending", reason: "GitUnavailable" };
     let current = { status: "idle", review_packets: [], proposals: [], filtered_kinds: [] };
     const operationRuns = operationRunApi.createOperationRunService({
       stateApi: operationRunStateApi,
@@ -185,9 +171,9 @@
       commandBindings: commandBindingApi.create({ onAudit: options.audit_operation_command }),
       followUpGuard: followUpGuardApi.create({ onAudit: options.audit_operation_follow_up_entry }),
       provider: options.operation_provider,
-      followUps: gatedFollowUps,
+      followUps: suppliedFollowUps,
       postEligibilityGitReceiptAuthority: options.postEligibilityGitReceiptAuthority,
-      postEligibilityGit: gatedPostEligibilityGit,
+      postEligibilityGit,
       outcomePersistence: outcomePersistenceApi.create(options.operation_outcome_store),
       runCommandsApi,
       followUpRunnerApi,
@@ -221,7 +207,6 @@
         counters: clone(counters),
         recovery_counters: clone(recoveryCounters),
         operation_run: operationSnapshot,
-        ...(task21Active ? { rollout: clone(rolloutState), rollout_initialized: rolloutInitialized, migration: clone(migrationState), resurfacing: clone(resurfacingState) } : {}),
       });
     }
     function output(ok, status, extras = {}) {
@@ -271,7 +256,10 @@
       if (paths.some((filePath) => {
         const prior = before[filePath];
         const expectedBefore = Object.hasOwn(operation.before_bytes, filePath) ? operation.before_bytes[filePath] : null;
-        if (!filePath.startsWith("ZETA/PERMANENT/") || filePath.includes("..") || !plain(prior)) return true;
+        // Task 11 cutover: lifecycle review destinations (Literature/Candidates)
+        // join Permanent as canonical commit surfaces, matching the
+        // write-boundary policy and vault transaction adapter.
+        if (!CANONICAL_WRITE_PREFIXES.some((prefix) => filePath.startsWith(prefix)) || filePath.includes("..") || !plain(prior)) return true;
         if (expectedBefore === null) {
           if (prior.exists !== false) return true;
         } else if (prior.exists !== true || typeof prior.bytes !== "string" || prior.bytes !== expectedBefore
@@ -391,84 +379,6 @@
       catch (_error) { riskAdapter = null; }
     }
 
-    function gateRolloutPhase(phase) {
-      return rolloutAllows(phase) ? null : rejectWithoutMutation("operation_phase_unavailable", { phase, rollout: clone(rolloutState) });
-    }
-    async function initializeTask21() {
-      if (!task21Active) return output(true, "ready", { rollout: null });
-      if (!migrationRolloutApi) return rejectWithoutMutation("migration_rollout_contract_unavailable");
-      let serialized = null;
-      try { serialized = await options.rollout_storage.load(); } catch (_error) { serialized = null; }
-      rolloutState = migrationRolloutApi.restoreRolloutState(typeof serialized === "string" ? serialized : JSON.stringify(serialized));
-      rolloutInitialized = true;
-      migrationService = migrationRolloutApi.createMigrationService({
-        ...(options.migration_options || {}),
-        sourceAdapters: options.migration_options?.sourceAdapters,
-        transactionAdapter: options.migration_transaction_adapter || riskAdapter,
-        refresh: options.migration_options?.refresh,
-        git: async (input) => rolloutAllows("git") && typeof options.migration_options?.git === "function"
-          ? options.migration_options.git(input) : { ok: false, reason: "rollout_phase_unavailable" },
-        audit: options.migration_options?.audit,
-        now: options.now,
-      });
-      return output(true, "ready", { rollout: clone(rolloutState) });
-    }
-    async function enableRolloutPhase(intent) {
-      if (!task21Active || !rolloutInitialized || !plain(intent) || intent.action !== "enable_rollout_phase" || typeof intent.phase !== "string") return rejectWithoutMutation("rollout_action_unavailable");
-      let gate;
-      try { gate = typeof options.rollout_gate_provider === "function" ? await options.rollout_gate_provider(intent.phase) : null; }
-      catch (_error) { gate = null; }
-      const enabled = migrationRolloutApi.enableRolloutPhase(rolloutState, intent.phase, gate);
-      if (!enabled.ok) return rejectWithoutMutation(enabled.reason, { phase: intent.phase, rollout: clone(rolloutState) });
-      try { await options.rollout_storage.save(JSON.stringify(enabled.value)); }
-      catch (_error) { return rejectWithoutMutation("rollout_persistence_failed", { phase: intent.phase, rollout: clone(rolloutState) }); }
-      rolloutState = enabled.value;
-      return output(true, "rollout_enabled", { phase: intent.phase, rollout: clone(rolloutState) });
-    }
-    async function startMigrationDryRun(input) {
-      if (!task21Active || !rolloutInitialized || !migrationService) return rejectWithoutMutation("migration_runtime_unavailable");
-      const result = await migrationService.dryRun(input);
-      migrationState = result.ok ? { status: "review", dry_run: result, decisions: result.decisions, writer_calls: 0 } : { status: "failed", reason: result.reason, writer_calls: 0 };
-      return result.ok ? output(true, "migration_review", { migration: clone(migrationState) }) : rejectWithoutMutation(result.reason, { migration: clone(migrationState) });
-    }
-    function prepareMigrationPacket(intent) {
-      if (!migrationService || !migrationState?.dry_run || !plain(intent) || intent.action !== "review_migration") return rejectWithoutMutation("migration_review_unavailable");
-      const prepared = migrationService.createMigrationPacket({ dry_run: migrationState.dry_run, decision_id: intent.decision_id });
-      if (!prepared.ok) return rejectWithoutMutation(prepared.reason, { migration: clone(migrationState) });
-      migrationState = { ...migrationState, status: "packet_ready", packet: prepared.value };
-      return output(true, "migration_packet_ready", { migration: clone(migrationState) });
-    }
-    async function approveMigration(intent) {
-      if (!migrationService || migrationState?.status !== "packet_ready" || !plain(intent) || intent.action !== "approve_migration" || intent.packet_hash !== migrationState.packet.packet_hash) return rejectWithoutMutation("migration_authorization_required");
-      const blocked = gateRolloutPhase(operationPhase(migrationState.packet.operation.kind));
-      if (blocked) return blocked;
-      const authorization = migrationService.authorizeMigrationPacket(migrationState.packet, { action: "approve_migration", packet_hash: intent.packet_hash });
-      if (!authorization.ok) return rejectWithoutMutation(authorization.reason);
-      migrationState = { ...migrationState, status: "committing" };
-      const committed = await migrationService.commitMigrationPacket({ packet: migrationState.packet, authorization: authorization.value });
-      const committedStatus = committed.ok && committed.follow_up?.refresh?.status === "failed" ? "refresh_failed"
-        : committed.ok && committed.follow_up?.git?.status === "failed" ? "git_backup_pending"
-          : committed.ok ? committed.status
-            : committed.reason === "target_revision_mismatch" ? "stale"
-              : committed.compensation_verified ? "commit_failed_restored" : "compensation_required";
-      migrationState = { ...migrationState, status: committedStatus, receipt: committed };
-      return committed.ok ? output(true, migrationState.status, { migration: clone(migrationState) }) : output(false, migrationState.status, { reason: committed.reason, migration: clone(migrationState) });
-    }
-    async function retryMigrationFollowUp(intent) {
-      if (!migrationState?.receipt?.ok || !plain(intent) || !["retry_migration_refresh", "retry_migration_git"].includes(intent.action)) return rejectWithoutMutation("migration_retry_unavailable");
-      const kind = intent.action.endsWith("refresh") ? "refresh" : "git";
-      if (kind === "git") {
-        const blocked = gateRolloutPhase("git");
-        if (blocked) return blocked;
-      }
-      const callback = options.migration_options?.[kind];
-      let retried;
-      try { retried = typeof callback === "function" ? await callback({ packet: migrationState.packet, retry: true }) : { ok: false, reason: `${kind}_unavailable` }; }
-      catch (_error) { retried = { ok: false, reason: `${kind}_failed` }; }
-      if (!retried?.ok) return rejectWithoutMutation(retried?.reason || `${kind}_failed`, { migration: clone(migrationState) });
-      migrationState = { ...migrationState, status: kind === "refresh" && migrationState.receipt.follow_up?.git?.status === "failed" ? "git_backup_pending" : "committed", canonical_second_writes: 0, [`${kind}_retry`]: "succeeded" };
-      return output(true, migrationState.status, { migration: clone(migrationState) });
-    }
     async function invalidateRiskRun(identity) {
       const operationSnapshot = operationRuns.getSnapshot();
       const sessionPackets = riskCoordinator?.getSnapshot().risk_packets || [];
@@ -551,8 +461,6 @@
       if (!plain(input) || !ID.test(trim(input.run_id)) || !Array.isArray(input.proposals) || input.proposals.length === 0) return rejectWithoutMutation("typed_risk_proposals_required");
       const proposals = input.proposals;
       if (proposals.some((proposal) => !plain(proposal) || !operationApi.isOperationRecord(proposal.operation))) return rejectWithoutMutation("branded_operation_required");
-      const blocked = gateRolloutPhase(operationPhase(proposals[0].operation.kind));
-      if (blocked) return blocked;
       const started = operationRuns.startPreparedRisk({ run_id: trim(input.run_id), operation: proposals[0].operation, context: { risk_review: true, adapter: riskAdapter } });
       if (!started.ok) return started;
       const packets = [];
@@ -570,14 +478,19 @@
       }
       return openRiskReview({ run_id: started.run_id, run_revision: started.run_revision, packets });
     }
+    async function applyPreparedBatchApproval(input) {
+      if (!plain(input) || input.user_action !== "explicit_user_approval" || !Array.isArray(input.selected_operation_ids) || input.selected_operation_ids.length === 0) return rejectWithoutMutation("explicit_batch_selection_required");
+      if (typeof options.batch_approval_apply !== "function") return rejectWithoutMutation("batch_approval_runtime_unavailable");
+      const applied = await options.batch_approval_apply(clone(input));
+      if (!applied?.ok) return rejectWithoutMutation(applied?.reason || "batch_approval_failed", { status: applied?.status || "review" });
+      counters.canonical += Number(applied.write_counts?.canonical || 0);
+      counters.audit += Number(applied.write_counts?.audit || 0);
+      current = { ...current, status: applied.status || "committed", outcome: clone(applied) };
+      return output(true, current.status, clone(applied));
+    }
+
     async function dispatchRiskAction(intent) {
       if (!riskCoordinator) return rejectWithoutMutation("risk_review_runtime_unavailable");
-      if (plain(intent) && ["approve_risk", "approve_risk_batch"].includes(intent.action)) {
-        const packets = riskCoordinator.getSnapshot().risk_packets || [];
-        const packet = intent.action === "approve_risk" ? packets.find((item) => item.packet_id === intent.packet_id) : packets[0];
-        const blocked = packet && gateRolloutPhase(operationPhase(packet.operation.kind));
-        if (blocked) return blocked;
-      }
       const response = await riskCoordinator.dispatch(intent);
       if (response?.ok && ["approve_risk", "approve_risk_batch"].includes(intent.action)) current = { ...current, status: "committed", outcome: clone(response) };
       else if (response?.ok && intent.action === "reject_risk") current = { ...current, status: "cancelled", outcome: clone(response) };
@@ -697,56 +610,38 @@
         compensationContext = null;
       }
       if (command.explicit_user_consent !== true) return result(false, "consent_required", { reason: "consent_required" });
-      if (!adapterResolution.ok || !refreshResolution.ok || typeof options.transport !== "function") {
+      if (!adapterResolution.ok || !refreshResolution.ok || typeof options.analyze_batch !== "function") {
         invalidateToken("run_failed");
-        return reject(!adapterResolution.ok ? adapterResolution.reason : !refreshResolution.ok ? refreshResolution.reason : "transport_required");
+        return reject(!adapterResolution.ok ? adapterResolution.reason : !refreshResolution.ok ? refreshResolution.reason : "analysis_core_unavailable");
       }
       const consented = state.dispatch({ type: "grant_consent", run_id: command.run_id });
       if (!consented.ok) return rejectWithoutMutation(consented.reason, { status: "consent_required" });
       current = { ...current, status: "running" };
+      // Task 11: single canonical analysis delegation. consent_hash is bound
+      // from the frozen consent command so packets stay tamper-evident without
+      // the removed librarian consent transport.
       let consentArtifact = null;
-      const pipelineResult = await pipelineApi.runLibrarian({
-        ...command,
+      const analyzed = await options.analyze_batch({
+        command: clone(command),
         provider: provider.value,
-        capture_requested: false,
-      }, {
-        config: options.config,
-        providerInvoker: async (request, providerOptions) => {
-          const issued = consentApi.createConsentArtifact(request, {
-            ...providerOptions,
-            explicit_user_consent: true,
-            issued_at: trim(command.consent && command.consent.issued_at),
-            nonce: trim(command.consent && command.consent.nonce),
-          });
-          if (!issued.ok) return issued;
-          consentArtifact = issued.value;
-          return consentApi.invokeProposalProvider(request, {
-            ...providerOptions,
-            consent: consentArtifact,
-            transport: async (normalized) => {
-              counters.provider += 1;
-              counters.network += 1;
-              return boundedTransport(options.transport, normalized, token.abort_controller && token.abort_controller.signal, { consent: consentArtifact });
-            },
-          });
-        },
+        signal: token.abort_controller && token.abort_controller.signal,
       });
       if (!isCurrent(token)) return lateOutput(token);
-      if (!pipelineResult.ok) {
+      counters.provider = Number(analyzed && analyzed.provider_calls) || 0;
+      if (!analyzed || analyzed.ok !== true) {
         state.dispatch({ type: "provider_failed", run_id: command.run_id });
-        pipelineApi.dropValidationContext(command.run_id);
         invalidateToken("run_failed");
-        return reject(pipelineResult.reason, { provider_mode: provider.value.mode });
+        return reject(analyzed && analyzed.reason || "batch_analysis_failed", { provider_mode: provider.value.mode });
       }
-
-      const proposals = pipelineResult.value.proposal_bundle.proposals;
+      consentArtifact = { consent_hash: analyzed.consent_hash || consentCommandHash };
+      const proposals = analyzed.proposals;
       const typedRiskProposals = proposals.filter((proposal) => operationApi.isOperationRecord(proposal.operation) && proposal.operation.kind !== "noop");
       if (options.enable_risk_review === true && typedRiskProposals.length) {
         state.dispatch({ type: "provider_succeeded", run_id: command.run_id });
         current = { ...current, proposals: clone(proposals), filtered_kinds: proposals.filter((proposal) => !typedRiskProposals.includes(proposal)).map((proposal) => proposal.kind), consent_hash: consentArtifact.consent_hash };
         const opened = openPreparedRiskReview({ run_id: command.run_id, proposals: typedRiskProposals });
         if (!opened.ok) return rejectWithoutMutation(opened.reason, { status: opened.status || "review_only" });
-        return output(true, "review", { provider_mode: provider.value.mode, risk_packets: riskCoordinator.getSnapshot().risk_packets });
+        return output(true, "review", { provider_mode: provider.value.mode, risk_packets: riskCoordinator.getSnapshot().risk_packets, batch_metrics: clone(analyzed.metrics || {}), batch_id: analyzed.batch_id || null, job_id: analyzed.job_id || analyzed.batch_id || null, source_groups: clone(analyzed.source_groups || []) });
       }
       const creates = proposals.filter((proposal) => proposal.kind === "create");
       const filteredKinds = proposals.filter((proposal) => proposal.kind !== "create").map((proposal) => proposal.kind);
@@ -756,7 +651,6 @@
       if (creates.length === 0) {
         const abstained = proposals.every((proposal) => proposal.kind === "abstain");
         state.dispatch({ type: abstained ? "abstain" : "provider_succeeded", run_id: command.run_id });
-        if (abstained) pipelineApi.dropValidationContext(command.run_id);
         return result(true, abstained ? "abstained" : "review_only", { provider_mode: provider.value.mode, filtered_kinds: filteredKinds, review_packets: [] });
       }
       if (creates.some((proposal) => (proposal.conflicts || []).some((conflict) => conflict.status === "unresolved"))) {
@@ -818,7 +712,6 @@
           state.dispatch({ type: "commit_audit_pending", run_id: current.run_id });
           recoveryContext = { kind: "audit_pending", repair: clone(committed.repair), packet: clone(packet), proposal: clone(proposal), refresh_input: clone(refreshPayload) };
           current = { ...current, status: "committed_audit_pending", reason: committed.reason, packet_hash: packet.packet_hash, target_path: packet.target_path };
-          pipelineApi.dropValidationContext(current.run_id);
           return output(false, "committed_audit_pending", { reason: committed.reason, packet_hash: packet.packet_hash, target_path: packet.target_path });
         }
         if (!committed.ok) {
@@ -839,7 +732,6 @@
         if (!isCurrent(token)) return lateOutput(token);
         counters.refresh += Number(refreshed.refresh_counts && refreshed.refresh_counts.snapshot || 0);
         state.dispatch({ type: refreshed.status === "committed" ? "commit_succeeded" : "commit_refresh_failed", run_id: current.run_id });
-        pipelineApi.dropValidationContext(current.run_id);
         const linked = resultLinks(packet, committed, refreshed);
         recoveryContext = refreshed.status === "committed_refresh_failed"
           ? { kind: "refresh_failed", canonical_result: clone(committed), packet: clone(packet), proposal: clone(proposal), refresh_input: clone(refreshPayload) }
@@ -863,7 +755,6 @@
       const cancelled = state.dispatch({ type: "cancel", run_id: runId });
       if (!cancelled.ok) return rejectWithoutMutation(cancelled.reason);
       invalidateToken("run_cancelled");
-      pipelineApi.dropValidationContext(runId);
       runContext = null;
       recoveryContext = null;
       current = { status: "cancelled", run_id: runId, review_packets: [], proposals: [], filtered_kinds: [], reason: "cancelled" };
@@ -875,7 +766,6 @@
       const runId = current.run_id;
       state.dispatch({ type: "reload" });
       invalidateToken("run_reloaded");
-      if (runId) pipelineApi.dropValidationContext(runId);
       resetCounters();
       runContext = null;
       recoveryContext = null;
@@ -1085,19 +975,7 @@
       reconfirmStale,
       requestCompensation,
       confirmCompensation,
-      initializeTask21,
-      enableRolloutPhase,
-      gateRolloutPhase,
-      getRolloutSnapshot: () => clone(rolloutState),
-      isRolloutPhaseEnabled: (phase) => rolloutAllows(phase),
-      startMigrationDryRun,
-      prepareMigrationPacket,
-      approveMigration,
-      retryMigrationFollowUp,
-      startOperation(input) {
-        const blocked = input?.operation && gateRolloutPhase(operationPhase(input.operation.kind));
-        return blocked || operationRuns.start(input);
-      },
+      startOperation: operationRuns.start,
       bindOperationApproval: operationRuns.bindApproval,
       approveOperation: operationRuns.approve,
       bindOperationCancel: operationRuns.bindCancel,
@@ -1109,27 +987,16 @@
       openRiskReview,
       openPreparedRiskReview,
       dispatchRiskAction,
+      applyPreparedBatchApproval,
       approveRisk: riskCoordinator ? riskCoordinator.approve : () => Promise.resolve(rejectWithoutMutation("risk_review_runtime_unavailable")),
       approveRiskBatch: riskCoordinator ? riskCoordinator.approveBatch : () => Promise.resolve(rejectWithoutMutation("risk_review_runtime_unavailable")),
       requestRiskRevision: riskCoordinator ? riskCoordinator.requestRevision : () => Promise.resolve(rejectWithoutMutation("risk_review_runtime_unavailable")),
       rejectRisk: riskCoordinator ? riskCoordinator.reject : () => Promise.resolve(rejectWithoutMutation("risk_review_runtime_unavailable")),
       async runMaintenance(input) {
-        const blocked = gateRolloutPhase("maintenance");
-        if (blocked) return blocked;
         return typeof options.maintenance_action === "function" ? options.maintenance_action(input) : rejectWithoutMutation("maintenance_action_unavailable");
       },
-      acknowledgeMigrationRecovery() {
-        if (!migrationState || !["commit_failed_restored", "compensation_required"].includes(migrationState.status)) return rejectWithoutMutation("migration_recovery_unavailable");
-        migrationState = { ...migrationState, status: "recovery_presented" };
-        return output(true, "recovery_presented", { migration: clone(migrationState) });
-      },
       async recordResurfacingFeedback(input) {
-        const blocked = gateRolloutPhase("resurfacing");
-        if (blocked) return blocked;
-        if (typeof options.resurfacing_action !== "function") return rejectWithoutMutation("resurfacing_action_unavailable");
-        const recorded = await options.resurfacing_action(input);
-        if (recorded?.ok) resurfacingState = { status: "feedback_recorded", feedback: input.feedback || null, canonical_writes: 0 };
-        return recorded;
+        return typeof options.resurfacing_action === "function" ? options.resurfacing_action(input) : rejectWithoutMutation("resurfacing_action_unavailable");
       },
       getSnapshot: snapshot,
     });

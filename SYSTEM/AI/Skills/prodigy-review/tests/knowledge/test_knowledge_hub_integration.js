@@ -10,7 +10,6 @@ const workspaceManifest = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspac
 const hubAdapter = require(path.join(ROOT, "SYSTEM/Views/knowledge-explorer-hub-adapter.js"));
 const authoringAdapter = require(path.join(ROOT, "SYSTEM/Views/knowledge-authoring-hub-adapter.js"));
 const paraView = require(path.join(ROOT, "SYSTEM/Views/knowledge-para-view.js"));
-
 function testFixtureModulePathsMatchKnowledgeHub() {
   assert.deepEqual(MODULE_PATHS, HUB_MODULE_PATHS);
   const liveKnowledgeManifest = workspaceManifest.get("knowledge");

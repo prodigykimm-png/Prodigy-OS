@@ -10,27 +10,40 @@ const afterBytes = "# 승인 후 내용입니다.\n\n승인 후 내용입니다.
 const targetPath = "ZETA/PERMANENT/task17-production-update.md";
 const sha256 = (value) => crypto.createHash("sha256").update(value, "utf8").digest("hex");
 
-function updateProviderSource() {
-  return `(function(root) { root.AIProviderService = Object.freeze({ async requestStructuredJsonOnce(request) { const payload = JSON.parse(request.prompt); const chunk_results = payload.changed_chunks.map(function(chunk) { return { key: chunk.key, semantic_units: [{ temporary_span_alias: "span_task17", start: 0, end: Math.min(12, chunk.text.length), origin_hint: "source_extract", disposition: "propose", uncertainty: { level: "low", reasons: [] }, claims: [{ text: "승인 후 내용입니다.", temporary_span_alias: "span_task17" }] }] }; }); return { status: "ok", chunk_results: chunk_results }; } }); })(globalThis);`;
+// Task 11 repoint: this route tests the retained approval -> commit ->
+// compensation authority on the real Hub controller. Analysis is no longer
+// automatic on mount and PERMANENT updates are not minted by the batch core,
+// so the typed update proposal enters through the production risk-review API.
+const { operation } = require("./llmwiki_real_product_fixtures.js");
+
+function typedUpdateProposal() {
+  const raw = operation("update", "production-update", {
+    operation_id: "operation_task17_production_update",
+    destination_ids: [targetPath],
+    base_revisions: { [targetPath]: sha256(beforeBytes) },
+    before_bytes: { [targetPath]: beforeBytes },
+    after_bytes: { [targetPath]: afterBytes },
+    source_citations: [{ source_id: "source_task17", content_hash: sha256(beforeBytes), source_url: null, locators: ["INBOX/Knowledge/task17.md"], source_archive_id: null, confidence: "explicit" }],
+  });
+  return raw;
 }
 
 async function mountedHub() {
   const result = await runHub({
     pages: buildPages(),
     extraFiles: {
-      "INBOX/Knowledge/task17.md": "# Task 17 fixture\n\n근거입니다.\n",
       [targetPath]: beforeBytes,
-      "SYSTEM/Views/ai-provider-service.js": updateProviderSource(),
     },
-    llmWikiControllerOptions: {
-      inboxLocalIdentityIndex: [{
-        identity_id: "identity_task17_local",
-        identity_key: `identity_${sha256("# Task 17 fixture\n\n근거입니다.").slice(0, 24)}`,
-        content_hash: sha256(beforeBytes), revision: sha256(beforeBytes), path: targetPath, before_bytes: beforeBytes,
-      }],
-    },
+    llmWikiControllerOptions: {},
   });
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const parsed = result.window.LLMWikiOperationContract.parseOperation(JSON.stringify(typedUpdateProposal()));
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  const opened = result.window.KnowledgeExplorerHub.llmWikiRunController.openPreparedRiskReview({
+    run_id: "run_task17_compensation_route",
+    proposals: [{ operation: parsed.value, title: "승인 후 내용입니다." }],
+  });
+  assert.equal(opened.ok, true, JSON.stringify(opened));
   return result;
 }
 
@@ -65,10 +78,8 @@ test("disposable production Hub driver restores a failed multi-file compensation
   const result = await runHub({
     pages: buildPages(),
     extraFiles: {
-      "INBOX/Knowledge/task17-atomic.md": "# Task 17 atomic fixture\n",
       [alphaPath]: alphaAfter,
       [betaPath]: betaAfter,
-      "SYSTEM/Views/ai-provider-service.js": updateProviderSource(),
     },
   });
   const adapter = result.window.LLMWikiObsidianAdapter.createObsidianAdapter(result.app);

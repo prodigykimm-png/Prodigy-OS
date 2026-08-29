@@ -28,7 +28,6 @@ const BROWSER_CLOSURE = Object.freeze([
   "llmwiki-wiki-read-adapter.js",
   "llmwiki-wiki-read-service.js",
   "llmwiki-retrieval-service.js",
-  "llmwiki-librarian-pipeline.js",
 ]);
 
 function browserClosureMetrics() {

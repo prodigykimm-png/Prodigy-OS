@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const CANONICAL_PREFIX = "ZETA/PERMANENT/";
+  const CANONICAL_PREFIXES = Object.freeze(["ZETA/PERMANENT/", "ZETA/LITERATURE/", "ZETA/CANDIDATES/"]);
   const AUDIT_PREFIX = ".llmwiki-audit/immutable/";
   const HASH = /^[0-9a-f]{64}$/u;
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
@@ -14,8 +14,13 @@
   function exactNfc(value) { return typeof value === "string" && value.normalize("NFC") === value; }
 
   function parseCanonicalWritePath(value) {
-    if (!exactNfc(value) || !value.startsWith(CANONICAL_PREFIX) || !value.endsWith(".md")) return fail("canonical_target_required");
-    const title = value.slice(CANONICAL_PREFIX.length, -3);
+    // Task 10 (llmwiki-batch-core-simplification) additive extension: the two
+    // lifecycle review destinations join ZETA/PERMANENT under identical title
+    // rules. Permanent authority behavior is unchanged.
+    if (!exactNfc(value) || !value.endsWith(".md")) return fail("canonical_target_required");
+    const prefix = CANONICAL_PREFIXES.find((candidate) => value.startsWith(candidate));
+    if (prefix === undefined) return fail("canonical_target_required");
+    const title = value.slice(prefix.length, -3);
     if (!title || title === "." || title === ".." || title.startsWith(".") || title.startsWith("-")
       || title.trim() !== title || title.endsWith(".") || !SAFE_TITLE.test(title)
       || CONTROL_OR_BIDI.test(title) || SHELL_META.test(title)) return fail("canonical_target_required");

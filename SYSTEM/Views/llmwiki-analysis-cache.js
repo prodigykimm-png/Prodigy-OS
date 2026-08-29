@@ -25,11 +25,16 @@
       const value = JSON.parse(text);
       if (!plain(value) || value.cache_version !== CACHE_VERSION || !plain(value.entries)) return null;
       for (const [semanticId, entries] of Object.entries(value.entries)) {
-        if (!/^semantic_[0-9a-f]{24}$/u.test(semanticId) || !Array.isArray(entries) || entries.some(entry => !plain(entry) || !plain(entry.artifact) || entry.semantic_id !== semanticId || typeof entry.instance_id !== "string" || entry.artifact_hash !== hashApi.sha256(stable(entry.artifact)) || !Number.isSafeInteger(entry.retry_generation) || entry.retry_generation < 0 || entry.retry_generation > MAX_RETRY_GENERATION)) return null;
+        if (!/^semantic_[0-9a-f]{24}$/u.test(semanticId) || !Array.isArray(entries) || entries.some(entry => !plain(entry) || !plain(entry.artifact) || entry.semantic_id !== semanticId || typeof entry.instance_id !== "string" || entry.artifact_hash !== hashApi.sha256(stable(entry.artifact)) || !validRequestKey(entry.request_key) || !Number.isSafeInteger(entry.retry_generation) || entry.retry_generation < 0 || entry.retry_generation > MAX_RETRY_GENERATION)) return null;
       }
       return value;
     } catch (_error) { return null; }
   }
+  const REQUEST_KEY = /^[0-9a-f]{64}$/u;
+  // Task 8 additive extension: entries may carry an exact request key. Entries
+  // without one (including historical pre-extension files) never hit when a
+  // request key is required.
+  function validRequestKey(value) { return value === null || value === undefined || (typeof value === "string" && REQUEST_KEY.test(value)); }
   function quarantined(reason) { return freeze({ ok: false, state: "quarantined", reason, hits: [], misses: [] }); }
   function active(input) { return !input?.authority && !input?.request || Boolean(input?.authority && typeof input.authority.isActive === "function" && input.authority.isActive(input.request)); }
   function createAnalysisCache(options = {}) {
@@ -68,7 +73,9 @@
       if (!chunk || !/^semantic_[0-9a-f]{24}$/u.test(chunk.semantic_id) || !/^instance_[0-9a-f]{24}$/u.test(chunk.instance_id) || !plain(artifact)) throw new TypeError("invalid_cache_entry");
       if (!Number.isSafeInteger(retryGeneration) || retryGeneration < 0 || retryGeneration > MAX_RETRY_GENERATION) throw new TypeError("retry_generation_exhausted");
       if (!active(input)) throw new Error("analysis_request_inactive");
-      const entry = freeze({ semantic_id: chunk.semantic_id, instance_id: chunk.instance_id, text_hash: chunk.text_hash, retry_generation: retryGeneration, artifact_hash: hashApi.sha256(stable(artifact)), artifact });
+      const requestKey = input.request_key === undefined ? null : input.request_key;
+      if (!validRequestKey(requestKey)) throw new TypeError("invalid_cache_entry");
+      const entry = freeze({ semantic_id: chunk.semantic_id, instance_id: chunk.instance_id, text_hash: chunk.text_hash, retry_generation: retryGeneration, artifact_hash: hashApi.sha256(stable(artifact)), artifact, request_key: requestKey });
       const task = queue.then(async () => {
         await load();
         if (corrupt) throw new Error("corrupt_cache_quarantined");
@@ -88,20 +95,23 @@
       queue = task.catch(() => {});
       return task;
     }
-    async function lookup(manifest, scope) {
+    async function lookup(manifest, scope, options = {}) {
       const valid = manifestApi.validateChunkManifest(manifest, scope);
       if (!valid.ok) return quarantined(valid.reason);
+      const requireRequestKey = options.request_key !== undefined;
+      if (requireRequestKey && !REQUEST_KEY.test(String(options.request_key))) return quarantined("invalid_request_key");
       await load();
       if (corrupt) return quarantined("corrupt_cache_quarantined");
       const queried = new Map();
       for (const chunk of manifest.chunks) queried.set(chunk.semantic_id, (queried.get(chunk.semantic_id) || 0) + 1);
-      const ambiguous = manifest.chunks.some(chunk => queried.get(chunk.semantic_id) > 1 || (state.entries[chunk.semantic_id] || []).length > 1);
-      if (ambiguous) return freeze({ ok: false, state: "rejected", reason: "ambiguous_duplicate_continuity", hits: [], misses: manifest.chunks });
       const hits = [];
       const misses = [];
       for (const chunk of manifest.chunks) {
-        const entry = state.entries[chunk.semantic_id]?.[0];
-        if (entry && entry.text_hash === chunk.text_hash) hits.push(freeze({ chunk, artifact: entry.artifact, cache_entry_id: entry.instance_id }));
+        if (queried.get(chunk.semantic_id) > 1) { misses.push(chunk); continue; }
+        const entry = (state.entries[chunk.semantic_id] || []).find(candidate => candidate.instance_id === chunk.instance_id
+          && candidate.text_hash === chunk.text_hash
+          && (!requireRequestKey || candidate.request_key === options.request_key));
+        if (entry) hits.push(freeze({ chunk, artifact: entry.artifact, cache_entry_id: entry.instance_id }));
         else misses.push(chunk);
       }
       return freeze({ ok: true, hits, misses });

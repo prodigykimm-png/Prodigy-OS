@@ -6,7 +6,10 @@
   const AUDIT_VERSION = "llmwiki_immutable_compensation_audit_v1";
   const PACKET_VERSION = "llmwiki_compensation_packet_v1";
   const HASH = /^[0-9a-f]{64}$/u;
-  const CANONICAL_PREFIX = "ZETA/PERMANENT/";
+  // Task 11 cutover: lifecycle review destinations (Literature/Candidates)
+  // join Permanent as canonical compensation surfaces, matching the
+  // write-boundary policy and vault transaction adapter.
+  const CANONICAL_PREFIXES = Object.freeze(["ZETA/PERMANENT/", "ZETA/LITERATURE/", "ZETA/CANDIDATES/"]);
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function clone(value) {
@@ -38,7 +41,7 @@
     delete copy.audit_hash;
     return sha256(stable(copy));
   }
-  function validPath(path) { return typeof path === "string" && path.startsWith(CANONICAL_PREFIX) && !path.includes(".."); }
+  function validPath(path) { return typeof path === "string" && CANONICAL_PREFIXES.some((prefix) => path.startsWith(prefix)) && !path.includes(".."); }
   function validAction(action) {
     return plain(action)
       && action.type === "compensate"

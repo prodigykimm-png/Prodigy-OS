@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
+const { execFileSync } = require("node:child_process");
 const { test } = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
@@ -48,6 +49,27 @@ function vault(seed = {}, failures = {}) {
 async function persistAll(coverage, manifest, scoped) {
   for (const chunk of manifest.chunks) await coverage.recordReceipt({ manifest, scope: scoped, chunk, artifact: { result: chunk.semantic_id } });
 }
+
+test("large mixed Unicode chunking completes within the bounded timeout", () => {
+  const manifestPath = path.join(ROOT, "SYSTEM/Views/llmwiki-chunk-manifest.js");
+  const scopePath = path.join(ROOT, "SYSTEM/Views/llmwiki-analysis-scope.js");
+  const hashPath = path.join(ROOT, "SYSTEM/Views/llmwiki-hash.js");
+  const child = `
+    const hash = require(${JSON.stringify(hashPath)});
+    const scopeApi = require(${JSON.stringify(scopePath)});
+    const manifestApi = require(${JSON.stringify(manifestPath)});
+    let text = "";
+    while (Buffer.byteLength(text, "utf8") < 256 * 1024) text += "ASCII text 日本語 😀\\n";
+    const scoped = scopeApi.createAnalysisScope({ source_id: "large_unicode", source_path: "INBOX/large.md", content_hash: hash.sha256(text), source_text: text });
+    const manifest = manifestApi.createChunkManifest(scoped);
+    if (manifest.chunks.map(chunk => chunk.text).join("") !== text) throw new Error("coverage");
+    if (!manifest.chunks.every(chunk => Buffer.byteLength(chunk.text, "utf8") <= manifestApi.DEFAULT_MAX_BYTES)) throw new Error("size");
+    if (!manifest.chunks.every(chunk => !(text.charCodeAt(chunk.end - 1) >= 0xd800 && text.charCodeAt(chunk.end - 1) <= 0xdbff) && !(text.charCodeAt(chunk.end) >= 0xdc00 && text.charCodeAt(chunk.end) <= 0xdfff))) throw new Error("surrogate");
+    process.stdout.write(String(manifest.chunks.length));
+  `;
+  const output = execFileSync(process.execPath, ["-e", child], { encoding: "utf8", timeout: 5000 });
+  assert.ok(Number(output) > 1);
+});
 
 function stable(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -111,6 +133,30 @@ test("chunk splitting follows heading, paragraph, sentence, line, then slice fal
   }
 });
 
+test("uses the last eligible boundary in the byte window and preserves deterministic exact coverage", () => {
+  const text = Array.from({ length: 120 }, (_, index) => `sentence ${index} has useful content.`).join(" ");
+  const scoped = scope(text, "source_last_boundary");
+  const first = manifestApi.createChunkManifest(scoped, { max_bytes: 1200 });
+  const second = manifestApi.createChunkManifest(scoped, { max_bytes: 1200 });
+  const chunk = first.chunks[0];
+  const candidates = [...text.slice(0, 1200).matchAll(/[.!?](?:[ \t]+|\n|$)/gu)]
+    .map(match => match.index + match[0].length).filter(end => end > 0);
+
+  assert.equal(chunk.boundary_kind, "sentence");
+  assert.equal(chunk.end, candidates.at(-1));
+  assert.ok(Buffer.byteLength(chunk.text, "utf8") <= 1200);
+  assert.ok(Buffer.byteLength(chunk.text, "utf8") > 1000, "boundary selection should not fragment the window");
+  assert.equal(first.chunks.map(item => item.text).join(""), text);
+  assert.equal(manifestApi.assertExactCoverage(first, scoped), true);
+  assert.deepEqual(first, second);
+  assert.ok(first.chunks.every(item => Buffer.byteLength(item.text, "utf8") <= 1200));
+  assert.ok(first.chunks.every(item => {
+    const end = item.end;
+    return !(text.charCodeAt(end - 1) >= 0xd800 && text.charCodeAt(end - 1) <= 0xdbff)
+      && !(text.charCodeAt(end) >= 0xdc00 && text.charCodeAt(end) <= 0xdfff);
+  }));
+});
+
 test("semantic cache continuity survives a preceding insertion but renamed heading misses once", async () => {
   const original = "# Alpha\nunchanged alpha.\n\n# Beta\nunchanged beta.\n";
   const inserted = "# Intro\nnew introduction.\n\n" + original;
@@ -122,14 +168,31 @@ test("semantic cache continuity survives a preceding insertion but renamed headi
   const insertedScope = scope(inserted);
   const stable = await cache.lookup(manifestApi.createChunkManifest(insertedScope), insertedScope);
   assert.equal(stable.misses.length, 1);
-  assert.equal(stable.hits.length, originalManifest.chunks.length);
+  assert.equal(stable.hits.length, originalManifest.chunks.length - 1);
   const editedScope = scope(edited);
   const renamed = await cache.lookup(manifestApi.createChunkManifest(editedScope), editedScope);
   assert.equal(renamed.misses.length, 1);
   assert.equal(renamed.hits.length, originalManifest.chunks.length - 1);
 });
 
-test("duplicate occurrences retain distinct instances and reject ambiguous cache continuity", async () => {
+test("duplicate occurrences with an empty cache are all misses and remain analyzable", async () => {
+  const text = "# Same\nrepeat\n\n# Same\nrepeat\n";
+  const scoped = scope(text);
+  const manifest = manifestApi.createChunkManifest(scoped);
+  const result = await cacheApi.createAnalysisCache({ vault: vault() }).lookup(manifest, scoped);
+  assert.equal(result.ok, true);
+  assert.equal(result.hits.length, 0);
+  assert.equal(result.misses.length, manifest.chunks.length);
+});
+
+test("identical text under different source ids has distinct instance ids", () => {
+  const text = "# Same\nrepeat\n";
+  const left = manifestApi.createChunkManifest(scope(text, "source_left"));
+  const right = manifestApi.createChunkManifest(scope(text, "source_right"));
+  assert.notEqual(left.chunks[0].instance_id, right.chunks[0].instance_id);
+});
+
+test("duplicate occurrences retain distinct instances and conservatively miss cache continuity", async () => {
   const text = "# Same\nrepeat\n\n# Same\nrepeat\n";
   const manifest = manifestApi.createChunkManifest(scope(text));
   assert.equal(new Set(manifest.chunks.map(chunk => chunk.instance_id)).size, 2);
@@ -138,8 +201,9 @@ test("duplicate occurrences retain distinct instances and reject ambiguous cache
   await cache.put({ chunk: manifest.chunks[0], artifact: { analysis: "first" } });
   await cache.put({ chunk: manifest.chunks[1], artifact: { analysis: "second" } });
   const result = await cache.lookup(manifest, scope(text));
-  assert.equal(result.ok, false);
-  assert.equal(result.reason, "ambiguous_duplicate_continuity");
+  assert.equal(result.ok, true);
+  assert.equal(result.hits.length, 0);
+  assert.equal(result.misses.length, 2);
   await assert.rejects(cache.put({ chunk: manifest.chunks[0], artifact: { analysis: "retry" }, retry_generation: cacheApi.MAX_RETRY_GENERATION + 1 }), /retry_generation_exhausted/u);
 });
 

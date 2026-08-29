@@ -20,16 +20,23 @@ const OPERATION_CONTRACT = "SYSTEM/Views/llmwiki-operation-contract.js";
 const KNOWLEDGE_KIND_CONTRACT = "SYSTEM/Views/llmwiki-knowledge-kind-contract.js";
 const KNOWLEDGE_CANDIDATE_STORE = "SYSTEM/Views/knowledge-candidate-store.js";
 const OPERATION_CLASSIFIER = "SYSTEM/Views/llmwiki-operation-classifier.js";
-const PRODUCTION_PROVIDER = "SYSTEM/Views/llmwiki-production-operation-provider.js";
 const UI_RECOVERY = "SYSTEM/Views/llmwiki-ui-recovery.js";
 const UI_RECOVERY_CONSUMERS = Object.freeze([
-  "SYSTEM/Views/llmwiki-inbox-autopilot.js",
   "SYSTEM/Views/llmwiki-ai-provider-transport.js",
+]);
+const BATCH_APPROVAL_ADAPTER = "SYSTEM/Views/llmwiki-batch-approval-adapter.js";
+const BATCH_APPROVAL_ADAPTER_DEPENDENCIES = Object.freeze([
+  "SYSTEM/Views/llmwiki-hash.js",
+  "SYSTEM/Views/llmwiki-operation-contract.js",
+  "SYSTEM/Views/llmwiki-risk-approval-packet.js",
+  "SYSTEM/Views/llmwiki-risk-write-set.js",
+  "SYSTEM/Views/llmwiki-safe-batch-approval.js",
+  "SYSTEM/Views/llmwiki-approval-review-commit.js",
+  "SYSTEM/Views/llmwiki-operation-writer-core.js",
 ]);
 const OPERATION_CONSUMERS = Object.freeze([
   "SYSTEM/Views/llmwiki-proposal-bundle.js",
   "SYSTEM/Views/llmwiki-provider-contract.js",
-  "SYSTEM/Views/llmwiki-librarian-pipeline.js",
   "SYSTEM/Views/llmwiki-outbound-consent.js",
   "SYSTEM/Views/llmwiki-canonical-packet.js",
   "SYSTEM/Views/llmwiki-merge-transaction.js",
@@ -51,7 +58,6 @@ function assertKnowledgeKindContractOrder(required) {
   assert.equal(indexes.length, 1, "Knowledge manifest must load exactly one knowledge-kind contract");
   assert.ok(required.indexOf(KNOWLEDGE_CANDIDATE_STORE) < indexes[0], "knowledge candidate store must load before knowledge-kind contract");
   assert.ok(indexes[0] < required.indexOf(OPERATION_CLASSIFIER), "knowledge-kind contract must load before operation classifier");
-  assert.ok(indexes[0] < required.indexOf(PRODUCTION_PROVIDER), "knowledge-kind contract must load before production provider");
 }
 
 function assertUiRecoveryOrder(required) {
@@ -64,10 +70,21 @@ function assertUiRecoveryOrder(required) {
   }
 }
 
+function assertBatchApprovalAdapterOrder(required) {
+  const adapterIndexes = required.flatMap((entry, index) => entry === BATCH_APPROVAL_ADAPTER ? [index] : []);
+  assert.equal(adapterIndexes.length, 1, "Knowledge manifest must load exactly one batch approval adapter");
+  for (const dependency of BATCH_APPROVAL_ADAPTER_DEPENDENCIES) {
+    const dependencyIndexes = required.flatMap((entry, index) => entry === dependency ? [index] : []);
+    assert.equal(dependencyIndexes.length, 1, `${dependency} must remain exactly once in the Knowledge manifest`);
+    assert.ok(dependencyIndexes[0] < adapterIndexes[0], `${dependency} must load before ${BATCH_APPROVAL_ADAPTER}`);
+  }
+}
+
 function instantiateKnowledgeGraph(required) {
   assertOperationContractOrder(required);
   assertKnowledgeKindContractOrder(required);
   assertUiRecoveryOrder(required);
+  assertBatchApprovalAdapterOrder(required);
   const browser = {
     console,
     URL,
@@ -230,7 +247,7 @@ test("Knowledge recovery omission and placement after a dependent fail before br
 
   const lateRecovery = withoutRecovery.slice();
   lateRecovery.splice(lateRecovery.indexOf("SYSTEM/Views/llmwiki-ai-provider-transport.js") + 1, 0, UI_RECOVERY);
-  assert.throws(() => instantiateKnowledgeGraph(lateRecovery), /must load before SYSTEM\/Views\/llmwiki-inbox-autopilot\.js/);
+  assert.throws(() => instantiateKnowledgeGraph(lateRecovery), /must load before SYSTEM\/Views\/llmwiki-ai-provider-transport\.js/);
 });
 
 test("Knowledge knowledge-kind contract omission, duplication, and late placement are RED", () => {
@@ -251,4 +268,15 @@ test("Knowledge operation-contract omission and placement after a consumer are R
   const lateContract = withoutContract.slice();
   lateContract.splice(lateContract.indexOf("SYSTEM/Views/llmwiki-merge-transaction.js") + 1, 0, OPERATION_CONTRACT);
   assert.throws(() => instantiateKnowledgeGraph(lateContract), /must load before SYSTEM\/Views\/llmwiki-proposal-bundle\.js/);
+});
+
+test("Knowledge batch approval adapter follows every captured retained dependency without CommonJS fallback", () => {
+  const required = [...freshManifest().get("knowledge").required];
+  assertBatchApprovalAdapterOrder(required);
+
+  for (const dependency of BATCH_APPROVAL_ADAPTER_DEPENDENCIES) {
+    const reordered = required.filter((entry) => entry !== dependency);
+    reordered.splice(reordered.indexOf(BATCH_APPROVAL_ADAPTER) + 1, 0, dependency);
+    assert.throws(() => assertBatchApprovalAdapterOrder(reordered), new RegExp(`${dependency.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")} must load before`));
+  }
 });

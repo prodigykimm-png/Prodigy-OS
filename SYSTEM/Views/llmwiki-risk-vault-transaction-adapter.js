@@ -3,7 +3,11 @@
 
   const ZERO = Object.freeze({ canonical: 0, audit: 0, refresh: 0, git: 0 });
   const ADAPTERS = new WeakSet();
-  const CANONICAL_PREFIX = "ZETA/PERMANENT/";
+  // Task 11 cutover: lifecycle review destinations (Literature/Candidates)
+  // join Permanent as canonical write surfaces, matching the write-boundary
+  // policy's canonical prefixes.
+  const CANONICAL_PREFIXES = Object.freeze(["ZETA/PERMANENT/", "ZETA/LITERATURE/", "ZETA/CANDIDATES/"]);
+  const isCanonicalPath = (value) => CANONICAL_PREFIXES.some((prefix) => value.startsWith(prefix));
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function frozen(value) {
@@ -154,7 +158,7 @@
         const changed = [...candidates].filter((filePath) => {
           const prior = before.get(filePath) || absentState(filePath);
           const next = after.get(filePath) || absentState(filePath);
-          return !sameState(prior, next) || events.has(filePath) && (filePath.startsWith(CANONICAL_PREFIX) || prior.exists || next.exists);
+          return !sameState(prior, next) || events.has(filePath) && (isCanonicalPath(filePath) || prior.exists || next.exists);
         }).sort();
         const allowed = [...new Set(allowedPaths)].sort();
         const unexpected = changed.filter((filePath) => !allowed.includes(filePath));
@@ -248,7 +252,7 @@
       if (!observed.ok) return result("failed", { reason: observed.reason, actual_touched_paths: observed.actual_paths, unexpected_touched_paths: observed.unexpected_paths, compensation_verified: observed.restoration_verified, compensation_failures: observed.restoration_failures, write_counts: counts() });
       const writerReceipt = observed.value.writerReceipt || {};
       const afterStates = observed.value.afterStates;
-      const actualCanonical = observed.actual_paths.filter((filePath) => filePath.startsWith(CANONICAL_PREFIX));
+      const actualCanonical = observed.actual_paths.filter((filePath) => isCanonicalPath(filePath));
       const receipt = frozen({ packet_id: packet.packet_id, expected_paths: snapshot.expected_paths, actual_touched_paths: actualCanonical, independently_observed_paths: observed.actual_paths, audit_touched_paths: [auditPath], before_states: snapshot.before_states, after_states: afterStates, writer_receipt: writerReceipt, observer: "vault_events_plus_full_inventory" });
       committed.set(packet, receipt);
       return result("committed", { write_counts: counts(snapshot.expected_paths.length, 1), receipt });

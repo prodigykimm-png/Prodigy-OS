@@ -1,11 +1,14 @@
 (function (root) {
   "use strict";
 
-  const CANONICAL_PREFIX = "ZETA/PERMANENT/";
+  // Task 10 additive extension: lifecycle review destinations are accepted
+  // alongside ZETA/PERMANENT; Permanent validity rules are unchanged.
+  const CANONICAL_PREFIXES = Object.freeze(["ZETA/PERMANENT/", "ZETA/LITERATURE/", "ZETA/CANDIDATES/"]);
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function validPath(value) {
-    return typeof value === "string" && value.startsWith(CANONICAL_PREFIX) && !value.includes("..") && !value.includes("\\") && value.length > CANONICAL_PREFIX.length;
+    const prefix = typeof value === "string" ? CANONICAL_PREFIXES.find((candidate) => value.startsWith(candidate)) : undefined;
+    return prefix !== undefined && !value.includes("..") && !value.includes("\\") && value.length > prefix.length;
   }
   function operationPaths(operation) {
     if (!plain(operation) || !Array.isArray(operation.destination_ids) || !plain(operation.effects)) throw new Error("invalid_risk_operation");
@@ -41,7 +44,7 @@
     return Array.isArray(left) && Array.isArray(right) && left.length === right.length && left.every((value, index) => value === right[index]);
   }
 
-  const api = Object.freeze({ CANONICAL_PREFIX, operationPaths, packetPaths, exactSet, samePaths });
+  const api = Object.freeze({ CANONICAL_PREFIXES, operationPaths, packetPaths, exactSet, samePaths });
   root.LLMWikiRiskWriteSet = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

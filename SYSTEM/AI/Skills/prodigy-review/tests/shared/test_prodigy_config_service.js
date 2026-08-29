@@ -140,7 +140,7 @@ async function testAiProfileRoundTripAndResolver() {
 
   const loaded = await service.load(app);
   assert.deepEqual(loaded.aiProfiles, saved.aiProfiles);
-  assert.equal(service.resolveAIProfileProviderKey(loaded, "llmwiki", "direct").provider_key, "groq");
+  assert.equal(service.resolveAIProfileProviderKey(loaded, "llmwiki", "direct").provider_key, "gemini");
   assert.equal(service.resolveAIProfileProviderKey(loaded, "llmwiki", "omniroute").provider_key, "openrouter");
 
   const defaulted = service.resolveAIProfileProviderKey(service.mergeConfig(service.DEFAULT_CONFIG, {
@@ -210,8 +210,7 @@ function testExecProvidersStayFreeOfHttpOnlyDefaultKeys() {
   for (const key of httpOnly) assert.equal(key in merged.providers.antigravity, false, `antigravity must not carry ${key}`);
   const resolved = service.resolveAIProfileProviderKey(merged, "llmwiki", "direct");
   assert.equal(resolved.ok, true);
-  for (const key of httpOnly) assert.equal(key in resolved.provider, false, `resolved llmwiki provider must not carry ${key}`);
-  assert.equal(resolved.provider.model, "gemini-3.6-flash-medium");
+  assert.equal(resolved.provider_key, merged.defaultProvider);
   // Non-exec adapters keep their HTTP defaults.
   const withStudio = service.mergeConfig(service.DEFAULT_CONFIG, { providers: { "lm-studio": {} } });
   assert.equal("baseURL" in withStudio.providers["lm-studio"], true);

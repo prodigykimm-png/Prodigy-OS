@@ -283,9 +283,9 @@ test("production run controller preserves Task13 commit outcome, repackets monot
     assert.equal(operationSnapshot.status, "committed");
     assert.equal(operationSnapshot.canonical_outcome.operation_id, op.operation_id);
     assert.deepEqual(operationSnapshot.follow_up, {
-      status: "pending",
+      status: "complete",
       refresh: { status: "skipped", attempts: 0, reason: null },
-      git: { status: "pending", attempts: 0, reason: null },
+      git: { status: "skipped", attempts: 0, reason: null },
     });
     assert.equal(fs.readFileSync(path.join(fixture.rootDir, op.destination_ids[0]), "utf8"), op.after_bytes[op.destination_ids[0]]);
     const touched = fixture.app.vault.touched.length;
@@ -293,11 +293,8 @@ test("production run controller preserves Task13 commit outcome, repackets monot
     assert.equal(duplicate.reason, "stale_risk_action");
     assert.equal(fixture.app.vault.touched.length, touched, "duplicate approval must not recommit canonical bytes");
     const retried = await production.retryOperationFollowUp({ action: "retry_follow_up", follow_up: "git" });
-    assert.deepEqual(retried.follow_up, {
-      status: "pending",
-      refresh: { status: "skipped", attempts: 0, reason: null },
-      git: { status: "pending", attempts: 1, reason: null },
-    });
+    assert.equal(retried.ok, false);
+    assert.equal(retried.reason, "follow_up_retry_not_available");
     assert.equal(fixture.app.vault.touched.length, touched, "unconfigured Git retry must not repeat canonical writes");
   } finally { fs.rmSync(fixture.rootDir, { recursive: true, force: true }); }
 });

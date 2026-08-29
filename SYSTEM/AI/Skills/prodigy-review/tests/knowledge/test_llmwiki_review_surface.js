@@ -88,9 +88,11 @@ test("Given the corrected provider response, When the controller packet reaches 
   assert.match(rendered, /선택한 근거만 사용한다\./, "provider claim must reach the mounted review body");
   assert.ok(action(root, "open-source"), "review body must expose the source locator action");
   assert.ok(action(root, "approve-selected"), "review body must expose an explicit approval control");
+  // Task 11 repoint: the legacy network counter belonged to the removed
+  // librarian transport; the canonical boundary counts provider packs once.
   assert.deepEqual(subject.controller.getSnapshot().counters, {
     provider: 1,
-    network: 1,
+    network: 0,
     canonical: 0,
     audit: 0,
     refresh: 0,

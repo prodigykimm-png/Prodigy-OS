@@ -394,7 +394,6 @@
 }
 .prodigy-app-shell:is([data-tier="compact"],[data-tier="medium"]):is(
   [data-workspace-id="workout"],
-  [data-workspace-id="knowledge"],
   [data-workspace-id="personal"],
   [data-workspace-id="region"]
 ) {
@@ -404,7 +403,6 @@
 }
 .prodigy-app-shell:is([data-tier="compact"],[data-tier="medium"]):is(
   [data-workspace-id="workout"],
-  [data-workspace-id="knowledge"],
   [data-workspace-id="personal"],
   [data-workspace-id="region"]
 ) > .prodigy-app-shell-body {
@@ -425,7 +423,17 @@
     + env(safe-area-inset-bottom, 0px)
   );
 }
+.prodigy-app-shell[data-workspace-id="knowledge"] {
+  block-size: calc(100dvb - var(--header-height, 40px) - var(--prodigy-external-chrome-clearance) - var(--ke-space-5, 24px) - var(--ke-space-1, 4px));
+  max-block-size: calc(100dvb - var(--header-height, 40px) - var(--prodigy-external-chrome-clearance) - var(--ke-space-5, 24px) - var(--ke-space-1, 4px));
+  min-block-size: 0;
+  overflow: hidden;
+}
 .prodigy-app-shell[data-workspace-id="knowledge"] > .prodigy-app-shell-body {
+  min-block-size: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-block: contain;
   padding-block-end: max(
     var(--prodigy-mobile-toolbar-clearance, 0px),
     var(--prodigy-external-chrome-clearance)
@@ -436,35 +444,30 @@
   );
 }
 .prodigy-app-shell:is([data-tier="compact"],[data-tier="medium"])[data-workspace-id="knowledge"] {
-  margin-block-end: var(--prodigy-external-chrome-clearance);
+  grid-template-rows: auto minmax(0, 1fr);
+  margin-block-end: 0;
 }
 .prodigy-app-shell[data-tier="wide"]:is(
   [data-workspace-id="workout"],
-  [data-workspace-id="knowledge"],
   [data-workspace-id="personal"],
   [data-workspace-id="region"]
 ) {
   max-block-size: calc(100dvb - var(--header-height, 40px));
 }
-/* Structural and plugin-mounted Obsidian surfaces can place the production
-   block directly under the leaf instead of a markdown-preview scroller. In
-   compact/medium tiers that leaf is the same outer document owner promised by
-   the layout contract; scope the override to the active Knowledge shell. */
+/* Knowledge is a bounded scroll-body-shell at every tier. Obsidian's note
+   and leaf hosts contain it but never become competing document owners. */
 .workspace-leaf-content:has(
-  .prodigy-app-shell:is([data-tier="compact"],[data-tier="medium"])[data-workspace-id="knowledge"]
+  .prodigy-app-shell[data-workspace-id="knowledge"]
+),
+.markdown-preview-view.prodigy-hub-note:has(
+  .prodigy-app-shell[data-workspace-id="knowledge"]
 ) {
-  overflow-y: auto !important;
+  overflow-y: hidden !important;
   overflow-x: hidden !important;
-  padding-block-end: var(--ke-space-4, 17px) !important;
-  scroll-padding-block-end: calc(
-    var(--ke-touch-target, 44px)
-    + var(--ke-space-3, 12px)
-  );
 }
 .markdown-preview-view.prodigy-hub-note:has(
   .prodigy-app-shell[data-tier="wide"]:is(
     [data-workspace-id="workout"],
-    [data-workspace-id="knowledge"],
     [data-workspace-id="personal"],
     [data-workspace-id="region"]
   )

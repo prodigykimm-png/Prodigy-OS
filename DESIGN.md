@@ -153,6 +153,18 @@ The primitive/state harness must cover rest, focus-visible, selected, loading, e
 
 Physical-device 성공은 `physical iPhone` 실기기에서 사용자가 직접 확인한 경우에만 `user-evidence-only gate`를 통과한다. 데스크톱 폭 조절, 시뮬레이터, 스크린샷 추정은 모바일 성공 근거가 아니다.
 
+### LLM Wiki batch action status
+
+- `llmwiki-batch-status` is a grouped-row status primitive inside the existing Knowledge body scroll owner. It uses the StyleGallery `cluster` contract for wrapping actions (`display:flex`, `flex-wrap`, shared token gap) and never creates an internal scroll container.
+- Pending priority is deterministic: `none` at 0, `subtle` at 1-2, `emphasized` at 3-9, and `backlog` at 10+. Home projects the same action only from 3 pending items; it never starts analysis.
+- The provider row is inherited and read-only. Provider key, model, and readiness are exposed as machine attributes; provider mutation remains in global AI settings. Local analysis and the future `mobile_remote` display variant remain distinct state labels, but remote triggering is not implemented here.
+- `protected-source-disclosure` may expose only filename and a local typed exclusion reason. Source bodies, override-to-send controls, and protected-item analysis actions are forbidden.
+- Pack progress and review readiness use native `progress`/status semantics plus typed `data-*` values. Rendering, disclosure, review, and mount keep `provider_calls=0`; only the explicit Analyze control may cross the provider boundary.
+- Recovery controls are rendered only from the strict variants `config | auth | quota | provider | outcome_unknown | stale | repacket | blocked`. They may emit only `open_ai_settings | retry_analysis | repacket | later`; labels never determine behavior and no retry is automatic. Config/auth/provider place `AI 설정 열기` first and primary with retry secondary; quota places retry first and primary; outcome-unknown and generic blocked keep the minimal retry/later decision; stale/repacket place repacket first and primary.
+- Recovery status copy keeps the sentence fluid. The fixed system tail `대기 자료는 그대로 유지됩니다.` is one semantic inline atomic span, selected before any shorter fallback match, with a normal line-break opportunity before it; the whole sentence must never receive `nowrap`.
+- Approval intro, document previews, summary, risk, and provenance use the shared Korean-safe prose primitive (`word-break: keep-all`, `text-wrap: pretty`, and `overflow-wrap: anywhere`). Risk reasons render as a wrapping structured cluster without detachable separator glyphs; no proposal sentence or full risk line is forced to `nowrap`.
+- Emphasis uses existing semantic surface, border, warning, error, and Action Blue tokens. Controls retain 44px targets, visible focus, natural Korean wrapping, immediate state changes, and the existing reduced-motion press fallback. Accepted debt: physical mobile-device behavior remains unproven and Tasks 15-17 remain out of scope.
+
 ## 9. Responsive Workspace Shell
 
 | Primitive | 책임 | 계약 |

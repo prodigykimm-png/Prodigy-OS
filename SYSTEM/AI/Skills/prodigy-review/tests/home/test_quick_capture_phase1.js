@@ -436,6 +436,20 @@ test("untrusted activation never writes and surfaces a status message", async ()
   assert.match(status.text, /신뢰/, "untrusted activation is explained in the status region");
 });
 
+test("quick-capture controls own flat 44px component-scoped chrome", () => {
+  const source = fs.readFileSync(path.join(ROOT, MODULE_PATH), "utf8");
+  const rule = source.match(/"([^"\n]*quick-capture-trigger[^"\n]*quick-capture-save[^"\n]*quick-capture-cancel)\{([^"\n]+)\}"/u);
+  assert.ok(rule, "all quick-capture button classes must share one owned rule");
+  for (const className of ["quick-capture-trigger", "quick-capture-save", "quick-capture-cancel"]) assert.match(rule[1], new RegExp(`button\\.${className}`, "u"));
+  assert.match(rule[2], /min-block-size:var\(--ke-touch-target,44px\)/u);
+  assert.match(rule[2], /min-height:var\(--ke-touch-target,44px\)/u);
+  assert.match(rule[2], /height:auto!important/u);
+  assert.match(rule[2], /box-shadow:none!important/u);
+  assert.match(source, /\.quick-capture-title,\.quick-capture-input\{[^\n]*min-height:var\(--ke-touch-target,44px\)[^\n]*box-shadow:none!important/u);
+  assert.doesNotMatch(source, /(?:^|[,{])\s*button\s*\{/mu, "quick capture must not override every native button");
+  assert.doesNotMatch(source, /#[0-9a-f]{3,8}|rgb\s*\(/iu);
+});
+
 test("fleeting bytes never reach any transport and module source owns no network seam", async () => {
   const spies = transportSpies();
   const quickCapture = loadQuickCapture();

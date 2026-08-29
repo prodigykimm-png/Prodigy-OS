@@ -104,7 +104,7 @@ function consentRunCommand() {
     proposal_request: { instruction: "fixture consent propagation" },
     consent: { issued_at: fetchedAt, nonce: "consent_controller_fixture_0001" },
     approval: { expires_at: "2026-08-09T01:00:00.000Z", nonce: "approval_controller_fixture_0001" },
-    advanced_settings: { provider_mode: "direct", provider_key: "groq", timeout_ms: 5000 },
+    advanced_settings: { provider_mode: "direct", timeout_ms: 5000 },
     canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "fixture", application_contexts: ["reading"], connections: [], invalidation_conditions: [], summary: "" },
     explicit_user_consent: true,
     fixtureBundle: bundle.value,
@@ -132,28 +132,24 @@ test("controller binds the selected provider key to config before any run side e
   assert.equal(result.counters.provider, 0);
   assert.equal(result.counters.network, 0);
 });
-test("controller passes the validated consent artifact to the provider transport", async () => {
+test("controller binds the frozen consent hash to the canonical analysis delegation", async () => {
   const command = consentRunCommand();
-  const providerBundle = JSON.parse(JSON.stringify(command.fixtureBundle));
-  delete providerBundle.proposals[0].write_intent;
-  delete providerBundle.proposals[0].source_citations[0].source_url;
-  delete providerBundle.proposals[0].target;
-  delete providerBundle.proposals[0].target_revision;
-  let transportOptions = null;
+  const crypto = require("node:crypto");
+  let delegated = null;
   const controller = controllerApi.createRunController({
     app: fixtureApp(),
     config: config(),
-    transport: async (_normalized, options) => {
-      transportOptions = options;
-      return { status: "ok", proposal_bundle: providerBundle };
+    analyze_batch: async ({ command: forwarded }) => {
+      delegated = forwarded;
+      return { ok: true, provider_calls: 1, consent_hash: crypto.createHash("sha256").update(`delegated:${command.run_id}`).digest("hex"), proposals: [] };
     },
   });
   const result = await controller.startRun(command);
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.status, "abstained");
-  assert.ok(transportOptions && transportOptions.consent);
-  assert.equal(transportOptions.consent.consent_hash, controller.getSnapshot().consent_hash);
-  assert.match(transportOptions.consent.consent_hash, /^[0-9a-f]{64}$/u);
+  assert.ok(delegated && delegated.explicit_user_consent === true, "explicit consent must reach the analysis core");
+  assert.equal(delegated.sources[0].manifest.source_id, "source_controller_fixture");
+  assert.match(controller.getSnapshot().consent_hash, /^[0-9a-f]{64}$/u);
+  assert.equal(controller.getSnapshot().consent_hash, crypto.createHash("sha256").update(`delegated:${command.run_id}`).digest("hex"));
   assert.equal(result.counters.provider, 1);
-  assert.equal(result.counters.network, 1);
 });

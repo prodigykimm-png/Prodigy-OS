@@ -40,13 +40,20 @@
     },
   };
   const delayed = new URLSearchParams(location.search).get("mode") === "cancel";
-  let providerTimer = null;
+  const fixtureConfig = ProdigyConfigService.mergeConfig(ProdigyConfigService.DEFAULT_CONFIG, {
+    aiProfiles: { schema_version: 1, llmwiki: { direct_provider_key: "gemini", omniroute_provider_key: "openrouter" } },
+    providers: {
+      gemini: { adapter: "openai-compatible", model: "controller-fixture", authMode: "none" },
+      openrouter: { adapter: "openai-compatible", model: "route-fixture", authMode: "none" },
+    },
+  });
   const controller = LLMWikiRunController.createRunController({
     app,
+    config: fixtureConfig,
     now: () => NOW,
     derived_root: ".task15-controller-fixture",
-    transport(request) {
-      const runId = request.outbound_payload.proposal_request.run_id;
+    analyze_batch({ command: analysisCommand, signal }) {
+      const runId = analysisCommand.run_id;
       const response = {
         status: "ok",
         proposal_bundle: {
@@ -69,8 +76,23 @@
         },
         response_metadata: { provider_status: "ok" },
       };
-      if (!delayed) return response;
-      return new Promise((resolve) => { providerTimer = setTimeout(() => resolve(response), 10000); });
+      const analyzed = {
+        ok: true,
+        proposals: response.proposal_bundle.proposals.map((proposal, index) => ({
+          ...proposal,
+          proposal_id: `proposal_${LLMWikiHash.sha256(`${runId}:${index}`).slice(0, 24)}`,
+          payload_hash: LLMWikiHash.sha256(JSON.stringify(proposal)),
+        })),
+        provider_calls: 1,
+        consent_hash: LLMWikiHash.sha256(`fixture_consent:${runId}`),
+      };
+      window.dispatchEvent(new CustomEvent("task15-fixture-provider-started", { detail: { runId } }));
+      if (!delayed) return analyzed;
+      return new Promise((resolve) => {
+        const aborted = () => resolve({ ok: false, reason: "fixture_cancelled", provider_calls: 1 });
+        if (signal.aborted) aborted();
+        else signal.addEventListener("abort", aborted, { once: true });
+      });
     },
   });
   const tabs = KnowledgeWorkspaceTabs.mountTabs(document.querySelector("#tabs"), { activeTab: "llmwiki" });
@@ -79,6 +101,7 @@
   const intents = [];
   let lifecycle;
   let providerMode = "direct";
+  let lastResult = null;
 
   function command(explicitConsent) {
     return {
@@ -138,6 +161,8 @@
       fixture_kind: "controller-backed-product-surface",
       controller_version: value.controller_version,
       status: value.status,
+      reason: value.reason || lastResult?.reason || null,
+      last_result: lastResult,
       intents,
       writes,
       provider_mode: providerMode,
@@ -159,12 +184,26 @@
       await controller.startRun(command(false));
       settle(snapshot());
     } else if (intent.action === "start_run") {
+      const providerStarted = new Promise((resolve, reject) => {
+        const finish = (event) => {
+          if (event.detail?.runId !== "run_controller_surface") return;
+          window.removeEventListener("task15-fixture-provider-started", finish);
+          clearTimeout(guard);
+          resolve();
+        };
+        window.addEventListener("task15-fixture-provider-started", finish);
+        const guard = setTimeout(() => {
+          window.removeEventListener("task15-fixture-provider-started", finish);
+          reject(new Error("fixture_provider_start_timeout"));
+        }, 5000);
+      });
       const pending = controller.startRun(command(true));
-      queueMicrotask(() => { settle(snapshot()); renderReceipt(); });
-      await pending;
-      settle(snapshot());
+      void providerStarted.then(() => { settle(snapshot()); renderReceipt(); });
+      void pending.then(
+        (value) => { lastResult = value; settle(snapshot()); renderReceipt(); },
+        (error) => { lastResult = { error: String(error) }; settle(snapshot()); renderReceipt(); },
+      );
     } else if (intent.action === "cancel") {
-      if (providerTimer !== null) clearTimeout(providerTimer);
       controller.cancel(intent);
       settle(snapshot());
     } else if (intent.action === "set_provider_mode") {

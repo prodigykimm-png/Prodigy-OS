@@ -269,7 +269,7 @@
     if (!profile) {
       return { ok: false, call_allowed: false, code: "profile_missing", field: "aiProfiles.llmwiki", message: "LLMWiki AI 프로필이 설정되지 않았습니다." };
     }
-    const providerKey = providerMode === "direct" ? (profile.direct_provider_key || normalized.defaultProvider) : profile.omniroute_provider_key;
+    const providerKey = providerMode === "direct" ? normalized.defaultProvider : profile.omniroute_provider_key;
     if (!providerKey) {
       return { ok: false, call_allowed: false, code: "provider_unavailable", field: `aiProfiles.llmwiki.${providerMode}_provider_key`, message: "선택한 LLMWiki AI 연결을 사용할 수 없습니다." };
     }
