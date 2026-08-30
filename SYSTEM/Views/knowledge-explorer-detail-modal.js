@@ -16,7 +16,7 @@
   function addClass(node, value) { if (node && typeof node.addClass === "function") node.addClass(value); else if (node && node.classList) node.classList.add(value); else if (node && node.setAttribute) node.setAttribute("class", value); }
   function safeSources(item) { return list(item.sources).filter((source) => plain(source) && text(source.locator)); }
   function claimSet(item) { return plain(item && item.claim_set) ? item.claim_set : { claims: [], citations: [], disputes: [] }; }
-  const FIELD_LABELS = Object.freeze({ sources: "출처 앵커", support: "근거", contradictions: "상충 근거", origins: "기원", derivation: "도출 경로", history: "검토 이력", acceptance: "수용 상태", coverage: "분석 범위", ai_labels: "수용된 AI 분석", corrections: "수정 충돌" });
+  const FIELD_LABELS = Object.freeze({ summary: "요약 결과", document: "생성 문서 전체", sources: "출처 앵커", support: "근거", contradictions: "상충 근거", origins: "기원", derivation: "도출 경로", history: "검토 이력", acceptance: "수용 상태", coverage: "분석 범위", ai_labels: "수용된 AI 분석", corrections: "수정 충돌" });
   function field(parent, id, rows) {
     const section = createEl(parent, "section", { attr: { "data-review-field": id } });
     createEl(section, "h3", { text: FIELD_LABELS[id] || id });
@@ -32,6 +32,14 @@
     const header = createEl(article, "header");
     createEl(header, "h2", { text: text(item.title, "검토 항목"), attr: { id: "knowledge-review-detail-title" } });
     const scroll = createEl(article, "div", { attr: { id: "knowledge-review-detail-scroll", class: "knowledge-review-detail-modal__scroll", "data-scroll-owner": "knowledge-review-detail", tabindex: "0" } });
+    const summaryPoints = list(item.summary_points).map((point) => text(point)).filter(Boolean);
+    if (summaryPoints.length) field(scroll, "summary", summaryPoints);
+    const documentBody = text(item.document_body);
+    if (documentBody) {
+      const documentSection = createEl(scroll, "section", { attr: { "data-review-field": "document" } });
+      createEl(documentSection, "h3", { text: FIELD_LABELS.document });
+      createEl(documentSection, "pre", { text: documentBody });
+    }
     const sourceRows = safeSources(item);
     const sources = createEl(scroll, "section", { attr: { "data-review-field": "sources" } });
     createEl(sources, "h3", { text: FIELD_LABELS.sources });

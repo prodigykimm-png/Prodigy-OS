@@ -468,7 +468,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         if (!file) return;
         const bytes = await appRef.vault.read(file);
         await appRef.vault.create(`${filePath}.quarantine`, bytes);
-        await appRef.vault.modify(file, JSON.stringify({ schema_version: 2, jobs: {}, packs: {}, legacy: [], recovery: null }));
+        await appRef.vault.modify(file, JSON.stringify({ schema_version: 3, jobs: {}, packs: {}, plans: {}, legacy: [], recovery: null }));
       },
     } });
     llmWikiSession.batchJobStore = batchJobStore;
@@ -508,6 +508,32 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     llmWikiSession.inboxDiscoveryQueue = inboxDiscoveryQueue;
     const durableUnknownJob = Object.values(batchJobState.jobs || {}).find((job) => job.status === "outcome_unknown") || null;
     const approvalGroups = new Map();
+    const restoreDurableApprovalGroups = () => {
+      if (!durableRecovery?.review?.proposals?.length || !durableRecovery.approval_sources?.length) return 0;
+      const operations = new Map();
+      for (const row of durableRecovery.review.proposals) {
+        const parsed = window.LLMWikiOperationContract.parseOperation(row.serialized_operation);
+        if (parsed?.ok) operations.set(row.operation_id, parsed.value);
+      }
+      for (const source of durableRecovery.approval_sources) {
+        if (approvalGroups.has(source.source_id)) continue;
+        approvalGroups.set(source.source_id, Object.freeze({
+          source_id: source.source_id,
+          source_path: source.source_path,
+          content_hash: source.content_hash,
+          proposals: Object.freeze(source.operation_ids
+            .map((operationId) => ({
+              operation: operations.get(operationId),
+              class: operations.get(operationId)?.kind || "create",
+              unit_id: operationId,
+            }))
+            .filter((row) => row.operation)),
+          holds: Object.freeze(Array.from({ length: source.unresolved_holds || 0 }, () => ({ reason: "unresolved_hold" }))),
+          para_drafts: Object.freeze(Array.from({ length: source.unresolved_para_drafts || 0 }, () => ({ reason: "unresolved_para_draft" }))),
+        }));
+      }
+      return approvalGroups.size;
+    };
     if (durableRecovery && durableRecovery.active_tab === "llmwiki") {
       KnowledgeExplorerHub._lastTab = "llmwiki";
       tabs.select("llmwiki");
@@ -680,8 +706,27 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           revision: llmWikiHash.sha256(content),
         };
       }));
-    const configuredRelatedCandidates = Array.isArray(llmWikiControllerOptions.relatedCandidates) ? llmWikiControllerOptions.relatedCandidates : [];
-    const configuredAllowedCandidateIds = Array.isArray(llmWikiControllerOptions.allowedCandidateIds) ? llmWikiControllerOptions.allowedCandidateIds : [];
+    const discoveredRelatedCandidates = await Promise.all(appRef.vault.getMarkdownFiles()
+      .filter((file) => file.path.startsWith("ZETA/CANDIDATES/") && file.path.endsWith(".md"))
+      .map(async (file) => {
+        const beforeBytes = await appRef.vault.cachedRead(file);
+        const revision = llmWikiHash.sha256(beforeBytes);
+        return {
+          candidate_id: `cand_${llmWikiHash.sha256(file.path).slice(0, 24)}`,
+          path: file.path,
+          content_hash: revision,
+          revision,
+          before_bytes: beforeBytes,
+        };
+      }));
+    const configuredRelatedCandidates = [
+      ...discoveredRelatedCandidates,
+      ...(Array.isArray(llmWikiControllerOptions.relatedCandidates) ? llmWikiControllerOptions.relatedCandidates : []),
+    ].filter((row, index, rows) => rows.findIndex((candidate) => candidate.candidate_id === row.candidate_id) === index);
+    const configuredAllowedCandidateIds = [...new Set([
+      ...discoveredRelatedCandidates.map((row) => row.candidate_id),
+      ...(Array.isArray(llmWikiControllerOptions.allowedCandidateIds) ? llmWikiControllerOptions.allowedCandidateIds : []),
+    ])];
     const inboxProposalMaterializer = window.LLMWikiInboxProposalMaterializer.createInboxProposalMaterializer({
       localIdentityIndex: Array.isArray(llmWikiControllerOptions.inboxLocalIdentityIndex) ? llmWikiControllerOptions.inboxLocalIdentityIndex : [],
       // Controller configuration is trusted local state. Copy it into this
@@ -703,10 +748,698 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       return { ok: true, proposals: materialized.proposals, holds: materialized.holds || [], no_changes: materialized.no_changes || [], para_drafts: materialized.para_drafts || [], object_review_proposals };
     };
+    let pilotReviewItems = [];
+    let documentPilotResult = null;
+    let documentPilotCheckpoint = null;
+    const pilotReviewRows = (documents, sourceId) => documents.map((document, documentIndex) => {
+      const citations = Array.isArray(document.citations) ? document.citations : [];
+      const sources = citations.flatMap((citation) => (citation.locators || []).map((locator) => ({ source_id: sourceId, locator })));
+      const citationRows = citations.map((citation, citationIndex) => ({ citation_id: `pilot_citation_${documentIndex + 1}_${citationIndex + 1}`, source_id: sourceId, locators: citation.locators || [] }));
+      const citationIds = citationRows.map((citation) => citation.citation_id);
+      return {
+        review_id: `pilot_document_${llmWikiHash.sha256(JSON.stringify([sourceId, document.role, document.title, document.claims])).slice(0, 24)}`,
+        pilot: true, destination: document.role === "source_summary" ? "literature" : "knowledge_candidate",
+        review_state: "pending", analysis_state: "complete", title: document.title,
+        summary_points: document.role === "source_summary"
+          ? document.sections.map((section) => `${section.heading} · ${section.claims.length}개 핵심 내용`)
+          : document.claims.map((claim) => claim.text),
+        document_body: document.body, target_path: "",
+        sources,
+        claim_set: {
+          claims: document.claims.map((claim, claimIndex) => ({ claim_id: `pilot_claim_${documentIndex + 1}_${claimIndex + 1}`, text: claim.text, origin: "ai_synthesis", citation_ids: citationIds, derived_from_claim_ids: [] })),
+          citations: citationRows, disputes: [],
+        },
+        coverage: { complete: true, status: "전체 원문 분석 완료" },
+      };
+    });
+    if (window.__pilotReduceResult?.ok === true && Array.isArray(window.__pilotReduceResult.documents)) {
+      const retainedSourceId = window.__pilotReduceResult.source_id || `source_pilot_${llmWikiHash.sha256(window.__pilotReduceResult.source_path || "pilot").slice(0, 24)}`;
+      pilotReviewItems = pilotReviewRows(window.__pilotReduceResult.documents, retainedSourceId);
+      documentPilotResult = window.__pilotReduceResult;
+    }
+    const runDocumentPilot = async (sourcePath) => {
+      if (typeof sourcePath !== "string" || !sourcePath.startsWith("INBOX/") || !sourcePath.endsWith(".md") || sourcePath.includes("\\")
+        || sourcePath.split("/").some((part) => !part || part === "." || part === "..")) return { ok: false, reason: "invalid_pilot_source" };
+      if (!batchProvider) return { ok: false, reason: "provider_selection_unavailable" };
+      const file = appRef.vault.getAbstractFileByPath(sourcePath);
+      if (!file) return { ok: false, reason: "pilot_source_missing" };
+      const extractedText = await appRef.vault.cachedRead(file);
+      const contentHash = llmWikiHash.sha256(extractedText);
+      const sourceId = `source_pilot_${llmWikiHash.sha256(sourcePath).slice(0, 24)}`;
+      const scope = window.LLMWikiAnalysisScope.createAnalysisScope({
+        source_id: sourceId, source_path: sourcePath, content_hash: contentHash, source_text: extractedText,
+      });
+      const manifest = window.LLMWikiChunkManifest.createChunkManifest(scope);
+      const maxChunks = window.LLMWikiBatchAnalyzer.MAX_PACK_CHUNKS;
+      const maxBytes = window.LLMWikiBatchAnalyzer.MAX_PACK_BYTES;
+      const utf8Bytes = (value) => new TextEncoder().encode(String(value)).length;
+      const packs = [];
+      let pack = [];
+      let packBytes = 0;
+      for (const chunk of manifest.chunks) {
+        const chunkBytes = utf8Bytes(chunk.text);
+        if (pack.length && (pack.length === maxChunks || packBytes + chunkBytes > maxBytes)) {
+          packs.push(pack);
+          pack = [];
+          packBytes = 0;
+        }
+        pack.push(chunk);
+        packBytes += chunkBytes;
+      }
+      if (pack.length) packs.push(pack);
+      const pilotVersion = "document_pilot_v2_evidence_key";
+      const checkpoint = documentPilotCheckpoint
+        && documentPilotCheckpoint.version === pilotVersion
+        && documentPilotCheckpoint.source_path === sourcePath
+        && documentPilotCheckpoint.content_hash === contentHash
+          ? documentPilotCheckpoint : null;
+      const artifacts = checkpoint ? checkpoint.artifacts.map((artifact) => JSON.parse(JSON.stringify(artifact))) : [];
+      let providerCalls = checkpoint ? checkpoint.provider_calls : 0;
+      const startPack = checkpoint ? checkpoint.next_pack_index : 0;
+      for (let index = startPack; index < packs.length; index += 1) {
+        const chunks = packs[index];
+        const response = await batchProvider({
+          outbound_allowed: true,
+          run_id: `pilot_${llmWikiHash.sha256(`${sourceId}:${contentHash}:${index}`).slice(0, 24)}`,
+          mode: "semantic",
+          chunks: chunks.map((chunk) => ({ key: chunk.instance_id, text: chunk.text })),
+          candidate_ids: configuredAllowedCandidateIds,
+        }, {});
+        providerCalls += response && Number.isSafeInteger(response.provider_call_count) ? response.provider_call_count : 1;
+        if (!response || response.ok !== true) {
+          documentPilotCheckpoint = { version: pilotVersion, source_path: sourcePath, content_hash: contentHash, artifacts, provider_calls: providerCalls, next_pack_index: index };
+          return { ok: false, reason: response && response.reason || "pilot_provider_failed", provider_calls: providerCalls, completed_packs: index, total_packs: packs.length, resumed_from_pack: startPack };
+        }
+        const chunkById = new Map(chunks.map((chunk) => [chunk.instance_id, chunk]));
+        for (const artifact of response.artifacts || []) {
+          const chunk = chunkById.get(artifact.chunk_key);
+          if (!chunk) return { ok: false, reason: "pilot_unknown_chunk_artifact", provider_calls: providerCalls };
+          artifacts.push({
+            chunk_key: artifact.chunk_key,
+            outcome: artifact.outcome,
+            items: (artifact.items || []).map((item) => ({
+              ...item,
+              ...(item.span ? { span: { ...item.span, start: item.span.start + chunk.start, end: item.span.end + chunk.start } } : {}),
+            })),
+          });
+        }
+        documentPilotCheckpoint = { version: pilotVersion, source_path: sourcePath, content_hash: contentHash, artifacts, provider_calls: providerCalls, next_pack_index: index + 1 };
+      }
+      const covered = new Set(artifacts.map((artifact) => artifact.chunk_key));
+      if (covered.size !== manifest.chunks.length || manifest.chunks.some((chunk) => !covered.has(chunk.instance_id))) {
+        return { ok: false, reason: "pilot_incomplete_chunk_coverage", provider_calls: providerCalls };
+      }
+      const source = { source_id: sourceId, source_path: sourcePath, content_hash: contentHash };
+      const materialized = await materializeInboxProposals({ artifacts, source });
+      if (!materialized.ok) return { ok: false, reason: materialized.reason || "pilot_materialization_failed", provider_calls: providerCalls };
+      const pilotDocuments = materialized.proposals.map((proposal) => proposal.document);
+      pilotReviewItems = pilotReviewRows(pilotDocuments, sourceId);
+      documentPilotResult = {
+        ok: true, status: "review_ready", source_path: sourcePath, source_bytes: utf8Bytes(extractedText),
+        covered_bytes: utf8Bytes(extractedText), chunk_count: manifest.chunks.length, pack_count: packs.length,
+        provider_calls: providerCalls, source_id: sourceId, documents: pilotDocuments,
+        no_changes: materialized.no_changes || [], holds: materialized.holds || [],
+        existing_review_writes: 0, canonical_writes: 0,
+      };
+      documentPilotCheckpoint = null;
+      refreshReviewWorkbench();
+      return documentPilotResult;
+    };
+    KnowledgeExplorerHub.runDocumentPilot = runDocumentPilot;
+    const reduceDocumentPilot = async (pilotInput = window.__pilotRunResult || documentPilotResult) => {
+      const documents = pilotInput && Array.isArray(pilotInput.documents) ? pilotInput.documents : [];
+      const sourceDocument = documents.find((document) => document.role === "source_summary");
+      const topicDocuments = documents.filter((document) => document.role === "reusable_claim");
+      if (!sourceDocument || topicDocuments.length === 0) return { ok: false, reason: "pilot_reduce_input_unavailable" };
+      const configuredPlan = llmWikiControllerOptions.documentPilotReducePlan;
+      const service = window.AIProviderService;
+      const requestStructured = service && (service.requestStructuredJsonNoRetry || service.requestStructuredJsonOnce);
+      const requestPlan = typeof configuredPlan === "function" ? configuredPlan : async (inventory) => {
+        if (!batchIdentity || typeof requestStructured !== "function") throw new Error("document_reduce_provider_unavailable");
+        return requestStructured.call(service, {
+          app: appRef, provider: batchIdentity.provider,
+          prompt: JSON.stringify({
+            task: "Group the complete source inventory into 4-16 coherent source sections and 0-20 reusable topic documents. Every source entry must appear exactly once in source_sections. Every topic entry must appear exactly once either in a topic document with at least two entries or in source_only_entry_ids. Prefer broad documents with context, implications, and exceptions; never create one-claim documents. Return ids only and never paths or write operations.",
+            inventory,
+          }),
+          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA,
+          timeoutMs: 120000,
+        });
+      };
+      const reducer = window.LLMWikiDocumentReducer.createDocumentReducer({ requestPlan });
+      const reduced = await reducer.reduce({ source_document: sourceDocument, topic_documents: topicDocuments });
+      if (!reduced.ok) return reduced;
+      const sourceId = pilotInput.source_id || `source_pilot_${llmWikiHash.sha256(pilotInput.source_path || "pilot").slice(0, 24)}`;
+      pilotReviewItems = pilotReviewRows(reduced.documents, sourceId);
+      documentPilotResult = {
+        ...pilotInput, ok: true, status: "review_ready", source_id: sourceId,
+        map_documents: documents.length, reduce_provider_calls: typeof configuredPlan === "function" ? 0 : 1,
+        documents: reduced.documents, input_claim_count: reduced.input_claim_count,
+        output_claim_count: reduced.output_claim_count, dropped_claim_count: reduced.dropped_claim_count,
+      };
+      window.__pilotRunResult = documentPilotResult;
+      refreshReviewWorkbench();
+      return documentPilotResult;
+    };
+    KnowledgeExplorerHub.reduceDocumentPilot = reduceDocumentPilot;
+    let pagePlanReviewItems = [];
+    let documentPlanInventory = null;
+    let documentPlanReviewState = null;
+    let documentPlanContext = null;
+    let documentPlanCompileResult = null;
+    const planSources = (claimIds, inventory) => {
+      const claimById = new Map((inventory?.claims || []).map((claim) => [claim.claim_id, claim]));
+      const citationById = new Map((inventory?.citations || []).map((citation) => [citation.citation_id, citation]));
+      return [...new Set(claimIds.flatMap((claimId) => claimById.get(claimId)?.citation_ids || []))]
+        .flatMap((citationId) => {
+          const citation = citationById.get(citationId);
+          return (citation?.locators || []).map((locator) => ({ source_id: citation.source_id, locator }));
+        });
+    };
+    const planReviewRows = (plan, inventory, compiledDocuments = []) => {
+      const reviewState = plan.status === "approved" || plan.status === "compiled" ? "approved" : "pending";
+      const guideClaimIds = plan.source_guide.sections.flatMap((section) => section.claim_ids);
+      const rows = [{
+        review_id: `plan_guide_${llmWikiHash.sha256(plan.plan_hash).slice(0, 24)}`,
+        plan: true, plan_kind: "source_guide", plan_hash: plan.plan_hash,
+        destination: "none", review_state: reviewState, analysis_state: "complete",
+        title: plan.source_guide.title,
+        summary_points: [
+          plan.source_guide.overview,
+          `${plan.source_guide.sections.length}개 section`,
+          `${plan.source_only_claim_ids.length}개 source-only claim`,
+        ],
+        document_body: [
+          `# ${plan.source_guide.title}`,
+          "",
+          "## 자료 개요",
+          "",
+          plan.source_guide.overview,
+          "",
+          "## 문서 지도",
+          "",
+          ...plan.source_guide.sections.flatMap((section) => [`### ${section.heading}`, "", section.summary, ""]),
+          "## 더 살펴볼 질문",
+          "",
+          ...plan.source_guide.key_questions.map((question) => `- ${question}`),
+        ].join("\n"),
+        sources: planSources(guideClaimIds, inventory),
+        coverage: { complete: true, status: "전체 claim 문서 지도 완료" },
+      }];
+      for (const page of plan.pages) {
+        rows.push({
+          review_id: `plan_${page.page_id.slice(5)}`,
+          plan: true, plan_kind: "topic_page", plan_hash: plan.plan_hash,
+          plan_page_id: page.page_id, plan_selected: page.selected !== false,
+          destination: "none", review_state: reviewState, analysis_state: "complete",
+          operation: page.operation_hint, title: page.title,
+          summary_points: [page.purpose, `${page.claim_ids.length}개 claim`, `${page.evidence_count}개 evidence`],
+          document_body: `# ${page.title}\n\n> ${page.purpose}\n\n## 포함될 핵심 내용\n\n${page.claim_ids.map((claimId) => {
+            const claim = inventory.claims.find((row) => row.claim_id === claimId);
+            return `- ${claim?.text || claimId}`;
+          }).join("\n")}\n`,
+          sources: planSources(page.claim_ids, inventory),
+          coverage: { complete: true, status: "계획 claim coverage 완료" },
+        });
+      }
+      for (const document of compiledDocuments) {
+        const claimIds = (document.claims || []).flatMap((claim) => claim.claim_id && claim.claim_id.startsWith("claim_") ? [claim.claim_id] : claim.derived_from_claim_ids || []);
+        rows.push({
+          review_id: `plan_compiled_${llmWikiHash.sha256(JSON.stringify([plan.plan_hash, document.title, document.body])).slice(0, 24)}`,
+          plan: true, plan_kind: "compiled_document", plan_hash: plan.plan_hash,
+          destination: document.role === "source_summary" ? "literature" : "knowledge_candidate",
+          review_state: "pending", analysis_state: "complete",
+          operation: document.operation_hint, title: document.title,
+          summary_points: [
+            ...(document.verification_flags?.length
+              ? [`최신 검증 필요 · ${document.verification_flags.map((flag) => flag.label).join(" · ")}`]
+              : []),
+            ...(document.role === "source_summary"
+            ? document.sections.map((section) => section.summary || section.heading)
+            : (document.claims || []).map((claim) => claim.text)),
+          ],
+          verification_flags: document.verification_flags || [],
+          document_body: document.body,
+          sources: planSources(claimIds, inventory),
+          coverage: { complete: true, status: "승인 계획 기반 compile 완료" },
+        });
+      }
+      return rows;
+    };
+    const structuredRequest = () => {
+      const service = window.AIProviderService;
+      return service && (service.requestStructuredJsonNoRetry || service.requestStructuredJsonOnce);
+    };
+    const runDocumentPlan = async (sourcePath) => {
+      if (typeof sourcePath !== "string" || !sourcePath.startsWith("INBOX/") || !sourcePath.endsWith(".md")
+        || sourcePath.includes("\\") || sourcePath.split("/").some((part) => !part || part === "." || part === "..")) {
+        return { ok: false, reason: "invalid_plan_source" };
+      }
+      const file = appRef.vault.getAbstractFileByPath(sourcePath);
+      if (!file) return { ok: false, reason: "plan_source_missing" };
+      const extractedText = await appRef.vault.cachedRead(file);
+      const contentHash = llmWikiHash.sha256(extractedText);
+      const sourceId = `source_plan_${llmWikiHash.sha256(sourcePath).slice(0, 24)}`;
+      const source = { source_id: sourceId, source_path: sourcePath, content_hash: contentHash };
+      const analyzed = await runCanonicalBatch({
+        sources: [{ ...source, extracted_text: extractedText }],
+        candidates: [],
+      });
+      if (!analyzed.ok) return analyzed;
+      const draftDocuments = analyzed.proposals.map((proposal) => proposal.document).filter(Boolean);
+      const inventoryResult = window.LLMWikiDocumentReducer.createClaimInventory({ source, documents: draftDocuments });
+      if (!inventoryResult.ok) return inventoryResult;
+      const requestPlan = llmWikiControllerOptions.documentPagePlan || (async (request) => {
+        const requestStructured = structuredRequest();
+        if (!batchIdentity || typeof requestStructured !== "function") throw new Error("page_plan_provider_unavailable");
+        return requestStructured.call(window.AIProviderService, {
+          app: appRef, provider: batchIdentity.provider,
+          prompt: JSON.stringify({
+            task: "Build a concise source guide and a reviewable page plan. The source guide must partition every claim exactly once into 1-16 sections with a short summary. Reusable claims must appear exactly once either in 0-20 topic pages or source_only_claim_ids. New pages need at least two distinct evidence records. Prefer updating an allowlisted existing candidate when it is clearly the same topic. Return claim ids and allowlisted candidate ids only; never return prose documents, paths, or write operations.",
+            request,
+          }),
+          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA,
+          timeoutMs: 120000,
+        });
+      });
+      const planner = window.LLMWikiDocumentReducer.createPagePlanner({
+        allowedCandidateIds: configuredAllowedCandidateIds,
+        requestPlan,
+      });
+      const planned = await planner.plan({ inventory: inventoryResult.value });
+      if (!planned.ok) return planned;
+      documentPlanInventory = inventoryResult.value;
+      documentPlanReviewState = window.LLMWikiPagePlanReviewState.createPagePlanReviewState({ plan: planned.value });
+      documentPlanContext = {
+        source, source_bytes: new TextEncoder().encode(extractedText).length,
+        job_id: analyzed.job_id, batch_id: analyzed.batch_id,
+        map_provider_calls: analyzed.provider_calls, draft_documents: draftDocuments.length,
+      };
+      await batchJobStore.savePlanSnapshot({
+        job_id: analyzed.job_id, source_id: sourceId, source_revision: contentHash,
+        inventory_hash: documentPlanInventory.inventory_hash,
+        plan_hash: planned.value.plan_hash, plan_revision: planned.value.plan_revision,
+        status: "pending_review", plan: planned.value, inventory: documentPlanInventory,
+      });
+      pagePlanReviewItems = planReviewRows(planned.value, documentPlanInventory);
+      documentPlanCompileResult = null;
+      window.__documentPagePlan = planned.value;
+      refreshReviewWorkbench();
+      return {
+        ok: true, status: "pending_review", source_path: sourcePath,
+        source_bytes: documentPlanContext.source_bytes, covered_bytes: documentPlanContext.source_bytes,
+        map_provider_calls: analyzed.provider_calls, plan_provider_calls: 1,
+        inventory_claims: documentPlanInventory.claims.length,
+        pages: planned.value.pages.length, source_sections: planned.value.source_guide.sections.length,
+        source_only_claims: planned.value.source_only_claim_ids.length,
+        plan_hash: planned.value.plan_hash, job_id: analyzed.job_id,
+        existing_review_writes: 0, canonical_writes: 0,
+      };
+    };
+    const dispatchDocumentPlanAction = async (intent) => {
+      if (!documentPlanReviewState || !documentPlanContext) return { ok: false, reason: "page_plan_unavailable" };
+      const result = documentPlanReviewState.dispatch(intent);
+      if (!result.ok) return result;
+      const priorPlanSnapshot = batchJobStore.getPlanSnapshot(documentPlanContext.job_id);
+      await batchJobStore.savePlanSnapshot({
+        job_id: documentPlanContext.job_id,
+        source_id: documentPlanContext.source.source_id,
+        source_revision: documentPlanContext.source.content_hash,
+        inventory_hash: documentPlanInventory.inventory_hash,
+        plan_hash: result.snapshot.plan_hash,
+        plan_revision: Math.max(result.snapshot.plan_revision, Number(priorPlanSnapshot?.plan_revision || 0) + 1),
+        status: result.snapshot.status,
+        plan: result.snapshot,
+        inventory: documentPlanInventory,
+      });
+      if (result.snapshot.status === "pending_review") {
+        documentPlanCompileResult = null;
+        window.__documentPlanCompileResult = null;
+      }
+      window.__documentPagePlan = result.snapshot;
+      pagePlanReviewItems = planReviewRows(result.snapshot, documentPlanInventory, documentPlanCompileResult?.documents || []);
+      refreshReviewWorkbench();
+      return result;
+    };
+    const compileDocumentPlan = async (compileOptions = {}) => {
+      if (!documentPlanReviewState || !documentPlanContext || !documentPlanInventory) return { ok: false, reason: "page_plan_unavailable" };
+      let plan = documentPlanReviewState.getSnapshot();
+      if (plan.status === "pending_review") {
+        const approved = await dispatchDocumentPlanAction({ action: "approve_plan", expected_plan_hash: plan.plan_hash });
+        if (!approved.ok) return approved;
+        plan = approved.snapshot;
+      }
+      if (plan.status !== "approved") return { ok: false, reason: "approved_page_plan_required" };
+      const existingArticles = new Map((documentPlanCompileResult?.documents || [])
+        .filter((document) => document.document_kind === "topic_article")
+        .map((document) => [document.page_id, document]));
+      const localRender = compileOptions.local_render === true && existingArticles.size > 0;
+      const requestArticles = localRender ? async (request) => ({
+        articles: request.pages.map((page) => {
+          const existing = existingArticles.get(page.page_id);
+          if (!existing) throw new Error("compiled_article_snapshot_missing");
+          return {
+            page_id: page.page_id,
+            sections: existing.sections.map((section) => ({
+              heading: section.heading,
+              paragraphs: section.paragraphs.map((paragraph) => ({
+                text: paragraph.text,
+                claim_ids: [...paragraph.claim_ids],
+              })),
+            })),
+          };
+        }),
+      }) : llmWikiControllerOptions.documentArticleCompiler || (async (request) => {
+        const requestStructured = structuredRequest();
+        if (!batchIdentity || typeof requestStructured !== "function") throw new Error("article_provider_unavailable");
+        return requestStructured.call(window.AIProviderService, {
+          app: appRef, provider: batchIdentity.provider,
+          prompt: JSON.stringify({
+            task: "Compile each approved page into coherent sections and paragraphs. Every paragraph must cite one or more provided claim_ids. Use every page claim at least once. Do not add unsupported facts, paths, metadata, or Markdown authority. Return structured article sections only.",
+            request,
+          }),
+          schema: window.LLMWikiDocumentCompiler.ARTICLE_SCHEMA,
+          timeoutMs: 120000,
+        });
+      });
+      const compiler = window.LLMWikiDocumentCompiler.createDocumentCompiler({ requestArticles });
+      const compiled = await compiler.compile({ inventory: documentPlanInventory, approved_plan: plan });
+      if (!compiled.ok) return compiled;
+      const materialized = inboxProposalMaterializer.materializeDocuments({
+        source: documentPlanContext.source,
+        documents: compiled.documents,
+      });
+      if (!materialized.ok) return materialized;
+      documentPlanCompileResult = {
+        ...compiled,
+        proposals: materialized.proposals,
+        holds: materialized.holds,
+        risk_review_activated: false,
+        existing_review_preserved: true,
+      };
+      const priorPlanSnapshot = batchJobStore.getPlanSnapshot(documentPlanContext.job_id);
+      await batchJobStore.savePlanSnapshot({
+        job_id: documentPlanContext.job_id,
+        source_id: documentPlanContext.source.source_id,
+        source_revision: documentPlanContext.source.content_hash,
+        inventory_hash: documentPlanInventory.inventory_hash,
+        plan_hash: plan.plan_hash,
+        plan_revision: Math.max(plan.plan_revision + 1, Number(priorPlanSnapshot?.plan_revision || 0) + 1),
+        status: "compiled",
+        plan,
+        inventory: documentPlanInventory,
+        compiled_documents: compiled.documents,
+        serialized_operations: materialized.proposals.map((proposal) => JSON.stringify(proposal.operation)),
+        holds: materialized.holds,
+      });
+      pagePlanReviewItems = planReviewRows(plan, documentPlanInventory, compiled.documents);
+      window.__documentPlanCompileResult = documentPlanCompileResult;
+      refreshReviewWorkbench();
+      return {
+        ok: true, status: "compiled_preview", documents: compiled.documents.length,
+        proposals: materialized.proposals.length, holds: materialized.holds.length,
+        plan_hash: plan.plan_hash, existing_review_preserved: true,
+        canonical_writes: 0, source_writes: 0,
+      };
+    };
+    const documentPlanSourceOnlyHolds = () => {
+      const sourceOnlyClaimIds = documentPlanReviewState?.getSnapshot()?.source_only_claim_ids || [];
+      return sourceOnlyClaimIds.length ? [{
+        hold_id: `hold_source_only_${llmWikiHash.sha256(sourceOnlyClaimIds.slice().sort().join(":")).slice(0, 24)}`,
+        reason: "source_only_claims_retained",
+        unit_id: documentPlanContext.source.source_id,
+        claim_ids: [...sourceOnlyClaimIds],
+        selected: false,
+      }] : [];
+    };
+    const activateDocumentPlanReview = async () => {
+      if (!documentPlanCompileResult || !documentPlanContext) return { ok: false, reason: "compiled_plan_unavailable" };
+      const activePackets = llmWikiRunController.getSnapshot().risk_packets || [];
+      if (activePackets.length > 0) {
+        return { ok: false, reason: "existing_review_must_resolve_first", existing_packets: activePackets.length, preserved: true };
+      }
+      const proposals = documentPlanCompileResult.proposals || [];
+      if (proposals.length === 0) return { ok: false, reason: "compiled_proposals_unavailable" };
+      const sourceOnlyHolds = documentPlanSourceOnlyHolds();
+      const grouped = window.LLMWikiBatchApprovalAdapter.groupProposalsBySource({
+        source: documentPlanContext.source,
+        materializeResult: {
+          ok: true,
+          proposals,
+          holds: [...(documentPlanCompileResult.holds || []), ...sourceOnlyHolds],
+          para_drafts: [],
+        },
+      });
+      if (!grouped.ok) return grouped;
+      const runId = `run_plan_${llmWikiHash.sha256(proposals.map((proposal) => proposal.operation.operation_id).sort().join(":")).slice(0, 24)}`;
+      const opened = llmWikiRunController.openPreparedRiskReview({ run_id: runId, proposals });
+      if (!opened?.ok) return opened || { ok: false, reason: "risk_review_unavailable" };
+      approvalGroups.set(grouped.value.source_id, grouped.value);
+      const packets = llmWikiRunController.getSnapshot().risk_packets || [];
+      durableRecovery = await batchJobStore.saveRecoverySnapshot({
+        active_tab: "llmwiki",
+        selected_batch_id: documentPlanContext.job_id,
+        review: {
+          run_id: runId,
+          document_contract_version: window.LLMWikiDocumentCompiler.COMPILER_VERSION,
+          selected_operation_ids: [],
+          proposals: packets.map((packet) => ({
+            operation_id: packet.operation.operation_id,
+            packet_id: packet.packet_id,
+            summary: packet.summary,
+            serialized_operation: JSON.stringify(packet.operation),
+            status: "review",
+          })),
+        },
+        operation_outcomes: packets.map((packet) => ({ operation_id: packet.operation.operation_id, status: "review" })),
+        approval_sources: [{
+          source_id: grouped.value.source_id,
+          source_path: grouped.value.source_path,
+          content_hash: grouped.value.content_hash,
+          operation_ids: grouped.value.proposals.map((proposal) => proposal.operation.operation_id),
+          unresolved_holds: grouped.value.holds.length,
+          unresolved_para_drafts: 0,
+        }],
+        archive_receipts: [],
+      });
+      documentPlanCompileResult = { ...documentPlanCompileResult, risk_review_activated: true };
+      llmWikiLifecycle.update(lifecycleSnapshot());
+      refreshReviewWorkbench();
+      return { ok: true, status: "review", packets: packets.length, canonical_writes: 0 };
+    };
+    const prepareDocumentPlanGuideRepair = async () => {
+      if (!documentPlanCompileResult || !documentPlanContext) return { ok: false, reason: "compiled_plan_unavailable" };
+      const materialized = inboxProposalMaterializer.materializeDocuments({
+        source: documentPlanContext.source,
+        documents: documentPlanCompileResult.documents,
+      });
+      if (!materialized.ok) return materialized;
+      const guideCreate = materialized.proposals.find((proposal) => proposal.decision.destination === "literature");
+      if (!guideCreate) return { ok: false, reason: "compiled_guide_unavailable" };
+      const targetPath = guideCreate.operation.destination_ids[0];
+      const file = appRef.vault.getAbstractFileByPath(targetPath);
+      if (!file) return { ok: false, reason: "compiled_guide_target_missing" };
+      const before = await appRef.vault.cachedRead(file);
+      const after = guideCreate.operation.after_bytes[targetPath];
+      if (before === after) return { ok: true, status: "no_change", proposals: 0, canonical_writes: 0 };
+      const beforeRevision = llmWikiHash.sha256(before);
+      const afterRevision = llmWikiHash.sha256(after);
+      const operationId = `operation_${llmWikiHash.sha256(`guide_repair:${targetPath}:${beforeRevision}:${afterRevision}`).slice(0, 24)}`;
+      const parsed = window.LLMWikiOperationContract.parseOperation(JSON.stringify({
+        contract_version: "llmwiki_operation_contract_v1",
+        operation_id: operationId,
+        kind: "update",
+        destination_ids: [targetPath],
+        base_revisions: { [targetPath]: beforeRevision },
+        before_bytes: { [targetPath]: before },
+        after_bytes: { [targetPath]: after },
+        source_citations: guideCreate.operation.source_citations,
+        conflicts: [],
+        risk_tier: "medium",
+        effects: { deprecations: [], supersessions: [] },
+      }));
+      if (!parsed.ok) return parsed;
+      const proposal = Object.freeze({
+        operation: parsed.value,
+        title: "투자일기 Source Guide 링크 복구",
+        class: "update",
+        unit_id: `guide_repair_${operationId.slice(10)}`,
+        selected: false,
+      });
+      const grouped = window.LLMWikiBatchApprovalAdapter.groupProposalsBySource({
+        source: documentPlanContext.source,
+        materializeResult: {
+          ok: true,
+          proposals: [proposal],
+          holds: documentPlanSourceOnlyHolds(),
+          para_drafts: [],
+        },
+      });
+      if (!grouped.ok) return grouped;
+      const runId = `run_plan_repair_${llmWikiHash.sha256(operationId).slice(0, 24)}`;
+      const opened = llmWikiRunController.openPreparedRiskReview({ run_id: runId, proposals: [proposal] });
+      if (!opened?.ok) return opened || { ok: false, reason: "risk_review_unavailable" };
+      approvalGroups.clear();
+      approvalGroups.set(grouped.value.source_id, grouped.value);
+      const packet = (llmWikiRunController.getSnapshot().risk_packets || [])[0];
+      durableRecovery = await batchJobStore.saveRecoverySnapshot({
+        active_tab: "llmwiki",
+        selected_batch_id: documentPlanContext.job_id,
+        review: {
+          run_id: runId,
+          document_contract_version: window.LLMWikiDocumentCompiler.COMPILER_VERSION,
+          selected_operation_ids: [],
+          proposals: [{
+            operation_id: packet.operation.operation_id,
+            packet_id: packet.packet_id,
+            summary: packet.summary,
+            serialized_operation: JSON.stringify(packet.operation),
+            status: "review",
+          }],
+        },
+        operation_outcomes: [{ operation_id: packet.operation.operation_id, status: "review" }],
+        approval_sources: [{
+          source_id: grouped.value.source_id,
+          source_path: grouped.value.source_path,
+          content_hash: grouped.value.content_hash,
+          operation_ids: [packet.operation.operation_id],
+          unresolved_holds: grouped.value.holds.length,
+          unresolved_para_drafts: 0,
+        }],
+        archive_receipts: [],
+      });
+      llmWikiLifecycle.update(lifecycleSnapshot());
+      refreshReviewWorkbench();
+      return {
+        ok: true,
+        status: "review",
+        proposals: 1,
+        packet_id: packet.packet_id,
+        operation_id: packet.operation.operation_id,
+        destination: targetPath,
+        before_revision: beforeRevision,
+        after_revision: afterRevision,
+        canonical_writes: 0,
+      };
+    };
+    KnowledgeExplorerHub.runDocumentPlan = runDocumentPlan;
+    KnowledgeExplorerHub.dispatchDocumentPlanAction = dispatchDocumentPlanAction;
+    KnowledgeExplorerHub.assignDocumentPlanCandidate = (input) => {
+      if (!configuredAllowedCandidateIds.includes(input?.candidate_id)) return { ok: false, reason: "candidate_id_not_allowed" };
+      return dispatchDocumentPlanAction({
+        action: "assign_candidate",
+        page_id: input.page_id,
+        candidate_id: input.candidate_id,
+        expected_plan_hash: input.expected_plan_hash,
+      });
+    };
+    KnowledgeExplorerHub.compileDocumentPlan = compileDocumentPlan;
+    KnowledgeExplorerHub.rerenderDocumentPlan = () => compileDocumentPlan({ local_render: true });
+    KnowledgeExplorerHub.activateDocumentPlanReview = activateDocumentPlanReview;
+    KnowledgeExplorerHub.prepareDocumentPlanGuideRepair = prepareDocumentPlanGuideRepair;
+    KnowledgeExplorerHub.documentPlanSnapshot = () => documentPlanReviewState
+      ? JSON.parse(JSON.stringify(documentPlanReviewState.getSnapshot())) : null;
+    KnowledgeExplorerHub.documentPlanCompileSnapshot = () => documentPlanCompileResult
+      ? JSON.parse(JSON.stringify(documentPlanCompileResult)) : null;
+    KnowledgeExplorerHub.queryDocumentPlanSourceOnly = (query) => {
+      if (!documentPlanReviewState || !documentPlanInventory) return { ok: false, reason: "page_plan_unavailable", writer_count: 0 };
+      return window.LLMWikiPagePlanFeedback.querySourceOnly({
+        inventory: documentPlanInventory,
+        plan: documentPlanReviewState.getSnapshot(),
+        query,
+      });
+    };
+    KnowledgeExplorerHub.promoteDocumentPlanQuery = async (input) => {
+      if (!documentPlanReviewState || !documentPlanInventory || !documentPlanContext) return { ok: false, reason: "page_plan_unavailable" };
+      const promoted = window.LLMWikiPagePlanFeedback.promoteQueryResult({
+        inventory: documentPlanInventory,
+        plan: documentPlanReviewState.getSnapshot(),
+        ...input,
+      });
+      if (!promoted.ok) return promoted;
+      documentPlanReviewState = window.LLMWikiPagePlanReviewState.createPagePlanReviewState({ plan: promoted.value });
+      const priorPlanSnapshot = batchJobStore.getPlanSnapshot(documentPlanContext.job_id);
+      await batchJobStore.savePlanSnapshot({
+        job_id: documentPlanContext.job_id,
+        source_id: documentPlanContext.source.source_id,
+        source_revision: documentPlanContext.source.content_hash,
+        inventory_hash: documentPlanInventory.inventory_hash,
+        plan_hash: promoted.value.plan_hash,
+        plan_revision: Math.max(promoted.value.plan_revision, Number(priorPlanSnapshot?.plan_revision || 0) + 1),
+        status: promoted.value.status,
+        plan: promoted.value,
+        inventory: documentPlanInventory,
+      });
+      pagePlanReviewItems = planReviewRows(promoted.value, documentPlanInventory);
+      refreshReviewWorkbench();
+      return promoted;
+    };
+    KnowledgeExplorerHub.lintDocumentPlan = () => {
+      if (!documentPlanReviewState || !documentPlanInventory) return { ok: false, reason: "page_plan_unavailable", writer_count: 0 };
+      return window.LLMWikiPagePlanFeedback.lintPlan({
+        inventory: documentPlanInventory,
+        plan: documentPlanReviewState.getSnapshot(),
+      });
+    };
+    const retainedPlanSnapshot = Object.values(batchJobState.plans || {})
+      .filter((snapshot) => snapshot?.plan?.plan_version === window.LLMWikiDocumentReducer.PAGE_PLAN_VERSION && snapshot?.inventory)
+      .sort((left, right) => {
+        const leftPending = left.status === "pending_review" ? 1 : 0;
+        const rightPending = right.status === "pending_review" ? 1 : 0;
+        return rightPending - leftPending || right.plan_revision - left.plan_revision;
+      })[0] || null;
+    if (retainedPlanSnapshot) {
+      documentPlanInventory = retainedPlanSnapshot.inventory;
+      documentPlanReviewState = window.LLMWikiPagePlanReviewState.createPagePlanReviewState({ plan: retainedPlanSnapshot.plan });
+      documentPlanContext = {
+        source: retainedPlanSnapshot.plan.source,
+        source_bytes: 0,
+        job_id: retainedPlanSnapshot.job_id,
+        batch_id: retainedPlanSnapshot.job_id,
+        map_provider_calls: 0,
+        draft_documents: 0,
+      };
+      const restoredDocuments = Array.isArray(retainedPlanSnapshot.compiled_documents) ? retainedPlanSnapshot.compiled_documents : [];
+      const restoredMaterialized = restoredDocuments.length
+        ? inboxProposalMaterializer.materializeDocuments({
+          source: retainedPlanSnapshot.plan.source,
+          documents: restoredDocuments,
+        })
+        : null;
+      documentPlanCompileResult = restoredDocuments.length ? {
+        ok: true,
+        documents: restoredDocuments,
+        proposals: restoredMaterialized?.ok ? restoredMaterialized.proposals : [],
+        holds: restoredMaterialized?.ok ? restoredMaterialized.holds : retainedPlanSnapshot.holds || [],
+        restored: true,
+        provider_calls: 0,
+        existing_review_preserved: true,
+      } : null;
+      pagePlanReviewItems = planReviewRows(retainedPlanSnapshot.plan, documentPlanInventory, restoredDocuments);
+      window.__documentPagePlan = retainedPlanSnapshot.plan;
+      if (documentPlanCompileResult) window.__documentPlanCompileResult = documentPlanCompileResult;
+    }
+    KnowledgeExplorerHub.documentPilotSnapshot = () => documentPilotResult ? JSON.parse(JSON.stringify(documentPilotResult)) : null;
+    KnowledgeExplorerHub.documentPilotCheckpoint = () => documentPilotCheckpoint ? {
+      source_path: documentPilotCheckpoint.source_path,
+      completed_packs: documentPilotCheckpoint.next_pack_index,
+      provider_calls: documentPilotCheckpoint.provider_calls,
+      artifacts: documentPilotCheckpoint.artifacts.length,
+    } : null;
     const DOCUMENT_REVIEW_CONTRACT = window.LLMWikiDocumentAssembler.CONTRACT_VERSION;
+    const DOCUMENT_PLAN_REVIEW_CONTRACT = window.LLMWikiDocumentCompiler.COMPILER_VERSION;
     const repacketLegacyDocumentReview = async () => {
-      if (!durableRecovery?.review?.proposals?.length || durableRecovery.review.document_contract_version === DOCUMENT_REVIEW_CONTRACT) {
+      if (!durableRecovery?.review?.proposals?.length
+        || [DOCUMENT_REVIEW_CONTRACT, DOCUMENT_PLAN_REVIEW_CONTRACT].includes(durableRecovery.review.document_contract_version)) {
         return { ok: true, status: "not_required", provider_calls: 0 };
+      }
+      if (DOCUMENT_REVIEW_CONTRACT === "llmwiki_document_assembler_v2"
+        && durableRecovery.review.document_contract_version === "llmwiki_document_assembler_v1") {
+        return {
+          ok: true, status: "pilot_contract_pending", provider_calls: 0,
+          prior_proposals: durableRecovery.review.proposals.length,
+          preserved_document_contract_version: durableRecovery.review.document_contract_version || null,
+        };
       }
       if (durableRecovery.operation_outcomes.some((row) => ["committed", "duplicate"].includes(row.status))) {
         return { ok: false, status: "blocked", reason: "legacy_partial_apply_requires_manual_recovery", provider_calls: 0 };
@@ -1232,6 +1965,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           });
           const documentClaims = proposal && proposal.document && Array.isArray(proposal.document.claims)
             ? proposal.document.claims : restoredClaimTexts.map((text) => ({ text }));
+          const summaryPoints = documentClaims.map((claim) => String(claim.text || "").trim()).filter(Boolean);
+          const documentBody = destinations.map((destinationPath) => String(packet.operation.after_bytes && packet.operation.after_bytes[destinationPath] || "")).find(Boolean) || "";
           const claims = documentClaims
             .map((claim, index) => ({
               claim_id: `claim_${index + 1}`,
@@ -1243,6 +1978,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           return {
             review_id: packet.packet_id, destination, review_state: "pending", analysis_state: "complete",
             title: packet.summary || "지식 문서 검토", sources,
+            summary_points: summaryPoints,
+            document_body: documentBody,
+            target_path: destinations[0] || "",
             claim_set: { claims, citations, disputes: [] },
             coverage: { complete: sources.length > 0, status: sources.length > 0 ? "완료" : "확인 필요" },
           };
@@ -1252,7 +1990,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         .map((proposal) => ({ review_id: proposal.handoff_id, destination: "para_object", review_state: "pending", analysis_state: "complete", title: proposal.text || proposal.knowledge && proposal.knowledge.path || "PARA 전달", object_handoff: { handoff_id: proposal.handoff_id, target_path: proposal.target.path, target_revision: proposal.before && proposal.before.revision || "", before_bytes: proposal.before && proposal.before.bytes || "", before_diff: proposal.text ? [{ kind: "add", line: proposal.text }] : proposal.knowledge && proposal.knowledge.link ? [{ kind: "add", line: proposal.knowledge.link }] : [] } })) : [];
       const queued = inboxState && ["queued", "analyzing"].includes(inboxState.state) && /^[a-z][a-z0-9_-]{2,127}$/u.test(String(inboxState.source_id || ""))
         ? [{ review_id: inboxState.source_id, destination: "none", review_state: "pending", analysis_state: inboxState.state === "analyzing" ? "running" : "queued", title: inboxState.current_title || "분석 대기" }] : [];
-      return [...configured, ...fleetingRows, ...candidateRows, ...packetRows, ...objectRows, ...queued].filter((item, index, rows) => item && typeof item.review_id === "string" && /^[a-z][a-z0-9_-]{2,127}$/u.test(item.review_id) && rows.findIndex((row) => row && row.review_id === item.review_id) === index);
+      return [...pagePlanReviewItems, ...configured, ...fleetingRows, ...candidateRows, ...packetRows, ...objectRows, ...queued].filter((item, index, rows) => item && typeof item.review_id === "string" && /^[a-z][a-z0-9_-]{2,127}$/u.test(item.review_id) && rows.findIndex((row) => row && row.review_id === item.review_id) === index);
     };
     let llmWikiLifecycle;
     let knowledgeReviewWorkbench = null;
@@ -1263,6 +2001,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (userAction !== window.LLMWikiBatchApprovalAdapter.EXPLICIT_ACTION || !durableRecovery?.review) return { ok: false, reason: "explicit_user_approval_required", status: "review" };
       const outcomeById = new Map(durableRecovery.operation_outcomes.map((row) => [row.operation_id, row]));
       if (selectedOperationIds.every((id) => ["committed", "duplicate"].includes(outcomeById.get(id)?.status))) return { ok: true, status: "duplicate", write_counts: { canonical: 0, audit: 0, source: 0 }, results: [] };
+      restoreDurableApprovalGroups();
       const allResults = [];
       const archiveReceipts = [...(durableRecovery.archive_receipts || [])];
       let canonicalWrites = 0;
@@ -1376,6 +2115,17 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         const outcomes = durableRecovery.operation_outcomes.map((row) => row.operation_id === affectedOperationId ? { operation_id: row.operation_id, status: "review", action: "retry" } : row);
         durableRecovery = await batchJobStore.saveRecoverySnapshot({ ...durableRecovery, review: { ...durableRecovery.review, selected_operation_ids: durableRecovery.review.selected_operation_ids.filter((id) => id !== affectedOperationId), proposals }, operation_outcomes: outcomes });
       }
+      if (durableRecovery?.review && response?.ok === true && intent.action === "reject_risk") {
+        const outcomes = durableRecovery.operation_outcomes.map((row) => ["committed", "duplicate"].includes(row.status)
+          ? row
+          : { ...row, status: "rejected", reason: "user_rejected" });
+        durableRecovery = await batchJobStore.saveRecoverySnapshot({
+          ...durableRecovery,
+          review: { ...durableRecovery.review, selected_operation_ids: [], proposals: [] },
+          operation_outcomes: outcomes,
+          approval_sources: [],
+        });
+      }
       persistLlmWikiSessionView();
       KnowledgeExplorerHub.lastLlmWikiAction = { intent, response };
       llmWikiLifecycle.update(lifecycleSnapshot());
@@ -1424,6 +2174,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       container: reviewWorkbenchMount,
       items: reviewItems(),
       onOpenSource: (source) => P.openBeside(appRef, String(source.locator || "").split("#")[0]),
+      onPlanToggle: (item) => dispatchDocumentPlanAction({
+        action: "toggle_page",
+        page_id: item.plan_page_id,
+        expected_plan_hash: item.plan_hash,
+      }),
+      onPlanApprove: () => compileDocumentPlan(),
       actions: {
         onSaveThought: ({ text, sources }) => window.KnowledgeFleetingStore.saveThought(appRef, { text, sources }),
         onCompleteFromCache: () => ({ ok: true, provider_count: 0 }),

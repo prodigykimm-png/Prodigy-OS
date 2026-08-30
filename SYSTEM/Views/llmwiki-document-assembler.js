@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const CONTRACT_VERSION = "llmwiki_document_assembler_v1";
+  const CONTRACT_VERSION = "llmwiki_document_assembler_v2";
   const ROLES = new Set(["source_summary", "reusable_claim"]);
   const TOKEN = /[가-힣a-z0-9]{2,}/giu;
   const STOPWORDS = new Set(["대한", "위한", "한다", "있다", "해당", "그리고", "또는", "에서", "으로", "자료"]);
@@ -45,10 +45,22 @@
       confidence: span ? "explicit" : "inferred",
     });
   }
-  function renderDocument(title, claims, citations) {
-    const claimLines = claims.map((claim) => `- ${claim.text}`).join("\n");
+  function topicSimilarity(left, right) {
+    const leftTokens = tokens(left);
+    const rightTokens = tokens(right);
+    if (leftTokens.size === 0 || rightTokens.size === 0) return 0;
+    let hits = 0;
+    for (const token of leftTokens) if (rightTokens.has(token)) hits += 1;
+    return hits / Math.min(leftTokens.size, rightTokens.size);
+  }
+  function renderDocument(title, role, sections, claims, citations) {
+    const content = role === "source_summary"
+      ? `## 주제별 내용\n\n${sections.map((section) => `### ${section.heading}\n\n${section.claims.map((claim) => `- ${claim.text}`).join("\n")}`).join("\n\n")}`
+      : `## 핵심 내용\n\n${claims.map((claim) => `- ${claim.text}`).join("\n")}`;
+    const quotes = unique(citations.map((row) => clean(row.evidence_quote)).filter(Boolean));
+    const quoteLines = quotes.map((quote) => `> ${quote}`).join("\n\n");
     const sourceLines = unique(citations.flatMap((row) => row.locators.slice(-1))).map((locator) => `- ${locator}`).join("\n");
-    return `# ${title}\n\n## 핵심 내용\n\n${claimLines}\n\n## 출처\n\n${sourceLines}\n`;
+    return `# ${title}\n\n${content}\n\n## 근거 발췌\n\n${quoteLines}\n\n## 출처\n\n${sourceLines}\n`;
   }
   function matchCanonical(claims, rows) {
     let best = null;
@@ -90,7 +102,7 @@
         return freeze({ ok: false, reason: "invalid_document_source" });
       }
 
-      const groups = new Map();
+      const groups = [];
       const holds = [];
       for (const artifact of input.artifacts) {
         if (!plain(artifact) || !Array.isArray(artifact.items)) return freeze({ ok: false, reason: "invalid_document_artifact" });
@@ -107,33 +119,51 @@
             continue;
           }
           const related = unique((Array.isArray(item.related_candidate_ids) ? item.related_candidate_ids : []).filter((id) => typeof id === "string")).sort();
-          const key = item.role === "source_summary" ? "source_summary" : `reusable_claim:${related.join("|") || "new"}`;
-          const group = groups.get(key) || { role: item.role, related_candidate_ids: related, claims: [], citations: [], review_reasons: [] };
+          const fallbackTopic = item.role === "source_summary" ? "전체 개요" : sourceTitle(source.source_path);
+          const topic = clean(item.topic) || fallbackTopic;
+          let group = item.role === "source_summary"
+            ? groups.find((row) => row.role === "source_summary")
+            : groups.find((row) => row.role === "reusable_claim"
+              && row.related_candidate_ids.join("|") === related.join("|")
+              && topicSimilarity(row.title, topic) >= 0.6);
+          if (!group) {
+            group = { role: item.role, title: topic, related_candidate_ids: related, claims: [], citations: [], review_reasons: [], sections: new Map() };
+            groups.push(group);
+          }
           group.review_reasons = unique([
             ...group.review_reasons,
             ...(Array.isArray(item.review_reasons) ? item.review_reasons.map(clean).filter(Boolean) : []),
           ]);
+          const sectionHeading = group.role === "source_summary" ? topic : group.title;
+          const sectionClaims = group.sections.get(sectionHeading) || [];
           for (const text of itemClaims) {
             if (!group.claims.some((claim) => clean(claim.text).toLowerCase() === text.toLowerCase())) {
-              group.claims.push(freeze({ text }));
-              group.citations.push(citation(source, item));
+              const claim = freeze({ text });
+              group.claims.push(claim);
+              sectionClaims.push(claim);
             }
           }
-          groups.set(key, group);
+          group.sections.set(sectionHeading, sectionClaims);
+          const itemCitation = citation(source, item);
+          if (!group.citations.some((row) => row.evidence_quote === itemCitation.evidence_quote && row.locators.join("|") === itemCitation.locators.join("|"))) {
+            group.citations.push(itemCitation);
+          }
         }
       }
 
       const documents = [];
       const noChanges = [];
       const baseTitle = sourceTitle(source.source_path);
-      for (const group of groups.values()) {
-        const title = group.role === "source_summary" ? `${baseTitle} 자료 요약` : baseTitle;
+      for (const group of groups) {
+        const title = group.role === "source_summary" ? `${baseTitle} 자료 해설` : group.title || baseTitle;
+        const sections = [...group.sections.entries()].map(([heading, sectionClaims]) => freeze({ heading, claims: sectionClaims }));
         const canonical = group.role === "reusable_claim" ? matchCanonical(group.claims, canonicalDocuments) : null;
         if (canonical) {
           noChanges.push(freeze({
             contract_version: CONTRACT_VERSION,
             role: group.role,
             title,
+            sections,
             claims: group.claims,
             citations: group.citations,
             review_reasons: group.review_reasons,
@@ -152,13 +182,14 @@
           contract_version: CONTRACT_VERSION,
           role: group.role,
           title,
+          sections,
           claims: group.claims,
           citations: group.citations,
           review_reasons: group.review_reasons,
           related_candidate_ids: group.related_candidate_ids,
           matched_candidate_ids: matchedCandidateIds,
           operation_hint: operationHint,
-          body: renderDocument(title, group.claims, group.citations),
+          body: renderDocument(title, group.role, sections, group.claims, group.citations),
         }));
       }
 
@@ -168,7 +199,7 @@
     return freeze({ assemble });
   }
 
-  const api = freeze({ CONTRACT_VERSION, createDocumentAssembler });
+  const api = freeze({ CONTRACT_VERSION, renderDocument, createDocumentAssembler });
   root.LLMWikiDocumentAssembler = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

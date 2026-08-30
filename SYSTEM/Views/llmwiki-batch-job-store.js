@@ -4,8 +4,9 @@
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
   const DEFAULT_DIR = "SYSTEM/CACHE/llmwiki";
   const STATE_FILE = "batch-job-state.json";
-  const SCHEMA_VERSION = 2;
+  const SCHEMA_VERSION = 3;
   const STATES = Object.freeze(["pending", "running", "review_ready", "resolved", "blocked", "outcome_unknown"]);
+  const PLAN_STATES = Object.freeze(["pending_review", "approved", "revision_requested", "compiled", "cancelled"]);
   const HASH = /^[0-9a-f]{64}$/u;
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
@@ -16,21 +17,25 @@
     return value;
   }
   function sorted(values) { return [...values].sort(); }
-  function empty() { return { schema_version: SCHEMA_VERSION, jobs: {}, packs: {}, legacy: [], recovery: null }; }
+  function empty() { return { schema_version: SCHEMA_VERSION, jobs: {}, packs: {}, plans: {}, legacy: [], recovery: null }; }
   function jsonClone(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
 
   function parse(text) {
     let parsed;
     try { parsed = JSON.parse(text); } catch (_error) { return null; }
-    if (plain(parsed) && parsed.schema_version === 1 && plain(parsed.jobs) && plain(parsed.packs) && Array.isArray(parsed.legacy)) {
-      parsed = { ...parsed, schema_version: SCHEMA_VERSION, recovery: null };
+    if (plain(parsed) && [1, 2].includes(parsed.schema_version) && plain(parsed.jobs) && plain(parsed.packs) && Array.isArray(parsed.legacy)) {
+      parsed = { ...parsed, schema_version: SCHEMA_VERSION, plans: plain(parsed.plans) ? parsed.plans : {}, recovery: parsed.schema_version === 1 ? null : parsed.recovery ?? null };
     }
-    if (!plain(parsed) || parsed.schema_version !== SCHEMA_VERSION || !plain(parsed.jobs) || !plain(parsed.packs) || !Array.isArray(parsed.legacy) || !(parsed.recovery === null || validRecovery(parsed.recovery))) return null;
+    if (!plain(parsed) || parsed.schema_version !== SCHEMA_VERSION || !plain(parsed.jobs) || !plain(parsed.packs) || !plain(parsed.plans)
+      || !Array.isArray(parsed.legacy) || !(parsed.recovery === null || validRecovery(parsed.recovery))) return null;
     for (const job of Object.values(parsed.jobs)) {
       if (!validJob(job)) return null;
     }
     for (const pack of Object.values(parsed.packs)) {
       if (!validPack(pack)) return null;
+    }
+    for (const [jobId, snapshot] of Object.entries(parsed.plans)) {
+      if (jobId !== snapshot?.job_id || !validPlanSnapshot(snapshot)) return null;
     }
     if (parsed.legacy.some((entry) => !plain(entry) || typeof entry.proposal_id !== "string")) return null;
     return parsed;
@@ -62,6 +67,12 @@
   function validPack(pack) {
     return plain(pack) && HASH.test(pack.pack_id) && HASH.test(pack.job_id) && HASH.test(pack.pack_hash)
       && Number.isSafeInteger(pack.received_at) && (pack.historical !== true || pack.artifact_hash === null);
+  }
+  function validPlanSnapshot(snapshot) {
+    return plain(snapshot) && HASH.test(snapshot.job_id) && typeof snapshot.source_id === "string" && snapshot.source_id.length > 0
+      && HASH.test(snapshot.source_revision) && HASH.test(snapshot.inventory_hash) && HASH.test(snapshot.plan_hash)
+      && Number.isSafeInteger(snapshot.plan_revision) && snapshot.plan_revision > 0
+      && PLAN_STATES.includes(snapshot.status) && plain(snapshot.plan);
   }
 
   function createNodeStorage(dir) {
@@ -131,6 +142,10 @@
     }
 
     function getJob(jobId) { return state?.jobs[jobId] || null; }
+    function getPlanSnapshot(jobId) {
+      const snapshot = state?.plans?.[jobId];
+      return snapshot ? freeze(jsonClone(snapshot)) : null;
+    }
     async function findRetryParent(sources) {
       validSourceRows(sources);
       await load();
@@ -141,6 +156,7 @@
     return freeze({
       load,
       getJob,
+      getPlanSnapshot,
       findRetryParent,
       async createJob(input) {
         if (!plain(input) || !HASH.test(input.request_key)) throw new TypeError("invalid_job_input");
@@ -166,6 +182,35 @@
           if (!job) throw new Error("unknown_job");
           state.jobs[jobId] = freeze({ ...job, status: nextStatus });
         });
+      },
+      async savePlanSnapshot(snapshot) {
+        const copy = jsonClone(snapshot);
+        if (!validPlanSnapshot(copy)) throw new TypeError("invalid_plan_snapshot");
+        let result = null;
+        await mutate(() => {
+          const job = state.jobs[copy.job_id];
+          if (!job) throw new Error("unknown_job");
+          if (job.sources[copy.source_id] !== copy.source_revision) throw new Error("plan_source_revision_mismatch");
+          const prior = state.plans[copy.job_id];
+          if (prior) {
+            if (stablePlan(prior) === stablePlan(copy)) { result = prior; return; }
+            if (copy.plan_revision <= prior.plan_revision) throw new Error("plan_revision_not_monotonic");
+            if (copy.inventory_hash !== prior.inventory_hash) throw new Error("plan_inventory_changed");
+          }
+          state.plans[copy.job_id] = freeze(copy);
+          result = state.plans[copy.job_id];
+        });
+        return freeze(jsonClone(result));
+      },
+      async setPlanStatus(jobId, expectedPlanHash, nextStatus) {
+        if (!HASH.test(jobId || "") || !HASH.test(expectedPlanHash || "") || !PLAN_STATES.includes(nextStatus)) throw new TypeError("invalid_plan_status");
+        await mutate(() => {
+          const prior = state.plans[jobId];
+          if (!prior) throw new Error("plan_snapshot_unavailable");
+          if (prior.plan_hash !== expectedPlanHash) throw new Error("stale_plan_snapshot");
+          state.plans[jobId] = freeze({ ...prior, status: nextStatus });
+        });
+        return getPlanSnapshot(jobId);
       },
       async recordPackReceipt(receipt) {
         if (!plain(receipt) || !HASH.test(receipt.job_id) || !HASH.test(receipt.pack_id) || typeof receipt.pack_hash !== "string" || !receipt.pack_hash) throw new TypeError("invalid_receipt");
@@ -257,6 +302,7 @@
   }
 
   function sha(value) { return hashApi.sha256(value); }
+  function stablePlan(value) { return JSON.stringify(value); }
   function stableSources(sources) { return JSON.stringify(Object.keys(sources).sort().map((key) => `${key}:${sources[key]}`)); }
   function validSourceRows(rows) {
     if (!Array.isArray(rows) || rows.length === 0) throw new TypeError("invalid_batch_sources");
@@ -280,7 +326,7 @@
     return sha(fields.map((field) => identityValue[field]).join("|"));
   }
 
-  const api = Object.freeze({ DEFAULT_DIR, STATE_FILE, SCHEMA_VERSION, STATES, requestKey, packId, batchId: batchIdFor, createNodeStorage, createBatchJobStore });
+  const api = Object.freeze({ DEFAULT_DIR, STATE_FILE, SCHEMA_VERSION, STATES, PLAN_STATES, requestKey, packId, batchId: batchIdFor, createNodeStorage, createBatchJobStore });
   root.LLMWikiBatchJobStore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

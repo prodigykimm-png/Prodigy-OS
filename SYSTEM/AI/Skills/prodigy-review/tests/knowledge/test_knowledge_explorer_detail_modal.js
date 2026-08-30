@@ -15,6 +15,8 @@ function detail() {
     destination: "canonical_knowledge",
     review_state: "pending",
     title: "검증 가능한 주장",
+    summary_points: ["근거 주장", "해석 주장"],
+    document_body: "# 검증 가능한 주장\n\n## 핵심 내용\n\n- 근거 주장\n- 해석 주장\n\n## 출처\n\n- ZETA/LITERATURE/source.md#anchor\n",
     sources: [{ source_id: "source_001", locator: "ZETA/LITERATURE/source.md#anchor", url: "https://example.test/source" }],
     claim_set: {
       claims: [
@@ -55,7 +57,7 @@ test("renders provenance fields in a one-scroll-owner read-only modal and does n
   detailModal.open(detail(), invoker);
   detailModal.update(detail());
   const fields = walk(modal.contentEl, (node) => node.getAttribute && node.getAttribute("data-review-field") !== null).map((node) => node.getAttribute("data-review-field"));
-  assert.deepEqual(fields.sort(), ["acceptance", "ai_labels", "contradictions", "corrections", "coverage", "derivation", "history", "origins", "sources", "support"].sort());
+  assert.deepEqual(fields.sort(), ["acceptance", "ai_labels", "contradictions", "corrections", "coverage", "derivation", "document", "history", "origins", "sources", "summary", "support"].sort());
   assert.equal(walk(modal.contentEl, (node) => node.getAttribute && node.getAttribute("data-scroll-owner") === "knowledge-review-detail").length, 1);
   const title = walk(modal.contentEl, (node) => node.getAttribute && node.getAttribute("id") === "knowledge-review-detail-title")[0];
   const scroll = walk(modal.contentEl, (node) => node.getAttribute && node.getAttribute("id") === "knowledge-review-detail-scroll")[0];
@@ -65,7 +67,10 @@ test("renders provenance fields in a one-scroll-owner read-only modal and does n
   assert.equal(sourceButtons.length, 1);
   assert.equal(sourceButtons[0].parentElement.tagName, "LI");
   assert.equal(walk(modal.contentEl, (node) => node.textContent === "ZETA/LITERATURE/source.md#anchor").length, 1);
-  assert.equal(walk(modal.contentEl, (node) => node.textContent === "근거 주장").length, 1);
+  const summaryField = walk(modal.contentEl, (node) => node.getAttribute && node.getAttribute("data-review-field") === "summary")[0];
+  assert.equal(walk(summaryField, (node) => node.tagName === "LI" && node.textContent === "근거 주장").length, 1);
+  assert.equal(walk(modal.contentEl, (node) => node.textContent === "생성 문서 전체").length, 1);
+  assert.equal(walk(modal.contentEl, (node) => node.tagName === "PRE" && /## 핵심 내용/u.test(node.textContent)).length, 1);
   assert.equal(sourceButtons[0].onclick, undefined);
   const article = modal.contentEl.querySelector("article");
   assert.equal(typeof article.onclick, "function");

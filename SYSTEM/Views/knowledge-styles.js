@@ -277,6 +277,9 @@
       .knowledge-review-workbench__group output { color: var(--text-muted); }
       .knowledge-review-workbench__group article { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ke-space-2, 8px); min-inline-size: 0; padding-block: var(--ke-space-2, 8px); border-block-start: 1px solid var(--ke-color-border, var(--background-modifier-border)); }
       .knowledge-review-workbench__group article strong, .knowledge-review-workbench__group article code { flex: 1 1 14rem; min-inline-size: 0; overflow-wrap: anywhere; word-break: keep-all; }
+      .knowledge-review-workbench__summary { display: grid; flex: 1 1 100%; gap: var(--ke-space-1, 4px); min-inline-size: 0; padding: var(--ke-space-2, 8px) var(--ke-space-3, 12px); background: var(--ke-color-surface-secondary, var(--background-secondary)); }
+      .knowledge-review-workbench__summary-label { color: var(--ke-color-muted, var(--text-muted)); font-size: var(--ke-type-label, .72rem); font-weight: 600; }
+      .knowledge-review-workbench__summary p { margin: 0; color: var(--ke-color-text, var(--text-normal)); line-height: var(--ke-leading-body, 1.45); overflow-wrap: anywhere; word-break: keep-all; }
       .knowledge-review-workbench__group details { flex: 1 1 100%; min-inline-size: 0; }
       .knowledge-review-detail-modal__dialog {
         display: flex; flex-direction: column;
@@ -309,6 +312,7 @@
       .knowledge-review-detail-modal__scroll button { inline-size: 100%; white-space: normal; text-align: start; }
       .knowledge-review-detail-modal__scroll ul { margin: 0; padding-inline-start: var(--ke-space-5, 24px); }
       .knowledge-review-detail-modal__scroll li { overflow-wrap: anywhere; word-break: keep-all; }
+      .knowledge-review-detail-modal__scroll pre { margin: 0; max-inline-size: 100%; padding: var(--ke-space-3, 12px); overflow-x: hidden; white-space: pre-wrap; overflow-wrap: anywhere; word-break: keep-all; background: var(--ke-color-surface-secondary, var(--background-secondary)); font-family: var(--font-monospace); }
       .knowledge-review-detail-modal__content > article > footer { display: flex; justify-content: flex-end; padding: var(--ke-space-3, 12px) var(--ke-space-5, 24px); border-block-start: 1px solid var(--ke-color-border, var(--background-modifier-border)); background: var(--ke-color-surface, var(--background-primary)); }
 
       .knowledge-explorer-shell { display: grid; gap: var(--ke-space-4); }

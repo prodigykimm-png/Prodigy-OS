@@ -3,16 +3,12 @@
 
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
   const evidenceAnchor = root.LLMWikiEvidenceAnchor || (typeof require === "function" ? require("./llmwiki-evidence-anchor.js") : null);
+  const evidenceCandidatesApi = root.LLMWikiEvidenceCandidates || (typeof require === "function" ? require("./llmwiki-evidence-candidates.js") : null);
   const inputApi = root.LLMWikiBatchProviderInput || (typeof require === "function" ? require("./llmwiki-batch-provider-input.js") : null);
-  if (!inputApi) throw new Error("LLMWikiBatchProviderInput is required.");
+  if (!inputApi || !evidenceCandidatesApi) throw new Error("LLMWiki batch provider dependencies are required.");
 
-  const MAX_CHUNKS_PER_PACK = 4;
-  const MAX_ITEMS_PER_RESULT = 8;
-  const MAX_CLAIMS = 8;
-  const MAX_REVIEW_REASONS = 4;
-  const MAX_QUOTE_BYTES = 2048;
-  const MAX_CLAIM_BYTES = 1200;
-  const MAX_REASON_BYTES = 240;
+  const MAX_CHUNKS_PER_PACK = 4, MAX_ITEMS_PER_RESULT = 8, MAX_CLAIMS = 8, MAX_REVIEW_REASONS = 4;
+  const MAX_TOPIC_BYTES = 480, MAX_QUOTE_BYTES = 2048, MAX_CLAIM_BYTES = 1200, MAX_REASON_BYTES = 240;
   const MAX_RELATED_CANDIDATE_IDS = 8, MAX_CANDIDATE_ID_BYTES = 69;
   const MAX_RESPONSE_BYTES = 512 * 1024, CANDIDATE_ID_PATTERN = "^cand_[a-zA-Z0-9_-]{1,64}$", CANDIDATE_ID = new RegExp(CANDIDATE_ID_PATTERN, "u");
   const SEMANTIC_MODE = "semantic", SOURCE_ROUTING_MODE = "source_routing";
@@ -61,6 +57,8 @@
                 required: ["role", "evidence_quote", "claims", "review_reasons", "related_candidate_ids"],
                 properties: {
                   role: { type: "string", pattern: "^(source_summary|reusable_claim|object_context|hold)$" },
+                  topic: { type: "string", minLength: 1, maxLength: 160 },
+                  evidence_key: { type: "string", pattern: "^evidence_[1-9][0-9]{0,2}$" },
                   evidence_quote: { type: "string", minLength: 1 },
                   claims: { type: "array", maxItems: MAX_CLAIMS, items: { type: "string", minLength: 1 } },
                   review_reasons: { type: "array", maxItems: MAX_REVIEW_REASONS, items: { type: "string", minLength: 1 } },
@@ -106,12 +104,19 @@
     if (!plain(rawItem)) { errors.reason = "invalid_item"; return null; }
     for (const key of Object.keys(rawItem)) {
       if (FORBIDDEN_FIELDS.has(key)) { errors.reason = "forbidden_authority"; return null; }
-      if (!["role", "evidence_quote", "claims", "review_reasons", "related_candidate_ids"].includes(key)) { errors.reason = "unknown_field"; return null; }
+      if (!["role", "topic", "evidence_key", "evidence_quote", "claims", "review_reasons", "related_candidate_ids"].includes(key)) { errors.reason = "unknown_field"; return null; }
     }
     if (!ROLES.includes(rawItem.role)) { errors.reason = "invalid_item"; return null; }
+    const topic = rawItem.topic === undefined ? "" : boundedString(rawItem.topic, MAX_TOPIC_BYTES);
+    if (rawItem.topic !== undefined && topic === null) { errors.reason = "invalid_topic"; return null; }
     const quote = boundedString(rawItem.evidence_quote, MAX_QUOTE_BYTES);
     if (quote === null) { errors.reason = "invalid_evidence_quote"; return null; }
-    let anchor = anchorQuote(chunk.text, quote), storedQuote = quote;
+    const keyed = typeof rawItem.evidence_key === "string"
+      ? evidenceCandidatesApi.create(chunk.text, { max_bytes: MAX_QUOTE_BYTES }).find((candidate) => candidate.key === rawItem.evidence_key)
+      : null;
+    if (rawItem.evidence_key !== undefined && !keyed) { errors.reason = "invalid_evidence_key"; return null; }
+    let anchor = keyed ? { start: keyed.start, end: keyed.end } : anchorQuote(chunk.text, quote);
+    let storedQuote = keyed ? keyed.text : quote;
     if (anchor === null) { if (chunk.text.indexOf(quote) !== -1) { errors.reason = "evidence_quote_not_unique"; return null; }
       const projected = projectedAnchor(chunk.text, quote); if (!projected.anchor) { errors.reason = projected.count ? "evidence_quote_not_unique" : "evidence_quote_not_found"; return null; }
       anchor = projected.anchor; storedQuote = chunk.text.slice(anchor.start, anchor.end); }
@@ -139,6 +144,8 @@
     }
     return Object.freeze({
       role: rawItem.role,
+      ...(topic ? { topic } : {}),
+      ...(keyed ? { evidence_key: keyed.key } : {}),
       evidence_quote: storedQuote,
       claims: Object.freeze(claims),
       review_reasons: Object.freeze(reasons),
@@ -207,11 +214,12 @@
         mode: normalized.mode,
         task: routing
           ? "Choose exactly one lifecycle route for each whole source: source_summary for raw reference material, reusable_claim only for one atomic reusable claim, object_context for mutable Object/PARA state, hold when ambiguous, or no_change only for an exact duplicate. Return one lifecycle route, not extracted subclaims. Evidence must be one exact unique quote from source text."
-          : "Analyze the keyed source chunks and return only compact semantic results anchored by exact unique quotes.",
+          : "Extract all durable information from every keyed source chunk. Return multiple evidence items when the chunk contains multiple facts or topics. Each item must have one concise human-readable topic and the claims supported by one supplied evidence candidate. Copy its evidence key into evidence_key and its text verbatim into evidence_quote. Use source_summary for source-bound context and reusable_claim for reusable knowledge. Do not collapse a rich chunk into one representative claim.",
         run_id: typeof input.run_id === "string" ? input.run_id : "",
         chunks: [...normalized.chunksByKey.values()].map((chunk) => ({
           key: chunk.key,
           text: chunk.text,
+          ...(!routing ? { evidence_candidates: evidenceCandidatesApi.create(chunk.text, { max_bytes: MAX_QUOTE_BYTES }).map((candidate) => ({ key: candidate.key, text: candidate.text })) } : {}),
           ...(routing ? { source_hint: chunk.source_hint } : {}),
         })),
         allowed_candidate_ids: [...normalized.candidateIds],

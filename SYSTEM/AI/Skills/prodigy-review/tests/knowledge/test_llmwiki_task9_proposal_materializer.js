@@ -114,6 +114,40 @@ test("multiple reusable items from one source materialize as one document operat
   assert.equal(proposal.operation.source_citations[0].locators.length, 4);
 });
 
+test("compiled Source Guide links resolve to exact hashed candidate paths", () => {
+  const documents = [
+    {
+      role: "source_summary",
+      document_kind: "source_guide",
+      title: "투자일기 자료 안내",
+      body: "# 투자일기 자료 안내\n\n## 연결 문서\n\n- [[부동산 권리 안전장치]]\n",
+      claims: [],
+      citations: [],
+      review_reasons: [],
+      matched_candidate_ids: [],
+    },
+    {
+      role: "reusable_claim",
+      document_kind: "topic_article",
+      page_id: `page_${"a".repeat(24)}`,
+      title: "부동산 권리 안전장치",
+      body: "# 부동산 권리 안전장치\n\n## 핵심\n\n권리 관계를 확인한다.\n",
+      claims: [{ text: "권리 관계를 확인한다." }],
+      citations: [],
+      review_reasons: [],
+      matched_candidate_ids: [],
+    },
+  ];
+  const result = materializer().materializeDocuments({ source: source(), documents });
+  assert.equal(result.ok, true, result.reason);
+  const guide = result.proposals.find((proposal) => proposal.decision.destination === "literature");
+  const candidate = result.proposals.find((proposal) => proposal.decision.destination === "knowledge_candidate");
+  const candidatePath = candidate.operation.destination_ids[0].replace(/\.md$/u, "");
+  const guideBytes = guide.operation.after_bytes[guide.operation.destination_ids[0]];
+  assert.match(guideBytes, new RegExp(`\\[\\[${candidatePath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\|부동산 권리 안전장치\\]\\]`, "u"));
+  assert.doesNotMatch(guideBytes, /\[\[부동산 권리 안전장치\]\]/u);
+});
+
 test("materialization is deterministic and mutates nothing (zero-write purity)", () => {
   const input = Object.freeze({
     source: Object.freeze(source()),
@@ -164,7 +198,7 @@ test("source-level object context without a trusted local Object route becomes o
   assertLifecycleContract(result);
 });
 
-test("allowlisted related candidates produce document-level update and merge classes with locally owned paths only", () => {
+test("allowlisted candidates preserve one update target and hold ambiguous multi-target merge", () => {
   const rows = [
     { candidate_id: "cand_alpha", path: "ZETA/CANDIDATES/Alpha.md", content_hash: sha256("alpha-bytes"), revision: sha256("alpha-bytes"), before_bytes: "alpha-bytes" },
     { candidate_id: "cand_beta", path: "ZETA/CANDIDATES/Beta.md", content_hash: sha256("beta-bytes"), revision: sha256("beta-bytes"), before_bytes: "beta-bytes" },
@@ -180,9 +214,9 @@ test("allowlisted related candidates produce document-level update and merge cla
   });
   assert.equal(result.ok, true, result && result.reason);
   const update = result.proposals.find((proposal) => proposal.operation.kind === "update");
-  const merge = result.proposals.find((proposal) => proposal.class === "merge");
-  assert.ok(update && merge);
-  assert.equal(result.proposals.length, 2, "items targeting the same candidate must share one document update");
+  const mergeHold = result.holds.find((hold) => hold.reason === "explicit_merge_destination_required");
+  assert.ok(update && mergeHold);
+  assert.equal(result.proposals.length, 1, "ambiguous merge must not mint an operation");
   assert.equal(update.operation.kind, "update");
   assert.equal(update.operation.destination_ids[0], "ZETA/CANDIDATES/Alpha.md", "path authority must come from the local index");
   assert.equal(update.operation.base_revisions["ZETA/CANDIDATES/Alpha.md"], sha256("alpha-bytes"));
@@ -191,13 +225,9 @@ test("allowlisted related candidates produce document-level update and merge cla
   assert.equal(update.operation.conflicts[0].status, "unresolved");
   assert.match(update.operation.after_bytes["ZETA/CANDIDATES/Alpha.md"], /A reusable deterministic claim/u);
   assert.match(update.operation.after_bytes["ZETA/CANDIDATES/Alpha.md"], /Conflicting update input/u);
-  assert.equal(merge.operation.kind, "merge");
-  assert.equal(merge.operation.risk_tier, "high");
-  assert.deepEqual([...merge.operation.source_ids].sort(), ["cand_alpha", "cand_beta"]);
-  for (const risky of [update, merge]) {
-    assert.equal(risky.capture_target, "knowledge_candidate");
-    assert.equal(risky.selected, false);
-  }
+  assert.equal(update.capture_target, "knowledge_candidate");
+  assert.equal(update.selected, false);
+  assert.equal(mergeHold.selected, false);
   assertLifecycleContract(result);
 });
 

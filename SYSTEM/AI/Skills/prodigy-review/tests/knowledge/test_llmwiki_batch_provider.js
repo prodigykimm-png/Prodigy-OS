@@ -74,11 +74,72 @@ test("compact schema is strict, pack-atomic, and free of model authority fields"
   }
   assert.equal(result.properties.outcome.pattern, "^(proposals|hold|no_change)$");
   assert.equal(item.properties.role.pattern, "^(source_summary|reusable_claim|object_context|hold)$");
+  assert.equal(item.properties.topic.maxLength, 160);
   assert.ok(item.properties.claims.maxItems > 0);
   assert.ok(item.properties.review_reasons.maxItems > 0);
   assert.equal(item.properties.related_candidate_ids.maxItems, batchProvider.MAX_RELATED_CANDIDATE_IDS);
   assert.equal(item.properties.related_candidate_ids.uniqueItems, true);
   assert.equal(item.properties.related_candidate_ids.items.maxLength, batchProvider.MAX_CANDIDATE_ID_BYTES);
+});
+
+test("semantic document extraction accepts multiple evidence items and preserves their local topics", async () => {
+  const input = {
+    outbound_allowed: true,
+    run_id: "run_document_extraction",
+    chunks: [{
+      key: "chunk_investment",
+      text: "입지보다 사업 속도를 먼저 본다. 현금흐름이 나쁘면 장기 보유를 피한다. 낙찰가가 급등하면 진입을 보류한다.",
+    }],
+    candidate_ids: [],
+  };
+  const response = {
+    status: "ok",
+    results: [{
+      chunk_key: "chunk_investment",
+      outcome: "proposals",
+      items: [
+        { role: "source_summary", topic: "투자 판단 개요", evidence_quote: "입지보다 사업 속도를 먼저 본다", claims: ["사업 속도가 핵심 판단 기준이다."], review_reasons: [], related_candidate_ids: [] },
+        { role: "reusable_claim", topic: "현금흐름 위험", evidence_quote: "현금흐름이 나쁘면 장기 보유를 피한다", claims: ["현금흐름이 나쁜 자산은 장기 보유를 피한다."], review_reasons: [], related_candidate_ids: [] },
+        { role: "reusable_claim", topic: "낙찰가 급등 위험", evidence_quote: "낙찰가가 급등하면 진입을 보류한다", claims: ["낙찰가 급등 구간에서는 진입을 보류한다."], review_reasons: [], related_candidate_ids: [] },
+      ],
+    }],
+  };
+  let prompt;
+  const { provider } = providerReturning(response, (options) => { prompt = JSON.parse(options.prompt); });
+  const result = await provider(input);
+
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.artifacts[0].items.length, 3);
+  assert.deepEqual(result.artifacts[0].items.map((item) => item.topic), ["투자 판단 개요", "현금흐름 위험", "낙찰가 급등 위험"]);
+  assert.match(prompt.task, /all durable information/iu);
+  assert.match(prompt.task, /topic/iu);
+});
+
+test("deterministic evidence keys recover the exact local quote even when model copy drifts", async () => {
+  const source = "정확한 근거 문장이다. 뒤 문장은 추가 맥락이다.";
+  const input = { outbound_allowed: true, run_id: "run_evidence_key", chunks: [{ key: "chunk_evidence", text: source }], candidate_ids: [] };
+  const response = {
+    status: "ok",
+    results: [{
+      chunk_key: "chunk_evidence",
+      outcome: "proposals",
+      items: [{
+        role: "reusable_claim",
+        topic: "근거 안정성",
+        evidence_key: "evidence_1",
+        evidence_quote: "정확한 근거를 설명하는 문장이다.",
+        claims: ["로컬 evidence key가 원문 근거를 결정한다."],
+        review_reasons: [],
+        related_candidate_ids: [],
+      }],
+    }],
+  };
+  const result = await providerReturning(response).provider(input);
+
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.artifacts[0].items[0].evidence_key, "evidence_1");
+  assert.equal(result.artifacts[0].items[0].evidence_quote, "정확한 근거 문장이다.");
+  assert.equal(source.slice(result.artifacts[0].items[0].span.start, result.artifacts[0].items[0].span.end), "정확한 근거 문장이다.");
 });
 
 test("happy path anchors one CJK+emoji quote uniquely and derives local span provenance", async () => {

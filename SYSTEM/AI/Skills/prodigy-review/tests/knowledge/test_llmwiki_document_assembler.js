@@ -15,9 +15,10 @@ function source() {
   };
 }
 
-function item(role, claim, start, relatedCandidateIds = []) {
+function item(role, claim, start, relatedCandidateIds = [], topic = "") {
   return {
     role,
+    ...(topic ? { topic } : {}),
     evidence_quote: claim,
     claims: [{ text: claim }],
     review_reasons: [],
@@ -83,6 +84,44 @@ test("source summary and reusable claims become separate document classes, not i
     ["reusable_claim", "source_summary"],
   );
   assert.equal(result.documents.filter((document) => document.role === "source_summary")[0].claims.length, 2);
+});
+
+test("one information-rich source becomes one sectioned source document plus coherent topic documents", () => {
+  const assembler = assemblerApi.createDocumentAssembler();
+  const result = assembler.assemble({
+    source: {
+      source_id: "source_investment_diary",
+      source_path: "INBOX/투놀카페/투놀카페 - 투자일기.md",
+      content_hash: "9".repeat(64),
+    },
+    artifacts: [
+      artifact("chunk_investment_a", [
+        item("source_summary", "이 기록은 지역 선정과 매수 시점 판단을 함께 다룬다.", 10, [], "투자 판단 개요"),
+        item("reusable_claim", "사업 속도가 빠른 지역을 우선 검토한다.", 80, [], "재개발 진입 기준"),
+        item("reusable_claim", "초기 투자금보다 추가 분담금 범위를 함께 확인한다.", 150, [], "재개발 진입 기준"),
+      ]),
+      artifact("chunk_investment_b", [
+        item("source_summary", "실패 사례에서는 현금흐름과 과도한 낙찰가가 반복 위험으로 나타난다.", 230, [], "실패 사례"),
+        item("reusable_claim", "낙찰가가 단기간에 급등하면 진입을 보류한다.", 320, [], "경매 낙찰가 위험"),
+        item("reusable_claim", "임대수익이 이자를 감당하지 못하면 장기 보유하지 않는다.", 400, [], "경매 낙찰가 위험"),
+      ]),
+    ],
+  });
+
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.contract_version, "llmwiki_document_assembler_v2");
+  assert.equal(result.documents.length, 3);
+  const sourceDocument = result.documents.find((document) => document.role === "source_summary");
+  const topicDocuments = result.documents.filter((document) => document.role === "reusable_claim");
+  assert.equal(sourceDocument.title, "투놀카페 - 투자일기 자료 해설");
+  assert.deepEqual(sourceDocument.sections.map((section) => section.heading), ["투자 판단 개요", "실패 사례"]);
+  assert.match(sourceDocument.body, /^## 주제별 내용$/mu);
+  assert.match(sourceDocument.body, /^### 투자 판단 개요$/mu);
+  assert.match(sourceDocument.body, /^### 실패 사례$/mu);
+  assert.match(sourceDocument.body, /^## 근거 발췌$/mu);
+  assert.deepEqual(topicDocuments.map((document) => document.title).sort(), ["경매 낙찰가 위험", "재개발 진입 기준"]);
+  assert.deepEqual(topicDocuments.map((document) => document.claims.length).sort(), [2, 2]);
+  assert.equal(result.documents.reduce((count, document) => count + document.claims.length, 0), 6);
 });
 
 test("canonical coverage returns no_change and blocks duplicate create", () => {

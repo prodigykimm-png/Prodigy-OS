@@ -2,6 +2,8 @@
   "use strict";
 
   const GROUPS = Object.freeze([
+    Object.freeze({ id: "plan", label: "문서 계획", destinations: [] }),
+    Object.freeze({ id: "pilot", label: "파일럿 문서", destinations: [] }),
     Object.freeze({ id: "queue", label: "대기열", destinations: ["none"], analysis: ["queued", "running", "cache_complete"] }),
     Object.freeze({ id: "literature", label: "문헌", destinations: ["literature"] }),
     Object.freeze({ id: "fleeting", label: "생각", destinations: ["fleeting"] }),
@@ -32,6 +34,8 @@
     return freeze({ ...value, review_id: text(value.review_id), destination: text(value.destination), review_state: text(value.review_state), analysis_state: text(value.analysis_state) || "complete", promotion_gaps: list(value.promotion_gaps).filter(plain) });
   }
   function groupFor(item) {
+    if (item.plan === true) return "plan";
+    if (item.pilot === true) return "pilot";
     if (["hold", "stale", "recovery", "rejected"].includes(item.review_state)) return "holds";
     if (["queued", "running", "cache_complete"].includes(item.analysis_state)) return "queue";
     return GROUPS.find((group) => group.destinations.includes(item.destination) && group.id !== "holds")?.id || "queue";
@@ -83,9 +87,22 @@
         const section = createEl(rootEl, "section", { attr: { class: "knowledge-review-workbench__group", "data-review-group": group.id, "data-total": String(group.total), "data-visible": String(group.visible) } });
         createEl(section, "h3", { text: group.label });
         createEl(section, "output", { text: String(group.visible), attr: { "data-review-counter": group.id, "data-total": String(group.total) } });
+        if (group.id === "plan" && group.items.some((item) => item.plan_kind === "topic_page") && typeof config.onPlanApprove === "function") {
+          const approve = createEl(section, "button", { text: "계획 승인 후 문서 생성", attr: { type: "button", "data-action": "approve-page-plan", "data-primary": "true" } });
+          approve.onclick = () => Promise.resolve(config.onPlanApprove()).then(() => render());
+        }
         for (const item of group.items) {
-          const row = createEl(section, "article", { attr: { "data-review-id": item.review_id } });
+          const row = createEl(section, "article", { attr: { "data-review-id": item.review_id, ...(item.pilot === true ? { "data-review-pilot": "true" } : {}), ...(item.plan === true ? { "data-review-plan": "true", "data-plan-selected": item.plan_selected === false ? "false" : "true" } : {}) } });
           createEl(row, "strong", { text: text(item.title) || item.review_id });
+          if (item.pilot === true) createEl(row, "output", { text: "격리 파일럿", attr: { "data-pilot-status": "isolated" } });
+          if (item.plan === true) createEl(row, "output", { text: item.plan_kind === "source_guide" ? "Source Guide" : text(item.operation) || "create", attr: { "data-plan-operation": text(item.operation) || item.plan_kind } });
+          const summaryPoints = list(item.summary_points).map(text).filter(Boolean);
+          if (summaryPoints.length) {
+            const summary = createEl(row, "div", { attr: { class: "knowledge-review-workbench__summary" } });
+            createEl(summary, "span", { text: "요약 결과", attr: { class: "knowledge-review-workbench__summary-label" } });
+            const remaining = summaryPoints.length > 2 ? ` · 외 ${summaryPoints.length - 2}개` : "";
+            createEl(summary, "p", { text: summaryPoints.slice(0, 2).join(" · ") + remaining, attr: { "data-review-summary-preview": "" } });
+          }
           createEl(row, "output", { text: operationLabel(item), attr: { "data-review-status": text(item.review_state) } });
           if (item.destination === "knowledge_candidate" && item.promotion_gaps.length) {
             const gaps = createEl(row, "details", { text: "", attr: { "data-candidate-gaps": item.review_id } });
@@ -95,6 +112,10 @@
           }
           const open = createEl(row, "button", { text: "열기", attr: { type: "button", "data-action": "open-review-detail" } });
           open.onclick = () => { if (detail) detail.open(item, open); };
+          if (item.plan === true && item.plan_kind === "topic_page" && typeof config.onPlanToggle === "function") {
+            const togglePlan = createEl(row, "button", { text: item.plan_selected === false ? "계획 포함" : "계획 제외", attr: { type: "button", "data-action": "toggle-plan-page", "aria-pressed": item.plan_selected === false ? "false" : "true" } });
+            togglePlan.onclick = () => Promise.resolve(config.onPlanToggle(item)).then(() => render());
+          }
           if (item.destination === "fleeting" && text(item.thought_text)) { const button = createEl(row, "button", { text: "생각 저장", attr: { type: "button", "data-action": "save-thought" } }); button.onclick = () => dispatch("save_thought", item, button); }
           if (item.analysis_state === "cache_complete") { const button = createEl(row, "button", { text: "캐시 분석 완료", attr: { type: "button", "data-action": "complete-from-cache" } }); button.onclick = () => dispatch("complete_from_cache", item, button); }
           if (item.destination === "canonical_knowledge") { const button = createEl(row, "button", { text: "정본 승인", attr: { type: "button", "data-action": "approve-canonical" } }); button.onclick = () => dispatch("approve_canonical", item, button); }

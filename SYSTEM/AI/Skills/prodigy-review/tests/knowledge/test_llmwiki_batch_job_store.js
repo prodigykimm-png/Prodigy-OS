@@ -252,3 +252,58 @@ test("node storage persists atomically under gitignored SYSTEM/CACHE/llmwiki and
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("page-plan snapshot survives restart without provider replay", async () => {
+  const storage = memoryStorage();
+  const providerCalls = { count: 0 };
+  const first = storeApi.createBatchJobStore({ storage, counters: { provider_calls: providerCalls } });
+  await first.load();
+  const job = await first.createJob({
+    request_key: storeApi.requestKey(identity()),
+    sources: sources([["src_investment", "investment-source"]]),
+  });
+  const sourceRevision = hash.sha256("investment-source");
+  const snapshot = {
+    job_id: job.job_id,
+    source_id: "src_investment",
+    source_revision: sourceRevision,
+    inventory_hash: hash.sha256("inventory"),
+    plan_hash: hash.sha256("plan"),
+    plan_revision: 1,
+    status: "pending_review",
+    plan: {
+      plan_version: "llmwiki_page_plan_v1",
+      source: { source_id: "src_investment", source_path: "INBOX/투자일기.md", content_hash: sourceRevision },
+      pages: [],
+    },
+  };
+  const saved = await first.savePlanSnapshot(snapshot);
+  assert.equal(saved.plan_hash, snapshot.plan_hash);
+
+  const second = storeApi.createBatchJobStore({ storage, counters: { provider_calls: providerCalls } });
+  await second.load();
+  assert.deepEqual(second.getPlanSnapshot(job.job_id), snapshot);
+  assert.equal(providerCalls.count, 0);
+});
+
+test("page-plan snapshot rejects stale source binding and non-monotonic revision", async () => {
+  const store = storeApi.createBatchJobStore({ storage: memoryStorage() });
+  await store.load();
+  const job = await store.createJob({
+    request_key: storeApi.requestKey(identity()),
+    sources: sources([["src_investment", "investment-source"]]),
+  });
+  const base = {
+    job_id: job.job_id,
+    source_id: "src_investment",
+    source_revision: hash.sha256("investment-source"),
+    inventory_hash: hash.sha256("inventory"),
+    plan_hash: hash.sha256("plan-1"),
+    plan_revision: 1,
+    status: "pending_review",
+    plan: { plan_version: "llmwiki_page_plan_v1", pages: [] },
+  };
+  await store.savePlanSnapshot(base);
+  await assert.rejects(() => store.savePlanSnapshot({ ...base, source_revision: hash.sha256("stale") }), /plan_source_revision_mismatch/u);
+  await assert.rejects(() => store.savePlanSnapshot({ ...base, plan_hash: hash.sha256("same-revision") }), /plan_revision_not_monotonic/u);
+});

@@ -19,13 +19,15 @@
   const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
   const objectHandoffApi = root.LLMWikiObjectHandoffContract || (typeof require === "function" ? require("./llmwiki-object-handoff-contract.js") : null);
   const documentAssemblerApi = root.LLMWikiDocumentAssembler || (typeof require === "function" ? require("./llmwiki-document-assembler.js") : null);
+  const documentMergePlannerApi = root.LLMWikiDocumentMergePlanner || (typeof require === "function" ? require("./llmwiki-document-merge-planner.js") : null);
   if (!documentAssemblerApi) throw new Error("LLMWikiDocumentAssembler is required.");
+  if (!documentMergePlannerApi) throw new Error("LLMWikiDocumentMergePlanner is required.");
   const HASH = /^[0-9a-f]{64}$/u;
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const CAND = /^cand_[a-zA-Z0-9_-]{1,64}$/u;
   const ROLES = Object.freeze(["source_summary", "reusable_claim", "object_context", "hold"]);
   const OUTCOMES = Object.freeze(["proposals", "hold", "no_change"]);
-  const ITEM_FIELDS = new Set(["role", "evidence_quote", "claims", "review_reasons", "related_candidate_ids", "span"]);
+  const ITEM_FIELDS = new Set(["role", "topic", "evidence_key", "evidence_quote", "claims", "review_reasons", "related_candidate_ids", "span"]);
   const FORBIDDEN_FIELDS = new Set([
     "offset", "offsets", "start", "end", "alias", "temporary_span_alias", "span_path", "path", "paths",
     "operation", "operation_kind", "operation_id", "serialized_operation", "destination",
@@ -114,6 +116,8 @@
       if (!ITEM_FIELDS.has(key)) return fail("unknown_field");
     }
     if (!ROLES.includes(rawItem.role)) return fail("unknown_role");
+    if (rawItem.topic !== undefined && (typeof rawItem.topic !== "string" || rawItem.topic.trim().length === 0 || rawItem.topic.length > 160)) return fail("invalid_topic");
+    if (rawItem.evidence_key !== undefined && (typeof rawItem.evidence_key !== "string" || !/^evidence_[1-9][0-9]{0,2}$/u.test(rawItem.evidence_key))) return fail("invalid_evidence_key");
     if (typeof rawItem.evidence_quote !== "string" || rawItem.evidence_quote.length === 0) return fail("invalid_evidence_quote");
     if (!Array.isArray(rawItem.claims) || rawItem.claims.length > 8) return fail("invalid_claims");
     for (const claim of rawItem.claims) if (!plain(claim) || typeof claim.text !== "string" || claim.text.trim().length === 0) return fail("invalid_claims");
@@ -128,7 +132,7 @@
       span = rawItem.span;
     }
     return freeze({ ok: true, value: freeze({
-      role: rawItem.role, evidence_quote: rawItem.evidence_quote,
+      role: rawItem.role, ...(rawItem.topic ? { topic: rawItem.topic.trim() } : {}), ...(rawItem.evidence_key ? { evidence_key: rawItem.evidence_key } : {}), evidence_quote: rawItem.evidence_quote,
       claims: freeze(rawItem.claims.map(claim => freeze({ text: claim.text }))),
       review_reasons: freeze([...rawItem.review_reasons]),
       related_candidate_ids: freeze([...rawItem.related_candidate_ids]),
@@ -213,33 +217,28 @@
     if (routed.value.destination !== "knowledge_candidate") return holdFor({ unit_id: unitId }, "lifecycle_hold");
     const matchedIds = Array.isArray(document.matched_candidate_ids) ? document.matched_candidate_ids : [];
     const rows = matchedIds.map((id) => related.find((candidate) => candidate.candidate_id === id)).filter(Boolean);
+    const mutationDocument = document.document_kind === "topic_article" ? document : {
+      ...document,
+      document_kind: "topic_article",
+      page_id: `page_${sha(`${unitId}:compiled-section`).slice(0, 24)}`,
+    };
+    const mutation = documentMergePlannerApi.planDocumentMutation({ document: mutationDocument, candidate_documents: related });
+    if (!mutation.ok) return mutation;
+    if (mutation.value.kind === "hold") return holdFor({ unit_id: unitId, item: document }, mutation.value.reason);
+    if (mutation.value.kind === "no_change") return holdFor({ unit_id: unitId, item: document }, mutation.value.reason);
     const citation = citationForDocument(source, document);
     const conflicts = document.review_reasons.length > 0 && rows.length > 0
       ? [{ conflict_id: `conflict_${sha(`${unitId}:conflict`).slice(0, 24)}`, status: "unresolved", source_ids: [citation.source_id], summary: document.review_reasons[0] }]
       : [];
     let kind;
     let template;
-    if (rows.length >= 2) {
-      kind = "merge";
-      const destinationPaths = rows.map(row => row.path);
-      const allPaths = [...new Set([...destinationPaths])];
-      // merge revision coverage spans both source ids and destination paths.
-      const coverage = rows.flatMap(row => [[row.path, row.revision], [row.candidate_id, row.revision]]);
-      const coverageBytes = rows.flatMap(row => [[row.path, row.before_bytes], [row.candidate_id, row.before_bytes]]);
-      template = baseOperation({
-        kind, destination_ids: destinationPaths, source_ids: rows.map(row => row.candidate_id),
-        base_revisions: Object.fromEntries(coverage),
-        before_bytes: Object.fromEntries(coverageBytes),
-        after_bytes: Object.fromEntries(destinationPaths.map(path => [path, document.body])),
-        citation, conflicts, risk_tier: "high",
-      });
-    } else if (rows.length === 1) {
+    if (rows.length === 1) {
       kind = "update";
       const row = rows[0];
       template = baseOperation({
         kind, destination_ids: [row.path],
         base_revisions: { [row.path]: row.revision }, before_bytes: { [row.path]: row.before_bytes },
-        after_bytes: { [row.path]: document.body }, citation, conflicts, risk_tier: conflicts.length > 0 ? "high" : "medium",
+        after_bytes: { [row.path]: mutation.value.after_bytes }, citation, conflicts, risk_tier: conflicts.length > 0 ? "high" : "medium",
       });
     } else {
       kind = "create";
@@ -335,13 +334,53 @@
       }));
       return freeze({ ok: true, proposals, para_drafts, holds, no_changes: assembled.no_changes || [] });
     }
+    function materializeDocuments(input) {
+      if (!plain(input) || !plain(input.source) || !Array.isArray(input.documents)) return fail("compiled_documents_required");
+      const source = input.source;
+      if (!ID.test(String(source.source_id || "")) || !HASH.test(String(source.content_hash || ""))
+        || typeof source.source_path !== "string" || source.source_path.length === 0) return fail("invalid_source_citation");
+      const linkTargets = new Map();
+      for (const document of input.documents) {
+        if (!plain(document) || document.role !== "reusable_claim" || typeof document.title !== "string") continue;
+        const matchedIds = Array.isArray(document.matched_candidate_ids) ? document.matched_candidate_ids : [];
+        const matchedRows = matchedIds.map((id) => related.find((candidate) => candidate.candidate_id === id)).filter(Boolean);
+        const targetPath = matchedRows.length === 1
+          ? matchedRows[0].path
+          : matchedRows.length === 0
+            ? `${CANDIDATE_DIR}/${documentUnitId(source, document)}.md`
+            : null;
+        if (targetPath) linkTargets.set(document.title, targetPath.replace(/\.md$/u, ""));
+      }
+      const proposals = [];
+      const holds = [];
+      for (const document of input.documents) {
+        if (!plain(document) || !["source_summary", "reusable_claim"].includes(document.role)
+          || typeof document.title !== "string" || typeof document.body !== "string"
+          || !Array.isArray(document.claims) || !Array.isArray(document.citations)) return fail("invalid_compiled_document");
+        let materializedDocument = document;
+        if (document.role === "source_summary" && linkTargets.size > 0) {
+          let body = document.body;
+          for (const [title, targetPath] of linkTargets) {
+            body = body.split(`[[${title}]]`).join(`[[${targetPath}|${title}]]`);
+          }
+          materializedDocument = { ...document, body };
+        }
+        const proposed = materializedDocument.role === "source_summary"
+          ? literatureProposal(materializedDocument, source)
+          : candidateProposal(materializedDocument, source, related);
+        if (!proposed.ok) return proposed;
+        if (proposed.value.hold_id) holds.push(proposed.value);
+        else proposals.push(proposed.value);
+      }
+      return freeze({ ok: true, proposals, holds, para_drafts: [], no_changes: [] });
+    }
     // PARA is a local operational destination. This materializer only mints a
     // typed review proposal; it has no approval or write authority.
     async function materializeParaObject(draft) {
       if (!objectHandoff || typeof objectHandoff.propose !== "function") return fail("object_handoff_unavailable");
       return objectHandoff.propose(draft);
     }
-    return freeze({ materialize, materializeParaObject });
+    return freeze({ materialize, materializeDocuments, materializeParaObject });
   }
   const api = freeze({ createInboxProposalMaterializer });
   root.LLMWikiInboxProposalMaterializer = api;
