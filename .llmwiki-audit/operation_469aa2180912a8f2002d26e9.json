@@ -1,0 +1,18 @@
+{
+  "audit_version": "llmwiki_safe_batch_item_audit_v1",
+  "result": "committed",
+  "committed_at": "2026-08-30T03:08:08.318Z",
+  "batch_identity": "unbatched_risk_commit",
+  "authorization_hash": null,
+  "packet_id": "packet_5f9131964f09139a726dab5e",
+  "operation_id": "operation_469aa2180912a8f2002d26e9",
+  "kind": "update",
+  "destinations": [
+    {
+      "path": "ZETA/LITERATURE/document_9de4c8138479119d73d522c0.md",
+      "before_sha256": "750b8a8017b3c98145533235e56b94dea0b71c32e1f3c2fb9d4f8c7d6ef57263",
+      "after_sha256": "9c5f8c569b567fadf690adad983e0f38f88d0220b9f46946c9459a3c674c9110"
+    }
+  ],
+  "audit_hash": "4a1f0854a8531925b1a34123584de337fd1b7e1c02b75030edca6e07825e1ef3"
+}
