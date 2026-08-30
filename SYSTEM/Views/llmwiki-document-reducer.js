@@ -6,7 +6,7 @@
   if (!assemblerApi || typeof assemblerApi.renderDocument !== "function") throw new Error("LLMWikiDocumentAssembler is required.");
   if (!hashApi || typeof hashApi.sha256 !== "function") throw new Error("LLMWikiHash is required.");
   const PAGE_PLAN_VERSION = "llmwiki_page_plan_v1";
-  const CLAIM_INVENTORY_VERSION = "llmwiki_claim_inventory_v1";
+  const CLAIM_INVENTORY_VERSION = "llmwiki_claim_inventory_v3";
   const PLAN_SCHEMA = Object.freeze({
     type: "object", additionalProperties: false,
     required: ["source_guide", "topic_pages", "source_only_claim_ids"],
@@ -84,6 +84,37 @@
   function exactPartition(values, expected) {
     return values.length === expected.size && new Set(values).size === values.length && values.every((id) => expected.has(id));
   }
+  const REUSABLE_TOPIC_RULES = Object.freeze([
+    ["경매와 공매", /경매|공매|낙찰|매각불허가|강제집행|명도|보관집행/u],
+    ["권리분석", /가등기|유치권|저당|근저당|소유권|권리순위|배당|인도명령|점유/u],
+    ["세금과 비용", /취득세|증여세|재산세|양도세|세금|세무|부가세/u],
+    ["대출과 자금", /대출|담보|감정평가|금리|이자|현금흐름|투자금|레버리지/u],
+    ["토지와 인허가", /토지|농지|맹지|진입로|(?:^|\s)도로(?:$|\s|를|의|가|에|와|로)|형질변경|인허가|개발행위|지목/u],
+    ["건축과 시공", /건축|시공|공사|설계|보강토|기초|골조|콘크리트|단열|지붕|창호|전기|배관|설비/u],
+    ["인테리어와 유지보수", /인테리어|리모델링|마감|도배|타일|누수|하자|동파|열선/u],
+    ["입지와 상권", /입지|상권|교통|학군|역세권|지역분석|배후수요|유동인구/u],
+    ["거래와 협상", /매매|계약|중개|협상|매도|매수|임대|전세|월세/u],
+  ]);
+  const PERSONAL_ACTOR = /작성자|사용자|모멘트|캔모어|본인|필자|나는|우리는|제가|저는/u;
+  const PERSONAL_EVENT = /구입했다|구매하였다|매입했다|매입함|취득했다|진행했다|시공했다|건축했다|설계했다|결정했다|이용했다|이용함|기증하기로|계획이다|계획임|예정이다|목적이었다|거주하는|위치는|현장에서는/u;
+  const SPECIFIC_PROJECT_FACT = /(?:해당|이 주택|이 토지|프로젝트|현장|최근|당시|\d{4}년).*(?:했다|하였다|되었다|이다|임|함|예정|계획|해제)/u;
+  const GENERALIZABLE = /(?:경우|때|하려면|위해|따라|때문|이므로|하면|해야|하지 않으면|수 있다|가능하다|필요하다|주의|위험|기준|절차|방법|효과|비용|이하|이상|초과|제한|줄인다|높인다|낮춘다|단축한다|방지한다|감당하지 못하면|적합하다|유리하다|불리하다|출발점은|핵심 요소는|취급된다|설정한다)/u;
+  const SPECIFIC_MARKET_FACT = /(?:구역|지역|번지|매물|실거래|최저가|평균 가격|실투자금).*(?:\d[\d,]*(?:만|억|천)?원|\d+건|약 \d)/u;
+  function reusableKnowledge(text) {
+    const value = clean(text);
+    const personal = (PERSONAL_ACTOR.test(value) && PERSONAL_EVENT.test(value)) || PERSONAL_EVENT.test(value) || SPECIFIC_PROJECT_FACT.test(value)
+      || /개인.*(?:원문에|기록으로).*(?:남긴다|보존한다)/u.test(value);
+    const isolatedEvent = /\d+(?:만|억|평|개|동|건|장|m|mm|원)?[^.]{0,50}(?:구입했다|구매하였다|매입했다|매입함|취득했다|진행되었다|시공함|조성할 계획|규모이다|회복됨|급락했을 때)/u.test(value)
+      || /(?:지정|규제|제한구역).*(?:해제됨|해제되었다|적용되던)/u.test(value);
+    if (personal || isolatedEvent || SPECIFIC_MARKET_FACT.test(value)) return false;
+    return GENERALIZABLE.test(value);
+  }
+  function classifiedClaimRole(documentRole, text) {
+    if (!reusableKnowledge(text)) return { role: "source_summary", topic: "" };
+    const matched = REUSABLE_TOPIC_RULES.find(([, pattern]) => pattern.test(text));
+    if (documentRole === "reusable_claim") return { role: documentRole, topic: matched ? matched[0] : "" };
+    return matched ? { role: "reusable_claim", topic: matched[0] } : { role: documentRole, topic: "" };
+  }
 
   function createClaimInventory(input) {
     if (!plain(input) || !plain(input.source) || !Array.isArray(input.documents)) return freeze({ ok: false, reason: "invalid_claim_inventory_input" });
@@ -116,13 +147,15 @@
         if (!text) return freeze({ ok: false, reason: "invalid_claim_inventory_claim" });
         const claimCitationIds = document.citations.length === document.claims.length
           ? [documentCitationIds[index]] : documentCitationIds;
-        const identity = stable([source.source_id, document.role, document.title, text, claimCitationIds]);
+        const classification = classifiedClaimRole(document.role, text);
+        const topic = classification.topic || clean(document.title);
+        const identity = stable([source.source_id, classification.role, topic, text, claimCitationIds]);
         const claimId = `claim_${sha(identity).slice(0, 24)}`;
         if (claims.some((claim) => claim.claim_id === claimId)) continue;
         claims.push(freeze({
           claim_id: claimId,
-          role: document.role,
-          topic: clean(document.title),
+          role: classification.role,
+          topic,
           text,
           citation_ids: [...new Set(claimCitationIds)].filter(Boolean),
           suggested_candidate_ids: [...new Set(document.matched_candidate_ids || [])],

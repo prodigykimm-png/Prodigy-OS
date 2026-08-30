@@ -84,7 +84,7 @@
     return typeof value === "string" && value.startsWith(KNOWLEDGE_PREFIX) && !value.includes("..") && !value.includes("[[") && !value.includes("]]");
   }
   function citationEvidence(citation) {
-    return {
+    const result = {
       source_id: citation.source_id,
       content_hash: citation.content_hash,
       source_url: citation.source_url || null,
@@ -92,6 +92,8 @@
       source_archive_id: citation.source_archive_id || null,
       confidence: citation.confidence,
     };
+    if (typeof citation.evidence_quote === "string" && citation.evidence_quote.trim()) result.evidence_quote = citation.evidence_quote.trim();
+    return result;
   }
   function hasFailure(value) { return plain(value) && value.ok === false; }
 

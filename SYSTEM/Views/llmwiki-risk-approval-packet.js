@@ -83,7 +83,9 @@
   }
   function canonicalPath(value) { return boundaryPolicy?.parseCanonicalWritePath?.(value).ok === true; }
   function citation(value) {
-    return { source_id: value.source_id, content_hash: value.content_hash, source_url: value.source_url, locators: value.locators.slice(), source_archive_id: value.source_archive_id, confidence: value.confidence };
+    const result = { source_id: value.source_id, content_hash: value.content_hash, source_url: value.source_url, locators: value.locators.slice(), source_archive_id: value.source_archive_id, confidence: value.confidence };
+    if (value.evidence_quote) result.evidence_quote = value.evidence_quote;
+    return result;
   }
 
   function buildRiskApprovalPacket(input) {

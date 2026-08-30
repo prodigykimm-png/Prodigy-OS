@@ -68,11 +68,17 @@
     return plain(pack) && HASH.test(pack.pack_id) && HASH.test(pack.job_id) && HASH.test(pack.pack_hash)
       && Number.isSafeInteger(pack.received_at) && (pack.historical !== true || pack.artifact_hash === null);
   }
-  function validPlanSnapshot(snapshot) {
+  function planIdentity(snapshot) {
+    return sha(`${snapshot.source_revision}:${snapshot.inventory_hash}:${snapshot.plan?.plan_version || "unknown"}`);
+  }
+  function validPlanSnapshot(snapshot, allowHistory = true) {
     return plain(snapshot) && HASH.test(snapshot.job_id) && typeof snapshot.source_id === "string" && snapshot.source_id.length > 0
       && HASH.test(snapshot.source_revision) && HASH.test(snapshot.inventory_hash) && HASH.test(snapshot.plan_hash)
+      && (snapshot.plan_identity === undefined || HASH.test(snapshot.plan_identity))
       && Number.isSafeInteger(snapshot.plan_revision) && snapshot.plan_revision > 0
-      && PLAN_STATES.includes(snapshot.status) && plain(snapshot.plan);
+      && PLAN_STATES.includes(snapshot.status) && plain(snapshot.plan)
+      && (snapshot.execution === undefined || (plain(snapshot.execution) && typeof snapshot.execution.plan_hash === "string"))
+      && (!allowHistory || snapshot.history === undefined || Array.isArray(snapshot.history) && snapshot.history.every((row) => validPlanSnapshot(row, false)));
   }
 
   function createNodeStorage(dir) {
@@ -146,6 +152,11 @@
       const snapshot = state?.plans?.[jobId];
       return snapshot ? freeze(jsonClone(snapshot)) : null;
     }
+    function listPlanSnapshots() {
+      return freeze(Object.values(state?.plans || {}).map((snapshot) => jsonClone(snapshot))
+        .sort((left, right) => String(left.source_id).localeCompare(String(right.source_id), "en")
+          || String(left.job_id).localeCompare(String(right.job_id), "en")));
+    }
     async function findRetryParent(sources) {
       validSourceRows(sources);
       await load();
@@ -157,6 +168,7 @@
       load,
       getJob,
       getPlanSnapshot,
+      listPlanSnapshots,
       findRetryParent,
       async createJob(input) {
         if (!plain(input) || !HASH.test(input.request_key)) throw new TypeError("invalid_job_input");
@@ -186,6 +198,7 @@
       async savePlanSnapshot(snapshot) {
         const copy = jsonClone(snapshot);
         if (!validPlanSnapshot(copy)) throw new TypeError("invalid_plan_snapshot");
+        copy.plan_identity = planIdentity(copy);
         let result = null;
         await mutate(() => {
           const job = state.jobs[copy.job_id];
@@ -195,7 +208,11 @@
           if (prior) {
             if (stablePlan(prior) === stablePlan(copy)) { result = prior; return; }
             if (copy.plan_revision <= prior.plan_revision) throw new Error("plan_revision_not_monotonic");
-            if (copy.inventory_hash !== prior.inventory_hash) throw new Error("plan_inventory_changed");
+            if (copy.inventory_hash !== prior.inventory_hash) {
+              const archived = jsonClone(prior);
+              delete archived.history;
+              copy.history = [...(prior.history || []), archived];
+            } else if (prior.history) copy.history = jsonClone(prior.history);
           }
           state.plans[copy.job_id] = freeze(copy);
           result = state.plans[copy.job_id];

@@ -35,7 +35,7 @@ function fixture() {
     evidence_quote: `근거 ${index + 1}`,
     confidence: "explicit",
   }));
-  const inventoryBody = { inventory_version: "llmwiki_claim_inventory_v1", source, claims, citations };
+  const inventoryBody = { inventory_version: "llmwiki_claim_inventory_v3", source, claims, citations };
   const inventory = { ...inventoryBody, inventory_hash: hash.sha256(stable(inventoryBody)) };
   const planBody = {
     plan_version: "llmwiki_page_plan_v1",

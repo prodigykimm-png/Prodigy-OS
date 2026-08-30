@@ -1,0 +1,7 @@
+(function(root){
+"use strict";
+const resolver=root.LLMWikiPlanResolver||(typeof require==="function"?require("./llmwiki-plan-resolver.js"):null);const preview=root.LLMWikiPlanPreview||(typeof require==="function"?require("./llmwiki-plan-preview.js"):null);const critic=root.LLMWikiPlanCritic||(typeof require==="function"?require("./llmwiki-plan-critic.js"):null);const VERSION="llmwiki_plan_workflow_v1";
+function freeze(v){if(Array.isArray(v))return Object.freeze(v.map(freeze));if(!v||typeof v!=="object")return v;return Object.freeze(Object.fromEntries(Object.entries(v).map(([k,x])=>[k,freeze(x)])));}
+async function run(input,requestCritic){const resolved=resolver.resolve({pages:input.pages});if(!resolved.ok)return freeze({...resolved,workflow_version:VERSION});const planned=preview.build(resolved);if(!planned.ok)return freeze({...planned,workflow_version:VERSION});const reviewed=await critic.review({plan_hash:planned.preview_hash,operation_ids:planned.operations.map(x=>x.page_id),pages:input.pages,timeout_ms:input.critic_timeout_ms},requestCritic);return freeze({ok:true,workflow_version:VERSION,terminal:planned.terminal,resolution:resolved,preview:planned,critic:{status:reviewed.status,findings:reviewed.findings},plan_hash:planned.preview_hash,operation_ids:planned.operations.map(x=>x.page_id),writer_count:0});}
+const api=freeze({VERSION,run});root.LLMWikiPlanWorkflow=api;if(typeof module!=="undefined"&&module.exports)module.exports=api;
+})(typeof globalThis!=="undefined"?globalThis:this);

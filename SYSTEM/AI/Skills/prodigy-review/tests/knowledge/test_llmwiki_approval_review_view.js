@@ -176,12 +176,15 @@ test("Given a run-scoped packet, When the Hub review opens, Then Korean fields a
   const packet = await packetFixture();
   const root = new FakeElement("section");
   const opened = [];
+  const edited = [];
   const surface = review.mountLlmWikiApprovalReview({
     container: root,
     packet,
     approvalApi: approval,
     commitApi: commit,
     onOpenBeside: (locator) => opened.push(locator),
+    onEditSource: (preview) => edited.push(preview),
+    resolveSourcePreview: (item) => ({ ok: true, status: "current", match_status: "unique", source_path: String(item.locator).split("#")[0], evidence_quote: "합성 근거", context: "앞 문장\n합성 근거\n뒤 문장", position: { line: 4, ch: 2 } }),
     commitOptions: { preview: true },
   });
   const before = JSON.stringify(packet);
@@ -199,7 +202,16 @@ test("Given a run-scoped packet, When the Hub review opens, Then Korean fields a
 
   const citation = walk(root, (node) => node.attr && node.attr["data-action"] === "open-source")[0];
   assert.ok(citation, "source locator must be an observable action");
+  assert.equal(citation.attr["data-source-preview"], "true");
   click(citation);
+  assert.equal(opened.length, 0, "opening a source preview must not navigate immediately");
+  assert.match(collectText(root), /출처 근거|원문 파일 열기|원문 수정|synthetic-alpha\.md/);
+  const editSource = walk(root, (node) => node.attr && node.attr["data-action"] === "edit-source")[0];
+  click(editSource);
+  assert.deepEqual(edited[0].position, { line: 4, ch: 2 });
+  const openFile = walk(root, (node) => node.attr && node.attr["data-action"] === "open-source-file")[0];
+  assert.ok(openFile, "source preview must expose an explicit file-open action");
+  click(openFile);
   assert.equal(opened.length, 1);
   assert.match(opened[0], /^ZETA\/LITERATURE\//);
   click(control(root, "show-diff"));

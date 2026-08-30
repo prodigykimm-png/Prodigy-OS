@@ -1,0 +1,8 @@
+(function(root){
+"use strict";
+const hash=root.LLMWikiHash||(typeof require==="function"?require("./llmwiki-hash.js"):null);const VERSION="llmwiki_plan_preview_v1";
+function stable(v){if(Array.isArray(v))return`[${v.map(stable).join(",")}]`;if(!v||typeof v!=="object")return JSON.stringify(v);return`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${stable(v[k])}`).join(",")}}`;}
+function freeze(v){if(Array.isArray(v))return Object.freeze(v.map(freeze));if(!v||typeof v!=="object")return v;return Object.freeze(Object.fromEntries(Object.entries(v).map(([k,x])=>[k,freeze(x)])));}
+function build(input){if(!input||!Array.isArray(input.rows))return freeze({ok:false,reason:"invalid_preview_input",writer_count:0});const operations=[],holds=[],blocks=[],noOperations=[];for(const row of input.rows){if(row.status==="safety_blocked")blocks.push(row);else if(row.status==="quality_held")holds.push(row);else if(row.decision.action==="no_change"||row.decision.action==="source_only")noOperations.push(row);else operations.push(row);}let terminal;if(operations.length&&blocks.length)terminal="partial_review_with_blocks";else if(operations.length&&holds.length)terminal="partial_review_with_holds";else if(operations.length)terminal="review_ready";else if(blocks.length)terminal="safety_blocked";else terminal="no_write_complete";const body={version:VERSION,terminal,operations,holds,blocks,no_operations:noOperations};return freeze({ok:true,...body,preview_hash:hash.sha256(stable(body)),writer_count:0});}
+const api=freeze({VERSION,build});root.LLMWikiPlanPreview=api;if(typeof module!=="undefined"&&module.exports)module.exports=api;
+})(typeof globalThis!=="undefined"?globalThis:this);

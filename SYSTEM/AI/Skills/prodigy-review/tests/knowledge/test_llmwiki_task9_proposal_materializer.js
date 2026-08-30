@@ -198,7 +198,7 @@ test("source-level object context without a trusted local Object route becomes o
   assertLifecycleContract(result);
 });
 
-test("allowlisted candidates preserve one update target and hold ambiguous multi-target merge", () => {
+test("allowlisted unmanaged candidates hold instead of claiming update ownership", () => {
   const rows = [
     { candidate_id: "cand_alpha", path: "ZETA/CANDIDATES/Alpha.md", content_hash: sha256("alpha-bytes"), revision: sha256("alpha-bytes"), before_bytes: "alpha-bytes" },
     { candidate_id: "cand_beta", path: "ZETA/CANDIDATES/Beta.md", content_hash: sha256("beta-bytes"), revision: sha256("beta-bytes"), before_bytes: "beta-bytes" },
@@ -213,20 +213,12 @@ test("allowlisted candidates preserve one update target and hold ambiguous multi
     ])],
   });
   assert.equal(result.ok, true, result && result.reason);
-  const update = result.proposals.find((proposal) => proposal.operation.kind === "update");
+  const managedHolds = result.holds.filter((hold) => hold.reason === "managed_region_required");
   const mergeHold = result.holds.find((hold) => hold.reason === "explicit_merge_destination_required");
-  assert.ok(update && mergeHold);
-  assert.equal(result.proposals.length, 1, "ambiguous merge must not mint an operation");
-  assert.equal(update.operation.kind, "update");
-  assert.equal(update.operation.destination_ids[0], "ZETA/CANDIDATES/Alpha.md", "path authority must come from the local index");
-  assert.equal(update.operation.base_revisions["ZETA/CANDIDATES/Alpha.md"], sha256("alpha-bytes"));
-  assert.equal(update.operation.risk_tier, "high");
-  assert.equal(update.operation.conflicts.length, 1);
-  assert.equal(update.operation.conflicts[0].status, "unresolved");
-  assert.match(update.operation.after_bytes["ZETA/CANDIDATES/Alpha.md"], /A reusable deterministic claim/u);
-  assert.match(update.operation.after_bytes["ZETA/CANDIDATES/Alpha.md"], /Conflicting update input/u);
-  assert.equal(update.capture_target, "knowledge_candidate");
-  assert.equal(update.selected, false);
+  assert.equal(managedHolds.length, 1);
+  assert.ok(mergeHold);
+  assert.equal(result.proposals.length, 0, "unmanaged and ambiguous candidates must not mint operations");
+  assert.equal(managedHolds[0].selected, false);
   assert.equal(mergeHold.selected, false);
   assertLifecycleContract(result);
 });

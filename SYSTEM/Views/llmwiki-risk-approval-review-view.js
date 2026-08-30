@@ -63,6 +63,7 @@
       operation: KIND_LABELS[packet.operation.kind],
       summary: packet.summary,
       provenance: packet.source_lineage.map((item) => item.locators.map((locator) => String(locator).split("#")[0].split("/").pop()).filter(Boolean).join(" · ") || "선택한 자료"),
+      sourceRows: packet.source_lineage.flatMap((item) => item.locators.map((locator) => ({ source_id: item.source_id, content_hash: item.content_hash, locator: String(locator), source_path: String(locator).split("#")[0], evidence_quote: item.evidence_quote || "" }))),
       before_after: packet.before_after.map((item) => ({ destination: visibleDestination(item.destination_id), before: readableDocument(item.before), after: readableDocument(item.after) })),
       riskItems: [TIER_LABELS[packet.risk.tier], ...packet.risk.reasons.map((reason) => REASON_LABELS[reason] || reason)],
       conflict: packet.conflict.state === "clear" ? "없음" : packet.conflict.state === "resolved" ? "해결됨" : `검토 필요 · ${packet.conflict.blocking_conflict_ids.length}건`,
@@ -79,7 +80,10 @@
     const model = Object.freeze(options.packets.map((packet) => buildRiskApprovalReviewModel(packet, packetApi)));
     const allowedInitial = new Set(model.filter((item) => item.selectable).map((item) => item.packet.packet_id));
     const initialSelected = Array.isArray(options.initialSelectedIds) ? options.initialSelectedIds.filter((id) => allowedInitial.has(id)) : [];
-    const state = { selected: new Set(initialSelected), activeIndex: 0, lastResult: null };
+    const state = { selected: new Set(initialSelected), activeIndex: 0, lastResult: null, sourcePreview: null };
+    const onOpenBeside = typeof options.onOpenBeside === "function" ? options.onOpenBeside : () => {};
+    const onEditSource = typeof options.onEditSource === "function" ? options.onEditSource : () => {};
+    const resolveSourcePreview = typeof options.resolveSourcePreview === "function" ? options.resolveSourcePreview : (row) => ({ ok: true, status: "unknown", match_status: "unavailable", source_path: row.source_path, evidence_quote: "", context: "", locator: row.locator });
     function publishSelection() { if (typeof options.onSelectionChange === "function") options.onSelectionChange(sorted([...state.selected])); }
     function active() { return model[state.activeIndex] || model[0]; }
     function invoke(name, value) { state.lastResult = typeof options[name] === "function" ? options[name](value) : { ok: true, status: name }; return state.lastResult; }
@@ -94,6 +98,16 @@
       state.lastResult = authorization.ok && typeof options.onBatchApprove === "function" ? options.onBatchApprove({ packets, authorization: authorization.value }) : authorization;
       return state.lastResult;
     }
+    function openSourcePreview(row) {
+      const fallback = { ok: true, status: "unknown", match_status: "unavailable", source_path: row.source_path, evidence_quote: "", context: "", locator: row.locator };
+      state.sourcePreview = fallback;
+      render();
+      try {
+        const resolved = resolveSourcePreview(row);
+        if (resolved && typeof resolved.then === "function") resolved.then((value) => { state.sourcePreview = value && value.ok ? value : fallback; render(); }).catch(() => { state.sourcePreview = fallback; render(); });
+        else if (resolved && resolved.ok) { state.sourcePreview = resolved; render(); }
+      } catch (_error) { state.sourcePreview = fallback; render(); }
+    }
     function render() {
       empty(container);
       if (typeof options.ensureStyle === "function") options.ensureStyle(container);
@@ -106,6 +120,19 @@
       button(actions, "거절", "reject", () => invoke("onReject", active().packet), { emittedAction: "reject_risk" });
       button(actions, "수정 요청", "request-revision", () => invoke("onRequestRevisionPrompt", { packet: active().packet, submit: requestRevision }), { primary: options.primaryEnabled !== false && !active().approvable, emittedAction: "request_risk_revision" });
       button(actions, "안전한 묶음 승인", "approve-batch", approveBatch, { disabled: state.selected.size === 0, disabledReason: "승인할 묶음을 선택하세요." });
+      if (state.sourcePreview) {
+        const preview = createEl(frame, "section", { attr: { class: "llmwiki-approval-review__source-preview prodigy-utility-card", role: "dialog", "aria-label": "출처 근거" } });
+        createEl(preview, "h3", { text: "출처 근거" });
+        createEl(preview, "p", { text: state.sourcePreview.source_path || "원문 경로 없음" });
+        const freshness = state.sourcePreview.status === "current" ? "현재 원문과 일치" : state.sourcePreview.status === "stale" ? "원문 수정됨 — 재분석 필요" : "원문 상태 확인 전";
+        createEl(preview, "p", { text: freshness, attr: { class: "llmwiki-approval-review__muted" } });
+        if (state.sourcePreview.evidence_quote) createEl(preview, "blockquote", { text: state.sourcePreview.evidence_quote });
+        if (state.sourcePreview.context) createEl(preview, "pre", { text: state.sourcePreview.context });
+        const previewActions = createEl(preview, "div", { attr: { class: "llmwiki-approval-review__actions" } });
+        button(previewActions, "원문 파일 열기", "open-source-file", () => onOpenBeside(state.sourcePreview.source_path));
+        if (state.sourcePreview.position) button(previewActions, "원문 수정", "edit-source", () => onEditSource(state.sourcePreview));
+        button(previewActions, "닫기", "close-source-preview", () => { state.sourcePreview = null; render(); });
+      }
       const cards = createEl(frame, "section", { attr: { class: "llmwiki-approval-review__operations" } });
       model.forEach((item, index) => {
         const card = createEl(cards, "article", { attr: { class: "llmwiki-approval-review__operation prodigy-utility-card", "data-risk-tier": item.packet.risk.tier, "data-conflict-state": item.packet.conflict.state } });
@@ -135,6 +162,7 @@
         field(fields, "충돌 상태", item.conflict);
         const lineage = createEl(card, "section"); createEl(lineage, "h4", { text: "출처 흐름" });
         item.provenance.forEach((row) => createEl(lineage, "p", { text: row, attr: { class: "llmwiki-cjk-prose", "data-typography-role": "provenance" } }));
+        item.sourceRows.forEach((row) => button(lineage, "출처 보기", "open-source", () => openSourcePreview(row), { emittedAction: "preview_source" }));
       });
       return frame;
     }

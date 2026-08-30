@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const path = require("node:path");
 
 const { FakeElement, collectText, findByText } = require("./knowledge_explorer_view_fakes.js");
@@ -323,6 +324,21 @@ async function testSystemAuctionRegionTemplateIsNotCollectedAsAResource() {
   assert.doesNotMatch(collectText(result.container), /<% title %>/);
 }
 
+function testDocumentPlanUsesReadOnlyCanonicalEvidenceAndPhotographyTags() {
+  const hubSource = fs.readFileSync(path.join(ROOT, "HUB/50 Knowledge.md"), "utf8");
+  const taxonomySource = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-taxonomy.js"), "utf8");
+  assert.match(hubSource, /plan\.source\?\.source_path === "INBOX\/웨딩 스냅 워크플로우\.md"[\s\S]{0,120}"photography\/wedding-snap"/u,
+    "every page from the wedding source must inherit the same controlled photography leaf tag");
+  assert.match(hubSource, /canonicalPlanEvidence/u, "canonical Knowledge must participate in document-plan retrieval evidence");
+  assert.match(taxonomySource, /재당첨\|입주권\|조합원\|권리산정/u,
+    "redevelopment rights pages must resolve to the controlled rights leaf");
+  assert.match(taxonomySource, /정비구역\|가로주택\|모아타운\|소규모 정비/u,
+    "small-scale redevelopment pages must resolve to the controlled land leaf");
+  assert.match(hubSource, /read_only:\s*true/u, "canonical overlap must remain explicitly read-only");
+  assert.doesNotMatch(hubSource, /configuredAllowedCandidateIds[\s\S]{0,500}canonicalPlanEvidence/u,
+    "read-only canonical evidence must never enter the writable candidate allowlist");
+}
+
 function testInvalidRecencyWarningUsesKoreanDisplayCopy() {
   // Given: the projection retains its machine-readable invalid_recency warning.
   const sectionsByPath = hubAdapter.buildDetailSections({
@@ -423,6 +439,7 @@ async function main() {
   await testMissingModuleProducesRecoverableError();
   await testMalformedAndBrokenDataStayRenderable();
   await testSystemAuctionRegionTemplateIsNotCollectedAsAResource();
+  testDocumentPlanUsesReadOnlyCanonicalEvidenceAndPhotographyTags();
   testInvalidRecencyWarningUsesKoreanDisplayCopy();
   console.log("Knowledge hub integration tests passed");
 }

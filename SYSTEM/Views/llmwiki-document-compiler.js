@@ -122,14 +122,15 @@
     const questions = guide.key_questions.length ? guide.key_questions.map((question) => `- ${question}`).join("\n") : "- 추가 질문 없음";
     return `# ${guide.title}\n\n> [!info] 자료 안내\n> 원문을 탐색하기 위한 출처 가이드이며, 정본 지식이 아닙니다.\n\n## 자료 개요\n\n${guide.overview}\n\n## 문서 지도\n\n${sections}\n\n## 연결 문서\n\n${pageLinks}\n\n## 더 살펴볼 질문\n\n${questions}\n\n## 원본\n\n- ${sourcePath}\n`;
   }
-  function renderArticle(page, sections, claims, citations, verificationFlags) {
+  function renderArticle(page, sections, claims, citations, verificationFlags, tags = []) {
     const body = sections.map((section) => `## ${section.heading}\n\n${section.paragraphs.map((paragraph) => paragraph.text).join("\n\n")}`).join("\n\n");
     const claimLines = claims.map((claim) => `- ${claim.text}`).join("\n");
     const sourceLines = [...new Set(citations.flatMap((citation) => citation.locators || []))].map((locator) => `- ${locator}`).join("\n");
     const verification = verificationFlags.length
       ? `\n> [!warning] 최신 기준 확인 필요\n> 검증 항목: ${verificationFlags.map((flag) => `${flag.label} ${flag.claim_ids.length}건`).join(" · ")}. 원문 기록 시점과 현재 기준을 대조하세요.\n`
       : "";
-    return `# ${page.title}\n\n> [!info] 검토 상태\n> 원문 근거에서 편집한 지식 후보이며, 아직 정본으로 승격되지 않았습니다.\n${verification}\n> ${page.purpose}\n\n${body}\n\n## 근거 주장\n\n${claimLines}\n\n## 출처\n\n${sourceLines}\n`;
+    const frontmatter = tags.length ? `---\ntags:\n${tags.map((tag) => `  - ${tag}`).join("\n")}\n---\n` : "";
+    return `${frontmatter}# ${page.title}\n\n> [!info] 검토 상태\n> 원문 근거에서 편집한 지식 후보이며, 아직 정본으로 승격되지 않았습니다.\n${verification}\n> ${page.purpose}\n\n${body}\n\n## 근거 주장\n\n${claimLines}\n\n## 출처\n\n${sourceLines}\n`;
   }
 
   function createDocumentCompiler(options = {}) {
@@ -138,7 +139,7 @@
     async function compile(input) {
       const inventory = input && input.inventory;
       const plan = input && input.approved_plan;
-      if (!plain(inventory) || inventory.inventory_version !== "llmwiki_claim_inventory_v1"
+      if (!plain(inventory) || inventory.inventory_version !== "llmwiki_claim_inventory_v3"
         || !Array.isArray(inventory.claims) || !Array.isArray(inventory.citations)
         || inventory.inventory_hash !== sha(stable(inventoryBody(inventory)))) {
         return freeze({ ok: false, reason: "invalid_claim_inventory" });
@@ -149,6 +150,7 @@
         return freeze({ ok: false, reason: "approved_page_plan_required" });
       }
       const selectedPages = plan.pages.filter((page) => page.selected !== false);
+      const executionRows = new Map((input.execution?.resolution?.rows || []).map((row) => [row.page_id, row]));
       const claimById = new Map(inventory.claims.map((claim) => [claim.claim_id, claim]));
       const citationById = new Map(inventory.citations.map((citation) => [citation.citation_id, citation]));
       if (selectedPages.some((page) => !Array.isArray(page.claim_ids) || page.claim_ids.some((claimId) => !claimById.has(claimId)))) {
@@ -215,6 +217,8 @@
         const citations = [...new Set(claims.flatMap((claim) => claim.citation_ids))].map((citationId) => citationById.get(citationId));
         const paragraphs = sections.flatMap((section) => section.paragraphs);
         const verificationFlags = classifyVerificationClaims(claims);
+        const executionRow = executionRows.get(page.page_id);
+        const tags = executionRow?.tag_decision?.ok ? executionRow.tag_decision.tags : [];
         articles.push(freeze({
           contract_version: COMPILER_VERSION,
           document_kind: "topic_article",
@@ -227,11 +231,12 @@
           claims,
           citations,
           verification_flags: verificationFlags,
+          tags,
           matched_candidate_ids: page.target_candidate_ids,
           related_candidate_ids: page.target_candidate_ids,
           operation_hint: page.operation_hint,
           review_reasons: [],
-          body: renderArticle(page, sections, claims, citations, verificationFlags),
+          body: renderArticle(page, sections, claims, citations, verificationFlags, tags),
         }));
       }
       const guideClaimIds = [...new Set(plan.source_guide.sections.flatMap((section) => section.claim_ids))];

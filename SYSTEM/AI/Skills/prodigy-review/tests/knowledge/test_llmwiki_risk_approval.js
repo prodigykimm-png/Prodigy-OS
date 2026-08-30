@@ -35,7 +35,7 @@ function operation(kind, id, overrides = {}) {
     contract_version: operationApi.CONTRACT_VERSION, operation_id: id, kind, destination_ids: [target],
     base_revisions: kind === "create" ? {} : { [target]: base }, before_bytes: kind === "create" ? {} : { [target]: before },
     after_bytes: { [target]: kind === "noop" ? before : `${id} after\n` },
-    source_citations: [{ source_id: `source_${id}`, content_hash: "a".repeat(64), source_url: `https://example.com/${id}`, locators: [`ZETA/LITERATURE/${id}.md#claim`], source_archive_id: null, confidence: "explicit" }],
+    source_citations: [{ source_id: `source_${id}`, content_hash: "a".repeat(64), source_url: `https://example.com/${id}`, locators: [`ZETA/LITERATURE/${id}.md#claim`], source_archive_id: null, confidence: "explicit", evidence_quote: `${id} evidence quote` }],
     conflicts: [], risk_tier: kind === "update" ? "medium" : "low", effects: { deprecations: [], supersessions: [] },
   };
   Object.assign(value, overrides);
@@ -85,6 +85,7 @@ test("risk packets bind deterministic risk, conflicts, exact bytes, provenance, 
   assert.equal(noop.approval_eligible, false);
   assert.equal(packetApi.isRiskApprovalPacket(create), true);
   assert.equal(packetApi.isRiskApprovalPacket({ ...create }), false);
+  assert.equal(create.source_lineage[0].evidence_quote, "operation_risk_create evidence quote");
   assert.equal(create.provenance.source_ids[0], create.source_lineage[0].source_id);
   const legacyTarget = operation("create", "operation_legacy_para", { destination_ids: ["PARA/RESOURCES/Knowledge/legacy.md"], after_bytes: { "PARA/RESOURCES/Knowledge/legacy.md": "legacy\n" } });
   assert.equal(packetApi.buildRiskApprovalPacket({ run_id: "run_legacy_para", run_revision: 1, packet_revision: 1, operation: legacyTarget, summary: "legacy", provenance: { source_ids: legacyTarget.source_citations.map((row) => row.source_id) } }).reason, "canonical_target_required");
@@ -260,6 +261,10 @@ test("beginner review model and DOM expose readable fields/actions without schem
   const surface = review.mountRiskApprovalReview({ container: root, packets: [low, high], packetApi, batchApi, onReject: (value) => boundaries.push({ kind: "reject", packet: value }), onRequestRevision: (value) => boundaries.push({ kind: "revision", ...value }) });
   const text = collectText(root);
   assert.match(text, /새 지식 만들기|요약|출처 흐름|변경 전|변경 후|위험|충돌 상태/);
+  assert.ok(actions(root).includes("open-source"), "source lineage must expose a preview action");
+  action(root, "open-source").onclick({ preventDefault() {} });
+  assert.match(collectText(root), /출처 근거|원문 파일 열기/);
+  assert.ok(actions(root).includes("open-source-file"));
   assert.deepEqual(actions(root).filter((item) => ["approve", "reject", "request-revision", "approve-batch"].includes(item)).sort(), ["approve", "approve-batch", "reject", "request-revision"]);
   assert.doesNotMatch(text, /schema|packet_hash|operation_id|payload_hash|내부 필드/i);
   assert.equal(surface.model[0].selectable, true);

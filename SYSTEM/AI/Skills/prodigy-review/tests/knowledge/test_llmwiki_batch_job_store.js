@@ -253,6 +253,33 @@ test("node storage persists atomically under gitignored SYSTEM/CACHE/llmwiki and
   }
 });
 
+test("plan snapshots list every source deterministically without exposing mutable state", async () => {
+  const storage = memoryStorage();
+  const store = storeApi.createBatchJobStore({ storage });
+  await store.load();
+  const jobs = [];
+  for (const [sourceId, body] of [["src_wedding", "wedding-source"], ["src_investment", "investment-source"]]) {
+    const job = await store.createJob({ request_key: storeApi.requestKey(identity()), sources: sources([[sourceId, body]]) });
+    const sourceRevision = hash.sha256(body);
+    const inventoryHash = hash.sha256(`${body}:inventory`);
+    const plan = { plan_version: "llmwiki_page_plan_v1", inventory_hash: inventoryHash,
+      source: { source_id: sourceId, source_path: `INBOX/${sourceId}.md`, content_hash: sourceRevision },
+      source_guide: { title: sourceId, overview: body, section_ids: ["section_1"], key_questions: ["질문"] },
+      pages: [{ page_id: `page_${hash.sha256(sourceId).slice(0, 24)}`, title: sourceId, purpose: body,
+        claim_ids: [`claim_${hash.sha256(body).slice(0, 24)}`], target_candidate_ids: [], operation_hint: "create" }],
+      source_only_claim_ids: [], plan_revision: 1, status: "pending_review" };
+    plan.plan_hash = hash.sha256(JSON.stringify(plan));
+    await store.savePlanSnapshot({ job_id: job.job_id, source_id: sourceId, source_revision: sourceRevision,
+      inventory_hash: inventoryHash, plan_hash: plan.plan_hash, plan_revision: plan.plan_revision,
+      status: "pending_review", plan, inventory: { claims: [], citations: [] } });
+    jobs.push(job.job_id);
+  }
+  const listed = store.listPlanSnapshots();
+  assert.deepEqual(listed.map((row) => row.source_id), ["src_investment", "src_wedding"]);
+  assert.throws(() => { listed[0].status = "mutated"; }, TypeError);
+  assert.equal(store.listPlanSnapshots()[0].status, "pending_review");
+});
+
 test("page-plan snapshot survives restart without provider replay", async () => {
   const storage = memoryStorage();
   const providerCalls = { count: 0 };
@@ -282,8 +309,41 @@ test("page-plan snapshot survives restart without provider replay", async () => 
 
   const second = storeApi.createBatchJobStore({ storage, counters: { provider_calls: providerCalls } });
   await second.load();
-  assert.deepEqual(second.getPlanSnapshot(job.job_id), snapshot);
+  const restored = second.getPlanSnapshot(job.job_id);
+  assert.deepEqual({ ...restored, plan_identity: undefined }, { ...snapshot, plan_identity: undefined });
+  assert.match(restored.plan_identity, /^[0-9a-f]{64}$/u);
   assert.equal(providerCalls.count, 0);
+});
+
+test("page-plan snapshot preserves immutable history when inventory identity changes", async () => {
+  const store = storeApi.createBatchJobStore({ storage: memoryStorage() });
+  await store.load();
+  const job = await store.createJob({
+    request_key: storeApi.requestKey(identity()),
+    sources: sources([["src_investment", "investment-source"]]),
+  });
+  const sourceRevision = hash.sha256("investment-source");
+  const first = {
+    job_id: job.job_id,
+    source_id: "src_investment",
+    source_revision: sourceRevision,
+    inventory_hash: hash.sha256("inventory-v1"),
+    plan_hash: hash.sha256("plan-v1"),
+    plan_revision: 1,
+    status: "pending_review",
+    plan: { plan_version: "llmwiki_page_plan_v1", pages: [] },
+  };
+  await store.savePlanSnapshot(first);
+  const second = await store.savePlanSnapshot({
+    ...first,
+    inventory_hash: hash.sha256("inventory-v2"),
+    plan_hash: hash.sha256("plan-v2"),
+    plan_revision: 2,
+  });
+  assert.equal(second.history.length, 1);
+  assert.equal(second.history[0].inventory_hash, first.inventory_hash);
+  assert.notEqual(second.plan_identity, second.history[0].plan_identity);
+  assert.equal(store.getPlanSnapshot(job.job_id).plan_hash, hash.sha256("plan-v2"));
 });
 
 test("page-plan snapshot rejects stale source binding and non-monotonic revision", async () => {

@@ -473,6 +473,7 @@
       sourceContext(parent);
       host = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__review", "aria-label": "제안 검토", tabindex: "-1" } });
       const child = reviewModule(options.reviewView);
+      const reviewOptions = plain(options.reviewOptions) ? options.reviewOptions : {};
       const projected = projectLifecycleSnapshot(snapshot);
       const riskPackets = [...projected.approvals, ...projected.conflicts];
       const riskPacketApi = root.LLMWikiRiskApprovalPacket;
@@ -501,6 +502,9 @@
               return Promise.resolve(options.requestRevisionGuidance(packet)).then((guidance) => submit(guidance));
             },
             onRequestRevision({ packet, guidance }) { return dispatch({ action: "request_risk_revision", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id, guidance }); },
+            onOpenBeside: reviewOptions.onOpenBeside,
+            onEditSource: reviewOptions.onEditSource,
+            resolveSourcePreview: reviewOptions.resolveSourcePreview,
           });
         };
         const eligibleActive = projected.approvals.filter((packet) => activeRiskPackets.includes(packet));
@@ -517,12 +521,13 @@
       if (!packet || !child || typeof child.mountLlmWikiApprovalReview !== "function") {
         createEl(host, "p", { text: "승인 검토 화면을 불러오지 못했습니다. 저장 작업은 시작되지 않았습니다.", attr: { class: "llmwiki-lifecycle__error", role: "alert" } });
       } else {
-        const reviewOptions = plain(options.reviewOptions) ? options.reviewOptions : {};
         child.mountLlmWikiApprovalReview({
           container: host,
           packet,
           approvalApi: reviewOptions.approvalApi,
           onOpenBeside: reviewOptions.onOpenBeside,
+          onEditSource: reviewOptions.onEditSource,
+          resolveSourcePreview: reviewOptions.resolveSourcePreview,
           buildCommitRequest({ authorizationResult }) {
             return { authorization: authorizationResult && authorizationResult.value ? authorizationResult.value : authorizationResult };
           },

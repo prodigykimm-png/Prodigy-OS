@@ -59,6 +59,10 @@
     createEl(parent, "dd", { text: text(value, "없음") });
   }
   function sourcePath(locator) { return text(locator).split("#")[0]; }
+  function previewFallback(item) {
+    const locator = text(item && item.locator);
+    return { ok: Boolean(sourcePath(locator)), status: "unknown", match_status: "unavailable", source_path: sourcePath(locator), evidence_quote: text(item && item.evidence_quote), context: "", locator };
+  }
   function stable(value) {
     if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
     if (!plain(value)) return JSON.stringify(value);
@@ -139,7 +143,9 @@
       const row = createEl(evidence, "div", { attr: { class: "llmwiki-approval-review__source" } });
       const readableSource = sourcePath(item.locator).split("/").pop() || "선택한 자료";
       createEl(row, "span", { text: readableSource });
-      button(row, "출처 옆에 열기", "open-source", () => callbacks.onOpenBeside(sourcePath(item.locator)), { ariaLabel: `${readableSource} 옆에 열기` });
+      const previewButton = button(row, "출처 보기", "open-source", () => callbacks.openSourcePreview(item), { ariaLabel: `${readableSource} 출처 근거 보기` });
+      setAttr(previewButton, "data-source-preview", "true");
+      setAttr(previewButton, "data-source-path", sourcePath(item.locator));
     });
     return card;
   }
@@ -162,8 +168,29 @@
       authorizationInvalidated: false,
       reconfirmationRequired: false,
       invalidatedPacketHashes: new Set(),
+      sourcePreview: null,
     };
     const onOpenBeside = typeof options.onOpenBeside === "function" ? options.onOpenBeside : () => {};
+    const onEditSource = typeof options.onEditSource === "function" ? options.onEditSource : () => {};
+    const resolveSourcePreview = typeof options.resolveSourcePreview === "function" ? options.resolveSourcePreview : (item) => previewFallback(item);
+    function openSourcePreview(item) {
+      const fallback = previewFallback(item);
+      state.sourcePreview = fallback;
+      render();
+      try {
+        const resolved = resolveSourcePreview(item);
+        if (resolved && typeof resolved.then === "function") {
+          resolved.then((value) => { state.sourcePreview = value && value.ok ? value : fallback; render(); })
+            .catch(() => { state.sourcePreview = fallback; render(); });
+        } else if (resolved && resolved.ok) {
+          state.sourcePreview = resolved;
+          render();
+        }
+      } catch (_error) {
+        state.sourcePreview = fallback;
+        render();
+      }
+    }
 
     function setResult(result, copy) { state.lastResult = { ...(result || {}), status: result && result.status || copy.kind, copy }; }
     function submit(kind) {
@@ -260,6 +287,20 @@
       button(actions, "근거 더 요청", "evidence-more", () => nonWrite("evidence_more"));
       button(actions, "충돌 거절", "reject-conflict", () => nonWrite("reject"));
       button(actions, "검토 닫기", "close-review", () => { state.open = false; render(); });
+      if (state.sourcePreview) {
+        const preview = createEl(frame, "section", { attr: { class: "llmwiki-approval-review__source-preview prodigy-utility-card", role: "dialog", "aria-label": "출처 근거" } });
+        createEl(preview, "h3", { text: "출처 근거" });
+        createEl(preview, "p", { text: state.sourcePreview.source_path || "원문 경로 없음" });
+        const freshness = state.sourcePreview.status === "current" ? "현재 원문과 일치" : state.sourcePreview.status === "stale" ? "원문 수정됨 — 재분석 필요" : "원문 상태 확인 전";
+        createEl(preview, "p", { text: freshness, attr: { class: "llmwiki-approval-review__muted" } });
+        if (state.sourcePreview.evidence_quote) createEl(preview, "blockquote", { text: state.sourcePreview.evidence_quote });
+        if (state.sourcePreview.context) createEl(preview, "pre", { text: state.sourcePreview.context });
+        if (state.sourcePreview.match_status === "ambiguous") createEl(preview, "p", { text: "같은 근거 문장이 여러 곳에 있어 위치를 추정하지 않았습니다." });
+        const previewActions = createEl(preview, "div", { attr: { class: "llmwiki-approval-review__actions" } });
+        button(previewActions, "원문 파일 열기", "open-source-file", () => onOpenBeside(state.sourcePreview.source_path));
+        if (state.sourcePreview.position) button(previewActions, "원문 수정", "edit-source", () => onEditSource(state.sourcePreview));
+        button(previewActions, "닫기", "close-source-preview", () => { state.sourcePreview = null; render(); });
+      }
       if (state.lastResult) {
         const notice = createEl(frame, "div", { attr: { class: "llmwiki-approval-review__notice", "data-state": state.lastResult.copy.kind, role: "status" } });
         createEl(notice, "p", { text: state.lastResult.copy.message });
@@ -270,7 +311,7 @@
       if (!model.conflicts.length) createEl(conflicts, "p", { text: "확인할 충돌이 없습니다.", attr: { class: "llmwiki-approval-review__muted" } });
       model.conflicts.forEach((conflict) => createEl(conflicts, "p", { text: `${conflict.conflict_id}: ${conflict.status === "unresolved" ? "미해결" : "검토 필요"}` }));
       const operations = createEl(frame, "section", { attr: { class: "llmwiki-approval-review__operations" } });
-      model.operations.forEach((operation) => renderOperation(operations, operation, state, { allowlist, rerender: render, onOpenBeside }));
+      model.operations.forEach((operation) => renderOperation(operations, operation, state, { allowlist, rerender: render, onOpenBeside, openSourcePreview }));
       return frame;
     }
     const api = {

@@ -73,6 +73,7 @@
     let items = list(config.items);
     let filter = "pending";
     let rootEl = null;
+    const mergeSelected = new Set();
     function dispatch(type, item, invoker) {
       Promise.resolve(command.execute({ type, item })).then(() => render());
       if (type === "open_detail" && detail) detail.open(item, invoker);
@@ -90,6 +91,14 @@
         if (group.id === "plan" && group.items.some((item) => item.plan_kind === "topic_page") && typeof config.onPlanApprove === "function") {
           const approve = createEl(section, "button", { text: "계획 승인 후 문서 생성", attr: { type: "button", "data-action": "approve-page-plan", "data-primary": "true" } });
           approve.onclick = () => Promise.resolve(config.onPlanApprove()).then(() => render());
+        }
+        if (group.id === "plan" && group.items.filter((item) => item.plan_kind === "topic_page").length >= 2 && typeof config.onPlanMerge === "function") {
+          const merge = createEl(section, "button", { text: "선택 문서 병합", attr: { type: "button", "data-action": "merge-plan-pages" } });
+          merge.disabled = mergeSelected.size !== 2;
+          merge.onclick = () => {
+            if (mergeSelected.size !== 2) return;
+            Promise.resolve(config.onPlanMerge([...mergeSelected].sort())).then((result) => { if (result && result.ok) mergeSelected.clear(); render(); });
+          };
         }
         for (const item of group.items) {
           const row = createEl(section, "article", { attr: { "data-review-id": item.review_id, ...(item.pilot === true ? { "data-review-pilot": "true" } : {}), ...(item.plan === true ? { "data-review-plan": "true", "data-plan-selected": item.plan_selected === false ? "false" : "true" } : {}) } });
@@ -112,6 +121,13 @@
           }
           const open = createEl(row, "button", { text: "열기", attr: { type: "button", "data-action": "open-review-detail" } });
           open.onclick = () => { if (detail) detail.open(item, open); };
+          if (item.plan === true && item.plan_kind === "topic_page" && typeof config.onPlanMerge === "function") {
+            const mergeLabel = createEl(row, "label", { attr: { class: "knowledge-review-workbench__merge-select" } });
+            const mergeInput = createEl(mergeLabel, "input", { attr: { type: "checkbox", "data-action": "select-plan-merge", "data-plan-page-id": item.plan_page_id, "aria-label": `${text(item.title)} 병합 선택` } });
+            mergeInput.checked = mergeSelected.has(item.plan_page_id);
+            mergeInput.onchange = () => { if (mergeInput.checked) { if (mergeSelected.size < 2) mergeSelected.add(item.plan_page_id); else mergeInput.checked = false; } else mergeSelected.delete(item.plan_page_id); render(); };
+            createEl(mergeLabel, "span", { text: "병합 선택" });
+          }
           if (item.plan === true && item.plan_kind === "topic_page" && typeof config.onPlanToggle === "function") {
             const togglePlan = createEl(row, "button", { text: item.plan_selected === false ? "계획 포함" : "계획 제외", attr: { type: "button", "data-action": "toggle-plan-page", "aria-pressed": item.plan_selected === false ? "false" : "true" } });
             togglePlan.onclick = () => Promise.resolve(config.onPlanToggle(item)).then(() => render());
@@ -130,7 +146,7 @@
         }
       }
     }
-    const api = freeze({ update(next) { items = list(next && next.items); render(); return buildReviewGroups(items, { filter }); }, setFilter(next) { filter = next === "all" ? "all" : "pending"; render(); }, groups() { return buildReviewGroups(items, { filter }); }, destroy() { if (detail) detail.close(); empty(config.container); rootEl = null; } });
+    const api = freeze({ update(next) { items = list(next && next.items); const validMergeIds = new Set(items.filter((item) => item.plan === true && item.plan_kind === "topic_page").map((item) => item.plan_page_id)); for (const id of [...mergeSelected]) if (!validMergeIds.has(id)) mergeSelected.delete(id); render(); return buildReviewGroups(items, { filter }); }, setFilter(next) { filter = next === "all" ? "all" : "pending"; render(); }, groups() { return buildReviewGroups(items, { filter }); }, destroy() { if (detail) detail.close(); empty(config.container); rootEl = null; } });
     render();
     return api;
   }

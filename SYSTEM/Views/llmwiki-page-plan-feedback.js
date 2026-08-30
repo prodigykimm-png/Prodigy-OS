@@ -32,7 +32,7 @@
   function valid(input) {
     const inventory = input?.inventory;
     const plan = input?.plan;
-    return plain(inventory) && inventory.inventory_version === "llmwiki_claim_inventory_v1"
+    return plain(inventory) && inventory.inventory_version === "llmwiki_claim_inventory_v3"
       && Array.isArray(inventory.claims) && Array.isArray(inventory.citations)
       && plain(plan) && plan.plan_version === "llmwiki_page_plan_v1"
       && plan.inventory_hash === inventory.inventory_hash && Array.isArray(plan.pages)

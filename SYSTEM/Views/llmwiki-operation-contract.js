@@ -302,7 +302,7 @@
     const inspected = snapshotRecord(input, field, "malformed_source_citation");
     if (plain(inspected) && inspected.ok === false) return inspected;
     input = inspected;
-    const unknown = exactFields(input, new Set(["source_id", "content_hash", "source_url", "locators", "source_archive_id", "confidence"]), field, "unknown_citation_field");
+    const unknown = exactFields(input, new Set(["source_id", "content_hash", "source_url", "locators", "source_archive_id", "confidence", "evidence_quote"]), field, "unknown_citation_field");
     if (unknown) return unknown;
     const sourceId = safeIdentifier(own(input, "source_id"), `${field}.source_id`);
     if (plain(sourceId)) return sourceId;
@@ -318,7 +318,12 @@
     const archiveValue = own(input, "source_archive_id");
     const archiveId = archiveValue === undefined || archiveValue === null ? null : safeIdentifier(archiveValue, `${field}.source_archive_id`);
     if (plain(archiveId)) return archiveId;
-    return { source_id: sourceId, content_hash: contentHash, source_url: url, locators, source_archive_id: archiveId, confidence };
+    const quoteValue = own(input, "evidence_quote");
+    const evidenceQuote = quoteValue === undefined ? "" : trim(quoteValue);
+    if (quoteValue !== undefined && (!evidenceQuote || evidenceQuote.length > 4096)) return fail(`${field}.evidence_quote`, "invalid_evidence_quote");
+    const normalized = { source_id: sourceId, content_hash: contentHash, source_url: url, locators, source_archive_id: archiveId, confidence };
+    if (evidenceQuote) normalized.evidence_quote = evidenceQuote;
+    return normalized;
   }
   function normalizeCitations(value) {
     const inspected = snapshotArray(value, "source_citations", "source_citations_required");

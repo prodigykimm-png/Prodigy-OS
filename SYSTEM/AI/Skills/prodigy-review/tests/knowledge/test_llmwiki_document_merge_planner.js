@@ -39,22 +39,35 @@ function document(matchedCandidateIds) {
   };
 }
 
-test("candidate update preserves all existing bytes and appends one guarded compiled section", () => {
-  const before = "# 기존 건축 문서\n\n## 기존 판단\n\n이 단락은 그대로 보존되어야 한다.\n";
+test("candidate update replaces exactly one owned managed region", () => {
+  const start = "<!-- llmwiki-managed:start page_111111111111111111111111 -->";
+  const end = "<!-- llmwiki-managed:end page_111111111111111111111111 -->";
+  const before = `# 기존 건축 문서\n\n수동 머리말\n\n${start}\n\n이전 자동 내용\n\n${end}\n\n수동 꼬리말\n`;
   const existing = candidate("cand_build", "기존 건축 문서", before);
-  const result = plannerApi.planDocumentMutation({
-    document: document(["cand_build"]),
-    candidate_documents: [existing],
-  });
-
+  const result = plannerApi.planDocumentMutation({ document: document(["cand_build"]), candidate_documents: [existing] });
   assert.equal(result.ok, true, result.reason);
   assert.equal(result.value.kind, "update");
-  assert.equal(result.value.target.candidate_id, "cand_build");
-  assert.equal(result.value.before_bytes, before);
-  assert.equal(result.value.after_bytes.startsWith(before), true);
-  assert.match(result.value.after_bytes, /<!-- llmwiki-compiled-section page_111111111111111111111111 -->/u);
+  assert.equal(result.value.after_bytes.startsWith(`# 기존 건축 문서\n\n수동 머리말\n\n${start}`), true);
+  assert.equal(result.value.after_bytes.endsWith(`${end}\n\n수동 꼬리말\n`), true);
   assert.match(result.value.after_bytes, /직영 공사는 비용을 줄인다/u);
-  assert.equal(result.value.preserved_prefix_sha256, hash.sha256(before));
+  assert.equal((result.value.after_bytes.match(/llmwiki-managed:start/gu) || []).length, 1);
+});
+
+test("candidate without an owned region is held instead of appended", () => {
+  const before = "# 기존 건축 문서\n\n수동 문서\n";
+  const result = plannerApi.planDocumentMutation({ document: document(["cand_build"]), candidate_documents: [candidate("cand_build", "기존 건축 문서", before)] });
+  assert.equal(result.value.kind, "hold");
+  assert.equal(result.value.reason, "managed_region_required");
+  assert.equal(Object.hasOwn(result.value, "after_bytes"), false);
+});
+
+test("duplicate managed markers are held", () => {
+  const marker = "<!-- llmwiki-managed:start page_111111111111111111111111 -->";
+  const end = "<!-- llmwiki-managed:end page_111111111111111111111111 -->";
+  const before = `# 문서\n${marker}\na\n${end}\n${marker}\nb\n${end}\n`;
+  const result = plannerApi.planDocumentMutation({ document: document(["cand_build"]), candidate_documents: [candidate("cand_build", "기존 건축 문서", before)] });
+  assert.equal(result.value.kind, "hold");
+  assert.equal(result.value.reason, "managed_region_invalid");
 });
 
 test("ambiguous existing-candidate merge is held instead of overwriting multiple documents", () => {

@@ -56,19 +56,33 @@
       }) });
     }
     const target = rows[0];
-    const marker = `<!-- llmwiki-compiled-section ${input.document.page_id} -->`;
-    if (target.before_bytes.includes(marker)) {
+    const startMarker = `<!-- llmwiki-managed:start ${input.document.page_id} -->`;
+    const endMarker = `<!-- llmwiki-managed:end ${input.document.page_id} -->`;
+    const startMatches = target.before_bytes.split(startMarker).length - 1;
+    const endMatches = target.before_bytes.split(endMarker).length - 1;
+    if (startMatches === 0 && endMatches === 0) {
       return freeze({ ok: true, value: freeze({
-        plan_version: PLAN_VERSION,
-        kind: "no_change",
-        reason: "compiled_section_already_present",
-        page_id: input.document.page_id,
-        target,
+        plan_version: PLAN_VERSION, kind: "hold", reason: "managed_region_required",
+        page_id: input.document.page_id, target,
       }) });
     }
-    const separator = target.before_bytes.endsWith("\n") ? "\n" : "\n\n";
+    const start = target.before_bytes.indexOf(startMarker);
+    const end = target.before_bytes.indexOf(endMarker);
+    if (startMatches !== 1 || endMatches !== 1 || start < 0 || end < start + startMarker.length) {
+      return freeze({ ok: true, value: freeze({
+        plan_version: PLAN_VERSION, kind: "hold", reason: "managed_region_invalid",
+        page_id: input.document.page_id, target,
+      }) });
+    }
     const addition = compiledBody(input.document);
-    const afterBytes = `${target.before_bytes}${separator}${marker}\n\n## ${input.document.title}\n\n${addition}\n`;
+    const region = `${startMarker}\n\n## ${input.document.title}\n\n${addition}\n\n${endMarker}`;
+    const afterBytes = `${target.before_bytes.slice(0, start)}${region}${target.before_bytes.slice(end + endMarker.length)}`;
+    if (afterBytes === target.before_bytes) {
+      return freeze({ ok: true, value: freeze({
+        plan_version: PLAN_VERSION, kind: "no_change", reason: "managed_region_unchanged",
+        page_id: input.document.page_id, target,
+      }) });
+    }
     return freeze({ ok: true, value: freeze({
       plan_version: PLAN_VERSION,
       kind: "update",
@@ -78,7 +92,7 @@
       before_revision: target.revision,
       after_bytes: afterBytes,
       after_revision: sha(afterBytes),
-      preserved_prefix_sha256: sha(target.before_bytes),
+      managed_region: freeze({ start_marker: startMarker, end_marker: endMarker }),
     }) });
   }
 

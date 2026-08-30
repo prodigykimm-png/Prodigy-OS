@@ -1,0 +1,6 @@
+(function(root){
+"use strict";const VERSION="llmwiki_plan_critic_v1";
+function freeze(v){if(Array.isArray(v))return Object.freeze(v.map(freeze));if(!v||typeof v!=="object")return v;return Object.freeze(Object.fromEntries(Object.entries(v).map(([k,x])=>[k,freeze(x)])));}
+async function review(input,request){const base={ok:true,version:VERSION,plan_hash:input.plan_hash,operation_ids:[...(input.operation_ids||[])],writer_count:0};if(typeof request!=="function")return freeze({...base,status:"unavailable",findings:[]});try{const value=await Promise.race([request(freeze({plan_hash:input.plan_hash,pages:input.pages||[]})),new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),Number.isInteger(input.timeout_ms)?input.timeout_ms:1000))]);if(!value||!Array.isArray(value.findings))return freeze({...base,status:"invalid",findings:[]});const findings=value.findings.filter(x=>x&&typeof x.code==="string"&&typeof x.page_id==="string").map(x=>({code:x.code,page_id:x.page_id,reason:String(x.reason||"")}));return freeze({...base,status:"reviewed",findings});}catch(_){return freeze({...base,status:"unavailable",findings:[]});}}
+const api=freeze({VERSION,review});root.LLMWikiPlanCritic=api;if(typeof module!=="undefined"&&module.exports)module.exports=api;
+})(typeof globalThis!=="undefined"?globalThis:this);

@@ -72,6 +72,21 @@ function legacyOperation(index, sourceId, sourcePath, contentHash) {
   };
 }
 
+test("document plan resolves canonically equivalent Unicode source paths", async () => {
+  const sourcePath = "INBOX/웨딩 스냅 가이드.md";
+  const decomposedPath = sourcePath.normalize("NFD");
+  const sourceBytes = "# 웨딩 스냅 가이드\n\n광각 렌즈는 양 끝 인물 왜곡에 주의해야 한다.\n";
+  const calls = { calls: 0 };
+  const runtime = await runHub({
+    pages: [], extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: { batchIdentity: identity(), batchProvider: provider(calls) },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const result = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(decomposedPath);
+  assert.notEqual(result.reason, "plan_source_missing");
+  assert.equal(result.source_path, sourcePath);
+});
+
 test("live batch emits one document operation for multiple reusable claims", async () => {
   const calls = { calls: 0 };
   const sourcePath = "INBOX/앨범 작업 워크플로우.md";
@@ -256,13 +271,29 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
   const sourcePath = "INBOX/투자 계획.md";
   const sourceBytes = "# 투자 계획\n\n직영 공사는 비용을 줄인다.\n\n철골조는 공사 기간을 단축한다.\n";
   const calls = { calls: 0 };
+  const investmentProvider = async (request) => {
+    calls.calls += 1;
+    return {
+      ok: true,
+      provider_call_count: 1,
+      artifacts: request.chunks.map((chunk) => ({
+        chunk_key: chunk.key,
+        outcome: "proposals",
+        items: ["직영 공사는 비용을 줄인다.", "철골조는 공사 기간을 단축한다."].map((quote, index) => ({
+          role: "reusable_claim", topic: "건축과 시공", evidence_quote: quote, claims: [{ text: quote }],
+          review_reasons: [], related_candidate_ids: [], span: { start: chunk.text.indexOf(quote),
+            end: chunk.text.indexOf(quote) + quote.length, alias: `span_investment_${index}` },
+        })),
+      })),
+    };
+  };
   const articleCalls = { calls: 0 };
   const runtime = await runHub({
     pages: [],
     extraFiles: { [sourcePath]: sourceBytes },
     llmWikiControllerOptions: {
       batchIdentity: identity(),
-      batchProvider: provider(calls),
+      batchProvider: investmentProvider,
       documentPagePlan: async (request) => {
         const claimIds = request.claims.map((claim) => claim.claim_id);
         return {
@@ -403,7 +434,7 @@ test("source-only claims block source archive when compiled review activates", a
           chunk_key: chunk.key,
           outcome: "proposals",
           items: quotes.map((quote, index) => ({
-            role: "reusable_claim",
+            role: index < 2 ? "reusable_claim" : "source_summary",
             topic: index < 2 ? "투자 확인" : "개인 기준",
             evidence_quote: quote,
             claims: [{ text: quote }],
@@ -429,7 +460,7 @@ test("source-only claims block source archive when compiled review activates", a
           claim_ids: request.claims.slice(0, 2).map((claim) => claim.claim_id),
           target_candidate_ids: [],
         }],
-        source_only_claim_ids: [request.claims[2].claim_id],
+        source_only_claim_ids: [],
       }),
       documentArticleCompiler: async (request) => ({
         articles: request.pages.map((page) => ({

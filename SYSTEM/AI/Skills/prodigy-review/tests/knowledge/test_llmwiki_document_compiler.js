@@ -29,7 +29,7 @@ function fixture() {
     { claim_id: `claim_${"3".repeat(24)}`, role: "reusable_claim", topic: "직영 건축", text: "철골조는 공사 기간을 단축한다.", citation_ids: [citations[2].citation_id], suggested_candidate_ids: [] },
   ];
   const inventoryBody = {
-    inventory_version: "llmwiki_claim_inventory_v1",
+    inventory_version: "llmwiki_claim_inventory_v3",
     source,
     claims,
     citations,

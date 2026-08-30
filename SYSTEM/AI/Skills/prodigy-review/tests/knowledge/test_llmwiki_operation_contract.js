@@ -38,6 +38,7 @@ function citation(overrides = {}) {
     content_hash: A,
     locators: ["ZETA/LITERATURE/article.md#claim"],
     confidence: "explicit",
+    evidence_quote: "검증 가능한 근거 문장",
     ...overrides,
   };
 }
@@ -111,6 +112,7 @@ test("create, update, merge, and noop parse exhaustively into deeply frozen disc
     const result = operationContract.parseOperation(operation(kind));
     assert.equal(result.ok, true, `${kind}: ${JSON.stringify(result)}`);
     assert.equal(result.value.kind, kind);
+    assert.equal(result.value.source_citations[0].evidence_quote, "검증 가능한 근거 문장");
     assert.equal(Object.isFrozen(result.value), true);
     assert.equal(Object.isFrozen(result.value.destination_ids), true);
     assert.equal(Object.isFrozen(result.value.effects), true);

@@ -1,0 +1,26 @@
+{
+  "version": "llmwiki_boundary_replay_v1",
+  "sources": [
+    {
+      "source_id": "investment",
+      "pages": [
+        {"page_id":"investment_rights","content_relation":"new","candidates":[],"primary_cluster":"real-estate/rights","claims":["lien","priority"]},
+        {"page_id":"investment_tax","content_relation":"new","candidates":[],"primary_cluster":"real-estate/tax","claims":["acquisition_tax","gift_tax"]},
+        {"page_id":"investment_location","content_relation":"new","candidates":[],"primary_cluster":"real-estate/location","claims":["specific_location"]},
+        {"page_id":"investment_construction","content_relation":"new","candidates":[],"primary_cluster":"real-estate/construction","claims":["freeze_heater"]},
+        {"page_id":"investment_case","content_relation":"new","candidates":[],"primary_cluster":"real-estate/source-guide","claims":["apartment_floorplan"]}
+      ],
+      "cannot_link": [["lien","acquisition_tax"],["specific_location","freeze_heater"],["freeze_heater","apartment_floorplan"]]
+    },
+    {
+      "source_id": "song",
+      "pages": [
+        {"page_id":"song_enforcement","content_relation":"new","candidates":[],"primary_cluster":"real-estate/enforcement","claims":["negotiation","delivery_order","injunction","execution"]},
+        {"page_id":"song_cancellation","content_relation":"new","candidates":[],"primary_cluster":"real-estate/rights","claims":["denial","public_sale_cancel","field_report"]},
+        {"page_id":"song_rights","content_relation":"new","candidates":[],"primary_cluster":"real-estate/rights","claims":["distribution","title_change"]}
+      ],
+      "must_link": [["delivery_order","execution"]],
+      "cannot_link": [["execution","denial"],["public_sale_cancel","title_change"]]
+    }
+  ]
+}

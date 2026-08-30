@@ -145,7 +145,7 @@
     return freeze({
       source_id: source.source_id, content_hash: source.content_hash, source_url: null,
       locators: anchored ? [source.source_path, `${source.source_path}#${itemRow.span.start}-${itemRow.span.end}`] : [source.source_path],
-      source_archive_id: null, confidence: anchored ? "explicit" : "inferred",
+      source_archive_id: null, confidence: anchored ? "explicit" : "inferred", evidence_quote: itemRow.evidence_quote,
     });
   }
 
@@ -168,12 +168,15 @@
   }
 
   function citationForDocument(source, document) {
-    const locators = [...new Set((document.citations || []).flatMap((row) => Array.isArray(row.locators) ? row.locators : []))];
+    const citations = document.citations || [];
+    const locators = [...new Set(citations.flatMap((row) => Array.isArray(row.locators) ? row.locators : []))];
+    const quotes = [...new Set(citations.map((row) => typeof row.evidence_quote === "string" ? row.evidence_quote.trim() : "").filter(Boolean))];
     return freeze({
       source_id: source.source_id, content_hash: source.content_hash, source_url: null,
       locators: locators.length ? locators : [source.source_path],
       source_archive_id: null,
-      confidence: (document.citations || []).every((row) => row.confidence === "explicit") ? "explicit" : "inferred",
+      confidence: citations.every((row) => row.confidence === "explicit") ? "explicit" : "inferred",
+      ...(quotes.length === 1 ? { evidence_quote: quotes[0] } : {}),
     });
   }
   function documentUnitId(source, document) {
