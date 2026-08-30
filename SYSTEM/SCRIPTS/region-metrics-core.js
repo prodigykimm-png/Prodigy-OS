@@ -90,6 +90,30 @@ function calculateTurnover(volume3m, housingStock) {
   return round((volume3m * 4) / housingStock, 8);
 }
 
+function calculatePopulationChange(current, previous) {
+  if (!current || !previous || monthIndex(current.month) - monthIndex(previous.month) !== 12) throw new Error("인구 변화는 정확한 전년 동월 쌍이 필요합니다.");
+  for (const key of ["total_population", "households"]) {
+    if (!Number.isFinite(current[key]) || !Number.isFinite(previous[key]) || previous[key] <= 0) throw new Error(`인구 변화 입력값이 올바르지 않습니다: ${key}`);
+  }
+  return Object.freeze({
+    population_change_count: current.total_population - previous.total_population,
+    population_change_yoy: round((current.total_population / previous.total_population - 1) * 100, 6),
+    household_change_count: current.households - previous.households,
+    household_change_yoy: round((current.households / previous.households - 1) * 100, 6)
+  });
+}
+
+function classifyDemographicSignal(change) {
+  const population = change && change.population_change_yoy;
+  const households = change && change.household_change_yoy;
+  if (!Number.isFinite(population) || !Number.isFinite(households)) return "자료 부족";
+  const threshold = 0.1;
+  if (population > threshold && households > threshold) return "인구·가구 확대";
+  if (population < -threshold && households > threshold) return "가구 분화";
+  if (population < -threshold && households < -threshold) return "동반 축소";
+  return "정체";
+}
+
 function parseCsvLine(line) {
   const cells = [];
   let value = "";
@@ -186,14 +210,22 @@ function parseSupplyCsv(text, regionPrefix, basisMonth) {
   };
 }
 
-function parseHouseholdsCsv(text, rowLabel, month) {
+function parseMoisPopulationCsv(text, rowLabel, month, options = {}) {
   const rows = csvRows(text);
   const matches = rows.filter((row) => row["행정구역"] === rowLabel);
-  if (matches.length !== 1) {
-    throw new Error(`세대수 시군구 행은 정확히 1개여야 합니다: ${matches.length}`);
-  }
-  const header = `${month.slice(0, 4)}년${month.slice(4, 6)}월_세대수`;
-  return integer(matches[0][header], "세대수");
+  if (matches.length === 0 && options.optional) return null;
+  if (matches.length !== 1) throw new Error(`인구·세대 시군구 행은 정확히 1개여야 합니다: ${matches.length}`);
+  const prefix = `${month.slice(0, 4)}년${month.slice(4, 6)}월_`;
+  return Object.freeze({
+    total_population: integer(matches[0][`${prefix}총인구수`], "총인구수"),
+    households: integer(matches[0][`${prefix}세대수`], "세대수"),
+    male_population: integer(matches[0][`${prefix}남자 인구수`], "남자 인구수"),
+    female_population: integer(matches[0][`${prefix}여자 인구수`], "여자 인구수")
+  });
+}
+
+function parseHouseholdsCsv(text, rowLabel, month) {
+  return parseMoisPopulationCsv(text, rowLabel, month).households;
 }
 
 function sha256(raw) {
@@ -201,9 +233,12 @@ function sha256(raw) {
 }
 
 module.exports = Object.freeze({
+  calculatePopulationChange,
   calculateTurnover,
   calculateYoY,
+  classifyDemographicSignal,
   parseHouseholdsCsv,
+  parseMoisPopulationCsv,
   parseRoneSeries,
   parseStockCsv,
   parseSupplyCsv,

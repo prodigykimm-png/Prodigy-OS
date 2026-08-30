@@ -65,10 +65,11 @@ async function post(url, form, attempt = 1) {
   }
 }
 
-async function lookupRoneClass(tableId, lawdCode) {
+async function lookupRoneClass(tableId, lawdCode, options = {}) {
   const raw = await post(`${RONE_BASE}/portal/openapi/selectOpenApiItmCd.do`, { statblId: tableId });
   const payload = JSON.parse(raw.toString("utf8"));
   const matches = payload.data.filter((item) => item.itmTag === "분류" && String(item.lawdCd) === lawdCode);
+  if (matches.length === 0 && options.optional) return null;
   if (matches.length !== 1) throw new Error(`${tableId} 지역 코드는 정확히 1개여야 합니다: ${matches.length}`);
   return {
     categories: matches[0].itmNm.split(">"),
@@ -118,6 +119,15 @@ function previousYear(month) {
   return `${Number(month.slice(0, 4)) - 1}${month.slice(4, 6)}`;
 }
 
+function parseOptionalRoneSeries(raw, categories) {
+  if (!raw) return null;
+  try { return core.parseRoneSeries(raw, categories); }
+  catch (error) {
+    if (error.message === "R-ONE 응답에 월별 수치가 없습니다.") return null;
+    throw error;
+  }
+}
+
 async function fetchHouseholds(month) {
   const form = {
     sltOrgType: "1",
@@ -139,8 +149,8 @@ async function fetchHouseholds(month) {
   return post(`${JUMIN_BASE}/downloadCsv.do?searchYearMonth=month&xlsStats=3`, form);
 }
 
-function metric(value, unit, asOf, provider, sourceId, rawHash) {
-  return { value, unit, as_of: `${asOf.slice(0, 4)}-${asOf.slice(4, 6)}-01`, provider, source_id: sourceId, raw_hash: rawHash, verification: "unverified" };
+function metric(value, unit, asOf, provider, sourceId, rawHash, missingnessCode = null) {
+  return { value, unit, as_of: `${asOf.slice(0, 4)}-${asOf.slice(4, 6)}-01`, provider, source_id: sourceId, raw_hash: rawHash, verification: "unverified", ...(value === null ? { missingness_code: missingnessCode || "not_available" } : {}) };
 }
 
 function writeArtifacts(config, snapshotId, rawFiles, snapshot) {
@@ -166,32 +176,40 @@ function writeArtifacts(config, snapshotId, rawFiles, snapshot) {
 async function collect(config) {
   const [volumeClass, priceClass, jeonseClass] = await Promise.all([
     lookupRoneClass(TABLES.volume, config["lawd-code"]),
-    lookupRoneClass(TABLES.price, config["lawd-code"]),
-    lookupRoneClass(TABLES.jeonse, config["lawd-code"])
+    lookupRoneClass(TABLES.price, config["lawd-code"], { optional: true }),
+    lookupRoneClass(TABLES.jeonse, config["lawd-code"], { optional: true })
   ]);
   const volumeRaw = await fetchRone(TABLES.volume, volumeClass.classId, { latest: 3 });
-  const volume = core.summarizeVolume(core.parseRoneSeries(volumeRaw, volumeClass.categories));
-  const metricsMonth = volume.asOf;
+  const volumeSeries = core.parseRoneSeries(volumeRaw, volumeClass.categories);
+  const metricsMonth = volumeSeries.at(-1).month;
+  const volume = volumeSeries.length === 3 ? core.summarizeVolume(volumeSeries) : { asOf: metricsMonth, months: volumeSeries.map((item) => item.month), value: null };
   const priorMonth = previousYear(metricsMonth);
   const [priceRaw, pricePriorRaw, jeonseRaw, householdsRaw, householdsPriorRaw] = await Promise.all([
-    fetchRone(TABLES.price, priceClass.classId, { month: metricsMonth }),
-    fetchRone(TABLES.price, priceClass.classId, { month: priorMonth }),
-    fetchRone(TABLES.jeonse, jeonseClass.classId, { month: metricsMonth }),
+    priceClass ? fetchRone(TABLES.price, priceClass.classId, { month: metricsMonth }) : null,
+    priceClass ? fetchRone(TABLES.price, priceClass.classId, { month: priorMonth }) : null,
+    jeonseClass ? fetchRone(TABLES.jeonse, jeonseClass.classId, { month: metricsMonth }) : null,
     fetchHouseholds(metricsMonth),
     fetchHouseholds(priorMonth)
   ]);
 
-  const price = core.parseRoneSeries(priceRaw, priceClass.categories)[0];
-  const pricePrior = core.parseRoneSeries(pricePriorRaw, priceClass.categories)[0];
-  const jeonse = core.parseRoneSeries(jeonseRaw, jeonseClass.categories)[0];
+  const price = parseOptionalRoneSeries(priceRaw, priceClass?.categories)?.[0] || null;
+  const pricePrior = parseOptionalRoneSeries(pricePriorRaw, priceClass?.categories)?.[0] || null;
+  const jeonse = parseOptionalRoneSeries(jeonseRaw, jeonseClass?.categories)?.[0] || null;
   const stockRaw = fs.readFileSync(config["stock-csv"]);
   const supplyRaw = fs.readFileSync(config["supply-csv"]);
   const stockPrefix = config["stock-region-prefix"] || config["region-prefix"];
   const stock = core.parseStockCsv(new TextDecoder("utf-8").decode(stockRaw), stockPrefix);
   const supply = core.parseSupplyCsv(new TextDecoder("utf-8").decode(supplyRaw), config["region-prefix"], config["supply-basis"]);
   const householdDecoder = new TextDecoder("euc-kr");
-  const households = core.parseHouseholdsCsv(householdDecoder.decode(householdsRaw), config["household-row"], metricsMonth);
-  const householdsPrior = core.parseHouseholdsCsv(householdDecoder.decode(householdsPriorRaw), config["household-row"], priorMonth);
+  const population = core.parseMoisPopulationCsv(householdDecoder.decode(householdsRaw), config["household-row"], metricsMonth, { optional: true });
+  const populationPrior = core.parseMoisPopulationCsv(householdDecoder.decode(householdsPriorRaw), config["household-row"], priorMonth, { optional: true });
+  const households = population?.households ?? null;
+  const householdsPrior = populationPrior?.households ?? null;
+  const demographicChange = population && populationPrior ? core.calculatePopulationChange(
+    { month: metricsMonth, total_population: population.total_population, households },
+    { month: priorMonth, total_population: populationPrior.total_population, households: householdsPrior }
+  ) : null;
+  const demographicSignal = core.classifyDemographicSignal(demographicChange);
   const fetchedAt = new Date().toISOString();
   const compactFetchedAt = fetchedAt.replace(/\.\d{3}Z$/, "Z").replace(/[-:]/g, "");
   const snapshotId = `${metricsMonth.slice(0, 4)}-${metricsMonth.slice(4, 6)}-01_${compactFetchedAt}`;
@@ -199,12 +217,12 @@ async function collect(config) {
   const supplyMonth = config["supply-basis"].replaceAll("-", "");
   const rawFiles = {
     "rone-volume.json": volumeRaw,
-    "rone-price.json": priceRaw,
-    "rone-price-prior.json": pricePriorRaw,
-    "rone-jeonse.json": jeonseRaw,
+    "rone-price.json": priceRaw || Buffer.alloc(0),
+    "rone-price-prior.json": pricePriorRaw || Buffer.alloc(0),
+    "rone-jeonse.json": jeonseRaw || Buffer.alloc(0),
     "rone-volume-codes.json": volumeClass.raw,
-    "rone-price-codes.json": priceClass.raw,
-    "rone-jeonse-codes.json": jeonseClass.raw,
+    "rone-price-codes.json": priceClass?.raw || Buffer.alloc(0),
+    "rone-jeonse-codes.json": jeonseClass?.raw || Buffer.alloc(0),
     "households.csv": householdsRaw,
     "households-prior.csv": householdsPriorRaw,
     "housing-stock.csv": stockRaw,
@@ -218,18 +236,25 @@ async function collect(config) {
     fetched_at: fetchedAt,
     verification_status: "unverified",
     metrics: {
-      sale_volume_3m: metric(volume.value, "건", metricsMonth, "reb_rone_public_table", TABLES.volume, core.sha256(volumeRaw)),
+      sale_volume_3m: metric(volume.value, "건", metricsMonth, "reb_rone_public_table", TABLES.volume, core.sha256(volumeRaw), volume.value === null ? "insufficient_history" : null),
       housing_stock: metric(stock.value, "호", stockMonth, "reb_stock", "15106861", core.sha256(stockRaw)),
-      sale_turnover_rate: metric(core.calculateTurnover(volume.value, stock.value), "ratio", metricsMonth, "derived", "sale_volume_3m+housing_stock", core.sha256(Buffer.from(`${core.sha256(volumeRaw)}:${core.sha256(stockRaw)}`))),
-      sale_price_change_yoy: metric(core.calculateYoY(price, pricePrior), "%", metricsMonth, "reb_rone_public_table", TABLES.price, core.sha256(Buffer.concat([priceRaw, pricePriorRaw]))),
-      jeonse_ratio: metric(jeonse.value, "%", metricsMonth, "reb_rone_public_table", TABLES.jeonse, core.sha256(jeonseRaw)),
+      sale_turnover_rate: metric(volume.value === null ? null : core.calculateTurnover(volume.value, stock.value), "ratio", metricsMonth, "derived", "sale_volume_3m+housing_stock", core.sha256(Buffer.from(`${core.sha256(volumeRaw)}:${core.sha256(stockRaw)}`)), volume.value === null ? "upstream_missing" : null),
+      sale_price_change_yoy: metric(price && pricePrior ? core.calculateYoY(price, pricePrior) : null, "%", metricsMonth, "reb_rone_public_table", TABLES.price, core.sha256(Buffer.concat([priceRaw || Buffer.alloc(0), pricePriorRaw || Buffer.alloc(0)])), priceClass ? "not_available" : "unsupported_geography"),
+      jeonse_ratio: metric(jeonse ? jeonse.value : null, "%", metricsMonth, "reb_rone_public_table", TABLES.jeonse, core.sha256(jeonseRaw || Buffer.alloc(0)), jeonseClass ? "not_available" : "unsupported_geography"),
       move_in_12m: metric(supply.moveIn12m, "세대", supplyMonth, "reb_supply", "15111714", core.sha256(supplyRaw)),
       move_in_24m: metric(supply.moveIn24m, "세대", supplyMonth, "reb_supply", "15111714", core.sha256(supplyRaw)),
       move_in_36m: metric(supply.moveIn36m, "세대", supplyMonth, "reb_supply", "15111714", core.sha256(supplyRaw)),
       move_in_48m: metric(supply.moveIn48m, "세대", supplyMonth, "reb_supply", "15111714", core.sha256(supplyRaw)),
       move_in_60m: metric(supply.moveIn60m, "세대", supplyMonth, "reb_supply", "15111714", core.sha256(supplyRaw)),
-      households: metric(households, "세대", metricsMonth, "mois_jumin_statmonth_csv", "jumin_statmonth_csv", core.sha256(householdsRaw)),
-      household_change_yoy: metric(core.calculateYoY({ month: metricsMonth, value: households }, { month: priorMonth, value: householdsPrior }), "%", metricsMonth, "mois_jumin_statmonth_csv", "jumin_statmonth_csv", core.sha256(Buffer.concat([householdsRaw, householdsPriorRaw]))),
+      households: metric(households, "세대", metricsMonth, "mois_jumin_statmonth_csv", "jumin_statmonth_csv", core.sha256(householdsRaw), population ? null : "unsupported_geography"),
+      total_population: metric(population?.total_population ?? null, "명", metricsMonth, "mois_jumin_statmonth_csv", "jumin_statmonth_csv", core.sha256(householdsRaw), population ? null : "unsupported_geography"),
+      male_population: metric(population?.male_population ?? null, "명", metricsMonth, "mois_jumin_statmonth_csv", "jumin_statmonth_csv", core.sha256(householdsRaw), population ? null : "unsupported_geography"),
+      female_population: metric(population?.female_population ?? null, "명", metricsMonth, "mois_jumin_statmonth_csv", "jumin_statmonth_csv", core.sha256(householdsRaw), population ? null : "unsupported_geography"),
+      population_change_count: metric(demographicChange?.population_change_count ?? null, "명", metricsMonth, "derived", "mois_population_yoy", core.sha256(Buffer.concat([householdsRaw, householdsPriorRaw])), demographicChange ? null : "upstream_missing"),
+      population_change_yoy: metric(demographicChange?.population_change_yoy ?? null, "%", metricsMonth, "derived", "mois_population_yoy", core.sha256(Buffer.concat([householdsRaw, householdsPriorRaw])), demographicChange ? null : "upstream_missing"),
+      household_change_count: metric(demographicChange?.household_change_count ?? null, "세대", metricsMonth, "derived", "mois_households_yoy", core.sha256(Buffer.concat([householdsRaw, householdsPriorRaw])), demographicChange ? null : "upstream_missing"),
+      demographic_signal: metric(demographicSignal, "", metricsMonth, "derived", "mois_demographic_signal", core.sha256(Buffer.concat([householdsRaw, householdsPriorRaw]))),
+      household_change_yoy: metric(demographicChange?.household_change_yoy ?? null, "%", metricsMonth, "mois_jumin_statmonth_csv", "jumin_statmonth_csv", core.sha256(Buffer.concat([householdsRaw, householdsPriorRaw])), demographicChange ? null : "unsupported_geography"),
       auction_bid_rate_6m: { value: null, unit: "%", as_of: null, provider: "court_auction", source_id: null, raw_hash: null, verification: "n/a" }
     },
     evidence: {
@@ -237,6 +262,12 @@ async function collect(config) {
       stock_total_rows: stock.totalRows,
       stock_matched_rows: stock.matchedRows,
       stock_unmatched_rows: stock.unmatchedRows,
+      mois_missingness: population ? "none" : "unsupported_geography",
+      rone_missingness: {
+        sale_volume_3m: volume.value === null ? "insufficient_history" : "none",
+        sale_price_change_yoy: price && pricePrior ? "none" : priceClass ? "not_available" : "unsupported_geography",
+        jeonse_ratio: jeonse ? "none" : jeonseClass ? "not_available" : "unsupported_geography"
+      },
       supply_coverage: {
         basis_month: config["supply-basis"],
         source_month_min: supply.sourceMonthMin,
@@ -263,4 +294,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = Object.freeze({ collect, fetchHouseholds, fetchRone, lookupRoneClass, parseArgs, roneForm, writeArtifacts });
+module.exports = Object.freeze({ collect, fetchHouseholds, fetchRone, lookupRoneClass, parseArgs, parseOptionalRoneSeries, roneForm, writeArtifacts });

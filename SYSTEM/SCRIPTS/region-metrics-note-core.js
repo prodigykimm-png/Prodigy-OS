@@ -1,16 +1,27 @@
 "use strict";
 
 const METRIC_KEYS = Object.freeze([
+  "total_population", "male_population", "female_population",
+  "population_change_count", "population_change_yoy", "household_change_count", "demographic_signal",
   "sale_volume_3m", "housing_stock", "sale_turnover_rate",
   "sale_price_change_yoy", "jeonse_ratio", "move_in_12m", "move_in_24m", "move_in_36m", "move_in_48m", "move_in_60m",
   "households", "household_change_yoy", "auction_bid_rate_6m"
 ]);
 const FM_KEYS = Object.freeze([
+  "total_population", "male_population", "female_population",
+  "population_change_count", "population_change_yoy", "household_change_count", "demographic_signal",
   "sale_volume_3m", "housing_stock", "sale_turnover_rate",
   "sale_price_change_yoy", "jeonse_ratio", "move_in_12m", "move_in_24m", "move_in_36m", "move_in_48m", "move_in_60m",
   "households", "household_change_yoy", "auction_bid_rate_6m"
 ]);
 const METRIC_CONTRACT = Object.freeze({
+  total_population: ["명", "mois_jumin_statmonth_csv", "jumin_statmonth_csv", "integer"],
+  male_population: ["명", "mois_jumin_statmonth_csv", "jumin_statmonth_csv", "integer"],
+  female_population: ["명", "mois_jumin_statmonth_csv", "jumin_statmonth_csv", "integer"],
+  population_change_count: ["명", "derived", "mois_population_yoy", "integer_signed"],
+  population_change_yoy: ["%", "derived", "mois_population_yoy", "number"],
+  household_change_count: ["세대", "derived", "mois_households_yoy", "integer_signed"],
+  demographic_signal: ["", "derived", "mois_demographic_signal", "string"],
   sale_volume_3m: ["건", "reb_rone_public_table", "A_2024_00554", "integer"],
   housing_stock: ["호", "reb_stock", "15106861", "integer"],
   sale_turnover_rate: ["ratio", "derived", "sale_volume_3m+housing_stock", "number"],
@@ -67,10 +78,15 @@ function validateSnapshot(snapshot) {
       if (!coverage.unavailable_horizons.includes(Number(supplyHorizon[1]))) throw new Error(`입주예정물량 null은 coverage 미확보여야 합니다: ${key}`);
     } else if (supplyHorizon && coverage.unavailable_horizons.includes(Number(supplyHorizon[1]))) {
       throw new Error(`입주예정물량 coverage 미확보 값은 null이어야 합니다: ${key}`);
+    } else if (numericType === "string") {
+      if (!["인구·가구 확대", "가구 분화", "동반 축소", "정체", "자료 부족"].includes(metric.value)) throw new Error(`인구·가구 신호가 올바르지 않습니다: ${metric.value}`);
+    } else if (metric.value === null) {
+      if (!["insufficient_history", "unsupported_geography", "not_available", "upstream_missing"].includes(metric.missingness_code)) throw new Error(`null 지표 missingness_code가 올바르지 않습니다: ${key}`);
     } else if (!Number.isFinite(metric.value)) {
       throw new Error(`지표 값이 숫자가 아닙니다: ${key}`);
     }
     if (metric.value !== null && numericType === "integer" && (!Number.isInteger(metric.value) || metric.value < 0)) throw new Error(`지표는 0 이상의 정수여야 합니다: ${key}`);
+    if (metric.value !== null && numericType === "integer_signed" && !Number.isInteger(metric.value)) throw new Error(`지표는 정수여야 합니다: ${key}`);
     if (["sale_turnover_rate", "jeonse_ratio"].includes(key) && metric.value < 0) throw new Error(`지표는 음수일 수 없습니다: ${key}`);
     if (metric.verification !== "unverified") throw new Error(`자동 지표는 unverified여야 합니다: ${key}`);
     if (!/^[0-9a-f]{64}$/.test(metric.raw_hash ?? "")) throw new Error(`raw_hash가 올바르지 않습니다: ${key}`);
@@ -101,8 +117,12 @@ function replaceYaml(block, key, value) {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`^${escaped}:.*$`, "gm");
   const matches = block.match(pattern) ?? [];
-  if (matches.length !== 1) throw new Error(`Frontmatter ${key}는 정확히 1개여야 합니다.`);
-  return block.replace(pattern, `${key}: ${yamlValue(value)}`.trimEnd());
+  if (matches.length > 1) throw new Error(`Frontmatter ${key}는 최대 1개여야 합니다.`);
+  const line = `${key}: ${yamlValue(value)}`.trimEnd();
+  if (matches.length === 1) return block.replace(pattern, line);
+  const anchor = /^metrics_as_of:.*$/m;
+  if (!anchor.test(block)) throw new Error(`Frontmatter ${key} 삽입 기준인 metrics_as_of가 없습니다.`);
+  return block.replace(anchor, (matched) => `${matched}\n${line}`);
 }
 
 function rawFingerprint(snapshot) {
@@ -143,9 +163,16 @@ function formatNumber(value, digits = null) {
 
 function renderDisplay(metrics) {
   const rows = [
+    ["인구·가구 신호", metrics.demographic_signal.value, "", "행정안전부 전년동월 비교"],
+    ["총인구", formatNumber(metrics.total_population.value), "명", "행정안전부 주민등록 인구"],
+    ["인구 증감", formatNumber(metrics.population_change_count.value), "명", "전년동월 대비"],
+    ["인구 증감률", formatNumber(metrics.population_change_yoy.value, 2), "%", "전년동월 대비"],
+    ["세대수 증감", formatNumber(metrics.household_change_count.value), "세대", "전년동월 대비"],
+    ["남성 인구", formatNumber(metrics.male_population.value), "명", "행정안전부 주민등록 인구"],
+    ["여성 인구", formatNumber(metrics.female_population.value), "명", "행정안전부 주민등록 인구"],
     ["매매 거래량(3개월)", formatNumber(metrics.sale_volume_3m.value), "건", "R-ONE A_2024_00554"],
     ["주택 재고(아파트·공시)", formatNumber(metrics.housing_stock.value), "호", "15106861"],
-    ["매매 회전율", formatNumber(metrics.sale_turnover_rate.value * 100, 2), "%", "파생 vol×4/stock · 표시 ×100"],
+    ["매매 회전율", metrics.sale_turnover_rate.value === null ? "—" : formatNumber(metrics.sale_turnover_rate.value * 100, 2), "%", "파생 vol×4/stock · 표시 ×100"],
     ["매매가 변동 YoY", formatNumber(metrics.sale_price_change_yoy.value, 2), "%", "R-ONE A_2024_00045 원지수"],
     ["전세가율", formatNumber(metrics.jeonse_ratio.value, 2), "%", "R-ONE A_2024_00073"],
     ["입주 예정 12개월", formatNumber(metrics.move_in_12m.value), "세대", "15111714"],
@@ -166,10 +193,10 @@ function renderMarket(snapshot) {
     `> 기준월 ${snapshot.metrics_as_of.slice(0, 7)} · 자동 생성 · 사람 검증 전`,
     "",
     `- 최근 공표 3개월 매매 거래량은 ${formatNumber(metrics.sale_volume_3m.value)}건이다.`,
-    `- 공시 아파트 재고는 ${formatNumber(metrics.housing_stock.value)}호(${metrics.housing_stock.as_of.slice(0, 7)} 기준)이며, 연율 환산 매매 회전율은 ${formatNumber(metrics.sale_turnover_rate.value * 100, 2)}%다.`,
+    `- 공시 아파트 재고는 ${formatNumber(metrics.housing_stock.value)}호(${metrics.housing_stock.as_of.slice(0, 7)} 기준)이며, 연율 환산 매매 회전율은 ${metrics.sale_turnover_rate.value === null ? "자료 없음" : `${formatNumber(metrics.sale_turnover_rate.value * 100, 2)}%`}다.`,
     `- 매매가격 원지수의 전년동월 대비 변화는 ${formatNumber(metrics.sale_price_change_yoy.value, 2)}%, 전세가율은 ${formatNumber(metrics.jeonse_ratio.value, 2)}%다.`,
     `- 확정 입주 예정 물량은 12개월 ${formatNumber(metrics.move_in_12m.value)}세대, 24개월 누적 ${formatNumber(metrics.move_in_24m.value)}세대다. 36개월 ${formatNumber(metrics.move_in_36m.value)}, 48개월 ${formatNumber(metrics.move_in_48m.value)}, 60개월 ${formatNumber(metrics.move_in_60m.value)}는 원본 제공 범위 기준이며, —는 미확보다(${metrics.move_in_12m.as_of.slice(0, 7)} 기준).`,
-    `- 세대수는 ${formatNumber(metrics.households.value)}세대이며 전년동월 대비 ${formatNumber(metrics.household_change_yoy.value, 2)}%다.`
+    `- 인구·가구 신호는 ${metrics.demographic_signal.value}다. 총인구는 ${formatNumber(metrics.total_population.value)}명으로 전년동월 대비 ${formatNumber(metrics.population_change_count.value)}명(${formatNumber(metrics.population_change_yoy.value, 2)}%) 변했고, 세대수는 ${formatNumber(metrics.households.value)}세대로 ${formatNumber(metrics.household_change_count.value)}세대(${formatNumber(metrics.household_change_yoy.value, 2)}%) 변했다.`
   ].join("\n");
 }
 

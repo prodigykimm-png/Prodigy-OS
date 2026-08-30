@@ -2,11 +2,27 @@
   "use strict";
 
   const METRICS = Object.freeze([
-    { key: "sale_volume_3m", label: "최근 3개월 거래량", unit: "건" },
-    { key: "sale_price_change_yoy", label: "매매가 변동 YoY", unit: "%" },
-    { key: "move_in_24m", label: "24개월 입주 예정", unit: "세대" },
-    { key: "households", label: "세대수", unit: "세대" },
-    { key: "land_price_trend_yoy", label: "지가 추세 증감률", unit: "%" }
+    { key: "total_population", label: "총인구", unit: "명", group: "demography" },
+    { key: "population_change_count", label: "인구 증감", unit: "명", group: "demography" },
+    { key: "population_change_yoy", label: "인구 증감률", unit: "%", group: "demography" },
+    { key: "households", label: "세대수", unit: "세대", group: "demography" },
+    { key: "household_change_count", label: "세대수 증감", unit: "세대", group: "demography" },
+    { key: "household_change_yoy", label: "세대수 변화 YoY", unit: "%", group: "demography" },
+    { key: "housing_stock", label: "주택 재고", unit: "호", group: "stock" },
+    { key: "move_in_12m", label: "12개월 입주 예정", unit: "세대", group: "supply" },
+    { key: "move_in_24m", label: "24개월 입주 예정", unit: "세대", group: "supply" },
+    { key: "sale_volume_3m", label: "최근 3개월 거래량", unit: "건", group: "market" },
+    { key: "sale_turnover_rate", label: "매매 회전율", unit: "", group: "market" },
+    { key: "sale_price_change_yoy", label: "매매가 변동 YoY", unit: "%", group: "market" },
+    { key: "jeonse_ratio", label: "전세가율", unit: "%", group: "market" },
+    { key: "land_price_trend_yoy", label: "지가 추세 증감률", unit: "%", group: "market" },
+    { key: "demographic_signal", label: "인구·가구 신호", unit: "", group: "demography" }
+  ]);
+  const METRIC_GROUPS = Object.freeze([
+    { key: "demography", label: "인구·가구 변화", cadence: "월간" },
+    { key: "stock", label: "주택 재고", cadence: "연간·공식 파일 개정 시" },
+    { key: "supply", label: "단기 공급", cadence: "반기·공식 파일 개정 시" },
+    { key: "market", label: "시장 보조지표", cadence: "실험적 월간·일부 지역 결측" }
   ]);
   const RESEARCH_SECTIONS = Object.freeze([
     { key: "summary", label: "한 줄 요약" },
@@ -43,7 +59,8 @@
     "SYSTEM/Views/evidence-quality-core.js",
     "SYSTEM/Views/knowledge-candidate-store.js",
     "SYSTEM/Views/region-experience-handoff.js",
-    "SYSTEM/Views/region-experience-modal.js"
+    "SYSTEM/Views/region-experience-modal.js",
+    "SYSTEM/Views/auction-region-comment-store.js"
   ]);
   let regionExperienceLoading = null;
 
@@ -55,6 +72,33 @@
 
   function clean(value) {
     return value === undefined || value === null ? "" : String(value).trim();
+  }
+
+  function normalizeDong(value) {
+    return clean(value).replace(/제?\s*(\d+)\s*동$/u, "$1동").replace(/\s+/gu, "");
+  }
+
+  function zoneMentionsDong(value, dong) {
+    const target = normalizeDong(dong);
+    if (!target) return false;
+    const compact = clean(value).replace(/\s+/gu, "");
+    if (compact.includes(target)) return true;
+    const base = target.replace(/동$/u, "");
+    if (!base || /\d$/u.test(base)) return false;
+    return new RegExp(`${base}(?:동|\\d+(?:·\\d+)*동)`, "u").test(compact);
+  }
+
+  function projectDongZone(dong, zonesMarkdown) {
+    const normalizedDong = normalizeDong(dong);
+    if (!normalizedDong) return null;
+    const rows = clean(zonesMarkdown).split(/\r?\n/u).filter((line) => /^\s*\|/.test(line));
+    for (const row of rows) {
+      const cells = row.split("|").slice(1, -1).map((cell) => clean(cell));
+      if (cells.length < 3 || cells[0] === "후보 권역" || /^-+$/.test(cells[0])) continue;
+      if (!zoneMentionsDong(cells[1], normalizedDong)) continue;
+      return Object.freeze({ dong: normalizedDong, zone: cells[0], character: cells[1], caution: cells[2] });
+    }
+    return null;
   }
 
   function decisionContextApi() {
@@ -256,6 +300,7 @@
       const diagnostics = Array.isArray(projection.diagnostics) ? projection.diagnostics : [];
       return unavailable("경매와 일치하는 지역 분석 자료가 없습니다.", diagnostics.map((item) => ({ kind: item.code || "invalid_region", message: item.message || "지역 자료 형식을 확인해야 합니다." })));
     }
+    const dongZone = projectDongZone(auction && auction.region_dong, region.research && region.research.zones);
     const contextApi = decisionContextApi();
     const decisionContext = contextApi && typeof contextApi.projectRegionDecisionContext === "function"
       ? contextApi.projectRegionDecisionContext({ region, auction, research: opts.research || null, outcome: opts.outcome || null, conflicts: opts.conflicts || [] })
@@ -264,7 +309,9 @@
       status: "ready",
       decision_authority: "human_required",
       message: null,
-      auction_context: Object.freeze({ region_key: regionKey, dong: clean(auction && auction.region_dong), address: clean(auction && auction.address) }),
+      auction_context: Object.freeze({ region_key: regionKey, dong: clean(auction && auction.region_dong), admin_dong: clean(auction && auction.region_admin_dong), address: clean(auction && auction.address) }),
+      dong_zone: dongZone,
+      dong_profile: opts.dongProfile || null,
       region,
       decision_context: decisionContext,
       research: opts.research || null,
@@ -324,6 +371,199 @@
     packet.checks.forEach((check) => list.createEl("li", { text: check.message }));
   }
 
+  function addDongZone(parent, packet) {
+    const zone = packet.dong_zone;
+    if (!zone) return;
+    const section = parent.createEl("section", { attr: { class: "auction-region-packet-section" } });
+    section.createEl("h3", { text: `${zone.dong} · 동·생활권 빠른판단` });
+    section.createEl("p", { text: zone.zone, attr: { class: "auction-region-packet-title" } });
+    section.createEl("div", { text: toDisplayText(zone.character), attr: { class: "auction-region-packet-content" } });
+    section.createEl("p", { text: `주의: ${toDisplayText(zone.caution)}`, attr: { class: "auction-region-packet-meta" } });
+  }
+
+  function periodicLayerData(packet) {
+    const region = packet && packet.region || {};
+    const provenance = region.provenance || {};
+    const transit = region.transit || {};
+    const research = region.research || {};
+    const metrics = METRICS.map((definition) => Object.freeze({
+      ...definition,
+      value: region.metrics && region.metrics[definition.key] && region.metrics[definition.key].value !== undefined
+        ? region.metrics[definition.key].value
+        : null
+    }));
+    return Object.freeze({
+      metrics_as_of: provenance.metrics_as_of || null,
+      source_as_of: provenance.source_as_of || null,
+      verification_status: provenance.verification_status || null,
+      demographic_signal: region.metrics && region.metrics.demographic_signal ? region.metrics.demographic_signal.value : null,
+      metrics: Object.freeze(metrics),
+      metric_groups: Object.freeze(METRIC_GROUPS.map((group) => Object.freeze({ ...group, metrics: Object.freeze(metrics.filter((metric) => metric.group === group.key && metric.key !== "demographic_signal")) }))),
+      transit_lines: Object.freeze(transit.available && Array.isArray(transit.lines) ? transit.lines : []),
+      development_supply: Object.freeze([research.supply_pipeline].map(toDisplayText).filter(Boolean)),
+      structural_risks: Object.freeze([research.risks].map(toDisplayText).filter(Boolean)),
+      history_location: region.identity && region.identity.path || null
+    });
+  }
+
+  function addPeriodicLayer(parent, packet) {
+    const layer = periodicLayerData(packet);
+    const section = parent.createEl("section", { attr: { class: "auction-region-packet-section auction-region-periodic-layer" } });
+    section.createEl("h3", { text: "주기적 갱신정보" });
+    section.createEl("p", {
+      text: `최신 기준일 ${layer.metrics_as_of || "미확인"} · 수집일 ${layer.source_as_of || "미확인"} · ${layer.verification_status === "verified" ? "검증 완료" : "사람 검증 전"}`,
+      attr: { class: "auction-region-packet-meta" }
+    });
+    section.createEl("p", { text: `인구·가구 신호: ${layer.demographic_signal || "자료 부족"}`, attr: { class: "auction-region-packet-title" } });
+    layer.metric_groups.forEach((group) => {
+      section.createEl("h4", { text: `${group.label} · ${group.cadence}` });
+      const metrics = section.createEl("dl", { attr: { class: "auction-region-packet-metrics" } });
+      group.metrics.forEach((metric) => {
+        metrics.createEl("dt", { text: metric.label });
+        metrics.createEl("dd", { text: `${metric.value === null ? "자료 없음" : formatMetric({ value: metric.value })}${metric.value !== null && metric.unit ? ` ${metric.unit}` : ""}` });
+      });
+    });
+    section.createEl("h4", { text: "현재 운행 교통" });
+    if (layer.transit_lines.length) {
+      const list = section.createEl("ul", { attr: { class: "auction-region-packet-list" } });
+      layer.transit_lines.forEach((line) => list.createEl("li", { text: `${line.line} · ${line.stations.join(", ")}` }));
+    } else section.createEl("p", { text: "확인된 운행 교통 자료 없음", attr: { class: "auction-region-packet-empty" } });
+    section.createEl("h4", { text: "개발·공급 현황" });
+    if (layer.development_supply.length) layer.development_supply.forEach((value) => section.createEl("div", { text: value, attr: { class: "auction-region-packet-content" } }));
+    else section.createEl("p", { text: "등록된 개발·공급 현황 없음", attr: { class: "auction-region-packet-empty" } });
+    section.createEl("h4", { text: "구조적 리스크" });
+    if (layer.structural_risks.length) layer.structural_risks.forEach((value) => section.createEl("div", { text: value, attr: { class: "auction-region-packet-content" } }));
+    else section.createEl("p", { text: "등록된 구조적 리스크 없음", attr: { class: "auction-region-packet-empty" } });
+    section.createEl("p", { text: "이 값들은 자동 갱신 대상이며 과거 스냅샷은 지역 노트의 지표 히스토리에 보존됩니다.", attr: { class: "auction-region-packet-meta" } });
+  }
+
+  function addDongProfile(parent, packet) {
+    const result = packet.dong_profile;
+    if (!result) return;
+    const section = parent.createEl("section", { attr: { class: "auction-region-packet-section" } });
+    section.createEl("h3", { text: "동별 지역기본정보" });
+    if (result.status === "ambiguous") {
+      const names = result.candidates.map((profile) => profile.admin_dong).join(", ");
+      const core = root.AuctionDongProfileCore;
+      const legalSummary = core && typeof core.legalDongSummary === "function"
+        ? core.legalDongSummary(result, packet.auction_context && packet.auction_context.dong)
+        : null;
+      section.createEl("p", { text: `${legalSummary && legalSummary.legal_dong || packet.auction_context.dong || "법정동"} 기본 정보`, attr: { class: "auction-region-packet-title" } });
+      section.createEl("p", { text: `관련 행정동: ${names}`, attr: { class: "auction-region-packet-meta" } });
+      if (legalSummary) {
+        const list = section.createEl("ul", { attr: { class: "auction-region-packet-list" } });
+        legalSummary.candidate_summaries.forEach((candidate) => {
+          const role = candidate.role || "등록된 역할 요약 없음";
+          list.createEl("li", { text: `${candidate.admin_dong} · ${toDisplayText(role)}` });
+        });
+        if (legalSummary.common_field_checks.length) {
+          section.createEl("h4", { text: "공통 현장 확인" });
+          const checks = section.createEl("ul", { attr: { class: "auction-region-packet-list" } });
+          legalSummary.common_field_checks.forEach((item) => checks.createEl("li", { text: toDisplayText(item) }));
+        }
+        section.createEl("p", { text: legalSummary.limitation, attr: { class: "auction-region-packet-meta" } });
+      }
+      section.createEl("p", { text: "행정동은 필수가 아닙니다. 좌표·공식 자료로 확실할 때만 상세 프로파일을 자동 표시합니다.", attr: { class: "auction-region-packet-authority" } });
+      return;
+    }
+    const profile = result.selected;
+    if (!profile) {
+      section.createEl("p", { text: "일치하는 동 프로파일이 없어 시군구 자료만 표시합니다.", attr: { class: "auction-region-packet-empty" } });
+      return;
+    }
+    section.createEl("p", { text: `${profile.admin_dong} · ${profile.zone}`, attr: { class: "auction-region-packet-title" } });
+    const stable = profile.stable_profile;
+    if (stable) {
+      const stableBox = section.createEl("div", { attr: { class: "auction-region-stable-profile" } });
+      const evergreen = stable.evergreen_summary;
+      if (evergreen) {
+        stableBox.createEl("h4", { text: "지역 기본정보 · 한눈요약" });
+        const evergreenFields = [
+          ["지역 성격", "identity"], ["공간 골격", "spatial_structure"],
+          ["이동 골격", "mobility_structure"], ["구조적 주의", "structural_cautions"]
+        ];
+        evergreenFields.forEach(([label, key]) => {
+          const item = evergreen[key];
+          if (!item || !item.text) return;
+          const row = stableBox.createEl("div", { attr: { class: "auction-decision-board-fact" } });
+          row.createEl("span", { text: label, attr: { class: "auction-decision-board-fact-kind" } });
+          row.createEl("span", { text: toDisplayText(item.text) });
+        });
+        stableBox.createEl("p", { text: "가격·거래·인구·주택재고·개발단계처럼 바뀌는 정보는 이 기본요약에서 제외", attr: { class: "auction-region-packet-meta" } });
+      } else {
+        stableBox.createEl("p", { text: "영구 지역기본정보 요약이 아직 없습니다.", attr: { class: "auction-region-packet-empty" } });
+      }
+    }
+    const deep = null;
+    const lens = null;
+    if (lens) {
+      const summary = section.createEl("div", { attr: { class: "auction-region-decision-lens" } });
+      summary.createEl("h4", { text: "한눈 결론" });
+      summary.createEl("p", { text: toDisplayText(lens.position_summary), attr: { class: "auction-region-packet-authority" } });
+      summary.createEl("p", { text: `수요 기반: ${toDisplayText(lens.demand_base)}`, attr: { class: "auction-region-packet-content" } });
+      const addDecisionList = (title, items, className) => {
+        const listItems = Array.isArray(items) ? items.filter(Boolean) : [];
+        if (!listItems.length) return;
+        summary.createEl("h4", { text: title });
+        const list = summary.createEl("ul", { attr: { class: className || "auction-region-packet-list" } });
+        listItems.forEach((item) => list.createEl("li", { text: toDisplayText(item) }));
+      };
+      addDecisionList("이런 물건이면 검토", lens.works_for);
+      addDecisionList("가격을 보수적으로", lens.be_conservative_when);
+      addDecisionList("즉시 경고 신호", lens.reject_signals, "auction-region-packet-list auction-region-packet-list--warning");
+      summary.createEl("h4", { text: "누가 다시 살까" });
+      summary.createEl("p", { text: toDisplayText(lens.liquidity_note), attr: { class: "auction-region-packet-content" } });
+      addDecisionList("현장에서 답할 질문", lens.field_questions);
+      summary.createEl("p", { text: `판단 확신도: ${lens.confidence === "high" ? "높음" : lens.confidence === "medium" ? "중간" : "낮음"} · 물건 가격과 권리분석은 별도`, attr: { class: "auction-region-packet-meta" } });
+    }
+    if (deep) {
+      section.createEl("h4", { text: "시점 포함 상세 분석" });
+      const fields = [
+        ["부산 내 역할", deep.city_role],
+        ["구·군 내 역할", deep.district_role],
+        ["공간 구조", deep.urban_form],
+        ["교통·접근", deep.transport_access],
+        ["상권·생활", deep.commerce_daily_life],
+        ["주거", deep.housing_stock],
+        ["수요 발생원", deep.demand_generators],
+        ["변화 요인", deep.change_drivers]
+      ];
+      fields.forEach(([label, item]) => {
+        if (!item || !item.text) return;
+        const row = section.createEl("div", { attr: { class: "auction-decision-board-fact" } });
+        row.createEl("span", { text: `${label} · ${item.status === "confirmed" ? "확인됨" : item.status === "data_inference" ? "데이터 기반 해석" : "미확인"}`, attr: { class: "auction-decision-board-fact-kind" } });
+        row.createEl("span", { text: toDisplayText(item.text) });
+      });
+      const privateObservations = Array.isArray(deep.private_market_observations) ? deep.private_market_observations : [];
+      if (privateObservations.length) {
+        section.createEl("h4", { text: "민간 플랫폼 관측" });
+        privateObservations.forEach((observation) => {
+          const card = section.createEl("div", { attr: { class: "auction-decision-board-fact" } });
+          card.createEl("span", { text: `${observation.provider} · ${observation.scope} · ${observation.data_as_of || observation.observed_at || "기준일 미확인"}`, attr: { class: "auction-decision-board-fact-kind" } });
+          const facts = Array.isArray(observation.facts) ? observation.facts : [];
+          card.createEl("span", { text: facts.map(toDisplayText).join(" · ") || "관측 내용 없음" });
+          const limitations = Array.isArray(observation.limitations) ? observation.limitations : [];
+          if (limitations.length) card.createEl("span", { text: `한계: ${limitations.map(toDisplayText).join(" · ")}`, attr: { class: "auction-region-packet-meta" } });
+        });
+      }
+      const implications = Array.isArray(deep.auction_implications) ? deep.auction_implications : [];
+      if (implications.length) {
+        section.createEl("h4", { text: "경매 확인사항" });
+        const list = section.createEl("ul", { attr: { class: "auction-region-packet-list" } });
+        implications.forEach((item) => list.createEl("li", { text: toDisplayText(item) }));
+      }
+      const voice = deep.resident_voice || {};
+      section.createEl("h4", { text: "주민·생활자 체감" });
+      if (voice.status === "insufficient") {
+        section.createEl("p", { text: `표본 부족: ${voice.verification || "독립적인 공개 주민 의견을 충분히 확보하지 못했습니다."}`, attr: { class: "auction-region-packet-empty" } });
+      } else {
+        const themes = Array.isArray(voice.recurring_themes) ? voice.recurring_themes.join(" · ") : "";
+        section.createEl("p", { text: themes || "반복 의견 없음", attr: { class: "auction-region-packet-content" } });
+      }
+      return;
+    }
+  }
+
   function addBoardStatus(parent, packet) {
     const section = parent.createEl("section", { attr: { class: "auction-region-packet-section" } });
     section.createEl("h3", { text: "근거 상태" });
@@ -374,6 +614,65 @@
     checks.forEach((check) => list.createEl("li", { text: check.message }));
   }
 
+  function renderRegionComments(section, comments) {
+    const existing = section.querySelector(".auction-region-comment-list");
+    if (existing) existing.remove();
+    const list = section.createEl("div", { attr: { class: "auction-region-comment-list" } });
+    if (!comments.length) {
+      list.createEl("p", { text: "아직 저장된 지역 코멘트가 없습니다.", attr: { class: "auction-region-packet-empty" } });
+      return;
+    }
+    comments.forEach((item) => {
+      const row = list.createEl("div", { attr: { class: "auction-decision-board-fact" } });
+      row.createEl("span", { text: new Date(item.created_at).toLocaleString("ko-KR"), attr: { class: "auction-decision-board-fact-kind" } });
+      row.createEl("span", { text: item.comment });
+      row.createEl("span", { text: `원본: ${item.source_case_path}`, attr: { class: "auction-region-packet-meta" } });
+    });
+  }
+
+  async function addCommentScope(parent, app, packet, auction, config) {
+    const store = root.AuctionRegionCommentStore;
+    const regionKey = packet && packet.auction_context && packet.auction_context.region_key;
+    if (!store || !regionKey) return;
+    const section = parent.createEl("section", { attr: { class: `auction-region-packet-section auction-region-comments auction-region-comments-${config.scope}` } });
+    section.createEl("h3", { text: config.title });
+    section.createEl("p", { text: config.description, attr: { class: "auction-region-packet-meta" } });
+    let comments = await store.readScopedComments(app, regionKey, config.scope, config.adminDong);
+    renderRegionComments(section, comments);
+    const input = section.createEl("textarea", { attr: { rows: "3", maxlength: "1000", placeholder: config.placeholder, class: "auction-region-comment-input" } });
+    const save = section.createEl("button", { text: `${config.title} 저장`, attr: { type: "button", class: "auction-decision-board-action" } });
+    save.onclick = async () => {
+      if (save.disabled) return;
+      save.disabled = true;
+      try {
+        const sourcePath = auction && auction.file && auction.file.path || auction && auction.path || "";
+        await store.saveComment(app, { region_key: regionKey, scope: config.scope, admin_dong: config.adminDong, comment: input.value, source_case_path: sourcePath });
+        input.value = "";
+        comments = await store.readScopedComments(app, regionKey, config.scope, config.adminDong);
+        renderRegionComments(section, comments);
+        if (root.Notice) new root.Notice(`${config.title}를 저장했습니다.`);
+      } catch (error) {
+        if (root.Notice) new root.Notice(error.message || String(error));
+      } finally { save.disabled = false; }
+    };
+  }
+
+  async function addRegionComments(parent, app, packet, auction) {
+    const context = packet && packet.auction_context || {};
+    await addCommentScope(parent, app, packet, auction, {
+      scope: "sigungu", adminDong: null, title: "구 코멘트",
+      description: `${context.region_key || "이 지역"}의 모든 카드에서 함께 보입니다.`,
+      placeholder: "이 구 전체에 공통으로 참고할 코멘트"
+    });
+    if (context.admin_dong) {
+      await addCommentScope(parent, app, packet, auction, {
+        scope: "admin_dong", adminDong: context.admin_dong, title: `${context.admin_dong} 코멘트`,
+        description: `${context.admin_dong} 카드에서만 별도로 보입니다.`,
+        placeholder: `${context.admin_dong}에만 해당하는 코멘트`
+      });
+    }
+  }
+
   function openReferenceModal(app, auction, context, returnFocus) {
     if (!root.obsidian || !root.obsidian.Modal || !root.AuctionDecisionPacket) throw new Error("참고 근거를 불러오지 못했습니다.");
     const modal = new root.obsidian.Modal(app);
@@ -401,7 +700,7 @@
       this.auction = auction || null;
     }
 
-    onOpen() {
+    async onOpen() {
       ensureStyles();
       const content = this.contentEl;
       content.empty();
@@ -416,9 +715,10 @@
       const context = this.packet.auction_context;
       content.createEl("p", { text: `${identity.title}${context.dong ? ` · ${context.dong}` : ""}`, attr: { class: "auction-region-packet-title" } });
       content.createEl("p", { text: "사실과 확인 상태를 정리합니다. 최종 판단과 기록은 경매 카드에서 수행합니다.", attr: { class: "auction-region-packet-authority" } });
-      addBoardStatus(content, this.packet);
-      addBoardQuestions(content, this.packet);
-      addBoardChecks(content, this.packet);
+      addDongProfile(content, this.packet);
+      addPeriodicLayer(content, this.packet);
+      await loadRegionExperienceModules(this.app);
+      await addRegionComments(content, this.app, this.packet, this.auction);
       const detail = content.createEl("section", { attr: { class: "auction-region-packet-section" } });
       detail.createEl("h3", { text: "상세 및 기록" });
       const actions = detail.createEl("div", { attr: { class: "auction-region-packet-actions" } });
@@ -507,7 +807,16 @@
     } catch (_error) {
       packageInfo = null;
     }
-    const packet = projectPacket(auction, source, { research: researchContext(packageInfo) });
+    let dongProfile = null;
+    try {
+      const api = root.AuctionDongProfileCore;
+      if (api && typeof api.readIndex === "function" && typeof api.profileCandidates === "function") {
+        dongProfile = api.profileCandidates(await api.readIndex(app), auction);
+      }
+    } catch (_error) {
+      dongProfile = null;
+    }
+    const packet = projectPacket(auction, source, { research: researchContext(packageInfo), dongProfile });
     if (!root.obsidian || !root.obsidian.Modal) {
       if (root.Notice) new root.Notice(packet.message || "지역 판단 패킷을 열 수 없습니다.");
       return packet;
@@ -516,7 +825,7 @@
     return packet;
   }
 
-  const api = Object.freeze({ METRICS, projectPacket, projectResearchAction, researchActionForAuction, openForAuction, toDisplayText });
+  const api = Object.freeze({ METRICS, projectDongZone, projectPacket, projectResearchAction, researchActionForAuction, periodicLayerData, openForAuction, toDisplayText });
   root.AuctionRegionPacket = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -1,0 +1,58 @@
+{
+  "audited_at": "2026-08-30",
+  "scope": {
+    "regions": 83,
+    "order": ["부산광역시", "서울특별시", "인천광역시", "경기도"],
+    "counts": {"부산광역시": 16, "서울특별시": 25, "인천광역시": 11, "경기도": 31}
+  },
+  "implemented": {
+    "monthly_demography": [
+      "total_population",
+      "population_change_count",
+      "population_change_yoy",
+      "households",
+      "household_change_count",
+      "household_change_yoy",
+      "demographic_signal"
+    ],
+    "signal_threshold_percent": 0.1,
+    "signals": ["인구·가구 확대", "가구 분화", "동반 축소", "정체", "자료 부족"],
+    "display_groups": [
+      {"key": "demography", "cadence": "월간"},
+      {"key": "stock", "cadence": "연간·공식 파일 개정 시"},
+      {"key": "supply", "cadence": "반기·공식 파일 개정 시"},
+      {"key": "market", "cadence": "실험적 월간·일부 지역 결측"}
+    ]
+  },
+  "signal_distribution": {
+    "인구·가구 확대": 23,
+    "가구 분화": 32,
+    "동반 축소": 15,
+    "정체": 9,
+    "자료 부족": 4
+  },
+  "regional_feedback": {
+    "부산": "16/16 issues=0; 핵심 화면에서 남녀 인구를 숨기고 신호를 최상단에 배치한 뒤 기준 확정",
+    "서울": "25/25 issues=0; 부산 기준과 동일한 4개 신호·4개 주기 그룹 확인",
+    "인천": "11/11 issues=0; 행정개편 신설 4개 구는 전년 비교를 강제하지 않고 자료 부족 처리",
+    "경기": "31/31 issues=0; 대도시·도농복합·군 모두 동일 화면 계약 확인"
+  },
+  "validation": {
+    "snapshot_contract": "83/83 PASS",
+    "idempotence": "83/83 unchanged",
+    "frontmatter_contract": "PASS",
+    "duplicate_history": 0,
+    "obsidian_representative_regions": "PASS",
+    "regression_tests": "PASS",
+    "javascript_syntax": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "known_limits": [
+    "R-ONE 시장 자료는 실험적 보조지표이며 일부 지역 결측",
+    "주택 재고는 연간 또는 공식 파일 개정 시 갱신",
+    "입주 예정은 현재 12·24개월만 핵심 화면에 표시",
+    "인천 신설 4개 구는 정확한 전년 동월 동일 지리가 없어 자료 부족",
+    "경매 낙찰가율·매각률은 공식 자동 수집 계약 확정 전까지 미연결"
+  ],
+  "final_issue_count": 0
+}

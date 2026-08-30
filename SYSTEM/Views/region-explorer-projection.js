@@ -2,6 +2,8 @@
   "use strict";
 
   const METRIC_KEYS = Object.freeze([
+    "total_population", "male_population", "female_population",
+    "population_change_count", "population_change_yoy", "household_change_count", "demographic_signal",
     "sale_volume_3m", "housing_stock", "sale_turnover_rate", "sale_price_change_yoy", "jeonse_ratio",
     "move_in_12m", "move_in_24m", "move_in_36m", "move_in_48m", "move_in_60m", "households", "household_change_yoy", "auction_bid_rate_6m"
   ]);
@@ -113,6 +115,10 @@
   }
 
   function metric(value, key, snapshot) {
+    if (key === "demographic_signal") {
+      const signal = typeof value === "string" && value.trim() ? value.trim() : null;
+      return { value: signal, availability: signal ? "관측값" : "자료 없음" };
+    }
     const numeric = typeof value === "number" && Number.isFinite(value) ? value : null;
     const horizon = /^move_in_(\d+)m$/.exec(key);
     const coverage = snapshot && snapshot.evidence && snapshot.evidence.supply_coverage;

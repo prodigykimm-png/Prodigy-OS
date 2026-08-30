@@ -16,7 +16,7 @@ const { spawnSync } = require("node:child_process");
 
 const BATCH_SCRIPT = path.resolve(__dirname, "region-metrics-batch.js");
 const OUTPUT_DIR = path.resolve(__dirname, "../CACHE/region-metrics");
-const SIDOS = ["부산광역시", "서울특별시", "경기도", "인천광역시"];
+const SIDOS = ["부산광역시", "서울특별시", "인천광역시", "경기도"];
 
 function main() {
   const execute = process.argv.includes("--execute");
@@ -34,13 +34,14 @@ function main() {
     const child = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 600000 });
     let summary = null;
     try { summary = JSON.parse(child.stdout || "{}"); } catch (_e) { /* not JSON */ }
+    const succeeded = summary?.mode === "execute" ? summary.completed - summary.failed_count : summary?.selected_count ?? 0;
     results.push({
       sido,
       exit_code: child.status,
       selected: summary?.selected_count ?? 0,
-      succeeded: summary ? summary.completed - summary.failed_count : 0,
+      succeeded,
       failed: summary?.failed_count ?? 0,
-      failed_regions: summary?.jobs?.filter((j) => j.status !== "success").map((j) => j.region_key) ?? []
+      failed_regions: summary?.mode === "execute" ? summary.jobs.filter((j) => j.status !== "success").map((j) => j.region_key) : []
     });
   }
 

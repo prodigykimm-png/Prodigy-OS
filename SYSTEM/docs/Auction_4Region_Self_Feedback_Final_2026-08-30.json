@@ -1,0 +1,45 @@
+{
+  "audited_at": "2026-08-30",
+  "scope": {
+    "profiles": 1393,
+    "by_sido": {
+      "부산광역시": 206,
+      "서울특별시": 427,
+      "인천광역시": 158,
+      "경기도": 602
+    },
+    "comment_scopes": ["sigungu", "admin_dong"],
+    "periodic_metrics": 13
+  },
+  "fixed_findings": [
+    "OSM 선 좌표 샘플링을 정확한 선분-행정동 경계 교차로 교체",
+    "수도권 문장에 실제 사용한 OSM 이름과 범주 provenance 저장",
+    "출입구 번호·건널목·분기점·지하차도·교량·일반 상점 등 비핵심 이름 제거",
+    "역권·철도축·수변·간선도로 범주 혼동과 조사 오류 수정",
+    "부산 수동 요약의 미종결·숫자 코드·과도한 이름 나열·일반론 교정",
+    "구·동 코멘트 중복 ID 저장 시 잘못된 항목을 반환하던 오류 수정",
+    "총인구·남녀 인구를 판단보드 13개 주기 지표에 복원",
+    "개발·공급 현황과 구조적 리스크 표시 분리",
+    "MOIS refresh가 총인구·남녀 인구를 실제 스냅샷에 기록하도록 복구"
+  ],
+  "validation": {
+    "evergreen_audit": "1393/1393 issues=0",
+    "busan_deep_audit": "206/206 issues=0",
+    "profile_tests": "PASS",
+    "region_packet_tests": "PASS",
+    "comment_store_tests": "PASS",
+    "mois_population_parser_tests": "PASS",
+    "syntax": "PASS",
+    "diff_check": "PASS",
+    "obsidian_region_cross_check": "PASS",
+    "obsidian_comment_scope_check": "PASS; original store restored",
+    "obsidian_periodic_layer_check": "PASS; 13 metrics and development/risk separation"
+  },
+  "current_data_gap": {
+    "item": "운영 지역노트의 총인구·남녀 인구",
+    "state": "현재 운영 MOIS 원본 캐시가 없어 기존 노트 값은 자료 없음",
+    "safety": "fixture 값을 운영값으로 복사하지 않음",
+    "resolution": "다음 공식 region-metrics refresh부터 total_population, male_population, female_population 자동 기록"
+  },
+  "final_issue_count": 0
+}
