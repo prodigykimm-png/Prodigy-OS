@@ -1,0 +1,18 @@
+{
+  "audit_version": "llmwiki_safe_batch_item_audit_v1",
+  "result": "committed",
+  "committed_at": "2026-08-30T02:53:36.944Z",
+  "batch_identity": "batch_27a76e44b7597f9a2f669380",
+  "authorization_hash": "1201c916ca39143b961f7c9a15b9d8eeb345a3dd70f81fd82b88913cd001282a",
+  "packet_id": "packet_da6e061b5b8280c998c31c30",
+  "operation_id": "operation_fae9c7ea327d775210583f63",
+  "kind": "create",
+  "destinations": [
+    {
+      "path": "ZETA/LITERATURE/document_9de4c8138479119d73d522c0.md",
+      "before_sha256": null,
+      "after_sha256": "750b8a8017b3c98145533235e56b94dea0b71c32e1f3c2fb9d4f8c7d6ef57263"
+    }
+  ],
+  "audit_hash": "2287f219eec43cd002725293ff956e2e1520533146324e08b68e2155db92a2f3"
+}

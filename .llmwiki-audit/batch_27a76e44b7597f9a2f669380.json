@@ -1,0 +1,384 @@
+{
+  "audit_version": "llmwiki_safe_batch_audit_v1",
+  "batch_identity": "batch_27a76e44b7597f9a2f669380",
+  "authorization_hash": "1201c916ca39143b961f7c9a15b9d8eeb345a3dd70f81fd82b88913cd001282a",
+  "exact_selection_set": [
+    "packet_1c0899ea9640bf7ddf293143",
+    "packet_2721c0288740dd5a876ee9d3",
+    "packet_390b886c17e472f50a1f1004",
+    "packet_39ea0f87a0ec13712f2c1193",
+    "packet_3e5015479a0d78c47f50f4e6",
+    "packet_3f0afbccca1141b1bb261854",
+    "packet_70cc231ee36c2824cdce7efe",
+    "packet_73bd6c590c9c7a25a27cf508",
+    "packet_82d3dad483374cfd708636f6",
+    "packet_ae4e329488902e04ed0d04b6",
+    "packet_b80099c2310716ca7dd986d3",
+    "packet_da6e061b5b8280c998c31c30",
+    "packet_ecd53bfda1290743dc3eb0f1",
+    "packet_f62ddaa54d12180993f4586b"
+  ],
+  "packet_snapshots": [
+    {
+      "packet_id": "packet_1c0899ea9640bf7ddf293143",
+      "packet_hash": "1c0899ea9640bf7ddf2931434f5cd3f99c17896101a4d7d3c83bbd59e674ed08",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_137e889d659b654810c62d2f",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_04fad2a41fbebac428e8c5ec.md"
+      ]
+    },
+    {
+      "packet_id": "packet_2721c0288740dd5a876ee9d3",
+      "packet_hash": "2721c0288740dd5a876ee9d347e90d9a8e2ddc9f3d266fa8557024e8c4e8d6fa",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_66bbb3d14226700e038ed610",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_aecf7b342509bb78acabe4e8.md"
+      ]
+    },
+    {
+      "packet_id": "packet_390b886c17e472f50a1f1004",
+      "packet_hash": "390b886c17e472f50a1f100439239f114413648057cb445dc505288cc62a0530",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_fb4818992a817dcda96948e5",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_2a4be3e59d2112709ac70fd3.md"
+      ]
+    },
+    {
+      "packet_id": "packet_39ea0f87a0ec13712f2c1193",
+      "packet_hash": "39ea0f87a0ec13712f2c1193a4cf895a78b36e8820c300a8ae03a6282c5c0c92",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_dbded3ed551cf45bd667c879",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_baa166064c8589a91c1fdfbc.md"
+      ]
+    },
+    {
+      "packet_id": "packet_3e5015479a0d78c47f50f4e6",
+      "packet_hash": "3e5015479a0d78c47f50f4e665ec3ab3fb837b3cba3c2d46a8a8be8689cd1b1d",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_a8a3c56257980caeff82be4b",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_586bacf6cf00bee26a03eb68.md"
+      ]
+    },
+    {
+      "packet_id": "packet_3f0afbccca1141b1bb261854",
+      "packet_hash": "3f0afbccca1141b1bb26185445bf78d647caf6538c9b806e6d39cd69b95bde22",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_a45f29e52fe54009aff451db",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_19a2e68292ad697b5f2738c3.md"
+      ]
+    },
+    {
+      "packet_id": "packet_70cc231ee36c2824cdce7efe",
+      "packet_hash": "70cc231ee36c2824cdce7efeffe48b14eace6bc7573939631bdf957cffbc1510",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_65faceaaff3c84c4cccef04d",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_2ba85c4337b91c3f423669c6.md"
+      ]
+    },
+    {
+      "packet_id": "packet_73bd6c590c9c7a25a27cf508",
+      "packet_hash": "73bd6c590c9c7a25a27cf508f0379af47a8a4af089e887ac163a75b79f0b3a42",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_bfb1f44bd6e788e289a568c3",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_b2391f1b2da286ea4ade8f9a.md"
+      ]
+    },
+    {
+      "packet_id": "packet_82d3dad483374cfd708636f6",
+      "packet_hash": "82d3dad483374cfd708636f6a29303631f561fd8fb76a29d6a223fb2fde87e13",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_7675b2e391a1236c1d4b80e9",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_b39190187f2bc9cfadb6a9a4.md"
+      ]
+    },
+    {
+      "packet_id": "packet_ae4e329488902e04ed0d04b6",
+      "packet_hash": "ae4e329488902e04ed0d04b619976c1a700e8929e00e3e539ec75de477b1b343",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_9bada993ba919b0aa28e774e",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_df41d6ff440de63087492b33.md"
+      ]
+    },
+    {
+      "packet_id": "packet_b80099c2310716ca7dd986d3",
+      "packet_hash": "b80099c2310716ca7dd986d33867aed128859ac194ac37242d083d799a220d79",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_43adec3b750fcc847d64a14d",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_aef5219bfb6bcb7bb795808c.md"
+      ]
+    },
+    {
+      "packet_id": "packet_da6e061b5b8280c998c31c30",
+      "packet_hash": "da6e061b5b8280c998c31c30a08e22cf60bd6c4eee74bec5fad3c45cd695e55c",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_fae9c7ea327d775210583f63",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/LITERATURE/document_9de4c8138479119d73d522c0.md"
+      ]
+    },
+    {
+      "packet_id": "packet_ecd53bfda1290743dc3eb0f1",
+      "packet_hash": "ecd53bfda1290743dc3eb0f129a0c61fecae1d889ed9ccd53fa91e89b46d2491",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_447042adb29360ada3bb4f26",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_ddb44ab46b9334408b68d8b5.md"
+      ]
+    },
+    {
+      "packet_id": "packet_f62ddaa54d12180993f4586b",
+      "packet_hash": "f62ddaa54d12180993f4586b2ee07d8a3a640cec2477918bb9565bab8a192708",
+      "packet_revision": 1,
+      "run_id": "run_plan_55516bb60dc894611bb38e1d",
+      "run_revision": 1,
+      "operation_id": "operation_cbd42f1ccc61f0b611662fd9",
+      "operation_kind": "create",
+      "risk_tier": "low",
+      "risk_reasons": [
+        "derived_low_risk",
+        "new_canonical_document",
+        "operation_create"
+      ],
+      "conflict_state": "clear",
+      "blocking_conflict_ids": [],
+      "write_set": [
+        "ZETA/CANDIDATES/document_1b2ae9fff79e91554d383fd6.md"
+      ]
+    }
+  ],
+  "status": "committed",
+  "committed_packet_ids": [
+    "packet_1c0899ea9640bf7ddf293143",
+    "packet_2721c0288740dd5a876ee9d3",
+    "packet_390b886c17e472f50a1f1004",
+    "packet_39ea0f87a0ec13712f2c1193",
+    "packet_3e5015479a0d78c47f50f4e6",
+    "packet_3f0afbccca1141b1bb261854",
+    "packet_70cc231ee36c2824cdce7efe",
+    "packet_73bd6c590c9c7a25a27cf508",
+    "packet_82d3dad483374cfd708636f6",
+    "packet_ae4e329488902e04ed0d04b6",
+    "packet_b80099c2310716ca7dd986d3",
+    "packet_da6e061b5b8280c998c31c30",
+    "packet_ecd53bfda1290743dc3eb0f1",
+    "packet_f62ddaa54d12180993f4586b"
+  ],
+  "preflight": [
+    {
+      "packet_id": "packet_1c0899ea9640bf7ddf293143",
+      "snapshot": "1c0899ea9640bf7ddf2931434f5cd3f99c17896101a4d7d3c83bbd59e674ed08"
+    },
+    {
+      "packet_id": "packet_2721c0288740dd5a876ee9d3",
+      "snapshot": "2721c0288740dd5a876ee9d347e90d9a8e2ddc9f3d266fa8557024e8c4e8d6fa"
+    },
+    {
+      "packet_id": "packet_390b886c17e472f50a1f1004",
+      "snapshot": "390b886c17e472f50a1f100439239f114413648057cb445dc505288cc62a0530"
+    },
+    {
+      "packet_id": "packet_39ea0f87a0ec13712f2c1193",
+      "snapshot": "39ea0f87a0ec13712f2c1193a4cf895a78b36e8820c300a8ae03a6282c5c0c92"
+    },
+    {
+      "packet_id": "packet_3e5015479a0d78c47f50f4e6",
+      "snapshot": "3e5015479a0d78c47f50f4e665ec3ab3fb837b3cba3c2d46a8a8be8689cd1b1d"
+    },
+    {
+      "packet_id": "packet_3f0afbccca1141b1bb261854",
+      "snapshot": "3f0afbccca1141b1bb26185445bf78d647caf6538c9b806e6d39cd69b95bde22"
+    },
+    {
+      "packet_id": "packet_70cc231ee36c2824cdce7efe",
+      "snapshot": "70cc231ee36c2824cdce7efeffe48b14eace6bc7573939631bdf957cffbc1510"
+    },
+    {
+      "packet_id": "packet_73bd6c590c9c7a25a27cf508",
+      "snapshot": "73bd6c590c9c7a25a27cf508f0379af47a8a4af089e887ac163a75b79f0b3a42"
+    },
+    {
+      "packet_id": "packet_82d3dad483374cfd708636f6",
+      "snapshot": "82d3dad483374cfd708636f6a29303631f561fd8fb76a29d6a223fb2fde87e13"
+    },
+    {
+      "packet_id": "packet_ae4e329488902e04ed0d04b6",
+      "snapshot": "ae4e329488902e04ed0d04b619976c1a700e8929e00e3e539ec75de477b1b343"
+    },
+    {
+      "packet_id": "packet_b80099c2310716ca7dd986d3",
+      "snapshot": "b80099c2310716ca7dd986d33867aed128859ac194ac37242d083d799a220d79"
+    },
+    {
+      "packet_id": "packet_da6e061b5b8280c998c31c30",
+      "snapshot": "da6e061b5b8280c998c31c30a08e22cf60bd6c4eee74bec5fad3c45cd695e55c"
+    },
+    {
+      "packet_id": "packet_ecd53bfda1290743dc3eb0f1",
+      "snapshot": "ecd53bfda1290743dc3eb0f129a0c61fecae1d889ed9ccd53fa91e89b46d2491"
+    },
+    {
+      "packet_id": "packet_f62ddaa54d12180993f4586b",
+      "snapshot": "f62ddaa54d12180993f4586b2ee07d8a3a640cec2477918bb9565bab8a192708"
+    }
+  ],
+  "write_counts": {
+    "canonical": 14,
+    "audit": 15
+  },
+  "recorded_at": "2026-08-30T02:53:36.944Z",
+  "audit_hash": "c6e9d9fda42fd47d8ae9f810503254ea8617c5657bb258a8c49ba7d6b6afbb28"
+}

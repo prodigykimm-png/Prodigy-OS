@@ -1,0 +1,18 @@
+{
+  "audit_version": "llmwiki_safe_batch_item_audit_v1",
+  "result": "committed",
+  "committed_at": "2026-08-30T02:53:36.944Z",
+  "batch_identity": "batch_27a76e44b7597f9a2f669380",
+  "authorization_hash": "1201c916ca39143b961f7c9a15b9d8eeb345a3dd70f81fd82b88913cd001282a",
+  "packet_id": "packet_b80099c2310716ca7dd986d3",
+  "operation_id": "operation_43adec3b750fcc847d64a14d",
+  "kind": "create",
+  "destinations": [
+    {
+      "path": "ZETA/CANDIDATES/document_aef5219bfb6bcb7bb795808c.md",
+      "before_sha256": null,
+      "after_sha256": "3e76272c1c899b6a5fb7e4468003624058e59d37b531160f2bc34521b248d60f"
+    }
+  ],
+  "audit_hash": "18d7d98a428d26e80e83a4b27860646ae95e88df3e47ebace4a2b5b1e468fbd1"
+}
