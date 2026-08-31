@@ -35,11 +35,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         bindings: {},
         viewState: {
           selectedProviderMode: "direct",
-          selectedSource: null,
           selectedRunCommand: null,
           sourceOptions: [],
-          startupStatus: null,
-          startupFailure: "",
           providerSelectionFailure: "",
           inboxState: null,
         },
@@ -80,7 +77,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     shell = window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, workspaceId: "knowledge", title: "지식", mountScope: mountContext.scope });
     performance = shell.performance;
     const P = window.KnowledgeExplorerHubProjection;
-    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiCompensationService || !window.LLMWikiLifecycleView || !window.LLMWikiProviderResponseSchema || !window.LLMWikiSourceRegistry || !window.LLMWikiSourceAdapters || !window.LLMWikiMigrationRollout || !window.LLMWikiInboxPrivacyBoundary || !window.LLMWikiAnalysisScope || !window.LLMWikiChunkManifest || !window.LLMWikiChunkCoverageStore || !window.LLMWikiAnalysisCache || !window.LLMWikiIdentityResolution || !window.LLMWikiLifecycleRoutingContract || !window.LLMWikiDocumentAssembler || !window.LLMWikiInboxProposalMaterializer || !window.LLMWikiIncrementalAnalysisState || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface || !window.KnowledgeCommandController || !window.KnowledgeExplorerDetailModal || !window.KnowledgeExplorerController || !window.KnowledgeFleetingStore || !window.KnowledgeFleetingReviewState || !window.LLMWikiCanonicalTrust || !window.LLMWikiLifecycleMigrationFlows || !window.LLMWikiGitGateway || !window.LLMWikiBatchAnalyzer || !window.LLMWikiBatchProvider || !window.LLMWikiBatchJobStore || !window.LLMWikiInboxDiscoveryQueue || !window.LLMWikiBatchApprovalAdapter || !window.LLMWikiProcessedSourceService || !window.LLMWikiAnalysisCache || !window.LLMWikiChunkCoverageStore) {
+    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiCompensationService || !window.LLMWikiLifecycleView || !window.ProdigyWikiController || !window.LLMWikiProviderResponseSchema || !window.LLMWikiSourceRegistry || !window.LLMWikiSourceAdapters || !window.LLMWikiMigrationRollout || !window.LLMWikiInboxPrivacyBoundary || !window.LLMWikiAnalysisScope || !window.LLMWikiChunkManifest || !window.LLMWikiChunkCoverageStore || !window.LLMWikiAnalysisCache || !window.LLMWikiIdentityResolution || !window.LLMWikiLifecycleRoutingContract || !window.LLMWikiDocumentAssembler || !window.LLMWikiInboxProposalMaterializer || !window.LLMWikiIncrementalAnalysisState || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface || !window.KnowledgeCommandController || !window.KnowledgeExplorerDetailModal || !window.KnowledgeExplorerController || !window.KnowledgeFleetingStore || !window.KnowledgeFleetingReviewState || !window.LLMWikiCanonicalTrust || !window.LLMWikiLifecycleMigrationFlows || !window.LLMWikiGitGateway || !window.LLMWikiBatchAnalyzer || !window.LLMWikiBatchProvider || !window.LLMWikiBatchJobStore || !window.LLMWikiInboxDiscoveryQueue || !window.LLMWikiBatchApprovalAdapter || !window.LLMWikiProcessedSourceService || !window.LLMWikiAnalysisCache || !window.LLMWikiChunkCoverageStore) {
       throw new Error("Knowledge Explorer modules failed to load.");
     }
     // Active maintenance scheduling state signal: wired after the LLM Wiki
@@ -392,24 +389,23 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     };
     let providerOptions = await configuredProviderOptions(llmWikiConfig);
     let selectedProviderMode = llmWikiSession.viewState.selectedProviderMode || "direct";
-    let selectedSource = llmWikiSession.viewState.selectedSource || null;
     let sourceOptions = Array.isArray(llmWikiSession.viewState.sourceOptions) ? llmWikiSession.viewState.sourceOptions : [];
-    let startupFailure = llmWikiSession.viewState.startupFailure || "";
     let providerSelectionFailure = llmWikiSession.viewState.providerSelectionFailure || "";
-    let startupStatus = llmWikiSession.viewState.startupStatus || null;
     let selectedRunCommand = llmWikiSession.viewState.selectedRunCommand || null;
-    let goldenWikiState = llmWikiSession.viewState.goldenWikiState || { status: "idle", stage: "", result: null, reason: "" };
+    const prodigyWikiController = KnowledgeExplorerHub._prodigyWikiController
+      || window.ProdigyWikiController.createController();
+    KnowledgeExplorerHub._prodigyWikiController = prodigyWikiController;
+    llmWikiSession.prodigyWikiController = prodigyWikiController;
+    for (const key of ["selectedSource", "startupStatus", "startupFailure", "goldenWikiState"]) {
+      delete llmWikiSession.viewState[key];
+    }
     const persistLlmWikiSessionView = () => {
       llmWikiSession.viewState = {
         ...llmWikiSession.viewState,
         selectedProviderMode,
-        selectedSource,
         selectedRunCommand,
         sourceOptions,
-        startupStatus,
-        startupFailure,
         providerSelectionFailure,
-        goldenWikiState,
         inboxState: llmWikiSession.viewState.inboxState,
       };
       llmWikiSession.bindings.config = llmWikiConfig;
@@ -1827,15 +1823,14 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         compilePlan: () => compileDocumentPlan(),
         getDocuments: () => documentPlanCompileResult?.documents || [],
         onProgress: (progress) => {
-          goldenWikiState = { ...goldenWikiState, status: "running", stage: progress.stage, reason: "" };
-          startupStatus = "running";
-          if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
+          prodigyWikiController.dispatch({ type: "progress", stage: progress.stage });
         },
       });
       return goldenWikiOrchestrator;
     };
     const preflightGoldenWiki = async (scope = null) => {
       const orchestrator = getGoldenWikiOrchestrator();
+      const selectedSource = prodigyWikiController.getSnapshot().source;
       if (!orchestrator || !selectedSource) return { ok: false, reason: "golden_wiki_unavailable" };
       return orchestrator.preflight({
         source_path: selectedSource.path,
@@ -1845,9 +1840,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     };
     const runGoldenWiki = async (scope = null) => {
       const orchestrator = getGoldenWikiOrchestrator();
+      const selectedSource = prodigyWikiController.getSnapshot().source;
       if (!orchestrator || !selectedSource) return { ok: false, reason: "golden_wiki_unavailable" };
-      goldenWikiState = { ...goldenWikiState, status: "running", stage: "preflight", reason: "", scope };
-      startupStatus = "running";
+      prodigyWikiController.dispatch({ type: "start", stage: "preflight" });
       const result = await orchestrator.run({
         source_path: selectedSource.path,
         expected_content_hash: selectedSource.content_hash,
@@ -1855,24 +1850,26 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       });
       if (result.ok) {
         await refreshGoldenPreviewWorkbench();
-        goldenWikiState = { status: "complete", stage: "complete", result, reason: "", scope };
-        startupStatus = "complete";
-        startupFailure = "";
+        prodigyWikiController.dispatch({ type: "complete", result });
       } else if (result.status === "scope_required") {
-        goldenWikiState = { status: "scope_required", stage: "preflight", result, reason: result.reason, scope: null };
-        startupStatus = "selecting";
-        startupFailure = "";
+        prodigyWikiController.dispatch({ type: "require_range", result, reason: result.reason });
       } else {
-        goldenWikiState = { status: "failed", stage: result.stage || "", result, reason: result.reason || "golden_wiki_failed", scope };
-        startupStatus = "failed";
-        startupFailure = result.reason || "읽기용 Wiki를 만들지 못했습니다.";
+        prodigyWikiController.dispatch({
+          type: result.reason === "source_revision_changed" ? "source_changed" : "interrupt",
+          stage: result.stage || "",
+          result,
+          reason: result.reason || "golden_wiki_failed",
+        });
       }
       persistLlmWikiSessionView();
       return result;
     };
     KnowledgeExplorerHub.preflightGoldenWiki = preflightGoldenWiki;
     KnowledgeExplorerHub.runGoldenWiki = runGoldenWiki;
-    KnowledgeExplorerHub.goldenWikiSnapshot = () => JSON.parse(JSON.stringify(goldenWikiState));
+    KnowledgeExplorerHub.prodigyWikiSnapshot = () => JSON.parse(JSON.stringify(prodigyWikiController.getSnapshot()));
+    KnowledgeExplorerHub.goldenWikiSnapshot = () => JSON.parse(JSON.stringify(
+      window.ProdigyWikiController.projectLifecycle(prodigyWikiController.getSnapshot()).golden_wiki,
+    ));
     KnowledgeExplorerHub.queryDocumentPlanSourceOnly = (query) => {
       if (!documentPlanReviewState || !documentPlanInventory) return { ok: false, reason: "page_plan_unavailable", writer_count: 0 };
       return window.LLMWikiPagePlanFeedback.querySourceOnly({
@@ -2357,6 +2354,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     };
     const lifecycleSnapshot = () => {
       const snapshot = llmWikiRunController.getSnapshot();
+      const prodigyWiki = window.ProdigyWikiController.projectLifecycle(prodigyWikiController.getSnapshot());
       const directProvider = resolveProvider("direct");
       const durableProcessed = Boolean(durableRecovery
         && Array.isArray(durableRecovery.operation_outcomes)
@@ -2374,20 +2372,13 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           return { ready: Boolean(selected && selected.configured === true), code: selected && selected.configured === true ? "ready" : String(directProvider && directProvider.code || "configuration_required") };
         })(),
         display_variant: "local",
-        golden_wiki: { ...goldenWikiState },
+        golden_wiki: prodigyWiki.golden_wiki,
         ...(providerSelectionFailure ? { provider_selection_error: providerSelectionFailure } : {}),
-        ...(selectedSource ? { source_selection: {
-          selected: true,
-          display_name: selectedSource.title,
-          source_path: selectedSource.path,
-          content_hash: selectedSource.content_hash,
-          source_kind: selectedSource.source_kind || "literature",
-          provider_mode: selectedSource.source_kind === "inbox" ? "direct" : selectedProviderMode,
-        } } : {}),
-        source_options: sourceOptions,
-        ...(startupStatus ? { status: startupStatus } : {}),
-        ...(startupFailure ? { status: "failed", reason: startupFailure } : {}),
-        ...(durableProcessed && !startupFailure && !["consent_required", "running", "complete"].includes(startupStatus) ? { status: "processed", reason: "" } : {}),
+        ...(prodigyWiki.source_selection ? { source_selection: prodigyWiki.source_selection } : {}),
+        source_options: prodigyWiki.source_options.length ? prodigyWiki.source_options : sourceOptions,
+        ...(prodigyWiki.status !== "idle" ? { status: prodigyWiki.status } : {}),
+        ...(prodigyWiki.reason ? { reason: prodigyWiki.reason } : {}),
+        ...(durableProcessed && prodigyWiki.status === "idle" ? { status: "processed", reason: "" } : {}),
         inbox: { ...inboxState },
         fleeting: { ...fleetingReviewState },
         approval_packet: snapshot.approval_packet || (Array.isArray(snapshot.review_packets) ? snapshot.review_packets[0] || null : null),
@@ -2445,46 +2436,35 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         if (!["direct", "omniroute"].includes(intent.provider_mode)) return { ok: false, status: "failed", reason: "invalid_provider_mode" };
         selectedProviderMode = intent.provider_mode;
         selectedRunCommand = null;
-        startupFailure = "";
         return { ok: true, status: llmWikiRunController.getSnapshot().status, provider_mode: selectedProviderMode };
       }
       if (intent.action === "set_provider") {
         return { ok: false, status: "failed", reason: "action_unavailable" };
       }
       if (intent.action === "select_source" && !intent.source_path) {
-        selectedSource = null;
         selectedRunCommand = null;
-        goldenWikiState = { status: "idle", stage: "", result: null, reason: "" };
         sourceOptions = sourceOptions.length ? sourceOptions : await sourceOptionsReady;
-        startupStatus = "selecting";
-        startupFailure = sourceOptions.length ? "" : "선택할 수 있는 자료가 없습니다. INBOX 또는 Literature 자료를 확인해 주세요.";
+        prodigyWikiController.dispatch({ type: "open_picker", options: sourceOptions });
         return { ok: sourceOptions.length > 0, status: "selecting", source_options: sourceOptions };
       }
       if (intent.action === "select_source") {
         sourceOptions = sourceOptions.length ? sourceOptions : await sourceOptionsReady;
         const option = sourceOptions.find((item) => item.path === intent.source_path);
         if (!option) {
-          startupStatus = "selecting";
-          startupFailure = "선택한 자료를 확인할 수 없습니다. 목록에서 다시 선택해 주세요.";
           return { ok: false, status: "selecting", reason: "unknown_source" };
         }
         let pinnedOption = option;
         if (option.source_kind === "inbox") {
           const pinned = await window.LLMWikiUserSourceSelector.pinSelection(option, appRef.vault, llmWikiHash);
           if (!pinned.ok) {
-            startupStatus = "selecting";
-            startupFailure = "선택한 자료가 바뀌었거나 읽을 수 없습니다. 목록에서 다시 선택해 주세요.";
             return { ok: false, status: "selecting", reason: pinned.reason };
           }
           pinnedOption = pinned.option;
           if (selectedProviderMode !== "direct") selectedProviderMode = "direct";
         }
-        selectedSource = pinnedOption;
         sourceOptions = sourceOptions.map((row) => row.path === pinnedOption.path ? pinnedOption : row);
         selectedRunCommand = null;
-        goldenWikiState = { status: "ready", stage: "ready", result: null, reason: "" };
-        startupStatus = "selecting";
-        startupFailure = "";
+        prodigyWikiController.dispatch({ type: "select_source", source: pinnedOption });
         return { ok: true, status: "selecting", source: pinnedOption };
       }
       if (intent.action === "open_golden_review") {
@@ -2492,30 +2472,25 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return { ok: true, status: "complete", provider_calls: 0 };
       }
       if (intent.action === "cancel_golden_wiki") {
-        goldenWikiState = { status: "ready", stage: "ready", result: null, reason: "" };
-        startupStatus = "selecting";
-        startupFailure = "";
+        prodigyWikiController.dispatch({ type: "cancel" });
         return { ok: true, status: "selecting", provider_calls: 0 };
       }
       if (intent.action === "select_golden_scope") {
-        const scopes = goldenWikiState?.result?.scopes || [];
+        const scopes = prodigyWikiController.getSnapshot().result?.scopes || [];
         const scope = scopes.find((row) => row.scope_id === intent.scope_id);
         if (!scope) return { ok: false, status: "selecting", reason: "unknown_source_scope" };
         const prepared = await preflightGoldenWiki(scope);
         if (!prepared.ok || prepared.packs > window.LLMWikiGoldenWikiOrchestrator.MAX_DIRECT_PACKS) {
-          goldenWikiState = { ...goldenWikiState, status: "scope_required", reason: prepared.reason || "selected_scope_too_large" };
-          startupStatus = "selecting";
+          prodigyWikiController.dispatch({ type: "require_range", result: prepared, reason: prepared.reason || "selected_scope_too_large" });
           return { ok: false, status: "scope_required", reason: prepared.reason || "selected_scope_too_large" };
         }
-        goldenWikiState = { status: "consent_required", stage: "preflight", result: prepared, reason: "", scope };
-        startupStatus = "consent_required";
-        startupFailure = "";
+        prodigyWikiController.dispatch({ type: "select_range", range: scope, preflight: prepared });
+        prodigyWikiController.dispatch({ type: "request_consent", preflight: prepared });
         return { ok: true, status: "consent_required", preflight: prepared, provider_calls: 0 };
       }
       if (!["request_consent", "start_run"].includes(intent.action)) return { ok: false, status: "failed", reason: "action_unavailable" };
+      const selectedSource = prodigyWikiController.getSnapshot().source;
       if (!selectedSource) {
-        startupStatus = "selecting";
-        startupFailure = "먼저 분석할 자료를 하나 선택해 주세요.";
         return { ok: false, status: "selecting", reason: "source_selection_required" };
       }
       const resolvedProvider = resolveProvider(selectedProviderMode);
@@ -2531,26 +2506,24 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (intent.action === "request_consent") {
         const prepared = await preflightGoldenWiki();
         if (!prepared.ok) {
-          startupStatus = "failed";
-          startupFailure = prepared.reason || "읽기용 Wiki 사전 검사를 완료하지 못했습니다.";
-          goldenWikiState = { status: "failed", stage: "preflight", result: prepared, reason: startupFailure };
+          prodigyWikiController.dispatch({
+            type: prepared.reason === "source_revision_changed" ? "source_changed" : "interrupt",
+            stage: "preflight",
+            result: prepared,
+            reason: prepared.reason || "golden_wiki_preflight_failed",
+          });
           return { ...prepared, status: "failed", provider_calls: 0 };
         }
         if (prepared.packs > window.LLMWikiGoldenWikiOrchestrator.MAX_DIRECT_PACKS) {
           const blocked = { ...prepared, status: "scope_required", reason: "large_source_scope_required" };
-          goldenWikiState = { status: "scope_required", stage: "preflight", result: blocked, reason: blocked.reason };
-          startupStatus = "selecting";
-          startupFailure = "";
+          prodigyWikiController.dispatch({ type: "require_range", result: blocked, reason: blocked.reason });
           return { ...blocked, ok: false, provider_calls: 0 };
         }
-        goldenWikiState = { status: "consent_required", stage: "preflight", result: prepared, reason: "", scope: null };
-        startupStatus = "consent_required";
-        startupFailure = "";
+        prodigyWikiController.dispatch({ type: "request_consent", preflight: prepared });
         return { ok: true, status: "consent_required", preflight: prepared, provider_calls: 0 };
       }
       providerSelectionFailure = "";
-      startupFailure = "";
-      return runGoldenWiki(goldenWikiState.scope || null);
+      return runGoldenWiki(prodigyWikiController.getSnapshot().range || null);
     };
     const reviewItems = () => {
       const configured = Array.isArray(llmWikiControllerOptions.review_items) ? llmWikiControllerOptions.review_items : [];
@@ -2707,7 +2680,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       else if (["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) pending = llmWikiRunController.dispatchRiskAction(intent);
       else if (intent.action === "resurfacing_feedback") pending = llmWikiRunController.recordResurfacingFeedback(intent);
       else if (intent.action === "approve") pending = llmWikiRunController.approve(intent);
-      else if (intent.action === "cancel" && ["consent_required", "scope_required"].includes(goldenWikiState.status)) pending = dispatchStartupIntent({ action: "cancel_golden_wiki" });
+      else if (intent.action === "cancel" && ["consent_required", "range_required"].includes(prodigyWikiController.getSnapshot().status)) pending = dispatchStartupIntent({ action: "cancel_golden_wiki" });
       else if (intent.action === "cancel") pending = llmWikiRunController.cancel(intent);
       else if (intent.action === "reload") pending = llmWikiRunController.reload(intent);
       else if (intent.action === "repair_audit") pending = llmWikiRunController.repairAudit(intent);
@@ -2836,6 +2809,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       return { ok: true, source_path: sourcePath, position };
     };
     if (!sourceOptions.length) sourceOptions = await sourceOptionsReady;
+    prodigyWikiController.dispatch({ type: "set_options", options: sourceOptions });
     const llmWikiLifecycleFrame = llmWikiPanel.createDiv({ attr: { class: "llmwiki-lifecycle-frame" } });
     llmWikiLifecycle = window.LLMWikiLifecycleView.mountLlmWikiLifecycleView({
       container: llmWikiLifecycleFrame,
@@ -2845,6 +2819,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       reviewView: window.LLMWikiRiskApprovalReviewView,
       reviewOptions: { onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath), onEditSource: openSourceForEdit, resolveSourcePreview }
     });
+    const unsubscribeProdigyWikiLifecycle = prodigyWikiController.subscribe(() => {
+      if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
+    });
+    if (mountContext && mountContext.scope && typeof mountContext.scope.track === "function") {
+      mountContext.scope.track(unsubscribeProdigyWikiLifecycle);
+    }
     const storedPlanSnapshots = batchJobStore.listPlanSnapshots().filter((snapshot) => snapshot?.plan && snapshot?.inventory);
     if (storedPlanSnapshots.length > 0) {
       const selector = llmWikiPanel.createDiv({ attr: { class: "llmwiki-plan-source-selector" } });

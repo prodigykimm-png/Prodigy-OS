@@ -194,12 +194,14 @@ test("keeps approval-ready and blocking conflict queues separate and excludes co
 
 test("production Hub loads and owns inbox intake, cancellation, retry, Task14 review and operation recovery routes", () => {
   const manifest = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js")).get("knowledge").required;
-  for (const name of ["llmwiki-source-registry.js", "llmwiki-source-adapters.js", "llmwiki-inbox-discovery-queue.js", "knowledge-fleeting-store.js", "knowledge-command-controller.js", "knowledge-explorer-detail-modal.js", "knowledge-explorer-controller.js"]) {
+  for (const name of ["llmwiki-source-registry.js", "llmwiki-source-adapters.js", "llmwiki-inbox-discovery-queue.js", "knowledge-fleeting-store.js", "knowledge-command-controller.js", "knowledge-explorer-detail-modal.js", "knowledge-explorer-controller.js", "prodigy-wiki-controller.js"]) {
     const modulePath = `SYSTEM/Views/${name}`;
     assert.equal(manifest.filter((entry) => entry === modulePath).length, 1, modulePath);
   }
   assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-command-controller.js") < manifest.indexOf("SYSTEM/Views/knowledge-explorer-detail-modal.js"));
   assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-explorer-detail-modal.js") < manifest.indexOf("SYSTEM/Views/knowledge-explorer-controller.js"));
+  assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-explorer-controller.js") < manifest.indexOf("SYSTEM/Views/prodigy-wiki-controller.js"));
+  assert.ok(manifest.indexOf("SYSTEM/Views/prodigy-wiki-controller.js") < manifest.indexOf("SYSTEM/Views/llmwiki-lifecycle-view.js"));
   assert.ok(manifest.indexOf("SYSTEM/Views/llmwiki-ui-recovery.js") < manifest.indexOf("SYSTEM/Views/llmwiki-ai-provider-transport.js"));
   const maintenanceModules = [
     "llmwiki-maintenance-service.js",
