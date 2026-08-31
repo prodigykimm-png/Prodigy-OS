@@ -69,7 +69,7 @@
     const checklist = (document.sections || [])
       .map((section) => `- [ ] ${publicationText(section.heading)}의 조건과 예외를 확인했다.`)
       .join("\n");
-    return `---\ntype: wiki-preview\nstatus: review\nsource: "[[${sourceName}]]"\n---\n\n# ${safeTitle(publicationText(document.title))}\n\n> [!warning] 문서 성격\n> 선택한 원문 근거에서 편집한 읽기용 Wiki preview입니다. 경험값과 시점 의존 정보는 현재 상황에 그대로 적용하지 말고 원문과 최신 기준을 함께 확인해야 합니다.\n\n## 한눈에 보기\n\n${publicationText(overview)}\n\n${sections}\n\n## 주요 위험\n\n- 원문의 경험적 판단을 모든 상황에 적용하지 않습니다.\n- 법률·규정·가격·비율처럼 달라질 수 있는 내용은 현재 기준을 다시 확인합니다.\n- 아래 원문 링크에서 문맥과 예외를 함께 확인합니다.\n\n## 실전 체크리스트\n\n${checklist || "- [ ] 문서의 적용 범위와 예외를 확인했다."}\n\n## 원문\n\n- [[${sourceName}]]\n`;
+    return `---\ntype: wiki-preview\nstatus: review\nsource: "[[${sourceName}]]"\n---\n\n# ${safeTitle(publicationText(document.title))}\n\n> [!warning] 문서 성격\n> Prodigy Wiki가 선택한 원문 내용을 정리한 결과이며 외부 사실 확인은 수행하지 않았습니다. 경험값과 시점 의존 정보는 현재 상황에 그대로 적용하지 말고 원문과 최신 기준을 함께 확인해야 합니다.\n\n## 한눈에 보기\n\n${publicationText(overview)}\n\n${sections}\n\n## 주요 위험\n\n- 원문의 경험적 판단을 모든 상황에 적용하지 않습니다.\n- 법률·규정·가격·비율처럼 달라질 수 있는 내용은 현재 기준을 다시 확인합니다.\n- 아래 원문 링크에서 문맥과 예외를 함께 확인합니다.\n\n## 실전 체크리스트\n\n${checklist || "- [ ] 문서의 적용 범위와 예외를 확인했다."}\n\n## 원문\n\n- [[${sourceName}]]\n`;
   }
   function mergeTopicDocuments(documents, sourcePath) {
     const claims = [], seen = new Set(), sections = [];

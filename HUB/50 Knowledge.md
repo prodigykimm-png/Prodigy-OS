@@ -2364,6 +2364,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         && durableRecovery.archive_receipts.length > 0);
       return {
         ...snapshot,
+        prodigy_wiki: prodigyWikiController.getSnapshot(),
         ...(snapshot.provider_mode ? {} : { provider_mode: selectedProviderMode }),
         provider_key: directProvider && directProvider.ok === true ? directProvider.provider_key : "",
         provider_options: providerOptions,

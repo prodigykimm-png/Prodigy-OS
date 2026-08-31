@@ -68,12 +68,14 @@ test("explicit source selection takes priority over an automatic INBOX queue", (
     },
     inbox: { state: "queued" },
   }));
-  const copy = collectText(subject.root);
-  assert.match(copy, /선택 완료/);
-  assert.match(copy, /서울투자반/);
-  assert.match(copy, /INBOX\/서울투자반\.md/);
-  assert.match(copy, /8557c1c2a292/);
-  assert.match(copy, /내 자료.*direct provider.*아직 전송하지 않음/);
+  const selectedStatus = walk(subject.root, (node) => node.getAttribute("data-source-selected-status") === "confirmed")[0];
+  const selectedPath = walk(subject.root, (node) => node.getAttribute("data-selected-source-path") !== null)[0];
+  const selectedBoundary = walk(subject.root, (node) => node.getAttribute("data-selected-source-boundary") === "pre-consent")[0];
+  assert.ok(selectedStatus);
+  assert.equal(selectedPath.text, "INBOX/서울투자반.md");
+  assert.ok(selectedBoundary);
+  const visible = collectText(subject.root, { excludeDetails: true, excludeStyles: true });
+  assert.doesNotMatch(visible, /INBOX\/|8557c1c2a292|direct|revision|provider/i);
   assert.ok(action(subject.root, "request-consent"));
 });
 
@@ -111,19 +113,22 @@ test("renders selected source as a Golden Wiki creation flow", () => {
   });
   const dom = mountRoot(), calls = [];
   const view = lifecycle.mountLlmWikiLifecycleView({ container: dom.root, snapshot: selected, onAction: (intent) => calls.push(intent) });
-  assert.match(collectText(dom.root), /읽기용 Wiki 만들기/);
+  const selectedFrame = walk(dom.root, (node) => node.getAttribute("data-product") === "prodigy-wiki")[0];
+  assert.equal(selectedFrame.getAttribute("data-primary-action"), "request_consent");
+  assert.ok(action(dom.root, "request-consent"));
   click(action(dom.root, "request-consent"));
   assert.deepEqual(calls, [{ action: "request_consent" }]);
   view.update(snapshot("consent_required", {
     golden_wiki: { status: "consent_required", stage: "preflight", result: { packs: 3 } },
     source_selection: selected.source_selection,
   }));
-  assert.match(collectText(dom.root), /동의하고 Wiki 만들기/);
+  assert.ok(action(dom.root, "start-run"));
   view.update(snapshot("complete", {
     golden_wiki: { status: "complete", stage: "complete", result: { source_bytes: 45873, provider_calls: 2, previews: [{ title: "서울 투자 판단 가이드" }] } },
     source_selection: selected.source_selection,
   }));
-  assert.match(collectText(dom.root), /읽기용 Wiki 1개가 준비되었습니다/);
+  const completeFrame = walk(dom.root, (node) => node.getAttribute("data-product") === "prodigy-wiki")[0];
+  assert.equal(completeFrame.getAttribute("data-primary-action"), "open_review");
   assert.ok(action(dom.root, "open-golden-review"));
 });
 
@@ -136,7 +141,7 @@ test("large source requires an explicit heading scope before consent", () => {
     golden_wiki: { status: "scope_required", result: { chunks: 124, packs: 31, scopes: [{ scope_id: "heading_001", title: "경매 사례" }] } },
     source_selection: { selected: true, display_name: "대형 자료" },
   }));
-  assert.match(collectText(subject.root), /AI 요청 31회/);
+  assert.ok(walk(subject.root, (node) => node.getAttribute("data-disclosure") === "range-execution-details")[0]);
   const scope = action(subject.root, "select-golden-scope");
   assert.ok(scope);
   click(scope);

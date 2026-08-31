@@ -78,3 +78,22 @@ test("lifecycle projection derives one legacy snapshot from controller truth", (
   assert.equal(projected.golden_wiki.status, "consent_required");
   assert.equal(projected.golden_wiki.result.packs, 3);
 });
+
+test("every Prodigy Wiki product state derives one canonical primary action", () => {
+  const cases = [
+    [{ status: "idle", picker_open: false }, "select_source"],
+    [{ status: "source_selected", source: SOURCE }, "request_consent"],
+    [{ status: "range_required", source: SOURCE }, "select_range"],
+    [{ status: "consent_required", source: SOURCE }, "start_run"],
+    [{ status: "running", source: SOURCE }, null],
+    [{ status: "review_ready", source: SOURCE }, "open_review"],
+    [{ status: "interrupted", source: SOURCE, resumable: true }, "resume"],
+    [{ status: "source_changed", source: SOURCE }, "reset_source"],
+  ];
+  for (const [snapshot, primaryAction] of cases) {
+    const model = api.deriveViewModel(snapshot);
+    assert.equal(model.product_id, "prodigy-wiki");
+    assert.equal(model.primary_action, primaryAction, snapshot.status);
+    assert.equal(model.state, snapshot.status);
+  }
+});

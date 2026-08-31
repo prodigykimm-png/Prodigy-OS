@@ -5,8 +5,8 @@
   var TABS = Object.freeze([
     Object.freeze({ id: "zettelkasten", label: "지식 구축 · 제텔카스텐", compactLabel: "구축", role: "지식 구축", purpose: "작성·연결·검증·보존", description: "후보·문헌·영구 지식을 검토하고 승인합니다." }),
     Object.freeze({ id: "para", label: "지식 활용 · PARA", compactLabel: "활용", role: "승인 지식 활용", purpose: "승인된 지식을 Project·Area·Resource Objects에 적용하고 활용합니다.", description: "프로젝트·영역·자료에 연결된 승인 지식을 탐색합니다." }),
-    Object.freeze({ id: "llmwiki", label: "AI 지식 검토 · LLM Wiki", compactLabel: "AI", role: "AI 지식 검토", purpose: "자료를 선택하고 AI 지식 제안을 검토합니다.", description: "자료를 선택하고 AI 지식 제안을 검토합니다." }),
-    Object.freeze({ id: "llmwiki-browse", label: "LLMWiki 탐색", compactLabel: "탐색", role: "LLMWiki 탐색", purpose: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다.", description: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다." })
+    Object.freeze({ id: "llmwiki", label: "Prodigy Wiki 만들기", compactLabel: "만들기", role: "Prodigy Wiki 만들기", purpose: "내 자료를 읽기 좋은 Wiki로 정리합니다.", description: "자료를 선택하고 정리 결과를 검토합니다." }),
+    Object.freeze({ id: "llmwiki-browse", label: "Prodigy Wiki 검토", compactLabel: "검토", role: "Prodigy Wiki 검토", purpose: "정리 결과와 원문을 함께 확인합니다.", description: "자동 검사를 통과한 정리 결과를 읽고 검토합니다." })
   ]);
 
 

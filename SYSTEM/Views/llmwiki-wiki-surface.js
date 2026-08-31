@@ -249,13 +249,13 @@
       }
       empty(rootEl);
       const header = createEl(rootEl, "header", { attr: { class: "llmwiki-wiki-surface__header" } });
-      createEl(header, "h2", { text: "LLMWiki 탐색", attr: { "data-surface-heading": "llmwiki-browse" } });
+      createEl(header, "h2", { text: "Prodigy Wiki 검토", attr: { "data-surface-heading": "llmwiki-browse" } });
       createEl(header, "p", { text: "검증된 스냅샷을 검색하고 읽습니다. 이 화면은 저장하지 않습니다.", attr: { class: "llmwiki-wiki-surface__muted" } });
-      const statusText = state.status === "loading" ? "스냅샷을 불러오는 중입니다." : state.status === "error" ? "LLMWiki 탐색을 불러오지 못했습니다. 다시 시도해 주세요." : state.status === "stale" ? "스냅샷이 변경되어 결과를 다시 확인해야 합니다." : state.status === "empty" ? "조건에 맞는 결과가 없습니다." : "읽기 전용 스냅샷입니다.";
+      const statusText = state.status === "loading" ? "정리 결과를 불러오는 중입니다." : state.status === "error" ? "Prodigy Wiki 결과를 불러오지 못했습니다. 다시 시도해 주세요." : state.status === "stale" ? "원문이 변경되어 결과를 다시 확인해야 합니다." : state.status === "empty" ? "조건에 맞는 결과가 없습니다." : "읽기 전용 결과입니다.";
       createEl(header, "p", { text: statusText, attr: { class: "llmwiki-wiki-surface__status", "data-state": state.status, role: state.status === "error" || state.status === "stale" ? "alert" : "status", "aria-live": "polite" } });
       const controls = createEl(rootEl, "div", { attr: { class: "llmwiki-wiki-surface__controls" } });
       const form = createEl(controls, "form", { attr: { class: "llmwiki-wiki-surface__search", role: "search" } });
-      const input = createEl(form, "input", { attr: { type: "search", value: state.query, placeholder: "검색어를 입력하세요", "aria-label": "LLMWiki 검색어" } });
+      const input = createEl(form, "input", { attr: { type: "search", value: state.query, placeholder: "검색어를 입력하세요", "aria-label": "Prodigy Wiki 검색어" } });
       input.value = state.query;
       input.oninput = (event) => { state = { ...state, query: event && event.target ? event.target.value : input.value }; };
       form.onsubmit = (event) => { if (event && event.preventDefault) event.preventDefault(); applyBrowse({ query: input.value, selection: { ...state.selection, path: null, detail_state: "rest" } }); };
@@ -268,11 +268,11 @@
       const reset = createEl(filterRow, "button", { text: "필터 초기화", attr: { type: "button" } });
       reset.onclick = () => applyBrowse({ query: "", mode: "verified", domain: "", topic: "", reset: true, selection: { domain: "", topic: "", mode: "verified", path: null, detail_state: "rest" } });
       const content = createEl(rootEl, "div", { attr: { class: "llmwiki-wiki-surface__content" } });
-      const rail = createEl(content, "aside", { attr: { class: "llmwiki-wiki-surface__facet-rail prodigy-utility-card", "data-component": "WikiFacetRail", "aria-label": "LLMWiki 필터" } });
+      const rail = createEl(content, "aside", { attr: { class: "llmwiki-wiki-surface__facet-rail prodigy-utility-card", "data-component": "WikiFacetRail", "aria-label": "Prodigy Wiki 필터" } });
       const facets = state.result && state.result.facets ? state.result.facets : { domains: [], topics: [] };
       facetButtons(rail, "도메인", facets.domains, state.domain, "domain");
       facetButtons(rail, "주제", facets.topics, state.topic, "topic");
-      const resultsPanel = createEl(content, "section", { attr: { class: "llmwiki-wiki-surface__results prodigy-utility-card", "data-component": "WikiResultList", "aria-label": "LLMWiki 결과" } });
+      const resultsPanel = createEl(content, "section", { attr: { class: "llmwiki-wiki-surface__results prodigy-utility-card", "data-component": "WikiResultList", "aria-label": "Prodigy Wiki 결과" } });
       const rows = state.result ? safeRows(state.result.rows || state.result.results) : [];
       const listEl = createEl(resultsPanel, "ol", { attr: { class: "llmwiki-wiki-surface__result-list" } });
       rows.forEach((row) => {

@@ -89,8 +89,8 @@
     const createDiv = (parent, attrs) => typeof parent.createDiv === "function" ? parent.createDiv({ attr: attrs || {} }) : create(parent, "div", "", attrs);
     const reviewed = config.reviewed instanceof Set ? config.reviewed : new Set();
     const section = create(config.container, "section", "", { "data-surface": "llmwiki-golden-preview-workbench" });
-    create(section, "h3", "읽기용 Wiki 검토", {});
-    create(section, "p", "Golden Gate를 통과한 preview를 읽고 검토합니다. 여기서 검토 완료를 표시해도 정본은 변경되지 않습니다.", { "data-preview-boundary": "human-review-only" });
+    create(section, "h3", "Prodigy Wiki 검토", {});
+    create(section, "p", "원문 내용을 정리한 결과이며 외부 사실 확인은 수행하지 않았습니다. 검토 완료를 표시해도 정식 지식 문서는 변경되지 않습니다.", { "data-preview-boundary": "human-review-only" });
     function render(rows) {
       const old = section.querySelector && section.querySelector("[data-preview-list]"); if (old && old.remove) old.remove();
       const list = createDiv(section, { "data-preview-list": "" });
@@ -99,10 +99,10 @@
         const card = create(list, "article", "", { "data-preview-id": row.preview_id, "data-gate-status": row.status });
         create(card, "h4", row.title, {});
         const passed = row.status === "publishable_preview";
-        create(card, "output", passed ? "Gate 통과 · 사람 검토 대기" : `출고 차단 · ${row.issues.join(", ")}`, { "data-preview-gate": row.status });
-        create(card, "p", `구조 ${Math.round(Number(row.metrics.structure_score || 0) * 100)}% · 정보 보존 ${Math.round(Number(row.metrics.critical_token_recall || 0) * 100)}% · 문체 ${Math.round(Number(row.metrics.style_score || 0) * 100)}%`, { "data-preview-metrics": "" });
+        create(card, "output", passed ? "자동 검사 통과 · 사람 검토 필요" : "자동 검사에서 문제를 발견했습니다.", { "data-preview-gate": row.status });
+        create(card, "p", passed ? "문서 구성 통과 · 필수 항목 확인 · 숫자 누락 없음" : "결과와 원문을 비교한 뒤 다시 만들어 주세요.", { "data-preview-metrics": "" });
         const actions = createDiv(card, { "data-preview-actions": "" });
-        const openDocument = create(actions, "button", "결과 읽기", { type: "button", "data-action": "open-golden-preview" });
+        const openDocument = create(actions, "button", "검토하기", { type: "button", "data-action": "open-golden-preview" });
         openDocument.onclick = () => config.onOpen && config.onOpen(row.document_path);
         const openSource = create(actions, "button", "원문 확인", { type: "button", "data-action": "open-golden-source" });
         openSource.onclick = () => config.onOpen && config.onOpen(row.source_path);

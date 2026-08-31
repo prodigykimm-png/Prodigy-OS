@@ -261,10 +261,80 @@
     });
   }
 
+  function deriveViewModel(snapshot) {
+    const value = plain(snapshot) && STATES.includes(snapshot.status)
+      ? snapshot : baseSnapshot();
+    const primaryAction = ({
+      idle: "select_source",
+      source_selected: "request_consent",
+      range_required: "select_range",
+      consent_required: "start_run",
+      running: null,
+      review_ready: "open_review",
+      interrupted: value.resumable === true ? "resume" : "retry",
+      source_changed: "reset_source",
+    })[value.status];
+    const copyByState = {
+      idle: {
+        title: "정리할 자료를 선택하세요",
+        description: value.picker_open ? "내 자료에서 Prodigy Wiki로 만들 항목을 고르세요." : "자료를 선택하면 원문은 바꾸지 않고 읽기 좋은 문서로 정리합니다.",
+        primary_label: "자료 선택",
+      },
+      source_selected: {
+        title: "이 자료를 정리할까요?",
+        description: "선택한 자료와 정리 범위를 확인한 뒤 시작하세요.",
+        primary_label: "Prodigy Wiki 만들기",
+      },
+      range_required: {
+        title: "먼저 정리할 부분을 선택하세요",
+        description: "자료가 커서 한 번에 정리할 수 없습니다.",
+        primary_label: "범위 선택 완료",
+      },
+      consent_required: {
+        title: "외부 AI 전송 동의가 필요합니다",
+        description: "선택한 원문만 전송하며 원문과 정식 지식 문서는 변경하지 않습니다.",
+        primary_label: "동의하고 만들기",
+      },
+      running: {
+        title: "Prodigy Wiki를 만들고 있습니다",
+        description: "원문을 읽기 좋은 문서로 정리하고 자동 검사를 진행합니다.",
+        primary_label: "",
+      },
+      review_ready: {
+        title: "정리 결과가 준비되었습니다",
+        description: "결과와 원문을 함께 확인해 주세요.",
+        primary_label: "검토하기",
+      },
+      interrupted: {
+        title: "작업을 완료하지 못했습니다",
+        description: value.resumable === true ? "완료된 단계부터 이어서 진행할 수 있습니다." : "원문은 변경되지 않았습니다.",
+        primary_label: value.resumable === true ? "이어서 하기" : "다시 만들기",
+      },
+      source_changed: {
+        title: "선택 이후 원문이 변경되었습니다",
+        description: "현재 원문을 기준으로 다시 준비해야 합니다.",
+        primary_label: "새 내용으로 다시 준비",
+      },
+    };
+    const copy = copyByState[value.status] || copyByState.idle;
+    return freeze({
+      product_id: "prodigy-wiki",
+      state: value.status,
+      primary_action: primaryAction,
+      title: copy.title,
+      description: copy.description,
+      primary_label: copy.primary_label,
+      busy: value.status === "running",
+      requires_human_review: value.status === "review_ready",
+      technical_details_collapsed: true,
+    });
+  }
+
   const api = freeze({
     VERSION,
     STATES,
     createController,
+    deriveViewModel,
     projectLifecycle,
   });
   root.ProdigyWikiController = api;
