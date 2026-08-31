@@ -142,7 +142,10 @@
     const conflicts = risks.filter((packet) => Array.isArray(packet?.conflict?.blocking_conflict_ids) && packet.conflict.blocking_conflict_ids.length > 0);
     const approvals = risks.filter((packet) => !conflicts.includes(packet));
     let productState = snapshot.status;
-    if (inbox && ["blocked", "outcome_unknown"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
+    const explicitSourceSelection = snapshot.status === "selecting" && plain(snapshot.source_selection) && snapshot.source_selection.selected === true;
+    const explicitSourcePicker = snapshot.status === "selecting" && Array.isArray(snapshot.source_options) && snapshot.source_options.length > 0;
+    if (explicitSourceSelection || explicitSourcePicker) productState = "selecting";
+    else if (inbox && ["blocked", "outcome_unknown"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
     else if (inbox && ["queued", "analyzing", "cancelled"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
     else if (operation.status === "committed" && followUp?.refresh?.status === "failed") productState = "operation_refresh_failed";
     else if (operation.status === "committed" && ["pending", "running"].includes(followUp?.refresh?.status)) productState = "operation_refresh_pending";
@@ -399,9 +402,18 @@
       if (!name) {
         const options = sourceOptions(snapshot);
         if (options.length) {
-          const picker = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source", "aria-label": "Literature 자료 선택" } });
-          createEl(picker, "h3", { text: "Literature 자료" });
-          for (const option of options) actionButton(picker, option.title, "select-source-option", { action: "select_source", source_path: option.path }, { ariaLabel: `${option.title} 선택` });
+          const picker = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source", "aria-label": "분석할 자료 선택" } });
+          createEl(picker, "h3", { text: "분석할 자료" });
+          const search = createEl(picker, "input", { attr: { type: "search", placeholder: "제목 또는 경로 검색", "aria-label": "분석할 자료 검색" } });
+          const choices = createEl(picker, "div", { attr: { "data-source-choices": "" } });
+          const rows = options.map((option) => {
+            const button = actionButton(choices, `${option.source_kind === "inbox" ? "내 자료 · " : "문헌 · "}${option.title}`, "select-source-option", { action: "select_source", source_path: option.path }, { ariaLabel: `${option.title} 선택` });
+            return { option, button };
+          });
+          search.oninput = () => {
+            const query = text(search.value).toLocaleLowerCase("ko");
+            for (const row of rows) row.button.hidden = Boolean(query) && !`${row.option.title} ${row.option.path}`.toLocaleLowerCase("ko").includes(query);
+          };
         }
       }
       if (name) actionButton(actions, "이 자료 검토하기", "request-consent", { action: "request_consent" }, { primary: true });

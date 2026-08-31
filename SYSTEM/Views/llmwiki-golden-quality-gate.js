@@ -1,0 +1,14 @@
+(function(root){
+"use strict";
+const crypto=typeof require==="function"?require("node:crypto"):null;const VERSION="llmwiki_golden_quality_v1";
+function freeze(v){if(!v||typeof v!=="object"||Object.isFrozen(v))return v;Object.freeze(v);for(const c of Object.values(v))freeze(c);return v}
+function sha(v){if(root.LLMWikiHash)return root.LLMWikiHash.sha256(String(v));return crypto.createHash("sha256").update(String(v)).digest("hex")}
+function stable(v){if(v===null||typeof v!=="object")return JSON.stringify(v);if(Array.isArray(v))return`[${v.map(stable).join(",")}]`;return`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${stable(v[k])}`).join(",")}}`}
+function numerics(s){return[...String(s||"").matchAll(/\d[\d,.]*\s*(?:%|시|일|년|개월|만\s*원|억원|원|㎡|평|mm|cm|m)?/gu)].map(x=>x[0].replace(/[\s,]/gu,""))}
+function evaluate(input){const source=String(input?.source_text||""),doc=String(input?.document_text||""),issues=[];
+const required=[/문서 성격/u,/^## 한눈에 보기$/mu,/^## (?:주요 위험|위험|주의)/mu,/^## (?:실전 체크리스트|현장 체크리스트|체크리스트)/mu,/^## 원문$/mu];const structure=required.filter(r=>r.test(doc)).length/required.length;if(structure<1)issues.push("required_sections_missing");
+const srcNums=new Set(numerics(source)),docNums=new Set(numerics(doc));const unsupported=[...docNums].filter(x=>!srcNums.has(x));if(unsupported.length)issues.push("unsupported_numeric_token");const critical=[...srcNums].filter(x=>/(?:%|시|일|년|개월|원|㎡|평|mm|cm|m)$/u.test(x));const missing=critical.filter(x=>!docNums.has(x));const recall=critical.length?(critical.length-missing.length)/critical.length:1;if(missing.length)issues.push("critical_token_missing");
+const internal=/\b(?:claim|atom|lineage|receipt)_[a-z0-9]+/iu.test(doc);if(internal)issues.push("internal_token_exposed");const jargon=/(?:공주가|컴플레인 방지|\bGuide\b)/iu.test(doc);if(jargon)issues.push("source_jargon_exposed");const assertive=/(?:무조건|반드시 투자|절대 안전|확실히 수익)/u.test(doc);if(assertive)issues.push("overassertive_prose");const sourceLink=/\[\[[^\]]+\]\]/u.test(doc);if(!sourceLink)issues.push("source_link_missing");
+const style=internal||jargon||assertive?0:1;const metrics=freeze({structure_score:structure,critical_token_recall:recall,style_score:style,unsupported_numeric_tokens:unsupported,missing_critical_tokens:missing});const body={receipt_version:"llmwiki_golden_receipt_v1",rules_version:VERSION,source_path:String(input?.source_path||""),source_hash:sha(source),document_hash:sha(doc),metrics,status:issues.length?"review_required":"publishable_preview"};const receipt=freeze({...body,receipt_hash:sha(stable(body))});return freeze({ok:issues.length===0,status:body.status,issues,metrics,receipt})}
+const api=freeze({VERSION,evaluate,numerics});root.LLMWikiGoldenQualityGate=api;if(typeof module!=="undefined"&&module.exports)module.exports=api;
+})(typeof globalThis!=="undefined"?globalThis:this);

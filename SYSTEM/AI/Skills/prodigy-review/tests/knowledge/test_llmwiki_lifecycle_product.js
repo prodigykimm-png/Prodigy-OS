@@ -44,6 +44,47 @@ test("projects real inbox snapshots into one beginner lifecycle state and one ty
   }
 });
 
+test("explicit source selection takes priority over an automatic INBOX queue", () => {
+  const projected = lifecycle.projectLifecycleSnapshot(snapshot("selecting", {
+    source_selection: { selected: true, display_name: "서울투자반" },
+    inbox: { state: "queued" },
+  }));
+  assert.equal(projected.productState, "selecting");
+  const subject = mount({
+    source_selection: { selected: true, display_name: "서울투자반" },
+    inbox: { state: "queued" },
+  });
+  subject.view.update(snapshot("selecting", {
+    source_selection: { selected: true, display_name: "서울투자반" },
+    inbox: { state: "queued" },
+  }));
+  assert.match(collectText(subject.root), /서울투자반/);
+  assert.ok(action(subject.root, "request-consent"));
+});
+
+test("source picker labels user materials and filters by title or path", () => {
+  const pickerSnapshot = snapshot("selecting", {
+    source_selection: null,
+    inbox: { state: "queued" },
+    source_options: [
+      { path: "INBOX/서울투자반.md", title: "서울투자반", source_kind: "inbox" },
+      { path: "ZETA/LITERATURE/문헌.md", title: "외부 문헌", source_kind: "literature" },
+    ],
+  });
+  assert.equal(lifecycle.projectLifecycleSnapshot(pickerSnapshot).productState, "selecting");
+  const dom = mountRoot(), calls = [];
+  const view = lifecycle.mountLlmWikiLifecycleView({ container: dom.root, snapshot: pickerSnapshot, onAction: (intent) => calls.push(intent) });
+  const subject = { ...dom, calls, view };
+  const search = walk(subject.root, (node) => node.tag === "input" && node.getAttribute("type") === "search")[0];
+  const choices = walk(subject.root, (node) => node.tag === "button" && node.getAttribute("data-action") === "select-source-option");
+  assert.ok(search);
+  assert.deepEqual(choices.map((node) => node.text), ["내 자료 · 서울투자반", "문헌 · 외부 문헌"]);
+  search.value = "서울";
+  search.oninput();
+  assert.equal(choices[0].hidden, false);
+  assert.equal(choices[1].hidden, true);
+});
+
 test("projects operation progress, refresh and Git follow-up without mutating the committed canonical outcome", () => {
   assert.equal(product({ status: "provider_pending" }).productState, "inbox_importing");
   assert.equal(product({ status: "failed" }).productState, "inbox_error");
