@@ -113,6 +113,42 @@ test("Given a package written by the desktop collector, When the Vault index has
   assert.equal(result.pkg.package_id, "case-2");
 });
 
+test("Given several Auction cards, When their research state is read, Then package discovery is shared instead of scanning per card", async () => {
+  const auctions = [
+    { case_number: "2026타경10001", item_number: 1, file: { path: "PARA/PROJECTS/Auction/case-1.md" } },
+    { case_number: "2026타경10002", item_number: 1, file: { path: "PARA/PROJECTS/Auction/case-2.md" } }
+  ];
+  const packagePaths = auctions.map((item, index) => `SYSTEM/CACHE/real-estate-source-packages/${item.case_number}-1/2026-08-0${index + 1}T00:00:00.000Z/package.json`);
+  const files = packagePaths.map((path) => ({ path }));
+  const packageText = new Map(auctions.map((item, index) => [packagePaths[index], JSON.stringify({
+    schema_version: 1,
+    package_id: `case-${index + 1}`,
+    case_key: `${item.case_number}-1`,
+    observed_at: `2026-08-0${index + 1}T00:00:00.000Z`,
+    query_identity: { object_path: item.file.path }
+  })]));
+  let getFilesCalls = 0;
+  let adapterListCalls = 0;
+  const app = { vault: {
+    getFiles() { getFilesCalls += 1; return files; },
+    getAbstractFileByPath: (candidate) => files.find((file) => file.path === candidate) || null,
+    read: async (file) => packageText.get(file.path),
+    adapter: {
+      list: async () => { adapterListCalls += 1; return { files: [], folders: [] }; }
+    }
+  } };
+
+  const results = await Promise.all(auctions.map((item) => research.readLatestPackage(app, item)));
+  assert.deepEqual(results.map((result) => result.pkg.package_id), ["case-1", "case-2"]);
+  assert.equal(getFilesCalls, 1, "Vault package paths are indexed once for all cards");
+  assert.equal(adapterListCalls, 1, "adapter fallback discovery is shared once for all cards");
+
+  research.invalidatePackageIndex(app);
+  await research.readLatestPackage(app, auctions[0]);
+  assert.equal(getFilesCalls, 2, "explicit invalidation rebuilds the shared package index");
+  assert.equal(adapterListCalls, 2);
+});
+
 test("Given the collector returns an absolute package path, When the Vault adapter reads it directly, Then the package is available before indexing", async () => {
   const packagePath = "SYSTEM/CACHE/real-estate-source-packages/2026타경10001-1/2026-08-02T00:00:00.000Z/package.json";
   const absolutePath = `/vault/Dusk/${packagePath}`;

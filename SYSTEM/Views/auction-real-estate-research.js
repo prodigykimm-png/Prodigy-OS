@@ -4,6 +4,7 @@
   const CACHE_ROOT = "SYSTEM/CACHE/real-estate-source-packages";
   const RECEIPT_ROOT = "SYSTEM/CACHE/real-estate-source-approvals";
   const STYLE_ID = "prodigy-auction-real-estate-research-style";
+  const packageIndexes = new WeakMap();
 
   function core() { return root.AuctionRealEstateResearchCore; }
   function providerResolver() { return root.AuctionAiProviderResolver || (typeof require === "function" ? require("./auction-ai-provider-resolver.js") : null); }
@@ -28,21 +29,72 @@
     if (!base || !value.startsWith(`${base}/`)) return "";
     return value.slice(base.length + 1);
   }
-  async function packagePaths(app, prefix) {
-    const paths = new Set((app?.vault?.getFiles?.() || []).map((file) => file.path).filter((path) => path.startsWith(prefix) && path.endsWith("/package.json")));
+  function packageIndexOwner(app) {
+    const scope = root.__prodigyAuctionMountScope;
+    if (scope && (typeof scope === "object" || typeof scope === "function")) return scope;
+    return app?.vault || null;
+  }
+  function packageCaseKey(path) {
+    const prefix = `${CACHE_ROOT}/`;
+    const value = clean(path).replaceAll("\\", "/");
+    if (!value.startsWith(prefix) || !value.endsWith("/package.json")) return "";
+    return value.slice(prefix.length).split("/")[0] || "";
+  }
+  function addPackagePath(index, path) {
+    const key = packageCaseKey(path);
+    if (!key) return;
+    if (!index.has(key)) index.set(key, new Set());
+    index.get(key).add(path);
+  }
+  async function buildPackageIndex(app) {
+    const index = new Map();
+    (app?.vault?.getFiles?.() || []).forEach((file) => addPackagePath(index, file.path));
     const adapter = app?.vault?.adapter;
-    if (!adapter?.list) return [...paths];
-    const rootPrefix = prefix.replace(/\/+$/u, "");
-    const queue = [rootPrefix];
-    for (let count = 0; queue.length && count < 200; count += 1) {
-      const current = queue.shift();
-      try {
-        const listing = await adapter.list(current);
-        (listing.files || []).filter((path) => path.startsWith(prefix) && path.endsWith("/package.json")).forEach((path) => paths.add(path));
-        (listing.folders || []).filter((path) => path.startsWith(`${rootPrefix}/`)).forEach((path) => queue.push(path));
-      } catch (_error) { }
+    if (!adapter?.list) return index;
+    let queue = [CACHE_ROOT];
+    const visited = new Set();
+    for (let count = 0; queue.length && count < 200;) {
+      const batch = queue.splice(0, Math.min(queue.length, 32)).filter((path) => !visited.has(path));
+      batch.forEach((path) => visited.add(path));
+      count += batch.length;
+      const listings = await Promise.all(batch.map(async (path) => {
+        try { return { path, listing: await adapter.list(path) }; }
+        catch (_error) { return { path, listing: null }; }
+      }));
+      const next = [];
+      listings.forEach(({ listing }) => {
+        if (!listing) return;
+        const packageFiles = (listing.files || []).filter((path) => path.startsWith(`${CACHE_ROOT}/`) && path.endsWith("/package.json"));
+        packageFiles.forEach((path) => addPackagePath(index, path));
+        if (packageFiles.length) return;
+        (listing.folders || [])
+          .filter((path) => path.startsWith(`${CACHE_ROOT}/`))
+          .forEach((path) => { if (!visited.has(path)) next.push(path); });
+      });
+      queue = next;
     }
-    return [...paths];
+    return index;
+  }
+  function packageIndex(app) {
+    const owner = packageIndexOwner(app);
+    if (!owner) return Promise.resolve(new Map());
+    if (!packageIndexes.has(owner)) {
+      const pending = buildPackageIndex(app).catch((error) => {
+        packageIndexes.delete(owner);
+        throw error;
+      });
+      packageIndexes.set(owner, pending);
+    }
+    return packageIndexes.get(owner);
+  }
+  function invalidatePackageIndex(app) {
+    const owner = packageIndexOwner(app);
+    return owner ? packageIndexes.delete(owner) : false;
+  }
+  async function packagePaths(app, prefix) {
+    const key = prefix.replace(`${CACHE_ROOT}/`, "").replace(/\/+$/u, "").split("/")[0];
+    const index = await packageIndex(app);
+    return [...(index.get(key) || [])];
   }
   function ensureStyles() {
     if (!root.document || root.document.getElementById(STYLE_ID)) return;
@@ -477,6 +529,7 @@
       if (this.applyButton) this.applyButton.disabled = true;
       try {
         const result = await runner.collectForAuction(this.app, this.auction, { selection: selection || {}, allowProxy: Boolean(allowProxy) });
+        invalidatePackageIndex(this.app);
         const packageInfo = await readLatestPackage(this.app, this.auction, result.package_path);
         if (!packageInfo || (result.package_id && packageInfo.pkg.package_id !== result.package_id)) throw new Error("조사 패키지를 다시 읽지 못했습니다.");
         this.packageInfo = packageInfo;
@@ -539,5 +592,5 @@
     onClose() { this.closed = true; this.contentEl.empty(); if (this.options.returnFocus?.focus) this.options.returnFocus.focus({ preventScroll: true }); }
   }
   async function openForAuction(app, auction, options) { const packageInfo = await readLatestPackage(app, auction); new ResearchModal(app, auction, Object.assign({}, options || {}, { packageInfo })).open(); return packageInfo; }
-  const api = Object.freeze({ commandFor, openForAuction, readLatestPackage, shellQuote, verifyRawFiles }); root.AuctionRealEstateResearch = api; if (typeof module !== "undefined" && module.exports) module.exports = api;
+  const api = Object.freeze({ commandFor, invalidatePackageIndex, openForAuction, readLatestPackage, shellQuote, verifyRawFiles }); root.AuctionRealEstateResearch = api; if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
