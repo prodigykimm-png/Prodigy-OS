@@ -33,6 +33,8 @@ const key = snapshot.groups["부산광역시|해운대구|우동|오피스텔"];
 assert.equal(key.case_count, 7);
 assert.equal(key.building_count, 3);
 assert.equal(key.key_value_won_per_pyeong, 12500000);
+assert.equal(key.q1_won_per_pyeong, 11250000);
+assert.equal(key.q3_won_per_pyeong, 13500000);
 assert.equal(key.confidence, "usable");
 assert.equal(key.period_start, "2026-01-01");
 assert.equal(key.period_end, "2026-07-01");

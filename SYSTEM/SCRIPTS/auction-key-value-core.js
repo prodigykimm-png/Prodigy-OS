@@ -70,6 +70,10 @@ function parseRegion(address) {
   const parts = clean(address).split(/\s+/);
   return { sido: parts[0] || null, sigungu: parts[1] || null };
 }
+function snapshotHash(snapshot) {
+  const canonical = JSON.stringify({ schema_version: snapshot.schema_version, generated_at: snapshot.generated_at, groups: snapshot.groups });
+  return sha256(canonical);
+}
 function buildKeyValueSnapshot(records, options = {}) {
   const eligible = records.filter((record) => eligibility(record).eligible), grouped = new Map();
   for (const record of eligible) {
@@ -83,13 +87,14 @@ function buildKeyValueSnapshot(records, options = {}) {
     const buildingMedians = [...buildings.values()].map((values) => quantile(values, 0.5));
     const dates = cases.map((record) => record.auction_date).sort();
     groups[key] = Object.freeze({
-      key_value_won_per_pyeong: quantile(buildingMedians, 0.5), q1_won_per_pyeong: quantile(cases.map((r) => r.won_per_pyeong), 0.25),
-      q3_won_per_pyeong: quantile(cases.map((r) => r.won_per_pyeong), 0.75), case_count: cases.length, building_count: buildings.size,
+      key_value_won_per_pyeong: quantile(buildingMedians, 0.5), q1_won_per_pyeong: quantile(buildingMedians, 0.25),
+      q3_won_per_pyeong: quantile(buildingMedians, 0.75), case_count: cases.length, building_count: buildings.size,
       confidence: cases.length >= 5 && buildings.size >= 3 ? "usable" : buildings.size < 3 ? "sample_concentrated" : "sample_insufficient",
       period_start: dates[0], period_end: dates.at(-1), source: options.source || "AUCT CSV"
     });
   }
-  return Object.freeze({ schema_version: "auction-key-value-snapshot.v1", generated_at: options.asOf || new Date().toISOString(), groups });
+  const snapshot = { schema_version: "auction-key-value-snapshot.v1", generated_at: options.asOf || new Date().toISOString(), groups };
+  return Object.freeze({ ...snapshot, content_hash: snapshotHash(snapshot) });
 }
 function comparePrice(priceWon, areaSqm, keyValue) {
   if (!(priceWon > 0) || !(areaSqm > 0) || !(keyValue > 0)) return null;
@@ -97,4 +102,4 @@ function comparePrice(priceWon, areaSqm, keyValue) {
   return Object.freeze({ won_per_pyeong: unit, ratio, position: ratio < 0.9 ? "키값 하단" : ratio <= 1.1 ? "키값 근접" : "키값 상단" });
 }
 
-module.exports = Object.freeze({ SQM_PER_PYEONG, buildKeyValueSnapshot, comparePrice, eligibility, parseAuctCsv, parseLegalDong, quantile, sha256 });
+module.exports = Object.freeze({ SQM_PER_PYEONG, buildKeyValueSnapshot, comparePrice, eligibility, parseAuctCsv, parseLegalDong, quantile, sha256, snapshotHash });

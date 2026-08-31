@@ -2,11 +2,25 @@
 const assert = require("node:assert/strict");
 const projection = require("./auction-key-value-projection.js");
 const snapshot = { groups: { "부산광역시|해운대구|우동|오피스텔": { key_value_won_per_pyeong: 10000000, q1_won_per_pyeong: 9000000, q3_won_per_pyeong: 11000000, case_count: 12, building_count: 5, confidence: "usable", period_start: "2025-09-01", period_end: "2026-08-31" } } };
-const result = projection.project({ region_sido: "부산광역시", region_sigungu: "해운대구", region_dong: "우동", property_type: "오피스텔", exclusive_area: "33.05785㎡", expected_bid: 90000000 }, snapshot);
+const parsePrice = (value) => {
+  if (value === undefined || value === null || String(value).trim() === "") return NaN;
+  const raw = String(value).trim();
+  if (/^\d+$/.test(raw) && Number(raw) >= 10000000) return Number(raw);
+  if (/^\d+$/.test(raw)) return Number(raw) * 10000;
+  return Number(raw);
+};
+const result = projection.project({ status: "watching", region_sido: "부산광역시", region_sigungu: "해운대구", region_dong: "우동", property_type: "오피스텔", exclusive_area: "33.05785㎡", expected_bid: 90000000 }, snapshot, { parsePrice });
 assert.equal(result.available, true);
 assert.equal(result.legal_dong, "우동");
 assert.equal(result.comparison.won_per_pyeong, 9000000);
 assert.equal(result.comparison.ratio, 0.9);
+assert.equal(result.comparison.price_key, "expected_bid");
 assert.equal(result.comparison.position, "키값 근접");
+const bidResult = projection.project({ status: "bidding", region_sido: "부산광역시", region_sigungu: "해운대구", region_dong: "우동", property_type: "오피스텔", exclusive_area: "33.05785㎡", expected_bid: 90000000, my_bid_price: 9500 }, snapshot, { parsePrice });
+assert.equal(bidResult.comparison.price_key, "my_bid_price");
+assert.equal(bidResult.comparison.price_won, 95000000);
+const wonResult = projection.project({ status: "won", region_sido: "부산광역시", region_sigungu: "해운대구", region_dong: "우동", property_type: "오피스텔", exclusive_area: "33.05785㎡", expected_bid: 90000000, my_bid_price: 9500, winning_bid_price: 105000000 }, snapshot, { parsePrice });
+assert.equal(wonResult.comparison.price_key, "winning_bid_price");
+assert.equal(wonResult.comparison.price_won, 105000000);
 assert.equal(projection.project({ region_sido: "부산광역시", region_sigungu: "해운대구", region_dong: "중동", property_type: "아파트" }, snapshot).available, false);
 console.log("auction key value projection tests: PASS");

@@ -906,7 +906,7 @@ window.renderAuctionCard = function(p, container, options) {
   if (p.property_type === '오피스텔' && window.AuctionKeyValueProjection) {
     try {
       const keyProjection = window.AuctionKeyValueSnapshot
-        ? window.AuctionKeyValueProjection.project(p, window.AuctionKeyValueSnapshot)
+        ? window.AuctionKeyValueProjection.project(p, window.AuctionKeyValueSnapshot, { parsePrice: parser })
         : null;
       if (keyProjection && keyProjection.available) {
         const keyRow = container.createEl('div', { attr: { class: 'auction-card-detail-row auction-card-key-value', style: 'margin-top: 4px; color: var(--text-muted); font-size: 12px;' } });

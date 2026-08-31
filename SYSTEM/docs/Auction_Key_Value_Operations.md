@@ -25,7 +25,7 @@
 
 함께 저장하는 값:
 
-- 전체 사례의 25%·75% 분위수
+- 건물별 중앙값의 25%·75% 분위수
 - 유효 사례 수
 - 고유 건물 수
 - 기준기간
@@ -59,16 +59,18 @@
 ```bash
 node SYSTEM/SCRIPTS/auction-key-value-import.js \
   --input '/Users/prodigykim/Downloads/부산_오피스텔_최근1년_매각사례.csv' \
-  --output SYSTEM/CACHE/auction-key-value/busan-officetel-2025-09_2026-08
+  --output SYSTEM/CACHE/auction-key-value/busan-officetel-2025-09_2026-08 \
+  --card-snapshot SYSTEM/Views/auction-key-value-snapshot.js
 ```
 
 출력:
 
 - `normalized.json`: 원본 기반 정규 레코드
 - `snapshot.json`: 법정동·유형별 키값
-- `audit.json`: 결측·제외·신뢰도 감사
+- `audit.json`: 결측·제외·신뢰도 감사와 snapshot hash
+- `SYSTEM/Views/auction-key-value-snapshot.js`: 카드가 동기 로드하는 동일 snapshot
 
-카드용 동기 snapshot은 검증된 `snapshot.json`에서 `SYSTEM/Views/auction-key-value-snapshot.js`로 생성한다. 원본 CSV와 캐시의 기준기간 또는 내용이 바뀌면 카드 snapshot도 함께 재생성해야 한다.
+importer는 JSON snapshot과 카드용 JS snapshot을 한 실행에서 생성한다. 두 출력과 감사 영수증은 동일한 `content_hash`를 가지며 회귀테스트가 동기화를 검증한다. 수동 복사·별도 변환은 하지 않는다.
 
 ## 현재 부산 오피스텔 기준선
 
@@ -88,7 +90,10 @@ node SYSTEM/SCRIPTS/auction-key-value-import.js \
 
 - 법정동 키값
 - 유효 사례·고유 건물 수
-- 예정 입찰가 또는 실제 입찰가 또는 최저가의 전용평당가
+- 상태에 따라 낙찰가·실제 입찰가·예정 입찰가·최저가 중 선택된 값의 전용평당가
+- `won`·`lost`: 낙찰가 → 실제 입찰가 → 예정 입찰가 → 최저가
+- 그 외 상태: 실제 입찰가 → 예정 입찰가 → 최저가
+- 금액은 카드와 동일한 전역 `parsePrice` 계약으로 정규화
 - 키값 대비 비율
 - `키값 하단`·`키값 근접`·`키값 상단`
 - 표본 편중 경고

@@ -10,18 +10,23 @@
     const match = text(properties.address).match(/\s([^\s,]+(?:동\d*가|동|읍|면))\s/);
     return match ? match[1] : null;
   }
-  function project(properties, snapshot) {
+  function project(properties, snapshot, options) {
     const sido = text(properties.region_sido), sigungu = text(properties.region_sigungu), dong = legalDong(properties), type = text(properties.property_type);
     const groupKey = [sido, sigungu, dong, type].join("|");
     const group = snapshot && snapshot.groups ? snapshot.groups[groupKey] : null;
     if (!group) return Object.freeze({ available: false, reason: "표본 없음", group_key: groupKey });
-    const price = number(properties.expected_bid) || number(properties.my_bid_price) || number(properties.minimum_bid);
+    const parsePrice = options && typeof options.parsePrice === "function" ? options.parsePrice : number;
+    const status = text(properties.status);
+    const candidates = status === "won" || status === "lost"
+      ? [["winning_bid_price", "낙찰가"], ["my_bid_price", "실제 입찰가"], ["expected_bid", "예정 입찰가"], ["minimum_bid", "최저가"]]
+      : [["my_bid_price", "실제 입찰가"], ["expected_bid", "예정 입찰가"], ["minimum_bid", "최저가"]];
+    const selected = candidates.map(([key, label]) => ({ key, label, price: parsePrice(properties[key]) })).find((candidate) => Number.isFinite(candidate.price) && candidate.price > 0) || null;
     const area = number(properties.exclusive_area);
     let comparison = null;
-    if (price > 0 && area > 0 && group.key_value_won_per_pyeong > 0) {
-      const unit = Math.round(price / (area / SQM_PER_PYEONG));
+    if (selected && area > 0 && group.key_value_won_per_pyeong > 0) {
+      const unit = Math.round(selected.price / (area / SQM_PER_PYEONG));
       const ratio = Number((unit / group.key_value_won_per_pyeong).toFixed(4));
-      comparison = Object.freeze({ price_basis: number(properties.expected_bid) ? "예정 입찰가" : number(properties.my_bid_price) ? "실제 입찰가" : "최저가", won_per_pyeong: unit, ratio, position: ratio < 0.9 ? "키값 하단" : ratio <= 1.1 ? "키값 근접" : "키값 상단" });
+      comparison = Object.freeze({ price_key: selected.key, price_basis: selected.label, price_won: selected.price, won_per_pyeong: unit, ratio, position: ratio < 0.9 ? "키값 하단" : ratio <= 1.1 ? "키값 근접" : "키값 상단" });
     }
     return Object.freeze({ available: true, group_key: groupKey, legal_dong: dong, property_type: type, ...group, comparison });
   }

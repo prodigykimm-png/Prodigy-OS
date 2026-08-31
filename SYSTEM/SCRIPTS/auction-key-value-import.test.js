@@ -1,0 +1,23 @@
+"use strict";
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
+const core = require("./auction-key-value-core.js");
+
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), "auction-key-value-"));
+const input = path.join(temp, "sample.csv"), output = path.join(temp, "out"), cardSnapshot = path.join(temp, "snapshot.js");
+fs.writeFileSync(input, `물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n오피스텔,"부산광역시 해운대구 우동 1, A빌 2층 201호",3㎡,33.05785㎡,100000000,2026.08.01\n`);
+const run = spawnSync(process.execPath, [path.join(__dirname, "auction-key-value-import.js"), "--input", input, "--output", output, "--card-snapshot", cardSnapshot, "--generated-at", "2026-08-31T00:00:00.000Z"], { encoding: "utf8" });
+assert.equal(run.status, 0, run.stderr);
+const snapshotText = fs.readFileSync(path.join(output, "snapshot.json"), "utf8");
+const snapshot = JSON.parse(snapshotText);
+delete require.cache[cardSnapshot];
+const card = require(cardSnapshot);
+assert.deepEqual(card.groups, snapshot.groups);
+assert.equal(card.content_hash, snapshot.content_hash);
+assert.equal(snapshot.content_hash, core.snapshotHash(snapshot));
+const audit = JSON.parse(fs.readFileSync(path.join(output, "audit.json"), "utf8"));
+assert.equal(audit.snapshot_hash, snapshot.content_hash);
+console.log("auction key value importer tests: PASS");
