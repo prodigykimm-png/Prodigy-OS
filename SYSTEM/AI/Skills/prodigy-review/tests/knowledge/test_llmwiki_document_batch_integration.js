@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const test = require("node:test");
 
-const { firstElement, runHub } = require("./knowledge_hub_integration_harness.js");
+const { firstElement, runHub, remountHub } = require("./knowledge_hub_integration_harness.js");
 const { collectText } = require("./knowledge_explorer_view_fakes.js");
 
 function sha(value) { return crypto.createHash("sha256").update(String(value)).digest("hex"); }
@@ -267,6 +267,336 @@ test("isolated document pilot resumes after the last completed pack", async () =
   assert.equal(second.covered_bytes, Buffer.byteLength(sourceBytes));
 });
 
+test("full-source materialization converts chunk-local spans to source-global locators", async () => {
+  const sourcePath = "INBOX/전역 근거 기록.md";
+  const sourceBytes = `# 전역 근거 기록\n\n반복 근거\n\n${"가".repeat(13000)}\n\n반복 근거\n\n${"나".repeat(13000)}\n`;
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: identity(),
+      batchProvider: async (request) => ({
+        ok: true,
+        provider_call_count: 1,
+        artifacts: request.chunks.map((chunk) => {
+          const quote = chunk.text.includes("반복 근거") ? "반복 근거" : chunk.text.trim().slice(0, 12);
+          const start = chunk.text.indexOf(quote);
+          return {
+            chunk_key: chunk.key,
+            outcome: "proposals",
+            items: [{
+              role: "reusable_claim",
+              topic: "전역 근거",
+              evidence_quote: quote,
+              claims: [{ text: `${chunk.key} 자료 구간의 원문 기록은 판단 근거로 사용할 수 있다.` }],
+              review_reasons: [],
+              related_candidate_ids: [],
+              span: { start, end: start + quote.length, alias: `span_global_${chunk.key}` },
+            }],
+          };
+        }),
+      }),
+      documentPagePlan: async (request) => ({
+        source_guide: {
+          overview: "긴 원문의 전역 근거 위치를 검증한다.",
+          sections: [{ heading: "전체", summary: "모든 구간을 보존한다.", claim_ids: request.claims.map((claim) => claim.claim_id) }],
+          key_questions: [],
+        },
+        topic_pages: [{
+          title: "전역 근거",
+          purpose: "긴 원문의 전역 근거 위치를 설명한다.",
+          claim_ids: request.claims.map((claim) => claim.claim_id),
+          target_candidate_ids: [],
+        }],
+        source_only_claim_ids: [],
+      }),
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const planned = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(planned.ok, true, planned.reason);
+  assert.equal(planned.pages, 1, JSON.stringify(planned));
+
+  const inventory = runtime.window.KnowledgeExplorerHub.documentPlanInventorySnapshot();
+  const anchored = inventory.citations.map((citation) => {
+    const locator = citation.locators.find((value) => value.includes("#"));
+    const match = /#(\d+)-(\d+)$/u.exec(locator);
+    return {
+      quote: citation.evidence_quote,
+      start: Number(match[1]),
+      end: Number(match[2]),
+    };
+  });
+  assert.equal(anchored.length >= 2, true);
+  assert.equal(anchored.every((row) => sourceBytes.slice(row.start, row.end) === row.quote), true, JSON.stringify(anchored));
+  assert.equal(anchored.some((row) => row.start > 12000), true, JSON.stringify(anchored));
+  const planGroup = firstElement(runtime.container, "section", (node) => node.attr?.["data-review-group"] === "plan");
+  const topicCard = firstElement(planGroup, "article", (node) => Boolean(node.attr?.["data-wiki-topic"]));
+  const detailButton = firstElement(topicCard, "button", (node) => node.attr?.["data-action"] === "open-review-detail");
+  assert.ok(detailButton, JSON.stringify({
+    card: topicCard && { tag: topicCard.tag, attr: topicCard.attr, text: collectText(topicCard) },
+    children: topicCard?.children?.map((node) => ({ tag: node.tag, attr: node.attr, text: collectText(node) })),
+  }));
+  detailButton.onclick();
+  const detailModal = runtime.openedModals.at(-1);
+  firstElement(detailModal.contentEl, "button", (node) => node.attr?.["data-action"] === "open-grounded-citation").onclick();
+  const sourceModal = runtime.openedModals.at(-1);
+  for (let index = 0; index < 10 && /원문 상태 확인 필요/u.test(collectText(sourceModal.contentEl)); index += 1) {
+    await Promise.resolve();
+  }
+  assert.match(collectText(sourceModal.contentEl), /현재 원문과 일치/u);
+  assert.ok(firstElement(sourceModal.contentEl, "button", (node) => node.attr?.["data-action"] === "edit-source-file"));
+  assert.equal(planned.canonical_writes, 0);
+});
+
+test("full-source plan resumes a blocked batch only with explicit retry intent", async () => {
+  const sourcePath = "INBOX/재시도 투자 기록.md";
+  const quotes = ["사업 속도를 우선 확인한다.", "현금흐름을 함께 확인한다."];
+  const sourceBytes = `# 재시도 투자 기록\n\n${quotes.join("\n\n")}\n`;
+  let calls = 0;
+  const batchProvider = async (request) => {
+    calls += 1;
+    if (calls === 1) return { ok: false, reason: "provider_unavailable", provider_call_count: 1, artifacts: [] };
+    return {
+      ok: true,
+      provider_call_count: 1,
+      artifacts: request.chunks.map((chunk) => ({
+        chunk_key: chunk.key,
+        outcome: "proposals",
+        items: quotes.map((quote, index) => ({
+          role: "reusable_claim",
+          topic: "투자 판단",
+          evidence_quote: quote,
+          claims: [{ text: quote }],
+          review_reasons: [],
+          related_candidate_ids: [],
+          span: {
+            start: chunk.text.indexOf(quote),
+            end: chunk.text.indexOf(quote) + quote.length,
+            alias: `span_retry_${index}`,
+          },
+        })),
+      })),
+    };
+  };
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: identity(),
+      batchProvider,
+      documentPagePlan: async (request) => {
+        const claimIds = request.claims.map((claim) => claim.claim_id);
+        return {
+          source_guide: {
+            overview: "투자 판단 기준을 설명하는 자료다.",
+            sections: [{ heading: "판단 기준", summary: "속도와 현금흐름을 함께 본다.", claim_ids: claimIds }],
+            key_questions: ["두 기준의 우선순위는 무엇인가?"],
+          },
+          topic_pages: [{
+            title: "투자 판단 기준",
+            purpose: "사업 속도와 현금흐름을 함께 평가한다.",
+            claim_ids: claimIds,
+            target_candidate_ids: [],
+            operation_hint: "create",
+          }],
+          source_only_claim_ids: [],
+        };
+      },
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+
+  const first = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  const withoutIntent = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  const retried = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath, {
+    explicit_retry: true,
+    retry_intent_id: "retry_realestate_evaluation_1",
+  });
+
+  assert.equal(first.ok, false);
+  assert.equal(first.reason, "provider_unavailable");
+  assert.equal(withoutIntent.ok, false);
+  assert.equal(withoutIntent.reason, "blocked");
+  assert.equal(retried.ok, true, retried.reason);
+  assert.equal(retried.map_provider_calls, 1);
+  assert.equal(calls, 2, "only the explicit retry may call the provider again");
+  assert.equal(retried.canonical_writes, 0);
+});
+
+test("Hub remount preserves the actively selected document plan", async () => {
+  const candidates = ["INBOX/현재 계획 A.md", "INBOX/현재 계획 B.md"]
+    .map((sourcePath) => ({
+      sourcePath,
+      sourceId: `source_plan_${sha(sourcePath).slice(0, 24)}`,
+      sourceBytes: `# ${sourcePath}\n\n사업 속도를 확인한다.\n\n현금흐름을 확인한다.\n`,
+    }))
+    .sort((left, right) => left.sourceId.localeCompare(right.sourceId));
+  const [older, current] = candidates;
+  const batchProvider = async (request) => ({
+    ok: true,
+    provider_call_count: 1,
+    artifacts: request.chunks.map((chunk) => ({
+      chunk_key: chunk.key,
+      outcome: "proposals",
+      items: ["사업 속도를 확인한다.", "현금흐름을 확인한다."].map((quote, index) => ({
+        role: "reusable_claim",
+        topic: "투자 판단",
+        evidence_quote: quote,
+        claims: [{ text: quote }],
+        review_reasons: [],
+        related_candidate_ids: [],
+        span: {
+          start: chunk.text.indexOf(quote),
+          end: chunk.text.indexOf(quote) + quote.length,
+          alias: `span_remount_${index}`,
+        },
+      })),
+    })),
+  });
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: Object.fromEntries(candidates.map((row) => [row.sourcePath, row.sourceBytes])),
+    llmWikiControllerOptions: {
+      batchIdentity: identity(),
+      batchProvider,
+      documentPagePlan: async (request) => {
+        const claimIds = request.claims.map((claim) => claim.claim_id);
+        return {
+          source_guide: {
+            overview: "투자 판단 기준을 설명한다.",
+            sections: [{ heading: "판단 기준", summary: "속도와 현금흐름을 확인한다.", claim_ids: claimIds }],
+            key_questions: [],
+          },
+          topic_pages: [{
+            title: "투자 판단 기준",
+            purpose: "사업 속도와 현금흐름을 함께 확인한다.",
+            claim_ids: claimIds,
+            target_candidate_ids: [],
+            operation_hint: "create",
+          }],
+          source_only_claim_ids: [],
+        };
+      },
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  assert.equal((await runtime.window.KnowledgeExplorerHub.runDocumentPlan(older.sourcePath)).ok, true);
+  assert.equal((await runtime.window.KnowledgeExplorerHub.runDocumentPlan(current.sourcePath)).ok, true);
+  assert.equal(runtime.window.KnowledgeExplorerHub.documentPlanSnapshot().source.source_path, current.sourcePath);
+
+  await remountHub(runtime.runtime);
+
+  assert.equal(runtime.window.KnowledgeExplorerHub.documentPlanSnapshot().source.source_path, current.sourcePath);
+});
+
+test("compile blocks swapped topic titles until explicit recommended renames", async () => {
+  const sourcePath = "INBOX/상가 경계.md";
+  const quotes = [
+    "수익률은 예상 매도가격 계산 기준으로 사용할 수 있다.",
+    "렌트프리는 매도 협상에 사용할 수 있다.",
+    "배후세대 수요는 입지 판단 기준으로 사용할 수 있다.",
+    "유동인구는 상권 판단 기준으로 사용할 수 있다.",
+  ];
+  const sourceBytes = `# 상가 경계\n\n${quotes.join("\n\n")}\n`;
+  let articleCalls = 0;
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: identity(),
+      batchProvider: async (request) => ({
+        ok: true,
+        provider_call_count: 1,
+        artifacts: request.chunks.map((chunk) => ({
+          chunk_key: chunk.key,
+          outcome: "proposals",
+          items: quotes.map((quote, index) => ({
+            role: "reusable_claim",
+            topic: index < 2 ? "거래와 협상" : "입지와 상권",
+            evidence_quote: quote,
+            claims: [{ text: quote }],
+            review_reasons: [],
+            related_candidate_ids: [],
+            span: {
+              start: chunk.text.indexOf(quote),
+              end: chunk.text.indexOf(quote) + quote.length,
+              alias: `span_boundary_${index}`,
+            },
+          })),
+        })),
+      }),
+      documentPagePlan: async (request) => {
+        const trade = request.claims.filter((claim) => /매도|렌트프리/u.test(claim.text)).map((claim) => claim.claim_id);
+        const location = request.claims.filter((claim) => /배후세대|유동인구/u.test(claim.text)).map((claim) => claim.claim_id);
+        return {
+          source_guide: {
+            overview: "상가 거래와 입지 기준을 설명한다.",
+            sections: [{ heading: "전체", summary: "네 근거를 보존한다.", claim_ids: request.claims.map((claim) => claim.claim_id) }],
+            key_questions: [],
+          },
+          topic_pages: [{
+            title: "입지와 상권",
+            purpose: "입지와 상권을 설명한다.",
+            claim_ids: trade,
+            target_candidate_ids: [],
+          }, {
+            title: "거래와 협상",
+            purpose: "거래와 협상을 설명한다.",
+            claim_ids: location,
+            target_candidate_ids: [],
+          }],
+          source_only_claim_ids: [],
+        };
+      },
+      documentArticleCompiler: async (request) => {
+        articleCalls += 1;
+        return {
+          articles: request.pages.map((page) => ({
+            page_id: page.page_id,
+            sections: [{
+              heading: page.title,
+              paragraphs: [{ text: `${page.title}의 판단 기준을 설명한다.`, claim_ids: page.claim_ids }],
+            }],
+          })),
+        };
+      },
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const planned = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(planned.ok, true, planned.reason);
+  const beforeCompile = runtime.window.KnowledgeExplorerHub.documentPlanSnapshot();
+  assert.equal(beforeCompile.pages.length, 2);
+  assert.equal(beforeCompile.pages.every((page) => page.selected !== false), true);
+  const lint = runtime.window.KnowledgeExplorerHub.lintDocumentPlan();
+  assert.equal(lint.ok, true, lint.reason);
+  assert.equal(lint.proposals.filter((proposal) => proposal.reason === "title_claim_boundary_mismatch").length, 2);
+
+  const blocked = await runtime.window.KnowledgeExplorerHub.compileDocumentPlan();
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, "plan_quality_review_required");
+  assert.equal(blocked.proposals.length, 2);
+  assert.equal(blocked.canonical_writes, 0);
+  assert.equal(articleCalls, 0);
+
+  for (const proposal of blocked.proposals) {
+    const snapshot = runtime.window.KnowledgeExplorerHub.documentPlanSnapshot();
+    const renamed = await runtime.window.KnowledgeExplorerHub.dispatchDocumentPlanAction({
+      action: "rename_page",
+      expected_plan_hash: snapshot.plan_hash,
+      page_id: proposal.page_id,
+      title: proposal.suggested_title,
+      purpose: proposal.suggested_purpose,
+    });
+    assert.equal(renamed.ok, true, renamed.reason);
+  }
+  const compiled = await runtime.window.KnowledgeExplorerHub.compileDocumentPlan();
+  assert.equal(compiled.ok, true, compiled.reason);
+  assert.equal(articleCalls, 1, "clean draft must not trigger an unnecessary publication provider call");
+  assert.equal(compiled.canonical_writes, 0);
+});
+
 test("full-source workflow stops at page-plan triage, then compiles preview without replacing active review", async () => {
   const sourcePath = "INBOX/투자 계획.md";
   const sourceBytes = "# 투자 계획\n\n직영 공사는 비용을 줄인다.\n\n철골조는 공사 기간을 단축한다.\n";
@@ -339,8 +669,9 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
 
   const planGroup = firstElement(runtime.container, "section", (node) => node.attr?.["data-review-group"] === "plan");
   assert.equal(firstElement(planGroup, "output", (node) => node.attr?.["data-review-counter"] === "plan").text, "2");
-  assert.match(collectText(planGroup), /투자 계획 자료 안내/u);
-  assert.match(collectText(planGroup), /직영 건축의 비용과 기간/u);
+  assert.ok(firstElement(planGroup, "article", (node) => node.attr?.["data-surface"] === "llmwiki-wiki-result"));
+  assert.ok(firstElement(planGroup, "output", (node) => node.attr?.["data-wiki-summary"] === ""));
+  assert.ok(firstElement(planGroup, "article", (node) => Boolean(node.attr?.["data-wiki-topic"])));
   assert.ok(firstElement(planGroup, "button", (node) => node.attr?.["data-action"] === "approve-page-plan"));
 
   const compiled = await runtime.window.KnowledgeExplorerHub.compileDocumentPlan();
@@ -351,7 +682,7 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
   assert.equal(compiled.existing_review_preserved, true);
   assert.equal((runtime.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().risk_packets || []).length, priorPackets);
   assert.equal(compiled.canonical_writes, 0);
-  assert.equal(articleCalls.calls, 1);
+  assert.equal(articleCalls.calls, 1, "clean draft must not trigger an unnecessary publication provider call");
   const rerendered = await runtime.window.KnowledgeExplorerHub.rerenderDocumentPlan();
   assert.equal(rerendered.ok, true, rerendered.reason);
   assert.equal(articleCalls.calls, 1, "renderer-only refresh must not call the article provider");
@@ -361,6 +692,7 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
   const state = JSON.parse(await runtime.app.vault.read(runtime.app.vault.getAbstractFileByPath("SYSTEM/CACHE/llmwiki/batch-job-state.json")));
   assert.equal(Object.keys(state.plans).length, 1);
   assert.equal(Object.values(state.plans)[0].status, "compiled");
+  assert.match(Object.values(state.plans)[0].quality_receipt.receipt_hash, /^[0-9a-f]{64}$/u);
 
   const persisted = {};
   for (const file of runtime.app.vault.getFiles()) persisted[file.path] = await runtime.app.vault.read(file);
@@ -380,6 +712,14 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
   assert.equal(restored.provider_calls, 0);
   assert.equal(restored.documents.length, 2);
   assert.equal(restored.proposals.length, 2);
+  assert.equal(restored.quality_status, "publishable");
+  assert.equal(restored.quality_receipt.receipt_hash, Object.values(state.plans)[0].quality_receipt.receipt_hash);
+  const replayed = await restarted.window.KnowledgeExplorerHub.compileDocumentPlan();
+  assert.equal(replayed.ok, true, replayed.reason);
+  assert.equal(replayed.status, "compiled_replay");
+  assert.equal(replayed.provider_calls, 0);
+  assert.equal(restartCalls.calls, 0);
+  assert.deepEqual(restarted.window.KnowledgeExplorerHub.documentPlanCompileSnapshot().documents, restored.documents);
   const activatedAfterRestart = await restarted.window.KnowledgeExplorerHub.activateDocumentPlanReview();
   assert.equal(activatedAfterRestart.ok, true, activatedAfterRestart.reason);
   assert.equal(activatedAfterRestart.packets, 2);

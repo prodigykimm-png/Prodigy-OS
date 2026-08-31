@@ -45,6 +45,9 @@ test("projects real inbox snapshots into one beginner lifecycle state and one ty
 });
 
 test("explicit source selection takes priority over an automatic INBOX queue", () => {
+  const queued = mount({ inbox: { state: "queued", source_id: "source_visible_fixture" } });
+  click(action(queued.root, "select-source"));
+  assert.deepEqual(queued.calls, [{ action: "select_source" }]);
   const projected = lifecycle.projectLifecycleSnapshot(snapshot("selecting", {
     source_selection: { selected: true, display_name: "서울투자반" },
     inbox: { state: "queued" },
@@ -55,10 +58,22 @@ test("explicit source selection takes priority over an automatic INBOX queue", (
     inbox: { state: "queued" },
   });
   subject.view.update(snapshot("selecting", {
-    source_selection: { selected: true, display_name: "서울투자반" },
+    source_selection: {
+      selected: true,
+      display_name: "서울투자반",
+      source_path: "INBOX/서울투자반.md",
+      content_hash: "8557c1c2a292630dd4aea24f89cc8c84e7ed95ec982da27fdff1bd889dce1d3a",
+      source_kind: "inbox",
+      provider_mode: "direct",
+    },
     inbox: { state: "queued" },
   }));
-  assert.match(collectText(subject.root), /서울투자반/);
+  const copy = collectText(subject.root);
+  assert.match(copy, /선택 완료/);
+  assert.match(copy, /서울투자반/);
+  assert.match(copy, /INBOX\/서울투자반\.md/);
+  assert.match(copy, /8557c1c2a292/);
+  assert.match(copy, /내 자료.*direct provider.*아직 전송하지 않음/);
   assert.ok(action(subject.root, "request-consent"));
 });
 
@@ -83,6 +98,50 @@ test("source picker labels user materials and filters by title or path", () => {
   search.oninput();
   assert.equal(choices[0].hidden, false);
   assert.equal(choices[1].hidden, true);
+});
+
+test("renders selected source as a Golden Wiki creation flow", () => {
+  const selected = snapshot("selecting", {
+    inbox: { state: "queued" },
+    golden_wiki: { status: "ready", stage: "ready", result: null },
+    source_selection: {
+      selected: true, display_name: "서울투자반", source_path: "INBOX/서울투자반.md",
+      content_hash: "8".repeat(64), source_kind: "inbox", provider_mode: "direct",
+    },
+  });
+  const dom = mountRoot(), calls = [];
+  const view = lifecycle.mountLlmWikiLifecycleView({ container: dom.root, snapshot: selected, onAction: (intent) => calls.push(intent) });
+  assert.match(collectText(dom.root), /읽기용 Wiki 만들기/);
+  click(action(dom.root, "request-consent"));
+  assert.deepEqual(calls, [{ action: "request_consent" }]);
+  view.update(snapshot("consent_required", {
+    golden_wiki: { status: "consent_required", stage: "preflight", result: { packs: 3 } },
+    source_selection: selected.source_selection,
+  }));
+  assert.match(collectText(dom.root), /동의하고 Wiki 만들기/);
+  view.update(snapshot("complete", {
+    golden_wiki: { status: "complete", stage: "complete", result: { source_bytes: 45873, provider_calls: 2, previews: [{ title: "서울 투자 판단 가이드" }] } },
+    source_selection: selected.source_selection,
+  }));
+  assert.match(collectText(dom.root), /읽기용 Wiki 1개가 준비되었습니다/);
+  assert.ok(action(dom.root, "open-golden-review"));
+});
+
+test("large source requires an explicit heading scope before consent", () => {
+  const subject = mount({
+    golden_wiki: { status: "scope_required", result: { chunks: 124, packs: 31, scopes: [{ scope_id: "heading_001", title: "경매 사례" }] } },
+    source_selection: { selected: true, display_name: "대형 자료" },
+  });
+  subject.view.update(snapshot("selecting", {
+    golden_wiki: { status: "scope_required", result: { chunks: 124, packs: 31, scopes: [{ scope_id: "heading_001", title: "경매 사례" }] } },
+    source_selection: { selected: true, display_name: "대형 자료" },
+  }));
+  assert.match(collectText(subject.root), /AI 요청 31회/);
+  const scope = action(subject.root, "select-golden-scope");
+  assert.ok(scope);
+  click(scope);
+  assert.deepEqual(subject.calls.at(-1), { action: "select_golden_scope", scope_id: "heading_001" });
+  assert.equal(action(subject.root, "request-consent"), null);
 });
 
 test("projects operation progress, refresh and Git follow-up without mutating the committed canonical outcome", () => {

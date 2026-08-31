@@ -19,6 +19,24 @@
   function sorted(values) { return [...values].sort(); }
   function empty() { return { schema_version: SCHEMA_VERSION, jobs: {}, packs: {}, plans: {}, legacy: [], recovery: null }; }
   function jsonClone(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
+  function stable(value) {
+    if (value === null || typeof value !== "object") return JSON.stringify(value);
+    if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
+  }
+  function validQualityReceipt(receipt, documents) {
+    if (!plain(receipt) || !Array.isArray(documents)) return false;
+    const fields = ["receipt_version", "source_hash", "inventory_hash", "plan_hash", "compiler_version",
+      "quality_rules_version", "compiled_hash", "quality_status", "quality_issues", "quality_rewrite_count"];
+    const body = Object.fromEntries(fields.map((field) => [field, receipt[field]]));
+    return typeof receipt.receipt_version === "string" && HASH.test(receipt.source_hash || "")
+      && HASH.test(receipt.inventory_hash || "") && HASH.test(receipt.plan_hash || "")
+      && typeof receipt.compiler_version === "string" && typeof receipt.quality_rules_version === "string"
+      && HASH.test(receipt.compiled_hash || "") && receipt.compiled_hash === sha(stable(documents))
+      && ["publishable", "review_required", "draft"].includes(receipt.quality_status)
+      && Array.isArray(receipt.quality_issues) && Number.isSafeInteger(receipt.quality_rewrite_count)
+      && HASH.test(receipt.receipt_hash || "") && receipt.receipt_hash === sha(stable(body));
+  }
 
   function parse(text) {
     let parsed;
@@ -78,6 +96,11 @@
       && Number.isSafeInteger(snapshot.plan_revision) && snapshot.plan_revision > 0
       && PLAN_STATES.includes(snapshot.status) && plain(snapshot.plan)
       && (snapshot.execution === undefined || (plain(snapshot.execution) && typeof snapshot.execution.plan_hash === "string"))
+      && (snapshot.quality_receipt === undefined || Array.isArray(snapshot.compiled_documents)
+        && validQualityReceipt(snapshot.quality_receipt, snapshot.compiled_documents)
+        && snapshot.quality_receipt.source_hash === snapshot.source_revision
+        && snapshot.quality_receipt.inventory_hash === snapshot.inventory_hash
+        && snapshot.quality_receipt.plan_hash === snapshot.plan_hash)
       && (!allowHistory || snapshot.history === undefined || Array.isArray(snapshot.history) && snapshot.history.every((row) => validPlanSnapshot(row, false)));
   }
 

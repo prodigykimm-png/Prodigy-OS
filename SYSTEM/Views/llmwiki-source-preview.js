@@ -34,6 +34,43 @@
     const lines = before.split(/\r?\n/u);
     return Object.freeze({ line: lines.length - 1, ch: lines[lines.length - 1].length });
   }
+  function normalizedWhitespaceMatches(sourceText, quote) {
+    const parts = quote.split(/\s+/u).filter(Boolean);
+    if (parts.length < 2) return [];
+    const escaped = parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"));
+    const matcher = new RegExp(escaped.join("\\s+"), "gu");
+    const matches = [];
+    for (const match of sourceText.matchAll(matcher)) {
+      matches.push(Object.freeze({
+        start: match.index,
+        end: match.index + match[0].length,
+        text: match[0],
+      }));
+    }
+    return matches;
+  }
+  function normalizedWhitespace(value) {
+    return trim(value).replace(/\s+/gu, " ");
+  }
+  function verifiedGlobalMatches(citation, path, sourceText, quote, current) {
+    if (!current || !quote) return [];
+    const matches = new Map();
+    for (const locator of Array.isArray(citation?.locators) ? citation.locators : []) {
+      const value = trim(locator);
+      const marker = value.lastIndexOf("#");
+      if (marker < 0 || locatorPath(value) !== path) continue;
+      const range = /^(\d+)-(\d+)$/u.exec(value.slice(marker + 1));
+      if (!range) continue;
+      const start = Number(range[1]);
+      const end = Number(range[2]);
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)
+        || start < 0 || end <= start || end > sourceText.length) continue;
+      const actual = sourceText.slice(start, end);
+      if (actual !== quote && normalizedWhitespace(actual) !== normalizedWhitespace(quote)) continue;
+      matches.set(`${start}:${end}`, Object.freeze({ start, end, text: actual }));
+    }
+    return [...matches.values()];
+  }
   function resolvePreview({ citation, source_text: sourceText }) {
     const path = sourcePath(citation);
     if (!path) return Object.freeze({ ok: false, reason: "SOURCE_PREVIEW_PATH_REQUIRED" });
@@ -42,26 +79,33 @@
     const expectedHash = trim(citation?.content_hash);
     const actualHash = sha256(text);
     const status = expectedHash && expectedHash === actualHash ? "current" : "stale";
-    const matches = [];
-    if (quote) {
+    let matches = verifiedGlobalMatches(citation, path, text, quote, status === "current");
+    let matchMode = matches.length ? "global_span" : "exact";
+    if (quote && matches.length === 0) {
       let offset = 0;
       while (offset <= text.length) {
         const index = text.indexOf(quote, offset);
         if (index < 0) break;
-        matches.push(index);
+        matches.push(Object.freeze({ start: index, end: index + quote.length, text: quote }));
         offset = index + Math.max(1, quote.length);
+      }
+      if (matches.length === 0) {
+        matches = normalizedWhitespaceMatches(text, quote);
+        if (matches.length > 0) matchMode = "normalized_whitespace";
       }
     }
     const matchStatus = matches.length === 1 ? "unique" : matches.length > 1 ? "ambiguous" : "missing";
+    const uniqueMatch = matchStatus === "unique" ? matches[0] : null;
     return Object.freeze({
       ok: true,
       status,
       match_status: matchStatus,
+      match_mode: matchMode,
       match_count: matches.length,
       source_path: path,
-      evidence_quote: quote,
-      context: matchStatus === "unique" ? contextAround(text, matches[0], quote.length) : "",
-      position: matchStatus === "unique" ? positionAt(text, matches[0]) : null,
+      evidence_quote: uniqueMatch ? uniqueMatch.text : quote,
+      context: uniqueMatch ? contextAround(text, uniqueMatch.start, uniqueMatch.end - uniqueMatch.start) : "",
+      position: uniqueMatch && status === "current" ? positionAt(text, uniqueMatch.start) : null,
       expected_hash: expectedHash,
       actual_hash: actualHash,
       locator: (Array.isArray(citation?.locators) ? citation.locators : []).find((value) => locatorPath(value) === path) || path,

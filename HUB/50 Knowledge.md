@@ -352,11 +352,20 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       try { await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-golden-preview-workbench.js"); }
       catch (_error) { /* Optional read-only preview surface; lifecycle stays available. */ }
     }
-    if (!window.LLMWikiUserSourceSelector || window.LLMWikiUserSourceSelector.VERSION !== 2) {
+    if (!window.LLMWikiGoldenQualityGate) {
+      try { await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-golden-quality-gate.js"); }
+      catch (_error) { /* Golden creation remains unavailable without a deterministic gate. */ }
+    }
+    if (!window.LLMWikiGoldenWikiOrchestrator) {
+      try { await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-golden-wiki-orchestrator.js"); }
+      catch (_error) { /* Existing review lifecycle remains available. */ }
+    }
+    if (!window.LLMWikiUserSourceSelector || window.LLMWikiUserSourceSelector.VERSION !== 4) {
       try { await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-user-source-selector.js"); }
       catch (_error) { /* Existing Literature selector remains available. */ }
     }
     let goldenPreviewRows = [];
+    let goldenPreviewWorkbench = null;
     if (window.LLMWikiGoldenPreviewWorkbench && typeof appRef.vault?.getFiles === "function" && typeof appRef.vault?.cachedRead === "function") {
       try { goldenPreviewRows = await window.LLMWikiGoldenPreviewWorkbench.loadPreviews(appRef.vault); }
       catch (_error) { goldenPreviewRows = []; }
@@ -389,6 +398,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     let providerSelectionFailure = llmWikiSession.viewState.providerSelectionFailure || "";
     let startupStatus = llmWikiSession.viewState.startupStatus || null;
     let selectedRunCommand = llmWikiSession.viewState.selectedRunCommand || null;
+    let goldenWikiState = llmWikiSession.viewState.goldenWikiState || { status: "idle", stage: "", result: null, reason: "" };
     const persistLlmWikiSessionView = () => {
       llmWikiSession.viewState = {
         ...llmWikiSession.viewState,
@@ -399,6 +409,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         startupStatus,
         startupFailure,
         providerSelectionFailure,
+        goldenWikiState,
         inboxState: llmWikiSession.viewState.inboxState,
       };
       llmWikiSession.bindings.config = llmWikiConfig;
@@ -427,28 +438,34 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const validSourceId = (value) => /^[a-z][a-z0-9_-]{2,127}$/u.test(String(value || "").trim());
     const eligibleLiteratureSources = async () => {
       const files = appRef && appRef.vault && typeof appRef.vault.getMarkdownFiles === "function" ? appRef.vault.getMarkdownFiles() : [];
-      const options = [];
-      for (const file of files) {
-        if (!file || typeof file.path !== "string" || !file.path.startsWith("ZETA/LITERATURE/") || !file.path.endsWith(".md")) continue;
+      const candidates = files.filter((file) => file && typeof file.path === "string" && file.path.startsWith("ZETA/LITERATURE/") && file.path.endsWith(".md"));
+      const options = (await Promise.all(candidates.map(async (file) => {
         try {
           const source = await window.KnowledgeSourceStore.readSource(appRef, file.path);
           const sensitivity = String(source.sensitivity || source.source_kind || "").trim();
           const body = String(source.body || "").trim();
-          if (!validSourceId(source.source_id) || !["public", "synthetic"].includes(sensitivity) || !/^https?:\/\//u.test(String(source.source_url || "")) || !body) continue;
-          options.push(Object.freeze({ path: file.path, title: String(source.source_title || file.basename || file.path).trim(), source_id: source.source_id, content_hash: llmWikiHash.sha256(body) }));
-        } catch (_error) {}
-      }
+          if (!validSourceId(source.source_id) || !["public", "synthetic"].includes(sensitivity) || !/^https?:\/\//u.test(String(source.source_url || "")) || !body) return null;
+          return Object.freeze({ path: file.path, title: String(source.source_title || file.basename || file.path).trim(), source_id: source.source_id, content_hash: llmWikiHash.sha256(body) });
+        } catch (_error) { return null; }
+      }))).filter(Boolean);
       return options.sort((left, right) => left.title.localeCompare(right.title, "ko"));
     };
     const eligibleSources = async () => {
-      const literature = await eligibleLiteratureSources();
-      let inbox = [];
-      if (window.LLMWikiUserSourceSelector) {
-        try { inbox = await window.LLMWikiUserSourceSelector.listInboxSources({ vault: appRef.vault, hash: llmWikiHash, privacy: window.LLMWikiInboxPrivacyBoundary }); }
-        catch (_error) { inbox = []; }
-      }
+      const inboxRequest = window.LLMWikiUserSourceSelector
+        ? window.LLMWikiUserSourceSelector.listInboxSources({ vault: appRef.vault, metadataCache: appRef.metadataCache, hash: llmWikiHash, privacy: window.LLMWikiInboxPrivacyBoundary }).catch(() => [])
+        : Promise.resolve([]);
+      const [literature, inbox] = await Promise.all([eligibleLiteratureSources(), inboxRequest]);
       return [...inbox, ...literature].sort((left, right) => left.title.localeCompare(right.title, "ko") || left.path.localeCompare(right.path, "ko"));
     };
+    const sourceOptionsReady = sourceOptions.length
+      ? Promise.resolve(sourceOptions)
+      : eligibleSources().then((rows) => {
+          if (!sourceOptions.length) {
+            sourceOptions = rows;
+            persistLlmWikiSessionView();
+          }
+          return rows;
+        }).catch(() => []);
     const resolveProvider = (mode) => window.ProdigyConfigService.resolveAIProfileProviderKey(llmWikiSession.bindings.config, "llmwiki", mode);
     // Task 11 cutover: selected-source/Literature runs enter the same canonical
     // one-source batch as INBOX runs. No librarian pipeline, no second transport.
@@ -616,7 +633,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       cache: batchCache,
       coverage: batchCoverage,
     }) : null;
-    const compactArtifactsFromHits = (hits) => hits.map((hit) => Object.freeze({
+    const compactArtifactsFromHits = (hits, sourceOffset = 0) => hits.map((hit) => Object.freeze({
       chunk_key: hit.artifact.semantic_id,
       outcome: hit.artifact.outcome,
       // Provider artifacts carry chunk-local spans and string claims. The local
@@ -630,8 +647,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           ...(localSpan ? {
             span: {
               ...span,
-              start: hit.chunk.start + span.start,
-              end: hit.chunk.start + span.end,
+              start: sourceOffset + hit.chunk.start + span.start,
+              end: sourceOffset + hit.chunk.start + span.end,
             },
           } : {}),
           claims: (item.claims || []).map((claim) => typeof claim === "string" ? { text: claim } : claim),
@@ -658,7 +675,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         const manifest = window.LLMWikiChunkManifest.createChunkManifest(scope);
         const lookup = await batchCache.lookup(manifest, scope, { request_key: analyzed.request_key });
         if (!lookup.ok) return { ok: false, reason: lookup.reason || "cache_lookup_failed", provider_calls: providerCalls };
-        const artifacts = compactArtifactsFromHits(lookup.hits);
+        const artifacts = compactArtifactsFromHits(lookup.hits, Number.isSafeInteger(sourceRow.scope_start) ? sourceRow.scope_start : 0);
         artifactsBySource.set(sourceRow.source_id, artifacts);
         const materialized = await materializeInboxProposals({ artifacts, source: { source_id: sourceRow.source_id, source_path: sourceRow.source_path, content_hash: llmWikiHash.sha256(sourceRow.extracted_text) } });
         if (!materialized.ok) return { ok: false, reason: materialized.reason || "local_materialization_failed", provider_calls: providerCalls };
@@ -1284,11 +1301,24 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (!file) return { ok: false, reason: "plan_source_missing" };
       const sourcePath = file.path;
       const extractedText = await appRef.vault.cachedRead(file);
-      const contentHash = llmWikiHash.sha256(extractedText);
-      const sourceId = `source_plan_${llmWikiHash.sha256(sourcePath).slice(0, 24)}`;
-      const source = { source_id: sourceId, source_path: sourcePath, content_hash: contentHash };
+      const sourceRevision = llmWikiHash.sha256(extractedText);
+      const requestedScope = runOptions && runOptions.scope;
+      if (runOptions.expected_source_hash && runOptions.expected_source_hash !== sourceRevision) return { ok: false, reason: "source_revision_changed" };
+      if (requestedScope && (!Number.isSafeInteger(requestedScope.start) || !Number.isSafeInteger(requestedScope.end)
+        || requestedScope.start < 0 || requestedScope.end <= requestedScope.start || requestedScope.end > extractedText.length)) {
+        return { ok: false, reason: "invalid_source_scope" };
+      }
+      const scopedText = requestedScope ? extractedText.slice(requestedScope.start, requestedScope.end) : extractedText;
+      const contentHash = llmWikiHash.sha256(scopedText);
+      const scopeKey = requestedScope ? `${requestedScope.start}:${requestedScope.end}` : "full";
+      const sourceId = `source_plan_${llmWikiHash.sha256(`${sourcePath}:${scopeKey}`).slice(0, 24)}`;
+      const source = {
+        source_id: sourceId, source_path: sourcePath, content_hash: contentHash,
+        source_revision: sourceRevision,
+        ...(requestedScope ? { scope: { scope_id: requestedScope.scope_id || "", title: requestedScope.title || "", start: requestedScope.start, end: requestedScope.end } } : {}),
+      };
       const analyzed = await runCanonicalBatch({
-        sources: [{ ...source, extracted_text: extractedText }],
+        sources: [{ ...source, extracted_text: scopedText, ...(requestedScope ? { scope_start: requestedScope.start } : {}) }],
         candidates: [],
         explicitRetry,
         retryIntentId,
@@ -1381,7 +1411,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       documentPlanInventory = inventoryResult.value;
       documentPlanReviewState = window.LLMWikiPagePlanReviewState.createPagePlanReviewState({ plan: planned.value });
       documentPlanContext = {
-        source, source_bytes: new TextEncoder().encode(extractedText).length,
+        source, source_bytes: new TextEncoder().encode(scopedText).length,
+        full_source_bytes: new TextEncoder().encode(extractedText).length,
         job_id: analyzed.job_id, batch_id: analyzed.batch_id,
         map_provider_calls: analyzed.provider_calls, draft_documents: draftDocuments.length,
       };
@@ -1772,6 +1803,76 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       ? JSON.parse(JSON.stringify(documentPlanCompileResult)) : null;
     KnowledgeExplorerHub.documentPlanExecutionSnapshot = () => documentPlanExecution
       ? JSON.parse(JSON.stringify(documentPlanExecution)) : null;
+    let goldenWikiOrchestrator = null;
+    const refreshGoldenPreviewWorkbench = async () => {
+      if (!window.LLMWikiGoldenPreviewWorkbench) return [];
+      goldenPreviewRows = await window.LLMWikiGoldenPreviewWorkbench.loadPreviews(appRef.vault);
+      if (goldenPreviewWorkbench) goldenPreviewWorkbench.render(goldenPreviewRows);
+      return goldenPreviewRows;
+    };
+    const getGoldenWikiOrchestrator = () => {
+      if (goldenWikiOrchestrator) return goldenWikiOrchestrator;
+      if (!window.LLMWikiGoldenWikiOrchestrator || !window.LLMWikiGoldenQualityGate) return null;
+      goldenWikiOrchestrator = window.LLMWikiGoldenWikiOrchestrator.create({
+        vault: appRef.vault,
+        hash: llmWikiHash,
+        analysisScope: window.LLMWikiAnalysisScope,
+        chunkManifest: window.LLMWikiChunkManifest,
+        gate: window.LLMWikiGoldenQualityGate,
+        limits: {
+          max_chunks: window.LLMWikiBatchAnalyzer.MAX_PACK_CHUNKS,
+          max_bytes: window.LLMWikiBatchAnalyzer.MAX_PACK_BYTES,
+        },
+        runPlan: (sourcePath, options) => runDocumentPlan(sourcePath, options),
+        compilePlan: () => compileDocumentPlan(),
+        getDocuments: () => documentPlanCompileResult?.documents || [],
+        onProgress: (progress) => {
+          goldenWikiState = { ...goldenWikiState, status: "running", stage: progress.stage, reason: "" };
+          startupStatus = "running";
+          if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
+        },
+      });
+      return goldenWikiOrchestrator;
+    };
+    const preflightGoldenWiki = async (scope = null) => {
+      const orchestrator = getGoldenWikiOrchestrator();
+      if (!orchestrator || !selectedSource) return { ok: false, reason: "golden_wiki_unavailable" };
+      return orchestrator.preflight({
+        source_path: selectedSource.path,
+        expected_content_hash: selectedSource.content_hash,
+        ...(scope ? { scope } : {}),
+      });
+    };
+    const runGoldenWiki = async (scope = null) => {
+      const orchestrator = getGoldenWikiOrchestrator();
+      if (!orchestrator || !selectedSource) return { ok: false, reason: "golden_wiki_unavailable" };
+      goldenWikiState = { ...goldenWikiState, status: "running", stage: "preflight", reason: "", scope };
+      startupStatus = "running";
+      const result = await orchestrator.run({
+        source_path: selectedSource.path,
+        expected_content_hash: selectedSource.content_hash,
+        ...(scope ? { scope } : {}),
+      });
+      if (result.ok) {
+        await refreshGoldenPreviewWorkbench();
+        goldenWikiState = { status: "complete", stage: "complete", result, reason: "", scope };
+        startupStatus = "complete";
+        startupFailure = "";
+      } else if (result.status === "scope_required") {
+        goldenWikiState = { status: "scope_required", stage: "preflight", result, reason: result.reason, scope: null };
+        startupStatus = "selecting";
+        startupFailure = "";
+      } else {
+        goldenWikiState = { status: "failed", stage: result.stage || "", result, reason: result.reason || "golden_wiki_failed", scope };
+        startupStatus = "failed";
+        startupFailure = result.reason || "읽기용 Wiki를 만들지 못했습니다.";
+      }
+      persistLlmWikiSessionView();
+      return result;
+    };
+    KnowledgeExplorerHub.preflightGoldenWiki = preflightGoldenWiki;
+    KnowledgeExplorerHub.runGoldenWiki = runGoldenWiki;
+    KnowledgeExplorerHub.goldenWikiSnapshot = () => JSON.parse(JSON.stringify(goldenWikiState));
     KnowledgeExplorerHub.queryDocumentPlanSourceOnly = (query) => {
       if (!documentPlanReviewState || !documentPlanInventory) return { ok: false, reason: "page_plan_unavailable", writer_count: 0 };
       return window.LLMWikiPagePlanFeedback.querySourceOnly({
@@ -2273,12 +2374,20 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           return { ready: Boolean(selected && selected.configured === true), code: selected && selected.configured === true ? "ready" : String(directProvider && directProvider.code || "configuration_required") };
         })(),
         display_variant: "local",
+        golden_wiki: { ...goldenWikiState },
         ...(providerSelectionFailure ? { provider_selection_error: providerSelectionFailure } : {}),
-        ...(selectedSource ? { source_selection: { selected: true, display_name: selectedSource.title } } : {}),
+        ...(selectedSource ? { source_selection: {
+          selected: true,
+          display_name: selectedSource.title,
+          source_path: selectedSource.path,
+          content_hash: selectedSource.content_hash,
+          source_kind: selectedSource.source_kind || "literature",
+          provider_mode: selectedSource.source_kind === "inbox" ? "direct" : selectedProviderMode,
+        } } : {}),
         source_options: sourceOptions,
         ...(startupStatus ? { status: startupStatus } : {}),
         ...(startupFailure ? { status: "failed", reason: startupFailure } : {}),
-        ...(durableProcessed && !startupFailure ? { status: "processed", reason: "" } : {}),
+        ...(durableProcessed && !startupFailure && !["consent_required", "running", "complete"].includes(startupStatus) ? { status: "processed", reason: "" } : {}),
         inbox: { ...inboxState },
         fleeting: { ...fleetingReviewState },
         approval_packet: snapshot.approval_packet || (Array.isArray(snapshot.review_packets) ? snapshot.review_packets[0] || null : null),
@@ -2345,30 +2454,68 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (intent.action === "select_source" && !intent.source_path) {
         selectedSource = null;
         selectedRunCommand = null;
-        sourceOptions = await eligibleSources();
+        goldenWikiState = { status: "idle", stage: "", result: null, reason: "" };
+        sourceOptions = sourceOptions.length ? sourceOptions : await sourceOptionsReady;
         startupStatus = "selecting";
         startupFailure = sourceOptions.length ? "" : "선택할 수 있는 자료가 없습니다. INBOX 또는 Literature 자료를 확인해 주세요.";
         return { ok: sourceOptions.length > 0, status: "selecting", source_options: sourceOptions };
       }
       if (intent.action === "select_source") {
-        sourceOptions = sourceOptions.length ? sourceOptions : await eligibleSources();
+        sourceOptions = sourceOptions.length ? sourceOptions : await sourceOptionsReady;
         const option = sourceOptions.find((item) => item.path === intent.source_path);
         if (!option) {
           startupStatus = "selecting";
           startupFailure = "선택한 자료를 확인할 수 없습니다. 목록에서 다시 선택해 주세요.";
           return { ok: false, status: "selecting", reason: "unknown_source" };
         }
-        if (option.source_kind === "inbox" && selectedProviderMode !== "direct") selectedProviderMode = "direct";
-        selectedSource = option;
+        let pinnedOption = option;
+        if (option.source_kind === "inbox") {
+          const pinned = await window.LLMWikiUserSourceSelector.pinSelection(option, appRef.vault, llmWikiHash);
+          if (!pinned.ok) {
+            startupStatus = "selecting";
+            startupFailure = "선택한 자료가 바뀌었거나 읽을 수 없습니다. 목록에서 다시 선택해 주세요.";
+            return { ok: false, status: "selecting", reason: pinned.reason };
+          }
+          pinnedOption = pinned.option;
+          if (selectedProviderMode !== "direct") selectedProviderMode = "direct";
+        }
+        selectedSource = pinnedOption;
+        sourceOptions = sourceOptions.map((row) => row.path === pinnedOption.path ? pinnedOption : row);
         selectedRunCommand = null;
+        goldenWikiState = { status: "ready", stage: "ready", result: null, reason: "" };
         startupStatus = "selecting";
         startupFailure = "";
-        return { ok: true, status: "selecting", source: option };
+        return { ok: true, status: "selecting", source: pinnedOption };
+      }
+      if (intent.action === "open_golden_review") {
+        tabs.select("llmwiki-browse");
+        return { ok: true, status: "complete", provider_calls: 0 };
+      }
+      if (intent.action === "cancel_golden_wiki") {
+        goldenWikiState = { status: "ready", stage: "ready", result: null, reason: "" };
+        startupStatus = "selecting";
+        startupFailure = "";
+        return { ok: true, status: "selecting", provider_calls: 0 };
+      }
+      if (intent.action === "select_golden_scope") {
+        const scopes = goldenWikiState?.result?.scopes || [];
+        const scope = scopes.find((row) => row.scope_id === intent.scope_id);
+        if (!scope) return { ok: false, status: "selecting", reason: "unknown_source_scope" };
+        const prepared = await preflightGoldenWiki(scope);
+        if (!prepared.ok || prepared.packs > window.LLMWikiGoldenWikiOrchestrator.MAX_DIRECT_PACKS) {
+          goldenWikiState = { ...goldenWikiState, status: "scope_required", reason: prepared.reason || "selected_scope_too_large" };
+          startupStatus = "selecting";
+          return { ok: false, status: "scope_required", reason: prepared.reason || "selected_scope_too_large" };
+        }
+        goldenWikiState = { status: "consent_required", stage: "preflight", result: prepared, reason: "", scope };
+        startupStatus = "consent_required";
+        startupFailure = "";
+        return { ok: true, status: "consent_required", preflight: prepared, provider_calls: 0 };
       }
       if (!["request_consent", "start_run"].includes(intent.action)) return { ok: false, status: "failed", reason: "action_unavailable" };
       if (!selectedSource) {
         startupStatus = "selecting";
-        startupFailure = "먼저 Literature 자료를 하나 선택해 주세요.";
+        startupFailure = "먼저 분석할 자료를 하나 선택해 주세요.";
         return { ok: false, status: "selecting", reason: "source_selection_required" };
       }
       const resolvedProvider = resolveProvider(selectedProviderMode);
@@ -2381,18 +2528,29 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         providerSelectionFailure = "설정 → AI에서 기본 제공자의 인증 설정을 확인해 주세요.";
         return { ok: false, status: "failed", reason: "provider_selection_unavailable" };
       }
-      const command = selectedRunCommand || await defaultBatchCommand(selectedSource.path);
-      if (!command) {
-        startupStatus = "selecting";
-        startupFailure = "선택한 자료 또는 AI 제공자 설정을 확인해 주세요.";
-        return { ok: false, status: "selecting", reason: "startup_command_unavailable" };
+      if (intent.action === "request_consent") {
+        const prepared = await preflightGoldenWiki();
+        if (!prepared.ok) {
+          startupStatus = "failed";
+          startupFailure = prepared.reason || "읽기용 Wiki 사전 검사를 완료하지 못했습니다.";
+          goldenWikiState = { status: "failed", stage: "preflight", result: prepared, reason: startupFailure };
+          return { ...prepared, status: "failed", provider_calls: 0 };
+        }
+        if (prepared.packs > window.LLMWikiGoldenWikiOrchestrator.MAX_DIRECT_PACKS) {
+          const blocked = { ...prepared, status: "scope_required", reason: "large_source_scope_required" };
+          goldenWikiState = { status: "scope_required", stage: "preflight", result: blocked, reason: blocked.reason };
+          startupStatus = "selecting";
+          startupFailure = "";
+          return { ...blocked, ok: false, provider_calls: 0 };
+        }
+        goldenWikiState = { status: "consent_required", stage: "preflight", result: prepared, reason: "", scope: null };
+        startupStatus = "consent_required";
+        startupFailure = "";
+        return { ok: true, status: "consent_required", preflight: prepared, provider_calls: 0 };
       }
-      selectedRunCommand = command;
-      KnowledgeExplorerHub.llmWikiSelectedRunCommand = command;
       providerSelectionFailure = "";
       startupFailure = "";
-      startupStatus = null;
-      return llmWikiRunController.startRun({ ...command, explicit_user_consent: intent.action === "start_run" });
+      return runGoldenWiki(goldenWikiState.scope || null);
     };
     const reviewItems = () => {
       const configured = Array.isArray(llmWikiControllerOptions.review_items) ? llmWikiControllerOptions.review_items : [];
@@ -2549,6 +2707,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       else if (["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) pending = llmWikiRunController.dispatchRiskAction(intent);
       else if (intent.action === "resurfacing_feedback") pending = llmWikiRunController.recordResurfacingFeedback(intent);
       else if (intent.action === "approve") pending = llmWikiRunController.approve(intent);
+      else if (intent.action === "cancel" && ["consent_required", "scope_required"].includes(goldenWikiState.status)) pending = dispatchStartupIntent({ action: "cancel_golden_wiki" });
       else if (intent.action === "cancel") pending = llmWikiRunController.cancel(intent);
       else if (intent.action === "reload") pending = llmWikiRunController.reload(intent);
       else if (intent.action === "repair_audit") pending = llmWikiRunController.repairAudit(intent);
@@ -2560,11 +2719,13 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       else if (intent.action === "retry_follow_up") pending = llmWikiRunController.retryOperationFollowUp(intent);
       else if (intent.action === "recover_operation") pending = llmWikiRunController.recoverOperation(intent);
       else pending = dispatchStartupIntent(intent);
-      if (!["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) llmWikiLifecycle.update(lifecycleSnapshot());
-      refreshReviewWorkbench();
-      pokeMaintenance();
+      const fastLocalAction = ["select_source", "select_golden_scope", "open_golden_review", "set_provider_mode", "later", "open_ai_settings", "request_consent", "cancel"].includes(intent.action);
+      if (!fastLocalAction && !["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) llmWikiLifecycle.update(lifecycleSnapshot());
+      if (!fastLocalAction) {
+        refreshReviewWorkbench();
+        pokeMaintenance();
+      }
       let response = await pending;
-      llmWikiLifecycle.update(lifecycleSnapshot());
       if (durableRecovery?.review && response?.ok !== true && affectedOperationId) {
         const currentOutcome = durableRecovery.operation_outcomes.find((row) => row.operation_id === affectedOperationId);
         const reason = String(response?.reason || "");
@@ -2612,9 +2773,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       persistLlmWikiSessionView();
       KnowledgeExplorerHub.lastLlmWikiAction = { intent, response };
       llmWikiLifecycle.update(lifecycleSnapshot());
-      refreshReviewWorkbench();
+      if (!fastLocalAction) refreshReviewWorkbench();
       if (typeof llmWikiControllerOptions.onLifecycleAction === "function") llmWikiControllerOptions.onLifecycleAction({ intent, response });
-      pokeMaintenance();
+      if (!fastLocalAction) pokeMaintenance();
       return response;
     };
     dispatchFleetingAction = () => {
@@ -2674,6 +2835,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (typeof editor.focus === "function") editor.focus();
       return { ok: true, source_path: sourcePath, position };
     };
+    if (!sourceOptions.length) sourceOptions = await sourceOptionsReady;
     const llmWikiLifecycleFrame = llmWikiPanel.createDiv({ attr: { class: "llmwiki-lifecycle-frame" } });
     llmWikiLifecycle = window.LLMWikiLifecycleView.mountLlmWikiLifecycleView({
       container: llmWikiLifecycleFrame,
@@ -2769,7 +2931,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath)
     });
     llmWikiSession.bindings.wikiSurface = llmWikiWikiSurface;
-    const goldenPreviewWorkbench = window.LLMWikiGoldenPreviewWorkbench && window.LLMWikiGoldenPreviewWorkbench.mount({
+    goldenPreviewWorkbench = window.LLMWikiGoldenPreviewWorkbench && window.LLMWikiGoldenPreviewWorkbench.mount({
       container: browsePanel,
       rows: goldenPreviewRows,
       reviewed: goldenPreviewReviewed,

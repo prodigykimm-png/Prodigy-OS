@@ -69,7 +69,7 @@ function fakeService(box) {
           items: [{
             role: "source_summary",
             evidence_quote: chunk.text.slice(0, 8),
-            claims: ["bounded claim"],
+            claims: [box.claim || "bounded claim"],
             review_reasons: [],
             related_candidate_ids: [],
           }],
@@ -162,14 +162,44 @@ test("exact rerun with same hashes and request key makes zero provider calls", a
   assert.equal(second.metrics.cache_misses, 0);
 });
 
+test("explicit retry reuses exact repeated chunks and resolves its parent", async () => {
+  const h = buildHarness();
+  let section = "## 반복 구간\n";
+  while (hash.utf8ByteLength(section) < 7 * 1024) section += "반복 근거는 같은 구간에서도 정확한 위치를 유지한다.\n";
+  const sources = [source("src_retry_generation", section.repeat(2))];
+  const first = await h.analyzer.analyze({ sources });
+  assert.equal(first.ok, true, first.reason);
+  await h.jobStore.setJobState(first.job_id, "blocked");
+
+  const retried = await h.fresh().analyze({
+    sources,
+    explicit_retry: true,
+    retry_intent_id: "retry_generation_1",
+  });
+
+  assert.equal(retried.ok, true, retried.reason);
+  assert.equal(retried.state, "review_ready");
+  assert.equal(retried.metrics.provider_calls, 0);
+  assert.equal(retried.metrics.cache_hits, 2);
+  const replay = await h.fresh().analyze({ sources });
+  assert.equal(replay.ok, true, replay.reason);
+  assert.equal(replay.state, "review_ready");
+  assert.equal(replay.metrics.provider_calls, 0);
+});
+
 test("model, schema, prompt-version, context, or source change causes an intentional miss", async () => {
   const h = buildHarness();
   const sources = [source("src_delta", smallText("변경", 1))];
   await h.analyzer.analyze({ sources });
 
   const byModel = await h.fresh({ model: "test/model-2" }).analyze({ sources });
+  assert.equal(byModel.ok, true, byModel.reason);
   assert.equal(byModel.metrics.cache_hits, 0);
   assert.equal(byModel.metrics.provider_calls, 1);
+  const byModelRepeat = await h.fresh({ model: "test/model-2" }).analyze({ sources });
+  assert.equal(byModelRepeat.ok, true, byModelRepeat.reason);
+  assert.equal(byModelRepeat.metrics.cache_hits, 1);
+  assert.equal(byModelRepeat.metrics.provider_calls, 0);
 
   const bySchema = await h.fresh({ schema_id: "llmwiki_compact_v2" }).analyze({ sources });
   assert.equal(bySchema.metrics.cache_hits, 0);

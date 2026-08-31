@@ -6,6 +6,25 @@
   const freeze = (value) => { if (!value || typeof value !== "object" || Object.isFrozen(value)) return value; Object.freeze(value); Object.values(value).forEach(freeze); return value; };
   const text = (value) => String(value == null ? "" : value).trim();
   const plain = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  const stable = (value) => {
+    if (value === null || typeof value !== "object") return JSON.stringify(value);
+    if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
+  };
+  function orchestrationReceiptBody(receipt) {
+    return {
+      orchestrator_version: receipt.orchestrator_version,
+      document_path: receipt.document_path,
+      source_path: receipt.source_path,
+      source_revision: receipt.source_revision,
+      scope: receipt.scope,
+      source_bytes: receipt.source_bytes,
+      chunk_count: receipt.chunk_count,
+      pack_count: receipt.pack_count,
+      scoped_claim_ids: receipt.scoped_claim_ids,
+      gate_receipt_hash: receipt.gate_receipt_hash,
+    };
+  }
   function titleFromMarkdown(bytes, fallback) {
     const match = String(bytes || "").match(/^#\s+(.+)$/mu);
     return text(match && match[1]) || fallback;
@@ -22,6 +41,16 @@
     if (!hashApi || !plain(gateReceipt) || gateReceipt.document_hash !== hashApi.sha256(documentBytes)) issues.push("document_hash_mismatch");
     const sourcePath = text(gateReceipt && gateReceipt.source_path);
     if (!sourcePath || sourcePath.includes("..") || sourcePath.startsWith("/")) issues.push("invalid_source_path");
+    if (text(receipt && receipt.orchestrator_version)) {
+      const orchestrationBody = orchestrationReceiptBody(receipt);
+      if (!hashApi || !/^[0-9a-f]{64}$/u.test(text(receipt.source_revision))
+        || receipt.source_path !== sourcePath || receipt.document_path !== documentPath
+        || !Array.isArray(receipt.scoped_claim_ids) || receipt.scoped_claim_ids.length === 0
+        || receipt.gate_receipt_hash !== gateReceipt.receipt_hash
+        || receipt.orchestration_receipt_hash !== hashApi.sha256(stable(orchestrationBody))) {
+        issues.push("orchestration_receipt_invalid");
+      }
+    }
     const result = {
       preview_id: hashApi ? `golden_${hashApi.sha256(documentPath).slice(0, 24)}` : documentPath,
       document_path: documentPath,

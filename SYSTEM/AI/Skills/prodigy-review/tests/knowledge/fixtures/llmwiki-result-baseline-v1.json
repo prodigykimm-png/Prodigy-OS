@@ -1,0 +1,67 @@
+{
+  "version": "llmwiki_result_baseline_v1",
+  "rubric": [
+    "title_scope",
+    "ten_second_structure",
+    "reading_order",
+    "document_readability",
+    "evidence_access",
+    "related_knowledge",
+    "approval_readiness"
+  ],
+  "artifacts": [
+    {
+      "id": "retail_store",
+      "kind": "live_obsidian",
+      "source_path": "INBOX/상가.md",
+      "observed": {
+        "claims": 8,
+        "pages": 2,
+        "source_only": 1,
+        "possible_gaps": 0,
+        "canonical_writes": 0
+      },
+      "scores": [4, 2, 1, 2, 3, 1, 3]
+    },
+    {
+      "id": "wedding_workflow",
+      "kind": "live_obsidian",
+      "source_path": "INBOX/웨딩 스냅 워크플로우.md",
+      "observed": {
+        "claims": 53,
+        "pages": 7,
+        "source_only": 0,
+        "possible_gaps": 0,
+        "canonical_writes": 0
+      },
+      "scores": [4, 2, 1, 2, 3, 1, 3]
+    },
+    {
+      "id": "personal_project",
+      "kind": "boundary_fixture",
+      "source_path": "INBOX/investment.md",
+      "observed": {
+        "claims": 12,
+        "reusable": 4,
+        "source_only": 8
+      },
+      "scores": [3, 2, 1, 2, 3, 1, 2]
+    },
+    {
+      "id": "regional_price_mix",
+      "kind": "boundary_fixture",
+      "source_path": "INBOX/property.md",
+      "observed": {
+        "claims": 7,
+        "reusable": 4,
+        "source_only": 3
+      },
+      "scores": [3, 2, 1, 2, 3, 1, 2]
+    }
+  ],
+  "baseline_average": 2.142857142857143,
+  "required_final_average": 4.2,
+  "required_minimum_dimension": 3,
+  "required_readability_gain": 1,
+  "required_navigation_gain": 1.5
+}

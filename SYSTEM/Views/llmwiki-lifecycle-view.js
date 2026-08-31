@@ -142,9 +142,12 @@
     const conflicts = risks.filter((packet) => Array.isArray(packet?.conflict?.blocking_conflict_ids) && packet.conflict.blocking_conflict_ids.length > 0);
     const approvals = risks.filter((packet) => !conflicts.includes(packet));
     let productState = snapshot.status;
+    const goldenWiki = plain(snapshot.golden_wiki) ? snapshot.golden_wiki : null;
+    const goldenPriority = goldenWiki && ["consent_required", "running", "complete", "scope_required", "failed"].includes(text(goldenWiki.status));
     const explicitSourceSelection = snapshot.status === "selecting" && plain(snapshot.source_selection) && snapshot.source_selection.selected === true;
     const explicitSourcePicker = snapshot.status === "selecting" && Array.isArray(snapshot.source_options) && snapshot.source_options.length > 0;
-    if (explicitSourceSelection || explicitSourcePicker) productState = "selecting";
+    if (goldenPriority) productState = snapshot.status;
+    else if (explicitSourceSelection || explicitSourcePicker) productState = "selecting";
     else if (inbox && ["blocked", "outcome_unknown"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
     else if (inbox && ["queued", "analyzing", "cancelled"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
     else if (operation.status === "committed" && followUp?.refresh?.status === "failed") productState = "operation_refresh_failed";
@@ -251,10 +254,15 @@
 
     function sourceContext(parent) {
       const name = sourceName(snapshot);
+      const source = plain(snapshot.source_selection) ? snapshot.source_selection : {};
       if (!name) return null;
-      const section = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source prodigy-utility-card", "aria-label": "선택한 자료" } });
+      createEl(parent, "p", { text: "선택 완료 · 아래 자료가 분석 대상으로 고정되었습니다.", attr: { "data-source-selected-status": "confirmed" } });
+      const section = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source prodigy-utility-card", "aria-label": "선택한 자료", "data-source-selected-card": "" } });
       createEl(section, "h3", { text: "선택한 자료" });
-      createEl(section, "p", { text: name, attr: { class: "llmwiki-lifecycle__source-name" } });
+      createEl(section, "strong", { text: name, attr: { class: "llmwiki-lifecycle__source-name", "data-selected-source-title": "" } });
+      if (text(source.source_path)) createEl(section, "code", { text: text(source.source_path), attr: { "data-selected-source-path": "" } });
+      if (text(source.content_hash)) createEl(section, "p", { text: `고정 revision · ${text(source.content_hash).slice(0, 12)}`, attr: { "data-selected-source-revision": text(source.content_hash) } });
+      createEl(section, "p", { text: `${source.source_kind === "inbox" ? "내 자료" : "문헌"} · ${text(source.provider_mode || snapshot.provider_mode || "direct")} provider · 아직 전송하지 않음`, attr: { "data-selected-source-boundary": "pre-consent" } });
       return section;
     }
 
@@ -395,8 +403,21 @@
 
     function renderSelecting(parent) {
       const name = sourceName(snapshot);
-      statusRegion(parent, name ? "자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다." : "검토할 자료를 하나 선택해 주세요.");
+      const golden = plain(snapshot.golden_wiki) ? snapshot.golden_wiki : {};
+      statusRegion(parent, golden.status === "scope_required"
+        ? "자료가 너무 큽니다. 먼저 Wiki로 만들 제목 구간을 선택해 주세요."
+        : name ? "자료가 선택되었습니다. 전송 동의를 확인하기 전에는 AI를 호출하지 않습니다." : "검토할 자료를 하나 선택해 주세요.");
       if (name) sourceContext(parent);
+      if (golden.status === "scope_required") {
+        const result = plain(golden.result) ? golden.result : {};
+        createEl(parent, "p", { text: `전체 분석 예상 · ${Number(result.chunks || 0)} chunks · AI 요청 ${Number(result.packs || 0)}회`, attr: { "data-golden-scope-estimate": "" } });
+        const scopes = Array.isArray(result.scopes) ? result.scopes.slice(0, 24) : [];
+        const scopePanel = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source", "data-golden-scope-picker": "", "aria-label": "Wiki 분석 범위 선택" } });
+        createEl(scopePanel, "h3", { text: "Wiki로 만들 구간" });
+        for (const scope of scopes) {
+          actionButton(scopePanel, text(scope.title) || scope.scope_id, "select-golden-scope", { action: "select_golden_scope", scope_id: scope.scope_id });
+        }
+      }
       const actions = actionRow(parent);
       actionButton(actions, name ? "자료 다시 선택" : "자료 선택", "select-source", { action: "select_source" });
       if (!name) {
@@ -416,28 +437,44 @@
           };
         }
       }
-      if (name) actionButton(actions, "이 자료 검토하기", "request-consent", { action: "request_consent" }, { primary: true });
+      if (name && golden.status !== "scope_required") actionButton(actions, "읽기용 Wiki 만들기", "request-consent", { action: "request_consent" }, { primary: true });
       runSettings(parent);
     }
 
     function renderConsent(parent) {
-      statusRegion(parent, "AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.");
+      const golden = plain(snapshot.golden_wiki) && snapshot.golden_wiki.status === "consent_required";
+      statusRegion(parent, golden ? "읽기용 Wiki를 만들기 전에 선택한 원문의 외부 전송 동의가 필요합니다." : "AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.");
       sourceContext(parent);
-      createEl(parent, "p", { text: "AI는 제안만 만듭니다. 사람이 승인하기 전에는 지식으로 저장되지 않습니다." });
+      createEl(parent, "p", { text: golden ? "결과는 CACHE preview에만 저장됩니다. 원문과 정본 Knowledge는 변경하지 않습니다." : "AI는 제안만 만듭니다. 사람이 승인하기 전에는 지식으로 저장되지 않습니다." });
       const actions = actionRow(parent);
-      actionButton(actions, "동의하고 제안 만들기", "start-run", { action: "start_run", provider_mode: text(snapshot.provider_mode) || "direct" }, { primary: true });
+      actionButton(actions, golden ? "동의하고 Wiki 만들기" : "동의하고 제안 만들기", "start-run", { action: "start_run", provider_mode: text(snapshot.provider_mode) || "direct" }, { primary: true });
       actionButton(actions, "취소", "cancel-run", { action: "cancel" });
       runSettings(parent);
     }
 
     function renderProgress(parent) {
       const committing = snapshot.status === "committing";
-      statusRegion(parent, committing ? "승인한 내용을 안전하게 반영하고 있습니다." : "자료를 바탕으로 제안을 만들고 있습니다.");
+      const golden = plain(snapshot.golden_wiki) && snapshot.golden_wiki.status === "running";
+      const stageLabels = { preflight: "분석 범위를 확인하고 있습니다.", planning: "원문 전체 근거로 문서 계획을 만들고 있습니다.", compiling: "읽기용 Wiki 문서를 편집하고 있습니다.", gating: "정보 보존과 문체를 검증하고 있습니다.", saving: "검증된 preview를 저장하고 있습니다." };
+      statusRegion(parent, golden ? stageLabels[text(snapshot.golden_wiki.stage)] || "읽기용 Wiki를 만들고 있습니다." : committing ? "승인한 내용을 안전하게 반영하고 있습니다." : "자료를 바탕으로 제안을 만들고 있습니다.");
       sourceContext(parent);
-      createEl(parent, "progress", { attr: { "aria-label": committing ? "승인 반영 진행 중" : "AI 제안 생성 진행 중" } });
+      createEl(parent, "progress", { attr: { "aria-label": golden ? "읽기용 Wiki 생성 진행 중" : committing ? "승인 반영 진행 중" : "AI 제안 생성 진행 중" } });
       const actions = actionRow(parent);
-      actionButton(actions, committing ? "반영 중" : "제안 만드는 중", "start-run", { action: "start_run" }, { primary: true, disabled: true });
-      actionButton(actions, "취소", "cancel-run", { action: "cancel" });
+      actionButton(actions, golden ? "Wiki 만드는 중" : committing ? "반영 중" : "제안 만드는 중", "start-run", { action: "start_run" }, { primary: true, disabled: true });
+      if (!golden) actionButton(actions, "취소", "cancel-run", { action: "cancel" });
+    }
+
+    function renderGoldenComplete(parent) {
+      const result = snapshot.golden_wiki && snapshot.golden_wiki.result;
+      const previews = Array.isArray(result && result.previews) ? result.previews : [];
+      statusRegion(parent, `읽기용 Wiki ${previews.length}개가 준비되었습니다.`);
+      sourceContext(parent);
+      createEl(parent, "p", { text: `Golden Gate 통과 · 원문 ${Number(result && result.source_bytes || 0).toLocaleString()} bytes · provider ${Number(result && result.provider_calls || 0)}회`, attr: { "data-golden-complete-summary": "" } });
+      const list = createEl(parent, "ul", { attr: { "data-golden-complete-list": "" } });
+      for (const preview of previews) createEl(list, "li", { text: text(preview.title) });
+      const actions = actionRow(parent);
+      actionButton(actions, "완성 Wiki 검토하기", "open-golden-review", { action: "open_golden_review" }, { primary: true });
+      actionButton(actions, "다른 자료 선택", "select-source", { action: "select_source" });
     }
 
     function readableCanonical(value) {
@@ -799,7 +836,10 @@
         if (["queued", "analyzing", "importing"].includes(state)) {
           // Task 11 cutover: analysis is an explicit user action on the retained
           // lifecycle surface; mount and scan never dispatch the provider.
-          if (state === "queued") actionButton(actions, "AI 분석 시작", "analyze-inbox", { action: "analyze_inbox" }, { primary: true });
+          if (state === "queued") {
+            actionButton(actions, "AI 분석 시작", "analyze-inbox", { action: "analyze_inbox" }, { primary: true });
+            actionButton(actions, "자료 직접 선택", "select-source", { action: "select_source" });
+          }
           else actionButton(actions, "분석 취소", "cancel-inbox", { action: "cancel_inbox", source_id: text(inbox.source_id) }, { primary: true });
           actionButton(actions, "지식 INBOX 확인 중", "scan-inbox", { action: "scan_inbox" }, { disabled: true });
         } else {
@@ -916,6 +956,7 @@
       }
 
       if (projected.productState.startsWith("migration_") && renderMigration(frame, projected)) { /* migration owns the active lifecycle scene */ }
+      else if (snapshot.status === "complete" && snapshot.golden_wiki?.status === "complete") renderGoldenComplete(frame);
       else if (durableSuccess(snapshot) && !explicitStatePriority) renderCommitted(frame);
       else if (inboxScene) {
         renderInbox(frame, projected.productState.slice(6));

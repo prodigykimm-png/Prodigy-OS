@@ -106,3 +106,77 @@ test("plan lint reports ambiguous merge authority without changing the plan", ()
   assert.equal(lint.proposals[0].reason, "explicit_merge_destination_required");
   assert.equal(lint.writer_count, 0);
 });
+
+test("plan lint reports only high-confidence swapped reference titles", () => {
+  const { inventory, plan, claims } = fixture();
+  const swappedBody = {
+    ...plan,
+    pages: [{
+      page_id: `page_${"7".repeat(24)}`,
+      title: "건축 비용",
+      purpose: "건축 비용을 설명한다.",
+      claim_ids: [claims[0].claim_id, claims[1].claim_id],
+      target_candidate_ids: [],
+      operation_hint: "create",
+      evidence_count: 2,
+      selected: true,
+    }, {
+      page_id: `page_${"8".repeat(24)}`,
+      title: "토지 인허가",
+      purpose: "토지 인허가를 설명한다.",
+      claim_ids: [claims[2].claim_id],
+      target_candidate_ids: [],
+      operation_hint: "create",
+      evidence_count: 1,
+      selected: true,
+    }],
+    source_only_claim_ids: [],
+    plan_revision: 2,
+  };
+  delete swappedBody.plan_hash;
+  const swapped = { ...swappedBody, plan_hash: hash.sha256(stable(swappedBody)) };
+  const lint = feedbackApi.lintPlan({
+    inventory,
+    plan: swapped,
+    reference_pages: [{
+      title: "토지 인허가",
+      purpose: "토지 인허가 판단을 설명한다.",
+      claim_ids: [claims[0].claim_id, claims[1].claim_id],
+    }, {
+      title: "건축 비용",
+      purpose: "건축 비용 판단을 설명한다.",
+      claim_ids: [claims[2].claim_id],
+    }],
+  });
+
+  const mismatches = lint.proposals.filter((proposal) => proposal.reason === "title_claim_boundary_mismatch");
+  assert.equal(mismatches.length, 2);
+  assert.deepEqual(mismatches.map((proposal) => proposal.suggested_title).sort(), ["건축 비용", "토지 인허가"]);
+  assert.equal(mismatches.every((proposal) => proposal.risk === "high"), true);
+  assert.equal(lint.writer_count, 0);
+
+  const firstAppliedBody = {
+    ...swapped,
+    pages: swapped.pages.map((page, index) => index === 0
+      ? { ...page, title: "토지 인허가", purpose: "토지 인허가 판단을 설명한다." }
+      : page),
+    plan_revision: 3,
+  };
+  delete firstAppliedBody.plan_hash;
+  const firstApplied = { ...firstAppliedBody, plan_hash: hash.sha256(stable(firstAppliedBody)) };
+  const remaining = feedbackApi.lintPlan({
+    inventory,
+    plan: firstApplied,
+    reference_pages: [{
+      title: "토지 인허가",
+      purpose: "토지 인허가 판단을 설명한다.",
+      claim_ids: [claims[0].claim_id, claims[1].claim_id],
+    }, {
+      title: "건축 비용",
+      purpose: "건축 비용 판단을 설명한다.",
+      claim_ids: [claims[2].claim_id],
+    }],
+  }).proposals.filter((proposal) => proposal.reason === "title_claim_boundary_mismatch");
+  assert.equal(remaining.length, 1);
+  assert.equal(remaining[0].suggested_title, "건축 비용");
+});

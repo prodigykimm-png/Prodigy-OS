@@ -113,6 +113,7 @@
     "SYSTEM/Views/knowledge-use-body-store.js",
     "SYSTEM/Views/knowledge-use-record-ui.js",
     "SYSTEM/Views/auction-card-price-projection.js",
+    "SYSTEM/Views/auction-dashboard-refresh.js",
     "SYSTEM/Views/auction-key-value-projection.js",
     "SYSTEM/Views/auction-key-value-snapshot.js",
     "SYSTEM/Views/auction-learning-core.js",

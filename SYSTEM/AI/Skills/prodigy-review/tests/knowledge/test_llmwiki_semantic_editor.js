@@ -1,0 +1,6 @@
+"use strict";
+const assert=require("node:assert/strict"),path=require("node:path"),test=require("node:test");
+const ROOT=path.resolve(__dirname,"../../../../../..");const api=require(path.join(ROOT,"SYSTEM/Views/llmwiki-semantic-editor.js"));
+const claims=[{claim_id:"claim_"+"a".repeat(24),text:"건축허가와 도면 작성 후 착공계를 제출했다. 보강토는 300만 원어치를 구입했고 약 50cm를 성토했다. 시공 중 배수 문제가 발생해 추가 작업이 필요했다."}];
+test("semantic editor atomizes long experience claims and assigns every atom once",()=>{const atoms=api.atomize(claims),plan=api.plan(atoms);assert.equal(atoms.length,3);assert.equal(plan.assignments.length,atoms.length);assert.equal(new Set(plan.assignments.map(x=>x.atom_id)).size,atoms.length);assert.equal(plan.assignments.some(x=>x.section_kind==="process"),true);assert.equal(plan.assignments.some(x=>x.section_kind==="costs"),true);assert.equal(plan.assignments.some(x=>x.section_kind==="risks"),true)});
+test("semantic loss gate rejects missing lineage and unsupported numbers",()=>{const atoms=api.atomize(claims);const good=atoms.map(a=>({text:a.text,atom_ids:[a.atom_id]}));assert.equal(api.audit({atoms,paragraphs:good}).ok,true);assert.equal(api.audit({atoms,paragraphs:good.slice(1)}).ok,false);assert.equal(api.audit({atoms,paragraphs:[...good,{text:"500만 원",atom_ids:[]}]}).ok,false)});

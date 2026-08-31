@@ -80,14 +80,16 @@
         await load();
         if (corrupt) throw new Error("corrupt_cache_quarantined");
         if (!active(input)) throw new Error("analysis_request_inactive");
-        const prior = (state.entries[entry.semantic_id] || []).find(item => item.instance_id === entry.instance_id);
+        const prior = (state.entries[entry.semantic_id] || []).find(item =>
+          item.instance_id === entry.instance_id && item.request_key === entry.request_key);
         if (prior && entry.retry_generation < prior.retry_generation) return freeze({ ok: true, state: "ignored_stale", entry: prior });
         if (prior && entry.retry_generation === prior.retry_generation) {
           if (entry.artifact_hash !== prior.artifact_hash) throw new Error("retry_generation_conflict");
           return freeze({ ok: true, state: "replayed", entry: prior });
         }
-        const withoutSameInstance = (state.entries[entry.semantic_id] || []).filter(item => item.instance_id !== entry.instance_id);
-        const next = { ...state, entries: { ...state.entries, [entry.semantic_id]: [...withoutSameInstance, entry] } };
+        const withoutSameIdentity = (state.entries[entry.semantic_id] || []).filter(item =>
+          item.instance_id !== entry.instance_id || item.request_key !== entry.request_key);
+        const next = { ...state, entries: { ...state.entries, [entry.semantic_id]: [...withoutSameIdentity, entry] } };
         await persist(next);
         state = next;
         return freeze({ ok: true, state: "stored", entry });
@@ -102,12 +104,9 @@
       if (requireRequestKey && !REQUEST_KEY.test(String(options.request_key))) return quarantined("invalid_request_key");
       await load();
       if (corrupt) return quarantined("corrupt_cache_quarantined");
-      const queried = new Map();
-      for (const chunk of manifest.chunks) queried.set(chunk.semantic_id, (queried.get(chunk.semantic_id) || 0) + 1);
       const hits = [];
       const misses = [];
       for (const chunk of manifest.chunks) {
-        if (queried.get(chunk.semantic_id) > 1) { misses.push(chunk); continue; }
         const entry = (state.entries[chunk.semantic_id] || []).find(candidate => candidate.instance_id === chunk.instance_id
           && candidate.text_hash === chunk.text_hash
           && (!requireRequestKey || candidate.request_key === options.request_key));

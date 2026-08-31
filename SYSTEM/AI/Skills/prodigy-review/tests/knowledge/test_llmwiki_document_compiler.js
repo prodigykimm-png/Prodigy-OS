@@ -105,6 +105,38 @@ test("approved plan compiles a concise source guide and evidence-bound article",
   assert.equal(article.paragraphs.every((paragraph) => paragraph.claim_ids.length > 0), true);
 });
 
+test("quality receipt is self-verifying and detects rule or document drift", () => {
+  const documents = [{ document_kind: "topic_article", title: "지속성", sections: [] }];
+  const input = {
+    source_hash: "a".repeat(64),
+    inventory_hash: "b".repeat(64),
+    plan_hash: "c".repeat(64),
+    documents,
+    quality_status: "publishable",
+    quality_issues: [],
+    quality_rewrite_count: 1,
+  };
+  const receipt = compilerApi.createQualityReceipt(input);
+  assert.match(receipt.receipt_hash, /^[0-9a-f]{64}$/u);
+  assert.equal(compilerApi.inspectQualityReceipt(receipt, input).status, "publishable");
+  assert.equal(compilerApi.inspectQualityReceipt(receipt, { ...input, documents: [{ ...documents[0], title: "변조" }] }).status, "invalid");
+  assert.equal(compilerApi.inspectQualityReceipt({ ...receipt, quality_rules_version: "old_rules" }, input).status, "invalid");
+  const oldBody = {
+    receipt_version: receipt.receipt_version,
+    source_hash: receipt.source_hash,
+    inventory_hash: receipt.inventory_hash,
+    plan_hash: receipt.plan_hash,
+    compiler_version: receipt.compiler_version,
+    quality_rules_version: "llmwiki_quality_rules_v0",
+    compiled_hash: receipt.compiled_hash,
+    quality_status: receipt.quality_status,
+    quality_issues: receipt.quality_issues,
+    quality_rewrite_count: receipt.quality_rewrite_count,
+  };
+  const oldReceipt = { ...oldBody, receipt_hash: hash.sha256(stable(oldBody)) };
+  assert.equal(compilerApi.inspectQualityReceipt(oldReceipt, input).status, "revalidation_required");
+});
+
 test("compiler rejects unsupported prose and incomplete claim coverage", async () => {
   const { inventory, plan, page, claims } = fixture();
   const compiler = compilerApi.createDocumentCompiler({
@@ -125,6 +157,100 @@ test("compiler rejects unsupported prose and incomplete claim coverage", async (
   const result = await compiler.compile({ inventory, approved_plan: plan });
   assert.equal(result.ok, false);
   assert.equal(result.reason, "invalid_compiled_article_coverage");
+});
+
+test("compiler rewrites duplicated draft prose once before publishing", async () => {
+  const { inventory, plan } = fixture();
+  let calls = 0;
+  const compiler = compilerApi.createDocumentCompiler({
+    requestArticles: async (request) => {
+      calls += 1;
+      return {
+        articles: request.pages.map((page) => ({
+          page_id: page.page_id,
+          sections: [{
+            heading: "비용과 공기",
+            paragraphs: [{
+              text: calls === 1
+                ? "직영 공사는 공정별 비용을 줄인다. 직영 공사는 공정별 비용을 절감한다. 철골조는 공사 기간을 단축한다."
+                : "직영 공사는 공정별 비용을 줄이고, 철골조는 공사 기간을 단축한다.",
+              claim_ids: page.claim_ids,
+            }],
+          }],
+        })),
+      };
+    },
+  });
+
+  const result = await compiler.compile({ inventory, approved_plan: plan });
+
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(calls, 2);
+  assert.equal(result.quality_status, "publishable");
+  assert.equal(result.quality_rewrite_count, 1);
+  const article = result.documents.find((document) => document.document_kind === "topic_article");
+  assert.equal(article.paragraphs[0].text, "직영 공사는 공정별 비용을 줄이고, 철골조는 공사 기간을 단축한다.");
+  assert.deepEqual(article.paragraphs[0].claim_ids, plan.pages[0].claim_ids);
+});
+
+test("compiler deterministically corrects source-borne draft terms without another provider call", async () => {
+  const { inventory, plan } = fixture();
+  let calls = 0;
+  const compiler = compilerApi.createDocumentCompiler({
+    requestArticles: async (request) => {
+      calls += 1;
+      return {
+        articles: request.pages.map((page) => ({
+          page_id: page.page_id,
+          sections: [{
+            heading: "투자 기준",
+            paragraphs: [{
+              text: "직영 공사는 공정별 비용을 줄이고 철골조는 공사 기간을 단축하므로, 물건 선주의 시 공주가를 확인한다.",
+              claim_ids: page.claim_ids,
+            }],
+          }],
+        })),
+      };
+    },
+  });
+
+  const result = await compiler.compile({ inventory, approved_plan: plan });
+
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.quality_status, "publishable");
+  assert.equal(result.quality_rewrite_count, 0);
+  assert.equal(calls, 1);
+  assert.doesNotMatch(result.documents.find((row) => row.document_kind === "topic_article").body, /물건 선주의|공주가/u);
+});
+
+test("compiler blocks prose that loses its bound claim meaning after one rewrite", async () => {
+  const { inventory, plan } = fixture();
+  let calls = 0;
+  const compiler = compilerApi.createDocumentCompiler({
+    requestArticles: async (request) => {
+      calls += 1;
+      return {
+        articles: request.pages.map((page) => ({
+          page_id: page.page_id,
+          sections: [{
+            heading: "일반 설명",
+            paragraphs: [{ text: "좋은 선택은 상황에 따라 달라질 수 있다.", claim_ids: page.claim_ids }],
+          }],
+        })),
+      };
+    },
+  });
+
+  const result = await compiler.compile({ inventory, approved_plan: plan });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "article_quality_review_required");
+  assert.equal(result.quality_status, "blocked");
+  assert.equal(result.quality_rewrite_count, 1);
+  assert.equal(calls, 2);
+  assert.equal(result.quality_issues.some((issue) => issue.code === "claim_meaning_not_preserved"), true);
+  assert.equal(result.canonical_writes, 0);
+  assert.equal(result.source_writes, 0);
 });
 
 test("verification-sensitive claims produce machine flags and visible review warning", async () => {

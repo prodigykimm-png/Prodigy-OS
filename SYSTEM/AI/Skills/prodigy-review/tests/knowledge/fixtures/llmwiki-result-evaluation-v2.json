@@ -1,0 +1,57 @@
+{
+  "version": "llmwiki_result_evaluation_v2",
+  "baseline_version": "llmwiki_result_baseline_v1",
+  "evaluation_status": "reference_only_pending_user_review",
+  "artifacts": [
+    {
+      "id": "retail_store",
+      "kind": "live_obsidian",
+      "observed": {
+        "claims": 8,
+        "pages": 2,
+        "source_only": 1,
+        "possible_gaps": 0,
+        "canonical_writes": 0,
+        "inline_citations": 4,
+        "related_links": 0
+      },
+      "scores": [4, 5, 5, 4, 5, 4, 4]
+    },
+    {
+      "id": "wedding_workflow",
+      "kind": "live_obsidian",
+      "observed": {
+        "claims": 53,
+        "pages": 7,
+        "source_only": 0,
+        "possible_gaps": 0,
+        "canonical_writes": 0,
+        "max_related_links_per_page": 2,
+        "zero_evidence_links": 0
+      },
+      "scores": [4, 5, 5, 4, 5, 4, 4]
+    },
+    {
+      "id": "personal_project",
+      "kind": "production_controller_boundary_fixture",
+      "observed": {
+        "claims": 12,
+        "reusable": 4,
+        "source_only": 8,
+        "canonical_writes": 0
+      },
+      "scores": [4, 5, 5, 4, 5, 3, 4]
+    },
+    {
+      "id": "regional_price_mix",
+      "kind": "production_controller_boundary_fixture",
+      "observed": {
+        "claims": 7,
+        "reusable": 4,
+        "source_only": 3,
+        "canonical_writes": 0
+      },
+      "scores": [4, 5, 5, 4, 5, 3, 4]
+    }
+  ]
+}

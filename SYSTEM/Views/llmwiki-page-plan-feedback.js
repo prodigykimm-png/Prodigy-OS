@@ -96,8 +96,33 @@
     if (!valid(input)) return freeze({ ok: false, reason: "invalid_page_plan_lint", writer_count: 0 });
     const proposals = [];
     const titleCounts = new Map();
-    for (const page of input.plan.pages.filter((row) => row.selected !== false)) {
+    const selectedPages = input.plan.pages.filter((row) => row.selected !== false);
+    const referencePages = Array.isArray(input.reference_pages)
+      ? input.reference_pages.filter((page) => plain(page) && clean(page.title) && Array.isArray(page.claim_ids))
+      : [];
+    const referenceTitles = new Set(referencePages.map((page) => clean(page.title)));
+    const referenceByClaims = new Map();
+    for (const page of referencePages) {
+      const key = [...new Set(page.claim_ids)].sort().join(":");
+      if (key && !referenceByClaims.has(key)) referenceByClaims.set(key, page);
+    }
+    for (const page of selectedPages) {
       titleCounts.set(page.title, (titleCounts.get(page.title) || 0) + 1);
+      const claimKey = [...new Set(page.claim_ids)].sort().join(":");
+      const expected = referenceByClaims.get(claimKey);
+      const currentTitle = clean(page.title);
+      const expectedTitle = clean(expected?.title);
+      if (expectedTitle && currentTitle !== expectedTitle
+        && referenceTitles.has(currentTitle)) {
+        proposals.push(freeze({
+          proposal_id: `lint_${sha(`${input.plan.plan_hash}:${page.page_id}:boundary:${expectedTitle}`).slice(0, 24)}`,
+          page_id: page.page_id,
+          risk: "high",
+          reason: "title_claim_boundary_mismatch",
+          suggested_title: expectedTitle,
+          suggested_purpose: clean(expected.purpose) || `${expectedTitle}의 판단과 근거를 설명합니다.`,
+        }));
+      }
       if (page.target_candidate_ids.length > 1) proposals.push(freeze({
         proposal_id: `lint_${sha(`${input.plan.plan_hash}:${page.page_id}:merge`).slice(0, 24)}`,
         page_id: page.page_id,

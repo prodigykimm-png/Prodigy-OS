@@ -334,6 +334,8 @@
           coverageReports.push(status);
         }
         await jobStore.setJobState(job.job_id, "review_ready");
+        const retryParentJobId = job.retry_parent_job_id || job.parent_job_id;
+        if (retryParentJobId) await jobStore.setJobState(retryParentJobId, "review_ready");
         return freeze({
           ok: true,
           state: "review_ready",

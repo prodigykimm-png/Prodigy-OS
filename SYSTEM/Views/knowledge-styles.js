@@ -126,7 +126,8 @@
       .llmwiki-lifecycle h2, .llmwiki-lifecycle h3, .llmwiki-lifecycle p, .llmwiki-lifecycle dl { margin: 0; text-align: start; word-break: keep-all; overflow-wrap: anywhere; }
       .llmwiki-cjk-prose { min-inline-size: 0; max-inline-size: 100%; word-break: keep-all; text-wrap: pretty; overflow-wrap: anywhere; }
       [data-typography-role="intro"] { font-size: var(--ke-type-label); }
-      .llmwiki-lifecycle__source-name { font-weight: 600; }
+      .llmwiki-lifecycle__source-name { display: block; max-inline-size: 100%; font-weight: 600; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
+      .llmwiki-lifecycle [data-selected-source-path] { display: block; max-inline-size: 100%; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
       .llmwiki-lifecycle__muted { color: var(--text-muted); }
       .llmwiki-lifecycle__error { color: var(--text-error); }
       .llmwiki-lifecycle__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ke-space-2, 8px); min-inline-size: 0; }
