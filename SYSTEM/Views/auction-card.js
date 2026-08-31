@@ -604,9 +604,13 @@ window.renderAuctionCard = function(p, container, options) {
       attr: { class: 'auction-card-detail-row', style: 'font-size: 0.76em; color: var(--text-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 1px;' }
     });
     detailRow1.createEl('span', { text: regionText, attr: { class: 'auction-card-detail-primary' } });
+    if (p.region_admin_dong) {
+      detailRow1.createEl('span', { text: `행정동: ${p.region_admin_dong}`, attr: { class: 'auction-card-detail-secondary' } });
+    }
     const hasRegionDecision = Boolean(window.AuctionRegionPacket);
+    const hasBasicLocation = Boolean(window.DuskAuctionLocation);
     const regionActionStyle = 'font: inherit; color: var(--text-accent); background: transparent; border: 0; box-shadow: none; padding: 0 2px; min-height: 0; height: auto; cursor: pointer; text-decoration: underline; text-underline-offset: 2px;';
-    const regionActions = hasRegionDecision
+    const regionActions = (hasRegionDecision || hasBasicLocation)
       ? detailRow1.createEl('span', {
           attr: {
             class: 'auction-region-inline-actions',
@@ -642,6 +646,76 @@ window.renderAuctionCard = function(p, container, options) {
           if (window.Notice) new Notice(error.message || String(error));
         }
       };
+    }
+    if (hasBasicLocation) {
+      const locationBtn = regionActions.createEl('button', {
+        text: p.location_status === 'basic_ready' ? '기본 입지 갱신' : '기본 입지 계산',
+        attr: {
+          type: 'button',
+          class: 'auction-region-inline-action',
+          style: regionActionStyle,
+          title: 'AI 없이 주소 좌표와 가까운 역·학교의 직선거리를 계산합니다.',
+          'aria-label': '기본 입지 자동계산'
+        }
+      });
+      locationBtn.onclick = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const address = String(p.address || '').trim();
+        if (!address) {
+          if (window.Notice) new Notice('옥션카드 주소가 비어 있습니다.');
+          return;
+        }
+        locationBtn.disabled = true;
+        locationBtn.textContent = '계산 중…';
+        try {
+          const result = await window.DuskAuctionLocation.calculateBasicLocation(address);
+          const fields = {
+            location_status: 'basic_ready',
+            location_ai_used: false,
+            location_checked_at: result.checkedAt,
+            location_distance_type: result.distanceType,
+            location_lat: result.latitude,
+            location_lng: result.longitude,
+            nearest_station: result.nearestStation?.name || '',
+            nearest_station_distance_m: result.nearestStation?.distanceM || null,
+            nearest_elementary_school: result.nearestElementarySchool?.name || '',
+            nearest_elementary_distance_m: result.nearestElementarySchool?.distanceM || null,
+            nearest_middle_school: result.nearestMiddleSchool?.name || '',
+            nearest_middle_distance_m: result.nearestMiddleSchool?.distanceM || null,
+            nearest_high_school: result.nearestHighSchool?.name || '',
+            nearest_high_distance_m: result.nearestHighSchool?.distanceM || null,
+            assigned_school_status: 'verification_required'
+          };
+          const tFile = app.vault.getAbstractFileByPath(p.file.path);
+          if (!tFile) throw new Error('옥션카드 원본 파일을 찾지 못했습니다.');
+          await app.fileManager.processFrontMatter(tFile, (fm) => {
+            Object.assign(fm, fields);
+            fm.updated = new Date().toISOString().split('T')[0];
+          });
+          Object.assign(p, fields);
+          if (window.Notice) new Notice('기본 입지 자동계산을 완료했습니다.');
+          card.empty();
+          window.renderAuctionCard(p, container, options);
+        } catch (error) {
+          if (window.Notice) new Notice(error.message || String(error));
+          locationBtn.disabled = false;
+          locationBtn.textContent = p.location_status === 'basic_ready' ? '기본 입지 갱신' : '기본 입지 계산';
+        }
+      };
+    }
+    if (p.location_status === 'basic_ready') {
+      const locationParts = [
+        p.nearest_station && `${p.nearest_station} ${Number(p.nearest_station_distance_m).toLocaleString()}m`,
+        p.nearest_elementary_school && `${p.nearest_elementary_school} ${Number(p.nearest_elementary_distance_m).toLocaleString()}m`
+      ].filter(Boolean);
+      if (locationParts.length) {
+        detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+        detailRow1.createEl('span', {
+          text: locationParts.join(' / '),
+          attr: { class: 'auction-card-detail-secondary', title: '직선거리 · 공식 배정 학교 아님' }
+        });
+      }
     }
     detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     detailRow1.createEl('span', { text: p.property_type || "용도 미정" });
@@ -826,6 +900,26 @@ window.renderAuctionCard = function(p, container, options) {
        });
       priceGroup.createEl('span', { text: '·', attr: { class: 'auction-card-finance-separator', style: isMobile ? 'display: none;' : '' } });
     }
+  }
+
+  // 법정동 키값: AUCT 최근 1년 낙찰사례의 건물균형 전용평당가 중앙값
+  if (p.property_type === '오피스텔' && window.AuctionKeyValueProjection) {
+    try {
+      const keyProjection = window.AuctionKeyValueSnapshot
+        ? window.AuctionKeyValueProjection.project(p, window.AuctionKeyValueSnapshot)
+        : null;
+      if (keyProjection && keyProjection.available) {
+        const keyRow = container.createEl('div', { attr: { class: 'auction-card-detail-row auction-card-key-value', style: 'margin-top: 4px; color: var(--text-muted); font-size: 12px;' } });
+        const formatMan = (won) => `${Math.round(won / 10000).toLocaleString()}만/평`;
+        keyRow.createEl('span', { text: `법정동 키값 · ${keyProjection.legal_dong}` });
+        keyRow.createEl('span', { text: ' · ' });
+        keyRow.createEl('strong', { text: formatMan(keyProjection.key_value_won_per_pyeong), attr: { style: 'color: var(--text-normal);' } });
+        keyRow.createEl('span', { text: ` · ${keyProjection.case_count}건/${keyProjection.building_count}개 건물` });
+        if (keyProjection.comparison) keyRow.createEl('span', { text: ` · ${keyProjection.comparison.price_basis} ${formatMan(keyProjection.comparison.won_per_pyeong)} · ${Math.round(keyProjection.comparison.ratio * 100)}% · ${keyProjection.comparison.position}` });
+        if (keyProjection.confidence !== 'usable') keyRow.createEl('span', { text: ' · 표본 편중', attr: { style: 'color: var(--text-warning);' } });
+        keyRow.setAttr('title', `기준 ${keyProjection.period_start}~${keyProjection.period_end} · 중간 범위 ${formatMan(keyProjection.q1_won_per_pyeong)}~${formatMan(keyProjection.q3_won_per_pyeong)} · AUCT CSV`);
+      }
+    } catch (error) { console.warn('[Auction Key Value]', error); }
   }
 
    const isTerminalStatus = ["won", "lost", "skipped"].includes(p.status);
