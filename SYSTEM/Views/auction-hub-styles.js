@@ -87,7 +87,7 @@ const CSS = `
 .auction-native-overview {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: start;
+  align-items: stretch;
 }
 .auction-native-detail-pane,
 .auction-native-calendar-pane,
@@ -100,6 +100,8 @@ const CSS = `
   max-inline-size: none;
 }
 .auction-native-detail-pane {
+  display: flex;
+  flex-direction: column;
   background: var(--ke-color-surface, var(--background-primary));
   border-inline-end: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
 }
@@ -161,6 +163,8 @@ const CSS = `
   min-inline-size: 0;
 }
 .auction-native-detail-pane .auction-hub-section.auction-hub-today {
+  grid-column: 1;
+  grid-row: 1;
   grid-template-columns: minmax(0, 1fr);
   border: 0 !important;
   border-radius: var(--ke-radius-none, 0);
@@ -287,6 +291,187 @@ const CSS = `
 .prodigy-app-shell[data-tier="compact"] .auction-native-calendar-body {
   max-inline-size: 100%;
   overflow: hidden;
+}
+.auction-native-detail-body {
+  flex: 1 1 auto;
+  grid-template-columns: minmax(250px, 0.78fr) minmax(0, 1.22fr);
+  grid-template-rows: auto auto;
+  align-items: stretch;
+}
+.auction-native-detail-body > .auction-native-memo {
+  grid-column: 2;
+  grid-row: 1;
+  min-block-size: 100%;
+}
+.auction-native-detail-body > .auction-hub-pipeline-section {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+.auction-native-memo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 156px;
+  padding: var(--ke-space-4, 16px);
+  overflow: hidden;
+  border: var(--ke-border-width, 1px) solid color-mix(
+    in srgb,
+    var(--ke-color-border, var(--background-modifier-border)) 72%,
+    var(--ke-color-surface, var(--background-primary))
+  );
+  border-radius: var(--ke-radius-panel, 18px);
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--ke-color-surface, var(--background-primary)) 92%, var(--ke-color-interactive, var(--interactive-accent))),
+      var(--ke-color-surface-secondary, var(--background-secondary))
+    );
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--ke-color-text, var(--text-normal)) 7%, transparent),
+    0 8px 24px color-mix(in srgb, var(--ke-color-text, var(--text-normal)) 4%, transparent);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+.auction-native-memo::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ke-color-surface, var(--background-primary)) 40%, transparent),
+    transparent 42%
+  );
+  content: "";
+}
+.auction-native-memo:focus-within {
+  border-color: color-mix(
+    in srgb,
+    var(--ke-color-interactive, var(--interactive-accent)) 48%,
+    var(--ke-color-border, var(--background-modifier-border))
+  );
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--ke-color-text, var(--text-normal)) 7%, transparent),
+    0 10px 28px color-mix(in srgb, var(--ke-color-interactive, var(--interactive-accent)) 10%, transparent);
+  transform: translateY(-1px);
+}
+.auction-native-memo-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ke-space-3, 12px);
+  margin-block-end: var(--ke-space-3, 12px);
+}
+.auction-native-memo-title-group {
+  display: flex;
+  align-items: center;
+  min-inline-size: 0;
+  gap: var(--ke-space-2, 8px);
+}
+.auction-native-memo-icon {
+  position: relative;
+  flex: 0 0 auto;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--ke-radius-control, 8px);
+  background: color-mix(
+    in srgb,
+    var(--ke-color-interactive, var(--interactive-accent)) 13%,
+    var(--ke-color-surface, var(--background-primary))
+  );
+}
+.auction-native-memo-icon::before {
+  position: absolute;
+  inset: 8px 7px;
+  border-block: 1.5px solid var(--ke-color-interactive, var(--interactive-accent));
+  background: linear-gradient(
+    to bottom,
+    transparent 45%,
+    var(--ke-color-interactive, var(--interactive-accent)) 45% 55%,
+    transparent 55%
+  );
+  content: "";
+}
+.auction-native-memo-title {
+  overflow: hidden;
+  color: var(--ke-color-text, var(--text-normal));
+  font-size: var(--ke-type-label, 13px);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auction-native-memo-status {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  padding: var(--ke-space-1, 4px) var(--ke-space-2, 8px);
+  border-radius: var(--ke-radius-pill, 999px);
+  background: color-mix(
+    in srgb,
+    var(--ke-color-surface, var(--background-primary)) 72%,
+    transparent
+  );
+  color: var(--ke-color-text-muted, var(--text-muted));
+  font-size: var(--ke-type-chrome, 11px);
+  line-height: 1.2;
+}
+.auction-native-memo-status[data-tone="error"] {
+  background: color-mix(in srgb, var(--ke-color-error, var(--text-error)) 10%, transparent);
+  color: var(--ke-color-error, var(--text-error));
+}
+.auction-native-memo-input {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  inline-size: 100%;
+  min-block-size: 96px;
+  margin: 0;
+  padding: 0;
+  resize: none;
+  border: 0 !important;
+  border-radius: 0;
+  outline: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--ke-color-text, var(--text-normal));
+  font-family: var(--font-text);
+  font-size: var(--ke-type-body, 15px);
+  line-height: 1.55;
+}
+.auction-native-memo-input::placeholder {
+  color: var(--ke-color-text-muted, var(--text-muted));
+  opacity: 0.72;
+}
+.prodigy-app-shell[data-tier="medium"] .auction-native-detail-body,
+.prodigy-app-shell[data-tier="compact"] .auction-native-detail-body {
+  gap: var(--ke-space-4, 16px);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+}
+.prodigy-app-shell[data-tier="medium"] .auction-native-detail-body > .auction-hub-section.auction-hub-today,
+.prodigy-app-shell[data-tier="medium"] .auction-native-detail-body > .auction-native-memo,
+.prodigy-app-shell[data-tier="medium"] .auction-native-detail-body > .auction-hub-pipeline-section,
+.prodigy-app-shell[data-tier="compact"] .auction-native-detail-body > .auction-hub-section.auction-hub-today,
+.prodigy-app-shell[data-tier="compact"] .auction-native-detail-body > .auction-native-memo,
+.prodigy-app-shell[data-tier="compact"] .auction-native-detail-body > .auction-hub-pipeline-section {
+  grid-column: 1;
+  grid-row: auto;
+}
+.prodigy-app-shell[data-tier="compact"] .auction-native-memo {
+  min-block-size: 148px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auction-native-memo {
+    transition: none;
+  }
+  .auction-native-memo:focus-within {
+    transform: none;
+  }
 }
 .auction-native-calendar-pane .prodigy-bid-calendar {
   margin: 0;

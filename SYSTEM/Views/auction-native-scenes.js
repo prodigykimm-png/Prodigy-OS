@@ -15,6 +15,7 @@
   const sectionRegistries = runtime.sectionRegistries;
   const pendingRegistrations = runtime.pendingRegistrations || new WeakMap();
   runtime.pendingRegistrations = pendingRegistrations;
+  const MEMO_PATH = "PARA/PROJECTS/Auction/옥션 워크스페이스 메모.md";
 
   const create = (parent, tag, className, text) => {
     const element = parent.createEl
@@ -33,6 +34,117 @@
     group.open = true;
     create(group, "summary", "auction-native-work-group-title", label);
     return create(group, "div", "auction-native-work-group-body");
+  };
+
+  const readMemo = async (app) => {
+    const file = app?.vault?.getAbstractFileByPath?.(MEMO_PATH);
+    if (!file) return "";
+    if (typeof app.vault.cachedRead === "function") return app.vault.cachedRead(file);
+    return app.vault.read(file);
+  };
+
+  const writeMemo = async (app, content) => {
+    const text = String(content ?? "");
+    const file = app?.vault?.getAbstractFileByPath?.(MEMO_PATH);
+    if (file) {
+      await app.vault.modify(file, text);
+      return file;
+    }
+    return app.vault.create(MEMO_PATH, text);
+  };
+
+  const mountMemo = (parent, app, scope) => {
+    const memo = create(parent, "section", "auction-native-memo");
+    const header = create(memo, "header", "auction-native-memo-header");
+    const titleGroup = create(header, "div", "auction-native-memo-title-group");
+    const icon = create(titleGroup, "span", "auction-native-memo-icon");
+    icon.setAttribute("aria-hidden", "true");
+    create(titleGroup, "span", "auction-native-memo-title", "빠른 메모");
+    const status = create(header, "span", "auction-native-memo-status", "불러오는 중");
+    status.setAttribute("aria-live", "polite");
+    const textarea = create(memo, "textarea", "auction-native-memo-input");
+    textarea.setAttribute("aria-label", "옥션 빠른 메모");
+    textarea.setAttribute("placeholder", "오늘 확인할 물건, 입찰 전략, 준비할 일을 적어보세요.");
+    textarea.setAttribute("spellcheck", "true");
+
+    let lastSaved = "";
+    let touched = false;
+    let timer = null;
+    let queue = Promise.resolve();
+    const clearTimer = () => {
+      if (timer === null) return;
+      if (scope && typeof scope.clearTimeout === "function") scope.clearTimeout(timer);
+      else root.clearTimeout(timer);
+      timer = null;
+    };
+    const setStatus = (message, tone = "") => {
+      status.textContent = message;
+      status.setAttribute("data-tone", tone);
+    };
+
+    const ready = readMemo(app)
+      .then((content) => {
+        lastSaved = String(content ?? "");
+        if (!touched) textarea.value = lastSaved;
+        setStatus("자동 저장");
+        return lastSaved;
+      })
+      .catch((error) => {
+        setStatus("불러오기 실패", "error");
+        root.console?.error?.("옥션 워크스페이스 메모를 불러오지 못했습니다.", error);
+        return "";
+      });
+
+    const flush = () => {
+      clearTimer();
+      const value = textarea.value;
+      queue = queue
+        .catch(() => undefined)
+        .then(() => ready)
+        .then(async () => {
+          if (value === lastSaved) {
+            setStatus("자동 저장");
+            return value;
+          }
+          setStatus("저장 중");
+          await writeMemo(app, value);
+          lastSaved = value;
+          setStatus(textarea.value === value ? "저장됨" : "입력 중");
+          return value;
+        })
+        .catch((error) => {
+          setStatus("저장 실패", "error");
+          root.console?.error?.("옥션 워크스페이스 메모를 저장하지 못했습니다.", error);
+          throw error;
+        });
+      return queue;
+    };
+
+    const scheduleSave = () => {
+      touched = true;
+      clearTimer();
+      setStatus("입력 중");
+      const callback = () => {
+        timer = null;
+        void flush();
+      };
+      timer = scope && typeof scope.timeout === "function"
+        ? scope.timeout(callback, 420)
+        : root.setTimeout(callback, 420);
+    };
+
+    textarea.addEventListener("input", scheduleSave);
+    textarea.addEventListener("blur", () => {
+      void flush();
+    });
+    if (scope && typeof scope.track === "function") {
+      scope.track(() => {
+        clearTimer();
+        if (textarea.value !== lastSaved) void flush();
+      });
+    }
+
+    return Object.freeze({ element: memo, textarea, status, ready, flush });
   };
 
   const focusCalendar = (state) => {
@@ -149,6 +261,11 @@
     const homeHeading = create(detailPane, "h2", "auction-native-pane-title", "주요 브리핑");
     homeHeading.tabIndex = -1;
     const detailBody = create(detailPane, "div", "auction-native-detail-body");
+    const memo = mountMemo(
+      detailBody,
+      options.app || root.app,
+      options.mountScope || null
+    );
     const calendarPane = create(overview, "section", "auction-native-calendar-pane");
     const calendarHeading = create(calendarPane, "h2", "auction-native-pane-title", "입찰 달력");
     calendarHeading.tabIndex = -1;
@@ -175,6 +292,7 @@
       watchingBody,
       reviewBody,
       calendarBody,
+      memo,
     };
     states.set(app, state);
     if (view) viewStates.set(view, state);
@@ -193,10 +311,13 @@
       element: app,
       register: (kind, container) => register(kind, container),
       focusCalendar: () => focusCalendar(state),
+      memo,
     });
     bodyControllers.set(body, controller);
     return controller;
   };
 
-  root.ProdigyAuctionNativeScenes = Object.freeze({ mount, register });
+  const api = Object.freeze({ MEMO_PATH, readMemo, writeMemo, mount, register });
+  root.ProdigyAuctionNativeScenes = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

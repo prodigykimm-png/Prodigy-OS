@@ -454,7 +454,9 @@ const initializeAuctionWorkspace = async () => {
     });
     if (auctionKnowledge && typeof auctionKnowledge.dispose === "function") mountContext.scope.track(auctionKnowledge.dispose);
     auctionNativeSceneController = window.ProdigyAuctionNativeScenes.mount({
-      body: auctionShell.body
+      body: auctionShell.body,
+      app,
+      mountScope: mountContext.scope
     });
     const mountedPerformance = auctionShell.performance || performance;
     measurement.shell = auctionShell;
