@@ -15,6 +15,25 @@ assert.match(record.record_id, /^[a-f0-9]{64}$/);
 
 assert.equal(core.eligibility({ ...record, won_per_pyeong: 100000 }).reason, "suspicious_unit_price");
 assert.equal(core.eligibility(record).eligible, true);
+assert.equal(core.canonicalPropertyType("다가구(원룸등)"), "다가구");
+assert.equal(core.eligibility({ ...record, property_type: "아파트" }).eligible, true);
+assert.equal(core.eligibility({ ...record, property_type: "다가구" }).eligible, true);
+assert.equal(core.eligibility({ ...record, property_type: "지식산업센터" }).reason, "unsupported_property_type");
+
+const [apartment] = core.parseAuctCsv(
+  `물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n아파트,"부산광역시 해운대구 좌동 1, 테스트아파트 1층 101호",10㎡,84㎡,400000000,2026.08.31\n`
+);
+const [multiFamily] = core.parseAuctCsv(
+  `물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n다가구(원룸등),부산광역시 북구 구포동 1,토지 100㎡,200㎡,300000000,2026.08.18\n`
+);
+assert.equal(apartment.property_type, "아파트");
+assert.equal(multiFamily.property_type, "다가구");
+assert.equal(core.eligibility(apartment).eligible, true);
+assert.equal(core.eligibility(multiFamily).eligible, true);
+assert.deepEqual(core.parseRegion("경기도 수원시 권선구 권선동 1"), {
+  sido: "경기도",
+  sigungu: "수원시 권선구"
+});
 
 const cases = [
   ["A", 900], ["A", 1000], ["A", 1100],

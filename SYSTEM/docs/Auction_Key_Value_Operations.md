@@ -4,7 +4,8 @@
 
 `키값`은 적정가격을 확정하거나 입찰을 권고하는 값이 아니다. 동일 법정동·동일 물건유형의 최근 외부 낙찰사례에서 현재 카드 가격이 어느 위치인지 빠르게 확인하는 기준값이다.
 
-현재 기준선은 AUCT에서 내려받은 부산 오피스텔 최근 1년 CSV다.
+현재 기준선은 기존 부산 오피스텔 최근 1년 정규 레코드와 AUCT에서 내려받은
+서울·경기·인천 오피스텔, 부산 아파트·다가구 최근 1년 CSV를 합친 snapshot이다.
 
 ## 지역 단위
 
@@ -44,7 +45,8 @@
 물건종류,소재지,대지권,건물면적,낙찰가,매각기일
 ```
 
-현재 AUCT CSV 양식은 수정 없이 사용할 수 있다.
+현재 AUCT CSV 양식은 수정 없이 사용할 수 있다. 지원 유형은 `오피스텔`,
+`아파트`, `다가구`이며 AUCT 원문 `다가구(원룸등)`은 `다가구`로 정규화한다.
 
 선택 권장 컬럼:
 
@@ -58,8 +60,13 @@
 
 ```bash
 node SYSTEM/SCRIPTS/auction-key-value-import.js \
-  --input '/Users/prodigykim/Downloads/부산_오피스텔_최근1년_매각사례.csv' \
-  --output SYSTEM/CACHE/auction-key-value/busan-officetel-2025-09_2026-08 \
+  --seed-normalized SYSTEM/CACHE/auction-key-value/busan-officetel-2025-09_2026-08/normalized.json \
+  --input '/Users/prodigykim/Downloads/인천_오피스텔_20250901-20260901_매각사례.csv' \
+  --input '/Users/prodigykim/Downloads/경기_오피스텔_20250901-20260901_매각사례.csv' \
+  --input '/Users/prodigykim/Downloads/서울_오피스텔_20250901-20260901_매각사례.csv' \
+  --input '/Users/prodigykim/Downloads/부산_다가구_20250831-20260831_매각사례.csv' \
+  --input '/Users/prodigykim/Downloads/부산_아파트_20250831-20260831_매각사례.csv' \
+  --output SYSTEM/CACHE/auction-key-value/all-regions-2025-09_2026-09 \
   --card-snapshot SYSTEM/Views/auction-key-value-snapshot.js
 ```
 
@@ -70,23 +77,29 @@ node SYSTEM/SCRIPTS/auction-key-value-import.js \
 - `audit.json`: 결측·제외·신뢰도 감사와 snapshot hash
 - `SYSTEM/Views/auction-key-value-snapshot.js`: 카드가 동기 로드하는 동일 snapshot
 
-importer는 JSON snapshot과 카드용 JS snapshot을 한 실행에서 생성한다. 두 출력과 감사 영수증은 동일한 `content_hash`를 가지며 회귀테스트가 동기화를 검증한다. 수동 복사·별도 변환은 하지 않는다.
+`--input`과 `--seed-normalized`는 반복할 수 있다. importer는 `record_id`로
+중복을 제거한 뒤 JSON snapshot과 카드용 JS snapshot을 한 실행에서 생성한다.
+두 출력과 감사 영수증은 동일한 `content_hash`를 가지며 회귀테스트가 동기화를
+검증한다. 수동 복사·별도 변환은 하지 않는다.
 
-## 현재 부산 오피스텔 기준선
+## 현재 통합 기준선
 
-- 전체: 1,618건
-- 법정동 파싱: 1,618건
-- 키값 포함: 1,597건
-- 이상 평단가 격리: 21건
-- 법정동 그룹: 78개
-- 정식 사용 가능: 35개
-- 표본 편중: 41개
-- 표본 부족: 2개
-- 기간: 2025-09-02 ~ 2026-08-31
+- 전체: 9,129건
+- 유형: 오피스텔 7,804건 · 아파트 1,309건 · 다가구 16건
+- 법정동 파싱: 9,126건
+- 키값 포함: 9,038건
+- 이상 평단가 격리: 88건
+- 법정동 누락 격리: 3건
+- 법정동·유형 그룹: 575개
+- 정식 사용 가능: 251개
+- 표본 편중: 292개
+- 표본 부족: 32개
+- 기간: 2025-09-01 ~ 2026-09-01
+- snapshot hash: `4385d453193cf76f612ef740ba7f5603273aed1384a23c21433d36476b19cbc2`
 
 ## 카드 표시
 
-오피스텔 카드에서 해당 법정동 그룹이 존재할 때 다음을 표시한다.
+지원 유형 카드에서 해당 법정동 또는 시군구 그룹이 존재할 때 다음을 표시한다.
 
 - 법정동 키값
 - 유효 사례·고유 건물 수

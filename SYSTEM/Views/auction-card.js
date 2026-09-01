@@ -1151,7 +1151,7 @@ window.renderAuctionCard = function(p, container, options) {
     });
 
     // 법정동 키값: 전용면적으로 환산한 총액을 가격쌍 바로 아래에 표시한다.
-    if (p.property_type === '오피스텔' && window.AuctionKeyValueProjection) {
+    if (window.AuctionKeyValueProjection) {
       try {
         const keyProjection = window.AuctionKeyValueSnapshot
           ? window.AuctionKeyValueProjection.project(p, window.AuctionKeyValueSnapshot, { parsePrice: parser })

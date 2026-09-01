@@ -3,8 +3,14 @@
 const crypto = require("node:crypto");
 
 const SQM_PER_PYEONG = 3.305785;
+const SUPPORTED_PROPERTY_TYPES = Object.freeze(["오피스텔", "아파트", "다가구"]);
 
 function clean(value) { return String(value ?? "").trim(); }
+function canonicalPropertyType(value) {
+  const type = clean(value);
+  if (type === "다가구(원룸등)") return "다가구";
+  return type;
+}
 function number(value) {
   const match = clean(value).replaceAll(",", "").match(/-?\d+(?:\.\d+)?/);
   return match ? Number(match[0]) : null;
@@ -45,9 +51,10 @@ function parseAuctCsv(text, options = {}) {
     if (!(area > 0) || !(price > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !data.소재지) throw new Error(`AUCT CSV ${index + 2}행이 올바르지 않습니다.`);
     const addressParts = data.소재지.split(",");
     const parcelAddress = clean(addressParts[0]);
-    const recordIdentity = [data.물건종류, data.소재지, area, price, date].join("|");
+    const propertyType = canonicalPropertyType(data.물건종류);
+    const recordIdentity = [propertyType, data.소재지, area, price, date].join("|");
     return Object.freeze({
-      schema_version: "auction-key-record.v1", record_id: sha256(recordIdentity), property_type: data.물건종류,
+      schema_version: "auction-key-record.v1", record_id: sha256(recordIdentity), property_type: propertyType,
       address: data.소재지, parcel_address: parcelAddress, legal_dong: parseLegalDong(parcelAddress), building_key: buildingKey(data.소재지),
       land_right_area_sqm: number(data.대지권), area_sqm: area, price_won: price, auction_date: date,
       won_per_pyeong: round(price / (area / SQM_PER_PYEONG), 0), source: "AUCT CSV", source_file: options.sourceFile || null
@@ -56,7 +63,7 @@ function parseAuctCsv(text, options = {}) {
 }
 function eligibility(record) {
   if (!record || !(record.area_sqm > 0) || !(record.price_won > 0)) return { eligible: false, reason: "invalid_required_value" };
-  if (record.property_type !== "오피스텔") return { eligible: false, reason: "unsupported_property_type" };
+  if (!SUPPORTED_PROPERTY_TYPES.includes(canonicalPropertyType(record.property_type))) return { eligible: false, reason: "unsupported_property_type" };
   if (record.won_per_pyeong < 1_000_000 || record.won_per_pyeong > 100_000_000) return { eligible: false, reason: "suspicious_unit_price" };
   if (!record.legal_dong) return { eligible: false, reason: "missing_legal_dong" };
   return { eligible: true, reason: null };
@@ -68,7 +75,8 @@ function quantile(values, q) {
 }
 function parseRegion(address) {
   const parts = clean(address).split(/\s+/);
-  return { sido: parts[0] || null, sigungu: parts[1] || null };
+  const nestedDistrict = /시$/.test(parts[1] || "") && /구$/.test(parts[2] || "");
+  return { sido: parts[0] || null, sigungu: nestedDistrict ? `${parts[1]} ${parts[2]}` : parts[1] || null };
 }
 function snapshotHash(snapshot) {
   const canonical = JSON.stringify({ schema_version: snapshot.schema_version, generated_at: snapshot.generated_at, groups: snapshot.groups, districts: snapshot.districts });
@@ -121,4 +129,17 @@ function comparePrice(priceWon, areaSqm, keyValue) {
   return Object.freeze({ won_per_pyeong: unit, ratio, position: ratio < 0.9 ? "키값 하단" : ratio <= 1.1 ? "키값 근접" : "키값 상단" });
 }
 
-module.exports = Object.freeze({ SQM_PER_PYEONG, buildKeyValueSnapshot, comparePrice, eligibility, parseAuctCsv, parseLegalDong, quantile, sha256, snapshotHash });
+module.exports = Object.freeze({
+  SQM_PER_PYEONG,
+  SUPPORTED_PROPERTY_TYPES,
+  buildKeyValueSnapshot,
+  canonicalPropertyType,
+  comparePrice,
+  eligibility,
+  parseAuctCsv,
+  parseLegalDong,
+  parseRegion,
+  quantile,
+  sha256,
+  snapshotHash
+});

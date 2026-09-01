@@ -84,6 +84,7 @@ test("Auction card keeps the key-value total inside the price group immediately 
   const terminalMetrics = card.indexOf("const isTerminalStatus");
   assert.ok(pricePair >= 0 && keyValue > pricePair && terminalMetrics > keyValue);
   assert.match(card, /priceGroup\.createEl\('button',[\s\S]*?class:\s*'auction-card-key-value'/);
+  assert.doesNotMatch(card, /p\.property_type\s*===\s*['"]오피스텔['"]/, "available 아파트·다가구 snapshot도 카드에 표시해야 함");
 });
 
 test("Auction card projects compact, medium, and wide tiers from the shared view model", () => {
