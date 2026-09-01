@@ -367,9 +367,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       try { goldenPreviewRows = await window.LLMWikiGoldenPreviewWorkbench.loadPreviews(appRef.vault); }
       catch (_error) { goldenPreviewRows = []; }
     }
-    const goldenPreviewReviewed = llmWikiSession.goldenPreviewReviewed instanceof Set
-      ? llmWikiSession.goldenPreviewReviewed : new Set();
-    llmWikiSession.goldenPreviewReviewed = goldenPreviewReviewed;
+    const goldenPreviewReviewState = llmWikiSession.goldenPreviewReviewState
+      || window.LLMWikiGoldenPreviewWorkbench?.createReviewState?.() || null;
+    if (goldenPreviewReviewState) llmWikiSession.goldenPreviewReviewState = goldenPreviewReviewState;
     const llmWikiControllerOptions = { ...(KnowledgeExplorerHub.llmWikiControllerOptions || {}) };
     let llmWikiConfig = await window.ProdigyConfigService.load(appRef);
     llmWikiSession.bindings.config = llmWikiConfig;
@@ -3048,7 +3048,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     goldenPreviewWorkbench = window.LLMWikiGoldenPreviewWorkbench && window.LLMWikiGoldenPreviewWorkbench.mount({
       container: browsePanel,
       rows: goldenPreviewRows,
-      reviewed: goldenPreviewReviewed,
+      ...(goldenPreviewReviewState ? { reviewState: goldenPreviewReviewState } : {}),
       onOpen: (targetPath) => P.openBeside(appRef, targetPath),
       onReviewed: (row) => {
         KnowledgeExplorerHub.lastGoldenPreviewReview = Object.freeze({
@@ -3064,6 +3064,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     if (mountContext && mountContext.scope && typeof mountContext.scope.track === "function") {
       mountContext.scope.track(() => {
         if (llmWikiSession.bindings.wikiSurface === llmWikiWikiSurface) llmWikiSession.bindings.wikiSurface = null;
+        if (goldenPreviewWorkbench && typeof goldenPreviewWorkbench.destroy === "function") goldenPreviewWorkbench.destroy();
       });
     }
 

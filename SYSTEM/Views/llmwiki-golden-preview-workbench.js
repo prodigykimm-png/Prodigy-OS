@@ -79,6 +79,28 @@
     }
     return freeze(rows.sort((left, right) => left.title.localeCompare(right.title, "ko")));
   }
+  function createReviewState(initial = []) {
+    const reviewed = new Set(initial instanceof Set ? [...initial] : Array.isArray(initial) ? initial : []);
+    const subscribers = new Set();
+    const snapshot = () => freeze({ reviewed_ids: freeze([...reviewed].sort()) });
+    return freeze({
+      has(previewId) { return reviewed.has(previewId); },
+      mark(previewId) {
+        if (typeof previewId !== "string" || !previewId || reviewed.has(previewId)) return false;
+        reviewed.add(previewId);
+        const value = snapshot();
+        for (const subscriber of [...subscribers]) subscriber(value);
+        return true;
+      },
+      subscribe(subscriber, emitCurrent = true) {
+        if (typeof subscriber !== "function") throw new TypeError("subscriber_required");
+        subscribers.add(subscriber);
+        if (emitCurrent) subscriber(snapshot());
+        return () => subscribers.delete(subscriber);
+      },
+      snapshot,
+    });
+  }
   function mount(options) {
     const config = plain(options) ? options : {};
     if (!config.container) throw new TypeError("container is required");
@@ -87,34 +109,49 @@
       const el = parent.ownerDocument.createElement(tag); if (value) el.textContent = value; Object.entries(attrs || {}).forEach(([key, entry]) => el.setAttribute(key, entry)); parent.appendChild(el); return el;
     };
     const createDiv = (parent, attrs) => typeof parent.createDiv === "function" ? parent.createDiv({ attr: attrs || {} }) : create(parent, "div", "", attrs);
-    const reviewed = config.reviewed instanceof Set ? config.reviewed : new Set();
-    const section = create(config.container, "section", "", { "data-surface": "llmwiki-golden-preview-workbench" });
+    const reviewState = config.reviewState && typeof config.reviewState.mark === "function"
+      ? config.reviewState : createReviewState(config.reviewed instanceof Set ? config.reviewed : []);
+    const section = create(config.container, "section", "", { "data-surface": "llmwiki-golden-preview-workbench", "data-product": "prodigy-wiki", "data-review-semantics": "acknowledged-not-published" });
     create(section, "h3", "Prodigy Wiki 검토", {});
     create(section, "p", "원문 내용을 정리한 결과이며 외부 사실 확인은 수행하지 않았습니다. 검토 완료를 표시해도 정식 지식 문서는 변경되지 않습니다.", { "data-preview-boundary": "human-review-only" });
+    let currentRows = Array.isArray(config.rows) ? config.rows : [];
     function render(rows) {
-      const old = section.querySelector && section.querySelector("[data-preview-list]"); if (old && old.remove) old.remove();
+      currentRows = Array.isArray(rows) ? rows : [];
+      const old = section.querySelector && section.querySelector("[data-preview-list]");
+      if (old && typeof old.remove === "function") old.remove();
+      else if (old && old.parentElement && typeof old.parentElement.removeChild === "function") old.parentElement.removeChild(old);
       const list = createDiv(section, { "data-preview-list": "" });
-      if (!rows.length) { create(list, "p", "검토할 preview가 없습니다.", {}); return; }
-      rows.forEach((row) => {
+      if (!currentRows.length) { create(list, "p", "검토할 결과가 없습니다.", {}); return; }
+      currentRows.forEach((row) => {
         const card = create(list, "article", "", { "data-preview-id": row.preview_id, "data-gate-status": row.status });
         create(card, "h4", row.title, {});
         const passed = row.status === "publishable_preview";
         create(card, "output", passed ? "자동 검사 통과 · 사람 검토 필요" : "자동 검사에서 문제를 발견했습니다.", { "data-preview-gate": row.status });
         create(card, "p", passed ? "문서 구성 통과 · 필수 항목 확인 · 숫자 누락 없음" : "결과와 원문을 비교한 뒤 다시 만들어 주세요.", { "data-preview-metrics": "" });
         const actions = createDiv(card, { "data-preview-actions": "" });
-        const openDocument = create(actions, "button", "검토하기", { type: "button", "data-action": "open-golden-preview" });
+        const openDocument = create(actions, "button", "검토하기", { type: "button", "data-action": "open-golden-preview", "data-primary": "true" });
         openDocument.onclick = () => config.onOpen && config.onOpen(row.document_path);
         const openSource = create(actions, "button", "원문 확인", { type: "button", "data-action": "open-golden-source" });
         openSource.onclick = () => config.onOpen && config.onOpen(row.source_path);
-        const mark = create(actions, "button", reviewed.has(row.preview_id) ? "검토 완료" : "검토 완료 표시", { type: "button", "data-action": "mark-golden-reviewed" });
-        mark.disabled = !row.can_mark_reviewed || reviewed.has(row.preview_id);
-        mark.onclick = () => { if (!row.can_mark_reviewed || reviewed.has(row.preview_id)) return; reviewed.add(row.preview_id); mark.disabled = true; mark.textContent = "검토 완료"; if (typeof config.onReviewed === "function") config.onReviewed(row); };
+        const reviewed = reviewState.has(row.preview_id);
+        const mark = create(actions, "button", reviewed ? "확인함" : "확인 완료", { type: "button", "data-action": "mark-golden-reviewed" });
+        mark.disabled = !row.can_mark_reviewed || reviewed;
+        mark.onclick = () => {
+          if (!row.can_mark_reviewed || !reviewState.mark(row.preview_id)) return;
+          if (typeof config.onReviewed === "function") config.onReviewed(row);
+        };
       });
     }
-    render(Array.isArray(config.rows) ? config.rows : []);
-    return freeze({ render, reviewed, snapshot: () => freeze({ reviewed_ids: freeze([...reviewed]) }) });
+    const unsubscribe = reviewState.subscribe(() => render(currentRows), false);
+    render(currentRows);
+    return freeze({
+      render,
+      reviewState,
+      snapshot: reviewState.snapshot,
+      destroy() { unsubscribe(); if (section.remove) section.remove(); },
+    });
   }
-  const api = freeze({ PREVIEW_DIR, RECEIPT_SUFFIX, inspectPreview, loadPreviews, mount });
+  const api = freeze({ PREVIEW_DIR, RECEIPT_SUFFIX, inspectPreview, loadPreviews, createReviewState, mount });
   root.LLMWikiGoldenPreviewWorkbench = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
