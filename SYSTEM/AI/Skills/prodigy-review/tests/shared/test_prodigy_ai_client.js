@@ -73,6 +73,8 @@ function fakeRuntime(options = {}) {
       listProviders() { return options.providers || []; },
       listModels() { return options.models || []; },
       resolveProvider(requirements) { return options.resolution || { status: "ready", requirements }; },
+      getConsentRequirement(requirements) { return options.consent || { status: "consent_required", requirements }; },
+      grantConsumer(requirements) { return { status: "granted", requirements }; },
       openSettings() { return true; },
       subscribeStatus(listener) { runtime.listener = listener; return () => { runtime.listener = null; }; },
     },
@@ -324,7 +326,7 @@ test("oversized or non-JSON runtime output and status fail closed", async () => 
   assert.equal(malformedClient.getStatus().error_code, "malformed_runtime_response");
 });
 
-test("provider discovery wrappers and subscriptions expose only cloned protocol data", () => {
+test("provider discovery wrappers and subscriptions expose only cloned protocol data", async () => {
   const providerRows = [{ profile_id: "profile-1", status: "ready" }];
   const fake = fakeRuntime({ providers: providerRows, models: [{ id: "model-1" }] });
   const client = clientApi.createClient({ app: appWith({ value: fake.runtime }) });
@@ -333,6 +335,8 @@ test("provider discovery wrappers and subscriptions expose only cloned protocol 
   assert.notStrictEqual(listed, providerRows);
   assert.deepEqual(client.listModels(), [{ id: "model-1" }]);
   assert.equal(client.resolveProvider("project.workflow_draft").status, "ready");
+  assert.equal(client.getConsentRequirement("project.workflow_draft").status, "consent_required");
+  assert.equal((await client.grantConsumer("project.workflow_draft")).status, "granted");
   let event = null;
   const unsubscribe = client.subscribeStatus((value) => { event = value; });
   const emitted = { status: "degraded" };

@@ -263,13 +263,14 @@
         startMode: "planning",
         workflow: core.getPresetWorkflow("Company"),
         workflowPresets: {},
-        providerKey: "",
-        providerConfig: null,
         busy: false,
         status: "",
         createdPath: "",
         createdWorkflow: []
       };
+      this.aiOwnerSessionId = `project-wizard-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      this.aiOperationCounter = 0;
+      this.aiController = null;
       this.logicalWidth = opts.logicalWidth;
     }
 
@@ -280,9 +281,8 @@
         this.modalEl.style.maxWidth = "calc(100vw - 32px)";
       }
       try {
-        this.state.providerConfig = await root.ProjectWorkflowDraftService.loadProviderConfig(this.app);
-        this.state.providerKey = this.state.providerConfig.defaultProvider;
-        this.state.workflowPresets = this.state.providerConfig.workflowPresets || {};
+        const config = await root.ProdigyConfigService.load(this.app);
+        this.state.workflowPresets = config.workflowPresets || {};
       } catch (error) {
         this.state.status = error.message;
       }
@@ -292,6 +292,8 @@
     }
 
     onClose() {
+      if (this.aiController) this.aiController.abort();
+      this.aiController = null;
       this.contentEl.empty();
     }
 
@@ -415,15 +417,12 @@
       const providerBox = parent.createEl("div", {
         attr: { class: "prodigy-project-provider prodigy-utility-card" }
       });
-      fieldLabel(providerBox, "AI 제공자");
-      const providerOptions = root.ProjectWorkflowDraftService
-        .listProviders(state.providerConfig || undefined)
-        .map((provider) => ({
-          value: provider.key,
-          label: provider.model ? `${provider.name} (${provider.model})` : `${provider.name} (설정되지 않음)`
-        }));
-      select(providerBox, state.providerKey || (providerOptions[0] && providerOptions[0].value) || "", providerOptions, (value) => {
-        state.providerKey = value;
+      fieldLabel(providerBox, "AI Runtime");
+      const aiClient = root.ProdigyAIClient.createClient({ app: this.app });
+      const runtimeStatus = aiClient.getStatus();
+      providerBox.createEl("div", {
+        text: runtimeStatus.ok ? "외부 AI Runtime 연결됨" : "AI Runtime 설정이 필요합니다.",
+        attr: { style: "color:var(--ke-color-muted);font-size:var(--ke-type-body);margin-top:4px;" }
       });
       const aiRow = providerBox.createEl("div", { attr: { style: "display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap;" } });
       const refine = primaryButton(aiRow, state.busy ? "다듬는 중..." : "워크플로 다듬기");
@@ -438,13 +437,12 @@
 
     openProjectTypeManager() {
       new ProjectTypeManagerModal(this.app, this.state.workflowPresets, this.state.workflow, async (presets) => {
-        await root.ProjectWorkflowDraftService.saveProviderSettings(this.app, {
+        await root.ProdigyConfigService.save(this.app, {
           config: { workflowPresets: presets }
         });
         this.state.workflowPresets = presets;
         if (!this.core.getPresetNames(presets).includes(this.state.projectType)) this.state.projectType = "Company";
         this.state.workflow = this.core.getPresetWorkflow(this.state.projectType, presets);
-        this.state.providerConfig = Object.assign({}, this.state.providerConfig, { workflowPresets: presets });
         this.state.status = "프로젝트 유형을 업데이트했습니다.";
         this.render();
       }, this.logicalWidth).open();
@@ -558,10 +556,33 @@
       this.state.status = "워크플로 다듬기를 요청하는 중...";
       this.render();
       try {
+        const client = root.ProdigyAIClient.createClient({ app: this.app });
+        const consent = client.getConsentRequirement("project.workflow_draft");
+        if (consent.status === "consent_required") {
+          const accepted = window.confirm([
+            "Project workflow 초안을 AI Runtime에 전송합니다.",
+            `Provider profile: ${consent.profile_id || "미설정"}`,
+            `Route: ${consent.route_class || "미설정"}`,
+            "프로젝트 이름, 유형, 기간, 완료 조건과 현재 workflow가 전송됩니다.",
+            "계속하시겠습니까?"
+          ].join("\n"));
+          if (!accepted) {
+            this.state.status = "AI 전송을 취소했습니다. 현재 워크플로는 유지됩니다.";
+            return;
+          }
+          const granted = await client.grantConsumer("project.workflow_draft");
+          if (granted.status !== "granted") {
+            const error = new Error("AI Runtime 전송 동의를 저장하지 못했습니다.");
+            error.code = granted.error_code || "consent_required";
+            throw error;
+          }
+        }
+        if (this.aiController) this.aiController.abort();
+        this.aiController = new AbortController();
+        const operationId = `${this.aiOwnerSessionId}-operation-${++this.aiOperationCounter}`;
         const result = await root.ProjectWorkflowDraftService.generateStructuredWorkflow({
           app: this.app,
-          config: this.state.providerConfig,
-          providerKey: this.state.providerKey,
+          client,
           projectContext: {
             projectName: this.state.projectName,
             projectType: this.state.projectType,
@@ -570,30 +591,28 @@
             dueDate: this.state.dueDate
           },
           baseWorkflow: this.state.workflow.length ? this.state.workflow : this.core.getPresetWorkflow(this.state.projectType, this.state.workflowPresets),
-          schema: this.core.WORKFLOW_SCHEMA
+          schema: this.core.WORKFLOW_SCHEMA,
+          ownerSessionId: this.aiOwnerSessionId,
+          operationId,
+          attemptId: "attempt-1",
+          signal: this.aiController.signal
         });
         this.state.workflow = this.core.cloneWorkflow(result.workflow);
-        this.state.status = `Workflow refined with ${result.provider}.`;
+        this.state.status = `AI Runtime으로 워크플로를 다듬었습니다${result.provider ? ` · ${result.provider}` : ""}.`;
       } catch (error) {
         this.state.status = `AI refinement failed: ${root.ProjectWorkflowDraftService.redactError(error)}`;
       } finally {
+        this.aiController = null;
         this.state.busy = false;
         this.render();
       }
     }
 
     openSettings() {
-      if (!root.ProdigySettingsModal || typeof root.ProdigySettingsModal.open !== "function") {
-        this.state.status = "Prodigy OS 설정을 불러오지 못했습니다.";
-        this.render();
-        return;
-      }
-      root.ProdigySettingsModal.open(this.app, { onSaved: async (savedConfig) => {
-        this.state.providerConfig = savedConfig;
-        this.state.providerKey = savedConfig.defaultProvider;
-        this.state.status = "Prodigy OS 설정을 적용했습니다.";
-        this.render();
-      }});
+      const client = root.ProdigyAIClient.createClient({ app: this.app });
+      const opened = client.openSettings();
+      this.state.status = opened === true ? "AI Runtime 설정을 열었습니다." : "AI Runtime 설정을 열지 못했습니다.";
+      this.render();
     }
 
     async createProject() {

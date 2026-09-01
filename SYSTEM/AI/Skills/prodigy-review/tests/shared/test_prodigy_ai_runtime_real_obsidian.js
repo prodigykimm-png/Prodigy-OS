@@ -50,7 +50,7 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
       };
     })()`);
     assert.equal(state.handshake.plugin_id, "prodigy-ai-runtime");
-    assert.equal(state.handshake.protocol_hash, "bdd56b11b9c87bc48ba350d91061ef2d518dc7eedc266a3c0340bbfd92bd7a91");
+    assert.equal(state.handshake.protocol_hash, "e14b93848a72e1b20247701f1f25c5aef6164400785e8c8482b4705d3c99ce51");
     assert.equal(state.status.status, "ready");
     assert.deepEqual(state.providers, []);
     assert.equal(state.unavailable.error_code, "capability_unavailable");

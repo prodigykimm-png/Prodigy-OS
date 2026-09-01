@@ -19,7 +19,8 @@
     ],
     runtime_methods: [
       "getHandshake", "getStatus", "listProviders", "listModels", "resolveProvider",
-      "requestStructured", "requestChat", "cancel", "getRequestStatus", "openSettings", "subscribeStatus",
+      "getConsentRequirement", "grantConsumer", "requestStructured", "requestChat",
+      "cancel", "getRequestStatus", "openSettings", "subscribeStatus",
     ],
     response_fields: ["protocol_version", "runtime_epoch", "request_id", "status", "payload", "receipt", "error_code"],
     response_statuses: ["completed", "failed", "cancelled_confirmed", "cancel_requested", "outcome_unknown"],
@@ -323,6 +324,15 @@
         return safe.ok ? safe.value : failure("malformed_runtime_response");
       } catch (_error) { return failure("runtime_unavailable"); }
     }
+    async function callRuntimeValueAsync(method, input) {
+      const runtime = discover();
+      if (!runtime.ok) return failure(runtime.error_code);
+      try {
+        const value = await runtime.api[method](input);
+        const safe = safeProtocolValue(value);
+        return safe.ok ? safe.value : failure("malformed_runtime_response");
+      } catch (_error) { return failure("runtime_unavailable"); }
+    }
     function listProviders() { return callRuntimeValue("listProviders"); }
     function listModels(query) {
       if (query !== undefined && !plain(query)) return failure("invalid_request");
@@ -334,6 +344,16 @@
       const manifest = manifests.get(consumerId);
       if (!manifest) return failure("unknown_consumer");
       return callRuntimeValue("resolveProvider", cloneProtocolValue(manifest));
+    }
+    function getConsentRequirement(consumerId) {
+      const manifest = manifests.get(consumerId);
+      if (!manifest) return failure("unknown_consumer");
+      return callRuntimeValue("getConsentRequirement", cloneProtocolValue(manifest));
+    }
+    function grantConsumer(consumerId) {
+      const manifest = manifests.get(consumerId);
+      if (!manifest) return Promise.resolve(failure("unknown_consumer"));
+      return callRuntimeValueAsync("grantConsumer", cloneProtocolValue(manifest));
     }
     function openSettings() {
       const runtime = discover();
@@ -358,8 +378,10 @@
 
     return freeze({
       cancel,
+      getConsentRequirement,
       getRequestStatus,
       getStatus,
+      grantConsumer,
       listModels,
       listProviders,
       openSettings,

@@ -42,8 +42,12 @@ def assert_dashboard_entry_point() -> None:
     assert "+ 프로젝트 시작" in dashboard
     assert "SYSTEM/Views/project-wizard-core.js" in project_manifest
     assert "SYSTEM/Views/prodigy-config-service.js" in project_manifest
+    assert "SYSTEM/Views/prodigy-ai-consumer-manifests.js" in project_manifest
+    assert "SYSTEM/Views/prodigy-ai-client.js" in project_manifest
     assert "SYSTEM/Views/project-workflow-draft-service.js" in project_manifest
-    assert "SYSTEM/Views/prodigy-settings-modal.js" in project_manifest
+    assert "SYSTEM/Views/ai-provider-service.js" not in project_manifest
+    assert "SYSTEM/Views/codex-exec-service.js" not in project_manifest
+    assert "SYSTEM/Views/antigravity-exec-service.js" not in project_manifest
     assert "SYSTEM/Views/project-todoist-adapter.js" in project_manifest
     assert "SYSTEM/Views/project-wizard.js" in project_manifest
 
@@ -490,14 +494,17 @@ const app = {{
     run_node(script)
 
 
+def assert_ai_runtime_canary() -> None:
+    test_file = ROOT / "SYSTEM" / "AI" / "Skills" / "prodigy-review" / "tests" / "project" / "test_project_ai_runtime_canary.js"
+    subprocess.run(["node", "--test", str(test_file)], check=True)
+
+
 def main() -> int:
     assert_dashboard_entry_point()
     assert_wizard_layout()
     assert_template_mapping()
     assert_core_behaviour()
-    assert_provider_contracts()
-    assert_provider_settings_save()
-    assert_provider_config_migration()
+    assert_ai_runtime_canary()
     assert_todoist_mock()
     return 0
 
