@@ -17,6 +17,9 @@ const OPTIONAL_MEASUREMENT_PATHS = new Set([
   "SYSTEM/Views/prodigy-performance-exporter.js",
   "SYSTEM/Views/prodigy-workspace-measurement.js"
 ]);
+const OPTIONAL_FEATURE_PATHS = new Set([
+  "SYSTEM/Views/auction-site-visit-index.js"
+]);
 const recordMeasurementFailure = (path, error) => {
   const failure = {
     path,
@@ -25,6 +28,15 @@ const recordMeasurementFailure = (path, error) => {
   };
   window.__prodigyMeasurementLoadFailures = (window.__prodigyMeasurementLoadFailures || []).concat(failure);
   if (window.prodigyDebugMode === true && console && console.warn) console.warn("선택적 성능 측정 모듈 미로드:", failure);
+};
+const recordOptionalFeatureFailure = (path, error) => {
+  const failure = {
+    path,
+    code: error && error.code ? String(error.code) : "optional_feature_load_failed",
+    message: error && error.message ? String(error.message).slice(0, 240) : "optional feature unavailable"
+  };
+  window.__prodigyOptionalFeatureLoadFailures = (window.__prodigyOptionalFeatureLoadFailures || []).concat(failure);
+  if (window.prodigyDebugMode === true && console && console.warn) console.warn("선택적 Region 기능 미로드:", failure);
 };
 window.RegionExplorerHub = window.RegionExplorerHub || {};
 
@@ -58,6 +70,7 @@ RegionExplorerHub.modulePaths = [
   "SYSTEM/Views/region-decision-context-core.js",
   "SYSTEM/Views/region-decision-view-model.js",
   "SYSTEM/Views/auction-decision-mirror-core.js",
+  "SYSTEM/Views/auction-site-visit-index.js",
   "SYSTEM/Views/region-intelligence-popup-store.js",
   "SYSTEM/Views/region-intelligence-popup-core.js",
   "SYSTEM/Views/region-intelligence-popup-view.js"
@@ -98,20 +111,33 @@ const fallbackRequire = (moduleName) => {
 };
 
 const loadReadOnlyModule = async (modulePath) => {
-  const optional = OPTIONAL_MEASUREMENT_PATHS.has(modulePath);
+  const optionalMeasurement = OPTIONAL_MEASUREMENT_PATHS.has(modulePath);
+  const optionalFeature = OPTIONAL_FEATURE_PATHS.has(modulePath);
+  const optional = optionalMeasurement || optionalFeature;
+  const recordOptionalFailure = (error) => {
+    if (optionalMeasurement) recordMeasurementFailure(modulePath, error);
+    else recordOptionalFeatureFailure(modulePath, error);
+  };
   try {
     const tFile = app.vault.getAbstractFileByPath(modulePath);
     if (!tFile) {
       const missing = new Error(`Region Explorer 모듈을 찾을 수 없습니다: ${modulePath}`);
       missing.code = "sync_pending";
       if (optional) {
-        recordMeasurementFailure(modulePath, missing);
+        recordOptionalFailure(missing);
         return null;
       }
       throw missing;
     }
     const module = { exports: {} };
-    const localRequire = typeof require === "function" ? require : fallbackRequire;
+    const localRequire = (moduleName) => {
+      if (moduleName === "node:path") return fallbackRequire(moduleName);
+      if (typeof require === "function") {
+        const resolved = require(moduleName);
+        if (resolved !== undefined && resolved !== null) return resolved;
+      }
+      return fallbackRequire(moduleName);
+    };
     const source = await app.vault.read(tFile);
     const evaluate = () => (new Function("module", "exports", "require", "window", "globalThis", source))(module, module.exports, localRequire, window, window);
     const session = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
@@ -124,7 +150,7 @@ const loadReadOnlyModule = async (modulePath) => {
     return module.exports;
   } catch (error) {
     if (optional) {
-      recordMeasurementFailure(modulePath, error);
+      recordOptionalFailure(error);
       return null;
     }
     throw error;
@@ -522,7 +548,7 @@ const initializeRegionWorkspace = async () => {
     regionExperienceOpening = opening;
     return opening;
   };
-const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
+const openAuctionWorkspaceForRegion = async ({ regionKey, row, regionIdentity } = {}) => {
     const identity = { ...(regionIdentity || {}), ...((row && row.identity) || {}) };
     const firstText = (...values) => values.find((value) => typeof value === "string" && value.trim())?.trim() || "";
     const sido = firstText(identity.sido, row && row.region_sido, regionIdentity && regionIdentity.sido);
@@ -579,6 +605,41 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
     if (Array.isArray(cases)) return cases;
     return [];
   };
+  const openRegionAuctions = ({ regionKey, row, regionIdentity, returnFocus } = {}) => {
+    const identity = { ...(regionIdentity || {}), ...((row && row.identity) || {}) };
+    const firstText = (...values) => values.find((value) => typeof value === "string" && value.trim())?.trim() || "";
+    const sido = firstText(identity.sido, row && row.region_sido, regionIdentity && regionIdentity.sido);
+    const sigungu = firstText(identity.sigungu, row && row.region_sigungu, regionIdentity && regionIdentity.sigungu);
+    const key = typeof regionKey === "string" ? regionKey.trim() : "";
+    const core = window.AuctionRegionCore;
+    const view = window.RegionIntelligencePopupView;
+    if (!key || !sido || !sigungu) {
+      explorer.setNotice("시·도와 시·군·구가 확인되는 지역만 경매 목록을 열 수 있습니다.");
+      return null;
+    }
+    if (!core || typeof core.getRegionAuctionSnapshot !== "function" || !view || typeof view.openAuctionOverlay !== "function") {
+      explorer.setNotice("지역 경매 목록을 준비하지 못했습니다. 다시 시도해 주세요.");
+      return null;
+    }
+    const snapshot = core.getRegionAuctionSnapshot(sido, sigungu, auctionRowsForRegion(), { now: new Date() });
+    return view.openAuctionOverlay(snapshot, {
+      returnFocus,
+      onOpenAuction: async (auctionRow) => {
+        const sourcePath = auctionRow && typeof auctionRow.path === "string" ? auctionRow.path.trim() : "";
+        const sourceFile = sourcePath ? app.vault.getAbstractFileByPath(sourcePath) : null;
+        if (!sourceFile) {
+          explorer.setNotice("Auction 원본을 찾지 못했습니다.");
+          return;
+        }
+        await app.workspace.getLeaf(false).openFile(sourceFile, { active: true });
+      },
+      onOpenAll: () => openAuctionWorkspaceForRegion({
+        regionKey: key,
+        row,
+        regionIdentity: { sido, sigungu }
+      })
+    });
+  };
   const openRegionDetail = async ({ regionKey, row, returnFocus } = {}) => {
     const identity = row && row.identity || {};
     const sido = typeof identity.sido === "string" ? identity.sido.trim() : "";
@@ -593,7 +654,16 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
       if (!result.ok) throw new Error(result.error || "지역 상세 화면을 열지 못했습니다.");
       return window.RegionIntelligencePopupView.openOverlay(result.state, {
         returnFocus,
-        onOpenAuction: (auctionRow) => openRegionAuctions({ regionKey: key, row: auctionRow, regionIdentity: { sido, sigungu } })
+        onOpenAuction: (auctionRow) => openRegionAuctions({ regionKey: key, row: auctionRow, regionIdentity: { sido, sigungu } }),
+        onOpenSiteVisit: async (visit) => {
+          const sourcePath = visit && typeof visit.source_path === "string" ? visit.source_path.trim() : "";
+          const sourceFile = sourcePath ? app.vault.getAbstractFileByPath(sourcePath) : null;
+          if (!sourceFile) {
+            explorer.setNotice("임장 원본 Auction을 찾지 못했습니다.");
+            return;
+          }
+          await app.workspace.getLeaf(false).openFile(sourceFile, { active: true });
+        }
       });
     } catch (_error) {
       explorer.setNotice("지역 상세 화면을 열지 못했습니다. 다시 시도해 주세요.");
@@ -628,6 +698,14 @@ const openRegionAuctions = async ({ regionKey, row, regionIdentity } = {}) => {
     if (snapshot) performance.markReady("region", snapshot);
   }
 } catch (error) {
+  window.__prodigyRegionWorkspaceLastError = {
+    name: error && error.name ? String(error.name) : "Error",
+    message: error && error.message ? String(error.message) : String(error),
+    code: error && error.code ? String(error.code) : null,
+    stack: error && error.stack ? String(error.stack).slice(0, 4000) : null,
+    at: new Date().toISOString()
+  };
+  if (console && typeof console.error === "function") console.error("Region workspace load failed:", error);
   failMeasurement(error);
   if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(this.container, error, {

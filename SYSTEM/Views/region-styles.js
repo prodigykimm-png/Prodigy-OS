@@ -155,6 +155,35 @@
 .region-auction-table-wrap { width: 100%; overflow-x: auto; }
 .region-auction-table { min-width: 640px; }
 .region-auction-open { min-height: ${touchTarget}px; padding: 4px 0; border: 0; background: transparent; color: var(--ke-color-accent, var(--text-accent)); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; font: inherit; }
+.region-visit-feed { display: grid; gap: 16px; min-width: 0; }
+.region-visit-group h4 { margin: 0 0 8px; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+.region-visit-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.region-visit-item { min-width: 0; border: 1px solid var(--background-modifier-border); border-radius: 10px; background: var(--background-primary); }
+.region-visit-item summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: ${touchTarget}px; padding: 8px 12px; cursor: pointer; }
+.region-visit-item summary:focus-visible { outline: 2px solid var(--ke-color-accent, var(--text-accent)); outline-offset: 2px; }
+.region-visit-item summary span { flex: 0 0 auto; color: var(--text-muted); font-size: 12px; }
+.region-visit-item details > :not(summary) { margin-inline: 12px; }
+.region-visit-meta, .region-visit-contact, .region-visit-counts { color: var(--text-muted); font-size: 12px; }
+.region-visit-summary { margin-block: 8px; padding-inline-start: 20px; }
+.region-visit-summary li { overflow-wrap: anywhere; }
+.region-visit-item [data-action="open-site-visit"] { margin-block: 8px 12px; padding-inline: 12px; border: 0; border-radius: 8px; background: var(--background-secondary); color: var(--ke-color-accent, var(--text-accent)); cursor: pointer; font: inherit; }
+.region-visit-item [data-action="open-site-visit"]:focus-visible { outline: 2px solid var(--ke-color-accent, var(--text-accent)); outline-offset: 2px; }
+.region-auction-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 12px; background: var(--background-modifier-cover); }
+.region-auction-overlay-modal { width: min(96vw, 760px); max-height: 90vh; overflow-y: auto; padding: 16px; border-radius: 12px; background: var(--background-primary); }
+.region-auction-overlay-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.region-auction-overlay-head h2 { margin: 0; font-size: 20px; }
+.region-auction-overlay-head p, .region-auction-overlay-limit { margin: 4px 0 12px; color: var(--text-muted); font-size: 12px; }
+.region-auction-card-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.region-auction-card { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; background: var(--background-primary); }
+.region-auction-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.region-auction-card-head h3 { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.region-auction-card-head span, .region-auction-card-type, .region-auction-card-address { margin: 0; color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
+.region-auction-card-values { display: grid; gap: 4px; margin: 0; }
+.region-auction-card-values > div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px; }
+.region-auction-card-values dt { color: var(--text-muted); font-size: 12px; }
+.region-auction-card-values dd { margin: 0; overflow-wrap: anywhere; }
+.region-auction-card button, .region-auction-overlay-head button, .region-auction-overlay-footer button { min-height: ${touchTarget}px; cursor: pointer; }
+.region-auction-overlay-footer { display: flex; justify-content: flex-end; margin-top: 12px; }
 .region-popup-footer { padding-top: 10px; font-size: 12px; color: var(--text-muted); }
 .region-decision-outcome { display: grid; gap: 18px; }
 .region-decision-outcome section { min-width: 0; }
@@ -177,6 +206,9 @@
   .region-section-head { align-items: flex-start; flex-direction: column; gap: 4px; }
   .region-section-head span { text-align: left; }
   .region-decision-row { grid-template-columns: 1fr; gap: 3px; }
+  .region-auction-overlay { align-items: flex-end !important; padding: 0 !important; }
+  .region-auction-overlay-modal { width: 100vw; max-height: 88vh; border-radius: 14px 14px 0 0; }
+  .region-auction-card-list { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

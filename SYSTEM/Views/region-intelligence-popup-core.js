@@ -14,6 +14,7 @@ const decisionMirrorCore = root.AuctionDecisionMirrorCore || (typeof require ===
 const popupStore = root.RegionIntelligencePopupStore || (typeof require === "function" ? require("./region-intelligence-popup-store.js") : null);
 const decisionContextCore = root.RegionDecisionContextCore || (typeof require === "function" ? require("./region-decision-context-core.js") : null);
 const regionProjectionCore = root.RegionExplorerProjection || (typeof require === "function" ? require("./region-explorer-projection.js") : null);
+const siteVisitIndex = () => root.AuctionSiteVisitIndex || null;
 
 /**
  * Parse a Region Object markdown file into frontmatter + body sections.
@@ -126,6 +127,7 @@ function popupArguments(nowOrOptions, maybeOptions) {
 
 function projectPopup(regionKey, content, options, now, collectionHealth) {
   const { frontmatter, body } = parseRegionNote(content);
+  if (Array.isArray(options.siteVisits)) body.site_visits = options.siteVisits;
   const decisionMirror = decisionMirrorCore ? decisionMirrorCore.projectDecisionMirror({
     regionKey,
     auction: options.auction || {},
@@ -195,8 +197,18 @@ async function openPopupForApp(app, regionKey, nowOrOptions, maybeOptions) {
   const source = await popupStore.readRegionFromApp(app, regionKey);
   if (!source.ok) return source;
   const { options, now } = popupArguments(nowOrOptions, maybeOptions);
+  let siteVisits = Array.isArray(options.siteVisits) ? options.siteVisits : null;
+  const visitIndex = siteVisitIndex();
+  if (!siteVisits && visitIndex && typeof visitIndex.readRegionVisits === "function") {
+    try {
+      siteVisits = await visitIndex.readRegionVisits(app, regionKey, options.regionDong);
+    } catch (error) {
+      console.error("Region site visit index read failed:", error);
+      siteVisits = [];
+    }
+  }
   const vaultRoot = app && app.vault && app.vault.adapter && app.vault.adapter.basePath || "";
-  return projectPopup(regionKey, source.content, options, now, loadCollectionHealth(vaultRoot, regionKey, now));
+  return projectPopup(regionKey, source.content, { ...options, siteVisits: siteVisits || [] }, now, loadCollectionHealth(vaultRoot, regionKey, now));
 }
 
 /**

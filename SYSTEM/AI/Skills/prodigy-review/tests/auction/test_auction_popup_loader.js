@@ -12,6 +12,7 @@ const files = [
   "SYSTEM/Views/region-decision-context-core.js",
   "SYSTEM/Views/region-explorer-projection.js",
   "SYSTEM/Views/auction-decision-mirror-core.js",
+  "SYSTEM/Views/auction-site-visit-index.js",
   "SYSTEM/Views/region-intelligence-popup-store.js",
   "SYSTEM/Views/region-intelligence-popup-core.js",
   "SYSTEM/Views/region-intelligence-popup-view.js"

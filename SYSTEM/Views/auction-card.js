@@ -1935,13 +1935,13 @@ window.renderAuctionCard = function(p, container, options) {
       
       if (p.status === "bidding" && window.openAuctionSiteVisit) {
         const state = window.prodigySiteVisitStateByPath?.[p.file.path];
+        const summary = window.prodigySiteVisitSummaryByPath?.[p.file.path];
         const progress = window.prodigySiteVisit?.progress(state);
-        const complete = window.prodigySiteVisit?.isComplete(state);
-        // Short labels keep this control on the same row as status chips on mobile.
-        const label = complete
-          ? "현장 완료"
-          : progress && progress.done > 0
-            ? `현장 ${progress.done}/${progress.total}`
+        const meaningful = window.prodigySiteVisit?.hasMeaningfulEvidence(state);
+        const label = summary?.status === "recorded"
+          ? "현장 기록"
+          : summary || meaningful || (progress && progress.done > 0)
+            ? "현장 메모"
             : "현장 방문";
         const siteVisitButton = window.ProdigyUI
           ? window.ProdigyUI.button(buttonContainer, label, { chip: true, primary: true })
@@ -1971,11 +1971,15 @@ if (!window.prodigySiteVisitCardListener) {
   window.prodigySiteVisitCardListener = (event) => {
     const path = event.detail?.path;
     const state = event.detail?.state;
+    const record = event.detail?.record;
     if (!path || !state) return;
+    window.prodigySiteVisitSummaryByPath = window.prodigySiteVisitSummaryByPath || {};
+    if (record) window.prodigySiteVisitSummaryByPath[path] = record;
+    else delete window.prodigySiteVisitSummaryByPath[path];
     const progress = window.prodigySiteVisit?.progress(state);
-    const complete = window.prodigySiteVisit?.isComplete(state);
-    const label = complete ? "현장 방문 체크리스트 (완료)" : progress && progress.done > 0
-      ? `현장 방문 체크리스트 (${progress.done} / ${progress.total})` : "현장 방문 체크리스트";
+    const meaningful = window.prodigySiteVisit?.hasMeaningfulEvidence(state);
+    const label = record?.status === "recorded" ? "현장 기록" : record || meaningful || (progress && progress.done > 0)
+      ? "현장 메모" : "현장 방문";
     const buttons = document.querySelectorAll("[data-site-visit-path]");
     for (const button of Array.from(buttons)) {
       if (button.getAttribute("data-site-visit-path") === path) button.textContent = label;

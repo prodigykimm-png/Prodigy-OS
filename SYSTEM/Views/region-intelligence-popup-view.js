@@ -229,6 +229,45 @@ function renderDecisionOutcome(content) {
   </div>`;
 }
 
+function renderSiteVisits(visits) {
+  if (!Array.isArray(visits) || visits.length === 0) {
+    return `<div class="region-popup-empty">임장 기록 없음</div>`;
+  }
+  const groups = new Map();
+  visits.forEach((visit, index) => {
+    const dong = String(visit && (visit.region_admin_dong || visit.region_dong) || "동 정보 없음");
+    if (!groups.has(dong)) groups.set(dong, []);
+    groups.get(dong).push({ visit, index });
+  });
+  return `<div class="region-visit-feed">${[...groups.entries()].map(([dong, rows], groupIndex) => {
+    const groupId = `region-visit-group-${groupIndex}`;
+    return `<section class="region-visit-group" aria-labelledby="${groupId}">
+      <h4 id="${groupId}">${escapeHtml(dong)} · ${rows.length}건</h4>
+      <ul class="region-visit-list" role="list">${rows.map(({ visit, index }) => {
+        const building = escapeHtml(visit.building_name || "건물명 미상");
+        const status = visit.status === "recorded" ? "기록됨" : "작성 중";
+        const lines = Array.isArray(visit.summary_lines) ? visit.summary_lines.filter(Boolean) : [];
+        const summaries = lines.length
+          ? `<ul class="region-visit-summary">${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`
+          : `<p class="region-popup-empty">표시할 메모가 없습니다.</p>`;
+        const contact = visit.has_contact ? `<p class="region-visit-contact">관리사무소 연락처 있음 · 원본에서 확인</p>` : "";
+        return `<li>
+          <article class="region-visit-item" data-visit-status="${escapeHtml(visit.status || "draft")}">
+            <details>
+              <summary><strong>${building}</strong><span>${escapeHtml(status)}</span></summary>
+              <p class="region-visit-meta">${escapeHtml(visit.visited_at || "날짜 미정")} · ${escapeHtml(visit.case_number || "사건번호 없음")}</p>
+              ${summaries}
+              ${contact}
+              <p class="region-visit-counts">확인 ${Number(visit.checked_count) || 0} · 사진 ${Number(visit.photo_count) || 0}</p>
+              <button type="button" data-action="open-site-visit" data-site-visit-index="${index}" aria-label="${building} Auction 원본 열기" style="${touchStyle()}">Auction 원본 열기</button>
+            </details>
+          </article>
+        </li>`;
+      }).join("")}</ul>
+    </section>`;
+  }).join("")}</div>`;
+}
+
 function auctionStatusLabel(status) {
   return ({ watching: "관찰", bidding: "입찰 예정", won: "낙찰", lost: "패찰", skipped: "포기", reviewing: "검토", archived: "보관" })[status] || status || "상태 없음";
 }
@@ -249,6 +288,113 @@ function renderConnectedAuctions(content) {
     <td>${escapeHtml(row.address || "주소 없음")}${row.region_dong ? ` · ${escapeHtml(row.region_dong)}` : ""}</td>
   </tr>`).join("");
   return `${summary}<div class="region-auction-table-wrap"><table class="region-popup-table region-auction-table"><thead><tr><th>사건</th><th>상태</th><th>기일</th><th>최저가</th><th>주소 · 동</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function auctionOverlayRows(snapshot) {
+  const rows = Array.isArray(snapshot && snapshot.rows) ? snapshot.rows : [];
+  return rows.slice(0, 20);
+}
+
+function renderAuctionOverlay(snapshot) {
+  const rows = auctionOverlayRows(snapshot);
+  const count = Number(snapshot && snapshot.count) || rows.length;
+  const region = [snapshot && snapshot.region_sido, snapshot && snapshot.region_sigungu].filter(Boolean).join(" ") || "선택 지역";
+  const limitNotice = count > rows.length
+    ? `<p class="region-auction-overlay-limit" role="status">최근 20건만 표시합니다. 전체 목록은 Auction 워크스페이스에서 확인하세요.</p>`
+    : "";
+  const cards = rows.length
+    ? `<ul class="region-auction-card-list" role="list">${rows.map((row, index) => {
+      const caseNumber = escapeHtml(row.case_number || "사건번호 없음");
+      return `<li><article class="region-auction-card">
+        <header class="region-auction-card-head">
+          <h3>${caseNumber}</h3>
+          <span>${escapeHtml(auctionStatusLabel(row.status))}</span>
+        </header>
+        <p class="region-auction-card-type">${escapeHtml(row.property_type || "물건 유형 없음")}</p>
+        <p class="region-auction-card-address">${escapeHtml(row.address || "주소 없음")}${row.region_dong ? ` · ${escapeHtml(row.region_dong)}` : ""}</p>
+        <dl class="region-auction-card-values">
+          <div><dt>매각기일</dt><dd>${escapeHtml(row.auction_datetime || "기일 없음")}</dd></div>
+          <div><dt>감정가</dt><dd>${formatWon(row.appraisal_price)}</dd></div>
+          <div><dt>최저가</dt><dd>${formatWon(row.minimum_bid)}</dd></div>
+        </dl>
+        <button type="button" data-action="open-region-auction" data-region-auction-index="${index}" aria-label="${caseNumber} Auction 원본 열기" style="${touchStyle()}">Auction 원본 열기</button>
+      </article></li>`;
+    }).join("")}</ul>`
+    : `<div class="region-popup-empty">이 지역에 연결된 경매가 없습니다.</div>`;
+  return `<div class="region-auction-overlay-content">
+    <header class="region-auction-overlay-head">
+      <div><h2 id="region-auction-overlay-title">${escapeHtml(region)} 경매 · ${count}건</h2><p>현재 Region 문맥을 유지한 경량 목록입니다.</p></div>
+      <button type="button" data-action="close-region-auction-overlay" aria-label="지역 경매 목록 닫기" style="${touchStyle()}">닫기</button>
+    </header>
+    ${limitNotice}
+    ${cards}
+    <footer class="region-auction-overlay-footer">
+      <button type="button" data-action="open-region-auction-workspace" style="${touchStyle()}">Auction 워크스페이스에서 전체 보기</button>
+    </footer>
+  </div>`;
+}
+
+function openAuctionOverlay(snapshot, options) {
+  if (typeof document === "undefined" || !document.body) return null;
+  const opts = options || {};
+  ensurePopupStyles(document);
+  const opener = opts.returnFocus && typeof opts.returnFocus.focus === "function"
+    ? opts.returnFocus
+    : document.activeElement && document.activeElement !== document.body
+      ? document.activeElement
+      : null;
+  const overlay = document.createElement("div");
+  overlay.className = "region-popup-overlay region-auction-overlay";
+  overlay.setAttribute("data-region-auction-backdrop", "true");
+  const modal = document.createElement("div");
+  modal.className = "region-popup-modal region-auction-overlay-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-labelledby", "region-auction-overlay-title");
+  modal.tabIndex = -1;
+  modal.innerHTML = renderAuctionOverlay(snapshot);
+  overlay.appendChild(modal);
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    document.removeEventListener("keydown", onKeydown);
+    overlay.remove();
+    if (opener && opener.isConnected !== false && typeof opener.focus === "function") {
+      try { opener.focus({ preventScroll: true }); }
+      catch (_) { opener.focus(); }
+    }
+  };
+  const onKeydown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+    trapOverlayFocus(event, modal);
+  };
+  modal.querySelector("[data-action='close-region-auction-overlay']")?.addEventListener("click", close);
+  modal.querySelectorAll("[data-action='open-region-auction']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = auctionOverlayRows(snapshot)[Number(button.getAttribute("data-region-auction-index"))];
+      if (!row || typeof opts.onOpenAuction !== "function") return;
+      close();
+      opts.onOpenAuction(row);
+    });
+  });
+  modal.querySelector("[data-action='open-region-auction-workspace']")?.addEventListener("click", () => {
+    close();
+    if (typeof opts.onOpenAll === "function") opts.onOpenAll(snapshot);
+  });
+  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+  document.addEventListener("keydown", onKeydown);
+  document.body.appendChild(overlay);
+  const first = modal.querySelector("button:not([disabled]),[href],[tabindex]:not([tabindex='-1'])") || modal;
+  if (typeof first.focus === "function") {
+    try { first.focus({ preventScroll: true }); }
+    catch (_) { first.focus(); }
+  }
+  return Object.freeze({ overlay, close });
 }
 
 /**
@@ -276,8 +422,7 @@ function renderSectionContent(tab) {
     content = lines.length ? lines.map((line) => `<div class="region-transit-line"><strong>${escapeHtml(line.line_name || "노선")}</strong> ${escapeHtml(formatRegionValue("units", line.count))}</div>`).join("") : `<div class="region-popup-empty">확인된 교통 정보 없음</div>`;
   } else if (tab.id === "site_visit") {
     const visits = (tab.content && tab.content.site_visits) || [];
-    const visitHtml = visits.length > 0 ? visits.map((v) => `<div class="region-visit-item">${escapeHtml(v)}</div>`).join("") : `<div class="region-popup-empty">임장 기록 없음</div>`;
-    content = visitHtml;
+    content = renderSiteVisits(visits);
   } else if (tab.id === "decision_outcome" && tab.content) {
     content = renderDecisionOutcome(tab.content);
   } else if (tab.id === "connected_auctions" && tab.content) {
@@ -403,6 +548,16 @@ function mountPopup(container, popupState, options) {
         opts.onOpenAuction(row);
       });
     });
+    container.querySelectorAll("[data-action='open-site-visit']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const index = Number(button.getAttribute("data-site-visit-index"));
+        const section = findProjectionSection(state.projection, "site_visit");
+        const visit = section && section.content && section.content.site_visits && section.content.site_visits[index];
+        if (!visit || typeof opts.onOpenSiteVisit !== "function") return;
+        if (typeof opts.onClose === "function") opts.onClose();
+        opts.onOpenSiteVisit(visit);
+      });
+    });
   };
   paint();
   return Object.freeze({ getState: () => state });
@@ -493,7 +648,7 @@ function openOverlay(popupState, options) {
   overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
   document.addEventListener("keydown", onKeydown);
   document.body.appendChild(overlay);
-  mountPopup(modal, popupState, { onClose: close, onOpenAuction: opts.onOpenAuction });
+  mountPopup(modal, popupState, { onClose: close, onOpenAuction: opts.onOpenAuction, onOpenSiteVisit: opts.onOpenSiteVisit });
   focusFirst();
   return Object.freeze({ overlay, close });
 }
@@ -505,11 +660,14 @@ const api = Object.freeze({
   renderTabBar,
   renderTabPanel,
   renderDecisionOutcome,
+  renderSiteVisits,
+  renderAuctionOverlay,
   renderPopup,
   popupStyles,
   mountPopup,
   trapOverlayFocus,
-  openOverlay
+  openOverlay,
+  openAuctionOverlay
 });
 
 root.RegionIntelligencePopupView = api;

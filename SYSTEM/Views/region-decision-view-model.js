@@ -179,8 +179,9 @@ function projectRegionPopup(regionData, now) {
 
   // Tab: 임장
   const siteVisitAvailable = Boolean(body.site_visits && body.site_visits.length > 0);
+  const siteVisitCount = siteVisitAvailable ? body.site_visits.length : 0;
   const siteVisitTab = {
-    id: "site_visit", label: "임장",
+    id: "site_visit", label: siteVisitCount ? `임장 ${siteVisitCount}` : "임장",
     available: true, // always available — can add new
     content: { site_visits: body.site_visits || [], can_add: true },
     unavailableReason: null

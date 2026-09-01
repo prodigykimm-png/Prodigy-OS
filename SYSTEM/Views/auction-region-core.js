@@ -136,7 +136,12 @@
       case_number: clean(row.case_number),
       status: clean(row.status),
       auction_datetime: clean(row.auction_datetime),
+      appraisal_price: row.appraisal_price ?? null,
       minimum_bid: row.minimum_bid ?? null,
+      expected_bid: row.expected_bid ?? null,
+      my_bid_price: row.my_bid_price ?? null,
+      winning_bid_price: row.winning_bid_price ?? null,
+      property_type: clean(row.property_type),
       address: clean(row.address),
       region_dong: clean(row.region_dong)
     }));

@@ -10,6 +10,7 @@
   };
   const safeName = (value) => String(value || "case").replace(/[^\w가-힣-]+/g, "-").replace(/^-+|-+$/g, "") || "case";
   const objectSubtitle = (page) => `${display().property("case_number")}: ${page.case_number || page.file.name} · ${display().property("property_type")}: ${page.property_type || "미지정"}`;
+  const indexStore = () => window.AuctionSiteVisitIndex;
 
   const hasImageSignature = (bytes, type) => {
     const startsWith = (...signature) => signature.every((value, index) => bytes[index] === value);
@@ -74,13 +75,18 @@
         this.close();
         return;
       }
-      try {
-        await this.persist();
-      } catch (_) {
-        this.close();
-        return;
-      }
       this.render();
+    }
+
+    async syncIndex() {
+      const store = indexStore();
+      if (!store || typeof store.syncRecord !== "function") return null;
+      try {
+        return await store.syncRecord(this.app, this.page, this.state, this.file && this.file.stat || {});
+      } catch (error) {
+        notify(`지역 현장 기록 인덱스 갱신 실패: ${error.message}`);
+        return null;
+      }
     }
 
     async persist() {
@@ -88,9 +94,13 @@
       this.saveChain = nextSave;
       try {
         await nextSave;
+        const record = await this.syncIndex();
         window.prodigySiteVisitStateByPath = window.prodigySiteVisitStateByPath || {};
         window.prodigySiteVisitStateByPath[this.file.path] = this.state;
-        window.dispatchEvent(new CustomEvent("prodigy-site-visit-updated", { detail: { path: this.file.path, state: this.state } }));
+        window.prodigySiteVisitSummaryByPath = window.prodigySiteVisitSummaryByPath || {};
+        if (record) window.prodigySiteVisitSummaryByPath[this.file.path] = record;
+        else delete window.prodigySiteVisitSummaryByPath[this.file.path];
+        window.dispatchEvent(new CustomEvent("prodigy-site-visit-updated", { detail: { path: this.file.path, state: this.state, record } }));
       } catch (error) {
         notify(`현장 방문 저장 실패: ${error.message}`);
         throw error;
@@ -100,30 +110,35 @@
     render() {
       this.contentEl.empty();
       this.sectionEls = {};
-      this.contentEl.createEl("h2", { text: "현장 방문 체크리스트" });
+      this.contentEl.createEl("h2", { text: "현장 기록" });
       this.contentEl.createEl("p", { text: objectSubtitle(this.page), attr: { style: "color: var(--text-muted); margin-top: -8px;" } });
+      this.renderTextArea("현장에서 확인한 내용", "본 것과 들은 것을 한 줄씩 가볍게 기록하세요.", "notes");
       const progress = workflow().progress(this.state);
-      this.contentEl.createEl("div", { text: `${progress.done} / ${progress.total} 완료`, attr: { style: "font-weight: 700; color: var(--ke-color-accent, var(--text-accent)); margin-bottom: 10px;" } });
-      const progressEl = this.contentEl.createEl("div", { attr: { style: "height: 6px; background: var(--background-modifier-border); border-radius: 3px; margin-bottom: 16px; overflow: hidden;" } });
-      progressEl.createEl("div", { attr: { style: `height: 100%; width: ${progress.total ? (progress.done / progress.total) * 100 : 0}%; background: var(--ke-color-accent, var(--text-accent)); transition: width 160ms ease;` } });
+      this.contentEl.createEl("div", {
+        text: `확인한 항목 ${progress.done}개 · 체크하지 않은 항목은 미평가로 남습니다.`,
+        attr: { role: "status", "aria-live": "polite", style: "color: var(--text-muted); margin: 10px 0;" }
+      });
       const navigation = this.contentEl.createEl("div", { attr: { style: "display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;" } });
       this.button(navigation, "현장 방문 열기", () => this.openObjectSection(["현장 방문", "임장", "Site Visit", "Site Visit Report"]));
       this.button(navigation, "사진 열기", () => this.scrollToPopupSection("photos"));
       this.button(navigation, "예상 밖 발견 열기", () => this.scrollToPopupSection("unexpected"));
-      this.renderChecklist("공통 현장 체크리스트", workflow().commonItems);
       const type = workflow().normalizeType(this.page.property_type);
-      this.renderChecklist("물건 유형별 체크리스트", workflow().specificItems[type]);
-      this.renderTextArea("짧은 현장 메모", "한 줄씩 짧게 기록하세요.", "notes");
+      const priorityItems = workflow().priorityItemsFor(this.page.property_type);
+      const allItems = [...workflow().commonItems, ...(workflow().specificItems[type] || [])];
+      const additionalItems = allItems.filter((item) => !priorityItems.includes(item));
+      this.renderChecklist(`${this.page.property_type || "물건"} 우선 확인`, priorityItems, true);
+      this.renderChecklist("추가 확인 항목", additionalItems, false);
       this.renderTextArea("예상 밖 발견", "예상하지 못한 관찰을 기록하세요.", "unexpected");
       this.renderPhotos();
       const footer = this.contentEl.createEl("div", { attr: { style: "display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap;" } });
-      this.button(footer, "저장 후 닫기", () => this.saveAndClose());
-      this.button(footer, "현장 방문 완료", () => this.finish(), true);
+      this.button(footer, "작성 중 저장", () => this.saveAndClose());
+      this.button(footer, "현장 기록 저장", () => this.finish(), true);
     }
 
-    renderChecklist(title, items) {
-      const section = this.contentEl.createEl("div", { attr: { style: "margin: 14px 0;" } });
-      section.createEl("h3", { text: title, attr: { style: "font-size: 1em; margin-bottom: 6px;" } });
+    renderChecklist(title, items, open) {
+      const section = this.contentEl.createEl("details", { attr: { style: "margin: 14px 0;" } });
+      section.open = Boolean(open);
+      section.createEl("summary", { text: title, attr: { style: "font-size: 1em; font-weight: 700; min-height: 44px; cursor: pointer;" } });
       if (!items.length) {
         section.createEl("p", { text: "물건 유형이 지정되지 않아 공통 항목만 표시합니다.", attr: { style: "color: var(--text-muted); font-size: 0.85em; margin: 6px 0;" } });
         return;
@@ -132,47 +147,60 @@
         this.state.checklistNotes = {};
       }
       const ratings = [
+        ["unset", "미평가"],
         ["high", "상"],
         ["medium", "중"],
         ["low", "하"],
-        ["na", "해당 없음"]
+        ["na", "관계없음"]
       ];
       for (const label of items) {
-        const block = section.createEl("div", {
+        const block = section.createEl("fieldset", {
           attr: {
-            style: "padding: 8px 0; border-bottom: 1px solid var(--background-modifier-border);"
+            style: "padding: 8px 0; border: 0; border-bottom: 1px solid var(--background-modifier-border); margin: 0;"
           }
         });
-        const row = block.createEl("div", {
-          attr: {
-            style: "display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;"
-          }
-        });
-        row.createEl("span", {
+        block.createEl("legend", {
           text: workflow().labelFor(label),
-          attr: { style: "font-size: 0.9em; font-weight: 650;" }
+          attr: { style: "font-size: 0.9em; font-weight: 650; padding: 0;" }
         });
-        const controls = row.createEl("div", {
-          attr: { style: "display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap;" }
+        const controls = block.createEl("div", {
+          attr: {
+            style: "display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 4px; margin-top: 6px;"
+          }
         });
         const current = workflow().normalizeRating
           ? workflow().normalizeRating(this.state.checklist[label])
           : this.state.checklist[label];
         ratings.forEach(([value, text]) => {
-          const button = this.button(controls, text, async () => {
+          const option = controls.createEl("label", {
+            attr: { style: "display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:1px solid var(--background-modifier-border);border-radius:8px;cursor:pointer;" }
+          });
+          const input = option.createEl("input", {
+            attr: {
+              type: "radio",
+              name: `site-visit-${safeName(this.file.path)}-${safeName(label)}`,
+              value,
+              "aria-label": `${workflow().labelFor(label)}: ${text}`
+            }
+          });
+          input.checked = current === value;
+          input.onchange = async () => {
+            if (!input.checked) return;
             this.captureText();
             this.state.checklist[label] = value;
-            try {
-              await this.persist();
-              this.render();
-            } catch (_) {}
-          }, current === value);
-          button.setAttr("aria-label", `${workflow().labelFor(label)}: ${text}`);
+            try { await this.persist(); } catch (_) {}
+          };
+          option.createEl("span", { text });
         });
-        const memo = block.createEl("input", {
+        const memoLabel = block.createEl("label", {
+          text: `${workflow().labelFor(label)} 메모`,
+          attr: { style: "display:block;margin-top:6px;font-size:0.78em;color:var(--text-muted);" }
+        });
+        const memo = memoLabel.createEl("input", {
           attr: {
             type: "text",
             placeholder: "한 줄 메모 (선택)",
+            "aria-label": `${workflow().labelFor(label)} 한 줄 메모`,
             style: "width: 100%; margin-top: 6px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--background-modifier-border); background: var(--background-primary); color: var(--text-normal); font-size: 0.84em; box-sizing: border-box;"
           }
         });
@@ -236,7 +264,7 @@
       const section = this.contentEl.createEl("div", { attr: { style: "margin-top: 14px;" } });
       if (key === "unexpected") this.sectionEls.unexpected = section;
       section.createEl("h3", { text: title, attr: { style: "font-size: 1em; margin-bottom: 6px;" } });
-      const input = section.createEl("textarea", { attr: { placeholder, rows: "3", style: "width: 100%; resize: vertical;" } });
+      const input = section.createEl("textarea", { attr: { placeholder, rows: "3", "aria-label": title, style: "width: 100%; resize: vertical;" } });
       input.value = (this.state[key] || []).join("\n");
       input.oninput = () => { this.state[key] = input.value.split("\n").map((value) => value.trim()).filter(Boolean); };
       if (key === "notes") this.noteInput = input;
@@ -247,7 +275,7 @@
       const section = this.contentEl.createEl("div", { attr: { style: "margin-top: 14px;" } });
       this.sectionEls.photos = section;
       section.createEl("h3", { text: "사진", attr: { style: "font-size: 1em; margin-bottom: 6px;" } });
-      const input = section.createEl("input", { attr: { type: "file", accept: "image/*", multiple: "true" } });
+      const input = section.createEl("input", { attr: { type: "file", accept: "image/*", multiple: "true", "aria-label": "현장 사진 추가" } });
       input.onchange = async () => {
         this.captureText();
         const selected = Array.from(input.files || []);
@@ -293,8 +321,8 @@
     async finish() {
       this.state.notes = String(this.noteInput?.value || "").split("\n").map((value) => value.trim()).filter(Boolean);
       this.state.unexpected = String(this.unexpectedInput?.value || "").split("\n").map((value) => value.trim()).filter(Boolean);
-      if (!workflow().isComplete(this.state)) {
-        notify("모든 항목에 상/중/하/해당 없음을 선택해주세요.");
+      if (!workflow().hasMeaningfulEvidence(this.state)) {
+        notify("메모, 확인 항목, 사진 중 하나 이상을 기록해주세요.");
         return;
       }
       this.state.finishedAt = new Date().toISOString();
@@ -303,17 +331,22 @@
       const completeSave = this.saveChain.catch(() => {}).then(async () => {
         const content = await app.vault.read(this.file);
         await app.vault.modify(this.file, workflow().completeVisitInContent(content, this.state, report));
+        return this.syncIndex();
       });
       this.saveChain = completeSave;
       try {
-        await completeSave;
+        const record = await completeSave;
+        window.prodigySiteVisitSummaryByPath = window.prodigySiteVisitSummaryByPath || {};
+        if (record) window.prodigySiteVisitSummaryByPath[this.file.path] = record;
       } catch (error) {
         notify(`현장 방문 완료 저장 실패: ${error.message}`);
         return;
       }
       window.prodigySiteVisitStateByPath = window.prodigySiteVisitStateByPath || {};
       window.prodigySiteVisitStateByPath[this.file.path] = this.state;
-      window.dispatchEvent(new CustomEvent("prodigy-site-visit-updated", { detail: { path: this.file.path, state: this.state } }));
+      window.dispatchEvent(new CustomEvent("prodigy-site-visit-updated", {
+        detail: { path: this.file.path, state: this.state, record: window.prodigySiteVisitSummaryByPath?.[this.file.path] || null }
+      }));
       notify("현장 방문 요약이 현장 방문 섹션에 저장되었습니다.");
       this.close();
     }
@@ -332,16 +365,15 @@
 
   window.openAuctionSiteVisit = (page) => new SiteVisitModal(window.app, page).open();
   window.prodigySiteVisitStateByPath = window.prodigySiteVisitStateByPath || {};
-  window.prodigySiteVisitReady = Promise.all(app.vault.getFiles().filter((file) => file.path.startsWith("PARA/PROJECTS/Auction/") && file.extension === "md").map(async (file) => {
-    try {
-      const storedState = workflow().readState(await app.vault.read(file));
-      if (storedState) {
-        const propertyType = app.metadataCache.getFileCache(file)?.frontmatter?.property_type;
-        const currentState = workflow().reconcileState(storedState, propertyType);
-        window.prodigySiteVisitStateByPath[file.path] = currentState;
-        window.dispatchEvent(new CustomEvent("prodigy-site-visit-updated", { detail: { path: file.path, state: currentState } }));
-      }
-    } catch (_) { return null; }
-    return file.path;
-  }));
+  window.prodigySiteVisitSummaryByPath = window.prodigySiteVisitSummaryByPath || {};
+  const initialIndex = window.AuctionSiteVisitIndex;
+  window.prodigySiteVisitReady = initialIndex && typeof initialIndex.readIndex === "function"
+    ? initialIndex.readIndex(app).then((index) => {
+        window.prodigySiteVisitSummaryByPath = { ...(index.records || {}) };
+        return Object.keys(window.prodigySiteVisitSummaryByPath);
+      }).catch((error) => {
+        console.error("Auction site visit index load failed:", error);
+        return [];
+      })
+    : Promise.resolve([]);
 })();

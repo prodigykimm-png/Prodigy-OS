@@ -12,7 +12,7 @@
     high: "상",
     medium: "중",
     low: "하",
-    na: "해당 없음"
+    na: "관계없음"
   };
 
   const COMMON_ITEMS = [
@@ -24,10 +24,29 @@
     generic: [],
     commercial: ["Street Visibility", "Pedestrian Flow", "Tenant Mix", "Loading Access"],
     apartment: ["Unit Layout", "Sunlight", "View", "Security", "Elevator"],
+    officetel: [
+      "Unit Layout", "Sunlight", "View", "Security", "Elevator",
+      "Parking Type", "Management Fee", "Management Presence", "Residential Use", "Heating Cooling"
+    ],
+    lodging: [
+      "Front Desk Operation", "Operation Contract", "Room Condition", "Fire Evacuation",
+      "Common Facilities", "Management Fee", "Actual Lodging Use"
+    ],
     land: ["Road Access", "Land Boundary", "Slope", "Drainage", "Neighboring Uses"],
     factory: ["Vehicle Access", "Power Supply", "Ceiling Height", "Loading Area", "Equipment Condition"],
     neighborhood: ["Customer Access", "Commercial Visibility", "Utilities", "Fire Safety"],
     multifamily: ["Unit Layout", "Common Entrance", "Parking Capacity", "Management", "Tenant Condition"]
+  };
+  const PRIORITY_ITEMS = {
+    generic: ["Environment", "Building Condition", "Accessibility", "Parking", "Occupancy"],
+    commercial: ["Street Visibility", "Pedestrian Flow", "Tenant Mix", "Accessibility", "Parking", "Loading Access"],
+    apartment: ["Building Condition", "Parking", "Unit Layout", "Sunlight", "Security", "Elevator"],
+    officetel: ["Parking Type", "Management Fee", "Management Presence", "Occupancy", "Common Areas", "Security"],
+    lodging: ["Front Desk Operation", "Operation Contract", "Room Condition", "Fire Evacuation", "Common Facilities", "Management Fee"],
+    land: ["Road Access", "Land Boundary", "Slope", "Drainage", "Neighboring Uses"],
+    factory: ["Vehicle Access", "Power Supply", "Ceiling Height", "Loading Area", "Equipment Condition"],
+    neighborhood: ["Customer Access", "Commercial Visibility", "Pedestrian Flow", "Parking", "Utilities", "Fire Safety"],
+    multifamily: ["Common Entrance", "Parking Capacity", "Management", "Tenant Condition", "Occupancy", "Building Condition"]
   };
   const ITEM_LABELS = {
     Environment: "주변 환경", "Building Condition": "건물 상태", "Common Areas": "공용부", Accessibility: "접근성",
@@ -38,16 +57,22 @@
     "Road Access": "도로 접근성", "Land Boundary": "토지 경계", Slope: "경사", Drainage: "배수", "Neighboring Uses": "인접 토지 이용",
     "Vehicle Access": "차량 접근성", "Power Supply": "전력 공급", "Ceiling Height": "층고", "Loading Area": "하역 공간", "Equipment Condition": "설비 상태",
     "Customer Access": "고객 접근성", "Commercial Visibility": "상권 노출도", Utilities: "기반시설", "Fire Safety": "소방 안전",
-    "Common Entrance": "공동 현관", "Parking Capacity": "주차 수용력", Management: "관리 상태", "Tenant Condition": "임차 상태"
+    "Common Entrance": "공동 현관", "Parking Capacity": "주차 수용력", Management: "관리 상태", "Tenant Condition": "임차 상태",
+    "Parking Type": "주차 방식", "Management Fee": "관리비", "Management Presence": "관리 인력 상주",
+    "Residential Use": "실제 주거 이용", "Heating Cooling": "냉난방 방식",
+    "Front Desk Operation": "프런트 운영", "Operation Contract": "위탁운영 계약", "Room Condition": "객실 상태",
+    "Fire Evacuation": "소방·피난", "Common Facilities": "공용시설 운영", "Actual Lodging Use": "실제 숙박 운영"
   };
 
   const normalizeType = (value) => {
     const text = String(value || "").toLowerCase();
+    if (/생활숙박|숙박시설|호텔|레지던스|lodging|hotel/.test(text)) return "lodging";
     if (/토지|land/.test(text)) return "land";
     if (/공장|지식산업|산업센터|factory|industrial/.test(text)) return "factory";
     if (/근린|상가/.test(text)) return "neighborhood";
     if (/다세대|다가구|연립|multi|multifamily/.test(text)) return "multifamily";
-    if (/아파트|오피스텔|apartment|officetel/.test(text)) return "apartment";
+    if (/오피스텔|officetel/.test(text)) return "officetel";
+    if (/아파트|apartment/.test(text)) return "apartment";
     if (/상업|commercial|retail/.test(text)) return "commercial";
     return "generic";
   };
@@ -200,7 +225,7 @@
       "### 주의 (하)",
       lines(low),
       "",
-      "### 해당 없음",
+      "### 관계없음",
       lines(na),
       "",
       "### 중요 관찰",
@@ -213,7 +238,7 @@
       `- 상: ${values.filter((v) => v === "high").length}개`,
       `- 중: ${values.filter((v) => v === "medium").length}개`,
       `- 하: ${values.filter((v) => v === "low").length}개`,
-      `- 해당 없음: ${values.filter((v) => v === "na").length}개`,
+      `- 관계없음: ${values.filter((v) => v === "na").length}개`,
       "",
       "### 항목 메모",
       lines(itemMemos),
@@ -234,6 +259,20 @@
     return rating !== "unset";
   };
 
+  const hasMeaningfulEvidence = (state) => {
+    if (!state || typeof state !== "object") return false;
+    if (Object.values(state.checklist || {}).some((value) => isRated(value))) return true;
+    if (Object.values(state.checklistNotes || {}).some((value) => String(value || "").trim())) return true;
+    return ["notes", "unexpected", "photos"].some((key) => (
+      Array.isArray(state[key]) && state[key].some((value) => String(value || "").trim())
+    ));
+  };
+
+  const priorityItemsFor = (propertyType) => {
+    const type = normalizeType(propertyType);
+    return clone(PRIORITY_ITEMS[type] || PRIORITY_ITEMS.generic);
+  };
+
   window.prodigySiteVisit = {
     commonItems: clone(COMMON_ITEMS),
     specificItems: clone(SPECIFIC_ITEMS),
@@ -241,6 +280,7 @@
     ratingLabels: clone(RATING_LABELS),
     normalizeType,
     normalizeRating,
+    priorityItemsFor,
     labelFor: (value) => ITEM_LABELS[value] || value,
     ratingLabel: (value) => RATING_LABELS[normalizeRating(value)] || value,
     createState,
@@ -252,7 +292,8 @@
     updateReportInContent,
     completeVisitInContent,
     buildReport,
-    isComplete: (state) => state && Object.values(state.checklist || {}).every((value) => isRated(value)),
+    hasMeaningfulEvidence,
+    isComplete: hasMeaningfulEvidence,
     progress: (state) => {
       const values = Object.values(state?.checklist || {});
       return { done: values.filter((value) => isRated(value)).length, total: values.length };
