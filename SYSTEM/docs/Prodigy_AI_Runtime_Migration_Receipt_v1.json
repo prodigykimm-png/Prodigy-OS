@@ -19,8 +19,12 @@
   "secret_values_written": 0,
   "secret_ids_preserved": true,
   "legacy_config_provider_fields_remaining": 0,
-  "certified_profiles": 0,
-  "status": "migrated_pending_capability_certification",
+  "certified_profiles": 2,
+  "certifications": {
+    "antigravity": "402f77d63599ab6feee1617602324aabe4f112ef4e3966aa6551c1a91765d40f",
+    "codex": "e91812566ab48770edc489eea9e785836c87970456c4ed4832b16c6e702c192b"
+  },
+  "status": "desktop_certified_mobile_relay_unconfigured",
   "rollback": {
     "method": "plugin.api.exportLegacyConfig()",
     "legacy_runtime_restored": false

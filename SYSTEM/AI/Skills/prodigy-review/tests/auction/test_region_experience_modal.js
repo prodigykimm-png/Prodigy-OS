@@ -329,7 +329,7 @@ test("Given a provider error containing localized short-secret markup and hostil
     fillRequired(h);
     await button(h.instance.contentEl, "AI 분석").onclick();
     const rendered = allText(h.instance.contentEl);
-    assert.equal(h.modal.getState().phase, "draft");
+    assert.equal(h.modal.getState().phase, "input");
     assert.doesNotMatch(rendered, /비밀-123|<script>|이전 지침|api_key/);
     assert.equal(h.calls.ai.length, 0, "the test double makes no provider or network call");
     assert.equal(h.calls.evidence.length, 0);

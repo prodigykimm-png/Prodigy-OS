@@ -47,6 +47,10 @@ test("installed plugin owns all migrated profiles without persisting secret valu
   assert.equal(Object.keys(data.bindings).length, 14);
   assert.deepEqual(data.grants, {});
   assert.equal(data.migrated_from_hash, receipt.migrated_from_hash);
+  assert.equal(data.profiles.filter((profile) => profile.certification_hash).length, receipt.certified_profiles);
+  for (const [profileId, certificationHash] of Object.entries(receipt.certifications)) {
+    assert.equal(data.profiles.find((profile) => profile.profile_id === profileId)?.certification_hash, certificationHash);
+  }
   assert.doesNotMatch(JSON.stringify(data), /api_key_value|raw_secret|Bearer\s|sk-[A-Za-z0-9]/u);
   for (const relative of ["main.js", "manifest.json", "versions.json"]) {
     assert.equal(fs.existsSync(path.join(ROOT, ".obsidian/plugins/prodigy-ai-runtime", relative)), true, relative);

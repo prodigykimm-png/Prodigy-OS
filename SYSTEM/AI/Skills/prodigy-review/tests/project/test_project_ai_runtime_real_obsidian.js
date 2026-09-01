@@ -51,7 +51,6 @@ test("real Project Wizard uses only ProdigyAIClient and preserves its draft on r
       return true;
     })()`);
     await harness.openWorkspace("project");
-    await harness.capture("project", 1440, "light", 1, false, "normal");
     const receipt = await harness.evaluate(`window.__task13aReceipts?.["HUB/40 Project.md"]||null`);
     assert.equal(receipt && receipt.status, "rendered", JSON.stringify(receipt));
     await harness.waitForSelector('[data-project-action="open-wizard"]');

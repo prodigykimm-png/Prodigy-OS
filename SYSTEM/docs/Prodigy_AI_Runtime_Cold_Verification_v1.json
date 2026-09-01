@@ -1,0 +1,46 @@
+{
+  "schema_version": "prodigy_ai_runtime_cold_verification_v1",
+  "verified_at": "2026-09-01",
+  "desktop": {
+    "status": "pass",
+    "profiles": [
+      {
+        "profile_id": "antigravity",
+        "model": "gemini-3.6-flash-medium",
+        "route_class": "desktop-cli",
+        "certification_hash": "402f77d63599ab6feee1617602324aabe4f112ef4e3966aa6551c1a91765d40f",
+        "capabilities": ["cancellable", "chat-text", "structured-strict"],
+        "vault_cwd_used": false,
+        "prompt_persisted": false,
+        "response_persisted": false
+      },
+      {
+        "profile_id": "codex",
+        "model": "runtime-default",
+        "route_class": "desktop-cli",
+        "certification_hash": "e91812566ab48770edc489eea9e785836c87970456c4ed4832b16c6e702c192b",
+        "capabilities": ["cancellable", "chat-text", "structured-strict"],
+        "vault_cwd_used": false,
+        "prompt_persisted": false,
+        "response_persisted": false
+      }
+    ]
+  },
+  "mobile": {
+    "status": "route_unconfigured",
+    "relay_protocol_verified": true,
+    "relay_cold_network_calls": 0,
+    "reason": "No HTTPS Tailscale relay URL is configured on this device.",
+    "expected_runtime_behavior": "capability_unavailable",
+    "desktop_cli_exposed_on_mobile": false,
+    "deterministic_consumer_behavior_available": true
+  },
+  "security": {
+    "cross_provider_fallback_calls": 0,
+    "vault_reads": 0,
+    "vault_writes": 0,
+    "secret_values_logged": 0,
+    "raw_prompt_logs": 0,
+    "raw_response_logs": 0
+  }
+}
