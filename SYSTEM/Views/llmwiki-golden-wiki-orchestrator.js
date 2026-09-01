@@ -1,7 +1,9 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "llmwiki_golden_wiki_orchestrator_v1";
+  const artifactApi = root.ProdigyWikiArtifactContract
+    || (typeof require === "function" ? require("./prodigy-wiki-artifact-contract.js") : null);
+  const VERSION = "llmwiki_golden_wiki_orchestrator_v2";
   const MAX_DIRECT_PACKS = 30;
 
   function freeze(value) {
@@ -119,12 +121,17 @@
     return `---\ntype: wiki-preview\nstatus: review\nsource: "[[${sourceName}]]"\n---\n\n# ${safeTitle(publicationText(document.title))}\n\n> [!warning] 문서 성격\n> Prodigy Wiki가 선택한 원문 내용을 정리한 결과이며 외부 사실 확인은 수행하지 않았습니다. 경험값과 시점 의존 정보는 현재 상황에 그대로 적용하지 말고 원문과 최신 기준을 함께 확인해야 합니다.\n\n## 한눈에 보기\n\n${publicationText(overview)}\n\n${sections}\n\n## 주요 위험\n\n- 원문의 경험적 판단을 모든 상황에 적용하지 않습니다.\n- 법률·규정·가격·비율처럼 달라질 수 있는 내용은 현재 기준을 다시 확인합니다.\n- 아래 원문 링크에서 문맥과 예외를 함께 확인합니다.\n\n## 실전 체크리스트\n\n${checklist || "- [ ] 문서의 적용 범위와 예외를 확인했다."}\n\n## 원문\n\n- [[${sourceName}]]\n`;
   }
   function mergeTopicDocuments(documents, sourcePath) {
-    const claims = [], seen = new Set(), sections = [];
+    const claims = [], citations = [], seen = new Set(), seenCitations = new Set(), sections = [];
     for (const document of documents) {
       for (const claim of document.claims || []) {
         if (!claim || seen.has(claim.claim_id)) continue;
         seen.add(claim.claim_id);
         claims.push(claim);
+      }
+      for (const citation of document.citations || []) {
+        if (!citation || seenCitations.has(citation.citation_id)) continue;
+        seenCitations.add(citation.citation_id);
+        citations.push(citation);
       }
       const paragraphs = (document.sections || []).flatMap((section) => section.paragraphs || []);
       if (paragraphs.length) sections.push({
@@ -138,6 +145,7 @@
       purpose: "핵심 주제를 판단과 확인 순서에 따라 통합한 읽기용 가이드입니다.",
       sections,
       claims,
+      citations,
     });
   }
 
@@ -155,6 +163,7 @@
       || typeof analysisScope?.createAnalysisScope !== "function" || typeof chunkManifest?.createChunkManifest !== "function"
       || typeof gate?.evaluate !== "function" || typeof runPlan !== "function"
       || typeof compilePlan !== "function" || typeof getDocuments !== "function"
+      || !artifactApi || typeof artifactApi.createPreviewArtifact !== "function"
       || !Number.isSafeInteger(limits.max_chunks) || !Number.isSafeInteger(limits.max_bytes)) {
       throw new TypeError("golden_wiki_orchestrator_dependencies_required");
     }
@@ -167,8 +176,18 @@
     }
     async function writeExact(path, bytes) {
       const file = vault.getAbstractFileByPath(path);
-      if (file) await vault.modify(file, bytes);
-      else await vault.create(path, bytes);
+      if (file) {
+        const current = await vault.cachedRead(file);
+        if (current !== bytes) throw new Error("immutable_preview_conflict");
+        return;
+      }
+      await vault.create(path, bytes);
+    }
+    async function ensureParent(path) {
+      const parts = path.split("/").slice(0, -1);
+      for (let index = 1; index <= parts.length; index += 1) {
+        await ensureFolder(parts.slice(0, index).join("/"));
+      }
     }
     async function preflight(input) {
       if (!safePath(input && input.source_path)) return freeze({ ok: false, reason: "invalid_source_path" });
@@ -236,6 +255,19 @@
         : topicDocuments.length ? topicDocuments : (Array.isArray(allDocuments) ? allDocuments : []);
       if (!documents.length) return freeze({ ok: false, reason: "compiled_documents_unavailable", stage: "compiling" });
       notify("gating", { documents: documents.length });
+      const sourceFile = vault.getAbstractFileByPath(prepared.source_path);
+      const fullSourceText = sourceFile ? await vault.cachedRead(sourceFile) : "";
+      if (hash.sha256(fullSourceText) !== prepared.source_hash) {
+        return freeze({ ok: false, reason: "source_revision_changed", stage: "gating", provider_calls: 0, canonical_writes: 0, source_writes: 0 });
+      }
+      const operationId = /^[0-9a-f]{64}$/u.test(text(input && input.operation_id))
+        ? text(input.operation_id)
+        : hash.sha256(stable({
+          source_path: prepared.source_path,
+          source_revision: prepared.source_hash,
+          scope: prepared.scope || null,
+          orchestrator_version: VERSION,
+        }));
       const previews = [];
       for (const document of documents) {
         const documentText = renderDocument(document, prepared.source_path);
@@ -253,29 +285,26 @@
             canonical_writes: 0, source_writes: 0,
           });
         }
-        previews.push({ document, documentText, evaluated });
+        const artifact = artifactApi.createPreviewArtifact({
+          operation_id: operationId,
+          orchestrator_version: VERSION,
+          gate_receipt_hash: evaluated.receipt.receipt_hash,
+          source: {
+            source_id: prepared.source_id,
+            source_path: prepared.source_path,
+            source_revision: prepared.source_hash,
+            source_text: fullSourceText,
+          },
+          scope: prepared.scope || null,
+          document,
+          document_bytes: documentText,
+        });
+        previews.push({ document, documentText, evaluated, artifact });
       }
       notify("saving", { documents: previews.length });
-      const nextDocumentPaths = new Set(previews.map((preview) => `SYSTEM/CACHE/llmwiki/${safeTitle(publicationText(preview.document.title))}.md`));
-      if (typeof vault.getFiles === "function" && typeof vault.delete === "function") {
-        const receipts = vault.getFiles().filter((file) => file.path.startsWith("SYSTEM/CACHE/llmwiki/") && file.path.endsWith(".receipt.json"));
-        for (const receiptFile of receipts) {
-          try {
-            const prior = JSON.parse(await vault.cachedRead(receiptFile));
-            const priorSource = prior && prior.receipt && prior.receipt.source_path;
-            const priorDocument = text(prior && prior.document_path);
-            if (prior.orchestrator_version === VERSION && priorSource === prepared.source_path && priorDocument && !nextDocumentPaths.has(priorDocument)) {
-              const documentFile = vault.getAbstractFileByPath(priorDocument);
-              if (documentFile) await vault.delete(documentFile);
-              await vault.delete(receiptFile);
-            }
-          } catch (_error) { /* Invalid receipts are ignored and never authorize deletion. */ }
-        }
-      }
       for (const preview of previews) {
-        const title = safeTitle(publicationText(preview.document.title));
-        const documentPath = `SYSTEM/CACHE/llmwiki/${title}.md`;
-        const receiptPath = `SYSTEM/CACHE/llmwiki/${title}.receipt.json`;
+        const documentPath = preview.artifact.document_path;
+        const receiptPath = preview.artifact.receipt_path;
         const scopedClaimIds = (preview.document.claims || []).map((claim) => claim.claim_id);
         const orchestrationReceipt = {
           orchestrator_version: VERSION,
@@ -291,18 +320,20 @@
         };
         const receipt = {
           ...preview.evaluated,
+          ...preview.artifact.receipt,
           ...orchestrationReceipt,
+          artifact_receipt_hash: preview.artifact.receipt.receipt_hash,
           orchestration_receipt_hash: hash.sha256(stable(orchestrationReceipt)),
         };
-        await ensureFolder("SYSTEM/CACHE");
-        await ensureFolder("SYSTEM/CACHE/llmwiki");
+        await ensureParent(documentPath);
         await writeExact(documentPath, preview.documentText);
         await writeExact(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
       }
       const rows = previews.map((preview) => freeze({
         title: safeTitle(publicationText(preview.document.title)),
-        document_path: `SYSTEM/CACHE/llmwiki/${safeTitle(publicationText(preview.document.title))}.md`,
-        receipt_path: `SYSTEM/CACHE/llmwiki/${safeTitle(publicationText(preview.document.title))}.receipt.json`,
+        artifact_id: preview.artifact.artifact_id,
+        document_path: preview.artifact.document_path,
+        receipt_path: preview.artifact.receipt_path,
         status: preview.evaluated.status,
         metrics: preview.evaluated.metrics,
       }));

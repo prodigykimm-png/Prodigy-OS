@@ -353,6 +353,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       try { await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-golden-quality-gate.js"); }
       catch (_error) { /* Golden creation remains unavailable without a deterministic gate. */ }
     }
+    if (!window.ProdigyWikiArtifactContract) {
+      try { await loadWorkspaceBootstrap("SYSTEM/Views/prodigy-wiki-artifact-contract.js"); }
+      catch (_error) { /* Golden creation remains unavailable without immutable artifact receipts. */ }
+    }
     if (!window.LLMWikiGoldenWikiOrchestrator) {
       try { await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-golden-wiki-orchestrator.js"); }
       catch (_error) { /* Existing review lifecycle remains available. */ }
@@ -1922,11 +1926,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           }
           const started = prodigyWikiController.dispatch({ type: "start", stage: "preflight", operation_id: operationId });
           if (!started.ok) throw new Error(started.reason || "prodigy_wiki_start_rejected");
-          const result = await orchestrator.run({
-            source_path: selectedSource.path,
-            expected_content_hash: selectedSource.content_hash,
-            ...(scope ? { scope } : {}),
-          });
+           const result = await orchestrator.run({
+             source_path: selectedSource.path,
+             expected_content_hash: selectedSource.content_hash,
+             operation_id: operationId,
+             ...(scope ? { scope } : {}),
+           });
           if (result.ok) {
             await refreshGoldenPreviewWorkbench();
             await prodigyWikiOperationStore.complete(result);

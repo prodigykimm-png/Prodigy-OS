@@ -97,6 +97,16 @@ test("approved plan compiles a concise source guide and evidence-bound article",
   assert.match(guide.body, /## 자료 개요/u);
   assert.match(guide.body, /\[\[직영 건축의 비용과 기간\]\]/u);
   assert.doesNotMatch(guide.body, /직영 공사는 공정별 비용을 줄인다/u, "guide must not dump every raw claim");
+  assert.deepEqual(
+    guide.sections[0].citation_ids,
+    fixture().citations.map((citation) => citation.citation_id),
+    "source-guide section must retain exact citation navigation",
+  );
+  assert.deepEqual(
+    guide.claims[0].citation_ids,
+    fixture().citations.map((citation) => citation.citation_id),
+    "derived guide claim must retain the section citation map",
+  );
   assert.equal(article.page_id, page.page_id);
   assert.match(article.body, /직영 공사는 비용을 줄이고 철골조는 공사 기간을 단축한다/u);
   assert.equal(article.claims.length, 2);

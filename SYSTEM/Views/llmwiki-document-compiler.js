@@ -447,11 +447,18 @@
           body: renderArticle(page, sections, claims, citations, verificationFlags, tags),
         }));
       }
-      const guideClaimIds = [...new Set(plan.source_guide.sections.flatMap((section) => section.claim_ids))];
-      const guideClaims = plan.source_guide.sections.map((section, index) => freeze({
+      const guideSections = plan.source_guide.sections.map((section) => freeze({
+        ...section,
+        citation_ids: [...new Set(section.claim_ids.flatMap(
+          (claimId) => claimById.get(claimId)?.citation_ids || [],
+        ))],
+      }));
+      const guideClaimIds = [...new Set(guideSections.flatMap((section) => section.claim_ids))];
+      const guideClaims = guideSections.map((section, index) => freeze({
         claim_id: `guide_claim_${String(index + 1).padStart(3, "0")}`,
         text: section.summary,
         derived_from_claim_ids: section.claim_ids,
+        citation_ids: section.citation_ids,
       }));
       const guideCitations = [...new Set(guideClaimIds.flatMap((claimId) => claimById.get(claimId)?.citation_ids || []))]
         .map((citationId) => citationById.get(citationId));
@@ -460,7 +467,7 @@
         document_kind: "source_guide",
         role: "source_summary",
         title: plan.source_guide.title,
-        sections: plan.source_guide.sections,
+        sections: guideSections,
         claims: guideClaims,
         citations: guideCitations,
         matched_candidate_ids: [],
