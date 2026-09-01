@@ -17,6 +17,19 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
     harness = await RealObsidianHarness.start("prodigy-ai-runtime", {
       fixtureMutation: { prodigyAIRuntimePluginPath: PLUGIN_ROOT },
     });
+    assert.equal(harness.runtime.trustOnboarding.surface, "mod-trust-folder");
+    assert.equal(harness.runtime.trustOnboarding.present, true);
+    assert.equal(harness.runtime.trustOnboarding.vault_owned, true);
+    assert.equal(harness.runtime.trustOnboarding.subscribed_before_trigger, true);
+    assert.equal(harness.runtime.trustOnboarding.native_click, true);
+    assert.equal(harness.runtime.trustOnboarding.removed, true);
+    assert.equal(harness.runtime.trustOnboarding.remaining, 0);
+    assert.deepEqual(harness.runtime.fixturePluginReadiness, {
+      manifest_present: true,
+      global_enablement: true,
+      enabled_persisted: true,
+      plugin_instance_present: true,
+    });
     const state = await harness.evaluate(`(async()=>{
       await app.plugins.loadManifests();
       if(!app.plugins.plugins["prodigy-ai-runtime"])await app.plugins.enablePluginAndSave("prodigy-ai-runtime");
@@ -46,22 +59,62 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
         status,
         unavailable,
         providers:plugin.api.listProviders(),
-        network:(window.__task13aNodeNetworkAttempts||[]).length
+        network:(window.__task13aNodeNetworkAttempts||[]).length,
+        manifestLoaded:Boolean(app.plugins.manifests["prodigy-ai-runtime"]),
+        enabledPersisted:app.plugins.enabledPlugins.has("prodigy-ai-runtime"),
+        pluginLoaded:Boolean(app.plugins.plugins["prodigy-ai-runtime"]),
+        settingsProfileCount:(await plugin.listSettingsProfiles()).length
       };
     })()`);
     assert.equal(state.handshake.plugin_id, "prodigy-ai-runtime");
     assert.equal(state.handshake.protocol_hash, "e14b93848a72e1b20247701f1f25c5aef6164400785e8c8482b4705d3c99ce51");
+    assert.equal(state.handshake.runtime_version, "0.1.0");
     assert.equal(state.status.status, "ready");
     assert.deepEqual(state.providers, []);
     assert.equal(state.unavailable.error_code, "capability_unavailable");
     assert.equal(state.network, 0);
-    const settings = await harness.evaluate(`(()=>{
-      const modal=document.querySelector(".modal-container");
-      return {text:modal?.textContent||"",hasSecretInput:Boolean(modal?.querySelector('input[type="password"]'))};
+    assert.equal(state.manifestLoaded, true);
+    assert.equal(state.enabledPersisted, true);
+    assert.equal(state.pluginLoaded, true);
+    assert.equal(state.settingsProfileCount, 0);
+    const settings = await harness.evaluate(`(async()=>{
+      const plugin=app.plugins.getPlugin("prodigy-ai-runtime");
+      const signal=new Promise((resolve,reject)=>{
+        const finish=()=>{
+          const active=app.setting?.activeTab;
+          const root=active?.containerEl;
+          if(active?.id!=="prodigy-ai-runtime"||!root?.isConnected)return;
+          const heading=root.querySelector("h2");
+          if(heading?.textContent?.trim()!==plugin.manifest.name||root.children.length<3)return;
+          observer.disconnect();clearTimeout(timer);
+          resolve({
+            activeTabId:active.id,
+            heading:heading.textContent.trim(),
+            manifestName:plugin.manifest.name,
+            childCount:root.children.length,
+            profileSections:root.querySelectorAll(".prodigy-ai-runtime-profile").length,
+            emptyStateText:[...root.querySelectorAll(":scope > p")].at(-1)?.textContent?.trim()||"",
+            hasSecretInput:Boolean(root.querySelector('input[type="password"]')),
+            routeConnected:root.isConnected,
+            trustRemaining:document.querySelectorAll(".modal.mod-trust-folder").length
+          });
+        };
+        const observer=new MutationObserver(finish);
+        observer.observe(document,{childList:true,subtree:true,attributes:true});
+        const timer=setTimeout(()=>{observer.disconnect();reject(new Error("PRODIGY_SETTINGS_ROUTE_TIMEOUT"))},10000);
+        plugin.api.openSettings();
+        finish();
+      });
+      return signal;
     })()`);
-    assert.match(settings.text, /Prodigy AI Runtime/u);
-    assert.match(settings.text, /provider profile이 없습니다/u);
+    assert.equal(settings.activeTabId, "prodigy-ai-runtime");
+    assert.equal(settings.heading, settings.manifestName);
+    assert.ok(settings.childCount >= 3);
+    assert.equal(settings.profileSections, 0);
+    assert.equal(settings.emptyStateText, "이전된 AI provider profile이 없습니다.");
     assert.equal(settings.hasSecretInput, false);
+    assert.equal(settings.routeConnected, true);
+    assert.equal(settings.trustRemaining, 0);
     assert.deepEqual(harness.osNetworkAttempts, []);
   } finally {
     if (harness) {

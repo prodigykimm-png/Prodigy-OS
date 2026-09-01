@@ -10,7 +10,7 @@ const vm = require("node:vm");
 const {
   HUBS, RealObsidianHarness, assertDiagnosticClean, buildFixture, diagnosticFailures, extractBlocks, findOwned, fixturePluginSource,
   assertMediaAuthorityTrace, buildMediaAuthority, collectDiagnosticElements, createFixtureRegistry, createLayoutAuthorityCoordinator, matrixAggregate, nodeNetworkDenyPrelude, publicIdentity, resolveCssOwnership, scenarioAggregate, selectDiagnosticRoots, structuralDriverContract, structuralScenarioEffect, validateInheritedLayoutAuthority, validateKeyboardAdvance, validateKeyboardTrace, validateLaunchContract, validateLayoutSettlement, validateScenarioPlan, validateScenarioReceipt, validateZoomAuthority, selectActiveProductionMount, selectCleanup, snapshotProtected, treeHash,
-  Cdp, CDP_DEFAULT_TIMEOUT_MS, browserTrustedClickPreparation, buildTrustedClickPreparationExpression,
+  Cdp, CDP_DEFAULT_TIMEOUT_MS, browserTrustedClickPreparation, buildTrustedClickPreparationExpression, classifyOwnedTrustPrompt,
 } = require("./real_obsidian_harness.js");
 
 // Deterministic fake WebSocket: matches the browser WebSocket subset Cdp uses
@@ -83,11 +83,85 @@ test("canonical cloned Obsidian launch requires exactly one mock keychain and a 
 
 test("installed real Obsidian identity is pinned from public bundle metadata", () => {
   const identity = publicIdentity("/Applications/Obsidian.app");
+  const metadata = childProcess.spawnSync("/usr/libexec/PlistBuddy", [
+    "-c", "Print :CFBundleShortVersionString",
+    "/Applications/Obsidian.app/Contents/Info.plist",
+  ], { encoding: "utf8" });
+  assert.equal(metadata.status, 0, metadata.stderr);
   assert.equal(identity.bundleIdentifier, "md.obsidian");
   assert.equal(identity.bundleName, "Obsidian");
-  assert.match(identity.version, /^1\.10\./u);
+  assert.equal(identity.version, metadata.stdout.trim());
+  assert.equal(identity.version, "1.13.7");
   assert.match(identity.executableSha256, /^[a-f0-9]{64}$/u);
   assert.equal(identity.executable, "/Applications/Obsidian.app/Contents/MacOS/Obsidian");
+});
+
+function trustPromptFixture({ text = "작성자를 신뢰하고 플러그인 사용하기", dialogCount = 1, actionCount = 1 } = {}) {
+  const cancel = {
+    textContent: "보관함을 제한 모드로 탐색하기",
+    classList: { contains: (name) => name === "mod-cancel" },
+  };
+  const actions = Array.from({ length: actionCount }, () => ({
+    textContent: text,
+    classList: { contains: () => false },
+  }));
+  const container = { classList: { contains: (name) => ["modal-container", "mod-confirmation"].includes(name) } };
+  const dialog = {
+    parentElement: container,
+    querySelectorAll(selector) {
+      if (selector === ":scope > .modal-header .modal-title") return [{}];
+      if (selector === ":scope > .modal-button-container") return [{}];
+      if (selector === ":scope > .modal-button-container > button") return [cancel, ...actions];
+      if (selector === "input") return [];
+      return [];
+    },
+  };
+  return {
+    cancel,
+    actions,
+    document: {
+      querySelectorAll(selector) {
+        return selector === ".modal.mod-trust-folder" ? Array.from({ length: dialogCount }, () => dialog) : [];
+      },
+    },
+  };
+}
+
+test("owned trust prompt identity is locale-agnostic and fails closed on ambiguous structure", () => {
+  for (const text of [
+    "작성자를 신뢰하고 플러그인 사용하기",
+    "Trust author and enable plugins",
+    "Autor vertrauen und Plugins aktivieren",
+  ]) {
+    const fixture = trustPromptFixture({ text });
+    const selected = classifyOwnedTrustPrompt(fixture.document);
+    assert.equal(selected.present, true);
+    assert.equal(selected.dialog.querySelectorAll("input").length, 0);
+    assert.equal(selected.action, fixture.actions[0]);
+    assert.equal(selected.cancel, fixture.cancel);
+  }
+  assert.deepEqual(classifyOwnedTrustPrompt(trustPromptFixture({ dialogCount: 0 }).document), {
+    present: false,
+    dialog: null,
+    action: null,
+    cancel: null,
+  });
+  assert.throws(() => classifyOwnedTrustPrompt(trustPromptFixture({ dialogCount: 2 }).document), /TASK13A_OWNED_PROMPT_CARDINALITY/u);
+  assert.throws(() => classifyOwnedTrustPrompt(trustPromptFixture({ actionCount: 2 }).document), /TASK13A_OWNED_PROMPT_BUTTONS/u);
+});
+
+test("harness startup arms trust appearance and removal signals before native input and records plugin stages", () => {
+  const source = RealObsidianHarness.start.toString();
+  const appearanceSubscription = source.indexOf("__task13aOwnedPromptAppearance=new Promise");
+  const appReady = source.indexOf("TASK13A_APP_READY_TIMEOUT");
+  const removalSubscription = source.indexOf("__task13aOwnedPromptRemoval=new Promise");
+  const mouseTrigger = source.indexOf('Input.dispatchMouseEvent", { type: "mousePressed"');
+  assert.ok(appearanceSubscription >= 0 && appearanceSubscription < appReady);
+  assert.ok(removalSubscription >= 0 && removalSubscription < mouseTrigger);
+  assert.match(source, /TASK13A_OWNED_PROMPT_APPEAR_TIMEOUT/u);
+  assert.match(source, /__task13aOwnedPromptCleanup/u);
+  assert.match(source, /fixturePluginReadiness/u);
+  assert.doesNotMatch(source, /Restricted Mode|Trust author and enable plugins/u);
 });
 
 test("protected snapshot reads only executable, bundle, start, PGID, and loopback listeners", () => {

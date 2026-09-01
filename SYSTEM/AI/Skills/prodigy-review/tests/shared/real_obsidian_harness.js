@@ -904,6 +904,29 @@ function buildTrustedClickPreparationExpression(selector, text = null, timeoutMs
   return `(${browserTrustedClickPreparation.toString()})(${JSON.stringify(selector)},${JSON.stringify(text)},${timeoutMs})`;
 }
 
+function classifyOwnedTrustPrompt(root) {
+  const dialogs = [...root.querySelectorAll(".modal.mod-trust-folder")];
+  if (dialogs.length === 0) return { present: false, dialog: null, action: null, cancel: null };
+  if (dialogs.length !== 1) throw new Error(`TASK13A_OWNED_PROMPT_CARDINALITY:${dialogs.length}`);
+  const dialog = dialogs[0];
+  const container = dialog.parentElement;
+  if (!container?.classList.contains("modal-container") || !container.classList.contains("mod-confirmation")) {
+    throw new Error("TASK13A_OWNED_PROMPT_CONTAINER");
+  }
+  if (dialog.querySelectorAll(":scope > .modal-header .modal-title").length !== 1
+    || dialog.querySelectorAll(":scope > .modal-button-container").length !== 1
+    || dialog.querySelectorAll("input").length !== 0) {
+    throw new Error("TASK13A_OWNED_PROMPT_STRUCTURE");
+  }
+  const buttons = [...dialog.querySelectorAll(":scope > .modal-button-container > button")];
+  const cancels = buttons.filter((button) => button.classList.contains("mod-cancel"));
+  const actions = buttons.filter((button) => !button.classList.contains("mod-cancel"));
+  if (buttons.length !== 2 || cancels.length !== 1 || actions.length !== 1) {
+    throw new Error(`TASK13A_OWNED_PROMPT_BUTTONS:${buttons.length}:${cancels.length}:${actions.length}`);
+  }
+  return { present: true, dialog, action: actions[0], cancel: cancels[0] };
+}
+
 class Cdp {
   constructor(ws) { this.ws = ws; this.id = 0; this.pending = new Map(); this.listeners = new Map(); ws.addEventListener("message", (event) => { const m = JSON.parse(String(event.data)); if (!m.id) { for (const listener of this.listeners.get(m.method) || []) listener(m.params || {}); return; } const p = this.pending.get(m.id); if (!p) return; this.pending.delete(m.id); clearTimeout(p.timer); m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result || {}); }); }
   on(method, listener) { if (!this.listeners.has(method)) this.listeners.set(method, new Set()); this.listeners.get(method).add(listener); return () => this.listeners.get(method).delete(listener); }
@@ -938,7 +961,7 @@ class RealObsidianHarness {
     assert.equal(launchedRows.length, 1, "exact launched clone process required");
     const rootRow = launchedRows[0];
     ownership.bindApplication(rootRow);
-    const runtime = { ...clone, ...fixture, protectedSnapshot, protectedPorts, port, nonce, runtimeRoot, profile, home, temp, launch, launchContract, start: rootRow.start, before, tokens: [], ownershipToken, ownershipMarker, ownershipMetadata };
+    const runtime = { ...clone, ...fixture, protectedSnapshot, protectedPorts, port, nonce, runtimeRoot, profile, home, temp, launch, launchContract, trustOnboarding: null, start: rootRow.start, before, tokens: [], ownershipToken, ownershipMarker, ownershipMetadata };
     const ownedProcess = findOwned(runtime); runtime.tokens = processRows().filter((row) => ownedProcess.descendants.includes(row.pid)).map((row) => ({ pid: row.pid, start: row.start, executable: row.executable }));
     assert.equal(ownedProcess.root.pgid, rootRow.pid, "task clone must own an isolated PGID"); assert.equal(protectedSnapshot.records.some((record) => ownedProcess.descendants.includes(record.pid)), false, "protected identity overlap");
     const browserCdp = await Cdp.connect(endpoint);
@@ -949,12 +972,51 @@ class RealObsidianHarness {
     const pageTarget = targets.find((target) => target.type === "page" && target.webSocketDebuggerUrl);
     assert.ok(pageTarget, "real Obsidian page target required");
     const cdp = await Cdp.connect(pageTarget.webSocketDebuggerUrl); await cdp.send("Runtime.enable"); await cdp.send("Page.enable"); await cdp.send("DOM.enable"); await cdp.send("CSS.enable"); browserCdp.close();
-    const appReady = await cdp.send("Runtime.evaluate", { expression: `new Promise((resolve,reject)=>{const ready=()=>{if(!(globalThis.app&&app.workspace))return false;app.workspace.onLayoutReady(()=>resolve(true));return true};if(ready())return;const observer=new MutationObserver(()=>{if(ready())observer.disconnect()});observer.observe(document,{childList:true,subtree:true});setTimeout(()=>{observer.disconnect();reject(new Error('TASK13A_APP_READY_TIMEOUT'))},30000)})`, awaitPromise: true, returnByValue: true });
+    const ownedPromptSubscription = await cdp.send("Runtime.evaluate", {
+      expression: `(()=>{const classify=${classifyOwnedTrustPrompt.toString()},expectedVault=${JSON.stringify(fixture.vault)};let appearanceObserver=null,appearanceTimer=null;const cleanupAppearance=()=>{appearanceObserver?.disconnect();clearTimeout(appearanceTimer)};window.__task13aOwnedPromptAppearance=new Promise((resolve,reject)=>{const fail=error=>{cleanupAppearance();reject(error)},finish=()=>{try{const selected=classify(document);if(!selected.present||!globalThis.app||!app.vault?.adapter?.getBasePath)return false;if(String(app.vault.adapter.getBasePath())!==expectedVault)throw new Error('TASK13A_OWNED_PROMPT_VAULT_IDENTITY');selected.dialog.setAttribute('data-task13a-owned-prompt','true');selected.action.setAttribute('data-task13a-owned-trust-action','true');let removalObserver=null,removalTimer=null;window.__task13aOwnedPromptCleanup=()=>{cleanupAppearance();removalObserver?.disconnect();clearTimeout(removalTimer);selected.dialog.removeAttribute('data-task13a-owned-prompt');selected.action.removeAttribute('data-task13a-owned-trust-action')};window.__task13aOwnedPromptRemoval=new Promise((resolveRemoval,rejectRemoval)=>{const removed=()=>{if(selected.dialog.isConnected)return;removalObserver.disconnect();clearTimeout(removalTimer);resolveRemoval(true)};removalObserver=new MutationObserver(removed);removalObserver.observe(document.body,{childList:true,subtree:true});removalTimer=setTimeout(()=>{removalObserver.disconnect();rejectRemoval(new Error('TASK13A_OWNED_PROMPT_CLOSE_TIMEOUT'))},10000)});cleanupAppearance();resolve({present:true,surface:'mod-trust-folder',vault_owned:true,subscribed_before_trigger:true});return true}catch(error){fail(error);return false}};appearanceObserver=new MutationObserver(finish);appearanceObserver.observe(document,{childList:true,subtree:true});appearanceTimer=setTimeout(()=>fail(new Error('TASK13A_OWNED_PROMPT_APPEAR_TIMEOUT')),10000);finish()});return{subscribed_before_trigger:true}})()`,
+      returnByValue: true,
+    });
+    assert.equal(ownedPromptSubscription.exceptionDetails, undefined, "owned trust appearance observer subscription");
+    assert.equal(ownedPromptSubscription.result.value.subscribed_before_trigger, true);
+    const appReady = await cdp.send("Runtime.evaluate", { expression: `new Promise((resolve,reject)=>{let observer=null,timer=null,armed=false;const cleanup=()=>{observer?.disconnect();clearTimeout(timer)},finish=()=>{cleanup();resolve(true)},ready=()=>{if(armed||!(globalThis.app&&app.workspace))return false;armed=true;app.workspace.onLayoutReady(finish);return true};observer=new MutationObserver(ready);observer.observe(document,{childList:true,subtree:true});timer=setTimeout(()=>{cleanup();reject(new Error('TASK13A_APP_READY_TIMEOUT'))},30000);ready()})`, awaitPromise: true, returnByValue: true });
     assert.equal(appReady.exceptionDetails, undefined, "real Obsidian app readiness signal");
-    const pluginReady = await cdp.send("Runtime.evaluate", { expression: `(async()=>{await app.plugins.loadManifests();if(!app.plugins.manifests['task13a-local-dv'])throw new Error('TASK13A_PLUGIN_MANIFEST_MISSING');await app.plugins.setEnable(true);if(!app.plugins.plugins['task13a-local-dv'])await app.plugins.enablePluginAndSave('task13a-local-dv');if(!window.__task13aPlugin)throw new Error('TASK13A_PLUGIN_NOT_LOADED');return true})()`, awaitPromise: true, returnByValue: true });
-    assert.equal(pluginReady.exceptionDetails, undefined, "disposable local QA plugin readiness");
-    const ownedPrompt = await cdp.send("Runtime.evaluate", { expression: `(async()=>{const dialogs=[...document.querySelectorAll('.modal-container .modal')].filter(dialog=>/Restricted Mode|Trust author and enable plugins/u.test(dialog.innerText||''));if(!dialogs.length)return{present:false,closed:true};if(dialogs.length!==1)throw new Error('TASK13A_OWNED_PROMPT_CARDINALITY:'+dialogs.length);const dialog=dialogs[0],close=[...dialog.querySelectorAll('button')].find(button=>button.textContent.trim()==='Trust author and enable plugins');if(!close)throw new Error('TASK13A_OWNED_PROMPT_CLOSE_MISSING');dialog.setAttribute('data-task13a-owned-prompt','true');close.setAttribute('data-task13a-owned-close','true');const removed=new Promise((resolve,reject)=>{const observer=new MutationObserver(()=>{if(dialog.isConnected)return;observer.disconnect();clearTimeout(timer);resolve(true)});observer.observe(document.body,{childList:true,subtree:true});const timer=setTimeout(()=>{observer.disconnect();reject(new Error('TASK13A_OWNED_PROMPT_CLOSE_TIMEOUT'))},10000)});close.click();await removed;return{present:true,closed:true}})()`, awaitPromise: true, returnByValue: true });
-    assert.equal(ownedPrompt.exceptionDetails, undefined, "deterministically owned disposable-vault trust prompt closure");
+    const ownedPromptPreparation = await cdp.send("Runtime.evaluate", {
+      expression: "window.__task13aOwnedPromptAppearance",
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    assert.equal(ownedPromptPreparation.exceptionDetails, undefined, "locale-agnostic disposable-vault trust prompt identity");
+    let trustOnboarding = ownedPromptPreparation.result.value;
+    try {
+      const targetResult = await cdp.send("Runtime.evaluate", {
+        expression: buildTrustedClickPreparationExpression("[data-task13a-owned-trust-action='true']", null, 10000),
+        awaitPromise: true,
+        returnByValue: true,
+      });
+      assert.equal(targetResult.exceptionDetails, undefined, "owned trust action geometry");
+      const target = targetResult.result.value;
+      await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: target.x, y: target.y, button: "left", clickCount: 1 });
+      await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: target.x, y: target.y, button: "left", clickCount: 1 });
+      const closure = await cdp.send("Runtime.evaluate", {
+        expression: `Promise.all([window.__task13aTrustedClickPromise,window.__task13aOwnedPromptRemoval]).then(([event,removed])=>({native_click:event?.isTrusted===true&&event?.type==='click',removed:removed===true,remaining:document.querySelectorAll('.modal.mod-trust-folder').length})).finally(()=>{delete window.__task13aTrustedClickPromise;delete window.__task13aTrustedClickState;delete window.__task13aOwnedPromptRemoval})`,
+        awaitPromise: true,
+        returnByValue: true,
+      });
+      assert.equal(closure.exceptionDetails, undefined, "exact owned trust prompt removal signal");
+      trustOnboarding = { ...trustOnboarding, ...closure.result.value };
+    } finally {
+      await cdp.send("Runtime.evaluate", {
+        expression: `(()=>{try{window.__task13aOwnedPromptCleanup?.();window.__task13aTrustedClickState?.cancel(new Error('TASK13A_TRUSTED_CONTROL_DISPATCH_ABORTED'))}finally{delete window.__task13aOwnedPromptAppearance;delete window.__task13aOwnedPromptRemoval;delete window.__task13aOwnedPromptCleanup;delete window.__task13aTrustedClickPromise;delete window.__task13aTrustedClickState}return true})()`,
+        returnByValue: true,
+      }).catch(() => {});
+    }
+    assert.equal(trustOnboarding.removed, true, "owned trust prompt removed");
+    assert.equal(trustOnboarding.remaining, 0, "no trust prompt remains");
+    runtime.trustOnboarding = trustOnboarding;
+    const pluginReady = await cdp.send("Runtime.evaluate", { expression: `(async()=>{await app.plugins.loadManifests();const manifestPresent=Boolean(app.plugins.manifests['task13a-local-dv']);if(!manifestPresent)throw new Error('TASK13A_PLUGIN_MANIFEST_MISSING');await app.plugins.setEnable(true);const globalEnablement=app.plugins.isEnabled();if(!app.plugins.plugins['task13a-local-dv'])await app.plugins.enablePluginAndSave('task13a-local-dv');const enabledPersisted=app.plugins.enabledPlugins.has('task13a-local-dv'),pluginInstancePresent=Boolean(app.plugins.plugins['task13a-local-dv']&&window.__task13aPlugin);return{manifest_present:manifestPresent,global_enablement:globalEnablement,enabled_persisted:enabledPersisted,plugin_instance_present:pluginInstancePresent}})()`, awaitPromise: true, returnByValue: true });
+    assert.equal(pluginReady.exceptionDetails, undefined, "post-onboarding disposable local QA plugin readiness");
+    assert.deepEqual(pluginReady.result.value, { manifest_present: true, global_enablement: true, enabled_persisted: true, plugin_instance_present: true });
+    runtime.fixturePluginReadiness = pluginReady.result.value;
     const harness = new RealObsidianHarness(runtime, cdp, pageTarget.webSocketDebuggerUrl, ownedProcess, version);
     harness.osNetworkAttempts = [];
     cdp.on("Fetch.requestPaused", (params) => {
@@ -1628,4 +1690,4 @@ class RealObsidianHarness {
     return receipt;
   }
 }
-module.exports = { ADAPTER_STATE, assertMediaAuthorityTrace, assertProtectedUnchanged, buildMediaAuthority, buildTrustedClickPreparationExpression, browserTrustedClickPreparation, Cdp, CDP_DEFAULT_TIMEOUT_MS, collectDiagnosticElements, createDisposableOwnership, createFixtureRegistry, createLayoutAuthorityCoordinator, ASIDE_BUNDLE, HUBS, OBSIDIAN_BUNDLE, STRUCTURAL_DRIVER_CONTRACTS, STRUCTURAL_SCENARIOS, RealObsidianHarness, allocatePort, assertDiagnosticClean, attachCssOwnership, buildFixture, diagnosticFailures, extractBlocks, findOwned, fixturePluginSource, matrixAggregate, nodeNetworkDenyPrelude, publicIdentity, resolveCssOwnership, scenarioAggregate, selectActiveProductionMount, selectCleanup, selectDiagnosticRoots, snapshotProtected, structuralDriverContract, structuralScenarioEffect, treeHash, validateKeyboardAdvance, validateKeyboardTrace, validateInheritedLayoutAuthority, validateLaunchContract, validateLayoutSettlement, validateScenarioPlan, validateScenarioReceipt, validateZoomAuthority };
+module.exports = { ADAPTER_STATE, assertMediaAuthorityTrace, assertProtectedUnchanged, buildMediaAuthority, buildTrustedClickPreparationExpression, browserTrustedClickPreparation, Cdp, CDP_DEFAULT_TIMEOUT_MS, classifyOwnedTrustPrompt, collectDiagnosticElements, createDisposableOwnership, createFixtureRegistry, createLayoutAuthorityCoordinator, ASIDE_BUNDLE, HUBS, OBSIDIAN_BUNDLE, STRUCTURAL_DRIVER_CONTRACTS, STRUCTURAL_SCENARIOS, RealObsidianHarness, allocatePort, assertDiagnosticClean, attachCssOwnership, buildFixture, diagnosticFailures, extractBlocks, findOwned, fixturePluginSource, matrixAggregate, nodeNetworkDenyPrelude, publicIdentity, resolveCssOwnership, scenarioAggregate, selectActiveProductionMount, selectCleanup, selectDiagnosticRoots, snapshotProtected, structuralDriverContract, structuralScenarioEffect, treeHash, validateKeyboardAdvance, validateKeyboardTrace, validateInheritedLayoutAuthority, validateLaunchContract, validateLayoutSettlement, validateScenarioPlan, validateScenarioReceipt, validateZoomAuthority };
