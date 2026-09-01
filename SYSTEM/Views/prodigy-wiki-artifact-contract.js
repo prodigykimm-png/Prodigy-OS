@@ -13,7 +13,7 @@
   const RECEIPT_VERSION = "prodigy_wiki_artifact_receipt_v1";
   const PREVIEW_ROOT = "SYSTEM/CACHE/llmwiki/previews";
   const REVIEWED_ROOT = "PARA/RESOURCES/Prodigy Wiki";
-  const REVIEWED_RECEIPT_ROOT = `${REVIEWED_ROOT}/.receipts`;
+  const REVIEWED_RECEIPT_ROOT = `${REVIEWED_ROOT}/Receipts`;
   const HASH = /^[0-9a-f]{64}$/u;
   const CLAIM_ID = /^(?:claim|guide_claim)_[a-zA-Z0-9_-]{1,127}$/u;
   const CITATION_ID = /^citation_[a-zA-Z0-9_-]{1,127}$/u;

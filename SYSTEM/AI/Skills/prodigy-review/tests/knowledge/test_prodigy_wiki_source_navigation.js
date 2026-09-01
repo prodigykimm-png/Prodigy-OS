@@ -161,3 +161,32 @@ test("exact source resolver distinguishes current stale ambiguous and deleted ev
   assert.equal(deleted.match_status, "missing");
   assert.equal(deleted.position, null);
 });
+
+test("async durable acknowledgement becomes reviewed only after persistence succeeds", async () => {
+  const current = fixture();
+  const row = workbench.inspectPreview({
+    document_path: current.artifact.document_path,
+    document_bytes: current.artifact.document_bytes,
+    receipt: current.receipt,
+  });
+  const mounted = mountRoot();
+  const reviewState = workbench.createReviewState();
+  let settle;
+  const persisted = new Promise((resolve) => { settle = resolve; });
+  workbench.mount({
+    container: mounted.root,
+    rows: [row],
+    reviewState,
+    onReviewed: () => persisted,
+  });
+  const mark = walk(
+    mounted.root,
+    (node) => node.getAttribute("data-action") === "mark-golden-reviewed",
+  )[0];
+
+  const pending = mark.onclick();
+  assert.equal(reviewState.has(row.preview_id), false);
+  settle({ ok: true, status: "reviewed" });
+  await pending;
+  assert.equal(reviewState.has(row.preview_id), true);
+});

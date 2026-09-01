@@ -152,7 +152,7 @@ test("self-verifying artifact receipt rejects document navigation outline source
 test("artifact contract keeps reviewed Wiki distinct from canonical Knowledge", () => {
   assert.equal(contract.PREVIEW_ROOT, "SYSTEM/CACHE/llmwiki/previews");
   assert.equal(contract.REVIEWED_ROOT, "PARA/RESOURCES/Prodigy Wiki");
-  assert.equal(contract.REVIEWED_RECEIPT_ROOT, "PARA/RESOURCES/Prodigy Wiki/.receipts");
+  assert.equal(contract.REVIEWED_RECEIPT_ROOT, "PARA/RESOURCES/Prodigy Wiki/Receipts");
   const artifact = contract.createPreviewArtifact(fixture());
   assert.equal(artifact.document_path.startsWith("PARA/RESOURCES/Knowledge/"), false);
   assert.deepEqual(artifact.write_counts, {

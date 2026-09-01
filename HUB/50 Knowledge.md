@@ -371,9 +371,53 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       try { goldenPreviewRows = await window.LLMWikiGoldenPreviewWorkbench.loadPreviews(appRef.vault); }
       catch (_error) { goldenPreviewRows = []; }
     }
-    const goldenPreviewReviewState = llmWikiSession.goldenPreviewReviewState
-      || window.LLMWikiGoldenPreviewWorkbench?.createReviewState?.() || null;
-    if (goldenPreviewReviewState) llmWikiSession.goldenPreviewReviewState = goldenPreviewReviewState;
+    const reviewedWikiStorage = {
+      async list(prefix) {
+        return appRef.vault.getFiles().map((file) => file.path)
+          .filter((filePath) => filePath.startsWith(prefix)).sort();
+      },
+      async read(filePath) {
+        const file = appRef.vault.getAbstractFileByPath(filePath);
+        if (!file) throw new Error("reviewed_file_missing");
+        return appRef.vault.cachedRead(file);
+      },
+      async writeImmutable(filePath, bytes) {
+        const file = appRef.vault.getAbstractFileByPath(filePath);
+        if (file) {
+          if (await appRef.vault.cachedRead(file) !== bytes) throw new Error("reviewed_immutable_conflict");
+          return false;
+        }
+        const parts = filePath.split("/").slice(0, -1);
+        for (let index = 1; index <= parts.length; index += 1) {
+          const folder = parts.slice(0, index).join("/");
+          if (!folder || appRef.vault.getAbstractFileByPath(folder)) continue;
+          try { await appRef.vault.createFolder(folder); }
+          catch (error) {
+            if (!/Folder already exists\.?/iu.test(String(error && error.message || ""))) throw error;
+          }
+        }
+        await appRef.vault.create(filePath, bytes);
+        return true;
+      },
+    };
+    const reviewedWikiStore = llmWikiSession.reviewedWikiStore
+      || window.ProdigyWikiReviewedStore.createReviewedStore({
+        storage: reviewedWikiStorage,
+        hash: window.LLMWikiHash,
+      });
+    llmWikiSession.reviewedWikiStore = reviewedWikiStore;
+    const reviewedWikiSnapshot = await reviewedWikiStore.load();
+    const reviewedIds = reviewedWikiSnapshot.entries.map((entry) => entry.artifact_id);
+    const goldenPreviewReviewState = llmWikiSession.goldenPreviewReviewStateVersion === 2
+      ? llmWikiSession.goldenPreviewReviewState
+      : window.LLMWikiGoldenPreviewWorkbench?.createReviewState?.(reviewedIds) || null;
+    if (goldenPreviewReviewState) {
+      for (const reviewedId of reviewedIds) {
+        if (!goldenPreviewReviewState.has(reviewedId)) goldenPreviewReviewState.mark(reviewedId);
+      }
+      llmWikiSession.goldenPreviewReviewState = goldenPreviewReviewState;
+      llmWikiSession.goldenPreviewReviewStateVersion = 2;
+    }
     const llmWikiControllerOptions = { ...(KnowledgeExplorerHub.llmWikiControllerOptions || {}) };
     let llmWikiConfig = await window.ProdigyConfigService.load(appRef);
     llmWikiSession.bindings.config = llmWikiConfig;
@@ -418,6 +462,26 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     persistLlmWikiSessionView();
     const llmWikiHash = window.LLMWikiHash;
     let llmWikiWikiSurface = null;
+    let reviewedWikiIndexView = null;
+    let reviewedWikiIndex = null;
+    const refreshReviewedWikiIndex = async () => {
+      const snapshotValue = reviewedWikiStore.snapshot();
+      const sourcePaths = [...new Set(snapshotValue.entries.map((entry) => entry.source_path))];
+      const sourceRevisions = Object.fromEntries(await Promise.all(sourcePaths.map(async (sourcePath) => {
+        const file = appRef.vault.getAbstractFileByPath(sourcePath);
+        if (!file) return [sourcePath, ""];
+        return [sourcePath, llmWikiHash.sha256(await appRef.vault.cachedRead(file))];
+      })));
+      reviewedWikiIndex = window.ProdigyWikiIndex.projectReviewedIndex(snapshotValue, {
+        source_revisions: sourceRevisions,
+      });
+      if (reviewedWikiIndexView) reviewedWikiIndexView.update(reviewedWikiIndex);
+      return reviewedWikiIndex;
+    };
+    await refreshReviewedWikiIndex();
+    KnowledgeExplorerHub.reviewedWikiSnapshot = () => JSON.parse(JSON.stringify(reviewedWikiStore.snapshot()));
+    KnowledgeExplorerHub.reviewedWikiIndexSnapshot = () => JSON.parse(JSON.stringify(reviewedWikiIndex));
+    KnowledgeExplorerHub.refreshReviewedWikiIndex = refreshReviewedWikiIndex;
     const operationOutcomeRoot = "SYSTEM/PRIVATE/llmwiki-operation-outcomes";
     const operationOutcomeStore = {
       async save(outcome) {
@@ -3085,20 +3149,45 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath)
     });
     llmWikiSession.bindings.wikiSurface = llmWikiWikiSurface;
+    reviewedWikiIndexView = window.ProdigyWikiIndexView.mount({
+      container: browsePanel,
+      index: reviewedWikiIndex,
+      onOpenDocument: (targetPath) => P.openBeside(appRef, targetPath),
+      onOpenSource: (targetPath) => P.openBeside(appRef, targetPath),
+      onOpenCitation: openGoldenCitation,
+    });
+    llmWikiSession.bindings.reviewedWikiIndexView = reviewedWikiIndexView;
+    const unsubscribeReviewedWikiIndex = reviewedWikiStore.subscribe(() => {
+      void refreshReviewedWikiIndex();
+    }, false);
+    if (mountContext && mountContext.scope && typeof mountContext.scope.track === "function") {
+      mountContext.scope.track(unsubscribeReviewedWikiIndex);
+      mountContext.scope.track(() => reviewedWikiIndexView && reviewedWikiIndexView.destroy());
+    }
     goldenPreviewWorkbench = window.LLMWikiGoldenPreviewWorkbench && window.LLMWikiGoldenPreviewWorkbench.mount({
       container: browsePanel,
       rows: goldenPreviewRows,
       ...(goldenPreviewReviewState ? { reviewState: goldenPreviewReviewState } : {}),
       onOpen: (targetPath) => P.openBeside(appRef, targetPath),
       onOpenCitation: openGoldenCitation,
-      onReviewed: (row) => {
+      onReviewed: async (row) => {
+        const sourceFile = appRef.vault.getAbstractFileByPath(row.source_path);
+        if (!sourceFile) return { ok: false, reason: "reviewed_source_missing" };
+        const reviewed = await reviewedWikiStore.acknowledge({
+          preview_document_path: row.document_path,
+          preview_receipt_path: row.receipt_path,
+          source_text: await appRef.vault.cachedRead(sourceFile),
+          reviewed_at: new Date().toISOString(),
+        });
+        if (!reviewed.ok) return reviewed;
         KnowledgeExplorerHub.lastGoldenPreviewReview = Object.freeze({
           preview_id: row.preview_id,
           document_path: row.document_path,
-          receipt_hash: row.receipt_hash,
-          reviewed_at: new Date().toISOString(),
+          receipt_hash: row.artifact_receipt_hash || row.receipt_hash,
+          reviewed_at: reviewed.entry.reviewed_at,
           boundary: "human_review_only",
         });
+        return reviewed;
       },
     });
     if (goldenPreviewWorkbench) KnowledgeExplorerHub.goldenPreviewSnapshot = () => goldenPreviewWorkbench.snapshot();

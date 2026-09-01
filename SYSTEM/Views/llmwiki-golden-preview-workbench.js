@@ -192,8 +192,29 @@
         const mark = create(actions, "button", reviewed ? "확인함" : "확인 완료", { type: "button", "data-action": "mark-golden-reviewed" });
         mark.disabled = !row.can_mark_reviewed || reviewed;
         mark.onclick = () => {
-          if (!row.can_mark_reviewed || !reviewState.mark(row.preview_id)) return;
-          if (typeof config.onReviewed === "function") config.onReviewed(row);
+          if (!row.can_mark_reviewed || reviewState.has(row.preview_id)) return false;
+          let outcome = true;
+          try {
+            if (typeof config.onReviewed === "function") outcome = config.onReviewed(row);
+          } catch (_error) {
+            render(currentRows);
+            return false;
+          }
+          const commit = (result) => {
+            if (result === false || result && result.ok === false) {
+              render(currentRows);
+              return false;
+            }
+            return reviewState.mark(row.preview_id);
+          };
+          if (outcome && typeof outcome.then === "function") {
+            mark.disabled = true;
+            return Promise.resolve(outcome).then(commit, () => {
+              render(currentRows);
+              return false;
+            });
+          }
+          return commit(outcome);
         };
       });
     }
