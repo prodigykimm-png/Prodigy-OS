@@ -324,7 +324,17 @@ function buildFixture(runtimeRoot, mutation = {}) {
   if (mutation.reimplemented) source = source.replace("source).call", "'document.body.textContent=\\\"mock\\\"').call");
   if (mutation.writeAttempt) source = source.replace("try{await new AsyncFunction", "try{await this.app.vault.create('FORBIDDEN.md','x');await new AsyncFunction");
   fs.writeFileSync(path.join(plugin, "main.js"), source);
-  fs.writeFileSync(path.join(vault, ".obsidian/community-plugins.json"), JSON.stringify(["task13a-local-dv"]));
+  const communityPlugins = ["task13a-local-dv"];
+  if (mutation.prodigyAIRuntimePluginPath) {
+    const runtimeSource = path.resolve(String(mutation.prodigyAIRuntimePluginPath));
+    const runtimeTarget = path.join(vault, ".obsidian/plugins/prodigy-ai-runtime");
+    fs.mkdirSync(runtimeTarget, { recursive: true });
+    for (const name of ["main.js", "manifest.json", "versions.json"]) {
+      fs.copyFileSync(path.join(runtimeSource, name), path.join(runtimeTarget, name));
+    }
+    communityPlugins.push("prodigy-ai-runtime");
+  }
+  fs.writeFileSync(path.join(vault, ".obsidian/community-plugins.json"), JSON.stringify(communityPlugins));
   fs.writeFileSync(path.join(vault, ".obsidian/app.json"), JSON.stringify({ showLineNumber: false, readableLineLength: true, strictLineBreaks: false }));
   fs.mkdirSync(path.join(vault, "PARA/PROJECTS"), { recursive: true });
   fs.writeFileSync(path.join(vault, "PARA/PROJECTS/Synthetic.md"), "---\ntype: project\nstatus: doing\ntitle: 한글 프로젝트\n---\nSynthetic normal fixture.\n");
