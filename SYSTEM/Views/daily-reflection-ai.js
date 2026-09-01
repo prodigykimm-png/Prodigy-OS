@@ -11,6 +11,7 @@
     if (!root.DailyReflectionObjectLinks) root.DailyReflectionObjectLinks = require("./daily-reflection-object-links.js");
     if (!root.DailyReflectionKnowledgeHandoff) root.DailyReflectionKnowledgeHandoff = require("./daily-reflection-knowledge-handoff.js");
     if (!root.DailyReflectionConservativePolicy) root.DailyReflectionConservativePolicy = require("./daily-reflection-conservative-policy.js");
+    if (!root.ProdigyAIConsumerRuntime) root.ProdigyAIConsumerRuntime = require("./prodigy-ai-consumer-runtime.js");
   }
 
   function clean(value) { return root.DailyReflectionProposalContract.clean(value); }
@@ -28,9 +29,7 @@
     if (clean(options.revisionRequest) && options.previousProposal) parts.push("", "Human revision request:", clean(options.revisionRequest), "Previous proposal:", JSON.stringify(root.DailyReflectionProposalContract.providerProposal(options.previousProposal)), "Regenerate the complete response while preserving unaffected content.");
     return parts.join("\n");
   }
-  function buildProviderPrompt(prompt, provider) {
-    const capabilities = provider && provider.capabilities || {};
-    if (capabilities.conservativeProposal !== true) return prompt;
+  function buildProviderPrompt(prompt) {
     return [
       prompt,
       "",
@@ -69,21 +68,27 @@
   }
   async function generateProposal(options) {
     const runtime = await loadRuntimeContract(options.app);
-    const projectService = root.ProjectWorkflowDraftService;
-    if (!projectService || typeof projectService.loadProviderConfig !== "function") throw new Error("AI provider configuration service is not loaded.");
-    const config = options.config || await projectService.loadProviderConfig(options.app);
-    const providerKey = options.providerKey || config.defaultProvider;
-    const provider = config.providers && config.providers[providerKey];
-    if (!provider) throw new Error(`Unknown AI provider: ${providerKey}`);
-    const service = options.providerService || root.AIProviderService;
-    if (!service || typeof service.requestStructuredJson !== "function") throw new Error("AI provider service is not loaded.");
+    const consumerRuntime = root.ProdigyAIConsumerRuntime;
+    if (!consumerRuntime || typeof consumerRuntime.requestStructured !== "function") throw new Error("Prodigy AI Runtime client is not loaded.");
     const basePrompt = buildPrompt({ contract: runtime.contract, dateStr: options.dateStr, existingBlocks: options.existingBlocks, freeText: clean(options.freeText), revisionRequest: options.revisionRequest, previousProposal: options.previousProposal });
-    const rawPayload = await service.requestStructuredJson({ app: options.app, provider, prompt: buildProviderPrompt(basePrompt, provider), schema: runtime.schema, signal: options.signal });
+    const response = await consumerRuntime.requestStructured({
+      app: options.app,
+      client: options.client,
+      consumerId: "journal.daily_reflection",
+      prompt: buildProviderPrompt(basePrompt),
+      schema: runtime.schema,
+      signal: options.signal,
+      confirmConsent: options.confirmConsent,
+      ownerSessionId: options.ownerSessionId,
+      operationId: options.operationId,
+      attemptId: options.attemptId
+    });
+    const rawPayload = response.payload;
     const payload = downgradeIneligibleVenueCandidates(root.DailyReflectionProposalContract.sanitizeProviderPayload(rawPayload));
     const proposal = root.DailyReflectionProposalContract.normalizeProposal(payload, { dateStr: options.dateStr, existingBlocks: options.existingBlocks || [] });
-    if (provider.capabilities && provider.capabilities.conservativeProposal === true) applyConservativeProposalPolicy(proposal, options.freeText, options.app);
+    applyConservativeProposalPolicy(proposal, options.freeText, options.app);
     await root.DailyReflectionObjectLinks.resolveObjectLinks(options.app, proposal);
-    return Object.assign(proposal, { provider: providerKey, model: provider.model || "" });
+    return Object.assign(proposal, consumerRuntime.providerMetadata(response));
   }
 
   const api = { SKILL_ROOT, RUNTIME_CONTRACT_PATH, RESPONSE_SCHEMA_PATH, normalizeProposal: (...args) => root.DailyReflectionProposalContract.normalizeProposal(...args), loadRuntimeContract, buildPrompt, buildProviderPrompt, applyConservativeProposalPolicy, generateProposal, selectEvidenceBlocks: (...args) => root.DailyReflectionProposalContract.selectEvidenceBlocks(...args), prepareKnowledgeCandidateHandoff: (...args) => root.DailyReflectionKnowledgeHandoff.prepareKnowledgeCandidateHandoff(...args), providerProposal: (...args) => root.DailyReflectionProposalContract.providerProposal(...args), resolveObjectLinks: (...args) => root.DailyReflectionObjectLinks.resolveObjectLinks(...args), isVenueEligibleCandidate: (...args) => root.DailyReflectionVenuePolicy.isVenueEligibleCandidate(...args) };

@@ -1,6 +1,10 @@
 (function (root) {
   "use strict";
 
+  if (typeof require === "function" && !root.ProdigyAIConsumerRuntime) {
+    root.ProdigyAIConsumerRuntime = require("./prodigy-ai-consumer-runtime.js");
+  }
+
   function required(name) {
     var v = root[name];
     if (!v) throw new Error(name + "을(를) 먼저 불러와야 합니다.");
@@ -159,25 +163,25 @@
     var review = options.review;
     var evidenceItems = options.evidenceItems;
     if (!app) throw new Error("app이 필요합니다.");
-    var projectService = root.ProjectWorkflowDraftService;
-    if (!projectService || typeof projectService.loadProviderConfig !== "function") throw new Error("AI provider configuration service is not loaded.");
-    var config = options.config || await projectService.loadProviderConfig(app);
-    var providerKey = options.providerKey || config.defaultProvider;
-    var provider = config.providers && config.providers[providerKey];
-    if (!provider) throw new Error("AI provider를 찾을 수 없습니다: " + providerKey);
-    var service = options.providerService || root.AIProviderService;
-    if (!service || typeof service.requestStructuredJson !== "function") throw new Error("AI provider service is not loaded.");
+    var runtime = root.ProdigyAIConsumerRuntime;
+    if (!runtime || typeof runtime.requestStructured !== "function") throw new Error("Prodigy AI Runtime client is not loaded.");
     var prompt = buildWeeklyAIPrompt(review, evidenceItems);
-    var payload = await service.requestStructuredJson({
+    var response = await runtime.requestStructured({
       app: app,
-      provider: provider,
+      client: options.client,
+      consumerId: "journal.weekly_filter",
       prompt: prompt,
       schema: WEEKLY_AI_SCHEMA,
-      signal: options.signal
+      signal: options.signal,
+      confirmConsent: options.confirmConsent,
+      ownerSessionId: options.ownerSessionId,
+      operationId: options.operationId,
+      attemptId: options.attemptId
     });
+    var payload = response.payload;
     var normalized = normalizeAIResponse(payload, review);
     if (!normalized) throw new Error("AI 응답을 해석할 수 없습니다.");
-    return Object.assign(normalized, { provider: providerKey, model: provider.model || "" });
+    return Object.assign(normalized, runtime.providerMetadata(response));
   }
 
   function mergeAIIntoReview(review, aiResult) {

@@ -123,6 +123,7 @@ function createModalHarness(onConfirm, options) {
     ai: global.DailyReflectionAI,
     journalStore: global.JournalStore,
     providerService: global.ProjectWorkflowDraftService,
+    aiClient: global.ProdigyAIClient,
     quality: global.EvidenceQualityCore,
     handoff: global.DailyReflectionCandidateHandoffView,
     modal: global.DailyReflectionModal,
@@ -153,6 +154,12 @@ function createModalHarness(onConfirm, options) {
     listProviderModels: (_providerKey, config) => config.providers["lm-studio"].models,
     discoverProviderModels: async (_app, _providerKey, config) => config.providers["lm-studio"].models,
     saveProviderSettings: async (_app, settings) => settings.config
+  };
+  global.ProdigyAIClient = {
+    createClient: () => ({
+      getStatus: () => ({ ok: true, status: "ready" }),
+      openSettings: () => true
+    })
   };
   modalDependencyPaths.forEach((dependencyPath) => {
     delete require.cache[require.resolve(dependencyPath)];
@@ -212,6 +219,8 @@ function createModalHarness(onConfirm, options) {
     else global.JournalStore = previous.journalStore;
     if (previous.providerService === undefined) delete global.ProjectWorkflowDraftService;
     else global.ProjectWorkflowDraftService = previous.providerService;
+    if (previous.aiClient === undefined) delete global.ProdigyAIClient;
+    else global.ProdigyAIClient = previous.aiClient;
     if (previous.quality === undefined) delete global.EvidenceQualityCore;
     else global.EvidenceQualityCore = previous.quality;
     if (previous.handoff === undefined) delete global.DailyReflectionCandidateHandoffView;
@@ -276,7 +285,7 @@ async function testClassificationShowsLiveProgressWhileProviderRuns() {
   }
 }
 
-async function testClassificationShowsSelectedProviderInLiveProgress() {
+async function testClassificationShowsRuntimeInLiveProgress() {
   let resolveProposal;
   const pendingProposal = new Promise((resolve) => { resolveProposal = resolve; });
   const harness = createModalHarness(async () => ({}), {
@@ -291,8 +300,7 @@ async function testClassificationShowsSelectedProviderInLiveProgress() {
     const running = harness.button("AI 분류").onclick();
     await new Promise((resolve) => setImmediate(resolve));
     const status = findElement(harness.instance.contentEl, (element) => element.attributes.role === "status");
-    assert.match(status.text, /Google Gemini/);
-    assert.doesNotMatch(status.text, /Antigravity/);
+    assert.match(status.text, /AI Runtime/);
     resolveProposal(createProposal());
     await running;
   } finally {
@@ -304,8 +312,8 @@ async function testSharedProviderSettingsSummaryRenders() {
   const harness = createModalHarness(async () => ({}));
   try {
     await new Promise((resolve) => setImmediate(resolve));
-    assert.ok(harness.button("통합 설정 열기"));
-    assert.ok(findElement(harness.instance.contentEl, (element) => String(element.text || "").includes("LM Studio")));
+    assert.ok(harness.button("AI Runtime 설정 열기"));
+    assert.ok(findElement(harness.instance.contentEl, (element) => String(element.text || "").includes("외부 AI Runtime 연결됨")));
     assert.equal(findElement(harness.instance.contentEl, (element) => element.attributes.type === "password"), null);
   } finally {
     harness.restore();
@@ -495,7 +503,7 @@ async function main() {
   await testSharedProviderSettingsSummaryRenders();
   await testSaveAndClassificationAreSeparate();
   await testClassificationShowsLiveProgressWhileProviderRuns();
-  await testClassificationShowsSelectedProviderInLiveProgress();
+  await testClassificationShowsRuntimeInLiveProgress();
   await testApprovalButtonCountTracksSelectedEvidence();
   await testEvidenceSavedCallbackContract();
   await testStateObserverAndCloseCancelPendingClassification();

@@ -97,30 +97,25 @@ assert.throws(
 );
 
 let requestOptions = null;
-global.ProjectWorkflowDraftService = {
-  loadProviderConfig: async () => ({ defaultProvider: "test", providers: { test: { model: "test-model", adapter: "openai-compatible" } } })
-};
-global.AIProviderService = {
-  requestStructuredJson: async (options) => {
+let nextPayload = goodPayload;
+const client = {
+  requestStructured: async (options) => {
     requestOptions = options;
-    return goodPayload;
+    return { ok: true, payload: nextPayload, receipt: { provider_key: "test", model: "test-model" } };
   }
 };
 
 (async () => {
   const controller = new AbortController();
-  const result = await ai.generateMonthlyAI({ app: {}, config: await global.ProjectWorkflowDraftService.loadProviderConfig(), context, signal: controller.signal });
+  const result = await ai.generateMonthlyAI({ app: {}, client, context, signal: controller.signal });
   assert.equal(result.provider, "test");
   assert.equal(result.model, "test-model");
   assert.equal(requestOptions.schema, ai.MONTHLY_AI_SCHEMA);
   assert.equal(requestOptions.signal, controller.signal);
   assert.equal(requestOptions.prompt.includes("source_mtime"), false);
   requestOptions = null;
-  global.AIProviderService.requestStructuredJson = async (options) => {
-    requestOptions = options;
-    return questionPayload;
-  };
-  const questionResult = await ai.generateMonthlyAI({ app: {}, config: await global.ProjectWorkflowDraftService.loadProviderConfig(), context, mode: "question_only", signal: controller.signal });
+  nextPayload = questionPayload;
+  const questionResult = await ai.generateMonthlyAI({ app: {}, client, context, mode: "question_only", signal: controller.signal });
   assert.equal(questionResult.mode, "question_only");
   assert.equal(requestOptions.schema, ai.MONTHLY_QUESTION_SCHEMA);
   assert.match(requestOptions.prompt, /관찰 질문 보조/);

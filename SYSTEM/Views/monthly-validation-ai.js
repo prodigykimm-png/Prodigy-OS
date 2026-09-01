@@ -1,6 +1,10 @@
 (function (root) {
   "use strict";
 
+  if (typeof require === "function" && !root.ProdigyAIConsumerRuntime) {
+    root.ProdigyAIConsumerRuntime = require("./prodigy-ai-consumer-runtime.js");
+  }
+
   var MONTHLY_AI_SCHEMA = Object.freeze({
     type: "object",
     additionalProperties: false,
@@ -232,19 +236,6 @@
     };
   }
 
-  function providerService(options) {
-    if (options && options.providerService) return options.providerService;
-    if (root.AIProviderService) return root.AIProviderService;
-    if (typeof require === "function") return require("./ai-provider-service.js");
-    throw new Error("AI provider service가 로드되지 않았습니다.");
-  }
-
-  function projectService() {
-    if (root.ProjectWorkflowDraftService) return root.ProjectWorkflowDraftService;
-    if (typeof require === "function") return require("./project-workflow-draft-service.js");
-    throw new Error("AI provider configuration service가 로드되지 않았습니다.");
-  }
-
   async function generateMonthlyAI(options) {
     var opts = options || {};
     var context = opts.context || {};
@@ -253,22 +244,24 @@
       emptyError.code = "NO_BOUNDED_EVIDENCE";
       throw emptyError;
     }
-    var serviceConfig = projectService();
-    var config = opts.config || await serviceConfig.loadProviderConfig(opts.app);
-    var providerKey = opts.providerKey || config.defaultProvider;
-    var provider = config.providers && config.providers[providerKey];
-    if (!provider) throw new Error("AI provider를 찾을 수 없습니다: " + providerKey);
-    var service = providerService(opts);
+    var runtime = root.ProdigyAIConsumerRuntime;
+    if (!runtime || typeof runtime.requestStructured !== "function") throw new Error("Prodigy AI Runtime client is not loaded.");
     var questionOnly = opts.mode === "question_only";
-    var payload = await service.requestStructuredJson({
+    var response = await runtime.requestStructured({
       app: opts.app,
-      provider: provider,
+      client: opts.client,
+      consumerId: "journal.monthly_validation",
       prompt: questionOnly ? buildMonthlyQuestionPrompt(context) : buildMonthlyAIPrompt(context),
       schema: questionOnly ? MONTHLY_QUESTION_SCHEMA : MONTHLY_AI_SCHEMA,
-      signal: opts.signal
+      signal: opts.signal,
+      confirmConsent: opts.confirmConsent,
+      ownerSessionId: opts.ownerSessionId,
+      operationId: opts.operationId,
+      attemptId: opts.attemptId
     });
+    var payload = response.payload;
     var normalized = questionOnly ? normalizeMonthlyQuestionResponse(payload, context) : normalizeMonthlyAIResponse(payload, context);
-    return Object.assign(normalized, { mode: questionOnly ? "question_only" : "validation", provider: providerKey, model: provider.model || "" });
+    return Object.assign(normalized, { mode: questionOnly ? "question_only" : "validation" }, runtime.providerMetadata(response));
   }
 
   var api = Object.freeze({

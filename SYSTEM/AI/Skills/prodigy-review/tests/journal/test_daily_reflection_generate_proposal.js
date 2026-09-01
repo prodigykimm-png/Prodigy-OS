@@ -145,24 +145,7 @@ function fakeApp(writeLog) {
 }
 
 async function withFakeConfig(run) {
-  const previous = global.ProjectWorkflowDraftService;
-  global.ProjectWorkflowDraftService = {
-    loadProviderConfig: async () => ({
-      defaultProvider: "local",
-      providers: {
-        local: {
-          adapter: "openai-compatible",
-          model: "qwen-fixture",
-          capabilities: { conservativeProposal: true }
-        }
-      }
-    })
-  };
-  try {
-    await run();
-  } finally {
-    global.ProjectWorkflowDraftService = previous;
-  }
+  await run();
 }
 
 async function testGenerateProposalFakeProviderNoWrite() {
@@ -179,14 +162,14 @@ async function testGenerateProposalFakeProviderNoWrite() {
         "조효진과 김나래가 이재모 피자를 먹었다.",
         "부동산 투자 결론은 아직 정하지 않았다."
       ].join("\n"),
-      providerService: { requestStructuredJson: async (options) => { calls.push(options); return providerPayload(); } }
+      client: { requestStructured: async (options) => { calls.push(options); return { ok: true, payload: providerPayload(), receipt: { provider_key: "fake", model: "fake-model" } }; } }
     });
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].provider.model, "qwen-fixture");
+    assert.equal(calls[0].consumer_id, "journal.daily_reflection");
     assert.match(calls[0].prompt, /self-evaluation or tentative judgment/i);
     assert.match(calls[0].prompt, /incidental meal\/food-only block/i);
-    assert.equal(proposal.provider, "local");
-    assert.equal(proposal.model, "qwen-fixture");
+    assert.equal(proposal.provider, "fake");
+    assert.equal(proposal.model, "fake-model");
     assert.deepEqual(proposal.evidence_blocks.map((item) => item.title), ["2025타경2391 패찰과 낙찰", "보증금 반환 책임자 확인", "조효진과 김나래 식사", "투자 판단 보류"]);
     assert.equal(proposal.evidence_blocks[0].experience, "2025타경2391(1),(2)는 나는 패찰했고 타인이 낙찰받은 것 같다.");
     assert.equal(proposal.evidence_blocks[0].interpretation, "부산은 과열된 것 같다.");
@@ -219,7 +202,7 @@ async function testBadProviderDoesNotWrite() {
         app: fakeApp(writeLog),
         dateStr: "2026-07-22",
         freeText: "조효진과 김나래가 이재모 피자를 먹었다.",
-        providerService: { requestStructuredJson: async () => { providerCalls += 1; return { bad: true }; } }
+        client: { requestStructured: async () => { providerCalls += 1; return { ok: true, payload: { bad: true }, receipt: { provider_key: "fake", model: "fake-model" } }; } }
       }),
       /unknown keys|evidence_blocks/i
     );
@@ -236,7 +219,7 @@ async function testInvalidVenueCandidateFallsBackToResource() {
       app: fakeApp(writeLog),
       dateStr: "2026-07-22",
       freeText: "벡스코에서 촬영했다.",
-      providerService: { requestStructuredJson: async () => invalidVenuePayload() }
+      client: { requestStructured: async () => ({ ok: true, payload: invalidVenuePayload(), receipt: { provider_key: "fake", model: "fake-model" } }) }
     });
     assert.deepEqual(proposal.resource_candidates.map((item) => ({ name: item.name, suggested_type: item.suggested_type })), [
       { name: "벡스코", suggested_type: "resource" }

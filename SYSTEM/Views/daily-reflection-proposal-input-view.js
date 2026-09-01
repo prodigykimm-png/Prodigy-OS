@@ -9,35 +9,20 @@
 
   function renderProviderSummary(connection, modal, app, onNotice) {
     const status = connection.createEl("div", { attr: { class: "reflection-provider-summary", style: "color:var(--text-muted);margin-top:6px;min-height:44px;" } });
-    const openSettings = button(connection, "통합 설정 열기");
+    const openSettings = button(connection, "AI Runtime 설정 열기");
     openSettings.style.marginTop = "8px";
     openSettings.onclick = () => {
-      if (!root.ProdigySettingsModal || typeof root.ProdigySettingsModal.open !== "function") return onNotice("Prodigy OS 설정을 불러오지 못했습니다.");
-      root.ProdigySettingsModal.open(app, {
-        onSaved: async (config) => {
-          modal.providerConfig = config;
-          modal.providerKey = config.defaultProvider;
-          const provider = config.providers[config.defaultProvider];
-          status.setText(provider ? `${provider.name} · ${provider.model || "모델 미설정"}` : "AI 제공자를 선택해 주세요.");
-        }
-      });
+      const opened = modal.aiClient && modal.aiClient.openSettings();
+      if (opened !== true) onNotice("AI Runtime 설정을 열지 못했습니다.");
     };
 
-    const providerService = root.ProjectWorkflowDraftService;
-    if (!providerService || typeof providerService.loadProviderConfig !== "function") {
-      status.setText("AI 제공자 설정을 불러오지 못했습니다.");
+    if (!root.ProdigyAIClient || typeof root.ProdigyAIClient.createClient !== "function") {
+      status.setText("AI Runtime client를 불러오지 못했습니다.");
       return;
     }
-    modal.providerConfigLoad = Promise.resolve(providerService.loadProviderConfig(app)).then((config) => {
-      modal.providerConfig = config;
-      modal.providerKey = config.defaultProvider;
-      const provider = config.providers[config.defaultProvider];
-      status.setText(provider ? `${provider.name} · ${provider.model || "모델 미설정"}` : "AI 제공자를 선택해 주세요.");
-      return config;
-    }).catch((error) => {
-      status.setText(error.message || String(error));
-      throw error;
-    });
+    modal.aiClient = root.ProdigyAIClient.createClient({ app });
+    const runtimeStatus = modal.aiClient.getStatus();
+    status.setText(runtimeStatus.ok ? "외부 AI Runtime 연결됨" : "AI Runtime 설정이 필요합니다.");
   }
 
   function render(options) {
@@ -96,11 +81,9 @@
     if (typeof modal.setClassificationCleanup === "function") modal.setClassificationCleanup(cancelClassification);
     const startProgress = () => {
       const startedAt = Date.now();
-      const provider = modal.providerConfig && modal.providerConfig.providers && modal.providerConfig.providers[modal.providerKey];
-      const providerLabel = provider && provider.name || modal.providerKey || "AI 제공자";
       const updateProgress = () => {
         const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
-        classificationStatus.setText(`AI 분류 중… ${providerLabel} 분석 ${elapsedSeconds}초 경과`);
+        classificationStatus.setText(`AI Runtime 분류 중… ${elapsedSeconds}초 경과`);
       };
       updateProgress();
       progressTimer = setInterval(updateProgress, 1000);
@@ -109,12 +92,7 @@
       if (classify.disabled) return;
       const ai = root.DailyReflectionAI;
       if (!ai || typeof ai.generateProposal !== "function") return onNotice("일기는 저장되어 있습니다. AI 분류 기능을 불러오지 못했습니다.");
-      try {
-        if (!modal.providerConfig && modal.providerConfigLoad) await modal.providerConfigLoad;
-      } catch (_error) {
-        return onNotice("일기는 저장되어 있습니다. AI 설정을 불러오지 못했습니다.");
-      }
-      if (!modal.providerConfig || !modal.providerKey) return onNotice("일기는 저장되어 있습니다. AI 설정을 불러오는 중입니다.");
+      if (!modal.aiClient) return onNotice("일기는 저장되어 있습니다. AI Runtime을 불러오지 못했습니다.");
       classify.disabled = true;
       classify.textContent = "분류 중…";
       modal.busy = true;
@@ -125,7 +103,7 @@
       if (typeof modal.emitState === "function") modal.emitState("");
       startProgress();
       try {
-        const proposal = await ai.generateProposal({ app, dateStr, freeText: modal.freeText, existingBlocks, providerKey: modal.providerKey, config: modal.providerConfig, signal: classificationController ? classificationController.signal : undefined });
+        const proposal = await ai.generateProposal({ app, client: modal.aiClient, dateStr, freeText: modal.freeText, existingBlocks, signal: classificationController ? classificationController.signal : undefined });
         if (modal.closed || run !== classificationRun) return;
         modal.proposal = proposal;
         modal.resetProposalSelection();
