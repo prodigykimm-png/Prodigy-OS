@@ -7,7 +7,7 @@
   const packageIndexes = new WeakMap();
 
   function core() { return root.AuctionRealEstateResearchCore; }
-  function providerResolver() { return root.AuctionAiProviderResolver || (typeof require === "function" ? require("./auction-ai-provider-resolver.js") : null); }
+  function consumerRuntime() { return root.ProdigyAIConsumerRuntime || (typeof require === "function" ? require("./prodigy-ai-consumer-runtime.js") : null); }
   function writer() { return root.AuctionSourceApprovalWriter || (typeof require === "function" ? require("./auction-source-approval-writer.js") : null); }
   function packageCore() { return root.RealEstateSourcePackageCore || (typeof require === "function" ? require("../SCRIPTS/real-estate-source-package-core.js") : null); }
   function clean(value) { return value === undefined || value === null ? "" : String(value).trim(); }
@@ -358,21 +358,15 @@
       }
       return;
     }
-    box.createEl("p", { text: error || "원문과 수치 근거는 아래에서 확인할 수 있습니다. AI 요약을 사용할 수 없어 원문 중심으로 표시합니다." });
-  }
-  async function resolveSummaryProvider(app) {
-    const resolver = providerResolver();
-    if (!resolver || typeof resolver.resolveAuctionAiProvider !== "function") return null;
-    const resolved = await resolver.resolveAuctionAiProvider({ app });
-    return resolved && resolved.status === "ready" ? resolved.provider : null;
+    box.createEl("p", { text: error || "필요할 때 아래의 AI 요약 생성 버튼을 누르세요. Modal을 여는 것만으로는 외부 전송하지 않습니다." });
   }
   async function requestAiSummary(app, auction, pkg) {
-    const provider = await resolveSummaryProvider(app);
-    if (!provider || !root.AIProviderService) return { summary: null, provider: null, error: "연결된 Codex 또는 Antigravity를 찾지 못했습니다." };
+    const runtime = consumerRuntime();
+    if (!runtime) return { summary: null, provider: null, error: "AI Runtime을 사용할 수 없습니다." };
     const input = core().buildAiSummaryInput(auction, pkg);
-    const payload = await root.AIProviderService.requestStructuredJson({
+    const response = await runtime.requestStructured({
       app,
-      provider,
+      consumerId: "auction.research_summary",
       prompt: [
         "다음은 부동산 조사 패키지에서 정규화된 사실과 출처 상태다.",
         "한국어로 짧고 명확하게 요약하라.",
@@ -385,9 +379,10 @@
       ].join("\n"),
       schema: core().AI_SUMMARY_SCHEMA
     });
+    const payload = response.payload;
     const summary = core().normalizeAiSummary(payload);
     if (!summary) throw new Error("AI가 표시 가능한 요약을 반환하지 않았습니다.");
-    return { summary, provider, error: "" };
+    return { summary, provider: { name: runtime.providerMetadata(response).provider || "AI Runtime" }, error: "" };
   }
   class ResearchModal extends ((root.obsidian && root.obsidian.Modal) || class {}) {
     constructor(app, auction, options) {
@@ -430,17 +425,22 @@
       }
       content.createEl("p", { text: `최근 조사: ${api.formatValue("auction_datetime", pkg.observed_at)} · ${api.evidenceSummary(pkg)}`, attr: { class: "auction-real-estate-research-meta" } });
       if (Date.now() - api.packageTimestamp(pkg) > 30 * 24 * 60 * 60 * 1000) content.createEl("p", { text: "이 조사는 30일보다 오래되어 최신성 확인이 필요합니다.", attr: { class: "auction-real-estate-research-warning", role: "status" } });
-      if (this.aiSummaryPackageId !== pkg.package_id && !this.aiSummaryLoading) {
-        this.aiSummaryPackageId = pkg.package_id;
-        this.aiSummaryLoading = true;
-        void this.loadAiSummary(pkg);
-      }
       addSummary(content, this.aiSummary, this.aiSummaryProvider, this.aiSummaryLoading, this.aiSummaryError);
       addMatchResolution(content, pkg, this);
       addProviderRows(content, pkg);
       addEvidence(content, pkg);
       this.renderCandidateDiff(content, pkg);
       const actions = content.createDiv({ attr: { class: "auction-real-estate-research-actions" } });
+      const summarize = actions.createEl("button", { text: this.aiSummaryLoading ? "AI 요약 생성 중…" : "AI 요약 생성", attr: { type: "button" } });
+      summarize.disabled = this.aiSummaryLoading;
+      summarize.onclick = () => {
+        if (this.aiSummaryLoading) return;
+        this.aiSummaryPackageId = pkg.package_id;
+        this.aiSummaryLoading = true;
+        this.aiSummaryError = "";
+        this.render();
+        void this.loadAiSummary(pkg);
+      };
       const refresh = actions.createEl("button", { text: "최신 조사 다시 실행", attr: { type: "button", class: "mod-cta" } });
       const runnerAvailable = Boolean(root.AuctionRealEstateSourceRunner?.isAvailable?.(this.app));
       refresh.disabled = this.collecting || !runnerAvailable;

@@ -11,8 +11,8 @@
     return root.AuctionAiDecisionSupportCore || (typeof require === "function" ? require("./auction-ai-decision-support-core.js") : null);
   }
 
-  function providerResolverApi() {
-    return root.AuctionAiProviderResolver || (typeof require === "function" ? require("./auction-ai-provider-resolver.js") : null);
+  function consumerRuntimeApi() {
+    return root.ProdigyAIConsumerRuntime || (typeof require === "function" ? require("./prodigy-ai-consumer-runtime.js") : null);
   }
 
   function clean(value) {
@@ -259,22 +259,21 @@
     renderSession(session);
     try {
       const core = aiCoreApi();
-      const resolver = providerResolverApi();
-      if (!core || !resolver || !root.AIProviderService) throw new Error("AI 보조 구성요소가 준비되지 않았습니다.");
-      const resolved = await resolver.resolveAuctionAiProvider({ app: session.app });
-      if (!resolved || resolved.status !== "ready") throw new Error((resolved && resolved.reason) || "연결된 Codex 또는 Antigravity를 찾지 못했습니다.");
+      const runtime = consumerRuntimeApi();
+      if (!core || !runtime) throw new Error("AI 보조 구성요소가 준비되지 않았습니다.");
       const input = core.buildAiDecisionSupportInput(session.projection, { includePersonalExcerpt: session.includePersonalExcerpt });
       session.aiInput = input;
-      const payload = await root.AIProviderService.requestStructuredJson({
+      const response = await runtime.requestStructured({
         app: session.app,
-        provider: resolved.provider,
+        consumerId: "auction.decision_support",
         prompt: core.buildAiDecisionSupportPrompt(input),
         schema: core.AI_DECISION_SUPPORT_SCHEMA
       });
+      const payload = response.payload;
       const validation = core.validateAiDecisionSupportDraft(payload, input);
       if (!validation.ok) throw new Error("AI 응답 형식을 확인할 수 없습니다.");
       session.draft = validation.value;
-      session.providerName = clean(resolved.provider && resolved.provider.name) || "연결된 AI";
+      session.providerName = runtime.providerMetadata(response).provider || "AI Runtime";
     } catch (error) {
       session.draft = null;
       session.error = safeAiError(error);

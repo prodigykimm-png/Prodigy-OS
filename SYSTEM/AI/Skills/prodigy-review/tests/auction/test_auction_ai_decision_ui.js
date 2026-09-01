@@ -67,18 +67,20 @@ function loadSandbox(providerService) {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   sandbox.obsidian = { Modal: FakeModal };
-  sandbox.ProdigyConfigService = {
-    async load() {
-      const codex = { adapter: "codex-exec", authMode: "codex-login", name: "Codex 구독" };
-      return { defaultProvider: "codex", providers: { codex } };
-    }
+  sandbox.ProdigyAIConsumerRuntime = {
+    async requestStructured(options) {
+      return {
+        ok: true,
+        payload: await providerService.requestStructuredJson(options),
+        receipt: { provider_key: "fake", model: "fake-model" }
+      };
+    },
+    providerMetadata() { return { provider: "fake", model: "fake-model" }; }
   };
-  sandbox.AIProviderService = providerService;
   vm.createContext(sandbox);
   for (const file of [
     "SYSTEM/Views/auction-decision-support-core.js",
     "SYSTEM/Views/auction-ai-decision-support-core.js",
-    "SYSTEM/Views/auction-ai-provider-resolver.js",
     "SYSTEM/Views/auction-ai-decision-support.js"
   ]) new vm.Script(fs.readFileSync(path.join(ROOT, file), "utf8"), { filename: file }).runInContext(sandbox);
   return sandbox;
@@ -169,7 +171,7 @@ test("Given no connected provider, When the modal is rendered, Then it preserves
   await button.onclick();
   const rendered = textOf(modal.contentEl);
   assert.match(rendered, /시장 결과/u);
-  assert.match(rendered, /연결된 Codex 또는 Antigravity를 찾지 못했습니다/u);
+  assert.match(rendered, /AI 응답을 검증하지 못했습니다/u);
 });
 
 console.log("Auction AI decision UI tests loaded");

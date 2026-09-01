@@ -3,9 +3,7 @@
 
   if (typeof require === "function") {
     if (!root.RegionExperienceContract) root.RegionExperienceContract = require("./region-experience-contract.js");
-    if (!root.ProjectWorkflowDraftService) root.ProjectWorkflowDraftService = require("./project-workflow-draft-service.js");
-    if (!root.AIProviderService) root.AIProviderService = require("./ai-provider-service.js");
-    if (!root.RegionExperienceProviderEndpointGuard) root.RegionExperienceProviderEndpointGuard = require("./region-experience-provider-endpoint-guard.js");
+    if (!root.ProdigyAIConsumerRuntime) root.ProdigyAIConsumerRuntime = require("./prodigy-ai-consumer-runtime.js");
   }
 
   function deepFreeze(value) {
@@ -170,70 +168,40 @@
     ].join("\n");
   }
 
-  function configurationError() {
-    return new Error("AI 제공자 설정을 불러오지 못했습니다. 설정을 확인해 주세요.");
-  }
-
-  function resolveProviderServices(options) {
-    const projectService = options.projectWorkflowDraftService || root.ProjectWorkflowDraftService;
-    const providerService = options.providerService || root.AIProviderService;
-    if (!projectService || typeof projectService.loadProviderConfig !== "function") throw configurationError();
-    if (!providerService || typeof providerService.requestStructuredJson !== "function") {
-      throw new Error("AI 제공자 서비스를 사용할 수 없습니다. 다시 시도해 주세요.");
-    }
-    return { projectService, providerService };
-  }
-
-  function assertTrustedProviderEndpoint(providerKey, provider) {
-    const guard = root.RegionExperienceProviderEndpointGuard;
-    if (!guard || typeof guard.assertTrustedProviderEndpoint !== "function") throw configurationError();
-    guard.assertTrustedProviderEndpoint(providerKey, provider);
-  }
-
-  function mappedProviderError(error, provider, providerService) {
-    const mapper = providerService && providerService.userFacingProviderError
-      || root.AIProviderService && root.AIProviderService.userFacingProviderError;
-    if (typeof mapper === "function") return mapper(error, provider);
+  function mappedRuntimeError(error) {
     const mapped = new Error(error && error.name === "AbortError"
       ? "AI 요청이 취소되었습니다."
-      : "AI 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      : "AI Runtime 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.");
     if (error && error.name === "AbortError") mapped.name = "AbortError";
-    const status = Number(error && error.status || 0);
-    if (status) mapped.status = status;
+    mapped.code = error && error.code || "runtime_unavailable";
     return mapped;
   }
 
   async function generateProposal(options) {
     const requestData = buildRequestData(options.input, options.revisionRequest, options.previousProposal);
-    const services = resolveProviderServices(options);
-    let config;
+    const runtime = root.ProdigyAIConsumerRuntime;
+    if (!runtime || typeof runtime.requestStructured !== "function") throw mappedRuntimeError({ code: "runtime_unavailable" });
+    let response;
     try {
-      config = await services.projectService.loadProviderConfig(options.app);
-    } catch (_error) {
-      throw configurationError();
-    }
-    const providerKey = options.providerKey || config && config.defaultProvider;
-    const provider = config && config.providers && config.providers[providerKey];
-    if (!provider) throw configurationError();
-    assertTrustedProviderEndpoint(providerKey, provider);
-    let payload;
-    try {
-      payload = await services.providerService.requestStructuredJson({
+      response = await runtime.requestStructured({
         app: options.app,
-        provider,
+        client: options.client,
+        consumerId: "auction.region_experience",
         prompt: buildPrompt(requestData),
         schema: RESPONSE_SCHEMA,
-        signal: options.signal
+        signal: options.signal,
+        confirmConsent: options.confirmConsent,
+        ownerSessionId: options.ownerSessionId,
+        operationId: options.operationId,
+        attemptId: options.attemptId
       });
     } catch (error) {
-      throw mappedProviderError(error, provider, services.providerService);
+      throw mappedRuntimeError(error);
     }
-    const normalized = contract().normalizeProposal(payload, requestData.input);
+    const normalized = contract().normalizeProposal(response.payload, requestData.input);
     return Object.freeze(Object.assign({}, normalized, {
       input_fingerprint: inputFingerprint(requestData.input),
-      provider: providerKey,
-      model: provider.model || ""
-    }));
+    }, runtime.providerMetadata(response)));
   }
 
   const api = Object.freeze({
