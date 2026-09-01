@@ -21,8 +21,13 @@
   "legacy_config_provider_fields_remaining": 0,
   "certified_profiles": 2,
   "certifications": {
-    "antigravity": "402f77d63599ab6feee1617602324aabe4f112ef4e3966aa6551c1a91765d40f",
-    "codex": "e91812566ab48770edc489eea9e785836c87970456c4ed4832b16c6e702c192b"
+    "antigravity": "31703aa13c4f83b6fccd44c493ca9cbf8140f8384fe2c041058d6260c2170442",
+    "codex": "786b7658a0e0a29b129dbf89af1ddb8748a09c0d94b84ed747233276ff130af4"
+  },
+  "binding_policy": {
+    "internal": "antigravity",
+    "mixed_or_private": "codex",
+    "reason": "Antigravity print mode carries prompts in argv; Codex carries prompts through stdin."
   },
   "status": "desktop_certified_mobile_relay_unconfigured",
   "rollback": {

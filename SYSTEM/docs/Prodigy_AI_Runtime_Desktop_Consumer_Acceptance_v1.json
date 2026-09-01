@@ -1,0 +1,46 @@
+{
+  "schema_version": "prodigy_ai_runtime_desktop_consumer_acceptance_v1",
+  "verified_at": "2026-09-01",
+  "status": "pass",
+  "consumer_id": "project.workflow_draft",
+  "surface": "real-disposable-obsidian-project-wizard",
+  "provider_profile": "codex",
+  "model": "runtime-default",
+  "route_class": "desktop-cli",
+  "certification_hash": "786b7658a0e0a29b129dbf89af1ddb8748a09c0d94b84ed747233276ff130af4",
+  "observed_states": [
+    "consent_declined",
+    "grant_persisted",
+    "completed",
+    "cancel_requested",
+    "route_invalidated",
+    "capability_unavailable"
+  ],
+  "acceptance": {
+    "consent_declined_provider_calls": 0,
+    "grant_bound_to_profile_revision": true,
+    "completed_workflow_items_min": 4,
+    "completed_workflow_items_max": 10,
+    "cancel_after_process_spawn": true,
+    "invalid_route_provider_calls": 0,
+    "grant_invalidated_after_route_change": true,
+    "vault_content_writes": 0,
+    "source_canonical_writes": 0,
+    "prompt_response_persistence_hits": 0,
+    "secret_value_hits": 0,
+    "isolated_cli_temp_residue": 0,
+    "main_vault_grants_changed": false
+  },
+  "provider_command_boundary": {
+    "shell": false,
+    "isolated_non_vault_cwd": true,
+    "prompt_via_stdin": true,
+    "ephemeral_session": true,
+    "raw_stdout_stderr_logged": false
+  },
+  "scope_decision": {
+    "standalone_settings_ui_gate": "deferred",
+    "reason": "Disposable Obsidian first-open trust onboarding is outside the Project live consumer path.",
+    "next_chapter": "Obsidian Harness Compatibility"
+  }
+}
