@@ -65,26 +65,20 @@ function testNormalizePayloadDefaultsReason() {
 
 async function testGenerateThinkingDeltaCallsProvider() {
   const calls = [];
-  const fakeProviderService = {
-    requestStructuredJson: async (options) => {
+  const fakeClient = {
+    requestStructured: async (options) => {
       calls.push(options);
-      return {
+      return { ok: true, payload: {
         before: "설득이 먼저라고 생각했다.",
         after: "경청이 먼저라고 생각하게 되었다.",
         reason: "책에서 경청의 중요성을 반복 강조했다.",
         evidence_refs: []
-      };
+      }, receipt: { provider_key: "fake", model: "fake-model" } };
     }
   };
-  const fakeConfig = {
-    defaultProvider: "gemini",
-    providers: { gemini: { adapter: "gemini", model: "gemini-3.5-flash", apiKeySecret: "test" } }
-  };
-  global.ProjectWorkflowDraftService = { loadProviderConfig: async () => fakeConfig };
-  global.AIProviderService = fakeProviderService;
-  try {
-    const result = await ai.generateThinkingDelta({
+  const result = await ai.generateThinkingDelta({
       app: {},
+      client: fakeClient,
       title: "인간관계론",
       before: "설득이 먼저라고 생각했다.",
       after: "경청이 먼저라고 생각하게 되었다.",
@@ -92,12 +86,8 @@ async function testGenerateThinkingDeltaCallsProvider() {
     });
     assert.equal(result.before, "설득이 먼저라고 생각했다.");
     assert.equal(result.after, "경청이 먼저라고 생각하게 되었다.");
-    assert.equal(result.provider, "gemini");
+    assert.equal(result.provider, "fake");
     assert.equal(calls.length, 1);
-  } finally {
-    delete global.ProjectWorkflowDraftService;
-    delete global.AIProviderService;
-  }
 }
 
 async function testGenerateThinkingDeltaRejectsInsufficientRecords() {

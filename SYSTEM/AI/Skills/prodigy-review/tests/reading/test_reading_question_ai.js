@@ -36,7 +36,7 @@ function testNormalizePayloadValid() {
   };
   const result = ai.normalizePayload(payload, [{ id: "common_terms" }]);
   assert.equal(result.length, 2);
-  assert.equal(result[0].source, "gemini");
+  assert.equal(result[0].source, "ai");
   assert.equal(result[0].memory_refs.length, 1);
   assert.equal(result[1].id, "ai_q_1");
 }
@@ -58,25 +58,17 @@ function testNormalizePayloadCapsAtFive() {
 
 async function testRefineQuestionsCallsProvider() {
   const calls = [];
-  const fakeProviderService = {
-    requestStructuredJson: async (options) => {
+  const fakeClient = {
+    requestStructured: async (options) => {
       calls.push(options);
-      return {
-        questions: [
+      return { ok: true, payload: { questions: [
           { phase: "before", label: "정교화된 질문", reason: "맥락 반영" }
-        ]
-      };
+        ] }, receipt: { provider_key: "fake", model: "fake-model" } };
     }
   };
-  const fakeConfig = {
-    defaultProvider: "gemini",
-    providers: { gemini: { adapter: "gemini", model: "gemini-3.5-flash", apiKeySecret: "test" } }
-  };
-  global.ProjectWorkflowDraftService = { loadProviderConfig: async () => fakeConfig };
-  global.AIProviderService = fakeProviderService;
-  try {
-    const result = await ai.refineQuestions({
+  const result = await ai.refineQuestions({
       app: {},
+      client: fakeClient,
       title: "테스트",
       author: "저자",
       bookType: "universal",
@@ -86,12 +78,8 @@ async function testRefineQuestionsCallsProvider() {
     });
     assert.equal(result.questions.length, 1);
     assert.equal(result.questions[0].label, "정교화된 질문");
-    assert.equal(result.provider, "gemini");
+    assert.equal(result.provider, "fake");
     assert.equal(calls.length, 1);
-  } finally {
-    delete global.ProjectWorkflowDraftService;
-    delete global.AIProviderService;
-  }
 }
 
 async function main() {

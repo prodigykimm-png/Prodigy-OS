@@ -1,6 +1,10 @@
 (function (root) {
   "use strict";
 
+  if (typeof require === "function" && !root.ProdigyAIConsumerRuntime) {
+    root.ProdigyAIConsumerRuntime = require("./prodigy-ai-consumer-runtime.js");
+  }
+
   var THINKING_DELTA_SCHEMA = Object.freeze({
     type: "object",
     additionalProperties: false,
@@ -76,30 +80,30 @@
     }
     var app = options.app;
     if (!app) throw new Error("app이 필요합니다.");
-    var projectService = root.ProjectWorkflowDraftService;
-    if (!projectService || typeof projectService.loadProviderConfig !== "function") throw new Error("AI provider configuration service is not loaded.");
-    var config = options.config || await projectService.loadProviderConfig(app);
-    var providerKey = options.providerKey || config.defaultProvider;
-    var provider = config.providers && config.providers[providerKey];
-    if (!provider) throw new Error("AI provider를 찾을 수 없습니다: " + providerKey);
-    var service = options.providerService || root.AIProviderService;
-    if (!service || typeof service.requestStructuredJson !== "function") throw new Error("AI provider service is not loaded.");
+    var runtime = root.ProdigyAIConsumerRuntime;
+    if (!runtime || typeof runtime.requestStructured !== "function") throw new Error("Prodigy AI Runtime client is not loaded.");
     var prompt = buildPrompt({
       title: options.title,
       before: options.before,
       after: options.after,
       sessionNotes: options.sessionNotes
     });
-    var payload = await service.requestStructuredJson({
+    var response = await runtime.requestStructured({
       app: app,
-      provider: provider,
+      client: options.client,
+      consumerId: "reading.thinking_delta",
       prompt: prompt,
       schema: THINKING_DELTA_SCHEMA,
-      signal: options.signal
+      signal: options.signal,
+      confirmConsent: options.confirmConsent,
+      ownerSessionId: options.ownerSessionId,
+      operationId: options.operationId,
+      attemptId: options.attemptId
     });
+    var payload = response.payload;
     var normalized = normalizePayload(payload);
     if (!normalized) throw new Error("AI 응답을 해석할 수 없습니다.");
-    return Object.assign(normalized, { provider: providerKey, model: provider.model || "" });
+    return Object.assign(normalized, runtime.providerMetadata(response));
   }
 
   var api = Object.freeze({
