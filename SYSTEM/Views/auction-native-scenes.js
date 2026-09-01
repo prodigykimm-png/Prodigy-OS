@@ -6,12 +6,15 @@
     viewStates: new WeakMap(),
     bodyControllers: new WeakMap(),
     sectionRegistries: new WeakMap(),
+    pendingRegistrations: new WeakMap(),
   };
   root.__prodigyAuctionNativeScenesRuntime = runtime;
   const states = runtime.states;
   const viewStates = runtime.viewStates;
   const bodyControllers = runtime.bodyControllers;
   const sectionRegistries = runtime.sectionRegistries;
+  const pendingRegistrations = runtime.pendingRegistrations || new WeakMap();
+  runtime.pendingRegistrations = pendingRegistrations;
 
   const create = (parent, tag, className, text) => {
     const element = parent.createEl
@@ -82,11 +85,43 @@
     return app ? states.get(app) : null;
   };
 
+  const deferRegistrationUntilConnected = (kind, container) => {
+    const existing = pendingRegistrations.get(container);
+    if (existing) {
+      existing.kind = kind;
+      return false;
+    }
+    const Observer = root.MutationObserver;
+    const ownerDocument = container.ownerDocument || root.document;
+    const observationRoot = ownerDocument && (ownerDocument.body || ownerDocument.documentElement);
+    if (typeof Observer !== "function" || !observationRoot) return false;
+    const pending = { kind, observer: null };
+    const settle = () => {
+      const current = pendingRegistrations.get(container);
+      if (!current || !viewFor(container)) return false;
+      current.observer.disconnect();
+      pendingRegistrations.delete(container);
+      register(current.kind, container);
+      return true;
+    };
+    pending.observer = new Observer(settle);
+    pendingRegistrations.set(container, pending);
+    pending.observer.observe(observationRoot, { childList: true, subtree: true });
+    settle();
+    return false;
+  };
+
   const register = (kind, container) => {
     if (!container) return false;
     container.classList.add("auction-native-scene-section");
     container.setAttribute("data-native-section", kind);
     const view = viewFor(container);
+    if (!view) return deferRegistrationUntilConnected(kind, container);
+    const pending = pendingRegistrations.get(container);
+    if (pending) {
+      pending.observer.disconnect();
+      pendingRegistrations.delete(container);
+    }
     rememberSection(view, kind, container);
     const state = resolveState(container);
     if (!state) return false;
