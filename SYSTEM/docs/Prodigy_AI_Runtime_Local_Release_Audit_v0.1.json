@@ -27,6 +27,9 @@
   "source_truth": {
     "dusk_head_before_release_commit": "ced2996d630ca3579ffbe7ccc0f4c70ed1afe06d",
     "plugin_head_before_release_commit": "a43f6dca6d992f31f71bf36fccc454a2b4dc8a6e",
+    "plugin_release_commit": "4c83deab6e1422146194a2273c3059f7b7314ddf",
+    "plugin_closure_commit": "d4380537a4a1766b21cc7540a57ba9ee270ef635",
+    "dusk_release_acceptance_commit": "145d78ffed496dfd148d1f5ac46dee613323b289",
     "canonical_version_source": "package.json#version",
     "compatibility_sources": [
       "manifest.json#minAppVersion",
@@ -37,7 +40,7 @@
   "verification": {
     "strict_typecheck": "pass",
     "plugin_and_release_tests": {
-      "passed": 30,
+      "passed": 35,
       "failed": 0
     },
     "repeated_build_byte_identity": true,
@@ -51,10 +54,11 @@
       "failed": 0,
       "surfaces": [
         "clean ZIP install",
+        "ZIP, receipt, SHA sidecar, and audit binding",
         "plugin handshake",
         "Project deterministic capability_unavailable",
-        "upgrade",
-        "rollback",
+        "upgrade through the production installer",
+        "rollback through the production installer",
         "candidate reinstall"
       ]
     },
@@ -65,18 +69,33 @@
     "durable_config_preserved_exact": true,
     "stale_grant_became_usable": false,
     "secret_value_artifact_hits": 0,
-    "prompt_response_diagnostic_hits": 0
+    "prompt_response_diagnostic_hits": 0,
+    "temporary_artifact_residue": 0,
+    "synthetic_residue_hits": 0,
+    "installer_transaction_residue": 0,
+    "main_vault_grants": 0,
+    "main_vault_artifacts_unchanged": true
   },
   "hostile_review": {
     "status": "resolved",
     "substantiated_findings": [
+      "real QA must extract and verify the audited ZIP instead of trusting a candidate directory",
+      "upgrade and rollback QA must invoke the production installer rather than copy files directly",
+      "the audit receipt must be mechanically bound to final Git and artifact source truth",
+      "all destination release entries must be validated before any replacement",
+      "a detected mid-copy failure must restore the complete previous release set",
+      "interrupted transactions and pre-state preparation residue must recover before a new snapshot",
+      "CI runner, Node, and npm versions must be pinned and asserted",
+      "installer stdout must not expose the absolute vault path",
       "release generation must preserve unrelated rollback artifacts in dist",
       "installer staging must stay outside the live plugin directory",
       "installer tests must not claim multi-file atomicity"
     ],
     "false_positives_rejected": [
       "tsx .js-to-.ts import mapping failure; clean npm ci test run passed",
-      "absolute GitHub workflow path; tracked path is .github/workflows/verify-release.yml"
+      "absolute GitHub workflow path; tracked path is .github/workflows/verify-release.yml",
+      "separate release-QA copies of fallback, argv, and grant tests; the shipped bundle is already covered by the 35-test runtime gate",
+      "opaque vault-write scope; RealObsidianHarness hashes the complete disposable vault and rejects undeclared path changes"
     ]
   },
   "external_writes": {
@@ -90,6 +109,7 @@
   },
   "known_gaps": [
     "GitHub-hosted CI has not run because no remote or push was approved.",
-    "Mobile relay live network call remains unverified because this device has no configured HTTPS relay URL."
+    "Mobile relay live network call remains unverified because this device has no configured HTTPS relay URL.",
+    "Installer recovery is tested for detected I/O failure and interrupted transaction state, not process kill or power loss at every filesystem instruction boundary."
   ]
 }
