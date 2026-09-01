@@ -24,6 +24,17 @@
     return "wide";
   }
 
+  function measuredWidth(element) {
+    if (!element) return 0;
+    if (typeof element.clientWidth === "number" && element.clientWidth > 0) return element.clientWidth;
+    if (typeof element.getBoundingClientRect === "function") {
+      const width = Number(element.getBoundingClientRect().width);
+      if (Number.isFinite(width) && width > 0) return width;
+    }
+    if (typeof element.offsetWidth === "number" && element.offsetWidth > 0) return element.offsetWidth;
+    return 0;
+  }
+
   function designTokens() {
     if (root.ProdigyTokens) return root.ProdigyTokens;
     if (typeof require === "function") {
@@ -695,7 +706,9 @@
     const contextItems = contextOptions.items || [];
     const contextActions = contextOptions.actions || [];
     const inlineContext = opts.workspaceId !== "home" && opts.workspaceId !== "auction" && contextItems.length === 0 && contextActions.length > 0;
-    const shell = container.createEl("section", { attr: { class: "prodigy-app-shell", "data-workspace-id": opts.workspaceId || "", "data-context-placement": inlineContext ? "inline" : "stacked", style: shellVariables() } });
+    const tierScheme = (designTokens() || {}).CONTAINER_TIERS;
+    const initialTier = tierForWidth(measuredWidth(owner) || measuredWidth(container), tierScheme);
+    const shell = container.createEl("section", { attr: { class: "prodigy-app-shell", "data-workspace-id": opts.workspaceId || "", "data-context-placement": inlineContext ? "inline" : "stacked", "data-tier": initialTier, style: shellVariables() } });
     const workspaceBar = shell.createEl("header", { attr: { class: "prodigy-workspace-bar" } });
     const switcher = WorkspaceSwitcher(workspaceBar, { app: opts.app, activeId: opts.workspaceId, stateStore: opts.stateStore, onChange: opts.onWorkspaceChange });
     const title = workspaceBar.createEl("h1", { text: opts.title || "워크스페이스", attr: { class: "prodigy-workspace-title" } });
@@ -726,23 +739,21 @@
       try { sizeObserver.observe(shell); }
       catch (_error) { sizeObserver = null; }
     }
-    // Container-tier ownership: measure the BODY, never the outer viewport.
-    // Changing the window resizes the leaf unless the container follows it, so
-    // the tier is derived from the observed body width alone. ResizeObserver
-    // fires once on observe and again on any real container resize.
+    // Resolve the first tier synchronously from the stable shell owner so the
+    // workspace never paints the base layout and then jumps tiers. Observing
+    // that same owner avoids the body-padding feedback loop; transient zero
+    // widths during detach/reconnect preserve the last valid tier.
     let observerTier = null;
-    const tierScheme = (designTokens() || {}).CONTAINER_TIERS;
     if (owner && typeof SizeObserver === "function") {
       observerTier = new SizeObserver(function () {
-        let width = 0;
-        if (body && typeof body.getBoundingClientRect === "function") width = body.getBoundingClientRect().width;
-        else if (body && typeof body.offsetWidth === "number") width = body.offsetWidth;
+        const width = measuredWidth(owner);
+        if (width <= 0) return;
         const tier = tierForWidth(width, tierScheme);
         if (shell && typeof shell.getAttribute === "function" && typeof shell.setAttribute === "function" && shell.getAttribute("data-tier") !== tier) {
           shell.setAttribute("data-tier", tier);
         }
       });
-      try { observerTier.observe(body); }
+      try { observerTier.observe(owner); }
       catch (_error) { observerTier = null; }
     }
     if (view && typeof view.addEventListener === "function") {

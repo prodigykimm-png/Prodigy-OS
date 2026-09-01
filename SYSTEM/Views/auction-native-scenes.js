@@ -1,7 +1,17 @@
 (function (root) {
   "use strict";
 
-  const states = new WeakMap();
+  const runtime = root.__prodigyAuctionNativeScenesRuntime || {
+    states: new WeakMap(),
+    viewStates: new WeakMap(),
+    bodyControllers: new WeakMap(),
+    sectionRegistries: new WeakMap(),
+  };
+  root.__prodigyAuctionNativeScenesRuntime = runtime;
+  const states = runtime.states;
+  const viewStates = runtime.viewStates;
+  const bodyControllers = runtime.bodyControllers;
+  const sectionRegistries = runtime.sectionRegistries;
 
   const create = (parent, tag, className, text) => {
     const element = parent.createEl
@@ -29,18 +39,32 @@
     return true;
   };
 
-  const resolveState = (container) => {
-    const view = container?.closest?.(".markdown-preview-view");
-    const app = view?.querySelector?.(".auction-native-app");
-    return app ? states.get(app) : null;
+  const viewFor = (container) => container?.closest?.(".markdown-preview-view") || null;
+
+  const registryFor = (view) => {
+    if (!view) return null;
+    let registry = sectionRegistries.get(view);
+    if (!registry) {
+      registry = new Map();
+      sectionRegistries.set(view, registry);
+    }
+    return registry;
   };
 
-  const register = (kind, container) => {
-    if (!container) return false;
-    container.classList.add("auction-native-scene-section");
-    container.setAttribute("data-native-section", kind);
-    const state = resolveState(container);
-    if (!state) return false;
+  const rememberSection = (view, kind, container) => {
+    const registry = registryFor(view);
+    if (!registry) return null;
+    const prior = registry.get(kind);
+    if (prior && prior !== container) {
+      if (typeof prior.remove === "function") prior.remove();
+      else if (prior.parentElement && typeof prior.parentElement.removeChild === "function") prior.parentElement.removeChild(prior);
+    }
+    registry.set(kind, container);
+    return registry;
+  };
+
+  const placeSection = (state, kind, container) => {
+    if (!state || !container) return false;
     if (kind === "calendar") state.calendarBody.appendChild(container);
     else if (kind === "bidding") state.biddingBody.appendChild(container);
     else if (kind === "watching") state.watchingBody.appendChild(container);
@@ -50,9 +74,37 @@
     return true;
   };
 
+  const resolveState = (container) => {
+    const view = viewFor(container);
+    const registered = view && viewStates.get(view);
+    if (registered) return registered;
+    const app = view?.querySelector?.(".auction-native-app");
+    return app ? states.get(app) : null;
+  };
+
+  const register = (kind, container) => {
+    if (!container) return false;
+    container.classList.add("auction-native-scene-section");
+    container.setAttribute("data-native-section", kind);
+    const view = viewFor(container);
+    rememberSection(view, kind, container);
+    const state = resolveState(container);
+    if (!state) return false;
+    return placeSection(state, kind, container);
+  };
+
   const mount = (options) => {
     const body = options && options.body;
     if (!body) return null;
+    const existing = bodyControllers.get(body);
+    const existingConnected = existing && existing.element && (
+      typeof body.contains === "function"
+        ? body.contains(existing.element)
+        : existing.element.parentElement === body
+    );
+    if (existingConnected) return existing;
+
+    const view = viewFor(body);
     body.empty?.();
     const app = create(body, "div", "auction-native-app");
 
@@ -90,15 +142,25 @@
       calendarBody,
     };
     states.set(app, state);
-    const view = app.closest?.(".markdown-preview-view");
+    if (view) viewStates.set(view, state);
     view?.querySelectorAll?.("[data-native-section]").forEach((container) => {
-      register(container.getAttribute("data-native-section"), container);
+      if (viewFor(container) !== view) return;
+      const kind = container.getAttribute("data-native-section");
+      if (kind) rememberSection(view, kind, container);
     });
-    return Object.freeze({
+    const registry = registryFor(view);
+    if (registry) {
+      registry.forEach((container, kind) => {
+        placeSection(state, kind, container);
+      });
+    }
+    const controller = Object.freeze({
       element: app,
       register: (kind, container) => register(kind, container),
       focusCalendar: () => focusCalendar(state),
     });
+    bodyControllers.set(body, controller);
+    return controller;
   };
 
   root.ProdigyAuctionNativeScenes = Object.freeze({ mount, register });

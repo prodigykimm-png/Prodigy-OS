@@ -3,11 +3,11 @@
 /**
  * AppShell container-tier contract (Todo 5).
  *
- * The layout tier must come from the MEASURED .prodigy-app-shell-body width
+ * The layout tier must come from the MEASURED stable shell-owner width
  * (compact <=640, medium 641-1068, wide >=1069) resolved through the canonical
  * CONTAINER_TIERS token, never from window.innerWidth or a private breakpoint.
- * The observer that owns the tier measurement must be disposed cleanly, and the
- * mobile toolbar clearance must budget the iPhone safe-area via env().
+ * The tier must exist before the first ResizeObserver delivery, zero-width
+ * deliveries must not overwrite it, and the observer must dispose cleanly.
  */
 
 const assert = require("node:assert/strict");
@@ -103,6 +103,7 @@ function mountShell(options = {}) {
   buildGlobal();
   const shell = loadShell();
   const container = new FakeElement("div");
+  container.setMeasuredWidth(Number(options.width) || 0);
   const mounted = shell.AppShell(container, {
     workspaceId: options.workspaceId || "knowledge",
     title: "지식",
@@ -111,8 +112,8 @@ function mountShell(options = {}) {
   return { shell, container, mounted, observers: createdObservers, body: mounted.body };
 }
 
-function tierObserver(observers, body) {
-  return observers.find((observer) => observer.target === body);
+function tierObserver(observers, owner) {
+  return observers.find((observer) => observer.target === owner);
 }
 
 function shellCssSource() {
@@ -122,24 +123,24 @@ function shellCssSource() {
 // ---- RED/GREEN mutation helpers ----------------------------------------------
 
 function assertTierFromMeasuredWidth() {
-  const { mounted, body, observers } = mountShell({});
-  const observer = tierObserver(observers, body);
-  assert.ok(observer, "AppShell must own a ResizeObserver on the app-shell-body");
+  const { mounted, container, observers } = mountShell({ width: 834 });
+  const observer = tierObserver(observers, container);
+  assert.ok(observer, "AppShell must own a ResizeObserver on the stable shell owner");
   for (const [width, expected] of Object.entries(EXPECTED_TIERS)) {
-    body.setMeasuredWidth(Number(width));
+    container.setMeasuredWidth(Number(width));
     observer.fire(Number(width));
     assert.equal(
       mounted.element.getAttribute("data-tier"),
       expected,
-      `${width}px body must select the ${expected} tier from the canonical CONTAINER_TIERS contract`,
+      `${width}px owner must select the ${expected} tier from the canonical CONTAINER_TIERS contract`,
     );
   }
 }
 
 function assertViewportDoesNotOverruleContainer() {
-  const { mounted, body, observers } = mountShell({});
-  const observer = tierObserver(observers, body);
-  body.setMeasuredWidth(500); // compact container
+  const { mounted, container, observers } = mountShell({ width: 500 });
+  const observer = tierObserver(observers, container);
+  container.setMeasuredWidth(500); // compact container
   observer.fire(500);
 
   // A phone body inside a wide desktop window must STAY compact. If the tier
@@ -189,20 +190,30 @@ function assertConditionalContextBar() {
 }
 
 function assertObserverDisposed() {
-  const { mounted, body, observers } = mountShell({});
-  const observer = tierObserver(observers, body);
+  const { mounted, container, observers } = mountShell({ width: 834 });
+  const observer = tierObserver(observers, container);
   assert.ok(observer, "tier observer exists before dispose");
   assert.equal(observer.disconnected, false, "observers start connected");
   mounted.dispose();
   assert.equal(observer.disconnected, true, "tier observer must be disconnected on shell disposal");
 }
 
-test("AppShell container tiers resolve from the measured body width via CONTAINER_TIERS", () => {
+test("AppShell container tiers resolve from the measured owner width via CONTAINER_TIERS", () => {
   assert.deepEqual(
     { compactMax: tokens.CONTAINER_TIERS.compact.max, mediumMax: tokens.CONTAINER_TIERS.medium.max, wideMin: tokens.CONTAINER_TIERS.wide.min },
     { compactMax: 640, mediumMax: 1068, wideMin: 1069 },
   );
   assertTierFromMeasuredWidth();
+});
+
+test("AppShell owns a stable tier before observer delivery and ignores transient zero widths", () => {
+  const { mounted, container, observers } = mountShell({ width: 834 });
+  const observer = tierObserver(observers, container);
+
+  assert.equal(mounted.element.getAttribute("data-tier"), "medium", "first paint must already own the measured tier");
+  container.setMeasuredWidth(0);
+  observer.fire(0);
+  assert.equal(mounted.element.getAttribute("data-tier"), "medium", "zero-width delivery must preserve the last valid tier");
 });
 
 test("Viewport width never overrules the measured container tier", () => {
