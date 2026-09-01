@@ -1,234 +1,245 @@
-# Prodigy AI Runtime — Next Chapter Handoff
+# Prodigy AI Runtime — Canonical Next Chapter Handoff
 
-## Canonical continuation — GitHub publication 완료
+## 현재 결론
 
-관리자 외부 쓰기 승인 후 local v0.1 reproducible release를 private GitHub repository,
-hosted CI, annotated tag, policy-immutable Release assets에 publish하고 재다운로드 검증까지
-완료했다.
+`prodigy-ai-runtime` local v0.1 reproducible release와 private GitHub publication
+챕터를 종료했다.
 
-- Repository: `https://github.com/prodigykimm-png/prodigy-ai-runtime`
-- Visibility: `PRIVATE`
-- Default branch: `main`
-- Published commit: `d4380537a4a1766b21cc7540a57ba9ee270ef635`
-- Hosted CI: `Verify release` run `33500227218`, `success`
-- Tag: annotated unsigned `v0.1.0`
-- Release: `https://github.com/prodigykimm-png/prodigy-ai-runtime/releases/tag/v0.1.0`
-- Published asset set: ZIP, JSON receipt, SHA-256 sidecar exact 3
-- Downloaded asset byte identity: pass
-- Downloaded ZIP real disposable Obsidian QA: `2/2`
-- Project deterministic fail-closed: pass
-- Secret·prompt·response·stdout·stderr, vault write, temp·synthetic residue: `0`
-- Dusk unrelated tracked modifications: untouched and unstaged
+- Approved private repository의 `main`이 verified runtime commit을 가리킨다.
+- Hosted CI가 pinned Node·npm과 strict typecheck, 35 tests, deterministic release
+  audit를 통과했다.
+- Annotated unsigned `v0.1.0` tag가 verified commit을 가리킨다.
+- GitHub Release의 ZIP·JSON·SHA sidecar exact 3 assets가 local artifacts와
+  byte-identical이다.
+- Downloaded ZIP의 clean disposable Obsidian handshake, Project fail-closed,
+  production-installer upgrade·rollback QA가 통과했다.
+- Release는 GitHub platform상 mutable이지만 Release ID, tag object, asset name·ID,
+  size·server digest를 receipt에 결속했고 replacement는 policy로 금지했다.
+- Publication evidence와 종료 감사는 Dusk atomic Lore commits에 남았다.
+- 다른 작업자의 Dusk 변경은 수정·stage·삭제·복원하지 않았다.
 
-Canonical publication evidence:
+Canonical evidence:
 
 - `SYSTEM/docs/Prodigy_AI_Runtime_Publication_Receipt_v1.json`
 - `SYSTEM/docs/Prodigy_AI_Runtime_Publication_Runbook_v1.md`
 - `SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_publication_audit.js`
-
-### 다음 챕터
-
-`Obsidian Harness Compatibility`를 다음 local chapter로 지정한다.
-
-정확한 목표는 current Obsidian first-open trust onboarding을 test-owned disposable
-vault에서 결정론적으로 통과시켜 standalone `prodigy-ai-runtime` settings surface를
-다시 release gate에 포함하는 것이다.
-
-Stop condition:
-
-- fixed sleep이나 timing luck 없이 trust onboarding의 실제 event/state를 기다린다.
-- clean disposable Obsidian에서 external plugin이 enable되고 settings tab이 열린다.
-- settings DOM에서 profile, route, SecretStorage ID 경계가 관찰된다.
-- prompt, response, schema, secret value, raw stdout/stderr persistence가 `0`이다.
-- browser·OS network와 vault source/canonical write가 `0`이다.
-- harness temp root와 synthetic fixture residue가 `0`이다.
-- 기존 Project live consumer와 publication release QA가 회귀 없이 통과한다.
-- 결과가 atomic Lore commit과 새 canonical handoff에 남는다.
-
-> 아래 `이전 handoff 결론`부터 파일 끝까지는 publication 전 의사결정과 실행 계획을
-> 보존한 historical snapshot이다. 현재 상태나 실행 지시가 아니며, 이 파일 최상단의
-> canonical continuation과 publication receipt가 우선한다.
-
-## 이전 handoff 결론 — publication 전 snapshot
-
-`prodigy-ai-runtime` local v0.1 reproducible release 챕터와 종료 감사를 완료했다.
-
-- Version·manifest·compatibility source of truth가 release gate에 결속됐다.
-- Clean source export에서 `npm ci`와 deterministic build가 통과했다.
-- Release ZIP, JSON receipt, SHA-256 sidecar가 생성되며 같은 source의 반복 build는 byte-identical이다.
-- CI definition이 typecheck, tests, build, artifact audit를 실행한다.
-- Audited ZIP을 clean disposable Obsidian에 설치하고 production installer로 upgrade → rollback → reinstall했다.
-- 설치, SecretStorage, device route, consent, upgrade, rollback 문서가 작성됐다.
-- Hostile 종료 감사의 실질 문제를 test-first로 수정하고 tests/build/real QA/privacy·residue audit를 반복했다.
-- Runtime와 Dusk의 관련 변경은 atomic Lore commit으로 남았다.
-- GitHub repository 생성, remote 추가, push, tag, Release 발행은 실행하지 않았다.
+- `SYSTEM/docs/Prodigy_AI_Runtime_Local_Release_Audit_v0.1.json`
 
 ## 완료된 사용자 요구사항
 
-1. `package.json#version`을 canonical version authority로 확정하고 `manifest.json`, `versions.json`, runtime handshake drift를 fail closed로 검증했다.
-2. Build artifact에서 source map과 host metadata를 제외하고 deterministic ZIP을 생성했다.
-3. ZIP의 exact file set을 `main.js`, `manifest.json`, `versions.json`으로 고정했다.
-4. ZIP SHA-256 sidecar와 metadata-only JSON receipt를 생성했다.
-5. CI를 Ubuntu 24.04, Node 24.19.0, npm 11.17.0에 고정하고 활성 npm version을 assertion한다.
-6. Clean export `npm ci`와 release gate가 통과했다.
-7. Clean disposable Obsidian에서 ZIP install, handshake, Project deterministic fail-closed를 관찰했다.
-8. Production installer를 사용한 upgrade, rollback, candidate reinstall에서 durable config exact 보존과 stale grant 비활성 상태를 확인했다.
-9. SecretStorage ID와 value 경계, device-local route, consent와 grant revision, rollback 절차를 문서화했다.
-10. Hostile 자체피드백의 실질 문제를 해결하고 최종 privacy/write/temp residue audit를 통과했다.
-11. 다른 작업자의 Dusk 변경은 stage, 수정, 삭제, 복원하지 않았다.
+1. Handoff를 맹신하지 않고 두 저장소 Git과 파일 상태를 source of truth로 재검증했다.
+2. Runtime v0.1.0의 version·manifest·compatibility drift를 fail closed로 고정했다.
+3. ZIP file set을 `main.js`, `manifest.json`, `versions.json` exact 3으로 고정했다.
+4. ZIP, metadata-only JSON receipt, SHA-256 sidecar를 deterministic하게 생성했다.
+5. Clean source export와 local release gate에서 strict TypeScript, tests, build,
+   repeated artifact byte identity를 검증했다.
+6. Production installer의 destination 선검증, transaction rollback, interrupted-state
+   recovery를 test-first로 검증했다.
+7. Private prompt를 stdin route로 강제하고 cross-provider fallback을 금지했다.
+8. 관리자 승인 범위대로 private GitHub repository를 만들고 full seven-commit
+   `main` history만 push했다.
+9. Hosted `Verify release` workflow가 verified commit에서 성공하는 것을 관찰했다.
+10. Annotated unsigned `v0.1.0` tag와 exact 3 Release assets를 publish했다.
+11. Release assets를 새 temp root에 다운로드해 local artifacts와 byte-compare했다.
+12. Downloaded ZIP으로 clean Obsidian handshake와 Project `capability_unavailable`을
+    실제 관찰했다.
+13. Production installer upgrade·rollback·reinstall에서 durable config exact 보존과
+    stale grant 비활성 상태를 확인했다.
+14. Secret, prompt, response, raw stdout/stderr, vault source write, temporary artifact,
+    synthetic residue를 감사했다.
+15. Hostile 자체피드백의 substantiated findings를 severity 순으로 해결하고 전체
+    tests·build·live surface QA를 다시 실행했다.
+16. Dusk publication evidence를 `f675d1a` atomic Lore commit으로 남겼다.
+17. Current closure handoff는 이 파일을 포함하는 후속 atomic Lore commit으로 남긴다.
 
-## Publication 전 저장소 source of truth (historical)
+## 저장소 source of truth
 
 ### Dusk
 
-- 경로: `/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk`
-- branch: `main`
-- handoff 작성 직전 HEAD: `5a5d99406a3535e5b2c1a36fdc171278a934f9db`
-- AI Runtime release acceptance commit: `145d78ffed496dfd148d1f5ac46dee613323b289`
-- canonical handoff commit: 이 파일을 포함하는 commit
-- `5a5d994`는 병행 작업자의 Auction 변경이며 AI Runtime이 수정하지 않았다.
+- Path: `/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk`
+- Branch: `main`
+- HEAD at closure audit start:
+  `f675d1a586613200c2a6a33527d954c16f0f0bb4`
+- Current HEAD before closure-handoff commit:
+  `62b2d06a8cb2440575289e8b4cab6b99aa227d74`
+- Concurrent unrelated commit observed during closure:
+  `62b2d06` (`현장방문 입력창을 부모 popup 위에 유지`)
+- Publication evidence commit:
+  `f675d1a586613200c2a6a33527d954c16f0f0bb4`
+- Canonical handoff HEAD: 이 파일을 마지막으로 수정한 commit. 다음 명령으로 resolve한다.
 
-### Plugin
+  ```bash
+  git log -1 --format=%H -- SYSTEM/docs/Prodigy_AI_Runtime_Next_Chapter_Handoff.md
+  ```
 
-- 경로: `/Users/prodigykim/Developer/prodigy-ai-runtime`
-- branch: `main`
+- Index before closure commit: clean
+- Runtime-owned paths before closure edits: clean
+- Unrelated tracked modifications: 7, all unstaged
+- Untracked paths at closure audit: 1,585
+
+### Runtime
+
+- Path: `/Users/prodigykim/Developer/prodigy-ai-runtime`
+- Branch: `main`
 - HEAD: `d4380537a4a1766b21cc7540a57ba9ee270ef635`
-- worktree: clean
-- remote: 없음
-- 주요 commit:
-  - `4c83dea` local v0.1 reproducible release
-  - `d438053` installer transaction·ZIP-bound QA·pinned CI closure fix
-  - `a43f6dc` private prompt stdin route enforcement
+- Remote: `origin`
+  (`https://github.com/prodigykimm-png/prodigy-ai-runtime.git`)
+- Remote sync: `origin/main...main = 0 0`
+- Worktree: clean
+- Tag: annotated unsigned `v0.1.0`
+- Tag object: `1248461a1a2152a9a0e0ad045994337873c1dc90`
+- Tag target: `d4380537a4a1766b21cc7540a57ba9ee270ef635`
 
-## Local v0.1 artifact
+### GitHub publication
 
-- Version: `0.1.0`
-- Minimum Obsidian: `1.8.7`
-- ZIP: `dist/prodigy-ai-runtime-0.1.0.zip`
-- ZIP SHA-256: `720c4516e67d9e7e3a98d74b6796b11afa56a11cdc4bcdb63dc7e00ad7a559f8`
-- Receipt SHA-256: `9f2054f8392c1a6bd84ed936d2e3236ddc04bb5c59b478c9c194c22835b17827`
-- Candidate `main.js`: `06723255e93a563f8b43375fa30fa901eb7ff1e4593e873f978092d38e879bd7`
-- Main vault installed `main.js`: `a546f22bd4f06b205b8071e7bab91e177f6cd97323872fff04ba75e92de3874d`
-- Main vault grants: `0`
+- Repository: `https://github.com/prodigykimm-png/prodigy-ai-runtime`
+- Visibility: `PRIVATE`
+- License: none
+- Default branch: `main`
+- Hosted CI run:
+  `https://github.com/prodigykimm-png/prodigy-ai-runtime/actions/runs/33500227218`
+- Release:
+  `https://github.com/prodigykimm-png/prodigy-ai-runtime/releases/tag/v0.1.0`
+- Release platform immutable: false
+- Replacement policy: forbidden; corrections require a new version and tag
 
-Candidate는 disposable vault에서 검증했으며 main vault artifact를 자동 upgrade하지 않았다.
-
-## 검증 결과
+## 검증한 테스트와 실제 QA
 
 ### Runtime gate
 
-- Strict TypeScript: pass
-- Plugin/release tests: `35/35`
-- Build: pass
-- Repeated build byte identity: pass
-- ZIP integrity: pass
-- SHA sidecar: pass
-- Archive file set: exact 3
-- Clean source export `npm ci`: pass
-- Clean export와 working source artifact byte identity: pass
+Command:
 
-### 실제 Obsidian QA
+```bash
+npm --prefix "$HOME/Developer/prodigy-ai-runtime" run verify:release
+```
+
+Results:
+
+- Strict TypeScript: pass
+- Runtime and release tests: `35/35`
+- Build: pass
+- Repeated ZIP·receipt·sidecar byte identity: pass
+- ZIP SHA-256:
+  `720c4516e67d9e7e3a98d74b6796b11afa56a11cdc4bcdb63dc7e00ad7a559f8`
+- Receipt SHA-256:
+  `9f2054f8392c1a6bd84ed936d2e3236ddc04bb5c59b478c9c194c22835b17827`
+
+### Hosted CI
+
+- Workflow: `Verify release`
+- Run ID: `33500227218`
+- Event/branch: `push` / `main`
+- Head SHA: `d4380537a4a1766b21cc7540a57ba9ee270ef635`
+- Job `verify`: success
+- Required successful steps:
+  - checkout
+  - setup Node `24.19.0`
+  - install npm `11.17.0`
+  - assert npm `11.17.0`
+  - `npm ci`
+  - `npm run verify:release`
+
+### Publication and source-truth audits
+
+Commands:
+
+```bash
+node --test \
+  SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_release_audit.js \
+  SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_publication_audit.js
+```
+
+Results:
+
+- Tests: `2/2`
+- Runtime HEAD and clean worktree binding: pass
+- Dusk publication evidence commit binding: pass
+- GitHub repository, workflow identity, tag object and target: pass
+- Release ID and exact asset set: pass
+- Hosted asset size and server SHA-256 digest: pass
+- Downloaded/local byte identity: pass
+- Download temp root removal: pass
+
+### Downloaded ZIP real Obsidian QA
+
+Test:
 
 `SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_release_qa.js`
 
+Results:
+
 - Tests: `2/2`
-- Audited ZIP SHA·size·entry set 검증 후 test-owned temp에 직접 extract
-- ZIP receipt와 Dusk release audit digest 결속
-- Clean install handshake: pass
-- Project `capability_unavailable`: pass
+- Clean disposable Obsidian plugin handshake: pass
+- Project deterministic `capability_unavailable`: pass
 - Browser and OS network attempts: `0`
 - Production installer upgrade: pass
 - Production installer rollback: pass
 - Candidate reinstall: pass
 - Durable `data.json`: byte-exact preserved
 - Stale grant became usable: false
-- Complete disposable vault tree audit: exact
-- Protected existing Obsidian processes: unchanged
-- Harness runtime root removed: true
+- Complete disposable vault audit: exact
+- Protected existing Obsidian/Aside processes: unchanged
+- Harness and downloaded temp roots removed: true
 
-### Audit verifier
+### Deferred standalone settings RED
 
-`SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_release_audit.js`
+Command:
 
-- Tests: `1/1`
-- Final runtime Git HEAD binding: pass
-- Release/closure/acceptance commit existence: pass
-- ZIP, sidecar, receipt, audit hash agreement: pass
-- Privacy and residue counters: pass
+```bash
+node --test \
+  SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_real_obsidian.js
+```
 
-### Privacy·write·residue
+Current result: `0/1`, expected deferred failure.
+
+- Runtime handshake와 Project fail-closed는 settings assertion 전까지 도달한다.
+- `RealObsidianHarness.start()`의 trust prompt detector는 English text만 인식한다.
+- Current Korean Obsidian prompt
+  `이 보관함의 작성자를 신뢰하시나요?`가 남아 settings modal 선택을 가린다.
+- Harness cleanup, protected-process continuity와 temp-root removal은 failure path에서도
+  통과했다.
+- 이 RED가 다음 `Obsidian Harness Compatibility` 챕터의 test-first starting seam이다.
+
+## Security, privacy, write and residue audit
 
 - Secret value artifact hits: `0`
 - Prompt/response diagnostic persistence hits: `0`
-- Raw stdout/stderr persistence hits: `0`
+- Raw stdout/stderr sentinel hits: `0`
+- Downloaded Release asset sentinel hits: `0`
 - Vault source/canonical writes: `0`
 - Main vault grants changed: false
 - Main vault installed artifact changed: false
+- Browser network attempts: `0`
+- OS network attempts: `0`
 - Installer transaction residue: `0`
-- Task-owned temporary directory residue: `0`
-- Synthetic `qa-release` and stale source-map residue: `0`
-- Expected retained local artifacts: ZIP, JSON receipt, SHA sidecar, generated `main.js`
+- Task-owned temporary artifact residue: `0`
+- Synthetic chapter residue: `0`
 
-Canonical evidence:
+Evidence is not derived from the publication receipt alone. The publication verifier binds
+the local release audit counters, scans downloaded assets for chapter-owned forbidden
+sentinels, checks task temp prefixes before/after, and the real Obsidian QA compares the
+complete disposable vault while requiring harness-root removal.
 
-- `SYSTEM/docs/Prodigy_AI_Runtime_Local_Release_Audit_v0.1.json`
-- `SYSTEM/docs/Prodigy_AI_Runtime_Release_Audit_v1.json`
-- `SYSTEM/docs/Prodigy_AI_Runtime_Desktop_Consumer_Acceptance_v1.json`
+## 미검증 또는 외부 조건
 
-## Hostile 자체피드백에서 발견하고 해결한 내용
+1. HTTPS mobile relay URL이 없어 live mobile relay network call은 미검증이다.
+2. Physical iPhone/iPad QA는 미검증이다.
+3. Repository는 private·no-license 상태이며 public visibility 승인은 없다.
+4. Published seven-commit history에는 local-machine author email이 포함된다. Public
+   전환 전에 history/privacy 결정을 새로 받아야 한다.
+5. GitHub Release는 platform상 mutable하다. 현재 identity/digest는 검증했지만
+   replacement를 기술적으로 차단하는 platform lock은 없다.
+6. Installer는 detected I/O failure와 interrupted transaction recovery를 검증했지만
+   모든 filesystem instruction 경계의 process kill·power loss는 미검증이다.
+7. Standalone plugin settings surface는 Korean first-open trust onboarding을 current
+   English-only detector가 닫지 못해 `0/1` RED로 deferred 상태다. 이것이 다음
+   챕터의 대상이다.
+8. Live GitHub publication audit는 `gh` authentication과 network availability가
+   필요하다. Offline에서는 receipt와 local Git/artifact만 검증할 수 있다.
 
-### Critical
+## 현재 unrelated Dusk worktree
 
-1. **실제 QA가 audited ZIP이 아니라 임의 candidate directory를 신뢰했다.**
-   - ZIP SHA, size, sidecar, exact central-directory entries와 receipt file hash를 검증한 뒤 test-owned temp에 직접 extract하도록 수정했다.
-2. **Release audit가 final Git/artifact source truth와 기계적으로 결속되지 않았다.**
-   - Runtime final HEAD, release commit, Dusk acceptance commit, ZIP·receipt·sidecar를 검증하는 audit test를 추가했다.
-
-### High
-
-3. **Upgrade·rollback QA가 production installer를 우회해 직접 copy했다.**
-   - 실제 `scripts/install.mjs`를 호출해 lifecycle QA가 installer behavior를 검증하게 했다.
-4. **Installer가 destination 전체를 선검증하지 않아 중간에 non-regular path를 만나면 partial update가 가능했다.**
-   - 모든 destination release entry를 먼저 regular-file 또는 absent로 검증한다.
-5. **감지된 mid-copy I/O failure가 mixed old/new file set을 남길 수 있었다.**
-   - Transaction backup과 exception rollback으로 complete previous set을 복원한다.
-
-### Medium
-
-6. **Interrupted transaction 복구 전에 destination snapshot을 만들어 missing-file 상태가 왜곡될 수 있었다.**
-   - Recovery를 destination validation과 snapshot보다 먼저 실행한다.
-7. **State 기록 전 중단된 preparation residue가 다음 install을 영구 차단했다.**
-   - Live file을 건드리기 전 state가 없는 transaction은 안전하게 폐기하고 새 transaction을 시작한다.
-8. **CI runner·Node·npm이 drift할 수 있었다.**
-   - Ubuntu 24.04, Node 24.19.0, npm 11.17.0을 pin하고 실제 npm version을 assertion한다.
-
-### Low
-
-9. **Installer stdout이 absolute vault target을 노출했다.**
-   - Output을 plugin ID, version, file set, durable-config policy로 제한했다.
-10. **실제 QA가 runtime version `0.1.0`을 hardcode했다.**
-    - Audited receipt의 version을 handshake expectation으로 사용한다.
-11. **Generic residue sentinel이 fixture 보안 validator source와 충돌했다.**
-    - Chapter 고유 sentinel만 scan하고 request/input hash 같은 허용 metadata는 원문 residue와 구분한다.
-
-### 기각한 과잉 지적
-
-- Release QA에 fallback, private argv, valid-grant revision suite를 다시 복제할 필요는 없다. 최종 shipped bundle은 35-test runtime gate와 이전 live consumer acceptance에 결속된다.
-- Vault-write audit가 opaque하다는 지적은 사실과 다르다. `RealObsidianHarness.close()`는 complete disposable vault tree hash를 비교하고 declared JSON 외 변경을 거부한다.
-- 세 파일의 단일 portable filesystem atomic swap은 현재 Node contract에 없다. Installer는 plugin-disabled 조건에서 destination 선검증, transaction backup, 감지된 failure rollback과 next-run interrupted-state recovery를 제공한다.
-
-## Publication 전 미검증 또는 외부 조건 (historical)
-
-1. GitHub-hosted workflow는 remote와 push가 없어 실행되지 않았다.
-2. GitHub repository 생성, remote 추가, push, tag, Release publish는 external write 승인 전 미실행이다.
-3. 현재 `gh`는 `prodigykimm-png` account로 인증되어 있으나 이 사실은 쓰기 승인이 아니다.
-4. HTTPS mobile relay URL이 없어 live mobile network call은 미검증이다.
-5. 실제 iPhone/iPad physical-device QA는 미검증이다.
-6. Installer는 감지된 I/O failure와 interrupted state를 검증했지만 모든 filesystem instruction 경계의 process kill·power loss는 미검증이다.
-
-## Publication 전 Dusk unrelated worktree (historical)
-
-Handoff 작성 시 AI Runtime과 무관한 tracked modification 7개가 남아 있다:
+Closure final snapshot 시 unrelated tracked modification 7개가 남아 있다:
 
 - `SYSTEM/AI/Skills/prodigy-review/tests/home/test_home_action_queue.js`
 - `SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_literal_git_archive.js`
@@ -238,124 +249,202 @@ Handoff 작성 시 AI Runtime과 무관한 tracked modification 7개가 남아 �
 - `SYSTEM/TEMPLATE/FORMAT/template_auction_case.md`
 - `SYSTEM/Views/home-action-queue.js`
 
-Untracked path는 `1,586`개다. 주요 범주:
+이 파일들은 다른 작업자의 active work다. 현재 7개 모두 unstaged이며 AI Runtime
+closure가 수정·삭제·restore하지 않았다. Untracked 1,585개도 다른 작업자의
+reports, tests, scripts, plugins, evidence를 포함하므로 정리 대상으로 취급하지 않는다.
 
-- `SYSTEM/AI/Reports/**`: `1,403`
-- `SYSTEM/AI/Skills/prodigy-review/**`: `34`
-- `SYSTEM/SCRIPTS/**`: `36`
-- `SYSTEM/Views/**`: `20`
-- `SYSTEM/docs/**`: `21`
-- 나머지 CI, plugin, Auction, LLMWiki, evidence 파일
+Future work는 매번 live `git status`를 다시 source of truth로 사용해야 한다. Count와
+path는 변할 수 있으며 이 snapshot보다 Git이 우선한다. `git add -A`와 `git add .`는
+금지하고 task-owned exact paths만 stage한다.
 
-이 경로들은 다른 작업자의 active work다. 절대 stage, 수정, 삭제, rename, restore하지 말고 AI Runtime owned path만 exact-path stage한다.
+## Hostile 자체피드백에서 발견하고 해결한 내용
 
-## 완료된 GitHub publication 계획 (historical)
+### Critical
+
+1. **Publication receipt가 containing commit을 placeholder로 자기증명했다.**
+   - Receipt를 실제 publication evidence commit `f675d1a`에 결속했다.
+   - Verifier가 commit existence와 exact four evidence paths를 `diff-tree`로 확인한다.
+   - Current closure commit을 receipt HEAD와 같게 강제하는 방식은 self-reference를
+     만들므로 기각했다. Canonical handoff commit은 file history로 resolve한다.
+2. **Security·residue counters가 receipt literal만으로 통과할 수 있었다.**
+   - Local release audit counters와 교차검증하고 downloaded assets를 forbidden
+     sentinels로 scan한다.
+   - Task temp prefix before/after inventory와 real Obsidian complete-vault audit를
+     최종 gate에 포함한다.
+
+### High
+
+3. **Active handoff가 두 저장소 HEAD, unrelated worktree, next commands와 estimates를
+   빠뜨리고 historical publication plan에 의존했다.**
+   - Historical snapshot을 제거하고 이 파일을 current source truth만 담는 canonical
+     handoff로 재작성했다. 과거 결정은 Git history에 보존된다.
+4. **Hosted CI가 top-level success와 SHA만 검증됐다.**
+   - `verify` job과 pinned toolchain, `npm ci`, `verify:release` required steps의
+     completed/success를 live GitHub response에서 assertion한다.
+
+### Medium
+
+5. **Exact three asset 검증이 duplicate name ambiguity를 명시적으로 거부하지 않았다.**
+   - Hosted asset count와 unique name·ID를 assertion하고 각 size·server digest를
+     receipt와 비교한다.
+6. **Policy immutability가 platform immutability처럼 읽힐 수 있었다.**
+   - GitHub platform mutable과 policy-frozen 경계를 명시하고 Release identity,
+     updated time, assets를 verifier에 결속했다.
+7. **Publication verifier가 자기 download root만 삭제하고 다른 task prefix drift를
+   확인하지 않았다.**
+   - Known task temp prefixes를 test 전후 inventory하고 exact equality를 요구한다.
+
+### 기각한 과잉 지적
+
+- 관리자 승인 대화 원문이나 prompt를 evidence file에 저장하지 않는다. Receipt에는
+  metadata-only `administrator_approved`만 남겨 prompt persistence를 피한다.
+- Current closure HEAD를 그 commit 내부 receipt에 hash로 기록하는 것은 recursive
+  self-reference다. 이전 evidence commit을 machine-bind하고 current canonical commit은
+  `git log -- <handoff>`로 resolve한다.
+- Unsigned tag, private no-license, local author email은 승인 packet에 명시된 known
+  constraints이며 숨겨진 publication defect가 아니다.
+- Hosted CI는 commit gate이고 downloaded Release verification은 Dusk live audit가
+  담당한다. Tag-triggered workflow를 추가하는 것은 이번 closure 범위를 넘는다.
+
+## 다음 챕터 — Obsidian Harness Compatibility
 
 ### 정확한 목표
 
-명시적 외부 쓰기 승인 후 `prodigy-ai-runtime` v0.1.0을 GitHub repository와 hosted CI에 reproducible하게 publish하고, release assets를 다시 다운로드해 local source artifact와 byte identity 및 clean disposable Obsidian install을 검증한다.
+Current Obsidian first-open trust onboarding을 test-owned disposable vault에서
+결정론적으로 처리해 standalone `prodigy-ai-runtime` settings surface를 release gate에
+복귀시킨다.
 
 ### 작업 범위
 
-1. Repository owner, name, visibility, license, commit-history 공개 범위를 확정한다.
-2. 실행할 외부 쓰기 목록을 한 번 제시하고 명시적 승인을 받는다.
-3. 승인된 GitHub repository를 생성하거나 기존 repository를 확인한다.
-4. `origin` remote를 추가하고 approved branch/history만 push한다.
-5. Hosted CI에서 pinned release gate 통과를 관찰한다.
-6. Verified commit에 annotated `v0.1.0` tag를 만들고 push한다.
-7. ZIP, JSON receipt, SHA sidecar를 GitHub Release asset으로 publish한다.
-8. Release asset을 새 temp root에 download하고 local artifact와 byte-compare한다.
-9. Downloaded ZIP으로 disposable Obsidian handshake·Project fail-closed를 반복한다.
-10. Publication receipt와 rollback/revocation 절차를 Dusk에 기록하고 atomic Lore commit한다.
-
-### 선행 조건
-
-- GitHub repository 생성·remote·push·tag·Release에 대한 한 번의 명시적 external-write 승인
-- Owner/account: 현재 인증된 `prodigykimm-png` 사용 여부 확인
-- Repository visibility: private/public 결정
-- License와 README 공개 범위 결정
-- Existing full Git history 공개 여부 결정
-- Tag signing 요구 여부 결정
-- Runtime worktree clean과 HEAD `d438053` 재확인
-- Dusk unrelated worktree exact-path isolation
-
-승인이 없거나 거절되면 external write를 하나도 실행하지 않고 chapter를 blocked로 기록한다.
+1. `test_prodigy_ai_runtime_real_obsidian.js`의 current Korean trust-onboarding
+   obstruction `0/1` RED를 재확인한다.
+2. Trust prompt가 이미 없거나 형태가 바뀐 경우에도 false green이 되지 않도록
+   onboarding state와 plugin enablement evidence를 분리한다.
+3. `real_obsidian_harness.js`의 English-text detector를 locale-agnostic trust surface
+   identity와 exact DOM removal signal로 교체한다. Observer는 trigger 전에
+   subscribe하고 bounded timeout으로 기다린다.
+4. Fixed sleep, polling delay, process-global Obsidian mutation 없이 disposable profile
+   내부에서만 trust action을 수행한다.
+5. External plugin manifest load, enable persistence, API handshake를 각각 assertion한다.
+6. `plugin.api.openSettings()` 후 standalone settings modal의 plugin identity,
+   empty-profile state, route boundary와 password input 부재를 실제 DOM에서 관찰한다.
+7. Browser·OS network, SecretStorage value, prompt/response/stdout/stderr persistence,
+   vault source write와 temp/synthetic residue를 감사한다.
+8. Existing Project live consumer, downloaded publication QA, local release audit를
+   regression suite로 다시 실행한다.
+9. Hostile 자체피드백과 fix/reverify 후 atomic Lore commit과 새 handoff를 남긴다.
 
 ### 위험 요소
 
-- Public visibility 선택 시 Git history와 author metadata가 영구 공개될 수 있음
-- `v0.1.0` tag와 published asset은 소비자가 참조하므로 사후 교체가 supply-chain 혼동을 만듦
-- GitHub runner/npm/toolchain drift 또는 Actions 권한 문제
-- Initial push history와 local-only path·secret-like data의 pre-publish audit 누락
-- Release asset과 tag commit 불일치
-- Concurrent Dusk worktree를 accidental stage할 위험
-- GitHub auth scope는 충분해 보여도 organization policy가 repository creation을 차단할 수 있음
+- Obsidian trust onboarding DOM, locale와 wording은 app version에 따라 drift할 수
+  있다. Korean·English copy를 literal allowlist로 늘리는 방식은 다시 깨질 수 있다.
+- Trust modal과 plugin settings modal이 모두 `.modal-container`를 사용해 잘못된
+  surface를 선택할 수 있다.
+- Event subscription보다 trigger가 먼저 실행되면 timing-dependent false green이 된다.
+- Disposable profile가 아닌 live Dusk vault의 trust/plugin state를 건드릴 위험이 있다.
+- Existing Obsidian/Aside processes 또는 debugging ports를 잘못 종료할 위험이 있다.
+- Plugin enable state만 보고 settings DOM identity를 확인하지 않으면 deferred gap이
+  실제로 닫히지 않는다.
+- Harness helper 변경은 여러 real-Obsidian suites에 broad regression을 만들 수 있다.
+
+### 선행 조건
+
+- `/Applications/Obsidian.app`가 존재하고 current executable identity를 snapshot한다.
+- Runtime worktree가 clean `main@d438053`이고 local release artifacts가 verified
+  hashes와 일치한다.
+- Dusk의 live unrelated worktree와 staged index를 시작 전에 다시 inventory한다.
+- Test-owned disposable vault/profile/home/temp만 mutation 대상으로 허용한다.
+- Existing Obsidian/Aside process continuity와 listening ports를 before/after 비교한다.
+- Main Dusk `.obsidian/plugins/prodigy-ai-runtime/data.json` grants `0` 상태와 installed
+  artifact는 읽기 검증 외 변경하지 않는다.
+- External GitHub writes, repository visibility 변경, tag/Release 수정은 범위 밖이다.
 
 ### Stop condition
 
-- Approved GitHub repository의 default branch가 verified runtime commit을 가리킨다.
-- Hosted CI가 strict typecheck, 35+ tests, build, deterministic artifact audit를 통과한다.
-- `v0.1.0` tag가 verified commit을 가리킨다.
-- GitHub Release의 ZIP·JSON·SHA assets가 local artifact와 byte-identical이다.
-- Downloaded ZIP이 clean disposable Obsidian handshake와 Project fail-closed를 통과한다.
-- Secret/prompt/response/stdout/stderr, vault write, temp/synthetic residue가 0이다.
-- Publication evidence가 Dusk atomic Lore commit으로 남는다.
-- Unrelated Dusk changes는 untouched·unstaged다.
+- Current `0/1` RED가 Korean trust onboarding/settings obstruction의 정확한 이유로
+  재현된다.
+- Fixed sleep이나 timing luck 없이 observer/event를 trigger 전에 subscribe한다.
+- Clean disposable Obsidian에서 trust onboarding이 bounded deterministic하게 종료된다.
+- External `prodigy-ai-runtime` manifest가 load되고 plugin이 enable된다.
+- Runtime handshake의 plugin ID, protocol hash와 version이 verified values와 일치한다.
+- Standalone settings modal이 exact plugin identity로 선택된다.
+- Empty profile·route state가 보이고 Secret value password input은 존재하지 않는다.
+- Project `capability_unavailable`과 publication QA가 회귀 없이 통과한다.
+- Secret/prompt/response/stdout/stderr, browser·OS network, vault source write,
+  temp·synthetic residue가 모두 `0`이다.
+- Existing Obsidian/Aside processes와 ports가 unchanged/reusable이다.
+- Dusk unrelated changes가 untouched·unstaged다.
+- 결과가 atomic Lore commit과 새 canonical handoff에 남는다.
 
-## 완료된 publication chapter 첫 조사 (historical)
+### 예상 시간과 예상 토큰
+
+- RED reproduction과 trust/settings state 조사: `1~2시간`, `12k~22k tokens`
+- Event-driven harness helper와 focused test: `2~4시간`, `25k~45k tokens`
+- Related suite·real surface·privacy/residue QA: `1~2시간`, `15k~25k tokens`
+- Hostile audit와 remediation contingency: `1~2시간`, `10k~20k tokens`
+- 총 예상: `5~10시간`, `60k~112k tokens`
+
+## 새 대화 첫 조사
 
 ### 먼저 읽을 파일
 
 ```text
 AGENTS.md
 SYSTEM/docs/Prodigy_AI_Runtime_Next_Chapter_Handoff.md
+SYSTEM/docs/Prodigy_AI_Runtime_Publication_Receipt_v1.json
 SYSTEM/docs/Prodigy_AI_Runtime_Local_Release_Audit_v0.1.json
 SYSTEM/docs/Prodigy_AI_Runtime_Release_Audit_v1.json
-SYSTEM/docs/Prodigy_AI_Runtime_Desktop_Consumer_Acceptance_v1.json
+SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_real_obsidian.js
+SYSTEM/AI/Skills/prodigy-review/tests/shared/real_obsidian_harness.js
+SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_release_qa.js
 ~/Developer/prodigy-ai-runtime/AGENTS.md
-~/Developer/prodigy-ai-runtime/package.json
+~/Developer/prodigy-ai-runtime/src/main.ts
+~/Developer/prodigy-ai-runtime/src/settings.ts
 ~/Developer/prodigy-ai-runtime/manifest.json
-~/Developer/prodigy-ai-runtime/versions.json
-~/Developer/prodigy-ai-runtime/.github/workflows/verify-release.yml
-~/Developer/prodigy-ai-runtime/docs/RELEASE.md
-~/Developer/prodigy-ai-runtime/docs/INSTALLATION.md
-~/Developer/prodigy-ai-runtime/scripts/release.ts
-~/Developer/prodigy-ai-runtime/scripts/install.mjs
 ```
 
 ### 첫 번째로 실행할 명령
 
+먼저 read-only source truth와 isolation만 확인한다.
+
 ```bash
 git status --short --branch
 git log -5 --oneline --decorate
+git diff --cached --name-only
+git status --short --untracked-files=no
 git -C "$HOME/Developer/prodigy-ai-runtime" status --short --branch
 git -C "$HOME/Developer/prodigy-ai-runtime" log -5 --oneline --decorate
-git -C "$HOME/Developer/prodigy-ai-runtime" remote -v
-gh auth status
-npm --prefix "$HOME/Developer/prodigy-ai-runtime" run verify:release
-shasum -a 256 "$HOME/Developer/prodigy-ai-runtime/dist/prodigy-ai-runtime-0.1.0.zip"
+git -C "$HOME/Developer/prodigy-ai-runtime" rev-parse HEAD
 ```
 
-그 다음 repository owner·visibility·license·history·tag policy와 정확한 외부 쓰기 목록을 제시하고 승인 질문 하나에서 멈춘다.
+그 다음 focused RED를 실행한다.
 
-## 완료된 publication chapter 예상치 (historical)
+```bash
+node --test \
+  SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_real_obsidian.js
+```
 
-- Pre-publish history/privacy audit와 승인 packet: `1~2시간`, `15k~30k tokens`
-- Repository/remote/push/hosted CI/tag/Release: `1~3시간`, `20k~45k tokens`
-- Downloaded asset byte audit와 real Obsidian QA: `1~2시간`, `15k~30k tokens`
-- Auth·Actions·runner remediation 발생 시 추가: `1~3시간`, `15k~40k tokens`
-- 총 예상: `3~7시간`, `45k~105k tokens`
+RED의 actual trust/settings state를 읽은 뒤에만 harness implementation을 결정한다.
+Fixed sleep이나 blind click으로 통과시키지 않는다.
 
-## Historical publication guardrails
+## 절대 건드리면 안 되는 파일과 상태
 
-- Dusk unrelated tracked modification 7개와 untracked 1,586개
-- Main vault `.obsidian/plugins/prodigy-ai-runtime/data.json`의 grants `0` 상태
-- Main vault installed plugin artifact는 별도 install 승인 없이 변경 금지
-- Mixed/private/highly-private consumer를 argv prompt transport로 route 금지
-- Main vault grant 자동 생성 금지
-- Provider fallback 추가 금지
-- Vault source/canonical files를 runtime이 읽거나 쓰게 하는 변경 금지
-- Prompt, response, schema payload, raw stdout/stderr, Secret value를 artifact·receipt·diagnostics·log에 추가 금지
-- Runtime `dist/`의 verified ZIP·JSON·SHA file set을 hash 검증 없이 교체 금지
-- GitHub repository·remote·push·tag·Release를 explicit approval 전에 실행 금지
-- `git add -A`, `git add .`, destructive reset/checkout, force push 금지
+- 위 7개 unrelated tracked modifications와 현재 untracked worktree
+- Main Dusk `.obsidian/plugins/prodigy-ai-runtime/data.json` grants `0`
+- Main vault installed `main.js`, `manifest.json`, `versions.json`
+- Existing Obsidian/Aside processes, profiles, windows, listeners와 vault trust state
+- Published runtime `main@d438053`, `v0.1.0` tag와 Release assets
+- GitHub repository private visibility와 no-license state
+- SecretStorage values와 device-local route values
+- Prompt, response, schema payload, raw stdout/stderr와 secret values
+- Vault source/canonical files의 runtime read/write prohibition
+- Private/mixed/highly-private consumer의 stdin-only route boundary
+- Cross-provider fallback prohibition
+
+금지:
+
+- `git add -A`, `git add .`, destructive reset/checkout, amend, force push
+- Live Dusk vault에서 trust onboarding 또는 plugin enablement를 자동 조작
+- Fixed sleep, foreground polling loop, timing-luck assertions
+- Main vault grants 생성 또는 installed artifact 교체
+- 승인 없는 GitHub write, tag 이동, Release asset replacement, visibility 변경

@@ -16,7 +16,30 @@ const RECEIPT_PATH = path.join(
   DUSK_ROOT,
   "SYSTEM/docs/Prodigy_AI_Runtime_Publication_Receipt_v1.json",
 );
+const LOCAL_RELEASE_AUDIT_PATH = path.join(
+  DUSK_ROOT,
+  "SYSTEM/docs/Prodigy_AI_Runtime_Local_Release_Audit_v0.1.json",
+);
 const DIST = path.join(RUNTIME_ROOT, "dist");
+const PUBLICATION_EVIDENCE_PATHS = [
+  "SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_publication_audit.js",
+  "SYSTEM/docs/Prodigy_AI_Runtime_Next_Chapter_Handoff.md",
+  "SYSTEM/docs/Prodigy_AI_Runtime_Publication_Receipt_v1.json",
+  "SYSTEM/docs/Prodigy_AI_Runtime_Publication_Runbook_v1.md",
+];
+const FORBIDDEN_RELEASE_BYTES = [
+  "PRODIGY_RELEASE_QA_PROMPT_SENTINEL",
+  "prodigy-release-qa-operation-sentinel",
+  "PRODIGY_RELEASE_QA_RESPONSE_SENTINEL",
+  "PRODIGY_RELEASE_QA_SECRET_VALUE_SENTINEL",
+  "PROVIDER_STDOUT_SENTINEL",
+  "PROVIDER_STDERR_SENTINEL",
+];
+const TASK_TEMP_PREFIXES = [
+  "prodigy-publication-assets-",
+  "prodigy-ai-runtime-verified-release-",
+  "prodigy-ai-runtime-release-data-",
+];
 
 function run(command, args, options = {}) {
   const result = cp.spawnSync(command, args, {
@@ -38,11 +61,20 @@ function readJson(file) {
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
+function taskTempEntries() {
+  return fs.readdirSync(os.tmpdir())
+    .filter((name) => TASK_TEMP_PREFIXES.some((prefix) => name.startsWith(prefix)))
+    .sort();
+}
+
 test("published v0.1.0 is bound to GitHub, hosted CI, and byte-identical assets", {
   timeout: 120000,
 }, () => {
+  const tempEntriesBefore = taskTempEntries();
+  assert.deepEqual(tempEntriesBefore, [], "publication task temp residue must be zero");
   assert.equal(fs.existsSync(RECEIPT_PATH), true, "publication receipt must exist");
   const receipt = readJson(RECEIPT_PATH);
+  const localReleaseAudit = readJson(LOCAL_RELEASE_AUDIT_PATH);
   assert.equal(receipt.schema_version, "prodigy_ai_runtime_publication_receipt_v1");
   assert.equal(receipt.status, "pass");
   assert.equal(receipt.approval, "administrator_approved");
@@ -82,6 +114,20 @@ test("published v0.1.0 is bound to GitHub, hosted CI, and byte-identical assets"
     temporary_artifact_residue: 0,
     synthetic_residue_hits: 0,
   });
+  assert.equal(localReleaseAudit.verification.secret_value_artifact_hits,
+    receipt.security.secret_value_hits);
+  assert.equal(localReleaseAudit.verification.prompt_response_diagnostic_hits,
+    receipt.security.prompt_response_hits);
+  assert.equal(localReleaseAudit.verification.source_canonical_writes,
+    receipt.security.source_canonical_writes);
+  assert.equal(localReleaseAudit.verification.browser_network_attempts,
+    receipt.security.browser_network_attempts);
+  assert.equal(localReleaseAudit.verification.os_network_attempts,
+    receipt.security.os_network_attempts);
+  assert.equal(localReleaseAudit.verification.temporary_artifact_residue,
+    receipt.security.temporary_artifact_residue);
+  assert.equal(localReleaseAudit.verification.synthetic_residue_hits,
+    receipt.security.synthetic_residue_hits);
   assert.deepEqual(receipt.revocation, {
     replace_published_assets: false,
     delete_release_requires_new_approval: true,
@@ -97,6 +143,17 @@ test("published v0.1.0 is bound to GitHub, hosted CI, and byte-identical assets"
     receipt.repository.remote_url);
   assert.equal(run("git", ["-C", RUNTIME_ROOT, "rev-list", "--count", "HEAD"]),
     String(receipt.repository.history_commits));
+  run("git", [
+    "-C", DUSK_ROOT, "cat-file", "-e",
+    `${receipt.source_truth.publication_evidence_commit}^{commit}`,
+  ]);
+  const publicationEvidencePaths = run("git", [
+    "-C", DUSK_ROOT, "diff-tree", "--no-commit-id", "--name-only", "-r",
+    receipt.source_truth.publication_evidence_commit,
+  ]).split(/\r?\n/u);
+  for (const evidencePath of PUBLICATION_EVIDENCE_PATHS) {
+    assert.equal(publicationEvidencePaths.includes(evidencePath), true, evidencePath);
+  }
 
   const repository = readJsonFromCommand("gh", [
     "repo", "view", receipt.repository.name_with_owner,
@@ -131,7 +188,7 @@ test("published v0.1.0 is bound to GitHub, hosted CI, and byte-identical assets"
     "run", "view", String(receipt.hosted_ci.run_id),
     "--repo", receipt.repository.name_with_owner,
     "--json",
-    "attempt,conclusion,databaseId,event,headBranch,headSha,name,status,url,workflowDatabaseId",
+    "attempt,conclusion,databaseId,event,headBranch,headSha,jobs,name,status,url,workflowDatabaseId",
   ]);
   assert.equal(workflow.databaseId, receipt.hosted_ci.run_id);
   assert.equal(workflow.name, receipt.hosted_ci.workflow);
@@ -143,6 +200,15 @@ test("published v0.1.0 is bound to GitHub, hosted CI, and byte-identical assets"
   assert.equal(workflow.attempt, receipt.hosted_ci.attempt);
   assert.equal(workflow.workflowDatabaseId, receipt.hosted_ci.workflow_database_id);
   assert.equal(workflow.url, receipt.hosted_ci.url);
+  const verifyJob = workflow.jobs.find((job) => job.name === "verify");
+  assert.equal(verifyJob?.status, "completed");
+  assert.equal(verifyJob?.conclusion, "success");
+  const successfulSteps = new Set(verifyJob.steps
+    .filter((step) => step.status === "completed" && step.conclusion === "success")
+    .map((step) => step.name));
+  for (const step of receipt.hosted_ci.required_successful_steps) {
+    assert.equal(successfulSteps.has(step), true, step);
+  }
 
   const release = readJsonFromCommand("gh", [
     "release", "view", receipt.publication.tag,
@@ -153,6 +219,9 @@ test("published v0.1.0 is bound to GitHub, hosted CI, and byte-identical assets"
   assert.equal(release.isDraft, false);
   assert.equal(release.isPrerelease, false);
   assert.equal(release.url, receipt.publication.release_url);
+  assert.equal(release.assets.length, receipt.publication.assets.length);
+  assert.equal(new Set(release.assets.map((asset) => asset.name)).size, release.assets.length);
+  assert.equal(new Set(release.assets.map((asset) => asset.id)).size, release.assets.length);
   assert.deepEqual(release.assets.map((asset) => asset.name).sort(),
     receipt.publication.assets.map((asset) => asset.name).sort());
   for (const asset of receipt.publication.assets) {
@@ -185,14 +254,20 @@ test("published v0.1.0 is bound to GitHub, hosted CI, and byte-identical assets"
     for (const asset of receipt.publication.assets) {
       const downloaded = path.join(downloadRoot, asset.name);
       const local = path.join(DIST, asset.name);
-      assert.equal(fs.readFileSync(downloaded).equals(fs.readFileSync(local)), true, asset.name);
+      const downloadedBytes = fs.readFileSync(downloaded);
+      assert.equal(downloadedBytes.equals(fs.readFileSync(local)), true, asset.name);
       assert.equal(sha256(downloaded), asset.sha256);
       assert.equal(fs.statSync(downloaded).size, asset.bytes);
+      for (const forbidden of FORBIDDEN_RELEASE_BYTES) {
+        assert.equal(downloadedBytes.includes(Buffer.from(forbidden)), false,
+          `${asset.name} contains ${forbidden}`);
+      }
     }
   } finally {
     fs.rmSync(downloadRoot, { recursive: true, force: true });
     assert.equal(fs.existsSync(downloadRoot), false, "download root must be removed");
   }
+  assert.deepEqual(taskTempEntries(), tempEntriesBefore);
 });
 
 function readJsonFromCommand(command, args) {

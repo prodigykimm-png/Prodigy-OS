@@ -55,7 +55,15 @@
     "head_sha": "d4380537a4a1766b21cc7540a57ba9ee270ef635",
     "attempt": 1,
     "workflow_database_id": 347426755,
-    "url": "https://github.com/prodigykimm-png/prodigy-ai-runtime/actions/runs/33500227218"
+    "url": "https://github.com/prodigykimm-png/prodigy-ai-runtime/actions/runs/33500227218",
+    "required_successful_steps": [
+      "Run actions/checkout@v4",
+      "Run actions/setup-node@v4",
+      "Run npm install --global npm@11.17.0",
+      "Run test \"$(npm --version)\" = \"11.17.0\"",
+      "Run npm ci",
+      "Run npm run verify:release"
+    ]
   },
   "verification": {
     "local_release_gate": {
@@ -87,10 +95,11 @@
   },
   "source_truth": {
     "dusk_prepublication_handoff_commit": "e2fb2e90c7112c223293e8e9a8fa3477e23b47f1",
-    "publication_evidence_commit": "commit_containing_this_receipt",
+    "publication_evidence_commit": "f675d1a586613200c2a6a33527d954c16f0f0bb4",
     "runtime_release_commit": "4c83deab6e1422146194a2273c3059f7b7314ddf",
     "runtime_closure_commit": "d4380537a4a1766b21cc7540a57ba9ee270ef635",
-    "publication_runbook": "SYSTEM/docs/Prodigy_AI_Runtime_Publication_Runbook_v1.md"
+    "publication_runbook": "SYSTEM/docs/Prodigy_AI_Runtime_Publication_Runbook_v1.md",
+    "local_release_audit": "SYSTEM/docs/Prodigy_AI_Runtime_Local_Release_Audit_v0.1.json"
   },
   "worktree_isolation": {
     "unrelated_tracked_modifications_before": 9,
