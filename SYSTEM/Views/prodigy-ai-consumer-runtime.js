@@ -36,8 +36,12 @@
       error.code = "consent_required";
       throw error;
     }
+    const manifest = root.ProdigyAIConsumerManifests && root.ProdigyAIConsumerManifests.get
+      ? root.ProdigyAIConsumerManifests.get(consumerId)
+      : null;
     const accepted = await Promise.resolve(confirm([
       `AI 기능: ${consumerId}`,
+      `민감도: ${manifest && manifest.sensitivity || "unknown"}`,
       `Provider profile: ${requirement.profile_id || "미설정"}`,
       `Route: ${requirement.route_class || "미설정"}`,
       "현재 입력 범위를 AI Runtime에 전송합니다.",

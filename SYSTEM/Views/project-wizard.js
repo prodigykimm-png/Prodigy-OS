@@ -264,6 +264,7 @@
         workflow: core.getPresetWorkflow("Company"),
         workflowPresets: {},
         busy: false,
+        aiRequestState: "idle",
         status: "",
         createdPath: "",
         createdWorkflow: []
@@ -301,6 +302,7 @@
       const { contentEl } = this;
       contentEl.empty();
       contentEl.addClass("prodigy-project-wizard");
+      contentEl.setAttribute("data-project-ai-request-state", this.state.aiRequestState);
       const layout = projectLayout(this.core, this.modalEl || contentEl, this.logicalWidth);
       applyResponsiveSurface(contentEl, layout);
       if (root.ProjectStyles) root.ProjectStyles.ensureProjectStyles();
@@ -415,7 +417,7 @@
       });
 
       const providerBox = parent.createEl("div", {
-        attr: { class: "prodigy-project-provider prodigy-utility-card" }
+        attr: { class: "prodigy-project-provider prodigy-utility-card", "data-project-ai-runtime-status": "connection" }
       });
       fieldLabel(providerBox, "AI Runtime");
       const aiClient = root.ProdigyAIClient.createClient({ app: this.app });
@@ -426,6 +428,7 @@
       });
       const aiRow = providerBox.createEl("div", { attr: { style: "display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap;" } });
       const refine = primaryButton(aiRow, state.busy ? "다듬는 중..." : "워크플로 다듬기");
+      refine.setAttribute("data-project-ai-action", "refine-workflow");
       refine.disabled = state.busy;
       refine.onclick = () => this.refineWorkflow();
       button(aiRow, "설정").onclick = () => this.openSettings();
@@ -553,6 +556,7 @@
         return;
       }
       this.state.busy = true;
+      this.state.aiRequestState = "running";
       this.state.status = "워크플로 다듬기를 요청하는 중...";
       this.render();
       try {
@@ -567,6 +571,7 @@
             "계속하시겠습니까?"
           ].join("\n"));
           if (!accepted) {
+            this.state.aiRequestState = "declined";
             this.state.status = "AI 전송을 취소했습니다. 현재 워크플로는 유지됩니다.";
             return;
           }
@@ -598,8 +603,10 @@
           signal: this.aiController.signal
         });
         this.state.workflow = this.core.cloneWorkflow(result.workflow);
+        this.state.aiRequestState = "completed";
         this.state.status = `AI Runtime으로 워크플로를 다듬었습니다${result.provider ? ` · ${result.provider}` : ""}.`;
       } catch (error) {
+        this.state.aiRequestState = "failed";
         this.state.status = `AI refinement failed: ${root.ProjectWorkflowDraftService.redactError(error)}`;
       } finally {
         this.aiController = null;

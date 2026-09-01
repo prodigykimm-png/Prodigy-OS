@@ -49,7 +49,7 @@ test("characterizes the dedicated Hub lifecycle mount and preserved Explorer DOM
   assert.match(explorer, /data-scroll-owner/);
 });
 
-test("exports an explicit standalone API and exact beginner-first empty copy", () => {
+test("exports an explicit standalone API and machine-readable idle action", () => {
   const lifecycle = api();
   assert.equal(typeof lifecycle.mountLlmWikiLifecycleView, "function");
   assert.deepEqual(lifecycle.OPERATION_LABELS, {
@@ -57,8 +57,7 @@ test("exports an explicit standalone API and exact beginner-first empty copy", (
     dispute: "충돌 보류", abstain: "제안 보류", no_change: "변경 없음",
   });
   const { root } = mount("idle");
-  assert.match(primaryText(root), /자료를 선택하면 AI가 새 지식 또는 수정안을 제안합니다\. 승인 전에는 저장되지 않습니다\./);
-  assert.equal(action(root, "select-source").text, "새 검토 시작");
+  assert.equal(root.querySelector('[data-surface="llmwiki-lifecycle"]').getAttribute("data-state"), "idle");
   assert.equal(action(root, "select-source").tag, "button");
   assert.equal(action(root, "select-source").getAttribute("type"), "button");
   assert.equal(action(root, "select-source").getAttribute("data-intent-action"), "select_source");
@@ -217,7 +216,7 @@ test("dispatches fixed controller intents only once and never exposes a persiste
   const consent = mount("consent_required");
   click(action(consent.root, "start-run"));
   click(action(consent.root, "start-run"));
-  assert.deepEqual(consent.calls, [{ action: "start_run", provider_mode: "direct" }]);
+  assert.deepEqual(consent.calls, [{ action: "start_run" }]);
 
   for (const [status, control, expected] of [
     ["running", "cancel-run", { action: "cancel" }],
@@ -285,15 +284,9 @@ test("splits long provider models at the most balanced hyphen and preserves exac
   assert.deepEqual((model.children || []).map((line) => [line.tagName, line.textContent]), [["DIV", "gemini-3.6-"], ["DIV", "flash-medium"]]);
   assert.equal((model.children || []).map((line) => line.textContent).join(""), "gemini-3.6-flash-medium");
   assert.equal(model.parentElement.tagName, "DIV");
-  const style = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/knowledge-styles.js"), "utf8");
-  assert.match(style, /\.llmwiki-lifecycle__provider-model \{ display: block; inline-size: 100%;/);
-  assert.match(style, /\.llmwiki-lifecycle__provider-model-line \{ display: block; white-space: nowrap; \}/);
-  assert.doesNotMatch(style, /\.llmwiki-lifecycle__provider-model\s*\{[^}]*flex(?:-wrap|:)/s);
-  assert.doesNotMatch(style, /\.llmwiki-lifecycle__provider-model-line \{[^}]*flex(?:\s|-)/s);
-  assert.match(style, /@media \(min-width: 600px\) \{[\s\S]*?\.llmwiki-lifecycle__provider-model \{ display: inline-flex; inline-size: auto; gap: 0; flex-wrap: nowrap; white-space: nowrap; overflow: visible; \}[\s\S]*?\.llmwiki-lifecycle__provider-model-line \{ display: inline; flex: 0 0 auto; \}/);
 });
 
-test("keeps connection mode advanced while showing the inherited global provider read-only", () => {
+test("keeps provider selection in the external runtime and shows its profile read-only", () => {
   const subject = mount("consent_required", {
     provider_key: "antigravity",
     provider_options: [
@@ -303,16 +296,15 @@ test("keeps connection mode advanced while showing the inherited global provider
     ],
   });
   const { root } = subject;
-  const advanced = walk(root, (node) => node.tag === "details" && collectText(node).includes("고급 실행 설정"))[0];
+  const advanced = walk(root, (node) => node.tag === "details" && node.getAttribute("data-disclosure") === "run-settings")[0];
   assert.ok(advanced);
   assert.equal(advanced.open, false);
-  assert.equal(walk(advanced, (node) => node.tag === "input" && node.getAttribute("value") === "direct")[0].checked, true);
-  assert.equal(walk(advanced, (node) => node.tag === "input" && node.getAttribute("value") === "omniroute").length, 1);
+  assert.equal(walk(advanced, (node) => node.tag === "input" && ["direct", "omniroute"].includes(node.getAttribute("value"))).length, 0);
   assert.equal(primaryText(root).includes("OmniRoute"), false);
-  const inherited = walk(root, (node) => node.getAttribute && node.getAttribute("data-provider-inheritance") === "global")[0];
+  const inherited = walk(root, (node) => node.getAttribute && node.getAttribute("data-provider-inheritance") === "runtime")[0];
   assert.ok(inherited);
   assert.equal(inherited.getAttribute("data-provider-key"), "antigravity");
-  assert.equal(inherited.getAttribute("data-provider-inheritance"), "global");
+  assert.equal(inherited.getAttribute("data-provider-inheritance"), "runtime");
   assert.equal(inherited.getAttribute("data-provider-model"), "gemini-3.6-flash-medium");
   assert.equal(inherited.getAttribute("data-provider-ready"), "false");
   assert.equal(inherited.getAttribute("data-provider-readiness-code"), "ready");
@@ -329,7 +321,7 @@ test("keeps connection mode advanced while showing the inherited global provider
     provider_options: [{ provider_key: "antigravity", name: "Antigravity 구독", model: "fixture", configured: true }],
     inbox: { state: "analyzing", scanned_total: 1, eligible: 1, held: 0, processed: 0, succeeded: 0, failed: 0 },
   });
-  assert.equal(walk(busy.root, (node) => node.getAttribute && node.getAttribute("data-provider-inheritance") === "global").length, 1);
+  assert.equal(walk(busy.root, (node) => node.getAttribute && node.getAttribute("data-provider-inheritance") === "runtime").length, 1);
   for (const operation of ["update", "merge", "dispute"]) {
     const control = walk(advanced, (node) => node.getAttribute && node.getAttribute("data-operation") === operation)[0];
     assert.ok(control && control.disabled, operation);

@@ -431,7 +431,7 @@
       addEvidence(content, pkg);
       this.renderCandidateDiff(content, pkg);
       const actions = content.createDiv({ attr: { class: "auction-real-estate-research-actions" } });
-      const summarize = actions.createEl("button", { text: this.aiSummaryLoading ? "AI 요약 생성 중…" : "AI 요약 생성", attr: { type: "button" } });
+      const summarize = actions.createEl("button", { text: this.aiSummaryLoading ? "AI 요약 생성 중…" : "AI 요약 생성", attr: { type: "button", "data-auction-ai-action": "generate-research-summary" } });
       summarize.disabled = this.aiSummaryLoading;
       summarize.onclick = () => {
         if (this.aiSummaryLoading) return;

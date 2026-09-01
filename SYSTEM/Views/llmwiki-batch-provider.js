@@ -229,9 +229,9 @@
           schema: COMPACT_SCHEMA,
           signal: context.signal,
           confirmConsent: context.confirmConsent,
-          ownerSessionId: context.ownerSessionId,
-          operationId: context.operationId,
-          attemptId: context.attemptId
+          ownerSessionId: context.ownerSessionId || `wiki-batch-${input.run_id || "run"}`,
+          operationId: context.operationId || `wiki-batch-${hashApi.sha256(`${input.run_id || "run"}:${normalized.mode}:${[...normalized.chunksByKey.keys()].join(":")}`)}`,
+          attemptId: context.attemptId || "attempt-1"
         });
         response = runtimeResponse.payload;
       } catch (error) {

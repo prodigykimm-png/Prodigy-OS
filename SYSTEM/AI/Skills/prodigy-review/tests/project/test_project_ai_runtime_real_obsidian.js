@@ -23,6 +23,20 @@ function waitForText(harness, selector, expected, label) {
   })`);
 }
 
+function waitForAttribute(harness, selector, attribute, expected, label) {
+  return harness.evaluate(`new Promise((resolve,reject)=>{
+    const finish=()=>{
+      const node=document.querySelector(${JSON.stringify(selector)});
+      if(!node||node.getAttribute(${JSON.stringify(attribute)})!==${JSON.stringify(expected)})return;
+      observer.disconnect();clearTimeout(timer);resolve(true);
+    };
+    const observer=new MutationObserver(finish);
+    observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:[${JSON.stringify(attribute)}]});
+    const timer=setTimeout(()=>{observer.disconnect();reject(new Error(${JSON.stringify(label)}))},10000);
+    finish();
+  })`);
+}
+
 test("real Project Wizard uses only ProdigyAIClient and preserves its draft on runtime failure", {
   timeout: 120000,
 }, async () => {
@@ -40,13 +54,8 @@ test("real Project Wizard uses only ProdigyAIClient and preserves its draft on r
     await harness.capture("project", 1440, "light", 1, false, "normal");
     const receipt = await harness.evaluate(`window.__task13aReceipts?.["HUB/40 Project.md"]||null`);
     assert.equal(receipt && receipt.status, "rendered", JSON.stringify(receipt));
-    await waitForText(harness, "body", "+ 프로젝트 시작", "PROJECT_WIZARD_LAUNCH_TIMEOUT");
-    await harness.evaluate(`(()=>{
-      const button=[...document.querySelectorAll('button')]
-        .find(node=>String(node.textContent||"").includes("+ 프로젝트 시작"));
-      if(!button)throw new Error("PROJECT_WIZARD_BUTTON_MISSING");
-      button.click();return true;
-    })()`);
+    await harness.waitForSelector('[data-project-action="open-wizard"]');
+    await harness.renderedClick('[data-project-action="open-wizard"]');
     await harness.waitForSelector(".prodigy-project-wizard");
     const prepared = await harness.evaluate(`(()=>{
       const root=document.querySelector(".prodigy-project-wizard");
@@ -61,12 +70,9 @@ test("real Project Wizard uses only ProdigyAIClient and preserves its draft on r
       const labels=[...root.querySelectorAll(".prodigy-workflow-input")].map(input=>input.value);
       return {labels,runtimeText:root.querySelector(".prodigy-project-provider")?.textContent||""};
     })()`);
-    assert.match(prepared.runtimeText, /외부 AI Runtime 연결됨/u);
-    const failedReady = waitForText(harness, ".prodigy-project-wizard", "사용 가능한 AI provider가 없습니다", "PROJECT_RUNTIME_FAILURE_TIMEOUT");
-    await harness.evaluate(`(()=>{
-      const button=[...document.querySelectorAll(".prodigy-project-wizard button")].find(node=>node.textContent.includes("워크플로 다듬기"));
-      button.click();return true;
-    })()`);
+    assert.equal(await harness.evaluate(`document.querySelector(".prodigy-project-provider")?.getAttribute("data-project-ai-runtime-status")`), "connection");
+    const failedReady = waitForAttribute(harness, ".prodigy-project-wizard", "data-project-ai-request-state", "failed", "PROJECT_RUNTIME_FAILURE_TIMEOUT");
+    await harness.renderedClick('[data-project-ai-action="refine-workflow"]');
     await failedReady;
     const failed = await harness.evaluate(`(()=>({
       labels:[...document.querySelectorAll(".prodigy-project-wizard .prodigy-workflow-input")].map(input=>input.value),
@@ -94,11 +100,8 @@ test("real Project Wizard uses only ProdigyAIClient and preserves its draft on r
       })});
       return true;
     })()`);
-    const successReady = waitForText(harness, ".prodigy-project-wizard", "fake-runtime", "PROJECT_RUNTIME_SUCCESS_TIMEOUT");
-    await harness.evaluate(`(()=>{
-      const button=[...document.querySelectorAll(".prodigy-project-wizard button")].find(node=>node.textContent.includes("워크플로 다듬기"));
-      button.click();return true;
-    })()`);
+    const successReady = waitForAttribute(harness, ".prodigy-project-wizard", "data-project-ai-request-state", "completed", "PROJECT_RUNTIME_SUCCESS_TIMEOUT");
+    await harness.renderedClick('[data-project-ai-action="refine-workflow"]');
     await successReady;
     const success = await harness.evaluate(`(()=>({
       labels:[...document.querySelectorAll(".prodigy-project-wizard .prodigy-workflow-input")].map(input=>input.value),

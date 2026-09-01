@@ -1,0 +1,95 @@
+{
+  "schema_version": "prodigy_ai_consumer_cutover_v1",
+  "active_consumer_count": 14,
+  "consumers": [
+    {
+      "consumer_id": "project.workflow_draft",
+      "production": ["SYSTEM/Views/project-workflow-draft-service.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_ai_runtime_canary.js", "SYSTEM/AI/Skills/prodigy-review/tests/project/test_project_ai_runtime_real_obsidian.js"]
+    },
+    {
+      "consumer_id": "reading.question",
+      "production": ["SYSTEM/Views/reading-question-ai.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_question_ai.js"]
+    },
+    {
+      "consumer_id": "reading.thinking_delta",
+      "production": ["SYSTEM/Views/reading-thinking-delta-ai.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/reading/test_reading_thinking_delta_ai.js"]
+    },
+    {
+      "consumer_id": "journal.daily_reflection",
+      "production": ["SYSTEM/Views/daily-reflection-ai.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/journal/test_daily_reflection_generate_proposal.js"]
+    },
+    {
+      "consumer_id": "journal.weekly_filter",
+      "production": ["SYSTEM/Views/weekly-filter-ai.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_ai_runtime_consumers.js"]
+    },
+    {
+      "consumer_id": "journal.monthly_validation",
+      "production": ["SYSTEM/Views/monthly-validation-ai.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/journal/test_monthly_validation_ai.js"]
+    },
+    {
+      "consumer_id": "auction.decision_support",
+      "production": ["SYSTEM/Views/auction-ai-decision-support.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_ai_decision_ui.js"]
+    },
+    {
+      "consumer_id": "auction.research_summary",
+      "production": ["SYSTEM/Views/auction-real-estate-research.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_ai_runtime_consumers.js", "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_auction_ai_runtime_real_obsidian.js"]
+    },
+    {
+      "consumer_id": "auction.region_experience",
+      "production": ["SYSTEM/Views/region-experience-ai.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_experience_ai.js"]
+    },
+    {
+      "consumer_id": "knowledge.source_batch",
+      "production": ["SYSTEM/Views/knowledge-source-batch-service.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_source_batch_service.js"]
+    },
+    {
+      "consumer_id": "knowledge.explorer_brief",
+      "production": ["SYSTEM/Views/knowledge-explorer-brief-service.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_knowledge_nonwiki_ai_runtime.js"]
+    },
+    {
+      "consumer_id": "wiki.batch_analysis",
+      "production": ["SYSTEM/Views/llmwiki-batch-provider.js"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_batch_provider.js"]
+    },
+    {
+      "consumer_id": "wiki.page_plan",
+      "production": ["HUB/50 Knowledge.md"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_batch_integration.js"]
+    },
+    {
+      "consumer_id": "wiki.article_compile",
+      "production": ["HUB/50 Knowledge.md"],
+      "evidence": ["SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_batch_integration.js"]
+    }
+  ],
+  "rollback_contract": {
+    "runtime_absent_preserves_input": true,
+    "runtime_failure_preserves_input": true,
+    "completed_response_cache_owner": "consumer",
+    "plugin_completed_cache_allowed": false,
+    "legacy_transport_call_count": 0
+  },
+  "dormant_surface": {
+    "path": "SYSTEM/Views/ai-inspector.js",
+    "status": "not_mounted",
+    "migration_required_before_reactivation": true
+  },
+  "legacy_runtime_modules_pending_retirement": [
+    "SYSTEM/Views/ai-provider-service.js",
+    "SYSTEM/Views/antigravity-exec-service.js",
+    "SYSTEM/Views/codex-exec-service.js",
+    "SYSTEM/Views/auction-ai-provider-resolver.js",
+    "SYSTEM/Views/prodigy-settings-modal.js"
+  ]
+}

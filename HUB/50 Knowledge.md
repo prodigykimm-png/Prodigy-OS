@@ -1150,7 +1150,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
             task: "Group the complete source inventory into 4-16 coherent source sections and 0-20 reusable topic documents. Every source entry must appear exactly once in source_sections. Every topic entry must appear exactly once either in a topic document with at least two entries or in source_only_entry_ids. Prefer broad documents with context, implications, and exceptions; never create one-claim documents. Return ids only and never paths or write operations.",
             inventory,
           }),
-          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA
+          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA,
+          ownerSessionId: `wiki-page-plan-${sourceId}`,
+          operationId: `wiki-page-plan-${sourceId}-${llmWikiHash.sha256(JSON.stringify(inventory))}`,
+          attemptId: "attempt-1"
         });
         return response.payload;
       };
@@ -1515,7 +1518,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
             task: "Build a concise source guide and a reviewable page plan. The source guide must partition every claim exactly once into 1-16 sections with a short summary. Reusable claims must appear exactly once either in 0-20 topic pages or source_only_claim_ids. New pages need at least two distinct evidence records. Prefer updating an allowlisted existing candidate when it is clearly the same topic. Return claim ids and allowlisted candidate ids only; never return prose documents, paths, or write operations.",
             request,
           }),
-          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA
+          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA,
+          ownerSessionId: `wiki-page-plan-${sourceId}`,
+          operationId: `wiki-page-plan-${sourceId}-${inventoryResult.value.inventory_hash}`,
+          attemptId: "attempt-1"
         });
         return response.payload;
       });
@@ -1746,7 +1752,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
             task: "Compile each approved page into coherent sections and paragraphs. Every paragraph must cite one or more provided claim_ids. Use every page claim at least once. Do not add unsupported facts, paths, metadata, or Markdown authority. Return structured article sections only.",
             request,
           }),
-          schema: window.LLMWikiDocumentCompiler.ARTICLE_SCHEMA
+          schema: window.LLMWikiDocumentCompiler.ARTICLE_SCHEMA,
+          ownerSessionId: `wiki-article-compile-${sourceId}`,
+          operationId: `wiki-article-compile-${sourceId}-${plan.plan_hash}`,
+          attemptId: "attempt-1"
         });
         return response.payload;
       });

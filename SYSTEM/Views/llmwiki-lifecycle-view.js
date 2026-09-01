@@ -124,7 +124,9 @@
         ...provider,
         provider_key: text(provider.profile_id || provider.provider_key),
         name: text(provider.name || provider.provider_key || provider.profile_id),
-        configured: snapshot.provider_readiness?.ready === true,
+        configured: snapshot.provider_readiness
+          ? snapshot.provider_readiness.ready === true
+          : provider.configured === true,
       }));
   }
   function inboxCounts(inbox) {
@@ -352,6 +354,7 @@
     }
 
     function runSettings(parent) {
+      providerPicker(parent);
       const details = createEl(parent, "details", { attr: { class: "llmwiki-lifecycle__advanced", "data-disclosure": "run-settings" } });
       createEl(details, "summary", { text: "실행 정보 및 설정", attr: { "data-focus-key": "advanced-run-settings" } });
       const settings = createEl(details, "div", { attr: { class: "llmwiki-lifecycle__settings" } });

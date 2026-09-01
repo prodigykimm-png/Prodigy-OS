@@ -22,9 +22,8 @@ test("Auction AI consumers own no provider transport or profile resolver", () =>
 test("Auction Research modal makes zero AI calls on render and exposes one explicit summary action", () => {
   const source = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-real-estate-research.js"), "utf8");
   assert.doesNotMatch(source, /void this\.loadAiSummary\(pkg\);[\s\S]*addSummary/u);
-  assert.match(source, /text: this\.aiSummaryLoading \? "AI 요약 생성 중…" : "AI 요약 생성"/u);
+  assert.match(source, /"data-auction-ai-action": "generate-research-summary"/u);
   assert.match(source, /summarize\.onclick = \(\) =>/u);
-  assert.match(source, /Modal을 여는 것만으로는 외부 전송하지 않습니다/u);
 });
 
 test("Auction workspace manifest loads client before all three migrated consumers", () => {

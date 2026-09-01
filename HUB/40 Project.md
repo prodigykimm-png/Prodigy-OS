@@ -162,7 +162,10 @@ const adaptiveBar = window.ProdigyAdaptiveControls.AdaptiveActionBar(container, 
 });
 adaptiveBar.element.style.minBlockSize = `${layout.actionBarHeight}px`;
 const launchButton = adaptiveBar.primary.querySelector("button");
-if (launchButton) launchButton.classList.add("prodigy-btn-primary");
+if (launchButton) {
+  launchButton.classList.add("prodigy-btn-primary");
+  launchButton.setAttribute("data-project-action", "open-wizard");
+}
 
 if (!window.prodigyProjectWorkspaceStateStore) {
   window.prodigyProjectWorkspaceStateStore = new window.ProdigyWorkspaceStateStore.WorkspaceStateStore({});

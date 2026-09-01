@@ -43,7 +43,6 @@
     "SYSTEM/Views/project-todoist-adapter.js",
     "SYSTEM/Views/prodigy-config-service.js",
     "SYSTEM/Views/project-workflow-draft-service.js",
-    "SYSTEM/Views/prodigy-settings-modal.js",
     "SYSTEM/Views/morning-brief-context.js",
     "SYSTEM/Views/journal-core.js",
     "SYSTEM/Views/journal-store.js",
@@ -291,7 +290,6 @@
     "SYSTEM/Views/prodigy-ai-client.js",
     "SYSTEM/Views/prodigy-config-service.js",
     "SYSTEM/Views/project-workflow-draft-service.js",
-    "SYSTEM/Views/prodigy-settings-modal.js",
     "SYSTEM/Views/project-todoist-adapter.js",
     "SYSTEM/Views/project-wizard.js"
   ]),
