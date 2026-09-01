@@ -1,0 +1,95 @@
+{
+  "schema_version": "prodigy_ai_runtime_local_release_audit_v1",
+  "verified_at": "2026-09-01",
+  "status": "pass",
+  "release": {
+    "plugin_id": "prodigy-ai-runtime",
+    "version": "0.1.0",
+    "min_app_version": "1.8.7",
+    "files": [
+      "main.js",
+      "manifest.json",
+      "versions.json"
+    ],
+    "file_sha256": {
+      "main.js": "06723255e93a563f8b43375fa30fa901eb7ff1e4593e873f978092d38e879bd7",
+      "manifest.json": "1dbd8c0992a4f1b169f609061600203ba763a2f0f96fd82a52a14a354070fdb5",
+      "versions.json": "00de9a24ddbfb27db6fcea40d8cd3cab67b61264f25ccbd889abec98830ae470"
+    },
+    "archive": {
+      "file": "prodigy-ai-runtime-0.1.0.zip",
+      "sha256": "720c4516e67d9e7e3a98d74b6796b11afa56a11cdc4bcdb63dc7e00ad7a559f8",
+      "bytes": 74546,
+      "entries": 3
+    },
+    "receipt_sha256": "9f2054f8392c1a6bd84ed936d2e3236ddc04bb5c59b478c9c194c22835b17827"
+  },
+  "source_truth": {
+    "dusk_head_before_release_commit": "ced2996d630ca3579ffbe7ccc0f4c70ed1afe06d",
+    "plugin_head_before_release_commit": "a43f6dca6d992f31f71bf36fccc454a2b4dc8a6e",
+    "canonical_version_source": "package.json#version",
+    "compatibility_sources": [
+      "manifest.json#minAppVersion",
+      "versions.json"
+    ],
+    "dependency_lock": "package-lock.json"
+  },
+  "verification": {
+    "strict_typecheck": "pass",
+    "plugin_and_release_tests": {
+      "passed": 30,
+      "failed": 0
+    },
+    "repeated_build_byte_identity": true,
+    "clean_export_npm_ci": "pass",
+    "clean_export_release_gate": "pass",
+    "clean_export_archive_byte_identity": true,
+    "zip_integrity": "pass",
+    "sha256_sidecar": "pass",
+    "real_obsidian_tests": {
+      "passed": 2,
+      "failed": 0,
+      "surfaces": [
+        "clean ZIP install",
+        "plugin handshake",
+        "Project deterministic capability_unavailable",
+        "upgrade",
+        "rollback",
+        "candidate reinstall"
+      ]
+    },
+    "browser_network_attempts": 0,
+    "os_network_attempts": 0,
+    "source_canonical_writes": 0,
+    "protected_vault_continuity_exact": true,
+    "durable_config_preserved_exact": true,
+    "stale_grant_became_usable": false,
+    "secret_value_artifact_hits": 0,
+    "prompt_response_diagnostic_hits": 0
+  },
+  "hostile_review": {
+    "status": "resolved",
+    "substantiated_findings": [
+      "release generation must preserve unrelated rollback artifacts in dist",
+      "installer staging must stay outside the live plugin directory",
+      "installer tests must not claim multi-file atomicity"
+    ],
+    "false_positives_rejected": [
+      "tsx .js-to-.ts import mapping failure; clean npm ci test run passed",
+      "absolute GitHub workflow path; tracked path is .github/workflows/verify-release.yml"
+    ]
+  },
+  "external_writes": {
+    "github_repository_created": false,
+    "remote_added": false,
+    "pushed": false,
+    "tag_published": false,
+    "github_release_created": false,
+    "approval_requested": false,
+    "reason": "Local reproducible release and CI definition completed without requiring external publication."
+  },
+  "known_gaps": [
+    "GitHub-hosted CI has not run because no remote or push was approved.",
+    "Mobile relay live network call remains unverified because this device has no configured HTTPS relay URL."
+  ]
+}
