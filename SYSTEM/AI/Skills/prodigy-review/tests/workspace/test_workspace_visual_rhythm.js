@@ -26,6 +26,22 @@ test("workspace chrome and fixed-height labels keep neutral tracking", () => {
   assert.doesNotMatch(people, /letter-spacing:\s*-/);
 });
 
+test("workspace shells preserve canonical phone, iPad, and Mac side gutters", () => {
+  const shell = source("SYSTEM/Views/prodigy-app-shell.js");
+  assert.match(shell, /--prodigy-gutter-phone:\$\{gutter\.phone \|\| 20\}px/);
+  assert.match(shell, /--prodigy-gutter-pad-portrait:\$\{\(gutter\.pad && gutter\.pad\.portrait\) \|\| 32\}px/);
+  assert.match(shell, /--prodigy-gutter-pad-landscape:\$\{\(gutter\.pad && gutter\.pad\.landscape\) \|\| 48\}px/);
+  assert.match(shell, /--prodigy-gutter-mac:\$\{\(gutter\.mac && gutter\.mac\.default\) \|\| 48\}px/);
+  assert.match(shell, /--prodigy-gutter-mac-content-max:\$\{\(gutter\.mac && gutter\.mac\.atContentMax\) \|\| 80\}px/);
+  assert.match(shell, /\.prodigy-app-shell\[data-tier="compact"\]\s*\{[^}]*--prodigy-inline-gutter:\s*var\(--prodigy-gutter-phone\)/);
+  assert.match(shell, /\.prodigy-app-shell\[data-tier="medium"\]\s*\{[^}]*--prodigy-inline-gutter:\s*var\(--prodigy-gutter-pad-portrait\)/);
+  assert.match(shell, /\.prodigy-app-shell\[data-tier="wide"\]\s*\{[^}]*--prodigy-inline-gutter:\s*var\(--prodigy-gutter-mac\)/);
+  assert.match(shell, /@media \(min-width: 1024px\) and \(max-width: 1068px\)[\s\S]*?--prodigy-inline-gutter:\s*var\(--prodigy-gutter-pad-landscape\)/);
+  assert.match(shell, /@media \(min-width: 1441px\)[\s\S]*?--prodigy-inline-gutter:\s*var\(--prodigy-gutter-mac-content-max\)/);
+  assert.match(shell, /\.prodigy-app-shell\.prodigy-app-shell:is\(\[data-tier="compact"\],\[data-tier="medium"\],\[data-tier="wide"\]\)\s*>\s*:is\(\.prodigy-workspace-bar,\.prodigy-context-bar,\.prodigy-app-shell-body\)\s*\{[^}]*padding-inline:\s*var\(--prodigy-inline-gutter\) !important/);
+  assert.doesNotMatch(shell, /padding-inline:\s*4px/);
+});
+
 test("major workspace surfaces consume semantic typography tokens", () => {
   const surfaces = {
     home: ["SYSTEM/Views/home-styles.js"],

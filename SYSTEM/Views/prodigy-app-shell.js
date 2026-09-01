@@ -51,6 +51,7 @@
     const heights = tokens.CONTROL_HEIGHTS || {};
     const colors = tokens.SEMANTIC_COLORS || {};
     const shadows = tokens.SHADOWS || {};
+    const gutter = (tokens.APPLE_SPEC && tokens.APPLE_SPEC.gutter) || {};
     const body = type.body || {};
     const caption = type.caption || {};
     const title = type.tagline || {};
@@ -113,6 +114,11 @@
       `--ke-workspace-bar-height:${heights.workspaceBar || 64}px`,
       `--ke-action-bar-height:${heights.actionBar || 52}px`,
       `--ke-mobile-toolbar-height:${heights.mobileToolbar || 56}px`,
+      `--prodigy-gutter-phone:${gutter.phone || 20}px`,
+      `--prodigy-gutter-pad-portrait:${(gutter.pad && gutter.pad.portrait) || 32}px`,
+      `--prodigy-gutter-pad-landscape:${(gutter.pad && gutter.pad.landscape) || 48}px`,
+      `--prodigy-gutter-mac:${(gutter.mac && gutter.mac.default) || 48}px`,
+      `--prodigy-gutter-mac-content-max:${(gutter.mac && gutter.mac.atContentMax) || 80}px`,
     ].join(";");
   }
 
@@ -147,6 +153,18 @@
 }
 .prodigy-app-shell[data-context-placement="inline"] {
   grid-template-rows: auto minmax(0, 1fr);
+}
+.prodigy-app-shell[data-tier="compact"] {
+  --prodigy-inline-gutter: var(--prodigy-gutter-phone);
+}
+.prodigy-app-shell[data-tier="medium"] {
+  --prodigy-inline-gutter: var(--prodigy-gutter-pad-portrait);
+}
+.prodigy-app-shell[data-tier="wide"] {
+  --prodigy-inline-gutter: var(--prodigy-gutter-mac);
+}
+.prodigy-app-shell.prodigy-app-shell:is([data-tier="compact"],[data-tier="medium"],[data-tier="wide"]) > :is(.prodigy-workspace-bar,.prodigy-context-bar,.prodigy-app-shell-body) {
+  padding-inline: var(--prodigy-inline-gutter) !important;
 }
 .prodigy-workspace-bar {
   display: flex;
@@ -551,9 +569,7 @@
   .prodigy-app-shell[data-workspace-id="reading"] > .prodigy-workspace-bar {
     flex-direction: column;
     align-items: stretch;
-    padding-inline: 4px;
   }
-  .prodigy-context-bar { padding-inline: var(--ke-space-2, 8px); }
 }
 @media (min-width: 420px) and (max-width: 640px) {
   .prodigy-app-shell { --prodigy-hero-size: 34px; }
@@ -570,13 +586,22 @@
   .prodigy-context-action { min-block-size: var(--ke-control-height, 44px); }
 }
 @media (min-width: 1024px) and (max-width: 1068px) {
-  .prodigy-app-shell { margin-inline: auto; padding-inline: var(--ke-space-4, 17px); }
+  .prodigy-app-shell {
+    --prodigy-inline-gutter: var(--prodigy-gutter-pad-landscape);
+    margin-inline: auto;
+    padding-inline: var(--ke-space-4, 17px);
+  }
 }
 @media (min-width: 1069px) and (max-width: 1440px) {
   .prodigy-app-shell { margin-inline: auto; --prodigy-utility-columns: 5; }
 }
 @media (min-width: 1441px) {
-  .prodigy-app-shell { inline-size: 100%; max-inline-size: 1440px; margin-inline: auto; }
+  .prodigy-app-shell {
+    --prodigy-inline-gutter: var(--prodigy-gutter-mac-content-max);
+    inline-size: 100%;
+    max-inline-size: 1440px;
+    margin-inline: auto;
+  }
 }
 .prodigy-floating-bar {
   min-block-size: var(--ke-workspace-bar-height, 64px);

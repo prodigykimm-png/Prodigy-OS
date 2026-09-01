@@ -13,7 +13,12 @@
   const T = root.ProdigyTokens || (typeof require === "function" ? require("./design-tokens.js") : {});
   const STYLE_ID = "prodigy-reading-styles";
 
-  const compactMax = T.RESPONSIVE_BREAKPOINTS && T.RESPONSIVE_BREAKPOINTS.compactMax;
+  const responsive = T.RESPONSIVE_BREAKPOINTS || {};
+  const compactMax = responsive.compactMax;
+  const phoneMax = Number.isFinite(responsive.phoneMax) ? responsive.phoneMax : 640;
+  const utilityTwoColumnMax = Number.isFinite(responsive.utilityTwoColumnMax) ? responsive.utilityTwoColumnMax : 1023;
+  const contentMax = Number.isFinite(responsive.contentMax) ? responsive.contentMax : 1440;
+  const gutter = (T.APPLE_SPEC && T.APPLE_SPEC.gutter) || {};
   const touchTarget = T.CONTROL_HEIGHTS && T.CONTROL_HEIGHTS.touchTarget ? T.CONTROL_HEIGHTS.touchTarget : 44;
 
   function ensureReadingStyles() {
@@ -74,6 +79,27 @@
 .prodigy-reading-app *::before,
 .prodigy-reading-app *::after { box-sizing: border-box; min-inline-size: 0; max-inline-size: 100%; }
 
+.reading-hub-section {
+  box-sizing: border-box;
+  inline-size: 100%;
+  padding-inline: ${gutter.phone || 20}px;
+}
+@media (min-width: ${phoneMax + 1}px) {
+  .reading-hub-section {
+    padding-inline: ${(gutter.pad && gutter.pad.portrait) || 32}px;
+  }
+}
+@media (min-width: ${utilityTwoColumnMax + 1}px) {
+  .reading-hub-section {
+    padding-inline: ${(gutter.pad && gutter.pad.landscape) || 48}px;
+  }
+}
+@media (min-width: ${contentMax + 1}px) {
+  .reading-hub-section {
+    padding-inline: ${(gutter.mac && gutter.mac.atContentMax) || 80}px;
+  }
+}
+
 .reading-responsive-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -115,8 +141,13 @@
 .reading-responsive-list {
   background: var(--ke-color-surface-secondary, var(--background-secondary));
   border-inline-end: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
-  padding: var(--ke-space-3, 12px) var(--ke-space-2, 8px);
+  padding: var(--ke-space-4, 17px);
   min-block-size: 100%;
+}
+.reading-responsive-workspace[data-reading-layout="compact"] .reading-responsive-list,
+.reading-responsive-workspace[data-reading-layout="medium"] .reading-responsive-list {
+  padding: var(--ke-space-4, 17px);
+  border-inline-end: 0;
 }
 .reading-responsive-detail {
   background: var(--ke-color-surface, var(--background-primary));
@@ -140,19 +171,19 @@
 
 /* Shared AppShell Overrides */
 .prodigy-app-shell[data-workspace-id="reading"] > .prodigy-workspace-bar {
-  padding-inline: 4px;
+  padding-inline: var(--prodigy-inline-gutter, var(--ke-space-5, 24px));
 }
 
 /* --- Apple-Native Cards & Micro-Interactions (100% GPU Accelerated) --- */
 .reading-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--ke-space-3, 12px);
   background: var(--ke-color-surface-secondary, var(--background-secondary));
   border: 1px solid var(--ke-color-border, var(--background-modifier-border));
   border-radius: var(--ke-radius-panel, 12px);
-  padding: 14px 18px;
-  margin-bottom: 10px;
+  padding: var(--ke-space-4, 17px) var(--ke-space-5, 24px);
+  margin-bottom: var(--ke-space-4, 17px);
   will-change: transform, box-shadow;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
@@ -172,8 +203,8 @@
 
 /* Hero Detail Card */
 .reading-card-hero {
-  padding: clamp(18px, 4vw, 32px);
-  margin-bottom: 20px;
+  padding: clamp(24px, 5vw, 32px);
+  margin-bottom: var(--ke-space-5, 24px);
   background: var(--ke-color-surface, var(--background-primary));
   border: 1px solid var(--ke-color-border, var(--background-modifier-border));
   border-radius: var(--ke-radius-card, 16px);

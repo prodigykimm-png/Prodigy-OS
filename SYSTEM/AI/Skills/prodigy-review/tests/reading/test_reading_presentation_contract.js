@@ -51,8 +51,23 @@ test("Reading presentation removes frozen palette, generated decoration, card sh
   const view = read("SYSTEM/Views/reading-view.js");
   const styles = read("SYSTEM/Views/reading-styles.js");
   assert.doesNotMatch(view, /reading-responsive-pane\{[^}]*overflow:\s*auto/);
-  assert.match(styles, /\.prodigy-app-shell\[data-workspace-id="reading"\]\s*>\s*\.prodigy-workspace-bar\s*\{[^}]*padding-inline:\s*4px/);
-  assert.match(read("SYSTEM/Views/prodigy-app-shell.js"), /\.prodigy-app-shell\[data-workspace-id="auction"\] > \.prodigy-workspace-bar,[\s\S]*?\.prodigy-app-shell\[data-workspace-id="reading"\] > \.prodigy-workspace-bar \{[\s\S]*?flex-direction: column;[\s\S]*?align-items: stretch;[\s\S]*?padding-inline: 4px;/, "Reading title must own the full AppShell compact row without type shrink");
+  assert.match(styles, /\.prodigy-app-shell\[data-workspace-id="reading"\]\s*>\s*\.prodigy-workspace-bar\s*\{[^}]*padding-inline:\s*var\(--prodigy-inline-gutter/);
+  assert.match(read("SYSTEM/Views/prodigy-app-shell.js"), /\.prodigy-app-shell\[data-workspace-id="auction"\] > \.prodigy-workspace-bar,[\s\S]*?\.prodigy-app-shell\[data-workspace-id="reading"\] > \.prodigy-workspace-bar \{[\s\S]*?flex-direction: column;[\s\S]*?align-items: stretch;/, "Reading title must keep the stacked compact row without shrinking the shared gutter");
+});
+
+test("Reading in-progress cards keep comfortable outer and inner spacing", () => {
+  const styles = read("SYSTEM/Views/reading-styles.js");
+  const card = read("SYSTEM/Views/reading-card.js");
+  assert.match(styles, /\.reading-hub-section\s*\{[^}]*padding-inline:\s*\$\{gutter\.phone \|\| 20\}px/);
+  assert.match(styles, /@media \(min-width: \$\{phoneMax \+ 1\}px\)[\s\S]*?padding-inline:\s*\$\{\(gutter\.pad && gutter\.pad\.portrait\) \|\| 32\}px/);
+  assert.match(styles, /@media \(min-width: \$\{utilityTwoColumnMax \+ 1\}px\)[\s\S]*?padding-inline:\s*\$\{\(gutter\.pad && gutter\.pad\.landscape\) \|\| 48\}px/);
+  assert.match(styles, /@media \(min-width: \$\{contentMax \+ 1\}px\)[\s\S]*?padding-inline:\s*\$\{\(gutter\.mac && gutter\.mac\.atContentMax\) \|\| 80\}px/);
+  assert.match(styles, /\n\.reading-responsive-list\s*\{[^}]*padding:\s*var\(--ke-space-4,\s*17px\)/);
+  assert.match(styles, /\.reading-responsive-workspace\[data-reading-layout="compact"\] \.reading-responsive-list,\s*\.reading-responsive-workspace\[data-reading-layout="medium"\] \.reading-responsive-list\s*\{[^}]*padding:\s*var\(--ke-space-4,\s*17px\)/);
+  assert.match(styles, /\.reading-card\s*\{[^}]*padding:\s*var\(--ke-space-4,\s*17px\) var\(--ke-space-5,\s*24px\)/);
+  assert.match(styles, /\.reading-card-hero\s*\{[^}]*padding:\s*clamp\(24px,\s*5vw,\s*32px\)/);
+  assert.doesNotMatch(card, /reading-card-content-hero[\s\S]{0,400}padding:/);
+  assert.doesNotMatch(card, /reading-card-simple[\s\S]{0,400}padding:/);
 });
 
 test("Reading mutation oracle kills every frozen residual and enforces actual-image-only shadow", () => {
