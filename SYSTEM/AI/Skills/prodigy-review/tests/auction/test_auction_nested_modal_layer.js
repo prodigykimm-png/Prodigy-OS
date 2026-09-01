@@ -9,6 +9,7 @@ const vm = require("node:vm");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const SHARED_SOURCE = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/shared-dashboard.js"), "utf8");
 const CARD_SOURCE = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-card.js"), "utf8");
+const SITE_VISIT_SOURCE = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/site-visit-workflow.js"), "utf8");
 
 test("Auction edit modal rises above the highest active parent popup", () => {
   const calendar = { zIndex: "1000" };
@@ -53,5 +54,12 @@ test("monthly profit editor applies the shared foreground contract on open", () 
   assert.match(
     CARD_SOURCE,
     /onOpen\(\)\s*\{[\s\S]*?ensureProdigyModalForeground\(this\.containerEl\)[\s\S]*?expected_monthly_rent/,
+  );
+});
+
+test("site visit editor applies the shared foreground contract before async setup", () => {
+  assert.match(
+    SITE_VISIT_SOURCE,
+    /async onOpen\(\)\s*\{\s*window\.ensureProdigyModalForeground\?\.\(this\.containerEl\);[\s\S]*?await workflow\(\)\.readFileState/,
   );
 });

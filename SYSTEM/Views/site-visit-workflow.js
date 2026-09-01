@@ -67,6 +67,7 @@
     }
 
     async onOpen() {
+      window.ensureProdigyModalForeground?.(this.containerEl);
       this.contentEl.empty();
       this.contentEl.addClass("prodigy-site-visit-modal");
       this.contentEl.createEl("h2", { text: "현장 방문 체크리스트" });
