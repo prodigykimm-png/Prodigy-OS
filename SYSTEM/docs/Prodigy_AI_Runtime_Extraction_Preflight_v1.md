@@ -828,4 +828,3 @@ Project migration은 Home에서 Project Wizard를 여는 경로도 함께 검증
 - 기존 50-item review 불변
 - legacy provider runtime과 manifest dependency 제거
 - plugin과 vault repository의 atomic Lore commits
-
