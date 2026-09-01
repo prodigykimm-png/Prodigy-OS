@@ -12,6 +12,7 @@
     "manifest.json": "1dbd8c0992a4f1b169f609061600203ba763a2f0f96fd82a52a14a354070fdb5",
     "versions.json": "00de9a24ddbfb27db6fcea40d8cd3cab67b61264f25ccbd889abec98830ae470"
   },
+  "installed_enabled": true,
   "verification": {
     "active_consumers": 14,
     "plugin_contract_tests": 23,

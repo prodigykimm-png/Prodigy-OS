@@ -20,6 +20,9 @@ test("release audit binds the installed plugin artifact and protocol", () => {
   for (const [name, expected] of Object.entries(audit.installed_artifacts)) {
     assert.equal(sha(path.join(ROOT, ".obsidian/plugins/prodigy-ai-runtime", name)), expected, name);
   }
+  const enabled = JSON.parse(fs.readFileSync(path.join(ROOT, ".obsidian/community-plugins.json"), "utf8"));
+  assert.equal(enabled.includes("prodigy-ai-runtime"), true);
+  assert.equal(audit.installed_enabled, true);
   assert.equal(audit.repositories.plugin_head, "ac6face");
 });
 
