@@ -115,7 +115,7 @@ function configureViewRuntime() {
 }
 
 function loadViewScripts() {
-  ["auction-card-price-projection.js", "auction-card.js", "auction-day-core.js", "auction-day-view.js"].forEach((name) => {
+  ["auction-card-price-projection.js", "auction-court-status.js", "auction-card.js", "auction-day-core.js", "auction-day-view.js"].forEach((name) => {
     const file = path.join(ROOT, "SYSTEM/Views", name);
     delete require.cache[require.resolve(file)];
     require(file);
@@ -316,9 +316,9 @@ async function main() {
   endedWatching.auction_datetime = "2000-01-01T10:00:00";
   const endedWatchingRoot = fakeElement("div");
   global.window.renderAuctionCard(endedWatching, endedWatchingRoot, { decisionPacketContext: context });
-  assert.match(textContent(endedWatchingRoot), /종료/, "date-passed watching card is marked ended");
-  assert.match(textContent(endedWatchingRoot), /낙찰가/, "date-passed watching card shows the winning-price field");
-  assert.doesNotMatch(textContent(endedWatchingRoot), /입찰 예정가/, "date-passed watching card no longer shows the live estimate");
+  assert.match(textContent(endedWatchingRoot), /결과 미확인/, "date-passed watching card requires an official court result");
+  assert.doesNotMatch(textContent(endedWatchingRoot), /낙찰가/, "date alone never claims a winning-price result");
+  assert.match(textContent(endedWatchingRoot), /입찰 예정가/, "unverified court result preserves the decision estimate");
 
   const wonPriceRoot = fakeElement("div");
   global.window.renderAuctionCard(activeAuction("won"), wonPriceRoot, { decisionPacketContext: context });

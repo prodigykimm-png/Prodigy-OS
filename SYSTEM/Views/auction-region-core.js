@@ -141,6 +141,12 @@
       expected_bid: row.expected_bid ?? null,
       my_bid_price: row.my_bid_price ?? null,
       winning_bid_price: row.winning_bid_price ?? null,
+      market_sale_price: row.market_sale_price ?? null,
+      market_jeonse_price: row.market_jeonse_price ?? null,
+      expected_deposit: row.expected_deposit ?? null,
+      expected_monthly_rent: row.expected_monthly_rent ?? null,
+      decision_reason: clean(row.decision_reason),
+      recommend_level: clean(row.recommend_level),
       property_type: clean(row.property_type),
       address: clean(row.address),
       region_dong: clean(row.region_dong)

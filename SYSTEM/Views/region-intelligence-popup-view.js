@@ -317,7 +317,7 @@ function renderAuctionOverlay(snapshot) {
           <div><dt>감정가</dt><dd>${formatWon(row.appraisal_price)}</dd></div>
           <div><dt>최저가</dt><dd>${formatWon(row.minimum_bid)}</dd></div>
         </dl>
-        <button type="button" data-action="open-region-auction" data-region-auction-index="${index}" aria-label="${caseNumber} Auction 원본 열기" style="${touchStyle()}">Auction 원본 열기</button>
+        <button type="button" data-action="open-region-auction" data-region-auction-index="${index}" aria-label="${caseNumber} 카드 상세 보기" style="${touchStyle()}">카드 상세 보기</button>
       </article></li>`;
     }).join("")}</ul>`
     : `<div class="region-popup-empty">이 지역에 연결된 경매가 없습니다.</div>`;
@@ -332,6 +332,58 @@ function renderAuctionOverlay(snapshot) {
       <button type="button" data-action="open-region-auction-workspace" style="${touchStyle()}">Auction 워크스페이스에서 전체 보기</button>
     </footer>
   </div>`;
+}
+
+function renderAuctionDetail(row) {
+  const visit = row && row.site_visit || {};
+  const contact = visit.management_contact || {};
+  const phone = String(contact.phone || "").trim();
+  const tel = phone.replace(/\D/gu, "");
+  const observations = Array.isArray(visit.summary_lines) ? visit.summary_lines.filter(Boolean) : [];
+  const contactBlock = phone || contact.name || contact.note
+    ? `<section class="region-auction-detail-section">
+        <h3>관리사무소</h3>
+        <p><strong>${escapeHtml(contact.name || "관리사무소")}</strong>${phone ? ` · <a href="tel:${escapeHtml(tel)}">${escapeHtml(phone)}</a>` : ""}</p>
+        ${contact.note ? `<p>${escapeHtml(contact.note)}</p>` : ""}
+        ${phone ? `<button type="button" data-action="copy-management-contact" data-contact-phone="${escapeHtml(phone)}" aria-label="${escapeHtml(contact.name || "관리사무소")} 전화번호 복사" style="${touchStyle()}">번호 복사</button><span role="status" data-contact-copy-status></span>` : ""}
+      </section>`
+    : `<section class="region-auction-detail-section"><h3>관리사무소</h3><p class="region-popup-empty">저장된 연락처 없음</p></section>`;
+  const observationBlock = observations.length
+    ? `<ul>${observations.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`
+    : `<p class="region-popup-empty">저장된 현장 메모 없음</p>`;
+  return `<article class="region-auction-detail">
+    <header class="region-auction-detail-head">
+      <button type="button" data-action="back-region-auction-list" style="${touchStyle()}">목록으로</button>
+      <div><p>경매 카드 상세</p><h2 id="region-auction-overlay-title">${escapeHtml(row && row.case_number || "사건번호 없음")}</h2></div>
+      <button type="button" data-action="close-region-auction-overlay" aria-label="경매 카드 상세 닫기" style="${touchStyle()}">닫기</button>
+    </header>
+    <p class="region-auction-card-address">${escapeHtml(row && row.address || "주소 없음")}${row && row.region_dong ? ` · ${escapeHtml(row.region_dong)}` : ""}</p>
+    <section class="region-auction-detail-section">
+      <h3>가격·기일</h3>
+      <dl class="region-auction-detail-values">
+        <div><dt>상태</dt><dd>${escapeHtml(auctionStatusLabel(row && row.status))}</dd></div>
+        <div><dt>물건 유형</dt><dd>${escapeHtml(row && row.property_type || "자료 없음")}</dd></div>
+        <div><dt>매각기일</dt><dd>${escapeHtml(row && row.auction_datetime || "자료 없음")}</dd></div>
+        <div><dt>감정가</dt><dd>${formatWon(row && row.appraisal_price)}</dd></div>
+        <div><dt>최저가</dt><dd>${formatWon(row && row.minimum_bid)}</dd></div>
+        <div><dt>예상 입찰가</dt><dd>${formatWon(row && row.expected_bid)}</dd></div>
+        <div><dt>나의 입찰가</dt><dd>${formatWon(row && row.my_bid_price)}</dd></div>
+        <div><dt>낙찰가</dt><dd>${formatWon(row && row.winning_bid_price)}</dd></div>
+      </dl>
+    </section>
+    <section class="region-auction-detail-section">
+      <h3>판단</h3>
+      <p>${escapeHtml(row && row.decision_reason || "기록된 판단 사유 없음")}</p>
+    </section>
+    <section class="region-auction-detail-section">
+      <h3>임장 관찰</h3>
+      ${observationBlock}
+    </section>
+    ${contactBlock}
+    <footer class="region-auction-detail-footer">
+      <button type="button" data-action="open-region-auction-source" style="${touchStyle()}">Markdown 원문 열기</button>
+    </footer>
+  </article>`;
 }
 
 function openAuctionOverlay(snapshot, options) {
@@ -352,9 +404,10 @@ function openAuctionOverlay(snapshot, options) {
   modal.setAttribute("aria-modal", "true");
   modal.setAttribute("aria-labelledby", "region-auction-overlay-title");
   modal.tabIndex = -1;
-  modal.innerHTML = renderAuctionOverlay(snapshot);
   overlay.appendChild(modal);
   let closed = false;
+  let selectedIndex = null;
+  let listScrollTop = 0;
   const close = () => {
     if (closed) return;
     closed = true;
@@ -373,27 +426,61 @@ function openAuctionOverlay(snapshot, options) {
     }
     trapOverlayFocus(event, modal);
   };
-  modal.querySelector("[data-action='close-region-auction-overlay']")?.addEventListener("click", close);
-  modal.querySelectorAll("[data-action='open-region-auction']").forEach((button) => {
-    button.addEventListener("click", () => {
-      const row = auctionOverlayRows(snapshot)[Number(button.getAttribute("data-region-auction-index"))];
+  const focusFirst = () => {
+    const first = modal.querySelector("button:not([disabled]),[href],[tabindex]:not([tabindex='-1'])") || modal;
+    if (typeof first.focus === "function") {
+      try { first.focus({ preventScroll: true }); }
+      catch (_) { first.focus(); }
+    }
+  };
+  const paint = () => {
+    const rows = auctionOverlayRows(snapshot);
+    const row = selectedIndex === null ? null : rows[selectedIndex];
+    modal.innerHTML = row ? renderAuctionDetail(row) : renderAuctionOverlay(snapshot);
+    modal.querySelector("[data-action='close-region-auction-overlay']")?.addEventListener("click", close);
+    modal.querySelectorAll("[data-action='open-region-auction']").forEach((button) => {
+      button.addEventListener("click", () => {
+        const index = Number(button.getAttribute("data-region-auction-index"));
+        if (!rows[index]) return;
+        listScrollTop = modal.scrollTop;
+        selectedIndex = index;
+        paint();
+      });
+    });
+    modal.querySelector("[data-action='back-region-auction-list']")?.addEventListener("click", () => {
+      const returnIndex = selectedIndex;
+      selectedIndex = null;
+      paint();
+      modal.scrollTop = listScrollTop;
+      const target = modal.querySelector(`[data-region-auction-index='${returnIndex}']`);
+      if (target && typeof target.focus === "function") target.focus({ preventScroll: true });
+    });
+    modal.querySelector("[data-action='open-region-auction-source']")?.addEventListener("click", () => {
       if (!row || typeof opts.onOpenAuction !== "function") return;
       close();
       opts.onOpenAuction(row);
     });
-  });
-  modal.querySelector("[data-action='open-region-auction-workspace']")?.addEventListener("click", () => {
-    close();
-    if (typeof opts.onOpenAll === "function") opts.onOpenAll(snapshot);
-  });
+    modal.querySelector("[data-action='copy-management-contact']")?.addEventListener("click", async (event) => {
+      const phone = event.currentTarget.getAttribute("data-contact-phone") || "";
+      const status = modal.querySelector("[data-contact-copy-status]");
+      if (!phone || typeof opts.onCopyContact !== "function") return;
+      try {
+        await opts.onCopyContact(phone);
+        if (status) status.textContent = "복사됨";
+      } catch (_error) {
+        if (status) status.textContent = "복사 실패";
+      }
+    });
+    modal.querySelector("[data-action='open-region-auction-workspace']")?.addEventListener("click", () => {
+      close();
+      if (typeof opts.onOpenAll === "function") opts.onOpenAll(snapshot);
+    });
+    focusFirst();
+  };
   overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
   document.addEventListener("keydown", onKeydown);
   document.body.appendChild(overlay);
-  const first = modal.querySelector("button:not([disabled]),[href],[tabindex]:not([tabindex='-1'])") || modal;
-  if (typeof first.focus === "function") {
-    try { first.focus({ preventScroll: true }); }
-    catch (_) { first.focus(); }
-  }
+  paint();
   return Object.freeze({ overlay, close });
 }
 
@@ -662,6 +749,7 @@ const api = Object.freeze({
   renderDecisionOutcome,
   renderSiteVisits,
   renderAuctionOverlay,
+  renderAuctionDetail,
   renderPopup,
   popupStyles,
   mountPopup,

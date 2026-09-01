@@ -29,6 +29,7 @@ const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const CARD_PATH = path.join(ROOT, "SYSTEM/Views/auction-card.js");
+const COURT_STATUS = require(path.join(ROOT, "SYSTEM/Views/auction-court-status.js"));
 const SOURCE = fs.readFileSync(CARD_PATH, "utf8");
 
 // Fixed Default-theme resolved values the card's "computed" styles collapse to.
@@ -134,6 +135,7 @@ function buildSandbox() {
       querySelectorAll: () => [],
     },
   };
+  windowObj.AuctionCourtStatus = COURT_STATUS;
   return { window: windowObj, captured: () => capturedCss };
 }
 

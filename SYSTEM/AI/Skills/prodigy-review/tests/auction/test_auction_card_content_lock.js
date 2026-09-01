@@ -27,6 +27,7 @@ const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const CARD_PATH = path.join(ROOT, "SYSTEM/Views/auction-card.js");
+const COURT_STATUS = require(path.join(ROOT, "SYSTEM/Views/auction-court-status.js"));
 const EVIDENCE_DIR = path.join(
   ROOT,
   ".omo/evidence/apple-ui-redesign/task-3",
@@ -132,6 +133,7 @@ function buildWindow() {
   };
   // Region decision board exists so 판단 보드 seam renders.
   windowObj.AuctionRegionPacket = { openForAuction: async () => {} };
+  windowObj.AuctionCourtStatus = COURT_STATUS;
   windowObj.AuctionCardPriceProjection = undefined;
   windowObj.obsidianPrompt = async () => null;
   windowObj.obsidian = {};
@@ -161,6 +163,8 @@ const FIXTURE = {
   auction_datetime: "2026-08-20",
   court: "서울중앙지방법원",
   property_type: "아파트",
+  exclusive_area: "59.8㎡",
+  supply_area: 84.9,
   region_sido: "서울",
   region_sigungu: "강남구",
   region_dong: "역삼동",
@@ -320,9 +324,9 @@ test("GREEN — every card always exposes editable profit fields", () => {
   }
 });
 
-test("GREEN — ended cards use the compact 종료 badge", () => {
-  assert.doesNotMatch(SOURCE, /종료\(경매일 기준\)/);
-  assert.equal((SOURCE.match(/ddayStr = "종료";/g) || []).length, 2);
+test("GREEN — past cards require an explicit court status instead of inferring 종료", () => {
+  assert.match(SOURCE, /AuctionCourtStatus\.project/);
+  assert.doesNotMatch(SOURCE, /ddayStr = "종료"/);
 });
 
 test("GREEN — real auction-card renders a stable semantic content snapshot", () => {
@@ -330,6 +334,7 @@ test("GREEN — real auction-card renders a stable semantic content snapshot", (
   const text = BASELINE_JSON;
   // Key shipped fields/labels exist in semantic order.
   assert.match(text, /서울 강남구 역삼동/);
+  assert.match(text, /전용 59\.8㎡ \/ 공급 84\.9㎡/);
   assert.match(text, /2026-08-20/);
   assert.match(text, /최저가3\.00억/);
   assert.match(text, /입찰 예정가3\.50억/);
@@ -345,6 +350,15 @@ test("GREEN — real auction-card renders a stable semantic content snapshot", (
     baseline.some((n) => n.role === "button" && /판단 보드/.test(n.label || "")),
     "판단 보드 decision seam must be role=button",
   );
+});
+
+test("GREEN — Auction card omits only missing area parts without inventing values", () => {
+  const exclusiveOnly = renderSnapshot(SOURCE, { ...FIXTURE, supply_area: "" }, 1024);
+  assert.ok(exclusiveOnly.some((node) => node.text === "전용 59.8㎡"));
+  assert.equal(exclusiveOnly.some((node) => /^공급/u.test(node.text || "")), false);
+
+  const noArea = renderSnapshot(SOURCE, { ...FIXTURE, exclusive_area: "", supply_area: "" }, 1024);
+  assert.equal(noArea.some((node) => /^(?:전용|공급)/u.test(node.text || "")), false);
 });
 
 test("RED — removing the my_opinion field breaks the content lock", () => {

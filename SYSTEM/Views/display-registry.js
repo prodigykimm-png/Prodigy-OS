@@ -9,6 +9,7 @@
     naver: "네이버 부동산", cafe: "네이버 카페", recommend: "추천 여부",
     recommend_level: "추천 등급", recommend_note: "추천 메모", recommend_sources: "추천 근거",
     case_number: "사건번호", court: "법원", auction_dept: "경매계", auction_datetime: "입찰 일시",
+    court_status: "법원 진행 상태", court_status_as_of: "법원 상태 기준일", court_status_note: "법원 상태 메모",
     region_sido: "시도", region_sigungu: "시군구", region_dong: "읍면동", address: "주소", venue_category: "장소 분류",
     metrics_as_of: "지표 기준일", metrics_scope: "지표 범위", metrics_provider: "시장 지표 공급자",
     metrics_source: "지표 출처", source_as_of: "출처 확인일", verification_status: "검증 상태",

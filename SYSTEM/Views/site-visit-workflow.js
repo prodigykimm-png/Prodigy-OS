@@ -60,6 +60,9 @@
       this.saveChain = Promise.resolve();
       this.noteInput = null;
       this.unexpectedInput = null;
+      this.managementNameInput = null;
+      this.managementPhoneInput = null;
+      this.managementNoteInput = null;
       this.progressEl = null;
     }
 
@@ -113,6 +116,7 @@
       this.contentEl.createEl("h2", { text: "현장 기록" });
       this.contentEl.createEl("p", { text: objectSubtitle(this.page), attr: { style: "color: var(--text-muted); margin-top: -8px;" } });
       this.renderTextArea("현장에서 확인한 내용", "본 것과 들은 것을 한 줄씩 가볍게 기록하세요.", "notes");
+      this.renderManagementContact();
       const progress = workflow().progress(this.state);
       this.contentEl.createEl("div", {
         text: `확인한 항목 ${progress.done}개 · 체크하지 않은 항목은 미평가로 남습니다.`,
@@ -260,6 +264,32 @@
       this.close();
     }
 
+    renderManagementContact() {
+      const contact = workflow().normalizeManagementContact(this.state.managementContact);
+      const section = this.contentEl.createEl("section", { attr: { style: "margin-top: 14px;" } });
+      section.createEl("h3", { text: "관리사무소 연락처", attr: { style: "font-size: 1em; margin-bottom: 6px;" } });
+      const fields = [
+        ["name", "담당자·역할", "예: 관리소장 이종면", "text"],
+        ["phone", "전화번호", "예: 051-000-0000", "tel"],
+        ["note", "연락 메모", "예: 평일 연락", "text"]
+      ];
+      fields.forEach(([key, labelText, placeholder, type]) => {
+        const label = section.createEl("label", { text: labelText, attr: { style: "display:block;margin-top:6px;font-size:0.82em;color:var(--text-muted);" } });
+        const input = label.createEl("input", {
+          attr: {
+            type,
+            placeholder,
+            "aria-label": `관리사무소 ${labelText}`,
+            style: "display:block;width:100%;min-height:44px;margin-top:4px;padding:6px 8px;box-sizing:border-box;"
+          }
+        });
+        input.value = contact[key] || "";
+        if (key === "name") this.managementNameInput = input;
+        if (key === "phone") this.managementPhoneInput = input;
+        if (key === "note") this.managementNoteInput = input;
+      });
+    }
+
     renderTextArea(title, placeholder, key) {
       const section = this.contentEl.createEl("div", { attr: { style: "margin-top: 14px;" } });
       if (key === "unexpected") this.sectionEls.unexpected = section;
@@ -354,6 +384,11 @@
     captureText() {
       this.state.notes = String(this.noteInput?.value || "").split("\n").map((value) => value.trim()).filter(Boolean);
       this.state.unexpected = String(this.unexpectedInput?.value || "").split("\n").map((value) => value.trim()).filter(Boolean);
+      this.state.managementContact = workflow().normalizeManagementContact({
+        name: this.managementNameInput?.value,
+        phone: this.managementPhoneInput?.value,
+        note: this.managementNoteInput?.value
+      });
       // Per-item memos are bound on the live inputs; ensure object exists
       if (!this.state.checklistNotes || typeof this.state.checklistNotes !== "object") {
         this.state.checklistNotes = {};

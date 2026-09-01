@@ -154,6 +154,9 @@ function main() {
   // Date popup reuses the real Auction Card renderer
   assert.match(viewSource, /renderAuctionCard/);
   assert.match(viewSource, /renderEventCard|prodigy-bid-cal-card-host/);
+  assert.match(viewSource, /\.prodigy-bid-cal-popup\s*\{[\s\S]*?width:\s*min\(920px,\s*calc\(100vw - 24px\)\)/);
+  assert.match(viewSource, /\.prodigy-bid-cal-card-host\s*\{[\s\S]*?min-width:\s*0/);
+  assert.match(viewSource, /renderCard\(page,\s*ensureCreateEl\(host\),\s*\{\s*logicalWidth/);
   assert.match(viewSource, /오늘 입찰 목록/);
   assert.match(viewSource, /todayBidEvents/);
   assert.match(viewSource, /오늘 예정된 입찰이 없습니다/);

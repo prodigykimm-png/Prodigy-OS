@@ -69,6 +69,11 @@ test("site visit index stores a sanitized meaningful projection and replaces one
   assert.equal(record.region_key, "부산광역시-부산진구");
   assert.equal(record.region_dong, "전포동");
   assert.equal(record.has_contact, true);
+  assert.deepEqual(record.management_contact, {
+    name: "관리소장 이종면",
+    phone: "010-1234-5678",
+    note: ""
+  });
   assert.equal(record.summary_lines.some((line) => /010|1234|5678/.test(line)), false);
   assert.equal(record.summary_lines.some((line) => /이종면/.test(line)), false);
   assert.equal(record.building_name, "목연정엠팰리스");
@@ -79,6 +84,29 @@ test("site visit index stores a sanitized meaningful projection and replaces one
   assert.equal(visits.length, 1);
   assert.deepEqual(visits[0].summary_lines, ["주차 재확인 필요"]);
   assert.equal(visits[0].source_mtime, 124);
+});
+
+test("site visit index v2 prefers explicit management contact and migrates v1 stores", () => {
+  const explicit = {
+    ...state(),
+    managementContact: { name: "관리사무소", phone: "0518191091", note: "평일 연락" }
+  };
+  const record = indexApi.recordFromPage(page(), explicit, { mtime: 123 });
+  assert.deepEqual(record.management_contact, {
+    name: "관리사무소",
+    phone: "051-819-1091",
+    note: "평일 연락"
+  });
+
+  const migrated = indexApi.migrateIndex({
+    schema_version: 1,
+    updated_at: null,
+    records: {
+      [record.source_path]: { ...record, management_contact: undefined }
+    }
+  });
+  assert.equal(migrated.schema_version, 2);
+  assert.equal(migrated.records[record.source_path].management_contact, null);
 });
 
 test("site visit index omits empty drafts and removes a prior projection without scanning", async () => {

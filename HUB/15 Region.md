@@ -599,7 +599,7 @@ const openAuctionWorkspaceForRegion = async ({ regionKey, row, regionIdentity } 
     if (Array.isArray(cases)) return cases;
     return [];
   };
-  const openRegionAuctions = ({ regionKey, row, regionIdentity, returnFocus } = {}) => {
+  const openRegionAuctions = async ({ regionKey, row, regionIdentity, returnFocus } = {}) => {
     const identity = { ...(regionIdentity || {}), ...((row && row.identity) || {}) };
     const firstText = (...values) => values.find((value) => typeof value === "string" && value.trim())?.trim() || "";
     const sido = firstText(identity.sido, row && row.region_sido, regionIdentity && regionIdentity.sido);
@@ -616,16 +616,37 @@ const openAuctionWorkspaceForRegion = async ({ regionKey, row, regionIdentity } 
       return null;
     }
     const snapshot = core.getRegionAuctionSnapshot(sido, sigungu, auctionRowsForRegion(), { now: new Date() });
-    return view.openAuctionOverlay(snapshot, {
+    let visitRecords = {};
+    const visitIndex = window.AuctionSiteVisitIndex;
+    if (visitIndex && typeof visitIndex.readIndex === "function") {
+      try {
+        visitRecords = (await visitIndex.readIndex(app)).records || {};
+      } catch (error) {
+        console.error("Region Auction contact index read failed:", error);
+      }
+    }
+    const enrichedSnapshot = Object.freeze({
+      ...snapshot,
+      rows: Object.freeze(snapshot.rows.map((auctionRow) => Object.freeze({
+        ...auctionRow,
+        site_visit: visitRecords[auctionRow.path] || null
+      })))
+    });
+    return view.openAuctionOverlay(enrichedSnapshot, {
       returnFocus,
       onOpenAuction: async (auctionRow) => {
         const sourcePath = auctionRow && typeof auctionRow.path === "string" ? auctionRow.path.trim() : "";
         const sourceFile = sourcePath ? app.vault.getAbstractFileByPath(sourcePath) : null;
         if (!sourceFile) {
-          explorer.setNotice("Auction 원본을 찾지 못했습니다.");
+          explorer.setNotice("Markdown 원문을 찾지 못했습니다.");
           return;
         }
         await app.workspace.getLeaf(false).openFile(sourceFile, { active: true });
+      },
+      onCopyContact: async (phone) => {
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") throw new Error("클립보드를 사용할 수 없습니다.");
+        await navigator.clipboard.writeText(phone);
+        new Notice("관리사무소 번호를 복사했습니다.");
       },
       onOpenAll: () => openAuctionWorkspaceForRegion({
         regionKey: key,

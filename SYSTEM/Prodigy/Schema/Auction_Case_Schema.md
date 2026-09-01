@@ -27,6 +27,11 @@ updated:         # Templater 또는 수동
 | `court` | 담당 법원 | 텍스트 |
 | `auction_dept` | 경매계 | 텍스트 |
 | `auction_datetime` | 입찰일시 | ISO date/datetime |
+| `court_status` | 법원이 공지한 현재 경매 절차 상태 | enum (`scheduled` / `failed` / `changed` / `suspended` / `withdrawn` / `sold` / `unknown`) |
+| `court_status_as_of` | `court_status`를 공식 원문에서 확인한 기준일 | ISO date |
+| `court_status_note` | 변경 사유·다음 기일 등 공식 상태 보충 설명 | 텍스트 |
+
+> `court_status`는 법원 절차만 표현한다. 사용자의 lifecycle `status`와 개인 입찰 결과 `auction_outcome`을 복사하거나 추론하지 않는다. 공식 결과를 확인하지 못했으면 `unknown`을 기록하고, 날짜가 지났다는 이유만으로 상태를 만들지 않는다.
 
 ### Location (위치)
 
@@ -34,7 +39,15 @@ updated:         # Templater 또는 수동
 |---|---|
 | `region_sido` | 시/도 |
 | `region_sigungu` | 시/군/구 |
-| `region_dong` | 읍/면/동 |
+| `region_dong` | 법원·원주소의 법정 읍/면/동 |
+| `region_admin_dong` | 동별 지역정보 선택용 행정 읍/면/동. 확인된 경우에만 입력 |
+| `location_status` | 기본 입지 자동계산 상태 (`basic_ready`) |
+| `location_lat`, `location_lng` | 카카오 주소 검색으로 확인한 좌표 |
+| `nearest_station`, `nearest_station_distance_m` | 가장 가까운 도시철도역과 직선거리 |
+| `nearest_elementary_school`, `nearest_elementary_distance_m` | 가장 가까운 초등학교와 직선거리. 배정 학교 아님 |
+| `nearest_middle_school`, `nearest_middle_distance_m` | 가장 가까운 중학교와 직선거리 |
+| `nearest_high_school`, `nearest_high_distance_m` | 가장 가까운 고등학교와 직선거리 |
+| `assigned_school_status` | 공식 통학구역 확인 상태. 기본값 `verification_required` |
 | `address` | 상세 주소 |
 | `property_type` | 오피스텔/아파트/상가/토지 등 |
 

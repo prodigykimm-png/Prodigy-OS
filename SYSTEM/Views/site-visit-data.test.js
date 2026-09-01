@@ -52,6 +52,28 @@ test("site visit property priorities distinguish officetel and lodging without l
   assert.ok(data.commonItems.includes("Parking"));
 });
 
+test("site visit state migrates only management-adjacent legacy phone notes", () => {
+  const data = loadData();
+  const legacy = data.createState("오피스텔");
+  legacy.version = 2;
+  legacy.notes = ["관리소장 이종면", "010 3557 4261", "사람이 거주하는 것 같음", "주차가 부족해 보임"];
+  delete legacy.managementContact;
+
+  const migrated = data.reconcileState(legacy, "오피스텔");
+  assert.equal(migrated.version, 3);
+  assert.deepEqual(JSON.parse(JSON.stringify(migrated.managementContact)), {
+    name: "관리소장 이종면",
+    phone: "010-3557-4261",
+    note: ""
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(migrated.notes)), ["사람이 거주하는 것 같음", "주차가 부족해 보임"]);
+
+  const unrelated = data.createState("오피스텔");
+  unrelated.notes = ["중개사 인터뷰", "010 9999 0000"];
+  delete unrelated.managementContact;
+  assert.equal(data.reconcileState(unrelated, "오피스텔").managementContact.phone, "");
+});
+
 test("site visit workflow exposes memo first and optional accessible rating groups", () => {
   const source = fs.readFileSync(WORKFLOW_PATH, "utf8");
 
@@ -63,6 +85,8 @@ test("site visit workflow exposes memo first and optional accessible rating grou
   assert.match(source, /createEl\("legend"/);
   assert.match(source, /type:\s*"radio"/);
   assert.match(source, /aria-live/);
+  assert.match(source, /관리사무소 연락처/);
+  assert.match(source, /\["phone",\s*"전화번호",[\s\S]*?"tel"\]/);
   assert.doesNotMatch(source, /app\.vault\.getFiles\(\)[\s\S]*?PRODIGY_SITE_VISIT_STATE/);
   assert.match(source, /AuctionSiteVisitIndex[\s\S]*?readIndex/);
 });

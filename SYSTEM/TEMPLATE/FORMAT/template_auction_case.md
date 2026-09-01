@@ -19,6 +19,9 @@ case_number:
 court:
 auction_dept:
 auction_datetime:
+court_status: unknown
+court_status_as_of:
+court_status_note:
 # ---------- Location ----------
 region_sido:
 region_sigungu:

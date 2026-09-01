@@ -78,6 +78,46 @@
   };
 
   const clone = (value) => JSON.parse(JSON.stringify(value));
+  const MANAGEMENT_PATTERN = /관리(?:사무소|소장|인)|생활지원센터(?:장)?|센터장/u;
+  const PHONE_PATTERN = /(?:01[016789][ -]?\d{3,4}[ -]?\d{4}|0\d{1,2}[ -]?\d{3,4}[ -]?\d{4})/u;
+
+  const normalizePhone = (value) => {
+    const text = String(value || "").trim();
+    const digits = text.replace(/\D/gu, "");
+    if (/^01[016789]\d{7,8}$/u.test(digits)) return `${digits.slice(0, 3)}-${digits.slice(3, -4)}-${digits.slice(-4)}`;
+    if (/^02\d{7,8}$/u.test(digits)) return `${digits.slice(0, 2)}-${digits.slice(2, -4)}-${digits.slice(-4)}`;
+    if (/^0\d{9,10}$/u.test(digits)) return `${digits.slice(0, 3)}-${digits.slice(3, -4)}-${digits.slice(-4)}`;
+    return text;
+  };
+
+  const normalizeManagementContact = (value) => ({
+    name: String(value && value.name || "").trim(),
+    phone: normalizePhone(value && value.phone),
+    note: String(value && value.note || "").trim()
+  });
+
+  const managementContactMigration = (state) => {
+    const explicit = normalizeManagementContact(state && state.managementContact);
+    if (explicit.name || explicit.phone || explicit.note) return { contact: explicit, noteIndexes: [] };
+    const notes = Array.isArray(state && state.notes) ? state.notes.map((value) => String(value || "").trim()) : [];
+    for (let index = 0; index < notes.length; index += 1) {
+      const phoneMatch = PHONE_PATTERN.exec(notes[index]);
+      if (!phoneMatch) continue;
+      const sameLineName = notes[index].replace(phoneMatch[0], "").trim();
+      const adjacentIndex = [index - 1, index + 1].find((candidate) => candidate >= 0 && candidate < notes.length && MANAGEMENT_PATTERN.test(notes[candidate]));
+      const name = MANAGEMENT_PATTERN.test(sameLineName)
+        ? sameLineName
+        : adjacentIndex !== undefined
+          ? notes[adjacentIndex]
+          : "";
+      if (!name) continue;
+      return {
+        contact: normalizeManagementContact({ name, phone: phoneMatch[0], note: "" }),
+        noteIndexes: adjacentIndex === undefined ? [index] : [index, adjacentIndex]
+      };
+    }
+    return { contact: explicit, noteIndexes: [] };
+  };
 
   const normalizeRating = (value) => {
     const raw = String(value || "").toLowerCase().trim();
@@ -92,12 +132,13 @@
   const createState = (propertyType) => {
     const items = [...COMMON_ITEMS, ...SPECIFIC_ITEMS[normalizeType(propertyType)]];
     return {
-      version: 2,
+      version: 3,
       propertyType: normalizeType(propertyType),
       startedAt: new Date().toISOString(),
       finishedAt: "",
       checklist: Object.fromEntries(items.map((label) => [label, "unset"])),
       checklistNotes: Object.fromEntries(items.map((label) => [label, ""])),
+      managementContact: normalizeManagementContact(null),
       notes: [],
       unexpected: [],
       photos: []
@@ -118,13 +159,17 @@
       const note = prevNotes[item];
       return [item, note == null ? "" : String(note)];
     }));
+    const contactMigration = managementContactMigration(previous);
+    const notes = (Array.isArray(previous.notes) ? previous.notes : [])
+      .filter((_, index) => !contactMigration.noteIndexes.includes(index));
     return {
       ...previous,
-      version: 2,
+      version: 3,
       propertyType: normalizedType,
       checklist,
       checklistNotes,
-      notes: Array.isArray(previous.notes) ? previous.notes : [],
+      managementContact: contactMigration.contact,
+      notes,
       unexpected: Array.isArray(previous.unexpected) ? previous.unexpected : [],
       photos: Array.isArray(previous.photos) ? previous.photos : []
     };
@@ -263,6 +308,7 @@
     if (!state || typeof state !== "object") return false;
     if (Object.values(state.checklist || {}).some((value) => isRated(value))) return true;
     if (Object.values(state.checklistNotes || {}).some((value) => String(value || "").trim())) return true;
+    if (Object.values(normalizeManagementContact(state.managementContact)).some((value) => String(value || "").trim())) return true;
     return ["notes", "unexpected", "photos"].some((key) => (
       Array.isArray(state[key]) && state[key].some((value) => String(value || "").trim())
     ));
@@ -280,6 +326,9 @@
     ratingLabels: clone(RATING_LABELS),
     normalizeType,
     normalizeRating,
+    normalizePhone,
+    normalizeManagementContact,
+    managementContactFromState: (state) => managementContactMigration(state).contact,
     priorityItemsFor,
     labelFor: (value) => ITEM_LABELS[value] || value,
     ratingLabel: (value) => RATING_LABELS[normalizeRating(value)] || value,

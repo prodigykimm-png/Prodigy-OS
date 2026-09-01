@@ -228,7 +228,8 @@
   padding: 12px;
 }
 .prodigy-bid-cal-popup {
-  width: min(560px, 100%);
+  width: min(920px, calc(100vw - 24px));
+  max-width: 100%;
   max-height: min(78vh, 640px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -281,10 +282,26 @@
   justify-content: flex-end;
 }
 .prodigy-bid-cal-card-host {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: 8px;
 }
 .prodigy-bid-cal-card-host > div {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: 8px;
+}
+.prodigy-bid-cal-popup .prodigy-bid-cal-court {
+  margin-inline: 0;
+  padding-inline: 0;
+  border-inline-start: 0;
+}
+.prodigy-bid-cal-popup .auction-card {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 .prodigy-bid-calendar button:focus-visible,
 .prodigy-bid-cal-cell.in-month:focus-visible {
@@ -572,7 +589,12 @@
 
     if (renderCard && page) {
       try {
-        renderCard(page, ensureCreateEl(host));
+        const measured = typeof host.getBoundingClientRect === "function" ? Number(host.getBoundingClientRect().width) : Number(host.clientWidth);
+        const viewport = Number(root.innerWidth) || 920;
+        const logicalWidth = Number.isFinite(measured) && measured > 0
+          ? measured
+          : Math.min(880, Math.max(320, viewport - 64));
+        renderCard(page, ensureCreateEl(host), { logicalWidth });
         return;
       } catch (err) {
         if (typeof console !== "undefined" && console.warn) {

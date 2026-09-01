@@ -645,56 +645,28 @@ window.renderAuctionCard = function(p, container, options) {
       && value !== null
       && String(value).trim() !== ""
       && value !== "정보 없음";
+    const formatArea = (value) => {
+      if (!hasRecordedValue(value)) return "";
+      const raw = String(value).trim();
+      if (/평/u.test(raw) && !/[㎡m²]/iu.test(raw)) return raw;
+      const match = raw.replaceAll(",", "").match(/-?\d+(?:\.\d+)?/u);
+      if (!match) return raw;
+      const amount = Number(match[0]);
+      if (!Number.isFinite(amount) || amount <= 0) return "";
+      return `${amount.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}㎡`;
+    };
 
-    // Calculate D-Day first
-    let ddayStr = "-";
-    let isUrgent = false;
-    let isAuctionToday = false;
-    let isAuctionEnded = false;
-    let dateStr = "-";
-    if (p.auction_datetime) {
-      let isoDate = "";
-      const val = p.auction_datetime;
-      if (typeof val === "object" && typeof val.toISODate === "function") {
-        isoDate = val.toISODate();
-      } else {
-        const str = String(val).trim();
-        const match = str.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})/);
-        if (match) {
-          isoDate = `${match[1]}-${match[2]}-${match[3]}`;
-        }
-      }
-      if (isoDate) {
-        const targetDate = new Date(isoDate);
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        targetDate.setHours(0,0,0,0);
-        const diffTime = targetDate.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        const mdStr = isoDate.slice(5).replace("-", "/"); // e.g., "07/16"
-        
-        if (diffDays === 0) {
-          ddayStr = `${mdStr} (오늘)`;
-          isUrgent = true;
-          isAuctionToday = true;
-        } else if (diffDays > 0) {
-          ddayStr = `${mdStr} (D-${diffDays})`;
-          if (diffDays <= 3) isUrgent = true;
-        } else {
-          ddayStr = "종료";
-          isAuctionEnded = true;
-        }
-        
-        dateStr = isoDate;
-      }
-    }
-    const isClosedWatching = p.status === "watching"
-      && (isAuctionEnded || hasRecordedValue(p.winning_bid_price));
-    if (isClosedWatching) {
-      ddayStr = "종료";
-      isUrgent = false;
-      isAuctionToday = false;
-    }
+    const courtProjection = window.AuctionCourtStatus.project({
+      courtStatus: p.court_status,
+      auctionDatetime: p.auction_datetime,
+      now: new Date()
+    });
+    const ddayStr = courtProjection.label;
+    const isUrgent = courtProjection.is_urgent;
+    const isAuctionToday = courtProjection.is_today;
+    const isAuctionEnded = courtProjection.status === "sold";
+    const isCourtInactive = ["suspended", "withdrawn", "sold"].includes(courtProjection.status);
+    const dateStr = courtProjection.date || "-";
 
     const responsiveBreakpoints = T.BREAKPOINTS || {};
     const requestedWidth = options && options.logicalWidth;
@@ -803,11 +775,18 @@ window.renderAuctionCard = function(p, container, options) {
 
     // D-Day Badge
     if (ddayStr !== "-") {
-      const mobileDdayStr = ddayStr.replace(/^.*\((D-\d+|오늘)\).*$/u, "$1");
+      const mobileDdayStr = courtProjection.compact_label;
+      const statusContext = [
+        courtProjection.status && window.AuctionCourtStatus.LABELS[courtProjection.status],
+        p.court_status_as_of && `기준일 ${String(p.court_status_as_of)}`,
+        p.court_status_note
+      ].filter(Boolean).join(" · ");
       rightBadges.createEl('span', {
         text: isMobile ? mobileDdayStr : ddayStr,
         attr: {
           class: 'auction-card-header-action auction-card-dday',
+          "data-court-status": courtProjection.status || "unrecorded",
+          title: statusContext || "법원 절차 상태",
           style: `background: ${isUrgent ? 'var(--text-accent)' : 'var(--background-modifier-hover)'}; color: var(--text-normal); font-size: 0.72em; font-weight: bold; padding: 1px 4px; border-radius: 4px;`
         }
       });
@@ -1015,6 +994,17 @@ window.renderAuctionCard = function(p, container, options) {
     }
     detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
     detailRow1.createEl('span', { text: p.property_type || "용도 미정" });
+    const areaParts = [
+      formatArea(p.exclusive_area) && `전용 ${formatArea(p.exclusive_area)}`,
+      formatArea(p.supply_area) && `공급 ${formatArea(p.supply_area)}`
+    ].filter(Boolean);
+    if (areaParts.length) {
+      detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
+      detailRow1.createEl('span', {
+        text: areaParts.join(" / "),
+        attr: { class: "auction-card-area", title: "Auction Object의 전용·공급면적" }
+      });
+    }
 
     if (displayTitle && displayTitle !== "물건명 미지정") {
       detailRow1.createEl('span', { text: '·', attr: { style: 'color: var(--background-modifier-border);' } });
@@ -1045,7 +1035,7 @@ window.renderAuctionCard = function(p, container, options) {
    });
     
     let minRateStr = "";
-    if (!isClosedWatching && p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") {
+    if (!isCourtInactive && p.appraisal_price && p.minimum_bid && p.appraisal_price !== "정보 없음" && p.minimum_bid !== "정보 없음") {
       const appraisal = parser(p.appraisal_price);
       const minimum = parser(p.minimum_bid);
       if (!isNaN(appraisal) && !isNaN(minimum) && isFinite(appraisal) && isFinite(minimum) && appraisal > 0) {

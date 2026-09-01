@@ -184,6 +184,22 @@
 .region-auction-card-values dd { margin: 0; overflow-wrap: anywhere; }
 .region-auction-card button, .region-auction-overlay-head button, .region-auction-overlay-footer button { min-height: ${touchTarget}px; cursor: pointer; }
 .region-auction-overlay-footer { display: flex; justify-content: flex-end; margin-top: 12px; }
+.region-auction-detail { display: grid; gap: 12px; min-width: 0; }
+.region-auction-detail-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 10px; }
+.region-auction-detail-head p, .region-auction-detail-head h2 { margin: 0; }
+.region-auction-detail-head p { color: var(--text-muted); font-size: 12px; }
+.region-auction-detail-section { min-width: 0; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 10px; }
+.region-auction-detail-section h3 { margin: 0 0 8px; font-size: 14px; }
+.region-auction-detail-section p { margin: 6px 0; overflow-wrap: anywhere; }
+.region-auction-detail-section ul { margin: 0; padding-inline-start: 20px; }
+.region-auction-detail-section a { color: var(--ke-color-accent, var(--text-accent)); }
+.region-auction-detail-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; margin: 0; }
+.region-auction-detail-values > div { display: grid; grid-template-columns: minmax(82px, 0.45fr) minmax(0, 1fr); gap: 8px; }
+.region-auction-detail-values dt { color: var(--text-muted); font-size: 12px; }
+.region-auction-detail-values dd { margin: 0; overflow-wrap: anywhere; }
+.region-auction-detail button { min-height: ${touchTarget}px; cursor: pointer; }
+.region-auction-detail [data-contact-copy-status] { margin-inline-start: 8px; color: var(--text-muted); font-size: 12px; }
+.region-auction-detail-footer { display: flex; justify-content: flex-end; }
 .region-popup-footer { padding-top: 10px; font-size: 12px; color: var(--text-muted); }
 .region-decision-outcome { display: grid; gap: 18px; }
 .region-decision-outcome section { min-width: 0; }
@@ -209,6 +225,7 @@
   .region-auction-overlay { align-items: flex-end !important; padding: 0 !important; }
   .region-auction-overlay-modal { width: 100vw; max-height: 88vh; border-radius: 14px 14px 0 0; }
   .region-auction-card-list { grid-template-columns: 1fr; }
+  .region-auction-detail-values { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

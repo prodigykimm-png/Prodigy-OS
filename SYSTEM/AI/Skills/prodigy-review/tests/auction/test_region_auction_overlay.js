@@ -52,8 +52,33 @@ test("Region Auction overlay renders at most twenty semantic projection cards", 
   assert.match(html, /최근 20건만 표시/);
   assert.match(html, /<ul class="region-auction-card-list" role="list">/);
   assert.match(html, /data-action="open-region-auction"/);
+  assert.match(html, /카드 상세 보기/);
   assert.match(html, /data-action="open-region-auction-workspace"/);
+  assert.doesNotMatch(html, /Auction 원본 열기/);
   assert.doesNotMatch(html, /<table|<img|PRODIGY_SITE_VISIT_STATE/);
+});
+
+test("Region Auction card detail shows projected evidence and callable management contact", () => {
+  const row = {
+    ...regionCore.getRegionAuctionSnapshot("부산광역시", "부산진구", [auction(1)]).rows[0],
+    decision_reason: "주차 위험 확인",
+    site_visit: {
+      status: "recorded",
+      summary_lines: ["주차가 부족해 보임"],
+      management_contact: { name: "관리소장 이종면", phone: "010-3557-4261", note: "평일 연락" }
+    }
+  };
+  const html = popupView.renderAuctionDetail(row);
+
+  assert.match(html, /경매 카드 상세/);
+  assert.match(html, /주차 위험 확인/);
+  assert.match(html, /주차가 부족해 보임/);
+  assert.match(html, /관리소장 이종면/);
+  assert.match(html, /010-3557-4261/);
+  assert.match(html, /href="tel:01035574261"/);
+  assert.match(html, /data-action="copy-management-contact"/);
+  assert.match(html, /목록으로/);
+  assert.match(html, /Markdown 원문 열기/);
 });
 
 test("Region Auction overlay keeps dialog, focus, Escape, and mobile contracts", () => {
@@ -66,6 +91,8 @@ test("Region Auction overlay keeps dialog, focus, Escape, and mobile contracts",
   assert.match(viewSource, /trapOverlayFocus/);
   assert.match(viewSource, /event\.key === "Escape"/);
   assert.match(viewSource, /returnFocus/);
+  assert.match(viewSource, /listScrollTop/);
+  assert.match(viewSource, /renderAuctionDetail/);
   assert.match(styles, /region-auction-card-list/);
   assert.match(styles, /min-height:\s*\$\{touchTarget\}px/);
   assert.match(styles, /region-auction-overlay[\s\S]*?align-items:\s*flex-end/);
@@ -77,5 +104,7 @@ test("Region row action opens the overlay and retains explicit full-workspace es
   assert.match(hub, /openAuctionOverlay/);
   assert.match(hub, /openAuctionWorkspaceForRegion/);
   assert.match(hub, /onOpenAll/);
-  assert.match(hub, /Auction 원본/);
+  assert.match(hub, /AuctionSiteVisitIndex[\s\S]*?readIndex/);
+  assert.match(hub, /onCopyContact/);
+  assert.match(hub, /Markdown 원문/);
 });

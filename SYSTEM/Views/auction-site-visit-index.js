@@ -2,8 +2,10 @@
   "use strict";
 
   const STORE_PATH = "PARA/RESOURCES/Auction Regions/auction-site-visits.json";
-  const SCHEMA_VERSION = 1;
+  const SCHEMA_VERSION = 2;
   const PHONE_PATTERN = /(?:^|[^\d])(?:01[016789][ -]?\d{3,4}[ -]?\d{4}|0\d{1,2}[ -]?\d{3,4}[ -]?\d{4})(?:[^\d]|$)/u;
+  const PHONE_CAPTURE_PATTERN = /(?:01[016789][ -]?\d{3,4}[ -]?\d{4}|0\d{1,2}[ -]?\d{3,4}[ -]?\d{4})/u;
+  const MANAGEMENT_PATTERN = /관리(?:사무소|소장|인)|생활지원센터(?:장)?|센터장/u;
   const CONTACT_IDENTITY_PATTERN = /^(?:관리소장|관리인|담당자)\s+\S+$/u;
   const STATE_PATTERN = /<!-- PRODIGY_SITE_VISIT_STATE\n([\s\S]*?)\n-->/u;
   const ITEM_LABELS = Object.freeze({
@@ -24,18 +26,60 @@
 
   function migrateIndex(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("임장 인덱스 형식이 올바르지 않습니다.");
-    if (value.schema_version !== SCHEMA_VERSION || !value.records || typeof value.records !== "object" || Array.isArray(value.records)) {
+    if (!value.records || typeof value.records !== "object" || Array.isArray(value.records)) {
       throw new Error("임장 인덱스 형식이 올바르지 않습니다.");
     }
-    return value;
+    if (value.schema_version === SCHEMA_VERSION) return value;
+    if (value.schema_version === 1) return {
+      schema_version: SCHEMA_VERSION,
+      updated_at: value.updated_at || null,
+      records: Object.fromEntries(Object.entries(value.records).map(([path, record]) => [
+        path,
+        { ...record, management_contact: record && record.management_contact || null }
+      ]))
+    };
+    throw new Error("임장 인덱스 형식이 올바르지 않습니다.");
+  }
+
+  function normalizePhone(value) {
+    const text = clean(value);
+    const digits = text.replace(/\D/gu, "");
+    if (/^01[016789]\d{7,8}$/u.test(digits)) return `${digits.slice(0, 3)}-${digits.slice(3, -4)}-${digits.slice(-4)}`;
+    if (/^02\d{7,8}$/u.test(digits)) return `${digits.slice(0, 2)}-${digits.slice(2, -4)}-${digits.slice(-4)}`;
+    if (/^0\d{9,10}$/u.test(digits)) return `${digits.slice(0, 3)}-${digits.slice(3, -4)}-${digits.slice(-4)}`;
+    return text;
+  }
+
+  function normalizeManagementContact(value) {
+    return {
+      name: clean(value && value.name),
+      phone: normalizePhone(value && value.phone),
+      note: clean(value && value.note)
+    };
+  }
+
+  function managementContactFromState(state) {
+    const explicit = normalizeManagementContact(state && state.managementContact);
+    if (explicit.name || explicit.phone || explicit.note) return explicit;
+    const notes = Array.isArray(state && state.notes) ? state.notes.map(clean) : [];
+    for (let index = 0; index < notes.length; index += 1) {
+      const match = PHONE_CAPTURE_PATTERN.exec(notes[index]);
+      if (!match) continue;
+      const sameLineName = notes[index].replace(match[0], "").trim();
+      const adjacent = [index - 1, index + 1].find((candidate) => candidate >= 0 && candidate < notes.length && MANAGEMENT_PATTERN.test(notes[candidate]));
+      const name = MANAGEMENT_PATTERN.test(sameLineName) ? sameLineName : adjacent === undefined ? "" : notes[adjacent];
+      if (name) return normalizeManagementContact({ name, phone: match[0], note: "" });
+    }
+    return explicit;
   }
 
   function meaningful(state) {
     if (!state || typeof state !== "object") return false;
     const rated = Object.values(state.checklist || {}).some((value) => !["", "unset", "unchecked", "미평가", "미확인"].includes(clean(value).toLowerCase()));
     const itemNote = Object.values(state.checklistNotes || {}).some((value) => clean(value));
+    const contact = Object.values(managementContactFromState(state)).some((value) => clean(value));
     const listValue = ["notes", "unexpected", "photos"].some((key) => Array.isArray(state[key]) && state[key].some((value) => clean(value)));
-    return rated || itemNote || listValue;
+    return rated || itemNote || contact || listValue;
   }
 
   function regionKey(page) {
@@ -81,6 +125,8 @@
       ...(Array.isArray(state.unexpected) ? state.unexpected : [])
     ];
     const summaryLines = rawNotes.map(safeLine).filter(Boolean).slice(0, 3);
+    const managementContact = managementContactFromState(state);
+    const hasManagementContact = Object.values(managementContact).some((value) => clean(value));
     const ratings = Object.entries(state.checklist || {})
       .filter(([, rating]) => !["", "unset", "unchecked", "미평가", "미확인"].includes(clean(rating).toLowerCase()))
       .map(([key, rating]) => ({
@@ -88,7 +134,7 @@
         rating: clean(rating),
         note: safeLine(checklistNotes[key])
       }));
-    const hasContact = rawNotes.some(hasPhone) || clean(checklistNotes["Management Office"]) !== "";
+    const hasContact = hasManagementContact || rawNotes.some(hasPhone) || clean(checklistNotes["Management Office"]) !== "";
     return Object.freeze({
       source_path: clean(page.file.path),
       case_number: clean(page.case_number || page.file.name),
@@ -107,6 +153,7 @@
       checked_count: ratings.length,
       photo_count: Array.isArray(state.photos) ? state.photos.filter((value) => clean(value)).length : 0,
       has_contact: hasContact,
+      management_contact: hasManagementContact ? Object.freeze({ ...managementContact }) : null,
       source_mtime: Number(sourceMeta && sourceMeta.mtime) || 0
     });
   }
@@ -216,6 +263,9 @@
     SCHEMA_VERSION,
     emptyIndex,
     migrateIndex,
+    normalizePhone,
+    normalizeManagementContact,
+    managementContactFromState,
     meaningful,
     regionKey,
     buildingName,
