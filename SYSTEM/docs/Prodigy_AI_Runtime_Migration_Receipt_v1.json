@@ -1,0 +1,28 @@
+{
+  "schema_version": "prodigy_ai_runtime_migration_receipt_v1",
+  "migrated_from_hash": "3a1fdb246264b60084bc00390a23a0d5b24ec52d9d4bf20c2f31b9533835c6a8",
+  "plugin_id": "prodigy-ai-runtime",
+  "plugin_data_path": ".obsidian/plugins/prodigy-ai-runtime/data.json",
+  "default_profile_id": "antigravity",
+  "profile_ids": [
+    "lm-studio",
+    "opencode-go",
+    "mimo",
+    "gemini",
+    "codex",
+    "antigravity",
+    "groq",
+    "openrouter",
+    "openai-compatible"
+  ],
+  "consumer_bindings": 14,
+  "secret_values_written": 0,
+  "secret_ids_preserved": true,
+  "legacy_config_provider_fields_remaining": 0,
+  "certified_profiles": 0,
+  "status": "migrated_pending_capability_certification",
+  "rollback": {
+    "method": "plugin.api.exportLegacyConfig()",
+    "legacy_runtime_restored": false
+  }
+}

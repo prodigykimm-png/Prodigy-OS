@@ -262,7 +262,6 @@ async function main() {
   const view = require(path.join(ROOT, "SYSTEM/Views/workspace-list-view.js"));
   const shell = require(path.join(ROOT, "SYSTEM/Views/prodigy-app-shell.js"));
   const controls = require(path.join(ROOT, "SYSTEM/Views/prodigy-adaptive-controls.js"));
-  const inspector = require(path.join(ROOT, "SYSTEM/Views/ai-inspector.js"));
   const ui = require(path.join(ROOT, "SYSTEM/Views/prodigy-ui.js"));
   const tokens = require(path.join(ROOT, "SYSTEM/Views/design-tokens.js"));
   assert.deepEqual(tokens.TYPOGRAPHY, {
@@ -275,7 +274,7 @@ async function main() {
     controlLeading: 1.35,
   });
   assert.deepEqual(tokens.SPACING, { xs: 2, sm: 4, md: 8, lg: 12, xl: 16 });
-  for (const [name, value] of Object.entries({ ...shell, ...controls, ...inspector, StatusLine: ui.StatusLine, InlineError: ui.InlineError })) {
+  for (const [name, value] of Object.entries({ ...shell, ...controls, StatusLine: ui.StatusLine, InlineError: ui.InlineError })) {
     assert.equal(typeof value, "function", `${name} export`);
   }
   const shellContainer = new Element();
@@ -316,12 +315,6 @@ async function main() {
   ] });
   assert.equal(tabs.getActiveTab(), "second");
   assert.equal(secondPanel.hidden, false);
-  const inspectorHost = new Element();
-  const inspectorShell = inspector.AIInspector(inspectorHost);
-  inspectorShell.open();
-  assert.equal(inspectorShell.isOpen(), true);
-  inspectorShell.close();
-  assert.equal(inspectorShell.isOpen(), false);
   const container = new Element();
   view.render({
     app: { workspace: { openLinkText: async () => {} } },
@@ -365,19 +358,12 @@ async function main() {
   assert.match(personal, /사람/);
   const journalHub = fs.readFileSync(path.join(ROOT, "HUB/70 Journal.md"), "utf8");
   assert.ok(workspaceManifests.get("journal").required.includes("SYSTEM/Views/journal-view.js"));
-  for (const [hubPath, workspaceId] of [["HUB/00 Home.md", "home"], ["HUB/40 Project.md", "project"], ["HUB/50 Knowledge.md", "knowledge"], ["HUB/70 Journal.md", "journal"]]) {
-    const hubSource = workspaceManifests.get(workspaceId).required.join("\n");
-    const providerResponseIndex = hubSource.indexOf("ai-provider-response.js");
-    const providerSchemaIndex = hubSource.indexOf("ai-provider-schema.js");
-    const providerServiceIndex = hubSource.indexOf("ai-provider-service.js");
-    const strictLlmWikiBoundary = hubPath === "HUB/50 Knowledge.md"
-      && hubSource.includes("llmwiki-provider-response-schema.js")
-      && hubSource.includes("llmwiki-ai-provider-transport.js");
-    assert.ok(
-      strictLlmWikiBoundary
-        || (providerResponseIndex >= 0 && providerSchemaIndex >= 0 && providerResponseIndex < providerServiceIndex && providerSchemaIndex < providerServiceIndex),
-      `${hubPath} must load AI provider parsing dependencies before the provider service`
-    );
+  for (const workspaceId of ["home", "auction", "project", "knowledge", "reading", "journal"]) {
+    const required = workspaceManifests.get(workspaceId).required;
+    const hashIndex = required.indexOf("SYSTEM/Views/llmwiki-hash.js");
+    const clientIndex = required.indexOf("SYSTEM/Views/prodigy-ai-client.js");
+    assert.ok(hashIndex >= 0 && clientIndex > hashIndex, `${workspaceId} must load hash before the AI client`);
+    assert.equal(required.some((dependency) => /ai-provider-service|codex-exec-service|antigravity-exec-service/u.test(dependency)), false);
   }
   const journalDependencies = workspaceManifests.get("journal").required.join("\n");
   const conservativePolicyIndex = journalDependencies.indexOf("daily-reflection-conservative-policy.js");

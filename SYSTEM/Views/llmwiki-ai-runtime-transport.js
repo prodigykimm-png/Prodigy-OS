@@ -197,6 +197,6 @@
   }
 
   const api = Object.freeze({ resolveProfile, validateProposalBundleShape, validateResponse, requestProposal });
-  root.LLMWikiAIProviderTransport = api;
+  root.LLMWikiAIRuntimeTransport = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

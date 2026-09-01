@@ -346,7 +346,7 @@
 
   async function ensureProdigySettings(app) {
     await loadOptionalProdigyScript(app, "SYSTEM/Views/prodigy-config-service.js", "ProdigyConfigService");
-    await loadOptionalProdigyScript(app, "SYSTEM/Views/prodigy-settings-modal.js", "ProdigySettingsModal");
+    await loadOptionalProdigyScript(app, "SYSTEM/Views/prodigy-workspace-settings-modal.js", "ProdigyWorkspaceSettingsModal");
   }
 
   function resolveViewModule(globalKey, relativePath) {
@@ -699,8 +699,8 @@
     settingsBtn.onclick = async () => {
       try {
         await ensureProdigySettings(app);
-        if (!root.ProdigySettingsModal || typeof root.ProdigySettingsModal.open !== "function") throw new Error("settings unavailable");
-        root.ProdigySettingsModal.open(app);
+        if (!root.ProdigyWorkspaceSettingsModal || typeof root.ProdigyWorkspaceSettingsModal.open !== "function") throw new Error("settings unavailable");
+        root.ProdigyWorkspaceSettingsModal.open(app);
       } catch (_error) {
         new Notice("Prodigy OS 설정을 열지 못했습니다.");
       }

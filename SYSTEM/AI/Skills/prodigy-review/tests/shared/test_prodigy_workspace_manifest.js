@@ -22,7 +22,7 @@ const KNOWLEDGE_CANDIDATE_STORE = "SYSTEM/Views/knowledge-candidate-store.js";
 const OPERATION_CLASSIFIER = "SYSTEM/Views/llmwiki-operation-classifier.js";
 const UI_RECOVERY = "SYSTEM/Views/llmwiki-ui-recovery.js";
 const UI_RECOVERY_CONSUMERS = Object.freeze([
-  "SYSTEM/Views/llmwiki-ai-provider-transport.js",
+  "SYSTEM/Views/llmwiki-ai-runtime-transport.js",
 ]);
 const BATCH_APPROVAL_ADAPTER = "SYSTEM/Views/llmwiki-batch-approval-adapter.js";
 const BATCH_APPROVAL_ADAPTER_DEPENDENCIES = Object.freeze([
@@ -246,8 +246,8 @@ test("Knowledge recovery omission and placement after a dependent fail before br
   assert.throws(() => instantiateKnowledgeGraph(withoutRecovery), /exactly one UI recovery module/);
 
   const lateRecovery = withoutRecovery.slice();
-  lateRecovery.splice(lateRecovery.indexOf("SYSTEM/Views/llmwiki-ai-provider-transport.js") + 1, 0, UI_RECOVERY);
-  assert.throws(() => instantiateKnowledgeGraph(lateRecovery), /must load before SYSTEM\/Views\/llmwiki-ai-provider-transport\.js/);
+  lateRecovery.splice(lateRecovery.indexOf("SYSTEM/Views/llmwiki-ai-runtime-transport.js") + 1, 0, UI_RECOVERY);
+  assert.throws(() => instantiateKnowledgeGraph(lateRecovery), /must load before SYSTEM\/Views\/llmwiki-ai-runtime-transport\.js/);
 });
 
 test("Knowledge knowledge-kind contract omission, duplication, and late placement are RED", () => {

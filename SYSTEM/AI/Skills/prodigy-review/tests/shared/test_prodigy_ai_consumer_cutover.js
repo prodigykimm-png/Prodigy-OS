@@ -30,7 +30,7 @@ test("all fourteen active consumers use only Prodigy AI client boundaries", () =
 });
 
 test("no active workspace manifest loads the retired provider runtime", () => {
-  const forbidden = new Set(cutover.legacy_runtime_modules_pending_retirement);
+  const forbidden = new Set(cutover.legacy_runtime_modules_retired);
   for (const manifest of workspaceManifest.all()) {
     for (const dependency of [...manifest.required, ...manifest.optional]) {
       assert.equal(forbidden.has(dependency), false, `${manifest.workspaceId}: ${dependency}`);

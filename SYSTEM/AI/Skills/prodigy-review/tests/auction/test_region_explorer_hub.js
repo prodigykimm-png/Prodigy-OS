@@ -46,16 +46,10 @@ const REGION_EXPERIENCE_MODULE_PATHS = [
   "SYSTEM/Views/region-experience-contract.js",
   "SYSTEM/Views/journal-core.js",
   "SYSTEM/Views/region-experience-store.js",
-  "SYSTEM/Views/ai-provider-response.js",
-  "SYSTEM/Views/ai-provider-schema.js",
-  "SYSTEM/Views/ai-provider-error-policy.js",
-  "SYSTEM/Views/ai-provider-fallback.js",
-  "SYSTEM/Views/codex-exec-service.js",
-  "SYSTEM/Views/antigravity-exec-service.js",
-  "SYSTEM/Views/ai-provider-service.js",
-  "SYSTEM/Views/prodigy-config-service.js",
-  "SYSTEM/Views/project-workflow-draft-service.js",
-  "SYSTEM/Views/region-experience-provider-endpoint-guard.js",
+  "SYSTEM/Views/llmwiki-hash.js",
+  "SYSTEM/Views/prodigy-ai-consumer-manifests.js",
+  "SYSTEM/Views/prodigy-ai-client.js",
+  "SYSTEM/Views/prodigy-ai-consumer-runtime.js",
   "SYSTEM/Views/region-experience-ai.js",
   "SYSTEM/Views/journal-store.js",
   "SYSTEM/Views/daily-reflection-knowledge-handoff.js",
@@ -347,7 +341,7 @@ test("Given a selected canonical Region When 지역 경험 추가 is opened and 
   assert.deepEqual(hub.providers, []);
 });
 
-test("Given Region Experience is opened through the Hub loader When its current dependency list is evaluated Then the endpoint guard loads before AI without a lazy-load failure", async () => {
+test("Given Region Experience is opened through the Hub loader When its current dependency list is evaluated Then AI client loads before the consumer without a lazy-load failure", async () => {
   const modals = [];
   class FakeModal {
     constructor() { this.contentEl = new FakeElement("div"); modals.push(this); }
@@ -360,7 +354,8 @@ test("Given Region Experience is opened through the Hub loader When its current 
   await trigger.onclick({ preventDefault() {} });
 
   assert.deepEqual(hub.reads.filter((item) => REGION_EXPERIENCE_MODULE_PATHS.includes(item)), REGION_EXPERIENCE_MODULE_PATHS);
-  assert.equal(typeof hub.window.RegionExperienceProviderEndpointGuard.assertTrustedProviderEndpoint, "function");
+  assert.equal(typeof hub.window.ProdigyAIClient.createClient, "function");
+  assert.equal(typeof hub.window.ProdigyAIConsumerRuntime.requestStructured, "function");
   assert.equal(modals.length, 1);
   assert.doesNotMatch(renderedText(hub.container), /지역 경험 기능을 불러오지 못했습니다/);
   assert.deepEqual(hub.writes, []);

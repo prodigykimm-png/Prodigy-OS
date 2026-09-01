@@ -272,7 +272,7 @@ function tracked(pathname) {
 function trackedFilesUnder(pathname) {
   const result = cp.spawnSync("git", ["ls-files", "-z", "--", pathname], { cwd: ROOT, encoding: "utf8" });
   assert.equal(result.status, 0, `fixture source tree must be readable: ${pathname}`);
-  return result.stdout.split("\0").filter(Boolean);
+  return result.stdout.split("\0").filter((relative) => relative && fs.existsSync(path.join(ROOT, relative)));
 }
 function copyTracked(relative, vault) {
   const source = path.join(ROOT, relative);

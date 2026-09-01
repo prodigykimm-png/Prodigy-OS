@@ -82,10 +82,11 @@
   },
   "dormant_surface": {
     "path": "SYSTEM/Views/ai-inspector.js",
-    "status": "not_mounted",
+    "status": "retired",
     "migration_required_before_reactivation": true
   },
-  "legacy_runtime_modules_pending_retirement": [
+  "legacy_runtime_modules_pending_retirement": [],
+  "legacy_runtime_modules_retired": [
     "SYSTEM/Views/ai-provider-service.js",
     "SYSTEM/Views/antigravity-exec-service.js",
     "SYSTEM/Views/codex-exec-service.js",

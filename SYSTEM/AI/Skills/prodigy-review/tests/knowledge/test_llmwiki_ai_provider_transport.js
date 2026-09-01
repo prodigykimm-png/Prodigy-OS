@@ -5,7 +5,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
-const transport = require(path.join(ROOT, "SYSTEM/Views/llmwiki-ai-provider-transport.js"));
+const transport = require(path.join(ROOT, "SYSTEM/Views/llmwiki-ai-runtime-transport.js"));
 const schema = require(path.join(ROOT, "SYSTEM/Views/llmwiki-provider-response-schema.js"));
 const HASH = "a".repeat(64);
 

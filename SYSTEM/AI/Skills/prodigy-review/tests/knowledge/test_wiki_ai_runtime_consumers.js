@@ -9,7 +9,7 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 
 test("Prodigy Wiki production owns no provider transport, config, or fallback", () => {
   for (const name of [
-    "llmwiki-ai-provider-transport.js",
+    "llmwiki-ai-runtime-transport.js",
     "llmwiki-batch-provider.js",
     "llmwiki-provider-capability.js",
     "llmwiki-provider-contract.js",

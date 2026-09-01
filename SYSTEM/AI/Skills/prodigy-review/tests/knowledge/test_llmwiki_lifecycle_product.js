@@ -299,7 +299,7 @@ test("production Hub loads and owns inbox intake, cancellation, retry, Task14 re
   assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-explorer-controller.js") < manifest.indexOf("SYSTEM/Views/prodigy-wiki-operation-store.js"));
   assert.ok(manifest.indexOf("SYSTEM/Views/prodigy-wiki-operation-store.js") < manifest.indexOf("SYSTEM/Views/prodigy-wiki-controller.js"));
   assert.ok(manifest.indexOf("SYSTEM/Views/prodigy-wiki-controller.js") < manifest.indexOf("SYSTEM/Views/llmwiki-lifecycle-view.js"));
-  assert.ok(manifest.indexOf("SYSTEM/Views/llmwiki-ui-recovery.js") < manifest.indexOf("SYSTEM/Views/llmwiki-ai-provider-transport.js"));
+  assert.ok(manifest.indexOf("SYSTEM/Views/llmwiki-ui-recovery.js") < manifest.indexOf("SYSTEM/Views/llmwiki-ai-runtime-transport.js"));
   const maintenanceModules = [
     "llmwiki-maintenance-service.js",
     "llmwiki-notification-policy.js",
