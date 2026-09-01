@@ -1366,6 +1366,7 @@ window.renderAuctionCard = function(p, container, options) {
           this.inputInterest = (currentInterest * 100).toFixed(1) + "%";
         }
         onOpen() {
+          window.ensureProdigyModalForeground(this.containerEl);
           const { contentEl } = this;
           contentEl.createEl("h3", { text: `[${p.case_number || p.file.name}] 월수익 계산 정보 수정`, attr: { style: "margin-bottom: 16px; font-size: 1.2em;" } });
           

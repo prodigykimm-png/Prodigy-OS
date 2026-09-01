@@ -1,3 +1,31 @@
+window.ensureProdigyModalForeground = function(containerEl) {
+  if (!containerEl) return 0;
+  const ownerDocument = containerEl.ownerDocument || window.document;
+  const lookupDocument = ownerDocument && typeof ownerDocument.querySelectorAll === "function"
+    ? ownerDocument
+    : window.document;
+  const view = ownerDocument?.defaultView || window;
+  const computedStyle = typeof view.getComputedStyle === "function"
+    ? (element) => view.getComputedStyle(element)
+    : () => ({ zIndex: "0" });
+  const overlaySelector = [
+    ".prodigy-bid-cal-popup-backdrop",
+    ".region-popup-overlay",
+    ".prodigy-aday-panel-backdrop"
+  ].join(",");
+  const currentZ = Number.parseInt(computedStyle(containerEl).zIndex, 10) || 0;
+  const foregroundZ = Array.from(lookupDocument?.querySelectorAll?.(overlaySelector) || [])
+    .reduce((highest, overlay) => {
+      if (overlay === containerEl) return highest;
+      const zIndex = Number.parseInt(computedStyle(overlay).zIndex, 10);
+      return Number.isFinite(zIndex) ? Math.max(highest, zIndex) : highest;
+    }, currentZ - 1) + 1;
+  const targetZ = Math.max(currentZ, foregroundZ);
+  containerEl.classList?.add("prodigy-modal-foreground");
+  containerEl.style?.setProperty("z-index", String(targetZ), "important");
+  return targetZ;
+};
+
 window.obsidianPrompt = function(title, placeholder, value = "") {
   return new Promise((resolve) => {
     try {
@@ -15,6 +43,7 @@ window.obsidianPrompt = function(title, placeholder, value = "") {
           super(app);
         }
         onOpen() {
+          window.ensureProdigyModalForeground(this.containerEl);
           const { contentEl } = this;
           contentEl.createEl("h3", { text: title, attr: { style: "margin-block-end:var(--ke-space-3);font-size:var(--ke-type-title);line-height:var(--ke-leading-body);" } });
           
