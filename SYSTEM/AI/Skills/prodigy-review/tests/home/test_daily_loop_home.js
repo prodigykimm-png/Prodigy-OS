@@ -115,30 +115,18 @@ Next Experiment:
   }
 
   const previousMorningCore = global.MorningContextCore;
-  const previousBriefService = global.MorningBriefService;
   const homePath = path.join(ROOT, "SYSTEM/Views/home-view.js");
   try {
     global.MorningContextCore = morning;
-    global.MorningBriefService = {
-      generateMorningResult: async () => { throw new Error("network unavailable"); }
-    };
     delete require.cache[require.resolve(homePath)];
     const home = require(homePath);
-    const recovered = await home.generateMorningBrief({ app: {}, morningPackage: {
-      local_date: "2026-07-17",
-      warnings: ["Todoist fetch failed: network"],
-      context: { todoist: { overdueCount: 0, todayCount: 0 }, auctions: [], projects: [], reading: [], review_inbox: [] }
-    } });
-    assert.equal(recovered.brief_mode, "rule_based", "Home keeps the daily loop usable when its provider fails");
-    assert.match(recovered.brief, /규칙 기반/);
+    assert.equal(home.generateMorningBrief, undefined, "Home owns no Morning Brief provider seam");
     assert.equal(home.getSourceTypeLabel("project"), "프로젝트");
     assert.equal(home.getEvidenceSourceLabel("Daily Reflection"), "최근 성찰");
   } finally {
     delete require.cache[require.resolve(homePath)];
     if (previousMorningCore === undefined) delete global.MorningContextCore;
     else global.MorningContextCore = previousMorningCore;
-    if (previousBriefService === undefined) delete global.MorningBriefService;
-    else global.MorningBriefService = previousBriefService;
   }
   // Focus selection priority: pinned > due today > priority > rule order
   const selected = morning.selectFocusItems({

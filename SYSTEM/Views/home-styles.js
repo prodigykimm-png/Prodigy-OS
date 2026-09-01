@@ -161,8 +161,6 @@
         .prodigy-home.home-medium .home-action-queue { grid-area: action; }
         .prodigy-home.home-wide .home-context-details,
         .prodigy-home.home-medium .home-context-details { grid-area: context; }
-        .prodigy-home.home-wide .home-brief,
-        .prodigy-home.home-medium .home-brief { grid-area: brief; }
         .prodigy-home.home-wide .home-focus-card,
         .prodigy-home.home-medium .home-focus-card { grid-area: focus; }
         .prodigy-home.home-wide .home-continue-section,
@@ -764,23 +762,8 @@
           margin-bottom: 10px;
           gap: 8px;
         }
-        .prodigy-home.home-compact .home-stale-badge {
-          margin-inline-start: 0;
-          flex: 0 1 auto;
-          max-inline-size: 100%;
-        }
         .prodigy-home.home-compact .home-title-row h2 {
           font-size: var(--ke-type-title, 1.05rem);
-        }
-        .prodigy-home .home-brief > p.home-brief-text {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          white-space: normal !important;
-          font-size: var(--ke-type-body, 0.84rem);
-          line-height: var(--ke-leading-body, 1.45);
-          margin-bottom: 8px !important;
         }
         .prodigy-home.home-compact .home-secondary-fold {
           border: 1px solid var(--ke-color-border);
@@ -1079,7 +1062,7 @@
           .prodigy-home .emphasis-risk { border-inline-start-width: var(--ke-focus-ring-width); }
         }
         /* Native controls change color or border without floating above the window. */
-        .home-card, .home-focus-card, .home-brief {
+        .home-card, .home-focus-card {
           transition: border-color 0.15s ease;
           border-radius: var(--ke-radius-panel, 12px);
         }

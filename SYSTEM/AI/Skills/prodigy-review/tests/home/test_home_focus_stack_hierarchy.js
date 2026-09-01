@@ -344,7 +344,7 @@ globalThis.context = container.findAll((element) => element.hasClass("home-conte
   assert.equal(context.open, false, "legacy context remains collapsed by default");
 });
 
-test("Home action queue — approved and proposal states expose explicit actions", async () => {
+test("Home action queue — approved focus remains and hidden proposals stay absent", async () => {
 globalThis.approved = await renderHomeAtWidth(1000);
   assert.ok(approved.container.findAll((element) => element.hasClass("home-action-button"))[0]);
 
@@ -359,8 +359,8 @@ globalThis.container = new FakeElement("div");
   container.workspaceLeaf = new FakeElement("div", { clientWidth: 1000 });
   await home.renderHome({ app: createApp(), dv: {}, container });
 globalThis.proposal = container.findAll((element) => element.attributes["data-action-kind"] === "focus_proposal")[0];
-  assert.ok(proposal, "unapproved focus becomes a proposal row");
-  assert.ok(proposal.findAll((element) => element.hasClass("home-action-button"))[0], "proposal row exposes a native action");
+  assert.equal(proposal, undefined, "unapproved generated focus never enters the deterministic queue");
+  assert.ok(container.findAll((element) => element.hasClass("home-action-button"))[0], "real-state queue actions remain available");
 });
 
 test("Todo 6 — source contract holds for error, long-Korean, 200% zoom, and reduced motion", () => {

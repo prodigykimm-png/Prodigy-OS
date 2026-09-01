@@ -469,7 +469,7 @@ async function testCompactQuickStreamOrder() {
     "Fold"
   ]);
   const context = container.findAll((element) => element.hasClass("home-context-details"))[0];
-  assert.ok(context, "compact Home retains the brief, Focus, and Continue disclosure");
+  assert.ok(context, "compact Home retains Focus and Continue disclosure");
   assert.notEqual(context.open, true, "secondary narrative stays collapsed on compact Home");
   assert.deepEqual(foldedSections(container), [
     "Needs Attention",
@@ -478,9 +478,7 @@ async function testCompactQuickStreamOrder() {
     "Launcher",
     "System Status"
   ]);
-  const briefText = container.findAll((element) => element.hasClass("home-brief-text"))[0];
-  assert.equal(briefText.textContent.split("\n").length, 2);
-  assert.equal(briefText.textContent.includes("표시되면 안 되는 세 번째 줄"), false);
+  assert.equal(container.findAll((element) => element.hasClass("home-brief-text")).length, 0);
 }
 
 async function testCompactWorkspaceBarSingleRowContract() {
@@ -656,9 +654,7 @@ async function testCanonicalVariantsProjectTheSameHomeDom() {
     assert.equal(container.findAll((element) => element.hasClass("home-secondary-fold")).length, 1);
     assert.equal(container.textTree().includes("오늘의 집중"), true);
     assert.equal(container.textTree().includes("이어하기"), true);
-    const briefText = container.findAll((element) => element.hasClass("home-brief-text"))[0];
-    assert.equal(briefText.textContent.split("\n").length, 2);
-    assert.equal(briefText.textContent.includes("표시되면 안 되는 세 번째 줄"), false);
+    assert.equal(container.findAll((element) => element.hasClass("home-brief-text")).length, 0);
   });
   assert.equal(compact.container.findAll((element) => element.hasClass("home-secondary-fold"))[0].open, false);
   assert.equal(mediumStart.container.findAll((element) => element.hasClass("home-secondary-fold"))[0].open, true);
@@ -720,7 +716,7 @@ async function testFocusAndTouchContracts() {
   // When: focus order and touch CSS are inspected
   // Then: buttons remain in DOM order and compact primary controls never override to min-height:0
   assert.ok(buttons.length >= 6);
-  assert.match(buttons.map((button) => button.textTree()).join(" > "), /새 Object.*새로고침.*우선순위 다시 계산.*워크스페이스 열기/s);
+  assert.match(buttons.map((button) => button.textTree()).join(" > "), /새 Object.*새로고침.*워크스페이스 열기/s);
   assert.doesNotMatch(buttons.map((button) => button.textTree()).join(" > "), /일기 쓰기|AI 분류/);
   assert.doesNotMatch(css, /home-compact[\s\S]*min-height:\s*0\s*!important/);
   assert.match(css, /home-compact[\s\S]*min-height:\s*var\(--ke-touch-target\)/);

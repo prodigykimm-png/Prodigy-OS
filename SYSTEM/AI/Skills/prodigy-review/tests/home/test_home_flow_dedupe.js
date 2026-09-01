@@ -545,8 +545,9 @@ async function testFocusEmptyStateKeepsApprovalSemantics() {
   // When: Focus and Continue are inspected
   const focusCard = findCardByLabel(container, /오늘의 집중/);
 
-  // Then: Focus shows its empty state and Continue is not suppressed
-  assert.match(focusCard.textTree(), /아직 제안된 집중 항목이 없습니다/);
+  // Then: Focus has no generated proposal action and Continue is not suppressed
+  assert.equal(focusCard.findAll((element) => element.hasClass("focus-row")).length, 0);
+  assert.equal(focusCard.findAll((element) => element.tagName === "BUTTON").length, 0);
   assert.equal(focusCard.textTree().includes("승인됨"), false);
   assert.equal(continueRowTexts(container).length, 1);
 }

@@ -46,6 +46,7 @@ test("isolated Obsidian saves a local thought and an analyzed inbox material fro
   try {
     harness = await RealObsidianHarness.start("quick-capture-home");
     harness.cdp.on("Runtime.exceptionThrown", (event) => exceptions.push(event.exceptionDetails?.text || "runtime exception"));
+    await harness.evaluate(`(()=>{window.__homeProviderCalls=0;Object.defineProperty(window,'AIProviderService',{configurable:true,get(){return undefined},set(value){const methods=new Set(['requestStructuredJson','requestStructuredJsonOnce','requestStructuredJsonNoRetry','requestChatText']),wrapped=new Proxy(value,{get(target,key,receiver){const member=Reflect.get(target,key,receiver);if(!methods.has(key)||typeof member!=='function')return member;return function(){window.__homeProviderCalls+=1;return member.apply(target,arguments)}}});Object.defineProperty(window,'AIProviderService',{value:wrapped,writable:true,configurable:true})}});return true})()`);
     await harness.mountStructuralWorkspace("home");
     await harness.collapseSidebar("home", "left");
     await harness.collapseSidebar("home", "right");
@@ -66,13 +67,15 @@ test("isolated Obsidian saves a local thought and an analyzed inbox material fro
     assert.match(thoughtPath, /^ZETA\/FLEETING\/\d{4}-\d{2}-\d{2}\.md$/u);
     assert.match(thoughtBytes, /^- \d{2}:\d{2} 플리팅 실제 QA\n$/u);
     captures.push(await capture(harness, "home-thought-saved", 390, '.prodigy-app-shell[data-workspace-id="home"] .quick-capture-row'));
-    const actionState = await harness.evaluate(`(()=>{const shell=document.querySelector('.prodigy-app-shell[data-workspace-id="home"]'),queue=shell&&shell.querySelector('.home-action-queue'),rows=queue?[...queue.querySelectorAll('.home-action-row')]:[],details=shell&&shell.querySelector('.home-context-details'),visible=node=>{const box=node.getBoundingClientRect(),style=getComputedStyle(node);return box.width>0&&box.height>0&&style.display!=='none'&&style.visibility!=='hidden'},legacy=shell?[...shell.querySelectorAll('.home-brief,.home-focus-card,.home-continue-section')].filter(visible):[];return{queue:!!queue,rows:rows.length,buttons:rows.filter(row=>row.querySelectorAll('button').length===1).length,primary:rows.filter(row=>row.classList.contains('is-primary')).length,detailsOpen:Boolean(details&&details.open),visibleLegacy:legacy.length,toolbar:/우선순위 다시 계산/u.test(shell&&shell.innerText||'')}})()`);
+    const actionState = await harness.evaluate(`(()=>{const shell=document.querySelector('.prodigy-app-shell[data-workspace-id="home"]'),queue=shell&&shell.querySelector('.home-action-queue'),rows=queue?[...queue.querySelectorAll('.home-action-row')]:[],details=shell&&shell.querySelector('.home-context-details'),visible=node=>{const box=node.getBoundingClientRect(),style=getComputedStyle(node);return box.width>0&&box.height>0&&style.display!=='none'&&style.visibility!=='hidden'},legacy=shell?[...shell.querySelectorAll('.home-focus-card,.home-continue-section')].filter(visible):[];return{queue:!!queue,rows:rows.length,buttons:rows.filter(row=>row.querySelectorAll('button').length===1).length,primary:rows.filter(row=>row.classList.contains('is-primary')).length,detailsOpen:Boolean(details&&details.open),visibleLegacy:legacy.length,briefCount:shell?shell.querySelectorAll('.home-brief,.home-brief-text').length:0,providerCalls:Number(window.__homeProviderCalls||0),toolbar:!!(shell&&shell.querySelector('.home-toolbar'))}})()`);
     assert.equal(actionState.queue, true);
     assert.ok(actionState.rows > 0 && actionState.rows <= 5);
     assert.equal(actionState.buttons, actionState.rows);
     assert.equal(actionState.primary, 1);
     assert.equal(actionState.detailsOpen, false);
     assert.equal(actionState.visibleLegacy, 0);
+    assert.equal(actionState.briefCount, 0);
+    assert.equal(actionState.providerCalls, 0);
     assert.equal(actionState.toolbar, true);
     for (const width of [390, 1440]) captures.push(await capture(harness, "home-action-queue", width, '.prodigy-app-shell[data-workspace-id="home"] .home-action-queue'));
     assert.deepEqual(harness.osNetworkAttempts, []);

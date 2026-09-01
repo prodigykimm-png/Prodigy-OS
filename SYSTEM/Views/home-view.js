@@ -50,77 +50,12 @@
         line-height: var(--ke-leading-body, 1.45);
         overflow-wrap: anywhere;
       }
-      .prodigy-home .home-brief-kicker {
-        margin-inline-start: var(--ke-space-1, 2px);
-        color: var(--ke-color-muted);
-        font-size: var(--ke-type-label, .72rem);
-        font-weight: 600;
-        line-height: var(--ke-leading-control, 1.35);
-      }
-      .prodigy-home .home-brief-text {
-        margin: 0 0 var(--ke-space-3, 8px);
-        white-space: pre-wrap;
-      }
-      .prodigy-home .home-brief-context {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ke-space-1, 2px);
-        margin-block-start: var(--ke-space-1, 2px);
-        font-size: var(--ke-type-body, .84rem);
-      }
-      .prodigy-home .home-brief-action {
-        margin-block-start: var(--ke-space-3, 8px);
-      }
-      .prodigy-home .home-yesterday-missing,
-      .prodigy-home .home-evening-close {
-        margin-block-start: var(--ke-space-4, 12px);
-        padding-block-start: var(--ke-space-3, 8px);
-        border-block-start: var(--ke-border-width, 1px) solid var(--ke-color-border);
-        color: var(--ke-color-muted);
-        font-size: var(--ke-type-body, .84rem);
-        line-height: var(--ke-leading-body, 1.45);
-      }
-      .prodigy-home .home-yesterday-missing {
-        border-block-start-style: dashed;
-      }
-      .prodigy-home .home-brief-mode {
-        margin-inline-start: auto;
-      }
-      .prodigy-home .home-evening-copy {
-        margin-block-end: var(--ke-space-2, 4px);
-      }
-      .prodigy-home .home-stale-badge {
-        margin-inline-start: auto;
-        padding: var(--ke-space-1, 2px) var(--ke-space-2, 4px);
-        border-radius: var(--ke-radius-control, 4px);
-        background: var(--ke-color-hover);
-        color: var(--ke-color-accent);
-        font-size: var(--ke-type-label, .72rem);
-        font-weight: 700;
-        line-height: var(--ke-leading-control, 1.35);
-        overflow-wrap: anywhere;
-      }
       .prodigy-home .home-action-row {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
         gap: var(--ke-space-2, 4px);
         min-inline-size: 0;
-      }
-      .prodigy-home .home-focus-suggestions-footer {
-        border-block-start: 0;
-        padding-block-start: 0;
-      }
-      .prodigy-home .home-focus-suggestion-title {
-        color: var(--ke-color-text);
-        font-size: var(--ke-type-body, .84rem);
-        font-weight: 700;
-        margin-block-end: var(--ke-space-2, 4px);
-      }
-      .prodigy-home .home-focus-suggestion-note {
-        margin-block-end: var(--ke-space-3, 8px);
-        color: var(--ke-color-muted);
-        font-size: var(--ke-type-label, .72rem);
       }
       .prodigy-home .home-focus-reason {
         padding-inline-start: 0;
@@ -324,20 +259,6 @@
         color: var(--ke-color-muted);
         font-size: var(--ke-type-label, .72rem);
       }
-      .prodigy-home .home-brief-text {
-        min-inline-size: 0;
-        color: var(--ke-color-text);
-        line-height: var(--ke-leading-body, 1.45);
-        overflow-wrap: anywhere;
-      }
-      .prodigy-home .home-yesterday-review {
-        color: var(--ke-color-muted);
-        line-height: var(--ke-leading-body, 1.45);
-      }
-      .prodigy-home .home-yesterday-review > * {
-        min-inline-size: 0;
-        overflow-wrap: anywhere;
-      }
       .prodigy-home .home-attention-top {
         display: flex;
         align-items: flex-start;
@@ -414,17 +335,6 @@
 
   function getEvidenceSourceLabel(source) {
     return EVIDENCE_SOURCE_LABELS[source] || source;
-  }
-
-  async function generateMorningBrief(options) {
-    try {
-      return await root.MorningBriefService.generateMorningResult({
-        app: options.app,
-        morningPackage: options.morningPackage
-      });
-    } catch (_error) {
-      return root.MorningContextCore.generateDeterministicFallback(options.morningPackage);
-    }
   }
 
   async function loadOptionalProdigyScript(app, path, globalKey) {
@@ -681,54 +591,19 @@
       };
     }
 
-    let cached = null;
     let approvedFocus = null;
     let pinnedFocus = null;
     try {
-      cached = await root.MorningCache.getDailyCache(app, todayStr);
       approvedFocus = await root.MorningCache.getApprovedFocus(app, todayStr);
       pinnedFocus = await root.MorningCache.getPinnedFocus(app, todayStr);
     } catch (_cacheError) {
-      cached = null;
       approvedFocus = null;
       pinnedFocus = null;
     }
 
-    let isStale = false;
-    if (cached && cached.pkg) {
-      try {
-        isStale = root.MorningCache.checkIsStale(cached.pkg, newPkg);
-      } catch (_staleError) {
-        isStale = true;
-      }
-    }
-
-    if (!cached || !cached.result) {
-      try {
-        const resultJson = await generateMorningBrief({ app, morningPackage: newPkg });
-        try { await root.MorningCache.saveDailyCache(app, todayStr, newPkg, resultJson); } catch (_saveError) { /* non-blocking */ }
-        cached = { pkg: newPkg, result: resultJson };
-        isStale = false;
-      } catch (_briefError) {
-        const ruleResult = root.MorningContextCore.generateDeterministicFallback(newPkg);
-        try { await root.MorningCache.saveDailyCache(app, todayStr, newPkg, ruleResult); } catch (_saveError) { /* non-blocking */ }
-        cached = { pkg: newPkg, result: ruleResult };
-        isStale = false;
-      }
-    } else if (isStale && newPkg) {
-      // Vault changed (delete/add/status). Keep cached AI brief text if present,
-      // but always refresh package context and drop focus items for missing files.
-      try {
-        await root.MorningCache.saveDailyCache(app, todayStr, newPkg, cached.result);
-      } catch (_saveError) { /* non-blocking */ }
-      cached = { pkg: newPkg, result: cached.result };
-    }
-
     mainLoader.remove();
 
-    // Live vault context is always preferred over a stale morning package snapshot.
-    const pkg = newPkg || (cached && cached.pkg) || {};
-    let result = (cached && cached.result) ? cached.result : {};
+    const pkg = newPkg || {};
 
     const pathExists = (objectPath) => {
       if (!objectPath) return true; // manual/health focus without a file
@@ -744,9 +619,6 @@
 
     const sanitizeFocusList = (list) => homeModel.sanitizeFocusList(list, pathExists);
 
-    if (result && Array.isArray(result.focus)) {
-      result = Object.assign({}, result, { focus: sanitizeFocusList(result.focus) });
-    }
     if (approvedFocus && Array.isArray(approvedFocus.focus)) {
       approvedFocus = Object.assign({}, approvedFocus, {
         focus: sanitizeFocusList(approvedFocus.focus)
@@ -756,10 +628,6 @@
     if (pinnedFocus && pinnedFocus.focus && pinnedFocus.focus.object_path && !pathExists(pinnedFocus.focus.object_path)) {
       try { await root.MorningCache.clearPinnedFocus(app, todayStr); } catch (_e) { /* ignore */ }
       pinnedFocus = null;
-    }
-
-    if (!result || !Array.isArray(result.focus) || result.focus.length === 0) {
-      result = root.MorningContextCore.generateDeterministicFallback(pkg);
     }
 
     // Shared operational layer (Object Engine once) for Needs Attention + Launcher
@@ -788,7 +656,7 @@
           pinnedFocus,
           journalStatus: journalStatusForOps,
           workoutSnapshot: workoutSnapshotForOps,
-          focusItems: (approvedFocus && approvedFocus.focus) || (result && result.focus) || [],
+          focusItems: (approvedFocus && approvedFocus.focus) || [],
           now: new Date()
         });
       }
@@ -865,31 +733,8 @@
       });
     } catch (_e) { /* ignore */ }
     
-    if (isStale) {
-      rightActions.createEl("span", { 
-        text: "새 정보 감지됨",
-        attr: { class: "home-stale-badge" }
-      });
-    }
-
     const refreshBtn = rightActions.createEl("button", { text: "새로고침", attr: { class: "action-btn home-toolbar-utility" } });
     refreshBtn.onclick = () => renderHome(options);
-
-    const regenerateBtn = rightActions.createEl("button", { text: "우선순위 다시 계산", attr: { class: "action-btn home-toolbar-utility" } });
-    regenerateBtn.onclick = async () => {
-      regenerateBtn.disabled = true;
-      regenerateBtn.text = "생성 중...";
-      try {
-        const freshResult = await generateMorningBrief({ app, morningPackage: newPkg });
-        await root.MorningCache.saveDailyCache(app, todayStr, newPkg, freshResult);
-        await root.MorningCache.clearApprovedFocus(app, todayStr);
-        renderHome(options);
-      } catch (err) {
-        new Notice("우선순위 갱신 실패: " + err.message);
-        regenerateBtn.disabled = false;
-        regenerateBtn.text = "브리핑 다시 생성";
-      }
-    };
 
     // ── Mission Control stack (presentation only; reuses existing APIs) ──
     const stack = container.createEl("div", {
@@ -992,11 +837,11 @@
       });
     });
 
-    // ── 2. Ranked next-action deck (real state first, AI proposal second) ──
+    // ── 2. Ranked next-action deck from current deterministic state ──
     const homeActionQueue = resolveViewModule("HomeActionQueue", "./home-action-queue.js");
     const queueFocusBase = (approvedFocus && Array.isArray(approvedFocus.focus))
       ? approvedFocus.focus
-      : (Array.isArray(result.focus) ? result.focus : []);
+      : [];
     const queueFocusItems = root.MorningContextCore.selectFocusItems
       ? root.MorningContextCore.selectFocusItems({
         pinnedFocus,
@@ -1042,14 +887,13 @@
         fleetingCount = Number(localReviewSnapshot.pending_count) || 0;
       } catch (_error) { fleetingCount = 0; }
     }
-    const queueMode = String(result.brief_mode || (result.principle && result.principle.source) || "").toLowerCase();
     if (homeActionQueue && typeof homeActionQueue.buildActionQueue === "function" && typeof homeActionQueue.renderActionQueue === "function") {
       const queueActions = homeActionQueue.buildActionQueue({
         now: new Date(),
         pkg,
         attention: queueRisks,
         focusItems: queueFocusItems,
-        focusApproved: Boolean(approvedFocus),
+        focusApproved: Boolean(approvedFocus || pinnedFocus),
         continueCards: queueContinueCards,
         inboxCount,
         fleetingCount,
@@ -1059,141 +903,19 @@
       homeActionQueue.renderActionQueue({
         parent: stack,
         actions: queueActions,
-        aiBacked: !["rule_based", "fallback"].includes(queueMode),
+        aiBacked: false,
         onAction: async (action) => {
-          if (action.kind === "focus_proposal" && action.focus_item) {
-            approvedFocus = await root.MorningCache.saveApprovedFocus(app, todayStr, [action.focus_item], false);
-            new Notice("오늘의 집중으로 승인했습니다.");
-            await renderHome(options);
-            return;
-          }
           if (action.target_path) openPath(action.target_path);
         }
       });
     }
 
-    // Former primary narrative stays available as secondary context, collapsed by default.
+    // Secondary operational context stays collapsed by default.
     const legacyContext = stack.createEl("details", { attr: { class: "home-context-details" } });
-    legacyContext.createEl("summary", { text: "브리핑 기록" });
+    legacyContext.createEl("summary", { text: "상세 운영 정보" });
     const legacyBody = legacyContext.createEl("div", { attr: { class: "home-context-details-body" } });
 
-    // ── 1. TODAY · Morning Brief ──
-    safeRenderRegion("Morning Brief", () => {
-      const briefCard = legacyBody.createEl("div", {
-        attr: { class: "home-card home-native-group home-brief prodigy-utility-card " + (isMorning ? "emphasis-primary" : "emphasis-secondary") }
-      });
-      const briefHead = briefCard.createEl("div", { attr: { class: "home-header" } });
-      briefHead.createEl("span", {
-        text: "모닝 브리프",
-        attr: { class: "home-brief-kicker" }
-      });
-      const briefMode = result.brief_mode || (result.principle && result.principle.source) || "";
-      if (briefMode === "rule_based" || briefMode === "fallback" || String(result.result_id || "").includes("rule-based") || String(result.result_id || "").includes("fallback")) {
-        briefHead.createEl("span", {
-          text: "규칙 기반",
-          attr: { class: "badge badge-gray home-brief-mode" }
-        });
-      }
-
-      briefCard.createEl("p", {
-        text: clampBriefLines(result.brief, 2),
-        attr: {
-          class: "home-brief-text"
-        }
-      });
-
-      // Context lines only (no long paragraphs / statistics)
-      const contextLines = [];
-      if (result.principle && result.principle.label) {
-        contextLines.push("원칙 · " + result.principle.label);
-      }
-      const yesterdayReview = (pkg.context && pkg.context.yesterday_review) || null;
-      const yLearning = yesterdayReview && String(yesterdayReview.learning || yesterdayReview.change || "").trim();
-      const yNext = yesterdayReview && String(yesterdayReview.next_experiment || "").trim();
-      if (yLearning) contextLines.push("어제 배움 · " + yLearning);
-      if (yNext) contextLines.push("오늘 실험 · " + yNext);
-
-      if (contextLines.length) {
-        const ctxBox = briefCard.createEl("div", {
-          attr: { class: "home-yesterday-review home-brief-context" }
-        });
-        contextLines.slice(0, 3).forEach((line) => {
-          ctxBox.createEl("div", { text: line, attr: { class: "home-brief-context-line" } });
-        });
-        if (yesterdayReview && (yLearning || yNext) && yesterdayReview.path) {
-          const openY = briefCard.createEl("button", {
-            text: "어제 저널 열기",
-            attr: { class: "action-btn home-brief-action" }
-          });
-          openY.onclick = () => openPath(yesterdayReview.path || ("DAILY/DAILY/" + (yesterdayReview.date || "") + ".md"));
-        }
-      }
-
-      // Lightweight yesterday-missing notice (never blocks)
-      const yMissing = !!(
-        (yesterdayReview && yesterdayReview.missing)
-        || (!yLearning && !yNext)
-      );
-      if (yMissing && !isEvening) {
-        const miss = briefCard.createEl("div", {
-          attr: { class: "home-yesterday-missing" }
-        });
-        miss.createEl("div", { text: "어제 성찰이 비어 있습니다 · 필수는 아닙니다." });
-        const missBtn = miss.createEl("button", {
-          text: "2분 성찰",
-          attr: { class: "action-btn home-brief-action" }
-        });
-        missBtn.onclick = async () => {
-          const yDate = (yesterdayReview && yesterdayReview.date)
-            || (root.MorningContextCore && root.MorningContextCore.getYesterdayIsoDate
-              ? root.MorningContextCore.getYesterdayIsoDate(new Date())
-              : "");
-          if (root.JournalReviewModal && root.JournalStore && yDate) {
-            const review = await root.JournalStore.loadReview(app, yDate);
-            root.JournalReviewModal.open(app, review.fields || {}, async (values) => {
-              await root.JournalStore.saveReview(app, yDate, values);
-              if (window.Notice) new Notice("어제 성찰을 저장했습니다.");
-            }, { focusHints: [] });
-            return;
-          }
-          openPath((yesterdayReview && yesterdayReview.path) || (yDate ? "DAILY/DAILY/" + yDate + ".md" : workspacePathFor("journal")));
-        };
-      }
-
-      if (isEvening) {
-        const eve = briefCard.createEl("div", {
-          attr: { class: "home-evening-close" }
-        });
-        eve.createEl("div", {
-          text: "오늘 마무리 · 2분 Review로 Focus를 닫습니다.",
-          attr: { class: "home-evening-copy" }
-        });
-        const openJournalBtn = eve.createEl("button", {
-          text: "2분 성찰 작성",
-          attr: { class: "action-btn home-evening-action" }
-        });
-        openJournalBtn.onclick = async () => {
-          const focusHints = [];
-          const focusList = (approvedFocus && Array.isArray(approvedFocus.focus))
-            ? approvedFocus.focus
-            : (Array.isArray(result.focus) ? result.focus : []);
-          focusList.slice(0, 3).forEach((item) => {
-            if (item && item.label) focusHints.push(String(item.label));
-          });
-          if (root.JournalReviewModal && root.JournalStore) {
-            const review = await root.JournalStore.loadReview(app, todayStr);
-            root.JournalReviewModal.open(app, review.fields || {}, async (values) => {
-              await root.JournalStore.saveReview(app, todayStr, values);
-              if (window.Notice) new Notice("오늘 Review를 저장했습니다.");
-            }, { focusHints });
-            return;
-          }
-          openPath(workspacePathFor("journal"));
-        };
-      }
-    });
-
-    // ── 2. Today's Focus (approved only — no edit from Home) ──
+    // Today's Focus remains human-approved only.
     const focusDisplayKeys = Object.create(null);
 
     const dedupeKeyFor = homeModel.dedupeKeyFor;
@@ -1224,89 +946,15 @@
         : baseFocus;
       const currentFocus = (rankedFocus || []).filter(Boolean).slice(0, 3);
 
-      if (!approvedFocus || !currentFocus.length) {
-        // Read-only suggestions on Home — no inline editing (Mission Control only)
-        const proposal = root.MorningContextCore.selectFocusItems
-          ? root.MorningContextCore.selectFocusItems({
-            pinnedFocus,
-            focusItems: (result && Array.isArray(result.focus) ? result.focus : []),
-            pkg,
-            localDate: todayStr
-          })
-          : ((result && Array.isArray(result.focus)) ? result.focus : []);
-        const suggestions = (proposal || []).filter(Boolean).slice(0, 3);
-        const actions = focusCard.createEl("div", {
-          attr: { class: "focus-footer home-focus-suggestions-footer" }
+      if (!currentFocus.length) {
+        focusCard.createEl("div", {
+          text: "승인된 집중 항목이 없습니다.",
+          attr: { class: "home-focus-empty-title" }
         });
-
-        if (suggestions.length) {
-          focusCard.createEl("div", {
-            text: "오늘의 집중 제안",
-            attr: { class: "home-focus-suggestion-title" }
-          });
-          focusCard.createEl("div", {
-            text: "읽기 전용 · 승인만 Home에서 합니다. 편집은 브리핑에서.",
-            attr: { class: "home-focus-suggestion-note" }
-          });
-          const listDiv = focusCard.createEl("div", { attr: { class: "focus-list" } });
-          suggestions.forEach((item, idx) => {
-            rememberFocusDisplayKey(item);
-            const row = listDiv.createEl("div", { attr: { class: "focus-row" } });
-            const top = row.createEl("div", { attr: { class: "focus-top" } });
-            top.createEl("div", {
-              text: `${idx + 1}. ${item.label || "제안"}`,
-              attr: { class: "focus-title" }
-            });
-            top.createEl("span", {
-              text: getSourceTypeLabel(item.source_type),
-              attr: { class: "badge badge-gray" }
-            });
-            const next = item.next_action || item.reason || "";
-            if (next) {
-              row.createEl("div", {
-                text: next,
-                attr: { class: "focus-reason home-focus-reason" }
-              });
-            }
-          });
-          const approveBtn = actions.createEl("button", {
-            text: suggestions.length === 1 ? "이 제안 승인" : "첫 번째 제안 승인",
-            attr: { class: "action-btn action-btn-primary" }
-          });
-          approveBtn.onclick = async () => {
-            // Canonical approval: first suggestion as today's Focus (existing MorningCache API)
-            const chosen = [suggestions[0]];
-            approvedFocus = await root.MorningCache.saveApprovedFocus(app, todayStr, chosen, false);
-            new Notice("오늘의 집중이 승인되었습니다.");
-            renderHome(options);
-          };
-          if (suggestions.length > 1) {
-            const approveAll = actions.createEl("button", {
-              text: `상위 ${suggestions.length}개 승인`,
-              attr: { class: "action-btn" }
-            });
-            approveAll.onclick = async () => {
-              approvedFocus = await root.MorningCache.saveApprovedFocus(app, todayStr, suggestions, false);
-              new Notice("오늘의 집중이 승인되었습니다.");
-              renderHome(options);
-            };
-          }
-        } else {
-          focusCard.createEl("div", {
-            text: "아직 제안된 집중 항목이 없습니다.",
-            attr: { class: "home-focus-empty-title" }
-          });
-          focusCard.createEl("div", {
-            text: "오늘의 기록이나 다음 행동을 먼저 추가하세요.",
-            attr: { class: "home-focus-empty-note" }
-          });
-        }
-
-        const regenHint = actions.createEl("button", {
-          text: "제안 다시 계산",
-          attr: { class: "action-btn" }
+        focusCard.createEl("div", {
+          text: "현재 상태에 따른 다음 행동은 위 목록에서 바로 확인할 수 있습니다.",
+          attr: { class: "home-focus-empty-note" }
         });
-        regenHint.onclick = () => regenerateBtn.click();
         return;
       }
 
@@ -1352,7 +1000,7 @@
 
       // ── One primary action for the approved Focus narrative ──
       // Actions on the primary object resolve to the workspace today, otherwise
-      // to the object itself. This single CTA is the Brief→Focus→one action tail;
+      // to the object itself. This single CTA is the Focus→one action tail;
       // Continue/MicroLog/Disclosure follow it in the same narrative order.
       const primaryFocus = currentFocus[0];
       if (primaryFocus) {
@@ -1787,7 +1435,6 @@
   const api = {
     renderHome,
     disposeHome,
-    generateMorningBrief,
     getSourceTypeLabel,
     getEvidenceSourceLabel
   };

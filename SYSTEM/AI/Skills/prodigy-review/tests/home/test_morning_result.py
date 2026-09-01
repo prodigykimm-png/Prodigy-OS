@@ -16,7 +16,7 @@ def main() -> int:
         print("Test failed!", file=sys.stderr)
         print(result.stderr, file=sys.stderr)
         return 1
-    assert "MorningBriefService.validateMorningResult validated correct result successfully" in result.stdout
+    assert "Home exposes no Morning Brief provider seam" in result.stdout
     assert "MorningContextCore.generateDeterministicFallback built correct rule-based JSON" in result.stdout
     print("test_morning_result passed.")
     return 0

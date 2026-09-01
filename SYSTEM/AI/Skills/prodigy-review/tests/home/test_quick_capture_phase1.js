@@ -480,20 +480,16 @@ function installHomeDependencies(doc) {
       local_date: "2026-08-23",
       day_of_week: "일",
       warnings: [],
-      context: { todoist: { todayCount: 0, overdueCount: 0, todayTasks: [], overdueTasks: [] }, projects: [], auctions: [], reading: [], continue_candidates: [], risks: [], review_inbox: [], recent_reflections: [], yesterday_review: null }
+      context: { todoist: { todayCount: 0, overdueCount: 0, todayTasks: [], overdueTasks: [] }, projects: [], auctions: [{ name: "김포 오피스텔", status: "bidding", path: focusAuction.object_path }], reading: [], continue_candidates: [], risks: [], review_inbox: [], recent_reflections: [], yesterday_review: null }
     }),
     generateDeterministicFallback: () => ({ schema_version: "morning-result-v1", brief_mode: "rule_based", brief: "규칙 기반 브리프", focus: [focusAuction] }),
     selectFocusItems: (args) => ((args && args.focusItems) || []).slice()
   };
-  global.MorningBriefService = { generateMorningResult: async () => global.MorningContextCore.generateDeterministicFallback() };
   global.MorningCache = {
-    getDailyCache: async () => ({ pkg: null, result: global.MorningContextCore.generateDeterministicFallback() }),
     getApprovedFocus: async () => ({ focus: [focusAuction] }),
     getPinnedFocus: async () => null,
-    checkIsStale: () => false,
     clearPinnedFocus: async () => {},
     saveApprovedFocus: async (_app, _date, list) => ({ focus: list }),
-    saveDailyCache: async () => {},
     clearApprovedFocus: async () => {}
   };
   global.MorningBriefContext = { buildMorningBriefContext: () => ({ engine_ok: true, continue_by_workspace: {}, engine_states: {} }), toHomeRiskItems: () => [] };
@@ -554,19 +550,12 @@ test("home surface promotes one ranked action deck and collapses the old narrati
   assert.equal(queues.length, 1, "Home renders one action queue");
   assert.match(queues[0].textTree(), /다음 행동/);
   assert.match(queues[0].textTree(), /김포 오피스텔/);
-  assert.match(queues[0].textTree(), /집중으로 승인/);
+  assert.doesNotMatch(queues[0].textTree(), /집중으로 승인/);
   const details = container.findAll((element) => element.hasClass("home-context-details"));
   assert.equal(details.length, 1);
-  assert.notEqual(details[0].open, true, "morning brief, focus, and continue stay collapsed by default");
-  const brief = container.findAll((element) => element.hasClass("home-brief"))[0];
-  let owner = brief && brief.parent;
-  let nested = false;
-  while (owner) {
-    if (owner === details[0]) nested = true;
-    owner = owner.parent;
-  }
-  assert.ok(brief && nested, "legacy brief is secondary context inside the disclosure");
-  assert.match(container.textTree(), /우선순위 다시 계산/);
+  assert.notEqual(details[0].open, true, "Focus and Continue stay collapsed by default");
+  assert.equal(container.findAll((element) => element.hasClass("home-brief")).length, 0);
+  assert.equal(container.findAll((element) => element.hasClass("home-stale-badge")).length, 0);
 });
 
 // ── Knowledge surface RED/GREEN ─────────────────────────────────────────

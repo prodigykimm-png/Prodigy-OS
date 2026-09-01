@@ -14,7 +14,6 @@ def main() -> int:
     # Check syntax of all views
     views = [
         ROOT / "SYSTEM" / "Views" / "morning-context-core.js",
-        ROOT / "SYSTEM" / "Views" / "morning-brief-service.js",
         ROOT / "SYSTEM" / "Views" / "morning-cache.js",
         ROOT / "SYSTEM" / "Views" / "home-view.js"
     ]

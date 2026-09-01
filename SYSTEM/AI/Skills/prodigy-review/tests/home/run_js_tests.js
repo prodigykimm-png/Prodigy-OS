@@ -113,7 +113,6 @@ const rootDir = path.resolve(__dirname, "../../../../../../");
 require(path.join(rootDir, "SYSTEM/Views/project-todoist-adapter.js"));
 require(path.join(rootDir, "SYSTEM/Views/project-workflow-draft-service.js"));
 require(path.join(rootDir, "SYSTEM/Views/morning-context-core.js"));
-require(path.join(rootDir, "SYSTEM/Views/morning-brief-service.js"));
 require(path.join(rootDir, "SYSTEM/Views/morning-cache.js"));
 require(path.join(rootDir, "SYSTEM/Views/home-view.js"));
 
@@ -172,83 +171,17 @@ async function runTests() {
   assert.ok(fallback.focus.some((item) => item.source_type === "project"));
   console.log("✓ MorningContextCore.generateDeterministicFallback built correct rule-based JSON.");
 
-  // 5. Test validation of Morning Result
-  const validResult = {
-    schema_version: "morning-result-v1",
-    result_id: "res123",
-    generated_at: new Date().toISOString(),
-    brief: "오늘 하루 요약 브리핑",
-    principle: {
-      label: "가장 중요한 것을 먼저 한다.",
-      source: "validated",
-      reason: "이유 테스트"
-    },
-    focus: [
-      { id: "f1", label: "경매 검토", reason: "이유 1", source_type: "auction", urgency: "high" },
-      { id: "f2", label: "프로젝트 진행", reason: "이유 2", source_type: "project", urgency: "medium" }
-    ],
-    attention: [],
-    limitations: []
-  };
-
-  const validated = global.MorningBriefService.validateMorningResult(validResult);
-  assert.strictEqual(validated.result_id, "res123");
-  assert.strictEqual(validated.focus.length, 2);
-  console.log("✓ MorningBriefService.validateMorningResult validated correct result successfully.");
-
-  // Given: an OpenAI-compatible Morning provider response
-  // When: the Morning adapter generates a result
-  // Then: exactly one provider request is made
-  const originalFetch = global.fetch;
-  let providerRequestCount = 0;
-  global.fetch = async () => {
-    providerRequestCount += 1;
-    const payload = { choices: [{ message: { content: JSON.stringify(validResult) } }] };
-    return {
-      ok: true,
-      status: 200,
-      text: async () => JSON.stringify(payload),
-      json: async () => payload
-    };
-  };
-  const adapterResult = await global.MorningBriefService.adapters["openai-compatible"]({
-    app: mockApp,
-    provider: {
-      name: "Test Provider",
-      baseURL: "https://example.test/v1",
-      endpointPath: "/chat/completions",
-      model: "test-model",
-      apiKeySecret: "gemini-test-key",
-      authMode: "bearer"
-    },
-    morningPackage: pkg
-  });
-  global.fetch = originalFetch;
-  assert.strictEqual(adapterResult.result_id, "res123");
-  assert.strictEqual(providerRequestCount, 1);
-  console.log("✓ Morning provider performs exactly one HTTP request.");
-
-  // Given: a configured Morning provider and no Todoist dependency
-  // When: Home requests a briefing
-  // Then: the provider is called directly
-  const originalGenerateMorningResult = global.MorningBriefService.generateMorningResult;
-  let morningProviderCalled = false;
-  global.MorningBriefService.generateMorningResult = async () => {
-    morningProviderCalled = true;
-    return validResult;
-  };
-  const homeBrief = await global.HomeView.generateMorningBrief({ app: mockApp, morningPackage: pkg });
-  global.MorningBriefService.generateMorningResult = originalGenerateMorningResult;
-  assert.strictEqual(morningProviderCalled, true);
-  assert.strictEqual(homeBrief.result_id, "res123");
-  console.log("✓ Home Morning generation is independent from Todoist authentication.");
+  // Home keeps deterministic context without exposing a provider generation API.
+  assert.strictEqual(global.MorningBriefService, undefined);
+  assert.strictEqual(global.HomeView.generateMorningBrief, undefined);
+  console.log("✓ Home exposes no Morning Brief provider seam.");
 
   // Given: legacy broken approval data with a null focus
   // When: the cache normalizes approval state
   // Then: it is treated as unapproved
   assert.strictEqual(global.MorningCache.normalizeApprovedFocus({ focus: null }), null);
   assert.strictEqual(global.MorningCache.normalizeApprovedFocus({ focus: [] }), null);
-  assert.strictEqual(global.MorningCache.normalizeApprovedFocus({ focus: validResult.focus }).focus.length, 2);
+  assert.strictEqual(global.MorningCache.normalizeApprovedFocus({ focus: fallback.focus }).focus.length, fallback.focus.length);
   console.log("✓ Morning approval state rejects null and empty focus artifacts.");
 
   // 6. Test Cache and Staleness comparison
@@ -304,7 +237,6 @@ async function runTests() {
   // Then: daily actions and Korean labels remain available
   const homeSource = fs.readFileSync(path.join(rootDir, "SYSTEM/Views/home-view.js"), "utf8");
   assert.strictEqual(homeSource.includes("home-mc-stack"), true);
-  assert.strictEqual(homeSource.includes("2분 Review"), true);
   assert.strictEqual(homeSource.includes("오늘의 집중"), true);
   assert.strictEqual(homeSource.includes("빠른 실행"), true);
   assert.strictEqual(homeSource.includes("시스템 상태"), true);
