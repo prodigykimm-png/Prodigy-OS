@@ -1,6 +1,55 @@
 # Prodigy AI Runtime — Next Chapter Handoff
 
-## 현재 결론
+## Canonical continuation — GitHub publication 완료
+
+관리자 외부 쓰기 승인 후 local v0.1 reproducible release를 private GitHub repository,
+hosted CI, annotated tag, policy-immutable Release assets에 publish하고 재다운로드 검증까지
+완료했다.
+
+- Repository: `https://github.com/prodigykimm-png/prodigy-ai-runtime`
+- Visibility: `PRIVATE`
+- Default branch: `main`
+- Published commit: `d4380537a4a1766b21cc7540a57ba9ee270ef635`
+- Hosted CI: `Verify release` run `33500227218`, `success`
+- Tag: annotated unsigned `v0.1.0`
+- Release: `https://github.com/prodigykimm-png/prodigy-ai-runtime/releases/tag/v0.1.0`
+- Published asset set: ZIP, JSON receipt, SHA-256 sidecar exact 3
+- Downloaded asset byte identity: pass
+- Downloaded ZIP real disposable Obsidian QA: `2/2`
+- Project deterministic fail-closed: pass
+- Secret·prompt·response·stdout·stderr, vault write, temp·synthetic residue: `0`
+- Dusk unrelated tracked modifications: untouched and unstaged
+
+Canonical publication evidence:
+
+- `SYSTEM/docs/Prodigy_AI_Runtime_Publication_Receipt_v1.json`
+- `SYSTEM/docs/Prodigy_AI_Runtime_Publication_Runbook_v1.md`
+- `SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_ai_runtime_publication_audit.js`
+
+### 다음 챕터
+
+`Obsidian Harness Compatibility`를 다음 local chapter로 지정한다.
+
+정확한 목표는 current Obsidian first-open trust onboarding을 test-owned disposable
+vault에서 결정론적으로 통과시켜 standalone `prodigy-ai-runtime` settings surface를
+다시 release gate에 포함하는 것이다.
+
+Stop condition:
+
+- fixed sleep이나 timing luck 없이 trust onboarding의 실제 event/state를 기다린다.
+- clean disposable Obsidian에서 external plugin이 enable되고 settings tab이 열린다.
+- settings DOM에서 profile, route, SecretStorage ID 경계가 관찰된다.
+- prompt, response, schema, secret value, raw stdout/stderr persistence가 `0`이다.
+- browser·OS network와 vault source/canonical write가 `0`이다.
+- harness temp root와 synthetic fixture residue가 `0`이다.
+- 기존 Project live consumer와 publication release QA가 회귀 없이 통과한다.
+- 결과가 atomic Lore commit과 새 canonical handoff에 남는다.
+
+> 아래 `이전 handoff 결론`부터 파일 끝까지는 publication 전 의사결정과 실행 계획을
+> 보존한 historical snapshot이다. 현재 상태나 실행 지시가 아니며, 이 파일 최상단의
+> canonical continuation과 publication receipt가 우선한다.
+
+## 이전 handoff 결론 — publication 전 snapshot
 
 `prodigy-ai-runtime` local v0.1 reproducible release 챕터와 종료 감사를 완료했다.
 
@@ -28,7 +77,7 @@
 10. Hostile 자체피드백의 실질 문제를 해결하고 최종 privacy/write/temp residue audit를 통과했다.
 11. 다른 작업자의 Dusk 변경은 stage, 수정, 삭제, 복원하지 않았다.
 
-## 저장소 source of truth
+## Publication 전 저장소 source of truth (historical)
 
 ### Dusk
 
@@ -168,7 +217,7 @@ Canonical evidence:
 - Vault-write audit가 opaque하다는 지적은 사실과 다르다. `RealObsidianHarness.close()`는 complete disposable vault tree hash를 비교하고 declared JSON 외 변경을 거부한다.
 - 세 파일의 단일 portable filesystem atomic swap은 현재 Node contract에 없다. Installer는 plugin-disabled 조건에서 destination 선검증, transaction backup, 감지된 failure rollback과 next-run interrupted-state recovery를 제공한다.
 
-## 미검증 또는 외부 조건
+## Publication 전 미검증 또는 외부 조건 (historical)
 
 1. GitHub-hosted workflow는 remote와 push가 없어 실행되지 않았다.
 2. GitHub repository 생성, remote 추가, push, tag, Release publish는 external write 승인 전 미실행이다.
@@ -177,7 +226,7 @@ Canonical evidence:
 5. 실제 iPhone/iPad physical-device QA는 미검증이다.
 6. Installer는 감지된 I/O failure와 interrupted state를 검증했지만 모든 filesystem instruction 경계의 process kill·power loss는 미검증이다.
 
-## 현재 Dusk unrelated worktree
+## Publication 전 Dusk unrelated worktree (historical)
 
 Handoff 작성 시 AI Runtime과 무관한 tracked modification 7개가 남아 있다:
 
@@ -200,7 +249,7 @@ Untracked path는 `1,586`개다. 주요 범주:
 
 이 경로들은 다른 작업자의 active work다. 절대 stage, 수정, 삭제, rename, restore하지 말고 AI Runtime owned path만 exact-path stage한다.
 
-## 다음 챕터
+## 완료된 GitHub publication 계획 (historical)
 
 ### 정확한 목표
 
@@ -253,7 +302,7 @@ Untracked path는 `1,586`개다. 주요 범주:
 - Publication evidence가 Dusk atomic Lore commit으로 남는다.
 - Unrelated Dusk changes는 untouched·unstaged다.
 
-## 새 대화 첫 조사
+## 완료된 publication chapter 첫 조사 (historical)
 
 ### 먼저 읽을 파일
 
@@ -289,7 +338,7 @@ shasum -a 256 "$HOME/Developer/prodigy-ai-runtime/dist/prodigy-ai-runtime-0.1.0.
 
 그 다음 repository owner·visibility·license·history·tag policy와 정확한 외부 쓰기 목록을 제시하고 승인 질문 하나에서 멈춘다.
 
-## 예상 시간과 토큰
+## 완료된 publication chapter 예상치 (historical)
 
 - Pre-publish history/privacy audit와 승인 packet: `1~2시간`, `15k~30k tokens`
 - Repository/remote/push/hosted CI/tag/Release: `1~3시간`, `20k~45k tokens`
@@ -297,7 +346,7 @@ shasum -a 256 "$HOME/Developer/prodigy-ai-runtime/dist/prodigy-ai-runtime-0.1.0.
 - Auth·Actions·runner remediation 발생 시 추가: `1~3시간`, `15k~40k tokens`
 - 총 예상: `3~7시간`, `45k~105k tokens`
 
-## 절대 건드리면 안 되는 파일과 상태
+## Historical publication guardrails
 
 - Dusk unrelated tracked modification 7개와 untracked 1,586개
 - Main vault `.obsidian/plugins/prodigy-ai-runtime/data.json`의 grants `0` 상태

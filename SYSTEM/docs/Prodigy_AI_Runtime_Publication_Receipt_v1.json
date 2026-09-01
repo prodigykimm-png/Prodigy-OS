@@ -1,0 +1,118 @@
+{
+  "schema_version": "prodigy_ai_runtime_publication_receipt_v1",
+  "status": "pass",
+  "approval": "administrator_approved",
+  "published_at": "2026-09-01T11:01:38Z",
+  "repository": {
+    "name_with_owner": "prodigykimm-png/prodigy-ai-runtime",
+    "visibility": "PRIVATE",
+    "url": "https://github.com/prodigykimm-png/prodigy-ai-runtime",
+    "remote_url": "https://github.com/prodigykimm-png/prodigy-ai-runtime.git",
+    "default_branch": "main",
+    "license": null,
+    "history_commits": 7,
+    "published_commit": "d4380537a4a1766b21cc7540a57ba9ee270ef635",
+    "published_author_email": "prodigykim@youngjaeui-Macmini-2.local"
+  },
+  "publication": {
+    "tag": "v0.1.0",
+    "tag_kind": "annotated",
+    "tag_signed": false,
+    "tag_object": "1248461a1a2152a9a0e0ad045994337873c1dc90",
+    "release_id": 380422827,
+    "release_node_id": "RE_kwDOUKw8bM4WrMqr",
+    "release_url": "https://github.com/prodigykimm-png/prodigy-ai-runtime/releases/tag/v0.1.0",
+    "created_at": "2026-09-01T11:01:08Z",
+    "published_at": "2026-09-01T11:01:38Z",
+    "updated_at": "2026-09-01T11:01:38Z",
+    "platform_immutable": false,
+    "replacement_policy": "forbidden_new_version_required",
+    "assets": [
+      {
+        "name": "prodigy-ai-runtime-0.1.0.zip",
+        "bytes": 74546,
+        "sha256": "720c4516e67d9e7e3a98d74b6796b11afa56a11cdc4bcdb63dc7e00ad7a559f8"
+      },
+      {
+        "name": "prodigy-ai-runtime-0.1.0.json",
+        "bytes": 704,
+        "sha256": "9f2054f8392c1a6bd84ed936d2e3236ddc04bb5c59b478c9c194c22835b17827"
+      },
+      {
+        "name": "prodigy-ai-runtime-0.1.0.zip.sha256",
+        "bytes": 95,
+        "sha256": "d59cfab6ecf7d1f291a8ebf6ac00342d0d91fa8544dbd41043df56c34a1f85e1"
+      }
+    ]
+  },
+  "hosted_ci": {
+    "run_id": 33500227218,
+    "workflow": "Verify release",
+    "status": "completed",
+    "conclusion": "success",
+    "event": "push",
+    "head_branch": "main",
+    "head_sha": "d4380537a4a1766b21cc7540a57ba9ee270ef635",
+    "attempt": 1,
+    "workflow_database_id": 347426755,
+    "url": "https://github.com/prodigykimm-png/prodigy-ai-runtime/actions/runs/33500227218"
+  },
+  "verification": {
+    "local_release_gate": {
+      "strict_typecheck": "pass",
+      "tests_passed": 35,
+      "tests_failed": 0,
+      "deterministic_artifact_audit": "pass"
+    },
+    "downloaded_asset_byte_identity": true,
+    "real_obsidian_tests": {
+      "passed": 2,
+      "failed": 0
+    },
+    "project_fail_closed": true,
+    "durable_config_preserved_exact": true,
+    "stale_grant_became_usable": false,
+    "download_root_removed": true,
+    "protected_existing_obsidian_processes_unchanged": true
+  },
+  "security": {
+    "secret_value_hits": 0,
+    "prompt_response_hits": 0,
+    "raw_stdout_stderr_hits": 0,
+    "source_canonical_writes": 0,
+    "browser_network_attempts": 0,
+    "os_network_attempts": 0,
+    "temporary_artifact_residue": 0,
+    "synthetic_residue_hits": 0
+  },
+  "source_truth": {
+    "dusk_prepublication_handoff_commit": "e2fb2e90c7112c223293e8e9a8fa3477e23b47f1",
+    "publication_evidence_commit": "commit_containing_this_receipt",
+    "runtime_release_commit": "4c83deab6e1422146194a2273c3059f7b7314ddf",
+    "runtime_closure_commit": "d4380537a4a1766b21cc7540a57ba9ee270ef635",
+    "publication_runbook": "SYSTEM/docs/Prodigy_AI_Runtime_Publication_Runbook_v1.md"
+  },
+  "worktree_isolation": {
+    "unrelated_tracked_modifications_before": 9,
+    "unrelated_paths_touched": 0,
+    "unrelated_paths_staged": 0
+  },
+  "rollback": {
+    "artifact_only_installer": "scripts/install.mjs",
+    "preserve_data_json": true,
+    "preserve_secret_storage": true,
+    "runbook": "SYSTEM/docs/Prodigy_AI_Runtime_Publication_Runbook_v1.md"
+  },
+  "revocation": {
+    "replace_published_assets": false,
+    "delete_release_requires_new_approval": true,
+    "delete_tag_requires_new_approval": true,
+    "delete_repository_requires_new_approval": true,
+    "remediation": "publish_new_version_and_deprecate_v0.1.0"
+  },
+  "known_gaps": [
+    "Physical iPhone and iPad QA remains unverified because no mobile relay URL is configured.",
+    "The private repository has no license and is not approved for public visibility.",
+    "The published seven-commit history contains a local-machine author email."
+  ]
+}
