@@ -109,8 +109,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     model.brief_signals_by_domain = relationsModel.signals_by_domain || {};
     const surfaceState = (model.warnings.length || relationsModel.warnings.length) ? "error" : "rest";
     const briefService = KnowledgeExplorerHub.briefService || window.KnowledgeExplorerBriefService.createKnowledgeExplorerBriefService({
-      aiProviderService: window.AIProviderService || {},
-      providerConfigService: window.ProjectWorkflowDraftService || {}
+      consumerRuntime: window.ProdigyAIConsumerRuntime
     });
 
     const workspaceBody = shell.body;
@@ -419,24 +418,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       llmWikiSession.goldenPreviewReviewStateVersion = 2;
     }
     const llmWikiControllerOptions = { ...(KnowledgeExplorerHub.llmWikiControllerOptions || {}) };
-    let llmWikiConfig = await window.ProdigyConfigService.load(appRef);
-    llmWikiSession.bindings.config = llmWikiConfig;
-    const configuredProviderOptions = async (config) => {
-      const options = window.ProdigyConfigService.listAIProfileProviderOptions(config, "llmwiki", "direct");
-      return Promise.all(options.map(async (option) => {
-        const provider = config.providers && config.providers[option.provider_key];
-        // Task 11: verification stays with AIProviderService when it exposes a
-        // verifier; otherwise the request boundary fails typed on its own.
-        const verifier = window.AIProviderService && window.AIProviderService.isProviderConfigured;
-        let configured = typeof verifier !== "function";
-        if (typeof verifier === "function") {
-          try { configured = await verifier(appRef, provider) === true; } catch (_error) { configured = false; }
-        }
-        return Object.freeze({ ...option, configured });
-      }));
-    };
-    let providerOptions = await configuredProviderOptions(llmWikiConfig);
-    let selectedProviderMode = llmWikiSession.viewState.selectedProviderMode || "direct";
+    const llmWikiAIClient = llmWikiControllerOptions.aiClient || window.ProdigyAIClient.createClient({ app: appRef });
+    let selectedProviderMode = "runtime";
     let sourceOptions = Array.isArray(llmWikiSession.viewState.sourceOptions) ? llmWikiSession.viewState.sourceOptions : [];
     let providerSelectionFailure = llmWikiSession.viewState.providerSelectionFailure || "";
     let selectedRunCommand = llmWikiSession.viewState.selectedRunCommand || null;
@@ -456,7 +439,6 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         providerSelectionFailure,
         inboxState: llmWikiSession.viewState.inboxState,
       };
-      llmWikiSession.bindings.config = llmWikiConfig;
       llmWikiSession.bindings.providerMode = selectedProviderMode;
     };
     persistLlmWikiSessionView();
@@ -539,7 +521,6 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         title: entry.source_title || entry.source_path.split("/").pop().replace(/\.md$/u, ""),
         source_id: entry.source_id,
         source_kind: entry.source_path.startsWith("INBOX/") ? "inbox" : "literature",
-        provider_mode: "direct",
         content_hash: currentRevision,
       });
       const changed = prodigyWikiController.dispatch({
@@ -613,7 +594,6 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           }
           return rows;
         }).catch(() => []);
-    const resolveProvider = (mode) => window.ProdigyConfigService.resolveAIProfileProviderKey(llmWikiSession.bindings.config, "llmwiki", mode);
     // Task 11 cutover: selected-source/Literature runs enter the same canonical
     // one-source batch as INBOX runs. No librarian pipeline, no second transport.
     const defaultBatchCommand = async (sourcePath) => {
@@ -633,7 +613,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           retrieval: { snapshot: { documents: [] } },
           consent: { issued_at: now, nonce: `consent_${runId.slice(4)}_0001` },
           approval: { expires_at: new Date(Date.now() + 3600000).toISOString(), nonce: `approval_${runId.slice(4)}_0001` },
-          advanced_settings: { provider_mode: "direct", timeout_ms: 60000 },
+          advanced_settings: { timeout_ms: 60000 },
           canonical_defaults: { knowledge_domain: "personal", knowledge_topics: [], application_trigger: "사람이 승인할 때", application_contexts: ["personal"], connections: [], invalidation_conditions: ["선택 원문이 바뀌면 다시 검토한다."], summary: "" }
         };
       }
@@ -649,24 +629,22 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         retrieval: { snapshot: { documents: [] } },
         consent: { issued_at: now, nonce: `consent_${runId.slice(4)}_0001` },
         approval: { expires_at: new Date(Date.now() + 3600000).toISOString(), nonce: `approval_${runId.slice(4)}_0001` },
-        advanced_settings: { provider_mode: selectedProviderMode, timeout_ms: 60000 },
+        advanced_settings: { timeout_ms: 60000 },
         canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "사람이 승인할 때", application_contexts: ["reading"], connections: [], invalidation_conditions: ["선택 근거가 바뀌면 다시 검토한다."], summary: "" }
       };
     };
     // Task 11 cutover: the single canonical analysis boundary. Exactly one
     // durable job store, one analyzer construction, one provider request
     // boundary; identity is frozen from the global default provider per Task 4.
-    const batchIdentity = llmWikiControllerOptions.batchIdentity || (() => {
-      const resolved = resolveProvider("direct");
-      if (!resolved || resolved.ok !== true) return null;
-      const configured = providerOptions.find((option) => option.provider_key === resolved.provider_key && option.configured === true);
-      if (!configured) return null;
-      const providerRecord = (llmWikiConfig.providers || {})[resolved.provider_key] || {};
-      if (!providerRecord.model) return null;
-      return Object.freeze({ provider_key: resolved.provider_key, model: providerRecord.model, structured_mode: "json_schema", schema_id: "llmwiki_compact_v1", prompt_version: "llmwiki_batch_compact_v1", provider: resolved.provider });
-    })();
+    const batchIdentity = llmWikiControllerOptions.batchIdentity || Object.freeze({
+      provider_key: "prodigy-ai-runtime",
+      model: "runtime-resolved",
+      structured_mode: "json_schema",
+      schema_id: "llmwiki_compact_v1",
+      prompt_version: "llmwiki_batch_compact_v1"
+    });
     const batchProvider = llmWikiControllerOptions.batchProvider
-      || (batchIdentity ? window.LLMWikiBatchProvider.createBatchAnalysisProvider({ app: appRef, identity: batchIdentity }) : null);
+      || window.LLMWikiBatchProvider.createBatchAnalysisProvider({ app: appRef, consumerRuntime: window.ProdigyAIConsumerRuntime });
     const batchJobStore = llmWikiSession.batchJobStore || llmWikiControllerOptions.batchJobStore || window.LLMWikiBatchJobStore.createBatchJobStore({ storage: {
       async exists(name) { return Boolean(appRef.vault.getAbstractFileByPath(`SYSTEM/CACHE/llmwiki/${name}`)); },
       async read(name) { return appRef.vault.cachedRead(appRef.vault.getAbstractFileByPath(`SYSTEM/CACHE/llmwiki/${name}`)); },
@@ -906,9 +884,14 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     });
     let llmWikiRunController = llmWikiSession.runController;
     if (!llmWikiRunController) {
+      const llmWikiRunClient = llmWikiControllerOptions.aiClient
+        || (llmWikiControllerOptions.batchProvider ? {
+          resolveProvider: () => ({ status: "ready", profile_id: "injected-runtime", route_class: "local" }),
+          grantConsumer: async () => ({ status: "granted" })
+        } : llmWikiAIClient);
       llmWikiRunController = window.LLMWikiRunController.createRunController({
         app: appRef,
-        config: llmWikiConfig,
+        ai_client: llmWikiRunClient,
         // Task 11 cutover: analysis delegates into the single canonical batch
         // core; the legacy transport/librarian options are removed.
         analyze_batch: async ({ command, signal }) => {
@@ -1159,19 +1142,17 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const topicDocuments = documents.filter((document) => document.role === "reusable_claim");
       if (!sourceDocument || topicDocuments.length === 0) return { ok: false, reason: "pilot_reduce_input_unavailable" };
       const configuredPlan = llmWikiControllerOptions.documentPilotReducePlan;
-      const service = window.AIProviderService;
-      const requestStructured = service && (service.requestStructuredJsonNoRetry || service.requestStructuredJsonOnce);
       const requestPlan = typeof configuredPlan === "function" ? configuredPlan : async (inventory) => {
-        if (!batchIdentity || typeof requestStructured !== "function") throw new Error("document_reduce_provider_unavailable");
-        return requestStructured.call(service, {
-          app: appRef, provider: batchIdentity.provider,
+        const response = await window.ProdigyAIConsumerRuntime.requestStructured({
+          app: appRef,
+          consumerId: "wiki.page_plan",
           prompt: JSON.stringify({
             task: "Group the complete source inventory into 4-16 coherent source sections and 0-20 reusable topic documents. Every source entry must appear exactly once in source_sections. Every topic entry must appear exactly once either in a topic document with at least two entries or in source_only_entry_ids. Prefer broad documents with context, implications, and exceptions; never create one-claim documents. Return ids only and never paths or write operations.",
             inventory,
           }),
-          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA,
-          timeoutMs: 120000,
+          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA
         });
+        return response.payload;
       };
       const reducer = window.LLMWikiDocumentReducer.createDocumentReducer({ requestPlan });
       const reduced = await reducer.reduce({ source_document: sourceDocument, topic_documents: topicDocuments });
@@ -1485,10 +1466,6 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       return rows;
     };
-    const structuredRequest = () => {
-      const service = window.AIProviderService;
-      return service && (service.requestStructuredJsonNoRetry || service.requestStructuredJsonOnce);
-    };
     const runDocumentPlan = async (requestedSourcePath, runOptions = {}) => {
       if (typeof requestedSourcePath !== "string") return { ok: false, reason: "invalid_plan_source" };
       const explicitRetry = runOptions && runOptions.explicit_retry === true;
@@ -1531,17 +1508,16 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const inventoryResult = window.LLMWikiDocumentReducer.createClaimInventory({ source, documents: draftDocuments });
       if (!inventoryResult.ok) return inventoryResult;
       const requestPlan = llmWikiControllerOptions.documentPagePlan || (async (request) => {
-        const requestStructured = structuredRequest();
-        if (!batchIdentity || typeof requestStructured !== "function") throw new Error("page_plan_provider_unavailable");
-        return requestStructured.call(window.AIProviderService, {
-          app: appRef, provider: batchIdentity.provider,
+        const response = await window.ProdigyAIConsumerRuntime.requestStructured({
+          app: appRef,
+          consumerId: "wiki.page_plan",
           prompt: JSON.stringify({
             task: "Build a concise source guide and a reviewable page plan. The source guide must partition every claim exactly once into 1-16 sections with a short summary. Reusable claims must appear exactly once either in 0-20 topic pages or source_only_claim_ids. New pages need at least two distinct evidence records. Prefer updating an allowlisted existing candidate when it is clearly the same topic. Return claim ids and allowlisted candidate ids only; never return prose documents, paths, or write operations.",
             request,
           }),
-          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA,
-          timeoutMs: 120000,
+          schema: window.LLMWikiDocumentReducer.PLAN_SCHEMA
         });
+        return response.payload;
       });
       const planner = window.LLMWikiDocumentReducer.createPagePlanner({
         allowedCandidateIds: configuredAllowedCandidateIds,
@@ -1763,17 +1739,16 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           };
         }),
       }) : llmWikiControllerOptions.documentArticleCompiler || (async (request) => {
-        const requestStructured = structuredRequest();
-        if (!batchIdentity || typeof requestStructured !== "function") throw new Error("article_provider_unavailable");
-        return requestStructured.call(window.AIProviderService, {
-          app: appRef, provider: batchIdentity.provider,
+        const response = await window.ProdigyAIConsumerRuntime.requestStructured({
+          app: appRef,
+          consumerId: "wiki.article_compile",
           prompt: JSON.stringify({
             task: "Compile each approved page into coherent sections and paragraphs. Every paragraph must cite one or more provided claim_ids. Use every page claim at least once. Do not add unsupported facts, paths, metadata, or Markdown authority. Return structured article sections only.",
             request,
           }),
-          schema: window.LLMWikiDocumentCompiler.ARTICLE_SCHEMA,
-          timeoutMs: 120000,
+          schema: window.LLMWikiDocumentCompiler.ARTICLE_SCHEMA
         });
+        return response.payload;
       });
       const compiler = window.LLMWikiDocumentCompiler.createDocumentCompiler({ requestArticles });
       const compiled = await compiler.compile({ inventory: documentPlanInventory, approved_plan: plan, execution: documentPlanExecution });
@@ -2589,7 +2564,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         retrieval: { snapshot: { documents: [] } },
         consent: { issued_at: now, nonce: `consent_${runId.slice(4)}_0001` },
         approval: { expires_at: new Date(Date.now() + 3600000).toISOString(), nonce: `approval_${runId.slice(4)}_0001` },
-        advanced_settings: { provider_mode: selectedProviderMode, timeout_ms: 120000 },
+        advanced_settings: { timeout_ms: 120000 },
         canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "사람이 승인할 때", application_contexts: ["reading"], connections: [], invalidation_conditions: [], summary: "" },
         explicit_user_consent: true,
         ...(explicitRetry ? { task13_explicit_retry: true, task13_retry_intent_id: retryIntentId } : {}),
@@ -2624,7 +2599,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const lifecycleSnapshot = () => {
       const snapshot = llmWikiRunController.getSnapshot();
       const prodigyWiki = window.ProdigyWikiController.projectLifecycle(prodigyWikiController.getSnapshot());
-      const directProvider = resolveProvider("direct");
+      const runtimeProvider = llmWikiAIClient.resolveProvider("wiki.batch_analysis");
+      const runtimeProviders = llmWikiAIClient.listProviders();
       const durableProcessed = Boolean(durableRecovery
         && Array.isArray(durableRecovery.operation_outcomes)
         && durableRecovery.operation_outcomes.length > 0
@@ -2634,13 +2610,13 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       return {
         ...snapshot,
         prodigy_wiki: prodigyWikiController.getSnapshot(),
-        ...(snapshot.provider_mode ? {} : { provider_mode: selectedProviderMode }),
-        provider_key: directProvider && directProvider.ok === true ? directProvider.provider_key : "",
-        provider_options: providerOptions,
-        provider_readiness: (() => {
-          const selected = directProvider && directProvider.ok === true ? providerOptions.find((option) => option.provider_key === directProvider.provider_key) : null;
-          return { ready: Boolean(selected && selected.configured === true), code: selected && selected.configured === true ? "ready" : String(directProvider && directProvider.code || "configuration_required") };
-        })(),
+        provider_mode: "runtime",
+        provider_key: runtimeProvider && runtimeProvider.profile_id || "",
+        provider_options: Array.isArray(runtimeProviders) ? runtimeProviders : [],
+        provider_readiness: {
+          ready: Boolean(runtimeProvider && runtimeProvider.status === "ready"),
+          code: String(runtimeProvider && runtimeProvider.status || runtimeProvider && runtimeProvider.error_code || "runtime_unavailable")
+        },
         display_variant: "local",
         golden_wiki: prodigyWiki.golden_wiki,
         ...(providerSelectionFailure ? { provider_selection_error: providerSelectionFailure } : {}),
@@ -2693,20 +2669,14 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       if (["retry_inbox", "retry_analysis"].includes(intent.action)) return runInboxBatch({ explicitRetry: true });
       if (intent.action === "open_ai_settings") {
-        try {
-          await ensureProdigySettings(appRef);
-          if (!window.ProdigySettingsModal || typeof window.ProdigySettingsModal.open !== "function") return { ok: false, status: "blocked", reason: "settings_unavailable" };
-          window.ProdigySettingsModal.open(appRef);
-          return { ok: true, status: inboxState.state, provider_calls: 0 };
-        } catch (_error) { return { ok: false, status: "blocked", reason: "settings_unavailable", provider_calls: 0 }; }
+        return llmWikiAIClient.openSettings() === true
+          ? { ok: true, status: inboxState.state, provider_calls: 0 }
+          : { ok: false, status: "blocked", reason: "settings_unavailable", provider_calls: 0 };
       }
       if (intent.action === "later") return { ok: true, status: inboxState.state, provider_calls: 0 };
       if (intent.action === "repacket") return llmWikiRunController.repacketStale({ action: "repacket_stale" });
       if (intent.action === "set_provider_mode") {
-        if (!["direct", "omniroute"].includes(intent.provider_mode)) return { ok: false, status: "failed", reason: "invalid_provider_mode" };
-        selectedProviderMode = intent.provider_mode;
-        selectedRunCommand = null;
-        return { ok: true, status: llmWikiRunController.getSnapshot().status, provider_mode: selectedProviderMode };
+        return { ok: false, status: "failed", reason: "provider_selection_owned_by_runtime" };
       }
       if (intent.action === "set_provider") {
         return { ok: false, status: "failed", reason: "action_unavailable" };
@@ -2778,14 +2748,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (!selectedSource) {
         return { ok: false, status: "selecting", reason: "source_selection_required" };
       }
-      const resolvedProvider = resolveProvider(selectedProviderMode);
-      const providerOption = resolvedProvider && resolvedProvider.ok === true
-        ? providerOptions.find((option) => option.provider_key === resolvedProvider.provider_key)
-        : null;
+      const resolvedProvider = llmWikiAIClient.resolveProvider("wiki.batch_analysis");
       const providerGateOk = Boolean(llmWikiControllerOptions.batchProvider || llmWikiControllerOptions.batchIdentity)
-        || Boolean(providerOption && providerOption.configured === true);
+        || Boolean(resolvedProvider && ["ready", "consent_required"].includes(resolvedProvider.status));
       if (!providerGateOk) {
-        providerSelectionFailure = "설정 → AI에서 기본 제공자의 인증 설정을 확인해 주세요.";
+        providerSelectionFailure = "AI Runtime에서 Wiki provider route를 확인해 주세요.";
         return { ok: false, status: "failed", reason: "provider_selection_unavailable" };
       }
       if (["resume_prodigy_wiki", "retry_prodigy_wiki"].includes(intent.action)) {
@@ -2996,7 +2963,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       else if (intent.action === "retry_follow_up") pending = llmWikiRunController.retryOperationFollowUp(intent);
       else if (intent.action === "recover_operation") pending = llmWikiRunController.recoverOperation(intent);
       else pending = dispatchStartupIntent(intent);
-      const fastLocalAction = ["select_source", "select_golden_scope", "open_golden_review", "set_provider_mode", "later", "open_ai_settings", "request_consent", "cancel"].includes(intent.action);
+      const fastLocalAction = ["select_source", "select_golden_scope", "open_golden_review", "later", "open_ai_settings", "request_consent", "cancel"].includes(intent.action);
       if (!fastLocalAction && !["approve_risk", "reject_risk", "approve_risk_batch", "request_risk_revision"].includes(intent.action)) llmWikiLifecycle.update(lifecycleSnapshot());
       if (!fastLocalAction) {
         refreshReviewWorkbench();

@@ -46,7 +46,9 @@
     return Core.deepFreeze({ schema_version: Core.BRIEF_SCHEMA_VERSION, summary_lines, source_ids });
   }
 
-  root.KnowledgeExplorerBriefPolicy = Object.freeze({
+  const api = Object.freeze({
     BRIEF_AI_SUMMARY_SCHEMA, containsOutcomeClaim, redactBriefError, normalizeAiSummary
   });
+  root.KnowledgeExplorerBriefPolicy = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

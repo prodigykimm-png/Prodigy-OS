@@ -2,21 +2,15 @@
   "use strict";
 
   if (typeof require === "function" && !root.KnowledgeSourceBatchPolicy) root.KnowledgeSourceBatchPolicy = require("./knowledge-source-batch-policy.js");
+  if (typeof require === "function" && !root.ProdigyAIConsumerRuntime) root.ProdigyAIConsumerRuntime = require("./prodigy-ai-consumer-runtime.js");
   const Policy = root.KnowledgeSourceBatchPolicy;
   if (!Policy) throw new Error("Knowledge source batch policy must load before its service module.");
 
-  const DEFAULT_TIMEOUT_MS = 8000;
   const FALLBACK_MESSAGE = "사용자 텍스트 또는 메모를 입력한 뒤 다시 요약해 주세요.";
 
   function clean(value) { return typeof value === "string" ? value.trim().normalize("NFC") : ""; }
   function freeze(value) { return Object.freeze(value); }
   function safeErrorStatus(status, message) { return { status, ai: null, redacted_status: message }; }
-
-  function providerLoader(inputs) {
-    if (typeof inputs.loadProviderConfig === "function") return inputs.loadProviderConfig;
-    const service = inputs.providerConfigService;
-    return service && typeof service.loadProviderConfig === "function" ? service.loadProviderConfig.bind(service) : null;
-  }
 
   function publicFallback(item, result) {
     return {
@@ -54,21 +48,11 @@
   function createKnowledgeSourceBatchService(deps) {
     const inputs = deps && typeof deps === "object" ? deps : {};
     const fetchService = inputs.fetchService || null;
-    const aiProviderService = inputs.aiProviderService || null;
-    const loadProviderConfig = providerLoader(inputs);
-    const defaultTimeout = Number.isFinite(inputs.timeoutMs) ? Math.max(0, inputs.timeoutMs) : DEFAULT_TIMEOUT_MS;
+    const consumerRuntime = inputs.consumerRuntime || root.ProdigyAIConsumerRuntime;
     let nextRequestId = 0;
     let latestRequestId = 0;
     let currentController = null;
     let latestResult = freeze({ request_id: 0, status: "idle", applied: false, redacted_status: "대기 중", items: [] });
-
-    async function resolveProvider(options) {
-      if (options && options.provider && typeof options.provider === "object") return options.provider;
-      if (!loadProviderConfig) return null;
-      const config = options && options.config && typeof options.config === "object" ? options.config : await loadProviderConfig(options && options.app);
-      const key = options && options.providerKey || config && config.defaultProvider;
-      return config && config.providers && key ? config.providers[key] || null : null;
-    }
 
     function markLatest(result, requestId) {
       if (requestId !== latestRequestId) return freeze({ ...result, status: "stale", applied: false, redacted_status: "더 최근 요청의 결과를 사용합니다." });
@@ -77,41 +61,24 @@
     }
 
     async function runProvider(items, options, signal) {
-      if (!aiProviderService || typeof aiProviderService.requestStructuredJson !== "function") return safeErrorStatus("provider_missing", "AI 제공자를 사용할 수 없습니다. 사용자 텍스트는 유지됩니다.");
-      let provider;
-      try { provider = await resolveProvider(options || {}); } catch (error) { return safeErrorStatus("provider_error", "AI 제공자 설정을 확인해 주세요."); }
-      if (!provider || !provider.model) return safeErrorStatus("provider_missing", "AI 제공자를 사용할 수 없습니다. 사용자 텍스트는 유지됩니다.");
+      if (!consumerRuntime || typeof consumerRuntime.requestStructured !== "function") return safeErrorStatus("provider_missing", "AI Runtime을 사용할 수 없습니다. 사용자 텍스트는 유지됩니다.");
       if (signal && signal.aborted) return safeErrorStatus("cancelled", "요약 요청을 취소했습니다. 사용자 텍스트는 유지됩니다.");
-      const controller = new AbortController();
-      let timer = null;
-      let onAbort = null;
-      let cancel;
-      const cancelled = new Promise((resolve) => { cancel = resolve; });
-      if (signal) {
-        onAbort = () => { controller.abort(); cancel({ kind: "cancelled" }); };
-        signal.addEventListener("abort", onAbort, { once: true });
+      try {
+        const response = await consumerRuntime.requestStructured({
+          app: options && options.app,
+          client: options && options.client || inputs.client,
+          consumerId: "knowledge.source_batch",
+          prompt: Policy.buildPrompt(items),
+          schema: Policy.SOURCE_BATCH_RESPONSE_SCHEMA,
+          signal,
+          confirmConsent: options && options.confirmConsent
+        });
+        return { status: "ai", ai: Policy.normalizeBatchResponse(response.payload, items), redacted_status: "AI 요약을 준비했습니다." };
+      } catch (error) {
+        if (error && error.code === "cancel_requested") return safeErrorStatus("cancelled", "요약 요청을 취소했습니다. 사용자 텍스트는 유지됩니다.");
+        if (error && error.code === "timeout") return safeErrorStatus("timeout", "요약 시간이 초과되었습니다. 사용자 텍스트는 유지됩니다.");
+        return safeErrorStatus("provider_error", "AI 요약을 완료하지 못했습니다. 사용자 텍스트는 유지됩니다.");
       }
-      const timeoutMs = Number.isFinite(options && options.timeoutMs) ? Math.max(0, options.timeoutMs) : defaultTimeout;
-      const request = Promise.resolve().then(() => aiProviderService.requestStructuredJson({
-        app: options && options.app,
-        provider,
-        prompt: Policy.buildPrompt(items),
-        schema: Policy.SOURCE_BATCH_RESPONSE_SCHEMA,
-        signal: controller.signal,
-        requestTag: options && options.requestTag
-      })).then((value) => ({ ok: true, value }), () => ({ ok: false }));
-      const timeout = new Promise((resolve) => {
-        if (timeoutMs === 0) { controller.abort(); resolve({ kind: "timeout" }); return; }
-        timer = setTimeout(() => { controller.abort(); resolve({ kind: "timeout" }); }, timeoutMs);
-      });
-      const settled = await Promise.race([request, timeout, cancelled]);
-      if (timer) clearTimeout(timer);
-      if (signal && onAbort) signal.removeEventListener("abort", onAbort);
-      if (settled && settled.kind === "cancelled") return safeErrorStatus("cancelled", "요약 요청을 취소했습니다. 사용자 텍스트는 유지됩니다.");
-      if (settled && settled.kind === "timeout") return safeErrorStatus("timeout", "요약 시간이 초과되었습니다. 사용자 텍스트는 유지됩니다.");
-      if (!settled || !settled.ok) return safeErrorStatus("provider_error", "AI 요약을 완료하지 못했습니다. 사용자 텍스트는 유지됩니다.");
-      try { return { status: "ai", ai: Policy.normalizeBatchResponse(settled.value, items), redacted_status: "AI 요약을 준비했습니다." }; }
-      catch (error) { return safeErrorStatus("invalid_response", "AI 응답 형식을 확인하지 못했습니다. 사용자 텍스트는 유지됩니다."); }
     }
 
     function shapeResult(requestId, outcome, itemStates) {

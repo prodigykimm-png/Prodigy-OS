@@ -6,21 +6,14 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
-const configService = require(path.join(ROOT, "SYSTEM/Views/prodigy-config-service.js"));
 const controllerApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-run-controller.js"));
 const proposalBundleApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-proposal-bundle.js"));
 
-function config() {
-  return configService.mergeConfig(configService.DEFAULT_CONFIG, {
-    aiProfiles: {
-      schema_version: 1,
-      llmwiki: { direct_provider_key: "groq", omniroute_provider_key: "openrouter" },
-    },
-    providers: {
-      groq: { adapter: "openai-compatible", model: "controller-fixture", authMode: "none" },
-      openrouter: { adapter: "openai-compatible", model: "route-fixture", authMode: "none" },
-    },
-  });
+function aiClient(status = "ready") {
+  return {
+    resolveProvider: () => ({ status, profile_id: "runtime-profile", route_class: "local" }),
+    grantConsumer: async () => ({ status: "granted" }),
+  };
 }
 function fixtureApp() {
   const files = new Map();
@@ -104,7 +97,7 @@ function consentRunCommand() {
     proposal_request: { instruction: "fixture consent propagation" },
     consent: { issued_at: fetchedAt, nonce: "consent_controller_fixture_0001" },
     approval: { expires_at: "2026-08-09T01:00:00.000Z", nonce: "approval_controller_fixture_0001" },
-    advanced_settings: { provider_mode: "direct", timeout_ms: 5000 },
+    advanced_settings: { timeout_ms: 5000 },
     canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "fixture", application_contexts: ["reading"], connections: [], invalidation_conditions: [], summary: "" },
     explicit_user_consent: true,
     fixtureBundle: bundle.value,
@@ -112,7 +105,7 @@ function consentRunCommand() {
 }
 
 test("controller accepts canonical fourth-tab identities and rejects the legacy tab alias", () => {
-  const controller = controllerApi.createRunController({ config: config() });
+  const controller = controllerApi.createRunController({ ai_client: aiClient() });
   assert.equal(controller.tabSwitch({ action: "tab_switch", tab_id: "llmwiki" }).ok, true);
   assert.equal(controller.tabSwitch({ action: "tab_switch", tab_id: "llmwiki-browse" }).ok, true);
   const legacy = controller.tabSwitch({ action: "tab_switch", tab_id: "llm_wiki" });
@@ -120,15 +113,15 @@ test("controller accepts canonical fourth-tab identities and rejects the legacy 
   assert.equal(legacy.reason, "invalid_tab_id");
 });
 
-test("controller binds the selected provider key to config before any run side effect", async () => {
-  const controller = controllerApi.createRunController({ config: config() });
+test("controller rejects caller-selected providers before any run side effect", async () => {
+  const controller = controllerApi.createRunController({ ai_client: aiClient() });
   const result = await controller.startRun({
     run_id: "run_controller_fixture",
     sources: [{ selected: true, manifest: {} }],
     advanced_settings: { provider_mode: "direct", provider_key: "openrouter", timeout_ms: 1000 },
   });
   assert.equal(result.ok, false);
-  assert.equal(result.reason, "provider_identity_mismatch");
+  assert.equal(result.reason, "provider_selection_owned_by_runtime");
   assert.equal(result.counters.provider, 0);
   assert.equal(result.counters.network, 0);
 });
@@ -138,7 +131,7 @@ test("controller binds the frozen consent hash to the canonical analysis delegat
   let delegated = null;
   const controller = controllerApi.createRunController({
     app: fixtureApp(),
-    config: config(),
+    ai_client: aiClient(),
     analyze_batch: async ({ command: forwarded }) => {
       delegated = forwarded;
       return { ok: true, provider_calls: 1, consent_hash: crypto.createHash("sha256").update(`delegated:${command.run_id}`).digest("hex"), proposals: [] };

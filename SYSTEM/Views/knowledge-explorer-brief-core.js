@@ -120,8 +120,10 @@
     return deepFreeze({ schema_version: BRIEF_SCHEMA_VERSION, domain: normalized.domain, domain_label: normalized.domain_label, lines, source_ids: normalized.source_ids, packet: normalized });
   }
 
-  root.KnowledgeExplorerBriefCore = Object.freeze({
+  const api = Object.freeze({
     BRIEF_SCHEMA_VERSION, isPlainObject, deepFreeze, canonicalSourceId, normalizeText, normalizeNumber,
     uniqueStable, normalizeSignalBundle, buildDeterministicBrief
   });
+  root.KnowledgeExplorerBriefCore = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

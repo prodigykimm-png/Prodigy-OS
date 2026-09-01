@@ -40,16 +40,12 @@
     },
   };
   const delayed = new URLSearchParams(location.search).get("mode") === "cancel";
-  const fixtureConfig = ProdigyConfigService.mergeConfig(ProdigyConfigService.DEFAULT_CONFIG, {
-    aiProfiles: { schema_version: 1, llmwiki: { direct_provider_key: "gemini", omniroute_provider_key: "openrouter" } },
-    providers: {
-      gemini: { adapter: "openai-compatible", model: "controller-fixture", authMode: "none" },
-      openrouter: { adapter: "openai-compatible", model: "route-fixture", authMode: "none" },
-    },
-  });
   const controller = LLMWikiRunController.createRunController({
     app,
-    config: fixtureConfig,
+    ai_client: {
+      resolveProvider: () => ({ status: "ready", profile_id: "fixture-runtime", route_class: "local" }),
+      grantConsumer: async () => ({ status: "granted" }),
+    },
     now: () => NOW,
     derived_root: ".task15-controller-fixture",
     analyze_batch({ command: analysisCommand, signal }) {
@@ -100,7 +96,7 @@
   const receipt = document.querySelector("#qa-receipt");
   const intents = [];
   let lifecycle;
-  let providerMode = "direct";
+  const providerMode = "runtime";
   let lastResult = null;
 
   function command(explicitConsent) {
@@ -132,7 +128,7 @@
       explicit_user_consent: explicitConsent,
       consent: { issued_at: NOW, nonce: "consent_controller_surface_0001" },
       approval: { expires_at: "2026-08-03T01:00:00.000Z", nonce: "approval_controller_surface_0001" },
-      advanced_settings: { provider_mode: providerMode, provider_key: providerMode === "direct" ? "gemini" : "" },
+      advanced_settings: { timeout_ms: 60000 },
       canonical_defaults: {
         knowledge_domain: "reading",
         knowledge_topics: [],
@@ -206,9 +202,6 @@
     } else if (intent.action === "cancel") {
       controller.cancel(intent);
       settle(snapshot());
-    } else if (intent.action === "set_provider_mode") {
-      providerMode = intent.provider_mode;
-      settle(snapshot({ status: "selecting", source_selection: { selected: true, display_name: source.display_name } }));
     }
     renderReceipt();
   }

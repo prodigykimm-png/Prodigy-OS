@@ -118,7 +118,14 @@
   }
   function providerOptions(snapshot) {
     if (!Array.isArray(snapshot.provider_options)) return [];
-    return snapshot.provider_options.filter((provider) => plain(provider) && text(provider.provider_key) && text(provider.name));
+    return snapshot.provider_options
+      .filter((provider) => plain(provider) && text(provider.profile_id || provider.provider_key))
+      .map((provider) => ({
+        ...provider,
+        provider_key: text(provider.profile_id || provider.provider_key),
+        name: text(provider.name || provider.provider_key || provider.profile_id),
+        configured: snapshot.provider_readiness?.ready === true,
+      }));
   }
   function inboxCounts(inbox) {
     if (!plain(inbox)) return null;
@@ -305,7 +312,7 @@
       createEl(details, "summary", { text: "실행 정보" });
       if (text(source.source_path)) createEl(details, "code", { text: text(source.source_path), attr: { "data-selected-source-path": "" } });
       if (text(source.content_hash)) createEl(details, "p", { text: `선택 당시 원문 · ${text(source.content_hash).slice(0, 12)}`, attr: { "data-selected-source-revision": text(source.content_hash) } });
-      createEl(details, "p", { text: `${source.source_kind === "inbox" ? "내 자료" : "문헌"} · ${text(source.provider_mode || snapshot.provider_mode || "direct")} 연결`, attr: { "data-selected-source-technical-boundary": "" } });
+      createEl(details, "p", { text: `${source.source_kind === "inbox" ? "내 자료" : "문헌"} · AI Runtime 연결`, attr: { "data-selected-source-technical-boundary": "" } });
       return section;
     }
 
@@ -313,22 +320,22 @@
 
     function providerPicker(parent) {
       const options = providerOptions(snapshot);
-      const selected = options.find((option) => text(option.provider_key) === text(snapshot.provider_key));
+      const selected = options.find((option) => text(option.profile_id || option.provider_key) === text(snapshot.provider_key));
       if (!selected) return null;
       const section = createEl(parent, "details", { attr: { class: "llmwiki-lifecycle__provider", "aria-label": "Prodigy Wiki AI 연결", "data-disclosure": "provider-details" } });
-      createEl(section, "summary", { text: "사용할 AI", attr: { class: "llmwiki-lifecycle__provider-label" } });
-      const model = text(selected.model);
+      createEl(section, "summary", { text: "AI Runtime", attr: { class: "llmwiki-lifecycle__provider-label" } });
+      const model = text(selected.model || selected.route_class);
       const current = createEl(section, "div", {
         attr: {
           class: "llmwiki-lifecycle__provider-current",
-          "data-provider-inheritance": "global",
-          "data-provider-key": text(selected.provider_key),
+          "data-provider-inheritance": "runtime",
+          "data-provider-key": text(selected.profile_id || selected.provider_key),
           "data-provider-model": model,
           "data-provider-ready": String(snapshot.provider_readiness?.ready === true),
           "data-provider-readiness-code": text(snapshot.provider_readiness?.code) || (selected.configured === true ? "ready" : "configuration_required"),
         },
       });
-      createEl(current, "span", { text: text(selected.name), attr: { class: "llmwiki-lifecycle__provider-name" } });
+      createEl(current, "span", { text: text(selected.name || selected.profile_id), attr: { class: "llmwiki-lifecycle__provider-name" } });
       if (model || selected.configured !== true) {
         const detail = createEl(current, "div", { attr: { class: "llmwiki-lifecycle__provider-detail" } });
         createEl(detail, "span", { text: " · ", attr: { class: "llmwiki-lifecycle__provider-separator", "aria-hidden": "true" } });
@@ -348,16 +355,8 @@
       const details = createEl(parent, "details", { attr: { class: "llmwiki-lifecycle__advanced", "data-disclosure": "run-settings" } });
       createEl(details, "summary", { text: "실행 정보 및 설정", attr: { "data-focus-key": "advanced-run-settings" } });
       const settings = createEl(details, "div", { attr: { class: "llmwiki-lifecycle__settings" } });
-      createEl(settings, "h3", { text: "연결 방식" });
-      for (const provider of [{ value: "direct", label: "직접 연결" }, { value: "omniroute", label: "OmniRoute" }]) {
-        const label = createEl(settings, "label", { attr: { class: "llmwiki-lifecycle__setting" } });
-        const input = createEl(label, "input", { attr: { type: "radio", name: "llmwiki-provider-mode", value: provider.value, "aria-label": provider.label } });
-        input.checked = (text(snapshot.provider_mode) || "direct") === provider.value;
-        input.onchange = () => {
-          if (input.checked) dispatch({ action: "set_provider_mode", provider_mode: provider.value });
-        };
-        createEl(label, "span", { text: provider.label });
-      }
+      createEl(settings, "h3", { text: "AI Runtime" });
+      createEl(settings, "p", { text: "Provider와 route는 외부 AI Runtime 설정에서 관리합니다.", attr: { class: "llmwiki-lifecycle__muted" } });
       createEl(settings, "h3", { text: "제안 유형" });
       const createLabel = createEl(settings, "label", { attr: { class: "llmwiki-lifecycle__setting" } });
       const createInput = createEl(createLabel, "input", { attr: { type: "checkbox", "data-operation": "create", "aria-label": OPERATION_LABELS.create } });
@@ -541,7 +540,7 @@
       sourceContext(parent);
       createEl(parent, "p", { text: golden ? model.description : "AI는 제안만 만듭니다. 사람이 승인하기 전에는 지식으로 저장되지 않습니다." });
       const actions = actionRow(parent);
-      actionButton(actions, golden ? model.primary_label : "동의하고 제안 만들기", "start-run", { action: "start_run", provider_mode: text(snapshot.provider_mode) || "direct" }, { primary: true });
+      actionButton(actions, golden ? model.primary_label : "동의하고 제안 만들기", "start-run", { action: "start_run" }, { primary: true });
       actionButton(actions, "취소", "cancel-run", { action: "cancel" });
       runSettings(parent);
     }

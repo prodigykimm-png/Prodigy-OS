@@ -24,12 +24,6 @@
     return app && typeof app.requestUrl === "function" ? app.requestUrl : null;
   }
 
-  function providerConfigService() {
-    const service = root.ProjectWorkflowDraftService;
-    if (service && typeof service.loadProviderConfig === "function") return service;
-    return Object.freeze({ async loadProviderConfig() { return { defaultProvider: "", providers: {} }; } });
-  }
-
   function createAuthoringHubConfig(app) {
     const authoringCore = required("KnowledgeAuthoringCore");
     const candidateStore = required("KnowledgeCandidateStore");
@@ -39,8 +33,7 @@
     const fetchService = fetchRuntime.createKnowledgeSourceFetchService({ requestUrl: requestUrl(app) });
     const batchService = batchRuntime.createKnowledgeSourceBatchService({
       fetchService,
-      aiProviderService: root.AIProviderService || null,
-      providerConfigService: providerConfigService()
+      consumerRuntime: root.ProdigyAIConsumerRuntime || null
     });
     const createCandidate = (candidate) => candidateStore.saveCandidate(app, candidate);
     return Object.freeze({ app, authoringCore, candidateStore, sourceStore, fetchService, batchService, createCandidate });

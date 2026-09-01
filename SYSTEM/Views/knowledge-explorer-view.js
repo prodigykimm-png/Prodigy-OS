@@ -134,7 +134,7 @@
     let briefRequestId = 0;
     let briefAbortController = null;
     let briefInFlight = null;
-    const briefService = options.briefService || Brief.createKnowledgeExplorerBriefService({ aiProviderService: {}, providerConfigService: {} });
+    const briefService = options.briefService || Brief.createKnowledgeExplorerBriefService({ consumerRuntime: root.ProdigyAIConsumerRuntime });
     const briefsByDomain = new Map();
     let hydrationRequestId = 0;
     let hydrationAbortController = null;
@@ -267,6 +267,7 @@
         try {
           const result = await briefService.generateBrief(packet, {
             app: options.app,
+            aiRequested: true,
             signal: briefAbortController ? briefAbortController.signal : undefined,
             requestTag: `knowledge-explorer:${packet.domain}:${requestId}`
           });

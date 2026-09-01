@@ -3,14 +3,13 @@
 
   const proposalBundleApi = root.LLMWikiProposalBundle || (typeof require === "function" ? require("./llmwiki-proposal-bundle.js") : null);
   const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
-  const configApi = root.ProdigyConfigService || (typeof require === "function" ? require("./prodigy-config-service.js") : null);
   const FEATURES = Object.freeze(["llmwiki"]);
-  const PROVIDER_MODES = Object.freeze(["direct", "omniroute"]);
-  const RETRY_OWNERS = Object.freeze(["prodigy", "gateway"]);
+  const PROVIDER_MODES = Object.freeze(["runtime", "direct"]);
+  const RETRY_OWNERS = Object.freeze(["prodigy"]);
   const SENSITIVITY = Object.freeze(["public", "internal", "private"]);
   const CONFIDENCE = Object.freeze(["explicit", "inferred", "low"]);
   const RESPONSE_KEYS = new Set(["status", "proposal_bundle", "response_metadata"]);
-  const REQUEST_METADATA_KEYS = new Set(["request_id", "trace", "profile_revision", "provider_key"]);
+  const REQUEST_METADATA_KEYS = new Set(["request_id", "trace", "profile_revision"]);
   const HASH = /^[0-9a-f]{64}$/u;
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
@@ -115,28 +114,9 @@
     return freeze(normalized);
   }
 
-  function providerKeyFor(request, context, providerMode) {
-    const resolver = configApi && configApi.resolveAIProfileProviderKey;
-    if (typeof resolver !== "function") return fail("configuration", "configuration_unavailable");
-    const config = plain(context && context.config) ? context.config : undefined;
-    let resolved;
-    try {
-      resolved = resolver(config, trim(request && request.feature), providerMode);
-    } catch (_) {
-      return fail("configuration", "configuration_invalid");
-    }
-    if (!resolved || resolved.ok !== true) {
-      return fail(resolved && resolved.field || "provider_key", resolved && resolved.code || "provider_unavailable");
-    }
-    const metadataProvider = trim(request && request.request_metadata && request.request_metadata.provider_key);
-    if (!metadataProvider || metadataProvider !== resolved.provider_key) {
-      return fail("request_metadata.provider_key", "provider_identity_mismatch");
-    }
-    return ok({ provider_key: resolved.provider_key, provider: resolved.provider });
-  }
   function profileModeFor(request) {
     if (request.provider_mode !== undefined) return trim(request.provider_mode);
-    return "direct";
+    return "runtime";
   }
 
   function selectProviderProfile(request, context = {}) {
@@ -145,21 +125,17 @@
     if (!FEATURES.includes(feature)) return fail("feature", "unsupported_feature");
     const providerMode = profileModeFor(request);
     if (!PROVIDER_MODES.includes(providerMode)) return fail("provider_mode", "invalid_provider_mode");
-    const retryOwner = trim(request.retry_owner || (providerMode === "omniroute" ? "gateway" : "prodigy"));
+    const retryOwner = trim(request.retry_owner || "prodigy");
     if (!RETRY_OWNERS.includes(retryOwner)) return fail("retry_owner", "invalid_retry_owner");
     const timeoutMs = Number(request.timeout_ms);
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120000) return fail("timeout_ms", "invalid_timeout");
     const requestMetadata = normalizeMetadata(request.request_metadata);
     if (requestMetadata.ok === false) return requestMetadata;
-    const providerResult = providerKeyFor(request, context, providerMode);
-    if (providerResult.ok === false) return providerResult;
-    const providerKey = providerResult.value.provider_key;
     return ok({
       feature,
-      provider_mode: providerMode,
-      provider_key: providerKey,
-      provider: providerResult.value.provider,
-      explicit_provider: request.provider_mode !== undefined || Boolean(requestMetadata.provider_key),
+      provider_mode: "runtime",
+      provider_key: "runtime",
+      explicit_provider: false,
       timeout_ms: timeoutMs,
       retry_owner: retryOwner,
       fallback_allowed: false,

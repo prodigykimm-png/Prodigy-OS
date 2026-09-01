@@ -1,14 +1,13 @@
 (function (root) {
   "use strict";
 
-  if (!root.ProdigyConfigService && typeof require === "function") root.ProdigyConfigService = require("./prodigy-config-service.js");
-  if (!root.AIProviderService && typeof require === "function") root.AIProviderService = require("./ai-provider-service.js");
+  if (!root.ProdigyAIConsumerRuntime && typeof require === "function") root.ProdigyAIConsumerRuntime = require("./prodigy-ai-consumer-runtime.js");
   if (!root.LLMWikiUIRecovery && typeof require === "function") root.LLMWikiUIRecovery = require("./llmwiki-ui-recovery.js");
   if (!root.LLMWikiProviderResponseSchema && typeof require === "function") root.LLMWikiProviderResponseSchema = require("./llmwiki-provider-response-schema.js");
 
   const RESPONSE_KEYS = new Set(["status", "proposal_bundle", "response_metadata"]);
   const METADATA_KEYS = new Set(["provider_status", "latency_ms", "request_id", "profile_revision"]);
-  const REQUEST_METADATA_KEYS = new Set(["request_id", "trace", "profile_revision", "provider_key"]);
+  const REQUEST_METADATA_KEYS = new Set(["request_id", "trace", "profile_revision"]);
   const FORBIDDEN_PAYLOAD_KEYS = /(?:api[_-]?key|secret|cookie|password|authorization|bearer|config)/iu;
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
@@ -51,7 +50,6 @@
       if (!REQUEST_METADATA_KEYS.has(key) || typeof item !== "string") return failure("request_metadata_invalid", "LLMWiki 요청 메타데이터를 확인하지 못했습니다.");
       result[key] = item.trim();
     }
-    if (!result.provider_key) return failure("provider_key_missing", "LLMWiki 제공자 확인 정보가 없습니다.");
     return success({ request_metadata: result });
   }
   function safeConsentHashes(value) {
@@ -75,24 +73,14 @@
     return Object.entries(value).some(([key, item]) => FORBIDDEN_PAYLOAD_KEYS.test(key) || containsForbiddenKey(item, seen));
   }
 
-  function resolveProfile(config, normalized) {
+  function resolveProfile(_config, normalized) {
     if (!plain(normalized)) return failure("normalized_request_invalid", "LLMWiki 요청 계약을 확인하지 못했습니다.");
-    const resolver = root.ProdigyConfigService && root.ProdigyConfigService.resolveAIProfileProviderKey;
-    if (typeof resolver !== "function") return failure("configuration_unavailable", "LLMWiki AI 설정을 불러오지 못했습니다.");
-    const mode = trim(normalized.provider_mode || "direct").toLowerCase();
-    let resolved;
-    try { resolved = resolver(config, trim(normalized.feature || "llmwiki"), mode); } catch (_error) { return failure("configuration_invalid", "LLMWiki AI 설정을 확인해 주세요."); }
-    if (!resolved || resolved.ok !== true) return failure(resolved && resolved.code || "provider_unavailable", resolved && resolved.message || "LLMWiki AI 제공자를 사용할 수 없습니다.");
     const metadata = safeRequestMetadata(normalized.request_metadata);
     if (!metadata.ok) return metadata;
-    const normalizedKey = trim(normalized.provider_key);
-    if (!normalizedKey || normalizedKey !== resolved.provider_key || metadata.request_metadata.provider_key !== resolved.provider_key) {
-      return failure("provider_identity_mismatch", "LLMWiki AI 제공자 확인이 일치하지 않습니다.");
-    }
     const timeoutMs = Number(normalized.timeout_ms);
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120000) return failure("timeout_invalid", "LLMWiki AI 요청 시간을 확인하지 못했습니다.");
     if (!plain(normalized.outbound_payload) || containsForbiddenKey(normalized.outbound_payload)) return failure("outbound_payload_invalid", "LLMWiki 요청 자료를 안전하게 준비하지 못했습니다.");
-    return success({ feature: resolved.feature, provider_mode: resolved.provider_mode, provider_key: resolved.provider_key, provider: resolved.provider, timeout_ms: timeoutMs, request_metadata: metadata.request_metadata, outbound_payload: normalized.outbound_payload });
+    return success({ feature: trim(normalized.feature || "llmwiki"), provider_mode: "runtime", provider_key: "runtime", timeout_ms: timeoutMs, request_metadata: metadata.request_metadata, outbound_payload: normalized.outbound_payload });
   }
 
   const BUNDLE_KEYS = new Set(["bundle_version", "run_id", "validation_context", "status", "proposals", "canonical_serialization", "bundle_hash"]);
@@ -174,39 +162,38 @@
   async function requestProposal(options) {
     const request = options || {};
     if (!validResponseSchema(request.schema)) return failure("response_schema_required", "LLMWiki 응답 형식 검증을 준비하지 못했습니다.");
-    let config = request.config;
-    if (!config && root.ProdigyConfigService && typeof root.ProdigyConfigService.load === "function") {
-      try { config = await root.ProdigyConfigService.load(request.app); } catch (_error) { return failure("configuration_invalid", "LLMWiki AI 설정을 확인해 주세요."); }
-    }
     const normalized = request.normalized || request.normalizedRequest;
-    const profile = resolveProfile(config, normalized);
+    const profile = resolveProfile(null, normalized);
     if (!profile.ok) return profile;
     const consent = safeConsentHashes(request.consent);
     if (!consent.ok) return consent;
     if (request.signal && request.signal.aborted) return failure("provider_aborted");
-    const service = request.providerService || root.AIProviderService;
-    if (!service || typeof service.requestStructuredJsonOnce !== "function") return failure("transport_unavailable");
+    const runtime = request.consumerRuntime || root.ProdigyAIConsumerRuntime;
+    if (!runtime || typeof runtime.requestStructured !== "function") return failure("transport_unavailable");
     let response;
+    let runtimeReceipt = null;
     try {
-      response = await service.requestStructuredJsonOnce({
+      const runtimeResponse = await runtime.requestStructured({
         app: request.app,
-        provider: profile.provider,
-        providerKey: profile.provider_key,
-        providerMode: profile.provider_mode,
+        client: request.client,
+        consumerId: request.consumer_id || "wiki.batch_analysis",
         prompt: JSON.stringify(profile.outbound_payload),
         schema: request.schema,
         signal: request.signal,
-        timeoutMs: profile.timeout_ms,
-        requestMetadata: profile.request_metadata,
-        consent: consent.consent
+        confirmConsent: request.confirmConsent,
+        ownerSessionId: request.ownerSessionId,
+        operationId: request.operationId,
+        attemptId: request.attemptId
       });
+      response = runtimeResponse.payload;
+      runtimeReceipt = runtimeResponse.receipt;
     } catch (error) {
       return providerFailure(error, profile);
     }
     let normalizedResponse;
     try { normalizedResponse = validateResponse(response, request.validateProposalBundle, profile.outbound_payload); } catch (_error) { return failure("response_invalid"); }
     if (!normalizedResponse.ok) return normalizedResponse;
-    return success({ feature: profile.feature, provider_mode: profile.provider_mode, provider_key: profile.provider_key, payload: normalizedResponse.payload, response_metadata: normalizedResponse.response_metadata });
+    return success({ feature: profile.feature, provider_mode: profile.provider_mode, provider_key: runtimeReceipt && runtimeReceipt.provider_key || "", payload: normalizedResponse.payload, response_metadata: normalizedResponse.response_metadata, runtime_receipt: runtimeReceipt });
   }
 
   const api = Object.freeze({ resolveProfile, validateProposalBundleShape, validateResponse, requestProposal });

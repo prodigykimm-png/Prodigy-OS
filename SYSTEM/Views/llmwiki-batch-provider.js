@@ -4,7 +4,7 @@
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
   const evidenceAnchor = root.LLMWikiEvidenceAnchor || (typeof require === "function" ? require("./llmwiki-evidence-anchor.js") : null);
   const evidenceCandidatesApi = root.LLMWikiEvidenceCandidates || (typeof require === "function" ? require("./llmwiki-evidence-candidates.js") : null);
-  const inputApi = root.LLMWikiBatchProviderInput || (typeof require === "function" ? require("./llmwiki-batch-provider-input.js") : null);
+  const inputApi = root.LLMWikiBatchProviderInput || (typeof require === "function" ? require("./llmwiki-batch-provider-input.js") : null), consumerRuntimeApi = root.ProdigyAIConsumerRuntime || (typeof require === "function" ? require("./prodigy-ai-consumer-runtime.js") : null);
   if (!inputApi || !evidenceCandidatesApi) throw new Error("LLMWiki batch provider dependencies are required.");
 
   const MAX_CHUNKS_PER_PACK = 4, MAX_ITEMS_PER_RESULT = 8, MAX_CLAIMS = 8, MAX_REVIEW_REASONS = 4;
@@ -29,8 +29,7 @@
     return typeof value === "string" && value.trim().length > 0 && utf8Bytes(value) <= maxBytes ? value : null;
   }
 
-  // One semantic schema; AIProviderService normalizes this same object for
-  // JSON Schema, Gemini, and compatible JSON-mode adapters.
+  // One provider-neutral semantic schema shared by every certified runtime adapter.
   const COMPACT_SCHEMA = Object.freeze({
     type: "object",
     additionalProperties: false,
@@ -199,12 +198,7 @@
   }
 
   function createBatchAnalysisProvider(options = {}) {
-    const service = options.providerService || root.AIProviderService;
-    const identity = options.identity;
-    const requestStructuredJson = service && (service.requestStructuredJsonNoRetry || service.requestStructuredJsonOnce);
-    if (!identity || !requestStructuredJson || typeof requestStructuredJson !== "function") {
-      return async () => failure("transport_unavailable");
-    }
+    const runtime = options.consumerRuntime || consumerRuntimeApi; if (!runtime || typeof runtime.requestStructured !== "function") return async () => failure("transport_unavailable");
     return async function batchAnalysisProvider(input, context = {}) {
       if (context.signal && context.signal.aborted) return failure("provider_aborted");
       const normalized = inputApi.normalizeInput(input);
@@ -227,14 +221,19 @@
       });
       let response;
       try {
-        response = await requestStructuredJson.call(service, {
+        const runtimeResponse = await runtime.requestStructured({
           app: options.app,
-          provider: identity.provider,
+          client: options.client,
+          consumerId: "wiki.batch_analysis",
           prompt,
           schema: COMPACT_SCHEMA,
           signal: context.signal,
-          timeoutMs: Number(identity.provider && identity.provider.structuredTimeoutMs) || undefined,
+          confirmConsent: context.confirmConsent,
+          ownerSessionId: context.ownerSessionId,
+          operationId: context.operationId,
+          attemptId: context.attemptId
         });
+        response = runtimeResponse.payload;
       } catch (error) {
         if (context.signal && context.signal.aborted) return failure("provider_aborted", { provider_call_count: 1 });
         return failure(inputApi.mapTransportError(error), { provider_call_count: 1 });

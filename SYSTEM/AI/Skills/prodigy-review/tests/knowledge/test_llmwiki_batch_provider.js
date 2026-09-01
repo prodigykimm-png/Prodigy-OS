@@ -35,24 +35,23 @@ function okResponse(overrides = {}) {
 
 function providerReturning(payload, onRequest = () => {}) {
   let calls = 0;
-  const service = {
-    requestStructuredJsonNoRetry: async (options) => {
+  const consumerRuntime = {
+    requestStructured: async (options) => {
       calls += 1;
       onRequest(options, calls);
       if (payload instanceof Error) throw payload;
       if (typeof payload === "string") {
-        try { return JSON.parse(payload); } catch (_e) {
+        try { return { payload: JSON.parse(payload) }; } catch (_e) {
           const error = new Error("응답을 해석하지 못했습니다.");
           error.code = "MALFORMED_JSON";
           throw error;
         }
       }
-      return payload;
+      return { payload };
     },
   };
   const provider = batchProvider.createBatchAnalysisProvider({
-    identity: { provider_key: "fixture", model: "fixture-model", structured_mode: "json_schema", provider_mode: "direct", provider: { adapter: "fixture" } },
-    providerService: service,
+    consumerRuntime,
   });
   return { provider, callCount: () => calls };
 }
@@ -374,17 +373,16 @@ test("abort race: abort after egress but before validation reports one call; pre
   const controller = new AbortController();
   let aborted = false;
   controller.signal.addEventListener("abort", () => { aborted = true; }, { once: true });
-  const service = {
-    requestStructuredJsonNoRetry: async () => {
+  const consumerRuntime = {
+    requestStructured: async () => {
       calls += 1;
       await gate;
       if (aborted) { const error = new Error("취소되었습니다."); error.name = "AbortError"; throw error; }
-      return okResponse();
+      return { payload: okResponse() };
     },
   };
   const provider = batchProvider.createBatchAnalysisProvider({
-    identity: { provider_key: "k", model: "m", structured_mode: "json_schema", provider_mode: "direct", provider: {} },
-    providerService: service,
+    consumerRuntime,
   });
   const inFlight = provider(INPUT, { signal: controller.signal });
   controller.abort(); // abort while the single egress is in flight
@@ -397,10 +395,9 @@ test("abort race: abort after egress but before validation reports one call; pre
 
   const preController = new AbortController();
   preController.abort();
-  const preService = { requestStructuredJsonNoRetry: async () => { calls += 1; return okResponse(); } };
+  const preRuntime = { requestStructured: async () => { calls += 1; return { payload: okResponse() }; } };
   const preProvider = batchProvider.createBatchAnalysisProvider({
-    identity: { provider_key: "k", model: "m", structured_mode: "json_schema", provider_mode: "direct", provider: {} },
-    providerService: preService,
+    consumerRuntime: preRuntime,
   });
   const preResult = await preProvider(INPUT, { signal: preController.signal });
   assert.equal(preResult.reason, "provider_aborted");
@@ -411,10 +408,9 @@ test("identical text and span under two different chunk keys yield distinct dete
   const text = "동일한 문장이다.";
   const makePayload = (key) => ({ status: "ok", results: [{ chunk_key: key, outcome: "hold", items: [{ role: "hold", evidence_quote: "동일한 문장이다.", claims: [], review_reasons: [], related_candidate_ids: [] }] }] });
   const runFor = async (keys) => {
-    const service = { requestStructuredJsonNoRetry: async () => makePayload(keys) };
+    const consumerRuntime = { requestStructured: async () => ({ payload: makePayload(keys) }) };
     const provider = batchProvider.createBatchAnalysisProvider({
-      identity: { provider_key: "k", model: "m", structured_mode: "json_schema", provider_mode: "direct", provider: {} },
-      providerService: service,
+      consumerRuntime,
     });
     const result = await provider({ outbound_allowed: true, run_id: "alias", chunks: [{ key: keys, text }], candidate_ids: [] });
     assert.equal(result.ok, true);
@@ -439,52 +435,22 @@ test("cancellation fails the pack without calling the transport", async () => {
   assert.equal(result.persisted_artifact_count, 0);
 });
 
-test("batch provider crosses the real structured-no-retry boundary with allowlisted options only", async () => {
-  const aiProviderService = require(path.join(ROOT, "SYSTEM/Views/ai-provider-service.js"));
-  const previousExecService = globalThis.AntigravityExecService;
-  const publicRequests = [];
-  const execRequests = [];
-  globalThis.AntigravityExecService = {
-    requestStructuredJson: async (options) => {
-      execRequests.push(options);
-      return okResponse();
+test("batch provider crosses the consumer runtime boundary once with allowlisted options only", async () => {
+  const requests = [];
+  const provider = batchProvider.createBatchAnalysisProvider({
+    app: {},
+    consumerRuntime: {
+      async requestStructured(options) {
+        requests.push(options);
+        return { payload: okResponse(), receipt: { provider_key: "fake", model: "fake-model" } };
+      },
     },
-  };
-  try {
-    const serviceBoundary = {
-      requestStructuredJsonNoRetry(options) {
-        publicRequests.push(options);
-        return aiProviderService.requestStructuredJsonNoRetry(options);
-      },
-    };
-    const provider = batchProvider.createBatchAnalysisProvider({
-      app: {},
-      identity: {
-        provider_key: "antigravity",
-        model: "fixture-model",
-        structured_mode: "json_schema",
-        provider_mode: "direct",
-        provider: {
-          adapter: "antigravity-exec",
-          authMode: "antigravity-login",
-          model: "fixture-model",
-          sandbox: true,
-          structuredTimeoutMs: 5000,
-        },
-      },
-      providerService: serviceBoundary,
-    });
-
-    const result = await provider(INPUT);
-
-    assert.equal(result.ok, true);
-    assert.deepEqual(Object.keys(publicRequests[0]).sort(), ["app", "prompt", "provider", "schema", "signal", "timeoutMs"]);
-    assert.equal(Object.hasOwn(publicRequests[0], "noRetry"), false);
-    assert.equal(execRequests.length, 1, "the allowlisted request must reach the physical provider adapter boundary once");
-  } finally {
-    if (previousExecService === undefined) delete globalThis.AntigravityExecService;
-    else globalThis.AntigravityExecService = previousExecService;
-  }
+  });
+  const result = await provider(INPUT);
+  assert.equal(result.ok, true);
+  assert.equal(requests.length, 1);
+  assert.deepEqual(Object.keys(requests[0]).sort(), ["app", "attemptId", "client", "confirmConsent", "consumerId", "operationId", "ownerSessionId", "prompt", "schema", "signal"]);
+  assert.equal(requests[0].consumerId, "wiki.batch_analysis");
 });
 
 test("request carries no feature-specific selector, repair markers, or secrets", async () => {
@@ -493,12 +459,11 @@ test("request carries no feature-specific selector, repair markers, or secrets",
   await new Promise((resolve) => setImmediate(resolve));
   void seen;
   const captured = [];
-  const service = {
-    requestStructuredJsonNoRetry: async (options) => { captured.push(options); return okResponse(); },
+  const consumerRuntime = {
+    requestStructured: async (options) => { captured.push(options); return { payload: okResponse() }; },
   };
   const provider = batchProvider.createBatchAnalysisProvider({
-    identity: { provider_key: "k", model: "m", structured_mode: "json_schema", provider_mode: "direct", provider: {} },
-    providerService: service,
+    consumerRuntime,
   });
   await provider(INPUT);
   const options = captured[0];
