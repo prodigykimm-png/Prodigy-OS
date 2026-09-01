@@ -88,6 +88,11 @@
     }
     function dispatch(event) {
       if (!plain(event) || typeof event.type !== "string") return reject("invalid_event");
+      if (event.type === "restore") {
+        const restored = initialSnapshot({ ...(plain(event.snapshot) ? event.snapshot : {}), durable: true });
+        if (restored.status === "idle") return reject("invalid_durable_snapshot");
+        return replace(restored);
+      }
       if (event.type === "open_picker") {
         return replace({
           status: "idle",

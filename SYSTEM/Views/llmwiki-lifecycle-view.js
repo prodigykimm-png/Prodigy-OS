@@ -989,6 +989,27 @@
     }
 
     function renderTerminal(parent) {
+      const prodigyWiki = plain(snapshot.prodigy_wiki) ? snapshot.prodigy_wiki : null;
+      if (prodigyWiki && ["interrupted", "source_changed"].includes(prodigyWiki.status)) {
+        const model = currentProdigyWikiModel();
+        statusRegion(parent, model.title, "error");
+        createEl(parent, "p", { text: model.description, attr: { class: "llmwiki-lifecycle__muted" } });
+        sourceContext(parent);
+        const actions = actionRow(parent);
+        if (prodigyWiki.status === "source_changed") {
+          actionButton(actions, model.primary_label, "reset-prodigy-source", { action: "reset_prodigy_source" }, { primary: true });
+        } else {
+          const resumable = prodigyWiki.resumable === true;
+          actionButton(
+            actions,
+            model.primary_label,
+            resumable ? "resume-prodigy-wiki" : "retry-prodigy-wiki",
+            { action: resumable ? "resume_prodigy_wiki" : "retry_prodigy_wiki" },
+            { primary: true },
+          );
+        }
+        return;
+      }
       const copy = snapshot.status === "cancelled"
         ? "검토가 취소되었습니다. 저장된 변경은 없습니다."
         : snapshot.status === "abstained"

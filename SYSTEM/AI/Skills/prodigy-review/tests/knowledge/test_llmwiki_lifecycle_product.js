@@ -186,6 +186,60 @@ test("large source range picker is hierarchical searchable and previewable", () 
   assert.deepEqual(subject.calls.at(-1), { action: "select_golden_scope", scope_id: "heading_003" });
 });
 
+test("interrupted and changed Prodigy Wiki runs expose one typed recovery action", () => {
+  const sourceSelection = {
+    selected: true, display_name: "서울투자반", source_path: "INBOX/서울투자반.md",
+    content_hash: "8".repeat(64), source_kind: "inbox", provider_mode: "direct",
+  };
+  const subject = mount({
+    prodigy_wiki: {
+      status: "interrupted", source: {
+        path: sourceSelection.source_path, title: sourceSelection.display_name,
+        content_hash: sourceSelection.content_hash, source_kind: "inbox",
+      },
+      range: null, result: null, stage: "planning", reason: "app_reloaded_during_run",
+      resumable: true, operation_id: "a".repeat(64),
+    },
+    golden_wiki: { status: "failed", reason: "app_reloaded_during_run" },
+    source_selection: sourceSelection,
+  });
+  subject.view.update(snapshot("failed", {
+    prodigy_wiki: {
+      status: "interrupted", source: {
+        path: sourceSelection.source_path, title: sourceSelection.display_name,
+        content_hash: sourceSelection.content_hash, source_kind: "inbox",
+      },
+      range: null, result: null, stage: "planning", reason: "app_reloaded_during_run",
+      resumable: true, operation_id: "a".repeat(64),
+    },
+    golden_wiki: { status: "failed", reason: "app_reloaded_during_run" },
+    source_selection: sourceSelection,
+  }));
+  const resume = action(subject.root, "resume-prodigy-wiki");
+  assert.ok(resume);
+  assert.equal(walk(subject.root, (node) => node.getAttribute("data-primary") === "true" && !node.disabled).length, 1);
+  click(resume);
+  assert.deepEqual(subject.calls.at(-1), { action: "resume_prodigy_wiki" });
+
+  subject.view.update(snapshot("failed", {
+    prodigy_wiki: {
+      status: "source_changed", source: {
+        path: sourceSelection.source_path, title: sourceSelection.display_name,
+        content_hash: sourceSelection.content_hash, source_kind: "inbox",
+      },
+      range: null, result: null, stage: "", reason: "source_revision_changed",
+      resumable: false, operation_id: "a".repeat(64),
+    },
+    golden_wiki: { status: "failed", reason: "source_revision_changed" },
+    source_selection: sourceSelection,
+  }));
+  const reset = action(subject.root, "reset-prodigy-source");
+  assert.ok(reset);
+  assert.equal(walk(subject.root, (node) => node.getAttribute("data-primary") === "true" && !node.disabled).length, 1);
+  click(reset);
+  assert.deepEqual(subject.calls.at(-1), { action: "reset_prodigy_source" });
+});
+
 test("projects operation progress, refresh and Git follow-up without mutating the committed canonical outcome", () => {
   assert.equal(product({ status: "provider_pending" }).productState, "inbox_importing");
   assert.equal(product({ status: "failed" }).productState, "inbox_error");
@@ -236,13 +290,14 @@ test("keeps approval-ready and blocking conflict queues separate and excludes co
 
 test("production Hub loads and owns inbox intake, cancellation, retry, Task14 review and operation recovery routes", () => {
   const manifest = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js")).get("knowledge").required;
-  for (const name of ["llmwiki-source-registry.js", "llmwiki-source-adapters.js", "llmwiki-inbox-discovery-queue.js", "knowledge-fleeting-store.js", "knowledge-command-controller.js", "knowledge-explorer-detail-modal.js", "knowledge-explorer-controller.js", "prodigy-wiki-controller.js"]) {
+  for (const name of ["llmwiki-source-registry.js", "llmwiki-source-adapters.js", "llmwiki-inbox-discovery-queue.js", "knowledge-fleeting-store.js", "knowledge-command-controller.js", "knowledge-explorer-detail-modal.js", "knowledge-explorer-controller.js", "prodigy-wiki-operation-store.js", "prodigy-wiki-controller.js"]) {
     const modulePath = `SYSTEM/Views/${name}`;
     assert.equal(manifest.filter((entry) => entry === modulePath).length, 1, modulePath);
   }
   assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-command-controller.js") < manifest.indexOf("SYSTEM/Views/knowledge-explorer-detail-modal.js"));
   assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-explorer-detail-modal.js") < manifest.indexOf("SYSTEM/Views/knowledge-explorer-controller.js"));
-  assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-explorer-controller.js") < manifest.indexOf("SYSTEM/Views/prodigy-wiki-controller.js"));
+  assert.ok(manifest.indexOf("SYSTEM/Views/knowledge-explorer-controller.js") < manifest.indexOf("SYSTEM/Views/prodigy-wiki-operation-store.js"));
+  assert.ok(manifest.indexOf("SYSTEM/Views/prodigy-wiki-operation-store.js") < manifest.indexOf("SYSTEM/Views/prodigy-wiki-controller.js"));
   assert.ok(manifest.indexOf("SYSTEM/Views/prodigy-wiki-controller.js") < manifest.indexOf("SYSTEM/Views/llmwiki-lifecycle-view.js"));
   assert.ok(manifest.indexOf("SYSTEM/Views/llmwiki-ui-recovery.js") < manifest.indexOf("SYSTEM/Views/llmwiki-ai-provider-transport.js"));
   const maintenanceModules = [

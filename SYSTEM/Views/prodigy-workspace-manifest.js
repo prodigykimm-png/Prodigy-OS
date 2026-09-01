@@ -505,6 +505,7 @@
     "SYSTEM/Views/knowledge-command-controller.js",
     "SYSTEM/Views/knowledge-explorer-detail-modal.js",
     "SYSTEM/Views/knowledge-explorer-controller.js",
+    "SYSTEM/Views/prodigy-wiki-operation-store.js",
     "SYSTEM/Views/prodigy-wiki-controller.js",
     "SYSTEM/Views/llmwiki-lifecycle-view.js",
     "SYSTEM/Views/llmwiki-ai-provider-transport.js",

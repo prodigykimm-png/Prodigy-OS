@@ -77,7 +77,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     shell = window.ProdigyWorkspaceNavigation.mount(mountPoint, { app: appRef, workspaceId: "knowledge", title: "지식", mountScope: mountContext.scope });
     performance = shell.performance;
     const P = window.KnowledgeExplorerHubProjection;
-    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiCompensationService || !window.LLMWikiLifecycleView || !window.ProdigyWikiController || !window.LLMWikiProviderResponseSchema || !window.LLMWikiSourceRegistry || !window.LLMWikiSourceAdapters || !window.LLMWikiMigrationRollout || !window.LLMWikiInboxPrivacyBoundary || !window.LLMWikiAnalysisScope || !window.LLMWikiChunkManifest || !window.LLMWikiChunkCoverageStore || !window.LLMWikiAnalysisCache || !window.LLMWikiIdentityResolution || !window.LLMWikiLifecycleRoutingContract || !window.LLMWikiDocumentAssembler || !window.LLMWikiInboxProposalMaterializer || !window.LLMWikiIncrementalAnalysisState || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface || !window.KnowledgeCommandController || !window.KnowledgeExplorerDetailModal || !window.KnowledgeExplorerController || !window.KnowledgeFleetingStore || !window.KnowledgeFleetingReviewState || !window.LLMWikiCanonicalTrust || !window.LLMWikiLifecycleMigrationFlows || !window.LLMWikiGitGateway || !window.LLMWikiBatchAnalyzer || !window.LLMWikiBatchProvider || !window.LLMWikiBatchJobStore || !window.LLMWikiInboxDiscoveryQueue || !window.LLMWikiBatchApprovalAdapter || !window.LLMWikiProcessedSourceService || !window.LLMWikiAnalysisCache || !window.LLMWikiChunkCoverageStore) {
+    if (!P || !window.KnowledgeExplorerRegistry || !window.KnowledgeAuthoringHubAdapter || !window.KnowledgeExplorerCore || !window.KnowledgeExplorerDataSource || !window.KnowledgeExplorerRelations || !window.KnowledgeExplorerHubAdapter || !window.KnowledgeExplorerBriefService || !window.KnowledgeExplorerBriefRender || !window.KnowledgeExplorerView || !window.LLMWikiRunController || !window.LLMWikiCompensationService || !window.LLMWikiLifecycleView || !window.ProdigyWikiController || !window.ProdigyWikiOperationStore || !window.LLMWikiProviderResponseSchema || !window.LLMWikiSourceRegistry || !window.LLMWikiSourceAdapters || !window.LLMWikiMigrationRollout || !window.LLMWikiInboxPrivacyBoundary || !window.LLMWikiAnalysisScope || !window.LLMWikiChunkManifest || !window.LLMWikiChunkCoverageStore || !window.LLMWikiAnalysisCache || !window.LLMWikiIdentityResolution || !window.LLMWikiLifecycleRoutingContract || !window.LLMWikiDocumentAssembler || !window.LLMWikiInboxProposalMaterializer || !window.LLMWikiIncrementalAnalysisState || !window.LLMWikiWikiReadAdapter || !window.LLMWikiWikiReadService || !window.LLMWikiWikiSurface || !window.KnowledgeCommandController || !window.KnowledgeExplorerDetailModal || !window.KnowledgeExplorerController || !window.KnowledgeFleetingStore || !window.KnowledgeFleetingReviewState || !window.LLMWikiCanonicalTrust || !window.LLMWikiLifecycleMigrationFlows || !window.LLMWikiGitGateway || !window.LLMWikiBatchAnalyzer || !window.LLMWikiBatchProvider || !window.LLMWikiBatchJobStore || !window.LLMWikiInboxDiscoveryQueue || !window.LLMWikiBatchApprovalAdapter || !window.LLMWikiProcessedSourceService || !window.LLMWikiAnalysisCache || !window.LLMWikiChunkCoverageStore) {
       throw new Error("Knowledge Explorer modules failed to load.");
     }
     // Active maintenance scheduling state signal: wired after the LLM Wiki
@@ -538,6 +538,62 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     } });
     llmWikiSession.batchJobStore = batchJobStore;
     const batchJobState = await batchJobStore.load();
+    const prodigyWikiOperationStore = llmWikiSession.prodigyWikiOperationStore
+      || window.ProdigyWikiOperationStore.createStore({
+        hash: llmWikiHash,
+        storage: {
+          async exists(name) { return Boolean(appRef.vault.getAbstractFileByPath(`SYSTEM/CACHE/llmwiki/${name}`)); },
+          async read(name) { return appRef.vault.cachedRead(appRef.vault.getAbstractFileByPath(`SYSTEM/CACHE/llmwiki/${name}`)); },
+          async writeAtomic(name, text) {
+            const filePath = `SYSTEM/CACHE/llmwiki/${name}`;
+            const file = appRef.vault.getAbstractFileByPath(filePath);
+            if (file) await appRef.vault.modify(file, text);
+            else {
+              for (const folder of ["SYSTEM/CACHE", "SYSTEM/CACHE/llmwiki"]) {
+                if (!appRef.vault.getAbstractFileByPath(folder)) await appRef.vault.createFolder(folder);
+              }
+              await appRef.vault.create(filePath, text);
+            }
+          },
+          async quarantine(name) {
+            const filePath = `SYSTEM/CACHE/llmwiki/${name}`;
+            const file = appRef.vault.getAbstractFileByPath(filePath);
+            if (!file) return;
+            const bytes = await appRef.vault.cachedRead(file);
+            const quarantinePath = `${filePath}.quarantine`;
+            const prior = appRef.vault.getAbstractFileByPath(quarantinePath);
+            if (prior) await appRef.vault.modify(prior, bytes);
+            else await appRef.vault.create(quarantinePath, bytes);
+            await appRef.vault.modify(file, `${JSON.stringify({ schema_version: 1, operation: null }, null, 2)}\n`);
+          },
+        },
+      });
+    llmWikiSession.prodigyWikiOperationStore = prodigyWikiOperationStore;
+    const durableProdigyWikiOperation = await prodigyWikiOperationStore.load();
+    if (durableProdigyWikiOperation && prodigyWikiController.getSnapshot().status === "idle") {
+      const sourceFile = appRef.vault.getAbstractFileByPath(durableProdigyWikiOperation.source.path);
+      const currentRevision = sourceFile
+        ? llmWikiHash.sha256(await appRef.vault.cachedRead(sourceFile)) : "";
+      const restored = window.ProdigyWikiOperationStore.assessRestore(durableProdigyWikiOperation, currentRevision);
+      if (restored?.status === "source_changed" && durableProdigyWikiOperation.status !== "source_changed") {
+        await prodigyWikiOperationStore.markSourceChanged();
+      }
+      if (restored) {
+        prodigyWikiController.dispatch({
+          type: "restore",
+          snapshot: {
+            status: restored.status,
+            source: restored.source,
+            range: restored.range,
+            stage: restored.stage,
+            result: restored.result,
+            reason: restored.reason,
+            resumable: restored.resumable,
+            operation_id: restored.operation_id,
+          },
+        });
+      }
+    }
     let durableRecovery = batchJobStore.getRecoverySnapshot();
     const batchApprovalVault = {
       async readBytes(targetPath) {
@@ -1842,31 +1898,89 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const orchestrator = getGoldenWikiOrchestrator();
       const selectedSource = prodigyWikiController.getSnapshot().source;
       if (!orchestrator || !selectedSource) return { ok: false, reason: "golden_wiki_unavailable" };
-      prodigyWikiController.dispatch({ type: "start", stage: "preflight" });
-      const result = await orchestrator.run({
-        source_path: selectedSource.path,
-        expected_content_hash: selectedSource.content_hash,
-        ...(scope ? { scope } : {}),
+      const operationInput = {
+        source: selectedSource,
+        range: scope,
+        orchestrator_version: window.LLMWikiGoldenWikiOrchestrator.VERSION,
+      };
+      const operationId = window.ProdigyWikiOperationStore.operationIdentity(operationInput, llmWikiHash);
+      const active = llmWikiSession.activeProdigyWikiRun;
+      if (active && active.operation_id === operationId) return active.promise;
+      let activePromise;
+      activePromise = (async () => {
+        try {
+          const begun = await prodigyWikiOperationStore.begin(operationInput);
+          if (begun.status === "replay" && begun.operation?.result) {
+            await refreshGoldenPreviewWorkbench();
+            prodigyWikiController.dispatch({ type: "complete", result: { ...begun.operation.result, provider_calls: 0, replay: true } });
+            return { ...begun.operation.result, provider_calls: 0, replay: true };
+          }
+          if (begun.status === "duplicate") {
+            const interrupted = { ok: false, status: "interrupted", reason: "duplicate_run_without_owner", provider_calls: 0 };
+            prodigyWikiController.dispatch({ type: "interrupt", result: interrupted, reason: interrupted.reason, resumable: true });
+            return interrupted;
+          }
+          const started = prodigyWikiController.dispatch({ type: "start", stage: "preflight", operation_id: operationId });
+          if (!started.ok) throw new Error(started.reason || "prodigy_wiki_start_rejected");
+          const result = await orchestrator.run({
+            source_path: selectedSource.path,
+            expected_content_hash: selectedSource.content_hash,
+            ...(scope ? { scope } : {}),
+          });
+          if (result.ok) {
+            await refreshGoldenPreviewWorkbench();
+            await prodigyWikiOperationStore.complete(result);
+            prodigyWikiController.dispatch({ type: "complete", result });
+          } else if (result.status === "scope_required") {
+            await prodigyWikiOperationStore.interrupt({ reason: result.reason, resumable: false });
+            prodigyWikiController.dispatch({ type: "require_range", range: scope, result, reason: result.reason });
+          } else if (result.reason === "source_revision_changed") {
+            await prodigyWikiOperationStore.markSourceChanged();
+            prodigyWikiController.dispatch({ type: "source_changed" });
+          } else {
+            const resumable = !["gating", "saving"].includes(result.stage);
+            await prodigyWikiOperationStore.interrupt({ reason: result.reason || "golden_wiki_failed", resumable });
+            prodigyWikiController.dispatch({
+              type: "interrupt",
+              stage: result.stage || "",
+              result,
+              reason: result.reason || "golden_wiki_failed",
+              resumable,
+            });
+          }
+          persistLlmWikiSessionView();
+          return result;
+        } catch (error) {
+          let persistenceReason = "";
+          try {
+            if (prodigyWikiOperationStore.getOperation()) {
+              await prodigyWikiOperationStore.interrupt({ reason: error.message || "prodigy_wiki_run_failed", resumable: true });
+            }
+          } catch (persistenceError) {
+            persistenceReason = persistenceError.message || "operation_state_persistence_failed";
+          }
+          const failed = {
+            ok: false,
+            status: "interrupted",
+            reason: error.message || "prodigy_wiki_run_failed",
+            ...(persistenceReason ? { persistence_reason: persistenceReason } : {}),
+          };
+          prodigyWikiController.dispatch({ type: "interrupt", result: failed, reason: failed.reason, resumable: true });
+          persistLlmWikiSessionView();
+          return failed;
+        }
+      })().finally(() => {
+        if (llmWikiSession.activeProdigyWikiRun?.promise === activePromise) {
+          llmWikiSession.activeProdigyWikiRun = null;
+        }
       });
-      if (result.ok) {
-        await refreshGoldenPreviewWorkbench();
-        prodigyWikiController.dispatch({ type: "complete", result });
-      } else if (result.status === "scope_required") {
-        prodigyWikiController.dispatch({ type: "require_range", result, reason: result.reason });
-      } else {
-        prodigyWikiController.dispatch({
-          type: result.reason === "source_revision_changed" ? "source_changed" : "interrupt",
-          stage: result.stage || "",
-          result,
-          reason: result.reason || "golden_wiki_failed",
-        });
-      }
-      persistLlmWikiSessionView();
-      return result;
+      llmWikiSession.activeProdigyWikiRun = { operation_id: operationId, promise: activePromise };
+      return activePromise;
     };
     KnowledgeExplorerHub.preflightGoldenWiki = preflightGoldenWiki;
     KnowledgeExplorerHub.runGoldenWiki = runGoldenWiki;
     KnowledgeExplorerHub.prodigyWikiSnapshot = () => JSON.parse(JSON.stringify(prodigyWikiController.getSnapshot()));
+    KnowledgeExplorerHub.prodigyWikiOperationSnapshot = () => JSON.parse(JSON.stringify(prodigyWikiOperationStore.getOperation()));
     KnowledgeExplorerHub.goldenWikiSnapshot = () => JSON.parse(JSON.stringify(
       window.ProdigyWikiController.projectLifecycle(prodigyWikiController.getSnapshot()).golden_wiki,
     ));
@@ -2472,6 +2586,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         tabs.select("llmwiki-browse");
         return { ok: true, status: "complete", provider_calls: 0 };
       }
+      if (intent.action === "reset_prodigy_source") {
+        await prodigyWikiOperationStore.clear();
+        sourceOptions = sourceOptions.length ? sourceOptions : await sourceOptionsReady;
+        prodigyWikiController.dispatch({ type: "open_picker", options: sourceOptions });
+        return { ok: true, status: "selecting", provider_calls: 0 };
+      }
       if (intent.action === "cancel_golden_wiki") {
         prodigyWikiController.dispatch({ type: "cancel" });
         return { ok: true, status: "selecting", provider_calls: 0 };
@@ -2488,7 +2608,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         prodigyWikiController.dispatch({ type: "select_range", range: scope, preflight: prepared });
         return { ok: true, status: "selecting", preflight: prepared, provider_calls: 0 };
       }
-      if (!["request_consent", "start_run"].includes(intent.action)) return { ok: false, status: "failed", reason: "action_unavailable" };
+      if (!["request_consent", "start_run", "resume_prodigy_wiki", "retry_prodigy_wiki"].includes(intent.action)) {
+        return { ok: false, status: "failed", reason: "action_unavailable" };
+      }
       const selectedSource = prodigyWikiController.getSnapshot().source;
       if (!selectedSource) {
         return { ok: false, status: "selecting", reason: "source_selection_required" };
@@ -2502,6 +2624,18 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (!providerGateOk) {
         providerSelectionFailure = "설정 → AI에서 기본 제공자의 인증 설정을 확인해 주세요.";
         return { ok: false, status: "failed", reason: "provider_selection_unavailable" };
+      }
+      if (["resume_prodigy_wiki", "retry_prodigy_wiki"].includes(intent.action)) {
+        const file = appRef.vault.getAbstractFileByPath(selectedSource.path);
+        const currentRevision = file ? llmWikiHash.sha256(await appRef.vault.cachedRead(file)) : "";
+        if (currentRevision !== selectedSource.content_hash) {
+          if (prodigyWikiOperationStore.getOperation()) await prodigyWikiOperationStore.markSourceChanged();
+          prodigyWikiController.dispatch({ type: "source_changed" });
+          return { ok: false, status: "source_changed", reason: "source_revision_changed", provider_calls: 0 };
+        }
+        const current = prodigyWikiController.getSnapshot();
+        prodigyWikiController.dispatch({ type: "request_consent", preflight: current.result || {} });
+        return runGoldenWiki(current.range || null);
       }
       if (intent.action === "request_consent") {
         const prepared = await preflightGoldenWiki(prodigyWikiController.getSnapshot().range || null);

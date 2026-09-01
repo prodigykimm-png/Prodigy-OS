@@ -97,3 +97,21 @@ test("every Prodigy Wiki product state derives one canonical primary action", ()
     assert.equal(model.state, snapshot.status);
   }
 });
+
+test("controller restores only an explicit durable operation snapshot", () => {
+  const controller = api.createController();
+  const restored = controller.dispatch({
+    type: "restore",
+    snapshot: {
+      status: "interrupted",
+      source: SOURCE,
+      range: { range_id: "range_1", scope_id: "range_1", title: "첫 장", start: 0, end: 120 },
+      reason: "app_reloaded_during_run",
+      resumable: true,
+      operation_id: "a".repeat(64),
+    },
+  });
+  assert.equal(restored.ok, true);
+  assert.equal(controller.getSnapshot().status, "interrupted");
+  assert.equal(api.deriveViewModel(controller.getSnapshot()).primary_action, "resume");
+});
