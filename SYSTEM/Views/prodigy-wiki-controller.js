@@ -111,6 +111,7 @@
         return replace({
           status: "range_required",
           source: snapshot.source,
+          range: validRange(event.range) ? copy(event.range) : snapshot.range,
           result: plain(event.result) ? copy(event.result) : null,
           options: snapshot.options,
           reason: typeof event.reason === "string" ? event.reason : "large_source_range_required",

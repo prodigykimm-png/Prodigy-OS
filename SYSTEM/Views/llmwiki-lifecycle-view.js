@@ -294,6 +294,12 @@
       const section = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source prodigy-utility-card", "aria-label": "선택한 자료", "data-source-selected-card": "" } });
       createEl(section, "h3", { text: "선택한 자료" });
       createEl(section, "strong", { text: name, attr: { class: "llmwiki-lifecycle__source-name", "data-selected-source-title": "" } });
+      const selectedRange = plain(snapshot.prodigy_wiki?.range)
+        ? snapshot.prodigy_wiki.range : plain(snapshot.golden_wiki?.scope) ? snapshot.golden_wiki.scope : null;
+      if (selectedRange) {
+        createEl(section, "p", { text: `정리할 범위 · ${text(selectedRange.title)}`, attr: { "data-selected-range": text(selectedRange.scope_id || selectedRange.range_id) } });
+        if (text(selectedRange.preview)) createEl(section, "p", { text: text(selectedRange.preview), attr: { class: "llmwiki-lifecycle__muted", "data-selected-range-preview": "" } });
+      }
       createEl(section, "p", { text: "아직 외부 AI로 전송되지 않았습니다.", attr: { "data-selected-source-boundary": "pre-consent" } });
       const details = createEl(section, "details", { attr: { "data-disclosure": "source-execution-details" } });
       createEl(details, "summary", { text: "실행 정보" });
@@ -452,12 +458,58 @@
         const execution = createEl(parent, "details", { attr: { "data-disclosure": "range-execution-details" } });
         createEl(execution, "summary", { text: "실행 정보" });
         createEl(execution, "p", { text: `전체 자료 · ${Number(result.chunks || 0)}개 분석 단위 · 최대 ${Number(result.packs || 0)}회 연결`, attr: { "data-golden-scope-estimate": "" } });
-        const scopes = Array.isArray(result.scopes) ? result.scopes.slice(0, 24) : [];
         const scopePanel = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source", "data-golden-scope-picker": "", "aria-label": "정리할 범위 선택" } });
         createEl(scopePanel, "h3", { text: "정리할 범위" });
-        for (const scope of scopes) {
-          actionButton(scopePanel, text(scope.title) || scope.scope_id, "select-golden-scope", { action: "select_golden_scope", scope_id: scope.scope_id });
+        const search = createEl(scopePanel, "input", { attr: { type: "search", placeholder: "제목 검색", "aria-label": "정리할 범위 검색", "data-range-search": "true" } });
+        const treeHost = createEl(scopePanel, "div", { attr: { class: "llmwiki-lifecycle__range-tree", "data-range-tree": "" } });
+        const sizeLabels = { short: "짧음", medium: "보통", large: "큼" };
+        const rangeTree = Array.isArray(result.range_tree) && result.range_tree.length
+          ? result.range_tree : Array.isArray(result.scopes) ? result.scopes.map((scope) => ({ ...scope, children: [] })) : [];
+        function mountRange(range, host) {
+          const children = Array.isArray(range.children) ? range.children : [];
+          const row = createEl(host, children.length ? "details" : "article", {
+            attr: {
+              class: "llmwiki-lifecycle__range",
+              "data-range-id": text(range.range_id || range.scope_id),
+              "data-range-size": text(range.size) || "short",
+            },
+          });
+          if (children.length) createEl(row, "summary", { text: text(range.title) });
+          else createEl(row, "h4", { text: text(range.title) });
+          createEl(row, "span", { text: sizeLabels[text(range.size)] || "보통", attr: { class: "llmwiki-lifecycle__muted", "data-range-size-label": "" } });
+          if (text(range.preview)) createEl(row, "p", { text: text(range.preview), attr: { class: "llmwiki-lifecycle__muted", "data-range-preview": text(range.range_id || range.scope_id) } });
+          const select = actionButton(row, "이 범위 선택", "select-golden-scope", { action: "select_golden_scope", scope_id: range.scope_id });
+          setAttr(select, "data-select-range-id", text(range.range_id || range.scope_id));
+          const record = { range, row, children: [] };
+          if (children.length) {
+            const childHost = createEl(row, "div", { attr: { class: "llmwiki-lifecycle__range-children" } });
+            record.children = children.map((child) => mountRange(child, childHost));
+          }
+          return record;
         }
+        const selectedContext = plain(snapshot.prodigy_wiki?.range) ? snapshot.prodigy_wiki.range : null;
+        let rangeContext = null;
+        let rangeMount = treeHost;
+        if (selectedContext && rangeTree.length) {
+          rangeContext = createEl(treeHost, "details", { attr: { class: "llmwiki-lifecycle__range-context", "data-range-context": text(selectedContext.scope_id || selectedContext.range_id) } });
+          createEl(rangeContext, "summary", { text: text(selectedContext.title) });
+          rangeMount = createEl(rangeContext, "div", { attr: { class: "llmwiki-lifecycle__range-children" } });
+        }
+        const mountedRanges = rangeTree.map((range) => mountRange(range, rangeMount));
+        const containsQuery = (record, query) => text(record.range.title).toLocaleLowerCase("ko").includes(query)
+          || record.children.some((child) => containsQuery(child, query));
+        const applyFilter = (record, query, ancestorMatched = false) => {
+          const own = text(record.range.title).toLocaleLowerCase("ko").includes(query);
+          const visible = !query || ancestorMatched || own || record.children.some((child) => containsQuery(child, query));
+          record.row.hidden = !visible;
+          if (query && visible && record.children.length) record.row.open = true;
+          for (const child of record.children) applyFilter(child, query, ancestorMatched || own);
+        };
+        search.oninput = () => {
+          const query = text(search.value).toLocaleLowerCase("ko");
+          for (const record of mountedRanges) applyFilter(record, query);
+          if (rangeContext) rangeContext.open = Boolean(query);
+        };
       }
       const actions = actionRow(parent);
       actionButton(actions, name ? "자료 다시 선택" : "자료 선택", "select-source", { action: "select_source" });

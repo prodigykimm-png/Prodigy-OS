@@ -44,15 +44,62 @@
     }
     return packs + (count ? 1 : 0);
   }
+  function rangeRecord(row) {
+    return {
+      scope_id: row.scope_id,
+      range_id: row.scope_id,
+      title: row.title,
+      level: row.level,
+      start: row.start,
+      end: row.end,
+      size: row.size,
+      preview: row.preview,
+    };
+  }
+  function flattenRanges(tree) {
+    return tree.flatMap((row) => [rangeRecord(row), ...flattenRanges(row.children || [])]);
+  }
+  function flattenRangeNodes(tree) {
+    return tree.flatMap((row) => [row, ...flattenRangeNodes(row.children || [])]);
+  }
+  function headingRangeTree(sourceText) {
+    const source = String(sourceText);
+    const matches = [...source.matchAll(/^(#{1,3})\s+(.+)$/gmu)];
+    const rows = matches.map((match, index) => {
+      const level = match[1].length;
+      const boundary = matches.slice(index + 1).find((candidate) => candidate[1].length <= level);
+      const end = boundary ? boundary.index : source.length;
+      const body = source.slice(match.index + match[0].length, end).replace(/\s+/gu, " ").trim();
+      const chars = Math.max(0, end - match.index);
+      return {
+        scope_id: `heading_${String(index + 1).padStart(3, "0")}`,
+        title: text(match[2]),
+        level,
+        start: match.index,
+        end,
+        size: chars < 4_000 ? "short" : chars < 16_000 ? "medium" : "large",
+        preview: body.slice(0, 220),
+        children: [],
+      };
+    });
+    const roots = [];
+    const stack = [];
+    for (const row of rows) {
+      while (stack.length && stack.at(-1).level >= row.level) stack.pop();
+      if (stack.length) stack.at(-1).children.push(row);
+      else roots.push(row);
+      stack.push(row);
+    }
+    function prune(row) {
+      const children = row.children.map(prune).filter(Boolean);
+      const ownText = source.slice(row.start, row.end).replace(/^#{1,3}\s+.+$/gmu, "").trim();
+      if (ownText.length < 120 && children.length === 0) return null;
+      return { ...row, children };
+    }
+    return freeze(roots.map(prune).filter(Boolean));
+  }
   function headingScopes(sourceText) {
-    const matches = [...String(sourceText).matchAll(/^(#{1,2})\s+(.+)$/gmu)];
-    return freeze(matches.map((match, index) => ({
-      scope_id: `heading_${String(index + 1).padStart(3, "0")}`,
-      title: text(match[2]),
-      start: match.index,
-      end: index + 1 < matches.length ? matches[index + 1].index : sourceText.length,
-    })).filter((row) => row.end > row.start
-      && sourceText.slice(row.start, row.end).replace(/^#{1,2}\s+.+$/mu, "").trim().length >= 120));
+    return freeze(flattenRanges(headingRangeTree(sourceText)));
   }
   function renderDocument(document, sourcePath) {
     const sourceName = fileTitle(sourcePath);
@@ -132,7 +179,8 @@
       if (text(input.expected_content_hash) && input.expected_content_hash !== sourceHash) {
         return freeze({ ok: false, reason: "source_revision_changed" });
       }
-      const availableScopes = headingScopes(sourceText);
+      const rangeTree = headingRangeTree(sourceText);
+      const availableScopes = flattenRangeNodes(rangeTree);
       const requestedScope = input && input.scope;
       const selectedScope = requestedScope
         ? availableScopes.find((row) => row.scope_id === requestedScope.scope_id
@@ -152,19 +200,23 @@
         source_hash: sourceHash, source_id: sourceId,
         source_bytes: new TextEncoder().encode(scopedText).length,
         chunks: manifest.chunks.length, packs,
-        scope: selectedScope,
-        scopes: packs > MAX_DIRECT_PACKS ? availableScopes : [],
+        scope: selectedScope ? rangeRecord(selectedScope) : null,
+        scopes: packs > MAX_DIRECT_PACKS
+          ? flattenRanges(selectedScope ? selectedScope.children || [] : rangeTree) : [],
+        range_tree: packs > MAX_DIRECT_PACKS
+          ? (selectedScope ? selectedScope.children || [] : rangeTree) : [],
       });
     }
     async function run(input) {
       notify("preflight");
       const prepared = await preflight(input);
       if (!prepared.ok) return prepared;
-      if (prepared.packs > MAX_DIRECT_PACKS && !prepared.scope) {
+      if (prepared.packs > MAX_DIRECT_PACKS) {
         return freeze({
-          ok: false, status: "scope_required", reason: "large_source_scope_required",
+          ok: false, status: "scope_required",
+          reason: prepared.scope ? "selected_range_too_large" : "large_source_scope_required",
           source_bytes: prepared.source_bytes, chunks: prepared.chunks,
-          packs: prepared.packs, scopes: prepared.scopes,
+          packs: prepared.packs, scopes: prepared.scopes, range_tree: prepared.range_tree,
           provider_calls: 0, canonical_writes: 0, source_writes: 0,
         });
       }
@@ -268,7 +320,7 @@
     return freeze({ preflight, run });
   }
 
-  const api = freeze({ VERSION, MAX_DIRECT_PACKS, packCount, headingScopes, publicationText, renderDocument, mergeTopicDocuments, create });
+  const api = freeze({ VERSION, MAX_DIRECT_PACKS, packCount, headingRangeTree, headingScopes, flattenRanges, publicationText, renderDocument, mergeTopicDocuments, create });
   root.LLMWikiGoldenWikiOrchestrator = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

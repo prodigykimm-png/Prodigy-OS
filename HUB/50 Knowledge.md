@@ -2482,12 +2482,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         if (!scope) return { ok: false, status: "selecting", reason: "unknown_source_scope" };
         const prepared = await preflightGoldenWiki(scope);
         if (!prepared.ok || prepared.packs > window.LLMWikiGoldenWikiOrchestrator.MAX_DIRECT_PACKS) {
-          prodigyWikiController.dispatch({ type: "require_range", result: prepared, reason: prepared.reason || "selected_scope_too_large" });
-          return { ok: false, status: "scope_required", reason: prepared.reason || "selected_scope_too_large" };
+          prodigyWikiController.dispatch({ type: "require_range", range: scope, result: prepared, reason: prepared.reason || "selected_range_too_large" });
+          return { ok: false, status: "scope_required", reason: prepared.reason || "selected_range_too_large" };
         }
         prodigyWikiController.dispatch({ type: "select_range", range: scope, preflight: prepared });
-        prodigyWikiController.dispatch({ type: "request_consent", preflight: prepared });
-        return { ok: true, status: "consent_required", preflight: prepared, provider_calls: 0 };
+        return { ok: true, status: "selecting", preflight: prepared, provider_calls: 0 };
       }
       if (!["request_consent", "start_run"].includes(intent.action)) return { ok: false, status: "failed", reason: "action_unavailable" };
       const selectedSource = prodigyWikiController.getSnapshot().source;
@@ -2505,7 +2504,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return { ok: false, status: "failed", reason: "provider_selection_unavailable" };
       }
       if (intent.action === "request_consent") {
-        const prepared = await preflightGoldenWiki();
+        const prepared = await preflightGoldenWiki(prodigyWikiController.getSnapshot().range || null);
         if (!prepared.ok) {
           prodigyWikiController.dispatch({
             type: prepared.reason === "source_revision_changed" ? "source_changed" : "interrupt",

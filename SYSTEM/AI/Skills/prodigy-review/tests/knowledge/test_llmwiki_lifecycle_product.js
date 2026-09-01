@@ -149,6 +149,43 @@ test("large source requires an explicit heading scope before consent", () => {
   assert.equal(action(subject.root, "request-consent"), null);
 });
 
+test("large source range picker is hierarchical searchable and previewable", () => {
+  const rangeTree = [{
+    scope_id: "heading_001", range_id: "heading_001", title: "전체 자료", level: 1,
+    start: 0, end: 2000, size: "large", preview: "전체 자료의 시작 부분",
+    children: [
+      { scope_id: "heading_002", range_id: "heading_002", title: "첫째 장", level: 2, start: 100, end: 900, size: "short", preview: "첫째 장 미리보기", children: [] },
+      { scope_id: "heading_003", range_id: "heading_003", title: "둘째 장", level: 2, start: 900, end: 1800, size: "medium", preview: "둘째 장 미리보기", children: [] },
+    ],
+  }];
+  const subject = mount({
+    golden_wiki: { status: "scope_required", result: { chunks: 124, packs: 31, range_tree: rangeTree } },
+    source_selection: { selected: true, display_name: "대형 자료" },
+  });
+  subject.view.update(snapshot("selecting", {
+    golden_wiki: { status: "scope_required", result: { chunks: 124, packs: 31, range_tree: rangeTree } },
+    source_selection: { selected: true, display_name: "대형 자료" },
+  }));
+
+  const search = walk(subject.root, (node) => node.getAttribute("data-range-search") === "true")[0];
+  const rows = walk(subject.root, (node) => node.getAttribute("data-range-id") !== null);
+  assert.ok(search);
+  assert.equal(rows.length, 3);
+  assert.deepEqual(rows.map((node) => node.getAttribute("data-range-id")), ["heading_001", "heading_002", "heading_003"]);
+  assert.equal(rows[0].open, false);
+  assert.ok(walk(subject.root, (node) => node.getAttribute("data-range-preview") === "heading_002")[0]);
+
+  search.value = "둘째";
+  search.oninput();
+  assert.equal(rows[0].hidden, false);
+  assert.equal(rows[1].hidden, true);
+  assert.equal(rows[2].hidden, false);
+
+  const second = walk(subject.root, (node) => node.getAttribute("data-select-range-id") === "heading_003")[0];
+  click(second);
+  assert.deepEqual(subject.calls.at(-1), { action: "select_golden_scope", scope_id: "heading_003" });
+});
+
 test("projects operation progress, refresh and Git follow-up without mutating the committed canonical outcome", () => {
   assert.equal(product({ status: "provider_pending" }).productState, "inbox_importing");
   assert.equal(product({ status: "failed" }).productState, "inbox_error");

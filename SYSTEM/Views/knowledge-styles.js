@@ -128,6 +128,11 @@
       [data-typography-role="intro"] { font-size: var(--ke-type-label); }
       .llmwiki-lifecycle__source-name { display: block; max-inline-size: 100%; font-weight: 600; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
       .llmwiki-lifecycle [data-selected-source-path] { display: block; max-inline-size: 100%; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
+      .llmwiki-lifecycle__range-tree, .llmwiki-lifecycle__range-children { display: grid; gap: var(--ke-space-2, 8px); min-inline-size: 0; }
+      .llmwiki-lifecycle__range-children { margin-inline-start: var(--ke-space-3, 12px); padding-inline-start: var(--ke-space-3, 12px); border-inline-start: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border)); }
+      .llmwiki-lifecycle__range { padding: var(--ke-space-2, 8px); border: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border)); border-radius: var(--ke-radius-control, 8px); }
+      .llmwiki-lifecycle__range > p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+      .llmwiki-lifecycle [data-range-search="true"] { min-block-size: var(--ke-touch-target, ${touchTarget}px); inline-size: 100%; }
       .llmwiki-lifecycle__muted { color: var(--text-muted); }
       .llmwiki-lifecycle__error { color: var(--text-error); }
       .llmwiki-lifecycle__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ke-space-2, 8px); min-inline-size: 0; }
