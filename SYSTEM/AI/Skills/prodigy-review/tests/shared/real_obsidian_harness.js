@@ -11,6 +11,11 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const OBSIDIAN_BUNDLE = "/Applications/Obsidian.app";
 const ASIDE_BUNDLE = "/Applications/Aside.app";
+const SUPPORTED_OBSIDIAN_IDENTITY = Object.freeze({
+  bundleIdentifier: "md.obsidian",
+  version: "1.13.7",
+  executableSha256: "cd0cc4be064df6e9e8ff9473a38c6ceb0edcba40df4e36423524a53bbea04751",
+});
 const LOOPBACK = "127.0.0.1";
 const HUBS = [
   ["home", "HUB/00 Home.md"], ["auction", "HUB/10 Auction.md"],
@@ -888,7 +893,7 @@ async function browserTrustedClickPreparation(selector, text, timeoutMs) {
   window.__task13aTrustedClickPromise = new Promise((resolve, reject) => {
     let settled = false;
     const dispose = () => { node.removeEventListener("click", finish, true); clearTimeout(guard); delete window.__task13aTrustedClickState; };
-    const finish = (event) => { if (settled) return; settled = true; dispose(); resolve({ isTrusted: event.isTrusted, type: event.type }); };
+    const finish = (event) => { if (settled) return; settled = true; dispose(); const sequence = Number.isInteger(window.__task13aTrustSequence) ? ++window.__task13aTrustSequence : null; resolve({ isTrusted: event.isTrusted, type: event.type, sequence }); };
     cancel = (error) => { if (settled) return; settled = true; dispose(); reject(error); };
     const guard = setTimeout(() => cancel(new Error("TASK13A_TRUSTED_CONTROL_CLICK_TIMEOUT")), timeoutMs);
     node.addEventListener("click", finish, { capture: true, once: true });
@@ -924,7 +929,40 @@ function classifyOwnedTrustPrompt(root) {
   if (buttons.length !== 2 || cancels.length !== 1 || actions.length !== 1) {
     throw new Error(`TASK13A_OWNED_PROMPT_BUTTONS:${buttons.length}:${cancels.length}:${actions.length}`);
   }
+  if (buttons[0] !== cancels[0] || buttons[1] !== actions[0]
+    || String(cancels[0].className) !== "mod-cancel" || String(actions[0].className) !== "") {
+    throw new Error("TASK13A_OWNED_PROMPT_FINGERPRINT");
+  }
   return { present: true, dialog, action: actions[0], cancel: cancels[0] };
+}
+
+function validateTrustOnboardingReceipt(receipt) {
+  if (!receipt || receipt.present !== true || receipt.surface !== "mod-trust-folder"
+    || receipt.vault_owned !== true || receipt.removed !== true || receipt.remaining !== 0) {
+    throw new Error("TASK13A_TRUST_RECEIPT");
+  }
+  if (receipt.native_click !== true) throw new Error("TASK13A_TRUST_NATIVE");
+  if (receipt.cancel_click !== false) throw new Error("TASK13A_TRUST_CANCEL");
+  const sequence = receipt.sequence || {};
+  const values = [
+    sequence.appearance_subscription,
+    sequence.appearance_observed,
+    sequence.removal_subscription,
+    sequence.app_ready,
+    sequence.native_trigger,
+    sequence.click_observed,
+    sequence.removal_observed,
+  ];
+  if (values.some((value) => !Number.isInteger(value) || value <= 0)
+    || !(sequence.appearance_subscription < sequence.appearance_observed)
+    || !(sequence.appearance_observed < sequence.removal_subscription)
+    || !(sequence.appearance_subscription < sequence.app_ready)
+    || !(sequence.removal_subscription < sequence.native_trigger)
+    || !(sequence.native_trigger < sequence.click_observed)
+    || !(sequence.click_observed < sequence.removal_observed)) {
+    throw new Error("TASK13A_TRUST_SEQUENCE");
+  }
+  return receipt;
 }
 
 class Cdp {
@@ -944,6 +982,11 @@ class RealObsidianHarness {
     const fixture = buildFixture(runtimeRoot, options.fixtureMutation || {}); const before = treeHash(fixture.vault);
     fs.writeFileSync(path.join(profile, "obsidian.json"), JSON.stringify({ vaults: { [nonce]: { path: fixture.vault, ts: Date.now(), open: true } } }));
     const clone = prepareBundle(runtimeRoot, nonce);
+    assert.deepEqual({
+      bundleIdentifier: clone.sourceIdentity.bundleIdentifier,
+      version: clone.sourceIdentity.version,
+      executableSha256: clone.sourceIdentity.executableSha256,
+    }, SUPPORTED_OBSIDIAN_IDENTITY, "supported Obsidian bundle identity");
     const ownership = createDisposableOwnership({ runtimeRoot, executable: clone.executable, profile, target: fixture.vault, port, nonce });
     const ownershipToken = ownership.token, ownershipMarker = ownership.marker, ownershipMetadata = ownership.metadata;
     const args = [`--user-data-dir=${profile}`, `--remote-debugging-port=${port}`, `--remote-debugging-address=${LOOPBACK}`, `--task13a-nonce=${nonce}`, ...ownership.args, "--use-mock-keychain", "--disable-background-networking", "--disable-component-update", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--host-resolver-rules=MAP * 0.0.0.0, EXCLUDE 127.0.0.1, EXCLUDE localhost", fixture.vault];
@@ -972,13 +1015,32 @@ class RealObsidianHarness {
     const pageTarget = targets.find((target) => target.type === "page" && target.webSocketDebuggerUrl);
     assert.ok(pageTarget, "real Obsidian page target required");
     const cdp = await Cdp.connect(pageTarget.webSocketDebuggerUrl); await cdp.send("Runtime.enable"); await cdp.send("Page.enable"); await cdp.send("DOM.enable"); await cdp.send("CSS.enable"); browserCdp.close();
+    const networkAttempts = [];
+    cdp.on("Fetch.requestPaused", (params) => {
+      const request = params.request || {};
+      const networkFixture = options.networkFixtures && options.networkFixtures[request.url || ""];
+      networkAttempts.push({ url: request.url || "", method: request.method || "", resourceType: params.resourceType || "", fixture: Boolean(networkFixture), at: Date.now() });
+      if (networkFixture) {
+        void cdp.send("Fetch.fulfillRequest", {
+          requestId: params.requestId,
+          responseCode: 200,
+          responseHeaders: [{ name: "Content-Type", value: networkFixture.contentType || "application/octet-stream" }],
+          body: networkFixture.body,
+        }).catch(() => {});
+        return;
+      }
+      void cdp.send("Fetch.failRequest", { requestId: params.requestId, errorReason: "BlockedByClient" }).catch(() => {});
+    });
+    await cdp.send("Fetch.enable", { patterns: [{ urlPattern: "http://*", requestStage: "Request" }, { urlPattern: "https://*", requestStage: "Request" }] });
+    runtime.networkObservation = { started_before_onboarding: true, scope: "page-target-cdp-http(s)-from-attach" };
+    if (options.trustOnboarding === "required") {
     const ownedPromptSubscription = await cdp.send("Runtime.evaluate", {
-      expression: `(()=>{const classify=${classifyOwnedTrustPrompt.toString()},expectedVault=${JSON.stringify(fixture.vault)};let appearanceObserver=null,appearanceTimer=null;const cleanupAppearance=()=>{appearanceObserver?.disconnect();clearTimeout(appearanceTimer)};window.__task13aOwnedPromptAppearance=new Promise((resolve,reject)=>{const fail=error=>{cleanupAppearance();reject(error)},finish=()=>{try{const selected=classify(document);if(!selected.present||!globalThis.app||!app.vault?.adapter?.getBasePath)return false;if(String(app.vault.adapter.getBasePath())!==expectedVault)throw new Error('TASK13A_OWNED_PROMPT_VAULT_IDENTITY');selected.dialog.setAttribute('data-task13a-owned-prompt','true');selected.action.setAttribute('data-task13a-owned-trust-action','true');let removalObserver=null,removalTimer=null;window.__task13aOwnedPromptCleanup=()=>{cleanupAppearance();removalObserver?.disconnect();clearTimeout(removalTimer);selected.dialog.removeAttribute('data-task13a-owned-prompt');selected.action.removeAttribute('data-task13a-owned-trust-action')};window.__task13aOwnedPromptRemoval=new Promise((resolveRemoval,rejectRemoval)=>{const removed=()=>{if(selected.dialog.isConnected)return;removalObserver.disconnect();clearTimeout(removalTimer);resolveRemoval(true)};removalObserver=new MutationObserver(removed);removalObserver.observe(document.body,{childList:true,subtree:true});removalTimer=setTimeout(()=>{removalObserver.disconnect();rejectRemoval(new Error('TASK13A_OWNED_PROMPT_CLOSE_TIMEOUT'))},10000)});cleanupAppearance();resolve({present:true,surface:'mod-trust-folder',vault_owned:true,subscribed_before_trigger:true});return true}catch(error){fail(error);return false}};appearanceObserver=new MutationObserver(finish);appearanceObserver.observe(document,{childList:true,subtree:true});appearanceTimer=setTimeout(()=>fail(new Error('TASK13A_OWNED_PROMPT_APPEAR_TIMEOUT')),10000);finish()});return{subscribed_before_trigger:true}})()`,
+      expression: `(()=>{const classify=${classifyOwnedTrustPrompt.toString()},expectedVault=${JSON.stringify(fixture.vault)};window.__task13aTrustSequence=0;const appearanceSubscription=++window.__task13aTrustSequence;let appearanceObserver=null,appearanceTimer=null;const cleanupAppearance=()=>{appearanceObserver?.disconnect();clearTimeout(appearanceTimer)};window.__task13aOwnedPromptAppearance=new Promise((resolve,reject)=>{const fail=error=>{cleanupAppearance();reject(error)},finish=()=>{try{const selected=classify(document);if(!selected.present||!globalThis.app||!app.vault?.adapter?.getBasePath)return false;if(String(app.vault.adapter.getBasePath())!==expectedVault)throw new Error('TASK13A_OWNED_PROMPT_VAULT_IDENTITY');const lifecycleNames=['setEnable','loadManifests','enablePluginAndSave','enablePlugin','disablePlugin','loadPlugin','unloadPlugin'],lifecycleOriginals=[],lifecycleOperations=[];for(const name of lifecycleNames){const original=app.plugins[name];if(typeof original!=='function')continue;const wrapped=function(...args){const record={name,args:args.map(value=>typeof value==='string'?value:typeof value),promise:null};let result;try{result=original.apply(this,args)}catch(error){record.promise=Promise.reject(error);lifecycleOperations.push(record);throw error}record.promise=Promise.resolve(result);lifecycleOperations.push(record);return result};lifecycleOriginals.push([name,original]);app.plugins[name]=wrapped}window.__task13aTrustLifecycle={operations:lifecycleOperations,restore(){for(const [name,original]of lifecycleOriginals)app.plugins[name]=original},async settle(){const snapshot=lifecycleOperations.slice();const results=await Promise.allSettled(snapshot.map(item=>item.promise));return snapshot.map((item,index)=>({name:item.name,args:item.args,status:results[index].status}))}};const appearanceObserved=++window.__task13aTrustSequence;selected.dialog.setAttribute('data-task13a-owned-prompt','true');selected.action.setAttribute('data-task13a-owned-trust-action','true');window.__task13aOwnedPromptCancelObserved=false;const cancelListener=()=>{window.__task13aOwnedPromptCancelObserved=true};selected.cancel.addEventListener('click',cancelListener,{capture:true});let removalObserver=null,removalTimer=null;const removalSubscription=++window.__task13aTrustSequence;window.__task13aOwnedPromptCleanup=()=>{cleanupAppearance();removalObserver?.disconnect();clearTimeout(removalTimer);selected.cancel.removeEventListener('click',cancelListener,true);selected.dialog.removeAttribute('data-task13a-owned-prompt');selected.action.removeAttribute('data-task13a-owned-trust-action');window.__task13aTrustLifecycle?.restore()};window.__task13aOwnedPromptRemoval=new Promise((resolveRemoval,rejectRemoval)=>{const removed=()=>{if(selected.dialog.isConnected)return;removalObserver.disconnect();clearTimeout(removalTimer);resolveRemoval({removed:true,sequence:++window.__task13aTrustSequence})};removalObserver=new MutationObserver(removed);removalObserver.observe(document.body,{childList:true,subtree:true});removalTimer=setTimeout(()=>{removalObserver.disconnect();rejectRemoval(new Error('TASK13A_OWNED_PROMPT_CLOSE_TIMEOUT'))},10000)});cleanupAppearance();resolve({present:true,surface:'mod-trust-folder',vault_owned:true,subscribed_before_trigger:true,sequence:{appearance_subscription:appearanceSubscription,appearance_observed:appearanceObserved,removal_subscription:removalSubscription}});return true}catch(error){fail(error);return false}};appearanceObserver=new MutationObserver(finish);appearanceObserver.observe(document,{childList:true,subtree:true});appearanceTimer=setTimeout(()=>fail(new Error('TASK13A_OWNED_PROMPT_APPEAR_TIMEOUT')),10000);finish()});return{subscribed_before_trigger:true,sequence:appearanceSubscription}})()`,
       returnByValue: true,
     });
     assert.equal(ownedPromptSubscription.exceptionDetails, undefined, "owned trust appearance observer subscription");
     assert.equal(ownedPromptSubscription.result.value.subscribed_before_trigger, true);
-    const appReady = await cdp.send("Runtime.evaluate", { expression: `new Promise((resolve,reject)=>{let observer=null,timer=null,armed=false;const cleanup=()=>{observer?.disconnect();clearTimeout(timer)},finish=()=>{cleanup();resolve(true)},ready=()=>{if(armed||!(globalThis.app&&app.workspace))return false;armed=true;app.workspace.onLayoutReady(finish);return true};observer=new MutationObserver(ready);observer.observe(document,{childList:true,subtree:true});timer=setTimeout(()=>{cleanup();reject(new Error('TASK13A_APP_READY_TIMEOUT'))},30000);ready()})`, awaitPromise: true, returnByValue: true });
+    const appReady = await cdp.send("Runtime.evaluate", { expression: `new Promise((resolve,reject)=>{let observer=null,timer=null,armed=false;const cleanup=()=>{observer?.disconnect();clearTimeout(timer)},finish=()=>{cleanup();resolve({ready:true,sequence:++window.__task13aTrustSequence})},ready=()=>{if(armed||!(globalThis.app&&app.workspace))return false;armed=true;app.workspace.onLayoutReady(finish);return true};observer=new MutationObserver(ready);observer.observe(document,{childList:true,subtree:true});timer=setTimeout(()=>{cleanup();reject(new Error('TASK13A_APP_READY_TIMEOUT'))},30000);ready()})`, awaitPromise: true, returnByValue: true });
     assert.equal(appReady.exceptionDetails, undefined, "real Obsidian app readiness signal");
     const ownedPromptPreparation = await cdp.send("Runtime.evaluate", {
       expression: "window.__task13aOwnedPromptAppearance",
@@ -986,7 +1048,14 @@ class RealObsidianHarness {
       returnByValue: true,
     });
     assert.equal(ownedPromptPreparation.exceptionDetails, undefined, "locale-agnostic disposable-vault trust prompt identity");
-    let trustOnboarding = ownedPromptPreparation.result.value;
+    let trustOnboarding = {
+      ...ownedPromptPreparation.result.value,
+      sequence: {
+        ...ownedPromptPreparation.result.value.sequence,
+        app_ready: appReady.result.value.sequence,
+      },
+    };
+    let trustPrimaryError = null;
     try {
       const targetResult = await cdp.send("Runtime.evaluate", {
         expression: buildTrustedClickPreparationExpression("[data-task13a-owned-trust-action='true']", null, 10000),
@@ -995,46 +1064,67 @@ class RealObsidianHarness {
       });
       assert.equal(targetResult.exceptionDetails, undefined, "owned trust action geometry");
       const target = targetResult.result.value;
+      const nativeTrigger = await cdp.send("Runtime.evaluate", {
+        expression: "++window.__task13aTrustSequence",
+        returnByValue: true,
+      });
+      assert.equal(nativeTrigger.exceptionDetails, undefined, "owned trust native trigger sequence");
       await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: target.x, y: target.y, button: "left", clickCount: 1 });
       await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: target.x, y: target.y, button: "left", clickCount: 1 });
       const closure = await cdp.send("Runtime.evaluate", {
-        expression: `Promise.all([window.__task13aTrustedClickPromise,window.__task13aOwnedPromptRemoval]).then(([event,removed])=>({native_click:event?.isTrusted===true&&event?.type==='click',removed:removed===true,remaining:document.querySelectorAll('.modal.mod-trust-folder').length})).finally(()=>{delete window.__task13aTrustedClickPromise;delete window.__task13aTrustedClickState;delete window.__task13aOwnedPromptRemoval})`,
+        expression: `Promise.all([window.__task13aTrustedClickPromise,window.__task13aOwnedPromptRemoval]).then(async([event,removal])=>({native_click:event?.isTrusted===true&&event?.type==='click',cancel_click:window.__task13aOwnedPromptCancelObserved===true,removed:removal?.removed===true,remaining:document.querySelectorAll('.modal.mod-trust-folder').length,click_observed:event?.sequence,removal_observed:removal?.sequence,lifecycle_operations:await window.__task13aTrustLifecycle.settle()}))`,
         awaitPromise: true,
         returnByValue: true,
       });
       assert.equal(closure.exceptionDetails, undefined, "exact owned trust prompt removal signal");
-      trustOnboarding = { ...trustOnboarding, ...closure.result.value };
-    } finally {
-      await cdp.send("Runtime.evaluate", {
-        expression: `(()=>{try{window.__task13aOwnedPromptCleanup?.();window.__task13aTrustedClickState?.cancel(new Error('TASK13A_TRUSTED_CONTROL_DISPATCH_ABORTED'))}finally{delete window.__task13aOwnedPromptAppearance;delete window.__task13aOwnedPromptRemoval;delete window.__task13aOwnedPromptCleanup;delete window.__task13aTrustedClickPromise;delete window.__task13aTrustedClickState}return true})()`,
-        returnByValue: true,
-      }).catch(() => {});
+      trustOnboarding = {
+        ...trustOnboarding,
+        native_click: closure.result.value.native_click,
+        cancel_click: closure.result.value.cancel_click,
+        removed: closure.result.value.removed,
+        remaining: closure.result.value.remaining,
+        lifecycle_operations: closure.result.value.lifecycle_operations,
+        sequence: {
+          ...trustOnboarding.sequence,
+          native_trigger: nativeTrigger.result.value,
+          click_observed: closure.result.value.click_observed,
+          removal_observed: closure.result.value.removal_observed,
+        },
+      };
+    } catch (error) {
+      trustPrimaryError = error;
     }
-    assert.equal(trustOnboarding.removed, true, "owned trust prompt removed");
-    assert.equal(trustOnboarding.remaining, 0, "no trust prompt remains");
+    let trustCleanup = null;
+    let trustCleanupError = null;
+    try {
+      const cleanup = await cdp.send("Runtime.evaluate", {
+        expression: `(()=>{window.__task13aOwnedPromptCleanup?.();window.__task13aTrustedClickState?.cancel(new Error('TASK13A_TRUSTED_CONTROL_DISPATCH_ABORTED'));delete window.__task13aOwnedPromptAppearance;delete window.__task13aOwnedPromptRemoval;delete window.__task13aOwnedPromptCleanup;delete window.__task13aOwnedPromptCancelObserved;delete window.__task13aTrustLifecycle;delete window.__task13aTrustedClickPromise;delete window.__task13aTrustedClickState;delete window.__task13aTrustSequence;const markerCount=document.querySelectorAll('[data-task13a-owned-prompt],[data-task13a-owned-trust-action]').length,globalCount=['__task13aOwnedPromptAppearance','__task13aOwnedPromptRemoval','__task13aOwnedPromptCleanup','__task13aOwnedPromptCancelObserved','__task13aTrustLifecycle','__task13aTrustedClickPromise','__task13aTrustedClickState','__task13aTrustSequence'].filter(key=>Object.prototype.hasOwnProperty.call(window,key)).length;return{clean:markerCount===0&&globalCount===0,marker_count:markerCount,global_count:globalCount}})()`,
+        returnByValue: true,
+      });
+      assert.equal(cleanup.exceptionDetails, undefined, "owned trust cleanup evaluation");
+      trustCleanup = cleanup.result.value;
+      assert.deepEqual(trustCleanup, { clean: true, marker_count: 0, global_count: 0 });
+    } catch (error) {
+      trustCleanupError = error;
+    }
+    if (trustPrimaryError && trustCleanupError) throw new AggregateError([trustPrimaryError, trustCleanupError], "owned trust action and cleanup failed");
+    if (trustPrimaryError) throw trustPrimaryError;
+    if (trustCleanupError) throw trustCleanupError;
+    validateTrustOnboardingReceipt(trustOnboarding);
     runtime.trustOnboarding = trustOnboarding;
-    const pluginReady = await cdp.send("Runtime.evaluate", { expression: `(async()=>{await app.plugins.loadManifests();const manifestPresent=Boolean(app.plugins.manifests['task13a-local-dv']);if(!manifestPresent)throw new Error('TASK13A_PLUGIN_MANIFEST_MISSING');await app.plugins.setEnable(true);const globalEnablement=app.plugins.isEnabled();if(!app.plugins.plugins['task13a-local-dv'])await app.plugins.enablePluginAndSave('task13a-local-dv');const enabledPersisted=app.plugins.enabledPlugins.has('task13a-local-dv'),pluginInstancePresent=Boolean(app.plugins.plugins['task13a-local-dv']&&window.__task13aPlugin);return{manifest_present:manifestPresent,global_enablement:globalEnablement,enabled_persisted:enabledPersisted,plugin_instance_present:pluginInstancePresent}})()`, awaitPromise: true, returnByValue: true });
+    runtime.trustCleanup = trustCleanup;
+    } else {
+      const appReady = await cdp.send("Runtime.evaluate", { expression: `new Promise((resolve,reject)=>{let observer=null,timer=null,armed=false;const cleanup=()=>{observer?.disconnect();clearTimeout(timer)},finish=()=>{cleanup();resolve(true)},ready=()=>{if(armed||!(globalThis.app&&app.workspace))return false;armed=true;app.workspace.onLayoutReady(finish);return true};observer=new MutationObserver(ready);observer.observe(document,{childList:true,subtree:true});timer=setTimeout(()=>{cleanup();reject(new Error('TASK13A_APP_READY_TIMEOUT'))},30000);ready()})`, awaitPromise: true, returnByValue: true });
+      assert.equal(appReady.exceptionDetails, undefined, "real Obsidian app readiness signal");
+      runtime.trustOnboarding = { mode: "not_requested" };
+      runtime.trustCleanup = { clean: true, marker_count: 0, global_count: 0 };
+    }
+    const pluginReady = await cdp.send("Runtime.evaluate", { expression: `(async()=>{await app.plugins.loadManifests();const snapshot=()=>({manifest_present:Boolean(app.plugins.manifests['task13a-local-dv']),global_enablement:app.plugins.isEnabled(),enabled_persisted:app.plugins.enabledPlugins.has('task13a-local-dv'),plugin_instance_present:Boolean(app.plugins.plugins['task13a-local-dv']&&window.__task13aPlugin)}),before=snapshot(),actions=[];if(!before.manifest_present)throw new Error('TASK13A_PLUGIN_MANIFEST_MISSING');if(!before.global_enablement){await app.plugins.setEnable(true);actions.push('set_global_enablement')}if(!app.plugins.plugins['task13a-local-dv']){await app.plugins.enablePluginAndSave('task13a-local-dv');actions.push('enable_fixture_plugin')}return{before,actions,after:snapshot()}})()`, awaitPromise: true, returnByValue: true });
     assert.equal(pluginReady.exceptionDetails, undefined, "post-onboarding disposable local QA plugin readiness");
-    assert.deepEqual(pluginReady.result.value, { manifest_present: true, global_enablement: true, enabled_persisted: true, plugin_instance_present: true });
+    assert.deepEqual(pluginReady.result.value.after, { manifest_present: true, global_enablement: true, enabled_persisted: true, plugin_instance_present: true });
     runtime.fixturePluginReadiness = pluginReady.result.value;
     const harness = new RealObsidianHarness(runtime, cdp, pageTarget.webSocketDebuggerUrl, ownedProcess, version);
-    harness.osNetworkAttempts = [];
-    cdp.on("Fetch.requestPaused", (params) => {
-      const request = params.request || {};
-      const fixture = options.networkFixtures && options.networkFixtures[request.url || ""];
-      harness.osNetworkAttempts.push({ url: request.url || "", method: request.method || "", resourceType: params.resourceType || "", fixture: Boolean(fixture), at: Date.now() });
-      if (fixture) {
-        void cdp.send("Fetch.fulfillRequest", {
-          requestId: params.requestId,
-          responseCode: 200,
-          responseHeaders: [{ name: "Content-Type", value: fixture.contentType || "application/octet-stream" }],
-          body: fixture.body
-        }).catch(() => {});
-        return;
-      }
-      void cdp.send("Fetch.failRequest", { requestId: params.requestId, errorReason: "BlockedByClient" }).catch(() => {});
-    });
-    await cdp.send("Fetch.enable", { patterns: [{ urlPattern: "http://*", requestStage: "Request" }, { urlPattern: "https://*", requestStage: "Request" }] });
+    harness.osNetworkAttempts = networkAttempts;
     return harness;
     } catch (error) {
       const rows = processRows();
@@ -1690,4 +1780,4 @@ class RealObsidianHarness {
     return receipt;
   }
 }
-module.exports = { ADAPTER_STATE, assertMediaAuthorityTrace, assertProtectedUnchanged, buildMediaAuthority, buildTrustedClickPreparationExpression, browserTrustedClickPreparation, Cdp, CDP_DEFAULT_TIMEOUT_MS, classifyOwnedTrustPrompt, collectDiagnosticElements, createDisposableOwnership, createFixtureRegistry, createLayoutAuthorityCoordinator, ASIDE_BUNDLE, HUBS, OBSIDIAN_BUNDLE, STRUCTURAL_DRIVER_CONTRACTS, STRUCTURAL_SCENARIOS, RealObsidianHarness, allocatePort, assertDiagnosticClean, attachCssOwnership, buildFixture, diagnosticFailures, extractBlocks, findOwned, fixturePluginSource, matrixAggregate, nodeNetworkDenyPrelude, publicIdentity, resolveCssOwnership, scenarioAggregate, selectActiveProductionMount, selectCleanup, selectDiagnosticRoots, snapshotProtected, structuralDriverContract, structuralScenarioEffect, treeHash, validateKeyboardAdvance, validateKeyboardTrace, validateInheritedLayoutAuthority, validateLaunchContract, validateLayoutSettlement, validateScenarioPlan, validateScenarioReceipt, validateZoomAuthority };
+module.exports = { ADAPTER_STATE, assertMediaAuthorityTrace, assertProtectedUnchanged, buildMediaAuthority, buildTrustedClickPreparationExpression, browserTrustedClickPreparation, Cdp, CDP_DEFAULT_TIMEOUT_MS, SUPPORTED_OBSIDIAN_IDENTITY, classifyOwnedTrustPrompt, collectDiagnosticElements, createDisposableOwnership, createFixtureRegistry, createLayoutAuthorityCoordinator, ASIDE_BUNDLE, HUBS, OBSIDIAN_BUNDLE, STRUCTURAL_DRIVER_CONTRACTS, STRUCTURAL_SCENARIOS, RealObsidianHarness, allocatePort, assertDiagnosticClean, attachCssOwnership, buildFixture, diagnosticFailures, extractBlocks, findOwned, fixturePluginSource, matrixAggregate, nodeNetworkDenyPrelude, publicIdentity, resolveCssOwnership, scenarioAggregate, selectActiveProductionMount, selectCleanup, selectDiagnosticRoots, snapshotProtected, structuralDriverContract, structuralScenarioEffect, treeHash, validateKeyboardAdvance, validateKeyboardTrace, validateInheritedLayoutAuthority, validateLaunchContract, validateLayoutSettlement, validateScenarioPlan, validateScenarioReceipt, validateTrustOnboardingReceipt, validateZoomAuthority };

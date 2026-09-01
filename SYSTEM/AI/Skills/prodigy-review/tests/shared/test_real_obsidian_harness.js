@@ -10,7 +10,7 @@ const vm = require("node:vm");
 const {
   HUBS, RealObsidianHarness, assertDiagnosticClean, buildFixture, diagnosticFailures, extractBlocks, findOwned, fixturePluginSource,
   assertMediaAuthorityTrace, buildMediaAuthority, collectDiagnosticElements, createFixtureRegistry, createLayoutAuthorityCoordinator, matrixAggregate, nodeNetworkDenyPrelude, publicIdentity, resolveCssOwnership, scenarioAggregate, selectDiagnosticRoots, structuralDriverContract, structuralScenarioEffect, validateInheritedLayoutAuthority, validateKeyboardAdvance, validateKeyboardTrace, validateLaunchContract, validateLayoutSettlement, validateScenarioPlan, validateScenarioReceipt, validateZoomAuthority, selectActiveProductionMount, selectCleanup, snapshotProtected, treeHash,
-  Cdp, CDP_DEFAULT_TIMEOUT_MS, browserTrustedClickPreparation, buildTrustedClickPreparationExpression, classifyOwnedTrustPrompt,
+  Cdp, CDP_DEFAULT_TIMEOUT_MS, SUPPORTED_OBSIDIAN_IDENTITY, browserTrustedClickPreparation, buildTrustedClickPreparationExpression, classifyOwnedTrustPrompt, validateTrustOnboardingReceipt,
 } = require("./real_obsidian_harness.js");
 
 // Deterministic fake WebSocket: matches the browser WebSocket subset Cdp uses
@@ -91,19 +91,24 @@ test("installed real Obsidian identity is pinned from public bundle metadata", (
   assert.equal(identity.bundleIdentifier, "md.obsidian");
   assert.equal(identity.bundleName, "Obsidian");
   assert.equal(identity.version, metadata.stdout.trim());
-  assert.equal(identity.version, "1.13.7");
-  assert.match(identity.executableSha256, /^[a-f0-9]{64}$/u);
+  assert.deepEqual({
+    bundleIdentifier: identity.bundleIdentifier,
+    version: identity.version,
+    executableSha256: identity.executableSha256,
+  }, SUPPORTED_OBSIDIAN_IDENTITY);
   assert.equal(identity.executable, "/Applications/Obsidian.app/Contents/MacOS/Obsidian");
 });
 
-function trustPromptFixture({ text = "작성자를 신뢰하고 플러그인 사용하기", dialogCount = 1, actionCount = 1 } = {}) {
+function trustPromptFixture({ text = "", dialogCount = 1, actionCount = 1, actionFirst = false, actionClass = "" } = {}) {
   const cancel = {
     textContent: "보관함을 제한 모드로 탐색하기",
+    className: "mod-cancel",
     classList: { contains: (name) => name === "mod-cancel" },
   };
   const actions = Array.from({ length: actionCount }, () => ({
     textContent: text,
-    classList: { contains: () => false },
+    className: actionClass,
+    classList: { contains: (name) => actionClass.split(/\s+/u).includes(name) },
   }));
   const container = { classList: { contains: (name) => ["modal-container", "mod-confirmation"].includes(name) } };
   const dialog = {
@@ -111,7 +116,7 @@ function trustPromptFixture({ text = "작성자를 신뢰하고 플러그인 사
     querySelectorAll(selector) {
       if (selector === ":scope > .modal-header .modal-title") return [{}];
       if (selector === ":scope > .modal-button-container") return [{}];
-      if (selector === ":scope > .modal-button-container > button") return [cancel, ...actions];
+      if (selector === ":scope > .modal-button-container > button") return actionFirst ? [...actions, cancel] : [cancel, ...actions];
       if (selector === "input") return [];
       return [];
     },
@@ -129,6 +134,8 @@ function trustPromptFixture({ text = "작성자를 신뢰하고 플러그인 사
 
 test("owned trust prompt identity is locale-agnostic and fails closed on ambiguous structure", () => {
   for (const text of [
+    "",
+    "arbitrary hostile copy",
     "작성자를 신뢰하고 플러그인 사용하기",
     "Trust author and enable plugins",
     "Autor vertrauen und Plugins aktivieren",
@@ -148,20 +155,45 @@ test("owned trust prompt identity is locale-agnostic and fails closed on ambiguo
   });
   assert.throws(() => classifyOwnedTrustPrompt(trustPromptFixture({ dialogCount: 2 }).document), /TASK13A_OWNED_PROMPT_CARDINALITY/u);
   assert.throws(() => classifyOwnedTrustPrompt(trustPromptFixture({ actionCount: 2 }).document), /TASK13A_OWNED_PROMPT_BUTTONS/u);
+  assert.throws(() => classifyOwnedTrustPrompt(trustPromptFixture({ actionFirst: true }).document), /TASK13A_OWNED_PROMPT_FINGERPRINT/u);
+  assert.throws(() => classifyOwnedTrustPrompt(trustPromptFixture({ actionClass: "mod-warning" }).document), /TASK13A_OWNED_PROMPT_FINGERPRINT/u);
 });
 
-test("harness startup arms trust appearance and removal signals before native input and records plugin stages", () => {
-  const source = RealObsidianHarness.start.toString();
-  const appearanceSubscription = source.indexOf("__task13aOwnedPromptAppearance=new Promise");
-  const appReady = source.indexOf("TASK13A_APP_READY_TIMEOUT");
-  const removalSubscription = source.indexOf("__task13aOwnedPromptRemoval=new Promise");
-  const mouseTrigger = source.indexOf('Input.dispatchMouseEvent", { type: "mousePressed"');
-  assert.ok(appearanceSubscription >= 0 && appearanceSubscription < appReady);
-  assert.ok(removalSubscription >= 0 && removalSubscription < mouseTrigger);
-  assert.match(source, /TASK13A_OWNED_PROMPT_APPEAR_TIMEOUT/u);
-  assert.match(source, /__task13aOwnedPromptCleanup/u);
-  assert.match(source, /fixturePluginReadiness/u);
-  assert.doesNotMatch(source, /Restricted Mode|Trust author and enable plugins/u);
+test("trust receipt rejects every observer, trigger, click, and removal ordering mutation", () => {
+  const receipt = {
+    present: true,
+    surface: "mod-trust-folder",
+    vault_owned: true,
+    native_click: true,
+    cancel_click: false,
+    removed: true,
+    remaining: 0,
+    sequence: {
+      appearance_subscription: 1,
+      appearance_observed: 2,
+      removal_subscription: 3,
+      app_ready: 4,
+      native_trigger: 5,
+      click_observed: 6,
+      removal_observed: 7,
+    },
+  };
+  assert.equal(validateTrustOnboardingReceipt(receipt), receipt);
+  for (const [key, value] of [
+    ["appearance_observed", 1],
+    ["removal_subscription", 1],
+    ["app_ready", 1],
+    ["native_trigger", 3],
+    ["click_observed", 5],
+    ["removal_observed", 5],
+  ]) {
+    assert.throws(() => validateTrustOnboardingReceipt({
+      ...receipt,
+      sequence: { ...receipt.sequence, [key]: value },
+    }), /TASK13A_TRUST_SEQUENCE/u, key);
+  }
+  assert.throws(() => validateTrustOnboardingReceipt({ ...receipt, cancel_click: true }), /TASK13A_TRUST_CANCEL/u);
+  assert.throws(() => validateTrustOnboardingReceipt({ ...receipt, native_click: false }), /TASK13A_TRUST_NATIVE/u);
 });
 
 test("protected snapshot reads only executable, bundle, start, PGID, and loopback listeners", () => {

@@ -16,6 +16,7 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
   try {
     harness = await RealObsidianHarness.start("prodigy-ai-runtime", {
       fixtureMutation: { prodigyAIRuntimePluginPath: PLUGIN_ROOT },
+      trustOnboarding: "required",
     });
     assert.equal(harness.runtime.trustOnboarding.surface, "mod-trust-folder");
     assert.equal(harness.runtime.trustOnboarding.present, true);
@@ -24,12 +25,31 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
     assert.equal(harness.runtime.trustOnboarding.native_click, true);
     assert.equal(harness.runtime.trustOnboarding.removed, true);
     assert.equal(harness.runtime.trustOnboarding.remaining, 0);
-    assert.deepEqual(harness.runtime.fixturePluginReadiness, {
+    assert.equal(harness.runtime.trustOnboarding.cancel_click, false);
+    assert.ok(harness.runtime.trustOnboarding.sequence.appearance_subscription
+      < harness.runtime.trustOnboarding.sequence.app_ready);
+    assert.ok(harness.runtime.trustOnboarding.sequence.removal_subscription
+      < harness.runtime.trustOnboarding.sequence.native_trigger);
+    assert.ok(harness.runtime.trustOnboarding.sequence.native_trigger
+      < harness.runtime.trustOnboarding.sequence.click_observed);
+    assert.ok(harness.runtime.trustOnboarding.sequence.click_observed
+      < harness.runtime.trustOnboarding.sequence.removal_observed);
+    assert.ok(Array.isArray(harness.runtime.trustOnboarding.lifecycle_operations));
+    assert.equal(harness.runtime.trustOnboarding.lifecycle_operations
+      .every((operation) => operation.status === "fulfilled"), true);
+    assert.deepEqual(harness.runtime.trustCleanup, {
+      clean: true,
+      marker_count: 0,
+      global_count: 0,
+    });
+    assert.deepEqual(harness.runtime.fixturePluginReadiness.after, {
       manifest_present: true,
       global_enablement: true,
       enabled_persisted: true,
       plugin_instance_present: true,
     });
+    assert.ok(Array.isArray(harness.runtime.fixturePluginReadiness.actions));
+    assert.equal(harness.runtime.networkObservation.started_before_onboarding, true);
     const state = await harness.evaluate(`(async()=>{
       await app.plugins.loadManifests();
       if(!app.plugins.plugins["prodigy-ai-runtime"])await app.plugins.enablePluginAndSave("prodigy-ai-runtime");
@@ -53,7 +73,6 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
         prompt:"no provider call expected",
         schema:{type:"object"}
       });
-      plugin.api.openSettings();
       return {
         handshake,
         status,
@@ -67,6 +86,7 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
       };
     })()`);
     assert.equal(state.handshake.plugin_id, "prodigy-ai-runtime");
+    assert.equal(state.handshake.protocol_version, "1.0.0");
     assert.equal(state.handshake.protocol_hash, "e14b93848a72e1b20247701f1f25c5aef6164400785e8c8482b4705d3c99ce51");
     assert.equal(state.handshake.runtime_version, "0.1.0");
     assert.equal(state.status.status, "ready");
@@ -80,19 +100,21 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
     const settings = await harness.evaluate(`(async()=>{
       const plugin=app.plugins.getPlugin("prodigy-ai-runtime");
       const signal=new Promise((resolve,reject)=>{
+        const cleanup=()=>{observer.disconnect();clearTimeout(timer)};
         const finish=()=>{
           const active=app.setting?.activeTab;
           const root=active?.containerEl;
           if(active?.id!=="prodigy-ai-runtime"||!root?.isConnected)return;
           const heading=root.querySelector("h2");
           if(heading?.textContent?.trim()!==plugin.manifest.name||root.children.length<3)return;
-          observer.disconnect();clearTimeout(timer);
+          cleanup();
           resolve({
             activeTabId:active.id,
             heading:heading.textContent.trim(),
             manifestName:plugin.manifest.name,
             childCount:root.children.length,
             profileSections:root.querySelectorAll(".prodigy-ai-runtime-profile").length,
+            directParagraphs:root.querySelectorAll(":scope > p").length,
             emptyStateText:[...root.querySelectorAll(":scope > p")].at(-1)?.textContent?.trim()||"",
             hasSecretInput:Boolean(root.querySelector('input[type="password"]')),
             routeConnected:root.isConnected,
@@ -101,9 +123,8 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
         };
         const observer=new MutationObserver(finish);
         observer.observe(document,{childList:true,subtree:true,attributes:true});
-        const timer=setTimeout(()=>{observer.disconnect();reject(new Error("PRODIGY_SETTINGS_ROUTE_TIMEOUT"))},10000);
-        plugin.api.openSettings();
-        finish();
+        const timer=setTimeout(()=>{cleanup();reject(new Error("PRODIGY_SETTINGS_ROUTE_TIMEOUT"))},10000);
+        try{plugin.api.openSettings();finish()}catch(error){cleanup();reject(error)}
       });
       return signal;
     })()`);
@@ -111,7 +132,8 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
     assert.equal(settings.heading, settings.manifestName);
     assert.ok(settings.childCount >= 3);
     assert.equal(settings.profileSections, 0);
-    assert.equal(settings.emptyStateText, "이전된 AI provider profile이 없습니다.");
+    assert.equal(settings.directParagraphs, 2);
+    assert.ok(settings.emptyStateText.length > 0);
     assert.equal(settings.hasSecretInput, false);
     assert.equal(settings.routeConnected, true);
     assert.equal(settings.trustRemaining, 0);

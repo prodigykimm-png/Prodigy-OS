@@ -198,6 +198,7 @@ test("release ZIP loads in a clean disposable Obsidian and fails Project closed"
   try {
     harness = await RealObsidianHarness.start("prodigy-ai-runtime-release-install", {
       fixtureMutation: { prodigyAIRuntimePluginPath: candidate.root },
+      trustOnboarding: "required",
     });
     assertSafeState(await observeFailurePath(harness), candidate.version);
     assert.deepEqual(harness.osNetworkAttempts, []);
@@ -253,6 +254,7 @@ test("real Obsidian upgrade and rollback preserve config but never revive stale 
         prodigyAIRuntimePluginPath: ROLLBACK,
         prodigyAIRuntimeDataPath: dataPath,
       },
+      trustOnboarding: "required",
     });
     const installedData = path.join(harness.runtime.vault, ".obsidian/plugins/prodigy-ai-runtime/data.json");
     assertSafeState(await observeFailurePath(harness), rollbackVersion);
