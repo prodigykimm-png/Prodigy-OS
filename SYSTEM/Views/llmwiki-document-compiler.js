@@ -331,12 +331,14 @@
             .map((citationId) => citationById.get(citationId)),
         })),
       });
-      let response;
+      let response = { articles: [] };
       let qualityRewriteCount = 0;
-      try {
-        response = await options.requestArticles(articleRequest);
-      } catch (error) {
-        return freeze({ ok: false, reason: "article_provider_failed", provider_error: clean(error?.message) || "unknown_provider_error" });
+      if (selectedPages.length > 0) {
+        try {
+          response = await options.requestArticles(articleRequest);
+        } catch (error) {
+          return freeze({ ok: false, reason: "article_provider_failed", provider_error: clean(error?.message) || "unknown_provider_error" });
+        }
       }
       if (!plain(response) || Object.keys(response).some((key) => key !== "articles") || !Array.isArray(response.articles)) {
         return freeze({ ok: false, reason: "invalid_compiled_articles" });

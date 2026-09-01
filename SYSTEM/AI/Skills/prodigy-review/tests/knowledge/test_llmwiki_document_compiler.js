@@ -105,6 +105,37 @@ test("approved plan compiles a concise source guide and evidence-bound article",
   assert.equal(article.paragraphs.every((paragraph) => paragraph.claim_ids.length > 0), true);
 });
 
+test("approved source-only plan compiles its guide without an article provider call", async () => {
+  const { inventory, plan, claims } = fixture();
+  const body = {
+    ...plan,
+    pages: [],
+    source_only_claim_ids: claims.map((claim) => claim.claim_id),
+    status: "approved",
+    plan_revision: 2,
+  };
+  delete body.plan_hash;
+  const sourceOnlyPlan = { ...body, plan_hash: hash.sha256(stable(body)) };
+  let calls = 0;
+  const compiler = compilerApi.createDocumentCompiler({
+    requestArticles: async () => {
+      calls += 1;
+      throw new Error("article_provider_not_expected");
+    },
+  });
+
+  const result = await compiler.compile({
+    inventory,
+    approved_plan: sourceOnlyPlan,
+    execution: { resolution: { rows: [] } },
+  });
+
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(calls, 0);
+  assert.equal(result.selected_page_count, 0);
+  assert.deepEqual(result.documents.map((document) => document.document_kind), ["source_guide"]);
+});
+
 test("quality receipt is self-verifying and detects rule or document drift", () => {
   const documents = [{ document_kind: "topic_article", title: "지속성", sections: [] }];
   const input = {

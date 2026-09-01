@@ -218,6 +218,42 @@
           state.jobs[jobId] = freeze({ ...job, status: nextStatus });
         });
       },
+      async removeSettledJob(input) {
+        if (!plain(input) || !HASH.test(input.job_id || "")
+          || typeof input.expected_source_id !== "string" || !input.expected_source_id) {
+          throw new TypeError("invalid_job_cleanup");
+        }
+        const removed = { ok: true, jobs: 0, plans: 0, packs: 0 };
+        await mutate(() => {
+          const job = state.jobs[input.job_id];
+          if (!job) throw new Error("unknown_job");
+          const sourceIds = Object.keys(job.sources);
+          const packIds = Object.entries(state.packs)
+            .filter(([, pack]) => pack.job_id === input.job_id)
+            .map(([packId]) => packId);
+          const settledSingleSource = sourceIds.length === 1
+            && sourceIds[0] === input.expected_source_id
+            && ["review_ready", "resolved", "blocked", "outcome_unknown"].includes(job.status);
+          const unstartedExactRevision = job.status === "pending"
+            && !state.plans[input.job_id] && packIds.length === 0
+            && HASH.test(input.expected_source_revision || "")
+            && job.sources[input.expected_source_id] === input.expected_source_revision;
+          if (!settledSingleSource && !unstartedExactRevision) {
+            throw new Error("job_cleanup_source_mismatch");
+          }
+          delete state.jobs[input.job_id];
+          removed.jobs = 1;
+          if (state.plans[input.job_id]) {
+            delete state.plans[input.job_id];
+            removed.plans = 1;
+          }
+          for (const packId of packIds) {
+            delete state.packs[packId];
+            removed.packs += 1;
+          }
+        });
+        return freeze(removed);
+      },
       async savePlanSnapshot(snapshot) {
         const copy = jsonClone(snapshot);
         if (!validPlanSnapshot(copy)) throw new TypeError("invalid_plan_snapshot");

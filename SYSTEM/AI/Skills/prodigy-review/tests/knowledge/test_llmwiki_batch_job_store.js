@@ -138,6 +138,65 @@ test("duplicate job/pack submissions are idempotent; conflicting hashes fail clo
   await assert.rejects(() => store.setJobState(first.job_id, "not_a_state"), /invalid_state/u);
 });
 
+test("settled synthetic job cleanup removes only its exact job plan and packs", async () => {
+  const store = storeApi.createBatchJobStore({ storage: memoryStorage() });
+  await store.load();
+  const job = await store.createJob({
+    request_key: storeApi.requestKey(identity()),
+    sources: sources([["src_qa", "synthetic"]]),
+  });
+  const packId = storeApi.packId(job.job_id, ["qa_chunk"]);
+  await store.recordPackReceipt({
+    job_id: job.job_id,
+    pack_id: packId,
+    pack_hash: hash.sha256("qa_pack"),
+  });
+  const revision = hash.sha256("synthetic");
+  await store.savePlanSnapshot({
+    job_id: job.job_id,
+    source_id: "src_qa",
+    source_revision: revision,
+    inventory_hash: hash.sha256("qa_inventory"),
+    plan_hash: hash.sha256("qa_plan"),
+    plan_revision: 1,
+    status: "pending_review",
+    plan: { plan_version: "llmwiki_page_plan_v1", pages: [] },
+  });
+  await store.setJobState(job.job_id, "review_ready");
+
+  const removed = await store.removeSettledJob({
+    job_id: job.job_id,
+    expected_source_id: "src_qa",
+  });
+
+  assert.deepEqual(removed, { ok: true, jobs: 1, plans: 1, packs: 1 });
+  assert.equal(store.getJob(job.job_id), null);
+  assert.equal(store.getPlanSnapshot(job.job_id), null);
+  assert.equal(await store.lookupPackReceipt(packId, hash.sha256("qa_pack"), job.request_key), false);
+});
+
+test("unstarted discovery job cleanup requires an exact source revision and no artifacts", async () => {
+  const store = storeApi.createBatchJobStore({ storage: memoryStorage() });
+  await store.load();
+  const qaRevision = hash.sha256("synthetic");
+  const job = await store.createJob({
+    request_key: storeApi.requestKey(identity()),
+    sources: [
+      { source_id: "src_existing", revision_hash: hash.sha256("existing") },
+      { source_id: "src_qa", revision_hash: qaRevision },
+    ],
+  });
+
+  const removed = await store.removeSettledJob({
+    job_id: job.job_id,
+    expected_source_id: "src_qa",
+    expected_source_revision: qaRevision,
+  });
+
+  assert.deepEqual(removed, { ok: true, jobs: 1, plans: 0, packs: 0 });
+  assert.equal(store.getJob(job.job_id), null);
+});
+
 test("corrupt state file is quarantined and never touches canonical paths", async () => {
   const storage = memoryStorage();
   storage.files.set(storeApi.STATE_FILE, "{definitely not json");

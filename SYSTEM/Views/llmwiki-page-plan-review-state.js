@@ -161,7 +161,7 @@
         return publish({ ...snapshot, status: "revision_requested", plan_revision: snapshot.plan_revision + 1 });
       }
       if (intent.action === "approve_plan") {
-        if (snapshot.pages.every((page) => page.selected === false)) return fail("approved_page_required", snapshot);
+        if (snapshot.pages.length > 0 && snapshot.pages.every((page) => page.selected === false)) return fail("approved_page_required", snapshot);
         return publish({ ...snapshot, status: "approved", source_only_claim_ids: sourceOnlyFor(snapshot.pages), plan_revision: snapshot.plan_revision + 1 });
       }
       if (intent.action === "cancel_plan") return publish({ ...snapshot, status: "cancelled", plan_revision: snapshot.plan_revision + 1 });

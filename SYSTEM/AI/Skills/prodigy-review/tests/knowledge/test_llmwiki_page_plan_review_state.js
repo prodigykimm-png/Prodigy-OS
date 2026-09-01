@@ -178,3 +178,24 @@ test("source guide verification questions revise the plan without changing claim
     snapshot.source_guide.sections.flatMap((section) => section.claim_ids),
   );
 });
+
+test("source-only plan can approve its complete source guide without topic pages", () => {
+  const initial = plan();
+  const body = {
+    ...initial,
+    pages: [],
+    source_only_claim_ids: initial.source_guide.sections.flatMap((section) => section.claim_ids),
+    status: "pending_review",
+    plan_revision: 1,
+  };
+  delete body.plan_hash;
+  const sourceOnly = { ...body, plan_hash: hash.sha256(stable(body)) };
+  const state = reviewApi.createPagePlanReviewState({ plan: sourceOnly });
+  const approved = state.dispatch({
+    action: "approve_plan",
+    expected_plan_hash: sourceOnly.plan_hash,
+  });
+  assert.equal(approved.ok, true, approved.reason);
+  assert.equal(approved.snapshot.status, "approved");
+  assert.equal(approved.snapshot.pages.length, 0);
+});
