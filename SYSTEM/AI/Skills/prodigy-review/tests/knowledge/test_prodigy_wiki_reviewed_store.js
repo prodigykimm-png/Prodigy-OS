@@ -34,7 +34,7 @@ function memoryStorage(seed = {}) {
   };
 }
 
-function previewFixture(revisionSuffix = "") {
+function previewFixture(revisionSuffix = "", sourceId = "source_reading") {
   const sourceText = `# 독서 기록\n\n## 핵심 개념\n\n질문을 먼저 적고 읽는다.${revisionSuffix}\n`;
   const sourcePath = "INBOX/독서 기록.md";
   const sourceRevision = hash.sha256(sourceText);
@@ -42,7 +42,7 @@ function previewFixture(revisionSuffix = "") {
   const start = sourceText.indexOf(quote);
   const citation = {
     citation_id: `citation_reviewed_${hash.sha256(revisionSuffix || "base").slice(0, 8)}`,
-    source_id: "source_reading",
+    source_id: sourceId,
     source_path: sourcePath,
     content_hash: sourceRevision,
     locators: [`${sourcePath}#${start}-${start + quote.length}`],
@@ -82,7 +82,7 @@ function previewFixture(revisionSuffix = "") {
     orchestrator_version: "llmwiki_golden_wiki_orchestrator_v2",
     gate_receipt_hash: hash.sha256(`gate${revisionSuffix}`),
     source: {
-      source_id: "source_reading",
+      source_id: sourceId,
       source_path: sourcePath,
       source_revision: sourceRevision,
       source_text: sourceText,
@@ -199,7 +199,7 @@ test("stale source and tampered preview fail closed with zero durable writes", a
 
 test("a reviewed replacement supersedes only explicitly bound prior artifacts", async () => {
   const first = previewFixture();
-  const second = previewFixture("\n새 질문을 추가한다.");
+  const second = previewFixture("\n새 질문을 추가한다.", "source_reading_changed_scope");
   const storage = memoryStorage({ ...seededPreview(first), ...seededPreview(second) });
   const store = reviewedApi.createReviewedStore({ storage, hash });
   await store.load();

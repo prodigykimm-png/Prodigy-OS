@@ -77,6 +77,8 @@
         ? receipt.navigation_manifest : null,
       source_outline: artifactReceipt && plain(receipt.source_outline)
         ? receipt.source_outline : null,
+      refresh_context: artifactReceipt && plain(receipt.refresh_context)
+        ? receipt.refresh_context : null,
       title: titleFromMarkdown(documentBytes, documentPath.split("/").pop().replace(/\.md$/u, "")),
       status: issues.length ? "review_required" : "publishable_preview",
       issues: freeze(issues),

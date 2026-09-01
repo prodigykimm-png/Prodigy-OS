@@ -84,6 +84,7 @@ test("every Prodigy Wiki product state derives one canonical primary action", ()
     [{ status: "idle", picker_open: false }, "select_source"],
     [{ status: "source_selected", source: SOURCE }, "request_consent"],
     [{ status: "range_required", source: SOURCE }, "select_range"],
+    [{ status: "change_range_required", source: SOURCE }, "select_range"],
     [{ status: "consent_required", source: SOURCE }, "start_run"],
     [{ status: "running", source: SOURCE }, null],
     [{ status: "review_ready", source: SOURCE }, "open_review"],
@@ -96,6 +97,42 @@ test("every Prodigy Wiki product state derives one canonical primary action", ()
     assert.equal(model.primary_action, primaryAction, snapshot.status);
     assert.equal(model.state, snapshot.status);
   }
+});
+
+test("reviewed source changes enter a provider-free range inspection state", () => {
+  const controller = api.createController();
+  const currentSource = { ...SOURCE, content_hash: "9".repeat(64) };
+  const range = {
+    scope_id: "range_changed_alpha",
+    range_id: "range_changed_alpha",
+    range_key: "range_changed_alpha",
+    title: "변경된 Alpha",
+    start: 120,
+    end: 240,
+    children: [],
+  };
+  const result = controller.dispatch({
+    type: "changes_ready",
+    source: currentSource,
+    result: {
+      diff_hash: "a".repeat(64),
+      summary: { added: 0, modified: 1, removed: 0, moved: 0, total: 1 },
+      scopes: [range],
+      range_tree: [range],
+      affected: { refresh_artifact_ids: [`prodigy_artifact_${"b".repeat(24)}`] },
+      provider_count: 0,
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(controller.getSnapshot().status, "change_range_required");
+  assert.equal(controller.getSnapshot().source.content_hash, currentSource.content_hash);
+  assert.equal(controller.getSnapshot().result.provider_count, 0);
+  const projected = api.projectLifecycle(controller.getSnapshot());
+  assert.equal(projected.status, "selecting");
+  assert.equal(projected.golden_wiki.status, "scope_required");
+  assert.equal(projected.golden_wiki.result.scopes[0].range_key, range.range_key);
+  assert.equal(api.deriveViewModel(controller.getSnapshot()).primary_action, "select_range");
 });
 
 test("controller restores only an explicit durable operation snapshot", () => {

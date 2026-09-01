@@ -237,7 +237,7 @@
         const supersedes = Array.isArray(input.supersedes) ? [...new Set(input.supersedes)] : [];
         if (supersedes.some((artifactIdValue) => artifactIdValue === artifactId
           || !receipts.has(artifactIdValue)
-          || receipts.get(artifactIdValue).source_id !== previewReceipt.source_id)) {
+          || receipts.get(artifactIdValue).source_path !== previewReceipt.source_path)) {
           return failure("invalid_review_supersession");
         }
         const sourceName = safeTitle(previewReceipt.source_path.split("/").pop().replace(/\.md$/u, ""));

@@ -298,6 +298,7 @@
           scope: prepared.scope || null,
           document,
           document_bytes: documentText,
+          refresh_context: input && input.refresh_context || null,
         });
         previews.push({ document, documentText, evaluated, artifact });
       }
@@ -334,6 +335,7 @@
         artifact_id: preview.artifact.artifact_id,
         document_path: preview.artifact.document_path,
         receipt_path: preview.artifact.receipt_path,
+        refresh_context: preview.artifact.receipt.refresh_context,
         status: preview.evaluated.status,
         metrics: preview.evaluated.metrics,
       }));

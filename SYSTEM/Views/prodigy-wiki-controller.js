@@ -7,6 +7,7 @@
     "idle",
     "source_selected",
     "range_required",
+    "change_range_required",
     "consent_required",
     "running",
     "review_ready",
@@ -133,6 +134,21 @@
           options: snapshot.options,
         });
       }
+      if (event.type === "changes_ready") {
+        if (!validSource(event.source) || !plain(event.result)
+          || !Array.isArray(event.result.scopes) || event.result.scopes.length === 0
+          || !Array.isArray(event.result.range_tree)) {
+          return reject("invalid_source_changes");
+        }
+        return replace({
+          status: "change_range_required",
+          source: copy(event.source),
+          range: null,
+          result: copy(event.result),
+          options: snapshot.options,
+          reason: "source_revision_changed",
+        });
+      }
       if (event.type === "request_consent") {
         if (!validSource(snapshot.source)) return reject("source_required");
         return replace({
@@ -230,7 +246,8 @@
     const value = plain(snapshot) ? snapshot : baseSnapshot();
     const status = value.status === "idle"
       ? value.picker_open ? "selecting" : "idle"
-      : value.status === "source_selected" || value.status === "range_required" ? "selecting"
+      : value.status === "source_selected" || value.status === "range_required"
+        || value.status === "change_range_required" ? "selecting"
         : value.status === "review_ready" ? "complete"
           : value.status === "interrupted" || value.status === "source_changed" ? "failed"
             : value.status;
@@ -238,6 +255,7 @@
       idle: "idle",
       source_selected: "ready",
       range_required: "scope_required",
+      change_range_required: "scope_required",
       consent_required: "consent_required",
       running: "running",
       review_ready: "complete",
@@ -274,6 +292,7 @@
       idle: "select_source",
       source_selected: "request_consent",
       range_required: "select_range",
+      change_range_required: "select_range",
       consent_required: "start_run",
       running: null,
       review_ready: "open_review",
@@ -295,6 +314,11 @@
         title: "먼저 정리할 부분을 선택하세요",
         description: "자료가 커서 한 번에 정리할 수 없습니다.",
         primary_label: "범위 선택 완료",
+      },
+      change_range_required: {
+        title: "변경된 범위를 선택하세요",
+        description: "원문에서 달라진 범위만 다시 정리합니다. 선택 전에는 외부 AI를 호출하지 않습니다.",
+        primary_label: "변경 범위 선택",
       },
       consent_required: {
         title: "외부 AI 전송 동의가 필요합니다",

@@ -17,3 +17,42 @@ test("large source is blocked before provider calls and returns meaningful headi
 test("explicit heading scope is revision-bound and passed to the document plan",async()=>{const source=`## 첫 구간\n${"충분한 첫 구간 내용 ".repeat(20)}\n## 둘째 구간\n${"충분한 둘째 구간 내용 ".repeat(20)}`,files=new Map([["INBOX/자료.md",source]]),writes=new Map(),vault={getAbstractFileByPath:path=>files.has(path)||writes.has(path)?{path}:null,cachedRead:file=>Promise.resolve(files.get(file.path)||writes.get(file.path)),createFolder:async path=>writes.set(path,""),create:async(path,bytes)=>writes.set(path,bytes),modify:async(file,bytes)=>writes.set(file.path,bytes)},citation={citation_id:"citation_scope_1",source_id:"source_scope",source_path:"INBOX/자료.md",content_hash:hash.sha256(source),locators:[`INBOX/자료.md#${source.indexOf("첫 구간")}-${source.indexOf("첫 구간")+"첫 구간".length}`],evidence_quote:"첫 구간"},document={document_kind:"topic_article",title:"구간 Wiki",purpose:"선택 구간",sections:[{heading:"내용",paragraphs:[{text:"내용",claim_ids:["claim_scope_1"]}]}],claims:[{claim_id:"claim_scope_1",text:"내용",citation_ids:[citation.citation_id]}],citations:[citation]},calls=[];const orchestrator=api.create({vault,hash,analysisScope:{createAnalysisScope:x=>x},chunkManifest:{createChunkManifest:scope=>({chunks:[{text:scope.source_text}]})},limits:{max_chunks:4,max_bytes:24576},gate:{evaluate:({document_text})=>({ok:true,status:"publishable_preview",issues:[],metrics:{structure_score:1,critical_token_recall:1,style_score:1},receipt:{document_hash:hash.sha256(document_text),source_path:"INBOX/자료.md",receipt_hash:"b".repeat(64)}})},runPlan:async(path,options)=>{calls.push({path,options});return{ok:true,pages:1}},compilePlan:async()=>({ok:true}),getDocuments:()=>[document]});const scope=api.headingScopes(source)[0],result=await orchestrator.run({source_path:"INBOX/자료.md",expected_content_hash:hash.sha256(source),scope});assert.equal(result.ok,true);assert.equal(calls[0].options.scope.scope_id,scope.scope_id);assert.equal(calls[0].options.expected_source_hash,hash.sha256(source))});
 test("publication rendering removes source jargon from titles headings and prose",()=>{const rendered=api.renderDocument({title:"공동주택공시가격(공주가)의 활용",purpose:"공주가 확인",sections:[{heading:"공주가 기준",paragraphs:[{text:"물건 선주의 시 공동주택공시가격(공동주택 공시가격)을 확인한다."}]}]},"INBOX/자료.md");assert.doesNotMatch(rendered,/공주가|물건 선주의|공동주택공시가격\s*\(공동주택/u);assert.match(rendered,/공동주택공시가격의 활용/u);assert.match(rendered,/물건 선정 시/u)});
 test("multiple narrow topic pages become one source-wide practical Wiki",()=>{const merged=api.mergeTopicDocuments([{title:"권리 확인",sections:[{paragraphs:[{text:"권리를 확인한다.",claim_ids:["c1"]}]}],claims:[{claim_id:"c1",text:"권리를 확인한다."}]},{title:"자금 계획",sections:[{paragraphs:[{text:"자금을 계산한다.",claim_ids:["c2"]}]}],claims:[{claim_id:"c2",text:"자금을 계산한다."}]}],"INBOX/서울투자반.md");assert.equal(merged.title,"서울투자반 실전 Wiki");assert.deepEqual(merged.sections.map(row=>row.heading),["권리 확인","자금 계획"]);assert.deepEqual(merged.claims.map(row=>row.claim_id),["c1","c2"]);const rendered=api.renderDocument(merged,"INBOX/서울투자반.md");assert.match(rendered,/## 권리 확인/u);assert.match(rendered,/## 자금 계획/u);assert.match(rendered,/권리 확인의 조건과 예외/u)});
+
+test("stable changed range preflight excludes every unchanged sibling before provider planning", async () => {
+  const source = [
+    "## Unchanged Before",
+    "BEFORE_SENTINEL ".repeat(30),
+    "## Changed Range",
+    "CHANGED_PAYLOAD ".repeat(30),
+    "## Unchanged After",
+    "AFTER_SENTINEL ".repeat(30),
+  ].join("\n");
+  const files = new Map([["INBOX/자료.md", source]]);
+  let providerCalls = 0;
+  const orchestrator = api.create({
+    vault: {
+      getAbstractFileByPath: (filePath) => files.has(filePath) ? { path: filePath } : null,
+      cachedRead: (file) => Promise.resolve(files.get(file.path)),
+    },
+    hash,
+    analysisScope: { createAnalysisScope: (value) => value },
+    chunkManifest: { createChunkManifest: (scope) => ({ chunks: [{ text: scope.source_text }] }) },
+    limits: { max_chunks: 4, max_bytes: 24576 },
+    gate: { evaluate() { throw new Error("gate_not_expected"); } },
+    runPlan: async () => { providerCalls += 1; throw new Error("provider_not_expected"); },
+    compilePlan: async () => { providerCalls += 1; throw new Error("provider_not_expected"); },
+    getDocuments: () => [],
+  });
+  const selected = api.headingScopes(source).find((row) => row.title === "Changed Range");
+  const scope = { ...selected, scope_id: "range_stable_changed", range_key: "range_stable_changed" };
+  const prepared = await orchestrator.preflight({
+    source_path: "INBOX/자료.md",
+    expected_content_hash: hash.sha256(source),
+    scope,
+  });
+
+  assert.equal(prepared.ok, true);
+  assert.match(prepared.source_text, /CHANGED_PAYLOAD/u);
+  assert.doesNotMatch(prepared.source_text, /BEFORE_SENTINEL|AFTER_SENTINEL/u);
+  assert.equal(providerCalls, 0);
+});

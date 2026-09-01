@@ -60,6 +60,8 @@ const SUITES = Object.freeze([
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_index.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_index_view.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_catalog_real_obsidian.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_source_diff.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_incremental_real_obsidian.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_user_source_selector.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_merge_planner.js",
   "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_page_plan_review_state.js",

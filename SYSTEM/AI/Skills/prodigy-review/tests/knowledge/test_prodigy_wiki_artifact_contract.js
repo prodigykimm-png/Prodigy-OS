@@ -163,3 +163,32 @@ test("artifact contract keeps reviewed Wiki distinct from canonical Knowledge", 
     provider: 0,
   });
 });
+
+test("refresh artifact binds the selected diff lineage and explicit supersession set", () => {
+  const context = {
+    diff_hash: "c".repeat(64),
+    previous_source_revision: fixture().source.source_revision,
+    current_source_revision: fixture().source.source_revision,
+    refresh_artifact_ids: [`prodigy_artifact_${"d".repeat(24)}`],
+    rebind_artifact_ids: [`prodigy_artifact_${"e".repeat(24)}`],
+    selected_artifact_id: `prodigy_artifact_${"f".repeat(24)}`,
+  };
+  const artifact = contract.createPreviewArtifact({
+    ...fixture(),
+    refresh_context: context,
+  });
+  assert.deepEqual(artifact.receipt.refresh_context, context);
+  assert.match(artifact.receipt.refresh_context_hash, /^[0-9a-f]{64}$/u);
+  assert.equal(contract.inspectPreviewArtifact(artifact).ok, true);
+  const tampered = {
+    ...artifact,
+    receipt: {
+      ...artifact.receipt,
+      refresh_context: {
+        ...artifact.receipt.refresh_context,
+        refresh_artifact_ids: [],
+      },
+    },
+  };
+  assert.equal(contract.inspectPreviewArtifact(tampered).ok, false);
+});

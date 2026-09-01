@@ -478,10 +478,93 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (reviewedWikiIndexView) reviewedWikiIndexView.update(reviewedWikiIndex);
       return reviewedWikiIndex;
     };
+    const inspectReviewedChanges = async (entry) => {
+      if (!entry || entry.trust_tier !== "prodigy_reviewed") {
+        return { ok: false, reason: "reviewed_wiki_entry_required", provider_count: 0 };
+      }
+      const sourceFile = appRef.vault.getAbstractFileByPath(entry.source_path);
+      if (!sourceFile) return { ok: false, reason: "reviewed_source_missing", provider_count: 0 };
+      const sourceText = await appRef.vault.cachedRead(sourceFile);
+      const currentRevision = llmWikiHash.sha256(sourceText);
+      if (currentRevision === entry.source_revision) {
+        return { ok: true, status: "current", provider_count: 0, writer_count: 0 };
+      }
+      const diff = window.ProdigyWikiSourceDiff.compareSourceOutlines({
+        previous_outline: entry.source_outline,
+        current_source: {
+          source_id: entry.source_id,
+          source_path: entry.source_path,
+          source_revision: currentRevision,
+          source_text: sourceText,
+        },
+      });
+      const affected = window.ProdigyWikiSourceDiff.assessAffectedArtifacts({
+        diff,
+        entries: reviewedWikiStore.snapshot().entries,
+      });
+      const currentByKey = new Map(diff.current_outline.rows.map((row) => [row.range_key, row]));
+      const ranges = [];
+      const seenRanges = new Set();
+      for (const change of diff.changes) {
+        if (change.kind === "moved" && change.rebind_only) continue;
+        const range = change.current_range || currentByKey.get(change.fallback_range_key) || null;
+        if (!range || seenRanges.has(range.range_key)) continue;
+        seenRanges.add(range.range_key);
+        ranges.push(Object.freeze({
+          scope_id: range.range_key,
+          range_id: range.range_key,
+          range_key: range.range_key,
+          title: `${change.kind === "removed" ? "삭제 반영" : "변경"} · ${change.heading}`,
+          level: range.level,
+          start: range.start,
+          end: range.end,
+          size: range.end - range.start < 4_000 ? "short" : range.end - range.start < 16_000 ? "medium" : "large",
+          preview: sourceText.slice(range.start, range.end).replace(/\s+/gu, " ").slice(0, 220),
+          children: [],
+        }));
+      }
+      if (!ranges.length) {
+        return { ok: true, status: "rebind_only", diff, affected, provider_count: 0, writer_count: 0 };
+      }
+      const refreshContext = Object.freeze({
+        diff_hash: diff.diff_hash,
+        previous_source_revision: diff.previous_source_revision,
+        current_source_revision: diff.current_source_revision,
+        refresh_artifact_ids: affected.refresh_artifact_ids,
+        rebind_artifact_ids: affected.rebind_artifact_ids,
+        selected_artifact_id: entry.artifact_id,
+      });
+      const source = Object.freeze({
+        path: entry.source_path,
+        title: entry.source_title || entry.source_path.split("/").pop().replace(/\.md$/u, ""),
+        source_id: entry.source_id,
+        source_kind: entry.source_path.startsWith("INBOX/") ? "inbox" : "literature",
+        provider_mode: "direct",
+        content_hash: currentRevision,
+      });
+      const changed = prodigyWikiController.dispatch({
+        type: "changes_ready",
+        source,
+        result: {
+          diff_hash: diff.diff_hash,
+          summary: diff.summary,
+          changes: diff.changes,
+          scopes: ranges,
+          range_tree: ranges,
+          affected,
+          refresh_context: refreshContext,
+          provider_count: 0,
+          writer_count: 0,
+        },
+      });
+      if (changed.ok) tabs.select("llmwiki");
+      return { ...changed, diff, affected, provider_count: 0, writer_count: 0 };
+    };
     await refreshReviewedWikiIndex();
     KnowledgeExplorerHub.reviewedWikiSnapshot = () => JSON.parse(JSON.stringify(reviewedWikiStore.snapshot()));
     KnowledgeExplorerHub.reviewedWikiIndexSnapshot = () => JSON.parse(JSON.stringify(reviewedWikiIndex));
     KnowledgeExplorerHub.refreshReviewedWikiIndex = refreshReviewedWikiIndex;
+    KnowledgeExplorerHub.inspectReviewedChanges = inspectReviewedChanges;
     const operationOutcomeRoot = "SYSTEM/PRIVATE/llmwiki-operation-outcomes";
     const operationOutcomeStore = {
       async save(outcome) {
@@ -1995,6 +2078,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
              source_path: selectedSource.path,
              expected_content_hash: selectedSource.content_hash,
              operation_id: operationId,
+             ...(prodigyWikiController.getSnapshot().result?.refresh_context
+               ? { refresh_context: prodigyWikiController.getSnapshot().result.refresh_context } : {}),
              ...(scope ? { scope } : {}),
            });
           if (result.ok) {
@@ -2667,7 +2752,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return { ok: true, status: "selecting", provider_calls: 0 };
       }
       if (intent.action === "select_golden_scope") {
-        const scopes = prodigyWikiController.getSnapshot().result?.scopes || [];
+        const currentResult = prodigyWikiController.getSnapshot().result || {};
+        const scopes = currentResult.scopes || [];
         const scope = scopes.find((row) => row.scope_id === intent.scope_id);
         if (!scope) return { ok: false, status: "selecting", reason: "unknown_source_scope" };
         const prepared = await preflightGoldenWiki(scope);
@@ -2675,7 +2761,14 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           prodigyWikiController.dispatch({ type: "require_range", range: scope, result: prepared, reason: prepared.reason || "selected_range_too_large" });
           return { ok: false, status: "scope_required", reason: prepared.reason || "selected_range_too_large" };
         }
-        prodigyWikiController.dispatch({ type: "select_range", range: scope, preflight: prepared });
+        prodigyWikiController.dispatch({
+          type: "select_range",
+          range: scope,
+          preflight: {
+            ...prepared,
+            ...(currentResult.refresh_context ? { refresh_context: currentResult.refresh_context } : {}),
+          },
+        });
         return { ok: true, status: "selecting", preflight: prepared, provider_calls: 0 };
       }
       if (!["request_consent", "start_run", "resume_prodigy_wiki", "retry_prodigy_wiki"].includes(intent.action)) {
@@ -2708,6 +2801,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return runGoldenWiki(current.range || null);
       }
       if (intent.action === "request_consent") {
+        const refreshContext = prodigyWikiController.getSnapshot().result?.refresh_context;
         const prepared = await preflightGoldenWiki(prodigyWikiController.getSnapshot().range || null);
         if (!prepared.ok) {
           prodigyWikiController.dispatch({
@@ -2723,7 +2817,13 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           prodigyWikiController.dispatch({ type: "require_range", result: blocked, reason: blocked.reason });
           return { ...blocked, ok: false, provider_calls: 0 };
         }
-        prodigyWikiController.dispatch({ type: "request_consent", preflight: prepared });
+        prodigyWikiController.dispatch({
+          type: "request_consent",
+          preflight: {
+            ...prepared,
+            ...(refreshContext ? { refresh_context: refreshContext } : {}),
+          },
+        });
         return { ok: true, status: "consent_required", preflight: prepared, provider_calls: 0 };
       }
       providerSelectionFailure = "";
@@ -3155,6 +3255,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       onOpenDocument: (targetPath) => P.openBeside(appRef, targetPath),
       onOpenSource: (targetPath) => P.openBeside(appRef, targetPath),
       onOpenCitation: openGoldenCitation,
+      onInspectChanges: inspectReviewedChanges,
     });
     llmWikiSession.bindings.reviewedWikiIndexView = reviewedWikiIndexView;
     const unsubscribeReviewedWikiIndex = reviewedWikiStore.subscribe(() => {
@@ -3178,6 +3279,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           preview_receipt_path: row.receipt_path,
           source_text: await appRef.vault.cachedRead(sourceFile),
           reviewed_at: new Date().toISOString(),
+          supersedes: row.refresh_context?.refresh_artifact_ids || [],
         });
         if (!reviewed.ok) return reviewed;
         KnowledgeExplorerHub.lastGoldenPreviewReview = Object.freeze({

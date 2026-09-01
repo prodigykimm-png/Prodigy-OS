@@ -73,12 +73,14 @@ function index() {
 test("reviewed Wiki index surface searches current entries and exposes stale mode separately", () => {
   const mounted = mountRoot();
   const opened = [];
+  const inspected = [];
   const surface = viewApi.mount({
     container: mounted.root,
     index: index(),
     onOpenDocument: (value) => opened.push(["document", value]),
     onOpenSource: (value) => opened.push(["source", value]),
     onOpenCitation: (value) => opened.push(["citation", value.citation_id]),
+    onInspectChanges: (value) => inspected.push(value.artifact_id),
   });
 
   assert.equal(walk(mounted.root, (node) => node.getAttribute("data-reviewed-wiki-row")).length, 1);
@@ -95,14 +97,18 @@ test("reviewed Wiki index surface searches current entries and exposes stale mod
   const documentButton = walk(mounted.root, (node) => node.getAttribute("data-action") === "open-reviewed-wiki")[0];
   const sourceButton = walk(mounted.root, (node) => node.getAttribute("data-action") === "open-reviewed-source")[0];
   const citationButton = walk(mounted.root, (node) => node.getAttribute("data-action") === "open-reviewed-citation")[0];
+  const inspectButton = walk(mounted.root, (node) => node.getAttribute("data-action") === "inspect-reviewed-changes")[0];
+  assert.equal(inspectButton.getAttribute("data-primary"), "true");
   documentButton.onclick();
   sourceButton.onclick();
   citationButton.onclick();
+  inspectButton.onclick();
   assert.deepEqual(opened, [
     ["document", "PARA/RESOURCES/Prodigy Wiki/b.md"],
     ["source", "INBOX/b.md"],
     ["citation", "citation_b"],
   ]);
+  assert.deepEqual(inspected, [index().rows[1].artifact_id]);
 });
 
 test("index surface updates from a new catalog revision without losing active filters", () => {

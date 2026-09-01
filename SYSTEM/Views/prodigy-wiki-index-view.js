@@ -145,10 +145,19 @@
           });
         }
         const actions = createDiv(article, { "data-reviewed-wiki-actions": "" });
+        if (row.lifecycle === "stale") {
+          const inspect = create(actions, "button", "변경 내용 확인", {
+            type: "button",
+            "data-action": "inspect-reviewed-changes",
+            "data-primary": "true",
+          });
+          inspect.onclick = () => typeof options.onInspectChanges === "function"
+            && options.onInspectChanges(row);
+        }
         const openDocument = create(actions, "button", "Wiki 열기", {
           type: "button",
           "data-action": "open-reviewed-wiki",
-          "data-primary": "true",
+          ...(row.lifecycle === "stale" ? {} : { "data-primary": "true" }),
         });
         openDocument.onclick = () => typeof options.onOpenDocument === "function"
           && options.onOpenDocument(row.document_path, row);

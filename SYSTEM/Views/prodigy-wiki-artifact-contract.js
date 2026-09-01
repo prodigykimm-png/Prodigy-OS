@@ -86,6 +86,7 @@
       occurrences.set(ancestryToken, occurrence);
       const boundary = matches.slice(index + 1).find((candidate) => candidate[1].length <= level);
       const end = boundary ? boundary.index : source.length;
+      const directEnd = matches[index + 1] ? matches[index + 1].index : source.length;
       const row = {
         range_key: `range_${sha(stable({ ancestry: ancestryToken, occurrence })).slice(0, 24)}`,
         heading,
@@ -94,6 +95,7 @@
         level,
         start: match.index,
         end,
+        direct_hash: sha(`${heading.normalize("NFC")}\n${source.slice(match.index + match[0].length, directEnd).trim()}`),
         body_hash: sha(source.slice(match.index, end)),
       };
       stack.push(row);
@@ -264,7 +266,30 @@
       source_outline: input.source_outline,
       source_outline_hash: input.source_outline.outline_hash,
       gate_receipt_hash: input.gate_receipt_hash,
+      refresh_context: input.refresh_context,
+      refresh_context_hash: input.refresh_context ? sha(input.refresh_context) : "",
     };
+  }
+  function normalizeRefreshContext(value) {
+    if (value === null || value === undefined) return null;
+    if (!plain(value) || !HASH.test(value.diff_hash || "")
+      || !HASH.test(value.previous_source_revision || "")
+      || !HASH.test(value.current_source_revision || "")
+      || !Array.isArray(value.refresh_artifact_ids)
+      || !Array.isArray(value.rebind_artifact_ids)
+      || typeof value.selected_artifact_id !== "string"
+      || [...value.refresh_artifact_ids, ...value.rebind_artifact_ids, value.selected_artifact_id]
+        .some((artifactId) => !/^prodigy_artifact_[0-9a-f]{24}$/u.test(artifactId))) {
+      throw new TypeError("invalid_refresh_context");
+    }
+    return freeze({
+      diff_hash: value.diff_hash,
+      previous_source_revision: value.previous_source_revision,
+      current_source_revision: value.current_source_revision,
+      refresh_artifact_ids: [...new Set(value.refresh_artifact_ids)].sort(),
+      rebind_artifact_ids: [...new Set(value.rebind_artifact_ids)].sort(),
+      selected_artifact_id: value.selected_artifact_id,
+    });
   }
   function createPreviewArtifact(input) {
     if (!plain(input) || !HASH.test(input.operation_id || "")
@@ -275,6 +300,7 @@
     const sourceOutline = createSourceOutline(input.source);
     const scope = validScope(input.scope, input.source.source_text.length);
     const navigationManifest = createNavigationManifest(input.document, input.source);
+    const refreshContext = normalizeRefreshContext(input.refresh_context);
     const documentHash = sha(input.document_bytes);
     const identityBody = {
       operation_id: input.operation_id,
@@ -286,6 +312,7 @@
       title: clean(input.document.title),
       document_hash: documentHash,
       navigation_hash: navigationManifest.navigation_hash,
+      refresh_context_hash: refreshContext ? sha(refreshContext) : "",
     };
     const artifactId = `prodigy_artifact_${sha(identityBody).slice(0, 24)}`;
     const sourceKey = sha(input.source.source_path).slice(0, 16);
@@ -306,6 +333,7 @@
       navigation_manifest: navigationManifest,
       source_outline: sourceOutline,
       gate_receipt_hash: input.gate_receipt_hash,
+      refresh_context: refreshContext,
     });
     const receipt = freeze({ ...body, receipt_hash: sha(body) });
     return freeze({
@@ -342,6 +370,9 @@
       || receipt.source_outline_hash !== input.source_outline.outline_hash
       || stable(receipt.navigation_manifest) !== stable(input.navigation_manifest)
       || stable(receipt.source_outline) !== stable(input.source_outline)
+      || (receipt.refresh_context
+        ? receipt.refresh_context_hash !== sha(receipt.refresh_context)
+        : receipt.refresh_context_hash !== "")
       || receipt.receipt_hash !== sha(receiptBody(receipt))) return fail("artifact_receipt_mismatch");
     const identityBody = {
       operation_id: receipt.operation_id,
@@ -353,6 +384,7 @@
       title: receipt.title,
       document_hash: receipt.document_hash,
       navigation_hash: receipt.navigation_hash,
+      refresh_context_hash: receipt.refresh_context_hash,
     };
     if (receipt.artifact_id !== `prodigy_artifact_${sha(identityBody).slice(0, 24)}`) {
       return fail("artifact_identity_mismatch");
