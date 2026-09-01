@@ -74,7 +74,8 @@
       open.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); if (typeof actions.onOpenSource === "function") actions.onOpenSource(preview); };
     }
     const position = preview && preview.position;
-    if (position && Number.isSafeInteger(position.line) && Number.isSafeInteger(position.ch)) {
+    if (preview && preview.status === "current" && preview.match_status === "unique"
+      && position && Number.isSafeInteger(position.line) && Number.isSafeInteger(position.ch)) {
       const edit = createEl(controls, "button", { text: "원문 수정", attr: { type: "button", "data-action": "edit-source-file" } });
       edit.onclick = (event) => { if (event && event.preventDefault) event.preventDefault(); if (typeof actions.onEditSource === "function") actions.onEditSource(preview); };
     }

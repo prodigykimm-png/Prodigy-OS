@@ -212,15 +212,23 @@
         heading: clean(section.heading),
         claim_ids: claimIds,
         citations,
-        paragraphs: paragraphs.map((paragraph, paragraphIndex) => freeze({
-          paragraph_id: `paragraph_${sha(stable({
-            section_index: sectionIndex,
-            paragraph_index: paragraphIndex,
+        paragraphs: paragraphs.map((paragraph, paragraphIndex) => {
+          const paragraphClaimIds = Array.isArray(paragraph.claim_ids) ? [...paragraph.claim_ids] : [];
+          const paragraphCitationIds = unique(paragraphClaimIds.flatMap((claimId) => {
+            const claim = claimById.get(claimId);
+            return Array.isArray(claim && claim.citation_ids) ? claim.citation_ids : [];
+          }));
+          return freeze({
+            paragraph_id: `paragraph_${sha(stable({
+              section_index: sectionIndex,
+              paragraph_index: paragraphIndex,
+              text: clean(paragraph.text),
+            })).slice(0, 24)}`,
             text: clean(paragraph.text),
-          })).slice(0, 24)}`,
-          text: clean(paragraph.text),
-          claim_ids: Array.isArray(paragraph.claim_ids) ? [...paragraph.claim_ids] : [],
-        })),
+            claim_ids: paragraphClaimIds,
+            citations: paragraphCitationIds.map((citationId) => citationById.get(citationId)).filter(Boolean),
+          });
+        }),
       });
     });
     const body = {

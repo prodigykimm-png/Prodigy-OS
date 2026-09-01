@@ -332,6 +332,8 @@
     "SYSTEM/Views/knowledge-authoring-validation.js",
     "SYSTEM/Views/knowledge-authoring-core.js",
     "SYSTEM/Views/llmwiki-hash.js",
+    "SYSTEM/Views/prodigy-wiki-artifact-contract.js",
+    "SYSTEM/Views/llmwiki-golden-preview-workbench.js",
     "SYSTEM/Views/llmwiki-claim-provenance-core.js",
     "SYSTEM/Views/llmwiki-claim-provenance-boundary.js",
     "SYSTEM/Views/llmwiki-claim-provenance-graph.js",

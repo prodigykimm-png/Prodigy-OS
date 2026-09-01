@@ -1866,6 +1866,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (goldenPreviewWorkbench) goldenPreviewWorkbench.render(goldenPreviewRows);
       return goldenPreviewRows;
     };
+    KnowledgeExplorerHub.refreshGoldenPreviewWorkbench = refreshGoldenPreviewWorkbench;
     const getGoldenWikiOrchestrator = () => {
       if (goldenWikiOrchestrator) return goldenWikiOrchestrator;
       if (!window.LLMWikiGoldenWikiOrchestrator || !window.LLMWikiGoldenQualityGate) return null;
@@ -2921,7 +2922,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         source_id: item && item.source_id,
         content_hash: item && item.content_hash,
         source_path: item && item.source_path,
-        locators: [item && item.locator].filter(Boolean),
+        locators: Array.isArray(item && item.locators)
+          ? item.locators : [item && item.locator].filter(Boolean),
         evidence_quote: item && item.evidence_quote,
       };
       const sourcePath = previewApi.sourcePath(citation);
@@ -2947,6 +2949,39 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (typeof editor.focus === "function") editor.focus();
       return { ok: true, source_path: sourcePath, position };
     };
+    const openGoldenCitation = (citation) => {
+      if (!obsidianRef?.Modal || !window.KnowledgeExplorerDetailModal?.renderSourcePreview) {
+        return false;
+      }
+      const modal = new obsidianRef.Modal(appRef);
+      const fallback = {
+        ok: false,
+        status: "unknown",
+        match_status: "unavailable",
+        source_path: String(citation && citation.source_path || ""),
+        evidence_quote: String(citation && citation.evidence_quote || ""),
+        context: "",
+        position: null,
+      };
+      const draw = (preview) => window.KnowledgeExplorerDetailModal.renderSourcePreview(
+        modal.contentEl,
+        preview,
+        {
+          onOpenSource: (value) => P.openBeside(appRef, value.source_path),
+          onEditSource: openSourceForEdit,
+          onClose: () => modal.close(),
+        },
+      );
+      modal.onOpen = () => {
+        draw(fallback);
+        Promise.resolve(resolveSourcePreview(citation))
+          .then((preview) => draw(preview && preview.ok ? preview : fallback))
+          .catch(() => draw(fallback));
+      };
+      modal.open();
+      return true;
+    };
+    KnowledgeExplorerHub.openGoldenCitation = openGoldenCitation;
     if (!sourceOptions.length) sourceOptions = await sourceOptionsReady;
     prodigyWikiController.dispatch({ type: "set_options", options: sourceOptions });
     const llmWikiLifecycleFrame = llmWikiPanel.createDiv({ attr: { class: "llmwiki-lifecycle-frame" } });
@@ -3055,6 +3090,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       rows: goldenPreviewRows,
       ...(goldenPreviewReviewState ? { reviewState: goldenPreviewReviewState } : {}),
       onOpen: (targetPath) => P.openBeside(appRef, targetPath),
+      onOpenCitation: openGoldenCitation,
       onReviewed: (row) => {
         KnowledgeExplorerHub.lastGoldenPreviewReview = Object.freeze({
           preview_id: row.preview_id,

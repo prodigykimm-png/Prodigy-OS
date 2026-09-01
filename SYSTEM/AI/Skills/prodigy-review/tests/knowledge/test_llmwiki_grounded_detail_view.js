@@ -203,3 +203,18 @@ test("source editing stays hidden when evidence position is ambiguous", () => {
   }, { onOpenSource() {}, onEditSource() {}, onClose() {} });
   assert.equal(walk(root, (node) => node.tag === "button" && node.text === "원문 수정").length, 0);
 });
+
+test("stale source preview can open context but never offers exact source editing", () => {
+  const root = new FakeElement("section");
+  detail.renderSourcePreview(root, {
+    ok: true,
+    status: "stale",
+    match_status: "unique",
+    source_path: "INBOX/상가.md",
+    evidence_quote: "옮겨진 근거",
+    context: "옮겨진 근거",
+    position: { line: 20, ch: 1 },
+  }, { onOpenSource() {}, onEditSource() {}, onClose() {} });
+  assert.equal(walk(root, (node) => node.tag === "button" && node.text === "원문 파일 열기").length, 1);
+  assert.equal(walk(root, (node) => node.tag === "button" && node.text === "원문 수정").length, 0);
+});

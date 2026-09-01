@@ -1,6 +1,8 @@
 (function(root){
   "use strict";
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
+  const artifactApi = root.ProdigyWikiArtifactContract
+    || (typeof require === "function" ? require("./prodigy-wiki-artifact-contract.js") : null);
   const PREVIEW_DIR = "SYSTEM/CACHE/llmwiki/";
   const RECEIPT_SUFFIX = ".receipt.json";
   const freeze = (value) => { if (!value || typeof value !== "object" || Object.isFrozen(value)) return value; Object.freeze(value); Object.values(value).forEach(freeze); return value; };
@@ -41,7 +43,17 @@
     if (!hashApi || !plain(gateReceipt) || gateReceipt.document_hash !== hashApi.sha256(documentBytes)) issues.push("document_hash_mismatch");
     const sourcePath = text(gateReceipt && gateReceipt.source_path);
     if (!sourcePath || sourcePath.includes("..") || sourcePath.startsWith("/")) issues.push("invalid_source_path");
-    if (text(receipt && receipt.orchestrator_version)) {
+    const artifactReceipt = receipt && receipt.artifact_version === artifactApi?.VERSION;
+    if (artifactReceipt) {
+      const inspected = artifactApi.inspectPreviewArtifact({
+        document_path: documentPath,
+        document_bytes: documentBytes,
+        navigation_manifest: receipt.navigation_manifest,
+        source_outline: receipt.source_outline,
+        receipt,
+      });
+      if (!inspected.ok) issues.push("artifact_receipt_invalid");
+    } else if (text(receipt && receipt.orchestrator_version)) {
       const orchestrationBody = orchestrationReceiptBody(receipt);
       if (!hashApi || !/^[0-9a-f]{64}$/u.test(text(receipt.source_revision))
         || receipt.source_path !== sourcePath || receipt.document_path !== documentPath
@@ -52,14 +64,26 @@
       }
     }
     const result = {
-      preview_id: hashApi ? `golden_${hashApi.sha256(documentPath).slice(0, 24)}` : documentPath,
+      preview_id: artifactReceipt && text(receipt.artifact_id)
+        ? receipt.artifact_id
+        : hashApi ? `golden_${hashApi.sha256(documentPath).slice(0, 24)}` : documentPath,
+      artifact_id: artifactReceipt ? text(receipt.artifact_id) : "",
       document_path: documentPath,
+      receipt_path: documentPath.replace(/\.md$/u, RECEIPT_SUFFIX),
       source_path: sourcePath,
+      source_revision: artifactReceipt ? text(receipt.source_revision) : "",
+      scope: artifactReceipt && plain(receipt.scope) ? receipt.scope : null,
+      navigation_manifest: artifactReceipt && plain(receipt.navigation_manifest)
+        ? receipt.navigation_manifest : null,
+      source_outline: artifactReceipt && plain(receipt.source_outline)
+        ? receipt.source_outline : null,
       title: titleFromMarkdown(documentBytes, documentPath.split("/").pop().replace(/\.md$/u, "")),
       status: issues.length ? "review_required" : "publishable_preview",
       issues: freeze(issues),
       metrics: plain(receipt && receipt.metrics) ? receipt.metrics : {},
       receipt_hash: text(gateReceipt && gateReceipt.receipt_hash),
+      artifact_receipt_hash: artifactReceipt ? text(receipt.artifact_receipt_hash || receipt.receipt_hash) : "",
+      document_hash: text(gateReceipt && gateReceipt.document_hash),
       can_mark_reviewed: issues.length === 0,
     };
     return freeze(result);
@@ -128,6 +152,37 @@
         const passed = row.status === "publishable_preview";
         create(card, "output", passed ? "자동 검사 통과 · 사람 검토 필요" : "자동 검사에서 문제를 발견했습니다.", { "data-preview-gate": row.status });
         create(card, "p", passed ? "문서 구성 통과 · 필수 항목 확인 · 숫자 누락 없음" : "결과와 원문을 비교한 뒤 다시 만들어 주세요.", { "data-preview-metrics": "" });
+        if (passed && plain(row.navigation_manifest) && Array.isArray(row.navigation_manifest.sections)) {
+          const navigation = createDiv(card, { "data-preview-navigation": "" });
+          create(navigation, "h5", "원문 근거", {});
+          row.navigation_manifest.sections.forEach((sourceSection) => {
+            const sectionRow = createDiv(navigation, { "data-preview-navigation-section": sourceSection.section_id });
+            create(sectionRow, "strong", sourceSection.heading, {});
+            const sectionActions = createDiv(sectionRow, { "data-preview-section-sources": "" });
+            (sourceSection.citations || []).forEach((citation, index) => {
+              const button = create(sectionActions, "button", `원문 근거 ${index + 1}`, {
+                type: "button",
+                "data-action": "open-golden-section-source",
+                "data-citation-id": citation.citation_id,
+              });
+              button.onclick = () => typeof config.onOpenCitation === "function"
+                && config.onOpenCitation(citation, row);
+            });
+            (sourceSection.paragraphs || []).forEach((paragraph) => {
+              const paragraphRow = createDiv(sectionRow, { "data-preview-navigation-paragraph": paragraph.paragraph_id });
+              create(paragraphRow, "span", paragraph.text, {});
+              (paragraph.citations || []).forEach((citation, index) => {
+                const button = create(paragraphRow, "button", `근거 ${index + 1}`, {
+                  type: "button",
+                  "data-action": "open-golden-paragraph-source",
+                  "data-citation-id": citation.citation_id,
+                });
+                button.onclick = () => typeof config.onOpenCitation === "function"
+                  && config.onOpenCitation(citation, row);
+              });
+            });
+          });
+        }
         const actions = createDiv(card, { "data-preview-actions": "" });
         const openDocument = create(actions, "button", "검토하기", { type: "button", "data-action": "open-golden-preview", "data-primary": "true" });
         openDocument.onclick = () => config.onOpen && config.onOpen(row.document_path);
