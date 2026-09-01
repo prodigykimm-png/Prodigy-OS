@@ -79,23 +79,27 @@
 .prodigy-reading-app *::before,
 .prodigy-reading-app *::after { box-sizing: border-box; min-inline-size: 0; max-inline-size: 100%; }
 
-.reading-hub-section {
+.reading-hub-section,
+.prodigy-hub-note .el-h1:has(+ .el-pre > .reading-hub-section) {
   box-sizing: border-box;
   inline-size: 100%;
   padding-inline: ${gutter.phone || 20}px;
 }
 @media (min-width: ${phoneMax + 1}px) {
-  .reading-hub-section {
+  .reading-hub-section,
+  .prodigy-hub-note .el-h1:has(+ .el-pre > .reading-hub-section) {
     padding-inline: ${(gutter.pad && gutter.pad.portrait) || 32}px;
   }
 }
 @media (min-width: ${utilityTwoColumnMax + 1}px) {
-  .reading-hub-section {
+  .reading-hub-section,
+  .prodigy-hub-note .el-h1:has(+ .el-pre > .reading-hub-section) {
     padding-inline: ${(gutter.pad && gutter.pad.landscape) || 48}px;
   }
 }
 @media (min-width: ${contentMax + 1}px) {
-  .reading-hub-section {
+  .reading-hub-section,
+  .prodigy-hub-note .el-h1:has(+ .el-pre > .reading-hub-section) {
     padding-inline: ${(gutter.mac && gutter.mac.atContentMax) || 80}px;
   }
 }
@@ -109,10 +113,11 @@
   overflow-wrap: anywhere;
 }
 
-/* 2-Column Sidebar + Content for Wide (Mac/iPad) */
+/* Primary Reading list + secondary Continue rail on wide surfaces. */
 .reading-responsive-grid {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(min(100%, 20rem), 1fr);
+  gap: var(--ke-space-5, 24px);
   align-items: start;
 }
 .reading-responsive-workspace[data-reading-layout="compact"] .reading-responsive-grid,
@@ -197,8 +202,7 @@
 }
 .reading-card.is-focus {
   border-inline-start: 4px solid var(--ke-color-accent, var(--text-accent));
-  outline: 2px solid var(--ke-color-accent, var(--text-accent));
-  outline-offset: 3px;
+  outline: none;
 }
 
 /* Hero Detail Card */

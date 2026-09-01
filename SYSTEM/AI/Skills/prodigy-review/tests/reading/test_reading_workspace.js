@@ -423,8 +423,11 @@ function main() {
   // --- Minimal session modal (one memo, not a form wall) ---
   const viewSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-view.js"), "utf8");
   const stylesSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/reading-styles.js"), "utf8");
-  assert.match(stylesSrc, /grid-template-columns:\s*240px minmax\(0,\s*1fr\)/);
+  assert.match(stylesSrc, /grid-template-columns:\s*minmax\(0,\s*2fr\) minmax\(min\(100%,\s*20rem\),\s*1fr\)/);
+  assert.match(stylesSrc, /\.reading-responsive-grid\s*\{[^}]*gap:\s*var\(--ke-space-5,\s*24px\)/);
+  assert.doesNotMatch(stylesSrc, /grid-template-columns:\s*240px minmax\(0,\s*1fr\)/);
   assert.doesNotMatch(stylesSrc, /grid-template-columns:[^;]*,minmax\(0,/);
+  assert.match(viewSrc, /if \(wide\) \{[\s\S]*?setHidden\(tabsHost, true\);[\s\S]*?setHidden\(list, false\);[\s\S]*?setHidden\(detail, false\);[\s\S]*?\} else \{[\s\S]*?tabs = controls\.AdaptiveTabs/);
   assert.match(viewSrc, /openSessionModal|saveQuickSession/);
   assert.match(viewSrc, /한 줄 메모/);
   assert.match(viewSrc, /한 줄이면 충분/);

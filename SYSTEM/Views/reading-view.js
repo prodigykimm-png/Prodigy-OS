@@ -74,19 +74,26 @@
     if (typeof opts.renderList === "function") opts.renderList(list, opts.model);
     if (typeof opts.renderDetail === "function") opts.renderDetail(detail, opts.model);
 
-    const tabs = controls.AdaptiveTabs(tabsHost, {
-      label: "독서 작업면",
-      activeId: activePane,
-      tabs: [
-        { id: "list", label: "목록", panel: list },
-        { id: "detail", label: "이어 읽기", panel: detail }
-      ],
-      onChange: opts.onPaneChange
-    });
     const wide = layout === "wide";
-    setHidden(tabsHost, wide);
-    setHidden(list, !wide && activePane !== "list");
-    setHidden(detail, !wide && activePane !== "detail");
+    let tabs = null;
+    if (wide) {
+      setHidden(tabsHost, true);
+      setHidden(list, false);
+      setHidden(detail, false);
+    } else {
+      tabs = controls.AdaptiveTabs(tabsHost, {
+        label: "독서 작업면",
+        activeId: activePane,
+        tabs: [
+          { id: "list", label: "목록", panel: list },
+          { id: "detail", label: "이어 읽기", panel: detail }
+        ],
+        onChange: opts.onPaneChange
+      });
+      setHidden(tabsHost, false);
+      setHidden(list, activePane !== "list");
+      setHidden(detail, activePane !== "detail");
+    }
     return { element: shell, grid, list, detail, tabs, layout };
   }
 

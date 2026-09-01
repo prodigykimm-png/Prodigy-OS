@@ -58,7 +58,8 @@ test("Reading presentation removes frozen palette, generated decoration, card sh
 test("Reading in-progress cards keep comfortable outer and inner spacing", () => {
   const styles = read("SYSTEM/Views/reading-styles.js");
   const card = read("SYSTEM/Views/reading-card.js");
-  assert.match(styles, /\.reading-hub-section\s*\{[^}]*padding-inline:\s*\$\{gutter\.phone \|\| 20\}px/);
+  assert.match(styles, /\.reading-hub-section,\s*\.prodigy-hub-note \.el-h1:has\(\+ \.el-pre > \.reading-hub-section\)\s*\{[^}]*padding-inline:\s*\$\{gutter\.phone \|\| 20\}px/);
+  assert.match(styles, /\.prodigy-hub-note \.el-h1:has\(\+ \.el-pre > \.reading-hub-section\)/);
   assert.match(styles, /@media \(min-width: \$\{phoneMax \+ 1\}px\)[\s\S]*?padding-inline:\s*\$\{\(gutter\.pad && gutter\.pad\.portrait\) \|\| 32\}px/);
   assert.match(styles, /@media \(min-width: \$\{utilityTwoColumnMax \+ 1\}px\)[\s\S]*?padding-inline:\s*\$\{\(gutter\.pad && gutter\.pad\.landscape\) \|\| 48\}px/);
   assert.match(styles, /@media \(min-width: \$\{contentMax \+ 1\}px\)[\s\S]*?padding-inline:\s*\$\{\(gutter\.mac && gutter\.mac\.atContentMax\) \|\| 80\}px/);
@@ -66,8 +67,13 @@ test("Reading in-progress cards keep comfortable outer and inner spacing", () =>
   assert.match(styles, /\.reading-responsive-workspace\[data-reading-layout="compact"\] \.reading-responsive-list,\s*\.reading-responsive-workspace\[data-reading-layout="medium"\] \.reading-responsive-list\s*\{[^}]*padding:\s*var\(--ke-space-4,\s*17px\)/);
   assert.match(styles, /\.reading-card\s*\{[^}]*padding:\s*var\(--ke-space-4,\s*17px\) var\(--ke-space-5,\s*24px\)/);
   assert.match(styles, /\.reading-card-hero\s*\{[^}]*padding:\s*clamp\(24px,\s*5vw,\s*32px\)/);
+  assert.match(styles, /\.reading-card\.is-focus\s*\{[^}]*border-inline-start:\s*4px[^}]*outline:\s*none/);
+  assert.doesNotMatch(card, /const focusBorder = isFocus/);
   assert.doesNotMatch(card, /reading-card-content-hero[\s\S]{0,400}padding:/);
+  assert.doesNotMatch(card, /reading-card-content-hero[\s\S]{0,400}outline:/);
+  assert.doesNotMatch(card, /reading-card-content-hero[\s\S]{0,400}style:\s*`border:/);
   assert.doesNotMatch(card, /reading-card-simple[\s\S]{0,400}padding:/);
+  assert.doesNotMatch(card, /reading-card-simple[\s\S]{0,400}style:\s*`border:/);
 });
 
 test("Reading mutation oracle kills every frozen residual and enforces actual-image-only shadow", () => {

@@ -485,8 +485,6 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     });
   };
   
-  const focusBorder = isFocus ? "2px solid var(--ke-color-accent, var(--text-accent))" : "1px solid var(--background-modifier-border)";
-
   if (mode === "hero") {
     // Cover + meta on top row; actions always full-width below so mobile never covers the image.
     const card = container.createEl('div', {
@@ -495,7 +493,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
         'data-reading-path': pathOf(),
         'data-reading-status': p.status || '',
         tabindex: '-1',
-        style: `border:${focusBorder};border-radius:var(--ke-radius-card,18px);margin-bottom:17px;background:var(--background-primary);display:flex;flex-direction:column;gap:24px;${isFocus ? "outline:2px solid var(--ke-color-accent, var(--text-accent));outline-offset:3px;" : ""}`
+        style: "border-radius:var(--ke-radius-card,18px);margin-bottom:17px;background:var(--background-primary);display:flex;flex-direction:column;gap:24px;"
       }
     });
 
@@ -591,7 +589,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
       attr: {
         class: 'reading-card reading-card-simple' + (isFocus ? ' is-focus' : ''),
         'data-reading-path': pathOf(),
-        style: `border:1px solid var(--background-modifier-border);${isFocus ? 'border-inline-start:4px solid var(--ke-color-accent, var(--text-accent));' : ''}border-radius:var(--ke-radius-panel,12px);margin-bottom:10px;background:var(--background-secondary);display:flex;flex-direction:column;gap:12px;`
+        style: "border-radius:var(--ke-radius-panel,12px);margin-bottom:10px;background:var(--background-secondary);display:flex;flex-direction:column;gap:12px;"
       }
     });
     
