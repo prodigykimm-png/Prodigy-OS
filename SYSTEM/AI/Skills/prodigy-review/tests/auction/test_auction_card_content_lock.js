@@ -349,7 +349,7 @@ test("GREEN — real auction-card renders a stable semantic content snapshot", (
 
 test("RED — removing the my_opinion field breaks the content lock", () => {
   const mutated = SOURCE.replace(
-    /    \/\/ Opinion Row \(Clickable\)[\s\S]*?(?=    \/\/ Reference Memo Row)/,
+    /    \/\/ Opinion Row \(Clickable\)[\s\S]*?(?=    const userText)/,
     [
       "    const userNote = p.auction_note;",
       "    const recLevel = (window.MorningContextCore && window.MorningContextCore.resolveRecommendLevel)",

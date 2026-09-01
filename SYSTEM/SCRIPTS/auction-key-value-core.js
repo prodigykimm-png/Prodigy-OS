@@ -71,15 +71,18 @@ function parseRegion(address) {
   return { sido: parts[0] || null, sigungu: parts[1] || null };
 }
 function snapshotHash(snapshot) {
-  const canonical = JSON.stringify({ schema_version: snapshot.schema_version, generated_at: snapshot.generated_at, groups: snapshot.groups });
+  const canonical = JSON.stringify({ schema_version: snapshot.schema_version, generated_at: snapshot.generated_at, groups: snapshot.groups, districts: snapshot.districts });
   return sha256(canonical);
 }
-function buildKeyValueSnapshot(records, options = {}) {
-  const eligible = records.filter((record) => eligibility(record).eligible), grouped = new Map();
-  for (const record of eligible) {
-    const key = [record.region_sido || parseRegion(record.parcel_address).sido, record.region_sigungu || parseRegion(record.parcel_address).sigungu, record.legal_dong, record.property_type].join("|");
+function groupRecords(records, keyFor) {
+  const grouped = new Map();
+  for (const record of records) {
+    const key = keyFor(record);
     if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(record);
   }
+  return grouped;
+}
+function summarizeGroups(grouped, options) {
   const groups = {};
   for (const [key, cases] of [...grouped.entries()].sort()) {
     const buildings = new Map();
@@ -93,7 +96,23 @@ function buildKeyValueSnapshot(records, options = {}) {
       period_start: dates[0], period_end: dates.at(-1), source: options.source || "AUCT CSV"
     });
   }
-  const snapshot = { schema_version: "auction-key-value-snapshot.v1", generated_at: options.asOf || new Date().toISOString(), groups };
+  return groups;
+}
+function buildKeyValueSnapshot(records, options = {}) {
+  const eligible = records.filter((record) => eligibility(record).eligible);
+  const regionFor = (record) => ({
+    sido: record.region_sido || parseRegion(record.parcel_address).sido,
+    sigungu: record.region_sigungu || parseRegion(record.parcel_address).sigungu
+  });
+  const groups = summarizeGroups(groupRecords(eligible, (record) => {
+    const region = regionFor(record);
+    return [region.sido, region.sigungu, record.legal_dong, record.property_type].join("|");
+  }), options);
+  const districts = summarizeGroups(groupRecords(eligible, (record) => {
+    const region = regionFor(record);
+    return [region.sido, region.sigungu, record.property_type].join("|");
+  }), options);
+  const snapshot = { schema_version: "auction-key-value-snapshot.v1", generated_at: options.asOf || new Date().toISOString(), groups, districts };
   return Object.freeze({ ...snapshot, content_hash: snapshotHash(snapshot) });
 }
 function comparePrice(priceWon, areaSqm, keyValue) {

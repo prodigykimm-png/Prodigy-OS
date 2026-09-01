@@ -16,6 +16,7 @@ const AUCTION_PRESENTATION = [
   "SYSTEM/Views/auction-ai-decision-support.js",
   "SYSTEM/Views/auction-decision-packet.js",
   "SYSTEM/Views/auction-real-estate-research.js",
+  "SYSTEM/Views/auction-key-value-detail.js",
   "SYSTEM/Views/auction-region-packet.js",
   "SYSTEM/Views/region-intelligence-popup-view.js"
 ];
@@ -74,6 +75,24 @@ test("Auction integrates Calendar into the three-pane workspace and keeps the ca
   assert.match(hub, /ProdigyAuctionNativeScenes\.register\("calendar",\s*this\.container\)/);
   assert.match(hub, /window\.BidCalendarView\.render\(\{/);
   assert.match(hub, /label:\s*"입찰 일정 캘린더"/);
+});
+
+test("Auction card keeps the key-value total inside the price group immediately after the price pair", () => {
+  const card = read("SYSTEM/Views/auction-card.js");
+  const pricePair = card.indexOf("const pricePair");
+  const keyValue = card.indexOf("const keyRow = priceGroup.createEl('button'");
+  const terminalMetrics = card.indexOf("const isTerminalStatus");
+  assert.ok(pricePair >= 0 && keyValue > pricePair && terminalMetrics > keyValue);
+  assert.match(card, /priceGroup\.createEl\('button',[\s\S]*?class:\s*'auction-card-key-value'/);
+});
+
+test("Auction card projects compact, medium, and wide tiers from the shared view model", () => {
+  const card = read("SYSTEM/Views/auction-card.js");
+  assert.match(card, /AuctionCardViewModel\.presentation\(logicalWidth,\s*p\.status\)/);
+  assert.match(card, /auction-card-tier-\$\{cardPresentation\.tier\}/);
+  assert.match(card, /data-card-tier/);
+  assert.match(card, /aria-haspopup['"]?:\s*['"]dialog/);
+  assert.match(card, /AuctionKeyValueDetail\.open/);
 });
 
 test("Auction mutation oracle kills every frozen presentation residual class", () => {

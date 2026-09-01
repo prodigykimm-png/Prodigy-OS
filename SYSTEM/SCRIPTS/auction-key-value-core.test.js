@@ -42,6 +42,18 @@ assert.equal(key.period_end, "2026-07-01");
 const concentrated = core.buildKeyValueSnapshot(cases.filter((row) => row.building_key === "A"), { asOf: "2026-08-31", source: "AUCT CSV" });
 assert.equal(concentrated.groups["부산광역시|해운대구|우동|오피스텔"].confidence, "sample_concentrated");
 
+const districtCases = cases.concat([
+  { ...record, record_id: "D", legal_dong: "중동", building_key: "D", won_per_pyeong: 20000000, auction_date: "2026-08-01" },
+  { ...record, record_id: "E", legal_dong: "중동", building_key: "E", won_per_pyeong: 22000000, auction_date: "2026-08-02" }
+]);
+const districtSnapshot = core.buildKeyValueSnapshot(districtCases, { asOf: "2026-08-31", source: "AUCT CSV" });
+const district = districtSnapshot.districts["부산광역시|해운대구|오피스텔"];
+assert.equal(district.case_count, 9);
+assert.equal(district.building_count, 5);
+assert.equal(district.key_value_won_per_pyeong, 14500000);
+assert.equal(district.q1_won_per_pyeong, 12500000);
+assert.equal(district.q3_won_per_pyeong, 20000000);
+
 assert.deepEqual(core.comparePrice(90000000, 33.05785, 10000000), {
   won_per_pyeong: 9000000,
   ratio: 0.9,
