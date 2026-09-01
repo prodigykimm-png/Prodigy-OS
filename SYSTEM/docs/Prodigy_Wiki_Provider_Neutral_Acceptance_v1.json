@@ -1,0 +1,137 @@
+{
+  "schema_version": "prodigy_wiki_provider_neutral_acceptance_v1",
+  "product": "prodigy-wiki",
+  "accepted_scope": "reviewed-source-organization-core",
+  "provider_runtime": {
+    "disposition": "external_plugin_release_gate",
+    "owner": "prodigy-ai-runtime",
+    "blocks_core_release": false,
+    "vault_transport_modules_allowed": false,
+    "reason": "Provider authentication, routing, HTTP, CLI, relay, and live-provider certification have a separate lifecycle from Prodigy Wiki domain behavior."
+  },
+  "protected_state": {
+    "existing_review_items": 50,
+    "existing_review_mutation_allowed": false,
+    "canonical_knowledge_mutation_allowed": false,
+    "source_mutation_allowed": false
+  },
+  "core_cold_warm_contract": {
+    "cold_injected_transport_calls": "greater_than_zero",
+    "warm_injected_transport_calls": 0,
+    "stable_operation_id": true,
+    "stable_document_hash": true,
+    "stable_receipt_hash": true,
+    "external_network_required": false
+  },
+  "requirements": [
+    {
+      "id": "reviewed_catalog",
+      "status": "required",
+      "production": [
+        "SYSTEM/Views/prodigy-wiki-reviewed-store.js",
+        "SYSTEM/Views/prodigy-wiki-index.js",
+        "SYSTEM/Views/prodigy-wiki-index-view.js"
+      ],
+      "evidence": [
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_reviewed_store.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_index.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_index_view.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_catalog_real_obsidian.js"
+      ]
+    },
+    {
+      "id": "source_navigation",
+      "status": "required",
+      "production": [
+        "SYSTEM/Views/prodigy-wiki-artifact-contract.js",
+        "SYSTEM/Views/llmwiki-golden-preview-workbench.js",
+        "SYSTEM/Views/llmwiki-source-preview.js"
+      ],
+      "evidence": [
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_source_navigation.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_source_navigation_real_obsidian.js"
+      ]
+    },
+    {
+      "id": "local_incremental_diff",
+      "status": "required",
+      "production": [
+        "SYSTEM/Views/prodigy-wiki-source-diff.js",
+        "SYSTEM/Views/prodigy-wiki-controller.js",
+        "HUB/50 Knowledge.md"
+      ],
+      "evidence": [
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_source_diff.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_controller.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_incremental_real_obsidian.js"
+      ]
+    },
+    {
+      "id": "selected_range_consent",
+      "status": "required",
+      "production": [
+        "SYSTEM/Views/llmwiki-outbound-consent.js",
+        "SYSTEM/Views/llmwiki-golden-wiki-orchestrator.js",
+        "SYSTEM/Views/prodigy-wiki-controller.js"
+      ],
+      "evidence": [
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_outbound_consent.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_scope_tree.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_incremental_real_obsidian.js"
+      ]
+    },
+    {
+      "id": "reviewed_supersession",
+      "status": "required",
+      "production": [
+        "SYSTEM/Views/prodigy-wiki-reviewed-store.js",
+        "SYSTEM/Views/prodigy-wiki-index.js"
+      ],
+      "evidence": [
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_reviewed_store.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_incremental_real_obsidian.js"
+      ]
+    },
+    {
+      "id": "deterministic_replay",
+      "status": "required",
+      "production": [
+        "SYSTEM/Views/llmwiki-golden-wiki-orchestrator.js",
+        "SYSTEM/Views/prodigy-wiki-operation-store.js",
+        "SYSTEM/Views/llmwiki-batch-job-store.js"
+      ],
+      "evidence": [
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_golden_wiki_orchestrator.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_batch_core_golden_receipt.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_batch_integration.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_recovery.js"
+      ]
+    },
+    {
+      "id": "write_boundary",
+      "status": "required",
+      "production": [
+        "SYSTEM/Views/prodigy-wiki-reviewed-store.js",
+        "SYSTEM/Views/llmwiki-golden-wiki-orchestrator.js",
+        "SYSTEM/Views/llmwiki-write-boundary-policy.js"
+      ],
+      "evidence": [
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_write_boundary_lifecycle_prefixes.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_incremental_real_obsidian.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_catalog_real_obsidian.js"
+      ]
+    },
+    {
+      "id": "synthetic_cleanup",
+      "status": "required",
+      "production": [
+        "SYSTEM/Views/llmwiki-batch-job-store.js",
+        "SYSTEM/Views/prodigy-wiki-operation-store.js"
+      ],
+      "evidence": [
+        "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_incremental_real_obsidian.js",
+        "SYSTEM/AI/Skills/prodigy-review/tests/shared/real_obsidian_harness.js"
+      ]
+    }
+  ]
+}

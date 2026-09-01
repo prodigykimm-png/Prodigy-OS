@@ -122,7 +122,11 @@ test("real Obsidian accumulates reviewed Wiki documents and restores the index a
         entries:snapshot.entries.map(entry=>({artifact_id:entry.artifact_id,path:entry.document_path,trust:entry.trust_tier})),
         counts:index.counts,
         canonical:index.rows.filter(row=>row.document_path.startsWith("PARA/RESOURCES/Knowledge/")).length,
-        writes:window.__task13aWriteAttempts||[]
+        writes:(window.__task13aWriteAttempts||[]).filter(row=>
+          row.path===window.__prodigyWikiCatalogQa.sourcePath
+          || String(row.path||"").startsWith("PARA/RESOURCES/Knowledge/")
+          || String(row.path||"").startsWith("ZETA/PERMANENT/")
+        )
       };
     })()`);
     assert.equal(accumulated.entries.length, 2);

@@ -1567,7 +1567,11 @@ class RealObsidianHarness {
     const changedPaths = [...new Set([...beforeEntries.keys(), ...afterEntries.keys()])]
       .filter((relative) => beforeEntries.get(relative) !== afterEntries.get(relative));
     const expectedJson = options.expectedJson && typeof options.expectedJson === "object" ? options.expectedJson : {};
-    const declaredRuntimeMetadata = (relative) => /^\.obsidian\/(?:workspace|workspace-mobile|app|appearance)\.json$/u.test(relative);
+    const expectedRuntimeJsonPaths = new Set(Array.isArray(options.expectedRuntimeJsonPaths)
+      ? options.expectedRuntimeJsonPaths : []);
+    const declaredRuntimeMetadata = (relative) =>
+      /^\.obsidian\/(?:workspace|workspace-mobile|app|appearance)\.json$/u.test(relative)
+      || expectedRuntimeJsonPaths.has(relative);
     const permittedJsonCleanup = changedPaths.length > 0 && changedPaths.every((relative) => {
       if (!declaredRuntimeMetadata(relative) && !Object.hasOwn(expectedJson, relative)) return false;
       try {

@@ -95,7 +95,10 @@ test("real Obsidian detects one source edit locally and replaces only its review
         const parts=path.split("/").slice(0,-1);
         for(let index=1;index<=parts.length;index+=1){
           const folder=parts.slice(0,index).join("/");
-          if(folder&&!app.vault.getAbstractFileByPath(folder))await app.vault.createFolder(folder);
+          if(folder&&!app.vault.getAbstractFileByPath(folder)){
+            try{await app.vault.createFolder(folder)}
+            catch(error){if(!/Folder already exists/u.test(String(error?.message||error)))throw error}
+          }
         }
       };
       await ensure(artifact.document_path);
@@ -119,6 +122,18 @@ test("real Obsidian detects one source edit locally and replaces only its review
     await harness.evaluate(`(async()=>{
       const qa=window.__prodigyWikiIncrementalQa;
       const changed=qa.originalText.replace("Original changed-range evidence.","Updated changed-range evidence.");
+      qa.batchStateReady=new Promise((resolve,reject)=>{
+        const path="SYSTEM/CACHE/llmwiki/batch-job-state.json";
+        if(app.vault.getAbstractFileByPath(path)){resolve(true);return}
+        let ref;
+        const guard=setTimeout(()=>{app.vault.offref(ref);reject(new Error("INCREMENTAL_BATCH_STATE_TIMEOUT"))},30000);
+        ref=app.vault.on("create",file=>{
+          if(file.path!==path)return;
+          clearTimeout(guard);
+          app.vault.offref(ref);
+          resolve(true);
+        });
+      });
       window.__task13aProdigyWikiSourceWrites=true;
       await app.vault.modify(qa.sourceFile,changed);
       window.__task13aProdigyWikiSourceWrites=false;
@@ -213,7 +228,10 @@ test("real Obsidian detects one source edit locally and replaces only its review
         const parts=path.split("/").slice(0,-1);
         for(let index=1;index<=parts.length;index+=1){
           const folder=parts.slice(0,index).join("/");
-          if(folder&&!app.vault.getAbstractFileByPath(folder))await app.vault.createFolder(folder);
+          if(folder&&!app.vault.getAbstractFileByPath(folder)){
+            try{await app.vault.createFolder(folder)}
+            catch(error){if(!/Folder already exists/u.test(String(error?.message||error)))throw error}
+          }
         }
       };
       await ensure(artifact.document_path);
@@ -241,6 +259,8 @@ test("real Obsidian detects one source edit locally and replaces only its review
     assert.equal(history.entries.find((entry) => entry.id === replacement.artifact_id).status, "current");
 
     await harness.evaluate(`(async()=>{
+      const qa=window.__prodigyWikiIncrementalQa;
+      if(qa.batchStateReady)await qa.batchStateReady;
       const settled=KnowledgeExplorerHub._llmWikiSession?.inboxSettled;
       if(settled&&typeof settled.then==="function")await settled;
       return true;
@@ -282,6 +302,8 @@ test("real Obsidian detects one source edit locally and replaces only its review
     if (harness) {
       if (qaCreated) {
         await harness.evaluate(`(async()=>{
+          const qa=window.__prodigyWikiIncrementalQa;
+          if(qa?.batchStateReady)await qa.batchStateReady.catch(()=>false);
           const settled=KnowledgeExplorerHub._llmWikiSession?.inboxSettled;
           if(settled&&typeof settled.then==="function")await settled;
           return true;
@@ -313,12 +335,8 @@ test("real Obsidian detects one source edit locally and replaces only its review
           return true;
         })()`);
       }
-      const batchState = await harness.evaluate(`(async()=>{
-        const file=app.vault.getAbstractFileByPath("SYSTEM/CACHE/llmwiki/batch-job-state.json");
-        return file?JSON.parse(await app.vault.cachedRead(file)):null;
-      })()`).catch(() => null);
       const closed = await harness.close({
-        expectedJson: batchState ? { "SYSTEM/CACHE/llmwiki/batch-job-state.json": batchState } : {},
+        expectedRuntimeJsonPaths: ["SYSTEM/CACHE/llmwiki/batch-job-state.json"],
       });
       assert.equal(closed.audit.equal, true);
       assert.equal(closed.protectedContinuity.exact, true);
