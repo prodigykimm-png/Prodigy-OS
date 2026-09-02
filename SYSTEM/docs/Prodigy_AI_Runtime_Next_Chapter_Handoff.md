@@ -22,7 +22,7 @@
 - Runtime repository와 published `v0.1.0` artifacts는 변경하지 않았다.
 - 다른 작업자의 Dusk 변경은 수정·stage·삭제·restore하지 않았다.
 
-Verified at UTC: `2026-09-02T08:49:37Z`
+Verified at UTC: `2026-09-02T08:56:52Z`
 
 ## 완료된 사용자 요구사항
 
@@ -57,6 +57,9 @@ Verified at UTC: `2026-09-02T08:49:37Z`
 16. Initial chapter commit `48ff37d`, hostile remediation `93ffa72`, live auth
     remediation `2e98b41`을 각각 atomic Lore commit으로 남겼다.
 17. Current closure evidence와 다음 챕터 계획을 이 canonical handoff에 남긴다.
+18. Final residue audit에서 과거 RED가 남긴 fake agy temp roots 10개를 발견해
+    제거하고, fake CLI child failure path에 process-exit cleanup을 추가한 뒤
+    prefix inventory `[]`를 재확인했다.
 
 ## 저장소 source of truth
 
@@ -75,8 +78,10 @@ Verified at UTC: `2026-09-02T08:49:37Z`
   `93ffa72310491eae709e1a4d98435a15fae9cfd1`
 - Live auth remediation commit:
   `2e98b4149292a07633d35d190361e251e41221ca`
-- HEAD before the canonical-handoff commit:
-  `2e98b4149292a07633d35d190361e251e41221ca`
+- Canonical mobile-plan commit:
+  `a6f33eb49c8155deb22601ada62ea354179bfce5`
+- HEAD before the final residue-remediation commit:
+  `a6f33eb49c8155deb22601ada62ea354179bfce5`
 - Canonical handoff containing commit:
 
   ```bash
@@ -417,6 +422,10 @@ Never use `git add -A` or `git add .`; stage exact task-owned paths only.
     - Explicit `codexAuthProbe`가 Codex child에만 실제 auth HOME을 전달한다.
     - Electron/vault HOME은 task-owned로 유지한다.
     - Per-call CDP ceiling을 in-page bound보다 5초 길게 설정했다.
+13. **과거 fake agy RED가 process exit 전에 temp root cleanup에 도달하지 못했다.**
+    - Fake agy/Codex child가 temp root 생성 직후 process-exit cleanup을 등록한다.
+    - 기존 leaked roots 10개를 exact task prefix로 제거했다.
+    - Auth relay tests `4/4` 후 closure temp prefix inventory `[]`를 확인했다.
 
 ### Finding → verification mapping
 
@@ -430,6 +439,7 @@ Never use `git add -A` or `git add .`; stage exact task-owned paths only.
 | Binary drift | exact supported identity tuple |
 | Live Codex auth | fake relay tests `4/4`, live acceptance `1/1` |
 | Suite attribution | parent `38/46`, current `44/49` |
+| Fake CLI failure residue | process-exit cleanup + final prefix inventory `[]` |
 
 ## 다음 챕터 — Mobile Relay Activation
 

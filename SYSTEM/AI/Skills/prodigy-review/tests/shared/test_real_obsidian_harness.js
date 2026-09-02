@@ -742,11 +742,11 @@ function agyProbeChildSource(prelude, authHomeEnv) {
   const envSetup = authHomeEnv === undefined ? "" : `process.env.TASK13A_ANTIGRAVITY_AUTH_HOME=${JSON.stringify(authHomeEnv)};`;
   return `"use strict";const attempts=[];process.env.HOME='/task-owned/electron/home';${envSetup}globalThis.dispatchEvent=()=>true;globalThis.CustomEvent=class{constructor(type,init){this.type=type;this.detail=init&&init.detail}};globalThis.__task13aAntigravityExecProbe=true;eval(${JSON.stringify(prelude)});` +
     `const cp=require('node:child_process'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');` +
-    `const dir=fs.mkdtempSync(path.join(os.tmpdir(),'task13a-fake-agy-'));const script=path.join(dir,'agy');` +
+    `const dir=fs.mkdtempSync(path.join(os.tmpdir(),'task13a-fake-agy-')),cleanup=()=>fs.rmSync(dir,{recursive:true,force:true});process.on('exit',cleanup);const script=path.join(dir,'agy');` +
     `fs.writeFileSync(script,'#!/bin/sh\\necho HOME="$HOME"\\n',{mode:0o755});` +
     `const child=cp.spawn(script,['-p','x','--output-format','y','--model','z','--json-schema','w','--sandbox','s','--disable-slash-commands']);` +
     `let out='';child.stdout.on('data',c=>out+=c);` +
-    `child.on('close',()=>{fs.rmSync(dir,{recursive:true,force:true});process.stdout.write(JSON.stringify({stdout:out,attempts,aiAttempts:globalThis.__task13aAIExecAttempts||[],electronHome:process.env.HOME}))});`;
+    `child.on('close',()=>{cleanup();process.stdout.write(JSON.stringify({stdout:out,attempts,aiAttempts:globalThis.__task13aAIExecAttempts||[],electronHome:process.env.HOME}))});`;
 }
 test("agy auth-probe relay is inert by default: fake agy child inherits the task-owned Electron HOME, never the real inherited HOME", () => {
   const prelude = nodeNetworkDenyPrelude("attempts");
@@ -771,11 +771,11 @@ function codexProbeChildSource(prelude, authHomeEnv) {
   const envSetup = authHomeEnv === undefined ? "" : `process.env.TASK13A_CODEX_AUTH_HOME=${JSON.stringify(authHomeEnv)};`;
   return `"use strict";const attempts=[];process.env.HOME='/task-owned/electron/home';${envSetup}globalThis.dispatchEvent=()=>true;globalThis.CustomEvent=class{constructor(type,init){this.type=type;this.detail=init&&init.detail}};globalThis.__task13aCodexExecProbe=true;eval(${JSON.stringify(prelude)});` +
     `const cp=require('node:child_process'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');` +
-    `const dir=fs.mkdtempSync(path.join(os.tmpdir(),'task13a-fake-codex-'));const script=path.join(dir,'codex');` +
+    `const dir=fs.mkdtempSync(path.join(os.tmpdir(),'task13a-fake-codex-')),cleanup=()=>fs.rmSync(dir,{recursive:true,force:true});process.on('exit',cleanup);const script=path.join(dir,'codex');` +
     `fs.writeFileSync(script,'#!/bin/sh\\necho HOME="$HOME"\\n',{mode:0o755});` +
     `const child=cp.spawn(script,['exec','--json','--ephemeral','--sandbox','read-only','--skip-git-repo-check','-']);` +
     `let out='';child.stdout.on('data',c=>out+=c);` +
-    `child.on('close',()=>{fs.rmSync(dir,{recursive:true,force:true});process.stdout.write(JSON.stringify({stdout:out,attempts,aiAttempts:globalThis.__task13aAIExecAttempts||[],electronHome:process.env.HOME}))});`;
+    `child.on('close',()=>{cleanup();process.stdout.write(JSON.stringify({stdout:out,attempts,aiAttempts:globalThis.__task13aAIExecAttempts||[],electronHome:process.env.HOME}))});`;
 }
 test("codex auth-probe relay is inert by default and opt-in relays HOME only to the fake codex child", () => {
   const prelude = nodeNetworkDenyPrelude("attempts");
