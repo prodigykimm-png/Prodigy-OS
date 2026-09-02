@@ -105,15 +105,16 @@ Verified at UTC: `2026-09-02T08:56:52Z`
 
 - Path: `/Users/prodigykim/Developer/prodigy-ai-runtime`
 - Branch: `main`
-- HEAD: `d4380537a4a1766b21cc7540a57ba9ee270ef635`
+- HEAD: `6f0ba1f`
 - Remote: `origin`
   (`https://github.com/prodigykimm-png/prodigy-ai-runtime.git`)
-- `origin/main...main`: `0 0`
+- `origin/main...main`: `0 1`
 - Worktree/index: clean
 - Tag: annotated unsigned `v0.1.0`
 - Tag object: `1248461a1a2152a9a0e0ad045994337873c1dc90`
 - Tag target: `d4380537a4a1766b21cc7540a57ba9ee270ef635`
-- Runtime source, tag, Release, visibility와 assets changed: false
+- Runtime source changed: true — unpublished local `v0.2.0` relay foundation
+- Published tag, Release, visibility와 assets changed: false
 
 ## 검증한 테스트와 실제 QA 결과
 
@@ -685,3 +686,89 @@ Next resume:
 3. Connect the approved physical device.
 4. Provide approved relay deployment metadata without token values.
 5. Resume the exact two-request Mobile Relay Acceptance defined above.
+
+## 2026-09-02 Local v0.2 Relay Foundation Receipt
+
+### Runtime source
+
+- Local Runtime HEAD: `6f0ba1f`
+- Branch: `main`
+- `origin/main...main`: `0 1`
+- Source version: `0.2.0`
+- Published `v0.1.0` tag/Release target remains `d438053`
+- Main Dusk installed `v0.1.0` files and grants were not changed.
+
+### Implemented
+
+1. Mobile relay selection now supports both `codex-exec` and `antigravity-exec`
+   profiles.
+2. Legacy Codex profiles receive only the stable SecretStorage ID
+   `prodigy-codex-relay-token`; no secret value is migrated.
+3. A companion relay server binds only `127.0.0.1`, leaving TLS and public identity to
+   an administrator-approved Tailscale Serve route.
+4. The server authenticates Bearer tokens with timing-safe comparison and requires at
+   least 32 bytes.
+5. Request IDs, consumer IDs, deployment IDs, body size, content type, protocol version,
+   model and deadline are validated at their trust boundaries.
+6. Codex receives prompt bytes through stdin and an isolated non-vault cwd.
+7. Completed and active request identities reject replay without another provider call.
+8. Cancellation aborts the exact active request and is accounted separately from
+   provider requests.
+9. `/receipt` exposes only deployment metadata and counters.
+10. The standalone relay artifact is deterministic and executable.
+
+### Local verification
+
+- Strict TypeScript: pass
+- Runtime tests: `39/39`
+- Exact accounting:
+  - provider requests: `2`
+  - cancel controls: `1`
+  - retries: `0`
+  - fallback calls: `0`
+  - completed: `1`
+  - cancel requested: `1`
+- Unauthorized backend calls: `0`
+- Completed identity replay backend calls: `0`
+- Relay artifact:
+  - `dist/prodigy-ai-relay-server-0.2.0.mjs`
+  - SHA-256:
+    `1565b0e1f951b684c0143b9282536af646ae1d0b4c5d9ac293fd26a040af9c4f`
+  - repeated-build byte identity: pass
+  - secret literals: `0`
+  - absolute Dusk paths: `0`
+- Local `v0.2.0` plugin release:
+  - archive SHA-256:
+    `4d84454adc6af3bc4a17cd8330b45961e9367f7e8b962aba3d82abce310d12fe`
+  - reproducible: true
+- Relay process residue: `0`
+- Relay temp residue: `0`
+
+### Xcode MCP current session
+
+- Gateway connection: pass
+- Exposed tools/resources: `48`
+- Device workflow: enabled
+- Simulator workflow: enabled
+- UI automation workflow: enabled
+- `list_devices`: physical devices `0`
+- `list_sims`: simulators `0`
+
+### Remaining external boundary
+
+The code and local deployment artifact are ready, but physical Mobile Relay Acceptance
+is still blocked by all of:
+
+1. connected physical iPhone or iPad,
+2. administrator-approved `.ts.net` relay URL,
+3. deployment ID/digest/owner,
+4. disposable Keychain and Obsidian SecretStorage token registration,
+5. server-side receipt access through the approved route.
+
+No simulator runtime was downloaded because there is no simulator-compatible Obsidian
+iOS application artifact in this workspace and simulator success would not satisfy the
+physical-device stop condition.
+
+Resume only after the five external identities above are present. The next live run must
+still produce exactly two provider requests, one separate cancel control, retries `0`,
+fallback `0`, persistence `0` and vault writes `0`.
