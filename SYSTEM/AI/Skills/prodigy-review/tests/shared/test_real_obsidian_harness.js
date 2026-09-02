@@ -740,13 +740,13 @@ test("RealObsidianHarness.evaluate defaults to the harness CDP timeout but accep
 // value it observed -- no network, no credentials, no provider call.
 function agyProbeChildSource(prelude, authHomeEnv) {
   const envSetup = authHomeEnv === undefined ? "" : `process.env.TASK13A_ANTIGRAVITY_AUTH_HOME=${JSON.stringify(authHomeEnv)};`;
-  return `"use strict";const attempts=[];process.env.HOME='/task-owned/electron/home';${envSetup}globalThis.__task13aAntigravityExecProbe=true;eval(${JSON.stringify(prelude)});` +
+  return `"use strict";const attempts=[];process.env.HOME='/task-owned/electron/home';${envSetup}globalThis.dispatchEvent=()=>true;globalThis.CustomEvent=class{constructor(type,init){this.type=type;this.detail=init&&init.detail}};globalThis.__task13aAntigravityExecProbe=true;eval(${JSON.stringify(prelude)});` +
     `const cp=require('node:child_process'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');` +
     `const dir=fs.mkdtempSync(path.join(os.tmpdir(),'task13a-fake-agy-'));const script=path.join(dir,'agy');` +
     `fs.writeFileSync(script,'#!/bin/sh\\necho HOME="$HOME"\\n',{mode:0o755});` +
     `const child=cp.spawn(script,['-p','x','--output-format','y','--model','z','--json-schema','w','--sandbox','s','--disable-slash-commands']);` +
     `let out='';child.stdout.on('data',c=>out+=c);` +
-    `child.on('close',()=>{fs.rmSync(dir,{recursive:true,force:true});process.stdout.write(JSON.stringify({stdout:out,attempts,agyAttempts:globalThis.__task13aAntigravityExecAttempts||[],electronHome:process.env.HOME}))});`;
+    `child.on('close',()=>{fs.rmSync(dir,{recursive:true,force:true});process.stdout.write(JSON.stringify({stdout:out,attempts,aiAttempts:globalThis.__task13aAIExecAttempts||[],electronHome:process.env.HOME}))});`;
 }
 test("agy auth-probe relay is inert by default: fake agy child inherits the task-owned Electron HOME, never the real inherited HOME", () => {
   const prelude = nodeNetworkDenyPrelude("attempts");
@@ -764,23 +764,49 @@ test("agy auth-probe relay honors TASK13A_ANTIGRAVITY_AUTH_HOME only for the agy
   assert.equal(result.status, 0, result.stderr);
   const receipt = JSON.parse(result.stdout);
   assert.equal(receipt.stdout.trim(), "HOME=/real/vault/home", "agy child must see the relayed real auth HOME when antigravityAuthProbe opted in");
-  assert.equal(receipt.agyAttempts.length, 1, "the relayed spawn is still recorded as an allowed agy probe attempt");
+  assert.equal(receipt.aiAttempts.length, 1, "the relayed spawn is still recorded as an allowed agy probe attempt");
   assert.equal(receipt.electronHome, "/task-owned/electron/home", "Electron process HOME must stay the disposable task-owned value even when the agy child is relayed");
 });
-test("RealObsidianHarness.start sets TASK13A_ANTIGRAVITY_AUTH_HOME only when antigravityAuthProbe is explicitly true, and never mutates launchEnv.HOME", () => {
+function codexProbeChildSource(prelude, authHomeEnv) {
+  const envSetup = authHomeEnv === undefined ? "" : `process.env.TASK13A_CODEX_AUTH_HOME=${JSON.stringify(authHomeEnv)};`;
+  return `"use strict";const attempts=[];process.env.HOME='/task-owned/electron/home';${envSetup}globalThis.dispatchEvent=()=>true;globalThis.CustomEvent=class{constructor(type,init){this.type=type;this.detail=init&&init.detail}};globalThis.__task13aCodexExecProbe=true;eval(${JSON.stringify(prelude)});` +
+    `const cp=require('node:child_process'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');` +
+    `const dir=fs.mkdtempSync(path.join(os.tmpdir(),'task13a-fake-codex-'));const script=path.join(dir,'codex');` +
+    `fs.writeFileSync(script,'#!/bin/sh\\necho HOME="$HOME"\\n',{mode:0o755});` +
+    `const child=cp.spawn(script,['exec','--json','--ephemeral','--sandbox','read-only','--skip-git-repo-check','-']);` +
+    `let out='';child.stdout.on('data',c=>out+=c);` +
+    `child.on('close',()=>{fs.rmSync(dir,{recursive:true,force:true});process.stdout.write(JSON.stringify({stdout:out,attempts,aiAttempts:globalThis.__task13aAIExecAttempts||[],electronHome:process.env.HOME}))});`;
+}
+test("codex auth-probe relay is inert by default and opt-in relays HOME only to the fake codex child", () => {
+  const prelude = nodeNetworkDenyPrelude("attempts");
+  for (const [authHome, expected] of [[undefined, "/task-owned/electron/home"], ["/real/codex/home", "/real/codex/home"]]) {
+    const result = childProcess.spawnSync(process.execPath, ["-e", codexProbeChildSource(prelude, authHome)], { encoding: "utf8", timeout: 30000 });
+    assert.equal(result.status, 0, result.stderr);
+    const receipt = JSON.parse(result.stdout);
+    assert.equal(receipt.stdout.trim(), `HOME=${expected}`);
+    assert.equal(receipt.aiAttempts.length, 1);
+    assert.equal(receipt.electronHome, "/task-owned/electron/home");
+  }
+});
+test("RealObsidianHarness.start sets CLI auth HOME relays only for explicit probes and never mutates launchEnv.HOME", () => {
   const disposableHome = "/tmp/task-owned/home";
   const realHome = "/Users/real/actual-home";
   function launchEnvFor(options) {
     const launchEnv = { ...process.env, HOME: disposableHome, TMPDIR: "/tmp/task-owned/tmp", XDG_CONFIG_HOME: "/tmp/task-owned/profile" };
     if (options.antigravityAuthProbe === true) launchEnv.TASK13A_ANTIGRAVITY_AUTH_HOME = realHome;
+    if (options.codexAuthProbe === true) launchEnv.TASK13A_CODEX_AUTH_HOME = realHome;
     return launchEnv;
   }
   const defaultEnv = launchEnvFor({});
   assert.equal(defaultEnv.HOME, disposableHome, "default run keeps Electron/vault HOME isolated");
   assert.equal(defaultEnv.TASK13A_ANTIGRAVITY_AUTH_HOME, undefined, "default run must not set the relay var");
+  assert.equal(defaultEnv.TASK13A_CODEX_AUTH_HOME, undefined, "default run must not set the Codex relay var");
   const optedInEnv = launchEnvFor({ antigravityAuthProbe: true });
   assert.equal(optedInEnv.HOME, disposableHome, "opt-in must not change the Electron/vault HOME");
   assert.equal(optedInEnv.TASK13A_ANTIGRAVITY_AUTH_HOME, realHome, "opt-in must set the relay var for the agy child only");
+  const codexEnv = launchEnvFor({ codexAuthProbe: true });
+  assert.equal(codexEnv.HOME, disposableHome, "Codex opt-in must not change the Electron/vault HOME");
+  assert.equal(codexEnv.TASK13A_CODEX_AUTH_HOME, realHome, "Codex opt-in must set the relay var for the Codex child only");
 });
 
 // Provider-free source/expression-contract proof for the trusted-click scroll

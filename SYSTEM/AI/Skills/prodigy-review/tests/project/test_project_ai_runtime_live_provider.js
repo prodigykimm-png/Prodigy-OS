@@ -23,7 +23,7 @@ function waitForAttribute(harness, selector, attribute, expected, label, timeout
     observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:[${JSON.stringify(attribute)}]});
     const timer=setTimeout(()=>{observer.disconnect();reject(new Error(${JSON.stringify(label)}))},${timeout});
     finish();
-  })`);
+  })`, timeout + 5000);
 }
 
 async function prepareWizard(harness, name) {
@@ -77,6 +77,7 @@ test("real Project consent reaches the installed Codex runtime without vault wri
   let surfaceComplete = false;
   try {
     harness = await RealObsidianHarness.start("project-ai-live-provider", {
+      codexAuthProbe: true,
       fixtureMutation: {
         prodigyAIRuntimePluginPath: PLUGIN_ROOT,
         prodigyAIRuntimeDataPath: path.join(ROOT, ".obsidian/plugins/prodigy-ai-runtime/data.json"),

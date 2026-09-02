@@ -992,6 +992,7 @@ class RealObsidianHarness {
     const args = [`--user-data-dir=${profile}`, `--remote-debugging-port=${port}`, `--remote-debugging-address=${LOOPBACK}`, `--task13a-nonce=${nonce}`, ...ownership.args, "--use-mock-keychain", "--disable-background-networking", "--disable-component-update", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding", "--host-resolver-rules=MAP * 0.0.0.0, EXCLUDE 127.0.0.1, EXCLUDE localhost", fixture.vault];
     const launchEnv = { ...process.env, HOME: home, TMPDIR: temp, XDG_CONFIG_HOME: profile };
     if (options.antigravityAuthProbe === true) launchEnv.TASK13A_ANTIGRAVITY_AUTH_HOME = process.env.HOME;
+    if (options.codexAuthProbe === true) launchEnv.TASK13A_CODEX_AUTH_HOME = process.env.HOME;
     const launchContract = validateLaunchContract(args, launchEnv, runtimeRoot, process.env.HOME);
     let launch = null;
     try {
