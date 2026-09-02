@@ -2,7 +2,23 @@
 
 ## 현재 결론
 
-`Obsidian Harness Compatibility` 챕터와 hostile closure remediation을 종료했다.
+`Mobile Relay Activation` 챕터를 physical iPhone과 Mac mini relay에서 종료했다.
+
+- Physical iPhone `structured-strict` Project 요청 1회가 성공했다.
+- 별도 Project 요청 1회는 active 상태에서 취소되어 `cancel_requested`로 종료됐다.
+- Acceptance snapshot은 provider requests `2`, cancel controls `1`, retries `0`,
+  fallback `0`, completed `1`, cancelled `1`이다.
+- Mobile conformance 재발급까지 포함한 최종 누적 snapshot은 provider requests `4`,
+  completed `3`, cancelled `1`, failures `0`이다.
+- Codex certification은 sync profile이 아니라 device-local route state에 저장되어
+  desktop과 mobile route가 서로의 인증을 덮어쓰지 않는다.
+- Shared config stale write는 mutation 직전 durable state를 다시 읽어 다른 device의
+  새 binding/certification 상태를 보존한다.
+- Main-vault grants, secret/prompt/response/schema/header persistence와 vault writes는
+  모두 `0`이다.
+
+이하 `Obsidian Harness Compatibility` 결론과 검증 기록은 이전 챕터의 보존된
+historical evidence다.
 
 - Obsidian `1.13.7` Korean first-open trust onboarding은 AI Runtime real surfaces에서
   explicit `trustOnboarding: "required"`일 때만 처리한다.
@@ -772,3 +788,68 @@ physical-device stop condition.
 Resume only after the five external identities above are present. The next live run must
 still produce exactly two provider requests, one separate cancel control, retries `0`,
 fallback `0`, persistence `0` and vault writes `0`.
+
+## 2026-09-02 Physical Mobile Relay Activation Receipt
+
+The preceding foundation section is historical. Its five external prerequisites were
+subsequently satisfied and the physical acceptance is complete.
+
+### Verified identities
+
+- Runtime: local unpublished `0.2.0`
+- Runtime source commit: `56ed274`
+- Protocol: `1.0.0`
+- Relay deployment: `macmini-codex-relay-v0.2.0`
+- Relay bind: loopback only; Tailscale Serve terminates HTTPS
+- Device class: physical iPhone
+- Provider: Codex through stdin in an isolated non-vault cwd
+- Secret reference: `prodigy-codex-relay-token`; value was never printed or persisted
+- Runtime tests: `46/46`
+- Reproducible v0.2 archive SHA-256:
+  `a5e43477735aa1e542cc254b408a1b910a2a0af5c4ffb7ce9bec3137d92c061d`
+- Relay artifact SHA-256:
+  `32ac31ac4435cdad2904946e8ca09134107cf2a5b57f869539e84ccc4c37ea64`
+
+### Physical acceptance snapshot
+
+- One Project `structured-strict` request: completed
+- One separate Project request: cancellation requested while active
+- Provider requests: `2`
+- Completed: `1`
+- Cancel controls: `1`
+- Cancel requested: `1`
+- Failed: `0`
+- Active: `0`
+- Retries: `0`
+- Fallback calls: `0`
+
+The final cumulative receipt after reissuing the mobile device-local conformance
+certificate is provider requests `4`, completed `3`, cancel requested `1`, retries `0`,
+fallback calls `0`, failed `0`, active `0`.
+
+### Hostile remediation
+
+1. Mobile transport failures no longer collapse into
+   `structured_conformance_failed`; safe error codes are preserved without raw network
+   details.
+2. SecretStorage writes show an explicit saved/failed state instead of silently
+   appearing successful.
+3. Empty legacy Codex model identities normalize to `runtime-default` and invalidate
+   stale authority.
+4. The `runtime-default` sentinel is omitted from Codex argv; an explicit model is
+   passed only when configured.
+5. Certification hashes are stored with device-local route state. Desktop CLI and
+   mobile relay certifications therefore coexist without overwriting one another.
+6. Every synchronized config mutation reloads current durable state first, preventing
+   a stale desktop process from erasing newer mobile state.
+
+### Final privacy and residue state
+
+- Main-vault grants: `0`
+- Secret values persisted: `0`
+- Prompt/response/schema/Authorization header persisted: `0`
+- Raw stdout/stderr persisted: `0`
+- Vault source/canonical writes from relay: `0`
+- Relay temporary directories: `0`
+- Plugin temporary directories: `0`
+- Published `v0.1.0` tag, Release and assets: unchanged

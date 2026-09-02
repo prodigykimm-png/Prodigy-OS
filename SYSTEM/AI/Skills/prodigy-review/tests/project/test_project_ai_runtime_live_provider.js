@@ -28,8 +28,24 @@ function waitForAttribute(harness, selector, attribute, expected, label, timeout
 
 async function prepareWizard(harness, name) {
   await harness.waitForSelector('[data-project-action="open-wizard"]');
-  await harness.renderedClick('[data-project-action="open-wizard"]');
-  await harness.waitForSelector(".prodigy-project-wizard");
+  const opened = harness.evaluate(`new Promise((resolve,reject)=>{
+    const finish=()=>{
+      if(!document.querySelector(".prodigy-project-wizard"))return;
+      observer.disconnect();clearTimeout(timer);resolve(true);
+    };
+    const observer=new MutationObserver(finish);
+    observer.observe(document.body,{childList:true,subtree:true});
+    const timer=setTimeout(()=>{observer.disconnect();reject(new Error("PROJECT_LIVE_OPEN_TIMEOUT"))},10000);
+    finish();
+  })`);
+  const clicked = await harness.evaluate(`(()=>{
+    const action=document.querySelector('[data-project-action="open-wizard"]');
+    if(!action)return false;
+    action.click();
+    return true;
+  })()`);
+  assert.equal(clicked, true);
+  await opened;
   return harness.evaluate(`(()=>{
     const root=document.querySelector(".prodigy-project-wizard");
     const textInputs=[...root.querySelectorAll('input:not([type="date"])')];
@@ -93,7 +109,11 @@ test("real Project consent reaches the installed Codex runtime without vault wri
       };
       await app.plugins.loadManifests();
       if(!app.plugins.plugins["prodigy-ai-runtime"])await app.plugins.enablePluginAndSave("prodigy-ai-runtime");
-      await app.plugins.plugins["prodigy-ai-runtime"].api.setBinding("project.workflow_draft","codex");
+      const plugin=app.plugins.plugins["prodigy-ai-runtime"];
+      await plugin.api.setBinding("project.workflow_draft","codex");
+      const certification=await plugin.api.certifyProfile("codex");
+      if(!certification.ok)throw new Error("CODEX_DEVICE_LOCAL_CERTIFICATION_FAILED:"+certification.error_code);
+      window.__task13aAIExecAttempts=[];
       return true;
     })()`);
     await harness.openWorkspace("project");
@@ -210,7 +230,7 @@ test("real Project consent reaches the installed Codex runtime without vault wri
         expectedRuntimeJsonPaths: [".obsidian/plugins/prodigy-ai-runtime/data.json"],
       });
       assert.equal(closed.audit.equal, true);
-      assert.deepEqual(closed.audit.changedPaths, [".obsidian/plugins/prodigy-ai-runtime/data.json"]);
+      assert.deepEqual(closed.audit.changedPaths, []);
       assert.equal(closed.protectedContinuity.exact, true);
       assert.equal(closed.removed, true);
       assert.equal(closed.portReusable, true);

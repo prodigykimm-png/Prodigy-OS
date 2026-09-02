@@ -20,16 +20,54 @@
   "secret_ids_preserved": true,
   "legacy_config_provider_fields_remaining": 0,
   "certified_profiles": 2,
-  "certifications": {
-    "antigravity": "31703aa13c4f83b6fccd44c493ca9cbf8140f8384fe2c041058d6260c2170442",
-    "codex": "786b7658a0e0a29b129dbf89af1ddb8748a09c0d94b84ed747233276ff130af4"
+  "shared_certified_profiles": 1,
+  "shared_certifications": {
+    "antigravity": "31703aa13c4f83b6fccd44c493ca9cbf8140f8384fe2c041058d6260c2170442"
+  },
+  "device_local_certifications": {
+    "codex": {
+      "desktop-cli": "786b7658a0e0a29b129dbf89af1ddb8748a09c0d94b84ed747233276ff130af4",
+      "mobile-relay": "9fa1f436fe439f90f80784bfd4c2bc58e80340b6d406cc71b5f8ddf43b790d65"
+    }
   },
   "binding_policy": {
     "internal": "antigravity",
     "mixed_or_private": "codex",
     "reason": "Antigravity print mode carries prompts in argv; Codex carries prompts through stdin."
   },
-  "status": "desktop_certified_mobile_relay_unconfigured",
+  "status": "mobile_relay_activated",
+  "mobile_relay_acceptance": {
+    "runtime_version": "0.2.0",
+    "runtime_source_commit": "56ed2745817615496092ad2956258bbe8062665e",
+    "protocol_version": "1.0.0",
+    "deployment_id": "macmini-codex-relay-v0.2.0",
+    "device_class": "physical-iphone",
+    "route_class": "mobile-relay",
+    "acceptance_accounting": {
+      "provider_requests": 2,
+      "completed": 1,
+      "cancel_controls": 1,
+      "cancel_requested": 1,
+      "retries": 0,
+      "fallback_calls": 0,
+      "failed": 0,
+      "active": 0
+    },
+    "post_device_local_recertification_accounting": {
+      "provider_requests": 4,
+      "completed": 3,
+      "cancel_controls": 1,
+      "cancel_requested": 1,
+      "retries": 0,
+      "fallback_calls": 0,
+      "failed": 0,
+      "active": 0
+    },
+    "secret_values_persisted": 0,
+    "prompt_response_schema_headers_persisted": 0,
+    "vault_writes": 0,
+    "main_vault_grants": 0
+  },
   "rollback": {
     "method": "plugin.api.exportLegacyConfig()",
     "legacy_runtime_restored": false
