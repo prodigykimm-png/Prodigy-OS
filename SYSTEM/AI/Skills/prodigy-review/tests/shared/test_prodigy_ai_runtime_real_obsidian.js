@@ -105,6 +105,7 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
           const active=app.setting?.activeTab;
           const root=active?.containerEl;
           if(active?.id!=="prodigy-ai-runtime"||!root?.isConnected)return;
+          if(root.getAttribute("data-prodigy-settings-state")!=="ready")return;
           const heading=root.querySelector("h2");
           if(heading?.textContent?.trim()!==plugin.manifest.name||root.children.length<3)return;
           cleanup();
@@ -123,7 +124,10 @@ test("real Obsidian loads the external Prodigy AI Runtime and exposes its settin
         };
         const observer=new MutationObserver(finish);
         observer.observe(document,{childList:true,subtree:true,attributes:true});
-        const timer=setTimeout(()=>{cleanup();reject(new Error("PRODIGY_SETTINGS_ROUTE_TIMEOUT"))},10000);
+        const timer=setTimeout(()=>{
+          const state=app.setting?.activeTab?.containerEl?.getAttribute("data-prodigy-settings-state")||"missing";
+          cleanup();reject(new Error("PRODIGY_SETTINGS_ROUTE_TIMEOUT:"+state));
+        },10000);
         try{plugin.api.openSettings();finish()}catch(error){cleanup();reject(error)}
       });
       return signal;

@@ -853,3 +853,62 @@ fallback calls `0`, failed `0`, active `0`.
 - Relay temporary directories: `0`
 - Plugin temporary directories: `0`
 - Published `v0.1.0` tag, Release and assets: unchanged
+
+## 2026-09-02 Relay LaunchAgent and Settings Experience Receipt
+
+### Runtime identity
+
+- Runtime source commit: `462e70f`
+- Local version: unpublished `0.2.0`
+- Release tests: `52/52`
+- Reproducible archive SHA-256:
+  `60d064a606aa3eee2cce224b9d41627bfc6e11b2c152ef76221b0ad9a8a26371`
+- Relay artifact SHA-256:
+  `32ac31ac4435cdad2904946e8ca09134107cf2a5b57f869539e84ccc4c37ea64`
+
+### macOS automation
+
+- LaunchAgent label: `com.prodigy-ai.runtime-relay`
+- Plist: `~/Library/LaunchAgents/com.prodigy-ai.runtime-relay.plist`
+- File mode: `0600`
+- `RunAtLoad`: true
+- `KeepAlive`: true
+- Current state: running on loopback port `8788`
+- Settings controls verified through the real UI:
+  install, start, stop, refresh, remove
+- Full lifecycle verified:
+  install → stop → start → remove → reinstall
+- Crash restart verified with a different replacement PID and restored listener.
+- Tailscale HTTPS `/receipt`: `200`, protocol `1.0.0`, deployment identity matched.
+- LaunchAgent stores only deployment, port and Keychain secret ID metadata.
+- Token values, provider stdout and provider stderr persisted by the service: `0`
+
+### Settings experience
+
+- Nine provider profiles render as collapsible cards instead of one continuous form.
+- Codex opens by default; the other cards remain collapsed.
+- Each provider has separate Model, device Route, Secret and Capability sections.
+- All nine providers expose Model editing.
+- A changed Model or Route invalidates only the affected device certification and grants.
+- Re-saving the same Model or Route is a no-op and preserves certification.
+- Async settings rendering exposes `loading`, `ready` and `failed` machine states.
+- Relay status failure is isolated to its section and does not hide provider settings.
+
+### Token automation decision
+
+- Copying an existing Keychain token to the Clipboard is technically feasible.
+- Safe automatic issuance is not implemented in the JS-only plugin.
+- `/usr/bin/security add-generic-password -w` was rejected because the token would appear
+  in process argv.
+- Automatic issuance requires a small signed native Security.framework helper or another
+  Keychain API that accepts secret bytes without argv or file persistence.
+- Any future Clipboard action must be explicit, display its exposure window and clear
+  only if the Clipboard still contains the same token.
+
+### Additional convenience ideas, not implemented
+
+1. Sanitized diagnostic receipt copy: status, route class and error code only.
+2. Provider filter and “인증 필요만 보기” toggle for large profile sets.
+3. Relay connectivity check from iPhone without exposing the token or response body.
+4. Model presets per provider with manual text override; no silent model discovery call.
+5. Explicit “변경 사항 있음” indicator before Model or Route save.

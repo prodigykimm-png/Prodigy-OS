@@ -38,7 +38,8 @@
   "status": "mobile_relay_activated",
   "mobile_relay_acceptance": {
     "runtime_version": "0.2.0",
-    "runtime_source_commit": "56ed2745817615496092ad2956258bbe8062665e",
+    "runtime_source_commit": "462e70f0ec58aa64b65993f6aca789f5177fc62f",
+    "mobile_activation_commit": "56ed2745817615496092ad2956258bbe8062665e",
     "protocol_version": "1.0.0",
     "deployment_id": "macmini-codex-relay-v0.2.0",
     "device_class": "physical-iphone",
@@ -67,6 +68,38 @@
     "prompt_response_schema_headers_persisted": 0,
     "vault_writes": 0,
     "main_vault_grants": 0
+  },
+  "relay_automation": {
+    "platform": "macos-launch-agent",
+    "label": "com.prodigy-ai.runtime-relay",
+    "plist_mode": "0600",
+    "run_at_load": true,
+    "keep_alive": true,
+    "port": 8788,
+    "current_state": "running",
+    "settings_controls": [
+      "install",
+      "start",
+      "stop",
+      "refresh",
+      "remove"
+    ],
+    "lifecycle_verified": [
+      "install",
+      "stop",
+      "start",
+      "remove",
+      "reinstall",
+      "crash_restart"
+    ],
+    "token_values_written": 0,
+    "stdout_stderr_persistence": 0,
+    "tailscale_https_receipt_status": 200,
+    "provider_cards": 9,
+    "model_editors": 9,
+    "runtime_tests_passed": 52,
+    "release_archive_sha256": "60d064a606aa3eee2cce224b9d41627bfc6e11b2c152ef76221b0ad9a8a26371",
+    "relay_artifact_sha256": "32ac31ac4435cdad2904946e8ca09134107cf2a5b57f869539e84ccc4c37ea64"
   },
   "rollback": {
     "method": "plugin.api.exportLegacyConfig()",
