@@ -612,3 +612,76 @@ Forbidden:
 - Live Dusk vault에서 mobile route/trust/plugin state 자동 조작
 - Fixed sleep, foreground polling loop, timing-luck assertion
 - 승인 없는 GitHub write, tag move, Release replacement or visibility change
+
+## 2026-09-02 Xcode MCP Activation Receipt
+
+### 설치와 등록
+
+- Official package: `xcodebuildmcp@2.7.0`
+- Registry source: `https://github.com/getsentry/XcodeBuildMCP.git`
+- Executable: `/opt/homebrew/bin/xcodebuildmcp`
+- User-global MCP config: `/Users/prodigykim/.config/mcp/mcp.json`
+- Server name: `xcodebuild`
+- Lifecycle: `lazy`
+- Enabled workflows:
+  - `device`
+  - `simulator`
+  - `ui-automation`
+- Sentry telemetry: disabled
+- MCP idle timeout: `60000ms`
+- Credentials, relay URL, token values and device identifiers stored in MCP config: `0`
+
+### 연결 Evidence
+
+- MCP stdio `initialize`: pass
+- Configured MCP tool catalog: `44`
+- Device/simulator/UI relevant tools include:
+  - `list_devices`
+  - `list_sims`
+  - `build_run_device`
+  - `install_app_device`
+  - `launch_app_device`
+  - `build_run_sim`
+  - `screenshot`
+  - `snapshot_ui`
+  - `tap`
+  - `swipe`
+- MCP `tools/call(list_devices)`: pass, physical devices `0`
+- MCP `tools/call(list_sims)`: pass, simulators `0`
+- MCP payloads, device identifiers and server stderr persisted in evidence: `0`
+- Probe server residue after termination: `0`
+
+The current agent session loaded its MCP server snapshot before registration, so its
+`mcp` proxy still reports the previous three-server catalog. `/reload` or `/new` is
+required once for `xcodebuild` to appear through the session proxy. The server itself,
+its configured tool catalog and both inventory calls were verified directly through
+the same stdio MCP protocol.
+
+### Mobile Relay 상태
+
+Xcode MCP installation removes the tooling gap but does not remove the external relay
+prerequisites:
+
+- Administrator-approved `.ts.net` relay URL: absent
+- Relay deployment ID/digest/owner: absent
+- Relay server implementation in runtime repository: absent
+- Server request-count/cancellation receipt capability: absent
+- Connected physical iPhone/iPad: `0`
+- Installed iOS simulator runtimes: `0`
+
+No relay request, external network call, device mutation, simulator runtime download,
+Runtime source change, tag change or Release replacement was performed.
+
+Status remains:
+
+```text
+blocked_on_external_prerequisites
+```
+
+Next resume:
+
+1. Run `/reload` or `/new`.
+2. Confirm `mcp({ server: "xcodebuild" })` exposes the configured workflows.
+3. Connect the approved physical device.
+4. Provide approved relay deployment metadata without token values.
+5. Resume the exact two-request Mobile Relay Acceptance defined above.
