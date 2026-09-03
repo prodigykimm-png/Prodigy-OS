@@ -912,3 +912,66 @@ fallback calls `0`, failed `0`, active `0`.
 3. Relay connectivity check from iPhone without exposing the token or response body.
 4. Model presets per provider with manual text override; no silent model discovery call.
 5. Explicit “변경 사항 있음” indicator before Model or Route save.
+
+## 2026-09-03 Terminal Pairing Automation Receipt
+
+The earlier direct-provider LaunchAgent receipt is historical. Hostile review and live
+provider probes showed that Codex completed in `6~8s` in a Terminal context but reached
+the `115s` timeout when spawned directly by a LaunchAgent under Background, Standard
+and Interactive process classes.
+
+### Rejected A architecture
+
+The proposed Obsidian worker architecture was rejected after hostile review because it
+would add a second prompt/response IPC trust boundary, require Dusk and the Mac Obsidian
+plugin to remain loaded, create multi-vault worker ownership problems and duplicate
+cancellation/version/queue protocol responsibilities.
+
+### Current B architecture
+
+- A one-shot login launcher at
+  `~/Library/LaunchAgents/com.prodigy-ai.runtime-relay-terminal.plist` invokes only
+  `/usr/bin/open -g`.
+- The provider process is not a LaunchAgent child. Terminal runs
+  `~/Library/Application Support/Prodigy AI Runtime/start-relay.command`.
+- Wrapper mode: `0700`
+- Login launcher mode: `0600`
+- Token hash mode: `0600`
+- Wrapper process count: `1`
+- Relay listener count: `1`
+- Relay child crash restart: verified with a different PID
+- Provider probe before and after crash restart: completed in `6~8s`
+- Login launcher `RunAtLoad`: true
+- Closing the dedicated Terminal window intentionally stops the wrapper.
+
+### Pairing and mobile transport
+
+- Mac issues a six-digit code valid for `120s`.
+- Five invalid attempts invalidate the code.
+- iPhone receives the bearer token once over Tailscale HTTPS and stores it only in
+  Obsidian SecretStorage.
+- Mac persists only the SHA-256 token hash; the Relay no longer depends on a Keychain
+  token.
+- Pairing administration listens only on loopback port `8789`.
+- Public Relay listens only on loopback port `8788`, exposed through the approved
+  Tailscale Serve HTTPS route.
+- Provider jobs use immediate `202` acceptance and event-driven result requests with a
+  `5s` keepalive ceiling so iOS request connections never wait for the provider process.
+- Physical iPhone pairing conformance:
+  provider requests `2`, completed `2`, failed `0`, retries `0`, fallback `0`.
+
+### Current verification
+
+- Runtime tests: `68/68`
+- Reproducible archive SHA-256:
+  `86594510c1fe0370b270475846798928c089fa06915461b271a9fc8a62a74d2a`
+- Relay artifact SHA-256:
+  `77b4f24656e5fa40082ff47bdae89511b72ea79d986eb9af42e7c2781619b4f5`
+- Main-vault grants: `0`
+- Model-list persistence fields: `0`
+- Secret-like durable config hits: `0`
+- Relay temporary residue: `0`
+- Obsidian errors: `0`
+- Source base commit: `c73f910`
+- Pairing/Terminal implementation commit: `c6ac46f`
+- Current pairing/Terminal source state: committed

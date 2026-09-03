@@ -70,12 +70,19 @@
     "main_vault_grants": 0
   },
   "relay_automation": {
-    "platform": "macos-launch-agent",
-    "label": "com.prodigy-ai.runtime-relay",
-    "plist_mode": "0600",
+    "platform": "macos-terminal-login-wrapper",
+    "label": "com.prodigy-ai.runtime-relay-terminal",
+    "source_base_commit": "c73f910bcc829e4beac586d51f74a45d92af47f3",
+    "implementation_commit": "c6ac46f27316ae1d9fcc7418db74ed9018f8b726",
+    "source_state": "committed",
+    "login_launcher_mode": "0600",
+    "wrapper_mode": "0700",
+    "token_hash_mode": "0600",
     "run_at_load": true,
-    "keep_alive": true,
+    "keep_alive": false,
+    "wrapper_child_restart": true,
     "port": 8788,
+    "admin_port": 8789,
     "current_state": "running",
     "settings_controls": [
       "install",
@@ -92,14 +99,30 @@
       "reinstall",
       "crash_restart"
     ],
+    "pairing": {
+      "method": "six-digit-one-time-code",
+      "expires_in_seconds": 120,
+      "failed_attempt_limit": 5,
+      "mac_storage": "sha256-only",
+      "iphone_storage": "obsidian-secret-storage",
+      "keychain_dependency": false
+    },
+    "physical_pairing_conformance": {
+      "provider_requests": 2,
+      "completed": 2,
+      "failed": 0,
+      "retries": 0,
+      "fallback_calls": 0,
+      "active": 0
+    },
     "token_values_written": 0,
     "stdout_stderr_persistence": 0,
     "tailscale_https_receipt_status": 200,
     "provider_cards": 9,
     "model_editors": 9,
-    "runtime_tests_passed": 52,
-    "release_archive_sha256": "60d064a606aa3eee2cce224b9d41627bfc6e11b2c152ef76221b0ad9a8a26371",
-    "relay_artifact_sha256": "32ac31ac4435cdad2904946e8ca09134107cf2a5b57f869539e84ccc4c37ea64"
+    "runtime_tests_passed": 68,
+    "release_archive_sha256": "86594510c1fe0370b270475846798928c089fa06915461b271a9fc8a62a74d2a",
+    "relay_artifact_sha256": "77b4f24656e5fa40082ff47bdae89511b72ea79d986eb9af42e7c2781619b4f5"
   },
   "rollback": {
     "method": "plugin.api.exportLegacyConfig()",
