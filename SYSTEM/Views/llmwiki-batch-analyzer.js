@@ -254,7 +254,7 @@
           } catch (_error) {
             response = { ok: false, reason: "provider_unavailable" };
           }
-          metrics.provider_calls += 1;
+          metrics.provider_calls += Number.isSafeInteger(response.provider_call_count) ? response.provider_call_count : 1;
           // Task 11 bounded cancel: a late provider settlement after abort must
           // never append durable cache/coverage artifacts or open review state.
           if (input.signal && input.signal.aborted) {

@@ -2,8 +2,12 @@
 
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
+const path = require("node:path");
 const test = require("node:test");
 
+const ROOT = path.resolve(__dirname, "../../../../../..");
+const compilerApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-document-compiler.js"));
+const evidenceCandidates = require(path.join(ROOT, "SYSTEM/Views/llmwiki-evidence-candidates.js"));
 const { firstElement, runHub, remountHub } = require("./knowledge_hub_integration_harness.js");
 const { collectText } = require("./knowledge_explorer_view_fakes.js");
 
@@ -15,6 +19,15 @@ function identity() {
     structured_mode: "json_schema",
     schema_id: "llmwiki_compact_v1",
     prompt_version: "document-v1",
+  };
+}
+function v2Identity() {
+  return {
+    provider_key: "openrouter",
+    model: "document-model",
+    structured_mode: "json_schema",
+    schema_id: "llmwiki_compact_v2",
+    prompt_version: "llmwiki_batch_compact_v2",
   };
 }
 function provider(counter) {
@@ -85,6 +98,404 @@ test("document plan resolves canonically equivalent Unicode source paths", async
   const result = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(decomposedPath);
   assert.notEqual(result.reason, "plan_source_missing");
   assert.equal(result.source_path, sourcePath);
+});
+
+test("document planning requires complete semantic source coverage before downstream planning", async () => {
+  const sourcePath = "INBOX/센텀 커버리지.md";
+  const values = [
+    "디렉을 하면서 다음 디렉을 생각한다.", "측면으로 앉힌다.", "몸만 틀어 측면으로 앉힌다.",
+    "레파토리를 만들어 바로 진행한다.", "하나를 마치고 다음 것을 생각한다.", "망원 표준 광각을 모두 담는다.",
+    "18mm로 베일이 안 잘리는 범위까지 간다.", "수평수직을 맞춘다.", "뷰파인더를 본다.",
+    "부케 반대쪽 손동작을 신경 쓴다.", "왼손 부케에는 오른손으로 신랑 뺨을 감싼다.", "오른손 부케에는 왼손으로 신랑 목을 감싼다.",
+  ];
+  const sourceRows = values.map((value, index) => `${index + 1}. ${value}`);
+  const sourceBytes = `# 센텀 커버리지\n\n${sourceRows.slice(0, 8).join("\n")}\n${"\n".repeat(13000)}${sourceRows.slice(8).join("\n")}\n`;
+  const providerFor = (selected, held = false, spanFor = null) => async (request) => ({
+    ok: true,
+    provider_call_count: 1,
+    artifacts: request.chunks.map((chunk) => ({
+      chunk_key: chunk.key,
+      outcome: "proposals",
+      items: selected.filter((quote) => chunk.text.includes(quote)).map((quote) => {
+        const index = selected.indexOf(quote);
+        return {
+          role: held && index === selected.length - 1 ? "hold" : "source_summary",
+          topic: "센텀 촬영",
+          evidence_quote: quote,
+          claims: held && index === selected.length - 1 ? [] : [{ text: quote }],
+          review_reasons: [],
+          related_candidate_ids: [],
+          span: { ...(spanFor ? spanFor(chunk, quote, index) : { start: chunk.text.indexOf(quote), end: chunk.text.indexOf(quote) + quote.length }), alias: `span_coverage_${index}` },
+        };
+      }),
+    })),
+  });
+  const plannerCalls = { complete: 0, missing: 0, straddling: 0, held: 0, scoped: 0, outside_scope: 0 };
+  const pagePlan = (counter) => async (request) => {
+    counter.value += 1;
+    return {
+      source_guide: { overview: "모든 근거를 보존한다.", sections: [{ heading: "전체", summary: "전체 근거", claim_ids: request.claims.map((claim) => claim.claim_id) }], key_questions: [] },
+      topic_pages: [], source_only_claim_ids: request.claims.map((claim) => claim.claim_id),
+    };
+  };
+  const completeCounter = { get value() { return plannerCalls.complete; }, set value(value) { plannerCalls.complete = value; } };
+  const complete = await runHub({ pages: [], extraFiles: { [sourcePath]: sourceBytes }, llmWikiControllerOptions: { batchIdentity: identity(), batchProvider: providerFor(values), documentPagePlan: pagePlan(completeCounter) } });
+  await complete.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const completeResult = await complete.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(completeResult.ok, true, completeResult.reason);
+  assert.equal(completeResult.source_bytes, Buffer.byteLength(sourceBytes));
+  assert.equal(completeResult.full_source_bytes, Buffer.byteLength(sourceBytes));
+  assert.deepEqual(JSON.parse(JSON.stringify(completeResult.source_coverage)), { total: 12, covered: 12, missing: 0, holds: 0, duplicates: 0 });
+  assert.equal(plannerCalls.complete, 1);
+
+  const missingCounter = { get value() { return plannerCalls.missing; }, set value(value) { plannerCalls.missing = value; } };
+  const missing = await runHub({ pages: [], extraFiles: { [sourcePath]: sourceBytes }, llmWikiControllerOptions: { batchIdentity: identity(), batchProvider: providerFor(values.slice(0, 5)), documentPagePlan: pagePlan(missingCounter) } });
+  await missing.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const missingResult = await missing.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(missingResult.ok, false);
+  assert.equal(missingResult.status, "review_required");
+  assert.equal(missingResult.reason, "source_coverage_incomplete");
+  assert.equal(missingResult.source_bytes, Buffer.byteLength(sourceBytes));
+  assert.equal(missingResult.full_source_bytes, Buffer.byteLength(sourceBytes));
+  assert.deepEqual(JSON.parse(JSON.stringify(missingResult.source_coverage)), { total: 12, covered: 5, missing: 7, holds: 0, duplicates: 0 });
+  assert.equal(plannerCalls.missing, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(missingResult.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
+
+  const straddlingCounter = { get value() { return plannerCalls.straddling; }, set value(value) { plannerCalls.straddling = value; } };
+  const straddling = await runHub({
+    pages: [], extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: identity(),
+      batchProvider: providerFor([values[0]], false, (chunk) => ({
+        start: chunk.text.indexOf(values[0]),
+        end: chunk.text.indexOf(values[1]) + values[1].length,
+      })),
+      documentPagePlan: pagePlan(straddlingCounter),
+    },
+  });
+  await straddling.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const straddlingResult = await straddling.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(straddlingResult.status, "review_required");
+  assert.equal(straddlingResult.reason, "source_coverage_incomplete");
+  assert.deepEqual(JSON.parse(JSON.stringify(straddlingResult.source_coverage)), { total: 12, covered: 0, missing: 12, holds: 0, duplicates: 0 });
+  assert.equal(plannerCalls.straddling, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(straddlingResult.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
+
+  const heldCounter = { get value() { return plannerCalls.held; }, set value(value) { plannerCalls.held = value; } };
+  const held = await runHub({ pages: [], extraFiles: { [sourcePath]: sourceBytes }, llmWikiControllerOptions: { batchIdentity: identity(), batchProvider: providerFor(values, true), documentPagePlan: pagePlan(heldCounter) } });
+  await held.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const heldResult = await held.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(heldResult.reason, "source_coverage_incomplete");
+  assert.deepEqual(JSON.parse(JSON.stringify(heldResult.source_coverage)), { total: 12, covered: 11, missing: 0, holds: 1, duplicates: 0 });
+  assert.equal(plannerCalls.held, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(heldResult.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
+
+  const scopedPath = "INBOX/선택 범위.md";
+  const scopedValues = ["선택 첫 지시를 보존한다.", "선택 둘 지시를 보존한다."];
+  const scopedSource = `# 전체\n\n무시할 첫 문장이다.\n\n## 선택\n\n${scopedValues.map((value) => `- ${value}`).join("\n")}\n\n## 다음\n\n무시할 마지막 문장이다.\n`;
+  const scopedStart = scopedSource.indexOf("## 선택");
+  const scopedEnd = scopedSource.indexOf("## 다음");
+  const scopedCounter = { get value() { return plannerCalls.scoped; }, set value(value) { plannerCalls.scoped = value; } };
+  const scoped = await runHub({ pages: [], extraFiles: { [scopedPath]: scopedSource }, llmWikiControllerOptions: { batchIdentity: identity(), batchProvider: providerFor(scopedValues), documentPagePlan: pagePlan(scopedCounter) } });
+  await scoped.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const scopedResult = await scoped.window.KnowledgeExplorerHub.runDocumentPlan(scopedPath, { scope: { start: scopedStart, end: scopedEnd, scope_id: "selected-heading" } });
+  assert.equal(scopedResult.ok, true, scopedResult.reason);
+  assert.equal(scopedResult.source_bytes, Buffer.byteLength(scopedSource.slice(scopedStart, scopedEnd)));
+  assert.equal(scopedResult.full_source_bytes, Buffer.byteLength(scopedSource));
+  assert.deepEqual(JSON.parse(JSON.stringify(scopedResult.source_coverage)), { total: 2, covered: 2, missing: 0, holds: 0, duplicates: 0 });
+  assert.deepEqual(JSON.parse(JSON.stringify(scopedResult.source_coverage_units.map((unit) => unit.span))), scopedValues.map((value) => {
+    const globalStart = scopedSource.indexOf(value);
+    return { start: globalStart - scopedStart, end: globalStart - scopedStart + value.length, global_start: globalStart, global_end: globalStart + value.length };
+  }));
+  const scopedInventory = scoped.window.KnowledgeExplorerHub.documentPlanInventorySnapshot();
+  assert.equal(scopedInventory.citations.every((citation) => {
+    const locator = citation.locators.find((value) => value.includes("#"));
+    const [, start, end] = /#(\d+)-(\d+)$/u.exec(locator);
+    return scopedSource.slice(Number(start), Number(end)) === citation.evidence_quote;
+  }), true);
+
+  const outsideScopeCounter = { get value() { return plannerCalls.outside_scope; }, set value(value) { plannerCalls.outside_scope = value; } };
+  const outsideScope = await runHub({
+    pages: [], extraFiles: { [scopedPath]: scopedSource },
+    llmWikiControllerOptions: {
+      batchIdentity: identity(),
+      batchProvider: providerFor([scopedValues[0]], false, (chunk, quote) => ({ start: chunk.text.indexOf(quote), end: chunk.text.length + 1 })),
+      documentPagePlan: pagePlan(outsideScopeCounter),
+    },
+  });
+  await outsideScope.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const outsideScopeResult = await outsideScope.window.KnowledgeExplorerHub.runDocumentPlan(scopedPath, { scope: { start: scopedStart, end: scopedEnd, scope_id: "selected-heading" } });
+  assert.equal(outsideScopeResult.status, "review_required");
+  assert.equal(outsideScopeResult.reason, "source_coverage_incomplete");
+  assert.deepEqual(JSON.parse(JSON.stringify(outsideScopeResult.source_coverage)), { total: 2, covered: 0, missing: 2, holds: 0, duplicates: 0 });
+  assert.equal(plannerCalls.outside_scope, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(outsideScopeResult.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
+});
+
+test("Centum regression converges through the real Hub planner, compiler, and Golden orchestrator", async () => {
+  const sourcePath = "INBOX/센텀사이언스파크 더스카이 복기(20260523).md";
+  const values = [
+    "디렉을 하면서 다음 디렉을 생각한다.", "측면으로 앉힌다.", "몸만 틀어 측면으로 앉힌다.",
+    "레파토리를 만들어 바로 진행한다.", "하나를 마치고 다음 것을 생각한다.", "망원 표준 광각을 모두 담는다.",
+    "18mm로 베일이 안 잘리는 범위까지 간다.", "수평수직을 맞춘다.", "뷰파인더를 본다.",
+    "부케 반대쪽 손동작을 신경 쓴다.", "왼손 부케에는 오른손으로 신랑 뺨을 감싼다.", "오른손 부케에는 왼손으로 신랑 목을 감싼다.",
+  ];
+  const sourceBytes = [
+    "# 센텀사이언스파크 더스카이 복기",
+    "",
+    ...values.slice(0, 8).map((value, index) => `${index + 1}. ${value}`),
+    `   - ${values[8]}`,
+    `   - ${values[9]}`,
+    `     1. ${values[10]}`,
+    `     2. ${values[11]}`,
+    "9.",
+    "",
+  ].join("\n");
+  assert.equal(evidenceCandidates.createSemantic(sourceBytes).length, 12);
+
+  const fixtureProvider = (counter, selected = values) => async (request) => {
+    counter.calls += 1;
+    return {
+      ok: true,
+      provider_call_count: 1,
+      automatic_retry_count: 0,
+      automatic_repair_count: 0,
+      artifacts: request.chunks.map((chunk) => ({
+        chunk_key: chunk.key,
+        outcome: "proposals",
+        items: evidenceCandidates.createSemantic(chunk.text)
+          .filter((candidate) => selected.includes(candidate.text))
+          .map((candidate, index) => ({
+            role: "source_summary",
+            topic: "센텀 촬영 복기",
+            evidence_key: candidate.key,
+            evidence_quote: candidate.text,
+            claims: [{ text: candidate.text }],
+            review_reasons: [],
+            related_candidate_ids: [],
+            span: { start: candidate.start, end: candidate.end, alias: `span_centum_${index}` },
+          })),
+      })),
+    };
+  };
+  const sourceOnlyPlan = (counter) => async (request) => {
+    counter.calls += 1;
+    const claimIds = request.claims.map((claim) => claim.claim_id);
+    return {
+      source_guide: {
+        overview: "한 촬영 복기의 지시를 출처에 귀속해 보존한다.",
+        sections: [
+          { heading: "촬영 진행", summary: "촬영 순서와 구도를 확인한다.", claim_ids: claimIds.slice(0, 8) },
+          { heading: "시선과 손동작", summary: "시선과 부케 손동작을 확인한다.", claim_ids: claimIds.slice(8) },
+        ].filter((section) => section.claim_ids.length > 0),
+        key_questions: [],
+      },
+      topic_pages: [],
+      source_only_claim_ids: [],
+    };
+  };
+  const selectAndRunGolden = async (runtime) => {
+    const choices = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "select_source" });
+    assert.equal(choices.source_options.some((source) => source.path === sourcePath), true);
+    const selected = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "select_source", source_path: sourcePath });
+    assert.equal(selected.ok, true, selected.reason);
+    const consent = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "request_consent" });
+    assert.equal(consent.ok, true, consent.reason);
+    return runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "start_run" });
+  };
+  const assertNoAuthorityWrites = async (runtime, expectedSource = sourceBytes) => {
+    assert.equal(await runtime.app.vault.read(runtime.app.vault.getAbstractFileByPath(sourcePath)), expectedSource);
+    assert.equal(runtime.app.vault.touched.some((row) => row.slice(1).some((value) => String(value).startsWith("ZETA/"))), false);
+    assert.equal(runtime.window.KnowledgeExplorerHub.reviewedWikiSnapshot().entries.length, 0);
+  };
+
+  const completeCalls = { calls: 0 };
+  const completePlanner = { calls: 0 };
+  const completeCompiler = { calls: 0 };
+  const complete = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      loadDynamicGoldenModules: true,
+      batchIdentity: v2Identity(),
+      batchProvider: fixtureProvider(completeCalls),
+      documentPagePlan: sourceOnlyPlan(completePlanner),
+      documentArticleCompiler: async () => { completeCompiler.calls += 1; throw new Error("source_only_compiler_must_not_run"); },
+    },
+  });
+  await complete.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const completePlan = await complete.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(completePlan.ok, true, completePlan.reason);
+  assert.deepEqual(JSON.parse(JSON.stringify(completePlan.source_coverage)), { total: 12, covered: 12, missing: 0, holds: 0, duplicates: 0 });
+  const success = await selectAndRunGolden(complete);
+  assert.equal(success.ok, true, JSON.stringify(success));
+  assert.equal(success.status, "publishable_preview");
+  const goldenSnapshot = complete.window.KnowledgeExplorerHub.goldenWikiSnapshot();
+  assert.equal(goldenSnapshot.status, "complete");
+  assert.deepEqual(JSON.parse(JSON.stringify(goldenSnapshot.result.source_coverage_identity)), {
+    source_path: sourcePath,
+    source_revision: sha(sourceBytes),
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(goldenSnapshot.result.source_coverage)), {
+    total: 12, covered: 12, missing: 0, holds: 0, duplicates: 0,
+  });
+  assert.equal(Object.values(goldenSnapshot.result.source_coverage).every(Number.isSafeInteger), true);
+  assert.equal(completeCalls.calls, 1);
+  assert.equal(completePlanner.calls, 1);
+  assert.equal(completeCompiler.calls, 0);
+  const compiled = complete.window.KnowledgeExplorerHub.documentPlanCompileSnapshot();
+  assert.equal(compiled.quality_status, "draft");
+  const guide = compiled.documents.find((document) => document.document_kind === "source_guide");
+  assert.equal(values.every((value) => guide.body.includes(value)), true);
+  const finalPreview = await complete.app.vault.read(complete.app.vault.getAbstractFileByPath(success.previews[0].document_path));
+  assert.equal(values.every((value) => finalPreview.includes(value)), true);
+  assert.match(finalPreview, /18mm/u);
+  assert.equal(success.claim_partition.final_claim_ids.length, 12);
+  assert.equal(success.canonical_writes, 0);
+  assert.equal(success.source_writes, 0);
+  await assertNoAuthorityWrites(complete);
+
+  const missingCalls = { calls: 0 };
+  const missingPlanner = { calls: 0 };
+  const missingCompiler = { calls: 0 };
+  const missing = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      loadDynamicGoldenModules: true,
+      batchIdentity: v2Identity(),
+      batchProvider: fixtureProvider(missingCalls, values.slice(0, 5)),
+      documentPagePlan: sourceOnlyPlan(missingPlanner),
+      documentArticleCompiler: async () => { missingCompiler.calls += 1; return { articles: [] }; },
+    },
+  });
+  await missing.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const omitted = await selectAndRunGolden(missing);
+  assert.equal(omitted.ok, false);
+  assert.equal(omitted.reason, "source_coverage_incomplete");
+  assert.deepEqual(JSON.parse(JSON.stringify(omitted.source_coverage)), { total: 12, covered: 5, missing: 7, holds: 0, duplicates: 0 });
+  assert.equal(missingCalls.calls, 1);
+  assert.equal(missingPlanner.calls, 0);
+  assert.equal(missingCompiler.calls, 0);
+  assert.equal(missing.app.vault.touched.some((row) => row.slice(1).some((value) => String(value).includes("/previews/"))), false);
+  assert.deepEqual(JSON.parse(JSON.stringify(omitted.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
+  await assertNoAuthorityWrites(missing);
+});
+
+test("semantic over-capacity stops before transport and every downstream boundary", async () => {
+  const sourcePath = "INBOX/65개 의미 단위.md";
+  const sourceBytes = `${Array.from({ length: 65 }, (_, index) => `${index + 1}. 의미 단위 ${index + 1}을 보존한다.`).join("\n")}\n`;
+  const transport = { calls: 0 };
+  const planner = { calls: 0 };
+  const compiler = { calls: 0 };
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: v2Identity(),
+      batchProviderConsumerRuntime: {
+        async requestStructured() {
+          transport.calls += 1;
+          throw new Error("transport_must_not_run");
+        },
+      },
+      documentPagePlan: async () => { planner.calls += 1; throw new Error("planner_must_not_run"); },
+      documentArticleCompiler: async () => { compiler.calls += 1; throw new Error("compiler_must_not_run"); },
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const result = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "semantic_unit_limit_exceeded");
+  assert.equal(result.provider_calls, 0);
+  assert.equal(transport.calls, 0);
+  assert.equal(planner.calls, 0);
+  assert.equal(compiler.calls, 0);
+  assert.equal(runtime.app.vault.touched.some((row) => row.slice(1).some((value) => String(value).includes("/previews/") || String(value).startsWith("ZETA/"))), false);
+  assert.equal(await runtime.app.vault.read(runtime.app.vault.getAbstractFileByPath(sourcePath)), sourceBytes);
+  assert.equal(runtime.window.KnowledgeExplorerHub.reviewedWikiSnapshot().entries.length, 0);
+});
+
+test("v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay", async () => {
+  const sourcePath = "INBOX/캐시 정체성 복기.md";
+  const values = ["18mm 화각을 확인한다.", "수평수직을 확인한다."];
+  const sourceBytes = `# 캐시 정체성 복기\n\n${values.map((value, index) => `${index + 1}. ${value}`).join("\n")}\n`;
+  const fixtureProvider = (counter) => async (request) => {
+    counter.calls += 1;
+    return { ok: true, provider_call_count: 1, artifacts: request.chunks.map((chunk) => ({
+      chunk_key: chunk.key,
+      outcome: "proposals",
+      items: evidenceCandidates.createSemantic(chunk.text).map((candidate, index) => ({
+        role: "source_summary", topic: "캐시 복기", evidence_key: candidate.key,
+        evidence_quote: candidate.text, claims: [{ text: candidate.text }], review_reasons: [], related_candidate_ids: [],
+        span: { start: candidate.start, end: candidate.end, alias: `span_cache_${index}` },
+      })),
+    })) };
+  };
+  const plan = async (request) => {
+    const claimIds = request.claims.map((claim) => claim.claim_id);
+    return { source_guide: { overview: "캐시 재생을 검증한다.", sections: [{ heading: "확인", summary: "두 값을 확인한다.", claim_ids: claimIds }], key_questions: [] }, topic_pages: [], source_only_claim_ids: [] };
+  };
+  const persist = async (runtime) => {
+    const files = {};
+    for (const file of runtime.app.vault.getFiles()) files[file.path] = await runtime.app.vault.read(file);
+    return files;
+  };
+
+  const v1Calls = { calls: 0 };
+  const v1 = await runHub({ pages: [], extraFiles: { [sourcePath]: sourceBytes }, llmWikiControllerOptions: { batchIdentity: identity(), batchProvider: fixtureProvider(v1Calls), documentPagePlan: plan } });
+  await v1.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  assert.equal((await v1.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath)).ok, true);
+  assert.equal(v1Calls.calls, 1);
+
+  const v2Calls = { calls: 0 };
+  const v2 = await runHub({ pages: [], extraFiles: await persist(v1), llmWikiControllerOptions: { loadDynamicGoldenModules: true, batchIdentity: v2Identity(), batchProvider: fixtureProvider(v2Calls), documentPagePlan: plan } });
+  await v2.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const choices = await v2.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "select_source" });
+  assert.equal(choices.source_options.some((source) => source.path === sourcePath), true);
+  const selected = await v2.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "select_source", source_path: sourcePath });
+  assert.equal(selected.ok, true, selected.reason);
+  assert.equal((await v2.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "request_consent" })).ok, true);
+  const final = await v2.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "start_run" });
+  assert.equal(final.ok, true, JSON.stringify(final));
+  assert.equal(final.status, "publishable_preview");
+  assert.equal(v2Calls.calls, 1, "v1 cache identity must miss exactly once under v2");
+  assert.equal(v2.window.KnowledgeExplorerHub.documentPlanCompileSnapshot().quality_status, "draft");
+
+  await remountHub(v2.runtime);
+  const replay = await v2.window.KnowledgeExplorerHub.runGoldenWiki();
+  assert.equal(replay.ok, true, replay.reason);
+  assert.equal(replay.status, "publishable_preview");
+  assert.equal(replay.replay, true);
+  assert.equal(replay.provider_calls, 0);
+  assert.equal(v2Calls.calls, 1);
+  assert.equal(v2.window.KnowledgeExplorerHub.documentPlanCompileSnapshot().quality_status, "draft");
+  assert.equal(v2.window.KnowledgeExplorerHub.prodigyWikiOperationSnapshot().status, "review_ready");
+  assert.equal(v2.window.KnowledgeExplorerHub.reviewedWikiSnapshot().entries.length, 0);
+
+  const persistedV2 = await persist(v2);
+  const changedBytes = `${sourceBytes}\n추가 지시를 기록한다.\n`;
+  const driftedFiles = { ...persistedV2, [sourcePath]: changedBytes };
+  const driftCalls = { calls: 0 };
+  const drifted = await runHub({
+    pages: [], extraFiles: driftedFiles,
+    llmWikiControllerOptions: {
+      loadDynamicGoldenModules: true,
+      batchIdentity: v2Identity(),
+      batchProvider: async () => { driftCalls.calls += 1; throw new Error("provider_must_not_run"); },
+      documentPagePlan: plan,
+    },
+  });
+  await drifted.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const drift = await drifted.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "retry_prodigy_wiki" });
+  assert.equal(drift.ok, false);
+  assert.equal(drift.reason, "source_revision_changed");
+  assert.equal(drift.provider_calls, 0);
+  assert.equal(driftCalls.calls, 0);
+  assert.equal(drifted.window.KnowledgeExplorerHub.prodigyWikiOperationSnapshot().status, "source_changed");
+  assert.equal(await drifted.app.vault.read(drifted.app.vault.getAbstractFileByPath(sourcePath)), changedBytes);
+  assert.equal(drifted.app.vault.touched.some((row) => row.slice(1).some((value) => String(value).startsWith("ZETA/"))), false);
+  assert.equal(drifted.window.KnowledgeExplorerHub.reviewedWikiSnapshot().entries.length, 0);
 });
 
 test("live batch emits one document operation for multiple reusable claims", async () => {
@@ -269,7 +680,8 @@ test("isolated document pilot resumes after the last completed pack", async () =
 
 test("full-source materialization converts chunk-local spans to source-global locators", async () => {
   const sourcePath = "INBOX/전역 근거 기록.md";
-  const sourceBytes = `# 전역 근거 기록\n\n반복 근거\n\n${"가".repeat(13000)}\n\n반복 근거\n\n${"나".repeat(13000)}\n`;
+  const longRows = Array.from({ length: 10 }, (_, index) => `${"가".repeat(500)}${index}`);
+  const sourceBytes = `# 전역 근거 기록\n\n${longRows.join("\n\n")}\n`;
   const runtime = await runHub({
     pages: [],
     extraFiles: { [sourcePath]: sourceBytes },
@@ -278,23 +690,19 @@ test("full-source materialization converts chunk-local spans to source-global lo
       batchProvider: async (request) => ({
         ok: true,
         provider_call_count: 1,
-        artifacts: request.chunks.map((chunk) => {
-          const quote = chunk.text.includes("반복 근거") ? "반복 근거" : chunk.text.trim().slice(0, 12);
-          const start = chunk.text.indexOf(quote);
-          return {
-            chunk_key: chunk.key,
-            outcome: "proposals",
-            items: [{
-              role: "reusable_claim",
-              topic: "전역 근거",
-              evidence_quote: quote,
-              claims: [{ text: `${chunk.key} 자료 구간의 원문 기록은 판단 근거로 사용할 수 있다.` }],
-              review_reasons: [],
-              related_candidate_ids: [],
-              span: { start, end: start + quote.length, alias: `span_global_${chunk.key}` },
-            }],
-          };
-        }),
+        artifacts: request.chunks.map((chunk) => ({
+          chunk_key: chunk.key,
+          outcome: "proposals",
+          items: evidenceCandidates.createSemantic(chunk.text).map((candidate, index) => ({
+            role: "reusable_claim",
+            topic: "전역 근거",
+            evidence_quote: candidate.text,
+            claims: [{ text: `${chunk.key} 자료 구간 ${index + 1}의 원문 기록은 판단 근거로 사용할 수 있다.` }],
+            review_reasons: [],
+            related_candidate_ids: [],
+            span: { start: candidate.start, end: candidate.end, alias: `span_global_${chunk.key}_${index}` },
+          })),
+        })),
       }),
       documentPagePlan: async (request) => ({
         source_guide: {
@@ -329,7 +737,7 @@ test("full-source materialization converts chunk-local spans to source-global lo
   });
   assert.equal(anchored.length >= 2, true);
   assert.equal(anchored.every((row) => sourceBytes.slice(row.start, row.end) === row.quote), true, JSON.stringify(anchored));
-  assert.equal(anchored.some((row) => row.start > 12000), true, JSON.stringify(anchored));
+  assert.equal(anchored.some((row) => row.start > sourceBytes.length / 2), true, JSON.stringify(anchored));
   const planGroup = firstElement(runtime.container, "section", (node) => node.attr?.["data-review-group"] === "plan");
   const topicCard = firstElement(planGroup, "article", (node) => Boolean(node.attr?.["data-wiki-topic"]));
   const detailButton = firstElement(topicCard, "button", (node) => node.attr?.["data-action"] === "open-review-detail");
@@ -599,7 +1007,8 @@ test("compile blocks swapped topic titles until explicit recommended renames", a
 
 test("full-source workflow stops at page-plan triage, then compiles preview without replacing active review", async () => {
   const sourcePath = "INBOX/투자 계획.md";
-  const sourceBytes = "# 투자 계획\n\n직영 공사는 비용을 줄인다.\n\n철골조는 공사 기간을 단축한다.\n";
+  const sourceValues = ["직영 공사는 비용을 줄인다.", "철골조는 공사 기간을 단축한다."];
+  const sourceBytes = `# 투자 계획\n\n${sourceValues.join("\n\n")}\n`;
   const calls = { calls: 0 };
   const investmentProvider = async (request) => {
     calls.calls += 1;
@@ -609,7 +1018,7 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
       artifacts: request.chunks.map((chunk) => ({
         chunk_key: chunk.key,
         outcome: "proposals",
-        items: ["직영 공사는 비용을 줄인다.", "철골조는 공사 기간을 단축한다."].map((quote, index) => ({
+        items: sourceValues.map((quote, index) => ({
           role: "reusable_claim", topic: "건축과 시공", evidence_quote: quote, claims: [{ text: quote }],
           review_reasons: [], related_candidate_ids: [], span: { start: chunk.text.indexOf(quote),
             end: chunk.text.indexOf(quote) + quote.length, alias: `span_investment_${index}` },
@@ -662,7 +1071,7 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
   assert.equal(planned.ok, true, planned.reason);
   assert.equal(planned.status, "pending_review");
   assert.equal(planned.source_bytes, Buffer.byteLength(sourceBytes));
-  assert.equal(planned.covered_bytes, planned.source_bytes);
+  assert.deepEqual(JSON.parse(JSON.stringify(planned.source_coverage)), { total: 2, covered: 2, missing: 0, holds: 0, duplicates: 0 });
   assert.equal(planned.pages, 1);
   assert.equal(planned.source_sections, 1);
   assert.equal((runtime.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().risk_packets || []).length, priorPackets);
@@ -673,6 +1082,12 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
   assert.ok(firstElement(planGroup, "output", (node) => node.attr?.["data-wiki-summary"] === ""));
   assert.ok(firstElement(planGroup, "article", (node) => Boolean(node.attr?.["data-wiki-topic"])));
   assert.ok(firstElement(planGroup, "button", (node) => node.attr?.["data-action"] === "approve-page-plan"));
+  const precompileGuideOpen = firstElement(planGroup, "button", (node) => node.attr?.["data-action"] === "open-review-detail");
+  precompileGuideOpen.onclick();
+  const precompileGuideBody = firstElement(runtime.openedModals.at(-1).contentEl, "pre");
+  assert.equal(sourceValues.every((value) => precompileGuideBody.text.includes(value)), true);
+  assert.equal(precompileGuideBody.text.split("\n").filter((line) => sourceValues.includes(line)).length, sourceValues.length);
+  assert.doesNotMatch(precompileGuideBody.text, /\d+개\s*(?:claim|근거)/iu);
 
   const compiled = await runtime.window.KnowledgeExplorerHub.compileDocumentPlan();
   assert.equal(compiled.ok, true, compiled.reason);
@@ -687,12 +1102,53 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
   assert.equal(rerendered.ok, true, rerendered.reason);
   assert.equal(articleCalls.calls, 1, "renderer-only refresh must not call the article provider");
   const compileSnapshot = runtime.window.KnowledgeExplorerHub.documentPlanCompileSnapshot();
-  assert.match(compileSnapshot.documents.find((document) => document.document_kind === "source_guide").body, /## 자료 개요/u);
+  const guide = compileSnapshot.documents.find((document) => document.document_kind === "source_guide");
+  assert.match(guide.body, /## 자료 개요/u);
+  assert.equal(sourceValues.every((value) => guide.body.includes(value)), true);
+  assert.equal(guide.body.split("\n").filter((line) => sourceValues.includes(line)).length, sourceValues.length);
+  assert.doesNotMatch(guide.body, /\d+개\s*(?:claim|근거)/iu);
+  const guideParagraphs = guide.sections.flatMap((section) => section.paragraphs);
+  assert.deepEqual(JSON.parse(JSON.stringify(guideParagraphs.map((paragraph) => paragraph.text))), sourceValues);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(guideParagraphs.map((paragraph) => paragraph.claim_ids))),
+    JSON.parse(JSON.stringify(runtime.window.KnowledgeExplorerHub.documentPlanSnapshot().source_guide.sections.flatMap((section) => section.claim_ids.map((claimId) => [claimId])))),
+  );
+  const citationById = new Map(guide.citations.map((citation) => [citation.citation_id, citation]));
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(guideParagraphs.map((paragraph) => paragraph.citations))),
+    JSON.parse(JSON.stringify(guideParagraphs.map((paragraph) => paragraph.citation_ids.map((citationId) => citationById.get(citationId))))),
+  );
+  assert.equal(guide.citations.length, sourceValues.length);
+  const planGroupAfterCompile = firstElement(runtime.container, "section", (node) => node.attr?.["data-review-group"] === "plan");
+  const guideProjection = firstElement(planGroupAfterCompile, "section", (node) => node.attr?.["data-wiki-source-guide"] === "");
+  const projectedGuideParagraphs = (guideProjection.children || []).flatMap((section) => (section.children || [])
+    .filter((node) => node.attr?.["data-wiki-guide-paragraph"] === ""));
+  assert.deepEqual(projectedGuideParagraphs.map((node) => node.text), sourceValues);
+  assert.deepEqual(
+    projectedGuideParagraphs.map((node) => node.attr["data-wiki-guide-claim-ids"].split(" ")),
+    JSON.parse(JSON.stringify(guideParagraphs.map((paragraph) => paragraph.claim_ids))),
+  );
+  assert.deepEqual(
+    projectedGuideParagraphs.map((node) => JSON.parse(node.attr["data-wiki-guide-citations"])),
+    JSON.parse(JSON.stringify(guideParagraphs.map((paragraph) => paragraph.citations))),
+  );
+  assert.equal(compileSnapshot.quality_status, "draft");
   assert.match(compileSnapshot.documents.find((document) => document.document_kind === "topic_article").body, /직영 공사는 비용을 줄이고/u);
   const state = JSON.parse(await runtime.app.vault.read(runtime.app.vault.getAbstractFileByPath("SYSTEM/CACHE/llmwiki/batch-job-state.json")));
   assert.equal(Object.keys(state.plans).length, 1);
-  assert.equal(Object.values(state.plans)[0].status, "compiled");
-  assert.match(Object.values(state.plans)[0].quality_receipt.receipt_hash, /^[0-9a-f]{64}$/u);
+  const storedPlan = Object.values(state.plans)[0];
+  assert.equal(storedPlan.status, "compiled");
+  assert.match(storedPlan.quality_receipt.receipt_hash, /^[0-9a-f]{64}$/u);
+  storedPlan.quality_receipt = compilerApi.createQualityReceipt({
+    source_hash: storedPlan.source_revision,
+    inventory_hash: storedPlan.inventory_hash,
+    plan_hash: storedPlan.plan_hash,
+    documents: storedPlan.compiled_documents,
+    quality_status: "publishable",
+    quality_issues: [],
+    quality_rewrite_count: storedPlan.quality_receipt.quality_rewrite_count,
+  });
+  await runtime.app.vault.modify(runtime.app.vault.getAbstractFileByPath("SYSTEM/CACHE/llmwiki/batch-job-state.json"), JSON.stringify(state));
 
   const persisted = {};
   for (const file of runtime.app.vault.getFiles()) persisted[file.path] = await runtime.app.vault.read(file);
@@ -712,11 +1168,12 @@ test("full-source workflow stops at page-plan triage, then compiles preview with
   assert.equal(restored.provider_calls, 0);
   assert.equal(restored.documents.length, 2);
   assert.equal(restored.proposals.length, 2);
-  assert.equal(restored.quality_status, "publishable");
+  assert.equal(restored.quality_status, "draft");
   assert.equal(restored.quality_receipt.receipt_hash, Object.values(state.plans)[0].quality_receipt.receipt_hash);
   const replayed = await restarted.window.KnowledgeExplorerHub.compileDocumentPlan();
   assert.equal(replayed.ok, true, replayed.reason);
   assert.equal(replayed.status, "compiled_replay");
+  assert.equal(replayed.quality_status, "draft");
   assert.equal(replayed.provider_calls, 0);
   assert.equal(restartCalls.calls, 0);
   assert.deepEqual(restarted.window.KnowledgeExplorerHub.documentPlanCompileSnapshot().documents, restored.documents);

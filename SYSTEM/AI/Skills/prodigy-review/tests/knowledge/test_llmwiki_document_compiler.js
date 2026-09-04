@@ -96,17 +96,28 @@ test("approved plan compiles a concise source guide and evidence-bound article",
   assert.equal(guide.role, "source_summary");
   assert.match(guide.body, /## 자료 개요/u);
   assert.match(guide.body, /\[\[직영 건축의 비용과 기간\]\]/u);
-  assert.doesNotMatch(guide.body, /직영 공사는 공정별 비용을 줄인다/u, "guide must not dump every raw claim");
+  assert.equal(claims.every((claim) => guide.body.includes(claim.text)), true);
+  assert.equal(guide.body.split("\n").filter((line) => claims.some((claim) => line === claim.text)).length, claims.length);
+  assert.doesNotMatch(guide.body, /\d+개\s*(?:claim|근거)/iu);
   assert.deepEqual(
     guide.sections[0].citation_ids,
     fixture().citations.map((citation) => citation.citation_id),
     "source-guide section must retain exact citation navigation",
   );
+  const guideParagraphs = guide.sections.flatMap((section) => section.paragraphs);
+  assert.deepEqual(guideParagraphs.map((paragraph) => paragraph.text), claims.map((claim) => claim.text));
+  assert.deepEqual(guideParagraphs.map((paragraph) => paragraph.claim_ids), claims.map((claim) => [claim.claim_id]));
+  assert.deepEqual(guideParagraphs.map((paragraph) => paragraph.citation_ids), claims.map((claim) => claim.citation_ids));
   assert.deepEqual(
-    guide.claims[0].citation_ids,
-    fixture().citations.map((citation) => citation.citation_id),
-    "derived guide claim must retain the section citation map",
+    guideParagraphs.map((paragraph) => paragraph.citations.map((citation) => citation.citation_id)),
+    claims.map((claim) => claim.citation_ids),
   );
+  assert.deepEqual(
+    guide.claims.map((claim) => claim.claim_id),
+    claims.map((claim) => claim.claim_id),
+    "source guide must expose real inventory claims rather than synthetic guide claims",
+  );
+  assert.equal(result.quality_status, "draft");
   assert.equal(article.page_id, page.page_id);
   assert.match(article.body, /직영 공사는 비용을 줄이고 철골조는 공사 기간을 단축한다/u);
   assert.equal(article.claims.length, 2);
@@ -116,7 +127,7 @@ test("approved plan compiles a concise source guide and evidence-bound article",
 });
 
 test("approved source-only plan compiles its guide without an article provider call", async () => {
-  const { inventory, plan, claims } = fixture();
+  const { inventory, plan, claims, citations } = fixture();
   const body = {
     ...plan,
     pages: [],
@@ -144,6 +155,46 @@ test("approved source-only plan compiles its guide without an article provider c
   assert.equal(calls, 0);
   assert.equal(result.selected_page_count, 0);
   assert.deepEqual(result.documents.map((document) => document.document_kind), ["source_guide"]);
+  const guide = result.documents[0];
+  const guideParagraphs = guide.sections.flatMap((section) => section.paragraphs);
+  assert.equal(guideParagraphs.length, claims.length);
+  assert.deepEqual(guideParagraphs.map((paragraph) => paragraph.text), claims.map((claim) => claim.text));
+  assert.deepEqual(guideParagraphs.map((paragraph) => paragraph.claim_ids), claims.map((claim) => [claim.claim_id]));
+  assert.deepEqual(guideParagraphs.map((paragraph) => paragraph.citation_ids), claims.map((claim) => claim.citation_ids));
+  assert.deepEqual(
+    guideParagraphs.map((paragraph) => paragraph.citations.map((citation) => citation.citation_id)),
+    claims.map((claim) => claim.citation_ids),
+  );
+  assert.equal(guide.citations.length, citations.length);
+  assert.equal(claims.every((claim) => guide.body.includes(claim.text)), true);
+  assert.equal(guide.body.split("\n").filter((line) => claims.some((claim) => line === claim.text)).length, claims.length);
+  assert.doesNotMatch(guide.body, /\d+개\s*(?:claim|근거)/iu);
+  assert.equal(result.quality_status, "draft");
+});
+
+test("compiler rejects a malformed source-guide claim ID before provider or writes", async () => {
+  const { inventory, plan } = fixture();
+  const body = {
+    ...plan,
+    source_guide: {
+      ...plan.source_guide,
+      sections: [{ ...plan.source_guide.sections[0], claim_ids: [`claim_${"f".repeat(24)}`] }],
+    },
+  };
+  delete body.plan_hash;
+  const malformedPlan = { ...body, plan_hash: hash.sha256(stable(body)) };
+  let calls = 0;
+  const compiler = compilerApi.createDocumentCompiler({
+    requestArticles: async () => { calls += 1; throw new Error("article_provider_not_expected"); },
+  });
+
+  const result = await compiler.compile({ inventory, approved_plan: malformedPlan });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "invalid_source_guide_claim_ids");
+  assert.equal(calls, 0);
+  assert.equal(result.canonical_writes || 0, 0);
+  assert.equal(result.source_writes || 0, 0);
 });
 
 test("quality receipt is self-verifying and detects rule or document drift", () => {
@@ -227,7 +278,7 @@ test("compiler rewrites duplicated draft prose once before publishing", async ()
 
   assert.equal(result.ok, true, result.reason);
   assert.equal(calls, 2);
-  assert.equal(result.quality_status, "publishable");
+  assert.equal(result.quality_status, "draft");
   assert.equal(result.quality_rewrite_count, 1);
   const article = result.documents.find((document) => document.document_kind === "topic_article");
   assert.equal(article.paragraphs[0].text, "직영 공사는 공정별 비용을 줄이고, 철골조는 공사 기간을 단축한다.");
@@ -258,7 +309,7 @@ test("compiler deterministically corrects source-borne draft terms without anoth
   const result = await compiler.compile({ inventory, approved_plan: plan });
 
   assert.equal(result.ok, true, result.reason);
-  assert.equal(result.quality_status, "publishable");
+  assert.equal(result.quality_status, "draft");
   assert.equal(result.quality_rewrite_count, 0);
   assert.equal(calls, 1);
   assert.doesNotMatch(result.documents.find((row) => row.document_kind === "topic_article").body, /물건 선주의|공주가/u);

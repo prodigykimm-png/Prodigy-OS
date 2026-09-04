@@ -66,13 +66,22 @@ function fakeService(box) {
         results: envelope.chunks.map((chunk) => ({
           chunk_key: chunk.key,
           outcome: "proposals",
-          items: [{
-            role: "source_summary",
-            evidence_quote: chunk.text.slice(0, 8),
-            claims: [box.claim || "bounded claim"],
-            review_reasons: [],
-            related_candidate_ids: [],
-          }],
+          items: envelope.mode === "semantic"
+            ? chunk.evidence_candidates.map((candidate) => ({
+              role: "source_summary",
+              evidence_key: candidate.key,
+              evidence_quote: candidate.text,
+              claims: [box.claim || "bounded claim"],
+              review_reasons: [],
+              related_candidate_ids: [],
+            }))
+            : [{
+              role: "source_summary",
+              evidence_quote: chunk.text.slice(0, 8),
+              claims: [box.claim || "bounded claim"],
+              review_reasons: [],
+              related_candidate_ids: [],
+            }],
         })),
       };
     },
@@ -89,8 +98,9 @@ function buildHarness() {
   function fresh(identityOverrides = {}) {
     const frozenIdentity = baseIdentity(identityOverrides);
     const provider = batchProvider.createBatchAnalysisProvider({
-      identity: { ...frozenIdentity, provider_mode: "direct", provider: { adapter: "fixture" } },
-      providerService: service,
+      consumerRuntime: {
+        requestStructured: async (request) => ({ payload: await service.requestStructuredJsonNoRetry(request) }),
+      },
     });
     return analyzerApi.createBatchAnalyzer({
       jobStore,
@@ -162,10 +172,37 @@ test("exact rerun with same hashes and request key makes zero provider calls", a
   assert.equal(second.metrics.cache_misses, 0);
 });
 
+test("v1 cache intentionally misses once under v2 identity, then exact v2 replay is zero-call", async () => {
+  const h = buildHarness();
+  const sources = [source("src_identity", smallText("identity", 1))];
+  const v1 = await h.fresh({ schema_id: "llmwiki_compact_v1", prompt_version: "llmwiki_batch_compact_v1" }).analyze({ sources });
+  assert.equal(v1.ok, true, v1.reason);
+  assert.equal(v1.metrics.provider_calls, 1);
+  const v2 = await h.fresh({ schema_id: "llmwiki_compact_v2", prompt_version: "llmwiki_batch_compact_v2" }).analyze({ sources });
+  assert.equal(v2.ok, true, v2.reason);
+  assert.equal(v2.metrics.cache_hits, 0);
+  assert.equal(v2.metrics.provider_calls, 1);
+  const v2Replay = await h.fresh({ schema_id: "llmwiki_compact_v2", prompt_version: "llmwiki_batch_compact_v2" }).analyze({ sources });
+  assert.equal(v2Replay.ok, true, v2Replay.reason);
+  assert.equal(v2Replay.metrics.cache_hits, 1);
+  assert.equal(v2Replay.metrics.provider_calls, 0);
+  assert.equal(h.service.state.calls, 2);
+});
+
+test("semantic 65-unit rejection reaches no transport call", async () => {
+  const h = buildHarness();
+  const sourceText = Array.from({ length: 65 }, (_, index) => `- unit ${index + 1}`).join("\n");
+  const result = await h.analyzer.analyze({ sources: [source("src_limit", sourceText)] });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "semantic_unit_limit_exceeded");
+  assert.equal(result.metrics.provider_calls, 0);
+  assert.equal(h.service.state.calls, 0);
+});
+
 test("explicit retry reuses exact repeated chunks and resolves its parent", async () => {
   const h = buildHarness();
   let section = "## 반복 구간\n";
-  while (hash.utf8ByteLength(section) < 7 * 1024) section += "반복 근거는 같은 구간에서도 정확한 위치를 유지한다.\n";
+  while (hash.utf8ByteLength(section) < 7 * 1024) section += "반복 근거는 같은 구간에서도 정확한 위치를 유지한다. ";
   const sources = [source("src_retry_generation", section.repeat(2))];
   const first = await h.analyzer.analyze({ sources });
   assert.equal(first.ok, true, first.reason);
@@ -231,9 +268,9 @@ function bigBody(targetKiB) {
   while (hash.utf8ByteLength(body) < targetKiB * 1024) {
     let section = `## 절 ${i}\n`;
     while (hash.utf8ByteLength(section) < 7 * 1024) {
-      section += `관찰 ${i}: 배치 분석은 결정적으로 동작해야 한다. 재현 가능성이 핵심 계약이다.\n`;
+      section += `관찰 ${i}: 배치 분석은 결정적으로 동작해야 한다. 재현 가능성이 핵심 계약이다. `;
     }
-    body += `${section}\n`;
+    body += `${section}\n\n`;
     i += 1;
   }
   return body;

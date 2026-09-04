@@ -277,11 +277,14 @@
       plan_revision: plan.plan_revision,
     };
   }
-  function renderGuide(guide, pages, sourcePath) {
-    const sections = guide.sections.map((section) => `### ${section.heading}\n\n${section.summary}`).join("\n\n");
+  function renderGuide(guide, sections, pages, sourcePath) {
+    const bodySections = sections.map((section) => {
+      const paragraphs = Array.isArray(section.paragraphs) ? section.paragraphs.map((paragraph) => clean(paragraph.text)).filter(Boolean) : [];
+      return paragraphs.length ? `### ${section.heading}\n\n${paragraphs.join("\n\n")}` : "";
+    }).filter(Boolean).join("\n\n");
     const pageLinks = pages.length ? pages.map((page) => `- [[${page.title}]] — ${page.purpose}`).join("\n") : "- 승인된 주제 문서 없음";
     const questions = guide.key_questions.length ? guide.key_questions.map((question) => `- ${question}`).join("\n") : "- 추가 질문 없음";
-    return `# ${guide.title}\n\n> [!info] 자료 안내\n> 원문을 탐색하기 위한 출처 가이드이며, 정본 지식이 아닙니다.\n\n## 자료 개요\n\n${guide.overview}\n\n## 문서 지도\n\n${sections}\n\n## 연결 문서\n\n${pageLinks}\n\n## 더 살펴볼 질문\n\n${questions}\n\n## 원본\n\n- ${sourcePath}\n`;
+    return `# ${guide.title}\n\n> [!info] 자료 안내\n> 원문을 탐색하기 위한 출처 가이드이며, 정본 지식이 아닙니다.\n\n## 자료 개요\n\n${guide.overview}\n\n## 문서 지도\n\n${bodySections}\n\n## 연결 문서\n\n${pageLinks}\n\n## 더 살펴볼 질문\n\n${questions}\n\n## 원본\n\n- ${sourcePath}\n`;
   }
   function renderArticle(page, sections, claims, citations, verificationFlags, tags = []) {
     const body = sections.map((section) => `## ${section.heading}\n\n${section.paragraphs.map((paragraph) => paragraph.text).join("\n\n")}`).join("\n\n");
@@ -314,6 +317,13 @@
       const executionRows = new Map((input.execution?.resolution?.rows || []).map((row) => [row.page_id, row]));
       const claimById = new Map(inventory.claims.map((claim) => [claim.claim_id, claim]));
       const citationById = new Map(inventory.citations.map((citation) => [citation.citation_id, citation]));
+      const sourceGuideSections = plan.source_guide?.sections;
+      if (!Array.isArray(sourceGuideSections) || sourceGuideSections.some((section) => !plain(section)
+        || !Array.isArray(section.claim_ids) || section.claim_ids.length === 0
+        || new Set(section.claim_ids).size !== section.claim_ids.length
+        || section.claim_ids.some((claimId) => !claimById.has(claimId)))) {
+        return freeze({ ok: false, reason: "invalid_source_guide_claim_ids", canonical_writes: 0, source_writes: 0 });
+      }
       if (selectedPages.some((page) => !Array.isArray(page.claim_ids) || page.claim_ids.some((claimId) => !claimById.has(claimId)))) {
         return freeze({ ok: false, reason: "invalid_approved_page_claims" });
       }
@@ -447,19 +457,29 @@
           body: renderArticle(page, sections, claims, citations, verificationFlags, tags),
         }));
       }
-      const guideSections = plan.source_guide.sections.map((section) => freeze({
-        ...section,
-        citation_ids: [...new Set(section.claim_ids.flatMap(
-          (claimId) => claimById.get(claimId)?.citation_ids || [],
-        ))],
-      }));
+      const guideSections = sourceGuideSections.map((section) => {
+        const claimIds = [...section.claim_ids];
+        const citationIds = [...new Set(claimIds.flatMap(
+          (claimId) => claimById.get(claimId).citation_ids,
+        ))];
+        return freeze({
+          ...section,
+          claim_ids: claimIds,
+          citation_ids: citationIds,
+          paragraphs: claimIds.map((claimId) => {
+            const claim = claimById.get(claimId);
+            const claimCitationIds = [...claim.citation_ids];
+            return freeze({
+              text: claim.text,
+              claim_ids: [claimId],
+              citation_ids: claimCitationIds,
+              citations: claimCitationIds.map((citationId) => citationById.get(citationId)),
+            });
+          }),
+        });
+      });
       const guideClaimIds = [...new Set(guideSections.flatMap((section) => section.claim_ids))];
-      const guideClaims = guideSections.map((section, index) => freeze({
-        claim_id: `guide_claim_${String(index + 1).padStart(3, "0")}`,
-        text: section.summary,
-        derived_from_claim_ids: section.claim_ids,
-        citation_ids: section.citation_ids,
-      }));
+      const guideClaims = guideClaimIds.map((claimId) => claimById.get(claimId));
       const guideCitations = [...new Set(guideClaimIds.flatMap((claimId) => claimById.get(claimId)?.citation_ids || []))]
         .map((citationId) => citationById.get(citationId));
       const guideDocument = freeze({
@@ -474,7 +494,7 @@
         related_candidate_ids: [],
         operation_hint: "create",
         review_reasons: [],
-        body: renderGuide(plan.source_guide, selectedPages, inventory.source.source_path),
+        body: renderGuide(plan.source_guide, guideSections, selectedPages, inventory.source.source_path),
       });
       const documents = [guideDocument, ...articles];
       const qualityReceipt = createQualityReceipt({
@@ -482,7 +502,7 @@
         inventory_hash: inventory.inventory_hash,
         plan_hash: plan.plan_hash,
         documents,
-        quality_status: "publishable",
+        quality_status: "draft",
         quality_issues: [],
         quality_rewrite_count: qualityRewriteCount,
       });
@@ -491,7 +511,7 @@
         compiler_version: COMPILER_VERSION,
         inventory_hash: inventory.inventory_hash,
         plan_hash: plan.plan_hash,
-        quality_status: "publishable",
+        quality_status: "draft",
         quality_rewrite_count: qualityRewriteCount,
         quality_issues: [],
         quality_receipt: qualityReceipt,

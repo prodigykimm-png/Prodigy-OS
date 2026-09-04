@@ -71,6 +71,20 @@ function fixture() {
         source_only_count: 1,
         possible_gap_count: 0,
         hold_count: 0,
+        guide_sections: [{
+          heading: "입지 판단",
+          paragraphs: [{
+            text: "18mm 광각 렌즈의 가장자리 왜곡을 확인한다.",
+            claim_ids: ["claim_location"],
+            citation_ids: ["citation_location"],
+            citations: [{ citation_id: "citation_location", locators: ["INBOX/상가.md#10-20"] }],
+          }, {
+            text: "거래 조건을 원문 근거와 함께 검토한다.",
+            claim_ids: ["claim_trade"],
+            citation_ids: ["citation_trade"],
+            citations: [{ citation_id: "citation_trade", locators: ["INBOX/상가.md#30-40"] }],
+          }],
+        }],
       },
     }),
     item({
@@ -118,8 +132,9 @@ test("compiled rows replace page-plan cards with actual Wiki documents", () => {
         source_only_count: 1,
         possible_gap_count: 0,
         hold_count: 0,
-        quality_status: "publishable",
+        quality_status: "draft",
         quality_rewrite_count: 1,
+        guide_sections: fixture().find((row) => row.plan_kind === "source_guide").wiki_result.guide_sections,
       },
       document_body: "# 상가 자료 안내",
     }),
@@ -150,7 +165,23 @@ test("compiled rows replace page-plan cards with actual Wiki documents", () => {
   assert.equal(result.attr["data-result-stage"], "compiled");
   assert.match(text, /상가 Wiki 결과 미리보기/);
   assert.match(text, /근거 문장 8개 · 결과 문서 2개 · 원문 전용 1건/);
-  assert.match(text, /출고 가능 · 문장 품질 검증 완료 · 자동 정제 1회/);
+  const qualityStatus = walk(result, (node) => node.attr && node.attr["data-wiki-quality-status"] === "draft");
+  assert.equal(qualityStatus.length, 1);
+  const guideParagraphs = compiled[0].wiki_result.guide_sections.flatMap((section) => section.paragraphs);
+  const projectedGuideParagraphs = walk(result, (node) => node.attr && node.attr["data-wiki-guide-paragraph"] === "");
+  assert.equal(projectedGuideParagraphs.length, guideParagraphs.length);
+  assert.deepEqual(
+    projectedGuideParagraphs.map((node) => node.attr["data-wiki-guide-claim-ids"].split(" ")),
+    guideParagraphs.map((paragraph) => paragraph.claim_ids),
+  );
+  assert.deepEqual(
+    projectedGuideParagraphs.map((node) => node.attr["data-wiki-guide-citation-ids"].split(" ")),
+    guideParagraphs.map((paragraph) => paragraph.citation_ids),
+  );
+  assert.deepEqual(
+    projectedGuideParagraphs.map((node) => JSON.parse(node.attr["data-wiki-guide-citations"])),
+    guideParagraphs.map((paragraph) => paragraph.citations),
+  );
   assert.equal(walk(result, (node) => node.attr && node.attr["data-compiled-document"]).length, 2);
   assert.equal(walk(result, (node) => node.attr && node.attr["data-wiki-topic"]).length, 0);
   assert.equal(walk(container, (node) => node.attr && node.attr["data-action"] === "approve-page-plan").length, 0);

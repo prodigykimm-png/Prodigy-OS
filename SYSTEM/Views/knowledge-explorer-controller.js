@@ -117,6 +117,32 @@
       Promise.resolve(command.execute({ type, item })).then(() => render());
       if (type === "open_detail" && detail) detail.open(item, invoker);
     }
+    function renderGuideSections(parent, meta) {
+      const sections = list(meta.guide_sections).filter((section) => plain(section) && text(section.heading));
+      if (!sections.length) return;
+      const guide = createEl(parent, "section", { attr: { "data-wiki-source-guide": "" } });
+      createEl(guide, "h3", { text: "자료 안내" });
+      for (const section of sections) {
+        const row = createEl(guide, "article", { attr: { "data-wiki-guide-section": text(section.heading) } });
+        createEl(row, "h4", { text: text(section.heading) });
+        for (const paragraph of list(section.paragraphs).filter((paragraph) => plain(paragraph) && text(paragraph.text))) {
+          const claimIds = list(paragraph.claim_ids).map(text).filter(Boolean);
+          const citations = list(paragraph.citations).filter(plain);
+          const citationIds = citations.length
+            ? citations.map((citation) => text(citation.citation_id)).filter(Boolean)
+            : list(paragraph.citation_ids).map(text).filter(Boolean);
+          createEl(row, "p", {
+            text: text(paragraph.text),
+            attr: {
+              "data-wiki-guide-paragraph": "",
+              "data-wiki-guide-claim-ids": claimIds.join(" "),
+              "data-wiki-guide-citation-ids": citationIds.join(" "),
+              "data-wiki-guide-citations": JSON.stringify(citations),
+            },
+          });
+        }
+      }
+    }
     function renderWikiResult(section, group) {
       const compiled = group.items.filter((item) => item.plan_kind === "compiled_document");
       if (compiled.length) {
@@ -135,14 +161,15 @@
           text: `근거 문장 ${Number(meta.total_claims || 0)}개 · 결과 문서 ${documents.length}개 · 원문 전용 ${Number(meta.source_only_count || 0)}건`,
           attr: { "data-wiki-summary": "" },
         });
-        if (meta.quality_status === "publishable") {
+        if (meta.quality_status === "draft") {
           createEl(header, "output", {
-            text: `출고 가능 · 문장 품질 검증 완료${Number(meta.quality_rewrite_count || 0) > 0 ? ` · 자동 정제 ${Number(meta.quality_rewrite_count)}회` : ""}`,
-            attr: { "data-wiki-quality-status": "publishable" },
+            text: `검토 초안 · 문장 품질 검증 완료${Number(meta.quality_rewrite_count || 0) > 0 ? ` · 자동 정제 ${Number(meta.quality_rewrite_count)}회` : ""}`,
+            attr: { "data-wiki-quality-status": "draft" },
           });
         }
         const guideOpen = createEl(header, "button", { text: "자료 안내 읽기", attr: { type: "button", "data-action": "open-review-detail" } });
         guideOpen.onclick = () => { if (detail) detail.open(guide, guideOpen); };
+        renderGuideSections(result, meta);
         if (documents.length) {
           const cardById = new Map();
           const order = createEl(result, "section", { attr: { "data-wiki-reading-order": "" } });
@@ -202,6 +229,7 @@
       });
       const guideOpen = createEl(header, "button", { text: "자료 안내 보기", attr: { type: "button", "data-action": "open-review-detail" } });
       guideOpen.onclick = () => { if (detail) detail.open(guide, guideOpen); };
+      renderGuideSections(result, meta);
       if (activeTopics.length) {
         const cardById = new Map();
         const order = createEl(result, "section", { attr: { "data-wiki-reading-order": "" } });

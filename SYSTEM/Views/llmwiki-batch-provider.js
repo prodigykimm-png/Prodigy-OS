@@ -7,7 +7,7 @@
   const inputApi = root.LLMWikiBatchProviderInput || (typeof require === "function" ? require("./llmwiki-batch-provider-input.js") : null), consumerRuntimeApi = root.ProdigyAIConsumerRuntime || (typeof require === "function" ? require("./prodigy-ai-consumer-runtime.js") : null);
   if (!inputApi || !evidenceCandidatesApi) throw new Error("LLMWiki batch provider dependencies are required.");
 
-  const MAX_CHUNKS_PER_PACK = 4, MAX_ITEMS_PER_RESULT = 8, MAX_CLAIMS = 8, MAX_REVIEW_REASONS = 4;
+  const MAX_CHUNKS_PER_PACK = 4, MAX_ITEMS_PER_RESULT = 8, MAX_SEMANTIC_ITEMS_PER_RESULT = 64, MAX_CLAIMS = 8, MAX_REVIEW_REASONS = 4;
   const MAX_TOPIC_BYTES = 480, MAX_QUOTE_BYTES = 2048, MAX_CLAIM_BYTES = 1200, MAX_REASON_BYTES = 240;
   const MAX_RELATED_CANDIDATE_IDS = 8, MAX_CANDIDATE_ID_BYTES = 69;
   const MAX_RESPONSE_BYTES = 512 * 1024, CANDIDATE_ID_PATTERN = "^cand_[a-zA-Z0-9_-]{1,64}$", CANDIDATE_ID = new RegExp(CANDIDATE_ID_PATTERN, "u");
@@ -49,7 +49,7 @@
             outcome: { type: "string", pattern: "^(proposals|hold|no_change)$" },
             items: {
               type: "array",
-              maxItems: MAX_ITEMS_PER_RESULT,
+              maxItems: MAX_SEMANTIC_ITEMS_PER_RESULT,
               items: {
                 type: "object",
                 additionalProperties: false,
@@ -99,7 +99,7 @@
     return null;
   }
 
-  function validateItem(rawItem, chunk, candidateIds, errors) {
+  function validateItem(rawItem, chunk, evidenceCandidates, candidateIds, errors) {
     if (!plain(rawItem)) { errors.reason = "invalid_item"; return null; }
     for (const key of Object.keys(rawItem)) {
       if (FORBIDDEN_FIELDS.has(key)) { errors.reason = "forbidden_authority"; return null; }
@@ -110,9 +110,7 @@
     if (rawItem.topic !== undefined && topic === null) { errors.reason = "invalid_topic"; return null; }
     const quote = boundedString(rawItem.evidence_quote, MAX_QUOTE_BYTES);
     if (quote === null) { errors.reason = "invalid_evidence_quote"; return null; }
-    const keyed = typeof rawItem.evidence_key === "string"
-      ? evidenceCandidatesApi.create(chunk.text, { max_bytes: MAX_QUOTE_BYTES }).find((candidate) => candidate.key === rawItem.evidence_key)
-      : null;
+    const keyed = typeof rawItem.evidence_key === "string" ? evidenceCandidates.find((candidate) => candidate.key === rawItem.evidence_key) : null;
     if (rawItem.evidence_key !== undefined && !keyed) { errors.reason = "invalid_evidence_key"; return null; }
     let anchor = keyed ? { start: keyed.start, end: keyed.end } : anchorQuote(chunk.text, quote);
     let storedQuote = keyed ? keyed.text : quote;
@@ -121,26 +119,13 @@
       anchor = projected.anchor; storedQuote = chunk.text.slice(anchor.start, anchor.end); }
     if (!Array.isArray(rawItem.claims) || rawItem.claims.length > MAX_CLAIMS) { errors.reason = "invalid_claims"; return null; }
     const claims = [];
-    for (const claim of rawItem.claims) {
-      const value = boundedString(claim, MAX_CLAIM_BYTES);
-      if (value === null) { errors.reason = "invalid_claims"; return null; }
-      claims.push(Object.freeze({ text: value }));
-    }
+    for (const claim of rawItem.claims) { const value = boundedString(claim, MAX_CLAIM_BYTES); if (value === null) { errors.reason = "invalid_claims"; return null; } claims.push(Object.freeze({ text: value })); }
     if (!Array.isArray(rawItem.review_reasons) || rawItem.review_reasons.length > MAX_REVIEW_REASONS) { errors.reason = "invalid_review_reasons"; return null; }
     const reasons = [];
-    for (const reason of rawItem.review_reasons) {
-      const value = boundedString(reason, MAX_REASON_BYTES);
-      if (value === null) { errors.reason = "invalid_review_reasons"; return null; }
-      reasons.push(value);
-    }
+    for (const reason of rawItem.review_reasons) { const value = boundedString(reason, MAX_REASON_BYTES); if (value === null) { errors.reason = "invalid_review_reasons"; return null; } reasons.push(value); }
     if (!Array.isArray(rawItem.related_candidate_ids) || rawItem.related_candidate_ids.length > MAX_RELATED_CANDIDATE_IDS) { errors.reason = "invalid_related_candidates"; return null; }
     const related = [], relatedSeen = new Set();
-    for (const id of rawItem.related_candidate_ids) {
-      if (typeof id !== "string" || utf8Bytes(id) > MAX_CANDIDATE_ID_BYTES || !CANDIDATE_ID.test(id) || relatedSeen.has(id)) { errors.reason = "invalid_related_candidates"; return null; }
-      if (!candidateIds.has(id)) { errors.reason = "candidate_id_not_allowed"; return null; }
-      relatedSeen.add(id);
-      related.push(id);
-    }
+    for (const id of rawItem.related_candidate_ids) { if (typeof id !== "string" || utf8Bytes(id) > MAX_CANDIDATE_ID_BYTES || !CANDIDATE_ID.test(id) || relatedSeen.has(id)) { errors.reason = "invalid_related_candidates"; return null; } if (!candidateIds.has(id)) { errors.reason = "candidate_id_not_allowed"; return null; } relatedSeen.add(id); related.push(id); }
     return Object.freeze({
       role: rawItem.role,
       ...(topic ? { topic } : {}),
@@ -153,7 +138,7 @@
     });
   }
 
-  function validateResponse(response, chunksByKey, candidateIds, mode) {
+  function validateResponse(response, chunksByKey, semanticCandidatesByKey, candidateIds, mode) {
     const errors = { reason: "invalid_response" };
     if (!plain(response)) { return { reason: "malformed_json" }; }
     let responseBytes; try { responseBytes = utf8Bytes(JSON.stringify(response)); } catch (_) { return { reason: "malformed_json" }; } if (responseBytes > MAX_RESPONSE_BYTES) return { reason: "response_too_large", detail: responseBytes };
@@ -177,18 +162,27 @@
       if (seen.has(chunkKey)) { return { reason: "duplicate_chunk_result", detail: chunkKey }; }
       seen.add(chunkKey);
       if (!OUTCOMES.includes(result.outcome)) { return { reason: "invalid_outcome", detail: result.outcome }; }
-      if (!Array.isArray(result.items) || result.items.length > MAX_ITEMS_PER_RESULT) { return { reason: "invalid_items" }; }
+      if (!Array.isArray(result.items) || result.items.length > (mode === SEMANTIC_MODE ? MAX_SEMANTIC_ITEMS_PER_RESULT : MAX_ITEMS_PER_RESULT)) return { reason: "invalid_items" };
       if (mode === SOURCE_ROUTING_MODE) {
         const expectedItems = result.outcome === "no_change" ? 0 : 1;
         if (result.items.length !== expectedItems) return { reason: "source_routing_item_count", detail: chunkKey };
         if (result.outcome === "hold" && result.items[0]?.role !== "hold") return { reason: "source_routing_hold_role", detail: chunkKey };
       }
-      const items = [];
+      const evidenceCandidates = mode === SEMANTIC_MODE ? semanticCandidatesByKey.get(chunkKey) : evidenceCandidatesApi.create(chunk.text, { max_bytes: MAX_QUOTE_BYTES });
+      const seenEvidenceKeys = new Set(), items = [];
       for (const rawItem of result.items) {
-        const item = validateItem(rawItem, chunk, candidateIds, errors);
+        if (mode === SEMANTIC_MODE) {
+          const evidenceKey = rawItem?.evidence_key;
+          if (typeof evidenceKey !== "string") return { reason: "semantic_candidate_key_missing" };
+          if (!evidenceCandidates.some((candidate) => candidate.key === evidenceKey)) return { reason: "semantic_candidate_key_unknown", detail: evidenceKey };
+          if (seenEvidenceKeys.has(evidenceKey)) return { reason: "semantic_candidate_key_duplicate", detail: evidenceKey }; seenEvidenceKeys.add(evidenceKey);
+        }
+        const item = validateItem(rawItem, chunk, evidenceCandidates, candidateIds, errors);
         if (!item) { return { reason: errors.reason }; }
+        if (mode === SEMANTIC_MODE && result.outcome === "proposals" && item.claims.length === 0) return { reason: "proposal_without_supported_claim" };
         items.push(item);
       }
+      if (mode === SEMANTIC_MODE && seenEvidenceKeys.size !== evidenceCandidates.length) return { reason: "semantic_candidate_key_missing", detail: chunkKey };
       artifacts.push(Object.freeze({ chunk_key: chunkKey, outcome: result.outcome, items: Object.freeze(items) }));
     }
     for (const key of chunksByKey.keys()) {
@@ -204,20 +198,22 @@
       const normalized = inputApi.normalizeInput(input);
       if (normalized.reason) return failure(normalized.reason);
       const routing = normalized.mode === SOURCE_ROUTING_MODE;
+      const semanticCandidatesByKey = routing ? new Map() : new Map([...normalized.chunksByKey.values()].map((chunk) => [chunk.key, evidenceCandidatesApi.createSemantic(chunk.text, { max_bytes: MAX_QUOTE_BYTES })]));
+      if (!routing && [...semanticCandidatesByKey.values()].some((candidates) => candidates.length > MAX_SEMANTIC_ITEMS_PER_RESULT)) return failure("semantic_unit_limit_exceeded");
       const prompt = JSON.stringify({
         mode: normalized.mode,
         task: routing
           ? "Choose exactly one lifecycle route for each whole source: source_summary for raw reference material, reusable_claim only for one atomic reusable claim, object_context for mutable Object/PARA state, hold when ambiguous, or no_change only for an exact duplicate. Return one lifecycle route, not extracted subclaims. Evidence must be one exact unique quote from source text."
-          : "Extract all durable information from every keyed source chunk. Return multiple evidence items when the chunk contains multiple facts or topics. Each item must have one concise human-readable topic and the claims supported by one supplied evidence candidate. Copy its evidence key into evidence_key and its text verbatim into evidence_quote. Use source_summary for source-bound context and reusable_claim for reusable knowledge. Do not collapse a rich chunk into one representative claim.",
+          : "Extract all durable information from every keyed source chunk. Return exactly one item for every supplied evidence candidate key; use each key exactly once. Each item must have one concise human-readable topic and claims supported by that candidate. Copy its evidence key into evidence_key and its text verbatim into evidence_quote. Use source_summary for source-bound context and reusable_claim for reusable knowledge. Do not collapse a rich chunk into one representative claim.",
         run_id: typeof input.run_id === "string" ? input.run_id : "",
         chunks: [...normalized.chunksByKey.values()].map((chunk) => ({
           key: chunk.key,
           text: chunk.text,
-          ...(!routing ? { evidence_candidates: evidenceCandidatesApi.create(chunk.text, { max_bytes: MAX_QUOTE_BYTES }).map((candidate) => ({ key: candidate.key, text: candidate.text })) } : {}),
+          ...(!routing ? { evidence_candidates: semanticCandidatesByKey.get(chunk.key).map((candidate) => ({ key: candidate.key, text: candidate.text })) } : {}),
           ...(routing ? { source_hint: chunk.source_hint } : {}),
         })),
         allowed_candidate_ids: [...normalized.candidateIds],
-        limits: { max_items_per_result: routing ? 1 : MAX_ITEMS_PER_RESULT, max_claims: MAX_CLAIMS, offsets_or_paths_or_operations: "never" },
+        limits: { max_items_per_result: routing ? 1 : MAX_SEMANTIC_ITEMS_PER_RESULT, max_claims: MAX_CLAIMS, offsets_or_paths_or_operations: "never" },
       });
       let response;
       try {
@@ -239,7 +235,7 @@
         return failure(inputApi.mapTransportError(error), { provider_call_count: 1 });
       }
       if (context.signal && context.signal.aborted) return failure("provider_aborted", { provider_call_count: 1 });
-      const validated = validateResponse(response, normalized.chunksByKey, normalized.candidateIds, normalized.mode);
+      const validated = validateResponse(response, normalized.chunksByKey, semanticCandidatesByKey, normalized.candidateIds, normalized.mode);
       if (!validated.ok) return failure(validated.reason, { provider_call_count: 1, detail: validated.detail });
       return Object.freeze({
         ok: true,
@@ -253,7 +249,7 @@
   }
 
   const api = Object.freeze({
-    COMPACT_SCHEMA, MAX_CHUNKS_PER_PACK, MAX_ITEMS_PER_RESULT, MAX_CLAIMS, MAX_REVIEW_REASONS,
+    COMPACT_SCHEMA, MAX_CHUNKS_PER_PACK, MAX_ITEMS_PER_RESULT, MAX_SEMANTIC_ITEMS_PER_RESULT, MAX_CLAIMS, MAX_REVIEW_REASONS,
     MAX_RELATED_CANDIDATE_IDS, MAX_CANDIDATE_ID_BYTES, MAX_RESPONSE_BYTES,
     SEMANTIC_MODE, SOURCE_ROUTING_MODE, anchorQuote,
     createBatchAnalysisProvider, createCompactBatchProvider: createBatchAnalysisProvider,

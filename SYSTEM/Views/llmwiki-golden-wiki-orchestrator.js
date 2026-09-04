@@ -3,7 +3,7 @@
 
   const artifactApi = root.ProdigyWikiArtifactContract
     || (typeof require === "function" ? require("./prodigy-wiki-artifact-contract.js") : null);
-  const VERSION = "llmwiki_golden_wiki_orchestrator_v2";
+  const VERSION = "llmwiki_golden_wiki_orchestrator_v3";
   const MAX_DIRECT_PACKS = 30;
 
   function freeze(value) {
@@ -148,6 +148,82 @@
       citations,
     });
   }
+  function paragraphClaimIds(sections) {
+    return (sections || []).flatMap((section) => (section.paragraphs || []).flatMap((paragraph) => (
+      Array.isArray(paragraph.claim_ids) ? paragraph.claim_ids.filter((claimId) => typeof claimId === "string") : []
+    )));
+  }
+  function uniqueRows(rows, key) {
+    const seen = new Set();
+    return rows.filter((row) => row && typeof row[key] === "string" && !seen.has(row[key]) && seen.add(row[key]));
+  }
+  function composeFinalDocument(allDocuments, sourcePath) {
+    const documents = Array.isArray(allDocuments) ? allDocuments.filter(Boolean) : [];
+    const guide = documents.find((document) => document.document_kind === "source_guide") || null;
+    const topics = documents.filter((document) => document.document_kind === "topic_article");
+    const claimById = new Map(uniqueRows(documents.flatMap((document) => document.claims || []), "claim_id")
+      .map((claim) => [claim.claim_id, claim]));
+    const citationById = new Map(uniqueRows(documents.flatMap((document) => document.citations || []), "citation_id")
+      .map((citation) => [citation.citation_id, citation]));
+    const approvedClaimIds = guide
+      ? (guide.claims || []).map((claim) => claim && claim.claim_id).filter((claimId) => typeof claimId === "string")
+      : paragraphClaimIds(topics.flatMap((document) => document.sections || []));
+    const expected = new Set(approvedClaimIds);
+    const topicDocument = topics.length > 1 ? mergeTopicDocuments(topics, sourcePath) : topics[0] || null;
+    const topicClaimIds = topicDocument ? paragraphClaimIds(topicDocument.sections) : [];
+    const used = new Set(topicClaimIds);
+    const finalClaimIds = [...topicClaimIds];
+    let document;
+    if (!topicDocument && guide) {
+      const guideClaimIds = paragraphClaimIds(guide.sections);
+      document = {
+        ...guide,
+        claims: guideClaimIds.map((claimId) => claimById.get(claimId)).filter(Boolean),
+        citations: uniqueRows(guideClaimIds.flatMap((claimId) => (claimById.get(claimId)?.citation_ids || [])
+          .map((citationId) => citationById.get(citationId))), "citation_id"),
+      };
+      finalClaimIds.push(...guideClaimIds);
+    } else if (topicDocument) {
+      const residualSections = [];
+      for (const section of guide?.sections || []) {
+        const paragraphs = (section.paragraphs || []).filter((paragraph) => {
+          const claimIds = Array.isArray(paragraph.claim_ids) ? paragraph.claim_ids : [];
+          return claimIds.length > 0 && claimIds.every((claimId) => expected.has(claimId) && !used.has(claimId));
+        });
+        if (!paragraphs.length) continue;
+        for (const paragraph of paragraphs) {
+          for (const claimId of paragraph.claim_ids) {
+            used.add(claimId);
+            finalClaimIds.push(claimId);
+          }
+        }
+        residualSections.push({
+          heading: `원문 전용: ${publicationText(section.heading) || "자료"}`,
+          paragraphs,
+        });
+      }
+      const finalClaims = uniqueRows(finalClaimIds.map((claimId) => claimById.get(claimId)), "claim_id");
+      document = {
+        ...topicDocument,
+        sections: [...(topicDocument.sections || []), ...residualSections],
+        claims: finalClaims,
+        citations: uniqueRows(finalClaims.flatMap((claim) => (claim.citation_ids || [])
+          .map((citationId) => citationById.get(citationId))), "citation_id"),
+      };
+    } else return null;
+    const finalSet = new Set(finalClaimIds);
+    const duplicateClaimIds = finalClaimIds.filter((claimId, index) => finalClaimIds.indexOf(claimId) !== index);
+    return freeze({
+      document: freeze(document),
+      partition: freeze({
+        approved_claim_ids: [...expected],
+        final_claim_ids: [...finalSet],
+        missing_claim_ids: [...expected].filter((claimId) => !finalSet.has(claimId)),
+        unexpected_claim_ids: [...finalSet].filter((claimId) => !expected.has(claimId)),
+        duplicate_claim_ids: [...new Set(duplicateClaimIds)],
+      }),
+    });
+  }
 
   function create(options = {}) {
     const vault = options.vault;
@@ -179,9 +255,10 @@
       if (file) {
         const current = await vault.cachedRead(file);
         if (current !== bytes) throw new Error("immutable_preview_conflict");
-        return;
+        return false;
       }
       await vault.create(path, bytes);
+      return true;
     }
     async function ensureParent(path) {
       const parts = path.split("/").slice(0, -1);
@@ -248,17 +325,35 @@
       notify("compiling", { pages: planned.pages || 0 });
       const compiled = await compilePlan();
       if (!compiled || compiled.ok !== true) return freeze({ ...(compiled || {}), ok: false, stage: "compiling" });
-      const allDocuments = getDocuments();
-      const topicDocuments = (Array.isArray(allDocuments) ? allDocuments : []).filter((document) => document && document.document_kind === "topic_article");
-      const documents = topicDocuments.length > 1
-        ? [mergeTopicDocuments(topicDocuments, prepared.source_path)]
-        : topicDocuments.length ? topicDocuments : (Array.isArray(allDocuments) ? allDocuments : []);
-      if (!documents.length) return freeze({ ok: false, reason: "compiled_documents_unavailable", stage: "compiling" });
-      notify("gating", { documents: documents.length });
+      const composed = composeFinalDocument(getDocuments(), prepared.source_path);
+      if (!composed) return freeze({ ok: false, reason: "compiled_documents_unavailable", stage: "compiling", preview_writes: 0, receipt_writes: 0 });
+      const { document, partition } = composed;
+      if (partition.missing_claim_ids.length || partition.unexpected_claim_ids.length || partition.duplicate_claim_ids.length) {
+        return freeze({
+          ok: false, status: "review_required", reason: "claim_partition_incomplete", stage: "gating",
+          claim_partition: partition, gate_calls: 0, preview_writes: 0, receipt_writes: 0,
+          canonical_writes: 0, source_writes: 0,
+        });
+      }
+      notify("gating", { documents: 1 });
       const sourceFile = vault.getAbstractFileByPath(prepared.source_path);
       const fullSourceText = sourceFile ? await vault.cachedRead(sourceFile) : "";
       if (hash.sha256(fullSourceText) !== prepared.source_hash) {
-        return freeze({ ok: false, reason: "source_revision_changed", stage: "gating", provider_calls: 0, canonical_writes: 0, source_writes: 0 });
+        return freeze({ ok: false, reason: "source_revision_changed", stage: "gating", provider_calls: 0, gate_calls: 0, preview_writes: 0, receipt_writes: 0, canonical_writes: 0, source_writes: 0 });
+      }
+      const documentText = renderDocument(document, prepared.source_path);
+      const evaluated = gate.evaluate({
+        source_text: prepared.source_text,
+        document_text: documentText,
+        source_path: prepared.source_path,
+      });
+      if (!evaluated.ok) {
+        return freeze({
+          ok: false, status: "review_required", reason: "golden_gate_failed", stage: "gating",
+          title: document.title, issues: evaluated.issues, metrics: evaluated.metrics,
+          claim_partition: partition, gate_calls: 1, preview_writes: 0, receipt_writes: 0,
+          provider_calls: Number(planned.map_provider_calls || 0), canonical_writes: 0, source_writes: 0,
+        });
       }
       const operationId = /^[0-9a-f]{64}$/u.test(text(input && input.operation_id))
         ? text(input.operation_id)
@@ -268,82 +363,60 @@
           scope: prepared.scope || null,
           orchestrator_version: VERSION,
         }));
-      const previews = [];
-      for (const document of documents) {
-        const documentText = renderDocument(document, prepared.source_path);
-        const scopedSource = (document.claims || []).map((claim) => text(claim.text)).filter(Boolean).join("\n");
-        const evaluated = gate.evaluate({
-          source_text: scopedSource,
-          document_text: documentText,
-          source_path: prepared.source_path,
-        });
-        if (!evaluated.ok) {
-          return freeze({
-            ok: false, status: "review_required", reason: "golden_gate_failed",
-            title: document.title, issues: evaluated.issues,
-            metrics: evaluated.metrics, provider_calls: Number(planned.map_provider_calls || 0),
-            canonical_writes: 0, source_writes: 0,
-          });
-        }
-        const artifact = artifactApi.createPreviewArtifact({
-          operation_id: operationId,
-          orchestrator_version: VERSION,
-          gate_receipt_hash: evaluated.receipt.receipt_hash,
-          source: {
-            source_id: prepared.source_id,
-            source_path: prepared.source_path,
-            source_revision: prepared.source_hash,
-            source_text: fullSourceText,
-          },
-          scope: prepared.scope || null,
-          document,
-          document_bytes: documentText,
-          refresh_context: input && input.refresh_context || null,
-        });
-        previews.push({ document, documentText, evaluated, artifact });
-      }
-      notify("saving", { documents: previews.length });
-      for (const preview of previews) {
-        const documentPath = preview.artifact.document_path;
-        const receiptPath = preview.artifact.receipt_path;
-        const scopedClaimIds = (preview.document.claims || []).map((claim) => claim.claim_id);
-        const orchestrationReceipt = {
-          orchestrator_version: VERSION,
-          document_path: documentPath,
+      const artifact = artifactApi.createPreviewArtifact({
+        operation_id: operationId,
+        orchestrator_version: VERSION,
+        gate_receipt_hash: evaluated.receipt.receipt_hash,
+        source: {
+          source_id: prepared.source_id,
           source_path: prepared.source_path,
           source_revision: prepared.source_hash,
-          scope: prepared.scope || null,
-          source_bytes: prepared.source_bytes,
-          chunk_count: prepared.chunks,
-          pack_count: prepared.packs,
-          scoped_claim_ids: scopedClaimIds,
-          gate_receipt_hash: preview.evaluated.receipt.receipt_hash,
-        };
-        const receipt = {
-          ...preview.evaluated,
-          ...preview.artifact.receipt,
-          ...orchestrationReceipt,
-          artifact_receipt_hash: preview.artifact.receipt.receipt_hash,
-          orchestration_receipt_hash: hash.sha256(stable(orchestrationReceipt)),
-        };
-        await ensureParent(documentPath);
-        await writeExact(documentPath, preview.documentText);
-        await writeExact(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
-      }
-      const rows = previews.map((preview) => freeze({
-        title: safeTitle(publicationText(preview.document.title)),
-        artifact_id: preview.artifact.artifact_id,
-        document_path: preview.artifact.document_path,
-        receipt_path: preview.artifact.receipt_path,
-        refresh_context: preview.artifact.receipt.refresh_context,
-        status: preview.evaluated.status,
-        metrics: preview.evaluated.metrics,
-      }));
-      notify("complete", { documents: rows.length });
+          source_text: fullSourceText,
+        },
+        scope: prepared.scope || null,
+        document,
+        document_bytes: documentText,
+        refresh_context: input && input.refresh_context || null,
+      });
+      notify("saving", { documents: 1 });
+      const scopedClaimIds = partition.final_claim_ids;
+      const orchestrationReceipt = {
+        orchestrator_version: VERSION,
+        document_path: artifact.document_path,
+        source_path: prepared.source_path,
+        source_revision: prepared.source_hash,
+        scope: prepared.scope || null,
+        source_bytes: prepared.source_bytes,
+        chunk_count: prepared.chunks,
+        pack_count: prepared.packs,
+        scoped_claim_ids: scopedClaimIds,
+        gate_receipt_hash: evaluated.receipt.receipt_hash,
+      };
+      const receipt = {
+        ...evaluated,
+        ...artifact.receipt,
+        ...orchestrationReceipt,
+        artifact_receipt_hash: artifact.receipt.receipt_hash,
+        orchestration_receipt_hash: hash.sha256(stable(orchestrationReceipt)),
+      };
+      await ensureParent(artifact.document_path);
+      const previewWrites = await writeExact(artifact.document_path, documentText) ? 1 : 0;
+      const receiptWrites = await writeExact(artifact.receipt_path, `${JSON.stringify(receipt, null, 2)}\n`) ? 1 : 0;
+      const row = freeze({
+        title: safeTitle(publicationText(document.title)),
+        artifact_id: artifact.artifact_id,
+        document_path: artifact.document_path,
+        receipt_path: artifact.receipt_path,
+        refresh_context: artifact.receipt.refresh_context,
+        status: evaluated.status,
+        metrics: evaluated.metrics,
+      });
+      notify("complete", { documents: 1 });
       return freeze({
-        ok: true, status: "golden_complete", source_path: prepared.source_path,
+        ok: true, status: "publishable_preview", source_path: prepared.source_path,
         source_hash: prepared.source_hash, source_bytes: prepared.source_bytes,
-        chunks: prepared.chunks, packs: prepared.packs, previews: rows,
+        chunks: prepared.chunks, packs: prepared.packs, previews: [row], claim_partition: partition,
+        gate_calls: 1, preview_writes: previewWrites, receipt_writes: receiptWrites,
         provider_calls: Number(planned.map_provider_calls || 0)
           + Number(planned.plan_provider_calls || 0)
           + Number(compiled.provider_calls || 0),

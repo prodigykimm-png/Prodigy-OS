@@ -40,7 +40,37 @@
     return Object.freeze(candidates);
   }
 
-  const api = Object.freeze({ DEFAULT_MAX_BYTES, create });
+  function createSemantic(value, options = {}) {
+    const source = String(value || "");
+    const maxBytes = Number.isSafeInteger(options.max_bytes) && options.max_bytes > 0 ? options.max_bytes : DEFAULT_MAX_BYTES;
+    const result = [];
+    let frontmatter = false;
+    for (const match of source.matchAll(/[^\n]*(?:\n|$)/gu)) {
+      const line = match[0].replace(/\n$/u, "").replace(/\r$/u, "");
+      const lineStart = match.index;
+      if (line.trim() === "---" && (lineStart === 0 || frontmatter)) { frontmatter = !frontmatter; continue; }
+      if (frontmatter || /^\s*#/u.test(line) || !line.trim()) continue;
+      const list = line.match(/^(\s*)(?:[-+*]|\d+[.)])\s+(.*)$/u);
+      const body = list ? list[2] : line.trim();
+      if (!body || (!list && /^\s*(?:[-+*]|\d+[.)])\s*$/u.test(line))) continue;
+      const bodyStart = lineStart + line.indexOf(body);
+      let cursor = 0;
+      while (cursor < body.length) {
+        let end = cursor, bytes = 0;
+        while (end < body.length) {
+          const code = body.charCodeAt(end); const paired = code >= 0xd800 && code <= 0xdbff && body.charCodeAt(end + 1) >= 0xdc00 && body.charCodeAt(end + 1) <= 0xdfff;
+          const width = paired ? 2 : 1; const cost = paired ? 4 : code <= 0x7f ? 1 : code <= 0x7ff ? 2 : 3;
+          if (bytes + cost > maxBytes) break; bytes += cost; end += width;
+        }
+        if (end <= cursor) break;
+        result.push(Object.freeze({ key: `evidence_${result.length + 1}`, text: body.slice(cursor, end), start: bodyStart + cursor, end: bodyStart + end }));
+        cursor = end;
+      }
+    }
+    return Object.freeze(result);
+  }
+
+  const api = Object.freeze({ DEFAULT_MAX_BYTES, create, createSemantic });
   root.LLMWikiEvidenceCandidates = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -86,6 +86,11 @@ const LEGACY_MODULE_PATHS = [
   "SYSTEM/Views/knowledge-para-view.js"
 ];
 const MODULE_PATHS = HUB_MODULE_PATHS;
+const DYNAMIC_MODULE_PATHS = Object.freeze([
+  "SYSTEM/Views/llmwiki-golden-quality-gate.js",
+  "SYSTEM/Views/llmwiki-golden-wiki-orchestrator.js",
+  "SYSTEM/Views/llmwiki-user-source-selector.js",
+]);
 void LEGACY_MODULE_PATHS;
 
 const { FakeElement } = require("./knowledge_explorer_view_fakes.js");
@@ -234,7 +239,9 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, e
     "SYSTEM/Views/prodigy-workspace-manifest.js": fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js"), "utf8"),
     "SYSTEM/Views/prodigy-hub-loader.js": fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-hub-loader.js"), "utf8")
   };
-  for (const modulePath of MODULE_PATHS) {
+  const dynamicModulePaths = llmWikiControllerOptions?.loadDynamicGoldenModules === true
+    ? DYNAMIC_MODULE_PATHS : [];
+  for (const modulePath of [...new Set([...MODULE_PATHS, ...dynamicModulePaths])]) {
     if (omittedModulePaths.includes(modulePath)) continue;
     files[modulePath] = fs.readFileSync(path.join(ROOT, modulePath), "utf8");
   }
@@ -280,6 +287,20 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, e
   }
   const sandbox = { app, dv: createDv(pages, readCounts, bodyLoadError), obsidian: { Modal: FakeModal }, container, console, URL, TextEncoder, TextDecoder, Uint8Array, ArrayBuffer, AbortController, crypto: webcrypto, setTimeout, clearTimeout };
   const controllerOptions = { ...(llmWikiControllerOptions || {}) };
+  const batchProviderConsumerRuntime = controllerOptions.batchProviderConsumerRuntime;
+  delete controllerOptions.batchProviderConsumerRuntime;
+  delete controllerOptions.loadDynamicGoldenModules;
+  if (batchProviderConsumerRuntime) {
+    Object.defineProperty(controllerOptions, "batchProvider", {
+      enumerable: true,
+      get() {
+        return sandbox.LLMWikiBatchProvider.createBatchAnalysisProvider({
+          app,
+          consumerRuntime: batchProviderConsumerRuntime,
+        });
+      },
+    });
+  }
   if (!controllerOptions.rollout_storage) controllerOptions.rollout_storage = task21RolloutStorage();
   sandbox.KnowledgeExplorerHub = { llmWikiControllerOptions: controllerOptions };
   // Browser modules intentionally use either window or globalThis. Model that identity in the VM.

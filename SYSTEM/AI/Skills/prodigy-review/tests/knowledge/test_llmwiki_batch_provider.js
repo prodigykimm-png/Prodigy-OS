@@ -9,10 +9,10 @@ const batchProvider = require(path.join(ROOT, "SYSTEM/Views/llmwiki-batch-provid
 
 const CJK_EMOJI_TEXT = "## 노트 \u{1F4DA}\n관찰: 지식 순환은 배치 단위로만 실행된다 \u{1F30D}. 두 번째 문장은 맥락 제공용이다.";
 const CHUNKS = [
-  { key: "chunk_alpha", text: CJK_EMOJI_TEXT },
-  { key: "chunk_beta", text: "Second chunk about reusable claims." },
+  { key: "chunk_alpha", text: CJK_EMOJI_TEXT, source_hint: "INBOX/alpha.md" },
+  { key: "chunk_beta", text: "Second chunk about reusable claims.", source_hint: "INBOX/beta.md" },
 ];
-const INPUT = { outbound_allowed: true, run_id: "run_batch", chunks: CHUNKS, candidate_ids: ["cand_1", "cand_2"] };
+const INPUT = { outbound_allowed: true, run_id: "run_batch", mode: "source_routing", chunks: CHUNKS, candidate_ids: ["cand_1", "cand_2"] };
 
 function okResponse(overrides = {}) {
   return {
@@ -56,10 +56,6 @@ function providerReturning(payload, onRequest = () => {}) {
   return { provider, callCount: () => calls };
 }
 
-function baseProvider() {
-  return providerReturning(okResponse()).provider;
-}
-
 test("compact schema is strict, pack-atomic, and free of model authority fields", () => {
   const schema = batchProvider.COMPACT_SCHEMA;
   assert.deepEqual(schema.required, ["status", "results"]);
@@ -87,7 +83,7 @@ test("semantic document extraction accepts multiple evidence items and preserves
     run_id: "run_document_extraction",
     chunks: [{
       key: "chunk_investment",
-      text: "입지보다 사업 속도를 먼저 본다. 현금흐름이 나쁘면 장기 보유를 피한다. 낙찰가가 급등하면 진입을 보류한다.",
+      text: "- 입지보다 사업 속도를 먼저 본다\n- 현금흐름이 나쁘면 장기 보유를 피한다\n- 낙찰가가 급등하면 진입을 보류한다",
     }],
     candidate_ids: [],
   };
@@ -97,9 +93,9 @@ test("semantic document extraction accepts multiple evidence items and preserves
       chunk_key: "chunk_investment",
       outcome: "proposals",
       items: [
-        { role: "source_summary", topic: "투자 판단 개요", evidence_quote: "입지보다 사업 속도를 먼저 본다", claims: ["사업 속도가 핵심 판단 기준이다."], review_reasons: [], related_candidate_ids: [] },
-        { role: "reusable_claim", topic: "현금흐름 위험", evidence_quote: "현금흐름이 나쁘면 장기 보유를 피한다", claims: ["현금흐름이 나쁜 자산은 장기 보유를 피한다."], review_reasons: [], related_candidate_ids: [] },
-        { role: "reusable_claim", topic: "낙찰가 급등 위험", evidence_quote: "낙찰가가 급등하면 진입을 보류한다", claims: ["낙찰가 급등 구간에서는 진입을 보류한다."], review_reasons: [], related_candidate_ids: [] },
+        { role: "source_summary", topic: "투자 판단 개요", evidence_key: "evidence_1", evidence_quote: "입지보다 사업 속도를 먼저 본다", claims: ["사업 속도가 핵심 판단 기준이다."], review_reasons: [], related_candidate_ids: [] },
+        { role: "reusable_claim", topic: "현금흐름 위험", evidence_key: "evidence_2", evidence_quote: "현금흐름이 나쁘면 장기 보유를 피한다", claims: ["현금흐름이 나쁜 자산은 장기 보유를 피한다."], review_reasons: [], related_candidate_ids: [] },
+        { role: "reusable_claim", topic: "낙찰가 급등 위험", evidence_key: "evidence_3", evidence_quote: "낙찰가 급등하면 진입을 보류한다", claims: ["낙찰가 급등 구간에서는 진입을 보류한다."], review_reasons: [], related_candidate_ids: [] },
       ],
     }],
   };
@@ -114,8 +110,65 @@ test("semantic document extraction accepts multiple evidence items and preserves
   assert.match(prompt.task, /topic/iu);
 });
 
+test("semantic mode requires every Todo 1 semantic key exactly once and keeps keyed holds as analysis data", async () => {
+  const source = "- 첫 번째 사실\n  - 두 번째 사실";
+  const input = { outbound_allowed: true, run_id: "semantic_keys", chunks: [{ key: "chunk_semantic", text: source }], candidate_ids: [] };
+  const items = [
+    { role: "source_summary", evidence_key: "evidence_1", evidence_quote: "첫 번째 사실", claims: ["첫 번째 supported claim"], review_reasons: [], related_candidate_ids: [] },
+    { role: "hold", evidence_key: "evidence_2", evidence_quote: "두 번째 사실", claims: [], review_reasons: ["추가 검토"], related_candidate_ids: [] },
+  ];
+  const response = { status: "ok", results: [{ chunk_key: "chunk_semantic", outcome: "hold", items }] };
+  const accepted = await providerReturning(response).provider(input);
+  assert.equal(accepted.ok, true, JSON.stringify(accepted));
+  assert.deepEqual(accepted.artifacts[0].items.map((item) => item.evidence_key), ["evidence_1", "evidence_2"]);
+  assert.deepEqual(accepted.artifacts[0].items.map((item) => source.slice(item.span.start, item.span.end)), ["첫 번째 사실", "두 번째 사실"]);
+
+  const cases = [
+    { items: items.slice(0, 1), reason: "semantic_candidate_key_missing" },
+    { items: [items[0], { ...items[0], claims: ["다른 claim"] }], reason: "semantic_candidate_key_duplicate" },
+    { items: [{ ...items[0], evidence_key: "evidence_3" }, items[1]], reason: "semantic_candidate_key_unknown" },
+    { items: [{ ...items[0], claims: [] }, items[1]], reason: "proposal_without_supported_claim" },
+  ];
+  for (const fixture of cases) {
+    const rejected = await providerReturning({ status: "ok", results: [{ chunk_key: "chunk_semantic", outcome: "proposals", items: fixture.items }] }).provider(input);
+    assert.equal(rejected.ok, false, fixture.reason);
+    assert.equal(rejected.reason, fixture.reason);
+    assert.equal(rejected.persisted_artifact_count, 0);
+  }
+});
+
+test("semantic unit bound permits 64 items and rejects 65 before transport", async () => {
+  const inputFor = (count) => ({
+    outbound_allowed: true,
+    run_id: `semantic_limit_${count}`,
+    chunks: [{ key: "chunk_limit", text: Array.from({ length: count }, (_, index) => `- unit ${index + 1}`).join("\n") }],
+    candidate_ids: [],
+  });
+  const responseFor = (count) => ({ status: "ok", results: [{
+    chunk_key: "chunk_limit",
+    outcome: "proposals",
+    items: Array.from({ length: count }, (_, index) => ({
+      role: "source_summary", evidence_key: `evidence_${index + 1}`, evidence_quote: `unit ${index + 1}`,
+      claims: [`supported ${index + 1}`], review_reasons: [], related_candidate_ids: [],
+    })),
+  }] });
+  const atLimit = providerReturning(responseFor(64));
+  const accepted = await atLimit.provider(inputFor(64));
+  assert.equal(accepted.ok, true, JSON.stringify(accepted));
+  assert.equal(accepted.provider_call_count, 1);
+  assert.equal(accepted.artifacts[0].items.length, 64);
+
+  const overLimit = providerReturning(responseFor(65));
+  const rejected = await overLimit.provider(inputFor(65));
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.reason, "semantic_unit_limit_exceeded");
+  assert.equal(rejected.provider_call_count, 0);
+  assert.equal(overLimit.callCount(), 0);
+  assert.equal(rejected.persisted_artifact_count, 0);
+});
+
 test("deterministic evidence keys recover the exact local quote even when model copy drifts", async () => {
-  const source = "정확한 근거 문장이다. 뒤 문장은 추가 맥락이다.";
+  const source = "- 정확한 근거 문장이다.";
   const input = { outbound_allowed: true, run_id: "run_evidence_key", chunks: [{ key: "chunk_evidence", text: source }], candidate_ids: [] };
   const response = {
     status: "ok",
@@ -227,7 +280,7 @@ test("source routing no-change is the only zero-item terminal result", async () 
 test("folded whitespace quote preserves the exact source slice and deterministic span alias", async () => {
   const source = "이렇게 해서 얻은 값어치는.. 따따블 ?\n2.5배 정도의 가격차이인 것 같습니다.";
   const quote = source.replace("?\n", "? ");
-  const input = { outbound_allowed: true, run_id: "r", chunks: [{ key: "chunk_fold", text: source }], candidate_ids: [] };
+  const input = { outbound_allowed: true, run_id: "r", mode: "source_routing", chunks: [{ key: "chunk_fold", text: source, source_hint: "INBOX/fold.md" }], candidate_ids: [] };
   const response = { status: "ok", results: [{ chunk_key: "chunk_fold", outcome: "proposals", items: [{ role: "source_summary", evidence_quote: quote, claims: ["주장"], review_reasons: [], related_candidate_ids: [] }] }] };
   const { provider } = providerReturning(response);
   const result = await provider(input);
@@ -241,9 +294,9 @@ test("folded whitespace quote preserves the exact source slice and deterministic
 test("folded whitespace duplicates remain non-unique and paraphrases remain not-found", async () => {
   const duplicate = "앞 문장\n뒤 문장 앞 문장\n뒤 문장";
   const folded = "앞 문장 뒤 문장";
-  const dup = await providerReturning({ status: "ok", results: [{ chunk_key: "chunk_dup", outcome: "proposals", items: [{ role: "source_summary", evidence_quote: folded, claims: ["주장"], review_reasons: [], related_candidate_ids: [] }] }] }).provider({ outbound_allowed: true, run_id: "r", chunks: [{ key: "chunk_dup", text: duplicate }], candidate_ids: [] });
+  const dup = await providerReturning({ status: "ok", results: [{ chunk_key: "chunk_dup", outcome: "proposals", items: [{ role: "source_summary", evidence_quote: folded, claims: ["주장"], review_reasons: [], related_candidate_ids: [] }] }] }).provider({ outbound_allowed: true, run_id: "r", mode: "source_routing", chunks: [{ key: "chunk_dup", text: duplicate, source_hint: "INBOX/dup.md" }], candidate_ids: [] });
   assert.equal(dup.reason, "evidence_quote_not_unique");
-  const para = await providerReturning({ status: "ok", results: [{ chunk_key: "chunk_para", outcome: "proposals", items: [{ role: "source_summary", evidence_quote: "앞 문장 뒤 내용", claims: ["주장"], review_reasons: [], related_candidate_ids: [] }] }] }).provider({ outbound_allowed: true, run_id: "r", chunks: [{ key: "chunk_para", text: "앞 문장\n뒤 문장" }], candidate_ids: [] });
+  const para = await providerReturning({ status: "ok", results: [{ chunk_key: "chunk_para", outcome: "proposals", items: [{ role: "source_summary", evidence_quote: "앞 문장 뒤 내용", claims: ["주장"], review_reasons: [], related_candidate_ids: [] }] }] }).provider({ outbound_allowed: true, run_id: "r", mode: "source_routing", chunks: [{ key: "chunk_para", text: "앞 문장\n뒤 문장", source_hint: "INBOX/para.md" }], candidate_ids: [] });
   assert.equal(para.reason, "evidence_quote_not_found");
 });
 
@@ -271,7 +324,7 @@ test("duplicate chunk key fails the pack atomically", async () => {
 
 test("non-unique evidence quote fails the pack without a second call", async () => {
   const text = "반복 문장이다.\n반복 문장이다.";
-  const input = { outbound_allowed: true, run_id: "r", chunks: [{ key: "chunk_dup", text }], candidate_ids: [] };
+  const input = { outbound_allowed: true, run_id: "r", mode: "source_routing", chunks: [{ key: "chunk_dup", text, source_hint: "INBOX/dup.md" }], candidate_ids: [] };
   const payload = {
     status: "ok",
     results: [{ chunk_key: "chunk_dup", outcome: "hold", items: [{ role: "hold", evidence_quote: "반복 문장이다.", claims: [], review_reasons: [], related_candidate_ids: [] }] }],
@@ -412,7 +465,7 @@ test("identical text and span under two different chunk keys yield distinct dete
     const provider = batchProvider.createBatchAnalysisProvider({
       consumerRuntime,
     });
-    const result = await provider({ outbound_allowed: true, run_id: "alias", chunks: [{ key: keys, text }], candidate_ids: [] });
+    const result = await provider({ outbound_allowed: true, run_id: "alias", mode: "source_routing", chunks: [{ key: keys, text, source_hint: "INBOX/alias.md" }], candidate_ids: [] });
     assert.equal(result.ok, true);
     return result.artifacts[0].items[0].span.alias;
   };

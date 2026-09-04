@@ -640,8 +640,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       provider_key: "prodigy-ai-runtime",
       model: "runtime-resolved",
       structured_mode: "json_schema",
-      schema_id: "llmwiki_compact_v1",
-      prompt_version: "llmwiki_batch_compact_v1"
+      schema_id: "llmwiki_compact_v2",
+      prompt_version: "llmwiki_batch_compact_v2"
     });
     const batchProvider = llmWikiControllerOptions.batchProvider
       || window.LLMWikiBatchProvider.createBatchAnalysisProvider({ app: appRef, consumerRuntime: window.ProdigyAIConsumerRuntime });
@@ -814,12 +814,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       cache: batchCache,
       coverage: batchCoverage,
     }) : null;
-    const compactArtifactsFromHits = (hits, sourceOffset = 0) => hits.map((hit) => Object.freeze({
-      chunk_key: hit.artifact.semantic_id,
-      outcome: hit.artifact.outcome,
+    const compactArtifactsFromHits = (hits, sourceOffset = 0) => hits.flatMap((hit) => {
       // Provider artifacts carry chunk-local spans and string claims. The local
-      // materializer needs source-global spans and typed { text } claims.
-      items: JSON.parse(JSON.stringify(hit.artifact.items)).map((item) => {
+      // materializer needs source-global spans, typed { text } claims, and its
+      // established eight-item artifact envelope even when semantic v2 returns
+      // more units for one source chunk.
+      const items = JSON.parse(JSON.stringify(hit.artifact.items)).map((item) => {
         const span = item.span;
         const localSpan = span && Number.isSafeInteger(span.start) && Number.isSafeInteger(span.end)
           && span.start >= 0 && span.end > span.start && span.end <= hit.chunk.text.length;
@@ -834,8 +834,17 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           } : {}),
           claims: (item.claims || []).map((claim) => typeof claim === "string" ? { text: claim } : claim),
         };
-      }),
-    }));
+      });
+      const artifacts = [];
+      for (let start = 0; start < items.length || (start === 0 && items.length === 0); start += 8) {
+        artifacts.push(Object.freeze({
+          chunk_key: items.length > 8 ? `${hit.artifact.semantic_id}_part${Math.floor(start / 8) + 1}` : hit.artifact.semantic_id,
+          outcome: hit.artifact.outcome,
+          items: items.slice(start, start + 8),
+        }));
+      }
+      return artifacts;
+    });
     // One canonical composition: analyzer artifacts -> local materialization ->
     // typed lifecycle proposals. Zero writes; approval stays on the retained
     // controller surface.
@@ -1321,6 +1330,36 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const planReviewRows = (plan, inventory, compiledDocuments = []) => {
       const reviewState = plan.status === "approved" || plan.status === "compiled" ? "approved" : "pending";
       const guideClaimIds = plan.source_guide.sections.flatMap((section) => section.claim_ids);
+      const inventoryClaimById = new Map(inventory.claims.map((claim) => [claim.claim_id, claim]));
+      const guideSections = plan.source_guide.sections.map((section) => ({
+        heading: section.heading,
+        paragraphs: planGroundedClaims(section.claim_ids, inventory)
+          .filter((claim) => inventoryClaimById.has(claim.claim_id) && claim.text)
+          .map((claim) => ({
+            text: claim.text,
+            claim_ids: [claim.claim_id],
+            citation_ids: claim.citations.map((citation) => citation.citation_id),
+            citations: claim.citations,
+          })),
+      }));
+      const guideBodySections = guideSections.length === plan.source_guide.sections.length
+        && guideSections.every((section) => section.paragraphs.length > 0)
+        ? guideSections.map((section) => [`### ${section.heading}`, "", ...section.paragraphs.flatMap((paragraph) => [paragraph.text, ""])]).flat()
+        : [];
+      const guideDocumentBody = guideBodySections.length ? [
+        `# ${plan.source_guide.title}`,
+        "",
+        "## 자료 개요",
+        "",
+        plan.source_guide.overview,
+        "",
+        "## 문서 지도",
+        "",
+        ...guideBodySections,
+        "## 더 살펴볼 질문",
+        "",
+        ...plan.source_guide.key_questions.map((question) => `- ${question}`),
+      ].join("\n") : "";
       const heldClaimIds = new Set(plan.pages.filter((page) => page.selected === false).flatMap((page) => page.claim_ids));
       const intrinsicSourceOnlyCount = plan.source_only_claim_ids.filter((claimId) => !heldClaimIds.has(claimId)).length;
       const lint = documentPlanLint(plan);
@@ -1338,38 +1377,18 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           source_only_count: intrinsicSourceOnlyCount,
           possible_gap_count: documentPlanQualityGaps.length,
           hold_count: plan.pages.filter((page) => page.selected === false).length,
+          guide_sections: guideSections,
           quality_status: documentPlanCompileResult?.quality_status || "unverified",
           quality_rewrite_count: Number(documentPlanCompileResult?.quality_rewrite_count || 0),
         },
         summary_points: [
           plan.source_guide.overview,
-          `${plan.source_guide.sections.length}개 section`,
-          `${plan.source_only_claim_ids.length}개 source-only claim`,
-          window.LLMWikiQualitySignals.summarize({
-            inventory_claims: inventory.claims,
-            pages: plan.pages,
-            source_only_claim_ids: plan.source_only_claim_ids,
-            possible_gaps: documentPlanQualityGaps,
-            holds: plan.pages.filter((page) => page.selected === false),
-          }).text,
+          ...guideSections.flatMap((section) => section.paragraphs.map((paragraph) => paragraph.text)),
           ...(documentPlanQualityGaps.length
             ? [`추가 검토 후보(참고용) · ${documentPlanQualityGaps.slice(0, 3).map((gap) => gap.text || gap.evidence_quote).join(" · ")}`]
             : []),
         ],
-        document_body: [
-          `# ${plan.source_guide.title}`,
-          "",
-          "## 자료 개요",
-          "",
-          plan.source_guide.overview,
-          "",
-          "## 문서 지도",
-          "",
-          ...plan.source_guide.sections.flatMap((section) => [`### ${section.heading}`, "", section.summary, ""]),
-          "## 더 살펴볼 질문",
-          "",
-          ...plan.source_guide.key_questions.map((question) => `- ${question}`),
-        ].join("\n"),
+        ...(guideDocumentBody ? { document_body: guideDocumentBody } : {}),
         sources: planSources(guideClaimIds, inventory),
         coverage: { complete: true, status: "전체 claim 문서 지도 완료" },
       }];
@@ -1446,6 +1465,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
               source_only_count: intrinsicSourceOnlyCount,
               possible_gap_count: documentPlanQualityGaps.length,
               hold_count: plan.pages.filter((page) => page.selected === false).length,
+              guide_sections: document.sections,
               quality_status: documentPlanCompileResult?.quality_status || "unverified",
               quality_rewrite_count: Number(documentPlanCompileResult?.quality_rewrite_count || 0),
             },
@@ -1482,7 +1502,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       const file = appRef.vault.getAbstractFileByPath(normalizedSourcePath);
       if (!file) return { ok: false, reason: "plan_source_missing" };
-      const sourcePath = file.path;
+      const sourcePath = file.path.normalize("NFC");
       const extractedText = await appRef.vault.cachedRead(file);
       const sourceRevision = llmWikiHash.sha256(extractedText);
       const requestedScope = runOptions && runOptions.scope;
@@ -1492,6 +1512,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return { ok: false, reason: "invalid_source_scope" };
       }
       const scopedText = requestedScope ? extractedText.slice(requestedScope.start, requestedScope.end) : extractedText;
+      const semanticUnits = window.LLMWikiEvidenceCandidates.createSemantic(scopedText);
+      const sourceBytes = new TextEncoder().encode(scopedText).length;
+      const fullSourceBytes = new TextEncoder().encode(extractedText).length;
       const contentHash = llmWikiHash.sha256(scopedText);
       const scopeKey = requestedScope ? `${requestedScope.start}:${requestedScope.end}` : "full";
       const sourceId = `source_plan_${llmWikiHash.sha256(`${sourcePath}:${scopeKey}`).slice(0, 24)}`;
@@ -1510,6 +1533,46 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const draftDocuments = analyzed.proposals.map((proposal) => proposal.document).filter(Boolean);
       const inventoryResult = window.LLMWikiDocumentReducer.createClaimInventory({ source, documents: draftDocuments });
       if (!inventoryResult.ok) return inventoryResult;
+      const rawSourceHoldItems = (analyzed.artifacts_by_source.get(sourceId) || []).flatMap((artifact) => artifact.items
+        .map((item, position) => ({ artifact, item, position }))
+        .filter(({ artifact, item }) => artifact.outcome === "hold" || item.role === "hold" || item.claims.length === 0)
+        .map(({ artifact, item, position }) => ({
+          unit_id: `${artifact.chunk_key}_item${position}`,
+          evidence_key: item.evidence_key,
+          span: item.span,
+        })));
+      const sourceHoldItems = rawSourceHoldItems.map((hold, index) => ({
+        ...hold,
+        hold_id: analyzed.holds.find((row) => row.unit_id === hold.unit_id)?.hold_id || analyzed.holds[index]?.hold_id || hold.unit_id,
+      }));
+      const sourceCoverageAudit = window.LLMWikiQualitySignals.audit({
+        source_path: sourcePath,
+        source_length: extractedText.length,
+        scope_start: requestedScope ? requestedScope.start : 0,
+        scope_end: requestedScope ? requestedScope.end : extractedText.length,
+        source_bytes: sourceBytes,
+        semantic_units: semanticUnits,
+        inventory_citations: inventoryResult.value.citations,
+        holds: [...sourceHoldItems, ...analyzed.holds],
+      });
+      documentPlanQualityGaps = sourceCoverageAudit.possible_gaps;
+      if (sourceCoverageAudit.blocks_approval) {
+        return {
+          ok: false, status: "review_required", reason: "source_coverage_incomplete",
+          source_path: sourcePath, source_bytes: sourceBytes, full_source_bytes: fullSourceBytes,
+          source_coverage: sourceCoverageAudit.source_coverage,
+          source_units_total: sourceCoverageAudit.total_units,
+          source_units_covered: sourceCoverageAudit.covered_units,
+          source_units_missing: sourceCoverageAudit.missing_units,
+          source_units_held: sourceCoverageAudit.hold_units,
+          source_units_duplicates: sourceCoverageAudit.duplicate_units,
+          source_coverage_units: sourceCoverageAudit.units,
+          map_provider_calls: analyzed.provider_calls, plan_provider_calls: 0,
+          inventory_claims: inventoryResult.value.claims.length,
+          existing_review_writes: 0, canonical_writes: 0, source_writes: 0, preview_writes: 0, writer_count: 0,
+          write_counts: { source: 0, canonical: 0, preview: 0, review: 0 },
+        };
+      }
       const requestPlan = llmWikiControllerOptions.documentPagePlan || (async (request) => {
         const response = await window.ProdigyAIConsumerRuntime.requestStructured({
           app: appRef,
@@ -1596,8 +1659,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       documentPlanInventory = inventoryResult.value;
       documentPlanReviewState = window.LLMWikiPagePlanReviewState.createPagePlanReviewState({ plan: planned.value });
       documentPlanContext = {
-        source, source_bytes: new TextEncoder().encode(scopedText).length,
-        full_source_bytes: new TextEncoder().encode(extractedText).length,
+        source, source_bytes: sourceBytes,
+        full_source_bytes: fullSourceBytes,
         job_id: analyzed.job_id, batch_id: analyzed.batch_id,
         map_provider_calls: analyzed.provider_calls, draft_documents: draftDocuments.length,
       };
@@ -1611,17 +1674,20 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         status: "pending_review", plan: planned.value, inventory: documentPlanInventory,
         execution: documentPlanExecution,
       });
-      documentPlanQualityGaps = window.LLMWikiQualitySignals.audit({
-        map_claims: draftDocuments.flatMap((document) => Array.isArray(document.claims) ? document.claims : []),
-        inventory_claims: documentPlanInventory.claims,
-      }).possible_gaps;
       pagePlanReviewItems = planReviewRows(planned.value, documentPlanInventory);
       documentPlanCompileResult = null;
       window.__documentPagePlan = planned.value;
       refreshReviewWorkbench();
       return {
         ok: true, status: planned.value.pages.length ? "pending_review" : "source_only_complete", source_path: sourcePath,
-        source_bytes: documentPlanContext.source_bytes, covered_bytes: documentPlanContext.source_bytes,
+        source_bytes: documentPlanContext.source_bytes, full_source_bytes: documentPlanContext.full_source_bytes,
+        source_coverage: sourceCoverageAudit.source_coverage,
+        source_units_total: sourceCoverageAudit.total_units,
+        source_units_covered: sourceCoverageAudit.covered_units,
+        source_units_missing: sourceCoverageAudit.missing_units,
+        source_units_held: sourceCoverageAudit.hold_units,
+        source_units_duplicates: sourceCoverageAudit.duplicate_units,
+        source_coverage_units: sourceCoverageAudit.units,
         map_provider_calls: analyzed.provider_calls, plan_provider_calls: reusedPlan || semanticReplan ? 0 : 1,
         inventory_claims: documentPlanInventory.claims.length,
         pages: planned.value.pages.length, source_sections: planned.value.source_guide.sections.length,
@@ -1698,12 +1764,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const compileDocumentPlan = async (compileOptions = {}) => {
       if (!documentPlanReviewState || !documentPlanContext || !documentPlanInventory) return { ok: false, reason: "page_plan_unavailable" };
       let plan = documentPlanReviewState.getSnapshot();
-      if (documentPlanCompileResult?.restored && documentPlanCompileResult.quality_status === "publishable"
+      if (documentPlanCompileResult?.restored && documentPlanCompileResult.quality_status === "draft"
         && documentPlanCompileResult.quality_receipt?.plan_hash === plan.plan_hash) {
         return {
           ok: true, status: "compiled_replay", documents: documentPlanCompileResult.documents.length,
           proposals: documentPlanCompileResult.proposals?.length || 0, holds: documentPlanCompileResult.holds?.length || 0,
-          plan_hash: plan.plan_hash, quality_status: "publishable", provider_calls: 0,
+          plan_hash: plan.plan_hash, quality_status: "draft", provider_calls: 0,
           existing_review_preserved: true, canonical_writes: 0, source_writes: 0,
         };
       }
@@ -1797,7 +1863,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       return {
         ok: true, status: "compiled_preview", documents: compiled.documents.length,
         proposals: materialized.proposals.length, holds: materialized.holds.length,
-        plan_hash: plan.plan_hash, existing_review_preserved: true,
+        plan_hash: plan.plan_hash, quality_status: compiled.quality_status, existing_review_preserved: true,
         canonical_writes: 0, source_writes: 0,
       };
     };
@@ -1991,6 +2057,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     KnowledgeExplorerHub.documentPlanExecutionSnapshot = () => documentPlanExecution
       ? JSON.parse(JSON.stringify(documentPlanExecution)) : null;
     let goldenWikiOrchestrator = null;
+    let goldenRunSourceCoverage = null;
     const refreshGoldenPreviewWorkbench = async () => {
       if (!window.LLMWikiGoldenPreviewWorkbench) return [];
       goldenPreviewRows = await window.LLMWikiGoldenPreviewWorkbench.loadPreviews(appRef.vault);
@@ -2011,7 +2078,19 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           max_chunks: window.LLMWikiBatchAnalyzer.MAX_PACK_CHUNKS,
           max_bytes: window.LLMWikiBatchAnalyzer.MAX_PACK_BYTES,
         },
-        runPlan: (sourcePath, options) => runDocumentPlan(sourcePath, options),
+        runPlan: async (sourcePath, options) => {
+          const result = await runDocumentPlan(sourcePath, options);
+          goldenRunSourceCoverage = result.ok && documentPlanContext
+            ? {
+                identity: {
+                  source_path: documentPlanContext.source.source_path,
+                  source_revision: documentPlanContext.source.source_revision,
+                },
+                counters: { ...result.source_coverage },
+              }
+            : null;
+          return result;
+        },
         compilePlan: () => compileDocumentPlan(),
         getDocuments: () => documentPlanCompileResult?.documents || [],
         onProgress: (progress) => {
@@ -2058,14 +2137,25 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           }
           const started = prodigyWikiController.dispatch({ type: "start", stage: "preflight", operation_id: operationId });
           if (!started.ok) throw new Error(started.reason || "prodigy_wiki_start_rejected");
-           const result = await orchestrator.run({
-             source_path: selectedSource.path,
-             expected_content_hash: selectedSource.content_hash,
-             operation_id: operationId,
-             ...(prodigyWikiController.getSnapshot().result?.refresh_context
-               ? { refresh_context: prodigyWikiController.getSnapshot().result.refresh_context } : {}),
-             ...(scope ? { scope } : {}),
-           });
+          goldenRunSourceCoverage = null;
+          const orchestrationResult = await orchestrator.run({
+            source_path: selectedSource.path,
+            expected_content_hash: selectedSource.content_hash,
+            operation_id: operationId,
+            ...(prodigyWikiController.getSnapshot().result?.refresh_context
+              ? { refresh_context: prodigyWikiController.getSnapshot().result.refresh_context } : {}),
+            ...(scope ? { scope } : {}),
+          });
+          const retainedCoverage = orchestrationResult.ok
+            && goldenRunSourceCoverage
+            && goldenRunSourceCoverage.identity.source_path === orchestrationResult.source_path
+            && goldenRunSourceCoverage.identity.source_revision === orchestrationResult.source_hash
+            ? goldenRunSourceCoverage : null;
+          const result = retainedCoverage ? {
+            ...orchestrationResult,
+            source_coverage_identity: retainedCoverage.identity,
+            source_coverage: retainedCoverage.counters,
+          } : orchestrationResult;
           if (result.ok) {
             await refreshGoldenPreviewWorkbench();
             await prodigyWikiOperationStore.complete(result);
@@ -2204,7 +2294,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         proposals: restoredMaterialized?.ok ? restoredMaterialized.proposals : [],
         holds: restoredMaterialized?.ok ? restoredMaterialized.holds : retainedPlanSnapshot.holds || [],
         quality_receipt: restoredQuality.receipt || retainedPlanSnapshot.quality_receipt || null,
-        quality_status: restoredQuality.status === "publishable" ? "publishable" : "revalidation_required",
+        quality_status: restoredQuality.status === "invalid" ? "revalidation_required" : "draft",
         quality_rewrite_count: Number(retainedPlanSnapshot.quality_receipt?.quality_rewrite_count || 0),
         restored: true,
         provider_calls: 0,
@@ -2237,7 +2327,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         proposals: restoredMaterialized?.ok ? restoredMaterialized.proposals : [],
         holds: restoredMaterialized?.ok ? restoredMaterialized.holds : snapshot.holds || [],
         quality_receipt: quality.receipt || snapshot.quality_receipt || null,
-        quality_status: quality.status === "publishable" ? "publishable" : "revalidation_required",
+        quality_status: quality.status === "invalid" ? "revalidation_required" : "draft",
         quality_rewrite_count: Number(snapshot.quality_receipt?.quality_rewrite_count || 0),
         restored: true, provider_calls: 0, existing_review_preserved: true } : null;
       pagePlanReviewItems = planReviewRows(snapshot.plan, snapshot.inventory, documents);
