@@ -24,6 +24,14 @@ if (!window.ProdigyWorkspaceManifest) await loadWorkspaceBootstrap("SYSTEM/Views
 if (!window.ProdigyHubLoader) await loadWorkspaceBootstrap("SYSTEM/Views/prodigy-hub-loader.js");
 const projectManifest = window.ProdigyWorkspaceManifest.get("project");
 const projectLayoutParticipants = new Set();
+const projectSectionRefreshers = new Map();
+window.__prodigyRefreshProjectSections = () => {
+  let rendered = true;
+  projectSectionRefreshers.forEach((refresh) => {
+    if (refresh() === false) rendered = false;
+  });
+  return rendered;
+};
 window.prodigyProjectReady = window.ProdigyHubLoader.mountWorkspace(app, projectManifest, {
   container,
   renderers: { project: async (mountContext) => {
@@ -31,34 +39,47 @@ window.prodigyProjectReady = window.ProdigyHubLoader.mountWorkspace(app, project
   mountContext.scope.track(() => { if (window.__prodigyProjectMountScope === mountContext.scope) delete window.__prodigyProjectMountScope; });
   window.renderResponsiveProjectSection = (options) => {
     if (!window.renderDashboardSection || !window.renderProjectCard) return false;
-    const host = options.container;
-    const explicitWidth = Number(options.logicalWidth);
-    const measuredWidth = Number(host.clientWidth);
-    const logicalWidth = Number.isFinite(explicitWidth)
-      ? explicitWidth
-      : Number.isFinite(measuredWidth) && measuredWidth > 0 ? measuredWidth : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.smallDesktopMax;
-    const layout = window.ProjectWizardCore.resolveProjectWorkspaceLayout(logicalWidth);
-    host.empty();
-    const list = host.createEl("div", {
-      attr: {
-        class: "prodigy-project-list",
-        "data-density": layout.density,
-        style: `display:grid;grid-template-columns:repeat(${options.isCollapsed ? 1 : layout.columns},minmax(0,1fr));gap:10px;min-inline-size:0;`
-      }
-    });
-    window.renderDashboardSection(Object.assign({}, options, {
-      type: "project",
-      container: list,
-      renderer: window.renderProjectCard
-    }));
-    return true;
+    const render = () => {
+      const host = options.container;
+      const explicitWidth = Number(options.logicalWidth);
+      const measuredWidth = Number(host.clientWidth);
+      const logicalWidth = Number.isFinite(explicitWidth)
+        ? explicitWidth
+        : Number.isFinite(measuredWidth) && measuredWidth > 0 ? measuredWidth : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.smallDesktopMax;
+      const layout = window.ProjectWizardCore.resolveProjectWorkspaceLayout(logicalWidth);
+      const state = window.prodigyProjectWorkspaceStateStore?.getWorkspaceState("project") || {};
+      host.empty();
+      const list = host.createEl("div", {
+        attr: {
+          class: "prodigy-project-list",
+          "data-density": layout.density,
+          style: `display:grid;grid-template-columns:repeat(${options.isCollapsed ? 1 : layout.columns},minmax(0,1fr));gap:10px;min-inline-size:0;`
+        }
+      });
+      return window.renderDashboardSection(Object.assign({}, options, {
+        type: "project",
+        container: list,
+        projectTypeFilter: state.filters?.project_type || "all",
+        renderer: window.renderProjectCard
+      }));
+    };
+    projectSectionRefreshers.set(String(options.status || ""), render);
+    return render();
   };
   const scopedProjectRenderer = window.renderResponsiveProjectSection;
   mountContext.scope.track(() => {
     if (window.renderResponsiveProjectSection === scopedProjectRenderer) delete window.renderResponsiveProjectSection;
+    if (window.__prodigyRefreshProjectSections) delete window.__prodigyRefreshProjectSections;
+    projectSectionRefreshers.clear();
     delete window.__prodigyProjectShell;
   });
   const projectShell = window.ProdigyWorkspaceNavigation.mount(container, { app, workspaceId: "project", title: "프로젝트", mountScope: mountContext.scope });
+  window.prodigyProjectWorkspaceStateStore = projectShell.stateStore;
+  mountContext.scope.track(() => {
+    if (window.prodigyProjectWorkspaceStateStore === projectShell.stateStore) {
+      delete window.prodigyProjectWorkspaceStateStore;
+    }
+  });
   projectShell.body.createEl("style", { text: '.prodigy-app-shell[data-workspace-id="project"]>.prodigy-workspace-bar{padding-inline:4px}' });
   const projectKnowledge = await window.ProjectContextAdapter.mountResurfacing({
     app,
@@ -136,6 +157,15 @@ const refreshProjectViews = () => {
     }
   } catch (_error) { /* ignore */ }
 };
+const refreshProjectAfterMutation = () => {
+  try {
+    app.workspace.trigger("dataview:refresh-views");
+  } catch (_error) { /* Project keeps the saved card state visible. */ }
+};
+window.__prodigyRefreshProjectViews = refreshProjectAfterMutation;
+window.__prodigyProjectMountScope?.track(() => {
+  if (window.__prodigyRefreshProjectViews === refreshProjectAfterMutation) delete window.__prodigyRefreshProjectViews;
+});
 
 const tokens = window.ProdigyTokens;
 const measuredWidth = Number(container.clientWidth);
@@ -167,14 +197,10 @@ if (launchButton) {
   launchButton.setAttribute("data-project-action", "open-wizard");
 }
 
-if (!window.prodigyProjectWorkspaceStateStore) {
-  window.prodigyProjectWorkspaceStateStore = new window.ProdigyWorkspaceStateStore.WorkspaceStateStore({});
-}
-const storedProjectState = window.prodigyProjectWorkspaceStateStore.getWorkspaceState("project");
-const storedProjectType = storedProjectState.filters && storedProjectState.filters.project_type;
-if (window.prodigyProjectTypeFilter == null || window.prodigyProjectTypeFilter === "") {
-  window.prodigyProjectTypeFilter = storedProjectType || "all";
-}
+const projectStateStore = window.prodigyProjectWorkspaceStateStore
+  || window.ProdigyWorkspaceNavigation.getStateStore();
+const storedProjectState = projectStateStore.getWorkspaceState("project");
+let selectedProjectType = storedProjectState.filters?.project_type || "all";
 
 const filterRow = container.createEl("div", {
   attr: {
@@ -211,27 +237,28 @@ filterOptions.forEach((item) => {
   const btn = window.ProdigyUI
     ? window.ProdigyUI.button(filterRow, item.label, {
       chip: true,
-      active: window.prodigyProjectTypeFilter === item.key
+      active: selectedProjectType === item.key
     })
     : filterRow.createEl("button", {
       text: item.label,
       attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" }
     });
-  styleFilterButton(btn, window.prodigyProjectTypeFilter === item.key);
+  styleFilterButton(btn, selectedProjectType === item.key);
   filterButtons.push({ key: item.key, btn });
 
   const onProjectTypeFilter = (event) => {
     event.preventDefault();
     event.stopPropagation();
-    window.prodigyProjectTypeFilter = item.key;
-    window.prodigyProjectWorkspaceStateStore.setWorkspaceState("project", {
-      filters: { project_type: item.key },
+    selectedProjectType = item.key;
+    const currentState = projectStateStore.getWorkspaceState("project");
+    projectStateStore.setWorkspaceState("project", {
+      filters: { ...(currentState.filters || {}), project_type: item.key },
       density: layout.density
     });
     filterButtons.forEach(({ key, btn: other }) => {
       styleFilterButton(other, key === item.key);
     });
-    refreshProjectViews();
+    window.__prodigyRefreshProjectSections();
   };
   const projectScope = window.__prodigyProjectMountScope;
   if (projectScope && typeof projectScope.listen === "function") projectScope.listen(btn, "click", onProjectTypeFilter);

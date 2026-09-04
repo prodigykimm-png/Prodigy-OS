@@ -61,3 +61,29 @@ test("Project presentation oracle turns local literal, shadow, private-control, 
     assert.throws(() => validateProjectPresentation({ ...clean, [target]: `${clean[target]}\n${mutation}` }), /Project/);
   }
 });
+
+test("Project filters use the mounted Workspace state and refresh only Project sections", () => {
+  const hub = read("HUB/40 Project.md");
+
+  assert.match(hub, /prodigyProjectWorkspaceStateStore\s*=\s*projectShell\.stateStore/);
+  assert.doesNotMatch(hub, /new window\.ProdigyWorkspaceStateStore\.WorkspaceStateStore/);
+  assert.match(hub, /__prodigyRefreshProjectSections/);
+  assert.match(hub, /__prodigyRefreshProjectViews\s*=\s*refreshProjectAfterMutation/);
+  assert.match(hub, /project_type:\s*item\.key/);
+});
+
+test("Project card changes use one mutation boundary with save state and primary-first actions", () => {
+  const card = read("SYSTEM/Views/project-card.js");
+  const manifest = read("SYSTEM/Views/prodigy-workspace-manifest.js");
+
+  assert.match(card, /root\.ProjectCardMutation/);
+  assert.doesNotMatch(card, /fileManager\.processFrontMatter/);
+  assert.match(card, /project-card-save-status/);
+  assert.match(card, /project-card-primary-action/);
+  assert.match(card, /project-card-overflow/);
+  assert.ok(
+    manifest.indexOf("SYSTEM/Views/project-card-mutation.js")
+      < manifest.indexOf("SYSTEM/Views/project-card.js"),
+    "Project mutation module must load before the card renderer",
+  );
+});

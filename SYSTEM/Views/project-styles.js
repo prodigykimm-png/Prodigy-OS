@@ -79,6 +79,69 @@
         box-shadow: none;
         border-color: var(--ke-color-interactive);
       }
+      .project-card-save-status {
+        color: var(--ke-color-muted);
+        font-size: var(--ke-type-label);
+        white-space: nowrap;
+      }
+      .project-card-save-status:empty {
+        display: none;
+      }
+      .project-card-save-status[data-project-save-state="error"] {
+        color: var(--ke-color-error);
+      }
+      .project-card-overflow,
+      .project-card-secondary-transitions {
+        position: relative;
+      }
+      .project-card-overflow > summary,
+      .project-card-secondary-transitions > summary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-inline-size: var(--ke-touch-target);
+        min-block-size: var(--ke-touch-target);
+        padding-inline: var(--ke-space-2);
+        border-radius: var(--ke-radius-control);
+        color: var(--ke-color-muted);
+        cursor: pointer;
+        list-style: none;
+      }
+      .project-card-overflow > summary::-webkit-details-marker,
+      .project-card-secondary-transitions > summary::-webkit-details-marker {
+        display: none;
+      }
+      .project-card-overflow-panel,
+      .project-card-secondary-panel {
+        position: absolute;
+        z-index: 5;
+        display: grid;
+        gap: var(--ke-space-2);
+        min-inline-size: max-content;
+        padding: var(--ke-space-2);
+        border: var(--ke-border-width) solid var(--ke-color-border);
+        border-radius: var(--ke-radius-control);
+        background: var(--ke-color-surface);
+        box-shadow: none;
+      }
+      .project-card-overflow-panel {
+        inset-block-start: 100%;
+        inset-inline-end: 0;
+      }
+      .project-card-secondary-panel {
+        inset-block-end: 100%;
+        inset-inline-start: 0;
+      }
+      .prodigy-project-card .prodigy-card-actions {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: var(--ke-space-2);
+        position: relative;
+      }
+      .prodigy-project-card .prodigy-project-card-action-error {
+        flex: 1 0 100%;
+      }
 
       .prodigy-project-wizard button, .prodigy-project-type-manager button,
       .prodigy-project-wizard input, .prodigy-project-wizard select,

@@ -102,6 +102,10 @@
     const path = String(file.path || p.path || "");
     const titleText = String(file.name || p.title || path.split("/").pop() || "프로젝트").replace(/\.md$/i, "");
     const status = String(p.status || "idea").trim().toLowerCase();
+    const mutationApi = root.ProjectCardMutation;
+    if (!mutationApi || typeof mutationApi.create !== "function") {
+      throw new Error("프로젝트 카드 변경 모듈을 불러오지 못했습니다.");
+    }
     const projectType = normalizeProjectType(p.project_type);
     const typeColor = projectTypeColorToken(projectType);
     const statusColor = statusColorToken(status);
@@ -146,17 +150,57 @@
       return null;
     };
 
+    const rightHeader = header.createEl("div", {
+      attr: { class: "prodigy-project-card-priority-wrap", style: "display:flex;align-items:center;gap:var(--ke-space-2,4px);min-inline-size:0;" }
+    });
+    const saveStatus = rightHeader.createEl("span", {
+      attr: {
+        class: "project-card-save-status",
+        role: "status",
+        "aria-live": "polite",
+        "data-project-save-state": "idle"
+      }
+    });
+    const renderMutationState = (snapshot) => {
+      const labels = { saving: "저장 중", saved: "저장됨", error: "저장 실패" };
+      saveStatus.setAttribute("data-project-save-state", snapshot.state);
+      saveStatus.textContent = labels[snapshot.state] || "";
+      if (snapshot.error) saveStatus.setAttribute("title", snapshot.error.message || String(snapshot.error));
+      else saveStatus.removeAttribute("title");
+    };
+    renderMutationState(
+      typeof mutationApi.consumeState === "function"
+        ? mutationApi.consumeState(path)
+        : { state: "idle", error: null }
+    );
+    const priorityLabel = display && typeof display.priority === "function"
+      ? display.priority(p.priority)
+      : (p.priority || "보통");
+    const priorityColor = priorityColorToken(priorityLabel);
+    rightHeader.createEl("span", {
+      text: priorityLabel,
+      attr: {
+        class: "prodigy-project-card-priority",
+        style: `font-size:var(--ke-type-chrome,.68rem);font-weight:700;color:${priorityColor};background:color-mix(in srgb, ${priorityColor} 10%, var(--ke-color-surface-secondary));padding:var(--ke-space-1,2px) var(--ke-space-2,4px);border-radius:var(--ke-radius-control,4px);white-space:nowrap;`
+      }
+    });
+    const overflowMenu = rightHeader.createEl("details", {
+      attr: { class: "project-card-overflow" }
+    });
+    overflowMenu.createEl("summary", {
+      text: "•••",
+      attr: {
+        class: "project-card-overflow-trigger",
+        "aria-label": `${titleText} 추가 작업`,
+        title: "추가 작업"
+      }
+    });
+    const overflowPanel = overflowMenu.createEl("div", {
+      attr: { class: "project-card-overflow-panel" }
+    });
     const deleteLabel = `${titleText} 삭제`;
-    const deleteBtn = createButton(titleContainer, "", { danger: true, className: "project-card-delete" });
+    const deleteBtn = createButton(overflowPanel, "삭제", { danger: true, className: "project-card-delete" });
     setAccessibleName(deleteBtn, deleteLabel);
-    if (deleteBtn && deleteBtn.style) {
-      deleteBtn.style.minInlineSize = "var(--ke-touch-target,44px)";
-      deleteBtn.style.minBlockSize = "var(--ke-touch-target,44px)";
-      deleteBtn.style.padding = "var(--ke-space-2,4px)";
-      deleteBtn.style.background = "transparent";
-      deleteBtn.style.borderColor = "transparent";
-      deleteBtn.style.color = "var(--ke-color-muted)";
-    }
     setIcon(deleteBtn, "trash-2", "삭제");
     deleteBtn.onclick = async (event) => {
       if (event) {
@@ -173,28 +217,13 @@
           : null;
         if (!target || !app.vault || typeof app.vault.trash !== "function") throw new Error("프로젝트 파일을 찾을 수 없습니다.");
         await app.vault.trash(target, true);
-        const Notice = root.Notice || (typeof window !== "undefined" && window.Notice);
+        const Notice = root.Notice || (typeof window !== "undefined" ? window.Notice : null);
         if (typeof Notice === "function") new Notice(`[${titleText}] 노트를 휴지통으로 이동했습니다.`);
       } catch (error) {
-        const Notice = root.Notice || (typeof window !== "undefined" && window.Notice);
+        const Notice = root.Notice || (typeof window !== "undefined" ? window.Notice : null);
         if (typeof Notice === "function") new Notice(`노트 삭제 실패: ${error && (error.message || String(error))}`);
       }
     };
-
-    const rightHeader = header.createEl("div", {
-      attr: { class: "prodigy-project-card-priority-wrap", style: "display:flex;align-items:center;gap:var(--ke-space-2,4px);min-inline-size:0;" }
-    });
-    const priorityLabel = display && typeof display.priority === "function"
-      ? display.priority(p.priority)
-      : (p.priority || "보통");
-    const priorityColor = priorityColorToken(priorityLabel);
-    rightHeader.createEl("span", {
-      text: priorityLabel,
-      attr: {
-        class: "prodigy-project-card-priority",
-        style: `font-size:var(--ke-type-chrome,.68rem);font-weight:700;color:${priorityColor};background:color-mix(in srgb, ${priorityColor} 10%, var(--ke-color-surface-secondary));padding:var(--ke-space-1,2px) var(--ke-space-2,4px);border-radius:var(--ke-radius-control,4px);white-space:nowrap;`
-      }
-    });
 
     const subHeader = card.createEl("div", {
       attr: { class: "prodigy-project-card-meta", style: "font-size:var(--ke-type-label,.72rem);color:var(--ke-color-muted);display:flex;gap:var(--ke-space-2,4px);align-items:center;flex-wrap:wrap;overflow-wrap:anywhere;" }
@@ -247,42 +276,72 @@
         errorHost.style.display = "none";
         errorHost.empty();
       };
+      const mutation = mutationApi.create({
+        app,
+        project: p,
+        filePath: path,
+        refresh: async () => {
+          root.__prodigyProjectPendingFocusPath = path;
+          if (typeof root.__prodigyRefreshProjectViews === "function") {
+            await root.__prodigyRefreshProjectViews();
+          } else if (typeof p.onRefresh === "function") {
+            await p.onRefresh();
+          }
+        },
+        onState: renderMutationState
+      });
       const writeStatus = async (button, option) => {
         if (!button || button.disabled) return;
         button.disabled = true;
         clearActionError();
         try {
-          const target = app && app.vault && typeof app.vault.getAbstractFileByPath === "function"
-            ? app.vault.getAbstractFileByPath(path)
-            : null;
-          if (!target) throw new Error("프로젝트 파일을 찾을 수 없습니다.");
-          if (!app.fileManager || typeof app.fileManager.processFrontMatter !== "function") {
-            throw new Error("프로젝트 상태 저장기를 사용할 수 없습니다.");
-          }
-          await app.fileManager.processFrontMatter(target, (fm) => {
-            fm.status = option.key;
-            fm.updated = new Date().toISOString().split("T")[0];
-          });
-          p.status = option.key;
-          p.updated = new Date().toISOString().split("T")[0];
-          if (typeof p.onRefresh === "function") await p.onRefresh();
+          await mutation.commit({ status: option.key });
         } catch (error) {
           showActionError(error, () => writeStatus(button, option));
         } finally {
           button.disabled = false;
         }
       };
-      transitions.forEach((option) => {
+      const createTransitionButton = (parent, option, primary) => {
         const info = display && typeof display.statusInfo === "function"
           ? display.statusInfo(option.key)
           : { label: option.key };
-        const button = createButton(buttons, info.label || option.key, { chip: true });
+        const button = createButton(parent, info.label || option.key, {
+          chip: true,
+          primary,
+          className: primary ? "project-card-primary-action" : "project-card-secondary-action"
+        });
+        button.setAttribute("data-project-transition", option.key);
         button.onclick = (event) => {
           if (event && event.preventDefault) event.preventDefault();
           if (event && event.stopPropagation) event.stopPropagation();
           void writeStatus(button, option);
         };
-      });
+        return button;
+      };
+      createTransitionButton(buttons, transitions[0], true);
+      if (transitions.length > 1) {
+        const secondary = buttons.createEl("details", {
+          attr: { class: "project-card-secondary-transitions" }
+        });
+        secondary.createEl("summary", {
+          text: "다른 상태",
+          attr: { class: "project-card-secondary-trigger" }
+        });
+        const panel = secondary.createEl("div", {
+          attr: { class: "project-card-secondary-panel" }
+        });
+        transitions.slice(1).forEach((option) => createTransitionButton(panel, option, false));
+      }
+    }
+    if (root.__prodigyProjectPendingFocusPath === path) {
+      delete root.__prodigyProjectPendingFocusPath;
+      const restoreFocus = () => {
+        const target = card.querySelector(".project-card-primary-action") || card;
+        if (target && typeof target.focus === "function") target.focus({ preventScroll: true });
+      };
+      if (typeof root.queueMicrotask === "function") root.queueMicrotask(restoreFocus);
+      else Promise.resolve().then(restoreFocus);
     }
     return card;
   };

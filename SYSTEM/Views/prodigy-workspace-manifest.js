@@ -286,6 +286,7 @@
     "SYSTEM/Views/llmwiki-resurfacing-service.js",
     "SYSTEM/Views/project-context-adapter.js",
     "SYSTEM/Views/project-styles.js",
+    "SYSTEM/Views/project-card-mutation.js",
     "SYSTEM/Views/project-card.js",
     "SYSTEM/Views/project-wizard-core.js",
     "SYSTEM/Views/prodigy-ai-consumer-manifests.js",
