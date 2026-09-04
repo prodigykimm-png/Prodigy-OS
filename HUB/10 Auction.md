@@ -461,6 +461,45 @@ const initializeAuctionWorkspace = async () => {
       app,
       mountScope: mountContext.scope
     });
+    window.__prodigyAuctionPrimarySectionsManaged = true;
+    mountContext.scope.track(() => {
+      delete window.__prodigyAuctionPrimarySectionsManaged;
+      delete window.__prodigyAuctionPrimarySections;
+    });
+    const primaryDataview = app.plugins?.plugins?.dataview?.api;
+    if (!primaryDataview || typeof primaryDataview.pages !== "function") {
+      throw new Error("옥션 기본 목록용 Dataview API를 불러오지 못했습니다.");
+    }
+    const primarySections = {};
+    [
+      { status: "bidding", className: "auction-hub-bidding", emptyMessage: "해당 조건의 입찰 예정 물건이 없습니다." },
+      { status: "watching", className: "auction-hub-watching", emptyMessage: "해당 조건의 검토 중인 물건이 없습니다." }
+    ].forEach((section) => {
+      const host = auctionShell.body.createDiv({
+        attr: { class: `auction-hub-section ${section.className}` }
+      });
+      auctionNativeSceneController.register(section.status, host);
+      const logicalWidth = host.clientWidth > 0
+        ? host.clientWidth
+        : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.contentMax;
+      const rendered = window.renderDashboardSection({
+        dv: primaryDataview,
+        status: section.status,
+        type: "auction_case",
+        container: host,
+        renderer: (page, target) => window.renderAuctionCard(page, target, {
+          decisionPacketContext: window.AuctionDecisionPacketDashboardContext,
+          logicalWidth
+        }),
+        emptyMessage: section.emptyMessage,
+        sortField: "auction_datetime",
+        sortOrder: "asc"
+      });
+      if (!rendered) throw new Error(`${section.status} 기본 목록을 렌더하지 못했습니다.`);
+      primarySections[section.status] = host;
+      window.ProdigyAuctionNavigationFocus?.markSection(section.status);
+    });
+    window.__prodigyAuctionPrimarySections = Object.freeze(primarySections);
     const mountedPerformance = auctionShell.performance || performance;
     measurement.shell = auctionShell;
     measurement.performance = mountedPerformance || null;
@@ -698,6 +737,13 @@ addStatItem(progressBox, '이번 달 복기 완료', reviewsCompletedThisMonthCo
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-bidding");
+  if (window.__prodigyAuctionPrimarySectionsManaged) {
+    const managed = window.__prodigyAuctionPrimarySections?.bidding;
+    if (!managed?.isConnected) return false;
+    this.container.empty();
+    window.ProdigyAuctionNavigationFocus?.markSection("bidding");
+    return true;
+  }
   window.ProdigyAuctionNativeScenes.register("bidding", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
@@ -741,6 +787,13 @@ window.ProdigyAuctionLifecycle.start({
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-watching");
+  if (window.__prodigyAuctionPrimarySectionsManaged) {
+    const managed = window.__prodigyAuctionPrimarySections?.watching;
+    if (!managed?.isConnected) return false;
+    this.container.empty();
+    window.ProdigyAuctionNavigationFocus?.markSection("watching");
+    return true;
+  }
   window.ProdigyAuctionNativeScenes.register("watching", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();

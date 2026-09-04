@@ -95,3 +95,26 @@ test("Given a wide card, When facts and actions render, Then scan order stays co
   assert.match(primary, /order:\s*1/);
   assert.match(source, /siteVisitButton\.classList\?\.add\("auction-card-primary-action"\)/);
 });
+
+test("Given exact won prices, When a medium card renders, Then the price pair stays on one row above deposit", () => {
+  const source = cardSource();
+  const pair = ruleBody(source, ":is(.auction-card-tier-medium, .auction-card-tier-wide) .auction-card-price-pair {");
+  const priceGroup = ruleBody(source, ".auction-card-tier-compact .auction-card-finance-group-price,");
+
+  assert.match(pair, /flex-wrap:\s*nowrap/);
+  assert.match(priceGroup, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(source, /class:\s*'auction-card-deposit'/);
+  assert.doesNotMatch(source, /class:\s*'auction-card-finance-separator'[\s\S]{0,120}deposit/);
+});
+
+test("Given key value and profit analysis, When a medium card renders, Then both share the right insight column", () => {
+  const source = cardSource();
+  const finance = ruleBody(source, ":is(.auction-card-tier-medium, .auction-card-tier-wide) .auction-card-finance-row {");
+  const insights = ruleBody(source, ":is(.auction-card-tier-medium, .auction-card-tier-wide) .auction-card-finance-insights {");
+
+  assert.match(finance, /minmax\(min\(22rem,\s*100%\),\s*\.9fr\)/);
+  assert.match(insights, /grid-template-columns:\s*minmax\(13rem,\s*\.9fr\)\s+minmax\(0,\s*1\.1fr\)/);
+  assert.match(source, /const financeInsights = financeRow\.createEl/);
+  assert.match(source, /const keyRow = financeInsights\.createEl\('button'/);
+  assert.match(source, /const incomeGroup = financeInsights\.createEl\('div'/);
+});

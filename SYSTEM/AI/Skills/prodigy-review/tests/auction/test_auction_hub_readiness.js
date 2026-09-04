@@ -145,6 +145,31 @@ test("Auction filters belong to Workspace UI state instead of Hub frontmatter", 
   assert.match(HUB, /prodigyAuctionWorkspaceStateStore\s*=\s*auctionShell\.stateStore/);
 });
 
+test("the AppShell bootstrap renders primary Auction lists without lower Dataview blocks", async () => {
+  const readiness = deferred();
+  readiness.resolve();
+  const renderedStatuses = [];
+  const execution = actualAuctionExecution(readiness, {
+    renderAuctionCard() {},
+    renderDashboardSection(options) {
+      renderedStatuses.push(options.status);
+      return true;
+    },
+    ProdigyAuctionNativeScenes: {
+      mount() {
+        return {
+          register() { return true; },
+          focusCalendar() {},
+        };
+      },
+    },
+  });
+
+  await execution.task;
+
+  assert.deepEqual(renderedStatuses, ["bidding", "watching"]);
+});
+
 test("the actual Auction renderer records an explicit continuation when measurement arrives after rendering", async () => {
   const readiness = deferred();
   readiness.resolve();

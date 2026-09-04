@@ -386,9 +386,8 @@ function ensureAuctionCardReadabilityStyles() {
   overflow: visible !important;
   white-space: normal !important;
 }
-.auction-card-tier-medium .auction-card-finance-row,
-.auction-card-tier-wide .auction-card-finance-row {
-  grid-template-columns: minmax(0, 1.5fr) minmax(15rem, .85fr);
+:is(.auction-card-tier-medium, .auction-card-tier-wide) .auction-card-finance-row {
+  grid-template-columns: minmax(min(22rem, 100%), .9fr) minmax(0, 1.2fr);
   align-items: stretch !important;
 }
 .auction-card-tier-compact .auction-card-finance-group,
@@ -402,21 +401,22 @@ function ensureAuctionCardReadabilityStyles() {
 .auction-card-tier-medium .auction-card-finance-group-price,
 .auction-card-tier-wide .auction-card-finance-group-price {
   display: grid !important;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--ke-space-1, 4px) var(--ke-space-2, 8px) !important;
   align-items: center !important;
 }
-.auction-card-tier-medium .auction-card-finance-group-price,
-.auction-card-tier-wide .auction-card-finance-group-price {
-  grid-template-columns: auto minmax(0, 1fr) minmax(13rem, .8fr);
+:is(.auction-card-tier-medium, .auction-card-tier-wide) .auction-card-price-pair {
+  flex-wrap: nowrap !important;
 }
-.auction-card-tier-compact .auction-card-key-value {
-  grid-column: 1 / -1;
+.auction-card-tier-compact .auction-card-finance-insights {
+  display: contents;
 }
-.auction-card-tier-medium .auction-card-key-value,
-.auction-card-tier-wide .auction-card-key-value {
-  grid-column: 3;
-  grid-row: 1 / span 2;
+:is(.auction-card-tier-medium, .auction-card-tier-wide) .auction-card-finance-insights {
+  display: grid;
+  grid-template-columns: minmax(13rem, .9fr) minmax(0, 1.1fr);
+  align-items: stretch;
+  gap: var(--ke-space-2, 8px);
+  min-inline-size: 0;
 }
 .auction-card-key-value {
   appearance: none;
@@ -1134,20 +1134,27 @@ window.renderAuctionCard = function(p, container, options) {
       : { left: { key: "minimum_bid", label: "최저가", value: p.minimum_bid }, right: { key: "expected_bid", label: "입찰 예정가", value: p.expected_bid } };
    const formatProjectedPrice = (entry, suffix = "") => {
      const isTerminal = ["won", "lost", "skipped", "reviewing", "archived"].includes(p.status);
-     const precise = (p.status === "bidding" && isAuctionToday) || isTerminal;
+     const precise = ["minimum_bid", "expected_bid"].includes(entry.key)
+       || (p.status === "bidding" && isAuctionToday)
+       || isTerminal;
      const value = precise ? toWon(entry.value) : toEok(entry.value);
      return `<span class="auction-card-metric-label">${entry.label}</span><strong title="${toWon(entry.value)}">${value}${suffix}</strong>`;
    };
     const priceGroup = financeRow.createEl('div', {
       attr: {
         class: 'auction-card-finance-group auction-card-finance-group-price',
-        'aria-label': priceProjection.right.key === "winning_bid_price" ? '경매 결과' : '입찰 정보'
+        'aria-label': priceProjection.right.key === "winning_bid_price" ? '경매 결과' : '가격'
       }
     });
-    priceGroup.createEl('span', {
-      text: priceProjection.right.key === "winning_bid_price" ? '경매 결과' : '입찰 정보',
-      attr: { class: 'auction-card-finance-label' }
+    const financeInsights = financeRow.createEl('div', {
+      attr: { class: 'auction-card-finance-insights' }
     });
+    if (priceProjection.right.key === "winning_bid_price") {
+      priceGroup.createEl('span', {
+        text: '경매 결과',
+        attr: { class: 'auction-card-finance-label' }
+      });
+    }
     // The acquisition/outcome pair is the first thing a completed card must communicate.
     // Keep it together so "내 입찰가 → 낙찰가" is not visually split by editable estimates.
     const pricePair = priceGroup.createEl('div', {
@@ -1254,7 +1261,7 @@ window.renderAuctionCard = function(p, container, options) {
         if (keyProjection && keyProjection.available) {
           const keyScope = keyProjection.primary_scope === "district" ? keyProjection.district : keyProjection.dong;
           const scopeLabel = keyScope && keyScope.label ? keyScope.label : keyProjection.legal_dong;
-          const keyRow = priceGroup.createEl('button', {
+          const keyRow = financeInsights.createEl('button', {
             attr: {
               type: 'button',
               class: 'auction-card-key-value',
@@ -1303,43 +1310,20 @@ window.renderAuctionCard = function(p, container, options) {
 
  // Deposit = minimum_bid / 10 (visible when bidding)
  if (p.status === "bidding") {
-   const savedDeposit = parser(p.bid_deposit);
    const minBidNum = parser(p.minimum_bid);
-   const deposit = (!isNaN(savedDeposit) && isFinite(savedDeposit) && savedDeposit > 0)
-     ? savedDeposit
-     : (!isNaN(minBidNum) && isFinite(minBidNum) && minBidNum > 0 ? Math.floor(minBidNum / 10) : 0);
+   const deposit = !isNaN(minBidNum) && isFinite(minBidNum) && minBidNum > 0
+     ? Math.floor(minBidNum / 10)
+     : 0;
    if (deposit > 0) {
      const depositStr = toWon(deposit);
-     const depositEl = priceGroup.createEl('button', {
+     const depositEl = priceGroup.createEl('div', {
        attr: {
-         type: 'button',
-         class: 'auction-card-edit-control',
-         'data-auction-edit': 'bid_deposit',
-         style: 'white-space:nowrap;cursor:pointer;padding:0 2px;border-radius:3px;transition:background-color 0.2s;',
-         title: `보증금: ${toWon(deposit)} (최저가 ÷ 10) — 클릭하여 수정`
+         class: 'auction-card-deposit',
+         style: 'white-space:nowrap;padding:0 2px;',
+         title: `최저가 ${toWon(minBidNum)}의 10%`
        }
      });
-       depositEl.innerHTML = `보증금: <strong style="color:var(--text-accent);">${depositStr}</strong>`;
-       depositEl.addEventListener('mouseenter', () => { depositEl.style.backgroundColor = 'var(--background-modifier-hover)'; });
-       depositEl.addEventListener('mouseleave', () => { depositEl.style.backgroundColor = 'transparent'; });
-       depositEl.addEventListener('click', async (e) => {
-         e.preventDefault(); e.stopPropagation();
-         const currentDeposit = p.bid_deposit || "";
-         const newDeposit = await window.obsidianPrompt(
-           `[${p.case_number || p.file.name}] 보증금 수정`,
-           `보증금을 입력해주세요 (원 단위):`, String(currentDeposit)
-         );
-         if (newDeposit === null) return;
-         const clean = newDeposit.replace(/,/g, '').trim();
-         const parsed = clean === "" ? null : (Number(clean) || clean);
-         await mutation.commit({
-           patch: { bid_deposit: parsed },
-           effect: "card",
-           focusKey: "bid_deposit"
-         });
-         new Notice("보증금이 업데이트되었습니다.");
-       });
-      priceGroup.createEl('span', { text: '·', attr: { class: 'auction-card-finance-separator', style: isMobile ? 'display: none;' : '' } });
+     depositEl.innerHTML = `보증금: <strong style="color:var(--text-accent);">${depositStr}</strong>`;
     }
   }
 
@@ -1358,7 +1342,7 @@ window.renderAuctionCard = function(p, container, options) {
        };
      }
    }
-   const incomeGroup = financeRow.createEl('div', {
+   const incomeGroup = financeInsights.createEl('div', {
      attr: { class: 'auction-card-finance-group auction-card-finance-group-income', 'aria-label': '수익 분석' }
    });
    incomeGroup.createEl('span', { text: '수익 분석', attr: { class: 'auction-card-finance-label' } });

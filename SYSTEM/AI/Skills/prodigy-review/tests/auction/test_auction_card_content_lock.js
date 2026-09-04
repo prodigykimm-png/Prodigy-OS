@@ -409,8 +409,8 @@ test("GREEN — real auction-card renders a stable semantic content snapshot", (
   assert.match(text, /서울 강남구 역삼동/);
   assert.match(text, /전용 59\.8㎡ \/ 공급 84\.9㎡/);
   assert.match(text, /2026-08-20/);
-  assert.match(text, /최저가3\.00억/);
-  assert.match(text, /입찰 예정가3\.50억/);
+  assert.match(text, /최저가300,000,000원/);
+  assert.match(text, /입찰 예정가350,000,000원/);
   assert.match(text, /내 의견/);
   assert.match(text, /월수익\+180만/);
   assert.doesNotMatch(text, /다음 행동/);
@@ -422,6 +422,39 @@ test("GREEN — real auction-card renders a stable semantic content snapshot", (
   assert.ok(
     baseline.some((n) => n.role === "button" && /판단 보드/.test(n.label || "")),
     "판단 보드 decision seam must be role=button",
+  );
+});
+
+test("Given minimum and expected bid prices, When a card renders, Then both keep one-won precision", () => {
+  const snapshot = renderSnapshot(SOURCE, {
+    ...FIXTURE,
+    status: "bidding",
+    minimum_bid: 147000000,
+    expected_bid: 121000000,
+  }, 1024);
+  const text = JSON.stringify(snapshot);
+
+  assert.match(text, /최저가147,000,000원/);
+  assert.match(text, /입찰 예정가121,000,000원/);
+  assert.doesNotMatch(text, /최저가1\.47억/);
+  assert.doesNotMatch(text, /입찰 예정가1\.21억/);
+});
+
+test("Given a stale stored deposit, When a bidding card renders, Then deposit equals minimum bid divided by ten", () => {
+  const snapshot = renderSnapshot(SOURCE, {
+    ...FIXTURE,
+    status: "bidding",
+    minimum_bid: 147000000,
+    bid_deposit: 21000000,
+  }, 1024);
+  const text = JSON.stringify(snapshot);
+
+  assert.match(text, /보증금: 14,700,000원/);
+  assert.doesNotMatch(text, /보증금: 21,000,000원/);
+  assert.equal(
+    snapshot.some((node) => node["data-auction-edit"] === "bid_deposit"),
+    false,
+    "derived deposit must not remain manually editable",
   );
 });
 
