@@ -134,6 +134,8 @@ function assertMeasurementIndependentMount() {
     stateStore
   });
   assert.ok(withoutMeasurement, "Home mounts when the browser measurement module is unavailable");
+  assert.equal(withoutMeasurement.stateStore, stateStore, "the mounted shell must expose the exact shared UI state store");
+  assert.equal(navigation.getStateStore(), stateStore, "early workspace blocks must resolve the same shared UI state store");
   assert.equal(withoutMeasurement.performance.available, false);
   assert.equal(withoutMeasurement.element.attributes["data-prodigy-measurement"], "unavailable");
   assert.equal(withoutMeasurement.performance.reason, "measurement_module_unavailable");

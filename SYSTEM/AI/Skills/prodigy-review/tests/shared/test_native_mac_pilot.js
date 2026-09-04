@@ -251,9 +251,18 @@ test("Auction native shell suppresses duplicate document chrome and keeps filter
   assert.match(dashboard, /class:\s*"auction-filter-bar"/);
   assert.match(dashboard, /class:\s*"auction-filter-search"/);
   assert.match(dashboard, /class:\s*"auction-filter-selects"/);
-  assert.match(styles, /\.auction-native-list-body \.auction-filter-bar[\s\S]*?display:\s*grid\s*!important[\s\S]*?grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(styles, /\.auction-native-list-body \.auction-filter-search[\s\S]*?grid-column:\s*1\s*\/\s*-1/);
-  assert.match(styles, /\.auction-native-list-body \.auction-filter-selects[\s\S]*?repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(styles, /\.auction-native-filter-body \.auction-filter-bar[\s\S]*?display:\s*grid\s*!important/);
+  assert.match(styles, /\.prodigy-app-shell:is\(\[data-tier="medium"\],\[data-tier="wide"\]\) \.auction-native-filter-body \.auction-filter-bar[\s\S]*?grid-template-columns:\s*minmax\(14rem,\s*1\.4fr\)\s+repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(styles, /\.prodigy-app-shell:is\(\[data-tier="medium"\],\[data-tier="wide"\]\) \.auction-native-filter-body \.auction-filter-search[\s\S]*?grid-column:\s*1/);
+  assert.match(styles, /\.auction-native-filter-body \.auction-filter-selects[\s\S]*?repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(
+    styles,
+    /\.prodigy-app-shell:is\(\[data-tier="medium"\],\[data-tier="wide"\]\) \.auction-native-filter-body[\s\S]*?position:\s*sticky[\s\S]*?inset-block-start:\s*0/,
+  );
+  assert.match(
+    styles,
+    /\.prodigy-app-shell\[data-tier="compact"\] \.auction-native-filter-body[\s\S]*?position:\s*static/,
+  );
   assert.doesNotMatch(styles, /\.prodigy-app-shell\[data-workspace-id="auction"\]:has\(\.auction-native-app\) \.prodigy-context-bar[\s\S]*?display:\s*none/);
   assert.match(styles, /\.markdown-preview-view\.prodigy-hub-note:has\(\.auction-native-app\)[\s\S]*?>\s*:not\(\.markdown-preview-pusher\):not\(\.el-pre:has\(\.auction-native-app\)\)[\s\S]*?display:\s*none/);
   assert.doesNotMatch(base, /body:has\([^)]*prodigy-hub-note[^)]*\) \.(?:workspace-ribbon|status-bar)/);
@@ -264,7 +273,7 @@ test("Auction integrated workspace remains instance-safe and keeps a Home escape
   const scenes = read("SYSTEM/Views/auction-native-scenes.js");
   const styles = read("SYSTEM/Views/auction-hub-styles.js");
 
-  assert.match(scenes, /const states\s*=\s*new WeakMap\(\)/);
+  assert.match(scenes, /states\s*=\s*(?:runtime\.states|new WeakMap\(\))/);
   assert.match(scenes, /states\.set\(app,\s*state\)/);
   assert.match(scenes, /const state\s*=\s*resolveState\(container\)/);
   assert.match(scenes, /focusCalendar:\s*\(\)\s*=>\s*focusCalendar\(state\)/);
@@ -273,15 +282,15 @@ test("Auction integrated workspace remains instance-safe and keeps a Home escape
   assert.doesNotMatch(read("SYSTEM/Views/home-styles.js"), /(?:^|\n)\s*\.(?:workspace-list|workspace-row|workspace-label|workspace-arrow|continue-row)\b/m);
 });
 
-test("iPad Auction delegates vertical scrolling to the Obsidian document", () => {
+test("Auction AppShell retains vertical scroll container across medium and wide tiers", () => {
   const shell = read("SYSTEM/Views/prodigy-app-shell.js");
 
   assert.match(
     shell,
-    /\.prodigy-app-shell\[data-tier="medium"\]\[data-workspace-id="auction"\]\s*\{[\s\S]*?max-block-size:\s*none;[\s\S]*?overflow:\s*visible;/,
+    /\.prodigy-app-shell\[data-workspace-id="auction"\]\s*\{[\s\S]*?overflow:\s*hidden\s*!important;/,
   );
   assert.match(
     shell,
-    /\.prodigy-app-shell\[data-tier="medium"\]\[data-workspace-id="auction"\]\s*>\s*\.prodigy-app-shell-body\s*\{[\s\S]*?overflow:\s*visible;[\s\S]*?overscroll-behavior-block:\s*auto;/,
+    /\.prodigy-app-shell\[data-workspace-id="auction"\]\s*>\s*\.prodigy-app-shell-body\s*\{[\s\S]*?overflow-y:\s*auto\s*!important;/,
   );
 });

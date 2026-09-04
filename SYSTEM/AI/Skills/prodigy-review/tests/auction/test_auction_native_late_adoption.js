@@ -18,6 +18,7 @@ class FakeElement {
     this.attributes = {};
     this.isConnected = false;
     this.open = false;
+    this.listeners = new Map();
     this.classList = {
       add: (...names) => {
         const current = new Set(this.className.split(/\s+/u).filter(Boolean));
@@ -45,6 +46,15 @@ class FakeElement {
   }
   setAttribute(name, value) { this.attributes[name] = String(value); }
   getAttribute(name) { return this.attributes[name] || null; }
+  addEventListener(type, listener) {
+    const listeners = this.listeners.get(type) || [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+  dispatchEvent(event) {
+    (this.listeners.get(event.type) || []).forEach((listener) => listener.call(this, event));
+    return true;
+  }
   empty() {
     this.children.forEach((child) => {
       child.parentElement = null;
@@ -73,6 +83,7 @@ class FakeElement {
         if (selector === ".auction-native-app" && child.classList.contains("auction-native-app")) matches.push(child);
         if (selector === "[data-native-section]" && child.getAttribute("data-native-section")) matches.push(child);
         if (selector === ".auction-native-list-body" && child.classList.contains("auction-native-list-body")) matches.push(child);
+        if (selector === ".auction-native-filter-body" && child.classList.contains("auction-native-filter-body")) matches.push(child);
         visit(child);
       });
     };
@@ -109,6 +120,10 @@ test("detached bidding block is adopted when Obsidian connects it after shell mo
   new vm.Script(SOURCE, { filename: "auction-native-scenes.js" }).runInContext(sandbox);
 
   assert.equal(sandbox.ProdigyAuctionNativeScenes.register("bidding", detachedBidding), false);
+  let connectedEvents = 0;
+  detachedBidding.addEventListener("prodigy-auction-section-connected", () => {
+    connectedEvents += 1;
+  });
   sandbox.ProdigyAuctionNativeScenes.mount({ body: shellBody });
   assert.equal(detachedBidding.parentElement, null);
 
@@ -118,5 +133,13 @@ test("detached bidding block is adopted when Obsidian connects it after shell mo
   assert.equal(detachedBidding.getAttribute("data-native-section"), "bidding");
   assert.ok(detachedBidding.parentElement.classList.contains("auction-native-list-body"));
   assert.equal(detachedBidding.parentElement.parentElement.open, true);
+  assert.equal(connectedEvents, 1, "late adoption must notify the deferred renderer exactly once");
   assert.equal(observers.some((observer) => observer.active), false);
+
+  const filter = view.appendChild(new FakeElement("div", "auction-filter-bar"));
+  assert.equal(sandbox.ProdigyAuctionNativeScenes.register("filters", filter), true);
+  assert.ok(
+    filter.parentElement.classList.contains("auction-native-filter-body"),
+    "the filter must stay above every Auction work group",
+  );
 });

@@ -28,6 +28,7 @@ const vm = require("node:vm");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const CARD_PATH = path.join(ROOT, "SYSTEM/Views/auction-card.js");
 const COURT_STATUS = require(path.join(ROOT, "SYSTEM/Views/auction-court-status.js"));
+const CARD_MUTATION = require(path.join(ROOT, "SYSTEM/Views/auction-card-mutation.js"));
 const EVIDENCE_DIR = path.join(
   ROOT,
   ".omo/evidence/apple-ui-redesign/task-3",
@@ -46,8 +47,12 @@ function makeElement(tag, options) {
     _handlers: {},
     title: "",
     hidden: false,
+    isConnected: true,
+    parentElement: null,
+    scrollTop: 0,
     createEl: (childTag, childOptions) => {
       const child = makeElement(childTag, childOptions);
+      child.parentElement = el;
       el.children.push(child);
       return child;
     },
@@ -57,12 +62,60 @@ function makeElement(tag, options) {
       if (key === "title") el.title = String(value);
     },
     getAttribute: (key) => (el.attrs[key] != null ? el.attrs[key] : null),
+    querySelector: (selector) => {
+      const match = selector.match(/^\[data-auction-edit="([^"]+)"\]$/);
+      const queue = [...el.children];
+      while (queue.length) {
+        const child = queue.shift();
+        if (match && child.attrs["data-auction-edit"] === match[1]) return child;
+        if (selector === ".auction-card-save-status"
+          && String(child.attrs.class || "").split(/\s+/).includes("auction-card-save-status")) return child;
+        queue.push(...child.children);
+      }
+      return null;
+    },
+    focus: (options) => {
+      el.focused = true;
+      el.focusOptions = options;
+    },
     addEventListener: (type, fn) => {
       el._handlers[type] = el._handlers[type] || [];
       el._handlers[type].push(fn);
     },
     empty: () => {
       el.children = [];
+    },
+    closest: (selector) => {
+      let current = el;
+      while (current) {
+        if (selector.includes("data-scroll-owner") && current.attrs["data-scroll-owner"]) return current;
+        if (selector.includes(".prodigy-app-shell-body") && String(current.attrs.class || "").includes("prodigy-app-shell-body")) return current;
+        current = current.parentElement;
+      }
+      return null;
+    },
+    insertBefore: (child, before) => {
+      const existingIndex = el.children.indexOf(child);
+      if (existingIndex >= 0) el.children.splice(existingIndex, 1);
+      const beforeIndex = el.children.indexOf(before);
+      el.children.splice(beforeIndex >= 0 ? beforeIndex : el.children.length, 0, child);
+      child.parentElement = el;
+    },
+    remove: () => {
+      if (!el.parentElement) return;
+      const index = el.parentElement.children.indexOf(el);
+      if (index >= 0) el.parentElement.children.splice(index, 1);
+      el.parentElement = null;
+    },
+    replaceWith: (replacement) => {
+      const parent = el.parentElement;
+      if (!parent) return;
+      const replacementIndex = parent.children.indexOf(replacement);
+      if (replacementIndex >= 0) parent.children.splice(replacementIndex, 1);
+      const index = parent.children.indexOf(el);
+      if (index >= 0) parent.children.splice(index, 1, replacement);
+      replacement.parentElement = parent;
+      el.parentElement = null;
     },
     click: () => {},
     removeAttribute: () => {},
@@ -71,6 +124,16 @@ function makeElement(tag, options) {
     get: () => el._html,
     set: (value) => {
       el._html = String(value);
+    },
+  });
+  Object.defineProperty(el, "lastElementChild", {
+    get: () => el.children.at(-1) || null,
+  });
+  Object.defineProperty(el, "nextSibling", {
+    get: () => {
+      if (!el.parentElement) return null;
+      const index = el.parentElement.children.indexOf(el);
+      return index >= 0 ? el.parentElement.children[index + 1] || null : null;
     },
   });
   if (options && options.attr) {
@@ -134,10 +197,15 @@ function buildWindow() {
   // Region decision board exists so 판단 보드 seam renders.
   windowObj.AuctionRegionPacket = { openForAuction: async () => {} };
   windowObj.AuctionCourtStatus = COURT_STATUS;
+  windowObj.AuctionCardMutation = CARD_MUTATION;
   windowObj.AuctionCardPriceProjection = undefined;
   windowObj.obsidianPrompt = async () => null;
   windowObj.obsidian = {};
-  windowObj.app = { workspace: {}, vault: {}, fileManager: {} };
+  windowObj.app = {
+    workspace: {},
+    vault: { getAbstractFileByPath: () => ({ path: FIXTURE.file.path }) },
+    fileManager: { processFrontMatter: async (_file, mutate) => mutate({}) },
+  };
   windowObj.addEventListener = () => {};
   windowObj.removeEventListener = () => {};
   windowObj.dispatchEvent = () => {};
@@ -220,6 +288,11 @@ function describe(el) {
     for (const m of matches) {
       const key = m.slice(3);
       if (key !== "updated") writes.add(key);
+    }
+    for (const block of src.matchAll(/patch:\s*\{([^}]*)\}/g)) {
+      for (const field of block[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*:/g)) {
+        if (field[1] !== "updated") writes.add(field[1]);
+      }
     }
   }
   if (writes.size) entry.writes = Array.from(writes).sort();
@@ -350,6 +423,104 @@ test("GREEN — real auction-card renders a stable semantic content snapshot", (
     baseline.some((n) => n.role === "button" && /판단 보드/.test(n.label || "")),
     "판단 보드 decision seam must be role=button",
   );
+});
+
+test("every editable Auction value is a native keyboard button", () => {
+  for (const status of ["watching", "bidding", "won", "lost", "skipped", "reviewing", "archived"]) {
+    const snapshot = renderSnapshot(SOURCE, { ...FIXTURE, status }, 1024);
+    const editable = snapshot.filter((node) => node["data-auction-edit"]);
+    assert.ok(editable.length >= 4, `${status}: the card must expose its editable value controls`);
+    assert.equal(
+      editable.every((node) => node.role === "button"),
+      true,
+      `${status}: every editable value must use native button semantics`,
+    );
+  }
+});
+
+test("Auction card exposes a polite inline save status", () => {
+  const status = baseline.find((node) => node["data-auction-save-state"] === "idle");
+  assert.ok(status, "card save status must exist");
+  assert.equal(status.role, "status");
+  assert.match(SOURCE, /"aria-live":\s*"polite"/);
+});
+
+test("Given an inline card edit, When persistence succeeds, Then the card redraws in place without losing scroll", async () => {
+  const windowObj = buildWindow();
+  const fixture = { ...FIXTURE, my_opinion: "" };
+  const persisted = {};
+  windowObj.obsidianPrompt = async () => "즉시 반영";
+  windowObj.app.vault.getAbstractFileByPath = () => fixture.file;
+  windowObj.app.fileManager.processFrontMatter = async (_file, mutate) => mutate(persisted);
+  const container = makeElement("root", {
+    attr: { "data-scroll-owner": "auction-workspace-body" },
+  });
+  container.scrollTop = 640;
+  const context = {
+    window: windowObj,
+    console,
+    isValid: isValidValue,
+    app: windowObj.app,
+    Notice: function Notice() {},
+    confirm: () => false,
+  };
+  vm.runInNewContext(SOURCE, context, { filename: "auction-card.js" });
+  windowObj.renderAuctionCard(fixture, container, { logicalWidth: 1024 });
+  const originalCard = container.children[0];
+  const nodes = [originalCard];
+  for (const node of nodes) nodes.push(...node.children);
+  const opinion = nodes.find((element) => element.title === "내 의견 수정");
+  assert.ok(opinion && opinion._handlers.click?.[0], "opinion edit control must exist");
+
+  await opinion._handlers.click[0]({
+    preventDefault() {},
+    stopPropagation() {},
+  });
+
+  assert.equal(persisted.my_opinion, "즉시 반영");
+  assert.equal(fixture.my_opinion, "즉시 반영");
+  assert.equal(container.children.length, 1);
+  assert.notEqual(container.children[0], originalCard, "the stale card must be replaced");
+  assert.equal(container.scrollTop, 640, "the scroll owner must keep its offset");
+  const restoredOpinion = container.children[0].querySelector('[data-auction-edit="my_opinion"]');
+  assert.equal(restoredOpinion?.focused, true, "the replacement card must restore focus to the edited value");
+  assert.equal(restoredOpinion?.focusOptions?.preventScroll, true);
+  const savedStatus = container.children[0].querySelector(".auction-card-save-status");
+  assert.equal(savedStatus?.textContent, "저장됨");
+});
+
+test("a card removed while its editor is open is not recreated after save", async () => {
+  const windowObj = buildWindow();
+  const fixture = { ...FIXTURE, my_opinion: "" };
+  const persisted = {};
+  windowObj.obsidianPrompt = async () => "백그라운드 저장";
+  windowObj.app.fileManager.processFrontMatter = async (_file, mutate) => mutate(persisted);
+  const container = makeElement("root");
+  const context = {
+    window: windowObj,
+    console,
+    isValid: isValidValue,
+    app: windowObj.app,
+    Notice: function Notice() {},
+    confirm: () => false,
+  };
+  vm.runInNewContext(SOURCE, context, { filename: "auction-card.js" });
+  windowObj.renderAuctionCard(fixture, container, { logicalWidth: 1024 });
+  const originalCard = container.children[0];
+  const nodes = [originalCard];
+  for (const node of nodes) nodes.push(...node.children);
+  const opinion = nodes.find((element) => element.title === "내 의견 수정");
+
+  originalCard.isConnected = false;
+  originalCard.parentElement = null;
+  container.children = [];
+  await opinion._handlers.click[0]({
+    preventDefault() {},
+    stopPropagation() {},
+  });
+
+  assert.equal(persisted.my_opinion, "백그라운드 저장");
+  assert.equal(container.children.length, 0, "saving must not repopulate a closed lazy-render section");
 });
 
 test("GREEN — Auction card omits only missing area parts without inventing values", () => {

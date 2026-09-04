@@ -126,6 +126,7 @@
     "SYSTEM/Views/auction-real-estate-research-core.js",
     "SYSTEM/Views/auction-real-estate-source-runner.js",
     "SYSTEM/Views/auction-real-estate-research.js",
+    "SYSTEM/Views/auction-card-mutation.js",
     "SYSTEM/Views/auction-card.js",
     "SYSTEM/Views/bid-calendar-core.js",
     "SYSTEM/Views/bid-calendar-view.js",

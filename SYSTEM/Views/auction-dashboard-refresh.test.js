@@ -48,8 +48,13 @@ const app = {
   assert.equal(await refresh.refresh({}), false);
 
   const card = fs.readFileSync(path.join(__dirname, "auction-card.js"), "utf8");
-  const awaitedRefreshes = card.match(/await window\.AuctionDashboardRefresh\?\.refresh\(app,\s*tFile\)/g) || [];
-  assert.equal(awaitedRefreshes.length, 3, "every status transition must await file reload before section refresh");
+  const mutation = fs.readFileSync(path.join(__dirname, "auction-card-mutation.js"), "utf8");
+  const sectionEffects = card.match(/effect:\s*"sections"/g) || [];
+  assert.equal(sectionEffects.length, 3, "every status transition must request one section refresh effect");
+  assert.ok(
+    mutation.indexOf("await opts.app.fileManager.processFrontMatter") < mutation.indexOf("await opts.refresh(file)"),
+    "the coordinator must finish persistence before refreshing status sections",
+  );
   console.log("auction dashboard refresh tests: PASS");
 })().catch((error) => {
   console.error(error);

@@ -180,13 +180,25 @@
 
   const placeSection = (state, kind, container) => {
     if (!state || !container) return false;
-    if (kind === "calendar") state.calendarBody.appendChild(container);
+    if (kind === "filters") state.filterBody.appendChild(container);
+    else if (kind === "calendar") state.calendarBody.appendChild(container);
     else if (kind === "bidding") state.biddingBody.appendChild(container);
     else if (kind === "watching") state.watchingBody.appendChild(container);
     else if (kind === "today") state.detailBody.prepend(container);
     else if (kind === "pipeline") state.detailBody.appendChild(container);
     else state.reviewBody.appendChild(container);
     return true;
+  };
+
+  const notifySectionConnected = (kind, container) => {
+    if (!container || typeof container.dispatchEvent !== "function") return;
+    const view = container.ownerDocument?.defaultView || root;
+    const EventConstructor = view?.CustomEvent || root.CustomEvent;
+    const detail = { kind };
+    const event = typeof EventConstructor === "function"
+      ? new EventConstructor("prodigy-auction-section-connected", { detail })
+      : { type: "prodigy-auction-section-connected", detail };
+    container.dispatchEvent(event);
   };
 
   const resolveState = (container) => {
@@ -237,7 +249,9 @@
     rememberSection(view, kind, container);
     const state = resolveState(container);
     if (!state) return false;
-    return placeSection(state, kind, container);
+    const placed = placeSection(state, kind, container);
+    if (placed) notifySectionConnected(kind, container);
+    return placed;
   };
 
   const mount = (options) => {
@@ -273,6 +287,7 @@
     const workPane = create(home, "section", "auction-native-work-pane");
     const workHeading = create(workPane, "h2", "auction-native-pane-title", "오늘의 물건");
     workHeading.tabIndex = -1;
+    const filterBody = create(workPane, "div", "auction-native-filter-body");
     const workBody = create(workPane, "div", "auction-native-work-body");
     const biddingBody = createWorkGroup(workBody, "입찰 예정");
     biddingBody.classList.add("auction-native-list-body");
@@ -288,6 +303,7 @@
       calendarHeading,
       calendarPane,
       detailBody,
+      filterBody,
       biddingBody,
       watchingBody,
       reviewBody,

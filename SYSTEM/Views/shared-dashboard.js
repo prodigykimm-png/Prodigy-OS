@@ -131,40 +131,68 @@ window.renderDashboardSection = function(options) {
       text: "⌛ 대시보드 리소스를 불러오는 중...",
       attr: { class: "prodigy-status-line", style: "color:var(--ke-color-muted,var(--text-muted));font-size:var(--ke-type-label);font-style:italic;margin:var(--ke-space-2) 0;display:block;" }
     });
-    return;
+    return false;
   }
   
+
+  if (typeof window !== "undefined") {
+    window.__prodigyDashboardSections = window.__prodigyDashboardSections || new Map();
+    window.__prodigyRefreshAuctionDashboard = window.__prodigyRefreshAuctionDashboard || function() {
+      if (!window.__prodigyDashboardSections) return;
+      for (const [key, runner] of window.__prodigyDashboardSections.entries()) {
+        try {
+          if (typeof runner === "function") runner();
+        } catch (err) {
+          console.error("Dashboard section refresh failed:", key, err);
+        }
+      }
+    };
+  }
+
   // Dataview API is passed from the DataviewJS block or retrieved globally
-  const dataviewInstance = options.dv || window.dv || (typeof dv !== 'undefined' ? dv : null);
+  const dataviewInstance = options.dv || (typeof window !== "undefined" && window.dv) || (typeof dv !== 'undefined' ? dv : null);
   if (!dataviewInstance) {
     container.createEl("span", { text: "Error: Dataview API not found." });
-    return;
+    return false;
   }
-  
-  // Get active file frontmatter filters from dataviewInstance
-  const fm = dataviewInstance.current() || {};
-  
-  const filterCategory = fm.card_category || "전체";
-  const filterStatus = fm.card_status || "전체";
-  const regionScope = window.__prodigyAuctionActiveRegionScope && typeof window.__prodigyAuctionActiveRegionScope === "object"
-    ? window.__prodigyAuctionActiveRegionScope
+
+  const getCurrentPage = () => {
+    if (dataviewInstance && typeof dataviewInstance.current === "function") {
+      return dataviewInstance.current() || {};
+    }
+    const appInst = typeof app !== "undefined" ? app : (typeof window !== "undefined" ? window.app : null);
+    const activePath = appInst?.workspace?.getActiveFile?.()?.path || "HUB/10 Auction.md";
+    if (dataviewInstance && typeof dataviewInstance.page === "function") {
+      return dataviewInstance.page(activePath) || {};
+    }
+    return {};
+  };
+  const auctionStateStore = type === "auction_case"
+    ? options.stateStore
+      || (typeof window !== "undefined" && window.prodigyAuctionWorkspaceStateStore)
+      || (typeof window !== "undefined" && window.ProdigyWorkspaceNavigation?.getStateStore?.())
     : null;
-  const filterRegion = regionScope && regionScope.region_sido
-    ? regionScope.region_sido
-    : fm.card_region || "전체지역";
-  const filterSigungu = regionScope && regionScope.region_sigungu
-    ? String(regionScope.region_sigungu).trim()
-    : "";
-  const filterType = fm.card_type || "전체종류";
-  
-  // Status filtering check
-  if (filterStatus !== "전체" && filterStatus !== status) {
-    return;
+  if (type === "auction_case" && (!auctionStateStore
+    || typeof auctionStateStore.getWorkspaceState !== "function"
+    || typeof auctionStateStore.setWorkspaceState !== "function")) {
+    container.createEl("span", {
+      text: "옥션 화면 상태를 불러오지 못했습니다.",
+      attr: { class: "prodigy-status-line", "data-state": "error" }
+    });
+    return false;
   }
+  const getAuctionState = () => auctionStateStore
+    ? auctionStateStore.getWorkspaceState("auction") || {}
+    : {};
+  const initialAuctionState = getAuctionState();
+  const initialFilters = initialAuctionState.filters || {};
+  let searchInput = null;
+  let filterSummary = null;
+  let filterReset = null;
 
   // Render inline filters for Auction cases
   if (type === "auction_case" && status === "bidding") {
-    const isMobile = (window.app?.isMobile || document.body.classList.contains('is-mobile')) || (window.innerWidth <= 833);
+    const isMobile = ((typeof window !== "undefined" && window.app?.isMobile) || (typeof document !== "undefined" && document.body?.classList?.contains('is-mobile'))) || (typeof window !== "undefined" && window.innerWidth <= 833);
 
     const filterContainer = container.createEl("div", {
       attr: {
@@ -174,11 +202,12 @@ window.renderDashboardSection = function(options) {
           : "display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 8px; width: 100%;"
       }
     });
+    window.ProdigyAuctionNativeScenes?.register?.("filters", filterContainer);
 
     // Simple search input box for case name / number
-    const searchInput = filterContainer.createEl("input", {
+    searchInput = filterContainer.createEl("input", {
       type: "text",
-      value: window.auctionSearchQuery || "",
+      value: initialFilters.search || "",
       placeholder: "사건번호/물건명 검색...",
       attr: {
         class: "auction-filter-search",
@@ -189,17 +218,19 @@ window.renderDashboardSection = function(options) {
     });
 
     searchInput.oninput = () => {
-      window.auctionSearchQuery = searchInput.value;
-      const dvPlugin = app.plugins?.plugins?.dataview;
-      if (dvPlugin?.api) {
-        dvPlugin.api.index.touch();
+      const current = getAuctionState();
+      auctionStateStore.setWorkspaceState("auction", {
+        filters: { ...(current.filters || {}), search: searchInput.value }
+      });
+      if (typeof window !== "undefined" && typeof window.__prodigyRefreshAuctionDashboard === "function") {
+        window.__prodigyRefreshAuctionDashboard();
       }
     };
 
-    searchInput.onfocus = () => { window.auctionSearchFocus = true; };
-    searchInput.onblur = () => { window.auctionSearchFocus = false; };
+    searchInput.onfocus = () => { if (typeof window !== "undefined") window.auctionSearchFocus = true; };
+    searchInput.onblur = () => { if (typeof window !== "undefined") window.auctionSearchFocus = false; };
 
-    if (window.auctionSearchFocus) {
+    if (typeof window !== "undefined" && window.auctionSearchFocus) {
       setTimeout(() => {
         searchInput.focus();
         const val = searchInput.value;
@@ -216,7 +247,7 @@ window.renderDashboardSection = function(options) {
       });
     }
 
-    const makeSelectInline = (parent, label, field, options, currentVal) => {
+    const makeSelectInline = (parent, label, field, selectOptions, currentVal) => {
       const wrapper = parent.createEl('div', { attr: { class: "auction-filter-select", style: 'display:flex;align-items:center;gap:var(--ke-space-2);font-size:var(--ke-type-label);color:var(--ke-color-muted,var(--text-muted));' } });
       wrapper.createEl('span', { text: label, attr: { style: 'font-weight: bold;' } });
       
@@ -228,26 +259,36 @@ window.renderDashboardSection = function(options) {
         } 
       });
       
-      options.forEach(o => {
+      selectOptions.forEach(o => {
         const opt = sel.createEl('option', { text: o.text, value: o.value });
         if (o.value === String(currentVal !== undefined && currentVal !== null ? currentVal : o.value)) {
           opt.selected = true;
         }
       });
       
-      sel.onchange = async () => {
-        if (field === "card_region") window.__prodigyAuctionActiveRegionScope = null;
-        const dashboardPath = dataviewInstance.current()?.file?.path;
-        if (dashboardPath) {
-          const file = app.vault.getAbstractFileByPath(dashboardPath);
-          if (file) {
-            await app.fileManager.processFrontMatter(file, (fm) => {
-              fm[field] = sel.value;
-            });
-          }
-        }
-      };
+    sel.onchange = () => {
+      const current = getAuctionState();
+      if (field.startsWith("card_sort_")) {
+        auctionStateStore.setWorkspaceState("auction", {
+          sort: { ...(current.sort || {}), [status]: sel.value }
+        });
+      } else {
+        auctionStateStore.setWorkspaceState("auction", {
+          filters: { ...(current.filters || {}), [field]: sel.value }
+        });
+      }
+      if (field === "card_region" && typeof window !== "undefined") window.__prodigyAuctionActiveRegionScope = null;
+      if (typeof window !== "undefined" && typeof window.__prodigyRefreshAuctionDashboard === "function") {
+        window.__prodigyRefreshAuctionDashboard();
+      }
     };
+  };
+
+    const regionScope = (typeof window !== "undefined" && window.__prodigyAuctionActiveRegionScope && typeof window.__prodigyAuctionActiveRegionScope === "object")
+      ? window.__prodigyAuctionActiveRegionScope
+      : null;
+    const initialRegion = regionScope?.region_sido || initialFilters.card_region || "전체지역";
+    const initialType = initialFilters.card_type || "전체종류";
 
     makeSelectInline(dropdownParent, '지역:', 'card_region', [
       { text: '전체', value: '전체지역' },
@@ -255,10 +296,10 @@ window.renderDashboardSection = function(options) {
       { text: '경기', value: '경기' },
       { text: '인천', value: '인천' },
       { text: '부산', value: '부산' }
-    ], fm.card_region);
+    ], initialRegion);
 
     if (!isMobile) {
-      dropdownParent.createEl('span', { text: '|', attr: { style: 'color:var(--ke-color-border,var(--background-modifier-border));font-size:var(--ke-type-label);' } });
+      dropdownParent.createEl('span', { text: '|', attr: { class: "auction-filter-separator", style: 'color:var(--ke-color-border,var(--background-modifier-border));font-size:var(--ke-type-label);' } });
     }
 
     makeSelectInline(dropdownParent, '종류:', 'card_type', [
@@ -267,10 +308,10 @@ window.renderDashboardSection = function(options) {
       { text: '아파트', value: '아파트' },
       { text: '상가', value: '상가' },
       { text: '지식산업센터', value: '지식산업센터' }
-    ], fm.card_type);
+    ], initialType);
 
     if (!isMobile) {
-      dropdownParent.createEl('span', { text: '|', attr: { style: 'color:var(--ke-color-border,var(--background-modifier-border));font-size:var(--ke-type-label);' } });
+      dropdownParent.createEl('span', { text: '|', attr: { class: "auction-filter-separator", style: 'color:var(--ke-color-border,var(--background-modifier-border));font-size:var(--ke-type-label);' } });
     }
 
     const sortKeyField = `card_sort_${status}`;
@@ -279,138 +320,58 @@ window.renderDashboardSection = function(options) {
       defaultSort = "dday_desc";
     }
 
+    const initialSort = initialAuctionState.sort?.[status] || defaultSort;
     makeSelectInline(dropdownParent, '정렬:', sortKeyField, [
       { text: '마감 임박순', value: 'dday_asc' },
       { text: '마감 여유순', value: 'dday_desc' },
       { text: '감정가 낮은순', value: 'expected_bid_asc' },
       { text: '감정가 높은순', value: 'expected_bid_desc' },
       { text: '최근 등록순', value: 'created_desc' }
-    ], fm[sortKeyField] || defaultSort);
-  }
-
-  // Query pages based on type
-  let folderPath = "";
-  if (type === "auction_case") {
-    folderPath = "PARA/PROJECTS/Auction";
-  } else if (type === "project") {
-    folderPath = "PARA/PROJECTS";
-  } else if (type === "reading") {
-    folderPath = "PARA/PROJECTS/Reading";
-  } else {
-    folderPath = "PARA/PROJECTS";
-  }
-  
-  let pages = dataviewInstance.pages(`"${folderPath}"`).where(p => p.type === type && p.status === status);
-
-  // The search input exists only in the bidding section. Keeping its transient
-  // value out of every other status prevents a stale query from hiding the
-  // watching cards that have no visible way to clear it.
-  if (type === "auction_case" && status === "bidding" && window.auctionSearchQuery) {
-    const q = window.auctionSearchQuery.toLowerCase().trim();
-    pages = pages.where(p => {
-      const caseNum = String(p.case_number || p.file.name || "").toLowerCase();
-      const addr = String(p.address || "").toLowerCase();
-      return caseNum.includes(q) || addr.includes(q);
+    ], initialSort);
+    filterSummary = filterContainer.createEl("span", {
+      attr: {
+        class: "auction-filter-summary",
+        role: "status",
+        "aria-live": "polite"
+      }
     });
+    filterReset = filterContainer.createEl("button", {
+      text: "필터 초기화",
+      attr: {
+        type: "button",
+        class: "prodigy-btn prodigy-btn-chip auction-filter-reset"
+      }
+    });
+    filterReset.onclick = () => {
+      const current = getAuctionState();
+      auctionStateStore.setWorkspaceState("auction", {
+        filters: {
+          ...(current.filters || {}),
+          card_region: "전체지역",
+          card_type: "전체종류",
+          search: ""
+        }
+      });
+      if (searchInput) searchInput.value = "";
+      if (typeof window !== "undefined") {
+        window.__prodigyAuctionActiveRegionScope = null;
+        window.__prodigyRefreshAuctionDashboard?.();
+      }
+    };
   }
 
-  // Project type filter: all | business | work | personal | uncategorized
-  if (type === "project") {
-    const projectTypeFilter = options.projectTypeFilter
-      || window.prodigyProjectTypeFilter
-      || fm.card_project_type
-      || "all";
-    if (projectTypeFilter && projectTypeFilter !== "all" && projectTypeFilter !== "전체") {
-      pages = pages.where((p) => {
-        const raw = String(p.project_type || "").trim().toLowerCase();
-        const normalized = (raw === "business" || raw === "work" || raw === "personal") ? raw : "uncategorized";
-        return normalized === projectTypeFilter;
-      });
-    }
-  }
-  
-  // Filters
-  if (type === "project" && filterCategory !== "전체") {
-    pages = pages.where(p => p.category === filterCategory);
-  }
-  if (type === "auction_case") {
-    if (filterRegion !== "전체지역") {
-      pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
-    }
-    if (filterSigungu) {
-      pages = pages.where(p => (p.region_sigungu || "").includes(filterSigungu));
-    }
-    if (filterType !== "전체종류") {
-      pages = pages.where(p => (p.property_type || "").includes(filterType));
-    }
-  }
-  
-  // Sort
-  let activeSortField = sortField;
-  let activeSortOrder = sortOrder;
-  const sortKeyField = `card_sort_${status}`;
-  let defaultSort = "dday_asc";
-  if (status !== "bidding" && status !== "watching") {
-    defaultSort = "dday_desc";
-  }
-  const filterSort = fm[sortKeyField] || defaultSort;
-  
-  if (type === "auction_case") {
-    if (filterSort === "dday_asc") {
-      activeSortField = "auction_datetime";
-      activeSortOrder = "asc";
-    } else if (filterSort === "dday_desc") {
-      activeSortField = "auction_datetime";
-      activeSortOrder = "desc";
-    } else if (filterSort === "expected_bid_asc") {
-      activeSortField = "expected_bid";
-      activeSortOrder = "asc";
-    } else if (filterSort === "expected_bid_desc") {
-      activeSortField = "expected_bid";
-      activeSortOrder = "desc";
-    } else if (filterSort === "created_desc") {
-      activeSortField = "file.ctime";
-      activeSortOrder = "desc";
-    }
-  }
-  
-  const getSortKey = (p, field) => {
-    if (field === "file.ctime") return p.file.ctime;
-    if (field === "file.mtime") return p.file.mtime;
-    if (field === "expected_bid") {
-      const val = (window.parsePrice || Number)(p.expected_bid);
-      if (isNaN(val) || p.expected_bid === "정보 없음" || String(p.expected_bid).trim() === "") {
-        return activeSortOrder === "asc" ? 999999999999 : -1;
-      }
-      return val;
-    }
-    if (field === "auction_datetime") {
-      const val = p.auction_datetime;
-      if (!val || val === "정보 없음" || String(val).trim() === "") {
-        return activeSortOrder === "asc" ? "9999-12-31" : "0000-01-01";
-      }
-      if (typeof val === "object" && typeof val.toISODate === "function") {
-        return val.toISODate();
-      }
-      const str = String(val).trim();
-      const match = str.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})/);
-      if (match) {
-        return `${match[1]}-${match[2]}-${match[3]}`;
-      }
-      return str;
-    }
-    return p[field] || "";
-  };
-  
-  pages = pages.sort(p => getSortKey(p, activeSortField), activeSortOrder);
-  const pageList = typeof pages.array === "function" ? pages.array() : Array.from(pages || []);
-  
-  // Setup container
+  // Setup cards container
   let targetContainer = container;
-  if (isCollapsed) {
+  let collapsedDetails = null;
+  if (type === "auction_case" && status === "bidding") {
+    targetContainer = container.createEl("div", {
+      attr: { class: "auction-section-cards-mount" }
+    });
+  } else if (isCollapsed) {
     const details = container.createEl("details", {
       attr: { class: "prodigy-utility-card", style: "margin-block-end:var(--ke-space-3);background:var(--ke-color-surface-secondary,var(--background-secondary));border:1px solid var(--ke-color-border,var(--background-modifier-border));border-radius:var(--ke-radius-configurator);padding:var(--ke-space-3);inline-size:100%;" }
     });
+    collapsedDetails = details;
     details.createEl("summary", {
       text: summaryText,
       attr: { style: `font-weight:700;cursor:pointer;color:${summaryColor};font-size:var(--ke-type-heading);line-height:var(--ke-leading-control);min-block-size:var(--ke-touch-target);` }
@@ -419,24 +380,243 @@ window.renderDashboardSection = function(options) {
       attr: { style: "margin-block-start:var(--ke-space-3);" }
     });
   }
-  
-  // Render
-  if (pageList.length === 0) {
-    if (isCollapsed) {
-      targetContainer.createEl("span", {
-        text: emptyMessage,
-        attr: { class: "prodigy-status-line", style: "color:var(--ke-color-muted,var(--text-muted));font-style:italic;font-size:var(--ke-type-label);display:block;margin:var(--ke-space-2) 0;" }
-      });
+
+  let reconnectObserver = null;
+  let reconnectEventCleanup = null;
+  const containerConnected = () => {
+    if (typeof container.isConnected !== "boolean") return true;
+    if (container.isConnected) return true;
+    return typeof document !== "undefined"
+      && typeof document.contains === "function"
+      && document.contains(container);
+  };
+  const renderWhenConnected = () => {
+    if (reconnectObserver || reconnectEventCleanup) return;
+    const documentRef = container.ownerDocument || (typeof document !== "undefined" ? document : null);
+    const observationRoot = documentRef && (documentRef.documentElement || documentRef.body);
+    if (!observationRoot) return;
+    const clearReconnectWatchers = () => {
+      if (reconnectObserver && typeof reconnectObserver.disconnect === "function") reconnectObserver.disconnect();
+      reconnectObserver = null;
+      if (reconnectEventCleanup) reconnectEventCleanup();
+      reconnectEventCleanup = null;
+    };
+    const onConnected = () => {
+      if (!containerConnected()) return;
+      clearReconnectWatchers();
+      renderCards();
+    };
+    if (typeof container.addEventListener === "function") {
+      container.addEventListener("prodigy-auction-section-connected", onConnected);
+      reconnectEventCleanup = () => container.removeEventListener("prodigy-auction-section-connected", onConnected);
+    }
+    const scope = typeof window !== "undefined" && window.__prodigyAuctionMountScope;
+    if (scope && typeof scope.observe === "function") {
+      reconnectObserver = scope.observe(observationRoot, { childList: true, subtree: true }, onConnected);
+      return;
+    }
+    const Observer = documentRef.defaultView?.MutationObserver
+      || (typeof MutationObserver === "function" ? MutationObserver : null);
+    if (typeof Observer !== "function") return;
+    reconnectObserver = new Observer(onConnected);
+    reconnectObserver.observe(observationRoot, { childList: true, subtree: true });
+  };
+
+  const renderCards = () => {
+    if (!containerConnected()) {
+      renderWhenConnected();
+      return false;
+    }
+    if (reconnectObserver) {
+      reconnectObserver.disconnect();
+      reconnectObserver = null;
+    }
+    if (reconnectEventCleanup) {
+      reconnectEventCleanup();
+      reconnectEventCleanup = null;
+    }
+    if (collapsedDetails && !collapsedDetails.open) {
+      targetContainer.empty();
+      return true;
+    }
+
+    const fm = getCurrentPage();
+    const auctionState = getAuctionState();
+    const filters = auctionState.filters || {};
+    const filterCategory = fm.card_category || "전체";
+    const filterStatus = type === "auction_case" ? "전체" : (fm.card_status || "전체");
+    const regionScope = (typeof window !== "undefined" && window.__prodigyAuctionActiveRegionScope && typeof window.__prodigyAuctionActiveRegionScope === "object")
+      ? window.__prodigyAuctionActiveRegionScope
+      : null;
+    const filterRegion = regionScope && regionScope.region_sido
+      ? regionScope.region_sido
+      : (filters.card_region !== undefined ? filters.card_region : "전체지역");
+    const filterSigungu = regionScope && regionScope.region_sigungu
+      ? String(regionScope.region_sigungu).trim()
+      : "";
+    const filterType = filters.card_type !== undefined ? filters.card_type : "전체종류";
+
+    // Status filtering check
+    if (filterStatus !== "전체" && filterStatus !== status) {
+      targetContainer.empty();
+      return true;
+    }
+
+    // Query pages based on type
+    let folderPath = "";
+    if (type === "auction_case") {
+      folderPath = "PARA/PROJECTS/Auction";
+    } else if (type === "project") {
+      folderPath = "PARA/PROJECTS";
+    } else if (type === "reading") {
+      folderPath = "PARA/PROJECTS/Reading";
     } else {
-      const emptyDiv = targetContainer.createEl("div", {
-        attr: { style: "margin:var(--ke-space-2) 0;" }
-      });
-      emptyDiv.createEl("span", {
-        text: emptyMessage,
-        attr: { style: "color:var(--ke-color-muted,var(--text-muted));font-style:italic;font-size:var(--ke-type-label);" }
+      folderPath = "PARA/PROJECTS";
+    }
+
+    let pages = dataviewInstance.pages(`"${folderPath}"`).where(p => p.type === type && p.status === status);
+
+    // The search input exists only in the bidding section.
+    if (type === "auction_case" && status === "bidding" && filters.search) {
+      const q = String(filters.search).toLowerCase().trim();
+      pages = pages.where(p => {
+        const caseNum = String(p.case_number || p.file.name || "").toLowerCase();
+        const addr = String(p.address || "").toLowerCase();
+        return caseNum.includes(q) || addr.includes(q);
       });
     }
-  } else {
-    pageList.forEach(p => renderer(p, targetContainer));
+
+    // Project type filter: all | business | work | personal | uncategorized
+    if (type === "project") {
+      const projectTypeFilter = options.projectTypeFilter
+        || (typeof window !== "undefined" && window.prodigyProjectTypeFilter)
+        || fm.card_project_type
+        || "all";
+      if (projectTypeFilter && projectTypeFilter !== "all" && projectTypeFilter !== "전체") {
+        pages = pages.where((p) => {
+          const raw = String(p.project_type || "").trim().toLowerCase();
+          const normalized = (raw === "business" || raw === "work" || raw === "personal") ? raw : "uncategorized";
+          return normalized === projectTypeFilter;
+        });
+      }
+    }
+
+    // Filters
+    if (type === "project" && filterCategory !== "전체") {
+      pages = pages.where(p => p.category === filterCategory);
+    }
+    if (type === "auction_case") {
+      if (filterRegion !== "전체지역") {
+        pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
+      }
+      if (filterSigungu) {
+        pages = pages.where(p => (p.region_sigungu || "").includes(filterSigungu));
+      }
+      if (filterType !== "전체종류") {
+        pages = pages.where(p => (p.property_type || "").includes(filterType));
+      }
+    }
+
+    // Sort
+    let activeSortField = sortField;
+    let activeSortOrder = sortOrder;
+    const sortKeyField = `card_sort_${status}`;
+    let defaultSort = "dday_asc";
+    if (status !== "bidding" && status !== "watching") {
+      defaultSort = "dday_desc";
+    }
+    const filterSort = type === "auction_case"
+      ? (auctionState.sort?.[status] || defaultSort)
+      : (fm[sortKeyField] || defaultSort);
+
+    if (type === "auction_case") {
+      if (filterSort === "dday_asc") {
+        activeSortField = "auction_datetime";
+        activeSortOrder = "asc";
+      } else if (filterSort === "dday_desc") {
+        activeSortField = "auction_datetime";
+        activeSortOrder = "desc";
+      } else if (filterSort === "expected_bid_asc") {
+        activeSortField = "expected_bid";
+        activeSortOrder = "asc";
+      } else if (filterSort === "expected_bid_desc") {
+        activeSortField = "expected_bid";
+        activeSortOrder = "desc";
+      } else if (filterSort === "created_desc") {
+        activeSortField = "file.ctime";
+        activeSortOrder = "desc";
+      }
+    }
+
+    const getSortKey = (p, field) => {
+      if (field === "file.ctime") return p.file.ctime;
+      if (field === "file.mtime") return p.file.mtime;
+      if (field === "expected_bid") {
+        const val = ((typeof window !== "undefined" && window.parsePrice) || Number)(p.expected_bid);
+        if (isNaN(val) || p.expected_bid === "정보 없음" || String(p.expected_bid).trim() === "") {
+          return activeSortOrder === "asc" ? 999999999999 : -1;
+        }
+        return val;
+      }
+      if (field === "auction_datetime") {
+        const val = p.auction_datetime;
+        if (!val || val === "정보 없음" || String(val).trim() === "") {
+          return activeSortOrder === "asc" ? "9999-12-31" : "0000-01-01";
+        }
+        if (typeof val === "object" && typeof val.toISODate === "function") {
+          return val.toISODate();
+        }
+        const str = String(val).trim();
+        const match = str.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})/);
+        if (match) {
+          return `${match[1]}-${match[2]}-${match[3]}`;
+        }
+        return str;
+      }
+      return p[field] || "";
+    };
+
+    pages = pages.sort(p => getSortKey(p, activeSortField), activeSortOrder);
+    const pageList = typeof pages.array === "function" ? pages.array() : Array.from(pages || []);
+    if (filterSummary && status === "bidding") {
+      const activeFilters = [];
+      if (filterRegion !== "전체지역") activeFilters.push(filterRegion);
+      if (filterType !== "전체종류") activeFilters.push(filterType);
+      if (filters.search) activeFilters.push(`검색 ${String(filters.search).trim()}`);
+      filterSummary.textContent = `${activeFilters.length ? `${activeFilters.join(" · ")} · ` : ""}입찰 예정 ${pageList.length}건`;
+      if (filterReset) filterReset.disabled = activeFilters.length === 0;
+    }
+
+    targetContainer.empty();
+
+    // Render
+    if (pageList.length === 0) {
+      if (isCollapsed) {
+        targetContainer.createEl("span", {
+          text: emptyMessage,
+          attr: { class: "prodigy-status-line", style: "color:var(--ke-color-muted,var(--text-muted));font-style:italic;font-size:var(--ke-type-label);display:block;margin:var(--ke-space-2) 0;" }
+        });
+      } else {
+        const emptyDiv = targetContainer.createEl("div", {
+          attr: { style: "margin:var(--ke-space-2) 0;" }
+        });
+        emptyDiv.createEl("span", {
+          text: emptyMessage,
+          attr: { style: "color:var(--ke-color-muted,var(--text-muted));font-style:italic;font-size:var(--ke-type-label);" }
+        });
+      }
+    } else {
+      pageList.forEach(p => renderer(p, targetContainer));
+    }
+    return true;
+  };
+
+  if (type === "auction_case" && typeof window !== "undefined") {
+    window.__prodigyDashboardSections = window.__prodigyDashboardSections || new Map();
+    window.__prodigyDashboardSections.set(`${type}_${status}`, renderCards);
   }
+  if (collapsedDetails) collapsedDetails.ontoggle = () => renderCards();
+
+  // Initial render
+  return renderCards();
 };

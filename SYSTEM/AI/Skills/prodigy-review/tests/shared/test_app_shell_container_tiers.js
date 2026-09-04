@@ -67,6 +67,7 @@ class FakeElement {
     this.attr = Object.assign({}, (options && options.attr) || {});
     this.style = {};
     this.offsetWidth = 0;
+    this.scrollTop = 0;
     this._rectWidth = 0;
     this.isConnected = true;
     this.parentElement = null;
@@ -234,6 +235,29 @@ test("ContextBar appears only when it has content or actions (quiet chrome)", ()
 
 test("Tier measurement observer disposes cleanly with the shell", () => {
   assertObserverDisposed();
+});
+
+test("AppShell preserves body scroll when the same workspace remounts", () => {
+  buildGlobal();
+  const shell = loadShell();
+  const container = new FakeElement("div");
+  container.setMeasuredWidth(1200);
+  const first = shell.AppShell(container, {
+    workspaceId: "auction",
+    title: "경매",
+  });
+  first.body.scrollTop = 720;
+
+  const second = shell.AppShell(container, {
+    workspaceId: "auction",
+    title: "경매",
+  });
+
+  assert.equal(
+    second.body.scrollTop,
+    720,
+    "frontmatter-triggered Auction remounts must keep the user's current position",
+  );
 });
 
 test("AppShell chrome layout follows measured tiers instead of private viewport widths", () => {

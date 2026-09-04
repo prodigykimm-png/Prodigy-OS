@@ -111,6 +111,7 @@ const CSS = `
 .auction-native-work-pane {
   background: var(--ke-color-surface, var(--background-primary));
   border-block-start: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
+  padding-block-start: var(--ke-space-4, 17px);
 }
 .prodigy-app-shell[data-tier="medium"] .auction-native-detail-pane {
   border-inline-end: 0;
@@ -581,7 +582,7 @@ const CSS = `
   min-inline-size: 0;
   max-inline-size: 100%;
 }
-.auction-native-list-body .auction-filter-bar {
+.auction-native-filter-body .auction-filter-bar {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   align-items: stretch !important;
@@ -589,36 +590,79 @@ const CSS = `
   gap: var(--ke-space-3, 12px) !important;
   margin-block-end: var(--ke-space-4, 17px) !important;
 }
-.auction-native-list-body .auction-filter-search {
+.prodigy-app-shell:is([data-tier="medium"],[data-tier="wide"]) .auction-native-filter-body .auction-filter-bar {
+  grid-template-columns: minmax(14rem, 1.4fr) repeat(3, minmax(0, 1fr)) !important;
+}
+.prodigy-app-shell:is([data-tier="medium"],[data-tier="wide"]) .auction-native-filter-body {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 8;
+  background: var(--ke-color-surface, var(--background-primary));
+  border-block-end: var(--ke-border-width, 1px) solid var(--ke-color-border, var(--background-modifier-border));
+}
+.prodigy-app-shell:is([data-tier="medium"],[data-tier="wide"]) .auction-native-filter-body .auction-filter-bar {
+  position: static;
+  padding-block: var(--ke-space-2, 8px);
+}
+.prodigy-app-shell[data-tier="compact"] .auction-native-filter-body {
+  position: static;
+}
+.auction-native-filter-body .auction-filter-search {
   grid-column: 1 / -1;
   inline-size: 100% !important;
   margin: 0 !important;
 }
-.auction-native-list-body .auction-filter-selects {
+.prodigy-app-shell:is([data-tier="medium"],[data-tier="wide"]) .auction-native-filter-body .auction-filter-search {
+  grid-column: 1;
+}
+.auction-native-filter-body .auction-filter-selects {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch !important;
   gap: var(--ke-space-2, 8px) !important;
 }
-.auction-native-list-body .auction-filter-bar > .auction-filter-select {
+.auction-native-filter-body .auction-filter-bar > .auction-filter-select {
   inline-size: 100% !important;
 }
-.auction-native-list-body .auction-filter-bar > span {
+.auction-native-filter-body .auction-filter-bar > .auction-filter-separator {
   display: none;
 }
-.auction-native-list-body .auction-filter-selects > span {
+.auction-native-filter-body .auction-filter-selects > span {
   display: none;
 }
-.auction-native-list-body .auction-filter-select {
+.auction-native-filter-body .auction-filter-select {
   display: grid !important;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center !important;
   gap: var(--ke-space-1, 4px) !important;
   min-inline-size: 0;
 }
-.auction-native-list-body .auction-filter-select select {
+.auction-native-filter-body .auction-filter-select select {
   inline-size: 100%;
   min-inline-size: 0;
+}
+.auction-native-filter-body .auction-filter-summary {
+  grid-column: 1 / 3;
+  align-self: center;
+  min-inline-size: 0;
+  color: var(--ke-color-muted, var(--text-muted));
+  font-size: var(--ke-type-label, 13px);
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+.auction-native-filter-body .auction-filter-reset {
+  grid-column: 3;
+  justify-self: end;
+}
+.prodigy-app-shell:is([data-tier="medium"],[data-tier="wide"]) .auction-native-filter-body .auction-filter-summary {
+  grid-column: 1 / 4;
+}
+.prodigy-app-shell:is([data-tier="medium"],[data-tier="wide"]) .auction-native-filter-body .auction-filter-reset {
+  grid-column: 4;
+}
+.prodigy-app-shell[data-tier="compact"] .auction-native-filter-body .auction-filter-summary,
+.prodigy-app-shell[data-tier="compact"] .auction-native-filter-body .auction-filter-reset {
+  grid-column: 1;
 }
 .prodigy-app-shell[data-workspace-id="auction"]:has(.auction-native-app) .prodigy-workspace-switcher {
   display: none;

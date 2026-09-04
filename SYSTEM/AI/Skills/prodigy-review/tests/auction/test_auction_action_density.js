@@ -76,3 +76,22 @@ test("Given a card overflow menu opens across the next card, When it is active, 
   assert.match(source, /overflowMenu\.ontoggle\s*=\s*syncMenuLayer/, "헤더 더보기 메뉴가 카드 layer를 갱신해야 한다");
   assert.match(source, /secondaryTransitionMenu\.ontoggle\s*=\s*syncMenuLayer/, "결과 입력 메뉴가 카드 layer를 갱신해야 한다");
 });
+
+test("Given a wide card, When facts and actions render, Then scan order stays compact and primary-first", () => {
+  const source = cardSource();
+  const facts = ruleBody(source, ".auction-card-tier-wide .auction-card-property-group {");
+  const actions = ruleBody(source, ".auction-card-tier-wide .auction-card-actions {");
+  const mediumActions = ruleBody(source, ".auction-card-tier-medium .auction-card-actions,");
+  const secondary = ruleBody(source, ".auction-card-tier-wide .auction-card-secondary-transitions {");
+  const primary = ruleBody(source, ".auction-card-primary-action {");
+
+  assert.match(facts, /display:\s*grid/);
+  assert.match(facts, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(min\(18rem,\s*100%\),\s*auto\)/);
+  assert.match(actions, /justify-content:\s*flex-start/);
+  assert.match(mediumActions, /display:\s*flex/);
+  assert.match(mediumActions, /justify-content:\s*flex-start/);
+  assert.match(secondary, /margin-inline-start:\s*auto/);
+  assert.match(secondary, /order:\s*3/);
+  assert.match(primary, /order:\s*1/);
+  assert.match(source, /siteVisitButton\.classList\?\.add\("auction-card-primary-action"\)/);
+});

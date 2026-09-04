@@ -306,6 +306,7 @@
     }
     const tokens = responsiveTokens();
     const store = opts.stateStore || stateStore();
+    if (opts.stateStore) sharedStateStore = opts.stateStore;
     const workspaceId = String(opts.workspaceId || "");
     let measurement = null;
     const measurementModule = resolveModule("ProdigyWorkspaceMeasurement", "./prodigy-workspace-measurement.js");
@@ -407,6 +408,11 @@
     } else if (measurement && typeof measurement.recordMissing === "function") {
       measurement.recordMissing("measurement_module");
     }
+    Object.defineProperty(mounted, "stateStore", {
+      value: store,
+      enumerable: false,
+      configurable: true
+    });
     const shellDispose = typeof mounted.dispose === "function" ? mounted.dispose.bind(mounted) : null;
     const scope = opts.mountScope || opts.mount_scope;
     let stateController = null;
@@ -480,6 +486,7 @@
     openPath,
     openWorkspace,
     openHome,
+    getStateStore: stateStore,
     mount,
     clearOpenError,
     renderOpenError,

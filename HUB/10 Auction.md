@@ -2,9 +2,6 @@
 cssclasses:
   - prodigy-hub-note
   - hide-properties_reading
-card_region: 전체지역
-card_type: 전체종류
-card_sort: dday_asc
 ---
 ```js-engine
 const file = app.workspace.getActiveFile();
@@ -442,6 +439,12 @@ const initializeAuctionWorkspace = async () => {
         actions: [calendarAction]
       }
     });
+    window.prodigyAuctionWorkspaceStateStore = auctionShell.stateStore;
+    mountContext.scope.track(() => {
+      if (window.prodigyAuctionWorkspaceStateStore === auctionShell.stateStore) {
+        delete window.prodigyAuctionWorkspaceStateStore;
+      }
+    });
     if (auctionShell.element && auctionShell.element.classList) auctionShell.element.classList.add("auction-hub-shell");
     if (auctionShell.body) {
       if (typeof auctionShell.body.setAttr === "function") auctionShell.body.setAttr("data-scroll-owner", "auction-workspace-body");
@@ -701,7 +704,7 @@ const run = () => {
     const logicalWidth = this.container.clientWidth > 0
       ? this.container.clientWidth
       : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.contentMax;
-    window.renderDashboardSection({
+    const rendered = window.renderDashboardSection({
       dv: dv,
       status: "bidding",
       type: "auction_case",
@@ -714,6 +717,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "asc"
     });
+    if (!rendered) return false;
     window.ProdigyAuctionNavigationFocus?.markSection("bidding");
     return true;
   }
@@ -743,7 +747,7 @@ const run = () => {
     const logicalWidth = this.container.clientWidth > 0
       ? this.container.clientWidth
       : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.contentMax;
-    window.renderDashboardSection({
+    const rendered = window.renderDashboardSection({
       dv: dv,
       status: "watching",
       type: "auction_case",
@@ -756,6 +760,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "asc"
     });
+    if (!rendered) return false;
     window.ProdigyAuctionNavigationFocus?.markSection("watching");
     return true;
   }
@@ -1042,7 +1047,7 @@ const run = () => {
   window.ProdigyAuctionNativeScenes.register("reviewing", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
-    window.renderDashboardSection({
+    const rendered = window.renderDashboardSection({
       dv: dv,
       status: "reviewing",
       type: "auction_case",
@@ -1052,6 +1057,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    if (!rendered) return false;
     window.ProdigyAuctionNavigationFocus?.markSection("reviewing");
     return true;
   }
@@ -1078,7 +1084,7 @@ const run = () => {
   window.ProdigyAuctionNativeScenes.register("won", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
-    window.renderDashboardSection({
+    const rendered = window.renderDashboardSection({
       dv: dv,
       status: "won",
       type: "auction_case",
@@ -1091,6 +1097,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    if (!rendered) return false;
     window.ProdigyAuctionNavigationFocus?.markSection("won");
     return true;
   }
@@ -1115,7 +1122,7 @@ const run = () => {
   window.ProdigyAuctionNativeScenes.register("lost", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
-    window.renderDashboardSection({
+    const rendered = window.renderDashboardSection({
       dv: dv,
       status: "lost",
       type: "auction_case",
@@ -1128,6 +1135,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    if (!rendered) return false;
     window.ProdigyAuctionNavigationFocus?.markSection("lost");
     return true;
   }
@@ -1152,7 +1160,7 @@ const run = () => {
   window.ProdigyAuctionNativeScenes.register("skipped", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
-    window.renderDashboardSection({
+    const rendered = window.renderDashboardSection({
       dv: dv,
       status: "skipped",
       type: "auction_case",
@@ -1165,6 +1173,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    if (!rendered) return false;
     window.ProdigyAuctionNavigationFocus?.markSection("skipped");
     return true;
   }
@@ -1189,7 +1198,7 @@ const run = () => {
   window.ProdigyAuctionNativeScenes.register("archived", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
-    window.renderDashboardSection({
+    const rendered = window.renderDashboardSection({
       dv: dv,
       status: "archived",
       type: "auction_case",
@@ -1202,6 +1211,7 @@ const run = () => {
       sortField: "auction_datetime",
       sortOrder: "desc"
     });
+    if (!rendered) return false;
     window.ProdigyAuctionNavigationFocus?.markSection("archived");
     return true;
   }

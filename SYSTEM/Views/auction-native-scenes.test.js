@@ -166,6 +166,11 @@ const scenes = require("./auction-native-scenes.js");
     /\.auction-native-detail-body\s*>\s*\.auction-hub-pipeline-section\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s,
     "pipeline must remain below both briefing columns"
   );
+  assert.match(
+    styles,
+    /\.auction-native-work-pane\s*\{[^}]*padding-block-start:\s*var\(--ke-space-4,\s*17px\)/s,
+    "the calendar-to-work transition must use one compact spacing step",
+  );
 
   console.log("auction native memo tests: PASS");
 })().catch((error) => {

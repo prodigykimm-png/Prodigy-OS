@@ -381,7 +381,7 @@
 ) {
   overflow-y: auto !important;
 }
-.prodigy-app-shell[data-workspace-id="auction"]:not([data-tier="medium"]) {
+.prodigy-app-shell[data-workspace-id="auction"] {
   display: flex !important;
   flex-direction: column !important;
   height: calc(100vh - var(--header-height, 48px) - 20px) !important;
@@ -394,7 +394,7 @@
 .prodigy-app-shell[data-workspace-id="auction"] > .prodigy-context-bar {
   flex: 0 0 auto !important;
 }
-.prodigy-app-shell[data-workspace-id="auction"]:not([data-tier="medium"]) > .prodigy-app-shell-body {
+.prodigy-app-shell[data-workspace-id="auction"] > .prodigy-app-shell-body {
   flex: 1 1 0% !important;
   min-height: 0 !important;
   max-height: 100% !important;
@@ -405,17 +405,9 @@
   scrollbar-width: thin;
   scrollbar-gutter: auto;
 }
-.prodigy-app-shell[data-tier="medium"][data-workspace-id="auction"] {
-  max-block-size: none;
-  overflow: visible;
-}
-.prodigy-app-shell[data-tier="medium"][data-workspace-id="auction"] > .prodigy-app-shell-body {
-  overflow: visible;
-  overscroll-behavior-block: auto;
-}
 .prodigy-app-shell[data-workspace-id="auction"] > .prodigy-app-shell-body::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
   background: transparent;
 }
 .prodigy-app-shell[data-workspace-id="auction"] > .prodigy-app-shell-body::-webkit-scrollbar-thumb {
@@ -725,6 +717,9 @@
     const opts = options || {};
     const owner = shellOwner(container);
     const prior = ownerShells.get(owner);
+    const priorScrollTop = prior && prior.workspaceId === opts.workspaceId && prior.body
+      ? Number(prior.body.scrollTop)
+      : 0;
     if (prior) prior.dispose();
     if (opts.replace !== false && typeof container.empty === "function") container.empty();
     const contextOptions = opts.context || {};
@@ -744,6 +739,7 @@
     let reconnectObserver = null;
     let sizeObserver = null;
     let resizeListener = null;
+    let scrollRestoreObserver = null;
     const documentRef = container && container.ownerDocument;
     const view = documentRef && documentRef.defaultView || root;
     function ensureVisibleOwner() {
@@ -751,6 +747,20 @@
       if (typeof container.appendChild === "function") container.appendChild(shell);
     }
     const Observer = view && view.MutationObserver;
+    const restorePriorScroll = function () {
+      if (!Number.isFinite(priorScrollTop) || priorScrollTop <= 0) return true;
+      body.scrollTop = priorScrollTop;
+      return body.scrollTop === priorScrollTop;
+    };
+    if (!restorePriorScroll() && typeof Observer === "function") {
+      scrollRestoreObserver = new Observer(function () {
+        if (!restorePriorScroll()) return;
+        scrollRestoreObserver.disconnect();
+        scrollRestoreObserver = null;
+      });
+      try { scrollRestoreObserver.observe(body, { childList: true, subtree: true }); }
+      catch (_error) { scrollRestoreObserver = null; }
+    }
     if (owner && typeof Observer === "function") {
       reconnectObserver = new Observer(function () {
         if (!disposed && shell.isConnected === false && container.isConnected !== false && typeof container.appendChild === "function") container.appendChild(shell);
@@ -792,6 +802,7 @@
       if (reconnectObserver) { reconnectObserver.disconnect(); reconnectObserver = null; }
       if (sizeObserver) { sizeObserver.disconnect(); sizeObserver = null; }
       if (observerTier) { observerTier.disconnect(); observerTier = null; }
+      if (scrollRestoreObserver) { scrollRestoreObserver.disconnect(); scrollRestoreObserver = null; }
       if (resizeListener && view && typeof view.removeEventListener === "function") { view.removeEventListener("resize", resizeListener); resizeListener = null; }
       switcher.onchange = null;
       if (contextBar && typeof contextBar.querySelectorAll === "function") {
@@ -802,7 +813,7 @@
       else if (shell.parentElement && typeof shell.parentElement.removeChild === "function") shell.parentElement.removeChild(shell);
       return true;
     };
-    const mounted = { element: shell, workspaceBar, switcher, title, contextBar, body, dispose };
+    const mounted = { workspaceId: opts.workspaceId || "", element: shell, workspaceBar, switcher, title, contextBar, body, dispose };
     ownerShells.set(owner, mounted);
     return mounted;
   }

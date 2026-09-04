@@ -122,6 +122,29 @@ test("the actual Auction Hub discards an expired Region handoff", async () => {
   assert.equal(execution.global("prodigyAuctionRegionScope"), undefined);
 });
 
+test("every Auction card section reports lifecycle completion only after cards paint", () => {
+  const statuses = ["bidding", "watching", "reviewing", "won", "lost", "skipped", "archived"];
+  statuses.forEach((status) => {
+    const start = HUB.indexOf(`window.ProdigyAuctionNativeScenes.register("${status}", this.container);`);
+    const end = HUB.indexOf("window.ProdigyAuctionLifecycle.start", start);
+    assert.ok(start >= 0 && end > start, `${status}: section block must exist`);
+    const block = HUB.slice(start, end);
+    assert.match(block, /const rendered = window\.renderDashboardSection\(\{/);
+    assert.match(block, /if \(!rendered\) return false;/);
+    assert.ok(
+      block.indexOf("if (!rendered) return false;") < block.indexOf(`markSection("${status}")`),
+      `${status}: navigation readiness must follow a real paint`,
+    );
+  });
+});
+
+test("Auction filters belong to Workspace UI state instead of Hub frontmatter", () => {
+  const frontmatter = HUB.match(/^---\n([\s\S]*?)\n---/);
+  assert.ok(frontmatter);
+  assert.doesNotMatch(frontmatter[1], /^card_(?:region|type|sort):/m);
+  assert.match(HUB, /prodigyAuctionWorkspaceStateStore\s*=\s*auctionShell\.stateStore/);
+});
+
 test("the actual Auction renderer records an explicit continuation when measurement arrives after rendering", async () => {
   const readiness = deferred();
   readiness.resolve();
