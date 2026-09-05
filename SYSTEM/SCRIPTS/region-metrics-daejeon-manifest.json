@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "sido": "대전광역시",
+  "description": "대전광역시 5개 구 표준 지역 manifest — metrics batch와 research job이 공유하는 canonical source. Contract: SYSTEM/docs/Region_Property_Contract_v1.md. R-ONE·MOIS jumin 원본이 대전을 30계열 코드로 분류함을 2026-09-05 시군구 5개 전 지표 원본 재현으로 검증했다.",
+  "created": "2026-09-05",
+  "region_count": 5,
+  "regions": [
+    {
+      "sigungu": "동구",
+      "region_key": "대전광역시-동구",
+      "title": "대전광역시 동구",
+      "region_prefix": "대전광역시 동구",
+      "lawd_code": "30110000",
+      "household_code": "3011000000"
+    },
+    {
+      "sigungu": "중구",
+      "region_key": "대전광역시-중구",
+      "title": "대전광역시 중구",
+      "region_prefix": "대전광역시 중구",
+      "lawd_code": "30140000",
+      "household_code": "3014000000"
+    },
+    {
+      "sigungu": "서구",
+      "region_key": "대전광역시-서구",
+      "title": "대전광역시 서구",
+      "region_prefix": "대전광역시 서구",
+      "lawd_code": "30170000",
+      "household_code": "3017000000"
+    },
+    {
+      "sigungu": "유성구",
+      "region_key": "대전광역시-유성구",
+      "title": "대전광역시 유성구",
+      "region_prefix": "대전광역시 유성구",
+      "lawd_code": "30200000",
+      "household_code": "3020000000"
+    },
+    {
+      "sigungu": "대덕구",
+      "region_key": "대전광역시-대덕구",
+      "title": "대전광역시 대덕구",
+      "region_prefix": "대전광역시 대덕구",
+      "lawd_code": "30230000",
+      "household_code": "3023000000"
+    }
+  ]
+}

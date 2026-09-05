@@ -20,6 +20,10 @@
     {
       "sido": "대구광역시",
       "manifest_path": "region-metrics-daegu-manifest.json"
+    },
+    {
+      "sido": "대전광역시",
+      "manifest_path": "region-metrics-daejeon-manifest.json"
     }
   ]
 }
