@@ -24,6 +24,10 @@
     {
       "sido": "대전광역시",
       "manifest_path": "region-metrics-daejeon-manifest.json"
+    },
+    {
+      "sido": "충청남도",
+      "manifest_path": "region-metrics-chungnam-manifest.json"
     }
   ]
 }
