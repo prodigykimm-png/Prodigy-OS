@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "sido": "충청북도",
+  "description": "충청북도 11개 시·군 표준 지역 manifest — metrics batch와 research job이 공유하는 canonical source. Contract: SYSTEM/docs/Region_Property_Contract_v1.md. 청주시는 상당·서원·흥덕·청원 4구를 분할하지 않고 시 단위로 관리하며 통합시 재고 매칭용 stock_region_prefix를 둔다. R-ONE·MOIS jumin 원본 모두 43계열 코드로 2026-09-06 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-06",
+  "region_count": 11,
+  "regions": [
+    {
+      "sigungu": "청주시",
+      "region_key": "충청북도-청주시",
+      "title": "충청북도 청주시",
+      "region_prefix": "충청북도 청주시",
+      "stock_region_prefix": "충청북도 청주",
+      "lawd_code": "43110000",
+      "household_code": "4311000000"
+    },
+    {
+      "sigungu": "충주시",
+      "region_key": "충청북도-충주시",
+      "title": "충청북도 충주시",
+      "region_prefix": "충청북도 충주시",
+      "lawd_code": "43130000",
+      "household_code": "4313000000"
+    },
+    {
+      "sigungu": "제천시",
+      "region_key": "충청북도-제천시",
+      "title": "충청북도 제천시",
+      "region_prefix": "충청북도 제천시",
+      "lawd_code": "43150000",
+      "household_code": "4315000000"
+    },
+    {
+      "sigungu": "보은군",
+      "region_key": "충청북도-보은군",
+      "title": "충청북도 보은군",
+      "region_prefix": "충청북도 보은군",
+      "lawd_code": "43720000",
+      "household_code": "4372000000"
+    },
+    {
+      "sigungu": "옥천군",
+      "region_key": "충청북도-옥천군",
+      "title": "충청북도 옥천군",
+      "region_prefix": "충청북도 옥천군",
+      "lawd_code": "43730000",
+      "household_code": "4373000000"
+    },
+    {
+      "sigungu": "영동군",
+      "region_key": "충청북도-영동군",
+      "title": "충청북도 영동군",
+      "region_prefix": "충청북도 영동군",
+      "lawd_code": "43740000",
+      "household_code": "4374000000"
+    },
+    {
+      "sigungu": "증평군",
+      "region_key": "충청북도-증평군",
+      "title": "충청북도 증평군",
+      "region_prefix": "충청북도 증평군",
+      "lawd_code": "43745000",
+      "household_code": "4374500000"
+    },
+    {
+      "sigungu": "진천군",
+      "region_key": "충청북도-진천군",
+      "title": "충청북도 진천군",
+      "region_prefix": "충청북도 진천군",
+      "lawd_code": "43750000",
+      "household_code": "4375000000"
+    },
+    {
+      "sigungu": "괴산군",
+      "region_key": "충청북도-괴산군",
+      "title": "충청북도 괴산군",
+      "region_prefix": "충청북도 괴산군",
+      "lawd_code": "43760000",
+      "household_code": "4376000000"
+    },
+    {
+      "sigungu": "음성군",
+      "region_key": "충청북도-음성군",
+      "title": "충청북도 음성군",
+      "region_prefix": "충청북도 음성군",
+      "lawd_code": "43770000",
+      "household_code": "4377000000"
+    },
+    {
+      "sigungu": "단양군",
+      "region_key": "충청북도-단양군",
+      "title": "충청북도 단양군",
+      "region_prefix": "충청북도 단양군",
+      "lawd_code": "43800000",
+      "household_code": "4380000000"
+    }
+  ]
+}

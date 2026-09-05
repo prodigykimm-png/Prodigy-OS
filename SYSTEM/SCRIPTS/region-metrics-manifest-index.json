@@ -28,6 +28,10 @@
     {
       "sido": "충청남도",
       "manifest_path": "region-metrics-chungnam-manifest.json"
+    },
+    {
+      "sido": "충청북도",
+      "manifest_path": "region-metrics-chungbuk-manifest.json"
     }
   ]
 }
