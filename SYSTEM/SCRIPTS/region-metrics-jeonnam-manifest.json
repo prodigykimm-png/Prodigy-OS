@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "sido": "전라남도",
+  "description": "전라남도 22개 시·군 표준 지역 manifest. 주의: 2026-09-06 기준 R-ONE·MOIS jumin 원본은 전남을 전남광주통합특별시 체계(12계열 코드)로 집계한다 — MOIS household_row는 전남광주통합특별시 명의(household_row_override 참조), 재고·공급 CSV는 전라남도 명칭을 유지한다. R-ONE lawd는 12110000~12870000. 2026-09-06 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-06",
+  "region_count": 22,
+  "regions": [
+    {
+      "sigungu": "목포시",
+      "region_key": "전라남도-목포시",
+      "title": "전라남도 목포시",
+      "region_prefix": "전라남도 목포시",
+      "lawd_code": "12110000",
+      "household_code": "1211000000",
+      "household_row_override": "전남광주통합특별시 목포시 (1211000000)"
+    },
+    {
+      "sigungu": "여수시",
+      "region_key": "전라남도-여수시",
+      "title": "전라남도 여수시",
+      "region_prefix": "전라남도 여수시",
+      "lawd_code": "12130000",
+      "household_code": "1213000000",
+      "household_row_override": "전남광주통합특별시 여수시 (1213000000)"
+    },
+    {
+      "sigungu": "순천시",
+      "region_key": "전라남도-순천시",
+      "title": "전라남도 순천시",
+      "region_prefix": "전라남도 순천시",
+      "lawd_code": "12150000",
+      "household_code": "1215000000",
+      "household_row_override": "전남광주통합특별시 순천시 (1215000000)"
+    },
+    {
+      "sigungu": "나주시",
+      "region_key": "전라남도-나주시",
+      "title": "전라남도 나주시",
+      "region_prefix": "전라남도 나주시",
+      "lawd_code": "12170000",
+      "household_code": "1217000000",
+      "household_row_override": "전남광주통합특별시 나주시 (1217000000)"
+    },
+    {
+      "sigungu": "광양시",
+      "region_key": "전라남도-광양시",
+      "title": "전라남도 광양시",
+      "region_prefix": "전라남도 광양시",
+      "lawd_code": "12190000",
+      "household_code": "1219000000",
+      "household_row_override": "전남광주통합특별시 광양시 (1219000000)"
+    },
+    {
+      "sigungu": "담양군",
+      "region_key": "전라남도-담양군",
+      "title": "전라남도 담양군",
+      "region_prefix": "전라남도 담양군",
+      "lawd_code": "12710000",
+      "household_code": "1271000000",
+      "household_row_override": "전남광주통합특별시 담양군 (1271000000)"
+    },
+    {
+      "sigungu": "곡성군",
+      "region_key": "전라남도-곡성군",
+      "title": "전라남도 곡성군",
+      "region_prefix": "전라남도 곡성군",
+      "lawd_code": "12720000",
+      "household_code": "1272000000",
+      "household_row_override": "전남광주통합특별시 곡성군 (1272000000)"
+    },
+    {
+      "sigungu": "구례군",
+      "region_key": "전라남도-구례군",
+      "title": "전라남도 구례군",
+      "region_prefix": "전라남도 구례군",
+      "lawd_code": "12730000",
+      "household_code": "1273000000",
+      "household_row_override": "전남광주통합특별시 구례군 (1273000000)"
+    },
+    {
+      "sigungu": "고흥군",
+      "region_key": "전라남도-고흥군",
+      "title": "전라남도 고흥군",
+      "region_prefix": "전라남도 고흥군",
+      "lawd_code": "12740000",
+      "household_code": "1274000000",
+      "household_row_override": "전남광주통합특별시 고흥군 (1274000000)"
+    },
+    {
+      "sigungu": "보성군",
+      "region_key": "전라남도-보성군",
+      "title": "전라남도 보성군",
+      "region_prefix": "전라남도 보성군",
+      "lawd_code": "12750000",
+      "household_code": "1275000000",
+      "household_row_override": "전남광주통합특별시 보성군 (1275000000)"
+    },
+    {
+      "sigungu": "화순군",
+      "region_key": "전라남도-화순군",
+      "title": "전라남도 화순군",
+      "region_prefix": "전라남도 화순군",
+      "lawd_code": "12760000",
+      "household_code": "1276000000",
+      "household_row_override": "전남광주통합특별시 화순군 (1276000000)"
+    },
+    {
+      "sigungu": "장흥군",
+      "region_key": "전라남도-장흥군",
+      "title": "전라남도 장흥군",
+      "region_prefix": "전라남도 장흥군",
+      "lawd_code": "12770000",
+      "household_code": "1277000000",
+      "household_row_override": "전남광주통합특별시 장흥군 (1277000000)"
+    },
+    {
+      "sigungu": "강진군",
+      "region_key": "전라남도-강진군",
+      "title": "전라남도 강진군",
+      "region_prefix": "전라남도 강진군",
+      "lawd_code": "12780000",
+      "household_code": "1278000000",
+      "household_row_override": "전남광주통합특별시 강진군 (1278000000)"
+    },
+    {
+      "sigungu": "해남군",
+      "region_key": "전라남도-해남군",
+      "title": "전라남도 해남군",
+      "region_prefix": "전라남도 해남군",
+      "lawd_code": "12790000",
+      "household_code": "1279000000",
+      "household_row_override": "전남광주통합특별시 해남군 (1279000000)"
+    },
+    {
+      "sigungu": "영암군",
+      "region_key": "전라남도-영암군",
+      "title": "전라남도 영암군",
+      "region_prefix": "전라남도 영암군",
+      "lawd_code": "12800000",
+      "household_code": "1280000000",
+      "household_row_override": "전남광주통합특별시 영암군 (1280000000)"
+    },
+    {
+      "sigungu": "무안군",
+      "region_key": "전라남도-무안군",
+      "title": "전라남도 무안군",
+      "region_prefix": "전라남도 무안군",
+      "lawd_code": "12810000",
+      "household_code": "1281000000",
+      "household_row_override": "전남광주통합특별시 무안군 (1281000000)"
+    },
+    {
+      "sigungu": "함평군",
+      "region_key": "전라남도-함평군",
+      "title": "전라남도 함평군",
+      "region_prefix": "전라남도 함평군",
+      "lawd_code": "12820000",
+      "household_code": "1282000000",
+      "household_row_override": "전남광주통합특별시 함평군 (1282000000)"
+    },
+    {
+      "sigungu": "영광군",
+      "region_key": "전라남도-영광군",
+      "title": "전라남도 영광군",
+      "region_prefix": "전라남도 영광군",
+      "lawd_code": "12830000",
+      "household_code": "1283000000",
+      "household_row_override": "전남광주통합특별시 영광군 (1283000000)"
+    },
+    {
+      "sigungu": "장성군",
+      "region_key": "전라남도-장성군",
+      "title": "전라남도 장성군",
+      "region_prefix": "전라남도 장성군",
+      "lawd_code": "12840000",
+      "household_code": "1284000000",
+      "household_row_override": "전남광주통합특별시 장성군 (1284000000)"
+    },
+    {
+      "sigungu": "완도군",
+      "region_key": "전라남도-완도군",
+      "title": "전라남도 완도군",
+      "region_prefix": "전라남도 완도군",
+      "lawd_code": "12850000",
+      "household_code": "1285000000",
+      "household_row_override": "전남광주통합특별시 완도군 (1285000000)"
+    },
+    {
+      "sigungu": "진도군",
+      "region_key": "전라남도-진도군",
+      "title": "전라남도 진도군",
+      "region_prefix": "전라남도 진도군",
+      "lawd_code": "12860000",
+      "household_code": "1286000000",
+      "household_row_override": "전남광주통합특별시 진도군 (1286000000)"
+    },
+    {
+      "sigungu": "신안군",
+      "region_key": "전라남도-신안군",
+      "title": "전라남도 신안군",
+      "region_prefix": "전라남도 신안군",
+      "lawd_code": "12870000",
+      "household_code": "1287000000",
+      "household_row_override": "전남광주통합특별시 신안군 (1287000000)"
+    }
+  ]
+}

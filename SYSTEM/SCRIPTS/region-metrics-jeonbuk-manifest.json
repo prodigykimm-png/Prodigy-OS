@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "sido": "전북특별자치도",
+  "description": "전북특별자치도 14개 시·군 표준 지역 manifest. 전주시는 완산·덕진 2구를 분할하지 않고 시 단위로 관리하며 통합시 재고 매칭용 stock_region_prefix를 둔다. R-ONE·MOIS jumin 원본 모두 52계열 코드로 2026-09-06 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-06",
+  "region_count": 14,
+  "regions": [
+    {
+      "sigungu": "전주시",
+      "region_key": "전북특별자치도-전주시",
+      "title": "전북특별자치도 전주시",
+      "region_prefix": "전북특별자치도 전주시",
+      "stock_region_prefix": "전북특별자치도 전주",
+      "lawd_code": "52110000",
+      "household_code": "5211000000"
+    },
+    {
+      "sigungu": "군산시",
+      "region_key": "전북특별자치도-군산시",
+      "title": "전북특별자치도 군산시",
+      "region_prefix": "전북특별자치도 군산시",
+      "lawd_code": "52130000",
+      "household_code": "5213000000"
+    },
+    {
+      "sigungu": "익산시",
+      "region_key": "전북특별자치도-익산시",
+      "title": "전북특별자치도 익산시",
+      "region_prefix": "전북특별자치도 익산시",
+      "lawd_code": "52140000",
+      "household_code": "5214000000"
+    },
+    {
+      "sigungu": "정읍시",
+      "region_key": "전북특별자치도-정읍시",
+      "title": "전북특별자치도 정읍시",
+      "region_prefix": "전북특별자치도 정읍시",
+      "lawd_code": "52180000",
+      "household_code": "5218000000"
+    },
+    {
+      "sigungu": "남원시",
+      "region_key": "전북특별자치도-남원시",
+      "title": "전북특별자치도 남원시",
+      "region_prefix": "전북특별자치도 남원시",
+      "lawd_code": "52190000",
+      "household_code": "5219000000"
+    },
+    {
+      "sigungu": "김제시",
+      "region_key": "전북특별자치도-김제시",
+      "title": "전북특별자치도 김제시",
+      "region_prefix": "전북특별자치도 김제시",
+      "lawd_code": "52210000",
+      "household_code": "5221000000"
+    },
+    {
+      "sigungu": "완주군",
+      "region_key": "전북특별자치도-완주군",
+      "title": "전북특별자치도 완주군",
+      "region_prefix": "전북특별자치도 완주군",
+      "lawd_code": "52710000",
+      "household_code": "5271000000"
+    },
+    {
+      "sigungu": "진안군",
+      "region_key": "전북특별자치도-진안군",
+      "title": "전북특별자치도 진안군",
+      "region_prefix": "전북특별자치도 진안군",
+      "lawd_code": "52720000",
+      "household_code": "5272000000"
+    },
+    {
+      "sigungu": "무주군",
+      "region_key": "전북특별자치도-무주군",
+      "title": "전북특별자치도 무주군",
+      "region_prefix": "전북특별자치도 무주군",
+      "lawd_code": "52730000",
+      "household_code": "5273000000"
+    },
+    {
+      "sigungu": "장수군",
+      "region_key": "전북특별자치도-장수군",
+      "title": "전북특별자치도 장수군",
+      "region_prefix": "전북특별자치도 장수군",
+      "lawd_code": "52740000",
+      "household_code": "5274000000"
+    },
+    {
+      "sigungu": "임실군",
+      "region_key": "전북특별자치도-임실군",
+      "title": "전북특별자치도 임실군",
+      "region_prefix": "전북특별자치도 임실군",
+      "lawd_code": "52750000",
+      "household_code": "5275000000"
+    },
+    {
+      "sigungu": "순창군",
+      "region_key": "전북특별자치도-순창군",
+      "title": "전북특별자치도 순창군",
+      "region_prefix": "전북특별자치도 순창군",
+      "lawd_code": "52770000",
+      "household_code": "5277000000"
+    },
+    {
+      "sigungu": "고창군",
+      "region_key": "전북특별자치도-고창군",
+      "title": "전북특별자치도 고창군",
+      "region_prefix": "전북특별자치도 고창군",
+      "lawd_code": "52790000",
+      "household_code": "5279000000"
+    },
+    {
+      "sigungu": "부안군",
+      "region_key": "전북특별자치도-부안군",
+      "title": "전북특별자치도 부안군",
+      "region_prefix": "전북특별자치도 부안군",
+      "lawd_code": "52800000",
+      "household_code": "5280000000"
+    }
+  ]
+}

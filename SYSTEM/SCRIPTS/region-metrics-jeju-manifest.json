@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "sido": "제주특별자치도",
+  "description": "제주특별자치도 2개 시 표준 지역 manifest. R-ONE·MOIS jumin 원본 모두 50계열 코드로 일치. 2026-09-06 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-06",
+  "region_count": 2,
+  "regions": [
+    {
+      "sigungu": "제주시",
+      "region_key": "제주특별자치도-제주시",
+      "title": "제주특별자치도 제주시",
+      "region_prefix": "제주특별자치도 제주시",
+      "lawd_code": "50110000",
+      "household_code": "5011000000"
+    },
+    {
+      "sigungu": "서귀포시",
+      "region_key": "제주특별자치도-서귀포시",
+      "title": "제주특별자치도 서귀포시",
+      "region_prefix": "제주특별자치도 서귀포시",
+      "lawd_code": "50130000",
+      "household_code": "5013000000"
+    }
+  ]
+}

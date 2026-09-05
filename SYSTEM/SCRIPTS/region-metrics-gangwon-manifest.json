@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "sido": "강원특별자치도",
+  "description": "강원특별자치도 18개 시·군 표준 지역 manifest. R-ONE·MOIS jumin 원본 모두 51계열 코드로 일치. 2026-09-06 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-06",
+  "region_count": 18,
+  "regions": [
+    {
+      "sigungu": "춘천시",
+      "region_key": "강원특별자치도-춘천시",
+      "title": "강원특별자치도 춘천시",
+      "region_prefix": "강원특별자치도 춘천시",
+      "lawd_code": "51110000",
+      "household_code": "5111000000"
+    },
+    {
+      "sigungu": "원주시",
+      "region_key": "강원특별자치도-원주시",
+      "title": "강원특별자치도 원주시",
+      "region_prefix": "강원특별자치도 원주시",
+      "lawd_code": "51130000",
+      "household_code": "5113000000"
+    },
+    {
+      "sigungu": "강릉시",
+      "region_key": "강원특별자치도-강릉시",
+      "title": "강원특별자치도 강릉시",
+      "region_prefix": "강원특별자치도 강릉시",
+      "lawd_code": "51150000",
+      "household_code": "5115000000"
+    },
+    {
+      "sigungu": "동해시",
+      "region_key": "강원특별자치도-동해시",
+      "title": "강원특별자치도 동해시",
+      "region_prefix": "강원특별자치도 동해시",
+      "lawd_code": "51170000",
+      "household_code": "5117000000"
+    },
+    {
+      "sigungu": "태백시",
+      "region_key": "강원특별자치도-태백시",
+      "title": "강원특별자치도 태백시",
+      "region_prefix": "강원특별자치도 태백시",
+      "lawd_code": "51190000",
+      "household_code": "5119000000"
+    },
+    {
+      "sigungu": "속초시",
+      "region_key": "강원특별자치도-속초시",
+      "title": "강원특별자치도 속초시",
+      "region_prefix": "강원특별자치도 속초시",
+      "lawd_code": "51210000",
+      "household_code": "5121000000"
+    },
+    {
+      "sigungu": "삼척시",
+      "region_key": "강원특별자치도-삼척시",
+      "title": "강원특별자치도 삼척시",
+      "region_prefix": "강원특별자치도 삼척시",
+      "lawd_code": "51230000",
+      "household_code": "5123000000"
+    },
+    {
+      "sigungu": "홍천군",
+      "region_key": "강원특별자치도-홍천군",
+      "title": "강원특별자치도 홍천군",
+      "region_prefix": "강원특별자치도 홍천군",
+      "lawd_code": "51720000",
+      "household_code": "5172000000"
+    },
+    {
+      "sigungu": "횡성군",
+      "region_key": "강원특별자치도-횡성군",
+      "title": "강원특별자치도 횡성군",
+      "region_prefix": "강원특별자치도 횡성군",
+      "lawd_code": "51730000",
+      "household_code": "5173000000"
+    },
+    {
+      "sigungu": "영월군",
+      "region_key": "강원특별자치도-영월군",
+      "title": "강원특별자치도 영월군",
+      "region_prefix": "강원특별자치도 영월군",
+      "lawd_code": "51750000",
+      "household_code": "5175000000"
+    },
+    {
+      "sigungu": "평창군",
+      "region_key": "강원특별자치도-평창군",
+      "title": "강원특별자치도 평창군",
+      "region_prefix": "강원특별자치도 평창군",
+      "lawd_code": "51760000",
+      "household_code": "5176000000"
+    },
+    {
+      "sigungu": "정선군",
+      "region_key": "강원특별자치도-정선군",
+      "title": "강원특별자치도 정선군",
+      "region_prefix": "강원특별자치도 정선군",
+      "lawd_code": "51770000",
+      "household_code": "5177000000"
+    },
+    {
+      "sigungu": "철원군",
+      "region_key": "강원특별자치도-철원군",
+      "title": "강원특별자치도 철원군",
+      "region_prefix": "강원특별자치도 철원군",
+      "lawd_code": "51780000",
+      "household_code": "5178000000"
+    },
+    {
+      "sigungu": "화천군",
+      "region_key": "강원특별자치도-화천군",
+      "title": "강원특별자치도 화천군",
+      "region_prefix": "강원특별자치도 화천군",
+      "lawd_code": "51790000",
+      "household_code": "5179000000"
+    },
+    {
+      "sigungu": "양구군",
+      "region_key": "강원특별자치도-양구군",
+      "title": "강원특별자치도 양구군",
+      "region_prefix": "강원특별자치도 양구군",
+      "lawd_code": "51800000",
+      "household_code": "5180000000"
+    },
+    {
+      "sigungu": "인제군",
+      "region_key": "강원특별자치도-인제군",
+      "title": "강원특별자치도 인제군",
+      "region_prefix": "강원특별자치도 인제군",
+      "lawd_code": "51810000",
+      "household_code": "5181000000"
+    },
+    {
+      "sigungu": "고성군",
+      "region_key": "강원특별자치도-고성군",
+      "title": "강원특별자치도 고성군",
+      "region_prefix": "강원특별자치도 고성군",
+      "lawd_code": "51820000",
+      "household_code": "5182000000"
+    },
+    {
+      "sigungu": "양양군",
+      "region_key": "강원특별자치도-양양군",
+      "title": "강원특별자치도 양양군",
+      "region_prefix": "강원특별자치도 양양군",
+      "lawd_code": "51830000",
+      "household_code": "5183000000"
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "sido": "경상남도",
+  "description": "경상남도 18개 시·군 표준 지역 manifest. 창원시는 5개 구(의창·성산·마산합포·마산회원·진해)를 분할하지 않고 시 단위로 관리하며 통합시 재고 매칭용 stock_region_prefix를 둔다. R-ONE·MOIS jumin 원본 모두 48계열 코드로 2026-09-06 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-06",
+  "region_count": 18,
+  "regions": [
+    {
+      "sigungu": "창원시",
+      "region_key": "경상남도-창원시",
+      "title": "경상남도 창원시",
+      "region_prefix": "경상남도 창원시",
+      "stock_region_prefix": "경상남도 창원",
+      "lawd_code": "48120000",
+      "household_code": "4812000000"
+    },
+    {
+      "sigungu": "진주시",
+      "region_key": "경상남도-진주시",
+      "title": "경상남도 진주시",
+      "region_prefix": "경상남도 진주시",
+      "lawd_code": "48170000",
+      "household_code": "4817000000"
+    },
+    {
+      "sigungu": "통영시",
+      "region_key": "경상남도-통영시",
+      "title": "경상남도 통영시",
+      "region_prefix": "경상남도 통영시",
+      "lawd_code": "48220000",
+      "household_code": "4822000000"
+    },
+    {
+      "sigungu": "사천시",
+      "region_key": "경상남도-사천시",
+      "title": "경상남도 사천시",
+      "region_prefix": "경상남도 사천시",
+      "lawd_code": "48240000",
+      "household_code": "4824000000"
+    },
+    {
+      "sigungu": "김해시",
+      "region_key": "경상남도-김해시",
+      "title": "경상남도 김해시",
+      "region_prefix": "경상남도 김해시",
+      "lawd_code": "48250000",
+      "household_code": "4825000000"
+    },
+    {
+      "sigungu": "밀양시",
+      "region_key": "경상남도-밀양시",
+      "title": "경상남도 밀양시",
+      "region_prefix": "경상남도 밀양시",
+      "lawd_code": "48270000",
+      "household_code": "4827000000"
+    },
+    {
+      "sigungu": "거제시",
+      "region_key": "경상남도-거제시",
+      "title": "경상남도 거제시",
+      "region_prefix": "경상남도 거제시",
+      "lawd_code": "48310000",
+      "household_code": "4831000000"
+    },
+    {
+      "sigungu": "양산시",
+      "region_key": "경상남도-양산시",
+      "title": "경상남도 양산시",
+      "region_prefix": "경상남도 양산시",
+      "lawd_code": "48330000",
+      "household_code": "4833000000"
+    },
+    {
+      "sigungu": "의령군",
+      "region_key": "경상남도-의령군",
+      "title": "경상남도 의령군",
+      "region_prefix": "경상남도 의령군",
+      "lawd_code": "48720000",
+      "household_code": "4872000000"
+    },
+    {
+      "sigungu": "함안군",
+      "region_key": "경상남도-함안군",
+      "title": "경상남도 함안군",
+      "region_prefix": "경상남도 함안군",
+      "lawd_code": "48730000",
+      "household_code": "4873000000"
+    },
+    {
+      "sigungu": "창녕군",
+      "region_key": "경상남도-창녕군",
+      "title": "경상남도 창녕군",
+      "region_prefix": "경상남도 창녕군",
+      "lawd_code": "48740000",
+      "household_code": "4874000000"
+    },
+    {
+      "sigungu": "고성군",
+      "region_key": "경상남도-고성군",
+      "title": "경상남도 고성군",
+      "region_prefix": "경상남도 고성군",
+      "lawd_code": "48820000",
+      "household_code": "4882000000"
+    },
+    {
+      "sigungu": "남해군",
+      "region_key": "경상남도-남해군",
+      "title": "경상남도 남해군",
+      "region_prefix": "경상남도 남해군",
+      "lawd_code": "48840000",
+      "household_code": "4884000000"
+    },
+    {
+      "sigungu": "하동군",
+      "region_key": "경상남도-하동군",
+      "title": "경상남도 하동군",
+      "region_prefix": "경상남도 하동군",
+      "lawd_code": "48850000",
+      "household_code": "4885000000"
+    },
+    {
+      "sigungu": "산청군",
+      "region_key": "경상남도-산청군",
+      "title": "경상남도 산청군",
+      "region_prefix": "경상남도 산청군",
+      "lawd_code": "48860000",
+      "household_code": "4886000000"
+    },
+    {
+      "sigungu": "함양군",
+      "region_key": "경상남도-함양군",
+      "title": "경상남도 함양군",
+      "region_prefix": "경상남도 함양군",
+      "lawd_code": "48870000",
+      "household_code": "4887000000"
+    },
+    {
+      "sigungu": "거창군",
+      "region_key": "경상남도-거창군",
+      "title": "경상남도 거창군",
+      "region_prefix": "경상남도 거창군",
+      "lawd_code": "48880000",
+      "household_code": "4888000000"
+    },
+    {
+      "sigungu": "합천군",
+      "region_key": "경상남도-합천군",
+      "title": "경상남도 합천군",
+      "region_prefix": "경상남도 합천군",
+      "lawd_code": "48890000",
+      "household_code": "4889000000"
+    }
+  ]
+}

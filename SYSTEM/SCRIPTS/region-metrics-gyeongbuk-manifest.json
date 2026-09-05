@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "sido": "경상북도",
+  "description": "경상북도 22개 시·군 표준 지역 manifest. 포항시는 남구·북구를 분할하지 않고 시 단위로 관리하며 통합시 재고 매칭용 stock_region_prefix를 둔다. 군위군은 2023년 대구 편입으로 제외(대구 manifest 보완 과제). R-ONE·MOIS jumin 원본 모두 47계열 코드로 2026-09-06 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-06",
+  "region_count": 22,
+  "regions": [
+    {
+      "sigungu": "포항시",
+      "region_key": "경상북도-포항시",
+      "title": "경상북도 포항시",
+      "region_prefix": "경상북도 포항시",
+      "stock_region_prefix": "경상북도 포항",
+      "lawd_code": "47110000",
+      "household_code": "4711000000"
+    },
+    {
+      "sigungu": "경주시",
+      "region_key": "경상북도-경주시",
+      "title": "경상북도 경주시",
+      "region_prefix": "경상북도 경주시",
+      "lawd_code": "47130000",
+      "household_code": "4713000000"
+    },
+    {
+      "sigungu": "김천시",
+      "region_key": "경상북도-김천시",
+      "title": "경상북도 김천시",
+      "region_prefix": "경상북도 김천시",
+      "lawd_code": "47150000",
+      "household_code": "4715000000"
+    },
+    {
+      "sigungu": "안동시",
+      "region_key": "경상북도-안동시",
+      "title": "경상북도 안동시",
+      "region_prefix": "경상북도 안동시",
+      "lawd_code": "47170000",
+      "household_code": "4717000000"
+    },
+    {
+      "sigungu": "구미시",
+      "region_key": "경상북도-구미시",
+      "title": "경상북도 구미시",
+      "region_prefix": "경상북도 구미시",
+      "lawd_code": "47190000",
+      "household_code": "4719000000"
+    },
+    {
+      "sigungu": "영주시",
+      "region_key": "경상북도-영주시",
+      "title": "경상북도 영주시",
+      "region_prefix": "경상북도 영주시",
+      "lawd_code": "47210000",
+      "household_code": "4721000000"
+    },
+    {
+      "sigungu": "영천시",
+      "region_key": "경상북도-영천시",
+      "title": "경상북도 영천시",
+      "region_prefix": "경상북도 영천시",
+      "lawd_code": "47230000",
+      "household_code": "4723000000"
+    },
+    {
+      "sigungu": "상주시",
+      "region_key": "경상북도-상주시",
+      "title": "경상북도 상주시",
+      "region_prefix": "경상북도 상주시",
+      "lawd_code": "47250000",
+      "household_code": "4725000000"
+    },
+    {
+      "sigungu": "문경시",
+      "region_key": "경상북도-문경시",
+      "title": "경상북도 문경시",
+      "region_prefix": "경상북도 문경시",
+      "lawd_code": "47280000",
+      "household_code": "4728000000"
+    },
+    {
+      "sigungu": "경산시",
+      "region_key": "경상북도-경산시",
+      "title": "경상북도 경산시",
+      "region_prefix": "경상북도 경산시",
+      "lawd_code": "47290000",
+      "household_code": "4729000000"
+    },
+    {
+      "sigungu": "의성군",
+      "region_key": "경상북도-의성군",
+      "title": "경상북도 의성군",
+      "region_prefix": "경상북도 의성군",
+      "lawd_code": "47730000",
+      "household_code": "4773000000"
+    },
+    {
+      "sigungu": "청송군",
+      "region_key": "경상북도-청송군",
+      "title": "경상북도 청송군",
+      "region_prefix": "경상북도 청송군",
+      "lawd_code": "47750000",
+      "household_code": "4775000000"
+    },
+    {
+      "sigungu": "영양군",
+      "region_key": "경상북도-영양군",
+      "title": "경상북도 영양군",
+      "region_prefix": "경상북도 영양군",
+      "lawd_code": "47760000",
+      "household_code": "4776000000"
+    },
+    {
+      "sigungu": "영덕군",
+      "region_key": "경상북도-영덕군",
+      "title": "경상북도 영덕군",
+      "region_prefix": "경상북도 영덕군",
+      "lawd_code": "47770000",
+      "household_code": "4777000000"
+    },
+    {
+      "sigungu": "청도군",
+      "region_key": "경상북도-청도군",
+      "title": "경상북도 청도군",
+      "region_prefix": "경상북도 청도군",
+      "lawd_code": "47820000",
+      "household_code": "4782000000"
+    },
+    {
+      "sigungu": "고령군",
+      "region_key": "경상북도-고령군",
+      "title": "경상북도 고령군",
+      "region_prefix": "경상북도 고령군",
+      "lawd_code": "47830000",
+      "household_code": "4783000000"
+    },
+    {
+      "sigungu": "성주군",
+      "region_key": "경상북도-성주군",
+      "title": "경상북도 성주군",
+      "region_prefix": "경상북도 성주군",
+      "lawd_code": "47840000",
+      "household_code": "4784000000"
+    },
+    {
+      "sigungu": "칠곡군",
+      "region_key": "경상북도-칠곡군",
+      "title": "경상북도 칠곡군",
+      "region_prefix": "경상북도 칠곡군",
+      "lawd_code": "47850000",
+      "household_code": "4785000000"
+    },
+    {
+      "sigungu": "예천군",
+      "region_key": "경상북도-예천군",
+      "title": "경상북도 예천군",
+      "region_prefix": "경상북도 예천군",
+      "lawd_code": "47900000",
+      "household_code": "4790000000"
+    },
+    {
+      "sigungu": "봉화군",
+      "region_key": "경상북도-봉화군",
+      "title": "경상북도 봉화군",
+      "region_prefix": "경상북도 봉화군",
+      "lawd_code": "47920000",
+      "household_code": "4792000000"
+    },
+    {
+      "sigungu": "울진군",
+      "region_key": "경상북도-울진군",
+      "title": "경상북도 울진군",
+      "region_prefix": "경상북도 울진군",
+      "lawd_code": "47930000",
+      "household_code": "4793000000"
+    },
+    {
+      "sigungu": "울릉군",
+      "region_key": "경상북도-울릉군",
+      "title": "경상북도 울릉군",
+      "region_prefix": "경상북도 울릉군",
+      "lawd_code": "47940000",
+      "household_code": "4794000000"
+    }
+  ]
+}

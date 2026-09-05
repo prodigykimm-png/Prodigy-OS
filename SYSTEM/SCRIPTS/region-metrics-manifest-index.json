@@ -44,6 +44,30 @@
     {
       "sido": "세종특별자치시",
       "manifest_path": "region-metrics-sejong-manifest.json"
+    },
+    {
+      "sido": "전북특별자치도",
+      "manifest_path": "region-metrics-jeonbuk-manifest.json"
+    },
+    {
+      "sido": "강원특별자치도",
+      "manifest_path": "region-metrics-gangwon-manifest.json"
+    },
+    {
+      "sido": "전라남도",
+      "manifest_path": "region-metrics-jeonnam-manifest.json"
+    },
+    {
+      "sido": "경상북도",
+      "manifest_path": "region-metrics-gyeongbuk-manifest.json"
+    },
+    {
+      "sido": "경상남도",
+      "manifest_path": "region-metrics-gyeongnam-manifest.json"
+    },
+    {
+      "sido": "제주특별자치도",
+      "manifest_path": "region-metrics-jeju-manifest.json"
     }
   ]
 }
