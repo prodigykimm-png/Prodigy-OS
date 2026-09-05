@@ -154,10 +154,10 @@ test("document planning requires complete semantic source coverage before downst
   const missingResult = await missing.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
   assert.equal(missingResult.ok, false);
   assert.equal(missingResult.status, "review_required");
-  assert.equal(missingResult.reason, "source_coverage_incomplete");
+  assert.equal(missingResult.reason, "semantic_candidate_key_missing");
+  assert.deepEqual(JSON.parse(JSON.stringify(missingResult.missing_semantic_keys)), ["evidence_6", "evidence_7", "evidence_8", "evidence_9", "evidence_10", "evidence_11", "evidence_12"]);
   assert.equal(missingResult.source_bytes, Buffer.byteLength(sourceBytes));
   assert.equal(missingResult.full_source_bytes, Buffer.byteLength(sourceBytes));
-  assert.deepEqual(JSON.parse(JSON.stringify(missingResult.source_coverage)), { total: 12, covered: 5, missing: 7, holds: 0, duplicates: 0 });
   assert.equal(plannerCalls.missing, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(missingResult.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
 
@@ -176,8 +176,8 @@ test("document planning requires complete semantic source coverage before downst
   await straddling.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
   const straddlingResult = await straddling.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
   assert.equal(straddlingResult.status, "review_required");
-  assert.equal(straddlingResult.reason, "source_coverage_incomplete");
-  assert.deepEqual(JSON.parse(JSON.stringify(straddlingResult.source_coverage)), { total: 12, covered: 0, missing: 12, holds: 0, duplicates: 0 });
+  assert.equal(straddlingResult.reason, "semantic_candidate_key_missing");
+  assert.deepEqual(JSON.parse(JSON.stringify(straddlingResult.missing_semantic_keys)), ["evidence_1", "evidence_2", "evidence_3", "evidence_4", "evidence_5", "evidence_6", "evidence_7", "evidence_8", "evidence_9", "evidence_10", "evidence_11", "evidence_12"]);
   assert.equal(plannerCalls.straddling, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(straddlingResult.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
 
@@ -226,10 +226,169 @@ test("document planning requires complete semantic source coverage before downst
   await outsideScope.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
   const outsideScopeResult = await outsideScope.window.KnowledgeExplorerHub.runDocumentPlan(scopedPath, { scope: { start: scopedStart, end: scopedEnd, scope_id: "selected-heading" } });
   assert.equal(outsideScopeResult.status, "review_required");
-  assert.equal(outsideScopeResult.reason, "source_coverage_incomplete");
-  assert.deepEqual(JSON.parse(JSON.stringify(outsideScopeResult.source_coverage)), { total: 2, covered: 0, missing: 2, holds: 0, duplicates: 0 });
+  assert.equal(outsideScopeResult.reason, "semantic_candidate_key_missing");
+  assert.deepEqual(JSON.parse(JSON.stringify(outsideScopeResult.missing_semantic_keys)), ["evidence_1", "evidence_2"]);
   assert.equal(plannerCalls.outside_scope, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(outsideScopeResult.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
+});
+
+test("span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract", async () => {
+  const sourcePath = "INBOX/스팬 정렬 복기.md";
+  const values = [
+    "디렉을 하면서 다음 디렉을 생각한다.", "측면으로 앉힌다.", "몸만 틀어 측면으로 앉힌다.",
+    "레파토리를 만들어 바로 진행한다.", "하나를 마치고 다음 것을 생각한다.", "망원 표준 광각을 모두 담는다.",
+    "18mm로 베일이 안 잘리는 범위까지 간다.", "수평수직을 맞춘다.", "뷰파인더를 본다.",
+    "부케 반대쪽 손동작을 신경 쓴다.", "왼손 부케에는 오른손으로 신랑 뺨을 감싼다.", "오른손 부케에는 왼손으로 신랑 목을 감싼다.",
+  ];
+  const sourceBytes = [
+    "# 스팬 정렬 복기",
+    "",
+    ...values.slice(0, 8).map((value, index) => `${index + 1}. ${value}`),
+    `   - ${values[8]}`,
+    `   - ${values[9]}`,
+    `     1. ${values[10]}`,
+    `     2. ${values[11]}`,
+    "9.",
+    "",
+  ].join("\n");
+  assert.equal(evidenceCandidates.createSemantic(sourceBytes).length, 12);
+  const misalignedKeys = new Set(["evidence_2", "evidence_8", "evidence_9"]);
+  const providerCalls = { calls: 0 };
+  const plannerCalls = { calls: 0 };
+  const compilerCalls = { calls: 0 };
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: v2Identity(),
+      batchProvider: async (request) => {
+        providerCalls.calls += 1;
+        return {
+          ok: true,
+          provider_call_count: 1,
+          automatic_retry_count: 0,
+          automatic_repair_count: 0,
+          artifacts: request.chunks.map((chunk) => ({
+            chunk_key: chunk.key,
+            outcome: "proposals",
+            items: evidenceCandidates.createSemantic(chunk.text).map((candidate, index) => {
+              const shift = misalignedKeys.has(candidate.key) ? 1 : 0;
+              return {
+                role: "source_summary",
+                topic: "스팬 정렬 복기",
+                evidence_key: candidate.key,
+                evidence_quote: candidate.text,
+                claims: [{ text: candidate.text }],
+                review_reasons: [],
+                related_candidate_ids: [],
+                span: { start: candidate.start + shift, end: candidate.end + shift, alias: `span_align_${index}` },
+              };
+            }),
+          })),
+        };
+      },
+      documentPagePlan: async () => { plannerCalls.calls += 1; throw new Error("planner_must_not_run"); },
+      documentArticleCompiler: async () => { compilerCalls.calls += 1; throw new Error("compiler_must_not_run"); },
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const result = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(result.ok, false);
+  assert.equal(result.status, "review_required");
+  // The provider returned every semantic key and per-chunk validation passed;
+  // only the span/citation alignment of evidence_2/8/9 died. The hub audit
+  // must speak the shared named-key contract (Todo 4 family) rather than an
+  // advisory post-hoc gap, so review_ready stays blocked pipeline-wide.
+  assert.equal(result.reason, "semantic_candidate_key_missing");
+  assert.deepEqual(JSON.parse(JSON.stringify(result.missing_semantic_keys)), ["evidence_2", "evidence_8", "evidence_9"]);
+  assert.equal(result.provider_calls, 1);
+  assert.equal(providerCalls.calls, 1);
+  assert.equal(plannerCalls.calls, 0, "page planning must not run after a coverage failure");
+  assert.equal(compilerCalls.calls, 0, "compilation must not run after a coverage failure");
+  assert.deepEqual(JSON.parse(JSON.stringify(result.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
+  assert.equal(runtime.app.vault.touched.some((row) => row.slice(1).some((value) => String(value).includes("/previews/") || String(value).startsWith("ZETA/"))), false);
+  assert.equal(runtime.window.KnowledgeExplorerHub.reviewedWikiSnapshot().entries.length, 0);
+});
+
+test("replay-only analysis without durable 12/12 unit coverage cannot become review_ready", async () => {
+  const sourcePath = "INBOX/재생 커버리지 복기.md";
+  const values = [
+    "디렉을 하면서 다음 디렉을 생각한다.", "측면으로 앉힌다.", "몸만 틀어 측면으로 앉힌다.",
+    "레파토리를 만들어 바로 진행한다.", "하나를 마치고 다음 것을 생각한다.", "망원 표준 광각을 모두 담는다.",
+    "18mm로 베일이 안 잘리는 범위까지 간다.", "수평수직을 맞춘다.", "뷰파인더를 본다.",
+    "부케 반대쪽 손동작을 신경 쓴다.", "왼손 부케에는 오른손으로 신랑 뺨을 감싼다.", "오른손 부케에는 왼손으로 신랑 목을 감싼다.",
+  ];
+  const sourceBytes = [
+    "# 재생 커버리지 복기",
+    "",
+    ...values.slice(0, 8).map((value, index) => `${index + 1}. ${value}`),
+    `   - ${values[8]}`,
+    `   - ${values[9]}`,
+    `     1. ${values[10]}`,
+    `     2. ${values[11]}`,
+    "9.",
+    "",
+  ].join("\n");
+  const misalignedKeys = new Set(["evidence_2", "evidence_8", "evidence_9"]);
+  const providerCalls = { calls: 0 };
+  const plannerCalls = { calls: 0 };
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: v2Identity(),
+      batchProvider: async (request) => {
+        providerCalls.calls += 1;
+        return {
+          ok: true,
+          provider_call_count: 1,
+          automatic_retry_count: 0,
+          automatic_repair_count: 0,
+          artifacts: request.chunks.map((chunk) => ({
+            chunk_key: chunk.key,
+            outcome: "proposals",
+            items: evidenceCandidates.createSemantic(chunk.text).map((candidate, index) => {
+              const shift = misalignedKeys.has(candidate.key) ? 1 : 0;
+              return {
+                role: "source_summary",
+                topic: "재생 커버리지 복기",
+                evidence_key: candidate.key,
+                evidence_quote: candidate.text,
+                claims: [{ text: candidate.text }],
+                review_reasons: [],
+                related_candidate_ids: [],
+                span: { start: candidate.start + shift, end: candidate.end + shift, alias: `span_replay_${index}` },
+              };
+            }),
+          })),
+        };
+      },
+      documentPagePlan: async () => { plannerCalls.calls += 1; throw new Error("planner_must_not_run"); },
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const first = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(first.ok, false);
+  assert.equal(first.reason, "semantic_candidate_key_missing");
+  assert.equal(first.missing_semantic_keys.length, 3);
+  assert.equal(first.provider_calls, 1);
+  assert.equal(providerCalls.calls, 1);
+  // Same identity and unchanged source: the second plan must replay from the
+  // durable job/cache with zero fresh provider calls, and it still must not
+  // surface as review_ready while the whole-source unit audit reports missing.
+  const second = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(second.ok, false);
+  assert.equal(second.status, "review_required");
+  assert.equal(providerCalls.calls, 1, "replay-only run must add zero provider calls");
+  // The analyzer short-circuits the durable blocked job (sibling NO_CALL_STATES
+  // contract: ok:true/state:blocked, provider_calls 0); the hub surfaces that
+  // short-circuit as a hard failure, never as review_ready.
+  assert.equal(second.reason, "blocked");
+  assert.equal(second.map_provider_calls, 0);
+  assert.equal(second.replay_only, undefined, "a blocked job is not flagged as replayable");
+  assert.equal(plannerCalls.calls, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(second.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
+  assert.equal(runtime.window.KnowledgeExplorerHub.reviewedWikiSnapshot().entries.length, 0);
 });
 
 test("Centum regression converges through the real Hub planner, compiler, and Golden orchestrator", async () => {
@@ -372,8 +531,9 @@ test("Centum regression converges through the real Hub planner, compiler, and Go
   await missing.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
   const omitted = await selectAndRunGolden(missing);
   assert.equal(omitted.ok, false);
-  assert.equal(omitted.reason, "source_coverage_incomplete");
-  assert.deepEqual(JSON.parse(JSON.stringify(omitted.source_coverage)), { total: 12, covered: 5, missing: 7, holds: 0, duplicates: 0 });
+  assert.equal(omitted.reason, "semantic_candidate_key_missing");
+  assert.deepEqual(JSON.parse(JSON.stringify(omitted.missing_semantic_keys)), ["evidence_6", "evidence_7", "evidence_8", "evidence_9", "evidence_10", "evidence_11", "evidence_12"]);
+  assert.equal(omitted.status, "review_required");
   assert.equal(missingCalls.calls, 1);
   assert.equal(missingPlanner.calls, 0);
   assert.equal(missingCompiler.calls, 0);

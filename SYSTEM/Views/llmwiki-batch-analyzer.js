@@ -9,6 +9,7 @@
   const storeApi = root.LLMWikiBatchJobStore || (typeof require === "function" ? require("./llmwiki-batch-job-store.js") : null);
 
   const ARTIFACT_VERSION = "llmwiki_batch_artifact_v1";
+  const MAX_WHOLE_SOURCE_UNITS = 512;
   const SOURCE_ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const MAX_PACK_CHUNKS = 4;
   const MAX_PACK_BYTES = 24 * 1024;
@@ -117,6 +118,56 @@
 
   function candidateId(documentId) { return `cand_${sha(`candidate:${documentId}`).slice(0, 16)}`; }
 
+  // Todo 4 replay lineage: the caller may supply the durable whole-source unit
+  // plan (semantic keys plus source spans, as derived by createSemantic) that a
+  // source must cover before review_ready may be claimed. Strict validation:
+  // unknown sources, empty lists, and out-of-bounds spans are caller bugs.
+  function validateWholeSourceUnits(raw, sortedSources) {
+    if (raw === undefined) return [];
+    if (!Array.isArray(raw)) throw new TypeError("invalid_whole_source_units");
+    const byId = new Map(sortedSources.map((source) => [source.source_id, source]));
+    const rows = [];
+    const seenSource = new Set();
+    for (const row of raw) {
+      if (!plain(row) || typeof row.source_id !== "string" || !byId.has(row.source_id) || seenSource.has(row.source_id)) throw new TypeError("invalid_whole_source_units");
+      seenSource.add(row.source_id);
+      if (!Array.isArray(row.units) || row.units.length === 0 || row.units.length > MAX_WHOLE_SOURCE_UNITS) throw new TypeError("invalid_whole_source_units");
+      const sourceLength = analysisTextFor(byId.get(row.source_id)).length;
+      const units = row.units.map((unit) => {
+        if (!plain(unit) || typeof unit.key !== "string" || unit.key.length === 0 || unit.key.length > 128
+          || !Number.isSafeInteger(unit.start) || !Number.isSafeInteger(unit.end) || unit.start < 0 || unit.end <= unit.start || unit.end > sourceLength) throw new TypeError("invalid_whole_source_units");
+        return freeze({ key: unit.key, start: unit.start, end: unit.end });
+      });
+      rows.push(freeze({ source_id: row.source_id, units }));
+    }
+    return rows;
+  }
+
+  // Durable whole-source unit coverage uses the exact-global-span rule of the
+  // source coverage audit: a planned unit is covered only when some artifact
+  // item's span, rebased to source global coordinates, exactly equals the
+  // unit's span. Returns Map(source_id -> frozen missing unit key list).
+  function auditUnitCoverage(artifactsBySource, wholeSourceUnits) {
+    const missingBySource = new Map();
+    for (const row of wholeSourceUnits) {
+      const byInstance = artifactsBySource.get(row.source_id) || new Map();
+      const missing = [];
+      for (const unit of row.units) {
+        let covered = false;
+        for (const { chunk, artifact } of byInstance.values()) {
+          if (covered || !Array.isArray(artifact.items)) continue;
+          for (const item of artifact.items) {
+            if (!item || !item.span || !Number.isSafeInteger(item.span.start) || !Number.isSafeInteger(item.span.end) || item.span.end <= item.span.start) continue;
+            if (chunk.start + item.span.start === unit.start && chunk.start + item.span.end === unit.end) { covered = true; break; }
+          }
+        }
+        if (!covered) missing.push(unit.key);
+      }
+      if (missing.length) missingBySource.set(row.source_id, Object.freeze(missing));
+    }
+    return missingBySource;
+  }
+
   function createBatchAnalyzer(options = {}) {
     const jobStore = options.jobStore;
     if (!jobStore) throw new TypeError("job_store_required");
@@ -144,6 +195,7 @@
       try {
         const sortedSources = validateSources(input.sources);
         const mode = analysisModeFor(sortedSources);
+        const wholeSourceUnits = validateWholeSourceUnits(input.whole_source_units, sortedSources);
         projection = projectCandidates(input.candidates);
         metrics.source_bytes = sortedSources.reduce((total, item) => total + bytes(analysisTextFor(item)), 0);
         metrics.candidate_context_bytes = projection.outbound_bytes;
@@ -152,16 +204,23 @@
         const effectivePromptVersion = mode === SOURCE_ROUTING_MODE
           ? `${identity.prompt_version}:source_routing_v1`
           : identity.prompt_version;
+        // Todo 4 replay lineage: the whole-source unit plan participates in the
+        // request identity so cached artifacts carry coverage lineage. A run
+        // whose plan (or absence of one) differs from the stored content's plan
+        // misses once and goes through the normal single-call path instead of
+        // replaying stale-but-v2-keyed artifacts.
+        const coverageContext = wholeSourceUnits.length > 0 ? stable(wholeSourceUnits) : "";
+        const candidateContextHash = sha(`${stable(projection.outbound)}${coverageContext ? `|units:${coverageContext}` : ""}`);
         const requestKey = storeApi.requestKey({
           provider_key: identity.provider_key,
           model: identity.model,
           structured_mode: identity.structured_mode,
           schema_id: identity.schema_id,
           prompt_version: effectivePromptVersion,
-          candidate_context_hash: sha(stable(projection.outbound)),
+          candidate_context_hash: candidateContextHash,
         });
         const sourceRevisions = sortedSources.map((item) => ({ source_id: item.source_id, revision_hash: sha(item.extracted_text) }));
-        const frozenIdentity = { ...identity, prompt_version: effectivePromptVersion, candidate_context_hash: sha(stable(projection.outbound)) };
+        const frozenIdentity = { ...identity, prompt_version: effectivePromptVersion, candidate_context_hash: candidateContextHash };
         let job;
         if (input.explicit_retry === true) {
           if (typeof input.retry_intent_id !== "string" || !input.retry_intent_id) throw new Error("retry_intent_required");
@@ -182,16 +241,17 @@
             });
           }
         }
-        return await runPacks({ input, sortedSources, job, requestKey, projection, metrics, mode });
+        return await runPacks({ input, sortedSources, job, requestKey, projection, metrics, mode, wholeSourceUnits });
       } catch (error) {
         return fail(error?.message || "batch_analyze_failed", { metrics });
       }
     }
 
-    async function runPacks({ input, sortedSources, job, requestKey, projection, metrics, mode }) {
+    async function runPacks({ input, sortedSources, job, requestKey, projection, metrics, mode, wholeSourceUnits = [] }) {
       const contexts = [];
       const manifestDigests = [];
       const misses = [];
+      const artifactsBySource = new Map();
       try {
         for (const sourceRow of sortedSources) {
           const analysisText = analysisTextFor(sourceRow);
@@ -213,20 +273,49 @@
           // reach exact coverage again.
           for (const hit of lookup.hits) {
             await coverage.recordReceipt({ manifest, scope, chunk: hit.chunk, artifact: hit.artifact });
+            let byInstance = artifactsBySource.get(sourceRow.source_id);
+            if (!byInstance) { byInstance = new Map(); artifactsBySource.set(sourceRow.source_id, byInstance); }
+            byInstance.set(hit.chunk.instance_id, { chunk: hit.chunk, artifact: hit.artifact });
           }
           contexts.push({ manifest, scope });
         }
 
-        const packs = [];
-        let pack = [];
-        let packBytes = 0;
-        for (const miss of misses) {
-          const size = bytes(miss.chunk.text);
-          if (pack.length && (pack.length === MAX_PACK_CHUNKS || packBytes + size > MAX_PACK_BYTES)) { packs.push(pack); pack = []; packBytes = 0; }
-          pack.push(miss);
-          packBytes += size;
+        const buildPacks = (entries) => {
+          const built = [];
+          let pack = [];
+          let packBytes = 0;
+          for (const miss of entries) {
+            const size = bytes(miss.chunk.text);
+            if (pack.length && (pack.length === MAX_PACK_CHUNKS || packBytes + size > MAX_PACK_BYTES)) { built.push(pack); pack = []; packBytes = 0; }
+            pack.push(miss);
+            packBytes += size;
+          }
+          if (pack.length) built.push(pack);
+          return built;
+        };
+        let packs = buildPacks(misses);
+        // Todo 4 replay lineage: an all-hits run is a pure replay of cached
+        // artifacts. It must not claim review_ready from instance receipts
+        // alone: durable whole-source unit coverage is required, and uncovered
+        // units are surfaced as ordinary misses through the single normal
+        // miss-driven call below (a cache miss is not a retry; no retry/repair/
+        // fallback loop, no second pass).
+        let replayOnly = packs.length === 0;
+        if (replayOnly && mode === SEMANTIC_MODE && wholeSourceUnits.length > 0) {
+          const missingBySource = auditUnitCoverage(artifactsBySource, wholeSourceUnits);
+          if (missingBySource.size > 0) {
+            for (const row of wholeSourceUnits) {
+              if (!missingBySource.has(row.source_id)) continue;
+              const context = contexts.find((item) => item.manifest.source_id === row.source_id);
+              if (!context) throw new Error("whole_source_context_missing");
+              for (const chunk of context.manifest.chunks) {
+                misses.push({ manifest: context.manifest, scope: context.scope, chunk, source_path: context.manifest.source_path, unit_miss: true });
+              }
+            }
+          }
         }
-        if (pack.length) packs.push(pack);
+        packs = buildPacks(misses);
+        replayOnly = packs.length === 0;
         metrics.pack_count = packs.length;
         if (packs.length > 0) await jobStore.setJobState(job.job_id, "running");
 
@@ -315,8 +404,11 @@
               items: result.items,
             });
             artifactHashes.push(sha(stable(artifact)));
-            await cache.put({ chunk: miss.chunk, artifact, request_key: requestKey });
+            await cache.put({ chunk: miss.chunk, artifact, request_key: requestKey, ...(miss.unit_miss ? { retry_generation: 1 } : {}) });
             await coverage.recordReceipt({ manifest: miss.manifest, scope: miss.scope, chunk: miss.chunk, artifact });
+            let byInstance = artifactsBySource.get(miss.scope.source_id);
+            if (!byInstance) { byInstance = new Map(); artifactsBySource.set(miss.scope.source_id, byInstance); }
+            byInstance.set(miss.chunk.instance_id, { chunk: miss.chunk, artifact });
           }
           const receipt = await jobStore.recordPackReceipt({
             job_id: job.job_id,
@@ -333,6 +425,39 @@
           if (!status.ok || !status.complete || !status.exactCoverage) throw new Error(status.reason || "incomplete_coverage");
           coverageReports.push(status);
         }
+        // Todo 4 replay lineage final gate: whole-source unit coverage must be
+        // durable before review_ready may be claimed. Missing units are
+        // surfaced with the shared named-key contract (semantic_candidate_key_
+        // missing + missing_semantic_keys[]); no further call is made here.
+        if (mode === SEMANTIC_MODE && wholeSourceUnits.length > 0) {
+          const missingBySource = auditUnitCoverage(artifactsBySource, wholeSourceUnits);
+          if (missingBySource.size > 0) {
+            const missingSemanticKeys = [];
+            for (const row of wholeSourceUnits) {
+              const keys = missingBySource.get(row.source_id);
+              if (keys) missingSemanticKeys.push(...keys);
+            }
+            await jobStore.setJobState(job.job_id, "blocked");
+            return freeze({
+              ok: false,
+              reason: "semantic_candidate_key_missing",
+              state: "blocked",
+              job_id: job.job_id,
+              batch_id: job.batch_id,
+              request_key: requestKey,
+              replay_only: replayOnly,
+              missing_semantic_keys: missingSemanticKeys,
+              metrics,
+              preserved_pack_receipts: preserved,
+              unresolved_pending: [],
+              outbound_candidates: projection.outbound,
+              ranked_candidate_count: projection.ranked.length,
+              manifest_digests: manifestDigests,
+              coverage_reports: coverageReports,
+              automatic_retries: 0, automatic_repairs: 0, fallback_attempts: 0,
+            });
+          }
+        }
         await jobStore.setJobState(job.job_id, "review_ready");
         const retryParentJobId = job.retry_parent_job_id || job.parent_job_id;
         if (retryParentJobId) await jobStore.setJobState(retryParentJobId, "review_ready");
@@ -342,6 +467,7 @@
           job_id: job.job_id,
           batch_id: job.batch_id,
           request_key: requestKey,
+          replay_only: replayOnly,
           metrics,
           preserved_pack_receipts: preserved,
           unresolved_pending: [],

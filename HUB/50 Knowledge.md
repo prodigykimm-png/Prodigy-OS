@@ -848,11 +848,33 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     // One canonical composition: analyzer artifacts -> local materialization ->
     // typed lifecycle proposals. Zero writes; approval stays on the retained
     // controller surface.
-    const runCanonicalBatch = async ({ sources, candidates = [], signal, explicitRetry = false, retryIntentId = null }) => {
+    const runCanonicalBatch = async ({ sources, candidates = [], signal, explicitRetry = false, retryIntentId = null, wholeSourceUnits = [] }) => {
       if (!batchAnalyzer) return { ok: false, reason: "provider_selection_unavailable", provider_calls: 0 };
-      const analyzed = await batchAnalyzer.analyze({ sources, candidates, signal, explicit_retry: explicitRetry, ...(retryIntentId ? { retry_intent_id: retryIntentId } : {}) });
+      const analyzed = await batchAnalyzer.analyze({ sources, candidates, signal, explicit_retry: explicitRetry, whole_source_units: wholeSourceUnits, ...(retryIntentId ? { retry_intent_id: retryIntentId } : {}) });
       const providerCalls = analyzed.metrics ? analyzed.metrics.provider_calls : 0;
-      if (!analyzed.ok || !["review_ready", "resolved"].includes(analyzed.state)) return { ok: false, reason: analyzed.reason || analyzed.state || "batch_analysis_failed", provider_calls: providerCalls, job_id: analyzed.job_id, batch_id: analyzed.batch_id };
+      if (!analyzed.ok || !["review_ready", "resolved"].includes(analyzed.state)) return {
+        ok: false, reason: analyzed.reason || analyzed.state || "batch_analysis_failed",
+        ...(Array.isArray(analyzed.missing_semantic_keys) ? { missing_semantic_keys: analyzed.missing_semantic_keys } : {}),
+        ...(analyzed.replay_only === true ? { replay_only: true } : {}),
+        provider_calls: providerCalls, job_id: analyzed.job_id, batch_id: analyzed.batch_id,
+      };
+      // Analyzer replay contract (sibling Todo 4 fix): replay_only:true marks a
+      // cache-only analysis with zero fresh provider calls. Replay-only without
+      // durable whole-source unit coverage must not surface as review_ready; the
+      // analyzer reports uncovered unit keys under the shared named-key family
+      // and they are forwarded as a hard failure, never as a reviewable state.
+      const replayOnly = analyzed.replay_only === true
+        || (analyzed.metrics && Number.isSafeInteger(analyzed.metrics.pack_count) && analyzed.metrics.pack_count === 0);
+      const replayMissingKeys = Array.isArray(analyzed.missing_semantic_keys) ? analyzed.missing_semantic_keys : [];
+      if (replayOnly && replayMissingKeys.length > 0) {
+        return {
+          ok: false, reason: "semantic_candidate_key_missing",
+          missing_semantic_keys: replayMissingKeys,
+          replay_only: true, provider_calls: providerCalls,
+          ...(analyzed.job_id ? { job_id: analyzed.job_id } : {}),
+          ...(analyzed.batch_id ? { batch_id: analyzed.batch_id } : {}),
+        };
+      }
       const proposals = [];
       const objectReviewProposals = [];
       const holds = [];
@@ -880,7 +902,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         if (!grouped.ok) return { ok: false, reason: grouped.reason, provider_calls: providerCalls };
         sourceGroups.push(grouped.value);
       }
-      return { ok: true, provider_calls: providerCalls, proposals, object_review_proposals: objectReviewProposals, holds, no_changes: noChanges, source_groups: sourceGroups, batch_id: analyzed.batch_id, job_id: analyzed.job_id, metrics: analyzed.metrics, artifacts_by_source: artifactsBySource };
+      return { ok: true, provider_calls: providerCalls, replay_only: replayOnly, proposals, object_review_proposals: objectReviewProposals, holds, no_changes: noChanges, source_groups: sourceGroups, batch_id: analyzed.batch_id, job_id: analyzed.job_id, metrics: analyzed.metrics, artifacts_by_source: artifactsBySource };
     };
     // The persistent controller delegates through the latest mount binding so
     // an explicit retry freezes the current global provider/model identity,
@@ -1523,13 +1545,31 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         source_revision: sourceRevision,
         ...(requestedScope ? { scope: { scope_id: requestedScope.scope_id || "", title: requestedScope.title || "", start: requestedScope.start, end: requestedScope.end } } : {}),
       };
+      const wholeSourceUnits = [{
+        source_id: sourceId,
+        units: semanticUnits.map((unit) => ({ key: unit.key, start: unit.start, end: unit.end })),
+      }];
       const analyzed = await runCanonicalBatch({
         sources: [{ ...source, extracted_text: scopedText, ...(requestedScope ? { scope_start: requestedScope.start } : {}) }],
         candidates: [],
+        wholeSourceUnits,
         explicitRetry,
         retryIntentId,
       });
-      if (!analyzed.ok) return analyzed;
+      if (!analyzed.ok) {
+        // Preserve the hub failure envelope around analyzer-level refusals
+        // (semantic_candidate_key_missing / blocked / provider failures): the
+        // same source identity, status, byte counters, and zero-write contract
+        // the hub audit failure carries, without inventing coverage counters.
+        return {
+          ...analyzed,
+          status: "review_required",
+          source_path: sourcePath, source_bytes: sourceBytes, full_source_bytes: fullSourceBytes,
+          map_provider_calls: analyzed.provider_calls, plan_provider_calls: 0,
+          existing_review_writes: 0, canonical_writes: 0, source_writes: 0, preview_writes: 0, writer_count: 0,
+          write_counts: { source: 0, canonical: 0, preview: 0, review: 0 },
+        };
+      }
       const draftDocuments = analyzed.proposals.map((proposal) => proposal.document).filter(Boolean);
       const inventoryResult = window.LLMWikiDocumentReducer.createClaimInventory({ source, documents: draftDocuments });
       if (!inventoryResult.ok) return inventoryResult;
@@ -1557,8 +1597,20 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       });
       documentPlanQualityGaps = sourceCoverageAudit.possible_gaps;
       if (sourceCoverageAudit.blocks_approval) {
+        // Shared Todo 4 named-key family: when whole-source unit coverage is
+        // missing, the hub must fail with the same reason the provider/analyzer
+        // uses so review_ready stays blocked pipeline-wide instead of reporting
+        // only an advisory post-hoc gap. Holds/duplicates keep the coverage
+        // reason; a replay-only failure also carries the analyzer replay flag.
+        const missingSemanticKeys = sourceCoverageAudit.units
+          .filter((unit) => unit.status === "missing")
+          .map((unit) => unit.key);
+        const missingUnits = missingSemanticKeys.length > 0;
         return {
-          ok: false, status: "review_required", reason: "source_coverage_incomplete",
+          ok: false, status: "review_required",
+          reason: missingUnits ? "semantic_candidate_key_missing" : "source_coverage_incomplete",
+          ...(missingUnits ? { missing_semantic_keys: missingSemanticKeys } : {}),
+          ...(analyzed.replay_only === true ? { replay_only: true } : {}),
           source_path: sourcePath, source_bytes: sourceBytes, full_source_bytes: fullSourceBytes,
           source_coverage: sourceCoverageAudit.source_coverage,
           source_units_total: sourceCoverageAudit.total_units,

@@ -361,3 +361,96 @@ test("candidate ranking is bounded at 8 and outbound projection at top 5 / 4 KiB
   assert.ok(result.ranked_candidate_count <= 8);
   assert.ok(result.metrics.candidate_context_bytes <= 4 * 1024);
 });
+
+test("all-hits replay over a content-incomplete whole-source artifact misses once under the coverage-carrying identity and refuses review_ready with named keys", async () => {
+  const h = buildHarness();
+  const evidenceCandidatesApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-evidence-candidates.js"));
+  const lines = [
+    "첫 번째 단위 문장은 확실한 근거를 보존한다.",
+    "두 번째 단위 문장은 정확한 가격을 보존한다.",
+    "세 번째 단위 문장은 정확한 위치를 보존한다.",
+    "네 번째 단위 문장은 계약 조건을 보존한다.",
+    "다섯 번째 단위 문장은 승인 경계를 보존한다.",
+    "여섯 번째 단위 문장은 공급 구조를 보존한다.",
+    "일곱 번째 단위 문장은 완료 기준을 보존한다.",
+  ];
+  const text = lines.map((line) => `- ${line}`).join("\n");
+  const sources = [source("src_units", text)];
+  const realUnits = evidenceCandidatesApi.createSemantic(text);
+  assert.equal(realUnits.length, 7, "fixture must yield seven chunk-candidate units");
+  // A 12/12 whole-source plan: the seven units the artifact can cite plus five
+  // planned units whose spans (leading list markers) the artifact never cites.
+  const extraUnits = Array.from({ length: 5 }, (_, index) => ({ key: `evidence_${8 + index}`, start: index, end: index + 1 }));
+  const wholeSourceUnits = [{
+    source_id: "src_units",
+    units: [
+      ...realUnits.map((unit) => ({ key: unit.key, start: unit.start, end: unit.end })),
+      ...extraUnits,
+    ],
+  }];
+
+  // Run 1 stores a content-incomplete v2-keyed artifact (7 candidate units)
+  // under the identity that carries no whole-source coverage lineage.
+  const first = await h.analyzer.analyze({ sources });
+  assert.equal(first.ok, true, first.reason);
+  assert.equal(first.state, "review_ready");
+  assert.equal(first.metrics.provider_calls, 1);
+  assert.equal(first.replay_only, false);
+
+  // Run 2: the same v2 identity plus a 12-unit whole-source plan. Before this
+  // fix the stale 7/12 artifact replayed (all hits) into review_ready with zero
+  // provider calls. Now the coverage-carrying request key misses once and the
+  // uncovered units surface through that single normal miss-driven call as
+  // semantic_candidate_key_missing with missing_semantic_keys[] — never
+  // review_ready, and with no retry/repair/fallback loop.
+  const second = await h.analyzer.analyze({ sources, whole_source_units: wholeSourceUnits });
+  assert.equal(second.ok, false, "stale 7/12 replay must not complete");
+  assert.equal(second.reason, "semantic_candidate_key_missing");
+  assert.deepEqual(second.missing_semantic_keys, extraUnits.map((unit) => unit.key));
+  assert.equal(second.state, "blocked");
+  assert.equal(second.metrics.cache_hits, 0, "stale artifact misses under the coverage-carrying identity");
+  assert.equal(second.metrics.cache_misses, 1);
+  assert.equal(second.metrics.provider_calls, 1, "exactly one normal miss-driven call");
+  assert.equal(second.replay_only, false);
+  assert.equal(h.service.state.calls, 2, "two transport calls total: one fresh, one miss-driven");
+
+  // The refusal is durable: the same plan re-runs short-circuit on the blocked
+  // job with zero additional calls rather than spiraling.
+  const third = await h.analyzer.analyze({ sources, whole_source_units: wholeSourceUnits });
+  assert.equal(third.ok, true);
+  assert.equal(third.state, "blocked");
+  assert.equal(third.metrics.provider_calls, 0);
+  assert.equal(h.service.state.calls, 2);
+
+  // A corrected whole-source plan (the seven units the content actually covers)
+  // gets its own coverage identity, misses once, and reaches review_ready — the
+  // lineage is not a permanent blocker.
+  const correctedUnits = [{
+    source_id: "src_units",
+    units: realUnits.map((unit) => ({ key: unit.key, start: unit.start, end: unit.end })),
+  }];
+  const fourth = await h.analyzer.analyze({ sources, whole_source_units: correctedUnits });
+  assert.equal(fourth.ok, true, fourth.reason);
+  assert.equal(fourth.state, "review_ready");
+  assert.equal(fourth.metrics.provider_calls, 1);
+  assert.equal(h.service.state.calls, 3);
+  const fourthReplay = await h.analyzer.analyze({ sources, whole_source_units: correctedUnits });
+  assert.equal(fourthReplay.ok, true, fourthReplay.reason);
+  assert.equal(fourthReplay.state, "review_ready");
+  assert.equal(fourthReplay.metrics.provider_calls, 0);
+  assert.equal(fourthReplay.replay_only, true);
+});
+
+test("exact all-hits replay is flagged replay_only when whole-source coverage is complete", async () => {
+  const h = buildHarness();
+  const sources = [source("src_replay_flag", smallText("완전", 1))];
+  const first = await h.analyzer.analyze({ sources });
+  assert.equal(first.ok, true, first.reason);
+  assert.equal(first.replay_only, false);
+  const second = await h.analyzer.analyze({ sources });
+  assert.equal(second.ok, true, second.reason);
+  assert.equal(second.state, "review_ready");
+  assert.equal(second.metrics.provider_calls, 0);
+  assert.equal(second.metrics.cache_hits, 1);
+  assert.equal(second.replay_only, true);
+});
