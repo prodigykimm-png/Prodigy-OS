@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "sido": "광주광역시",
+  "description": "광주광역시 5개 구 표준 지역 manifest. 주의: 2026-09-06 기준 R-ONE·MOIS jumin 원본은 광주 지역을 전남광주통합특별시 체계(12계열 코드)로 집계한다 — R-ONE lawd 12210000~12330000, MOIS household_row는 전남광주통합특별시 명의. 재고 CSV는 광주광역시 명칭을 유지하므로 stock_region_prefix는 광주광역시로 둔다. 2026-09-06 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-06",
+  "region_count": 5,
+  "regions": [
+    {
+      "sigungu": "동구",
+      "region_key": "광주광역시-동구",
+      "title": "광주광역시 동구",
+      "region_prefix": "광주광역시 동구",
+      "stock_region_prefix": "광주광역시 동구",
+      "lawd_code": "12210000",
+      "household_code": "1221000000"
+    },
+    {
+      "sigungu": "서구",
+      "region_key": "광주광역시-서구",
+      "title": "광주광역시 서구",
+      "region_prefix": "광주광역시 서구",
+      "stock_region_prefix": "광주광역시 서구",
+      "lawd_code": "12240000",
+      "household_code": "1224000000"
+    },
+    {
+      "sigungu": "남구",
+      "region_key": "광주광역시-남구",
+      "title": "광주광역시 남구",
+      "region_prefix": "광주광역시 남구",
+      "stock_region_prefix": "광주광역시 남구",
+      "lawd_code": "12270000",
+      "household_code": "1227000000"
+    },
+    {
+      "sigungu": "북구",
+      "region_key": "광주광역시-북구",
+      "title": "광주광역시 북구",
+      "region_prefix": "광주광역시 북구",
+      "stock_region_prefix": "광주광역시 북구",
+      "lawd_code": "12300000",
+      "household_code": "1230000000"
+    },
+    {
+      "sigungu": "광산구",
+      "region_key": "광주광역시-광산구",
+      "title": "광주광역시 광산구",
+      "region_prefix": "광주광역시 광산구",
+      "stock_region_prefix": "광주광역시 광산구",
+      "lawd_code": "12330000",
+      "household_code": "1233000000"
+    }
+  ]
+}

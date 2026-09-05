@@ -32,6 +32,18 @@
     {
       "sido": "충청북도",
       "manifest_path": "region-metrics-chungbuk-manifest.json"
+    },
+    {
+      "sido": "광주광역시",
+      "manifest_path": "region-metrics-gwangju-manifest.json"
+    },
+    {
+      "sido": "울산광역시",
+      "manifest_path": "region-metrics-ulsan-manifest.json"
+    },
+    {
+      "sido": "세종특별자치시",
+      "manifest_path": "region-metrics-sejong-manifest.json"
     }
   ]
 }

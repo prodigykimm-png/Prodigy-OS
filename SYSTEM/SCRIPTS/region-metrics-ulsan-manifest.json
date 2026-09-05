@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "sido": "울산광역시",
+  "description": "울산광역시 5개 구·군 표준 지역 manifest. R-ONE·MOIS jumin 원본 모두 31계열 코드로 일치. 2026-09-06 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-06",
+  "region_count": 5,
+  "regions": [
+    {
+      "sigungu": "중구",
+      "region_key": "울산광역시-중구",
+      "title": "울산광역시 중구",
+      "region_prefix": "울산광역시 중구",
+      "lawd_code": "31110000",
+      "household_code": "3111000000"
+    },
+    {
+      "sigungu": "남구",
+      "region_key": "울산광역시-남구",
+      "title": "울산광역시 남구",
+      "region_prefix": "울산광역시 남구",
+      "lawd_code": "31140000",
+      "household_code": "3114000000"
+    },
+    {
+      "sigungu": "동구",
+      "region_key": "울산광역시-동구",
+      "title": "울산광역시 동구",
+      "region_prefix": "울산광역시 동구",
+      "lawd_code": "31170000",
+      "household_code": "3117000000"
+    },
+    {
+      "sigungu": "북구",
+      "region_key": "울산광역시-북구",
+      "title": "울산광역시 북구",
+      "region_prefix": "울산광역시 북구",
+      "lawd_code": "31200000",
+      "household_code": "3120000000"
+    },
+    {
+      "sigungu": "울주군",
+      "region_key": "울산광역시-울주군",
+      "title": "울산광역시 울주군",
+      "region_prefix": "울산광역시 울주군",
+      "lawd_code": "31710000",
+      "household_code": "3171000000"
+    }
+  ]
+}

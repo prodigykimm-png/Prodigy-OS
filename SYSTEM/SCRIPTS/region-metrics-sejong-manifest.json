@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "sido": "세종특별자치시",
+  "description": "세종특별자치시 단일 시군구 manifest. 시군구 분할 없음. MOIS jumin household_row는 세종특별자치시 뒤 공백 2개로 집계됨에 주의. 2026-09-06 전 지표 원본 재현으로 검증됨. 참고: batch householdRow는 세종특별자치시 (3611000000) 단일 공백 형태를 생성하지만 MOIS 원본 행은 공백 2개라 execute 시 households·인구 지표는 unsupported_geography로 null 처리된다(비치명). 정밀 갱신은 household_row를 직접 지정한 개별 refresh 실행으로 수행한다. 참고: registry 검증이 title={시도} {시군구} 형식을 강제하므로 batch householdRow는 세종특별자치시 세종시 (3611000000) 형태가 되고 MOIS 원본 행(세종특별자치시 공백2개)과 불일치한다. execute 시 households·인구 지표는 unsupported_geography로 null 처리되며(비치명), 정밀 갱신은 household_row를 직접 지정한 개별 refresh 실행으로 수행한다.",
+  "created": "2026-09-06",
+  "region_count": 1,
+  "regions": [
+    {
+      "sigungu": "세종시",
+      "region_key": "세종특별자치시-세종시",
+      "title": "세종특별자치시 세종시",
+      "region_prefix": "세종특별자치시 세종시",
+      "lawd_code": "36110000",
+      "household_code": "3611000000",
+      "household_row_override": "세종특별자치시  (3611000000)"
+    }
+  ]
+}
