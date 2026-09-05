@@ -16,6 +16,10 @@
     {
       "sido": "인천광역시",
       "manifest_path": "region-metrics-incheon-manifest.json"
+    },
+    {
+      "sido": "대구광역시",
+      "manifest_path": "region-metrics-daegu-manifest.json"
     }
   ]
 }

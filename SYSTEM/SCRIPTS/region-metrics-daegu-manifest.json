@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "sido": "대구광역시",
+  "description": "대구광역시 8개 구·군 표준 지역 manifest — metrics batch와 research job이 공유하는 canonical source. Contract: SYSTEM/docs/Region_Property_Contract_v1.md. R-ONE·MOIS jumin 원본이 대구를 구행정코드(27계열)로 분류하므로 현행 22계열이 아닌 27계열 코드를 사용한다. 2026-09-05 시군구 8개 전 지표 원본 재현으로 검증됨.",
+  "created": "2026-09-05",
+  "region_count": 8,
+  "regions": [
+    {
+      "sigungu": "중구",
+      "region_key": "대구광역시-중구",
+      "title": "대구광역시 중구",
+      "region_prefix": "대구광역시 중구",
+      "lawd_code": "27110000",
+      "household_code": "2711000000"
+    },
+    {
+      "sigungu": "동구",
+      "region_key": "대구광역시-동구",
+      "title": "대구광역시 동구",
+      "region_prefix": "대구광역시 동구",
+      "lawd_code": "27140000",
+      "household_code": "2714000000"
+    },
+    {
+      "sigungu": "서구",
+      "region_key": "대구광역시-서구",
+      "title": "대구광역시 서구",
+      "region_prefix": "대구광역시 서구",
+      "lawd_code": "27170000",
+      "household_code": "2717000000"
+    },
+    {
+      "sigungu": "남구",
+      "region_key": "대구광역시-남구",
+      "title": "대구광역시 남구",
+      "region_prefix": "대구광역시 남구",
+      "lawd_code": "27200000",
+      "household_code": "2720000000"
+    },
+    {
+      "sigungu": "북구",
+      "region_key": "대구광역시-북구",
+      "title": "대구광역시 북구",
+      "region_prefix": "대구광역시 북구",
+      "lawd_code": "27230000",
+      "household_code": "2723000000"
+    },
+    {
+      "sigungu": "수성구",
+      "region_key": "대구광역시-수성구",
+      "title": "대구광역시 수성구",
+      "region_prefix": "대구광역시 수성구",
+      "lawd_code": "27260000",
+      "household_code": "2726000000"
+    },
+    {
+      "sigungu": "달서구",
+      "region_key": "대구광역시-달서구",
+      "title": "대구광역시 달서구",
+      "region_prefix": "대구광역시 달서구",
+      "lawd_code": "27290000",
+      "household_code": "2729000000"
+    },
+    {
+      "sigungu": "달성군",
+      "region_key": "대구광역시-달성군",
+      "title": "대구광역시 달성군",
+      "region_prefix": "대구광역시 달성군",
+      "lawd_code": "27710000",
+      "household_code": "2771000000"
+    }
+  ]
+}
