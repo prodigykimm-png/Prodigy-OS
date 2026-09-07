@@ -79,11 +79,20 @@ function parseCanonicalAddress(address, fields) {
 function rowCode(row) { return validCourtCode(row?.code || row?.courtCode || row?.cortOfcCd || row?.boCd); }
 function rowName(row) { return clean(row?.name || row?.courtName || row?.jiwonNm || row?.court); }
 function courtNameKey(value) { return compareText(value).replace(/본원$/u, ""); }
+function courtNameAliases(value) {
+  const key = courtNameKey(value);
+  const branch = key.match(/지방법원(.+지원)$/u);
+  return new Set([key, branch?.[1], branch ? key.replace("지방법원", "") : ""].filter(Boolean));
+}
+function courtNamesMatch(left, right) {
+  const rightAliases = courtNameAliases(right);
+  return [...courtNameAliases(left)].some((alias) => rightAliases.has(alias));
+}
 function resolveCourtCode(record, rows) {
   const explicit = validCourtCode(record.court_code);
   if (explicit) return { status: "resolved", method: "object_identifier", selected: { court_code: explicit, court: clean(record.court) }, candidates: [] };
-  const name = courtNameKey(record.court);
-  const candidates = (Array.isArray(rows) ? rows : []).map((row) => ({ code: rowCode(row), name: rowName(row) })).filter((row) => row.code && row.name && (!name || courtNameKey(row.name) === name));
+  const name = clean(record.court);
+  const candidates = (Array.isArray(rows) ? rows : []).map((row) => ({ code: rowCode(row), name: rowName(row) })).filter((row) => row.code && row.name && (!name || courtNamesMatch(row.name, name)));
   if (candidates.length === 1) return { status: "resolved", method: "unique_court_name", selected: { court_code: candidates[0].code, court: candidates[0].name }, candidates };
   if (candidates.length > 1) return { status: "needs_selection", method: "court_name_ambiguous", selected: {}, candidates: candidates.slice(0, 20), reason: "법원명이 여러 법원사무소 코드와 일치합니다." };
   return { status: "needs_identifier", method: "court_code_missing", selected: {}, candidates: [], reason: "법원사무소 코드와 사건번호가 필요합니다." };
@@ -114,7 +123,7 @@ function providerPlan(provider, identity) {
 function normalizeAuctionIdentity(record, selections) {
   const source = Object.assign({}, record || {}, selections || {});
   const address = parseCanonicalAddress(source.address, source);
-  const selectedParcel = parseCanonicalAddress(source.land_address || source.lot_address, {});
+  const selectedParcel = parseCanonicalAddress(source.land_address || source.lot_address || (validPnu(source.land_parcel_id) ? "" : source.land_parcel_id), {});
   const parcel = address.lot_number ? address : selectedParcel;
   const pnu = validPnu(source.pnu || source.land_parcel_id);
   const caseNumber = normalizeCaseNumber(source.case_number);

@@ -19,13 +19,17 @@ case_number:
 court:
 auction_dept:
 auction_datetime:
+# Official court procedure state only: scheduled|failed|changed|suspended|withdrawn|sold|unknown
 court_status: unknown
+# YYYY-MM-DD official result date or confirmation date
 court_status_as_of:
+# Short raw note such as 2차 유찰, 집행정지, 매각 완료, 기일 변경
 court_status_note:
 # ---------- Location ----------
 region_sido:
 region_sigungu:
 region_dong:
+region_admin_dong:
 address:
 property_type:
 building_year:
@@ -62,7 +66,9 @@ review_date:
 auction_note:
 my_opinion:
 # ---------- Outcome (학습용, 선택) ----------
+# User-confirmed bidding outcome only: won|lost|skipped
 auction_outcome:
+# User-confirmed outcome date, if applicable
 auction_result_date:
 # ---------- People / links ----------
 # Shared Object link field (People 등). 원본 사건 내용은 복사하지 않는다.

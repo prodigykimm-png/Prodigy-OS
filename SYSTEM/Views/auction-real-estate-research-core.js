@@ -74,11 +74,21 @@
   function packageTimestamp(pkg) { const value = Date.parse(clean(pkg && pkg.observed_at)); return Number.isFinite(value) ? value : 0; }
   function statusLabel(status) { return STATUS_LABELS[status] || status || "확인 필요"; }
   function providerLabel(provider) { return PROVIDER_LABELS[provider] || provider; }
+  function historyOf(pkg, key, legacyKey) {
+    const direct = pkg?.evidence?.[key]?.history;
+    const legacy = pkg?.evidence?.[legacyKey]?.history;
+    return Array.isArray(direct) ? direct : Array.isArray(legacy) ? legacy : [];
+  }
+  function yearCount(history) { return new Set(history.map((item) => Number(item?.year)).filter(Number.isFinite)).size; }
+  function formatWon(value) {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? `${amount.toLocaleString("ko-KR")}원` : "";
+  }
   function evidenceSummary(pkg) {
     const transactions = pkg?.evidence?.transactions?.summary?.sample_count;
     const building = pkg?.evidence?.building?.records?.length || (pkg?.evidence?.building?.record ? 1 : 0);
-    const official = pkg?.evidence?.["official-price"]?.history?.length || pkg?.evidence?.official_price?.history?.length;
-    const land = pkg?.evidence?.["land-price"]?.history?.length || pkg?.evidence?.land_price?.history?.length;
+    const official = yearCount(historyOf(pkg, "official-price", "official_price"));
+    const land = yearCount(historyOf(pkg, "land-price", "land_price"));
     const available = [transactions ? `실거래 ${transactions}건` : "", building ? `건축물대장 ${building}건` : "", official ? `공시가격 ${official}개 연도` : "", land ? `공시지가 ${land}개 연도` : ""].filter(Boolean);
     return available.length ? `확인된 외부 자료: ${available.join(" · ")}` : "확인된 외부 자료 없음";
   }
@@ -94,13 +104,26 @@
   function evidenceCards(pkg) {
     const transactions = pkg?.evidence?.transactions?.summary?.sample_count || 0;
     const building = pkg?.evidence?.building?.records?.length || (pkg?.evidence?.building?.record ? 1 : 0);
-    const official = pkg?.evidence?.["official-price"]?.history?.length || pkg?.evidence?.official_price?.history?.length || 0;
-    const land = pkg?.evidence?.["land-price"]?.history?.length || pkg?.evidence?.land_price?.history?.length || 0;
+    const officialHistory = historyOf(pkg, "official-price", "official_price");
+    const latestOfficialYear = officialHistory.reduce((latest, item) => Math.max(latest, Number(item?.year) || 0), 0);
+    const latestOfficialPrices = [...new Set(officialHistory
+      .filter((item) => Number(item?.year) === latestOfficialYear)
+      .map((item) => Number(item?.price_won))
+      .filter(Number.isFinite))]
+      .sort((left, right) => left - right);
+    const officialValue = latestOfficialPrices.length
+      ? `${latestOfficialYear}년 ${latestOfficialPrices.map(formatWon).join(" · ")}${latestOfficialPrices.length > 1 ? ` (${latestOfficialPrices.length}건)` : ""}`
+      : yearCount(officialHistory) ? `${yearCount(officialHistory)}개 연도` : "자료 없음";
+    const landEvidence = pkg?.evidence?.["land-price"] || pkg?.evidence?.land_price || {};
+    const landHistory = historyOf(pkg, "land-price", "land_price");
+    const landLatest = landEvidence.latest || landHistory.reduce((latest, item) => Number(item?.year) > Number(latest?.year || 0) ? item : latest, null);
+    const landAmount = formatWon(landLatest?.price_per_sqm);
+    const landValue = landAmount ? `${landLatest.year}년 ${landAmount}/㎡` : yearCount(landHistory) ? `${yearCount(landHistory)}개 연도` : "자료 없음";
     return [
       { key: "transactions", label: "실거래 비교", value: transactions ? `${transactions}건` : "자료 없음" },
       { key: "building", label: "건축물대장", value: building ? `${building}건 확인` : "자료 없음" },
-      { key: "official-price", label: "공동주택 공시가격", value: official ? `${official}개 연도` : "자료 없음" },
-      { key: "land-price", label: "개별공시지가", value: land ? `${land}개 연도` : "자료 없음" }
+      { key: "official-price", label: "공시가격", value: officialValue },
+      { key: "land-price", label: "개별공시지가", value: landValue }
     ].filter((item) => item.value !== "자료 없음");
   }
   function buildAiSummaryInput(auction, pkg) {

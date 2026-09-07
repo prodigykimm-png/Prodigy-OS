@@ -131,16 +131,18 @@
     }
 
     const inboxCount = Number(opts.inboxCount) || 0;
-    if (inboxCount > 0) {
+    if (inboxCount >= 3) {
       add({
         kind: "inbox",
-        priority: 80,
+        priority: inboxCount >= 10 ? 92 : 80,
         title: `INBOX ${inboxCount}개 검토`,
         reason: "새 자료를 정리·태깅·연결할 제안을 확인합니다.",
         workspace: "knowledge",
         action_label: "지식함 열기",
         target_path: pathFor("knowledge") || "HUB/50 Knowledge.md",
         object_path: "",
+        pending_count: inboxCount,
+        pending_priority: inboxCount >= 10 ? "backlog" : "emphasized",
       });
     }
 
@@ -176,10 +178,11 @@
       });
     });
 
-    return Object.freeze(rows
-      .sort((left, right) => right.priority - left.priority || clean(left.due_date).localeCompare(clean(right.due_date)) || left.sequence - right.sequence)
-      .slice(0, 5)
-      .map((item, index) => Object.freeze(Object.assign({}, item, { rank: index + 1 }))));
+    const sortedRows = rows.sort((left, right) => right.priority - left.priority || clean(left.due_date).localeCompare(clean(right.due_date)) || left.sequence - right.sequence);
+    const limited = sortedRows.slice(0, 5);
+    const knowledgePending = sortedRows.find((item) => item.kind === "inbox");
+    if (knowledgePending && !limited.includes(knowledgePending)) limited[limited.length - 1] = knowledgePending;
+    return Object.freeze(limited.map((item, index) => Object.freeze(Object.assign({}, item, { rank: index + 1 }))));
   }
 
   function renderActionQueue(options) {
@@ -209,7 +212,14 @@
     const list = section.createEl("div", { attr: { class: "home-action-list" } });
     actions.forEach((action, index) => {
       const row = list.createEl("article", {
-        attr: { class: `home-action-row${index === 0 ? " is-primary" : ""}`, "data-action-kind": action.kind },
+        attr: {
+          class: `home-action-row${index === 0 ? " is-primary" : ""}`,
+          "data-action-kind": action.kind,
+          ...(action.kind === "inbox" ? {
+            "data-pending-count": String(action.pending_count),
+            "data-pending-priority": action.pending_priority,
+          } : {}),
+        },
       });
       row.createEl("span", { text: String(action.rank), attr: { class: "home-action-rank", "aria-hidden": "true" } });
       const copy = row.createEl("div", { attr: { class: "home-action-copy" } });

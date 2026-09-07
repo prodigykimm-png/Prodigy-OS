@@ -149,9 +149,10 @@ function normalizeCourt(record, payload) {
   const latest = schedule[schedule.length - 1] || {};
   const result = Object.assign({}, item, latest, payload.caseInfo || {});
   const explicitOutcome = clean(result.auctionOutcome || result.outcome || result.result).toLowerCase();
+  const court = [...new Set([result.courtName, result.courtBranchName].map(clean).filter(Boolean))].join(" ") || record.court;
   const candidate = {
     case_number: result.userCaseNumber || result.printCaseNumber || result.printCsNo || record.case_number,
-    court: result.courtName || record.court,
+    court,
     address: result.address || record.address,
     property_type: result.usage || record.property_type,
     appraisal_price: result.appraisedPrice || result.appraisalPrice,
@@ -198,12 +199,12 @@ function normalizeOfficialPrice(payload) { const history = Array.isArray(payload
 function normalizeLandPrice(payload) { const history = Array.isArray(payload?.history) ? payload.history : []; return { status: payload?.latest || history.length ? "success" : "empty", candidate: {}, evidence: { address: payload?.address || null, latest: payload?.latest || null, history, yoy_change_pct: payload?.yoy_change_pct ?? null }, raw: payload, source_url: payload?.source_url || "https://www.realtyprice.kr/notice/gsindividual/search.htm" }; }
 async function lookupLandPriceByIdentity(identity, land) {
   const pnu = identityCore.validPnu(identity?.pnu);
-  const parts = pnu.match(/^(\d{8})(\d{2})([12])(\d{4})(\d{4})$/u);
-  if (!parts || typeof land?.fetchGsiSearchList !== "function") return land.lookupGongsijiga(identity.parcel_query_address);
-  const main = String(Number(parts[4]));
-  const sub = Number(parts[5]) ? String(Number(parts[5])) : "";
-  const san = parts[3] === "2";
-  const rows = await land.fetchGsiSearchList({ regCode: parts[1].slice(0, 5), eubCode: parts[1], san, bun1: main, bun2: sub });
+  if (!pnu || typeof land?.fetchGsiSearchList !== "function") return land.lookupGongsijiga(identity.parcel_query_address);
+  const legalDongCode = pnu.slice(0, 10);
+  const main = String(Number(pnu.slice(11, 15)));
+  const sub = Number(pnu.slice(15, 19)) ? String(Number(pnu.slice(15, 19))) : "";
+  const san = pnu.slice(10, 11) === "2";
+  const rows = await land.fetchGsiSearchList({ regCode: legalDongCode.slice(0, 5), eubCode: legalDongCode.slice(5), san, bun1: main, bun2: sub });
   const history = rows.map((row) => land.normalizeSearchResult(row));
   const base = history.length
     ? land.buildResponse({ address: identity.parcel_query_address, jibun: sub ? `${main}-${sub}번지` : `${main}번지`, san, history })

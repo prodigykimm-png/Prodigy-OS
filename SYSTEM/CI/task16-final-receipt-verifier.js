@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const projectionAuthority = require("./release-projection-authority.js");
 
 const SELF_FIELD = "canonical_self_sha256";
 const RECEIPT_RELATIVE = "SYSTEM/AI/Reports/task16-final-release-receipt.json";
@@ -123,11 +124,7 @@ function isRealObsidianCapability(name) {
 function expectedGateAuthority(root) {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, MANIFEST_RELATIVE), "utf8"));
   const testsRoot = path.join(root, "SYSTEM/AI/Skills/prodigy-review/tests");
-  const discovery = {
-    view_syntax_files: countFiles(path.join(root, "SYSTEM/Views"), (name) => name.endsWith(".js")),
-    javascript_suite_files: countFiles(testsRoot, (name) => name.startsWith("test_") && name.endsWith(".js")),
-    python_suite_files: countFiles(testsRoot, (name) => name.startsWith("test_") && name.endsWith(".py")),
-  };
+  const discovery = projectionAuthority.discoveryCounts(projectionAuthority.discoverGateFiles(root));
   assertValue(JSON.stringify(manifest.discovery) === JSON.stringify(discovery), "gate_manifest_discovery_mismatch");
   assertValue(Object.values(manifest.fixed_commands).every((value) => Number.isInteger(value) && value >= 0), "gate_manifest_fixed_commands_invalid");
   const discoveredTotal = Object.values(discovery).reduce((sum, value) => sum + value, 0);
