@@ -3,6 +3,24 @@
 
   const EFFECTS = Object.freeze(["card", "sections", "none"]);
 
+  // Section queries read the Dataview metadata cache, which settles after
+  // the vault write. Wait (bounded) for the committed status to become
+  // visible before re-running the section runners.
+  async function settleSectionData(app, path, expectedStatus) {
+    if (typeof expectedStatus !== "string" || !expectedStatus) return;
+    const api = app?.plugins?.plugins?.dataview?.api;
+    if (!api || typeof api.page !== "function") return;
+    const deadline = Date.now() + 3000;
+    for (;;) {
+      try {
+        const page = api.page(path);
+        if (page && String(page.status) === expectedStatus) return;
+      } catch (_) { /* retry until the deadline */ }
+      if (Date.now() >= deadline) return;
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    }
+  }
+
   function create(options) {
     const opts = options || {};
     if (!opts.app?.vault || !opts.app?.fileManager?.processFrontMatter) {
@@ -52,6 +70,16 @@
           target = opts.redraw(updatedPatch, input.focusKey);
         } else if (effect === "sections" && typeof opts.refresh === "function") {
           await opts.refresh(file);
+          // Dataview index touch does not re-run js-engine section blocks,
+          // so a moved card would stay on screen in its old section.
+          // Re-run the registered section runners directly (best-effort:
+          // persistence above already succeeded).
+          try {
+            if (typeof root.__prodigyRefreshAuctionDashboard === "function") {
+              await settleSectionData(opts.app, filePath, updatedPatch.status);
+              root.__prodigyRefreshAuctionDashboard();
+            }
+          } catch (_) { /* section re-render is best-effort */ }
         }
         notify("saved", { target });
         return Object.freeze({ file, patch: Object.freeze(updatedPatch), effect });

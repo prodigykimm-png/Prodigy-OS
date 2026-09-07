@@ -500,6 +500,89 @@ const initializeAuctionWorkspace = async () => {
       window.ProdigyAuctionNavigationFocus?.markSection(section.status);
     });
     window.__prodigyAuctionPrimarySections = Object.freeze(primarySections);
+    try {
+      // Files can change outside card commits (explorer delete/rename,
+      // sync, external edits). Re-run section runners (debounced) so ghost
+      // cards do not linger. The Dataview post-index signal fires after
+      // pages() reflects the change, so one run reads fresh data.
+      // Never allowed to break mount.
+      const metadataCache = app.metadataCache;
+      if (metadataCache && typeof metadataCache.on === "function"
+        && typeof window.__prodigyRefreshAuctionDashboard === "function") {
+        let auctionCacheTimer = null;
+        const isAuctionPath = (path) => typeof path === "string"
+          && (path === "PARA/PROJECTS/Auction" || path.startsWith("PARA/PROJECTS/Auction/"));
+        // The index signal fires when Dataview starts reindexing, not when
+        // pages() reflects it. Poll the auction signature until it stops
+        // changing (bounded), then render once more on settled data.
+        const auctionIndexSignature = () => {
+          try {
+            const api = app.plugins?.plugins?.dataview?.api;
+            if (!api || typeof api.pages !== "function") return null;
+            return api.pages('"PARA/PROJECTS/Auction"').array()
+              .filter((p) => p && p.type === "auction_case")
+              .map((p) => `${(p.file && p.file.path) || ""}:${p.status || ""}`)
+              .sort()
+              .join("|");
+          } catch (_) { return null; }
+        };
+        const refreshOnSettledIndex = () => {
+          if (typeof window.__prodigyRefreshAuctionDashboard !== "function") return;
+          try { window.__prodigyRefreshAuctionDashboard(); } catch (_) {}
+          const deadline = Date.now() + 90000;
+          let last = auctionIndexSignature();
+          const tick = () => {
+            const current = auctionIndexSignature();
+            if (current !== null && current === last) {
+              try { window.__prodigyRefreshAuctionDashboard(); } catch (_) {}
+              return;
+            }
+            if (Date.now() >= deadline) {
+              // Never stable (continuous sync churn): render once anyway
+              // so a ghost cannot linger forever.
+              try { window.__prodigyRefreshAuctionDashboard(); } catch (_) {}
+              return;
+            }
+            last = current;
+            setTimeout(tick, 1000);
+          };
+          setTimeout(tick, 1000);
+        };
+        const scheduleAuctionSectionRefresh = () => {
+          if (typeof window.__prodigyRefreshAuctionDashboard !== "function") return;
+          if (auctionCacheTimer) clearTimeout(auctionCacheTimer);
+          auctionCacheTimer = setTimeout(() => {
+            auctionCacheTimer = null;
+            refreshOnSettledIndex();
+          }, 400);
+        };
+        const onDataviewIndexEvent = (op, file, oldPath) => {
+          const path = typeof file === "string" ? file : file?.path;
+          if (isAuctionPath(path) || isAuctionPath(oldPath)) scheduleAuctionSectionRefresh();
+        };
+        let indexRef = null;
+        try { indexRef = metadataCache.on("dataview:metadata-change", onDataviewIndexEvent); } catch (_) {}
+        // Backstop: Dataview tells views to refresh after it finishes
+        // reindexing. No path info, but it only fires when views are stale.
+        let viewsRef = null;
+        try {
+          const workspace = app.workspace;
+          if (workspace && typeof workspace.on === "function") {
+            viewsRef = workspace.on("dataview:refresh-views", scheduleAuctionSectionRefresh);
+          }
+        } catch (_) {}
+        mountContext.scope.track(() => {
+          if (auctionCacheTimer) { clearTimeout(auctionCacheTimer); auctionCacheTimer = null; }
+          try {
+            if (indexRef && typeof metadataCache.offref === "function") metadataCache.offref(indexRef);
+          } catch (_) {}
+          try {
+            const workspace = app.workspace;
+            if (viewsRef && workspace && typeof workspace.offref === "function") workspace.offref(viewsRef);
+          } catch (_) {}
+        });
+      }
+    } catch (_) { /* section auto-refresh is best-effort */ }
     const mountedPerformance = auctionShell.performance || performance;
     measurement.shell = auctionShell;
     measurement.performance = mountedPerformance || null;

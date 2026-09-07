@@ -67,8 +67,30 @@ test("status mutation refreshes sections only after persistence", async () => {
   ]);
 });
 
-test("failed persistence leaves live state and render effects untouched", async () => {
+test("sections commit re-runs dashboard runners so moved cards leave the old section", async () => {
   const fx = harness();
+  let dashboardRefreshes = 0;
+  const previous = globalThis.__prodigyRefreshAuctionDashboard;
+  globalThis.__prodigyRefreshAuctionDashboard = () => { dashboardRefreshes += 1; };
+  try {
+    await fx.coordinator.commit({
+      patch: { status: "bidding" },
+      effect: "sections",
+    });
+    assert.equal(dashboardRefreshes, 1);
+
+    await fx.coordinator.commit({
+      patch: { expected_bid: 300 },
+      effect: "card",
+    });
+    assert.equal(dashboardRefreshes, 1);
+  } finally {
+    if (previous === undefined) delete globalThis.__prodigyRefreshAuctionDashboard;
+    else globalThis.__prodigyRefreshAuctionDashboard = previous;
+  }
+});
+
+test("failed persistence leaves live state and render effects untouched", async () => {  const fx = harness();
   fx.app.fileManager.processFrontMatter = async () => {
     throw new Error("write failed");
   };

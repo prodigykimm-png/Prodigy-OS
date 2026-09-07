@@ -589,6 +589,42 @@ window.renderDashboardSection = function(options) {
 
     targetContainer.empty();
 
+    // Auction cards need the mutation module. A partial iCloud sync (new
+    // auction-card.js without auction-card-mutation.js, frequent on iPad)
+    // must not explode into one error Notice per card: show a single retry
+    // row for the whole section instead.
+    if (type === "auction_case" && typeof window !== "undefined"
+      && (!window.AuctionCardMutation || typeof window.AuctionCardMutation.create !== "function")) {
+      const syncBox = targetContainer.createEl("div", {
+        attr: { class: "prodigy-status-line", "data-state": "sync-pending", style: "margin:var(--ke-space-2) 0;" }
+      });
+      syncBox.createEl("span", { text: "옥션 모듈을 동기화하는 중입니다. iCloud 동기화가 끝나면 다시 시도해 주세요." });
+      const syncRetry = syncBox.createEl("button", {
+        text: "다시 시도",
+        attr: { type: "button", class: "prodigy-btn prodigy-btn-chip", style: "margin-inline-start:8px;" }
+      });
+      syncRetry.onclick = async () => {
+        syncRetry.disabled = true;
+        try {
+          const appInst = (typeof app !== "undefined" && app && app.vault)
+            ? app
+            : (typeof window !== "undefined" ? window.app : null);
+          const loader = typeof window !== "undefined" ? window.ProdigyHubLoader : null;
+          if (loader && typeof loader.retry === "function") {
+            loader.retry([
+              "SYSTEM/Views/auction-card-mutation.js",
+              "SYSTEM/Views/auction-card.js"
+            ], { app: appInst, rerun_loaded: true });
+          }
+          if (loader && typeof loader.loadScript === "function" && appInst) {
+            await loader.loadScript(appInst, "SYSTEM/Views/auction-card-mutation.js");
+          }
+        } catch (_) { /* fall through: re-render shows the row again */ }
+        renderCards();
+      };
+      return true;
+    }
+
     // Render
     if (pageList.length === 0) {
       if (isCollapsed) {

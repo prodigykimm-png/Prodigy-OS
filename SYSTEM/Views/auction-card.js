@@ -658,7 +658,9 @@ window.renderAuctionCard = function(p, container, options) {
     };
     const mutationApi = window.AuctionCardMutation;
     if (!mutationApi || typeof mutationApi.create !== "function") {
-      throw new Error("옥션카드 변경 모듈을 불러오지 못했습니다.");
+      const missing = new Error("옥션카드 변경 모듈을 불러오지 못했습니다.");
+      missing.code = "auction-mutation-missing";
+      throw missing;
     }
     const mutation = mutationApi.create({
       app,
