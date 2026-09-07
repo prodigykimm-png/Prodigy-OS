@@ -104,6 +104,19 @@ test("Given one official court item with legal-dong codes, When parcel identity 
   assert.equal(normalized.candidate.case_number, "2025타경22459");
 });
 
+test("Given an official branch court response, When court facts are normalized, Then the mapped court keeps its branch name", () => {
+  const normalized = collector.normalizeCourt({ court: "부산지방법원 동부지원" }, {
+    found: true,
+    caseInfo: {
+      courtName: "부산지방법원",
+      courtBranchName: "동부지원",
+      userCaseNumber: "2025타경5352"
+    },
+    items: [{ address: "부산광역시 해운대구 우동 645-2" }]
+  });
+  assert.equal(normalized.candidate.court, "부산지방법원 동부지원");
+});
+
 test("Given an exact PNU, When land-price region discovery is unavailable, Then the direct parcel query returns an exact empty result", async () => {
   let captured;
   const land = {
@@ -115,11 +128,25 @@ test("Given an exact PNU, When land-price region discovery is unavailable, Then 
     pnu: "2623010400108480008",
     parcel_query_address: "부산광역시 부산진구 범천동 848-8"
   }, land);
-  assert.deepEqual(captured, { regCode: "26230", eubCode: "26230104", san: false, bun1: "848", bun2: "8" });
+  assert.deepEqual(captured, { regCode: "26230", eubCode: "10400", san: false, bun1: "848", bun2: "8" });
   assert.equal(payload.pnu, "2623010400108480008");
   assert.equal(payload.address, "부산광역시 부산진구 범천동 848-8");
   assert.deepEqual(payload.history, []);
   assert.equal(payload.latest, null);
+});
+
+test("Given the 5352 parcel PNU, When land price is queried, Then the five-digit legal-dong suffix reaches realtyprice", async () => {
+  let captured;
+  const land = {
+    fetchGsiSearchList: async (query) => { captured = query; return []; },
+    normalizeSearchResult: (row) => row,
+    buildResponse: () => { throw new Error("empty history must not be built"); }
+  };
+  await collector.lookupLandPriceByIdentity({
+    pnu: "2635010500106450002",
+    parcel_query_address: "부산광역시 해운대구 우동 645-2"
+  }, land);
+  assert.deepEqual(captured, { regCode: "26350", eubCode: "10500", san: false, bun1: "645", bun2: "2" });
 });
 
 test("Given proxy opt-in and an exact PNU, When the building route is selected, Then hosted proxy is used without a direct API key", () => {

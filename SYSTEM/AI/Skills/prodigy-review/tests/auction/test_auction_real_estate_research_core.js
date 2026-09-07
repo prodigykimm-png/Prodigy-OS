@@ -39,6 +39,31 @@ test("Given provider evidence, When summary is built, Then source coverage is vi
   assert.deepEqual(core.evidenceCards({ evidence: {} }), []);
 });
 
+test("Given official price histories, When evidence cards are projected, Then latest amounts are visible instead of counts only", () => {
+  const cards = core.evidenceCards({
+    evidence: {
+      "official-price": {
+        history: [
+          { year: 2018, price_won: 34800000 },
+          { year: 2018, price_won: 174000000 },
+          { year: 2017, price_won: 31700000 }
+        ]
+      },
+      "land-price": {
+        latest: { year: 2026, price_per_sqm: 1729000 },
+        history: [{ year: 2026, price_per_sqm: 1729000 }]
+      }
+    }
+  });
+  const official = cards.find((card) => card.key === "official-price");
+  const land = cards.find((card) => card.key === "land-price");
+  assert.match(official.value, /2018년/u);
+  assert.match(official.value, /34,800,000원/u);
+  assert.match(official.value, /174,000,000원/u);
+  assert.match(land.value, /2026년/u);
+  assert.match(land.value, /1,729,000원\/㎡/u);
+});
+
 test("Given provider match resolution, When match rows are projected, Then unresolved identity is visible as a blocker", () => {
   const rows = core.matchResolutionRows(matchedPkg);
   assert.equal(rows.find((row) => row.provider === "court").status, "매칭 확정");

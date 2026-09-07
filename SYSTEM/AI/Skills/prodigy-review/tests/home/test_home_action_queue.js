@@ -101,6 +101,57 @@ test("dedupes the same object and hides generic continue rows", () => {
   assert.equal(actions.some((item) => item.title === "실행 중"), true);
 });
 
+test("Knowledge INBOX enters Home only at the three-item action threshold", () => {
+  for (const inboxCount of [0, 1, 2]) {
+    const actions = queue.buildActionQueue({
+      now: new Date("2026-08-24T09:00:00+09:00"),
+      pkg: { local_date: "2026-08-24", context: { auctions: [] } },
+      inboxCount,
+      journalStatus: "complete",
+      workspacePathFor: pathFor,
+    });
+    assert.equal(actions.some((item) => item.kind === "inbox"), false, `count ${inboxCount}`);
+  }
+  for (const inboxCount of [3, 10]) {
+    const actions = queue.buildActionQueue({
+      now: new Date("2026-08-24T09:00:00+09:00"),
+      pkg: { local_date: "2026-08-24", context: { auctions: [] } },
+      inboxCount,
+      journalStatus: "complete",
+      workspacePathFor: pathFor,
+    });
+    const inbox = actions.find((item) => item.kind === "inbox");
+    assert.ok(inbox, `count ${inboxCount}`);
+    assert.equal(inbox.pending_count, inboxCount);
+    assert.equal(inbox.pending_priority, inboxCount >= 10 ? "backlog" : "emphasized");
+  }
+});
+
+test("Knowledge pending action survives a crowded top-five deterministically", () => {
+  const attention = Array.from({ length: 6 }, (_, index) => ({
+    label: `긴급 ${index + 1}`,
+    attention_level: "critical",
+    reason: "오늘 확인",
+    object_path: `PARA/PROJECTS/Project/urgent-${index + 1}.md`,
+    dashboard_path: "HUB/40 Project.md",
+    workspace_label: "프로젝트",
+  }));
+  for (const inboxCount of [3, 10]) {
+    const actions = queue.buildActionQueue({
+      now: new Date("2026-08-24T09:00:00+09:00"),
+      pkg: { local_date: "2026-08-24", context: { auctions: [] } },
+      attention,
+      inboxCount,
+      journalStatus: "complete",
+      workspacePathFor: pathFor,
+    });
+    assert.equal(actions.length, 5);
+    assert.equal(actions.filter((item) => item.kind === "inbox").length, 1, `count ${inboxCount}`);
+    assert.equal(actions[4].kind, "inbox", `count ${inboxCount}`);
+    assert.deepEqual(actions.slice(0, 4).map((item) => item.title), ["긴급 1", "긴급 2", "긴급 3", "긴급 4"]);
+  }
+});
+
 test("journal becomes a real action and proposals stay approval actions", () => {
   const actions = queue.buildActionQueue({
     now: new Date("2026-08-24T21:00:00+09:00"),

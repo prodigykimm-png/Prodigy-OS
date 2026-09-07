@@ -51,6 +51,34 @@ test("Given a 본원 court label, When court identity resolves, Then the officia
   assert.deepEqual(resolved.selected, { court_code: "B000410", court: "부산지방법원" });
 });
 
+test("Given a parent court plus branch label, When court identity resolves, Then the official short branch name is selected automatically", () => {
+  const rows = [
+    { code: "B000412", name: "동부지원" },
+    { code: "B000414", name: "부산서부지원" },
+    { code: "B000283", name: "천안지원" }
+  ];
+  const cases = [
+    ["부산지방법원 동부지원", "B000412"],
+    ["부산지방법원 서부지원", "B000414"],
+    ["대전지방법원 천안지원", "B000283"]
+  ];
+  for (const [court, courtCode] of cases) {
+    const resolved = identity.resolveCourtCode({ court }, rows);
+    assert.equal(resolved.status, "resolved", `${court} must resolve without manual court-code entry`);
+    assert.equal(resolved.selected.court_code, courtCode);
+  }
+});
+
+test("Given a textual land parcel id beside a road address, When identity is normalized, Then the parcel address is mapped automatically", () => {
+  const context = identity.normalizeAuctionIdentity({
+    address: "부산광역시 해운대구 해운대해변로237번길 11, 블루스토리호텔 9층 903호",
+    land_parcel_id: "부산광역시 해운대구 우동 645-2 외 1필지"
+  });
+  assert.equal(context.identity.lot_address, "부산광역시 해운대구 우동 645-2");
+  assert.equal(context.identity.parcel_query_address, "부산광역시 해운대구 우동 645-2");
+  assert.equal(identity.providerPlan("land-price", context.identity).status, "resolved");
+});
+
 test("Given a canonical identity, When provider plans are built, Then exact providers are resolved and apartment units require all selectors", () => {
   const context = identity.normalizeAuctionIdentity({
     case_number: "2026-타경-10001",

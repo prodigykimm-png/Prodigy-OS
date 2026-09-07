@@ -9,23 +9,22 @@ const { randomUUID } = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "../../../../..");
-const MANIFEST = "SYSTEM/CI/release-gate-manifest.json";
-const BASELINE = "e82aebecee1ac0d3b12c288d147216ec6ec939d7";
-const ZERO_SHA256 = "0".repeat(64);
-const EXTERNAL_KNOWLEDGE_INBOX = Object.freeze([
-  "SYSTEM/docs/Prodigy_Knowledge_Inbox_Execution_Scope_v1.json",
-  "SYSTEM/docs/Prodigy_Knowledge_Inbox_Proposal_v1.md"
-]);
-const NON_DELIVERY_EXCLUSIONS = Object.freeze([
-  ".git", ".omo", ".gjc", ".codex", "DAILY", "PARA", "ZETA",
-  "SYSTEM/PRIVATE", "SYSTEM/CACHE", "**/__pycache__", "**/*.pyc",
-  ...EXTERNAL_KNOWLEDGE_INBOX
-]);
+const projection = require(path.join(ROOT, "SYSTEM/CI/release-projection-authority.js"));
+const {
+  BASELINE,
+  DERIVED_EVIDENCE_EXCLUSIONS,
+  EXTERNAL_KNOWLEDGE_INBOX,
+  NON_DELIVERY_EXCLUSIONS,
+  ZERO_SHA256,
+  assertFrozenUniverse,
+  buildManifest,
+  canonicalSelfSha256,
+  deriveProjectedPaths: deriveCurrentProjectedPaths,
+  freezeUniverse,
+  projectedPathManifestSha256
+} = projection;
+const MANIFEST = projection.MANIFEST_RELATIVE;
 const FORBIDDEN_TOP_LEVEL = new Set([".git", ".omo", ".gjc", ".codex", "DAILY", "PARA", "ZETA"]);
-const DERIVED_EVIDENCE_EXCLUSIONS = Object.freeze([
-  { path: "SYSTEM/AI/Reports/task16-final-release-receipt.json", reason: "post_projection_derived_receipt_self_reference" },
-  { path: "SYSTEM/AI/Reports/task16-final-evidence/**", reason: "post_projection_retained_authoritative_evidence" }
-]);
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -34,46 +33,14 @@ function sha256(value) {
 function fileSha256(root, relativePath) {
   return sha256(fs.readFileSync(path.join(root, relativePath)));
 }
-function countFiles(root, predicate) {
-  let count = 0;
-  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-    const target = path.join(root, entry.name);
-    if (entry.isDirectory()) count += countFiles(target, predicate);
-    else if (entry.isFile() && predicate(entry.name)) count += 1;
-  }
-  return count;
-}
-
 function command(commandName, args, options = {}) {
   const result = spawnSync(commandName, args, { cwd: options.cwd || ROOT, encoding: "utf8", env: options.env || process.env });
   assert.equal(result.status, 0, `${commandName} ${args.join(" ")} failed:\n${result.stdout}\n${result.stderr}`);
   return result;
 }
 
-function gitPaths(args) {
-  const result = spawnSync("git", args, { cwd: ROOT, encoding: "buffer" });
-  assert.equal(result.status, 0, result.stderr.toString());
-  return result.stdout.toString("utf8").split("\0").filter(Boolean);
-}
-
-function deriveTaskOwnedPaths() {
-  command("git", ["cat-file", "-e", `${BASELINE}^{commit}`]);
-  return [...new Set([
-    ...gitPaths(["diff", "--name-only", "-z", BASELINE, "--"]),
-    ...gitPaths(["ls-files", "--others", "--exclude-standard", "-z"])
-  ])].filter((relativePath) => !EXTERNAL_KNOWLEDGE_INBOX.includes(relativePath)).sort();
-}
-
-function matchesExclusion(relativePath, exclusion) {
-  if (exclusion.endsWith("/**")) return relativePath.startsWith(exclusion.slice(0, -3) + "/");
-  if (exclusion.startsWith("**/*.")) return relativePath.endsWith(exclusion.slice(4));
-  return relativePath === exclusion || relativePath.startsWith(`${exclusion}/`);
-}
-
 function deriveProjectedPaths() {
-  return deriveTaskOwnedPaths().filter((relativePath) =>
-    !NON_DELIVERY_EXCLUSIONS.some((exclusion) => matchesExclusion(relativePath, exclusion))
-    && !DERIVED_EVIDENCE_EXCLUSIONS.some((entry) => matchesExclusion(relativePath, entry.path)));
+  return deriveCurrentProjectedPaths(ROOT);
 }
 
 function assertSafeRelativePath(relativePath) {
@@ -90,22 +57,7 @@ function assertSafeRelativePath(relativePath) {
   assert.equal(relativePath.endsWith(".pyc"), false, `bytecode projected path: ${relativePath}`);
 }
 
-function normalizedSelfManifest(manifest) {
-  const normalized = JSON.parse(JSON.stringify(manifest));
-  normalized.delivery.projected_path_manifest_sha256 = ZERO_SHA256;
-  const self = normalized.delivery.projected_paths.find((entry) => entry.path === MANIFEST);
-  assert.ok(self, "projection manifest must own itself");
-  self.sha256 = ZERO_SHA256;
-  return normalized;
-}
 
-function canonicalSelfSha256(manifest) {
-  return sha256(JSON.stringify(normalizedSelfManifest(manifest), null, 2) + "\n");
-}
-
-function projectedPathManifestSha256(entries) {
-  return sha256(entries.map((entry) => `${entry.path}\0${entry.hash_mode}\0${entry.sha256}\n`).join(""));
-}
 
 function validateProjectionManifest(manifest, actualPaths, root) {
   assert.deepEqual(Object.keys(manifest.delivery).sort(), ["derived_delivery_evidence_exclusions", "head_inclusion", "mode", "non_delivery_exclusions", "projected_path_manifest_sha256", "projected_paths"]);
@@ -113,7 +65,7 @@ function validateProjectionManifest(manifest, actualPaths, root) {
   assert.equal(manifest.delivery.head_inclusion, "deferred_to_authorized_final_merge");
   assert.deepEqual(manifest.delivery.non_delivery_exclusions, NON_DELIVERY_EXCLUSIONS);
   assert.deepEqual(manifest.delivery.derived_delivery_evidence_exclusions, DERIVED_EVIDENCE_EXCLUSIONS);
-  assert.equal(actualPaths.some((relativePath) => relativePath === DERIVED_EVIDENCE_EXCLUSIONS[0].path || relativePath.startsWith("SYSTEM/AI/Reports/task16-final-evidence/")), false, "derived evidence must not enter the raw product projection");
+  assert.equal(actualPaths.some((relativePath) => DERIVED_EVIDENCE_EXCLUSIONS.some((identity) => projection.matchesEvidenceIdentity(relativePath, identity))), false, "predeclared generated evidence roots must not enter the raw product projection");
   assert.match(manifest.delivery.projected_path_manifest_sha256, /^[a-f0-9]{64}$/u);
 
   const entries = manifest.delivery.projected_paths;
@@ -144,40 +96,23 @@ function updateProjectionManifest() {
   const gitProbe = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: ROOT, encoding: "utf8" });
   assert.equal(gitProbe.status, 0, "projection manifest update requires owning Git metadata");
   assert.equal(path.resolve(gitProbe.stdout.trim()), ROOT, "projection manifest update must run at its owning worktree");
-  const projectedPaths = deriveProjectedPaths();
-  assert.ok(projectedPaths.includes(MANIFEST), "projection manifest is not part of the projected deliverable");
-  for (const relativePath of projectedPaths) {
+  const frozen = freezeUniverse(ROOT);
+  assert.ok(frozen.projectedPaths.includes(MANIFEST), "projection manifest is not part of the projected deliverable");
+  for (const relativePath of frozen.projectedPaths) {
     assertSafeRelativePath(relativePath);
     assert.ok(fs.existsSync(path.join(ROOT, relativePath)), `deleted paths require an explicit delivery policy: ${relativePath}`);
   }
 
   const manifestPath = path.join(ROOT, MANIFEST);
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-  const testsRoot = path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests");
-  manifest.discovery = {
-    view_syntax_files: countFiles(path.join(ROOT, "SYSTEM/Views"), (name) => name.endsWith(".js")),
-    javascript_suite_files: countFiles(testsRoot, (name) => name.startsWith("test_") && name.endsWith(".js")),
-    python_suite_files: countFiles(testsRoot, (name) => name.startsWith("test_") && name.endsWith(".py"))
-  };
-  manifest.total_commands = Object.values(manifest.fixed_commands).reduce((sum, value) => sum + value, 0) + Object.values(manifest.discovery).reduce((sum, value) => sum + value, 0);
-  manifest.delivery = {
-    mode: "projected_worktree",
-    head_inclusion: "deferred_to_authorized_final_merge",
-    non_delivery_exclusions: [...NON_DELIVERY_EXCLUSIONS],
-    derived_delivery_evidence_exclusions: DERIVED_EVIDENCE_EXCLUSIONS.map((entry) => ({ ...entry })),
-    projected_path_manifest_sha256: ZERO_SHA256,
-    projected_paths: projectedPaths.map((relativePath) => ({
-      path: relativePath,
-      sha256: relativePath === MANIFEST ? ZERO_SHA256 : fileSha256(ROOT, relativePath),
-      hash_mode: relativePath === MANIFEST ? "canonical_self" : "raw"
-    }))
-  };
-  const self = manifest.delivery.projected_paths.find((entry) => entry.path === MANIFEST);
-  self.sha256 = canonicalSelfSha256(manifest);
-  manifest.delivery.projected_path_manifest_sha256 = projectedPathManifestSha256(manifest.delivery.projected_paths);
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-  validateProjectionManifest(manifest, projectedPaths, ROOT);
-  console.log(`Updated projection manifest: paths=${projectedPaths.length}, digest=${manifest.delivery.projected_path_manifest_sha256}`);
+  const current = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  const first = buildManifest(current, frozen);
+  fs.writeFileSync(manifestPath, `${JSON.stringify(first, null, 2)}\n`);
+  const secondUniverse = freezeUniverse(ROOT);
+  assertFrozenUniverse(frozen, secondUniverse);
+  const second = buildManifest(first, secondUniverse);
+  assert.deepEqual(second, first, "projection manifest did not reach a two-pass fixed point");
+  validateProjectionManifest(second, frozen.projectedPaths, ROOT);
+  console.log(`Updated fixed-point projection manifest: paths=${frozen.projectedPaths.length}, digest=${second.delivery.projected_path_manifest_sha256}, passes=2`);
 }
 
 function copyProjectedPath(exportRoot, relativePath) {
@@ -215,6 +150,12 @@ function assertMutationRejections(manifest, actualPaths) {
   changedReason.delivery.derived_delivery_evidence_exclusions[0].reason = "other";
   assert.throws(() => validateProjectionManifest(changedReason, actualPaths, ROOT), /strictly deep-equal/u);
 
+  const wildcardIdentity = clone();
+  wildcardIdentity.delivery.derived_delivery_evidence_exclusions[1].path += "/**";
+  assert.throws(() => validateProjectionManifest(wildcardIdentity, actualPaths, ROOT), /strictly deep-equal/u);
+  assert.throws(() => projection.matchesEvidenceIdentity("SYSTEM/AI/Reports/task16-final-evidence/file", wildcardIdentity.delivery.derived_delivery_evidence_exclusions[1]), /must not be globs/u);
+  assert.equal(projection.matchesEvidenceIdentity("SYSTEM/AI/Reports/task16-final-evidence-sibling/file", DERIVED_EVIDENCE_EXCLUSIONS[1]), false, "evidence-root identity must not widen to prefix siblings");
+
   const missing = clone();
   missing.delivery.projected_paths.pop();
   assert.throws(() => validateProjectionManifest(missing, actualPaths, ROOT), /path set differs/u);
@@ -238,6 +179,18 @@ function assertMutationRejections(manifest, actualPaths) {
   const raw = byteMismatch.delivery.projected_paths.find((entry) => entry.hash_mode === "raw");
   raw.sha256 = ZERO_SHA256;
   assert.throws(() => validateProjectionManifest(byteMismatch, actualPaths, ROOT), /byte mismatch/u);
+
+  const frozen = freezeUniverse(ROOT);
+  const added = structuredClone(frozen);
+  added.projectedPaths.push("SYSTEM/added-after-freeze.js");
+  assert.throws(() => assertFrozenUniverse(frozen, added), /path universe changed/u);
+  const missingFrozen = structuredClone(frozen);
+  missingFrozen.projectedPaths.pop();
+  assert.throws(() => assertFrozenUniverse(frozen, missingFrozen), /path universe changed/u);
+  const changed = structuredClone(frozen);
+  const changedFile = changed.files.find((entry) => entry.sha256);
+  changedFile.sha256 = ZERO_SHA256;
+  assert.throws(() => assertFrozenUniverse(frozen, changed), /source bytes changed/u);
 }
 
 function runAudits(exportRoot, receiptRoot) {

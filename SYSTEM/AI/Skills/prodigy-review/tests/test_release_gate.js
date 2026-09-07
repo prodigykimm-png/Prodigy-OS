@@ -7,15 +7,13 @@ const os = require("node:os");
 const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "../../../../..");
+const projection = require(path.join(ROOT, "SYSTEM/CI/release-projection-authority.js"));
 const RUNNER_RELATIVE = "SYSTEM/CI/run-release-gate.sh";
 const RUNNER = path.join(ROOT, RUNNER_RELATIVE);
-const MANIFEST_RELATIVE = "SYSTEM/CI/release-gate-manifest.json";
+const MANIFEST_RELATIVE = projection.MANIFEST_RELATIVE;
 const DERIVED_RECEIPT_RELATIVE = "SYSTEM/AI/Reports/task16-final-release-receipt.json";
-const BASELINE = "e82aebecee1ac0d3b12c288d147216ec6ec939d7";
-const DERIVED_EVIDENCE_EXCLUSIONS = [
-  { path: DERIVED_RECEIPT_RELATIVE, reason: "post_projection_derived_receipt_self_reference" },
-  { path: "SYSTEM/AI/Reports/task16-final-evidence/**", reason: "post_projection_retained_authoritative_evidence" }
-];
+const BASELINE = projection.BASELINE;
+const DERIVED_EVIDENCE_EXCLUSIONS = projection.DERIVED_EVIDENCE_EXCLUSIONS;
 const WORKFLOWS = [
   ".github/workflows/prodigy-full-tests.yml",
   ".github/workflows/prodigy-stability-smoke.yml"
@@ -27,22 +25,6 @@ function read(relativePath) {
   const absolutePath = path.join(ROOT, relativePath);
   assert.ok(fs.existsSync(absolutePath), `Missing required file: ${relativePath}`);
   return fs.readFileSync(absolutePath, "utf8");
-}
-
-function countFiles(root, predicate) {
-  let count = 0;
-  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-    const absolutePath = path.join(root, entry.name);
-    if (entry.isDirectory()) count += countFiles(absolutePath, predicate);
-    else if (entry.isFile() && predicate(entry.name)) count += 1;
-  }
-  return count;
-}
-
-function matchesExclusion(relativePath, exclusion) {
-  if (exclusion.endsWith("/**")) return relativePath.startsWith(exclusion.slice(0, -3) + "/");
-  if (exclusion.startsWith("**/*.")) return relativePath.endsWith(exclusion.slice(4));
-  return relativePath === exclusion || relativePath.startsWith(`${exclusion}/`);
 }
 
 function checkReleaseManifestContract() {
@@ -75,10 +57,9 @@ function checkReleaseManifestContract() {
     assert.equal(untracked.status, 0, untracked.stderr.toString());
     const changed = [...new Set(Buffer.concat([modified.stdout, untracked.stdout]).toString("utf8").split("\0").filter(Boolean))].sort();
     assert.equal(changed.includes(DERIVED_RECEIPT_RELATIVE), true, "derived receipt must exist as repository-owned delivery evidence");
-    const actual = changed.filter((relativePath) =>
-      !manifest.delivery.non_delivery_exclusions.some((exclusion) => matchesExclusion(relativePath, exclusion))
-      && !DERIVED_EVIDENCE_EXCLUSIONS.some((entry) => matchesExclusion(relativePath, entry.path)));
+    const actual = projection.deriveProjectedPaths(ROOT);
     assert.equal(projectedSet.has(DERIVED_RECEIPT_RELATIVE), false, "derived receipt must not enter the raw product projection");
+    assert.equal(actual.some((relativePath) => DERIVED_EVIDENCE_EXCLUSIONS.some((identity) => projection.matchesEvidenceIdentity(relativePath, identity))), false, "predeclared evidence roots must stay outside the raw projection");
     assert.deepEqual(manifest.delivery.projected_paths.map((entry) => entry.path), actual, "Projection manifest must exactly own every other modified/untracked path");
   }
   assert.equal(manifest.toolchain.node_required_major, 24);
@@ -88,12 +69,7 @@ function checkReleaseManifestContract() {
   assert.equal(manifest.toolchain.python_ci, "3.12");
   assert.equal(manifest.toolchain.setup_uv_action, "astral-sh/setup-uv@v5");
 
-  const testsRoot = path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests");
-  const discovered = {
-    view_syntax_files: countFiles(path.join(ROOT, "SYSTEM/Views"), (name) => name.endsWith(".js")),
-    javascript_suite_files: countFiles(testsRoot, (name) => name.startsWith("test_") && name.endsWith(".js")),
-    python_suite_files: countFiles(testsRoot, (name) => name.startsWith("test_") && name.endsWith(".py"))
-  };
+  const discovered = projection.discoveryCounts(projection.discoverGateFiles(ROOT));
   assert.deepEqual(manifest.discovery, discovered, "Tracked release counts must match canonical discovery");
   const fixedCount = Object.values(manifest.fixed_commands).reduce((sum, value) => sum + value, 0);
   assert.equal(manifest.total_commands, fixedCount + Object.values(discovered).reduce((sum, value) => sum + value, 0));
