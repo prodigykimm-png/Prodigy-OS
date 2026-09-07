@@ -19,7 +19,11 @@ artifacts/prodigy-knowledge-inbox/
 !.obsidian/plugins/prodigy-ai-runtime/
 
 # Task evidence archives (working-tree copies stay, git tracking only)
+SYSTEM/AI/Reports/final/
+SYSTEM/AI/Reports/task-1[1-9]/
 SYSTEM/AI/Reports/task16-final-evidence/archive/
+SYSTEM/AI/Reports/task16-final-evidence/artifacts/
+SYSTEM/AI/Reports/task16-final-evidence/st_*/
 
 # Obsidian personal / runtime state
 .obsidian/workspace.json
