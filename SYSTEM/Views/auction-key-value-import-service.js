@@ -88,9 +88,36 @@
   }
 
   async function existingRecords(vault) {
+    // 원자적 쓰기(remove→rename 사이 중단) 복구: tmp가 남아 있으면 정위치로 되돌린다
+    const tmpPath = `${NORMALIZED_PATH}.tmp`;
+    if (!vault.getAbstractFileByPath(NORMALIZED_PATH) && vault.getAbstractFileByPath(tmpPath)) {
+      const adapter = vault.adapter;
+      if (adapter && typeof adapter.rename === "function") {
+        try { await adapter.rename(tmpPath, NORMALIZED_PATH); } catch (_error) { /* 다음 실행에서 재시도 */ }
+      }
+    }
     return await readJson(vault, NORMALIZED_PATH)
       || await readJson(vault, LEGACY_NORMALIZED_PATH)
       || [];
+  }
+
+  async function writeNormalizedAtomic(app, text) {
+    const adapter = app.vault && app.vault.adapter;
+    const atomicReady = adapter && typeof adapter.write === "function"
+      && typeof adapter.exists === "function"
+      && typeof adapter.remove === "function"
+      && typeof adapter.rename === "function";
+    if (!atomicReady) return writeText(app.vault, NORMALIZED_PATH, text);
+    const tmpPath = `${NORMALIZED_PATH}.tmp`;
+    await ensureFolder(app.vault, CACHE_DIR);
+    await adapter.write(tmpPath, text);
+    try {
+      if (await adapter.exists(NORMALIZED_PATH)) await adapter.remove(NORMALIZED_PATH);
+      await adapter.rename(tmpPath, NORMALIZED_PATH);
+    } catch (error) {
+      // target이 이미 remove된 뒤 rename이 실패하면 tmp가 남고, 다음 existingRecords가 복구한다
+      throw error;
+    }
   }
 
   function uniqueArchivePath(vault, file, month, contentHash) {
@@ -136,6 +163,11 @@ function compositeKeys(core, record) {
     try { return JSON.parse(await vault.read(file)) || {}; } catch (_error) { return {}; }
   }
 
+  async function readCardText(vault, file) {
+    if (typeof vault.cachedRead === "function") return await vault.cachedRead(file);
+    return await vault.read(file);
+  }
+
   async function scanCardNotes(app, core, today) {
     const files = app.vault.getFiles()
       .filter((file) => isCardNote(file.path))
@@ -144,7 +176,7 @@ function compositeKeys(core, record) {
     const excluded = { noPrice: 0, unsupported: 0, noArea: 0, badDate: 0, futureDate: 0, noDong: 0 };
     const hashParts = [];
     for (const file of files) {
-      const fm = readCardFrontmatter(await app.vault.read(file));
+      const fm = readCardFrontmatter(await readCardText(app.vault, file));
       if (fm.type !== "auction_case") continue;
       const priceRaw = String(fm.winning_bid_price ?? "").replaceAll(",", "").trim();
       const price = /^\d+$/.test(priceRaw) ? Number(priceRaw) : null;
@@ -172,6 +204,7 @@ function compositeKeys(core, record) {
   async function processPending(app, options = {}) {
     if (!app || !app.vault) throw new Error("Vault access is not available.");
     const core = options.core || resolveCore(app);
+    const startedAtMs = Date.now();
     const generatedAt = (options.now || (() => new Date().toISOString()))();
     const notify = options.notify || ((message) => {
       if (typeof root.Notice === "function") new root.Notice(message);
@@ -223,10 +256,14 @@ function compositeKeys(core, record) {
     }
     const records = [...recordsById.values()];
     const snapshot = core.buildKeyValueSnapshot(records, { asOf: generatedAt, source: "AUCT CSV" });
+    // generated_at(및 duration_ms) 제외한 데이터 해시 — 데이터 불변이면 파일 재기록을 생략한다
+    const snapshotDataHash = core.sha256(JSON.stringify({ groups: snapshot.groups, districts: snapshot.districts }));
     const groups = Object.values(snapshot.groups);
+    const durationMs = Date.now() - startedAtMs;
     const audit = Object.freeze({
       schema_version: "auction-key-value-auto-import.v1",
       generated_at: generatedAt,
+      duration_ms: durationMs,
       inputs: sources.map((source) => source.file),
       source_counts: Object.fromEntries(sources.map((source) => [source.file, source.records])),
       seed_records: csvOnlyById.size - imported.length,
@@ -240,16 +277,31 @@ function compositeKeys(core, record) {
       card_excluded: cardScan.excluded,
       groups: groups.length,
       usable_groups: groups.filter((group) => group.confidence === "usable").length,
-      snapshot_hash: snapshot.content_hash
+      snapshot_hash: snapshot.content_hash,
+      records_key: `${normalizedHash}|${cardScan.hash}`
     });
+    const auditDataHash = core.sha256(JSON.stringify({
+      ...audit,
+      generated_at: undefined, duration_ms: undefined, snapshot_hash: undefined, records_key: undefined
+    }));
 
     if (shouldWriteNormalized) {
-      await writeText(app.vault, NORMALIZED_PATH, `${JSON.stringify(csvRecords, null, 2)}\n`);
+      await writeNormalizedAtomic(app, `${JSON.stringify(csvRecords, null, 2)}\n`);
     }
-    await writeText(app.vault, SNAPSHOT_PATH, `${JSON.stringify(snapshot, null, 2)}\n`);
-    await writeText(app.vault, AUDIT_PATH, `${JSON.stringify(audit, null, 2)}\n`);
-    await writeText(app.vault, CARD_SNAPSHOT_PATH, cardSnapshotSource(snapshot));
-    await writeText(app.vault, CARD_STATE_PATH, `${JSON.stringify({ cards_hash: cardScan.hash, normalized_hash: normalizedHash, generated_at: generatedAt }, null, 2)}\n`);
+    if (snapshotDataHash !== scanState.snapshot_data_hash) {
+      await writeText(app.vault, SNAPSHOT_PATH, `${JSON.stringify(snapshot, null, 2)}\n`);
+      await writeText(app.vault, CARD_SNAPSHOT_PATH, cardSnapshotSource(snapshot));
+    }
+    if (auditDataHash !== scanState.audit_data_hash) {
+      await writeText(app.vault, AUDIT_PATH, `${JSON.stringify(audit, null, 2)}\n`);
+    }
+    await writeText(app.vault, CARD_STATE_PATH, `${JSON.stringify({
+      cards_hash: cardScan.hash,
+      normalized_hash: normalizedHash,
+      snapshot_data_hash: snapshotDataHash,
+      audit_data_hash: auditDataHash,
+      generated_at: generatedAt
+    }, null, 2)}\n`);
     root.AuctionKeyValueSnapshot = snapshot;
 
     const month = generatedAt.slice(0, 7);
@@ -280,6 +332,8 @@ function compositeKeys(core, record) {
     if (!app || !app.vault) throw new Error("Vault access is not available.");
     let disposed = false;
     let queue = Promise.resolve();
+    let cardTimer = null;
+    const cardDebounceMs = typeof options.cardDebounceMs === "number" ? options.cardDebounceMs : 1500;
     const refs = [];
     const notifyError = options.notifyError || ((error) => {
       const message = `경매 키값 CSV 적용 실패: ${error.message}`;
@@ -294,10 +348,16 @@ function compositeKeys(core, record) {
       if (disposed) return queue;
       const isCard = file && isCardNote(file.path);
       if (file && !isInputCsv(file.path) && !isCard) return queue;
-      queue = isCard
-        ? queue.then(() => new Promise((resolveDelay) => setTimeout(resolveDelay, 1500))).then(runStep)
-        : queue.then(runStep);
-      return queue;
+      if (isCard) {
+        // 카드 수정 연타: 이미 대기 중인 실행이 있으면 합친다 (trailing debounce)
+        if (cardTimer) return queue;
+        cardTimer = setTimeout(() => {
+          cardTimer = null;
+          queue = queue.then(runStep);
+        }, cardDebounceMs);
+        return queue;
+      }
+      return queue = queue.then(runStep);
     };
     ["create", "modify", "rename"].forEach((event) => {
       refs.push(app.vault.on(event, (file) => { enqueue(file); }));
@@ -308,6 +368,7 @@ function compositeKeys(core, record) {
       idle: () => queue,
       dispose() {
         disposed = true;
+        if (cardTimer) { clearTimeout(cardTimer); cardTimer = null; }
         refs.forEach((ref) => app.vault.offref(ref));
       }
     });

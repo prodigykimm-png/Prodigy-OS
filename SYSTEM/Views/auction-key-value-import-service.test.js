@@ -59,6 +59,24 @@ class MemoryVault {
   }
 }
 
+class AdapterMemoryVault extends MemoryVault {
+  constructor(files = {}) {
+    super(files);
+    const vault = this;
+    this.adapter = {
+      async write(path, text) { vault.files.set(path, text); },
+      async exists(path) { return vault.files.has(path); },
+      async remove(path) { vault.files.delete(path); },
+      async rename(from, to) {
+        if (!vault.files.has(from)) throw new Error(`ENOENT: ${from}`);
+        const text = vault.files.get(from);
+        vault.files.delete(from);
+        vault.files.set(to, text);
+      }
+    };
+  }
+}
+
 function csv(rows) {
   return [
     "물건종류,소재지,대지권,건물면적,낙찰가,매각기일",
@@ -216,6 +234,119 @@ async function testCardWinningBidsMergeWithDedupe() {
   assert.equal(third.cardAdded, 3);
 }
 
+function noPriceCard(over = {}) {
+  return [
+    "---",
+    "id: test-noprice",
+    "type: auction_case",
+    "status: watching",
+    "property_type: 오피스텔",
+    "region_sido: 경기도",
+    "region_sigungu: 부천시 원미구",
+    "region_dong: 원미동",
+    "address: " + (over.address ?? "경기도 부천시 원미구 원미로 50, 테스트빌 5층 501호"),
+    "exclusive_area: 63.93㎡",
+    "auction_datetime: 2026-09-01T10:00",
+    "---",
+    ""
+  ].join("\n");
+}
+
+async function testCardEventsCoalesceIntoSingleRun() {
+  delete globalThis.AuctionKeyValueSnapshot;
+  const cardPath = `${service.CARD_DIR}/coalesce.md`;
+  const vault = new MemoryVault({
+    [cardPath]: [
+      "---",
+      "id: coalesce",
+      "type: auction_case",
+      "status: watching",
+      "property_type: 오피스텔",
+      "region_sido: 경기도",
+      "region_sigungu: 부천시 원미구",
+      "region_dong: 원미동",
+      "address: 경기도 부천시 원미구 원미로 50, 테스트빌 6층 601호",
+      "exclusive_area: 63.93㎡",
+      "winning_bid_price: 180000000",
+      "auction_datetime: 2026-09-01T10:00",
+      "---",
+      ""
+    ].join("\n")
+  });
+  const notices = [];
+  const handle = service.register({ vault }, {
+    startup: false,
+    cardDebounceMs: 10,
+    now: () => "2026-09-07T09:00:00.000Z",
+    notify: (m) => notices.push(m)
+  });
+  const modify = vault.listeners.get("modify");
+  modify({ path: cardPath });
+  modify({ path: cardPath });
+  modify({ path: cardPath });
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  await handle.idle();
+  assert.equal(notices.length, 1);
+  assert.match(notices[0], /카드 낙찰가 반영/);
+  handle.dispose();
+}
+
+async function testUnchangedDataSkipsSnapshotRewrite() {
+  delete globalThis.AuctionKeyValueSnapshot;
+  const vault = new MemoryVault({
+    [service.CARD_DIR + "/kept.md"]: [
+      "---",
+      "id: kept",
+      "type: auction_case",
+      "status: watching",
+      "property_type: 오피스텔",
+      "region_sido: 경기도",
+      "region_sigungu: 부천시 원미구",
+      "region_dong: 원미동",
+      "address: 경기도 부천시 원미구 원미로 50, 테스트빌 3층 301호",
+      "exclusive_area: 63.93㎡",
+      "winning_bid_price: 180000000",
+      "auction_datetime: 2026-09-01T10:00",
+      "---",
+      ""
+    ].join("\n"),
+    [service.CARD_DIR + "/noprice.md"]: noPriceCard()
+  });
+  await service.processPending({ vault }, { now: () => "2026-09-07T09:00:00.000Z" });
+  const snapshotBefore = vault.files.get(service.SNAPSHOT_PATH);
+  const cardSnapshotBefore = vault.files.get(service.CARD_SNAPSHOT_PATH);
+  const auditBefore = vault.files.get(service.AUDIT_PATH);
+  assert.ok(snapshotBefore);
+
+  // noPrice 카드의 주소 변경 — cards_hash는 변하지만 스냄샷 데이터는 불변
+  vault.files.set(`${service.CARD_DIR}/noprice.md`, noPriceCard({ address: "경기도 부천시 원미구 원미로 60, 테스트빌 5층 502호" }));
+  const second = await service.processPending({ vault }, { now: () => "2026-09-07T09:30:00.000Z" });
+  assert.equal(second.skipped, undefined);
+  assert.equal(vault.files.get(service.SNAPSHOT_PATH), snapshotBefore);
+  assert.equal(vault.files.get(service.CARD_SNAPSHOT_PATH), cardSnapshotBefore);
+  assert.equal(vault.files.get(service.AUDIT_PATH), auditBefore);
+}
+
+async function testAtomicNormalizedWriteAndTmpRecovery() {
+  delete globalThis.AuctionKeyValueSnapshot;
+  const [recovered] = core.parseAuctCsv(
+    "물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n오피스텔,\"경기도 부천시 원미구 원미동 100, 복구빌 3층 301호\",3.2㎡,63.93㎡,180000000,2026.09.01\n"
+  );
+  const vault = new AdapterMemoryVault({
+    // 원자적 쓰기 중단으로 남은 tmp: 다음 실행에서 복구되어야 한다
+    [`${service.NORMALIZED_PATH}.tmp`]: JSON.stringify([recovered])
+  });
+  const inputPath = `${service.INPUT_DIR}/atomic.csv`;
+  vault.files.set(inputPath, csv([
+    '아파트,"서울특별시 강서구 화곡동 1, B아파트 3층 301호",10㎡,84㎡,400000000,2026.08.31'
+  ]));
+  const result = await service.processPending({ vault }, { now: () => "2026-09-04T09:00:00.000Z" });
+  assert.equal(result.imported, 1);
+  assert.equal(result.totalRecords, 2);
+  assert.ok(vault.files.has(service.NORMALIZED_PATH));
+  assert.ok(!vault.files.has(`${service.NORMALIZED_PATH}.tmp`));
+}
+
 function testElectronCoreResolutionUsesVaultPath() {
   const requests = [];
   const vaultRoot = "/tmp/Dusk";
@@ -247,4 +378,7 @@ Promise.resolve()
   .then(testInvalidCsvIsLeftForCorrection)
   .then(testWatcherProcessesCreatedCsv)
   .then(testStartupQueueSettles)
+  .then(testCardEventsCoalesceIntoSingleRun)
+  .then(testUnchangedDataSkipsSnapshotRewrite)
+  .then(testAtomicNormalizedWriteAndTmpRecovery)
   .then(() => console.log("auction key value import service tests: PASS"));
