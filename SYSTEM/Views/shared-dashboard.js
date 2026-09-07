@@ -292,10 +292,23 @@ window.renderDashboardSection = function(options) {
 
     makeSelectInline(dropdownParent, '지역:', 'card_region', [
       { text: '전체', value: '전체지역' },
-      { text: '서울', value: '서울' },
-      { text: '경기', value: '경기' },
-      { text: '인천', value: '인천' },
-      { text: '부산', value: '부산' }
+      { text: '서울', value: '서울특별시' },
+      { text: '부산', value: '부산광역시' },
+      { text: '대구', value: '대구광역시' },
+      { text: '인천', value: '인천광역시' },
+      { text: '광주', value: '광주광역시' },
+      { text: '대전', value: '대전광역시' },
+      { text: '울산', value: '울산광역시' },
+      { text: '세종', value: '세종특별자치시' },
+      { text: '경기', value: '경기도' },
+      { text: '강원', value: '강원특별자치도' },
+      { text: '충북', value: '충청북도' },
+      { text: '충남', value: '충청남도' },
+      { text: '전북', value: '전북특별자치도' },
+      { text: '전남', value: '전라남도' },
+      { text: '경북', value: '경상북도' },
+      { text: '경남', value: '경상남도' },
+      { text: '제주', value: '제주특별자치도' }
     ], initialRegion);
 
     if (!isMobile) {
@@ -306,8 +319,14 @@ window.renderDashboardSection = function(options) {
       { text: '전체', value: '전체종류' },
       { text: '오피스텔', value: '오피스텔' },
       { text: '아파트', value: '아파트' },
+      { text: '다가구', value: '다가구' },
+      { text: '다세대', value: '다세대' },
+      { text: '주택', value: '주택' },
       { text: '상가', value: '상가' },
-      { text: '지식산업센터', value: '지식산업센터' }
+      { text: '숙박', value: '숙박' },
+      { text: '노유자시설', value: '노유자시설' },
+      { text: '지식산업센터', value: '지식산업센터' },
+      { text: '공장', value: '공장' }
     ], initialType);
 
     if (!isMobile) {
@@ -501,13 +520,19 @@ window.renderDashboardSection = function(options) {
       }
     }
 
+    const canonicalFilterSido = (value) => {
+      const sido = String(value || "").trim();
+      if (sido === "강원도") return "강원특별자치도";
+      if (sido === "전라북도") return "전북특별자치도";
+      return sido;
+    };
     // Filters
     if (type === "project" && filterCategory !== "전체") {
       pages = pages.where(p => p.category === filterCategory);
     }
     if (type === "auction_case") {
       if (filterRegion !== "전체지역") {
-        pages = pages.where(p => (p.region_sido || "").includes(filterRegion));
+        pages = pages.where(p => canonicalFilterSido(p.region_sido || "").includes(filterRegion));
       }
       if (filterSigungu) {
         pages = pages.where(p => (p.region_sigungu || "").includes(filterSigungu));

@@ -3,13 +3,48 @@
 const crypto = require("node:crypto");
 
 const SQM_PER_PYEONG = 3.305785;
-const SUPPORTED_PROPERTY_TYPES = Object.freeze(["오피스텔", "아파트", "다가구"]);
+const LAND_PROPERTY_TYPES = Object.freeze([
+  "농지", "임야", "도로", "묘지", "대지", "잡종지", "공장용지", "구거",
+  "과수원", "목장용지", "창고용지", "종교용지", "하천", "학교용지",
+  "기타용지", "주차장", "유지"
+]);
+const BUILDING_PROPERTY_TYPES = Object.freeze([
+  "오피스텔", "아파트", "다가구", "다세대(빌라)", "주택",
+  "근린상가", "근린주택", "근린시설",
+  "숙박(콘도등)", "숙박시설", "노유자시설",
+  "지식산업센터", "공장"
+]);
+const SUPPORTED_PROPERTY_TYPES = Object.freeze([
+  ...BUILDING_PROPERTY_TYPES,
+  ...LAND_PROPERTY_TYPES
+]);
 
 function clean(value) { return String(value ?? "").trim(); }
 function canonicalPropertyType(value) {
   const type = clean(value);
   if (type === "다가구(원룸등)") return "다가구";
+  if (type === "아파트형공장") return "지식산업센터";
+  if (type === "오피스텔(상업)") return "오피스텔";
+  if (type === "단독주택") return "주택";
+  if (type === "숙박시설(생활숙박시설)") return "숙박시설";
   return type;
+}
+const SIDO_ALIASES = Object.freeze({
+  "서울": "서울특별시", "부산": "부산광역시", "대구": "대구광역시",
+  "인천": "인천광역시", "광주": "광주광역시", "대전": "대전광역시",
+  "울산": "울산광역시", "세종": "세종특별자치시",
+  "경기": "경기도", "강원": "강원특별자치도", "강원도": "강원특별자치도",
+  "충북": "충청북도", "충남": "충청남도",
+  "전북": "전북특별자치도", "전라북도": "전북특별자치도",
+  "전남": "전라남도", "경북": "경상북도", "경남": "경상남도",
+  "제주": "제주특별자치도"
+});
+function canonicalSido(value) {
+  const sido = clean(value);
+  return SIDO_ALIASES[sido] || sido;
+}
+function isLandPropertyType(value) {
+  return LAND_PROPERTY_TYPES.includes(canonicalPropertyType(value));
 }
 function number(value) {
   const match = clean(value).replaceAll(",", "").match(/-?\d+(?:\.\d+)?/);
@@ -47,24 +82,35 @@ function parseAuctCsv(text, options = {}) {
   for (const key of required) if (!headers.includes(key)) throw new Error(`AUCT CSV 필수 열이 없습니다: ${key}`);
   return rows.map((values, index) => {
     const data = Object.fromEntries(headers.map((header, i) => [header, clean(values[i])]));
-    const area = number(data.건물면적), price = number(data.낙찰가), date = data.매각기일.replaceAll(".", "-");
-    if (!(area > 0) || !(price > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !data.소재지) throw new Error(`AUCT CSV ${index + 2}행이 올바르지 않습니다.`);
+    const propertyType = canonicalPropertyType(data.물건종류);
+    const landArea = number(data.대지권);
+    const buildingArea = number(data.건물면적);
+    const areaBasis = isLandPropertyType(propertyType) ? "land" : "building";
+    const area = areaBasis === "land" ? landArea : buildingArea;
+    const price = number(data.낙찰가), date = data.매각기일.replaceAll(".", "-");
     const addressParts = data.소재지.split(",");
     const parcelAddress = clean(addressParts[0]);
-    const propertyType = canonicalPropertyType(data.물건종류);
     const recordIdentity = [propertyType, data.소재지, area, price, date].join("|");
     return Object.freeze({
       schema_version: "auction-key-record.v1", record_id: sha256(recordIdentity), property_type: propertyType,
       address: data.소재지, parcel_address: parcelAddress, legal_dong: parseLegalDong(parcelAddress), building_key: buildingKey(data.소재지),
-      land_right_area_sqm: number(data.대지권), area_sqm: area, price_won: price, auction_date: date,
-      won_per_pyeong: round(price / (area / SQM_PER_PYEONG), 0), source: "AUCT CSV", source_file: options.sourceFile || null
+      land_right_area_sqm: landArea, building_area_sqm: buildingArea, area_sqm: area, area_basis: areaBasis,
+      price_won: price, auction_date: date,
+      won_per_pyeong: area > 0 && price > 0 ? round(price / (area / SQM_PER_PYEONG), 0) : null,
+      source: "AUCT CSV", source_file: options.sourceFile || null, source_row: index + 2
     });
   });
 }
 function eligibility(record) {
-  if (!record || !(record.area_sqm > 0) || !(record.price_won > 0)) return { eligible: false, reason: "invalid_required_value" };
+  if (!record || !(record.area_sqm > 0) || !(record.price_won > 0)
+    || !clean(record.address) || !/^\d{4}-\d{2}-\d{2}$/.test(clean(record.auction_date))) {
+    return { eligible: false, reason: "invalid_required_value" };
+  }
   if (!SUPPORTED_PROPERTY_TYPES.includes(canonicalPropertyType(record.property_type))) return { eligible: false, reason: "unsupported_property_type" };
-  if (record.won_per_pyeong < 1_000_000 || record.won_per_pyeong > 100_000_000) return { eligible: false, reason: "suspicious_unit_price" };
+  const land = isLandPropertyType(record.property_type);
+  const minimumUnitPrice = land ? 1_000 : 1_000_000;
+  const maximumUnitPrice = land ? 1_000_000_000 : 500_000_000;
+  if (record.won_per_pyeong < minimumUnitPrice || record.won_per_pyeong > maximumUnitPrice) return { eligible: false, reason: "suspicious_unit_price" };
   if (!record.legal_dong) return { eligible: false, reason: "missing_legal_dong" };
   return { eligible: true, reason: null };
 }
@@ -109,7 +155,7 @@ function summarizeGroups(grouped, options) {
 function buildKeyValueSnapshot(records, options = {}) {
   const eligible = records.filter((record) => eligibility(record).eligible);
   const regionFor = (record) => ({
-    sido: record.region_sido || parseRegion(record.parcel_address).sido,
+    sido: canonicalSido(record.region_sido || parseRegion(record.parcel_address).sido),
     sigungu: record.region_sigungu || parseRegion(record.parcel_address).sigungu
   });
   const groups = summarizeGroups(groupRecords(eligible, (record) => {
@@ -131,6 +177,9 @@ function comparePrice(priceWon, areaSqm, keyValue) {
 
 module.exports = Object.freeze({
   SQM_PER_PYEONG,
+  BUILDING_PROPERTY_TYPES,
+  canonicalSido,
+  LAND_PROPERTY_TYPES,
   SUPPORTED_PROPERTY_TYPES,
   buildKeyValueSnapshot,
   canonicalPropertyType,
@@ -139,6 +188,7 @@ module.exports = Object.freeze({
   parseAuctCsv,
   parseLegalDong,
   parseRegion,
+  isLandPropertyType,
   quantile,
   sha256,
   snapshotHash

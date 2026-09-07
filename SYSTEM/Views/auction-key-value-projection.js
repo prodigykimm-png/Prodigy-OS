@@ -3,11 +3,46 @@
 
   const SQM_PER_PYEONG = 3.305785;
   function text(value) { return String(value ?? "").trim(); }
+  function knownText(value) {
+    const result = text(value);
+    return result && result !== "정보 없음" ? result : "";
+  }
   function number(value) { const match = text(value).replaceAll(",", "").match(/\d+(?:\.\d+)?/); return match ? Number(match[0]) : null; }
+  function canonicalPropertyType(value) {
+    const type = knownText(value);
+    if (type === "다가구(원룸등)") return "다가구";
+    if (type === "아파트형공장") return "지식산업센터";
+    if (type === "오피스텔(상업)") return "오피스텔";
+    if (type === "단독주택") return "주택";
+    if (type === "숙박시설(생활숙박시설)") return "숙박시설";
+    return type;
+  }
+  function canonicalSido(value) {
+    const sido = knownText(value);
+    return {
+      서울: "서울특별시", 부산: "부산광역시", 대구: "대구광역시",
+      인천: "인천광역시", 광주: "광주광역시", 대전: "대전광역시",
+      울산: "울산광역시", 세종: "세종특별자치시",
+      경기: "경기도", 강원: "강원특별자치도", 강원도: "강원특별자치도",
+      충북: "충청북도", 충남: "충청남도",
+      전북: "전북특별자치도", 전라북도: "전북특별자치도",
+      전남: "전라남도", 경북: "경상북도", 경남: "경상남도",
+      제주: "제주특별자치도"
+    }[sido] || sido;
+  }
+  function addressRegion(address) {
+    const parts = knownText(address).split(/\s+/);
+    const nestedDistrict = /시$/.test(parts[1] || "") && /구$/.test(parts[2] || "");
+    return {
+      sido: canonicalSido(parts[0]),
+      sigungu: nestedDistrict ? `${parts[1]} ${parts[2]}` : parts[1] || ""
+    };
+  }
   function legalDong(properties) {
-    const explicit = text(properties.region_dong);
-    if (explicit) return explicit;
-    const match = text(properties.address).match(/\s([^\s,]+(?:동\d*가|동|읍|면))\s/);
+    const explicit = knownText(properties.region_dong);
+    const explicitMatch = explicit.match(/(?:^|\s)([^\s,]+(?:동\d*가|동|읍|면))(?:\s|$)/);
+    if (explicitMatch) return explicitMatch[1];
+    const match = knownText(properties.address).match(/\s([^\s,]+(?:동\d*가|동|읍|면))\s/);
     return match ? match[1] : null;
   }
   function projectScope(group, label, area) {
@@ -18,7 +53,13 @@
     return Object.freeze({ label, ...group, key_value_total_won: total });
   }
   function project(properties, snapshot, options) {
-    const sido = text(properties.region_sido), sigungu = text(properties.region_sigungu), dong = legalDong(properties), type = text(properties.property_type);
+    const parsedRegion = addressRegion(properties.address);
+    const sido = canonicalSido(properties.region_sido) || parsedRegion.sido;
+    const explicitSigungu = knownText(properties.region_sigungu);
+    const sigungu = parsedRegion.sigungu.includes(" ") && !explicitSigungu.includes(" ")
+      ? parsedRegion.sigungu
+      : explicitSigungu || parsedRegion.sigungu;
+    const dong = legalDong(properties), type = canonicalPropertyType(properties.property_type);
     const groupKey = [sido, sigungu, dong, type].join("|");
     const group = snapshot && snapshot.groups ? snapshot.groups[groupKey] : null;
     const districtKey = [sido, sigungu, type].join("|");
@@ -62,7 +103,7 @@
     });
   }
 
-  const api = Object.freeze({ legalDong, project });
+  const api = Object.freeze({ addressRegion, canonicalPropertyType, canonicalSido, legalDong, project });
   root.AuctionKeyValueProjection = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

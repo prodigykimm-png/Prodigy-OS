@@ -16,9 +16,22 @@ assert.match(record.record_id, /^[a-f0-9]{64}$/);
 assert.equal(core.eligibility({ ...record, won_per_pyeong: 100000 }).reason, "suspicious_unit_price");
 assert.equal(core.eligibility(record).eligible, true);
 assert.equal(core.canonicalPropertyType("다가구(원룸등)"), "다가구");
+assert.equal(core.canonicalPropertyType("아파트형공장"), "지식산업센터");
+assert.equal(core.canonicalPropertyType("오피스텔(상업)"), "오피스텔");
 assert.equal(core.eligibility({ ...record, property_type: "아파트" }).eligible, true);
 assert.equal(core.eligibility({ ...record, property_type: "다가구" }).eligible, true);
-assert.equal(core.eligibility({ ...record, property_type: "지식산업센터" }).reason, "unsupported_property_type");
+assert.equal(core.eligibility({ ...record, property_type: "지식산업센터" }).eligible, true);
+assert.equal(core.eligibility({ ...record, property_type: "공장" }).eligible, true);
+assert.equal(core.canonicalPropertyType("단독주택"), "주택");
+for (const type of ["다세대(빌라)", "주택", "근린상가", "근린주택", "근린시설", "숙박(콘도등)", "숙박시설", "노유자시설"]) {
+  assert.equal(core.eligibility({ ...record, property_type: type }).eligible, true, type);
+}
+assert.equal(core.eligibility({ ...record, property_type: "근린시설", won_per_pyeong: 300000000 }).eligible, true);
+assert.equal(core.eligibility({ ...record, property_type: "승용차" }).eligible, false);
+assert.equal(core.canonicalSido("제주"), "제주특별자치도");
+assert.equal(core.canonicalSido("강원도"), "강원특별자치도");
+assert.equal(core.canonicalSido("전라북도"), "전북특별자치도");
+assert.equal(core.canonicalPropertyType("숙박시설(생활숙박시설)"), "숙박시설");
 
 const [apartment] = core.parseAuctCsv(
   `물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n아파트,"부산광역시 해운대구 좌동 1, 테스트아파트 1층 101호",10㎡,84㎡,400000000,2026.08.31\n`
@@ -30,6 +43,18 @@ assert.equal(apartment.property_type, "아파트");
 assert.equal(multiFamily.property_type, "다가구");
 assert.equal(core.eligibility(apartment).eligible, true);
 assert.equal(core.eligibility(multiFamily).eligible, true);
+const [land] = core.parseAuctCsv(
+  `물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n농지,부산광역시 강서구 강동동 1537,토지 786㎡,,91190000,2026.09.03\n`
+);
+assert.equal(land.property_type, "농지");
+assert.equal(land.area_sqm, 786);
+assert.equal(land.area_basis, "land");
+assert.equal(core.eligibility(land).eligible, true);
+const [missingArea] = core.parseAuctCsv(
+  `물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n아파트,경기도 동두천시 생연동 350,미기재(원문 면적 미표기),미기재(원문 면적 미표기),121077000,2026.02.24\n`
+);
+assert.equal(missingArea.area_sqm, null);
+assert.equal(core.eligibility(missingArea).reason, "invalid_required_value");
 assert.deepEqual(core.parseRegion("경기도 수원시 권선구 권선동 1"), {
   sido: "경기도",
   sigungu: "수원시 권선구"

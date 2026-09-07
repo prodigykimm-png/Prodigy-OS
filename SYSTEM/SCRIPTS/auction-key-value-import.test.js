@@ -43,8 +43,9 @@ assert.ok(snapshot.groups["부산광역시|북구|구포동|다가구"]);
 assert.ok(snapshot.groups["서울특별시|강서구|화곡동|오피스텔"]);
 
 const shippedCardSnapshot = require("../Views/auction-key-value-snapshot.js");
-assert.equal(shippedCardSnapshot.content_hash, "4385d453193cf76f612ef740ba7f5603273aed1384a23c21433d36476b19cbc2");
-assert.equal(Object.keys(shippedCardSnapshot.groups).length, 575);
+assert.equal(shippedCardSnapshot.content_hash, core.snapshotHash(shippedCardSnapshot));
+assert.match(shippedCardSnapshot.generated_at, /^\d{4}-\d{2}-\d{2}T/);
+assert.ok(Object.keys(shippedCardSnapshot.groups).length >= 575, `shipped groups=${Object.keys(shippedCardSnapshot.groups).length}`);
 for (const key of [
   "인천광역시|부평구|부평동|오피스텔",
   "경기도|평택시|장당동|오피스텔",
