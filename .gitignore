@@ -46,6 +46,7 @@ SYSTEM/AI/Reports/task16-final-evidence/archive/
 
 # Local tooling / session artifacts
 .gjc/
+.llmwiki-audit/
 .omo/
 SYSTEM/PRIVATE/
 SYSTEM/AI/Memory/
