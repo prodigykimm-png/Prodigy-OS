@@ -203,9 +203,13 @@
       imported.push(...rows.map((record) => normalizeRecord(core, record)));
     }
 
-    const recordsById = new Map(seed.map((record) => [record.record_id, Object.freeze(record)]));
-    const before = recordsById.size;
-    for (const record of imported) if (!recordsById.has(record.record_id)) recordsById.set(record.record_id, record);
+    const csvOnlyById = new Map(seed.filter((record) => record.source !== "CARD").map((record) => [record.record_id, Object.freeze(record)]));
+    const before = csvOnlyById.size;
+    for (const record of imported) if (!csvOnlyById.has(record.record_id)) csvOnlyById.set(record.record_id, record);
+    const csvRecords = [...csvOnlyById.values()];
+    const normalizedHash = core.sha256(JSON.stringify(csvRecords));
+    const shouldWriteNormalized = !app.vault.getAbstractFileByPath(NORMALIZED_PATH) || normalizedHash !== scanState.normalized_hash;
+    const recordsById = new Map(csvOnlyById);
     const csvKeys = new Set();
     for (const record of recordsById.values()) csvKeys.add(compositeKeys(core, record)[0]);
     const cardKeys = new Set();
@@ -222,6 +226,7 @@
       cardAdded += 1;
     }
     const records = [...recordsById.values()];
+    void csvRecords;
     const snapshot = core.buildKeyValueSnapshot(records, { asOf: generatedAt, source: "AUCT CSV" });
     const groups = Object.values(snapshot.groups);
     const audit = Object.freeze({
@@ -229,7 +234,7 @@
       generated_at: generatedAt,
       inputs: sources.map((source) => source.file),
       source_counts: Object.fromEntries(sources.map((source) => [source.file, source.records])),
-      seed_records: seed.length,
+      seed_records: csvOnlyById.size - imported.length,
       imported_records: imported.length,
       added_records: records.length - cardAdded - before,
       duplicate_records: seed.length + imported.length - (records.length - cardAdded),
@@ -243,11 +248,13 @@
       snapshot_hash: snapshot.content_hash
     });
 
-    await writeText(app.vault, NORMALIZED_PATH, `${JSON.stringify(records, null, 2)}\n`);
+    if (shouldWriteNormalized) {
+      await writeText(app.vault, NORMALIZED_PATH, `${JSON.stringify(csvRecords, null, 2)}\n`);
+    }
     await writeText(app.vault, SNAPSHOT_PATH, `${JSON.stringify(snapshot, null, 2)}\n`);
     await writeText(app.vault, AUDIT_PATH, `${JSON.stringify(audit, null, 2)}\n`);
     await writeText(app.vault, CARD_SNAPSHOT_PATH, cardSnapshotSource(snapshot));
-    await writeText(app.vault, CARD_STATE_PATH, `${JSON.stringify({ cards_hash: cardScan.hash, generated_at: generatedAt }, null, 2)}\n`);
+    await writeText(app.vault, CARD_STATE_PATH, `${JSON.stringify({ cards_hash: cardScan.hash, normalized_hash: normalizedHash, generated_at: generatedAt }, null, 2)}\n`);
     root.AuctionKeyValueSnapshot = snapshot;
 
     const month = generatedAt.slice(0, 7);
