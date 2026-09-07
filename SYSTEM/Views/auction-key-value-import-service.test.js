@@ -199,13 +199,21 @@ async function testCardWinningBidsMergeWithDedupe() {
   });
   assert.equal(second.skipped, true);
 
+  vault.files.set(`${service.CARD_DIR}/formats.md`, card({ price: "210,000,000", area: "25.4평", dong: "원미동", address: "경기도 부천시 원미구 원미동 200, 테스트빌 4층 401호" }));
+  const fourth = await service.processPending({ vault }, {
+    now: () => "2026-09-07T09:15:00.000Z",
+    notify: (m) => notices.push(m)
+  });
+  assert.equal(fourth.cardExcluded.noPrice, 0);
+  assert.equal(fourth.cardAdded, 2);
+
   vault.files.set(`${service.CARD_DIR}/dupe.md`, card({ dong: "다정동" }));
   const third = await service.processPending({ vault }, {
     now: () => "2026-09-07T09:10:00.000Z",
     notify: (m) => notices.push(m)
   });
   assert.equal(third.skipped, undefined);
-  assert.equal(third.cardAdded, 2);
+  assert.equal(third.cardAdded, 3);
 }
 
 function testElectronCoreResolutionUsesVaultPath() {

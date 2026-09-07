@@ -54,6 +54,12 @@ const dongMerged = core.buildKeyValueSnapshot([
 assert.equal(Object.keys(dongMerged.groups).length, 1);
 assert.equal(dongMerged.groups["경기도|광주시|신현동|다가구"].building_count, 1);
 assert.equal(core.normalizeLegalDong("일산동구 장항동"), "장항동");
+assert.equal(core.normalizeLegalDong("수원시 권선구 권선동"), "권선동");
+assert.equal(core.parseAreaText("25.4평"), 83.97);
+assert.equal(core.parseAreaText("63.93㎡"), 63.93);
+assert.equal(core.parseAreaText("84㎡(25.4평)"), 84);
+assert.equal(core.parseAreaText(""), null);
+assert.equal(core.normalizeLegalDong("장항동"), "장항동");
 assert.equal(core.buildCardRecord({ property_type: "아파트", address: "서울특별시 강서구 화곡동 1", areaText: "", priceWon: 400000000, dateText: "2026-08-31" }).area_sqm, null);
 
 const [apartment] = core.parseAuctCsv(

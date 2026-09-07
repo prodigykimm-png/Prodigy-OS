@@ -44,12 +44,26 @@ function canonicalSido(value) {
   return SIDO_ALIASES[sido] || sido;
 }
 function normalizeLegalDong(value) {
-  return clean(value).replace(/^[가-힣]+[시군구]\s+/, "");
+  let dong = clean(value);
+  let previous = "";
+  while (dong && dong !== previous) {
+    previous = dong;
+    dong = dong.replace(/^[가-힣]+[시군구]\s+/, "");
+  }
+  return dong;
+}
+function parseAreaText(value) {
+  const raw = clean(value).replaceAll(",", "");
+  const match = raw.match(/\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const parsed = Number(match[0]);
+  if (!raw.includes("㎡") && raw.includes("평")) return round(parsed * SQM_PER_PYEONG, 2);
+  return parsed;
 }
 function buildCardRecord(input) {
   const propertyType = canonicalPropertyType(input.property_type);
   const address = clean(input.address);
-  const area = number(input.areaText);
+  const area = parseAreaText(input.areaText);
   const price = Number(input.priceWon);
   const date = clean(input.dateText).slice(0, 10);
   const parcel = address.split(",")[0].trim();
@@ -209,6 +223,7 @@ module.exports = Object.freeze({
   BUILDING_PROPERTY_TYPES,
   canonicalSido,
   buildCardRecord,
+  parseAreaText,
   buildingIdentity,
   normalizeLegalDong,
   LAND_PROPERTY_TYPES,

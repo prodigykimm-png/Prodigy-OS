@@ -121,12 +121,7 @@
     return fm;
   }
 
-  function areaNumber(areaText) {
-    const match = String(areaText ?? "").replaceAll(",", "").match(/\d+(?:\.\d+)?/);
-    return match ? Number(match[0]) : null;
-  }
-
-  function compositeKeys(core, record) {
+function compositeKeys(core, record) {
     const parsed = core.parseRegion(record.parcel_address);
     const tail = [record.property_type, record.area_sqm, record.price_won, record.auction_date];
     return [
@@ -151,14 +146,15 @@
     for (const file of files) {
       const fm = readCardFrontmatter(await app.vault.read(file));
       if (fm.type !== "auction_case") continue;
-      const price = /^\d+$/.test(String(fm.winning_bid_price ?? "").trim()) ? Number(fm.winning_bid_price) : null;
+      const priceRaw = String(fm.winning_bid_price ?? "").replaceAll(",", "").trim();
+      const price = /^\d+$/.test(priceRaw) ? Number(priceRaw) : null;
       const propertyType = core.canonicalPropertyType(fm.property_type);
       const areaText = core.isLandPropertyType(propertyType) ? (fm.land_rights_area_sqm ?? "") : (fm.exclusive_area ?? fm.supply_area ?? "");
       const date = String(fm.auction_datetime ?? fm.auction_result_date ?? "").slice(0, 10);
       hashParts.push([file.path, fm.property_type, fm.address, areaText, price, date, fm.region_sido, fm.region_sigungu, fm.region_dong].join("|"));
       if (!(price > 0)) { excluded.noPrice += 1; continue; }
       if (!core.SUPPORTED_PROPERTY_TYPES.includes(propertyType)) { excluded.unsupported += 1; continue; }
-      const area = areaNumber(areaText);
+      const area = core.parseAreaText(areaText);
       if (!(area > 0)) { excluded.noArea += 1; continue; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { excluded.badDate += 1; continue; }
       if (date > today) { excluded.futureDate += 1; continue; }
