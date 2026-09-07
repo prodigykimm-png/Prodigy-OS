@@ -155,7 +155,7 @@
       const propertyType = core.canonicalPropertyType(fm.property_type);
       const areaText = core.isLandPropertyType(propertyType) ? (fm.land_rights_area_sqm ?? "") : (fm.exclusive_area ?? fm.supply_area ?? "");
       const date = String(fm.auction_datetime ?? fm.auction_result_date ?? "").slice(0, 10);
-      hashParts.push([file.path, fm.property_type, fm.address, areaText, price, date].join("|"));
+      hashParts.push([file.path, fm.property_type, fm.address, areaText, price, date, fm.region_sido, fm.region_sigungu, fm.region_dong].join("|"));
       if (!(price > 0)) { excluded.noPrice += 1; continue; }
       if (!core.SUPPORTED_PROPERTY_TYPES.includes(propertyType)) { excluded.unsupported += 1; continue; }
       const area = areaNumber(areaText);
@@ -184,7 +184,7 @@
     const files = app.vault.getFiles()
       .filter((file) => isInputCsv(file.path))
       .sort((left, right) => left.path.localeCompare(right.path, "ko"));
-    const today = generatedAt.slice(0, 10);
+    const today = new Date(Date.parse(generatedAt) + 9 * 3600 * 1000).toISOString().slice(0, 10);
     const cardScan = await scanCardNotes(app, core, today);
     const scanState = await readScanState(app.vault);
     if (!files.length && cardScan.hash === scanState.cards_hash) {
@@ -226,7 +226,6 @@
       cardAdded += 1;
     }
     const records = [...recordsById.values()];
-    void csvRecords;
     const snapshot = core.buildKeyValueSnapshot(records, { asOf: generatedAt, source: "AUCT CSV" });
     const groups = Object.values(snapshot.groups);
     const audit = Object.freeze({

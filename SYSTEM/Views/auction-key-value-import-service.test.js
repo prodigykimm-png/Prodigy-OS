@@ -198,6 +198,14 @@ async function testCardWinningBidsMergeWithDedupe() {
     notify: (m) => notices.push(m)
   });
   assert.equal(second.skipped, true);
+
+  vault.files.set(`${service.CARD_DIR}/dupe.md`, card({ dong: "다정동" }));
+  const third = await service.processPending({ vault }, {
+    now: () => "2026-09-07T09:10:00.000Z",
+    notify: (m) => notices.push(m)
+  });
+  assert.equal(third.skipped, undefined);
+  assert.equal(third.cardAdded, 2);
 }
 
 function testElectronCoreResolutionUsesVaultPath() {
