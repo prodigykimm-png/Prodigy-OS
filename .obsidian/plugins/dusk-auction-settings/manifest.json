@@ -1,0 +1,9 @@
+{
+  "id": "dusk-auction-settings",
+  "name": "Dusk Auction",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Dusk 옥션 자동화의 로컬 API 설정을 관리합니다.",
+  "author": "Dusk",
+  "isDesktopOnly": false
+}

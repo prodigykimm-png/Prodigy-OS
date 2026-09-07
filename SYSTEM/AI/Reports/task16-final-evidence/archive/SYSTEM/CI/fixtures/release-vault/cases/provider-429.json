@@ -1,1 +1,0 @@
-{"schema_version":1,"id":"provider-429","kind":"provider","fault":{"status":429,"body":"synthetic rate limit"},"expect":{"name":"Error","status":429}}

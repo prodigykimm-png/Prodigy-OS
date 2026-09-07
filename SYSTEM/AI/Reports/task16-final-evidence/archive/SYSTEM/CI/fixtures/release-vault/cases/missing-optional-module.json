@@ -1,1 +1,0 @@
-{"schema_version":1,"id":"missing-optional-module","kind":"module","required":["SYSTEM/Views/fixture-required.js"],"optional":["SYSTEM/Views/fixture-optional.js"],"available":{"SYSTEM/Views/fixture-required.js":"globalThis.__releaseFixtureRequired = true;"},"expect":{"required_failures":0,"optional_failures":1,"code":"sync_pending"}}

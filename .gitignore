@@ -13,6 +13,14 @@ SYSTEM/MEDIA/
 INBOX/
 artifacts/prodigy-knowledge-inbox/
 
+# Third-party plugins auto-update — only custom plugins are tracked
+.obsidian/plugins/*
+!.obsidian/plugins/dusk-auction-settings/
+!.obsidian/plugins/prodigy-ai-runtime/
+
+# Task evidence archives (working-tree copies stay, git tracking only)
+SYSTEM/AI/Reports/task16-final-evidence/archive/
+
 # Obsidian personal / runtime state
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
