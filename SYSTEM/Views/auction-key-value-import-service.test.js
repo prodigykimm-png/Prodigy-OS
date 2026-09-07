@@ -152,6 +152,54 @@ async function testStartupQueueSettles() {
   handle.dispose();
 }
 
+async function testCardWinningBidsMergeWithDedupe() {
+  delete globalThis.AuctionKeyValueSnapshot;
+  const [seed] = core.parseAuctCsv(
+    "물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n오피스텔,\"경기도 부천시 원미구 원미동 100, 테스트빌 3층 301호\",3.2㎡,63.93㎡,180000000,2026.09.01\n"
+  );
+  const card = (over) => [
+    "---",
+    "id: test",
+    "type: auction_case",
+    "status: watching",
+    "property_type: 오피스텔",
+    "region_sido: 경기도",
+    "region_sigungu: 부천시 원미구",
+    "region_dong: " + (over.dong ?? "원미동"),
+    "address: " + (over.address ?? "경기도 부천시 원미구 원미로 50, 테스트빌 3층 301호"),
+    "exclusive_area: " + (over.area ?? "63.93㎡"),
+    "winning_bid_price: " + (over.price ?? "180000000"),
+    "auction_datetime: " + (over.date ?? "2026-09-01T10:00"),
+    "---",
+    ""
+  ].join("\n");
+  const vault = new MemoryVault({
+    [service.LEGACY_NORMALIZED_PATH]: JSON.stringify([seed]),
+    [service.CARD_DIR + "/dupe.md"]: card({}),
+    [service.CARD_DIR + "/new-sale.md"]: card({ price: "190000000", address: "경기도 부천시 원미구 원미동 100, 테스트빌 3층 302호" }),
+    [service.CARD_DIR + "/no-dong.md"]: card({ dong: "정보 없음", price: "200000000", address: "경기도 부천시 원미구 원미로 70" })
+  });
+  const notices = [];
+  const result = await service.processPending({ vault }, {
+    now: () => "2026-09-07T09:00:00.000Z",
+    notify: (m) => notices.push(m)
+  });
+  assert.equal(result.cardRecords, 2);
+  assert.equal(result.cardAdded, 1);
+  assert.equal(result.cardDuplicates, 1);
+  assert.equal(result.cardExcluded.noDong, 1);
+  const snapshot = JSON.parse(vault.files.get(service.SNAPSHOT_PATH));
+  const group = snapshot.groups["경기도|부천시 원미구|원미동|오피스텔"];
+  assert.equal(group.case_count, 2);
+  assert.equal(group.building_count, 1);
+  assert.match(notices.at(-1), /카드 낙찰가 반영 · 신규 1건/);
+  const second = await service.processPending({ vault }, {
+    now: () => "2026-09-07T09:05:00.000Z",
+    notify: (m) => notices.push(m)
+  });
+  assert.equal(second.skipped, true);
+}
+
 function testElectronCoreResolutionUsesVaultPath() {
   const requests = [];
   const vaultRoot = "/tmp/Dusk";
@@ -178,6 +226,7 @@ function testElectronCoreResolutionUsesVaultPath() {
 
 Promise.resolve()
   .then(testElectronCoreResolutionUsesVaultPath)
+  .then(testCardWinningBidsMergeWithDedupe)
   .then(testPendingCsvIsMergedAndArchived)
   .then(testInvalidCsvIsLeftForCorrection)
   .then(testWatcherProcessesCreatedCsv)

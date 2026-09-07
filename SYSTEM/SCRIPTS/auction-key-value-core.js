@@ -43,6 +43,31 @@ function canonicalSido(value) {
   const sido = clean(value);
   return SIDO_ALIASES[sido] || sido;
 }
+function normalizeLegalDong(value) {
+  return clean(value).replace(/^[가-힣]+[시군구]\s+/, "");
+}
+function buildCardRecord(input) {
+  const propertyType = canonicalPropertyType(input.property_type);
+  const address = clean(input.address);
+  const area = number(input.areaText);
+  const price = Number(input.priceWon);
+  const date = clean(input.dateText).slice(0, 10);
+  const parcel = address.split(",")[0].trim();
+  const region = parseRegion(parcel);
+  const explicitDong = clean(input.regionDong);
+  const dong = (explicitDong && explicitDong !== "정보 없음" ? normalizeLegalDong(explicitDong) : null) || parseLegalDong(parcel);
+  const identity = [propertyType, address, area, price, date].join("|");
+  return Object.freeze({
+    schema_version: "auction-key-record.v1", record_id: sha256(identity), property_type: propertyType,
+    address, parcel_address: parcel, legal_dong: dong, building_key: buildingKey(address),
+    land_right_area_sqm: null, building_area_sqm: null, area_sqm: area,
+    area_basis: isLandPropertyType(propertyType) ? "land" : "building",
+    price_won: price, auction_date: date,
+    won_per_pyeong: area > 0 && price > 0 ? round(price / (area / SQM_PER_PYEONG), 0) : null,
+    source: "CARD", source_file: input.sourceFile || null, source_row: null,
+    region_sido: input.regionSido || region.sido, region_sigungu: input.regionSigungu || region.sigungu
+  });
+}
 function isLandPropertyType(value) {
   return LAND_PROPERTY_TYPES.includes(canonicalPropertyType(value));
 }
@@ -136,11 +161,15 @@ function groupRecords(records, keyFor) {
   }
   return grouped;
 }
+function buildingIdentity(record) {
+  const label = String(record.building_key || "").split("|")[1] || "";
+  return label ? `${record.legal_dong || ""}|${label}` : String(record.building_key || "");
+}
 function summarizeGroups(grouped, options) {
   const groups = {};
   for (const [key, cases] of [...grouped.entries()].sort()) {
     const buildings = new Map();
-    for (const record of cases) { if (!buildings.has(record.building_key)) buildings.set(record.building_key, []); buildings.get(record.building_key).push(record.won_per_pyeong); }
+    for (const record of cases) { const identity = buildingIdentity(record); if (!buildings.has(identity)) buildings.set(identity, []); buildings.get(identity).push(record.won_per_pyeong); }
     const buildingMedians = [...buildings.values()].map((values) => quantile(values, 0.5));
     const dates = cases.map((record) => record.auction_date).sort();
     groups[key] = Object.freeze({
@@ -179,6 +208,9 @@ module.exports = Object.freeze({
   SQM_PER_PYEONG,
   BUILDING_PROPERTY_TYPES,
   canonicalSido,
+  buildCardRecord,
+  buildingIdentity,
+  normalizeLegalDong,
   LAND_PROPERTY_TYPES,
   SUPPORTED_PROPERTY_TYPES,
   buildKeyValueSnapshot,

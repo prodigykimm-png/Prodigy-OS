@@ -32,6 +32,29 @@ assert.equal(core.canonicalSido("제주"), "제주특별자치도");
 assert.equal(core.canonicalSido("강원도"), "강원특별자치도");
 assert.equal(core.canonicalSido("전라북도"), "전북특별자치도");
 assert.equal(core.canonicalPropertyType("숙박시설(생활숙박시설)"), "숙박시설");
+const cardRecord = core.buildCardRecord({
+  property_type: "다가구(원룸등)", address: "경기도 광주시 신현동 816",
+  areaText: "396.51㎡", priceWon: 842000000, dateText: "2026-08-24T10:00",
+  sourceFile: "경기-2024타경7347.md"
+});
+assert.equal(cardRecord.property_type, "다가구");
+assert.equal(cardRecord.area_sqm, 396.51);
+assert.equal(cardRecord.auction_date, "2026-08-24");
+assert.equal(cardRecord.source, "CARD");
+assert.equal(cardRecord.legal_dong, "신현동");
+assert.equal(core.eligibility(cardRecord).eligible, true);
+const [csvSame] = core.parseAuctCsv(
+  "물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n다가구(원룸등),경기도 광주시 신현동 816,,396.51,842000000,2026.08.24\n"
+);
+assert.equal(csvSame.record_id, cardRecord.record_id);
+const dongMerged = core.buildKeyValueSnapshot([
+  { ...csvSame, legal_dong: "신현동" },
+  { ...cardRecord, price_won: 900000000, won_per_pyeong: null, record_id: "other" }
+]);
+assert.equal(Object.keys(dongMerged.groups).length, 1);
+assert.equal(dongMerged.groups["경기도|광주시|신현동|다가구"].building_count, 1);
+assert.equal(core.normalizeLegalDong("일산동구 장항동"), "장항동");
+assert.equal(core.buildCardRecord({ property_type: "아파트", address: "서울특별시 강서구 화곡동 1", areaText: "", priceWon: 400000000, dateText: "2026-08-31" }).area_sqm, null);
 
 const [apartment] = core.parseAuctCsv(
   `물건종류,소재지,대지권,건물면적,낙찰가,매각기일\n아파트,"부산광역시 해운대구 좌동 1, 테스트아파트 1층 101호",10㎡,84㎡,400000000,2026.08.31\n`
