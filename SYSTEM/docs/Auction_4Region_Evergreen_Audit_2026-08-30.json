@@ -1,0 +1,40 @@
+{
+  "profiles": 1393,
+  "by_sido": {
+    "부산광역시": 206,
+    "서울특별시": 427,
+    "인천광역시": 158,
+    "경기도": 602
+  },
+  "missing": 0,
+  "long": 0,
+  "volatile": 0,
+  "duplicates": 0,
+  "max_length": 69,
+  "source_shortage": 0,
+  "boundary_source": {
+    "dataset": "SGIS 행정동 경계 가공본 admdongkor ver20260701",
+    "commit": "7d94ff928e43c035396c0a58350869eea0ba63c3",
+    "sha256": "c01ef44a0eb00978662ba7a6240ccb1da287fb52abd85104a1758969d391132f",
+    "license": "CC BY 4.0 / 공공누리 제1유형"
+  },
+  "osm_source": {
+    "provider": "BBBike / OpenStreetMap",
+    "south_korea_pbf_timestamp": "2026-08-30T00:00:00Z",
+    "sha256": "10fc40bbfec7593edad2daf8729f8b53af1496c77518688af14699bea0455aa5"
+  },
+  "validation": {
+    "comment_scope_tests": "PASS",
+    "profile_index_tests": "PASS",
+    "region_packet_tests": "PASS",
+    "busan_deep_audit": "206/206 issues=0",
+    "syntax": "PASS",
+    "diff_check": "PASS",
+    "obsidian_cross_region": "PASS — 부산 exact, 서울 exact, 인천 ambiguous-safe, 경기 ambiguous-safe"
+  },
+  "known_limits": [
+    "법정동과 행정동 이름이 다른 카드 13/51은 좌표 점결합 전까지 행정동 미확인으로 남긴다.",
+    "인천 2026-07 행정체제 개편 전 구명은 최신 구 후보로 별칭 처리한다.",
+    "OSM 누락 가능성이 있으므로 명명 구조축이 없는 읍면동은 공백을 발명하지 않고 한계를 표시한다."
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "audited_at": "2026-08-30",
+  "total": 206,
+  "status_counts": {
+    "complete": 70,
+    "unresearched": 38,
+    "partial": 98
+  },
+  "gis": {
+    "boundaries": 203,
+    "boundary_unresolved": [
+      "부산광역시-해운대구-우3동",
+      "부산광역시-금정구-금사동",
+      "부산광역시-강서구-신호동"
+    ],
+    "poi_points": 2717,
+    "poi_unassigned": 38,
+    "structural_lines_source_count": 5796,
+    "open_profiles_with_two_or_more_spatial_axes": 133,
+    "building_profiles_covered": 3,
+    "building_collection_limit": "OpenStreetMap Overpass 429/5xx rate and slot limits"
+  },
+  "newly_completed": [
+    "부산광역시-영도구-신선동",
+    "부산광역시-영도구-동삼3동",
+    "부산광역시-부산진구-부전2동"
+  ],
+  "remaining": {
+    "count": 136,
+    "primary_gap": "동별 주택 구조 근거",
+    "boundary_gap": [
+      "부산광역시-해운대구-우3동",
+      "부산광역시-금정구-금사동",
+      "부산광역시-강서구-신호동"
+    ]
+  },
+  "validation": {
+    "new_gis_profile_issues": 0,
+    "profile_tests": "PASS",
+    "region_packet_tests": "PASS",
+    "obsidian_samples": [
+      "신선동",
+      "동삼3동",
+      "부전2동"
+    ]
+  },
+  "self_feedback": [
+    "피드백의 핵심인 GIS 우선 접근은 옳았고, 203개 행정동 경계와 부산 전체 POI·구조선을 실제로 확보했다.",
+    "초기 구군명 Overpass 질의는 전국 동명 구를 혼입시켰다. 좌표범위 감사로 발견해 해당 캐시를 폐기했고, 이후 relation ID 기반 방식으로 교체했다.",
+    "POI·도로·철도·하천만으로 133개 미완료 동이 2개 이상 공간축을 확보했지만, 주택 구조를 추정으로 채우지 않아 완료시키지 않았다.",
+    "Overpass 제한 상황에서 반복 요청을 더 일찍 중단했어야 한다. 429 발생 후 모든 요청을 중단했고 성공 캐시만 사용했다.",
+    "경계 없는 3개를 중심점 표본으로 대체하려 했으나 API 제한과 Kakao 키 유형 불일치가 있어 적용하지 않았다.",
+    "다음 재개 시 건축물대장 또는 VWorld/WFS 등 공식 건축물 원자료를 우선 확보해야 하며 Overpass 건축물 재수집에 의존해서는 안 된다.",
+    "생활자 체감은 계약만 정의됐고 실제 독립 표본 수집은 완료되지 않았다. 고정정보와 별개 상태로 관리해야 한다."
+  ]
+}

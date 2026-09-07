@@ -1,0 +1,43 @@
+{
+  "audited_at": "2026-08-30",
+  "total": 206,
+  "complete": 206,
+  "quality_issues": 0,
+  "validation": {
+    "profile_tests": "PASS",
+    "region_packet_tests": "PASS",
+    "script_syntax": "PASS",
+    "diff_check": "PASS",
+    "obsidian_manual_qa": "PASS — 16개 구군 표본 + point-sample 5개"
+  },
+  "evidence": {
+    "admin_boundaries": 203,
+    "poi_points": 2717,
+    "structural_lines": 5796,
+    "housing_stock_rows_busan": 24103,
+    "housing_stock_sha256": "2fe472b92867b69644d368a89df2acd81a65004cfc01afff0a7e72021c7f2e0a",
+    "point_sample_profiles": [
+      "우3동",
+      "금사동",
+      "명지1동",
+      "명지2동",
+      "신호동"
+    ]
+  },
+  "self_feedback": {
+    "passed": [
+      "완료 프로파일 8축 누락 0",
+      "미시권역 2개 미만 0",
+      "변동정보 혼입 0",
+      "정확 문장 중복 0",
+      "독립 A/B URL 출처 부족 0",
+      "Obsidian 실사용 16개 구군 통과"
+    ],
+    "limitations": [
+      "우3동·금사동·신호동은 정확한 행정동 Polygon 대신 중심점 1.5km 표본을 사용했다.",
+      "명지1·2동은 법정동 Polygon을 행정동 경계로 사용하지 않고 각 행정복지센터 중심점 표본으로 분리했다.",
+      "법정동 공동주택 캐시는 복수 행정동 내부 분포를 배분하지 않으며 해당 한계를 각 프로파일에 명시했다.",
+      "OSM과 공식 캐시의 누락 가능성이 있어 개별 주소의 도로폭·주차·소음·침수는 옥션카드 현장 확인 대상으로 남겼다."
+    ]
+  }
+}

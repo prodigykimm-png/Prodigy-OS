@@ -1,0 +1,33 @@
+{
+  "audited_at": "2026-08-30",
+  "status_counts": {
+    "complete": 146,
+    "partial": 44,
+    "unresearched": 16
+  },
+  "complete_quality_issues": 0,
+  "remaining": 60,
+  "remaining_gaps": {
+    "housing_only_with_2plus_gis_zones": 55,
+    "boundary_missing": 3,
+    "only_one_spatial_axis": 2
+  },
+  "progress_since_v2": {
+    "from_complete": 70,
+    "to_complete": 146,
+    "osm_building_cache_additions": 40,
+    "official_dong_intro_additions": 36
+  },
+  "validation": {
+    "profile_tests": "PASS",
+    "region_packet_tests": "PASS",
+    "complete_profile_audit": "PASS",
+    "diff_check": "PASS"
+  },
+  "loop_next": [
+    "Overpass 1시간 저빈도 회복 감시",
+    "회복 시 남은 건축물 캐시 수집",
+    "국토부 서비스키 연결 시 WFS 우선 사용",
+    "206개 재생성·전수감사·Obsidian 검증"
+  ]
+}
