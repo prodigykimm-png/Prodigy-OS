@@ -1,0 +1,274 @@
+.prodigy-vault-assistant {
+  --pva-surface: var(--ke-color-surface, var(--background-primary));
+  --pva-surface-secondary: var(--ke-color-surface-secondary, var(--background-secondary));
+  --pva-border: var(--ke-color-border, var(--background-modifier-border));
+  --pva-ink: var(--ke-color-ink, var(--text-normal));
+  --pva-muted: var(--ke-color-muted, var(--text-muted));
+  --pva-accent: var(--ke-color-accent, var(--interactive-accent));
+  --pva-error: var(--ke-color-error, var(--text-error));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  block-size: 100%;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+  background: var(--pva-surface);
+  color: var(--pva-ink);
+  font: var(--ke-type-body, inherit);
+  line-height: var(--ke-leading-body, 1.45);
+  container-type: inline-size;
+}
+
+.prodigy-vault-assistant *,
+.prodigy-vault-assistant *::before,
+.prodigy-vault-assistant *::after {
+  box-sizing: border-box;
+  min-inline-size: 0;
+}
+
+.pva-header,
+.pva-composer {
+  display: grid;
+  gap: var(--ke-space-2, 8px);
+  padding: var(--ke-space-3, 12px) var(--ke-space-4, 17px);
+  background: var(--pva-surface-secondary);
+}
+
+.pva-header {
+  border-block-end: 1px solid var(--pva-border);
+}
+
+.pva-header h2,
+.pva-header p,
+.pva-transcript p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.pva-header h2 {
+  font: var(--ke-type-title, inherit);
+  letter-spacing: 0;
+}
+
+.pva-provider,
+.pva-current-document,
+.pva-status {
+  color: var(--pva-muted);
+  font: var(--ke-type-label, inherit);
+}
+
+.pva-tabs,
+.pva-actions,
+.pva-mentions,
+.pva-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ke-space-2, 8px);
+}
+
+.prodigy-vault-assistant button,
+.prodigy-vault-assistant textarea {
+  min-block-size: var(--ke-touch-target, 44px);
+  max-inline-size: 100%;
+  border: 1px solid var(--pva-border);
+  border-radius: var(--ke-radius-control, 8px);
+  color: var(--pva-ink);
+  background: var(--pva-surface);
+  font: var(--ke-type-label, inherit);
+  line-height: var(--ke-leading-control, 1.35);
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.prodigy-vault-assistant button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ke-space-2, 8px) var(--ke-space-3, 12px);
+  cursor: pointer;
+  white-space: normal;
+}
+
+.prodigy-vault-assistant button:hover {
+  background: var(--background-modifier-hover);
+}
+
+.prodigy-vault-assistant button:active {
+  transform: scale(0.95);
+}
+
+.prodigy-vault-assistant :focus-visible {
+  outline: 2px solid var(--pva-accent);
+  outline-offset: 2px;
+}
+
+.pva-tabs [aria-selected="true"] {
+  border-color: var(--pva-accent);
+  color: var(--text-on-accent);
+  background: var(--pva-accent);
+}
+
+.pva-transcript {
+  display: grid;
+  align-content: start;
+  gap: var(--ke-space-4, 17px);
+  min-block-size: 0;
+  padding: var(--ke-space-4, 17px);
+  overflow-block: auto;
+  overflow-inline: clip;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.pva-history,
+.pva-answers,
+.pva-sources {
+  display: grid;
+  gap: var(--ke-space-2, 8px);
+}
+
+.pva-history {
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(calc(var(--ke-touch-target, 44px) * 4), 100%), 1fr)
+    );
+}
+
+.pva-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ke-space-1, 4px);
+  min-block-size: var(--ke-touch-target, 44px);
+  border-block-end: 1px solid var(--pva-border);
+}
+
+.pva-mention button {
+  border-color: transparent;
+}
+
+.pva-answers > *,
+.pva-sources > * {
+  margin: 0;
+  padding-block: var(--ke-space-2, 8px);
+  border-block-end: 1px solid var(--pva-border);
+}
+
+.pva-answers > * {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.pva-sources button {
+  justify-content: flex-start;
+  border-color: transparent;
+  color: var(--text-accent);
+  text-align: start;
+}
+
+.pva-status {
+  min-block-size: var(--ke-touch-target, 44px);
+  padding-block: var(--ke-space-2, 8px);
+}
+
+.pva-status.is-error {
+  color: var(--pva-error);
+}
+
+.pva-composer {
+  padding-block-end: max(var(--ke-space-3, 12px), env(safe-area-inset-bottom));
+  border-block-start: 1px solid var(--pva-border);
+}
+
+.pva-composer label {
+  font: var(--ke-type-label, inherit);
+  font-weight: 600;
+}
+
+.pva-composer textarea {
+  inline-size: 100%;
+  min-block-size: calc(var(--ke-touch-target, 44px) * 2);
+  padding: var(--ke-space-2, 8px) var(--ke-space-3, 12px);
+  resize: vertical;
+}
+
+.pva-actions button[data-action="submit"] {
+  border-color: var(--pva-accent);
+  color: var(--text-on-accent);
+  background: var(--pva-accent);
+}
+
+@container (max-width: 419px) {
+  .pva-header,
+  .pva-composer,
+  .pva-transcript {
+    padding-inline: var(--ke-space-3, 12px);
+  }
+
+  .pva-tabs,
+  .pva-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pva-history {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prodigy-vault-assistant *,
+  .prodigy-vault-assistant *::before,
+  .prodigy-vault-assistant *::after {
+    scroll-behavior: auto;
+    transition: none;
+    animation: none;
+  }
+
+  .prodigy-vault-assistant button:active {
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .prodigy-vault-assistant,
+  .prodigy-vault-assistant button,
+  .prodigy-vault-assistant textarea {
+    border-color: CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .pva-tabs [aria-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
+@container (max-width: 220px) {
+  .pva-header,
+  .pva-composer,
+  .pva-transcript {
+    gap: var(--ke-space-1, 4px);
+    padding-inline: var(--ke-space-1, 4px);
+  }
+
+  .pva-tabs,
+  .pva-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--ke-space-1, 4px);
+  }
+
+  .pva-tabs button,
+  .pva-actions button {
+    flex: 1 1 auto;
+    padding: 0 var(--ke-space-1, 4px);
+  }
+
+  .pva-composer textarea {
+    block-size: var(--ke-touch-target, 44px);
+    min-block-size: var(--ke-touch-target, 44px);
+    resize: none;
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "prodigy-vault-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "bun test",
+    "build": "node esbuild.config.mjs production",
+    "audit:mobile": "node scripts/mobile-bundle-audit.mjs build-metafile.json"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.2",
+    "@types/bun": "^1.2.21",
+    "esbuild": "^0.25.9",
+    "obsidian": "^1.8.7",
+    "typescript": "^5.9.2"
+  }
+}

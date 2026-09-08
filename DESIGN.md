@@ -153,6 +153,18 @@ The primitive/state harness must cover rest, focus-visible, selected, loading, e
 
 Physical-device 성공은 `physical iPhone` 실기기에서 사용자가 직접 확인한 경우에만 `user-evidence-only gate`를 통과한다. 데스크톱 폭 조절, 시뮬레이터, 스크린샷 추정은 모바일 성공 근거가 아니다.
 
+### Vault Assistant-specific contract
+
+- 이 절은 `vault-assistant` 소비자에만 적용한다. 질문 범위는 `현재 문서`와 `전체 Vault` 두 가지이며, `현재 문서`는 활성 Markdown 편집 버퍼를 우선하고 `전체 Vault`는 아래 경계 안의 개인 Markdown을 로컬에서 검색한다. 사용자가 선택한 구조화된 `@문서` mention은 표시 질문과 분리된 정규화 Vault-relative path로 보존하며, 여러 선택을 허용하고 중복을 제거한다. 선택되지 않은 `@text`는 일반 질문 텍스트다.
+- `전체 Vault`의 eligible corpus는 모든 사용자 작성 Markdown이다. People, Journal, PARA, ZETA, DAILY, INBOX, HUB, root note, venue record, 향후 사용자 폴더를 포함하며 개인 분류, 파일명, tag, `privacy` frontmatter로 제외하지 않는다. machine-path exclusion은 정확히 `.trash/`, 모든 dot-prefixed root, `artifacts/`, `SYSTEM/PRIVATE/`, `SYSTEM/CACHE/`, `SYSTEM/Views/`, `SYSTEM/SCRIPTS/`, `SYSTEM/AI/`, `SYSTEM/CI/`뿐이다.
+- Assistant가 provider에 전달하는 근거는 이 소비자 전용 evidence envelope 하나이며 최대 `8 KiB`다. 인용은 provider가 경로나 링크를 작성하는 방식이 아니라 frozen retrieval map의 opaque citation id만 반환하고, Assistant가 id, normalized path, heading, line range, source revision을 로컬 검증한 뒤 클릭 가능한 Obsidian source link로 해석한다. 알 수 없거나 누락된 인용은 fail closed하며, 변경·삭제된 source는 각각 stale·missing으로 표시하고 다른 문서로 조용히 remap하지 않는다.
+- 최근 대화는 versioned vault identity 아래 기기별 local history로 저장되어 같은 기기에서 다시 열 수 있다. 저장된 질문, 검증된 답변, source locator/revision, 시각, 범위, 현재 문서 경로, inherited provider/model label은 follow-up 문맥일 뿐 factual evidence가 아니다. 모든 사실 질문은 현재 Vault에서 근거를 다시 찾으며 history만으로 답하지 않는다.
+- Provider와 model은 global AI runtime 설정을 상속하는 읽기 전용 표시다. Assistant 전용 picker, credential, route override, fallback은 없다. 사용자의 명시적 submit만 retrieval 뒤 provider call을 시작하며 background call, 자동 retry/resume, 두 번째 model call은 없다.
+- macOS와 iPad에서는 같은 Assistant view를 오른쪽 sidebar에 열고, iPhone에서는 editor area를 소유하는 full view로 연다. 상태는 `idle`, `retrieving`, `answering`, `answered`, `no_evidence`, `partial`, `error`, `cancelled`의 typed state로 드러내며, 근거가 없으면 provider를 호출하지 않는다.
+- Assistant는 read-only다. Vault 쓰기·생성·수정·삭제·이름 변경, 승인/apply, shell·CLI·Git·Omo·ACP·MCP 같은 tool 실행, 직접 network dispatch를 제공하지 않는다. 한 화면에는 transcript의 one scroll owner만 두고, 모든 interactive target은 최소 `44px`, keyboard operation과 visible focus를 유지한다. Korean/CJK와 긴 문자열은 자연스럽게 감싸며 safe-area clearance, reduced motion, forced colors, `200%` reflow를 보장한다.
+- 이 전용 계약은 다른 소비자의 공용 계약을 넓히거나 대체하지 않는다. 아래 `ai-context-envelope.js` 규칙, `prodigy.ai.chat-session.v1` 규칙, `AIInspector` 배치·동작 규칙은 다른 모든 소비자에 대해 그대로 유지된다. Assistant의 Whole Vault evidence, 기기-local reopenable history, iPhone editor-area 배치는 해당 공용 primitive의 새 기본값이 아니다.
+- 실제 물리 기기 receipt 없이 iPhone·iPad·Mac 성공을 주장하지 않는다. logical-width harness, desktop resize, simulator, screenshot 추정만 있으면 `physical_claim_status: not_proven`이다.
+
 ### LLM Wiki batch action status
 
 - `llmwiki-batch-status` is a grouped-row status primitive inside the existing Knowledge body scroll owner. It uses the StyleGallery `cluster` contract for wrapping actions (`display:flex`, `flex-wrap`, shared token gap) and never creates an internal scroll container.

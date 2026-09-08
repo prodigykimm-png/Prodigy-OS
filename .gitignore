@@ -17,6 +17,8 @@ artifacts/prodigy-knowledge-inbox/
 .obsidian/plugins/*
 !.obsidian/plugins/dusk-auction-settings/
 !.obsidian/plugins/prodigy-ai-runtime/
+!.obsidian/plugins/prodigy-vault-assistant/
+.obsidian/plugins/prodigy-vault-assistant/build-metafile.json
 
 # Task evidence archives (working-tree copies stay, git tracking only)
 SYSTEM/AI/Reports/final/
