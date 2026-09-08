@@ -1570,7 +1570,13 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           write_counts: { source: 0, canonical: 0, preview: 0, review: 0 },
         };
       }
-      const draftDocuments = analyzed.proposals.map((proposal) => proposal.document).filter(Boolean);
+      // Canonical no_change inclusion (Finding-2): canonical-matched groups carry
+      // exact source citations and count as inventory provenance, but remain
+      // non-proposals with zero writes (see f3-final-live/15-citation-diagnosis.md).
+      const draftDocuments = [
+        ...analyzed.proposals.map((proposal) => proposal.document).filter(Boolean),
+        ...(Array.isArray(analyzed.no_changes) ? analyzed.no_changes : []),
+      ];
       const inventoryResult = window.LLMWikiDocumentReducer.createClaimInventory({ source, documents: draftDocuments });
       if (!inventoryResult.ok) return inventoryResult;
       const rawSourceHoldItems = (analyzed.artifacts_by_source.get(sourceId) || []).flatMap((artifact) => artifact.items

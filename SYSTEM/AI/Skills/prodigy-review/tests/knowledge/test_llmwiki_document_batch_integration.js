@@ -232,6 +232,160 @@ test("document planning requires complete semantic source coverage before downst
   assert.deepEqual(JSON.parse(JSON.stringify(outsideScopeResult.write_counts)), { source: 0, canonical: 0, preview: 0, review: 0 });
 });
 
+test("canonical no_change documents count as source provenance toward full plan coverage (Finding-2)", async () => {
+  const sourcePath = "INBOX/웨딩 스냅 포즈 복기.md";
+  const canonicalPath = "ZETA/PERMANENT/웨딩 스냅 포즈 가이드.md";
+  // Fixture shape mirrors f3-final-live/16-canonical-nochange-repro.js: three of
+  // the twelve units are reusable claims whose text is literally contained in a
+  // canonical ZETA/PERMANENT document; the rest are source_summary proposals.
+  const values = [
+    "카메라는 수평과 수직을 먼저 잡는다.", "웨딩 스냅 포즈를 촬영하려면 자연스러운 걸음으로 시작해야 한다.", "인물 시선은 카메라에서 살짝 옆으로 둔다.",
+    "조명은 창가 자광을 기본으로 쓴다.", "부케는 왼손으로 들고 오른손은 손잡이를 잡는다.", "부케 꽃과 손 위치가 프레임 하단에 놓이게 한다.",
+    "웨딩 스냅 포즈를 촬영할 때 앉은 자세에서 상체를 세워야 한다.", "웨딩 스냅 포즈를 촬영할 때 정면과 45도 각도를 번갈아 써야 한다.", "렌즈는 18mm 화각을 기본으로 둔다.",
+    "뷰파인더 인물 배치를 먼저 확인한다.", "배경은 단순한 톤의 벽을 고른다.", "촬영 전에 동선을 한 번 걸어본다.",
+  ];
+  const canonicalValues = new Set([values[1], values[6], values[7]]);
+  const sourceRows = values.map((value, index) => `${index + 1}. ${value}`);
+  const sourceBytes = `# 웨딩 스냅 포즈 복기\n\n${sourceRows.join("\n")}\n`;
+  assert.equal(evidenceCandidates.createSemantic(sourceBytes).length, 12);
+  const canonicalBytes = [
+    "# 웨딩 스냅 포즈 가이드",
+    "",
+    values[1],
+    values[6],
+    values[7],
+    "",
+  ].join("\n");
+  const canonicalPage = {
+    source_path: canonicalPath,
+    path: canonicalPath,
+    type: "knowledge",
+    title: "웨딩 스냅 포즈 가이드",
+    content: canonicalBytes,
+    frontmatter: {
+      type: "knowledge",
+      title: "웨딩 스냅 포즈 가이드",
+      statement: "웨딩 스냅 포즈의 걸음, 상체, 각도 지침을 보존한다.",
+      summary: "웨딩 스냅 포즈 걸음/상체/각도",
+      knowledge_domain: "wedding",
+      knowledge_topics: ["posing"],
+      connections: [],
+    },
+    file: { path: canonicalPath, name: "웨딩 스냅 포즈 가이드", mtime: 1, outlinks: [], inlinks: [] },
+    connections: [],
+    outlinks: [],
+    backlinks: [],
+  };
+  const providerCalls = { calls: 0 };
+  const batchProvider = async (request) => {
+    providerCalls.calls += 1;
+    return {
+      ok: true,
+      provider_call_count: 1,
+      automatic_retry_count: 0,
+      automatic_repair_count: 0,
+      artifacts: request.chunks.map((chunk) => ({
+        chunk_key: chunk.key,
+        outcome: "proposals",
+        items: values.filter((quote) => chunk.text.includes(quote)).map((quote) => {
+          const reusable = canonicalValues.has(quote);
+          const start = chunk.text.indexOf(quote);
+          return {
+            role: reusable ? "reusable_claim" : "source_summary",
+            ...(reusable ? { topic: "웨딩 스냅 포즈 가이드" } : {}),
+            evidence_quote: quote,
+            claims: [{ text: quote }],
+            review_reasons: [],
+            related_candidate_ids: [],
+            span: { start, end: start + quote.length, alias: `span_canonical_${start}` },
+          };
+        }),
+      })),
+    };
+  };
+  const plannerCalls = { calls: 0 };
+  const compilerCalls = { calls: 0 };
+  const pagePlan = async (request) => {
+    plannerCalls.calls += 1;
+    const sourceClaimIds = request.claims.filter((claim) => claim.role === "source_summary").map((claim) => claim.claim_id);
+    const reusableClaimIds = request.claims.filter((claim) => claim.role === "reusable_claim").map((claim) => claim.claim_id);
+    return {
+      source_guide: {
+        overview: "웨딩 스냅 포즈 지침을 원문 근거로 보존한다.",
+        sections: sourceClaimIds.length ? [{ heading: "촬영 지침", summary: "전체 근거", claim_ids: sourceClaimIds }] : [],
+        key_questions: [],
+      },
+      topic_pages: reusableClaimIds.length ? [{
+        title: "웨딩 스냅 포즈 가이드",
+        purpose: "걸음/상체/각도 지침을 정리한다.",
+        claim_ids: reusableClaimIds,
+        target_candidate_ids: [],
+      }] : [],
+      source_only_claim_ids: [],
+    };
+  };
+  const documentArticleCompiler = async (request) => {
+    compilerCalls.calls += 1;
+    return {
+      articles: request.pages.map((page) => ({
+        page_id: page.page_id,
+        sections: [{ heading: "핵심 지침", paragraphs: [{ text: "웨딩 스냅 포즈 지침을 근거로 정리한다.", claim_ids: [...page.claim_ids] }] }],
+      })),
+    };
+  };
+  const runtime = await runHub({
+    pages: [canonicalPage],
+    extraFiles: { [sourcePath]: sourceBytes, [canonicalPath]: canonicalBytes },
+    llmWikiControllerOptions: {
+      loadDynamicGoldenModules: true,
+      batchIdentity: v2Identity(),
+      batchProvider,
+      documentPagePlan: pagePlan,
+      documentArticleCompiler,
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+
+  // Before the Finding-2 hub change the canonical-matched reusable claims fall
+  // out of the audit inventory (see f3-final-live/15-citation-diagnosis.md): the
+  // plan fails with missing 3 and semantic_candidate_key_missing. After the fix
+  // the no_change documents carry exact source citations as inventory
+  // provenance, so the plan reaches full 12/12 coverage, planning continues,
+  // compilation proceeds, and zero authority writes occur.
+  const plan = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(plan.ok, true, JSON.stringify(plan));
+  assert.deepEqual(JSON.parse(JSON.stringify(plan.source_coverage)), { total: 12, covered: 12, missing: 0, holds: 0, duplicates: 0 });
+  assert.equal(plan.source_units_missing, 0);
+  assert.equal(plan.source_units_held, 0);
+  assert.equal(plan.source_units_duplicates, 0);
+  assert.equal(plannerCalls.calls, 1, "page planning must continue once canonical provenance is included");
+  assert.equal(providerCalls.calls, 1);
+  assert.equal(plan.canonical_writes, 0);
+
+  const choices = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "select_source" });
+  assert.equal(choices.source_options.some((source) => source.path === sourcePath), true);
+  const selected = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "select_source", source_path: sourcePath });
+  assert.equal(selected.ok, true, selected.reason);
+  const consent = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "request_consent" });
+  assert.equal(consent.ok, true, consent.reason);
+  const run = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "start_run" });
+  assert.equal(run.ok, true, JSON.stringify(run));
+  assert.equal(run.status, "publishable_preview");
+  const golden = runtime.window.KnowledgeExplorerHub.goldenWikiSnapshot();
+  assert.deepEqual(JSON.parse(JSON.stringify(golden.result.source_coverage)), { total: 12, covered: 12, missing: 0, holds: 0, duplicates: 0 });
+  assert.equal(run.canonical_writes, 0);
+  assert.equal(run.source_writes, 0);
+  assert.equal(compilerCalls.calls, 1, "topic compilation must proceed for canonical-reusable coverage");
+  assert.equal(providerCalls.calls, 1, "golden replay must not add provider calls");
+  assert.equal(
+    runtime.app.vault.touched.some((row) => row.slice(1).some((value) => String(value).startsWith("ZETA/"))),
+    false,
+    "no authority writes from canonical no_change provenance",
+  );
+  assert.equal(await runtime.app.vault.read(runtime.app.vault.getAbstractFileByPath(sourcePath)), sourceBytes);
+  assert.equal(runtime.window.KnowledgeExplorerHub.reviewedWikiSnapshot().entries.length, 0);
+});
+
 test("span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract", async () => {
   const sourcePath = "INBOX/스팬 정렬 복기.md";
   const values = [
