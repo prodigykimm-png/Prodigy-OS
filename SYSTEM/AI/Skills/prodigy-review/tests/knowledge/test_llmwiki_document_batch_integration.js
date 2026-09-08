@@ -503,6 +503,7 @@ test("default article-compiler closure uses the in-scope plan source id (no sour
   assert.equal(run.ok, true, JSON.stringify(run));
   assert.equal(run.status, "publishable_preview");
   assert.equal(compileCalls.calls, 1, "default article-compile provider must run exactly once");
+  assert.equal(run.provider_calls, compileCalls.calls, "Golden replay must include the real compilation call");
   assert.ok(firstRequestOptions, "default article-compile provider must be reached");
   const expectedSourceId = `source_plan_${sha(`${sourcePath}:full`).slice(0, 24)}`;
   assert.equal(firstRequestOptions.ownerSessionId, `wiki-article-compile-${expectedSourceId}`);

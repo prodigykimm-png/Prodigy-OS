@@ -1526,6 +1526,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (!file) return { ok: false, reason: "plan_source_missing" };
       const sourcePath = file.path.normalize("NFC");
       const extractedText = await appRef.vault.cachedRead(file);
+      const privacy = window.LLMWikiSensitiveContentPolicy?.inspect({
+        source_path: sourcePath,
+        source_text: extractedText,
+        metadata: { ...appRef.metadataCache?.getFileCache(file)?.frontmatter, llmwiki_outbound: false },
+      });
+      if (privacy?.type !== "allow") return { ok: false, reason: "source_privacy_blocked", provider_calls: 0 };
       const sourceRevision = llmWikiHash.sha256(extractedText);
       const requestedScope = runOptions && runOptions.scope;
       if (runOptions.expected_source_hash && runOptions.expected_source_hash !== sourceRevision) return { ok: false, reason: "source_revision_changed" };
@@ -1883,9 +1889,15 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         });
         return response.payload;
       });
-      const compiler = window.LLMWikiDocumentCompiler.createDocumentCompiler({ requestArticles });
+      let articleProviderCalls = 0;
+      const compiler = window.LLMWikiDocumentCompiler.createDocumentCompiler({
+        requestArticles: async (request) => {
+          if (!localRender) articleProviderCalls += 1;
+          return requestArticles(request);
+        },
+      });
       const compiled = await compiler.compile({ inventory: documentPlanInventory, approved_plan: plan, execution: documentPlanExecution });
-      if (!compiled.ok) return compiled;
+      if (!compiled.ok) return { ...compiled, provider_calls: articleProviderCalls };
       const materialized = inboxProposalMaterializer.materializeDocuments({
         source: documentPlanContext.source,
         documents: compiled.documents,
@@ -1922,7 +1934,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         ok: true, status: "compiled_preview", documents: compiled.documents.length,
         proposals: materialized.proposals.length, holds: materialized.holds.length,
         plan_hash: plan.plan_hash, quality_status: compiled.quality_status, existing_review_preserved: true,
-        canonical_writes: 0, source_writes: 0,
+        provider_calls: articleProviderCalls, canonical_writes: 0, source_writes: 0,
       };
     };
     const documentPlanSourceOnlyHolds = () => {

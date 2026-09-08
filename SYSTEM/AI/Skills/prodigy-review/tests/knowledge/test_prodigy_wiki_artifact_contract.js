@@ -7,6 +7,7 @@ const { test } = require("node:test");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const hash = require(path.join(ROOT, "SYSTEM/Views/llmwiki-hash.js"));
 const contract = require(path.join(ROOT, "SYSTEM/Views/prodigy-wiki-artifact-contract.js"));
+const assembler = require(path.join(ROOT, "SYSTEM/Views/llmwiki-document-assembler.js"));
 
 function fixture(overrides = {}) {
   const sourceText = [
@@ -101,6 +102,56 @@ test("artifact identity and immutable preview paths bind source revision range d
   assert.equal(first.navigation_manifest.sections[0].citations[0].evidence_quote, "감정가보다 현장 수요와 출구 가격을 함께 확인한다.");
   assert.equal(first.source_outline.rows.map((row) => row.heading).join(" > "), "투자 기록 > 입찰 기준 > 세금");
 });
+
+for (const quote of ["Alpha is B ", "  Alpha\t is\nB\r\n"]) {
+  test(`assembled citation whitespace preserves the authoritative source span ${JSON.stringify(quote)}`, () => {
+    const input = fixture({ scope: null });
+    const sourceText = `# Citation\n${quote}\n`;
+    const start = sourceText.indexOf(quote);
+    const end = start + quote.length;
+    input.source.source_text = sourceText;
+    input.source.source_revision = hash.sha256(sourceText);
+    const assembled = assembler.createDocumentAssembler().assemble({
+      source: { ...input.source, content_hash: input.source.source_revision },
+      artifacts: [{ items: [{
+        role: "reusable_claim",
+        topic: "Citation whitespace",
+        claims: ["Alpha is B"],
+        evidence_quote: quote,
+        span: { start, end },
+      }] }],
+    });
+    assert.equal(assembled.ok, true);
+    const citation = {
+      ...assembled.documents[0].citations[0],
+      citation_id: input.document.citations[0].citation_id,
+    };
+    assert.equal(citation.evidence_quote, "Alpha is B");
+    input.document.citations = [citation];
+    const before = JSON.stringify(input);
+    const artifact = contract.createPreviewArtifact(input);
+    const normalized = artifact.navigation_manifest.sections[0].citations[0];
+    assert.equal(normalized.evidence_quote, sourceText.slice(start, end));
+    assert.deepEqual(normalized.span, { start, end });
+    assert.deepEqual(normalized.locators, citation.locators);
+    assert.equal(normalized.span_digest, hash.sha256(quote));
+    assert.equal(normalized.source_revision, hash.sha256(sourceText));
+    assert.equal(contract.inspectPreviewArtifact(artifact).ok, true);
+    assert.equal(JSON.stringify(input), before);
+
+    // A different quote or a non-whitespace span extension must still fail.
+    input.document.citations = [{ ...citation, evidence_quote: "Alpha is C" }];
+    assert.throws(() => contract.createPreviewArtifact(input), /citation_quote_mismatch/u);
+    input.document.citations = [{
+      ...citation,
+      locators: [`${input.source.source_path}#${start - 2}-${end}`],
+    }];
+    assert.throws(() => contract.createPreviewArtifact(input), /citation_quote_mismatch/u);
+    input.document.citations = [citation];
+    input.source.source_revision = "d".repeat(64);
+    assert.throws(() => contract.createPreviewArtifact(input), /valid_artifact_source_required/u);
+  });
+}
 
 test("self-verifying artifact receipt rejects document navigation outline source and scope drift", () => {
   const artifact = contract.createPreviewArtifact(fixture());

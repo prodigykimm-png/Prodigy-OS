@@ -147,9 +147,10 @@
       throw new TypeError("valid_navigation_citation_required");
     }
     const span = citationSpan(citation, source);
-    const evidenceQuote = clean(citation.evidence_quote)
-      || source.source_text.slice(span.start, span.end);
-    if (!evidenceQuote || source.source_text.slice(span.start, span.end) !== evidenceQuote) {
+    const evidenceQuote = source.source_text.slice(span.start, span.end);
+    // Compiled quotes normalize whitespace; the locator's exact source bytes remain authoritative.
+    const compiledQuote = clean(citation.evidence_quote);
+    if (!evidenceQuote || (compiledQuote && clean(evidenceQuote) !== compiledQuote)) {
       throw new TypeError("citation_quote_mismatch");
     }
     return freeze({

@@ -113,7 +113,7 @@
       return body ? `## ${publicationText(section.heading) || "핵심 내용"}\n\n${publicationText(body)}` : "";
     }).filter(Boolean).join("\n\n");
     const overview = text(document.purpose)
-      || text(document.sections && document.sections[0] && document.sections[0].summary)
+      || text(document.sections?.[0]?.paragraphs?.[0]?.text)
       || "원문 근거를 독자가 판단하고 적용하는 순서로 정리한 문서입니다.";
     const checklist = (document.sections || [])
       .map((section) => `- [ ] ${publicationText(section.heading)}의 조건과 예외를 확인했다.`)
@@ -271,6 +271,12 @@
       const file = vault.getAbstractFileByPath(input.source_path);
       if (!file) return freeze({ ok: false, reason: "source_missing" });
       const sourceText = await vault.cachedRead(file);
+      if (input.source_path.startsWith("INBOX/")) {
+        const selector = root.LLMWikiUserSourceSelector || (typeof require === "function" ? require("./llmwiki-user-source-selector.js") : null);
+        if (selector?.eligibleInboxPath(input.source_path, sourceText) !== true) {
+          return freeze({ ok: false, reason: "source_privacy_blocked", provider_calls: 0 });
+        }
+      }
       const sourceHash = hash.sha256(sourceText);
       if (text(input.expected_content_hash) && input.expected_content_hash !== sourceHash) {
         return freeze({ ok: false, reason: "source_revision_changed" });
