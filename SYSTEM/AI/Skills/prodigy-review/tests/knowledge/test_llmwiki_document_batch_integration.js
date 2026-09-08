@@ -386,6 +386,135 @@ test("canonical no_change documents count as source provenance toward full plan 
   assert.equal(runtime.window.KnowledgeExplorerHub.reviewedWikiSnapshot().entries.length, 0);
 });
 
+test("default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError)", async () => {
+  // Failing-first proof for the DEFAULT article-compiler path. The other
+  // integration tests inject `documentArticleCompiler`, which never exercises
+  // the default closure in `compileDocumentPlan`. Here we omit it and instead
+  // stub `window.ProdigyAIConsumerRuntime.requestStructured` so the real hub
+  // default closure runs end-to-end. Before the fix the closure referenced an
+  // out-of-scope `sourceId` (a sibling-scope const) -> ReferenceError ->
+  // article_provider_failed with zero preview. After the fix the provider call
+  // succeeds and the ownerSessionId carries the resolved plan source id.
+  const sourcePath = "INBOX/웨딩 스냅 포즈 복기.md";
+  // Twelve units, three of which are reusable claims whose text lives in a
+  // canonical ZETA/PERMANENT document (mirrors f3-final-live/16-canonical-
+  // nochange-repro.js). Reusable claims produce a topic page, so the article
+  // compiler is invoked.
+  const values = [
+    "카메라는 수평과 수직을 먼저 잡는다.", "웨딩 스냅 포즈를 촬영하려면 자연스러운 걸음으로 시작해야 한다.", "인물 시선은 카메라에서 살짝 옆으로 둔다.",
+    "조명은 창가 자광을 기본으로 쓴다.", "부케는 왼손으로 들고 오른손은 손잡이를 잡는다.", "부케 꽃과 손 위치가 프레임 하단에 놓이게 한다.",
+    "웨딩 스냅 포즈를 촬영할 때 앉은 자세에서 상체를 세워야 한다.", "웨딩 스냅 포즈를 촬영할 때 정면과 45도 각도를 번갈아 써야 한다.", "렌즈는 18mm 화각을 기본으로 둔다.",
+    "뷰파인더 인물 배치를 먼저 확인한다.", "배경은 단순한 톤의 벽을 고른다.", "촬영 전에 동선을 한 번 걸어본다.",
+  ];
+  const canonicalValues = new Set([values[1], values[6], values[7]]);
+  const sourceBytes = `# 웨딩 스냅 포즈 복기\n\n${values.map((value, index) => `${index + 1}. ${value}`).join("\n")}\n`;
+  assert.equal(evidenceCandidates.createSemantic(sourceBytes).length, 12);
+  const providerCalls = { calls: 0 };
+  const plannerCalls = { calls: 0 };
+  const compileCalls = { calls: 0 };
+  let firstRequestOptions = null;
+  const batchProvider = async (request) => {
+    providerCalls.calls += 1;
+    return {
+      ok: true,
+      provider_call_count: 1,
+      automatic_retry_count: 0,
+      automatic_repair_count: 0,
+      artifacts: request.chunks.map((chunk) => ({
+        chunk_key: chunk.key,
+        outcome: "proposals",
+        items: values.filter((quote) => chunk.text.includes(quote)).map((quote) => {
+          const reusable = canonicalValues.has(quote);
+          const start = chunk.text.indexOf(quote);
+          return {
+            role: reusable ? "reusable_claim" : "source_summary",
+            ...(reusable ? { topic: "웨딩 스냅 포즈 가이드" } : {}),
+            evidence_quote: quote,
+            claims: [{ text: quote }],
+            review_reasons: [],
+            related_candidate_ids: [],
+            span: { start, end: start + quote.length, alias: `span_closure_${start}` },
+          };
+        }),
+      })),
+    };
+  };
+  const pagePlan = async (request) => {
+    plannerCalls.calls += 1;
+    const sourceClaimIds = request.claims.filter((claim) => claim.role === "source_summary").map((claim) => claim.claim_id);
+    const reusableClaimIds = request.claims.filter((claim) => claim.role === "reusable_claim").map((claim) => claim.claim_id);
+    return {
+      source_guide: {
+        overview: "웨딩 스냅 포즈 지침을 원문 근거로 보존한다.",
+        sections: sourceClaimIds.length ? [{ heading: "촬영 지침", summary: "전체 근거", claim_ids: sourceClaimIds }] : [],
+        key_questions: [],
+      },
+      topic_pages: reusableClaimIds.length ? [{
+        title: "웨딩 스냅 포즈 가이드",
+        purpose: "걸음/상체/각도 지침을 정리한다.",
+        claim_ids: reusableClaimIds,
+        target_candidate_ids: [],
+      }] : [],
+      source_only_claim_ids: [],
+    };
+  };
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      loadDynamicGoldenModules: true,
+      batchIdentity: v2Identity(),
+      batchProvider,
+      documentPagePlan: pagePlan,
+      // Intentionally omit documentArticleCompiler so the DEFAULT closure in
+      // compileDocumentPlan runs the article_compile provider call.
+    },
+  });
+  // The default closure reads window.ProdigyAIConsumerRuntime.requestStructured
+  // at call time; swap in a stub that records the issued identity tokens.
+  runtime.window.ProdigyAIConsumerRuntime = {
+    requestStructured: async (options) => {
+      compileCalls.calls += 1;
+      if (!firstRequestOptions) firstRequestOptions = options;
+      const prompt = JSON.parse(options.prompt);
+      return {
+        payload: {
+          articles: prompt.request.pages.map((page) => ({
+            page_id: page.page_id,
+            sections: [{ heading: "핵심 지침", paragraphs: [{ text: "웨딩 스냅 포즈 지침을 근거로 정리한다.", claim_ids: [...page.claim_ids] }] }],
+          })),
+        },
+      };
+    },
+  };
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const plan = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(plan.ok, true, JSON.stringify(plan));
+  assert.deepEqual(JSON.parse(JSON.stringify(plan.source_coverage)), { total: 12, covered: 12, missing: 0, holds: 0, duplicates: 0 });
+  const choices = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "select_source" });
+  assert.equal(choices.source_options.some((source) => source.path === sourcePath), true);
+  await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "select_source", source_path: sourcePath });
+  const consent = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "request_consent" });
+  assert.equal(consent.ok, true, consent.reason);
+  const run = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "start_run" });
+  // GREEN contract: the default compiler closure must not ReferenceError. The
+  // compile provider call must have fired once with the resolved plan source id
+  // in its ownerSessionId, and the run must reach publishable_preview.
+  assert.equal(run.ok, true, JSON.stringify(run));
+  assert.equal(run.status, "publishable_preview");
+  assert.equal(compileCalls.calls, 1, "default article-compile provider must run exactly once");
+  assert.ok(firstRequestOptions, "default article-compile provider must be reached");
+  const expectedSourceId = `source_plan_${sha(`${sourcePath}:full`).slice(0, 24)}`;
+  assert.equal(firstRequestOptions.ownerSessionId, `wiki-article-compile-${expectedSourceId}`);
+  // The plan hash is re-issued when the plan is approved into compiling scope,
+  // so assert the source-id prefix (the regression guard) rather than pinning
+  // the volatile suffix.
+  assert.equal(firstRequestOptions.operationId.startsWith(`wiki-article-compile-${expectedSourceId}-`), true);
+  assert.equal(run.canonical_writes, 0);
+  assert.equal(run.source_writes, 0);
+  assert.equal(plannerCalls.calls, 1);
+  assert.equal(providerCalls.calls, 1);
+});
 test("span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract", async () => {
   const sourcePath = "INBOX/스팬 정렬 복기.md";
   const values = [

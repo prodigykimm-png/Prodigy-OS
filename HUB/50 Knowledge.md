@@ -1877,8 +1877,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
             request,
           }),
           schema: window.LLMWikiDocumentCompiler.ARTICLE_SCHEMA,
-          ownerSessionId: `wiki-article-compile-${sourceId}`,
-          operationId: `wiki-article-compile-${sourceId}-${plan.plan_hash}`,
+          ownerSessionId: `wiki-article-compile-${documentPlanContext.source.source_id}`,
+          operationId: `wiki-article-compile-${documentPlanContext.source.source_id}-${plan.plan_hash}`,
           attemptId: "attempt-1"
         });
         return response.payload;
