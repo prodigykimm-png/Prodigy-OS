@@ -9,6 +9,7 @@ import type {
   SourceRecord,
   StructuredMention,
 } from "./contracts";
+import { abortable } from "./request-lifecycle";
 import type { RetrievalInput, RetrievalResult } from "./vault-retriever";
 import { RetrievalCancelledError } from "./vault-retriever";
 
@@ -41,6 +42,7 @@ export interface AssistantServiceInput {
   readonly generation: number;
   readonly dialogue: readonly DialogueMessage[];
   readonly retryIdentity?: RuntimeIdentity;
+  readonly onProgress?: (state: Extract<AssistantResult, { readonly state: "answering" }>) => void;
 }
 
 export interface AssistantServiceDependencies {
@@ -144,11 +146,43 @@ function answeredResult(
 export class AssistantService {
   #latestGeneration = Number.NEGATIVE_INFINITY;
   #active: ActiveRequest | null = null;
+  #pending: { readonly generation: number; readonly result: Promise<AssistantResult> } | null =
+    null;
 
   constructor(private readonly dependencies: AssistantServiceDependencies) {}
 
-  async answer(input: AssistantServiceInput): Promise<AssistantResult> {
-    const identity = input.retryIdentity ?? this.dependencies.runtime.createIdentity();
+  answer(input: AssistantServiceInput): Promise<AssistantResult> {
+    if (this.#pending?.generation === input.generation) return this.#pending.result;
+    const frozen = Object.freeze({
+      ...input,
+      mentions: Object.freeze(input.mentions.map((mention) => Object.freeze({ ...mention }))),
+      scope: Object.freeze({
+        mode: input.scope.mode,
+        currentDocument:
+          input.scope.currentDocument === null
+            ? null
+            : Object.freeze({ ...input.scope.currentDocument }),
+      }),
+      dialogue: boundedDialogue(input.dialogue),
+    });
+    const result = this.answerOnce(frozen).finally(() => {
+      if (this.#pending?.result === result) this.#pending = null;
+    });
+    this.#pending = { generation: input.generation, result };
+    return result;
+  }
+
+  private async answerOnce(input: AssistantServiceInput): Promise<AssistantResult> {
+    let identity: RuntimeIdentity;
+    try {
+      identity = input.retryIdentity ?? this.dependencies.runtime.createIdentity();
+    } catch {
+      return errorResult(`generation-${input.generation}`, {
+        ok: false,
+        code: "runtime_unavailable",
+        recovery: { action: "settings" },
+      });
+    }
     const operationId = identity.operationId.value;
     if (input.generation < this.#latestGeneration) return { state: "cancelled", operationId };
 
@@ -169,16 +203,18 @@ export class AssistantService {
           : input.question;
       let retrieval: RetrievalResult;
       try {
-        retrieval = await this.dependencies.retriever.retrieve({
-          mode: input.scope.mode,
-          question: retrievalQuery,
-          mentions: Object.freeze(input.mentions.map((mention) => Object.freeze({ ...mention }))),
-          currentDocument:
-            input.scope.currentDocument === null
-              ? null
-              : Object.freeze({ ...input.scope.currentDocument }),
-          signal: controller.signal,
-        });
+        retrieval = await abortable(controller.signal, () =>
+          this.dependencies.retriever.retrieve({
+            mode: input.scope.mode,
+            question: retrievalQuery,
+            mentions: Object.freeze(input.mentions.map((mention) => Object.freeze({ ...mention }))),
+            currentDocument:
+              input.scope.currentDocument === null
+                ? null
+                : Object.freeze({ ...input.scope.currentDocument }),
+            signal: controller.signal,
+          }),
+        );
       } catch (error) {
         if (error instanceof RetrievalCancelledError || controller.signal.aborted) {
           return { state: "cancelled", operationId };
@@ -192,19 +228,33 @@ export class AssistantService {
         return { state: "no_evidence", operationId, coverage: retrieval.coverage };
       }
 
-      const result = await this.dependencies.runtime.submit({
-        identity,
-        question: input.question,
-        dialogue,
-        chunks: frozenChunks(retrieval.chunks),
-        signal: controller.signal,
-      });
+      const chunks = frozenChunks(retrieval.chunks);
+      const coverage = structuredClone(retrieval.coverage);
+      input.onProgress?.({ state: "answering", operationId, coverage });
+      const result = await abortable(controller.signal, () =>
+        this.dependencies.runtime.submit({
+          identity,
+          question: input.question,
+          dialogue,
+          chunks,
+          coverage,
+          signal: controller.signal,
+        }),
+      );
       if (!this.isCurrent(active) || controller.signal.aborted) {
         return { state: "cancelled", operationId };
       }
       return result.ok
-        ? answeredResult(operationId, retrieval.coverage, result)
+        ? answeredResult(operationId, coverage, result)
         : errorResult(operationId, result);
+    } catch {
+      if (!this.isCurrent(active) || controller.signal.aborted)
+        return { state: "cancelled", operationId };
+      return errorResult(operationId, {
+        ok: false,
+        code: "provider_error",
+        recovery: { action: "retry" },
+      });
     } finally {
       input.signal.removeEventListener("abort", abort);
       if (this.#active === active) this.#active = null;

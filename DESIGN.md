@@ -155,6 +155,7 @@ Physical-device 성공은 `physical iPhone` 실기기에서 사용자가 직접 
 
 ### Vault Assistant-specific contract
 
+- 근거 선택은 파일 읽기 성공과 구분한다. `현재 문서`와 지정 문서는 8 KiB 전송 예산 안에서 전체 근거를 우선하고, 일부만 선택하면 기존 warning 상태로 선택 조각 수와 범위 제한을 표시한다. 변경·삭제된 출처를 가진 과거 답변도 warning으로 표시한다. 반복 질문의 일관성은 동일 입력의 결정적 근거 선택과 최신 문서 재검색으로 보장하며 모델 문구의 완전한 동일성을 약속하지 않는다.
 - 이 절은 `vault-assistant` 소비자에만 적용한다. 질문 범위는 `현재 문서`와 `전체 Vault` 두 가지이며, `현재 문서`는 활성 Markdown 편집 버퍼를 우선하고 `전체 Vault`는 아래 경계 안의 개인 Markdown을 로컬에서 검색한다. 사용자가 선택한 구조화된 `@문서` mention은 표시 질문과 분리된 정규화 Vault-relative path로 보존하며, 여러 선택을 허용하고 중복을 제거한다. 선택되지 않은 `@text`는 일반 질문 텍스트다.
 - `전체 Vault`의 eligible corpus는 모든 사용자 작성 Markdown이다. People, Journal, PARA, ZETA, DAILY, INBOX, HUB, root note, venue record, 향후 사용자 폴더를 포함하며 개인 분류, 파일명, tag, `privacy` frontmatter로 제외하지 않는다. machine-path exclusion은 정확히 `.trash/`, 모든 dot-prefixed root, `artifacts/`, `SYSTEM/PRIVATE/`, `SYSTEM/CACHE/`, `SYSTEM/Views/`, `SYSTEM/SCRIPTS/`, `SYSTEM/AI/`, `SYSTEM/CI/`뿐이다.
 - Assistant가 provider에 전달하는 근거는 이 소비자 전용 evidence envelope 하나이며 최대 `8 KiB`다. 인용은 provider가 경로나 링크를 작성하는 방식이 아니라 frozen retrieval map의 opaque citation id만 반환하고, Assistant가 id, normalized path, heading, line range, source revision을 로컬 검증한 뒤 클릭 가능한 Obsidian source link로 해석한다. 알 수 없거나 누락된 인용은 fail closed하며, 변경·삭제된 source는 각각 stale·missing으로 표시하고 다른 문서로 조용히 remap하지 않는다.

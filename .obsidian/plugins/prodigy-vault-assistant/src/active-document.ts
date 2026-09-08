@@ -1,4 +1,5 @@
 import type { ActiveDocumentSnapshot, RuntimeApiPort } from "./contracts";
+import { abortable } from "./request-lifecycle";
 import { normalizeVaultPath } from "./retrieval-ranking";
 
 export type ActiveLeaf =
@@ -32,8 +33,14 @@ export interface WiringSession {
     signal: AbortSignal,
     currentDocument: ActiveDocumentSnapshot | null,
   ) => Promise<void>;
+  readonly captureAnswer?: (
+    question: string,
+  ) => (signal: AbortSignal, currentDocument: ActiveDocumentSnapshot | null) => Promise<void>;
+  readonly retry?: (signal: AbortSignal) => Promise<void>;
+  readonly setFailure?: (code: "read_error" | "provider_error", message?: string) => void;
   readonly incrementGeneration: () => void;
   readonly clearTransientEvidence: () => void;
+  readonly refreshContext?: () => void;
 }
 
 type PinnedMarkdown = { readonly path: string; readonly editorValue: () => string | null };
@@ -71,6 +78,8 @@ export class ActiveDocumentTracker {
 export class PluginWiringDriver {
   #controller: AbortController | null = null;
   #unsubscribe: (() => void) | null = null;
+  #epoch = 0;
+  #pending: { readonly key: string; readonly promise: Promise<void> } | null = null;
 
   constructor(
     private readonly session: WiringSession,
@@ -78,29 +87,77 @@ export class PluginWiringDriver {
   ) {}
 
   async open(): Promise<void> {
-    await this.session.restoreHistory();
-    this.#unsubscribe = this.status.subscribe((value) => this.session.setRuntimeStatus(value));
+    const epoch = ++this.#epoch;
+    this.#unsubscribe?.();
+    this.#unsubscribe = null;
+    try {
+      await this.session.restoreHistory();
+      if (epoch !== this.#epoch) return;
+      this.#unsubscribe = this.status.subscribe((value) => {
+        if (epoch === this.#epoch) this.session.setRuntimeStatus(value);
+      });
+    } catch {
+      if (epoch === this.#epoch) this.session.setFailure?.("read_error", "history_restore_error");
+    }
   }
 
-  async submit(question: string): Promise<void> {
-    let currentDocument: ActiveDocumentSnapshot | null = null;
-    if (this.session.usesCurrentDocument()) {
-      const current = await this.session.currentDocument();
-      if (!current.ok) {
-        this.session.setBoundaryState(current.code);
-        return;
+  submit(question: string): Promise<void> {
+    return this.start(`submit:${question}`, async (signal) => {
+      // Capture ownership and scope before awaiting an editor/cache snapshot.
+      const answer =
+        this.session.captureAnswer?.(question) ??
+        ((signal: AbortSignal, document: ActiveDocumentSnapshot | null) =>
+          this.session.answer(question, signal, document));
+      const usesCurrentDocument = this.session.usesCurrentDocument();
+      let currentDocument: ActiveDocumentSnapshot | null = null;
+      if (usesCurrentDocument) {
+        const current = await abortable(signal, () => this.session.currentDocument());
+        if (signal.aborted) return;
+        if (!current.ok) {
+          this.session.setBoundaryState(current.code);
+          return;
+        }
+        currentDocument = Object.freeze({ ...current.document });
       }
-      currentDocument = current.document;
-    }
-    this.#controller?.abort();
+      if (!signal.aborted) await answer(signal, currentDocument);
+    });
+  }
+
+  retry(): Promise<void> {
+    return this.start("retry", async (signal) => this.session.retry?.(signal));
+  }
+
+  private start(key: string, work: (signal: AbortSignal) => Promise<void>): Promise<void> {
+    if (this.#pending?.key === key && this.#controller !== null) return this.#pending.promise;
+    this.cancel();
     const controller = new AbortController();
     this.#controller = controller;
-    await this.session.answer(question, controller.signal, currentDocument);
-    if (this.#controller === controller) this.#controller = null;
+    const promise = work(controller.signal)
+      .catch(() => {
+        if (this.#controller === controller && !controller.signal.aborted)
+          this.session.setFailure?.("read_error");
+      })
+      .finally(() => {
+        if (this.#controller === controller) this.#controller = null;
+        if (this.#pending?.promise === promise) this.#pending = null;
+      });
+    this.#pending = { key, promise };
+    return promise;
   }
 
   async clearHistory(): Promise<void> {
-    await this.session.clearHistory();
+    this.cancel();
+    this.session.incrementGeneration();
+    try {
+      await this.session.clearHistory();
+    } catch {
+      this.session.setFailure?.("read_error", "history_clear_error");
+    }
+  }
+
+  refreshContext(changed: boolean): void {
+    if (changed && this.session.usesCurrentDocument()) this.cancel();
+    this.session.refreshContext?.();
   }
 
   visibilityChanged(hidden: boolean): void {
@@ -120,8 +177,8 @@ export class PluginWiringDriver {
   }
 
   private stop(): void {
-    this.#controller?.abort();
-    this.#controller = null;
+    this.#epoch += 1;
+    this.cancel();
     this.session.incrementGeneration();
     this.#unsubscribe?.();
     this.#unsubscribe = null;

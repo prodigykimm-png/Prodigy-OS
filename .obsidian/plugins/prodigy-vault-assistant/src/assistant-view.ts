@@ -74,6 +74,8 @@ export function createAssistantView(
 
   const render = (model: AssistantViewModel): void => {
     root.setAttribute("data-state", model.state);
+    root.setAttribute("data-evidence-mode", model.evidence?.mode ?? "unknown");
+    root.setAttribute("data-error-code", model.errorCode ?? "");
     root.setAttribute("aria-busy", String(model.busy));
     const title = addElement(document, "h2", { text: "Vault Assistant" });
     const provider = addElement(document, "p", {
@@ -181,9 +183,18 @@ export function createAssistantView(
     });
     for (const block of model.blocks) {
       const content = addElement(document, block.kind === "paragraph" ? "p" : "li", {
-        text: block.text,
         attributes: { "data-answer-block": block.kind },
       });
+      for (const part of block.text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/u)) {
+        if (part.length === 0) continue;
+        const code = part.startsWith("`") && part.endsWith("`");
+        const strong = part.startsWith("**") && part.endsWith("**");
+        content.append(
+          addElement(document, code ? "code" : strong ? "strong" : "span", {
+            text: code ? part.slice(1, -1) : strong ? part.slice(2, -2) : part,
+          }),
+        );
+      }
       if (block.kind === "paragraph") answers.append(content);
       else {
         const list = addElement(document, "ul");
@@ -218,7 +229,13 @@ export function createAssistantView(
     const status = addElement(document, "p", {
       className: `pva-status is-${model.statusKind}`,
       text: statusText,
-      attributes: { id: "pva-live-status", role: statusRole, "aria-live": "polite" },
+      attributes: {
+        id: "pva-live-status",
+        role: statusRole,
+        "aria-live": "polite",
+        "data-selected-chunks": String(model.evidence?.selectedChunks ?? 0),
+        "data-total-chunks": String(model.evidence?.totalChunks ?? 0),
+      },
     });
     transcript.replaceChildren(history, mentions, suggestions, answers, sources, status);
 

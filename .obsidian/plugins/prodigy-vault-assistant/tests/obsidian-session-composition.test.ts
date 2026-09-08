@@ -143,7 +143,7 @@ test("retains the persisted prior answer when a cancelled evidence request resol
   await secondStarted.promise;
   const retrievingRoot = mountedRoots[0];
   if (retrievingRoot === undefined) throw new TypeError("Expected the assistant surface to mount");
-  expect(retrievingRoot.getAttribute("data-state")).toBe("retrieving");
+  expect(retrievingRoot.getAttribute("data-state")).toBe("answering");
   expect(retrievingRoot.textContent).toContain("PRIOR_PERSISTED_ANSWER");
   driver.cancel();
   const secondRequest = requests[1];

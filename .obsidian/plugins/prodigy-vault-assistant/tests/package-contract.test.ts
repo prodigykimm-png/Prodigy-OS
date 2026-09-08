@@ -132,10 +132,10 @@ describe("plugin package contract", () => {
     const versions = readJsonRecord("versions.json");
 
     expect(manifest["id"]).toBe("prodigy-vault-assistant");
-    expect(manifest["version"]).toBe("0.1.0");
+    expect(manifest["version"]).toBe("0.2.0");
     expect(manifest["minAppVersion"]).toBe("1.13.0");
     expect(manifest["isDesktopOnly"]).toBe(false);
-    expect(versions["0.1.0"]).toBe("1.13.0");
+    expect(versions["0.2.0"]).toBe("1.13.0");
     expect(existsSync(join(root, "styles.css"))).toBe(true);
   });
 

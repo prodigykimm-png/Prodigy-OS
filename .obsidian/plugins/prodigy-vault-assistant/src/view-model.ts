@@ -1,6 +1,7 @@
 import type {
   AnswerBlock,
   AssistantResult,
+  EvidenceCoverage,
   ScopeMode,
   SourceRecord,
   StructuredMention,
@@ -87,6 +88,8 @@ export interface AssistantViewModel extends Omit<AssistantViewInput, "result" | 
   readonly blocks: readonly AnswerBlock[];
   readonly sources: readonly AssistantSourceView[];
   readonly coverageText: string | null;
+  readonly evidence: EvidenceCoverage | null;
+  readonly errorCode: string | null;
   readonly actions: readonly ("submit" | "cancel" | "later" | "retry" | "settings")[];
 }
 
@@ -115,11 +118,17 @@ function sourceView(source: SourceRecord): AssistantSourceView {
 
 function coverageText(result: Extract<AssistantResult, { readonly coverage: unknown }>): string {
   const coverage = result.coverage;
+  const detail =
+    coverage.evidence === undefined
+      ? ""
+      : coverage.evidence.mode === "full"
+        ? ` · 전체 근거 ${coverage.evidence.selectedChunks}개 조각`
+        : ` · 관련 근거 ${coverage.evidence.selectedChunks}/${coverage.evidence.totalChunks}개 조각 선택 · 문서 일부만 제공`;
   switch (coverage.status) {
     case "complete":
-      return `${coverage.filesRead}개 문서 확인`;
+      return `${coverage.filesRead}개 문서 확인${detail}`;
     case "partial":
-      return `${coverage.filesRead}/${coverage.filesConsidered}개 문서 확인, ${coverage.issues.length}개 누락`;
+      return `${coverage.filesRead}/${coverage.filesConsidered}개 문서 확인, ${coverage.issues.length}개 누락${detail}`;
     default:
       return assertNever(coverage);
   }
@@ -146,6 +155,8 @@ export function createViewModel(input: AssistantViewInput): AssistantViewModel {
     history: input.history,
     providerText,
     priorBlocks: input.priorBlocks,
+    evidence: "coverage" in input.result ? (input.result.coverage.evidence ?? null) : null,
+    errorCode: input.result.state === "error" ? input.result.code : null,
   };
   const result = input.result;
   switch (result.state) {
@@ -191,8 +202,14 @@ export function createViewModel(input: AssistantViewInput): AssistantViewModel {
         providerText: `${result.receipt.providerLabel} / ${result.receipt.modelLabel}`,
         state: result.state,
         busy: false,
-        statusKind: "quiet",
-        statusText: "답변이 준비되었습니다.",
+        statusKind:
+          result.coverage.evidence?.mode === "selected" ||
+          result.sources.some((source) => source.status !== "current")
+            ? "warning"
+            : "quiet",
+        statusText: result.sources.some((source) => source.status !== "current")
+          ? "답변 후 출처가 변경되거나 삭제되었습니다. 다시 질문해 최신 근거를 확인하세요."
+          : "답변이 준비되었습니다.",
         blocks: result.blocks,
         sources: result.sources.map(sourceView),
         coverageText: coverageText(result),
@@ -229,7 +246,16 @@ export function createViewModel(input: AssistantViewInput): AssistantViewModel {
         state: result.state,
         busy: false,
         statusKind: "error" as const,
-        statusText: result.message,
+        statusText:
+          result.message === "no_current_document"
+            ? "먼저 질문할 Markdown 문서를 열어 주세요."
+            : result.code === "read_error"
+              ? "문서를 읽지 못했습니다. 파일 상태를 확인한 뒤 다시 시도해 주세요."
+              : result.code === "runtime_unavailable"
+                ? "AI를 사용할 수 없습니다. 전역 AI 설정을 확인해 주세요."
+                : result.code === "invalid_response"
+                  ? "답변의 근거를 확인하지 못했습니다. 다시 시도해 주세요."
+                  : "AI 요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
         blocks: input.priorBlocks,
         sources: [],
         coverageText: null,

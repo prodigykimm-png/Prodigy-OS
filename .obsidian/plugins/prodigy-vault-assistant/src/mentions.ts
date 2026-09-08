@@ -9,18 +9,21 @@ import {
   type RuntimeStatusSource,
   type WiringSession,
 } from "./active-document";
-import { AssistantService } from "./assistant-service";
+import { AssistantService, type AssistantServiceInput } from "./assistant-service";
 import { createAssistantView } from "./assistant-view";
 import type {
   ActiveDocumentSnapshot,
   AssistantResult,
   HistoryExchange,
   HistoryState,
+  RuntimeIdentity,
+  RuntimePort,
   ScopeMode,
 } from "./contracts";
 import type { ObsidianSessionDependencies } from "./main";
 import { MentionSelection } from "./mention-selection";
-import { createRuntimeAdapter } from "./runtime-adapter";
+import { abortable } from "./request-lifecycle";
+import { createRuntimeAdapter, nextAttempt } from "./runtime-adapter";
 import {
   dialogueFromHistory,
   historySummaries,
@@ -54,6 +57,15 @@ class MissingFileError extends Error {
   }
 }
 
+type SessionRequest = Omit<
+  AssistantServiceInput,
+  "signal" | "generation" | "retryIdentity" | "onProgress"
+> & {
+  readonly identity: RuntimeIdentity;
+  readonly conversationId: string;
+  readonly currentPath: string | null;
+};
+
 export class ObsidianSession implements WiringSession, RuntimeStatusSource {
   private mode: ScopeMode = "current_document";
   private provider: ProviderReadiness = { status: "checking" };
@@ -63,6 +75,10 @@ export class ObsidianSession implements WiringSession, RuntimeStatusSource {
   private mentionQuery: string | null = null;
   private readonly mentions: MentionSelection;
   private readonly service: AssistantService;
+  private readonly runtime: RuntimePort;
+  private controller: AbortController | null = null;
+  private lastRequest: SessionRequest | null = null;
+  private historyBarrier: Promise<void> = Promise.resolve();
   private readonly ui;
   driver: PluginWiringDriver | null = null;
 
@@ -81,13 +97,11 @@ export class ObsidianSession implements WiringSession, RuntimeStatusSource {
       metadata: ({ path }) => this.dependencies.metadata(path),
       resolvedLinks: () => view.app.metadataCache.resolvedLinks,
     });
-    this.service = new AssistantService({
-      retriever,
-      runtime: createRuntimeAdapter({
-        getPlugin: () =>
-          this.dependencies.runtime === null ? null : { api: this.dependencies.runtime },
-      }),
+    this.runtime = createRuntimeAdapter({
+      getPlugin: () =>
+        this.dependencies.runtime === null ? null : { api: this.dependencies.runtime },
     });
+    this.service = new AssistantService({ retriever, runtime: this.runtime });
     this.ui = createAssistantView(this.dependencies.document, this.ports());
     this.dependencies.mount(this.ui.root);
     view.registerDomEvent(view.contentEl.ownerDocument, "visibilitychange", () =>
@@ -103,69 +117,181 @@ export class ObsidianSession implements WiringSession, RuntimeStatusSource {
   readonly currentDocument = (): Promise<ActiveDocumentResult> =>
     this.dependencies.tracker.snapshot();
   async restoreHistory(): Promise<void> {
-    this.history = await this.dependencies.store.load();
-    await this.projectHistory();
+    const generation = this.generation;
+    try {
+      const history = await this.dependencies.store.load();
+      if (generation !== this.generation) return;
+      this.history = history;
+      await this.projectHistory();
+    } catch {
+      if (generation === this.generation) this.setFailure("read_error", "history_restore_error");
+    }
   }
   async clearHistory(): Promise<void> {
-    await this.dependencies.store.clear();
+    this.driver?.cancel();
+    this.incrementGeneration();
+    const generation = this.generation;
+    this.lastRequest = null;
     this.history = { version: 1, activeConversationId: null, conversations: [] };
-    this.render();
+    this.clearTransientEvidence();
+    this.historyBarrier = this.historyBarrier
+      .then(() => this.dependencies.store.clear())
+      .catch(() => {
+        if (generation === this.generation) this.setFailure("read_error", "history_clear_error");
+      });
+    await this.historyBarrier;
   }
   setRuntimeStatus(status: RuntimeStatus): void {
     this.provider = this.dependencies.projectProvider(status);
     this.render();
   }
+  refreshContext(): void {
+    this.render();
+  }
   setBoundaryState(): void {
-    this.result = {
-      state: "error",
-      operationId: crypto.randomUUID(),
-      code: "read_error",
-      message: "no_current_document",
-    };
+    this.setFailure("read_error", "no_current_document");
+  }
+  setFailure(code: "read_error" | "provider_error", message: string = code): void {
+    const operationId = `generation-${this.generation}`;
+    this.result =
+      code === "read_error"
+        ? { state: "error", operationId, code, message }
+        : { state: "error", operationId, code, message, recovery: { action: "retry" } };
     this.render();
   }
   incrementGeneration(): void {
     this.generation += 1;
+    this.controller?.abort();
+    this.controller = null;
   }
   clearTransientEvidence(): void {
     this.result = { state: "idle" };
     this.render();
   }
 
-  async answer(
+  captureAnswer(
+    question: string,
+  ): (signal: AbortSignal, currentDocument: ActiveDocumentSnapshot | null) => Promise<void> {
+    this.incrementGeneration();
+    const generation = this.generation;
+    const captured = Object.freeze({
+      question,
+      mentions: Object.freeze(
+        this.mentions.selected().map((mention) => Object.freeze({ ...mention })),
+      ),
+      mode: this.mode,
+      currentPath: this.dependencies.tracker.pinnedPath,
+      dialogue: Object.freeze(
+        dialogueFromHistory(this.history).map((message) => Object.freeze({ ...message })),
+      ),
+      conversationId:
+        this.history.activeConversationId ?? this.dependencies.store.createConversationId(),
+      identity: this.runtime.createIdentity(),
+    });
+    return (signal, currentDocument) =>
+      this.execute(
+        Object.freeze({
+          ...captured,
+          scope: Object.freeze({
+            mode: captured.mode,
+            currentDocument:
+              currentDocument === null ? null : Object.freeze({ ...currentDocument }),
+          }),
+        }),
+        signal,
+        generation,
+      );
+  }
+
+  answer(
     question: string,
     signal: AbortSignal,
     currentDocument: ActiveDocumentSnapshot | null,
   ): Promise<void> {
-    const generation = ++this.generation;
-    this.result = { state: "retrieving", operationId: `generation-${generation}` };
-    this.render();
-    const committed = await commitGuardedAnswer({
-      capturedGeneration: generation,
-      currentGeneration: () => this.generation,
-      answer: () =>
-        this.service.answer({
-          question,
-          mentions: this.mentions.selected(),
-          scope: { mode: this.mode, currentDocument },
-          signal,
-          generation,
-          dialogue: dialogueFromHistory(this.history),
-        }),
-      prepare: async (result) => ({ result, exchange: this.exchangeFor(question, result) }),
-      persist: async ({ exchange }, isCurrent) => {
-        await Promise.resolve();
-        if (!isCurrent()) return null;
-        if (exchange === null) return this.history;
-        const history = await this.dependencies.store.appendExchange(exchange, signal);
-        return isCurrent() ? history : null;
-      },
-      apply: (result, history) => {
-        this.result = result;
-        this.history = history;
-      },
+    return this.captureAnswer(question)(signal, currentDocument);
+  }
+
+  async retry(signal: AbortSignal): Promise<void> {
+    if (this.lastRequest === null) return;
+    const request = Object.freeze({
+      ...this.lastRequest,
+      identity: nextAttempt(this.lastRequest.identity, () => crypto.randomUUID()),
     });
-    if (committed) this.render();
+    this.incrementGeneration();
+    await this.execute(request, signal, this.generation);
+  }
+
+  private async execute(
+    request: SessionRequest,
+    signal: AbortSignal,
+    generation: number,
+  ): Promise<void> {
+    if (generation !== this.generation || signal.aborted) return;
+    this.lastRequest = request;
+    const controller = new AbortController();
+    this.controller = controller;
+    const abort = () => controller.abort();
+    signal.addEventListener("abort", abort, { once: true });
+    const operationId = request.identity.operationId.value;
+    this.result = { state: "retrieving", operationId };
+    this.render();
+    try {
+      await abortable(controller.signal, () => this.historyBarrier);
+      const committed = await commitGuardedAnswer({
+        capturedGeneration: generation,
+        currentGeneration: () => this.generation,
+        answer: () =>
+          this.service.answer({
+            question: request.question,
+            mentions: request.mentions,
+            scope: request.scope,
+            dialogue: request.dialogue,
+            retryIdentity: request.identity,
+            signal: controller.signal,
+            generation,
+            onProgress: (state) => {
+              if (generation !== this.generation || controller.signal.aborted) return;
+              this.result = state;
+              this.render();
+            },
+          }),
+        prepare: async (result) => {
+          const refreshSources = this.dependencies.refreshSources;
+          const refreshed =
+            (result.state === "answered" || result.state === "partial") &&
+            refreshSources !== undefined
+              ? {
+                  ...result,
+                  sources: await abortable(controller.signal, () => refreshSources(result.sources)),
+                }
+              : result;
+          return { result: refreshed, exchange: this.exchangeFor(request, refreshed) };
+        },
+        persist: async ({ result, exchange }, isCurrent) => {
+          if (!isCurrent()) return null;
+          if (exchange === null) return { result, history: this.history };
+          const history = await abortable(controller.signal, () =>
+            this.dependencies.store.appendExchange(exchange, controller.signal),
+          );
+          return history !== null && isCurrent() ? { result, history } : null;
+        },
+        apply: (_result, persisted) => {
+          this.result = persisted.result;
+          this.history = persisted.history;
+        },
+      });
+      if (committed) this.render();
+    } catch {
+      if (generation === this.generation && !controller.signal.aborted)
+        this.setFailure("read_error", "history_commit_error");
+    } finally {
+      signal.removeEventListener("abort", abort);
+      if (this.controller === controller) this.controller = null;
+      if (generation === this.generation && controller.signal.aborted) {
+        this.result = { state: "cancelled", operationId };
+        this.render();
+      }
+    }
   }
 
   subscribe(listener: (status: RuntimeStatus) => void): () => void {
@@ -176,16 +302,15 @@ export class ObsidianSession implements WiringSession, RuntimeStatusSource {
     return createRuntimeStatusSource(this.dependencies.runtime).subscribe(listener);
   }
 
-  private exchangeFor(question: string, result: AssistantResult): HistoryExchange | null {
+  private exchangeFor(request: SessionRequest, result: AssistantResult): HistoryExchange | null {
     if (result.state !== "answered" && result.state !== "partial") return null;
     return {
-      question,
+      conversationId: request.conversationId,
+      question: request.question,
       answer: result.blocks.map(({ text }) => text).join("\n"),
       timestamp: Date.now(),
-      mode: this.mode,
-      ...(this.dependencies.tracker.pinnedPath === null
-        ? {}
-        : { currentPath: this.dependencies.tracker.pinnedPath }),
+      mode: request.scope.mode,
+      ...(request.currentPath === null ? {} : { currentPath: request.currentPath }),
       citations: result.sources.map(({ path, heading, startLine, endLine, revision }) => ({
         path,
         ...(heading === undefined ? {} : { heading }),
@@ -201,8 +326,11 @@ export class ObsidianSession implements WiringSession, RuntimeStatusSource {
   private ports() {
     return {
       onModeChange: (mode: ScopeMode) => {
+        if (this.mode === mode) return;
+        this.driver?.cancel();
+        this.incrementGeneration();
         this.mode = mode;
-        this.render();
+        this.clearTransientEvidence();
       },
       onMentionRemove: (path: string) => {
         this.mentions.remove(path);
@@ -214,7 +342,11 @@ export class ObsidianSession implements WiringSession, RuntimeStatusSource {
         this.render();
       },
       onHistoryOpen: (id: string) => {
+        this.driver?.cancel();
+        this.incrementGeneration();
+        this.lastRequest = null;
         this.history = { ...this.history, activeConversationId: id };
+        this.clearTransientEvidence();
         void this.projectHistory();
       },
       onSourceOpen: this.dependencies.openSource,
@@ -224,20 +356,32 @@ export class ObsidianSession implements WiringSession, RuntimeStatusSource {
       onCancel: () => this.driver?.cancel(),
       onLater: () => this.clearTransientEvidence(),
       onRetry: () => {
-        void this.driver?.submit(this.ui.composer.value ?? "");
+        void this.driver?.retry();
       },
-      onSettings: () => this.dependencies.runtime?.openSettings(),
+      onSettings: () => {
+        void Promise.resolve()
+          .then(() => this.dependencies.runtime?.openSettings())
+          .catch(() => this.setFailure("provider_error", "runtime_unavailable"));
+      },
       onClearHistory: () => void this.driver?.clearHistory(),
     };
   }
 
   private async projectHistory(): Promise<void> {
-    const projection = await this.dependencies.projectHistory(this.history);
-    if (projection !== null) {
-      this.provider = projection.provider;
-      this.result = projection.result;
+    const generation = this.generation;
+    const history = this.history;
+    try {
+      const projection = await this.dependencies.projectHistory(history);
+      if (generation !== this.generation || history !== this.history) return;
+      if (projection !== null) {
+        this.provider = projection.provider;
+        this.result = projection.result;
+      }
+      this.render();
+    } catch {
+      if (generation === this.generation && history === this.history)
+        this.setFailure("read_error", "history_restore_error");
     }
-    this.render();
   }
 
   private render(): void {

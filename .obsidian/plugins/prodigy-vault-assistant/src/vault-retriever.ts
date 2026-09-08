@@ -7,6 +7,7 @@ import type {
   SourceRevision,
   StructuredMention,
 } from "./contracts";
+import { wireEvidenceBytes } from "./evidence-budget";
 import {
   chunkMarkdown,
   currentSources,
@@ -89,6 +90,15 @@ class VaultFileReadError extends Error {
 
 export class VaultRetriever {
   readonly #cache = new Map<string, { readonly key: string; readonly value: CachedContent }>();
+  readonly #prepared = new Map<
+    string,
+    {
+      readonly key: string;
+      readonly content: CachedContent;
+      readonly document: PreparedDocument;
+    }
+  >();
+  #snapshot: { readonly key: string; readonly value: CachedContent } | undefined;
 
   constructor(private readonly port: RetrievalPort) {}
 
@@ -103,6 +113,15 @@ export class VaultRetriever {
       )
       .sort((left, right) => left.path.localeCompare(right.path, "en"));
     const filesByPath = new Map(eligible.map((item) => [item.path, item.file]));
+    for (const path of this.#cache.keys()) {
+      if (!filesByPath.has(path)) this.#cache.delete(path);
+    }
+    for (const path of this.#prepared.keys()) {
+      if (!filesByPath.has(path)) this.#prepared.delete(path);
+    }
+    const currentPath =
+      input.currentDocument === null ? null : normalizeVaultPath(input.currentDocument.path);
+    if (currentPath === null || !filesByPath.has(currentPath)) this.#snapshot = undefined;
     const mentions = normalizeMentions(input.mentions);
     const issues: CoverageIssue[] = mentions
       .filter((path) => !filesByPath.has(path))
@@ -122,7 +141,7 @@ export class VaultRetriever {
       try {
         const cached = await this.contentFor(file, input.currentDocument, input.signal);
         this.checkCancelled(input.signal);
-        documents.push(await this.prepare(file, cached, input.signal));
+        documents.push(await this.prepare(file, cached, input.signal, path === currentPath));
         filesRead += 1;
       } catch (error) {
         if (
@@ -136,19 +155,30 @@ export class VaultRetriever {
       }
     }
 
-    const currentPath =
-      input.currentDocument === null ? null : normalizeVaultPath(input.currentDocument.path);
     const forcedPaths = new Set([
       ...mentions,
       ...(input.mode === "current_document" && currentPath !== null ? [currentPath] : []),
     ]);
     const candidates = this.candidates(documents, forcedPaths, input.question);
-    const chunks = rankChunks(candidates, input.question).map((item) => item.chunk);
+    const chunks = rankChunks(candidates, input.question, input.mode).map((item) => item.chunk);
     const sources = currentSources(chunks);
+    const totalChunks = documents.reduce((total, document) => total + document.chunks.length, 0);
+    const evidence = {
+      mode: chunks.length === totalChunks ? "full" : "selected",
+      selectedChunks: chunks.length,
+      totalChunks,
+      bytes: wireEvidenceBytes(chunks),
+    } as const;
     const coverage: Coverage =
       issues.length === 0
-        ? { status: "complete", filesConsidered: requestedPaths.length, filesRead }
-        : { status: "partial", filesConsidered: requestedPaths.length, filesRead, issues };
+        ? { status: "complete", filesConsidered: requestedPaths.length, filesRead, evidence }
+        : {
+            status: "partial",
+            filesConsidered: requestedPaths.length,
+            filesRead,
+            issues,
+            evidence,
+          };
     return {
       question: input.question,
       mentions,
@@ -178,14 +208,20 @@ export class VaultRetriever {
     signal: AbortSignal,
   ): Promise<CachedContent> {
     const currentPath = current === null ? null : normalizeVaultPath(current.path);
-    if (currentPath === normalizeVaultPath(file.path) && current !== null) {
-      return {
+    const path = normalizeVaultPath(file.path) ?? file.path;
+    const key = `${path}\u0000${file.stat.mtime}\u0000${file.stat.size}`;
+    if (currentPath === path && current !== null) {
+      if (this.#snapshot?.key === key && this.#snapshot.value.content === current.content)
+        return this.#snapshot.value;
+      const value = {
         content: current.content,
         revision: await revisionFor(current.content, file.stat.mtime),
       };
+      this.checkCancelled(signal);
+      this.#snapshot = { key, value };
+      return value;
     }
-    const key = `${normalizeVaultPath(file.path)}\u0000${file.stat.mtime}\u0000${file.stat.size}`;
-    const cached = this.#cache.get(file.path);
+    const cached = this.#cache.get(path);
     if (cached?.key === key) return cached.value;
     this.checkCancelled(signal);
     let content: string;
@@ -196,8 +232,9 @@ export class VaultRetriever {
       throw error;
     }
     this.checkCancelled(signal);
-    const value = { content, revision: await revisionFor(content, Date.now()) };
-    this.#cache.set(file.path, { key, value });
+    const value = { content, revision: await revisionFor(content, file.stat.mtime) };
+    this.checkCancelled(signal);
+    this.#cache.set(path, { key, value });
     return value;
   }
 
@@ -205,10 +242,23 @@ export class VaultRetriever {
     file: RetrievalFile,
     cached: CachedContent,
     signal: AbortSignal,
+    current: boolean,
   ): Promise<PreparedDocument> {
     const metadata = this.port.metadata(file);
-    const headings = metadata?.headings ?? [];
+    // Disk heading offsets may be stale while the editor has unsaved changes.
+    const headings = current ? [] : (metadata?.headings ?? []);
     const path = normalizeVaultPath(file.path) ?? file.path;
+    const key = JSON.stringify([
+      file.basename,
+      file.stat.mtime,
+      file.stat.size,
+      current,
+      metadata?.aliases ?? [],
+      metadata?.tags ?? [],
+      metadata?.headings ?? [],
+    ]);
+    const prepared = this.#prepared.get(path);
+    if (prepared?.key === key && prepared.content === cached) return prepared.document;
     const chunks = (await chunkMarkdown(cached.content, headings, signal)).map((draft, index) => ({
       id: `${path}:${draft.startLine}:${index}:${cached.revision.hash.slice(0, 12)}`,
       sourceId: `${path}:${cached.revision.hash}`,
@@ -219,15 +269,17 @@ export class VaultRetriever {
       text: draft.text,
       revision: cached.revision,
     }));
-    return {
+    const document = {
       file,
       metadata: {
-        aliases: metadata?.aliases ?? [],
-        tags: metadata?.tags ?? [],
+        aliases: [...(metadata?.aliases ?? [])],
+        tags: [...(metadata?.tags ?? [])],
         headings: headings.map((heading) => heading.heading),
       },
       chunks,
     };
+    this.#prepared.set(path, { key, content: cached, document });
+    return document;
   }
 
   private candidates(

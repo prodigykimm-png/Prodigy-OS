@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { wireEvidenceBytes } from "../src/evidence-budget";
 import { chunkMarkdown, RetrievalChunkCancelledError } from "../src/retrieval-ranking";
 import { RetrievalCancelledError, VaultRetriever } from "../src/vault-retriever";
 import {
@@ -134,7 +135,8 @@ describe("VaultRetriever", () => {
     expect(result.chunks.every((chunk) => encoder.encode(chunk.text).byteLength <= 2048)).toBe(
       true,
     );
-    expect(encoder.encode(result.envelope).byteLength).toBeLessThanOrEqual(8192);
+    expect(wireEvidenceBytes(result.chunks)).toBeLessThanOrEqual(8192);
+    expect(JSON.parse(result.envelope).chunks).toEqual(result.chunks);
     expect(result.envelope).not.toContain(fixture.excludedSentinel);
     expect(port.reads).toEqual(["A-large.md", "B.md", "C.md", "D.md"]);
     expect(port.readByteCounts).toHaveLength(4);
@@ -206,6 +208,12 @@ describe("VaultRetriever", () => {
       filesConsidered: 2,
       filesRead: 1,
       issues: [{ path: "offloaded.md", reason: "unreadable" }],
+      evidence: {
+        mode: "full",
+        selectedChunks: 1,
+        totalChunks: 1,
+        bytes: wireEvidenceBytes(result.chunks),
+      },
     });
   });
 

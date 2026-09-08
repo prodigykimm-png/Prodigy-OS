@@ -1,4 +1,5 @@
-import type { SourceChunk, SourceRecord, StructuredMention } from "./contracts";
+import type { ScopeMode, SourceChunk, SourceRecord, StructuredMention } from "./contracts";
+import { MAX_EVIDENCE_BYTES, wireEvidenceBytes } from "./evidence-budget";
 
 declare namespace Intl {
   class Segmenter {
@@ -105,6 +106,7 @@ export function scoreCandidate(
 export function rankChunks(
   candidates: readonly RankingCandidate[],
   question: string,
+  mode: ScopeMode = "whole_vault",
 ): readonly RankedChunk[] {
   const queryTokens = tokenize(question);
   const ranked = candidates
@@ -116,20 +118,74 @@ export function rankChunks(
         left.chunk.path.localeCompare(right.chunk.path, "en") ||
         left.chunk.startLine - right.chunk.startLine,
     );
+  if (mode === "current_document") {
+    if (wireEvidenceBytes(ranked.map(({ chunk }) => chunk)) <= MAX_EVIDENCE_BYTES) return ranked;
+    return diverseSelection(ranked, queryTokens);
+  }
   const perFile = new Map<string, number>();
   const selected = new Set<RankedChunk>();
+  let bytes = 2;
+  const include = (item: RankedChunk): void => {
+    const cost = wireEvidenceBytes([item.chunk]) - 2 + (selected.size > 0 ? 1 : 0);
+    if (bytes + cost > MAX_EVIDENCE_BYTES) return;
+    selected.add(item);
+    bytes += cost;
+    perFile.set(item.chunk.path, (perFile.get(item.chunk.path) ?? 0) + 1);
+  };
   for (const item of ranked) {
     if (perFile.has(item.chunk.path)) continue;
-    selected.add(item);
-    perFile.set(item.chunk.path, 1);
+    include(item);
     if (selected.size === 6) break;
   }
   for (const item of ranked) {
     if (selected.size === 6) break;
     const count = perFile.get(item.chunk.path) ?? 0;
     if (selected.has(item) || count >= 2) continue;
-    selected.add(item);
-    perFile.set(item.chunk.path, count + 1);
+    include(item);
+  }
+  return ranked.filter((item) => selected.has(item));
+}
+
+// Cover new files and query subjects before spending the remaining budget on
+// repeated matches. The ranked order is the tie-breaker, never corpus order.
+function diverseSelection(
+  ranked: readonly RankedChunk[],
+  tokens: readonly string[],
+): readonly RankedChunk[] {
+  const remaining = ranked.map((item) => {
+    const text = `${item.chunk.heading ?? ""}\n${item.chunk.text}`
+      .normalize("NFKC")
+      .toLocaleLowerCase("ko-KR");
+    return {
+      item,
+      tokens: tokens.filter((token) => text.includes(token)),
+      cost: wireEvidenceBytes([item.chunk]) - 2,
+    };
+  });
+  const selected = new Set<RankedChunk>();
+  const paths = new Set<string>();
+  const covered = new Set<string>();
+  let bytes = 2;
+  while (remaining.length > 0) {
+    let best = -1;
+    let bestNovelty = -1;
+    for (const [index, candidate] of remaining.entries()) {
+      if (bytes + candidate.cost + (selected.size > 0 ? 1 : 0) > MAX_EVIDENCE_BYTES) continue;
+      const novelty =
+        candidate.tokens.filter((token) => !covered.has(token)).length +
+        (paths.has(candidate.item.chunk.path) ? 0 : tokens.length + 1);
+      if (novelty > bestNovelty) {
+        best = index;
+        bestNovelty = novelty;
+      }
+    }
+    if (best < 0) break;
+    const candidate = remaining.splice(best, 1)[0];
+    if (candidate === undefined) break;
+    bytes += candidate.cost + (selected.size > 0 ? 1 : 0);
+    selected.add(candidate.item);
+    paths.add(candidate.item.chunk.path);
+    for (const token of candidate.tokens) covered.add(token);
   }
   return ranked.filter((item) => selected.has(item));
 }
@@ -163,33 +219,53 @@ export async function chunkMarkdown(
 ): Promise<readonly ChunkDraft[]> {
   const lines = content.split("\n");
   const result: ChunkDraft[] = [];
+  const headingsByLine = new Map(headings.map((item) => [item.line, item.heading]));
   let paragraphStart = 1;
   let paragraph: string[] = [];
-  const flush = async (endLine: number): Promise<void> => {
+  let heading: string | undefined;
+  let fence: string | undefined;
+  const flush = async (): Promise<void> => {
     const text = paragraph.join("\n").trim();
     if (text.length === 0) return;
-    const heading = [...headings].reverse().find((item) => item.line <= paragraphStart)?.heading;
+    let startLine = paragraphStart;
     for (const part of await byteChunks(text, signal)) {
       if (signal.aborted) throw new RetrievalChunkCancelledError();
+      const newlines = part.split("\n").length - 1;
       result.push({
         ...(heading === undefined ? {} : { heading }),
-        startLine: paragraphStart,
-        endLine,
+        startLine,
+        endLine: startLine + newlines - (part.endsWith("\n") ? 1 : 0),
         text: part,
       });
+      startLine += newlines;
     }
   };
   for (const [index, line] of lines.entries()) {
     if (signal.aborted) throw new RetrievalChunkCancelledError();
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})/u)?.[1];
+    const nextHeading =
+      fence === undefined
+        ? (line.match(/^ {0,3}#{1,6}\s+(.+?)(?:\s+#+)?\s*$/u)?.[1] ?? headingsByLine.get(index + 1))
+        : undefined;
+    if (nextHeading !== undefined) {
+      await flush();
+      paragraph = [];
+      paragraphStart = index + 1;
+      heading = nextHeading;
+    }
+    if (marker !== undefined) {
+      if (fence === undefined) fence = marker;
+      else if (marker[0] === fence[0] && marker.length >= fence.length) fence = undefined;
+    }
     if (line.trim().length === 0) {
-      await flush(index);
+      await flush();
       paragraph = [];
       paragraphStart = index + 2;
     } else {
       paragraph.push(line);
     }
   }
-  await flush(lines.length);
+  await flush();
   return result;
 }
 
@@ -246,13 +322,9 @@ export function oneHopPaths(
 }
 
 export function serializeEnvelope(chunks: readonly SourceChunk[]): string {
-  const included: SourceChunk[] = [];
-  for (const chunk of chunks) {
-    const candidate = JSON.stringify({ chunks: [...included, chunk] });
-    if (encoder.encode(candidate).byteLength > 8192) break;
-    included.push(chunk);
-  }
-  return JSON.stringify({ chunks: included });
+  // This local provenance envelope is not provider input. Selection already
+  // applied the wire budget; never silently drop its chunks a second time.
+  return JSON.stringify({ chunks });
 }
 
 export function currentSources(chunks: readonly SourceChunk[]): readonly SourceRecord[] {

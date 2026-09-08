@@ -9,7 +9,7 @@ import {
   runtimeApi,
   sourceLinkText,
 } from "./active-document";
-import type { AssistantResult, HistoryCitation, HistoryState, SourceRecord } from "./contracts";
+import type { AssistantResult, HistoryState, SourceRecord } from "./contracts";
 import { assistantDocument, nodeFromDocument } from "./dom-realm";
 import { createHistoryStore, type HistoryStore } from "./history-store";
 import { ObsidianSession } from "./mentions";
@@ -29,12 +29,14 @@ export type ObsidianSessionDependencies = {
   readonly metadata: (path: string) => RetrievalMetadata | null;
   readonly projectProvider: (status: RuntimeStatus) => ProviderReadiness;
   readonly projectHistory: (state: HistoryState) => Promise<RestoredHistoryProjection | null>;
+  readonly refreshSources?: (sources: readonly SourceRecord[]) => Promise<readonly SourceRecord[]>;
 };
 export type DeviceClass = "phone" | "tablet" | "desktop";
 export interface AssistantLeaf {
   readonly setViewState: (state: { readonly type: string; readonly active: true }) => Promise<void>;
 }
 export interface AssistantWorkspace<Leaf extends AssistantLeaf = AssistantLeaf> {
+  readonly getLeavesOfType?: (type: string) => readonly Leaf[];
   readonly getRightLeaf: (split: false) => Leaf | null;
   readonly getLeaf: (kind: "tab") => Leaf;
   readonly revealLeaf: (leaf: Leaf) => Promise<void>;
@@ -53,6 +55,11 @@ export async function openAssistantLeaf<Leaf extends AssistantLeaf>(
   workspace: AssistantWorkspace<Leaf>,
   device: DeviceClass,
 ): Promise<Leaf> {
+  const existing = workspace.getLeavesOfType?.(VIEW_TYPE)[0];
+  if (existing !== undefined) {
+    await workspace.revealLeaf(existing);
+    return existing;
+  }
   const leaf = device === "phone" ? workspace.getLeaf("tab") : workspace.getRightLeaf(false);
   if (leaf === null) throw new AssistantPlacementError();
   await leaf.setViewState({ type: VIEW_TYPE, active: true });
@@ -108,22 +115,31 @@ export type RestoredHistoryProjection = {
   readonly result: AssistantResult;
 };
 
-async function restoredSource(
-  citation: HistoryCitation,
-  index: number,
+export async function refreshSourceRecords(
+  sources: readonly SourceRecord[],
   read: (path: string) => Promise<string | null>,
-): Promise<SourceRecord> {
-  const content = await read(citation.path);
-  if (content === null) return { id: `history-${index}`, status: "missing", ...citation };
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
-  const hash = Array.from(new Uint8Array(digest), (byte) =>
-    byte.toString(16).padStart(2, "0"),
-  ).join("");
-  return {
-    id: `history-${index}`,
-    status: hash === citation.revision.hash ? "current" : "stale",
-    ...citation,
-  };
+): Promise<readonly SourceRecord[]> {
+  const hashes = new Map<string, Promise<string | null>>();
+  return Promise.all(
+    sources.map(async (source): Promise<SourceRecord> => {
+      let revision = hashes.get(source.path);
+      if (revision === undefined) {
+        revision = read(source.path).then(async (content) => {
+          if (content === null) return null;
+          const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
+          return Array.from(new Uint8Array(digest), (byte) =>
+            byte.toString(16).padStart(2, "0"),
+          ).join("");
+        });
+        hashes.set(source.path, revision);
+      }
+      const hash = await revision;
+      return {
+        ...source,
+        status: hash === null ? "missing" : hash === source.revision.hash ? "current" : "stale",
+      };
+    }),
+  );
 }
 
 export async function projectRestoredHistory(
@@ -135,24 +151,52 @@ export async function projectRestoredHistory(
     .reverse()
     .find(({ role }) => role === "assistant");
   if (conversation === undefined || message === undefined) return null;
-  const sources = await Promise.all(
-    message.citations.map((item, index) => restoredSource(item, index, read)),
+  const sources = await refreshSourceRecords(
+    message.citations.map((item, index) => ({
+      ...item,
+      id: `history-${index}`,
+      status: "current",
+    })),
+    read,
   );
+  const filesConsidered = new Set(sources.map((source) => source.path)).size;
+  const missing = [
+    ...new Set(
+      sources.filter((source) => source.status === "missing").map((source) => source.path),
+    ),
+  ];
   const labels = { providerLabel: message.providerLabel, modelLabel: message.modelLabel };
+  const common = {
+    operationId: `history:${conversation.id}`,
+    blocks: [
+      { kind: "paragraph" as const, text: message.text, citationIds: sources.map(({ id }) => id) },
+    ],
+    sources,
+    receipt: { ...labels, routeClass: "history" },
+  };
   return {
     provider: { status: "ready", ...labels },
-    result: {
-      state: "answered",
-      operationId: `history:${conversation.id}`,
-      blocks: [{ kind: "paragraph", text: message.text, citationIds: sources.map(({ id }) => id) }],
-      sources,
-      coverage: {
-        status: "complete",
-        filesConsidered: sources.length,
-        filesRead: sources.filter(({ status }) => status !== "missing").length,
-      },
-      receipt: { ...labels, routeClass: "history" },
-    },
+    result:
+      missing.length > 0
+        ? {
+            ...common,
+            state: "partial",
+            coverage: {
+              status: "partial",
+              filesConsidered,
+              filesRead: filesConsidered - missing.length,
+              issues: missing.map((path) => ({ path, reason: "missing" })),
+            },
+          }
+        : {
+            ...common,
+            state: "answered",
+            coverage: {
+              status: "complete",
+              filesConsidered,
+              filesRead: filesConsidered,
+            },
+          },
   };
 }
 
@@ -193,6 +237,19 @@ class VaultAssistantItemView extends ItemView {
         this.contentEl.replaceChildren(node);
       },
       metadata: (path) => metadataFor(this, path),
+      refreshSources: (sources) =>
+        refreshSourceRecords(sources, async (path) => {
+          const file = this.app.vault.getFileByPath(path);
+          if (file === null) return null;
+          const leaf = this.app.workspace
+            .getLeavesOfType("markdown")
+            .find(
+              (candidate) =>
+                candidate.view instanceof MarkdownView && candidate.view.file?.path === path,
+            );
+          if (leaf?.view instanceof MarkdownView) return leaf.view.editor.getValue();
+          return this.app.vault.cachedRead(file);
+        }),
       projectProvider: providerReadiness,
       projectHistory: (state) =>
         projectRestoredHistory(state, async (path) => {
@@ -218,12 +275,22 @@ export default class ProdigyVaultAssistantPlugin extends Plugin {
       return file === null ? null : this.app.vault.cachedRead(file);
     });
     this.tracker.observe(activeLeaf(this.app.workspace.getMostRecentLeaf()));
+    const observe = (leaf: WorkspaceLeaf | null): void => {
+      const before = this.tracker?.pinnedPath;
+      this.tracker?.observe(activeLeaf(leaf));
+      const changed = before !== this.tracker?.pinnedPath;
+      if (!changed) return;
+      for (const assistant of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
+        if (assistant.view instanceof VaultAssistantItemView)
+          assistant.view.driver?.refreshContext(changed);
+      }
+    };
+    this.registerEvent(this.app.workspace.on("active-leaf-change", observe));
     this.registerEvent(
-      this.app.workspace.on("active-leaf-change", (leaf) =>
-        this.tracker?.observe(activeLeaf(leaf)),
-      ),
+      this.app.workspace.on("file-open", () => observe(this.app.workspace.getMostRecentLeaf())),
     );
     const open = () => {
+      observe(this.app.workspace.getMostRecentLeaf());
       const device = Platform.isPhone ? "phone" : Platform.isTablet ? "tablet" : "desktop";
       void openAssistantLeaf(this.app.workspace, device);
     };

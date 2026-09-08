@@ -42,16 +42,25 @@ export interface CoverageIssue {
   readonly reason: "unreadable" | "missing" | "cancelled";
 }
 
+export interface EvidenceCoverage {
+  readonly mode: "full" | "selected";
+  readonly selectedChunks: number;
+  readonly totalChunks: number;
+  readonly bytes: number;
+}
+
 export type Coverage =
   | {
       readonly status: "complete";
       readonly filesConsidered: number;
       readonly filesRead: number;
+      readonly evidence?: EvidenceCoverage;
     }
   | {
       readonly status: "partial";
       readonly filesConsidered: number;
       readonly filesRead: number;
+      readonly evidence?: EvidenceCoverage;
       readonly issues: readonly CoverageIssue[];
     };
 
@@ -154,6 +163,7 @@ export interface RuntimeSubmitInput {
   readonly dialogue: readonly { readonly role: "user" | "assistant"; readonly text: string }[];
   readonly chunks: readonly SourceChunk[];
   readonly signal: AbortSignal;
+  readonly coverage?: Coverage;
 }
 
 export interface RuntimeReceipt {
