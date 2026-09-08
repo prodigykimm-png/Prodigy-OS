@@ -114,9 +114,13 @@ preflight_tool() {
 }
 
 NODE_TARGET="${PRODIGY_NODE_BIN:-$(command -v node || true)}"
+BUN_TARGET="${PRODIGY_BUN_BIN:-$(command -v bun || true)}"
 UV_TARGET="${PRODIGY_UV_BIN:-$(command -v uv || true)}"
 PRODIGY_FIND_BIN="${PRODIGY_FIND_BIN:-$(command -v find || true)}"
 preflight_tool "Node 24" "$NODE_TARGET"
+preflight_tool "Bun" "$BUN_TARGET"
+BUN_PREFLIGHT_VERSION="$("$BUN_TARGET" --version 2>&1)" || preflight_fail "Bun executable is not runnable"
+[ "$BUN_PREFLIGHT_VERSION" = "1.4.2" ] || preflight_fail "Bun executable has wrong version"
 NODE_PREFLIGHT_MAJOR="$("$NODE_TARGET" -p 'process.versions.node.split(".")[0]' 2>&1)" || preflight_fail "Node 24 executable is not runnable"
 [ "$NODE_PREFLIGHT_MAJOR" = 24 ] || preflight_fail "Node 24 executable has wrong major"
 preflight_tool "uv" "$UV_TARGET"
@@ -135,6 +139,7 @@ mkdir -p "$CONFINED_BIN" "$RUNTIME_SANDBOX"/{home,tmp,xdg-cache,xdg-config,npm-c
 cleanup() { rm -rf "$RELEASE_GATE_ROOT"; }
 trap cleanup EXIT
 ln -s "$NODE_TARGET" "$CONFINED_BIN/node" || preflight_fail "confined Node identity unavailable"
+ln -s "$BUN_TARGET" "$CONFINED_BIN/bun" || preflight_fail "confined Bun identity unavailable"
 ln -s "$UV_TARGET" "$CONFINED_BIN/uv" || preflight_fail "confined uv identity unavailable"
 export HOME="$RUNTIME_SANDBOX/home"
 export TMPDIR="$RUNTIME_SANDBOX/tmp"
@@ -144,14 +149,15 @@ export npm_config_cache="$RUNTIME_SANDBOX/npm-cache"
 export UV_CACHE_DIR="$RUNTIME_SANDBOX/uv-cache"
 export UV_NO_PROGRESS=1
 export PATH="$CONFINED_BIN:/usr/bin:/bin:/usr/sbin:/sbin"
-export PRODIGY_NODE_BIN="$CONFINED_BIN/node" PRODIGY_UV_BIN="$CONFINED_BIN/uv"
+export PRODIGY_NODE_BIN="$CONFINED_BIN/node" PRODIGY_BUN_BIN="$CONFINED_BIN/bun" PRODIGY_UV_BIN="$CONFINED_BIN/uv"
 [ "$(command -v node)" = "$PRODIGY_NODE_BIN" ] || preflight_fail "confined Node command identity mismatch"
+[ "$(command -v bun)" = "$PRODIGY_BUN_BIN" ] || preflight_fail "confined Bun command identity mismatch"
 [ "$(command -v uv)" = "$PRODIGY_UV_BIN" ] || preflight_fail "confined uv command identity mismatch"
 CONFINED_NODE_VERSION="$(node --version 2>&1)" || preflight_fail "confined Node executable is not runnable"
 CONFINED_NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>&1)" || preflight_fail "confined Node version is unreadable"
 [ "$CONFINED_NODE_MAJOR" = 24 ] || preflight_fail "confined Node executable has wrong major"
 CONFINED_UV_VERSION="$(uv --version 2>&1)" || preflight_fail "confined uv executable is not runnable"
-printf 'release toolchain preflight: node=%s uv=%s environment=confined disposable_roots=6\n' "$CONFINED_NODE_VERSION" "$CONFINED_UV_VERSION"
+printf 'release toolchain preflight: node=%s bun=%s uv=%s environment=confined disposable_roots=6\n' "$CONFINED_NODE_VERSION" "$BUN_PREFLIGHT_VERSION" "$CONFINED_UV_VERSION"
 
 for required_root in SYSTEM/Views SYSTEM/AI/Skills/prodigy-review/tests SYSTEM/AI/Skills/prodigy-property-contract/scripts SYSTEM/SCRIPTS SYSTEM/CI/fixtures/consolidation; do
   [ -d "$required_root" ] || preflight_fail "missing required root: $required_root"
@@ -225,6 +231,17 @@ else
   printf 'PASS: node-24-required\n'
 fi
 
+run_command "vault-assistant-plugin-check" bash -c '
+  set -o pipefail
+  cd "$1" || exit 1
+  "$2" install --frozen-lockfile &&
+    "$2" run typecheck &&
+    "$2" run lint &&
+    "$2" test &&
+    "$2" run build &&
+    "$2" run audit:mobile
+' _ "$REPO_ROOT/.obsidian/plugins/prodigy-vault-assistant" "$PRODIGY_BUN_BIN"
+
 printf '\n--- View syntax checks ---\n'
 while IFS= read -r -d '' file; do
   run_command "view-syntax: $file" node --check "$file"
@@ -232,7 +249,7 @@ done < "$VIEW_INVENTORY"
 
 is_macos_real_capability() {
   case "$1" in
-    *test_knowledge_explorer_responsive.js|*test_*_real_obsidian_*.js|*test_real_obsidian_*.js|*test_real_hub_transition_lifecycle.js|*test_shared_real_obsidian_controls.js|*test_workout_real_controller_publication.js) return 0 ;;
+    *test_vault_assistant_real_obsidian.js|*test_knowledge_explorer_responsive.js|*test_*_real_obsidian_*.js|*test_real_obsidian_*.js|*test_real_hub_transition_lifecycle.js|*test_shared_real_obsidian_controls.js|*test_workout_real_controller_publication.js) return 0 ;;
     *) return 1 ;;
   esac
 }
