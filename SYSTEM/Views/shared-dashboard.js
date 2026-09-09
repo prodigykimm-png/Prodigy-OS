@@ -125,6 +125,19 @@ window.renderDashboardSection = function(options) {
     sortOrder = "asc"
   } = options;
 
+  const canonicalFilterSido = (value) => {
+    const sido = String(value || "").trim();
+    if (sido === "강원도") return "강원특별자치도";
+    if (sido === "전라북도") return "전북특별자치도";
+    return sido;
+  };
+
+  const scopeSignature = (scope, filters) => scope
+    ? `${scope.region_sido || ""}|${String(scope.region_sigungu || "").trim()}`
+    : `${filters.card_region || "전체지역"}|${String(filters.card_sigungu || "").trim() || "전체구"}`;
+  let regionSelectEl = null;
+  let renderedScopeKey = null;
+
   if (!renderer) {
     container.empty();
     container.createEl("span", {
@@ -273,15 +286,54 @@ window.renderDashboardSection = function(options) {
           sort: { ...(current.sort || {}), [status]: sel.value }
         });
       } else {
+        const nextFilters = { ...(current.filters || {}), [field]: sel.value };
+        if (field === "card_region") nextFilters.card_sigungu = "전체구";
         auctionStateStore.setWorkspaceState("auction", {
-          filters: { ...(current.filters || {}), [field]: sel.value }
+          filters: nextFilters
         });
       }
-      if (field === "card_region" && typeof window !== "undefined") window.__prodigyAuctionActiveRegionScope = null;
+      if ((field === "card_region" || field === "card_sigungu") && typeof window !== "undefined") window.__prodigyAuctionActiveRegionScope = null;
+      if (field === "card_region" && typeof renderSigunguSelect === "function") renderSigunguSelect(sel.value, "전체구");
       if (typeof window !== "undefined" && typeof window.__prodigyRefreshAuctionDashboard === "function") {
         window.__prodigyRefreshAuctionDashboard();
       }
     };
+      return wrapper;
+  };
+
+  let sigunguToggle = null;
+  const renderSigunguSelect = (currentRegion, currentValue) => {
+    const regionOptions = [];
+    if (currentRegion !== "전체지역") {
+      const seenSigungu = new Set();
+      dataviewInstance.pages('"PARA/PROJECTS/Auction"')
+        .where(p => p.type === "auction_case" && canonicalFilterSido(p.region_sido || "") === currentRegion)
+        .forEach(p => {
+          const sigungu = String(p.region_sigungu || "").trim();
+          if (sigungu && !seenSigungu.has(sigungu)) {
+            seenSigungu.add(sigungu);
+            regionOptions.push({ text: sigungu, value: sigungu });
+          }
+        });
+      regionOptions.sort((a, b) => a.value.localeCompare(b.value, "ko"));
+    }
+    const sigunguOptions = [{ text: '전체', value: '전체구' }, ...regionOptions];
+    if (!sigunguToggle) {
+      const separator = isMobile ? null : dropdownParent.createEl('span', { text: '|', attr: { class: "auction-filter-separator", style: 'color:var(--ke-color-border,var(--background-modifier-border));font-size:var(--ke-type-label);' } });
+      const wrapper = makeSelectInline(dropdownParent, '구:', 'card_sigungu', sigunguOptions, currentValue || "전체구");
+      sigunguToggle = { separator, wrapper };
+    } else {
+      const sigunguSel = sigunguToggle.wrapper.querySelector("select");
+      if (typeof sigunguSel.empty === "function") sigunguSel.empty();
+      else sigunguSel.textContent = "";
+      sigunguOptions.forEach(o => {
+        const opt = sigunguSel.createEl('option', { text: o.text, value: o.value });
+        if (o.value === String(currentValue !== undefined && currentValue !== null ? currentValue : o.value)) opt.selected = true;
+      });
+    }
+    const visible = sigunguOptions.length > 1;
+    if (sigunguToggle.separator) sigunguToggle.separator.style.display = visible ? "" : "none";
+    sigunguToggle.wrapper.style.display = visible ? "" : "none";
   };
 
     const regionScope = (typeof window !== "undefined" && window.__prodigyAuctionActiveRegionScope && typeof window.__prodigyAuctionActiveRegionScope === "object")
@@ -290,7 +342,7 @@ window.renderDashboardSection = function(options) {
     const initialRegion = regionScope?.region_sido || initialFilters.card_region || "전체지역";
     const initialType = initialFilters.card_type || "전체종류";
 
-    makeSelectInline(dropdownParent, '지역:', 'card_region', [
+    regionSelectEl = makeSelectInline(dropdownParent, '지역:', 'card_region', [
       { text: '전체', value: '전체지역' },
       { text: '서울', value: '서울특별시' },
       { text: '부산', value: '부산광역시' },
@@ -310,6 +362,10 @@ window.renderDashboardSection = function(options) {
       { text: '경남', value: '경상남도' },
       { text: '제주', value: '제주특별자치도' }
     ], initialRegion);
+
+    const initialSigungu = regionScope?.region_sigungu || initialFilters.card_sigungu || "전체구";
+    renderSigunguSelect(initialRegion, initialSigungu);
+    renderedScopeKey = scopeSignature(regionScope, initialFilters);
 
     if (!isMobile) {
       dropdownParent.createEl('span', { text: '|', attr: { class: "auction-filter-separator", style: 'color:var(--ke-color-border,var(--background-modifier-border));font-size:var(--ke-type-label);' } });
@@ -367,6 +423,7 @@ window.renderDashboardSection = function(options) {
         filters: {
           ...(current.filters || {}),
           card_region: "전체지역",
+          card_sigungu: "전체구",
           card_type: "전체종류",
           search: ""
         }
@@ -441,8 +498,9 @@ window.renderDashboardSection = function(options) {
     reconnectObserver.observe(observationRoot, { childList: true, subtree: true });
   };
 
-  const renderCards = () => {
-    if (!containerConnected()) {
+  const renderCards = (renderOptions) => {
+    const initialRender = renderOptions && renderOptions.initial === true;
+    if (!initialRender && !containerConnected()) {
       renderWhenConnected();
       return false;
     }
@@ -472,8 +530,26 @@ window.renderDashboardSection = function(options) {
       : (filters.card_region !== undefined ? filters.card_region : "전체지역");
     const filterSigungu = regionScope && regionScope.region_sigungu
       ? String(regionScope.region_sigungu).trim()
-      : "";
+      : String(filters.card_sigungu || "").trim();
     const filterType = filters.card_type !== undefined ? filters.card_type : "전체종류";
+
+    // Scope changes arrive between renders; keep the filter bar in sync with
+    // what the cards actually show (scope wins while active, filters otherwise).
+    if (regionSelectEl) {
+      const scopeKey = scopeSignature(regionScope, filters);
+      if (scopeKey !== renderedScopeKey) {
+        renderedScopeKey = scopeKey;
+        const displayRegion = regionScope && regionScope.region_sido
+          ? regionScope.region_sido
+          : (filters.card_region !== undefined ? filters.card_region : "전체지역");
+        const displaySigungu = regionScope && regionScope.region_sigungu
+          ? String(regionScope.region_sigungu).trim()
+          : (String(filters.card_sigungu || "").trim() || "전체구");
+        const regionSel = regionSelectEl.querySelector("select");
+        if (regionSel) regionSel.value = displayRegion;
+        if (typeof renderSigunguSelect === "function") renderSigunguSelect(displayRegion, displaySigungu);
+      }
+    }
 
     // Status filtering check
     if (filterStatus !== "전체" && filterStatus !== status) {
@@ -520,12 +596,6 @@ window.renderDashboardSection = function(options) {
       }
     }
 
-    const canonicalFilterSido = (value) => {
-      const sido = String(value || "").trim();
-      if (sido === "강원도") return "강원특별자치도";
-      if (sido === "전라북도") return "전북특별자치도";
-      return sido;
-    };
     // Filters
     if (type === "project" && filterCategory !== "전체") {
       pages = pages.where(p => p.category === filterCategory);
@@ -534,7 +604,7 @@ window.renderDashboardSection = function(options) {
       if (filterRegion !== "전체지역") {
         pages = pages.where(p => canonicalFilterSido(p.region_sido || "").includes(filterRegion));
       }
-      if (filterSigungu) {
+      if (filterSigungu && filterSigungu !== "전체구") {
         pages = pages.where(p => (p.region_sigungu || "").includes(filterSigungu));
       }
       if (filterType !== "전체종류") {
@@ -678,6 +748,8 @@ window.renderDashboardSection = function(options) {
   }
   if (collapsedDetails) collapsedDetails.ontoggle = () => renderCards();
 
-  // Initial render
-  return renderCards();
+  // Initial render — tolerate a not-yet-attached container: the host divs were
+  // created moments ago and can only be discarded, never stale, so render now
+  // and let the tree display when Obsidian attaches it.
+  return renderCards({ initial: true });
 };
