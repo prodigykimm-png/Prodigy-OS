@@ -36,6 +36,7 @@ test("Given every permitted raw sort When equal values or nulls are sorted Then 
     const duplicateRows = rows.map((item) => ({ ...item, metrics: { ...item.metrics } }));
     if (sortKey === "name") duplicateRows.forEach((item) => { item.identity = { ...item.identity, title: "동일" }; });
     if (sortKey === "sido") duplicateRows.forEach((item) => { item.identity = { ...item.identity, sido: "동일" }; });
+    if (sortKey === "sigungu") duplicateRows.forEach((item) => { item.identity = { ...item.identity, sigungu: "동일" }; });
     if (sortKey === "metrics_as_of") duplicateRows.forEach((item) => { item.provenance = { ...item.provenance, metrics_as_of: "2026-05-01" }; });
     if (sortKey === "verification") duplicateRows.forEach((item) => { item.provenance = { ...item.provenance, verification_status: "partial" }; });
     if (state.METRIC_KEYS.includes(sortKey)) duplicateRows.forEach((item) => { item.metrics[sortKey] = { value: 7 }; });

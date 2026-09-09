@@ -9,7 +9,7 @@
 
   const TOKENS = tokenApi();
   const COMPACT_MAX = TOKENS.BREAKPOINTS.medium - 1;
-  const SORT_LABELS = Object.freeze({ name: "지역명", sido: "시도", metrics_as_of: "통계 기준일", verification: "검증 상태", transit_available: "확인된 도시철도", sale_volume_3m: "최근 3개월 거래량", housing_stock: "주택 재고", sale_turnover_rate: "거래 회전율", sale_price_change_yoy: "매매가격 증감률", jeonse_ratio: "전세가율", move_in_12m: "12개월 입주물량", move_in_24m: "24개월 입주물량", move_in_36m: "36개월 입주물량", move_in_48m: "48개월 입주물량", move_in_60m: "60개월 입주물량", households: "세대수", household_change_yoy: "세대수 증감률", auction_bid_rate_6m: "최근 6개월 낙찰가율" });
+  const SORT_LABELS = Object.freeze({ name: "지역명", sido: "시도", sigungu: "시군구", metrics_as_of: "통계 기준일", verification: "검증 상태", transit_available: "확인된 도시철도", sale_volume_3m: "최근 3개월 거래량", housing_stock: "주택 재고", sale_turnover_rate: "거래 회전율", sale_price_change_yoy: "매매가격 증감률", jeonse_ratio: "전세가율", move_in_12m: "12개월 입주물량", move_in_24m: "24개월 입주물량", move_in_36m: "36개월 입주물량", move_in_48m: "48개월 입주물량", move_in_60m: "60개월 입주물량", households: "세대수", household_change_yoy: "세대수 증감률", auction_bid_rate_6m: "최근 6개월 낙찰가율" });
   const SOURCE_PROVIDER_LABELS = Object.freeze({ mois_jumin_statmonth_csv: "행정안전부 주민등록", reb_rone_public_table: "한국부동산원 R-ONE", molit_apt_sale: "국토교통부 실거래", molit_apt_rent: "국토교통부 임대차" });
   const VERIFICATION_LABELS = Object.freeze({ verified: "검증 완료", partial: "일부 검증", unverified: "미검증" });
   const DECISION_GROUPS = Object.freeze([

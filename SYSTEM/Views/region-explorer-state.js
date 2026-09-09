@@ -6,7 +6,7 @@
     "move_in_12m", "move_in_24m", "move_in_36m", "move_in_48m", "move_in_60m",
     "households", "household_change_yoy", "auction_bid_rate_6m"
   ]);
-  const SORT_KEYS = Object.freeze(["name", "sido", "metrics_as_of", "verification", "transit_available", ...METRIC_KEYS]);
+  const SORT_KEYS = Object.freeze(["name", "sido", "sigungu", "metrics_as_of", "verification", "transit_available", ...METRIC_KEYS]);
   const VERIFICATION_FILTERS = Object.freeze(["all", "verified", "partial", "unverified"]);
   const FRESHNESS_FILTERS = Object.freeze(["all", "기준일 있음", "기준일 없음"]);
   const MAX_SELECTION = 3;
@@ -98,6 +98,7 @@
     const provenance = row && row.provenance && typeof row.provenance === "object" ? row.provenance : {};
     if (sortKey === "name") return normalized(identity.title) || null;
     if (sortKey === "sido") return normalized(identity.sido) || null;
+    if (sortKey === "sigungu") return normalized(identity.sigungu) || null;
     if (sortKey === "metrics_as_of") return text(provenance.metrics_as_of) || null;
     if (sortKey === "verification") return text(provenance.verification_status) || null;
     if (sortKey === "transit_available") {
