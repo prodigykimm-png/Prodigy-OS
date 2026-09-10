@@ -207,6 +207,15 @@
       async interrupt(input = {}) {
         await mutate(() => {
           if (!state.operation) throw new Error("operation_required");
+          // Optional failure detail (e.g. gate issues/metrics) for diagnosis.
+          // Bounded and additive: restore paths ignore unknown keys.
+          let detail = null;
+          if (plain(input.detail)) {
+            try {
+              const text = JSON.stringify(input.detail);
+              detail = text.length > 4096 ? { truncated: true, preview: text.slice(0, 2000) } : input.detail;
+            } catch (_) { detail = null; }
+          }
           state.operation = freeze({
             ...state.operation,
             status: "interrupted",
@@ -214,6 +223,7 @@
             resumable: input.resumable === true,
             stage: typeof input.stage === "string" && input.stage ? input.stage : state.operation.stage,
             updated_at: new Date().toISOString(),
+            detail: detail,
           });
         });
         return current();
