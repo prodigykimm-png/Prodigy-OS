@@ -195,6 +195,7 @@
     "SYSTEM/Views/reading-book-create.js",
     "SYSTEM/Views/reading-strategy-core.js",
     "SYSTEM/Views/reading-workspace-core.js",
+    "SYSTEM/Views/journal-related-records.js",
     "SYSTEM/Views/reading-card.js"
   ]),
       optional: Object.freeze([
@@ -287,6 +288,7 @@
     "SYSTEM/Views/project-context-adapter.js",
     "SYSTEM/Views/project-styles.js",
     "SYSTEM/Views/project-card-mutation.js",
+    "SYSTEM/Views/journal-related-records.js",
     "SYSTEM/Views/project-card.js",
     "SYSTEM/Views/project-wizard-core.js",
     "SYSTEM/Views/prodigy-ai-consumer-manifests.js",
@@ -311,6 +313,7 @@
     "SYSTEM/Views/design-tokens.js",
     "SYSTEM/Views/workspace-registry.js",
     "SYSTEM/Views/prodigy-workspace-state-store.js",
+    "SYSTEM/Views/ai-chat-session-store.js",
     "SYSTEM/Views/prodigy-app-shell.js",
     "SYSTEM/Views/workspace-navigation.js",
     "SYSTEM/Views/capture-state-contract.js",
@@ -487,6 +490,8 @@
     "SYSTEM/Views/llmwiki-knowledge-lifecycle.js",
     "SYSTEM/Views/llmwiki-retrieval-service.js",
     "SYSTEM/Views/llmwiki-evidence-contract.js",
+    "SYSTEM/Views/llmwiki-resurfacing-read-adapter.js",
+    "SYSTEM/Views/llmwiki-document-canonical-review.js",
     "SYSTEM/Views/llmwiki-maintenance-service.js",
     "SYSTEM/Views/llmwiki-notification-policy.js",
     "SYSTEM/Views/llmwiki-maintenance-follower.js",
@@ -622,6 +627,8 @@
     "SYSTEM/Views/monthly-validation-view.js",
     "SYSTEM/Views/journal-period-core.js",
     "SYSTEM/Views/journal-period-store.js",
+    "SYSTEM/Views/workout-store.js",
+    "SYSTEM/Views/journal-narrative-view.js",
     "SYSTEM/Views/journal-period-view.js"
   ]),
       optional: Object.freeze([
