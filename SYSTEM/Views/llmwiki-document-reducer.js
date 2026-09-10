@@ -230,6 +230,21 @@
       if (!validPageShape || !exactPartition(guideIds, allClaimIds) || !exactPartition(partitionIds, allClaimIds)) {
         return freeze({ ok: false, reason: "invalid_page_plan_coverage" });
       }
+      // A grounded singleton needs a review handoff, not only a source guide.
+      // Repair only a valid partition; source-bound summaries keep their role.
+      if (inventory.claims.length === 1 && inventory.claims[0].role === "reusable_claim" && draft.topic_pages.length === 0) {
+        const claim = inventory.claims[0];
+        draft = {
+          ...draft,
+          topic_pages: [{
+            title: clean(claim.topic).slice(0, 120),
+            purpose: clean(claim.text).slice(0, 500),
+            claim_ids: [claim.claim_id],
+            target_candidate_ids: [...new Set(claim.suggested_candidate_ids || [])].filter((id) => allowed.has(id)),
+          }],
+          source_only_claim_ids: [],
+        };
+      }
       const citationIdsByClaim = new Map(inventory.claims.map((claim) => [claim.claim_id, claim.citation_ids]));
       for (const page of draft.topic_pages) {
         if (!page.claim_ids.every((claimId) => (citationIdsByClaim.get(claimId) || []).length > 0)) {

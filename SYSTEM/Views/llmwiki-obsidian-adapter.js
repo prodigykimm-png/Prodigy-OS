@@ -394,13 +394,14 @@
     async function prepareAudit(mutation) {
       if (!validMutation(mutation)) return rejected("malformed_mutation");
       const filePath = auditPath(mutation.nonce);
-      if (vault.getAbstractFileByPath(filePath)) return rejected("audit_prepare_conflict");
-      if (directImmutableStorage) {
-        let exists = false;
-        try { exists = await dataAdapter.exists(filePath); } catch (_ignored) {}
-        if (exists) return rejected("audit_prepare_conflict");
-      }
       const bytes = jsonBytes(preparedRecord(mutation));
+      const existing = await readAuditEntry(filePath);
+      if (existing.file) {
+        // A restart may find the write-ahead record without a canonical write.
+        // Reuse only the exact original mutation, including its audit timestamp.
+        if (existing.bytes !== bytes) return rejected("audit_prepare_conflict");
+        return { ok: true, status: "prepared", file: existing.file, bytes };
+      }
       try {
         await ensureVaultDirectory(AUDIT_DIRECTORY);
         let file;
@@ -484,6 +485,15 @@
         else await modifyCanonical(current.file, mutation.after_bytes);
       } catch (error) {
         const reason = ["stale_source", "target_revision_mismatch", "link_target_missing"].includes(error.code) ? error.code : "canonical_write_failed";
+        if (reason === "canonical_write_failed") {
+          // The save may have succeeded before its acknowledgement was lost.
+          // Keep the write-ahead record; recovery inspects exact bytes, not the error.
+          const observed = await readEntry(mutation.target_path);
+          if (observed.bytes === mutation.after_bytes) return result("committed_audit_pending", {
+            reason, write_counts: { ...ZERO_WRITES, canonical: 1, audit: 1 },
+            target_path: mutation.target_path, repair: repairPayload(mutation, prepared.bytes),
+          });
+        }
         const rejection = await finalizeAudit(prepared, jsonBytes(rejectedRecord(mutation, reason)));
         return rejected(reason, {
           write_counts: { ...ZERO_WRITES, audit: 1 },
@@ -510,10 +520,10 @@
       if (!validRepair(repair)) return rejected("malformed_repair");
       const auditEntry = await readAuditEntry(repair.audit_path);
       if (!auditEntry.file) return rejected("prepared_audit_missing");
-      if (auditEntry.bytes === repair.final_audit_bytes) return result("duplicate");
-      if (auditEntry.bytes !== repair.prepared_audit_bytes) return rejected("prepared_audit_mismatch");
+      if (auditEntry.bytes !== repair.final_audit_bytes && auditEntry.bytes !== repair.prepared_audit_bytes) return rejected("prepared_audit_mismatch");
       const canonicalEntry = await readEntry(repair.target_path);
       if (!canonicalEntry.file || canonicalEntry.bytes !== repair.canonical_bytes) return rejected("canonical_bytes_mismatch");
+      if (auditEntry.bytes === repair.final_audit_bytes) return result("duplicate");
       try {
         await writeAuditBytes(auditEntry.file, repair.final_audit_bytes);
       } catch (_error) {

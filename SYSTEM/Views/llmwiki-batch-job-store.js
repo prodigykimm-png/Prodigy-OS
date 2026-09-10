@@ -159,7 +159,9 @@
         const durable = JSON.stringify(state);
         try {
           fn();
-          await persist();
+          // Exact replay is a read: keep serialization comparison inside the
+          // mutation queue so concurrent duplicates cannot write twice.
+          if (JSON.stringify(state) !== durable) await persist();
         } catch (error) {
           // Failed persistence must not leave memory ahead of disk.
           state = parse(durable) || empty();
@@ -401,7 +403,13 @@
   function requestKey(identityValue) {
     const fields = ["provider_key", "model", "structured_mode", "schema_id", "prompt_version", "candidate_context_hash"];
     if (!plain(identityValue) || fields.some((field) => typeof identityValue[field] !== "string" || identityValue[field].length === 0)) throw new TypeError("invalid_identity");
-    return sha(fields.map((field) => identityValue[field]).join("|"));
+    const values = fields.map((field) => identityValue[field]);
+    // Preserve legacy keys except the proven pipe-boundary collision shape.
+    // JSON preserves exact tuple values; escaping pipes makes this encoding
+    // disjoint from legacy six-field strings (which always have five pipes).
+    return sha(values.some((value) => value.includes("|"))
+      ? JSON.stringify(values).replace(/\|/gu, "\\u007c")
+      : values.join("|"));
   }
 
   const api = Object.freeze({ DEFAULT_DIR, STATE_FILE, SCHEMA_VERSION, STATES, PLAN_STATES, requestKey, packId, batchId: batchIdFor, createNodeStorage, createBatchJobStore });

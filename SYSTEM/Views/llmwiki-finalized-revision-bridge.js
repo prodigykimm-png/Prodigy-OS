@@ -37,7 +37,10 @@
     const approvedAuthority = approval.canonical_v2_authority || approval.authority;
     if (!priorData && (!creating || !approvedAuthority)) return null;
     if (priorData && priorData.packet_hash === packet.packet_hash && priorData.authorization_hash === approval.authorization_hash
-      && priorData.revision === packet.after_sha256) return { ok: true };
+      && priorData.revision === packet.after_sha256) {
+      if (options.prepareOnly || await adapter.readBytes(packet.target_path) !== packet.after_bytes) return bridgePending(packet, "stale_before_write");
+      return { ok: true };
+    }
     if (priorData && priorData.revision !== packet.before_sha256) return bridgePending(packet, "canonical_revision_mismatch");
     const document = core.v2Document(packet);
     if (!document || document.canonical_id !== approval.canonical_id || document.status !== "active") return null;
@@ -51,6 +54,7 @@
       if (existing.packet_hash !== packet.packet_hash || existing.authorization_hash !== approval.authorization_hash
         || existing.after_sha256 !== packet.after_sha256 || existing.before_sha256 !== packet.before_sha256
         || existing.target_path !== packet.target_path || !["prepared", "committed"].includes(existing.result)) return bridgePending(packet, "nonce_replay_conflict");
+      if (options.prepareOnly && existing.result === "committed") return bridgePending(packet, "stale_before_write");
       committedAt = existing.committed_at || existing.prepared_at;
     }
     const authority = core.freeze(approvedAuthority || {
@@ -90,9 +94,10 @@
       audit,
     };
     const finalAuditBytes = `${JSON.stringify(audit, null, 2)}\n`;
+    if (existing?.result === "committed" && core.stable(existing) !== core.stable(audit)) return bridgePending(packet, "authority_audit_mismatch");
     let prepared;
     try {
-      prepared = existing ? { ok: true, file: { path: obsidianApi.auditPath(nonce) }, bytes: `${JSON.stringify(existing, null, 2)}\n` }
+      prepared = existing?.result === "committed" ? { ok: true, file: { path: obsidianApi.auditPath(nonce) }, bytes: finalAuditBytes }
         : await adapter.prepareAudit(mutation);
     }
     catch (_error) { return bridgePending(packet, "authority_audit_prepare_failed"); }

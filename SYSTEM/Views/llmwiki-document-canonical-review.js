@@ -155,7 +155,13 @@
       await jobStore.load();
       const snapshot = jobStore.getPlanSnapshot(jobId);
       if (!snapshot) throw new Error("processing_plan_required");
+      const previous = snapshot.canonical_reviews?.[recoveryKey(state.item)];
+      const superseded = previous?.superseded_reviews || [];
+      const changedPacket = previous && previous.packet?.packet_hash !== state.packet.packet_hash;
+      if (changedPacket && status !== "review_ready") throw new Error("stale_review_packet");
+      const { superseded_reviews: ignoredHistory, ...previousReview } = previous || {};
       const record = { item: state.item, fields: state.fields, packet: state.packet, claim_set: state.claimSet,
+        superseded_reviews: changedPacket ? [...superseded, previousReview] : superseded,
         promotion_input: state.promotionInput, promotion_receipt: state.receipt,
         sources: [...state.snapshots.values()].map(({ source_text, ...source }) => source),
         source_paths: Object.fromEntries(state.sourcePaths), status, outcome,
@@ -179,22 +185,15 @@
         const plan = jobStore.getPlanSnapshot(jobId);
         record = [plan, ...(plan?.history || []).slice().reverse()].map(snapshot => snapshot?.canonical_reviews?.[recoveryKey(item)]).find(Boolean);
         if (!record) return { ok: true, status: "not_available" };
-        if (record.status === "resolved") {
-          for (const source of record.sources) await readSource(record.source_paths[source.source_id], source.source_content_hash);
-          const liveBytes = await adapter.readBytes(record.packet.target_path);
-          if (liveBytes !== record.packet.after_bytes) return restoreFailure("stale_before_write", { historical_completed: true });
-          const verified = (await targets()).find(row => row.path === record.packet.target_path && row.canonical_revision === record.packet.after_sha256);
-          if (!verified) return restoreFailure("canonical_readback_pending", { historical_completed: true });
-          return { ok: true, status: "completed", current_verified: true, outcome: record.outcome };
-        }
+        if (!["review_ready", "running", "blocked", "resolved"].includes(record.status)) return restoreFailure("invalid_review_state");
         const rawPacket = record.packet;
         const op = operation.parseCanonicalOperation(JSON.stringify(Object.fromEntries(["operation_id", "proposal_id", "proposal_kind", "payload_hash"].map(key => [key, rawPacket.operation[key]]))));
-        if (!op.ok) return op;
+        if (!op.ok) return restoreFailure(op.reason);
         const derived = operation.deriveCanonicalPacketOperation(op.value);
-        if (!derived.ok) return derived;
+        if (!derived.ok) return restoreFailure(derived.reason);
         const original = { ...rawPacket, operation: derived.value };
         const checked = packetApi.verifyCanonicalPacket(original);
-        if (!checked.ok) return checked;
+        if (!checked.ok) return restoreFailure(checked.reason);
         const live = await adapter.readBytes(original.target_path);
         observedWritten = live === original.after_bytes;
         if (live !== original.after_bytes && live !== (original.operation.proposal_kind === "create" ? null : original.before_bytes)) return restoreFailure("stale_before_write", { item: record.item });
@@ -205,11 +204,19 @@
           ...(claim.citation_ids.length ? { citations: claim.citation_ids.map(id => old.citations.find(c => c.citation_id === id)).map(c => ({ source_id: c.source_id, provider_span: { start: c.source_span.start - snapshots.get(c.source_id).provider_window.start, end: c.source_span.end - snapshots.get(c.source_id).provider_window.start, span_digest: c.span_digest } })) } : {}),
           ...(claim.derived_from_claim_ids.length ? { derivation_indices: claim.derived_from_claim_ids.map(id => old.claims.findIndex(c => c.claim_id === id)) } : {}) }));
         const rebuilt = claims.createClaimSet({ source_snapshots: [...snapshots.values()], claims: rawClaims });
-        if (!rebuilt.ok) return rebuilt;
-        if (rebuilt.value.claim_set_hash !== old.claim_set_hash) return fail("claim_set_hash_mismatch");
+        if (!rebuilt.ok) return restoreFailure(rebuilt.reason);
+        if (rebuilt.value.claim_set_hash !== old.claim_set_hash) return restoreFailure("claim_set_hash_mismatch");
         const document = store.parseLifecycleDocument(original.after_bytes);
         const receipt = promotion.evaluatePromotion(record.promotion_input);
-        if (!receipt.canonical_write_eligible || sha(stable(receipt)) !== document.promotion_receipt_hash || document.claim_set_hash !== rebuilt.value.claim_set_hash) return fail("promotion_receipt_invalid");
+        if (!receipt.canonical_write_eligible || sha(stable(receipt)) !== document.promotion_receipt_hash || document.claim_set_hash !== rebuilt.value.claim_set_hash) return restoreFailure("promotion_receipt_invalid");
+        if (record.status === "resolved") {
+          if (!observedWritten) return restoreFailure("stale_before_write", { historical_completed: true });
+          const verified = (await targets()).find(row => row.path === original.target_path && row.canonical_revision === original.after_sha256);
+          if (!verified) return restoreFailure("canonical_readback_pending", { historical_completed: true });
+          return { ok: true, status: "completed", current_verified: true, outcome: {
+            ok: true, status: "completed", target_path: original.target_path, revision: verified.canonical_revision, trust_status: verified.trust_status,
+          } };
+        }
         // Only reconstruct the original exact packet. Expired work requires a fresh review,
         // never an extended expiry or a serialized approval promoted into authority.
         if (Date.parse(now()) > Date.parse(original.expires_at)) return restoreFailure("approval_expired");
@@ -306,27 +313,6 @@
           raw.push({ origin: "ai_interpretation", text: claim.text, derivation_indices: indexes }); added += 1; addedClaims.push(claim);
         }
         const addition = renderCanonicalAddition({ item, added: addedClaims, isUpdate: Boolean(target) });
-        const priorResolvedFields = await (async () => {
-          if (!jobStore || !jobId || !target) return null;
-          try {
-            await jobStore.load();
-            const plan = jobStore.getPlanSnapshot(jobId);
-            if (!plan) return null;
-            const snapshots = [plan, ...((plan.history || []).slice().reverse())];
-            for (const snapshot of snapshots) {
-              const record = snapshot?.canonical_reviews?.[recoveryKey(item)];
-              if (record && record.status === "resolved" && record.fields && typeof record.fields === "object") return record.fields;
-            }
-          } catch (_) {}
-          return null;
-        })();
-        const kindFieldNames = ["rationale", "steps", "outcome", "definition"];
-        const kindFieldsEqual = Boolean(priorResolvedFields)
-          && kindFieldNames.every((name) => stable(priorResolvedFields[name] || "") === stable(fields[name] || ""));
-        const postureEqual = Boolean(priorResolvedFields)
-          && priorResolvedFields.relation_status === fields.relation_status
-          && priorResolvedFields.classification === fields.classification
-          && priorResolvedFields.evidence_strength === fields.evidence_strength;
         const exclusionsEqual = !target ? true : (fields.exclusions
           ? old.body.includes(`- 예외·금지: ${fields.exclusions}\n`)
           : !old.body.includes("- 예외·금지:"));
@@ -334,8 +320,7 @@
           && stable(old.knowledge_topics) === stable(lines(fields.knowledge_topics)) && old.application_trigger === fields.application_trigger
           && stable(old.application_contexts) === stable(lines(fields.application_contexts))
           && old.body.includes(`- 적용 조건: ${fields.conditions}\n`) && exclusionsEqual
-          && stable(old.invalidation_conditions) === stable(lines(fields.invalidation_conditions))
-          && postureEqual && kindFieldsEqual;
+          && stable(old.invalidation_conditions) === stable(lines(fields.invalidation_conditions));
         if (target && !added && fieldsEqual) return { ok: true, status: "no_change", target_path, provider_count: 0, writes: 0 };
         const created = claims.createClaimSet({ source_snapshots: [...snapshots.values()], claims: raw });
         if (!created.ok) return created;
@@ -381,10 +366,14 @@
       const state = prepared.get(preview);
       if (!state || decision?.approved !== true || decision?.claims_accepted !== true || decision.packet_hash !== preview.packet_hash) return fail("explicit_exact_approval_required");
       if (state.busy) return fail("action_in_progress");
-      if (state.result?.ok) return state.result;
       state.busy = true;
       try {
         for (const [id, source] of state.snapshots) await readSource(state.sourcePaths.get(id), source.source_content_hash);
+        if (state.result?.ok) {
+          if (await adapter.readBytes(preview.target_path) !== preview.after) return fail("stale_before_write");
+          const verified = (await targets()).some(row => row.path === preview.target_path && row.canonical_revision === state.packet.after_sha256);
+          return verified ? state.result : fail("canonical_readback_pending");
+        }
         if (!state.authorization) {
           state.reviewedAt ||= now();
           if (state.restored) state.retryRequestedAt = now();

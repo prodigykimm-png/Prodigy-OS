@@ -156,23 +156,28 @@
     let prior;
     try { prior = await request.adapter.readReceipt(packet.nonce); }
     catch (_error) { return core.reject("receipt_read_failed"); }
+    let committedAt = now.toISOString();
     if (prior !== null) {
-      if (core.plain(prior) && ["prepared", "committed"].includes(prior.result) && prior.packet_hash === packet.packet_hash && prior.authorization_hash === approval.authorization_hash) {
-        if (await request.adapter.readBytes(packet.target_path) !== packet.after_bytes) return core.reject("stale_before_write");
+      if (!core.plain(prior) || !["prepared", "committed"].includes(prior.result)
+        || prior.packet_hash !== packet.packet_hash || prior.authorization_hash !== approval.authorization_hash) return core.reject("nonce_replay_conflict");
+      const current = await request.adapter.readBytes(packet.target_path);
+      if (current === packet.after_bytes) {
         const bridge = root.LLMWikiFinalizedRevisionBridge || (typeof require === "function" ? require("./llmwiki-finalized-revision-bridge.js") : null);
         const recovered = bridge && await bridge.bridgeFinalizedRevision(packet, approval, request.adapter, now.toISOString());
         if (!recovered || !recovered.ok) return core.result("committed_authority_pending", { reason: recovered && recovered.reason || "immutable_audit_authority_unavailable", target_path: packet.target_path });
         core.consumeCanonicalV2Approval(approval);
         return core.result("duplicate", { target_path: packet.target_path });
       }
-      return core.reject("nonce_replay_conflict");
+      if (prior.result !== "prepared" || current !== null) return core.reject("stale_before_write");
+      // Continue just the prepared write, never reassemble the approved packet.
+      committedAt = prior.prepared_at;
     }
     let live;
     try { live = await request.adapter.readBytes(packet.target_path); }
     catch (_error) { return core.reject("live_read_failed"); }
     const expectedLive = packet.operation.proposal_kind === "create" ? null : packet.before_bytes;
     if (live !== expectedLive) return core.reject("stale_before_write");
-    const audit = auditFor(packet, approval, now.toISOString());
+    const audit = auditFor(packet, approval, committedAt);
     const mutation = {
       target_path: packet.target_path,
       before_bytes: packet.before_bytes,
@@ -198,9 +203,9 @@
     if (!compensationApi || typeof compensationApi.create !== "function" || typeof request.adapter.appendImmutableAudit !== "function") {
       return core.reject("immutable_audit_authority_unavailable", { write_counts: committed.write_counts || { ...core.ZERO_WRITES, canonical: 1, audit: 1 } });
     }
-    const receipt = authorityReceipt(packet, approval, audit, now.toISOString());
+    const receipt = authorityReceipt(packet, approval, audit, committedAt);
     let recorded;
-    try { recorded = await compensationApi.create({ adapter: request.adapter, now: () => now.toISOString() }).recordCompletedCommit({ original_receipt: receipt }); }
+    try { recorded = await compensationApi.create({ adapter: request.adapter, now: () => committedAt }).recordCompletedCommit({ original_receipt: receipt }); }
     catch (_) { return core.result("committed_authority_pending", { reason: "immutable_audit_append_failed", write_counts: committed.write_counts || { ...core.ZERO_WRITES, canonical: 1, audit: 1 } }); }
     if (!recorded.ok) return core.result("committed_authority_pending", { reason: recorded.reason || "immutable_audit_append_failed", write_counts: committed.write_counts || { ...core.ZERO_WRITES, canonical: 1, audit: 1 } });
     core.consumeCanonicalV2Approval(approval);

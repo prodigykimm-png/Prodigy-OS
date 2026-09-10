@@ -39,7 +39,7 @@ function document(matchedCandidateIds) {
   };
 }
 
-test("managed region uses structured sections and never embeds draft frontmatter", () => {
+test("managed region retains rendered sections and never embeds draft frontmatter", () => {
   const start = "<!-- llmwiki-managed:start page_111111111111111111111111 -->";
   const end = "<!-- llmwiki-managed:end page_111111111111111111111111 -->";
   const before = `# 기존 건축 문서\n\n수동 머리말\n\n${start}\n\n이전 자동 내용\n\n${end}\n\n수동 꼬리말\n`;
@@ -65,6 +65,46 @@ test("candidate update replaces exactly one owned managed region", () => {
   assert.equal(result.value.after_bytes.endsWith(`${end}\n\n수동 꼬리말\n`), true);
   assert.match(result.value.after_bytes, /직영 공사는 비용을 줄인다/u);
   assert.equal((result.value.after_bytes.match(/llmwiki-managed:start/gu) || []).length, 1);
+});
+
+test("whole-body supplement replaces the managed body without duplicating it (characterization)", () => {
+  const pageId = "page-task3";
+  const start = `<!-- llmwiki-managed:start ${pageId} -->`;
+  const end = `<!-- llmwiki-managed:end ${pageId} -->`;
+  const before = `# Wiki A\n\n${start}\n\n## Wiki A\n\nAlpha body\n\n${end}`;
+  const result = plannerApi.planDocumentMutation({
+    document: {
+      document_kind: "topic_article", page_id: pageId, title: "Wiki A",
+      body: "# Wiki A\n\nAlpha body\n\nMaterial B new fact", matched_candidate_ids: ["cand-task3"],
+    },
+    candidate_documents: [candidate("cand-task3", "task3", before)],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.kind, "update");
+  assert.equal(result.value.after_bytes, `# Wiki A\n\n${start}\n\n## Wiki A\n\nAlpha body\n\nMaterial B new fact\n\n${end}`);
+  assert.equal(result.value.after_bytes.split("Alpha body").length - 1, 1);
+});
+
+test("supplement body survives stale sections, preserves user bytes and footers, and replays unchanged", () => {
+  const drafted = document(["cand_build"]);
+  const start = `<!-- llmwiki-managed:start ${drafted.page_id} -->`;
+  const end = `<!-- llmwiki-managed:end ${drafted.page_id} -->`;
+  const prefix = "---\r\nuser: keep\r\n---\r\n# USER_TITLE\r\n\r\nUSER_FIRST  \r\nUSER_SECOND\n\n";
+  const suffix = "\n\nUSER_THIRD\t\nUSER_LAST  \r\n";
+  const content = "Brand-new material B\n\n## 출처\n\n- SOURCE_B\n\n## 확인 필요\n\n- REVIEW_B";
+  drafted.body = `---\ntags: [draft]\n---\n# ${drafted.title}\n\n${content}\n`;
+  const before = `${prefix}${start}\n\nOLD_MANAGED\n\n${end}${suffix}`;
+  const result = plannerApi.planDocumentMutation({ document: drafted, candidate_documents: [candidate("cand_build", "task8", before)] });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.kind, "update");
+  const after = result.value.after_bytes;
+  assert.equal(after.includes("Brand-new material B"), true, "new body content must not be omitted when sections are stale");
+  assert.equal(after, `${prefix}${start}\n\n## ${drafted.title}\n\n${content}\n\n${end}${suffix}`);
+  for (const token of ["SOURCE_B", "REVIEW_B", "## 출처", "## 확인 필요"]) assert.equal(after.split(token).length - 1, 1);
+  assert.equal(result.value.after_revision, hash.sha256(after));
+  const replay = plannerApi.planDocumentMutation({ document: drafted, candidate_documents: [candidate("cand_build", "task8", after)] });
+  assert.equal(replay.value.kind, "no_change");
+  assert.equal(Object.hasOwn(replay.value, "after_bytes"), false);
 });
 
 test("candidate without an owned region is held instead of appended", () => {
