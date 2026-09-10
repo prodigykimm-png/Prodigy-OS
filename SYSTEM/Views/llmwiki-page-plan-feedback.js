@@ -132,8 +132,8 @@
       if (page.operation_hint === "create" && Number(page.evidence_count || 0) < 2) proposals.push(freeze({
         proposal_id: `lint_${sha(`${input.plan.plan_hash}:${page.page_id}:evidence`).slice(0, 24)}`,
         page_id: page.page_id,
-        risk: "medium",
-        reason: "new_page_requires_multiple_evidence",
+        risk: "low",
+        reason: "limited_evidence_advisory",
       }));
     }
     for (const page of input.plan.pages) if ((titleCounts.get(page.title) || 0) > 1 && !proposals.some((proposal) => proposal.page_id === page.page_id && proposal.reason === "duplicate_page_title")) {

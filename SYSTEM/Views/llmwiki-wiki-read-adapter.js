@@ -2,6 +2,7 @@
   "use strict";
 
   const SNAPSHOT_VERSION = "llmwiki_wiki_read_v1";
+  const SELECTED_SOURCE_INPUTS = new WeakMap();
   const TRUST_ORDER = Object.freeze({ verified: 0, legacy_review: 1, literature: 2, pending: 3, maintenance: 4 });
   const TRUST_BY_TYPE = Object.freeze({
     permanent_note: "legacy_review",
@@ -196,6 +197,10 @@
     const legacy = [...new Set(legacyValues.map(withSlash).filter(Boolean))].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
     const verified = ["ZETA/PERMANENT/"];
     const literature = ["ZETA/LITERATURE/"];
+    // Only a locally validated, explicitly selected source gets an exact-path
+    // supporting-material projection. Never widen the default INBOX corpus.
+    const selected = SELECTED_SOURCE_INPUTS.get(input);
+    if (selected) literature.push(selected);
     const pending = [candidateRoot, ...legacy].filter((value, index, values) => values.indexOf(value) === index);
     const accepted = [...verified, ...literature, ...pending];
     return {
@@ -547,6 +552,138 @@
     });
   }
 
+  function buildSelectedSourceSnapshot(input) {
+    const scopeApi = root.LLMWikiAnalysisScope || (typeof require === "function" ? require("./llmwiki-analysis-scope.js") : null);
+    const selector = root.LLMWikiUserSourceSelector || (typeof require === "function" ? require("./llmwiki-user-source-selector.js") : null);
+    if (!plain(input) || !scopeApi || !selector) return failure("source", "selected_source_unavailable");
+    const path = safePath(input.source_path);
+    if (!path || typeof input.source_text !== "string" || !selector.eligibleInboxPath(path, input.source_text, input.metadata || {})) {
+      return failure("source", "source_privacy_blocked");
+    }
+    let scope;
+    try { scope = scopeApi.createAnalysisScope({ ...input, source_path: path }); }
+    catch (_) { return failure("source", "source_revision_changed"); }
+    const startLine = input.source_text.slice(0, scope.start).split("\n").length;
+    const endLine = startLine + scope.text.split("\n").length - 1;
+    const locator = `${path}#L${startLine}-L${endLine}`;
+    const projection = {
+      registry: input.registry,
+      candidates: input.candidates || [],
+      assets: [...(input.assets || []).filter(row => row.path !== path), { path, type: "literature_note", title: input.title || path.split("/").pop().replace(/\.md$/u, ""),
+        body: scope.text, source_revision: scope.text_hash, source_ids: [scope.source_id],
+        citations: [{ source_id: scope.source_id, locator, content_hash: scope.content_hash }],
+        source_policy: { decision: "allowed" } }],
+    };
+    SELECTED_SOURCE_INPUTS.set(projection, path);
+    return buildSnapshot(projection);
+  }
+
+  function isPrivacyHeldCanonical(row, metadata) {
+    const meta = { ...(row || {}), ...(metadata || {}) };
+    const marker = String(meta.privacy || meta.privacy_class || "").trim().toLowerCase();
+    if (meta.private === true || meta.sensitive === true || ["private", "protected", "sensitive"].includes(marker)) return true;
+    const target = String(meta.path || meta.source_path || "");
+    if (/(?:^|\/)(?:private|protected|sensitive|secrets?|credentials?)(?:\/|$)/iu.test(target)) return true;
+    if (/(?:^|\/)(?:people|persons?|contacts?)(?:\/|$)/iu.test(target)) return true;
+    if (String(meta.type || "").trim().toLowerCase() === "person") {
+      const outbound = meta.llmwiki_outbound;
+      return !(outbound === true || String(outbound || "").trim().toLowerCase() === "allow");
+    }
+    return false;
+  }
+  function prepareQuestionContext(input) {
+    const started = performance.now();
+    const trustApi = root.LLMWikiCanonicalTrust || (typeof require === "function" ? require("./llmwiki-canonical-trust.js") : null);
+    const verified = input.verified_row;
+    if (verified && (!trustApi?.isVerifiedRow(verified) || verified.path !== input.source_path
+      || verified.canonical_revision !== input.content_hash || verified.canonical_bytes !== input.source_text)) return failure("source", "verified_source_required");
+    if (verified && isPrivacyHeldCanonical(verified, input.metadata)) return failure("source", "verified_source_required");
+    const snapshotFor = (selection) => {
+      if (!verified) return buildSelectedSourceSnapshot({ ...input, ...(selection ? { selection } : {}) });
+      const start = selection?.start || 0, end = selection?.end ?? input.source_text.length;
+      return buildSnapshot({ assets: [{ ...verified, type: "knowledge", source_revisions: verified.sources,
+        statement: input.source_text.slice(start, end), body: input.source_text.slice(start, end),
+        citations: [{ source_id: input.source_id, content_hash: input.content_hash,
+          locator: `${input.source_path}#L${input.source_text.slice(0, start).split("\n").length}-L${input.source_text.slice(0, end).split("\n").length}` }] }] });
+    };
+    const selected = snapshotFor();
+    if (!selected.ok) return selected;
+    if (!selected.rows.length) return failure("source", "source_not_in_corpus");
+    const question = typeof input.question === "string" ? input.question.trim() : "";
+    if (!question || question.length > 2000) return failure("question", "invalid_query");
+    const projected = performance.now();
+    const candidatesApi = root.LLMWikiEvidenceCandidates || (typeof require === "function" ? require("./llmwiki-evidence-candidates.js") : null);
+    if (!candidatesApi) return failure("retrieval", "retrieval_unavailable");
+    let candidates = [...candidatesApi.createSemantic(input.source_text, { max_bytes: 2048 })];
+    if (verified) {
+      candidates = candidates.filter(candidate => !/^\s*(?:[-*]\s*)?\[[^\]]+\]\([^)]*\)\s*$/u.test(candidate.text)
+        && !/^\s*(?:[-*]\s*)?(?:INBOX|ZETA)\/[^\n]*#L\d+(?:-L\d+)?\s*$/u.test(candidate.text));
+      // A populated Wiki body already contains the approved explanation. Do
+      // not repeat its YAML metadata, hashes and separators as provider evidence.
+      // Minimal canonical documents may store their only statement in YAML:
+      // retain that value's exact original span as a bounded fallback.
+      if (!candidates.length) {
+        let offset = 0;
+        for (const line of input.source_text.split("\n")) {
+          const field = /^(statement|application_trigger|application_contexts|invalidation_conditions):\s*/u.exec(line);
+          if (field && new TextEncoder().encode(line).length <= 2048) {
+            const quoted = line[field[0].length] === '"' && line.endsWith('"');
+            const start = offset + field[0].length + (quoted ? 1 : 0), end = offset + line.length - (quoted ? 1 : 0);
+            candidates.push({ start, end, text: input.source_text.slice(start, end), isolated: true });
+          }
+          offset += line.length + 1;
+        }
+      }
+    }
+    const hits = [];
+    for (const candidate of candidates) {
+      const snapshot = snapshotFor({ start: candidate.start, end: candidate.end });
+      const found = browseRead({ snapshot, mode: verified ? "verified" : "literature", query: question,
+        queryRead: root.LLMWikiQueryReadOnly || (typeof require === "function" ? require("./llmwiki-query-readonly.js") : null) });
+      if (!found.ok) return found;
+      if (found.total || input.include_selected_evidence === true && !verified) hits.push({ candidate, row: found.rows[0] || snapshot.rows[0], score: found.rows[0]?.score || 0 });
+    }
+    hits.sort((a, b) => b.score - a.score || a.candidate.start - b.candidate.start);
+    // Keep neighbouring conditions in bounded passages, not only four isolated
+    // matching lines. A small selected source fits without dropping exceptions.
+    const passages = [];
+    for (const candidate of candidates) {
+      const prior = passages[passages.length - 1];
+      if (prior && !prior.isolated && !candidate.isolated && new TextEncoder().encode(input.source_text.slice(prior.start, candidate.end)).byteLength <= 2048 && prior.count < 64) {
+        prior.end = candidate.end; prior.count += 1;
+      } else passages.push({ start: candidate.start, end: candidate.end, count: 1, isolated: candidate.isolated === true });
+    }
+    const relevant = passages.map(passage => ({ ...passage, hits: hits.filter(hit => hit.candidate.start >= passage.start && hit.candidate.end <= passage.end) }))
+      .filter(passage => passage.hits.length).sort((a, b) => Math.max(...b.hits.map(hit => hit.score)) - Math.max(...a.hits.map(hit => hit.score)) || a.start - b.start);
+    const selectedPassages = relevant.slice(0, 4);
+    const retrieved = performance.now();
+    const policyApi = root.LLMWikiSensitiveContentPolicy || (typeof require === "function" ? require("./llmwiki-sensitive-content-policy.js") : null);
+    const withheld = [];
+    const evidence = selectedPassages.map((passage, index) => {
+      const snapshot = snapshotFor({ start: passage.start, end: passage.end });
+      const row = snapshot.rows.find(row => row.path === input.source_path);
+      return ({
+      key: `question_evidence_${index + 1}`, source_id: input.source_id,
+      source_path: row.path, locator: row.citations[0].locator, content_hash: input.content_hash,
+      excerpt: input.source_text.slice(passage.start, passage.end), start: passage.start, trust: row.trust,
+      ...(verified ? { provenance: verified.sources } : {}), source_text_authority: "untrusted_data_only",
+    }); }).filter((row) => {
+      if (!policyApi || typeof policyApi.inspect !== "function") { withheld.push(row.key); return false; }
+      try {
+        if (policyApi.inspect({ source_path: input.source_path, content: row.excerpt, metadata: input.metadata }).type === "hold") {
+          withheld.push(row.key);
+          return false;
+        }
+        return true;
+      } catch (_) { withheld.push(row.key); return false; }
+    });
+    const coverageComplete = selectedPassages.length === passages.length && !withheld.length;
+    return { ok: true, status: evidence.length ? "ready" : "abstain", reason: evidence.length ? null : "no_relevant_evidence",
+      question, evidence, coverage_complete: coverageComplete, source_path: input.source_path, content_hash: input.content_hash,
+      timings: { projection: projected - started, retrieval: retrieved - projected, context_assembly: performance.now() - retrieved },
+      writer_count: 0, provider_count: 0 };
+  }
+
   function snapshotValue(input) {
     const supplied = input && input.snapshot ? input.snapshot : input;
     if (supplied && supplied.ok === true && supplied.value && plain(supplied.value)) return supplied.value;
@@ -699,7 +836,9 @@
               : root.LLMWikiQueryReadOnly && root.LLMWikiQueryReadOnly.queryRead;
       if (typeof queryApi !== "function") return failure("query", "query_read_unavailable");
       const queryMode = mode === "pending" ? "candidate" : mode === "legacy_review" || mode === "maintenance" ? "all" : mode;
-      const types = TYPE_BY_MODE[mode] || TYPE_BY_MODE.all;
+      const queryContract = root.LLMWikiQueryReadOnly || (typeof require === "function" ? require("./llmwiki-query-readonly.js") : null);
+      if (!queryContract || typeof queryContract.typesForMode !== "function") return failure("query", "query_read_unavailable");
+      const types = queryContract.typesForMode(queryMode);
       let delegated;
       try {
         delegated = queryApi({
@@ -769,6 +908,9 @@
     stable,
     sha256,
     buildSnapshot,
+    buildSelectedSourceSnapshot,
+    isPrivacyHeldCanonical,
+    prepareQuestionContext,
     browseRead,
   });
   root.LLMWikiWikiReadAdapter = api;

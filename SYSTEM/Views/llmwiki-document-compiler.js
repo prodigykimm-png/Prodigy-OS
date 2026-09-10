@@ -300,7 +300,8 @@
   function createDocumentCompiler(options = {}) {
     if (typeof options.requestArticles !== "function") throw new TypeError("article_provider_required");
 
-    async function compile(input) {
+    async function compile(input, compileOptions = {}) {
+      const allowQualityRetry = plain(compileOptions) && compileOptions.allow_quality_retry === true;
       const inventory = input && input.inventory;
       const plan = input && input.approved_plan;
       if (!plain(inventory) || inventory.inventory_version !== "llmwiki_claim_inventory_v3"
@@ -362,6 +363,18 @@
       }
       response = normalizeDraftTerms(response);
       let qualityIssues = articleQualityIssues(response, selectedPages, claimById);
+      if (qualityIssues.length > 0 && !allowQualityRetry) {
+        return freeze({
+          ok: false,
+          reason: "article_quality_review_required",
+          quality_status: "blocked",
+          quality_rewrite_count: qualityRewriteCount,
+          quality_issues: qualityIssues,
+          articles: response.articles,
+          canonical_writes: 0,
+          source_writes: 0,
+        });
+      }
       if (qualityIssues.length > 0) {
         qualityRewriteCount = 1;
         try {

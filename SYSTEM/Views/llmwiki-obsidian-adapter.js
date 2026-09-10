@@ -139,6 +139,7 @@
   function preparedRecord(mutation) {
     return {
       audit_adapter_version: "llmwiki_obsidian_audit_v1",
+      writer_identity: "llmwiki_deterministic_writer_v1",
       result: "prepared",
       prepared_at: mutation.audit.committed_at,
       target_path: mutation.target_path,
@@ -273,6 +274,27 @@
       return entry.file ? entry.bytes : null;
     }
 
+    async function readSourceBytes(sourcePath) {
+      if (typeof sourcePath !== "string" || !sourcePath.endsWith(".md") || sourcePath.startsWith("/")
+        || sourcePath.includes("\\") || /[\x00-\x1f]/u.test(sourcePath) || sourcePath.split("/").some(p => p === ".." || p === "." || !p)) throw adapterError("invalid_source_path");
+      return (await readEntry(sourcePath)).bytes;
+    }
+
+    function validateNewWikiLinks(before, after, targetPath) {
+      const links = bytes => [...String(bytes).matchAll(/\[\[([^\]\n]+)\]\]/gu)].map(match => match[1].split("|")[0].split("#")[0].trim()).filter(Boolean);
+      const prior = new Set(links(before));
+      for (const link of new Set(links(after))) {
+        if (prior.has(link)) continue;
+        if (link.startsWith("/") || link.includes("\\") || link.split("/").some(part => part === ".." || part === ".")) return rejected("invalid_source_path");
+        const direct = link.endsWith(".md") ? link : `${link}.md`;
+        const resolved = app.metadataCache?.getFirstLinkpathDest?.(link, targetPath)
+          || vault.getAbstractFileByPath(direct);
+        const matches = resolved ? [resolved] : (typeof vault.getFiles === "function" ? vault.getFiles().filter(file => file.extension === "md" && file.basename === link) : []);
+        if (direct !== targetPath && matches.length !== 1) return rejected("link_target_missing");
+      }
+      return { ok: true };
+    }
+
     async function readCanonical(targetPath) {
       const bytes = await readBytes(targetPath);
       if (bytes === null) throw adapterError("canonical_target_missing");
@@ -286,11 +308,20 @@
     }
 
     async function atomicReplace(request) {
-      const authority = mergeAuthority();
+      const operationCore = root.LLMWikiOperationWriterCore || (typeof require === "function" ? require("./llmwiki-operation-writer-core.js") : null);
       if (!request || !validCanonicalPath(request.target_path)) throw adapterError("unbranded_merge_replace_request");
       const entry = await readEntry(request.target_path);
       if (!entry.file) throw adapterError("canonical_target_missing");
-      authority.assertAtomicReplaceRequest(request, { bytes: entry.bytes, metadata: { mode: 0o644 } });
+      if (operationCore && operationCore.isReplaceRequest(request)) {
+        for (const citation of request.source_citations || []) {
+          const bytes = await readSourceBytes(citation.locators[0].split("#")[0]);
+          if (typeof bytes !== "string" || sha256(bytes) !== citation.content_hash) throw adapterError("stale_source");
+        }
+        operationCore.assertAtomicReplaceRequest(request, (await readEntry(request.target_path)).bytes);
+      }
+      else mergeAuthority().assertAtomicReplaceRequest(request, { bytes: entry.bytes, metadata: { mode: 0o644 } });
+      const links = validateNewWikiLinks(entry.bytes, request.after_bytes, request.target_path);
+      if (!links.ok) throw adapterError(links.reason);
       await vault.modify(entry.file, request.after_bytes);
       const verified = await readEntry(request.target_path);
       if (!verified.file || verified.bytes !== request.after_bytes) throw adapterError("written_bytes_mismatch");
@@ -315,11 +346,12 @@
     }
 
     async function restoreExact(request) {
-      const authority = mergeAuthority();
+      const operationCore = root.LLMWikiOperationWriterCore || (typeof require === "function" ? require("./llmwiki-operation-writer-core.js") : null);
       if (!request || !validCanonicalPath(request.target_path)) throw adapterError("unbranded_merge_restore_request");
       const entry = await readEntry(request.target_path);
       if (!entry.file) throw adapterError("canonical_target_missing");
-      authority.assertRestoreRequest(request, { bytes: entry.bytes, metadata: { mode: 0o644 } });
+      if (operationCore && operationCore.isRestoreRequest(request)) operationCore.assertRestoreRequest(request, entry.bytes);
+      else mergeAuthority().assertRestoreRequest(request, { bytes: entry.bytes, metadata: { mode: 0o644 } });
       await vault.modify(entry.file, request.restore_bytes);
       const verified = await readEntry(request.target_path);
       if (!verified.file || verified.bytes !== request.restore_bytes) throw adapterError("restore_verify_failed");
@@ -335,10 +367,25 @@
       return { ok: true, status: "recorded", path: filePath };
     }
 
+    async function readAuditEntry(filePath) {
+      const entry = await readEntry(filePath);
+      if (entry.file || !directImmutableStorage) return entry;
+      let exists = false;
+      try { exists = await dataAdapter.exists(filePath); } catch (_ignored) {}
+      if (!exists) return entry;
+      return { file: { path: filePath }, bytes: await dataAdapter.read(filePath) };
+    }
+    async function writeAuditBytes(file, bytes) {
+      if (directImmutableStorage && file && typeof file.path === "string") {
+        await dataAdapter.write(file.path, bytes);
+        return;
+      }
+      await vault.modify(file, bytes);
+    }
     async function readReceipt(nonce) {
       const filePath = auditPath(nonce);
       if (!filePath) throw adapterError("invalid_audit_nonce");
-      const entry = await readEntry(filePath);
+      const entry = await readAuditEntry(filePath);
       if (!entry.file) return null;
       try { return JSON.parse(entry.bytes); }
       catch (_error) { throw adapterError("malformed_audit_record"); }
@@ -348,13 +395,21 @@
       if (!validMutation(mutation)) return rejected("malformed_mutation");
       const filePath = auditPath(mutation.nonce);
       if (vault.getAbstractFileByPath(filePath)) return rejected("audit_prepare_conflict");
-      if (!vault.getAbstractFileByPath(AUDIT_DIRECTORY)) {
-        try { await vault.createFolder(AUDIT_DIRECTORY); }
-        catch (_error) { return rejected("audit_prepare_failed"); }
+      if (directImmutableStorage) {
+        let exists = false;
+        try { exists = await dataAdapter.exists(filePath); } catch (_ignored) {}
+        if (exists) return rejected("audit_prepare_conflict");
       }
       const bytes = jsonBytes(preparedRecord(mutation));
       try {
-        const file = await vault.create(filePath, bytes);
+        await ensureVaultDirectory(AUDIT_DIRECTORY);
+        let file;
+        if (directImmutableStorage) {
+          await dataAdapter.write(filePath, bytes);
+          file = { path: filePath };
+        } else {
+          file = await vault.create(filePath, bytes);
+        }
         return { ok: true, status: "prepared", file, bytes };
       } catch (_error) {
         return rejected("audit_prepare_failed");
@@ -366,15 +421,34 @@
         return rejected("malformed_audit_finalize");
       }
       try {
-        await vault.modify(prepared.file, bytes);
+        await writeAuditBytes(prepared.file, bytes);
         return { ok: true, status: "finalized" };
       } catch (_error) {
         return rejected("audit_finalize_failed", { write_counts: { ...ZERO_WRITES, audit: 1 } });
       }
     }
 
+    async function ensureVaultDirectory(directory) {
+      if (vault.getAbstractFileByPath(directory)) return;
+      try {
+        await vault.createFolder(directory);
+        return;
+      } catch (error) {
+        if (vault.getAbstractFileByPath(directory)) return;
+        if (directImmutableStorage) {
+          try {
+            if (await dataAdapter.exists(directory)) return;
+          } catch (_ignored) {}
+        }
+        throw error;
+      }
+    }
     async function createCanonical(targetPath, bytes) {
       if (!validCanonicalPath(targetPath) || typeof bytes !== "string") throw adapterError("invalid_canonical_write");
+      const segments = targetPath.split("/");
+      for (let depth = 1; depth < segments.length; depth += 1) {
+        await ensureVaultDirectory(segments.slice(0, depth).join("/"));
+      }
       return vault.create(targetPath, bytes);
     }
 
@@ -384,7 +458,7 @@
       return file;
     }
 
-    async function commitExact(mutation) {
+    async function commitExact(mutation, options = {}) {
       if (!validMutation(mutation)) return rejected("malformed_mutation");
       const live = await readEntry(mutation.target_path);
       const create = mutation.before_bytes === "";
@@ -392,15 +466,26 @@
         return rejected("target_revision_mismatch");
       }
 
+      const links = validateNewWikiLinks(mutation.before_bytes, mutation.after_bytes, mutation.target_path);
+      if (!links.ok) return links;
       const prepared = await prepareAudit(mutation);
       if (!prepared.ok) return prepared;
 
       try {
+        if (options.revalidateSources) for (const citation of mutation.source_citations) {
+          const bytes = await readSourceBytes(citation.locators[0].split("#")[0]);
+          if (typeof bytes !== "string" || sha256(bytes) !== citation.content_hash) throw adapterError("stale_source");
+        }
+        const current = await readEntry(mutation.target_path);
+        if (create ? Boolean(current.file) : !current.file || current.bytes !== mutation.before_bytes) throw adapterError("target_revision_mismatch");
+        const currentLinks = validateNewWikiLinks(mutation.before_bytes, mutation.after_bytes, mutation.target_path);
+        if (!currentLinks.ok) throw adapterError(currentLinks.reason);
         if (create) await createCanonical(mutation.target_path, mutation.after_bytes);
-        else await modifyCanonical(live.file, mutation.after_bytes);
-      } catch (_error) {
-        const rejection = await finalizeAudit(prepared, jsonBytes(rejectedRecord(mutation, "canonical_write_failed")));
-        return rejected("canonical_write_failed", {
+        else await modifyCanonical(current.file, mutation.after_bytes);
+      } catch (error) {
+        const reason = ["stale_source", "target_revision_mismatch", "link_target_missing"].includes(error.code) ? error.code : "canonical_write_failed";
+        const rejection = await finalizeAudit(prepared, jsonBytes(rejectedRecord(mutation, reason)));
+        return rejected(reason, {
           write_counts: { ...ZERO_WRITES, audit: 1 },
           audit_status: rejection.ok ? "rejected" : "rejection_pending",
         });
@@ -423,14 +508,14 @@
 
     async function repairAudit(repair) {
       if (!validRepair(repair)) return rejected("malformed_repair");
-      const auditEntry = await readEntry(repair.audit_path);
+      const auditEntry = await readAuditEntry(repair.audit_path);
       if (!auditEntry.file) return rejected("prepared_audit_missing");
       if (auditEntry.bytes === repair.final_audit_bytes) return result("duplicate");
       if (auditEntry.bytes !== repair.prepared_audit_bytes) return rejected("prepared_audit_mismatch");
       const canonicalEntry = await readEntry(repair.target_path);
       if (!canonicalEntry.file || canonicalEntry.bytes !== repair.canonical_bytes) return rejected("canonical_bytes_mismatch");
       try {
-        await vault.modify(auditEntry.file, repair.final_audit_bytes);
+        await writeAuditBytes(auditEntry.file, repair.final_audit_bytes);
       } catch (_error) {
         return rejected("audit_repair_failed");
       }
@@ -498,6 +583,55 @@
       return { ok: true, head_hash: value.head_hash, count: value.count };
     }
 
+    // Explicit apply recovery only. Read/query paths never repair storage.
+    async function repairImmutableAuditHead(binding) {
+      if (!plain(binding) || !HASH.test(binding.packet_hash) || !HASH.test(binding.authorization_hash)
+        || !HASH.test(binding.revision) || !validCanonicalPath(binding.target_path)) return rejected("invalid_resurfacing_binding");
+      const continuity = await readImmutableAuditContinuity();
+      if (continuity.ok) return { ok: true, status: "duplicate" };
+      if (!["immutable_audit_continuity_gap", "immutable_audit_continuity_missing"].includes(continuity.reason)) return continuity;
+      const headEntry = await readImmutableEntry(IMMUTABLE_AUDIT_HEAD_PATH);
+      let head;
+      if (continuity.reason === "immutable_audit_continuity_missing" && !headEntry.file && headEntry.bytes === null) {
+        // First append persisted one record before creating its head. The same
+        // exact binding and full chain checks below must authorize recovery.
+        head = { continuity_version: "llmwiki_immutable_audit_head_v1", head_hash: null, count: 0 };
+      } else {
+        try { head = JSON.parse(headEntry.bytes); } catch (_) { return rejected("immutable_audit_continuity_invalid"); }
+      }
+      if (!immutableAuditHead(head)) return rejected("immutable_audit_continuity_invalid");
+      const paths = await immutableAuditPaths();
+      if (paths.length !== head.count + 1) return rejected("immutable_audit_continuity_gap");
+      const records = [];
+      for (const path of paths) {
+        let audit;
+        try { audit = JSON.parse((await readImmutableEntry(path)).bytes); } catch (_) { return rejected("immutable_audit_record_malformed"); }
+        if (!plain(audit) || audit.audit_hash !== immutableHash(audit)) return rejected("immutable_audit_record_mismatch");
+        records.push(audit);
+      }
+      records.sort((a,b) => a.audit_count - b.audit_count);
+      let previous = null;
+      for (const [index, audit] of records.entries()) {
+        if (audit.audit_count !== index + 1 || audit.previous_audit_hash !== previous) return rejected("immutable_audit_continuity_mismatch");
+        previous = audit.audit_hash;
+      }
+      if (head.count && records[head.count - 1].audit_hash !== head.head_hash) return rejected("immutable_audit_continuity_mismatch");
+      const orphan = records[head.count];
+      const match = orphan.resurfacing_bindings?.find(row => row.path === binding.target_path && row.revision === binding.revision
+        && row.packet_hash === binding.packet_hash && row.authorization_hash === binding.authorization_hash);
+      if (!match || orphan.packet_hash !== binding.packet_hash) return rejected("immutable_audit_replay");
+      const final = await readReceipt(match.nonce);
+      if (!final || final.result !== "committed" || final.packet_hash !== binding.packet_hash
+        || final.authorization_hash !== binding.authorization_hash || sha256(jsonBytes(final)) !== match.final_audit_sha256) return rejected("immutable_audit_record_mismatch");
+      const live = await readCanonical(binding.target_path);
+      if (live.revision !== binding.revision) return rejected("stale_before_write");
+      // Another writer must not have advanced the head while we inspected it.
+      if ((await readImmutableEntry(IMMUTABLE_AUDIT_HEAD_PATH)).bytes !== headEntry.bytes) return rejected("immutable_audit_continuity_mismatch");
+      try { await writeImmutableEntry(IMMUTABLE_AUDIT_HEAD_PATH, jsonBytes({ continuity_version: "llmwiki_immutable_audit_head_v1", head_hash: orphan.audit_hash, count: orphan.audit_count })); }
+      catch (_) { return rejected("immutable_audit_head_update_failed"); }
+      return { ok: true, status: "repaired" };
+    }
+
     async function readImmutableAudit(auditHash) {
       const filePath = immutableAuditPath(auditHash);
       if (!filePath) return null;
@@ -531,7 +665,7 @@
             || auditPath(binding.nonce) === null || !HASH.test(binding.final_audit_sha256)
             || !HASH.test(binding.packet_hash) || !HASH.test(binding.authorization_hash)
             || binding.packet_hash !== audit.packet_hash || usedNonce.has(binding.nonce) || boundInThisAudit.has(binding.canonical_id)) return Object.freeze([]);
-          const finalized = await readEntry(auditPath(binding.nonce));
+          const finalized = await readAuditEntry(auditPath(binding.nonce));
           if (!finalized.file || sha256(finalized.bytes) !== binding.final_audit_sha256) return Object.freeze([]);
           let finalAudit;
           try { finalAudit = JSON.parse(finalized.bytes); } catch (_) { return Object.freeze([]); }
@@ -574,6 +708,8 @@
     return Object.freeze({
       readBytes,
       readCanonical,
+      readSourceBytes,
+      validateNewWikiLinks,
       readReceipt,
       createCanonical,
       modifyCanonical,
@@ -586,6 +722,7 @@
       repairAudit,
       appendImmutableAudit,
       readImmutableAuditContinuity,
+      repairImmutableAuditHead,
       readImmutableAudit,
       readFinalizedCanonicalAuthorities,
       commitExact,

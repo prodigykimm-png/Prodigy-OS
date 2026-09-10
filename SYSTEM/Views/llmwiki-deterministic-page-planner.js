@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "llmwiki_deterministic_page_planner_v7";
+  const VERSION = "llmwiki_deterministic_page_planner_v8";
 
 
 
@@ -117,14 +117,14 @@
     const eligible = semanticGroups.map((group) => ({
       ...group,
       evidence_count: new Set(group.claims.flatMap((claim) => citationByClaim.get(claim.claim_id) || [])).size,
-    })).filter((group) => group.claims.length >= 2 && group.evidence_count >= 2)
+    })).filter((group) => group.claims.length >= 1 && group.evidence_count >= 1)
       .sort((left, right) => right.claims.length - left.claims.length || left.title.localeCompare(right.title, "ko"));
     const bounded = eligible.flatMap((group) => {
       const chunks = [];
       for (let index = 0; index < group.claims.length; index += MAX_CLAIMS_PER_PAGE) {
         const claims = group.claims.slice(index, index + MAX_CLAIMS_PER_PAGE);
         const evidenceCount = new Set(claims.flatMap((claim) => citationByClaim.get(claim.claim_id) || [])).size;
-        if (claims.length >= 2 && evidenceCount >= 2) chunks.push({ ...group, claims, evidence_count: evidenceCount });
+        if (claims.length >= 1 && evidenceCount >= 1) chunks.push({ ...group, claims, evidence_count: evidenceCount });
       }
       return chunks;
     });

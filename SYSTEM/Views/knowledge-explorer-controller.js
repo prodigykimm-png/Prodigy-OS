@@ -206,6 +206,18 @@
             const actions = createEl(card, "div", { attr: { class: "llmwiki-wiki-result__actions" } });
             const open = createEl(actions, "button", { text: "결과 읽기", attr: { type: "button", "data-action": "open-review-detail" } });
             open.onclick = () => { if (detail) detail.open(item, open); };
+            createEl(card, "output", { text: "초안 미리보기 · 정본 반영 전", attr: { "data-wiki-draft-preview": "" } });
+            if (plain(item.review_blocked)) {
+              const blocked = createEl(card, "aside", { attr: { "data-plan-blocked": item.review_blocked.reason || "compiled_claim_mismatch", role: "alert" } });
+              createEl(blocked, "p", { text: "근거 구성이 검증되지 않아 정본 반영 검토를 열 수 없습니다." });
+            } else if (typeof config.onCanonicalReview === "function") {
+              const reviewButton = createEl(actions, "button", { text: "지식 반영 검토", attr: { type: "button", "data-action": "review-canonical-document" } });
+              reviewButton.onclick = async () => {
+                reviewButton.disabled = true;
+                try { await config.onCanonicalReview(item); }
+                finally { reviewButton.disabled = false; }
+              };
+            }
           });
         }
         return true;
@@ -329,16 +341,26 @@
         if (group.id === "plan" && group.items.some((item) => item.plan_kind === "topic_page") && typeof config.onPlanApprove === "function") {
           const hasTitleMismatch = group.items.some((item) => item.plan_lint_proposal?.reason === "title_claim_boundary_mismatch");
           const approve = createEl(section, "button", {
-            text: hasTitleMismatch ? "추천 제목 확인 후 문서 생성" : "계획 승인 후 문서 생성",
+            text: hasTitleMismatch ? "추천 제목 확인 후 문서 생성" : "선택한 구성으로 초안 준비",
             attr: {
               type: "button",
               "data-action": "approve-page-plan",
               "data-primary": "true",
-              "aria-label": hasTitleMismatch ? "추천 제목을 먼저 확인해 주세요" : "계획 승인 후 문서 생성",
+              "aria-label": hasTitleMismatch ? "추천 제목을 먼저 확인해 주세요" : "선택한 구성으로 초안 준비",
             },
           });
           approve.disabled = hasTitleMismatch;
           approve.onclick = () => Promise.resolve(config.onPlanApprove()).then(() => render());
+        }
+        if (group.id === "plan" && typeof config.onQualityRetry === "function" && config.qualityRetry
+          && group.items.some((item) => item.plan_hash === config.qualityRetry.planHash)) {
+          const notice = createEl(section, "div", { attr: { "data-quality-blocked": "", role: "status" } });
+          createEl(notice, "span", { text: `품질 검토 보류 중${(config.qualityRetry.issues || []).length ? `: ${(config.qualityRetry.issues || []).join(", ")}` : ""} — 다시 생성하면 최대 2회까지 호출합니다.` });
+          const retry = createEl(section, "button", {
+            text: "품질 검토 후 다시 생성",
+            attr: { type: "button", "data-action": "retry-article-quality", "aria-label": "차단된 초안을 명시적 품질 재시도로 다시 생성" },
+          });
+          retry.onclick = () => Promise.resolve(config.onQualityRetry()).then(() => render());
         }
         if (group.id === "plan" && group.items.filter((item) => item.plan_kind === "topic_page" && item.plan_selected !== false).length >= 2 && typeof config.onPlanMerge === "function") {
           const merge = createEl(section, "button", { text: "선택 문서 병합", attr: { type: "button", "data-action": "merge-plan-pages" } });

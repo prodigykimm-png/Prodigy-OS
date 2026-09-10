@@ -215,8 +215,6 @@
         return freeze({ ok: false, reason: "invalid_source_guide" });
       }
       const allClaimIds = new Set(inventory.claims.map((claim) => claim.claim_id));
-      const reusableClaims = inventory.claims.filter((claim) => claim.role === "reusable_claim");
-      const reusableClaimIds = new Set(reusableClaims.map((claim) => claim.claim_id));
       const guideIds = guide.sections.flatMap((section) => section.claim_ids);
       const pageIds = draft.topic_pages.flatMap((page) => plain(page) && Array.isArray(page.claim_ids) ? page.claim_ids : []);
       const partitionIds = [...pageIds, ...draft.source_only_claim_ids];
@@ -225,18 +223,17 @@
         && clean(page.title) && clean(page.purpose)
         && Array.isArray(page.claim_ids) && page.claim_ids.length > 0
         && new Set(page.claim_ids).size === page.claim_ids.length
-        && page.claim_ids.every((claimId) => reusableClaimIds.has(claimId))
+        && page.claim_ids.every((claimId) => allClaimIds.has(claimId))
         && Array.isArray(page.target_candidate_ids)
         && new Set(page.target_candidate_ids).size === page.target_candidate_ids.length
         && page.target_candidate_ids.every((candidateId) => allowed.has(candidateId)));
-      if (!validPageShape || !exactPartition(guideIds, allClaimIds) || !exactPartition(partitionIds, reusableClaimIds)) {
+      if (!validPageShape || !exactPartition(guideIds, allClaimIds) || !exactPartition(partitionIds, allClaimIds)) {
         return freeze({ ok: false, reason: "invalid_page_plan_coverage" });
       }
       const citationIdsByClaim = new Map(inventory.claims.map((claim) => [claim.claim_id, claim.citation_ids]));
       for (const page of draft.topic_pages) {
-        const evidenceIds = new Set(page.claim_ids.flatMap((claimId) => citationIdsByClaim.get(claimId) || []));
-        if (page.target_candidate_ids.length === 0 && (page.claim_ids.length < 2 || evidenceIds.size < 2)) {
-          return freeze({ ok: false, reason: "new_page_requires_multiple_evidence" });
+        if (!page.claim_ids.every((claimId) => (citationIdsByClaim.get(claimId) || []).length > 0)) {
+          return freeze({ ok: false, reason: "page_claim_missing_evidence" });
         }
       }
       const pages = draft.topic_pages.map((page) => {

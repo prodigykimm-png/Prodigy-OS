@@ -75,3 +75,12 @@
 ## Fail-closed rules
 
 Malformed input, unknown operation/kind/status, missing source hash or locator, stale snapshot, mismatched approval payload, competing URL authority, prompt-shaped permission text, and any unallowlisted write target are rejected without mutating the input or a Vault file. Interruption/repeat handling for this pure validator is not a persistent workflow: the same input can be validated again and no side effect is created.
+
+## Review entry, update composition, reprocess identity (2026-09-09)
+
+- 근거 개수는 검토 진입 조건이 아니라 근거 수준 정보다. 근거가 있고 기존 문서와 관계가 명확한 단건 보완(기존 target 지정)은 변경 계획에 들어간다. 근거가 부족하면 이유를 표시하고, 중복이거나 새 내용이 없으면 `no_change`가 정상이다. 단일 근거를 독립 검증된 사실처럼 표시하지 않으며, 개수 맞추기 위한 원문 분할은 거부한다.
+- 저장할 정본 형태를 기준으로 변경 여부를 판단한다. 드래프트 전용 필드나 실행별 처리 메타데이터 때문에 동일 Knowledge를 변경 대상으로 취급하지 않으며, 숫자·부정어·조건·예외·출처의 실제 차이를 정규화로 지우지 않는다.
+- 보완 저장 본문은 정본 섹션 산문 + 사용자 검토 범위 + 출처 관계 footer로 구성한다. 드래프트 전용 YAML, 검토 상태 배너, 목적 인용, 근거 목록 중복은 저장 본문에 넣지 않는다. 기존 작성자 메모·조건·예외·출처·속성은 보존하고 관계없는 문장을 다시 쓰지 않는다.
+- 미적용 변경안은 provider 호출 없이 기존 변경안을 다시 보여주고 검토·적용이 남는다. 동일 입력의 순수 재실행(replay)은 체크포인트를 다시 쓰지 않고 컴파일 결과도 유지한다. 적용 완료 후 동일 상태는 `no_change`(provider 0, canonical 추가 쓰기 0)이며, `no_change`는 relation이 resolved이고 종류별 필수 입력이 비어 있을 때(또는 승인된 검토 기록과 완전히 일치할 때)에만 성립한다. relation 미해결·예외 삭제·근거 변경은 재검토로 보낸다. source는 같고 Wiki 상태가 달라지면 원문 분석은 재사용하되 병합 계획은 현재 Wiki 기준으로 다시 확인한다. 적용 revision을 기준으로 기록한다.
+- 질문 범위는 읽기가 허용된 검증 문서 집합으로만 해석한다. `@문서` 지정·명시 경로는 목록에 있는 검증 행과 정확히 일치할 때만 사용하고, 하나도 해석되지 않으면 조용히 넓히지 않고 빈 답변으로 끝낸다(미해결 지정이 있으면 provider를 호출하지 않는다). 정본을 비신뢰 원문 슬롯으로 읽는 연결은 거부한다. 전역 privacy 해제는 없다. 검증 근거라도 전송 전 secret 검사를 통과해야 하며, 발행 직전 최종 승인 근거 revision을 다시 확인한다.
+- 컴파일 품질 게이트는 1회 호출이 기본이며, 차단된 초안과 사유를 보관(스냅샷 포함)하고 명시적 재시도(최대 2회 호출)에서만 다시 생성한다.

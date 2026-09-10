@@ -89,6 +89,118 @@
     let activeModalPath = "";
     let requestSequence = 0;
     let visibilityObserver = null;
+    const session = opts.conversationSession || {};
+    const chatApi = root.AIChatSessionStore || (typeof require === "function" ? require("./ai-chat-session-store.js") : null);
+    if (!session.store && chatApi) session.store = new chatApi.ChatSessionStore({ sessionStorage: null, rejectOverflow: true });
+    session.sources ||= []; session.turns ||= []; session.epoch ||= 1; session.listeners ||= new Set();
+    let disposed = false;
+    let questionResult = session.result || null, questionStage = session.stage || "", questionBusy = session.busy || false,
+      questionAbort = session.abort || null, questionProposal = session.proposal || null, questionReviewError = session.reviewError || null;
+    const questionStages = { source_ready: "원문 준비됨", searching: "근거 검색 중", calling_provider: "AI 응답 대기 중", validating_answer: "인용 검증 중", preparing_proposal: "제안 준비 중", review: "사용자 검토 대기" };
+    function publishQuestion() {
+      Object.assign(session, { result: questionResult, stage: questionStage, busy: questionBusy, abort: questionAbort, proposal: questionProposal, reviewError: questionReviewError });
+      for (const listener of session.listeners) listener();
+    }
+    function syncQuestion() {
+      questionResult = session.result || null; questionStage = session.stage || ""; questionBusy = session.busy || false;
+      questionAbort = session.abort || null; questionProposal = session.proposal || null; questionReviewError = session.reviewError || null;
+      if (!disposed) render();
+    }
+    session.listeners.add(syncQuestion);
+    function resetConversation() {
+      if (session.stage === "preparing_proposal") return { ok: false, reason: "action_in_progress" };
+      session.epoch += 1; questionAbort?.abort(); session.store?.clear(); session.turns = []; session.sources = [];
+      session.draft = ""; session.failedQuestion = null; session.citationError = null; session.includeVerified = false; session.scopeInitialized = false; session.scopeNotice = "";
+      questionResult = null; questionProposal = null; questionReviewError = null; questionBusy = false; questionStage = ""; publishQuestion();
+    }
+    function addSelectedSource() {
+      if (session.busy) return { ok: false, reason: "action_in_progress" };
+      const source = opts.getSelectedSource?.();
+      if (!source?.path || !source.content_hash) return { ok: false, reason: "source_selection_required" };
+      session.scopeInitialized = true;
+      const previous = session.sources.find(row => row.path === source.path);
+      if (previous && previous.content_hash !== source.content_hash) {
+        session.store?.clear(); session.scopeNotice = "자료 revision이 바뀌어 이전 대화는 새 요청에서 제외했습니다. 과거 인용은 당시 revision을 가리킵니다.";
+        session.sources = session.sources.filter(row => row.path !== source.path);
+      }
+      if (!session.sources.some(row => row.path === source.path)) session.sources.push({ path: source.path, content_hash: source.content_hash });
+      render(); return { ok: true };
+    }
+    function removeSource(path) {
+      // Excluded evidence may remain visible in old turns, but none of its
+      // user/assistant context is silently reused after a scope reduction.
+      session.scopeInitialized = true; session.epoch += 1; questionAbort?.abort(); session.sources = session.sources.filter(row => row.path !== path);
+      session.store?.clear(); session.scopeNotice = "자료 범위가 줄어 이전 대화는 새 요청의 맥락에서 제외했습니다. 필요한 조건을 다시 알려주세요.";
+      questionResult = null; questionProposal = null; questionBusy = false; questionStage = ""; publishQuestion();
+    }
+    async function askQuestion(question, retry = false) {
+      if (session.busy) return { ok: false, reason: "action_in_progress" };
+      question = String(question || "").trim();
+      if (!question) return { ok: false, reason: "invalid_query" };
+      if (!session.scopeInitialized && !session.sources.length && session.includeVerified !== true) addSelectedSource();
+      const history = session.store?.getMessages() || [];
+      // Failed requests are retained as drafts, not appended twice on retry.
+      if (history.length >= 28 || session.turns.length >= 14) { questionResult = { ok: false, reason: "context_limit", stage: "context" }; publishQuestion(); return questionResult; }
+      const epoch = session.epoch;
+      questionBusy = true; questionProposal = null; questionReviewError = null; questionAbort = new AbortController();
+      session.draft = question; publishQuestion();
+      let received;
+      try {
+        received = await root.LLMWikiWikiReadService.answerSourceQuestion({ app: appRef, question,
+          sources: session.sources.slice(), includeVerified: session.includeVerified === true, history,
+          signal: questionAbort.signal, confirmConsent: opts.confirmConsent,
+          onProgress(stage) { if (epoch === session.epoch) { questionStage = stage; publishQuestion(); } } });
+        if (epoch !== session.epoch) return { ok: false, reason: "conversation_changed" };
+        if (received.ok) {
+          const body = (received.conversation_text || (received.answers || []).map((row, index) => `${index + 1}. ${row.text}`).join("\n"))
+            + (received.review_notes || []).map(note => `\n확인 필요: ${note}`).join("");
+          session.store?.persist([...history, { role: "user", body: question }, { role: "assistant", body: body || "현재 근거로 답할 수 없습니다.", citations: (received.answers || []).map(row => row.citation) }]);
+          session.turns.push({ question, result: received }); session.failedQuestion = null; session.draft = "";
+          const unresolvedScope = Array.isArray(received.scope?.unresolved_paths) ? received.scope.unresolved_paths : [];
+          if (unresolvedScope.length) session.scopeNotice = `읽을 수 없는 지정 범위: ${unresolvedScope.join(", ")}. 검증된 문서 경로와 정확히 일치해야 합니다.`;
+        } else session.failedQuestion = question;
+        questionResult = received;
+      } catch (error) {
+        if (epoch !== session.epoch) return { ok: false, reason: "conversation_changed" };
+        questionResult = { ok: false, reason: error.code || "provider_transport_error", stage: questionStage }; session.failedQuestion = question;
+      } finally {
+        if (epoch === session.epoch) { questionBusy = false; questionStage = ""; publishQuestion(); }
+      }
+      return questionResult;
+    }
+    async function openQuestionCitation(citation) {
+      const checked = typeof root.LLMWikiWikiReadService?.validateQuestionCitation === "function"
+        ? await root.LLMWikiWikiReadService.validateQuestionCitation({ app: appRef, citation })
+        : { ok: false, reason: "source_unavailable", stage: "citation" };
+      session.citationError = checked.ok ? null : checked;
+      for (const listener of session.listeners) listener();
+      if (!checked.ok) return checked;
+      return opts.onOpenCitation ? opts.onOpenCitation(citation) : opts.onOpenBeside?.(citation.source_path);
+    }
+    async function prepareReview() {
+      if (questionBusy) return { ok: false, reason: "action_in_progress" };
+      if (questionStage === "review" && (!questionProposal.handoff?.reopenable || questionProposal.handoff.isOpen?.())) return questionProposal.handoff;
+      if (!questionResult?.ok || !questionResult.answers?.length) return { ok: false, reason: "proposal_validation_failed" };
+      questionBusy = true; questionReviewError = null; questionStage = "preparing_proposal"; publishQuestion();
+      try {
+        // Keep the original branded answer and prepared proposal across handoff failures.
+        // The handoff revalidates source revision on every explicit attempt.
+        if (!questionProposal?.ok) questionProposal = await root.LLMWikiWikiReadService.prepareQuestionProposal({ app: appRef, answer: questionResult });
+        if (questionProposal?.ok && typeof root.LLMWikiWikiReadService.validateQuestionEvidence === "function") {
+          const checked = await root.LLMWikiWikiReadService.validateQuestionEvidence({ app: appRef, answer: questionResult, proposal: questionProposal });
+          if (!checked.ok) { questionReviewError = checked; return checked; }
+        }
+        const handoff = questionProposal.ok && typeof opts.openQuestionReview === "function"
+          ? await opts.openQuestionReview(questionProposal, { onClose() { for (const listener of session.listeners) listener(); } }) : questionProposal.ok
+            ? { ok: false, reason: "review_handoff_failed" } : questionProposal;
+        if (!handoff?.ok) questionReviewError = { ok: false, reason: handoff?.reason || "review_handoff_failed", stage: "review" };
+        else { questionStage = "review"; questionProposal = { ...questionProposal, handoff }; }
+        return handoff;
+      } catch (error) {
+        questionReviewError = { ok: false, reason: error.code || "review_handoff_failed", stage: "review" };
+        return questionReviewError;
+      } finally { questionBusy = false; if (questionStage !== "review") questionStage = ""; publishQuestion(); }
+    }
     const panel = typeof container.closest === "function" ? container.closest('[role="tabpanel"]') : null;
 
     function panelHidden() {
@@ -239,6 +351,7 @@
       return true;
     }
     function render() {
+      if (disposed) return;
       if (panelHidden()) {
         if (rootEl) empty(rootEl);
         return;
@@ -260,6 +373,61 @@
       input.oninput = (event) => { state = { ...state, query: event && event.target ? event.target.value : input.value }; };
       form.onsubmit = (event) => { if (event && event.preventDefault) event.preventDefault(); applyBrowse({ query: input.value, selection: { ...state.selection, path: null, detail_state: "rest" } }); };
       const searchButton = createEl(form, "button", { text: "검색", attr: { type: "submit" } });
+      if (typeof opts.getSelectedSource === "function") {
+        const ask = createEl(form, "button", { text: "선택한 원문에 질문", attr: { type: "button", "data-action": "ask-source-question" } });
+        ask.disabled = questionBusy;
+        ask.onclick = () => askQuestion(input.value);
+        const chatInput = createEl(controls, "textarea", { attr: { placeholder: "후속 질문이나 정정을 입력하세요", "aria-label": "Wiki 대화 입력", rows: "3", style: "width:100%;box-sizing:border-box" } });
+        chatInput.value = session.draft || ""; chatInput.disabled = questionBusy;
+        let composing = false;
+        chatInput.oncompositionstart = () => { composing = true; };
+        chatInput.oncompositionend = () => { composing = false; };
+        chatInput.oninput = () => { session.draft = chatInput.value; };
+        chatInput.onkeydown = event => { if (event.key === "Enter" && !event.shiftKey && !event.isComposing && !composing && event.keyCode !== 229) { event.preventDefault(); askQuestion(chatInput.value); } };
+        const send = createEl(controls, "button", { text: "질문 보내기", attr: { type: "button" } }); send.disabled = questionBusy; send.onclick = () => askQuestion(chatInput.value);
+        const add = createEl(controls, "button", { text: "선택한 자료 추가", attr: { type: "button" } }); add.disabled = questionBusy; add.onclick = addSelectedSource;
+        const wiki = createEl(controls, "button", { text: session.includeVerified ? "검증된 Wiki 제외" : "검증된 Wiki 포함", attr: { type: "button" } });
+        wiki.disabled = questionBusy; wiki.onclick = () => { if (session.includeVerified) { session.includeVerified = false; removeSource(""); } else { session.includeVerified = true; render(); } };
+        const fresh = createEl(controls, "button", { text: "새 대화", attr: { type: "button" } }); fresh.onclick = resetConversation;
+        createEl(controls, "p", { text: `현재 범위: ${session.includeVerified ? "검증된 Wiki + " : ""}${session.sources.map(row => row.path + " (미승인 자료)").join(", ") || "선택 자료 없음"}. 대화는 앱 종료 후 복원되지 않습니다.` });
+        for (const source of session.sources) { const remove = createEl(controls, "button", { text: `${source.path} 제외`, attr: { type: "button" } }); remove.onclick = () => removeSource(source.path); }
+        if (session.scopeNotice) createEl(controls, "p", { text: session.scopeNotice, attr: { role: "status" } });
+        if (session.failedQuestion) { const retry = createEl(controls, "button", { text: "실패한 질문 다시 시도", attr: { type: "button" } }); retry.disabled = questionBusy; retry.onclick = () => askQuestion(session.failedQuestion, true); }
+        for (const turn of session.turns.filter(turn => turn.result !== questionResult)) {
+          const previous = createEl(controls, "section", { attr: { "data-component": "PreviousWikiTurn" } });
+          createEl(previous, "p", { text: `질문: ${turn.question}` });
+          for (const row of turn.result.answers || []) { createEl(previous, "p", { text: row.text }); const cite = createEl(previous, "button", { text: row.citation.locator, attr: { type: "button" } }); cite.onclick = () => openQuestionCitation(row.citation); }
+          for (const note of turn.result.review_notes || []) createEl(previous, "p", { text: `확인 필요: ${note}` });
+        }
+        const answerPanel = createEl(controls, "section", { attr: { "data-component": "SourceGroundedAnswer", style: "overflow-wrap:anywhere;min-width:0" } });
+        createEl(answerPanel, "p", { text: "선택한 원문의 관련 근거만 AI에 전송합니다. 답변은 미승인 요약입니다." });
+        if (questionStage) createEl(answerPanel, "p", { text: questionStages[questionStage] || questionStage, attr: { role: "status" } });
+        if (session.citationError) createEl(answerPanel, "p", { text: root.LLMWikiUIRecovery?.mapRecovery(session.citationError)?.copy || "원문 근거를 확인할 수 없습니다. 이전 인용을 현재 원문에 다시 연결하지 않았습니다. 자료를 확인하고 다시 선택해 주세요.", attr: { role: "alert" } });
+        if (questionReviewError) createEl(answerPanel, "p", { text: root.LLMWikiUIRecovery?.mapRecovery(questionReviewError)?.copy || `검토 전달 실패: ${questionReviewError.reason}. 답변은 보존되었습니다. 다시 시도할 수 있습니다.`, attr: { role: "alert" } });
+        if (questionResult) {
+          if (!questionResult.ok || questionResult.status === "abstain") createEl(answerPanel, "p", { text: questionResult.reason === "context_limit" ? "현재 대화·자료 한도를 넘었습니다. 내용을 삭제하지 않았습니다. 자료를 줄이거나 새 대화를 시작해 주세요." : questionResult.reason === "document_review_required" ? "여러 자료 또는 기존 Wiki를 반영하는 초안은 자료 정리의 문서 변경 검토에서 만들어 주세요." : root.LLMWikiUIRecovery?.mapRecovery(questionResult)?.copy || `실패 단계: ${questionResult.stage || "검증"} · ${questionResult.reason}. 저장하지 않았습니다.`, attr: { role: "status" } });
+          if (questionResult.context?.coverage_complete === false) createEl(answerPanel, "p", { text: "선택 자료 일부 근거만 확인했습니다. 조건·예외를 포함한 전체 요약은 아닙니다.", attr: { role: "status" } });
+          const groups = new Map();
+          for (const answer of questionResult.answers || []) { const key = answer.title || "답변"; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(answer); }
+          let groupNumber = 0;
+          for (const [title, grouped] of groups) {
+            createEl(answerPanel, "h3", { text: `${++groupNumber}. ${title}` });
+            for (const answer of grouped) {
+            createEl(answerPanel, "p", { text: answer.text });
+            createEl(answerPanel, "blockquote", { text: answer.citation.excerpt });
+            const cite = createEl(answerPanel, "button", { text: answer.citation.locator, attr: { type: "button", "data-action": "open-answer-citation", style: "white-space:normal;max-width:100%;overflow-wrap:anywhere;height:auto" } });
+            cite.onclick = () => openQuestionCitation(answer.citation);
+          }
+          }
+          for (const note of questionResult.review_notes || []) createEl(answerPanel, "p", { text: `추가 확인: ${note}`, attr: { role: "status" } });
+          if (questionResult.ok && questionResult.answers?.length) {
+            createEl(answerPanel, "p", { text: "확신도: 원문에서 요약·추론함. 기존 관련 지식 및 충돌: 자동 비교 미실시 — 검토 필요." });
+            const review = createEl(answerPanel, "button", { text: questionReviewError ? "검토 전달 다시 시도" : questionStage === "review" && questionProposal?.handoff?.reopenable ? "검토 다시 열기" : "답변과 조건을 지식 초안으로 검토", attr: { type: "button", "data-action": "review-question-proposal" } });
+            review.disabled = questionBusy || questionStage === "review" && (!questionProposal?.handoff?.reopenable || questionProposal.handoff.isOpen?.());
+            review.onclick = prepareReview;
+          }
+        }
+      }
       const filterRow = createEl(controls, "div", { attr: { class: "llmwiki-wiki-surface__filters" } });
       const mode = createEl(filterRow, "select", { attr: { "aria-label": "읽기 모드" } });
       Object.entries(MODE_LABELS).forEach(([value, label]) => createEl(mode, "option", { text: label, attr: { value, selected: value === state.mode ? "selected" : undefined } }));
@@ -292,6 +460,9 @@
     }
 
     const api = Object.freeze({
+      askQuestion, prepareReview, openQuestionCitation, resetConversation, addSelectedSource, removeSource,
+      getConversation() { return { messages: session.store?.getMessages() || [], sources: session.sources.slice(), turns: session.turns.slice(), draft: session.draft || "" }; },
+      getQuestionState() { return { result: questionResult, proposal: questionProposal, stage: questionStage, reviewError: questionReviewError }; },
       refresh,
       update(next) { if (next && next.snapshot) snapshot = next.snapshot; state = { ...state, ...(next || {}) }; render(); return state; },
       getState() { return clone(state); },
@@ -300,6 +471,7 @@
       setFacet(key, value) { return applyBrowse({ [key]: text(value), path: "", selection: { ...state.selection, path: null, detail_state: "rest" } }); },
       select(path) { return applyBrowse({ path, selection: { ...state.selection, path, detail_state: "loading" } }); },
       destroy() {
+        disposed = true; session.listeners.delete(syncQuestion);
         if (visibilityObserver) visibilityObserver.disconnect();
         visibilityObserver = null;
         if (activeModal && typeof activeModal.close === "function") {
