@@ -138,11 +138,13 @@
     const reviewState = config.reviewState && typeof config.reviewState.mark === "function"
       ? config.reviewState : createReviewState(config.reviewed instanceof Set ? config.reviewed : []);
     const section = create(config.container, "section", "", { "data-surface": "llmwiki-golden-preview-workbench", "data-product": "prodigy-wiki", "data-review-semantics": "acknowledged-not-published" });
-    create(section, "h3", "Prodigy Wiki 검토", {});
-    create(section, "p", "원문 내용을 정리한 결과이며 외부 사실 확인은 수행하지 않았습니다. 검토 완료를 표시해도 정식 지식 문서는 변경되지 않습니다.", { "data-preview-boundary": "human-review-only" });
+    const ui = root.ProdigyWikiWorkspaceView || (typeof require === "function" ? require("./prodigy-wiki-workspace-view.js") : null);
+    create(section, "p", "초안 · 문서 반영 전", { "data-preview-boundary": "human-review-only" });
+    let selectedId = "", renderRevision = 0;
     let currentRows = Array.isArray(config.rows) ? config.rows : [];
     function render(rows) {
       currentRows = Array.isArray(rows) ? rows : [];
+      const revision = ++renderRevision;
       const old = section.querySelector && section.querySelector("[data-preview-list]");
       if (old && typeof old.remove === "function") old.remove();
       else if (old && old.parentElement && typeof old.parentElement.removeChild === "function") old.parentElement.removeChild(old);
@@ -150,13 +152,19 @@
       if (!currentRows.length) { create(list, "p", "검토할 결과가 없습니다.", {}); return; }
       currentRows.forEach((row) => {
         const card = create(list, "article", "", { "data-preview-id": row.preview_id, "data-gate-status": row.status });
-        create(card, "h4", row.title, {});
+        const select = create(card, "button", row.title, { type: "button", "data-action": "select-preview", "data-preview-selection": row.preview_id, "aria-expanded": String(selectedId === row.preview_id) });
+        select.onclick = () => { selectedId = selectedId === row.preview_id ? "" : row.preview_id; config.onSelect?.(row); render(currentRows); };
+        create(card, "p", `${row.source_path.split("/").pop().replace(/\.md$/u, "")} · ${reviewState.has(row.preview_id) ? "확인한 초안" : "검토할 초안"} · 문서 반영 전`, {});
+        if (selectedId !== row.preview_id) return;
         const passed = row.status === "publishable_preview";
-        create(card, "output", passed ? "자동 검사 통과 · 사람 검토 필요" : "자동 검사에서 문제를 발견했습니다.", { "data-preview-gate": row.status });
-        create(card, "p", passed ? "문서 구성 통과 · 필수 항목 확인 · 숫자 누락 없음" : "결과와 원문을 비교한 뒤 다시 만들어 주세요.", { "data-preview-metrics": "" });
+        create(card, "output", passed ? "검토 준비됨" : "! 적용 전에 확인할 항목이 있습니다.", { "data-preview-gate": row.status });
+        const document = createDiv(card, { "data-preview-document": row.document_path });
+        if (typeof config.readDocument === "function") Promise.resolve(config.readDocument(row.document_path)).then(bytes => { if (revision === renderRevision) ui.markdown(document, bytes, config.renderMarkdown); }, error => { if (revision === renderRevision) create(document, "p", `! 본문 표시 실패: ${error.message}`, { role: "alert" }); });
+        const diagnostics = create(card, "details", "", { "data-disclosure": "preview-details" }); create(diagnostics, "summary", "상세 정보", {}); create(diagnostics, "pre", JSON.stringify({ issues: row.issues, metrics: row.metrics, receipt_hash: row.receipt_hash }, null, 2), {});
+        if (!passed) create(card, "p", row.issues.join(" · "), { role: "alert" });
         if (passed && plain(row.navigation_manifest) && Array.isArray(row.navigation_manifest.sections)) {
-          const navigation = createDiv(card, { "data-preview-navigation": "" });
-          create(navigation, "h5", "원문 근거", {});
+          const navigation = create(card, "details", "", { "data-preview-navigation": "" });
+          create(navigation, "summary", "목차", {});
           row.navigation_manifest.sections.forEach((sourceSection) => {
             const sectionRow = createDiv(navigation, { "data-preview-navigation-section": sourceSection.section_id });
             create(sectionRow, "strong", sourceSection.heading, {});
@@ -186,33 +194,34 @@
           });
         }
         const actions = createDiv(card, { "data-preview-actions": "" });
-        const openDocument = create(actions, "button", "검토하기", { type: "button", "data-action": "open-golden-preview", "data-primary": "true" });
+        create(card, "p", "적용할 변경안을 준비해야 합니다.", { "data-preview-apply-boundary": "grounded-review-required" });
+        const openDocument = create(actions, "button", "초안 파일 열기", { type: "button", "data-action": "open-golden-preview" });
         openDocument.onclick = () => config.onOpen && config.onOpen(row.document_path);
         const openSource = create(actions, "button", "원문 확인", { type: "button", "data-action": "open-golden-source" });
         openSource.onclick = () => config.onOpen && config.onOpen(row.source_path);
         const reviewed = reviewState.has(row.preview_id);
-        const mark = create(actions, "button", reviewed ? "확인함" : "확인 완료", { type: "button", "data-action": "mark-golden-reviewed" });
+        const mark = create(actions, "button", reviewed ? "확인한 초안 · 문서 반영 전" : "초안 확인 표시", { type: "button", "data-action": "mark-golden-reviewed" });
         mark.disabled = !row.can_mark_reviewed || reviewed;
         mark.onclick = () => {
           if (!row.can_mark_reviewed || reviewState.has(row.preview_id)) return false;
           let outcome = true;
           try {
             if (typeof config.onReviewed === "function") outcome = config.onReviewed(row);
-          } catch (_error) {
-            render(currentRows);
+          } catch (error) {
+            create(card, "p", `! 확인 표시 실패: ${error.message}`, { role: "alert" });
             return false;
           }
           const commit = (result) => {
             if (result === false || result && result.ok === false) {
-              render(currentRows);
+              create(card, "p", `! 확인 표시 실패: ${result?.reason || "acknowledgement_failed"}`, { role: "alert" }); mark.disabled = false;
               return false;
             }
             return reviewState.mark(row.preview_id);
           };
           if (outcome && typeof outcome.then === "function") {
             mark.disabled = true;
-            return Promise.resolve(outcome).then(commit, () => {
-              render(currentRows);
+            return Promise.resolve(outcome).then(commit, error => {
+              create(card, "p", `! 확인 표시 실패: ${error.message}`, { role: "alert" }); mark.disabled = false;
               return false;
             });
           }

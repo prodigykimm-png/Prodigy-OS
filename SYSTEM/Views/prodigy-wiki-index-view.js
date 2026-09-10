@@ -40,7 +40,7 @@
   }
   function mount(options = {}) {
     if (!options.container) throw new TypeError("container_required");
-    let index = options.index;
+    let index = options.index, selectedId = "";
     let state = {
       mode: "current",
       query: "",
@@ -68,12 +68,12 @@
     }
     function render() {
       empty(section);
-      create(section, "h3", "내 Prodigy Wiki", {});
-      create(section, "p", "확인 완료한 문서만 모았습니다. 정식 Knowledge와는 별도로 보존됩니다.", {
+      create(section, "p", "확인한 초안 · 문서 반영 전", {
         "data-reviewed-wiki-boundary": "non-canonical",
       });
       const counts = index && index.counts || { current: 0, stale: 0, history: 0, total: 0 };
-      create(section, "output", `현재 ${counts.current} · 갱신 필요 ${counts.stale} · 이전 버전 ${counts.history}`, {
+      const diagnostics = create(section, "details", "", { "data-disclosure": "reviewed-details" }); create(diagnostics, "summary", "상세 정보");
+      create(diagnostics, "output", `현재 ${counts.current} · 갱신 필요 ${counts.stale} · 이전 버전 ${counts.history}`, {
         "data-reviewed-wiki-counts": "",
         role: "status",
       });
@@ -101,7 +101,8 @@
         button.onclick = () => apply({ mode });
       });
 
-      const groups = createDiv(section, { "data-reviewed-wiki-groups": "" });
+      const filters = create(section, "details", "", { "data-reviewed-filters": "" }); create(filters, "summary", "필터");
+      const groups = createDiv(filters, { "data-reviewed-wiki-groups": "" });
       const all = create(groups, "button", "전체 주제", {
         type: "button",
         "data-action": "filter-reviewed-wiki-term",
@@ -132,13 +133,15 @@
           "data-reviewed-wiki-lifecycle": row.lifecycle,
           "data-trust-tier": row.trust_tier,
         });
-        create(article, "h4", row.title, {});
+        const select = create(article, "button", row.title, { type: "button", "data-action": "select-reviewed-wiki", "data-artifact-id": row.artifact_id, "aria-expanded": String(selectedId === row.artifact_id) });
+        select.onclick = () => { selectedId = selectedId === row.artifact_id ? "" : row.artifact_id; options.onSelect?.(row); render(); };
         create(article, "p", row.lifecycle === "stale"
           ? "원문이 변경되어 다시 확인해야 합니다."
           : row.lifecycle === "history" ? "새 검토 버전으로 대체된 이전 문서입니다."
-            : `${row.source_title} · 확인 완료`, {
+            : `${row.source_title} · 확인한 초안 · 문서 반영 전`, {
           "data-reviewed-wiki-status": row.lifecycle,
         });
+        if (selectedId !== row.artifact_id) continue;
         if (row.index_terms.length) {
           create(article, "p", row.index_terms.join(" · "), {
             "data-reviewed-wiki-terms": "",
@@ -149,7 +152,7 @@
           const inspect = create(actions, "button", "변경 내용 확인", {
             type: "button",
             "data-action": "inspect-reviewed-changes",
-            "data-primary": "true",
+            "data-primary": "false",
           });
           inspect.onclick = () => typeof options.onInspectChanges === "function"
             && options.onInspectChanges(row);
@@ -157,7 +160,7 @@
         const openDocument = create(actions, "button", "Wiki 열기", {
           type: "button",
           "data-action": "open-reviewed-wiki",
-          ...(row.lifecycle === "stale" ? {} : { "data-primary": "true" }),
+          "data-primary": "false",
         });
         openDocument.onclick = () => typeof options.onOpenDocument === "function"
           && options.onOpenDocument(row.document_path, row);

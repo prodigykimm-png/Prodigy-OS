@@ -184,12 +184,12 @@ test('review modal renders exact preview and applies only after explicit checkbo
  const find=(node,pred)=>[...(pred(node)?[node]:[]),...(node.children||[]).flatMap(c=>find(c,pred))];
  const labels=find(modal.contentEl,n=>n.tag==='label'||n.tagName==='label'||n.tagName==='LABEL');
  assert.ok(labels.length>0);
- const sourceButton=find(modal.contentEl,n=>n.tag==='button'&&n.text===a.grounded_claims[0].citations[0].locator)[0];sourceButton.onclick();assert.equal(openedCitations[0].locator,a.grounded_claims[0].citations[0].locator);assert.equal(openedCitations[0].citation.evidence_quote,a.grounded_claims[0].citations[0].evidence_quote);
+ const sourceButton=find(modal.contentEl,n=>n.tag==='button'&&n.attr?.['data-citation-locator']===a.grounded_claims[0].citations[0].locator)[0];sourceButton.onclick();assert.equal(openedCitations[0].locator,a.grounded_claims[0].citations[0].locator);assert.equal(openedCitations[0].citation.evidence_quote,a.grounded_claims[0].citations[0].evidence_quote);
  assert.equal([...files.keys()].filter(p=>p.startsWith('ZETA/PERMANENT')).length,0);
  for(const [key,value] of Object.entries({target_path:'new',...fields})) { const input=find(modal.contentEl,n=>n.attr?.['data-review-field']===key)[0];assert.ok(input,key);input.value=value;await input.oninput(); }
- const prepareButton=find(modal.contentEl,n=>n.tag==='button'&&n.text==='변경 미리보기')[0];await prepareButton.onclick();
+ const prepareButton=find(modal.contentEl,n=>n.attr?.['data-action']==='prepare-document-review')[0];await prepareButton.onclick();
  const preview=find(modal.contentEl,n=>n.tag==='pre');assert.equal(preview.length,2);assert.ok(preview[1].text.includes(a.grounded_claims[0].text));
- const applyButton=find(modal.contentEl,n=>n.tag==='button'&&n.text==='승인한 변경 적용')[0];
+ const applyButton=find(modal.contentEl,n=>n.attr?.['data-action']==='apply-document-review')[0];
  await applyButton.onclick();assert.equal([...files.keys()].filter(p=>p.startsWith('ZETA/PERMANENT')).length,0);
  const checkbox=find(modal.contentEl,n=>n.attr?.type==='checkbox')[0];checkbox.checked=true;checkbox.onchange();assert.equal(applyButton.disabled,false);
  const condition=find(modal.contentEl,n=>n.attr?.['data-review-field']==='conditions')[0];condition.value='실내 모형만 — 사용자가 정정한 조건';condition.oninput();assert.equal(checkbox.checked,false);assert.equal(applyButton.disabled,true);
@@ -202,8 +202,9 @@ test('review modal renders exact preview and applies only after explicit checkbo
  const currentLabels=find(modal.contentEl,n=>n.tag==='label');
  const rationale=currentLabels.find(label=>label.children.some(n=>n.attr?.['data-review-field']==='rationale'));
  const steps=currentLabels.find(label=>label.children.some(n=>n.attr?.['data-review-field']==='steps'));
- assert.equal(rationale.hidden,true);assert.equal(steps.hidden,true);kind.value='procedure';kind.oninput();assert.equal(steps.hidden,false);assert.equal(rationale.hidden,true);
- kind.value='principle';kind.oninput();assert.equal(steps.hidden,true);assert.equal(rationale.hidden,false);
+ assert.equal(rationale.hidden,true);assert.equal(steps.hidden,true);
+ assert.equal(kind.disabled,true);
+ kind.value='principle';kind.oninput();assert.equal(rationale.hidden,true);
 });
 
 test('approved Wiki text is never recaptured as an independent Source',async()=>{
@@ -221,10 +222,10 @@ test('partial update survives modal close/reopen without another canonical write
   const b=await item(app,userEdit?'pending_edit':'pending_resume','경고등 점등은 즉시 중단 조건이다.');
   const modal=review.open({app,Modal,item:b});await modal.ready;
   for(const [key,value] of Object.entries({target_path:created.target_path,...fields})){const input=find(modal.contentEl,n=>n.attr?.['data-review-field']===key)[0];input.value=value;await input.oninput();}
-  await find(modal.contentEl,n=>n.tag==='button'&&n.text==='변경 미리보기')[0].onclick();
+  await find(modal.contentEl,n=>n.attr?.['data-action']==='prepare-document-review')[0].onclick();
   const modify=app.vault.modify;let failed=false,canonicalModifications=0;
   app.vault.modify=async(f,bytes)=>{if(f.path===created.target_path)canonicalModifications++;if(!failed&&f.path.includes('.llmwiki-audit/')&&bytes.includes('"result": "committed"')){failed=true;throw new Error('post write interruption');}return modify(f,bytes);};
-  let checkbox=find(modal.contentEl,n=>n.attr?.type==='checkbox')[0];checkbox.checked=true;checkbox.onchange();await find(modal.contentEl,n=>n.tag==='button'&&n.text==='승인한 변경 적용')[0].onclick();
+  let checkbox=find(modal.contentEl,n=>n.attr?.type==='checkbox')[0];checkbox.checked=true;checkbox.onchange();await find(modal.contentEl,n=>n.attr?.['data-action']==='apply-document-review')[0].onclick();
   assert.equal(failed,true);assert.equal(canonicalModifications,1);assert.equal((await flow.targets()).length,0);
   modal.close();
   if(userEdit)files.get(created.target_path).bytes+='\n후속 사용자 메모 — 보존해야 함\n';
@@ -232,10 +233,10 @@ test('partial update survives modal close/reopen without another canonical write
   const reopened=review.open({app,Modal,item:b});assert.equal(reopened,modal);await reopened.ready;
   assert.equal(find(reopened.contentEl,n=>n.tag==='pre').length,2);
   checkbox=find(reopened.contentEl,n=>n.attr?.type==='checkbox')[0];assert.equal(checkbox.checked,false);
-  const retry=find(reopened.contentEl,n=>n.tag==='button'&&n.text==='같은 승인 변경 재시도')[0];assert.equal(retry.disabled,true);await retry.onclick();assert.equal(canonicalModifications,1);
+  const retry=find(reopened.contentEl,n=>n.attr?.['data-action']==='apply-document-review')[0];assert.equal(retry.disabled,true);await retry.onclick();assert.equal(canonicalModifications,1);
   checkbox.checked=true;checkbox.onchange();await retry.onclick();assert.equal(canonicalModifications,1);assert.equal(files.get(created.target_path).bytes,beforeResume);
-  if(userEdit){assert.ok(find(reopened.contentEl,n=>n.attr?.role==='status')[0].text.includes('검토'));assert.equal((await flow.targets()).length,0);}
-  else{assert.equal((await flow.targets()).length,1);assert.ok(find(reopened.contentEl,n=>n.attr?.role==='status')[0].text.includes('완료'));}
+  if(userEdit){assert.equal(retry.disabled,true);assert.equal((await flow.targets()).length,0);}
+  else{assert.equal((await flow.targets()).length,1);assert.equal(find(reopened.contentEl,n=>n.attr?.['data-applied-document']===created.target_path).length,1);}
  }
 });
 test('existing processing plan restores an interrupted apply after runtime restart only with a fresh explicit decision',async()=>{
@@ -296,7 +297,7 @@ test('verified target reuses recorded scope while new-target switch clears inher
  input('target_path').value=made.target_path;await input('target_path').oninput();
  assert.equal(input('knowledge_domain').value,fields.knowledge_domain);assert.equal(input('conditions').value,fields.conditions);assert.equal(input('exclusions').value,'실외 금지');
  assert.equal(input('relation_status').value,'');assert.equal(input('evidence_strength').value,'');
- const inherited=find(modal.contentEl,n=>n.tag==='details'&&n.children.some(c=>c.text==='기존 분류·적용 조건 확인 및 수정'))[0];assert.ok(inherited);assert.ok(find(inherited,n=>n.attr?.['data-review-field']==='conditions').length);
+ const inherited=find(modal.contentEl,n=>n.attr?.['data-review-conditions']!==undefined)[0];assert.ok(inherited);assert.ok(find(inherited,n=>n.attr?.['data-review-field']==='conditions').length);
  const checkbox=find(modal.contentEl,n=>n.attr?.type==='checkbox')[0];checkbox.checked=true;
  input('target_path').value='new';await input('target_path').oninput();
  assert.equal(input('conditions').value,'');assert.equal(input('exclusions').value,'');assert.equal(input('knowledge_domain').value,'');assert.equal(find(modal.contentEl,n=>n.attr?.type==='checkbox')[0].checked,false);
@@ -310,9 +311,9 @@ test('failed conflict preparation keeps the complete proposed document visible',
  class Modal{constructor(){this.contentEl=new FakeElement('section');}open(){this.ready=this.onOpen();}}
  const modal=review.open({app,Modal,item:a});await modal.ready;
  for(const [key,value] of Object.entries({target_path:'new',...fields,relation_status:'conflict'})) {const input=find(modal.contentEl,n=>n.attr?.['data-review-field']===key)[0];input.value=value;await input.oninput();}
- await find(modal.contentEl,n=>n.tag==='button'&&n.text==='변경 미리보기')[0].onclick();
- assert.ok(find(modal.contentEl,n=>n.tag==='pre').some(n=>n.text===a.document_body));
- assert.equal(find(modal.contentEl,n=>n.tag==='button'&&n.text==='승인한 변경 적용')[0].disabled,true);
+ await find(modal.contentEl,n=>n.attr?.['data-action']==='prepare-document-review')[0].onclick();
+ assert.ok(find(modal.contentEl,n=>n.attr?.['data-document-body']!==undefined).some(n=>require('./knowledge_explorer_view_fakes.js').collectText(n).includes(a.grounded_claims[0].text)));
+ assert.equal(find(modal.contentEl,n=>n.attr?.['data-action']==='apply-document-review')[0].disabled,true);
  assert.equal([...files.keys()].filter(p=>p.startsWith('ZETA/PERMANENT')).length,0);
 });
 
@@ -342,18 +343,22 @@ test('new review suggests domain/topic candidates from related documents without
  await app.vault.create('ZETA/PERMANENT/관련.md','---\nknowledge_domain: coding\nknowledge_topics: ["ai"]\n---\n관련 본문\n');
  await app.vault.create('ZETA/PERMANENT/무관.md','---\nknowledge_domain: bogus\nknowledge_topics: ["invented"]\n---\n무관 본문\n');
  const a=await item(app,'cand','후보 문서 내용이다.');
+ a.classification='epistemic';
  a.related_knowledge=[{title:'관련',path:'ZETA/PERMANENT/관련.md',relation:'overlap'},{title:'무관',path:'ZETA/PERMANENT/무관.md',relation:'overlap'},{title:'없음',path:'ZETA/PERMANENT/없음.md',relation:'overlap'}];
  class Modal{constructor(){this.contentEl=new FakeElement('section');}open(){this.ready=this.onOpen();}}
  const modal=review.open({app,Modal,item:a});await modal.ready;
  const input=name=>find(modal.contentEl,n=>n.attr?.['data-review-field']===name)[0];
  assert.equal(input('knowledge_domain').value,'');
  assert.equal(input('knowledge_topics').value,'');
+ assert.equal(input('classification').value,'');
+ find(modal.contentEl,n=>n.attr?.['data-field-suggestion']==='classification')[0].onclick();
+ assert.equal(input('classification').value,'epistemic');
  const box=find(modal.contentEl,n=>n.attr?.['data-candidates']==='domain-topic')[0];
  assert.ok(box);
  const chip=text=>find(box,n=>n.tag==='button'&&n.text===text)[0];
- assert.ok(chip('도메인 coding (1)'));
- assert.ok(chip('주제 ai (1)'));
- assert.equal(chip('도메인 bogus (1)'),undefined);
+ assert.equal(find(box,n=>n.attr?.['data-candidate-domain']==='coding'&&!n.attr?.['data-candidate-topic']).length,1);
+ assert.equal(find(box,n=>n.attr?.['data-candidate-topic']==='ai').length,1);
+ assert.equal(find(box,n=>n.attr?.['data-candidate-domain']==='bogus').length,0);
  chip('주제 ai (1)').onclick();
  assert.equal(input('knowledge_domain').value,'coding');
  assert.equal(input('knowledge_topics').value,'ai');

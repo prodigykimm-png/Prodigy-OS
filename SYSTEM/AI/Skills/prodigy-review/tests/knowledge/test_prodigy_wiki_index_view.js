@@ -94,11 +94,12 @@ test("reviewed Wiki index surface searches current entries and exposes stale mod
   assert.equal(surface.getState().result.rows[0].title, "입찰가 판단");
   assert.equal(walk(mounted.root, (node) => node.getAttribute("data-reviewed-wiki-lifecycle") === "stale").length, 1);
 
+  walk(mounted.root, node => node.getAttribute("data-action") === "select-reviewed-wiki")[0].onclick();
   const documentButton = walk(mounted.root, (node) => node.getAttribute("data-action") === "open-reviewed-wiki")[0];
   const sourceButton = walk(mounted.root, (node) => node.getAttribute("data-action") === "open-reviewed-source")[0];
   const citationButton = walk(mounted.root, (node) => node.getAttribute("data-action") === "open-reviewed-citation")[0];
   const inspectButton = walk(mounted.root, (node) => node.getAttribute("data-action") === "inspect-reviewed-changes")[0];
-  assert.equal(inspectButton.getAttribute("data-primary"), "true");
+  assert.equal(inspectButton.getAttribute("data-primary"), "false");
   documentButton.onclick();
   sourceButton.onclick();
   citationButton.onclick();

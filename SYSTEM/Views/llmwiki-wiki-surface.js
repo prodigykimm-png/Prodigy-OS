@@ -1,7 +1,8 @@
 (function (root) {
   "use strict";
 
-  const MODE_LABELS = Object.freeze({ verified: "검증된 지식", literature: "문헌 자료", pending: "검토 대기", all: "전체 읽기" });
+  const MODE_LABELS = Object.freeze({ verified: "적용한 문서", literature: "문헌 자료", pending: "검토 대기", all: "기타 자료" });
+  let wikiUI = root.ProdigyWikiWorkspaceView || (typeof require === "function" ? require("./prodigy-wiki-workspace-view.js") : null);
   const TRUST_LABELS = Object.freeze({ verified: "검증됨", legacy_verified: "레거시 검증됨", literature: "문헌", pending: "검토 대기" });
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
@@ -58,6 +59,7 @@
 
 
   function mountLlmWikiWikiSurface(options) {
+    wikiUI ||= root.ProdigyWikiWorkspaceView;
     const opts = options || {};
     const container = opts.container;
     if (!container) throw new TypeError("container is required");
@@ -86,7 +88,7 @@
     let lastResultButton = null;
     let lastResultPath = "";
     let activeModal = null;
-    let activeModalPath = "";
+    let inlineDetailHost = null, chatOpen = false;
     let requestSequence = 0;
     let visibilityObserver = null;
     const session = opts.conversationSession || {};
@@ -307,8 +309,8 @@
       activeModal.close();
     }
     function renderDetailModal() {
-      if (!activeModal || !activeModal.contentEl) return;
-      const parent = activeModal.contentEl;
+      if (!inlineDetailHost && (!activeModal || !activeModal.contentEl)) return;
+      const parent = inlineDetailHost || activeModal.contentEl;
       empty(parent);
       addClass(parent, "llmwiki-wiki-detail-modal__content");
       const detail = state.selection && state.selection.path ? safeRows(state.result && (state.result.rows || state.result.results)).find((row) => row.path === state.selection.path) : null;
@@ -320,23 +322,26 @@
       const header = createEl(article, "header", { attr: { class: "llmwiki-wiki-detail-modal__header" } });
       createEl(header, "p", { text: `${TRUST_LABELS[detail.trust] || "읽기"} · ${detail.domain || "미분류"}`, attr: { class: "llmwiki-wiki-surface__result-meta" } });
       createEl(header, "h2", { text: detail.title || "제목 없음", attr: { id: "llmwiki-wiki-detail-title" } });
-      createEl(header, "p", { text: detail.path, attr: { class: "llmwiki-wiki-surface__result-meta" } });
+      if (detail.trust === "verified" && typeof opts.onContentAdd === "function") {
+        const add = createEl(header, "button", { text: "내용 추가", attr: { type: "button", "data-action": "add-document-content" } }); add.onclick = () => opts.onContentAdd(detail);
+      }
+      const documentDetails = createEl(header, "details"); createEl(documentDetails, "summary", { text: "상세 정보" }); createEl(documentDetails, "p", { text: detail.path });
       const scroll = createEl(article, "div", { attr: { class: "llmwiki-wiki-detail-modal__scroll" } });
       if (detail.statement || detail.summary) createEl(scroll, "p", { text: detail.statement || detail.summary, attr: { class: "llmwiki-wiki-detail-modal__summary" } });
       if (state.bodyState === "loading") createEl(scroll, "p", { text: "본문을 불러오는 중입니다.", attr: { class: "llmwiki-wiki-surface__status", role: "status", "aria-live": "polite" } });
-      else if (state.bodyState === "ready") createEl(scroll, "div", { text: state.body, attr: { class: "llmwiki-wiki-surface__body" } });
+      else if (state.bodyState === "ready") wikiUI.markdown(scroll, state.body, opts.renderMarkdown);
       else if (state.bodyState === "stale") createEl(scroll, "p", { text: "자료가 변경되어 본문을 표시하지 않았습니다. 닫은 뒤 다시 선택해 주세요.", attr: { class: "llmwiki-wiki-surface__status", "data-state": "stale", role: "alert" } });
       else if (state.bodyState === "error") createEl(scroll, "p", { text: "본문을 불러오지 못했습니다. 닫은 뒤 다시 선택해 주세요.", attr: { class: "llmwiki-wiki-surface__status", "data-state": "error", role: "alert" } });
       else createEl(scroll, "p", { text: "표시할 본문이 없습니다.", attr: { class: "llmwiki-wiki-surface__muted" } });
       const footer = createEl(article, "footer", { attr: { class: "llmwiki-wiki-detail-modal__footer" } });
       const close = createEl(footer, "button", { text: "닫기", attr: { type: "button", "data-action": "close-detail-modal" } });
-      close.onclick = closeDetailModal;
+      close.onclick = opts.inlineDetail ? () => clearSelection(true) : closeDetailModal;
     }
     function openDetailModal(path) {
+      if (opts.inlineDetail) { render(); return true; }
       if (!Modal || !appRef || !path) return false;
       const modal = new Modal(appRef);
       activeModal = modal;
-      activeModalPath = path;
       modal.onOpen = () => {
         if (modal.modalEl) {
           addClass(modal.modalEl, "llmwiki-wiki-detail-modal");
@@ -347,7 +352,6 @@
       modal.onClose = () => {
         if (activeModal !== modal) return;
         activeModal = null;
-        activeModalPath = "";
         clearSelection(true);
       };
       modal.open();
@@ -366,10 +370,9 @@
       }
       empty(rootEl);
       const header = createEl(rootEl, "header", { attr: { class: "llmwiki-wiki-surface__header" } });
-      createEl(header, "h2", { text: "Prodigy Wiki 검토", attr: { "data-surface-heading": "llmwiki-browse" } });
-      createEl(header, "p", { text: "검증된 스냅샷을 검색하고 읽습니다. 이 화면은 저장하지 않습니다.", attr: { class: "llmwiki-wiki-surface__muted" } });
+      if (!opts.inlineDetail) createEl(header, "h2", { text: MODE_LABELS[state.mode], attr: { "data-surface-heading": "llmwiki-browse" } });
       const statusText = state.status === "loading" ? "정리 결과를 불러오는 중입니다." : state.status === "error" ? "Prodigy Wiki 결과를 불러오지 못했습니다. 다시 시도해 주세요." : state.status === "stale" ? "원문이 변경되어 결과를 다시 확인해야 합니다." : state.status === "empty" ? "조건에 맞는 결과가 없습니다." : "읽기 전용 결과입니다.";
-      createEl(header, "p", { text: statusText, attr: { class: "llmwiki-wiki-surface__status", "data-state": state.status, role: state.status === "error" || state.status === "stale" ? "alert" : "status", "aria-live": "polite" } });
+      if (state.status !== "ready") createEl(header, "p", { text: statusText, attr: { class: "llmwiki-wiki-surface__status", "data-state": state.status, role: state.status === "error" || state.status === "stale" ? "alert" : "status", "aria-live": "polite" } });
       const controls = createEl(rootEl, "div", { attr: { class: "llmwiki-wiki-surface__controls" } });
       const form = createEl(controls, "form", { attr: { class: "llmwiki-wiki-surface__search", role: "search" } });
       const input = createEl(form, "input", { attr: { type: "search", value: state.query, placeholder: "검색어를 입력하세요", "aria-label": "Prodigy Wiki 검색어" } });
@@ -378,6 +381,9 @@
       form.onsubmit = (event) => { if (event && event.preventDefault) event.preventDefault(); applyBrowse({ query: input.value, selection: { ...state.selection, path: null, detail_state: "rest" } }); };
       const searchButton = createEl(form, "button", { text: "검색", attr: { type: "submit" } });
       if (typeof opts.getSelectedSource === "function") {
+        const toggle = createEl(controls, "button", { text: chatOpen ? "질문 닫기" : "원문에 질문", attr: { type: "button", "data-action": "toggle-source-question", "aria-expanded": String(chatOpen) } }); toggle.onclick = () => { chatOpen = !chatOpen; render(); };
+      }
+      if (chatOpen && typeof opts.getSelectedSource === "function") {
         const ask = createEl(form, "button", { text: "선택한 원문에 질문", attr: { type: "button", "data-action": "ask-source-question" } });
         ask.disabled = questionBusy;
         ask.onclick = () => askQuestion(input.value);
@@ -387,7 +393,7 @@
         chatInput.oncompositionstart = () => { composing = true; };
         chatInput.oncompositionend = () => { composing = false; };
         chatInput.oninput = () => { session.draft = chatInput.value; };
-        chatInput.onkeydown = event => { if (event.key === "Enter" && !event.shiftKey && !event.isComposing && !composing && event.keyCode !== 229) { event.preventDefault(); askQuestion(chatInput.value); } };
+        chatInput.onkeydown = event => { if (event.key === "Enter" && !event.shiftKey && !event.isComposing && !composing && event.keyCode !== 229) { event.preventDefault(); return askQuestion(chatInput.value); } };
         const send = createEl(controls, "button", { text: "질문 보내기", attr: { type: "button" } }); send.disabled = questionBusy; send.onclick = () => askQuestion(chatInput.value);
         const add = createEl(controls, "button", { text: "선택한 자료 추가", attr: { type: "button" } }); add.disabled = questionBusy; add.onclick = addSelectedSource;
         const wiki = createEl(controls, "button", { text: session.includeVerified ? "검증된 Wiki 제외" : "검증된 Wiki 포함", attr: { type: "button" } });
@@ -410,7 +416,7 @@
         if (questionReviewError) createEl(answerPanel, "p", { text: root.LLMWikiUIRecovery?.mapRecovery(questionReviewError)?.copy || `검토 전달 실패: ${questionReviewError.reason}. 답변은 보존되었습니다. 다시 시도할 수 있습니다.`, attr: { role: "alert" } });
         if (questionResult) {
           if (!questionResult.ok || questionResult.status === "abstain") createEl(answerPanel, "p", { text: questionResult.reason === "context_limit" ? "현재 대화·자료 한도를 넘었습니다. 내용을 삭제하지 않았습니다. 자료를 줄이거나 새 대화를 시작해 주세요." : questionResult.reason === "document_review_required" ? "여러 자료 또는 기존 Wiki를 반영하는 초안은 자료 정리의 문서 변경 검토에서 만들어 주세요." : root.LLMWikiUIRecovery?.mapRecovery(questionResult)?.copy || `실패 단계: ${questionResult.stage || "검증"} · ${questionResult.reason}. 저장하지 않았습니다.`, attr: { role: "status" } });
-          if (questionResult.context?.coverage_complete === false) createEl(answerPanel, "p", { text: "선택 자료 일부 근거만 확인했습니다. 조건·예외를 포함한 전체 요약은 아닙니다.", attr: { role: "status" } });
+          if (questionResult.context?.coverage_complete === false) createEl(answerPanel, "p", { text: "선택 자료 일부 근거만 확인했습니다. 조건·예외를 포함한 전체 요약은 아닙니다.", attr: { role: "status", "data-question-warning": "incomplete_coverage" } });
           const groups = new Map();
           for (const answer of questionResult.answers || []) { const key = answer.title || "답변"; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(answer); }
           let groupNumber = 0;
@@ -432,7 +438,8 @@
           }
         }
       }
-      const filterRow = createEl(controls, "div", { attr: { class: "llmwiki-wiki-surface__filters" } });
+      const filterDetails = createEl(controls, "details", { attr: { "data-library-filter": "" } }); createEl(filterDetails, "summary", { text: "필터" });
+      const filterRow = createEl(filterDetails, "div", { attr: { class: "llmwiki-wiki-surface__filters" } });
       const mode = createEl(filterRow, "select", { attr: { "aria-label": "읽기 모드" } });
       Object.entries(MODE_LABELS).forEach(([value, label]) => createEl(mode, "option", { text: label, attr: { value, selected: value === state.mode ? "selected" : undefined } }));
       mode.value = state.mode;
@@ -440,26 +447,29 @@
       const reset = createEl(filterRow, "button", { text: "필터 초기화", attr: { type: "button" } });
       reset.onclick = () => applyBrowse({ query: "", mode: "verified", domain: "", topic: "", reset: true, selection: { domain: "", topic: "", mode: "verified", path: null, detail_state: "rest" } });
       const content = createEl(rootEl, "div", { attr: { class: "llmwiki-wiki-surface__content" } });
-      const rail = createEl(content, "aside", { attr: { class: "llmwiki-wiki-surface__facet-rail prodigy-utility-card", "data-component": "WikiFacetRail", "aria-label": "Prodigy Wiki 필터" } });
+      const rail = createEl(filterDetails, "aside", { attr: { class: "llmwiki-wiki-surface__facet-rail prodigy-utility-card", "data-component": "WikiFacetRail", "aria-label": "Prodigy Wiki 필터" } });
       const facets = state.result && state.result.facets ? state.result.facets : { domains: [], topics: [] };
-      facetButtons(rail, "도메인", facets.domains, state.domain, "domain");
+      facetButtons(rail, "분야", facets.domains, state.domain, "domain");
       facetButtons(rail, "주제", facets.topics, state.topic, "topic");
       const resultsPanel = createEl(content, "section", { attr: { class: "llmwiki-wiki-surface__results prodigy-utility-card", "data-component": "WikiResultList", "aria-label": "Prodigy Wiki 결과" } });
       const rows = state.result ? safeRows(state.result.rows || state.result.results) : [];
       const listEl = createEl(resultsPanel, "ol", { attr: { class: "llmwiki-wiki-surface__result-list" } });
       rows.forEach((row) => {
         const li = createEl(listEl, "li");
-        const button = createEl(li, "button", { attr: { type: "button", class: "llmwiki-wiki-surface__result", "aria-haspopup": "dialog", "aria-expanded": activeModalPath === row.path ? "true" : "false", "data-result-path": row.path } });
+        const button = createEl(li, "button", { attr: { type: "button", class: "llmwiki-wiki-surface__result", "aria-haspopup": opts.inlineDetail ? "false" : "dialog", "aria-expanded": state.selection?.path === row.path ? "true" : "false", "data-result-path": row.path } });
         createEl(button, "span", { text: `${TRUST_LABELS[row.trust] || "읽기"} · ${row.title || row.path}`, attr: { class: "llmwiki-wiki-surface__result-title" } });
-        createEl(button, "span", { text: `${row.domain || "unclassified"} · ${row.path}`, attr: { class: "llmwiki-wiki-surface__result-meta" } });
+        createEl(button, "span", { text: `${row.domain || "미분류"} · ${(row.sources || []).map(source => wikiUI.title(source.source_path || source.locator || "")).filter(Boolean).join(" · ")}`, attr: { class: "llmwiki-wiki-surface__result-meta" } });
         button.onclick = () => {
           lastResultButton = button;
           lastResultPath = row.path;
+          if (row.trust === "verified" || row.trust === "legacy_verified") opts.onReadCanonical?.(row);
           applyBrowse({ selection: { ...state.selection, path: row.path, detail_state: "loading" }, path: row.path });
           openDetailModal(row.path);
         };
       });
       if (!rows.length) createEl(resultsPanel, "p", { text: state.status === "loading" ? "스냅샷을 준비하는 중입니다." : "표시할 결과가 없습니다.", attr: { class: "llmwiki-wiki-surface__muted" } });
+      inlineDetailHost = opts.inlineDetail && state.selection?.path ? createEl(rootEl, "section", { attr: { "data-inline-document": state.selection.path } }) : null;
+      if (inlineDetailHost) resultsPanel.hidden = true;
       renderDetailModal();
     }
 
@@ -483,7 +493,6 @@
           activeModal.close();
         }
         activeModal = null;
-        activeModalPath = "";
         empty(container);
         rootEl = null;
       }

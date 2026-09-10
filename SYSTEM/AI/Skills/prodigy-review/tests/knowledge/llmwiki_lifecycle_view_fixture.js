@@ -35,6 +35,8 @@ class FixtureElement {
     this.focused = false;
   }
 
+  get parentNode() { return this.parentElement; }
+  remove() { this.parentElement?.removeChild(this); }
   get firstChild() { return this.children[0] || null; }
   get tagName() { return this.tag.toUpperCase(); }
   get textContent() { return this.text; }
@@ -54,6 +56,7 @@ class FixtureElement {
   createSpan(options = {}) { return this.createEl("span", options); }
 
   appendChild(child) {
+    child.parentElement?.removeChild(child);
     child.parentElement = this;
     child.ownerDocument = this.ownerDocument;
     this.children.push(child);
@@ -73,11 +76,14 @@ class FixtureElement {
     this.text = "";
   }
 
+  setText(value) { this.empty(); this.text = String(value ?? ""); }
   setAttr(name, value) { this.setAttribute(name, value); }
   setAttribute(name, value) {
     this.attr[name] = String(value);
     if (name === "open") this.open = true;
     if (name === "disabled") this.disabled = true;
+    if (name === "value") this.value = String(value);
+    if (name === "hidden") this.hidden = true;
   }
   getAttribute(name) { return Object.prototype.hasOwnProperty.call(this.attr, name) ? this.attr[name] : null; }
   removeAttribute(name) {
@@ -138,7 +144,7 @@ function click(node) {
     else node.parentElement.removeAttribute("open");
   }
   if (typeof node.onclick === "function") node.onclick({ preventDefault() {}, stopPropagation() {}, currentTarget: node, target: node });
-  else if (node.tag !== "summary") return false;
+  else if (!["summary", "input"].includes(node.tag)) return false;
   if (node.tag === "input" && typeof node.onchange === "function") node.onchange({ currentTarget: node, target: node });
   return true;
 }

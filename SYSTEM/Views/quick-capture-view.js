@@ -136,10 +136,10 @@
     if (container.__prodigyQuickCapture && typeof container.__prodigyQuickCapture.dispose === "function") container.__prodigyQuickCapture.dispose();
 
     const doc = container.ownerDocument || (typeof document !== "undefined" ? document : null);
-    const owner = runtime().mountTrustedInteractions({ root: container, document: doc, scope: opts.scope || null, session_id: sessionId });
+    const owner = runtime().mountTrustedInteractions({ root: opts.interactionRoot || container, document: doc, scope: opts.scope || null, session_id: sessionId });
 
     const row = container.createEl("div", { attr: { class: "quick-capture-row", role: "group", "aria-label": "빠른 캡처" } });
-    row.createEl("div", { text: "빠른 캡처", attr: { class: "quick-capture-label" } });
+    row.createEl(opts.materialOnly ? "h2" : "div", { text: opts.materialOnly ? "자료 추가" : "빠른 캡처", attr: { class: "quick-capture-label" } });
     const makeTrigger = (action, label, title) => {
       const trigger = row.createEl("button", { text: label, attr: { type: "button", class: "quick-capture-trigger", "data-quick-capture-action": action, "aria-label": label, title } });
       trigger.onclick = () => openEditor(action);
@@ -147,18 +147,24 @@
     };
     const thoughtTrigger = makeTrigger("thought", "생각 저장", "생각을 한 줄로 저장합니다.");
     const materialTrigger = makeTrigger("material", "자료 넣기", "자료를 붙여 넣어 INBOX로 보냅니다.");
+    if (opts.materialOnly) { thoughtTrigger.hidden = true; materialTrigger.hidden = true; }
     const editor = row.createEl("div", { attr: { class: "quick-capture-editor", role: "group", "aria-label": "빠른 캡처 입력", hidden: true } });
     const titleInput = editor.createEl("input", { attr: { type: "text", class: "quick-capture-title", "aria-label": "자료 제목 (선택)", placeholder: "제목 (선택)" } });
     const textInput = editor.createEl("textarea", { attr: { class: "quick-capture-input", "aria-label": "캡처 내용", placeholder: "캡처할 내용" } });
-    const actionsRow = editor.createEl("div", { attr: { class: "quick-capture-actions" } });
-    const saveButton = actionsRow.createEl("button", { text: "저장", attr: { type: "button", class: "quick-capture-save", "aria-label": "저장" } });
+    if (opts.materialOnly) {
+      titleInput.setAttr("placeholder", "제목 (선택)"); titleInput.setAttr("aria-label", "제목 (선택)");
+      textInput.setAttr("placeholder", "내용"); textInput.setAttr("aria-label", "내용");
+      editor.createEl("p", { text: "받은 자료에 저장" });
+    }
+    const actionsRow = (opts.decisionContainer || editor).createEl("div", { attr: { class: "quick-capture-actions", "data-decision-actions": "" } });
+    const saveButton = actionsRow.createEl("button", { text: opts.materialOnly ? "자료 저장" : "저장", attr: { type: "button", class: "quick-capture-save", "aria-label": "저장", "data-primary": String(Boolean(opts.materialOnly)) } });
     const cancelButton = actionsRow.createEl("button", { text: "취소", attr: { type: "button", class: "quick-capture-cancel", "aria-label": "취소" } });
     const status = row.createEl("div", { attr: { class: "quick-capture-status", role: "status" } });
 
     let mode = null;
     let saving = false;
     const inputValue = () => String(textInput.value == null ? "" : textInput.value);
-    const syncSave = () => { saveButton.disabled = !inputValue().trim(); };
+    const syncSave = () => { saveButton.disabled = saving || !inputValue().trim(); };
     const setExpanded = (trigger, expanded) => setElAttr(trigger, "aria-expanded", String(expanded));
     const showStatus = (message) => setElText(status, message);
     const focusTrigger = (previous) => { const trigger = previous === "material" ? materialTrigger : thoughtTrigger; if (typeof trigger.focus === "function") trigger.focus(); };
@@ -197,7 +203,7 @@
         closeEditor();
         showStatus(`저장됨: ${receipt.path}`);
         if (notify) notify(`저장됨: ${receipt.path}`);
-        if (typeof opts.onSaved === "function") opts.onSaved(Object.freeze({ mode: savedMode, receipt }));
+        if (typeof opts.onSaved === "function") await opts.onSaved(Object.freeze({ mode: savedMode, receipt }));
       } catch (error) {
         showStatus(String(error && error.message || error));
       } finally {
@@ -205,24 +211,41 @@
         syncSave();
       }
     };
+    const requestClose = () => {
+      if (saving) return false;
+      if (opts.materialOnly && (inputValue().trim() || String(titleInput.value || "").trim())) {
+        let discard = row.querySelector?.('[data-discard-material]');
+        if (!discard) {
+          discard = row.createEl("div", { attr: { "data-discard-material": "", role: "alert" } });
+          discard.createEl("p", { text: "입력한 자료를 버릴까요?" });
+          const keep = discard.createEl("button", { text: "계속 작성", attr: { type: "button" } }); keep.onclick = () => { discard.remove?.(); textInput.focus?.(); };
+          const remove = discard.createEl("button", { text: "입력 버리기", attr: { type: "button", "data-action": "discard-material" } }); remove.onclick = () => { closeEditor(); opts.onClose?.(); };
+        }
+        return false;
+      }
+      const previous = mode; closeEditor(); if (opts.materialOnly) opts.onClose?.(); else focusTrigger(previous); return true;
+    };
     textInput.onkeydown = (event) => {
       if (!event) return;
-      if (event.key === "Escape") { if (typeof event.preventDefault === "function") event.preventDefault(); const previous = mode; closeEditor(); focusTrigger(previous); return; }
+      if (event.key === "Escape") { event.preventDefault?.(); event.stopPropagation?.(); requestClose(); return; }
       if (mode === "thought" && event.key === "Enter") { if (typeof event.preventDefault === "function") event.preventDefault(); performSave(); }
     };
     titleInput.onkeydown = (event) => {
-      if (event && event.key === "Escape") { if (typeof event.preventDefault === "function") event.preventDefault(); const previous = mode; closeEditor(); focusTrigger(previous); }
+      if (event && event.key === "Escape") { event.preventDefault?.(); event.stopPropagation?.(); requestClose(); }
     };
     const onInput = () => { syncSave(); };
     textInput.oninput = onInput;
     titleInput.oninput = onInput;
     saveButton.onclick = () => performSave();
-    cancelButton.onclick = () => { const previous = mode; closeEditor(); focusTrigger(previous); };
+    cancelButton.onclick = requestClose;
 
     closeEditor();
+    if (opts.materialOnly) openEditor("material");
     const handle = Object.freeze({
       sessionId,
       row,
+      requestClose,
+      openMaterial: () => openEditor("material"),
       dispose() {
         if (container.__prodigyQuickCapture === handle) delete container.__prodigyQuickCapture;
         owner.dispose();

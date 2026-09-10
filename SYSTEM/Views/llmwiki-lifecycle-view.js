@@ -24,6 +24,7 @@
   const recoveryApi = root.LLMWikiUIRecovery || (typeof require === "function" ? require("./llmwiki-ui-recovery.js") : null);
   const prodigyWikiApi = root.ProdigyWikiController || (typeof require === "function" ? require("./prodigy-wiki-controller.js") : null);
   const CSS = "";
+  let wikiUI = root.ProdigyWikiWorkspaceView || (typeof require === "function" ? require("./prodigy-wiki-workspace-view.js") : null);
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function text(value) { return typeof value === "string" ? value.trim() : ""; }
@@ -156,7 +157,10 @@
     const goldenPriority = goldenWiki && ["consent_required", "running", "complete", "scope_required", "failed"].includes(text(goldenWiki.status));
     const explicitSourceSelection = snapshot.status === "selecting" && plain(snapshot.source_selection) && snapshot.source_selection.selected === true;
     const explicitSourcePicker = snapshot.status === "selecting" && Array.isArray(snapshot.source_options) && snapshot.source_options.length > 0;
-    if (goldenPriority) productState = snapshot.status;
+    if (operation.status === "committed") productState = followUp?.refresh?.status === "failed" ? "operation_refresh_failed"
+      : ["pending", "running"].includes(followUp?.refresh?.status) ? "operation_refresh_pending"
+        : followUp?.git?.status === "failed" ? "git_failed" : ["pending", "running"].includes(followUp?.git?.status) ? "git_pending" : "committed";
+    else if (goldenPriority) productState = snapshot.status;
     else if (risks.length && ["review", "review_only"].includes(snapshot.status)) productState = "review";
     else if (explicitSourceSelection || explicitSourcePicker) productState = "selecting";
     else if (inbox && ["blocked", "outcome_unknown"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
@@ -205,6 +209,7 @@
   }
 
   function mountLlmWikiLifecycleView(options = {}) {
+    wikiUI ||= root.ProdigyWikiWorkspaceView;
     const container = options.container;
     if (!container) throw new TypeError("container is required");
     if (!validSnapshot(options.snapshot)) throw new TypeError("valid controller snapshot is required");
@@ -212,7 +217,12 @@
 
     let snapshot = options.snapshot;
     let pendingAction = null;
-    let frame = null;
+    let frame = null, decision = null, pickerOpen = false, tentativeSource = "", tentativeRange = "";
+    let stateDetails = null, retainedRisk = null, appliedRisk = false;
+    const detailHost = parent => {
+      if (!stateDetails) { stateDetails = createEl(parent, "details", { attr: { "data-disclosure": "state-details" } }); createEl(stateDetails, "summary", { text: "상세 정보" }); }
+      return stateDetails;
+    };
     if (stylesApi && typeof stylesApi.ensureStyles === "function") stylesApi.ensureStyles(container.ownerDocument);
     function currentProdigyWikiModel() {
       return prodigyWikiApi && typeof prodigyWikiApi.deriveViewModel === "function"
@@ -241,7 +251,8 @@
         if (buttonOptions.confirmMessage
           && typeof root.confirm === "function"
           && root.confirm(buttonOptions.confirmMessage) !== true) return;
-        dispatch(intent);
+        if (intent.action === "select_source" && !intent.source_path) { appliedRisk = false; retainedRisk = null; pickerOpen = true; tentativeSource = ""; render(); return; }
+        return dispatch(intent);
       };
       return control;
     }
@@ -249,6 +260,7 @@
     function dispatch(intent) {
       if (pendingAction !== null || !plain(intent) || typeof intent.action !== "string") return false;
       pendingAction = intent.action;
+      if (intent.action === "approve_risk") retainedRisk = snapshot.risk_packets?.find(packet => packet.packet_id === intent.packet_id) || null;
       for (const control of descendants(frame, (node) => attribute(node, "data-intent-action") === intent.action)) {
         control.disabled = true;
         setAttr(control, "disabled", "");
@@ -257,15 +269,19 @@
       let result;
       try { result = options.onAction(Object.freeze({ ...intent })); }
       catch (error) { pendingAction = null; render(); throw error; }
-      if (result && typeof result.then === "function") {
-        Promise.resolve(result).finally(() => {
-          if (pendingAction === intent.action) {
-            pendingAction = null;
-            render();
-          }
-        });
-      }
-      return true;
+      const settled = response => {
+        const sourceConfirmed = intent.action === "select_source" && intent.source_path;
+        if (sourceConfirmed) pickerOpen = response?.ok !== true;
+        if (intent.action === "approve_risk" && retainedRisk && response?.ok === true && ["committed", "completed", "processed"].includes(response.status)) appliedRisk = true;
+        if (pendingAction === intent.action || appliedRisk || sourceConfirmed) { pendingAction = null; render(); }
+        if (response?.ok === false && !["failed", "stale_reconfirm_required", "committed_audit_pending", "committed_refresh_failed"].includes(snapshot.status)) {
+          statusRegion(frame, recoveryApi?.mapRecovery?.(response)?.copy || `확인할 항목: ${response.reason}`, "error");
+        }
+        return response;
+      };
+      if (result?.then) return Promise.resolve(result).then(settled, error => { pendingAction = null; render(); statusRegion(frame, `작업 실패: ${error.message}`, "error"); throw error; });
+      // Synchronous controllers acknowledge through update(); do not fabricate a transition.
+      return result === undefined ? true : result;
     }
 
     function statusRegion(parent, copy, state = "info") {
@@ -300,19 +316,14 @@
       const name = sourceName(snapshot);
       const source = plain(snapshot.source_selection) ? snapshot.source_selection : {};
       if (!name) return null;
-      createEl(parent, "p", { text: "선택한 자료를 기준으로 정리합니다.", attr: { "data-source-selected-status": "confirmed" } });
-      const section = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source prodigy-utility-card", "aria-label": "선택한 자료", "data-source-selected-card": "" } });
-      createEl(section, "h3", { text: "선택한 자료" });
-      createEl(section, "strong", { text: name, attr: { class: "llmwiki-lifecycle__source-name", "data-selected-source-title": "" } });
+      const section = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source", "aria-label": "자료와 범위", "data-source-selected-card": "" } });
+      createEl(section, "h2", { text: name, attr: { class: "llmwiki-lifecycle__source-name", "data-selected-source-title": "" } });
       const selectedRange = plain(snapshot.prodigy_wiki?.range)
         ? snapshot.prodigy_wiki.range : plain(snapshot.golden_wiki?.scope) ? snapshot.golden_wiki.scope : null;
-      if (selectedRange) {
-        createEl(section, "p", { text: `정리할 범위 · ${text(selectedRange.title)}`, attr: { "data-selected-range": text(selectedRange.scope_id || selectedRange.range_id) } });
-        if (text(selectedRange.preview)) createEl(section, "p", { text: text(selectedRange.preview), attr: { class: "llmwiki-lifecycle__muted", "data-selected-range-preview": "" } });
-      }
-      createEl(section, "p", { text: snapshot.source_question_sent === true ? "질문에 필요한 원문 근거를 외부 AI에 전송했습니다. 답변과 지식 초안은 아직 승인되지 않았습니다." : "아직 외부 AI로 전송되지 않았습니다.", attr: { "data-selected-source-boundary": snapshot.source_question_sent === true ? "question-sent" : "pre-consent" } });
-      const details = createEl(section, "details", { attr: { "data-disclosure": "source-execution-details" } });
-      createEl(details, "summary", { text: "실행 정보" });
+      createEl(section, "p", { text: `정리 범위: ${selectedRange ? text(selectedRange.title) : "전체 자료"}`, attr: { "data-selected-range": text(selectedRange?.scope_id || selectedRange?.range_id) } });
+      const excerpt = selectedRange?.preview || snapshot.prodigy_wiki?.source?.preview || source.preview;
+      if (excerpt) createEl(section, "p", { text: excerpt, attr: { class: "wiki-source-excerpt", "data-selected-range-preview": "" } });
+      const details = detailHost(parent);
       if (text(source.source_path)) createEl(details, "code", { text: text(source.source_path), attr: { "data-selected-source-path": "" } });
       if (text(source.content_hash)) createEl(details, "p", { text: `선택 당시 원문 · ${text(source.content_hash).slice(0, 12)}`, attr: { "data-selected-source-revision": text(source.content_hash) } });
       createEl(details, "p", { text: `${source.source_kind === "inbox" ? "내 자료" : "문헌"} · AI Runtime 연결`, attr: { "data-selected-source-technical-boundary": "" } });
@@ -352,27 +363,6 @@
       }
       if (text(snapshot.provider_selection_error)) createEl(section, "p", { text: text(snapshot.provider_selection_error), attr: { class: "llmwiki-lifecycle__provider-error", role: "alert" } });
       return section;
-    }
-
-    function runSettings(parent) {
-      providerPicker(parent);
-      const details = createEl(parent, "details", { attr: { class: "llmwiki-lifecycle__advanced", "data-disclosure": "run-settings" } });
-      createEl(details, "summary", { text: "실행 정보 및 설정", attr: { "data-focus-key": "advanced-run-settings" } });
-      const settings = createEl(details, "div", { attr: { class: "llmwiki-lifecycle__settings" } });
-      createEl(settings, "h3", { text: "AI Runtime" });
-      createEl(settings, "p", { text: "Provider와 route는 외부 AI Runtime 설정에서 관리합니다.", attr: { class: "llmwiki-lifecycle__muted" } });
-      createEl(settings, "h3", { text: "제안 유형" });
-      const createLabel = createEl(settings, "label", { attr: { class: "llmwiki-lifecycle__setting" } });
-      const createInput = createEl(createLabel, "input", { attr: { type: "checkbox", "data-operation": "create", "aria-label": OPERATION_LABELS.create } });
-      createInput.checked = true;
-      createEl(createLabel, "span", { text: `${OPERATION_LABELS.create} · 1단계 지원` });
-      for (const operation of ["update", "merge", "dispute"]) {
-        const label = createEl(settings, "label", { attr: { class: "llmwiki-lifecycle__setting" } });
-        createEl(label, "input", { attr: { type: "checkbox", "data-operation": operation, "aria-label": `${OPERATION_LABELS[operation]} · 1단계에서 지원하지 않음` }, disabled: true });
-        createEl(label, "span", { text: `${OPERATION_LABELS[operation]} · 1단계에서 지원하지 않음` });
-      }
-      createEl(settings, "p", { text: `${OPERATION_LABELS.abstain}와 ${OPERATION_LABELS.no_change}은 저장 권한을 만들지 않습니다.`, attr: { class: "llmwiki-lifecycle__muted" } });
-      return details;
     }
 
     function renderMigration(parent, projected) {
@@ -441,142 +431,114 @@
     }
 
     function renderIdle(parent, copy = "") {
-      const model = currentProdigyWikiModel();
       const intro = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__intro prodigy-full-bleed" } });
-      createEl(intro, "h3", { text: model.title });
-      createEl(intro, "p", { text: copy || model.description });
-      const actions = actionRow(intro);
-      actionButton(actions, model.primary_label || "자료 선택", "select-source", { action: "select_source" }, { primary: true });
+      createEl(intro, "h2", { text: options.getIntendedTarget?.() ? "추가할 자료를 선택하세요" : "정리할 자료를 선택하세요" });
+      createEl(intro, "p", { text: copy || "AI가 변경안을 준비하고, 승인한 내용만 문서에 적용합니다." });
+      actionButton(decision, "자료 선택", "select-source", { action: "select_source" }, { primary: true });
     }
 
-    function renderSelecting(parent) {
-      const name = sourceName(snapshot);
-      const golden = plain(snapshot.golden_wiki) ? snapshot.golden_wiki : {};
-      const model = currentProdigyWikiModel();
-      statusRegion(parent, model.title);
-      createEl(parent, "p", { text: model.description, attr: { class: "llmwiki-lifecycle__muted" } });
-      if (name) sourceContext(parent);
+    function renderPicker(parent) {
+      const optionsList = sourceOptions(snapshot).filter(row => row.eligible !== false && row.blocked !== true);
+      createEl(parent, "h2", { text: options.getIntendedTarget?.() ? "추가할 자료를 선택하세요" : "정리할 자료를 선택하세요" });
+      if (options.getIntendedTarget?.()) createEl(parent, "p", { text: `대상: ${wikiUI.title(options.getIntendedTarget())}` });
+      const search = createEl(parent, "input", { attr: { type: "search", placeholder: "제목 또는 경로 검색", "aria-label": "제목 또는 경로 검색" } });
+      const choices = createEl(parent, "div", { attr: { "data-source-choices": "", role: "radiogroup", "aria-label": "자료 선택" } });
+      const rows = optionsList.map(option => {
+        const row = createEl(choices, "button", { attr: { type: "button", role: "radio", "aria-checked": String(option.path === tentativeSource), "data-source-option": option.path } });
+        createEl(row, "span", { text: option.title }); createEl(row, "small", { text: option.source_kind === "inbox" ? "내 자료" : "문헌" });
+        const check = createEl(row, "span", { text: "✓", attr: { "aria-hidden": "true" } }); check.hidden = option.path !== tentativeSource;
+        row.onclick = () => { tentativeSource = option.path; rows.forEach(entry => { setAttr(entry.row, "aria-checked", String(entry.option.path === tentativeSource)); entry.check.hidden = entry.option.path !== tentativeSource; }); confirm.disabled = false; };
+        return { row, option, check };
+      });
+      search.oninput = () => { const query = text(search.value).toLocaleLowerCase("ko"); rows.forEach(({ row, option }) => row.hidden = !`${option.title} ${option.path}`.toLocaleLowerCase("ko").includes(query)); };
+      const cancel = createEl(decision, "button", { text: "취소", attr: { type: "button", "data-action": "cancel-source-picker" } });
+      cancel.onclick = () => { pickerOpen = false; tentativeSource = ""; if (snapshot.prodigy_wiki?.picker_open) dispatch({ action: "cancel_picker" }); else render(); options.onPickerCancel?.(); };
+      const confirm = createEl(decision, "button", { text: optionsList.length ? "선택 완료" : "자료 추가", attr: { type: "button", "data-action": "confirm-source-selection", "data-primary": "true" } });
+      confirm.disabled = optionsList.length > 0 && !tentativeSource;
+      confirm.onclick = () => { if (!optionsList.length) return options.workspace?.onCapture?.(); if (!tentativeSource) return; return dispatch({ action: "select_source", source_path: tentativeSource }); };
+      if (!optionsList.length) createEl(parent, "p", { text: "선택할 자료가 없습니다." });
+      if (snapshot.source_selection?.blocked_reason) createEl(parent, "p", { text: `! ${snapshot.source_selection.blocked_reason}`, attr: { role: "alert" } });
+    }
+
+    function renderWorkspaceSelecting(parent) {
+      if (!sourceName(snapshot)) return renderPicker(parent);
+      const golden = snapshot.golden_wiki || {};
       if (golden.status === "scope_required") {
-        const result = plain(golden.result) ? golden.result : {};
-        const execution = createEl(parent, "details", { attr: { "data-disclosure": "range-execution-details" } });
-        createEl(execution, "summary", { text: "실행 정보" });
-        createEl(execution, "p", { text: `전체 자료 · ${Number(result.chunks || 0)}개 분석 단위 · 최대 ${Number(result.packs || 0)}회 연결`, attr: { "data-golden-scope-estimate": "" } });
-        const scopePanel = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source", "data-golden-scope-picker": "", "aria-label": "정리할 범위 선택" } });
-        createEl(scopePanel, "h3", { text: "정리할 범위" });
-        const search = createEl(scopePanel, "input", { attr: { type: "search", placeholder: "제목 검색", "aria-label": "정리할 범위 검색", "data-range-search": "true" } });
-        const treeHost = createEl(scopePanel, "div", { attr: { class: "llmwiki-lifecycle__range-tree", "data-range-tree": "" } });
-        const sizeLabels = { short: "짧음", medium: "보통", large: "큼" };
-        const rangeTree = Array.isArray(result.range_tree) && result.range_tree.length
-          ? result.range_tree : Array.isArray(result.scopes) ? result.scopes.map((scope) => ({ ...scope, children: [] })) : [];
-        function mountRange(range, host) {
-          const children = Array.isArray(range.children) ? range.children : [];
-          const row = createEl(host, children.length ? "details" : "article", {
-            attr: {
-              class: "llmwiki-lifecycle__range",
-              "data-range-id": text(range.range_id || range.scope_id),
-              "data-range-size": text(range.size) || "short",
-            },
-          });
-          if (children.length) createEl(row, "summary", { text: text(range.title) });
-          else createEl(row, "h4", { text: text(range.title) });
-          createEl(row, "span", { text: sizeLabels[text(range.size)] || "보통", attr: { class: "llmwiki-lifecycle__muted", "data-range-size-label": "" } });
-          if (text(range.preview)) createEl(row, "p", { text: text(range.preview), attr: { class: "llmwiki-lifecycle__muted", "data-range-preview": text(range.range_id || range.scope_id) } });
-          const select = actionButton(row, "이 범위 선택", "select-golden-scope", { action: "select_golden_scope", scope_id: range.scope_id });
-          setAttr(select, "data-select-range-id", text(range.range_id || range.scope_id));
-          const record = { range, row, children: [] };
-          if (children.length) {
-            const childHost = createEl(row, "div", { attr: { class: "llmwiki-lifecycle__range-children" } });
-            record.children = children.map((child) => mountRange(child, childHost));
-          }
-          return record;
-        }
-        const selectedContext = plain(snapshot.prodigy_wiki?.range) ? snapshot.prodigy_wiki.range : null;
-        let rangeContext = null;
-        let rangeMount = treeHost;
-        if (selectedContext && rangeTree.length) {
-          rangeContext = createEl(treeHost, "details", { attr: { class: "llmwiki-lifecycle__range-context", "data-range-context": text(selectedContext.scope_id || selectedContext.range_id) } });
-          createEl(rangeContext, "summary", { text: text(selectedContext.title) });
-          rangeMount = createEl(rangeContext, "div", { attr: { class: "llmwiki-lifecycle__range-children" } });
-        }
-        const mountedRanges = rangeTree.map((range) => mountRange(range, rangeMount));
-        const containsQuery = (record, query) => text(record.range.title).toLocaleLowerCase("ko").includes(query)
-          || record.children.some((child) => containsQuery(child, query));
-        const applyFilter = (record, query, ancestorMatched = false) => {
-          const own = text(record.range.title).toLocaleLowerCase("ko").includes(query);
-          const visible = !query || ancestorMatched || own || record.children.some((child) => containsQuery(child, query));
-          record.row.hidden = !visible;
-          if (query && visible && record.children.length) record.row.open = true;
-          for (const child of record.children) applyFilter(child, query, ancestorMatched || own);
+        createEl(parent, "h2", { text: sourceName(snapshot) });
+        createEl(parent, "p", { text: "자료가 큽니다. 먼저 정리할 부분을 선택하세요." });
+        const search = createEl(parent, "input", { attr: { type: "search", placeholder: "제목 검색", "aria-label": "정리할 범위 검색", "data-range-search": "true" } });
+        const rows = [];
+        const mountRange = (range, host) => {
+          const row = createEl(host, "label", { attr: { "data-range-id": range.range_id || range.scope_id } });
+          const input = createEl(row, "input", { attr: { type: "radio", name: "source-range", value: range.scope_id, "data-select-range-id": range.range_id || range.scope_id } });
+          input.checked = tentativeRange === range.scope_id;
+          input.onchange = () => { tentativeRange = range.scope_id; rows.forEach(entry => entry.input.checked = entry.range.scope_id === tentativeRange); confirm.disabled = false; };
+          createEl(row, "strong", { text: range.title });
+          createEl(row, "small", { text: ({ short: "짧음", medium: "보통", large: "큼" })[range.size] || "보통" });
+          createEl(row, "p", { text: range.preview || "", attr: { class: "wiki-source-excerpt", "data-range-preview": range.range_id || range.scope_id } });
+          rows.push({ row, range, input });
+          for (const child of range.children || []) mountRange(child, host);
         };
-        search.oninput = () => {
-          const query = text(search.value).toLocaleLowerCase("ko");
-          for (const record of mountedRanges) applyFilter(record, query);
-          if (rangeContext) rangeContext.open = Boolean(query);
-        };
+        const tree = createEl(parent, "section", { attr: { "data-range-tree": "" } });
+        for (const range of golden.result?.range_tree || golden.result?.scopes || []) mountRange(range, tree);
+        search.oninput = () => { const query = text(search.value).toLocaleLowerCase("ko"); rows.forEach(({ row, range }) => row.hidden = !text(range.title).toLocaleLowerCase("ko").includes(query)); };
+        actionButton(decision, "자료 변경", "select-source", { action: "select_source" });
+        const confirm = actionButton(decision, "이 범위 선택", "confirm-range", { action: "select_golden_scope" }, { primary: true }); confirm.disabled = !tentativeRange;
+        confirm.onclick = () => tentativeRange && dispatch({ action: "select_golden_scope", scope_id: tentativeRange });
+        createEl(detailHost(parent), "pre", { text: JSON.stringify(golden.result?.limits || { chunks: golden.result?.chunks, packs: golden.result?.packs }, null, 2) });
+        return;
       }
+      sourceContext(parent);
       const actions = actionRow(parent);
-      actionButton(actions, name ? "자료 다시 선택" : "자료 선택", "select-source", { action: "select_source" });
-      if (!name) {
-        const options = sourceOptions(snapshot);
-        if (options.length) {
-          const picker = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__source", "aria-label": "분석할 자료 선택" } });
-          createEl(picker, "h3", { text: "분석할 자료" });
-          const search = createEl(picker, "input", { attr: { type: "search", placeholder: "제목 또는 경로 검색", "aria-label": "분석할 자료 검색" } });
-          const choices = createEl(picker, "div", { attr: { "data-source-choices": "" } });
-          const rows = options.map((option) => {
-            const button = actionButton(choices, `${option.source_kind === "inbox" ? "내 자료 · " : "문헌 · "}${option.title}`, "select-source-option", { action: "select_source", source_path: option.path }, { ariaLabel: `${option.title} 선택` });
-            return { option, button };
-          });
-          search.oninput = () => {
-            const query = text(search.value).toLocaleLowerCase("ko");
-            for (const row of rows) row.button.hidden = Boolean(query) && !`${row.option.title} ${row.option.path}`.toLocaleLowerCase("ko").includes(query);
-          };
-        }
+      actionButton(actions, "자료 변경", "select-source", { action: "select_source" });
+      actionButton(actions, "범위 변경", "change-range", { action: "change_golden_range" });
+      actionButton(actions, "원문 열기", "open-selected-source", { action: "open_selected_source" });
+      createEl(decision, "p", { text: "다음 화면에서 외부 AI 전송 범위를 확인합니다.", attr: { "data-decision-status": "" } });
+      actionButton(decision, "정리하기", "request-consent", { action: "request_consent" }, { primary: true });
+      if (snapshot.provider_selection_error) {
+        statusRegion(parent, "AI 연결 설정을 확인해야 합니다.", "error");
+        createEl(detailHost(parent), "p", { text: snapshot.provider_selection_error });
+        actionButton(parent, "AI 설정 열기", "open-ai-settings", { action: "open_ai_settings" });
       }
-      if (name && golden.status !== "scope_required") actionButton(actions, model.primary_label || "Prodigy Wiki 만들기", "request-consent", { action: "request_consent" }, { primary: true });
-      runSettings(parent);
     }
 
     function renderConsent(parent) {
-      const golden = plain(snapshot.golden_wiki) && snapshot.golden_wiki.status === "consent_required";
-      const model = currentProdigyWikiModel();
-      statusRegion(parent, golden ? model.title : "AI 제안을 만들기 전에 외부 전송 동의가 필요합니다.");
+      createEl(parent, "h2", { text: "외부 AI로 보낼 내용을 확인하세요" });
       sourceContext(parent);
-      createEl(parent, "p", { text: golden ? model.description : "AI는 제안만 만듭니다. 사람이 승인하기 전에는 지식으로 저장되지 않습니다." });
-      const actions = actionRow(parent);
-      actionButton(actions, golden ? model.primary_label : "동의하고 제안 만들기", "start-run", { action: "start_run" }, { primary: true });
-      actionButton(actions, "취소", "cancel-run", { action: "cancel" });
-      runSettings(parent);
+      const provider = providerPicker(parent); if (provider) provider.open = true;
+      createEl(parent, "p", { text: "선택한 범위를 외부 AI로 보냅니다. 정식 문서는 승인 전까지 변경하지 않습니다." });
+      const scope = actionButton(parent, "전송 내용 보기", "inspect-outbound-scope", { action: "inspect_outbound_scope" });
+      if (options.onInspectScope) scope.onclick = () => options.onInspectScope(snapshot, scope);
+      actionButton(parent, "AI 설정", "open-ai-settings", { action: "open_ai_settings" });
+      actionButton(decision, "취소", "cancel-run", { action: "cancel" });
+      actionButton(decision, "동의하고 정리하기", "start-run", { action: "start_run" }, { primary: true });
     }
 
     function renderProgress(parent) {
       const committing = snapshot.status === "committing";
       const golden = plain(snapshot.golden_wiki) && snapshot.golden_wiki.status === "running";
       const model = currentProdigyWikiModel();
-      const stageLabels = { preflight: "정리할 범위를 확인하고 있습니다.", planning: "원문을 읽고 문서 구성을 만들고 있습니다.", compiling: "Prodigy Wiki를 편집하고 있습니다.", gating: "필수 항목과 숫자 누락을 확인하고 있습니다.", saving: "정리 결과를 저장하고 있습니다." };
+      const stageLabels = { preflight: "정리 범위를 확인하고 있습니다.", planning: "문서 구성을 준비하고 있습니다.", compiling: "문서를 정리하고 있습니다.", gating: "내용과 출처를 확인하고 있습니다.", saving: "검토용 초안을 저장하고 있습니다." };
       statusRegion(parent, golden ? stageLabels[text(snapshot.golden_wiki.stage)] || model.title : committing ? "승인한 내용을 안전하게 반영하고 있습니다." : "자료를 바탕으로 제안을 만들고 있습니다.");
       sourceContext(parent);
+      if (committing && retainedRisk) for (const row of retainedRisk.before_after) wikiUI.exactPreview(createEl(parent, "section"), { before: row.before, after: row.after, target_path: row.destination_id, packet_hash: retainedRisk.packet_id }, options);
       createEl(parent, "progress", { attr: { "aria-label": golden ? "Prodigy Wiki 생성 진행 중" : committing ? "승인 반영 진행 중" : "AI 제안 생성 진행 중" } });
-      const actions = actionRow(parent);
-      actionButton(actions, golden ? "만드는 중" : committing ? "반영 중" : "제안 만드는 중", "start-run", { action: "start_run" }, { primary: true, disabled: true });
-      if (!golden) actionButton(actions, "취소", "cancel-run", { action: "cancel" });
+      createEl(decision, "p", { text: committing ? "승인한 변경을 적용하고 있습니다." : "정식 문서는 아직 변경하지 않았습니다.", attr: { "data-decision-status": "" } });
+      if (!committing) actionButton(decision, "문서 보관함", "open-library", { action: "open_library" });
+      if (!golden && !committing && snapshot.status !== "compensation_committing") actionButton(decision, "취소", "cancel-run", { action: "cancel" });
     }
 
     function renderGoldenComplete(parent) {
       const result = snapshot.golden_wiki && snapshot.golden_wiki.result;
       const previews = Array.isArray(result && result.previews) ? result.previews : [];
-      const model = currentProdigyWikiModel();
-      statusRegion(parent, model.title);
       sourceContext(parent);
-      createEl(parent, "p", { text: model.description });
-      const execution = createEl(parent, "details", { attr: { "data-disclosure": "completion-execution-details" } });
-      createEl(execution, "summary", { text: "실행 정보" });
+      statusRegion(parent, "적용할 변경안을 준비해야 합니다.");
+      const execution = detailHost(parent);
       createEl(execution, "p", { text: `자동 검사 통과 · 원문 ${Number(result && result.source_bytes || 0).toLocaleString()} bytes · 외부 AI 연결 ${Number(result && result.provider_calls || 0)}회`, attr: { "data-golden-complete-summary": "" } });
       const list = createEl(parent, "ul", { attr: { "data-golden-complete-list": "" } });
       for (const preview of previews) createEl(list, "li", { text: text(preview.title) });
-      const actions = actionRow(parent);
-      actionButton(actions, model.primary_label || "검토하기", "open-golden-review", { action: "open_golden_review" }, { primary: true });
-      actionButton(actions, "다른 자료 선택", "select-source", { action: "select_source" });
+      actionButton(decision, "변경안 준비", "open-golden-review", { action: "open_golden_review" }, { primary: true });
+      actionButton(decision, "다른 자료 선택", "select-source", { action: "select_source" });
     }
 
     function readableCanonical(value) {
@@ -587,43 +549,36 @@
     }
 
     function renderCanonicalReview(host, packet) {
-      const frame = createEl(host, "section", { attr: { class: "llmwiki-approval-review", "data-surface": "llmwiki-approval-review", "aria-label": "Librarian 실행 검토" } });
-      createEl(frame, "h2", { text: "저장 전 최종 확인" });
-      createEl(frame, "p", { text: "사람이 읽는 최종 내용입니다. 승인 전에는 지식이나 Git에 쓰지 않습니다." });
-      createEl(frame, "h3", { text: "변경 전" });
-      createEl(frame, "div", { text: readableCanonical(packet.before_bytes) || "새 지식이라 이전 내용이 없습니다.", attr: { class: "llmwiki-lifecycle__document-preview", "aria-label": "변경 전 지식 내용" } });
-      createEl(frame, "h3", { text: "변경 후" });
-      createEl(frame, "div", { text: readableCanonical(packet.after_bytes), attr: { class: "llmwiki-lifecycle__document-preview", "aria-label": "승인할 지식 내용" } });
+      const frame = createEl(host, "section", { attr: { class: "llmwiki-approval-review", "data-surface": "llmwiki-approval-review", "aria-label": "변경안 확인" } });
+      createEl(frame, "h2", { text: wikiUI.title(packet.target_path) });
+      const storage = createEl(frame, "fieldset", { attr: { class: "wiki-storage-choices", "data-storage-choices": "" } });
+      createEl(storage, "legend", { text: "저장 방식" });
+      for (const [kind, label] of [["create", "새 문서로 저장"], ["update", "기존 문서에 내용 추가"]]) {
+        const row = createEl(storage, "label"); const input = createEl(row, "input", { attr: { type: "radio" } }); input.checked = kind === packet.operation?.proposal_kind; input.disabled = true; createEl(row, "span", { text: label });
+      }
+      const exact = createEl(frame, "section"); wikiUI.exactPreview(exact, { before: packet.before_bytes, after: packet.after_bytes, target_path: packet.target_path, packet_hash: packet.packet_hash }, options);
       for (const citation of Array.isArray(packet.source_citations) ? packet.source_citations : []) {
         const locator = text(Array.isArray(citation.locators) ? citation.locators[0] : "");
         if (!locator) continue;
-        actionButton(frame, `출처 옆에 열기 ${locator}`, "open-source", { action: "open_source", source_path: locator.split("#")[0] });
+        const source = actionButton(frame, wikiUI.title(locator.split("#")[0]), "open-source", { action: "open_source", source_path: locator });
+        source.onclick = () => options.reviewOptions?.onOpenBeside?.(locator);
       }
-      const actions = actionRow(frame);
-      actionButton(actions, "선택 승인", "approve-selected", { action: "approve", packet_hash: text(packet.packet_hash) }, { primary: true });
-      actionButton(actions, "검토 닫기", "select-source", { action: "select_source" });
+      const label = createEl(decision, "label"); const acknowledgement = createEl(label, "input", { attr: { type: "checkbox", "data-review-acknowledgement": "" } }); acknowledgement.checked = false;
+      createEl(label, "span", { text: "변경 내용과 출처를 확인했습니다." });
+      const reason = createEl(decision, "p", { text: "변경 내용과 출처를 확인하고 체크하세요.", attr: { "data-decision-status": "" } });
+      const actions = createEl(decision, "div", { attr: { "data-decision-actions": "" } });
+      actionButton(actions, "나중에", "later", { action: "later" });
+      const approve = actionButton(actions, "승인 및 적용", "approve-selected", { action: "approve", packet_hash: text(packet.packet_hash) }, { primary: true }); approve.disabled = true;
+      acknowledgement.onchange = () => { approve.disabled = !acknowledgement.checked; reason.hidden = acknowledgement.checked; };
+      approve.onclick = () => acknowledgement.checked && dispatch({ action: "approve", packet_hash: text(packet.packet_hash) });
     }
 
     function renderReview(parent) {
-      statusRegion(parent, snapshot.status === "review_only" ? "제안을 검토할 수 있지만 1단계에서 승인할 수 없는 유형이 포함되어 있습니다." : "검토할 제안이 준비되었습니다.");
+      if (snapshot.status === "review_only") statusRegion(parent, "적용 전에 확인할 항목이 있습니다.");
       if (snapshot.question_review_note) createEl(parent, "p", { text: snapshot.question_review_note, attr: { role: "note" } });
       const counts = inboxCounts(snapshot.inbox);
-      if (counts) renderInboxMetadata(parent, snapshot.inbox, counts);
-      let host;
-      const affordanceRow = actionRow(parent);
-      const affordance = createEl(affordanceRow, "button", {
-        text: "제안 검토하기",
-        attr: {
-          type: "button",
-          class: "prodigy-btn prodigy-btn-primary",
-          "data-action": "open-review",
-          "data-review-affordance": "proposal-review",
-          "data-primary": "true",
-        },
-      });
-      affordance.onclick = () => focus(host);
-      sourceContext(parent);
-      host = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__review", "aria-label": "제안 검토", tabindex: "-1" } });
+      if (counts) renderInboxMetadata(detailHost(parent), snapshot.inbox, counts);
+      const host = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__review", "aria-label": "제안 검토", tabindex: "-1" } });
       const child = reviewModule(options.reviewView);
       const reviewOptions = plain(options.reviewOptions) ? options.reviewOptions : {};
       const projected = projectLifecycleSnapshot(snapshot);
@@ -643,7 +598,8 @@
           if (conflictQueue) createEl(queue, "p", { text: "충돌은 묶음 승인할 수 없습니다. 내용을 고치거나 거절해 주세요.", attr: { class: "llmwiki-lifecycle__error" } });
           const selectedOperations = new Set(Array.isArray(snapshot.durable_review_selection) ? snapshot.durable_review_selection : []);
           child.mountRiskApprovalReview({
-            container: queue, packets, packetApi: riskPacketApi, batchApi: root.LLMWikiSafeBatchApproval, primaryEnabled: !conflictQueue || projected.approvals.length === 0,
+            container: queue, packets, packetApi: riskPacketApi, batchApi: root.LLMWikiSafeBatchApproval, primaryEnabled: true,
+            decisionContainer: decision, workspace: options.workspace, renderMarkdown: options.renderMarkdown,
             comparison_status: snapshot.comparison_status,
             initialSelectedIds: packets.filter((packet) => selectedOperations.has(packet.operation.operation_id)).map((packet) => packet.packet_id),
             onSelectionChange(selectedIds) { return dispatch({ action: "persist_review_selection", operation_ids: packets.filter((packet) => selectedIds.includes(packet.packet_id)).map((packet) => packet.operation.operation_id).sort() }); },
@@ -662,8 +618,7 @@
         };
         const eligibleActive = projected.approvals.filter((packet) => activeRiskPackets.includes(packet));
         const conflictActive = projected.conflicts.filter((packet) => activeRiskPackets.includes(packet));
-        mountQueue(eligibleActive, "승인 준비", false);
-        mountQueue(conflictActive, "먼저 해결할 충돌", true);
+        mountQueue([...eligibleActive, ...conflictActive], "변경안", false);
         return;
       }
       const packet = plain(snapshot.approval_packet) ? snapshot.approval_packet : null;
@@ -694,8 +649,24 @@
       }
     }
 
+    function renderRetainedRisk(parent) {
+      options.workspace?.setJourney({ status: "applied" });
+      createEl(parent, "h2", { text: retainedRisk.summary });
+      for (const row of retainedRisk.before_after) {
+        const target = createEl(parent, "section"); wikiUI.exactPreview(target, { before: row.before, after: row.after, target_path: row.destination_id, packet_hash: retainedRisk.packet_id }, options);
+        const link = createEl(parent, "a", { text: wikiUI.title(row.destination_id), attr: { href: row.destination_id, "data-applied-document": row.destination_id } });
+        link.onclick = event => { event?.preventDefault?.(); options.reviewOptions?.onOpenBeside?.(row.destination_id); };
+      }
+      statusRegion(decision, "문서에 적용했습니다.");
+      const remaining = snapshot.risk_packets?.filter(packet => packet.packet_id !== retainedRisk.packet_id) || [];
+      if (remaining.length) {
+        const next = createEl(decision, "button", { text: "다음 제안 확인", attr: { type: "button", "data-action": "next-proposal" } }); next.onclick = () => { appliedRisk = false; retainedRisk = null; render(); };
+      } else actionButton(decision, "다른 자료 선택", "select-source", { action: "select_source" });
+      actionButton(decision, "문서 열기", "open-applied-document", { action: "open_document", path: retainedRisk.operation.destination_ids[0] }, { primary: true });
+    }
+
     function renderCommitted(parent) {
-      statusRegion(parent, "지식 반영 완료");
+      statusRegion(parent, "문서에 적용했습니다.");
       sourceContext(parent);
       const links = plain(snapshot.links) ? snapshot.links : {};
       const list = createEl(parent, "ul", { attr: { class: "llmwiki-lifecycle__results", "aria-label": "반영 결과" } });
@@ -705,7 +676,7 @@
         const row = createEl(list, "li");
         createEl(row, "a", { text: `${label}: ${item.path}`, attr: { href: item.path, "data-display-only": "true" } });
       }
-      const actions = actionRow(parent);
+      const actions = decision;
       const compensation = plain(snapshot.compensation) ? snapshot.compensation : null;
       if (compensation && compensation.eligible && compensation.confirmation_required) {
         createEl(parent, "p", {
@@ -714,9 +685,10 @@
         });
         actionButton(actions, "되돌리기 확인", "confirm-compensation", { action: "confirm_compensation" }, { primary: true });
       } else if (compensation && compensation.eligible) {
-        actionButton(actions, "이 변경 되돌리기", "request-compensation", { action: "request_compensation" });
+        actionButton(options.workspace?.more || actions, "이 변경 되돌리기", "request-compensation", { action: "request_compensation" });
       }
-      actionButton(actions, "새 검토 시작", "select-source", { action: "select_source" }, { primary: true });
+      if (links.canonical?.path) actionButton(actions, "문서 열기", "open-applied-document", { action: "open_document", path: links.canonical.path }, { primary: true });
+      actionButton(actions, "다른 자료 선택", "select-source", { action: "select_source" }, { primary: !links.canonical?.path });
     }
 
     function renderCompensated(parent) {
@@ -735,21 +707,21 @@
     }
 
     function renderStale(parent) {
-      statusRegion(parent, "검토 중인 내용이 변경되어 다시 확인해야 합니다.", "error");
+      statusRegion(parent, "검토 이후 내용이 바뀌었습니다. 변경안을 다시 확인해야 합니다.", "error");
       sourceContext(parent);
-      const actions = actionRow(parent);
-      actionButton(actions, "새 검토 패킷 만들기", "repacket-stale", { action: "repacket_stale" }, { primary: true });
+      const actions = decision;
+      actionButton(actions, "변경안 다시 준비", "repacket-stale", { action: "repacket_stale" }, { primary: true });
       actionButton(actions, "다시 확인 후 승인", "reconfirm-stale", { action: "reconfirm_stale" }, { disabled: true });
     }
 
     function renderRecovery(parent, kind) {
       const audit = kind === "audit";
-      statusRegion(parent, audit ? "지식은 반영되었지만 감사 기록 복구가 필요합니다." : "지식은 반영되었지만 탐색 새로고침이 필요합니다.", "error");
+      statusRegion(parent, audit ? "문서는 저장됐지만 확인이 끝나지 않았습니다." : "문서는 저장됐지만 목록 갱신에 실패했습니다.", "error");
       sourceContext(parent);
-      const actions = actionRow(parent);
+      const actions = decision;
       actionButton(
         actions,
-        audit ? "감사 기록 복구" : "지식 탐색 새로고침 재시도",
+        audit ? "저장 상태 다시 확인" : "목록 새로고침",
         audit ? "repair-audit" : "retry-refresh",
         { action: audit ? "repair_audit" : "retry_refresh" },
         { primary: true },
@@ -996,18 +968,19 @@
     function renderTerminal(parent) {
       const prodigyWiki = plain(snapshot.prodigy_wiki) ? snapshot.prodigy_wiki : null;
       if (prodigyWiki && ["interrupted", "source_changed"].includes(prodigyWiki.status)) {
-        const model = currentProdigyWikiModel();
-        statusRegion(parent, model.title, "error");
-        createEl(parent, "p", { text: model.description, attr: { class: "llmwiki-lifecycle__muted" } });
+        const setup = /provider|auth|configuration|runtime/u.test(prodigyWiki.reason || "");
+        statusRegion(parent, setup ? "AI 연결 설정을 확인해야 합니다." : prodigyWiki.status === "source_changed" ? "원문이 변경되었습니다. 최신 내용으로 다시 확인하세요." : prodigyWiki.resumable ? "정리가 중단되었습니다. 저장된 단계부터 다시 시도할 수 있습니다." : "정리를 완료하지 못했습니다. 정식 문서는 변경하지 않았습니다.", "error");
         sourceContext(parent);
-        const actions = actionRow(parent);
+        createEl(detailHost(parent), "p", { text: prodigyWiki.reason || "" });
+        const actions = decision;
+        if (setup) { actionButton(actions, "AI 설정 열기", "open-ai-settings", { action: "open_ai_settings" }, { primary: true }); actionButton(actions, "나중에", "later", { action: "later" }); return; }
         if (prodigyWiki.status === "source_changed") {
-          actionButton(actions, model.primary_label, "reset-prodigy-source", { action: "reset_prodigy_source" }, { primary: true });
+          actionButton(actions, "변경된 원문 확인", "reset-prodigy-source", { action: "reset_prodigy_source" }, { primary: true });
         } else {
           const resumable = prodigyWiki.resumable === true;
           actionButton(
             actions,
-            model.primary_label,
+            resumable ? "다시 시도" : "다시 정리하기",
             resumable ? "resume-prodigy-wiki" : "retry-prodigy-wiki",
             { action: resumable ? "resume_prodigy_wiki" : "retry_prodigy_wiki", explicit_retry: true },
             { primary: true },
@@ -1044,15 +1017,16 @@
         focus(opener || first(frame, (node) => attribute(node, "data-lifecycle-heading") !== null));
         return;
       }
-      if (ACTIVE_STATUSES.has(snapshot.status)) {
+      if (["selecting", "consent_required"].includes(snapshot.status)) {
         if (typeof event.preventDefault === "function") event.preventDefault();
         dispatch({ action: "cancel" });
         return;
       }
-      focus(first(frame, (node) => attribute(node, "data-primary") === "true"));
+      focus(first(frame, (node) => tagName(node) === "h2"));
     }
 
     function render() {
+      if (options.preserveSurface?.()) return frame;
       empty(container);
       const projected = projectLifecycleSnapshot(snapshot);
       const prodigyWikiModel = currentProdigyWikiModel();
@@ -1074,29 +1048,35 @@
         },
       });
       frame.onkeydown = escape;
-      const header = createEl(frame, "header");
-      createEl(header, "h2", { text: "Prodigy Wiki", attr: { tabindex: "-1", "data-lifecycle-heading": "", "data-focus-key": "heading" } });
+      stateDetails = null;
+      const workspace = options.workspace;
+      decision = workspace?.decision || createEl(container, "footer", { attr: { class: "wiki-decision-bar", "data-wiki-decision": "" } });
+      empty(decision);
+      if (workspace) workspace.setJourney(pickerOpen ? { status: "idle" } : snapshot);
+      else { const row = createEl(container, "div", { attr: { class: "wiki-journey-row" } }); wikiUI.journey(row, pickerOpen ? { status: "idle" } : snapshot); }
+      if (pickerOpen || snapshot.prodigy_wiki?.picker_open) { renderPicker(frame); return frame; }
+      if (appliedRisk && retainedRisk) { renderRetainedRisk(frame); return frame; }
+      if (options.renderWorkspaceReview?.(frame, snapshot) === true) return frame;
       const inboxScene = projected.productState.startsWith("inbox_");
       const explicitStatePriority = ACTIVE_STATUSES.has(snapshot.status)
         || ["review", "review_only", "stale_reconfirm_required", "committed_audit_pending", "committed_refresh_failed", "compensated", "compensated_audit_pending"].includes(snapshot.status);
-      if (!inboxScene) {
-        providerPicker(frame);
-        renderFleeting(frame, projected.fleeting);
+      if (options.workspace?.more) {
+        const more = options.workspace.more;
+        const old = more.querySelector?.('[data-execution-info]'); old?.remove();
+        const info = createEl(more, "details", { attr: { "data-execution-info": "" } }); createEl(info, "summary", { text: "실행 정보" }); providerPicker(info);
       }
 
-      if (projected.productState.startsWith("migration_") && renderMigration(frame, projected)) { /* migration owns the active lifecycle scene */ }
-      else if (snapshot.status === "complete" && snapshot.golden_wiki?.status === "complete") renderGoldenComplete(frame);
+      if (options.auxiliaryScene?.() === "fleeting") renderFleeting(frame, projected.fleeting);
+      else if (projected.productState.startsWith("migration_") && (!options.workspace || options.auxiliaryScene?.() === "migration") && renderMigration(frame, projected)) { /* migration owns the active lifecycle scene */ }
+      else if (snapshot.operation_run?.status !== "committed" && snapshot.status === "complete" && snapshot.golden_wiki?.status === "complete") renderGoldenComplete(frame);
       else if (durableSuccess(snapshot) && !explicitStatePriority) renderCommitted(frame);
-      else if (inboxScene) {
-        renderInbox(frame, projected.productState.slice(6));
-        providerPicker(frame);
-        renderFleeting(frame, projected.fleeting);
-      }
+      else if (inboxScene && options.workspace && !options.auxiliaryScene?.() && !["analyzing", "blocked", "outcome_unknown", "error", "partial"].includes(projected.inbox?.state)) renderIdle(frame);
+      else if (inboxScene) renderInbox(frame, projected.productState.slice(6));
       else if (["operation_refresh_pending", "operation_refresh_failed"].includes(projected.productState)) renderOperationRefresh(frame, projected.productState.endsWith("pending"));
       else if (["git_pending", "git_failed"].includes(projected.productState)) renderGitFollowUp(frame, projected);
       else if (projected.productState === "committed") renderCommitted(frame);
       else if (snapshot.status === "idle") renderIdle(frame);
-      else if (snapshot.status === "selecting") renderSelecting(frame);
+      else if (snapshot.status === "selecting") renderWorkspaceSelecting(frame);
       else if (snapshot.status === "consent_required") renderConsent(frame);
       else if (["running", "committing", "compensation_committing"].includes(snapshot.status)) renderProgress(frame);
       else if (["review", "review_only"].includes(snapshot.status)) renderReview(frame);
@@ -1106,6 +1086,9 @@
       else if (snapshot.status === "committed_refresh_failed") renderRecovery(frame, "refresh");
       else if (["compensated", "compensated_audit_pending"].includes(snapshot.status)) renderCompensated(frame);
       else renderTerminal(frame);
+      if (options.workspace) {
+        for (const row of descendants(frame, node => attribute(node, "class") === "llmwiki-lifecycle__actions" && descendants(node, child => attribute(child, "data-primary") === "true").length)) decision.appendChild(row);
+      }
       return frame;
     }
 
@@ -1113,7 +1096,10 @@
       if (!validSnapshot(nextSnapshot)) return Object.freeze({ ok: false, reason: "invalid_snapshot" });
       const active = container.ownerDocument && container.ownerDocument.activeElement;
       const focusKey = active ? attribute(active, "data-focus-key") || attribute(active, "data-action") : null;
+      const sourceChanged = nextSnapshot.prodigy_wiki?.source?.path !== snapshot.prodigy_wiki?.source?.path
+        || nextSnapshot.prodigy_wiki?.source?.content_hash !== snapshot.prodigy_wiki?.source?.content_hash;
       snapshot = nextSnapshot;
+      if (sourceChanged && nextSnapshot.prodigy_wiki?.status === "source_selected") pickerOpen = false;
       pendingAction = null;
       render();
       if (focusKey) {
@@ -1126,6 +1112,8 @@
     const api = Object.freeze({
       update,
       render,
+      openPicker() { pickerOpen = true; tentativeSource = ""; render(); },
+      isPickerOpen() { return pickerOpen || snapshot.prodigy_wiki?.picker_open === true; },
       getSnapshot() { return snapshot; },
     });
     render();

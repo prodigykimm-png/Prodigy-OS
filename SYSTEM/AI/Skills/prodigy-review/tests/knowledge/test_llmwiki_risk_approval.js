@@ -233,7 +233,7 @@ test("actual touched-path receipt mutation outside the authorized set rejects an
 test("production Knowledge manifest closes the no-Node risk path in exact order and preserves four tabs", () => {
   delete require.cache[require.resolve(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js"))];
   const manifest = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js")).get("knowledge").required;
-  const riskPaths = ["llmwiki-hash.js", "llmwiki-operation-contract.js", "llmwiki-write-boundary-policy.js", "llmwiki-risk-approval-packet.js", "llmwiki-approval-repacket-service.js", "llmwiki-risk-write-set.js", "llmwiki-safe-batch-approval.js", "llmwiki-risk-approval-review-view.js"].map((name) => `SYSTEM/Views/${name}`);
+  const riskPaths = ["llmwiki-hash.js", "llmwiki-operation-contract.js", "llmwiki-write-boundary-policy.js", "llmwiki-risk-approval-packet.js", "llmwiki-approval-repacket-service.js", "llmwiki-risk-write-set.js", "llmwiki-safe-batch-approval.js", "prodigy-wiki-workspace-view.js", "llmwiki-risk-approval-review-view.js"].map((name) => `SYSTEM/Views/${name}`);
   assert.equal(riskPaths.every((modulePath) => manifest.filter((entry) => entry === modulePath).length === 1), true);
   assert.equal(riskPaths.every((modulePath, index) => index === 0 || manifest.indexOf(riskPaths[index - 1]) < manifest.indexOf(modulePath)), true);
   assert.equal(manifest.includes("SYSTEM/Views/llmwiki-approval-packet.js"), false, "legacy PARA packet must stay outside the authoritative risk closure");
@@ -265,11 +265,15 @@ test("beginner review model and DOM expose readable fields/actions without schem
   action(root, "open-source").onclick({ preventDefault() {} });
   assert.match(collectText(root), /출처 근거|원문 파일 열기/);
   assert.ok(actions(root).includes("open-source-file"));
-  assert.deepEqual(actions(root).filter((item) => ["approve", "reject", "request-revision", "approve-batch"].includes(item)).sort(), ["approve", "approve-batch", "reject", "request-revision"]);
+  assert.deepEqual(actions(root).filter((item) => ["approve", "reject", "request-revision", "approve-batch"].includes(item)).sort(), ["approve", "reject", "request-revision"]);
+  assert.equal(action(root, "approve").disabled, true);
+  action(root, "toggle-batch").onclick();
+  assert.equal(action(root, "approve-batch").disabled, true);
+  assert.deepEqual(surface.state().selectedIds, []);
   assert.doesNotMatch(text, /schema|packet_hash|operation_id|payload_hash|내부 필드/i);
   assert.equal(surface.model[0].selectable, true);
   assert.equal(surface.model[1].selectable, false);
-  assert.equal((function count(node) { return (node.tag === "textarea" || node.tag === "input" && node.attr?.type !== "checkbox" ? 1 : 0) + (node.children || []).reduce((sum, child) => sum + count(child), 0); })(root), 0);
+  assert.equal((function count(node) { return (node.tag === "textarea" || node.tag === "input" && !["checkbox", "radio"].includes(node.attr?.type) ? 1 : 0) + (node.children || []).reduce((sum, child) => sum + count(child), 0); })(root), 0);
   action(root, "reject").onclick({ preventDefault() {} });
   surface.requestRevision("출처 설명을 초보자에게 더 쉽게 써줘");
   assert.deepEqual(boundaries.map((item) => item.kind), ["reject", "revision"]);
@@ -288,4 +292,37 @@ test("question review distinguishes unperformed comparison from a clear conflict
   const root = new FakeElement("div");
   riskView.mountRiskApprovalReview({ container: root, packets: [proposal], packetApi, batchApi, comparison_status: "not_checked" });
   assert.match(collectText(root), /자동 비교 미실시 · 등록된 충돌 없음/);
+});
+
+test("the displayed second high-risk packet owns approval and every destination remains visible", async () => {
+  const low = packet("create", "ui_first_exact"), high = packet("merge", "ui_second_exact");
+  const root = new FakeElement("section"), calls = [];
+  review.mountRiskApprovalReview({ container: root, packets: [low, high], packetApi, batchApi,
+    onApprove: async selected => { calls.push(selected); return { ok: true, status: "committed" }; } });
+  const nodes = (key, value) => root.querySelectorAll(`[${key}${value === undefined ? "" : `="${value}"`}]`);
+  assert.equal(action(root, "approve").disabled, true);
+  const selector = nodes("data-proposal-select")[0]; selector.value = high.packet_id; selector.onchange();
+  assert.equal(nodes("data-active-packet").length, 1);
+  assert.equal(nodes("data-active-packet")[0].getAttribute("data-active-packet"), high.packet_id);
+  assert.deepEqual(nodes("data-output-target").map(node => node.getAttribute("data-output-target")), high.operation.destination_ids);
+  const ack = nodes("data-review-acknowledgement")[0]; assert.equal(ack.checked, false); ack.checked = true; ack.onchange();
+  assert.deepEqual(calls, []); assert.equal(action(root, "approve").disabled, false);
+  await action(root, "approve").onclick(); assert.deepEqual(calls, [high]);
+  assert.ok(action(root, "open-applied-document"));
+});
+
+test("a stale citation blocks acknowledgement across item switches and never joins a safe batch", async () => {
+  const low = packet("create", "ui_stale_exact"), high = packet("merge", "ui_high_unselected");
+  const root = new FakeElement("section"), calls = [];
+  review.mountRiskApprovalReview({ container: root, packets: [low, high], packetApi, batchApi,
+    resolveSourcePreview: async row => ({ ok: true, status: "stale", source_path: row.source_path, locator: row.locator }),
+    onApprove: packet => calls.push(packet) });
+  await action(root, "open-source").onclick();
+  assert.equal(action(root, "approve").disabled, true);
+  const select = value => { const control = root.querySelector('[data-proposal-select]'); control.value = value; control.onchange(); };
+  select(high.packet_id); select(low.packet_id);
+  assert.equal(action(root, "approve").disabled, true);
+  action(root, "toggle-batch").onclick();
+  assert.equal(root.querySelectorAll('[data-batch-packet]').length, 0);
+  assert.deepEqual(calls, []);
 });

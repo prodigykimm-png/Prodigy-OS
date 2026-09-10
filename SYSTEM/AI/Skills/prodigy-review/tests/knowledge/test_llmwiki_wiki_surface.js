@@ -301,16 +301,17 @@ test("review failure preserves branded answer and retries the same handoff witho
         return { ok: true, status: "review" };
       },
     });
+    descendants(dom.container).find(node => node.attributes["data-action"] === "toggle-source-question").onclick();
     surface.setQuery("합성 질문");
     await surface.askQuestion("합성 질문");
     assert.equal((await surface.prepareReview()).reason, "review_handoff_failed");
     assert.equal(surface.getQuestionState().result, answer);
-    assert.ok(allNodes(dom.container).some((node) => node.textContent === "선택 자료 일부 근거만 확인했습니다. 조건·예외를 포함한 전체 요약은 아닙니다."));
+    assert.ok(allNodes(dom.container).some(node => node.attributes["data-question-warning"] === "incomplete_coverage"));
     assert.equal(surface.getQuestionState().proposal, prepared);
     assert.equal(surface.getState().query, "합성 질문");
     assert.equal(surface.getQuestionState().reviewError.reason, "review_handoff_failed");
     const retryButton = allNodes(dom.container).find((node) => node.attributes["data-action"] === "review-question-proposal");
-    assert.equal(retryButton.textContent, "검토 전달 다시 시도");
+    assert.equal(retryButton.attributes["data-action"], "review-question-proposal");
     assert.equal(retryButton.disabled, false);
     const retry = retryButton.onclick();
     assert.equal((await surface.prepareReview()).reason, "action_in_progress");
@@ -405,9 +406,10 @@ test('Wiki chat retains structured citations, refuses overflow without dropping 
  global.LLMWikiWikiReadService={answerSourceQuestion:async()=>{calls++;return {ok:true,status:'abstain',answers:[]};}};
  try{
   const doc=fakeDocument();const surface=surfaceApi.mountLlmWikiWikiSurface({container:doc.container,snapshot:{rows:[],snapshot_revision:'a'},readAdapter:adapter,getSelectedSource:()=>({path:'INBOX/A.md',content_hash:'a'.repeat(64)})});
+  descendants(doc.container).find(node=>node.attributes['data-action']==='toggle-source-question').onclick();
   const walk=el=>[el,...el.children.flatMap(walk)];const input=walk(doc.container).find(el=>el.tagName==='textarea');input.value='조건?';input.oncompositionstart();
   input.onkeydown({key:'Enter',isComposing:true,preventDefault(){throw Error('must not submit IME');}});assert.equal(calls,0);input.oncompositionend();
-  input.onkeydown({key:'Enter',isComposing:false,preventDefault(){}});await new Promise(resolve=>setImmediate(resolve));assert.equal(calls,1);surface.destroy();
+  await input.onkeydown({key:'Enter',isComposing:false,preventDefault(){}});assert.equal(calls,1);surface.destroy();
  }finally{global.LLMWikiWikiReadService=prior;}
 });
 
@@ -417,8 +419,9 @@ test('closed canonical review reopens the same draft without provider or approva
  global.LLMWikiWikiReadService={answerSourceQuestion:async()=>{providerCalls++;return answer;},prepareQuestionProposal:async()=>{prepares++;return prepared;}};
  try{
   const dom=fakeDocument();const surface=surfaceApi.mountLlmWikiWikiSurface({container:dom.container,snapshot:snapshot(),readAdapter:adapter,getSelectedSource:()=>({path:'INBOX/A.md',content_hash:'a'.repeat(64)}),openQuestionReview:async(item,callbacks)=>{assert.equal(item.document_body,prepared.document_body);opens++;let open=true;close=()=>{open=false;callbacks.onClose();};return{ok:true,status:'waiting_for_human_review',reopenable:true,isOpen:()=>open};}});
+  descendants(dom.container).find(node=>node.attributes['data-action']==='toggle-source-question').onclick();
   await surface.askQuestion('원문?');const first=await surface.prepareReview();assert.equal(await surface.prepareReview(),first);assert.equal(opens,1);
-  close();const allNodes=node=>[node,...node.children.flatMap(allNodes)];const button=allNodes(dom.container).find(node=>node.attributes['data-action']==='review-question-proposal');assert.equal(button.textContent,'검토 다시 열기');assert.equal(button.disabled,false);
+  close();const allNodes=node=>[node,...node.children.flatMap(allNodes)];const button=allNodes(dom.container).find(node=>node.attributes['data-action']==='review-question-proposal');assert.equal(button.attributes['data-action'],'review-question-proposal');assert.equal(button.disabled,false);
   await button.onclick();assert.equal(opens,2);assert.equal(providerCalls,1);assert.equal(prepares,1);surface.destroy();
  }finally{global.LLMWikiWikiReadService=prior;}
 });

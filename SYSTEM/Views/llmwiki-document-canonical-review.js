@@ -18,9 +18,10 @@
   const stable = value => Array.isArray(value) ? `[${value.map(stable).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stable(value[k])}`).join(",")}}` : JSON.stringify(value);
   const fail = (reason, extra = {}) => ({ ok: false, reason, ...extra });
   const recoveryCopy = result => {
-    if (result.reason === "approval_expired") return "이전 변경 검토의 유효 시간이 지났습니다. 저장된 변경안은 보존했으며 자동 적용은 차단했습니다. 원문과 대상의 현재 상태를 확인해 다시 검토해야 합니다.";
-    if (result.reason === "review_checkpoint_failed") return "문서와 근거 검증은 끝났지만 처리 결과를 저장하지 못했습니다. 전체 작업은 완료로 처리하지 않았습니다. 같은 변경을 다시 확인하고 재시도해 주세요.";
-    if (result.reason === "canonical_readback_pending" || result.writer_result?.status === "committed") return "문서는 저장됐지만 근거 확인이 끝나지 않았습니다. 전체 갱신은 완료로 처리하지 않았습니다. 같은 변경을 다시 확인하고 재시도해 주세요.";
+    if (["approval_expired", "stale_before_write"].includes(result.reason)) return "검토 이후 내용이 바뀌었습니다. 변경안을 다시 확인해야 합니다.";
+    if (result.reason === "source_revision_changed") return "원문이 변경되었습니다. 최신 내용으로 다시 확인하세요.";
+    if (result.reason === "review_checkpoint_failed" || result.reason === "canonical_readback_pending" || result.writer_result?.status === "committed") return "문서는 저장됐지만 확인이 끝나지 않았습니다.";
+    if (result.reason === "promotion_review_required") return `적용 전에 확인할 항목이 있습니다. ${(result.promotion_gaps || []).map(gap => typeof gap === "string" ? gap : gap.message || gap.reason || gap.code).filter(Boolean).join(" · ")}`;
     return recovery.mapRecovery(result.reason === "stale_before_write" ? { reason: "target_revision_mismatch" } : result).copy;
   };
   const lines = value => String(value || "").split(/\n/u).map(v => v.trim()).filter(Boolean);
@@ -408,18 +409,22 @@
     }
     return Object.freeze({ prepare, apply, targets, restore });
   }
+  const ui = dep("ProdigyWikiWorkspaceView", "./prodigy-wiki-workspace-view.js");
   const OPEN_REVIEWS = new WeakMap();
-  function open({ app, Modal, item, onComplete, onOpenSource, jobStore = null, jobId = "", onStateChange = null }) {
+  function open({ app, Modal, item, onComplete, onOpenSource, jobStore = null, jobId = "", onStateChange = null,
+    container = null, decisionContainer = null, workspace = null, renderMarkdown = null, onLater = null, onNext = null, onSelectSource = null, intendedTargetPath = "" }) {
     let sessions = OPEN_REVIEWS.get(app);
     if (!sessions) { sessions = new Map(); OPEN_REVIEWS.set(app, sessions); }
-    const key = sha(stable([jobId, item.review_id, item.document_body, item.grounded_claims]));
+    const key = sha(stable([jobId, item.review_id, item.document_body, item.grounded_claims, Boolean(container)]));
     const cached = sessions.get(key);
     if (cached) {
-      cached.callbacks.onComplete = onComplete; cached.callbacks.onOpenSource = onOpenSource; cached.callbacks.onStateChange = onStateChange;
+      Object.assign(cached.callbacks, { onComplete, onOpenSource, onStateChange, decisionContainer, workspace, renderMarkdown, onLater, onNext, onSelectSource });
+      if (container) cached.modal.contentEl = container;
       cached.modal.onClose = cached.onClose; cached.modal.open(); return cached.modal;
     }
-    const callbacks = { onComplete, onOpenSource, onStateChange };
-    const flow = create({ app, jobStore, jobId, onStateChange: () => callbacks.onStateChange?.() }), modal = new Modal(app);
+    const callbacks = { onComplete, onOpenSource, onStateChange, decisionContainer, workspace, renderMarkdown, onLater, onNext, onSelectSource };
+    const flow = create({ app, jobStore, jobId, onStateChange: () => callbacks.onStateChange?.() });
+    const modal = container ? { contentEl: container, open() { this.ready = this.onOpen(); }, close() { this.onClose?.(); callbacks.onLater?.(); } } : new Modal(app);
     const viewState = { fields: {}, preview: null, lastResult: null, render: 0, restored: false, restoreError: "" };
     const onClose = () => { viewState.render += 1; };
     modal.onClose = onClose;
@@ -443,55 +448,91 @@
         .llmwiki-document-review pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
         .llmwiki-document-review button { white-space: normal; max-width: 100%; height: auto; min-height: 2rem; }
         .llmwiki-document-review [role="status"] { overflow-wrap: anywhere; }` });
-      el.createEl("h2", { text: `${item.title} · 지식 반영` });
-      el.createEl("p", { text: "출처와 전체 문서 변경을 확인한 뒤 한 번 승인합니다. 기존 문서를 선택하면 작성한 본문을 보존하고 보완 내용을 추가합니다. 상충 미해결은 정본에 적용하지 않습니다." });
+      el.createEl("h2", { text: item.title });
+      el.createEl("p", { text: "AI 초안 · 문서 반영 전", attr: { "data-review-category": "draft" } });
+      const decision = callbacks.decisionContainer || el.createEl("footer", { attr: { class: "wiki-decision-bar" } });
+      decision.empty();
+      callbacks.workspace?.setJourney({ status: viewState.lastResult?.ok ? "applied" : viewState.alreadyWritten ? "applying" : "review" });
       const reusableNames = ["knowledge_kind", "knowledge_domain", "knowledge_topics", "application_trigger", "application_contexts", "conditions", "exclusions", "invalidation_conditions", "rationale", "steps", "outcome", "definition", "classification"];
       const asText = value => Array.isArray(value) ? value.join("\n") : typeof value === "string" ? value : "";
       const defaults = source => Object.fromEntries(reusableNames.filter(name => asText(source?.[name])).map(name => [name, asText(source[name])]));
-      if (!viewState.seeded) { viewState.fields = { ...defaults(item), ...viewState.fields }; viewState.seeded = true; }
+      if (!viewState.seeded) { viewState.fields = { ...viewState.fields }; viewState.seeded = true; }
       const fields = viewState.fields, inputs = [], fieldRows = {}, fieldInputs = {};
-      const changes = el.createDiv();
-      changes.createEl("h3", { text: "이번 자료의 보완 내용" });
-      changes.createEl("pre", { text: item.document_body || "원문 근거를 확인하세요." });
-      const evidenceEl = el.createEl("details"); evidenceEl.createEl("summary", { text: "검토할 주장과 정확한 원문" });
+      const sources = [...new Set((item.grounded_claims || []).flatMap(claim => (claim.citations || []).map(c => c.source_path || c.locator?.split("#")[0])).filter(Boolean))];
+      el.createEl("p", { text: `출처: ${sources.map(ui.title).join(" · ")}`, attr: { "data-review-sources": "" } });
+      const storage = el.createEl("fieldset", { attr: { class: "wiki-storage-choices", "data-storage-choices": "" } });
+      storage.createEl("legend", { text: "저장 방식" });
+      const modes = {};
+      for (const [mode, label] of [["new", "새 문서로 저장"], ["existing", "기존 문서에 내용 추가"]]) {
+        const row = storage.createEl("label");
+        modes[mode] = row.createEl("input", { attr: { type: "radio", name: `storage-${item.review_id}`, value: mode, "data-storage-mode": mode } });
+        row.createEl("span", { text: label });
+      }
+      const targetHost = storage.createEl("div", { attr: { class: "wiki-storage-targets" } });
+      const changes = el.createDiv({ attr: { "data-proposed-document": "" } });
+      ui.markdown(changes, item.document_body || "원문 근거를 확인하세요.", callbacks.renderMarkdown);
+      const evidenceEl = el.createEl("details"); evidenceEl.createEl("summary", { text: `근거 ${(item.grounded_claims || []).length}개` });
       for (const claim of item.grounded_claims || []) {
         evidenceEl.createEl("p", {text:claim.text});
-        for (const c of claim.citations || []) { evidenceEl.createEl("blockquote", {text:c.evidence_quote || "원문 확인 필요"}); const b=evidenceEl.createEl("button",{text:c.locator,attr:{type:"button"}});b.onclick=()=>callbacks.onOpenSource?.(c.locator, c); }
+        for (const c of claim.citations || []) { evidenceEl.createEl("blockquote", {text:c.evidence_quote || "원문 확인 필요"}); const b=evidenceEl.createEl("button",{text:ui.title(c.source_path || c.locator?.split("#")[0]),attr:{type:"button","data-citation-locator":c.locator}});b.onclick=()=>callbacks.onOpenSource?.(c.locator, c, b, () => { viewState.blockedPreview = preview; viewState.restoreError = "source_revision_changed"; invalidate(); accepted.disabled = true; status.setText(recoveryCopy({ reason: "source_revision_changed" })); }); }
       }
-      const missingFields = el.createDiv();
-      const inheritedFields = el.createEl("details"); inheritedFields.createEl("summary", { text: "기존 분류·적용 조건 확인 및 수정" });
-      inheritedFields.createEl("p", {text:"선택한 문서의 기존 값을 가져왔습니다. 이번 자료에도 맞는지 변경 미리보기에서 함께 확인하세요."});
-      let accepted = null, applyButton = null, topicOptions = null, formRevision = 0;
+      const inheritedFields = el.createEl("details", { attr: { class: "wiki-review-fields", "data-review-conditions": "" } });
+      inheritedFields.createEl("summary", { text: `저장 조건${fields.knowledge_kind || fields.knowledge_domain ? ` · ${[fields.knowledge_kind, fields.knowledge_domain, fields.knowledge_topics].filter(Boolean).join(" · ")}` : ""}` });
+      const groups = {};
+      for (const [id, label] of [["classification", "분류"], ["scope", "사용 범위"], ["principle", "원칙"], ["procedure", "절차"], ["concept", "개념"], ["human", "사람의 판단"]]) {
+        groups[id] = inheritedFields.createEl("fieldset", { attr: { "data-review-group": id } }); groups[id].createEl("legend", { text: label });
+      }
+      const groupFor = { knowledge_kind: "classification", classification: "classification", knowledge_domain: "classification", knowledge_topics: "classification", application_trigger: "scope", application_contexts: "scope", conditions: "scope", invalidation_conditions: "scope", exclusions: "principle", rationale: "principle", steps: "procedure", outcome: "procedure", definition: "concept", relation_status: "human", evidence_strength: "human" };
+      let accepted = null, applyButton = null, topicOptions = null, formRevision = 0, prepareButton = null, status = null, busy = false;
+      const required = () => ["knowledge_kind", "classification", "knowledge_domain", "knowledge_topics", "application_trigger", "application_contexts", "conditions", "invalidation_conditions", "relation_status", "evidence_strength", ...({ principle: ["exclusions", "rationale"], procedure: ["steps", "outcome"], concept: ["definition"] }[fields.knowledge_kind] || [])];
       const field = (name, label, choices) => {
-        const row = (name === "target_path" || !fields[name] ? missingFields : inheritedFields).createEl("label"); fieldRows[name] = row; row.createEl("span", { text: label });
-        const input = row.createEl(choices ? "select" : "textarea", { attr: { "data-review-field": name } });
+        const row = (name === "target_path" ? targetHost : groups[groupFor[name]]).createEl("label"); fieldRows[name] = row; row.createEl("span", { text: label });
+        const multiline = ["knowledge_topics", "application_contexts", "conditions", "invalidation_conditions", "exclusions", "rationale", "steps", "definition"].includes(name);
+        const input = row.createEl(choices ? "select" : multiline ? "textarea" : "input", { attr: { "data-review-field": name, "aria-label": label, ...(!choices && !multiline ? { type: "text" } : {}) } });
         if (choices) { input.createEl("option", { text: "선택하세요", attr: { value: "" } }); choices.forEach(([value,text]) => input.createEl("option", {text,attr:{value}})); }
         fieldInputs[name] = input;
         input.value = fields[name] || "";
-        input.oninput = () => { fields[name] = input.value; invalidate(); showKindFields(); if (name === "knowledge_domain") { fields.knowledge_topics = ""; if (fieldInputs.knowledge_topics) fieldInputs.knowledge_topics.value = ""; showTopicOptions(); } };
+        input.oninput = () => { if (busy || viewState.lastResult?.ok) return; fields[name] = input.value; invalidate(); showKindFields(); if (name === "knowledge_domain") { fields.knowledge_topics = ""; if (fieldInputs.knowledge_topics) fieldInputs.knowledge_topics.value = ""; showTopicOptions(); } };
         inputs.push(input); return input;
       };
       let preview = viewState.preview;
-      function invalidate() { preview = null; viewState.preview = null; viewState.lastResult = null; formRevision += 1; if (accepted) accepted.checked = false; if (applyButton) applyButton.disabled = true; }
+      function invalidate() {
+        preview = null; viewState.preview = null; viewState.lastResult = null; formRevision += 1;
+        if (accepted) accepted.checked = false;
+        if (applyButton) applyButton.disabled = true;
+        if (prepareButton) { prepareButton.hidden = false; applyButton.hidden = true; }
+        if (status) status.setText("변경안을 다시 확인하세요. 다음: 승인 및 적용");
+        changes.empty(); ui.attr(changes, "data-exact-preview", "false"); ui.markdown(changes, item.document_body, callbacks.renderMarkdown);
+      }
       function showKindFields() {
-        for (const [name, kind] of Object.entries({ rationale: "principle", steps: "procedure", outcome: "procedure", definition: "concept" })) {
+        for (const [name, kind] of Object.entries({ exclusions: "principle", rationale: "principle", steps: "procedure", outcome: "procedure", definition: "concept" })) {
           if (fieldRows[name]) fieldRows[name].hidden = fields.knowledge_kind !== kind;
         }
+        for (const kind of ["principle", "procedure", "concept"]) groups[kind].hidden = fields.knowledge_kind !== kind;
+        if (required().some(name => !fields[name])) inheritedFields.open = true;
       }
-      const target = field("target_path", "반영 대상", [["new", "새 Knowledge"]]);
+      const target = field("target_path", "대상 문서", [["new", "새 문서로 저장"]]);
       const currentTargets = await flow.targets();
       if (renderId !== viewState.render) return;
       for (const row of currentTargets) target.createEl("option", { text: row.title || row.path, attr: { value: row.path } });
       if (preview && fields.target_path && fields.target_path !== "new" && !currentTargets.some(row => row.path === fields.target_path)) {
         target.createEl("option", { text: `${fields.target_path} · 적용 후 검증 대기`, attr: { value: fields.target_path } });
       }
+      if (!viewState.targetSeeded && intendedTargetPath && currentTargets.some(row => row.path === intendedTargetPath)) fields.target_path = intendedTargetPath;
+      viewState.targetSeeded = true;
       target.value = fields.target_path || "";
+      modes.new.checked = fields.target_path === "new";
+      modes.existing.checked = Boolean(fields.target_path && fields.target_path !== "new");
+      targetHost.hidden = !modes.existing.checked;
+      const targetSearch = targetHost.createEl("input", { attr: { type: "search", placeholder: "문서 검색", "aria-label": "대상 문서 검색" } });
+      targetSearch.oninput = () => { for (const option of target.children) option.hidden = option.value === "new" || Boolean(targetSearch.value) && !String(option.textContent || option.text).toLocaleLowerCase("ko").includes(targetSearch.value.toLocaleLowerCase("ko")); };
+      inputs.push(targetSearch, ...Object.values(modes));
       target.oninput = async () => {
         const selected = target.value;
         invalidate();
         const existing = currentTargets.find(row => row.path === selected);
         const doc = existing ? store.parseLifecycleDocument(existing.canonical_bytes) : null;
-        const inherited = defaults(doc || item);
+        const inherited = defaults(doc);
         if (doc) {
           // These values were explicitly recorded by a prior review; do not infer new safety decisions.
           const scope = String(doc.body || "").split("## 사용자 검토 범위\n").slice(1).pop()?.split(/^## /m)[0] || "";
@@ -504,21 +545,34 @@
         viewState.restoreError = ""; viewState.blockedPreview = null;
         return modal.onOpen();
       };
+      modes.new.onchange = () => { if (!busy) { target.value = "new"; return target.oninput(); } };
+      modes.existing.onchange = () => {
+        if (busy) return;
+        invalidate(); fields.target_path = ""; target.value = ""; modes.new.checked = false; modes.existing.checked = true; targetHost.hidden = false; targetSearch.focus?.();
+      };
+      if (modes.existing.checked) {
+        const chosen = currentTargets.find(row => row.path === fields.target_path);
+        if (chosen) { targetHost.createEl("p", { text: `대상: ${chosen.title || ui.title(chosen.path)}` }); const change = targetHost.createEl("button", { text: "변경", attr: { type: "button", "data-action": "change-target" } }); change.onclick = () => targetSearch.focus?.(); inputs.push(change); }
+      }
       field("knowledge_kind", "지식 종류", [["claim","주장"],["principle","원칙"],["procedure","절차"],["concept","개념"]]);
       field("classification", "내용 성격", [["epistemic","재사용할 지식"],["operational","실행 업무"],["mixed","지식·업무 혼합"]]);
-      field("knowledge_domain", "기존 Domain", registry.DOMAIN_ORDER.map(domain => [domain, domain])); field("knowledge_topics", "기존 Topic (줄별)");
-      field("application_trigger", "언제 이 지식을 사용하는가"); field("application_contexts", "기존 적용 맥락 (줄별)");
-      field("conditions", "적용 조건 / 주장 범위 / 개념 경계"); field("exclusions", "예외·금지사항 (원칙 필수)");
-      field("invalidation_conditions", "다시 검토해야 할 조건"); field("rationale", "원칙의 근거 설명 (원칙 필수)");
-      field("steps", "절차 단계 (절차 필수)"); field("outcome", "절차 결과 (절차 필수)"); field("definition", "개념 정의 (개념 필수)");
+      field("knowledge_domain", "분야", registry.DOMAIN_ORDER.map(domain => [domain, domain])); field("knowledge_topics", "주제");
+      field("application_trigger", "사용할 때"); field("application_contexts", "사용 맥락");
+      field("conditions", "적용 범위"); field("exclusions", "예외·금지사항");
+      field("invalidation_conditions", "다시 검토할 조건"); field("rationale", "원칙의 근거");
+      field("steps", "절차"); field("outcome", "기대 결과"); field("definition", "개념 정의");
       field("relation_status", "기존 지식과의 관계", [["resolved","상충·중복 검토 완료"],["conflict","상충 미해결"],["duplicate","중복 확인 필요"]]);
-      field("evidence_strength", "제시된 출처의 근거 수준", [["sufficient","충분함"],["strong","강함"],["thin","부족함"]]);
+      field("evidence_strength", "근거 수준", [["sufficient","충분함"],["strong","강함"],["thin","부족함"]]);
       // Offer existing analysis text for explicit reuse, never infer a condition or a passed check.
       const reuse = (name, text) => {
         const input = fieldInputs[name];
         fields[name] = [...new Set([...lines(fields[name]), String(text)])].join("\n");
         input.value = fields[name]; invalidate();
       };
+      for (const [name, value] of Object.entries(defaults(item))) {
+        const suggestion = fieldRows[name].createEl("button", { text: "분석 값 사용", attr: { type: "button", "data-field-suggestion": name } });
+        suggestion.onclick = () => { fieldInputs[name].value = value; fieldInputs[name].oninput(); }; inputs.push(suggestion);
+      }
       for (const [name, label] of [["conditions", "분석된 주장 중 적용 조건 선택"], ["exclusions", "분석된 주장 중 예외·금지 선택"]]) {
         const select = fieldRows[name].createEl("select", { attr: { "data-analysis-reuse": name, "aria-label": label } });
         select.createEl("option", { text: label, attr: { value: "" } });
@@ -530,12 +584,12 @@
         const usePurpose = fieldRows.application_trigger.createEl("button", { text: `분석된 사용 목적 사용: ${item.plan_purpose}`, attr: { type: "button" } });
         usePurpose.onclick = () => reuse("application_trigger", item.plan_purpose); inputs.push(usePurpose);
       }
-      topicOptions = fieldRows.knowledge_topics.createEl("select", { attr: { "data-topic-options": "true", "aria-label": "기존 Topic 선택" } });
+      topicOptions = fieldRows.knowledge_topics.createEl("select", { attr: { "data-topic-options": "true", "aria-label": "주제 선택" } });
       function showTopicOptions() {
         if (!fieldRows.knowledge_topics) return;
         const picker = topicOptions;
         if (!picker) return;
-        picker.empty(); picker.createEl("option", { text: "기존 Topic 선택", attr: { value: "" } });
+        picker.empty(); picker.createEl("option", { text: "주제 선택", attr: { value: "" } });
         (registry.TOPICS_BY_DOMAIN[fields.knowledge_domain] || []).forEach(topic => picker.createEl("option", { text: topic, attr: { value: topic } }));
       }
       topicOptions.onchange = () => { if ((registry.TOPICS_BY_DOMAIN[fields.knowledge_domain] || []).includes(topicOptions.value)) reuse("knowledge_topics", topicOptions.value); topicOptions.value = ""; };
@@ -567,66 +621,112 @@
         const candidateBox = fieldRows.knowledge_domain.createEl("div", { attr: { "data-candidates": "domain-topic" } });
         candidateBox.createEl("span", { text: "관련 문서 후보 (선택 시 적용): " });
         for (const [domain, count] of topCandidates(candidateDomains)) {
-          const chip = candidateBox.createEl("button", { text: `도메인 ${domain} (${count})`, attr: { type: "button" } });
+          const chip = candidateBox.createEl("button", { text: `분야 ${domain} (${count})`, attr: { type: "button", "data-candidate-domain": domain } });
           chip.onclick = () => { if (fieldInputs.knowledge_domain) { fieldInputs.knowledge_domain.value = domain; fieldInputs.knowledge_domain.oninput(); } };
           inputs.push(chip);
         }
         for (const [key, count] of topCandidates(candidateTopics)) {
           const [domain, topic] = key.split("|||");
-          const chip = candidateBox.createEl("button", { text: `주제 ${topic} (${count})`, attr: { type: "button" } });
+          const chip = candidateBox.createEl("button", { text: `주제 ${topic} (${count})`, attr: { type: "button", "data-candidate-domain": domain, "data-candidate-topic": topic } });
           chip.onclick = () => { if (fieldInputs.knowledge_domain) { fieldInputs.knowledge_domain.value = domain; fieldInputs.knowledge_domain.oninput(); } reuse("knowledge_topics", topic); };
           inputs.push(chip);
         }
       }
       showKindFields();
-      const status = el.createEl("p", { attr: { role: "status" } });
-      if (viewState.lastResult?.ok && !preview) status.setText("이전 적용 완료 · 현재 문서와 출처를 다시 검증했습니다.");
-      if (viewState.restoreError) status.setText(recoveryCopy({ reason: viewState.restoreError }));
-      const prepareButton = el.createEl("button", { text: "변경 미리보기", attr: { type: "button" } });
-      const acceptedLabel = el.createEl("label"); accepted = acceptedLabel.createEl("input", { attr: { type: "checkbox" } }); accepted.checked = false;
-      acceptedLabel.createEl("span", { text: "표시된 전체 주장·조건·예외와 출처를 검토했으며 이 변경만 승인합니다." });
-      applyButton = el.createEl("button", { text: "승인한 변경 적용", attr: { type: "button" } }); applyButton.disabled = true;
-      accepted.onchange = () => { applyButton.disabled = !preview || !accepted.checked; };
+      status = decision.createEl("p", { text: "다음: 승인 및 적용", attr: { role: "status", "data-decision-status": "" } });
+      const acceptedLabel = decision.createEl("label"); accepted = acceptedLabel.createEl("input", { attr: { type: "checkbox", "data-review-acknowledgement": "" } }); accepted.checked = false;
+      acceptedLabel.createEl("span", { text: "변경 내용과 출처를 확인했습니다." });
+      const actions = decision.createEl("div", { attr: { "data-decision-actions": "" } });
+      const later = ui.button(actions, "나중에", "review-later", () => { if (!busy) modal.close(); });
+      prepareButton = ui.button(actions, "변경안 확인", "prepare-document-review", null, true);
+      applyButton = ui.button(actions, "승인 및 적용", "apply-document-review", null, true);
+      applyButton.disabled = true;
+      const sync = () => {
+        acceptedLabel.hidden = !preview; accepted.disabled = busy || !preview;
+        prepareButton.hidden = Boolean(preview); applyButton.hidden = !preview;
+        applyButton.disabled = busy || !preview || !accepted.checked || viewState.lastResult?.ok === true;
+      };
+      const setBusy = value => { busy = value; inputs.forEach(input => input.disabled = value); prepareButton.disabled = value; later.disabled = value; accepted.disabled = value; callbacks.workspace?.setLocked(value); };
+      const blockedField = (name, reason) => {
+        inheritedFields.open = true;
+        const row = fieldRows[name];
+        if (row) { row.hidden = false; row.createEl("span", { text: `! ${reason}`, attr: { role: "alert", "data-field-error": name } }); fieldInputs[name].focus?.(); }
+        status.setText(reason);
+      };
+      const applied = result => {
+        status.setText("문서에 적용했습니다."); callbacks.workspace?.setJourney({ status: "applied" });
+        acceptedLabel.hidden = true; prepareButton.hidden = true; applyButton.hidden = true;
+        inputs.forEach(input => input.disabled = true);
+        const link = el.createEl("a", { text: ui.title(result.target_path), attr: { href: result.target_path, "data-applied-document": result.target_path } });
+        link.onclick = event => { event?.preventDefault?.(); app.workspace?.openLinkText?.(result.target_path, "", false); };
+        ui.button(actions, "문서 열기", "open-applied-document", () => app.workspace?.openLinkText?.(result.target_path, "", false), true);
+        later.setText(callbacks.onNext ? "다음 제안 확인" : "다른 자료 선택"); later.onclick = () => callbacks.onNext ? callbacks.onNext() : callbacks.onSelectSource ? callbacks.onSelectSource() : modal.close();
+      };
+      accepted.onchange = () => { sync(); status.setText(accepted.checked && preview ? "이 변경만 승인하고 적용합니다." : "변경 내용과 출처를 확인하고 체크하세요."); };
       prepareButton.onclick = async () => {
-        if (!fields.target_path) { status.setText("반영 대상을 선택하세요."); return; }
+        if (busy) return;
+        if (!fields.target_path) { status.setText("저장 방식과 대상 문서를 선택하세요."); (modes.existing.checked ? target : modes.new).focus?.(); return; }
+        const missing = required().find(name => !String(fields[name] || "").trim());
+        if (missing) { blockedField(missing, `${ui.FIELD_LABELS[missing]}을 확인하세요.`); return; }
         const requestRevision = ++formRevision; preview = null; viewState.preview = null; viewState.lastResult = null;
-        prepareButton.disabled = true; applyButton.disabled = true; accepted.checked = false; inputs.forEach(input => input.disabled = true); status.setText("변경과 출처를 확인하고 있습니다.");
+        setBusy(true); applyButton.disabled = true; accepted.checked = false; status.setText("변경과 출처를 확인하고 있습니다.");
         const result = await flow.prepare({ item, fields: { ...fields }, target_path: fields.target_path === "new" ? "" : fields.target_path || "" });
-        prepareButton.disabled = false; inputs.forEach(input => input.disabled = false);
-        if (requestRevision !== formRevision || renderId !== viewState.render) { status.setText("검토 입력이 변경되었습니다. 변경 미리보기를 다시 실행하세요."); return; }
-        if (!result.ok) { preview=null; status.setText(recoveryCopy(result)); return; }
-        if (result.status === "no_change") { preview=null; status.setText("이미 반영된 동일 내용입니다. 변경 없음."); return; }
-        changes.empty();
-        preview=result.value; viewState.preview = preview; status.setText(`검토 대기 · ${preview.target_path} · rev ${sha(preview.after).slice(0, 12)}`);
-        changes.createEl("h3",{text:"변경 전"});changes.createEl("pre",{text:preview.before || "새 문서"});
-        changes.createEl("h3",{text:"변경 후"});changes.createEl("pre",{text:preview.after});
+        setBusy(false);
+        if (requestRevision !== formRevision || renderId !== viewState.render) return;
+        if (!result.ok) {
+          status.setText(`! 적용 전에 확인할 항목이 있습니다. ${recoveryCopy(result)}`);
+          const fieldName = result.field || (fields.relation_status !== "resolved" ? "relation_status" : fields.evidence_strength === "thin" ? "evidence_strength" : "");
+          if (fieldName) blockedField(fieldName, recoveryCopy(result));
+          const diagnostics = el.createEl("details"); diagnostics.createEl("summary", { text: "상세 정보" }); diagnostics.createEl("pre", { text: JSON.stringify(result, null, 2) });
+          return;
+        }
+        if (result.status === "no_change") {
+          status.setText("이미 반영된 내용입니다."); prepareButton.hidden = true;
+          ui.button(actions, callbacks.onNext ? "다음 제안 확인" : "다른 자료 선택", "next-proposal", () => callbacks.onNext ? callbacks.onNext() : callbacks.onSelectSource ? callbacks.onSelectSource() : modal.close(), true);
+          if (result.target_path) ui.button(actions, "문서 열기", "open-applied-document", () => app.workspace?.openLinkText?.(result.target_path, "", false));
+          return;
+        }
+        preview = result.value; viewState.preview = preview; viewState.restoreError = ""; viewState.blockedPreview = null;
+        ui.exactPreview(changes, preview, { ...callbacks, reviewFields: fields }); sync(); status.setText("변경 내용과 출처를 확인하고 체크하세요.");
       };
       applyButton.onclick = async () => {
-        if (!preview || !accepted.checked) return;
-        applyButton.disabled = true; prepareButton.disabled = true; accepted.disabled = true; inputs.forEach(i=>i.disabled=true); status.setText("승인한 변경 적용 및 재조회 중입니다.");
-        const result=await flow.apply(preview,{approved:true,claims_accepted:true,packet_hash:preview.packet_hash});
-        viewState.lastResult = result;
-        inputs.forEach(i=>i.disabled=false); prepareButton.disabled = false; accepted.disabled = false;
-        status.setText(result.ok ? "반영과 근거 검증이 완료되었습니다." : recoveryCopy(result));
-        if(result.ok){applyButton.disabled=true;callbacks.onComplete?.(result);}else{applyButton.disabled=false;applyButton.setText("같은 승인 변경 재시도");}
+        if (busy || !preview || !accepted.checked || viewState.lastResult?.ok) return;
+        setBusy(true); sync(); callbacks.workspace?.setJourney({ status: "applying" });
+        status.setText("승인한 변경을 적용하고 있습니다.");
+        const progress = decision.createEl("progress", { attr: { "aria-label": "문서 적용 중" } });
+        const result = await flow.apply(preview, { approved: true, claims_accepted: true, packet_hash: preview.packet_hash });
+        progress.remove?.(); viewState.lastResult = result; setBusy(false); accepted.checked = false;
+        if (renderId !== viewState.render) return;
+        if (result.ok) { applied(result); await callbacks.onComplete?.(result); }
+        else {
+          const written = result.reason === "canonical_readback_pending" || result.reason === "review_checkpoint_failed" || result.writer_result?.status === "committed";
+          const stale = ["stale_before_write", "source_revision_changed", "approval_expired"].includes(result.reason);
+          status.setText(written ? "문서는 저장됐지만 확인이 끝나지 않았습니다." : stale ? "검토 이후 내용이 바뀌었습니다. 변경안을 다시 확인해야 합니다." : recoveryCopy(result));
+          callbacks.workspace?.setJourney({ status: written ? "applying" : "blocked" });
+          if (stale) { viewState.blockedPreview = preview; preview = null; viewState.preview = null; }
+          sync(); if (written) applyButton.setText("저장 상태 다시 확인");
+          if (stale) prepareButton.setText("변경안 다시 준비");
+        }
       };
+      sync();
+      if (viewState.restoreError) status.setText(recoveryCopy({ reason: viewState.restoreError }));
       if (!preview && viewState.blockedPreview) {
-        const retained = viewState.blockedPreview;
-        changes.empty();
-        changes.createEl("h3", { text: "저장된 변경 전 — 현재 적용 승인 아님" }); changes.createEl("pre", { text: retained.before || "새 문서" });
-        changes.createEl("h3", { text: "저장된 변경 후 — 현재 적용 승인 아님" }); changes.createEl("pre", { text: retained.after });
-        status.setText(`${recoveryCopy({ reason: viewState.restoreError })} 기존 변경안은 아래에 보존했습니다. 현재 상태에서 자동 재개하거나 적용할 수 없습니다.`);
-        applyButton.disabled = true; accepted.disabled = true;
-        if (viewState.alreadyWritten !== false) prepareButton.disabled = true;
+        ui.exactPreview(changes, viewState.blockedPreview, { ...callbacks, reviewFields: fields });
+        el.createEl("p", { text: "이전 변경안 · 현재 적용 승인 아님", attr: { role: "alert" } });
+        accepted.disabled = true; applyButton.disabled = true;
+        prepareButton.setText("변경안 다시 준비");
+        if (viewState.alreadyWritten !== false) {
+          prepareButton.disabled = true;
+          ui.button(actions, "저장 상태 확인", "restore-document-review", () => { viewState.restored = false; viewState.restoreError = ""; return modal.onOpen(); });
+        }
       }
       if (preview) {
-        changes.empty();
-        changes.createEl("h3", { text: "변경 전" }); changes.createEl("pre", { text: preview.before || "새 문서" });
-        changes.createEl("h3", { text: "변경 후" }); changes.createEl("pre", { text: preview.after });
-        status.setText(viewState.lastResult?.ok ? "반영과 근거 검증이 완료되었습니다." : "저장된 변경 미리보기를 복원했습니다. 다시 확인하고 체크한 뒤 같은 변경을 재시도하세요.");
-        accepted.checked = false; applyButton.disabled = true;
-        if (viewState.lastResult && !viewState.lastResult.ok) applyButton.setText("같은 승인 변경 재시도");
+        ui.exactPreview(changes, preview, { ...callbacks, reviewFields: fields });
+        accepted.checked = false; sync();
+        status.setText("변경 내용과 출처를 확인하고 체크하세요.");
+        if (viewState.lastResult && !viewState.lastResult.ok) applyButton.setText("저장 상태 다시 확인");
       }
+      if (viewState.lastResult?.ok) applied(viewState.lastResult);
     };
     modal.open(); return modal;
   }

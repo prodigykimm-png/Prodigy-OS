@@ -239,8 +239,8 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, e
     "SYSTEM/Views/prodigy-workspace-manifest.js": fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js"), "utf8"),
     "SYSTEM/Views/prodigy-hub-loader.js": fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-hub-loader.js"), "utf8")
   };
-  const dynamicModulePaths = llmWikiControllerOptions?.loadDynamicGoldenModules === true
-    ? DYNAMIC_MODULE_PATHS : [];
+  const dynamicModulePaths = ["SYSTEM/Views/prodigy-wiki-workspace-view.js", "SYSTEM/Views/llmwiki-document-canonical-review.js",
+    ...(llmWikiControllerOptions?.loadDynamicGoldenModules === true ? DYNAMIC_MODULE_PATHS : [])];
   for (const modulePath of [...new Set([...MODULE_PATHS, ...dynamicModulePaths])]) {
     if (omittedModulePaths.includes(modulePath)) continue;
     files[modulePath] = fs.readFileSync(path.join(ROOT, modulePath), "utf8");
