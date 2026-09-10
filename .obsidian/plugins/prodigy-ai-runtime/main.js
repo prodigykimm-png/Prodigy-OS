@@ -1261,11 +1261,33 @@ async function removeIsolatedDirectory(directory) {
   const fs = require2("node:fs");
   fs.rmSync(directory, { recursive: true, force: true });
 }
+function resolveDesktopExecutable(command) {
+  const require2 = nodeRequire();
+  const fs = require2("node:fs");
+  const path = require2("node:path");
+  const os = require2("node:os");
+  const directories = [
+    ...(process.env.PATH || "").split(path.delimiter),
+    path.join(os.homedir(), ".local", "bin"),
+    "/opt/homebrew/bin",
+    "/usr/local/bin"
+  ];
+  const candidates = path.isAbsolute(command) ? [command] : command && !command.includes("/") && !command.includes("\\") ? [...new Set(directories)].filter((directory) => path.isAbsolute(directory)).map((directory) => path.join(directory, command)) : [];
+  for (const candidate of candidates) {
+    try {
+      if (!fs.statSync(candidate).isFile()) continue;
+      fs.accessSync(candidate, fs.constants.X_OK);
+      return candidate;
+    } catch {
+    }
+  }
+  throw Object.assign(new Error("provider_executable_not_found"), { code: "executable_missing" });
+}
 function runProcess(input) {
   const require2 = nodeRequire();
   const childProcess = require2("node:child_process");
   return new Promise((resolve, reject) => {
-    const child = childProcess.spawn(input.command, input.args, {
+    const child = childProcess.spawn(resolveDesktopExecutable(input.command), input.args, {
       cwd: input.cwd,
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],
@@ -1306,7 +1328,7 @@ function runProcess(input) {
     child.stderr.on("data", (chunk) => {
       if (stderr.length < 8192) stderr += String(chunk).slice(0, 8192 - stderr.length);
     });
-    child.once("error", (error) => finish(reject, error));
+    child.once("error", (error) => finish(reject, error.code === "ENOENT" ? Object.assign(new Error("provider_executable_not_found"), { code: "executable_missing" }) : error));
     child.once("close", (code) => finish(resolve, { exit_code: code, stdout, stderr }));
     child.stdin.end(input.input);
   });
