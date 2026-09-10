@@ -1,0 +1,9 @@
+{
+  "id": "prodigy-llm-wiki",
+  "name": "Prodigy LLM Wiki",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "기존 Prodigy 지식 워크스페이스에서 자료 정리와 Wiki 검토를 엽니다.",
+  "author": "Prodigy OS",
+  "isDesktopOnly": false
+}
