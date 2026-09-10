@@ -2009,9 +2009,13 @@ test("identical plan replay costs zero provider calls and zero canonical writes"
   const first = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
   assert.equal(first.ok, true, first.reason);
   assert.equal(first.pages, 1);
+  const writesBeforeReplay = runtime.app.vault.touched.length;
   const second = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
   assert.equal(second.ok, true, second.reason);
   assert.equal(second.pages, 1);
+  const replayWrites = runtime.app.vault.touched.slice(writesBeforeReplay);
+  console.log(JSON.stringify({ probe: "hub-plan-replay-cost", checkpoint_writes: replayWrites.length, writes: replayWrites }));
+  assert.deepEqual(replayWrites, [], "exact plan replay must not rewrite checkpoints or proposals");
   assert.equal(second.map_provider_calls, 0);
   assert.equal(second.plan_provider_calls, 0);
   assert.equal(second.canonical_writes, 0);

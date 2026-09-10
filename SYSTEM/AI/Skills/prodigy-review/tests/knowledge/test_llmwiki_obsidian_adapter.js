@@ -417,7 +417,7 @@ test("canonical failure preserves canonical state and finalizes a rejected audit
   assert.equal(rejected.result, "rejected");
   assert.equal(rejected.reason, "canonical_write_failed");
   assert.deepEqual(fixture.vault.successfulWrites, { create: 1, modify: 1, createFolder: 2 });
-  assert.deepEqual(callOrder(fixture.vault).slice(-6), [`get:ZETA`, `createFolder:ZETA`, `get:ZETA/PERMANENT`, `createFolder:ZETA/PERMANENT`, `create:${TARGET}`, `modify:${AUDIT_PATH}`]);
+  assert.deepEqual(callOrder(fixture.vault).slice(-7), [`get:ZETA`, `createFolder:ZETA`, `get:ZETA/PERMANENT`, `createFolder:ZETA/PERMANENT`, `create:${TARGET}`, `get:${TARGET}`, `modify:${AUDIT_PATH}`]);
 });
 
 test("audit finalize failure returns committed_audit_pending without canonical rollback and repair is exact and idempotent", async () => {
@@ -451,7 +451,15 @@ test("audit finalize failure returns committed_audit_pending without canonical r
   assert.equal(duplicate.ok, true, JSON.stringify(duplicate));
   assert.equal(duplicate.status, "duplicate");
   assert.deepEqual(duplicate.write_counts, ZERO_WRITES);
-  assert.deepEqual(callOrder(fixture.vault), [`get:${AUDIT_PATH}`, `read:${AUDIT_PATH}`]);
+  assert.deepEqual(callOrder(fixture.vault), [`get:${AUDIT_PATH}`, `read:${AUDIT_PATH}`, `get:${TARGET}`, `read:${TARGET}`]);
+  await fixture.vault.app.vault.modify(fixture.vault.app.vault.getAbstractFileByPath(TARGET), fixture.packet.after_bytes + "\nIntervening edit\n");
+  fixture.vault.resetCalls();
+  const stale = await commit.repairCommittedAudit({ adapter: fixture.adapter, repair: pending.repair });
+  assert.equal(stale.ok, false);
+  assert.equal(stale.reason, "canonical_bytes_mismatch");
+  assert.deepEqual(stale.write_counts, ZERO_WRITES);
+  assert.equal(fixture.vault.bytes(TARGET), fixture.packet.after_bytes + "\nIntervening edit\n");
+  assert.equal(fixture.vault.calls.some(call => call.api === "modify"), false);
   console.log(`TASK8_REPAIR first=1 duplicate=1 canonical_rewrites=0 provider=0 network=0 git=0`);
 });
 

@@ -146,8 +146,12 @@
       session.draft = question; publishQuestion();
       let received;
       try {
+        // Route canonical selections through fresh finalized-authority resolution,
+        // not the INBOX-only unverified source adapter. A path is not a trust grant.
+        const verifiedPaths = session.sources.filter(source => source.path.startsWith("ZETA/PERMANENT/")).map(source => source.path);
         received = await root.LLMWikiWikiReadService.answerSourceQuestion({ app: appRef, question,
-          sources: session.sources.slice(), includeVerified: session.includeVerified === true, history,
+          sources: session.sources.filter(source => !verifiedPaths.includes(source.path)), verified_paths: verifiedPaths,
+          includeVerified: session.includeVerified === true, history,
           signal: questionAbort.signal, confirmConsent: opts.confirmConsent,
           onProgress(stage) { if (epoch === session.epoch) { questionStage = stage; publishQuestion(); } } });
         if (epoch !== session.epoch) return { ok: false, reason: "conversation_changed" };
@@ -389,7 +393,7 @@
         const wiki = createEl(controls, "button", { text: session.includeVerified ? "검증된 Wiki 제외" : "검증된 Wiki 포함", attr: { type: "button" } });
         wiki.disabled = questionBusy; wiki.onclick = () => { if (session.includeVerified) { session.includeVerified = false; removeSource(""); } else { session.includeVerified = true; render(); } };
         const fresh = createEl(controls, "button", { text: "새 대화", attr: { type: "button" } }); fresh.onclick = resetConversation;
-        createEl(controls, "p", { text: `현재 범위: ${session.includeVerified ? "검증된 Wiki + " : ""}${session.sources.map(row => row.path + " (미승인 자료)").join(", ") || "선택 자료 없음"}. 대화는 앱 종료 후 복원되지 않습니다.` });
+        createEl(controls, "p", { text: `현재 범위: ${session.includeVerified ? "검증된 Wiki + " : ""}${session.sources.map(row => row.path + (row.path.startsWith("ZETA/PERMANENT/") ? " (Wiki 범위)" : " (미승인 자료)")).join(", ") || "선택 자료 없음"}. 대화는 앱 종료 후 복원되지 않습니다.` });
         for (const source of session.sources) { const remove = createEl(controls, "button", { text: `${source.path} 제외`, attr: { type: "button" } }); remove.onclick = () => removeSource(source.path); }
         if (session.scopeNotice) createEl(controls, "p", { text: session.scopeNotice, attr: { role: "status" } });
         if (session.failedQuestion) { const retry = createEl(controls, "button", { text: "실패한 질문 다시 시도", attr: { type: "button" } }); retry.disabled = questionBusy; retry.onclick = () => askQuestion(session.failedQuestion, true); }

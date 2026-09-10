@@ -20,10 +20,6 @@
       && sha(candidate.before_bytes) === candidate.revision;
   }
   function compiledBody(document) {
-    const sections = Array.isArray(document.sections) ? document.sections : [];
-    if (sections.length) {
-      return sections.map((section) => `## ${section.heading}\n\n${(section.paragraphs || []).map((paragraph) => paragraph.text).join("\n\n")}`).join("\n\n").trim();
-    }
     const lines = String(document.body || "").split("\n");
     if (lines[0] === "---") {
       const end = lines.findIndex((line, index) => index > 0 && line === "---");

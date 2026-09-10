@@ -97,6 +97,9 @@
         if (quarantined) throw new Error("corrupt_coverage_quarantined");
         if (!active(input)) throw new Error("analysis_request_inactive");
         const current = state.manifests[manifest.manifest_id] || { receipts: {} };
+        // Cached hits still bind to a changed manifest, but an exact durable
+        // receipt replay must not rewrite its checkpoint.
+        if (stable(current.receipts[receipt.instance_id]) === stable(receipt)) return;
         const next = { ...state, manifests: { ...state.manifests, [manifest.manifest_id]: { receipts: { ...current.receipts, [receipt.instance_id]: receipt } } } };
         await persist(next);
         state = next;

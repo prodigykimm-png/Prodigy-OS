@@ -116,25 +116,28 @@ test('mixed old/new section merges paragraphs without duplicating the heading',a
  assert.ok(after.includes('점검 기록에는 장치 식별자를 함께 적는다.'));
  assert.ok(after.includes('실내 모형만 점검한다.'));
 });
-test('identical re-review with removed exclusions or conflict relation is not no_change',async()=>{
+test('identical re-review ignores generated draft metadata but preserves review-scope changes',async()=>{
  const {app,files}=vault();
  const a=await item(app,'eq','실내 모형만 점검한다.');
  const flow=await jobBackedFlow(app,a);
- const withExclusions={...fields,exclusions:'실외 적용 금지'};
- const p=await flow.prepare({item:a,fields:withExclusions});assert.equal(p.ok,true,JSON.stringify(p));
+ const reviewed={...fields,exclusions:'실외 적용 금지',rationale:'원문 근거',steps:'1. 원문 확인',outcome:'근거 있는 판단',definition:'재사용 가능한 규칙'};
+ const p=await flow.prepare({item:a,fields:reviewed});assert.equal(p.ok,true,JSON.stringify(p));
  const first=await flow.apply(p.value,{approved:true,claims_accepted:true,packet_hash:p.value.packet_hash});assert.equal(first.ok,true,JSON.stringify(first));
- const same=await flow.prepare({item:a,fields:withExclusions,target_path:first.target_path});
+ const same=await flow.prepare({item:a,fields:reviewed,target_path:first.target_path});
  assert.equal(same.ok,true,JSON.stringify(same));
  assert.equal(same.status,'no_change',JSON.stringify(same));
+ for (const field of ['rationale','steps','outcome','definition','relation_status','classification','evidence_strength']) {
+  const generated={...reviewed,[field]:`${reviewed[field]} (generated draft)`};
+  const repeated=await flow.prepare({item:a,fields:generated,target_path:first.target_path});
+  assert.equal(repeated.ok,true,JSON.stringify(repeated));
+  assert.equal(repeated.status,'no_change',field);
+  assert.equal(repeated.provider_count,0,field);
+  assert.equal(repeated.writes,0,field);
+ }
  const dropped=await flow.prepare({item:a,fields,target_path:first.target_path});
  assert.equal(dropped.ok,true,JSON.stringify(dropped));
  assert.equal(dropped.status,'review',JSON.stringify(dropped));
- const conflicted=await flow.prepare({item:a,fields:{...withExclusions,relation_status:'conflict'},target_path:first.target_path});
- assert.equal(conflicted.ok,false);
- assert.equal(conflicted.reason,'promotion_review_required',JSON.stringify(conflicted));
- const rationale=await flow.prepare({item:a,fields:{...withExclusions,knowledge_kind:'principle',rationale:'왜냐하면 그렇다.'},target_path:first.target_path});
- assert.equal(rationale.ok,true,JSON.stringify(rationale));
- assert.equal(rationale.status,'review',JSON.stringify(rationale));
+ assert.equal([...files.keys()].filter(path=>path.startsWith('ZETA/PERMANENT')).length,1);
 });
 test('unresolved conflict and missing explicit approval do not write canonical Markdown',async()=>{
  const {app,files}=vault(),flow=review.create({app});const a=await item(app,'ccc','동일 조건에서 10분과 20분 규정이 상충한다.');
