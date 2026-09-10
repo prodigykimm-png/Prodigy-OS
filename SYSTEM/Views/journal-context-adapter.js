@@ -42,7 +42,7 @@
     var feed = await deps.reader.read({ app: opts.app || root.app, signal: signal });
     if (signal && signal.aborted) return { ok: false, status: "cancelled", reason: "mount_cancelled", count: 0 };
     if (!feed.ok) return feed;
-    return deps.service.mount({ container: opts.container, context: opts.context || buildContext(opts), items: feed.rows, readAdapter: deps.reader });
+    return deps.service.mount({ openSource: function (path) { var app = opts.app || root.app; return app.workspace.openLinkText(path.replace(/\.md$/, ""), "", true); }, container: opts.container, context: opts.context || buildContext(opts), items: feed.rows, readAdapter: deps.reader });
   }
 
   var api = Object.freeze({ buildContext: buildContext, resurface: resurface, mountResurfacing: mountResurfacing, PROMPTS: PROMPTS, LABEL: LABEL });

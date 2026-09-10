@@ -82,6 +82,24 @@
 
     if (current.action === "validated") {
       var form = el(card, "div", { cls: "mv-form" });
+      var candidateLabel = el(form, "label", { text: "배움으로 남기기 · 지식 후보 검토로 전달 (선택)" });
+      var candidateCheck = el(candidateLabel, "input", { attr: { type: "checkbox", "aria-label": "지식 후보로 전달" } });
+      candidateCheck.checked = current.create_candidate === true;
+      candidateCheck.onchange = function () { state["p" + index].create_candidate = candidateCheck.checked; state.dirty = true; };
+      var trigger = el(form, "textarea", { attr: { "aria-label": "적용할 상황", placeholder: "어떤 상황에서 다시 참고할까요? (선택)" } });
+      trigger.value = current.application_trigger || "";
+      trigger.oninput = function () { state["p" + index].application_trigger = trigger.value; state.dirty = true; };
+      var exceptions = el(form, "textarea", { attr: { "aria-label": "예외와 부족한 근거", placeholder: "예외나 아직 부족한 근거 (선택)" } });
+      exceptions.value = current.exceptions || "";
+      exceptions.oninput = function () { state["p" + index].exceptions = exceptions.value; state.dirty = true; };
+      var registry = root.KnowledgeExplorerRegistry;
+      if (registry && root.prodigyDisplay) {
+        var domain = el(form, "select", { attr: { "aria-label": "배움의 분야" } });
+        el(domain, "option", { text: "분야는 지식 검토에서 선택", attr: { value: "" } });
+        registry.DOMAIN_ORDER.forEach(function (id) { el(domain, "option", { text: registry.domainLabel(id, root.prodigyDisplay), attr: { value: id } }); });
+        domain.value = current.domain || "";
+        domain.onchange = function () { state["p" + index].domain = domain.value; state.dirty = true; };
+      }
       var stmtLabel = el(form, "label", { text: "지식 문장" });
       var stmtInput = el(form, "input", { attr: { type: "text", "aria-label": "지식 문장", placeholder: "검증된 지식 문장", value: current.knowledge_statement || "" } });
       stmtInput.oninput = function () { state["p" + index].knowledge_statement = stmtInput.value; state.dirty = true; };
@@ -315,6 +333,18 @@
     }
 
     function renderFooter() {
+      if (state.candidateFailures && state.candidateFailures.length) {
+        var retryCandidates = el(footerEl, "button", { text: "실패한 지식 후보만 재시도", cls: "mv-btn" });
+        retryCandidates.onclick = async function () {
+          retryCandidates.disabled = true;
+          try {
+            var retried = await store.retryCandidateFailures(app, state.candidateFailures);
+            state.candidateFailures = retried.failures || [];
+            setStatus("회고는 저장되어 있습니다. 후보 " + retried.length + "개 전달 완료, " + state.candidateFailures.length + "개 전달 실패.");
+          } catch (error) { setStatus("회고는 저장되어 있습니다. 후보 재시도 실패: " + error.message, true); }
+          finally { render(); }
+        };
+      }
       if (state.replacementRequired && !state.replacementMode) {
         var replaceText = state.existingFormat === "legacy_or_unrecognized" ? "새 검증으로 교체" : "기존 기록 교체";
         var replace = el(footerEl, "button", { text: replaceText, cls: "mv-btn mv-btn-danger" });
@@ -491,10 +521,11 @@
         }
         if (typeof store.readMonthlySnapshot === "function") targetSnapshot = await store.readMonthlySnapshot(app, model.month);
         var candidates = state.reviewMode === "validation" ? await store.createCandidatesFromDecisions(app, model, state) : [];
+        state.candidateFailures = candidates.failures || [];
         state.dirty = false;
         state.saving = false;
         state.replaceArmed = false;
-        setStatus((state.reviewMode === "question_only" ? "월간 관찰 기록 저장 완료: " : "월간 검증 저장 완료: ") + result.path + (sourceWarning ? " — 입력 기록 변경 후 현재 편집본을 저장했습니다." : "") + (candidates.length ? " | Knowledge Candidate " + candidates.length + "개 생성" : ""));
+        setStatus((state.reviewMode === "question_only" ? "월간 관찰 기록 저장 완료: " : "월간 검증 저장 완료: ") + result.path + (sourceWarning ? " — 입력 기록 변경 후 현재 편집본을 저장했습니다." : "") + (" | 지식 후보 " + candidates.length + "개 전달 완료, " + state.candidateFailures.length + "개 전달 실패"));
         if (typeof opts.onSaved === "function") await opts.onSaved(result);
         render();
       } catch (error) {

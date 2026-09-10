@@ -117,7 +117,7 @@
     return loadReview(app, dateStr);
   }
 
-  async function saveReflection(app, dateStr, reflection) {
+  async function saveReflection(app, dateStr, reflection, options) {
     const core = root.JournalCore;
     const file = await ensureDailyNote(app, dateStr);
     const path = file.path || core.dailyPath(dateStr);
@@ -125,6 +125,7 @@
     const update = (content) => {
       const parsed = core.parseFrontmatter(content || "");
       const current = core.extractReviewFromDaily(content || "", parsed.data);
+      if (options && Object.prototype.hasOwnProperty.call(options, "expectedReflection") && core.clean(current.reflection) !== core.clean(options.expectedReflection)) throw new Error("다른 화면에서 기록이 변경되었습니다. 입력을 보존하고 원본을 확인해 주세요.");
       const next = core.applyReviewToDailyContent(content || "", Object.assign({}, current, { reflection: core.clean(reflection) }));
       committedReview = reviewFromContent(path, dateStr, next);
       return next;

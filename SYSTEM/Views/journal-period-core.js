@@ -2,12 +2,12 @@
   "use strict";
 
   var PERIODS = Object.freeze([
-    Object.freeze({ id: "daily", label: "Daily", question: "오늘 무엇이 나를 변화시켰는가?", role: "오늘 무엇이 나를 변화시켰는지 기록합니다." }),
-    Object.freeze({ id: "weekly", label: "Weekly", question: "무엇이 반복되고 무엇을 배웠는가?", role: "이번 주에 무엇이 반복되었고 무엇을 배웠는지 살펴봅니다." }),
-    Object.freeze({ id: "monthly", label: "Monthly", question: "어떤 변화가 실제로 검증되었는가?", role: "이번 달의 변화가 반복된 근거로 검증되는지 확인합니다." }),
-    Object.freeze({ id: "quarterly", label: "Quarterly", question: "지금의 방향은 맞는가?", role: "검증된 변화와 결과를 바탕으로 지금의 방향이 맞는지 점검합니다." }),
-    Object.freeze({ id: "yearly", label: "Yearly", question: "나는 어떤 사람이 되어가고 있는가?", role: "분기별 방향과 변화를 돌아보며 내가 어떤 사람이 되어가는지 성찰합니다." })
-  ]);
+    { id: "daily", label: "일간", question: "오늘 남기고 싶은 일이나 마음이 있나요?", role: "오늘의 경험과 마음을 편하게 남깁니다." },
+    { id: "weekly", label: "주간", question: "이 중 내게 가장 중요했던 것은 무엇이고, 빠진 이야기는 없나요?", role: "한 주의 흐름을 돌아보고, 다음 주에 가져갈 것을 고릅니다." },
+    { id: "monthly", label: "월간", question: "해본 것 중 실제로 나에게 맞았던 것은 무엇이며, 어떤 조건에서 그랬나요?", role: "여러 주에 걸쳐 해본 방식과 변화를 비교하고, 나에게 맞는 것을 정리합니다." },
+    { id: "quarterly", label: "분기", question: "무엇을 계속하고, 무엇을 줄이거나 바꿀까요?", role: "지난 세 달을 바탕으로, 어디에 힘을 쓰고 무엇을 줄일지 정합니다." },
+    { id: "yearly", label: "연간", question: "이 한 해는 내게 어떤 의미였고, 앞으로 무엇을 중요하게 보고 싶나요?", role: "한 해의 경험과 선택을 돌아보며, 앞으로 중요하게 여길 삶의 기준을 정리합니다." }
+  ].map(Object.freeze));
 
   function getPeriod(id) {
     var key = String(id || "").trim().toLowerCase();
@@ -15,30 +15,25 @@
   }
 
   function isoDate(value) {
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
     var date = value instanceof Date ? value : new Date(value || Date.now());
-    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+    var parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+    function part(type) { return parts.find(function (p) { return p.type === type; }).value; }
+    return part("year") + "-" + part("month") + "-" + part("day");
   }
-
+  function calendarDate(year, month, day) { return new Date(Date.UTC(year, month, day, 12)); }
   function monthPrefix(value) { return isoDate(value).slice(0, 7); }
-
-  function quarterPrefix(value) {
-    var date = value instanceof Date ? value : new Date(value || Date.now());
-    return date.getFullYear() + "-Q" + (Math.floor(date.getMonth() / 3) + 1);
-  }
-
-  function yearPrefix(value) {
-    var date = value instanceof Date ? value : new Date(value || Date.now());
-    return String(date.getFullYear());
-  }
+  function quarterPrefix(value) { var day = isoDate(value); return day.slice(0, 4) + "-Q" + (Math.floor((Number(day.slice(5, 7)) - 1) / 3) + 1); }
+  function yearPrefix(value) { return isoDate(value).slice(0, 4); }
 
   function periodKey(periodId, value) {
     var id = getPeriod(periodId).id;
     var raw = String(value || "").trim();
-    if (id === "monthly" && /^\d{4}-\d{2}$/.test(raw)) return raw;
+    if (id === "monthly" && /^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) return raw;
     if (id === "quarterly" && /^\d{4}-Q[1-4]$/i.test(raw)) return raw.toUpperCase();
     if (id === "yearly" && /^\d{4}$/.test(raw)) return raw;
     var date = value instanceof Date ? value : new Date(value || Date.now());
-    if (!Number.isFinite(date.getTime())) date = new Date();
+    if (!Number.isFinite(date.getTime())) throw new Error("유효하지 않은 기간입니다.");
     if (id === "monthly") return monthPrefix(date);
     if (id === "quarterly") return quarterPrefix(date);
     if (id === "yearly") return yearPrefix(date);
@@ -61,7 +56,7 @@
     if (id === "quarterly" && /^\d{4}-Q[1-4]$/i.test(raw)) return periodKey(id, raw);
     if (id === "yearly" && /^\d{4}$/.test(raw)) return raw;
     if (id === "monthly" && /^\d{4}-\d{2}$/.test(raw)) return raw;
-    if (id === "quarterly" && /^\d{4}-\d{2}$/.test(raw)) return quarterPrefix(new Date(Number(raw.slice(0, 4)), Number(raw.slice(5, 7)) - 1, 1));
+    if (id === "quarterly" && /^\d{4}-\d{2}$/.test(raw)) return quarterPrefix(calendarDate(Number(raw.slice(0, 4)), Number(raw.slice(5, 7)) - 1, 1));
     return "";
   }
 
@@ -70,12 +65,12 @@
     var normalized = periodKey(id, key);
     var delta = Number(amount) || 0;
     if (id === "monthly") {
-      var month = new Date(Number(normalized.slice(0, 4)), Number(normalized.slice(5, 7)) - 1 + delta, 1);
+      var month = calendarDate(Number(normalized.slice(0, 4)), Number(normalized.slice(5, 7)) - 1 + delta, 1);
       return monthPrefix(month);
     }
     if (id === "quarterly") {
       var quarter = /^(\d{4})-Q([1-4])$/.exec(normalized);
-      var quarterDate = new Date(Number(quarter[1]), (Number(quarter[2]) - 1) * 3 + delta * 3, 1);
+      var quarterDate = calendarDate(Number(quarter[1]), (Number(quarter[2]) - 1) * 3 + delta * 3, 1);
       return quarterPrefix(quarterDate);
     }
     if (id === "yearly") return String(Number(normalized) + delta);
@@ -88,15 +83,15 @@
     var start;
     var end;
     if (id === "monthly") {
-      start = new Date(Number(normalized.slice(0, 4)), Number(normalized.slice(5, 7)) - 1, 1);
-      end = new Date(Number(normalized.slice(0, 4)), Number(normalized.slice(5, 7)), 0);
+      start = calendarDate(Number(normalized.slice(0, 4)), Number(normalized.slice(5, 7)) - 1, 1);
+      end = calendarDate(Number(normalized.slice(0, 4)), Number(normalized.slice(5, 7)), 0);
     } else if (id === "quarterly") {
       var quarter = /^(\d{4})-Q([1-4])$/.exec(normalized);
-      start = new Date(Number(quarter[1]), (Number(quarter[2]) - 1) * 3, 1);
-      end = new Date(Number(quarter[1]), (Number(quarter[2]) - 1) * 3 + 3, 0);
+      start = calendarDate(Number(quarter[1]), (Number(quarter[2]) - 1) * 3, 1);
+      end = calendarDate(Number(quarter[1]), (Number(quarter[2]) - 1) * 3 + 3, 0);
     } else {
-      start = new Date(Number(normalized), 0, 1);
-      end = new Date(Number(normalized), 12, 0);
+      start = calendarDate(Number(normalized), 0, 1);
+      end = calendarDate(Number(normalized), 12, 0);
     }
     return Object.freeze({ start: isoDate(start), end: isoDate(end) });
   }
@@ -146,7 +141,7 @@
   function isCompletedRecord(file) {
     var frontmatter = recordFrontmatter(file);
     var status = frontmatter.status;
-    if (status === undefined || status === null || String(status).trim() === "") return true;
+    if (status === undefined || status === null || String(status).trim() === "") return false;
     return ["completed", "complete", "validated", "approved", "saved", "done"].indexOf(String(status).trim().toLowerCase()) >= 0;
   }
 

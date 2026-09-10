@@ -1,6 +1,8 @@
 (function (root) {
   "use strict";
 
+  var drafts = new WeakMap();
+
   function required(name) {
     var v = root[name];
     if (!v) throw new Error(name + "을(를) 먼저 불러와야 합니다.");
@@ -78,6 +80,9 @@
     var dateInput = el(periodControls, "input", { attr: { type: "date", class: "weekly-filter-date-input", "aria-label": "주간 기준 날짜" } });
     var nextWeekBtn = el(periodControls, "button", { text: "다음 주", attr: { type: "button", class: "weekly-filter-btn" } });
     var todayBtn = el(periodControls, "button", { text: "오늘", attr: { type: "button", class: "weekly-filter-btn" } });
+    var lastWeekBtn = el(periodControls, "button", { text: "지난주", attr: { type: "button", class: "weekly-filter-btn" } });
+    var twoWeeksBtn = el(periodControls, "button", { text: "2주 전", attr: { type: "button", class: "weekly-filter-btn" } });
+    todayBtn.textContent = "이번 주";
     var actions = el(header, "div", { attr: { class: "weekly-filter-actions" } });
     var refreshBtn = el(actions, "button", { text: "새로고침", attr: { type: "button", class: "weekly-filter-btn" } });
     var aiBtn = el(actions, "button", { text: "AI 학습 분석", attr: { type: "button", class: "weekly-filter-btn weekly-filter-btn-ai" } });
@@ -85,14 +90,21 @@
     var statusLine = el(wrapper, "p", { text: "", attr: { class: "weekly-filter-status", role: "status", "aria-live": "polite" } });
     var contentArea = el(wrapper, "div", { attr: { class: "weekly-filter-content" } });
 
-    var selectedDate = options && options.initialDate ? options.initialDate : core.formatDate(new Date());
+    var previousArea = el(wrapper, "section", { attr: { class: "journal-previous-review" } });
+    el(wrapper, "h3", { text: "이번 주를 돌아보니 어떤 생각이 드나요?" });
+    var comment = el(wrapper, "textarea", { attr: { rows: "4", "aria-label": "주간 내 코멘트", style: "width:100%;box-sizing:border-box;resize:vertical;" } });
+    var cache = drafts.get(app); if (!cache) { cache = new Map(); drafts.set(app, cache); }
+    comment.oninput = function () { if (state.review) { state.review.commentary = comment.value; remember(); } };
+    function remember() { if (state.review) cache.set(currentWeek, { review: state.review, expected: state.expectedContent }); }
+    var selectedDate = options && options.initialDate ? options.initialDate : (root.JournalCore ? root.JournalCore.todayIsoDate() : core.formatDate(new Date()));
     var currentWeek = options && options.week ? options.week : core.isoWeekForDate(selectedDate);
     if (!currentWeek) {
-      selectedDate = core.formatDate(new Date());
+      selectedDate = (root.JournalCore ? root.JournalCore.todayIsoDate() : core.formatDate(new Date()));
       currentWeek = core.currentISOWeek(new Date());
     }
+    if (options && options.week) selectedDate = core.formatDate(core.parseISOWeek(currentWeek).start);
     dateInput.value = selectedDate;
-    var state = { review: null, evidenceItems: [], aiEnhanced: false, loading: false, aiLoading: false, saving: false, aiRequestId: 0, aiAbortController: null, loadRequestId: 0, loadPromise: null, destroyed: false };
+    var state = { expectedContent: "", review: null, evidenceItems: [], aiEnhanced: false, loading: false, aiLoading: false, saving: false, aiRequestId: 0, aiAbortController: null, loadRequestId: 0, loadPromise: null, destroyed: false };
 
     function setStatus(msg, isError) {
       statusLine.textContent = msg || "";
@@ -128,11 +140,25 @@
             ? await root.WeeklyReviewStore.read(app, currentWeek)
             : null;
           if (state.destroyed || loadRequestId !== state.loadRequestId) return null;
+          var file = root.WeeklyReviewStore && typeof root.WeeklyReviewStore.pathForWeek === "function" && app.vault.getAbstractFileByPath(root.WeeklyReviewStore.pathForWeek(currentWeek));
+          var snapshot = file ? await app.vault.read(file) : "";
+          if (state.destroyed || loadRequestId !== state.loadRequestId) return null;
+          var draft = cache.get(currentWeek);
           if (savedReview) result.review = savedReview;
+          if (draft) result.review = draft.review;
+          state.expectedContent = draft ? draft.expected : snapshot;
+          comment.value = result.review.commentary || "";
+          previousArea.empty();
+          if (root.JournalPeriodStore) {
+            var previous = await root.JournalPeriodStore.loadPrevious(app, "weekly", currentWeek);
+            if (state.destroyed || loadRequestId !== state.loadRequestId) return null;
+            previousArea.createEl("h3", { text: "지난주의 내 말 · " + previous.key });
+            previousArea.createEl("p", { text: previous.fields.comment || "지난주에 남긴 코멘트가 없습니다.", attr: { style: "white-space:pre-wrap;" } });
+          }
           state.review = result.review;
           state.evidenceItems = result.evidenceItems;
           state.aiEnhanced = false;
-          weekLabel.textContent = result.review.period.week + " (" + result.review.period.start + " ~ " + result.review.period.end + ")";
+          weekLabel.textContent = result.review.period.week + " (" + result.review.period.start + " ~ " + result.review.period.end + ") · 월요일–일요일";
           setStatus(savedReview ? "저장된 Weekly 리뷰를 불러왔습니다." : "");
           renderCurrent();
           aiBtn.disabled = !state.evidenceItems.length;
@@ -196,13 +222,15 @@
       try {
         var aiResult = await ai.generateWeeklyAI({
           app: app,
+          client: options.client,
+          confirmConsent: options.confirmConsent,
           review: state.review,
           evidenceItems: state.evidenceItems,
           signal: abortController ? abortController.signal : undefined
         });
         if (requestId !== state.aiRequestId || !state.aiLoading) return null;
         state.review = ai.mergeAIIntoReview(state.review, aiResult);
-        state.aiEnhanced = true;
+        state.aiEnhanced = true; remember();
         setStatus("AI 학습 분석 완료 (" + (aiResult.provider || "") + " / " + (aiResult.model || "") + ")");
         renderCurrent();
         return aiResult;
@@ -248,7 +276,10 @@
       saveBtn.disabled = true;
       setStatus("주간 리뷰를 저장 중입니다...");
       try {
-        var result = await store.save(app, state.review);
+        var submitted = JSON.stringify(state.review);
+        var result = await store.save(app, JSON.parse(submitted), { expectedContent: state.expectedContent });
+        state.expectedContent = result.content;
+        if (JSON.stringify(state.review) === submitted) cache.delete(currentWeek); else remember();
         if (!state.destroyed) setStatus("주간 리뷰 저장 완료: " + result.path);
         return result;
       } catch (err) {
@@ -278,7 +309,9 @@
     refreshBtn.onclick = function () { return load(); };
     previousWeekBtn.onclick = function () { return loadForDate(core.shiftISODate(selectedDate, -7)); };
     nextWeekBtn.onclick = function () { return loadForDate(core.shiftISODate(selectedDate, 7)); };
-    todayBtn.onclick = function () { return loadForDate(core.formatDate(new Date())); };
+    lastWeekBtn.onclick = function () { return loadForDate(core.shiftISODate(root.JournalCore ? root.JournalCore.todayIsoDate() : core.formatDate(new Date()), -7)); };
+    twoWeeksBtn.onclick = function () { return loadForDate(core.shiftISODate(root.JournalCore ? root.JournalCore.todayIsoDate() : core.formatDate(new Date()), -14)); };
+    todayBtn.onclick = function () { return loadForDate((root.JournalCore ? root.JournalCore.todayIsoDate() : core.formatDate(new Date()))); };
     dateInput.onchange = function () { return loadForDate(dateInput.value); };
     aiBtn.onclick = function () { return state.aiLoading ? cancelAI() : runAI(); };
     saveBtn.onclick = function () { return saveReview(); };

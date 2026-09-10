@@ -63,7 +63,7 @@ test("real Obsidian Journal reacquires the connected selected tab after remount 
       cachedTabConnected: false,
       rootReacquired: true,
       tabReacquired: true,
-      selected: "Daily",
+      selected: "일간",
       focused: true,
       mountedPanels: 1
     }, "a cached document-level selector is stale after remount; the active-leaf adapter must reacquire focus ownership");
@@ -78,7 +78,7 @@ test("real Obsidian Journal reacquires the connected selected tab after remount 
       window.__journalFocusProbe={root,opener,modal};
       return{opener:opener.textContent.trim(),modalConnected:Boolean(document.querySelector('.prodigy-reflection-modal'))};
     })()`);
-    assert.deepEqual(opened, { opener: "Daily", modalConnected: true });
+    assert.deepEqual(opened, { opener: "일간", modalConnected: true });
 
     const closed = await harness.evaluate(`new Promise((resolve,reject)=>{
       const probe=window.__journalFocusProbe,modalEl=document.querySelector('.prodigy-reflection-modal');

@@ -7,10 +7,9 @@ journal-start-date: {{year_start_date}}
 journal-end-date: {{year_end_date}}
 journal-section: year
 ---
-<!-- 미연결: Journal 설정에 등록되지 않음. 신규 생성 경로 없음. -->
 # <% tp.file.title %>
 
-> 나는 어떤 사람이 되어가고 있는가?
+> 이 한 해는 내게 어떤 의미였고, 앞으로 무엇을 중요하게 보고 싶나요?
 
 ## Identity Reflection
 
@@ -23,3 +22,15 @@ journal-section: year
 > Identity는 저장된 선언문이 아니라 다음 Daily·Weekly·Monthly에서 무엇을 중요하게 볼지 정하는 렌즈입니다.
 
 ## Next Year Intent
+
+## User Commentary
+
+## Review Sources
+
+## Related Records
+
+## Retrospective Commentary
+
+## Selected Moments
+
+## Review Observations

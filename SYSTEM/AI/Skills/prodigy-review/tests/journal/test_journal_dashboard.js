@@ -153,8 +153,11 @@ async function testCurrentEvidenceCompletionAction() {
     assert.match(complete.attributes.class, /prodigy-btn-primary/, "diary writing is the primary current-day action");
     assert.equal(actions.some((element) => /지식/.test(element.text)), false, "Knowledge approval is not presented as the Daily completion action");
     const todayCard = findAll(harness.container, (element) => String(element.attributes.class || "").split(/\s+/).includes("journal-card"))[0];
-    const primaryActions = todayCard.children.findIndex((element) => element.attributes.class === "journal-primary-actions prodigy-btn-row");
-    const preview = todayCard.children.findIndex((element) => element.attributes.class === "journal-preview");
+    const structured = todayCard.children.find(element => element.tag === "section" && element.attributes.class === "journal-evidence-section");
+    assert.ok(structured, "Evidence and learning are directly visible");
+    assert.equal(todayCard.children.filter(element => element.tag === "textarea").length, 0, "Daily uses the existing diary flow without a duplicate input");
+    const primaryActions = structured.children.findIndex((element) => element.attributes.class === "journal-primary-actions prodigy-btn-row");
+    const preview = structured.children.findIndex((element) => element.attributes.class === "journal-preview");
     assert.ok(primaryActions >= 0 && primaryActions < preview, "the Evidence confirmation action stays above a long block list");
 
     complete.onclick();

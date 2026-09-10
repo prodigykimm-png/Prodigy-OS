@@ -93,6 +93,7 @@ function makeApp({ withWeeklyFolder = false } = {}) {
       createdFiles.push({ target, content });
       return file;
     },
+    async process(file, transform) { return this.modify(file, transform(file.content)); },
     async modify(file, content) {
       file.content = content;
       modifiedFiles.push({ target: file.path, content });

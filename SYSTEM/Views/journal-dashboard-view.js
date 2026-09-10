@@ -14,7 +14,7 @@
   function shiftDate(dateStr, days) {
     var parts = String(dateStr || "").split("-").map(Number);
     if (parts.length !== 3 || parts.some(function (n) { return !Number.isFinite(n); })) return dateStr;
-    var d = new Date(parts[0], parts[1] - 1, parts[2] + days);
+    var d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + days, 12));
     return root.JournalCore.todayIsoDate(d);
   }
   function renderPreview(parent, review, blocks, onStageDelete) {
@@ -37,6 +37,9 @@
       }
       item.createEl("div", { text: displayText(block.title) || "(\uC81C\uBAA9 \uC5C6\uC74C)", attr: { "class": "journal-font-weight-600" } });
       item.createEl("div", { text: displayText(block.experience), attr: { "class": "journal-text-muted-mt-2" } });
+      [["interpretation", "배울 점 · 해석"], ["change", "변화"], ["next_experiment", "다음 시도"]].forEach(function (entry) {
+        if (block[entry[0]]) item.createEl("div", { text: entry[1] + ": " + displayText(block[entry[0]]), attr: { class: "journal-text-muted-mt-2" } });
+      });
     });
   }
   function renderRecentCard(container, title, items, emptyText, value) {
@@ -86,14 +89,29 @@
       var todayBtn = addButton(dateNav, "\uC624\uB298");
       todayBtn.onclick = function () { return state.__controller.refresh(today); };
     }
-    container.createEl("p", { text: "오늘 무엇이 나를 변화시켰는지 기록합니다.", attr: { "class": "journal-meta journal-period-role", style: "font-size:var(--ke-type-body);line-height:var(--ke-leading-body);" } });
+    container.createEl("p", { text: "오늘의 경험과 마음을 편하게 남깁니다.", attr: { "class": "journal-meta journal-period-role", style: "font-size:var(--ke-type-body);line-height:var(--ke-leading-body);" } });
     var todayCard = container.createEl("div", { attr: { "class": "journal-card prodigy-full-bleed" } });
     todayCard.createEl("h2", { text: isToday ? "\uC624\uB298 \uACBD\uD5D8 \u00B7 \uC99D\uAC70" : activeDate + " \uACBD\uD5D8 \u00B7 \uC99D\uAC70" });
     var meta = todayCard.createEl("div", { attr: { "class": "journal-meta" } });
     meta.createEl("span", { text: activeDate });
-    meta.createEl("span", { text: activeReview.statusLabel, attr: { "class": "journal-status prodigy-status-line journal-status-ml-8", "data-state": activeReview.status } });
+    meta.createEl("span", { text: activeReview.fields.reflection && !visibleBlocks.length ? "기록 있음" : activeReview.statusLabel, attr: { "class": "journal-status prodigy-status-line journal-status-ml-8", "data-state": activeReview.status } });
     meta.createEl("span", { text: " \u00B7 \uBE14\uB85D " + visibleBlocks.length + "\uAC1C", attr: { "class": "journal-status-ml-4" } });
-    var primaryActions = todayCard.createEl("div", { attr: { "class": "journal-primary-actions prodigy-btn-row" } });
+    var freeStatus = todayCard.createEl("p", { attr: { role: "status", "aria-live": "polite" } });
+    if (root.MorningCache && typeof root.MorningCache.getPinnedFocus === "function") {
+      var context = todayCard.createEl("details"); context.createEl("summary", { text: "관련 기록" });
+      var focus = addButton(context, "이 날짜에 저장된 Focus 확인");
+      focus.onclick = async function () {
+        focus.disabled = true;
+        try {
+          var savedFocus = await root.MorningCache.getPinnedFocus(app, activeDate);
+          var path = savedFocus && savedFocus.focus && savedFocus.focus.object_path;
+          context.createEl("p", { text: path ? "이 날짜에 보존된 선택입니다. 현재 상태를 당시 결과로 판단하지 않습니다." : "이 날짜에 보존된 Focus가 없습니다." });
+          if (path) { var source = addButton(context, "선택했던 원본 열기"); source.onclick = function () { return app.workspace.openLinkText(path.replace(/\.md$/, ""), "", true); }; }
+        } catch (error) { focus.disabled = false; freeStatus.textContent = "Focus 읽기 실패: " + error.message; }
+      };
+    }
+    var structured = todayCard.createEl("section", { attr: { class: "journal-evidence-section" } }); structured.createEl("h3", { text: "AI 분류 · 에비던스 · 배울 점" });
+    var primaryActions = structured.createEl("div", { attr: { "class": "journal-primary-actions prodigy-btn-row" } });
     root.JournalCompletionAction.render(primaryActions, {
       app: app,
       today: activeDate,
@@ -112,11 +130,11 @@
         return state.__controller.refresh(activeDate);
       };
     }
-    renderPreview(todayCard, activeReview, visibleBlocks, function (block) {
+    renderPreview(structured, activeReview, visibleBlocks, function (block) {
       state.pendingDeletedEvidenceIds.add(block.evidence_id);
       return state.__controller.refresh(activeDate);
     });
-    var actions = todayCard.createEl("div", { attr: { "class": "journal-actions prodigy-btn-row" } });
+    var actions = structured.createEl("div", { attr: { "class": "journal-actions prodigy-btn-row" } });
     var add = addButton(actions, "+ \uACBD\uD5D8 \uCD94\uAC00");
     add.onclick = function () { return root.JournalEvidenceBlockModal.open(app, root.JournalCore.emptyBlock(activeDate, blocks), async function (block) {
       await root.JournalStore.appendEvidenceBlock(app, activeDate, block);

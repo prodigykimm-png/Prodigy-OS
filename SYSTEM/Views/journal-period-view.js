@@ -172,14 +172,18 @@
     var previousRecord = previous.find(function (item) { return item.key === selectedKey; });
     if (previousRecord) renderRecord(body, previousRecord, app);
     try {
-      var records = root.JournalPeriodStore ? await root.JournalPeriodStore.listRecords(app, periodId) : [];
+      var records = root.JournalPeriodStore ? await root.JournalPeriodStore.listRecords(app, periodId, { selectedKey: selectedKey }) : [];
       if (typeof isCurrent === "function" && !isCurrent()) return { records: [], status: "stale" };
       shell.setAttribute("aria-busy", "false");
       status.textContent = "";
       retry.hidden = true;
       body.empty();
       var record = records.find(function (item) { return item.key === selectedKey; });
-      if (record) {
+      if (root.JournalNarrativeView) {
+        var narrativeChild = root.JournalNarrativeView.mount({ app: app, container: body, id: periodId, key: selectedKey, path: record && record.path });
+        if (onChildMount) onChildMount(narrativeChild);
+        await narrativeChild.ready;
+      } else if (record) {
         renderRecord(body, record, app, periodId === "monthly" && root.MonthlyValidationView ? function () {
           body.empty();
           var child = root.MonthlyValidationView.mount({ app: app, container: body, initialMonth: selectedKey, initialRecord: record, onSaved: function () { return onSelect(selectedKey); } });

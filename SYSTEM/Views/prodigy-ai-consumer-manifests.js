@@ -54,6 +54,7 @@
     "auction.region_experience": manifest("auction.region_experience", "highly-private", "standing-grant-with-explicit-action"),
     "auction.research_summary": manifest("auction.research_summary", "internal", "explicit-action"),
     "journal.daily_reflection": manifest("journal.daily_reflection", "highly-private", "standing-grant-with-explicit-action"),
+    "journal.period_summary": manifest("journal.period_summary", "highly-private", "standing-grant-with-explicit-action"),
     "journal.monthly_validation": manifest("journal.monthly_validation", "highly-private", "standing-grant-with-explicit-action"),
     "journal.weekly_filter": manifest("journal.weekly_filter", "highly-private", "standing-grant-with-explicit-action"),
     "knowledge.explorer_brief": manifest("knowledge.explorer_brief", "internal", "explicit-action"),

@@ -343,6 +343,7 @@
       if (typeof root.queueMicrotask === "function") root.queueMicrotask(restoreFocus);
       else Promise.resolve().then(restoreFocus);
     }
+    if (root.JournalRelatedRecords) root.JournalRelatedRecords.render(app, card, path);
     return card;
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

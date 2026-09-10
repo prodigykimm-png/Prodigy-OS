@@ -582,6 +582,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     renderMemoryButton(actionBox);
     renderDecisionPacket(actionBox);
     renderNextActionButton(actionBox, p.status);
+    if (window.JournalRelatedRecords) window.JournalRelatedRecords.render(app, card, pathOf());
     
   } else if (mode === "simple") {
     // Title/meta first, actions full-width below on narrow screens.
@@ -635,6 +636,7 @@ window.renderReadingCard = function(p, container, mode = "simple") {
     renderQaProgress(left);
     renderMemoryPreview(left);
     renderPeopleChips(left);
+    if (window.JournalRelatedRecords) window.JournalRelatedRecords.render(app, left, pathOf());
     
     const right = card.createEl('div', {
       attr: { class: 'prodigy-card-actions reading-card-actions', style: 'width:100%; justify-content:flex-start;' }

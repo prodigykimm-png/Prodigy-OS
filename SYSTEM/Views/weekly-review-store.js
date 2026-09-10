@@ -185,7 +185,7 @@
     var directionBody = sectionBody(content, "Next Week Direction");
     if (!summary || !directionBody) return null;
     var body = bodyWithoutFrontmatter(content);
-    var questionMatch = body.match(/^>\s*(.*)$/m);
+    var questionMatch = body.match(/^>[ \t]*(.*)$/m);
     var normalizedWeek = safeText(week);
     return {
       schema_version: "2.0",
@@ -198,6 +198,7 @@
         week: normalizedWeek
       },
       summary: summary,
+      commentary: root.JournalPeriodStore ? root.JournalPeriodStore.section(content, "User Commentary") : sectionBody(content, "User Commentary"),
       key_learnings: parseKeyLearnings(sectionBody(content, "Key Learnings")),
       findings: parseFindings(sectionBody(content, "Observed Patterns")),
       meaningful_changes: listItems(sectionBody(content, "Meaningful Changes")).map(function (reason) { return { reason: reason, title: reason }; }),
@@ -238,17 +239,32 @@
     return parseReviewContent(content, week);
   }
 
-  async function save(app, review) {
+  async function save(app, review, options) {
     var path = pathFor(review);
     var body = renderReview(review);
+    if (root.JournalPeriodStore && review.commentary !== undefined) body = root.JournalPeriodStore.putSection(body, "User Commentary", review.commentary);
     await ensureFolder(app);
     var file = app.vault.getAbstractFileByPath(path);
     if (file) {
-      await app.vault.modify(file, body);
-      return Object.freeze({ path: path, created: false });
+      if (root.JournalPeriodStore) {
+        var previous = await app.vault.read(file);
+        var preservedSections = ["User Commentary", "Review Sources", "Related Records", "Review Acknowledgement", "Review Observations", "Retrospective Commentary", "Selected Moments"];
+        if (review.commentary !== undefined) preservedSections = preservedSections.filter(function (title) { return title !== "User Commentary"; });
+        if (root.JournalPeriodStore.section(previous, "Review Acknowledgement")) preservedSections.push("Next Week Direction");
+        preservedSections.forEach(function (title) {
+          var value = root.JournalPeriodStore.section(previous, title);
+          if (value) body = root.JournalPeriodStore.putSection(body, title, value);
+        });
+      }
+      if (options && options.expectedContent !== undefined) {
+        if (!app.vault.process) throw new Error("안전한 원자 저장을 사용할 수 없습니다.");
+        await app.vault.process(file, function (current) { if (current !== options.expectedContent) throw new Error("대상 주간 기록이 변경되었습니다. 입력은 유지됩니다."); return body; });
+      } else await app.vault.modify(file, body);
+      return Object.freeze(Object.assign({ path: path, created: false }, options ? { content: body } : {}));
     }
+    if (options && options.expectedContent) throw new Error("대상 주간 기록이 삭제되었습니다.");
     await app.vault.create(path, body);
-    return Object.freeze({ path: path, created: true });
+    return Object.freeze(Object.assign({ path: path, created: true }, options ? { content: body } : {}));
   }
 
   var api = Object.freeze({

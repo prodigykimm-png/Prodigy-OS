@@ -69,7 +69,7 @@
         }
         note.source_mtime = fileMtime(weeklyFiles[i]);
         results.push(note);
-      } catch (_e) { /* skip unreadable */ }
+      } catch (error) { throw errorWithCode("WEEKLY_READ_ERROR", "주간 기록 읽기 실패: " + weeklyFiles[i].path, { cause: error }); }
     }
     return results.sort(function (a, b) { return a.week.localeCompare(b.week); });
   }
@@ -206,11 +206,21 @@
     }
     var path = current.path;
     var body = safeText(content);
+    if (root.JournalPeriodStore && current.content) {
+      (["User Commentary", "Review Sources", "Related Records", "Review Acknowledgement", "Review Observations", "Retrospective Commentary", "Selected Moments", "What to Observe"].concat(root.JournalPeriodStore.section(current.content, "Review Acknowledgement") ? ["Monthly Summary", "Next Month Direction"] : [])).forEach(function (title) {
+        var value = root.JournalPeriodStore.section(current.content, title);
+        if (value) body = root.JournalPeriodStore.putSection(body, title, value);
+      });
+    }
     if (!body) throw new Error("저장할 내용이 없습니다.");
     await ensureFolder(app);
     var file = app.vault.getAbstractFileByPath(path);
     var created = !file;
-    if (file) await app.vault.modify(file, body);
+    if (file && typeof app.vault.process === "function") await app.vault.process(file, function (latest) {
+      if (latest !== current.content) throw errorWithCode("MTIME_CONFLICT", "저장 중 월간 기록이 변경되었습니다.");
+      return body;
+    });
+    else if (file) await app.vault.modify(file, body);
     else await app.vault.create(path, body);
     var after = await readMonthlySnapshot(app, month);
     return { ok: true, conflict: false, path: path, created: created, new_mtime: after.mtime, mtime: after.mtime };
@@ -223,20 +233,23 @@
     return Object.freeze(result);
   }
 
-  async function createCandidatesFromDecisions(app, model, decisions) {
+  async function createCandidatesFromDecisions(app, model, decisions, retryIndexes) {
     if (decisions && decisions.reviewMode && decisions.reviewMode !== "validation") return [];
+    if (!model || !model.readiness || model.readiness.ready !== true) return [];
     var candidateCore = root.KnowledgeCandidateCore;
     var candidateStore = root.KnowledgeCandidateStore;
     if (!candidateCore || !candidateStore) return [];
     var created = [];
+    created.failures = [];
     var principles = model.principles || [];
     for (var i = 0; i < principles.length; i++) {
+      if (Array.isArray(retryIndexes) && retryIndexes.indexOf(i) === -1) continue;
       var p = principles[i];
       var d = (decisions || {})["p" + i] || {};
-      if (d.action !== "validated") continue;
+      if (d.action !== "validated" || !p.eligible || d.create_candidate !== true) continue;
       var statement = safeText(d.knowledge_statement) || safeText(p.title);
       var reason = safeText(d.validation_reason) || "Monthly Validation에서 검증됨";
-      var domain = safeText(d.domain) || "personal_growth";
+      var domain = safeText(d.domain);
       var topics = Array.isArray(d.topics) ? d.topics : [];
       var monthlyPath = pathFor(model.month);
       var input = {
@@ -251,6 +264,7 @@
         source_objects: ["[[" + monthlyPath.replace(/\.md$/i, "") + "]]"],
         source_note: "",
         application_trigger: safeText(d.application_trigger),
+        invalidation_conditions: safeText(d.exceptions).split("\n").map(safeText).filter(Boolean),
         application_contexts: Array.isArray(d.application_contexts) ? d.application_contexts : [],
         confidence: "inferred",
         suggested_domain: domain,
@@ -259,12 +273,22 @@
       try {
         var result = await candidateStore.saveCandidate(app, input);
         created.push(result);
-      } catch (_e) { /* skip duplicate or invalid */ }
+      } catch (error) { created.failures.push({ index: i, input: input, message: error.message || String(error) }); }
     }
     return created;
   }
 
+  async function retryCandidateFailures(app, failures) {
+    var result = []; result.failures = [];
+    for (var failure of failures || []) {
+      try { result.push(await root.KnowledgeCandidateStore.saveCandidate(app, failure.input)); }
+      catch (error) { result.failures.push(Object.assign({}, failure, { message: error.message || String(error) })); }
+    }
+    return result;
+  }
+
   var api = Object.freeze({
+    retryCandidateFailures: retryCandidateFailures,
     FOLDER: FOLDER,
     pathFor: pathFor,
     listWeeklyNotes: listWeeklyNotes,

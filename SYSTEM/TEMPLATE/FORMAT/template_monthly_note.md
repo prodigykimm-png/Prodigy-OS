@@ -9,7 +9,7 @@ journal-section: month
 ---
 # <% tp.file.title %>
 
-> 어떤 변화가 실제로 검증되었는가?
+> 해본 것 중 실제로 나에게 맞았던 것은 무엇이며, 어떤 조건에서 그랬나요?
 
 ## Monthly Summary
 
@@ -28,3 +28,15 @@ journal-section: month
 ## Rejected or Deferred Principles
 
 ## Next Month Direction
+
+## User Commentary
+
+## Review Sources
+
+## Related Records
+
+## Retrospective Commentary
+
+## Selected Moments
+
+## Review Observations
