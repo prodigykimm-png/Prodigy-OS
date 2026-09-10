@@ -199,18 +199,127 @@
       if (normalized.reason) return failure(normalized.reason);
       const routing = normalized.mode === SOURCE_ROUTING_MODE;
       const semanticCandidatesByKey = routing ? new Map() : new Map([...normalized.chunksByKey.values()].map((chunk) => [chunk.key, evidenceCandidatesApi.createSemantic(chunk.text, { max_bytes: MAX_QUOTE_BYTES })]));
-      if (!routing && [...semanticCandidatesByKey.values()].some((candidates) => candidates.length > MAX_SEMANTIC_ITEMS_PER_RESULT)) return failure("semantic_unit_limit_exceeded");
-      const prompt = JSON.stringify({
-        mode: normalized.mode,
+      // Crowded-chunk fan-out: one manifest chunk may carry more semantic
+      // candidates than a single provider result allows. Split it into
+      // contiguous candidate groups (same cap) and fan out to one provider
+      // call per group-pack, then merge artifacts back under the parent chunk
+      // key with parent-relative spans. Uncrowded input (including routing and
+      // question flows) takes the exact historical single-call path below.
+      const crowdedParents = (!routing && !normalized.questionContext)
+        ? [...normalized.chunksByKey.values()].filter((chunk) => (semanticCandidatesByKey.get(chunk.key) || []).length > MAX_SEMANTIC_ITEMS_PER_RESULT)
+        : [];
+      if (crowdedParents.length === 0) {
+        if (!routing && [...semanticCandidatesByKey.values()].some((candidates) => candidates.length > MAX_SEMANTIC_ITEMS_PER_RESULT)) return failure("semantic_unit_limit_exceeded");
+        const single = await runSingleCall([...normalized.chunksByKey.values()].map((chunk) => ({ key: chunk.key, text: chunk.text, ...(chunk.source_hint !== undefined ? { source_hint: chunk.source_hint } : {}) })), [...normalized.chunksByKey.keys()]);
+        if (!single.ok) return failure(single.reason, { provider_call_count: single.calls, detail: single.detail });
+        return Object.freeze({
+          ok: true,
+          provider_call_count: single.calls,
+          persisted_artifact_count: single.artifacts.length,
+          automatic_retry_count: 0,
+          automatic_repair_count: 0,
+          artifacts: Object.freeze(single.artifacts),
+        });
+      }
+      const expanded = [];
+      const usedKeys = new Set(normalized.chunksByKey.keys());
+      for (const chunk of normalized.chunksByKey.values()) {
+        const cands = semanticCandidatesByKey.get(chunk.key) || [];
+        if (cands.length <= MAX_SEMANTIC_ITEMS_PER_RESULT) {
+          expanded.push({ key: chunk.key, text: chunk.text, parentKey: null, offset: 0, candidates: cands });
+          continue;
+        }
+        // Carried (never reparsed) candidates, grouped contiguously;
+        // collision-free keys within the 128-char KEY contract.
+        for (let i = 0; i < cands.length; i += MAX_SEMANTIC_ITEMS_PER_RESULT) {
+          const group = cands.slice(i, i + MAX_SEMANTIC_ITEMS_PER_RESULT);
+          const offset = group[0].start;
+          let suffix = `__p${i / MAX_SEMANTIC_ITEMS_PER_RESULT}`;
+          let guard = 0, key = chunk.key;
+          while (guard < 1000) {
+            const room = 128 - suffix.length;
+            key = `${(chunk.key.length <= room ? chunk.key : chunk.key.slice(0, room))}${suffix}`;
+            if (!usedKeys.has(key)) break;
+            suffix = `${suffix}_${guard}`;
+            guard += 1;
+          }
+          usedKeys.add(key);
+          expanded.push({ key, text: chunk.text.slice(offset, group[group.length - 1].end), parentKey: chunk.key, offset,
+            candidates: group.map((c) => ({ key: c.key, text: c.text, start: c.start - offset, end: c.end - offset })) });
+        }
+      }
+      let providerCalls = 0;
+      const mergedByParent = new Map();
+      for (let i = 0; i < expanded.length; i += MAX_CHUNKS_PER_PACK) {
+        if (context.signal && context.signal.aborted) return failure("provider_aborted", { provider_call_count: providerCalls });
+        const pack = expanded.slice(i, i + MAX_CHUNKS_PER_PACK);
+        const carried = new Map(pack.map((entry) => [entry.key, entry.candidates]));
+        const single = await runSingleCall(pack.map((entry) => ({ key: entry.key, text: entry.text })), pack.map((entry) => entry.key), carried);
+        providerCalls += single.calls;
+        if (!single.ok) return failure(single.reason, { provider_call_count: providerCalls, detail: single.detail });
+        for (const artifact of single.artifacts) {
+          const entry = pack.find((item) => item.key === artifact.chunk_key);
+          if (!entry || entry.parentKey === null) {
+            mergedByParent.set(artifact.chunk_key, { passthrough: artifact });
+            continue;
+          }
+          const bucket = mergedByParent.get(entry.parentKey) || { parts: [] };
+          bucket.parts.push({ offset: entry.offset, artifact });
+          mergedByParent.set(entry.parentKey, bucket);
+        }
+      }
+      if (context.signal && context.signal.aborted) return failure("provider_aborted", { provider_call_count: providerCalls });
+      const merged = [];
+      for (const chunk of normalized.chunksByKey.values()) {
+        const record = mergedByParent.get(chunk.key);
+        if (record && record.passthrough) { merged.push(record.passthrough); continue; }
+        const parts = (record && record.parts ? record.parts : []).slice().sort((a, b) => a.offset - b.offset);
+        const outcomes = parts.map((part) => part.artifact.outcome);
+        // Merge rule: unanimous wins; any hold contaminates to hold;
+        // proposals + no_change (no hold) merges to proposals (coverage needs it).
+        const outcome = outcomes.every((value) => value === outcomes[0]) ? outcomes[0]
+          : outcomes.includes("hold") ? "hold"
+          : "proposals";
+        const items = [];
+        for (const part of parts) {
+          for (const item of part.artifact.items) {
+            const anchor = { start: part.offset + item.span.start, end: part.offset + item.span.end };
+            // Parent evidence_key preserved (no renumbering): keys stay stable
+            // regardless of model return order; spans carry the truth.
+            items.push(Object.freeze({
+              ...item,
+              span: Object.freeze({
+                start: anchor.start,
+                end: anchor.end,
+                alias: spanAlias(chunk.key, chunk.text, anchor, item.evidence_quote),
+              }),
+            }));
+          }
+        }
+        merged.push(Object.freeze({ chunk_key: chunk.key, outcome, items: Object.freeze(items) }));
+      }
+      return Object.freeze({
+        ok: true,
+        provider_call_count: providerCalls,
+        persisted_artifact_count: merged.length,
+        automatic_retry_count: 0,
+        automatic_repair_count: 0,
+        artifacts: Object.freeze(merged),
+      });
+      async function runSingleCall(entries, opKeys, candsOverride) {
+        const chunksByKey = new Map(entries.map((entry) => [entry.key, Object.freeze({ key: entry.key, text: entry.text, ...(entry.source_hint !== undefined ? { source_hint: entry.source_hint } : {}) })]));
+        const candsByKey = routing ? new Map() : (candsOverride || new Map([...chunksByKey.values()].map((chunk) => [chunk.key, evidenceCandidatesApi.createSemantic(chunk.text, { max_bytes: MAX_QUOTE_BYTES })])));
+        const prompt = JSON.stringify({
+          mode: normalized.mode,
         ...inputApi.questionPrompt(normalized),
         task: normalized.questionContext ? "Answer the question following question_task. Return the existing keyed evidence schema, with all relevant conditions and explicit review reasons for conflicts." : routing
           ? "Choose exactly one lifecycle route for each whole source: source_summary for raw reference material, reusable_claim only for one atomic reusable claim, object_context for mutable Object/PARA state, hold when ambiguous, or no_change only for an exact duplicate. Return one lifecycle route, not extracted subclaims. Evidence must be one exact unique quote from source text."
           : "Extract all durable information from every keyed source chunk. Return exactly one item for every supplied evidence candidate key; use each key exactly once. Each item must have one concise human-readable topic and claims supported by that candidate. Copy its evidence key into evidence_key and its text verbatim into evidence_quote. Use source_summary for source-bound context and reusable_claim for reusable knowledge. Do not collapse a rich chunk into one representative claim.",
         run_id: typeof input.run_id === "string" ? input.run_id : "",
-        chunks: [...normalized.chunksByKey.values()].map((chunk) => ({
+        chunks: [...chunksByKey.values()].map((chunk) => ({
           key: chunk.key,
           text: chunk.text,
-          ...(!routing ? { evidence_candidates: semanticCandidatesByKey.get(chunk.key).map((candidate) => ({ key: candidate.key, text: candidate.text })) } : {}),
+          ...(!routing ? { evidence_candidates: candsByKey.get(chunk.key).map((candidate) => ({ key: candidate.key, text: candidate.text })) } : {}),
           ...(routing ? { source_hint: chunk.source_hint } : {}),
         })),
         allowed_candidate_ids: [...normalized.candidateIds],
@@ -227,25 +336,19 @@
           signal: context.signal,
           confirmConsent: context.confirmConsent,
           ownerSessionId: context.ownerSessionId || `wiki-batch-${input.run_id || "run"}`,
-          operationId: context.operationId || `wiki-batch-${hashApi.sha256(`${input.run_id || "run"}:${normalized.mode}:${[...normalized.chunksByKey.keys()].join(":")}`)}`,
+          operationId: context.operationId || `wiki-batch-${hashApi.sha256(`${input.run_id || "run"}:${normalized.mode}:${opKeys.join(":")}`)}`,
           attemptId: context.attemptId || "attempt-1"
         });
         response = runtimeResponse.payload;
       } catch (error) {
-        if (context.signal && context.signal.aborted) return failure("provider_aborted", { provider_call_count: 1 });
-        return failure(inputApi.mapTransportError(error), { provider_call_count: 1 });
+        if (context.signal && context.signal.aborted) return { ok: false, reason: "provider_aborted", calls: 1 };
+        return { ok: false, reason: inputApi.mapTransportError(error), calls: 1 };
       }
-      if (context.signal && context.signal.aborted) return failure("provider_aborted", { provider_call_count: 1 });
-      const validated = validateResponse(response, normalized.chunksByKey, semanticCandidatesByKey, normalized.candidateIds, normalized.mode);
-      if (!validated.ok) return failure(validated.reason, { provider_call_count: 1, detail: validated.detail });
-      return Object.freeze({
-        ok: true,
-        provider_call_count: 1,
-        persisted_artifact_count: validated.artifacts.length,
-        automatic_retry_count: 0,
-        automatic_repair_count: 0,
-        artifacts: Object.freeze(validated.artifacts),
-      });
+      if (context.signal && context.signal.aborted) return { ok: false, reason: "provider_aborted", calls: 1 };
+      const validated = validateResponse(response, chunksByKey, candsByKey, normalized.candidateIds, normalized.mode);
+      if (!validated.ok) return { ok: false, reason: validated.reason, detail: validated.detail, calls: 1 };
+      return { ok: true, artifacts: validated.artifacts, calls: 1 };
+      }
     };
   }
 
