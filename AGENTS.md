@@ -49,6 +49,18 @@ Not-tested: 인증 서비스 콜드스타트 >500ms 동작
 
 `git log --all --grep="^Constraint:"` 등으로 의사결정 기록을 검색할 수 있다.
 
+## 커밋 정책
+
+- 리포지토리: `github.com/prodigykimm-png/Prodigy-OS.git`, 브랜치 `main`
+- 커밋 메시지는 한국어 명령형, Conventional Commits 사용 금지
+- 커밋은 저장점이다. 기능 하나가 동작하면 커밋하고, 위험한 실험 전에 커밋하고, 세션을 끝내기 전에 커밋한다. 변경을 몇 주 쌓아두지 않는다
+- 다음 경로는 절대 커밋/푸시 금지 (`.gitignore`로 강제 중):
+  - `INBOX/` — 분류 아키텍처가 확정되기 전까지 지식 인박스는 로컬 전용
+  - `artifacts/prodigy-knowledge-inbox/` — 분류 아키텍처 제안물
+  - `PARA/`, `SYSTEM/CACHE/` — 실행 상태와 캐시는 리포지토리 소유가 아님
+- 이 볼트는 iCloud에 있어 작업트리가 자주 더럽다. 자동 커밋/자동 pull/자동 push는 금지
+- 복구는 `git reset`이나 강제 체크아웃이 아니라 되돌림(compensating) 커밋으로 한다
+
 ## People Interaction Pipeline
 
 Daily Reflection Evidence 승인 시, `context: "people"` 블록은 자동으로 해당 사람의 CONTACTS 파일에 통찰을 기록한다.
