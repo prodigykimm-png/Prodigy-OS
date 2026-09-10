@@ -854,6 +854,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const providerCalls = analyzed.metrics ? analyzed.metrics.provider_calls : 0;
       if (!analyzed.ok || !["review_ready", "resolved"].includes(analyzed.state)) return {
         ok: false, reason: analyzed.reason || analyzed.state || "batch_analysis_failed",
+        ...(analyzed.status === "scope_required" ? {
+          status: analyzed.status, stage: analyzed.stage, resumable: false,
+          source_units_total: analyzed.source_units_total, source_units_cap: analyzed.source_units_cap,
+          source_bytes: analyzed.source_bytes,
+        } : {}),
         ...(Array.isArray(analyzed.missing_semantic_keys) ? { missing_semantic_keys: analyzed.missing_semantic_keys } : {}),
         ...(analyzed.replay_only === true ? { replay_only: true } : {}),
         provider_calls: providerCalls, job_id: analyzed.job_id, batch_id: analyzed.batch_id,
@@ -1615,7 +1620,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         // the hub audit failure carries, without inventing coverage counters.
         return {
           ...analyzed,
-          status: "review_required",
+          status: analyzed.status === "scope_required" ? "scope_required" : "review_required",
           source_path: sourcePath, source_bytes: sourceBytes, full_source_bytes: fullSourceBytes,
           map_provider_calls: analyzed.provider_calls, plan_provider_calls: 0,
           existing_review_writes: 0, canonical_writes: 0, source_writes: 0, preview_writes: 0, writer_count: 0,
@@ -2342,7 +2347,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
             await prodigyWikiOperationStore.complete(result);
             prodigyWikiController.dispatch({ type: "complete", result });
           } else if (result.status === "scope_required") {
-            await prodigyWikiOperationStore.interrupt({ reason: result.reason, resumable: false });
+            // A refused unit plan has no resumable work. Do not restore it as
+            // an interrupted operation with a retry action on the next mount.
+            if (result.reason === "invalid_whole_source_units") await prodigyWikiOperationStore.clear();
+            else await prodigyWikiOperationStore.interrupt({ reason: result.reason, resumable: false });
             prodigyWikiController.dispatch({ type: "require_range", range: scope, result, reason: result.reason });
           } else if (result.reason === "source_revision_changed") {
             await prodigyWikiOperationStore.markSourceChanged();
@@ -3084,6 +3092,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (intent.action === "request_consent") {
         const refreshContext = prodigyWikiController.getSnapshot().result?.refresh_context;
         const prepared = await preflightGoldenWiki(prodigyWikiController.getSnapshot().range || null);
+        if (prepared.status === "scope_required") {
+          prodigyWikiController.dispatch({ type: "require_range", result: prepared, reason: prepared.reason });
+          return { ...prepared, ok: false, provider_calls: 0 };
+        }
         if (!prepared.ok) {
           prodigyWikiController.dispatch({
             type: prepared.reason === "source_revision_changed" ? "source_changed" : "interrupt",
@@ -3428,6 +3440,18 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     };
     KnowledgeExplorerHub.openGoldenCitation = openGoldenCitation;
     if (!sourceOptions.length) sourceOptions = await sourceOptionsReady;
+    // Migrate pre-fix deterministic failures before rendering any retry button.
+    const restoredUnitFailure = prodigyWikiController.getSnapshot();
+    if (restoredUnitFailure.status === "interrupted" && restoredUnitFailure.reason === "invalid_whole_source_units") {
+      const prepared = await preflightGoldenWiki(restoredUnitFailure.range || null);
+      if (prepared.status === "scope_required") {
+        await prodigyWikiOperationStore.clear();
+        prodigyWikiController.dispatch({ type: "require_range", result: prepared, reason: prepared.reason });
+      } else if (prepared.reason === "source_revision_changed") {
+        await prodigyWikiOperationStore.markSourceChanged();
+        prodigyWikiController.dispatch({ type: "source_changed" });
+      }
+    }
     prodigyWikiController.dispatch({ type: "set_options", options: sourceOptions });
     const llmWikiLifecycleFrame = llmWikiPanel.createDiv({ attr: { class: "llmwiki-lifecycle-frame" } });
     llmWikiLifecycle = window.LLMWikiLifecycleView.mountLlmWikiLifecycleView({

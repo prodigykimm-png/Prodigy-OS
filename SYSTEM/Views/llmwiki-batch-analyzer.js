@@ -143,6 +143,22 @@
     return rows;
   }
 
+  // Shared deterministic preflight: callers must select a smaller/different
+  // range, not retry an identical unit plan. Sources are already validated.
+  function preflightWholeSourceUnits(raw, sortedSources) {
+    const summary = {
+      source_units_total: Array.isArray(raw) ? raw.reduce((total, row) => total + (Array.isArray(row?.units) ? row.units.length : 0), 0) : 0,
+      source_units_cap: MAX_WHOLE_SOURCE_UNITS,
+      source_bytes: sortedSources.reduce((total, source) => total + bytes(analysisTextFor(source)), 0),
+    };
+    try {
+      return freeze({ ok: true, ...summary, whole_source_units: validateWholeSourceUnits(raw, sortedSources) });
+    } catch (error) {
+      if (error.message !== "invalid_whole_source_units") throw error;
+      return fail(error.message, { ...summary, status: "scope_required", stage: "preflight", resumable: false, provider_calls: 0 });
+    }
+  }
+
   // Durable whole-source unit coverage uses the exact-global-span rule of the
   // source coverage audit: a planned unit is covered only when some artifact
   // item's span, rebased to source global coordinates, exactly equals the
@@ -195,7 +211,9 @@
       try {
         const sortedSources = validateSources(input.sources);
         const mode = analysisModeFor(sortedSources);
-        const wholeSourceUnits = validateWholeSourceUnits(input.whole_source_units, sortedSources);
+        const unitPreflight = preflightWholeSourceUnits(input.whole_source_units, sortedSources);
+        if (!unitPreflight.ok) return unitPreflight;
+        const wholeSourceUnits = unitPreflight.whole_source_units;
         projection = projectCandidates(input.candidates);
         metrics.source_bytes = sortedSources.reduce((total, item) => total + bytes(analysisTextFor(item)), 0);
         metrics.candidate_context_bytes = projection.outbound_bytes;
@@ -500,6 +518,8 @@
 
   const api = Object.freeze({
     ARTIFACT_VERSION,
+    MAX_WHOLE_SOURCE_UNITS,
+    preflightWholeSourceUnits,
     MAX_PACK_CHUNKS,
     MAX_PACK_BYTES,
     MAX_RANKED_CANDIDATES,
