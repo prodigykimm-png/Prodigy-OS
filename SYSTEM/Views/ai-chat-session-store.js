@@ -23,7 +23,7 @@
       throw new Error("대화 메시지 형식이 올바르지 않습니다.");
     }
     const clean = { role: message.role, body: message.body };
-    if (Array.isArray(message.citations)) clean.citations = message.citations.map(String);
+    if (Array.isArray(message.citations)) clean.citations = message.citations.map(item => item && typeof item === "object" ? JSON.parse(JSON.stringify(item)) : String(item));
     return clean;
   }
 
@@ -35,6 +35,7 @@
         try { this.storage = root.sessionStorage || null; } catch (_error) { this.storage = null; }
       }
       this.memoryRaw = null;
+      this.rejectOverflow = opts.rejectOverflow === true;
     }
 
     readRaw() {
@@ -62,6 +63,9 @@
 
     persist(messages) {
       const retained = messages.map(cleanMessage);
+      if (this.rejectOverflow && (retained.length > MAX_MESSAGES || byteLength(JSON.stringify({ version: VERSION, messages: retained })) > MAX_BYTES)) {
+        const error = new Error("대화 한도를 넘었습니다. 새 대화를 시작해 주세요."); error.code = "context_limit"; throw error;
+      }
       while (retained.length > MAX_MESSAGES) retained.shift();
       let raw = JSON.stringify({ version: VERSION, messages: retained });
       while (byteLength(raw) > MAX_BYTES && retained.length) {
