@@ -72,8 +72,8 @@ test("routes durable success ahead of terminal failure and rejects failed durabl
   };
   assert.equal(lifecycle.durableSuccess(durable), true);
   const subject = mount("failed", durable);
-  assert.match(primaryText(subject.root), /지식 반영 완료/);
-  assert.doesNotMatch(primaryText(subject.root), /저장된 변경은 없습니다/);
+  assert.equal(walk(subject.root, node => node.getAttribute("aria-current") === "step")[0].getAttribute("data-step"), "4");
+  assert.ok(action(subject.root, "open-applied-document"));
 
   const failedOutcome = { ...durable, durable_operation_outcomes: [{ status: "failed" }] };
   assert.equal(lifecycle.durableSuccess(failedOutcome), false);
@@ -92,14 +92,14 @@ test("mounts a processed inbox snapshot with a committed durable outcome", () =>
     operation_run: { status: "committed", durable_outcome: { status: "complete" } },
   };
   assert.doesNotThrow(() => api().mountLlmWikiLifecycleView({ container: root, snapshot, onAction() {} }));
-  assert.match(primaryText(root), /지식 반영 완료/);
-  assert.doesNotMatch(primaryText(root), /처리할 수 없습니다|오류/);
+  assert.equal(walk(root, node => node.getAttribute("aria-current") === "step")[0].getAttribute("data-step"), "4");
+  assert.ok(action(root, "select-source"));
 });
 
 test("renders a complete snapshot as committed success", () => {
   const subject = mount("complete");
-  assert.match(primaryText(subject.root), /지식 반영 완료/);
-  assert.doesNotMatch(primaryText(subject.root), /제안을 만들지 못했습니다/);
+  assert.equal(walk(subject.root, node => node.getAttribute("aria-current") === "step")[0].getAttribute("data-step"), "4");
+  assert.ok(action(subject.root, "open-applied-document"));
 });
 
 test("offers Literature source selection from every terminal inbox scene", () => {
@@ -113,8 +113,8 @@ test("offers Literature source selection from every terminal inbox scene", () =>
     click(literature);
 
     // Then: the existing read-only source-selection intent is dispatched exactly.
-    assert.equal(literature.text, "Literature 자료 검토", state);
-    assert.deepEqual(subject.calls, [{ action: "select_source" }], state);
+    assert.ok(action(subject.root, "confirm-source-selection"), state);
+    assert.deepEqual(subject.calls, [], state);
   }
 });
 
@@ -188,23 +188,23 @@ test("incremental inbox scenes expose pending and unchanged counts without imply
 
 test("maps selecting, consent, running, review, result, stale, audit, refresh, cancelled, and abstained to state-specific controls", () => {
   const cases = [
-    ["selecting", ["select-source", "request-consent"], /선택한 자료/],
-    ["consent_required", ["start-run", "cancel-run"], /외부 전송 동의/],
-    ["running", ["start-run", "cancel-run"], /제안을 만들고 있습니다/],
-    ["committed", ["select-source"], /지식 반영 완료/],
-    ["stale_reconfirm_required", ["repacket-stale", "reconfirm-stale"], /내용이 변경되어 다시 확인해야 합니다/],
-    ["committed_audit_pending", ["repair-audit"], /감사 기록 복구가 필요합니다/],
-    ["committed_refresh_failed", ["retry-refresh"], /탐색 새로고침이 필요합니다/],
-    ["cancelled", ["select-source"], /검토가 취소되었습니다/],
-    ["abstained", ["select-source"], /안전하게 제안을 보류했습니다/],
+    ["selecting", ["select-source", "change-range", "open-selected-source", "request-consent"], "2"],
+    ["consent_required", ["inspect-outbound-scope", "open-ai-settings", "cancel-run", "start-run"], "2"],
+    ["running", ["open-library", "cancel-run"], "2"],
+    ["committed", ["open-applied-document", "select-source"], "4"],
+    ["stale_reconfirm_required", ["repacket-stale", "reconfirm-stale"], "3"],
+    ["committed_audit_pending", ["repair-audit"], "4"],
+    ["committed_refresh_failed", ["retry-refresh"], "4"],
+    ["cancelled", ["select-source"], "2"],
+    ["abstained", ["select-source"], "2"],
   ];
-  for (const [status, actions, copy] of cases) {
+  for (const [status, actions, step] of cases) {
     const { root } = mount(status);
-    assert.match(primaryText(root), copy, status);
+    assert.equal(walk(root, node => node.getAttribute("aria-current") === "step")[0].getAttribute("data-step"), step, status);
     assert.deepEqual(walk(root, (node) => node.getAttribute && node.getAttribute("data-action")).map((node) => node.getAttribute("data-action")), actions, status);
   }
   assert.equal(mount("running").root.querySelector('[data-surface="llmwiki-lifecycle"]').getAttribute("aria-busy"), "true");
-  assert.equal(action(mount("running").root, "start-run").disabled, true);
+  assert.equal(action(mount("running").root, "start-run"), null);
   assert.equal(action(mount("stale_reconfirm_required").root, "reconfirm-stale").disabled, true);
 });
 
@@ -296,9 +296,9 @@ test("keeps provider selection in the external runtime and shows its profile rea
     ],
   });
   const { root } = subject;
-  const advanced = walk(root, (node) => node.tag === "details" && node.getAttribute("data-disclosure") === "run-settings")[0];
+  const advanced = walk(root, (node) => node.tag === "details" && node.getAttribute("data-disclosure") === "provider-details")[0];
   assert.ok(advanced);
-  assert.equal(advanced.open, false);
+  assert.equal(advanced.open, true);
   assert.equal(walk(advanced, (node) => node.tag === "input" && ["direct", "omniroute"].includes(node.getAttribute("value"))).length, 0);
   assert.equal(primaryText(root).includes("OmniRoute"), false);
   const inherited = walk(root, (node) => node.getAttribute && node.getAttribute("data-provider-inheritance") === "runtime")[0];
@@ -321,11 +321,8 @@ test("keeps provider selection in the external runtime and shows its profile rea
     provider_options: [{ provider_key: "antigravity", name: "Antigravity 구독", model: "fixture", configured: true }],
     inbox: { state: "analyzing", scanned_total: 1, eligible: 1, held: 0, processed: 0, succeeded: 0, failed: 0 },
   });
-  assert.equal(walk(busy.root, (node) => node.getAttribute && node.getAttribute("data-provider-inheritance") === "runtime").length, 1);
-  for (const operation of ["update", "merge", "dispute"]) {
-    const control = walk(advanced, (node) => node.getAttribute && node.getAttribute("data-operation") === operation)[0];
-    assert.ok(control && control.disabled, operation);
-  }
+  assert.equal(walk(busy.root, (node) => node.getAttribute && node.getAttribute("data-provider-inheritance") === "runtime").length, 0);
+  assert.equal(walk(advanced, node => node.getAttribute("data-operation") !== null).length, 0);
 
   const result = mount("committed").root;
   const serialized = serialize(result);

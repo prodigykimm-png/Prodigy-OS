@@ -5,8 +5,8 @@
   var TABS = Object.freeze([
     Object.freeze({ id: "zettelkasten", label: "지식 구축 · 제텔카스텐", compactLabel: "구축", role: "지식 구축", purpose: "작성·연결·검증·보존", description: "후보·문헌·영구 지식을 검토하고 승인합니다." }),
     Object.freeze({ id: "para", label: "지식 활용 · PARA", compactLabel: "활용", role: "승인 지식 활용", purpose: "승인된 지식을 Project·Area·Resource Objects에 적용하고 활용합니다.", description: "프로젝트·영역·자료에 연결된 승인 지식을 탐색합니다." }),
-    Object.freeze({ id: "llmwiki", label: "Prodigy Wiki 만들기", compactLabel: "만들기", role: "Prodigy Wiki 만들기", purpose: "내 자료를 읽기 좋은 Wiki로 정리합니다.", description: "자료를 선택하고 정리 결과를 검토합니다." }),
-    Object.freeze({ id: "llmwiki-browse", label: "Prodigy Wiki 검토", compactLabel: "검토", role: "Prodigy Wiki 검토", purpose: "정리 결과와 원문을 함께 확인합니다.", description: "자동 검사를 통과한 정리 결과를 읽고 검토합니다." })
+    Object.freeze({ id: "llmwiki", label: "자료 정리", compactLabel: "자료 정리", role: "Prodigy Wiki 만들기", purpose: "내 자료를 읽기 좋은 Wiki로 정리합니다.", description: "자료를 선택하고 정리 결과를 검토합니다." }),
+    Object.freeze({ id: "llmwiki-browse", label: "문서 보관함", compactLabel: "보관함", role: "Prodigy Wiki 검토", purpose: "정리 결과와 원문을 함께 확인합니다.", description: "자동 검사를 통과한 정리 결과를 읽고 검토합니다." })
   ]);
 
 
@@ -135,6 +135,9 @@
       panels[tab.id] = panel;
     });
 
+    var wikiWorkspace = opts.shell && root.ProdigyWikiWorkspaceView
+      ? root.ProdigyWikiWorkspaceView.mount({ container: container, panelHost: panelHost, shell: opts.shell, onNavigate: function (tab, route) { if (opts.onBeforeWikiNavigate && opts.onBeforeWikiNavigate(tab, route) === false) return; select(tab, route); if (opts.onWikiNavigate) opts.onWikiNavigate(tab, route); } }) : null;
+
     function detach(panel) {
       if (!panel || !panel.parentNode) return;
       if (typeof panel.remove === "function") panel.remove();
@@ -146,7 +149,7 @@
       if (typeof panelHost.appendChild === "function") panelHost.appendChild(panel);
     }
 
-    function select(tabId) {
+    function select(tabId, route) {
       if (!TABS.some(function (tab) { return tab.id === tabId; })) return;
       activeTab = tabId;
       TABS.forEach(function (tab) {
@@ -162,18 +165,23 @@
         }
       });
       var current = TABS.find(function (t) { return t.id === activeTab; });
-      setText(descEl, current ? current.description : "");
-      setText(roleCueEl, current ? "역할: " + current.role + " · 목적: " + current.purpose : "");
+      var wikiActive = activeTab === "llmwiki" || activeTab === "llmwiki-browse";
+      descEl.hidden = wikiActive; roleCueEl.hidden = wikiActive;
+      setText(descEl, !wikiActive && current ? current.description : "");
+      setText(roleCueEl, !wikiActive && current ? "역할: " + current.role + " · 목적: " + current.purpose : "");
+      tablist.hidden = Boolean(wikiWorkspace && wikiActive);
+      if (wikiWorkspace) wikiWorkspace.setActive(activeTab, route);
       onChange(activeTab);
     }
 
     select(activeTab);
 
     return Object.freeze({
+      wikiWorkspace: wikiWorkspace,
       getActiveTab: function () { return activeTab; },
       select: select,
       getPanel: function (tabId) { return panels[tabId] || null; },
-      destroy: function () { if (container && typeof container.empty === "function") container.empty(); }
+      destroy: function () { if (wikiWorkspace) wikiWorkspace.dispose(); if (container && typeof container.empty === "function") container.empty(); }
     });
   }
 

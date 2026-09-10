@@ -161,10 +161,10 @@ test("compiled rows replace page-plan cards with actual Wiki documents", () => {
   ];
   const { container } = mount([...planned, ...compiled]);
   const result = walk(container, (node) => node.attr && node.attr["data-surface"] === "llmwiki-wiki-result")[0];
-  const text = collectText(result).replace(/\s+/g, " ").trim();
   assert.equal(result.attr["data-result-stage"], "compiled");
-  assert.match(text, /상가 Wiki 결과 미리보기/);
-  assert.match(text, /근거 문장 8개 · 결과 문서 2개 · 원문 전용 1건/);
+  assert.equal(walk(result, node => node.tag === "h2").length, 1);
+  const summary = walk(result, node => node.attr?.["data-wiki-summary"] !== undefined)[0];
+  assert.equal(summary.parentElement.tag, "details");
   const qualityStatus = walk(result, (node) => node.attr && node.attr["data-wiki-quality-status"] === "draft");
   assert.equal(qualityStatus.length, 1);
   const guideParagraphs = compiled[0].wiki_result.guide_sections.flatMap((section) => section.paragraphs);

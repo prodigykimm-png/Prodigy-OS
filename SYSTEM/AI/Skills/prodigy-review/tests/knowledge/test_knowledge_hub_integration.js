@@ -43,7 +43,7 @@ async function testHubLoadsExplorerAndDetailSections() {
   assert.doesNotMatch(zettelText, /\b(category|reason|provenance_label|provenance_source_path)\b/);
   assert.doesNotMatch(zettelText, /\b(auction_region|literature_note|permanent_note)\b/);
   // PARA 탭 검증
-  const paraPanel = findByAttrId(result.container, "knowledge-panel-para");
+  const paraPanel = result.window.KnowledgeExplorerHub.tabs.getPanel("para");
   assert.ok(paraPanel, "PARA 탭 패널이 존재해야 합니다.");
   const paraText = collectText(paraPanel);
   assert.match(paraText, /지식 활용|연결된 지식 없음|승인 지식/);
@@ -52,7 +52,7 @@ async function testHubLoadsExplorerAndDetailSections() {
   await literatureAction.onclick({ preventDefault() {} });
   assert.match(collectText(result.openedModals.at(-1).contentEl), /문헌노트 한 건/);
   assert.equal(result.window.KnowledgeExplorerHub.error, undefined);
-  const browsePanel = findByAttrId(result.container, "knowledge-panel-llmwiki-browse");
+  const browsePanel = result.window.KnowledgeExplorerHub.tabs.getPanel("llmwiki-browse");
   assert.ok(browsePanel, "LLMWiki fourth-tab browse panel must be mounted.");
   assert.equal(result.window.KnowledgeWorkspaceTabs.TABS.length, 4);
   assert.deepEqual(Array.from(result.window.KnowledgeWorkspaceTabs.TABS, (tab) => tab.id), ["zettelkasten", "para", "llmwiki", "llmwiki-browse"]);

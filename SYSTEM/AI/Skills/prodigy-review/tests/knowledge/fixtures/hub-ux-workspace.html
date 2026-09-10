@@ -1,0 +1,51 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Isolated Hub presentation fixture</title>
+<style>
+:root { --font-interface:system-ui; --text-normal:#25272b; --text-muted:#626873; --text-accent:#2964bb; --interactive-accent:#2964bb; --text-on-accent:white; --background-primary:white; --background-secondary:#f5f6f8; --background-modifier-border:#d9dce0; --background-modifier-hover:#edf2fa; --text-error:#a52c2c; --text-success:#247044; --header-height:40px; --status-bar-height:24px; }
+body { margin:16px; font:16px system-ui; background:#f6f6f6; }
+#mount { max-width:100%; background:white; }
+button, input, select { font:inherit; border:1px solid var(--background-modifier-border); background:white; color:var(--text-normal); padding:8px 12px; }
+button { cursor:pointer; } input[type=checkbox], input[type=radio] { accent-color:var(--interactive-accent); }
+#geometry { display:block; max-width:100%; font:12px monospace; white-space:pre-wrap; }
+</style>
+<div id="mount"></div><output id="geometry"></output>
+<script>
+// Obsidian DOM conveniences only; no Vault, provider or write capability exists.
+HTMLElement.prototype.createEl = function(tag, options={}) { const el=document.createElement(tag); if(options.text!==undefined) el.textContent=options.text; for(const [name,value] of Object.entries(options.attr||{})) el.setAttribute(name,value); if(options.cls)el.className=options.cls; this.appendChild(el); return el; };
+HTMLElement.prototype.createDiv = function(options={}) { return this.createEl('div',options); };
+HTMLElement.prototype.empty = function() { this.replaceChildren(); };
+HTMLElement.prototype.setText = function(text) { this.textContent=text; };
+HTMLElement.prototype.setAttr = function(key,value) { this.setAttribute(key,value); };
+HTMLElement.prototype.addClass = function(name) { this.classList.add(name); };
+</script>
+<script src="../../../../../../Views/design-tokens.js"></script>
+<script src="../../../../../../Views/workspace-registry.js"></script>
+<script src="../../../../../../Views/prodigy-app-shell.js"></script>
+<script src="../../../../../../Views/knowledge-styles.js"></script>
+<script src="../../../../../../Views/prodigy-wiki-workspace-view.js"></script>
+<script>
+const width=Number(new URLSearchParams(location.search).get('width')||1120);
+const mount=document.getElementById('mount'); mount.style.width=`${width}px`;
+KnowledgeStyles.ensureStyles(document);
+const shell=ProdigyAppShell.AppShell(mount,{workspaceId:'knowledge',title:'지식'});
+const tabs=shell.body.createDiv({attr:{class:'knowledge-workspace-tabs-mount'}});
+const panel=tabs.createDiv({attr:{class:'knowledge-workspace-panel-host'}});
+const ui=ProdigyWikiWorkspaceView, workspace=ui.mount({container:tabs,panelHost:panel,shell,onNavigate(){}});
+workspace.setActive('llmwiki','pending'); workspace.setPending(3); workspace.setJourney({status:'review_ready'});
+workspace.setProposals([{id:'fixture_one',title:'앨범 작업 워크플로',status:'내용 추가'},{id:'fixture_two',title:'녹음 전 점검',status:'새 문서'},{id:'fixture_three',title:'협업 기록',status:'충돌 확인 필요'}],'fixture_one',()=>{});
+ui.el(panel,'h2','앨범 작업 워크플로');
+ui.el(panel,'p','출처: 앨범 작업 기록 · 근거 12개');
+const storage=ui.el(panel,'fieldset','',{class:'wiki-storage-choices'}); ui.el(storage,'legend','저장 방식');
+for(const [index,label] of ['새 문서로 저장','기존 문서에 내용 추가'].entries()){const row=ui.el(storage,'label');const radio=ui.el(row,'input','',{type:'radio',name:'save-mode'});radio.checked=index===1;ui.el(row,'span',label);}
+const exact=ui.el(panel,'section');
+ui.exactPreview(exact,{before:'---\nknowledge_domain: music\nconditions: 개인 작업\n---\n## 녹음 준비\n\n작업 범위를 확인합니다.\n\n기존 점검 방식\n\n## 협업\n\n녹음 기록을 공유합니다.\n',after:'---\nknowledge_domain: music\nconditions: 개인 작업 및 협업\n---\n## 녹음 준비\n\n작업 범위를 확인합니다.\n\n녹음 전에 입력 레벨과 장비 연결을 확인합니다.\n\n## 협업\n\n녹음 기록을 공유합니다.\n\n변경한 설정은 작업 기록에 남깁니다.\n',target_path:'ZETA/PERMANENT/앨범 제작 원칙.md',packet_hash:'isolated_layout_fixture'});
+for(let i=0;i<24;i++)ui.el(panel,'p','이 문단은 긴 문서를 읽는 동안 결정 영역이 같은 위치에 남는지 확인하는 합성 자료입니다.');
+const acknowledgement=ui.el(workspace.decision,'label'); const checkbox=ui.el(acknowledgement,'input','',{type:'checkbox'});ui.el(acknowledgement,'span','변경 내용과 출처를 확인했습니다.');
+const status=ui.el(workspace.decision,'p','변경 내용과 출처를 확인하고 체크하세요.',{'data-decision-status':''});
+const actions=ui.el(workspace.decision,'div','',{'data-decision-actions':''});ui.button(actions,'나중에','later',()=>{});const approve=ui.button(actions,'승인 및 적용','approve',()=>{},true);approve.disabled=true;
+const before=workspace.decision.getBoundingClientRect();workspace.reading.scrollTop=workspace.reading.scrollHeight;const after=workspace.decision.getBoundingClientRect();workspace.reading.scrollTop=0;
+const geometry={hub_width:shell.element.getBoundingClientRect().width,viewport:innerWidth,sidebar_width:document.querySelector('.wiki-sidebar').getBoundingClientRect().width,proposal_selector:getComputedStyle(document.querySelector('.wiki-proposal-selector')).display,steps:document.querySelectorAll('.wiki-journey li').length,decision_stays_visible:before.top===after.top&&after.bottom<=innerHeight,decision_height:after.height,reading_scrolls:workspace.reading.scrollHeight>workspace.reading.clientHeight,body_overflow:getComputedStyle(shell.body).overflowY,body_padding:getComputedStyle(shell.body).paddingInlineStart,toolbar_padding:getComputedStyle(shell.workspaceBar).paddingInlineStart,toolbar_height:shell.workspaceBar.getBoundingClientRect().height,ack_default:checkbox.checked,decision_status:status.hasAttribute('data-decision-status'),title_width:shell.title.getBoundingClientRect().width,title_display:getComputedStyle(shell.title).display,horizontal_overflow:shell.element.scrollWidth>shell.element.clientWidth};
+document.getElementById('geometry').textContent=JSON.stringify(geometry);document.documentElement.dataset.fixtureReady='true';
+if(geometry.steps!==4||!geometry.decision_stays_visible||geometry.horizontal_overflow)throw Error('layout_contract_failed');
+</script>

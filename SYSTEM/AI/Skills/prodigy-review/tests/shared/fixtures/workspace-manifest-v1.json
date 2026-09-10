@@ -471,6 +471,7 @@
         "SYSTEM/Views/llmwiki-operation-run-approval.js",
         "SYSTEM/Views/llmwiki-operation-run-service.js",
         "SYSTEM/Views/llmwiki-risk-review-controller.js",
+        "SYSTEM/Views/prodigy-wiki-workspace-view.js",
         "SYSTEM/Views/llmwiki-risk-approval-review-view.js",
         "SYSTEM/Views/llmwiki-derived-refresh.js",
         "SYSTEM/Views/llmwiki-knowledge-lifecycle.js",

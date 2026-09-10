@@ -47,7 +47,8 @@ test("projects real inbox snapshots into one beginner lifecycle state and one ty
 test("explicit source selection takes priority over an automatic INBOX queue", () => {
   const queued = mount({ inbox: { state: "queued", source_id: "source_visible_fixture" } });
   click(action(queued.root, "select-source"));
-  assert.deepEqual(queued.calls, [{ action: "select_source" }]);
+  assert.deepEqual(queued.calls, []);
+  assert.ok(action(queued.root, "confirm-source-selection"));
   const projected = lifecycle.projectLifecycleSnapshot(snapshot("selecting", {
     source_selection: { selected: true, display_name: "서울투자반" },
     inbox: { state: "queued" },
@@ -68,9 +69,9 @@ test("explicit source selection takes priority over an automatic INBOX queue", (
     },
     inbox: { state: "queued" },
   }));
-  const selectedStatus = walk(subject.root, (node) => node.getAttribute("data-source-selected-status") === "confirmed")[0];
+  const selectedStatus = walk(subject.root, (node) => node.getAttribute("data-selected-source-title") !== null)[0];
   const selectedPath = walk(subject.root, (node) => node.getAttribute("data-selected-source-path") !== null)[0];
-  const selectedBoundary = walk(subject.root, (node) => node.getAttribute("data-selected-source-boundary") === "pre-consent")[0];
+  const selectedBoundary = action(subject.root, "request-consent");
   assert.ok(selectedStatus);
   assert.equal(selectedPath.text, "INBOX/서울투자반.md");
   assert.ok(selectedBoundary);
@@ -93,9 +94,11 @@ test("source picker labels user materials and filters by title or path", () => {
   const view = lifecycle.mountLlmWikiLifecycleView({ container: dom.root, snapshot: pickerSnapshot, onAction: (intent) => calls.push(intent) });
   const subject = { ...dom, calls, view };
   const search = walk(subject.root, (node) => node.tag === "input" && node.getAttribute("type") === "search")[0];
-  const choices = walk(subject.root, (node) => node.tag === "button" && node.getAttribute("data-action") === "select-source-option");
+  const choices = walk(subject.root, (node) => node.tag === "button" && node.getAttribute("data-source-option") !== null);
   assert.ok(search);
-  assert.deepEqual(choices.map((node) => node.text), ["내 자료 · 서울투자반", "문헌 · 외부 문헌"]);
+  assert.deepEqual(choices.map(node => node.getAttribute("data-source-option")), pickerSnapshot.source_options.map(row => row.path));
+  assert.equal(action(subject.root, "confirm-source-selection").disabled, true);
+  click(choices[1]); assert.equal(choices[1].getAttribute("aria-checked"), "true"); assert.deepEqual(calls, []);
   search.value = "서울";
   search.oninput();
   assert.equal(choices[0].hidden, false);
@@ -141,10 +144,12 @@ test("large source requires an explicit heading scope before consent", () => {
     golden_wiki: { status: "scope_required", result: { chunks: 124, packs: 31, scopes: [{ scope_id: "heading_001", title: "경매 사례" }] } },
     source_selection: { selected: true, display_name: "대형 자료" },
   }));
-  assert.ok(walk(subject.root, (node) => node.getAttribute("data-disclosure") === "range-execution-details")[0]);
-  const scope = action(subject.root, "select-golden-scope");
+  assert.ok(walk(subject.root, (node) => node.getAttribute("data-disclosure") === "state-details")[0]);
+  const scope = walk(subject.root, node => node.getAttribute("data-select-range-id") === "heading_001")[0];
   assert.ok(scope);
-  click(scope);
+  assert.equal(action(subject.root, "confirm-range").disabled, true);
+  click(scope); assert.deepEqual(subject.calls, []);
+  click(action(subject.root, "confirm-range"));
   assert.deepEqual(subject.calls.at(-1), { action: "select_golden_scope", scope_id: "heading_001" });
   assert.equal(action(subject.root, "request-consent"), null);
 });
@@ -177,12 +182,13 @@ test("large source range picker is hierarchical searchable and previewable", () 
 
   search.value = "둘째";
   search.oninput();
-  assert.equal(rows[0].hidden, false);
+  assert.equal(rows[0].hidden, true);
   assert.equal(rows[1].hidden, true);
   assert.equal(rows[2].hidden, false);
 
   const second = walk(subject.root, (node) => node.getAttribute("data-select-range-id") === "heading_003")[0];
-  click(second);
+  click(second); assert.deepEqual(subject.calls, []);
+  click(action(subject.root, "confirm-range"));
   assert.deepEqual(subject.calls.at(-1), { action: "select_golden_scope", scope_id: "heading_003" });
 });
 
@@ -276,7 +282,7 @@ test("renders one canonical Git follow-up message across unavailable, retry, and
   assert.equal(statusCount(subject.root), 1);
 
   subject.view.update(snapshot("committed", { operation_run: operation({ status: "succeeded", attempts: 3, reason: null }) }));
-  assert.match(collectText(subject.root), /지식 반영 완료/);
+  assert.equal(walk(subject.root, node => node.getAttribute("aria-current") === "step")[0].getAttribute("data-step"), "4");
   assert.equal(statusCount(subject.root), 1);
 });
 
@@ -356,15 +362,13 @@ test("Knowledge retains exactly four tabs", () => {
   assert.deepEqual(tabs.map((tab) => tab.id), ["zettelkasten", "para", "llmwiki", "llmwiki-browse"]);
 });
 
-test("source boundary reflects an actually sent question without changing pre-consent default", () => {
+test("source context does not invent outbound state or change the approval step", () => {
   const selected = { selected: true, display_name: "합성 자료", source_path: "INBOX/fixture.md" };
   const subject = mount({ source_selection: selected });
   subject.view.update(snapshot("selecting", { source_selection: selected, source_question_sent: true }));
-  const visible = collectText(subject.root);
-  assert.match(visible, /원문 근거를 외부 AI에 전송했습니다/);
-  assert.match(visible, /아직 승인되지 않았습니다/);
-  assert.doesNotMatch(visible, /아직 외부 AI로 전송되지/);
-  assert.equal(walk(subject.root, (node) => node.getAttribute("data-selected-source-boundary") === "question-sent").length, 1);
+  assert.equal(walk(subject.root, node => node.getAttribute("data-selected-source-boundary") !== null).length, 0);
+  assert.equal(walk(subject.root, node => node.getAttribute("aria-current") === "step")[0].getAttribute("data-step"), "2");
   subject.view.update(snapshot("selecting", { source_selection: selected }));
-  assert.match(collectText(subject.root), /아직 외부 AI로 전송되지 않았습니다/);
+  assert.equal(walk(subject.root, node => node.getAttribute("data-selected-source-boundary") !== null).length, 0);
+  assert.deepEqual(subject.calls, []);
 });

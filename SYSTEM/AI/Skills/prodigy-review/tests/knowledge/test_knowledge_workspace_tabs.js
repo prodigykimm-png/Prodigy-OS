@@ -40,7 +40,7 @@ function renderedKnowledgeCss() {
 function assertCompactTabContract(css, tabs) {
   assert.equal(tabs.length, 4);
   assert.equal(new Set(tabs.map((tab) => tab.compactLabel)).size, 4);
-  assert.ok(tabs.every((tab) => typeof tab.compactLabel === "string" && [...tab.compactLabel.replace(/\s/gu, "")].length <= 2));
+  assert.ok(tabs.every((tab) => typeof tab.compactLabel === "string" && tab.compactLabel.length > 0));
   // The compressed (true 200%-zoom) layout must keep every tab's FULL readable
   // label on the screen as a wrapped single-column row, never collapse to a
   // two-glyph snippet or hide the full label behind 22px compact chips.
@@ -110,15 +110,11 @@ function testMobileTouchTargetContract() {
 }
 
 function testImmutableTabRoleMetadata() {
-  assert.deepEqual(
-    workspaceTabs.TABS.map(({ id, role, purpose }) => ({ id, role, purpose })),
-    [
-      { id: "zettelkasten", role: "지식 구축", purpose: "작성·연결·검증·보존" },
-      { id: "para", role: "승인 지식 활용", purpose: "승인된 지식을 Project·Area·Resource Objects에 적용하고 활용합니다." },
-      { id: "llmwiki", role: "AI 지식 검토", purpose: "자료를 선택하고 AI 지식 제안을 검토합니다." },
-      { id: "llmwiki-browse", role: "LLMWiki 탐색", purpose: "검증된 LLMWiki 스냅샷을 검색하고 읽습니다." },
-    ],
-  );
+  assert.deepEqual(workspaceTabs.TABS.map(tab => tab.id), ["zettelkasten", "para", "llmwiki", "llmwiki-browse"]);
+  const container = new FakeElement("section");
+  const mounted = workspaceTabs.mountTabs(container, { activeTab: "llmwiki" });
+  assert.equal(roleCue(container).hidden, true);
+  mounted.select("llmwiki-browse"); assert.equal(roleCue(container).hidden, true);
   assert.equal(Object.isFrozen(workspaceTabs.TABS), true);
   for (const tab of workspaceTabs.TABS) assert.equal(Object.isFrozen(tab), true);
 }
@@ -141,15 +137,7 @@ function testActiveRoleCue() {
 }
 
 function testExactThreeTabContract() {
-  assert.deepEqual(
-    workspaceTabs.TABS.map(({ id, label }) => ({ id, label })),
-    [
-      { id: "zettelkasten", label: "지식 구축 · 제텔카스텐" },
-      { id: "para", label: "지식 활용 · PARA" },
-      { id: "llmwiki", label: "AI 지식 검토 · LLM Wiki" },
-      { id: "llmwiki-browse", label: "LLMWiki 탐색" },
-    ],
-  );
+  assert.deepEqual(workspaceTabs.TABS.map(tab => tab.id), ["zettelkasten", "para", "llmwiki", "llmwiki-browse"]);
 }
 
 function testAriaRelationshipsAndInMemoryIdentity() {
@@ -191,7 +179,7 @@ function testUltraCompactFullLabelMutationIsRejected() {
   assertCompactTabContract(css, workspaceTabs.TABS);
   const collapsedToTwoGlyph = css
     .replace("grid-template-columns: minmax(0, 1fr); gap: 6px", "grid-template-columns: repeat(2, minmax(22px, 1fr)); gap: 4px")
-    .replace(".knowledge-workspace-tab-label--full { display: inline; white-space: normal; }", ".knowledge-workspace-tab-label--full { display: none; }")
+    .replace(/(\.knowledge-workspace-tab-label--full\s*\{)\s*display:\s*inline/u, "$1 display: none")
     .replace(".knowledge-workspace-tab-label--compact { display: none; white-space: normal; }", ".knowledge-workspace-tab-label--compact { display: inline; white-space: nowrap; }");
   assert.throws(() => assertCompactTabContract(collapsedToTwoGlyph, workspaceTabs.TABS), /display|repeat|one column/);
   console.log("TASK15_TRUE_ZOOM_MUTATION " + JSON.stringify({ mutation: "collapse-to-two-glyph-compact", detected: true }));

@@ -114,12 +114,34 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
 
     const workspaceBody = shell.body;
     domRenderToken = performance && performance.start("dom_render", { scope: "knowledge", status: "rendering" });
-    // 탭 시스템 마운트
+    // Wiki presentation is inline; underlying tab IDs and authority callbacks are retained.
+    if (!window.ProdigyWikiWorkspaceView) await loadWorkspaceBootstrap("SYSTEM/Views/prodigy-wiki-workspace-view.js");
+    if (!window.LLMWikiDocumentCanonicalReview) await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-document-canonical-review.js");
+    const wikiUI = window.ProdigyWikiWorkspaceView;
+    let refreshWikiWorkspace = () => {}, renderInlineWikiReview = () => false;
+    let activeWikiReviewId = "", intendedWikiTarget = "", captureOpen = false, captureHandle = null;
+    let inlineWikiReview = null, wikiAuxiliaryScene = "", wikiInspectionOpen = false, wikiPickerReturnTab = "";
+    const wikiSourceExcerpts = new Map();
+    const readWikiSourceExcerpt = async source => {
+      const file = source && appRef.vault.getAbstractFileByPath(source.path);
+      if (file) wikiSourceExcerpts.set(source.path, wikiUI.splitDocument(await appRef.vault.read(file)).body.replace(/\s+/gu, " ").trim().slice(0, 260));
+    };
+    const wikiMarkdownComponent = obsidianRef.Component ? new obsidianRef.Component() : dvRef.component;
+    wikiMarkdownComponent?.load?.();
+    mountContext.scope?.track?.(() => wikiMarkdownComponent?.unload?.());
+    const renderWikiMarkdown = obsidianRef.MarkdownRenderer?.render
+      ? (bytes, host) => obsidianRef.MarkdownRenderer.render(appRef, bytes, host, "HUB/50 Knowledge.md", wikiMarkdownComponent) : null;
     const tabsMount = workspaceBody.createDiv({ attr: { class: "knowledge-workspace-tabs-mount" } });
     const tabs = window.KnowledgeWorkspaceTabs.mountTabs(tabsMount, {
       activeTab: KnowledgeExplorerHub._lastTab || "zettelkasten",
+      shell,
+      onBeforeWikiNavigate: () => { if (captureOpen) { captureHandle?.requestClose(); return false; } return true; },
+      onWikiNavigate: (_tab, route) => refreshWikiWorkspace(route),
       onChange: (tabId) => { KnowledgeExplorerHub._lastTab = tabId; }
     });
+
+    const wikiWorkspace = tabs.wikiWorkspace;
+    mountContext.scope?.track?.(() => { captureHandle?.dispose(); inlineWikiReview?.onClose?.(); wikiWorkspace?.dispose(); });
 
     // 제텔카스텐 탭: 기존 Explorer + 작성 버튼
     const zettelPanel = tabs.getPanel("zettelkasten");
@@ -2932,7 +2954,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         display_variant: "local",
         golden_wiki: prodigyWiki.golden_wiki,
         ...(providerSelectionFailure ? { provider_selection_error: providerSelectionFailure } : {}),
-        ...(prodigyWiki.source_selection ? { source_selection: prodigyWiki.source_selection } : {}),
+        ...(prodigyWiki.source_selection ? { source_selection: { ...prodigyWiki.source_selection, preview: wikiSourceExcerpts.get(prodigyWiki.source_selection.source_path) || "" } } : {}),
         source_options: prodigyWiki.source_options.length ? prodigyWiki.source_options : sourceOptions,
         ...(prodigyWiki.status !== "idle" ? { status: prodigyWiki.status } : {}),
         ...(prodigyWiki.reason ? { reason: prodigyWiki.reason } : {}),
@@ -2991,7 +3013,22 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           ? { ok: true, status: inboxState.state, provider_calls: 0 }
           : { ok: false, status: "blocked", reason: "settings_unavailable", provider_calls: 0 };
       }
-      if (intent.action === "later") return { ok: true, status: inboxState.state, provider_calls: 0 };
+      if (intent.action === "open_library") { tabs.select("llmwiki-browse"); return { ok: true, provider_calls: 0 }; }
+      if (intent.action === "open_document") { await P.openBeside(appRef, intent.path); return { ok: true, provider_calls: 0 }; }
+      if (intent.action === "open_selected_source") { const source = prodigyWikiController.getSnapshot().source; if (source) await P.openBeside(appRef, source.path); return { ok: Boolean(source), provider_calls: 0 }; }
+      if (intent.action === "cancel_picker") { prodigyWikiController.dispatch({ type: "cancel" }); return { ok: true, provider_calls: 0 }; }
+      if (intent.action === "change_golden_range") {
+        const source = prodigyWikiController.getSnapshot().source;
+        const file = source && appRef.vault.getAbstractFileByPath(source.path);
+        if (!file) return { ok: false, reason: "source_missing" };
+        const bytes = await appRef.vault.read(file);
+        if (llmWikiHash.sha256(bytes) !== source.content_hash) { prodigyWikiController.dispatch({ type: "source_changed" }); return { ok: false, reason: "source_revision_changed" }; }
+        const ranges = window.LLMWikiGoldenWikiOrchestrator.headingRangeTree(bytes);
+        const scopes = window.LLMWikiGoldenWikiOrchestrator.headingScopes(bytes);
+        prodigyWikiController.dispatch({ type: "require_range", result: { scopes, range_tree: ranges }, reason: "user_range_selection" });
+        return { ok: true, provider_calls: 0 };
+      }
+      if (intent.action === "later") { tabs.select("llmwiki-browse"); return { ok: true, status: inboxState.state, provider_calls: 0 }; }
       if (intent.action === "repacket") return llmWikiRunController.repacketStale({ action: "repacket_stale" });
       if (intent.action === "set_provider_mode") {
         return { ok: false, status: "failed", reason: "provider_selection_owned_by_runtime" };
@@ -3022,14 +3059,18 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         }
         sourceOptions = sourceOptions.map((row) => row.path === pinnedOption.path ? pinnedOption : row);
         selectedRunCommand = null;
+        await readWikiSourceExcerpt(pinnedOption);
+        wikiPickerReturnTab = "";
         prodigyWikiController.dispatch({ type: "select_source", source: pinnedOption });
         return { ok: true, status: "selecting", source: pinnedOption };
       }
       if (intent.action === "open_golden_review") {
         const pending = pendingCanonicalReviews(prodigyWikiController.getSnapshot().source?.path || "")[0];
         if (pending && KnowledgeExplorerHub.openCanonicalDocumentReview) return KnowledgeExplorerHub.openCanonicalDocumentReview({ ...pending.review.item, processing_job_id: pending.job_id });
-        tabs.select("llmwiki-browse");
-        return { ok: true, status: "complete", provider_calls: 0 };
+        const source = prodigyWikiController.getSnapshot().source;
+        const retained = batchJobStore.listPlanSnapshots().find(row => row.plan?.source?.source_path === source?.path && row.source_revision === source?.content_hash);
+        if (retained) { const result = await openStoredDocumentPlan(retained.job_id); refreshWikiWorkspace("pending"); return result; }
+        return { ok: false, reason: "grounded_document_required", provider_calls: 0 };
       }
       if (intent.action === "reset_prodigy_source") {
         await prodigyWikiOperationStore.clear();
@@ -3206,6 +3247,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     let knowledgeReviewWorkbench = null;
     const refreshReviewWorkbench = () => {
       if (knowledgeReviewWorkbench) knowledgeReviewWorkbench.update({ items: reviewItems() });
+      if (llmWikiLifecycle && !captureOpen) refreshWikiWorkspace();
     };
     const applyBatchApproval = async ({ selected_operation_ids: selectedOperationIds, user_action: userAction }) => {
       if (userAction !== window.LLMWikiBatchApprovalAdapter.EXPLICIT_ACTION || !durableRecovery?.review) return { ok: false, reason: "explicit_user_approval_required", status: "review" };
@@ -3406,7 +3448,26 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (typeof editor.focus === "function") editor.focus();
       return { ok: true, source_path: sourcePath, position };
     };
-    const openGoldenCitation = (citation) => {
+    const openGoldenCitation = (citation, invoker = null, onStale = null) => {
+      if (wikiWorkspace && ["llmwiki", "llmwiki-browse"].includes(tabs.getActiveTab())) {
+        wikiInspectionOpen = true;
+        const panel = tabs.getPanel(tabs.getActiveTab());
+        const savedChildren = [...panel.children]; savedChildren.forEach(child => child.hidden = true);
+        const savedDecision = [...wikiWorkspace.decision.children]; savedDecision.forEach(child => child.hidden = true);
+        const inspection = panel.createEl("section", { attr: { "data-source-inspection": "", tabindex: "-1" } });
+        const close = () => { wikiInspectionOpen = false; inspection.remove(); savedChildren.forEach(child => child.hidden = false); savedDecision.forEach(child => child.hidden = false); closeButton.remove(); invoker?.focus?.(); };
+        const closeButton = wikiUI.button(wikiWorkspace.decision, "돌아가기", "close-source-inspection", close);
+        inspection.onkeydown = event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); } };
+        inspection.createEl("h2", { text: "원문 근거" }); inspection.focus?.();
+        Promise.resolve(resolveSourcePreview(citation)).then(preview => {
+          if (!preview?.ok) { inspection.createEl("p", { text: `! 원문을 확인할 수 없습니다: ${preview?.reason || "source_unavailable"}`, attr: { role: "alert" } }); return; }
+          if (preview.status === "stale") onStale?.();
+          window.KnowledgeExplorerDetailModal.renderSourcePreview(inspection, preview, {
+            onOpenSource: value => P.openBeside(appRef, citation.locator || value.source_path), onEditSource: openSourceForEdit, onClose: close,
+          });
+        }).catch(error => inspection.createEl("p", { text: `! 원문 확인 실패: ${error.message}`, attr: { role: "alert" } }));
+        return true;
+      }
       if (!obsidianRef?.Modal || !window.KnowledgeExplorerDetailModal?.renderSourcePreview) {
         return false;
       }
@@ -3453,24 +3514,46 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
     }
     prodigyWikiController.dispatch({ type: "set_options", options: sourceOptions });
+    await readWikiSourceExcerpt(prodigyWikiController.getSnapshot().source);
     const llmWikiLifecycleFrame = llmWikiPanel.createDiv({ attr: { class: "llmwiki-lifecycle-frame" } });
     llmWikiLifecycle = window.LLMWikiLifecycleView.mountLlmWikiLifecycleView({
       container: llmWikiLifecycleFrame,
       snapshot: lifecycleSnapshot(),
+      workspace: wikiWorkspace,
+      preserveSurface: () => captureOpen || wikiInspectionOpen,
+      auxiliaryScene: () => wikiAuxiliaryScene,
+      getIntendedTarget: () => intendedWikiTarget,
+      onPickerCancel: () => { if (wikiPickerReturnTab) { tabs.select(wikiPickerReturnTab); wikiPickerReturnTab = ""; } },
+      renderMarkdown: renderWikiMarkdown,
+      renderWorkspaceReview: (host, snapshot) => captureOpen || renderInlineWikiReview(host, snapshot),
+      onInspectScope: async (_snapshot, invoker) => {
+        const state = prodigyWikiController.getSnapshot();
+        const source = state.source;
+        const file = source && appRef.vault.getAbstractFileByPath(source.path);
+        if (!file) return;
+        const bytes = await appRef.vault.read(file);
+        const scope = state.range ? bytes.slice(state.range.start, state.range.end) : bytes;
+        llmWikiLifecycleFrame.empty(); wikiWorkspace.decision.empty();
+        llmWikiLifecycleFrame.createEl("h2", { text: "전송 내용" });
+        llmWikiLifecycleFrame.createEl("p", { text: `${source.title} · ${state.range?.title || "전체 자료"}` });
+        llmWikiLifecycleFrame.createEl("pre", { text: scope });
+        const close = wikiUI.button(wikiWorkspace.decision, "돌아가기", "close-outbound-scope", () => { llmWikiLifecycle.render(); llmWikiLifecycleFrame.querySelector?.('[data-action="inspect-outbound-scope"]')?.focus(); });
+        close.focus?.();
+      },
       onAction: dispatchLifecycleAction,
       requestRevisionGuidance,
       reviewView: window.LLMWikiRiskApprovalReviewView,
       reviewOptions: { onOpenBeside: (targetPath) => P.openBeside(appRef, targetPath), onEditSource: openSourceForEdit, resolveSourcePreview }
     });
     const unsubscribeProdigyWikiLifecycle = prodigyWikiController.subscribe(() => {
-      if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
+      if (llmWikiLifecycle && !captureOpen) llmWikiLifecycle.update(lifecycleSnapshot());
     });
     if (mountContext && mountContext.scope && typeof mountContext.scope.track === "function") {
       mountContext.scope.track(unsubscribeProdigyWikiLifecycle);
     }
     const storedPlanSnapshots = batchJobStore.listPlanSnapshots().filter((snapshot) => snapshot?.plan && snapshot?.inventory);
     if (storedPlanSnapshots.length > 0) {
-      const selector = llmWikiPanel.createDiv({ attr: { class: "llmwiki-plan-source-selector" } });
+      const selector = wikiWorkspace.more.createDiv({ attr: { class: "llmwiki-plan-source-selector" } });
       selector.createEl("strong", { text: "문서 계획 선택" });
       const buttons = selector.createDiv({ attr: { class: "llmwiki-lifecycle__actions" } });
       for (const snapshot of storedPlanSnapshots) {
@@ -3482,6 +3565,27 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
     }
     const openCanonicalDocumentReview = async (item, callbacks = {}) => {
+      if (callbacks.modal !== true) {
+        tabs.select("llmwiki", "pending"); activeWikiReviewId = item.review_id;
+        const host = callbacks.container || llmWikiLifecycleFrame; host.empty();
+        inlineWikiReview?.onClose?.();
+        inlineWikiReview = window.LLMWikiDocumentCanonicalReview.open({ app: appRef, item, container: host,
+          decisionContainer: wikiWorkspace.decision, workspace: wikiWorkspace, renderMarkdown: renderWikiMarkdown,
+          intendedTargetPath: intendedWikiTarget,
+          jobStore: item.processing_job_id || documentPlanContext?.job_id ? batchJobStore : null,
+          jobId: item.processing_job_id || documentPlanContext?.job_id || "",
+          onStateChange: () => refreshWikiPendingCount(),
+          onOpenSource: (locator, citation, invoker, onStale) => openGoldenCitation({ ...citation, locator, locators: [locator] }, invoker, onStale),
+          onLater: () => { inlineWikiReview = null; tabs.select("llmwiki-browse"); callbacks.onClose?.(); },
+          onSelectSource: () => { inlineWikiReview?.onClose?.(); inlineWikiReview = null; activeWikiReviewId = ""; intendedWikiTarget = ""; tabs.select("llmwiki"); llmWikiLifecycle.openPicker(); },
+          onNext: workspaceReviewEntries().filter(row => row.item.review_id !== item.review_id && row.status !== "resolved").length ? () => {
+            activeWikiReviewId = workspaceReviewEntries().find(row => row.item.review_id !== item.review_id && row.status !== "resolved")?.item.review_id || ""; llmWikiLifecycle.update(lifecycleSnapshot());
+          } : null,
+          onComplete: async () => { await refreshCanonicalDocumentContext(); refreshWikiPendingCount(); }
+        });
+        await inlineWikiReview.ready;
+        return { ok: true, status: "waiting_for_human_review", canonical_writes: 0, reopenable: true, isOpen: () => Boolean(inlineWikiReview) };
+      }
       if (!obsidianRef?.Modal) return { ok: false, reason: "review_modal_unavailable" };
       if (!window.LLMWikiDocumentCanonicalReview) await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-document-canonical-review.js");
       let isOpen = true;
@@ -3497,16 +3601,95 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       return { ok: true, status: "waiting_for_human_review", canonical_writes: 0, reopenable: true, isOpen: () => isOpen };
     };
     KnowledgeExplorerHub.openCanonicalDocumentReview = openCanonicalDocumentReview;
+    const workspaceReviewEntries = () => {
+      // Presentation deduplication: latest review identity wins, including resolved records.
+      const records = new Map();
+      for (const snapshot of batchJobStore.listPlanSnapshots()) {
+        for (const version of [snapshot, ...(snapshot.history || []).slice().reverse()]) {
+          for (const review of Object.values(version.canonical_reviews || {})) {
+            if (!review.item?.review_id) continue;
+            const key = `${snapshot.job_id}:${review.item.review_id}`;
+            if (!records.has(key)) records.set(key, { item: { ...review.item, processing_job_id: snapshot.job_id }, status: review.status, target: review.packet?.target_path });
+          }
+        }
+      }
+      const source = prodigyWikiController.getSnapshot().source;
+      const contextMatches = documentPlanContext?.source?.source_path === source?.path
+        && (documentPlanContext?.source?.content_hash || documentPlanContext?.source?.source_revision) === source?.content_hash;
+      if (contextMatches) for (const item of pagePlanReviewItems.filter(row => row.plan_kind === "compiled_document" && row.compiled_kind !== "source_guide")) {
+        const key = `${documentPlanContext.job_id}:${item.review_id}`;
+        if (!records.has(key)) records.set(key, { item: { ...item, processing_job_id: documentPlanContext.job_id }, status: "pending" });
+      }
+      return [...records.values()];
+    };
+    const refreshWikiPendingCount = () => {
+      const canonical = workspaceReviewEntries().filter(row => row.status !== "resolved");
+      const packetIds = new Set((llmWikiRunController.getSnapshot().risk_packets || []).map(packet => packet.operation.operation_id));
+      wikiWorkspace.setPending(canonical.length + packetIds.size);
+    };
+    renderInlineWikiReview = (host, snapshot) => {
+      refreshWikiPendingCount();
+      if (!["complete", "review", "review_only"].includes(snapshot.status) || snapshot.risk_packets?.length) return false;
+      const entries = workspaceReviewEntries();
+      const selected = entries.find(row => row.item.review_id === activeWikiReviewId) || entries.find(row => row.status !== "resolved");
+      if (!selected) return false;
+      activeWikiReviewId = selected.item.review_id;
+      wikiWorkspace.setProposals(entries.filter(row => row.status !== "resolved" || row.item.review_id === activeWikiReviewId).map(row => ({ id: row.item.review_id, title: row.item.title,
+        status: row.status === "resolved" ? "적용 완료" : row.item.review_blocked ? "충돌 확인 필요" : row.target ? "내용 추가" : "새 문서" })), activeWikiReviewId,
+        id => { activeWikiReviewId = id; inlineWikiReview?.onClose?.(); llmWikiLifecycle.update(lifecycleSnapshot()); });
+      if (selected.item.review_blocked || !selected.item.grounded_claims?.length) {
+        host.createEl("h2", { text: selected.item.title });
+        host.createEl("p", { text: "! 적용 전에 확인할 항목이 있습니다. 원문 근거 구성을 확인하세요.", attr: { role: "alert" } });
+        wikiUI.markdown(host, selected.item.document_body, renderWikiMarkdown);
+        wikiWorkspace.decision.createEl("p", { text: "적용할 변경안을 준비해야 합니다.", attr: { role: "status" } });
+        wikiUI.button(wikiWorkspace.decision, "검토 항목 확인", "inspect-review-block", () => { planDetails.open = true; wikiWorkspace.more.parentElement.open = true; });
+        return true;
+      }
+      void openCanonicalDocumentReview(selected.item, { container: host }).catch(error => host.createEl("p", { text: `! 검토 화면을 열지 못했습니다: ${error.message}`, attr: { role: "alert" } }));
+      return true;
+    };
+    refreshWikiWorkspace = route => {
+      if (captureOpen) { captureHandle?.requestClose(); return; }
+      if (route === "library") { wikiWorkspace.decision.empty(); return; }
+      if (route === "prepare") { activeWikiReviewId = ""; wikiAuxiliaryScene = ""; inlineWikiReview?.onClose?.(); }
+      llmWikiLifecycle.update(lifecycleSnapshot());
+    };
+    wikiWorkspace.onCapture = () => {
+      if (captureOpen) { captureHandle?.row?.querySelector?.("textarea")?.focus(); return; }
+      captureOpen = true;
+      const before = prodigyWikiController.getSnapshot();
+      const wasPicker = llmWikiLifecycle.isPickerOpen();
+      const previousTab = tabs.getActiveTab();
+      tabs.select("llmwiki"); inlineWikiReview?.onClose?.();
+      llmWikiLifecycleFrame.empty(); wikiWorkspace.decision.empty();
+      const close = () => { captureHandle?.dispose(); captureHandle = null; captureOpen = false; tabs.select(previousTab); llmWikiLifecycle.update(lifecycleSnapshot()); };
+      captureHandle = window.QuickCaptureView.mountQuickCapture({ app: appRef, container: llmWikiLifecycleFrame,
+        materialOnly: true, decisionContainer: wikiWorkspace.decision, interactionRoot: wikiWorkspace.frame,
+        sessionId: "wiki-material-capture", scope: mountContext.scope, onClose: close,
+        onSaved: async ({ receipt }) => {
+          sourceOptions = await eligibleSources(); prodigyWikiController.dispatch({ type: "set_options", options: sourceOptions });
+          close();
+          if (before.status === "idle" || wasPicker) {
+            const eligible = sourceOptions.find(row => row.path === receipt.path);
+            if (eligible) await dispatchLifecycleAction({ action: "select_source", source_path: receipt.path });
+          } else wikiWorkspace.decision.createEl("p", { text: "자료를 추가했습니다.", attr: { role: "status" } });
+        }
+      });
+    };
+    for (const [label, action] of [["받은 자료 일괄 정리", "scan_inbox"], ["미정리 생각", "review_fleeting"], ["기존 자료 검사", "scan_migration"]]) {
+      wikiUI.button(wikiWorkspace.more, label, action, () => { wikiAuxiliaryScene = action === "review_fleeting" ? "fleeting" : action === "scan_migration" ? "migration" : "inbox"; tabs.select("llmwiki"); return dispatchLifecycleAction({ action }); });
+    }
     const pendingDocumentReviews = pendingCanonicalReviews();
     if (pendingDocumentReviews.length) {
-      const pendingPanel = llmWikiPanel.createDiv({ attr: { class: "llmwiki-pending-document-reviews" } });
+      const pendingPanel = wikiWorkspace.more.createDiv({ attr: { class: "llmwiki-pending-document-reviews" } });
       pendingPanel.createEl("strong", { text: "미완료 지식 반영" });
       for (const { job_id, review } of pendingDocumentReviews) {
         const reopen = pendingPanel.createEl("button", { text: `${review.item.title} · 변경 확인 후 재개`, attr: { type: "button" } });
         reopen.onclick = () => openCanonicalDocumentReview({ ...review.item, processing_job_id: job_id });
       }
     }
-    const reviewWorkbenchMount = llmWikiPanel.createDiv({ attr: { class: "knowledge-review-workbench-mount" } });
+    const planDetails = wikiWorkspace.more.createEl("details"); planDetails.createEl("summary", { text: "문서 계획 및 기타 검토" });
+    const reviewWorkbenchMount = planDetails.createDiv({ attr: { class: "knowledge-review-workbench-mount" } });
     knowledgeReviewWorkbench = window.KnowledgeExplorerController.mountKnowledgeReviewWorkbench({
       app: appRef,
       Modal: obsidianRef.Modal,
@@ -3562,7 +3745,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       collectSnapshot: collectWikiReadSnapshot
     });
     if (losslessDataSource && losslessView) {
-      const losslessEntry = llmWikiPanel.createDiv({ cls: "llmwiki-lossless-entry", attr: { "data-lossless-corpus-entry": "" } });
+      const losslessEntry = wikiWorkspace.more.createDiv({ cls: "llmwiki-lossless-entry", attr: { "data-lossless-corpus-entry": "" } });
       losslessEntry.createEl("h3", { text: "무손실 장문 위키" });
       losslessEntry.createEl("p", { text: "원문 정보를 축소하지 않은 색인·주제·상세 문서를 탐색합니다." });
       try {
@@ -3575,6 +3758,19 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       } catch (error) {
         losslessEntry.createEl("p", { text: `무손실 위키를 불러오지 못했습니다: ${error?.message || "unknown_error"}`, attr: { role: "status" } });
       }
+    }
+    const libraryModes = browsePanel.createEl("nav", { attr: { "aria-label": "문서 보관함 분류", class: "wiki-view-switch" } });
+    const canonicalLibrary = browsePanel.createDiv();
+    const previewLibrary = browsePanel.createDiv(); previewLibrary.hidden = true;
+    const libraryButtons = new Map();
+    for (const [mode, label] of [["verified", "적용한 문서"], ["previews", "확인한 초안"], ["all", "기타 자료"]]) {
+      const control = wikiUI.button(libraryModes, label, `library-${mode}`, () => {
+        canonicalLibrary.hidden = mode === "previews"; previewLibrary.hidden = mode !== "previews";
+        libraryButtons.forEach((button, key) => wikiUI.attr(button, "aria-pressed", key === mode));
+        wikiWorkspace.setJourney(mode === "previews" ? { status: "preview_acknowledged" } : lifecycleSnapshot());
+        wikiWorkspace.decision.empty();
+        if (mode !== "previews") llmWikiWikiSurface.setMode(mode);
+      }); libraryButtons.set(mode, control); wikiUI.attr(control, "aria-pressed", mode === "verified");
     }
     llmWikiSession.conversationSession ||= {};
     llmWikiWikiSurface = window.LLMWikiWikiSurface.mountLlmWikiWikiSurface({
@@ -3598,7 +3794,15 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return handoff;
       },
       obsidian: obsidianRef,
-      container: browsePanel,
+      container: canonicalLibrary,
+      inlineDetail: true,
+      renderMarkdown: renderWikiMarkdown,
+      onReadCanonical: () => wikiWorkspace.setJourney({ status: "applied" }),
+      onContentAdd: async row => {
+        // Carry only an explicitly selected, verified destination into preparation.
+        intendedWikiTarget = row.path; activeWikiReviewId = ""; wikiPickerReturnTab = tabs.getActiveTab();
+        tabs.select("llmwiki"); llmWikiLifecycle.openPicker();
+      },
       readAdapter: window.LLMWikiWikiReadAdapter,
       readService: llmWikiReadService,
       collectSnapshot: collectWikiReadSnapshot,
@@ -3606,8 +3810,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     });
     llmWikiSession.bindings.wikiSurface = llmWikiWikiSurface;
     reviewedWikiIndexView = window.ProdigyWikiIndexView.mount({
-      container: browsePanel,
+      container: previewLibrary,
       index: reviewedWikiIndex,
+      onSelect: () => wikiWorkspace.setJourney({ status: "preview_acknowledged" }),
       onOpenDocument: (targetPath) => P.openBeside(appRef, targetPath),
       onOpenSource: (targetPath) => P.openBeside(appRef, targetPath),
       onOpenCitation: openGoldenCitation,
@@ -3622,8 +3827,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       mountContext.scope.track(() => reviewedWikiIndexView && reviewedWikiIndexView.destroy());
     }
     goldenPreviewWorkbench = window.LLMWikiGoldenPreviewWorkbench && window.LLMWikiGoldenPreviewWorkbench.mount({
-      container: browsePanel,
+      container: previewLibrary,
       rows: goldenPreviewRows,
+      renderMarkdown: renderWikiMarkdown,
+      readDocument: async path => { const file = appRef.vault.getAbstractFileByPath(path); if (!file) throw new Error("preview_missing"); return appRef.vault.read(file); },
+      onSelect: () => wikiWorkspace.setJourney({ status: "preview_acknowledged" }),
       ...(goldenPreviewReviewState ? { reviewState: goldenPreviewReviewState } : {}),
       onOpen: (targetPath) => P.openBeside(appRef, targetPath),
       onOpenCitation: openGoldenCitation,
@@ -3708,7 +3916,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           clock: (typeof KnowledgeExplorerHub.maintenanceClock === "function" ? KnowledgeExplorerHub.maintenanceClock : () => Date.now()),
           snapshots: buildMaintenanceSnapshot,
           schedule: maintenanceSchedule,
-          surface: window.LLMWikiMaintenanceFollower.defaultNoticeSurface(llmWikiPanel)
+          surface: window.LLMWikiMaintenanceFollower.defaultNoticeSurface(wikiWorkspace.more)
         });
         maintenanceFollower.start();
         maintenanceTicker = () => { if (maintenanceFollower) { try { maintenanceFollower.tick(Date.now()); } catch (_error) { /* best-effort */ } } };
@@ -3723,6 +3931,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
     } catch (_error) { /* active maintenance scheduling is best-effort and non-fatal */ }
 
+    llmWikiLifecycle.update(lifecycleSnapshot());
+    refreshWikiPendingCount();
     KnowledgeExplorerHub.api = api;
     KnowledgeExplorerHub.tabs = tabs;
     if (KnowledgeExplorerHub._pendingFocus === "candidate-review") {

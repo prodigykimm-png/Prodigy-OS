@@ -8,7 +8,7 @@
     Object.freeze({ id: "literature", label: "문헌", destinations: ["literature"] }),
     Object.freeze({ id: "fleeting", label: "생각", destinations: ["fleeting"] }),
     Object.freeze({ id: "candidate", label: "후보", destinations: ["knowledge_candidate"] }),
-    Object.freeze({ id: "canonical_review", label: "정본 검토", destinations: ["canonical_knowledge"] }),
+    Object.freeze({ id: "canonical_review", label: "문서 검토", destinations: ["canonical_knowledge"] }),
     Object.freeze({ id: "para_handoff", label: "PARA 전달", destinations: ["para_object"] }),
     Object.freeze({ id: "holds", label: "보류", destinations: ["none"], review: ["hold", "stale", "recovery", "rejected"] }),
   ]);
@@ -155,15 +155,16 @@
         const result = createEl(section, "article", { attr: { class: "llmwiki-wiki-result", "data-surface": "llmwiki-wiki-result", "data-result-stage": "compiled" } });
         const header = createEl(result, "header", { attr: { class: "llmwiki-wiki-result__header" } });
         const baseTitle = text(guide.title).replace(/\s*자료 안내$/u, "").trim() || "자료";
-        createEl(header, "h2", { text: `${baseTitle} Wiki 결과 미리보기` });
+        createEl(header, "h2", { text: baseTitle });
         if (text(meta.overview)) createEl(header, "p", { text: text(meta.overview), attr: { "data-wiki-overview": "" } });
-        createEl(header, "output", {
+        const diagnostics = createEl(header, "details"); createEl(diagnostics, "summary", { text: "상세 정보" });
+        createEl(diagnostics, "output", {
           text: `근거 문장 ${Number(meta.total_claims || 0)}개 · 결과 문서 ${documents.length}개 · 원문 전용 ${Number(meta.source_only_count || 0)}건`,
           attr: { "data-wiki-summary": "" },
         });
         if (meta.quality_status === "draft") {
           createEl(header, "output", {
-            text: `검토 초안 · 문장 품질 검증 완료${Number(meta.quality_rewrite_count || 0) > 0 ? ` · 자동 정제 ${Number(meta.quality_rewrite_count)}회` : ""}`,
+            text: "검토 준비됨",
             attr: { "data-wiki-quality-status": "draft" },
           });
         }
@@ -206,10 +207,10 @@
             const actions = createEl(card, "div", { attr: { class: "llmwiki-wiki-result__actions" } });
             const open = createEl(actions, "button", { text: "결과 읽기", attr: { type: "button", "data-action": "open-review-detail" } });
             open.onclick = () => { if (detail) detail.open(item, open); };
-            createEl(card, "output", { text: "초안 미리보기 · 정본 반영 전", attr: { "data-wiki-draft-preview": "" } });
+            createEl(card, "output", { text: "AI 초안 · 문서 반영 전", attr: { "data-wiki-draft-preview": "" } });
             if (plain(item.review_blocked)) {
               const blocked = createEl(card, "aside", { attr: { "data-plan-blocked": item.review_blocked.reason || "compiled_claim_mismatch", role: "alert" } });
-              createEl(blocked, "p", { text: "근거 구성이 검증되지 않아 정본 반영 검토를 열 수 없습니다." });
+              createEl(blocked, "p", { text: "원문 근거 구성을 확인해야 문서에 적용할 수 있습니다." });
             } else if (typeof config.onCanonicalReview === "function") {
               const reviewButton = createEl(actions, "button", { text: "지식 반영 검토", attr: { type: "button", "data-action": "review-canonical-document" } });
               reviewButton.onclick = async () => {
@@ -335,6 +336,7 @@
       const toggle = createEl(controls, "button", { text: filter === "all" ? "대기만 보기" : "전체 보기", attr: { type: "button", "data-action": "toggle-review-filter", "aria-pressed": filter === "all" ? "true" : "false" } });
       toggle.onclick = () => { filter = filter === "all" ? "pending" : "all"; render(); };
       for (const group of buildReviewGroups(items, { filter })) {
+        if (!group.visible) continue;
         const section = createEl(rootEl, "section", { attr: { class: "knowledge-review-workbench__group", "data-review-group": group.id, "data-total": String(group.total), "data-visible": String(group.visible) } });
         createEl(section, "h3", { text: group.label });
         createEl(section, "output", { text: String(group.visible), attr: { "data-review-counter": group.id, "data-total": String(group.total) } });

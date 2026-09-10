@@ -11,6 +11,34 @@ class FakeElement {
     this.disabled = false;
     this.classNames = [];
     this.focused = false;
+    this.parentElement = null;
+    this.value = "";
+  }
+
+  get parentNode() { return this.parentElement; }
+  get textContent() { return this.text + this.children.map(child => child.textContent).join(""); }
+  set textContent(value) { this.empty(); this.text = String(value); }
+  appendChild(child) {
+    child.parentElement?.removeChild(child);
+    child.parentElement = this; child.ownerDocument = this.ownerDocument;
+    this.children.push(child); return child;
+  }
+  removeChild(child) { const index = this.children.indexOf(child); if (index >= 0) this.children.splice(index, 1); child.parentElement = null; return child; }
+  remove() { this.parentElement?.removeChild(this); }
+  getAttribute(name) { return Object.hasOwn(this.attr, name) ? String(this.attr[name]) : null; }
+  setAttribute(name, value) { this.setAttr(name, value); }
+  removeAttribute(name) { delete this.attr[name]; }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+  querySelectorAll(selector) {
+    const matches = node => {
+      const tag = selector.match(/^[a-z][a-z0-9-]*/iu)?.[0];
+      if (tag && node.tag !== tag) return false;
+      const cls = selector.match(/^\.([\w-]+)/u)?.[1];
+      if (cls && !String(node.attr.class || "").split(" ").includes(cls)) return false;
+      return [...selector.matchAll(/\[([^=\]]+)(?:="([^"]*)")?\]/gu)].every(([, name, value]) => value === undefined ? node.getAttribute(name) !== null : node.getAttribute(name) === value);
+    };
+    const walk = node => node.children.flatMap(child => [...(matches(child) ? [child] : []), ...walk(child)]);
+    return walk(this);
   }
 
   createEl(tag, options = {}) {
@@ -20,7 +48,8 @@ class FakeElement {
     child.style = options.style || {};
     child.hidden = Boolean(options.hidden);
     child.disabled = Boolean(options.disabled);
-    this.children.push(child);
+    child.value = options.attr?.value || "";
+    this.appendChild(child);
     return child;
   }
 
@@ -33,6 +62,7 @@ class FakeElement {
   }
 
   empty() {
+    this.children.forEach(child => child.parentElement = null);
     this.children = [];
     this.text = "";
   }
@@ -46,7 +76,7 @@ class FakeElement {
   }
 
   setText(value) {
-    this.text = String(value ?? "");
+    this.empty(); this.text = String(value ?? "");
   }
 
   setAttr(name, value) {
