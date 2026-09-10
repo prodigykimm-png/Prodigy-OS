@@ -275,3 +275,17 @@ test("beginner review model and DOM expose readable fields/actions without schem
   assert.deepEqual(boundaries.map((item) => item.kind), ["reject", "revision"]);
   assert.equal(boundaries[1].guidance, "출처 설명을 초보자에게 더 쉽게 써줘");
 });
+
+test("question review distinguishes unperformed comparison from a clear conflict record", () => {
+  const riskView = view("llmwiki-risk-approval-review-view.js");
+  const proposal = packet("create", "question_unchecked");
+  const defaultModel = riskView.buildRiskApprovalReviewModel(proposal, packetApi);
+  const questionModel = riskView.buildRiskApprovalReviewModel(proposal, packetApi, { comparison_status: "not_checked" });
+  assert.equal(defaultModel.conflict, "없음");
+  assert.equal(questionModel.conflict, "자동 비교 미실시 · 등록된 충돌 없음");
+  assert.equal(questionModel.packet, proposal);
+  assert.equal(questionModel.approvable, defaultModel.approvable);
+  const root = new FakeElement("div");
+  riskView.mountRiskApprovalReview({ container: root, packets: [proposal], packetApi, batchApi, comparison_status: "not_checked" });
+  assert.match(collectText(root), /자동 비교 미실시 · 등록된 충돌 없음/);
+});

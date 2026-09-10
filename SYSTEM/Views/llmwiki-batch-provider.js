@@ -202,7 +202,8 @@
       if (!routing && [...semanticCandidatesByKey.values()].some((candidates) => candidates.length > MAX_SEMANTIC_ITEMS_PER_RESULT)) return failure("semantic_unit_limit_exceeded");
       const prompt = JSON.stringify({
         mode: normalized.mode,
-        task: routing
+        ...inputApi.questionPrompt(normalized),
+        task: normalized.questionContext ? "Answer the question following question_task. Return the existing keyed evidence schema, with all relevant conditions and explicit review reasons for conflicts." : routing
           ? "Choose exactly one lifecycle route for each whole source: source_summary for raw reference material, reusable_claim only for one atomic reusable claim, object_context for mutable Object/PARA state, hold when ambiguous, or no_change only for an exact duplicate. Return one lifecycle route, not extracted subclaims. Evidence must be one exact unique quote from source text."
           : "Extract all durable information from every keyed source chunk. Return exactly one item for every supplied evidence candidate key; use each key exactly once. Each item must have one concise human-readable topic and claims supported by that candidate. Copy its evidence key into evidence_key and its text verbatim into evidence_quote. Use source_summary for source-bound context and reusable_claim for reusable knowledge. Do not collapse a rich chunk into one representative claim.",
         run_id: typeof input.run_id === "string" ? input.run_id : "",
@@ -249,6 +250,7 @@
   }
 
   const api = Object.freeze({
+    spanAlias,
     COMPACT_SCHEMA, MAX_CHUNKS_PER_PACK, MAX_ITEMS_PER_RESULT, MAX_SEMANTIC_ITEMS_PER_RESULT, MAX_CLAIMS, MAX_REVIEW_REASONS,
     MAX_RELATED_CANDIDATE_IDS, MAX_CANDIDATE_ID_BYTES, MAX_RESPONSE_BYTES,
     SEMANTIC_MODE, SOURCE_ROUTING_MODE, anchorQuote,

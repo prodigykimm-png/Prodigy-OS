@@ -2,13 +2,13 @@
 const assert=require("node:assert/strict"),test=require("node:test");
 const hash=require("../../../../../Views/llmwiki-hash.js");
 const api=require("../../../../../Views/llmwiki-golden-wiki-orchestrator.js");
-function fixture({chunks=3,gateOk=true}={}){
+function fixture({chunks=3,gateOk=true,onPlan=()=>{}}={}){
   const sourceText="# 자료\n원문 수치 126%",quote="원문 수치 126%",start=sourceText.indexOf(quote),files=new Map([["INBOX/자료.md",sourceText]]),writes=new Map();
   const vault={getAbstractFileByPath:path=>files.has(path)||writes.has(path)?{path}:null,cachedRead:file=>Promise.resolve(files.get(file.path)||writes.get(file.path)),createFolder:async path=>writes.set(path,""),create:async(path,bytes)=>writes.set(path,bytes),modify:async(file,bytes)=>writes.set(file.path,bytes)};
   const citation={citation_id:"citation_fixture_001",source_id:"source_fixture",source_path:"INBOX/자료.md",content_hash:hash.sha256(sourceText),locators:[`INBOX/자료.md#${start}-${start+quote.length}`],evidence_quote:quote,confidence:"explicit"};
   const documents=[{document_kind:"topic_article",title:"자료 판단 가이드",purpose:"핵심 판단을 정리합니다.",sections:[{heading:"판단 기준",paragraphs:[{text:"원문 수치 126%를 확인합니다.",claim_ids:["claim_fixture_001"]}]}],claims:[{claim_id:"claim_fixture_001",text:"원문 수치 126%를 확인합니다.",citation_ids:[citation.citation_id]}],citations:[citation]}];
   let planCalls=0,compileCalls=0;
-  const orchestrator=api.create({vault,hash,analysisScope:{createAnalysisScope:x=>x},chunkManifest:{createChunkManifest:()=>({chunks:Array.from({length:chunks},(_,i)=>({text:`chunk ${i}`}))})},limits:{max_chunks:4,max_bytes:24576},gate:{evaluate:({document_text})=>gateOk?{ok:true,status:"publishable_preview",issues:[],metrics:{structure_score:1,critical_token_recall:1,style_score:1},receipt:{document_hash:hash.sha256(document_text),source_path:"INBOX/자료.md",receipt_hash:"a".repeat(64)}}:{ok:false,status:"review_required",issues:["source_jargon_exposed"],metrics:{structure_score:1,critical_token_recall:1,style_score:0}}},runPlan:async()=>{planCalls++;return{ok:true,pages:1,map_provider_calls:1,plan_provider_calls:1}},compilePlan:async()=>{compileCalls++;return{ok:true,provider_calls:1}},getDocuments:()=>documents});
+  const orchestrator=api.create({vault,hash,analysisScope:{createAnalysisScope:x=>x},chunkManifest:{createChunkManifest:()=>({chunks:Array.from({length:chunks},(_,i)=>({text:`chunk ${i}`}))})},limits:{max_chunks:4,max_bytes:24576},gate:{evaluate:({document_text})=>gateOk?{ok:true,status:"publishable_preview",issues:[],metrics:{structure_score:1,critical_token_recall:1,style_score:1},receipt:{document_hash:hash.sha256(document_text),source_path:"INBOX/자료.md",receipt_hash:"a".repeat(64)}}:{ok:false,status:"review_required",issues:["source_jargon_exposed"],metrics:{structure_score:1,critical_token_recall:1,style_score:0}}},runPlan:async(_source,options)=>{onPlan(options);planCalls++;return{ok:true,pages:1,map_provider_calls:1,plan_provider_calls:1}},compilePlan:async()=>{compileCalls++;return{ok:true,provider_calls:1}},getDocuments:()=>documents});
   return{orchestrator,writes,calls:()=>({planCalls,compileCalls})};
 }
 test("selected source becomes a gated immutable preview and self-verifying receipt without canonical writes",async()=>{const f=fixture(),result=await f.orchestrator.run({source_path:"INBOX/자료.md",expected_content_hash:hash.sha256("# 자료\n원문 수치 126%"),operation_id:"c".repeat(64)});assert.equal(result.ok,true);assert.equal(result.status,"publishable_preview");assert.equal(result.canonical_writes,0);assert.equal(result.source_writes,0);assert.equal(result.previews.length,1);const row=result.previews[0];assert.match(row.artifact_id,/^prodigy_artifact_[0-9a-f]{24}$/u);assert.match(row.document_path,/^SYSTEM\/CACHE\/llmwiki\/previews\//u);assert.match(f.writes.get(row.document_path),/## 실전 체크리스트/u);const receipt=JSON.parse(f.writes.get(row.receipt_path));assert.equal(receipt.status,"publishable_preview");assert.equal(receipt.source_revision,hash.sha256("# 자료\n원문 수치 126%"));assert.equal(receipt.artifact_id,row.artifact_id);assert.match(receipt.navigation_hash,/^[0-9a-f]{64}$/u);assert.match(receipt.source_outline_hash,/^[0-9a-f]{64}$/u);assert.deepEqual(f.calls(),{planCalls:1,compileCalls:1})});
@@ -182,4 +182,14 @@ test("stable changed range preflight excludes every unchanged sibling before pro
   assert.match(prepared.source_text, /CHANGED_PAYLOAD/u);
   assert.doesNotMatch(prepared.source_text, /BEFORE_SENTINEL|AFTER_SENTINEL/u);
   assert.equal(providerCalls, 0);
+});
+
+test("explicit retry intent crosses the Golden orchestrator unchanged; ordinary continue never adds it", async () => {
+  let received;
+  const normal=fixture({onPlan:options=>{received=options;}});
+  await normal.orchestrator.run({source_path:"INBOX/자료.md"});
+  assert.equal(received.explicit_retry,undefined);
+  const retry=fixture({onPlan:options=>{received=options;}});
+  await retry.orchestrator.run({source_path:"INBOX/자료.md",explicit_retry:true,retry_intent_id:"retry_canary_1"});
+  assert.equal(received.explicit_retry,true);assert.equal(received.retry_intent_id,"retry_canary_1");
 });

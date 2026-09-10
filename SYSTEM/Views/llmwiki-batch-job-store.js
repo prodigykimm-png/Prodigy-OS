@@ -267,7 +267,9 @@
           if (prior) {
             if (stablePlan(prior) === stablePlan(copy)) { result = prior; return; }
             if (copy.plan_revision <= prior.plan_revision) throw new Error("plan_revision_not_monotonic");
-            if (copy.inventory_hash !== prior.inventory_hash) {
+            const sameReviewPlan = copy.plan_hash === prior.plan_hash && copy.inventory_hash === prior.inventory_hash && copy.source_revision === prior.source_revision;
+            if (sameReviewPlan && copy.canonical_reviews === undefined && prior.canonical_reviews !== undefined) copy.canonical_reviews = jsonClone(prior.canonical_reviews);
+            if (copy.inventory_hash !== prior.inventory_hash || (!sameReviewPlan && prior.canonical_reviews && Object.keys(prior.canonical_reviews).length)) {
               const archived = jsonClone(prior);
               delete archived.history;
               copy.history = [...(prior.history || []), archived];

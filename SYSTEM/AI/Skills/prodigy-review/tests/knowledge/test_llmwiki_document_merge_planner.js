@@ -39,6 +39,20 @@ function document(matchedCandidateIds) {
   };
 }
 
+test("managed region uses structured sections and never embeds draft frontmatter", () => {
+  const start = "<!-- llmwiki-managed:start page_111111111111111111111111 -->";
+  const end = "<!-- llmwiki-managed:end page_111111111111111111111111 -->";
+  const before = `# 기존 건축 문서\n\n수동 머리말\n\n${start}\n\n이전 자동 내용\n\n${end}\n\n수동 꼬리말\n`;
+  const existing = candidate("cand_build", "기존 건축 문서", before);
+  const drafted = document(["cand_build"]);
+  drafted.body = `---\ntags:\n  - knowledge/general/reference\n---\n# 직영 건축의 비용과 기간\n\n## 비용과 공기\n\n직영 공사는 비용을 줄인다.\n`;
+  const result = plannerApi.planDocumentMutation({ document: drafted, candidate_documents: [existing] });
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.value.kind, "update");
+  assert.equal(result.value.after_bytes.includes("tags:"), false);
+  assert.equal(result.value.after_bytes.includes("knowledge/general/reference"), false);
+  assert.match(result.value.after_bytes, /## 비용과 공기[\s\S]*직영 공사는 비용을 줄인다/u);
+});
 test("candidate update replaces exactly one owned managed region", () => {
   const start = "<!-- llmwiki-managed:start page_111111111111111111111111 -->";
   const end = "<!-- llmwiki-managed:end page_111111111111111111111111 -->";

@@ -212,22 +212,27 @@ test("canonical v2 uses statement only and retains legacy v1 summary compatibili
   }), /summary: "Legacy summary"/u);
 });
 
-test("canonical v2 refuses disabled existing update and merge routes before adapter mutation", async () => {
+test("v2 validates update evidence but create writer still refuses update and merge mutations", async () => {
   const create = await v2Packet({ request: { nonce: "nonce_canonical_v2_create" } });
   const createApproval = writer.authorizeCanonicalV2({ packet: create.packet, canonical_id: create.document.canonical_id, claim_set: create.claimSet, promotion_input: create.input, promotion_receipt: create.receipt });
   assert.equal(createApproval.ok, true);
   for (const kind of ["update", "merge"]) {
     const existing = await v2Packet({ kind, request: { nonce: `nonce_canonical_v2_${kind}` } });
     const authorization = writer.authorizeCanonicalV2({ packet: existing.packet, canonical_id: existing.document.canonical_id, claim_set: existing.claimSet, promotion_input: existing.input, promotion_receipt: existing.receipt });
-    assert.equal(authorization.ok, false, kind);
-    assert.equal(authorization.reason, "canonical_v2_operation_not_authorizable", kind);
+    if (kind === "update") {
+      assert.equal(authorization.ok, true, kind);
+      assert.equal(authorization.value.packet_hash, existing.packet.packet_hash);
+    } else {
+      assert.equal(authorization.ok, false, kind);
+      assert.equal(authorization.reason, "canonical_v2_operation_not_authorizable", kind);
+    }
     const counters = { reads: 0, writes: 0 };
     const adapter = {
       async readBytes() { counters.reads += 1; return null; },
       async readReceipt() { counters.reads += 1; return null; },
       async commitExact() { counters.writes += 1; return { ok: true, status: "committed" }; },
     };
-    const committed = await writer.commitApprovedCanonicalV2({ packet: existing.packet, authorization: createApproval.value, adapter }, { now: NOW });
+    const committed = await writer.commitApprovedCanonicalV2({ packet: existing.packet, authorization: kind === "update" ? authorization.value : createApproval.value, adapter }, { now: NOW });
     assert.equal(committed.ok, false, kind);
     assert.equal(committed.reason, "canonical_v2_operation_not_authorizable", kind);
     assert.deepEqual(counters, { reads: 0, writes: 0 }, kind);

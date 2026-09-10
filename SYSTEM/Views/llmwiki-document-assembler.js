@@ -53,14 +53,15 @@
     for (const token of leftTokens) if (rightTokens.has(token)) hits += 1;
     return hits / Math.min(leftTokens.size, rightTokens.size);
   }
-  function renderDocument(title, role, sections, claims, citations) {
+  function renderDocument(title, role, sections, claims, citations, reviewReasons = []) {
     const content = role === "source_summary"
       ? `## 주제별 내용\n\n${sections.map((section) => `### ${section.heading}\n\n${section.claims.map((claim) => `- ${claim.text}`).join("\n")}`).join("\n\n")}`
       : `## 핵심 내용\n\n${claims.map((claim) => `- ${claim.text}`).join("\n")}`;
     const quotes = unique(citations.map((row) => clean(row.evidence_quote)).filter(Boolean));
     const quoteLines = quotes.map((quote) => `> ${quote}`).join("\n\n");
     const sourceLines = unique(citations.flatMap((row) => row.locators.slice(-1))).map((locator) => `- ${locator}`).join("\n");
-    return `# ${title}\n\n${content}\n\n## 근거 발췌\n\n${quoteLines}\n\n## 출처\n\n${sourceLines}\n`;
+    const review = reviewReasons.length ? `\n\n## 확인 필요\n\n${unique(reviewReasons).map(reason => `- ${reason}`).join("\n")}` : "";
+    return `# ${title}\n\n${content}${review}\n\n## 근거 발췌\n\n${quoteLines}\n\n## 출처\n\n${sourceLines}\n`;
   }
   function matchCanonical(claims, rows) {
     let best = null;
@@ -70,9 +71,11 @@
       const scores = claims.map((claim) => {
         const normalizedClaim = clean(claim.text).toLowerCase();
         const normalizedText = text.toLowerCase();
-        return normalizedText.includes(normalizedClaim) ? 1 : coverage(normalizedClaim, normalizedText);
+        // Similar vocabulary is retrieval evidence, not proof of duplication:
+        // a changed number, condition or negation must remain reviewable.
+        return normalizedText.includes(normalizedClaim) ? 1 : 0;
       });
-      const complete = scores.length > 0 && scores.every((score) => score >= 0.72);
+      const complete = scores.length > 0 && scores.every((score) => score === 1);
       const average = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
       if (complete && (!best || average > best.score)) best = { row, score: average };
     }
@@ -189,7 +192,7 @@
           related_candidate_ids: group.related_candidate_ids,
           matched_candidate_ids: matchedCandidateIds,
           operation_hint: operationHint,
-          body: renderDocument(title, group.role, sections, group.claims, group.citations),
+          body: renderDocument(title, group.role, sections, group.claims, group.citations, group.review_reasons),
         }));
       }
 

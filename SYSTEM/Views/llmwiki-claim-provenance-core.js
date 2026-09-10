@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const crypto = typeof require === "function" ? require("node:crypto") : null;
+  const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
   const nodeTypes = typeof require === "function" ? require("node:util").types : null;
   const CONTRACT_VERSION = "llmwiki_claim_provenance_v1";
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
@@ -74,8 +74,8 @@
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)])));
   }
   function sha256(value) {
-    if (!crypto) throw new Error("crypto unavailable");
-    return crypto.createHash("sha256").update(String(value), "utf8").digest("hex");
+    if (!hashApi) throw new Error("hash unavailable");
+    return hashApi.sha256(String(value));
   }
   function ok(value) { return freeze({ ok: true, value }); }
   function fail(field, reason) { return freeze({ ok: false, field, reason, writer_count: 0, write_counters: { writer: 0, canonical: 0, maintenance: 0, git: 0 } }); }

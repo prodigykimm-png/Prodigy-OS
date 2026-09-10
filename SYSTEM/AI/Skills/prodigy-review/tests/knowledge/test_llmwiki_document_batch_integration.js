@@ -312,7 +312,7 @@ test("canonical no_change documents count as source provenance toward full plan 
     return {
       source_guide: {
         overview: "웨딩 스냅 포즈 지침을 원문 근거로 보존한다.",
-        sections: sourceClaimIds.length ? [{ heading: "촬영 지침", summary: "전체 근거", claim_ids: sourceClaimIds }] : [],
+        sections: [{ heading: "촬영 지침", summary: "전체 근거", claim_ids: [...sourceClaimIds, ...reusableClaimIds] }],
         key_questions: [],
       },
       topic_pages: reusableClaimIds.length ? [{
@@ -321,7 +321,7 @@ test("canonical no_change documents count as source provenance toward full plan 
         claim_ids: reusableClaimIds,
         target_candidate_ids: [],
       }] : [],
-      source_only_claim_ids: [],
+      source_only_claim_ids: sourceClaimIds,
     };
   };
   const documentArticleCompiler = async (request) => {
@@ -446,7 +446,7 @@ test("default article-compiler closure uses the in-scope plan source id (no sour
     return {
       source_guide: {
         overview: "웨딩 스냅 포즈 지침을 원문 근거로 보존한다.",
-        sections: sourceClaimIds.length ? [{ heading: "촬영 지침", summary: "전체 근거", claim_ids: sourceClaimIds }] : [],
+        sections: [{ heading: "촬영 지침", summary: "전체 근거", claim_ids: [...sourceClaimIds, ...reusableClaimIds] }],
         key_questions: [],
       },
       topic_pages: reusableClaimIds.length ? [{
@@ -455,7 +455,7 @@ test("default article-compiler closure uses the in-scope plan source id (no sour
         claim_ids: reusableClaimIds,
         target_candidate_ids: [],
       }] : [],
-      source_only_claim_ids: [],
+      source_only_claim_ids: sourceClaimIds,
     };
   };
   const runtime = await runHub({
@@ -734,7 +734,7 @@ test("Centum regression converges through the real Hub planner, compiler, and Go
         key_questions: [],
       },
       topic_pages: [],
-      source_only_claim_ids: [],
+      source_only_claim_ids: claimIds,
     };
   };
   const selectAndRunGolden = async (runtime) => {
@@ -878,7 +878,7 @@ test("v1 cache misses v2 once, exact v2 remount replays final while compiled sta
   };
   const plan = async (request) => {
     const claimIds = request.claims.map((claim) => claim.claim_id);
-    return { source_guide: { overview: "캐시 재생을 검증한다.", sections: [{ heading: "확인", summary: "두 값을 확인한다.", claim_ids: claimIds }], key_questions: [] }, topic_pages: [], source_only_claim_ids: [] };
+    return { source_guide: { overview: "캐시 재생을 검증한다.", sections: [{ heading: "확인", summary: "두 값을 확인한다.", claim_ids: claimIds }], key_questions: [] }, topic_pages: [], source_only_claim_ids: claimIds };
   };
   const persist = async (runtime) => {
     const files = {};
@@ -1203,7 +1203,7 @@ test("full-source materialization converts chunk-local spans to source-global lo
 
 test("full-source plan resumes a blocked batch only with explicit retry intent", async () => {
   const sourcePath = "INBOX/재시도 투자 기록.md";
-  const quotes = ["사업 속도를 우선 확인한다.", "현금흐름을 함께 확인한다."];
+  const quotes = ["사업 속도를 먼저 확인해야 한다.", "현금흐름을 함께 확인해야 한다."];
   const sourceBytes = `# 재시도 투자 기록\n\n${quotes.join("\n\n")}\n`;
   let calls = 0;
   const batchProvider = async (request) => {
@@ -1281,7 +1281,7 @@ test("Hub remount preserves the actively selected document plan", async () => {
     .map((sourcePath) => ({
       sourcePath,
       sourceId: `source_plan_${sha(sourcePath).slice(0, 24)}`,
-      sourceBytes: `# ${sourcePath}\n\n사업 속도를 확인한다.\n\n현금흐름을 확인한다.\n`,
+      sourceBytes: `# ${sourcePath}\n\n사업 속도를 먼저 확인해야 한다.\n\n현금흐름을 함께 확인해야 한다.\n`,
     }))
     .sort((left, right) => left.sourceId.localeCompare(right.sourceId));
   const [older, current] = candidates;
@@ -1291,7 +1291,7 @@ test("Hub remount preserves the actively selected document plan", async () => {
     artifacts: request.chunks.map((chunk) => ({
       chunk_key: chunk.key,
       outcome: "proposals",
-      items: ["사업 속도를 확인한다.", "현금흐름을 확인한다."].map((quote, index) => ({
+      items: ["사업 속도를 먼저 확인해야 한다.", "현금흐름을 함께 확인해야 한다."].map((quote, index) => ({
         role: "reusable_claim",
         topic: "투자 판단",
         evidence_quote: quote,
@@ -1701,7 +1701,7 @@ test("source-only claims block source archive when compiled review activates", a
           claim_ids: request.claims.slice(0, 2).map((claim) => claim.claim_id),
           target_candidate_ids: [],
         }],
-        source_only_claim_ids: [],
+        source_only_claim_ids: request.claims.filter((claim) => claim.role !== "reusable_claim").map((claim) => claim.claim_id),
       }),
       documentArticleCompiler: async (request) => ({
         articles: request.pages.map((page) => ({
@@ -1790,56 +1790,35 @@ test("legacy atomized recovery repackets from cached artifacts with provider zer
 });
 
 test("canonical coverage blocks duplicate candidate creation in the live Hub", async () => {
+  // Use the official create/approval/writer fixture. Plain frontmatter is not
+  // finalized authority and must not be promoted by a Dataview page fixture.
+  const { createTrustedFixture } = require("./fixtures/llmwiki-canonical-v2-trust-fixture.js");
+  const trusted = await createTrustedFixture();
+  const sourcePath = "INBOX/approved duplicate source.md";
+  const extraFiles = { [sourcePath]: trusted.source.source_text };
+  for (const file of trusted.app.vault.getFiles()) extraFiles[file.path] = await trusted.app.vault.read(file);
   const calls = { calls: 0 };
-  const sourcePath = "INBOX/앨범 작업 워크플로우.md";
-  const canonicalPath = "ZETA/PERMANENT/웨딩 앨범 작업 워크플로우.md";
-  const canonicalBytes = [
-    "# 웨딩 앨범 작업 워크플로우",
-    "",
-    "## 작업 순서",
-    "",
-    "- 원본 파일을 먼저 정리한다.",
-    "- 홀수 사진은 오른쪽 페이지부터 시작한다.",
-    "",
-  ].join("\n");
-  const page = {
-    source_path: canonicalPath,
-    path: canonicalPath,
-    type: "knowledge",
-    title: "웨딩 앨범 작업 워크플로우",
-    content: canonicalBytes,
-    frontmatter: {
-      type: "knowledge",
-      title: "웨딩 앨범 작업 워크플로우",
-      statement: "웨딩 앨범은 원본 정리 후 페이지 규칙에 따라 편집한다.",
-      summary: "원본 정리와 홀수 페이지 배치 규칙",
-      knowledge_domain: "wedding",
-      knowledge_topics: ["editing"],
-      connections: [],
-    },
-    file: { path: canonicalPath, name: "웨딩 앨범 작업 워크플로우", mtime: 1, outlinks: [], inlinks: [] },
-    connections: [],
-    outlinks: [],
-    backlinks: [],
+  const duplicateProvider = async request => {
+    calls.calls += 1;
+    return { ok: true, artifacts: request.chunks.map(chunk => ({
+      chunk_key: chunk.key, outcome: "proposals", items: [{
+        role: "reusable_claim", evidence_quote: chunk.text,
+        claims: [{ text: trusted.source.source_text }], review_reasons: [], related_candidate_ids: [],
+        span: { start: 0, end: chunk.text.length, alias: `span_${chunk.key}` },
+      }],
+    })) };
   };
-  const runtime = await runHub({
-    pages: [page],
-    extraFiles: {
-      [sourcePath]: "# 앨범 작업\n\n원본 파일 정리와 홀수 페이지 배치 규칙을 함께 설명한다.\n",
-      [canonicalPath]: canonicalBytes,
-    },
-    llmWikiControllerOptions: { batchIdentity: identity(), batchProvider: provider(calls) },
+  const runtime = await runHub({ pages: [], extraFiles,
+    llmWikiControllerOptions: { batchIdentity: identity(), batchProvider: duplicateProvider },
   });
+  assert.equal(typeof runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled, "function", runtime.window.KnowledgeExplorerHub.error?.stack || collectText(runtime.container));
   await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
   const analyzed = await runtime.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
   assert.equal(analyzed.ok, true, analyzed.reason);
   assert.equal(analyzed.proposals, 0);
   assert.equal((runtime.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().risk_packets || []).length, 0);
-  assert.equal(
-    runtime.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/CANDIDATES/")),
-    false,
-    "covered canonical knowledge must not create a candidate",
-  );
+  assert.equal(runtime.app.vault.touched.some(row => String(row[1]).startsWith("ZETA/CANDIDATES/")), false,
+    "covered canonical knowledge must not create a candidate");
 });
 
 test("stale source excluded from cached repacket returns to the visible pending queue", async () => {
@@ -1880,4 +1859,162 @@ test("stale source excluded from cached repacket returns to the visible pending 
   assert.equal(snapshot.inbox.state, "queued");
   assert.equal(snapshot.inbox.eligible + snapshot.inbox.held, snapshot.inbox.scanned_total);
   assert.equal(snapshot.risk_packets.length, 1);
+});
+
+test("compiled rows with repeated paragraph references stay reviewable under set semantics", async () => {
+  const sourcePath = "INBOX/반복 인용 복기.md";
+  const quotes = ["원본 파일을 먼저 정리해야 한다.", "홀수 사진은 오른쪽부터 시작해야 한다."];
+  const sourceBytes = `# 반복 인용 복기\n\n${quotes.join("\n\n")}\n`;
+  const batchProvider = async (request) => ({
+    ok: true,
+    provider_call_count: 1,
+    artifacts: request.chunks.map((chunk) => ({
+      chunk_key: chunk.key,
+      outcome: "proposals",
+      items: quotes.filter((quote) => chunk.text.includes(quote)).map((quote, index) => ({
+        role: "reusable_claim",
+        topic: "앨범 작업",
+        evidence_quote: quote,
+        claims: [{ text: quote }],
+        review_reasons: [],
+        related_candidate_ids: [],
+        span: { start: chunk.text.indexOf(quote), end: chunk.text.indexOf(quote) + quote.length, alias: `span_repeat_${index}` },
+      })),
+    })),
+  });
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: v2Identity(),
+      batchProvider,
+      documentPagePlan: async (request) => {
+        const claimIds = request.claims.map((claim) => claim.claim_id);
+        return {
+          source_guide: { overview: "반복 인용을 보존한다.", sections: [{ heading: "전체", summary: "두 근거를 보존한다.", claim_ids: claimIds }], key_questions: [] },
+          topic_pages: [{ title: "앨범 작업", purpose: "정리와 배치를 설명한다.", claim_ids: claimIds, target_candidate_ids: [] }],
+          source_only_claim_ids: [],
+        };
+      },
+      documentArticleCompiler: async (request) => ({
+        articles: request.pages.map((page) => ({
+          page_id: page.page_id,
+          sections: [{ heading: "작업", paragraphs: [
+            { text: "원본 파일을 먼저 정리해야 하며 홀수 사진 배치도 함께 정한다.", claim_ids: [...page.claim_ids] },
+            { text: "홀수 사진은 오른쪽부터 시작해야 하며 원본 정리를 마친 뒤 배치한다.", claim_ids: [...page.claim_ids] },
+          ] }],
+        })),
+      }),
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const planned = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(planned.ok, true, planned.reason);
+  const compiled = await runtime.window.KnowledgeExplorerHub.compileDocumentPlan();
+  assert.equal(compiled.ok, true, compiled.reason);
+  const reviewButton = firstElement(runtime.container, "button", (node) => node.attr?.["data-action"] === "review-canonical-document");
+  assert.ok(reviewButton, "repeated paragraph references must not block the review entry");
+  const blocked = firstElement(runtime.container, "aside", (node) => node.attr?.["data-plan-blocked"] === "compiled_claim_mismatch");
+  assert.equal(blocked, null);
+});
+
+test("stale source-only cache reconsiders after a matching canonical target appears", async () => {
+  const sourcePath = "INBOX/단건 보완 복기.md";
+  const quote = "점검 기록에는 장치 식별자를 함께 적어야 한다.";
+  const sourceBytes = `# 단건 보완 복기\n\n${quote}\n`;
+  const targetPath = "ZETA/PERMANENT/점검 기록 작성 규칙.md";
+  const batchProvider = async (request) => ({
+    ok: true,
+    provider_call_count: 1,
+    artifacts: request.chunks.map((chunk) => ({
+      chunk_key: chunk.key,
+      outcome: "proposals",
+      items: [{ role: "source_summary", evidence_quote: quote, claims: [{ text: quote }], review_reasons: [], related_candidate_ids: [],
+        span: { start: chunk.text.indexOf(quote), end: chunk.text.indexOf(quote) + quote.length, alias: "span_stale_supplement" } }],
+    })),
+  });
+  let planCalls = 0;
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: v2Identity(),
+      batchProvider,
+      documentPagePlan: async (request) => {
+        planCalls += 1;
+        const claimIds = request.claims.map((claim) => claim.claim_id);
+        if (planCalls === 1) {
+          return {
+            source_guide: { overview: "단건 보완을 보존한다.", sections: [{ heading: "기록", summary: "한 건을 다룬다.", claim_ids: claimIds }], key_questions: [] },
+            topic_pages: [],
+            source_only_claim_ids: claimIds,
+          };
+        }
+        return {
+          source_guide: { overview: "단건 보완을 보존한다.", sections: [{ heading: "기록", summary: "한 건을 다룬다.", claim_ids: claimIds }], key_questions: [] },
+          topic_pages: [{ title: "점검 기록 보완", purpose: "기존 기록 문서에 장치 식별자를 보충한다.", claim_ids: claimIds, target_candidate_ids: [] }],
+          source_only_claim_ids: [],
+        };
+      },
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const first = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(first.ok, true, first.reason);
+  assert.equal(first.pages, 0);
+  assert.equal(planCalls, 1);
+  await runtime.app.vault.create("ZETA/CANDIDATES/점검 기록 후보.md", "# 점검 기록 후보\n\n장치 식별자 기록과 관련된 후보 문서.\n");
+  const second = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(second.ok, true, second.reason);
+  assert.equal(second.pages, 1, "stale source-only cache must not freeze the supplement out");
+  assert.equal(planCalls, 1, "stale-terminal reconsideration stays local without another planning request");
+  assert.equal(second.map_provider_calls, 0, "analysis replays without new provider calls");
+  assert.equal(second.canonical_writes, 0);
+});
+
+test("identical plan replay costs zero provider calls and zero canonical writes", async () => {
+  const sourcePath = "INBOX/재실행 복기.md";
+  const quotes = ["첫째 근거를 확인해야 한다.", "둘째 근거를 확인해야 한다."];
+  const sourceBytes = `# 재실행 복기\n\n${quotes.join("\n\n")}\n`;
+  let mapCalls = 0, planCalls = 0;
+  const batchProvider = async (request) => {
+    mapCalls += 1;
+    return { ok: true, provider_call_count: 1, artifacts: request.chunks.map((chunk) => ({
+      chunk_key: chunk.key, outcome: "proposals",
+      items: quotes.filter((quote) => chunk.text.includes(quote)).map((quote, index) => ({
+        role: "reusable_claim", topic: "재실행", evidence_quote: quote, claims: [{ text: quote }],
+        review_reasons: [], related_candidate_ids: [],
+        span: { start: chunk.text.indexOf(quote), end: chunk.text.indexOf(quote) + quote.length, alias: `span_replay_${index}` },
+      })),
+    })) };
+  };
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: {
+      batchIdentity: v2Identity(),
+      batchProvider,
+      documentPagePlan: async (request) => {
+        planCalls += 1;
+        const claimIds = request.claims.map((claim) => claim.claim_id);
+        return {
+          source_guide: { overview: "재실행을 검증한다.", sections: [{ heading: "전체", summary: "두 근거를 보존한다.", claim_ids: claimIds }], key_questions: [] },
+          topic_pages: [{ title: "재실행", purpose: "두 근거를 정리한다.", claim_ids: claimIds, target_candidate_ids: [] }],
+          source_only_claim_ids: [],
+        };
+      },
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const first = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(first.ok, true, first.reason);
+  assert.equal(first.pages, 1);
+  const second = await runtime.window.KnowledgeExplorerHub.runDocumentPlan(sourcePath);
+  assert.equal(second.ok, true, second.reason);
+  assert.equal(second.pages, 1);
+  assert.equal(second.map_provider_calls, 0);
+  assert.equal(second.plan_provider_calls, 0);
+  assert.equal(second.canonical_writes, 0);
+  assert.equal(mapCalls, 1, "analysis must replay from cache");
+  assert.equal(planCalls, 1, "planning must reuse the retained plan");
 });

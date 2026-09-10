@@ -171,7 +171,7 @@ test("page planner returns a concise source guide and reviewable page plan witho
             target_candidate_ids: [],
           },
         ],
-        source_only_claim_ids: [reusableClaims[4].claim_id],
+        source_only_claim_ids: [reusableClaims[4].claim_id, ...sourceClaims.map((claim) => claim.claim_id)],
       };
     },
   });
@@ -186,7 +186,8 @@ test("page planner returns a concise source guide and reviewable page plan witho
   assert.equal(result.value.pages.every((page) => page.claim_ids.length >= 2), true);
   assert.equal(result.value.pages.every((page) => page.operation_hint === "create"), true);
   assert.deepEqual(result.value.source_only_claim_ids,
-    [inventory.claims.filter((claim) => claim.role === "reusable_claim")[4].claim_id]);
+    [inventory.claims.filter((claim) => claim.role === "reusable_claim")[4].claim_id,
+      ...inventory.claims.filter((claim) => claim.role === "source_summary").map((claim) => claim.claim_id)]);
   assert.equal(Object.hasOwn(result.value.source_guide, "body"), false);
   assert.equal(Object.hasOwn(result.value.pages[0], "body"), false);
   assert.match(result.value.plan_hash, /^[0-9a-f]{64}$/u);
@@ -223,4 +224,80 @@ test("page planner rejects dropped, duplicated, or unallowlisted claim authority
   const result = await planner.plan({ inventory });
   assert.equal(result.ok, false);
   assert.equal(result.reason, "invalid_page_plan_coverage");
+});
+
+test("single grounded supplement claim reaches an existing-target page without a count gate", async () => {
+  const inventory = reducerApi.createClaimInventory({
+    source: { source_id: "source_single", source_path: "INBOX/single.md", content_hash: "b".repeat(64) },
+    documents: [document("reusable_claim", "점검 기록 보완", ["점검 기록에는 장치 식별자를 함께 적어야 하며, 누락 시 재점검해야 한다."])],
+  }).value;
+  const single = inventory.claims.find((claim) => claim.role === "reusable_claim");
+  const planner = reducerApi.createPagePlanner({
+    allowedCandidateIds: ["cand_existing"],
+    requestPlan: async (request) => ({
+      source_guide: {
+        overview: "단건 보완 자료 안내.",
+        sections: [{ heading: "보완", summary: "한 건의 보완 주장을 다룬다.", claim_ids: request.claims.map((claim) => claim.claim_id) }],
+        key_questions: [],
+      },
+      topic_pages: [{
+        title: "점검 기록 보완",
+        purpose: "기존 점검 문서에 장치 식별자 기록을 보충한다.",
+        claim_ids: [single.claim_id],
+        target_candidate_ids: ["cand_existing"],
+      }],
+      source_only_claim_ids: [],
+    }),
+  });
+  const result = await planner.plan({ inventory });
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.value.pages.length, 1);
+  assert.deepEqual(result.value.pages[0].claim_ids, [single.claim_id]);
+});
+test("single grounded claim without a target is still a reviewable page, not a count rejection", async () => {
+  const inventory = reducerApi.createClaimInventory({
+    source: { source_id: "source_single", source_path: "INBOX/single.md", content_hash: "b".repeat(64) },
+    documents: [document("reusable_claim", "점검 기록 보완", ["점검 기록에는 장치 식별자를 함께 적어야 하며, 누락 시 재점검해야 한다."])],
+  }).value;
+  const single = inventory.claims.find((claim) => claim.role === "reusable_claim");
+  const planner = reducerApi.createPagePlanner({
+    allowedCandidateIds: [],
+    requestPlan: async (request) => ({
+      source_guide: {
+        overview: "단건 자료 안내.",
+        sections: [{ heading: "보완", summary: "한 건의 주장을 다룬다.", claim_ids: request.claims.map((claim) => claim.claim_id) }],
+        key_questions: [],
+      },
+      topic_pages: [{
+        title: "점검 기록 보완",
+        purpose: "장치 식별자 기록을 설명한다.",
+        claim_ids: [single.claim_id],
+        target_candidate_ids: [],
+      }],
+      source_only_claim_ids: [],
+    }),
+  });
+  const result = await planner.plan({ inventory });
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.value.pages.length, 1);
+});
+
+test("source-summary supplement reaches an existing-target page", async () => {
+  const inventory = reducerApi.createClaimInventory({
+    source: { source_id: "source_single", source_path: "INBOX/single.md", content_hash: "c".repeat(64) },
+    documents: [{ contract_version: "llmwiki_document_assembler_v2", role: "source_summary", title: "기록", claims: [{ text: "점검 기록에는 장치 식별자가 함께 있다." }], citations: [{ source_id: "source_single", content_hash: "c".repeat(64), source_path: "INBOX/single.md", locators: ["INBOX/single.md#1-2"], evidence_quote: "기록", confidence: "explicit" }], sections: [{ heading: "기록", claims: [{ text: "기록" }] }], review_reasons: [], matched_candidate_ids: [], operation_hint: "create", body: "" }],
+  }).value;
+  const single = inventory.claims.find((claim) => claim.role === "source_summary");
+  const attempt = async (targets) => reducerApi.createPagePlanner({ allowedCandidateIds: ["cand_existing"],
+    requestPlan: async (request) => ({
+      source_guide: { overview: "안내.", sections: [{ heading: "기록", summary: "한 건을 다룬다.", claim_ids: request.claims.map((claim) => claim.claim_id) }], key_questions: [] },
+      topic_pages: [{ title: "기록 보완", purpose: "기존 문서에 장치 식별자 기록을 보충한다.", claim_ids: [single.claim_id], target_candidate_ids: targets }],
+      source_only_claim_ids: [],
+    }) }).plan({ inventory });
+  const withTarget = await attempt(["cand_existing"]);
+  assert.equal(withTarget.ok, true, withTarget.reason);
+  assert.equal(withTarget.value.pages.length, 1);
+  const withoutTarget = await attempt([]);
+  assert.equal(withoutTarget.ok, true, withoutTarget.reason);
+  assert.equal(withoutTarget.value.pages.length, 1);
 });

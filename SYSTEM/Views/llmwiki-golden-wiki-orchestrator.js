@@ -324,6 +324,7 @@
       }
       notify("planning", { packs: prepared.packs, chunks: prepared.chunks });
       const planned = await runPlan(prepared.source_path, {
+        ...(input.explicit_retry === true ? { explicit_retry: true, retry_intent_id: input.retry_intent_id } : {}),
         ...(prepared.scope ? { scope: prepared.scope } : {}),
         expected_source_hash: prepared.source_hash,
       });

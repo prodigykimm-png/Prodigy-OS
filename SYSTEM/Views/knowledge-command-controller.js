@@ -81,9 +81,15 @@
       consumed.add(key);
       try {
         const outcome = await handler(payload);
-        if (!outcome || outcome.ok === false) return receipt(false, text(outcome && outcome.reason) || "review_action_failed");
+        if (!outcome || outcome.ok === false) {
+          // A failed explicit recovery request must remain retryable. Keep apply
+          // commands consumed: their outcome may include an already-written file.
+          if (command.type === "retry_review") consumed.delete(key);
+          return receipt(false, text(outcome && outcome.reason) || "review_action_failed");
+        }
         return receipt(true, "", { outcome, value: payload });
       } catch (_error) {
+        if (command.type === "retry_review") consumed.delete(key);
         return receipt(false, "review_action_failed");
       }
     }

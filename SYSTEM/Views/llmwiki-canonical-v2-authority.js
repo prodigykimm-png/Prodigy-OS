@@ -27,7 +27,8 @@
     if (!canonicalApi || !claimApi || !promotionApi) return core.reject("v2_authority_contract_missing");
     const verified = canonicalApi.verifyCanonicalPacket(input.packet);
     if (!verified.ok) return core.reject(verified.reason);
-    if (!authorizable(input.packet)) return core.reject("canonical_v2_operation_not_authorizable");
+    // Update uses this same evidence validator, but can only write through UpdateAuthority.
+    if (!authorizable(input.packet) && input.packet.operation.proposal_kind !== "update") return core.reject("canonical_v2_operation_not_authorizable");
     const document = core.v2Document(input.packet);
     if (!document || document.canonical_id !== input.canonical_id || !core.ID.test(input.canonical_id)) return core.reject("canonical_v2_document_required");
     const claims = claimApi.validateClaimSet(input.claim_set);
@@ -39,6 +40,10 @@
     const documentSourceIds = (document.sources || []).map((source) => source.source_id);
     const citationSourceIds = input.packet.source_citations.map((source) => source.source_id);
     if (!sourceIds.length || !sameIds(sourceIds, documentSourceIds) || !sameIds(sourceIds, citationSourceIds)) return core.reject("canonical_source_binding_required");
+    for (const source of input.claim_set.sources) {
+      const citation = input.packet.source_citations.find(row => row.source_id === source.source_id);
+      if (!citation || citation.content_hash !== source.source_content_hash) return core.reject("canonical_source_binding_required");
+    }
     let expectedReceipt;
     try { expectedReceipt = promotionApi.evaluatePromotion(promotionApi.normalizePromotionInput(input.promotion_input)); }
     catch (_error) { return core.reject("promotion_receipt_invalid"); }
@@ -140,11 +145,23 @@
     const now = new Date(options.now || new Date());
     if (!Number.isFinite(now.getTime())) return core.reject("invalid_commit_time");
     if (now.getTime() > Date.parse(packet.expires_at)) return core.reject("approval_expired");
+    if (typeof request.adapter.readSourceBytes === "function") {
+      for (const citation of packet.source_citations) {
+        let bytes;
+        try { bytes = await request.adapter.readSourceBytes(citation.locators[0].split("#")[0]); }
+        catch (_) { return core.reject("source_read_failed"); }
+        if (typeof bytes !== "string" || core.sha256(bytes) !== citation.content_hash) return core.reject("stale_source");
+      }
+    }
     let prior;
     try { prior = await request.adapter.readReceipt(packet.nonce); }
     catch (_error) { return core.reject("receipt_read_failed"); }
     if (prior !== null) {
-      if (core.plain(prior) && prior.result === "committed" && prior.packet_hash === packet.packet_hash && prior.authorization_hash === approval.authorization_hash) {
+      if (core.plain(prior) && ["prepared", "committed"].includes(prior.result) && prior.packet_hash === packet.packet_hash && prior.authorization_hash === approval.authorization_hash) {
+        if (await request.adapter.readBytes(packet.target_path) !== packet.after_bytes) return core.reject("stale_before_write");
+        const bridge = root.LLMWikiFinalizedRevisionBridge || (typeof require === "function" ? require("./llmwiki-finalized-revision-bridge.js") : null);
+        const recovered = bridge && await bridge.bridgeFinalizedRevision(packet, approval, request.adapter, now.toISOString());
+        if (!recovered || !recovered.ok) return core.result("committed_authority_pending", { reason: recovered && recovered.reason || "immutable_audit_authority_unavailable", target_path: packet.target_path });
         core.consumeCanonicalV2Approval(approval);
         return core.result("duplicate", { target_path: packet.target_path });
       }
@@ -172,7 +189,7 @@
       audit,
     };
     let committed;
-    try { committed = await request.adapter.commitExact(mutation); }
+    try { committed = await request.adapter.commitExact(mutation, { revalidateSources: true }); }
     catch (_error) { return core.reject("canonical_write_failed"); }
     if (!committed || committed.status === "committed_audit_pending") {
       return core.result("committed_audit_pending", { reason: committed && committed.reason || "audit_finalize_failed", write_counts: committed && committed.write_counts || { ...core.ZERO_WRITES, canonical: 1, audit: 1 }, repair: committed && committed.repair });
@@ -182,7 +199,9 @@
       return core.reject("immutable_audit_authority_unavailable", { write_counts: committed.write_counts || { ...core.ZERO_WRITES, canonical: 1, audit: 1 } });
     }
     const receipt = authorityReceipt(packet, approval, audit, now.toISOString());
-    const recorded = await compensationApi.create({ adapter: request.adapter, now: () => now.toISOString() }).recordCompletedCommit({ original_receipt: receipt });
+    let recorded;
+    try { recorded = await compensationApi.create({ adapter: request.adapter, now: () => now.toISOString() }).recordCompletedCommit({ original_receipt: receipt }); }
+    catch (_) { return core.result("committed_authority_pending", { reason: "immutable_audit_append_failed", write_counts: committed.write_counts || { ...core.ZERO_WRITES, canonical: 1, audit: 1 } }); }
     if (!recorded.ok) return core.result("committed_authority_pending", { reason: recorded.reason || "immutable_audit_append_failed", write_counts: committed.write_counts || { ...core.ZERO_WRITES, canonical: 1, audit: 1 } });
     core.consumeCanonicalV2Approval(approval);
     return core.result("committed", {

@@ -338,7 +338,7 @@
       interrupted: {
         title: "작업을 완료하지 못했습니다",
         description: value.resumable === true ? "완료된 단계부터 이어서 진행할 수 있습니다." : "원문은 변경되지 않았습니다.",
-        primary_label: value.resumable === true ? "이어서 하기" : "다시 만들기",
+        primary_label: value.resumable === true ? "실패한 단계 다시 시도" : "다시 만들기",
       },
       source_changed: {
         title: "선택 이후 원문이 변경되었습니다",

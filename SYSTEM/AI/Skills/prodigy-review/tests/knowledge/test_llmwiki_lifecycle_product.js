@@ -219,7 +219,8 @@ test("interrupted and changed Prodigy Wiki runs expose one typed recovery action
   assert.ok(resume);
   assert.equal(walk(subject.root, (node) => node.getAttribute("data-primary") === "true" && !node.disabled).length, 1);
   click(resume);
-  assert.deepEqual(subject.calls.at(-1), { action: "resume_prodigy_wiki" });
+  assert.deepEqual(subject.calls.at(-1), { action: "resume_prodigy_wiki", explicit_retry: true });
+  assert.ok(action(subject.root, "reset-prodigy-source"));
 
   subject.view.update(snapshot("failed", {
     prodigy_wiki: {
@@ -353,4 +354,17 @@ test("central Knowledge stylesheet is the only lifecycle and browse selector sou
 test("Knowledge retains exactly four tabs", () => {
   const tabs = require(path.join(ROOT, "SYSTEM/Views/knowledge-workspace-tabs.js")).TABS;
   assert.deepEqual(tabs.map((tab) => tab.id), ["zettelkasten", "para", "llmwiki", "llmwiki-browse"]);
+});
+
+test("source boundary reflects an actually sent question without changing pre-consent default", () => {
+  const selected = { selected: true, display_name: "합성 자료", source_path: "INBOX/fixture.md" };
+  const subject = mount({ source_selection: selected });
+  subject.view.update(snapshot("selecting", { source_selection: selected, source_question_sent: true }));
+  const visible = collectText(subject.root);
+  assert.match(visible, /원문 근거를 외부 AI에 전송했습니다/);
+  assert.match(visible, /아직 승인되지 않았습니다/);
+  assert.doesNotMatch(visible, /아직 외부 AI로 전송되지/);
+  assert.equal(walk(subject.root, (node) => node.getAttribute("data-selected-source-boundary") === "question-sent").length, 1);
+  subject.view.update(snapshot("selecting", { source_selection: selected }));
+  assert.match(collectText(subject.root), /아직 외부 AI로 전송되지 않았습니다/);
 });

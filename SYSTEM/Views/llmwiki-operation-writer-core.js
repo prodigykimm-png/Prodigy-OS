@@ -103,6 +103,8 @@
   function brandLifecycleApproval(value) { LIFECYCLE_APPROVALS.add(value); return value; }
   function isLifecycleMigrationApproval(value) { return Boolean(value && LIFECYCLE_APPROVALS.has(value)); }
   function issueReplaceRequest(value) { REPLACE_REQUESTS.add(value); return value; }
+  function isReplaceRequest(value) { return Boolean(value && REPLACE_REQUESTS.has(value)); }
+  function isRestoreRequest(value) { return Boolean(value && RESTORE_REQUESTS.has(value)); }
   function replaceRequestConsumed(value) { return CONSUMED_REPLACE_REQUESTS.has(value); }
   function assertAtomicReplaceRequest(request, currentBytes) {
     if (!request || !REPLACE_REQUESTS.has(request) || CONSUMED_REPLACE_REQUESTS.has(request)) {
@@ -135,7 +137,7 @@
     brandUpdateApproval, isUpdateApproval, isApprovalConsumed, consumeUpdateApproval,
     brandCanonicalV2Approval, isCanonicalV2Approval, isCanonicalV2ApprovalConsumed, consumeCanonicalV2Approval,
     brandLifecycleApproval, isLifecycleMigrationApproval,
-    issueReplaceRequest, replaceRequestConsumed, assertAtomicReplaceRequest,
+    issueReplaceRequest, isReplaceRequest, isRestoreRequest, replaceRequestConsumed, assertAtomicReplaceRequest,
     issueRestoreRequest, restoreRequestConsumed, assertRestoreRequest, lockTarget, unlockTarget,
   });
   root.LLMWikiOperationWriterCore = api;

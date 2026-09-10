@@ -55,7 +55,7 @@
   function sorted(values) { return [...new Set(values)].sort(); }
   function compare(left, right) { return left < right ? -1 : left > right ? 1 : 0; }
 
-  function buildRiskApprovalReviewModel(packet, packetApi) {
+  function buildRiskApprovalReviewModel(packet, packetApi, options = {}) {
     const verified = packetApi.verifyRiskApprovalPacket(packet);
     if (!verified.ok) throw new TypeError(verified.reason);
     return Object.freeze({
@@ -66,7 +66,7 @@
       sourceRows: packet.source_lineage.flatMap((item) => item.locators.map((locator) => ({ source_id: item.source_id, content_hash: item.content_hash, locator: String(locator), source_path: String(locator).split("#")[0], evidence_quote: item.evidence_quote || "" }))),
       before_after: packet.before_after.map((item) => ({ destination: visibleDestination(item.destination_id), before: readableDocument(item.before), after: readableDocument(item.after) })),
       riskItems: [TIER_LABELS[packet.risk.tier], ...packet.risk.reasons.map((reason) => REASON_LABELS[reason] || reason)],
-      conflict: packet.conflict.state === "clear" ? "없음" : packet.conflict.state === "resolved" ? "해결됨" : `검토 필요 · ${packet.conflict.blocking_conflict_ids.length}건`,
+      conflict: packet.conflict.state === "clear" ? (options.comparison_status === "not_checked" ? "자동 비교 미실시 · 등록된 충돌 없음" : "없음") : packet.conflict.state === "resolved" ? "해결됨" : `검토 필요 · ${packet.conflict.blocking_conflict_ids.length}건`,
       selectable: packet.batch_eligible === true,
       approvable: packet.approval_eligible === true,
     });
@@ -77,7 +77,7 @@
     const packetApi = options.packetApi || root.LLMWikiRiskApprovalPacket;
     const batchApi = options.batchApi || root.LLMWikiSafeBatchApproval;
     if (!container || !packetApi || !batchApi || !Array.isArray(options.packets) || options.packets.length === 0) throw new TypeError("risk_approval_review_dependencies_required");
-    const model = Object.freeze(options.packets.map((packet) => buildRiskApprovalReviewModel(packet, packetApi)));
+    const model = Object.freeze(options.packets.map((packet) => buildRiskApprovalReviewModel(packet, packetApi, options)));
     const allowedInitial = new Set(model.filter((item) => item.selectable).map((item) => item.packet.packet_id));
     const initialSelected = Array.isArray(options.initialSelectedIds) ? options.initialSelectedIds.filter((id) => allowedInitial.has(id)) : [];
     const state = { selected: new Set(initialSelected), activeIndex: 0, lastResult: null, sourcePreview: null };

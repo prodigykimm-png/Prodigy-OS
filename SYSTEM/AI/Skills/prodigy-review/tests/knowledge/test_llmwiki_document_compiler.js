@@ -251,7 +251,7 @@ test("compiler rejects unsupported prose and incomplete claim coverage", async (
   assert.equal(result.reason, "invalid_compiled_article_coverage");
 });
 
-test("compiler rewrites duplicated draft prose once before publishing", async () => {
+test("quality-flagged draft is retained as blocked after one call; explicit retry publishes", async () => {
   const { inventory, plan } = fixture();
   let calls = 0;
   const compiler = compilerApi.createDocumentCompiler({
@@ -274,12 +274,21 @@ test("compiler rewrites duplicated draft prose once before publishing", async ()
     },
   });
 
-  const result = await compiler.compile({ inventory, approved_plan: plan });
+  const blocked = await compiler.compile({ inventory, approved_plan: plan });
+
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, "article_quality_review_required");
+  assert.equal(blocked.quality_status, "blocked");
+  assert.equal(blocked.quality_rewrite_count, 0);
+  assert.equal(calls, 1);
+  assert.equal(Array.isArray(blocked.articles) && blocked.articles.length > 0, true);
+
+  const result = await compiler.compile({ inventory, approved_plan: plan }, { allow_quality_retry: true });
 
   assert.equal(result.ok, true, result.reason);
   assert.equal(calls, 2);
   assert.equal(result.quality_status, "draft");
-  assert.equal(result.quality_rewrite_count, 1);
+  assert.equal(result.quality_rewrite_count, 0);
   const article = result.documents.find((document) => document.document_kind === "topic_article");
   assert.equal(article.paragraphs[0].text, "직영 공사는 공정별 비용을 줄이고, 철골조는 공사 기간을 단축한다.");
   assert.deepEqual(article.paragraphs[0].claim_ids, plan.pages[0].claim_ids);
@@ -315,7 +324,7 @@ test("compiler deterministically corrects source-borne draft terms without anoth
   assert.doesNotMatch(result.documents.find((row) => row.document_kind === "topic_article").body, /물건 선주의|공주가/u);
 });
 
-test("compiler blocks prose that loses its bound claim meaning after one rewrite", async () => {
+test("unfixable prose stays blocked after an explicit retry without silent publishing", async () => {
   const { inventory, plan } = fixture();
   let calls = 0;
   const compiler = compilerApi.createDocumentCompiler({
@@ -333,13 +342,24 @@ test("compiler blocks prose that loses its bound claim meaning after one rewrite
     },
   });
 
-  const result = await compiler.compile({ inventory, approved_plan: plan });
+  const blocked = await compiler.compile({ inventory, approved_plan: plan });
+
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, "article_quality_review_required");
+  assert.equal(blocked.quality_status, "blocked");
+  assert.equal(blocked.quality_rewrite_count, 0);
+  assert.equal(calls, 1);
+  assert.equal(Array.isArray(blocked.articles) && blocked.articles.length > 0, true);
+  assert.equal(blocked.canonical_writes, 0);
+  assert.equal(blocked.source_writes, 0);
+
+  const result = await compiler.compile({ inventory, approved_plan: plan }, { allow_quality_retry: true });
 
   assert.equal(result.ok, false);
   assert.equal(result.reason, "article_quality_review_required");
   assert.equal(result.quality_status, "blocked");
   assert.equal(result.quality_rewrite_count, 1);
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
   assert.equal(result.quality_issues.some((issue) => issue.code === "claim_meaning_not_preserved"), true);
   assert.equal(result.canonical_writes, 0);
   assert.equal(result.source_writes, 0);

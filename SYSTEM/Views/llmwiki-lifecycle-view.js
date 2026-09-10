@@ -157,6 +157,7 @@
     const explicitSourceSelection = snapshot.status === "selecting" && plain(snapshot.source_selection) && snapshot.source_selection.selected === true;
     const explicitSourcePicker = snapshot.status === "selecting" && Array.isArray(snapshot.source_options) && snapshot.source_options.length > 0;
     if (goldenPriority) productState = snapshot.status;
+    else if (risks.length && ["review", "review_only"].includes(snapshot.status)) productState = "review";
     else if (explicitSourceSelection || explicitSourcePicker) productState = "selecting";
     else if (inbox && ["blocked", "outcome_unknown"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
     else if (inbox && ["queued", "analyzing", "cancelled"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
@@ -309,7 +310,7 @@
         createEl(section, "p", { text: `정리할 범위 · ${text(selectedRange.title)}`, attr: { "data-selected-range": text(selectedRange.scope_id || selectedRange.range_id) } });
         if (text(selectedRange.preview)) createEl(section, "p", { text: text(selectedRange.preview), attr: { class: "llmwiki-lifecycle__muted", "data-selected-range-preview": "" } });
       }
-      createEl(section, "p", { text: "아직 외부 AI로 전송되지 않았습니다.", attr: { "data-selected-source-boundary": "pre-consent" } });
+      createEl(section, "p", { text: snapshot.source_question_sent === true ? "질문에 필요한 원문 근거를 외부 AI에 전송했습니다. 답변과 지식 초안은 아직 승인되지 않았습니다." : "아직 외부 AI로 전송되지 않았습니다.", attr: { "data-selected-source-boundary": snapshot.source_question_sent === true ? "question-sent" : "pre-consent" } });
       const details = createEl(section, "details", { attr: { "data-disclosure": "source-execution-details" } });
       createEl(details, "summary", { text: "실행 정보" });
       if (text(source.source_path)) createEl(details, "code", { text: text(source.source_path), attr: { "data-selected-source-path": "" } });
@@ -605,6 +606,7 @@
 
     function renderReview(parent) {
       statusRegion(parent, snapshot.status === "review_only" ? "제안을 검토할 수 있지만 1단계에서 승인할 수 없는 유형이 포함되어 있습니다." : "검토할 제안이 준비되었습니다.");
+      if (snapshot.question_review_note) createEl(parent, "p", { text: snapshot.question_review_note, attr: { role: "note" } });
       const counts = inboxCounts(snapshot.inbox);
       if (counts) renderInboxMetadata(parent, snapshot.inbox, counts);
       let host;
@@ -642,6 +644,7 @@
           const selectedOperations = new Set(Array.isArray(snapshot.durable_review_selection) ? snapshot.durable_review_selection : []);
           child.mountRiskApprovalReview({
             container: queue, packets, packetApi: riskPacketApi, batchApi: root.LLMWikiSafeBatchApproval, primaryEnabled: !conflictQueue || projected.approvals.length === 0,
+            comparison_status: snapshot.comparison_status,
             initialSelectedIds: packets.filter((packet) => selectedOperations.has(packet.operation.operation_id)).map((packet) => packet.packet_id),
             onSelectionChange(selectedIds) { return dispatch({ action: "persist_review_selection", operation_ids: packets.filter((packet) => selectedIds.includes(packet.packet_id)).map((packet) => packet.operation.operation_id).sort() }); },
             onApprove(packet) { return dispatch({ action: "approve_risk", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id }); },
@@ -1006,9 +1009,10 @@
             actions,
             model.primary_label,
             resumable ? "resume-prodigy-wiki" : "retry-prodigy-wiki",
-            { action: resumable ? "resume_prodigy_wiki" : "retry_prodigy_wiki" },
+            { action: resumable ? "resume_prodigy_wiki" : "retry_prodigy_wiki", explicit_retry: true },
             { primary: true },
           );
+          actionButton(actions, "다른 원문 선택", "reset-prodigy-source", { action: "reset_prodigy_source" });
         }
         return;
       }

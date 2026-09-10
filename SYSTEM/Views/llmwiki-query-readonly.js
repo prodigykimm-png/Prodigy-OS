@@ -10,21 +10,23 @@
   })();
   const QUERY_VERSION = "llmwiki_query_read_v1";
   const MODES = Object.freeze(["verified", "legacy_review", "literature", "candidate", "proposal", "maintenance", "all"]);
-  const TYPES = Object.freeze(["knowledge", "permanent_note", "literature_note", "knowledge_candidate"]);
+  const TYPES = Object.freeze(["knowledge", "permanent_note", "literature_note", "knowledge_candidate", "fleeting_note"]);
   const TYPE_MODE = Object.freeze({
     knowledge: "verified",
     permanent_note: "verified",
     literature_note: "literature",
     knowledge_candidate: "candidate",
+    fleeting_note: "candidate",
   });
   const TRUST = Object.freeze({
     knowledge: "verified",
     permanent_note: "legacy_verified",
     literature_note: "supporting_material",
     knowledge_candidate: "pending_candidate",
+    fleeting_note: "pending_candidate",
     proposal: "proposal_unverified",
   });
-  const TYPE_RANK = Object.freeze({ knowledge: 0, permanent_note: 1, literature_note: 2, knowledge_candidate: 3, proposal: 4 });
+  const TYPE_RANK = Object.freeze({ knowledge: 0, permanent_note: 1, literature_note: 2, knowledge_candidate: 3, fleeting_note: 3, proposal: 4 });
   const HASH = /^[0-9a-f]{64}$/u;
   const MAX_QUERY_LENGTH = 1024;
   const MAX_RESULTS = 50;
@@ -76,7 +78,7 @@
     if (mode === "verified") return ["knowledge"];
     if (mode === "legacy_review") return ["knowledge", "permanent_note"];
     if (mode === "literature") return ["literature_note"];
-    if (mode === "candidate") return ["knowledge_candidate"];
+    if (mode === "candidate") return ["knowledge_candidate", "fleeting_note"];
     if (mode === "maintenance") return ["knowledge"];
     if (mode === "proposal") return [];
     return [...TYPES];
@@ -229,7 +231,7 @@
   }
   function serializeEnvelope(value) { return stable(value); }
 
-  const api = freeze({ QUERY_VERSION, MODES, MAX_QUERY_LENGTH, MAX_RESULTS, queryRead, serializeEnvelope });
+  const api = freeze({ QUERY_VERSION, MODES, TYPES, typesForMode: defaultTypes, MAX_QUERY_LENGTH, MAX_RESULTS, queryRead, serializeEnvelope });
   root.LLMWikiQueryReadOnly = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

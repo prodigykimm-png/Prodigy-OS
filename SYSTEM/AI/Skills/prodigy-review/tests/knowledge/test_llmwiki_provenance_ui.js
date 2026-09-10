@@ -145,3 +145,32 @@ test("cache completion and PARA approval expose exact local scope without provid
   assert.equal(calls.cache, 1);
   assert.deepEqual(calls.object[0].target, { path: "PARA/PROJECTS/alpha.md", revision: "r1", before_diff: [{ kind: "add", line: "two" }] });
 });
+
+test("failed explicit review recovery can retry while in-flight and successful requests stay deduplicated", async () => {
+  let attempts = 0;
+  let release;
+  const command = commands.createKnowledgeCommandController({ onRetryReview: async () => {
+    attempts += 1;
+    if (attempts === 1) return new Promise((resolve) => { release = resolve; });
+    return { ok: true };
+  } });
+  const request = { type: "retry_review", item: { review_id: "recovery_001", review_revision: "r1", review_state: "recovery" } };
+  const pending = command.execute(request);
+  assert.equal((await command.execute(request)).reason, "replayed_command");
+  release({ ok: false, reason: "retry_claim_failed" });
+  assert.equal((await pending).reason, "retry_claim_failed");
+  assert.equal((await command.execute(request)).ok, true);
+  assert.equal((await command.execute(request)).reason, "replayed_command");
+  assert.equal(attempts, 2);
+});
+
+test("throwing explicit review recovery remains retryable without releasing apply commands", async () => {
+  let attempts = 0;
+  const command = commands.createKnowledgeCommandController({ onRetryReview: async () => {
+    if (++attempts === 1) throw new Error("temporary recovery failure");
+    return { ok: true };
+  } });
+  const request = { type: "retry_review", item: { review_id: "recovery_002", review_revision: "r1", review_state: "recovery" } };
+  assert.equal((await command.execute(request)).reason, "review_action_failed");
+  assert.equal((await command.execute(request)).ok, true);
+});

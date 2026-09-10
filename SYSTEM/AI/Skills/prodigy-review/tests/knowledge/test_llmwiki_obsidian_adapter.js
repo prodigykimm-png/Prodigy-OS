@@ -286,7 +286,7 @@ test("deterministic writer validates, prepares audit, creates exact canonical by
   assert.deepEqual(result.write_counts, { ...ZERO_WRITES, canonical: 1, audit: 1 });
   assert.equal(fixture.vault.bytes(TARGET), fixture.packet.after_bytes);
   assert.equal(fixture.vault.bytes(AUDIT_PATH), jsonBytes(receipt));
-  assert.deepEqual(fixture.vault.successfulWrites, { create: 2, modify: 1, createFolder: 0 });
+  assert.deepEqual(fixture.vault.successfulWrites, { create: 2, modify: 1, createFolder: 2 });
   assert.deepEqual(callOrder(fixture.vault), [
     `get:${AUDIT_PATH}`,
     `get:${TARGET}`,
@@ -294,6 +294,11 @@ test("deterministic writer validates, prepares audit, creates exact canonical by
     `get:${AUDIT_PATH}`,
     "get:.llmwiki-audit",
     `create:${AUDIT_PATH}`,
+    `get:${TARGET}`, // Final revision check after audit preparation.
+    "get:ZETA",
+    "createFolder:ZETA",
+    "get:ZETA/PERMANENT",
+    "createFolder:ZETA/PERMANENT",
     `create:${TARGET}`,
     `modify:${AUDIT_PATH}`,
   ]);
@@ -315,6 +320,7 @@ test("modify uses app.vault read/create/modify in exact order and preserves exac
     `get:${TARGET}`, `read:${TARGET}`,
     `get:${TARGET}`, `read:${TARGET}`,
     `get:${AUDIT_PATH}`, "get:.llmwiki-audit", `create:${AUDIT_PATH}`,
+    `get:${TARGET}`, `read:${TARGET}`, // Final revision check before replacement.
     `modify:${TARGET}`, `modify:${AUDIT_PATH}`,
   ]);
 });
@@ -329,6 +335,59 @@ test("missing audit directory is created at the one exact Vault path before audi
     `get:${AUDIT_PATH}`, "get:.llmwiki-audit", "createFolder:.llmwiki-audit", `create:${AUDIT_PATH}`,
   ]);
   assert.equal(vault.files.has(".llmwiki-audit"), true);
+});
+
+test("audit prepare tolerates an on-disk audit directory missing from the vault index", async () => {
+  const adapterApi = fresh(ADAPTER_PATH);
+  const vault = fakeApp();
+  vault.files.delete(".llmwiki-audit");
+  const rawFiles = new Map();
+  vault.app.vault.adapter = {
+    exists: async (filePath) => filePath === ".llmwiki-audit" || rawFiles.has(filePath),
+    mkdir: async () => {},
+    read: async (filePath) => { if (!rawFiles.has(filePath)) throw new Error("missing"); return rawFiles.get(filePath); },
+    write: async (filePath, bytes) => { rawFiles.set(filePath, bytes); },
+    list: async () => ({ files: [...rawFiles.keys()] }),
+  };
+  vault.failOnce("createFolder", ".llmwiki-audit");
+  const adapter = adapterApi.createObsidianAdapter(vault.app);
+  const prepared = await adapter.prepareAudit(mutation());
+  assert.equal(prepared.ok, true, JSON.stringify(prepared));
+  assert.equal(prepared.status, "prepared");
+  assert.equal(typeof rawFiles.get(AUDIT_PATH), "string");
+  assert.ok(rawFiles.get(AUDIT_PATH).includes("nonce_obsidian_adapter_0001"));
+});
+
+test("canonical create tolerates on-disk parent folders missing from the vault index", async () => {
+  const adapterApi = fresh(ADAPTER_PATH);
+  const vault = fakeApp();
+  vault.app.vault.adapter = {
+    exists: async (filePath) => filePath === "ZETA" || filePath === "ZETA/PERMANENT",
+    mkdir: async () => {},
+    read: async () => { throw new Error("unused"); },
+    write: async () => {},
+    list: async () => ({ files: [] }),
+  };
+  vault.failOnce("createFolder", "ZETA");
+  vault.failOnce("createFolder", "ZETA/PERMANENT");
+  const adapter = adapterApi.createObsidianAdapter(vault.app);
+  const file = await adapter.createCanonical(TARGET, "desync bytes\n");
+  assert.equal(file.path, TARGET);
+  assert.equal(vault.bytes(TARGET), "desync bytes\n");
+});
+
+test("first canonical create ensures missing parent folders shallow-to-deep without touching existing ones", async () => {
+  const adapterApi = fresh(ADAPTER_PATH);
+  const vault = fakeApp();
+  const adapter = adapterApi.createObsidianAdapter(vault.app);
+  await adapter.createCanonical(TARGET, "first bytes\n");
+  assert.deepEqual(callOrder(vault), [
+    "get:ZETA", "createFolder:ZETA", "get:ZETA/PERMANENT", "createFolder:ZETA/PERMANENT", `create:${TARGET}`,
+  ]);
+  assert.equal(vault.bytes(TARGET), "first bytes\n");
+  vault.resetCalls();
+  await adapter.createCanonical("ZETA/PERMANENT/두 번째.md", "second bytes\n");
+  assert.deepEqual(callOrder(vault), ["get:ZETA", "get:ZETA/PERMANENT", "create:ZETA/PERMANENT/두 번째.md"]);
 });
 
 test("audit prepare failure writes no canonical and reports exact zero counters", async () => {
@@ -357,8 +416,8 @@ test("canonical failure preserves canonical state and finalizes a rejected audit
   assert.equal(fixture.vault.files.has(TARGET), false);
   assert.equal(rejected.result, "rejected");
   assert.equal(rejected.reason, "canonical_write_failed");
-  assert.deepEqual(fixture.vault.successfulWrites, { create: 1, modify: 1, createFolder: 0 });
-  assert.deepEqual(callOrder(fixture.vault).slice(-3), [`create:${AUDIT_PATH}`, `create:${TARGET}`, `modify:${AUDIT_PATH}`]);
+  assert.deepEqual(fixture.vault.successfulWrites, { create: 1, modify: 1, createFolder: 2 });
+  assert.deepEqual(callOrder(fixture.vault).slice(-6), [`get:ZETA`, `createFolder:ZETA`, `get:ZETA/PERMANENT`, `createFolder:ZETA/PERMANENT`, `create:${TARGET}`, `modify:${AUDIT_PATH}`]);
 });
 
 test("audit finalize failure returns committed_audit_pending without canonical rollback and repair is exact and idempotent", async () => {
@@ -374,7 +433,7 @@ test("audit finalize failure returns committed_audit_pending without canonical r
   assert.equal(JSON.parse(fixture.vault.bytes(AUDIT_PATH)).result, "prepared");
   assert.equal(pending.repair.canonical_bytes, fixture.packet.after_bytes);
   assert.equal(pending.repair.prepared_audit_bytes, fixture.vault.bytes(AUDIT_PATH));
-  assert.deepEqual(fixture.vault.successfulWrites, { create: 2, modify: 0, createFolder: 0 });
+  assert.deepEqual(fixture.vault.successfulWrites, { create: 2, modify: 0, createFolder: 2 });
 
   fixture.vault.resetCalls();
   const repaired = await commit.repairCommittedAudit({ adapter: fixture.adapter, repair: pending.repair });

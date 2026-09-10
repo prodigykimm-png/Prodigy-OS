@@ -7,7 +7,7 @@
     || (typeof require === "function" ? require("./llmwiki-operation-writer-core.js") : null);
   const bridgeApi = root.LLMWikiFinalizedRevisionBridge
     || (typeof require === "function" ? require("./llmwiki-finalized-revision-bridge.js") : null);
-  const APPROVAL_INPUT_FIELDS = new Set(["packet", "canonical_id", "evidence", "compensation_plan"]);
+  const APPROVAL_INPUT_FIELDS = new Set(["packet", "canonical_id", "evidence", "compensation_plan", "canonical_v2_authorization"]);
   const COMPENSATION_FIELDS = new Set(["strategy", "target_path", "before_sha256"]);
 
   function validateApprovalInput(input) {
@@ -27,6 +27,16 @@
       || evidence.stale !== false || !Array.isArray(evidence.claim_lineage) || evidence.claim_lineage.length === 0) {
       return core.reject("approval_eligible_evidence_required");
     }
+    if (input.canonical_v2_authorization !== undefined) {
+      const v2 = input.canonical_v2_authorization;
+      if (!core.isCanonicalV2Approval(v2) || v2.packet_hash !== input.packet.packet_hash
+        || v2.canonical_id !== input.canonical_id) return core.reject("v2_authorization_payload_mismatch");
+    }
+    const after = core.v2Document(input.packet);
+    const before = core.v2Document({ after_bytes: input.packet.before_bytes });
+    const bindings = ["claim_set_hash", "promotion_receipt_hash", "sources", "relations", "ai_enrichment_status", "status"];
+    if (after && (!before || bindings.some(key => core.stable(before[key]) !== core.stable(after[key])))
+      && !input.canonical_v2_authorization) return core.reject("branded_v2_authorization_required");
     const plan = input.compensation_plan;
     if (!core.plain(plan)) return core.reject("compensation_plan_required");
     for (const key of Object.keys(plan)) if (!COMPENSATION_FIELDS.has(key)) return core.reject("invalid_compensation_plan");
@@ -61,6 +71,7 @@
       evidence_contract_version: evidence.contract_version,
       evidence_hash: core.sha256(core.stable(evidence)),
       evidence,
+      ...(input.canonical_v2_authorization ? { canonical_v2_authority: core.clone(input.canonical_v2_authorization.authority) } : {}),
       compensation_plan: compensationPlan,
       compensation_plan_hash: core.sha256(core.stable(compensationPlan)),
       expires_at: packet.expires_at,
@@ -121,6 +132,7 @@
       packet_hash: packet.packet_hash,
       authorization_hash: approval.authorization_hash,
       compensation,
+      ...(approval.canonical_v2_authority ? { source_citations: packet.source_citations } : {}),
     }));
   }
   function restoreRequest(packet, approval, compensation, currentBytes) {
@@ -139,7 +151,7 @@
     const current = await readSnapshot(adapter, packet.target_path);
     if (current.ok === false) return { ok: false, reason: "compensation_read_failed", receipt: core.freeze({ ...compensation, status: "manual_restore_required", failure_reason: reason }) };
     if (current.bytes === packet.before_bytes) return { ok: true, receipt: core.freeze({ ...compensation, status: "not_needed", failure_reason: reason }) };
-    if (!replaceWasAuthorized) return { ok: false, reason: "compensation_target_mismatch", receipt: core.freeze({ ...compensation, status: "manual_restore_required", failure_reason: reason }) };
+    if (!replaceWasAuthorized || current.bytes !== packet.after_bytes) return { ok: false, reason: "compensation_target_mismatch", receipt: core.freeze({ ...compensation, status: "manual_restore_required", failure_reason: reason }) };
     const request = restoreRequest(packet, approval, compensation, current.bytes);
     try { await adapter.restoreExact(request); }
     catch (_error) { return { ok: false, reason: "compensation_restore_failed", receipt: core.freeze({ ...compensation, status: "manual_restore_required", failure_reason: reason }) }; }
@@ -164,13 +176,27 @@
       if (core.isApprovalConsumed(approval)) return core.result("duplicate", { target_path: packet.target_path });
       const live = await readSnapshot(request.adapter, packet.target_path);
       if (live.ok === false) return live;
-      if (live.bytes !== packet.before_bytes || core.sha256(live.bytes) !== packet.before_sha256) return core.reject("stale_before_write");
+      const resuming = live.bytes === packet.after_bytes;
+      if (!resuming && (live.bytes !== packet.before_bytes || core.sha256(live.bytes) !== packet.before_sha256)) return core.reject("stale_before_write");
+      if (approval.canonical_v2_authority) {
+        if (typeof request.adapter.readSourceBytes !== "function") return core.reject("source_reader_required");
+        for (const citation of packet.source_citations) {
+          let bytes;
+          try { bytes = await request.adapter.readSourceBytes(citation.locators[0].split("#")[0]); }
+          catch (_) { return core.reject("source_read_failed"); }
+          if (typeof bytes !== "string" || core.sha256(bytes) !== citation.content_hash) return core.reject("stale_source");
+        }
+      }
+      if (approval.canonical_v2_authority && !resuming) {
+        const prepared = await bridgeApi.bridgeFinalizedRevision(packet, approval, request.adapter, now.toISOString(), { prepareOnly: true });
+        if (!prepared || !prepared.ok) return core.reject(prepared && prepared.reason || "immutable_audit_authority_unavailable");
+      }
       const compensation = preparedCompensation(packet, approval, now.toISOString());
       const issued = replaceRequest(packet, approval, compensation);
       let replaceFailure = null;
-      try { await request.adapter.atomicReplace(issued); }
-      catch (error) { replaceFailure = error && error.code === "stale_before_write" ? "stale_before_write" : "atomic_replace_failed"; }
-      if (!replaceFailure && !core.replaceRequestConsumed(issued)) replaceFailure = "untrusted_writer_result";
+      try { if (!resuming) await request.adapter.atomicReplace(issued); }
+      catch (error) { replaceFailure = error && ["stale_before_write", "stale_source", "link_target_missing", "invalid_source_path"].includes(error.code) ? error.code : "atomic_replace_failed"; }
+      if (!resuming && !replaceFailure && !core.replaceRequestConsumed(issued)) replaceFailure = "untrusted_writer_result";
       const written = await readSnapshot(request.adapter, packet.target_path);
       const exactAfter = written.ok !== false && written.bytes === packet.after_bytes && core.sha256(written.bytes) === packet.after_sha256;
       if (replaceFailure || !exactAfter) {
@@ -179,7 +205,8 @@
         return core.reject(restored.ok ? reason : restored.reason, { compensation: restored.receipt, compensation_prepared: true });
       }
       const bridged = await bridgeApi.bridgeFinalizedRevision(packet, approval, request.adapter, now.toISOString());
-      if (bridged && bridged.ok === false) return bridged;
+      if (bridged && bridged.ok === false) return core.result("committed_authority_pending", { ...bridged, write_counts: { ...bridged.write_counts, canonical: resuming ? 0 : 1 } });
+      if (approval.canonical_v2_authority && !bridged) return core.result("committed_authority_pending", { reason: "immutable_audit_authority_unavailable", target_path: packet.target_path, write_counts: { ...core.ZERO_WRITES, canonical: resuming ? 0 : 1 } });
       core.consumeUpdateApproval(approval);
       const receipt = core.freeze({
         receipt_version: core.RECEIPT_VERSION,
@@ -196,7 +223,7 @@
         compensation: core.freeze({ ...compensation, status: "prepared" }),
       });
       return core.result("committed", {
-        write_counts: { ...core.ZERO_WRITES, canonical: 1 },
+        write_counts: { ...core.ZERO_WRITES, canonical: resuming ? 0 : 1 },
         approval_consumed: true,
         target_path: packet.target_path,
         receipt,

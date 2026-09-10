@@ -199,8 +199,11 @@
         for (const [key, value] of Object.entries(item.why)) why.createEl("span", { text: `${key}:${typeof value === "object" ? stable(value) : String(value)}`, attr: { "data-why": key } });
         const actions = card.createEl("div", { attr: { "data-resurfacing-actions": "" } });
         for (const action of item.actions) {
-          const button = actions.createEl("button", { text: action.type, attr: { type: "button", "data-action": action.type } });
-          button.addEventListener("click", () => feedback({ action: action.type, context: input.context, action_identity: action.identity }));
+          const button = actions.createEl("button", { text: ({ open: "열기", apply: "적용했다고 기록", mute: "숨기기", irrelevant: "관련 없음" })[action.type], attr: { type: "button", "data-action": action.type } });
+          button.addEventListener("click", async () => {
+            if (action.type === "open" && typeof input.openSource === "function") await input.openSource(item.path);
+            return feedback({ action: action.type, context: input.context, action_identity: action.identity });
+          });
         }
       }
       return Object.freeze({ ...result, element: section, dispose() { if (section && typeof section.remove === "function") section.remove(); } });

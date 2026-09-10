@@ -199,7 +199,7 @@ test("semantic 65-unit rejection reaches no transport call", async () => {
   assert.equal(h.service.state.calls, 0);
 });
 
-test("explicit retry reuses exact repeated chunks and resolves its parent", async () => {
+test("explicit retry reuses exact repeated chunks while preserving parent history", async () => {
   const h = buildHarness();
   let section = "## 반복 구간\n";
   while (hash.utf8ByteLength(section) < 7 * 1024) section += "반복 근거는 같은 구간에서도 정확한 위치를 유지한다. ";
@@ -220,8 +220,12 @@ test("explicit retry reuses exact repeated chunks and resolves its parent", asyn
   assert.equal(retried.metrics.cache_hits, 2);
   const replay = await h.fresh().analyze({ sources });
   assert.equal(replay.ok, true, replay.reason);
-  assert.equal(replay.state, "review_ready");
+  assert.equal(replay.state, "blocked", "normal continue preserves the original parent outcome");
   assert.equal(replay.metrics.provider_calls, 0);
+  const sameRetry = await h.fresh().analyze({ sources, explicit_retry: true, retry_intent_id: "retry_generation_1" });
+  assert.equal(sameRetry.job_id, retried.job_id);
+  assert.equal(sameRetry.state, "review_ready");
+  assert.equal(sameRetry.metrics.provider_calls, 0);
 });
 
 test("model, schema, prompt-version, context, or source change causes an intentional miss", async () => {

@@ -302,14 +302,14 @@ test("path escape, symlink, raw, proxy, accessor, and oversized inputs reject wi
   } finally { vault.cleanup(); }
 });
 
-test("concurrent drift, misleading success, and interruption before or after replace fail closed; post-replace failure restores exact before bytes", async () => {
+test("concurrent drift, misleading success, and interruption before or after replace fail closed; only known exact post-replace bytes can be restored", async () => {
   const beforeBytes = view("knowledge-candidate-store.js").renderCanonicalDocument(FIXTURE.before_document);
   for (const scenario of [
     { name: "concurrent", behavior: { concurrentBytes: "third-party bytes\n" }, reason: "stale_before_write", expectedWrites: 0, expectedRestores: 0, expectedBytes: beforeBytes },
     { name: "interrupt_before", behavior: { interruptBefore: true }, reason: "atomic_replace_failed", expectedWrites: 0, expectedRestores: 0, expectedBytes: beforeBytes },
     { name: "interrupt_after", behavior: { interruptAfter: true }, reason: "atomic_replace_failed", expectedWrites: 1, expectedRestores: 1, expectedBytes: beforeBytes },
     { name: "verify_mismatch", behavior: { read({ targetPath, bytes, reads }) { return { path: targetPath, bytes: reads === 3 ? "misleading verify bytes\n" : bytes }; } }, reason: "written_bytes_mismatch", expectedWrites: 1, expectedRestores: 1, expectedBytes: beforeBytes },
-    { name: "partial_write", behavior: { partialWrite: true, misleadingSuccess: true }, reason: "written_bytes_mismatch", expectedWrites: 1, expectedRestores: 1, expectedBytes: beforeBytes },
+    { name: "partial_write", behavior: { partialWrite: true, misleadingSuccess: true }, reason: "compensation_target_mismatch", expectedWrites: 1, expectedRestores: 0, expectedBytes: null },
   ]) {
     const memory = memoryAdapter(beforeBytes, scenario.behavior);
     const current = await updateFixture({ adapter: memory.adapter });
@@ -318,7 +318,9 @@ test("concurrent drift, misleading success, and interruption before or after rep
     assert.equal(failed.reason, scenario.reason, `${scenario.name}: ${JSON.stringify(failed)}`);
     assert.equal(memory.writes, scenario.expectedWrites, scenario.name);
     assert.equal(memory.restores, scenario.expectedRestores, scenario.name);
-    assert.equal(memory.bytes, scenario.expectedBytes, scenario.name);
+    // Unknown bytes may be a later human edit: do not overwrite them as compensation.
+    assert.equal(memory.bytes, scenario.expectedBytes === null ? current.request.packet.after_bytes.slice(0, Math.floor(current.request.packet.after_bytes.length / 2)) : scenario.expectedBytes, scenario.name);
+    if (scenario.expectedBytes === null) assert.equal(failed.compensation.status, "manual_restore_required");
     assert.equal(current.writer.isApprovalConsumed(current.authorization), false, scenario.name);
     assert.equal(failed.compensation_prepared, true, scenario.name);
   }

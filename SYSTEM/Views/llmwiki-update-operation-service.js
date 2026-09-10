@@ -15,11 +15,11 @@
       },
       async authorize(input) {
         const context = input.context || {};
-        return writerApi.authorizeCanonicalUpdate({ packet: input.prepared.packet, canonical_id: context.canonical_id, evidence: context.evidence, compensation_plan: context.compensation_plan });
+        return writerApi.authorizeCanonicalUpdate({ packet: input.prepared.packet, canonical_id: context.canonical_id, evidence: context.evidence, compensation_plan: context.compensation_plan, ...(context.canonical_v2_authorization ? { canonical_v2_authorization: context.canonical_v2_authorization } : {}) });
       },
       async commit(input) {
         const source = input.context.adapter;
-        const guarded = Object.fromEntries(["readCanonical", "atomicReplace", "restoreExact"].map((name) => [name, (...args) => {
+        const guarded = Object.fromEntries(["readCanonical", "atomicReplace", "restoreExact", "readSourceBytes", "readReceipt", "readFinalizedCanonicalAuthorities", "prepareAudit", "finalizeAudit", "repairAudit", "appendImmutableAudit", "readImmutableAuditContinuity", "repairImmutableAuditHead", "readImmutableAudit"].filter(name => typeof source[name] === "function").map((name) => [name, (...args) => {
           if (!input.is_current()) throw Object.assign(new Error("run_invalidated"), { code: "run_invalidated" });
           return source[name](...args);
         }]));

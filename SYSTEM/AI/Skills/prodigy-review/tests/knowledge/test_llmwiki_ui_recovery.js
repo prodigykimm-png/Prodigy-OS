@@ -45,3 +45,14 @@ assert.equal(recovery.toUiState({ ok: false, code: "provider_missing", reason: "
 assert.equal(recovery.toUiState({ ok: false, code: "provider_missing", reason: "raw" }).copy.includes("raw"), false);
 
 console.log("LLMWiki UI recovery tests passed.");
+
+for (const reason of ['source_revision_changed','source_unavailable','provider_response_parse_failed','provider_schema_invalid','review_handoff_failed','promotion_review_required']) {
+  const mapped=recovery.mapRecovery({reason});
+  assert.equal(mapped.code,reason);
+  assert.equal(mapped.copy.split('.').map(part=>part.trim()).filter(Boolean).length,3,reason+' must explain cause, impact and next action');
+}
+assert.equal(recovery.mapRecovery({reason:'source_revision_changed'}).action,'select_sources');
+assert.equal(recovery.mapRecovery({reason:'provider_schema_invalid'}).action,'retry');
+assert.equal(recovery.mapRecovery({reason:'review_handoff_failed'}).action,'retry');
+
+assert.equal(recovery.mapRecovery({reason:'promotion_review_required'}).action,'review_sources');

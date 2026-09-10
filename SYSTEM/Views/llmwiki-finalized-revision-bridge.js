@@ -17,21 +17,47 @@
       ...extras,
     });
   }
-  async function bridgeFinalizedRevision(packet, approval, adapter, committedAt) {
+  async function bridgeFinalizedRevision(packet, approval, adapter, committedAt, options = {}) {
     if (!compensationApi || typeof compensationApi.create !== "function"
       || !obsidianApi || typeof obsidianApi.finalizedCanonicalAuthorityData !== "function"
       || typeof obsidianApi.auditPath !== "function"
       || BRIDGE_ADAPTER_METHODS.some((name) => typeof adapter[name] !== "function")) return null;
+    if (typeof adapter.repairImmutableAuditHead === "function" && !options.prepareOnly) {
+      const repaired = await adapter.repairImmutableAuditHead({ packet_hash: packet.packet_hash, authorization_hash: approval.authorization_hash,
+        target_path: packet.target_path, revision: packet.after_sha256 });
+      if (!repaired.ok) return bridgePending(packet, repaired.reason);
+    }
     let authorities;
     try { authorities = await adapter.readFinalizedCanonicalAuthorities(); }
     catch (_error) { return null; }
     const priorData = (Array.isArray(authorities) ? authorities : [])
       .map((receipt) => obsidianApi.finalizedCanonicalAuthorityData(receipt))
       .find((data) => data && data.canonical_id === approval.canonical_id && core.plain(data.canonical_v2_authority));
-    if (!priorData) return null;
+    const creating = packet.operation.proposal_kind === "create";
+    const approvedAuthority = approval.canonical_v2_authority || approval.authority;
+    if (!priorData && (!creating || !approvedAuthority)) return null;
+    if (priorData && priorData.packet_hash === packet.packet_hash && priorData.authorization_hash === approval.authorization_hash
+      && priorData.revision === packet.after_sha256) return { ok: true };
+    if (priorData && priorData.revision !== packet.before_sha256) return bridgePending(packet, "canonical_revision_mismatch");
     const document = core.v2Document(packet);
     if (!document || document.canonical_id !== approval.canonical_id || document.status !== "active") return null;
-    const nonce = `upd_${approval.authorization_hash.slice(0, 32)}`;
+    const nonce = creating ? packet.nonce : `upd_${approval.authorization_hash.slice(0, 32)}`;
+    let existing = null;
+    if (typeof adapter.readReceipt === "function") {
+      try { existing = await adapter.readReceipt(nonce); }
+      catch (_) { return bridgePending(packet, "authority_audit_read_failed"); }
+    }
+    if (existing) {
+      if (existing.packet_hash !== packet.packet_hash || existing.authorization_hash !== approval.authorization_hash
+        || existing.after_sha256 !== packet.after_sha256 || existing.before_sha256 !== packet.before_sha256
+        || existing.target_path !== packet.target_path || !["prepared", "committed"].includes(existing.result)) return bridgePending(packet, "nonce_replay_conflict");
+      committedAt = existing.committed_at || existing.prepared_at;
+    }
+    const authority = core.freeze(approvedAuthority || {
+      ...core.clone(priorData.canonical_v2_authority), canonical_sha256: packet.after_sha256, status: document.status,
+    });
+    if (["claim_set_hash", "promotion_receipt_hash", "sources", "relations", "ai_enrichment_status", "status"]
+      .some(key => core.stable(key === "relations" ? authority[key] || [] : authority[key]) !== core.stable(key === "relations" ? document[key] || [] : document[key]))) return bridgePending(packet, "v2_authorization_payload_mismatch");
     const audit = {
       audit_version: "llmwiki_packet_bound_commit_audit_v1",
       result: "committed",
@@ -65,9 +91,13 @@
     };
     const finalAuditBytes = `${JSON.stringify(audit, null, 2)}\n`;
     let prepared;
-    try { prepared = await adapter.prepareAudit(mutation); }
+    try {
+      prepared = existing ? { ok: true, file: { path: obsidianApi.auditPath(nonce) }, bytes: `${JSON.stringify(existing, null, 2)}\n` }
+        : await adapter.prepareAudit(mutation);
+    }
     catch (_error) { return bridgePending(packet, "authority_audit_prepare_failed"); }
     if (!prepared || prepared.ok !== true) return bridgePending(packet, "authority_audit_prepare_failed");
+    if (options.prepareOnly) return { ok: true };
     const repair = {
       audit_path: obsidianApi.auditPath(nonce),
       target_path: packet.target_path,
@@ -76,14 +106,13 @@
       final_audit_bytes: finalAuditBytes,
     };
     let finalized;
-    try { finalized = await adapter.finalizeAudit(prepared, finalAuditBytes); }
+    try {
+      finalized = existing && existing.result === "committed" ? { ok: true }
+        : existing && typeof adapter.repairAudit === "function" ? await adapter.repairAudit(repair)
+        : await adapter.finalizeAudit(prepared, finalAuditBytes);
+    }
     catch (_error) { return bridgePending(packet, "authority_audit_finalize_failed", { repair }); }
     if (!finalized || finalized.ok !== true) return bridgePending(packet, "authority_audit_finalize_failed", { repair });
-    const authority = core.freeze({
-      ...core.clone(priorData.canonical_v2_authority),
-      canonical_sha256: packet.after_sha256,
-      status: document.status,
-    });
     const originalReceipt = {
       run_id: packet.run_id,
       packet_id: packet.operation.operation_id,
@@ -114,8 +143,21 @@
       }],
       canonical_v2_authority: authority,
     };
-    const recorded = await compensationApi.create({ adapter, now: () => committedAt }).recordCompletedCommit({ original_receipt: originalReceipt });
+    let recorded;
+    try { recorded = await compensationApi.create({ adapter, now: () => committedAt }).recordCompletedCommit({ original_receipt: originalReceipt }); }
+    catch (_) { return bridgePending(packet, "immutable_audit_append_failed"); }
     if (!recorded || recorded.ok !== true) return bridgePending(packet, recorded && recorded.reason || "immutable_audit_append_failed");
+    const trust = root.LLMWikiCanonicalTrust || (typeof require === "function" ? require("./llmwiki-canonical-trust.js") : null);
+    try {
+      const live = await adapter.readCanonical(packet.target_path);
+      const receipts = await adapter.readFinalizedCanonicalAuthorities();
+      const receipt = receipts.find(value => {
+        const data = obsidianApi.finalizedCanonicalAuthorityData(value);
+        return data && data.canonical_id === approval.canonical_id && data.revision === packet.after_sha256;
+      });
+      if (!receipt || !trust || !trust.isVerified(trust.decideFinalized({ bytes: live.bytes, revision: core.sha256(live.bytes), receipt,
+        source_revisions: Object.fromEntries(authority.claim_set.sources.map(source => [source.source_id, source.source_revision])) }))) return bridgePending(packet, "canonical_readback_failed");
+    } catch (_) { return bridgePending(packet, "canonical_readback_failed"); }
     return { ok: true };
   }
 

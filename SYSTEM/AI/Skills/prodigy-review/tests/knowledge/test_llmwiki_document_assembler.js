@@ -147,6 +147,26 @@ test("canonical coverage returns no_change and blocks duplicate create", () => {
   assert.equal(result.no_changes[0].matched_document_id, "canonical_album_workflow");
 });
 
+test("canonical lexical overlap cannot discard changed numbers, conditions or negation", () => {
+  const existing = "실내 모형 장치를 점검할 때 전원 표시를 확인한 뒤 기본 점검 시간은 10분으로 유지한다.";
+  const assembler = assemblerApi.createDocumentAssembler({ canonicalDocuments: [{
+    document_id: "canonical_inspection", path: "ZETA/PERMANENT/점검.md",
+    content: `# 점검\n\n- ${existing}\n`, revision: "b".repeat(64),
+  }] });
+  for (const claim of [
+    existing.replace("10분", "20분"),
+    existing.replace("실내", "실외"),
+    existing.replace("유지한다.", "유지하지 않는다."),
+  ]) {
+    const result = assembler.assemble({ source: source(), artifacts: [artifact("chunk_changed", [item("reusable_claim", claim, 0)])] });
+    assert.equal(result.ok, true, result.reason);
+    assert.equal(result.no_changes.length, 0, "lexical similarity must not hide conflicting or conditional evidence");
+    assert.equal(result.documents.length, 1);
+    assert.equal(result.documents[0].claims[0].text, claim);
+    assert.equal(result.documents[0].citations[0].evidence_quote, claim);
+  }
+});
+
 test("trusted related candidates choose one document-level update or merge", () => {
   const candidates = [
     {

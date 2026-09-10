@@ -41,7 +41,8 @@
     delete copy.audit_hash;
     return sha256(stable(copy));
   }
-  function validPath(path) { return typeof path === "string" && CANONICAL_PREFIXES.some((prefix) => path.startsWith(prefix)) && !path.includes(".."); }
+  function validPath(path) { return typeof path === "string" && CANONICAL_PREFIXES.some((prefix) => path.startsWith(prefix))
+    && !path.includes("\\") && !/[\x00-\x1f]/u.test(path) && path.split("/").every(part => part && part !== "." && part !== ".."); }
   function validAction(action) {
     return plain(action)
       && action.type === "compensate"

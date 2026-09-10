@@ -482,7 +482,7 @@ test("canonical assembly and verification reject raw operation proxies/getters w
     run_id: "run_canonical_boundary",
     operation: operationValue,
     canonical_document: canonicalDocument,
-    source_citations: [citation()],
+    source_citations: [{ source_id: "source_article", content_hash: A, locators: ["ZETA/LITERATURE/article.md#claim"], confidence: "explicit" }],
     consent_hash: "c".repeat(64),
     expires_at: "2026-08-14T01:00:00.000Z",
     nonce: "nonce_canonical_boundary_001",
@@ -649,7 +649,7 @@ test("canonical assembly and verification reject raw operation proxies/getters w
         proposal_request: { instruction: "operation lifecycle" },
         consent: { issued_at: "2026-08-14T00:00:00.000Z", nonce: `consent_${runId}` },
         approval: { expires_at: "2026-08-14T01:00:00.000Z", nonce: `approval_${runId}` },
-        advanced_settings: { provider_mode: "direct", provider_key: "groq", timeout_ms: 5000 },
+        advanced_settings: { provider_mode: "runtime", timeout_ms: 5000 },
         canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "review", application_contexts: [], connections: [], invalidation_conditions: [], summary: "" },
         explicit_user_consent: true,
       },
@@ -672,6 +672,7 @@ test("canonical assembly and verification reject raw operation proxies/getters w
   const validLifecycle = lifecycleFixture("run_operation_lifecycle_valid");
   const validApp = lifecycleApp();
   const validController = runController.createRunController({
+    ai_client: { resolveProvider() { return { status: "ready", profile_id: "synthetic_fixture_runtime" }; } },
     app: validApp.app,
     config: runtimeConfig,
     now: () => "2026-08-14T00:00:00.000Z",
@@ -734,6 +735,7 @@ test("canonical assembly and verification reject raw operation proxies/getters w
     fixture.providerBundle.proposals[0].operation = invalidOperation;
     const app = lifecycleApp();
     const controller = runController.createRunController({
+    ai_client: { resolveProvider() { return { status: "ready", profile_id: "synthetic_fixture_runtime" }; } },
       app: app.app,
       config: runtimeConfig,
       analyze_batch: async () => {
@@ -757,6 +759,7 @@ test("canonical assembly and verification reject raw operation proxies/getters w
 
   let localPreflightNetworkCalls = 0;
   const preflightController = runController.createRunController({
+    ai_client: { resolveProvider() { return { status: "ready", profile_id: "synthetic_fixture_runtime" }; } },
     config: runtimeConfig,
     transport: async () => { localPreflightNetworkCalls += 1; throw new Error("preflight must not call transport"); },
   });

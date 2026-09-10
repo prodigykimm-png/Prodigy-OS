@@ -147,7 +147,7 @@ async function createTrustedFixture(options = {}) {
     ai_enrichment_status: "none",
     created: NOW,
     updated: NOW,
-    body: `# ${title}\n`,
+    body: options.body || `# ${title}\n`,
   };
   const operation = operations.parseCanonicalOperation(JSON.stringify({
     operation_id: "operation_fixture_v2",
@@ -158,6 +158,7 @@ async function createTrustedFixture(options = {}) {
   assert.equal(operation.ok, true, JSON.stringify(operation));
 
   const disposable = createVault();
+  await disposable.app.vault.create("ZETA/LITERATURE/fixture.md", sourceText);
   const adapter = obsidian.createObsidianAdapter(disposable.app);
   const packet = await canonical.assembleCanonicalPacket({
     run_id: "run_fixture_v2",

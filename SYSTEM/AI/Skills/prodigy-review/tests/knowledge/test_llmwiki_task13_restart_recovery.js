@@ -163,6 +163,13 @@ test("analyzer changed-identity retry links the exact-source parent and duplicat
     assert.equal(child.frozen_identity.model, "model-b");
     assert.equal(jobs.filter((job) => job.retry_parent_job_id === child.retry_parent_job_id).length, 1);
     assert.equal(secondStore.getJob(interrupted.job_id || interrupted.batch_id).status, "outcome_unknown", "the model A outcome remains preserved");
+    const reopenedStore = storeApi.createBatchJobStore({ storage: storeApi.createNodeStorage(dir) });
+    const reopened = analyzerApi.createBatchAnalyzer({ jobStore: reopenedStore, provider, identity: { provider_key: "openrouter", model: "model-b", structured_mode: "json_schema", schema_id: "llmwiki_compact_v1", prompt_version: "p1" }, cache, coverage });
+    const replay = await reopened.analyze({ sources: source, explicit_retry: true, retry_intent_id: "retry_double_click" });
+    assert.equal(replay.job_id, retry.job_id, "the same durable intent reuses the completed retry after reopen");
+    assert.equal(replay.state, "review_ready");
+    assert.equal(providerCalls, 2, "replaying a completed retry must not call the provider again");
+    assert.equal(reopenedStore.getJob(interrupted.job_id || interrupted.batch_id).status, "outcome_unknown");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

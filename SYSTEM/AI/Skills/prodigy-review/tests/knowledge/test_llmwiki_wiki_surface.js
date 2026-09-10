@@ -275,3 +275,183 @@ test("late hydration cannot repopulate cleared selection after a mode change", a
     global.document = previousDocument;
   }
 });
+
+test("review failure preserves branded answer and retries the same handoff without duplicate requests", async () => {
+  const dom = fakeDocument();
+  const previousDocument = global.document;
+  const previousService = global.LLMWikiWikiReadService;
+  let providerCalls = 0, preparationCalls = 0, handoffCalls = 0, release;
+  const answer = Object.freeze({ ok: true, context: { coverage_complete: false }, answers: [{ text: "합성 사실", citation: { excerpt: "합성 사실", locator: "fixture.md#L1", source_path: "fixture.md" } }] });
+  const prepared = Object.freeze({ ok: true, proposal_bundle: { status: "proposed" } });
+  global.document = dom.document;
+  global.LLMWikiWikiReadService = {
+    async answerSourceQuestion() { providerCalls++; return answer; },
+    async prepareQuestionProposal(input) { preparationCalls++; assert.equal(input.answer, answer); return prepared; },
+  };
+  const allNodes = (node) => [node, ...node.children.flatMap(allNodes)];
+  let surface;
+  try {
+    surface = surfaceApi.mountLlmWikiWikiSurface({ container: dom.container, snapshot: snapshot(), readAdapter: adapter,
+      getSelectedSource: () => ({ path: "fixture.md" }),
+      async openQuestionReview(proposal) {
+        assert.equal(proposal, prepared);
+        handoffCalls++;
+        if (handoffCalls === 1) return { ok: false, reason: "review_handoff_failed" };
+        await new Promise((resolve) => { release = resolve; });
+        return { ok: true, status: "review" };
+      },
+    });
+    surface.setQuery("합성 질문");
+    await surface.askQuestion("합성 질문");
+    assert.equal((await surface.prepareReview()).reason, "review_handoff_failed");
+    assert.equal(surface.getQuestionState().result, answer);
+    assert.ok(allNodes(dom.container).some((node) => node.textContent === "선택 자료 일부 근거만 확인했습니다. 조건·예외를 포함한 전체 요약은 아닙니다."));
+    assert.equal(surface.getQuestionState().proposal, prepared);
+    assert.equal(surface.getState().query, "합성 질문");
+    assert.equal(surface.getQuestionState().reviewError.reason, "review_handoff_failed");
+    const retryButton = allNodes(dom.container).find((node) => node.attributes["data-action"] === "review-question-proposal");
+    assert.equal(retryButton.textContent, "검토 전달 다시 시도");
+    assert.equal(retryButton.disabled, false);
+    const retry = retryButton.onclick();
+    assert.equal((await surface.prepareReview()).reason, "action_in_progress");
+    release();
+    const success = await retry;
+    assert.equal(success.ok, true);
+    assert.equal(surface.getQuestionState().stage, "review");
+    assert.equal(surface.getQuestionState().reviewError, null);
+    assert.equal(await surface.prepareReview(), success);
+    assert.equal(providerCalls, 1);
+    assert.equal(preparationCalls, 1);
+    assert.equal(handoffCalls, 2);
+  } finally {
+    surface?.destroy(); global.document = previousDocument; global.LLMWikiWikiReadService = previousService;
+  }
+});
+
+test("thrown review handoff errors preserve the answer and allow an explicit retry", async () => {
+  const dom = fakeDocument(), previousDocument = global.document, previousService = global.LLMWikiWikiReadService;
+  const answer = { ok: true, answers: [{ text: "합성 사실", citation: { excerpt: "합성 사실", locator: "fixture.md#L1" } }] };
+  let calls = 0;
+  global.document = dom.document;
+  global.LLMWikiWikiReadService = {
+    async answerSourceQuestion() { return answer; },
+    async prepareQuestionProposal({ answer: received }) { assert.equal(received, answer); return { ok: true }; },
+  };
+  let surface;
+  try {
+    surface = surfaceApi.mountLlmWikiWikiSurface({ container: dom.container, snapshot: snapshot(), readAdapter: adapter,
+      getSelectedSource: () => ({ path: "fixture.md" }),
+      async openQuestionReview() { if (++calls === 1) throw new Error("fixture failure"); return { ok: true, status: "review" }; },
+    });
+    await surface.askQuestion("합성 질문");
+    assert.equal((await surface.prepareReview()).reason, "review_handoff_failed");
+    assert.equal(surface.getQuestionState().result, answer);
+    assert.equal((await surface.prepareReview()).ok, true);
+  } finally {
+    surface?.destroy(); global.document = previousDocument; global.LLMWikiWikiReadService = previousService;
+  }
+});
+
+test("prepared proposal without a review controller is not reported as review ready", async () => {
+  const dom = fakeDocument(), previousDocument = global.document, previousService = global.LLMWikiWikiReadService;
+  const answer = { ok: true, answers: [{ text: "합성 사실", citation: { excerpt: "합성 사실", locator: "fixture.md#L1" } }] };
+  global.document = dom.document;
+  global.LLMWikiWikiReadService = {
+    async answerSourceQuestion() { return answer; },
+    async prepareQuestionProposal() { return { ok: true }; },
+  };
+  let surface;
+  try {
+    surface = surfaceApi.mountLlmWikiWikiSurface({ container: dom.container, snapshot: snapshot(), readAdapter: adapter, getSelectedSource: () => ({ path: "fixture.md" }) });
+    await surface.askQuestion("합성 질문");
+    assert.equal((await surface.prepareReview()).reason, "review_handoff_failed");
+    assert.notEqual(surface.getQuestionState().stage, "review");
+    assert.equal(surface.getQuestionState().result, answer);
+  } finally {
+    surface?.destroy(); global.document = previousDocument; global.LLMWikiWikiReadService = previousService;
+  }
+});
+
+test('conversation preserves navigation state, retries once and excludes removed-scope history',async()=>{
+ const prior=global.LLMWikiWikiReadService;const requests=[];let fail=true;
+ global.LLMWikiWikiReadService={answerSourceQuestion:async input=>{requests.push(input);if(fail){fail=false;return {ok:false,reason:'provider_transport_error'};}return {ok:true,answers:[{text:'해솔 실내 10분',citation:{source_path:input.sources[0].path,locator:input.sources[0].path+'#L1-L1',excerpt:'해솔 실내 10분',content_hash:'a'.repeat(64)}}],review_notes:[]};}};
+ try{
+  const doc=fakeDocument();const session={};const opts={container:doc.document.createElement('div'),snapshot:{rows:[],snapshot_revision:'a'},readAdapter:adapter,getSelectedSource:()=>({path:'INBOX/A.md',content_hash:'a'.repeat(64)}),conversationSession:session};
+  const first=surfaceApi.mountLlmWikiWikiSurface(opts);await first.askQuestion('해솔?');assert.equal(first.getConversation().draft,'해솔?');assert.equal(first.getConversation().messages.length,0);
+  await first.askQuestion('해솔?',true);assert.equal(first.getConversation().messages.length,2);first.destroy();
+  const second=surfaceApi.mountLlmWikiWikiSurface({...opts,container:doc.document.createElement('div')});assert.equal(second.getConversation().messages.length,2);
+  await second.askQuestion('두 번째?');assert.equal(requests[2].history.length,2);
+  second.removeSource('INBOX/A.md');assert.equal(second.getConversation().messages.length,0);assert.equal(second.getConversation().sources.length,0);
+  second.destroy();
+ }finally{global.LLMWikiWikiReadService=prior;}
+});
+
+test('new conversation discards a late response and duplicate sends',async()=>{
+ const prior=global.LLMWikiWikiReadService;let release,calls=0;
+ global.LLMWikiWikiReadService={answerSourceQuestion:()=>{calls++;return new Promise(resolve=>{release=resolve;});}};
+ try{
+  const doc=fakeDocument();const surface=surfaceApi.mountLlmWikiWikiSurface({container:doc.document.createElement('div'),snapshot:{rows:[],snapshot_revision:'a'},readAdapter:adapter,getSelectedSource:()=>({path:'INBOX/A.md',content_hash:'a'.repeat(64)})});
+  const pending=surface.askQuestion('해솔?');assert.equal((await surface.askQuestion('해솔?')).reason,'action_in_progress');surface.resetConversation();release({ok:true,answers:[{text:'late',citation:{}}]});
+  assert.equal((await pending).reason,'conversation_changed');assert.equal(surface.getConversation().messages.length,0);assert.equal(surface.getQuestionState().result,null);assert.equal(calls,1);surface.destroy();
+ }finally{global.LLMWikiWikiReadService=prior;}
+});
+
+test('Wiki chat retains structured citations, refuses overflow without dropping context and respects Korean IME',async()=>{
+ const {ChatSessionStore}=require(path.join(ROOT,'SYSTEM/Views/ai-chat-session-store.js'));
+ const store=new ChatSessionStore({sessionStorage:null,rejectOverflow:true});const citation={source_path:'INBOX/A.md',locator:'INBOX/A.md#L3-L3',content_hash:'a'.repeat(64),excerpt:'조건'};
+ store.appendMessage({role:'assistant',body:'조건',citations:[citation]});assert.deepEqual(store.getMessages()[0].citations,[citation]);
+ assert.throws(()=>store.appendMessage({role:'user',body:'x'.repeat(70000)}),error=>error.code==='context_limit');assert.equal(store.getMessages().length,1);
+ const prior=global.LLMWikiWikiReadService;let calls=0;
+ global.LLMWikiWikiReadService={answerSourceQuestion:async()=>{calls++;return {ok:true,status:'abstain',answers:[]};}};
+ try{
+  const doc=fakeDocument();const surface=surfaceApi.mountLlmWikiWikiSurface({container:doc.container,snapshot:{rows:[],snapshot_revision:'a'},readAdapter:adapter,getSelectedSource:()=>({path:'INBOX/A.md',content_hash:'a'.repeat(64)})});
+  const walk=el=>[el,...el.children.flatMap(walk)];const input=walk(doc.container).find(el=>el.tagName==='textarea');input.value='조건?';input.oncompositionstart();
+  input.onkeydown({key:'Enter',isComposing:true,preventDefault(){throw Error('must not submit IME');}});assert.equal(calls,0);input.oncompositionend();
+  input.onkeydown({key:'Enter',isComposing:false,preventDefault(){}});await new Promise(resolve=>setImmediate(resolve));assert.equal(calls,1);surface.destroy();
+ }finally{global.LLMWikiWikiReadService=prior;}
+});
+
+test('closed canonical review reopens the same draft without provider or approval replay',async()=>{
+ const prior=global.LLMWikiWikiReadService;let providerCalls=0,prepares=0,opens=0,close;
+ const answer={ok:true,answers:[{text:'원문 주장',citation:{locator:'INBOX/A.md#L1',excerpt:'원문 주장'}}]},prepared={ok:true,document_body:'원문 주장'};
+ global.LLMWikiWikiReadService={answerSourceQuestion:async()=>{providerCalls++;return answer;},prepareQuestionProposal:async()=>{prepares++;return prepared;}};
+ try{
+  const dom=fakeDocument();const surface=surfaceApi.mountLlmWikiWikiSurface({container:dom.container,snapshot:snapshot(),readAdapter:adapter,getSelectedSource:()=>({path:'INBOX/A.md',content_hash:'a'.repeat(64)}),openQuestionReview:async(item,callbacks)=>{assert.equal(item.document_body,prepared.document_body);opens++;let open=true;close=()=>{open=false;callbacks.onClose();};return{ok:true,status:'waiting_for_human_review',reopenable:true,isOpen:()=>open};}});
+  await surface.askQuestion('원문?');const first=await surface.prepareReview();assert.equal(await surface.prepareReview(),first);assert.equal(opens,1);
+  close();const allNodes=node=>[node,...node.children.flatMap(allNodes)];const button=allNodes(dom.container).find(node=>node.attributes['data-action']==='review-question-proposal');assert.equal(button.textContent,'검토 다시 열기');assert.equal(button.disabled,false);
+  await button.onclick();assert.equal(opens,2);assert.equal(providerCalls,1);assert.equal(prepares,1);surface.destroy();
+ }finally{global.LLMWikiWikiReadService=prior;}
+});
+
+test('changed source cannot reopen an old citation or cached proposal and preserves the old answer',async()=>{
+ const priorService=global.LLMWikiWikiReadService,priorRuntime=global.ProdigyAIConsumerRuntime;
+ const readService=require(path.join(ROOT,'SYSTEM/Views/llmwiki-wiki-read-service.js')),hash=require(path.join(ROOT,'SYSTEM/Views/llmwiki-hash.js'));
+ let bytes='# 합성 근거\n\n청록-951 점검은 실내에서 10분이다.\n',calls=0,opened=0,handoffs=0;
+ const source={path:'INBOX/Changed citation fixture.md',content_hash:hash.sha256(bytes)};
+ global.ProdigyAIConsumerRuntime={requestStructured:async request=>{calls++;const p=JSON.parse(request.prompt);return {payload:{status:'ok',results:p.chunks.map(c=>({chunk_key:c.key,outcome:'proposals',items:c.evidence_candidates.map(e=>({role:'reusable_claim',topic:'점검',evidence_key:e.key,evidence_quote:e.text,claims:[e.text],review_reasons:[],related_candidate_ids:[]}))}))}};}};
+ global.LLMWikiWikiReadService=readService;
+ try{
+  const app={vault:{getAbstractFileByPath:p=>p===source.path?{path:p}:null,read:async()=>bytes,create(){throw Error('write forbidden');},modify(){throw Error('write forbidden');}}};
+  const dom=fakeDocument();const surface=surfaceApi.mountLlmWikiWikiSurface({app,container:dom.container,snapshot:snapshot(),readAdapter:adapter,getSelectedSource:()=>source,onOpenCitation:()=>{opened++;return {ok:true};},openQuestionReview:async()=>{handoffs++;return {ok:false,reason:'review_handoff_failed'};}});
+  const answer=await surface.askQuestion('청록-951 점검?');assert.equal(answer.ok,true);const citation=answer.answers[0].citation;
+  assert.equal((await surface.openQuestionCitation(citation)).ok,true);assert.equal(opened,1);
+  assert.equal((await surface.prepareReview()).reason,'review_handoff_failed');const prepared=surface.getQuestionState().proposal;
+  bytes=bytes.replace('10분','20분');
+  assert.equal((await surface.openQuestionCitation(citation)).reason,'source_revision_changed');assert.equal(opened,1);
+  assert.equal((await surface.prepareReview()).reason,'source_revision_changed');assert.equal(handoffs,1);
+  assert.equal(surface.getQuestionState().result,answer);assert.equal(surface.getQuestionState().proposal,prepared);assert.equal(surface.getConversation().sources[0].content_hash,source.content_hash);assert.equal(calls,1);
+  assert.equal((await surface.askQuestion('청록-951 재확인?')).reason,'source_revision_changed');assert.equal(calls,1);assert.equal(surface.getConversation().draft,'청록-951 재확인?');assert.equal(surface.getConversation().turns[0].result,answer);
+  app.vault.getAbstractFileByPath=()=>null;assert.equal((await surface.openQuestionCitation(citation)).reason,"source_unavailable");assert.equal((await surface.askQuestion("원문 확인?")).reason,"source_unavailable");assert.equal(calls,1);
+  surface.destroy();
+ }finally{global.LLMWikiWikiReadService=priorService;global.ProdigyAIConsumerRuntime=priorRuntime;}
+});
+
+test('provider format failure retains the question and earlier result until an explicit retry',async()=>{
+ const prior=global.LLMWikiWikiReadService;let calls=0;const first={ok:true,answers:[{text:'기존 답변',citation:{source_path:'INBOX/A.md',content_hash:'a'.repeat(64),locator:'INBOX/A.md#L1',excerpt:'기존 근거'}}]};
+ global.LLMWikiWikiReadService={answerSourceQuestion:async()=>{calls++;return calls===2?{ok:false,reason:'provider_schema_invalid',detail:'invalid_review_reasons',stage:'validation'}:first;}};
+ try{
+  const dom=fakeDocument();const surface=surfaceApi.mountLlmWikiWikiSurface({container:dom.container,snapshot:snapshot(),readAdapter:adapter,getSelectedSource:()=>({path:'INBOX/A.md',content_hash:'a'.repeat(64)})});
+  await surface.askQuestion('처음 질문');const failed=await surface.askQuestion('추가 질문');assert.equal(failed.reason,'provider_schema_invalid');assert.equal(failed.detail,'invalid_review_reasons');assert.equal(surface.getConversation().draft,'추가 질문');assert.equal(surface.getConversation().turns.length,1);assert.equal(surface.getConversation().turns[0].result,first);assert.equal(calls,2);
+  await surface.askQuestion('추가 질문',true);assert.equal(calls,3);assert.equal(surface.getConversation().turns.length,2);assert.equal(surface.getConversation().messages.filter(row=>row.role==='user'&&row.body==='추가 질문').length,1);surface.destroy();
+ }finally{global.LLMWikiWikiReadService=prior;}
+});

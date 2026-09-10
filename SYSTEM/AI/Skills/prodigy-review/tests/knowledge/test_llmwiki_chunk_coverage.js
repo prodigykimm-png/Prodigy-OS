@@ -192,7 +192,7 @@ test("identical text under different source ids has distinct instance ids", () =
   assert.notEqual(left.chunks[0].instance_id, right.chunks[0].instance_id);
 });
 
-test("duplicate occurrences retain distinct instances and conservatively miss cache continuity", async () => {
+test("duplicate occurrences reuse only their exact distinct instance artifacts", async () => {
   const text = "# Same\nrepeat\n\n# Same\nrepeat\n";
   const manifest = manifestApi.createChunkManifest(scope(text));
   assert.equal(new Set(manifest.chunks.map(chunk => chunk.instance_id)).size, 2);
@@ -202,8 +202,11 @@ test("duplicate occurrences retain distinct instances and conservatively miss ca
   await cache.put({ chunk: manifest.chunks[1], artifact: { analysis: "second" } });
   const result = await cache.lookup(manifest, scope(text));
   assert.equal(result.ok, true);
-  assert.equal(result.hits.length, 0);
-  assert.equal(result.misses.length, 2);
+  assert.equal(result.hits.length, 2);
+  assert.equal(result.misses.length, 0);
+  assert.deepEqual(result.hits.map(hit => hit.artifact.analysis), ["first", "second"]);
+  assert.deepEqual(result.hits.map(hit => hit.chunk.instance_id), manifest.chunks.map(chunk => chunk.instance_id));
+  assert.equal(new Set(result.hits.map(hit => hit.cache_entry_id)).size, 2);
   await assert.rejects(cache.put({ chunk: manifest.chunks[0], artifact: { analysis: "retry" }, retry_generation: cacheApi.MAX_RETRY_GENERATION + 1 }), /retry_generation_exhausted/u);
 });
 
