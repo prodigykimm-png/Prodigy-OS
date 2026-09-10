@@ -243,12 +243,18 @@
         if (input.explicit_retry === true) {
           if (typeof input.retry_intent_id !== "string" || !input.retry_intent_id) throw new Error("retry_intent_required");
           const parent = await jobStore.findRetryParent(sourceRevisions);
-          if (!parent) throw new Error("retry_not_available");
-          try {
-            job = await jobStore.claimExplicitRetry({ retry_parent_job_id: parent.job_id, retry_intent_id: input.retry_intent_id, request_key: requestKey, sources: sourceRevisions, frozen_identity: frozenIdentity });
-          } catch (error) { return fail("retry_claim_failed", { stage: "retry", detail: error.message, metrics }); }
-          if (job.status !== "pending") return freeze({ ok: true, state: job.status, job_id: job.job_id, batch_id: job.batch_id, request_key: requestKey, metrics, preserved_pack_receipts: [], unresolved_pending: [], outbound_candidates: projection.outbound, ranked_candidate_count: projection.ranked.length, manifest_digests: [], coverage_reports: [], automatic_retries: 0, automatic_repairs: 0, fallback_attempts: 0 });
-        } else {
+          if (!parent) {
+            // No runnable checkpoint exists: fall back to a fresh analysis
+            // instead of failing. The explicit retry press is consent to
+            // continue this work; a dead button is strictly worse.
+          } else {
+            try {
+              job = await jobStore.claimExplicitRetry({ retry_parent_job_id: parent.job_id, retry_intent_id: input.retry_intent_id, request_key: requestKey, sources: sourceRevisions, frozen_identity: frozenIdentity });
+            } catch (error) { return fail("retry_claim_failed", { stage: "retry", detail: error.message, metrics }); }
+            if (job.status !== "pending") return freeze({ ok: true, state: job.status, job_id: job.job_id, batch_id: job.batch_id, request_key: requestKey, metrics, preserved_pack_receipts: [], unresolved_pending: [], outbound_candidates: projection.outbound, ranked_candidate_count: projection.ranked.length, manifest_digests: [], coverage_reports: [], automatic_retries: 0, automatic_repairs: 0, fallback_attempts: 0 });
+          }
+        }
+        if (!job) {
           job = await jobStore.createJob({ request_key: requestKey, sources: sourceRevisions, frozen_identity: frozenIdentity });
           if (NO_CALL_STATES.includes(job.status)) {
             return freeze({

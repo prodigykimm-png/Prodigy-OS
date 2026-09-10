@@ -2357,7 +2357,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
             prodigyWikiController.dispatch({ type: "source_changed" });
           } else {
             const resumable = !["gating", "saving"].includes(result.stage);
-            await prodigyWikiOperationStore.interrupt({ reason: result.reason || "golden_wiki_failed", resumable });
+            await prodigyWikiOperationStore.interrupt({ reason: result.reason || "golden_wiki_failed", resumable, stage: result.stage || "" });
             prodigyWikiController.dispatch({
               type: "interrupt",
               stage: result.stage || "",
