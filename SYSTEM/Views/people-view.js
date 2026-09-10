@@ -612,6 +612,21 @@
           ta.oninput = () => { this.sectionValues[title] = ta.value; };
           return ta;
         }
+        /**
+         * Keep the footer (incl. 저장) inside the visible modal box.
+         * The shell stylesheet caps at 92vh, but Obsidian's own .modal box is
+         * shorter (vertically centered with margins), so an uncapped shell
+         * pushes the footer below the fold where overflow:hidden clips it.
+         * Measure the real modal box and cap the shell to it.
+         */
+        _fitShellToModal(shell) {
+          try {
+            const box = this.modalEl && this.modalEl.clientHeight;
+            if (shell && box > 0) {
+              shell.style.maxHeight = `${Math.max(280, box - 2)}px`;
+            }
+          } catch (_e) { /* stylesheet fallback (92vh) stays */ }
+        }
         onOpen() {
           const { contentEl, modalEl } = this;
           contentEl.empty();
@@ -831,6 +846,7 @@
           this.saveBtn = btn(right, "저장", { primary: true });
           this.saveBtn.onclick = () => this.submit();
           this.statusEl.setText("⌘/Ctrl+S 저장");
+          this._fitShellToModal(shell);
         }
         async submit() {
           if (this.busy) return;
