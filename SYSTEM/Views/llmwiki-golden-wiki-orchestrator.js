@@ -3,6 +3,8 @@
 
   const artifactApi = root.ProdigyWikiArtifactContract
     || (typeof require === "function" ? require("./prodigy-wiki-artifact-contract.js") : null);
+  const analyzerApi = root.LLMWikiBatchAnalyzer || (typeof require === "function" ? require("./llmwiki-batch-analyzer.js") : null);
+  const candidatesApi = root.LLMWikiEvidenceCandidates || (typeof require === "function" ? require("./llmwiki-evidence-candidates.js") : null);
   const VERSION = "llmwiki_golden_wiki_orchestrator_v3";
   const MAX_DIRECT_PACKS = 30;
 
@@ -99,6 +101,31 @@
       return { ...row, children };
     }
     return freeze(roots.map(prune).filter(Boolean));
+  }
+  // Keep the heading picker, but give oversized leaves (including headingless
+  // sources) real smaller choices instead of another unselectable dead end.
+  function selectableRangeTree(sourceText) {
+    function splitLeaf(row) {
+      if (row.children.length) return { ...row, children: row.children.map(splitLeaf) };
+      const units = candidatesApi.createSemantic(sourceText.slice(row.start, row.end));
+      const cap = analyzerApi.MAX_WHOLE_SOURCE_UNITS;
+      if (units.length <= cap) return row;
+      const children = [];
+      for (let index = 0; index < units.length; index += cap) {
+        const start = index === 0 ? row.start : row.start + units[index].start;
+        const end = index + cap < units.length ? row.start + units[index + cap].start : row.end;
+        children.push({
+          scope_id: `units_${start}_${end}`, title: `부분 ${children.length + 1}`,
+          level: row.level + 1, start, end, size: "short",
+          preview: sourceText.slice(start, end).replace(/\s+/gu, " ").trim().slice(0, 220), children: [],
+        });
+      }
+      return { ...row, children };
+    }
+    const headings = headingRangeTree(sourceText);
+    if (headings.length) return headings.map(splitLeaf);
+    const whole = splitLeaf({ scope_id: "source_full", title: "전체 자료", level: 0, start: 0, end: sourceText.length, children: [] });
+    return whole.children;
   }
   function headingScopes(sourceText) {
     return freeze(flattenRanges(headingRangeTree(sourceText)));
@@ -266,7 +293,7 @@
         await ensureFolder(parts.slice(0, index).join("/"));
       }
     }
-    async function preflight(input) {
+    async function preflight(input, requireRange = false) {
       if (!safePath(input && input.source_path)) return freeze({ ok: false, reason: "invalid_source_path" });
       const file = vault.getAbstractFileByPath(input.source_path);
       if (!file) return freeze({ ok: false, reason: "source_missing" });
@@ -281,7 +308,7 @@
       if (text(input.expected_content_hash) && input.expected_content_hash !== sourceHash) {
         return freeze({ ok: false, reason: "source_revision_changed" });
       }
-      const rangeTree = headingRangeTree(sourceText);
+      const rangeTree = selectableRangeTree(sourceText);
       const availableScopes = flattenRangeNodes(rangeTree);
       const requestedScope = input && input.scope;
       const selectedScope = requestedScope
@@ -297,15 +324,21 @@
       });
       const manifest = chunkManifest.createChunkManifest(scope);
       const packs = packCount(manifest.chunks, limits);
+      const unitPreflight = analyzerApi.preflightWholeSourceUnits([
+        { source_id: sourceId, units: candidatesApi.createSemantic(scopedText) },
+      ], [{ source_id: sourceId, extracted_text: scopedText }]);
+      const needsRange = requireRange || !unitPreflight.ok || packs > MAX_DIRECT_PACKS;
       return freeze({
-        ok: true, source_path: input.source_path, source_text: scopedText,
+        ...(!unitPreflight.ok ? unitPreflight : {}),
+        ok: unitPreflight.ok, source_path: input.source_path, source_text: scopedText,
+        source_units_total: unitPreflight.source_units_total, source_units_cap: unitPreflight.source_units_cap,
         source_hash: sourceHash, source_id: sourceId,
         source_bytes: new TextEncoder().encode(scopedText).length,
         chunks: manifest.chunks.length, packs,
         scope: selectedScope ? rangeRecord(selectedScope) : null,
-        scopes: packs > MAX_DIRECT_PACKS
+        scopes: needsRange
           ? flattenRanges(selectedScope ? selectedScope.children || [] : rangeTree) : [],
-        range_tree: packs > MAX_DIRECT_PACKS
+        range_tree: needsRange
           ? (selectedScope ? selectedScope.children || [] : rangeTree) : [],
       });
     }
@@ -318,6 +351,7 @@
           ok: false, status: "scope_required",
           reason: prepared.scope ? "selected_range_too_large" : "large_source_scope_required",
           source_bytes: prepared.source_bytes, chunks: prepared.chunks,
+          source_units_total: prepared.source_units_total, source_units_cap: prepared.source_units_cap,
           packs: prepared.packs, scopes: prepared.scopes, range_tree: prepared.range_tree,
           provider_calls: 0, canonical_writes: 0, source_writes: 0,
         });
@@ -328,6 +362,15 @@
         ...(prepared.scope ? { scope: prepared.scope } : {}),
         expected_source_hash: prepared.source_hash,
       });
+      if (planned?.reason === "invalid_whole_source_units") {
+        // Preserve range choices even if the deterministic refusal comes from
+        // planning rather than the initial preflight; recheck source identity.
+        const current = await preflight(input, true);
+        if (current.reason === "source_revision_changed") return current;
+        return freeze({ ...current, ...planned, ok: false, status: "scope_required", stage: "preflight", resumable: false,
+          scopes: current.scopes || [], range_tree: current.range_tree || [],
+        });
+      }
       if (!planned || planned.ok !== true) return freeze({ ...(planned || {}), ok: false, stage: "planning" });
       notify("compiling", { pages: planned.pages || 0 });
       const compiled = await compilePlan();

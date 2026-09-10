@@ -312,7 +312,9 @@
       },
       range_required: {
         title: "먼저 정리할 부분을 선택하세요",
-        description: "자료가 커서 한 번에 정리할 수 없습니다.",
+        description: "자료가 커서 한 번에 정리할 수 없습니다."
+          + (Number.isSafeInteger(value.result?.source_units_total) && Number.isSafeInteger(value.result?.source_units_cap)
+            ? ` 현재 ${value.result.source_units_total}개 의미 단위 / 한 번에 최대 ${value.result.source_units_cap}개 · 약 ${Math.ceil(Number(value.result.source_bytes || 0) / 1024)} KB. 더 작은 범위를 선택하세요.` : ""),
         primary_label: "범위 선택 완료",
       },
       change_range_required: {
