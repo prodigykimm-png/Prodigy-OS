@@ -189,14 +189,13 @@ test("v1 cache intentionally misses once under v2 identity, then exact v2 replay
   assert.equal(h.service.state.calls, 2);
 });
 
-test("semantic 65-unit rejection reaches no transport call", async () => {
+test("semantic 65-unit input fans out through transport", async () => {
   const h = buildHarness();
   const sourceText = Array.from({ length: 65 }, (_, index) => `- unit ${index + 1}`).join("\n");
   const result = await h.analyzer.analyze({ sources: [source("src_limit", sourceText)] });
-  assert.equal(result.ok, false);
-  assert.equal(result.reason, "semantic_unit_limit_exceeded");
-  assert.equal(result.metrics.provider_calls, 0);
-  assert.equal(h.service.state.calls, 0);
+  assert.equal(result.ok, true, result.reason);
+  assert.ok(h.service.state.calls >= 1);
+  assert.equal(result.state, "review_ready");
 });
 
 test("explicit retry reuses exact repeated chunks while preserving parent history", async () => {
@@ -226,6 +225,14 @@ test("explicit retry reuses exact repeated chunks while preserving parent histor
   assert.equal(sameRetry.job_id, retried.job_id);
   assert.equal(sameRetry.state, "review_ready");
   assert.equal(sameRetry.metrics.provider_calls, 0);
+});
+
+test("explicit retry without a retryable parent falls back to fresh analysis", async () => {
+  const h = buildHarness();
+  const sources = [source("src_no_parent", smallText("부모없음", 1))];
+  const retried = await h.fresh().analyze({ sources, explicit_retry: true, retry_intent_id: "retry_no_parent_1" });
+  assert.equal(retried.ok, true, retried.reason || "threw");
+  assert.equal(retried.state, "review_ready");
 });
 
 test("model, schema, prompt-version, context, or source change causes an intentional miss", async () => {

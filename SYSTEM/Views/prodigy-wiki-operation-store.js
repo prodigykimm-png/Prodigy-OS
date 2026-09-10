@@ -212,6 +212,8 @@
             status: "interrupted",
             reason: typeof input.reason === "string" && input.reason ? input.reason : "operation_interrupted",
             resumable: input.resumable === true,
+            stage: typeof input.stage === "string" && input.stage ? input.stage : state.operation.stage,
+            updated_at: new Date().toISOString(),
           });
         });
         return current();
