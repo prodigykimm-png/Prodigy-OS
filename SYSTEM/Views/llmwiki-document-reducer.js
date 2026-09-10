@@ -81,6 +81,86 @@
     const value = clean(path).split("/").pop() || "자료";
     return value.replace(/\.md$/iu, "").trim() || "자료";
   }
+  // Deterministic coverage repair: dense inputs routinely make the planner
+  // drop or duplicate claim ids, which exactPartition rejects and retry can
+  // never fix (same input, same drops). Repair preserves every guarantee:
+  // shape violations still reject; dedupe keeps first occurrence; unknowns
+  // are dropped; uncovered ids land in review-visible buckets (last guide
+  // section / source_only_claim_ids) — nothing silently lost or fabricated.
+  // The repair set is returned for audit so systematic drops stay visible.
+  // If more than half the claims are uncovered, the draft is treated as
+  // model failure, not drops: reject without repair.
+  function repairCoverage(draftValue, allClaimIds) {
+    const unknownIds = [];
+    const makeDeduper = () => {
+      const seen = new Set();
+      return (ids) => {
+        const out = [];
+        for (const id of ids) {
+          if (typeof id !== "string" || !allClaimIds.has(id)) {
+            if (typeof id === "string" && !unknownIds.includes(id)) unknownIds.push(id);
+            continue;
+          }
+          if (seen.has(id)) continue;
+          seen.add(id);
+          out.push(id);
+        }
+        return out;
+      };
+    };
+    // Guide and partition are independently complete: dedupe each scope
+    // separately (a claim lives once in the guide AND once in pages/source).
+    const dedupeGuide = makeDeduper();
+    const dedupePartition = makeDeduper();
+    const sections = draftValue.source_guide.sections.map((section) => ({
+      ...section, claim_ids: dedupeGuide(section.claim_ids),
+    }));
+    const pages = draftValue.topic_pages.map((page) => ({ ...page, claim_ids: dedupePartition(page.claim_ids) }));
+    const sourceOnly = dedupePartition(draftValue.source_only_claim_ids);
+    const covered = new Set([...sections.flatMap((section) => section.claim_ids)]);
+    const coveredPartition = new Set([...pages.flatMap((page) => page.claim_ids), ...sourceOnly]);
+    const missingGuide = [...allClaimIds].filter((id) => !covered.has(id));
+    const missingPartition = [...allClaimIds].filter((id) => !coveredPartition.has(id));
+    // Wholesale-drop guard covers BOTH independent scopes: a gutted guide
+    // with a complete partition (or vice versa) is model failure, not drops.
+    if (missingPartition.length > allClaimIds.size / 2 || missingGuide.length > allClaimIds.size / 2) return { ok: false };
+    let repaired = unknownIds.length > 0;
+    repaired = sections.some((section, index) => section.claim_ids.length !== draftValue.source_guide.sections[index].claim_ids.length)
+      || pages.some((page, index) => page.claim_ids.length !== draftValue.topic_pages[index].claim_ids.length)
+      || sourceOnly.length !== draftValue.source_only_claim_ids.length || repaired;
+    // Dedupe can empty a bucket (duplicate-only section/page), bypassing the
+    // nonempty shape requirements. Drop empties; if none remain, the draft
+    // carries no reviewable structure: reject.
+    const keptSections = sections.filter((section) => section.claim_ids.length > 0);
+    const keptPages = pages.filter((page) => page.claim_ids.length > 0);
+    if (keptSections.length !== sections.length || keptPages.length !== pages.length) repaired = true;
+    // Empty pages are fatal only when pages existed: the singleton flow
+    // legitimately starts with zero pages and populates one downstream.
+    if (keptSections.length === 0 || (draftValue.topic_pages.length > 0 && keptPages.length === 0)) return { ok: false };
+    if (missingGuide.length > 0) {
+      keptSections[keptSections.length - 1] = { ...keptSections[keptSections.length - 1],
+        claim_ids: [...keptSections[keptSections.length - 1].claim_ids, ...missingGuide] };
+      repaired = true;
+    }
+    const nextSourceOnly = [...sourceOnly, ...missingPartition];
+    if (nextSourceOnly.length !== sourceOnly.length) repaired = true;
+    return {
+      ok: true,
+      repaired,
+      draft: {
+        ...draftValue,
+        source_guide: { ...draftValue.source_guide, sections: keptSections },
+        topic_pages: keptPages,
+        source_only_claim_ids: nextSourceOnly,
+      },
+      audit: freeze({
+        missing_guide_ids: missingGuide,
+        missing_partition_ids: missingPartition,
+        unknown_ids: unknownIds,
+      }),
+    };
+  }
+
   function exactPartition(values, expected) {
     return values.length === expected.size && new Set(values).size === values.length && values.every((id) => expected.has(id));
   }
@@ -204,7 +284,7 @@
         || !plain(draft.source_guide) || !Array.isArray(draft.topic_pages) || !Array.isArray(draft.source_only_claim_ids)) {
         return freeze({ ok: false, reason: "invalid_page_plan" });
       }
-      const guide = draft.source_guide;
+      let guide = draft.source_guide;
       if (Object.keys(guide).some((key) => !["overview", "sections", "key_questions"].includes(key))
         || !clean(guide.overview) || !Array.isArray(guide.sections) || guide.sections.length === 0 || guide.sections.length > 16
         || !Array.isArray(guide.key_questions) || guide.key_questions.length > 8
@@ -227,8 +307,28 @@
         && Array.isArray(page.target_candidate_ids)
         && new Set(page.target_candidate_ids).size === page.target_candidate_ids.length
         && page.target_candidate_ids.every((candidateId) => allowed.has(candidateId)));
-      if (!validPageShape || !exactPartition(guideIds, allClaimIds) || !exactPartition(partitionIds, allClaimIds)) {
+      let coverageRepairAudit = null;
+      if (!validPageShape) {
         return freeze({ ok: false, reason: "invalid_page_plan_coverage" });
+      }
+      const guideIdsRepaired = guide.sections.flatMap((section) => section.claim_ids);
+      const partitionIdsRepaired = [...pageIds, ...draft.source_only_claim_ids];
+      if (!exactPartition(guideIdsRepaired, allClaimIds) || !exactPartition(partitionIdsRepaired, allClaimIds)) {
+        const coverageRepair = repairCoverage(draft, allClaimIds);
+        if (!coverageRepair.ok) {
+          return freeze({ ok: false, reason: "invalid_page_plan_coverage" });
+        }
+        if (coverageRepair.repaired) {
+          draft = coverageRepair.draft;
+          guide = draft.source_guide;
+          coverageRepairAudit = coverageRepair.audit;
+        // Singletons cannot benefit from repair: with one claim, any drop
+        // trips the wholesale guard, and dup/unknown normalization must stay
+        // visible as malformation (pinned) rather than laundered into review.
+        if (inventory.claims.length === 1) {
+          return freeze({ ok: false, reason: "invalid_page_plan_coverage" });
+        }
+        }
       }
       // A grounded singleton needs a review handoff, not only a source guide.
       // Repair only a valid partition; source-bound summaries keep their role.
@@ -287,6 +387,7 @@
         source_only_claim_ids: [...draft.source_only_claim_ids],
         status: "pending_review",
         plan_revision: 1,
+        ...(coverageRepairAudit ? { coverage_repair: coverageRepairAudit } : {}),
       };
       return freeze({ ok: true, value: freeze({ ...body, plan_hash: sha(stable(body)) }) });
     }
