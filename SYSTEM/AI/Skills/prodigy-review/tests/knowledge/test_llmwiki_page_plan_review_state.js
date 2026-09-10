@@ -54,6 +54,16 @@ function plan() {
   return { ...body, plan_hash: hash.sha256(stable(body)) };
 }
 
+test("a repaired plan with coverage_repair audit enters review", () => {
+  const base = plan();
+  const audit = { missing_guide_ids: [], missing_partition_ids: [`claim_${"4".repeat(24)}`], unknown_ids: [] };
+  const withAudit = { ...base, coverage_repair: audit, source_only_claim_ids: [`claim_${"4".repeat(24)}`] };
+  delete withAudit.plan_hash;
+  withAudit.plan_hash = hash.sha256(stable(withAudit));
+  const state = reviewApi.createPagePlanReviewState({ plan: withAudit });
+  assert.equal(state.getSnapshot().source_only_claim_ids.includes(`claim_${"4".repeat(24)}`), true);
+});
+
 test("excluding a page retains its claims as source-only before approval", () => {
   const state = reviewApi.createPagePlanReviewState({ plan: plan() });
   const initial = state.getSnapshot();

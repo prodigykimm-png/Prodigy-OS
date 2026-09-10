@@ -27,6 +27,7 @@
       source_only_claim_ids: plan.source_only_claim_ids,
       status: plan.status,
       plan_revision: plan.plan_revision,
+      ...(plan.coverage_repair ? { coverage_repair: plan.coverage_repair } : {}),
     };
   }
   function valid(input) {
