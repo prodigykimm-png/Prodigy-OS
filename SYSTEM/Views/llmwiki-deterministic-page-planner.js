@@ -151,7 +151,7 @@
         key_questions: selected.slice(0, 8).map((group) => `${group.title}의 핵심 판단 기준은 무엇인가?`),
       },
       topic_pages: topicPages,
-      source_only_claim_ids: orderedClaims.filter((claim) => claim.role === "reusable_claim" && !selectedIds.has(claim.claim_id)).map((claim) => claim.claim_id),
+      source_only_claim_ids: orderedClaims.filter((claim) => !selectedIds.has(claim.claim_id)).map((claim) => claim.claim_id),
     };
     return freeze({ ok: true, version: VERSION, value: draft, draft_hash: hashApi.sha256(stable(draft)), writer_count: 0 });
   }
