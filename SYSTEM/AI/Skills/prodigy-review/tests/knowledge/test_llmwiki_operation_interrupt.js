@@ -39,6 +39,18 @@ test("interrupt persists stage and timestamps", async () => {
   assert.ok(!before.updated_at || after.updated_at >= before.updated_at);
 });
 
+test("interrupt persists bounded failure detail", async () => {
+  const store = storeApi.createStore({ storage: memoryStorage(), hash: hashApi });
+  await store.begin(IDENTITY);
+  await store.interrupt({ reason: "golden_gate_failed", resumable: false, stage: "gating", detail: { issues: ["required_sections_missing"], metrics: { structure: 0.8 } } });
+  const op = store.getOperation();
+  assert.deepEqual(op.detail.issues, ["required_sections_missing"]);
+  assert.equal(op.detail.metrics.structure, 0.8);
+  await store.interrupt({ reason: "x", resumable: false });
+  const op2 = store.getOperation();
+  assert.equal(op2.detail, null);
+});
+
 test("interrupt without stage keeps the prior stage", async () => {
   const store = storeApi.createStore({ storage: memoryStorage(), hash: hashApi });
   await store.begin(IDENTITY);
