@@ -524,9 +524,35 @@
       modes.new.checked = fields.target_path === "new";
       modes.existing.checked = Boolean(fields.target_path && fields.target_path !== "new");
       targetHost.hidden = !modes.existing.checked;
+      // ③ Novel items skip the storage dilemma: default to a new document.
+      // The user can still switch; approval still applies.
+      if (isNovelItem(item) && !viewState.novelApplied && !fields.target_path) {
+        viewState.novelApplied = true;
+        fields.target_path = "new";
+        modes.new.checked = true;
+        modes.existing.checked = false;
+        targetHost.hidden = true;
+        target.value = "new";
+      }
       const targetSearch = targetHost.createEl("input", { attr: { type: "search", placeholder: "문서 검색", "aria-label": "대상 문서 검색" } });
       targetSearch.oninput = () => { for (const option of target.children) option.hidden = option.value === "new" || Boolean(targetSearch.value) && !String(option.textContent || option.text).toLocaleLowerCase("ko").includes(targetSearch.value.toLocaleLowerCase("ko")); };
       inputs.push(targetSearch, ...Object.values(modes));
+      // ② Read-only preview of the selected existing document, rendered on
+      // demand only. Never preloaded, never editable here.
+      const previewTargetButton = targetHost.createEl("button", { text: "선택 문서 보기", attr: { type: "button" } });
+      const previewTargetBox = targetHost.createEl("div", { attr: { class: "wiki-target-preview", hidden: "" } });
+      previewTargetButton.onclick = () => {
+        const row = currentTargets.find((entry) => entry.path === target.value);
+        previewTargetBox.empty();
+        if (!row || !row.exists) { previewTargetBox.hidden = true; return; }
+        let parsed = null;
+        try { parsed = store.parseLifecycleDocument(row.canonical_bytes); } catch (_) { parsed = null; }
+        previewTargetBox.createEl("h4", { text: row.title || row.path });
+        const bodyBox = previewTargetBox.createEl("div", { attr: { class: "wiki-target-preview-body" } });
+        bodyBox.textContent = String((parsed && parsed.body) || row.canonical_bytes || "").slice(0, 1500);
+        previewTargetBox.hidden = false;
+      };
+      inputs.push(previewTargetButton);
       target.oninput = async () => {
         const selected = target.value;
         invalidate();
@@ -554,6 +580,9 @@
         const chosen = currentTargets.find(row => row.path === fields.target_path);
         if (chosen) { targetHost.createEl("p", { text: `대상: ${chosen.title || ui.title(chosen.path)}` }); const change = targetHost.createEl("button", { text: "변경", attr: { type: "button", "data-action": "change-target" } }); change.onclick = () => targetSearch.focus?.(); inputs.push(change); }
       }
+  // ④ Merge designation removed: collect-and-review cannot work because
+  // prepare() builds only from grounded claims and never reads an edited
+  // draft body. Merging needs analysis-backed intake (separate design).
       field("knowledge_kind", "지식 종류", [["claim","주장"],["principle","원칙"],["procedure","절차"],["concept","개념"]]);
       field("classification", "내용 성격", [["epistemic","재사용할 지식"],["operational","실행 업무"],["mixed","지식·업무 혼합"]]);
       field("knowledge_domain", "분야", registry.DOMAIN_ORDER.map(domain => [domain, domain])); field("knowledge_topics", "주제");
@@ -633,6 +662,40 @@
         }
       }
       showKindFields();
+      // ① Auto-fill empty save-condition fields from the proposal's own
+      // analysis values. relation_status/evidence_strength are never
+      // prefilled: the human decides them. Prefilled rows are marked; any
+      // edit clears the mark.
+      if (!viewState.aiPrefilled) {
+        viewState.aiPrefilled = true;
+        const cleanText = (value) => String(value || "").trim();
+        const suggested = defaults(item);
+        const markRow = (input) => {
+          const rowName = Object.keys(fieldInputs).find((key) => fieldInputs[key] === input);
+          const row = rowName ? fieldRows[rowName] : input.parentElement;
+          const host = row || input.parentElement;
+          if (!host || host.querySelector("[data-ai-badge]")) return;
+          if (row) row.setAttribute("data-ai-prefilled", "true");
+          const badge = host.createEl("span", { text: "AI 입력", attr: { "data-ai-badge": "true" } });
+          const prev = input.oninput;
+          input.oninput = () => { badge.remove(); if (row) row.removeAttribute("data-ai-prefilled"); if (prev) prev(); };
+        };
+        for (const name of autofillables()) {
+          const value = cleanText(suggested[name] || "");
+          if (!value || cleanText(fields[name] || "")) continue;
+          const input = fieldInputs[name];
+          if (!input) continue;
+          fields[name] = value;
+          input.value = value;
+          markRow(input);
+        }
+        if (!cleanText(fields.application_trigger || "") && cleanText(item.plan_purpose || "")) {
+          fields.application_trigger = cleanText(item.plan_purpose);
+          const input = fieldInputs.application_trigger;
+          if (input) { input.value = fields.application_trigger; markRow(input); }
+        }
+        invalidate();
+      }
       status = decision.createEl("p", { text: "다음: 승인 및 적용", attr: { role: "status", "data-decision-status": "" } });
       const acceptedLabel = decision.createEl("label"); accepted = acceptedLabel.createEl("input", { attr: { type: "checkbox", "data-review-acknowledgement": "" } }); accepted.checked = false;
       acceptedLabel.createEl("span", { text: "변경 내용과 출처를 확인했습니다." });
@@ -730,7 +793,17 @@
     };
     modal.open(); return modal;
   }
-  const api = Object.freeze({ create, open });
+  // Pure helpers (exported for tests; DOM wiring below consumes them).
+  // ① Auto-fillable save-condition fields. relation_status/evidence_strength
+  // are DECIDED by the human, never prefilled.
+  function autofillables() {
+    return ["knowledge_kind", "knowledge_domain", "knowledge_topics", "application_trigger", "application_contexts", "conditions", "invalidation_conditions", "exclusions", "rationale", "steps", "outcome", "definition"];
+  }
+  // ③ Novelty: no related knowledge means no merge target to choose.
+  function isNovelItem(item) {
+    return !((item && item.related_knowledge) || []).length;
+  }
+  const api = Object.freeze({ create, open, autofillables, isNovelItem });
   root.LLMWikiDocumentCanonicalReview = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

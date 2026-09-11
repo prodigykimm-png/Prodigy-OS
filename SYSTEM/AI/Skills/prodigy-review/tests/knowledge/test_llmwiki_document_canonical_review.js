@@ -2,6 +2,14 @@
 const test = require("node:test"), assert = require("node:assert/strict"), path = require("node:path");
 const V = path.resolve(__dirname, "../../../../../Views");
 const review = require(path.join(V, "llmwiki-document-canonical-review.js"));
+test("pure helpers behave by contract", () => {
+  assert.deepEqual(review.autofillables().sort(), ["application_contexts", "application_trigger", "conditions", "definition", "exclusions", "invalidation_conditions", "knowledge_domain", "knowledge_kind", "knowledge_topics", "outcome", "rationale", "steps"].sort());
+  assert.equal(review.autofillables().includes("relation_status"), false);
+  assert.equal(review.autofillables().includes("evidence_strength"), false);
+  assert.equal(review.isNovelItem({ related_knowledge: [] }), true);
+  assert.equal(review.isNovelItem({}), true);
+  assert.equal(review.isNovelItem({ related_knowledge: [{ title: "x" }] }), false);
+});
 const store = require(path.join(V, "knowledge-candidate-store.js"));
 const hash = require(path.join(V, "llmwiki-hash.js"));
 const jobs = require(path.join(V, "llmwiki-batch-job-store.js"));
@@ -324,10 +332,14 @@ test('new review reuses actual analysis text only after selection and offers reg
  class Modal{constructor(){this.contentEl=new FakeElement('section');}open(){this.ready=this.onOpen();}}
  const modal=review.open({app,Modal,item:a});await modal.ready;
  const input=name=>find(modal.contentEl,n=>n.attr?.['data-review-field']===name)[0];
- assert.equal(input('conditions').value,'');assert.equal(input('application_trigger').value,'');
+ assert.equal(input('conditions').value,'');
+ assert.equal(input('application_trigger').value,a.plan_purpose);
+ assert.equal(find(modal.contentEl,n=>n.attr?.['data-ai-badge']==='true').length,1);
  const choose=find(modal.contentEl,n=>n.attr?.['data-analysis-reuse']==='conditions')[0];choose.value='0';choose.onchange();assert.equal(input('conditions').value,a.grounded_claims[0].text);
  choose.value='0';choose.onchange();assert.equal(input('conditions').value,a.grounded_claims[0].text);
  find(modal.contentEl,n=>n.tag==='button'&&n.text===`분석된 사용 목적 사용: ${a.plan_purpose}`)[0].onclick();assert.equal(input('application_trigger').value,a.plan_purpose);
+ input('application_trigger').value='수정한 사용 계기';input('application_trigger').oninput();
+ assert.equal(find(modal.contentEl,n=>n.attr?.['data-ai-badge']==='true').length,0);
  input('knowledge_domain').value='coding';input('knowledge_domain').oninput();
  const topics=find(modal.contentEl,n=>n.attr?.['data-topic-options']==='true')[0];assert.ok(topics.children.some(n=>n.attr?.value==='ai'));
  topics.value='ai';topics.onchange();assert.equal(input('knowledge_topics').value,'ai');
