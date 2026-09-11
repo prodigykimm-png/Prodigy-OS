@@ -664,38 +664,49 @@
       showKindFields();
       // ① Auto-fill empty save-condition fields from the proposal's own
       // analysis values. relation_status/evidence_strength are never
-      // prefilled: the human decides them. Prefilled rows are marked; any
-      // edit clears the mark.
-      if (!viewState.aiPrefilled) {
-        viewState.aiPrefilled = true;
-        const cleanText = (value) => String(value || "").trim();
-        const suggested = defaults(item);
-        const markRow = (input) => {
-          const rowName = Object.keys(fieldInputs).find((key) => fieldInputs[key] === input);
-          const row = rowName ? fieldRows[rowName] : input.parentElement;
-          const host = row || input.parentElement;
-          if (!host || host.querySelector("[data-ai-badge]")) return;
-          if (row) row.setAttribute("data-ai-prefilled", "true");
-          const badge = host.createEl("span", { text: "AI 입력", attr: { "data-ai-badge": "true" } });
-          const prev = input.oninput;
-          input.oninput = () => { badge.remove(); if (row) row.removeAttribute("data-ai-prefilled"); if (prev) prev(); };
-        };
-        for (const name of autofillables()) {
-          const value = cleanText(suggested[name] || "");
-          if (!value || cleanText(fields[name] || "")) continue;
-          const input = fieldInputs[name];
-          if (!input) continue;
-          fields[name] = value;
-          input.value = value;
-          markRow(input);
-        }
-        if (!cleanText(fields.application_trigger || "") && cleanText(item.plan_purpose || "")) {
-          fields.application_trigger = cleanText(item.plan_purpose);
-          const input = fieldInputs.application_trigger;
-          if (input) { input.value = fields.application_trigger; markRow(input); }
-        }
-        invalidate();
+      // prefilled: the human decides them. Records live in viewState (not
+      // DOM) so re-renders re-mark untouched values instead of losing them.
+      const cleanText = (value) => String(value || "").trim();
+      if (!viewState.aiPrefilled) viewState.aiPrefilled = {};
+      const recorded = viewState.aiPrefilled;
+      let filledThisRender = false;
+      const suggested = defaults(item);
+      if (!cleanText(suggested.application_trigger || "") && cleanText(item.plan_purpose || "")) {
+        suggested.application_trigger = cleanText(item.plan_purpose);
       }
+      const markRow = (input) => {
+        const rowName = Object.keys(fieldInputs).find((key) => fieldInputs[key] === input);
+        const row = rowName ? fieldRows[rowName] : input.parentElement;
+        const host = row || input.parentElement;
+        if (!host || host.querySelector("[data-ai-badge]")) return;
+        if (row) row.setAttribute("data-ai-prefilled", "true");
+        const badge = host.createEl("span", { text: "AI 입력", attr: { "data-ai-badge": "true" } });
+        const prev = input.oninput;
+        input.oninput = () => { badge.remove(); if (row) row.removeAttribute("data-ai-prefilled"); if (prev) prev(); };
+      };
+      for (const name of autofillables()) {
+        const input = fieldInputs[name];
+        if (!input) continue;
+        if (!(name in recorded)) {
+          const value = cleanText(suggested[name] || "");
+          if (value && !cleanText(fields[name] || "")) {
+            fields[name] = value;
+            recorded[name] = value;
+            filledThisRender = true;
+          }
+        }
+        if (recorded[name] === undefined) continue;
+        input.value = fields[name];
+        if (input.value === recorded[name]) {
+          markRow(input);
+        } else {
+          // User corrected it, or the control cannot display the value:
+          // drop the record; never submit an unseen AI value.
+          if (fields[name] === recorded[name]) fields[name] = "";
+          delete recorded[name];
+        }
+      }
+      if (filledThisRender) invalidate();
       status = decision.createEl("p", { text: "다음: 승인 및 적용", attr: { role: "status", "data-decision-status": "" } });
       const acceptedLabel = decision.createEl("label"); accepted = acceptedLabel.createEl("input", { attr: { type: "checkbox", "data-review-acknowledgement": "" } }); accepted.checked = false;
       acceptedLabel.createEl("span", { text: "변경 내용과 출처를 확인했습니다." });
