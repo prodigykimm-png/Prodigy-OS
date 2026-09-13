@@ -374,8 +374,14 @@ function compositeKeys(core, record) {
     });
   }
 
+  function isMobileApp(app) {
+    return !!(app && app.isMobile);
+  }
+
   function autoRegister() {
     if (!root.app || root[STARTUP_GUARD_KEY]) return root[STARTUP_GUARD_KEY] || null;
+    // 모바일은 읽기 전용: Mac이 계산한 스냅샷 파일을 그대로 사용하므로 CSV 감시를 등록하지 않는다
+    if (isMobileApp(root.app)) return null;
     const handle = register(root.app);
     root[STARTUP_GUARD_KEY] = handle;
     return handle;
@@ -393,6 +399,7 @@ function compositeKeys(core, record) {
     STARTUP_GUARD_KEY,
     resolveCore,
     isInputCsv,
+    isMobileApp,
     processPending,
     register,
     autoRegister

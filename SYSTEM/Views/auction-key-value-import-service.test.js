@@ -371,8 +371,23 @@ function testElectronCoreResolutionUsesVaultPath() {
   ]);
 }
 
+function testMobileStartupSkipsWatcher() {
+  const previousApp = globalThis.app;
+  delete globalThis[service.STARTUP_GUARD_KEY];
+  globalThis.app = { isMobile: true, vault: new MemoryVault() };
+  try {
+    assert.equal(service.autoRegister(), null);
+    assert.equal(globalThis[service.STARTUP_GUARD_KEY], undefined);
+  } finally {
+    if (previousApp === undefined) delete globalThis.app;
+    else globalThis.app = previousApp;
+    delete globalThis[service.STARTUP_GUARD_KEY];
+  }
+}
+
 Promise.resolve()
   .then(testElectronCoreResolutionUsesVaultPath)
+  .then(testMobileStartupSkipsWatcher)
   .then(testCardWinningBidsMergeWithDedupe)
   .then(testPendingCsvIsMergedAndArchived)
   .then(testInvalidCsvIsLeftForCorrection)
