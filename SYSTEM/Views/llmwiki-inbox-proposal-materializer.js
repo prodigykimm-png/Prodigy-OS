@@ -179,6 +179,18 @@
       ...(quotes.length === 1 ? { evidence_quote: quotes[0] } : {}),
     });
   }
+  function citationsForDocument(source, document) {
+    const rows = document.citations || [];
+    const bySource = new Map();
+    for (const citation of rows) {
+      const key = `${citation.source_id}:${citation.content_hash}`;
+      bySource.set(key, [...(bySource.get(key) || []), citation]);
+    }
+    return bySource.size ? [...bySource.values()].map(citations => citationForDocument({
+      source_id: citations[0].source_id, content_hash: citations[0].content_hash,
+      source_path: citations[0].source_path || citations[0].locators?.[0],
+    }, { citations })) : [citationForDocument(source, document)];
+  }
   function documentUnitId(source, document) {
     return `document_${sha(JSON.stringify([source.source_id, document.role, document.title, document.matched_candidate_ids || [], document.claims])).slice(0, 24)}`;
   }
@@ -194,7 +206,7 @@
     const path = `${LITERATURE_DIR}/${unitId}.md`;
     const built = finalizeOperation(baseOperation({
       kind: "create", destination_ids: [path], after_bytes: { [path]: document.body },
-      citation: citationForDocument(source, document), risk_tier: "low",
+      citations: citationsForDocument(source, document), risk_tier: "low",
     }), unitId, "create", "literature");
     if (!built.ok) return built;
     return freeze({ ok: true, value: freeze({ title: document.title, class: "create", selected: false, unit_id: unitId, document, decision: routed.value, ...built.value }) });
@@ -229,9 +241,9 @@
     if (!mutation.ok) return mutation;
     if (mutation.value.kind === "hold") return holdFor({ unit_id: unitId, item: document }, mutation.value.reason);
     if (mutation.value.kind === "no_change") return holdFor({ unit_id: unitId, item: document }, mutation.value.reason);
-    const citation = citationForDocument(source, document);
+    const citations = citationsForDocument(source, document);
     const conflicts = document.review_reasons.length > 0 && rows.length > 0
-      ? [{ conflict_id: `conflict_${sha(`${unitId}:conflict`).slice(0, 24)}`, status: "unresolved", source_ids: [citation.source_id], summary: document.review_reasons[0] }]
+      ? [{ conflict_id: `conflict_${sha(`${unitId}:conflict`).slice(0, 24)}`, status: "unresolved", source_ids: citations.map(citation => citation.source_id), summary: document.review_reasons[0] }]
       : [];
     let kind;
     let template;
@@ -241,12 +253,12 @@
       template = baseOperation({
         kind, destination_ids: [row.path],
         base_revisions: { [row.path]: row.revision }, before_bytes: { [row.path]: row.before_bytes },
-        after_bytes: { [row.path]: mutation.value.after_bytes }, citation, conflicts, risk_tier: conflicts.length > 0 ? "high" : "medium",
+        after_bytes: { [row.path]: mutation.value.after_bytes }, citations, conflicts, risk_tier: conflicts.length > 0 ? "high" : "medium",
       });
     } else {
       kind = "create";
       const path = `${CANDIDATE_DIR}/${unitId}.md`;
-      template = baseOperation({ kind, destination_ids: [path], after_bytes: { [path]: document.body }, citation, risk_tier: "low" });
+      template = baseOperation({ kind, destination_ids: [path], after_bytes: { [path]: document.body }, citations, risk_tier: "low" });
     }
     const built = finalizeOperation(template, unitId, kind, "knowledge_candidate");
     if (!built.ok) return built;
@@ -295,6 +307,7 @@
         if (!plain(artifact) || Object.keys(artifact).some(key => !["chunk_key", "outcome", "items"].includes(key))
           || !ID.test(String(artifact.chunk_key || "")) || !OUTCOMES.includes(artifact.outcome) || !Array.isArray(artifact.items) || artifact.items.length > 8) return fail("invalid_compact_artifact");
         const documentItems = [];
+        const itemIndices = [];
         for (let position = 0; position < artifact.items.length; position += 1) {
           const checked = validateItem(artifact.items[position]);
           if (!checked.ok) return checked;
@@ -317,13 +330,16 @@
             continue;
           }
           for (const id of itemRow.related_candidate_ids) if (!allowed.has(id)) return fail("candidate_id_not_allowed");
-          documentItems.push(itemRow);
+          // Internal handoff metadata, not additional provider fields: holds
+          // must not renumber occurrences, and validated labels stay verbatim.
+          documentItems.push({ ...itemRow, ...(itemRow.topic ? { topic: artifact.items[position].topic } : {}) });
+          itemIndices.push(position);
         }
-        documentArtifacts.push(freeze({ chunk_key: artifact.chunk_key, outcome: artifact.outcome, items: documentItems }));
+        documentArtifacts.push(freeze({ chunk_key: artifact.chunk_key, outcome: artifact.outcome, items: documentItems, item_indices: itemIndices }));
       }
       const assembled = documentAssembler.assemble({ source, artifacts: documentArtifacts });
       if (!assembled.ok) return fail(assembled.reason || "document_assembly_failed");
-      for (const document of assembled.documents) {
+      for (const document of input.defer_document_proposals === true ? [] : assembled.documents) {
         const proposed = document.role === "source_summary"
           ? literatureProposal(document, source)
           : candidateProposal(document, source, related);
@@ -335,15 +351,19 @@
         hold_id: `hold_${sha(JSON.stringify([source.source_id, hold.role, hold.reason, holds.length])).slice(0, 24)}`,
         reason: hold.reason, role: hold.role, review_reasons: [], selected: false,
       }));
-      return freeze({ ok: true, proposals, para_drafts, holds, no_changes: assembled.no_changes || [] });
+      return freeze({ ok: true, proposals, para_drafts, holds, no_changes: assembled.no_changes || [], documents: assembled.documents });
     }
     function materializeDocuments(input) {
       if (!plain(input) || !plain(input.source) || !Array.isArray(input.documents)) return fail("compiled_documents_required");
       const source = input.source;
       if (!ID.test(String(source.source_id || "")) || !HASH.test(String(source.content_hash || ""))
         || typeof source.source_path !== "string" || source.source_path.length === 0) return fail("invalid_source_citation");
+      if (input.sources !== undefined && (!Array.isArray(input.sources) || input.sources.length === 0
+        || input.documents.some(document => (document.citations || []).some(citation => !input.sources.some(selected =>
+          selected.source_id === citation.source_id && selected.content_hash === citation.content_hash))))) return fail("unselected_document_source");
+      const documents = input.sources ? documentAssemblerApi.combineTargetDocuments(input.documents) : input.documents;
       const linkTargets = new Map();
-      for (const document of input.documents) {
+      for (const document of documents) {
         if (!plain(document) || document.role !== "reusable_claim" || typeof document.title !== "string") continue;
         const matchedIds = Array.isArray(document.matched_candidate_ids) ? document.matched_candidate_ids : [];
         const matchedRows = matchedIds.map((id) => related.find((candidate) => candidate.candidate_id === id)).filter(Boolean);
@@ -356,7 +376,7 @@
       }
       const proposals = [];
       const holds = [];
-      for (const document of input.documents) {
+      for (const document of documents) {
         if (!plain(document) || !["source_summary", "reusable_claim"].includes(document.role)
           || typeof document.title !== "string" || typeof document.body !== "string"
           || !Array.isArray(document.claims) || !Array.isArray(document.citations)) return fail("invalid_compiled_document");

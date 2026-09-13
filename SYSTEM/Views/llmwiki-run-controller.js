@@ -554,6 +554,7 @@
     }
 
     async function startRun(command) {
+      command = frozen(clone(command));
       if (!plain(command) || !ID.test(trim(command.run_id))) return rejectWithoutMutation("invalid_run_id", { status: "failed" });
       if (!explicitSources(command)) return rejectWithoutMutation("explicit_source_selection_required", { status: "failed" });
       const provider = providerSelection(command, options.app, options.ai_client);
@@ -621,6 +622,7 @@
       let consentArtifact = null;
       const analyzed = await options.analyze_batch({
         command: clone(command),
+        independent_sources: command.sources.length > 1,
         provider: provider.value,
         signal: token.abort_controller && token.abort_controller.signal,
       });
@@ -629,7 +631,8 @@
       if (!analyzed || analyzed.ok !== true) {
         state.dispatch({ type: "provider_failed", run_id: command.run_id });
         invalidateToken("run_failed");
-        return reject(analyzed && analyzed.reason || "batch_analysis_failed", { provider_mode: provider.value.mode });
+        return reject(analyzed && analyzed.reason || "batch_analysis_failed", { provider_mode: provider.value.mode,
+          source_results: clone(analyzed?.source_results || []), remaining_source_ids: clone(analyzed?.remaining_source_ids || []) });
       }
       consentArtifact = { consent_hash: analyzed.consent_hash || consentCommandHash };
       const proposals = analyzed.proposals;
@@ -639,7 +642,7 @@
         current = { ...current, proposals: clone(proposals), filtered_kinds: proposals.filter((proposal) => !typedRiskProposals.includes(proposal)).map((proposal) => proposal.kind), consent_hash: consentArtifact.consent_hash };
         const opened = openPreparedRiskReview({ run_id: command.run_id, proposals: typedRiskProposals });
         if (!opened.ok) return rejectWithoutMutation(opened.reason, { status: opened.status || "review_only" });
-        return output(true, "review", { provider_mode: provider.value.mode, risk_packets: riskCoordinator.getSnapshot().risk_packets, batch_metrics: clone(analyzed.metrics || {}), batch_id: analyzed.batch_id || null, job_id: analyzed.job_id || analyzed.batch_id || null, source_groups: clone(analyzed.source_groups || []) });
+        return output(true, "review", { provider_mode: provider.value.mode, risk_packets: riskCoordinator.getSnapshot().risk_packets, batch_metrics: clone(analyzed.metrics || {}), batch_id: analyzed.batch_id || null, job_id: analyzed.job_id || analyzed.batch_id || null, source_groups: clone(analyzed.source_groups || []), source_results: clone(analyzed.source_results || []), remaining_source_ids: clone(analyzed.remaining_source_ids || []), reason: analyzed.reason || "" });
       }
       const creates = proposals.filter((proposal) => proposal.kind === "create");
       const filteredKinds = proposals.filter((proposal) => proposal.kind !== "create").map((proposal) => proposal.kind);

@@ -70,7 +70,7 @@
       && extractedText.charCodeAt(end) >= 0xdc00 && extractedText.charCodeAt(end) <= 0xdfff);
   }
 
-  function analysisTextFor(source) { return source.analysis_text === undefined ? source.extracted_text : source.analysis_text; }
+  function analysisTextFor(source) { return source.scope ? source.extracted_text.slice(source.scope.start, source.scope.end) : source.analysis_text === undefined ? source.extracted_text : source.analysis_text; }
   function analysisModeFor(sources) {
     const routingCount = sources.filter((source) => source.analysis_text !== undefined).length;
     if (routingCount !== 0 && routingCount !== sources.length) throw new TypeError("mixed_analysis_mode");
@@ -85,6 +85,12 @@
       if (typeof item.source_path !== "string" || !["INBOX/", "ZETA/FLEETING/", "ZETA/LITERATURE/"].some((prefix) => item.source_path.startsWith(prefix))) throw new TypeError("invalid_source_path");
       if (typeof item.extracted_text !== "string" || item.extracted_text.length === 0) throw new TypeError("invalid_source_text");
       if (item.content_hash !== undefined && item.content_hash !== sha(item.extracted_text)) throw new TypeError("source_hash_mismatch");
+      if (item.scope) {
+        if (item.analysis_text !== undefined) throw new TypeError("mixed_analysis_mode");
+        scopeApi.createAnalysisScope({ source_id: item.source_id, source_path: item.source_path,
+          content_hash: sha(item.extracted_text), source_text: item.extracted_text, selection: item.scope });
+        if (item.scope.content_hash !== sha(analysisTextFor(item))) throw new TypeError("source_scope_hash_mismatch");
+      }
       if (item.analysis_text !== undefined && !validAnalysisText(item.extracted_text, item.analysis_text)) throw new TypeError("invalid_analysis_text");
       seen.add(item.source_id);
     }
@@ -188,21 +194,95 @@
     const jobStore = options.jobStore;
     if (!jobStore) throw new TypeError("job_store_required");
     if (!options.provider || typeof options.provider !== "function") throw new TypeError("provider_required");
-    const identity = options.identity;
+    const provider = options.provider;
+    const identity = freeze(options.identity);
     if (!identity || ["provider_key", "model", "structured_mode", "schema_id", "prompt_version"].some((field) => typeof identity[field] !== "string" || !identity[field])) throw new TypeError("invalid_identity");
     const cache = options.cache || cacheApi.createAnalysisCache({ vault: options.vault, statePath: options.cachePath });
     const coverage = options.coverage || coverageApi.createChunkCoverageStore({ vault: options.vault, statePath: options.coveragePath });
     const retryFlights = new Map();
 
     async function analyze(input = {}) {
+      input = { ...freeze({ ...input, signal: undefined }), signal: input.signal };
+      const execute = options.client && input.independent_sources === true ? runWithFrozenProvider : input.independent_sources === true ? runIndependentSources : analyzeInternal;
       if (input.explicit_retry === true && typeof input.retry_intent_id === "string" && input.retry_intent_id) {
         const existing = retryFlights.get(input.retry_intent_id);
         if (existing) return existing;
-        const flight = analyzeInternal(input).finally(() => retryFlights.delete(input.retry_intent_id));
+        const flight = execute(input).finally(() => retryFlights.delete(input.retry_intent_id));
         retryFlights.set(input.retry_intent_id, flight);
         return flight;
       }
-      return analyzeInternal(input);
+      return execute(input);
+    }
+
+    // Runtime owns routing. Bind its public identity/epoch, and stop instead
+    // of silently using changed settings. Recheck at the client boundary too,
+    // after the consumer's asynchronous consent check and before transmission.
+    function runWithFrozenProvider(input) {
+      const client = options.client;
+      const snapshot = () => {
+        const selected = client.resolveProvider("wiki.batch_analysis");
+        return { selected, profile: client.listProviders().find(row => row.profile_id === selected.profile_id),
+          model: client.listModels().find(row => row.profile_id === selected.profile_id), handshake: client.getHandshake() };
+      };
+      const selected = freeze(snapshot());
+      if (!selected.profile || !selected.model?.model) return fail("provider_unavailable");
+      const ready = () => stable(snapshot()) === stable(selected);
+      const guardedClient = { ...client, requestStructured(request) {
+        return ready() ? client.requestStructured(request) : Promise.resolve({ ok: false, error_code: "provider_settings_changed" });
+      } };
+      return createBatchAnalyzer({ ...options, client: null, cache, coverage,
+        identity: { ...identity, provider_key: selected.profile.provider_key, model: selected.model.model },
+        providerReady: ready,
+        provider: (request, context) => ready()
+          ? provider(request, { ...context, client: guardedClient })
+          : { ok: false, reason: "provider_settings_changed", provider_call_count: 0 },
+      }).analyze(input);
+    }
+
+    // The existing pack runner owns dequeueing. Each independent item retains
+    // its own durable job and request key; review is not a queue barrier.
+    async function runIndependentSources(input) {
+      try { validateSources(input.sources); } catch (error) { return fail(error.message); }
+      const results = [], metrics = baseMetrics();
+      const shared = new Set(["provider_auth_required", "provider_transport_error", "provider_unavailable",
+        "provider_outcome_unknown", "outcome_unknown", "provider_quota_exhausted", "provider_rate_limited",
+        "provider_executable_not_found", "provider_aborted", "provider_settings_changed", "cancelled"]);
+      let stopped = null;
+      for (const source of input.sources) {
+        if (input.signal?.aborted) { stopped = "cancelled"; break; }
+        if (options.providerReady && !options.providerReady()) { stopped = "provider_settings_changed"; break; }
+        const durable = await jobStore.load();
+        const complete = Object.values(durable.jobs).reverse().find(job =>
+          ["review_ready", "resolved"].includes(job.status) && Object.keys(job.sources).length === 1
+          && job.sources[source.source_id] === sha(source.extracted_text));
+        const result = complete
+          ? { ok: true, state: complete.status, job_id: complete.job_id, batch_id: complete.batch_id,
+            request_key: complete.request_key, metrics: baseMetrics() }
+          : await analyzeInternal({ ...input, sources: [source],
+            whole_source_units: (input.whole_source_units || []).filter(row => row.source_id === source.source_id) });
+        const reason = result.reason || jobStore.getJob(result.job_id)?.failure_reason || result.state;
+        results.push({ ...result, source_id: source.source_id, ...(reason ? { reason } : {}) });
+        for (const key of Object.keys(metrics)) metrics[key] += Number(result.metrics?.[key] || 0);
+        if (shared.has(reason)) { stopped = reason; break; }
+      }
+      const successes = results.filter(row => row.ok && ["review_ready", "resolved"].includes(row.state));
+      const projection = projectCandidates(input.candidates);
+      const frozenIdentity = { ...identity,
+        prompt_version: analysisModeFor(input.sources) === SOURCE_ROUTING_MODE ? `${identity.prompt_version}:source_routing_v1` : identity.prompt_version,
+        candidate_context_hash: sha(stable(projection.outbound)) };
+      const requestKey = storeApi.requestKey(frozenIdentity);
+      const sources = input.sources.map(source => ({ source_id: source.source_id, revision_hash: sha(source.extracted_text) }));
+      const parent = input.explicit_retry === true ? await jobStore.findRetryParent(sources) : null;
+      const job = parent
+        ? await jobStore.claimExplicitRetry({ retry_parent_job_id: parent.job_id, retry_intent_id: input.retry_intent_id,
+          request_key: requestKey, frozen_identity: frozenIdentity, sources })
+        : await jobStore.createJob({ request_key: requestKey, frozen_identity: frozenIdentity, sources });
+      if (input.sources.length > 1 && !["blocked", "outcome_unknown", "resolved"].includes(job.status)) await jobStore.setJobState(job.job_id,
+        stopped ? stopped.includes("unknown") ? "outcome_unknown" : "blocked" : successes.length ? "review_ready" : "blocked", stopped || "");
+      return freeze({ ok: successes.length > 0, state: successes.length ? "review_ready" : "blocked",
+        ...(stopped ? { reason: stopped } : {}), job_id: job.job_id, batch_id: job.batch_id, request_key: requestKey,
+        source_results: results, remaining_source_ids: input.sources.slice(results.length).map(source => source.source_id),
+        metrics, outbound_candidates: projection.outbound, ranked_candidate_count: projection.ranked.length });
     }
 
     async function analyzeInternal(input = {}) {
@@ -355,7 +435,7 @@
           }
           let response;
           try {
-            response = await options.provider(freeze({
+            response = await provider(freeze({
               outbound_allowed: true,
               run_id: job.job_id,
               mode,
@@ -396,7 +476,7 @@
           }
           if (!response.ok) {
             const interrupted = ["provider_outcome_unknown", "outcome_unknown"].includes(response.reason);
-            await jobStore.setJobState(job.job_id, interrupted ? "outcome_unknown" : "blocked");
+            await jobStore.setJobState(job.job_id, interrupted ? "outcome_unknown" : "blocked", response.reason || "provider_unavailable");
             return freeze({
               ok: false,
               reason: response.reason || "provider_unavailable",

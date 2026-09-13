@@ -46,7 +46,11 @@
     const step = exactStep(context.plan, "canonical");
     const request = context.data.private_steps[0].request;
     const canonicalAdapter = obsidianApi.createObsidianAdapter(context.adapter.app);
-    const committed = await writerApi.commitApprovedCanonicalV2({ packet: request.packet, authorization: request.authorization, adapter: canonicalAdapter }, context.options);
+    // In-place adoption of an existing legacy target is an update packet and must
+    // commit through the canonical update authority, never the create-only one.
+    const committed = request.packet.operation.proposal_kind === "update"
+      ? await writerApi.commitApprovedUpdate({ packet: request.packet, authorization: request.authorization, adapter: canonicalAdapter }, context.options)
+      : await writerApi.commitApprovedCanonicalV2({ packet: request.packet, authorization: request.authorization, adapter: canonicalAdapter }, context.options);
     if (!committed?.ok || committed.status !== "committed" || !await exactBytes(context.adapter, step)) return committed?.reason || "canonical_finalize_failed";
     const authorities = await canonicalAdapter.readFinalizedCanonicalAuthorities();
     const receipt = authorities.find((value) => {

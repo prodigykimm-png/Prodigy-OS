@@ -35,7 +35,13 @@
       .find((data) => data && data.canonical_id === approval.canonical_id && core.plain(data.canonical_v2_authority));
     const creating = packet.operation.proposal_kind === "create";
     const approvedAuthority = approval.canonical_v2_authority || approval.authority;
-    if (!priorData && (!creating || !approvedAuthority)) return null;
+    if (!priorData && !approvedAuthority) return null;
+    // A create mints the first authority for a new path. An update may also mint
+    // the first authority when the target was not yet a v2 document (M1 legacy
+    // adoption) and the update carries a branded v2 authorization. An update over
+    // existing v2 bytes without a prior authority stays refused, so this never
+    // permits replacing a finalized canonical identity at a path.
+    if (!priorData && !creating && core.v2Document({ after_bytes: packet.before_bytes })) return null;
     if (priorData && priorData.packet_hash === packet.packet_hash && priorData.authorization_hash === approval.authorization_hash
       && priorData.revision === packet.after_sha256) {
       if (options.prepareOnly || await adapter.readBytes(packet.target_path) !== packet.after_bytes) return bridgePending(packet, "stale_before_write");
@@ -50,6 +56,10 @@
       try { existing = await adapter.readReceipt(nonce); }
       catch (_) { return bridgePending(packet, "authority_audit_read_failed"); }
     }
+    // R4 ambiguity is already covered above: a repeated revision with no write-ahead record
+    // cannot mint an authority (the prior-authority branch returns outcome_unknown first).
+    // A first-time update must still write its own operation record here, so no blanket
+    // no-receipt refusal is applied.
     if (existing) {
       if (existing.packet_hash !== packet.packet_hash || existing.authorization_hash !== approval.authorization_hash
         || existing.after_sha256 !== packet.after_sha256 || existing.before_sha256 !== packet.before_sha256
@@ -150,8 +160,8 @@
     };
     let recorded;
     try { recorded = await compensationApi.create({ adapter, now: () => committedAt }).recordCompletedCommit({ original_receipt: originalReceipt }); }
-    catch (_) { return bridgePending(packet, "immutable_audit_append_failed"); }
-    if (!recorded || recorded.ok !== true) return bridgePending(packet, recorded && recorded.reason || "immutable_audit_append_failed");
+    catch (_) { return bridgePending(packet, "immutable_audit_append_failed", { repair }); }
+    if (!recorded || recorded.ok !== true) return bridgePending(packet, recorded && recorded.reason || "immutable_audit_append_failed", { repair });
     const trust = root.LLMWikiCanonicalTrust || (typeof require === "function" ? require("./llmwiki-canonical-trust.js") : null);
     try {
       const live = await adapter.readCanonical(packet.target_path);

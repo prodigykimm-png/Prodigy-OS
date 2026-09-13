@@ -65,7 +65,7 @@
     }
     return node;
   }
-  const FIELD_LABELS = Object.freeze({ knowledge_kind: "지식 종류", classification: "내용 성격", knowledge_domain: "분야", knowledge_topics: "주제", application_trigger: "사용할 때", application_contexts: "사용 맥락", conditions: "적용 범위", invalidation_conditions: "다시 검토할 조건", exclusions: "예외·금지사항", rationale: "원칙의 근거", steps: "절차", outcome: "기대 결과", definition: "개념 정의", relation_status: "기존 지식과의 관계", evidence_strength: "근거 수준" });
+  const FIELD_LABELS = Object.freeze({ knowledge_kind: "지식 종류", classification: "이 내용의 쓰임", knowledge_domain: "분야", knowledge_topics: "주제", application_trigger: "언제 쓰나요?", application_contexts: "어디에 쓰나요?", conditions: "어떤 조건에서만 맞나요?", invalidation_conditions: "무엇이 바뀌면 다시 봐야 하나요?", exclusions: "예외·금지사항", rationale: "왜 이렇게 해야 하나요?", steps: "절차", outcome: "기대 결과", definition: "개념 정의", relation_status: "이미 알고 있던 내용과 같은가요?", evidence_strength: "근거가 얼마나 탄탄한가요?" });
   function metadataEntries(raw) {
     const entries = new Map(); let key = "";
     for (const line of String(raw).split("\n")) {
@@ -159,8 +159,34 @@
     const decision = el(frame, "footer", "", { class: "wiki-decision-bar", "aria-label": "다음 작업", "data-wiki-decision": "" });
     const toolbar = el(shell.workspaceBar, "div", "", { class: "wiki-toolbar-actions" });
     const add = button(toolbar, "＋ 자료 추가", "wiki-add-material", () => api.onCapture?.());
-    const more = el(toolbar, "details", "", { class: "wiki-more" }); el(more, "summary", "더 보기");
-    const moreBody = el(more, "div", "", { class: "wiki-more-body" });
+    const more = button(toolbar, "더 보기", "wiki-open-more", () => openMore());
+    // A larger panel instead of a small anchored dropdown: the owner must be able to read the actions,
+    // tell them apart from the document behind, and check the document while the panel is open.
+    const moreOverlay = el(shell.element, "div", "", { class: "wiki-more-overlay", "aria-hidden": "true", hidden: "true" });
+    const morePanel = el(moreOverlay, "section", "", { class: "wiki-more-panel", role: "dialog", "aria-modal": "true", "aria-label": "지식 도구" });
+    const moreHead = el(morePanel, "header", "", { class: "wiki-more-header" });
+    el(moreHead, "h2", "지식 도구", { class: "wiki-more-title" });
+    const moreClose = button(moreHead, "닫기", "wiki-close-more", () => closeMore());
+    attr(moreClose, "aria-label", "닫기");
+    const moreBody = el(morePanel, "div", "", { class: "wiki-more-body" });
+    const MORE_HINTS = {
+      scan_inbox: "새로 들어온 자료를 한 번에 분석합니다",
+      review_fleeting: "저장만 해둔 생각을 정리해 지식으로 만듭니다",
+      scan_migration: "새 형식이 아닌 기존 노트를 찾아 이관을 준비합니다",
+    };
+    function decorateMore() {
+      const children = moreBody.children ? Array.prototype.slice.call(moreBody.children) : [];
+      for (const child of children) {
+        if (!child || child.tagName !== "BUTTON") continue;
+        const hint = MORE_HINTS[child.getAttribute ? child.getAttribute("data-action") : ""];
+        if (!hint || child.querySelector?.(".wiki-more-hint")) continue;
+        el(child, "span", hint, { class: "wiki-more-hint" });
+      }
+    }
+    function openMore() { moreOverlay.hidden = false; attr(moreOverlay, "aria-hidden", "false"); decorateMore(); moreClose.focus?.(); }
+    function closeMore() { moreOverlay.hidden = true; attr(moreOverlay, "aria-hidden", "true"); more.focus?.(); }
+    moreOverlay.onclick = event => { if (event.target === moreOverlay) closeMore(); };
+    moreOverlay.onkeydown = event => { if (event.key === "Escape") { event.preventDefault?.(); closeMore(); } };
     // Extend the existing 지식 switcher, rather than inventing another menu.
     const oldSwitch = shell.switcher.onchange;
     [["zettelkasten", "제텔카스텐"], ["para", "PARA"]].forEach(([id, label]) => el(shell.switcher, "option", label, { value: `knowledge:${id}` }));
@@ -174,6 +200,7 @@
       setActive(tab, route) {
         const enabled = ["llmwiki", "llmwiki-browse"].includes(tab);
         frame.hidden = !enabled; toolbar.hidden = !enabled;
+        if (!enabled) closeMore();
         attr(shell.element, "data-wiki-active", enabled);
         if (shell.title.setText) shell.title.setText(enabled ? "Prodigy Wiki" : "지식"); else shell.title.textContent = enabled ? "Prodigy Wiki" : "지식";
         active = route || (tab === "llmwiki-browse" ? "library" : "prepare");

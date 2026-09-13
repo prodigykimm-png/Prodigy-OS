@@ -372,8 +372,10 @@
         statusRegion(parent, "기존 자료의 마이그레이션 분류가 준비되었습니다. 승인 전에는 지식을 쓰지 않습니다.");
         const list = createEl(parent, "section", { attr: { class: "llmwiki-lifecycle__migration", "data-state-id": "migration_review", "aria-label": "마이그레이션 검토" } });
         for (const decision of migration.decisions || []) {
-          const row = createEl(list, "article", { attr: { class: "prodigy-utility-card", "data-operation-kind": decision.kind } });
-          createEl(row, "h3", { text: OPERATION_LABELS[decision.kind] || decision.kind });
+          const row = createEl(list, "article", { attr: { class: "prodigy-utility-card", "data-operation-kind": decision.kind, "data-decision-id": decision.decision_id } });
+          createEl(row, "h3", { text: decision.title || decision.path || OPERATION_LABELS[decision.kind] || decision.kind });
+          const descriptor = [OPERATION_LABELS[decision.kind] || decision.kind, decision.path || ""].filter(Boolean).join(" · ");
+          createEl(row, "p", { text: descriptor, attr: { class: "llmwiki-lifecycle__migration-path" } });
           createEl(row, "p", { text: decision.kind === "conflict" ? "충돌을 먼저 해결해야 합니다." : "변경 전후 내용을 확인할 준비가 되었습니다." });
           actionButton(row, decision.kind === "conflict" ? "충돌로 차단됨" : "변경안 검토", "review-migration", { action: "review_migration", decision_id: decision.decision_id }, { disabled: decision.kind === "conflict", primary: decision.kind !== "conflict" });
           if (decision.kind === "conflict") actionButton(row, "새 분류 검사", "migration-conflict-repacket", { action: "scan_migration" }, { primary: true });
@@ -1056,7 +1058,9 @@
       else { const row = createEl(container, "div", { attr: { class: "wiki-journey-row" } }); wikiUI.journey(row, pickerOpen ? { status: "idle" } : snapshot); }
       if (pickerOpen || snapshot.prodigy_wiki?.picker_open) { renderPicker(frame); return frame; }
       if (appliedRisk && retainedRisk) { renderRetainedRisk(frame); return frame; }
-      if (options.renderWorkspaceReview?.(frame, snapshot) === true) return frame;
+      // An explicit migration request (더 보기 -> 기존 자료 검사) must not be preempted by an open
+      // document review; the review returns when its scene is selected again.
+      if (options.auxiliaryScene?.() !== "migration" && options.renderWorkspaceReview?.(frame, snapshot) === true) return frame;
       const inboxScene = projected.productState.startsWith("inbox_");
       const explicitStatePriority = ACTIVE_STATUSES.has(snapshot.status)
         || ["review", "review_only", "stale_reconfirm_required", "committed_audit_pending", "committed_refresh_failed", "compensated", "compensated_audit_pending"].includes(snapshot.status);

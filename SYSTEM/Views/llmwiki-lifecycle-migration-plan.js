@@ -104,7 +104,12 @@
     const request = input.canonical_request;
     if (!plain(request) || !canonicalApi.verifyCanonicalPacket(request.packet)?.ok) return fail("todo11_canonical_packet_required");
     const packet = request.packet;
-    const steps = [step({ kind: "canonical", authority_method: "LLMWikiOperationWriter.commitApprovedCanonicalV2", target_path: packet.target_path, before_bytes: packet.before_bytes || null, after_bytes: packet.after_bytes, finalization: "todo11_immutable_authority" })];
+    // create packets finalize through the canonical v2 authority; adoption of an
+    // existing legacy target is an update and must use the canonical update gate.
+    const authorityMethod = packet.operation.proposal_kind === "update"
+      ? "LLMWikiOperationWriter.commitApprovedUpdate"
+      : "LLMWikiOperationWriter.commitApprovedCanonicalV2";
+    const steps = [step({ kind: "canonical", authority_method: authorityMethod, target_path: packet.target_path, before_bytes: packet.before_bytes || null, after_bytes: packet.after_bytes, finalization: "todo11_immutable_authority" })];
     const privateSteps = [Object.freeze({ request: Object.freeze({ packet: request.packet, authorization: request.authorization }) })];
     if (input.source_action === "supersede" || input.merge_intent === "merge") {
       const merge = input.merge_request;

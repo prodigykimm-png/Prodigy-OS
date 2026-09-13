@@ -15,20 +15,38 @@
     const values = new Map();
     return Object.freeze({ async save(value) { values.set(value.run_id, clone(value)); }, async load(runId) { return clone(values.get(runId) || null); } });
   }
+  function validateOptionalAttempts(value) {
+    if (value?.attempts === undefined) return;
+    const jobs = root.LLMWikiBatchJobStore || (typeof require === "function" ? require("./llmwiki-batch-job-store.js") : null);
+    if (!Array.isArray(value.attempts) || !jobs || !value.attempts.every(jobs.validAttempt)) throw new TypeError("invalid_attempt_record");
+  }
+  function stable(value) {
+    if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+    if (!value || typeof value !== "object") return JSON.stringify(value);
+    return `{${Object.keys(value).filter(key => key !== "outcome_revision").sort().map(key => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
+  }
   function create(store = memoryStore()) {
     let tail = Promise.resolve();
     let revision = 0;
     async function persist(outcome) {
-      revision += 1;
-      const versioned = freeze({ ...clone(outcome), outcome_revision: revision });
-      const pending = tail.then(() => store.save(versioned));
+      validateOptionalAttempts(outcome);
+      const copy = clone(outcome);
+      const pending = tail.then(async () => {
+        const previous = await store.load(copy.run_id);
+        validateOptionalAttempts(previous);
+        if (previous && stable(previous) === stable(copy)) return freeze(clone(previous));
+        revision = Math.max(revision, previous?.outcome_revision || 0) + 1;
+        const versioned = freeze({ ...copy, outcome_revision: revision });
+        await store.save(versioned);
+        return versioned;
+      });
       tail = pending.catch(() => undefined);
-      await pending;
-      return versioned;
+      return pending;
     }
     async function load(runId) {
       await tail;
       const value = await store.load(runId);
+      validateOptionalAttempts(value);
       if (value && Number.isSafeInteger(value.outcome_revision)) revision = Math.max(revision, value.outcome_revision);
       return value;
     }

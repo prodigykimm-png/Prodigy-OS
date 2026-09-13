@@ -110,13 +110,14 @@
       for (const artifact of input.artifacts) {
         if (!plain(artifact) || !Array.isArray(artifact.items)) return freeze({ ok: false, reason: "invalid_document_artifact" });
         if (artifact.outcome === "no_change") continue;
-        for (const item of artifact.items) {
+        for (const [position, item] of artifact.items.entries()) {
+          const itemIndex = artifact.item_indices?.[position] ?? position;
           if (!plain(item) || !Array.isArray(item.claims)) return freeze({ ok: false, reason: "invalid_document_item" });
           if (!ROLES.has(item.role)) {
             holds.push(freeze({ role: item.role || "hold", reason: item.role === "object_context" ? "object_context_outside_document_assembler" : "non_document_role", item }));
             continue;
           }
-          const itemClaims = item.claims.map((claim) => clean(plain(claim) ? claim.text : claim)).filter(Boolean);
+          const itemClaims = item.claims.map((claim, claim_index) => ({ text: clean(plain(claim) ? claim.text : claim), claim_index })).filter((claim) => claim.text);
           if (itemClaims.length === 0) {
             holds.push(freeze({ role: item.role, reason: "empty_claims_hold", item }));
             continue;
@@ -130,8 +131,16 @@
               && row.related_candidate_ids.join("|") === related.join("|")
               && topicSimilarity(row.title, topic) >= 0.6);
           if (!group) {
-            group = { role: item.role, title: topic, related_candidate_ids: related, claims: [], citations: [], review_reasons: [], sections: new Map() };
+            group = { role: item.role, title: topic, related_candidate_ids: related, claims: [], citations: [], review_reasons: [], sections: new Map(), topics: [] };
             groups.push(group);
+          }
+          const itemCitation = citation(source, item);
+          // Preserve every contributing occurrence before claim deduplication.
+          // Text and the item citation are join evidence, not new claim fields.
+          if (clean(item.topic)) {
+            for (const { text, claim_index } of itemClaims) {
+              group.topics.push({ topic: item.topic, chunk_key: artifact.chunk_key, item_index: itemIndex, claim_index, text, citation: itemCitation });
+            }
           }
           group.review_reasons = unique([
             ...group.review_reasons,
@@ -139,7 +148,7 @@
           ]);
           const sectionHeading = group.role === "source_summary" ? topic : group.title;
           const sectionClaims = group.sections.get(sectionHeading) || [];
-          for (const text of itemClaims) {
+          for (const { text } of itemClaims) {
             if (!group.claims.some((claim) => clean(claim.text).toLowerCase() === text.toLowerCase())) {
               const claim = freeze({ text });
               group.claims.push(claim);
@@ -147,7 +156,6 @@
             }
           }
           group.sections.set(sectionHeading, sectionClaims);
-          const itemCitation = citation(source, item);
           if (!group.citations.some((row) => row.evidence_quote === itemCitation.evidence_quote && row.locators.join("|") === itemCitation.locators.join("|"))) {
             group.citations.push(itemCitation);
           }
@@ -170,6 +178,7 @@
             claims: group.claims,
             citations: group.citations,
             review_reasons: group.review_reasons,
+            original_topic_refs: freeze(group.topics.map((row) => freeze({ ...row }))),
             operation_hint: "no_change",
             matched_document_id: canonical.row.document_id,
             matched_path: canonical.row.path || "",
@@ -189,6 +198,7 @@
           claims: group.claims,
           citations: group.citations,
           review_reasons: group.review_reasons,
+          original_topic_refs: freeze(group.topics.map((row) => freeze({ ...row }))),
           related_candidate_ids: group.related_candidate_ids,
           matched_candidate_ids: matchedCandidateIds,
           operation_hint: operationHint,
@@ -202,7 +212,33 @@
     return freeze({ assemble });
   }
 
-  const api = freeze({ CONTRACT_VERSION, renderDocument, createDocumentAssembler });
+  // Only an exact locally resolved target joins documents. Similar titles are
+  // not target authority; ambiguous/multi-target mutations keep their holds.
+  function combineTargetDocuments(documents) {
+    const groups = new Map();
+    for (const document of documents) {
+      const ids = document.matched_candidate_ids || [];
+      const key = document.role === "reusable_claim" && ids.length === 1 ? ids[0] : document;
+      groups.set(key, [...(groups.get(key) || []), document]);
+    }
+    return freeze([...groups.values()].map(rows => {
+      if (rows.length === 1) return rows[0];
+      const first = rows[0];
+      const uniqueRows = values => [...new Map(values.map(row => [JSON.stringify(row), row])).values()];
+      const claims = uniqueRows(rows.flatMap(row => row.claims));
+      const citations = uniqueRows(rows.flatMap(row => row.citations));
+      const sections = rows.flatMap(row => row.sections || []);
+      const reviewReasons = unique(rows.flatMap(row => row.review_reasons || []));
+      const compiled = sections.some(section => Array.isArray(section.paragraphs));
+      const body = compiled
+        ? `# ${first.title}\n\n${sections.map(section => `## ${section.heading}\n\n${(section.paragraphs || []).map(p => p.text).join("\n\n")}`).join("\n\n")}\n\n## 출처\n\n${unique(citations.flatMap(c => c.locators || [])).map(locator => `- ${locator}`).join("\n")}\n`
+        : renderDocument(first.title, first.role, sections, claims, citations, reviewReasons);
+      return { ...first, claims, citations, sections, body, review_reasons: reviewReasons,
+        original_topic_refs: uniqueRows(rows.flatMap(row => row.original_topic_refs || [])) };
+    }));
+  }
+
+  const api = freeze({ CONTRACT_VERSION, renderDocument, combineTargetDocuments, createDocumentAssembler });
   root.LLMWikiDocumentAssembler = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

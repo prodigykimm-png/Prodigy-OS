@@ -500,10 +500,17 @@
       .wiki-decision-bar label { display:flex; align-items:center; gap:8px; margin:0; }
       .wiki-decision-bar [data-decision-actions] { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
       .wiki-toolbar-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
-      .wiki-more { position:relative; }
-      .wiki-more > summary { display:flex; align-items:center; cursor:pointer; }
-      .wiki-more-body { position:absolute; right:0; top:100%; z-index:20; width:280px; max-height:65dvh; overflow-y:auto; padding:12px; background:var(--background-primary); border:1px solid var(--background-modifier-border); }
-      .wiki-more-body button { display:block; width:100%; text-align:left; }
+      .wiki-more-overlay { position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:24px; background:rgba(0,0,0,.28); }
+      .wiki-more-overlay[hidden] { display:none; }
+      .wiki-more-panel { width:min(560px, 94vw); max-height:82dvh; overflow-y:auto; display:grid; gap:10px; padding:18px; background:var(--background-primary); border:1px solid var(--background-modifier-border); border-radius:16px; box-shadow:0 24px 60px rgba(0,0,0,.28); }
+      .wiki-more-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+      .wiki-more-title { margin:0; font-size:16px; font-weight:600; }
+      .wiki-more-body { display:grid; gap:8px; }
+      .wiki-more-body > button { display:grid; gap:2px; width:100%; text-align:left; padding:12px 14px; font-size:15px; border:1px solid transparent; border-radius:12px; background:transparent; }
+      .wiki-more-body > button:hover { background:var(--background-modifier-hover); }
+      .wiki-more-hint { font-size:12.5px; color:var(--text-muted); }
+      .wiki-more-body > details { margin-top:6px; padding-top:10px; border-top:1px solid var(--background-modifier-border); }
+      .wiki-more-body > details > summary { font-size:13px; color:var(--text-muted); }
       .wiki-proposal-selector, .wiki-library-label-narrow { display:none; }
       .wiki-document-body { line-height:1.55; overflow-wrap:anywhere; }
       .wiki-document-body p { white-space:pre-wrap; }

@@ -48,7 +48,22 @@
         const frontmatter = cloneData(metadata && metadata.frontmatter);
         if (frontmatter.canonical_id !== binding.canonical_id) continue;
         const claimSources = new Map(binding.canonical_v2_authority.claim_set.sources.map((source) => [source.source_id, source]));
-        const sources = v2.document.sources.map((source) => ({ ...source, source_revision: claimSources.get(source.source_id).source_revision, locator: typeof source.locator === "string" ? source.locator : source.source_id }));
+        const sources = v2.document.sources.map((source) => {
+          // The structured v2 locator is a span, not a note path. Source-ID
+          // links in these verified bytes are the producer's actual open targets.
+          const links = [...v2.document.body.matchAll(new RegExp(`\\[${source.source_id}\\]\\(([^\\s()]*(?:\\([^\\s()]*\\)[^\\s()]*)*)\\)`, "gu"))];
+          const locators = [];
+          for (const link of links) {
+            let locator;
+            try { locator = decodeURIComponent(link[1]); } catch (_) { continue; }
+            const path = locator.split("#", 1)[0];
+            if (!/\.md$/iu.test(path) || /[\\\\\u0000-\u001f\u007f]/u.test(locator)
+              || /^(?:\/|[a-z]+:)/iu.test(path) || path.split("/").some(part => part === ".." || part === "." || !part)) continue;
+            if (!locators.includes(locator)) locators.push(locator);
+          }
+          return Object.freeze({ ...source, source_revision: claimSources.get(source.source_id).source_revision,
+            locator: locators[0] || source.source_id, locators: Object.freeze(locators) });
+        });
         const row = deps.trust.bindVerifiedRow(Object.freeze({ ...frontmatter, ...v2.document, sources, item_id: frontmatter.item_id || `item_${binding.canonical_id}`, canonical_id: binding.canonical_id, canonical_revision: binding.revision, canonical_bytes: canonical.bytes, path: binding.path, title: frontmatter.title || v2.document.title || file.basename, trust_tier: v2.decision.tier, trust_status: v2.decision.status, trust_receipt: authority }), v2.decision);
         ROWS.add(row); OWNERS.set(row, Object.freeze({ ...binding })); rows.push(row);
         lifecycleRows.push(deps.trust.bindVerifiedRow(Object.freeze({ document_id: binding.canonical_id, canonical_revision: binding.revision, source_ids: Array.isArray(row.sources) ? row.sources.map((source) => source.source_id) : [] }), v2.decision));

@@ -249,12 +249,54 @@ try {
   workspaceBody.classList.add("reading-hub-body");
   if (typeof workspaceBody.setAttr === "function") workspaceBody.setAttr("data-scroll-owner", "reading-workspace-body");
   else if (typeof workspaceBody.setAttribute === "function") workspaceBody.setAttribute("data-scroll-owner", "reading-workspace-body");
-  const readingKnowledge = await window.ReadingContextAdapter.mountResurfacing({
-    app,
-    signal: mountContext.signal,
-    container: workspaceBody
-  });
-  if (readingKnowledge && typeof readingKnowledge.dispose === "function") mountContext.scope.track(readingKnowledge.dispose);
+  const relatedKnowledgeHost = workspaceBody.createDiv({ attr: { "data-reading-related-knowledge": "" } });
+  let readingKnowledge = null;
+  let readingKnowledgeGeneration = 0;
+  const openReadingNote = (path) => {
+    // An explicit open is navigation only; never create a missing note.
+    if (!app.vault.getAbstractFileByPath(path.split("#", 1)[0])) return { ok: false, reason: "source_missing" };
+    return app.workspace.openLinkText(path, file.path, true);
+  };
+  readingMeasurement.updateRelatedKnowledge = (selected) => {
+    const generation = ++readingKnowledgeGeneration;
+    if (readingKnowledge && typeof readingKnowledge.dispose === "function") readingKnowledge.dispose();
+    relatedKnowledgeHost.empty();
+    const path = selected && (selected.path || selected.file && selected.file.path) || null;
+    // Only the Object fields already used by this dashboard travel as context.
+    // This does not authorize source reads, organization, transmission or writes.
+    const snapshot = path ? [{ path, id: selected.id || null, title: selected.title || selected.book_title || "",
+      status: selected.status || null, next_action: selected.next_action || null, progress: selected.progress || null }] : [];
+    readingMeasurement.relatedKnowledgeReady = window.ReadingContextAdapter.mountResurfacing({
+      app,
+      signal: { get aborted() { return mountContext.signal.aborted || generation !== readingKnowledgeGeneration; } },
+      container: relatedKnowledgeHost,
+      selection: path,
+      snapshot,
+      openKnowledge: openReadingNote,
+      openSource: openReadingNote
+    }).then((result) => {
+      if (generation !== readingKnowledgeGeneration || mountContext.signal.aborted) return result;
+      readingKnowledge = result;
+      if (!result.ok) relatedKnowledgeHost.createEl("p", { text: "관련 지식을 불러오지 못했습니다.", attr: { role: "status" } });
+      return result;
+    }).catch((error) => {
+      if (generation === readingKnowledgeGeneration && !mountContext.signal.aborted) relatedKnowledgeHost.createEl("p", { text: "관련 지식을 불러오지 못했습니다.", attr: { role: "alert" } });
+      return { ok: false, reason: String(error.message || error) };
+    });
+    return readingMeasurement.relatedKnowledgeReady;
+  };
+  readingMeasurement.renderReadingCard = (page, parent, mode) => {
+    window.renderReadingCard(page, parent, mode);
+    parent.querySelectorAll("[data-reading-path]").forEach((card) => {
+      if (card.getAttribute("data-reading-path") !== page.file.path) return;
+      const select = () => readingMeasurement.updateRelatedKnowledge(page);
+      card.addEventListener("click", select);
+      card.addEventListener("focusin", select);
+    });
+  };
+  mountContext.scope.track(() => { ++readingKnowledgeGeneration; if (readingKnowledge && typeof readingKnowledge.dispose === "function") readingKnowledge.dispose(); });
+  const currentReading = window.__readingWorkspaceModel;
+  await readingMeasurement.updateRelatedKnowledge(currentReading && currentReading.today && currentReading.today.object);
   ensureReadingHubStyles();
     } }
   });
@@ -397,6 +439,9 @@ const renderDashboard = ({ rows }) => {
       measurement.dataScan = performance.start("data_scan", { scope: "reading" });
     }
   const model = ensureRuntimeModel(true, rows);
+  if (measurement && measurement.updateRelatedKnowledge) {
+    measurement.updateRelatedKnowledge(rows.find(p => p.file && p.file.path === (model && model.focus_path)) || null);
+  }
   const pages = rows.filter(p => p.type === "reading" && p.status === "reading");
     if (performance && measurement && !measurement.dataScanFinished) {
       closeReadingPhase(measurement, "dataScan", "loaded");
@@ -420,7 +465,7 @@ const renderDashboard = ({ rows }) => {
       if (focus && secondPath === focus) return 1;
       return 0;
     });
-    items.forEach((p, index) => window.renderReadingCard(p, listPane, index === 0 ? "hero" : "simple"));
+    items.forEach((p, index) => measurement.renderReadingCard(p, listPane, index === 0 ? "hero" : "simple"));
   };
 
   const renderDetail = (detailPane) => {
@@ -612,7 +657,7 @@ const run = () => {
       const grid = this.container.createEl("div", {
         attr: { class: "reading-card-grid" }
       });
-      pages.forEach(p => window.renderReadingCard(p, grid, "grid"));
+      pages.forEach(p => window.__readingWorkspaceMeasurement.renderReadingCard(p, grid, "grid"));
     }
     return true;
   }
@@ -651,7 +696,7 @@ const run = () => {
         text: "Runtime lifecycle · 오래 갱신되지 않은 읽는 중 책",
         attr: { class: "reading-hub-note" }
       });
-      pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+      pages.forEach(p => window.__readingWorkspaceMeasurement.renderReadingCard(p, this.container, "simple"));
     }
     return true;
   }
@@ -696,7 +741,7 @@ const run = () => {
         text: "진행 75% 이상 · 상태 전환은 직접 결정",
         attr: { class: "reading-hub-note" }
       });
-      pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+      pages.forEach(p => window.__readingWorkspaceMeasurement.renderReadingCard(p, this.container, "simple"));
     }
     return true;
   }
@@ -740,7 +785,7 @@ const run = () => {
           attr: { class: "reading-hub-empty" }
         });
       } else {
-        pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+        pages.forEach(p => window.__readingWorkspaceMeasurement.renderReadingCard(p, this.container, "simple"));
       }
       return true;
     }
@@ -751,7 +796,7 @@ const run = () => {
         attr: { class: "reading-hub-empty" }
       });
     } else {
-      pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+      pages.forEach(p => window.__readingWorkspaceMeasurement.renderReadingCard(p, this.container, "simple"));
     }
     return true;
   }
@@ -841,7 +886,7 @@ const run = () => {
         attr: { class: "reading-hub-empty" }
       });
     } else {
-      pages.forEach(p => window.renderReadingCard(p, this.container, "simple"));
+      pages.forEach(p => window.__readingWorkspaceMeasurement.renderReadingCard(p, this.container, "simple"));
     }
     return true;
   }

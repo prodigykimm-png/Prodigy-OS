@@ -75,15 +75,22 @@
     const relations = Array.isArray(item.relations) ? item.relations.filter((relation) => plain(relation)
       && (relation.workspace === context.workspace || trim(relation.target_id).startsWith(`${context.workspace}_`))
       && ID.test(trim(relation.relation || relation.type)) && ID.test(trim(relation.target_id))).map((relation) => ({ ...relation, relation: trim(relation.relation || relation.type) })) : [];
-    if (relations.length === 0) return freeze({ ok: true, skip: true });
     const sources = Array.isArray(item.sources) ? item.sources.filter((source) => plain(source) && ID.test(trim(source.source_id)) && HASH.test(trim(source.source_revision)) && typeof source.locator === "string") : [];
+    let relation = relations[0];
+    if (context.workspace === "reading" && context.selection) {
+      const selected = (Array.isArray(context.snapshot) ? context.snapshot : []).find(row => plain(row) && row.path === context.selection);
+      relation = relations.find(row => row.target_id === context.selection || row.target_id === (selected && selected.id));
+      const sourceMatch = sources.some(source => (source.locators || []).some(locator => locator.split("#", 1)[0] === context.selection));
+      if (!relation && sourceMatch) relation = { relation: "source_context", target_id: context.selection };
+    }
+    if (!relation) return freeze({ ok: true, skip: true });
     if (sources.length === 0) return fail("item.sources", "trusted_source_required");
     if (item.deadline !== null && item.deadline !== undefined && !/^\d{4}-\d{2}-\d{2}$/u.test(item.deadline)) return fail("item.deadline", "iso_date_or_null_required");
     if (!['current', 'stale', 'unknown'].includes(item.stale_state) || typeof item.unresolved_judgement !== "boolean") return fail("item.why", "complete_machine_why_required");
     if (item.stale_state !== "current") return freeze({ ok: true, skip: true, maintenance_status: item.stale_state === "stale" ? "stale_source" : "maintenance_required" });
     const rank = Number(item.rank === undefined ? 0 : item.rank);
     if (!Number.isFinite(rank)) return fail("item.rank", "finite_number_required");
-    return freeze({ ok: true, value: { item_id: item.item_id, canonical_id: item.canonical_id, canonical_revision: item.canonical_revision, title: item.title, path: item.path, relation: relations[0], source: sources[0], deadline: item.deadline || null, stale_state: item.stale_state, unresolved_judgement: item.unresolved_judgement, rank } });
+    return freeze({ ok: true, value: { item_id: item.item_id, canonical_id: item.canonical_id, canonical_revision: item.canonical_revision, title: item.title, path: item.path, relation, sources, source: sources[0], deadline: item.deadline || null, stale_state: item.stale_state, unresolved_judgement: item.unresolved_judgement, rank } });
   }
 
   function create(options = {}) {
@@ -133,7 +140,7 @@
         const key = binding(input.context, value.item_id, value.canonical_revision);
         if (muted.has(key)) continue;
         const prior = mutedRevisions.get(itemIdentity) || new Set();
-        output.push(freeze({ item_id: value.item_id, canonical_id: value.canonical_id, canonical_revision: value.canonical_revision, title: value.title, path: value.path, score: value.rank + (adjustments.get(key) || 0), revision_rule: prior.size > 0 && !prior.has(value.canonical_revision) ? "revision_change_resurfaces" : "exact_revision_binding", why: { relation: value.relation, source: value.source, deadline: value.deadline, stale_state: value.stale_state, unresolved_judgement: value.unresolved_judgement }, actions: mintActions(input.context, value) }));
+        output.push(freeze({ item_id: value.item_id, canonical_id: value.canonical_id, canonical_revision: value.canonical_revision, title: value.title, path: value.path, sources: value.sources, score: value.rank + (adjustments.get(key) || 0), revision_rule: prior.size > 0 && !prior.has(value.canonical_revision) ? "revision_change_resurfaces" : "exact_revision_binding", why: { relation: value.relation, source: value.source, deadline: value.deadline, stale_state: value.stale_state, unresolved_judgement: value.unresolved_judgement }, actions: mintActions(input.context, value) }));
       }
       output.sort((a, b) => b.score - a.score || a.canonical_id.localeCompare(b.canonical_id, "en") || a.canonical_revision.localeCompare(b.canonical_revision, "en") || a.item_id.localeCompare(b.item_id, "en"));
       return freeze({ ok: true, status: output.length ? "resurfaced" : "empty", workspace: input.context.workspace, items: output, count: output.length, product_write_count: 0, write_counters: counters() });
@@ -195,15 +202,44 @@
       for (const item of result.items) {
         const card = section.createEl("article", { attr: { "data-resurfacing-item": item.item_id, "data-canonical-revision": item.canonical_revision } });
         card.createEl("strong", { text: item.title });
-        const why = card.createEl("div", { attr: { "data-resurfacing-why": "structured" } });
-        for (const [key, value] of Object.entries(item.why)) why.createEl("span", { text: `${key}:${typeof value === "object" ? stable(value) : String(value)}`, attr: { "data-why": key } });
+        const reading = input.context.workspace === "reading";
+        const why = card.createEl("div", { attr: { "data-resurfacing-why": reading ? "readable" : "structured" } });
+        if (reading) {
+          const reasons = { source_context: "선택한 책을 출처로 정리한 지식입니다.", supports: "현재 독서의 내용을 뒷받침하는 지식입니다.", contradicts: "현재 독서와 다른 관점을 제시하는 지식입니다.", extends: "현재 독서의 내용을 더 살펴볼 수 있는 지식입니다." };
+          why.textContent = reasons[item.why.relation.relation] || "현재 독서와 연결된 지식입니다.";
+          if (item.why.unresolved_judgement) why.textContent += " 아직 판단이 필요한 내용이 있습니다.";
+        } else {
+          for (const [key, value] of Object.entries(item.why)) why.createEl("span", { text: `${key}:${typeof value === "object" ? stable(value) : String(value)}`, attr: { "data-why": key } });
+        }
         const actions = card.createEl("div", { attr: { "data-resurfacing-actions": "" } });
         for (const action of item.actions) {
-          const button = actions.createEl("button", { text: ({ open: "열기", apply: "적용했다고 기록", mute: "숨기기", irrelevant: "관련 없음" })[action.type], attr: { type: "button", "data-action": action.type } });
-          button.addEventListener("click", async () => {
+          const button = actions.createEl("button", { text: ({ open: reading ? "지식 열기" : "열기", apply: "적용했다고 기록", mute: "숨기기", irrelevant: "관련 없음" })[action.type], attr: { type: "button", "data-action": action.type } });
+          if (reading && action.type === "open") {
+            button.disabled = typeof input.openKnowledge !== "function";
+            button.addEventListener("click", () => openReadingTarget(input.openKnowledge, item.path));
+          } else button.addEventListener("click", async () => {
             if (action.type === "open" && typeof input.openSource === "function") await input.openSource(item.path);
             return feedback({ action: action.type, context: input.context, action_identity: action.identity });
           });
+        }
+        async function openReadingTarget(open, locator) {
+          try {
+            const opened = await open(locator);
+            if (opened && opened.ok === false) card.createEl("p", { text: "파일을 찾을 수 없어 열지 못했습니다.", attr: { role: "status" } });
+            return opened;
+          } catch (error) {
+            card.createEl("p", { text: "파일을 열지 못했습니다. 다시 시도해 주세요.", attr: { role: "alert" } });
+            return fail("open", String(error.message || error));
+          }
+        }
+        if (reading) for (const source of item.sources) {
+          const locators = source.locators || [];
+          for (const locator of locators.length ? locators : [null]) {
+            const button = actions.createEl("button", { text: "출처 열기", attr: { type: "button", "data-action": "open-source", "data-source-id": source.source_id, ...(locator ? { "data-source-locator": locator, "aria-label": `출처 열기: ${locator.split("#", 1)[0].split("/").pop()}` } : {}) } });
+            button.disabled = !locator || typeof input.openSource !== "function";
+            if (button.disabled) actions.createEl("span", { text: locator ? "출처 열기를 사용할 수 없습니다." : "확인된 출처 위치가 없습니다.", attr: { "data-source-unavailable": source.source_id } });
+            else button.addEventListener("click", () => openReadingTarget(input.openSource, locator));
+          }
         }
       }
       return Object.freeze({ ...result, element: section, dispose() { if (section && typeof section.remove === "function") section.remove(); } });

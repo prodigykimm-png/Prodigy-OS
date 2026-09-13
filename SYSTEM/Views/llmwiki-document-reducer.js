@@ -209,11 +209,34 @@
     }
     const citationRows = [];
     const citationByKey = new Map();
+    const citationKey = (citation) => stable([citation.source_id, citation.content_hash, citation.locators, citation.evidence_quote]);
+    // Lineage is identity-excluded and hash-covered. Join by the existing
+    // normalized text equality AND the originating citation, never by title.
+    // Collect before claim deduplication so later occurrences also survive.
+    const refsByText = new Map();
+    for (const document of documents) {
+      const refs = Array.isArray(document.original_topic_refs) ? document.original_topic_refs : [];
+      const texts = new Set(document.claims.map((claim) => clean(claim?.text)));
+      const citationKeys = new Set(document.citations.map(citationKey));
+      for (const ref of refs) {
+        // Legacy document-wide labels have no occurrence evidence.
+        if (!plain(ref) || !clean(ref.topic) || !clean(ref.chunk_key)
+          || !Number.isInteger(ref.item_index) || ref.item_index < 0
+          || !Number.isInteger(ref.claim_index) || ref.claim_index < 0
+          || !plain(ref.citation) || !clean(ref.text) || !texts.has(clean(ref.text))) continue;
+        const key = citationKey(ref.citation);
+        if (!citationKeys.has(key)) continue;
+        const text = clean(ref.text);
+        const rows = refsByText.get(text) || [];
+        rows.push({ topic: ref.topic, chunk_key: ref.chunk_key, item_index: ref.item_index, claim_index: ref.claim_index, citation_key: key });
+        refsByText.set(text, rows);
+      }
+    }
     const claims = [];
     for (const document of documents) {
       const documentCitationIds = [];
       for (const citation of document.citations) {
-        const key = stable([citation.source_id, citation.content_hash, citation.locators, citation.evidence_quote]);
+        const key = citationKey(citation);
         let citationId = citationByKey.get(key);
         if (!citationId) {
           citationId = `citation_${sha(key).slice(0, 24)}`;
@@ -232,6 +255,13 @@
         const identity = stable([source.source_id, classification.role, topic, text, claimCitationIds]);
         const claimId = `claim_${sha(identity).slice(0, 24)}`;
         if (claims.some((claim) => claim.claim_id === claimId)) continue;
+        const originalTopicRefs = new Map();
+        for (const { citation_key, ...occurrence } of refsByText.get(text) || []) {
+          const citationId = citationByKey.get(citation_key);
+          if (!claimCitationIds.includes(citationId)) continue;
+          const ref = { ...occurrence, citation_id: citationId };
+          originalTopicRefs.set(stable(ref), ref);
+        }
         claims.push(freeze({
           claim_id: claimId,
           role: classification.role,
@@ -239,6 +269,7 @@
           text,
           citation_ids: [...new Set(claimCitationIds)].filter(Boolean),
           suggested_candidate_ids: [...new Set(document.matched_candidate_ids || [])],
+          ...(originalTopicRefs.size ? { original_topic_refs: [...originalTopicRefs.values()] } : {}),
         }));
       }
     }
@@ -247,7 +278,8 @@
     }
     const body = {
       inventory_version: CLAIM_INVENTORY_VERSION,
-      source: { source_id: source.source_id, source_path: source.source_path, content_hash: source.content_hash },
+      source: { source_id: source.source_id, source_path: source.source_path, content_hash: source.content_hash,
+        ...(source.scope ? { scope: { ...source.scope } } : {}) },
       claims,
       citations: citationRows,
     };

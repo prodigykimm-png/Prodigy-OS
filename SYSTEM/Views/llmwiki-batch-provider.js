@@ -329,7 +329,7 @@
       try {
         const runtimeResponse = await runtime.requestStructured({
           app: options.app,
-          client: options.client,
+          client: context.client || options.client,
           consumerId: "wiki.batch_analysis",
           prompt,
           schema: COMPACT_SCHEMA,
@@ -342,7 +342,7 @@
         response = runtimeResponse.payload;
       } catch (error) {
         if (context.signal && context.signal.aborted) return { ok: false, reason: "provider_aborted", calls: 1 };
-        return { ok: false, reason: inputApi.mapTransportError(error), calls: 1 };
+        return { ok: false, reason: error?.code === "provider_settings_changed" ? error.code : inputApi.mapTransportError(error), calls: error?.code === "provider_settings_changed" ? 0 : 1 };
       }
       if (context.signal && context.signal.aborted) return { ok: false, reason: "provider_aborted", calls: 1 };
       const validated = validateResponse(response, chunksByKey, candsByKey, normalized.candidateIds, normalized.mode);
