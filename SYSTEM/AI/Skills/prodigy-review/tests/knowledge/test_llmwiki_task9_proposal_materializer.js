@@ -52,6 +52,19 @@ function assertLifecycleContract(result) {
   assert.ok(!serialized.includes("ZETA/PERMANENT"), "no direct Permanent destination may be emitted");
 }
 
+test("D1 item topics survive to proposal documents as original_topic_refs", () => {
+  const result = materializer().materialize({
+    source: source(),
+    artifacts: [artifact("chunk_alpha", "proposals", [
+      { ...item("reusable_claim", { evidence_quote: "deterministic local quote", claims: [{ text: "원본 파일을 먼저 정리한다." }] }), topic: "원본 정리" },
+      { ...item("reusable_claim", { evidence_quote: "deterministic local quote", claims: [{ text: "홀수 사진은 오른쪽 페이지부터 시작한다." }] }), topic: "페이지 구성" },
+    ])],
+  });
+  assert.equal(result.ok, true, result.reason);
+  const refs = result.proposals.flatMap((proposal) => proposal.document.original_topic_refs || []);
+  assert.deepEqual(refs.map((row) => row.topic).sort(), ["원본 정리", "페이지 구성"].sort());
+});
+
 test("happy path: source_summary and reusable_claim map to Literature and Candidate create proposals", () => {
   const result = materializer().materialize({
     source: source(),

@@ -1,0 +1,49 @@
+{
+  "provenance": "Synthetic A/C inputs and recorded answer text from artifacts/llmwiki-productization-20260909/{expectations,live-inspection}.json; B and reference from finish-validation/run.cjs. Historical inputs only; no historical verdict is an oracle.",
+  "A": {
+    "source_id": "source_36fe315ba09a10b9ba6f948a",
+    "path": "INBOX/Phase A Synthetic A.md",
+    "text": "# 합성 검수 A\n\n해솔-842 점검: 적용 대상은 실내 모형 장치다.\n\n해솔-842 점검: 기본 점검 시간은 10분이다.\n\n해솔-842 점검: 시작 전에 전원 표시를 확인한다.\n\n해솔-842 점검: 종료 후 점검 시간을 기록한다.\n\n해솔-842 점검: 실외 모형에는 적용하지 않는다.\n\n해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\n",
+    "sha256": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+    "title": "해솔-842 점검",
+    "answers": [
+      "해솔-842 점검의 적용 대상은 실내 모형 장치다.",
+      "해솔-842 점검의 기본 점검 시간은 10분이다.",
+      "해솔-842 점검 시작 전에 전원 표시를 확인한다.",
+      "해솔-842 점검 종료 후 점검 시간을 기록한다.",
+      "해솔-842 점검은 실외 모형에는 적용하지 않는다.",
+      "해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다."
+    ],
+    "user_note": "시험용 모형에만 적용한다는 개인 검토 메모를 보존한다."
+  },
+  "B": {
+    "source_id": "source_supplement_b",
+    "path": "INBOX/supplement_b.md",
+    "title": "점검 기록 보완",
+    "text": "해솔-842 점검 기록에는 장치 식별자를 함께 적는다."
+  },
+  "C": {
+    "source_id": "source_793a8720edc9851ae6f23034",
+    "path": "INBOX/Phase A Synthetic B.md",
+    "text": "# 합성 검수 B\n\n은빛-593 점검 규정 A: 동일한 실내 모형의 점검 시간은 10분이다.\n\n은빛-593 점검 규정 B: 동일한 실내 모형의 점검 시간은 20분이다.\n\n두 규정에는 시행일과 우선순위가 기록되어 있지 않다.\n",
+    "sha256": "26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d",
+    "title": "은빛-593 점검 충돌",
+    "answers": [
+      "은빛-593 점검 규정 A에 따르면 동일한 실내 모형의 점검 시간은 10분이다.",
+      "은빛-593 점검 규정 B에 따르면 동일한 실내 모형의 점검 시간은 20분이다."
+    ],
+    "reason": "두 규정의 시행일 및 우선순위를 알 수 없음"
+  },
+  "reference": {
+    "source_id": "source_indicator_reference",
+    "path": "INBOX/indicator_reference.md",
+    "title": "모형 식별 기록",
+    "text": "장치 식별자는 서로 다른 모형의 기록을 구분하는 데 사용한다."
+  },
+  "third": {
+    "source_id": "source_model_log",
+    "path": "INBOX/model_log.md",
+    "title": "모형 점검 기록 재사용",
+    "text": "점검 기록은 장치 식별자를 기준으로 찾아 비교한다."
+  }
+}

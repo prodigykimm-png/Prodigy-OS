@@ -16,21 +16,44 @@ const STYLES = source("SYSTEM/Views/knowledge-styles.js");
 const { buildPages, runHub } = require("./knowledge_hub_integration_harness.js");
 const { mountRoot, serialize } = require("./llmwiki_lifecycle_view_fixture.js");
 
-// Task 11 repoint: the provider override speaks the single compact batch
-// schema; analysis is an explicit user action (analyze_inbox), never a mount
-// or scan side effect.
-function providerServiceSource({ failFirst = false, invalidKind = false } = {}) {
-  const extraField = invalidKind ? `,destination:"ZETA/PERMANENT/forged.md"` : "";
-  return [
-    "(function(root){root.__task15ProviderCalls=[];",
-    "root.AIProviderService=Object.freeze({async requestStructuredJsonOnce(request){",
-    "root.__task15ProviderCalls.push(request);",
-    `if(${failFirst}&&root.__task15ProviderCalls.length<=1)return {status:"invalid"};`,
-    "const prompt=JSON.parse(request.prompt);",
-    "return {status:\"ok\",results:prompt.chunks.map((chunk)=>({chunk_key:chunk.key,outcome:\"proposals\",",
-    `items:[{role:\"source_summary\",evidence_quote:chunk.text.trim().slice(0,6),claims:[\"실제 Hub 제품 지식\"],review_reasons:[],related_candidate_ids:[]${extraField}}]}))};`,
-    "}})})(globalThis);",
-  ].join("");
+// Runtime-plugin cutover: mock only the external protocol boundary, not the
+// shipped client, consent, consumer runtime, compact validator or controller.
+// Define protocol values in the Hub VM so plain-object validation stays real.
+function installRuntime(result, { failFirst = false, invalidKind = false } = {}) {
+  require("node:vm").runInNewContext(`(function(root) {
+    const client = root.ProdigyAIClient, epoch = "task15-mock-epoch";
+    root.__task15ProviderCalls = [];
+    root.__task15ConsentGrants = 0;
+    let granted = false;
+    const api = {
+      getHandshake: () => ({ plugin_id: "prodigy-ai-runtime", protocol_version: client.PROTOCOL_VERSION,
+        protocol_hash: client.PROTOCOL_HASH, runtime_epoch: epoch, consumer_manifest_range: ">=1 <2", capabilities: ["structured-strict"] }),
+      getStatus: () => ({ status: "ready" }), listProviders: () => [], listModels: () => [],
+      resolveProvider: () => ({ status: granted ? "ready" : "consent_required", profile_id: "task15-mock-profile", route_class: "local" }),
+      getConsentRequirement: () => ({ status: granted ? "ready" : "consent_required" }),
+      grantConsumer: () => { granted = true; root.__task15ConsentGrants++; return { status: "granted" }; },
+      async requestStructured(request) {
+        if (!granted) throw new Error("unconsented_mock_request");
+        root.__task15ProviderCalls.push(request);
+        const prompt = JSON.parse(request.prompt);
+        const payload = ${failFirst} && root.__task15ProviderCalls.length === 1 ? { status: "invalid" } : {
+          status: "ok", results: prompt.chunks.map(chunk => ({ chunk_key: chunk.key, outcome: "proposals",
+            items: (chunk.evidence_candidates || [{ text: chunk.text.trim() }]).map(evidence => ({
+              role: "source_summary", topic: "제품 자료", evidence_quote: evidence.text,
+              ...(evidence.key ? { evidence_key: evidence.key } : {}), claims: [evidence.text],
+              review_reasons: [], related_candidate_ids: [],
+              ...(${invalidKind} ? { destination: "ZETA/PERMANENT/forged.md" } : {})
+            })) })) };
+        return { protocol_version: client.PROTOCOL_VERSION, runtime_epoch: epoch, request_id: request.request_id,
+          status: "completed", payload, receipt: { consumer_id: request.consumer_id, attempt_id: request.attempt_id,
+            provider_key: "task15-mock-profile", model: "task15-mock-model" } };
+      },
+      requestChat: () => { throw new Error("unexpected_chat_fallback"); },
+      cancel: () => ({ status: "cancel_requested" }), getRequestStatus: () => ({ status: "completed" }),
+      openSettings: () => true, subscribeStatus: () => () => {}
+    };
+    root.app.plugins = { getPlugin: id => id === "prodigy-ai-runtime" ? { api } : null };
+  })(globalThis);`, result.window);
 }
 
 function allPhasesRolloutStorage() {
@@ -40,7 +63,7 @@ function allPhasesRolloutStorage() {
 }
 
 async function productionHub(options = {}, llmWikiControllerOptions = {}) {
-  const extraFiles = { "INBOX/Knowledge/task15.md": "# 제품 자료\\n\\n검토할 근거입니다.\\n", "SYSTEM/Views/ai-provider-service.js": providerServiceSource(options), ...(options.extraFiles || {}) };
+  const extraFiles = { "INBOX/Knowledge/task15.md": "# 제품 자료\n\n검토할 근거입니다.\n", ...(options.extraFiles || {}) };
   const rollout_storage = llmWikiControllerOptions.rollout_storage || allPhasesRolloutStorage();
   let inboxLocalIdentityIndex = llmWikiControllerOptions.inboxLocalIdentityIndex;
   if (typeof options.existingBytes === "string") {
@@ -57,7 +80,8 @@ async function productionHub(options = {}, llmWikiControllerOptions = {}) {
   }
   const result = await runHub({ pages: buildPages(), extraFiles, llmWikiControllerOptions: { rollout_storage, inboxLocalIdentityIndex, ...llmWikiControllerOptions } });
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
-  // Task 11 contract: analysis is explicit and bounded.
+  installRuntime(result, options);
+  // Analysis is explicit and bounded; mounting never calls the mock provider.
   const analyzed = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
   result.__analyzed = analyzed;
   return result;
@@ -69,7 +93,9 @@ test("P1 unavailable production provider fails visibly and typed without a netwo
   assert.equal(settled.state, "queued");
   const analyzed = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
   assert.equal(analyzed.ok, false);
-  assert.equal(analyzed.reason, "transport_unavailable");
+  assert.equal(analyzed.reason, "runtime_unavailable");
+  assert.equal(analyzed.provider_calls, 0);
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.reason, "runtime_unavailable");
   assert.equal(result.window.KnowledgeExplorerHub.llmWikiRunController.getOperationSnapshot().status, "idle");
   assert.equal(result.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/PERMANENT/")), false);
 });
@@ -86,16 +112,53 @@ test("P1 canonical batch provider reaches review without controller test options
   assert.match(MANIFEST, /llmwiki-batch-provider\.js/);
   const result = await productionHub();
   assert.equal(result.window.__task15ProviderCalls.length, 1);
-  assert.equal(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().status, "review");
-  assert.match(result.window.KnowledgeExplorerHub.llmWikiRunController.getOperationSnapshot().operation_id, /^operation_[0-9a-f]{24}$/u);
+  const hub = result.window.KnowledgeExplorerHub;
+  assert.equal(hub.llmWikiRunController.getSnapshot().status, "review");
+  assert.match(hub.llmWikiRunController.getOperationSnapshot().operation_id, /^operation_[0-9a-f]{24}$/u);
+  assert.equal(result.window.__task15ConsentGrants, 1);
+  assert.equal(result.window.__task15ProviderCalls[0].consumer_id, "wiki.batch_analysis");
   assert.equal(result.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/PERMANENT/")), false);
+  // Keep provider-to-approval coverage on the actual batch lifecycle, separate
+  // from the permanent Task13 follow-up audit below.
+  const packet = hub.llmWikiRunController.getSnapshot().risk_packets[0];
+  const intent = { action: "approve_risk", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id };
+  const approved = await hub.dispatchLlmWikiAction(intent);
+  assert.equal(approved.ok, true, JSON.stringify(approved));
+  assert.equal(approved.status, "processed");
+  const target = packet.operation.destination_ids[0];
+  assert.ok(target.startsWith("ZETA/LITERATURE/"));
+  assert.equal(await result.app.vault.read(result.app.vault.getAbstractFileByPath(target)), packet.operation.after_bytes[target]);
+  const duplicate = await hub.dispatchLlmWikiAction(intent);
+  assert.equal(duplicate.status, "duplicate");
+  assert.equal(result.app.vault.touched.filter(row => row[0] === "create" && row[1] === target).length, 1);
+  const persisted = JSON.parse(await result.app.vault.read(result.app.vault.getAbstractFileByPath("SYSTEM/CACHE/llmwiki/batch-job-state.json")));
+  assert.equal(persisted.recovery.operation_outcomes[0].status, "committed");
+  assert.equal(persisted.recovery.archive_receipts.length, 1);
+  assert.equal(result.window.__task15ProviderCalls.length, 1);
+  assert.equal(result.app.vault.touched.some(row => String(row[1]).startsWith("ZETA/PERMANENT/")), false);
 });
 
 test("P1 risk approval commits once through Task13 and persists exact follow-up truth", async () => {
   assert.match(RUNNER, /approvePreparedRisk/);
   assert.match(RISK, /commitRun/);
-  const result = await productionHub();
+  // Batch source_summary now owns Literature/Candidate lifecycle + archival,
+  // not Task13 permanent writes. Enter the retained typed-risk API, as the
+  // immutable-eligibility audit below does; keep all follow-up/replay oracles.
+  const sourcePath = "INBOX/Knowledge/task15.md", sourceBytes = "# 제품 자료\n\n검토할 근거입니다.\n";
+  const result = await runHub({ pages: buildPages(), extraFiles: { [sourcePath]: sourceBytes },
+    llmWikiControllerOptions: { rollout_storage: allPhasesRolloutStorage() } });
   const hub = result.window.KnowledgeExplorerHub;
+  await hub.whenKnowledgeInboxSettled();
+  const { operation: fixtureOperation } = require("./llmwiki_real_product_fixtures.js");
+  const parsed = result.window.LLMWikiOperationContract.parseOperation(JSON.stringify(fixtureOperation("create", "production", {
+    operation_id: "operation_task15_production_create", destination_ids: ["ZETA/PERMANENT/task15-production.md"],
+    base_revisions: {}, before_bytes: {}, after_bytes: { "ZETA/PERMANENT/task15-production.md": "# 제품 자료\n\n검토할 근거입니다.\n" },
+    source_citations: [{ source_id: "source_task15", content_hash: require("node:crypto").createHash("sha256").update(sourceBytes).digest("hex"),
+      source_url: null, locators: [sourcePath], source_archive_id: null, confidence: "explicit" }]
+  })));
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  const opened = hub.llmWikiRunController.openPreparedRiskReview({ run_id: "run_task15_production_create", proposals: [{ operation: parsed.value, title: "제품 자료" }] });
+  assert.equal(opened.ok, true, JSON.stringify(opened));
   const packet = hub.llmWikiRunController.getSnapshot().risk_packets[0];
   const targetPath = packet.operation.destination_ids[0];
   const approved = await hub.dispatchLlmWikiAction({ action: "approve_risk", run_id: packet.run_id, run_revision: packet.run_revision, packet_id: packet.packet_id });
@@ -209,12 +272,18 @@ test("P1 trusted privacy boundary cannot be downgraded by caller labels", () => 
 test("P1 Inbox privacy is derived locally and protected/People sources never call outbound", async () => {
   assert.match(MANIFEST, /llmwiki-inbox-privacy-boundary\.js/);
   for (const pathName of ["INBOX/People/person.md", "INBOX/Private/secret.md"]) {
-    const result = await runHub({ pages: buildPages(), extraFiles: { [pathName]: "# 보호 자료", "SYSTEM/Views/ai-provider-service.js": providerServiceSource() } });
+    const result = await runHub({ pages: buildPages(), extraFiles: { [pathName]: "# 보호 자료" } });
     const settled = await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+    installRuntime(result);
     assert.equal(settled.state, "protected");
     assert.deepEqual({ eligible: settled.eligible, held: settled.held }, { eligible: 0, held: 1 });
     assert.equal(result.window.__task15ProviderCalls.length, 0);
     assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.state, "protected");
+    const analyzed = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
+    assert.equal(analyzed.provider_calls, 0);
+    assert.equal(result.window.__task15ProviderCalls.length, 0);
+    assert.equal(result.window.__task15ConsentGrants, 0);
+    assert.equal(result.app.vault.touched.some(row => String(row[1]).startsWith("ZETA/")), false);
   }
 });
 

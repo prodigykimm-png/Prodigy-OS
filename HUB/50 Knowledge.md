@@ -832,6 +832,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const batchAnalyzer = batchIdentity && batchProvider ? window.LLMWikiBatchAnalyzer.createBatchAnalyzer({
       jobStore: batchJobStore,
       provider: batchProvider,
+      client: llmWikiControllerOptions.batchProvider ? null : llmWikiAIClient,
       identity: batchIdentity,
       cache: batchCache,
       coverage: batchCoverage,
@@ -870,9 +871,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     // One canonical composition: analyzer artifacts -> local materialization ->
     // typed lifecycle proposals. Zero writes; approval stays on the retained
     // controller surface.
-    const runCanonicalBatch = async ({ sources, candidates = [], signal, explicitRetry = false, retryIntentId = null, wholeSourceUnits = [] }) => {
+    const runCanonicalBatch = async ({ sources, candidates = [], signal, explicitRetry = false, retryIntentId = null, wholeSourceUnits = [], independentSources = false }) => {
       if (!batchAnalyzer) return { ok: false, reason: "provider_selection_unavailable", provider_calls: 0 };
-      const analyzed = await batchAnalyzer.analyze({ sources, candidates, signal, explicit_retry: explicitRetry, whole_source_units: wholeSourceUnits, ...(retryIntentId ? { retry_intent_id: retryIntentId } : {}) });
+      const analyzed = await batchAnalyzer.analyze({ sources, candidates, signal, independent_sources: independentSources, explicit_retry: explicitRetry, whole_source_units: wholeSourceUnits, ...(retryIntentId ? { retry_intent_id: retryIntentId } : {}) });
       const providerCalls = analyzed.metrics ? analyzed.metrics.provider_calls : 0;
       if (!analyzed.ok || !["review_ready", "resolved"].includes(analyzed.state)) return {
         ok: false, reason: analyzed.reason || analyzed.state || "batch_analysis_failed",
@@ -884,6 +885,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         ...(Array.isArray(analyzed.missing_semantic_keys) ? { missing_semantic_keys: analyzed.missing_semantic_keys } : {}),
         ...(analyzed.replay_only === true ? { replay_only: true } : {}),
         provider_calls: providerCalls, job_id: analyzed.job_id, batch_id: analyzed.batch_id,
+        source_results: analyzed.source_results || [], remaining_source_ids: analyzed.remaining_source_ids || [],
       };
       // Analyzer replay contract (sibling Todo 4 fix): replay_only:true marks a
       // cache-only analysis with zero fresh provider calls. Replay-only without
@@ -908,17 +910,21 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const noChanges = [];
       const sourceGroups = [];
       const artifactsBySource = new Map();
+      const batchDocuments = [];
       for (const sourceRow of sources) {
-        const analysisText = sourceRow.analysis_text || sourceRow.extracted_text;
+        const sourceResult = analyzed.source_results?.find(row => row.source_id === sourceRow.source_id);
+        if (analyzed.source_results && (!sourceResult?.ok || !["review_ready", "resolved"].includes(sourceResult.state))) continue;
+        const analysisText = sourceRow.scope ? sourceRow.extracted_text.slice(sourceRow.scope.start, sourceRow.scope.end) : sourceRow.analysis_text || sourceRow.extracted_text;
         const scope = window.LLMWikiAnalysisScope.createAnalysisScope({ source_id: sourceRow.source_id, source_path: sourceRow.source_path, content_hash: llmWikiHash.sha256(analysisText), source_text: analysisText });
         const manifest = window.LLMWikiChunkManifest.createChunkManifest(scope);
-        const lookup = await batchCache.lookup(manifest, scope, { request_key: analyzed.request_key });
+        const lookup = await batchCache.lookup(manifest, scope, { request_key: sourceResult?.request_key || analyzed.request_key });
         if (!lookup.ok) return { ok: false, reason: lookup.reason || "cache_lookup_failed", provider_calls: providerCalls };
         const artifacts = compactArtifactsFromHits(lookup.hits, Number.isSafeInteger(sourceRow.scope_start) ? sourceRow.scope_start : 0);
         artifactsBySource.set(sourceRow.source_id, artifacts);
-        const materialized = await materializeInboxProposals({ artifacts, source: { source_id: sourceRow.source_id, source_path: sourceRow.source_path, content_hash: llmWikiHash.sha256(sourceRow.extracted_text) } });
+        const materialized = await materializeInboxProposals({ artifacts, defer_document_proposals: independentSources, source: { source_id: sourceRow.source_id, source_path: sourceRow.source_path, content_hash: llmWikiHash.sha256(sourceRow.extracted_text) } });
         if (!materialized.ok) return { ok: false, reason: materialized.reason || "local_materialization_failed", provider_calls: providerCalls };
         proposals.push(...materialized.proposals);
+        batchDocuments.push(...(materialized.documents || []));
         holds.push(...materialized.holds);
         noChanges.push(...materialized.no_changes);
         objectReviewProposals.push(...materialized.object_review_proposals);
@@ -929,7 +935,18 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         if (!grouped.ok) return { ok: false, reason: grouped.reason, provider_calls: providerCalls };
         sourceGroups.push(grouped.value);
       }
-      return { ok: true, provider_calls: providerCalls, replay_only: replayOnly, proposals, object_review_proposals: objectReviewProposals, holds, no_changes: noChanges, source_groups: sourceGroups, batch_id: analyzed.batch_id, job_id: analyzed.job_id, metrics: analyzed.metrics, artifacts_by_source: artifactsBySource };
+      if (independentSources && batchDocuments.length) {
+        const combined = inboxProposalMaterializer.materializeDocuments({ source: sourceGroups[0], sources: sourceGroups, documents: batchDocuments });
+        if (!combined.ok) return { ok: false, reason: combined.reason, provider_calls: providerCalls };
+        proposals.push(...combined.proposals);
+        holds.push(...combined.holds);
+        for (let index = 0; index < sourceGroups.length; index += 1) {
+          const group = sourceGroups[index];
+          sourceGroups[index] = Object.freeze({ ...group, proposals: combined.proposals.filter(proposal =>
+            proposal.operation.source_citations.some(citation => citation.source_id === group.source_id)) });
+        }
+      }
+      return { ok: true, provider_calls: providerCalls, replay_only: replayOnly, proposals, object_review_proposals: objectReviewProposals, holds, no_changes: noChanges, source_groups: sourceGroups, batch_id: analyzed.batch_id, job_id: analyzed.job_id, metrics: analyzed.metrics, artifacts_by_source: artifactsBySource, source_results: analyzed.source_results || [], remaining_source_ids: analyzed.remaining_source_ids || [], reason: analyzed.reason || "" };
     };
     // The persistent controller delegates through the latest mount binding so
     // an explicit retry freezes the current global provider/model identity,
@@ -952,7 +969,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         ai_client: llmWikiRunClient,
         // Task 11 cutover: analysis delegates into the single canonical batch
         // core; the legacy transport/librarian options are removed.
-        analyze_batch: async ({ command, signal }) => {
+        analyze_batch: async ({ command, signal, independent_sources }) => {
           const sources = command.sources.map((row) => ({
             source_id: row.manifest.source_id,
             source_path: row.source_path || row.manifest.locator,
@@ -963,7 +980,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           const documents = command.retrieval && command.retrieval.snapshot && Array.isArray(command.retrieval.snapshot.documents)
             ? command.retrieval.snapshot.documents : [];
           const candidates = documents.map((doc) => ({ document_id: doc.document_id, canonical_revision: doc.revision || doc.canonical_revision || "" }));
-          const outcome = await llmWikiSession.bindings.runCanonicalBatch({ sources, candidates, signal, explicitRetry: command.task13_explicit_retry === true, retryIntentId: command.task13_retry_intent_id || null });
+          const outcome = await llmWikiSession.bindings.runCanonicalBatch({ sources, candidates, signal, independentSources: independent_sources, explicitRetry: command.task13_explicit_retry === true, retryIntentId: command.task13_retry_intent_id || null });
           if (!outcome.ok) return outcome;
           return { ...outcome, consent_hash: llmWikiHash.sha256(`batch_consent:${command.run_id}:${sources.map((row) => row.content_hash).sort().join(":")}`) };
         },
@@ -1022,9 +1039,23 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const readCanonicalDocuments = async () => {
       const read = await window.LLMWikiResurfacingReadAdapter.create().read({ app: appRef });
       if (!read.ok) throw Object.assign(new Error(`기존 Wiki를 확인하지 못했습니다: ${read.reason || "canonical_read_failed"}`), { code: read.reason || "canonical_read_failed" });
-      return read.rows.map((row) => ({ document_id: `canonical_${llmWikiHash.sha256(row.path).slice(0, 24)}`,
+      const documents = read.rows.map((row) => ({ document_id: `canonical_${llmWikiHash.sha256(row.path).slice(0, 24)}`,
         path: row.path, title: row.title, statement: row.statement || "", summary: "",
         content: row.canonical_bytes, revision: row.canonical_revision }));
+      const verifiedPaths = new Set(documents.map(document => document.path));
+      // Legacy Knowledge is comparison evidence, never a finalized writer authority.
+      // Excluding it here would turn cached analyses into duplicate new documents.
+      for (const file of appRef.vault.getMarkdownFiles()) {
+        if (!file.path.startsWith("ZETA/PERMANENT/") || verifiedPaths.has(file.path)
+          || appRef.metadataCache.getFileCache(file)?.frontmatter?.type !== "knowledge") continue;
+        const bytes = await appRef.vault.read(file);
+        const document = window.KnowledgeCandidateStore.parseLifecycleDocument(bytes);
+        if (document.schema_version === 2) continue;
+        documents.push({ document_id: `canonical_${llmWikiHash.sha256(file.path).slice(0, 24)}`,
+          path: file.path, title: document.title || file.path.split("/").pop().replace(/\.md$/u, ""),
+          statement: document.statement || "", summary: document.summary || "", content: bytes, revision: llmWikiHash.sha256(bytes) });
+      }
+      return documents;
     };
     let canonicalDocuments = await readCanonicalDocuments();
     const discoveredRelatedCandidates = [];
@@ -1076,7 +1107,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         if (!proposed || proposed.ok !== true) return { ok: false, reason: proposed && proposed.reason || "object_handoff_unavailable" };
         object_review_proposals.push(proposed.value);
       }
-      return { ok: true, proposals: materialized.proposals, holds: materialized.holds || [], no_changes: materialized.no_changes || [], para_drafts: materialized.para_drafts || [], object_review_proposals };
+      return { ok: true, proposals: materialized.proposals, documents: materialized.documents || [], holds: materialized.holds || [], no_changes: materialized.no_changes || [], para_drafts: materialized.para_drafts || [], object_review_proposals };
     };
     let pilotReviewItems = [];
     let documentPilotResult = null;
@@ -1243,6 +1274,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     let documentPlanExecution = null;
     let documentPlanQualityGaps = [];
     const correctionSignals = window.LLMWikiCorrectionSignals.createCorrectionSignals();
+    for (const job of Object.values(batchJobState.jobs)) for (const attempt of job.attempts || []) {
+      if (attempt.kind === "correction") for (const tag of attempt.taxonomy_tags || []) {
+        correctionSignals.record({ action: attempt.correction_action, taxonomy_tag: tag });
+      }
+    }
     const planCorrectionTags = (pageIds) => (pageIds || []).map((pageId) => {
       const page = documentPlanReviewState?.getSnapshot().pages.find((row) => row.page_id === pageId);
       return page ? classifyPlanPage(page).cluster : null;
@@ -1256,6 +1292,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       path: document.path,
       title: document.title,
       searchable_text: `${document.title} ${document.statement} ${document.summary} ${document.content}`,
+      revision: document.revision,
       read_only: true,
     }));
     let canonicalPlanEvidence = planEvidenceFromDocuments();
@@ -1270,15 +1307,17 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     const candidateTitle = (candidate) => String(candidate.title || (/^# (.+)$/mu.exec(candidate.before_bytes || "") || [])[1] || "").trim();
     const candidateTokens = (value) => new Set(String(value || "").toLocaleLowerCase("ko-KR").match(/[가-힣a-z0-9]{2,}/gu) || []);
     const genericCandidateTokens = new Set(["부동산", "투자", "전략", "실무", "가이드", "관리", "분석", "방법", "원칙"]);
-    const matchPlanCandidates = (page, inventory) => {
+    const matchPlanCandidates = (page, inventory, sourcePath) => {
       const claims = page.claim_ids.map((claimId) => inventory.claims.find((claim) => claim.claim_id === claimId)).filter(Boolean);
-      const classified = window.LLMWikiCanonicalOverlap.classify({ page_title: page.title, claims, canonical_documents: canonicalPlanEvidence });
+      const sourceTitle = String(sourcePath || "").split("/").pop().replace(/\.md$/u, "");
+      const classified = window.LLMWikiCanonicalOverlap.classify({ page_title: `${sourceTitle} ${page.title}`, claims, canonical_documents: canonicalPlanEvidence });
       if (!classified.ok) return { candidates: [], evidence: [], relation: "new" };
       if (classified.relation === "new") return { candidates: [], evidence: [], relation: "new" };
       const evidence = classified.evidence.map((row) => ({
         candidate_id: row.candidate_id,
         title: row.title,
         path: canonicalPlanEvidence.find((document) => document.candidate_id === row.candidate_id)?.path || "",
+        revision: canonicalPlanEvidence.find((document) => document.candidate_id === row.candidate_id)?.revision || "",
         relation: classified.relation,
         covered_claim_ids: row.covered_claim_ids,
         coverage_ratio: row.coverage_ratio,
@@ -1307,7 +1346,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         const classification = classifyPlanPage(page);
         const matched = page.target_candidate_ids.length
           ? { candidates: page.target_candidate_ids.map((candidateId) => ({ candidate_id: candidateId, identity_match: "canonical_id", lexical_score: 1 })), evidence: [], relation: "compatible_new" }
-          : matchPlanCandidates(page, inventory);
+          : matchPlanCandidates(page, inventory, plan.source?.source_path);
         const sourceCluster = plan.source?.source_path === "INBOX/웨딩 스냅 워크플로우.md"
           ? "photography/wedding-snap" : classification.cluster;
         return { page_id: page.page_id, content_relation: matched.relation, candidates: matched.candidates,
@@ -1345,6 +1384,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       return nextExecution.ok ? { ok: true, plan: snapshot, execution: nextExecution } : nextExecution;
     };
     const planExecutionRow = (pageId) => documentPlanExecution?.resolution?.rows?.find((row) => row.page_id === pageId) || null;
+    const planProposedTarget = (pageId) => {
+      const row = planExecutionRow(pageId);
+      const target = row?.candidate_evidence?.find(evidence => evidence.candidate_id === row.decision?.candidate_id && evidence.revision);
+      return target && ["update", "no_change"].includes(row.decision.action)
+        ? { path: target.path, revision: target.revision, action: row.decision.action } : null;
+    };
     const planSources = (claimIds, inventory) => {
       const claimById = new Map((inventory?.claims || []).map((claim) => [claim.claim_id, claim]));
       const citationById = new Map((inventory?.citations || []).map((citation) => [citation.citation_id, citation]));
@@ -1377,7 +1422,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
             evidence_quote: citation.evidence_quote || "",
           }];
         });
-        return { claim_id: claimId, text: claim?.text || claimId, citations };
+        return { claim_id: claimId, text: claim?.text || claimId, citations,
+          ...(claim?.original_topic_refs ? { original_topic_refs: claim.original_topic_refs } : {}) };
       });
     };
     const documentPlanLint = (plan) => {
@@ -1465,6 +1511,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           plan_taxonomy: classifyPlanPage(page).cluster,
           ...(lintByPageId.has(page.page_id) ? { plan_lint_proposal: lintByPageId.get(page.page_id) } : {}),
           grounded_claims: planGroundedClaims(page.claim_ids, inventory),
+          proposed_target: planProposedTarget(page.page_id),
           related_knowledge: (planExecutionRow(page.page_id)?.candidate_evidence || [])
             .filter((evidence) => evidence.read_only === true
               && String(evidence.path || "").endsWith(".md")
@@ -1474,9 +1521,13 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
               path: evidence.path,
               relation: evidence.relation,
               covered_claim_count: (evidence.covered_claim_ids || []).length,
+              // 중복/충돌은 상대 문장을 봐야 판단할 수 있다: 겹치는 문장을 함께 넘긴다.
+              covered_claims: (evidence.covered_claim_ids || [])
+                .map((claimId) => inventory.claims.find((claim) => claim.claim_id === claimId)?.text)
+                .filter(Boolean).slice(0, 3),
             })),
           destination: "none", review_state: reviewState, analysis_state: "complete",
-          operation: page.operation_hint, title: page.title,
+          operation: planExecutionRow(page.page_id)?.decision?.action || page.operation_hint, title: page.title,
           summary_points: [
             page.purpose,
             `${page.claim_ids.length}개 claim`,
@@ -1539,6 +1590,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           plan_purpose: document.purpose || "",
           plan_claim_count: claimIds.length,
           grounded_claims: planGroundedClaims(claimIds, inventory),
+          proposed_target: planProposedTarget(document.page_id),
           compiled_sections: document.sections || [],
           related_knowledge: document.page_id
             ? (planExecutionRow(document.page_id)?.candidate_evidence || [])
@@ -1550,6 +1602,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
                 path: evidence.path,
                 relation: evidence.relation,
                 covered_claim_count: (evidence.covered_claim_ids || []).length,
+                // 중복/충돌은 상대 문장을 봐야 판단할 수 있다: 겹치는 문장을 함께 넘긴다.
+                covered_claims: (evidence.covered_claim_ids || [])
+                  .map((claimId) => inventory.claims.find((claim) => claim.claim_id === claimId)?.text)
+                  .filter(Boolean).slice(0, 3),
               }))
             : [],
           ...(document.document_kind === "source_guide" ? {
@@ -1566,7 +1622,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           } : {}),
           destination: document.role === "source_summary" ? "literature" : "knowledge_candidate",
           review_state: "pending", analysis_state: "complete",
-          operation: document.operation_hint, title: document.title,
+          operation: planExecutionRow(document.page_id)?.decision?.action || document.operation_hint, title: document.title,
           summary_points: [
             ...(document.verification_flags?.length
               ? [`최신 검증 필요 · ${document.verification_flags.map((flag) => flag.label).join(" · ")}`]
@@ -1616,20 +1672,20 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const semanticUnits = window.LLMWikiEvidenceCandidates.createSemantic(scopedText);
       const sourceBytes = new TextEncoder().encode(scopedText).length;
       const fullSourceBytes = new TextEncoder().encode(extractedText).length;
-      const contentHash = llmWikiHash.sha256(scopedText);
+      const contentHash = sourceRevision;
       const scopeKey = requestedScope ? `${requestedScope.start}:${requestedScope.end}` : "full";
       const sourceId = `source_plan_${llmWikiHash.sha256(`${sourcePath}:${scopeKey}`).slice(0, 24)}`;
       const source = {
         source_id: sourceId, source_path: sourcePath, content_hash: contentHash,
         source_revision: sourceRevision,
-        ...(requestedScope ? { scope: { scope_id: requestedScope.scope_id || "", title: requestedScope.title || "", start: requestedScope.start, end: requestedScope.end } } : {}),
+        ...(requestedScope ? { scope: { scope_id: requestedScope.scope_id || "", title: requestedScope.title || "", start: requestedScope.start, end: requestedScope.end, content_hash: llmWikiHash.sha256(scopedText) } } : {}),
       };
       const wholeSourceUnits = [{
         source_id: sourceId,
         units: semanticUnits.map((unit) => ({ key: unit.key, start: unit.start, end: unit.end })),
       }];
       const analyzed = await runCanonicalBatch({
-        sources: [{ ...source, extracted_text: scopedText, ...(requestedScope ? { scope_start: requestedScope.start } : {}) }],
+        sources: [{ ...source, extracted_text: extractedText, ...(requestedScope ? { scope_start: requestedScope.start } : {}) }],
         candidates: [],
         wholeSourceUnits,
         explicitRetry,
@@ -1888,12 +1944,14 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     };
     const dispatchDocumentPlanAction = async (intent) => {
       if (!documentPlanReviewState || !documentPlanContext) return { ok: false, reason: "page_plan_unavailable" };
-      const correctionTags = window.LLMWikiCorrectionSignals.ALLOWED_ACTIONS.includes(intent.action)
+      const before = documentPlanReviewState.getSnapshot();
+      const correctionAction = intent.action === "rename_page" ? "retitle_page" : intent.action === "toggle_page"
+        ? before.pages.find(page => page.page_id === intent.page_id)?.selected === false ? "include_page" : "exclude_page" : intent.action;
+      const correctionTags = window.LLMWikiCorrectionSignals.ALLOWED_ACTIONS.includes(correctionAction)
         ? planCorrectionTags(intent.page_ids || (intent.page_id ? [intent.page_id] : []))
         : [];
       const result = documentPlanReviewState.dispatch(intent);
       if (!result.ok) return result;
-      recordPlanCorrection(intent.action, correctionTags);
       const priorPlanSnapshot = batchJobStore.getPlanSnapshot(documentPlanContext.job_id);
       await batchJobStore.savePlanSnapshot({
         job_id: documentPlanContext.job_id,
@@ -1905,8 +1963,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         plan_revision: Math.max(result.snapshot.plan_revision, Number(priorPlanSnapshot?.plan_revision || 0) + 1),
         status: result.snapshot.status,
         plan: result.snapshot,
+        review_event: { action: correctionAction, taxonomy_tags: correctionTags, ...(typeof intent.reason === "string" ? { reason: intent.reason } : {}) },
         inventory: documentPlanInventory, target_basis: planTargetBasis(),
       });
+      recordPlanCorrection(correctionAction, correctionTags);
       if (result.snapshot.status === "pending_review") {
         documentPlanCompileResult = null;
         window.__documentPlanCompileResult = null;
@@ -1931,7 +1991,6 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const mergeTags = planCorrectionTags(ids);
       const merged = documentPlanReviewState.dispatch({ action: "merge_pages", expected_plan_hash: before.plan_hash, page_ids: ids, title, purpose });
       if (!merged.ok) return merged;
-      recordPlanCorrection("merge_pages", mergeTags);
       const execution = await buildPlanExecution(merged.snapshot, documentPlanInventory);
       if (!execution.ok) {
         documentPlanReviewState = window.LLMWikiPagePlanReviewState.createPagePlanReviewState({ plan: before });
@@ -1943,7 +2002,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       window.__documentPagePlan = merged.snapshot;
       pagePlanReviewItems = planReviewRows(merged.snapshot, documentPlanInventory);
       const prior = batchJobStore.getPlanSnapshot(documentPlanContext.job_id);
-      await batchJobStore.savePlanSnapshot({ job_id: documentPlanContext.job_id, source_id: documentPlanContext.source.source_id, source_revision: documentPlanContext.source.content_hash, planner_version: window.LLMWikiDeterministicPagePlanner.VERSION, inventory_hash: documentPlanInventory.inventory_hash, plan_hash: merged.snapshot.plan_hash, plan_revision: Math.max(merged.snapshot.plan_revision, Number(prior?.plan_revision || 0) + 1), status: "pending_review", plan: merged.snapshot, inventory: documentPlanInventory, execution: documentPlanExecution, target_basis: planTargetBasis() });
+      await batchJobStore.savePlanSnapshot({ job_id: documentPlanContext.job_id, source_id: documentPlanContext.source.source_id, source_revision: documentPlanContext.source.content_hash, planner_version: window.LLMWikiDeterministicPagePlanner.VERSION, inventory_hash: documentPlanInventory.inventory_hash, plan_hash: merged.snapshot.plan_hash, plan_revision: Math.max(merged.snapshot.plan_revision, Number(prior?.plan_revision || 0) + 1), status: "pending_review", plan: merged.snapshot, inventory: documentPlanInventory, execution: documentPlanExecution, target_basis: planTargetBasis(), review_event: { action: "merge_pages", taxonomy_tags: mergeTags } });
+      recordPlanCorrection("merge_pages", mergeTags);
       refreshReviewWorkbench();
       return { ok: true, status: "merge_preview", plan_hash: merged.snapshot.plan_hash, merged_page_ids: ids, writer_count: 0 };
     };
@@ -2057,6 +2117,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         plan,
         inventory: documentPlanInventory,
         compiled_documents: compiled.documents,
+        execution: documentPlanExecution, target_basis: planTargetBasis(),
         quality_receipt: compiled.quality_receipt,
         serialized_operations: materialized.proposals.map((proposal) => JSON.stringify(proposal.operation)),
         holds: materialized.holds,
@@ -2477,7 +2538,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         documentPlanJobId: retainedPlanSnapshot.job_id,
       };
       documentPlanInventory = retainedPlanSnapshot.inventory;
-      documentPlanExecution = retainedPlanSnapshot.execution || await buildPlanExecution(retainedPlanSnapshot.plan, retainedPlanSnapshot.inventory);
+      documentPlanExecution = await buildPlanExecution(retainedPlanSnapshot.plan, retainedPlanSnapshot.inventory);
       documentPlanReviewState = window.LLMWikiPagePlanReviewState.createPagePlanReviewState({ plan: retainedPlanSnapshot.plan });
       documentPlanContext = {
         source: retainedPlanSnapshot.plan.source,
@@ -2519,6 +2580,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       await refreshCanonicalDocumentContext();
       const snapshot = batchJobStore.getPlanSnapshot(jobId);
       if (!snapshot?.plan || !snapshot.inventory) return { ok: false, reason: "stored_plan_not_found", writer_count: 0 };
+      const sourceFile = appRef.vault.getAbstractFileByPath(snapshot.plan.source.source_path);
+      if (!sourceFile || llmWikiHash.sha256(await appRef.vault.read(sourceFile)) !== snapshot.source_revision) {
+        return { ok: false, reason: "source_revision_changed", writer_count: 0 };
+      }
       const execution = await buildPlanExecution(snapshot.plan, snapshot.inventory);
       if (!execution.ok) return { ok: false, reason: execution.reason || "stored_plan_execution_failed", writer_count: 0 };
       documentPlanInventory = snapshot.inventory;
@@ -2900,12 +2965,26 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         const reason = response && response.reason || "batch_analysis_failed";
         const recoveryVariant = window.LLMWikiUIRecovery && typeof window.LLMWikiUIRecovery.recoveryVariantFor === "function"
           ? window.LLMWikiUIRecovery.recoveryVariantFor({ code: reason }) : "blocked";
-        const state = settleInbox({ ...baseCounts, state: "blocked", recovery_variant: recoveryVariant, processed: 0, succeeded: 0, failed: sources.length, proposal_blocked: sources.length, proposal_state: "blocked", reason, message: "", object_review_proposals: [] });
+        const results = response?.source_results || [], remaining = response?.remaining_source_ids || [];
+        const failed = results.length || sources.length - remaining.length;
+        const state = settleInbox({ ...baseCounts, state: "blocked", recovery_variant: recoveryVariant,
+          processed: results.length, succeeded: 0, failed, pending: remaining.length,
+          source_results: results, remaining_source_ids: remaining,
+          proposal_blocked: failed, proposal_state: "blocked", reason, message: "", object_review_proposals: [] });
         return { ok: false, status: state.state, reason, provider_calls: response && response.counters ? response.counters.provider : 0 };
       }
       const packets = Array.isArray(response.risk_packets) ? response.risk_packets : [];
       const packTotal = response.batch_metrics && Number.isSafeInteger(response.batch_metrics.pack_count) ? response.batch_metrics.pack_count : 0;
-      const state = settleInbox({ ...baseCounts, state: "complete", processed: sources.length, succeeded: sources.length, failed: 0, pack_progress: { completed: packTotal, total: packTotal, current: packTotal }, proposal_pending: packets.length, proposal_complete: sources.length, proposal_state: packets.length ? "review" : "complete", reason: "", message: "", object_review_proposals: [] });
+      const sourceResults = response.source_results || [];
+      const failedSources = sourceResults.filter(row => !row.ok || !["review_ready", "resolved"].includes(row.state));
+      const remaining = response.remaining_source_ids || [];
+      const succeeded = sourceResults.length ? sourceResults.length - failedSources.length : sources.length;
+      const state = settleInbox({ ...baseCounts, state: failedSources.length || remaining.length ? "partial" : "complete",
+        processed: sources.length - remaining.length, succeeded, failed: failedSources.length, pending: remaining.length,
+        source_results: sourceResults, remaining_source_ids: remaining,
+        pack_progress: { completed: packTotal, total: packTotal, current: packTotal }, proposal_pending: packets.length,
+        proposal_complete: succeeded, proposal_state: packets.length ? "review" : "complete",
+        reason: response.reason || failedSources[0]?.reason || "", message: "", object_review_proposals: [] });
       if (packets.length > 0) {
         for (const group of response.source_groups || []) approvalGroups.set(group.source_id, group);
         durableRecovery = await batchJobStore.saveRecoverySnapshot({
@@ -2923,12 +3002,47 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       return activePromise;
     };
     let questionReviewRunId = llmWikiRunController.getSnapshot().risk_packets?.find(packet => packet.run_id?.startsWith("question_"))?.run_id || "";
+    // 닫힌 검토: 적용 완료(resolved) 또는 소유자가 제안을 버림(rejected). 둘 다 대기 목록에서 뺀다.
+    const reviewClosed = (status) => status === "resolved" || status === "rejected";
     const pendingCanonicalReviews = (sourcePath = "") => batchJobStore.listPlanSnapshots()
       .flatMap(snapshot => [snapshot, ...(snapshot.history || []).slice().reverse()]
         .flatMap(version => Object.values(version.canonical_reviews || {}))
         .map(review => ({ job_id: snapshot.job_id, review })))
-      .filter((entry, index, entries) => entry.review?.item && entries.findIndex(other => other.review?.packet?.packet_hash === entry.review.packet?.packet_hash) === index)
-      .filter(({ review }) => review.status !== "resolved" && (!sourcePath || Object.values(review.source_paths || {}).includes(sourcePath)));
+      .filter((entry, index, entries) => entry.review?.item && entries.findIndex(other =>
+        (other.review?.packet?.packet_hash || `${other.job_id}:${other.review?.item?.review_id}`)
+          === (entry.review.packet?.packet_hash || `${entry.job_id}:${entry.review.item.review_id}`)) === index)
+      .filter(({ review }) => !reviewClosed(review.status) && (!sourcePath || Object.values(review.source_paths || {}).includes(sourcePath)
+        || review.pending_draft?.sources.some(source => source.source_path === sourcePath)));
+    // M1 legacy adoption entry: a LOCAL scan of legacy canonical notes. It never calls a provider and
+    // never writes; it only surfaces which notes still lack the v2 lifecycle format so the owner can
+    // adopt them through the existing lifecycle migration authority.
+    let migrationScan = null;
+    const legacyMigrationNotes = () => (appRef.vault.getMarkdownFiles ? appRef.vault.getMarkdownFiles() : [])
+      .filter((file) => file && typeof file.path === "string" && file.path.startsWith("ZETA/PERMANENT/") && file.path.endsWith(".md"))
+      .sort((left, right) => left.path.localeCompare(right.path));
+    const scanExistingZetaMigration = async () => {
+      const decisions = [];
+      for (const file of legacyMigrationNotes()) {
+        const text = String(await appRef.vault.cachedRead(file) || "");
+        if (/\nschema_version:\s*["']?2/u.test(text) || /\ncanonical_id:/u.test(text)) continue;
+        decisions.push(Object.freeze({
+          decision_id: `migration_${llmWikiHash.sha256(file.path).slice(0, 12)}`,
+          kind: "update",
+          path: file.path,
+          title: String(file.basename || file.path.split("/").pop().replace(/\.md$/u, "")),
+        }));
+      }
+      migrationScan = Object.freeze({
+        status: decisions.length ? "review" : "no_change",
+        scanned_at: new Date().toISOString(),
+        decisions: Object.freeze(decisions),
+        provider_calls: 0,
+        canonical_writes: 0,
+      });
+      if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
+      return { ok: true, status: migrationScan.status, migration: migrationScan, provider_calls: 0,
+        write_counts: { canonical: 0, audit: 0, refresh: 0, git: 0 } };
+    };
     const lifecycleSnapshot = () => {
       const snapshot = llmWikiRunController.getSnapshot();
       const prodigyWiki = window.ProdigyWikiController.projectLifecycle(prodigyWikiController.getSnapshot());
@@ -2970,6 +3084,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         ...(pendingCanonical.length ? { status: "review", reason: "review_required",
           prodigy_wiki: { ...prodigyWikiController.getSnapshot(), status: "review_ready", stage: "review", reason: "review_required" },
           inbox: { ...inboxState, state: "partial", proposal_pending: pendingCanonical.length, proposal_state: "review" } } : {}),
+        ...(migrationScan ? { migration: migrationScan } : {}),
       };
     };
     const dispatchStartupIntent = async (intent) => {
@@ -2994,6 +3109,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return { ok: fleetingReviewState.status !== "blocked", status: fleetingReviewState.status, fleeting: { ...fleetingReviewState }, reason: fleetingReviewState.reason || "" };
       }
       if (intent.action === "scan_inbox") return refreshInboxViewFromQueue();
+      if (intent.action === "scan_migration") { wikiAuxiliaryScene = "migration"; tabs.select("llmwiki"); return scanExistingZetaMigration(); }
+      if (intent.action === "review_migration" || intent.action === "approve_migration") { wikiAuxiliaryScene = "migration"; return openMigrationReview(intent.decision_id); }
       if (intent.action === "analyze_inbox") return runInboxBatch();
       if (intent.action === "cancel_inbox") {
         // Task 11 cutover: cancel invalidates the active run token so any late
@@ -3065,11 +3182,25 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         return { ok: true, status: "selecting", source: pinnedOption };
       }
       if (intent.action === "open_golden_review") {
-        const pending = pendingCanonicalReviews(prodigyWikiController.getSnapshot().source?.path || "")[0];
-        if (pending && KnowledgeExplorerHub.openCanonicalDocumentReview) return KnowledgeExplorerHub.openCanonicalDocumentReview({ ...pending.review.item, processing_job_id: pending.job_id });
-        const source = prodigyWikiController.getSnapshot().source;
-        const retained = batchJobStore.listPlanSnapshots().find(row => row.plan?.source?.source_path === source?.path && row.source_revision === source?.content_hash);
-        if (retained) { const result = await openStoredDocumentPlan(retained.job_id); refreshWikiWorkspace("pending"); return result; }
+        const { source, range } = prodigyWikiController.getSnapshot();
+        const file = source && appRef.vault.getAbstractFileByPath(source.path);
+        if (!file || llmWikiHash.sha256(await appRef.vault.read(file)) !== source.content_hash) {
+          prodigyWikiController.dispatch({ type: "source_changed" });
+          return { ok: false, reason: "source_revision_changed", provider_calls: 0 };
+        }
+        const retained = batchJobStore.listPlanSnapshots().find(row => row.plan?.source?.source_path === source.path
+          && row.source_revision === source.content_hash
+          && (range ? row.plan.source.scope?.start === range.start && row.plan.source.scope?.end === range.end
+            && row.plan.source.scope?.scope_id === range.scope_id : !row.plan.source.scope));
+        if (retained) {
+          const result = await openStoredDocumentPlan(retained.job_id, { render: false });
+          if (!result.ok) return result;
+          const pending = pendingCanonicalReviews(source.path).find(row => row.job_id === retained.job_id);
+          const item = pending?.review.item || pagePlanReviewItems.find(row => row.plan_kind === "compiled_document" && row.compiled_kind !== "source_guide" && !row.review_blocked);
+          if (item) return KnowledgeExplorerHub.openCanonicalDocumentReview({ ...item, processing_job_id: retained.job_id });
+          refreshWikiWorkspace("pending");
+          return result;
+        }
         return { ok: false, reason: "grounded_document_required", provider_calls: 0 };
       }
       if (intent.action === "reset_prodigy_source") {
@@ -3384,7 +3515,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       persistLlmWikiSessionView();
       KnowledgeExplorerHub.lastLlmWikiAction = { intent, response };
-      llmWikiLifecycle.update(lifecycleSnapshot());
+      // The review opener already awaited its exact surface. Do not replace it
+      // with an unawaited second mount after returning the handoff result.
+      if (intent.action !== "open_golden_review" || response?.status !== "waiting_for_human_review") llmWikiLifecycle.update(lifecycleSnapshot());
       if (!fastLocalAction) refreshReviewWorkbench();
       if (typeof llmWikiControllerOptions.onLifecycleAction === "function") llmWikiControllerOptions.onLifecycleAction({ intent, response });
       if (!fastLocalAction) pokeMaintenance();
@@ -3578,8 +3711,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           onOpenSource: (locator, citation, invoker, onStale) => openGoldenCitation({ ...citation, locator, locators: [locator] }, invoker, onStale),
           onLater: () => { inlineWikiReview = null; tabs.select("llmwiki-browse"); callbacks.onClose?.(); },
           onSelectSource: () => { inlineWikiReview?.onClose?.(); inlineWikiReview = null; activeWikiReviewId = ""; intendedWikiTarget = ""; tabs.select("llmwiki"); llmWikiLifecycle.openPicker(); },
-          onNext: workspaceReviewEntries().filter(row => row.item.review_id !== item.review_id && row.status !== "resolved").length ? () => {
-            activeWikiReviewId = workspaceReviewEntries().find(row => row.item.review_id !== item.review_id && row.status !== "resolved")?.item.review_id || ""; llmWikiLifecycle.update(lifecycleSnapshot());
+          onNext: workspaceReviewEntries().filter(row => row.item.review_id !== item.review_id && !reviewClosed(row.status)).length ? () => {
+            activeWikiReviewId = workspaceReviewEntries().find(row => row.item.review_id !== item.review_id && !reviewClosed(row.status))?.item.review_id || ""; llmWikiLifecycle.update(lifecycleSnapshot());
           } : null,
           onComplete: async () => { await refreshCanonicalDocumentContext(); refreshWikiPendingCount(); }
         });
@@ -3622,8 +3755,26 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       return [...records.values()];
     };
+    // M1 phase 2/3: 변경안 검토 / 마이그레이션 승인 both route to the one prepared
+    // canonical review whose proposal already targets this legacy note. There is no
+    // separate migration approval surface: the review modal's exact approval is the
+    // authorization. A legacy note with no covering analysis cannot be adopted
+    // locally (that would need claims/evidence that do not exist), so it is answered
+    // honestly instead of inventing a packet.
+    const openMigrationReview = async (decisionId) => {
+      const unavailable = () => ({ ok: false, status: "blocked", reason: "migration_review_unavailable", provider_calls: 0,
+        write_counts: { canonical: 0, audit: 0, refresh: 0, git: 0 } });
+      const decision = (migrationScan?.decisions || []).find((row) => row.decision_id === decisionId);
+      if (!decision) return unavailable();
+      const covering = workspaceReviewEntries().find(({ item }) => item?.proposed_target?.path === decision.path)
+        || pendingCanonicalReviews().map(({ job_id, review }) => ({ item: { ...review.item, processing_job_id: job_id }, review }))
+          .find(({ review }) => review.item?.proposed_target?.path === decision.path || review.packet?.target_path === decision.path);
+      if (!covering) return unavailable();
+      const opened = await openCanonicalDocumentReview(covering.item, { modal: true });
+      return { ...opened, provider_calls: 0, migration_path: decision.path };
+    };
     const refreshWikiPendingCount = () => {
-      const canonical = workspaceReviewEntries().filter(row => row.status !== "resolved");
+      const canonical = workspaceReviewEntries().filter(row => !reviewClosed(row.status));
       const packetIds = new Set((llmWikiRunController.getSnapshot().risk_packets || []).map(packet => packet.operation.operation_id));
       wikiWorkspace.setPending(canonical.length + packetIds.size);
     };
@@ -3631,10 +3782,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       refreshWikiPendingCount();
       if (!["complete", "review", "review_only"].includes(snapshot.status) || snapshot.risk_packets?.length) return false;
       const entries = workspaceReviewEntries();
-      const selected = entries.find(row => row.item.review_id === activeWikiReviewId) || entries.find(row => row.status !== "resolved");
+      const selected = entries.find(row => row.item.review_id === activeWikiReviewId) || entries.find(row => !reviewClosed(row.status));
       if (!selected) return false;
       activeWikiReviewId = selected.item.review_id;
-      wikiWorkspace.setProposals(entries.filter(row => row.status !== "resolved" || row.item.review_id === activeWikiReviewId).map(row => ({ id: row.item.review_id, title: row.item.title,
+      wikiWorkspace.setProposals(entries.filter(row => !reviewClosed(row.status) || row.item.review_id === activeWikiReviewId).map(row => ({ id: row.item.review_id, title: row.item.title,
         status: row.status === "resolved" ? "적용 완료" : row.item.review_blocked ? "충돌 확인 필요" : row.target ? "내용 추가" : "새 문서" })), activeWikiReviewId,
         id => { activeWikiReviewId = id; inlineWikiReview?.onClose?.(); llmWikiLifecycle.update(lifecycleSnapshot()); });
       if (selected.item.review_blocked || !selected.item.grounded_claims?.length) {
@@ -3953,6 +4104,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     KnowledgeExplorerHub.llmWikiRunController = llmWikiRunController;
     KnowledgeExplorerHub.llmWikiLifecycle = llmWikiLifecycle;
     KnowledgeExplorerHub.dispatchLlmWikiAction = dispatchLifecycleAction;
+    KnowledgeExplorerHub.scanExistingZetaMigration = scanExistingZetaMigration;
     KnowledgeExplorerHub.llmWikiLifecycleSnapshot = lifecycleSnapshot;
     KnowledgeExplorerHub.llmWikiBrowse = llmWikiWikiSurface;
     KnowledgeExplorerHub.dataSource = dataSource;

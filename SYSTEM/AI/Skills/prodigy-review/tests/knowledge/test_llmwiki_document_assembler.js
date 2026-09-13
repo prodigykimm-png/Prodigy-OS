@@ -31,6 +31,21 @@ function artifact(chunkKey, items) {
   return { chunk_key: chunkKey, outcome: "proposals", items };
 }
 
+test("D1 grouped similar topics preserve original topic refs without changing identity", () => {
+  const assembler = assemblerApi.createDocumentAssembler();
+  const result = assembler.assemble({ source: source(), artifacts: [artifact("chunk_lens", [
+    item("reusable_claim", "50mm 렌즈를 사용한다.", 0, [], "50mm 렌즈 선택"),
+    item("reusable_claim", "85mm 렌즈를 사용한다.", 30, [], "50mm 렌즈 고르기"),
+  ])] });
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.documents.length, 1);
+  const [document] = result.documents;
+  assert.ok(Array.isArray(document.original_topic_refs), "original_topic_refs missing");
+  assert.deepEqual(document.original_topic_refs.map((row) => row.topic).sort(), ["50mm 렌즈 고르기", "50mm 렌즈 선택"].sort());
+  assert.equal(document.claims.length, 2);
+  assert.equal(document.citations.length, 2);
+});
+
 test("multiple claims from one source become one coherent candidate document", () => {
   const assembler = assemblerApi.createDocumentAssembler();
   const result = assembler.assemble({

@@ -126,25 +126,22 @@ test("Hub singleton opens one source-linked whole-document review selectable for
   assert.deepEqual(Array.from(compiled.documents, document => document.role), ["source_summary", "reusable_claim"]);
   const reviewButtons = () => elements(runtime.container, node => node.attr?.["data-action"] === "review-canonical-document");
   assert.equal(reviewButtons().length, 1, "the source guide is context, not a duplicate review item");
-  let opened = Promise.withResolvers();
-  runtime.window.obsidian.Modal.prototype.open = function () {
-    Promise.resolve(this.onOpen()).then(() => opened.resolve(this), opened.reject);
-  };
+  // The Hub awaits inlineWikiReview.ready; no Modal.open event is emitted.
   await reviewButtons()[0].onclick();
-  const modal = await opened.promise;
-  const sourceButtons = elements(modal.contentEl, node => node.tag === "button" && node.text?.startsWith(sourcePath));
+  const reviewRoot = () => elements(runtime.container, node => node.classNames?.includes("llmwiki-document-review"))[0];
+  assert.ok(reviewRoot());
+  const sourceButtons = elements(reviewRoot(), node => node.tag === "button" && node.attr?.["data-citation-locator"]?.startsWith(`${sourcePath}#`));
   assert.equal(sourceButtons.length, 1);
-  const field = name => firstElement(modal.contentEl, "select", node => node.attr?.["data-review-field"] === name)
-    || firstElement(modal.contentEl, "textarea", node => node.attr?.["data-review-field"] === name);
+  const field = name => elements(reviewRoot(), node => node.attr?.["data-review-field"] === name)[0];
   field("target_path").value = "new";
   await field("target_path").oninput();
   // Synthetic whole-document review choices; no claim-by-claim procedure.
   const fields = { knowledge_kind: "claim", knowledge_domain: "coding", knowledge_topics: "ai", application_trigger: "fixture review",
     application_contexts: "coding/ai", conditions: "fixture scope", invalidation_conditions: "source changed", relation_status: "resolved", classification: "epistemic", evidence_strength: "sufficient" };
-  for (const [name, value] of Object.entries(fields)) { field(name).value = value; field(name).oninput(); }
-  const buttons = elements(modal.contentEl, node => node.tag === "button");
-  const [prepare, apply] = buttons.slice(-2);
-  const accepted = firstElement(modal.contentEl, "input", node => node.attr?.type === "checkbox");
+  for (const [name, value] of Object.entries(fields)) { field(name).value = value; await field(name).oninput(); }
+  const action = name => firstElement(runtime.container, "button", node => node.attr?.["data-action"] === name);
+  const prepare = action("prepare-document-review"), apply = action("apply-document-review");
+  const accepted = firstElement(runtime.container, "input", node => Object.hasOwn(node.attr || {}, "data-review-acknowledgement"));
   assert.equal(accepted.checked, false);
   assert.equal(apply.disabled, true);
   await apply.onclick();
@@ -158,10 +155,11 @@ test("Hub singleton opens one source-linked whole-document review selectable for
   accepted.onchange();
   assert.equal(apply.disabled, true);
   await apply.onclick();
-  opened = Promise.withResolvers();
   await reviewButtons()[0].onclick();
-  assert.equal(await opened.promise, modal);
-  assert.equal(runtime.openedModals.length, 1, "reopening reuses the same document review");
+  assert.equal(elements(runtime.container, node => node.classNames?.includes("llmwiki-document-review")).length, 1, "reopening replaces the inline view, not the document review identity");
+  for (const [name, value] of Object.entries(fields)) assert.equal(field(name).value, value);
+  assert.equal(firstElement(runtime.container, "input", node => Object.hasOwn(node.attr || {}, "data-review-acknowledgement")).checked, false);
+  assert.equal(runtime.openedModals.length, 0, "the default Hub handoff is inline");
   assert.equal(reviewButtons().length, 1);
   assert.equal(hub.reviewedWikiSnapshot().entries.length, 0);
   const canonicalWrites = runtime.app.vault.touched.filter(row => row.slice(1).some(value => String(value).startsWith("ZETA/"))).length;

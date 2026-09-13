@@ -63,6 +63,12 @@ test("production Knowledge manifest loads Todo 1-14 lifecycle modules once befor
   assert.ok(required.indexOf("SYSTEM/Views/knowledge-fleeting-store.js") < required.indexOf("SYSTEM/Views/quick-capture-view.js"));
   assert.ok(required.indexOf("SYSTEM/Views/llmwiki-canonical-trust.js") < required.indexOf("SYSTEM/Views/llmwiki-query-readonly.js"));
   assert.ok(required.indexOf("SYSTEM/Views/llmwiki-lifecycle-migration-flows.js") < required.indexOf("SYSTEM/Views/llmwiki-run-controller.js"));
+  // The canonical review resolves the migration-flows global once, at load time
+  // (the hub evaluates modules with `new Function`, so there is no require
+  // fallback). Loading it first would capture null and refuse every legacy
+  // adoption apply with `lifecycle_migration_flows_required`.
+  assert.ok(required.indexOf("SYSTEM/Views/llmwiki-lifecycle-migration-transaction.js") < required.indexOf("SYSTEM/Views/llmwiki-lifecycle-migration-flows.js"), "flows needs the transaction global before it is evaluated");
+  assert.ok(required.indexOf("SYSTEM/Views/llmwiki-lifecycle-migration-flows.js") < required.indexOf("SYSTEM/Views/llmwiki-document-canonical-review.js"), "the canonical review captures the migration-flows global at load time");
 });
 
 test("Home loads the local Fleeting writer before quick capture", () => {

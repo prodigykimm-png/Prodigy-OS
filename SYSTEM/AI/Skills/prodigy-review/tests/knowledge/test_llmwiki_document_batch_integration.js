@@ -972,21 +972,26 @@ test("live batch emits one document operation for multiple reusable claims", asy
   assert.match(after, /원본 파일을 먼저 정리한다/u);
   assert.match(after, /홀수 사진은 오른쪽 페이지부터 시작한다/u);
   assert.equal(operation.source_citations[0].locators.length, 3);
-  const candidateGroup = firstElement(runtime.container, "section", (node) => node.attr?.["data-review-group"] === "candidate");
-  const canonicalGroup = firstElement(runtime.container, "section", (node) => node.attr?.["data-review-group"] === "canonical_review");
-  assert.equal(firstElement(candidateGroup, "output", (node) => node.attr?.["data-review-counter"] === "candidate").text, "1");
-  assert.equal(firstElement(canonicalGroup, "output", (node) => node.attr?.["data-review-counter"] === "canonical_review").text, "0");
-  const summaryPreview = firstElement(candidateGroup, "p", (node) => node.attr?.["data-review-summary-preview"] === "");
-  assert.match(summaryPreview.text, /원본 파일을 먼저 정리한다/u);
-  assert.match(summaryPreview.text, /홀수 사진은 오른쪽 페이지부터 시작한다/u);
-  const open = firstElement(candidateGroup, "button", (node) => node.attr?.["data-action"] === "open-review-detail");
-  open.onclick();
-  const detailText = collectText(runtime.openedModals.at(-1).contentEl);
-  assert.match(detailText, /INBOX\/앨범 작업 워크플로우\.md/u);
-  assert.match(detailText, /요약 결과/u);
-  assert.match(detailText, /생성 문서 전체/u);
-  assert.match(detailText, /## 핵심 내용/u);
-  assert.match(detailText, /분석 범위\s+완료/u);
+  // 916a1f4 moved the batch scene behind its explicit auxiliary action.
+  await firstElement(runtime.container, "button", node => node.attr?.["data-action"] === "scan_inbox").onclick();
+  // Candidate counters/detail modals became one inline exact review.
+  const surface = firstElement(runtime.container, "section", node => node.attr?.["data-surface"] === "llmwiki-risk-approval-review");
+  assert.ok(surface);
+  const card = firstElement(surface, "article", node => node.attr?.["data-active-packet"] === packets[0].packet_id);
+  assert.ok(card);
+  assert.equal(firstElement(card, "pre", node => node.attr?.["data-raw-markdown"] === "after").text, after);
+  assert.equal(firstElement(card, "p", node => node.attr?.["data-output-target"] === operation.destination_ids[0]).attr["data-output-target"], operation.destination_ids[0]);
+  for (const locator of operation.source_citations[0].locators) {
+    const source = firstElement(runtime.container, "button", node => node.attr?.["data-source-locator"] === locator);
+    assert.ok(source, locator);
+    await source.onclick();
+    assert.ok(firstElement(runtime.container, "button", node => node.attr?.["data-action"] === "open-source-file"));
+  }
+  const acknowledge = firstElement(runtime.container, "input", node => Object.hasOwn(node.attr || {}, "data-review-acknowledgement"));
+  assert.equal(acknowledge.checked, false);
+  assert.equal(firstElement(runtime.container, "button", node => node.attr?.["data-emitted-action"] === "approve_risk").disabled, true);
+  assert.equal(runtime.openedModals.length, 0);
+  assert.equal(runtime.app.vault.touched.some(row => String(row[1]).startsWith("ZETA/")), false);
 });
 
 test("rejecting an obsolete review run persists zero packets across restart", async () => {
@@ -2030,4 +2035,145 @@ test("identical plan replay costs zero provider calls and zero canonical writes"
   assert.equal(second.canonical_writes, 0);
   assert.equal(mapCalls, 1, "analysis must replay from cache");
   assert.equal(planCalls, 1, "planning must reuse the retained plan");
+});
+
+test("bounded Golden result opens its own review with full-source and separate scope binding", async () => {
+  const sourcePath = "INBOX/QA/scoped-review.md";
+  const quote = "Keep paired album photographs at the same eye height and check the horizon before placing a two-page spread, preserving both edges before exporting the final layout.";
+  const bytes = `# Album\n\n## Layout\n\n${quote}\n\n## Other\n\nUnselected private working notes remain outside the selected range.\n`;
+  let outbound;
+  const runtime = await runHub({ pages: [], extraFiles: { [sourcePath]: bytes }, llmWikiControllerOptions: {
+    loadDynamicGoldenModules: true, batchIdentity: v2Identity(),
+    batchProvider: async request => { outbound = request; return { ok: true, provider_call_count: 1, artifacts: request.chunks.map(chunk => ({
+      chunk_key: chunk.key, outcome: "proposals", items: [{ role: "reusable_claim", topic: "사진 배치 순서", evidence_quote: quote,
+        claims: [{ text: quote }], review_reasons: [], related_candidate_ids: [],
+        span: { start: chunk.text.indexOf(quote), end: chunk.text.indexOf(quote) + quote.length, alias: "span_scope" } }],
+    })) }; },
+    documentPagePlan: async request => { const ids = request.claims.map(c => c.claim_id); return {
+      source_guide: { overview: "Layout", sections: [{ heading: "Layout", summary: "Layout", claim_ids: ids }], key_questions: [] },
+      topic_pages: [{ title: "사진 배치 순서", purpose: "Layout", claim_ids: ids, target_candidate_ids: [] }], source_only_claim_ids: [],
+    }; },
+    documentArticleCompiler: async request => ({ articles: request.pages.map(page => ({ page_id: page.page_id,
+      sections: [{ heading: "Layout", paragraphs: page.claims.map(c => ({ text: c.text, claim_ids: [c.claim_id] })) }],
+    })) }),
+  } });
+  const hub = runtime.window.KnowledgeExplorerHub;
+  await hub.whenKnowledgeInboxSettled();
+  await hub.dispatchLlmWikiAction({ action: "select_source", source_path: sourcePath });
+  await hub.dispatchLlmWikiAction({ action: "change_golden_range" });
+  const range = hub.prodigyWikiSnapshot().result.scopes.find(row => row.title === "Layout");
+  assert.ok(range);
+  assert.equal((await hub.dispatchLlmWikiAction({ action: "select_golden_scope", scope_id: range.scope_id })).ok, true);
+  assert.equal((await hub.dispatchLlmWikiAction({ action: "request_consent" })).ok, true);
+  const run = await hub.dispatchLlmWikiAction({ action: "start_run" });
+  assert.equal(run.ok, true, JSON.stringify(run));
+  const opened = await hub.dispatchLlmWikiAction({ action: "open_golden_review" });
+  assert.equal(opened.ok, true, JSON.stringify(opened));
+  assert.equal(opened.status, "waiting_for_human_review");
+  assert.ok(firstElement(runtime.container, "select", node => node.attr?.["data-review-field"] === "target_path"));
+  const snapshot = hub.documentPlanSnapshots().find(row => row.job_id === hub.documentPlanSnapshots()[0].job_id);
+  assert.equal(snapshot.source_revision, sha(bytes));
+  assert.equal(snapshot.plan.source.content_hash, sha(bytes));
+  assert.equal(snapshot.plan.source.scope.start, range.start);
+  assert.equal(snapshot.plan.source.scope.end, range.end);
+  assert.equal(snapshot.plan.source.scope.content_hash, sha(bytes.slice(range.start, range.end)));
+  assert.equal(snapshot.inventory.citations.every(c => c.content_hash === sha(bytes)), true);
+  assert.equal(outbound.chunks.every(chunk => !chunk.text.includes("Unselected private")), true);
+  await runtime.app.vault.modify(runtime.app.vault.getAbstractFileByPath(sourcePath), bytes + "\nChanged outside scope\n");
+  const stale = await hub.dispatchLlmWikiAction({ action: "open_golden_review" });
+  assert.equal(stale.reason, "source_revision_changed");
+  assert.equal(runtime.app.vault.touched.some(row => row.slice(1).some(p => String(p).startsWith("ZETA/"))), false);
+});
+
+test("verified comparison binds one compiled target review before final proposal", async () => {
+  const { createTrustedFixture } = require("./fixtures/llmwiki-canonical-v2-trust-fixture.js");
+  const trusted = await createTrustedFixture({ title: "Album layout", body: "## Existing fact\n\nThe approved v2 item is source-bound and active.\n\n## 출처\n- [source_fixture_v2](ZETA/LITERATURE/fixture.md#L1)\n" });
+  const sourcePath = "INBOX/QA/compare.md";
+  const duplicate = trusted.source.source_text;
+  const novel = "Export both album edges without trimming the horizontal framing.";
+  const sourceBytes = `${duplicate}\n\n${novel}\n`;
+  const extraFiles = { [sourcePath]: sourceBytes };
+  for (const f of trusted.app.vault.getFiles()) extraFiles[f.path] = await trusted.app.vault.read(f);
+  const targetPath = trusted.path;
+  let runtime, compilationRead = false;
+  runtime = await runHub({ pages: [], extraFiles, llmWikiControllerOptions: {
+    batchIdentity: v2Identity(),
+    batchProvider: async request => ({ ok: true, artifacts: request.chunks.map(chunk => ({ chunk_key: chunk.key, outcome: "proposals",
+      items: [duplicate, novel].map((text, i) => ({ role: "reusable_claim", topic: "사진 배치 순서", evidence_quote: text, claims: [{ text }],
+        review_reasons: [], related_candidate_ids: [], span: { start: chunk.text.indexOf(text), end: chunk.text.indexOf(text) + text.length, alias: `span_compare_${i}` } })),
+    })) }),
+    documentPagePlan: async request => { const ids = request.claims.map(c => c.claim_id); return {
+      source_guide: { overview: "Album layout", sections: [{ heading: "Layout", summary: "Layout", claim_ids: ids }], key_questions: [] },
+      topic_pages: [{ title: "Album layout", purpose: "Preserve existing facts and add the distinct export check.", claim_ids: ids, target_candidate_ids: [] }], source_only_claim_ids: [],
+    }; },
+    documentArticleCompiler: async request => {
+      compilationRead = runtime.app.vault.readPaths.includes(targetPath);
+      return { articles: request.pages.map(page => ({ page_id: page.page_id,
+        sections: [{ heading: "Layout", paragraphs: page.claims.map(c => ({ text: c.text, claim_ids: [c.claim_id] })) }],
+      })) };
+    },
+  } });
+  const hub = runtime.window.KnowledgeExplorerHub;
+  await hub.whenKnowledgeInboxSettled();
+  runtime.app.vault.readPaths.length = 0;
+  const planned = await hub.runDocumentPlan(sourcePath);
+  assert.equal(planned.ok, true, JSON.stringify(planned));
+  assert.equal((await hub.compileDocumentPlan()).ok, true);
+  assert.equal(compilationRead, true, "verified target bytes must be read before compilation");
+  let reviewedItem;
+  const actualReview = runtime.window.LLMWikiDocumentCanonicalReview;
+  runtime.window.LLMWikiDocumentCanonicalReview = { ...actualReview, open: options => { reviewedItem = options.item; return actualReview.open(options); } };
+  const button = firstElement(runtime.container, "button", n => n.attr?.["data-action"] === "review-canonical-document");
+  assert.ok(button);
+  await button.onclick();
+  const input = name => firstElement(runtime.container, "select", n => n.attr?.["data-review-field"] === name);
+  assert.equal(input("target_path").value, targetPath, "comparison must select the verified proposed target, not ask for a post-hoc link");
+  assert.equal(reviewedItem.proposed_target.path, targetPath);
+  assert.equal(reviewedItem.proposed_target.revision, sha(extraFiles[targetPath]));
+  assert.equal(reviewedItem.proposed_target.action, "update");
+  assert.equal(reviewedItem.grounded_claims.every(c => c.original_topic_refs?.length), true);
+  const stored = hub.documentPlanSnapshots().find(row => row.job_id === planned.job_id);
+  assert.ok(stored.execution.resolution.rows[0].candidate_evidence.some(e => e.path === targetPath && e.revision === sha(extraFiles[targetPath])));
+  assert.equal(input("knowledge_domain").value, "coding", "intended target metadata outranks a fresh original-topic suggestion");
+  // A1 proposes decisions visibly; target provenance still grants no approval.
+  assert.equal(input("relation_status").value, "resolved");
+  assert.equal(input("evidence_strength").value, "sufficient");
+  assert.ok(input("relation_status").parentElement.querySelector('[data-decision-suggestion]'));
+  assert.equal(runtime.container.querySelector('[data-review-acknowledgement]').checked, false);
+  assert.equal(runtime.app.vault.touched.some(row => row.slice(1).some(p => String(p).startsWith("ZETA/"))), false);
+});
+
+test("selected compact topics reach registered current-session review suggestions", async () => {
+  const sourcePath = "INBOX/QA/topic-review.md", quote = "사진 배치 순서는 원본 파일을 먼저 정리하고 좌우 페이지의 수평을 확인한다.";
+  const runtime = await runHub({ pages: [], extraFiles: { [sourcePath]: `${quote}\n` }, llmWikiControllerOptions: {
+    batchIdentity: v2Identity(), batchProvider: async request => ({ ok: true, artifacts: request.chunks.map(chunk => ({ chunk_key: chunk.key, outcome: "proposals",
+      items: [{ role: "reusable_claim", topic: "사진 배치 순서", evidence_quote: quote, claims: [{ text: quote }], review_reasons: [], related_candidate_ids: [],
+        span: { start: 0, end: quote.length, alias: "span_topic_review" } }],
+    })) }),
+    documentPagePlan: async request => { const ids = request.claims.map(c => c.claim_id); return { source_guide: { overview: "사진 배치", sections: [{ heading: "배치", summary: "배치", claim_ids: ids }], key_questions: [] }, topic_pages: [{ title: "사진 배치 순서", purpose: "배치 확인", claim_ids: ids, target_candidate_ids: [] }], source_only_claim_ids: [] }; },
+    documentArticleCompiler: async request => ({ articles: request.pages.map(page => ({ page_id: page.page_id, sections: [{ heading: "사진 배치", paragraphs: page.claims.map(c => ({ text: c.text, claim_ids: [c.claim_id] })) }] })) }),
+  } });
+  const hub = runtime.window.KnowledgeExplorerHub;
+  await hub.whenKnowledgeInboxSettled();
+  assert.equal((await hub.runDocumentPlan(sourcePath)).ok, true);
+  assert.equal((await hub.compileDocumentPlan()).ok, true);
+  await firstElement(runtime.container, "button", n => n.attr?.["data-action"] === "review-canonical-document").onclick();
+  const input = name => runtime.container.querySelector(`[data-review-field="${name}"]`);
+  assert.equal(input("knowledge_domain").value, "wedding");
+  assert.equal(input("knowledge_topics").value, "editing");
+  assert.equal(input("knowledge_kind").value, "procedure");
+  assert.equal(input("relation_status").value, "resolved");
+  assert.equal(input("evidence_strength").value, "sufficient");
+  assert.ok(input("evidence_strength").parentElement.querySelector('[data-decision-suggestion]'));
+  assert.equal(runtime.container.querySelector('[data-review-acknowledgement]').checked, false);
+  const basis = runtime.container.querySelector('[data-classification-basis]');
+  assert.ok(basis);
+  assert.equal(basis.attr["data-original-topics"], JSON.stringify(["사진 배치 순서"]));
+  assert.equal(input("knowledge_domain").parentElement.attr["data-ai-prefilled"], "true");
+  input("knowledge_topics").value = ""; input("knowledge_topics").oninput();
+  input("application_trigger").value = "User correction"; input("application_trigger").oninput();
+  input("target_path").value = "new"; await input("target_path").oninput();
+  assert.equal(input("knowledge_topics").value, "", "explicit clear survives a current-session target rerender");
+  assert.equal(input("application_trigger").value, "User correction");
+  assert.equal(input("knowledge_topics").parentElement.attr["data-ai-prefilled"], undefined);
 });

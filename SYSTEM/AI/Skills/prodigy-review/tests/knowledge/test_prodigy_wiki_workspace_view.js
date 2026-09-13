@@ -81,18 +81,26 @@ test("exact diff reconstructs both byte sequences without omitting middle change
   assert.equal(by(root, "data-raw-markdown").length, 2);
 });
 
-test("all missing fields remain reachable; no storage or human judgment is silently selected", async () => {
+// A1 supersedes blank mandatory fields, not explicit acknowledgement/approval.
+test("three recommendations are visible while advanced fields stay reachable and cleared decisions still block", async () => {
   const subject = await reviewFixture();
   assert.equal(by(subject.content, "data-storage-mode").length, 2);
-  assert.equal(by(subject.content, "data-storage-mode").some(node => node.checked), false);
-  assert.equal(by(subject.content, "data-review-field", "relation_status")[0].value, "");
-  assert.equal(by(subject.content, "data-review-field", "evidence_strength")[0].value, "");
-  assert.equal(by(subject.content, "data-review-conditions")[0].open, true);
+  assert.equal(by(subject.content, "data-storage-mode", "new")[0].checked, true);
+  assert.equal(by(subject.content, "data-review-field", "relation_status")[0].value, "resolved");
+  assert.equal(by(subject.content, "data-review-field", "evidence_strength")[0].value, "sufficient");
+  assert.equal(Boolean(by(subject.content, "data-review-conditions")[0].open), false);
   assert.equal(by(subject.content, "data-review-group").length, 6);
-  const target = by(subject.content, "data-review-field", "target_path")[0]; target.value = "new"; await target.oninput();
-  await action(subject.decision, "prepare-document-review").onclick();
-  assert.equal(subject.document.activeElement, by(subject.content, "data-review-field", "knowledge_kind")[0]);
-  assert.equal(by(subject.content, "data-field-error", "knowledge_kind").length, 1);
+  assert.equal(by(subject.content, "data-decision-suggestion").length, 3);
+  assert.equal(by(subject.decision, "data-review-acknowledgement")[0].checked, false);
+  for (const name of ["knowledge_kind", "relation_status", "evidence_strength"]) {
+    const input = by(subject.content, "data-review-field", name)[0], previous = input.value;
+    input.value = ""; input.oninput();
+    await action(subject.decision, "prepare-document-review").onclick();
+    assert.equal(subject.document.activeElement, input);
+    assert.equal(by(subject.content, "data-field-error", name).length, 1);
+    assert.equal(action(subject.decision, "apply-document-review").disabled, true);
+    input.value = previous; input.oninput();
+  }
   assert.equal(subject.files.size, 1);
 });
 

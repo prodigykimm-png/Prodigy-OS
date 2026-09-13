@@ -405,6 +405,31 @@ test("page-plan snapshot preserves immutable history when inventory identity cha
   assert.equal(store.getPlanSnapshot(job.job_id).plan_hash, hash.sha256("plan-v2"));
 });
 
+test("optional pending review drafts validate values markers identity and reject approval capabilities", async () => {
+  const storage = memoryStorage(), store = storeApi.createBatchJobStore({ storage });
+  await store.load();
+  const job = await store.createJob({ request_key: storeApi.requestKey(identity()), sources: sources([["src_draft", "source"]]) });
+  const draft = { fields: { target_path: "new", exclusions: "" }, touched: { exclusions: true }, cleared: { exclusions: true },
+    target_path: "new", target_revision: null, source_revision: hash.sha256("source"), plan_hash: hash.sha256("plan"),
+    item_hash: hash.sha256("item"), sources: [{ source_id: "src_draft", source_path: "INBOX/source.md", content_hash: hash.sha256("source") }], edit_revision: 1 };
+  const base = { job_id: job.job_id, source_id: "src_draft", source_revision: draft.source_revision, inventory_hash: hash.sha256("inventory"),
+    plan_hash: draft.plan_hash, plan_revision: 1, status: "compiled", plan: { plan_version: "fixture", pages: [] } };
+  await store.savePlanSnapshot(base);
+  for (const bad of [{ ...draft, authorization: {} }, { ...draft, edit_revision: -1 }, { ...draft, cleared: { exclusions: false } },
+    { ...draft, fields: { exclusions: null } }, { ...draft, source_revision: "wrong" }, { ...draft, target_revision: "wrong" }]) {
+    await assert.rejects(() => store.savePlanSnapshot({ ...base, plan_revision: 2, canonical_reviews: { draft: { pending_draft: bad } } }), /invalid_plan_snapshot/);
+  }
+  const key = hash.sha256("review"), item = { review_id: "review" };
+  await store.saveCanonicalReviewDraft({ job_id: job.job_id, review_key: key, item, draft });
+  await store.saveCanonicalReviewDraft({ job_id: job.job_id, review_key: key, item, draft: { ...draft, edit_revision: 3, fields: { ...draft.fields, exclusions: "Latest" }, cleared: {} } });
+  await store.saveCanonicalReviewDraft({ job_id: job.job_id, review_key: key, item, draft: { ...draft, edit_revision: 2 } });
+  assert.equal(store.getPlanSnapshot(job.job_id).canonical_reviews[key].pending_draft.fields.exclusions, "Latest");
+  const same = { ...store.getPlanSnapshot(job.job_id), plan_revision: 4 }; delete same.canonical_reviews;
+  await store.savePlanSnapshot(same);
+  const reloaded = storeApi.createBatchJobStore({ storage }); await reloaded.load();
+  assert.equal(reloaded.getPlanSnapshot(job.job_id).canonical_reviews[key].pending_draft.fields.exclusions, "Latest");
+});
+
 test("page-plan snapshot rejects stale source binding and non-monotonic revision", async () => {
   const store = storeApi.createBatchJobStore({ storage: memoryStorage() });
   await store.load();
