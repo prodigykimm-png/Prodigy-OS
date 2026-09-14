@@ -115,7 +115,6 @@
     "SYSTEM/Views/auction-card-price-projection.js",
     "SYSTEM/Views/auction-dashboard-refresh.js",
     "SYSTEM/Views/auction-key-value-projection.js",
-    "SYSTEM/Views/auction-key-value-snapshot.js",
     "SYSTEM/Views/auction-key-value-detail.js",
     "SYSTEM/Views/auction-card-view-model.js",
     "SYSTEM/Views/auction-court-status.js",
@@ -135,6 +134,7 @@
     "SYSTEM/Views/auction-day-view.js"
   ]),
       optional: Object.freeze([
+    "SYSTEM/Views/auction-key-value-snapshot.js",
     "SYSTEM/Views/prodigy-performance-recorder.js",
     "SYSTEM/Views/prodigy-workspace-readiness.js",
     "SYSTEM/Views/prodigy-performance-exporter.js",

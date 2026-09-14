@@ -57,6 +57,11 @@ SYSTEM/AI/Reports/task16-final-evidence/st_*/
 SYSTEM/PRIVATE/
 SYSTEM/AI/Memory/
 SYSTEM/CACHE/
+# 대용량 생성·증거 산출물: 로컬에는 유지하고 저장소 추적에서 제외한다 (2026-09-13)
+# 이미 푸시된 이력에는 남아 있다(완전 축소는 이력 재작성 = 별도 결정).
+SYSTEM/AI/Reports/task16-final-evidence/
+SYSTEM/AI/Skills/prodigy-review/tests/fixtures/region-intelligence/reb_stock/2026-release.csv
+SYSTEM/Views/auction-key-value-snapshot.js
 SYSTEM/AI/Skills/prodigy-review/runs/
 
 # Temporary files

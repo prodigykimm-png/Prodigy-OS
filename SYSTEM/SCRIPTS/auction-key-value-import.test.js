@@ -1,5 +1,6 @@
 "use strict";
 const assert = require("node:assert/strict");
+const test = require("node:test");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -42,15 +43,23 @@ assert.ok(snapshot.groups["부산광역시|해운대구|좌동|아파트"]);
 assert.ok(snapshot.groups["부산광역시|북구|구포동|다가구"]);
 assert.ok(snapshot.groups["서울특별시|강서구|화곡동|오피스텔"]);
 
-const shippedCardSnapshot = require("../Views/auction-key-value-snapshot.js");
-assert.equal(shippedCardSnapshot.content_hash, core.snapshotHash(shippedCardSnapshot));
-assert.match(shippedCardSnapshot.generated_at, /^\d{4}-\d{2}-\d{2}T/);
-assert.ok(Object.keys(shippedCardSnapshot.groups).length >= 575, `shipped groups=${Object.keys(shippedCardSnapshot.groups).length}`);
-for (const key of [
-  "인천광역시|부평구|부평동|오피스텔",
-  "경기도|평택시|장당동|오피스텔",
-  "서울특별시|중구|황학동|오피스텔",
-  "부산광역시|북구|구포동|다가구",
-  "부산광역시|해운대구|좌동|아파트"
-]) assert.ok(shippedCardSnapshot.groups[key], `${key} shipped group`);
+// 추적 스냅샷은 생성 산출물이라 저장소에서 제외됐다(2026-09-13). 파일이 있으면 대조하고,
+// 없으면 skip으로 표시한다(조용히 통과시키지 않는다).
+const shippedSnapshotPath = path.join(__dirname, "../Views/auction-key-value-snapshot.js");
+test("shipped card snapshot matches the generated snapshot",
+  { skip: fs.existsSync(shippedSnapshotPath) ? false : "auction-key-value-snapshot.js 없음(저장소 추적 제외 — import 실행으로 재생성)" },
+  () => {
+  delete require.cache[require.resolve(shippedSnapshotPath)];
+  const shippedCardSnapshot = require(shippedSnapshotPath);
+  assert.equal(shippedCardSnapshot.content_hash, core.snapshotHash(shippedCardSnapshot));
+  assert.match(shippedCardSnapshot.generated_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.ok(Object.keys(shippedCardSnapshot.groups).length >= 575, `shipped groups=${Object.keys(shippedCardSnapshot.groups).length}`);
+  for (const key of [
+    "인천광역시|부평구|부평동|오피스텔",
+    "경기도|평택시|장당동|오피스텔",
+    "서울특별시|중구|황학동|오피스텔",
+    "부산광역시|북구|구포동|다가구",
+    "부산광역시|해운대구|좌동|아파트"
+  ]) assert.ok(shippedCardSnapshot.groups[key], `${key} shipped group`);
+});
 console.log("auction key value importer tests: PASS");

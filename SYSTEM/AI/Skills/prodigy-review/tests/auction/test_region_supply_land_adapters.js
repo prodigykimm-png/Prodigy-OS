@@ -18,7 +18,9 @@ const SUPPLY_FIXTURE = path.join(ROOT, "SYSTEM/AI/Skills/prodigy-review/tests/fi
 
 // --- REB Stock Tests ---
 
-test("reb-stock: seed fixture groups by exact address sigungu and sums 세대수 as 호", () => {
+test("reb-stock: seed fixture groups by exact address sigungu and sums 세대수 as 호",
+  { skip: fs.existsSync(STOCK_FIXTURE) ? false : "reb_stock/2026-release.csv 픽스처 없음(저장소 추적 제외 — 로컬 준비 필요)" },
+  () => {
   const csv = fs.readFileSync(STOCK_FIXTURE, "utf8");
   const result = rebStock.parseSeed(csv);
 
