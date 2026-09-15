@@ -234,6 +234,7 @@ test("Hub rejects a durable Literature review with legacy bytes and rematerializ
   const callsB = [];
   const second = await runHub({ pages: [], extraFiles: persisted, llmWikiControllerOptions: { ...options, batchProvider: provider(callsB) } });
   await second.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  assert.equal(second.window.KnowledgeExplorerHub.llmWikiRuntimeVersion, "llmwiki_hub_runtime_v2_literature_restore");
   assert.equal(second.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().risk_packets?.length || 0, 0);
   const replay = await second.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "retry_inbox" });
   assert.equal(replay.ok, true, replay.reason);

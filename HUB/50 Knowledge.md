@@ -9,6 +9,7 @@ window.app = app;
 window.KnowledgeExplorerHub = window.KnowledgeExplorerHub || {};
 
 const KnowledgeExplorerHub = window.KnowledgeExplorerHub;
+const LLMWIKI_HUB_RUNTIME_VERSION = "llmwiki_hub_runtime_v2_literature_restore";
 delete KnowledgeExplorerHub.documentPlanQualitySnapshot;
 window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "knowledge"
   ? window.__prodigyMeasurementEntry
@@ -4159,6 +4160,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     KnowledgeExplorerHub.refreshFleetingReview = refreshFleetingSurface;
     KnowledgeExplorerHub.whenKnowledgeInboxSettled = () => inboxSettled;
     KnowledgeExplorerHub.llmWikiRunController = llmWikiRunController;
+    KnowledgeExplorerHub.llmWikiRuntimeVersion = LLMWIKI_HUB_RUNTIME_VERSION;
     KnowledgeExplorerHub.llmWikiMountGeneration = llmWikiRenderGeneration;
     KnowledgeExplorerHub.whenKnowledgeInboxRunSettled = () => {
       const active = llmWikiSession.activeInboxRun;
