@@ -3,17 +3,16 @@
 
   const VERSION = "llmwiki_canonical_overlap_v1";
   const STOP = new Set(["가이드", "기준", "방법", "원칙", "웨딩", "스냅", "촬영", "위한", "대한", "한다", "있다", "사용"]);
-  const WEDDING_ANCHORS = new Set(["포징", "디렉팅", "구도", "자세", "조명", "플래시", "신부대기실", "대기실", "가족", "원판", "앨범", "후보정", "렌즈", "본식", "버진로드", "하객"]);
+  const WEDDING_DOMAIN_ANCHORS = new Set(["웨딩", "스냅", "촬영"]);
+  const WEDDING_DETAIL_ANCHORS = new Set(["포징", "디렉팅", "구도", "자세", "조명", "플래시", "신부대기실", "대기실", "가족", "원판", "앨범", "후보정", "렌즈", "본식", "버진로드", "하객"]);
 
   function freeze(value) {
     if (Array.isArray(value)) return Object.freeze(value.map(freeze));
     if (!value || typeof value !== "object") return value;
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, child]) => [key, freeze(child)])));
   }
-  function tokens(value) {
-    return [...new Set(String(value || "").toLocaleLowerCase("ko-KR").match(/[가-힣a-z0-9]{2,}/gu) || [])]
-      .filter((token) => !STOP.has(token));
-  }
+  function rawTokens(value) { return [...new Set(String(value || "").toLocaleLowerCase("ko-KR").match(/[가-힣a-z0-9]{2,}/gu) || [])]; }
+  function tokens(value) { return rawTokens(value).filter((token) => !STOP.has(token)); }
   function claimCoverage(claim, document) {
     const claimTokens = tokens(claim);
     if (claimTokens.length < 2) return 0;
@@ -26,14 +25,20 @@
     if (!input || !Array.isArray(input.claims) || input.claims.length === 0 || !Array.isArray(input.canonical_documents)) {
       return freeze({ ok: false, reason: "invalid_overlap_input", writer_count: 0 });
     }
-    const pageAnchors = tokens(input.page_title).filter((token) => WEDDING_ANCHORS.has(token));
+    const pageTokens = rawTokens(input.page_title);
+    const pageDomainAnchors = pageTokens.filter((token) => WEDDING_DOMAIN_ANCHORS.has(token));
+    const pageDetailAnchors = pageTokens.filter((token) => WEDDING_DETAIL_ANCHORS.has(token));
     const rows = input.canonical_documents.map((document) => {
       const body = `${document.title || ""} ${document.content || document.searchable_text || ""}`;
       const coverages = input.claims.map((claim) => claimCoverage(claim.text || claim, body));
       const covered_claim_ids = input.claims.filter((_claim, index) => coverages[index] >= 0.34)
         .map((claim, index) => claim.claim_id || `claim_${index + 1}`);
-      const documentAnchors = tokens(body).filter((token) => WEDDING_ANCHORS.has(token));
-      const title_anchor_match = pageAnchors.some((token) => documentAnchors.includes(token));
+      const documentTokens = rawTokens(body);
+      const documentDomainAnchors = documentTokens.filter((token) => WEDDING_DOMAIN_ANCHORS.has(token));
+      const documentDetailAnchors = documentTokens.filter((token) => WEDDING_DETAIL_ANCHORS.has(token));
+      const sharedDetails = pageDetailAnchors.filter((token) => documentDetailAnchors.includes(token));
+      const title_anchor_match = sharedDetails.length >= 2
+        || sharedDetails.length >= 1 && pageDomainAnchors.some((token) => documentDomainAnchors.includes(token));
       return {
         candidate_id: document.candidate_id,
         title: document.title || "",

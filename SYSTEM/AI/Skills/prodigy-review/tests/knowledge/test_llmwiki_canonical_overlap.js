@@ -48,6 +48,18 @@ test("generic page titles do not create false canonical overlap", () => {
   assert.equal(result.relation, "new");
 });
 
+test("one incidental wedding anchor cannot link a cross-domain family rule", () => {
+  const result = overlap.classify({
+    page_title: "재개발재건축 거주기간 산정 기준 및 가족 합산 규정",
+    claims: [{ claim_id: "claim_residency", text: "거주기간은 세대원의 실제 전입 기간을 합산해 판단한다." }],
+    canonical_documents: [{ candidate_id: "canonical_wedding", title: "웨딩 스냅 촬영 렌즈 선택 및 현장 촬영 가이드",
+      content: "가족 원판 촬영과 렌즈 선택을 정리한다.", read_only: true }],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.relation, "new");
+  assert.equal(result.candidates.length, 0);
+});
+
 test("all covered claims classify as duplicate", () => {
   const result = overlap.classify({ claims, canonical_documents: [{
     candidate_id: "canonical_pose", title: "웨딩 포징", read_only: true,
