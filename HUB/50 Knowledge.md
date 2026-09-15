@@ -2949,17 +2949,31 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       publishInbox({ ...baseCounts, state: "analyzing", processed: 0, succeeded: 0, failed: 0, current_title: "INBOX 배치 분석", current_path: sources[0].source_path, source_id: sources[0].source_id, reason: "", message: "", object_review_proposals: [] });
       if (explicitRetry) retrySequence += 1;
       const retryIntentId = explicitRetry ? `retry_${runId}_${retrySequence}` : null;
-      const response = await llmWikiRunController.startRun({
-        run_id: runId,
-        sources: sources.map((row) => ({ selected: true, display_name: row.source_path.split("/").pop() || "자료", extracted_text: row.extracted_text, analysis_text: inboxAnalysisText(row.extracted_text), source_path: row.source_path, manifest: { source_id: row.source_id, content_hash: row.content_hash, locator: row.source_path } })),
-        retrieval: { snapshot: { documents: [] } },
-        consent: { issued_at: now, nonce: `consent_${runId.slice(4)}_0001` },
-        approval: { expires_at: new Date(Date.now() + 3600000).toISOString(), nonce: `approval_${runId.slice(4)}_0001` },
-        advanced_settings: { timeout_ms: 120000 },
-        canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "사람이 승인할 때", application_contexts: ["reading"], connections: [], invalidation_conditions: [], summary: "" },
-        explicit_user_consent: true,
-        ...(explicitRetry ? { task13_explicit_retry: true, task13_retry_intent_id: retryIntentId } : {}),
-      });
+      let response;
+      try {
+        response = await llmWikiRunController.startRun({
+          run_id: runId,
+          sources: sources.map((row) => ({ selected: true, display_name: row.source_path.split("/").pop() || "자료", extracted_text: row.extracted_text, analysis_text: inboxAnalysisText(row.extracted_text), source_path: row.source_path, manifest: { source_id: row.source_id, content_hash: row.content_hash, locator: row.source_path } })),
+          retrieval: { snapshot: { documents: [] } },
+          consent: { issued_at: now, nonce: `consent_${runId.slice(4)}_0001` },
+          approval: { expires_at: new Date(Date.now() + 3600000).toISOString(), nonce: `approval_${runId.slice(4)}_0001` },
+          advanced_settings: { timeout_ms: 120000 },
+          canonical_defaults: { knowledge_domain: "reading", knowledge_topics: [], application_trigger: "사람이 승인할 때", application_contexts: ["reading"], connections: [], invalidation_conditions: [], summary: "" },
+          explicit_user_consent: true,
+          ...(explicitRetry ? { task13_explicit_retry: true, task13_retry_intent_id: retryIntentId } : {}),
+        });
+      } catch (_error) {
+        if (["running", "consent_required"].includes(llmWikiRunController.getSnapshot().status)) {
+          try { await llmWikiRunController.cancel({ action: "cancel" }); } catch (_cancelError) { /* fail closed below */ }
+        }
+        response = {
+          ok: false,
+          reason: "provider_unavailable",
+          source_results: [],
+          remaining_source_ids: sources.map((row) => row.source_id),
+          counters: { provider: 0 },
+        };
+      }
       if (token !== inboxBatchToken) return { ok: false, status: "cancelled", reason: "run_superseded", late_result_ignored: true };
       if (!response || response.ok !== true) {
         const reason = response && response.reason || "batch_analysis_failed";

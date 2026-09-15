@@ -247,11 +247,12 @@ test("Hub retry preserves frozen full revisions while routing one bounded excerp
   assert.equal(first.ok, false);
   const retried = await hub.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "retry_inbox" });
   assert.equal(retried.ok, true, retried && retried.reason);
-  assert.equal(calls.length, 2);
-  assert.equal(calls[1].chunks.length, 2);
+  assert.equal(calls.length, 3);
+  const retryChunks = calls.slice(1).flatMap((call) => call.chunks);
+  assert.equal(retryChunks.length, 2);
   const expectedExcerpts = Object.values(files).map((text) => text.slice(0, 4 * 1024)).sort();
-  assert.deepEqual(Array.from(calls[1].chunks, (chunk) => chunk.text).sort(), expectedExcerpts);
-  for (const chunk of calls[1].chunks) assert.ok(hashApi.utf8ByteLength(chunk.text) <= 4 * 1024);
+  assert.deepEqual(Array.from(retryChunks, (chunk) => chunk.text).sort(), expectedExcerpts);
+  for (const chunk of retryChunks) assert.ok(hashApi.utf8ByteLength(chunk.text) <= 4 * 1024);
   const jobs = Object.values((await jobStore.load()).jobs);
   const retryJob = jobs.find((job) => job.job_id === retried.job_id);
   assert.deepEqual(Object.keys(retryJob.sources).sort(), Object.keys(files).map((filePath) => `source_${hashApi.sha256(filePath).slice(0, 24)}`).sort());
@@ -261,7 +262,74 @@ test("Hub retry preserves frozen full revisions while routing one bounded excerp
   }
 });
 
-test("provider-free real INBOX routing benchmark bounds 30 sources to 30 chunks and eight calls", async (t) => {
+test("client bootstrap failure settles the running controller and preserves retryable sources", async () => {
+  let handshakeCalls = 0;
+  const profile = { profile_id: "runtime-profile", provider_key: "runtime-provider", status: "ready" };
+  const aiClient = {
+    resolveProvider() { return profile; },
+    listProviders() { return [profile]; },
+    listModels() { return [{ profile_id: profile.profile_id, model: "runtime-model" }]; },
+    getHandshake() {
+      handshakeCalls += 1;
+      if (handshakeCalls === 1) throw new Error("bootstrap failed");
+      return { runtime_epoch: "runtime-epoch-1" };
+    },
+    getConsentRequirement() { return { status: "ready" }; },
+    async grantConsumer() { return { status: "granted" }; },
+    cancel() { return { status: "cancelled_confirmed" }; },
+    async requestStructured(request) {
+      const input = JSON.parse(request.prompt);
+      return {
+        ok: true,
+        payload: {
+          status: "ok",
+          results: input.chunks.map((chunk) => ({
+            chunk_key: chunk.key,
+            outcome: "proposals",
+            items: chunk.evidence_candidates
+              ? chunk.evidence_candidates.map((candidate) => ({
+                role: "source_summary",
+                evidence_key: candidate.key,
+                evidence_quote: candidate.text,
+                claims: ["fixture claim"],
+                review_reasons: [],
+                related_candidate_ids: [],
+              }))
+              : [{
+                role: "source_summary",
+                evidence_quote: chunk.text.trim().slice(0, 12),
+                claims: ["fixture claim"],
+                review_reasons: [],
+                related_candidate_ids: [],
+              }],
+          })),
+        },
+      };
+    },
+    openSettings() { return true; },
+  };
+  const hub = await runHub({
+    pages: [],
+    extraFiles: {
+      "INBOX/Knowledge/bootstrap-a.md": "# Bootstrap A\n\n실행 상태는 실패 뒤 정리되어야 한다.\n",
+      "INBOX/Knowledge/bootstrap-b.md": "# Bootstrap B\n\n재시도는 같은 두 자료를 다시 처리해야 한다.\n",
+    },
+    llmWikiControllerOptions: { aiClient, batchIdentity: BATCH_IDENTITY },
+  });
+  await hub.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+
+  const first = await hub.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
+
+  assert.equal(first.ok, false);
+  assert.equal(first.reason, "provider_unavailable");
+  assert.notEqual(hub.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().status, "running");
+  const blocked = hub.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox;
+  assert.equal(blocked.failed, 0);
+  assert.equal(blocked.pending, 2);
+  assert.equal(handshakeCalls, 1);
+});
+
+test("provider-free real INBOX routing isolates 30 sources into 30 durable calls", async (t) => {
   const files = Object.fromEntries(Array.from({ length: 30 }, (_, index) => [
     `INBOX/Knowledge/benchmark-${String(index).padStart(2, "0")}.md`,
     `# Benchmark ${index}\n\n${String(index).repeat(6000)}`,
@@ -281,9 +349,9 @@ test("provider-free real INBOX routing benchmark bounds 30 sources to 30 chunks 
   const chunks = calls.flatMap((call) => call.chunks);
   const outboundBytes = chunks.reduce((total, chunk) => total + hashApi.utf8ByteLength(chunk.text), 0);
   assert.equal(chunks.length, 30);
-  assert.equal(calls.length, 8);
+  assert.equal(calls.length, 30);
   assert.ok(chunks.every((chunk) => hashApi.utf8ByteLength(chunk.text) <= 4 * 1024));
-  t.diagnostic(`30 source routing benchmark: ${outboundBytes} outbound UTF-8 bytes across ${calls.length} provider-free calls`);
+  t.diagnostic(`30 independent source calls: ${outboundBytes} outbound UTF-8 bytes with one durable job per source`);
 });
 
 
