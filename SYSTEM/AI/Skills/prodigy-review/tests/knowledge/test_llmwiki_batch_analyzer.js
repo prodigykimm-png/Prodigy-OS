@@ -12,6 +12,11 @@ const storeApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-batch-job-store.j
 const CACHE_PATH = "SYSTEM/PRIVATE/llmwiki-test-cache.json";
 const COVERAGE_PATH = "SYSTEM/PRIVATE/llmwiki-test-coverage.json";
 
+test("Knowledge manifest loads semantic evidence before the analyzer that captures it", () => {
+  const required = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js")).get("knowledge").required;
+  assert.ok(required.indexOf("SYSTEM/Views/llmwiki-evidence-candidates.js") < required.indexOf("SYSTEM/Views/llmwiki-batch-analyzer.js"));
+});
+
 function vault(seed = {}) {
   const files = { ...seed };
   return {

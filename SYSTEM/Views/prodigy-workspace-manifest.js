@@ -391,9 +391,9 @@
     "SYSTEM/Views/llmwiki-analysis-cache.js",
     // Task 11 cutover: single durable queue/analyzer/provider/approval path modules.
     "SYSTEM/Views/llmwiki-batch-job-store.js",
-    "SYSTEM/Views/llmwiki-batch-analyzer.js",
     "SYSTEM/Views/llmwiki-evidence-anchor.js",
     "SYSTEM/Views/llmwiki-evidence-candidates.js",
+    "SYSTEM/Views/llmwiki-batch-analyzer.js",
     "SYSTEM/Views/llmwiki-batch-provider-input.js",
     "SYSTEM/Views/llmwiki-batch-provider.js",
     "SYSTEM/Views/llmwiki-inbox-discovery-queue.js",
