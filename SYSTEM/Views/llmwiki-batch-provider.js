@@ -179,7 +179,8 @@
         }
         const item = validateItem(rawItem, chunk, evidenceCandidates, candidateIds, errors);
         if (!item) { return { reason: errors.reason }; }
-        if (mode === SEMANTIC_MODE && result.outcome === "proposals" && item.claims.length === 0) return { reason: "proposal_without_supported_claim" };
+        if (mode === SEMANTIC_MODE && result.outcome === "proposals"
+          && item.role !== "hold" && item.claims.length === 0) return { reason: "proposal_without_supported_claim" };
         items.push(item);
       }
       if (mode === SEMANTIC_MODE && seenEvidenceKeys.size !== evidenceCandidates.length) return { reason: "semantic_candidate_key_missing", detail: chunkKey };

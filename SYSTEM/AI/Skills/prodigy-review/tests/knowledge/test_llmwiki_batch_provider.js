@@ -123,6 +123,9 @@ test("semantic mode requires every Todo 1 semantic key exactly once and keeps ke
   assert.equal(accepted.ok, true, JSON.stringify(accepted));
   assert.deepEqual(accepted.artifacts[0].items.map((item) => item.evidence_key), ["evidence_1", "evidence_2"]);
   assert.deepEqual(accepted.artifacts[0].items.map((item) => source.slice(item.span.start, item.span.end)), ["첫 번째 사실", "두 번째 사실"]);
+  const mixed = await providerReturning({ status: "ok", results: [{ chunk_key: "chunk_semantic", outcome: "proposals", items }] }).provider(input);
+  assert.equal(mixed.ok, true, JSON.stringify(mixed));
+  assert.deepEqual(mixed.artifacts[0].items.map((item) => [item.role, item.claims.length]), [["source_summary", 1], ["hold", 0]]);
 
   const cases = [
     { items: items.slice(0, 1), reason: "semantic_candidate_key_missing" },

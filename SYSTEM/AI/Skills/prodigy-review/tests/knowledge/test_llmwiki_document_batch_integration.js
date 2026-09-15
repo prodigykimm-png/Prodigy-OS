@@ -196,12 +196,20 @@ test("document planning requires complete semantic source coverage before downst
   const scopedStart = scopedSource.indexOf("## 선택");
   const scopedEnd = scopedSource.indexOf("## 다음");
   const scopedCounter = { get value() { return plannerCalls.scoped; }, set value(value) { plannerCalls.scoped = value; } };
-  const scoped = await runHub({ pages: [], extraFiles: { [scopedPath]: scopedSource }, llmWikiControllerOptions: { batchIdentity: identity(), batchProvider: providerFor(scopedValues), documentPagePlan: pagePlan(scopedCounter) } });
+  const scopedRequests = [];
+  const scopedProvider = providerFor(scopedValues);
+  const scoped = await runHub({ pages: [], extraFiles: { [scopedPath]: scopedSource }, llmWikiControllerOptions: {
+    batchIdentity: identity(),
+    batchProvider: async (request) => { scopedRequests.push(request); return scopedProvider(request); },
+    documentPagePlan: pagePlan(scopedCounter),
+  } });
   await scoped.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
   const scopedResult = await scoped.window.KnowledgeExplorerHub.runDocumentPlan(scopedPath, { scope: { start: scopedStart, end: scopedEnd, scope_id: "selected-heading" } });
   assert.equal(scopedResult.ok, true, scopedResult.reason);
   assert.equal(scopedResult.source_bytes, Buffer.byteLength(scopedSource.slice(scopedStart, scopedEnd)));
   assert.equal(scopedResult.full_source_bytes, Buffer.byteLength(scopedSource));
+  assert.equal(scopedRequests.flatMap((request) => request.chunks).every((chunk) =>
+    chunk.text.includes("## 선택") && !chunk.text.includes("무시할 첫 문장") && !chunk.text.includes("무시할 마지막 문장")), true);
   assert.deepEqual(JSON.parse(JSON.stringify(scopedResult.source_coverage)), { total: 2, covered: 2, missing: 0, holds: 0, duplicates: 0 });
   assert.deepEqual(JSON.parse(JSON.stringify(scopedResult.source_coverage_units.map((unit) => unit.span))), scopedValues.map((value) => {
     const globalStart = scopedSource.indexOf(value);
