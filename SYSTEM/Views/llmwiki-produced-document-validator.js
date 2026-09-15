@@ -103,7 +103,8 @@ function auditDocuments({ documents = [], sources = {} } = {}) {
     }
 
     // 4) 검토 범위 완결성: 이 배치가 만든 v2 문서에만 요구한다(레거시·외부 문서는 제외).
-    const isBatchDocument = /schema_version:\s*2/u.test(frontmatter);
+    const isBatchDocument = /schema_version:\s*2/u.test(frontmatter)
+      && /^type:\s*"?knowledge"?\s*$/mu.test(frontmatter);
     const scope = scopeBlock(body);
     const conditions = /- 적용 조건:\s*(.*)$/mu.exec(scope);
     const invalidations = /- 재검토 조건:\s*(.*)$/mu.exec(scope);

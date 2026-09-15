@@ -164,6 +164,17 @@ test("canonical v2 trust requires one finalized immutable decision across every 
   assert.equal(linked.total_links, 1);
 });
 
+test("missing canonical target is omitted instead of aborting the trusted reader", async () => {
+  const genuine = await createTrustedFixture();
+  await genuine.app.vault.delete(genuine.app.vault.getAbstractFileByPath(genuine.path));
+
+  const result = await genuine.readAdapter.read({ app: genuine.app });
+
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.status, "empty");
+  assert.equal(result.rows.length, 0);
+});
+
 test("exposed finalized authority cannot be mutated to verify unaudited canonical bytes", async () => {
   const genuine = await createTrustedFixture();
   const exposed = obsidian.finalizedCanonicalAuthorityData(genuine.trustReceipt);

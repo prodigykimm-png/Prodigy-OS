@@ -16,6 +16,9 @@
   const evidence = dep("LLMWikiEvidenceContract", "./llmwiki-evidence-contract.js");
   const migrationFlows = dep("LLMWikiLifecycleMigrationFlows", "./llmwiki-lifecycle-migration-flows.js");
   const VERSION = "llmwiki_document_canonical_review_recovery_v2";
+  const operationContract = () => root.LLMWikiOperationContract || operation;
+  const canonicalPacketContract = () => root.LLMWikiCanonicalPacket || packetApi;
+  const operationWriter = () => root.LLMWikiOperationWriter || writer;
   const sha = value => hash.sha256(String(value));
   const stable = value => Array.isArray(value) ? `[${value.map(stable).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stable(value[k])}`).join(",")}}` : JSON.stringify(value);
   const fail = (reason, extra = {}) => ({ ok: false, reason, ...(reason === "outcome_unknown" ? { status: "outcome_unknown" } : {}), ...extra });
@@ -162,12 +165,16 @@
   function splitScopeBlock(body) {
     const text = String(body || "");
     const start = text.indexOf(REVIEW_SCOPE_HEADING);
-    if (start < 0) return { head: text, tail: "" };
+    if (start < 0) return { head: text, scope: "", tail: "" };
     const rest = text.slice(start + REVIEW_SCOPE_HEADING.length);
     const next = rest.search(/\n#{1,2} /u);
-    if (next < 0) return { head: text.slice(0, start).replace(/\s+$/u, ""), tail: "" };
+    if (next < 0) return { head: text.slice(0, start).replace(/\s+$/u, ""), scope: rest, tail: "" };
     const cut = start + REVIEW_SCOPE_HEADING.length + next;
-    return { head: text.slice(0, start).replace(/\s+$/u, ""), tail: text.slice(cut).replace(/^\n+/u, "") };
+    return {
+      head: text.slice(0, start).replace(/\s+$/u, ""),
+      scope: rest.slice(0, next),
+      tail: text.slice(cut).replace(/^\n+/u, ""),
+    };
   }
   function normalizeParagraph(value) {
     return String(value || "").replace(/\s+/gu, " ").trim();
@@ -287,7 +294,20 @@
   }
   // 본문에 미리 박혀 있는 인용(#L12, #3848-3868 같은 라인/바이트 범위)을 Obsidian이 여는 헤딩 앵커로 일괄 재작성한다.
   function rewriteCitationAnchors(app, body) {
-    return String(body || "").replace(/\]\(([^)\s#]+)#(L?\d+(?:[-–]L?\d+)?)\)/gu, (_whole, path, fragment) => `](${anchorFor(app, `${decodeURIComponent(path)}#${fragment}`)})`);
+    return String(body || "")
+      .replace(/\]\(([^)\s#]+)#(L?\d+(?:[-–]L?\d+)?)\)(?:%[0-9A-Fa-f]{2}[^\s]*)?/gu, (_whole, path, fragment) => `](${anchorFor(app, `${decodeURIComponent(path)}#${fragment}`)})`)
+      .replace(/\]\(([^)\s]+\.md)\)(?:%[0-9A-Fa-f]{2}[^\s]*)/gu, (_whole, path) => `](${path})`);
+  }
+  function bodyNeedsNormalization(app, body) {
+    const text = String(body || "");
+    if (rewriteCitationAnchors(app, text) !== text) return true;
+    const labels = new Set();
+    for (const line of splitScopeBlock(text).scope.split("\n").map(row => row.trim()).filter(row => row.startsWith("- "))) {
+      const label = /^- (적용 조건|예외·금지|재검토 조건):/u.exec(line)?.[1];
+      if (!label || labels.has(label)) return true;
+      labels.add(label);
+    }
+    return false;
   }
   function citationLinksFor(app, groundedById, claimIds) {
     const seen = new Set();
@@ -501,12 +521,12 @@
         if (!record?.packet) return { ok: true, status: "not_available" };
         if (!["review_ready", "running", "blocked", "resolved", "outcome_unknown"].includes(record.status)) return restoreFailure("invalid_review_state");
         const rawPacket = record.packet;
-        const op = operation.parseCanonicalOperation(JSON.stringify(Object.fromEntries(["operation_id", "proposal_id", "proposal_kind", "payload_hash"].map(key => [key, rawPacket.operation[key]]))));
+        const op = operationContract().parseCanonicalOperation(JSON.stringify(Object.fromEntries(["operation_id", "proposal_id", "proposal_kind", "payload_hash"].map(key => [key, rawPacket.operation[key]]))));
         if (!op.ok) return restoreFailure(op.reason);
-        const derived = operation.deriveCanonicalPacketOperation(op.value);
+        const derived = operationContract().deriveCanonicalPacketOperation(op.value);
         if (!derived.ok) return restoreFailure(derived.reason);
         const original = { ...rawPacket, operation: derived.value };
-        const checked = packetApi.verifyCanonicalPacket(original);
+        const checked = canonicalPacketContract().verifyCanonicalPacket(original);
         if (!checked.ok) return restoreFailure(checked.reason);
         const live = await adapter.readBytes(original.target_path);
         observedWritten = live === original.after_bytes;
@@ -552,7 +572,9 @@
       } catch (error) { return restoreFailure(error.message || "review_restore_failed"); }
     }
     async function targets() {
-      const result = await reader.create().read({ app });
+      const readApi = root.LLMWikiResurfacingReadAdapter || reader;
+      if (!readApi || typeof readApi.create !== "function") return [];
+      const result = await readApi.create().read({ app });
       return result.ok ? result.rows : [];
     }
     async function readSource(sourcePath, expectedHash) {
@@ -735,7 +757,9 @@
           && stable(old.application_contexts) === stable(lines(fields.application_contexts))
           && old.body.includes(`- 적용 조건: ${fields.conditions}\n`) && exclusionsEqual
           && stable(old.invalidation_conditions) === stable(lines(fields.invalidation_conditions));
-        if (target && !added && fieldsEqual) return { ok: true, status: "no_change", target_path, provider_count: 0, writes: 0 };
+        if (target && !added && fieldsEqual && !bodyNeedsNormalization(app, old.body)) {
+          return { ok: true, status: "no_change", target_path, provider_count: 0, writes: 0 };
+        }
         const created = claims.createClaimSet({ source_snapshots: [...snapshots.values()], claims: raw });
         if (!created.ok) return created;
         const claimSet = created.value;
@@ -762,13 +786,17 @@
         const regulatory = /(real_estate|legal|tax)/u.test(String(fields.knowledge_domain || ""));
         const scopeInvalidation = String(fields.invalidation_conditions || "").trim()
           || (regulatory ? "관련 제도·기준이 바뀌면 재검토한다(원문 기준 시점 이후 현행 규칙 재확인 필요)." : "적용 기준이 바뀌면 재검토한다.");
-        const priorScopeBody = String(priorDoc?.body || "").split("## 사용자 검토 범위").slice(1).shift() || "";
+        const priorScopeBody = splitScopeBlock(priorDoc?.body || "").scope;
         const priorScopeBullets = priorScopeBody.split("\n").map(row => row.trim()).filter(row => row.startsWith("- "));
         const freshScopeLines = [`- 적용 조건: ${scopeConditions}`, ...(fields.exclusions ? [`- 예외·금지: ${fields.exclusions}`] : []), `- 재검토 조건: ${scopeInvalidation}`];
-        const keptScopeLines = priorScopeBullets.filter(row => !freshScopeLines.some(line => line.includes(row.replace(/^- [^:]+:\s*/u, ""))));
+        const freshScopeLabels = new Set(freshScopeLines.map(line => /^- ([^:]+):/u.exec(line)?.[1]).filter(Boolean));
+        const keptScopeLines = priorScopeBullets.filter(row => {
+          const label = /^- ([^:]+):/u.exec(row)?.[1];
+          return Boolean(label) && !freshScopeLabels.has(label);
+        });
         const reviewScope = `\n## 사용자 검토 범위\n${[...freshScopeLines, ...keptScopeLines].join("\n")}\n`;
         const relatedLinks = (item.related_knowledge || []).filter(row => row.path && row.path !== target_path && app.vault.getAbstractFileByPath(row.path)).map(row => `[[${row.path.replace(/\.md$/u, "")}]]`).filter((link, index, rows) => rows.indexOf(link) === index && !item.document_body.includes(link) && !updateBase.includes(link));
-        const body = rewriteCitationAnchors(app, integrateDocumentBody(priorDoc?.body, addition, reviewScope, relatedLinks, sourceLinks));
+        const body = rewriteCitationAnchors(app, integrateDocumentBody(rewriteCitationAnchors(app, priorDoc?.body), addition, reviewScope, relatedLinks, sourceLinks));
         // 이전 정본의 메타데이터는 지우지 않고 합집합한다(연속 갱신이 topics/contexts를 날리던 문제).
         const mergedTopics = Array.from(new Set([...(priorDoc?.knowledge_topics || []), ...lines(fields.knowledge_topics)]));
         const mergedContexts = Array.from(new Set([...(priorDoc?.application_contexts || []), ...lines(fields.application_contexts)]));
@@ -779,9 +807,9 @@
         delete document.legacy;
         const suffix = sha(stable(document)).slice(0, 24);
         const isUpdateOperation = Boolean(target) || legacyAdoption;
-        const op = operation.parseCanonicalOperation(JSON.stringify({ operation_id: `operation_${suffix}`, proposal_id: `proposal_${suffix}`, proposal_kind: isUpdateOperation ? "update" : "create", payload_hash: sha(stable(document)) }));
+        const op = operationContract().parseCanonicalOperation(JSON.stringify({ operation_id: `operation_${suffix}`, proposal_id: `proposal_${suffix}`, proposal_kind: isUpdateOperation ? "update" : "create", payload_hash: sha(stable(document)) }));
         if (!op.ok) return op;
-        const packet = await packetApi.assembleCanonicalPacket({ run_id: `run_${suffix}`, operation: op.value, canonical_document: document, ...(isUpdateOperation ? { target_path } : {}), source_citations: sourceRows.map(s => ({ source_id: s.source_id, content_hash: snapshots.get(s.source_id).source_content_hash, locators: [`${sourcePaths.get(s.source_id)}#L1`] })),
+        const packet = await canonicalPacketContract().assembleCanonicalPacket({ run_id: `run_${suffix}`, operation: op.value, canonical_document: document, ...(isUpdateOperation ? { target_path } : {}), source_citations: sourceRows.map(s => ({ source_id: s.source_id, content_hash: snapshots.get(s.source_id).source_content_hash, locators: [`${sourcePaths.get(s.source_id)}#L1`] })),
           consent_hash: sha(stable({ review_id: item.review_id, sources: sourceRows, action: "local_canonical_review" })), expires_at: new Date(Date.parse(timestamp) + 3600000).toISOString(), nonce: `review_${suffix}_${Date.parse(timestamp)}` }, adapter);
         if (!packet.ok) return packet;
         if (packet.status === "stale_reconfirm_required") return fail("existing_knowledge_target_required");
@@ -827,12 +855,12 @@
           if (state.restored) state.retryRequestedAt = now();
           const accepted = claims.transitionClaimSet(state.claimSet, { claim_set_hash: state.claimSet.claim_set_hash, claim_ids: state.claimSet.claims.map(c => c.claim_id), status: "accepted", authorized_by: "human_wiki_reviewer", authorized_at: state.reviewedAt });
           if (!accepted.ok) return accepted;
-          const v2 = writer.authorizeCanonicalV2({ packet: state.packet, canonical_id: store.parseLifecycleDocument(preview.after).canonical_id, claim_set: accepted.value, promotion_input: state.promotionInput, promotion_receipt: state.receipt });
+          const v2 = operationWriter().authorizeCanonicalV2({ packet: state.packet, canonical_id: store.parseLifecycleDocument(preview.after).canonical_id, claim_set: accepted.value, promotion_input: state.promotionInput, promotion_receipt: state.receipt });
           if (!v2.ok) return v2;
           if (state.packet.operation.proposal_kind === "update") {
             const assessed = evidence.evaluateEvidence({ operation_id: state.packet.operation.operation_id, claims: accepted.value.claims.map(c => ({ claim_id: c.claim_id, text: c.text, changed: true, citation_ids: state.citationsFor(c) })), citations: accepted.value.citations.map(c => ({ citation_id: c.citation_id, source_id: c.source_id, source_span: { ...c.source_span, locator: `${state.sourcePaths.get(c.source_id)}#L${state.snapshots.get(c.source_id).source_text.slice(0, c.source_span.start).split("\n").length}` }, source_length: state.snapshots.get(c.source_id).source_text.length, source_content_hash: c.source_content_hash, extractor_revision: c.extractor_revision })), verification: { verified_at: state.reviewedAt, owner: { owner_id: "human_wiki_reviewer", owner_type: "human" }, validity_conditions: lines(state.promotionInput.claim_scope), invalidation_conditions: lines(state.promotionInput.principle_boundaries.invalidation_conditions.join("\n")), stale_triggers: [...state.snapshots.values()].map(s => ({ trigger_id: `trigger_${s.source_id}`, kind: "extractor_revision_changed", source_id: s.source_id })) }, current_source_snapshots: Object.fromEntries([...state.snapshots.values()].map(s => [s.source_id, { source_length: s.source_text.length, content_hash: s.source_content_hash, extractor_revision: s.extractor_revision }])), triggered_conditions: [] });
             if (!assessed.ok) return assessed;
-            const auth = writer.authorizeCanonicalUpdate({ packet: state.packet, canonical_id: v2.value.canonical_id, evidence: assessed.value, canonical_v2_authorization: v2.value, compensation_plan: { strategy: "restore_exact_before_bytes", target_path: preview.target_path, before_sha256: state.packet.before_sha256 } });
+            const auth = operationWriter().authorizeCanonicalUpdate({ packet: state.packet, canonical_id: v2.value.canonical_id, evidence: assessed.value, canonical_v2_authorization: v2.value, compensation_plan: { strategy: "restore_exact_before_bytes", target_path: preview.target_path, before_sha256: state.packet.before_sha256 } });
             if (!auth.ok) return auth; state.authorization = auth.value;
           } else state.authorization = v2.value;
           state.migrationClaimSet = accepted.value;
@@ -870,7 +898,7 @@
           return await refresh(preview);
         }
         const method = state.packet.operation.proposal_kind === "update" ? "commitApprovedUpdate" : "commitApprovedCanonicalV2";
-        const committed = await writer[method]({ packet: state.packet, authorization: state.authorization, adapter }, { now: now() });
+        const committed = await operationWriter()[method]({ packet: state.packet, authorization: state.authorization, adapter }, { now: now() });
         if (!["committed", "duplicate"].includes(committed.status)) {
           state.pendingAudit = committed;
           await saveReview(state, "blocked", committed);

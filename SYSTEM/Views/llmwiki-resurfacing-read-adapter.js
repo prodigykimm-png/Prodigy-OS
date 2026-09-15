@@ -38,7 +38,13 @@
       for (const authority of authorities) {
         if (!deps.obsidian.isFinalizedCanonicalAuthority(authority)) continue;
         const binding = deps.obsidian.finalizedCanonicalAuthorityData(authority);
-        const canonical = await resolved.adapter.readCanonical(binding.path);
+        let canonical;
+        try {
+          canonical = await resolved.adapter.readCanonical(binding.path);
+        } catch (error) {
+          if (error?.code === "canonical_target_missing") continue;
+          return fail("canonical", error?.code || "canonical_read_failed");
+        }
         if (signal && signal.aborted) return cancelled();
         if (!canonical || canonical.revision !== binding.revision) continue;
         const v2 = trustedV2Canonical(canonical.bytes, binding, authority, deps);

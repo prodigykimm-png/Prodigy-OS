@@ -11,6 +11,7 @@
     || (typeof require === "function" ? require("./llmwiki-compensation-service.js") : null);
   const core = root.LLMWikiOperationWriterCore
     || (typeof require === "function" ? require("./llmwiki-operation-writer-core.js") : null);
+  const canonicalPacket = () => root.LLMWikiCanonicalPacket || canonicalApi;
 
   function sameIds(left, right) {
     return Array.isArray(left) && Array.isArray(right)
@@ -24,8 +25,9 @@
     if (!core.plain(input) || core.proxy(input) || !core.safelyInspectable(input)) return core.reject("malformed_v2_authorization");
     const fields = new Set(["packet", "canonical_id", "claim_set", "promotion_input", "promotion_receipt"]);
     for (const key of Object.keys(input)) if (!fields.has(key)) return core.reject("unknown_v2_authorization_field", { field: key });
-    if (!canonicalApi || !claimApi || !promotionApi) return core.reject("v2_authority_contract_missing");
-    const verified = canonicalApi.verifyCanonicalPacket(input.packet);
+    const packetApi = canonicalPacket();
+    if (!packetApi || !claimApi || !promotionApi) return core.reject("v2_authority_contract_missing");
+    const verified = packetApi.verifyCanonicalPacket(input.packet);
     if (!verified.ok) return core.reject(verified.reason);
     // Update uses this same evidence validator, but can only write through UpdateAuthority.
     if (!authorizable(input.packet) && input.packet.operation.proposal_kind !== "update") return core.reject("canonical_v2_operation_not_authorizable");
@@ -137,7 +139,7 @@
     }
     const approval = request.authorization;
     const packet = request.packet;
-    const verified = canonicalApi.verifyCanonicalPacket(packet);
+    const verified = canonicalPacket().verifyCanonicalPacket(packet);
     if (!verified.ok) return core.reject(verified.reason);
     if (!authorizable(packet)) return core.reject("canonical_v2_operation_not_authorizable");
     if (approval.packet_hash !== packet.packet_hash) return core.reject("v2_authorization_payload_mismatch");

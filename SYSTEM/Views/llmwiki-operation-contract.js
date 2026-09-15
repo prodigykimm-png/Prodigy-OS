@@ -431,7 +431,7 @@
     if (!ID.test(operationId)) return fail("operation_id", "invalid_operation_id");
     const destinationIds = uniqueIdentifiers(own(input, "destination_ids"), "destination_ids");
     if (plain(destinationIds)) return destinationIds;
-    const sourceIds = kind === "merge" ? uniqueIdentifiers(own(input, "source_ids"), "source_ids", 2) : [];
+    const sourceIds = kind === "merge" ? uniqueIdentifiers(own(input, "source_ids"), "source_ids", 1) : [];
     if (plain(sourceIds)) return sourceIds;
     if (kind === "merge" && sourceIds.some((id) => destinationIds.includes(id))) return fail("source_ids", "source_destination_overlap");
     const baseRevisions = normalizedMap(own(input, "base_revisions"), "base_revisions", revision);

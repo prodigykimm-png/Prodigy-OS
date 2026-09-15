@@ -177,6 +177,20 @@ test("merge covers every source and destination revision and rejects missing or 
   assert.equal(operationContract.parseOperation(extra).reason, "merge_revision_coverage_required");
 });
 
+test("merge accepts one source plus one destination as the smallest complete pair", () => {
+  const pair = operation("merge", {
+    source_ids: [DEST_A],
+    base_revisions: { [DEST_A]: A, [DEST_MERGED]: C },
+    before_bytes: { [DEST_A]: "a before\n", [DEST_MERGED]: "merged before\n" },
+  });
+
+  const parsed = operationContract.parseOperation(pair);
+
+  assert.equal(parsed.ok, true, JSON.stringify(parsed));
+  assert.deepEqual(parsed.value.source_ids, [DEST_A]);
+  assert.deepEqual(Object.keys(parsed.value.base_revisions).sort(), [DEST_A, DEST_MERGED].sort());
+});
+
 test("unresolved conflicts make operation and approval packet ineligible", () => {
   const conflicted = operation("update", {
     conflicts: [{ conflict_id: "conflict_statement", status: "unresolved", source_ids: ["source_article"], summary: "A contradicts B" }],
@@ -928,4 +942,65 @@ test("typed operation and revision evaluation replay are deterministic and do no
   assert.deepEqual(first, second);
   assert.deepEqual(operationContract.evaluateApprovalEligibility(first.value, revisions), operationContract.evaluateApprovalEligibility(first.value, revisions));
   assert.equal(JSON.stringify({ input, revisions }), before);
+});
+
+test("canonical packet accepts an operation branded by a contract module reloaded after itself", async () => {
+  const operationPath = path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js");
+  const packetPath = path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-packet.js");
+  const saved = {
+    operation: globalThis.LLMWikiOperationContract,
+    packet: globalThis.LLMWikiCanonicalPacket,
+    operationCache: require.cache[require.resolve(operationPath)],
+    packetCache: require.cache[require.resolve(packetPath)],
+  };
+  try {
+    delete require.cache[require.resolve(operationPath)];
+    delete require.cache[require.resolve(packetPath)];
+    delete globalThis.LLMWikiOperationContract;
+    delete globalThis.LLMWikiCanonicalPacket;
+    globalThis.LLMWikiOperationContract = require(operationPath);
+    const earlierPacket = require(packetPath);
+
+    delete require.cache[require.resolve(operationPath)];
+    const reloadedContract = require(operationPath);
+    globalThis.LLMWikiOperationContract = reloadedContract;
+    const parsed = reloadedContract.parseCanonicalOperation(JSON.stringify({
+      operation_id: "operation_reloaded_packet",
+      proposal_id: "proposal_reloaded_packet",
+      proposal_kind: "create",
+      payload_hash: A,
+    }));
+    assert.equal(parsed.ok, true, JSON.stringify(parsed));
+    const { evidence_quote: _evidenceQuote, ...canonicalCitation } = citation();
+
+    const assembled = await earlierPacket.assembleCanonicalPacket({
+      run_id: "run_reloaded_packet",
+      operation: parsed.value,
+      canonical_document: {
+        title: "Reloaded packet",
+        statement: "A reloaded operation contract remains compatible with packet assembly.",
+        knowledge_domain: "reading",
+        knowledge_topics: [],
+        application_trigger: "",
+        application_contexts: [],
+        connections: [],
+        invalidation_conditions: [],
+        summary: "",
+        created: "2026-08-14T00:00:00.000Z",
+        updated: "2026-08-14T00:00:00.000Z",
+        body: "# Reloaded packet\n",
+      },
+      source_citations: [canonicalCitation],
+      consent_hash: C,
+      expires_at: "2026-08-14T01:00:00.000Z",
+      nonce: "nonce_reloaded_packet_0001",
+    }, { readBytes: async () => null });
+
+    assert.equal(assembled.ok, true, JSON.stringify(assembled));
+  } finally {
+    if (saved.operation === undefined) delete globalThis.LLMWikiOperationContract; else globalThis.LLMWikiOperationContract = saved.operation;
+    if (saved.packet === undefined) delete globalThis.LLMWikiCanonicalPacket; else globalThis.LLMWikiCanonicalPacket = saved.packet;
+    if (saved.operationCache) require.cache[require.resolve(operationPath)] = saved.operationCache; else delete require.cache[require.resolve(operationPath)];
+    if (saved.packetCache) require.cache[require.resolve(packetPath)] = saved.packetCache; else delete require.cache[require.resolve(packetPath)];
+  }
 });

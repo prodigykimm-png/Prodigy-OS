@@ -9,24 +9,28 @@
     || (typeof require === "function" ? require("./llmwiki-canonical-v2-authority.js") : null);
   const lifecycleAuthority = root.LLMWikiLifecycleMigrationAuthority
     || (typeof require === "function" ? require("./llmwiki-lifecycle-migration-authority.js") : null);
+  const runtimeCore = () => root.LLMWikiOperationWriterCore || core;
+  const runtimeUpdateAuthority = () => root.LLMWikiUpdateAuthority || updateAuthority;
+  const runtimeCanonicalV2Authority = () => root.LLMWikiCanonicalV2Authority || canonicalV2Authority;
+  const runtimeLifecycleAuthority = () => root.LLMWikiLifecycleMigrationAuthority || lifecycleAuthority;
 
   const api = Object.freeze({
     APPROVAL_VERSION: core.APPROVAL_VERSION,
     RECEIPT_VERSION: core.RECEIPT_VERSION,
     COMPENSATION_VERSION: core.COMPENSATION_VERSION,
     MAX_CANONICAL_BYTES: core.MAX_CANONICAL_BYTES,
-    authorizeCanonicalUpdate: updateAuthority.authorizeCanonicalUpdate,
-    authorizeCanonicalV2: canonicalV2Authority.authorizeCanonicalV2,
-    commitApprovedUpdate: updateAuthority.commitApprovedUpdate,
-    commitApprovedCanonicalV2: canonicalV2Authority.commitApprovedCanonicalV2,
-    isUpdateApproval: core.isUpdateApproval,
-    isCanonicalV2Approval: core.isCanonicalV2Approval,
-    authorizeLifecycleMigration: lifecycleAuthority.authorizeLifecycleMigration,
-    verifyLifecycleMigrationApproval: lifecycleAuthority.verifyLifecycleMigrationApproval,
-    isLifecycleMigrationApproval: core.isLifecycleMigrationApproval,
-    isApprovalConsumed: core.isApprovalConsumed,
-    assertAtomicReplaceRequest: core.assertAtomicReplaceRequest,
-    assertRestoreRequest: core.assertRestoreRequest,
+    authorizeCanonicalUpdate: (...args) => runtimeUpdateAuthority().authorizeCanonicalUpdate(...args),
+    authorizeCanonicalV2: (...args) => runtimeCanonicalV2Authority().authorizeCanonicalV2(...args),
+    commitApprovedUpdate: (...args) => runtimeUpdateAuthority().commitApprovedUpdate(...args),
+    commitApprovedCanonicalV2: (...args) => runtimeCanonicalV2Authority().commitApprovedCanonicalV2(...args),
+    isUpdateApproval: (...args) => runtimeCore().isUpdateApproval(...args),
+    isCanonicalV2Approval: (...args) => runtimeCore().isCanonicalV2Approval(...args),
+    authorizeLifecycleMigration: (...args) => runtimeLifecycleAuthority().authorizeLifecycleMigration(...args),
+    verifyLifecycleMigrationApproval: (...args) => runtimeLifecycleAuthority().verifyLifecycleMigrationApproval(...args),
+    isLifecycleMigrationApproval: (...args) => runtimeCore().isLifecycleMigrationApproval(...args),
+    isApprovalConsumed: (...args) => runtimeCore().isApprovalConsumed(...args),
+    assertAtomicReplaceRequest: (...args) => runtimeCore().assertAtomicReplaceRequest(...args),
+    assertRestoreRequest: (...args) => runtimeCore().assertRestoreRequest(...args),
   });
   root.LLMWikiOperationWriter = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

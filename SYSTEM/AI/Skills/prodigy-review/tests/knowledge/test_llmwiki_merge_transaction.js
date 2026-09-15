@@ -322,3 +322,44 @@ test("browser runtime closure loads with explicit globals and no require or Buff
   const source = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-merge-transaction.js"), "utf8");
   assert.doesNotMatch(source, /node:|\bBuffer\b|child_process|exec(?:File|Sync)?\s*\(|spawn(?:Sync)?\s*\(|vault\.(?:trash|delete)\s*\(/u);
 });
+
+test("merge accepts an operation branded by a contract module reloaded after itself", () => {
+  const operationPath = path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js");
+  const mergePath = path.join(ROOT, "SYSTEM/Views/llmwiki-merge-transaction.js");
+  const saved = {
+    operation: globalThis.LLMWikiOperationContract,
+    merge: globalThis.LLMWikiMergeTransaction,
+    operationCache: require.cache[require.resolve(operationPath)],
+    mergeCache: require.cache[require.resolve(mergePath)],
+  };
+  try {
+    delete require.cache[require.resolve(operationPath)];
+    delete require.cache[require.resolve(mergePath)];
+    delete globalThis.LLMWikiOperationContract;
+    delete globalThis.LLMWikiMergeTransaction;
+    globalThis.LLMWikiOperationContract = require(operationPath);
+    const earlierMerge = require(mergePath);
+
+    delete require.cache[require.resolve(operationPath)];
+    const reloadedContract = require(operationPath);
+    globalThis.LLMWikiOperationContract = reloadedContract;
+    const reloadedOperation = reloadedContract.parseOperation(JSON.stringify(operation()));
+    assert.equal(reloadedOperation.ok, true, JSON.stringify(reloadedOperation));
+
+    const assembled = earlierMerge.assembleMergePacket({
+      operation: reloadedOperation.value,
+      evidence: evidence(),
+      provenance: provenance(),
+      compensation_plan: { strategy: "restore_all_exact_before_state" },
+      expires_at: "2099-01-01T00:00:00.000Z",
+      nonce: "nonce_reloaded_contract_merge_01",
+    });
+
+    assert.equal(assembled.ok, true, JSON.stringify(assembled));
+  } finally {
+    if (saved.operation === undefined) delete globalThis.LLMWikiOperationContract; else globalThis.LLMWikiOperationContract = saved.operation;
+    if (saved.merge === undefined) delete globalThis.LLMWikiMergeTransaction; else globalThis.LLMWikiMergeTransaction = saved.merge;
+    if (saved.operationCache) require.cache[require.resolve(operationPath)] = saved.operationCache; else delete require.cache[require.resolve(operationPath)];
+    if (saved.mergeCache) require.cache[require.resolve(mergePath)] = saved.mergeCache; else delete require.cache[require.resolve(mergePath)];
+  }
+});

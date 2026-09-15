@@ -24,19 +24,23 @@
   const CONSUMED_AUTHORIZATIONS = new WeakMap();
   const locks = new Set();
 
+  function isOperationRecord(value) {
+    const api = root.LLMWikiOperationContract || operationApi;
+    return Boolean(api?.isOperationRecord?.(value));
+  }
   function plain(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const prototype = Object.getPrototypeOf(value);
     return prototype === Object.prototype || prototype === null;
   }
   function clone(value) {
-    if (operationApi?.isOperationRecord?.(value) || PACKETS.has(value) || AUTHORIZATIONS.has(value)) return value;
+    if (isOperationRecord(value) || PACKETS.has(value) || AUTHORIZATIONS.has(value)) return value;
     if (Array.isArray(value)) return value.map(clone);
     if (!plain(value)) return value;
     return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, clone(child)]));
   }
   function freeze(value) {
-    if (operationApi?.isOperationRecord?.(value) || PACKETS.has(value) || AUTHORIZATIONS.has(value)) return value;
+    if (isOperationRecord(value) || PACKETS.has(value) || AUTHORIZATIONS.has(value)) return value;
     if (Array.isArray(value)) return Object.freeze(value.map(freeze));
     if (!plain(value)) return value;
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, child]) => [key, freeze(child)])));
@@ -99,7 +103,7 @@
   }
 
   function assembleMergePacket(input) {
-    if (!plain(input) || !operationApi?.isOperationRecord?.(input.operation)) return reject("branded_merge_operation_required");
+    if (!plain(input) || !isOperationRecord(input.operation)) return reject("branded_merge_operation_required");
     const operation = input.operation;
     if (operation.kind !== "merge") return reject("merge_operation_required");
     if (!hashApi || typeof hashApi.sha256 !== "function") return reject("hash_capability_unavailable");

@@ -52,10 +52,17 @@
   const V2_ALLOWED_PROPERTIES = Object.freeze(ALLOWED_PROPERTIES.filter((property) => property !== "/frontmatter/summary"));
   const WRITE_COUNTERS = Object.freeze({ canonical: 0, audit: 0, provider: 0, network: 0, git: 0 });
 
+  function operationContract() {
+    return root.LLMWikiOperationContract || operationApi;
+  }
+  function isOperationRecord(value) {
+    const api = operationContract();
+    return Boolean(api?.isOperationRecord?.(value) || api?.isCanonicalOperationRecord?.(value));
+  }
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
   function clone(value) {
-    if (operationApi?.isOperationRecord?.(value) || operationApi?.isCanonicalOperationRecord?.(value)) return value;
+    if (isOperationRecord(value)) return value;
     if (Array.isArray(value)) return value.map(clone);
     if (!plain(value)) return value;
     const result = Object.getPrototypeOf(value) === null ? Object.create(null) : {};
@@ -63,7 +70,7 @@
     return result;
   }
   function freeze(value) {
-    if (operationApi?.isOperationRecord?.(value) || operationApi?.isCanonicalOperationRecord?.(value)) return value;
+    if (isOperationRecord(value)) return value;
     if (Array.isArray(value)) return Object.freeze(value.map(freeze));
     if (!plain(value)) return value;
     return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)])));
@@ -181,8 +188,9 @@
   }
 
   function validateOperation(value) {
-    if (!operationApi?.isCanonicalOperationRecord?.(value) && typeof value !== "string") return fail("operation", "serialized_operation_required");
-    const parsed = operationApi?.parseCanonicalOperation?.(value);
+    const api = operationContract();
+    if (!api?.isCanonicalOperationRecord?.(value) && typeof value !== "string") return fail("operation", "serialized_operation_required");
+    const parsed = api?.parseCanonicalOperation?.(value);
     return parsed?.ok === true ? parsed.value : parsed || fail("operation", "malformed_operation");
   }
 
@@ -252,7 +260,8 @@
 
   function verifyCanonicalPacket(packet) {
     if (!plain(packet)) return fail("packet", "malformed_packet");
-    if (!operationApi?.isCanonicalPacketOperationRecord?.(packet.operation)) return fail("packet", "packet_tampered");
+    const api = operationContract();
+    if (!api?.isCanonicalPacketOperationRecord?.(packet.operation)) return fail("packet", "packet_tampered");
     const operation = packet.operation;
     const identity = packetIdentity(packet);
     const canonicalSerialization = stable(identity);
@@ -314,7 +323,7 @@
       beforeBytes = liveBytes;
     }
 
-    const packetOperation = operationApi?.deriveCanonicalPacketOperation?.(operation);
+    const packetOperation = operationContract()?.deriveCanonicalPacketOperation?.(operation);
     if (!packetOperation || packetOperation.ok !== true) return packetOperation || fail("operation", "canonical_operation_transform_unavailable");
     const afterBytes = knowledgeApi.renderCanonicalDocument(request.canonical_document);
     const packet = attachHash(packetBody(request, packetOperation.value, targetPath, beforeBytes, afterBytes, allowedProperties, citations));

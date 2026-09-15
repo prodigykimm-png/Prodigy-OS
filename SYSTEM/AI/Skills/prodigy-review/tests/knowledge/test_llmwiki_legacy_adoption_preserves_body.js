@@ -66,6 +66,34 @@ test("바이트 locator는 줄 번호로 오해하지 않는다(잘못된 헤딩
   assert.ok(after.includes("synthetic%20fixture%20source.md"), "파일 링크는 남아야 한다");
 });
 
+test("숫자 fragment 뒤에 샌 encoded 링크 꼬리는 파일 링크로 정리한다", async () => {
+  const malformedBody = fx.LEGACY_BYTES.replace(
+    "- 기존 체크 항목 하나",
+    "- 기존 체크 항목 하나 [원문](INBOX/synthetic%20fixture%20source.md#1)%20broken%20heading))",
+  );
+  const malformed = `${malformedBody}## 사용자 검토 범위
+- 적용 조건: 잘린 기존 조건
+
+## 출처
+- [source_synthetic_fixture](INBOX/synthetic%20fixture%20source.md#1)%20broken%20heading))
+`;
+  const item = fx.makeItem({ reviewId: "plan_compiled_synthetic_malformed_link" });
+  const harness = await fx.openReview({ item, targetBytes: malformed });
+  const prepared = await harness.flow.prepare({
+    item,
+    fields: fx.REVIEW_FIELDS,
+    target_path: fx.LEGACY_PATH,
+    target_revision: fx.hash.sha256(malformed),
+  });
+  assert.equal(prepared.ok, true, `prepare: ${prepared.reason || ""}`);
+  const after = String(prepared.value.after);
+  assert.ok(after.includes("[원문](INBOX/synthetic%2520fixture%2520source.md)") || after.includes("[원문](INBOX/synthetic%20fixture%20source.md)"), "파일 링크 폴백은 남아야 한다");
+  assert.equal(after.includes("%20broken%20heading"), false, "깨진 링크의 encoded 꼬리가 본문에 남았다");
+  const scope = after.split("## 사용자 검토 범위")[1].split("\n## ")[0];
+  assert.equal(scope.includes("source_synthetic_fixture"), false, "출처 링크가 검토 범위 안으로 섞였다");
+  assert.equal(scope.includes("잘린 기존 조건"), false, "새 적용 조건이 있으면 잘린 기존 적용 조건은 보존하지 않는다");
+});
+
 test("쓰기 시점: 대상 본문에 이미 있는 주장은 다시 붙이지 않는다", async () => {
   // 레거시 대상 본문에는 "혼주 사진은 신랑측을 먼저 둔다."가 이미 있다.
   const covered = "혼주 사진은 신랑측을 먼저 둔다.";

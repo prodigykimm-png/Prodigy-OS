@@ -7,14 +7,17 @@
     || (typeof require === "function" ? require("./llmwiki-operation-writer-core.js") : null);
   const bridgeApi = root.LLMWikiFinalizedRevisionBridge
     || (typeof require === "function" ? require("./llmwiki-finalized-revision-bridge.js") : null);
+  const canonicalPacket = () => root.LLMWikiCanonicalPacket || canonicalApi;
+  const finalizedBridge = () => root.LLMWikiFinalizedRevisionBridge || bridgeApi;
   const APPROVAL_INPUT_FIELDS = new Set(["packet", "canonical_id", "evidence", "compensation_plan", "canonical_v2_authorization"]);
   const COMPENSATION_FIELDS = new Set(["strategy", "target_path", "before_sha256"]);
 
   function validateApprovalInput(input) {
     if (!core.plain(input) || core.proxy(input) || !core.safelyInspectable(input)) return core.reject("malformed_update_approval");
     for (const key of Object.keys(input)) if (!APPROVAL_INPUT_FIELDS.has(key)) return core.reject("unknown_approval_field", { field: key });
-    if (!canonicalApi) return core.reject("canonical_packet_contract_missing");
-    const verified = canonicalApi.verifyCanonicalPacket(input.packet);
+    const packetApi = canonicalPacket();
+    if (!packetApi) return core.reject("canonical_packet_contract_missing");
+    const verified = packetApi.verifyCanonicalPacket(input.packet);
     if (!verified.ok) return core.reject(verified.reason);
     if (input.packet.operation.proposal_kind !== "update") return core.reject("update_operation_required");
     if (!core.ID.test(input.canonical_id)) return core.reject("invalid_canonical_id");
@@ -89,7 +92,7 @@
       || typeof request.adapter.readCanonical !== "function"
       || typeof request.adapter.atomicReplace !== "function"
       || typeof request.adapter.restoreExact !== "function") return core.reject("update_adapter_required");
-    const verified = canonicalApi.verifyCanonicalPacket(request.packet);
+    const verified = canonicalPacket().verifyCanonicalPacket(request.packet);
     if (!verified.ok) return core.reject(verified.reason);
     const packet = request.packet;
     const approval = request.authorization;
@@ -188,7 +191,7 @@
         }
       }
       if (approval.canonical_v2_authority && !resuming) {
-        const prepared = await bridgeApi.bridgeFinalizedRevision(packet, approval, request.adapter, now.toISOString(), { prepareOnly: true });
+        const prepared = await finalizedBridge().bridgeFinalizedRevision(packet, approval, request.adapter, now.toISOString(), { prepareOnly: true });
         if (!prepared || !prepared.ok) return core.reject(prepared && prepared.reason || "immutable_audit_authority_unavailable");
       }
       const compensation = preparedCompensation(packet, approval, now.toISOString());
@@ -204,7 +207,7 @@
         const restored = await compensate(packet, approval, request.adapter, compensation, reason, core.replaceRequestConsumed(issued));
         return core.reject(restored.ok ? reason : restored.reason, { compensation: restored.receipt, compensation_prepared: true });
       }
-      const bridged = await bridgeApi.bridgeFinalizedRevision(packet, approval, request.adapter, now.toISOString());
+      const bridged = await finalizedBridge().bridgeFinalizedRevision(packet, approval, request.adapter, now.toISOString());
       if (bridged && bridged.ok === false) return core.result("committed_authority_pending", { ...bridged, write_counts: { ...bridged.write_counts, canonical: resuming ? 0 : 1 } });
       if (approval.canonical_v2_authority && !bridged) return core.result("committed_authority_pending", { reason: "immutable_audit_authority_unavailable", target_path: packet.target_path, write_counts: { ...core.ZERO_WRITES, canonical: resuming ? 0 : 1 } });
       core.consumeUpdateApproval(approval);
