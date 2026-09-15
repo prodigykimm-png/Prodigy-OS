@@ -18,6 +18,14 @@
     const basename = clean(path).split("/").pop() || "지식 문서";
     return basename.replace(/\.md$/iu, "").replace(/_backup(?:\s*\(\d+\))?$/iu, "").trim() || "지식 문서";
   }
+  function sourceLocator(locator) {
+    const [rawPath, ...fragments] = clean(locator).split("#");
+    const target = (rawPath.split("/").pop() || "지식 문서").replace(/\.md$/iu, "") || "지식 문서";
+    const fragment = fragments.join("#");
+    if (!fragment) return `[[${target}]]`;
+    if (/^[0-9]+-[0-9]+$/u.test(fragment)) return `[[${target}]] · bytes ${fragment.replace("-", "–")}`;
+    return `[[${target}#${fragment}|${target} › ${fragment}]]`;
+  }
   function tokens(value) {
     return new Set((clean(value).toLowerCase().match(TOKEN) || []).filter((token) => !STOPWORDS.has(token)));
   }
@@ -59,7 +67,7 @@
       : `## 핵심 내용\n\n${claims.map((claim) => `- ${claim.text}`).join("\n")}`;
     const quotes = unique(citations.map((row) => clean(row.evidence_quote)).filter(Boolean));
     const quoteLines = quotes.map((quote) => `> ${quote}`).join("\n\n");
-    const sourceLines = unique(citations.flatMap((row) => row.locators.slice(-1))).map((locator) => `- ${locator}`).join("\n");
+    const sourceLines = unique(citations.flatMap((row) => row.locators.slice(-1))).map((locator) => `- ${sourceLocator(locator)}`).join("\n");
     const review = reviewReasons.length ? `\n\n## 확인 필요\n\n${unique(reviewReasons).map(reason => `- ${reason}`).join("\n")}` : "";
     return `# ${title}\n\n${content}${review}\n\n## 근거 발췌\n\n${quoteLines}\n\n## 출처\n\n${sourceLines}\n`;
   }
@@ -231,7 +239,7 @@
       const reviewReasons = unique(rows.flatMap(row => row.review_reasons || []));
       const compiled = sections.some(section => Array.isArray(section.paragraphs));
       const body = compiled
-        ? `# ${first.title}\n\n${sections.map(section => `## ${section.heading}\n\n${(section.paragraphs || []).map(p => p.text).join("\n\n")}`).join("\n\n")}\n\n## 출처\n\n${unique(citations.flatMap(c => c.locators || [])).map(locator => `- ${locator}`).join("\n")}\n`
+        ? `# ${first.title}\n\n${sections.map(section => `## ${section.heading}\n\n${(section.paragraphs || []).map(p => p.text).join("\n\n")}`).join("\n\n")}\n\n## 출처\n\n${unique(citations.flatMap(c => c.locators || [])).map(locator => `- ${sourceLocator(locator)}`).join("\n")}\n`
         : renderDocument(first.title, first.role, sections, claims, citations, reviewReasons);
       return { ...first, claims, citations, sections, body, review_reasons: reviewReasons,
         original_topic_refs: uniqueRows(rows.flatMap(row => row.original_topic_refs || [])) };

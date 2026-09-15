@@ -249,7 +249,7 @@
     return freeze({ ok: true, value: freeze(resolved) });
   }
 
-  function candidateProposal(document, source, related) {
+  function candidateProposal(document, source, related, selectedSources = [source]) {
     const unitId = documentUnitId(source, document);
     const routed = routingApi.routeLifecycle({
       unit_id: unitId, lane: "epistemic", semantic_type: "reusable_knowledge", promotion_complete: false,
@@ -268,7 +268,7 @@
     if (!mutation.ok) return mutation;
     if (mutation.value.kind === "hold") return holdFor({ unit_id: unitId, item: document }, mutation.value.reason);
     if (mutation.value.kind === "no_change") return holdFor({ unit_id: unitId, item: document }, mutation.value.reason);
-    const citations = citationsForDocument(source, document);
+    const citations = citationsForDocument(source, document, selectedSources);
     const conflicts = document.review_reasons.length > 0 && rows.length > 0
       ? [{ conflict_id: `conflict_${sha(`${unitId}:conflict`).slice(0, 24)}`, status: "unresolved", source_ids: citations.map(citation => citation.source_id), summary: document.review_reasons[0] }]
       : [];
@@ -406,6 +406,8 @@
       }
       const proposals = [];
       const holds = [];
+      const selectedSources = input.sources || [source];
+      const selectedById = new Map(selectedSources.map((row) => [row.source_id, row]));
       for (const document of documents) {
         if (!plain(document) || !["source_summary", "reusable_claim"].includes(document.role)
           || typeof document.title !== "string" || typeof document.body !== "string"
@@ -418,9 +420,12 @@
           }
           materializedDocument = { ...document, body };
         }
+        const citedSource = materializedDocument.citations
+          .map((citation) => selectedById.get(citation.source_id))
+          .find(Boolean) || source;
         const proposed = materializedDocument.role === "source_summary"
-          ? literatureProposal(materializedDocument, source, input.sources || [source])
-          : candidateProposal(materializedDocument, source, related);
+          ? literatureProposal(materializedDocument, citedSource, selectedSources)
+          : candidateProposal(materializedDocument, citedSource, related, selectedSources);
         if (!proposed.ok) return proposed;
         if (proposed.value.hold_id) holds.push(proposed.value);
         else proposals.push(proposed.value);

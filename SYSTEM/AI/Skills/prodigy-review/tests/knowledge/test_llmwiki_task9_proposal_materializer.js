@@ -217,6 +217,61 @@ test("compiled Literature normalizes scoped citation hashes to the selected full
   assert.deepEqual(citation.locators, [selected.source_path, `${selected.source_path}#0-12`]);
 });
 
+test("compiled Literature owns the selected source cited by each document", () => {
+  const alpha = source();
+  const beta = {
+    source_id: "source_task9_02",
+    source_path: "INBOX/Knowledge/task9-beta.md",
+    content_hash: sha256("second selected source"),
+  };
+  const documents = [alpha, beta].map((selected, index) => ({
+    role: "source_summary",
+    document_kind: "source_guide",
+    title: `선택 원문 ${index + 1}`,
+    body: `# 선택 원문 ${index + 1}\n`,
+    claims: [{ text: `선택 원문 ${index + 1}을 요약한다.` }],
+    citations: [{
+      source_id: selected.source_id,
+      content_hash: sha256(`scoped-${index}`),
+      source_path: selected.source_path,
+      locators: [selected.source_path],
+      confidence: "explicit",
+      evidence_quote: `selected evidence ${index + 1}`,
+    }],
+    review_reasons: [],
+    matched_candidate_ids: [],
+  }));
+
+  const result = materializer().materializeDocuments({ source: alpha, sources: [alpha, beta], documents });
+
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.proposals.length, 2);
+  const ownership = result.proposals.map((proposal) => {
+    const target = proposal.operation.destination_ids[0];
+    const parsed = lifecycleStore.parseLifecycleDocument(proposal.operation.after_bytes[target]);
+    return [parsed.source_id, proposal.operation.source_citations[0].source_id, target];
+  });
+  assert.deepEqual(ownership.map(([frontmatter, citation]) => [frontmatter, citation]), [
+    [alpha.source_id, alpha.source_id],
+    [beta.source_id, beta.source_id],
+  ]);
+  assert.notEqual(ownership[0][2], ownership[1][2]);
+});
+
+test("Literature source ranges use archive-stable file links without false headings", () => {
+  const result = materializer().materialize({
+    source: source(),
+    artifacts: [artifact("chunk_archive_link", "proposals", [item("source_summary")])],
+  });
+
+  assert.equal(result.ok, true, result.reason);
+  const proposal = result.proposals[0];
+  const after = proposal.operation.after_bytes[proposal.operation.destination_ids[0]];
+  assert.match(after, /- \[\[task9\]\] · bytes 16–[0-9]+/u);
+  assert.doesNotMatch(after, /INBOX\/Knowledge\/task9\.md#[0-9]+-[0-9]+/u);
+  assert.doesNotMatch(after, /\[\[task9#[0-9]+-[0-9]+\]\]/u);
+});
+
 test("materialization is deterministic and mutates nothing (zero-write purity)", () => {
   const input = Object.freeze({
     source: Object.freeze(source()),
