@@ -9,7 +9,7 @@ window.app = app;
 window.KnowledgeExplorerHub = window.KnowledgeExplorerHub || {};
 
 const KnowledgeExplorerHub = window.KnowledgeExplorerHub;
-const LLMWIKI_HUB_RUNTIME_VERSION = "llmwiki_hub_runtime_v2_literature_restore";
+const LLMWIKI_HUB_RUNTIME_VERSION = "llmwiki_hub_runtime_v3_target_basis";
 delete KnowledgeExplorerHub.documentPlanQualitySnapshot;
 window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "knowledge"
   ? window.__prodigyMeasurementEntry
@@ -1821,7 +1821,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           && snapshot.planner_version === window.LLMWikiDeterministicPagePlanner.VERSION
           && snapshot.plan?.plan_version === "llmwiki_page_plan_v1"
           && !hasLegacyNumberedBoundaries(snapshot)
-          && (snapshot.target_basis === planTargetBasis() || (snapshot.plan?.pages?.length || 0) > 0)
+          && snapshot.target_basis === planTargetBasis()
           && reusableCovered;
       });
       const reusablePlan = reusableSnapshot?.plan || null;
