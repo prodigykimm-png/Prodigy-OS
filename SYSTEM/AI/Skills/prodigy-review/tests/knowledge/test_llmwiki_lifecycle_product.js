@@ -313,6 +313,15 @@ test("keeps approval-ready and blocking conflict queues separate and excludes co
   assert.equal(projected.conflicts.some((row) => row.batch_eligible), false);
 });
 
+test("retained risk packets outrank a stale Golden completion", () => {
+  const projected = lifecycle.projectLifecycleSnapshot(snapshot("complete", {
+    golden_wiki: { status: "complete", stage: "complete", result: { previews: [] } },
+    risk_packets: [{ packet_id: "packet_retained", conflict: { blocking_conflict_ids: [] } }],
+  }));
+  assert.equal(projected.productState, "review");
+  assert.deepEqual(projected.approvals.map((row) => row.packet_id), ["packet_retained"]);
+});
+
 test("production Hub loads and owns inbox intake, cancellation, retry, Task14 review and operation recovery routes", () => {
   const manifest = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js")).get("knowledge").required;
   for (const name of ["llmwiki-source-registry.js", "llmwiki-source-adapters.js", "llmwiki-inbox-discovery-queue.js", "knowledge-fleeting-store.js", "knowledge-command-controller.js", "knowledge-explorer-detail-modal.js", "knowledge-explorer-controller.js", "prodigy-wiki-operation-store.js", "prodigy-wiki-controller.js"]) {

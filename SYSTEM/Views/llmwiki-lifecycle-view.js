@@ -160,8 +160,8 @@
     if (operation.status === "committed") productState = followUp?.refresh?.status === "failed" ? "operation_refresh_failed"
       : ["pending", "running"].includes(followUp?.refresh?.status) ? "operation_refresh_pending"
         : followUp?.git?.status === "failed" ? "git_failed" : ["pending", "running"].includes(followUp?.git?.status) ? "git_pending" : "committed";
+    else if (risks.length) productState = "review";
     else if (goldenPriority) productState = snapshot.status;
-    else if (risks.length && ["review", "review_only"].includes(snapshot.status)) productState = "review";
     else if (explicitSourceSelection || explicitSourcePicker) productState = "selecting";
     else if (inbox && ["blocked", "outcome_unknown"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
     else if (inbox && ["queued", "analyzing", "cancelled"].includes(inbox.state)) productState = `inbox_${inbox.state}`;
@@ -1072,6 +1072,7 @@
 
       if (options.auxiliaryScene?.() === "fleeting") renderFleeting(frame, projected.fleeting);
       else if (projected.productState.startsWith("migration_") && (!options.workspace || options.auxiliaryScene?.() === "migration") && renderMigration(frame, projected)) { /* migration owns the active lifecycle scene */ }
+      else if (projected.productState === "review") renderReview(frame);
       else if (snapshot.operation_run?.status !== "committed" && snapshot.status === "complete" && snapshot.golden_wiki?.status === "complete") renderGoldenComplete(frame);
       else if (durableSuccess(snapshot) && !explicitStatePriority) renderCommitted(frame);
       else if (inboxScene && options.workspace && !options.auxiliaryScene?.() && !["queued", "analyzing", "blocked", "outcome_unknown", "error", "partial"].includes(projected.inbox?.state)) renderIdle(frame);
