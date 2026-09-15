@@ -49,7 +49,7 @@
         mean_token_coverage: coverages.reduce((sum, value) => sum + value, 0) / coverages.length,
         title_anchor_match,
       };
-    }).filter((row) => row.coverage_count > 0 || row.title_anchor_match)
+    }).filter((row) => row.coverage_ratio >= 0.34 || row.title_anchor_match)
       .sort((left, right) => right.coverage_count - left.coverage_count
         || Number(right.title_anchor_match) - Number(left.title_anchor_match)
         || right.mean_token_coverage - left.mean_token_coverage

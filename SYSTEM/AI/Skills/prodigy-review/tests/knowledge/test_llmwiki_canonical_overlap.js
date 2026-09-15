@@ -60,6 +60,21 @@ test("one incidental wedding anchor cannot link a cross-domain family rule", () 
   assert.equal(result.candidates.length, 0);
 });
 
+test("one incidental covered claim cannot update a cross-domain document", () => {
+  const result = overlap.classify({
+    page_title: "웨딩 스냅 앉은 자세와 손 디테일 연출",
+    claims: [
+      { claim_id: "claim_shared", text: "안전 수칙 확인 절차를 따른다." },
+      ...Array.from({ length: 7 }, (_, index) => ({ claim_id: `claim_wedding_${index + 1}`, text: `웨딩 포즈 ${index + 1}의 손 각도를 조정한다.` })),
+    ],
+    canonical_documents: [{ candidate_id: "canonical_property", title: "부동산 거래 및 투자 안전 수칙",
+      content: "안전 수칙 확인 절차를 따른다.", read_only: true }],
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.relation, "new");
+  assert.equal(result.candidates.length, 0);
+});
+
 test("all covered claims classify as duplicate", () => {
   const result = overlap.classify({ claims, canonical_documents: [{
     candidate_id: "canonical_pose", title: "웨딩 포징", read_only: true,
