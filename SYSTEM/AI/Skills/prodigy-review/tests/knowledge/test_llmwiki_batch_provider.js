@@ -107,8 +107,9 @@ test("semantic document extraction accepts multiple evidence items and preserves
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.artifacts[0].items.length, 3);
   assert.deepEqual(result.artifacts[0].items.map((item) => item.topic), ["투자 판단 개요", "현금흐름 위험", "낙찰가 급등 위험"]);
-  assert.match(prompt.task, /all durable information/iu);
-  assert.match(prompt.task, /topic/iu);
+  assert.equal(prompt.mode, "semantic");
+  assert.equal(prompt.limits.max_items_per_result, batchProvider.MAX_SEMANTIC_ITEMS_PER_RESULT);
+  assert.deepEqual(prompt.chunks[0].evidence_candidates.map((candidate) => candidate.key), ["evidence_1", "evidence_2", "evidence_3"]);
 });
 
 test("semantic mode requires every Todo 1 semantic key exactly once and keeps keyed holds as analysis data", async () => {
@@ -270,7 +271,7 @@ test("source routing mode sends path context but accepts exactly one lifecycle i
   assert.equal(prompt.mode, "source_routing");
   assert.equal(prompt.chunks[0].source_hint, "INBOX/경매 물건 복기.md");
   assert.equal(prompt.limits.max_items_per_result, 1);
-  assert.match(prompt.task, /one lifecycle route/iu);
+  assert.deepEqual(prompt.allowed_candidate_ids, []);
 
   response.results[0].items.push({
     role: "reusable_claim",
