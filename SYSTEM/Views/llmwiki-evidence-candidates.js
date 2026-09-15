@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "llmwiki_evidence_candidates_v8";
+  const VERSION = "llmwiki_evidence_candidates_v9";
   const DEFAULT_MAX_BYTES = 2048;
 
   function create(value, options = {}) {
@@ -53,7 +53,7 @@
       while (last > first && /\s/u.test(rawBody[last - 1])) last -= 1;
       const body = rawBody.slice(first, last);
       const bodyStart = rawStart + first;
-      if (/^\|+$/u.test(body) || /^>+\s*[-+*]\s*$/u.test(body) || /^(?:>+\s*)?\*\*[^*]{1,80}:\*\*$/u.test(body)) return;
+      if (/^\|+$/u.test(body) || /^(?:>+\s*)?[-+*]$/u.test(body) || /^(?:>+\s*)?\*\*[^*]{1,80}:\*\*$/u.test(body)) return;
       let cursor = 0;
       while (cursor < body.length) {
         let end = cursor, bytes = 0;
