@@ -97,6 +97,28 @@ function approveCurrent(controller) {
   return controller.approveOperation({ action: "approve", run_id: snapshot.run_id, run_revision: snapshot.run_revision });
 }
 
+test("controller reload cancels an active nested operation before admitting the next review", async () => {
+  const { controller } = controllerHarness();
+  const first = await controller.startOperation({
+    run_id: "run_reload_nested_first",
+    serialized_operation: serializedOperation("create", "operation_reload_nested_first"),
+  });
+  assert.equal(first.ok, true, first.reason);
+  assert.equal(controller.getOperationSnapshot().status, "review");
+
+  const reloaded = await controller.reload({ action: "reload" });
+  assert.equal(reloaded.ok, true, reloaded.reason);
+  assert.equal(reloaded.status, "idle");
+  assert.equal(controller.getOperationSnapshot().status, "cancelled");
+
+  const second = await controller.startOperation({
+    run_id: "run_reload_nested_second",
+    serialized_operation: serializedOperation("create", "operation_reload_nested_second"),
+  });
+  assert.equal(second.ok, true, second.reason);
+  assert.equal(controller.getOperationSnapshot().status, "review");
+});
+
 test("operation run state declares every kind and deterministic state/action transition", () => {
   const api = view("llmwiki-operation-run-state.js");
   assert.deepEqual(api.KINDS, ["create", "update", "merge", "noop"]);

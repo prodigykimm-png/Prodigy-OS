@@ -772,8 +772,19 @@
       return output(true, "cancelled", { reason: "cancelled" });
     }
 
-    function reload(intent) {
+    async function reload(intent) {
       if (!exactAction(intent, "reload")) return rejectWithoutMutation("malformed_action");
+      const operationSnapshot = operationRuns.getSnapshot();
+      if (operationRunStateApi.ACTIVE_STATES.includes(operationSnapshot.status)) {
+        const bound = operationRuns.bindCancel({
+          action: "cancel",
+          run_id: operationSnapshot.run_id,
+          run_revision: operationSnapshot.run_revision,
+        });
+        if (!bound?.ok) return rejectWithoutMutation(bound?.reason || "operation_reload_cancel_failed");
+        const cancelled = await operationRuns.cancel(bound.value);
+        if (!cancelled?.ok) return rejectWithoutMutation(cancelled?.reason || "operation_reload_cancel_failed");
+      }
       const runId = current.run_id;
       state.dispatch({ type: "reload" });
       invalidateToken("run_reloaded");
