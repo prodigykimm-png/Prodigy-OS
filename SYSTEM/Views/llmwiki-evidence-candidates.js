@@ -51,6 +51,9 @@
       if (line.trim() === "---" && (lineStart === 0 || frontmatter)) { frontmatter = !frontmatter; continue; }
       if (frontmatter || /^\s*#/u.test(line) || !line.trim()) continue;
       if (/^\s{0,3}(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/u.test(line)) continue;
+      if (/^\s*>+\s*$/u.test(line)
+        || /^\s*>*\s*!\[\[[^\]]+\]\]\s*$/u.test(line)
+        || /^\s*>*\s*!\[[^\]]*\]\([^)]+\)\s*$/u.test(line)) continue;
       const list = line.match(/^(\s*)(?:[-+*]|\d+[.)])\s+(.*)$/u);
       const body = list ? list[2] : line.trim();
       if (!body || (!list && /^\s*(?:[-+*]|\d+[.)])\s*$/u.test(line))) continue;

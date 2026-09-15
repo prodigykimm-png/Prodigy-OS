@@ -25,6 +25,11 @@ test("semantic candidates ignore Markdown horizontal rules outside frontmatter",
   assert.deepEqual(candidates.createSemantic(source).map((row) => row.text), ["첫 내용", "다음 내용"]);
 });
 
+test("semantic candidates ignore bare blockquotes and image-only embeds", () => {
+  const source = "# 인용\n> 실제 인용문\n>![[Pasted image.png]]\n>\n![설명](image.png)\n";
+  assert.deepEqual(candidates.createSemantic(source).map((row) => row.text), ["> 실제 인용문"]);
+});
+
 test("semantic projection rejects malformed structural input", () => {
   assert.deepEqual(candidates.createSemantic(""), []);
   assert.deepEqual(candidates.createSemantic("---\ntitle: ignored\n---\n# Heading\n-\n*\n9.\n\n"), []);
