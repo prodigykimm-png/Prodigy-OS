@@ -149,6 +149,10 @@
       if (!safeStatus.ok) return failure("malformed_runtime_response");
       return freeze({ ok: true, status: "ready", runtime: safeStatus.value, handshake: runtime.handshake });
     }
+    function getHandshake() {
+      const runtime = discover();
+      return runtime.ok ? runtime.handshake : failure(runtime.error_code);
+    }
 
     function validateInput(input, kind) {
       if (!plain(input)) return { ok: false, error_code: "invalid_request" };
@@ -379,6 +383,7 @@
     return freeze({
       cancel,
       getConsentRequirement,
+      getHandshake,
       getRequestStatus,
       getStatus,
       grantConsumer,

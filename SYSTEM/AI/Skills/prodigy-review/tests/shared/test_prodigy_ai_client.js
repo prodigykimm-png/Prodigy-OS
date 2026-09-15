@@ -12,6 +12,7 @@ const ACTIVE_CONSUMERS = [
   "auction.research_summary",
   "journal.daily_reflection",
   "journal.monthly_validation",
+  "journal.period_summary",
   "journal.weekly_filter",
   "knowledge.explorer_brief",
   "knowledge.source_batch",
@@ -98,7 +99,7 @@ function structuredInput(overrides = {}) {
   };
 }
 
-test("consumer manifests cover exactly fourteen provider-neutral active consumers", () => {
+test("consumer manifests cover exactly fifteen provider-neutral active consumers", () => {
   assert.deepEqual(manifests.list().map((entry) => entry.consumer_id), ACTIVE_CONSUMERS);
   manifests.list().forEach((manifest) => {
     assert.equal(manifests.validate(manifest).ok, true, manifest.consumer_id);
@@ -146,6 +147,18 @@ test("deterministic fake runtime injects without an Obsidian plugin manager", as
   assert.equal(result.ok, true);
   assert.equal(fake.calls.length, 1);
   assert.equal(client.getStatus().status, "ready");
+});
+
+test("public client exposes the validated runtime handshake used to freeze provider settings", () => {
+  const fake = fakeRuntime({ epoch: "epoch-freeze-1" });
+  const client = clientApi.createClient({ runtimeResolver: () => fake.runtime });
+
+  const handshake = client.getHandshake();
+
+  assert.equal(handshake.plugin_id, "prodigy-ai-runtime");
+  assert.equal(handshake.runtime_epoch, "epoch-freeze-1");
+  assert.equal(handshake.protocol_hash, clientApi.PROTOCOL_HASH);
+  assert.equal(Object.isFrozen(handshake), true);
 });
 
 test("same in-flight identity coalesces once but a completed request is not cached", async () => {
