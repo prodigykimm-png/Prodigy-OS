@@ -1332,10 +1332,16 @@ window.renderAuctionCard = function(p, container, options) {
    const isTerminalStatus = ["won", "lost", "skipped"].includes(p.status);
    const hasExitPrice = hasRecordedValue(p.exit_price);
    const profitInfo = calcMonthlyProfit(p, priceProjection.left.value);
+   // 차익 = 출구가 - 입찰예정가. 관심/입찰 단계의 left는 최저가이므로
+   // 예상가가 있으면 그것을 기준가로 쓴다. 실제 투찰가가 있는
+   // 상태(낙찰/패찰 등)는 left(내 입찰가)를 그대로 유지한다.
+   const spreadBase = ["watching", "bidding"].includes(p.status) && hasRecordedValue(p.expected_bid)
+     ? p.expected_bid
+     : priceProjection.left.value;
    let spreadInfo = null;
-   if (hasExitPrice && hasRecordedValue(priceProjection.left.value)) {
+   if (hasExitPrice && hasRecordedValue(spreadBase)) {
      const exit = parser(p.exit_price);
-     const acquisition = parser(priceProjection.left.value);
+     const acquisition = parser(spreadBase);
      if (!isNaN(exit) && !isNaN(acquisition) && isFinite(exit) && isFinite(acquisition)) {
        const diff = exit - acquisition;
        spreadInfo = {
