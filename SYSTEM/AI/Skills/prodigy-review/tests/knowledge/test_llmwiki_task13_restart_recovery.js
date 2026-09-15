@@ -41,6 +41,7 @@ test("Hub explicit retry preserves the frozen source set after partial progress"
   assert.match(hub, /task13_retry_intent_id: retryIntentId/);
   assert.match(hub, /&& snapshot\.target_basis === planTargetBasis\(\)\s*&& reusableCovered/);
   assert.doesNotMatch(hub, /snapshot\.target_basis === planTargetBasis\(\) \|\|/);
+  assert.match(hub, /JSON\.stringify\(reusableSnapshot\.execution \|\| null\) !== JSON\.stringify\(documentPlanExecution\)/);
 });
 
 function child(dir, script) {
@@ -236,7 +237,7 @@ test("Hub rejects a durable Literature review with legacy bytes and rematerializ
   const callsB = [];
   const second = await runHub({ pages: [], extraFiles: persisted, llmWikiControllerOptions: { ...options, batchProvider: provider(callsB) } });
   await second.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
-  assert.equal(second.window.KnowledgeExplorerHub.llmWikiRuntimeVersion, "llmwiki_hub_runtime_v3_target_basis");
+  assert.equal(second.window.KnowledgeExplorerHub.llmWikiRuntimeVersion, "llmwiki_hub_runtime_v4_execution_refresh");
   assert.equal(second.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().risk_packets?.length || 0, 0);
   const replay = await second.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "retry_inbox" });
   assert.equal(replay.ok, true, replay.reason);

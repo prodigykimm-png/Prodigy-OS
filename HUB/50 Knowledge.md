@@ -9,7 +9,7 @@ window.app = app;
 window.KnowledgeExplorerHub = window.KnowledgeExplorerHub || {};
 
 const KnowledgeExplorerHub = window.KnowledgeExplorerHub;
-const LLMWIKI_HUB_RUNTIME_VERSION = "llmwiki_hub_runtime_v3_target_basis";
+const LLMWIKI_HUB_RUNTIME_VERSION = "llmwiki_hub_runtime_v4_execution_refresh";
 delete KnowledgeExplorerHub.documentPlanQualitySnapshot;
 window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "knowledge"
   ? window.__prodigyMeasurementEntry
@@ -1930,6 +1930,18 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         status: "pending_review", plan: planned.value, inventory: documentPlanInventory,
         execution: documentPlanExecution, target_basis: planTargetBasis(),
       });
+      else if (reusableSnapshot && Object.keys(reusableSnapshot.canonical_reviews || {}).length === 0
+        && JSON.stringify(reusableSnapshot.execution || null) !== JSON.stringify(documentPlanExecution)) {
+        await batchJobStore.savePlanSnapshot({
+          job_id: analyzed.job_id, source_id: sourceId, source_revision: contentHash,
+          planner_version: window.LLMWikiDeterministicPagePlanner.VERSION,
+          inventory_hash: documentPlanInventory.inventory_hash,
+          plan_hash: planned.value.plan_hash,
+          plan_revision: Math.max(Number(priorPlanSnapshot?.plan_revision || 0), reusableSnapshot.plan_revision) + 1,
+          status: "pending_review", plan: planned.value, inventory: documentPlanInventory,
+          execution: documentPlanExecution, target_basis: planTargetBasis(),
+        });
+      }
       pagePlanReviewItems = planReviewRows(planned.value, documentPlanInventory,
         (reusedPlan && documentPlanCompileResult?.plan_hash === planned.value.plan_hash) ? documentPlanCompileResult.documents || [] : []);
       if (!reusedPlan || documentPlanCompileResult?.plan_hash !== planned.value.plan_hash) {
