@@ -45,6 +45,7 @@
     const maxBytes = Number.isSafeInteger(options.max_bytes) && options.max_bytes > 0 ? options.max_bytes : DEFAULT_MAX_BYTES;
     const result = [];
     let frontmatter = false;
+    const isTableSeparator = (line) => /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/u.test(line);
     const appendBody = (rawBody, rawStart) => {
       let first = 0, last = rawBody.length;
       while (first < last && /\s/u.test(rawBody[first])) first += 1;
@@ -67,9 +68,11 @@
     for (const match of source.matchAll(/[^\n]*(?:\n|$)/gu)) {
       const line = match[0].replace(/\n$/u, "").replace(/\r$/u, "");
       const lineStart = match.index;
+      const nextLine = source.slice(lineStart + match[0].length).split(/\r?\n/u, 1)[0];
       if (line.trim() === "---" && (lineStart === 0 || frontmatter)) { frontmatter = !frontmatter; continue; }
       if (frontmatter || /^\s*#/u.test(line) || !line.trim()) continue;
       if (/^\s{0,3}(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/u.test(line)) continue;
+      if (isTableSeparator(line) || /^\s*\|.*\|\s*$/u.test(line) && isTableSeparator(nextLine)) continue;
       if (/^\s*>+\s*$/u.test(line)
         || /^\s*>*\s*!\[\[[^\]]+\]\]\s*$/u.test(line)
         || /^\s*>*\s*!\[[^\]]*\]\([^)]+\)\s*$/u.test(line)) continue;

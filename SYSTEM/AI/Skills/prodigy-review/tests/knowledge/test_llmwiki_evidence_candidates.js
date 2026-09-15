@@ -37,6 +37,13 @@ test("semantic candidates split inline image embeds while preserving exact text 
   assert.equal(rows.every((row) => source.slice(row.start, row.end) === row.text), true);
 });
 
+test("semantic candidates ignore Markdown table headers and separators but keep data rows", () => {
+  const source = "# 표\n| 항목 | 내용 |\n|---|:---:|\n| **행정동** | 금호1가동 |\n";
+  const rows = candidates.createSemantic(source);
+  assert.deepEqual(rows.map((row) => row.text), ["| **행정동** | 금호1가동 |"]);
+  assert.equal(rows.every((row) => source.slice(row.start, row.end) === row.text), true);
+});
+
 test("semantic projection rejects malformed structural input", () => {
   assert.deepEqual(candidates.createSemantic(""), []);
   assert.deepEqual(candidates.createSemantic("---\ntitle: ignored\n---\n# Heading\n-\n*\n9.\n\n"), []);
