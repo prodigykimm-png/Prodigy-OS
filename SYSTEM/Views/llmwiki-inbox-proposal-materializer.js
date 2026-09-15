@@ -181,23 +181,28 @@
       ...(quotes.length === 1 ? { evidence_quote: quotes[0] } : {}),
     });
   }
-  function citationsForDocument(source, document) {
+  function citationsForDocument(source, document, selectedSources = [source]) {
     const rows = document.citations || [];
     const bySource = new Map();
     for (const citation of rows) {
-      const key = `${citation.source_id}:${citation.content_hash}`;
+      const key = citation.source_id;
       bySource.set(key, [...(bySource.get(key) || []), citation]);
     }
-    return bySource.size ? [...bySource.values()].map(citations => citationForDocument({
-      source_id: citations[0].source_id, content_hash: citations[0].content_hash,
-      source_path: citations[0].source_path || citations[0].locators?.[0],
-    }, { citations })) : [citationForDocument(source, document)];
+    const selectedById = new Map(selectedSources.map(row => [row.source_id, row]));
+    return bySource.size ? [...bySource.values()].map(citations => {
+      const selected = selectedById.get(citations[0].source_id);
+      return citationForDocument({
+        source_id: citations[0].source_id,
+        content_hash: selected?.content_hash || citations[0].content_hash,
+        source_path: selected?.source_path || citations[0].source_path || citations[0].locators?.[0],
+      }, { citations });
+    }) : [citationForDocument(source, document)];
   }
   function documentUnitId(source, document) {
     return `document_${sha(JSON.stringify([source.source_id, document.role, document.title, document.matched_candidate_ids || [], document.claims])).slice(0, 24)}`;
   }
 
-  function literatureProposal(document, source) {
+  function literatureProposal(document, source, selectedSources = [source]) {
     const unitId = documentUnitId(source, document);
     const routed = routingApi.routeLifecycle({
       unit_id: unitId, lane: "epistemic", semantic_type: "source_material", source_bound: true,
@@ -228,7 +233,7 @@
     ].join("\n");
     const built = finalizeOperation(baseOperation({
       kind: "create", destination_ids: [path], after_bytes: { [path]: afterBytes },
-      citations: citationsForDocument(source, document), risk_tier: "low",
+      citations: citationsForDocument(source, document, selectedSources), risk_tier: "low",
     }), unitId, "create", "literature");
     if (!built.ok) return built;
     return freeze({ ok: true, value: freeze({ title: document.title, class: "create", selected: false, unit_id: unitId, document, decision: routed.value, ...built.value }) });
@@ -381,8 +386,11 @@
       if (!ID.test(String(source.source_id || "")) || !HASH.test(String(source.content_hash || ""))
         || typeof source.source_path !== "string" || source.source_path.length === 0) return fail("invalid_source_citation");
       if (input.sources !== undefined && (!Array.isArray(input.sources) || input.sources.length === 0
-        || input.documents.some(document => (document.citations || []).some(citation => !input.sources.some(selected =>
-          selected.source_id === citation.source_id && selected.content_hash === citation.content_hash))))) return fail("unselected_document_source");
+        || input.documents.some(document => (document.citations || []).some(citation => {
+          const selected = input.sources.find(row => row.source_id === citation.source_id);
+          const citedPath = citation.source_path || citation.locators?.[0]?.split("#")[0];
+          return !selected || citedPath && citedPath !== selected.source_path;
+        })))) return fail("unselected_document_source");
       const documents = input.sources ? documentAssemblerApi.combineTargetDocuments(input.documents) : input.documents;
       const linkTargets = new Map();
       for (const document of documents) {
@@ -411,7 +419,7 @@
           materializedDocument = { ...document, body };
         }
         const proposed = materializedDocument.role === "source_summary"
-          ? literatureProposal(materializedDocument, source)
+          ? literatureProposal(materializedDocument, source, input.sources || [source])
           : candidateProposal(materializedDocument, source, related);
         if (!proposed.ok) return proposed;
         if (proposed.value.hold_id) holds.push(proposed.value);

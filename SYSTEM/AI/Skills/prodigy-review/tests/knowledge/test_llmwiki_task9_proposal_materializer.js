@@ -188,6 +188,35 @@ test("compiled Source Guide links resolve to exact hashed candidate paths", () =
   assert.doesNotMatch(guideBytes, /\[\[부동산 권리 안전장치\]\]/u);
 });
 
+test("compiled Literature normalizes scoped citation hashes to the selected full source revision", () => {
+  const selected = source();
+  const scopedHash = sha256("selected semantic scope");
+  const documents = [{
+    role: "source_summary",
+    document_kind: "source_guide",
+    title: "전체 원문 자료 안내",
+    body: "# 전체 원문 자료 안내\n\n선택한 범위를 요약한다.\n",
+    claims: [{ text: "선택한 범위를 요약한다." }],
+    citations: [{
+      source_id: selected.source_id,
+      content_hash: scopedHash,
+      source_path: selected.source_path,
+      locators: [selected.source_path, `${selected.source_path}#0-12`],
+      confidence: "explicit",
+      evidence_quote: "selected semantic scope",
+    }],
+    review_reasons: [],
+    matched_candidate_ids: [],
+  }];
+  const result = materializer().materializeDocuments({ source: selected, sources: [selected], documents });
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.proposals.length, 1);
+  const citation = result.proposals[0].operation.source_citations[0];
+  assert.equal(citation.source_id, selected.source_id);
+  assert.equal(citation.content_hash, selected.content_hash);
+  assert.deepEqual(citation.locators, [selected.source_path, `${selected.source_path}#0-12`]);
+});
+
 test("materialization is deterministic and mutates nothing (zero-write purity)", () => {
   const input = Object.freeze({
     source: Object.freeze(source()),
