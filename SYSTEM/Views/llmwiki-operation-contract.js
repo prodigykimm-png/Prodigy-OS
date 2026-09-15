@@ -1,6 +1,7 @@
 (function (root) {
   "use strict";
 
+  const previousContract = root.LLMWikiOperationContract || null;
   const CONTRACT_VERSION = "llmwiki_operation_contract_v1";
   const MAX_SERIALIZED_OPERATION_BYTES = 1024 * 1024;
   const STRUCTURE_LIMITS = Object.freeze({
@@ -507,10 +508,20 @@
   function weakSetHas(set, value) {
     return ((typeof value === "object" && value !== null) || typeof value === "function") && set.has(value);
   }
-  function isOperationRecord(value) { return weakSetHas(BRANDED_OPERATIONS, value); }
-  function isCanonicalPacketOperationRecord(value) { return weakSetHas(BRANDED_CANONICAL_PACKET_OPERATIONS, value); }
+  function previousBrand(method, value) {
+    try { return Boolean(previousContract && typeof previousContract[method] === "function" && previousContract[method](value)); }
+    catch (_error) { return false; }
+  }
+  function isOperationRecord(value) {
+    return weakSetHas(BRANDED_OPERATIONS, value) || previousBrand("isOperationRecord", value);
+  }
+  function isCanonicalPacketOperationRecord(value) {
+    return weakSetHas(BRANDED_CANONICAL_PACKET_OPERATIONS, value) || previousBrand("isCanonicalPacketOperationRecord", value);
+  }
   function isCanonicalOperationRecord(value) {
-    return weakSetHas(BRANDED_CANONICAL_OPERATIONS, value) || isCanonicalPacketOperationRecord(value);
+    return weakSetHas(BRANDED_CANONICAL_OPERATIONS, value)
+      || isCanonicalPacketOperationRecord(value)
+      || previousBrand("isCanonicalOperationRecord", value);
   }
 
   function decodeSerialized(input) {

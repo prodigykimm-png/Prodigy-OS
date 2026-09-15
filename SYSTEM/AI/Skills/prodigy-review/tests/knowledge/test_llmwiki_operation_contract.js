@@ -74,6 +74,26 @@ function operation(kind, overrides = {}) {
   return { ...common, ...overrides };
 }
 
+test("operation brands remain recognized across repeated contract reloads", () => {
+  const sandbox = { TextEncoder };
+  sandbox.globalThis = sandbox;
+  const source = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"), "utf8");
+  vm.runInNewContext(source, sandbox);
+  const first = sandbox.LLMWikiOperationContract;
+  const parsed = first.parseOperation(JSON.stringify(operation("create")));
+  assert.equal(parsed.ok, true, parsed.reason);
+
+  vm.runInNewContext(source, sandbox);
+  const second = sandbox.LLMWikiOperationContract;
+  assert.notEqual(second, first);
+  assert.equal(second.isOperationRecord(parsed.value), true);
+
+  vm.runInNewContext(source, sandbox);
+  const third = sandbox.LLMWikiOperationContract;
+  assert.notEqual(third, second);
+  assert.equal(third.isOperationRecord(parsed.value), true);
+});
+
 function legacyCreateProposal(overrides = {}) {
   return {
     kind: "create",
