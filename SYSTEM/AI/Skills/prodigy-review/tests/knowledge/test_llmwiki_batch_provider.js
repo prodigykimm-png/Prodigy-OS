@@ -141,7 +141,7 @@ test("semantic mode requires every Todo 1 semantic key exactly once and keeps ke
   }
 });
 
-test("semantic unit bound permits 64 items and fans out 65 across sub-chunks", async () => {
+test("semantic unit bound permits 8 items and fans out 65 across bounded sub-chunks", async () => {
   const inputFor = (count) => ({
     outbound_allowed: true,
     run_id: `semantic_limit_${count}`,
@@ -156,15 +156,17 @@ test("semantic unit bound permits 64 items and fans out 65 across sub-chunks", a
       claims: [`supported ${index + 1}`], review_reasons: [], related_candidate_ids: [],
     })),
   }] });
-  const atLimit = providerReturning(responseFor(64));
-  const accepted = await atLimit.provider(inputFor(64));
+  const atLimit = providerReturning(responseFor(8));
+  const accepted = await atLimit.provider(inputFor(8));
   assert.equal(accepted.ok, true, JSON.stringify(accepted));
   assert.equal(accepted.provider_call_count, 1);
-  assert.equal(accepted.artifacts[0].items.length, 64);
+  assert.equal(accepted.artifacts[0].items.length, 8);
 
+  const observedResultSizes = [];
   const echoRuntime = {
     requestStructured: async (options) => {
       const body = JSON.parse(options.prompt);
+      observedResultSizes.push(...body.chunks.map((chunk) => chunk.evidence_candidates.length));
       const results = body.chunks.map((c) => ({
         chunk_key: c.key,
         outcome: "proposals",
@@ -179,7 +181,8 @@ test("semantic unit bound permits 64 items and fans out 65 across sub-chunks", a
   const overLimit = batchProvider.createBatchAnalysisProvider({ consumerRuntime: echoRuntime });
   const crowded = await overLimit(inputFor(65));
   assert.equal(crowded.ok, true, JSON.stringify(crowded));
-  assert.equal(crowded.provider_call_count, 1);
+  assert.equal(crowded.provider_call_count, 3);
+  assert.equal(Math.max(...observedResultSizes), 8);
   assert.equal(crowded.artifacts.length, 1);
   assert.equal(crowded.artifacts[0].chunk_key, "chunk_limit");
   assert.equal(crowded.artifacts[0].items.length, 65);

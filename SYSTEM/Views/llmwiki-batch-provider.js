@@ -7,7 +7,7 @@
   const inputApi = root.LLMWikiBatchProviderInput || (typeof require === "function" ? require("./llmwiki-batch-provider-input.js") : null), consumerRuntimeApi = root.ProdigyAIConsumerRuntime || (typeof require === "function" ? require("./prodigy-ai-consumer-runtime.js") : null);
   if (!inputApi || !evidenceCandidatesApi) throw new Error("LLMWiki batch provider dependencies are required.");
 
-  const MAX_CHUNKS_PER_PACK = 4, MAX_ITEMS_PER_RESULT = 8, MAX_SEMANTIC_ITEMS_PER_RESULT = 64, MAX_CLAIMS = 8, MAX_REVIEW_REASONS = 4;
+  const MAX_CHUNKS_PER_PACK = 4, MAX_ITEMS_PER_RESULT = 8, MAX_SEMANTIC_ITEMS_PER_RESULT = 8, MAX_CLAIMS = 8, MAX_REVIEW_REASONS = 4;
   const MAX_TOPIC_BYTES = 480, MAX_QUOTE_BYTES = 2048, MAX_CLAIM_BYTES = 1200, MAX_REASON_BYTES = 240;
   const MAX_RELATED_CANDIDATE_IDS = 8, MAX_CANDIDATE_ID_BYTES = 69;
   const MAX_RESPONSE_BYTES = 512 * 1024, CANDIDATE_ID_PATTERN = "^cand_[a-zA-Z0-9_-]{1,64}$", CANDIDATE_ID = new RegExp(CANDIDATE_ID_PATTERN, "u");
