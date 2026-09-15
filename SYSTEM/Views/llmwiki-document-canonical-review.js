@@ -336,13 +336,15 @@
       .filter(Boolean);
     if (parts.length <= 1) return parts.join("\n");
     const tokens = row => new Set(String(row).match(/[0-9A-Za-z가-힣]+/gu) || []);
-    const keep = [parts.slice().sort((a, b) => b.length - a.length)[0]];
-    const base = tokens(keep[0]);
+    const keep = [];
     for (const part of parts) {
-      if (part === keep[0]) continue;
       const own = tokens(part);
-      const overlap = [...own].filter(token => base.has(token)).length / Math.max(1, own.size);
-      if (overlap < 0.5) keep.push(part);
+      const duplicated = keep.some((existing) => {
+        const other = tokens(existing);
+        const shared = [...own].filter(token => other.has(token)).length;
+        return shared / Math.max(1, Math.min(own.size, other.size)) >= 0.5;
+      });
+      if (!duplicated) keep.push(part);
     }
     return keep.join("\n");
   }

@@ -9,9 +9,10 @@
     || (typeof require === "function" ? require("./llmwiki-promotion-contract.js") : null);
   const compensationApi = root.LLMWikiCompensationService
     || (typeof require === "function" ? require("./llmwiki-compensation-service.js") : null);
-  const core = root.LLMWikiOperationWriterCore
+  const loadedCore = root.LLMWikiOperationWriterCore
     || (typeof require === "function" ? require("./llmwiki-operation-writer-core.js") : null);
   const canonicalPacket = () => root.LLMWikiCanonicalPacket || canonicalApi;
+  const runtimeCore = () => root.LLMWikiOperationWriterCore || loadedCore;
 
   function sameIds(left, right) {
     return Array.isArray(left) && Array.isArray(right)
@@ -22,6 +23,7 @@
       && packet.operation.authorization_state === "authorizable";
   }
   function validateAuthority(input) {
+    const core = runtimeCore();
     if (!core.plain(input) || core.proxy(input) || !core.safelyInspectable(input)) return core.reject("malformed_v2_authorization");
     const fields = new Set(["packet", "canonical_id", "claim_set", "promotion_input", "promotion_receipt"]);
     for (const key of Object.keys(input)) if (!fields.has(key)) return core.reject("unknown_v2_authorization_field", { field: key });
@@ -67,6 +69,7 @@
     }) };
   }
   function authorizeCanonicalV2(input) {
+    const core = runtimeCore();
     const validated = validateAuthority(input);
     if (validated && validated.ok === false) return validated;
     const body = {
@@ -98,6 +101,7 @@
     };
   }
   function authorityReceipt(packet, authorization, audit, committedAt) {
+    const core = runtimeCore();
     const finalAuditBytes = `${JSON.stringify(audit, null, 2)}\n`;
     return {
       run_id: packet.run_id,
@@ -131,6 +135,7 @@
     };
   }
   async function commitApprovedCanonicalV2(request, options = {}) {
+    const core = runtimeCore();
     if (!core.plain(request) || core.proxy(request)) return core.reject("malformed_v2_commit_request");
     if (Object.keys(request).some((key) => !["packet", "authorization", "adapter"].includes(key))) return core.reject("unknown_v2_commit_field");
     if (!core.isCanonicalV2Approval(request.authorization) || !core.plain(request.packet) || !core.plain(request.adapter)

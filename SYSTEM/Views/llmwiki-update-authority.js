@@ -3,16 +3,18 @@
 
   const canonicalApi = root.LLMWikiCanonicalPacket
     || (typeof require === "function" ? require("./llmwiki-canonical-packet.js") : null);
-  const core = root.LLMWikiOperationWriterCore
+  const loadedCore = root.LLMWikiOperationWriterCore
     || (typeof require === "function" ? require("./llmwiki-operation-writer-core.js") : null);
   const bridgeApi = root.LLMWikiFinalizedRevisionBridge
     || (typeof require === "function" ? require("./llmwiki-finalized-revision-bridge.js") : null);
   const canonicalPacket = () => root.LLMWikiCanonicalPacket || canonicalApi;
   const finalizedBridge = () => root.LLMWikiFinalizedRevisionBridge || bridgeApi;
+  const runtimeCore = () => root.LLMWikiOperationWriterCore || loadedCore;
   const APPROVAL_INPUT_FIELDS = new Set(["packet", "canonical_id", "evidence", "compensation_plan", "canonical_v2_authorization"]);
   const COMPENSATION_FIELDS = new Set(["strategy", "target_path", "before_sha256"]);
 
   function validateApprovalInput(input) {
+    const core = runtimeCore();
     if (!core.plain(input) || core.proxy(input) || !core.safelyInspectable(input)) return core.reject("malformed_update_approval");
     for (const key of Object.keys(input)) if (!APPROVAL_INPUT_FIELDS.has(key)) return core.reject("unknown_approval_field", { field: key });
     const packetApi = canonicalPacket();
@@ -48,6 +50,7 @@
     return null;
   }
   function authorizeCanonicalUpdate(input) {
+    const core = runtimeCore();
     const invalid = validateApprovalInput(input);
     if (invalid) return invalid;
     const packet = input.packet;
@@ -85,6 +88,7 @@
     return core.success(approval);
   }
   function validateRequest(request) {
+    const core = runtimeCore();
     if (!core.plain(request) || core.proxy(request) || !core.safelyInspectable(request)) return core.reject("malformed_request");
     for (const key of Object.keys(request)) if (!["packet", "authorization", "adapter"].includes(key)) return core.reject("unknown_request_field", { field: key });
     if (!core.plain(request.packet) || !core.isUpdateApproval(request.authorization)) return core.reject("branded_update_approval_required");
@@ -104,6 +108,7 @@
     return null;
   }
   async function readSnapshot(adapter, targetPath) {
+    const core = runtimeCore();
     let value;
     try { value = await adapter.readCanonical(targetPath); }
     catch (_error) { return core.reject("canonical_read_failed"); }
@@ -112,6 +117,7 @@
     return { path: value.path, bytes: value.bytes, metadata: core.plain(value.metadata) ? core.clone(value.metadata) : null };
   }
   function preparedCompensation(packet, approval, preparedAt) {
+    const core = runtimeCore();
     return core.freeze({
       compensation_version: core.COMPENSATION_VERSION,
       status: "prepared",
@@ -126,6 +132,7 @@
     });
   }
   function replaceRequest(packet, approval, compensation) {
+    const core = runtimeCore();
     return core.issueReplaceRequest(core.freeze({
       target_path: packet.target_path,
       expected_before_bytes: packet.before_bytes,
@@ -139,6 +146,7 @@
     }));
   }
   function restoreRequest(packet, approval, compensation, currentBytes) {
+    const core = runtimeCore();
     return core.issueRestoreRequest(core.freeze({
       target_path: packet.target_path,
       expected_written_bytes: currentBytes,
@@ -151,6 +159,7 @@
     }));
   }
   async function compensate(packet, approval, adapter, compensation, reason, replaceWasAuthorized) {
+    const core = runtimeCore();
     const current = await readSnapshot(adapter, packet.target_path);
     if (current.ok === false) return { ok: false, reason: "compensation_read_failed", receipt: core.freeze({ ...compensation, status: "manual_restore_required", failure_reason: reason }) };
     if (current.bytes === packet.before_bytes) return { ok: true, receipt: core.freeze({ ...compensation, status: "not_needed", failure_reason: reason }) };
@@ -166,6 +175,7 @@
     return { ok: true, receipt: core.freeze({ ...compensation, status: "restored", restored_sha256: packet.before_sha256, failure_reason: reason }) };
   }
   async function commitApprovedUpdate(request, options = {}) {
+    const core = runtimeCore();
     const invalid = validateRequest(request);
     if (invalid) return invalid;
     const packet = request.packet;

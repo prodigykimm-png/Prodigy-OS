@@ -179,15 +179,16 @@ test("canonical authority 모듈은 재로드된 packet 검증기를 호출 시�
     "LLMWikiUpdateAuthority",
   ];
   const saved = Object.fromEntries(names.map((name) => [name, globalThis[name]]));
+  const core = (tag) => Object.freeze({
+    plain: (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value),
+    proxy: () => false,
+    safelyInspectable: () => true,
+    reject: (reason) => ({ ok: false, reason, tag }),
+    MAX_CANONICAL_BYTES: 1024,
+  });
   const reject = (reason) => ({ ok: false, reason });
   try {
-    globalThis.LLMWikiOperationWriterCore = Object.freeze({
-      plain: (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value),
-      proxy: () => false,
-      safelyInspectable: () => true,
-      reject,
-      MAX_CANONICAL_BYTES: 1024,
-    });
+    globalThis.LLMWikiOperationWriterCore = core("old");
     globalThis.LLMWikiClaimProvenance = Object.freeze({});
     globalThis.LLMWikiPromotionContract = Object.freeze({});
     globalThis.LLMWikiCompensationService = Object.freeze({});
@@ -204,6 +205,7 @@ test("canonical authority 모듈은 재로드된 packet 검증기를 호출 시�
     globalThis.LLMWikiCanonicalPacket = Object.freeze({
       verifyCanonicalPacket: () => reject("new_packet"),
     });
+    globalThis.LLMWikiOperationWriterCore = core("new");
 
     const canonical = canonicalAuthority.authorizeCanonicalV2({
       packet: {},
@@ -220,7 +222,9 @@ test("canonical authority 모듈은 재로드된 packet 검증기를 호출 시�
     });
 
     assert.equal(canonical.reason, "new_packet");
+    assert.equal(canonical.tag, "new");
     assert.equal(update.reason, "new_packet");
+    assert.equal(update.tag, "new");
   } finally {
     for (const name of names) {
       if (saved[name] === undefined) delete globalThis[name];

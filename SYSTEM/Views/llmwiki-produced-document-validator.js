@@ -42,8 +42,10 @@ function frontmatterBlock(text) {
   return match ? match[1] : "";
 }
 // candidate/레거시 문서는 frontmatter 스키마가 다르므로 v2 지식 문서만 검사 대상으로 삼는다.
-function isKnowledgeDocument(text, path) {
-  return /schema_version:\s*2/u.test(frontmatterBlock(text)) || /ZETA\/(PERMANENT|LITERATURE)\//u.test(String(path || ""));
+function isKnowledgeDocument(text) {
+  const frontmatter = frontmatterBlock(text);
+  return /schema_version:\s*2/u.test(frontmatter)
+    && /^type:\s*"?knowledge"?\s*$/mu.test(frontmatter);
 }
 function frontmatterValue(block, key) {
   const match = new RegExp(`^${key}:\\s*(.*)$`, "mu").exec(block);
@@ -69,7 +71,8 @@ function sentencesOf(text) {
 function auditDocuments({ documents = [], sources = {} } = {}) {
   const findings = [];
   const push = (code, path, detail) => findings.push({ code, path, detail });
-  for (const document of documents) {
+  const canonicalDocuments = documents.filter((document) => isKnowledgeDocument(document.content));
+  for (const document of canonicalDocuments) {
     const path = document.path || document.title || "(unknown)";
     const text = String(document.content || "");
     const frontmatter = frontmatterBlock(text);
@@ -82,7 +85,7 @@ function auditDocuments({ documents = [], sources = {} } = {}) {
     }
 
     // 2) frontmatter 무결성: v2 지식 문서에만 요구한다(candidate/레거시는 스키마가 다르다)
-    if (isKnowledgeDocument(text, path)) {
+    if (isKnowledgeDocument(text)) {
       if (!frontmatter) push("frontmatter_invalid", path, "frontmatter 없음");
       else {
         const openLine = unterminatedQuote(frontmatter);
@@ -142,13 +145,13 @@ function auditDocuments({ documents = [], sources = {} } = {}) {
   }
 
   // 8) 문서 간 근접 중복(본문이 충분히 긴 경우만: 목록·헤딩만 있는 문서는 제외)
-  for (let index = 0; index < documents.length; index += 1) {
-    for (let other = index + 1; other < documents.length; other += 1) {
-      const left = bodyOf(documents[index].content).replace(/^#.*$/gmu, "").trim();
-      const right = bodyOf(documents[other].content).replace(/^#.*$/gmu, "").trim();
+  for (let index = 0; index < canonicalDocuments.length; index += 1) {
+    for (let other = index + 1; other < canonicalDocuments.length; other += 1) {
+      const left = bodyOf(canonicalDocuments[index].content).replace(/^#.*$/gmu, "").trim();
+      const right = bodyOf(canonicalDocuments[other].content).replace(/^#.*$/gmu, "").trim();
       if ((left.match(TOKENS) || []).length < 120 || (right.match(TOKENS) || []).length < 120) continue;
       if (overlapRatio(left, right) >= 0.8) {
-        push("near_duplicate_document", documents[index].path || documents[index].title, `≈ ${documents[other].path || documents[other].title}`);
+        push("near_duplicate_document", canonicalDocuments[index].path || canonicalDocuments[index].title, `≈ ${canonicalDocuments[other].path || canonicalDocuments[other].title}`);
       }
     }
   }

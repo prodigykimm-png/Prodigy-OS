@@ -116,11 +116,13 @@ test("쓰기 시점: 대상 본문에 이미 있는 주장은 다시 붙이지 �
 });
 
 test("쓰기 시점: statement의 중복 문장은 접힌다", async () => {
+  const long = "이 문장은 전세보증보험과 무관한 장문의 대조군이며 촬영 장비의 배터리와 메모리카드, 조명 상태를 작업 시작 전에 모두 확인하는 독립적인 절차를 설명한다.";
   const a = "전세보증보험 가입을 위해 전세가는 공동주택공시가격의 126% 이내여야 한다.";
   const b = "전세보증보험 가입을 위한 전세 세팅 기준은 공동주택공시가격의 126% 이내이다.";
   const unique = "갭이 적어도 만기 재세팅 때 갭이 커질 수 있다.";
   const item = fx.makeItem({ reviewId: "plan_compiled_synthetic_stmt" });
   item.grounded_claims = [
+    { ...item.grounded_claims[0], claim_id: "s0", text: long },
     { ...item.grounded_claims[0], claim_id: "s1", text: a },
     { ...item.grounded_claims[1], claim_id: "s2", text: b },
     { ...item.grounded_claims[0], claim_id: "s3", text: unique },
@@ -129,6 +131,7 @@ test("쓰기 시점: statement의 중복 문장은 접힌다", async () => {
   const prepared = await harness.flow.prepare({ item, fields: fx.REVIEW_FIELDS, target_path: fx.LEGACY_PATH, target_revision: fx.LEGACY_REVISION });
   assert.equal(prepared.ok, true, `prepare: ${prepared.reason || ""}`);
   const statement = /^statement:\s*"(.*)"$/mu.exec(String(prepared.value.after))?.[1] || "";
+  assert.ok(statement.includes("메모리카드"), "가장 긴 독립 문장은 남아야 한다");
   assert.ok(statement.includes("126%"), "대표 문장은 남아야 한다");
   assert.ok(statement.includes("갭"), "고유 문장은 남아야 한다");
   const hasBoth = statement.includes(a) && statement.includes(b);

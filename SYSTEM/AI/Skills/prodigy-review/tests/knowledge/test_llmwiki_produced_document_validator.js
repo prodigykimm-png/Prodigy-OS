@@ -63,8 +63,8 @@ test("검토 범위 누락을 잡는다", () => {
 });
 
 test("검토 범위는 v2 정본 지식에만 요구하고 Literature와 Fleeting에는 요구하지 않는다", () => {
-  const literature = "---\nschema_version: 2\ntype: literature_note\nsource_id: source_fixture\n---\n# 자료 안내\n";
-  const fleeting = "---\nschema_version: 2\ntype: fleeting_note\nfleeting_id: fleeting_fixture\n---\n# 임시 생각\n";
+  const literature = '---\nschema_version: 2\ntype: literature_note\nsource_id: source_fixture\nstatement: "닫히지 않은 값\n---\n# 자료 안내\n';
+  const fleeting = '---\nschema_version: 2\ntype: fleeting_note\nfleeting_id: fleeting_fixture\nstatement: "닫히지 않은 값\n---\n# 임시 생각\n';
   const report = validator.auditDocuments({
     documents: [
       { path: "ZETA/LITERATURE/source.md", content: literature },
@@ -72,7 +72,8 @@ test("검토 범위는 v2 정본 지식에만 요구하고 Literature와 Fleetin
     ],
     sources: {},
   });
-  assert.equal(report.counts.scope_incomplete, undefined, JSON.stringify(report.findings));
+  assert.equal(report.ok, true, JSON.stringify(report.findings));
+  assert.deepEqual(report.findings, []);
 });
 
 test("본문 중복 문장을 잡는다", () => {

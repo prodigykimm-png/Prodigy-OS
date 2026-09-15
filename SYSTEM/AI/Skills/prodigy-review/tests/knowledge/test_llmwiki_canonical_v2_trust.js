@@ -12,6 +12,7 @@ const wiki = require(path.join(ROOT, "SYSTEM/Views/llmwiki-wiki-read-adapter.js"
 const query = require(path.join(ROOT, "SYSTEM/Views/llmwiki-query-readonly.js"));
 const lifecycle = require(path.join(ROOT, "SYSTEM/Views/llmwiki-knowledge-lifecycle.js"));
 const resurfacing = require(path.join(ROOT, "SYSTEM/Views/llmwiki-resurfacing-service.js"));
+const resurfacingRead = require(path.join(ROOT, "SYSTEM/Views/llmwiki-resurfacing-read-adapter.js"));
 const resurfacingFeedback = require(path.join(ROOT, "SYSTEM/Views/llmwiki-resurfacing-feedback-store.js"));
 const obsidian = require(path.join(ROOT, "SYSTEM/Views/llmwiki-obsidian-adapter.js"));
 const canonical = require(path.join(ROOT, "SYSTEM/Views/llmwiki-canonical-packet.js"));
@@ -24,6 +25,63 @@ const SNAPSHOT_REVISION = "a".repeat(64);
 const UPDATE_NOW = "2026-08-25T13:00:00.000Z";
 const ZERO_WRITES = Object.freeze({ canonical: 0, audit: 0, derived: 0, provider: 0, network: 0, git: 0 });
 const CONTEXT = Object.freeze({ workspace: "project", tab: null, selection: null });
+
+function readerFailureScenario(errorCode = null) {
+  const names = [
+    "LLMWikiObsidianAdapter",
+    "LLMWikiKnowledgeLifecycle",
+    "KnowledgeCandidateStore",
+    "LLMWikiCanonicalTrust",
+  ];
+  const saved = Object.fromEntries(names.map((name) => [name, globalThis[name]]));
+  const missing = { canonical_id: "knowledge_missing", path: "ZETA/PERMANENT/missing.md", revision: "a".repeat(64), canonical_v2_authority: { claim_set: { sources: [] } } };
+  const survivor = { canonical_id: "knowledge_survivor", path: "ZETA/PERMANENT/survivor.md", revision: "b".repeat(64), canonical_v2_authority: { claim_set: { sources: [{ source_id: "source_survivor", source_revision: "c".repeat(64) }] } } };
+  const document = {
+    schema_version: 2,
+    type: "knowledge",
+    canonical_id: survivor.canonical_id,
+    title: "Survivor",
+    sources: [{ source_id: "source_survivor", span: { start: 0, end: 8 } }],
+    body: "# Survivor\n",
+  };
+  const app = {
+    vault: { getAbstractFileByPath: (filePath) => filePath === survivor.path ? { path: filePath, basename: "Survivor" } : null },
+    metadataCache: { getFileCache: () => ({ frontmatter: { canonical_id: survivor.canonical_id } }) },
+  };
+  globalThis.LLMWikiObsidianAdapter = Object.freeze({
+    resolveObsidianAdapter: () => ({ ok: true, adapter: {
+      readFinalizedCanonicalAuthorities: async () => errorCode ? [{ binding: survivor }] : [{ binding: missing }, { binding: survivor }],
+      readCanonical: async (filePath) => {
+        if (filePath === missing.path) throw Object.assign(new Error("missing"), { code: "canonical_target_missing" });
+        if (errorCode) throw Object.assign(new Error(errorCode), { code: errorCode });
+        return { path: survivor.path, bytes: "survivor bytes", revision: survivor.revision };
+      },
+    } }),
+    isFinalizedCanonicalAuthority: () => true,
+    finalizedCanonicalAuthorityData: (authority) => authority.binding,
+  });
+  globalThis.LLMWikiKnowledgeLifecycle = Object.freeze({
+    createTrustedMaintenanceSnapshot: () => ({ ok: true }),
+  });
+  globalThis.KnowledgeCandidateStore = Object.freeze({
+    parseLifecycleDocument: () => document,
+  });
+  globalThis.LLMWikiCanonicalTrust = Object.freeze({
+    decideFinalized: () => ({ tier: "verified", status: "active" }),
+    isVerified: () => true,
+    bindVerifiedRow: (row) => Object.freeze({ ...row }),
+  });
+  return {
+    app,
+    reader: resurfacingRead.create(),
+    restore() {
+      for (const name of names) {
+        if (saved[name] === undefined) delete globalThis[name];
+        else globalThis[name] = saved[name];
+      }
+    },
+  };
+}
 
 function stable(value) {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
@@ -165,14 +223,31 @@ test("canonical v2 trust requires one finalized immutable decision across every 
 });
 
 test("missing canonical target is omitted instead of aborting the trusted reader", async () => {
-  const genuine = await createTrustedFixture();
-  await genuine.app.vault.delete(genuine.app.vault.getAbstractFileByPath(genuine.path));
+  const scenario = readerFailureScenario();
+  try {
+    const result = await scenario.reader.read({ app: scenario.app });
 
-  const result = await genuine.readAdapter.read({ app: genuine.app });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(result.status, "trusted");
+    assert.equal(result.rows.length, 1);
+    assert.equal(result.rows[0].path, "ZETA/PERMANENT/survivor.md");
+  } finally {
+    scenario.restore();
+  }
+});
 
-  assert.equal(result.ok, true, JSON.stringify(result));
-  assert.equal(result.status, "empty");
-  assert.equal(result.rows.length, 0);
+test("non-missing canonical read errors remain typed failures", async () => {
+  const scenario = readerFailureScenario("canonical_read_failed");
+  try {
+    const result = await scenario.reader.read({ app: scenario.app });
+
+    assert.equal(result.ok, false, JSON.stringify(result));
+    assert.equal(result.field, "canonical");
+    assert.equal(result.reason, "canonical_read_failed");
+    assert.equal(result.rows.length, 0);
+  } finally {
+    scenario.restore();
+  }
 });
 
 test("exposed finalized authority cannot be mutated to verify unaudited canonical bytes", async () => {
