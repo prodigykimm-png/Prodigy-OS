@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "llmwiki_evidence_candidates_v3";
+  const VERSION = "llmwiki_evidence_candidates_v4";
   const DEFAULT_MAX_BYTES = 2048;
 
   function create(value, options = {}) {
@@ -72,6 +72,7 @@
       const nextLine = source.slice(lineStart + match[0].length).split(/\r?\n/u, 1)[0];
       if (line.trim() === "---" && (lineStart === 0 || frontmatter)) { frontmatter = !frontmatter; continue; }
       if (frontmatter || /^\s*#/u.test(line) || !line.trim()) continue;
+      if (/^\s*(?:주요 내용 작성(?:\.{3}|…)|질문\s*\d+\?|오늘 배운 내용을 한 문장으로 요약해 보세요\.?)\s*$/u.test(line)) continue;
       if (/^\s{0,3}(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/u.test(line)) continue;
       if (/^\s*(?:`{3,}|~{3,})/u.test(line)) continue;
       if (isTableSeparator(line) || /^\s*\|.*\|\s*$/u.test(line) && isTableSeparator(nextLine)) continue;
