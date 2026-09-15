@@ -7,8 +7,10 @@
 // headings re-enter the provider boundary.
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
+const vm = require("node:vm");
 const { runHub } = require("./knowledge_hub_integration_harness.js");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
@@ -327,6 +329,37 @@ test("client bootstrap failure settles the running controller and preserves retr
   assert.equal(blocked.failed, 0);
   assert.equal(blocked.pending, 2);
   assert.equal(handshakeCalls, 1);
+});
+
+test("controller recognizes current operation brands after operation-contract reload", async () => {
+  const hub = await runHub({
+    pages: [],
+    extraFiles: {
+      "INBOX/Knowledge/reload-a.md": "# Reload A\n\n첫 번째 재로드 근거다.\n",
+      "INBOX/Knowledge/reload-b.md": "# Reload B\n\n두 번째 재로드 근거다.\n",
+    },
+    llmWikiControllerOptions: {
+      batchIdentity: BATCH_IDENTITY,
+      batchProvider: async (input) => compactArtifacts(input),
+    },
+  });
+  vm.runInNewContext(
+    fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"), "utf8"),
+    hub.window,
+  );
+  await hub.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+
+  const result = await hub.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
+
+  assert.equal(result.ok, true, JSON.stringify({
+    result,
+    controller: hub.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot(),
+  }));
+  assert.equal(result.status, "complete");
+  const snapshot = hub.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot();
+  assert.ok(snapshot.risk_packets.length > 0);
+  assert.equal(snapshot.proposals.every((proposal) =>
+    hub.window.LLMWikiOperationContract.isOperationRecord(proposal.operation)), true);
 });
 
 test("provider-free real INBOX routing isolates 30 sources into 30 durable calls", async (t) => {

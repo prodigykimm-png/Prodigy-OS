@@ -9,7 +9,7 @@
   const runStateApi = root.LLMWikiRunState || (typeof require === "function" ? require("./llmwiki-run-state.js") : null);
   const packetApi = root.LLMWikiCanonicalPacket || (typeof require === "function" ? require("./llmwiki-canonical-packet.js") : null);
   const compensationApi = root.LLMWikiCompensationService || (typeof require === "function" ? require("./llmwiki-compensation-service.js") : null);
-  const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
+  const loadedOperationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
   const reviewApi = root.LLMWikiApprovalReviewCommit || (typeof require === "function" ? require("./llmwiki-approval-review-commit.js") : null);
   const commitApi = root.LLMWikiDeterministicCommit || (typeof require === "function" ? require("./llmwiki-deterministic-commit.js") : null);
   const adapterApi = root.LLMWikiObsidianAdapter || (typeof require === "function" ? require("./llmwiki-obsidian-adapter.js") : null);
@@ -41,6 +41,15 @@
   const RECOVERY_COUNTER_KEYS = Object.freeze(["audit_repair", "refresh_retry", "stale_repacket"]);
   const TAB_IDS = Object.freeze(["zettelkasten", "para", "llmwiki", "llmwiki-browse"]);
 
+  function currentOperationApi() { return root.LLMWikiOperationContract || loadedOperationApi; }
+  const operationApi = Object.freeze({
+    get CONTRACT_VERSION() { return currentOperationApi()?.CONTRACT_VERSION; },
+    get OPERATION_KINDS() { return currentOperationApi()?.OPERATION_KINDS; },
+    isOperationRecord(value) { return Boolean(currentOperationApi()?.isOperationRecord?.(value)); },
+    isCanonicalOperationRecord(value) { return Boolean(currentOperationApi()?.isCanonicalOperationRecord?.(value)); },
+    parseOperation(value) { return currentOperationApi()?.parseOperation?.(value); },
+    parseCanonicalOperation(value) { return currentOperationApi()?.parseCanonicalOperation?.(value); },
+  });
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function trim(value) { return typeof value === "string" ? value.trim() : ""; }
   // Internal state cloning preserves parser-branded operation records instead of serializing them.
