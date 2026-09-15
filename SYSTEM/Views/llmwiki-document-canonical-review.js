@@ -835,10 +835,14 @@
       if (discarded.has(state.item)) return fail("review_closed", { stage: "apply", review_status: "rejected" });
       if (jobStore && jobId) {
         const snapshot = await jobStore.getPlanSnapshot(jobId);
-        const status = snapshot?.canonical_reviews?.[recoveryKey(state.item)]?.status;
+        const durableReview = snapshot?.canonical_reviews?.[recoveryKey(state.item)];
+        const status = durableReview?.status;
         if (["rejected", "cancelled", "superseded"].includes(status)) {
           discarded.add(state.item);
           return fail("review_closed", { stage: "apply", review_status: status });
+        }
+        if (durableReview?.packet?.packet_hash && durableReview.packet.packet_hash !== preview.packet_hash) {
+          return fail("stale_review_packet");
         }
       }
       state.busy = true;

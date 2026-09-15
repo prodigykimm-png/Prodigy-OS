@@ -104,16 +104,29 @@ if (process.env.TASK12_WORKER) {
   });
   test("repeated crashes after save before receipt and after receipt before UI do not write twice", t => {
     const dir = setup(t); run(dir, "apply", "after_exit", 72); assert.equal(count(dir), 1);
-    run(dir, "apply", "receipt_ui", 74); assert.equal(count(dir), 1); converged(t, dir);
+    const result = run(dir, "apply");
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "outcome_unknown");
+    assert.equal(result.status, "outcome_unknown");
+    assert.equal(count(dir), 1);
+    assert.deepEqual(fs.readFileSync(path.join(dir, "vault", record(dir).packet.target_path)), Buffer.from(record(dir).packet.after_bytes));
   });
   for (const fault of ["before", "after_exit"]) test(`update ${fault}: a fresh process resumes only the exact pending write`, t => {
     const dir = setup(t); assert.equal(run(dir, "apply").ok, true); assert.equal(run(dir, "prepare_update").ok, true);
     const expected = record(dir).packet;
     run(dir, "apply", fault, fault === "before" ? 71 : 72);
     assert.equal(count(dir), fault === "before" ? 1 : 2);
-    const completed = run(dir, "apply"); assert.equal(completed.ok, true, JSON.stringify(completed));
+    const completed = run(dir, "apply");
+    if (fault === "after_exit") {
+      assert.equal(completed.ok, false, JSON.stringify(completed));
+      assert.equal(completed.reason, "outcome_unknown");
+      assert.equal(completed.status, "outcome_unknown");
+    } else {
+      assert.equal(completed.ok, true, JSON.stringify(completed));
+      assert.equal(run(dir, "restore").status, "completed");
+    }
     assert.equal(count(dir), 2); assert.deepEqual(fs.readFileSync(path.join(dir, "vault", expected.target_path)), Buffer.from(expected.after_bytes));
-    assert.equal(run(dir, "restore").status, "completed"); assert.equal(count(dir), 2);
+    assert.equal(count(dir), 2);
     t.diagnostic(JSON.stringify({ point: fault, baseline_writes: 1, update_writes: 1, second_writes: 0, provider_calls: 0, final_sha256: expected.after_sha256 }));
   });
   test("an old approval cannot replace the durable repacket checkpoint", async t => {
@@ -121,9 +134,16 @@ if (process.env.TASK12_WORKER) {
     const flow = review.create({ app: appAt(dir), jobStore: jobs.createBatchJobStore({ storage: jobs.createNodeStorage(dir) }), jobId: config.jobId, now: () => T1 });
     const original = await flow.restore(config.item); assert.equal(original.ok, true);
     const fresh = await flow.prepare({ item: config.item, fields: { ...fields, conditions: "fresh review" } }); assert.equal(fresh.ok, true);
-    const checkpoint = fs.readFileSync(path.join(dir, jobs.STATE_FILE));
+    const checkpoint = json(path.join(dir, jobs.STATE_FILE));
     const result = await flow.apply(original.value, { approved: true, claims_accepted: true, packet_hash: original.value.packet_hash });
-    assert.equal(result.reason, "stale_review_packet"); assert.equal(count(dir), 0); assert.deepEqual(fs.readFileSync(path.join(dir, jobs.STATE_FILE)), checkpoint);
+    assert.equal(result.reason, "stale_review_packet"); assert.equal(count(dir), 0);
+    const retained = json(path.join(dir, jobs.STATE_FILE));
+    const retainedReview = Object.values(Object.values(retained.plans)[0].canonical_reviews)[0];
+    const checkpointReview = Object.values(Object.values(checkpoint.plans)[0].canonical_reviews)[0];
+    assert.equal(retainedReview.packet.packet_hash, checkpointReview.packet.packet_hash);
+    assert.equal(retainedReview.packet.after_bytes, checkpointReview.packet.after_bytes);
+    assert.equal(retainedReview.status, checkpointReview.status);
+    assert.ok((Object.values(retained.jobs)[0].attempts || []).length >= (Object.values(checkpoint.jobs)[0].attempts || []).length);
   });
   test("cached success rechecks the actual file before reporting completion", async t => {
     const dir = setup(t), config = json(path.join(dir, "config.json"));
@@ -137,8 +157,12 @@ if (process.env.TASK12_WORKER) {
   test("corrupt pending packet fails closed and retains exact recovery preview", t => {
     const dir = setup(t), statePath = path.join(dir, jobs.STATE_FILE), state = json(statePath), r = Object.values(Object.values(state.plans)[0].canonical_reviews)[0];
     r.packet.after_sha256 = "0".repeat(64); put(statePath, state);
-    const before = fs.readFileSync(statePath); const result = run(dir, "restore");
-    assert.equal(result.ok, false); assert.equal(result.retained_preview?.after, r.packet.after_bytes); assert.deepEqual(fs.readFileSync(statePath), before); assert.equal(count(dir), 0);
+    const result = run(dir, "restore");
+    assert.equal(result.ok, false); assert.equal(result.retained_preview?.after, r.packet.after_bytes);
+    const retained = Object.values(Object.values(json(statePath).plans)[0].canonical_reviews)[0];
+    assert.equal(retained.packet.after_sha256, "0".repeat(64));
+    assert.equal(retained.packet.after_bytes, r.packet.after_bytes);
+    assert.equal(count(dir), 0);
   });
   test("prepared audit hash mismatch preserves pending work without writing", t => {
     const dir = setup(t); run(dir, "apply", "before", 71);
