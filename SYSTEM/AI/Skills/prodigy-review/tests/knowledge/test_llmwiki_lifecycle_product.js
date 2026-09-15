@@ -44,6 +44,24 @@ test("projects real inbox snapshots into one beginner lifecycle state and one ty
   }
 });
 
+test("workspace mode keeps the queued INBOX analysis action visible", async () => {
+  const result = await runHub({
+    pages: buildPages(),
+    extraFiles: {
+      "INBOX/Knowledge/Queued lifecycle.md": "# Queued lifecycle\n\n분석 대기 중인 실제 자료입니다.\n",
+    },
+  });
+  const hub = result.window.KnowledgeExplorerHub;
+  await hub.whenKnowledgeInboxSettled();
+  hub.tabs.select("llmwiki");
+  const lifecycleSnapshot = hub.llmWikiLifecycleSnapshot();
+  assert.equal(lifecycleSnapshot.inbox.state, "queued");
+  assert.equal(lifecycleSnapshot.inbox.pending, 1);
+  const analyze = action(result.container, "analyze-inbox");
+  assert.ok(analyze);
+  assert.equal(analyze.getAttribute("data-intent-action"), "analyze_inbox");
+});
+
 test("explicit source selection takes priority over an automatic INBOX queue", () => {
   const queued = mount({ inbox: { state: "queued", source_id: "source_visible_fixture" } });
   click(action(queued.root, "select-source"));

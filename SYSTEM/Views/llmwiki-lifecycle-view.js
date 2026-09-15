@@ -1074,7 +1074,7 @@
       else if (projected.productState.startsWith("migration_") && (!options.workspace || options.auxiliaryScene?.() === "migration") && renderMigration(frame, projected)) { /* migration owns the active lifecycle scene */ }
       else if (snapshot.operation_run?.status !== "committed" && snapshot.status === "complete" && snapshot.golden_wiki?.status === "complete") renderGoldenComplete(frame);
       else if (durableSuccess(snapshot) && !explicitStatePriority) renderCommitted(frame);
-      else if (inboxScene && options.workspace && !options.auxiliaryScene?.() && !["analyzing", "blocked", "outcome_unknown", "error", "partial"].includes(projected.inbox?.state)) renderIdle(frame);
+      else if (inboxScene && options.workspace && !options.auxiliaryScene?.() && !["queued", "analyzing", "blocked", "outcome_unknown", "error", "partial"].includes(projected.inbox?.state)) renderIdle(frame);
       else if (inboxScene) renderInbox(frame, projected.productState.slice(6));
       else if (["operation_refresh_pending", "operation_refresh_failed"].includes(projected.productState)) renderOperationRefresh(frame, projected.productState.endsWith("pending"));
       else if (["git_pending", "git_failed"].includes(projected.productState)) renderGitFollowUp(frame, projected);
