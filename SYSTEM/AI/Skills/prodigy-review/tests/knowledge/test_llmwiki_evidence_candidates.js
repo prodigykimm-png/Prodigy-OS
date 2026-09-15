@@ -20,6 +20,11 @@ test("semantic candidates yield substantive ordered Markdown units with exact sp
   assert.deepEqual(candidates.createSemantic("---\ntitle: x\n---\n# Heading\n-\n  1.\n\n"), []);
 });
 
+test("semantic candidates ignore Markdown horizontal rules outside frontmatter", () => {
+  const source = "# 구분선\n첫 내용\n---\n* * *\n___\n다음 내용\n";
+  assert.deepEqual(candidates.createSemantic(source).map((row) => row.text), ["첫 내용", "다음 내용"]);
+});
+
 test("semantic projection rejects malformed structural input", () => {
   assert.deepEqual(candidates.createSemantic(""), []);
   assert.deepEqual(candidates.createSemantic("---\ntitle: ignored\n---\n# Heading\n-\n*\n9.\n\n"), []);
