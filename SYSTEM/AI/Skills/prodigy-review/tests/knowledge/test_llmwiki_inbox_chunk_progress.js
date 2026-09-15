@@ -11,7 +11,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
-const { runHub } = require("./knowledge_hub_integration_harness.js");
+const { remountHub, runHub } = require("./knowledge_hub_integration_harness.js");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const coverage = require(path.join(ROOT, "SYSTEM/Views/llmwiki-chunk-coverage-store.js"));
@@ -360,6 +360,25 @@ test("controller recognizes current operation brands after operation-contract re
   assert.ok(snapshot.risk_packets.length > 0);
   assert.equal(snapshot.proposals.every((proposal) =>
     hub.window.LLMWikiOperationContract.isOperationRecord(proposal.operation)), true);
+});
+
+test("settled controller is rebuilt when the run-controller module generation changes", async () => {
+  const hub = await runHub({ pages: [] });
+  const firstController = hub.window.KnowledgeExplorerHub.llmWikiRunController;
+  const firstGeneration = hub.window.LLMWikiRunController.MODULE_GENERATION;
+  vm.runInNewContext(
+    fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-run-controller.js"), "utf8"),
+    hub.window,
+  );
+  assert.notEqual(hub.window.LLMWikiRunController.MODULE_GENERATION, firstGeneration);
+
+  await remountHub(hub.runtime);
+
+  assert.notEqual(hub.window.KnowledgeExplorerHub.llmWikiRunController, firstController);
+  assert.equal(
+    hub.window.KnowledgeExplorerHub._llmWikiSession.runControllerGeneration,
+    hub.window.LLMWikiRunController.MODULE_GENERATION,
+  );
 });
 
 test("provider-free real INBOX routing isolates 30 sources into 30 durable calls", async (t) => {

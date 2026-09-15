@@ -35,6 +35,7 @@
   const riskReviewControllerApi = root.LLMWikiRiskReviewController;
 
   const CONTROLLER_VERSION = "llmwiki_run_controller_v1";
+  const MODULE_GENERATION = Object.freeze({});
   const ID = /^[a-z][a-z0-9_-]{2,127}$/u;
   const HASH = /^[0-9a-f]{64}$/u;
   const COUNTER_KEYS = Object.freeze(["provider", "network", "canonical", "audit", "refresh", "git", "authorization"]);
@@ -1012,7 +1013,7 @@
     });
   }
 
-  const api = frozen({ CONTROLLER_VERSION, createRunController });
+  const api = frozen({ CONTROLLER_VERSION, MODULE_GENERATION, createRunController });
   root.LLMWikiRunController = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

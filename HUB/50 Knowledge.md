@@ -31,6 +31,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     : {
         version: 1,
         runController: null,
+        runControllerGeneration: null,
         controllerReady: null,
         bindings: {},
         viewState: {
@@ -957,7 +958,15 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       gateway: llmWikiControllerOptions.git_gateway || window.LLMWikiGitGateway,
       receiptAuthority: llmWikiGitReceiptAuthority,
     });
+    const runControllerGeneration = window.LLMWikiRunController.MODULE_GENERATION;
     let llmWikiRunController = llmWikiSession.runController;
+    if (llmWikiRunController && llmWikiSession.runControllerGeneration !== runControllerGeneration) {
+      const retainedStatus = llmWikiRunController.getSnapshot?.().status;
+      if (["idle", "cancelled", "failed", "committed", "complete"].includes(retainedStatus)) {
+        llmWikiRunController = null;
+        llmWikiSession.controllerReady = null;
+      }
+    }
     if (!llmWikiRunController) {
       const llmWikiRunClient = llmWikiControllerOptions.aiClient
         || (llmWikiControllerOptions.batchProvider ? {
@@ -1018,6 +1027,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       llmWikiSession.runController = llmWikiRunController;
       llmWikiSession.controllerReady = Promise.resolve({ ok: true, status: "ready" });
     }
+    llmWikiSession.runControllerGeneration = runControllerGeneration;
     await llmWikiSession.controllerReady;
     let inboxState = llmWikiSession.viewState.inboxState || (durableRecovery || durableUnknownJob ? {
       state: durableRecovery?.review ? "complete" : "blocked",
