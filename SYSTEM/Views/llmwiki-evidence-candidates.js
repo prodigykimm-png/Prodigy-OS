@@ -74,6 +74,7 @@
       if (/^\s{0,3}(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/u.test(line)) continue;
       if (isTableSeparator(line) || /^\s*\|.*\|\s*$/u.test(line) && isTableSeparator(nextLine)) continue;
       if (/^\s*>+\s*$/u.test(line)
+        || /^\s*>+\s*\[![A-Z0-9_-]+\](?:\s*[+-])?(?:\s+.*)?$/iu.test(line)
         || /^\s*>*\s*!\[\[[^\]]+\]\]\s*$/u.test(line)
         || /^\s*>*\s*!\[[^\]]*\]\([^)]+\)\s*$/u.test(line)) continue;
       const list = line.match(/^(\s*)(?:[-+*]|\d+[.)])\s+(.*)$/u);

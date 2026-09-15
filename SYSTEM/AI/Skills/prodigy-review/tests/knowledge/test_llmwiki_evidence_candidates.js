@@ -44,6 +44,11 @@ test("semantic candidates ignore Markdown table headers and separators but keep 
   assert.equal(rows.every((row) => source.slice(row.start, row.end) === row.text), true);
 });
 
+test("semantic candidates ignore Obsidian callout markers but keep callout bodies", () => {
+  const source = "# 콜아웃\n> [!NOTE]\n> 실제 확인할 내용이다.\n";
+  assert.deepEqual(candidates.createSemantic(source).map((row) => row.text), ["> 실제 확인할 내용이다."]);
+});
+
 test("semantic projection rejects malformed structural input", () => {
   assert.deepEqual(candidates.createSemantic(""), []);
   assert.deepEqual(candidates.createSemantic("---\ntitle: ignored\n---\n# Heading\n-\n*\n9.\n\n"), []);
