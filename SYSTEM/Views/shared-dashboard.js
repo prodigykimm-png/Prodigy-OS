@@ -129,6 +129,11 @@ window.renderDashboardSection = function(options) {
     const sido = String(value || "").trim();
     if (sido === "강원도") return "강원특별자치도";
     if (sido === "전라북도") return "전북특별자치도";
+    // 캡처 단계에서 약칭이 들어와도 필터에서 조용히 누락되지 않게 한다.
+    if (sido === "부산") return "부산광역시";
+    if (sido === "인천") return "인천광역시";
+    if (sido === "대전") return "대전광역시";
+    if (sido === "제주") return "제주특별자치도";
     return sido;
   };
 
