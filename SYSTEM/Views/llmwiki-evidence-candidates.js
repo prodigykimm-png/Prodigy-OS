@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "llmwiki_evidence_candidates_v2";
+  const VERSION = "llmwiki_evidence_candidates_v3";
   const DEFAULT_MAX_BYTES = 2048;
 
   function create(value, options = {}) {
@@ -73,6 +73,7 @@
       if (line.trim() === "---" && (lineStart === 0 || frontmatter)) { frontmatter = !frontmatter; continue; }
       if (frontmatter || /^\s*#/u.test(line) || !line.trim()) continue;
       if (/^\s{0,3}(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/u.test(line)) continue;
+      if (/^\s*(?:`{3,}|~{3,})/u.test(line)) continue;
       if (isTableSeparator(line) || /^\s*\|.*\|\s*$/u.test(line) && isTableSeparator(nextLine)) continue;
       if (/^\s*>+\s*$/u.test(line)
         || /^\s*>+\s*\[![A-Z0-9_-]+\](?:\s*[+-])?(?:\s+.*)?$/iu.test(line)
