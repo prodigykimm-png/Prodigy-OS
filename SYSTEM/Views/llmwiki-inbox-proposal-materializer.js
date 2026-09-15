@@ -16,7 +16,7 @@
   const hashApi = root.LLMWikiHash || (typeof require === "function" ? require("./llmwiki-hash.js") : null);
   const routingApi = root.LLMWikiLifecycleRoutingContract || (typeof require === "function" ? require("./llmwiki-lifecycle-routing-contract.js") : null);
   const identityApi = root.LLMWikiIdentityResolution || (typeof require === "function" ? require("./llmwiki-identity-resolution.js") : null);
-  const operationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
+  const loadedOperationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
   const objectHandoffApi = root.LLMWikiObjectHandoffContract || (typeof require === "function" ? require("./llmwiki-object-handoff-contract.js") : null);
   const documentAssemblerApi = root.LLMWikiDocumentAssembler || (typeof require === "function" ? require("./llmwiki-document-assembler.js") : null);
   const documentMergePlannerApi = root.LLMWikiDocumentMergePlanner || (typeof require === "function" ? require("./llmwiki-document-merge-planner.js") : null);
@@ -37,8 +37,9 @@
   const LITERATURE_DIR = "ZETA/LITERATURE";
   const CANDIDATE_DIR = "ZETA/CANDIDATES";
 
+  function operationContract() { return root.LLMWikiOperationContract || loadedOperationApi; }
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
-  function freeze(value) { if (operationApi?.isOperationRecord?.(value)) return value; if (Array.isArray(value)) return Object.freeze(value.map(freeze)); if (!plain(value)) return value; return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)]))); }
+  function freeze(value) { if (operationContract()?.isOperationRecord?.(value)) return value; if (Array.isArray(value)) return Object.freeze(value.map(freeze)); if (!plain(value)) return value; return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, freeze(item)]))); }
   function fail(reason) { return freeze({ ok: false, reason }); }
   function sha(value) { return hashApi.sha256(String(value)); }
   function safeVaultPath(value, prefix) { return typeof value === "string" && value.startsWith(`${prefix}/`) && value.endsWith(".md") && !value.includes("\\") && !value.split("/").some(part => !part || part === "." || part === ".."); }
@@ -162,7 +163,7 @@
   }
   function finalizeOperation(template, unitId, kind, destination) {
     template.operation_id = `operation_${sha(`${unitId}:${kind}:${template.destination_ids.join("|")}`).slice(0, 24)}`;
-    const parsed = operationApi.parseOperation(JSON.stringify(template));
+    const parsed = operationContract().parseOperation(JSON.stringify(template));
     if (!parsed.ok) return parsed;
     return freeze({ ok: true, value: freeze({ kind, capture_target: destination === "literature" ? "zeta_literature" : "knowledge_candidate", operation: parsed.value }) });
   }

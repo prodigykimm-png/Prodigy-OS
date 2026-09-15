@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const crypto = require("node:crypto");
@@ -99,6 +100,25 @@ test("happy path: source_summary and reusable_claim map to Literature and Candid
   assert.match(candidate.operation.after_bytes[candidate.operation.destination_ids[0]], /^## 핵심 내용$/mu);
   assert.notEqual(literature.operation.operation_id, candidate.operation.operation_id);
   assertLifecycleContract(result);
+});
+
+test("materialized operations use the current operation-contract brand after reload", () => {
+  const saved = globalThis.LLMWikiOperationContract;
+  try {
+    (new Function(fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-operation-contract.js"), "utf8")))();
+    const current = globalThis.LLMWikiOperationContract;
+    assert.notEqual(current, saved);
+    const result = materializer().materialize({
+      source: source(),
+      artifacts: [artifact("chunk_reload", "proposals", [item("source_summary")])],
+    });
+
+    assert.equal(result.ok, true, result.reason);
+    assert.equal(result.proposals.length, 1);
+    assert.equal(current.isOperationRecord(result.proposals[0].operation), true);
+  } finally {
+    globalThis.LLMWikiOperationContract = saved;
+  }
 });
 
 test("multiple reusable items from one source materialize as one document operation", () => {
