@@ -7,6 +7,7 @@
   const cacheApi = root.LLMWikiAnalysisCache || (typeof require === "function" ? require("./llmwiki-analysis-cache.js") : null);
   const coverageApi = root.LLMWikiChunkCoverageStore || (typeof require === "function" ? require("./llmwiki-chunk-coverage-store.js") : null);
   const storeApi = root.LLMWikiBatchJobStore || (typeof require === "function" ? require("./llmwiki-batch-job-store.js") : null);
+  const evidenceApi = root.LLMWikiEvidenceCandidates || (typeof require === "function" ? require("./llmwiki-evidence-candidates.js") : null);
 
   const ARTIFACT_VERSION = "llmwiki_batch_artifact_v1";
   const MAX_WHOLE_SOURCE_UNITS = 512;
@@ -268,7 +269,9 @@
       const successes = results.filter(row => row.ok && ["review_ready", "resolved"].includes(row.state));
       const projection = projectCandidates(input.candidates);
       const frozenIdentity = { ...identity,
-        prompt_version: analysisModeFor(input.sources) === SOURCE_ROUTING_MODE ? `${identity.prompt_version}:source_routing_v1` : identity.prompt_version,
+        prompt_version: analysisModeFor(input.sources) === SOURCE_ROUTING_MODE
+          ? `${identity.prompt_version}:source_routing_v1`
+          : `${identity.prompt_version}:${evidenceApi?.VERSION || "evidence_unversioned"}`,
         candidate_context_hash: sha(stable(projection.outbound)) };
       const requestKey = storeApi.requestKey(frozenIdentity);
       const sources = input.sources.map(source => ({ source_id: source.source_id, revision_hash: sha(source.extracted_text) }));
@@ -301,7 +304,7 @@
 
         const effectivePromptVersion = mode === SOURCE_ROUTING_MODE
           ? `${identity.prompt_version}:source_routing_v1`
-          : identity.prompt_version;
+          : `${identity.prompt_version}:${evidenceApi?.VERSION || "evidence_unversioned"}`;
         // Todo 4 replay lineage: the whole-source unit plan participates in the
         // request identity so cached artifacts carry coverage lineage. A run
         // whose plan (or absence of one) differs from the stored content's plan

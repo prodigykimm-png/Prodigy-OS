@@ -1,6 +1,7 @@
 (function (root) {
   "use strict";
 
+  const VERSION = "llmwiki_evidence_candidates_v2";
   const DEFAULT_MAX_BYTES = 2048;
 
   function create(value, options = {}) {
@@ -91,7 +92,7 @@
     return Object.freeze(result);
   }
 
-  const api = Object.freeze({ DEFAULT_MAX_BYTES, create, createSemantic });
+  const api = Object.freeze({ VERSION, DEFAULT_MAX_BYTES, create, createSemantic });
   root.LLMWikiEvidenceCandidates = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
