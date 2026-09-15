@@ -2748,10 +2748,21 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const restoredProposals = [];
       const completedOperations = new Set(durableRecovery.operation_outcomes.filter((row) => ["committed", "duplicate"].includes(row.status)).map((row) => row.operation_id));
       let restoreValid = true;
+      const currentLifecycleSchema = (operation) => operation.destination_ids.every((targetPath) => {
+        if (!targetPath.startsWith("ZETA/LITERATURE/")) return true;
+        const bytes = operation.after_bytes[targetPath];
+        if (typeof bytes !== "string") return false;
+        try {
+          const document = window.KnowledgeCandidateStore.parseLifecycleDocument(bytes);
+          return document.schema_version === 2 && document.type === "literature_note" && document.legacy === false;
+        } catch (_error) {
+          return false;
+        }
+      });
       for (const row of durableRecovery.review.proposals) {
         if (completedOperations.has(row.operation_id)) continue;
         const parsed = window.LLMWikiOperationContract.parseOperation(row.serialized_operation);
-        if (!parsed || parsed.ok !== true) { restoreValid = false; break; }
+        if (!parsed || parsed.ok !== true || !currentLifecycleSchema(parsed.value)) { restoreValid = false; break; }
         restoredProposals.push({ operation: parsed.value, title: row.summary || "복원된 검토 제안" });
       }
       if (restoreValid) {

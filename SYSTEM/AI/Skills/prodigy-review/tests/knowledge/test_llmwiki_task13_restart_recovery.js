@@ -204,6 +204,47 @@ test("new Hub module graph restores durable proposals and selection with provide
   assert.equal(second.window.KnowledgeExplorerHub._llmWikiSession.inboxSubscribers.size, 1);
 });
 
+test("Hub rejects a durable Literature review with legacy bytes and rematerializes v2 from cache", async () => {
+  const callsA = [];
+  const provider = (calls) => async (request) => {
+    calls.push(request);
+    return { ok: true, artifacts: request.chunks.map((chunk) => ({ chunk_key: chunk.key, outcome: "proposals", items: [{ role: "source_summary", evidence_quote: chunk.text.trim().slice(0, 12), claims: ["durable proposal"], review_reasons: [], related_candidate_ids: [] }] })) };
+  };
+  const options = { batchIdentity: { provider_key: "openrouter", model: "model-a", structured_mode: "json_schema", schema_id: "llmwiki_compact_v1", prompt_version: "p13" }, batchProvider: provider(callsA) };
+  const sourcePath = "INBOX/Knowledge/task13-legacy-reopen.md";
+  const sourceBytes = "# Durable legacy\n\nExact process restart proposal body.\n";
+  const first = await runHub({ pages: [], extraFiles: { [sourcePath]: sourceBytes }, llmWikiControllerOptions: options });
+  await first.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  assert.equal((await first.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" })).ok, true);
+
+  const persisted = {};
+  for (const file of first.app.vault.getFiles()) {
+    if (["SYSTEM/CACHE/llmwiki/", "SYSTEM/PRIVATE/llmwiki-"].some((prefix) => file.path.startsWith(prefix))) persisted[file.path] = await first.app.vault.read(file);
+  }
+  persisted[sourcePath] = sourceBytes;
+  const statePath = Object.keys(persisted).find((filePath) => filePath.endsWith("batch-job-state.json"));
+  assert.ok(statePath);
+  const state = JSON.parse(persisted[statePath]);
+  const durableProposal = state.recovery.review.proposals[0];
+  const operation = JSON.parse(durableProposal.serialized_operation);
+  operation.after_bytes[operation.destination_ids[0]] = "# Legacy Literature\n\nOld schema body.\n";
+  durableProposal.serialized_operation = JSON.stringify(operation);
+  persisted[statePath] = JSON.stringify(state);
+
+  const callsB = [];
+  const second = await runHub({ pages: [], extraFiles: persisted, llmWikiControllerOptions: { ...options, batchProvider: provider(callsB) } });
+  await second.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  assert.equal(second.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().risk_packets?.length || 0, 0);
+  const replay = await second.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "retry_inbox" });
+  assert.equal(replay.ok, true, replay.reason);
+  assert.equal(callsB.length, 0);
+  const packets = second.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().risk_packets;
+  assert.equal(packets.length, 1);
+  const target = packets[0].operation.destination_ids[0];
+  const document = second.window.KnowledgeCandidateStore.parseLifecycleDocument(packets[0].operation.after_bytes[target]);
+  assert.deepEqual({ schema_version: document.schema_version, type: document.type, legacy: document.legacy }, { schema_version: 2, type: "literature_note", legacy: false });
+});
+
 test("actual Hub stale approval persists only the affected operation and a fresh graph restores repacket with provider0/write0", async () => {
   const callsA = [];
   const provider = (calls) => async (request) => {
