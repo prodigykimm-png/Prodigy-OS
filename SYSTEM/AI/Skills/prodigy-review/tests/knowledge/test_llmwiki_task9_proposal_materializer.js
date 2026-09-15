@@ -9,6 +9,7 @@ const crypto = require("node:crypto");
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const materializerApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-inbox-proposal-materializer.js"));
 const handoffApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-object-handoff-contract.js"));
+const lifecycleStore = require(path.join(ROOT, "SYSTEM/Views/knowledge-candidate-store.js"));
 
 function sha256(value) { return crypto.createHash("sha256").update(String(value)).digest("hex"); }
 
@@ -95,6 +96,12 @@ test("happy path: source_summary and reusable_claim map to Literature and Candid
     assert.equal(proposal.decision.review_state, "review");
   }
   assert.ok(literature.operation.destination_ids[0].startsWith("ZETA/LITERATURE/"));
+  const literatureBytes = literature.operation.after_bytes[literature.operation.destination_ids[0]];
+  const parsedLiterature = lifecycleStore.parseLifecycleDocument(literatureBytes);
+  assert.equal(parsedLiterature.schema_version, 2);
+  assert.equal(parsedLiterature.type, "literature_note");
+  assert.equal(parsedLiterature.source_id, "source_task9_01");
+  assert.equal(parsedLiterature.legacy, false);
   assert.ok(candidate.operation.destination_ids[0].startsWith("ZETA/CANDIDATES/"));
   assert.match(candidate.operation.after_bytes[candidate.operation.destination_ids[0]], /^# task9$/mu);
   assert.match(candidate.operation.after_bytes[candidate.operation.destination_ids[0]], /^## 핵심 내용$/mu);

@@ -18,6 +18,7 @@
   const identityApi = root.LLMWikiIdentityResolution || (typeof require === "function" ? require("./llmwiki-identity-resolution.js") : null);
   const loadedOperationApi = root.LLMWikiOperationContract || (typeof require === "function" ? require("./llmwiki-operation-contract.js") : null);
   const objectHandoffApi = root.LLMWikiObjectHandoffContract || (typeof require === "function" ? require("./llmwiki-object-handoff-contract.js") : null);
+  const lifecycleApi = root.KnowledgeCandidateStore || (typeof require === "function" ? require("./knowledge-candidate-store.js") : null);
   const documentAssemblerApi = root.LLMWikiDocumentAssembler || (typeof require === "function" ? require("./llmwiki-document-assembler.js") : null);
   const documentMergePlannerApi = root.LLMWikiDocumentMergePlanner || (typeof require === "function" ? require("./llmwiki-document-merge-planner.js") : null);
   if (!documentAssemblerApi) throw new Error("LLMWikiDocumentAssembler is required.");
@@ -205,8 +206,28 @@
     if (!routed.ok) return routed;
     if (routed.value.destination !== "literature" || routed.value.review_state !== "review") return holdFor({ unit_id: unitId }, "lifecycle_hold");
     const path = `${LITERATURE_DIR}/${unitId}.md`;
+    const lifecycleDocument = {
+      schema_version: 2,
+      type: "literature_note",
+      source_id: source.source_id,
+      source_kind: "inbox",
+      summary_origin: "ai",
+      body: document.body,
+    };
+    try { lifecycleApi.validateLifecycleDocument(lifecycleDocument); }
+    catch (_error) { return fail("invalid_literature_lifecycle_document"); }
+    const afterBytes = [
+      "---",
+      "schema_version: 2",
+      'type: "literature_note"',
+      `source_id: ${JSON.stringify(source.source_id)}`,
+      'source_kind: "inbox"',
+      'summary_origin: "ai"',
+      "---",
+      document.body,
+    ].join("\n");
     const built = finalizeOperation(baseOperation({
-      kind: "create", destination_ids: [path], after_bytes: { [path]: document.body },
+      kind: "create", destination_ids: [path], after_bytes: { [path]: afterBytes },
       citations: citationsForDocument(source, document), risk_tier: "low",
     }), unitId, "create", "literature");
     if (!built.ok) return built;
