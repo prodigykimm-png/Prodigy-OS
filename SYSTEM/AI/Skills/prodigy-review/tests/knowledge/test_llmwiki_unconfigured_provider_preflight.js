@@ -5,8 +5,27 @@ const { buildPages, runHub } = require("./knowledge_hub_integration_harness.js")
 
 async function main() {
   const sourcePath = "ZETA/LITERATURE/unconfigured-provider.md";
+  const profile = Object.freeze({
+    profile_id: "openrouter",
+    provider_key: "openrouter",
+    name: "OpenRouter",
+    configured: false,
+    status: "unconfigured",
+  });
+  const aiClient = Object.freeze({
+    resolveProvider() { return { status: "failed", error_code: "provider_selection_unavailable", profile_id: profile.profile_id }; },
+    listProviders() { return [profile]; },
+    listModels() { return []; },
+    getHandshake() { return { runtime_epoch: "unconfigured-runtime" }; },
+    getConsentRequirement() { return { status: "failed", error_code: "provider_selection_unavailable" }; },
+    async grantConsumer() { return { status: "failed", error_code: "provider_selection_unavailable" }; },
+    cancel() { return { status: "cancelled_confirmed" }; },
+    async requestStructured() { throw new Error("unconfigured provider must not receive a request"); },
+    openSettings() { return true; },
+  });
   const result = await runHub({
     pages: buildPages(),
+    llmWikiControllerOptions: { aiClient },
     extraFiles: {
       "SYSTEM/PRIVATE/prodigy.local.json": JSON.stringify({
         defaultProvider: "openrouter",
