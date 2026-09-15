@@ -4,7 +4,6 @@ const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const path = require("node:path");
 const { test } = require("node:test");
-const { collectText } = require("./knowledge_explorer_view_fakes.js");
 const { firstElement, runHub } = require("./knowledge_hub_integration_harness.js");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
@@ -144,11 +143,13 @@ for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles bef
   });
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
   await result.app.vault.modify(result.app.vault.getAbstractFileByPath(sourcePath), `# cancellation fixture\n${lateOutcome}\n`);
+  await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "scan_inbox" });
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.state, "queued");
   controlled = true;
 
   // Subscribe before triggering: the analyzing state must be observed, never polled.
   const analyzing = states.waitFor((state) => state.state === "analyzing", `${lateOutcome} analyzing`);
-  click(actionButton(result.container, "analyze-inbox"));
+  const analyzeDispatch = result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
   await analyzing;
   await waitForGate(1);
   const rawHashAtCancel = crypto.createHash("sha256").update(await result.app.vault.cachedRead(result.app.vault.getAbstractFileByPath(sourcePath))).digest("hex");
@@ -159,7 +160,7 @@ for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles bef
   const cancelled = await cancelledEvent;
   await cancelAction;
   assert.deepEqual({ state: cancelled.state, processed: cancelled.processed, succeeded: cancelled.succeeded, failed: cancelled.failed }, { state: "cancelled", processed: 0, succeeded: 0, failed: 0 });
-  assert.match(collectText(result.container), /자료 분석을 취소했습니다/);
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.reason, "cancelled");
   // Cancellation itself may settle review state; nothing after this point may.
 
   if (lateOutcome === "resolve") gates[0].resolve({ ok: true, artifacts: compactArtifacts({ chunks: [{ key: "late", text: "late" }] }).artifacts });
@@ -169,6 +170,7 @@ for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles bef
   // its outcome must be a bounded typed cancellation, never a completion.
   const analyzeAction = await actions.waitFor((event) => event.intent.action === "analyze_inbox", `${lateOutcome} analyze settled on abort`);
   assert.equal(analyzeAction.response.status, "cancelled");
+  assert.equal((await analyzeDispatch).status, "cancelled");
   const controllerAtCancel = JSON.parse(JSON.stringify(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot()));
   assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.state, "cancelled");
   assert.deepEqual(result.app.vault.touched.filter(([, filePath]) => filePath.startsWith("SYSTEM/PRIVATE/")).map((row) => [...row]), durableArtifactsAtCancel, "late transport cannot append durable artifacts or completion state");
@@ -181,6 +183,79 @@ for (const lateOutcome of ["resolve", "reject"]) test(`actual cancel settles bef
   const restarted = await freshComplete;
   assert.deepEqual({ processed: restarted.processed, succeeded: restarted.succeeded, failed: restarted.failed }, { processed: 1, succeeded: 1, failed: 0 });
   assert.ok(result.app.vault.touched.filter(([, filePath]) => filePath.startsWith("SYSTEM/PRIVATE/")).length >= durableArtifactsAtCancel.length, "fresh scan may retain or append only its own durable receipts");
+});
+
+test("explicit retry requested immediately after cancel waits for the cancelled run to settle", async () => {
+  let calls = 0;
+  let releaseFirst;
+  let markStarted;
+  const started = new Promise((resolve) => { markStarted = resolve; });
+  const result = await runHub({
+    pages: [],
+    extraFiles: {
+      "INBOX/Knowledge/immediate-retry-a.md": "# 즉시 재시도 A\n\n취소된 실행이 정리된 뒤 다시 시작한다.\n",
+      "INBOX/Knowledge/immediate-retry-b.md": "# 즉시 재시도 B\n\n두 자료를 독립 실행으로 다시 처리한다.\n",
+    },
+    llmWikiControllerOptions: {
+      batchIdentity: BATCH_IDENTITY,
+      batchProvider: async (input) => {
+        calls += 1;
+        if (calls === 1) {
+          markStarted();
+          return new Promise((resolve) => { releaseFirst = () => resolve(compactArtifacts(input)); });
+        }
+        return compactArtifacts(input);
+      },
+    },
+  });
+  await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const analyzing = result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
+  await started;
+
+  const cancelled = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "cancel_inbox" });
+  assert.equal(cancelled.status, "cancelled");
+  const retrying = result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "retry_inbox" });
+  assert.equal(calls, 1);
+
+  releaseFirst();
+  assert.equal((await analyzing).status, "cancelled");
+  const retried = await retrying;
+  assert.equal(retried.ok, true, retried.reason);
+  assert.equal(calls, 3);
+});
+
+test("cancel remains available when a competing retry marks inbox blocked but controller is running", async () => {
+  let release;
+  let markStarted;
+  const started = new Promise((resolve) => { markStarted = resolve; });
+  const result = await runHub({
+    pages: [],
+    extraFiles: {
+      "INBOX/Knowledge/blocked-cancel-a.md": "# Blocked cancel A\n\n첫 실행을 유지한다.\n",
+      "INBOX/Knowledge/blocked-cancel-b.md": "# Blocked cancel B\n\n경합 상태를 재현한다.\n",
+    },
+    llmWikiControllerOptions: {
+      batchIdentity: BATCH_IDENTITY,
+      batchProvider: async (input) => {
+        markStarted();
+        return new Promise((resolve) => { release = () => resolve(compactArtifacts(input)); });
+      },
+    },
+  });
+  await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const analyzing = result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
+  await started;
+
+  const competing = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "retry_inbox" });
+  assert.equal(competing.reason, "run_in_progress");
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.state, "blocked");
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().status, "running");
+
+  const cancelled = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "cancel_inbox" });
+  assert.equal(cancelled.ok, true, cancelled.reason);
+  assert.equal(cancelled.status, "cancelled");
+  release();
+  assert.equal((await analyzing).status, "cancelled");
 });
 
 test("cancel when no inbox scan is active fails closed as a typed no-op", async () => {

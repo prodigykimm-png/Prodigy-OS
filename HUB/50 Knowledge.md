@@ -3139,9 +3139,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (intent.action === "cancel_inbox") {
         // Task 11 cutover: cancel invalidates the active run token so any late
         // batch result is a bounded no-op; it can never open or mutate review.
-        if (!["queued", "analyzing"].includes(inboxState.state)) return { ok: false, status: inboxState.state, reason: "inbox_scan_not_active" };
-        inboxBatchToken += 1;
         const controllerStatus = llmWikiRunController.getSnapshot().status;
+        if (!["queued", "analyzing"].includes(inboxState.state)
+          && !["running", "consent_required"].includes(controllerStatus)) {
+          return { ok: false, status: inboxState.state, reason: "inbox_scan_not_active" };
+        }
+        inboxBatchToken += 1;
         if (["running", "review", "consent_required", "committing"].includes(controllerStatus)) {
           try { await llmWikiRunController.cancel({ action: "cancel" }); } catch (_error) { /* bounded no-op on late settle */ }
         }
