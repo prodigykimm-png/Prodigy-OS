@@ -26,7 +26,12 @@
       return Object.freeze({ left: left, right: price("winning_bid_price", "낙찰가", record.winning_bid_price) });
     }
     if (Boolean(opts.isEnded) || hasValue(record.winning_bid_price)) {
-      return Object.freeze({ left: price("minimum_bid", "최저가", record.minimum_bid), right: price("winning_bid_price", "낙찰가", record.winning_bid_price) });
+      // 종료된 관심/입찰 카드: 예상(입찰 예정가)과 실측(낙찰가)을 나란히 보여준다.
+      // 예상가가 없었던 카드는 최저가를 유지해 정보 손실을 막는다 (reviewing 분기와 같은 폴백).
+      var endedLeft = hasValue(record.expected_bid)
+        ? price("expected_bid", "입찰 예정가", record.expected_bid)
+        : price("minimum_bid", "최저가", record.minimum_bid);
+      return Object.freeze({ left: endedLeft, right: price("winning_bid_price", "낙찰가", record.winning_bid_price) });
     }
     return Object.freeze({ left: price("minimum_bid", "최저가", record.minimum_bid), right: price("expected_bid", "입찰 예정가", record.expected_bid) });
   }
