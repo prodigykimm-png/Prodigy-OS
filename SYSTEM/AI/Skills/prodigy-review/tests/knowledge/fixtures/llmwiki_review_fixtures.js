@@ -18,7 +18,7 @@ const SOURCE_ID = "source_synthetic_fixture";
 const CLAIM_ONE = "혼주 사진을 배치할 때는 신랑측 혼주를 먼저 배치한다.";
 const CLAIM_TWO = "대칭 구도 사진을 나란히 쓸 때는 머리 높이를 맞춘다.";
 const OVERLAP_SENTENCE = "기존 규칙 둘: 머리 높이를 맞춘다.";
-const SOURCE_BYTES = ["합성 촬영 기준", "", CLAIM_ONE, CLAIM_TWO, ""].join("\n");
+const SOURCE_BYTES = ["# 합성 촬영 기준", "", CLAIM_ONE, CLAIM_TWO, ""].join("\n");
 const SOURCE_REVISION = hash.sha256(SOURCE_BYTES);
 
 const LEGACY_PATH = "ZETA/PERMANENT/합성 레거시 가이드.md";
@@ -91,7 +91,11 @@ function memoryVault(seed = {}) {
       modify: async (file, bytes) => { const filePath = typeof file === "string" ? file : file.path; writes.push(["modify", filePath]); files.get(filePath).bytes = bytes; return files.get(filePath); },
       delete: async (file) => { const filePath = typeof file === "string" ? file : file.path; writes.push(["delete", filePath]); files.delete(filePath); },
     },
-    metadataCache: { getFileCache: () => ({ frontmatter: {} }) },
+    metadataCache: { getFileCache: (file) => {
+      const text = (files.get(typeof file === "string" ? file : file.path) || {}).bytes || "";
+      const headings = text.split("\n").map((line, index) => ({ heading: /^#{1,6}\s+(.*\S)\s*$/u.test(line) ? line.replace(/^#{1,6}\s+/u, "").trim() : null, position: { start: { line: index } } })).filter((row) => row.heading);
+      return { frontmatter: {}, headings };
+    } },
   };
   return { app, files, writes, bytes: (filePath) => (files.get(filePath) || {}).bytes || "" };
 }

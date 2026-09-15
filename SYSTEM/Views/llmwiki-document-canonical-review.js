@@ -240,7 +240,56 @@
     }
     return body + "\n";
   }
-  function citationLinksFor(groundedById, claimIds) {
+  // 인용 locator(#L12, #3848-3868 같은 바이트/라인 범위)를 Obsidian이 실제로 여는 앵커로 바꾼다.
+  // 범위 시작줄을 품는 마지막 헤딩을 쓰고, 헤딩 정보가 없으면 기존 locator를 그대로 쓴다.
+  function headingFragment(heading) {
+    // Obsidian이 해석하는 표준형: 헤딩 텍스트에서 링크를 깨는 문자만 인코딩한다(공백·괄호·샵).
+    return String(heading || "").trim().replace(/ /gu, "%20").replace(/\(/gu, "%28").replace(/\)/gu, "%29").replace(/#/gu, "%23");
+  }
+  function anchorFor(app, locator) {
+    const raw = String(locator || "");
+    if (!raw || !app) return encodeURI(raw);
+    const [rawPath, fragment = ""] = raw.split("#");
+    const sourcePath = decodeURIComponent(rawPath);
+    const numbers = String(fragment).match(/L?\d+/gu) || [];
+    const isLine = /^L\d/u.test(numbers[0] || "");
+    const value = Number(String(numbers[0] || "").replace(/^L/u, "")) || 0;
+    try {
+      const file = app.vault.getAbstractFileByPath(sourcePath);
+      const cache = file && app.metadataCache?.getFileCache?.(file);
+      const headings = (cache && cache.headings) || [];
+      const at = (row, edge) => {
+        const pos = row && row.position && row.position[edge];
+        return pos && Number.isFinite(pos.offset) ? pos.offset : null;
+      };
+      if (value > 0) {
+        for (let index = 0; index < headings.length; index += 1) {
+          const row = headings[index];
+          const next = headings[index + 1];
+          if (isLine) {
+            // 줄 locator(#L12): 줄 범위로 판정
+            const from = ((row.position && row.position.start ? row.position.start.line : -1) + 1);
+            const to = next && next.position && next.position.start ? next.position.start.line + 1 : Number.POSITIVE_INFINITY;
+            if (row.heading && from <= value && value < to) return `${encodeURI(sourcePath)}#${headingFragment(row.heading)}`;
+          } else {
+            // 바이트 locator(#132-200): 바이트 오프셋으로만 판정한다(줄로 오해하지 않는다).
+            const from = at(row, "start");
+            const to = at(next, "start");
+            if (from === null) break;
+            if (row.heading && from <= value && (to === null || value < to)) return `${encodeURI(sourcePath)}#${headingFragment(row.heading)}`;
+          }
+        }
+      }
+      // 확실한 위치를 못 찾으면 거짓 헤딩을 만들지 않고 파일 링크만 남긴다.
+      return encodeURI(sourcePath);
+    } catch (_error) { /* 인덱스가 없으면 locator 그대로 */ }
+    return encodeURI(raw);
+  }
+  // 본문에 미리 박혀 있는 인용(#L12, #3848-3868 같은 라인/바이트 범위)을 Obsidian이 여는 헤딩 앵커로 일괄 재작성한다.
+  function rewriteCitationAnchors(app, body) {
+    return String(body || "").replace(/\]\(([^)\s#]+)#(L?\d+(?:[-–]L?\d+)?)\)/gu, (_whole, path, fragment) => `](${anchorFor(app, `${decodeURIComponent(path)}#${fragment}`)})`);
+  }
+  function citationLinksFor(app, groundedById, claimIds) {
     const seen = new Set();
     const links = [];
     for (const claimId of claimIds || []) {
@@ -250,12 +299,95 @@
         const locator = citation.locator || citation.source_path || "";
         if (!locator || seen.has(locator)) continue;
         seen.add(locator);
-        links.push(`[원문](${encodeURI(locator)})`);
+        links.push(`[원문](${anchorFor(app, locator)})`);
       }
     }
     return links.length ? ` ${links.join(" ")}` : "";
   }
-  function renderCanonicalAddition({ item, added, isUpdate }) {
+  // 문장 중복 접기: 토큰 50% 이상 겹치는 문장은 이미 담긴 것으로 보고 버린다.
+  // (같은 규칙을 사후 교정과 쓰기 시점이 함께 써서 결과가 갈리지 않게 한다.)
+  function collapseDuplicateSentences(text) {
+    // 문장 경계(마침표/물음표/느낌표 뒤 공백, 개행, 이스케이프 개행)로 나눠 중복을 접는다.
+    const parts = String(text || "")
+      .replace(/\\n/gu, "\n")
+      .replace(/\\"/gu, '"')
+      .split(/(?<=[.!?])\s+|\n+/u)
+      .map(row => row.trim())
+      .filter(Boolean);
+    if (parts.length <= 1) return parts.join("\n");
+    const tokens = row => new Set(String(row).match(/[0-9A-Za-z가-힣]+/gu) || []);
+    const keep = [parts.slice().sort((a, b) => b.length - a.length)[0]];
+    const base = tokens(keep[0]);
+    for (const part of parts) {
+      if (part === keep[0]) continue;
+      const own = tokens(part);
+      const overlap = [...own].filter(token => base.has(token)).length / Math.max(1, own.size);
+      if (overlap < 0.5) keep.push(part);
+    }
+    return keep.join("\n");
+  }
+  function claimPresentInBody(body, text) {
+    const source = String(body || "");
+    if (!source) return false;
+    const own = [...new Set(String(text || "").match(/[0-9A-Za-z가-힣]+/gu) || [])];
+    if (own.length < 4) return false;
+    const present = new Set(source.match(/[0-9A-Za-z가-힣]+/gu) || []);
+    const covered = own.filter(token => present.has(token)).length / own.length;
+    return covered >= 0.7;
+  }
+  // locator의 범위 표기(#132-200 바이트, #L12-L40 라인)를 바이트 구간으로 해석한다.
+  function locatorByteRange(bytes, locator) {
+    const fragment = String(locator || "").split("#")[1] || "";
+    const numbers = fragment.match(/L?\d+/gu);
+    if (!numbers || !numbers.length) return null;
+    const isLine = /^L\d/u.test(numbers[0]);
+    const toByte = (token) => {
+      const value = Number(String(token).replace(/^L/u, ""));
+      if (!Number.isFinite(value) || value <= 0) return null;
+      if (!isLine) return value;
+      let offset = 0;
+      for (let line = 1; line < value; line += 1) {
+        const next = bytes.indexOf("\n", offset);
+        if (next < 0) return null;
+        offset = next + 1;
+      }
+      return offset;
+    };
+    const start = toByte(numbers[0]);
+    const end = numbers[1] ? toByte(numbers[1]) : null;
+    if (start === null) return null;
+    return { start, end: end === null ? start + 4096 : end };
+  }
+  function locateInRange(bytes, quote, range) {
+    if (!range) return -1;
+    const window = bytes.slice(range.start, Math.max(range.start, range.end));
+    const offset = window.indexOf(quote);
+    return offset < 0 ? -1 : range.start + offset;
+  }
+  // 원문에 같은 문구가 반복될 때, 인용을 문맥(줄/문단)까지 넓혀 고유 구간으로 만든다.
+  // 지어내지 않는다: 실제 원문 바이트에서 경계를 넓힐 뿐이다.
+  function widenUniqueQuote(bytes, quote, from = 0) {
+    const text = String(bytes || "");
+    // locator가 의도한 위치가 있으면 그쪽부터, 없으면 첫 등장부터 넓힌다.
+    const at = from > 0 ? text.indexOf(quote, from) : text.indexOf(quote);
+    if (at < 0) return null;
+    // 로케이터가 가리키는 시작 줄을 바꾸지 않도록 앞으로만 넓힌다.
+    let end = text.indexOf("\n", at + quote.length);
+    if (end < 0) end = text.length;
+    for (let step = 0; step < 8; step += 1) {
+      const candidate = text.slice(at, end).trim();
+      if (candidate) {
+        const first = text.indexOf(candidate);
+        if (first >= 0 && text.indexOf(candidate, first + 1) < 0) return { quote: candidate, start: first };
+      }
+      const nextBreak = text.indexOf("\n\n", end);
+      if (nextBreak < 0) { if (end >= text.length) break; end = text.length; continue; }
+      const nextEnd = text.indexOf("\n", nextBreak + 2);
+      end = nextEnd < 0 ? text.length : nextEnd;
+    }
+    return null;
+  }
+  function renderCanonicalAddition({ app, item, added, isUpdate }) {
     const compiledSections = Array.isArray(item.compiled_sections) ? item.compiled_sections : [];
     if (!compiledSections.length) return item.document_body;
     const groundedById = new Map(item.grounded_claims.map((claim) => [claim.claim_id, claim]));
@@ -268,7 +400,7 @@
       if (!paragraphs.length) continue;
       parts.push(`## ${section.heading}`);
       for (const paragraph of paragraphs) {
-        parts.push(`${paragraph.text}${citationLinksFor(groundedById, paragraph.claim_ids)}`);
+        parts.push(`${paragraph.text}${citationLinksFor(app, groundedById, paragraph.claim_ids)}`);
       }
     }
     return parts.join("\n\n").trim();
@@ -528,8 +660,10 @@
             snapshots.set(source.source_id, { ...source, source_text: bytes }); sourcePaths.set(source.source_id, sourcePath);
           }
           for (const claim of prior.claims) {
+            const boundCitations = claim.citation_ids.map(id => prior.citations.find(c => c.citation_id === id));
+            if (boundCitations.some(citation => !citation)) return fail("prior_claim_graph_broken", { claim_id: claim.claim_id });
             raw.push({ origin: claim.origin, text: claim.text,
-              ...(claim.citation_ids.length ? { citations: claim.citation_ids.map(id => prior.citations.find(c => c.citation_id === id)).map(c => ({ source_id: c.source_id, provider_span: { start: c.source_span.start - snapshots.get(c.source_id).provider_window.start, end: c.source_span.end - snapshots.get(c.source_id).provider_window.start, span_digest: c.span_digest } })) } : {}),
+              ...(boundCitations.length ? { citations: boundCitations.map(c => ({ source_id: c.source_id, provider_span: { start: c.source_span.start - snapshots.get(c.source_id).provider_window.start, end: c.source_span.end - snapshots.get(c.source_id).provider_window.start, span_digest: c.span_digest } })) } : {}),
               ...(claim.derived_from_claim_ids.length ? { derivation_indices: claim.derived_from_claim_ids.map(id => prior.claims.findIndex(c => c.claim_id === id)) } : {}) });
           }
         }
@@ -542,8 +676,22 @@
             if (!citation.content_hash || !citation.evidence_quote || !citation.locator) return fail("exact_evidence_required");
             const path = citation.source_path || citation.locator.split("#")[0];
             const bytes = await readSource(path, citation.content_hash);
-            const start = bytes.indexOf(citation.evidence_quote);
-            if (start < 0 || bytes.indexOf(citation.evidence_quote, start + 1) >= 0) return fail("unique_evidence_quote_required");
+            let start = bytes.indexOf(citation.evidence_quote);
+            if (start < 0) return fail("exact_evidence_required");
+            if (bytes.indexOf(citation.evidence_quote, start + 1) >= 0) {
+              // 1) 컴파일 단계가 준 locator 범위 안에서 찾으면 그 위치를 쓴다(공급된 근거 그대로).
+              const range = locatorByteRange(bytes, citation.locator);
+              const inRange = locateInRange(bytes, citation.evidence_quote, range);
+              if (inRange >= 0) {
+                start = inRange;
+              } else {
+                // 범위가 빗나가면 locator가 가리킨 위치부터만 넓힌다. 첫 등장으로 조용히 물러서지 않는다.
+                const widened = range ? widenUniqueQuote(bytes, citation.evidence_quote, range.start) : widenUniqueQuote(bytes, citation.evidence_quote, 0);
+                if (!widened) return fail("unique_evidence_quote_required");
+                citation.evidence_quote = widened.quote;
+                start = widened.start;
+              }
+            }
             const actualLine = bytes.slice(0, start).split("\n").length;
             const suppliedLine = /#L(\d+)/u.exec(citation.locator);
             if (suppliedLine && Number(suppliedLine[1]) !== actualLine) return fail("citation_locator_mismatch");
@@ -563,7 +711,7 @@
           let isDuplicate = false;
           for (const matchedPrior of matchedPriors) {
             const olds = priorCitations(matchedPrior);
-            if (olds.some(oldCitation => !oldCitation)) return fail("prior_claim_graph_broken", { source_path: sourcePath });
+            if (olds.some(oldCitation => !oldCitation)) return fail("prior_claim_graph_broken", { claim_id: matchedPrior.claim_id });
             if (citationRows.every(row => olds.some(oldCitation => oldCitation.source_id === row.source_id && oldCitation.source_span.start === row.provider_span.start && oldCitation.source_span.end === row.provider_span.end && oldCitation.span_digest === row.provider_span.span_digest))) { isDuplicate = true; break; }
           }
           if (isDuplicate) continue;
@@ -572,9 +720,13 @@
             if (existingIndex >= 0) indexes.push(existingIndex); else { indexes.push(raw.length); raw.push({ origin: "source_extract", text: s.source_text.slice(c.provider_span.start, c.provider_span.end), citations: [c] }); } });
           raw.push({ origin: "ai_interpretation", text: claim.text, derivation_indices: indexes }); added += 1;
           // Retain independent evidence in the claim graph, not a second visible copy of the same fact.
-          if (!matchedPriors.length) addedClaims.push(claim);
+          if (!matchedPriors.length) {
+            // 대상 본문에 이미 있는 주장은 다시 붙이지 않는다(중복 추가 방지).
+            if (claimPresentInBody(priorDoc && priorDoc.body, claim.text)) continue;
+            addedClaims.push(claim);
+          }
         }
-        const addition = renderCanonicalAddition({ item, added: addedClaims, isUpdate: Boolean(target) || /^#\s/mu.test(String(priorDoc?.body || "")) });
+        const addition = renderCanonicalAddition({ app, item, added: addedClaims, isUpdate: Boolean(target) || /^#\s/mu.test(String(priorDoc?.body || "")) });
         const exclusionsEqual = !target ? true : (fields.exclusions
           ? old.body.includes(`- 예외·금지: ${fields.exclusions}\n`)
           : !old.body.includes("- 예외·금지:"));
@@ -590,7 +742,7 @@
         const citationsFor = claim => [...new Set([...claim.citation_ids, ...claim.derived_from_claim_ids.flatMap(id => citationsFor(claimSet.claims.find(c => c.claim_id === id)))])];
         const timestamp = now();
         const title = priorDoc?.title || item.title;
-        const statement = priorDoc?.statement || item.grounded_claims.map(c => c.text).join("\n");
+        const statement = collapseDuplicateSentences(priorDoc?.statement || item.grounded_claims.map(c => c.text).join("\n"));
         const evidenceRows = claimSet.citations.map((c, i) => ({ evidence_id: `evidence_${i}`, source_ref: c.source_id, strength: fields.evidence_strength }));
         const promotionInput = { knowledge_kind: fields.knowledge_kind, classification: fields.classification, state: "current", title, statement,
           relation_status: fields.relation_status, approval_status: "approved", claim_set_hash: claimSet.claim_set_hash,
@@ -602,12 +754,27 @@
         const id = priorDoc?.canonical_id || `knowledge_${sha(title).slice(0, 24)}`;
         const sourceRows = [...snapshots.values()].map(s => ({ source_id: s.source_id, span: { start: 0, end: s.source_text.length } }));
         const updateBase = priorDoc ? stripReviewScopeBlock(priorDoc.body || "") : "";
-        const sourceLinks = sourceRows.filter(s => !old || !updateBase.includes(`[${s.source_id}](`)).map(s => `- [${s.source_id}](${sourcePaths.get(s.source_id).split("/").map(encodeURIComponent).join("/")}#L1)`).join("\n");
-        const reviewScope = `\n## 사용자 검토 범위\n- 적용 조건: ${fields.conditions}\n${fields.exclusions ? `- 예외·금지: ${fields.exclusions}\n` : ""}- 재검토 조건: ${fields.invalidation_conditions || ""}\n`;
+        const sourceLinks = sourceRows.filter(s => !old || !updateBase.includes(`[${s.source_id}](`)).map(s => `- [${s.source_id}](${anchorFor(app, `${sourcePaths.get(s.source_id)}#L1`)})`).join("\n");
+        // 검토 범위는 누적이다: 이전 검토의 조건·예외·재검토 조건을 지우지 않고 합친다.
+        // 빈 값은 페이지 자체 근거(제목·도메인)로 채운다 — 문장을 지어내지 않는다.
+        const scopeConditions = String(fields.conditions || "").trim()
+          || `${title} 지식을 적용할 때`;
+        const regulatory = /(real_estate|legal|tax)/u.test(String(fields.knowledge_domain || ""));
+        const scopeInvalidation = String(fields.invalidation_conditions || "").trim()
+          || (regulatory ? "관련 제도·기준이 바뀌면 재검토한다(원문 기준 시점 이후 현행 규칙 재확인 필요)." : "적용 기준이 바뀌면 재검토한다.");
+        const priorScopeBody = String(priorDoc?.body || "").split("## 사용자 검토 범위").slice(1).shift() || "";
+        const priorScopeBullets = priorScopeBody.split("\n").map(row => row.trim()).filter(row => row.startsWith("- "));
+        const freshScopeLines = [`- 적용 조건: ${scopeConditions}`, ...(fields.exclusions ? [`- 예외·금지: ${fields.exclusions}`] : []), `- 재검토 조건: ${scopeInvalidation}`];
+        const keptScopeLines = priorScopeBullets.filter(row => !freshScopeLines.some(line => line.includes(row.replace(/^- [^:]+:\s*/u, ""))));
+        const reviewScope = `\n## 사용자 검토 범위\n${[...freshScopeLines, ...keptScopeLines].join("\n")}\n`;
         const relatedLinks = (item.related_knowledge || []).filter(row => row.path && row.path !== target_path && app.vault.getAbstractFileByPath(row.path)).map(row => `[[${row.path.replace(/\.md$/u, "")}]]`).filter((link, index, rows) => rows.indexOf(link) === index && !item.document_body.includes(link) && !updateBase.includes(link));
-        const body = integrateDocumentBody(priorDoc?.body, addition, reviewScope, relatedLinks, sourceLinks);
+        const body = rewriteCitationAnchors(app, integrateDocumentBody(priorDoc?.body, addition, reviewScope, relatedLinks, sourceLinks));
+        // 이전 정본의 메타데이터는 지우지 않고 합집합한다(연속 갱신이 topics/contexts를 날리던 문제).
+        const mergedTopics = Array.from(new Set([...(priorDoc?.knowledge_topics || []), ...lines(fields.knowledge_topics)]));
+        const mergedContexts = Array.from(new Set([...(priorDoc?.application_contexts || []), ...lines(fields.application_contexts)]));
+        const mergedTrigger = fields.application_trigger || priorDoc?.application_trigger || "";
         const document = { ...(priorDoc || {}), schema_version: 2, type: "knowledge", canonical_id: id, knowledge_kind: fields.knowledge_kind, status: "active", title, statement,
-          knowledge_domain: fields.knowledge_domain, knowledge_topics: lines(fields.knowledge_topics), application_trigger: fields.application_trigger || "", application_contexts: lines(fields.application_contexts), connections: priorDoc?.connections || [], invalidation_conditions: lines(fields.invalidation_conditions),
+          knowledge_domain: fields.knowledge_domain, knowledge_topics: mergedTopics, application_trigger: mergedTrigger, application_contexts: mergedContexts, connections: priorDoc?.connections || [], invalidation_conditions: Array.from(new Set([...(priorDoc?.invalidation_conditions || []), ...lines(fields.invalidation_conditions)])),
           sources: sourceRows, relations: priorDoc?.relations || [], claim_set_hash: claimSet.claim_set_hash, promotion_receipt_hash: sha(stable(receipt)), ai_enrichment_status: priorDoc?.ai_enrichment_status || "none", created: priorDoc?.created || timestamp, updated: timestamp, body };
         delete document.legacy;
         const suffix = sha(stable(document)).slice(0, 24);
@@ -1450,7 +1617,7 @@
   function isNovelItem(item) {
     return !((item && item.related_knowledge) || []).length;
   }
-  const api = Object.freeze({ VERSION, create, open, autofillables, isNovelItem, analysisDefaults, compiledPageDefaults, contentSupportedKind, kindContentSatisfiable, storedKindInvalidation });
+  const api = Object.freeze({ VERSION, create, open, autofillables, isNovelItem, analysisDefaults, compiledPageDefaults, contentSupportedKind, anchorFor, collapseDuplicateSentences, kindContentSatisfiable, storedKindInvalidation });
   root.LLMWikiDocumentCanonicalReview = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
