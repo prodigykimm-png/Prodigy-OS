@@ -3460,6 +3460,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       let canonicalWrites = 0;
       let auditWrites = 0;
       let sourceWrites = 0;
+      const saveBatchProgress = async () => {
+        const outcomes = durableRecovery.operation_outcomes.map((row) => ({ ...row, ...(outcomeById.get(row.operation_id) || {}) }));
+        durableRecovery = await batchJobStore.saveRecoverySnapshot({ ...durableRecovery, operation_outcomes: outcomes, archive_receipts: archiveReceipts });
+        return outcomes;
+      };
       for (const group of approvalGroups.values()) {
         const selectedForSource = selectedOperationIds.filter((id) => group.proposals.some((proposal) => proposal.operation.operation_id === id));
         if (selectedForSource.length === 0) continue;
@@ -3483,6 +3488,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           outcomeById.set(row.operation_id, durableRow);
           allResults.push(durableRow);
         }
+        await saveBatchProgress();
 
         const aggregate = { results: group.proposals.map((proposal) => outcomeById.get(proposal.operation.operation_id) || { operation_id: proposal.operation.operation_id, status: "review" }) };
         const eligibility = window.LLMWikiBatchApprovalAdapter.archivalEligibility({ group, applyResult: aggregate });
@@ -3491,10 +3497,10 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           if (!archived.ok) return { ok: false, reason: archived.reason, status: "committed", results: allResults, write_counts: { canonical: canonicalWrites, audit: auditWrites, source: sourceWrites } };
           archiveReceipts.push({ source_id: group.source_id, ...archived.value });
           if (archived.value.status === "archived") sourceWrites += 1;
+          await saveBatchProgress();
         }
       }
-      const outcomes = durableRecovery.operation_outcomes.map((row) => ({ ...row, ...(outcomeById.get(row.operation_id) || {}) }));
-      durableRecovery = await batchJobStore.saveRecoverySnapshot({ ...durableRecovery, operation_outcomes: outcomes, archive_receipts: archiveReceipts });
+      const outcomes = await saveBatchProgress();
       const fullyResolved = outcomes.every((row) => ["committed", "duplicate"].includes(row.status));
       if (fullyResolved) await batchJobStore.setJobState(durableRecovery.selected_batch_id, "resolved");
       return { ok: true, status: sourceWrites > 0 ? "processed" : fullyResolved ? "committed" : "review", results: allResults, archive_receipts: archiveReceipts, write_counts: { canonical: canonicalWrites, audit: auditWrites, source: sourceWrites } };
