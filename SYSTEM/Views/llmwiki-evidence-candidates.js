@@ -45,6 +45,25 @@
     const maxBytes = Number.isSafeInteger(options.max_bytes) && options.max_bytes > 0 ? options.max_bytes : DEFAULT_MAX_BYTES;
     const result = [];
     let frontmatter = false;
+    const appendBody = (rawBody, rawStart) => {
+      let first = 0, last = rawBody.length;
+      while (first < last && /\s/u.test(rawBody[first])) first += 1;
+      while (last > first && /\s/u.test(rawBody[last - 1])) last -= 1;
+      const body = rawBody.slice(first, last);
+      const bodyStart = rawStart + first;
+      let cursor = 0;
+      while (cursor < body.length) {
+        let end = cursor, bytes = 0;
+        while (end < body.length) {
+          const code = body.charCodeAt(end); const paired = code >= 0xd800 && code <= 0xdbff && body.charCodeAt(end + 1) >= 0xdc00 && body.charCodeAt(end + 1) <= 0xdfff;
+          const width = paired ? 2 : 1; const cost = paired ? 4 : code <= 0x7f ? 1 : code <= 0x7ff ? 2 : 3;
+          if (bytes + cost > maxBytes) break; bytes += cost; end += width;
+        }
+        if (end <= cursor) break;
+        result.push(Object.freeze({ key: `evidence_${result.length + 1}`, text: body.slice(cursor, end), start: bodyStart + cursor, end: bodyStart + end }));
+        cursor = end;
+      }
+    };
     for (const match of source.matchAll(/[^\n]*(?:\n|$)/gu)) {
       const line = match[0].replace(/\n$/u, "").replace(/\r$/u, "");
       const lineStart = match.index;
@@ -58,18 +77,12 @@
       const body = list ? list[2] : line.trim();
       if (!body || (!list && /^\s*(?:[-+*]|\d+[.)])\s*$/u.test(line))) continue;
       const bodyStart = lineStart + line.indexOf(body);
-      let cursor = 0;
-      while (cursor < body.length) {
-        let end = cursor, bytes = 0;
-        while (end < body.length) {
-          const code = body.charCodeAt(end); const paired = code >= 0xd800 && code <= 0xdbff && body.charCodeAt(end + 1) >= 0xdc00 && body.charCodeAt(end + 1) <= 0xdfff;
-          const width = paired ? 2 : 1; const cost = paired ? 4 : code <= 0x7f ? 1 : code <= 0x7ff ? 2 : 3;
-          if (bytes + cost > maxBytes) break; bytes += cost; end += width;
-        }
-        if (end <= cursor) break;
-        result.push(Object.freeze({ key: `evidence_${result.length + 1}`, text: body.slice(cursor, end), start: bodyStart + cursor, end: bodyStart + end }));
-        cursor = end;
+      let segmentStart = 0;
+      for (const embed of body.matchAll(/!\[\[[^\]]+\]\]|!\[[^\]]*\]\([^)]+\)/gu)) {
+        appendBody(body.slice(segmentStart, embed.index), bodyStart + segmentStart);
+        segmentStart = embed.index + embed[0].length;
       }
+      appendBody(body.slice(segmentStart), bodyStart + segmentStart);
     }
     return Object.freeze(result);
   }

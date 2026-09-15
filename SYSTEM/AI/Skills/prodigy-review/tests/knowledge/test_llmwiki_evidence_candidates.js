@@ -30,6 +30,13 @@ test("semantic candidates ignore bare blockquotes and image-only embeds", () => 
   assert.deepEqual(candidates.createSemantic(source).map((row) => row.text), ["> 실제 인용문"]);
 });
 
+test("semantic candidates split inline image embeds while preserving exact text spans", () => {
+  const source = "# 이미지\n앞 문장![[one.png]]뒤 문장![설명](two.png)마지막 문장\n";
+  const rows = candidates.createSemantic(source);
+  assert.deepEqual(rows.map((row) => row.text), ["앞 문장", "뒤 문장", "마지막 문장"]);
+  assert.equal(rows.every((row) => source.slice(row.start, row.end) === row.text), true);
+});
+
 test("semantic projection rejects malformed structural input", () => {
   assert.deepEqual(candidates.createSemantic(""), []);
   assert.deepEqual(candidates.createSemantic("---\ntitle: ignored\n---\n# Heading\n-\n*\n9.\n\n"), []);
