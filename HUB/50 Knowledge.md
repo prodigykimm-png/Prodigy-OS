@@ -47,11 +47,21 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         inboxSettled: null,
         inboxDiscoveryQueue: null,
         inboxSubscribers: new Set(),
+        activeInboxRun: null,
+        inboxBatchToken: 0,
+        retrySequence: 0,
+        renderGeneration: 0,
         batchJobStore: null,
         batchCache: null,
         batchCoverage: null,
       };
   KnowledgeExplorerHub._llmWikiSession = llmWikiSession;
+  if (!Number.isSafeInteger(llmWikiSession.inboxBatchToken)) llmWikiSession.inboxBatchToken = 0;
+  if (!Number.isSafeInteger(llmWikiSession.retrySequence)) llmWikiSession.retrySequence = 0;
+  if (!Object.hasOwn(llmWikiSession, "activeInboxRun")) llmWikiSession.activeInboxRun = null;
+  const llmWikiRenderGeneration = (Number.isSafeInteger(llmWikiSession.renderGeneration)
+    ? llmWikiSession.renderGeneration : 0) + 1;
+  llmWikiSession.renderGeneration = llmWikiRenderGeneration;
   llmWikiSession.bindings.app = appRef;
   const losslessDataSource = window.LLMWikiLosslessDataSource && typeof appRef.vault?.adapter?.read === "function"
     ? window.LLMWikiLosslessDataSource.createDataSource({ vault: appRef.vault }) : null;
@@ -2932,20 +2942,25 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     // Task 11 cutover: the explicit user-triggered batch. One click is consent
     // for the frozen batch; duplicate clicks are typed no-ops; cancel makes any
     // late batch result a bounded no-op.
-    let inboxBatchToken = 0;
-    let retrySequence = 0;
-    let activeInboxRun = null;
     const runInboxBatch = ({ explicitRetry = false } = {}) => {
       if (!batchAnalyzer) return Promise.resolve({ ok: false, status: "blocked", reason: "provider_selection_unavailable" });
       const controllerStatus = llmWikiRunController.getSnapshot().status;
       if (explicitRetry && ["review", "committing", "committed"].includes(controllerStatus)) {
         return Promise.resolve({ ok: true, status: controllerStatus, reason: "review_already_ready", provider_calls: 0 });
       }
-      if (activeInboxRun && !explicitRetry) return activeInboxRun.promise;
-      const token = ++inboxBatchToken;
+      const activeInboxRun = llmWikiSession.activeInboxRun;
+      if (activeInboxRun) {
+        if (!explicitRetry) return activeInboxRun.promise;
+        if (activeInboxRun.retryPromise) return activeInboxRun.retryPromise;
+        activeInboxRun.retryPromise = activeInboxRun.promise
+          .catch(() => null)
+          .then(() => runInboxBatch({ explicitRetry: true }));
+        return activeInboxRun.retryPromise;
+      }
+      const token = ++llmWikiSession.inboxBatchToken;
       const activePromise = (async () => {
       const discovery = await adaptQueueDiscovery();
-      if (token !== inboxBatchToken) return { ok: false, status: "cancelled", reason: "run_superseded" };
+      if (token !== llmWikiSession.inboxBatchToken) return { ok: false, status: "cancelled", reason: "run_superseded" };
       const frozenBatch = await inboxDiscoveryQueue.freezeBatch();
       const pendingIds = new Set(discovery.pending.map((row) => row.source_id));
       const sources = explicitRetry ? frozenBatch.sources : frozenBatch.sources.filter((row) => pendingIds.has(row.source_id));
@@ -2957,8 +2972,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const runId = `run_inbox_${llmWikiHash.sha256(sources.map((row) => `${row.source_id}:${row.content_hash}`).sort().join(":")).slice(0, 24)}`;
       const now = new Date().toISOString();
       publishInbox({ ...baseCounts, state: "analyzing", processed: 0, succeeded: 0, failed: 0, current_title: "INBOX 배치 분석", current_path: sources[0].source_path, source_id: sources[0].source_id, reason: "", message: "", object_review_proposals: [] });
-      if (explicitRetry) retrySequence += 1;
-      const retryIntentId = explicitRetry ? `retry_${runId}_${retrySequence}` : null;
+      if (explicitRetry) llmWikiSession.retrySequence += 1;
+      const retryIntentId = explicitRetry ? `retry_${runId}_${llmWikiSession.retrySequence}` : null;
       let response;
       try {
         response = await llmWikiRunController.startRun({
@@ -2984,7 +2999,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           counters: { provider: 0 },
         };
       }
-      if (token !== inboxBatchToken) return { ok: false, status: "cancelled", reason: "run_superseded", late_result_ignored: true };
+      if (token !== llmWikiSession.inboxBatchToken) return { ok: false, status: "cancelled", reason: "run_superseded", late_result_ignored: true };
       if (!response || response.ok !== true) {
         const reason = response && response.reason || "batch_analysis_failed";
         const recoveryVariant = window.LLMWikiUIRecovery && typeof window.LLMWikiUIRecovery.recoveryVariantFor === "function"
@@ -3021,8 +3036,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         });
       }
       return { ok: true, status: state.state, provider_calls: response.counters ? response.counters.provider : 0, proposals: packets.length, run_id: runId, job_id: response.job_id || response.batch_id || null, batch_id: response.batch_id || null };
-      })().finally(() => { if (activeInboxRun && activeInboxRun.promise === activePromise) activeInboxRun = null; });
-      activeInboxRun = { promise: activePromise };
+      })().finally(() => {
+        if (llmWikiSession.activeInboxRun && llmWikiSession.activeInboxRun.promise === activePromise) {
+          llmWikiSession.activeInboxRun = null;
+        }
+      });
+      llmWikiSession.activeInboxRun = { promise: activePromise, retryPromise: null };
       return activePromise;
     };
     let questionReviewRunId = llmWikiRunController.getSnapshot().risk_packets?.find(packet => packet.run_id?.startsWith("question_"))?.run_id || "";
@@ -3144,7 +3163,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           && !["running", "consent_required"].includes(controllerStatus)) {
           return { ok: false, status: inboxState.state, reason: "inbox_scan_not_active" };
         }
-        inboxBatchToken += 1;
+        llmWikiSession.inboxBatchToken += 1;
         if (["running", "review", "consent_required", "committing"].includes(controllerStatus)) {
           try { await llmWikiRunController.cancel({ action: "cancel" }); } catch (_error) { /* bounded no-op on late settle */ }
         }
@@ -4129,6 +4148,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     KnowledgeExplorerHub.refreshFleetingReview = refreshFleetingSurface;
     KnowledgeExplorerHub.whenKnowledgeInboxSettled = () => inboxSettled;
     KnowledgeExplorerHub.llmWikiRunController = llmWikiRunController;
+    KnowledgeExplorerHub.llmWikiMountGeneration = llmWikiRenderGeneration;
+    KnowledgeExplorerHub.whenKnowledgeInboxRunSettled = () => {
+      const active = llmWikiSession.activeInboxRun;
+      return active ? active.promise.catch(() => null) : Promise.resolve({ ok: true, status: "idle" });
+    };
     KnowledgeExplorerHub.llmWikiLifecycle = llmWikiLifecycle;
     KnowledgeExplorerHub.dispatchLlmWikiAction = dispatchLifecycleAction;
     KnowledgeExplorerHub.scanExistingZetaMigration = scanExistingZetaMigration;

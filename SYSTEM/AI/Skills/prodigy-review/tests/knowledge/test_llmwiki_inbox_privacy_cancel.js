@@ -211,6 +211,16 @@ test("explicit retry requested immediately after cancel waits for the cancelled 
   await result.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
   const analyzing = result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
   await started;
+  const firstMountGeneration = result.window.KnowledgeExplorerHub.llmWikiMountGeneration;
+  await result.window.KnowledgeExplorerHub.render({
+    app: result.app,
+    dv: result.window.dv,
+    container: result.container,
+    obsidian: result.window.obsidian,
+    mountContext: { mountGeneration: 2, scope: { track: () => () => {}, dispose: () => true } },
+  });
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiMountGeneration, firstMountGeneration + 1);
+  assert.equal(typeof result.window.KnowledgeExplorerHub.whenKnowledgeInboxRunSettled, "function");
 
   const cancelled = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "cancel_inbox" });
   assert.equal(cancelled.status, "cancelled");
@@ -224,7 +234,8 @@ test("explicit retry requested immediately after cancel waits for the cancelled 
   assert.equal(calls, 3);
 });
 
-test("cancel remains available when a competing retry marks inbox blocked but controller is running", async () => {
+test("cancel remains available while an explicit retry waits for the active run to settle", async () => {
+  let calls = 0;
   let release;
   let markStarted;
   const started = new Promise((resolve) => { markStarted = resolve; });
@@ -237,6 +248,8 @@ test("cancel remains available when a competing retry marks inbox blocked but co
     llmWikiControllerOptions: {
       batchIdentity: BATCH_IDENTITY,
       batchProvider: async (input) => {
+        calls += 1;
+        if (calls > 1) return compactArtifacts(input);
         markStarted();
         return new Promise((resolve) => { release = () => resolve(compactArtifacts(input)); });
       },
@@ -246,9 +259,9 @@ test("cancel remains available when a competing retry marks inbox blocked but co
   const analyzing = result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "analyze_inbox" });
   await started;
 
-  const competing = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "retry_inbox" });
-  assert.equal(competing.reason, "run_in_progress");
-  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.state, "blocked");
+  const competing = result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "retry_inbox" });
+  assert.equal(calls, 1);
+  assert.equal(result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().inbox.state, "analyzing");
   assert.equal(result.window.KnowledgeExplorerHub.llmWikiRunController.getSnapshot().status, "running");
 
   const cancelled = await result.window.KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "cancel_inbox" });
@@ -256,6 +269,9 @@ test("cancel remains available when a competing retry marks inbox blocked but co
   assert.equal(cancelled.status, "cancelled");
   release();
   assert.equal((await analyzing).status, "cancelled");
+  const retried = await competing;
+  assert.equal(retried.ok, true, retried.reason);
+  assert.equal(calls, 3);
 });
 
 test("cancel when no inbox scan is active fails closed as a typed no-op", async () => {
