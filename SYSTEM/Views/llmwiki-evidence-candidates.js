@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "llmwiki_evidence_candidates_v6";
+  const VERSION = "llmwiki_evidence_candidates_v7";
   const DEFAULT_MAX_BYTES = 2048;
 
   function create(value, options = {}) {
@@ -76,7 +76,7 @@
       if (/^\s*(?:주요 내용 작성(?:\.{3}|…)|질문\s*\d+\?|오늘 배운 내용을 한 문장으로 요약해 보세요\.?)\s*$/u.test(line)) continue;
       if (/^\s{0,3}(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/u.test(line)) continue;
       if (/^\s*(?:`{3,}|~{3,})/u.test(line)) continue;
-      if (isTableSeparator(line) || /^\s*\|.*\|\s*$/u.test(line) && isTableSeparator(nextLine)) continue;
+      if (/^\s*\|+\s*$/u.test(line) || isTableSeparator(line) || /^\s*\|.*\|\s*$/u.test(line) && isTableSeparator(nextLine)) continue;
       if (/^\s*>+\s*$/u.test(line)
         || /^\s*>+\s*[-+*]\s*$/u.test(line)
         || /^\s*>+\s*\[![A-Z0-9_-]+\](?:\s*[+-])?(?:\s+.*)?$/iu.test(line)
