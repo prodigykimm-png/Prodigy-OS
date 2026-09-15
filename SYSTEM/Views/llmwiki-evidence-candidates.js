@@ -1,7 +1,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "llmwiki_evidence_candidates_v4";
+  const VERSION = "llmwiki_evidence_candidates_v5";
   const DEFAULT_MAX_BYTES = 2048;
 
   function create(value, options = {}) {
@@ -77,9 +77,11 @@
       if (/^\s*(?:`{3,}|~{3,})/u.test(line)) continue;
       if (isTableSeparator(line) || /^\s*\|.*\|\s*$/u.test(line) && isTableSeparator(nextLine)) continue;
       if (/^\s*>+\s*$/u.test(line)
+        || /^\s*>+\s*[-+*]\s*$/u.test(line)
         || /^\s*>+\s*\[![A-Z0-9_-]+\](?:\s*[+-])?(?:\s+.*)?$/iu.test(line)
         || /^\s*>*\s*!\[\[[^\]]+\]\]\s*$/u.test(line)
         || /^\s*>*\s*!\[[^\]]*\]\([^)]+\)\s*$/u.test(line)) continue;
+      if (/^\s*(?:>+\s*)?\*\*[^*]{1,80}:\*\*\s*$/u.test(line)) continue;
       const list = line.match(/^(\s*)(?:[-+*]|\d+[.)])\s+(.*)$/u);
       const body = list ? list[2] : line.trim();
       if (!body || (!list && /^\s*(?:[-+*]|\d+[.)])\s*$/u.test(line))) continue;
