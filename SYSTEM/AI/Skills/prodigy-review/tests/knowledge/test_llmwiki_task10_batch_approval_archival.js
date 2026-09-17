@@ -80,6 +80,75 @@ function matrixOf(group, options = {}) {
   return matrix.value;
 }
 
+// Current-contract three-proposal group: the update travels the compiled
+// topic_article path with an explicit page_id against an owned managed
+// region (final_sequential_flow precedent). An unmanaged candidate holds
+// instead of claiming update ownership, so the compact threeProposalArtifacts
+// path can no longer mint the update these approval/archival tests need.
+const UPDATE_PAGE_ID = "page_task10_existing_update";
+function managedBefore() {
+  return `# Existing\n\n<!-- llmwiki-managed:start ${UPDATE_PAGE_ID} -->\n- old claim\n<!-- llmwiki-managed:end ${UPDATE_PAGE_ID} -->\n`;
+}
+function managedRelatedRow() {
+  return candidateRow("cand_existing", "ZETA/CANDIDATES/existing.md", managedBefore());
+}
+function compiledThreeDocuments() {
+  return [
+    {
+      role: "source_summary",
+      document_kind: "source_guide",
+      title: "task10 자료 안내",
+      body: "# task10 자료 안내\n\n## 주제별 내용\n\n### 전체 개요\n\n- Source argues deterministic intake\n",
+      claims: [{ text: "Source argues deterministic intake" }],
+      citations: [],
+      review_reasons: [],
+      matched_candidate_ids: [],
+    },
+    {
+      role: "reusable_claim",
+      document_kind: "topic_article",
+      page_id: "page_task10_create_standalone",
+      title: "결정적 섭취 원칙",
+      body: "# 결정적 섭취 원칙\n\n## 핵심 내용\n\n- A reusable deterministic claim\n",
+      claims: [{ text: "A reusable deterministic claim" }],
+      citations: [],
+      review_reasons: [],
+      matched_candidate_ids: [],
+    },
+    {
+      role: "reusable_claim",
+      document_kind: "topic_article",
+      page_id: UPDATE_PAGE_ID,
+      title: "기존 주제",
+      body: "# 기존 주제\n\n## 핵심 내용\n\n- An updated deterministic claim\n",
+      claims: [{ text: "An updated deterministic claim" }],
+      citations: [],
+      review_reasons: [],
+      matched_candidate_ids: ["cand_existing"],
+    },
+  ];
+}
+function materializeThree() {
+  const m = materializerApi.createInboxProposalMaterializer({
+    allowedCandidateIds: ["cand_existing"],
+    relatedCandidates: [managedRelatedRow()],
+    localObjectRoutes: [],
+  });
+  const result = m.materializeDocuments({ source: sourceFor(), sources: [sourceFor()], documents: compiledThreeDocuments() });
+  assert.equal(result.ok, true, result && result.reason);
+  return result;
+}
+function threeProposalGroup() {
+  const grouped = batchApi.groupProposalsBySource({ source: sourceFor(), materializeResult: materializeThree() });
+  assert.equal(grouped.ok, true, grouped && grouped.reason);
+  return grouped.value;
+}
+function threeProposalMatrix(group) {
+  const matrix = batchApi.preselectionMatrix(group || threeProposalGroup(), { allowedCandidateIds: ["cand_existing"], relatedCandidates: [managedRelatedRow()] });
+  assert.equal(matrix.ok, true, matrix && matrix.reason);
+  return matrix.value;
+}
+
 // ---------------------------------------------------------------------------
 // In-memory exact-write vault with fault injection for both modules.
 // ---------------------------------------------------------------------------
@@ -136,7 +205,7 @@ const AUDIT_PREFIX = ".llmwiki-audit/";
 
 test("grouping: Task9 proposals group by source with holds and drafts carried", () => {
   loadTargets();
-  const result = materialize(threeProposalArtifacts());
+  const result = materializeThree();
   const holds = [...result.holds, { hold_id: "hold_x", reason: "weak_provenance_hold", unit_id: "u", selected: false }];
   const group = batchApi.groupProposalsBySource({
     source: sourceFor(),
@@ -150,7 +219,7 @@ test("grouping: Task9 proposals group by source with holds and drafts carried", 
 
 test("selection matrix: only safe creates preselected; updates/merges/conflicts unselected", () => {
   loadTargets();
-  const matrix = matrixOf(groupOf(threeProposalArtifacts()));
+  const matrix = threeProposalMatrix();
   const selected = matrix.operations.filter((op) => op.selected === true);
   const unselected = matrix.operations.filter((op) => op.selected !== true);
   assert.equal(selected.length, 2);
@@ -266,10 +335,10 @@ test("ORIGINAL-authorized: approve two of three -> two canonical writes once thr
 
 test("explicitly selected risky update flows through retained risk commit, not the custom writer", async () => {
   loadTargets();
-  const group = groupOf(threeProposalArtifacts());
-  const matrix = matrixOf(group);
+  const group = threeProposalGroup();
+  const matrix = threeProposalMatrix(group);
   const updateOp = matrix.operations.find((op) => !op.selected);
-  const vault = memoryVault({ "ZETA/CANDIDATES/existing.md": "# Existing\n\n- old claim\n" });
+  const vault = memoryVault({ "ZETA/CANDIDATES/existing.md": managedBefore() });
 
   const approved = batchApi.authorizeBatch(matrix, {
     selected_operation_ids: matrix.operations.map((op) => op.operation_id),
@@ -328,8 +397,8 @@ test("TAMPERED-group: mutated after-bytes are rejected before zero writes", asyn
 
 test("one stale operation does not block unrelated approved operations and stays reviewable", async () => {
   loadTargets();
-  const group = groupOf(threeProposalArtifacts());
-  const matrix = matrixOf(group);
+  const group = threeProposalGroup();
+  const matrix = threeProposalMatrix(group);
   const updateOp = matrix.operations.find((op) => !op.selected);
   const drifted = "# Drifted by another writer\n";
   const vault = memoryVault({ "ZETA/CANDIDATES/existing.md": drifted });
@@ -383,10 +452,10 @@ test("all-no-change, full-defer and partial unresolved sources never archive", a
   assert.equal(noopGroup.proposals.length, 0);
   assert.equal(batchApi.archivalEligibility({ group: noopGroup, applyResult: null }).eligible, false);
 
-  const deferGroup = groupOf(threeProposalArtifacts());
+  const deferGroup = threeProposalGroup();
   assert.equal(batchApi.archivalEligibility({ group: deferGroup, applyResult: null }).eligible, false);
 
-  const matrix = matrixOf(deferGroup);
+  const matrix = threeProposalMatrix(deferGroup);
   const vault = memoryVault({ "ZETA/CANDIDATES/existing.md": "# Drifted\n" });
   const approval = batchApi.authorizeBatch(matrix, {
     selected_operation_ids: matrix.operations.map((op) => op.operation_id),
@@ -545,10 +614,10 @@ test("existing Processed destination fails closed", async () => {
 
 test("full resolution then exact byte-identical move touching only expected paths", async () => {
   loadTargets();
-  const group = groupOf(threeProposalArtifacts());
-  const matrix = matrixOf(group);
+  const group = threeProposalGroup();
+  const matrix = threeProposalMatrix(group);
   const vault = memoryVault({
-    "ZETA/CANDIDATES/existing.md": "# Existing\n\n- old claim\n",
+    "ZETA/CANDIDATES/existing.md": managedBefore(),
     "INBOX/Knowledge/task10.md": SOURCE_BYTES,
   });
   const all = batchApi.authorizeBatch(matrix, {
