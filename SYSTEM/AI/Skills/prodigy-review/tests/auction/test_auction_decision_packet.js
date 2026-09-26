@@ -303,56 +303,6 @@ async function main() {
   global.window.renderAuctionCard(activeAuction("archived"), archivedPriceRoot, { decisionPacketContext: context });
   assert.match(textContent(archivedPriceRoot), />127,000,000원<\/strong>/, "archived cards show the exact winning price");
 
-  // 가격 비교 행: 기록된 숫자만 읽는 중립적 한 줄. pair의 자식이 아니라 finance-group의 형제다.
-  const comparisonLine = (root) => findAll(root, (node) => node.attr.class === "auction-card-price-comparison")[0] || null;
-  const wonComparisonRoot = fakeElement("div");
-  global.window.renderAuctionCard(activeAuction("won"), wonComparisonRoot, { decisionPacketContext: context });
-  const wonComparison = comparisonLine(wonComparisonRoot);
-  assert.ok(wonComparison, "a won card with a recorded bid renders one comparison line");
-  assert.match(textContent(wonComparison), /내 입찰가 대비 낙찰가 \+4,000,000원 \(\+3\.3%\)/, "the comparison states the exact-Won difference and percentage");
-  const wonGroup = findAll(wonComparisonRoot, (node) => String(node.attr.class || "").split(/\s+/).includes("auction-card-finance-group-price"))[0];
-  assert.ok(wonGroup, "the price finance group exists");
-  assert.ok(
-    wonComparison.parentNode === wonGroup && wonGroup !== findAll(wonComparisonRoot, (n) => n.attr.class === "auction-card-price-pair")[0],
-    "the comparison is a sibling of the price pair, not a child of it"
-  );
-  assert.equal(findAll(wonComparison, (node) => node.tag === "button").length, 0, "the comparison line adds no control");
-  assert.equal(wonComparison.attr["data-auction-edit"], undefined, "the comparison line is not an edit target");
-  assert.equal(wonComparison.attr["data-action"], undefined, "the comparison line triggers no action");
-  assert.doesNotMatch(textContent(wonComparison), /추천|입찰하세요|성공률|확률|예상 수익/, "the comparison stays non-prescriptive");
-
-  const expectedFallbackRoot = fakeElement("div");
-  const expectedFallbackCase = activeAuction("skipped");
-  delete expectedFallbackCase.my_bid_price;
-  global.window.renderAuctionCard(expectedFallbackCase, expectedFallbackRoot, { decisionPacketContext: context });
-  assert.match(textContent(comparisonLine(expectedFallbackRoot) || fakeElement("div")), /입찰 예정가 대비 낙찰가 \+7,000,000원/, "a skipped card without a recorded bid falls back to the expected price");
-
-  ["watching", "bidding"].forEach((status) => {
-    const liveComparisonRoot = fakeElement("div");
-    global.window.renderAuctionCard(liveAuction(status), liveComparisonRoot, { decisionPacketContext: context });
-    assert.equal(comparisonLine(liveComparisonRoot), null, `an open ${status} card has no result and so renders no comparison`);
-  });
-
-  [
-    ["a zero baseline", { my_bid_price: 0, expected_bid: 0 }],
-    ["a negative baseline", { my_bid_price: -5, expected_bid: -5 }],
-    ["an unknown-text baseline", { my_bid_price: "정보 없음", expected_bid: "정보 없음" }],
-    ["a unit-suffixed baseline", { my_bid_price: "1.2억", expected_bid: "1.2억" }],
-  ].forEach(([label, override]) => {
-    const malformedRoot = fakeElement("div");
-    const malformedCase = Object.assign(activeAuction("won"), override);
-    global.window.renderAuctionCard(malformedCase, malformedRoot, { decisionPacketContext: context });
-    assert.equal(comparisonLine(malformedRoot), null, `${label} renders no comparison`);
-    assert.doesNotMatch(textContent(malformedRoot), /NaN|Infinity/, `${label} never leaks a non-finite number`);
-  });
-
-  // 실제 카드(2024타경61720)는 쉼표가 들어온 입찰가를 쓴다. 가격이 보이는데 비교만
-  // 사라지면 카드 스스로 모순되므로 projection과 같은 규칙으로 읽어야 한다.
-  const commaRoot = fakeElement("div");
-  const commaCase = Object.assign(activeAuction("lost"), { my_bid_price: "121,000,000", expected_bid: "121,000,000", winning_bid_price: 141500000 });
-  global.window.renderAuctionCard(commaCase, commaRoot, { decisionPacketContext: context });
-  assert.match(textContent(comparisonLine(commaRoot) || fakeElement("div")), /내 입찰가 대비 낙찰가 \+20,500,000원 \(\+16\.9%\)/, "a comma-formatted bid still renders its comparison");
-
   // watching/bidding have two price projections and the live one is what a user
   // reads while the case is still open. priceLabelsByStatus above only reaches
   // the closed branch because its fixture always has winning_bid_price, so the

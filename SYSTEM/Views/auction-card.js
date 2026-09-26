@@ -1254,28 +1254,6 @@ window.renderAuctionCard = function(p, container, options) {
       new Notice("입찰가가 업데이트되었습니다.");
     });
 
-    // 가격 쌍 바로 아래에 한 줄의 중립적인 비교를 놓는다.
-    // pair의 자식이 아니라 finance-group 안의 형제 요소다: 이 컨테이너는 compact/medium/wide
-    // 모두 display:grid + minmax(0,1fr)(auction-card.js:400-407)라 새 행을 얻고, 모바일에서
-    // pair가 inline-flex 행으로 고정되는 규칙(:212-215)도 그대로 유지된다.
-    // 기록된 숫자 사실만 읽으며 예측·추천·좋고 나쁨 판단을 하지 않는다.
-    const priceComparison = priceProjection.comparison;
-    if (priceComparison) {
-      const difference = priceComparison.difference_won;
-      const sign = difference > 0 ? "+" : (difference < 0 ? "−" : "");
-      const absoluteWon = Math.abs(difference);
-      // toWon(0)은 "-"를 돌려주므로 0은 직접 표기한다. 포맷 규칙은 기존 toWon을 그대로 쓴다.
-      const amountText = absoluteWon === 0 ? "0원" : toWon(absoluteWon);
-      const percentText = `${sign}${Math.abs(priceComparison.difference_percent).toFixed(1)}%`;
-      priceGroup.createEl('div', {
-        text: `${priceComparison.basis_label} 대비 낙찰가 ${sign}${amountText} (${percentText})`,
-        attr: {
-          class: 'auction-card-price-comparison',
-          style: 'font-size: 0.78em; color: var(--text-muted); line-height: 1.3;'
-        }
-      });
-    }
-
     // 법정동 키값: 전용면적으로 환산한 총액을 가격쌍 바로 아래에 표시한다.
     if (window.AuctionKeyValueProjection) {
       try {
