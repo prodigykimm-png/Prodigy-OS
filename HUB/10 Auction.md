@@ -479,23 +479,55 @@ const initializeAuctionWorkspace = async () => {
         attr: { class: `auction-hub-section ${section.className}` }
       });
       auctionNativeSceneController.register(section.status, host);
-      const logicalWidth = host.clientWidth > 0
-        ? host.clientWidth
-        : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.contentMax;
-      const rendered = window.renderDashboardSection({
-        dv: primaryDataview,
-        status: section.status,
-        type: "auction_case",
-        container: host,
-        renderer: (page, target) => window.renderAuctionCard(page, target, {
-          decisionPacketContext: window.AuctionDecisionPacketDashboardContext,
-          logicalWidth
-        }),
-        emptyMessage: section.emptyMessage,
-        sortField: "auction_datetime",
-        sortOrder: "asc"
-      });
-      if (!rendered) throw new Error(`${section.status} 기본 목록을 렌더하지 못했습니다.`);
+      // 첫 페인트 시점에는 셸 레이아웃이 아직 잡히지 않아 clientWidth가 작게 나올 수 있다.
+      // 그 값이 티어를 결정하므로, 티어가 실제로 달라질 때만 다시 그린다. (재그리기는
+      // renderDashboardSection의 기존 경로이며 container.empty()로 시작한다.)
+      const renderAtCurrentWidth = () => {
+        const logicalWidth = host.clientWidth > 0
+          ? host.clientWidth
+          : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.contentMax;
+        const rendered = window.renderDashboardSection({
+          dv: primaryDataview,
+          status: section.status,
+          type: "auction_case",
+          container: host,
+          renderer: (page, target) => window.renderAuctionCard(page, target, {
+            decisionPacketContext: window.AuctionDecisionPacketDashboardContext,
+            logicalWidth
+          }),
+          emptyMessage: section.emptyMessage,
+          sortField: "auction_datetime",
+          sortOrder: "asc"
+        });
+        if (!rendered) throw new Error(`${section.status} 기본 목록을 렌더하지 못했습니다.`);
+        return logicalWidth;
+      };
+      const tierOfWidth = (width) => {
+        const model = window.AuctionCardViewModel;
+        if (!model || typeof model.presentation !== "function") return String(width);
+        try { return String(model.presentation(width, section.status).tier); }
+        catch (_error) { return String(width); }
+      };
+      let currentTier = tierOfWidth(renderAtCurrentWidth());
+      // 창을 넓히거나 좁힐 때 카드가 잘못된 티어로 남던 문제. 티어가 바뀔 때만 한 번 더 그린다.
+      const ownerView = host.ownerDocument ? host.ownerDocument.defaultView : window;
+      if (ownerView && typeof ownerView.ResizeObserver === "function") {
+        const widthObserver = new ownerView.ResizeObserver(() => {
+          if (host.isConnected === false) return;
+          const width = host.clientWidth;
+          if (!(width > 0)) return;
+          const tier = tierOfWidth(width);
+          if (tier === currentTier) return;
+          currentTier = tier;
+          renderAtCurrentWidth();
+        });
+        try {
+          widthObserver.observe(host);
+          if (mountContext.scope && typeof mountContext.scope.track === "function") {
+            mountContext.scope.track(() => widthObserver.disconnect());
+          }
+        } catch (_observerError) { /* 관찰 불가 환경은 첫 렌더 결과를 그대로 유지한다. */ }
+      }
       primarySections[section.status] = host;
       window.ProdigyAuctionNavigationFocus?.markSection(section.status);
     });
