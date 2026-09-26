@@ -115,7 +115,11 @@ function configureViewRuntime() {
 }
 
 function loadViewScripts() {
-  ["auction-card-price-projection.js", "auction-court-status.js", "auction-card.js", "auction-day-core.js", "auction-day-view.js"].forEach((name) => {
+  // auction-card-mutation.js must load before auction-card.js: renderAuctionCard
+  // throws `auction-mutation-missing` when window.AuctionCardMutation is absent,
+  // which aborts every card render in this suite. The workspace manifest
+  // (prodigy-workspace-manifest.js) loads it for the same reason.
+  ["auction-card-mutation.js", "auction-card-price-projection.js", "auction-court-status.js", "auction-card.js", "auction-day-core.js", "auction-day-view.js"].forEach((name) => {
     const file = path.join(ROOT, "SYSTEM/Views", name);
     delete require.cache[require.resolve(file)];
     require(file);
@@ -151,10 +155,11 @@ function activeAuction(status) {
 
 // activeAuction() carries winning_bid_price for every status, so any
 // watching/bidding fixture built from it lands on the closed-auction branch of
-// auction-card-price-projection.js (최저가 + 낙찰가). liveAuction() omits the key
-// entirely — hasValue() there treats a missing key as absent — so the live
-// branch a user still deciding on a case actually sees (최저가 + 입찰 예정가)
-// stays covered too.
+// auction-card-price-projection.js. Since ec6a219 ("관심 카드 차익 기준을
+// 입찰예정가로 고정") that branch prefers expected_bid over minimum_bid, so the
+// closed pair is 입찰 예정가 + 낙찰가. liveAuction() omits the key entirely —
+// hasValue() there treats a missing key as absent — so the live branch a user
+// still deciding on a case actually sees (최저가 + 입찰 예정가) stays covered too.
 function liveAuction(status) {
   const record = activeAuction(status);
   delete record.winning_bid_price;
@@ -263,16 +268,20 @@ async function main() {
     const casePage = activeAuction(status);
     global.window.renderAuctionCard(casePage, root, { decisionPacketContext: context });
     assert.match(textContent(root), /부산광역시 금정구 부곡동/, `${status} cards show the full region path`);
-    assert.match(textContent(root), /최저가/);
+    // activeAuction() is a closed-auction fixture, so the pair is 입찰 예정가 + 낙찰가.
+    assert.match(textContent(root), /입찰 예정가/);
     assert.match(textContent(root), /낙찰가/);
     button(root, "판단 보드");
     assert.doesNotMatch(textContent(root), /결정 패킷|지역 정보/);
     assert.ok(findAll(root, (node) => node.tag === "button" && /낙찰|입찰 예정/.test(node.text || node.textContent)).length > 0, "existing lifecycle action remains");
   });
 
+  // Every entry below is the CLOSED-auction pair, because activeAuction() always
+  // carries winning_bid_price. The live (최저가 + 입찰 예정가) pair is asserted
+  // separately below with liveAuction().
   const priceLabelsByStatus = {
-    watching: ["최저가", "낙찰가"],
-    bidding: ["최저가", "낙찰가"],
+    watching: ["입찰 예정가", "낙찰가"],
+    bidding: ["입찰 예정가", "낙찰가"],
     won: ["내 입찰가", "낙찰가"],
     lost: ["내 입찰가", "낙찰가"],
     skipped: ["입찰 예정가", "낙찰가"],
