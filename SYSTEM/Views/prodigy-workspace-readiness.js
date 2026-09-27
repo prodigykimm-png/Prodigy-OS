@@ -16,6 +16,7 @@
     ACTION_MISMATCH: "ACTION_MISMATCH",
     ACTION_AMBIGUOUS: "ACTION_AMBIGUOUS",
     INVALID_SELECTOR: "INVALID_SELECTOR",
+    INVALID_MILESTONE: "INVALID_MILESTONE",
     INVALID_STATE: "INVALID_STATE"
   });
 
@@ -94,6 +95,37 @@
     "workout.health-import": "workout.import",
     "health": "workout.health",
     "import": "workout.import"
+  });
+
+  var MILESTONES = Object.freeze([
+    "first_useful_paint",
+    "first_actionable_control",
+    "data_scan",
+    "projection",
+    "dom_render",
+    "review_resume",
+    "provider_wait",
+    "recovery_complete"
+  ]);
+
+  var MILESTONE_PREDICATE_VERSION = "readiness.milestone.v1";
+
+  /*
+   * Milestone contract: which milestones additionally require proof of an
+   * exact enabled control. Only first_actionable_control names a control;
+   * every other milestone is satisfied by a complete observation alone.
+   * No duration budget or SLA lives here: readiness reports occurrence
+   * states, never performance targets.
+   */
+  var MILESTONE_CONTRACT = Object.freeze({
+    first_useful_paint: Object.freeze({ milestone: "first_useful_paint", requiresAction: false }),
+    first_actionable_control: Object.freeze({ milestone: "first_actionable_control", requiresAction: true }),
+    data_scan: Object.freeze({ milestone: "data_scan", requiresAction: false }),
+    projection: Object.freeze({ milestone: "projection", requiresAction: false }),
+    dom_render: Object.freeze({ milestone: "dom_render", requiresAction: false }),
+    review_resume: Object.freeze({ milestone: "review_resume", requiresAction: false }),
+    provider_wait: Object.freeze({ milestone: "provider_wait", requiresAction: false }),
+    recovery_complete: Object.freeze({ milestone: "recovery_complete", requiresAction: false })
   });
 
   function own(object, key) {
@@ -404,6 +436,113 @@
     });
   }
 
+  function isMilestone(value) {
+    return typeof value === "string" && own(MILESTONE_CONTRACT, value.trim().toLowerCase());
+  }
+
+  function milestoneAction(evidence) {
+    var sources = ["enabledAction", "enabled_action", "exactAction", "exact_action", "action", "primaryAction", "primary_action"];
+    for (var i = 0; i < sources.length; i++) {
+      if (own(evidence, sources[i])) return normalizeActionCandidate(evidence[sources[i]], sources[i]);
+    }
+    return { kind: "missing" };
+  }
+
+  function milestoneResult(key, state, reasonCode, extra) {
+    var reasons = reasonCode === REASON_CODES.READY ? [] : [reasonCode];
+    var result = {
+      schemaVersion: SCHEMA_VERSION,
+      contractVersion: CONTRACT_VERSION,
+      predicateVersion: MILESTONE_PREDICATE_VERSION,
+      milestone: key,
+      ready: reasonCode === REASON_CODES.READY,
+      available: reasonCode === REASON_CODES.READY,
+      state: state,
+      reasonCode: reasonCode,
+      reasonCodes: reasons,
+      reasons: reasons.slice()
+    };
+    if (extra) Object.keys(extra).forEach(function (field) { result[field] = extra[field]; });
+    return Object.freeze(result);
+  }
+
+  /*
+   * Milestone readiness never reports ready from a timer, an elapsed
+   * duration, or a truthy loading flag: evidence must carry the observed
+   * milestone state with its start and end marks, and
+   * first_actionable_control additionally requires an exact enabled
+   * control. A failed observation stays failed: it maps to UNAVAILABLE,
+   * never READY. Missing or malformed input yields an explicit UNAVAILABLE
+   * state, never a fake ready and never a silent pass.
+   */
+  function evaluateMilestoneReadiness(milestone, evidence, options) {
+    var key = typeof milestone === "string" ? milestone.trim().toLowerCase() : "";
+    var label = String(milestone === undefined || milestone === null ? "" : milestone);
+    if (!own(MILESTONE_CONTRACT, key)) {
+      return milestoneResult(label, "unknown", REASON_CODES.INVALID_MILESTONE);
+    }
+    var spec = MILESTONE_CONTRACT[key];
+    var opts = options && typeof options === "object" ? options : {};
+    if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
+      return milestoneResult(key, "unavailable", REASON_CODES.UNAVAILABLE);
+    }
+    var state = typeof evidence.state === "string" ? evidence.state.trim().toLowerCase() : "";
+    if (!state) {
+      return milestoneResult(key, "unavailable", REASON_CODES.UNAVAILABLE);
+    }
+    if (state === "failed") return milestoneResult(key, state, REASON_CODES.UNAVAILABLE);
+    if (state === "complete") {
+      if (!evidence.start || typeof evidence.start !== "object" || !evidence.end || typeof evidence.end !== "object") {
+        return milestoneResult(key, state, REASON_CODES.UNAVAILABLE);
+      }
+      if (!spec.requiresAction) return milestoneResult(key, state, REASON_CODES.READY);
+      var candidate = milestoneAction(evidence);
+      var expected = opts.expectedAction === undefined ? "" : String(opts.expectedAction);
+      var action = { expected: expected, actual: "", enabled: false, exact: false };
+      if (candidate.kind === "missing" || !candidate.id) {
+        return milestoneResult(key, state, REASON_CODES.ACTION_UNAVAILABLE, { action: action });
+      }
+      action.actual = candidate.id;
+      action.enabled = !!candidate.enabled;
+      if (!candidate.enabled) {
+        return milestoneResult(key, state, REASON_CODES.ACTION_DISABLED, { action: action });
+      }
+      if (expected && candidate.id !== expected) {
+        return milestoneResult(key, state, REASON_CODES.ACTION_MISMATCH, { action: action });
+      }
+      action.exact = true;
+      if (!expected) action.expected = candidate.id;
+      return milestoneResult(key, state, REASON_CODES.READY, { action: action });
+    }
+    if (state === "started") return milestoneResult(key, state, REASON_CODES.STATE_NOT_SETTLED);
+    if (state === "missing" || state === "unavailable") return milestoneResult(key, state, REASON_CODES.UNAVAILABLE);
+    if (state === "invalid") return milestoneResult(key, state, REASON_CODES.INVALID_STATE);
+    return milestoneResult(key, state, REASON_CODES.UNAVAILABLE);
+  }
+
+  function summarizeMilestones(source, options) {
+    var input = source && typeof source === "object" && !Array.isArray(source) ? source : {};
+    var opts = options && typeof options === "object" ? options : {};
+    var results = {};
+    MILESTONES.forEach(function (name) {
+      results[name] = evaluateMilestoneReadiness(name, input[name], opts);
+    });
+    var ready = [];
+    var blocked = [];
+    Object.keys(results).forEach(function (name) {
+      if (results[name].ready) ready.push(name);
+      else blocked.push(name);
+    });
+    return Object.freeze({
+      schemaVersion: SCHEMA_VERSION,
+      contractVersion: CONTRACT_VERSION,
+      predicateVersion: MILESTONE_PREDICATE_VERSION,
+      results: results,
+      readyMilestones: Object.freeze(ready),
+      blockedMilestones: Object.freeze(blocked)
+    });
+  }
+
   function createPredicate(selector, options) {
     var key = normalizeSelector(selector);
     var opts = options && typeof options === "object" ? Object.assign({}, options) : {};
@@ -456,6 +595,13 @@
     readinessPredicate: createPredicate,
     createReadinessPredicate: createPredicate,
     summarize: summarize,
+    MILESTONES: MILESTONES,
+    MILESTONE_CONTRACT: MILESTONE_CONTRACT,
+    MILESTONE_PREDICATE_VERSION: MILESTONE_PREDICATE_VERSION,
+    isMilestone: isMilestone,
+    evaluateMilestoneReadiness: evaluateMilestoneReadiness,
+    evaluateMilestone: evaluateMilestoneReadiness,
+    summarizeMilestones: summarizeMilestones,
     buildReadinessReceipt: summarize,
     readinessReceipt: summarize,
     createPredicate: createPredicate,

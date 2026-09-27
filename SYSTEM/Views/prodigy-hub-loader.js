@@ -183,6 +183,26 @@
     return Object.freeze({ path: path || "<invalid>", summary: (path || "<invalid>") + ": " + (messages[code] || messages.load_failed), code: code || "load_failed", generation: generation });
   }
 
+  function measurementSessionForMilestones() {
+    var entry = root && root.__prodigyMeasurementEntry;
+    var session = entry && entry.session;
+    if (!session || session.available === false) return null;
+    if (typeof session.startMilestone !== "function" || typeof session.endMilestone !== "function") return null;
+    return session;
+  }
+
+  function endMilestoneBestEffort(session, token, fields) {
+    if (!session || !token) return null;
+    try { return session.endMilestone(token, fields); } catch (_) { return null; }
+  }
+
+  function containerHadRecovery(container) {
+    try {
+      if (container && typeof container.querySelector === "function" && container.querySelector(".prodigy-required-recovery")) return true;
+    } catch (_) { /* best-effort signal only; never break the mount */ }
+    return false;
+  }
+
   function evaluateConfig(app, options) {
     var config = options && typeof options === "object" ? options : {};
     var host = config.host || "dataviewjs";
@@ -532,17 +552,48 @@
         return result;
       })
     });
+    var hadRecovery = containerHadRecovery(container);
+    var milestoneSession = measurementSessionForMilestones();
+    /*
+     * first_useful_paint ends when the renderer settles (renderer returned,
+     * optional modules and initial render tasks done, mount not aborted).
+     * That is renderer settlement, not compositor paint, so the end status
+     * says render_settled: the name must not overclaim what was measured.
+     * Failed or aborted endings keep their status and surface as failed
+     * downstream; they are never rewritten into success here.
+     */
+    var paintToken = null;
+    if (milestoneSession) {
+      try { paintToken = milestoneSession.startMilestone("first_useful_paint", { status: "rendering" }); } catch (_) { paintToken = null; }
+    }
     var rendered;
     try {
       rendered = await renderer(context);
     } catch (error) {
+      endMilestoneBestEffort(milestoneSession, paintToken, { status: "failed" });
       scope.dispose();
       throw error;
     }
     registrationSealed = true;
-    var optionalResult = await optionalPromise;
-    await Promise.all(optionalTasks.concat(initialRenderTasks));
-    if (scope.signal.aborted) return Object.freeze({ aborted: true, scope: scope });
+    var optionalResult = null;
+    try {
+      optionalResult = await optionalPromise;
+      await Promise.all(optionalTasks.concat(initialRenderTasks));
+    } catch (error) {
+      endMilestoneBestEffort(milestoneSession, paintToken, { status: "failed" });
+      throw error;
+    }
+    if (scope.signal.aborted) {
+      endMilestoneBestEffort(milestoneSession, paintToken, { status: "aborted" });
+      return Object.freeze({ aborted: true, scope: scope });
+    }
+    endMilestoneBestEffort(milestoneSession, paintToken, { status: "render_settled" });
+    if (hadRecovery && milestoneSession) {
+      try {
+        var recoveryToken = milestoneSession.startMilestone("recovery_complete", { status: "recovering" });
+        endMilestoneBestEffort(milestoneSession, recoveryToken, { status: "recovered" });
+      } catch (_) { /* best-effort signal only; the mount already succeeded */ }
+    }
     var cleanup = cleanupFor(rendered);
     if (cleanup) scope.track(cleanup);
     var mounted = Object.freeze({ manifest: manifest, scope: scope, signal: scope.signal, optional_ready: optionalPromise, onOptionalReady: context.onOptionalReady, dispose: scope.dispose, rendered: rendered, sourcePath: sourcePath, hostGeneration: generation, mountGeneration: mountGeneration });

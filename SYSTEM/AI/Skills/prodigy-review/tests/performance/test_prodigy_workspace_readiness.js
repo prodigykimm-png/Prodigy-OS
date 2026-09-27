@@ -142,6 +142,123 @@ function testAllSelectorsAndObservableReader() {
   assert.equal(observer.readSelector("home").reasonCode, "SYNC_PENDING");
 }
 
+function testMilestoneContractListsRealUseVocabulary() {
+  assert.deepEqual(readiness.MILESTONES, [
+    "first_useful_paint",
+    "first_actionable_control",
+    "data_scan",
+    "projection",
+    "dom_render",
+    "review_resume",
+    "provider_wait",
+    "recovery_complete"
+  ]);
+  assert.equal(readiness.isMilestone("dom_render"), true);
+  assert.equal(readiness.isMilestone("time_to_interactive"), false);
+  const unknown = readiness.evaluateMilestone("fast_enough", { state: "complete" });
+  assert.equal(unknown.ready, false);
+  assert.equal(unknown.available, false);
+  assert.equal(unknown.reasonCode, "INVALID_MILESTONE");
+}
+
+function observedMarks() {
+  return {
+    start: { phase: "optional_start", scope: "probe", at_ms: 1 },
+    end: { phase: "optional_end", scope: "probe", at_ms: 2, duration_ms: 1 }
+  };
+}
+
+function testMilestoneFailedStateIsNotReady() {
+  for (const name of readiness.MILESTONES) {
+    const failed = readiness.evaluateMilestone(name, Object.assign({ state: "failed" }, observedMarks()));
+    assert.equal(failed.ready, false, name);
+    assert.equal(failed.available, false, name);
+    assert.notEqual(failed.reasonCode, "READY", name);
+  }
+  const failedControl = readiness.evaluateMilestone(
+    "first_actionable_control",
+    Object.assign({ state: "failed", enabledAction: "home.open" }, observedMarks())
+  );
+  assert.equal(failedControl.ready, false);
+  assert.equal(failedControl.available, false);
+  assert.notEqual(failedControl.reasonCode, "READY");
+
+  const bareComplete = readiness.evaluateMilestone("data_scan", { state: "complete" });
+  assert.equal(bareComplete.ready, false);
+  assert.equal(bareComplete.reasonCode, "UNAVAILABLE");
+}
+
+function testFirstActionableControlMissingIsUnavailable() {
+  for (const evidence of [undefined, null, 42, "ready", [], {}]) {
+    const result = readiness.evaluateMilestone("first_actionable_control", evidence);
+    assert.equal(result.ready, false, String(evidence));
+    assert.equal(result.available, false, String(evidence));
+    assert.equal(result.reasonCode, "UNAVAILABLE", String(evidence));
+    assert.equal(result.state, "unavailable", String(evidence));
+  }
+  const completeWithoutAction = readiness.evaluateMilestone(
+    "first_actionable_control",
+    Object.assign({ state: "complete" }, observedMarks())
+  );
+  assert.equal(completeWithoutAction.ready, false);
+  assert.equal(completeWithoutAction.available, false);
+  assert.equal(completeWithoutAction.reasonCode, "ACTION_UNAVAILABLE");
+}
+
+function testFirstActionableControlExactAction() {
+  const ready = readiness.evaluateMilestone(
+    "first_actionable_control",
+    Object.assign({ state: "complete", enabledAction: "knowledge.open" }, observedMarks())
+  );
+  assert.equal(ready.ready, true);
+  assert.equal(ready.available, true);
+  assert.equal(ready.reasonCode, "READY");
+  assert.equal(ready.action.actual, "knowledge.open");
+  assert.equal(ready.action.exact, true);
+
+  const mismatch = readiness.evaluateMilestone(
+    "first_actionable_control",
+    Object.assign({ state: "complete", enabledAction: "knowledge.retry" }, observedMarks()),
+    { expectedAction: "knowledge.open" }
+  );
+  assert.equal(mismatch.ready, false);
+  assert.equal(mismatch.reasonCode, "ACTION_MISMATCH");
+
+  const disabled = readiness.evaluateMilestone(
+    "first_actionable_control",
+    Object.assign({ state: "complete", enabledAction: { id: "knowledge.open", enabled: false } }, observedMarks())
+  );
+  assert.equal(disabled.ready, false);
+  assert.equal(disabled.reasonCode, "ACTION_DISABLED");
+}
+
+function testMilestoneObservationStates() {
+  const started = readiness.evaluateMilestone("data_scan", { state: "started" });
+  assert.equal(started.ready, false);
+  assert.equal(started.reasonCode, "STATE_NOT_SETTLED");
+
+  const missing = readiness.evaluateMilestone("projection", { state: "missing" });
+  assert.equal(missing.ready, false);
+  assert.equal(missing.reasonCode, "UNAVAILABLE");
+
+  const invalid = readiness.evaluateMilestone("dom_render", { state: "invalid" });
+  assert.equal(invalid.ready, false);
+  assert.equal(invalid.reasonCode, "INVALID_STATE");
+
+  const complete = readiness.evaluateMilestone("review_resume", Object.assign({ state: "complete" }, observedMarks()));
+  assert.equal(complete.ready, true);
+  assert.equal(complete.reasonCode, "READY");
+
+  const summary = readiness.summarizeMilestones({
+    data_scan: Object.assign({ state: "complete" }, observedMarks()),
+    first_actionable_control: Object.assign({ state: "complete", enabledAction: "home.open" }, observedMarks())
+  });
+  assert.deepEqual(Object.keys(summary.results), readiness.MILESTONES);
+  assert.ok(summary.readyMilestones.includes("data_scan"));
+  assert.ok(summary.readyMilestones.includes("first_actionable_control"));
+  assert.ok(summary.blockedMilestones.includes("provider_wait"));
+}
+
 function main() {
   const tests = [
     ["deterministic state and exact action", testDeterministicStateAndExactAction],
@@ -151,7 +268,12 @@ function main() {
     ["exact action is required", testExactActionIsRequired],
     ["selected periods and separate site visit", testSelectedJournalPeriodsAndSeparateSiteVisit],
     ["deferred surfaces require explicit activation", testDeferredSurfacesRequireExplicitActivation],
-    ["all selectors and observable reader", testAllSelectorsAndObservableReader]
+    ["all selectors and observable reader", testAllSelectorsAndObservableReader],
+    ["milestone contract lists real-use vocabulary", testMilestoneContractListsRealUseVocabulary],
+    ["first actionable control missing is unavailable", testFirstActionableControlMissingIsUnavailable],
+    ["first actionable control exact action", testFirstActionableControlExactAction],
+    ["milestone observation states", testMilestoneObservationStates],
+    ["milestone failed state is not ready", testMilestoneFailedStateIsNotReady]
   ];
   let failures = 0;
   for (const [name, fn] of tests) {
