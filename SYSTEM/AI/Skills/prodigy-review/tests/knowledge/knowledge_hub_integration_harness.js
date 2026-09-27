@@ -145,8 +145,9 @@ function buildPages() {
   return flattenCatalog(catalog).map(toPage).filter(Boolean);
 }
 
-function createVault(files) {
+function createVault(files, cachedReadFailures = []) {
   const fileMap = new Map(Object.entries(files));
+  const unreadable = new Set(cachedReadFailures);
   const modes = new Map([...fileMap.keys()].map((filePath) => [filePath, 0o644]));
   const directories = new Set();
   const listeners = new Map(["create", "modify", "delete", "rename"].map((name) => [name, new Set()]));
@@ -174,7 +175,14 @@ function createVault(files) {
       readPaths.push(filePath);
       return fileMap.get(filePath);
     },
-    async cachedRead(file) { return this.read(file); },
+    async cachedRead(file) {
+      const filePath = typeof file === "string" ? file : file && file.path;
+      if (unreadable.has(filePath)) throw new Error("synthetic_cached_read_failure");
+      return this.read(file);
+    },
+    setCachedReadFailure(filePath, blocked) {
+      if (blocked) unreadable.add(filePath); else unreadable.delete(filePath);
+    },
     async createFolder(filePath) { directories.add(filePath); },
     async create(filePath, bytes) { if (fileMap.has(filePath)) throw new Error("file_exists"); fileMap.set(filePath, bytes); modes.set(filePath, 0o644); touched.push(["create", filePath]); const file = fileFor(filePath); emit("create", file); return file; },
     async modify(file, bytes) { const filePath = typeof file === "string" ? file : file?.path; if (!fileMap.has(filePath)) throw new Error("missing_file"); fileMap.set(filePath, bytes); touched.push(["modify", filePath]); emit("modify", fileFor(filePath)); return fileFor(filePath); },
@@ -234,7 +242,7 @@ function task21RolloutStorage() {
   return { async load() { return serialized; }, async save(next) { serialized = next; return true; } };
 }
 
-function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, extraFiles = {}, llmWikiControllerOptions = null }) {
+function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, extraFiles = {}, cachedReadFailures = [], llmWikiControllerOptions = null }) {
   const files = {
     "SYSTEM/Views/prodigy-workspace-manifest.js": fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js"), "utf8"),
     "SYSTEM/Views/prodigy-hub-loader.js": fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-hub-loader.js"), "utf8")
@@ -268,7 +276,7 @@ function createSandbox({ pages, omittedModulePaths = [], bodyLoadError = null, e
       return { frontmatter };
     },
   };
-  const app = { vault: createVault(files), workspace: createWorkspace(), metadataCache };
+  const app = { vault: createVault(files, cachedReadFailures), workspace: createWorkspace(), metadataCache };
   const container = new FakeElement("section");
   const windowObject = {};
   const openedModals = [];
@@ -324,8 +332,8 @@ function runtimeResult(runtime) {
   return { app, container, window: windowObject, readCounts, openedModals, runtime };
 }
 
-async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null, extraFiles = {}, llmWikiControllerOptions = null }) {
-  const runtime = createSandbox({ pages, omittedModulePaths, bodyLoadError, extraFiles, llmWikiControllerOptions });
+async function runHub({ pages, omittedModulePaths = [], bodyLoadError = null, extraFiles = {}, cachedReadFailures = [], llmWikiControllerOptions = null }) {
+  const runtime = createSandbox({ pages, omittedModulePaths, bodyLoadError, extraFiles, cachedReadFailures, llmWikiControllerOptions });
   await executeHub(runtime);
   return runtimeResult(runtime);
 }

@@ -71,7 +71,7 @@ case "${1:-}" in
     fi
     run_command "synthetic-failure" bash -c 'printf "synthetic stdout\n"; printf "synthetic stderr\n" >&2; exit 23'
     summary
-    exit $?
+    exit 2
     ;;
   --sandbox-self-test)
     ORIGINAL_HOME="$HOME"
@@ -165,6 +165,7 @@ done
 for required_file in \
   SYSTEM/AI/Skills/prodigy-property-contract/scripts/audit_property_contract.py \
   SYSTEM/AI/Skills/prodigy-review/tests/run_stability_smoke_tests.js \
+  SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_security_contract.js \
   SYSTEM/CI/validate-consolidation-fixtures.js \
   SYSTEM/CI/release-fixture-harness.js \
   SYSTEM/CI/recovery-proof-harness.js \

@@ -1046,6 +1046,68 @@ test("rejecting an obsolete review run persists zero packets across restart", as
   assert.equal((restarted.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot().risk_packets || []).length, 0);
 });
 
+test("mounted document pilot blocks body-only credentials before provider transport", async () => {
+  const sourcePath = "INBOX/pilot-sensitive-fixture.md";
+  const marker = ["AK", "IA", "T".repeat(16)].join("");
+  let captureCalls = 0;
+  let captureSawMarker = false;
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: { [sourcePath]: `# Synthetic pilot fixture\n\n${marker}\n` },
+    llmWikiControllerOptions: {
+      batchIdentity: identity(),
+      batchProvider: async (request) => {
+        captureCalls += 1;
+        captureSawMarker ||= JSON.stringify(request).includes(marker);
+        return { ok: false, reason: "capture_stop", provider_call_count: 1, artifacts: [] };
+      },
+    },
+  });
+  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
+  const result = await runtime.window.KnowledgeExplorerHub.runDocumentPilot(sourcePath);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "source_privacy_blocked");
+  assert.equal(result.provider_calls, 0);
+  assert.equal(captureCalls, 0);
+  assert.equal(captureSawMarker, false);
+  assert.equal(JSON.stringify(result).includes(marker), false);
+  assert.equal(runtime.app.vault.touched.some((row) => String(row[1]).startsWith("ZETA/")), false);
+});
+
+test("mounted picker shows valid and unreadable sources with working retry", async () => {
+  const validPath = "INBOX/Synthetic Valid.md";
+  const unreadablePath = "INBOX/Synthetic Unreadable.md";
+  const runtime = await runHub({
+    pages: [],
+    extraFiles: {
+      [validPath]: "# Synthetic Valid\nSafe fixture body.",
+      [unreadablePath]: "# Synthetic Unreadable\nSafe fixture body.",
+    },
+    cachedReadFailures: [unreadablePath],
+  });
+  runtime.window.KnowledgeExplorerHub.tabs.select("llmwiki");
+  const openPicker = firstElement(runtime.container, "button", (node) => node.attr?.["data-action"] === "select-source");
+  assert.ok(openPicker);
+  await openPicker.onclick({ preventDefault() {} });
+
+  const valid = firstElement(runtime.container, "button", (node) => node.attr?.["data-source-option"] === validPath);
+  const blocked = firstElement(runtime.container, "div", (node) => node.attr?.["data-source-blocked"] === unreadablePath);
+  const retry = firstElement(runtime.container, "button", (node) => node.attr?.["data-retry-source-path"] === unreadablePath);
+  const alert = firstElement(runtime.container, "p", (node) => node.attr?.role === "alert");
+  assert.ok(valid, "valid source must remain selectable");
+  assert.ok(blocked, "unreadable source must stay visible as pending retry");
+  assert.match(collectText(blocked), /읽기 실패|다시 시도/u);
+  assert.ok(alert);
+  assert.ok(retry, "unreadable source must expose a retry control");
+
+  runtime.app.vault.setCachedReadFailure(unreadablePath, false);
+  const retried = await retry.onclick({ preventDefault() {} });
+  assert.equal(retried.ok, true);
+  assert.ok(firstElement(runtime.container, "button", (node) => node.attr?.["data-source-option"] === unreadablePath));
+  assert.equal(firstElement(runtime.container, "div", (node) => node.attr?.["data-source-blocked"] === unreadablePath), null);
+});
+
 test("isolated document pilot covers content beyond 4 KiB without replacing the existing review", async () => {
   const seen = { modes: [], late: false };
   const sourcePath = "INBOX/투자 일기.md";

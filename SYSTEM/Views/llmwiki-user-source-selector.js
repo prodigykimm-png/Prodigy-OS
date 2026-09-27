@@ -19,9 +19,11 @@
     if (!safePath(path) || BLOCKED_PREFIXES.some((prefix) => path.toLowerCase().startsWith(prefix.toLowerCase())) || frontmatterPrivate(bytes) || metadataPrivate(metadata)) return false;
     if (!privacyApi || typeof privacyApi.classifyInboxSource !== "function" || !sensitiveApi || typeof sensitiveApi.inspect !== "function") return false;
     // Wiki intake never lets outbound consent override People or sensitive holds.
-    const input = { source_path: path, source_text: bytes, metadata: { ...metadata, llmwiki_outbound: false } };
+    const bodyAvailable = typeof bytes === "string";
+    const input = { source_path: path, source_text: bodyAvailable ? bytes : "", metadata: { ...metadata, llmwiki_outbound: false } };
     const privacy = privacyApi.classifyInboxSource(input);
-    return privacy.route === "knowledge" && privacy.outbound_allowed === true && sensitiveApi.inspect(input).type === "allow";
+    return privacy.route === "knowledge" && privacy.outbound_allowed === true
+      && (!bodyAvailable || sensitiveApi.inspect(input).type === "allow");
   }
   function title(path, bytes) {
     const heading = String(bytes || "").match(/^#\s+(.+)$/mu);
@@ -41,11 +43,27 @@
     const rows = (await Promise.all(files.map(async (file) => {
       const cache = metadataCache && typeof metadataCache.getFileCache === "function" ? metadataCache.getFileCache(file) : null;
       const metadata = cache && cache.frontmatter && typeof cache.frontmatter === "object" ? cache.frontmatter : {};
-      if (!eligibleInboxPath(file.path, "", metadata)) return null;
+      if (!eligibleInboxPath(file.path, undefined, metadata)) return null;
       const policy = privacy && typeof privacy.classifyInboxSource === "function" ? privacy.classifyInboxSource({ source_path: file.path, metadata }) : null;
       if (policy && (policy.route !== "knowledge" || policy.outbound_allowed !== true)) return null;
       // Metadata cannot establish that a body is credential-free, even on a warm cache.
-      const bytes = await vault.cachedRead(file);
+      let bytes;
+      try { bytes = await vault.cachedRead(file); }
+      catch (_error) {
+        return freeze({
+          path: file.path,
+          title: String(file.basename || file.path.split("/").pop().replace(/\.md$/u, "")).trim(),
+          source_id: `source_user_${hash.sha256(file.path).slice(0,24)}`,
+          source_kind: "inbox",
+          sensitivity: "internal",
+          provider_modes: freeze([]),
+          eligible: false,
+          blocked: true,
+          blocked_reason: "source_text_unreadable",
+          recovery_action: "retry_source_read",
+          resumable: true,
+        });
+      }
       if (!eligibleInboxPath(file.path, bytes, metadata)) return null;
       const heading = cache && Array.isArray(cache.headings) ? cache.headings.find((row) => row && row.level === 1 && typeof row.heading === "string") : null;
       const sourceTitle = cache
