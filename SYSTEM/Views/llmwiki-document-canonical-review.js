@@ -1716,7 +1716,15 @@
             : fields.relation_status !== "resolved" ? "relation_status"
             : fields.evidence_strength === "thin" ? "evidence_strength" : "");
           if (fieldName) blockedField(fieldName, copy);
-          const diagnostics = el.createEl("details"); diagnostics.createEl("summary", { text: "상세 정보" }); diagnostics.createEl("pre", { text: JSON.stringify(result, null, 2) });
+          if (["target_revision_changed", "source_revision_changed", "approval_expired", "stale_before_write"].includes(result.reason)) {
+            const staleBox = el.createEl("details", { attr: { "data-disclosure": "stale-recovery", "data-stale-recovery": "" } });
+            staleBox.createEl("summary", { text: "바뀐 내용 확인" });
+            staleBox.createEl("p", { text: "검토 이후 내용이 바뀌었습니다. 승인하지 않은 변경은 적용하지 않았고, 기존 문서는 그대로 유지됩니다. 변경안을 다시 준비하면 최신 내용으로 검토를 이어갑니다." });
+            staleBox.open = true;
+            prepareButton.setText("변경안 다시 준비");
+            if (prepareButton && typeof prepareButton.focus === "function") prepareButton.focus();
+          }
+          const diagnostics = el.createEl("details", { attr: { "data-disclosure": "review-failure" } }); diagnostics.createEl("summary", { text: "상세 정보" }); diagnostics.createEl("p", { text: copy });
           // 등급 저장: 균일성 경고만으로 막히면 후보 저장을 명시적으로 고를 수 있다.
           // 안전·판단 게이트가 하나라도 섞이면 이 버튼은 나가지 않는다.
           const gapCodes = (result.promotion_gaps || []).map(gap => typeof gap === "string" ? gap : gap && gap.reason_code);
@@ -1822,10 +1830,13 @@
         ui.exactPreview(changes, viewState.blockedPreview, { ...callbacks, reviewFields: fields });
         el.createEl("p", { text: "이전 변경안 · 현재 적용 승인 아님", attr: { role: "alert" } });
         accepted.disabled = true; applyButton.disabled = true;
-        prepareButton.setText("변경안 다시 준비");
-        if (viewState.alreadyWritten !== false) {
-          prepareButton.disabled = true;
-          ui.button(actions, "저장 상태 확인", "restore-document-review", () => { viewState.restored = false; viewState.restoreError = ""; return modal.onOpen(); });
+        if (viewState.alreadyWritten) {
+          // Interrupted after a write: exactly one resume action. It re-enters
+          // restore for the same item, so the review id never changes.
+          prepareButton.hidden = true;
+          ui.button(actions, "중단된 검토 이어서 확인", "resume-document-review", () => { viewState.restored = false; viewState.restoreError = ""; return modal.onOpen(); }, true);
+        } else {
+          prepareButton.setText("변경안 다시 준비");
         }
       }
       if (preview) {

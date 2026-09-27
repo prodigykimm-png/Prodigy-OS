@@ -2,6 +2,7 @@
 const test = require("node:test"), assert = require("node:assert/strict"), path = require("node:path");
 const V = path.resolve(__dirname, "../../../../../Views");
 const review = require(path.join(V, "llmwiki-document-canonical-review.js"));
+const workspaceView = require(path.join(V, "prodigy-wiki-workspace-view.js"));
 test("pure helpers behave by contract", () => {
   assert.deepEqual(review.autofillables().sort(), ["application_contexts", "application_trigger", "classification", "conditions", "definition", "exclusions", "invalidation_conditions", "knowledge_domain", "knowledge_kind", "knowledge_topics", "outcome", "rationale", "steps"].sort());
   assert.equal(review.autofillables().includes("relation_status"), false);
@@ -556,7 +557,7 @@ test('task 6 readback failure exposes refresh only and replay never re-enters th
  assert.ok(refresh,'readback failure must expose refresh, not regeneration or re-approval');
  await refresh.onclick();assert.equal(writerCalls,1,'failed refresh never re-applies');
  failReadback=false;await refresh.onclick();assert.equal(writerCalls,1);
- const canonical=[...files.values()].filter(f=>f.path.startsWith('ZETA/PERMANENT'));assert.equal(canonical.length,1);assert.equal(canonical[0].bytes,displayed);
+ const canonical=[...files.values()].filter(f=>f.path.startsWith('ZETA/PERMANENT'));assert.equal(canonical.length,1);assert.equal(workspaceView.redactOwnerHidden(canonical[0].bytes),displayed);
  const before=fixture.writes.length;await modal.contentEl.querySelector('[data-action="apply-document-review"]').onclick();
  assert.equal(writerCalls,1);assert.equal(fixture.writes.length,before);
 });
@@ -592,7 +593,7 @@ test('A1 empty descriptive form reaches exact preview with only three decisions 
  const bytes=modal.contentEl.querySelectorAll('pre')[1].text;
  assert.ok(bytes.includes(a.grounded_claims[0].text));
  ack.checked=true;ack.onchange();await apply.onclick();
- assert.equal([...files.values()].find(f=>f.path.startsWith('ZETA/PERMANENT'))?.bytes,bytes);
+ assert.equal(workspaceView.redactOwnerHidden([...files.values()].find(f=>f.path.startsWith('ZETA/PERMANENT'))?.bytes),bytes);
 });
 test('A1 service accepts empty descriptive fields when analysis and compiled content satisfy frozen gates',async()=>{
  const {app,a}=await reducedReviewFixture();
@@ -737,4 +738,134 @@ test('current-session explicit corrections and clears survive targets while inco
  assert.equal(modal.contentEl.querySelector('[data-action="apply-document-review"]').disabled,true);
  assert.equal(input('knowledge_topics').value,'ai');
  assert.equal(files.get(made.target_path).bytes,initial.value.after);
+});
+
+test('task 5 prepared review carries provenance/target/decision with no machine route leaks', async () => {
+ const { FakeElement, collectText } = require('./knowledge_explorer_view_fakes.js');
+ const find = (node, pred) => [...(pred(node) ? [node] : []), ...(node.children || []).flatMap((c) => find(c, pred))];
+ const { app, files } = vault(), a = await item(app, 'owner_safe', 'OWNER-QUOTE-UNIQUE-7');
+ class Modal { constructor() { this.contentEl = new FakeElement('section'); } open() { this.ready = this.onOpen(); } }
+ const modal = review.open({ app, Modal, item: a }); await modal.ready;
+ for (const [key, value] of Object.entries({ target_path: 'new', ...fields })) { const input = find(modal.contentEl, (n) => n.attr?.['data-review-field'] === key)[0]; assert.ok(input, key); input.value = value; await input.oninput(); }
+ await find(modal.contentEl, (n) => n.attr?.['data-action'] === 'prepare-document-review')[0].onclick();
+ const text = collectText(modal.contentEl);
+ assert.ok(find(modal.contentEl, (n) => n.attr?.['data-review-sources'] !== undefined).length > 0, 'provenance carriers missing');
+ assert.ok(text.includes(a.grounded_claims[0].text), 'source excerpt missing');
+ assert.ok(modal.contentEl.querySelector('[data-output-target]'), 'canonical target missing');
+ assert.ok(modal.contentEl.querySelector('[data-review-field="relation_status"]'), 'owner decision missing');
+ assert.ok(modal.contentEl.querySelector('[data-review-acknowledgement]'), 'explicit acknowledgement missing');
+ assert.equal(find(modal.contentEl, (n) => n.attr?.['data-internal-graph-token'] !== undefined).length, 0, 'internal graph token leaked');
+ assert.equal(text.includes('-->'), false, 'machine route edge leaked');
+ assert.equal(/\b(operation|proposal|run|packet|nonce|trigger)_[0-9A-Za-z-]{3,}/u.test(text), false, 'machine route text leaked');
+ assert.equal(text.includes('packet_hash'), false, 'packet hash key leaked');
+ assert.equal(/[0-9a-f]{32,}/u.test(text), false, 'full-length hash visible to owner');
+ assert.equal(/knowledge_[0-9a-f]{5,}/u.test(text), false, 'full canonical id visible to owner');
+ const details = find(modal.contentEl, (n) => n.attr?.['data-disclosure'] === 'exact-details')[0];
+ assert.ok(details, 'exact preview disclosure missing');
+ assert.ok(details.children.filter((c) => c.tag === 'p').every((p) => !/^[0-9a-f]{8,}$/u.test(p.text.trim())), 'raw hash paragraph leaked');
+ assert.equal([...files.keys()].filter((p) => p.startsWith('ZETA/PERMANENT')).length, 0, 'prepare must not write');
+});
+
+test('task 5 failed preparation shows a safe consequence with no machine dump', async () => {
+ const { FakeElement, collectText } = require('./knowledge_explorer_view_fakes.js');
+ const find = (node, pred) => [...(pred(node) ? [node] : []), ...(node.children || []).flatMap((c) => find(c, pred))];
+ const { app, files } = vault(), a = await item(app, 'owner_dump', 'OWNER-QUOTE-UNIQUE-8');
+ class Modal { constructor() { this.contentEl = new FakeElement('section'); } open() { this.ready = this.onOpen(); } }
+ const modal = review.open({ app, Modal, item: a }); await modal.ready;
+ for (const [key, value] of Object.entries({ target_path: 'new', ...fields, relation_status: 'conflict' })) { const input = find(modal.contentEl, (n) => n.attr?.['data-review-field'] === key)[0]; input.value = value; await input.oninput(); }
+ await find(modal.contentEl, (n) => n.attr?.['data-action'] === 'prepare-document-review')[0].onclick();
+ const text = collectText(modal.contentEl);
+ assert.ok(text.includes('적용 전에 확인할 항목'), 'visible recovery path missing');
+ assert.equal(modal.contentEl.querySelectorAll('pre').length, 0, 'raw machine dump rendered');
+ assert.equal(text.includes('promotion_receipt') || text.includes('packet_hash') || text.includes('operation_'), false, 'machine internals leaked');
+ assert.equal([...files.keys()].filter((p) => p.startsWith('ZETA/PERMANENT')).length, 0, 'failed prepare must not write');
+});
+
+test('task 5 stale source opens the recovery disclosure and focuses re-preparation', async () => {
+ const { FakeElement, collectText } = require('./knowledge_explorer_view_fakes.js');
+ const find = (node, pred) => [...(pred(node) ? [node] : []), ...(node.children || []).flatMap((c) => find(c, pred))];
+ const { app, files } = vault(), a = await item(app, 'owner_stale', 'OWNER-QUOTE-UNIQUE-9');
+ class Modal { constructor() { this.contentEl = new FakeElement('section'); } open() { this.ready = this.onOpen(); } }
+ const modal = review.open({ app, Modal, item: a }); await modal.ready;
+ for (const [key, value] of Object.entries({ target_path: 'new', ...fields })) { const input = find(modal.contentEl, (n) => n.attr?.['data-review-field'] === key)[0]; input.value = value; await input.oninput(); }
+ files.get(a.grounded_claims[0].citations[0].source_path).bytes += '\nSTALE-DRIFT';
+ await find(modal.contentEl, (n) => n.attr?.['data-action'] === 'prepare-document-review')[0].onclick();
+ const text = collectText(modal.contentEl);
+ assert.ok(text.includes('바뀐 내용 확인'), 'stale disclosure missing');
+ const box = modal.contentEl.querySelector('[data-stale-recovery]');
+ assert.ok(box, 'stale recovery disclosure missing');
+ assert.equal(box.open, true, 'stale disclosure must open');
+ assert.ok(collectText(box).includes('적용하지 않았고'), 'stale consequence missing');
+ assert.equal(modal.contentEl.querySelector('[data-action="prepare-document-review"]').focused, true, 'resolving control must focus');
+ assert.equal([...files.keys()].filter((p) => p.startsWith('ZETA/PERMANENT')).length, 0, 'stale prepare must not write');
+});
+
+test('task 5 expired interruption exposes exactly one resume action for the same review', async () => {
+ const { FakeElement } = require('./knowledge_explorer_view_fakes.js');
+ const { app, files } = vault(), base = await item(app, 'resume_base', 'RESUME-BASE-QUOTE');
+ const baseFlow = review.create({ app });
+ const first = await baseFlow.prepare({ item: base, fields });
+ assert.equal(first.ok, true, JSON.stringify(first));
+ const made = await baseFlow.apply(first.value, { approved: true, claims_accepted: true, packet_hash: first.value.packet_hash });
+ assert.equal(made.ok, true, JSON.stringify(made));
+ const b = await item(app, 'resume_one', 'RESUME-NEW-QUOTE');
+ const fixture = await durableFixture(app, b), Modal = draftModal();
+ const flow = review.create({ app, ...fixture, now: () => '2000-01-01T00:00:00.000Z' });
+ const q = await flow.prepare({ item: b, fields, target_path: made.target_path });
+ assert.equal(q.ok, true, JSON.stringify(q));
+ const modify = app.vault.modify;
+ let failed = false;
+ app.vault.modify = async (f, bytes) => { if (!failed && f.path.includes('.llmwiki-audit/') && bytes.includes('"result": "committed"')) { failed = true; throw new Error('interrupted audit'); } return modify(f, bytes); };
+ const blocked = await flow.apply(q.value, { approved: true, claims_accepted: true, packet_hash: q.value.packet_hash });
+ assert.equal(blocked.ok, false);
+ assert.equal(failed, true);
+ app.vault.modify = modify;
+ const modal = review.open({ app, Modal, item: b, ...fixture }); await modal.ready;
+ const resume = modal.contentEl.querySelectorAll('[data-action="resume-document-review"]');
+ assert.equal(resume.length, 1, 'interrupted state must expose exactly one resume action');
+ assert.equal(modal.contentEl.querySelector('[data-action="prepare-document-review"]').hidden, true, 'prepare must not duplicate resume');
+ assert.equal(modal.contentEl.querySelectorAll('[data-action="restore-document-review"]').length, 0, 'legacy restore action must not duplicate resume');
+ assert.equal(modal.contentEl.querySelectorAll('[data-action="refresh-document-review"]').length, 0, 'refresh action must not duplicate resume');
+ const reopened = review.open({ app, Modal, item: b, ...fixture }); await reopened.ready;
+ assert.equal(reopened, modal, 'resume must preserve the same review session id');
+ const after = files.get(made.target_path).bytes;
+ const expired = await review.create({ app, ...fixture }).restore(b);
+ assert.equal(expired.ok, false);
+ assert.equal(expired.reason, 'approval_expired');
+ assert.equal(expired.retained_preview.after, q.value.after, 'resume must preserve the same prepared bytes');
+ assert.equal(files.get(made.target_path).bytes, after, 'expired restore must never write');
+});
+
+test('task 5 malformed inputs yield typed states without writes', async () => {
+ const { app, files } = vault(), flow = review.create({ app });
+ assert.equal((await flow.prepare({ item: null, fields })).reason, 'grounded_document_required');
+ const bad = await item(app, 'mal_quote', 'MAL-QUOTE');
+ delete bad.grounded_claims[0].citations[0].locator;
+ assert.equal((await flow.prepare({ item: bad, fields })).reason, 'exact_evidence_required');
+ const absent = await item(app, 'mal_target', 'MAL-TARGET');
+ assert.equal((await flow.prepare({ item: absent, fields, target_path: 'ZETA/PERMANENT/missing.md' })).reason, 'verified_target_required');
+ assert.deepEqual(await flow.restore(await item(app, 'mal_gone', 'MAL-GONE')), { ok: true, status: 'not_available' });
+ assert.equal([...files.keys()].filter((p) => p.startsWith('ZETA/PERMANENT')).length, 0, 'malformed inputs must not write');
+});
+
+test('task 5 R1 written bytes equal prepared bytes by hash while display is their redaction', async () => {
+ const { app, files } = vault(), flow = review.create({ app });
+ const a = await item(app, 'hashbind', 'HASHBIND-QUOTE-UNIQUE');
+ const p = await flow.prepare({ item: a, fields });
+ assert.equal(p.ok, true, JSON.stringify(p));
+ // Guard against vacuity: the prepared bytes really do carry full-length hashes.
+ assert.ok(/[0-9a-f]{64}/u.test(p.value.after), 'prepared bytes must carry full hashes for this proof to mean anything');
+ const applied = await flow.apply(p.value, { approved: true, claims_accepted: true, packet_hash: p.value.packet_hash });
+ assert.equal(applied.ok, true, JSON.stringify(applied));
+ const written = files.get(applied.target_path).bytes;
+ // Independent equality proof over the written channel: what was verified is what was written.
+ assert.equal(hash.sha256(written), hash.sha256(p.value.after), 'written bytes must hash to prepared bytes');
+ // Display contract: the owner-visible form is exactly the redaction of those same bytes, with no full hash.
+ const display = workspaceView.redactOwnerHidden(written);
+ assert.equal(display, workspaceView.redactOwnerHidden(p.value.after));
+ assert.equal(/[0-9a-f]{32,}/u.test(display), false, 'redacted display must carry no full-length hash');
+ assert.equal(/knowledge_[0-9a-f]{5,}/u.test(display), false, 'redacted display must carry no full canonical id');
+ assert.ok(display.includes('(내부 해시 일부)') && display.includes('(내부 식별값 일부)'), 'redaction must stay labeled and recognizable');
+ // A wrong written byte must still be caught: redaction alone would mask it, the hash proof above does not.
+ assert.notEqual(hash.sha256(written + '\n'), hash.sha256(p.value.after));
 });

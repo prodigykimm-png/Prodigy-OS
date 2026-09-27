@@ -92,6 +92,17 @@
     while (next < b.length) rows.push({ kind: "add", line: b[next++] });
     return rows;
   }
+  // Owner-visible raw bytes must not carry full internal hashes. The detail
+  // pres show a redacted but still-verifiable form: keys and structure stay
+  // recognizable, values collapse to a labeled truncated digest. Body prose
+  // and the diff/document views stay byte-exact. Write integrity is proven
+  // separately by hash equality over the written bytes (see canonical review
+  // tests), not by requiring the display to be byte-identical.
+  function redactOwnerHidden(bytes) {
+    return String(bytes || "")
+      .replace(/"knowledge_([0-9a-f]{4})[0-9a-f]*"/gu, '"knowledge_$1\u2026(\ub0b4\ubd80 \uc2dd\ubcc4\uac12 \uc77c\ubd80)"')
+      .replace(/"([0-9a-f]{8})[0-9a-f]{8,}"/gu, '"$1\u2026(\ub0b4\ubd80 \ud574\uc2dc \uc77c\ubd80)"');
+  }
   function exactPreview(parent, preview, options = {}) {
     empty(parent);
     attr(parent, "data-exact-preview", "true");
@@ -135,9 +146,8 @@
     const diff = button(views, "변경 내용", "show-diff", () => show("diff"));
     const full = button(views, "저장될 문서", "show-document", () => show("document"));
     const details = el(parent, "details", "", { "data-disclosure": "exact-details" }); el(details, "summary", "상세 정보");
-    el(details, "p", preview.packet_hash || "");
-    el(details, "pre", preview.before || "", { "data-raw-markdown": "before" });
-    el(details, "pre", preview.after || "", { "data-raw-markdown": "after" });
+    el(details, "pre", redactOwnerHidden(preview.before), { "data-raw-markdown": "before" });
+    el(details, "pre", redactOwnerHidden(preview.after), { "data-raw-markdown": "after" });
     show(preview.before ? "diff" : "document");
   }
   function mount({ container, panelHost, shell, onNavigate }) {
@@ -234,7 +244,7 @@
     journey(journeyHost, {});
     return api;
   }
-  const api = Object.freeze({ el, empty, attr, button, title, journeyState, journey, markdown, splitDocument, diffLines, exactPreview, FIELD_LABELS, mount });
+  const api = Object.freeze({ el, empty, attr, button, title, journeyState, journey, markdown, splitDocument, diffLines, exactPreview, redactOwnerHidden, FIELD_LABELS, mount });
   root.ProdigyWikiWorkspaceView = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

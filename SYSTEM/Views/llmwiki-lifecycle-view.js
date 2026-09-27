@@ -325,7 +325,7 @@
       if (excerpt) createEl(section, "p", { text: excerpt, attr: { class: "wiki-source-excerpt", "data-selected-range-preview": "" } });
       const details = detailHost(parent);
       if (text(source.source_path)) createEl(details, "code", { text: text(source.source_path), attr: { "data-selected-source-path": "" } });
-      if (text(source.content_hash)) createEl(details, "p", { text: `선택 당시 원문 · ${text(source.content_hash).slice(0, 12)}`, attr: { "data-selected-source-revision": text(source.content_hash) } });
+      if (text(source.content_hash)) createEl(details, "p", { text: "선택 당시 원문 기준 · 원문 변경 시 다시 확인", attr: { "data-selected-source-revision": text(source.content_hash) } });
       createEl(details, "p", { text: `${source.source_kind === "inbox" ? "내 자료" : "문헌"} · AI Runtime 연결`, attr: { "data-selected-source-technical-boundary": "" } });
       return section;
     }
@@ -524,8 +524,11 @@
       actionButton(decision, "정리하기", "request-consent", { action: "request_consent" }, { primary: true });
       if (snapshot.provider_selection_error) {
         statusRegion(parent, "AI 연결 설정을 확인해야 합니다.", "error");
-        createEl(detailHost(parent), "p", { text: snapshot.provider_selection_error });
-        actionButton(parent, "AI 설정 열기", "open-ai-settings", { action: "open_ai_settings" });
+        const errorDetails = detailHost(parent);
+        errorDetails.open = true;
+        createEl(errorDetails, "p", { text: snapshot.provider_selection_error });
+        const settingsAction = actionButton(parent, "AI 설정 열기", "open-ai-settings", { action: "open_ai_settings" });
+        if (settingsAction && typeof settingsAction.focus === "function") settingsAction.focus();
       }
     }
 
