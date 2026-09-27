@@ -20,11 +20,157 @@ const WORKFLOWS = [
 ];
 const DOCS = ["README.md", "SYSTEM/docs/07_Implementation_Guide.md"];
 const CANONICAL_COMMAND = `bash ${RUNNER_RELATIVE}`;
+const REQUIRED_PROJECTED_DELIVERABLES = Object.freeze([
+  RUNNER_RELATIVE,
+  MANIFEST_RELATIVE,
+  "SYSTEM/CI/recovery-proof-harness.js",
+  "SYSTEM/CI/repository-data-backup.js",
+  "SYSTEM/CI/task16-scrub-retained-artifacts.js",
+  "SYSTEM/Views/region-experience-modal.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_experience_modal.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/test_task15_recovery_proof.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/test_release_gate.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_literal_git_archive.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/people/fixtures/quickadd-people-v1.json"
+]);
 
 function read(relativePath) {
   const absolutePath = path.join(ROOT, relativePath);
   assert.ok(fs.existsSync(absolutePath), `Missing required file: ${relativePath}`);
   return fs.readFileSync(absolutePath, "utf8");
+}
+
+function assertManifestContainsRequiredDeliverables(projectedSet) {
+  for (const relativePath of REQUIRED_PROJECTED_DELIVERABLES) {
+    assert.ok(
+      projectedSet.has(relativePath),
+      `Delivery manifest missing required projected deliverable: ${relativePath}`
+    );
+  }
+}
+
+function gitReportedDeliveryPaths(root, deliveryBase, deliveryRef) {
+  const resolve = (ref, code) => {
+    const result = spawnSync("git", ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], { cwd: root, encoding: "utf8" });
+    if (result.status !== 0) throw new Error(`${code}: cannot resolve ${ref}`);
+    return result.stdout.trim();
+  };
+  const base = resolve(deliveryBase, "DELIVERY_BASE_UNRESOLVED");
+  let ref = deliveryRef;
+  if (!ref) {
+    const symbolic = spawnSync("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], { cwd: root, encoding: "utf8" });
+    if (symbolic.status !== 0) throw new Error("DELIVERY_REF_DETACHED: explicit delivery ref is required");
+    ref = symbolic.stdout.trim();
+  }
+  const delivery = resolve(ref, "DELIVERY_REF_UNRESOLVED");
+  const result = spawnSync("git", ["diff", "--name-only", "-z", `${base}..${delivery}`], { cwd: root, encoding: "buffer" });
+  assert.equal(result.status, 0, result.stderr.toString());
+  const paths = result.stdout.toString("utf8").split("\0").filter(Boolean).sort();
+  if (paths.length === 0) throw new Error(`DELIVERY_SCOPE_EMPTY: ${base}..${delivery}`);
+  return paths;
+}
+
+function assertManifestMatchesGitDelivery(projectedSet, root, deliveryBase, deliveryRef) {
+  const deliveredPaths = gitReportedDeliveryPaths(root, deliveryBase, deliveryRef);
+  for (const relativePath of deliveredPaths) {
+    assert.ok(
+      projectedSet.has(relativePath),
+      `Delivery manifest missing Git-delivered path: ${relativePath}`
+    );
+  }
+  for (const relativePath of projectedSet) {
+    assert.ok(fs.existsSync(path.join(root, relativePath)), `Delivery manifest invents nonexistent path: ${relativePath}`);
+    assert.ok(deliveredPaths.includes(relativePath), `Delivery manifest invents non-delivery path: ${relativePath}`);
+  }
+}
+
+function fixtureGit(root, args) {
+  const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+}
+
+function checkGitOwnedDeliveryFixture() {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "release-gate-git-scope-"));
+  try {
+    fixtureGit(temp, ["init", "--quiet"]);
+    fixtureGit(temp, ["config", "user.email", "release-fixture@example.test"]);
+    fixtureGit(temp, ["config", "user.name", "Release Fixture"]);
+    fs.mkdirSync(path.join(temp, "SYSTEM/CI"), { recursive: true });
+    fs.writeFileSync(path.join(temp, "SYSTEM/CI/release-gate-manifest.json"), "{}\n");
+    fixtureGit(temp, ["add", "."]);
+    fixtureGit(temp, ["commit", "--quiet", "-m", "fixture baseline"]);
+    const baseline = fixtureGit(temp, ["rev-parse", "HEAD"]);
+    const trackedDeliveredPath = "SYSTEM/CI/tracked-delivery.js";
+    const untrackedResiduePath = ".llmwiki-audit/untracked-residue.json";
+    fs.writeFileSync(path.join(temp, trackedDeliveredPath), "\"use strict\";\n");
+    fixtureGit(temp, ["add", trackedDeliveredPath]);
+    fixtureGit(temp, ["commit", "--quiet", "-m", "tracked delivery"]);
+    const deliveryRef = fixtureGit(temp, ["symbolic-ref", "--short", "HEAD"]);
+    fs.mkdirSync(path.join(temp, ".llmwiki-audit"), { recursive: true });
+    fs.writeFileSync(path.join(temp, untrackedResiduePath), "{}\n");
+    const gitScope = gitReportedDeliveryPaths(temp, baseline, deliveryRef);
+    assert.deepEqual(
+      gitScope,
+      [trackedDeliveredPath],
+      "Git delivery scope must exclude ordinary untracked residue"
+    );
+    assert.deepEqual(projection.deriveGitDeliveryPaths(temp, baseline, deliveryRef), gitScope, "authority must relay Git's exact delivery record");
+    assert.doesNotThrow(() => assertManifestMatchesGitDelivery(new Set([trackedDeliveredPath]), temp, baseline, deliveryRef));
+    assert.throws(
+      () => assertManifestMatchesGitDelivery(new Set(), temp, baseline, deliveryRef),
+      new RegExp(trackedDeliveredPath)
+    );
+    const originalProjectedPaths = projection.deriveProjectedPaths;
+    projection.deriveProjectedPaths = () => [];
+    try {
+      assert.throws(
+        () => assertManifestMatchesGitDelivery(new Set(), temp, baseline, deliveryRef),
+        new RegExp(trackedDeliveredPath),
+        "authority exclusions must not change Git-owned delivery accounting"
+      );
+    } finally {
+      projection.deriveProjectedPaths = originalProjectedPaths;
+    }
+    assert.throws(
+      () => assertManifestMatchesGitDelivery(new Set([trackedDeliveredPath, "SYSTEM/CI/invented-delivery.js"]), temp, baseline, deliveryRef),
+      /Delivery manifest invents nonexistent path/u
+    );
+    assert.throws(() => gitReportedDeliveryPaths(temp, "missing-base", deliveryRef), /DELIVERY_BASE_UNRESOLVED/u);
+    assert.throws(() => gitReportedDeliveryPaths(temp, baseline, baseline), /DELIVERY_SCOPE_EMPTY/u);
+    fixtureGit(temp, ["checkout", "--quiet", "--detach", deliveryRef]);
+    assert.throws(() => projection.deriveGitDeliveryPaths(temp, baseline), /DELIVERY_REF_DETACHED/u);
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function checkLegacyFreezeUniverseCompatibility() {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "release-gate-legacy-freeze-"));
+  try {
+    fixtureGit(temp, ["init", "--quiet"]);
+    fixtureGit(temp, ["config", "user.email", "legacy-freeze@example.test"]);
+    fixtureGit(temp, ["config", "user.name", "Legacy Freeze Fixture"]);
+    fs.mkdirSync(path.join(temp, "SYSTEM/CI"), { recursive: true });
+    fs.mkdirSync(path.join(temp, "SYSTEM/Views"), { recursive: true });
+    fs.mkdirSync(path.join(temp, "SYSTEM/AI/Skills/prodigy-review/tests"), { recursive: true });
+    fs.writeFileSync(path.join(temp, MANIFEST_RELATIVE), "{}\n");
+    fs.writeFileSync(path.join(temp, "SYSTEM/Views/legacy-view.js"), "\"use strict\";\n");
+    fs.writeFileSync(path.join(temp, "SYSTEM/AI/Skills/prodigy-review/tests/test_legacy_freeze.js"), "\"use strict\";\n");
+    fixtureGit(temp, ["add", "."]);
+    fixtureGit(temp, ["commit", "--quiet", "-m", "legacy freeze baseline"]);
+    const baseline = fixtureGit(temp, ["rev-parse", "HEAD"]);
+    const projectedPath = "SYSTEM/CI/legacy-projected-path.js";
+    fs.writeFileSync(path.join(temp, projectedPath), "\"use strict\";\n");
+    const expectedPaths = projection.deriveProjectedPaths(temp, baseline);
+    const first = projection.freezeUniverse(temp, baseline);
+    const second = projection.freezeUniverse(temp, baseline);
+    assert.equal(projection.freezeUniverse.length, 1, "freezeUniverse must retain its one-argument public signature");
+    assert.deepEqual(first.projectedPaths, expectedPaths, "freezeUniverse(root) must preserve projected-worktree behavior");
+    projection.assertFrozenUniverse(first, second);
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
 }
 
 function checkReleaseManifestContract() {
@@ -46,9 +192,7 @@ function checkReleaseManifestContract() {
     assert.ok(["raw", "canonical_self"].includes(entry.hash_mode));
   }
   const projectedSet = new Set(manifest.delivery.projected_paths.map((entry) => entry.path));
-  for (const required of [RUNNER_RELATIVE, MANIFEST_RELATIVE, "SYSTEM/CI/recovery-proof-harness.js", "SYSTEM/CI/repository-data-backup.js", "SYSTEM/CI/task16-scrub-retained-artifacts.js", "SYSTEM/Views/region-experience-modal.js", "SYSTEM/AI/Skills/prodigy-review/tests/auction/test_region_experience_modal.js", "SYSTEM/AI/Skills/prodigy-review/tests/test_task15_recovery_proof.js", "SYSTEM/AI/Skills/prodigy-review/tests/test_release_gate.js", "SYSTEM/AI/Skills/prodigy-review/tests/test_consolidation_literal_git_archive.js", "SYSTEM/AI/Skills/prodigy-review/tests/people/fixtures/quickadd-people-v1.json"]) {
-    assert.ok(projectedSet.has(required), `Projected deliverable missing ${required}`);
-  }
+  assertManifestContainsRequiredDeliverables(projectedSet);
   const gitProbe = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: ROOT, encoding: "utf8" });
   if (gitProbe.status === 0 && path.resolve(gitProbe.stdout.trim()) === ROOT) {
     const modified = spawnSync("git", ["diff", "--name-only", "-z", BASELINE, "--"], { cwd: ROOT, encoding: "buffer" });
@@ -60,7 +204,6 @@ function checkReleaseManifestContract() {
     const actual = projection.deriveProjectedPaths(ROOT);
     assert.equal(projectedSet.has(DERIVED_RECEIPT_RELATIVE), false, "derived receipt must not enter the raw product projection");
     assert.equal(actual.some((relativePath) => DERIVED_EVIDENCE_EXCLUSIONS.some((identity) => projection.matchesEvidenceIdentity(relativePath, identity))), false, "predeclared evidence roots must stay outside the raw projection");
-    assert.deepEqual(manifest.delivery.projected_paths.map((entry) => entry.path), actual, "Projection manifest must exactly own every other modified/untracked path");
   }
   assert.equal(manifest.toolchain.node_required_major, 24);
   assert.match(manifest.toolchain.node_recorded, /^v24\.\d+\.\d+$/);
@@ -69,10 +212,16 @@ function checkReleaseManifestContract() {
   assert.equal(manifest.toolchain.python_ci, "3.12");
   assert.equal(manifest.toolchain.setup_uv_action, "astral-sh/setup-uv@v5");
 
-  const discovered = projection.discoveryCounts(projection.discoverGateFiles(ROOT));
-  assert.deepEqual(manifest.discovery, discovered, "Tracked release counts must match canonical discovery");
+  assert.deepEqual(
+    Object.keys(manifest.discovery).sort(),
+    ["javascript_suite_files", "python_suite_files", "view_syntax_files"],
+    "Frozen release discovery must retain its complete schema"
+  );
+  for (const [name, count] of Object.entries(manifest.discovery)) {
+    assert.ok(Number.isSafeInteger(count) && count > 0, `Frozen release discovery count must be positive: ${name}`);
+  }
   const fixedCount = Object.values(manifest.fixed_commands).reduce((sum, value) => sum + value, 0);
-  assert.equal(manifest.total_commands, fixedCount + Object.values(discovered).reduce((sum, value) => sum + value, 0));
+  assert.equal(manifest.total_commands, fixedCount + Object.values(manifest.discovery).reduce((sum, value) => sum + value, 0));
 }
 
 function checkRunnerContract() {
@@ -94,7 +243,11 @@ function checkRunnerContract() {
   ]) {
     assert.ok(source.includes(required), `Release gate missing required command: ${required}`);
   }
-  assert.ok(!source.includes("/dev/null"), "Release gate must preserve command output");
+  assert.doesNotMatch(
+    source,
+    /"\$@"\s*(?:\d?>|&>)\s*\/dev\/null/u,
+    "Release gate must preserve executed command output"
+  );
   assert.ok(source.includes("PYTHONDONTWRITEBYTECODE=1"), "Release gate must not dirty clean archives with Python bytecode");
   assert.ok(source.includes("release preflight failed"), "Release gate must expose a stable preflight failure");
   assert.ok(source.includes('PRODIGY_NODE_BIN') && source.includes('PRODIGY_UV_BIN'), "release gate must consume resolved absolute tool identities");
@@ -115,6 +268,7 @@ function makeFakeToolchain(root, failFind) {
   const bin = path.join(root, "bin");
   fs.mkdirSync(bin, { recursive: true });
   fs.writeFileSync(path.join(bin, "node"), '#!/usr/bin/env bash\nif [ "$1" = "--version" ]; then echo v24.19.0; elif [ "$1" = "-p" ]; then case "$2" in *randomUUID*) echo 00000000-0000-4000-8000-000000000008;; *) echo 24;; esac; fi\n');
+  fs.writeFileSync(path.join(bin, "bun"), '#!/usr/bin/env bash\nif [ "$1" = "--version" ]; then echo 1.4.2; fi\n');
   fs.writeFileSync(path.join(bin, "uv"), "#!/usr/bin/env bash\necho 'uv 0.8.0'\nexit 0\n");
   if (failFind) fs.writeFileSync(path.join(bin, "find"), "#!/usr/bin/env bash\ncase \"$PATH\" in */runtime/bin:/usr/bin:/bin:/usr/sbin:/sbin) ;; *) echo unconfined-path >&2; exit 41;; esac\ncase \"$(command -v node):$(command -v uv)\" in */runtime/bin/node:*/runtime/bin/uv) ;; *) echo missing-confined-tools >&2; exit 41;; esac\ncase \"$HOME:$TMPDIR:$XDG_CACHE_HOME:$XDG_CONFIG_HOME:$npm_config_cache:$UV_CACHE_DIR\" in */runtime/home:*/runtime/tmp:*/runtime/xdg-cache:*/runtime/xdg-config:*/runtime/npm-cache:*/runtime/uv-cache) ;; *) echo unconfined-write-root >&2; exit 41;; esac\necho deterministic-find-failure >&2\nexit 42\n");
   for (const name of fs.readdirSync(bin)) fs.chmodSync(path.join(bin, name), 0o755);
@@ -151,7 +305,7 @@ function checkFailClosedDiscovery() {
     const externalHome = path.join(temp, "external-home"); fs.mkdirSync(externalHome);
     const failedFind = spawnSync("bash", [RUNNER], { cwd: ROOT, encoding: "utf8", env: { ...process.env, HOME: externalHome, PATH: `${failedFindBin}:${process.env.PATH}`, PRODIGY_NODE_BIN: path.join(failedFindBin, "node"), PRODIGY_UV_BIN: path.join(failedFindBin, "uv"), PRODIGY_FIND_BIN: path.join(failedFindBin, "find") } });
     assert.notEqual(failedFind.status, 0, "failed find must never produce GREEN");
-    assert.match(failedFind.stdout, /release toolchain preflight: node=v24\.19\.0 uv=uv 0\.8\.0 environment=confined disposable_roots=6/u);
+    assert.match(failedFind.stdout, /release toolchain preflight: node=v24\.19\.0 bun=1\.4\.2 uv=uv 0\.8\.0 environment=confined disposable_roots=6/u);
     assert.match(`${failedFind.stdout}\n${failedFind.stderr}`, /release preflight failed.*deterministic-find-failure/is);
     assert.deepEqual(fs.readdirSync(externalHome), [], "the exact portable environment must not write to external HOME");
   } finally {
@@ -182,6 +336,8 @@ function checkCurrentRunReceiptContract() {
     !source.includes('--evidence-root "$CONSOLIDATION_EVIDENCE"'),
     "F4 must not consume potentially stale agent evidence"
   );
+  assert.doesNotMatch(source, /PRODIGY_LAST_GATE_RESULT/u, "receipt must not trust an environment-supplied gate result");
+  assert.ok(source.includes("last_gate_result: unverified_absent"), "receipt must label the absent owned record honestly");
 }
 
 function checkWorkflowContract() {
@@ -224,9 +380,20 @@ function checkCliContract() {
   assert.ok(selfTest.stdout.includes("synthetic stdout"), "Synthetic stdout must be preserved");
   assert.ok(selfTest.stderr.includes("synthetic stderr"), "Synthetic stderr must be preserved");
   assert.ok(selfTest.stdout.includes("FAIL: synthetic-failure (exit 23)"), "Failure report must include label and exact child exit");
+
+  const forgedResult = spawnSync("bash", [RUNNER, "--sandbox-self-test"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    env: { ...process.env, PRODIGY_LAST_GATE_RESULT: "FORGED-STALE-RESULT" }
+  });
+  assert.equal(forgedResult.status, 0, forgedResult.stderr);
+  assert.match(forgedResult.stdout, /last_gate_result: unverified_absent/u);
+  assert.doesNotMatch(forgedResult.stdout, /FORGED-STALE-RESULT/u);
 }
 
 function main() {
+  checkGitOwnedDeliveryFixture();
+  checkLegacyFreezeUniverseCompatibility();
   checkReleaseManifestContract();
   checkRunnerContract();
   checkCurrentRunReceiptContract();

@@ -16,12 +16,14 @@ const crypto = require("crypto");
 
 const USAGE = [
   "Usage: prodigy-known-red-ledger.js --command <name> --exit <code> --log <path> --out <path>",
+  "       prodigy-known-red-ledger.js --read --out <path>",
   "",
   "Flags:",
   "  --command <name>  Command name used as the ledger key",
   "  --exit <code>     Exit code to record",
   "  --log <path>      Path to the command log file",
   "  --out <path>      Path to the JSON ledger file",
+  "  --read            Print the existing ledger without modifying it",
   "  --help            Show this message",
 ].join("\n");
 
@@ -58,11 +60,15 @@ function atomicWrite(destPath, content) {
 }
 
 function parseArgs(argv) {
-  const args = { help: false };
+  const args = { help: false, read: false };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === "--help") {
       args.help = true;
+      continue;
+    }
+    if (token === "--read") {
+      args.read = true;
       continue;
     }
     if (!token.startsWith("--")) {
@@ -139,6 +145,19 @@ function main(argv) {
   }
 
   const { command, exitText, logPath, outPath } = parsed.args;
+  if (parsed.args.read) {
+    if (command || exitText !== undefined || logPath || !outPath) {
+      process.stderr.write(`${USAGE}\n`);
+      return 1;
+    }
+    try {
+      process.stdout.write(`${JSON.stringify(loadLedger(outPath), null, 2)}\n`);
+      return 0;
+    } catch (_error) {
+      process.stderr.write(`Unreadable --out: ${outPath}\n`);
+      return 1;
+    }
+  }
   if (!command || exitText === undefined || !logPath || !outPath) {
     process.stderr.write(`${USAGE}\n`);
     return 1;

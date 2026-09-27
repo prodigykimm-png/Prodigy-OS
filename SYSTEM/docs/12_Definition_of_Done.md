@@ -89,3 +89,31 @@ No forced interaction frequency.
 - Missing decisions should be visible.
 - Suggested Principles remain suggestions until human validation.
 - AI may assist with presentation and detection, but humans decide.
+
+## Release Gate Preflight Receipt
+
+Every release-gate invocation emits a read-only preflight receipt before
+portable checks run. The receipt reports the current branch and HEAD, the
+current dirty path set, the Git status of `PARA`, `ZETA`, `DAILY`, and `INBOX`,
+and `last_gate_result: unverified_absent` while no owned, validated gate-result
+record exists. Environment values are never reported as gate facts.
+
+The receipt describes the current worktree; it does not rewrite a historical
+delivery manifest, stage files, or change protected content. Ordinary user
+changes remain visible in the receipt and are not themselves a release-gate
+contract violation.
+
+Git independently defines the delivery scope as `git diff --name-only` between
+an explicit delivery base and delivery ref. Untracked working-tree residue is
+not in that Git commit-to-commit diff. Manifest generation must account for
+every Git-delivered path, must not invent a non-delivery or nonexistent path,
+and fails explicitly when the base/ref is missing, HEAD is detached without an
+explicit ref, or the Git scope is empty. This strict delivery API is separate
+from the legacy `freezeUniverse(root)` projected-worktree helper, whose
+existing callers retain their original behavior. The frozen historical manifest
+retains its hashes, uniqueness, and required projected deliverables.
+
+`bash SYSTEM/CI/run-release-gate.sh --sandbox-self-test` prints both baseline
+and sandbox receipts while keeping all runtime writes inside its disposable
+test root. `node SYSTEM/SCRIPTS/prodigy-known-red-ledger.js --read --out
+<ledger.json>` reads a known-red ledger without modifying it.
