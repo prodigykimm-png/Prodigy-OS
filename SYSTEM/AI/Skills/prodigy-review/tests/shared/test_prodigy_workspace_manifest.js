@@ -8,6 +8,86 @@ const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 const EXPECTED = require("./fixtures/workspace-manifest-v1.json");
+
+/*
+ * Task 7 determination: the frozen fixture is STALE for the auction entry
+ * and the live product registry is right. Evidence (kept under the Task 7
+ * evidence dir):
+ * - all seven required additions exist on disk; the eighth (optional
+ *   auction-key-value-snapshot.js) is a gitignored generated artifact that
+ *   may legitimately be absent, in which case the loader degrades instead
+ *   of blocking (see the graceful-degradation case below);
+ * - every required addition defines exactly one branded root global whose
+ *   only in-registry consumers evaluate later (site-visit-index@23 ->
+ *   region-intelligence-popup-core@37, dong-profile-core@34 ->
+ *   auction-region-packet@35, dashboard-refresh@47/key-value-projection@48/
+ *   key-value-detail@49/card-view-model@50/card-mutation@59 ->
+ *   auction-card@60), and every cross-module read resolves to an earlier
+ *   definer or a stable external (Obsidian/DOM), with all runtime access
+ *   deferred inside function bodies behind typeof/window guards;
+ * - none of the additions uses CommonJS require.
+ * Positions below are therefore asserted EXACTLY: module position is
+ * semantic (producer before consumer), not cosmetic.
+ */
+const AUCTION_REQUIRED_INSERTIONS = Object.freeze([
+  Object.freeze({ index: 23, path: "SYSTEM/Views/auction-site-visit-index.js", global: "AuctionSiteVisitIndex", consumer: "SYSTEM/Views/region-intelligence-popup-core.js" }),
+  Object.freeze({ index: 34, path: "SYSTEM/Views/auction-dong-profile-core.js", global: "AuctionDongProfileCore", consumer: "SYSTEM/Views/auction-region-packet.js" }),
+  Object.freeze({ index: 47, path: "SYSTEM/Views/auction-dashboard-refresh.js", global: "AuctionDashboardRefresh", consumer: "SYSTEM/Views/auction-card.js" }),
+  Object.freeze({ index: 48, path: "SYSTEM/Views/auction-key-value-projection.js", global: "AuctionKeyValueProjection", consumer: "SYSTEM/Views/auction-card.js" }),
+  Object.freeze({ index: 49, path: "SYSTEM/Views/auction-key-value-detail.js", global: "AuctionKeyValueDetail", consumer: "SYSTEM/Views/auction-card.js" }),
+  Object.freeze({ index: 50, path: "SYSTEM/Views/auction-card-view-model.js", global: "AuctionCardViewModel", consumer: "SYSTEM/Views/auction-card.js" }),
+  Object.freeze({ index: 59, path: "SYSTEM/Views/auction-card-mutation.js", global: "AuctionCardMutation", consumer: "SYSTEM/Views/auction-card.js" }),
+]);
+const AUCTION_OPTIONAL_PREFIX = Object.freeze(["SYSTEM/Views/auction-key-value-snapshot.js"]);
+/*
+ * Same Task 7 determination for project: the frozen fixture predates
+ * SYSTEM/Views/project-card-mutation.js, which exists on disk, defines
+ * root.ProjectCardMutation, and is consumed later by project-card.js
+ * (index 22) through deferred runtime access. Position 20 is
+ * dependency-correct, so the expectation is updated here, not the product.
+ */
+const PROJECT_REQUIRED_INSERTIONS = Object.freeze([
+  Object.freeze({ index: 20, path: "SYSTEM/Views/project-card-mutation.js", global: "ProjectCardMutation", consumer: "SYSTEM/Views/project-card.js" }),
+]);
+
+function withInsertions(frozen, insertions, optionalPrefix = []) {
+  const required = [...frozen.required];
+  for (const insertion of insertions) required.splice(insertion.index, 0, insertion.path);
+  return { ...frozen, required, optional: [...optionalPrefix, ...frozen.optional] };
+}
+
+function expectedAuctionEntry() {
+  return withInsertions(EXPECTED.entries.auction, AUCTION_REQUIRED_INSERTIONS, AUCTION_OPTIONAL_PREFIX);
+}
+
+function expectedProjectEntry() {
+  return withInsertions(EXPECTED.entries.project, PROJECT_REQUIRED_INSERTIONS);
+}
+
+/*
+ * Same Task 7 determination for knowledge, this time a pure reorder: the
+ * frozen fixture loads llmwiki-document-canonical-review.js before
+ * llmwiki-lifecycle-migration-flows.js, but canonical-review line 17 reads
+ * LLMWikiLifecycleMigrationFlows at evaluation time with only a
+ * require() fallback that does not exist in the browser closure. The live
+ * registry loads migration-flows first (index 186) and canonical-review
+ * plus manual-registry immediately after (187/188), which is the
+ * dependency-correct side; the fixture is stale. The move is asserted at
+ * exact positions.
+ */
+function expectedKnowledgeEntry() {
+  const frozen = EXPECTED.entries.knowledge;
+  const moved = [
+    "SYSTEM/Views/llmwiki-document-canonical-review.js",
+    "SYSTEM/Views/llmwiki-manual-registry.js",
+  ];
+  const required = frozen.required.filter((entry) => !moved.includes(entry));
+  const anchor = "SYSTEM/Views/llmwiki-run-controller.js";
+  const at = required.indexOf(anchor);
+  assert.notEqual(at, -1, "run-controller anchor must remain in the knowledge manifest");
+  required.splice(at, 0, ...moved);
+  return { ...frozen, required };
+}
 const MANIFEST_PATH = path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js");
 
 function freshManifest() {
@@ -167,10 +247,76 @@ test("the closed registry exactly matches the frozen pre-Task6 workspace contrac
   for (const [workspaceId, expected] of Object.entries(EXPECTED.entries)) {
     const actual = api.get(workspaceId);
     assert.deepEqual(Object.keys(actual), ["workspaceId", "host", "required", "optional", "renderer"]);
-    assert.deepEqual(JSON.parse(JSON.stringify(actual)), expected, workspaceId);
+    // Auction carries the Task 7 verified additions (fixture is stale there); every other entry must match the freeze byte-for-byte.
+    const effective = workspaceId === "auction" ? expectedAuctionEntry() : workspaceId === "project" ? expectedProjectEntry() : workspaceId === "knowledge" ? expectedKnowledgeEntry() : expected;
+    assert.deepEqual(JSON.parse(JSON.stringify(actual)), effective, workspaceId);
     assert.equal(Object.isFrozen(actual), true);
     assert.equal(Object.isFrozen(actual.required), true);
     assert.equal(Object.isFrozen(actual.optional), true);
+  }
+});
+
+function assertInsertionOrder(api, workspaceId, insertions) {
+  const required = api.get(workspaceId).required;
+  const indexOf = (modulePath) => required.indexOf(modulePath);
+  for (const insertion of insertions) {
+    assert.equal(indexOf(insertion.path), insertion.index, `${insertion.path} position is semantic`);
+    const source = fs.readFileSync(path.join(ROOT, insertion.path), "utf8");
+    assert.ok(!source.includes("require("), `${insertion.path} must not use CommonJS`);
+    assert.ok(new RegExp(`root\\.${insertion.global}\\s*=`).test(source), `${insertion.path} defines root.${insertion.global}`);
+    assert.ok(fs.existsSync(path.join(ROOT, insertion.path)), `${insertion.path} exists on disk`);
+    const consumerIndex = indexOf(insertion.consumer);
+    assert.notEqual(consumerIndex, -1, `${insertion.consumer} must remain in the auction manifest`);
+    assert.ok(insertion.index < consumerIndex, `${insertion.path}@${insertion.index} must load before its consumer ${insertion.consumer}@${consumerIndex}`);
+    const consumerSource = fs.readFileSync(path.join(ROOT, insertion.consumer), "utf8");
+    assert.ok(consumerSource.includes(insertion.global), `${insertion.consumer} consumes ${insertion.global}`);
+  }
+}
+
+test("Task 7 auction additions sit at dependency-correct positions without CommonJS", () => {
+  assertInsertionOrder(freshManifest(), "auction", AUCTION_REQUIRED_INSERTIONS);
+});
+
+test("Task 7 project card-mutation addition sits at a dependency-correct position without CommonJS", () => {
+  assertInsertionOrder(freshManifest(), "project", PROJECT_REQUIRED_INSERTIONS);
+});
+
+test("Task 7 knowledge canonical-review pair loads after its migration-flows dependency", () => {
+  const api = freshManifest();
+  const required = api.get("knowledge").required;
+  const flows = required.indexOf("SYSTEM/Views/llmwiki-lifecycle-migration-flows.js");
+  const review = required.indexOf("SYSTEM/Views/llmwiki-document-canonical-review.js");
+  const registry = required.indexOf("SYSTEM/Views/llmwiki-manual-registry.js");
+  assert.ok(flows !== -1 && review !== -1 && registry !== -1);
+  assert.ok(flows < review && review < registry, "migration-flows -> canonical-review -> manual-registry");
+  const source = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-document-canonical-review.js"), "utf8");
+  assert.ok(source.includes("LLMWikiLifecycleMigrationFlows"), "canonical-review reads the migration-flows global");
+});
+
+test("Task 7 missing optional snapshot degrades readiness instead of blocking it", () => {
+  const loaderPath = path.join(ROOT, "SYSTEM/Views/prodigy-hub-loader.js");
+  delete require.cache[require.resolve(loaderPath)];
+  const loader = require(loaderPath);
+  loader.resetLoaded();
+  try {
+    const api = freshManifest();
+    const auction = api.get("auction");
+    const files = {};
+    for (const modulePath of auction.required.concat(auction.optional)) {
+      if (modulePath === "SYSTEM/Views/auction-key-value-snapshot.js") continue;
+      files[modulePath] = "";
+    }
+    const app = {
+      vault: {
+        getAbstractFileByPath: (modulePath) => Object.hasOwn(files, modulePath) ? { path: modulePath } : null,
+        read: (file) => Promise.resolve(files[file.path])
+      }
+    };
+    const result = loader.checkReadiness(app, "auction");
+    assert.equal(result.results.auction.ready, true);
+    assert.deepEqual(result.results.auction.degradedOptional, ["SYSTEM/Views/auction-key-value-snapshot.js"]);
+  } finally {
+    loader.resetLoaded();
   }
 });
 

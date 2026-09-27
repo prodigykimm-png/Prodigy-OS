@@ -669,6 +669,132 @@
     if (errors.length) { var aggregate = new Error("Hub loader: " + errors.length + "개 모듈 로드 실패"); aggregate.errors = errors; throw aggregate; }
   }
 
+  var READINESS_CODES = Object.freeze({
+    READY: "READY",
+    REQUIRED_MISSING: "REQUIRED_MISSING",
+    SYNC_PENDING: "SYNC_PENDING",
+    UNKNOWN_WORKSPACE: "UNKNOWN_WORKSPACE",
+    INVALID_MANIFEST: "INVALID_MANIFEST",
+    UNAVAILABLE: "UNAVAILABLE"
+  });
+
+  /*
+   * Read-only readiness probe over the EXISTING cache/generation records.
+   * A stale cached entry (file version moved on) is never reported as
+   * current: it is probed live and listed under staleModules. Missing
+   * paths are reported verbatim; no fallback module is ever substituted.
+   */
+  function probeModuleReadiness(config, modulePath, kind) {
+    var raw = typeof modulePath === "string" ? modulePath : "<invalid>";
+    var path = normalizePath(modulePath);
+    if (!path) return Object.freeze({ path: raw, kind: kind, state: "invalid", present: false, cached: false, stale: false, code: "invalid" });
+    var file = null;
+    try { file = config.vault && config.vault.getAbstractFileByPath(path); } catch (_) { file = null; }
+    var version = file ? fileVersion(file) : "";
+    var record = null;
+    try { record = cacheFor(config.vault, config.realm).get(path) || null; } catch (_) { record = null; }
+    if (!file) {
+      var code = record && record.state === "failed" && record.failure && record.failure.code ? record.failure.code : "sync_pending";
+      return Object.freeze({ path: path, kind: kind, state: code === "sync_pending" ? "missing" : "failed", present: false, cached: false, stale: false, code: code });
+    }
+    var stale = Boolean(record && (record.state === "loaded" || record.state === "failed") && version && record.version && record.version !== version);
+    if (record && record.state === "loaded" && !stale) return Object.freeze({ path: path, kind: kind, state: "loaded", present: true, cached: true, stale: false });
+    if (record && record.state === "failed" && !stale) return Object.freeze({ path: path, kind: kind, state: "failed", present: true, cached: false, stale: false, code: record.failure && record.failure.code });
+    return Object.freeze({ path: path, kind: kind, state: stale ? "stale" : "present", present: true, cached: false, stale: stale });
+  }
+
+  function readinessMessage(workspaceId, blockedRequired, degradedOptional, reasonCode) {
+    if (reasonCode === READINESS_CODES.UNKNOWN_WORKSPACE) return "알 수 없는 작업 공간입니다: " + workspaceId + ". 작업 공간 목록을 확인해 주세요.";
+    if (reasonCode === READINESS_CODES.INVALID_MANIFEST) return "작업 공간 선언이 올바르지 않습니다: " + workspaceId + ". 앱을 다시 열어 주세요.";
+    if (reasonCode === READINESS_CODES.UNAVAILABLE) return "작업 공간 상태를 확인할 수 없습니다. 앱을 다시 열어 주세요.";
+    if (blockedRequired.length) {
+      var names = blockedRequired.map(function (item) { return item.path; }).join(", ");
+      return "필수 모듈 " + blockedRequired.length + "개를 불러오지 못했습니다: " + names + ". 동기화가 끝나지 않았을 수 있습니다. 동기화 완료 후 다시 시도해 주세요.";
+    }
+    if (degradedOptional.length) {
+      var optionalNames = degradedOptional.map(function (item) { return item.path; }).join(", ");
+      return "선택 모듈 없이 계속합니다: " + optionalNames + ". 핵심 기능은 정상 동작합니다.";
+    }
+    return "모든 필수 모듈이 준비되었습니다.";
+  }
+
+  function singleWorkspaceReadiness(workspaceId, required, optional, reasonCode) {
+    var missingRequired = required.filter(function (item) { return !item.present; });
+    var failedRequired = required.filter(function (item) { return item.present && item.state === "failed"; });
+    var blockedRequired = missingRequired.concat(failedRequired);
+    var degradedOptional = optional.filter(function (item) { return !item.present; });
+    var staleModules = required.concat(optional).filter(function (item) { return item.stale; }).map(function (item) { return item.path; });
+    var code = reasonCode;
+    if (!code) {
+      if (blockedRequired.length) code = failedRequired.length || !missingRequired.every(function (item) { return item.state === "missing"; }) ? READINESS_CODES.REQUIRED_MISSING : READINESS_CODES.SYNC_PENDING;
+      else code = READINESS_CODES.READY;
+    }
+    var modules = Object.freeze(required.concat(optional));
+    return Object.freeze({
+      workspaceId: workspaceId,
+      ready: blockedRequired.length === 0,
+      blocked: blockedRequired.length > 0,
+      degraded: degradedOptional.length > 0,
+      reasonCode: code,
+      message: readinessMessage(workspaceId, blockedRequired, degradedOptional, code),
+      requiredTotal: required.length,
+      requiredReady: required.length - blockedRequired.length,
+      missingRequired: Object.freeze(missingRequired.map(function (item) { return item.path; })),
+      failedRequired: Object.freeze(failedRequired.map(function (item) { return item.path; })),
+      degradedOptional: Object.freeze(degradedOptional.map(function (item) { return item.path; })),
+      staleModules: Object.freeze(staleModules),
+      modules: modules
+    });
+  }
+
+  function resolveReadinessTargets(target) {
+    var registry = manifestApi();
+    if (target === undefined || target === null) return registry.all().map(function (manifest) { return { id: manifest.workspaceId, manifest: manifest }; });
+    var list = Array.isArray(target) ? target : [target];
+    return list.map(function (entry) {
+      if (typeof entry === "string") return { id: entry, manifest: registry.get(entry) };
+      return { id: entry && entry.workspaceId || "<invalid>", manifest: entry };
+    });
+  }
+
+  function checkReadiness(app, target, options) {
+    var config = null;
+    try { config = evaluateConfig(app, options); } catch (_) { config = null; }
+    var vaultOk = Boolean(config && config.vault);
+    var results = {};
+    var entries;
+    try { entries = resolveReadinessTargets(target); }
+    catch (_) {
+      var unknownId = typeof target === "string" ? target : target && target.workspaceId || "<invalid>";
+      results[unknownId] = singleWorkspaceReadiness(unknownId, [], [], READINESS_CODES.UNKNOWN_WORKSPACE);
+      return summarizeReadiness(results);
+    }
+    entries.forEach(function (entry) {
+      var manifest = entry.manifest;
+      var valid = false;
+      try { manifestApi().validate(manifest); valid = true; } catch (_) { valid = false; }
+      if (!valid) { results[entry.id] = singleWorkspaceReadiness(entry.id, [], [], READINESS_CODES.INVALID_MANIFEST); return; }
+      if (!vaultOk) { results[manifest.workspaceId] = singleWorkspaceReadiness(manifest.workspaceId, [], [], READINESS_CODES.UNAVAILABLE); return; }
+      var required = observedList(manifest.required).map(function (modulePath) { return probeModuleReadiness(config, modulePath, "required"); });
+      var optional = observedList(manifest.optional).map(function (modulePath) { return probeModuleReadiness(config, modulePath, "optional"); });
+      results[manifest.workspaceId] = singleWorkspaceReadiness(manifest.workspaceId, required, optional, null);
+    });
+    return summarizeReadiness(results);
+  }
+
+  function summarizeReadiness(results) {
+    var frozen = Object.freeze(results);
+    var ids = Object.keys(frozen);
+    var ready = ids.length > 0 && ids.every(function (id) { return frozen[id].ready; });
+    var blocked = ids.some(function (id) { return frozen[id].blocked; });
+    var degraded = ids.some(function (id) { return frozen[id].degraded; });
+    var message = !ids.length ? "확인할 작업 공간이 없습니다."
+      : blocked ? ids.filter(function (id) { return frozen[id].blocked; }).map(function (id) { return frozen[id].message; }).join(" ")
+      : degraded ? ids.filter(function (id) { return frozen[id].degraded; }).map(function (id) { return frozen[id].message; }).join(" ")
+      : "모든 작업 공간의 필수 모듈이 준비되었습니다.";
+    return Object.freeze({ results: frozen, ready: ready, blocked: blocked, degraded: degraded, message: message });
+  }
+
   function resetLoaded() { vaultCaches = new WeakMap(); containerScopes = new WeakMap(); containerMounts = new WeakMap(); ownerScopes = new WeakMap(); ownerMounts = new WeakMap(); scopeGenerations = new WeakMap(); identities = new WeakMap(); nextMountGeneration = 1; nextIdentity = 1; lastConfig = null; }
   function currentWorkspace(container) {
     if (!container) return null;
@@ -695,6 +821,8 @@
     retry: retry,
     resetLoaded: resetLoaded,
     isLoaded: isLoaded,
+    checkReadiness: checkReadiness,
+    readinessCodes: READINESS_CODES,
     createMountScope: createMountScope,
     currentWorkspace: currentWorkspace,
     disposeWorkspace: disposeWorkspace,
