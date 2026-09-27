@@ -161,7 +161,7 @@
       // Contradictory local signals (private marker + outbound consent) are
       // held, never resolved silently.
       if (markedPrivate && explicitOutbound) return "mixed_ambiguous_classification";
-      const boundary = privacyApi.classifyInboxSource({ source_path: sourcePath, metadata });
+      const boundary = privacyApi.classifyInboxSource({ source_path: sourcePath, source_text: value.source_text, metadata });
       if (boundary.route === "ignored") return boundary.reason; // outside_inbox_boundary
       if (boundary.route === "hold") return boundary.reason; // protected_source
       const sensitive = sensitiveApi.inspect({ source_path: sourcePath, source_text: value.source_text, metadata });

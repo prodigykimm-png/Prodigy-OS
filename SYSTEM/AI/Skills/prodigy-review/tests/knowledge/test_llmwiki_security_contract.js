@@ -21,6 +21,7 @@ const riskPacket = load("llmwiki-risk-approval-packet.js");
 const operationState = load("llmwiki-operation-run-state.js");
 const migration = load("llmwiki-migration-rollout.js");
 const gitGateway = load("llmwiki-git-adapter.js");
+const privacyBoundary = load("llmwiki-inbox-privacy-boundary.js");
 const manifest = load("prodigy-workspace-manifest.js").get("knowledge");
 
 function citation() {
@@ -84,6 +85,55 @@ const PATH_ATTACKS = Object.freeze([
 const MESSAGE_ATTACKS = Object.freeze([
   "subject\n\nSigned-off-by: attacker", "--amend", "--", "$(touch pwn)", "`id`", "a|cat", "a>out", "a;id", "a&&id", "a\";id",
 ]);
+
+test("synthetic credential families are quarantined locally with structurally redacted recovery", () => {
+  const openAi = ["sk", "fixture", "N0TREAL01234567890123456789"].join("-");
+  const github = ["ghp", "A".repeat(32)].join("_");
+  const fixtures = [
+    ["openai_api_key", openAi, { source_path: "INBOX/security-openai.md", source_text: `token=${openAi}` }],
+    ["github_token", github, { source_path: `INBOX/${github}.md`, source_text: "# synthetic fixture" }],
+    ...["gho", "ghu", "ghs", "ghr"].map((prefix) => {
+      const token = [prefix, "B".repeat(32)].join("_");
+      return ["github_token", token, { source_path: `INBOX/${token}.md`, source_text: "# synthetic fixture" }];
+    }),
+    ["github_token", `github_pat_${"C".repeat(40)}`, { source_path: "INBOX/security-github-pat.md", source_text: `github_pat_${"C".repeat(40)}` }],
+    ["aws_access_key_id", `AKIA${"D".repeat(16)}`, { source_path: "INBOX/security-aws.md", metadata: { nested: { access_key_id: `AKIA${"D".repeat(16)}` } }, source_text: "# synthetic fixture" }],
+    ["aws_access_key_id", `ASIA${"E".repeat(16)}`, { source_path: "INBOX/security-aws-session.md", source_text: `ASIA${"E".repeat(16)}` }],
+    ["google_api_key", `AIza${"F".repeat(35)}`, { source_path: "INBOX/security-google.md", source_text: `AIza${"F".repeat(35)}` }],
+    ...["b", "a", "p", "r", "s"].map((suffix) => {
+      const token = `xox${suffix}-${"1".repeat(12)}-${"2".repeat(12)}`;
+      return ["slack_token", token, { source_path: "INBOX/security-slack.md", source_text: token }];
+    }),
+    ["private_key", "-----BEGIN PRIVATE KEY-----", {
+      source_path: "INBOX/security-pem.md",
+      source_text: "-----BEGIN PRIVATE KEY-----\nSYNTHETIC-NOT-A-KEY\n-----END PRIVATE KEY-----",
+    }],
+  ];
+  let providerInputBuilds = 0;
+  let providerCalls = 0;
+  for (const [kind, secret, input] of fixtures) {
+    const decision = privacyBoundary.classifyInboxSource(input);
+    if (decision.outbound_allowed === true) {
+      providerInputBuilds += 1;
+      providerCalls += 1;
+    }
+    assert.equal(decision.route, "hold", kind);
+    assert.equal(decision.outbound_allowed, false, kind);
+    assert.equal(decision.credential.kind, kind);
+    assert.equal(decision.credential.recovery_action, "remove_or_relocate_credential_then_retry");
+    assert.equal(decision.resumable, true);
+    assert.equal(decision.reason.includes(kind), true);
+    assert.equal(decision.reason.includes("remove_or_relocate_credential_then_retry"), true);
+    assert.equal(JSON.stringify(decision).includes(secret), false);
+  }
+  assert.equal(providerInputBuilds, 0);
+  assert.equal(providerCalls, 0);
+  assert.equal(privacyBoundary.classifyInboxSource({
+    source_path: "INBOX/security-benign.md",
+    metadata: { topic: "credential hygiene" },
+    source_text: "# Credential hygiene\nStore secrets outside notes.",
+  }).outbound_allowed, true);
+});
 
 test("operation discriminants are derived once and classifier/risk/lifecycle/migration contracts are exhaustive and fail closed", () => {
   assert.deepEqual(operationContract.OPERATION_KINDS, ["create", "update", "merge", "noop"]);

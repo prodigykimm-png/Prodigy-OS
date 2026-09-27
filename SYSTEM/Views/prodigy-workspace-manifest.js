@@ -386,6 +386,7 @@
     "SYSTEM/Views/llmwiki-source-adapters.js",
     "SYSTEM/Views/llmwiki-inbox-privacy-boundary.js",
     "SYSTEM/Views/llmwiki-sensitive-content-policy.js",
+    "SYSTEM/Views/llmwiki-user-source-selector.js",
     "SYSTEM/Views/llmwiki-chunk-manifest.js",
     "SYSTEM/Views/llmwiki-chunk-coverage-store.js",
     "SYSTEM/Views/llmwiki-analysis-cache.js",

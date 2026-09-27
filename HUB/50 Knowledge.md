@@ -628,10 +628,16 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           }
           return rows;
         }).catch(() => []);
+    const refreshSourceOptions = async () => {
+      sourceOptions = await eligibleSources();
+      persistLlmWikiSessionView();
+      prodigyWikiController.dispatch({ type: "set_options", options: sourceOptions });
+      return sourceOptions;
+    };
     // Task 11 cutover: selected-source/Literature runs enter the same canonical
     // one-source batch as INBOX runs. No librarian pipeline, no second transport.
     const defaultBatchCommand = async (sourcePath) => {
-      const option = sourceOptions.find((item) => item.path === sourcePath);
+      const option = sourceOptions.find((item) => item.path === sourcePath && item.blocked !== true && item.eligible !== false);
       if (!option) return null;
       if (option.source_kind === "inbox") {
         const file = appRef.vault.getAbstractFileByPath(option.path);
@@ -1182,6 +1188,12 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const file = appRef.vault.getAbstractFileByPath(sourcePath);
       if (!file) return { ok: false, reason: "pilot_source_missing" };
       const extractedText = await appRef.vault.cachedRead(file);
+      const privacy = window.LLMWikiSensitiveContentPolicy?.inspect({
+        source_path: sourcePath,
+        source_text: extractedText,
+        metadata: { ...appRef.metadataCache?.getFileCache(file)?.frontmatter, llmwiki_outbound: false },
+      });
+      if (privacy?.type !== "allow") return { ok: false, reason: "source_privacy_blocked", provider_calls: 0 };
       const contentHash = llmWikiHash.sha256(extractedText);
       const sourceId = `source_pilot_${llmWikiHash.sha256(sourcePath).slice(0, 24)}`;
       const scope = window.LLMWikiAnalysisScope.createAnalysisScope({
@@ -3225,6 +3237,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         && durableRecovery.operation_outcomes.every((row) => row.status === "committed")
         && Array.isArray(durableRecovery.archive_receipts)
         && durableRecovery.archive_receipts.length > 0);
+      const unavailableSourceOptions = sourceOptions.filter((row) => row && row.blocked === true);
+      const unavailableSourceLabel = unavailableSourceOptions.slice(0, 3).map((row) => row.title || row.path).join(", ");
+      const unavailableSourceReason = unavailableSourceOptions.length
+        ? `읽을 수 없어 제외됨: ${unavailableSourceLabel}${unavailableSourceOptions.length > 3 ? ` 외 ${unavailableSourceOptions.length - 3}개` : ""} · 다시 시도 필요`
+        : "";
       return {
         ...snapshot,
         prodigy_wiki: prodigyWikiController.getSnapshot(),
@@ -3238,7 +3255,11 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         display_variant: "local",
         golden_wiki: prodigyWiki.golden_wiki,
         ...(providerSelectionFailure ? { provider_selection_error: providerSelectionFailure } : {}),
-        ...(prodigyWiki.source_selection ? { source_selection: { ...prodigyWiki.source_selection, preview: wikiSourceExcerpts.get(prodigyWiki.source_selection.source_path) || "" } } : {}),
+        ...(prodigyWiki.source_selection
+          ? { source_selection: { ...prodigyWiki.source_selection, preview: wikiSourceExcerpts.get(prodigyWiki.source_selection.source_path) || "" } }
+          : unavailableSourceReason
+            ? { source_selection: { selected: false, blocked_reason: unavailableSourceReason, blocked_sources: unavailableSourceOptions.map((row) => ({ path: row.path, reason: row.blocked_reason, recovery_action: row.recovery_action, resumable: row.resumable === true })) } }
+            : {}),
         source_options: prodigyWiki.source_options.length ? prodigyWiki.source_options : sourceOptions,
         ...(prodigyWiki.status !== "idle" ? { status: prodigyWiki.status } : {}),
         ...(prodigyWiki.reason ? { reason: prodigyWiki.reason } : {}),
@@ -3335,6 +3356,20 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       if (intent.action === "set_provider") {
         return { ok: false, status: "failed", reason: "action_unavailable" };
       }
+      if (intent.action === "retry_source_read") {
+        const blockedSource = sourceOptions.find((item) => item.path === intent.source_path && item.blocked === true);
+        if (!blockedSource) return { ok: false, status: "selecting", reason: "unknown_source", provider_calls: 0 };
+        const refreshed = await refreshSourceOptions();
+        const pending = refreshed.find((item) => item.path === intent.source_path && item.blocked === true);
+        return {
+          ok: !pending,
+          status: "selecting",
+          ...(pending ? { reason: "source_text_unreadable" } : {}),
+          source_options: refreshed,
+          retried_source_path: intent.source_path,
+          provider_calls: 0,
+        };
+      }
       if (intent.action === "select_source" && !intent.source_path) {
         selectedRunCommand = null;
         sourceOptions = sourceOptions.length ? sourceOptions : await sourceOptionsReady;
@@ -3343,7 +3378,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       if (intent.action === "select_source") {
         sourceOptions = sourceOptions.length ? sourceOptions : await sourceOptionsReady;
-        const option = sourceOptions.find((item) => item.path === intent.source_path);
+        const option = sourceOptions.find((item) => item.path === intent.source_path && item.blocked !== true && item.eligible !== false);
         if (!option) {
           return { ok: false, status: "selecting", reason: "unknown_source" };
         }

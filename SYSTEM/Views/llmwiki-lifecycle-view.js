@@ -449,7 +449,9 @@
     }
 
     function renderPicker(parent) {
-      const optionsList = sourceOptions(snapshot).filter(row => row.eligible !== false && row.blocked !== true);
+      const allOptions = sourceOptions(snapshot);
+      const optionsList = allOptions.filter(row => row.eligible !== false && row.blocked !== true);
+      const blockedOptions = allOptions.filter(row => row.blocked === true);
       createEl(parent, "h2", { text: options.getIntendedTarget?.() ? "추가할 자료를 선택하세요" : "정리할 자료를 선택하세요" });
       if (options.getIntendedTarget?.()) createEl(parent, "p", { text: `대상: ${wikiUI.title(options.getIntendedTarget())}` });
       const search = createEl(parent, "input", { attr: { type: "search", placeholder: "제목 또는 경로 검색", "aria-label": "제목 또는 경로 검색" } });
@@ -461,13 +463,27 @@
         row.onclick = () => { tentativeSource = option.path; rows.forEach(entry => { setAttr(entry.row, "aria-checked", String(entry.option.path === tentativeSource)); entry.check.hidden = entry.option.path !== tentativeSource; }); confirm.disabled = false; };
         return { row, option, check };
       });
-      search.oninput = () => { const query = text(search.value).toLocaleLowerCase("ko"); rows.forEach(({ row, option }) => row.hidden = !`${option.title} ${option.path}`.toLocaleLowerCase("ko").includes(query)); };
+      const blockedList = blockedOptions.length
+        ? createEl(parent, "div", { attr: { class: "llmwiki-lifecycle__source-blocked-list", "aria-label": "읽기 실패 자료" } })
+        : null;
+      const blockedRows = blockedOptions.map(option => {
+        const row = createEl(blockedList, "div", { attr: { class: "llmwiki-lifecycle__source-blocked", "data-source-blocked": option.path, role: "group", "aria-label": `${option.title} 읽기 실패` } });
+        createEl(row, "strong", { text: option.title });
+        createEl(row, "small", { text: "읽기 실패 · 이 자료는 전송하지 않았습니다." });
+        const retry = actionButton(row, "다시 시도", "retry-source-read", { action: "retry_source_read", source_path: option.path }, { recoveryAction: "retry_source_read" });
+        setAttr(retry, "data-retry-source-path", option.path);
+        return { row, option };
+      });
+      search.oninput = () => {
+        const query = text(search.value).toLocaleLowerCase("ko");
+        [...rows, ...blockedRows].forEach(({ row, option }) => row.hidden = !`${option.title} ${option.path}`.toLocaleLowerCase("ko").includes(query));
+      };
       const cancel = createEl(decision, "button", { text: "취소", attr: { type: "button", "data-action": "cancel-source-picker" } });
       cancel.onclick = () => { pickerOpen = false; tentativeSource = ""; if (snapshot.prodigy_wiki?.picker_open) dispatch({ action: "cancel_picker" }); else render(); options.onPickerCancel?.(); };
       const confirm = createEl(decision, "button", { text: optionsList.length ? "선택 완료" : "자료 추가", attr: { type: "button", "data-action": "confirm-source-selection", "data-primary": "true" } });
       confirm.disabled = optionsList.length > 0 && !tentativeSource;
       confirm.onclick = () => { if (!optionsList.length) return options.workspace?.onCapture?.(); if (!tentativeSource) return; return dispatch({ action: "select_source", source_path: tentativeSource }); };
-      if (!optionsList.length) createEl(parent, "p", { text: "선택할 자료가 없습니다." });
+      if (!optionsList.length && !blockedOptions.length) createEl(parent, "p", { text: "선택할 자료가 없습니다." });
       if (snapshot.source_selection?.blocked_reason) createEl(parent, "p", { text: `! ${snapshot.source_selection.blocked_reason}`, attr: { role: "alert" } });
     }
 

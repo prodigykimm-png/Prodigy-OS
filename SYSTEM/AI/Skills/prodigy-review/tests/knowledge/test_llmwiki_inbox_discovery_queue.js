@@ -16,7 +16,7 @@
  *   - files arriving during a frozen run belong to the next batch
  *
  * Assertions read machine states, machine reasons, hashes, and exact
- * counters. No prose, no sleeps, no provider imports.
+ * counters. No prose, no sleeps, and no external provider calls.
  */
 
 const assert = require("node:assert/strict");
@@ -31,6 +31,8 @@ const queueApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-inbox-discovery-q
 const registryApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-source-registry.js"));
 const storeApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-batch-job-store.js"));
 const scopeApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-analysis-scope.js"));
+const providerInputApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-batch-provider-input.js"));
+const providerApi = require(path.join(ROOT, "SYSTEM/Views/llmwiki-batch-provider.js"));
 
 function sha(value) { return crypto.createHash("sha256").update(value).digest("hex"); }
 
@@ -79,7 +81,7 @@ test("RED_DISCOVERY_CLASSIFIES_PENDING_HELD_UNCHANGED_BY_STABLE_REVISION", async
   assert.equal(byPath.get("INBOX/note-a.md").classification, "pending");
   assert.equal(byPath.get("INBOX/note-a.md").reason, "pending_snapshot_recorded");
   assert.equal(byPath.get("INBOX/Private/secret.md").classification, "held");
-  assert.equal(byPath.get("INBOX/Private/secret.md").reason, "protected_source");
+  assert.equal(byPath.get("INBOX/Private/secret.md").reason, "credential_quarantined_openai_api_key_remove_or_relocate_credential_then_retry");
   assert.equal(byPath.get("INBOX/People/contact.md").classification, "held");
   assert.equal(byPath.get("INBOX/People/contact.md").reason, "people_local_only");
   assert.deepEqual(
@@ -97,6 +99,77 @@ test("RED_DISCOVERY_CLASSIFIES_PENDING_HELD_UNCHANGED_BY_STABLE_REVISION", async
   // A byte change is a new stable revision and becomes pending again.
   const third = await queue.discover([entry("INBOX/note-a.md", `${BODY_A}\n수정\n`)]);
   assert.equal(third.entries[0].classification, "pending");
+});
+
+test("BODY_ONLY_CREDENTIAL_IS_HELD_BEFORE_CURRENT_SOURCES_OR_PROVIDER_INPUT", async () => {
+  const marker = ["AK", "IA", "Q".repeat(16)].join("");
+  const body = `# Synthetic credential fixture\n${marker}\n`;
+  let deferredReads = 0;
+  let providerInputBuilds = 0;
+  let providerCalls = 0;
+  let transportSawMarker = false;
+  const provider = providerApi.createBatchAnalysisProvider({
+    consumerRuntime: {
+      async requestStructured(request) {
+        providerCalls += 1;
+        transportSawMarker ||= String(request.prompt).includes(marker);
+        const error = new Error("synthetic_capture_transport_must_not_run");
+        error.code = "transport_error";
+        throw error;
+      },
+    },
+  });
+
+  for (const shape of ["direct", "deferred"]) {
+    const sourcePath = `INBOX/body-only-${shape}.md`;
+    const queue = makeQueue(tempCacheDir());
+    const source = shape === "direct"
+      ? entry(sourcePath, body)
+      : {
+        source_path: sourcePath,
+        metadata: {},
+        async read_source_text() {
+          deferredReads += 1;
+          return body;
+        },
+      };
+    const discovered = await queue.discover([source]);
+    const current = queue.currentSources();
+    const providerRequest = current.length > 0
+      ? {
+        outbound_allowed: true,
+        run_id: `run_body_secret_${shape}`,
+        mode: "source_routing",
+        chunks: current.map((row, index) => ({
+          key: `chunk_${index}`,
+          text: row.extracted_text,
+          source_hint: row.source_path,
+        })),
+        candidate_ids: [],
+      }
+      : {
+        outbound_allowed: false,
+        run_id: `run_body_secret_${shape}`,
+        mode: "source_routing",
+        chunks: [{ key: "chunk_held", text: "held", source_hint: sourcePath }],
+        candidate_ids: [],
+      };
+    const normalized = providerInputApi.normalizeInput(providerRequest);
+    if (!normalized.reason) providerInputBuilds += 1;
+    const response = await provider(providerRequest);
+
+    assert.equal(discovered.entries[0].classification, "held", shape);
+    assert.match(discovered.entries[0].reason, /^credential_quarantined_aws_access_key_id_/u, shape);
+    assert.equal(JSON.stringify(discovered).includes(marker), false, shape);
+    assert.equal(current.length, 0, shape);
+    assert.equal(normalized.reason, "outbound_consent_required", shape);
+    assert.equal(response.provider_call_count, 0, shape);
+  }
+
+  assert.equal(deferredReads, 1);
+  assert.equal(providerInputBuilds, 0);
+  assert.equal(providerCalls, 0);
+  assert.equal(transportSawMarker, false);
 });
 
 test("RED_CONTROL_CHARS_NORMALIZE_SOURCE_PROJECTION_AND_SCOPE_FIDELITY", async () => {
@@ -213,9 +286,9 @@ test("RED_HELD_BODIES_NEVER_ENTER_THE_OUTBOUND_PROJECTION", async () => {
   assert.equal(projected.includes("people-marker-body"), false, "held People body leaked into projection");
   assert.equal(projected.includes("PRIVATE KEY"), false, "sensitive body leaked into projection");
   const byPath = new Map(result.entries.map((row) => [row.source_path, row]));
-  assert.equal(byPath.get("INBOX/Private/vault.md").reason, "protected_source");
+  assert.equal(byPath.get("INBOX/Private/vault.md").reason, "credential_quarantined_openai_api_key_remove_or_relocate_credential_then_retry");
   assert.equal(byPath.get("INBOX/People/person.md").reason, "people_local_only");
-  assert.equal(byPath.get("INBOX/leaked.md").reason, "sensitive_content");
+  assert.equal(byPath.get("INBOX/leaked.md").reason, "credential_quarantined_private_key_remove_or_relocate_credential_then_retry");
   assert.equal(byPath.get("INBOX/ambiguous.md").reason, "mixed_ambiguous_classification");
   assert.equal(byPath.get("../escape.md").reason, "malformed_inbox_path");
   for (const row of result.entries) {
