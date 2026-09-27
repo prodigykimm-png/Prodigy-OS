@@ -799,3 +799,376 @@ test("mount closure joins late optional modules and every returned optional call
   delete global.__prodigyMeasurementEntry;
   delete global.ProdigyWorkspaceManifest;
 });
+
+// ---- Task 7: unified workspace readiness probe (checkReadiness) ----
+const DOCTOR_PATH = path.join(ROOT, "SYSTEM/Views/prodigy-doctor.js");
+const MANIFEST_PATH = path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js");
+
+function freshDoctor() {
+  delete require.cache[require.resolve(DOCTOR_PATH)];
+  delete global.ProdigyDoctor;
+  return require(DOCTOR_PATH);
+}
+
+function freshManifestApi() {
+  delete require.cache[require.resolve(MANIFEST_PATH)];
+  delete global.ProdigyWorkspaceManifest;
+  return require(MANIFEST_PATH);
+}
+
+function readinessApp(files, versions) {
+  const store = new Map(Object.entries(files));
+  const mtimes = new Map(Object.keys(files).map((key) => [key, (versions && versions[key]) || 1]));
+  return {
+    vault: {
+      getAbstractFileByPath(modulePath) {
+        if (!store.has(modulePath)) return null;
+        return { path: modulePath, stat: { mtime: mtimes.get(modulePath), size: store.get(modulePath).length } };
+      },
+      read(tFile) { return Promise.resolve(store.get(tFile.path)); }
+    },
+    setModule(modulePath, source) { store.set(modulePath, source); mtimes.set(modulePath, (mtimes.get(modulePath) || 0) + 1); },
+    removeModule(modulePath) { store.delete(modulePath); }
+  };
+}
+
+function auctionFiles(manifests, omit = []) {
+  const manifest = manifests.get("auction");
+  const files = {};
+  for (const modulePath of manifest.required.concat(manifest.optional)) {
+    if (omit.includes(modulePath)) continue;
+    files[modulePath] = `globalThis.__healthProbe = "${modulePath}";`;
+  }
+  return files;
+}
+
+test("Given a missing required module, When checkReadiness runs, Then it blocks with actionable Korean copy naming the module", () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  const manifests = freshManifestApi();
+  const missing = "SYSTEM/Views/auction-card.js";
+  const app = readinessApp(auctionFiles(manifests, [missing]));
+
+  const result = loader.checkReadiness(app, "auction");
+  const auction = result.results.auction;
+
+  assert.equal(result.blocked, true);
+  assert.equal(auction.ready, false);
+  assert.equal(auction.blocked, true);
+  assert.equal(auction.reasonCode, "SYNC_PENDING");
+  assert.deepEqual(auction.missingRequired, [missing]);
+  assert.match(auction.message, /필수 모듈 1개를 불러오지 못했습니다/);
+  assert.ok(auction.message.includes(missing), "Korean copy must name what is missing");
+  assert.match(auction.message, /동기화/);
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(auction), true);
+});
+
+test("Given a missing optional module, When checkReadiness runs, Then it stays ready with observable degradation and no substitution", () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  const manifests = freshManifestApi();
+  const missing = "SYSTEM/Views/auction-key-value-snapshot.js";
+  const app = readinessApp(auctionFiles(manifests, [missing]));
+
+  const result = loader.checkReadiness(app, "auction");
+  const auction = result.results.auction;
+
+  assert.equal(auction.ready, true);
+  assert.equal(auction.blocked, false);
+  assert.equal(auction.degraded, true);
+  assert.equal(auction.reasonCode, "READY");
+  assert.deepEqual(auction.degradedOptional, [missing]);
+  assert.match(auction.message, /선택 모듈 없이 계속합니다/);
+  assert.ok(auction.message.includes(missing));
+  assert.match(auction.message, /핵심 기능은 정상 동작합니다/);
+  const probed = auction.modules.map((entry) => entry.path);
+  assert.equal(probed.filter((entry) => entry === missing).length, 1, "missing path is reported verbatim, never substituted");
+  assert.equal(new Set(probed).size, probed.length, "every probed path appears exactly once");
+});
+
+test("Given a cached module whose file version moved, When checkReadiness runs, Then stale cache is never reported as current", async () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  const manifests = freshManifestApi();
+  const home = manifests.get("home");
+  const throwing = "SYSTEM/Views/home-model.js";
+  const files = {};
+  global.__hubEvents = [];
+  for (const modulePath of home.required) files[modulePath] = moduleSource(modulePath);
+  const app = readinessApp(files);
+  const probe = loader.checkReadiness(app, "home");
+  assert.equal(probe.results.home.modules.find((entry) => entry.path === throwing).state, "present");
+
+  await loader.loadManifest(app, { required: home.required, optional: [] });
+  assert.equal(loader.isLoaded(throwing), true);
+  app.setModule(throwing, moduleSource("new-home-model"));
+
+  const stale = loader.checkReadiness(app, "home");
+  const entry = stale.results.home.modules.find((item) => item.path === throwing);
+  assert.equal(entry.cached, false, "moved file version must drop the cached flag");
+  assert.equal(entry.state, "stale");
+  assert.deepEqual(stale.results.home.staleModules, [throwing]);
+  assert.equal(stale.results.home.ready, true, "present-but-stale still probes live and stays ready");
+
+  const clone = loader.checkReadiness(app, { workspaceId: "stale-probe", host: "dataviewjs", required: ["A.js"], optional: [], renderer: "probe" });
+  assert.equal(clone.results["stale-probe"].reasonCode, "INVALID_MANIFEST", "unregistered manifest identity must not pass as a workspace");
+  delete global.__hubEvents;
+});
+
+test("Given a required module that throws during evaluation, When checkReadiness runs, Then it reports REQUIRED_MISSING instead of sync copy", async () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  global.__hubEvents = [];
+  const manifests = freshManifestApi();
+  const auction = manifests.get("auction");
+  const failing = "SYSTEM/Views/auction-card.js";
+  const files = {};
+  for (const modulePath of auction.required) {
+    files[modulePath] = modulePath === failing ? throwingModuleSource("TOP_SECRET") : moduleSource(modulePath);
+  }
+  const app = readinessApp(files);
+
+  const failed = await loader.loadManifest(app, { required: auction.required, optional: [] });
+  assert.deepEqual(failed.required_failures.map((failure) => failure.path), [failing]);
+
+  const probe = loader.checkReadiness(app, "auction");
+  assert.equal(probe.results.auction.ready, false);
+  assert.equal(probe.results.auction.blocked, true);
+  assert.equal(probe.results.auction.reasonCode, "REQUIRED_MISSING");
+  assert.ok(probe.results.auction.message.includes(failing), "Korean copy still names the throwing module");
+  assert.ok(!probe.results.auction.message.includes("TOP_SECRET"), "raw evaluation errors never surface");
+  assert.match(probe.results.auction.message, /필수 모듈 1개를 불러오지 못했습니다/);
+  const entry = probe.results.auction.modules.find((item) => item.path === failing);
+  assert.equal(entry.state, "failed");
+  delete global.__hubEvents;
+});
+
+test("Given malformed checkReadiness targets, When probing, Then every case is a typed state and never a throw", () => {
+  const loader = loadFreshLoader();
+  loader.resetLoaded();
+  const app = createApp({});
+
+  assert.equal(loader.checkReadiness(app, "no-such-workspace").results["no-such-workspace"].reasonCode, "UNKNOWN_WORKSPACE");
+  assert.equal(loader.checkReadiness(null, "auction").results.auction.reasonCode, "UNAVAILABLE");
+  assert.match(loader.checkReadiness(app, "no-such-workspace").results["no-such-workspace"].message, /알 수 없는 작업 공간/);
+});
+
+// ---- Task 7: Doctor unified health surface ----
+function doctorApp(overrides = {}) {
+  return {
+    plugins: {
+      manifests: overrides.manifests || {},
+      enabledPlugins: overrides.enabledPlugins || new Set(),
+      getPlugin: overrides.getPlugin || (() => null)
+    },
+    vault: overrides.vault || null
+  };
+}
+
+test("Given custom plugins in mixed states, When Doctor checks them, Then each reports installed/enabled with its label", () => {
+  const doctor = freshDoctor();
+  const app = doctorApp({
+    manifests: { "prodigy-ai-runtime": { version: "0.2.0" }, "prodigy-llm-wiki": { version: "0.1.0" } },
+    enabledPlugins: new Set(["prodigy-ai-runtime"])
+  });
+
+  const results = doctor.checkCustomPlugins(app);
+  assert.deepEqual(results.map((entry) => [entry.id, entry.status]), [
+    ["prodigy-ai-runtime", "정상"],
+    ["prodigy-llm-wiki", "비활성"],
+    ["prodigy-vault-assistant", "미설치"]
+  ]);
+  assert.ok(results.every((entry) => typeof entry.label === "string" && entry.label.length > 0));
+  assert.equal(Object.isFrozen(results), true);
+});
+
+test("Given runtime status shapes, When Doctor reads provider state, Then only labels surface and raw values never leak", () => {
+  const doctor = freshDoctor();
+  const secret = "TOP_SECRET_PROVIDER_VALUE_9f8e";
+  const ready = doctor.checkProviderRuntime(doctorApp({
+    getPlugin: (id) => id === "prodigy-ai-runtime"
+      ? { api: { getStatus: () => ({ status: "ready", provider_label: "Demo Provider", model_label: "demo-v1", token: secret }) } }
+      : null
+  }));
+  assert.equal(ready.state, "ready");
+  assert.equal(ready.configured, true);
+  assert.equal(ready.providerLabel, "Demo Provider");
+  assert.equal(ready.detail, "설정됨");
+  assert.ok(!JSON.stringify(ready).includes(secret), "allowlisted labels only; unknown fields never surface");
+
+  const missing = doctor.checkProviderRuntime(doctorApp({}));
+  assert.equal(missing.state, "missing_plugin");
+  assert.equal(missing.configured, false);
+
+  const notConfigured = doctor.checkProviderRuntime(doctorApp({
+    getPlugin: () => ({ api: { getStatus: () => ({ status: "failed", error_code: "configuration_missing", detail: secret }) } })
+  }));
+  assert.equal(notConfigured.state, "not_configured");
+  assert.equal(notConfigured.configured, false);
+  assert.ok(!JSON.stringify(notConfigured).includes(secret), "raw provider errors never surface");
+
+  const throwing = doctor.checkProviderRuntime(doctorApp({
+    getPlugin: () => { throw new Error(secret); }
+  }));
+  assert.equal(throwing.state, "unavailable");
+  assert.ok(!JSON.stringify(throwing).includes(secret));
+
+  const absent = doctor.checkProviderRuntime(null);
+  assert.equal(absent.state, "unavailable");
+  assert.equal(absent.configured, null);
+});
+
+test("Given review snapshots, When Doctor summarizes, Then pending/interrupted counts roll up and garbage stays typed", () => {
+  const doctor = freshDoctor();
+  const reviewAttrs = doctor.summarizeReview({ pending_count: 2 }, [{ status: "interrupted" }, { status: "review_ready" }, { status: "interrupted" }]);
+  assert.deepEqual([reviewAttrs.state, reviewAttrs.pending, reviewAttrs.interrupted], ["attention", 2, 2]);
+
+  const clean = doctor.summarizeReview({ pending_count: 0 }, []);
+  assert.deepEqual([clean.state, clean.pending, clean.interrupted], ["ok", 0, 0]);
+
+  for (const garbage of [null, undefined, 42, "nope", { pending_count: -1 }, { pending_count: "many" }]) {
+    const typed = doctor.summarizeReview(garbage, null);
+    assert.equal(typed.state, "unavailable");
+    assert.equal(typed.pending, null);
+  }
+  const badOps = doctor.summarizeReview({ pending_count: 0 }, [{ nope: true }]);
+  assert.equal(badOps.interrupted, null);
+  assert.equal(badOps.state, "unavailable");
+
+  const corrupt = doctor.summarizeReview({ status: "blocked", reason: "corrupt_fleeting_review_state", pending_count: 0 }, []);
+  assert.equal(corrupt.pending, null, "an unreadable state file must not report its zero as a count");
+  assert.equal(corrupt.state, "unavailable");
+});
+
+test("Given a corrupt fleeting state file, When Doctor reads health details, Then review is unavailable and the vault is untouched", async () => {
+  const doctor = freshDoctor();
+  const writes = [];
+  const vault = {
+    getMarkdownFiles: () => [],
+    getAbstractFileByPath: (lookup) => lookup === "SYSTEM/PRIVATE/llmwiki-fleeting-review-state.json" ? { path: lookup } : null,
+    read: () => Promise.resolve("corrupt{{{"),
+    cachedRead: () => Promise.resolve("corrupt{{{"),
+    create: (pathname) => { writes.push(["create", pathname]); return Promise.resolve({ path: pathname }); },
+    modify: (file) => { writes.push(["modify", file && file.path]); return Promise.resolve(); }
+  };
+  const health = await doctor.readHealthDetails({ vault, plugins: { manifests: {}, enabledPlugins: new Set() } }, {
+    operations: [], quarantine: [], release: { verdict: "pass" }
+  });
+  assert.equal(health.review.state, "unavailable");
+  assert.equal(health.review.pending, null);
+  assert.deepEqual(writes, [], "corrupt input still causes zero vault writes");
+});
+
+test("Given quarantine and release inputs, When Doctor summarizes, Then counts and verdicts stay typed without paths or errors", () => {
+  const doctor = freshDoctor();
+  const quar = doctor.summarizeQuarantine([{ status: "quarantined" }, { status: "active" }, { status: "quarantined" }]);
+  assert.deepEqual([quar.state, quar.count], ["attention", 2]);
+  assert.deepEqual([doctor.summarizeQuarantine([]).state, doctor.summarizeQuarantine([]).count], ["ok", 0]);
+  assert.equal(doctor.summarizeQuarantine(null).state, "unavailable");
+  assert.equal(doctor.summarizeQuarantine("garbage").state, "unavailable");
+
+  const released = doctor.summarizeRelease({ verdict: "pass", path: "/Users/someone/secret/receipt.json" });
+  assert.equal(released.state, "ok");
+  assert.ok(!JSON.stringify(released).includes("/Users/"), "machine paths never surface");
+
+  const failed = doctor.summarizeRelease({ status: "failed", error: "raw stack TOP_SECRET" });
+  assert.equal(failed.state, "failed");
+  assert.ok(!JSON.stringify(failed).includes("TOP_SECRET"), "raw errors never surface");
+  assert.equal(doctor.summarizeRelease(null).state, "unavailable");
+});
+
+test("Given mixed health inputs, When Doctor collects health, Then the overall rollup is frozen and diagnosable", () => {
+  const doctor = freshDoctor();
+  const app = doctorApp({
+    manifests: { "prodigy-ai-runtime": { version: "0.2.0" } },
+    enabledPlugins: new Set(["prodigy-ai-runtime"]),
+    getPlugin: () => ({ api: { getStatus: () => ({ status: "ready" }) } })
+  });
+  const health = doctor.collectHealth(app, {
+    fleeting: { pending_count: 0 },
+    operations: [],
+    quarantine: [],
+    release: { verdict: "pass" }
+  });
+  assert.ok(["ready", "degraded"].includes(health.overall), "missing custom plugins degrade, never block");
+  assert.equal(health.provider.state, "ready");
+  assert.equal(health.review.state, "ok");
+  assert.equal(health.quarantine.state, "ok");
+  assert.equal(health.release.state, "ok");
+  assert.equal(Object.isFrozen(health), true);
+
+  const blocked = doctor.collectHealth(doctorApp({}), {
+    fleeting: null, operations: null, quarantine: null, release: null,
+    workspaceId: "no-such-workspace"
+  });
+  assert.equal(blocked.review.state, "unavailable");
+  assert.equal(blocked.quarantine.state, "unavailable");
+  assert.equal(blocked.release.state, "unavailable");
+});
+
+function fakeDomNode(tag, options) {
+  const node = {
+    tag, children: [], text: "", attrs: {},
+    createEl(childTag, childOptions) { const child = fakeDomNode(childTag, childOptions); node.children.push(child); return child; },
+    setAttribute(key, value) { node.attrs[key] = value; },
+    empty() { node.children = []; node.text = ""; }
+  };
+  Object.defineProperty(node, "textContent", { get() { return node.text; }, set(value) { node.text = String(value); } });
+  if (options && options.text !== undefined) node.text = String(options.text);
+  return node;
+}
+
+function renderedText(node) {
+  const parts = [node.text];
+  for (const child of node.children) parts.push(renderedText(child));
+  return parts.join("\n");
+}
+
+test("Given the Doctor surface, When rendered, Then all six health areas appear with no secret and no machine path", () => {
+  const doctor = freshDoctor();
+  const container = fakeDomNode("div");
+  const app = doctorApp({
+    manifests: { "prodigy-ai-runtime": { version: "0.2.0" } },
+    enabledPlugins: new Set(["prodigy-ai-runtime"]),
+    getPlugin: () => ({ api: { getStatus: () => ({ status: "ready", provider_label: "Demo", error_detail: "TOP_SECRET_RENDER_LEAK" }) } })
+  });
+  const section = doctor.renderDoctor(container, app, {
+    health: doctor.collectHealth(app, {
+      fleeting: { pending_count: 1 },
+      operations: [{ status: "interrupted" }],
+      quarantine: { count: 0 },
+      release: { verdict: "pass", path: "/Users/someone/Dusk/private.json" }
+    })
+  });
+
+  assert.ok(section, "renderDoctor returns the section");
+  const text = renderedText(container);
+  for (const heading of ["작업 공간 상태", "전체", "사용 플러그인", "AI 연결", "검토", "격리", "최근 릴리스"]) {
+    assert.ok(text.includes(heading), "health surface shows " + heading);
+  }
+  assert.ok(!text.includes("TOP_SECRET_RENDER_LEAK"));
+  assert.ok(!text.includes("/Users/"));
+});
+
+test("Given vault fleeting blocks, When Doctor reads health details, Then pending count is live and the vault is untouched", async () => {
+  const doctor = freshDoctor();
+  const writes = [];
+  const blockText = "unreviewed thought";
+  const crypto = require("node:crypto");
+  const digest = crypto.createHash("sha256").update(blockText).digest("hex");
+  const vault = {
+    getMarkdownFiles: () => [{ path: "ZETA/FLEETING/note.md" }],
+    getAbstractFileByPath: (lookup) => lookup === "ZETA/FLEETING/note.md" ? { path: lookup } : null,
+    read: (file) => Promise.resolve("<!-- fleeting-block-id: probe-block -->\n" + blockText + "\n"),
+    cachedRead: (file) => Promise.resolve("<!-- fleeting-block-id: probe-block -->\n" + blockText + "\n"),
+    create: (pathname) => { writes.push(["create", pathname]); return Promise.resolve({ path: pathname }); },
+    modify: (file) => { writes.push(["modify", file && file.path]); return Promise.resolve(); }
+  };
+  const health = await doctor.readHealthDetails({ vault, plugins: { manifests: {}, enabledPlugins: new Set() } }, {
+    operations: [], quarantine: [], release: { verdict: "pass" }
+  });
+  assert.equal(health.review.pending, 1, "live fleeting pending count, digest " + digest.slice(0, 12));
+  assert.equal(health.review.state, "attention");
+  assert.deepEqual(writes, [], "detail reader performs zero vault writes");
+});
