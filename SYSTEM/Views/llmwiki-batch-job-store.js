@@ -413,6 +413,7 @@
       getPlanSnapshot,
       listPlanSnapshots,
       findRetryParent,
+      async describeQueue() { await load(); return describeQueueSnapshot(state.jobs); },
       async recordAttempt({ job_id, review_key, review_id = null, target_path = null, target_revision = null, stage, observation, disposition = null, correction_reason }) {
         if (!HASH.test(job_id) || !STAGES.includes(stage) || !/^[a-z0-9_]{1,128}$/u.test(observation)
           || !nullable(review_id, label) || !nullable(target_path, label) || !nullable(target_revision, v => HASH.test(v))
@@ -768,6 +769,44 @@
     });
   }
 
+  // Owner-legible queue summary over the canonical STATES only — no new
+  // model, no writes, no provider calls. retryable matches the explicit-retry
+  // eligibility (findRetryParent/claimExplicitRetry accept blocked and
+  // outcome_unknown); resumable matches the continue-where-it-left-off path
+  // (pending/running/outcome_unknown keep their durable receipts).
+  // queue_state is exhaustive over the bad/mid/good partition:
+  // empty | all_stopped | some_failed | pending | review_ready.
+  function describeQueueSnapshot(jobs) {
+    const rows = Object.values(jobs).map((job) => freeze({
+      job_id: job.job_id,
+      batch_id: job.batch_id,
+      status: job.status,
+      source_ids: freeze(sorted(Object.keys(job.sources || {}))),
+      failure_reason: job.failure_reason || null,
+      retryable: job.status === "blocked" || job.status === "outcome_unknown",
+      resumable: job.status === "pending" || job.status === "running" || job.status === "outcome_unknown",
+      reviewable: job.status === "review_ready" || job.status === "resolved",
+    })).sort((left, right) => String(left.job_id).localeCompare(String(right.job_id), "en"));
+    const by = (predicate) => freeze(rows.filter(predicate).map((row) => row.job_id));
+    const bad = rows.filter((row) => row.status === "blocked" || row.status === "outcome_unknown");
+    const mid = rows.filter((row) => row.status === "pending" || row.status === "running");
+    const queueState = rows.length === 0 ? "empty"
+      : bad.length === rows.length ? "all_stopped"
+      : bad.length > 0 ? "some_failed"
+      : mid.length > 0 ? "pending"
+      : "review_ready";
+    return freeze({
+      queue_state: queueState,
+      job_count: rows.length,
+      jobs: freeze(rows),
+      pending_job_ids: by((row) => row.status === "pending" || row.status === "running"),
+      failed_job_ids: by((row) => row.status === "blocked"),
+      unknown_job_ids: by((row) => row.status === "outcome_unknown"),
+      ready_job_ids: by((row) => row.reviewable),
+      retryable_job_ids: by((row) => row.retryable),
+      resumable_job_ids: by((row) => row.resumable),
+    });
+  }
   function sha(value) { return hashApi.sha256(value); }
   function stablePlan(value) { return JSON.stringify(value); }
   function stableSources(sources) { return JSON.stringify(Object.keys(sources).sort().map((key) => `${key}:${sources[key]}`)); }

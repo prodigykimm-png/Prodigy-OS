@@ -470,3 +470,188 @@ test("exact all-hits replay is flagged replay_only when whole-source coverage is
   assert.equal(second.metrics.cache_hits, 1);
   assert.equal(second.replay_only, true);
 });
+
+// ---- Task 6 queue legibility: shared/item/input scope, pending sources,
+// visible action sets, no-fallback proof, and canonical queue summary. ----
+
+function task6Analyzer(harness, provider) {
+  return analyzerApi.createBatchAnalyzer({
+    jobStore: harness.jobStore,
+    provider,
+    identity: baseIdentity(),
+    vault: harness.v,
+    cachePath: CACHE_PATH,
+    coveragePath: COVERAGE_PATH,
+  });
+}
+
+function task6SuccessProvider(harness) {
+  const batchProvider = require(path.join(ROOT, "SYSTEM/Views/llmwiki-batch-provider.js"));
+  return batchProvider.createBatchAnalysisProvider({
+    consumerRuntime: {
+      requestStructured: async (request) => ({ payload: await harness.service.requestStructuredJsonNoRetry(request) }),
+    },
+  });
+}
+
+test("shared auth failure is labeled shared with pending sources, owner actions, and no fallback", async () => {
+  const h = buildHarness();
+  let calls = 0;
+  const analyzer = task6Analyzer(h, async () => { calls += 1; return { ok: false, reason: "provider_auth_required", provider_call_count: 1 }; });
+  const sources = [source("src_a", smallText("공유", 1)), source("src_b", smallText("공유", 2))];
+  const result = await analyzer.analyze({ sources });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "provider_auth_required");
+  assert.equal(result.state, "blocked");
+  assert.equal(result.failure_scope, "shared");
+  assert.equal(result.fallback_attempted, false);
+  assert.deepEqual(result.pending_source_ids, ["src_a", "src_b"]);
+  assert.deepEqual(result.recovery_actions.map((item) => item.label), ["AI 설정 열기", "다시 분석", "나중에"]);
+  assert.deepEqual(result.recovery_actions.map((item) => item.action), ["open_ai_settings", "retry_analysis", "later"]);
+  assert.equal(result.recovery_actions[0].primary, true);
+  assert.equal(result.metrics.provider_calls, 1);
+  assert.equal(result.metrics.automatic_retries, 0);
+  assert.equal(result.metrics.fallback_attempts, 0);
+  assert.equal(h.jobStore.getJob(result.job_id).status, "blocked");
+
+  // Resume short-circuits on the blocked job with zero new provider calls.
+  const resumed = await task6Analyzer(h, async () => { calls += 1; return { ok: true, provider_call_count: 1, artifacts: [] }; }).analyze({ sources });
+  assert.equal(resumed.ok, true);
+  assert.equal(resumed.state, "blocked");
+  assert.equal(resumed.fallback_attempted, false);
+  assert.deepEqual(resumed.pending_source_ids, ["src_a", "src_b"]);
+  assert.deepEqual(resumed.recovery_actions.map((item) => item.label), ["AI 설정 열기", "다시 분석", "나중에"]);
+  assert.equal(calls, 1);
+});
+
+test("item failure leaves unrelated items reviewable with item scope", async () => {
+  const h = buildHarness();
+  const success = task6SuccessProvider(h);
+  let calls = 0;
+  const analyzer = task6Analyzer(h, async (request, context) => {
+    calls += 1;
+    if (calls === 1) return { ok: false, reason: "response_too_large", provider_call_count: 1 };
+    return success(request, context);
+  });
+  const result = await analyzer.analyze({
+    sources: [source("src_one", smallText("개별", 1)), source("src_two", smallText("개별", 2))],
+    independent_sources: true,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.state, "review_ready");
+  assert.equal(result.failure_scope, "item");
+  assert.equal(result.fallback_attempted, false);
+  assert.equal(result.source_results.length, 2);
+  assert.equal(result.source_results[0].ok, false);
+  assert.equal(result.source_results[0].reason, "response_too_large");
+  assert.equal(result.source_results[0].failure_scope, "item");
+  assert.equal(result.source_results[1].ok, true);
+  assert.equal(result.source_results[1].state, "review_ready");
+  assert.equal("failure_scope" in result.source_results[1], false);
+  assert.deepEqual(result.pending_source_ids, ["src_one"]);
+  assert.deepEqual(result.remaining_source_ids, []);
+  assert.equal(calls, 2);
+});
+
+test("shared failure in independent mode stops the queue and stays labeled shared", async () => {
+  const h = buildHarness();
+  let calls = 0;
+  const analyzer = task6Analyzer(h, async () => { calls += 1; return { ok: false, reason: "provider_auth_required", provider_call_count: 1 }; });
+  const result = await analyzer.analyze({
+    sources: [source("src_one", smallText("공유", 1)), source("src_two", smallText("공유", 2))],
+    independent_sources: true,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.state, "blocked");
+  assert.equal(result.reason, "provider_auth_required");
+  assert.equal(result.failure_scope, "shared");
+  assert.equal(result.fallback_attempted, false);
+  assert.equal(result.source_results.length, 1);
+  assert.equal(result.source_results[0].failure_scope, "shared");
+  assert.deepEqual(result.remaining_source_ids, ["src_two"]);
+  assert.deepEqual(result.pending_source_ids, ["src_one", "src_two"]);
+  assert.deepEqual(result.recovery_actions.map((item) => item.label), ["AI 설정 열기", "다시 분석", "나중에"]);
+  assert.equal(calls, 1);
+});
+
+test("describeQueue distinguishes empty, pending, stopped, partial, and ready over canonical states", async () => {
+  const storage = memoryStorage();
+  const store = storeApi.createBatchJobStore({ storage });
+  assert.equal((await store.describeQueue()).queue_state, "empty");
+  const keyA = "a".repeat(64), keyB = "b".repeat(64);
+  const jobA = await store.createJob({ request_key: keyA, sources: [{ source_id: "src_q1", revision_hash: keyA }] });
+  const jobB = await store.createJob({ request_key: keyB, sources: [{ source_id: "src_q2", revision_hash: keyB }] });
+  assert.equal((await store.describeQueue()).queue_state, "pending");
+
+  await store.setJobState(jobB.job_id, "blocked", "provider_auth_required");
+  const partial = await store.describeQueue();
+  assert.equal(partial.queue_state, "some_failed");
+  assert.deepEqual(partial.pending_job_ids, [jobA.job_id]);
+  assert.deepEqual(partial.failed_job_ids, [jobB.job_id]);
+  assert.deepEqual(partial.retryable_job_ids, [jobB.job_id]);
+  assert.deepEqual(partial.resumable_job_ids, [jobA.job_id]);
+  assert.equal(partial.jobs.find((row) => row.job_id === jobB.job_id).failure_reason, "provider_auth_required");
+  assert.equal(partial.jobs.find((row) => row.job_id === jobA.job_id).retryable, false);
+
+  // Restart recovery: a running job reloads as outcome_unknown with zero
+  // provider calls and zero writes, and is both retryable and resumable.
+  await store.setJobState(jobA.job_id, "running");
+  const restarted = storeApi.createBatchJobStore({ storage });
+  const unknown = await restarted.describeQueue();
+  assert.deepEqual(unknown.unknown_job_ids, [jobA.job_id]);
+  assert.deepEqual([...unknown.retryable_job_ids].sort(), [jobA.job_id, jobB.job_id].sort());
+  assert.deepEqual(unknown.resumable_job_ids, [jobA.job_id]);
+  assert.equal(unknown.queue_state, "all_stopped");
+
+  await restarted.setJobState(jobA.job_id, "review_ready");
+  await restarted.setJobState(jobB.job_id, "review_ready");
+  const ready = await restarted.describeQueue();
+  assert.equal(ready.queue_state, "review_ready");
+  assert.deepEqual([...ready.ready_job_ids].sort(), [jobA.job_id, jobB.job_id].sort());
+  assert.deepEqual(ready.retryable_job_ids, []);
+});
+
+test("concurrent explicit retries share one flight and count exactly once", async () => {
+  const h = buildHarness();
+  const success = task6SuccessProvider(h);
+  let calls = 0;
+  const shared = task6Analyzer(h, async (request, context) => { calls += 1; return success(request, context); });
+  const sources = [source("src_once", smallText("일회", 1))];
+  const [first, second] = await Promise.all([
+    shared.analyze({ sources, explicit_retry: true, retry_intent_id: "intent_once_1" }),
+    shared.analyze({ sources, explicit_retry: true, retry_intent_id: "intent_once_1" }),
+  ]);
+  assert.equal(first.ok, true, first.reason);
+  assert.equal(first.job_id, second.job_id);
+  assert.equal(first.explicit_retry, true);
+  assert.equal(first.retry_intent_id, "intent_once_1");
+  assert.equal(calls, 1);
+});
+
+test("malformed input yields typed states with input scope, never a throw", async () => {
+  const h = buildHarness();
+  const empty = await h.analyzer.analyze({ sources: [] });
+  assert.equal(empty.ok, false);
+  assert.equal(empty.reason, "invalid_batch_sources");
+  assert.equal(empty.failure_scope, "input");
+  assert.equal(empty.fallback_attempted, false);
+  const badPath = await h.analyzer.analyze({ sources: [{ source_id: "src_bad", source_path: "PARA/x.md", extracted_text: "본문" }] });
+  assert.equal(badPath.ok, false);
+  assert.equal(badPath.reason, "invalid_source_path");
+  assert.equal(badPath.failure_scope, "input");
+
+  // A malformed persisted record is quarantined into a typed empty queue.
+  const broken = memoryStorage();
+  broken.files.set("batch-job-state.json", "{malformed");
+  const recovered = storeApi.createBatchJobStore({ storage: broken });
+  assert.equal((await recovered.describeQueue()).queue_state, "empty");
+  assert.equal(broken.files.has("batch-job-state.json.quarantine"), true);
+});
+
+test("shared/item classifier covers the queue-wide stop set and nothing else", () => {
+  assert.ok(analyzerApi.SHARED_FAILURE_REASONS.includes("provider_auth_required"));
+  assert.ok(analyzerApi.SHARED_FAILURE_REASONS.includes("provider_quota_exhausted"));
+  assert.ok(analyzerApi.SHARED_FAILURE_REASONS.includes("cancelled"));
+  assert.equal(analyzerApi.SHARED_FAILURE_REASONS.includes("semantic_candidate_key_missing"), false);
+  assert.equal(analyzerApi.SHARED_FAILURE_REASONS.includes("response_too_large"), false);
+});

@@ -78,8 +78,11 @@
     return `span_${hashApi.sha256(JSON.stringify([chunkKey, chunkText, anchor.start, anchor.end, quote]))}`;
   }
 
+  // No silent fallback exists on any path below: every failure carries the
+  // explicit marker so owners and tests can assert it. Callers must not
+  // override it via extras.
   function failure(reason, extras = {}) {
-    return Object.freeze({ ok: false, reason, provider_call_count: 0, persisted_artifact_count: 0, automatic_retry_count: 0, automatic_repair_count: 0, artifacts: Object.freeze([]), ...extras });
+    return Object.freeze({ ok: false, reason, provider_call_count: 0, persisted_artifact_count: 0, automatic_retry_count: 0, automatic_repair_count: 0, artifacts: Object.freeze([]), ...extras, fallback_attempted: false });
   }
 
   function findForbidden(value, pathKey) {
@@ -219,6 +222,7 @@
           persisted_artifact_count: single.artifacts.length,
           automatic_retry_count: 0,
           automatic_repair_count: 0,
+          fallback_attempted: false,
           artifacts: Object.freeze(single.artifacts),
         });
       }
@@ -305,6 +309,7 @@
         persisted_artifact_count: merged.length,
         automatic_retry_count: 0,
         automatic_repair_count: 0,
+        fallback_attempted: false,
         artifacts: Object.freeze(merged),
       });
       async function runSingleCall(entries, opKeys, candsOverride) {
