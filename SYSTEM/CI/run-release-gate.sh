@@ -18,6 +18,55 @@ Options:
 USAGE
 }
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" || exit 1
+
+print_preflight_receipt() {
+  local receipt_kind="$1"
+  local branch_kind="unavailable"
+  local branch_value="git_unavailable"
+  local head_kind="unavailable"
+  local head_value="git_unavailable"
+  local protected_root
+  local protected_status
+  local dirty_entry
+  local dirty_count=0
+
+  if branch_value="$(git -C "$REPO_ROOT" symbolic-ref --quiet --short HEAD 2>/dev/null)"; then
+    branch_kind="branch"
+  elif branch_value="$(git -C "$REPO_ROOT" rev-parse --verify --quiet HEAD 2>/dev/null)"; then
+    branch_kind="detached"
+  else
+    branch_value="unavailable"
+  fi
+  if head_value="$(git -C "$REPO_ROOT" rev-parse --verify --quiet HEAD 2>/dev/null)"; then
+    head_kind="commit"
+  else
+    head_value="unavailable"
+  fi
+
+  printf 'release preflight receipt (%s):\n' "$receipt_kind"
+  printf '  branch: %s:%q\n' "$branch_kind" "$branch_value"
+  printf '  HEAD: %s:%q\n' "$head_kind" "$head_value"
+  printf '  dirty_paths:\n'
+  while IFS= read -r -d '' dirty_entry; do
+    dirty_count=$((dirty_count + 1))
+    printf '    - %q\n' "${dirty_entry:3}"
+  done < <(git -C "$REPO_ROOT" status --porcelain=v1 -z --untracked-files=all 2>/dev/null)
+  printf '  dirty_path_count: %s\n' "$dirty_count"
+  printf '  protected_status:\n'
+  for protected_root in PARA ZETA DAILY INBOX; do
+    if ! git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      protected_status="unavailable"
+    elif git -C "$REPO_ROOT" status --porcelain=v1 -z --untracked-files=all -- "$protected_root" 2>/dev/null | grep -q .; then
+      protected_status="dirty"
+    else
+      protected_status="clean"
+    fi
+    printf '    %s: %s\n' "$protected_root" "$protected_status"
+  done
+  printf '  last_gate_result: unverified_absent\n'
+}
+
 FAILURES=0
 TOTAL=0
 PASSED=0
@@ -81,6 +130,8 @@ case "${1:-}" in
     mkdir -p "$HOME" "$TMPDIR" "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME" "$npm_config_cache" "$UV_CACHE_DIR"
     node -e 'const fs=require("node:fs"),p=require("node:path"); for (const key of ["HOME","TMPDIR","XDG_CACHE_HOME","XDG_CONFIG_HOME","npm_config_cache","UV_CACHE_DIR"]) fs.writeFileSync(p.join(process.env[key], ".sandbox-probe"), key)' || exit 1
     [ ! -e "$ORIGINAL_HOME/.sandbox-probe" ] || { printf 'release sandbox escaped original HOME\n' >&2; exit 1; }
+    print_preflight_receipt "baseline"
+    print_preflight_receipt "sandbox"
     printf 'Release sandbox self-test passed: external_writes=0 disposable_roots=6\n'
     exit 0
     ;;
@@ -98,7 +149,6 @@ if [ "$#" -ne 0 ]; then
   exit 2
 fi
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 export PYTHONDONTWRITEBYTECODE=1
 
@@ -158,6 +208,7 @@ CONFINED_NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>&1)" || p
 [ "$CONFINED_NODE_MAJOR" = 24 ] || preflight_fail "confined Node executable has wrong major"
 CONFINED_UV_VERSION="$(uv --version 2>&1)" || preflight_fail "confined uv executable is not runnable"
 printf 'release toolchain preflight: node=%s bun=%s uv=%s environment=confined disposable_roots=6\n' "$CONFINED_NODE_VERSION" "$BUN_PREFLIGHT_VERSION" "$CONFINED_UV_VERSION"
+print_preflight_receipt "baseline"
 
 for required_root in SYSTEM/Views SYSTEM/AI/Skills/prodigy-review/tests SYSTEM/AI/Skills/prodigy-property-contract/scripts SYSTEM/SCRIPTS SYSTEM/CI/fixtures/consolidation; do
   [ -d "$required_root" ] || preflight_fail "missing required root: $required_root"

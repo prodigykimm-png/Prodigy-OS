@@ -35,6 +35,33 @@ function gitPaths(root, args) {
   assert.equal(result.status, 0, result.stderr.toString());
   return result.stdout.toString("utf8").split("\0").filter(Boolean);
 }
+class DeliveryScopeError extends Error {
+  constructor(code, detail) {
+    super(`${code}: ${detail}`);
+    this.code = code;
+  }
+}
+function resolveGitCommit(root, ref, code) {
+  if (typeof ref !== "string" || ref.length === 0) throw new DeliveryScopeError(code, "reference is required");
+  const result = spawnSync("git", ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], { cwd: root, encoding: "utf8" });
+  if (result.status !== 0) throw new DeliveryScopeError(code, `cannot resolve ${ref}`);
+  return result.stdout.trim();
+}
+function resolveDeliveryRef(root, deliveryRef) {
+  if (deliveryRef) return resolveGitCommit(root, deliveryRef, "DELIVERY_REF_UNRESOLVED");
+  const symbolic = spawnSync("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], { cwd: root, encoding: "utf8" });
+  if (symbolic.status !== 0) throw new DeliveryScopeError("DELIVERY_REF_DETACHED", "explicit delivery ref is required");
+  return resolveGitCommit(root, symbolic.stdout.trim(), "DELIVERY_REF_UNRESOLVED");
+}
+function deriveGitDeliveryPaths(root, deliveryBase, deliveryRef) {
+  const base = resolveGitCommit(root, deliveryBase, "DELIVERY_BASE_UNRESOLVED");
+  const ref = resolveDeliveryRef(root, deliveryRef);
+  const result = spawnSync("git", ["diff", "--name-only", "-z", `${base}..${ref}`], { cwd: root, encoding: "buffer" });
+  if (result.status !== 0) throw new DeliveryScopeError("DELIVERY_SCOPE_UNAVAILABLE", result.stderr.toString().trim() || "git diff failed");
+  const paths = result.stdout.toString("utf8").split("\0").filter(Boolean).sort();
+  if (paths.length === 0) throw new DeliveryScopeError("DELIVERY_SCOPE_EMPTY", `${base}..${ref}`);
+  return paths;
+}
 function matchesNonDeliveryExclusion(relativePath, exclusion) {
   if (exclusion.startsWith("**/*.")) return relativePath.endsWith(exclusion.slice(4));
   return relativePath === exclusion || relativePath.startsWith(`${exclusion}/`);
@@ -46,15 +73,15 @@ function matchesEvidenceIdentity(relativePath, identity) {
     ? relativePath === identity.path
     : relativePath.startsWith(`${identity.path}/`);
 }
-function deriveTaskOwnedPaths(root) {
+function deriveTaskOwnedPaths(root, baseline = BASELINE) {
   const paths = [...new Set([
-    ...gitPaths(root, ["diff", "--name-only", "-z", BASELINE, "--"]),
+    ...gitPaths(root, ["diff", "--name-only", "-z", baseline, "--"]),
     ...gitPaths(root, ["ls-files", "--others", "--exclude-standard", "-z"])
   ])];
   return paths.filter((relativePath) => !EXTERNAL_KNOWLEDGE_INBOX.includes(relativePath)).sort();
 }
-function deriveProjectedPaths(root) {
-  return deriveTaskOwnedPaths(root).filter((relativePath) =>
+function deriveProjectedPaths(root, baseline = BASELINE) {
+  return deriveTaskOwnedPaths(root, baseline).filter((relativePath) =>
     !NON_DELIVERY_EXCLUSIONS.some((exclusion) => matchesNonDeliveryExclusion(relativePath, exclusion))
     && !DERIVED_EVIDENCE_EXCLUSIONS.some((identity) => matchesEvidenceIdentity(relativePath, identity)));
 }
@@ -83,8 +110,8 @@ function discoverGateFiles(root) {
 function discoveryCounts(discovery) {
   return Object.fromEntries(Object.entries(discovery).map(([key, files]) => [key, files.length]));
 }
-function freezeUniverse(root) {
-  const projectedPaths = deriveProjectedPaths(root);
+function freezeUniverse(root, baseline = BASELINE) {
+  const projectedPaths = deriveProjectedPaths(root, baseline);
   const files = projectedPaths.map((relativePath) => ({
     path: relativePath,
     sha256: relativePath === MANIFEST_RELATIVE ? null : fileSha256(root, relativePath)
@@ -138,6 +165,7 @@ function buildManifest(currentManifest, universe) {
 module.exports = {
   BASELINE,
   DERIVED_EVIDENCE_EXCLUSIONS,
+  DeliveryScopeError,
   EXTERNAL_KNOWLEDGE_INBOX,
   MANIFEST_RELATIVE,
   NON_DELIVERY_EXCLUSIONS,
@@ -146,6 +174,7 @@ module.exports = {
   buildManifest,
   canonicalSelfSha256,
   deriveProjectedPaths,
+  deriveGitDeliveryPaths,
   discoverGateFiles,
   discoveryCounts,
   fileSha256,
