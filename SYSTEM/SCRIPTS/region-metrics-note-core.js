@@ -126,7 +126,9 @@ function replaceYaml(block, key, value) {
 }
 
 function rawFingerprint(snapshot) {
-  return METRIC_KEYS.map((key) => snapshot.metrics[key]?.raw_hash ?? null).join(":");
+  const raw = METRIC_KEYS.map((key) => snapshot.metrics[key]?.raw_hash ?? null).join(":");
+  const derived = METRIC_KEYS.map((key) => JSON.stringify(snapshot.metrics[key]?.value ?? null)).join(":");
+  return `${raw}|${derived}`;
 }
 
 function historyFrom(content, regionKey) {

@@ -163,6 +163,7 @@ function buildRefreshArgs(region, options) {
     ...(region.stock_region_prefix ? ["--stock-region-prefix", region.stock_region_prefix] : []),
     "--lawd-code", region.lawd_code,
     "--household-row", householdRow(region),
+    ...(region.household_row_prior_override ? ["--household-row-prior", region.household_row_prior_override] : []),
     "--stock-csv", options.stockCsv,
     "--stock-as-of", options.stockAsOf,
     "--supply-csv", options.supplyCsv,

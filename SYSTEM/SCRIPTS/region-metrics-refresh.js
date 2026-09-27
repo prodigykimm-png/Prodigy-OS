@@ -202,7 +202,7 @@ async function collect(config) {
   const supply = core.parseSupplyCsv(new TextDecoder("utf-8").decode(supplyRaw), config["region-prefix"], config["supply-basis"]);
   const householdDecoder = new TextDecoder("euc-kr");
   const population = core.parseMoisPopulationCsv(householdDecoder.decode(householdsRaw), config["household-row"], metricsMonth, { optional: true });
-  const populationPrior = core.parseMoisPopulationCsv(householdDecoder.decode(householdsPriorRaw), config["household-row"], priorMonth, { optional: true });
+  const populationPrior = core.parseMoisPopulationCsv(householdDecoder.decode(householdsPriorRaw), config["household-row-prior"] || config["household-row"], priorMonth, { optional: true });
   const households = population?.households ?? null;
   const householdsPrior = populationPrior?.households ?? null;
   const demographicChange = population && populationPrior ? core.calculatePopulationChange(
