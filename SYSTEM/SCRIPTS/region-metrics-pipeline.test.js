@@ -24,9 +24,9 @@ try {
   assert.throws(() => pipeline.readReceipt("{}"), /execute 모드/);
   assert.throws(() => pipeline.readReceipt("not-json"), /JSON 파싱 실패/);
   assert.throws(() => pipeline.runCollector(() => ({ status: 1, stdout: "", stderr: "source failed" })), /노트 반영을 중단/);
-  assert.throws(() => pipeline.runCollector(() => ({ status: 0, stdout: JSON.stringify({ mode: "execute", total_succeeded: 82, total_failed: 1 }), stderr: "" })), /완전하지 않습니다/);
-  const receipt = pipeline.runCollector(() => ({ status: 0, stdout: JSON.stringify({ mode: "execute", total_succeeded: 83, total_failed: 0 }), stderr: "" }));
-  assert.equal(receipt.total_succeeded, 83);
+  assert.throws(() => pipeline.runCollector(() => ({ status: 0, stdout: JSON.stringify({ mode: "execute", total_succeeded: 229, total_failed: 1 }), stderr: "" }), 230), /완전하지 않습니다/);
+  const receipt = pipeline.runCollector(() => ({ status: 0, stdout: JSON.stringify({ mode: "execute", total_succeeded: 230, total_failed: 0 }), stderr: "" }), 230);
+  assert.equal(receipt.total_succeeded, 230);
 
   const plan = [{ region_key: "a", changed: false, content: "x" }, { region_key: "b", changed: true, content: "y" }];
   assert.deepEqual(pipeline.applyPlan(plan, false), {

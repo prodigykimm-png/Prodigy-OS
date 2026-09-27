@@ -15,7 +15,7 @@ const NOTE_ROOT = "PARA/RESOURCES/Auction Regions";
 
 function loadRegions() {
   const registry = batch.loadRegistry(batch.DEFAULT_REGISTRY_INDEX);
-  if (registry.regions.length !== 83) throw new Error(`주기지표 대상은 정확히 83개여야 합니다: ${registry.regions.length}`);
+  if (!registry.regions.length) throw new Error("manifest index에 등록된 지역이 없습니다.");
   return registry.regions;
 }
 
@@ -93,11 +93,11 @@ function applyPlan(plan, execute) {
   };
 }
 
-function runCollector(runner = spawnSync) {
+function runCollector(runner = spawnSync, expectedTotal = loadRegions().length) {
   const result = runner(process.execPath, [COLLECT_ALL, "--execute"], { encoding: "utf8", timeout: 30 * 60 * 1000 });
   if (result.status !== 0) throw new Error(`전 지역 수집 실패; 노트 반영을 중단합니다.\n${result.stderr || result.stdout || "출력 없음"}`);
   const receipt = readReceipt(result.stdout);
-  if (receipt.total_succeeded !== 83 || receipt.total_failed !== 0) {
+  if (receipt.total_succeeded !== expectedTotal || receipt.total_failed !== 0) {
     throw new Error(`전 지역 수집 영수증이 완전하지 않습니다: success=${receipt.total_succeeded}, failed=${receipt.total_failed}`);
   }
   return receipt;

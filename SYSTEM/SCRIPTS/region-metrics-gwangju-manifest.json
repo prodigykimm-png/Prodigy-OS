@@ -12,7 +12,8 @@
       "region_prefix": "광주광역시 동구",
       "stock_region_prefix": "광주광역시 동구",
       "lawd_code": "12210000",
-      "household_code": "1221000000"
+      "household_code": "1221000000",
+      "household_row_override": "전남광주통합특별시 동구 (1221000000)"
     },
     {
       "sigungu": "서구",
@@ -21,7 +22,8 @@
       "region_prefix": "광주광역시 서구",
       "stock_region_prefix": "광주광역시 서구",
       "lawd_code": "12240000",
-      "household_code": "1224000000"
+      "household_code": "1224000000",
+      "household_row_override": "전남광주통합특별시 서구 (1224000000)"
     },
     {
       "sigungu": "남구",
@@ -30,7 +32,8 @@
       "region_prefix": "광주광역시 남구",
       "stock_region_prefix": "광주광역시 남구",
       "lawd_code": "12270000",
-      "household_code": "1227000000"
+      "household_code": "1227000000",
+      "household_row_override": "전남광주통합특별시 남구 (1227000000)"
     },
     {
       "sigungu": "북구",
@@ -39,7 +42,8 @@
       "region_prefix": "광주광역시 북구",
       "stock_region_prefix": "광주광역시 북구",
       "lawd_code": "12300000",
-      "household_code": "1230000000"
+      "household_code": "1230000000",
+      "household_row_override": "전남광주통합특별시 북구 (1230000000)"
     },
     {
       "sigungu": "광산구",
@@ -48,7 +52,8 @@
       "region_prefix": "광주광역시 광산구",
       "stock_region_prefix": "광주광역시 광산구",
       "lawd_code": "12330000",
-      "household_code": "1233000000"
+      "household_code": "1233000000",
+      "household_row_override": "전남광주통합특별시 광산구 (1233000000)"
     }
   ]
 }

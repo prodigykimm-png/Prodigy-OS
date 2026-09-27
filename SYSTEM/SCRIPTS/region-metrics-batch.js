@@ -151,7 +151,7 @@ function selectRegions(manifest, options) {
 }
 
 function householdRow(region) {
-  return `${region.title} (${region.household_code})`;
+  return region.household_row_override ?? `${region.title} (${region.household_code})`;
 }
 
 function buildRefreshArgs(region, options) {

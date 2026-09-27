@@ -14,16 +14,21 @@
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
+const batch = require("./region-metrics-batch.js");
 const BATCH_SCRIPT = path.resolve(__dirname, "region-metrics-batch.js");
 const OUTPUT_DIR = path.resolve(__dirname, "../CACHE/region-metrics");
-const SIDOS = ["부산광역시", "서울특별시", "인천광역시", "경기도"];
+const REGISTRY_INDEX = path.resolve(__dirname, "region-metrics-manifest-index.json");
+
+function targetSidos() {
+  return batch.loadRegistry(REGISTRY_INDEX).manifests.map((manifest) => manifest.sido);
+}
 
 function main() {
   const execute = process.argv.includes("--execute");
   const mode = execute ? "--execute" : "--dry-run";
   const results = [];
 
-  for (const sido of SIDOS) {
+  for (const sido of targetSidos()) {
     const args = [
       BATCH_SCRIPT,
       "--sido", sido,

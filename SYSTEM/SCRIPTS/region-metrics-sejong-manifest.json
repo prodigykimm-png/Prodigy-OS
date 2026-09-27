@@ -12,7 +12,8 @@
       "region_prefix": "세종특별자치시 세종시",
       "lawd_code": "36110000",
       "household_code": "3611000000",
-      "household_row_override": "세종특별자치시  (3611000000)"
+      "household_row_override": "세종특별자치시  (3611000000)",
+      "stock_region_prefix": "세종특별자치시"
     }
   ]
 }
