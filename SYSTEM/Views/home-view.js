@@ -134,6 +134,22 @@
         max-inline-size: 100%;
         overflow-wrap: anywhere;
       }
+      .prodigy-home [data-home-next-action] {
+        min-inline-size: 0;
+        word-break: keep-all;
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home [data-home-next-action] .home-action-title,
+      .prodigy-home [data-home-next-action] .home-action-reason,
+      .prodigy-home [data-home-next-action] .home-action-queue-empty {
+        min-inline-size: 0;
+        word-break: keep-all;
+        overflow-wrap: anywhere;
+      }
+      .prodigy-home [data-home-next-action] button {
+        min-block-size: 44px;
+        min-inline-size: 44px;
+      }
       .prodigy-home .home-todoist-label {
         color: var(--ke-color-muted);
         font-size: var(--ke-type-label, .72rem);
@@ -349,12 +365,53 @@
     await loadOptionalProdigyScript(app, "SYSTEM/Views/prodigy-workspace-settings-modal.js", "ProdigyWorkspaceSettingsModal");
   }
 
+  // Absent-safe: a missing optional dependency resolves to null (callers
+  // render typed recovery states) instead of throwing out of the render.
   function resolveViewModule(globalKey, relativePath) {
     if (root[globalKey]) return root[globalKey];
     if (typeof module !== "undefined" && module.exports && typeof require === "function") {
-      return require(relativePath);
+      try {
+        return require(relativePath);
+      } catch (_missingModuleError) {
+        return null;
+      }
     }
     return null;
+  }
+
+  // Home consumes the existing measurement/readiness seam only (Task 3 vocabulary:
+  // first_useful_paint, first_actionable_control, data_scan, projection,
+  // dom_render, review_resume, provider_wait, recovery_complete). Best-effort
+  // milestone marks on the shared entry session; never a second recorder,
+  // never a provider call, and always absent-safe.
+  function homeMilestoneSession() {
+    try {
+      const entry = root && root.__prodigyMeasurementEntry;
+      const session = entry && entry.session;
+      if (!session || session.available === false) return null;
+      if (typeof session.startMilestone !== "function" || typeof session.endMilestone !== "function") return null;
+      return session;
+    } catch (_measurementError) {
+      return null;
+    }
+  }
+
+  function startHomeMilestone(session, name, fields) {
+    if (!session) return null;
+    try {
+      return session.startMilestone(name, fields);
+    } catch (_startError) {
+      return null;
+    }
+  }
+
+  function endHomeMilestone(session, token, fields) {
+    if (!session || token == null) return null;
+    try {
+      return session.endMilestone(token, fields);
+    } catch (_endError) {
+      return null;
+    }
   }
 
   function disposeHome(container) {
@@ -554,11 +611,29 @@
     const todayStr = root.MorningContextCore.getTodayIsoDate();
     const weekId = root.MorningContextCore.getWeekId(new Date());
 
-    // Display loader — external failures must never block Home.
-    const mainLoader = container.createEl("div", {
+    // First paint is already the single next-action shell: exactly one
+    // [data-home-next-action] in loading state with a live recovery control,
+    // so there is no dead control while external data is still pending.
+    const milestoneSession = homeMilestoneSession();
+    const paintToken = startHomeMilestone(milestoneSession, "first_useful_paint", { status: "rendering" });
+    const scanToken = startHomeMilestone(milestoneSession, "data_scan", { status: "scanning" });
+    const mainLoader = container.createEl("section", {
+      attr: {
+        class: "home-action-queue home-native-group",
+        "aria-label": "오늘의 다음 행동",
+        "data-home-next-action": "true",
+        "data-state": "loading"
+      }
+    });
+    mainLoader.createEl("p", {
       text: "오늘의 운영 화면을 준비하는 중...",
       attr: { class: "home-view-loading" }
     });
+    const mainLoaderRecovery = mainLoader.createEl("button", {
+      text: "새로고침",
+      attr: { type: "button", class: "action-btn action-btn-primary home-action-button" }
+    });
+    mainLoaderRecovery.onclick = () => renderHome(options);
 
     let token = "";
     try {
@@ -602,6 +677,7 @@
     }
 
     mainLoader.remove();
+    endHomeMilestone(milestoneSession, scanToken, { status: "scanned" });
 
     const pkg = newPkg || {};
 
@@ -887,8 +963,19 @@
         fleetingCount = Number(localReviewSnapshot.pending_count) || 0;
       } catch (_error) { fleetingCount = 0; }
     }
-    if (homeActionQueue && typeof homeActionQueue.buildActionQueue === "function" && typeof homeActionQueue.renderActionQueue === "function") {
-      const queueActions = homeActionQueue.buildActionQueue({
+    // ── 2. Exactly one canonical next action from current deterministic state ──
+    // The ranked projection stays deduplicated (focus/continue/attention share
+    // one key space via queueFocusKeys); first paint renders only the single
+    // selected action. Loading, empty, and error states each render the same
+    // single shell with a live recovery control — never a dead control.
+    const projectionToken = startHomeMilestone(milestoneSession, "projection", { status: "projecting" });
+    let queueActions = [];
+    let queueBuildError = null;
+    try {
+      if (!homeActionQueue || typeof homeActionQueue.buildActionQueue !== "function") {
+        throw new Error("action queue unavailable");
+      }
+      queueActions = homeActionQueue.buildActionQueue({
         now: new Date(),
         pkg,
         attention: queueRisks,
@@ -900,15 +987,88 @@
         journalStatus: journalStatusForOps.status,
         workspacePathFor
       });
-      homeActionQueue.renderActionQueue({
-        parent: stack,
-        actions: queueActions,
-        aiBacked: false,
-        onAction: async (action) => {
-          if (action.target_path) openPath(action.target_path);
+    } catch (queueError) {
+      queueBuildError = queueError;
+      queueActions = [];
+    }
+    endHomeMilestone(milestoneSession, projectionToken, { status: queueBuildError ? "failed" : "projected" });
+    const domRenderToken = startHomeMilestone(milestoneSession, "dom_render", { status: "rendering" });
+    const recoverHome = () => renderHome(options);
+    const activateNextAction = async (action) => {
+      if (action && action.target_path) openPath(action.target_path);
+      else if (action && action.object_path) openPath(action.object_path);
+      else openPath("HUB/00 Home.md");
+    };
+    let nextActionRendered = false;
+    if (homeActionQueue && typeof homeActionQueue.renderNextAction === "function" && typeof homeActionQueue.selectNextAction === "function") {
+      try {
+        if (queueBuildError) throw queueBuildError;
+        const selected = homeActionQueue.selectNextAction(queueActions);
+        homeActionQueue.renderNextAction({
+          parent: stack,
+          action: selected,
+          aiBacked: false,
+          onAction: activateNextAction,
+          onRecovery: recoverHome,
+          recoveryLabel: selected ? "다시 시도" : "오늘 Daily 열기",
+          recoveryTarget: "HUB/00 Home.md"
+        });
+        nextActionRendered = true;
+        endHomeMilestone(milestoneSession, domRenderToken, { status: "rendered" });
+        const actionableToken = startHomeMilestone(milestoneSession, "first_actionable_control", { status: "control_ready" });
+        endHomeMilestone(milestoneSession, actionableToken, {
+          status: "actionable",
+          action: selected ? `${selected.kind || "next"}:${selected.title || ""}` : "recovery"
+        });
+        if (!selected) {
+          const recoveryToken = startHomeMilestone(milestoneSession, "recovery_complete", { status: "recovering" });
+          endHomeMilestone(milestoneSession, recoveryToken, { status: "recovered" });
+        }
+      } catch (nextActionError) {
+        endHomeMilestone(milestoneSession, domRenderToken, { status: "failed" });
+        try {
+          homeActionQueue.renderNextAction({
+            parent: stack,
+            error: nextActionError,
+            aiBacked: false,
+            onAction: activateNextAction,
+            onRecovery: recoverHome,
+            recoveryLabel: "다시 시도",
+            recoveryTarget: "HUB/00 Home.md"
+          });
+          nextActionRendered = true;
+        } catch (_fallbackError) {
+          nextActionRendered = false;
+        }
+        const recoveryToken = startHomeMilestone(milestoneSession, "recovery_complete", { status: "recovering" });
+        endHomeMilestone(milestoneSession, recoveryToken, { status: "recovered" });
+      }
+    }
+    if (!nextActionRendered) {
+      // Absent-safe fallback: the queue module itself is missing, so render
+      // the same single recovery shell inline. Home still paints one action.
+      endHomeMilestone(milestoneSession, domRenderToken, { status: "failed" });
+      const fallback = stack.createEl("section", {
+        attr: {
+          class: "home-action-queue home-native-group",
+          "aria-label": "오늘의 다음 행동",
+          "data-home-next-action": "true",
+          "data-state": "error"
         }
       });
+      fallback.createEl("p", {
+        text: "오류: 다음 행동 모듈을 불러오지 못했습니다. 다시 시도할 수 있습니다.",
+        attr: { class: "home-region-error" }
+      });
+      const retry = fallback.createEl("button", {
+        text: "다시 시도",
+        attr: { type: "button", class: "action-btn action-btn-primary home-action-button" }
+      });
+      retry.onclick = recoverHome;
+      const recoveryToken = startHomeMilestone(milestoneSession, "recovery_complete", { status: "recovering" });
+      endHomeMilestone(milestoneSession, recoveryToken, { status: "recovered" });
     }
+    endHomeMilestone(milestoneSession, paintToken, { status: "render_settled" });
 
     // Secondary operational context stays collapsed by default.
     const legacyContext = stack.createEl("details", { attr: { class: "home-context-details" } });
