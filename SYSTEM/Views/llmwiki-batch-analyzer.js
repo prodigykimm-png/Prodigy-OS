@@ -8,6 +8,7 @@
   const coverageApi = root.LLMWikiChunkCoverageStore || (typeof require === "function" ? require("./llmwiki-chunk-coverage-store.js") : null);
   const storeApi = root.LLMWikiBatchJobStore || (typeof require === "function" ? require("./llmwiki-batch-job-store.js") : null);
   const evidenceApi = root.LLMWikiEvidenceCandidates || (typeof require === "function" ? require("./llmwiki-evidence-candidates.js") : null);
+  const recoveryApi = root.LLMWikiUIRecovery || (typeof require === "function" ? require("./llmwiki-ui-recovery.js") : null);
 
   const ARTIFACT_VERSION = "llmwiki_batch_artifact_v1";
   const MAX_WHOLE_SOURCE_UNITS = 512;
@@ -27,6 +28,48 @@
     limits: { max_items_per_result: 8, max_claims: 8, offsets_or_paths_or_operations: "never" },
   });
   const NO_CALL_STATES = Object.freeze(["blocked", "outcome_unknown", "resolved"]);
+  // Shared (queue-wide) vs item (single-source) classification reuses the exact
+  // stop set the independent runner enforces: a reason in this set halts the
+  // whole queue, anything else fails only its own item. Validation-shape
+  // failures are reported as "input". The list is exported so tests and QA can
+  // assert the classifier instead of duplicating it.
+  const SHARED_FAILURE_REASON_LIST = Object.freeze(["provider_auth_required", "provider_transport_error", "provider_unavailable",
+    "provider_outcome_unknown", "outcome_unknown", "provider_quota_exhausted", "provider_rate_limited",
+    "provider_executable_not_found", "provider_aborted", "provider_settings_changed", "cancelled"]);
+  const SHARED_FAILURE_REASONS = new Set(SHARED_FAILURE_REASON_LIST);
+  function failureScopeFor(reason) {
+    if (typeof reason !== "string" || !reason) return null;
+    return SHARED_FAILURE_REASONS.has(reason) ? "shared" : "item";
+  }
+  function recoveryActionsFor(reason) {
+    try {
+      if (!recoveryApi || typeof recoveryApi.recoveryActions !== "function" || typeof recoveryApi.recoveryVariantFor !== "function") return Object.freeze([]);
+      return recoveryApi.recoveryActions(recoveryApi.recoveryVariantFor({ reason }));
+    } catch (_ignored) { return Object.freeze([]); }
+  }
+  function recoveryCopyFor(reason) {
+    try {
+      if (!recoveryApi || typeof recoveryApi.mapRecovery !== "function") return null;
+      return recoveryApi.mapRecovery({ reason });
+    } catch (_ignored) { return null; }
+  }
+  // Every failure the owner sees carries one legibility contract: which scope
+  // stopped (shared queue vs single item vs malformed input), the exact visible
+  // action set, and proof no fallback was attempted. Callers pass
+  // failure_scope explicitly only for input-shape errors; the classifier
+  // decides the rest so a shared outage can never be labeled an item failure.
+  function legibleFail(reason, extras = {}) {
+    const copy = recoveryCopyFor(reason);
+    return fail(reason, {
+      failure_scope: failureScopeFor(reason) || "input",
+      recovery_actions: recoveryActionsFor(reason),
+      ...(copy ? { recovery: copy } : {}),
+      ...extras,
+    });
+  }
+  function pendingSourceIds(sortedSources) {
+    return Object.freeze(sortedSources.map((source) => source.source_id));
+  }
 
   function plain(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
   function freeze(value) {
@@ -60,7 +103,9 @@
   }
 
   function fail(reason, extras = {}) {
-    return freeze({ ok: false, reason, metrics: baseMetrics(), preserved_pack_receipts: [], unresolved_pending: [], ...extras });
+    // This analyzer never falls back to another provider/model: the marker is
+    // enforced after extras so no caller can weaken it.
+    return freeze({ ok: false, reason, metrics: baseMetrics(), preserved_pack_receipts: [], unresolved_pending: [], ...extras, fallback_attempted: false });
   }
 
   function validAnalysisText(extractedText, analysisText) {
@@ -208,7 +253,9 @@
       if (input.explicit_retry === true && typeof input.retry_intent_id === "string" && input.retry_intent_id) {
         const existing = retryFlights.get(input.retry_intent_id);
         if (existing) return existing;
-        const flight = execute(input).finally(() => retryFlights.delete(input.retry_intent_id));
+        const flight = Promise.resolve(execute(input)).then((outcome) => (plain(outcome)
+          ? freeze({ ...outcome, explicit_retry: true, retry_intent_id: input.retry_intent_id })
+          : outcome)).finally(() => retryFlights.delete(input.retry_intent_id));
         retryFlights.set(input.retry_intent_id, flight);
         return flight;
       }
@@ -226,7 +273,7 @@
           model: client.listModels().find(row => row.profile_id === selected.profile_id), handshake: client.getHandshake() };
       };
       const selected = freeze(snapshot());
-      if (!selected.profile || !selected.model?.model) return fail("provider_unavailable");
+      if (!selected.profile || !selected.model?.model) return legibleFail("provider_unavailable");
       const ready = () => stable(snapshot()) === stable(selected);
       const guardedClient = { ...client, requestStructured(request) {
         return ready() ? client.requestStructured(request) : Promise.resolve({ ok: false, error_code: "provider_settings_changed" });
@@ -243,11 +290,8 @@
     // The existing pack runner owns dequeueing. Each independent item retains
     // its own durable job and request key; review is not a queue barrier.
     async function runIndependentSources(input) {
-      try { validateSources(input.sources); } catch (error) { return fail(error.message); }
+      try { validateSources(input.sources); } catch (error) { return legibleFail(error.message, { failure_scope: "input" }); }
       const results = [], metrics = baseMetrics();
-      const shared = new Set(["provider_auth_required", "provider_transport_error", "provider_unavailable",
-        "provider_outcome_unknown", "outcome_unknown", "provider_quota_exhausted", "provider_rate_limited",
-        "provider_executable_not_found", "provider_aborted", "provider_settings_changed", "cancelled"]);
       let stopped = null;
       for (const source of input.sources) {
         if (input.signal?.aborted) { stopped = "cancelled"; break; }
@@ -262,9 +306,11 @@
           : await analyzeInternal({ ...input, sources: [source],
             whole_source_units: (input.whole_source_units || []).filter(row => row.source_id === source.source_id) });
         const reason = result.reason || jobStore.getJob(result.job_id)?.failure_reason || result.state;
-        results.push({ ...result, source_id: source.source_id, ...(reason ? { reason } : {}) });
+        const failed = result.ok !== true;
+        results.push({ ...result, source_id: source.source_id, ...(reason ? { reason } : {}),
+          ...(failed && reason ? { failure_scope: failureScopeFor(reason) || "input" } : {}) });
         for (const key of Object.keys(metrics)) metrics[key] += Number(result.metrics?.[key] || 0);
-        if (shared.has(reason)) { stopped = reason; break; }
+        if (SHARED_FAILURE_REASONS.has(reason)) { stopped = reason; break; }
       }
       const successes = results.filter(row => row.ok && ["review_ready", "resolved"].includes(row.state));
       const projection = projectCandidates(input.candidates);
@@ -283,8 +329,17 @@
         : await jobStore.createJob({ request_key: requestKey, frozen_identity: frozenIdentity, sources });
       if (input.sources.length > 1 && !["blocked", "outcome_unknown", "resolved"].includes(job.status)) await jobStore.setJobState(job.job_id,
         stopped ? stopped.includes("unknown") ? "outcome_unknown" : "blocked" : successes.length ? "review_ready" : "blocked", stopped || "");
+      const failedIds = results.filter((row) => row.ok !== true).map((row) => row.source_id);
+      const itemFailed = results.some((row) => row.ok !== true);
+      const scope = stopped ? "shared" : itemFailed ? "item" : null;
+      const recoveryReason = stopped || (!successes.length && results.length ? results[results.length - 1]?.reason : null) || null;
+      const recoveryCopy = recoveryReason ? recoveryCopyFor(recoveryReason) : null;
       return freeze({ ok: successes.length > 0, state: successes.length ? "review_ready" : "blocked",
-        ...(stopped ? { reason: stopped } : {}), job_id: job.job_id, batch_id: job.batch_id, request_key: requestKey,
+        ...(stopped ? { reason: stopped } : {}), ...(scope ? { failure_scope: scope } : {}),
+        fallback_attempted: false,
+        pending_source_ids: Object.freeze([...failedIds, ...input.sources.slice(results.length).map((source) => source.source_id)]),
+        ...((!successes.length || stopped) && recoveryReason ? { recovery_actions: recoveryActionsFor(recoveryReason), ...(recoveryCopy ? { recovery: recoveryCopy } : {}) } : {}),
+        job_id: job.job_id, batch_id: job.batch_id, request_key: requestKey,
         source_results: results, remaining_source_ids: input.sources.slice(results.length).map(source => source.source_id),
         metrics, outbound_candidates: projection.outbound, ranked_candidate_count: projection.ranked.length });
     }
@@ -292,11 +347,21 @@
     async function analyzeInternal(input = {}) {
       const metrics = baseMetrics();
       let projection;
+      let sortedSources;
       try {
-        const sortedSources = validateSources(input.sources);
+        sortedSources = validateSources(input.sources);
+      } catch (error) {
+        return legibleFail(error?.message || "batch_analyze_failed", { metrics, failure_scope: "input" });
+      }
+      try {
         const mode = analysisModeFor(sortedSources);
         const unitPreflight = preflightWholeSourceUnits(input.whole_source_units, sortedSources);
-        if (!unitPreflight.ok) return unitPreflight;
+        if (!unitPreflight.ok) {
+          const preflightCopy = recoveryCopyFor(unitPreflight.reason);
+          return freeze({ ...unitPreflight, failure_scope: "input",
+            recovery_actions: recoveryActionsFor(unitPreflight.reason),
+            ...(preflightCopy ? { recovery: preflightCopy } : {}) });
+        }
         const wholeSourceUnits = unitPreflight.whole_source_units;
         projection = projectCandidates(input.candidates);
         metrics.source_bytes = sortedSources.reduce((total, item) => total + bytes(analysisTextFor(item)), 0);
@@ -335,17 +400,22 @@
           } else {
             try {
               job = await jobStore.claimExplicitRetry({ retry_parent_job_id: parent.job_id, retry_intent_id: input.retry_intent_id, request_key: requestKey, sources: sourceRevisions, frozen_identity: frozenIdentity });
-            } catch (error) { return fail("retry_claim_failed", { stage: "retry", detail: error.message, metrics }); }
-            if (job.status !== "pending") return freeze({ ok: true, state: job.status, job_id: job.job_id, batch_id: job.batch_id, request_key: requestKey, metrics, preserved_pack_receipts: [], unresolved_pending: [], outbound_candidates: projection.outbound, ranked_candidate_count: projection.ranked.length, manifest_digests: [], coverage_reports: [], automatic_retries: 0, automatic_repairs: 0, fallback_attempts: 0 });
+            } catch (error) { return legibleFail("retry_claim_failed", { stage: "retry", detail: error.message, metrics }); }
+            if (job.status !== "pending") return freeze({ ok: true, state: job.status, job_id: job.job_id, batch_id: job.batch_id, request_key: requestKey, metrics, fallback_attempted: false, preserved_pack_receipts: [], unresolved_pending: [], pending_source_ids: Object.freeze(Object.keys(job.sources).sort()), outbound_candidates: projection.outbound, ranked_candidate_count: projection.ranked.length, manifest_digests: [], coverage_reports: [], automatic_retries: 0, automatic_repairs: 0, fallback_attempts: 0 });
           }
         }
         if (!job) {
           job = await jobStore.createJob({ request_key: requestKey, sources: sourceRevisions, frozen_identity: frozenIdentity });
           if (NO_CALL_STATES.includes(job.status)) {
+            const needsRecovery = job.status === "blocked" || job.status === "outcome_unknown";
+            const resumeCopy = needsRecovery && job.failure_reason ? recoveryCopyFor(job.failure_reason) : null;
             return freeze({
               ok: true, state: job.status, job_id: job.job_id,
               batch_id: job.batch_id, request_key: requestKey, metrics,
+              fallback_attempted: false,
               preserved_pack_receipts: [], unresolved_pending: [job.job_id],
+              pending_source_ids: Object.freeze(Object.keys(job.sources).sort()),
+              ...(needsRecovery && job.failure_reason ? { recovery_actions: recoveryActionsFor(job.failure_reason), ...(resumeCopy ? { recovery: resumeCopy } : {}) } : {}),
               outbound_candidates: projection.outbound, ranked_candidate_count: projection.ranked.length,
               manifest_digests: [], coverage_reports: [],
               automatic_retries: 0, automatic_repairs: 0, fallback_attempts: 0,
@@ -354,7 +424,7 @@
         }
         return await runPacks({ input, sortedSources, job, requestKey, projection, metrics, mode, wholeSourceUnits });
       } catch (error) {
-        return fail(error?.message || "batch_analyze_failed", { metrics });
+        return legibleFail(error?.message || "batch_analyze_failed", { metrics });
       }
     }
 
@@ -466,6 +536,9 @@
             return freeze({
               ok: false,
               reason: "cancelled",
+              state: "pending",
+              failure_scope: "shared",
+              fallback_attempted: false,
               job_id: job.job_id,
               batch_id: job.batch_id,
               request_key: requestKey,
@@ -473,6 +546,8 @@
               preserved_pack_receipts: preserved,
               failed_pack_index: index,
               unresolved_pending: packs.slice(index).flatMap((entry) => entry.map((miss) => miss.chunk.instance_id)),
+              pending_source_ids: pendingSourceIds(sortedSources),
+              recovery_actions: recoveryActionsFor("cancelled"),
               outbound_candidates: projection.outbound,
               ranked_candidate_count: projection.ranked.length,
               manifest_digests: manifestDigests,
@@ -481,11 +556,16 @@
             });
           }
           if (!response.ok) {
-            const interrupted = ["provider_outcome_unknown", "outcome_unknown"].includes(response.reason);
-            await jobStore.setJobState(job.job_id, interrupted ? "outcome_unknown" : "blocked", response.reason || "provider_unavailable");
+            const failureReason = response.reason || "provider_unavailable";
+            const interrupted = ["provider_outcome_unknown", "outcome_unknown"].includes(failureReason);
+            await jobStore.setJobState(job.job_id, interrupted ? "outcome_unknown" : "blocked", failureReason);
+            const providerCopy = recoveryCopyFor(failureReason);
             return freeze({
               ok: false,
-              reason: response.reason || "provider_unavailable",
+              reason: failureReason,
+              state: interrupted ? "outcome_unknown" : "blocked",
+              failure_scope: failureScopeFor(failureReason) || "item",
+              fallback_attempted: false,
               job_id: job.job_id,
               batch_id: job.batch_id,
               request_key: requestKey,
@@ -493,6 +573,9 @@
               preserved_pack_receipts: preserved,
               failed_pack_index: index,
               unresolved_pending: packs.slice(index).flatMap((entry) => entry.map((miss) => miss.chunk.instance_id)),
+              pending_source_ids: pendingSourceIds(sortedSources),
+              recovery_actions: recoveryActionsFor(failureReason),
+              ...(providerCopy ? { recovery: providerCopy } : {}),
               outbound_candidates: projection.outbound,
               ranked_candidate_count: projection.ranked.length,
               manifest_digests: manifestDigests,
@@ -550,10 +633,13 @@
               if (keys) missingSemanticKeys.push(...keys);
             }
             await jobStore.setJobState(job.job_id, "blocked");
+            const coverageCopy = recoveryCopyFor("semantic_candidate_key_missing");
             return freeze({
               ok: false,
               reason: "semantic_candidate_key_missing",
               state: "blocked",
+              failure_scope: "item",
+              fallback_attempted: false,
               job_id: job.job_id,
               batch_id: job.batch_id,
               request_key: requestKey,
@@ -562,6 +648,9 @@
               metrics,
               preserved_pack_receipts: preserved,
               unresolved_pending: [],
+              pending_source_ids: pendingSourceIds(sortedSources),
+              recovery_actions: recoveryActionsFor("semantic_candidate_key_missing"),
+              ...(coverageCopy ? { recovery: coverageCopy } : {}),
               outbound_candidates: projection.outbound,
               ranked_candidate_count: projection.ranked.length,
               manifest_digests: manifestDigests,
@@ -580,6 +669,7 @@
           batch_id: job.batch_id,
           request_key: requestKey,
           replay_only: replayOnly,
+          fallback_attempted: false,
           metrics,
           preserved_pack_receipts: preserved,
           unresolved_pending: [],
@@ -591,12 +681,13 @@
         });
       } catch (error) {
         try { await jobStore.setJobState(job.job_id, "blocked"); } catch (_ignored) { /* keep first failure reason */ }
-        return fail(error?.message || "analysis_state_write_failed", {
+        return legibleFail(error?.message || "analysis_state_write_failed", {
           metrics,
           job_id: job.job_id,
           batch_id: job.batch_id,
           request_key: requestKey,
           manifest_digests: manifestDigests,
+          pending_source_ids: pendingSourceIds(sortedSources),
         });
       }
     }
@@ -622,6 +713,7 @@
     MAX_ANALYSIS_TEXT_BYTES,
     FIXED_PROMPT_ENVELOPE,
     NO_CALL_STATES,
+    SHARED_FAILURE_REASONS: SHARED_FAILURE_REASON_LIST,
     candidateId,
     projectCandidates,
     createBatchAnalyzer,
