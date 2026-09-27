@@ -236,7 +236,184 @@
     return section;
   }
 
-  const api = Object.freeze({ buildActionQueue, renderActionQueue, dateDistance, ddayLabel, workspaceId });
+  var NEXT_ACTION_STATES = Object.freeze({
+    READY: "ready",
+    EMPTY: "empty",
+    LOADING: "loading",
+    ERROR: "error"
+  });
+
+  /*
+   * Single canonical next action (Home first-paint contract).
+   * buildActionQueue stays the deterministic ranked projection (dedupe +
+   * priority order); the first-paint surface never renders that list.
+   * Exactly one action is selected here, and exactly one
+   * [data-home-next-action] element is rendered. There is no second queue,
+   * no analytics copy, no fake focus item, and no automatic AI decision:
+   * focus_proposal rows keep the explicit approval label from the ranking.
+   */
+  function isActionable(action) {
+    if (!action || typeof action !== "object") return false;
+    if (!clean(action.title) || !clean(action.reason) || !clean(action.action_label)) return false;
+    return Boolean(clean(action.target_path) || clean(action.object_path) || clean(action.workspace));
+  }
+
+  function selectNextAction(actions) {
+    if (Array.isArray(actions) && actions.length > 1 && actions.__prodigyRequireSingle === true) {
+      throw new Error("Home next action requires exactly one candidate; received " + actions.length + ".");
+    }
+    const list = Array.isArray(actions) ? actions : [];
+    for (let index = 0; index < list.length; index += 1) {
+      if (isActionable(list[index])) return list[index];
+    }
+    return null;
+  }
+
+  function assertSingleNextAction(action) {
+    if (Array.isArray(action)) {
+      throw new Error("Home next action requires exactly one action; received an array of " + action.length + ".");
+    }
+    if (!isActionable(action)) {
+      throw new Error("Home next action is missing a non-empty reason, target, or action.");
+    }
+    return action;
+  }
+
+  function nextActionStateFor(input) {
+    const source = input && typeof input === "object" ? input : {};
+    if (source.loading === true) {
+      return Object.freeze({ state: NEXT_ACTION_STATES.LOADING, action: null, message: clean(source.message) || "오늘의 운영 화면을 준비하는 중..." });
+    }
+    if (source.error != null && source.error !== false) {
+      const message = source.error instanceof Error
+        ? clean(source.error.message)
+        : clean(source.message || source.error);
+      return Object.freeze({ state: NEXT_ACTION_STATES.ERROR, action: null, message: message || "다음 행동을 준비하지 못했습니다." });
+    }
+    const action = selectNextAction(source.actions !== undefined ? source.actions : source.action);
+    if (!action) {
+      return Object.freeze({ state: NEXT_ACTION_STATES.EMPTY, action: null, message: clean(source.message) || "지금 처리할 다음 행동이 없습니다." });
+    }
+    return Object.freeze({ state: NEXT_ACTION_STATES.READY, action, message: "" });
+  }
+
+  function wireRecoveryButton(button, handler, fallbackAction) {
+    button.onclick = () => {
+      try {
+        if (typeof handler === "function") return handler(fallbackAction);
+      } catch (_recoveryError) { /* fall through to the fallback action */ }
+      if (fallbackAction && typeof fallbackAction.onAction === "function") {
+        try { fallbackAction.onAction(fallbackAction.action); } catch (_ignored) { /* never leave a dead control */ }
+      }
+    };
+  }
+
+  /*
+   * Renders exactly one [data-home-next-action] element. Every state keeps a
+   * live recovery control: ready wires the follow-up action, loading/empty/
+   * error each wire an explicit recovery button. No state renders a dead
+   * control. Throws when the exactly-one rule is violated so the contract
+   * can actually fail instead of passing vacuously.
+   */
+  function renderNextAction(options) {
+    const opts = options || {};
+    const parent = opts.parent;
+    if (!parent || typeof parent.createEl !== "function") throw new Error("Home next action requires a parent.");
+    if (Array.isArray(opts.action)) throw new Error("Home next action requires exactly one action; received an array.");
+    const activate = typeof opts.onAction === "function" ? opts.onAction : () => {};
+    const recover = typeof opts.onRecovery === "function" ? opts.onRecovery : activate;
+    const resolved = nextActionStateFor({
+      loading: opts.loading === true,
+      error: opts.error,
+      actions: opts.action !== undefined ? [opts.action] : opts.actions,
+      message: opts.message
+    });
+    const recoveryLabel = clean(opts.recoveryLabel) || "다시 시도";
+    const recoveryTarget = clean(opts.recoveryTarget) || "HUB/00 Home.md";
+
+    const section = parent.createEl("section", {
+      attr: {
+        class: "home-action-queue home-native-group",
+        "aria-label": "오늘의 다음 행동",
+        "data-home-next-action": "true",
+        "data-state": resolved.state
+      }
+    });
+    const head = section.createEl("div", { attr: { class: "home-action-queue-head" } });
+    const title = head.createEl("div");
+    title.createEl("p", { text: "오늘의 지휘부", attr: { class: "home-action-queue-kicker" } });
+    title.createEl("h2", { text: "다음 행동", attr: { class: "home-action-queue-title" } });
+    head.createEl("span", {
+      text: opts.aiBacked === false ? "실제 상태 기준" : "실제 상태 + AI 제안",
+      attr: { class: "badge badge-gray home-action-queue-mode" }
+    });
+
+    if (resolved.state === NEXT_ACTION_STATES.READY) {
+      const action = assertSingleNextAction(resolved.action);
+      const row = section.createEl("article", {
+        attr: {
+          class: "home-action-row is-primary",
+          "data-action-kind": clean(action.kind) || "next",
+          ...(action.kind === "inbox" ? {
+            "data-pending-count": String(action.pending_count),
+            "data-pending-priority": clean(action.pending_priority)
+          } : {})
+        }
+      });
+      row.createEl("span", { text: "1", attr: { class: "home-action-rank", "aria-hidden": "true" } });
+      const copy = row.createEl("div", { attr: { class: "home-action-copy" } });
+      const top = copy.createEl("div", { attr: { class: "home-action-title-line" } });
+      top.createEl("strong", { text: clean(action.title), attr: { class: "home-action-title" } });
+      top.createEl("span", {
+        text: workspaceId(clean(action.workspace) || "today"),
+        attr: { class: "badge badge-gray home-action-workspace", "data-next-action-target-workspace": clean(action.workspace) || "today" }
+      });
+      copy.createEl("p", {
+        text: clean(action.reason),
+        attr: { class: "home-action-reason", "data-next-action-reason": clean(action.reason) }
+      });
+      const button = row.createEl("button", {
+        text: clean(action.action_label),
+        attr: {
+          type: "button",
+          class: "action-btn action-btn-primary home-action-button",
+          "aria-label": `${clean(action.title)} · ${clean(action.action_label)}`,
+          "data-next-action-target": clean(action.target_path) || clean(action.object_path) || recoveryTarget
+        }
+      });
+      button.onclick = () => activate(action);
+      return section;
+    }
+
+    const copyText = resolved.state === NEXT_ACTION_STATES.LOADING
+      ? resolved.message
+      : resolved.state === NEXT_ACTION_STATES.ERROR
+        ? `오류: ${resolved.message} 다시 시도할 수 있습니다.`
+        : `${resolved.message} 생각이나 자료를 추가해도 됩니다.`;
+    section.createEl("p", {
+      text: copyText,
+      attr: { class: resolved.state === NEXT_ACTION_STATES.ERROR ? "home-region-error" : "home-action-queue-empty" }
+    });
+    const recovery = section.createEl("button", {
+      text: resolved.state === NEXT_ACTION_STATES.LOADING ? "새로고침" : recoveryLabel,
+      attr: { type: "button", class: "action-btn action-btn-primary home-action-button" }
+    });
+    wireRecoveryButton(recovery, recover, {
+      action: {
+        kind: "recovery",
+        title: recoveryLabel,
+        reason: copyText,
+        workspace: "today",
+        action_label: recoveryLabel,
+        target_path: recoveryTarget,
+        object_path: ""
+      },
+      onAction: activate
+    });
+    return section;
+  }
+
+  const api = Object.freeze({ buildActionQueue, renderActionQueue, selectNextAction, assertSingleNextAction, nextActionStateFor, renderNextAction, NEXT_ACTION_STATES, dateDistance, ddayLabel, workspaceId });
   root.HomeActionQueue = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

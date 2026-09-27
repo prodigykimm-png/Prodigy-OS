@@ -170,3 +170,185 @@ test("journal becomes a real action and proposals stay approval actions", () => 
   assert.equal(proposal.action_label, "집중으로 승인");
   assert.equal(proposal.reason, "AI가 제안함");
 });
+
+// ── Single canonical next action (Home first-paint contract) ──
+
+class FakeNode {
+  constructor(tag, options = {}) {
+    this.tagName = String(tag).toUpperCase();
+    this.children = [];
+    this.attributes = {};
+    this.textContent = options.text || "";
+    this.onclick = null;
+    if (options.attr) {
+      for (const [key, value] of Object.entries(options.attr)) this.attributes[key] = String(value);
+    }
+  }
+  createEl(tag, options = {}) {
+    const child = new FakeNode(tag, options);
+    this.children.push(child);
+    return child;
+  }
+  findAll(predicate, found = []) {
+    if (predicate(this)) found.push(this);
+    for (const child of this.children) child.findAll(predicate, found);
+    return found;
+  }
+}
+
+function urgentFixture() {
+  return {
+    now: new Date("2026-08-24T09:00:00+09:00"),
+    pkg: {
+      local_date: "2026-08-24",
+      context: {
+        auctions: [{
+          status: "bidding",
+          auction_datetime: "2026-08-25",
+          case_number: "2026타경1",
+          address: "서울시 강서구",
+          path: "PARA/PROJECTS/Auction/2026타경1.md",
+        }],
+      },
+    },
+    attention: [{
+      label: "프로젝트 마감 확인",
+      attention_level: "critical",
+      reason: "오늘 결정이 필요합니다.",
+      object_path: "PARA/PROJECTS/Project/긴급.md",
+      dashboard_path: "HUB/40 Project.md",
+      workspace_label: "프로젝트",
+    }],
+    focusItems: [{
+      label: "독서 20쪽",
+      source_type: "reading",
+      next_action: "Atomic Habits 20쪽 읽기",
+      object_path: "PARA/PROJECTS/Reading/book.md",
+    }],
+    focusApproved: true,
+    inboxCount: 3,
+    journalStatus: "empty",
+    workspacePathFor: pathFor,
+  };
+}
+
+function nextActionShells(root) {
+  return root.findAll((el) => el.attributes["data-home-next-action"] === "true");
+}
+
+test("first paint selects exactly one canonical next action", () => {
+  const actions = queue.buildActionQueue(urgentFixture());
+  assert.ok(actions.length > 1, "projection still ranks several candidates");
+  const selected = queue.selectNextAction(actions);
+  assert.equal(selected.title, "2026타경1");
+  assert.match(selected.reason, /D-1/);
+  assert.ok(selected.target_path, "canonical action has a target");
+  assert.ok(selected.action_label, "canonical action has a follow-up action");
+  assert.ok(selected.workspace, "canonical action names a workspace");
+});
+
+test("re-render with different inputs selects a different action (no stale cache)", () => {
+  const first = queue.selectNextAction(queue.buildActionQueue(urgentFixture()));
+  const second = queue.selectNextAction(queue.buildActionQueue({
+    now: new Date("2026-08-24T21:00:00+09:00"),
+    pkg: { local_date: "2026-08-24", context: { auctions: [] } },
+    journalStatus: "empty",
+    workspacePathFor: pathFor,
+  }));
+  assert.equal(first.title, "2026타경1");
+  assert.equal(second.kind, "journal");
+  assert.notEqual(first.title, second.title);
+});
+
+test("rendered next action is exactly one element with reason, target and action", () => {
+  const parent = new FakeNode("div");
+  const actions = queue.buildActionQueue(urgentFixture());
+  const activated = [];
+  queue.renderNextAction({
+    parent,
+    action: queue.selectNextAction(actions),
+    aiBacked: false,
+    onAction: (action) => activated.push(action),
+  });
+  const shells = nextActionShells(parent);
+  assert.equal(shells.length, 1, "exactly one [data-home-next-action]");
+  assert.equal(shells[0].attributes["data-state"], "ready");
+  const reason = shells[0].findAll((el) => el.attributes["data-next-action-reason"]);
+  assert.equal(reason.length, 1);
+  assert.ok(reason[0].textContent, "reason is non-empty");
+  const buttons = shells[0].findAll((el) => el.tagName === "BUTTON");
+  assert.equal(buttons.length, 1, "one follow-up control, no second queue");
+  assert.ok(buttons[0].textContent, "action label is non-empty");
+  assert.ok(buttons[0].attributes["data-next-action-target"], "target is non-empty");
+  assert.ok(buttons[0].attributes["aria-label"].includes("·"), "control names title and action");
+  buttons[0].onclick();
+  assert.equal(activated.length, 1, "the single control is live, not dead");
+  assert.equal(activated[0].title, "2026타경1");
+});
+
+test("two competing actions cannot pass as one (misleading success is rejected)", () => {
+  const actions = queue.buildActionQueue(urgentFixture());
+  assert.ok(actions.length >= 2, "fixture really has competing candidates");
+  assert.throws(() => queue.assertSingleNextAction(actions), /exactly one/,
+    "an array of competing actions is rejected, not silently passed");
+  const parent = new FakeNode("div");
+  assert.throws(() => queue.renderNextAction({ parent, action: actions.slice(0, 2) }), /exactly one/,
+    "rendering two competing actions fails instead of painting both");
+  assert.equal(nextActionShells(parent).length, 0, "failed render leaves no half-painted shell");
+});
+
+test("malformed, missing, and empty queues yield typed states with recovery", () => {
+  for (const input of [
+    { actions: undefined, expect: "empty", label: "missing queue" },
+    { actions: [], expect: "empty", label: "empty queue" },
+    { actions: [{ title: "", reason: "", action_label: "" }], expect: "empty", label: "malformed record" },
+    { actions: [{ title: "깨진 항목", reason: "", action_label: "", target_path: "" }], expect: "empty", label: "reasonless record" },
+  ]) {
+    const typed = queue.nextActionStateFor(input);
+    assert.equal(typed.state, input.expect, input.label);
+    const parent = new FakeNode("div");
+    let recovered = 0;
+    queue.renderNextAction({
+      parent,
+      actions: input.actions,
+      onAction: () => {},
+      onRecovery: () => { recovered += 1; },
+    });
+    const shells = nextActionShells(parent);
+    assert.equal(shells.length, 1, `${input.label}: still exactly one shell`);
+    assert.equal(shells[0].attributes["data-state"], "empty", `${input.label}: typed empty state`);
+    const buttons = shells[0].findAll((el) => el.tagName === "BUTTON");
+    assert.equal(buttons.length, 1, `${input.label}: a visible recovery path`);
+    assert.ok(buttons[0].textContent, `${input.label}: recovery control is labeled`);
+    buttons[0].onclick();
+    assert.equal(recovered, 1, `${input.label}: recovery control is live`);
+  }
+});
+
+test("loading and error states keep one shell and a live recovery control", () => {
+  const loadingParent = new FakeNode("div");
+  let refreshed = 0;
+  queue.renderNextAction({ parent: loadingParent, loading: true, onRecovery: () => { refreshed += 1; } });
+  const loadingShells = nextActionShells(loadingParent);
+  assert.equal(loadingShells.length, 1);
+  assert.equal(loadingShells[0].attributes["data-state"], "loading");
+  const loadingButtons = loadingShells[0].findAll((el) => el.tagName === "BUTTON");
+  assert.equal(loadingButtons.length, 1, "loading keeps a recovery path");
+  loadingButtons[0].onclick();
+  assert.equal(refreshed, 1, "loading recovery is live");
+
+  const errorParent = new FakeNode("div");
+  let retried = 0;
+  queue.renderNextAction({
+    parent: errorParent,
+    error: new Error("morning brief unavailable"),
+    onRecovery: () => { retried += 1; },
+  });
+  const errorShells = nextActionShells(errorParent);
+  assert.equal(errorShells.length, 1);
+  assert.equal(errorShells[0].attributes["data-state"], "error");
+  const errorButtons = errorShells[0].findAll((el) => el.tagName === "BUTTON");
+  assert.equal(errorButtons.length, 1, "error keeps a recovery path");
+  errorButtons[0].onclick();
+  assert.equal(retried, 1, "error recovery is live");
+});
