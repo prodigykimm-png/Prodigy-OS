@@ -1,0 +1,60 @@
+ M .obsidian/plugins/prodigy-ai-runtime/main.js
+ M AGENTS.md
+ M "HUB/50 Knowledge.md"
+ M SYSTEM/AI/Skills/prodigy-review/SKILL.md
+ M SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_dashboard.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_period_core.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/journal/test_weekly_filter_view.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_assembler.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_golden_wiki_orchestrator.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_lifecycle_product.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_resurfacing.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_risk_approval.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task13_restart_recovery.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_wiki_surface.js
+ M SYSTEM/AI/Skills/prodigy-review/tests/shared/fixtures/workspace-manifest-v1.json
+ M SYSTEM/TEMPLATE/FORMAT/template_monthly_note.md
+ M SYSTEM/TEMPLATE/FORMAT/template_quarterly_note.md
+ M SYSTEM/TEMPLATE/FORMAT/template_yearly_note.md
+ M SYSTEM/Views/auction-key-value-snapshot.js
+ M SYSTEM/Views/journal-context-adapter.js
+ M SYSTEM/Views/journal-core.js
+ M SYSTEM/Views/journal-dashboard-view.js
+ M SYSTEM/Views/journal-period-core.js
+ M SYSTEM/Views/journal-period-store.js
+ M SYSTEM/Views/journal-period-view.js
+ M SYSTEM/Views/journal-store.js
+ M SYSTEM/Views/journal-styles.js
+ M SYSTEM/Views/llmwiki-batch-analyzer.js
+ M SYSTEM/Views/llmwiki-batch-provider-input.js
+ M SYSTEM/Views/llmwiki-batch-provider.js
+ M SYSTEM/Views/llmwiki-document-assembler.js
+ M SYSTEM/Views/llmwiki-golden-wiki-orchestrator.js
+ M SYSTEM/Views/llmwiki-lifecycle-view.js
+ M SYSTEM/Views/llmwiki-query-readonly.js
+ M SYSTEM/Views/llmwiki-resurfacing-service.js
+ M SYSTEM/Views/llmwiki-risk-approval-review-view.js
+ M SYSTEM/Views/llmwiki-ui-recovery.js
+ M SYSTEM/Views/llmwiki-wiki-read-adapter.js
+ M SYSTEM/Views/llmwiki-wiki-read-service.js
+ M SYSTEM/Views/llmwiki-wiki-surface.js
+ M SYSTEM/Views/monthly-validation-store.js
+ M SYSTEM/Views/monthly-validation-view.js
+ M SYSTEM/Views/prodigy-ai-consumer-manifests.js
+ M SYSTEM/Views/prodigy-wiki-controller.js
+ M SYSTEM/Views/prodigy-workspace-manifest.js
+ M SYSTEM/Views/project-card.js
+ M SYSTEM/Views/reading-card.js
+ M SYSTEM/Views/weekly-filter-view.js
+ M SYSTEM/Views/weekly-review-store.js
+ M "SYSTEM/docs/Reflection Guide.md"
+?? SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_narrative_journey.js
+?? SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_narrative_ui.js
+?? SYSTEM/AI/Skills/prodigy-review/tests/journal/test_journal_review_expansion.js
+?? SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_vertical_recovery.js
+?? SYSTEM/Views/journal-narrative-view.js
+?? SYSTEM/Views/journal-related-records.js
+?? artifacts/llmwiki-productization-20260909/
+?? artifacts/llmwiki-runtime-audit-20260909/
+?? artifacts/llmwiki-vertical-recovery-20260909/
+?? pre-consent-state.txt

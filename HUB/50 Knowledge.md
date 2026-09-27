@@ -737,6 +737,22 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const sourceFile = appRef.vault.getAbstractFileByPath(durableProdigyWikiOperation.source.path);
       const currentRevision = sourceFile
         ? llmWikiHash.sha256(await appRef.vault.cachedRead(sourceFile)) : "";
+    // Reload restore: the durable operation keeps bounded gate detail but no
+    // result object. Rebuild the minimal gate-failure result the lifecycle
+    // view maps to actionable copy. Never reconstruct previews or receipts.
+    const restoredGateResult = (restored) => {
+      if (!restored || restored.result || restored.reason !== "golden_gate_failed") return restored ? restored.result : null;
+      const detail = restored.detail && typeof restored.detail === "object" ? restored.detail : {};
+      const metrics = detail.metrics && typeof detail.metrics === "object" ? detail.metrics : {};
+      const clean = (list) => [...new Set((Array.isArray(list) ? list : []).filter((token) => typeof token === "string" && token.trim() && token.length <= 32))].slice(0, 24);
+      const issues = (Array.isArray(detail.issues) ? detail.issues : []).filter((issue) => typeof issue === "string").slice(0, 8);
+      const unsupported = clean(metrics.unsupported_numeric_tokens);
+      const missing = clean(metrics.missing_critical_tokens);
+      if (!issues.length && !unsupported.length && !missing.length) return null;
+      return { ok: false, status: "review_required", reason: "golden_gate_failed", stage: typeof restored.stage === "string" ? restored.stage : "gating",
+        issues, metrics: { unsupported_numeric_tokens: unsupported, missing_critical_tokens: missing,
+          critical_token_recall: typeof metrics.critical_token_recall === "number" ? metrics.critical_token_recall : 1 } };
+    };
       const restored = window.ProdigyWikiOperationStore.assessRestore(durableProdigyWikiOperation, currentRevision);
       if (restored?.status === "source_changed" && durableProdigyWikiOperation.status !== "source_changed") {
         await prodigyWikiOperationStore.markSourceChanged();
@@ -749,7 +765,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
             source: restored.source,
             range: restored.range,
             stage: restored.stage,
-            result: restored.result,
+            result: restored.result || restoredGateResult(restored),
             reason: restored.reason,
             resumable: restored.resumable,
             operation_id: restored.operation_id,
@@ -883,9 +899,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     // One canonical composition: analyzer artifacts -> local materialization ->
     // typed lifecycle proposals. Zero writes; approval stays on the retained
     // controller surface.
-    const runCanonicalBatch = async ({ sources, candidates = [], signal, explicitRetry = false, retryIntentId = null, wholeSourceUnits = [], independentSources = false }) => {
+    const runCanonicalBatch = async ({ sources, candidates = [], signal, explicitRetry = false, retryIntentId = null, wholeSourceUnits = [], independentSources = false, numericFidelity = "" }) => {
       if (!batchAnalyzer) return { ok: false, reason: "provider_selection_unavailable", provider_calls: 0 };
-      const analyzed = await batchAnalyzer.analyze({ sources, candidates, signal, independent_sources: independentSources, explicit_retry: explicitRetry, whole_source_units: wholeSourceUnits, ...(retryIntentId ? { retry_intent_id: retryIntentId } : {}) });
+      const analyzed = await batchAnalyzer.analyze({ sources, candidates, signal, independent_sources: independentSources, explicit_retry: explicitRetry, whole_source_units: wholeSourceUnits, ...(retryIntentId ? { retry_intent_id: retryIntentId } : {}), ...(numericFidelity ? { numeric_fidelity: numericFidelity } : {}) });
       const providerCalls = analyzed.metrics ? analyzed.metrics.provider_calls : 0;
       if (!analyzed.ok || !["review_ready", "resolved"].includes(analyzed.state)) return {
         ok: false, reason: analyzed.reason || analyzed.state || "batch_analysis_failed",
@@ -1666,6 +1682,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const explicitRetry = runOptions && runOptions.explicit_retry === true;
       const retryIntentId = explicitRetry && typeof runOptions.retry_intent_id === "string"
         ? runOptions.retry_intent_id.trim() : "";
+      const numericFidelity = typeof runOptions.numeric_fidelity === "string" && runOptions.numeric_fidelity.length > 0 && runOptions.numeric_fidelity.length <= 2048
+        ? runOptions.numeric_fidelity : "";
       if (explicitRetry && !retryIntentId) return { ok: false, reason: "retry_intent_required" };
       const normalizedSourcePath = requestedSourcePath.normalize("NFC");
       if (!normalizedSourcePath.startsWith("INBOX/") || !normalizedSourcePath.endsWith(".md")
@@ -1711,6 +1729,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         wholeSourceUnits,
         explicitRetry,
         retryIntentId,
+        ...(numericFidelity ? { numericFidelity } : {}),
       });
       if (!analyzed.ok) {
         // Preserve the hub failure envelope around analyzer-level refusals
@@ -2410,6 +2429,25 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         ...(scope ? { scope } : {}),
       });
     };
+    // Golden-gate quality retry: carry the failed gate's numeric corrections
+    // into regeneration as one bounded instruction string. Token lists only;
+    // never source text, claims, or proposal bytes.
+    const goldenGateFidelity = (result) => {
+      if (!result || result.reason !== "golden_gate_failed") return "";
+      const metrics = result.metrics && typeof result.metrics === "object" ? result.metrics : {};
+      const clean = (list) => [...new Set((Array.isArray(list) ? list : [])
+        .filter((token) => typeof token === "string")
+        .map((token) => token.trim())
+        .filter((token) => token.length > 0 && token.length <= 32 && /^[\d][\d\s,.\-%년월일시분초㎡평mmc]*$/u.test(token)))].slice(0, 24);
+      const retain = clean(metrics.missing_critical_tokens);
+      const forbid = clean(metrics.unsupported_numeric_tokens);
+      if (!retain.length && !forbid.length) return "";
+      const parts = ["Copy every number with its unit exactly as written in the source chunks."];
+      if (retain.length) parts.push(`Must retain: ${retain.join(", ")}.`);
+      if (forbid.length) parts.push(`Do not invent numbers absent from the source (avoid: ${forbid.join(", ")}).`);
+      parts.push("Support dated or measured claims with a source quote.");
+      return parts.join(" ");
+    };
     const runGoldenWiki = async (scope = null, runOptions = {}) => {
       const orchestrator = getGoldenWikiOrchestrator();
       const selectedSource = prodigyWikiController.getSnapshot().source;
@@ -2441,6 +2479,7 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           goldenRunSourceCoverage = null;
           const orchestrationResult = await orchestrator.run({
             ...(runOptions.explicit_retry === true ? { explicit_retry: true, retry_intent_id: runOptions.retry_intent_id } : {}),
+            ...(typeof runOptions.numeric_fidelity === "string" && runOptions.numeric_fidelity ? { numeric_fidelity: runOptions.numeric_fidelity } : {}),
             source_path: selectedSource.path,
             expected_content_hash: selectedSource.content_hash,
             operation_id: operationId,
@@ -3071,6 +3110,38 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     let questionReviewRunId = llmWikiRunController.getSnapshot().risk_packets?.find(packet => packet.run_id?.startsWith("question_"))?.run_id || "";
     // 닫힌 검토: 적용 완료(resolved) 또는 소유자가 제안을 버림(rejected). 둘 다 대기 목록에서 뺀다.
     const reviewClosed = (status) => status === "resolved" || status === "rejected";
+    // 자동 넘김: 닫힌 항목을 빼고 다음 열린 검토를 고른다. 그만 보기로 끄면
+    // 아무것도 안 한다. 종결 기록을 되살리지는 않는다. 마운트마다 켜짐으로 시작한다.
+    let autoAdvanceNext = true;
+    const nextAutoAdvanceItem = (closedId, asModal) => {
+      if (autoAdvanceNext === false) return null;
+      const next = workspaceReviewEntries().find(row => !reviewClosed(row.status) && row.item.review_id !== closedId);
+      return next ? { item: next.item, modal: asModal } : null;
+    };
+    const advanceAfterClose = async (closedId, asModal) => {
+      const next = nextAutoAdvanceItem(closedId, asModal);
+      if (!next) return;
+      try { await openCanonicalDocumentReview(next.item, next.modal ? { modal: true } : {}); } catch (_advanceError) { /* 다음 열기 실패는 조용히 둔다 */ }
+    };
+    KnowledgeExplorerHub.nextAutoAdvanceItem = (closedId) => {
+      const next = nextAutoAdvanceItem(closedId, false);
+      return next ? next.item : null;
+    };
+    // 대기열 한눈: 각 항목이 왜 기다리는지를 한 줄로 밝힌다. 다음 행동은
+    // 언제나 해당 검토를 다시 여는 것으로, 버튼이 맡는다. 저장소가 남기는
+    // 시스템 시도(attempt_started/compiled/review_ready)는 이유가 아니라 소음이다.
+    const pendingReason = (jobId, review) => {
+      if (review && review.item && review.item.review_blocked) return "충돌 확인 필요";
+      let attempts = [];
+      try { const job = batchJobStore.getJob(jobId); attempts = (job && job.attempts) || []; } catch (_attemptError) { attempts = []; }
+      const reviewId = review && review.item && review.item.review_id;
+      const attemptReviewId = (row) => (row && row.references && row.references.review_id) || (row && row.review_id) || null;
+      const mine = attempts.filter(row => row && attemptReviewId(row) === reviewId);
+      const signal = [...mine].reverse().find(row => row.observation === "user_rejected" || row.observation === "held" || row.disposition === "held/no-change");
+      if (signal) return signal.observation === "user_rejected" ? "지난번에 버림 — 다시 보기" : "보류 중 — 이어서 보기";
+      const systemOnly = mine.every(row => ["attempt_started", "compiled", "review_ready"].includes(row.observation));
+      return systemOnly ? "첫 검토 대기" : "이어서 보기";
+    };
     const pendingCanonicalReviews = (sourcePath = "") => batchJobStore.listPlanSnapshots()
       .flatMap(snapshot => [snapshot, ...(snapshot.history || []).slice().reverse()]
         .flatMap(version => Object.values(version.canonical_reviews || {}))
@@ -3080,6 +3151,38 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           === (entry.review.packet?.packet_hash || `${entry.job_id}:${entry.review.item.review_id}`)) === index)
       .filter(({ review }) => !reviewClosed(review.status) && (!sourcePath || Object.values(review.source_paths || {}).includes(sourcePath)
         || review.pending_draft?.sources.some(source => source.source_path === sourcePath)));
+    // 마이그레이션 행의 열기 가능 상태를 스냅샷에 적어 둔다. view는 이 값으로
+    // "변경안 검토" 버튼을 그릴지, 이유 문구와 지우기 버튼을 그릴지 정한다.
+    // openMigrationReview와 같은 판정(경로 일치)이어야 하므로, 같은 저장소만 읽는다.
+    const migrationCoveringStatus = (decisionPath) => {
+      let sawClosed = false;
+      const seen = new Set();
+      const snapshots = batchJobStore.listPlanSnapshots();
+      for (let index = snapshots.length - 1; index >= 0; index -= 1) {
+        const snapshot = snapshots[index];
+        const versions = [snapshot].concat(((snapshot && snapshot.history) || []).slice().reverse());
+        for (const version of versions) {
+          const reviews = (version && version.canonical_reviews) || {};
+          for (const review of Object.values(reviews)) {
+            const reviewId = review && review.item && review.item.review_id;
+            if (!reviewId || seen.has(reviewId)) continue;
+            seen.add(reviewId);
+            const target = (review.item && review.item.proposed_target && review.item.proposed_target.path)
+              || (review.packet && review.packet.target_path) || "";
+            if (target !== decisionPath) continue;
+            if (!reviewClosed(review.status)) return "open";
+            sawClosed = true;
+          }
+        }
+      }
+      if (sawClosed) return "closed";
+      if (documentPlanContext && Array.isArray(pagePlanReviewItems)) {
+        const hit = pagePlanReviewItems.some((row) => row && row.plan_kind === "compiled_document" && row.compiled_kind !== "source_guide"
+          && ((row.proposed_target && row.proposed_target.path) === decisionPath));
+        if (hit) return "open";
+      }
+      return "none";
+    };
     // M1 legacy adoption entry: a LOCAL scan of legacy canonical notes. It never calls a provider and
     // never writes; it only surfaces which notes still lack the v2 lifecycle format so the owner can
     // adopt them through the existing lifecycle migration authority.
@@ -3151,7 +3254,8 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         ...(pendingCanonical.length ? { status: "review", reason: "review_required",
           prodigy_wiki: { ...prodigyWikiController.getSnapshot(), status: "review_ready", stage: "review", reason: "review_required" },
           inbox: { ...inboxState, state: "partial", proposal_pending: pendingCanonical.length, proposal_state: "review" } } : {}),
-        ...(migrationScan ? { migration: migrationScan } : {}),
+        ...(migrationScan ? { migration: { ...migrationScan,
+          decisions: (migrationScan.decisions || []).map((decision) => ({ ...decision, covering_review_status: migrationCoveringStatus(decision.path) })) } } : {}),
       };
     };
     const dispatchStartupIntent = async (intent) => {
@@ -3177,6 +3281,14 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       }
       if (intent.action === "scan_inbox") return refreshInboxViewFromQueue();
       if (intent.action === "scan_migration") { wikiAuxiliaryScene = "migration"; tabs.select("llmwiki"); return scanExistingZetaMigration(); }
+      if (intent.action === "dismiss_migration") {
+        wikiAuxiliaryScene = "migration"; tabs.select("llmwiki");
+        const remaining = (migrationScan && migrationScan.decisions ? migrationScan.decisions : []).filter((row) => row && row.decision_id !== intent.decision_id);
+        migrationScan = remaining.length && migrationScan ? { ...migrationScan, decisions: Object.freeze(remaining.slice()) } : null;
+        if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot());
+        return { ok: true, status: "review", dismissed_decision_id: intent.decision_id || null, remaining: remaining.length,
+          provider_calls: 0, write_counts: { canonical: 0, audit: 0, refresh: 0, git: 0 } };
+      }
       if (intent.action === "review_migration" || intent.action === "approve_migration") { wikiAuxiliaryScene = "migration"; return openMigrationReview(intent.decision_id); }
       if (intent.action === "analyze_inbox") return runInboxBatch();
       if (intent.action === "cancel_inbox") {
@@ -3328,8 +3440,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         const current = prodigyWikiController.getSnapshot();
         prodigyWikiController.dispatch({ type: "request_consent", preflight: current.result || {} });
         const explicitRetry = intent.action === "retry_prodigy_wiki" || intent.explicit_retry === true;
+        const gateFidelity = explicitRetry ? goldenGateFidelity(prodigyWikiController.getSnapshot().result) : "";
         return runGoldenWiki(current.range || null, explicitRetry
-          ? { explicit_retry: true, retry_intent_id: `retry_${crypto.randomUUID()}` } : {});
+          ? { explicit_retry: true, retry_intent_id: `retry_${crypto.randomUUID()}`, ...(gateFidelity ? { numeric_fidelity: gateFidelity } : {}) } : {});
       }
       if (intent.action === "request_consent") {
         const refreshContext = prodigyWikiController.getSnapshot().result?.refresh_context;
@@ -3784,8 +3897,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
           jobStore: item.processing_job_id || documentPlanContext?.job_id ? batchJobStore : null,
           jobId: item.processing_job_id || documentPlanContext?.job_id || "",
           onStateChange: () => refreshWikiPendingCount(),
+          onStopAutoAdvance: () => { autoAdvanceNext = false; },
           onOpenSource: (locator, citation, invoker, onStale) => openGoldenCitation({ ...citation, locator, locators: [locator] }, invoker, onStale),
-          onLater: () => { inlineWikiReview = null; tabs.select("llmwiki-browse"); callbacks.onClose?.(); },
+          onLater: () => { inlineWikiReview = null; tabs.select("llmwiki-browse"); callbacks.onClose?.(); void advanceAfterClose(item.review_id, false); },
           onSelectSource: () => { inlineWikiReview?.onClose?.(); inlineWikiReview = null; activeWikiReviewId = ""; intendedWikiTarget = ""; tabs.select("llmwiki"); llmWikiLifecycle.openPicker(); },
           onNext: workspaceReviewEntries().filter(row => row.item.review_id !== item.review_id && !reviewClosed(row.status)).length ? () => {
             activeWikiReviewId = workspaceReviewEntries().find(row => row.item.review_id !== item.review_id && !reviewClosed(row.status))?.item.review_id || ""; llmWikiLifecycle.update(lifecycleSnapshot());
@@ -3801,12 +3915,13 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
       const reviewJobId = item.processing_job_id || (item.plan_kind === "compiled_document" ? documentPlanContext?.job_id : "") || "";
       const modal = window.LLMWikiDocumentCanonicalReview.open({ app: appRef, Modal: obsidianRef.Modal, item,
         jobStore: reviewJobId ? batchJobStore : null, jobId: reviewJobId,
+        onStopAutoAdvance: () => { autoAdvanceNext = false; },
         onStateChange: () => { if (llmWikiLifecycle) llmWikiLifecycle.update(lifecycleSnapshot()); },
         onOpenSource: (locator, citation) => openGoldenCitation({ ...citation, locator, locators: [locator] }),
         onComplete: async (result) => { await refreshCanonicalDocumentContext(); P.openBeside(appRef, result.target_path); refreshReviewWorkbench(); }
       });
       const priorClose = modal.onClose;
-      modal.onClose = () => { isOpen = false; priorClose?.call(modal); callbacks.onClose?.(); };
+      modal.onClose = () => { isOpen = false; priorClose?.call(modal); callbacks.onClose?.(); void advanceAfterClose(item.review_id, true); };
       return { ok: true, status: "waiting_for_human_review", canonical_writes: 0, reopenable: true, isOpen: () => isOpen };
     };
     KnowledgeExplorerHub.openCanonicalDocumentReview = openCanonicalDocumentReview;
@@ -3868,8 +3983,9 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
         host.createEl("h2", { text: selected.item.title });
         host.createEl("p", { text: "! 적용 전에 확인할 항목이 있습니다. 원문 근거 구성을 확인하세요.", attr: { role: "alert" } });
         wikiUI.markdown(host, selected.item.document_body, renderWikiMarkdown);
-        wikiWorkspace.decision.createEl("p", { text: "적용할 변경안을 준비해야 합니다.", attr: { role: "status" } });
+        wikiWorkspace.decision.createEl("p", { text: "적용할 변경안을 준비해야 합니다. 닫아도 대기 목록에 남습니다.", attr: { role: "status" } });
         wikiUI.button(wikiWorkspace.decision, "검토 항목 확인", "inspect-review-block", () => { planDetails.open = true; wikiWorkspace.more.parentElement.open = true; });
+        wikiUI.button(wikiWorkspace.decision, "닫기", "close-review-block", () => { activeWikiReviewId = ""; inlineWikiReview?.onClose?.(); tabs.select("llmwiki-browse"); llmWikiLifecycle.update(lifecycleSnapshot()); });
         return true;
       }
       void openCanonicalDocumentReview(selected.item, { container: host }).catch(error => host.createEl("p", { text: `! 검토 화면을 열지 못했습니다: ${error.message}`, attr: { role: "alert" } }));
@@ -3906,13 +4022,184 @@ KnowledgeExplorerHub.render = async ({ app: hubApp, dv: hubDv, container, obsidi
     for (const [label, action] of [["받은 자료 일괄 정리", "scan_inbox"], ["미정리 생각", "review_fleeting"], ["기존 자료 검사", "scan_migration"]]) {
       wikiUI.button(wikiWorkspace.more, label, action, () => { wikiAuxiliaryScene = action === "review_fleeting" ? "fleeting" : action === "scan_migration" ? "migration" : "inbox"; tabs.select("llmwiki"); return dispatchLifecycleAction({ action }); });
     }
+    // 매뉴얼: 주인이 지정한 문서는 쪼개지 않고, 겹치는 새 내용은 여기로 합친다.
+    if (!window.LLMWikiManualRegistry) await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-manual-registry.js");
+    const manualDocs = (appRef.vault.getMarkdownFiles ? appRef.vault.getMarkdownFiles() : [])
+      .filter((file) => file && typeof file.path === "string" && file.path.startsWith("ZETA/PERMANENT/") && file.path.endsWith(".md"))
+      .sort((left, right) => left.path.localeCompare(right.path));
+    {
+      const manualPanel = wikiWorkspace.more.createDiv({ attr: { class: "llmwiki-manual-registry" } });
+      const renderManuals = async () => {
+        manualPanel.empty();
+        manualPanel.createEl("strong", { text: "매뉴얼" });
+        const manuals = await window.LLMWikiManualRegistry.loadRegistry(appRef);
+        const pickerRow = manualPanel.createDiv({ attr: { "data-manual-row": "" } });
+        const picker = pickerRow.createEl("select", { attr: { "data-manual-picker": "" } });
+        picker.createEl("option", { text: "문서 선택", attr: { value: "" } });
+        for (const file of manualDocs) {
+          if (manuals.some(entry => entry.path === file.path)) continue;
+          picker.createEl("option", { text: file.path.split("/").pop(), attr: { value: file.path } });
+        }
+        const add = pickerRow.createEl("button", { text: "매뉴얼로 지정", attr: { type: "button" } });
+        add.onclick = async () => {
+          if (!picker.value) return;
+          await window.LLMWikiManualRegistry.saveRegistry(appRef, [...manuals, { path: picker.value }]);
+          await renderManuals();
+        };
+        for (const entry of manuals) {
+          const row = manualPanel.createDiv({ attr: { "data-manual-row": "" } });
+          row.createEl("span", { text: entry.path });
+          const remove = row.createEl("button", { text: "지정 해제", attr: { type: "button" } });
+          remove.onclick = async () => {
+            await window.LLMWikiManualRegistry.saveRegistry(appRef, manuals.filter(row => row.path !== entry.path));
+            await renderManuals();
+          };
+        }
+      };
+      await renderManuals();
+    }
     const pendingDocumentReviews = pendingCanonicalReviews();
     if (pendingDocumentReviews.length) {
       const pendingPanel = wikiWorkspace.more.createDiv({ attr: { class: "llmwiki-pending-document-reviews" } });
       pendingPanel.createEl("strong", { text: "미완료 지식 반영" });
-      for (const { job_id, review } of pendingDocumentReviews) {
-        const reopen = pendingPanel.createEl("button", { text: `${review.item.title} · 변경 확인 후 재개`, attr: { type: "button" } });
-        reopen.onclick = () => openCanonicalDocumentReview({ ...review.item, processing_job_id: job_id });
+      // 문서 묶음 승인: 적격 새 문서만 한 번의 확인으로. 각 항목은 독립된
+      // 준비·적용으로 처리하고, 실패는 이유와 함께 제외한다. 클릭 시점 선택 고정.
+      const batchEligibleEntry = ({ review }) => {
+        const item = review && review.item;
+        const draft = review && review.pending_draft;
+        const fields = (draft && draft.fields) || {};
+        const targetPath = fields.target_path || (draft && draft.target_path) || "";
+        return !reviewClosed(review.status)
+          && !(item && item.review_blocked)
+          && Array.isArray(item && item.grounded_claims) && item.grounded_claims.length > 0
+          && targetPath === "new"
+          && fields.relation_status === "resolved";
+      };
+      const batchReasonKo = (reason) => ({
+        target_revision_changed: "대상이 바뀜", source_revision_changed: "원문이 바뀜",
+        domain_choice_required: "분야 미선택", registered_classification_required: "분야·주제 미등록",
+        promotion_review_required: "승격 기준 미달", verified_target_required: "대상 미확인",
+      }[reason] || "다시 확인 필요");
+      const batchSelected = new Set();
+      let batchRunning = false;
+      const eligibleNow = () => pendingCanonicalReviews().filter(batchEligibleEntry);
+      const rowsHost = pendingPanel.createDiv({ attr: { class: "llmwiki-pending-document-rows" } });
+      const batchBar = pendingPanel.createDiv({ attr: { class: "llmwiki-batch-canonical-bar" } });
+      const batchDigest = pendingPanel.createDiv({ attr: { class: "llmwiki-batch-canonical-digest", "data-batch-canonical-digest": "" } });
+      const ackLabel = batchBar.createEl("label");
+      const batchAck = ackLabel.createEl("input", { attr: { type: "checkbox", "data-batch-canonical-acknowledgement": "" } });
+      ackLabel.createEl("span", { text: "변경 내용과 출처를 확인했습니다." });
+      const batchConfirm = wikiUI.button(batchBar, "선택 0건 승인 및 적용", "approve-canonical-batch", () => runCanonicalBatchApproval(), true);
+      const syncBatchBar = () => {
+        const count = eligibleNow();
+        batchConfirm.textContent = `선택 ${batchSelected.size}건 승인 및 적용`;
+        batchConfirm.disabled = batchRunning || !batchAck.checked || batchSelected.size === 0;
+        const selectAll = batchBar.querySelector?.("[data-action='select-eligible-canonical']");
+        if (selectAll) selectAll.disabled = batchRunning || count.length === 0;
+      };
+      const renderBatchBar = () => {
+        const count = eligibleNow();
+        let note = batchBar.querySelector?.("[data-batch-canonical-note]");
+        if (!note) {
+          note = batchBar.createEl("span", { attr: { "data-batch-canonical-note": "" } });
+          wikiUI.button(batchBar, "적격 새 문서만 선택", "select-eligible-canonical", () => {
+            if (batchRunning) return;
+            batchSelected.clear();
+            for (const entry of eligibleNow()) batchSelected.add(entry.review.item.review_id);
+            renderPendingRows(rowsHost);
+            syncBatchBar();
+          });
+        }
+        note.textContent = `묶음으로 한 번에 승인할 수 있는 새 문서 ${count.length}건`;
+      };
+      const renderPendingRowsAndBar = () => { renderPendingRows(rowsHost); renderBatchBar(); syncBatchBar(); };
+      batchAck.onchange = () => syncBatchBar();
+      const runCanonicalBatchApproval = async () => {
+        if (batchRunning) return;
+        const ids = [...batchSelected];
+        if (!batchAck.checked || !ids.length) return;
+        batchRunning = true;
+        syncBatchBar();
+        batchDigest.empty();
+        if (!window.LLMWikiDocumentCanonicalReview) await loadWorkspaceBootstrap("SYSTEM/Views/llmwiki-document-canonical-review.js");
+        const api = window.LLMWikiDocumentCanonicalReview;
+        const results = [];
+        for (const reviewId of ids) {
+          const entry = pendingCanonicalReviews().find(row => row.review.item.review_id === reviewId && batchEligibleEntry(row));
+          if (!entry) { results.push({ review_id: reviewId, ok: false, reason: "바뀌어서 제외" }); continue; }
+          try {
+            const draft = entry.review.pending_draft || {};
+            const fields = { ...((draft && draft.fields) || {}) };
+            const flow = api.create({ app: appRef, jobStore: batchJobStore, jobId: entry.job_id });
+            const prepared = await flow.prepare({ item: entry.review.item, fields,
+              target_path: fields.target_path === "new" ? "" : fields.target_path || "",
+              target_revision: draft.target_revision || null });
+            if (!prepared.ok) { results.push({ review_id: reviewId, ok: false, reason: batchReasonKo(prepared.reason) }); continue; }
+            const applied = await flow.apply(prepared.value, { approved: true, claims_accepted: true, packet_hash: prepared.value.packet_hash });
+            const batchWritten = applied.ok || applied.reason === "canonical_readback_pending" || applied.reason === "review_checkpoint_failed" || applied.writer_result?.status === "committed";
+            if (!batchWritten) { results.push({ review_id: reviewId, ok: false, reason: batchReasonKo(applied.reason) }); continue; }
+            try { await api.saveDecisionMemory(appRef, { topics: fields.knowledge_topics, knowledge_kind: fields.knowledge_kind, knowledge_domain: fields.knowledge_domain, evidence_strength: fields.evidence_strength }); } catch (_memoryError) { /* 기억 실패는 묶음을 막지 않는다 */ }
+            results.push({ review_id: reviewId, ok: true, target_path: applied.target_path });
+          } catch (error) { results.push({ review_id: reviewId, ok: false, reason: error && error.message || "묶음 항목 실패" }); }
+        }
+        const done = results.filter(row => row.ok).length;
+        batchSelected.clear();
+        batchAck.checked = false;
+        batchDigest.createEl("p", { text: `${done}건 반영 · ${results.length - done}건 제외`, attr: { role: "status" } });
+        for (const row of results.filter(row => !row.ok)) batchDigest.createEl("p", { text: `${row.review_id} · ${row.reason}` });
+        batchRunning = false;
+        renderPendingRowsAndBar();
+        refreshWikiPendingCount();
+        llmWikiLifecycle.update(lifecycleSnapshot());
+      };
+      const renderPendingRows = (host) => {
+        host.empty();
+        for (const { job_id, review } of pendingCanonicalReviews()) {
+          const row = host.createDiv({ attr: { class: "llmwiki-pending-document-review" } });
+          const eligible = batchEligibleEntry({ job_id, review });
+          if (eligible) {
+            const check = row.createEl("input", { attr: { type: "checkbox", "data-batch-canonical-review": review.item.review_id } });
+            check.checked = batchSelected.has(review.item.review_id);
+            check.onchange = () => {
+              if (check.checked) batchSelected.add(review.item.review_id);
+              else batchSelected.delete(review.item.review_id);
+              syncBatchBar();
+            };
+          }
+          row.createEl("span", { text: `${review.item.title} · ${pendingReason(job_id, review)}${eligible ? " · 묶음 적격" : ""}`, attr: { class: "llmwiki-pending-document-reason" } });
+          const reopen = row.createEl("button", { text: "다시 열기", attr: { type: "button", "data-action": "reopen-canonical-review" } });
+          reopen.onclick = () => openCanonicalDocumentReview({ ...review.item, processing_job_id: job_id });
+        }
+      };
+      renderPendingRowsAndBar();
+    }
+    const closedEntries = [];
+    for (const snapshot of batchJobStore.listPlanSnapshots()) {
+      for (const review of Object.values(snapshot.canonical_reviews || {})) {
+        if (review?.item?.review_id && reviewClosed(review.status)
+          && !closedEntries.some(row => row.review?.item?.review_id === review.item.review_id)) {
+          closedEntries.push({ job_id: snapshot.job_id, review });
+        }
+      }
+      if (closedEntries.length >= 30) break;
+    }
+    if (closedEntries.length) {
+      const historyPanel = wikiWorkspace.more.createDiv({ attr: { class: "llmwiki-closed-review-history" } });
+      historyPanel.createEl("strong", { text: "완료 기록" });
+      historyPanel.createEl("p", { text: "마음이 바뀌면 새 분석 실행이 다시 제안합니다. 여기서 종결을 되살리지는 않습니다." });
+      for (const { job_id, review } of closedEntries) {
+        const target = review.packet?.target_path || review.item?.proposed_target?.path || "";
+        const outcome = review.status === "resolved" ? "반영됨" : "버려짐";
+        const note = review.status === "rejected" && review.rejection?.reason === "user_rejected" ? " · 소유자가 버림" : "";
+        let stamped = "";
+        try {
+          const attempts = (batchJobStore.getJob(job_id)?.attempts || []).filter(row => row && ((row.references && row.references.review_id) || row.review_id) === review.item.review_id && row.time);
+          if (attempts.length) stamped = ` · ${String(attempts[attempts.length - 1].time).slice(0, 10)}`;
+        } catch (_historyError) { stamped = ""; }
+        const row = historyPanel.createDiv({ attr: { class: "llmwiki-closed-review-row" } });
+        row.createEl("span", { text: `${review.item.title} · ${outcome}${note}${target ? ` · ${target}` : ""}${stamped}` });
+        const view = row.createEl("button", { text: "다시 보기", attr: { type: "button" } });
+        view.onclick = () => openCanonicalDocumentReview({ ...review.item, processing_job_id: job_id });
       }
     }
     const planDetails = wikiWorkspace.more.createEl("details"); planDetails.createEl("summary", { text: "문서 계획 및 기타 검토" });

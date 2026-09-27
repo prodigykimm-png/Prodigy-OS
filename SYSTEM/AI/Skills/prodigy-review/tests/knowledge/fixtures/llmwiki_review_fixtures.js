@@ -113,7 +113,7 @@ const field = (el, name) => find(el, (node) => node.attr?.["data-review-field"] 
 const statusText = (el) => (find(el, (node) => node.attr?.["data-decision-status"] !== undefined)[0] || {}).textContent || "";
 
 // 검토 화면을 실제 제품 경로로 연다(라이브 볼트 접근 없음).
-async function openReview({ item = makeItem(), files = {}, targetPath = LEGACY_PATH, targetBytes = LEGACY_BYTES, seedLegacy = true, review = null } = {}) {
+async function openReview({ item = makeItem(), files = {}, targetPath = LEGACY_PATH, targetBytes = LEGACY_BYTES, seedLegacy = true, review = null, onStopAutoAdvance = null } = {}) {
   const seed = {
     [SOURCE_PATH]: SOURCE_BYTES,
     ...(seedLegacy ? { [targetPath]: targetBytes } : {}),
@@ -130,7 +130,8 @@ async function openReview({ item = makeItem(), files = {}, targetPath = LEGACY_P
     plan: { plan_version: "synthetic_fixture_v1", pages: [] } });
   const api = review || reviewModule;
   const flow = api.create({ app, jobStore, jobId: job.job_id });
-  const modal = api.open({ app, Modal: FixtureModal, item, jobStore, jobId: job.job_id });
+  const modal = api.open({ app, Modal: FixtureModal, item, jobStore, jobId: job.job_id,
+    ...(typeof onStopAutoAdvance === "function" ? { onStopAutoAdvance } : {}) });
   await modal.ready;
   return { app, vaultFiles, writes, bytes, jobStore, storage, jobId: job.job_id, flow, modal, item };
 }

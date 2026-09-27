@@ -1,0 +1,268 @@
+TAP version 13
+# Subtest: the closed registry exactly matches the frozen pre-Task6 workspace contracts
+not ok 1 - the closed registry exactly matches the frozen pre-Task6 workspace contracts
+  ---
+  duration_ms: 2.346334
+  type: 'test'
+  location: '/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_workspace_manifest.js:163:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    auction
+    + actual - expected
+    ... Skipped lines
+    
+      {
+        host: 'js-engine',
+        optional: [
+          'SYSTEM/Views/prodigy-performance-recorder.js',
+          'SYSTEM/Views/prodigy-workspace-readiness.js',
+    ...
+          'SYSTEM/Views/site-visit-data.js',
+    +     'SYSTEM/Views/auction-site-visit-index.js',
+          'SYSTEM/Views/site-visit-workflow.js',
+          'SYSTEM/Views/auction-region-core.js',
+          'SYSTEM/Views/region-explorer-projection.js',
+          'SYSTEM/Views/region-decision-context-core.js',
+          'SYSTEM/Views/region-decision-view-model.js',
+    ...
+          'SYSTEM/Views/auction-ai-decision-support.js',
+    +     'SYSTEM/Views/auction-dong-profile-core.js',
+          'SYSTEM/Views/auction-region-packet.js',
+          'SYSTEM/Views/region-intelligence-popup-store.js',
+          'SYSTEM/Views/region-intelligence-popup-core.js',
+          'SYSTEM/Views/region-styles.js',
+          'SYSTEM/Views/region-intelligence-popup-view.js',
+    ...
+          'SYSTEM/Views/auction-card-price-projection.js',
+    +     'SYSTEM/Views/auction-dashboard-refresh.js',
+    +     'SYSTEM/Views/auction-key-value-projection.js',
+    +     'SYSTEM/Views/auction-key-value-snapshot.js',
+    +     'SYSTEM/Views/auction-key-value-detail.js',
+    +     'SYSTEM/Views/auction-card-view-model.js',
+          'SYSTEM/Views/auction-court-status.js',
+          'SYSTEM/Views/auction-learning-core.js',
+          'SYSTEM/Views/auction-outcome-writer.js',
+          'SYSTEM/Views/real-estate-source-runtime.js',
+          'SYSTEM/Views/auction-source-approval-writer.js',
+    ...
+          'SYSTEM/Views/auction-real-estate-research.js',
+    +     'SYSTEM/Views/auction-card-mutation.js',
+          'SYSTEM/Views/auction-card.js',
+          'SYSTEM/Views/bid-calendar-core.js',
+          'SYSTEM/Views/bid-calendar-view.js',
+          'SYSTEM/Views/auction-native-scenes.js',
+          'SYSTEM/Views/auction-day-core.js',
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    workspaceId: 'auction'
+    host: 'js-engine'
+    required:
+      0: 'SYSTEM/Views/design-tokens.js'
+      1: 'SYSTEM/Views/workspace-registry.js'
+      2: 'SYSTEM/Views/prodigy-workspace-state-store.js'
+      3: 'SYSTEM/Views/prodigy-app-shell.js'
+      4: 'SYSTEM/Views/workspace-navigation.js'
+      5: 'SYSTEM/Views/display-registry.js'
+      6: 'SYSTEM/Views/prodigy-ui.js'
+      7: 'SYSTEM/Views/prodigy-workspace-state-adapters.js'
+      8: 'SYSTEM/Views/object-lifecycle-core.js'
+      9: 'SYSTEM/Views/object-lifecycle-view.js'
+      10: 'SYSTEM/Views/object-engine-core.js'
+      11: 'SYSTEM/Views/shared-dashboard.js'
+      12: 'SYSTEM/Views/llmwiki-hash.js'
+      13: 'SYSTEM/Views/prodigy-ai-consumer-manifests.js'
+      14: 'SYSTEM/Views/prodigy-ai-client.js'
+      15: 'SYSTEM/Views/prodigy-ai-consumer-runtime.js'
+      16: 'SYSTEM/Views/llmwiki-knowledge-lifecycle.js'
+      17: 'SYSTEM/Views/llmwiki-obsidian-adapter.js'
+      18: 'SYSTEM/Views/llmwiki-resurfacing-read-adapter.js'
+      19: 'SYSTEM/Views/llmwiki-resurfacing-feedback-store.js'
+      20: 'SYSTEM/Views/llmwiki-resurfacing-service.js'
+      21: 'SYSTEM/Views/auction-context-adapter.js'
+      22: 'SYSTEM/Views/site-visit-data.js'
+      23: 'SYSTEM/Views/site-visit-workflow.js'
+      24: 'SYSTEM/Views/auction-region-core.js'
+      25: 'SYSTEM/Views/region-explorer-projection.js'
+      26: 'SYSTEM/Views/region-decision-context-core.js'
+      27: 'SYSTEM/Views/region-decision-view-model.js'
+      28: 'SYSTEM/Views/region-collection-health-core.js'
+      29: 'SYSTEM/Views/auction-decision-mirror-core.js'
+      30: 'SYSTEM/Views/auction-decision-support-core.js'
+      31: 'SYSTEM/Views/auction-ai-decision-support-core.js'
+      32: 'SYSTEM/Views/auction-ai-decision-support.js'
+      33: 'SYSTEM/Views/auction-region-packet.js'
+      34: 'SYSTEM/Views/region-intelligence-popup-store.js'
+      35: 'SYSTEM/Views/region-intelligence-popup-core.js'
+      36: 'SYSTEM/Views/region-styles.js'
+      37: 'SYSTEM/Views/region-intelligence-popup-view.js'
+      38: 'SYSTEM/Views/decision-packet-core.js'
+      39: 'SYSTEM/Views/auction-decision-packet.js'
+      40: 'SYSTEM/Views/decision-packet-reasons.js'
+      41: 'SYSTEM/Views/knowledge-use-body-core.js'
+      42: 'SYSTEM/Views/knowledge-use-body-store.js'
+      43: 'SYSTEM/Views/knowledge-use-record-ui.js'
+      44: 'SYSTEM/Views/auction-card-price-projection.js'
+      45: 'SYSTEM/Views/auction-court-status.js'
+      46: 'SYSTEM/Views/auction-learning-core.js'
+      47: 'SYSTEM/Views/auction-outcome-writer.js'
+      48: 'SYSTEM/Views/real-estate-source-runtime.js'
+      49: 'SYSTEM/Views/auction-source-approval-writer.js'
+      50: 'SYSTEM/Views/auction-real-estate-research-core.js'
+      51: 'SYSTEM/Views/auction-real-estate-source-runner.js'
+      52: 'SYSTEM/Views/auction-real-estate-research.js'
+      53: 'SYSTEM/Views/auction-card.js'
+      54: 'SYSTEM/Views/bid-calendar-core.js'
+      55: 'SYSTEM/Views/bid-calendar-view.js'
+      56: 'SYSTEM/Views/auction-native-scenes.js'
+      57: 'SYSTEM/Views/auction-day-core.js'
+      58: 'SYSTEM/Views/auction-day-view.js'
+    optional:
+      0: 'SYSTEM/Views/prodigy-performance-recorder.js'
+      1: 'SYSTEM/Views/prodigy-workspace-readiness.js'
+      2: 'SYSTEM/Views/prodigy-performance-exporter.js'
+      3: 'SYSTEM/Views/prodigy-workspace-measurement.js'
+    renderer: 'auction'
+  actual:
+    workspaceId: 'auction'
+    host: 'js-engine'
+    required:
+      0: 'SYSTEM/Views/design-tokens.js'
+      1: 'SYSTEM/Views/workspace-registry.js'
+      2: 'SYSTEM/Views/prodigy-workspace-state-store.js'
+      3: 'SYSTEM/Views/prodigy-app-shell.js'
+      4: 'SYSTEM/Views/workspace-navigation.js'
+      5: 'SYSTEM/Views/display-registry.js'
+      6: 'SYSTEM/Views/prodigy-ui.js'
+      7: 'SYSTEM/Views/prodigy-workspace-state-adapters.js'
+      8: 'SYSTEM/Views/object-lifecycle-core.js'
+      9: 'SYSTEM/Views/object-lifecycle-view.js'
+      10: 'SYSTEM/Views/object-engine-core.js'
+      11: 'SYSTEM/Views/shared-dashboard.js'
+      12: 'SYSTEM/Views/llmwiki-hash.js'
+      13: 'SYSTEM/Views/prodigy-ai-consumer-manifests.js'
+      14: 'SYSTEM/Views/prodigy-ai-client.js'
+      15: 'SYSTEM/Views/prodigy-ai-consumer-runtime.js'
+      16: 'SYSTEM/Views/llmwiki-knowledge-lifecycle.js'
+      17: 'SYSTEM/Views/llmwiki-obsidian-adapter.js'
+      18: 'SYSTEM/Views/llmwiki-resurfacing-read-adapter.js'
+      19: 'SYSTEM/Views/llmwiki-resurfacing-feedback-store.js'
+      20: 'SYSTEM/Views/llmwiki-resurfacing-service.js'
+      21: 'SYSTEM/Views/auction-context-adapter.js'
+      22: 'SYSTEM/Views/site-visit-data.js'
+      23: 'SYSTEM/Views/auction-site-visit-index.js'
+      24: 'SYSTEM/Views/site-visit-workflow.js'
+      25: 'SYSTEM/Views/auction-region-core.js'
+      26: 'SYSTEM/Views/region-explorer-projection.js'
+      27: 'SYSTEM/Views/region-decision-context-core.js'
+      28: 'SYSTEM/Views/region-decision-view-model.js'
+      29: 'SYSTEM/Views/region-collection-health-core.js'
+      30: 'SYSTEM/Views/auction-decision-mirror-core.js'
+      31: 'SYSTEM/Views/auction-decision-support-core.js'
+      32: 'SYSTEM/Views/auction-ai-decision-support-core.js'
+      33: 'SYSTEM/Views/auction-ai-decision-support.js'
+      34: 'SYSTEM/Views/auction-dong-profile-core.js'
+      35: 'SYSTEM/Views/auction-region-packet.js'
+      36: 'SYSTEM/Views/region-intelligence-popup-store.js'
+      37: 'SYSTEM/Views/region-intelligence-popup-core.js'
+      38: 'SYSTEM/Views/region-styles.js'
+      39: 'SYSTEM/Views/region-intelligence-popup-view.js'
+      40: 'SYSTEM/Views/decision-packet-core.js'
+      41: 'SYSTEM/Views/auction-decision-packet.js'
+      42: 'SYSTEM/Views/decision-packet-reasons.js'
+      43: 'SYSTEM/Views/knowledge-use-body-core.js'
+      44: 'SYSTEM/Views/knowledge-use-body-store.js'
+      45: 'SYSTEM/Views/knowledge-use-record-ui.js'
+      46: 'SYSTEM/Views/auction-card-price-projection.js'
+      47: 'SYSTEM/Views/auction-dashboard-refresh.js'
+      48: 'SYSTEM/Views/auction-key-value-projection.js'
+      49: 'SYSTEM/Views/auction-key-value-snapshot.js'
+      50: 'SYSTEM/Views/auction-key-value-detail.js'
+      51: 'SYSTEM/Views/auction-card-view-model.js'
+      52: 'SYSTEM/Views/auction-court-status.js'
+      53: 'SYSTEM/Views/auction-learning-core.js'
+      54: 'SYSTEM/Views/auction-outcome-writer.js'
+      55: 'SYSTEM/Views/real-estate-source-runtime.js'
+      56: 'SYSTEM/Views/auction-source-approval-writer.js'
+      57: 'SYSTEM/Views/auction-real-estate-research-core.js'
+      58: 'SYSTEM/Views/auction-real-estate-source-runner.js'
+      59: 'SYSTEM/Views/auction-real-estate-research.js'
+      60: 'SYSTEM/Views/auction-card-mutation.js'
+      61: 'SYSTEM/Views/auction-card.js'
+      62: 'SYSTEM/Views/bid-calendar-core.js'
+      63: 'SYSTEM/Views/bid-calendar-view.js'
+      64: 'SYSTEM/Views/auction-native-scenes.js'
+      65: 'SYSTEM/Views/auction-day-core.js'
+      66: 'SYSTEM/Views/auction-day-view.js'
+    optional:
+      0: 'SYSTEM/Views/prodigy-performance-recorder.js'
+      1: 'SYSTEM/Views/prodigy-workspace-readiness.js'
+      2: 'SYSTEM/Views/prodigy-performance-exporter.js'
+      3: 'SYSTEM/Views/prodigy-workspace-measurement.js'
+    renderer: 'auction'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/shared/test_prodigy_workspace_manifest.js:170:12)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.start (node:internal/test_runner/test:1242:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+  ...
+# Subtest: registry validation rejects clones, unknown identities, and renderer drift
+ok 2 - registry validation rejects clones, unknown identities, and renderer drift
+  ---
+  duration_ms: 0.456208
+  type: 'test'
+  ...
+# Subtest: production Knowledge manifest loads the knowledge-kind contract exactly once in dependency order without CommonJS
+ok 3 - production Knowledge manifest loads the knowledge-kind contract exactly once in dependency order without CommonJS
+  ---
+  duration_ms: 71.039417
+  type: 'test'
+  ...
+# Subtest: production Knowledge manifest closes the branded merge graph without CommonJS capabilities
+ok 4 - production Knowledge manifest closes the branded merge graph without CommonJS capabilities
+  ---
+  duration_ms: 18.462834
+  type: 'test'
+  ...
+# Subtest: production Knowledge manifest closes operation orchestration without require, Buffer, or load-order fallback
+ok 5 - production Knowledge manifest closes operation orchestration without require, Buffer, or load-order fallback
+  ---
+  duration_ms: 11.930209
+  type: 'test'
+  ...
+# Subtest: Knowledge recovery omission and placement after a dependent fail before browser mount
+ok 6 - Knowledge recovery omission and placement after a dependent fail before browser mount
+  ---
+  duration_ms: 0.506542
+  type: 'test'
+  ...
+# Subtest: Knowledge knowledge-kind contract omission, duplication, and late placement are RED
+ok 7 - Knowledge knowledge-kind contract omission, duplication, and late placement are RED
+  ---
+  duration_ms: 0.381708
+  type: 'test'
+  ...
+# Subtest: Knowledge operation-contract omission and placement after a consumer are RED
+ok 8 - Knowledge operation-contract omission and placement after a consumer are RED
+  ---
+  duration_ms: 0.317875
+  type: 'test'
+  ...
+# Subtest: Knowledge batch approval adapter follows every captured retained dependency without CommonJS fallback
+ok 9 - Knowledge batch approval adapter follows every captured retained dependency without CommonJS fallback
+  ---
+  duration_ms: 0.592125
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 8
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 150.703833

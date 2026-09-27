@@ -1,0 +1,21 @@
+{
+  "real_ui": "actual Obsidian Modal/controller with filesystem fixture adapter",
+  "whole_source_ingest_ui": "NOT RUN: analysis replay",
+  "canonical_document_count": 1,
+  "canonical_writes": [
+    "A create",
+    "B update"
+  ],
+  "duplicate_reprocessing_additional_writes": 0,
+  "citations_exact_hash_and_line": true,
+  "followup_request_history_messages": 2,
+  "no_answer_status": "abstain",
+  "provider_calls": 3,
+  "provider_latency_ms": [
+    9048,
+    29111,
+    9843
+  ],
+  "operational_writes": 0,
+  "user_acceptance": "PENDING"
+}

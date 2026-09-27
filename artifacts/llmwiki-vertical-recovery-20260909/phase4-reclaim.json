@@ -1,0 +1,6 @@
+{
+  "normal_continue": "blocked",
+  "explicit_retry": "pending",
+  "lineage": true,
+  "live_state_unchanged": "blocked"
+}

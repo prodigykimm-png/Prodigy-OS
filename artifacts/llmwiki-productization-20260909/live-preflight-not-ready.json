@@ -1,0 +1,68 @@
+{
+  "kind": "real_provider_with_isolated_synthetic_vault_adapter",
+  "results": [
+    {
+      "id": "conditions",
+      "question": "해솔-842 점검 절차를 빠짐없이 정리해줘.",
+      "expected": [
+        "실내 모형에 한정",
+        "10분",
+        "시작 전 전원 표시 확인",
+        "종료 후 시간 기록",
+        "실외 적용 금지",
+        "경고등 즉시 중단 및 재개 금지"
+      ],
+      "result": {
+        "ok": false,
+        "reason": "selected_source_unavailable",
+        "stage": "retrieval",
+        "writer_count": 0
+      },
+      "proposal": null,
+      "provider_payloads": [],
+      "provider_requests": [],
+      "progress": [
+        "source_ready",
+        "searching"
+      ],
+      "reads": [
+        "INBOX/Phase A Synthetic A.md"
+      ],
+      "writes": 0,
+      "actual_ui": false
+    },
+    {
+      "id": "conflict",
+      "question": "은빛-593 점검 시간은 몇 분인가?",
+      "expected": [
+        "규정 A 10분",
+        "규정 B 20분",
+        "동일 대상의 상충",
+        "시행일/우선순위 없어 하나를 확정 불가"
+      ],
+      "result": {
+        "ok": false,
+        "reason": "selected_source_unavailable",
+        "stage": "retrieval",
+        "writer_count": 0
+      },
+      "proposal": null,
+      "provider_payloads": [],
+      "provider_requests": [],
+      "progress": [
+        "source_ready",
+        "searching"
+      ],
+      "reads": [
+        "INBOX/Phase A Synthetic B.md"
+      ],
+      "writes": 0,
+      "actual_ui": false
+    }
+  ],
+  "loaded_code_match": {
+    "answerSourceQuestion": true,
+    "prepareQuestionProposal": true,
+    "handoffQuestionProposal": true
+  }
+}

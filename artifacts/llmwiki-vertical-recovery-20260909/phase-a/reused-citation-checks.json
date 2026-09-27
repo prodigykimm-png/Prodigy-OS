@@ -1,0 +1,14 @@
+[
+  {
+    "locator": "INBOX/LLM Wiki Recovery Canary.md#L3-L3",
+    "file_exists": true,
+    "quote_exact": true,
+    "hash_match": true
+  },
+  {
+    "locator": "INBOX/LLM Wiki Recovery Canary.md#L5-L5",
+    "file_exists": true,
+    "quote_exact": true,
+    "hash_match": true
+  }
+]

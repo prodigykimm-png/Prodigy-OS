@@ -1,0 +1,26 @@
+✔ query/read returns byte-stable verified and legacy envelopes with deterministic ranking, citations, ids, and hash (21.459625ms)
+✔ literature, candidate, and proposal modes are labeled non-canonical and never promoted to verified answers (2.33925ms)
+✔ stale, unavailable, conflict, empty, malformed, unsafe, and prompt-shaped inputs fail closed with writer=0 (0.938291ms)
+✔ query/read ignores writer/provider/creator hooks and leaves persistent filesystem snapshots unchanged (1.067375ms)
+✔ Given the canonical LLMWiki skill path When its contract files are loaded Then the required local boundary vocabulary is machine-readable (2.001167ms)
+✔ Given a synthetic conversation with prompt injection When the local adapter evaluates it Then it returns a run-scoped approval packet without writes (54.245125ms)
+✔ Given malformed LLMWiki input When the local adapter parses it Then unknown vocabulary and missing provenance fail closed (0.256458ms)
+✔ Given the LLMWiki integration ledger When it is parsed Then every upstream record is pinned with license evidence and a safe mode (0.202834ms)
+✔ one controller snapshot synchronizes every subscribed Prodigy Wiki view (0.984125ms)
+✔ ephemeral selection and consent never restore into a fresh app session (0.122541ms)
+✔ new source selection atomically clears stale consent range and result (0.2465ms)
+✔ controller rejects running without a pinned source (0.872791ms)
+✔ lifecycle projection derives one legacy snapshot from controller truth (0.14825ms)
+✔ every Prodigy Wiki product state derives one canonical primary action (0.161458ms)
+✔ reviewed source changes enter a provider-free range inspection state (0.1485ms)
+✔ controller restores only an explicit durable operation snapshot (0.104708ms)
+✔ Prodigy Wiki production owns no provider transport, config, or fallback (3.762666ms)
+✔ Knowledge manifest removes every legacy provider runtime dependency (1.064333ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 105.881292

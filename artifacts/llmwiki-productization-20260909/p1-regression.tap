@@ -1,0 +1,334 @@
+TAP version 13
+# Subtest: compact schema is strict, pack-atomic, and free of model authority fields
+ok 1 - compact schema is strict, pack-atomic, and free of model authority fields
+  ---
+  duration_ms: 0.7175
+  type: 'test'
+  ...
+# Subtest: semantic document extraction accepts multiple evidence items and preserves their local topics
+ok 2 - semantic document extraction accepts multiple evidence items and preserves their local topics
+  ---
+  duration_ms: 1.990292
+  type: 'test'
+  ...
+# Subtest: semantic mode requires every Todo 1 semantic key exactly once and keeps keyed holds as analysis data
+ok 3 - semantic mode requires every Todo 1 semantic key exactly once and keeps keyed holds as analysis data
+  ---
+  duration_ms: 0.798708
+  type: 'test'
+  ...
+# Subtest: semantic unit bound permits 64 items and rejects 65 before transport
+ok 4 - semantic unit bound permits 64 items and rejects 65 before transport
+  ---
+  duration_ms: 6.098958
+  type: 'test'
+  ...
+# Subtest: deterministic evidence keys recover the exact local quote even when model copy drifts
+ok 5 - deterministic evidence keys recover the exact local quote even when model copy drifts
+  ---
+  duration_ms: 0.258041
+  type: 'test'
+  ...
+# Subtest: happy path anchors one CJK+emoji quote uniquely and derives local span provenance
+ok 6 - happy path anchors one CJK+emoji quote uniquely and derives local span provenance
+  ---
+  duration_ms: 0.528
+  type: 'test'
+  ...
+# Subtest: source routing mode sends path context but accepts exactly one lifecycle item per source
+ok 7 - source routing mode sends path context but accepts exactly one lifecycle item per source
+  ---
+  duration_ms: 0.202125
+  type: 'test'
+  ...
+# Subtest: source routing no-change is the only zero-item terminal result
+ok 8 - source routing no-change is the only zero-item terminal result
+  ---
+  duration_ms: 0.098917
+  type: 'test'
+  ...
+# Subtest: folded whitespace quote preserves the exact source slice and deterministic span alias
+ok 9 - folded whitespace quote preserves the exact source slice and deterministic span alias
+  ---
+  duration_ms: 0.276583
+  type: 'test'
+  ...
+# Subtest: folded whitespace duplicates remain non-unique and paraphrases remain not-found
+ok 10 - folded whitespace duplicates remain non-unique and paraphrases remain not-found
+  ---
+  duration_ms: 0.18625
+  type: 'test'
+  ...
+# Subtest: pack is atomic: missing chunk result fails the whole pack with zero artifacts and one call
+ok 11 - pack is atomic: missing chunk result fails the whole pack with zero artifacts and one call
+  ---
+  duration_ms: 0.116125
+  type: 'test'
+  ...
+# Subtest: duplicate chunk key fails the pack atomically
+ok 12 - duplicate chunk key fails the pack atomically
+  ---
+  duration_ms: 0.304666
+  type: 'test'
+  ...
+# Subtest: non-unique evidence quote fails the pack without a second call
+ok 13 - non-unique evidence quote fails the pack without a second call
+  ---
+  duration_ms: 0.141917
+  type: 'test'
+  ...
+# Subtest: unknown field anywhere in the response fails the pack
+ok 14 - unknown field anywhere in the response fails the pack
+  ---
+  duration_ms: 0.082125
+  type: 'test'
+  ...
+# Subtest: forbidden authority fields fail the pack even before item validation
+ok 15 - forbidden authority fields fail the pack even before item validation
+  ---
+  duration_ms: 0.077417
+  type: 'test'
+  ...
+# Subtest: related_candidate_ids outside the allowlist fail the pack
+ok 16 - related_candidate_ids outside the allowlist fail the pack
+  ---
+  duration_ms: 0.085166
+  type: 'test'
+  ...
+# Subtest: related candidate count, bytes, pattern, and uniqueness fail atomically without truncation
+ok 17 - related candidate count, bytes, pattern, and uniqueness fail atomically without truncation
+  ---
+  duration_ms: 0.235291
+  type: 'test'
+  ...
+# Subtest: oversized total response fails atomically before any artifact can be cached or persisted
+ok 18 - oversized total response fails atomically before any artifact can be cached or persisted
+  ---
+  duration_ms: 1.526833
+  type: 'test'
+  ...
+# Subtest: malformed top-level JSON fails as a named reason with exactly one call
+ok 19 - malformed top-level JSON fails as a named reason with exactly one call
+  ---
+  duration_ms: 0.354959
+  type: 'test'
+  ...
+# Subtest: provider failures keep named machine reasons and zero retries
+ok 20 - provider failures keep named machine reasons and zero retries
+  ---
+  duration_ms: 0.228625
+  type: 'test'
+  ...
+# Subtest: abort race: abort after egress but before validation reports one call; pre-request abort reports zero
+ok 21 - abort race: abort after egress but before validation reports one call; pre-request abort reports zero
+  ---
+  duration_ms: 0.152917
+  type: 'test'
+  ...
+# Subtest: identical text and span under two different chunk keys yield distinct deterministic aliases
+ok 22 - identical text and span under two different chunk keys yield distinct deterministic aliases
+  ---
+  duration_ms: 0.26375
+  type: 'test'
+  ...
+# Subtest: cancellation fails the pack without calling the transport
+ok 23 - cancellation fails the pack without calling the transport
+  ---
+  duration_ms: 0.053334
+  type: 'test'
+  ...
+# Subtest: batch provider crosses the consumer runtime boundary once with allowlisted options only
+ok 24 - batch provider crosses the consumer runtime boundary once with allowlisted options only
+  ---
+  duration_ms: 0.131083
+  type: 'test'
+  ...
+# Subtest: request carries no feature-specific selector, repair markers, or secrets
+ok 25 - request carries no feature-specific selector, repair markers, or secrets
+  ---
+  duration_ms: 3.512375
+  type: 'test'
+  ...
+# Subtest: property fuzz: valid unicode quotes anchor; duplicate or absent quotes never pass
+ok 26 - property fuzz: valid unicode quotes anchor; duplicate or absent quotes never pass
+  ---
+  duration_ms: 0.431209
+  type: 'test'
+  ...
+# Subtest: module size stays within budget
+ok 27 - module size stays within budget
+  ---
+  duration_ms: 0.245125
+  type: 'test'
+  ...
+# Subtest: projects real inbox snapshots into one beginner lifecycle state and one typed primary action
+ok 28 - projects real inbox snapshots into one beginner lifecycle state and one typed primary action
+  ---
+  duration_ms: 1.893666
+  type: 'test'
+  ...
+# Subtest: explicit source selection takes priority over an automatic INBOX queue
+ok 29 - explicit source selection takes priority over an automatic INBOX queue
+  ---
+  duration_ms: 1.003041
+  type: 'test'
+  ...
+# Subtest: source picker labels user materials and filters by title or path
+ok 30 - source picker labels user materials and filters by title or path
+  ---
+  duration_ms: 0.228625
+  type: 'test'
+  ...
+# Subtest: renders selected source as a Golden Wiki creation flow
+ok 31 - renders selected source as a Golden Wiki creation flow
+  ---
+  duration_ms: 9.423125
+  type: 'test'
+  ...
+# Subtest: large source requires an explicit heading scope before consent
+ok 32 - large source requires an explicit heading scope before consent
+  ---
+  duration_ms: 0.3025
+  type: 'test'
+  ...
+# Subtest: large source range picker is hierarchical searchable and previewable
+ok 33 - large source range picker is hierarchical searchable and previewable
+  ---
+  duration_ms: 0.374458
+  type: 'test'
+  ...
+# Subtest: interrupted and changed Prodigy Wiki runs expose one typed recovery action
+ok 34 - interrupted and changed Prodigy Wiki runs expose one typed recovery action
+  ---
+  duration_ms: 0.248875
+  type: 'test'
+  ...
+# Subtest: projects operation progress, refresh and Git follow-up without mutating the committed canonical outcome
+ok 35 - projects operation progress, refresh and Git follow-up without mutating the committed canonical outcome
+  ---
+  duration_ms: 0.181875
+  type: 'test'
+  ...
+# Subtest: renders one canonical Git follow-up message across unavailable, retry, and recovery updates
+ok 36 - renders one canonical Git follow-up message across unavailable, retry, and recovery updates
+  ---
+  duration_ms: 0.318375
+  type: 'test'
+  ...
+# Subtest: keeps approval-ready and blocking conflict queues separate and excludes conflicts from eligible batches
+ok 37 - keeps approval-ready and blocking conflict queues separate and excludes conflicts from eligible batches
+  ---
+  duration_ms: 0.129292
+  type: 'test'
+  ...
+# Subtest: production Hub loads and owns inbox intake, cancellation, retry, Task14 review and operation recovery routes
+ok 38 - production Hub loads and owns inbox intake, cancellation, retry, Task14 review and operation recovery routes
+  ---
+  duration_ms: 2.579167
+  type: 'test'
+  ...
+# Subtest: default lifecycle DOM omits raw canonical and internal fields and has no nested scroll owner
+ok 39 - default lifecycle DOM omits raw canonical and internal fields and has no nested scroll owner
+  ---
+  duration_ms: 0.126833
+  type: 'test'
+  ...
+# Subtest: central Knowledge stylesheet is the only lifecycle and browse selector source and enforces responsive geometry
+ok 40 - central Knowledge stylesheet is the only lifecycle and browse selector source and enforces responsive geometry
+  ---
+  duration_ms: 0.507833
+  type: 'test'
+  ...
+# Subtest: Knowledge retains exactly four tabs
+ok 41 - Knowledge retains exactly four tabs
+  ---
+  duration_ms: 0.487833
+  type: 'test'
+  ...
+# Subtest: source boundary reflects an actually sent question without changing pre-consent default
+ok 42 - source boundary reflects an actually sent question without changing pre-consent default
+  ---
+  duration_ms: 0.303125
+  type: 'test'
+  ...
+# Subtest: explicit selected source is searchable with body and locator, never verified or ambient INBOX
+ok 43 - explicit selected source is searchable with body and locator, never verified or ambient INBOX
+  ---
+  duration_ms: 20.133083
+  type: 'test'
+  ...
+# Subtest: existing browse modes share query types and no-match is not a scope error
+ok 44 - existing browse modes share query types and no-match is not a scope error
+  ---
+  duration_ms: 2.669958
+  type: 'test'
+  ...
+# Subtest: selected source question carries bounded evidence and locator; no match abstains before transport
+ok 45 - selected source question carries bounded evidence and locator; no match abstains before transport
+  ---
+  duration_ms: 9.688833
+  type: 'test'
+  ...
+# Subtest: clicking a verified canonical v2 result opens hydrated detail in an Obsidian modal while legacy rows stay excluded
+ok 46 - clicking a verified canonical v2 result opens hydrated detail in an Obsidian modal while legacy rows stay excluded
+  ---
+  duration_ms: 31.05375
+  type: 'test'
+  ...
+# Subtest: compact modal keeps its sticky close footer inside the native dialog
+ok 47 - compact modal keeps its sticky close footer inside the native dialog
+  ---
+  duration_ms: 0.268042
+  type: 'test'
+  ...
+# Subtest: fourth-tab browse surface renders read-only facets, selection, and hydrated detail
+ok 48 - fourth-tab browse surface renders read-only facets, selection, and hydrated detail
+  ---
+  duration_ms: 1.704584
+  type: 'test'
+  ...
+# Subtest: inactive Knowledge tab does not retain zero-sized native controls and remounts from retained state when shown
+ok 49 - inactive Knowledge tab does not retain zero-sized native controls and remounts from retained state when shown
+  ---
+  duration_ms: 1.004959
+  type: 'test'
+  ...
+# Subtest: facet changes clear detail selection and stale reads render an explicit stale state
+ok 50 - facet changes clear detail selection and stale reads render an explicit stale state
+  ---
+  duration_ms: 0.85675
+  type: 'test'
+  ...
+# Subtest: late hydration cannot repopulate cleared selection after a mode change
+ok 51 - late hydration cannot repopulate cleared selection after a mode change
+  ---
+  duration_ms: 1.24925
+  type: 'test'
+  ...
+# Subtest: review failure preserves branded answer and retries the same handoff without duplicate requests
+ok 52 - review failure preserves branded answer and retries the same handoff without duplicate requests
+  ---
+  duration_ms: 0.732583
+  type: 'test'
+  ...
+# Subtest: thrown review handoff errors preserve the answer and allow an explicit retry
+ok 53 - thrown review handoff errors preserve the answer and allow an explicit retry
+  ---
+  duration_ms: 0.549167
+  type: 'test'
+  ...
+# Subtest: prepared proposal without a review controller is not reported as review ready
+ok 54 - prepared proposal without a review controller is not reported as review ready
+  ---
+  duration_ms: 0.699625
+  type: 'test'
+  ...
+1..54
+# tests 54
+# suites 0
+# pass 54
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 95.10875

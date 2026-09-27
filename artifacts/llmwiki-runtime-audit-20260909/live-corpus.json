@@ -1,0 +1,329 @@
+{
+  "command": [
+    "Obsidian",
+    "vault=Dusk",
+    "eval",
+    "code=JSON.stringify((()=>{const h=KnowledgeExplorerHub,t=performance.now(),pages=app.vault.getMarkdownFiles().map(f=>({...app.metadataCache.getFileCache(f)?.frontmatter,file:{path:f.path,mtime:f.stat.mtime}})),a=h.dataSource.index(pages).assets,t1=performance.now(),s=LLMWikiWikiReadAdapter.buildSnapshot({assets:a}),t2=performance.now();const qs=[[\"verified\",\"synthetic-alpha\"],[\"literature\",\"synthetic-alpha\"],[\"literature\",\"원문 전문\"],[\"all\",\"synthetic-alpha\"],[\"pending\",\"synthetic-alpha\"],[\"literature\",\"상상력\"],[\"literature\",\"지식을 넘어 새로운 가능성을 떠올리는 능력\"],[\"literature\",\"회복탄력성\"],[\"literature\",\"상상력 지식 충돌\"],[\"literature\",\"ZXQ_CANARY_UNRELATED_987\"]];return {timings:{discovery_projection_ms:t1-t,snapshot_ms:t2-t1},pages:pages.length,assets:a.length,snapshot_keys:Object.keys(s),counts:s.counts,rows:s.rows?.map(r=>({path:r.path,type:r.type,trust:r.trust,statement_bytes:r.statement?.length,summary_bytes:r.summary?.length})),queries:qs.map(([mode,query])=>{const q0=performance.now(),r=LLMWikiWikiReadAdapter.browseRead({snapshot:s,mode,query});return {mode,query,ms:performance.now()-q0,ok:r.ok,status:r.status,reason:r.reason,total:r.total,top:r.rows?.[0]&&{path:r.rows[0].path,citations:r.rows[0].citations,title:r.rows[0].title}}})}})())"
+  ],
+  "wall_ms": 136.78,
+  "exit_code": 0,
+  "stderr": "",
+  "result": {
+    "timings": {
+      "discovery_projection_ms": 8.800000071525574,
+      "snapshot_ms": 2.6999999284744263
+    },
+    "pages": 1048,
+    "assets": 319,
+    "snapshot_keys": [
+      "ok",
+      "status",
+      "snapshot_version",
+      "snapshot_revision",
+      "current_revision",
+      "revision",
+      "collection_revision",
+      "rows",
+      "documents",
+      "tiers",
+      "counts",
+      "allowed_prefixes",
+      "allowed_prefix_metadata",
+      "writer_count",
+      "provider_count"
+    ],
+    "counts": {
+      "verified": 0,
+      "legacy_review": 0,
+      "literature": 4,
+      "pending": 0,
+      "maintenance": 24,
+      "total": 28
+    },
+    "rows": [
+      {
+        "path": "ZETA/LITERATURE/Curt Richter’s Drowning Rats Experiment (1957).md",
+        "type": "literature_note",
+        "trust": "literature",
+        "statement_bytes": 0,
+        "summary_bytes": 0
+      },
+      {
+        "path": "ZETA/LITERATURE/Einstein, A. (1931). On Imagination and Knowledge.md",
+        "type": "literature_note",
+        "trust": "literature",
+        "statement_bytes": 0,
+        "summary_bytes": 0
+      },
+      {
+        "path": "ZETA/LITERATURE/Masten, A.S. (2001). Resilience Theory in Developmental Psychology.md",
+        "type": "literature_note",
+        "trust": "literature",
+        "statement_bytes": 0,
+        "summary_bytes": 0
+      },
+      {
+        "path": "ZETA/LITERATURE/synthetic-alpha.md",
+        "type": "literature_note",
+        "trust": "literature",
+        "statement_bytes": 0,
+        "summary_bytes": 0
+      },
+      {
+        "path": "ZETA/PERMANENT/2025타경510283 경매 물건 분석 (7f39b5ac).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 56
+      },
+      {
+        "path": "ZETA/PERMANENT/API Keys and Service Credentials Reference (630b6184).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 87
+      },
+      {
+        "path": "ZETA/PERMANENT/Commercial Property Valuation and Yield Calculation Methods (8557bdb5).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 139
+      },
+      {
+        "path": "ZETA/PERMANENT/Grand Moment Wedding Videography Camera Settings (47f2abcc).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 145
+      },
+      {
+        "path": "ZETA/PERMANENT/Prodigy Knowledge Inbox Execution Workflow (fd220034).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 174
+      },
+      {
+        "path": "ZETA/PERMANENT/금호동1가 129 일원 모아타운 손품조사 및 주민공람 단계 투자 분석 (2a454c48).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 89
+      },
+      {
+        "path": "ZETA/PERMANENT/다가구 및 상가주택 경매에서의 신탁대출 구조와 활용 (3bc8c58a).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 61
+      },
+      {
+        "path": "ZETA/PERMANENT/담보가등기와 소유권이전청구권가등기의 구분 및 경매 처리 기준 (0d114c3b).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 70
+      },
+      {
+        "path": "ZETA/PERMANENT/모아타운 5단계 정비 절차 및 단계별 특성 (f4e8cae8).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 77
+      },
+      {
+        "path": "ZETA/PERMANENT/부동산 경매 물건의 입지 및 사업적 활용 분석 (05887dbc).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 66
+      },
+      {
+        "path": "ZETA/PERMANENT/부산 연제구 연산동 근린상가 경매 물건 분석 (9ae35f6a).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 56
+      },
+      {
+        "path": "ZETA/PERMANENT/상가 경매 물건 및 상권 분석 절차 (55544b4b).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 80
+      },
+      {
+        "path": "ZETA/PERMANENT/서울 소액 정비사업 투자처 선별 절차 (465fc695).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 86
+      },
+      {
+        "path": "ZETA/PERMANENT/스키밍 독서법 (0103b884).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 54
+      },
+      {
+        "path": "ZETA/PERMANENT/웨딩 스냅 촬영 렌즈 선택 및 현장 촬영 가이드 (8e4411db).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 76
+      },
+      {
+        "path": "ZETA/PERMANENT/웨딩 스냅 촬영 워크플로우 및 렌즈 포징 지침 (2800ed4a).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 117
+      },
+      {
+        "path": "ZETA/PERMANENT/웨딩 스냅 촬영 핵심 가이드 및 디렉팅 워크플로우 (ef92e8a5).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 81
+      },
+      {
+        "path": "ZETA/PERMANENT/웨딩 스냅 포징 디렉팅 및 촬영 레퍼토리 가이드 (f11c8547).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 66
+      },
+      {
+        "path": "ZETA/PERMANENT/웨딩 스냅 포징 및 디렉팅 가이드 (ca9054d6).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 64
+      },
+      {
+        "path": "ZETA/PERMANENT/웨딩 스냅 포징 및 연출 구도 가이드 (4617e7ae).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 61
+      },
+      {
+        "path": "ZETA/PERMANENT/웨딩 앨범 작업 워크플로우 및 레이아웃 가이드 (47d89eef).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 82
+      },
+      {
+        "path": "ZETA/PERMANENT/웨딩스냅 본식 및 식전 촬영 절차 (fe8e9530).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 104
+      },
+      {
+        "path": "ZETA/PERMANENT/유치권 성립요건과 경매 물권 분석 (6861b8a6).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 57
+      },
+      {
+        "path": "ZETA/PERMANENT/재개발 재건축 정비사업의 조합원 자격과 권리분석 핵심 원칙 (54076307).md",
+        "type": "knowledge",
+        "trust": "maintenance",
+        "statement_bytes": 0,
+        "summary_bytes": 168
+      }
+    ],
+    "queries": [
+      {
+        "mode": "verified",
+        "query": "synthetic-alpha",
+        "ms": 0.20000004768371582,
+        "ok": true,
+        "status": "no_verified_answer",
+        "total": 0
+      },
+      {
+        "mode": "literature",
+        "query": "synthetic-alpha",
+        "ms": 0.3999999761581421,
+        "ok": true,
+        "status": "ok",
+        "total": 1,
+        "top": {
+          "path": "ZETA/LITERATURE/synthetic-alpha.md",
+          "citations": [],
+          "title": "synthetic-alpha"
+        }
+      },
+      {
+        "mode": "literature",
+        "query": "원문 전문",
+        "ms": 0.10000002384185791,
+        "ok": true,
+        "status": "empty",
+        "total": 0
+      },
+      {
+        "mode": "all",
+        "query": "synthetic-alpha",
+        "ms": 0,
+        "ok": false,
+        "status": "error",
+        "reason": "invalid_scope_type"
+      },
+      {
+        "mode": "pending",
+        "query": "synthetic-alpha",
+        "ms": 0,
+        "ok": false,
+        "status": "error",
+        "reason": "invalid_scope_type"
+      },
+      {
+        "mode": "literature",
+        "query": "상상력",
+        "ms": 0.10000002384185791,
+        "ok": true,
+        "status": "empty",
+        "total": 0
+      },
+      {
+        "mode": "literature",
+        "query": "지식을 넘어 새로운 가능성을 떠올리는 능력",
+        "ms": 0.10000002384185791,
+        "ok": true,
+        "status": "empty",
+        "total": 0
+      },
+      {
+        "mode": "literature",
+        "query": "회복탄력성",
+        "ms": 0,
+        "ok": true,
+        "status": "empty",
+        "total": 0
+      },
+      {
+        "mode": "literature",
+        "query": "상상력 지식 충돌",
+        "ms": 0.19999992847442627,
+        "ok": true,
+        "status": "empty",
+        "total": 0
+      },
+      {
+        "mode": "literature",
+        "query": "ZXQ_CANARY_UNRELATED_987",
+        "ms": 0.10000002384185791,
+        "ok": true,
+        "status": "empty",
+        "total": 0
+      }
+    ]
+  }
+}

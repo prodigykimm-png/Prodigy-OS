@@ -1,33 +1,28 @@
----
-cssclasses:
-  - prodigy-hub-note
-  - hide-properties_reading
----
-```js-engine
-const file = app.workspace.getActiveFile();
+<!--memoge:html-->
+<hr><p>cssclasses:</p><ul><li><p>prodigy-hub-note</p></li><li><p>hide-properties_reading</p></li></ul><hr><pre><code>const file = app.workspace.getActiveFile();
 if (!file) return;
 if (!container) return;
 container.empty();
 
 // Expose globals for external scripts
-window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.workspaceId === "auction"
+window.__prodigyMeasurementEntry = window.__prodigyMeasurementEntry &amp;&amp; window.__prodigyMeasurementEntry.workspaceId === "auction"
   ? window.__prodigyMeasurementEntry
   : { workspaceId: "auction" };
 // Last reload: 2026-07-12T16:22:00
 window.obsidian = obsidian;
 window.app = app;
-window.__prodigyAuctionSchedule = (callback, delay) => {
+window.__prodigyAuctionSchedule = (callback, delay) =&gt; {
   const scope = window.__prodigyAuctionMountScope;
-  return scope && typeof scope.timeout === "function" ? scope.timeout(callback, delay) : window.setTimeout(callback, delay);
+  return scope &amp;&amp; typeof scope.timeout === "function" ? scope.timeout(callback, delay) : window.setTimeout(callback, delay);
 };
-const ensureAuctionHubStyles = async () => {
+const ensureAuctionHubStyles = async () =&gt; {
   if (typeof document === "undefined" || !document.head) return;
   // Presentation lives in the shared module so the Hub note keeps orchestration
   // and Dataview queries only. Load it on demand, then install idempotently.
-  if (!window.AuctionHubStyles && typeof loadWorkspaceBootstrap === "function") {
+  if (!window.AuctionHubStyles &amp;&amp; typeof loadWorkspaceBootstrap === "function") {
     await loadWorkspaceBootstrap("SYSTEM/Views/auction-hub-styles.js");
   }
-  if (window.AuctionHubStyles && typeof window.AuctionHubStyles.ensure === "function") {
+  if (window.AuctionHubStyles &amp;&amp; typeof window.AuctionHubStyles.ensure === "function") {
     try {
       window.AuctionHubStyles.ensure();
     } catch (_styleError) {
@@ -39,21 +34,21 @@ const ensureAuctionHubStyles = async () => {
 // Mount-scoped, bounded readiness polling shared by every Auction section. A
 // section may stay pending while optional scripts arrive, but it can never keep
 // a detached timer alive or leave the user with an unbounded spinner.
-window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
+window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() =&gt; {
   const active = new WeakMap();
-  const mounted = (container) => {
+  const mounted = (container) =&gt; {
     if (!container || container.isConnected === false) return false;
     const doc = container.ownerDocument;
     return !doc || !doc.documentElement || typeof doc.documentElement.contains !== "function"
       || doc.documentElement.contains(container);
   };
-  const findStatus = (container) => container && typeof container.querySelector === "function"
+  const findStatus = (container) =&gt; container &amp;&amp; typeof container.querySelector === "function"
     ? container.querySelector("[data-auction-loader-status]")
     : null;
-  const renderStatus = (state, message, terminal) => {
+  const renderStatus = (state, message, terminal) =&gt; {
     if (!mounted(state.container)) return;
     let status = findStatus(state.container);
-    if (!status && typeof state.container.createEl === "function") {
+    if (!status &amp;&amp; typeof state.container.createEl === "function") {
       status = state.container.createEl("div", {
         attr: {
           "data-auction-loader-status": "true",
@@ -74,10 +69,10 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
     status.createEl("span", { text: message });
     if (terminal) {
       const retry = status.createEl("button", { text: "다시 시도", attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" } });
-      retry.onclick = () => state.retry();
+      retry.onclick = () =&gt; state.retry();
       const cancel = status.createEl("button", { text: "중단", attr: { type: "button", class: "prodigy-btn prodigy-btn-chip" } });
-      cancel.onclick = () => {
-        if (state.config && typeof state.config.onError === "function") {
+      cancel.onclick = () =&gt; {
+        if (state.config &amp;&amp; typeof state.config.onError === "function") {
           try { state.config.onError(new Error("Auction section load cancelled")); } catch (_) {}
         }
         state.dispose();
@@ -85,20 +80,20 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
       };
     }
   };
-  const clear = (state) => {
+  const clear = (state) =&gt; {
     if (state.timer !== null) {
-      if (state.scope && typeof state.scope.clearTimeout === "function") state.scope.clearTimeout(state.timer);
+      if (state.scope &amp;&amp; typeof state.scope.clearTimeout === "function") state.scope.clearTimeout(state.timer);
       else window.clearTimeout(state.timer);
       state.timer = null;
     }
-    if (state.observer && typeof state.observer.disconnect === "function") state.observer.disconnect();
+    if (state.observer &amp;&amp; typeof state.observer.disconnect === "function") state.observer.disconnect();
     state.observer = null;
   };
-  const start = (config = {}) => {
+  const start = (config = {}) =&gt; {
     const container = config.container;
     if (!container || typeof config.run !== "function") return { dispose() {} };
     const prior = active.get(container);
-    if (prior && typeof prior.dispose === "function") prior.dispose();
+    if (prior &amp;&amp; typeof prior.dispose === "function") prior.dispose();
     const state = {
       container,
       config: { ...config },
@@ -109,15 +104,15 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
       disposed: false,
       errorReported: false,
       rendered: false,
-      retry: () => start(state.config),
-      dispose: () => {
+      retry: () =&gt; start(state.config),
+      dispose: () =&gt; {
         if (state.disposed) return;
         state.disposed = true;
         clear(state);
         if (active.get(container) === state) active.delete(container);
       }
     };
-    const reportError = (error) => {
+    const reportError = (error) =&gt; {
       state.error = error || new Error("Auction section render failed");
       if (state.errorReported) return;
       state.errorReported = true;
@@ -126,8 +121,8 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
       }
     };
     active.set(container, state);
-    if (state.scope && typeof state.scope.track === "function") state.scope.track(state.dispose);
-    const finish = (result) => {
+    if (state.scope &amp;&amp; typeof state.scope.track === "function") state.scope.track(state.dispose);
+    const finish = (result) =&gt; {
       if (result === true) {
         state.rendered = true;
         clear(state);
@@ -136,18 +131,18 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
       }
       return false;
     };
-    const attempt = () => {
+    const attempt = () =&gt; {
       if (state.disposed) {
         return;
       }
       if (!mounted(container)) {
         state.attempts += 1;
-        if (state.attempts >= (Number(config.maxAttempts) || 100)) {
+        if (state.attempts &gt;= (Number(config.maxAttempts) || 100)) {
           reportError(new Error("Auction section container did not connect"));
           state.dispose();
           return;
         }
-        state.timer = state.scope && typeof state.scope.timeout === "function"
+        state.timer = state.scope &amp;&amp; typeof state.scope.timeout === "function"
           ? state.scope.timeout(attempt, Number(config.interval) || 100)
           : window.setTimeout(attempt, Number(config.interval) || 100);
         return;
@@ -160,25 +155,25 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
         reportError(error);
       }
       if (finish(result)) return;
-      if (!state.rendered && !findStatus(container)) {
+      if (!state.rendered &amp;&amp; !findStatus(container)) {
         renderStatus(state, `${config.label || "Auction"} 리소스를 불러오는 중...`, false);
       }
-      if (state.attempts >= (Number(config.maxAttempts) || 100)) {
+      if (state.attempts &gt;= (Number(config.maxAttempts) || 100)) {
         reportError(state.error || new Error("Auction section render did not settle"));
         renderStatus(state, `${config.label || "Auction"}을 불러오지 못했습니다. ${state.error?.message || "필수 리소스가 준비되지 않았습니다."}`, true);
         state.dispose();
         return;
       }
-      state.timer = state.scope && typeof state.scope.timeout === "function"
+      state.timer = state.scope &amp;&amp; typeof state.scope.timeout === "function"
         ? state.scope.timeout(attempt, Number(config.interval) || 100)
         : window.setTimeout(attempt, Number(config.interval) || 100);
     };
-    if (state.scope && typeof state.scope.observe === "function" && container.ownerDocument?.body) {
-      state.observer = state.scope.observe(container.ownerDocument.body, { childList: true, subtree: true }, () => {
+    if (state.scope &amp;&amp; typeof state.scope.observe === "function" &amp;&amp; container.ownerDocument?.body) {
+      state.observer = state.scope.observe(container.ownerDocument.body, { childList: true, subtree: true }, () =&gt; {
         if (!mounted(container)) state.dispose();
       });
-    } else if (typeof MutationObserver === "function" && container.ownerDocument?.body) {
-      state.observer = new MutationObserver(() => {
+    } else if (typeof MutationObserver === "function" &amp;&amp; container.ownerDocument?.body) {
+      state.observer = new MutationObserver(() =&gt; {
         if (!mounted(container)) state.dispose();
       });
       state.observer.observe(container.ownerDocument.body, { childList: true, subtree: true });
@@ -198,16 +193,16 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
 // Consume one fresh Region → Auction handoff once. The markdown preview mounts
 // lower card blocks lazily, so a process-global scope must never outlive its
 // Auction mount and filter a later ordinary visit.
-const rawAuctionNavigationRequest = window.prodigyAuctionNavigationRequest && typeof window.prodigyAuctionNavigationRequest === "object"
+const rawAuctionNavigationRequest = window.prodigyAuctionNavigationRequest &amp;&amp; typeof window.prodigyAuctionNavigationRequest === "object"
   ? window.prodigyAuctionNavigationRequest
   : null;
-const auctionRequestCreatedAt = rawAuctionNavigationRequest && Date.parse(String(rawAuctionNavigationRequest.created_at || ""));
+const auctionRequestCreatedAt = rawAuctionNavigationRequest &amp;&amp; Date.parse(String(rawAuctionNavigationRequest.created_at || ""));
 const auctionNavigationRequest = rawAuctionNavigationRequest
-  && Number.isFinite(auctionRequestCreatedAt)
-  && Date.now() - auctionRequestCreatedAt < 60000
+  &amp;&amp; Number.isFinite(auctionRequestCreatedAt)
+  &amp;&amp; Date.now() - auctionRequestCreatedAt &lt; 60000
   ? rawAuctionNavigationRequest
   : null;
-const auctionRegionScope = auctionNavigationRequest && window.prodigyAuctionRegionScope && typeof window.prodigyAuctionRegionScope === "object"
+const auctionRegionScope = auctionNavigationRequest &amp;&amp; window.prodigyAuctionRegionScope &amp;&amp; typeof window.prodigyAuctionRegionScope === "object"
   ? window.prodigyAuctionRegionScope
   : null;
 if (!auctionNavigationRequest) {
@@ -218,59 +213,59 @@ const expectedSections = new Set(["bidding", "watching", "reviewing", "won", "lo
 const renderedSections = new Set();
 const renderFailures = new Set();
 let navigationAcknowledged = false;
-const maybeMarkAuctionReady = () => {
-  if (renderedSections.size !== expectedSections.size || renderFailures.size > 0) return;
+const maybeMarkAuctionReady = () =&gt; {
+  if (renderedSections.size !== expectedSections.size || renderFailures.size &gt; 0) return;
   setNavigationStatus("ready");
   const callback = window.__prodigyAuctionReadinessCommit;
   if (typeof callback !== "function") return;
   delete window.__prodigyAuctionReadinessCommit;
   callback();
 };
-const reportSectionFailure = (status, error) => {
+const reportSectionFailure = (status, error) =&gt; {
   if (status) renderFailures.add(status);
   if (error) setNavigationStatus("error", error);
   const callback = window.__prodigyAuctionReadinessFailure;
   if (typeof callback === "function") callback(status, error);
 };
 window.ProdigyAuctionSectionFailure = reportSectionFailure;
-const setNavigationStatus = (status, error) => {
+const setNavigationStatus = (status, error) =&gt; {
   if (!auctionNavigationRequest) return;
   try {
     auctionNavigationRequest.status = status;
     auctionNavigationRequest.updated_at = new Date().toISOString();
-    if (error) auctionNavigationRequest.error = String(error && error.message ? error.message : error);
+    if (error) auctionNavigationRequest.error = String(error &amp;&amp; error.message ? error.message : error);
   } catch (_) {
     // A caller may freeze its request object; preserving it is safer than failing load.
   }
 };
-const acknowledgeNavigation = () => {
-  if (navigationAcknowledged || renderedSections.size !== expectedSections.size || renderFailures.size > 0) return;
+const acknowledgeNavigation = () =&gt; {
+  if (navigationAcknowledged || renderedSections.size !== expectedSections.size || renderFailures.size &gt; 0) return;
   navigationAcknowledged = true;
   setNavigationStatus("consumed");
   if (window.prodigyAuctionNavigationRequest === auctionNavigationRequest) delete window.prodigyAuctionNavigationRequest;
-  if (auctionRegionScope && window.prodigyAuctionRegionScope === auctionRegionScope) window.prodigyAuctionRegionScope = null;
+  if (auctionRegionScope &amp;&amp; window.prodigyAuctionRegionScope === auctionRegionScope) window.prodigyAuctionRegionScope = null;
   window.prodigyAuctionNavigationReceipt = Object.freeze({
-    request_id: auctionNavigationRequest && auctionNavigationRequest.request_id || null,
+    request_id: auctionNavigationRequest &amp;&amp; auctionNavigationRequest.request_id || null,
     status: "consumed",
     consumed_at: new Date().toISOString()
   });
 };
 setNavigationStatus("loading");
 window.ProdigyAuctionNavigationFocus = null;
-if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path === "string" && auctionNavigationRequest.auction_path.trim()) {
+if (auctionNavigationRequest &amp;&amp; typeof auctionNavigationRequest.auction_path === "string" &amp;&amp; auctionNavigationRequest.auction_path.trim()) {
   const targetPath = auctionNavigationRequest.auction_path.trim();
   let focusCompleted = false;
   let fallbackScheduled = false;
-  const locate = () => {
+  const locate = () =&gt; {
     if (focusCompleted || typeof document === "undefined") return false;
-    const card = Array.from(document.querySelectorAll("[data-auction-path]")).find((element) => element.getAttribute("data-auction-path") === targetPath);
+    const card = Array.from(document.querySelectorAll("[data-auction-path]")).find((element) =&gt; element.getAttribute("data-auction-path") === targetPath);
     if (!card) return false;
     const collapsed = typeof card.closest === "function" ? card.closest("details") : null;
     if (collapsed) collapsed.open = true;
     card.setAttribute("data-navigation-focus", "true");
     if (typeof card.scrollIntoView === "function") {
       const reduceMotion = typeof window.matchMedia === "function"
-        && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        &amp;&amp; window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       card.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
     }
     if (typeof card.focus === "function") {
@@ -278,14 +273,14 @@ if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path ===
       catch (_) { card.focus(); }
     }
     focusCompleted = true;
-    window.__prodigyAuctionSchedule(() => card.removeAttribute("data-navigation-focus"), 1800);
+    window.__prodigyAuctionSchedule(() =&gt; card.removeAttribute("data-navigation-focus"), 1800);
     return true;
   };
-  const scheduleLocate = () => {
+  const scheduleLocate = () =&gt; {
     if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(locate);
     else window.__prodigyAuctionSchedule(locate, 0);
   };
-  const markSection = (status) => {
+  const markSection = (status) =&gt; {
     if (expectedSections.has(status)) renderedSections.add(status);
     scheduleLocate();
     maybeMarkAuctionReady();
@@ -293,7 +288,7 @@ if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path ===
       acknowledgeNavigation();
       if (!fallbackScheduled) {
         fallbackScheduled = true;
-        window.__prodigyAuctionSchedule(() => {
+        window.__prodigyAuctionSchedule(() =&gt; {
           if (locate()) return;
           focusCompleted = true;
           window.ProdigyAuctionNavigationFocus = null;
@@ -305,14 +300,14 @@ if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path ===
   window.ProdigyAuctionNavigationFocus = Object.freeze({ targetPath, markSection });
 } else if (auctionRegionScope) {
   // Scope-only opens still clear once all sections have consumed the destination.
-  window.ProdigyAuctionNavigationFocus = Object.freeze({ markSection: (status) => {
+  window.ProdigyAuctionNavigationFocus = Object.freeze({ markSection: (status) =&gt; {
     if (expectedSections.has(status)) renderedSections.add(status);
     acknowledgeNavigation();
     maybeMarkAuctionReady();
   } });
 } else {
   window.ProdigyAuctionNavigationFocus = Object.freeze({
-    markSection: (status) => {
+    markSection: (status) =&gt; {
       if (expectedSections.has(status)) renderedSections.add(status);
       maybeMarkAuctionReady();
     }
@@ -320,13 +315,13 @@ if (auctionNavigationRequest && typeof auctionNavigationRequest.auction_path ===
 }
 
 let activeLoadPath = "로더 시작";
-const loadWorkspaceBootstrap = async (path) => {
+const loadWorkspaceBootstrap = async (path) =&gt; {
   const file = app.vault.getAbstractFileByPath(path);
   if (!file) throw new Error(`워크스페이스 부트스트랩 파일이 없습니다: ${path}`);
   (new Function(await app.vault.read(file)))();
 };
 
-const initializeAuctionWorkspace = async () => {
+const initializeAuctionWorkspace = async () =&gt; {
   setNavigationStatus("loading");
   delete window.__prodigyAuctionReadinessCommit;
   delete window.__prodigyAuctionReadinessFailure;
@@ -339,7 +334,7 @@ const initializeAuctionWorkspace = async () => {
     const manifest = window.ProdigyWorkspaceManifest.get("auction");
     await window.ProdigyHubLoader.mountWorkspace(app, manifest, {
       container,
-      renderers: { auction: async (mountContext) => {
+      renderers: { auction: async (mountContext) =&gt; {
   window.__prodigyAuctionMountScope = mountContext.scope;
   const activeAuctionRegionScope = auctionRegionScope ? { ...auctionRegionScope } : null;
   if (activeAuctionRegionScope) {
@@ -350,7 +345,7 @@ const initializeAuctionWorkspace = async () => {
     delete window.__prodigyAuctionActiveRegionScope;
   }
   ensureAuctionHubStyles();
-  mountContext.scope.track(() => {
+  mountContext.scope.track(() =&gt; {
     if (window.__prodigyAuctionMountScope === mountContext.scope) delete window.__prodigyAuctionMountScope;
     if (window.__prodigyAuctionActiveRegionScope === activeAuctionRegionScope) delete window.__prodigyAuctionActiveRegionScope;
     delete window.__prodigyAuctionReadinessCommit;
@@ -365,10 +360,10 @@ const initializeAuctionWorkspace = async () => {
   // Snapshot the full Dataview index once for this dashboard render. Cards and
   // Auction Day only consume this immutable context; they never re-query Vault.
   activeLoadPath = "Dataview 결정 패킷 인덱스";
-  performance = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
+  performance = window.__prodigyMeasurementEntry &amp;&amp; window.__prodigyMeasurementEntry.session;
   measurement = {
     performance: performance || null,
-    dataScan: performance && performance.start("data_scan", { scope: "auction" }),
+    dataScan: performance &amp;&amp; performance.start("data_scan", { scope: "auction" }),
     projection: null,
     domRender: null,
     readinessMarked: false,
@@ -379,24 +374,24 @@ const initializeAuctionWorkspace = async () => {
     const continuation = { workspaceId: "auction", state: "pending", unmeasured: ["required_modules_before_session", "renderer_before_session"] };
     const continuations = Array.isArray(window.__prodigyMeasurementContinuations) ? window.__prodigyMeasurementContinuations : [];
     window.__prodigyMeasurementContinuations = continuations.concat(continuation);
-    mountContext.onOptionalReady((result) => {
-      const lateSession = window.__prodigyMeasurementEntry && window.__prodigyMeasurementEntry.session;
-      const measurementFailures = (result.optional_failures || []).filter((failure) => /prodigy-(?:performance-|workspace-)/.test(failure.path || ""));
-      continuation.state = lateSession && lateSession.available !== false ? "continued" : measurementFailures.length ? "failed" : "unavailable";
-      continuation.failures = measurementFailures.map((failure) => ({ path: failure.path, code: failure.code }));
+    mountContext.onOptionalReady((result) =&gt; {
+      const lateSession = window.__prodigyMeasurementEntry &amp;&amp; window.__prodigyMeasurementEntry.session;
+      const measurementFailures = (result.optional_failures || []).filter((failure) =&gt; /prodigy-(?:performance-|workspace-)/.test(failure.path || ""));
+      continuation.state = lateSession &amp;&amp; lateSession.available !== false ? "continued" : measurementFailures.length ? "failed" : "unavailable";
+      continuation.failures = measurementFailures.map((failure) =&gt; ({ path: failure.path, code: failure.code }));
       if (!lateSession || lateSession.available === false) return;
       performance = lateSession;
       measurement.performance = lateSession;
       if (typeof lateSession.recordMissing === "function") lateSession.recordMissing("auction.pre_session_handoff");
       if (typeof lateSession.measureModule === "function") {
-        lateSession.measureModule("auction:optional_renderer_continuation", () => {
+        lateSession.measureModule("auction:optional_renderer_continuation", () =&gt; {
           if (typeof lateSession.record === "function") lateSession.record("measurement_handoff", { scope: "auction", status: "continued", unmeasured: continuation.unmeasured.slice() });
         });
       }
     });
   }
   const packetDataview = app.plugins?.plugins?.dataview?.api;
-  const packetPages = packetDataview && typeof packetDataview.pages === "function"
+  const packetPages = packetDataview &amp;&amp; typeof packetDataview.pages === "function"
     ? packetDataview.pages("").array()
     : [];
   if (performance) {
@@ -415,18 +410,18 @@ const initializeAuctionWorkspace = async () => {
     measurement.projection = null;
   }
   activeLoadPath = "워크스페이스 탐색 UI";
-  const regionScope = window.prodigyAuctionRegionScope && typeof window.prodigyAuctionRegionScope === "object"
+  const regionScope = window.prodigyAuctionRegionScope &amp;&amp; typeof window.prodigyAuctionRegionScope === "object"
     ? window.prodigyAuctionRegionScope
     : null;
-  let domRender = performance && performance.start("dom_render", { scope: "auction" });
+  let domRender = performance &amp;&amp; performance.start("dom_render", { scope: "auction" });
   measurement.domRender = domRender;
   try {
     let auctionNativeSceneController = null;
     const calendarAction = {
       label: "달력",
-      onClick: () => auctionNativeSceneController?.focusCalendar()
+      onClick: () =&gt; auctionNativeSceneController?.focusCalendar()
     };
-    const stateAdapter = window.ProdigyWorkspaceStateAdapters && window.ProdigyWorkspaceStateAdapters.claim("auction");
+    const stateAdapter = window.ProdigyWorkspaceStateAdapters &amp;&amp; window.ProdigyWorkspaceStateAdapters.claim("auction");
     const auctionShell = window.ProdigyWorkspaceNavigation.mount(container, {
       app,
       workspaceId: "auction",
@@ -440,12 +435,12 @@ const initializeAuctionWorkspace = async () => {
       }
     });
     window.prodigyAuctionWorkspaceStateStore = auctionShell.stateStore;
-    mountContext.scope.track(() => {
+    mountContext.scope.track(() =&gt; {
       if (window.prodigyAuctionWorkspaceStateStore === auctionShell.stateStore) {
         delete window.prodigyAuctionWorkspaceStateStore;
       }
     });
-    if (auctionShell.element && auctionShell.element.classList) auctionShell.element.classList.add("auction-hub-shell");
+    if (auctionShell.element &amp;&amp; auctionShell.element.classList) auctionShell.element.classList.add("auction-hub-shell");
     if (auctionShell.body) {
       if (typeof auctionShell.body.setAttr === "function") auctionShell.body.setAttr("data-scroll-owner", "auction-workspace-body");
       else if (typeof auctionShell.body.setAttribute === "function") auctionShell.body.setAttribute("data-scroll-owner", "auction-workspace-body");
@@ -455,14 +450,14 @@ const initializeAuctionWorkspace = async () => {
       signal: mountContext.signal,
       container: auctionShell.body
     });
-    if (auctionKnowledge && typeof auctionKnowledge.dispose === "function") mountContext.scope.track(auctionKnowledge.dispose);
+    if (auctionKnowledge &amp;&amp; typeof auctionKnowledge.dispose === "function") mountContext.scope.track(auctionKnowledge.dispose);
     auctionNativeSceneController = window.ProdigyAuctionNativeScenes.mount({
       body: auctionShell.body,
       app,
       mountScope: mountContext.scope
     });
     window.__prodigyAuctionPrimarySectionsManaged = true;
-    mountContext.scope.track(() => {
+    mountContext.scope.track(() =&gt; {
       delete window.__prodigyAuctionPrimarySectionsManaged;
       delete window.__prodigyAuctionPrimarySections;
     });
@@ -474,7 +469,7 @@ const initializeAuctionWorkspace = async () => {
     [
       { status: "bidding", className: "auction-hub-bidding", emptyMessage: "해당 조건의 입찰 예정 물건이 없습니다." },
       { status: "watching", className: "auction-hub-watching", emptyMessage: "해당 조건의 검토 중인 물건이 없습니다." }
-    ].forEach((section) => {
+    ].forEach((section) =&gt; {
       const host = auctionShell.body.createDiv({
         attr: { class: `auction-hub-section ${section.className}` }
       });
@@ -482,8 +477,8 @@ const initializeAuctionWorkspace = async () => {
       // 첫 페인트 시점에는 셸 레이아웃이 아직 잡히지 않아 clientWidth가 작게 나올 수 있다.
       // 그 값이 티어를 결정하므로, 티어가 실제로 달라질 때만 다시 그린다. (재그리기는
       // renderDashboardSection의 기존 경로이며 container.empty()로 시작한다.)
-      const renderAtCurrentWidth = () => {
-        const logicalWidth = host.clientWidth > 0
+      const renderAtCurrentWidth = () =&gt; {
+        const logicalWidth = host.clientWidth &gt; 0
           ? host.clientWidth
           : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.contentMax;
         const rendered = window.renderDashboardSection({
@@ -491,7 +486,7 @@ const initializeAuctionWorkspace = async () => {
           status: section.status,
           type: "auction_case",
           container: host,
-          renderer: (page, target) => window.renderAuctionCard(page, target, {
+          renderer: (page, target) =&gt; window.renderAuctionCard(page, target, {
             decisionPacketContext: window.AuctionDecisionPacketDashboardContext,
             logicalWidth
           }),
@@ -502,7 +497,7 @@ const initializeAuctionWorkspace = async () => {
         if (!rendered) throw new Error(`${section.status} 기본 목록을 렌더하지 못했습니다.`);
         return logicalWidth;
       };
-      const tierOfWidth = (width) => {
+      const tierOfWidth = (width) =&gt; {
         const model = window.AuctionCardViewModel;
         if (!model || typeof model.presentation !== "function") return String(width);
         try { return String(model.presentation(width, section.status).tier); }
@@ -511,11 +506,11 @@ const initializeAuctionWorkspace = async () => {
       let currentTier = tierOfWidth(renderAtCurrentWidth());
       // 창을 넓히거나 좁힐 때 카드가 잘못된 티어로 남던 문제. 티어가 바뀔 때만 한 번 더 그린다.
       const ownerView = host.ownerDocument ? host.ownerDocument.defaultView : window;
-      if (ownerView && typeof ownerView.ResizeObserver === "function") {
-        const widthObserver = new ownerView.ResizeObserver(() => {
+      if (ownerView &amp;&amp; typeof ownerView.ResizeObserver === "function") {
+        const widthObserver = new ownerView.ResizeObserver(() =&gt; {
           if (host.isConnected === false) return;
           const width = host.clientWidth;
-          if (!(width > 0)) return;
+          if (!(width &gt; 0)) return;
           const tier = tierOfWidth(width);
           if (tier === currentTier) return;
           currentTier = tier;
@@ -523,8 +518,8 @@ const initializeAuctionWorkspace = async () => {
         });
         try {
           widthObserver.observe(host);
-          if (mountContext.scope && typeof mountContext.scope.track === "function") {
-            mountContext.scope.track(() => widthObserver.disconnect());
+          if (mountContext.scope &amp;&amp; typeof mountContext.scope.track === "function") {
+            mountContext.scope.track(() =&gt; widthObserver.disconnect());
           }
         } catch (_observerError) { /* 관찰 불가 환경은 첫 렌더 결과를 그대로 유지한다. */ }
       }
@@ -539,37 +534,37 @@ const initializeAuctionWorkspace = async () => {
       // pages() reflects the change, so one run reads fresh data.
       // Never allowed to break mount.
       const metadataCache = app.metadataCache;
-      if (metadataCache && typeof metadataCache.on === "function"
-        && typeof window.__prodigyRefreshAuctionDashboard === "function") {
+      if (metadataCache &amp;&amp; typeof metadataCache.on === "function"
+        &amp;&amp; typeof window.__prodigyRefreshAuctionDashboard === "function") {
         let auctionCacheTimer = null;
-        const isAuctionPath = (path) => typeof path === "string"
-          && (path === "PARA/PROJECTS/Auction" || path.startsWith("PARA/PROJECTS/Auction/"));
+        const isAuctionPath = (path) =&gt; typeof path === "string"
+          &amp;&amp; (path === "PARA/PROJECTS/Auction" || path.startsWith("PARA/PROJECTS/Auction/"));
         // The index signal fires when Dataview starts reindexing, not when
         // pages() reflects it. Poll the auction signature until it stops
         // changing (bounded), then render once more on settled data.
-        const auctionIndexSignature = () => {
+        const auctionIndexSignature = () =&gt; {
           try {
             const api = app.plugins?.plugins?.dataview?.api;
             if (!api || typeof api.pages !== "function") return null;
             return api.pages('"PARA/PROJECTS/Auction"').array()
-              .filter((p) => p && p.type === "auction_case")
-              .map((p) => `${(p.file && p.file.path) || ""}:${p.status || ""}`)
+              .filter((p) =&gt; p &amp;&amp; p.type === "auction_case")
+              .map((p) =&gt; `${(p.file &amp;&amp; p.file.path) || ""}:${p.status || ""}`)
               .sort()
               .join("|");
           } catch (_) { return null; }
         };
-        const refreshOnSettledIndex = () => {
+        const refreshOnSettledIndex = () =&gt; {
           if (typeof window.__prodigyRefreshAuctionDashboard !== "function") return;
           try { window.__prodigyRefreshAuctionDashboard(); } catch (_) {}
           const deadline = Date.now() + 90000;
           let last = auctionIndexSignature();
-          const tick = () => {
+          const tick = () =&gt; {
             const current = auctionIndexSignature();
-            if (current !== null && current === last) {
+            if (current !== null &amp;&amp; current === last) {
               try { window.__prodigyRefreshAuctionDashboard(); } catch (_) {}
               return;
             }
-            if (Date.now() >= deadline) {
+            if (Date.now() &gt;= deadline) {
               // Never stable (continuous sync churn): render once anyway
               // so a ghost cannot linger forever.
               try { window.__prodigyRefreshAuctionDashboard(); } catch (_) {}
@@ -580,15 +575,15 @@ const initializeAuctionWorkspace = async () => {
           };
           setTimeout(tick, 1000);
         };
-        const scheduleAuctionSectionRefresh = () => {
+        const scheduleAuctionSectionRefresh = () =&gt; {
           if (typeof window.__prodigyRefreshAuctionDashboard !== "function") return;
           if (auctionCacheTimer) clearTimeout(auctionCacheTimer);
-          auctionCacheTimer = setTimeout(() => {
+          auctionCacheTimer = setTimeout(() =&gt; {
             auctionCacheTimer = null;
             refreshOnSettledIndex();
           }, 400);
         };
-        const onDataviewIndexEvent = (op, file, oldPath) => {
+        const onDataviewIndexEvent = (op, file, oldPath) =&gt; {
           const path = typeof file === "string" ? file : file?.path;
           if (isAuctionPath(path) || isAuctionPath(oldPath)) scheduleAuctionSectionRefresh();
         };
@@ -599,18 +594,18 @@ const initializeAuctionWorkspace = async () => {
         let viewsRef = null;
         try {
           const workspace = app.workspace;
-          if (workspace && typeof workspace.on === "function") {
+          if (workspace &amp;&amp; typeof workspace.on === "function") {
             viewsRef = workspace.on("dataview:refresh-views", scheduleAuctionSectionRefresh);
           }
         } catch (_) {}
-        mountContext.scope.track(() => {
+        mountContext.scope.track(() =&gt; {
           if (auctionCacheTimer) { clearTimeout(auctionCacheTimer); auctionCacheTimer = null; }
           try {
-            if (indexRef && typeof metadataCache.offref === "function") metadataCache.offref(indexRef);
+            if (indexRef &amp;&amp; typeof metadataCache.offref === "function") metadataCache.offref(indexRef);
           } catch (_) {}
           try {
             const workspace = app.workspace;
-            if (viewsRef && workspace && typeof workspace.offref === "function") workspace.offref(viewsRef);
+            if (viewsRef &amp;&amp; workspace &amp;&amp; typeof workspace.offref === "function") workspace.offref(viewsRef);
           } catch (_) {}
         });
       }
@@ -619,7 +614,7 @@ const initializeAuctionWorkspace = async () => {
     measurement.shell = auctionShell;
     measurement.performance = mountedPerformance || null;
     if (mountedPerformance) {
-      window.__prodigyAuctionReadinessCommit = () => {
+      window.__prodigyAuctionReadinessCommit = () =&gt; {
         if (measurement.readinessMarked || measurement.dataScan || measurement.projection) return;
         if (measurement.domRender) {
           mountedPerformance.end(measurement.domRender, { scope: "auction", status: "rendered" });
@@ -634,9 +629,9 @@ const initializeAuctionWorkspace = async () => {
           ? auctionShell.readinessSnapshot("auction", evidence)
           : evidence;
         const result = mountedPerformance.markReady("auction", snapshot);
-        measurement.readinessMarked = !!(result && result.ready === true);
+        measurement.readinessMarked = !!(result &amp;&amp; result.ready === true);
       };
-      window.__prodigyAuctionReadinessFailure = (status, error) => {
+      window.__prodigyAuctionReadinessFailure = (status, error) =&gt; {
         if (measurement.readinessMarked) return;
         if (measurement.domRender) {
           mountedPerformance.end(measurement.domRender, { scope: "auction", status: "failed", section: status });
@@ -658,10 +653,10 @@ const initializeAuctionWorkspace = async () => {
       } }
     });
 } catch (err) {
-  if (window.ProdigyHubLoader && typeof window.ProdigyHubLoader.preserveRequiredRecovery === "function" && window.ProdigyHubLoader.preserveRequiredRecovery(err, container)) return;
+  if (window.ProdigyHubLoader &amp;&amp; typeof window.ProdigyHubLoader.preserveRequiredRecovery === "function" &amp;&amp; window.ProdigyHubLoader.preserveRequiredRecovery(err, container)) return;
   delete window.__prodigyAuctionReadinessCommit;
   delete window.__prodigyAuctionReadinessFailure;
-  if (performance && measurement) {
+  if (performance &amp;&amp; measurement) {
     if (measurement.dataScan) {
       performance.end(measurement.dataScan, { scope: "auction", status: "failed" });
       measurement.dataScan = null;
@@ -677,37 +672,27 @@ const initializeAuctionWorkspace = async () => {
     if (typeof performance.fail === "function") performance.fail(err, { phase: "error", scope: "auction" });
   }
   setNavigationStatus("error", err);
-  const failedStage = err && err.prodigyLoadPath ? err.prodigyLoadPath : activeLoadPath;
+  const failedStage = err &amp;&amp; err.prodigyLoadPath ? err.prodigyLoadPath : activeLoadPath;
   window.ProdigyAuctionWorkspaceRetry = initializeAuctionWorkspace;
-  if (window.ProdigyWorkspaceNavigation && window.ProdigyWorkspaceNavigation.renderLoaderError) {
+  if (window.ProdigyWorkspaceNavigation &amp;&amp; window.ProdigyWorkspaceNavigation.renderLoaderError) {
     window.ProdigyWorkspaceNavigation.renderLoaderError(container, err, {
       title: "경매",
       failedStage,
       message: "필수 리소스를 준비하지 못했습니다. 같은 지역 요청을 유지한 채 다시 시도하세요.",
-      retry: () => window.ProdigyAuctionWorkspaceRetry()
+      retry: () =&gt; window.ProdigyAuctionWorkspaceRetry()
     });
   } else {
     container.empty();
     const errorBox = container.createEl("p", { text: "경매 워크스페이스를 불러오지 못했습니다.", attr: { class: "auction-hub-status", role: "alert" } });
     const retry = errorBox.createEl("button", { text: "다시 시도", attr: { type: "button" } });
-    retry.onclick = () => window.ProdigyAuctionWorkspaceRetry();
+    retry.onclick = () =&gt; window.ProdigyAuctionWorkspaceRetry();
   }
 }
 };
 window.ProdigyAuctionWorkspaceRetry = initializeAuctionWorkspace;
 window.ProdigyAuctionWorkspaceReady = initializeAuctionWorkspace();
 await window.ProdigyAuctionWorkspaceReady;
-```
-
-[[15 Region|지역 비교]] — 기존 지역 Object의 지표와 근거를 읽기 전용으로 비교합니다.
-
-
----
-
-# 오늘
-
-```dataviewjs
-if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-today");
+</code></pre><p>[[15 Region|지역 비교]] — 기존 지역 Object의 지표와 근거를 읽기 전용으로 비교합니다.</p><hr><h1>오늘</h1><pre><code class="language-dataviewjs">if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-today");
 window.ProdigyAuctionNativeScenes.register("today", this.container);
 // Calculate counts and progress stats
 let todayBiddingCount = 0;
@@ -724,8 +709,8 @@ const currentYear = now.getFullYear();
 const currentMonth = now.getMonth(); // 0-11
 const todayStr = `${currentYear}-${String(currentMonth+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-const cases = dv.pages('"PARA/PROJECTS/Auction"').where(p => p.type === "auction_case");
-const toPlainArray = (value) => {
+const cases = dv.pages('"PARA/PROJECTS/Auction"').where(p =&gt; p.type === "auction_case");
+const toPlainArray = (value) =&gt; {
   if (!value) return [];
   if (typeof value.array === "function") return value.array();
   if (Array.isArray(value)) return value;
@@ -733,20 +718,20 @@ const toPlainArray = (value) => {
   return [];
 };
 const responsiveTokens = window.ProdigyTokens;
-const dashboardLogicalWidth = this.container.clientWidth > 0
+const dashboardLogicalWidth = this.container.clientWidth &gt; 0
   ? this.container.clientWidth
   : responsiveTokens.RESPONSIVE_BREAKPOINTS.contentMax;
-const compactDashboard = dashboardLogicalWidth <= responsiveTokens.RESPONSIVE_BREAKPOINTS.phoneMax;
+const compactDashboard = dashboardLogicalWidth &lt;= responsiveTokens.RESPONSIVE_BREAKPOINTS.phoneMax;
 
-toPlainArray(cases).forEach(p => {
+toPlainArray(cases).forEach(p =&gt; {
   // 1. Today Bidding + nearest upcoming bid
-  if (p.status === "bidding" && p.auction_datetime) {
+  if (p.status === "bidding" &amp;&amp; p.auction_datetime) {
     const cleanStr = String(p.auction_datetime).split(' ')[0].split('T')[0];
     if (cleanStr === todayStr) {
       todayBiddingCount++;
     }
-    if (cleanStr > todayStr) {
-      if (nextBidIso === null || cleanStr < nextBidIso) {
+    if (cleanStr &gt; todayStr) {
+      if (nextBidIso === null || cleanStr &lt; nextBidIso) {
         nextBidIso = cleanStr;
         nextBidCount = 1;
       } else if (cleanStr === nextBidIso) {
@@ -772,17 +757,17 @@ toPlainArray(cases).forEach(p => {
   }
   
   // 4. Won This Month (Won status updated in the current month)
-  if (p.status === "won" && p.updated) {
+  if (p.status === "won" &amp;&amp; p.updated) {
     const date = new Date(p.updated);
-    if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
+    if (date.getFullYear() === currentYear &amp;&amp; date.getMonth() === currentMonth) {
       wonThisMonthCount++;
     }
   }
   
   // 5. Reviews Completed This Month (Archived status updated in the current month)
-  if (p.status === "archived" && p.updated) {
+  if (p.status === "archived" &amp;&amp; p.updated) {
     const date = new Date(p.updated);
-    if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
+    if (date.getFullYear() === currentYear &amp;&amp; date.getMonth() === currentMonth) {
       reviewsCompletedThisMonthCount++;
     }
   }
@@ -805,7 +790,7 @@ const statsBox = nativeSidebar.createEl('div', {
 });
 statsBox.createEl('div', { text: '오늘 할 일', attr: { class: "auction-hub-stat-heading" } });
 
-const addStatItem = (parent, label, count, color, isHighlight, isPrimary = false) => {
+const addStatItem = (parent, label, count, color, isHighlight, isPrimary = false) =&gt; {
   const row = parent.createEl('div', {
     attr: { class: `auction-hub-stat-row${isPrimary ? " is-primary" : ""}` }
   });
@@ -816,15 +801,15 @@ const addStatItem = (parent, label, count, color, isHighlight, isPrimary = false
   });
 };
 
-addStatItem(statsBox, '오늘 입찰', todayBiddingCount, 'error', todayBiddingCount > 0, true);
-addStatItem(statsBox, '임장 미완료', pendingSiteVisitsCount, 'accent', pendingSiteVisitsCount > 0);
-addStatItem(statsBox, '예상입찰가 누락', missingExpectedCount, 'warning', missingExpectedCount > 0);
+addStatItem(statsBox, '오늘 입찰', todayBiddingCount, 'error', todayBiddingCount &gt; 0, true);
+addStatItem(statsBox, '임장 미완료', pendingSiteVisitsCount, 'accent', pendingSiteVisitsCount &gt; 0);
+addStatItem(statsBox, '예상입찰가 누락', missingExpectedCount, 'warning', missingExpectedCount &gt; 0);
 
 // Nearest upcoming event (today empty state still names it).
 const nextBidRow = statsBox.createEl('div', { attr: { class: "auction-hub-stat-row" } });
 nextBidRow.createEl('span', { text: '다음 입찰', attr: { class: "auction-hub-stat-label" } });
 const nextBidValue = nextBidIso
-  ? (nextBidCount > 1 ? `${nextBidIso} · ${nextBidCount}건` : nextBidIso)
+  ? (nextBidCount &gt; 1 ? `${nextBidIso} · ${nextBidCount}건` : nextBidIso)
   : '없음';
 nextBidRow.createEl('span', {
   text: nextBidValue,
@@ -837,20 +822,9 @@ const progressBox = nativeSidebar.createEl('div', {
 });
 progressBox.createEl('div', { text: '이번 달 진행 현황', attr: { class: "auction-hub-stat-heading" } });
 
-addStatItem(progressBox, '이번 달 낙찰', wonThisMonthCount, 'success', wonThisMonthCount > 0);
-addStatItem(progressBox, '이번 달 복기 완료', reviewsCompletedThisMonthCount, 'warning', reviewsCompletedThisMonthCount > 0);
-
-```
-
----
-
-
----
-
-## 입찰 예정
-
-```dataviewjs
-const run = () => {
+addStatItem(progressBox, '이번 달 낙찰', wonThisMonthCount, 'success', wonThisMonthCount &gt; 0);
+addStatItem(progressBox, '이번 달 복기 완료', reviewsCompletedThisMonthCount, 'warning', reviewsCompletedThisMonthCount &gt; 0);
+</code></pre><hr><hr><h2>입찰 예정</h2><pre><code class="language-dataviewjs">const run = () =&gt; {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-bidding");
   if (window.__prodigyAuctionPrimarySectionsManaged) {
     const managed = window.__prodigyAuctionPrimarySections?.bidding;
@@ -860,9 +834,9 @@ const run = () => {
     return true;
   }
   window.ProdigyAuctionNativeScenes.register("bidding", this.container);
-  if (window.renderDashboardSection && window.renderAuctionCard) {
+  if (window.renderDashboardSection &amp;&amp; window.renderAuctionCard) {
     this.container.empty();
-    const logicalWidth = this.container.clientWidth > 0
+    const logicalWidth = this.container.clientWidth &gt; 0
       ? this.container.clientWidth
       : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.contentMax;
     const rendered = window.renderDashboardSection({
@@ -870,7 +844,7 @@ const run = () => {
       status: "bidding",
       type: "auction_case",
       container: this.container,
-      renderer: (page, target) => window.renderAuctionCard(page, target, {
+      renderer: (page, target) =&gt; window.renderAuctionCard(page, target, {
         decisionPacketContext: window.AuctionDecisionPacketDashboardContext,
         logicalWidth
       }),
@@ -888,19 +862,9 @@ window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "입찰 예정",
   run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("bidding", error)
+  onError: (error) =&gt; window.ProdigyAuctionSectionFailure?.("bidding", error)
 });
-```
-
----
-
-
----
-
-## 관심
-
-```dataviewjs
-const run = () => {
+</code></pre><hr><hr><h2>관심</h2><pre><code class="language-dataviewjs">const run = () =&gt; {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-watching");
   if (window.__prodigyAuctionPrimarySectionsManaged) {
     const managed = window.__prodigyAuctionPrimarySections?.watching;
@@ -910,9 +874,9 @@ const run = () => {
     return true;
   }
   window.ProdigyAuctionNativeScenes.register("watching", this.container);
-  if (window.renderDashboardSection && window.renderAuctionCard) {
+  if (window.renderDashboardSection &amp;&amp; window.renderAuctionCard) {
     this.container.empty();
-    const logicalWidth = this.container.clientWidth > 0
+    const logicalWidth = this.container.clientWidth &gt; 0
       ? this.container.clientWidth
       : window.ProdigyTokens.RESPONSIVE_BREAKPOINTS.contentMax;
     const rendered = window.renderDashboardSection({
@@ -920,7 +884,7 @@ const run = () => {
       status: "watching",
       type: "auction_case",
       container: this.container,
-      renderer: (page, target) => window.renderAuctionCard(page, target, {
+      renderer: (page, target) =&gt; window.renderAuctionCard(page, target, {
         decisionPacketContext: window.AuctionDecisionPacketDashboardContext,
         logicalWidth
       }),
@@ -938,26 +902,16 @@ window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "관심",
   run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("watching", error)
+  onError: (error) =&gt; window.ProdigyAuctionSectionFailure?.("watching", error)
 });
-```
-
----
-
-
----
-
-# 입찰 일정
-
-```dataviewjs
-// Bid Calendar: time navigation only (does not edit Objects)
-const run = () => {
+</code></pre><hr><hr><h1>입찰 일정</h1><pre><code class="language-dataviewjs">// Bid Calendar: time navigation only (does not edit Objects)
+const run = () =&gt; {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-calendar");
   window.ProdigyAuctionNativeScenes.register("calendar", this.container);
-  if (window.BidCalendarCore && window.BidCalendarView) {
+  if (window.BidCalendarCore &amp;&amp; window.BidCalendarView) {
     this.container.empty();
     const pages = dv.pages('"PARA/PROJECTS/Auction"')
-      .where(p => p.type === "auction_case")
+      .where(p =&gt; p.type === "auction_case")
       .array();
     window.BidCalendarView.render({
       container: this.container,
@@ -973,34 +927,24 @@ window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "입찰 일정 캘린더",
   run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("calendar", error)
+  onError: (error) =&gt; window.ProdigyAuctionSectionFailure?.("calendar", error)
 });
-```
-
----
-
-
----
-
-# 경매 진행 현황
-
-```js-engine
-const file = app.workspace.getActiveFile();
+</code></pre><hr><hr><h1>경매 진행 현황</h1><pre><code class="language-js-engine">const file = app.workspace.getActiveFile();
 if (!file) return;
 if (!container) return;
 if (container.classList) container.classList.add("auction-hub-section", "auction-hub-pipeline-section");
 window.ProdigyAuctionNativeScenes.register("pipeline", container);
 container.empty();
 
-const files = app.vault.getFiles().filter(f =>
-  f.path.startsWith("PARA/PROJECTS/Auction/") && f.extension === "md"
+const files = app.vault.getFiles().filter(f =&gt;
+  f.path.startsWith("PARA/PROJECTS/Auction/") &amp;&amp; f.extension === "md"
 );
 
 await window.ProdigyAuctionWorkspaceReady;
 
 const counts = { watching: 0, bidding: 0, skipped: 0, won: 0, lost: 0, reviewing: 0, archived: 0 };
 
-files.forEach(f => {
+files.forEach(f =&gt; {
   const c = app.metadataCache.getFileCache(f);
   const fm = c?.frontmatter;
   if (fm?.type === "auction_case") {
@@ -1018,7 +962,7 @@ const pipelineBox = container.createEl('div', {
   attr: { class: "auction-hub-pipeline auction-hub-pipeline-compact" }
 });
 
-const makeStep = (parent, label, count, color) => {
+const makeStep = (parent, label, count, color) =&gt; {
   const step = parent.createEl('div', {
     attr: { class: `auction-hub-pipeline-step tone-${color}` }
   });
@@ -1027,13 +971,13 @@ const makeStep = (parent, label, count, color) => {
   return step;
 };
 
-const makeGroup = (parent) => {
+const makeGroup = (parent) =&gt; {
   return parent.createEl('div', {
     attr: { class: "auction-hub-pipeline-group" }
   });
 };
 
-const makeArrow = (parent) => {
+const makeArrow = (parent) =&gt; {
   parent.createEl('div', {
     text: '→',
     attr: { class: "auction-hub-pipeline-arrow" }
@@ -1041,7 +985,7 @@ const makeArrow = (parent) => {
 };
 
 const display = window.prodigyDisplay;
-const statusStep = (status) => {
+const statusStep = (status) =&gt; {
   const info = display.statusInfo(status);
   return info.label;
 };
@@ -1062,28 +1006,18 @@ makeArrow(pipelineBox);
 const grp2 = makeGroup(pipelineBox);
 makeStep(grp2, statusStep('skipped'), counts.skipped, 'muted');
 makeStep(grp2, statusStep('archived'), counts.archived, 'muted');
-```
-
----
-
-
----
-
-## 복기 대기
-
-```dataviewjs
-// Post-result queue: won/lost before reviewing, reviewing in progress, skipped before archive
-const run = () => {
+</code></pre><hr><hr><h2>복기 대기</h2><pre><code class="language-dataviewjs">// Post-result queue: won/lost before reviewing, reviewing in progress, skipped before archive
+const run = () =&gt; {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-review-queue");
   window.ProdigyAuctionNativeScenes.register("review-queue", this.container);
   if (!window.AuctionDayCore || !window.AuctionDayCore.buildReviewQueue) return false;
   this.container.empty();
   const pages = dv.pages('"PARA/PROJECTS/Auction"')
-    .where(p => p.type === "auction_case")
+    .where(p =&gt; p.type === "auction_case")
     .array()
-    .map(p => Object.assign({}, p, {
+    .map(p =&gt; Object.assign({}, p, {
       type: p.type || "auction_case",
-      path: (p.file && p.file.path) || p.path || "",
+      path: (p.file &amp;&amp; p.file.path) || p.path || "",
       file: p.file
     }));
   const queue = window.AuctionDayCore.buildReviewQueue(pages);
@@ -1118,10 +1052,10 @@ const run = () => {
     in_progress: "복기 중",
     pending_close: "보관 전"
   };
-  const statusLabel = (s) => (window.prodigyDisplay && window.prodigyDisplay.status)
+  const statusLabel = (s) =&gt; (window.prodigyDisplay &amp;&amp; window.prodigyDisplay.status)
     ? window.prodigyDisplay.status(s)
     : s;
-  queue.forEach((item) => {
+  queue.forEach((item) =&gt; {
     const row = box.createEl("div", {
       attr: { class: "auction-hub-review-row" }
     });
@@ -1145,19 +1079,19 @@ const run = () => {
       text: "원본 열기",
       attr: { type: "button", class: "prodigy-btn" }
     });
-    openBtn.onclick = () => app.workspace.openLinkText(item.path, item.path, false);
-    if (item.stage === "pending_review" && item.next_status === "reviewing") {
+    openBtn.onclick = () =&gt; app.workspace.openLinkText(item.path, item.path, false);
+    if (item.stage === "pending_review" &amp;&amp; item.next_status === "reviewing") {
       const startBtn = actions.createEl("button", {
         text: "복기 시작",
         attr: { type: "button", class: "prodigy-btn prodigy-btn-primary" }
       });
-      startBtn.onclick = async () => {
+      startBtn.onclick = async () =&gt; {
         try {
           startBtn.disabled = true;
           const tFile = app.vault.getAbstractFileByPath(item.path);
           if (!tFile) throw new Error("Object를 찾을 수 없습니다.");
           const today = window.AuctionDayCore.isoToday();
-          await app.fileManager.processFrontMatter(tFile, (fm) => {
+          await app.fileManager.processFrontMatter(tFile, (fm) =&gt; {
             fm.status = "reviewing";
             fm.updated = today;
           });
@@ -1173,13 +1107,13 @@ const run = () => {
         text: item.stage === "pending_close" ? "보관" : "복기 완료·보관",
         attr: { type: "button", class: "prodigy-btn" }
       });
-      archBtn.onclick = async () => {
+      archBtn.onclick = async () =&gt; {
         try {
           archBtn.disabled = true;
           const tFile = app.vault.getAbstractFileByPath(item.path);
           if (!tFile) throw new Error("Object를 찾을 수 없습니다.");
           const today = window.AuctionDayCore.isoToday();
-          await app.fileManager.processFrontMatter(tFile, (fm) => {
+          await app.fileManager.processFrontMatter(tFile, (fm) =&gt; {
             fm.status = "archived";
             fm.updated = today;
             if (!fm.review_date) fm.review_date = today;
@@ -1198,22 +1132,12 @@ window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "복기 대기 큐",
   run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("review_queue", error)
+  onError: (error) =&gt; window.ProdigyAuctionSectionFailure?.("review_queue", error)
 });
-```
-
----
-
-
----
-
-## 복기 중
-
-```dataviewjs
-const run = () => {
+</code></pre><hr><hr><h2>복기 중</h2><pre><code class="language-dataviewjs">const run = () =&gt; {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-reviewing");
   window.ProdigyAuctionNativeScenes.register("reviewing", this.container);
-  if (window.renderDashboardSection && window.renderAuctionCard) {
+  if (window.renderDashboardSection &amp;&amp; window.renderAuctionCard) {
     this.container.empty();
     const rendered = window.renderDashboardSection({
       dv: dv,
@@ -1235,22 +1159,12 @@ window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "복기 중",
   run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("reviewing", error)
+  onError: (error) =&gt; window.ProdigyAuctionSectionFailure?.("reviewing", error)
 });
-```
-
----
-
-
----
-
-## 낙찰
-
-```dataviewjs
-const run = () => {
+</code></pre><hr><hr><h2>낙찰</h2><pre><code class="language-dataviewjs">const run = () =&gt; {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-won");
   window.ProdigyAuctionNativeScenes.register("won", this.container);
-  if (window.renderDashboardSection && window.renderAuctionCard) {
+  if (window.renderDashboardSection &amp;&amp; window.renderAuctionCard) {
     this.container.empty();
     const rendered = window.renderDashboardSection({
       dv: dv,
@@ -1275,20 +1189,12 @@ window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "낙찰",
   run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("won", error)
+  onError: (error) =&gt; window.ProdigyAuctionSectionFailure?.("won", error)
 });
-```
-
-
----
-
-## 패찰
-
-```dataviewjs
-const run = () => {
+</code></pre><hr><h2>패찰</h2><pre><code class="language-dataviewjs">const run = () =&gt; {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-lost");
   window.ProdigyAuctionNativeScenes.register("lost", this.container);
-  if (window.renderDashboardSection && window.renderAuctionCard) {
+  if (window.renderDashboardSection &amp;&amp; window.renderAuctionCard) {
     this.container.empty();
     const rendered = window.renderDashboardSection({
       dv: dv,
@@ -1313,20 +1219,12 @@ window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "패찰",
   run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("lost", error)
+  onError: (error) =&gt; window.ProdigyAuctionSectionFailure?.("lost", error)
 });
-```
-
-
----
-
-## 입찰 포기
-
-```dataviewjs
-const run = () => {
+</code></pre><hr><h2>입찰 포기</h2><pre><code class="language-dataviewjs">const run = () =&gt; {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-skipped");
   window.ProdigyAuctionNativeScenes.register("skipped", this.container);
-  if (window.renderDashboardSection && window.renderAuctionCard) {
+  if (window.renderDashboardSection &amp;&amp; window.renderAuctionCard) {
     this.container.empty();
     const rendered = window.renderDashboardSection({
       dv: dv,
@@ -1351,20 +1249,12 @@ window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "입찰 포기",
   run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("skipped", error)
+  onError: (error) =&gt; window.ProdigyAuctionSectionFailure?.("skipped", error)
 });
-```
-
-
----
-
-## 보관
-
-```dataviewjs
-const run = () => {
+</code></pre><hr><h2>보관</h2><pre><code class="language-dataviewjs">const run = () =&gt; {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-archived");
   window.ProdigyAuctionNativeScenes.register("archived", this.container);
-  if (window.renderDashboardSection && window.renderAuctionCard) {
+  if (window.renderDashboardSection &amp;&amp; window.renderAuctionCard) {
     this.container.empty();
     const rendered = window.renderDashboardSection({
       dv: dv,
@@ -1389,6 +1279,6 @@ window.ProdigyAuctionLifecycle.start({
   container: this.container,
   label: "보관",
   run,
-  onError: (error) => window.ProdigyAuctionSectionFailure?.("archived", error)
+  onError: (error) =&gt; window.ProdigyAuctionSectionFailure?.("archived", error)
 });
-```
+</code></pre><p></p>

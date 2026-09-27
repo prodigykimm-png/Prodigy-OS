@@ -1,0 +1,192 @@
+{
+  "kind": "real_provider_with_isolated_synthetic_vault_adapter",
+  "results": [
+    {
+      "id": "conditions",
+      "question": "해솔-842 점검 절차를 빠짐없이 정리해줘.",
+      "expected": [
+        "실내 모형에 한정",
+        "10분",
+        "시작 전 전원 표시 확인",
+        "종료 후 시간 기록",
+        "실외 적용 금지",
+        "경고등 즉시 중단 및 재개 금지"
+      ],
+      "result": {
+        "ok": false,
+        "reason": "provider_unavailable",
+        "provider_call_count": 1,
+        "persisted_artifact_count": 0,
+        "automatic_retry_count": 0,
+        "automatic_repair_count": 0,
+        "artifacts": [],
+        "detail": "provider_unavailable",
+        "stage": "provider",
+        "context": {
+          "ok": true,
+          "status": "ready",
+          "reason": null,
+          "question": "해솔-842 점검 절차를 빠짐없이 정리해줘.",
+          "evidence": [
+            {
+              "key": "question_evidence_1",
+              "source_id": "source_36fe315ba09a10b9ba6f948a",
+              "source_path": "INBOX/Phase A Synthetic A.md",
+              "locator": "INBOX/Phase A Synthetic A.md#L3-L3",
+              "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+              "excerpt": "해솔-842 점검: 적용 대상은 실내 모형 장치다.",
+              "start": 11,
+              "trust": "literature",
+              "source_text_authority": "untrusted_data_only"
+            },
+            {
+              "key": "question_evidence_2",
+              "source_id": "source_36fe315ba09a10b9ba6f948a",
+              "source_path": "INBOX/Phase A Synthetic A.md",
+              "locator": "INBOX/Phase A Synthetic A.md#L5-L5",
+              "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+              "excerpt": "해솔-842 점검: 기본 점검 시간은 10분이다.",
+              "start": 41,
+              "trust": "literature",
+              "source_text_authority": "untrusted_data_only"
+            },
+            {
+              "key": "question_evidence_3",
+              "source_id": "source_36fe315ba09a10b9ba6f948a",
+              "source_path": "INBOX/Phase A Synthetic A.md",
+              "locator": "INBOX/Phase A Synthetic A.md#L7-L7",
+              "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+              "excerpt": "해솔-842 점검: 시작 전에 전원 표시를 확인한다.",
+              "start": 70,
+              "trust": "literature",
+              "source_text_authority": "untrusted_data_only"
+            },
+            {
+              "key": "question_evidence_4",
+              "source_id": "source_36fe315ba09a10b9ba6f948a",
+              "source_path": "INBOX/Phase A Synthetic A.md",
+              "locator": "INBOX/Phase A Synthetic A.md#L9-L9",
+              "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+              "excerpt": "해솔-842 점검: 종료 후 점검 시간을 기록한다.",
+              "start": 101,
+              "trust": "literature",
+              "source_text_authority": "untrusted_data_only"
+            }
+          ],
+          "source_path": "INBOX/Phase A Synthetic A.md",
+          "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+          "timings": {
+            "projection": 0.8999999761581421,
+            "retrieval": 5.600000023841858,
+            "context_assembly": 0
+          },
+          "writer_count": 0,
+          "provider_count": 0
+        },
+        "timings": {
+          "projection": 0.8999999761581421,
+          "retrieval": 5.600000023841858,
+          "context_assembly": 0,
+          "provider": 1.899999976158142
+        }
+      },
+      "proposal": null,
+      "provider_payloads": [],
+      "provider_requests": [],
+      "progress": [
+        "source_ready",
+        "searching",
+        "calling_provider"
+      ],
+      "reads": [
+        "INBOX/Phase A Synthetic A.md"
+      ],
+      "writes": 0,
+      "actual_ui": false
+    },
+    {
+      "id": "conflict",
+      "question": "은빛-593 점검 시간은 몇 분인가?",
+      "expected": [
+        "규정 A 10분",
+        "규정 B 20분",
+        "동일 대상의 상충",
+        "시행일/우선순위 없어 하나를 확정 불가"
+      ],
+      "result": {
+        "ok": false,
+        "reason": "provider_unavailable",
+        "provider_call_count": 1,
+        "persisted_artifact_count": 0,
+        "automatic_retry_count": 0,
+        "automatic_repair_count": 0,
+        "artifacts": [],
+        "detail": "provider_unavailable",
+        "stage": "provider",
+        "context": {
+          "ok": true,
+          "status": "ready",
+          "reason": null,
+          "question": "은빛-593 점검 시간은 몇 분인가?",
+          "evidence": [
+            {
+              "key": "question_evidence_1",
+              "source_id": "source_793a8720edc9851ae6f23034",
+              "source_path": "INBOX/Phase A Synthetic B.md",
+              "locator": "INBOX/Phase A Synthetic B.md#L3-L3",
+              "content_hash": "26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d",
+              "excerpt": "은빛-593 점검 규정 A: 동일한 실내 모형의 점검 시간은 10분이다.",
+              "start": 11,
+              "trust": "literature",
+              "source_text_authority": "untrusted_data_only"
+            },
+            {
+              "key": "question_evidence_2",
+              "source_id": "source_793a8720edc9851ae6f23034",
+              "source_path": "INBOX/Phase A Synthetic B.md",
+              "locator": "INBOX/Phase A Synthetic B.md#L5-L5",
+              "content_hash": "26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d",
+              "excerpt": "은빛-593 점검 규정 B: 동일한 실내 모형의 점검 시간은 20분이다.",
+              "start": 53,
+              "trust": "literature",
+              "source_text_authority": "untrusted_data_only"
+            }
+          ],
+          "source_path": "INBOX/Phase A Synthetic B.md",
+          "content_hash": "26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d",
+          "timings": {
+            "projection": 0.2999999523162842,
+            "retrieval": 1.3000000715255737,
+            "context_assembly": 0
+          },
+          "writer_count": 0,
+          "provider_count": 0
+        },
+        "timings": {
+          "projection": 0.2999999523162842,
+          "retrieval": 1.3000000715255737,
+          "context_assembly": 0,
+          "provider": 0.19999992847442627
+        }
+      },
+      "proposal": null,
+      "provider_payloads": [],
+      "provider_requests": [],
+      "progress": [
+        "source_ready",
+        "searching",
+        "calling_provider"
+      ],
+      "reads": [
+        "INBOX/Phase A Synthetic B.md"
+      ],
+      "writes": 0,
+      "actual_ui": false
+    }
+  ],
+  "loaded_code_match": {
+    "answerSourceQuestion": true,
+    "prepareQuestionProposal": true,
+    "handoffQuestionProposal": true
+  }
+}

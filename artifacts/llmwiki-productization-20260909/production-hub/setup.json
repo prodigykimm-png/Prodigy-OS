@@ -1,0 +1,58 @@
+{
+  "vault": "/tmp/Prodigy-Wiki-Hub-QA-4lmusmx4",
+  "production_source": "/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk",
+  "entry": "HUB/50 Knowledge.md",
+  "test_adapter": false,
+  "preassembled_changes": false,
+  "copied_grants": false,
+  "sources": {
+    "recorded_before_execution": "2026-09-09T00:34:33.061960+00:00",
+    "scope": "각 합성 자료 하나만; 운영 vault 원문 접근 및 provider 설정 변경 없음",
+    "cases": [
+      {
+        "id": "conditions",
+        "virtual_path": "INBOX/Phase A Synthetic A.md",
+        "text": "# 합성 검수 A\n\n해솔-842 점검: 적용 대상은 실내 모형 장치다.\n\n해솔-842 점검: 기본 점검 시간은 10분이다.\n\n해솔-842 점검: 시작 전에 전원 표시를 확인한다.\n\n해솔-842 점검: 종료 후 점검 시간을 기록한다.\n\n해솔-842 점검: 실외 모형에는 적용하지 않는다.\n\n해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\n",
+        "question": "해솔-842 점검 절차를 빠짐없이 정리해줘.",
+        "must_include": [
+          "실내 모형에 한정",
+          "10분",
+          "시작 전 전원 표시 확인",
+          "종료 후 시간 기록",
+          "실외 적용 금지",
+          "경고등 즉시 중단 및 재개 금지"
+        ],
+        "unknown": [
+          "실제 장치 안전성",
+          "규정 작성자"
+        ],
+        "expected": "여섯 조건을 모두 보존하거나 근거 범위 부족을 명시. 조용한 누락 불합격",
+        "sha256": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107"
+      },
+      {
+        "id": "conflict",
+        "virtual_path": "INBOX/Phase A Synthetic B.md",
+        "text": "# 합성 검수 B\n\n은빛-593 점검 규정 A: 동일한 실내 모형의 점검 시간은 10분이다.\n\n은빛-593 점검 규정 B: 동일한 실내 모형의 점검 시간은 20분이다.\n\n두 규정에는 시행일과 우선순위가 기록되어 있지 않다.\n",
+        "question": "은빛-593 점검 시간은 몇 분인가?",
+        "must_include": [
+          "규정 A 10분",
+          "규정 B 20분",
+          "동일 대상의 상충",
+          "시행일/우선순위 없어 하나를 확정 불가"
+        ],
+        "unknown": [
+          "어느 규정이 우선인가"
+        ],
+        "expected": "상충과 확정 불가를 직접 답변. 임의 평균/우선순위 금지",
+        "sha256": "26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d"
+      }
+    ],
+    "reused_canary_expectations": {
+      "fact": "결정 저장 전 원문 근거와 변경 내용 함께 확인. 두 확인 항목. 본문 L3/L5에만 존재",
+      "no_answer": "작성자 이름 원문 없음 → abstain",
+      "proposal": "선택 claim 의미와 원문, inferred 상태 유지. 승인 전 무쓰기"
+    },
+    "two_source_comparison": "현재 단일 source API/UI; 기능 부재로 기록, 두 자료 선택을 가장하지 않음"
+  },
+  "B": "해솔-842 점검 기록에는 장치 식별자를 함께 적는다."
+}

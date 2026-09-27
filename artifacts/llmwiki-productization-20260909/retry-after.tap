@@ -1,0 +1,190 @@
+TAP version 13
+# Subtest: document plan resolves canonically equivalent Unicode source paths
+ok 1 - document plan resolves canonically equivalent Unicode source paths
+  ---
+  duration_ms: 64.874417
+  type: 'test'
+  ...
+# Subtest: document planning requires complete semantic source coverage before downstream planning
+ok 2 - document planning requires complete semantic source coverage before downstream planning
+  ---
+  duration_ms: 283.742125
+  type: 'test'
+  ...
+# Subtest: canonical no_change documents count as source provenance toward full plan coverage (Finding-2)
+ok 3 - canonical no_change documents count as source provenance toward full plan coverage (Finding-2)
+  ---
+  duration_ms: 72.063833
+  type: 'test'
+  ...
+# Subtest: default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError)
+ok 4 - default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError)
+  ---
+  duration_ms: 66.887125
+  type: 'test'
+  ...
+# Subtest: span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract
+ok 5 - span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract
+  ---
+  duration_ms: 20.985625
+  type: 'test'
+  ...
+# Subtest: replay-only analysis without durable 12/12 unit coverage cannot become review_ready
+ok 6 - replay-only analysis without durable 12/12 unit coverage cannot become review_ready
+  ---
+  duration_ms: 21.076542
+  type: 'test'
+  ...
+# Subtest: Centum regression converges through the real Hub planner, compiler, and Golden orchestrator
+ok 7 - Centum regression converges through the real Hub planner, compiler, and Golden orchestrator
+  ---
+  duration_ms: 75.516333
+  type: 'test'
+  ...
+# Subtest: semantic over-capacity stops before transport and every downstream boundary
+ok 8 - semantic over-capacity stops before transport and every downstream boundary
+  ---
+  duration_ms: 22.525959
+  type: 'test'
+  ...
+# Subtest: v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay
+ok 9 - v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay
+  ---
+  duration_ms: 90.189708
+  type: 'test'
+  ...
+# Subtest: live batch emits one document operation for multiple reusable claims
+ok 10 - live batch emits one document operation for multiple reusable claims
+  ---
+  duration_ms: 30.782291
+  type: 'test'
+  ...
+# Subtest: rejecting an obsolete review run persists zero packets across restart
+ok 11 - rejecting an obsolete review run persists zero packets across restart
+  ---
+  duration_ms: 48.515416
+  type: 'test'
+  ...
+# Subtest: isolated document pilot covers content beyond 4 KiB without replacing the existing review
+ok 12 - isolated document pilot covers content beyond 4 KiB without replacing the existing review
+  ---
+  duration_ms: 23.221542
+  type: 'test'
+  ...
+# Subtest: isolated document pilot resumes after the last completed pack
+ok 13 - isolated document pilot resumes after the last completed pack
+  ---
+  duration_ms: 39.871125
+  type: 'test'
+  ...
+# Subtest: full-source materialization converts chunk-local spans to source-global locators
+ok 14 - full-source materialization converts chunk-local spans to source-global locators
+  ---
+  duration_ms: 59.954875
+  type: 'test'
+  ...
+# Subtest: full-source plan resumes a blocked batch only with explicit retry intent
+ok 15 - full-source plan resumes a blocked batch only with explicit retry intent
+  ---
+  duration_ms: 22.629417
+  type: 'test'
+  ...
+# Subtest: Hub remount preserves the actively selected document plan
+ok 16 - Hub remount preserves the actively selected document plan
+  ---
+  duration_ms: 28.692958
+  type: 'test'
+  ...
+# Subtest: compile blocks swapped topic titles until explicit recommended renames
+ok 17 - compile blocks swapped topic titles until explicit recommended renames
+  ---
+  duration_ms: 38.454417
+  type: 'test'
+  ...
+# Subtest: full-source workflow stops at page-plan triage, then compiles preview without replacing active review
+ok 18 - full-source workflow stops at page-plan triage, then compiles preview without replacing active review
+  ---
+  duration_ms: 101.747458
+  type: 'test'
+  ...
+# Subtest: source-only claims block source archive when compiled review activates
+ok 19 - source-only claims block source archive when compiled review activates
+  ---
+  duration_ms: 32.526583
+  type: 'test'
+  ...
+# Subtest: legacy atomized recovery repackets from cached artifacts with provider zero
+ok 20 - legacy atomized recovery repackets from cached artifacts with provider zero
+  ---
+  duration_ms: 44.64725
+  type: 'test'
+  ...
+# Subtest: canonical coverage blocks duplicate candidate creation in the live Hub
+ok 21 - canonical coverage blocks duplicate candidate creation in the live Hub
+  ---
+  duration_ms: 19.856875
+  type: 'test'
+  ...
+# Subtest: stale source excluded from cached repacket returns to the visible pending queue
+ok 22 - stale source excluded from cached repacket returns to the visible pending queue
+  ---
+  duration_ms: 49.052917
+  type: 'test'
+  ...
+# Subtest: Hub explicit retry preserves the frozen source set after partial progress
+ok 23 - Hub explicit retry preserves the frozen source set after partial progress
+  ---
+  duration_ms: 78.837292
+  type: 'test'
+  ...
+# Subtest: true process A/B production harness proves restart, partial apply, stale recovery, and changed-identity retry
+ok 24 - true process A/B production harness proves restart, partial apply, stale recovery, and changed-identity retry
+  ---
+  duration_ms: 509.992625
+  type: 'test'
+  ...
+# Subtest: process A running receipt restores in process B as outcome_unknown with provider/write zero
+ok 25 - process A running receipt restores in process B as outcome_unknown with provider/write zero
+  ---
+  duration_ms: 60.994459
+  type: 'test'
+  ...
+# Subtest: durable review snapshot round-trips selection, receipts, and partial outcomes without becoming a second authority
+ok 26 - durable review snapshot round-trips selection, receipts, and partial outcomes without becoming a second authority
+  ---
+  duration_ms: 2.281542
+  type: 'test'
+  ...
+# Subtest: explicit retry creates one distinct frozen job per intent and duplicate intent is idempotent
+ok 27 - explicit retry creates one distinct frozen job per intent and duplicate intent is idempotent
+  ---
+  duration_ms: 1.01725
+  type: 'test'
+  ...
+# Subtest: analyzer changed-identity retry links the exact-source parent and duplicate intent performs one provider request
+ok 28 - analyzer changed-identity retry links the exact-source parent and duplicate intent performs one provider request
+  ---
+  duration_ms: 3.95975
+  type: 'test'
+  ...
+# Subtest: new Hub module graph restores durable proposals and selection with provider0
+ok 29 - new Hub module graph restores durable proposals and selection with provider0
+  ---
+  duration_ms: 89.708042
+  type: 'test'
+  ...
+# Subtest: actual Hub stale approval persists only the affected operation and a fresh graph restores repacket with provider0/write0
+ok 30 - actual Hub stale approval persists only the affected operation and a fresh graph restores repacket with provider0/write0
+  ---
+  duration_ms: 67.495292
+  type: 'test'
+  ...
+1..30
+# tests 30
+# suites 0
+# pass 30
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2210.147583

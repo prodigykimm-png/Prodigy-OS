@@ -1,0 +1,849 @@
+{
+  "generated_at": "2026-09-08T23:12:45.676Z",
+  "command": "node artifacts/llmwiki-runtime-audit-20260909/canary.cjs",
+  "source": {
+    "ok": true,
+    "path": "INBOX/Prodigy Wiki QA 임시.md",
+    "bytes": 317,
+    "hash": "626773b55f84b9b66e0dd83b7f0a42ea85c0c91303c97c7a614f203004f94259"
+  },
+  "stages": [
+    {
+      "stage": "source intake eligibility",
+      "status": "PASS",
+      "ms": 2.0027500000000007,
+      "output": {
+        "ok": true,
+        "path": "INBOX/Prodigy Wiki QA 임시.md",
+        "bytes": 317,
+        "hash": "626773b55f84b9b66e0dd83b7f0a42ea85c0c91303c97c7a614f203004f94259"
+      },
+      "retry": 0,
+      "fallback": 0,
+      "artifacts": [],
+      "error": null
+    },
+    {
+      "stage": "analysis scope",
+      "status": "PASS",
+      "ms": 1.6183750000000003,
+      "output": {
+        "scope_version": "llmwiki_analysis_scope_v1",
+        "scope_id": "scope_8d3cf40f119b017d6fbe1134",
+        "source_id": "source_audit_canary",
+        "source_path": "INBOX/Prodigy Wiki QA 임시.md",
+        "content_hash": "626773b55f84b9b66e0dd83b7f0a42ea85c0c91303c97c7a614f203004f94259",
+        "start": 0,
+        "end": 141,
+        "text": "테스트 합성 카드 고쳐쓰기 지침 v1:\n- 이 노트는 자동화 시험용 합성 내용만 담는다.\n- 인용 규칙: 요청 식별자는 64자리 16진수만 사용하고, 근거 인용은 불투명 토큰 하나로 제한한다.\n- 비밀값, 개인 문장, 실제 전화번호는 절대 넣지 않는다.",
+        "text_hash": "626773b55f84b9b66e0dd83b7f0a42ea85c0c91303c97c7a614f203004f94259"
+      },
+      "retry": 0,
+      "fallback": 0,
+      "artifacts": [],
+      "error": null
+    },
+    {
+      "stage": "chunk projection",
+      "status": "PASS",
+      "ms": 1.4215830000000018,
+      "output": {
+        "manifest_version": "llmwiki_chunk_manifest_v1",
+        "manifest_id": "manifest_6542c80e6c685edd1903e017",
+        "scope_id": "scope_8d3cf40f119b017d6fbe1134",
+        "source_id": "source_audit_canary",
+        "source_path": "INBOX/Prodigy Wiki QA 임시.md",
+        "content_hash": "626773b55f84b9b66e0dd83b7f0a42ea85c0c91303c97c7a614f203004f94259",
+        "start": 0,
+        "end": 141,
+        "max_bytes": 12288,
+        "chunks": [
+          {
+            "semantic_id": "semantic_626773b55f84b9b66e0dd83b",
+            "instance_id": "instance_d95cff91d88263fa16283073",
+            "occurrence": 1,
+            "start": 0,
+            "end": 141,
+            "text": "테스트 합성 카드 고쳐쓰기 지침 v1:\n- 이 노트는 자동화 시험용 합성 내용만 담는다.\n- 인용 규칙: 요청 식별자는 64자리 16진수만 사용하고, 근거 인용은 불투명 토큰 하나로 제한한다.\n- 비밀값, 개인 문장, 실제 전화번호는 절대 넣지 않는다.",
+            "text_hash": "626773b55f84b9b66e0dd83b7f0a42ea85c0c91303c97c7a614f203004f94259",
+            "boundary_kind": "complete"
+          }
+        ]
+      },
+      "retry": 0,
+      "fallback": 0,
+      "artifacts": [],
+      "error": null
+    },
+    {
+      "stage": "query corpus projection",
+      "status": "PASS",
+      "ms": 7.880832999999999,
+      "output": {
+        "ok": true,
+        "status": "ok",
+        "snapshot_version": "llmwiki_wiki_read_v1",
+        "snapshot_revision": "fe7c01af8229568d7c2be1ea938ef192344aaa5e6e5ec5331c761672333dcb8e",
+        "current_revision": "fe7c01af8229568d7c2be1ea938ef192344aaa5e6e5ec5331c761672333dcb8e",
+        "revision": "fe7c01af8229568d7c2be1ea938ef192344aaa5e6e5ec5331c761672333dcb8e",
+        "collection_revision": "",
+        "rows": [],
+        "documents": [],
+        "tiers": {
+          "verified": [],
+          "legacy_review": [],
+          "literature": [],
+          "pending": [],
+          "maintenance": []
+        },
+        "counts": {
+          "verified": 0,
+          "legacy_review": 0,
+          "literature": 0,
+          "pending": 0,
+          "maintenance": 0,
+          "total": 0
+        },
+        "allowed_prefixes": [
+          "ZETA/PERMANENT/",
+          "ZETA/LITERATURE/",
+          "PARA/RESOURCES/Knowledge/Candidates/",
+          "PARA/RESOURCES/Reading/Candidates/",
+          "ZETA/FLEETING/Knowledge Candidates/"
+        ],
+        "allowed_prefix_metadata": {
+          "verified": [
+            "ZETA/PERMANENT/"
+          ],
+          "literature": [
+            "ZETA/LITERATURE/"
+          ],
+          "pending": [
+            "PARA/RESOURCES/Knowledge/Candidates/",
+            "PARA/RESOURCES/Reading/Candidates/",
+            "ZETA/FLEETING/Knowledge Candidates/"
+          ],
+          "accepted": [
+            "ZETA/PERMANENT/",
+            "ZETA/LITERATURE/",
+            "PARA/RESOURCES/Knowledge/Candidates/",
+            "PARA/RESOURCES/Reading/Candidates/",
+            "ZETA/FLEETING/Knowledge Candidates/"
+          ],
+          "candidate_root": "PARA/RESOURCES/Knowledge/Candidates/",
+          "legacy_candidate_roots": [
+            "PARA/RESOURCES/Reading/Candidates/",
+            "ZETA/FLEETING/Knowledge Candidates/"
+          ]
+        },
+        "writer_count": 0,
+        "provider_count": 0
+      },
+      "retry": 0,
+      "fallback": 0,
+      "artifacts": [],
+      "error": null
+    },
+    {
+      "stage": "canary searchable as source",
+      "status": "FAIL",
+      "ms": 6.727792000000001,
+      "output": {
+        "ok": false,
+        "status": "empty",
+        "query": "Prodigy Wiki QA",
+        "mode": "literature",
+        "domain": "",
+        "topic": "",
+        "snapshot_revision": "fe7c01af8229568d7c2be1ea938ef192344aaa5e6e5ec5331c761672333dcb8e",
+        "current_revision": "fe7c01af8229568d7c2be1ea938ef192344aaa5e6e5ec5331c761672333dcb8e",
+        "revision": "fe7c01af8229568d7c2be1ea938ef192344aaa5e6e5ec5331c761672333dcb8e",
+        "rows": [],
+        "results": [],
+        "facets": {
+          "domains": [
+            {
+              "key": "real_estate",
+              "label": "real_estate",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "wedding",
+              "label": "wedding",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "coding",
+              "label": "coding",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "workout",
+              "label": "workout",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "reading",
+              "label": "reading",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "business",
+              "label": "business",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "personal_growth",
+              "label": "personal_growth",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            }
+          ],
+          "topics": [
+            {
+              "key": "rights_analysis",
+              "label": "rights_analysis",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "site_visit",
+              "label": "site_visit",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "bidding",
+              "label": "bidding",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "public_auction",
+              "label": "public_auction",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "tax",
+              "label": "tax",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "precedent",
+              "label": "precedent",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "shooting",
+              "label": "shooting",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "lighting",
+              "label": "lighting",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "editing",
+              "label": "editing",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "equipment",
+              "label": "equipment",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "electron",
+              "label": "electron",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "react",
+              "label": "react",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "typescript",
+              "label": "typescript",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "python",
+              "label": "python",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "ai",
+              "label": "ai",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "prompt_engineering",
+              "label": "prompt_engineering",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "obsidian_plugin",
+              "label": "obsidian_plugin",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "claude_code",
+              "label": "claude_code",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "codex",
+              "label": "codex",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            },
+            {
+              "key": "gemini",
+              "label": "gemini",
+              "count": 0,
+              "counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              },
+              "trust_counts": {
+                "verified": 0,
+                "legacy_review": 0,
+                "literature": 0,
+                "pending": 0,
+                "maintenance": 0,
+                "total": 0
+              }
+            }
+          ]
+        },
+        "counts": {
+          "verified": 0,
+          "legacy_review": 0,
+          "literature": 0,
+          "pending": 0,
+          "maintenance": 0,
+          "total": 0
+        },
+        "total": 0,
+        "selection": {
+          "domain": "",
+          "topic": "",
+          "mode": "literature",
+          "path": null,
+          "detail_state": "rest"
+        },
+        "allowed_prefixes": [
+          "ZETA/PERMANENT/",
+          "ZETA/LITERATURE/",
+          "PARA/RESOURCES/Knowledge/Candidates/",
+          "PARA/RESOURCES/Reading/Candidates/",
+          "ZETA/FLEETING/Knowledge Candidates/"
+        ],
+        "writer_count": 0,
+        "provider_count": 0,
+        "assertion": "eligible INBOX source must be discoverable as supporting evidence; not verified Knowledge"
+      },
+      "retry": 0,
+      "fallback": 0,
+      "artifacts": [],
+      "error": null
+    }
+  ],
+  "modes": [
+    {
+      "provider_mode": "direct",
+      "result": {
+        "ok": true,
+        "value": {
+          "feature": "llmwiki",
+          "provider_mode": "runtime",
+          "provider_key": "runtime",
+          "explicit_provider": false,
+          "timeout_ms": 120000,
+          "retry_owner": "prodigy",
+          "fallback_allowed": false,
+          "request_metadata": {}
+        }
+      }
+    },
+    {
+      "provider_mode": "omniroute",
+      "result": {
+        "ok": false,
+        "field": "provider_mode",
+        "reason": "invalid_provider_mode",
+        "writer_count": 0
+      }
+    }
+  ],
+  "transport_error_mapping": [
+    {
+      "code": "transport_error",
+      "mapped": "provider_unavailable"
+    },
+    {
+      "code": "rate_limited",
+      "mapped": "provider_unavailable"
+    },
+    {
+      "code": "secret_missing",
+      "mapped": "provider_unavailable"
+    },
+    {
+      "code": "timeout",
+      "mapped": "provider_unavailable"
+    },
+    {
+      "code": "schema_invalid",
+      "mapped": "provider_unavailable"
+    },
+    {
+      "code": "malformed_transport_response",
+      "mapped": "provider_unavailable"
+    }
+  ],
+  "canonical_files": 24,
+  "immutable_head_exists": false,
+  "job_counts": {
+    "pending": 5,
+    "blocked": 22,
+    "review_ready": 21,
+    "resolved": 1
+  },
+  "blocked_job": {
+    "job_id": "28e6a4f3cc88ec671d51d366918be01f195db3dafc985c6fe72ae7510efe52cb",
+    "batch_id": "28e6a4f3cc88ec671d51d366918be01f195db3dafc985c6fe72ae7510efe52cb",
+    "request_key": "de390f59f257107537d870c446ab8d85f48067ee2873612203ec3a3a876d6d1a",
+    "status": "blocked",
+    "sources": {
+      "source_plan_b34ccb83e07db711064e99f3": "7da0f1f72083129b8cea891f0202ee1a01491a30e7b2b6770da784e991a1f0b3"
+    },
+    "frozen_identity": {
+      "provider_key": "prodigy-ai-runtime",
+      "model": "runtime-resolved",
+      "structured_mode": "json_schema",
+      "schema_id": "llmwiki_compact_v2",
+      "prompt_version": "llmwiki_batch_compact_v2",
+      "candidate_context_hash": "06302508bd2089eceec395851a6cbc2d4847cc9af01744604061f328e6f5ed2c"
+    }
+  },
+  "canonical_writes": 0,
+  "persistent_runtime_writes": 0
+}

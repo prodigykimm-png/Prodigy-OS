@@ -1,0 +1,258 @@
+{
+  "status": "PASS",
+  "vault_root": "/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/artifacts/llmwiki-productization-20260909/finish-validation/vault-sAMPst",
+  "scope": "isolated physical filesystem Vault using current production review/writer/reader; no real Obsidian UI",
+  "provider_calls_this_run": 0,
+  "provider_evidence": "A/C reused live-inspection.json actual provider recordings",
+  "A": {
+    "ok": true,
+    "status": "completed",
+    "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+    "revision": "1a64f81c7fc21363bf87a7581b8efb3db0cc7e3cea60306db06c96e49ab05389",
+    "trust_status": "active",
+    "writer_result": {
+      "ok": true,
+      "status": "committed",
+      "write_counts": {
+        "canonical": 1,
+        "audit": 2,
+        "derived": 0,
+        "provider": 0,
+        "network": 0,
+        "git": 0
+      },
+      "approval_consumed": true,
+      "source_deletes": 0,
+      "git_calls": 0,
+      "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+      "receipt": {
+        "canonical_id": "knowledge_79fa7a24ee573940d1f6989a",
+        "packet_hash": "eaf7b0b957974bddc1fbac9bca64e177486cdf17120d7ca42e6e53c9b0669abf",
+        "authority_audit_hash": "d4269d52f02d7a8e66967352e90de8ae485cb069015f3098057b6affd6807ed4"
+      }
+    },
+    "timings": {
+      "prepare": 16.838832999999997,
+      "apply_and_reader": 27.958999999999996,
+      "total": 44.79925
+    },
+    "conditions_preserved": 6
+  },
+  "B": {
+    "ok": true,
+    "status": "completed",
+    "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+    "revision": "6b160e436faf616515bec57bfc25895b74809c58d68e375748305b62692a1d68",
+    "trust_status": "active",
+    "writer_result": {
+      "ok": true,
+      "status": "committed",
+      "write_counts": {
+        "canonical": 1,
+        "audit": 0,
+        "derived": 0,
+        "provider": 0,
+        "network": 0,
+        "git": 0
+      },
+      "approval_consumed": true,
+      "source_deletes": 0,
+      "git_calls": 0,
+      "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+      "receipt": {
+        "receipt_version": "llmwiki_update_operation_receipt_v1",
+        "result": "committed",
+        "committed_at": "2026-09-09T05:22:02.746Z",
+        "canonical_id": "knowledge_79fa7a24ee573940d1f6989a",
+        "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+        "packet_hash": "4d7bd1ba027b1ca9f2dce0e4edf0ab5fefe05cbae884addcef2771d5c14e8445",
+        "authorization_hash": "678a21aeb84190c25ddc540579c8dbcee36e455fb939825a44deca4d127197b7",
+        "base_revision": "71771231ef5ba7bea64e63e1103dce5e070a6986c414b9c00d026095bdaaa724",
+        "before_sha256": "1a64f81c7fc21363bf87a7581b8efb3db0cc7e3cea60306db06c96e49ab05389",
+        "after_sha256": "6b160e436faf616515bec57bfc25895b74809c58d68e375748305b62692a1d68",
+        "evidence_hash": "e86e49a6d4fe1b4d188ea964d6073fa901c53705493536cee3f1642c8098f989",
+        "compensation": {
+          "compensation_version": "llmwiki_exact_restore_compensation_v1",
+          "status": "prepared",
+          "prepared_at": "2026-09-09T05:22:02.746Z",
+          "canonical_id": "knowledge_79fa7a24ee573940d1f6989a",
+          "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+          "restore_bytes": "---\nschema_version: 2\ntype: \"knowledge\"\ncanonical_id: \"knowledge_79fa7a24ee573940d1f6989a\"\nknowledge_kind: \"claim\"\nstatus: \"active\"\nstatement: \"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"\nknowledge_domain: \"coding\"\nknowledge_topics: [\"ai\"]\napplication_trigger: \"실내 합성 모형 점검\"\napplication_contexts: [\"coding/ai\"]\ninvalidation_conditions: [\"원문 또는 적용 조건 변경\"]\nsources: [{\"source_id\":\"source_36fe315ba09a10b9ba6f948a\",\"span\":{\"end\":199,\"start\":0}}]\nclaim_set_hash: \"1a62a90bc4a6c5c96946459ec2daeec31d2f4c83df3bfc46bd19d8bbe8d58845\"\npromotion_receipt_hash: \"4d4ea60616d515ed463904de4f50ca2ff2eb547d0452b9931542a5acd3ddcff5\"\nai_enrichment_status: \"none\"\ncreated: \"2026-09-09T05:22:02.681Z\"\nupdated: \"2026-09-09T05:22:02.681Z\"\n---\n# 해솔-842 점검\n\n해솔-842 점검의 적용 대상은 실내 모형 장치다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L3-L3)\n\n해솔-842 점검의 기본 점검 시간은 10분이다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L5-L5)\n\n해솔-842 점검 시작 전에 전원 표시를 확인한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L7-L7)\n\n해솔-842 점검 종료 후 점검 시간을 기록한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L9-L9)\n\n해솔-842 점검은 실외 모형에는 적용하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L11-L11)\n\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L13-L13)\n\n\n## 사용자 메모\n시험용 모형에만 적용한다는 개인 검토 메모를 보존한다.\n\n## 사용자 검토 범위\n- 적용 조건: 실내 모형에만 적용\n- 예외·금지: 실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\n- 재검토 조건: 원문 또는 적용 조건 변경\n\n## 출처\n- [source_36fe315ba09a10b9ba6f948a](INBOX/Phase%20A%20Synthetic%20A.md#L1)\n",
+          "restore_sha256": "1a64f81c7fc21363bf87a7581b8efb3db0cc7e3cea60306db06c96e49ab05389",
+          "replace_sha256": "6b160e436faf616515bec57bfc25895b74809c58d68e375748305b62692a1d68",
+          "packet_hash": "4d7bd1ba027b1ca9f2dce0e4edf0ab5fefe05cbae884addcef2771d5c14e8445",
+          "authorization_hash": "678a21aeb84190c25ddc540579c8dbcee36e455fb939825a44deca4d127197b7"
+        }
+      },
+      "compensation_prepared": true
+    },
+    "timings": {
+      "prepare": 10.975499999999997,
+      "apply_and_reader": 31.620791999999994,
+      "total": 42.59662499999999
+    },
+    "source_count": 2,
+    "canonical_document_count": 2,
+    "note": "2 means main updated Knowledge + independently approved link target; no duplicate main Knowledge"
+  },
+  "C": {
+    "status": "held",
+    "reason": "promotion_review_required",
+    "writes": 0
+  },
+  "D": {
+    "ok": true,
+    "status": "no_change",
+    "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+    "provider_count": 0,
+    "writes": 0,
+    "latency_ms": 9.30729199999999,
+    "additional_writes": 0,
+    "provider_calls": 0
+  },
+  "link": {
+    "markdown": "[[ZETA/PERMANENT/모형 식별 기록]]",
+    "target_exists": true,
+    "count": 1
+  },
+  "reader": {
+    "status": "trusted",
+    "verified": 2,
+    "updated_body_reusable": true,
+    "rows": [
+      {
+        "path": "ZETA/PERMANENT/해솔-842 점검.md",
+        "trust_status": "active",
+        "revision": "6b160e436faf616515bec57bfc25895b74809c58d68e375748305b62692a1d68"
+      },
+      {
+        "path": "ZETA/PERMANENT/모형 식별 기록.md",
+        "trust_status": "active",
+        "revision": "8618f926c970e02d9011f7fb9e7155b28338385717b2c1593cf3a3f5805bb7ca"
+      }
+    ]
+  },
+  "next_source_existing_wiki_lookup": {
+    "ok": true,
+    "relation": "duplicate",
+    "status": "classified",
+    "candidates": [
+      {
+        "candidate_id": "knowledge_79fa7a24ee573940d1f6989a",
+        "title": "해솔-842 점검",
+        "read_only": true,
+        "covered_claim_ids": [
+          "claim_1"
+        ],
+        "coverage_count": 1,
+        "coverage_ratio": 1,
+        "mean_token_coverage": 1,
+        "title_anchor_match": false
+      }
+    ],
+    "evidence": [
+      {
+        "candidate_id": "knowledge_79fa7a24ee573940d1f6989a",
+        "title": "해솔-842 점검",
+        "read_only": true,
+        "covered_claim_ids": [
+          "claim_1"
+        ],
+        "coverage_count": 1,
+        "coverage_ratio": 1,
+        "mean_token_coverage": 1,
+        "title_anchor_match": false
+      }
+    ],
+    "writer_count": 0
+  },
+  "authority": {
+    "claim_set_hash_matches": true,
+    "revision_matches": true,
+    "source_ids": [
+      "source_36fe315ba09a10b9ba6f948a",
+      "source_supplement_b"
+    ]
+  },
+  "events": [
+    {
+      "action": "create",
+      "path": "INBOX/Phase A Synthetic A.md"
+    },
+    {
+      "action": "create",
+      "path": "INBOX/Phase A Synthetic B.md"
+    },
+    {
+      "action": "create",
+      "path": ".llmwiki-audit/review_d2d078b4ec789ee1c4fe2273_1788931322681.json"
+    },
+    {
+      "action": "create",
+      "path": "ZETA/PERMANENT/해솔-842 점검.md"
+    },
+    {
+      "action": "modify",
+      "path": ".llmwiki-audit/review_d2d078b4ec789ee1c4fe2273_1788931322681.json"
+    },
+    {
+      "action": "create",
+      "path": ".llmwiki-audit/immutable/d4269d52f02d7a8e66967352e90de8ae485cb069015f3098057b6affd6807ed4.json"
+    },
+    {
+      "action": "create",
+      "path": ".llmwiki-audit/immutable/head.json"
+    },
+    {
+      "action": "create",
+      "path": "INBOX/indicator_reference.md"
+    },
+    {
+      "action": "create",
+      "path": ".llmwiki-audit/review_99f85ade9f00346b7c844753_1788931322715.json"
+    },
+    {
+      "action": "create",
+      "path": "ZETA/PERMANENT/모형 식별 기록.md"
+    },
+    {
+      "action": "modify",
+      "path": ".llmwiki-audit/review_99f85ade9f00346b7c844753_1788931322715.json"
+    },
+    {
+      "action": "create",
+      "path": ".llmwiki-audit/immutable/bc0d0db610bf2fa98ca5eef5478aa16a12d253aba26c8940e7e58c220e7bb46e.json"
+    },
+    {
+      "action": "modify",
+      "path": ".llmwiki-audit/immutable/head.json"
+    },
+    {
+      "action": "create",
+      "path": "INBOX/supplement_b.md"
+    },
+    {
+      "action": "create",
+      "path": ".llmwiki-audit/upd_678a21aeb84190c25ddc540579c8dbce.json"
+    },
+    {
+      "action": "modify",
+      "path": "ZETA/PERMANENT/해솔-842 점검.md"
+    },
+    {
+      "action": "modify",
+      "path": ".llmwiki-audit/upd_678a21aeb84190c25ddc540579c8dbce.json"
+    },
+    {
+      "action": "create",
+      "path": ".llmwiki-audit/immutable/6f52f871ed46c5f74612eef57e8ed087a6d4db7387ffc9f3e7cfaea056a1be3a.json"
+    },
+    {
+      "action": "modify",
+      "path": ".llmwiki-audit/immutable/head.json"
+    }
+  ],
+  "operational_writes": 0,
+  "approval": "explicit test-harness simulation",
+  "real_ui": "NOT RUN"
+}

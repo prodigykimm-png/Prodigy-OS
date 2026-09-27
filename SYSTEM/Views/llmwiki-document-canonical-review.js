@@ -15,7 +15,51 @@
   const recovery = dep("LLMWikiUIRecovery", "./llmwiki-ui-recovery.js");
   const evidence = dep("LLMWikiEvidenceContract", "./llmwiki-evidence-contract.js");
   const migrationFlows = dep("LLMWikiLifecycleMigrationFlows", "./llmwiki-lifecycle-migration-flows.js");
+  const manualRegistry = dep("LLMWikiManualRegistry", "./llmwiki-manual-registry.js");
   const VERSION = "llmwiki_document_canonical_review_recovery_v2";
+  // 소유자 결정 기억: 적용 완료된 검토의 종류·분야·근거 수준을 주제 겹침으로
+  // 다시 불러와 추천 기본값으로 쓴다. 관계 판단을 대신하지 않고(중복·충돌·얇음은
+  // 기억해도 꺼내지 않는다), 고치면 그만인 추천이라 touched로 기록하지 않는다.
+  const DECISION_MEMORY_PATH = "SYSTEM/CACHE/llmwiki/owner-decision-memory.json";
+  const DECISION_MEMORY_FIELDS = ["knowledge_kind", "knowledge_domain", "evidence_strength"];
+  const normalizeTopics = (value) => (Array.isArray(value) ? value : String(value || "").split("\n")).map(row => String(row).trim().toLowerCase()).filter(Boolean);
+  async function loadDecisionMemory(app) {
+    try {
+      const file = app && app.vault.getAbstractFileByPath(DECISION_MEMORY_PATH);
+      if (!file || typeof app.vault.read !== "function") return [];
+      const parsed = JSON.parse(await app.vault.read(file));
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(entry => entry && typeof entry === "object").slice(0, 50);
+    } catch (_memoryError) { return []; }
+  }
+  async function saveDecisionMemory(app, entry) {
+    try {
+      const topics = normalizeTopics(entry.topics).slice(0, 12);
+      if (!topics.length) return;
+      const record = { topics };
+      for (const name of DECISION_MEMORY_FIELDS) {
+        const value = String(entry[name] || "").trim();
+        if (value) record[name] = value;
+      }
+      if (Object.keys(record).length < 2) return;
+      record.updated_at = new Date().toISOString();
+      const key = topics.slice().sort().join("|");
+      const memories = await loadDecisionMemory(app);
+      const next = [record, ...memories.filter(row => normalizeTopics(row.topics).slice().sort().join("|") !== key)].slice(0, 50);
+      const bytes = JSON.stringify(next);
+      const file = app.vault.getAbstractFileByPath(DECISION_MEMORY_PATH);
+      if (file && typeof app.vault.modify === "function") await app.vault.modify(file, bytes);
+      else if (!file && typeof app.vault.create === "function") await app.vault.create(DECISION_MEMORY_PATH, bytes);
+    } catch (_memoryError) { /* 기억 실패는 검토를 막지 않는다 */ }
+  }
+  function matchDecisionMemory(memories, topicsValue) {
+    const topics = new Set(normalizeTopics(topicsValue));
+    if (!topics.size) return null;
+    for (const entry of memories) {
+      if (normalizeTopics(entry.topics).some(topic => topics.has(topic))) return entry;
+    }
+    return null;
+  }
   const operationContract = () => root.LLMWikiOperationContract || operation;
   const canonicalPacketContract = () => root.LLMWikiCanonicalPacket || packetApi;
   const operationWriter = () => root.LLMWikiOperationWriter || writer;
@@ -30,7 +74,7 @@
       const content = { claim_scope_required: "주장의 적용 조건", principle_boundaries_required: "원칙의 적용·예외·재검토 조건", principle_rationale_required: "원칙의 근거", procedure_preconditions_required: "절차의 전제 조건", procedure_steps_required: "절차", procedure_outcome_required: "기대 결과", concept_definition_required: "개념 정의", concept_boundaries_required: "개념의 적용 범위" };
       // 지식 판단(중복·충돌·미정)이 막을 때는 무엇과 겹치는지 말한다. 상대 문서를
       // 밝히지 않으면 소유자는 판단할 근거가 없다.
-      const relation = { unresolved_duplicate: "기존 문서에 같은 내용이 있습니다. 그 문서에 이미 있는 내용이면 반려로 이 제안을 버리고, 나중에 다시 볼 일이면 보류하세요. 다른 내용이면 '중복·충돌 없음'으로 고쳐 주세요.", unresolved_conflict: "기존 문서와 내용이 어긋납니다. 어느 쪽이 맞는지 확인한 뒤 고쳐 주세요.", unresolved_relation: "기존 지식과의 관계가 '미정'입니다. 관계를 확인한 뒤 다시 검토하세요." };
+      const relation = { unresolved_duplicate: "기존 문서에 같은 내용이 있습니다. 그 문서에 이미 있는 내용이면 겹쳐서 버리기로 이 제안을 버리고, 나중에 다시 볼 일이면 나중에 보기를 누르세요. 다른 내용이면 '중복·충돌 없음'으로 고쳐 주세요.", unresolved_conflict: "기존 문서와 내용이 어긋납니다. 어느 쪽이 맞는지 확인한 뒤 고쳐 주세요.", unresolved_relation: "기존 지식과의 관계가 '미정'입니다. 관계를 확인한 뒤 다시 검토하세요." };
       const counterpart = (context && Array.isArray(context.related_knowledge) ? context.related_knowledge : [])
         .filter(row => row && row.path).map(row => row.title || row.path).slice(0, 2);
       return `적용 전에 확인할 항목이 있습니다. ${(result.promotion_gaps || []).map(gap => {
@@ -98,6 +142,13 @@
     return "";
   }
   const KIND_LABELS = Object.freeze({ claim: "주장", principle: "원칙", procedure: "절차", concept: "개념" });
+  // 균일성 경고로 후보 저장까지 허용하는 게이트. 안전·판단 게이트(근거·관계·승인·
+  // 서술 누락·형식 깨짐)는 여기에 들어가지 않으며, 들어가도 저장은 막힌 채다.
+  const UNIFORMITY_DOWNGRADE_CODES = Object.freeze(["claim_scope_required", "principle_boundaries_required", "principle_rationale_required",
+    "procedure_preconditions_required", "procedure_steps_required", "procedure_outcome_required", "concept_definition_required", "concept_boundaries_required"]);
+  const UNIFORMITY_DOWNGRADE_LABELS = Object.freeze({ claim_scope_required: "주장의 적용 조건", principle_boundaries_required: "원칙의 적용·예외·재검토 조건",
+    principle_rationale_required: "원칙의 근거", procedure_preconditions_required: "절차의 전제 조건", procedure_steps_required: "절차",
+    procedure_outcome_required: "기대 결과", concept_definition_required: "개념 정의", concept_boundaries_required: "개념의 적용 범위" });
   const KIND_REQUIRED_LABELS = Object.freeze({ conditions: "적용 범위", exclusions: "예외·금지사항", invalidation_conditions: "다시 검토할 조건", rationale: "원칙의 근거", steps: "절차", outcome: "기대 결과", definition: "개념 정의" });
   // A restored draft can carry a kind whose required content exists in neither
   // the saved draft nor the page's own source-grounded extraction. That value
@@ -718,7 +769,13 @@
             }
             const actualLine = bytes.slice(0, start).split("\n").length;
             const suppliedLine = /#L(\d+)/u.exec(citation.locator);
-            if (suppliedLine && Number(suppliedLine[1]) !== actualLine) return fail("citation_locator_mismatch");
+            // locator 행번호가 어긋나도 인용문 자체가 해당 바이트에서 유일하게 확인되면
+            // 막지 않고 진행한다. 이후 단계는 바이트 span만 쓰므로 행번호는 표시용이다.
+            // 저장소 기록이 동결 상태면 교체하지 않고 넘어간다(예외 흐름 금지).
+            if (suppliedLine && Number(suppliedLine[1]) !== actualLine) {
+              const fixed = { ...citation, locator: citation.locator.replace(/#L\d+/u, `#L${actualLine}`) };
+              if (!Object.isFrozen(claim.citations)) claim.citations[claim.citations.indexOf(citation)] = fixed;
+            }
             const id = citation.source_id;
             const existing = snapshots.get(id);
             if (existing && existing.source_content_hash !== citation.content_hash) return fail("source_revision_changed");
@@ -776,7 +833,8 @@
           claim_scope: fields.conditions, principle_boundaries: { conditions: lines(fields.conditions), exclusions: lines(fields.exclusions), invalidation_conditions: lines(fields.invalidation_conditions) }, principle_rationale: fields.rationale || "",
           procedure_preconditions: lines(fields.conditions), procedure_steps: lines(fields.steps), procedure_outcome: fields.outcome || "", concept_definition: fields.definition || "", concept_boundaries: lines(fields.conditions) };
         const receipt = promotion.evaluatePromotion(promotionInput);
-        if (!receipt.canonical_write_eligible) return fail("promotion_review_required", { promotion_gaps: receipt.promotion_gaps });
+        if (!receipt.canonical_write_eligible) return fail("promotion_review_required", { promotion_gaps: receipt.promotion_gaps,
+          promotion_disposition: receipt.disposition, promotion_receipt: receipt, promotion_input: promotionInput });
         const id = priorDoc?.canonical_id || `knowledge_${sha(title).slice(0, 24)}`;
         const sourceRows = [...snapshots.values()].map(s => ({ source_id: s.source_id, span: { start: 0, end: s.source_text.length } }));
         const updateBase = priorDoc ? stripReviewScopeBlock(priorDoc.body || "") : "";
@@ -1017,7 +1075,7 @@
   const ui = dep("ProdigyWikiWorkspaceView", "./prodigy-wiki-workspace-view.js");
   const OPEN_REVIEWS = new WeakMap();
   function open({ app, Modal, item, onComplete, onOpenSource, jobStore = null, jobId = "", onStateChange = null,
-    container = null, decisionContainer = null, workspace = null, renderMarkdown = null, onLater = null, onNext = null, onSelectSource = null, intendedTargetPath = "" }) {
+    container = null, decisionContainer = null, workspace = null, renderMarkdown = null, onLater = null, onNext = null, onSelectSource = null, intendedTargetPath = "", onStopAutoAdvance = null }) {
     let sessions = OPEN_REVIEWS.get(app);
     if (!sessions) { sessions = new Map(); OPEN_REVIEWS.set(app, sessions); }
     const key = sha(stable([jobId, item.review_id, item.document_body, item.grounded_claims, item.proposed_target || null, Boolean(container)]));
@@ -1027,7 +1085,7 @@
       if (container) cached.modal.contentEl = container;
       cached.modal.onClose = cached.onClose; cached.modal.open(); return cached.modal;
     }
-    const callbacks = { onComplete, onOpenSource, onStateChange, decisionContainer, workspace, renderMarkdown, onLater, onNext, onSelectSource };
+    const callbacks = { onComplete, onOpenSource, onStateChange, decisionContainer, workspace, renderMarkdown, onLater, onNext, onSelectSource, onStopAutoAdvance };
     const flow = create({ app, jobStore, jobId, onStateChange: () => callbacks.onStateChange?.() });
     const modal = container ? { contentEl: container, open() { this.ready = this.onOpen(); }, close() { this.onClose?.(); callbacks.onLater?.(); } } : new Modal(app);
     const viewState = { fields: {}, touched: {}, preview: null, lastResult: null, render: 0, restored: false, restoreError: "", editRevision: 0 };
@@ -1182,7 +1240,7 @@
           fields[name] = input.value; viewState.touched[name] = true;
           if (viewState.aiPrefilled) delete viewState.aiPrefilled[name];
           row.querySelector("[data-ai-badge]")?.remove(); row.removeAttribute("data-ai-prefilled");
-          invalidate(); showKindFields(); showConsequences(); summarizeFields(); if (name === "knowledge_domain" || name === "knowledge_topics") showTopicOptions();
+          invalidate(); showKindFields(); showConsequences(); summarizeFields(); syncActionLabels(); if (name === "knowledge_domain" || name === "knowledge_topics") showTopicOptions();
           return persistDraft();
         };
         input.onchange = input.oninput;
@@ -1190,11 +1248,11 @@
       };
       let preview = viewState.preview;
       function invalidate() {
-        preview = null; viewState.preview = null; viewState.lastResult = null; formRevision += 1;
+        preview = null; viewState.preview = null; viewState.lastResult = null; formRevision += 1; viewState.staleRetried = false;
         if (accepted) accepted.checked = false;
         if (applyButton) applyButton.disabled = true;
         if (prepareButton) { prepareButton.hidden = false; applyButton.hidden = true; }
-        if (status) status.setText("변경안을 다시 확인하세요. 다음: 승인 및 적용");
+        if (status) status.setText(`변경안을 다시 확인하세요. 다음: ${isExistingTarget() ? "기존 문서에 반영" : "새 문서로 저장"}`);
         changes.empty(); ui.attr(changes, "data-exact-preview", "false"); ui.markdown(changes, item.document_body, callbacks.renderMarkdown);
       }
       function showKindFields() {
@@ -1211,7 +1269,7 @@
       function showConsequences() {
         const consequences = {
           classification: { operational: ["operational_unit", "실행 업무로 표시하면 지식 문서로 저장할 수 없습니다. 업무와 재사용할 지식을 나눠 검토하세요."], mixed: ["mixed_unit", "지식·업무 혼합으로 표시하면 저장할 수 없습니다. 재사용할 지식과 실행 업무를 나눠 검토하세요."] },
-          relation_status: { duplicate: ["unresolved_duplicate", "중복으로 표시하면 저장할 수 없습니다. 아래 '겹치는 기존 지식'의 문장과 비교해 판단하세요. 이미 있는 내용이면 반려, 나중에 볼 일이면 보류."], conflict: ["unresolved_conflict", "충돌로 표시하면 저장할 수 없습니다. 아래 '겹치는 기존 지식'에서 어느 내용이 맞는지 확인하세요."], pending: ["unresolved_relation", "미정으로 표시하면 저장을 보류합니다. 기존 내용과의 관계를 먼저 확인하세요."] },
+          relation_status: { duplicate: ["unresolved_duplicate", "중복으로 표시하면 저장할 수 없습니다. 아래 '겹치는 기존 지식'의 문장과 비교해 판단하세요. 이미 있는 내용이면 겹쳐서 버리기, 나중에 볼 일이면 나중에 보기."], conflict: ["unresolved_conflict", "충돌로 표시하면 저장할 수 없습니다. 아래 '겹치는 기존 지식'에서 어느 내용이 맞는지 확인하세요."], pending: ["unresolved_relation", "미정으로 표시하면 저장이 미뤄집니다. 기존 내용과의 관계를 먼저 확인하세요."] },
           evidence_strength: { thin: ["thin_evidence", "얇음으로 표시하면 저장할 수 없습니다. 원문 근거를 보완한 뒤 다시 검토하세요."] },
         };
         for (const [name, values] of Object.entries(consequences)) {
@@ -1239,6 +1297,13 @@
         }
       }
       const target = field("target_path", "대상 문서", [["new", "새 문서로 저장"]]);
+      const isExistingTarget = () => Boolean(fields.target_path && fields.target_path !== "new");
+      const hasOverlapEvidence = () => (item.related_knowledge || []).some(row => row && (row.relation === "duplicate" || row.relation === "conflict"));
+      const syncActionLabels = () => {
+        later.textContent = "나중에 보기";
+        reject.textContent = (fields.relation_status === "duplicate" || fields.relation_status === "conflict" || hasOverlapEvidence()) ? "겹쳐서 버리기" : "제안 버리기";
+        applyButton.textContent = isExistingTarget() ? "기존 문서에 반영" : "새 문서로 저장";
+      };
       const currentTargets = await flow.targets();
       if (renderId !== viewState.render) return;
       for (const row of currentTargets) target.createEl("option", { text: row.title || row.path, attr: { value: row.path } });
@@ -1257,6 +1322,40 @@
         target.value = proposedPath;
       }
       viewState.targetSeeded = true;
+      // 매뉴얼 제안: 겹침 상대가 지정 매뉴얼이면 새로 만들지 않고 그 문서를
+      // 대상으로 고른다. 주인이 고치는 추천이라 touched로 기록하지 않는다.
+      if ((!fields.target_path || fields.target_path === "new") && manualRegistry) {
+        try {
+          const manuals = await manualRegistry.loadRegistry(app);
+          const manualPath = manualRegistry.suggestManualTarget(manuals, item.related_knowledge);
+          if (manualPath) {
+            fields.target_path = manualPath;
+            target.createEl("option", { text: `${manualPath} · 매뉴얼에 합치기`, attr: { value: manualPath } });
+            target.value = manualPath;
+            try {
+              const file = app.vault.getAbstractFileByPath(manualPath);
+              const bytes = file && typeof app.vault.read === "function" ? await app.vault.read(file) : null;
+              if (typeof bytes === "string") viewState.targetRevision = sha(bytes);
+            } catch (_manualRevisionError) { /* revision 없이도 저장은 게이트가 판단 */ }
+          }
+        } catch (_manualError) { /* 제안 실패는 기존 흐름 유지 */ }
+      }
+      // Reopened drafts keep a target_path, which bypasses the seeding branch
+      // above. Reconcile the domain here instead: a registered stored value
+      // always wins, otherwise inherit the selected target's registered
+      // domain, otherwise leave empty so prepare routes to the domain row.
+      if (!registry.DOMAIN_ORDER.includes(fields.knowledge_domain)) {
+        const selectedTarget = currentTargets.find(row => row.path === fields.target_path);
+        let inheritedDomain = "";
+        if (selectedTarget && selectedTarget.canonical_bytes) {
+          try {
+            const parsedTarget = store.parseLifecycleDocument(selectedTarget.canonical_bytes);
+            if (parsedTarget && registry.DOMAIN_ORDER.includes(parsedTarget.knowledge_domain)) inheritedDomain = parsedTarget.knowledge_domain;
+          } catch (_domainError) { inheritedDomain = ""; }
+        }
+        if (!inheritedDomain && fields.target_path) inheritedDomain = (await legacyTargetDefaults(fields.target_path)).knowledge_domain || "";
+        if (inheritedDomain) fields.knowledge_domain = inheritedDomain;
+      }
       // This is the sole exceptional additional decision: there is no analysis
       // or selected target classification to inherit, so only registered domains
       // may be chosen. Otherwise the normal three-decision surface remains.
@@ -1316,6 +1415,7 @@
         if (busy) return;
         invalidate(); fields.target_path = ""; viewState.touched.target_path = true; viewState.targetRevision = null;
         target.value = ""; modes.new.checked = false; modes.existing.checked = true; targetHost.hidden = false; targetSearch.focus?.();
+        syncActionLabels();
         return persistDraft();
       };
       if (modes.existing.checked) {
@@ -1457,9 +1557,13 @@
       const recommendations = { knowledge_kind: recommendedKind, relation_status: relationHint || "resolved",
         evidence_strength: ["thin", "sufficient", "strong"].includes(item.evidence_strength) ? item.evidence_strength
           : item.grounded_claims.every(claim => claim.citations?.length && claim.citations.every(c => c.content_hash && c.evidence_quote && c.locator)) ? "sufficient" : "thin" };
+      const remembered = matchDecisionMemory(await loadDecisionMemory(app),
+        lines(fields.knowledge_topics).length ? fields.knowledge_topics : suggested.knowledge_topics);
+      const recommended = (name) => (!viewState.touched[name] && !cleanText(fields[name]) && remembered && String(remembered[name] || "").trim() && DECISION_MEMORY_FIELDS.includes(name))
+        ? String(remembered[name]).trim() : recommendations[name];
       for (const name of DECISION_FIELDS) {
         const input = fieldInputs[name];
-        if (!viewState.touched[name] && !cleanText(fields[name])) { fields[name] = recommendations[name]; input.value = fields[name]; filledThisRender = true; }
+        if (!viewState.touched[name] && !cleanText(fields[name])) { fields[name] = recommended(name); input.value = fields[name]; filledThisRender = true; }
         const option = [...input.children].find(row => row.value === recommendations[name]);
         fieldRows[name].createEl("span", { text: `추천: ${option?.textContent || recommendations[name]} · 원문을 보고 틀리면 고치세요. 아직 승인한 판단이 아닙니다.`, attr: { "data-decision-suggestion": recommendations[name] } });
       }
@@ -1500,27 +1604,46 @@
       }
       if (filledThisRender) { invalidate(); showTopicOptions(); showKindFields(); }
       summarizeFields(); showConsequences();
-      status = decision.createEl("p", { text: "다음: 승인 및 적용", attr: { role: "status", "data-decision-status": "" } });
+      status = decision.createEl("p", { text: `다음: ${isExistingTarget() ? "기존 문서에 반영" : "새 문서로 저장"}`, attr: { role: "status", "data-decision-status": "" } });
       const acceptedLabel = decision.createEl("label"); accepted = acceptedLabel.createEl("input", { attr: { type: "checkbox", "data-review-acknowledgement": "" } }); accepted.checked = false;
       acceptedLabel.createEl("span", { text: "변경 내용과 출처를 확인했습니다." });
       const actions = decision.createEl("div", { attr: { "data-decision-actions": "" } });
-      const later = ui.button(actions, "보류", "review-later", async () => {
+      const later = ui.button(actions, "나중에 보기", "review-later", async () => {
         if (busy) return;
         await persistDraft();
         const held = await flow.hold(item);
         if (!held.ok) { status.setText(`! 수정 저장 실패: ${held.record_error}`); return; }
         modal.close();
       });
+      // 자동 넘김 종료: 다음 검토로 넘어가지 않고 닫는다. 콜백이 없으면 버튼도 없다.
+      if (typeof callbacks.onStopAutoAdvance === "function") {
+        ui.button(actions, "그만 보기", "stop-auto-advance", () => { callbacks.onStopAutoAdvance(); modal.close(); });
+      }
       // 제안 자체를 버리는 결정. 초안은 보존되고 대기 목록에서 빠진다.
-      const reject = ui.button(actions, "반려", "reject-document-review", async () => {
+      const reject = ui.button(actions, "제안 버리기", "reject-document-review", async () => {
         if (busy) return;
+        const closedStatus = await (async () => { try {
+          if (!jobStore || !jobId) return "";
+          await jobStore.load();
+          const plan = jobStore.getPlanSnapshot(jobId);
+          const versions = plan ? [plan, ...((plan.history || []).slice().reverse())] : [];
+          for (const version of versions) {
+            const record = version && version.canonical_reviews && version.canonical_reviews[sha(String(item.review_id))];
+            if (record && record.status) return record.status;
+          }
+          return "";
+        } catch (_closedError) { return ""; } })();
+        if (closedStatus === "resolved") { status.setText("! 이미 반영된 내용이라 버릴 수 없습니다. 나중에 보기로 닫아도 됩니다."); return; }
+        if (closedStatus && !["review_ready", "running", "blocked"].includes(closedStatus)) { status.setText("! 이미 닫힌 검토라 버릴 수 없습니다. 나중에 보기로 닫아도 됩니다."); return; }
         setBusy(true);
         try {
           await persistDraft();
           const rejected = await flow.reject(item);
           if (!rejected.ok) {
-            const copy = rejected.reason === "review_write_in_progress" ? "지금 적용이 진행 중이라 반려할 수 없습니다. 잠시 후 다시 시도해 주세요." : rejected.reason;
-            status.setText(`! 반려하지 못했습니다: ${copy}`);
+            const copy = rejected.reason === "review_write_in_progress" ? "지금 적용이 진행 중이라 버릴 수 없습니다. 잠시 후 다시 시도해 주세요."
+              : rejected.reason === "review_already_closed" ? "이미 결론이 난 검토라 버릴 수 없습니다. 나중에 보기로 닫아도 됩니다."
+              : "지금은 버릴 수 없습니다. 잠시 후 다시 시도해 주세요.";
+            status.setText(`! 버리지 못했습니다: ${copy}`);
             return;
           }
           preview = null; viewState.preview = null; viewState.lastResult = null;
@@ -1531,14 +1654,16 @@
       prepareButton = ui.button(actions, "변경안 확인", "prepare-document-review", null, true);
       applyButton = ui.button(actions, "승인 및 적용", "apply-document-review", null, true);
       applyButton.disabled = true;
+      syncActionLabels();
       const sync = () => {
+        syncActionLabels();
         acceptedLabel.hidden = !preview; accepted.disabled = busy || !preview;
         prepareButton.hidden = Boolean(preview); applyButton.hidden = !preview;
         applyButton.disabled = busy || !preview || !accepted.checked || viewState.lastResult?.ok === true;
       };
       const setBusy = value => { busy = value; inputs.forEach(input => input.disabled = value); prepareButton.disabled = value; later.disabled = value; reject.disabled = value; accepted.disabled = value; callbacks.workspace?.setLocked(value); };
       const blockedField = (name, reason) => {
-        if (!DECISION_FIELDS.includes(name) && name !== "knowledge_domain") inheritedFields.open = true;
+        if (!DECISION_FIELDS.includes(name)) inheritedFields.open = true;
         const row = fieldRows[name];
         if (row) { row.hidden = false; row.createEl("span", { text: `! ${reason}`, attr: { role: "alert", "data-field-error": name } }); fieldInputs[name].focus?.(); }
         status.setText(reason);
@@ -1562,15 +1687,86 @@
         if (busy || renderId !== viewState.render) return;
         const requestRevision = ++formRevision; preview = null; viewState.preview = null; viewState.lastResult = null;
         setBusy(true); applyButton.disabled = true; accepted.checked = false; status.setText("변경과 출처를 확인하고 있습니다.");
-        const result = await flow.prepare({ item, fields: { ...fields }, target_path: fields.target_path === "new" ? "" : fields.target_path || "", target_revision: viewState.targetRevision });
+        const runPrepare = () => flow.prepare({ item, fields: { ...fields }, target_path: fields.target_path === "new" ? "" : fields.target_path || "", target_revision: viewState.targetRevision });
+        let result = await runPrepare();
+        // 대상이 바뀌어 막히면 최신 기준으로 한 번만 다시 준비한다(추가 승인·쓰기 없음).
+        if (!result.ok && (result.reason === "target_revision_changed" || result.reason === "source_revision_changed") && !viewState.staleRetried) {
+          viewState.staleRetried = true;
+          try {
+            const rows = await flow.targets();
+            const row = rows.find(entry => entry.path === fields.target_path);
+            if (row && row.canonical_revision) viewState.targetRevision = row.canonical_revision;
+            else {
+              const file = fields.target_path && app.vault.getAbstractFileByPath(fields.target_path);
+              const bytes = file && typeof app.vault.read === "function" ? await app.vault.read(file) : null;
+              if (typeof bytes === "string") viewState.targetRevision = sha(bytes);
+            }
+          } catch (_refreshError) { /* 실패하면 아래 원래 실패를 그대로 보여준다 */ }
+          setBusy(true);
+          result = await runPrepare();
+        }
+        viewState.staleRetried = false;
         setBusy(false);
         if (requestRevision !== formRevision || renderId !== viewState.render) return;
         if (!result.ok) {
           const copy = recoveryCopy(result, item);
           status.setText(`! ${copy.startsWith("적용 전에 확인할 항목이 있습니다.") ? copy : `적용 전에 확인할 항목이 있습니다. ${copy}`}`);
-          const fieldName = result.field || (fields.relation_status !== "resolved" ? "relation_status" : fields.evidence_strength === "thin" ? "evidence_strength" : "");
+          const fieldName = result.field
+            || ((result.reason === "domain_choice_required" || result.reason === "registered_classification_required") ? "knowledge_domain"
+            : fields.relation_status !== "resolved" ? "relation_status"
+            : fields.evidence_strength === "thin" ? "evidence_strength" : "");
           if (fieldName) blockedField(fieldName, copy);
           const diagnostics = el.createEl("details"); diagnostics.createEl("summary", { text: "상세 정보" }); diagnostics.createEl("pre", { text: JSON.stringify(result, null, 2) });
+          // 등급 저장: 균일성 경고만으로 막히면 후보 저장을 명시적으로 고를 수 있다.
+          // 안전·판단 게이트가 하나라도 섞이면 이 버튼은 나가지 않는다.
+          const gapCodes = (result.promotion_gaps || []).map(gap => typeof gap === "string" ? gap : gap && gap.reason_code);
+          const downgradeable = result.reason === "promotion_review_required" && gapCodes.length > 0
+            && gapCodes.every(code => UNIFORMITY_DOWNGRADE_CODES.includes(code))
+            && result.promotion_disposition === "candidate" && result.promotion_receipt && result.promotion_input
+            && String(item.title || "").trim()
+            && item.grounded_claims.some(claim => (claim.citations || []).length);
+          if (downgradeable) {
+            const gapLabels = gapCodes.map(code => UNIFORMITY_DOWNGRADE_LABELS[code] || code).join("·");
+            status.setText(`${status.textContent} 정식 저장 기준에 못 미칩니다(보완 항목: ${gapLabels}).`);
+            let downgrading = false;
+            const offer = ui.button(actions, `경고 ${gapCodes.length}건 확인하고 후보로 저장`, "save-candidate-downgrade", null, true);
+            offer.onclick = async () => {
+              if (busy || downgrading) return;
+              actions.querySelector("[data-action='save-candidate-downgrade-confirm']")?.remove();
+              const confirm = ui.button(actions, "후보로 저장 확인", "save-candidate-downgrade-confirm", null, true);
+              confirm.onclick = async () => {
+                if (busy || downgrading) return;
+                downgrading = true;
+                setBusy(true);
+                try {
+                  const topics = lines(fields.knowledge_topics).filter(topic => registry.TOPICS_BY_DOMAIN[fields.knowledge_domain]?.includes(topic));
+                  const citations = item.grounded_claims.flatMap(claim => claim.citations || []);
+                  const evidenceIds = [...new Set(citations.map(citation => citation.source_id).filter(Boolean))];
+                  const objectLinks = [...new Set(citations.map(citation => citation.source_path || String(citation.locator || "").split("#")[0]).filter(Boolean))].map(sourcePath => `[[${sourcePath}]]`);
+                  const saved = await store.saveCandidate(app, {
+                    title: String(item.title).trim(),
+                    statement: collapseDuplicateSentences(item.grounded_claims.map(claim => claim.text).join("\n")),
+                    reason: `정식 기준 미달 경고 ${gapCodes.length}건(${gapLabels}) 확인 후 후보 저장`,
+                    source_type: "manual_study",
+                    source_note: "검토에서 정식 기준에 못 미쳐 후보로 저장",
+                    confidence: "explicit",
+                    source_evidence_ids: evidenceIds.length ? evidenceIds : ["review-evidence"],
+                    source_objects: objectLinks,
+                    application_trigger: fields.application_trigger || "",
+                    application_contexts: [],
+                    connections: [],
+                    invalidation_conditions: lines(fields.invalidation_conditions),
+                    suggested_domain: fields.knowledge_domain,
+                    suggested_topics: topics,
+                    promotion_unit: result.promotion_input,
+                  }, { promotion_receipt: result.promotion_receipt });
+                  status.setText(`후보함에 저장했습니다: ${saved.path || saved.candidate_id}. 정식 지식이 아니며, 보완 후 다시 검토할 수 있습니다.`);
+                } catch (error) {
+                  status.setText(`! 후보로 저장하지 못했습니다: ${error.message || "candidate_save_failed"}`);
+                } finally { downgrading = false; setBusy(false); }
+              };
+            };
+          }
           return;
         }
         if (result.status === "no_change") {
@@ -1605,6 +1801,10 @@
         const result = await flow.apply(preview, { approved: true, claims_accepted: true, packet_hash: preview.packet_hash });
         progress.remove?.(); viewState.lastResult = result; setBusy(false); accepted.checked = false;
         if (renderId !== viewState.render) return;
+        // 승인된 내용이 정본에 닿았으면 결정을 기억한다. 확인 보류여도 판단은 확정이다.
+        if (result.ok || result.reason === "canonical_readback_pending" || result.reason === "review_checkpoint_failed" || result.writer_result?.status === "committed") {
+          await saveDecisionMemory(app, { topics: fields.knowledge_topics, knowledge_kind: fields.knowledge_kind, knowledge_domain: fields.knowledge_domain, evidence_strength: fields.evidence_strength });
+        }
         if (result.ok) { applied(result); await callbacks.onComplete?.(result); }
         else {
           const written = result.reason === "canonical_readback_pending" || result.reason === "review_checkpoint_failed" || result.writer_result?.status === "committed";
@@ -1651,7 +1851,7 @@
   function isNovelItem(item) {
     return !((item && item.related_knowledge) || []).length;
   }
-  const api = Object.freeze({ VERSION, create, open, autofillables, isNovelItem, analysisDefaults, compiledPageDefaults, contentSupportedKind, anchorFor, collapseDuplicateSentences, kindContentSatisfiable, storedKindInvalidation });
+  const api = Object.freeze({ VERSION, create, open, autofillables, isNovelItem, analysisDefaults, compiledPageDefaults, contentSupportedKind, anchorFor, collapseDuplicateSentences, kindContentSatisfiable, storedKindInvalidation, saveDecisionMemory });
   root.LLMWikiDocumentCanonicalReview = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

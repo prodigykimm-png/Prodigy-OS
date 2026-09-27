@@ -1,0 +1,100 @@
+✔ document plan resolves canonically equivalent Unicode source paths (94.4745ms)
+✔ document planning requires complete semantic source coverage before downstream planning (287.932375ms)
+✔ canonical no_change documents count as source provenance toward full plan coverage (Finding-2) (89.036583ms)
+✔ default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError) (70.20375ms)
+✔ span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract (21.24425ms)
+✔ replay-only analysis without durable 12/12 unit coverage cannot become review_ready (21.415625ms)
+✔ Centum regression converges through the real Hub planner, compiler, and Golden orchestrator (78.237167ms)
+✔ semantic over-capacity stops before transport and every downstream boundary (23.599167ms)
+✔ v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay (88.665208ms)
+✔ live batch emits one document operation for multiple reusable claims (27.85975ms)
+✔ rejecting an obsolete review run persists zero packets across restart (43.63925ms)
+✔ isolated document pilot covers content beyond 4 KiB without replacing the existing review (19.50575ms)
+✔ isolated document pilot resumes after the last completed pack (39.178292ms)
+✔ full-source materialization converts chunk-local spans to source-global locators (59.193709ms)
+✔ full-source plan resumes a blocked batch only with explicit retry intent (22.531875ms)
+✔ Hub remount preserves the actively selected document plan (29.790542ms)
+✔ compile blocks swapped topic titles until explicit recommended renames (39.43575ms)
+✔ full-source workflow stops at page-plan triage, then compiles preview without replacing active review (97.270958ms)
+✔ source-only claims block source archive when compiled review activates (29.734959ms)
+✔ legacy atomized recovery repackets from cached artifacts with provider zero (44.2895ms)
+✔ canonical coverage blocks duplicate candidate creation in the live Hub (19.4385ms)
+✔ stale source excluded from cached repacket returns to the visible pending queue (48.448583ms)
+✔ Hub explicit retry preserves the frozen source set after partial progress (112.461416ms)
+✖ true process A/B production harness proves restart, partial apply, stale recovery, and changed-identity retry (511.708958ms)
+✔ process A running receipt restores in process B as outcome_unknown with provider/write zero (58.412042ms)
+✔ durable review snapshot round-trips selection, receipts, and partial outcomes without becoming a second authority (2.1795ms)
+✔ explicit retry creates one distinct frozen job per intent and duplicate intent is idempotent (0.82525ms)
+✖ analyzer changed-identity retry links the exact-source parent and duplicate intent performs one provider request (3.917416ms)
+✔ new Hub module graph restores durable proposals and selection with provider0 (88.462ms)
+✔ actual Hub stale approval persists only the affected operation and a fresh graph restores repacket with provider0/write0 (59.164417ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 28
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2258.113125
+
+✖ failing tests:
+
+test at SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task13_restart_recovery.js:50:1
+✖ true process A/B production harness proves restart, partial apply, stale recovery, and changed-identity retry (511.708958ms)
+  AssertionError [ERR_ASSERTION]: Error: --process-b failed (1): AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'review_ready'
+  - 'outcome_unknown'
+  
+      at processB (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Reports/task-13/manual-restart-harness.js:138:10) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'review_ready',
+    expected: 'outcome_unknown',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+  
+      at ChildProcess.<anonymous> (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Reports/task-13/manual-restart-harness.js:158:37)
+      at Object.onceWrapper (node:events:631:26)
+      at ChildProcess.emit (node:events:509:28)
+      at maybeClose (node:internal/child_process:1141:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:306:5)
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task13_restart_recovery.js:52:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task13_restart_recovery.js:117:1
+✖ analyzer changed-identity retry links the exact-source parent and duplicate intent performs one provider request (3.917416ms)
+  AssertionError [ERR_ASSERTION]: the model A outcome remains preserved
+  + actual - expected
+  
+  + 'review_ready'
+  - 'outcome_unknown'
+  
+      at TestContext.<anonymous> (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task13_restart_recovery.js:165:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'review_ready',
+    expected: 'outcome_unknown',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

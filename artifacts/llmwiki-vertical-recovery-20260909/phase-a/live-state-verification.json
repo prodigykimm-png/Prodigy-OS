@@ -1,0 +1,33 @@
+{
+  "checks": [
+    {
+      "globalName": "LLMWikiWikiReadAdapter",
+      "symbol": "prepareQuestionContext",
+      "matches": true
+    },
+    {
+      "globalName": "LLMWikiBatchProvider",
+      "symbol": "createBatchAnalysisProvider",
+      "matches": true
+    },
+    {
+      "globalName": "LLMWikiWikiSurface",
+      "symbol": "mountLlmWikiWikiSurface",
+      "matches": true
+    }
+  ],
+  "questionRun": "question_1e0148b60ea9d8a666b22a00",
+  "reviewStatus": "review",
+  "riskVerification": [
+    {
+      "ok": true,
+      "run_id": "question_1e0148b60ea9d8a666b22a00",
+      "destinations": [
+        {
+          "path": "ZETA/CANDIDATES/document_9b8faab211b1d88a7c182371.md",
+          "exists": false
+        }
+      ]
+    }
+  ]
+}

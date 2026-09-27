@@ -1,0 +1,1995 @@
+TAP version 13
+# Subtest: identical text from two sources reaches review_ready with unique provider keys
+ok 1 - identical text from two sources reaches review_ready with unique provider keys
+  ---
+  duration_ms: 42.813958
+  type: 'test'
+  ...
+# Subtest: four small changed sources produce exactly one provider call
+ok 2 - four small changed sources produce exactly one provider call
+  ---
+  duration_ms: 16.548583
+  type: 'test'
+  ...
+# Subtest: exact rerun with same hashes and request key makes zero provider calls
+ok 3 - exact rerun with same hashes and request key makes zero provider calls
+  ---
+  duration_ms: 142.231625
+  type: 'test'
+  ...
+# Subtest: v1 cache intentionally misses once under v2 identity, then exact v2 replay is zero-call
+ok 4 - v1 cache intentionally misses once under v2 identity, then exact v2 replay is zero-call
+  ---
+  duration_ms: 15.32275
+  type: 'test'
+  ...
+# Subtest: semantic 65-unit rejection reaches no transport call
+ok 5 - semantic 65-unit rejection reaches no transport call
+  ---
+  duration_ms: 1.385417
+  type: 'test'
+  ...
+# Subtest: explicit retry reuses exact repeated chunks while preserving parent history
+ok 6 - explicit retry reuses exact repeated chunks while preserving parent history
+  ---
+  duration_ms: 233.092667
+  type: 'test'
+  ...
+# Subtest: model, schema, prompt-version, context, or source change causes an intentional miss
+ok 7 - model, schema, prompt-version, context, or source change causes an intentional miss
+  ---
+  duration_ms: 9.208041
+  type: 'test'
+  ...
+# Subtest: 100 KiB INBOX source uses one bounded exact-prefix routing chunk while retaining its full revision
+ok 8 - 100 KiB INBOX source uses one bounded exact-prefix routing chunk while retaining its full revision
+  ---
+  duration_ms: 242.088042
+  type: 'test'
+  ...
+# Subtest: analysis_text rejects non-prefix, oversized, and split-surrogate excerpts
+ok 9 - analysis_text rejects non-prefix, oversized, and split-surrogate excerpts
+  ---
+  duration_ms: 0.251667
+  type: 'test'
+  ...
+# Subtest: sources without analysis_text retain full-text analysis
+ok 10 - sources without analysis_text retain full-text analysis
+  ---
+  duration_ms: 1591.63375
+  type: 'test'
+  ...
+# Subtest: pack 3 failure preserves packs 1-2 through restart and makes no fourth call
+ok 11 - pack 3 failure preserves packs 1-2 through restart and makes no fourth call
+  ---
+  duration_ms: 653.757083
+  type: 'test'
+  ...
+# Subtest: candidate ranking is bounded at 8 and outbound projection at top 5 / 4 KiB
+ok 12 - candidate ranking is bounded at 8 and outbound projection at top 5 / 4 KiB
+  ---
+  duration_ms: 1.191083
+  type: 'test'
+  ...
+# Subtest: all-hits replay over a content-incomplete whole-source artifact misses once under the coverage-carrying identity and refuses review_ready with named keys
+ok 13 - all-hits replay over a content-incomplete whole-source artifact misses once under the coverage-carrying identity and refuses review_ready with named keys
+  ---
+  duration_ms: 16.640959
+  type: 'test'
+  ...
+# Subtest: exact all-hits replay is flagged replay_only when whole-source coverage is complete
+ok 14 - exact all-hits replay is flagged replay_only when whole-source coverage is complete
+  ---
+  duration_ms: 4.519042
+  type: 'test'
+  ...
+# Subtest: batchId remains deterministic under valid row reordering
+ok 15 - batchId remains deterministic under valid row reordering
+  ---
+  duration_ms: 15.825292
+  type: 'test'
+  ...
+# Subtest: all six states round-trip exactly
+ok 16 - all six states round-trip exactly
+  ---
+  duration_ms: 49.038208
+  type: 'test'
+  ...
+# Subtest: batch/run/pack ids are deterministic hashes of revisions plus request key
+ok 17 - batch/run/pack ids are deterministic hashes of revisions plus request key
+  ---
+  duration_ms: 0.70775
+  type: 'test'
+  ...
+# Subtest: batchId strictly validates every source row and fails closed with named errors
+ok 18 - batchId strictly validates every source row and fails closed with named errors
+  ---
+  duration_ms: 0.412
+  type: 'test'
+  ...
+# Subtest: duplicate job/pack submissions are idempotent; conflicting hashes fail closed
+ok 19 - duplicate job/pack submissions are idempotent; conflicting hashes fail closed
+  ---
+  duration_ms: 13.774
+  type: 'test'
+  ...
+# Subtest: settled synthetic job cleanup removes only its exact job plan and packs
+ok 20 - settled synthetic job cleanup removes only its exact job plan and packs
+  ---
+  duration_ms: 9.886625
+  type: 'test'
+  ...
+# Subtest: unstarted discovery job cleanup requires an exact source revision and no artifacts
+ok 21 - unstarted discovery job cleanup requires an exact source revision and no artifacts
+  ---
+  duration_ms: 0.551542
+  type: 'test'
+  ...
+# Subtest: corrupt state file is quarantined and never touches canonical paths
+ok 22 - corrupt state file is quarantined and never touches canonical paths
+  ---
+  duration_ms: 0.149709
+  type: 'test'
+  ...
+# Subtest: legacy completed proposals import without replaying provider or approval effects
+ok 23 - legacy completed proposals import without replaying provider or approval effects
+  ---
+  duration_ms: 1.1715
+  type: 'test'
+  ...
+# Subtest: old-schema receipts are historical and never hit new-schema lookups
+ok 24 - old-schema receipts are historical and never hit new-schema lookups
+  ---
+  duration_ms: 0.866959
+  type: 'test'
+  ...
+# Subtest: restart maps running-without-receipt jobs to outcome_unknown with zero provider calls and zero writes
+ok 25 - restart maps running-without-receipt jobs to outcome_unknown with zero provider calls and zero writes
+  ---
+  duration_ms: 4.245625
+  type: 'test'
+  ...
+# Subtest: failed persistence rolls memory back to the last durable state
+ok 26 - failed persistence rolls memory back to the last durable state
+  ---
+  duration_ms: 0.321208
+  type: 'test'
+  ...
+# Subtest: node storage persists atomically under gitignored SYSTEM/CACHE/llmwiki and survives reopen
+ok 27 - node storage persists atomically under gitignored SYSTEM/CACHE/llmwiki and survives reopen
+  ---
+  duration_ms: 1.715625
+  type: 'test'
+  ...
+# Subtest: plan snapshots list every source deterministically without exposing mutable state
+ok 28 - plan snapshots list every source deterministically without exposing mutable state
+  ---
+  duration_ms: 8.659125
+  type: 'test'
+  ...
+# Subtest: page-plan snapshot survives restart without provider replay
+ok 29 - page-plan snapshot survives restart without provider replay
+  ---
+  duration_ms: 0.743583
+  type: 'test'
+  ...
+# Subtest: page-plan snapshot preserves immutable history when inventory identity changes
+ok 30 - page-plan snapshot preserves immutable history when inventory identity changes
+  ---
+  duration_ms: 0.774375
+  type: 'test'
+  ...
+# Subtest: page-plan snapshot rejects stale source binding and non-monotonic revision
+ok 31 - page-plan snapshot rejects stale source binding and non-monotonic revision
+  ---
+  duration_ms: 1.277542
+  type: 'test'
+  ...
+# Subtest: compact schema is strict, pack-atomic, and free of model authority fields
+ok 32 - compact schema is strict, pack-atomic, and free of model authority fields
+  ---
+  duration_ms: 3.357833
+  type: 'test'
+  ...
+# Subtest: semantic document extraction accepts multiple evidence items and preserves their local topics
+ok 33 - semantic document extraction accepts multiple evidence items and preserves their local topics
+  ---
+  duration_ms: 8.662167
+  type: 'test'
+  ...
+# Subtest: semantic mode requires every Todo 1 semantic key exactly once and keeps keyed holds as analysis data
+ok 34 - semantic mode requires every Todo 1 semantic key exactly once and keeps keyed holds as analysis data
+  ---
+  duration_ms: 1.67825
+  type: 'test'
+  ...
+# Subtest: semantic unit bound permits 64 items and rejects 65 before transport
+ok 35 - semantic unit bound permits 64 items and rejects 65 before transport
+  ---
+  duration_ms: 103.085334
+  type: 'test'
+  ...
+# Subtest: deterministic evidence keys recover the exact local quote even when model copy drifts
+ok 36 - deterministic evidence keys recover the exact local quote even when model copy drifts
+  ---
+  duration_ms: 0.855459
+  type: 'test'
+  ...
+# Subtest: happy path anchors one CJK+emoji quote uniquely and derives local span provenance
+ok 37 - happy path anchors one CJK+emoji quote uniquely and derives local span provenance
+  ---
+  duration_ms: 0.677958
+  type: 'test'
+  ...
+# Subtest: source routing mode sends path context but accepts exactly one lifecycle item per source
+ok 38 - source routing mode sends path context but accepts exactly one lifecycle item per source
+  ---
+  duration_ms: 0.239166
+  type: 'test'
+  ...
+# Subtest: source routing no-change is the only zero-item terminal result
+ok 39 - source routing no-change is the only zero-item terminal result
+  ---
+  duration_ms: 0.373666
+  type: 'test'
+  ...
+# Subtest: folded whitespace quote preserves the exact source slice and deterministic span alias
+ok 40 - folded whitespace quote preserves the exact source slice and deterministic span alias
+  ---
+  duration_ms: 1.502208
+  type: 'test'
+  ...
+# Subtest: folded whitespace duplicates remain non-unique and paraphrases remain not-found
+ok 41 - folded whitespace duplicates remain non-unique and paraphrases remain not-found
+  ---
+  duration_ms: 1.195958
+  type: 'test'
+  ...
+# Subtest: pack is atomic: missing chunk result fails the whole pack with zero artifacts and one call
+ok 42 - pack is atomic: missing chunk result fails the whole pack with zero artifacts and one call
+  ---
+  duration_ms: 0.12475
+  type: 'test'
+  ...
+# Subtest: duplicate chunk key fails the pack atomically
+ok 43 - duplicate chunk key fails the pack atomically
+  ---
+  duration_ms: 0.100958
+  type: 'test'
+  ...
+# Subtest: non-unique evidence quote fails the pack without a second call
+ok 44 - non-unique evidence quote fails the pack without a second call
+  ---
+  duration_ms: 0.081
+  type: 'test'
+  ...
+# Subtest: unknown field anywhere in the response fails the pack
+ok 45 - unknown field anywhere in the response fails the pack
+  ---
+  duration_ms: 0.058875
+  type: 'test'
+  ...
+# Subtest: forbidden authority fields fail the pack even before item validation
+ok 46 - forbidden authority fields fail the pack even before item validation
+  ---
+  duration_ms: 0.074833
+  type: 'test'
+  ...
+# Subtest: related_candidate_ids outside the allowlist fail the pack
+ok 47 - related_candidate_ids outside the allowlist fail the pack
+  ---
+  duration_ms: 0.079125
+  type: 'test'
+  ...
+# Subtest: related candidate count, bytes, pattern, and uniqueness fail atomically without truncation
+ok 48 - related candidate count, bytes, pattern, and uniqueness fail atomically without truncation
+  ---
+  duration_ms: 0.243083
+  type: 'test'
+  ...
+# Subtest: oversized total response fails atomically before any artifact can be cached or persisted
+ok 49 - oversized total response fails atomically before any artifact can be cached or persisted
+  ---
+  duration_ms: 1.579292
+  type: 'test'
+  ...
+# Subtest: malformed top-level JSON fails as a named reason with exactly one call
+ok 50 - malformed top-level JSON fails as a named reason with exactly one call
+  ---
+  duration_ms: 0.151
+  type: 'test'
+  ...
+# Subtest: provider failures keep named machine reasons and zero retries
+ok 51 - provider failures keep named machine reasons and zero retries
+  ---
+  duration_ms: 0.426708
+  type: 'test'
+  ...
+# Subtest: abort race: abort after egress but before validation reports one call; pre-request abort reports zero
+ok 52 - abort race: abort after egress but before validation reports one call; pre-request abort reports zero
+  ---
+  duration_ms: 0.141834
+  type: 'test'
+  ...
+# Subtest: identical text and span under two different chunk keys yield distinct deterministic aliases
+ok 53 - identical text and span under two different chunk keys yield distinct deterministic aliases
+  ---
+  duration_ms: 0.270417
+  type: 'test'
+  ...
+# Subtest: cancellation fails the pack without calling the transport
+ok 54 - cancellation fails the pack without calling the transport
+  ---
+  duration_ms: 0.044542
+  type: 'test'
+  ...
+# Subtest: batch provider crosses the consumer runtime boundary once with allowlisted options only
+ok 55 - batch provider crosses the consumer runtime boundary once with allowlisted options only
+  ---
+  duration_ms: 0.127042
+  type: 'test'
+  ...
+# Subtest: request carries no feature-specific selector, repair markers, or secrets
+ok 56 - request carries no feature-specific selector, repair markers, or secrets
+  ---
+  duration_ms: 53.096375
+  type: 'test'
+  ...
+# Subtest: property fuzz: valid unicode quotes anchor; duplicate or absent quotes never pass
+ok 57 - property fuzz: valid unicode quotes anchor; duplicate or absent quotes never pass
+  ---
+  duration_ms: 0.612334
+  type: 'test'
+  ...
+# Subtest: module size stays within budget
+ok 58 - module size stays within budget
+  ---
+  duration_ms: 0.859084
+  type: 'test'
+  ...
+# TASK2_ASSERT candidate_handoff=1 canonical_writes=0
+# TASK2_GUARDS rejections=12 unbranded_controls=4 writerCalls=0 existing_hash=1cd263f1102656dd6b6cf1d626d1a96f9eba0406af3cb2a52560d473d4801052 existing_mtime_ms=1767323045000
+# Subtest: Given one saved Candidate, When approval starts, Then only an exact LLM Wiki review handoff occurs
+ok 59 - Given one saved Candidate, When approval starts, Then only an exact LLM Wiki review handoff occurs
+  ---
+  duration_ms: 2.145958
+  type: 'test'
+  ...
+# Subtest: Given a safe canonical title, When the shared target contract resolves it, Then the target is accepted only under ZETA/PERMANENT
+ok 60 - Given a safe canonical title, When the shared target contract resolves it, Then the target is accepted only under ZETA/PERMANENT
+  ---
+  duration_ms: 0.189959
+  type: 'test'
+  ...
+# Subtest: Given unregistered Knowledge taxonomy, When canonical preview assembly runs, Then it rejects before adapter writes
+ok 61 - Given unregistered Knowledge taxonomy, When canonical preview assembly runs, Then it rejects before adapter writes
+  ---
+  duration_ms: 5.32325
+  type: 'test'
+  ...
+# Subtest: Given a canonical preview with instruction-like body text, When an approved create commits, Then only exact packet bytes reach ZETA
+ok 62 - Given a canonical preview with instruction-like body text, When an approved create commits, Then only exact packet bytes reach ZETA
+  ---
+  duration_ms: 16.52275
+  type: 'test'
+  ...
+# Subtest: Given forbidden caller targets and malformed canonical documents, When packet assembly runs, Then every case rejects before writes
+ok 63 - Given forbidden caller targets and malformed canonical documents, When packet assembly runs, Then every case rejects before writes
+  ---
+  duration_ms: 3.171459
+  type: 'test'
+  ...
+# Subtest: Given an existing canonical target collision after approval, When create commit rechecks live bytes, Then mtime and hash remain unchanged
+ok 64 - Given an existing canonical target collision after approval, When create commit rechecks live bytes, Then mtime and hash remain unchanged
+  ---
+  duration_ms: 7.51425
+  type: 'test'
+  ...
+# TASK6_ASSERT exact_bytes=1 target=ZETA/PERMANENT/검증된 독서 원칙.md after_sha256=403dc82950797fc99af045fe3e83e2dfd0ecac76cea9c7630ed61c65e152bf3d reads=1 writes=0
+# TASK6_ASSERT identity_mutations=7 rejected=7
+# TASK6_ASSERT collision_status=stale_reconfirm_required old_unchanged=1 replacement_target=ZETA/PERMANENT/검증된 독서 원칙 2.md writes=0
+# TASK6_ASSERT malformed_cases=8 zero_write_cases=8
+# Subtest: Given one approved create and an injected live-byte adapter, When a canonical packet is assembled, Then exact shared serializer bytes and every trust binding are present
+ok 65 - Given one approved create and an injected live-byte adapter, When a canonical packet is assembled, Then exact shared serializer bytes and every trust binding are present
+  ---
+  duration_ms: 27.77425
+  type: 'test'
+  ...
+# Subtest: Given an exact packet, When target, property, before, after, provenance, consent, or revision changes, Then each mutation has a different identity and stale hashes reject
+    # Subtest: target
+    ok 1 - target
+      ---
+      duration_ms: 0.532459
+      type: 'test'
+      ...
+    # Subtest: property
+    ok 2 - property
+      ---
+      duration_ms: 2.424459
+      type: 'test'
+      ...
+    # Subtest: before
+    ok 3 - before
+      ---
+      duration_ms: 5.596792
+      type: 'test'
+      ...
+    # Subtest: after
+    ok 4 - after
+      ---
+      duration_ms: 4.127666
+      type: 'test'
+      ...
+    # Subtest: provenance
+    ok 5 - provenance
+      ---
+      duration_ms: 3.774208
+      type: 'test'
+      ...
+    # Subtest: consent
+    ok 6 - consent
+      ---
+      duration_ms: 0.502583
+      type: 'test'
+      ...
+    # Subtest: revision
+    ok 7 - revision
+      ---
+      duration_ms: 0.329917
+      type: 'test'
+      ...
+    1..7
+ok 66 - Given an exact packet, When target, property, before, after, provenance, consent, or revision changes, Then each mutation has a different identity and stale hashes reject
+  ---
+  duration_ms: 18.864667
+  type: 'test'
+  ...
+# Subtest: Given a create target that becomes occupied, When the packet is reassembled from live bytes, Then a new unique target and packet require reconfirmation without mutating the collision
+ok 67 - Given a create target that becomes occupied, When the packet is reassembled from live bytes, Then a new unique target and packet require reconfirmation without mutating the collision
+  ---
+  duration_ms: 4.257209
+  type: 'test'
+  ...
+# Subtest: Given a future existing-target operation, When assembled, Then exact live before bytes are bound but authorization remains disabled
+ok 68 - Given a future existing-target operation, When assembled, Then exact live before bytes are bound but authorization remains disabled
+  ---
+  duration_ms: 5.141417
+  type: 'test'
+  ...
+# Subtest: Given malformed title, target, property, source, or citation input, When assembly is attempted, Then it fails before every write
+ok 69 - Given malformed title, target, property, source, or citation input, When assembly is attempted, Then it fails before every write
+  ---
+  duration_ms: 2.031084
+  type: 'test'
+  ...
+# Subtest: serialized canonical operation fixtures retain their parser-owned identity
+ok 70 - serialized canonical operation fixtures retain their parser-owned identity
+  ---
+  duration_ms: 0.272958
+  type: 'test'
+  ...
+# Subtest: raw and copied canonical authorization records remain rejected before live reads
+ok 71 - raw and copied canonical authorization records remain rejected before live reads
+  ---
+  duration_ms: 0.340375
+  type: 'test'
+  ...
+# Subtest: canonical assembly applies the exact private packet authorization transform
+ok 72 - canonical assembly applies the exact private packet authorization transform
+  ---
+  duration_ms: 0.703083
+  type: 'test'
+  ...
+# Subtest: real packet tamper preserves the private operation identity and remains packet_tampered
+ok 73 - real packet tamper preserves the private operation identity and remains packet_tampered
+  ---
+  duration_ms: 2.3105
+  type: 'test'
+  ...
+# Subtest: Given instruction-shaped source text, When a create packet is assembled, Then the text remains inert provenance and cannot expand canonical properties
+ok 74 - Given instruction-shaped source text, When a create packet is assembled, Then the text remains inert provenance and cannot expand canonical properties
+  ---
+  duration_ms: 87.305958
+  type: 'test'
+  ...
+# Subtest: canonical v2 authorization binds full accepted ClaimSet and locally evaluated promotion receipt into exact bytes
+ok 75 - canonical v2 authorization binds full accepted ClaimSet and locally evaluated promotion receipt into exact bytes
+  ---
+  duration_ms: 68.1505
+  type: 'test'
+  ...
+# Subtest: approved v2 create writes exact packet bytes only after finalized audit and immutable authority
+ok 76 - approved v2 create writes exact packet bytes only after finalized audit and immutable authority
+  ---
+  duration_ms: 36.960875
+  type: 'test'
+  ...
+# Subtest: canonical v2 uses statement only and retains legacy v1 summary compatibility
+ok 77 - canonical v2 uses statement only and retains legacy v1 summary compatibility
+  ---
+  duration_ms: 46.453958
+  type: 'test'
+  ...
+# Subtest: v2 validates update evidence but create writer still refuses update and merge mutations
+ok 78 - v2 validates update evidence but create writer still refuses update and merge mutations
+  ---
+  duration_ms: 70.120833
+  type: 'test'
+  ...
+# Subtest: canonical v2 fails closed for forged authority, missing source, and stale existing targets before writes
+ok 79 - canonical v2 fails closed for forged authority, missing source, and stale existing targets before writes
+  ---
+  duration_ms: 16.927084
+  type: 'test'
+  ...
+# Subtest: canonical v2 trust requires one finalized immutable decision across every read surface
+ok 80 - canonical v2 trust requires one finalized immutable decision across every read surface
+  ---
+  duration_ms: 187.694625
+  type: 'test'
+  ...
+# Subtest: exposed finalized authority cannot be mutated to verify unaudited canonical bytes
+ok 81 - exposed finalized authority cannot be mutated to verify unaudited canonical bytes
+  ---
+  duration_ms: 68.575125
+  type: 'test'
+  ...
+# Subtest: finalized authority display views are detached and recursively immutable
+ok 82 - finalized authority display views are detached and recursively immutable
+  ---
+  duration_ms: 8.605459
+  type: 'test'
+  ...
+# Subtest: raw authority, labels, clones, mismatches, stale state, and inactive revisions fail closed
+ok 83 - raw authority, labels, clones, mismatches, stale state, and inactive revisions fail closed
+  ---
+  duration_ms: 35.045709
+  type: 'test'
+  ...
+# Subtest: approved update finalizes a new canonical v2 revision that resurfaces once while revision 1 stays muted
+ok 84 - approved update finalizes a new canonical v2 revision that resurfaces once while revision 1 stays muted
+  ---
+  duration_ms: 133.904792
+  type: 'test'
+  ...
+# Subtest: stale update targets zero-mutate and resurface only after exact restoration
+ok 85 - stale update targets zero-mutate and resurface only after exact restoration
+  ---
+  duration_ms: 190.917625
+  type: 'test'
+  ...
+# Subtest: failed authority audit leaves the trusted surface on the last finalized revision
+ok 86 - failed authority audit leaves the trusted surface on the last finalized revision
+  ---
+  duration_ms: 125.941666
+  type: 'test'
+  ...
+# Subtest: large mixed Unicode chunking completes within the bounded timeout
+ok 87 - large mixed Unicode chunking completes within the bounded timeout
+  ---
+  duration_ms: 3659.200291
+  type: 'test'
+  ...
+# Subtest: strict manifest validation rejects self-consistent replacement text
+ok 88 - strict manifest validation rejects self-consistent replacement text
+  ---
+  duration_ms: 4.531958
+  type: 'test'
+  ...
+# Subtest: chunks cover exact UTF-16 spans without overlap and never split surrogate pairs
+ok 89 - chunks cover exact UTF-16 spans without overlap and never split surrogate pairs
+  ---
+  duration_ms: 4.75775
+  type: 'test'
+  ...
+# Subtest: chunk splitting follows heading, paragraph, sentence, line, then slice fallback
+ok 90 - chunk splitting follows heading, paragraph, sentence, line, then slice fallback
+  ---
+  duration_ms: 3.015541
+  type: 'test'
+  ...
+# Subtest: uses the last eligible boundary in the byte window and preserves deterministic exact coverage
+ok 91 - uses the last eligible boundary in the byte window and preserves deterministic exact coverage
+  ---
+  duration_ms: 8.109959
+  type: 'test'
+  ...
+# Subtest: semantic cache continuity survives a preceding insertion but renamed heading misses once
+ok 92 - semantic cache continuity survives a preceding insertion but renamed heading misses once
+  ---
+  duration_ms: 4.838417
+  type: 'test'
+  ...
+# Subtest: duplicate occurrences with an empty cache are all misses and remain analyzable
+ok 93 - duplicate occurrences with an empty cache are all misses and remain analyzable
+  ---
+  duration_ms: 1.188167
+  type: 'test'
+  ...
+# Subtest: identical text under different source ids has distinct instance ids
+ok 94 - identical text under different source ids has distinct instance ids
+  ---
+  duration_ms: 1.616083
+  type: 'test'
+  ...
+# Subtest: duplicate occurrences reuse only their exact distinct instance artifacts
+ok 95 - duplicate occurrences reuse only their exact distinct instance artifacts
+  ---
+  duration_ms: 2.54025
+  type: 'test'
+  ...
+# Subtest: cache and coverage quarantine corrupt persisted artifacts and preserve newest retry generation
+ok 96 - cache and coverage quarantine corrupt persisted artifacts and preserve newest retry generation
+  ---
+  duration_ms: 3.898
+  type: 'test'
+  ...
+# Subtest: cancelled or superseded requests reject late cache and coverage writes
+ok 97 - cancelled or superseded requests reject late cache and coverage writes
+  ---
+  duration_ms: 0.730708
+  type: 'test'
+  ...
+# Subtest: coverage is durable, partial/cancelled work stays incomplete, and corrupt cache is quarantined
+ok 98 - coverage is durable, partial/cancelled work stays incomplete, and corrupt cache is quarantined
+  ---
+  duration_ms: 8.565916
+  type: 'test'
+  ...
+# Subtest: repeated partial restarts never report complete before the final durable receipt
+ok 99 - repeated partial restarts never report complete before the final durable receipt
+  ---
+  duration_ms: 4.707375
+  type: 'test'
+  ...
+# Subtest: v1 state is stale, while v2 completion is hash-bound to durable exact coverage
+ok 100 - v1 state is stale, while v2 completion is hash-bound to durable exact coverage
+  ---
+  duration_ms: 9.470083
+  type: 'test'
+  ...
+# Subtest: exact source substring binding derives local IDs and maps provider spans to immutable source spans
+ok 101 - exact source substring binding derives local IDs and maps provider spans to immutable source spans
+  ---
+  duration_ms: 73.496083
+  type: 'test'
+  ...
+# Subtest: AI derivation chains require cited local claims and research requires an ingested external snapshot
+ok 102 - AI derivation chains require cited local claims and research requires an ingested external snapshot
+  ---
+  duration_ms: 4.842084
+  type: 'test'
+  ...
+# Subtest: AI interpretations require derivation ancestry that reaches cited source evidence
+ok 103 - AI interpretations require derivation ancestry that reaches cited source evidence
+  ---
+  duration_ms: 1.887459
+  type: 'test'
+  ...
+# Subtest: provider-relative spans cannot bisect UTF-16 surrogate pairs
+ok 104 - provider-relative spans cannot bisect UTF-16 surrogate pairs
+  ---
+  duration_ms: 2.033833
+  type: 'test'
+  ...
+# Subtest: authorization rejects a hash-recomputed cyclic AI derivation graph despite cited ancestry
+ok 105 - authorization rejects a hash-recomputed cyclic AI derivation graph despite cited ancestry
+  ---
+  duration_ms: 13.932709
+  type: 'test'
+  ...
+# Subtest: corrections create disputes, and claim-hash-bound actions preserve persistent AI labels
+ok 106 - corrections create disputes, and claim-hash-bound actions preserve persistent AI labels
+  ---
+  duration_ms: 4.874625
+  type: 'test'
+  ...
+# Subtest: forged provider IDs, fabricated citations, digest drift, and silent replacement fail closed or become selectively stale
+ok 107 - forged provider IDs, fabricated citations, digest drift, and silent replacement fail closed or become selectively stale
+  ---
+  duration_ms: 5.282458
+  type: 'test'
+  ...
+# Subtest: malformed input and untrusted text remain typed zero-write data
+ok 108 - malformed input and untrusted text remain typed zero-write data
+  ---
+  duration_ms: 1.805084
+  type: 'test'
+  ...
+# Subtest: exported provenance seams reject oversized, deep, cyclic, proxy, and accessor inputs without invoking getters
+ok 109 - exported provenance seams reject oversized, deep, cyclic, proxy, and accessor inputs without invoking getters
+  ---
+  duration_ms: 1.521333
+  type: 'test'
+  ...
+# Subtest: prepares a new user-authorized compensation packet with exact inverse bytes
+ok 110 - prepares a new user-authorized compensation packet with exact inverse bytes
+  ---
+  duration_ms: 10.389083
+  type: 'test'
+  ...
+# Subtest: rejects compensation without an explicit current user action
+ok 111 - rejects compensation without an explicit current user action
+  ---
+  duration_ms: 0.239667
+  type: 'test'
+  ...
+# Subtest: validates immutable audit hashes and a contiguous parent chain
+ok 112 - validates immutable audit hashes and a contiguous parent chain
+  ---
+  duration_ms: 3.928042
+  type: 'test'
+  ...
+# Subtest: writes compensation only from compensation_committing and preserves packet trace
+ok 113 - writes compensation only from compensation_committing and preserves packet trace
+  ---
+  duration_ms: 58.487792
+  type: 'test'
+  ...
+# Subtest: rejects compensation outside its dedicated lifecycle state without writes
+ok 114 - rejects compensation outside its dedicated lifecycle state without writes
+  ---
+  duration_ms: 14.042917
+  type: 'test'
+  ...
+# Subtest: rejects live drift before all compensation writes
+ok 115 - rejects live drift before all compensation writes
+  ---
+  duration_ms: 1.834042
+  type: 'test'
+  ...
+# Subtest: restores completed compensation writes in reverse order after a later write fails
+ok 116 - restores completed compensation writes in reverse order after a later write fails
+  ---
+  duration_ms: 3.694958
+  type: 'test'
+  ...
+# Subtest: fails closed with recovery details when compensation restoration fails
+ok 117 - fails closed with recovery details when compensation restoration fails
+  ---
+  duration_ms: 1.951333
+  type: 'test'
+  ...
+# Subtest: restores every target when immutable audit persistence fails after writes
+ok 118 - restores every target when immutable audit persistence fails after writes
+  ---
+  duration_ms: 4.664
+  type: 'test'
+  ...
+# Subtest: rejects missing or changed live revision tokens before all compensation writes
+ok 119 - rejects missing or changed live revision tokens before all compensation writes
+  ---
+  duration_ms: 0.879459
+  type: 'test'
+  ...
+# Subtest: rejects truncated immutable audit history and replay after service restart
+ok 120 - rejects truncated immutable audit history and replay after service restart
+  ---
+  duration_ms: 8.539292
+  type: 'test'
+  ...
+# Subtest: fails closed when immutable audit records exist without their continuity head
+ok 121 - fails closed when immutable audit records exist without their continuity head
+  ---
+  duration_ms: 3.545834
+  type: 'test'
+  ...
+# Subtest: permits partial transaction restore only in original committing state
+ok 122 - permits partial transaction restore only in original committing state
+  ---
+  duration_ms: 1.129583
+  type: 'test'
+  ...
+# Subtest: persists immutable audit entries through the production Vault adapter
+ok 123 - persists immutable audit entries through the production Vault adapter
+  ---
+  duration_ms: 52.244833
+  type: 'test'
+  ...
+# Subtest: production immutable audit uses Obsidian DataAdapter for hidden local paths
+ok 124 - production immutable audit uses Obsidian DataAdapter for hidden local paths
+  ---
+  duration_ms: 54.082459
+  type: 'test'
+  ...
+# Subtest: production audit continuity rejects truncation and replay across fresh services
+ok 125 - production audit continuity rejects truncation and replay across fresh services
+  ---
+  duration_ms: 5.277834
+  type: 'test'
+  ...
+# Subtest: forbids destructive command paths and loads the service in production
+ok 126 - forbids destructive command paths and loads the service in production
+  ---
+  duration_ms: 1.331958
+  type: 'test'
+  ...
+# Subtest: real Hub route exposes one confirmed compensation action and consumes it after exact restoration
+ok 127 - real Hub route exposes one confirmed compensation action and consumes it after exact restoration
+  ---
+  duration_ms: 1557.674083
+  type: 'test'
+  ...
+# Subtest: disposable production Hub driver restores a failed multi-file compensation and rejects restart truncation
+ok 128 - disposable production Hub driver restores a failed multi-file compensation and rejects restart truncation
+  ---
+  duration_ms: 527.92575
+  type: 'test'
+  ...
+# Subtest: multiple claims from one source become one coherent candidate document
+ok 129 - multiple claims from one source become one coherent candidate document
+  ---
+  duration_ms: 1.334
+  type: 'test'
+  ...
+# Subtest: source summary and reusable claims become separate document classes, not item files
+ok 130 - source summary and reusable claims become separate document classes, not item files
+  ---
+  duration_ms: 1.611709
+  type: 'test'
+  ...
+# Subtest: one information-rich source becomes one sectioned source document plus coherent topic documents
+ok 131 - one information-rich source becomes one sectioned source document plus coherent topic documents
+  ---
+  duration_ms: 0.424125
+  type: 'test'
+  ...
+# Subtest: canonical coverage returns no_change and blocks duplicate create
+ok 132 - canonical coverage returns no_change and blocks duplicate create
+  ---
+  duration_ms: 0.175
+  type: 'test'
+  ...
+# Subtest: canonical lexical overlap cannot discard changed numbers, conditions or negation
+ok 133 - canonical lexical overlap cannot discard changed numbers, conditions or negation
+  ---
+  duration_ms: 0.207458
+  type: 'test'
+  ...
+# Subtest: trusted related candidates choose one document-level update or merge
+ok 134 - trusted related candidates choose one document-level update or merge
+  ---
+  duration_ms: 1.315875
+  type: 'test'
+  ...
+# Subtest: document plan resolves canonically equivalent Unicode source paths
+ok 135 - document plan resolves canonically equivalent Unicode source paths
+  ---
+  duration_ms: 463.686375
+  type: 'test'
+  ...
+# Subtest: document planning requires complete semantic source coverage before downstream planning
+ok 136 - document planning requires complete semantic source coverage before downstream planning
+  ---
+  duration_ms: 1653.309042
+  type: 'test'
+  ...
+# Subtest: canonical no_change documents count as source provenance toward full plan coverage (Finding-2)
+ok 137 - canonical no_change documents count as source provenance toward full plan coverage (Finding-2)
+  ---
+  duration_ms: 649.574333
+  type: 'test'
+  ...
+# Subtest: default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError)
+ok 138 - default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError)
+  ---
+  duration_ms: 177.746625
+  type: 'test'
+  ...
+# Subtest: span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract
+ok 139 - span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract
+  ---
+  duration_ms: 88.878083
+  type: 'test'
+  ...
+# Subtest: replay-only analysis without durable 12/12 unit coverage cannot become review_ready
+ok 140 - replay-only analysis without durable 12/12 unit coverage cannot become review_ready
+  ---
+  duration_ms: 67.854291
+  type: 'test'
+  ...
+# Subtest: Centum regression converges through the real Hub planner, compiler, and Golden orchestrator
+ok 141 - Centum regression converges through the real Hub planner, compiler, and Golden orchestrator
+  ---
+  duration_ms: 268.339875
+  type: 'test'
+  ...
+# Subtest: semantic over-capacity stops before transport and every downstream boundary
+ok 142 - semantic over-capacity stops before transport and every downstream boundary
+  ---
+  duration_ms: 63.932041
+  type: 'test'
+  ...
+# Subtest: v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay
+ok 143 - v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay
+  ---
+  duration_ms: 320.372333
+  type: 'test'
+  ...
+# Subtest: live batch emits one document operation for multiple reusable claims
+ok 144 - live batch emits one document operation for multiple reusable claims
+  ---
+  duration_ms: 96.659625
+  type: 'test'
+  ...
+# Subtest: rejecting an obsolete review run persists zero packets across restart
+ok 145 - rejecting an obsolete review run persists zero packets across restart
+  ---
+  duration_ms: 150.01925
+  type: 'test'
+  ...
+# Subtest: isolated document pilot covers content beyond 4 KiB without replacing the existing review
+ok 146 - isolated document pilot covers content beyond 4 KiB without replacing the existing review
+  ---
+  duration_ms: 59.837125
+  type: 'test'
+  ...
+# Subtest: isolated document pilot resumes after the last completed pack
+ok 147 - isolated document pilot resumes after the last completed pack
+  ---
+  duration_ms: 108.864333
+  type: 'test'
+  ...
+# Subtest: full-source materialization converts chunk-local spans to source-global locators
+ok 148 - full-source materialization converts chunk-local spans to source-global locators
+  ---
+  duration_ms: 156.327583
+  type: 'test'
+  ...
+# Subtest: full-source plan resumes a blocked batch only with explicit retry intent
+ok 149 - full-source plan resumes a blocked batch only with explicit retry intent
+  ---
+  duration_ms: 79.435459
+  type: 'test'
+  ...
+# Subtest: Hub remount preserves the actively selected document plan
+ok 150 - Hub remount preserves the actively selected document plan
+  ---
+  duration_ms: 73.656459
+  type: 'test'
+  ...
+# Subtest: compile blocks swapped topic titles until explicit recommended renames
+ok 151 - compile blocks swapped topic titles until explicit recommended renames
+  ---
+  duration_ms: 89.369708
+  type: 'test'
+  ...
+# Subtest: full-source workflow stops at page-plan triage, then compiles preview without replacing active review
+ok 152 - full-source workflow stops at page-plan triage, then compiles preview without replacing active review
+  ---
+  duration_ms: 326.296875
+  type: 'test'
+  ...
+# Subtest: source-only claims block source archive when compiled review activates
+ok 153 - source-only claims block source archive when compiled review activates
+  ---
+  duration_ms: 64.606041
+  type: 'test'
+  ...
+# Subtest: legacy atomized recovery repackets from cached artifacts with provider zero
+ok 154 - legacy atomized recovery repackets from cached artifacts with provider zero
+  ---
+  duration_ms: 97.16375
+  type: 'test'
+  ...
+# Subtest: canonical coverage blocks duplicate candidate creation in the live Hub
+ok 155 - canonical coverage blocks duplicate candidate creation in the live Hub
+  ---
+  duration_ms: 141.106167
+  type: 'test'
+  ...
+# Subtest: stale source excluded from cached repacket returns to the visible pending queue
+ok 156 - stale source excluded from cached repacket returns to the visible pending queue
+  ---
+  duration_ms: 113.472625
+  type: 'test'
+  ...
+# Subtest: successive supplements stay in the article with one provenance footer and unchanged human notes
+ok 157 - successive supplements stay in the article with one provenance footer and unchanged human notes
+  ---
+  duration_ms: 490.460541
+  type: 'test'
+  ...
+# Subtest: compiled document creates, updates same Markdown and is read back as trusted
+ok 158 - compiled document creates, updates same Markdown and is read back as trusted
+  ---
+  duration_ms: 297.450833
+  type: 'test'
+  ...
+# Subtest: unresolved conflict and missing explicit approval do not write canonical Markdown
+ok 159 - unresolved conflict and missing explicit approval do not write canonical Markdown
+  ---
+  duration_ms: 7.47875
+  type: 'test'
+  ...
+# Subtest: stale source or target preview rejects without replacing subsequent user edits
+ok 160 - stale source or target preview rejects without replacing subsequent user edits
+  ---
+  duration_ms: 1.390916
+  type: 'test'
+  ...
+# Subtest: post-write audit failure resumes same approved document without a duplicate paragraph
+ok 161 - post-write audit failure resumes same approved document without a duplicate paragraph
+  ---
+  duration_ms: 215.979
+  type: 'test'
+  ...
+# Subtest: target edit after preview remains untouched and requires a fresh review
+ok 162 - target edit after preview remains untouched and requires a fresh review
+  ---
+  duration_ms: 113.35475
+  type: 'test'
+  ...
+# Subtest: review modal renders exact preview and applies only after explicit checkbox action
+ok 163 - review modal renders exact preview and applies only after explicit checkbox action
+  ---
+  duration_ms: 18.089917
+  type: 'test'
+  ...
+# Subtest: approved Wiki text is never recaptured as an independent Source
+ok 164 - approved Wiki text is never recaptured as an independent Source
+  ---
+  duration_ms: 0.207417
+  type: 'test'
+  ...
+# Subtest: partial update survives modal close/reopen without another canonical write and protects later user edits
+ok 165 - partial update survives modal close/reopen without another canonical write and protects later user edits
+  ---
+  duration_ms: 201.079792
+  type: 'test'
+  ...
+# Subtest: existing processing plan restores an interrupted apply after runtime restart only with a fresh explicit decision
+ok 166 - existing processing plan restores an interrupted apply after runtime restart only with a fresh explicit decision
+  ---
+  duration_ms: 981.919333
+  type: 'test'
+  ...
+# Subtest: verified target reuses recorded scope while new-target switch clears inherited fields and approval
+ok 167 - verified target reuses recorded scope while new-target switch clears inherited fields and approval
+  ---
+  duration_ms: 20.021292
+  type: 'test'
+  ...
+# Subtest: failed conflict preparation keeps the complete proposed document visible
+ok 168 - failed conflict preparation keeps the complete proposed document visible
+  ---
+  duration_ms: 48.132875
+  type: 'test'
+  ...
+# Subtest: projects real inbox snapshots into one beginner lifecycle state and one typed primary action
+ok 169 - projects real inbox snapshots into one beginner lifecycle state and one typed primary action
+  ---
+  duration_ms: 2.172417
+  type: 'test'
+  ...
+# Subtest: explicit source selection takes priority over an automatic INBOX queue
+ok 170 - explicit source selection takes priority over an automatic INBOX queue
+  ---
+  duration_ms: 2.622459
+  type: 'test'
+  ...
+# Subtest: source picker labels user materials and filters by title or path
+ok 171 - source picker labels user materials and filters by title or path
+  ---
+  duration_ms: 0.287083
+  type: 'test'
+  ...
+# Subtest: renders selected source as a Golden Wiki creation flow
+ok 172 - renders selected source as a Golden Wiki creation flow
+  ---
+  duration_ms: 41.60825
+  type: 'test'
+  ...
+# Subtest: large source requires an explicit heading scope before consent
+ok 173 - large source requires an explicit heading scope before consent
+  ---
+  duration_ms: 0.5275
+  type: 'test'
+  ...
+# Subtest: large source range picker is hierarchical searchable and previewable
+ok 174 - large source range picker is hierarchical searchable and previewable
+  ---
+  duration_ms: 0.499125
+  type: 'test'
+  ...
+# Subtest: interrupted and changed Prodigy Wiki runs expose one typed recovery action
+ok 175 - interrupted and changed Prodigy Wiki runs expose one typed recovery action
+  ---
+  duration_ms: 0.292875
+  type: 'test'
+  ...
+# Subtest: projects operation progress, refresh and Git follow-up without mutating the committed canonical outcome
+ok 176 - projects operation progress, refresh and Git follow-up without mutating the committed canonical outcome
+  ---
+  duration_ms: 0.205209
+  type: 'test'
+  ...
+# Subtest: renders one canonical Git follow-up message across unavailable, retry, and recovery updates
+ok 177 - renders one canonical Git follow-up message across unavailable, retry, and recovery updates
+  ---
+  duration_ms: 0.38625
+  type: 'test'
+  ...
+# Subtest: keeps approval-ready and blocking conflict queues separate and excludes conflicts from eligible batches
+ok 178 - keeps approval-ready and blocking conflict queues separate and excludes conflicts from eligible batches
+  ---
+  duration_ms: 0.137125
+  type: 'test'
+  ...
+# Subtest: production Hub loads and owns inbox intake, cancellation, retry, Task14 review and operation recovery routes
+ok 179 - production Hub loads and owns inbox intake, cancellation, retry, Task14 review and operation recovery routes
+  ---
+  duration_ms: 5.478417
+  type: 'test'
+  ...
+# Subtest: default lifecycle DOM omits raw canonical and internal fields and has no nested scroll owner
+ok 180 - default lifecycle DOM omits raw canonical and internal fields and has no nested scroll owner
+  ---
+  duration_ms: 0.198834
+  type: 'test'
+  ...
+# Subtest: central Knowledge stylesheet is the only lifecycle and browse selector source and enforces responsive geometry
+ok 181 - central Knowledge stylesheet is the only lifecycle and browse selector source and enforces responsive geometry
+  ---
+  duration_ms: 0.687416
+  type: 'test'
+  ...
+# Subtest: Knowledge retains exactly four tabs
+ok 182 - Knowledge retains exactly four tabs
+  ---
+  duration_ms: 0.302083
+  type: 'test'
+  ...
+# Subtest: source boundary reflects an actually sent question without changing pre-consent default
+ok 183 - source boundary reflects an actually sent question without changing pre-consent default
+  ---
+  duration_ms: 0.228917
+  type: 'test'
+  ...
+# TASK8_CALL_ORDER get:.llmwiki-audit/nonce_obsidian_adapter_0001.json -> get:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> get:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> get:.llmwiki-audit/nonce_obsidian_adapter_0001.json -> get:.llmwiki-audit -> create:.llmwiki-audit/nonce_obsidian_adapter_0001.json -> get:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> create:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> modify:.llmwiki-audit/nonce_obsidian_adapter_0001.json
+# TASK8_REPAIR first=1 duplicate=1 canonical_rewrites=0 provider=0 network=0 git=0
+# Subtest: real app.vault is resolved while malformed or absent browser runtime is runtime_unavailable
+ok 184 - real app.vault is resolved while malformed or absent browser runtime is runtime_unavailable
+  ---
+  duration_ms: 29.197583
+  type: 'test'
+  ...
+# Subtest: raw, spread, copied, and JSON-unbranded operations reject before Vault effects
+ok 185 - raw, spread, copied, and JSON-unbranded operations reject before Vault effects
+  ---
+  duration_ms: 16.923
+  type: 'test'
+  ...
+# Subtest: deterministic writer validates, prepares audit, creates exact canonical bytes, and finalizes exact audit bytes in order
+ok 186 - deterministic writer validates, prepares audit, creates exact canonical bytes, and finalizes exact audit bytes in order
+  ---
+  duration_ms: 22.148791
+  type: 'test'
+  ...
+# Subtest: modify uses app.vault read/create/modify in exact order and preserves exact before/after state
+ok 187 - modify uses app.vault read/create/modify in exact order and preserves exact before/after state
+  ---
+  duration_ms: 0.794125
+  type: 'test'
+  ...
+# Subtest: missing audit directory is created at the one exact Vault path before audit prepare
+ok 188 - missing audit directory is created at the one exact Vault path before audit prepare
+  ---
+  duration_ms: 0.596
+  type: 'test'
+  ...
+# Subtest: audit prepare failure writes no canonical and reports exact zero counters
+ok 189 - audit prepare failure writes no canonical and reports exact zero counters
+  ---
+  duration_ms: 74.492333
+  type: 'test'
+  ...
+# Subtest: canonical failure preserves canonical state and finalizes a rejected audit when possible
+ok 190 - canonical failure preserves canonical state and finalizes a rejected audit when possible
+  ---
+  duration_ms: 10.485667
+  type: 'test'
+  ...
+# Subtest: audit finalize failure returns committed_audit_pending without canonical rollback and repair is exact and idempotent
+ok 191 - audit finalize failure returns committed_audit_pending without canonical rollback and repair is exact and idempotent
+  ---
+  duration_ms: 5.331084
+  type: 'test'
+  ...
+# Subtest: repair write failure keeps exact prepared audit and canonical bytes for a later retry
+ok 192 - repair write failure keeps exact prepared audit and canonical bytes for a later retry
+  ---
+  duration_ms: 2.55925
+  type: 'test'
+  ...
+# Subtest: create collision, stale modify bytes, and repair mismatch reject before forbidden mutation
+ok 193 - create collision, stale modify bytes, and repair mismatch reject before forbidden mutation
+  ---
+  duration_ms: 5.432625
+  type: 'test'
+  ...
+# Subtest: malformed paths, packet, vault shape, and source text fail closed; product adapter has no Node fs path
+ok 194 - malformed paths, packet, vault shape, and source text fail closed; product adapter has no Node fs path
+  ---
+  duration_ms: 0.830916
+  type: 'test'
+  ...
+# Subtest: existing create proposal and approval packet remain compatible without a typed operation
+ok 195 - existing create proposal and approval packet remain compatible without a typed operation
+  ---
+  duration_ms: 40.999417
+  type: 'test'
+  ...
+# Subtest: create, update, merge, and noop parse exhaustively into deeply frozen discriminated operations
+ok 196 - create, update, merge, and noop parse exhaustively into deeply frozen discriminated operations
+  ---
+  duration_ms: 1.838209
+  type: 'test'
+  ...
+# Subtest: destination ids, revisions, exact before/after bytes, citations, conflicts, risk, and effects are mandatory and kind-specific
+ok 197 - destination ids, revisions, exact before/after bytes, citations, conflicts, risk, and effects are mandatory and kind-specific
+  ---
+  duration_ms: 0.822458
+  type: 'test'
+  ...
+# Subtest: delete is unrepresentable and malformed or instruction-shaped fields cannot expand authority
+ok 198 - delete is unrepresentable and malformed or instruction-shaped fields cannot expand authority
+  ---
+  duration_ms: 0.467666
+  type: 'test'
+  ...
+# Subtest: merge covers every source and destination revision and rejects missing or extra coverage
+ok 199 - merge covers every source and destination revision and rejects missing or extra coverage
+  ---
+  duration_ms: 0.333875
+  type: 'test'
+  ...
+# Subtest: unresolved conflicts make operation and approval packet ineligible
+ok 200 - unresolved conflicts make operation and approval packet ineligible
+  ---
+  duration_ms: 32.817125
+  type: 'test'
+  ...
+# Subtest: raw plain, custom-prototype, polluted, accessor, and exotic-array objects reject without inspection
+ok 201 - raw plain, custom-prototype, polluted, accessor, and exotic-array objects reject without inspection
+  ---
+  duration_ms: 0.202375
+  type: 'test'
+  ...
+# Subtest: null-prototype nested records and maps are accepted and normalized to frozen prototype-safe maps
+ok 202 - null-prototype nested records and maps are accepted and normalized to frozen prototype-safe maps
+  ---
+  duration_ms: 8.497875
+  type: 'test'
+  ...
+# Subtest: prototype-mutating identifiers and revision-map keys reject at every identifier boundary
+ok 203 - prototype-mutating identifiers and revision-map keys reject at every identifier boundary
+  ---
+  duration_ms: 46.0355
+  type: 'test'
+  ...
+# Subtest: serialized boundary rejects raw objects and 24 mutating proxies without triggering any trap
+ok 204 - serialized boundary rejects raw objects and 24 mutating proxies without triggering any trap
+  ---
+  duration_ms: 0.280917
+  type: 'test'
+  ...
+# Subtest: serialized JSON accepts all kinds, rejects malformed and duplicate-key JSON, and brands reusable records
+ok 205 - serialized JSON accepts all kinds, rejects malformed and duplicate-key JSON, and brands reusable records
+  ---
+  duration_ms: 2.030542
+  type: 'test'
+  ...
+# Subtest: browser VM operation intake uses TextEncoder or deterministic UTF-8 fallback without Node runtime modules
+ok 206 - browser VM operation intake uses TextEncoder or deterministic UTF-8 fallback without Node runtime modules
+  ---
+  duration_ms: 253.0455
+  type: 'test'
+  ...
+# Subtest: serialized operation byte boundary rejects max plus one and multibyte overflow while accepting exact max
+ok 207 - serialized operation byte boundary rejects max plus one and multibyte overflow while accepting exact max
+  ---
+  duration_ms: 64.524083
+  type: 'test'
+  ...
+# Subtest: over-limit operation is rejected across proposal, approval, and canonical seams before any alternate JSON.parse
+ok 208 - over-limit operation is rejected across proposal, approval, and canonical seams before any alternate JSON.parse
+  ---
+  duration_ms: 82.950792
+  type: 'test'
+  ...
+# Subtest: canonical assembly and verification reject raw operation proxies/getters with zero side effects and no JSON round trips
+ok 209 - canonical assembly and verification reject raw operation proxies/getters with zero side effects and no JSON round trips
+  ---
+  duration_ms: 46.515667
+  type: 'test'
+  ...
+# Subtest: sub-megabyte excessive depth and collection counts reject with deterministic complexity failures
+ok 210 - sub-megabyte excessive depth and collection counts reject with deterministic complexity failures
+  ---
+  duration_ms: 10.023125
+  type: 'test'
+  ...
+# Subtest: proposal and approval seams accept serialized or branded operations but reject raw operation objects
+ok 211 - proposal and approval seams accept serialized or branded operations but reject raw operation objects
+  ---
+  duration_ms: 37.886792
+  type: 'test'
+  ...
+# Subtest: branded records can be evaluated repeatedly without losing identity or stale checks
+ok 212 - branded records can be evaluated repeatedly without losing identity or stale checks
+  ---
+  duration_ms: 0.394417
+  type: 'test'
+  ...
+# Subtest: deprecation and supersession effects bind canonical target revision and exact before bytes
+ok 213 - deprecation and supersession effects bind canonical target revision and exact before bytes
+  ---
+  duration_ms: 1.163625
+  type: 'test'
+  ...
+# Subtest: trusted current canonical revisions are required to report existing-target operations fresh and eligible
+ok 214 - trusted current canonical revisions are required to report existing-target operations fresh and eligible
+  ---
+  duration_ms: 0.416333
+  type: 'test'
+  ...
+# Subtest: typed operation and revision evaluation replay are deterministic and do not mutate caller input
+ok 215 - typed operation and revision evaluation replay are deterministic and do not mutate caller input
+  ---
+  duration_ms: 0.217166
+  type: 'test'
+  ...
+# Subtest: Given the operation writer modules, When their boundaries are inspected, Then each authority has one specific role under 250 pure LOC
+ok 216 - Given the operation writer modules, When their boundaries are inspected, Then each authority has one specific role under 250 pure LOC
+  ---
+  duration_ms: 19.054459
+  type: 'test'
+  ...
+# Subtest: Given the stable writer facade, When its public surface is enumerated, Then no generic mutation seam is exposed
+ok 217 - Given the stable writer facade, When its public surface is enumerated, Then no generic mutation seam is exposed
+  ---
+  duration_ms: 0.499584
+  type: 'test'
+  ...
+# Subtest: entry reuses existing Hub and coalesces duplicate opens without ingest or write
+ok 218 - entry reuses existing Hub and coalesces duplicate opens without ingest or write
+  ---
+  duration_ms: 2.607833
+  type: 'test'
+  ...
+# Subtest: entry reports missing required Hub or Dataview rather than claiming mounted
+ok 219 - entry reports missing required Hub or Dataview rather than claiming mounted
+  ---
+  duration_ms: 0.866417
+  type: 'test'
+  ...
+# Subtest: Given forged promotion authority When canonical approval executes Then no handler is called
+ok 220 - Given forged promotion authority When canonical approval executes Then no handler is called
+  ---
+  duration_ms: 7.8235
+  type: 'test'
+  ...
+# Subtest: Given exact branded promotion authority When canonical approval executes Then handler is called once and replay stays closed
+ok 221 - Given exact branded promotion authority When canonical approval executes Then handler is called once and replay stays closed
+  ---
+  duration_ms: 4.748041
+  type: 'test'
+  ...
+# Subtest: Given cross-ClaimSet or stale branded authority When canonical approval executes Then no handler is called
+ok 222 - Given cross-ClaimSet or stale branded authority When canonical approval executes Then no handler is called
+  ---
+  duration_ms: 3.3225
+  type: 'test'
+  ...
+# Subtest: stale PARA handoff cannot be replayed without a new review revision
+ok 223 - stale PARA handoff cannot be replayed without a new review revision
+  ---
+  duration_ms: 0.358041
+  type: 'test'
+  ...
+# Subtest: retry is limited to explicit stale or recovery review states
+ok 224 - retry is limited to explicit stale or recovery review states
+  ---
+  duration_ms: 0.112541
+  type: 'test'
+  ...
+# Subtest: cache completion and PARA approval expose exact local scope without provider authority
+ok 225 - cache completion and PARA approval expose exact local scope without provider authority
+  ---
+  duration_ms: 0.14475
+  type: 'test'
+  ...
+# Subtest: failed explicit review recovery can retry while in-flight and successful requests stay deduplicated
+ok 226 - failed explicit review recovery can retry while in-flight and successful requests stay deduplicated
+  ---
+  duration_ms: 0.109542
+  type: 'test'
+  ...
+# Subtest: throwing explicit review recovery remains retryable without releasing apply commands
+ok 227 - throwing explicit review recovery remains retryable without releasing apply commands
+  ---
+  duration_ms: 0.103375
+  type: 'test'
+  ...
+# Subtest: query/read returns byte-stable verified and legacy envelopes with deterministic ranking, citations, ids, and hash
+ok 228 - query/read returns byte-stable verified and legacy envelopes with deterministic ranking, citations, ids, and hash
+  ---
+  duration_ms: 41.5595
+  type: 'test'
+  ...
+# Subtest: literature, candidate, and proposal modes are labeled non-canonical and never promoted to verified answers
+ok 229 - literature, candidate, and proposal modes are labeled non-canonical and never promoted to verified answers
+  ---
+  duration_ms: 4.582917
+  type: 'test'
+  ...
+# Subtest: stale, unavailable, conflict, empty, malformed, unsafe, and prompt-shaped inputs fail closed with writer=0
+ok 230 - stale, unavailable, conflict, empty, malformed, unsafe, and prompt-shaped inputs fail closed with writer=0
+  ---
+  duration_ms: 1.431625
+  type: 'test'
+  ...
+# Subtest: query/read ignores writer/provider/creator hooks and leaves persistent filesystem snapshots unchanged
+ok 231 - query/read ignores writer/provider/creator hooks and leaves persistent filesystem snapshots unchanged
+  ---
+  duration_ms: 1.4685
+  type: 'test'
+  ...
+# Subtest: operation run state declares every kind and deterministic state/action transition
+ok 232 - operation run state declares every kind and deterministic state/action transition
+  ---
+  duration_ms: 6.464625
+  type: 'test'
+  ...
+# Subtest: operation run identity and revision are monotonic and stale identities reject
+ok 233 - operation run identity and revision are monotonic and stale identities reject
+  ---
+  duration_ms: 0.390417
+  type: 'test'
+  ...
+# Subtest: controller delegates typed update execution through the operation orchestrator
+ok 234 - controller delegates typed update execution through the operation orchestrator
+  ---
+  duration_ms: 42.89475
+  type: 'test'
+  ...
+# Subtest: create, update, merge, and no-op use one exhaustive service interface
+ok 235 - create, update, merge, and no-op use one exhaustive service interface
+  ---
+  duration_ms: 5.254166
+  type: 'test'
+  ...
+# Subtest: one active run rejects a second start and explicit replacement invalidates the old provider
+ok 236 - one active run rejects a second start and explicit replacement invalidates the old provider
+  ---
+  duration_ms: 0.655208
+  type: 'test'
+  ...
+# Subtest: cancel while provider is pending aborts and makes the late provider result UI-inert
+ok 237 - cancel while provider is pending aborts and makes the late provider result UI-inert
+  ---
+  duration_ms: 0.433375
+  type: 'test'
+  ...
+# Subtest: cancel after provider readiness prevents approval and all canonical adapter calls
+ok 238 - cancel after provider readiness prevents approval and all canonical adapter calls
+  ---
+  duration_ms: 0.583
+  type: 'test'
+  ...
+# Subtest: late packet preparation and approval callbacks are ignored before authorization or commit side effects
+ok 239 - late packet preparation and approval callbacks are ignored before authorization or commit side effects
+  ---
+  duration_ms: 0.76275
+  type: 'test'
+  ...
+# Subtest: cancel during a pending commit ignores its callback and the guarded service never reaches its adapter
+ok 240 - cancel during a pending commit ignores its callback and the guarded service never reaches its adapter
+  ---
+  duration_ms: 1.3785
+  type: 'test'
+  ...
+# Subtest: duplicate approval while committing is rejected and invokes commit once
+ok 241 - duplicate approval while committing is rejected and invokes commit once
+  ---
+  duration_ms: 0.670791
+  type: 'test'
+  ...
+# Subtest: commit failure is terminal without a canonical success outcome
+ok 242 - commit failure is terminal without a canonical success outcome
+  ---
+  duration_ms: 0.348334
+  type: 'test'
+  ...
+# Subtest: refresh and Git failures remain separate from immutable canonical success and retry without recommit
+ok 243 - refresh and Git failures remain separate from immutable canonical success and retry without recommit
+  ---
+  duration_ms: 1.237791
+  type: 'test'
+  ...
+# Subtest: cancel during refresh invalidates late refresh and Git callbacks while preserving canonical success
+ok 244 - cancel during refresh invalidates late refresh and Git callbacks while preserving canonical success
+  ---
+  duration_ms: 0.721083
+  type: 'test'
+  ...
+# Subtest: recovery reconstructs committed and no-change outcomes without rerunning provider, approval, or commit
+ok 245 - recovery reconstructs committed and no-change outcomes without rerunning provider, approval, or commit
+  ---
+  duration_ms: 0.527791
+  type: 'test'
+  ...
+# Subtest: approval callback is privately bound to run, revision, operation, packet, and approval identity
+ok 246 - approval callback is privately bound to run, revision, operation, packet, and approval identity
+  ---
+  duration_ms: 2.606125
+  type: 'test'
+  ...
+# Subtest: cancelled refresh and Git follow-up state persists and recovery cannot resurrect pending callbacks
+ok 247 - cancelled refresh and Git follow-up state persists and recovery cannot resurrect pending callbacks
+  ---
+  duration_ms: 6.010375
+  type: 'test'
+  ...
+# Subtest: duplicate approval callback emits one deterministic audit and repeated delivery is side-effect free
+ok 248 - duplicate approval callback emits one deterministic audit and repeated delivery is side-effect free
+  ---
+  duration_ms: 1.81875
+  type: 'test'
+  ...
+# Subtest: refresh and Git adapter entry is identity-guarded after cancellation
+ok 249 - refresh and Git adapter entry is identity-guarded after cancellation
+  ---
+  duration_ms: 2.7195
+  type: 'test'
+  ...
+# Subtest: invalid cancel validates before token invalidation and leaves retry capability intact
+ok 250 - invalid cancel validates before token invalidation and leaves retry capability intact
+  ---
+  duration_ms: 2.029708
+  type: 'test'
+  ...
+# Subtest: cancel and retry commands are privately identity-bound and stale or duplicate delivery audits once
+ok 251 - cancel and retry commands are privately identity-bound and stale or duplicate delivery audits once
+  ---
+  duration_ms: 3.741333
+  type: 'test'
+  ...
+# Subtest: serialized durable saves make cancelled follow-up win over an earlier suspended save
+ok 252 - serialized durable saves make cancelled follow-up win over an earlier suspended save
+  ---
+  duration_ms: 4.472
+  type: 'test'
+  ...
+# Subtest: raw stale approval intent cannot rebind to the replacement run and raw boundary is exact
+ok 253 - raw stale approval intent cannot rebind to the replacement run and raw boundary is exact
+  ---
+  duration_ms: 0.768084
+  type: 'test'
+  ...
+# Subtest: mismatched authorization terminalizes authorizing and invalidates the callback capability
+ok 254 - mismatched authorization terminalizes authorizing and invalidates the callback capability
+  ---
+  duration_ms: 1.192708
+  type: 'test'
+  ...
+# Subtest: stale commit result cannot become canonical success
+ok 255 - stale commit result cannot become canonical success
+  ---
+  duration_ms: 0.285583
+  type: 'test'
+  ...
+# LLMWiki UI recovery tests passed.
+# Subtest: SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_ui_recovery.js
+ok 24 - SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_ui_recovery.js
+  ---
+  duration_ms: 72.788083
+  type: 'test'
+  ...
+# Subtest: on-disk A create → B approved supplement → existing verified reader and Wiki candidate reuse
+ok 257 - on-disk A create → B approved supplement → existing verified reader and Wiki candidate reuse
+  ---
+  duration_ms: 232.322
+  type: 'test'
+  ...
+# Subtest: stale source refuses the approved update without overwriting current bytes
+ok 258 - stale source refuses the approved update without overwriting current bytes
+  ---
+  duration_ms: 127.538417
+  type: 'test'
+  ...
+# Subtest: stale target refuses the approved update without overwriting current bytes
+ok 259 - stale target refuses the approved update without overwriting current bytes
+  ---
+  duration_ms: 26.389708
+  type: 'test'
+  ...
+# Subtest: immutable authority failure resumes without duplicate write; subsequent user edit=false
+ok 260 - immutable authority failure resumes without duplicate write; subsequent user edit=false
+  ---
+  duration_ms: 235.028208
+  type: 'test'
+  ...
+# Subtest: immutable authority failure resumes without duplicate write; subsequent user edit=true
+ok 261 - immutable authority failure resumes without duplicate write; subsequent user edit=true
+  ---
+  duration_ms: 146.894875
+  type: 'test'
+  ...
+# Subtest: prepared authority audit finalization failure resumes without rewriting Markdown
+ok 262 - prepared authority audit finalization failure resumes without rewriting Markdown
+  ---
+  duration_ms: 72.703167
+  type: 'test'
+  ...
+# Subtest: cloned approval authority cannot authorize changed claim/source bindings
+ok 263 - cloned approval authority cannot authorize changed claim/source bindings
+  ---
+  duration_ms: 25.3915
+  type: 'test'
+  ...
+# Subtest: recorded six-condition proposal reaches final canonical Markdown through official approval and reader
+ok 264 - recorded six-condition proposal reaches final canonical Markdown through official approval and reader
+  ---
+  duration_ms: 48.643667
+  type: 'test'
+  ...
+# Subtest: recorded unresolved conflict remains intact and is ineligible for canonical promotion
+ok 265 - recorded unresolved conflict remains intact and is ineligible for canonical promotion
+  ---
+  duration_ms: 2.403959
+  type: 'test'
+  ...
+# Subtest: immutable entry persisted before head update failure resumes the same approval without duplicate entry
+ok 266 - immutable entry persisted before head update failure resumes the same approval without duplicate entry
+  ---
+  duration_ms: 42.363167
+  type: 'test'
+  ...
+# Subtest: source changed during audit preparation is rechecked before any canonical write
+ok 267 - source changed during audit preparation is rechecked before any canonical write
+  ---
+  duration_ms: 26.019583
+  type: 'test'
+  ...
+# Subtest: pending immutable head repair cannot overwrite a later user edit or rewrite audit entries
+ok 268 - pending immutable head repair cannot overwrite a later user edit or rewrite audit entries
+  ---
+  duration_ms: 172.891541
+  type: 'test'
+  ...
+# Subtest: canonical create immutable authority failure must resume verified authority rather than return a false duplicate
+ok 269 - canonical create immutable authority failure must resume verified authority rather than return a false duplicate
+  ---
+  duration_ms: 12.671875
+  type: 'test'
+  ...
+# Subtest: canonical create rejects source change during prepared audit before writing Markdown
+ok 270 - canonical create rejects source change during prepared audit before writing Markdown
+  ---
+  duration_ms: 4.948792
+  type: 'test'
+  ...
+# Subtest: canonical create rechecks a new Wiki link removed during audit preparation
+ok 271 - canonical create rechecks a new Wiki link removed during audit preparation
+  ---
+  duration_ms: 7.112042
+  type: 'test'
+  ...
+# Subtest: first canonical create append_throw returns pending and explicit retry repairs authority
+ok 272 - first canonical create append_throw returns pending and explicit retry repairs authority
+  ---
+  duration_ms: 14.512458
+  type: 'test'
+  ...
+# Subtest: first canonical create first_head_create returns pending and explicit retry repairs authority
+ok 273 - first canonical create first_head_create returns pending and explicit retry repairs authority
+  ---
+  duration_ms: 9.465167
+  type: 'test'
+  ...
+# Subtest: private update approval binds canonical identity, revision, exact bytes, evidence, and exact restore compensation
+ok 274 - private update approval binds canonical identity, revision, exact bytes, evidence, and exact restore compensation
+  ---
+  duration_ms: 66.752625
+  type: 'test'
+  ...
+# Subtest: deterministic commit atomically replaces the exact update target once, verifies bytes, preserves mode and unrelated files, and replays with zero writes
+ok 275 - deterministic commit atomically replaces the exact update target once, verifies bytes, preserves mode and unrelated files, and replays with zero writes
+  ---
+  duration_ms: 44.463208
+  type: 'test'
+  ...
+# Subtest: stale external bytes fail immediately before write without consuming approval and can retry after exact restoration
+ok 276 - stale external bytes fail immediately before write without consuming approval and can retry after exact restoration
+  ---
+  duration_ms: 20.748
+  type: 'test'
+  ...
+# Subtest: path escape, symlink, raw, proxy, accessor, and oversized inputs reject without replacement
+ok 277 - path escape, symlink, raw, proxy, accessor, and oversized inputs reject without replacement
+  ---
+  duration_ms: 939.802125
+  type: 'test'
+  ...
+# Subtest: concurrent drift, misleading success, and interruption before or after replace fail closed; only known exact post-replace bytes can be restored
+ok 278 - concurrent drift, misleading success, and interruption before or after replace fail closed; only known exact post-replace bytes can be restored
+  ---
+  duration_ms: 11.882333
+  type: 'test'
+  ...
+# Subtest: explicit selected source is searchable with body and locator, never verified or ambient INBOX
+ok 279 - explicit selected source is searchable with body and locator, never verified or ambient INBOX
+  ---
+  duration_ms: 32.27425
+  type: 'test'
+  ...
+# Subtest: existing browse modes share query types and no-match is not a scope error
+ok 280 - existing browse modes share query types and no-match is not a scope error
+  ---
+  duration_ms: 3.238333
+  type: 'test'
+  ...
+# Subtest: selected source question carries bounded evidence and locator; no match abstains before transport
+ok 281 - selected source question carries bounded evidence and locator; no match abstains before transport
+  ---
+  duration_ms: 51.907708
+  type: 'test'
+  ...
+# Subtest: bounded passages preserve neighbouring exceptions and cite the actual quoted line
+ok 282 - bounded passages preserve neighbouring exceptions and cite the actual quoted line
+  ---
+  duration_ms: 17.69025
+  type: 'test'
+  ...
+# Subtest: proposal and review document preserve every grounded condition and unresolved review note
+ok 283 - proposal and review document preserve every grounded condition and unresolved review note
+  ---
+  duration_ms: 73.445708
+  type: 'test'
+  ...
+# Subtest: conversation forwards history as context with explicit source scope and no invented evidence
+ok 284 - conversation forwards history as context with explicit source scope and no invented evidence
+  ---
+  duration_ms: 124.38675
+  type: 'test'
+  ...
+# Subtest: verified Wiki context requires actual finalized reader authority and exact current bytes
+ok 285 - verified Wiki context requires actual finalized reader authority and exact current bytes
+  ---
+  duration_ms: 89.496667
+  type: 'test'
+  ...
+# Subtest: verified answer proposal restores accepted claim lineage to original source, never Wiki-as-source
+ok 286 - verified answer proposal restores accepted claim lineage to original source, never Wiki-as-source
+  ---
+  duration_ms: 130.341875
+  type: 'test'
+  ...
+# Subtest: populated verified Wiki context excludes frontmatter hashes without losing exact body locators
+ok 287 - populated verified Wiki context excludes frontmatter hashes without losing exact body locators
+  ---
+  duration_ms: 28.128166
+  type: 'test'
+  ...
+# Subtest: current Runtime boundary receives zero requests for selected synthetic protected sources
+ok 288 - current Runtime boundary receives zero requests for selected synthetic protected sources
+  ---
+  duration_ms: 2.89675
+  type: 'test'
+  ...
+# Subtest: current Runtime response reaches the real parser and forbidden write authority is rejected
+ok 289 - current Runtime response reaches the real parser and forbidden write authority is rejected
+  ---
+  duration_ms: 2.724625
+  type: 'test'
+  ...
+# {"reason":"provider_schema_invalid","runtime_calls":1,"actual_vault_writes":0,"consent_grants":0}
+# Subtest: buildSnapshot is path-stable, hashed, frozen, and trust-separated
+ok 290 - buildSnapshot is path-stable, hashed, frozen, and trust-separated
+  ---
+  duration_ms: 35.416208
+  type: 'test'
+  ...
+# Subtest: browseRead defaults to verified, explicitly intersects literature/pending facets, and resets
+ok 291 - browseRead defaults to verified, explicitly intersects literature/pending facets, and resets
+  ---
+  duration_ms: 3.658041
+  type: 'test'
+  ...
+# Subtest: browseRead delegates only non-empty queries and rejects unsafe selections
+ok 292 - browseRead delegates only non-empty queries and rejects unsafe selections
+  ---
+  duration_ms: 3.471041
+  type: 'test'
+  ...
+# Subtest: finalized immutable audit produces exactly one verified browse row
+ok 293 - finalized immutable audit produces exactly one verified browse row
+  ---
+  duration_ms: 139.997917
+  type: 'test'
+  ...
+# Subtest: service publishes on an agreeing two-pass revision and hydrates with cache and stale discard
+ok 294 - service publishes on an agreeing two-pass revision and hydrates with cache and stale discard
+  ---
+  duration_ms: 94.645292
+  type: 'test'
+  ...
+# Subtest: service refuses to publish mismatched metadata passes and never invokes body/provider writers
+ok 295 - service refuses to publish mismatched metadata passes and never invokes body/provider writers
+  ---
+  duration_ms: 2.06025
+  type: 'test'
+  ...
+# Subtest: publishes only an agreeing two-pass snapshot and keeps trust rows separated
+ok 296 - publishes only an agreeing two-pass snapshot and keeps trust rows separated
+  ---
+  duration_ms: 25.841084
+  type: 'test'
+  ...
+# Subtest: rejects mismatched publication metadata without exposing a current snapshot
+ok 297 - rejects mismatched publication metadata without exposing a current snapshot
+  ---
+  duration_ms: 2.023125
+  type: 'test'
+  ...
+# Subtest: revalidates cached body reads and discards cached bytes after a revision change
+ok 298 - revalidates cached body reads and discards cached bytes after a revision change
+  ---
+  duration_ms: 29.344333
+  type: 'test'
+  ...
+# Subtest: fails closed for unsafe, unknown, and stale-row hydration requests
+ok 299 - fails closed for unsafe, unknown, and stale-row hydration requests
+  ---
+  duration_ms: 18.867167
+  type: 'test'
+  ...
+# Subtest: plan group renders one readable Wiki result in source order
+ok 300 - plan group renders one readable Wiki result in source order
+  ---
+  duration_ms: 9.251583
+  type: 'test'
+  ...
+# Subtest: compiled rows replace page-plan cards with actual Wiki documents
+ok 301 - compiled rows replace page-plan cards with actual Wiki documents
+  ---
+  duration_ms: 2.147083
+  type: 'test'
+  ...
+# Subtest: Wiki result keeps review controls without duplicating generic plan rows
+ok 302 - Wiki result keeps review controls without duplicating generic plan rows
+  ---
+  duration_ms: 0.897
+  type: 'test'
+  ...
+# Subtest: plan mismatch renders one explicit recommended-title action
+ok 303 - plan mismatch renders one explicit recommended-title action
+  ---
+  duration_ms: 0.31875
+  type: 'test'
+  ...
+# Subtest: Wiki result ships a dedicated responsive visual hierarchy
+ok 304 - Wiki result ships a dedicated responsive visual hierarchy
+  ---
+  duration_ms: 0.2395
+  type: 'test'
+  ...
+# Subtest: empty plans render a source-only result without dead controls
+ok 305 - empty plans render a source-only result without dead controls
+  ---
+  duration_ms: 0.176042
+  type: 'test'
+  ...
+# Subtest: excluded pages leave the reading order and remain recoverable
+ok 306 - excluded pages leave the reading order and remain recoverable
+  ---
+  duration_ms: 0.250625
+  type: 'test'
+  ...
+# Subtest: Wiki result shows only readable canonical relations
+ok 307 - Wiki result shows only readable canonical relations
+  ---
+  duration_ms: 0.270625
+  type: 'test'
+  ...
+# Subtest: clicking a verified canonical v2 result opens hydrated detail in an Obsidian modal while legacy rows stay excluded
+ok 308 - clicking a verified canonical v2 result opens hydrated detail in an Obsidian modal while legacy rows stay excluded
+  ---
+  duration_ms: 60.066
+  type: 'test'
+  ...
+# Subtest: compact modal keeps its sticky close footer inside the native dialog
+ok 309 - compact modal keeps its sticky close footer inside the native dialog
+  ---
+  duration_ms: 0.324583
+  type: 'test'
+  ...
+# Subtest: fourth-tab browse surface renders read-only facets, selection, and hydrated detail
+ok 310 - fourth-tab browse surface renders read-only facets, selection, and hydrated detail
+  ---
+  duration_ms: 2.518042
+  type: 'test'
+  ...
+# Subtest: inactive Knowledge tab does not retain zero-sized native controls and remounts from retained state when shown
+ok 311 - inactive Knowledge tab does not retain zero-sized native controls and remounts from retained state when shown
+  ---
+  duration_ms: 1.671625
+  type: 'test'
+  ...
+# Subtest: facet changes clear detail selection and stale reads render an explicit stale state
+ok 312 - facet changes clear detail selection and stale reads render an explicit stale state
+  ---
+  duration_ms: 1.135875
+  type: 'test'
+  ...
+# Subtest: late hydration cannot repopulate cleared selection after a mode change
+ok 313 - late hydration cannot repopulate cleared selection after a mode change
+  ---
+  duration_ms: 7.986084
+  type: 'test'
+  ...
+# Subtest: review failure preserves branded answer and retries the same handoff without duplicate requests
+ok 314 - review failure preserves branded answer and retries the same handoff without duplicate requests
+  ---
+  duration_ms: 1.873084
+  type: 'test'
+  ...
+# Subtest: thrown review handoff errors preserve the answer and allow an explicit retry
+ok 315 - thrown review handoff errors preserve the answer and allow an explicit retry
+  ---
+  duration_ms: 0.774583
+  type: 'test'
+  ...
+# Subtest: prepared proposal without a review controller is not reported as review ready
+ok 316 - prepared proposal without a review controller is not reported as review ready
+  ---
+  duration_ms: 0.754042
+  type: 'test'
+  ...
+# Subtest: conversation preserves navigation state, retries once and excludes removed-scope history
+ok 317 - conversation preserves navigation state, retries once and excludes removed-scope history
+  ---
+  duration_ms: 0.565917
+  type: 'test'
+  ...
+# Subtest: new conversation discards a late response and duplicate sends
+ok 318 - new conversation discards a late response and duplicate sends
+  ---
+  duration_ms: 1.243041
+  type: 'test'
+  ...
+# Subtest: Wiki chat retains structured citations, refuses overflow without dropping context and respects Korean IME
+ok 319 - Wiki chat retains structured citations, refuses overflow without dropping context and respects Korean IME
+  ---
+  duration_ms: 2.5215
+  type: 'test'
+  ...
+# Subtest: closed canonical review reopens the same draft without provider or approval replay
+ok 320 - closed canonical review reopens the same draft without provider or approval replay
+  ---
+  duration_ms: 0.941875
+  type: 'test'
+  ...
+# Subtest: changed source cannot reopen an old citation or cached proposal and preserves the old answer
+ok 321 - changed source cannot reopen an old citation or cached proposal and preserves the old answer
+  ---
+  duration_ms: 96.203542
+  type: 'test'
+  ...
+# Subtest: provider format failure retains the question and earlier result until an explicit retry
+ok 322 - provider format failure retains the question and earlier result until an explicit retry
+  ---
+  duration_ms: 7.982875
+  type: 'test'
+  ...
+1..322
+# tests 329
+# suites 0
+# pass 329
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6313.74325

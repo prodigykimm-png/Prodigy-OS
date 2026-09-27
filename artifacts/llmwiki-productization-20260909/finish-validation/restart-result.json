@@ -1,0 +1,95 @@
+{
+  "command": "node artifacts/llmwiki-productization-20260909/finish-validation/restart.cjs",
+  "processes": [
+    {
+      "phase": "prepare",
+      "pid": 33089,
+      "canonical_writes": 2,
+      "outcome": {
+        "ok": false,
+        "reason": "immutable_audit_head_update_failed",
+        "stage": "apply",
+        "operation_kind": "update",
+        "writer_result": {
+          "ok": false,
+          "status": "committed_authority_pending",
+          "write_counts": {
+            "canonical": 1,
+            "audit": 1,
+            "derived": 0,
+            "provider": 0,
+            "network": 0,
+            "git": 0
+          },
+          "approval_consumed": false,
+          "source_deletes": 0,
+          "git_calls": 0,
+          "reason": "immutable_audit_head_update_failed",
+          "target_path": "ZETA/PERMANENT/모형 점검.md"
+        }
+      },
+      "status": "blocked",
+      "serialized_authorization": false
+    },
+    {
+      "phase": "resume",
+      "pid": 33090,
+      "restore_status": "review",
+      "automatic_writes": 0,
+      "new_explicit_decision": true,
+      "additional_canonical_writes": 0,
+      "verified_reader_count": 1,
+      "outcome": {
+        "ok": true,
+        "status": "completed",
+        "target_path": "ZETA/PERMANENT/모형 점검.md",
+        "revision": "51dd16ffa856ac3aac3766211ca449a8f5dfd61f8fa1bd81289cbf8b3960ed4b",
+        "trust_status": "active",
+        "writer_result": {
+          "ok": true,
+          "status": "committed",
+          "write_counts": {
+            "canonical": 0,
+            "audit": 0,
+            "derived": 0,
+            "provider": 0,
+            "network": 0,
+            "git": 0
+          },
+          "approval_consumed": true,
+          "source_deletes": 0,
+          "git_calls": 0,
+          "target_path": "ZETA/PERMANENT/모형 점검.md",
+          "receipt": {
+            "receipt_version": "llmwiki_update_operation_receipt_v1",
+            "result": "committed",
+            "committed_at": "2026-09-09T05:22:02.578Z",
+            "canonical_id": "knowledge_8f89bbbf6cf423b9d9c8acee",
+            "target_path": "ZETA/PERMANENT/모형 점검.md",
+            "packet_hash": "eebe97a11ed5d0d482484d99d65a127e44efafd8fc369a11456a69f9427deca4",
+            "authorization_hash": "5efd9412b6beb10fa23ce0cb525b557fff5bb76dc86de909703421faed0bbbd1",
+            "base_revision": "83a6670355feebd645712b22424288560bf08753e02634f698b388afe08011b5",
+            "before_sha256": "26579874d7ef00967ddb34393b75b814026d2f61da98c8836b06c7ebef9f03dc",
+            "after_sha256": "51dd16ffa856ac3aac3766211ca449a8f5dfd61f8fa1bd81289cbf8b3960ed4b",
+            "evidence_hash": "b9672fc54fbafd51b7e8ba30b154a578f2c3f7f19aafd06251f453525abf7c28",
+            "compensation": {
+              "compensation_version": "llmwiki_exact_restore_compensation_v1",
+              "status": "prepared",
+              "prepared_at": "2026-09-09T05:22:02.578Z",
+              "canonical_id": "knowledge_8f89bbbf6cf423b9d9c8acee",
+              "target_path": "ZETA/PERMANENT/모형 점검.md",
+              "restore_bytes": "---\nschema_version: 2\ntype: \"knowledge\"\ncanonical_id: \"knowledge_8f89bbbf6cf423b9d9c8acee\"\nknowledge_kind: \"claim\"\nstatus: \"active\"\nstatement: \"실내 점검은 10분이다.\"\nknowledge_domain: \"coding\"\nknowledge_topics: [\"ai\"]\napplication_trigger: \"모형 점검\"\napplication_contexts: [\"coding/ai\"]\ninvalidation_conditions: [\"원문 변경\"]\nsources: [{\"source_id\":\"source_restart_aaa\",\"span\":{\"end\":13,\"start\":0}}]\nclaim_set_hash: \"57bbabd00d6fb92b59025e715797949392a027c7f922af75fb631ff723dd8d7c\"\npromotion_receipt_hash: \"3a62f6cd7db99aa645b26fcf9942a339b07b450aceae50430ec8e2ad1885c04d\"\nai_enrichment_status: \"none\"\ncreated: \"2026-09-09T05:22:02.462Z\"\nupdated: \"2026-09-09T05:22:02.462Z\"\n---\n## 점검 aaa\n실내 점검은 10분이다.\n\n## 사용자 검토 범위\n- 적용 조건: 실내 모형\n- 재검토 조건: 원문 변경\n\n## 출처\n- [source_restart_aaa](ZETA/LITERATURE/restart-aaa.md#L1)\n",
+              "restore_sha256": "26579874d7ef00967ddb34393b75b814026d2f61da98c8836b06c7ebef9f03dc",
+              "replace_sha256": "51dd16ffa856ac3aac3766211ca449a8f5dfd61f8fa1bd81289cbf8b3960ed4b",
+              "packet_hash": "eebe97a11ed5d0d482484d99d65a127e44efafd8fc369a11456a69f9427deca4",
+              "authorization_hash": "5efd9412b6beb10fa23ce0cb525b557fff5bb76dc86de909703421faed0bbbd1"
+            }
+          },
+          "compensation_prepared": true
+        }
+      }
+    }
+  ],
+  "provider_calls": 0,
+  "operational_writes": 0
+}

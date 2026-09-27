@@ -1,0 +1,214 @@
+TAP version 13
+# Subtest: batchId remains deterministic under valid row reordering
+ok 1 - batchId remains deterministic under valid row reordering
+  ---
+  duration_ms: 2.219417
+  type: 'test'
+  ...
+# Subtest: all six states round-trip exactly
+ok 2 - all six states round-trip exactly
+  ---
+  duration_ms: 1.345458
+  type: 'test'
+  ...
+# Subtest: batch/run/pack ids are deterministic hashes of revisions plus request key
+ok 3 - batch/run/pack ids are deterministic hashes of revisions plus request key
+  ---
+  duration_ms: 0.584292
+  type: 'test'
+  ...
+# Subtest: batchId strictly validates every source row and fails closed with named errors
+ok 4 - batchId strictly validates every source row and fails closed with named errors
+  ---
+  duration_ms: 0.417875
+  type: 'test'
+  ...
+# Subtest: duplicate job/pack submissions are idempotent; conflicting hashes fail closed
+ok 5 - duplicate job/pack submissions are idempotent; conflicting hashes fail closed
+  ---
+  duration_ms: 0.696291
+  type: 'test'
+  ...
+# Subtest: settled synthetic job cleanup removes only its exact job plan and packs
+ok 6 - settled synthetic job cleanup removes only its exact job plan and packs
+  ---
+  duration_ms: 1.019875
+  type: 'test'
+  ...
+# Subtest: unstarted discovery job cleanup requires an exact source revision and no artifacts
+ok 7 - unstarted discovery job cleanup requires an exact source revision and no artifacts
+  ---
+  duration_ms: 0.2005
+  type: 'test'
+  ...
+# Subtest: corrupt state file is quarantined and never touches canonical paths
+ok 8 - corrupt state file is quarantined and never touches canonical paths
+  ---
+  duration_ms: 0.127833
+  type: 'test'
+  ...
+# Subtest: legacy completed proposals import without replaying provider or approval effects
+ok 9 - legacy completed proposals import without replaying provider or approval effects
+  ---
+  duration_ms: 0.34325
+  type: 'test'
+  ...
+# Subtest: old-schema receipts are historical and never hit new-schema lookups
+ok 10 - old-schema receipts are historical and never hit new-schema lookups
+  ---
+  duration_ms: 0.218208
+  type: 'test'
+  ...
+# Subtest: restart maps running-without-receipt jobs to outcome_unknown with zero provider calls and zero writes
+ok 11 - restart maps running-without-receipt jobs to outcome_unknown with zero provider calls and zero writes
+  ---
+  duration_ms: 1.537958
+  type: 'test'
+  ...
+# Subtest: failed persistence rolls memory back to the last durable state
+ok 12 - failed persistence rolls memory back to the last durable state
+  ---
+  duration_ms: 0.245
+  type: 'test'
+  ...
+# Subtest: node storage persists atomically under gitignored SYSTEM/CACHE/llmwiki and survives reopen
+ok 13 - node storage persists atomically under gitignored SYSTEM/CACHE/llmwiki and survives reopen
+  ---
+  duration_ms: 0.813208
+  type: 'test'
+  ...
+# Subtest: plan snapshots list every source deterministically without exposing mutable state
+ok 14 - plan snapshots list every source deterministically without exposing mutable state
+  ---
+  duration_ms: 6.503
+  type: 'test'
+  ...
+# Subtest: page-plan snapshot survives restart without provider replay
+ok 15 - page-plan snapshot survives restart without provider replay
+  ---
+  duration_ms: 0.311625
+  type: 'test'
+  ...
+# Subtest: page-plan snapshot preserves immutable history when inventory identity changes
+ok 16 - page-plan snapshot preserves immutable history when inventory identity changes
+  ---
+  duration_ms: 0.48175
+  type: 'test'
+  ...
+# Subtest: page-plan snapshot rejects stale source binding and non-monotonic revision
+ok 17 - page-plan snapshot rejects stale source binding and non-monotonic revision
+  ---
+  duration_ms: 0.399709
+  type: 'test'
+  ...
+# Subtest: compiled document creates, updates same Markdown and is read back as trusted
+ok 18 - compiled document creates, updates same Markdown and is read back as trusted
+  ---
+  duration_ms: 56.029791
+  type: 'test'
+  ...
+# Subtest: unresolved conflict and missing explicit approval do not write canonical Markdown
+ok 19 - unresolved conflict and missing explicit approval do not write canonical Markdown
+  ---
+  duration_ms: 1.8085
+  type: 'test'
+  ...
+# Subtest: stale source or target preview rejects without replacing subsequent user edits
+ok 20 - stale source or target preview rejects without replacing subsequent user edits
+  ---
+  duration_ms: 1.277542
+  type: 'test'
+  ...
+# Subtest: post-write audit failure resumes same approved document without a duplicate paragraph
+ok 21 - post-write audit failure resumes same approved document without a duplicate paragraph
+  ---
+  duration_ms: 22.255
+  type: 'test'
+  ...
+# Subtest: target edit after preview remains untouched and requires a fresh review
+ok 22 - target edit after preview remains untouched and requires a fresh review
+  ---
+  duration_ms: 11.351958
+  type: 'test'
+  ...
+# Subtest: review modal renders exact preview and applies only after explicit checkbox action
+ok 23 - review modal renders exact preview and applies only after explicit checkbox action
+  ---
+  duration_ms: 7.576208
+  type: 'test'
+  ...
+# Subtest: approved Wiki text is never recaptured as an independent Source
+ok 24 - approved Wiki text is never recaptured as an independent Source
+  ---
+  duration_ms: 0.198917
+  type: 'test'
+  ...
+# Subtest: partial update survives modal close/reopen without another canonical write and protects later user edits
+ok 25 - partial update survives modal close/reopen without another canonical write and protects later user edits
+  ---
+  duration_ms: 39.050625
+  type: 'test'
+  ...
+# Subtest: existing processing plan restores an interrupted apply after runtime restart only with a fresh explicit decision
+ok 26 - existing processing plan restores an interrupted apply after runtime restart only with a fresh explicit decision
+  ---
+  duration_ms: 130.274375
+  type: 'test'
+  ...
+# Subtest: Hub explicit retry preserves the frozen source set after partial progress
+ok 27 - Hub explicit retry preserves the frozen source set after partial progress
+  ---
+  duration_ms: 84.724541
+  type: 'test'
+  ...
+# Subtest: true process A/B production harness proves restart, partial apply, stale recovery, and changed-identity retry
+ok 28 - true process A/B production harness proves restart, partial apply, stale recovery, and changed-identity retry
+  ---
+  duration_ms: 542.470625
+  type: 'test'
+  ...
+# Subtest: process A running receipt restores in process B as outcome_unknown with provider/write zero
+ok 29 - process A running receipt restores in process B as outcome_unknown with provider/write zero
+  ---
+  duration_ms: 65.656542
+  type: 'test'
+  ...
+# Subtest: durable review snapshot round-trips selection, receipts, and partial outcomes without becoming a second authority
+ok 30 - durable review snapshot round-trips selection, receipts, and partial outcomes without becoming a second authority
+  ---
+  duration_ms: 2.16375
+  type: 'test'
+  ...
+# Subtest: explicit retry creates one distinct frozen job per intent and duplicate intent is idempotent
+ok 31 - explicit retry creates one distinct frozen job per intent and duplicate intent is idempotent
+  ---
+  duration_ms: 0.6615
+  type: 'test'
+  ...
+# Subtest: analyzer changed-identity retry links the exact-source parent and duplicate intent performs one provider request
+ok 32 - analyzer changed-identity retry links the exact-source parent and duplicate intent performs one provider request
+  ---
+  duration_ms: 4.363083
+  type: 'test'
+  ...
+# Subtest: new Hub module graph restores durable proposals and selection with provider0
+ok 33 - new Hub module graph restores durable proposals and selection with provider0
+  ---
+  duration_ms: 94.967792
+  type: 'test'
+  ...
+# Subtest: actual Hub stale approval persists only the affected operation and a fresh graph restores repacket with provider0/write0
+ok 34 - actual Hub stale approval persists only the affected operation and a fresh graph restores repacket with provider0/write0
+  ---
+  duration_ms: 62.792917
+  type: 'test'
+  ...
+1..34
+# tests 34
+# suites 0
+# pass 34
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 913.384834

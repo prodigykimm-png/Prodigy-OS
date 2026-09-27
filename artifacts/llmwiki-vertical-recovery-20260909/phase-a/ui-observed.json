@@ -1,0 +1,30 @@
+[
+  {
+    "selector": "[data-source-selected-card]",
+    "text": "선택한 자료\nLLM Wiki 복구 시험\n\n아직 외부 AI로 전송되지 않았습니다.\n\n실행 정보",
+    "rect": {
+      "x": 94,
+      "y": 876.1953125,
+      "width": 905,
+      "height": 181.09375,
+      "top": 876.1953125,
+      "right": 999,
+      "bottom": 1057.2890625,
+      "left": 94
+    }
+  },
+  {
+    "selector": "[data-surface=llmwiki-risk-approval-review]",
+    "text": "지식 변경 검토\n\n바뀌는 내용과 출처, 위험을 읽고 결정하세요. 승인 전에는 저장되지 않습니다.\n\n승인\n거절\n수정 요청\n안전한 묶음 승인\n승인할 묶음을 선택하세요.\n출처 근거\n\nINBOX/LLM Wiki Recovery Canary.md\n\n현재 원문과 일치\n\n청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다.\n청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다.\n원문 파일 열기\n원문 수정\n닫기\n묶음 선택\n새 지식 만들기\n변경 미리보기\n\n지식: document_9b8faab211b1d88a7c182371\n\n변경 전\n새 지식이라 이전 내용이 없습니다.\n변경 후\n# 청록등대-731 검토 원칙\n\n## 핵심 내용\n\n- 청록등대-731 검토 원칙은 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인하는 것이다.\n\n## 근거 발췌\n\n> 청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다.\n\n## 출처\n\n- INBOX/LLM Wiki Recovery Canary.md#18-68\n\n요약\n청록등대-731 검토 원칙\n위험\n낮음\n되돌리기 쉬운 변경\n새 지식 파일\n새 문서를 만듭니다\n충돌 상태\n없음\n출처 흐름\n\nLLM Wiki Recovery Canary.md · LLM Wiki Recovery Canary.md\n\n출처 보기\n출처 보기",
+    "rect": {
+      "x": 129,
+      "y": 1088.2890625,
+      "width": 835,
+      "height": 1586.5703125,
+      "top": 1088.2890625,
+      "right": 964,
+      "bottom": 2674.859375,
+      "left": 129
+    }
+  }
+]

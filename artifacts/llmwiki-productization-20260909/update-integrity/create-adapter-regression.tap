@@ -1,0 +1,120 @@
+TAP version 13
+# Subtest: canonical v2 trust requires one finalized immutable decision across every read surface
+ok 1 - canonical v2 trust requires one finalized immutable decision across every read surface
+  ---
+  duration_ms: 30.021542
+  type: 'test'
+  ...
+# Subtest: exposed finalized authority cannot be mutated to verify unaudited canonical bytes
+ok 2 - exposed finalized authority cannot be mutated to verify unaudited canonical bytes
+  ---
+  duration_ms: 10.472667
+  type: 'test'
+  ...
+# Subtest: finalized authority display views are detached and recursively immutable
+ok 3 - finalized authority display views are detached and recursively immutable
+  ---
+  duration_ms: 7.32475
+  type: 'test'
+  ...
+# Subtest: raw authority, labels, clones, mismatches, stale state, and inactive revisions fail closed
+ok 4 - raw authority, labels, clones, mismatches, stale state, and inactive revisions fail closed
+  ---
+  duration_ms: 5.704916
+  type: 'test'
+  ...
+# Subtest: approved update finalizes a new canonical v2 revision that resurfaces once while revision 1 stays muted
+ok 5 - approved update finalizes a new canonical v2 revision that resurfaces once while revision 1 stays muted
+  ---
+  duration_ms: 14.031084
+  type: 'test'
+  ...
+# Subtest: stale update targets zero-mutate and resurface only after exact restoration
+ok 6 - stale update targets zero-mutate and resurface only after exact restoration
+  ---
+  duration_ms: 15.889792
+  type: 'test'
+  ...
+# Subtest: failed authority audit leaves the trusted surface on the last finalized revision
+ok 7 - failed authority audit leaves the trusted surface on the last finalized revision
+  ---
+  duration_ms: 12.69825
+  type: 'test'
+  ...
+# TASK8_CALL_ORDER get:.llmwiki-audit/nonce_obsidian_adapter_0001.json -> get:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> get:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> get:.llmwiki-audit/nonce_obsidian_adapter_0001.json -> get:.llmwiki-audit -> create:.llmwiki-audit/nonce_obsidian_adapter_0001.json -> get:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> create:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> modify:.llmwiki-audit/nonce_obsidian_adapter_0001.json
+# TASK8_REPAIR first=1 duplicate=1 canonical_rewrites=0 provider=0 network=0 git=0
+# Subtest: real app.vault is resolved while malformed or absent browser runtime is runtime_unavailable
+ok 8 - real app.vault is resolved while malformed or absent browser runtime is runtime_unavailable
+  ---
+  duration_ms: 3.448208
+  type: 'test'
+  ...
+# Subtest: raw, spread, copied, and JSON-unbranded operations reject before Vault effects
+ok 9 - raw, spread, copied, and JSON-unbranded operations reject before Vault effects
+  ---
+  duration_ms: 3.6835
+  type: 'test'
+  ...
+# Subtest: deterministic writer validates, prepares audit, creates exact canonical bytes, and finalizes exact audit bytes in order
+ok 10 - deterministic writer validates, prepares audit, creates exact canonical bytes, and finalizes exact audit bytes in order
+  ---
+  duration_ms: 12.119834
+  type: 'test'
+  ...
+# Subtest: modify uses app.vault read/create/modify in exact order and preserves exact before/after state
+ok 11 - modify uses app.vault read/create/modify in exact order and preserves exact before/after state
+  ---
+  duration_ms: 0.572375
+  type: 'test'
+  ...
+# Subtest: missing audit directory is created at the one exact Vault path before audit prepare
+ok 12 - missing audit directory is created at the one exact Vault path before audit prepare
+  ---
+  duration_ms: 0.538291
+  type: 'test'
+  ...
+# Subtest: audit prepare failure writes no canonical and reports exact zero counters
+ok 13 - audit prepare failure writes no canonical and reports exact zero counters
+  ---
+  duration_ms: 3.871375
+  type: 'test'
+  ...
+# Subtest: canonical failure preserves canonical state and finalizes a rejected audit when possible
+ok 14 - canonical failure preserves canonical state and finalizes a rejected audit when possible
+  ---
+  duration_ms: 4.11125
+  type: 'test'
+  ...
+# Subtest: audit finalize failure returns committed_audit_pending without canonical rollback and repair is exact and idempotent
+ok 15 - audit finalize failure returns committed_audit_pending without canonical rollback and repair is exact and idempotent
+  ---
+  duration_ms: 4.26775
+  type: 'test'
+  ...
+# Subtest: repair write failure keeps exact prepared audit and canonical bytes for a later retry
+ok 16 - repair write failure keeps exact prepared audit and canonical bytes for a later retry
+  ---
+  duration_ms: 3.927333
+  type: 'test'
+  ...
+# Subtest: create collision, stale modify bytes, and repair mismatch reject before forbidden mutation
+ok 17 - create collision, stale modify bytes, and repair mismatch reject before forbidden mutation
+  ---
+  duration_ms: 4.002208
+  type: 'test'
+  ...
+# Subtest: malformed paths, packet, vault shape, and source text fail closed; product adapter has no Node fs path
+ok 18 - malformed paths, packet, vault shape, and source text fail closed; product adapter has no Node fs path
+  ---
+  duration_ms: 0.650292
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 155.737625

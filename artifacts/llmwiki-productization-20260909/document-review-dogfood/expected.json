@@ -1,0 +1,10 @@
+{
+  "recorded_at": "2026-09-09T04:37:11.002Z",
+  "before_execution": true,
+  "A": "기록된 실제 provider의 여섯 조건 모두 최종 Markdown 유지; reader trusted",
+  "B": "A의 같은 경로 보완; 기록식별자 추가; 사용자메모 유지; real Wiki link 유효",
+  "C": "기록된 은빛593 10분/20분/우선순위 미상 그대로 변경안에 보존; conflict gate로 canonical 승인불가",
+  "D": "B 동일 입력 재처리 no_change, provider0, 내용/출처/link 중복0",
+  "approval": "격리 시험 harness의 명시적 사용자승인 시뮬레이션; 실제사람 또는 실제ObsidianUI 검증 아님",
+  "provider": "A/C 이전 actual provider evidence 재사용; B/링크대상은 합성원문 직접추출; 이번 provider calls0"
+}

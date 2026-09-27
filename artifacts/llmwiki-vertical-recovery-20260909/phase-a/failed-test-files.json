@@ -1,0 +1,20 @@
+[
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_chunk_coverage.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_evaluation_matrix.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_failure_modes.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_hub_remount_persistence.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_operation_classifier.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_operation_contract.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_outbound_consent.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_productization_rebaseline.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_provider_selection.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_review_surface.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_risk_hub_production_integration.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_scope_fidelity.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task10_batch_approval_archival.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task11_single_path_cutover.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task12_lifecycle_surface.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task13_restart_recovery.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_task15_production_audit.js",
+  "SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_unconfigured_provider_preflight.js"
+]

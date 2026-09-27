@@ -1,0 +1,46 @@
+✔ document plan resolves canonically equivalent Unicode source paths (100.776334ms)
+✔ document planning requires complete semantic source coverage before downstream planning (319.355125ms)
+✔ canonical no_change documents count as source provenance toward full plan coverage (Finding-2) (79.68225ms)
+✔ default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError) (74.708375ms)
+✔ span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract (23.047667ms)
+✔ replay-only analysis without durable 12/12 unit coverage cannot become review_ready (23.52525ms)
+✔ Centum regression converges through the real Hub planner, compiler, and Golden orchestrator (83.202375ms)
+✔ semantic over-capacity stops before transport and every downstream boundary (30.829333ms)
+✔ v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay (102.564167ms)
+✔ live batch emits one document operation for multiple reusable claims (28.957625ms)
+✔ rejecting an obsolete review run persists zero packets across restart (53.382083ms)
+✔ isolated document pilot covers content beyond 4 KiB without replacing the existing review (21.592459ms)
+✔ isolated document pilot resumes after the last completed pack (44.313625ms)
+✔ full-source materialization converts chunk-local spans to source-global locators (66.392958ms)
+✔ full-source plan resumes a blocked batch only with explicit retry intent (25.161417ms)
+✔ Hub remount preserves the actively selected document plan (32.582167ms)
+✔ compile blocks swapped topic titles until explicit recommended renames (44.536041ms)
+✔ full-source workflow stops at page-plan triage, then compiles preview without replacing active review (122.706667ms)
+✔ source-only claims block source archive when compiled review activates (40.80925ms)
+✔ legacy atomized recovery repackets from cached artifacts with provider zero (55.096584ms)
+✔ canonical coverage blocks duplicate candidate creation in the live Hub (22.546792ms)
+✔ stale source excluded from cached repacket returns to the visible pending queue (60.418417ms)
+✔ selected source becomes a gated immutable preview and self-verifying receipt without canonical writes (9.287292ms)
+✔ Golden Gate failure writes no preview (0.698708ms)
+✔ large source is blocked before provider calls and returns meaningful heading scopes (3.104625ms)
+✔ explicit heading scope is revision-bound and passed to the document plan (3.365708ms)
+✔ publication rendering removes source jargon from titles headings and prose (0.148292ms)
+✔ source-guide overview preserves source numerics without importing internal count summaries (2.788125ms)
+✔ multiple narrow topic pages become one source-wide practical Wiki (0.160666ms)
+✔ Golden composition keeps topic sections, appends only residual source claims, and gates the full selected source (9.561708ms)
+✔ source-only Golden composition renders all twelve claim-backed guide rows (6.799625ms)
+✔ a missing nonnumeric guide row fails the claim partition before Golden Gate and writes nothing (1.345583ms)
+✔ an 18mm omission reaches Golden Gate, fails critical recall, and writes nothing (1.534292ms)
+✔ stable changed range preflight excludes every unchanged sibling before provider planning (0.939959ms)
+✔ explicit retry intent crosses the Golden orchestrator unchanged; ordinary continue never adds it (2.761833ms)
+✔ explicit selected source is searchable with body and locator, never verified or ambient INBOX (23.558875ms)
+✔ existing browse modes share query types and no-match is not a scope error (3.130167ms)
+✔ selected source question carries bounded evidence and locator; no match abstains before transport (8.294125ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2386.320292

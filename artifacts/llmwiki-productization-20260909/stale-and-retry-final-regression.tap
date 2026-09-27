@@ -1,0 +1,34 @@
+LLMWiki UI recovery tests passed.
+✔ SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_ui_recovery.js (29.90725ms)
+✔ explicit selected source is searchable with body and locator, never verified or ambient INBOX (18.119583ms)
+✔ existing browse modes share query types and no-match is not a scope error (2.4675ms)
+✔ selected source question carries bounded evidence and locator; no match abstains before transport (8.425416ms)
+✔ bounded passages preserve neighbouring exceptions and cite the actual quoted line (9.888208ms)
+✔ proposal and review document preserve every grounded condition and unresolved review note (10.48475ms)
+✔ conversation forwards history as context with explicit source scope and no invented evidence (7.650916ms)
+✔ verified Wiki context requires actual finalized reader authority and exact current bytes (22.276541ms)
+✔ verified answer proposal restores accepted claim lineage to original source, never Wiki-as-source (11.132958ms)
+✔ populated verified Wiki context excludes frontmatter hashes without losing exact body locators (6.264584ms)
+✔ clicking a verified canonical v2 result opens hydrated detail in an Obsidian modal while legacy rows stay excluded (32.949875ms)
+✔ compact modal keeps its sticky close footer inside the native dialog (0.25125ms)
+✔ fourth-tab browse surface renders read-only facets, selection, and hydrated detail (1.661375ms)
+✔ inactive Knowledge tab does not retain zero-sized native controls and remounts from retained state when shown (0.551542ms)
+✔ facet changes clear detail selection and stale reads render an explicit stale state (0.554292ms)
+✔ late hydration cannot repopulate cleared selection after a mode change (1.584792ms)
+✔ review failure preserves branded answer and retries the same handoff without duplicate requests (1.207917ms)
+✔ thrown review handoff errors preserve the answer and allow an explicit retry (0.887583ms)
+✔ prepared proposal without a review controller is not reported as review ready (0.663083ms)
+✔ conversation preserves navigation state, retries once and excludes removed-scope history (0.505708ms)
+✔ new conversation discards a late response and duplicate sends (0.177042ms)
+✔ Wiki chat retains structured citations, refuses overflow without dropping context and respects Korean IME (1.573625ms)
+✔ closed canonical review reopens the same draft without provider or approval replay (0.693375ms)
+✔ changed source cannot reopen an old citation or cached proposal and preserves the old answer (10.447583ms)
+✔ provider format failure retains the question and earlier result until an explicit retry (0.555542ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 140.897584

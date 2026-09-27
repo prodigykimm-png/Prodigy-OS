@@ -1,0 +1,186 @@
+{
+  "kind": "recorded real provider payload replay through current proposal/materializer; no new provider call",
+  "outputs": [
+    {
+      "id": "conditions",
+      "claim_count": 6,
+      "review_notes": [],
+      "proposal": {
+        "bundle_version": "llmwiki_proposal_bundle_v1",
+        "run_id": "question_d333911db2b87951892db2fc",
+        "validation_context": {
+          "source_text_authority": "untrusted_data_only",
+          "source_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+          "type": "logical_validation_context",
+          "persistence": "none"
+        },
+        "status": "proposed",
+        "proposals": [
+          {
+            "kind": "create",
+            "title": "해솔-842 점검 적용 대상",
+            "status": "proposed",
+            "confidence": "inferred",
+            "source_citations": [
+              {
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_url": null,
+                "locators": [
+                  "INBOX/Phase A Synthetic A.md#L3-L3",
+                  "INBOX/Phase A Synthetic A.md#L5-L5",
+                  "INBOX/Phase A Synthetic A.md#L7-L7",
+                  "INBOX/Phase A Synthetic A.md#L9-L9",
+                  "INBOX/Phase A Synthetic A.md#L11-L11",
+                  "INBOX/Phase A Synthetic A.md#L13-L13"
+                ],
+                "source_archive_id": null,
+                "confidence": "explicit"
+              }
+            ],
+            "claims": [
+              {
+                "claim_id": "claim_cb710f3190c8c161eaac7922",
+                "text": "해솔-842 점검의 적용 대상은 실내 모형 장치다.",
+                "source_ids": [
+                  "source_36fe315ba09a10b9ba6f948a"
+                ]
+              },
+              {
+                "claim_id": "claim_79d76de7145d926ff05c2d01",
+                "text": "해솔-842 점검의 기본 점검 시간은 10분이다.",
+                "source_ids": [
+                  "source_36fe315ba09a10b9ba6f948a"
+                ]
+              },
+              {
+                "claim_id": "claim_6b1c10f8b349656f4a176588",
+                "text": "해솔-842 점검 시작 전에 전원 표시를 확인한다.",
+                "source_ids": [
+                  "source_36fe315ba09a10b9ba6f948a"
+                ]
+              },
+              {
+                "claim_id": "claim_beae819a5187bb70e4509ae4",
+                "text": "해솔-842 점검 종료 후 점검 시간을 기록한다.",
+                "source_ids": [
+                  "source_36fe315ba09a10b9ba6f948a"
+                ]
+              },
+              {
+                "claim_id": "claim_3f0f4daffa88713938cacdb6",
+                "text": "해솔-842 점검은 실외 모형에는 적용하지 않는다.",
+                "source_ids": [
+                  "source_36fe315ba09a10b9ba6f948a"
+                ]
+              },
+              {
+                "claim_id": "claim_fe6b37622a6a8c79d1ea5cfb",
+                "text": "해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "source_ids": [
+                  "source_36fe315ba09a10b9ba6f948a"
+                ]
+              }
+            ],
+            "affected_targets": [],
+            "target": null,
+            "target_revision": null,
+            "conflicts": [],
+            "abstention_reason": "",
+            "no_change_reason": "",
+            "write_intent": {
+              "target": "none",
+              "persistence": "none"
+            },
+            "proposal_id": "proposal_8d55a27ed390f855713e8d95",
+            "payload_hash": "180519c0a72232ba950a480903f3ba426e559e20a7aa8cbffcc6ddb86922eb55"
+          }
+        ],
+        "canonical_serialization": "{\"bundle_version\":\"llmwiki_proposal_bundle_v1\",\"proposals\":[{\"abstention_reason\":\"\",\"affected_targets\":[],\"claims\":[{\"claim_id\":\"claim_cb710f3190c8c161eaac7922\",\"source_ids\":[\"source_36fe315ba09a10b9ba6f948a\"],\"text\":\"해솔-842 점검의 적용 대상은 실내 모형 장치다.\"},{\"claim_id\":\"claim_79d76de7145d926ff05c2d01\",\"source_ids\":[\"source_36fe315ba09a10b9ba6f948a\"],\"text\":\"해솔-842 점검의 기본 점검 시간은 10분이다.\"},{\"claim_id\":\"claim_6b1c10f8b349656f4a176588\",\"source_ids\":[\"source_36fe315ba09a10b9ba6f948a\"],\"text\":\"해솔-842 점검 시작 전에 전원 표시를 확인한다.\"},{\"claim_id\":\"claim_beae819a5187bb70e4509ae4\",\"source_ids\":[\"source_36fe315ba09a10b9ba6f948a\"],\"text\":\"해솔-842 점검 종료 후 점검 시간을 기록한다.\"},{\"claim_id\":\"claim_3f0f4daffa88713938cacdb6\",\"source_ids\":[\"source_36fe315ba09a10b9ba6f948a\"],\"text\":\"해솔-842 점검은 실외 모형에는 적용하지 않는다.\"},{\"claim_id\":\"claim_fe6b37622a6a8c79d1ea5cfb\",\"source_ids\":[\"source_36fe315ba09a10b9ba6f948a\"],\"text\":\"해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"}],\"confidence\":\"inferred\",\"conflicts\":[],\"kind\":\"create\",\"no_change_reason\":\"\",\"payload_hash\":\"180519c0a72232ba950a480903f3ba426e559e20a7aa8cbffcc6ddb86922eb55\",\"proposal_id\":\"proposal_8d55a27ed390f855713e8d95\",\"source_citations\":[{\"confidence\":\"explicit\",\"content_hash\":\"d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107\",\"locators\":[\"INBOX/Phase A Synthetic A.md#L3-L3\",\"INBOX/Phase A Synthetic A.md#L5-L5\",\"INBOX/Phase A Synthetic A.md#L7-L7\",\"INBOX/Phase A Synthetic A.md#L9-L9\",\"INBOX/Phase A Synthetic A.md#L11-L11\",\"INBOX/Phase A Synthetic A.md#L13-L13\"],\"source_archive_id\":null,\"source_id\":\"source_36fe315ba09a10b9ba6f948a\",\"source_url\":null}],\"status\":\"proposed\",\"target\":null,\"target_revision\":null,\"title\":\"해솔-842 점검 적용 대상\",\"write_intent\":{\"persistence\":\"none\",\"target\":\"none\"}}],\"run_id\":\"question_d333911db2b87951892db2fc\",\"status\":\"proposed\",\"validation_context\":{\"persistence\":\"none\",\"source_hash\":\"d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107\",\"source_text_authority\":\"untrusted_data_only\",\"type\":\"logical_validation_context\"}}",
+        "bundle_hash": "b1ec871c56f7524d958a5843ee2833aefbff4c9d42759e92e15397821f4e37e5"
+      },
+      "markdown": "# 해솔-842 점검 절차를 빠짐없이 정리해줘.\n\n## 핵심 내용\n\n- 해솔-842 점검의 적용 대상은 실내 모형 장치다.\n- 해솔-842 점검의 기본 점검 시간은 10분이다.\n- 해솔-842 점검 시작 전에 전원 표시를 확인한다.\n- 해솔-842 점검 종료 후 점검 시간을 기록한다.\n- 해솔-842 점검은 실외 모형에는 적용하지 않는다.\n- 해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\n\n## 근거 발췌\n\n> 해솔-842 점검: 적용 대상은 실내 모형 장치다.\n\n> 해솔-842 점검: 기본 점검 시간은 10분이다.\n\n> 해솔-842 점검: 시작 전에 전원 표시를 확인한다.\n\n> 해솔-842 점검: 종료 후 점검 시간을 기록한다.\n\n> 해솔-842 점검: 실외 모형에는 적용하지 않는다.\n\n> 해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\n\n## 출처\n\n- INBOX/Phase A Synthetic A.md#11-39\n- INBOX/Phase A Synthetic A.md#41-68\n- INBOX/Phase A Synthetic A.md#70-99\n- INBOX/Phase A Synthetic A.md#101-129\n- INBOX/Phase A Synthetic A.md#131-159\n- INBOX/Phase A Synthetic A.md#161-198\n",
+      "replay_transport_calls": 1,
+      "actual_provider_calls": 0,
+      "canonical_writes": 0,
+      "handoff": "controller seam; not real Obsidian UI"
+    },
+    {
+      "id": "conflict",
+      "claim_count": 2,
+      "review_notes": [
+        "동일한 조건(동일한 실내 모형)에 대해 점검 규정 B(20분)와 점검 시간이 상충됨",
+        "두 규정의 시행일 및 우선순위를 알 수 없음",
+        "동일한 조건(동일한 실내 모형)에 대해 점검 규정 A(10분)와 점검 시간이 상충됨",
+        "점검 시간 수치를 직접 답변하지 않으며 규정 간 우선순위 부재 사실만을 명시함"
+      ],
+      "proposal": {
+        "bundle_version": "llmwiki_proposal_bundle_v1",
+        "run_id": "question_b135363b2b8678d6bd2844af",
+        "validation_context": {
+          "source_text_authority": "untrusted_data_only",
+          "source_hash": "26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d",
+          "type": "logical_validation_context",
+          "persistence": "none"
+        },
+        "status": "proposed",
+        "proposals": [
+          {
+            "kind": "create",
+            "title": "은빛-593 점검 규정 A 점검 시간",
+            "status": "proposed",
+            "confidence": "inferred",
+            "source_citations": [
+              {
+                "source_id": "source_793a8720edc9851ae6f23034",
+                "content_hash": "26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d",
+                "source_url": null,
+                "locators": [
+                  "INBOX/Phase A Synthetic B.md#L3-L3",
+                  "INBOX/Phase A Synthetic B.md#L5-L5"
+                ],
+                "source_archive_id": null,
+                "confidence": "explicit"
+              }
+            ],
+            "claims": [
+              {
+                "claim_id": "claim_2ab57a72c68848c9dc8fd724",
+                "text": "은빛-593 점검 규정 A에 따르면 동일한 실내 모형의 점검 시간은 10분이다.",
+                "source_ids": [
+                  "source_793a8720edc9851ae6f23034"
+                ]
+              },
+              {
+                "claim_id": "claim_d4da136c2a352a40208d2bbf",
+                "text": "은빛-593 점검 규정 B에 따르면 동일한 실내 모형의 점검 시간은 20분이다.",
+                "source_ids": [
+                  "source_793a8720edc9851ae6f23034"
+                ]
+              }
+            ],
+            "affected_targets": [],
+            "target": null,
+            "target_revision": null,
+            "conflicts": [],
+            "abstention_reason": "",
+            "no_change_reason": "",
+            "write_intent": {
+              "target": "none",
+              "persistence": "none"
+            },
+            "proposal_id": "proposal_d89823364a17279350951e8f",
+            "payload_hash": "738658fb2ad7e86aa1e5d3996af7bcb95b687e990988c7d26ede0901bdee3049"
+          }
+        ],
+        "canonical_serialization": "{\"bundle_version\":\"llmwiki_proposal_bundle_v1\",\"proposals\":[{\"abstention_reason\":\"\",\"affected_targets\":[],\"claims\":[{\"claim_id\":\"claim_2ab57a72c68848c9dc8fd724\",\"source_ids\":[\"source_793a8720edc9851ae6f23034\"],\"text\":\"은빛-593 점검 규정 A에 따르면 동일한 실내 모형의 점검 시간은 10분이다.\"},{\"claim_id\":\"claim_d4da136c2a352a40208d2bbf\",\"source_ids\":[\"source_793a8720edc9851ae6f23034\"],\"text\":\"은빛-593 점검 규정 B에 따르면 동일한 실내 모형의 점검 시간은 20분이다.\"}],\"confidence\":\"inferred\",\"conflicts\":[],\"kind\":\"create\",\"no_change_reason\":\"\",\"payload_hash\":\"738658fb2ad7e86aa1e5d3996af7bcb95b687e990988c7d26ede0901bdee3049\",\"proposal_id\":\"proposal_d89823364a17279350951e8f\",\"source_citations\":[{\"confidence\":\"explicit\",\"content_hash\":\"26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d\",\"locators\":[\"INBOX/Phase A Synthetic B.md#L3-L3\",\"INBOX/Phase A Synthetic B.md#L5-L5\"],\"source_archive_id\":null,\"source_id\":\"source_793a8720edc9851ae6f23034\",\"source_url\":null}],\"status\":\"proposed\",\"target\":null,\"target_revision\":null,\"title\":\"은빛-593 점검 규정 A 점검 시간\",\"write_intent\":{\"persistence\":\"none\",\"target\":\"none\"}}],\"run_id\":\"question_b135363b2b8678d6bd2844af\",\"status\":\"proposed\",\"validation_context\":{\"persistence\":\"none\",\"source_hash\":\"26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d\",\"source_text_authority\":\"untrusted_data_only\",\"type\":\"logical_validation_context\"}}",
+        "bundle_hash": "535994952de1ff7cdeae6721fbf20729484c70d5bc8944eaf9e88d5ded37ec7a"
+      },
+      "markdown": "# 은빛-593 점검 시간은 몇 분인가?\n\n## 핵심 내용\n\n- 은빛-593 점검 규정 A에 따르면 동일한 실내 모형의 점검 시간은 10분이다.\n- 은빛-593 점검 규정 B에 따르면 동일한 실내 모형의 점검 시간은 20분이다.\n\n## 확인 필요\n\n- 동일한 조건(동일한 실내 모형)에 대해 점검 규정 B(20분)와 점검 시간이 상충됨\n- 두 규정의 시행일 및 우선순위를 알 수 없음\n- 점검 시간 수치를 직접 답변하지 않으며 규정 간 우선순위 부재 사실만을 명시함\n- 동일한 조건(동일한 실내 모형)에 대해 점검 규정 A(10분)와 점검 시간이 상충됨\n\n## 근거 발췌\n\n> 은빛-593 점검 규정 A: 동일한 실내 모형의 점검 시간은 10분이다.\n\n> 은빛-593 점검 규정 B: 동일한 실내 모형의 점검 시간은 20분이다.\n\n## 출처\n\n- INBOX/Phase A Synthetic B.md#11-51\n- INBOX/Phase A Synthetic B.md#53-93\n",
+      "replay_transport_calls": 1,
+      "actual_provider_calls": 0,
+      "canonical_writes": 0,
+      "handoff": "controller seam; not real Obsidian UI"
+    }
+  ]
+}

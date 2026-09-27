@@ -51,7 +51,9 @@
       || questionContext.evidence.length !== chunksByKey.size
       || questionContext.evidence.some(item => chunksByKey.get(item.key)?.text !== item.excerpt
         || typeof item.source_path !== "string" || !item.locator?.startsWith(`${item.source_path}#L`)))) return { reason: "question_context_invalid" };
-    return { chunksByKey, candidateIds, mode, questionContext };
+    const numericFidelity = input.numeric_fidelity;
+    if (numericFidelity !== undefined && (typeof numericFidelity !== "string" || numericFidelity.length === 0 || numericFidelity.length > 2048)) return { reason: "numeric_fidelity_invalid" };
+    return { chunksByKey, candidateIds, mode, questionContext, ...(numericFidelity !== undefined ? { numericFidelity } : {}) };
   }
 
   function questionPrompt(normalized) {

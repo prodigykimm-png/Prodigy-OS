@@ -1,0 +1,346 @@
+TAP version 13
+# Subtest: document plan resolves canonically equivalent Unicode source paths
+ok 1 - document plan resolves canonically equivalent Unicode source paths
+  ---
+  duration_ms: 79.655625
+  type: 'test'
+  ...
+# Subtest: document planning requires complete semantic source coverage before downstream planning
+ok 2 - document planning requires complete semantic source coverage before downstream planning
+  ---
+  duration_ms: 295.990375
+  type: 'test'
+  ...
+# Subtest: canonical no_change documents count as source provenance toward full plan coverage (Finding-2)
+ok 3 - canonical no_change documents count as source provenance toward full plan coverage (Finding-2)
+  ---
+  duration_ms: 85.311375
+  type: 'test'
+  ...
+# Subtest: default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError)
+ok 4 - default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError)
+  ---
+  duration_ms: 70.39725
+  type: 'test'
+  ...
+# Subtest: span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract
+ok 5 - span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract
+  ---
+  duration_ms: 21.172834
+  type: 'test'
+  ...
+# Subtest: replay-only analysis without durable 12/12 unit coverage cannot become review_ready
+ok 6 - replay-only analysis without durable 12/12 unit coverage cannot become review_ready
+  ---
+  duration_ms: 22.511125
+  type: 'test'
+  ...
+# Subtest: Centum regression converges through the real Hub planner, compiler, and Golden orchestrator
+ok 7 - Centum regression converges through the real Hub planner, compiler, and Golden orchestrator
+  ---
+  duration_ms: 80.077875
+  type: 'test'
+  ...
+# Subtest: semantic over-capacity stops before transport and every downstream boundary
+ok 8 - semantic over-capacity stops before transport and every downstream boundary
+  ---
+  duration_ms: 23.345875
+  type: 'test'
+  ...
+# Subtest: v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay
+ok 9 - v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay
+  ---
+  duration_ms: 87.441833
+  type: 'test'
+  ...
+# Subtest: live batch emits one document operation for multiple reusable claims
+ok 10 - live batch emits one document operation for multiple reusable claims
+  ---
+  duration_ms: 27.110625
+  type: 'test'
+  ...
+# Subtest: rejecting an obsolete review run persists zero packets across restart
+ok 11 - rejecting an obsolete review run persists zero packets across restart
+  ---
+  duration_ms: 44.174666
+  type: 'test'
+  ...
+# Subtest: isolated document pilot covers content beyond 4 KiB without replacing the existing review
+ok 12 - isolated document pilot covers content beyond 4 KiB without replacing the existing review
+  ---
+  duration_ms: 19.667042
+  type: 'test'
+  ...
+# Subtest: isolated document pilot resumes after the last completed pack
+ok 13 - isolated document pilot resumes after the last completed pack
+  ---
+  duration_ms: 42.34375
+  type: 'test'
+  ...
+# Subtest: full-source materialization converts chunk-local spans to source-global locators
+ok 14 - full-source materialization converts chunk-local spans to source-global locators
+  ---
+  duration_ms: 62.689125
+  type: 'test'
+  ...
+# Subtest: full-source plan resumes a blocked batch only with explicit retry intent
+ok 15 - full-source plan resumes a blocked batch only with explicit retry intent
+  ---
+  duration_ms: 23.686375
+  type: 'test'
+  ...
+# Subtest: Hub remount preserves the actively selected document plan
+ok 16 - Hub remount preserves the actively selected document plan
+  ---
+  duration_ms: 31.404208
+  type: 'test'
+  ...
+# Subtest: compile blocks swapped topic titles until explicit recommended renames
+ok 17 - compile blocks swapped topic titles until explicit recommended renames
+  ---
+  duration_ms: 40.839291
+  type: 'test'
+  ...
+# Subtest: full-source workflow stops at page-plan triage, then compiles preview without replacing active review
+ok 18 - full-source workflow stops at page-plan triage, then compiles preview without replacing active review
+  ---
+  duration_ms: 102.876125
+  type: 'test'
+  ...
+# Subtest: source-only claims block source archive when compiled review activates
+ok 19 - source-only claims block source archive when compiled review activates
+  ---
+  duration_ms: 35.147333
+  type: 'test'
+  ...
+# Subtest: legacy atomized recovery repackets from cached artifacts with provider zero
+ok 20 - legacy atomized recovery repackets from cached artifacts with provider zero
+  ---
+  duration_ms: 47.908291
+  type: 'test'
+  ...
+# Subtest: canonical coverage blocks duplicate candidate creation in the live Hub
+ok 21 - canonical coverage blocks duplicate candidate creation in the live Hub
+  ---
+  duration_ms: 22.518
+  type: 'test'
+  ...
+# Subtest: stale source excluded from cached repacket returns to the visible pending queue
+ok 22 - stale source excluded from cached repacket returns to the visible pending queue
+  ---
+  duration_ms: 57.613333
+  type: 'test'
+  ...
+# Subtest: selected source becomes a gated immutable preview and self-verifying receipt without canonical writes
+ok 23 - selected source becomes a gated immutable preview and self-verifying receipt without canonical writes
+  ---
+  duration_ms: 14.141792
+  type: 'test'
+  ...
+# Subtest: Golden Gate failure writes no preview
+ok 24 - Golden Gate failure writes no preview
+  ---
+  duration_ms: 0.74425
+  type: 'test'
+  ...
+# Subtest: large source is blocked before provider calls and returns meaningful heading scopes
+ok 25 - large source is blocked before provider calls and returns meaningful heading scopes
+  ---
+  duration_ms: 4.123375
+  type: 'test'
+  ...
+# Subtest: explicit heading scope is revision-bound and passed to the document plan
+ok 26 - explicit heading scope is revision-bound and passed to the document plan
+  ---
+  duration_ms: 6.147084
+  type: 'test'
+  ...
+# Subtest: publication rendering removes source jargon from titles headings and prose
+ok 27 - publication rendering removes source jargon from titles headings and prose
+  ---
+  duration_ms: 0.317875
+  type: 'test'
+  ...
+# Subtest: source-guide overview preserves source numerics without importing internal count summaries
+ok 28 - source-guide overview preserves source numerics without importing internal count summaries
+  ---
+  duration_ms: 3.150291
+  type: 'test'
+  ...
+# Subtest: multiple narrow topic pages become one source-wide practical Wiki
+ok 29 - multiple narrow topic pages become one source-wide practical Wiki
+  ---
+  duration_ms: 0.175541
+  type: 'test'
+  ...
+# Subtest: Golden composition keeps topic sections, appends only residual source claims, and gates the full selected source
+ok 30 - Golden composition keeps topic sections, appends only residual source claims, and gates the full selected source
+  ---
+  duration_ms: 14.845541
+  type: 'test'
+  ...
+# Subtest: source-only Golden composition renders all twelve claim-backed guide rows
+ok 31 - source-only Golden composition renders all twelve claim-backed guide rows
+  ---
+  duration_ms: 10.514459
+  type: 'test'
+  ...
+# Subtest: a missing nonnumeric guide row fails the claim partition before Golden Gate and writes nothing
+ok 32 - a missing nonnumeric guide row fails the claim partition before Golden Gate and writes nothing
+  ---
+  duration_ms: 2.934042
+  type: 'test'
+  ...
+# Subtest: an 18mm omission reaches Golden Gate, fails critical recall, and writes nothing
+ok 33 - an 18mm omission reaches Golden Gate, fails critical recall, and writes nothing
+  ---
+  duration_ms: 1.70575
+  type: 'test'
+  ...
+# Subtest: stable changed range preflight excludes every unchanged sibling before provider planning
+ok 34 - stable changed range preflight excludes every unchanged sibling before provider planning
+  ---
+  duration_ms: 0.874791
+  type: 'test'
+  ...
+# Subtest: explicit retry intent crosses the Golden orchestrator unchanged; ordinary continue never adds it
+ok 35 - explicit retry intent crosses the Golden orchestrator unchanged; ordinary continue never adds it
+  ---
+  duration_ms: 2.08875
+  type: 'test'
+  ...
+# Subtest: query/read returns byte-stable verified and legacy envelopes with deterministic ranking, citations, ids, and hash
+ok 36 - query/read returns byte-stable verified and legacy envelopes with deterministic ranking, citations, ids, and hash
+  ---
+  duration_ms: 28.334833
+  type: 'test'
+  ...
+# Subtest: literature, candidate, and proposal modes are labeled non-canonical and never promoted to verified answers
+ok 37 - literature, candidate, and proposal modes are labeled non-canonical and never promoted to verified answers
+  ---
+  duration_ms: 2.640209
+  type: 'test'
+  ...
+# Subtest: stale, unavailable, conflict, empty, malformed, unsafe, and prompt-shaped inputs fail closed with writer=0
+ok 38 - stale, unavailable, conflict, empty, malformed, unsafe, and prompt-shaped inputs fail closed with writer=0
+  ---
+  duration_ms: 1.116083
+  type: 'test'
+  ...
+# Subtest: query/read ignores writer/provider/creator hooks and leaves persistent filesystem snapshots unchanged
+ok 39 - query/read ignores writer/provider/creator hooks and leaves persistent filesystem snapshots unchanged
+  ---
+  duration_ms: 1.244583
+  type: 'test'
+  ...
+# Subtest: Given the canonical LLMWiki skill path When its contract files are loaded Then the required local boundary vocabulary is machine-readable
+ok 40 - Given the canonical LLMWiki skill path When its contract files are loaded Then the required local boundary vocabulary is machine-readable
+  ---
+  duration_ms: 2.067083
+  type: 'test'
+  ...
+# Subtest: Given a synthetic conversation with prompt injection When the local adapter evaluates it Then it returns a run-scoped approval packet without writes
+ok 41 - Given a synthetic conversation with prompt injection When the local adapter evaluates it Then it returns a run-scoped approval packet without writes
+  ---
+  duration_ms: 60.119833
+  type: 'test'
+  ...
+# Subtest: Given malformed LLMWiki input When the local adapter parses it Then unknown vocabulary and missing provenance fail closed
+ok 42 - Given malformed LLMWiki input When the local adapter parses it Then unknown vocabulary and missing provenance fail closed
+  ---
+  duration_ms: 0.263875
+  type: 'test'
+  ...
+# Subtest: Given the LLMWiki integration ledger When it is parsed Then every upstream record is pinned with license evidence and a safe mode
+ok 43 - Given the LLMWiki integration ledger When it is parsed Then every upstream record is pinned with license evidence and a safe mode
+  ---
+  duration_ms: 0.192
+  type: 'test'
+  ...
+# Subtest: explicit selected source is searchable with body and locator, never verified or ambient INBOX
+ok 44 - explicit selected source is searchable with body and locator, never verified or ambient INBOX
+  ---
+  duration_ms: 24.262875
+  type: 'test'
+  ...
+# Subtest: existing browse modes share query types and no-match is not a scope error
+ok 45 - existing browse modes share query types and no-match is not a scope error
+  ---
+  duration_ms: 3.474416
+  type: 'test'
+  ...
+# Subtest: selected source question carries bounded evidence and locator; no match abstains before transport
+ok 46 - selected source question carries bounded evidence and locator; no match abstains before transport
+  ---
+  duration_ms: 9.07875
+  type: 'test'
+  ...
+# Subtest: one controller snapshot synchronizes every subscribed Prodigy Wiki view
+ok 47 - one controller snapshot synchronizes every subscribed Prodigy Wiki view
+  ---
+  duration_ms: 0.669916
+  type: 'test'
+  ...
+# Subtest: ephemeral selection and consent never restore into a fresh app session
+ok 48 - ephemeral selection and consent never restore into a fresh app session
+  ---
+  duration_ms: 0.090709
+  type: 'test'
+  ...
+# Subtest: new source selection atomically clears stale consent range and result
+ok 49 - new source selection atomically clears stale consent range and result
+  ---
+  duration_ms: 0.1145
+  type: 'test'
+  ...
+# Subtest: controller rejects running without a pinned source
+ok 50 - controller rejects running without a pinned source
+  ---
+  duration_ms: 0.754375
+  type: 'test'
+  ...
+# Subtest: lifecycle projection derives one legacy snapshot from controller truth
+ok 51 - lifecycle projection derives one legacy snapshot from controller truth
+  ---
+  duration_ms: 0.115041
+  type: 'test'
+  ...
+# Subtest: every Prodigy Wiki product state derives one canonical primary action
+ok 52 - every Prodigy Wiki product state derives one canonical primary action
+  ---
+  duration_ms: 0.147542
+  type: 'test'
+  ...
+# Subtest: reviewed source changes enter a provider-free range inspection state
+ok 53 - reviewed source changes enter a provider-free range inspection state
+  ---
+  duration_ms: 0.108834
+  type: 'test'
+  ...
+# Subtest: controller restores only an explicit durable operation snapshot
+ok 54 - controller restores only an explicit durable operation snapshot
+  ---
+  duration_ms: 0.069875
+  type: 'test'
+  ...
+# Subtest: Prodigy Wiki production owns no provider transport, config, or fallback
+ok 55 - Prodigy Wiki production owns no provider transport, config, or fallback
+  ---
+  duration_ms: 3.048042
+  type: 'test'
+  ...
+# Subtest: Knowledge manifest removes every legacy provider runtime dependency
+ok 56 - Knowledge manifest removes every legacy provider runtime dependency
+  ---
+  duration_ms: 1.430417
+  type: 'test'
+  ...
+1..56
+# tests 56
+# suites 0
+# pass 56
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2255.047291

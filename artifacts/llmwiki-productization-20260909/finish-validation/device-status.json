@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-09-09T05:15:16.589904+00:00",
+  "Mac": {
+    "ui": "NOT RUN",
+    "evidence": "CUA getState twice reported Mac locked; manual unlock request sent",
+    "needed": "Mac 수동 잠금 해제 후 격리 시험 Vault에서 자료 정리·검토·적용·출처 열기·재처리·대화 조작"
+  },
+  "iPad": {
+    "ui": "NOT RUN",
+    "needed": "직접 조작 가능한 실기기 화면/연결 경로 제공; 테스트 Vault와 기존 AI Runtime route 연결 확인"
+  },
+  "iPhone": {
+    "ui": "NOT RUN",
+    "needed": "직접 조작 가능한 실기기 화면/연결 경로 제공; 테스트 Vault와 기존 AI Runtime route 연결 확인"
+  },
+  "desktop_narrow_is_mobile": false,
+  "screenshots_captured": 0
+}

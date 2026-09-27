@@ -1,0 +1,10 @@
+{
+  "defined_before_ui": true,
+  "A": "6 conditions + memo; actual approved write + reader",
+  "B": "same target; identifier added; source A/B",
+  "C": "10/20 conflict + unknown priority; no canonical write",
+  "repeat": "no_change zero extra writes",
+  "conversation": "built Wiki identifier answer + grounded followup",
+  "whole_ingest": "NOT RUN: analysis replay",
+  "provider": "existing Runtime only; no new grant"
+}

@@ -376,9 +376,18 @@
           createEl(row, "h3", { text: decision.title || decision.path || OPERATION_LABELS[decision.kind] || decision.kind });
           const descriptor = [OPERATION_LABELS[decision.kind] || decision.kind, decision.path || ""].filter(Boolean).join(" · ");
           createEl(row, "p", { text: descriptor, attr: { class: "llmwiki-lifecycle__migration-path" } });
-          createEl(row, "p", { text: decision.kind === "conflict" ? "충돌을 먼저 해결해야 합니다." : "변경 전후 내용을 확인할 준비가 되었습니다." });
-          actionButton(row, decision.kind === "conflict" ? "충돌로 차단됨" : "변경안 검토", "review-migration", { action: "review_migration", decision_id: decision.decision_id }, { disabled: decision.kind === "conflict", primary: decision.kind !== "conflict" });
-          if (decision.kind === "conflict") actionButton(row, "새 분류 검사", "migration-conflict-repacket", { action: "scan_migration" }, { primary: true });
+          const covering = decision.covering_review_status || "open";
+          if (decision.kind === "conflict") {
+            createEl(row, "p", { text: "충돌을 먼저 해결해야 합니다." });
+            actionButton(row, "충돌로 차단됨", "review-migration", { action: "review_migration", decision_id: decision.decision_id }, { disabled: true });
+            actionButton(row, "새 분류 검사", "migration-conflict-repacket", { action: "scan_migration" }, { primary: true });
+          } else if (covering === "none") {
+            createEl(row, "p", { text: "열린 관련 검토가 없어 여기서 변경안을 열 수 없습니다. 다음 검사 때 다시 표시됩니다." });
+            actionButton(row, "목록에서 지우기", "dismiss-migration", { action: "dismiss_migration", decision_id: decision.decision_id }, {});
+          } else {
+            createEl(row, "p", { text: "변경 전후 내용을 확인할 준비가 되었습니다." });
+            actionButton(row, covering === "closed" ? "검토 결과 보기" : "변경안 검토", "review-migration", { action: "review_migration", decision_id: decision.decision_id }, { primary: true });
+          }
         }
         return true;
       }
@@ -967,13 +976,33 @@
       if (failed) actionButton(actions, "백업 다시 시도", "retry-git", { action: "retry_follow_up", follow_up: "git" }, { primary: true });
     }
 
+    // Golden-gate failure copy: names the exact offending tokens from the
+    // persisted result so the owner can act. Unknown shapes fall back to the
+    // generic terminal copy; raw reason codes are never shown for this case.
+    function goldenGateCopy(prodigyWiki) {
+      const result = prodigyWiki && typeof prodigyWiki.result === "object" && prodigyWiki.result ? prodigyWiki.result : null;
+      const metrics = result && typeof result.metrics === "object" && result.metrics ? result.metrics : {};
+      const strings = (value) => Array.isArray(value) ? value.filter((token) => typeof token === "string" && token) : [];
+      const cap = (tokens) => tokens.slice(0, 12);
+      const rest = (tokens) => tokens.length > 12 ? ` 외 ${tokens.length - 12}건` : "";
+      const unsupported = strings(metrics.unsupported_numeric_tokens);
+      const missing = strings(metrics.missing_critical_tokens);
+      const issues = strings(result && result.issues);
+      if (!issues.includes("unsupported_numeric_token") && !issues.includes("critical_token_missing") && !unsupported.length && !missing.length) return "";
+      const parts = ["초안의 숫자 검사를 통과하지 못해 저장하지 않았습니다."];
+      if (unsupported.length) parts.push(`원문에서 확인되지 않은 숫자: ${cap(unsupported).join(", ")}${rest(unsupported)}.`);
+      if (missing.length) parts.push(`초안에서 빠진 원문 항목: ${cap(missing).join(", ")}${rest(missing)}.`);
+      parts.push("같은 원문으로 새 초안을 만들려면 '다시 정리하기', 원문을 바꾸려면 '다른 원문 선택'을 누르세요. 정식 문서는 변경하지 않았습니다.");
+      return parts.join(" ");
+    }
     function renderTerminal(parent) {
       const prodigyWiki = plain(snapshot.prodigy_wiki) ? snapshot.prodigy_wiki : null;
       if (prodigyWiki && ["interrupted", "source_changed"].includes(prodigyWiki.status)) {
         const setup = /provider|auth|configuration|runtime/u.test(prodigyWiki.reason || "");
-        statusRegion(parent, setup ? "AI 연결 설정을 확인해야 합니다." : prodigyWiki.status === "source_changed" ? "원문이 변경되었습니다. 최신 내용으로 다시 확인하세요." : prodigyWiki.resumable ? "정리가 중단되었습니다. 저장된 단계부터 다시 시도할 수 있습니다." : "정리를 완료하지 못했습니다. 정식 문서는 변경하지 않았습니다.", "error");
+        const gateCopy = prodigyWiki.reason === "golden_gate_failed" ? goldenGateCopy(prodigyWiki) : "";
+        statusRegion(parent, setup ? "AI 연결 설정을 확인해야 합니다." : prodigyWiki.status === "source_changed" ? "원문이 변경되었습니다. 최신 내용으로 다시 확인하세요." : prodigyWiki.resumable ? "정리가 중단되었습니다. 저장된 단계부터 다시 시도할 수 있습니다." : (gateCopy || "정리를 완료하지 못했습니다. 정식 문서는 변경하지 않았습니다."), "error");
         sourceContext(parent);
-        createEl(detailHost(parent), "p", { text: prodigyWiki.reason || "" });
+        if (!gateCopy) createEl(detailHost(parent), "p", { text: prodigyWiki.reason || "" });
         const actions = decision;
         if (setup) { actionButton(actions, "AI 설정 열기", "open-ai-settings", { action: "open_ai_settings" }, { primary: true }); actionButton(actions, "나중에", "later", { action: "later" }); return; }
         if (prodigyWiki.status === "source_changed") {

@@ -1,0 +1,1 @@
+=> {"executable":"agy","status":null,"error":{"code":"ENOENT","message":"spawnSync agy ENOENT"},"path":"/usr/bin:/bin:/usr/sbin:/sbin"}

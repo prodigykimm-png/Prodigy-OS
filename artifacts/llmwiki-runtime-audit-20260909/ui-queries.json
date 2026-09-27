@@ -1,0 +1,50 @@
+[
+  {
+    "query": "Einstein",
+    "mode": "literature",
+    "command": "/Applications/Obsidian.app/Contents/MacOS/Obsidian vault=Dusk eval 'code=JSON.stringify((()=>{const b=KnowledgeExplorerHub.llmWikiBrowse;b.setMode(\"literature\");b.setQuery(\"Einstein\");const s=b.getState();return {status:s.status,error:s.error,total:s.result?.total,rows:s.result?.rows?.map(r=>({path:r.path,title:r.title,citations:r.citations}))}})())'",
+    "wall_ms": 143.91304191667587,
+    "stdout": "=> {\"status\":\"ready\",\"error\":\"\",\"total\":1,\"rows\":[{\"path\":\"ZETA/LITERATURE/Einstein, A. (1931). On Imagination and Knowledge.md\",\"title\":\"Einstein, A. (1931). On Imagination and Knowledge\",\"citations\":[]}]}\n",
+    "stderr": ""
+  },
+  {
+    "query": "creative thinking",
+    "mode": "literature",
+    "command": "/Applications/Obsidian.app/Contents/MacOS/Obsidian vault=Dusk eval 'code=JSON.stringify((()=>{const b=KnowledgeExplorerHub.llmWikiBrowse;b.setMode(\"literature\");b.setQuery(\"creative thinking\");const s=b.getState();return {status:s.status,error:s.error,total:s.result?.total,rows:s.result?.rows?.map(r=>({path:r.path,title:r.title,citations:r.citations}))}})())'",
+    "wall_ms": 131.3040000386536,
+    "stdout": "=> {\"status\":\"empty\",\"error\":\"\",\"total\":0,\"rows\":[]}\n",
+    "stderr": ""
+  },
+  {
+    "query": "Imagination as a Foundation of Discovery",
+    "mode": "literature",
+    "command": "/Applications/Obsidian.app/Contents/MacOS/Obsidian vault=Dusk eval 'code=JSON.stringify((()=>{const b=KnowledgeExplorerHub.llmWikiBrowse;b.setMode(\"literature\");b.setQuery(\"Imagination as a Foundation of Discovery\");const s=b.getState();return {status:s.status,error:s.error,total:s.result?.total,rows:s.result?.rows?.map(r=>({path:r.path,title:r.title,citations:r.citations}))}})())'",
+    "wall_ms": 129.74287499673665,
+    "stdout": "=> {\"status\":\"ready\",\"error\":\"\",\"total\":4,\"rows\":[{\"path\":\"ZETA/LITERATURE/synthetic-alpha.md\",\"title\":\"synthetic-alpha\",\"citations\":[]},{\"path\":\"ZETA/LITERATURE/Masten, A.S. (2001). Resilience Theory in Developmental Psychology.md\",\"title\":\"Masten, A.S. (2001). Resilience Theory in Developmental Psychology\",\"citations\":[]},{\"path\":\"ZETA/LITERATURE/Einstein, A. (1931). On Imagination and Knowledge.md\",\"title\":\"Einstein, A. (1931). On Imagination and Knowledge\",\"citations\":[]},{\"path\":\"ZETA/LITERATURE/Curt Richter’s Drowning Rats Experiment (1957).md\",\"title\":\"Curt Richter’s Drowning Rats Experiment (1957)\",\"citations\":[]}]}\n",
+    "stderr": ""
+  },
+  {
+    "query": "imagination sufficient grounding",
+    "mode": "literature",
+    "command": "/Applications/Obsidian.app/Contents/MacOS/Obsidian vault=Dusk eval 'code=JSON.stringify((()=>{const b=KnowledgeExplorerHub.llmWikiBrowse;b.setMode(\"literature\");b.setQuery(\"imagination sufficient grounding\");const s=b.getState();return {status:s.status,error:s.error,total:s.result?.total,rows:s.result?.rows?.map(r=>({path:r.path,title:r.title,citations:r.citations}))}})())'",
+    "wall_ms": 133.7094580521807,
+    "stdout": "=> {\"status\":\"ready\",\"error\":\"\",\"total\":1,\"rows\":[{\"path\":\"ZETA/LITERATURE/Einstein, A. (1931). On Imagination and Knowledge.md\",\"title\":\"Einstein, A. (1931). On Imagination and Knowledge\",\"citations\":[]}]}\n",
+    "stderr": ""
+  },
+  {
+    "query": "ZXQ987_UNRELATED",
+    "mode": "literature",
+    "command": "/Applications/Obsidian.app/Contents/MacOS/Obsidian vault=Dusk eval 'code=JSON.stringify((()=>{const b=KnowledgeExplorerHub.llmWikiBrowse;b.setMode(\"literature\");b.setQuery(\"ZXQ987_UNRELATED\");const s=b.getState();return {status:s.status,error:s.error,total:s.result?.total,rows:s.result?.rows?.map(r=>({path:r.path,title:r.title,citations:r.citations}))}})())'",
+    "wall_ms": 132.52012501470745,
+    "stdout": "=> {\"status\":\"empty\",\"error\":\"\",\"total\":0,\"rows\":[]}\n",
+    "stderr": ""
+  },
+  {
+    "query": "synthetic-alpha",
+    "mode": "all",
+    "command": "/Applications/Obsidian.app/Contents/MacOS/Obsidian vault=Dusk eval 'code=JSON.stringify((()=>{const b=KnowledgeExplorerHub.llmWikiBrowse;b.setMode(\"all\");b.setQuery(\"synthetic-alpha\");const s=b.getState();return {status:s.status,error:s.error,total:s.result?.total,rows:s.result?.rows?.map(r=>({path:r.path,title:r.title,citations:r.citations}))}})())'",
+    "wall_ms": 133.32262495532632,
+    "stdout": "=> {\"status\":\"error\",\"error\":\"invalid_scope_type\"}\n",
+    "stderr": ""
+  }
+]

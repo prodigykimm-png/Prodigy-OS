@@ -272,7 +272,8 @@
         prompt_version: analysisModeFor(input.sources) === SOURCE_ROUTING_MODE
           ? `${identity.prompt_version}:source_routing_v1`
           : `${identity.prompt_version}:${evidenceApi?.VERSION || "evidence_unversioned"}`,
-        candidate_context_hash: sha(stable(projection.outbound)) };
+        candidate_context_hash: sha(stable(projection.outbound)),
+        ...(typeof input.numeric_fidelity === "string" && input.numeric_fidelity ? { quality_fidelity_digest: sha(stable(input.numeric_fidelity)).slice(0, 16) } : {}) };
       const requestKey = storeApi.requestKey(frozenIdentity);
       const sources = input.sources.map(source => ({ source_id: source.source_id, revision_hash: sha(source.extracted_text) }));
       const parent = input.explicit_retry === true ? await jobStore.findRetryParent(sources) : null;
@@ -319,6 +320,7 @@
           schema_id: identity.schema_id,
           prompt_version: effectivePromptVersion,
           candidate_context_hash: candidateContextHash,
+          ...(typeof input.numeric_fidelity === "string" && input.numeric_fidelity ? { quality_fidelity_digest: sha(stable(input.numeric_fidelity)).slice(0, 16) } : {}),
         });
         const sourceRevisions = sortedSources.map((item) => ({ source_id: item.source_id, revision_hash: sha(item.extracted_text) }));
         const frozenIdentity = { ...identity, prompt_version: effectivePromptVersion, candidate_context_hash: candidateContextHash };
@@ -442,6 +444,7 @@
               outbound_allowed: true,
               run_id: job.job_id,
               mode,
+              ...(typeof input.numeric_fidelity === "string" && input.numeric_fidelity ? { numeric_fidelity: input.numeric_fidelity } : {}),
               chunks: current.map((miss) => freeze({
                 key: miss.chunk.instance_id,
                 text: miss.chunk.text,

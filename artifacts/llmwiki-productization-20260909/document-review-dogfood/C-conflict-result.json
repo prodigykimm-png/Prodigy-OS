@@ -1,0 +1,13 @@
+{
+  "ok": false,
+  "reason": "promotion_review_required",
+  "promotion_gaps": [
+    {
+      "gate_id": "relation_resolution",
+      "phase": "relation",
+      "state": "fail",
+      "reason_code": "unresolved_conflict",
+      "evidence_refs": []
+    }
+  ]
+}

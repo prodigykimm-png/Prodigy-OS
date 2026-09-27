@@ -1,0 +1,542 @@
+{
+  "fixture": "isolated_on_disk_vault",
+  "provider_calls": 0,
+  "operational_writes": 0,
+  "old_authorities": [
+    {
+      "canonical_id": "knowledge_fixture_v2",
+      "path": "ZETA/PERMANENT/Fixture authority.md",
+      "revision": "8be2627a7825e7cb7317b5b1985ff7ec398407ed22ecb3ecd8b6fe8037423f5a",
+      "nonce": "nonce_fixture_v2_0001",
+      "packet_hash": "afabf77696a34ef0ab955691ffff545426b6a37591d2542985a8803a2153d706",
+      "authorization_hash": "dc84130e79896d0ef81c671b2ab60b02e12828fce2e96fcc8a05b9c100df2bd0",
+      "immutable_audit_hash": "8374ba1816bc77355f558a0e98bdb37c6b44a525465b9a31e214bdc066a467ab",
+      "canonical_v2_authority": {
+        "canonical_id": "knowledge_fixture_v2",
+        "schema_version": 2,
+        "canonical_sha256": "8be2627a7825e7cb7317b5b1985ff7ec398407ed22ecb3ecd8b6fe8037423f5a",
+        "claim_set_hash": "dfd7fafa310e484d622b8211f01d9871d6cc6d2c9971a4b1ff37598b8a49870c",
+        "claim_set": {
+          "contract_version": "llmwiki_claim_provenance_v1",
+          "sources": [
+            {
+              "source_id": "source_fixture_v2",
+              "source_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "extractor_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_content_hash": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5",
+              "source_length": 48,
+              "provider_window": {
+                "start": 0,
+                "end": 48
+              },
+              "source_kind": "immutable_source"
+            }
+          ],
+          "claims": [
+            {
+              "claim_id": "claim_24932aac06e19c540ee8aa83",
+              "origin": "source_extract",
+              "text": "The approved v2 item is source-bound and active.",
+              "citation_ids": [
+                "citation_3f589820f8b3c7c83931b11e"
+              ],
+              "derived_from_claim_ids": [],
+              "human_justification": null,
+              "dispute_target_claim_id": null,
+              "citations": [
+                {
+                  "citation_id": "citation_3f589820f8b3c7c83931b11e",
+                  "source_id": "source_fixture_v2",
+                  "source_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "extractor_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "source_content_hash": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5",
+                  "source_span": {
+                    "start": 0,
+                    "end": 48
+                  },
+                  "span_digest": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5"
+                }
+              ],
+              "status": "accepted",
+              "review": {
+                "authorized_by": "fixture_reviewer",
+                "authorized_at": "2026-08-25T12:00:00.000Z"
+              }
+            }
+          ],
+          "citations": [
+            {
+              "citation_id": "citation_3f589820f8b3c7c83931b11e",
+              "source_id": "source_fixture_v2",
+              "source_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "extractor_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "source_content_hash": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5",
+              "source_span": {
+                "start": 0,
+                "end": 48
+              },
+              "span_digest": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5"
+            }
+          ],
+          "disputes": [],
+          "status": "accepted",
+          "source_data_untrusted": true,
+          "write_counters": {
+            "writer": 0,
+            "canonical": 0,
+            "maintenance": 0,
+            "git": 0
+          },
+          "claim_set_hash": "dfd7fafa310e484d622b8211f01d9871d6cc6d2c9971a4b1ff37598b8a49870c"
+        },
+        "promotion_receipt_hash": "91d153d66bd7752fc4d957daf5c5f4a86445a5ba79da6590793b44a3542538d3",
+        "promotion_receipt": {
+          "contract_version": "llmwiki_promotion_contract_v1",
+          "input_binding": "{\"approval_status\":\"approved\",\"claims\":[{\"claim_id\":\"claim_fixture_v2\",\"evidence_refs\":[\"fixture_evidence\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"The approved v2 item is source-bound and active.\"}],\"classification\":\"epistemic\",\"evidence\":[{\"evidence_id\":\"fixture_evidence\",\"source_ref\":\"source_fixture_v2\",\"strength\":\"strong\"}],\"knowledge_kind\":\"principle\",\"principle_boundaries\":{\"conditions\":[\"approved\"],\"exclusions\":[\"unreviewed\"],\"invalidation_conditions\":[\"source revision changes\"]},\"principle_rationale\":\"Immutable authority prevents forged provenance.\",\"relation_status\":\"resolved\",\"state\":\"current\",\"statement\":\"The approved v2 item is source-bound and active.\",\"title\":\"Fixture authority\"}",
+          "knowledge_kind": "principle",
+          "trust_status": "unverified",
+          "disposition": "canonical_review",
+          "terminal": false,
+          "candidate_eligible": false,
+          "canonical_review_eligible": true,
+          "canonical_write_eligible": true,
+          "gates": [
+            {
+              "gate_id": "unit_scope",
+              "phase": "eligibility",
+              "state": "pass",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "statement",
+              "phase": "content",
+              "state": "pass",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "evidence_refs",
+              "phase": "content",
+              "state": "pass",
+              "reason_codes": [],
+              "evidence_refs": [
+                "fixture_evidence"
+              ]
+            },
+            {
+              "gate_id": "claim_support",
+              "phase": "content",
+              "state": "pass",
+              "reason_codes": [],
+              "evidence_refs": [
+                "fixture_evidence"
+              ]
+            },
+            {
+              "gate_id": "ai_claim_review",
+              "phase": "authorization",
+              "state": "pass",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "relation_resolution",
+              "phase": "relation",
+              "state": "pass",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "authorization",
+              "phase": "authorization",
+              "state": "pass",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "claim_scope",
+              "phase": "content",
+              "state": "not_applicable",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "principle_boundaries",
+              "phase": "content",
+              "state": "pass",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "principle_rationale",
+              "phase": "content",
+              "state": "pass",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "procedure_preconditions",
+              "phase": "content",
+              "state": "not_applicable",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "procedure_steps",
+              "phase": "content",
+              "state": "not_applicable",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "procedure_outcome",
+              "phase": "content",
+              "state": "not_applicable",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "concept_definition",
+              "phase": "content",
+              "state": "not_applicable",
+              "reason_codes": [],
+              "evidence_refs": []
+            },
+            {
+              "gate_id": "concept_boundaries",
+              "phase": "content",
+              "state": "not_applicable",
+              "reason_codes": [],
+              "evidence_refs": []
+            }
+          ],
+          "promotion_gaps": [],
+          "blocking_content_gaps": []
+        },
+        "sources": [
+          {
+            "source_id": "source_fixture_v2",
+            "span": {
+              "end": 48,
+              "start": 0
+            }
+          }
+        ],
+        "relations": [
+          {
+            "relation_id": "relation_fixture",
+            "target_id": "project_fixture",
+            "type": "supports"
+          }
+        ],
+        "ai_enrichment_status": "none",
+        "status": "active"
+      }
+    }
+  ],
+  "authority": {
+    "canonical_id": "knowledge_fixture_v2",
+    "path": "ZETA/PERMANENT/Fixture authority.md",
+    "revision": "8792985dc7df45b7a896d1b1048be1d735a6611c09034c43297d210ce001b38e",
+    "nonce": "upd_170407c7a777d3f37712815633787d0b",
+    "packet_hash": "4f93ee797c28438a31840990be7ae331cc9a803a7022970b5a259db6f5f4a2df",
+    "authorization_hash": "170407c7a777d3f37712815633787d0b3d1de32e5488436b9cde4cc541ace5d5",
+    "immutable_audit_hash": "8a3296c338e8fd8173a9adcbc6d45e905789908bc36aab9ba71ade18252871bf",
+    "canonical_v2_authority": {
+      "canonical_id": "knowledge_fixture_v2",
+      "schema_version": 2,
+      "canonical_sha256": "8792985dc7df45b7a896d1b1048be1d735a6611c09034c43297d210ce001b38e",
+      "claim_set_hash": "da11db237301425e7980bfbe36c420e27fa5bd03995ebe706b5245b53910b78f",
+      "claim_set": {
+        "contract_version": "llmwiki_claim_provenance_v1",
+        "sources": [
+          {
+            "source_id": "source_added_b",
+            "source_revision": "9a8ccf76e49b05c290a20396577d0495071d344407d71ff7acb1574f92622875",
+            "extractor_revision": "84c38efe0c119622ba3898ae6b10707c19b788e3c3515d4a4797987b15caf153",
+            "source_content_hash": "9a8ccf76e49b05c290a20396577d0495071d344407d71ff7acb1574f92622875",
+            "source_length": 58,
+            "provider_window": {
+              "start": 0,
+              "end": 58
+            },
+            "source_kind": "immutable_source"
+          },
+          {
+            "source_id": "source_fixture_v2",
+            "source_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "extractor_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_content_hash": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5",
+            "source_length": 48,
+            "provider_window": {
+              "start": 0,
+              "end": 48
+            },
+            "source_kind": "immutable_source"
+          }
+        ],
+        "claims": [
+          {
+            "claim_id": "claim_24932aac06e19c540ee8aa83",
+            "origin": "source_extract",
+            "text": "The approved v2 item is source-bound and active.",
+            "citation_ids": [
+              "citation_3f589820f8b3c7c83931b11e"
+            ],
+            "derived_from_claim_ids": [],
+            "human_justification": null,
+            "dispute_target_claim_id": null,
+            "citations": [
+              {
+                "citation_id": "citation_3f589820f8b3c7c83931b11e",
+                "source_id": "source_fixture_v2",
+                "source_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "extractor_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "source_content_hash": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5",
+                "source_span": {
+                  "start": 0,
+                  "end": 48
+                },
+                "span_digest": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5"
+              }
+            ],
+            "status": "accepted",
+            "review": {
+              "authorized_by": "fixture_reviewer",
+              "authorized_at": "2026-09-09T12:00:00.000Z"
+            }
+          },
+          {
+            "claim_id": "claim_79ec615964808db65aed0cb8",
+            "origin": "source_extract",
+            "text": "Apply the approved item only to an indoor synthetic model.",
+            "citation_ids": [
+              "citation_25025463fa9ea8658bcb20c2"
+            ],
+            "derived_from_claim_ids": [],
+            "human_justification": null,
+            "dispute_target_claim_id": null,
+            "citations": [
+              {
+                "citation_id": "citation_25025463fa9ea8658bcb20c2",
+                "source_id": "source_added_b",
+                "source_revision": "9a8ccf76e49b05c290a20396577d0495071d344407d71ff7acb1574f92622875",
+                "extractor_revision": "84c38efe0c119622ba3898ae6b10707c19b788e3c3515d4a4797987b15caf153",
+                "source_content_hash": "9a8ccf76e49b05c290a20396577d0495071d344407d71ff7acb1574f92622875",
+                "source_span": {
+                  "start": 0,
+                  "end": 58
+                },
+                "span_digest": "9a8ccf76e49b05c290a20396577d0495071d344407d71ff7acb1574f92622875"
+              }
+            ],
+            "status": "accepted",
+            "review": {
+              "authorized_by": "fixture_reviewer",
+              "authorized_at": "2026-09-09T12:00:00.000Z"
+            }
+          }
+        ],
+        "citations": [
+          {
+            "citation_id": "citation_25025463fa9ea8658bcb20c2",
+            "source_id": "source_added_b",
+            "source_revision": "9a8ccf76e49b05c290a20396577d0495071d344407d71ff7acb1574f92622875",
+            "extractor_revision": "84c38efe0c119622ba3898ae6b10707c19b788e3c3515d4a4797987b15caf153",
+            "source_content_hash": "9a8ccf76e49b05c290a20396577d0495071d344407d71ff7acb1574f92622875",
+            "source_span": {
+              "start": 0,
+              "end": 58
+            },
+            "span_digest": "9a8ccf76e49b05c290a20396577d0495071d344407d71ff7acb1574f92622875"
+          },
+          {
+            "citation_id": "citation_3f589820f8b3c7c83931b11e",
+            "source_id": "source_fixture_v2",
+            "source_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "extractor_revision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "source_content_hash": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5",
+            "source_span": {
+              "start": 0,
+              "end": 48
+            },
+            "span_digest": "05198fb8458c07418cd65e0828b965e9832fdf939d238ed7a3b4f8a8315fe5e5"
+          }
+        ],
+        "disputes": [],
+        "status": "accepted",
+        "source_data_untrusted": true,
+        "write_counters": {
+          "writer": 0,
+          "canonical": 0,
+          "maintenance": 0,
+          "git": 0
+        },
+        "claim_set_hash": "da11db237301425e7980bfbe36c420e27fa5bd03995ebe706b5245b53910b78f"
+      },
+      "promotion_receipt_hash": "21102d8527bdb5124c5f0d973cdecdc9d3e281bd2805e0d3cc5d46a65270d28f",
+      "promotion_receipt": {
+        "contract_version": "llmwiki_promotion_contract_v1",
+        "input_binding": "{\"approval_status\":\"approved\",\"claims\":[{\"claim_id\":\"claim_fixture_v2\",\"evidence_refs\":[\"fixture_evidence\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"The approved v2 item is source-bound and active.\"},{\"claim_id\":\"claim_added_b\",\"evidence_refs\":[\"evidence_added_b\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"Apply the approved item only to an indoor synthetic model.\"}],\"classification\":\"epistemic\",\"evidence\":[{\"evidence_id\":\"fixture_evidence\",\"source_ref\":\"source_fixture_v2\",\"strength\":\"strong\"},{\"evidence_id\":\"evidence_added_b\",\"source_ref\":\"source_added_b\",\"strength\":\"strong\"}],\"knowledge_kind\":\"principle\",\"principle_boundaries\":{\"conditions\":[\"approved\"],\"exclusions\":[\"unreviewed\"],\"invalidation_conditions\":[\"source revision changes\"]},\"principle_rationale\":\"Immutable authority prevents forged provenance.\",\"relation_status\":\"resolved\",\"state\":\"current\",\"statement\":\"The approved v2 item is source-bound and active. Apply the approved item only to an indoor synthetic model.\",\"title\":\"Fixture authority\"}",
+        "knowledge_kind": "principle",
+        "trust_status": "unverified",
+        "disposition": "canonical_review",
+        "terminal": false,
+        "candidate_eligible": false,
+        "canonical_review_eligible": true,
+        "canonical_write_eligible": true,
+        "gates": [
+          {
+            "gate_id": "unit_scope",
+            "phase": "eligibility",
+            "state": "pass",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "statement",
+            "phase": "content",
+            "state": "pass",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "evidence_refs",
+            "phase": "content",
+            "state": "pass",
+            "reason_codes": [],
+            "evidence_refs": [
+              "fixture_evidence",
+              "evidence_added_b"
+            ]
+          },
+          {
+            "gate_id": "claim_support",
+            "phase": "content",
+            "state": "pass",
+            "reason_codes": [],
+            "evidence_refs": [
+              "fixture_evidence",
+              "evidence_added_b"
+            ]
+          },
+          {
+            "gate_id": "ai_claim_review",
+            "phase": "authorization",
+            "state": "pass",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "relation_resolution",
+            "phase": "relation",
+            "state": "pass",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "authorization",
+            "phase": "authorization",
+            "state": "pass",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "claim_scope",
+            "phase": "content",
+            "state": "not_applicable",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "principle_boundaries",
+            "phase": "content",
+            "state": "pass",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "principle_rationale",
+            "phase": "content",
+            "state": "pass",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "procedure_preconditions",
+            "phase": "content",
+            "state": "not_applicable",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "procedure_steps",
+            "phase": "content",
+            "state": "not_applicable",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "procedure_outcome",
+            "phase": "content",
+            "state": "not_applicable",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "concept_definition",
+            "phase": "content",
+            "state": "not_applicable",
+            "reason_codes": [],
+            "evidence_refs": []
+          },
+          {
+            "gate_id": "concept_boundaries",
+            "phase": "content",
+            "state": "not_applicable",
+            "reason_codes": [],
+            "evidence_refs": []
+          }
+        ],
+        "promotion_gaps": [],
+        "blocking_content_gaps": []
+      },
+      "sources": [
+        {
+          "source_id": "source_fixture_v2",
+          "span": {
+            "end": 48,
+            "start": 0
+          }
+        },
+        {
+          "source_id": "source_added_b",
+          "span": {
+            "end": 58,
+            "start": 0
+          }
+        }
+      ],
+      "relations": [
+        {
+          "relation_id": "relation_fixture",
+          "target_id": "project_fixture",
+          "type": "supports"
+        }
+      ],
+      "ai_enrichment_status": "none",
+      "status": "active"
+    }
+  },
+  "reader": {
+    "count": 1,
+    "verified": true,
+    "source_ids": [
+      "source_fixture_v2",
+      "source_added_b"
+    ],
+    "canonical_revision": "8792985dc7df45b7a896d1b1048be1d735a6611c09034c43297d210ce001b38e"
+  },
+  "canonical_writes": 2
+}

@@ -1,0 +1,54 @@
+TAP version 13
+# Subtest: canonical coverage blocks duplicate candidate creation in the live Hub
+not ok 1 - canonical coverage blocks duplicate candidate creation in the live Hub
+  ---
+  duration_ms: 107.388667
+  type: 'test'
+  location: '/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_batch_integration.js:1792:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Error: crypto unavailable
+        at sha256 (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:79:24)
+        at Object.validateClaimSet (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:45:9)
+        at Object.validateClaimSet (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:21:30)
+        at authorityFailure (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:62:29)
+        at Object.decideFinalized (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:100:21)
+        at trustedV2Canonical (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:23:33)
+        at Object.read (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:46:20)
+        at async readCanonicalDocuments (HUB/50 Knowledge.md:990:20)
+        at async KnowledgeExplorerHub.render (HUB/50 Knowledge.md:996:30)
+        at async Object.mountWorkspace (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4), <anonymous>:539:18)
+    + actual - expected
+    
+    + 'undefined'
+    - 'function'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'function'
+  actual: 'undefined'
+  operator: 'strictEqual'
+  stack: |-
+    sha256 (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:79:24)
+    Object.validateClaimSet (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:45:9)
+    Object.validateClaimSet (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:21:30)
+    authorityFailure (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:62:29)
+    Object.decideFinalized (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:100:21)
+    trustedV2Canonical (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:23:33)
+    Object.read (eval at defaultEvaluate (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4)), <anonymous>:46:20)
+    async readCanonicalDocuments (HUB/50 Knowledge.md:990:20)
+    async KnowledgeExplorerHub.render (HUB/50 Knowledge.md:996:30)
+    async Object.mountWorkspace (eval at loadWorkspaceBootstrap (HUB/50 Knowledge.md:13:4), <anonymous>:539:18)
+    TestContext.<anonymous> (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_batch_integration.js:1814:10)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 157.79775

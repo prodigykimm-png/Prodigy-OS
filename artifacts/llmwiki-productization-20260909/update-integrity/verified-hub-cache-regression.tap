@@ -1,0 +1,268 @@
+TAP version 13
+# Subtest: canonical v2 trust requires one finalized immutable decision across every read surface
+ok 1 - canonical v2 trust requires one finalized immutable decision across every read surface
+  ---
+  duration_ms: 31.424667
+  type: 'test'
+  ...
+# Subtest: exposed finalized authority cannot be mutated to verify unaudited canonical bytes
+ok 2 - exposed finalized authority cannot be mutated to verify unaudited canonical bytes
+  ---
+  duration_ms: 10.976041
+  type: 'test'
+  ...
+# Subtest: finalized authority display views are detached and recursively immutable
+ok 3 - finalized authority display views are detached and recursively immutable
+  ---
+  duration_ms: 5.716833
+  type: 'test'
+  ...
+# Subtest: raw authority, labels, clones, mismatches, stale state, and inactive revisions fail closed
+ok 4 - raw authority, labels, clones, mismatches, stale state, and inactive revisions fail closed
+  ---
+  duration_ms: 6.810708
+  type: 'test'
+  ...
+# Subtest: approved update finalizes a new canonical v2 revision that resurfaces once while revision 1 stays muted
+ok 5 - approved update finalizes a new canonical v2 revision that resurfaces once while revision 1 stays muted
+  ---
+  duration_ms: 16.342375
+  type: 'test'
+  ...
+# Subtest: stale update targets zero-mutate and resurface only after exact restoration
+ok 6 - stale update targets zero-mutate and resurface only after exact restoration
+  ---
+  duration_ms: 17.844208
+  type: 'test'
+  ...
+# Subtest: failed authority audit leaves the trusted surface on the last finalized revision
+ok 7 - failed authority audit leaves the trusted surface on the last finalized revision
+  ---
+  duration_ms: 15.994667
+  type: 'test'
+  ...
+# Subtest: large mixed Unicode chunking completes within the bounded timeout
+ok 8 - large mixed Unicode chunking completes within the bounded timeout
+  ---
+  duration_ms: 760.839
+  type: 'test'
+  ...
+# Subtest: strict manifest validation rejects self-consistent replacement text
+ok 9 - strict manifest validation rejects self-consistent replacement text
+  ---
+  duration_ms: 2.72775
+  type: 'test'
+  ...
+# Subtest: chunks cover exact UTF-16 spans without overlap and never split surrogate pairs
+ok 10 - chunks cover exact UTF-16 spans without overlap and never split surrogate pairs
+  ---
+  duration_ms: 1.769209
+  type: 'test'
+  ...
+# Subtest: chunk splitting follows heading, paragraph, sentence, line, then slice fallback
+ok 11 - chunk splitting follows heading, paragraph, sentence, line, then slice fallback
+  ---
+  duration_ms: 1.325417
+  type: 'test'
+  ...
+# Subtest: uses the last eligible boundary in the byte window and preserves deterministic exact coverage
+ok 12 - uses the last eligible boundary in the byte window and preserves deterministic exact coverage
+  ---
+  duration_ms: 3.780416
+  type: 'test'
+  ...
+# Subtest: semantic cache continuity survives a preceding insertion but renamed heading misses once
+ok 13 - semantic cache continuity survives a preceding insertion but renamed heading misses once
+  ---
+  duration_ms: 1.766
+  type: 'test'
+  ...
+# Subtest: duplicate occurrences with an empty cache are all misses and remain analyzable
+ok 14 - duplicate occurrences with an empty cache are all misses and remain analyzable
+  ---
+  duration_ms: 0.481833
+  type: 'test'
+  ...
+# Subtest: identical text under different source ids has distinct instance ids
+ok 15 - identical text under different source ids has distinct instance ids
+  ---
+  duration_ms: 0.42575
+  type: 'test'
+  ...
+# Subtest: duplicate occurrences reuse only their exact distinct instance artifacts
+ok 16 - duplicate occurrences reuse only their exact distinct instance artifacts
+  ---
+  duration_ms: 0.78025
+  type: 'test'
+  ...
+# Subtest: cache and coverage quarantine corrupt persisted artifacts and preserve newest retry generation
+ok 17 - cache and coverage quarantine corrupt persisted artifacts and preserve newest retry generation
+  ---
+  duration_ms: 1.502834
+  type: 'test'
+  ...
+# Subtest: cancelled or superseded requests reject late cache and coverage writes
+ok 18 - cancelled or superseded requests reject late cache and coverage writes
+  ---
+  duration_ms: 0.514166
+  type: 'test'
+  ...
+# Subtest: coverage is durable, partial/cancelled work stays incomplete, and corrupt cache is quarantined
+ok 19 - coverage is durable, partial/cancelled work stays incomplete, and corrupt cache is quarantined
+  ---
+  duration_ms: 3.530041
+  type: 'test'
+  ...
+# Subtest: repeated partial restarts never report complete before the final durable receipt
+ok 20 - repeated partial restarts never report complete before the final durable receipt
+  ---
+  duration_ms: 2.006583
+  type: 'test'
+  ...
+# Subtest: v1 state is stale, while v2 completion is hash-bound to durable exact coverage
+ok 21 - v1 state is stale, while v2 completion is hash-bound to durable exact coverage
+  ---
+  duration_ms: 2.63575
+  type: 'test'
+  ...
+# Subtest: document plan resolves canonically equivalent Unicode source paths
+ok 22 - document plan resolves canonically equivalent Unicode source paths
+  ---
+  duration_ms: 93.561667
+  type: 'test'
+  ...
+# Subtest: document planning requires complete semantic source coverage before downstream planning
+ok 23 - document planning requires complete semantic source coverage before downstream planning
+  ---
+  duration_ms: 316.351917
+  type: 'test'
+  ...
+# Subtest: canonical no_change documents count as source provenance toward full plan coverage (Finding-2)
+ok 24 - canonical no_change documents count as source provenance toward full plan coverage (Finding-2)
+  ---
+  duration_ms: 76.838917
+  type: 'test'
+  ...
+# Subtest: default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError)
+ok 25 - default article-compiler closure uses the in-scope plan source id (no sourceId ReferenceError)
+  ---
+  duration_ms: 75.94475
+  type: 'test'
+  ...
+# Subtest: span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract
+ok 26 - span-misaligned semantic units fail the plan with the shared semantic_candidate_key_missing contract
+  ---
+  duration_ms: 21.745333
+  type: 'test'
+  ...
+# Subtest: replay-only analysis without durable 12/12 unit coverage cannot become review_ready
+ok 27 - replay-only analysis without durable 12/12 unit coverage cannot become review_ready
+  ---
+  duration_ms: 22.37725
+  type: 'test'
+  ...
+# Subtest: Centum regression converges through the real Hub planner, compiler, and Golden orchestrator
+ok 28 - Centum regression converges through the real Hub planner, compiler, and Golden orchestrator
+  ---
+  duration_ms: 82.982708
+  type: 'test'
+  ...
+# Subtest: semantic over-capacity stops before transport and every downstream boundary
+ok 29 - semantic over-capacity stops before transport and every downstream boundary
+  ---
+  duration_ms: 24.175916
+  type: 'test'
+  ...
+# Subtest: v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay
+ok 30 - v1 cache misses v2 once, exact v2 remount replays final while compiled stays draft, and drift blocks replay
+  ---
+  duration_ms: 89.476833
+  type: 'test'
+  ...
+# Subtest: live batch emits one document operation for multiple reusable claims
+ok 31 - live batch emits one document operation for multiple reusable claims
+  ---
+  duration_ms: 26.461041
+  type: 'test'
+  ...
+# Subtest: rejecting an obsolete review run persists zero packets across restart
+ok 32 - rejecting an obsolete review run persists zero packets across restart
+  ---
+  duration_ms: 42.837042
+  type: 'test'
+  ...
+# Subtest: isolated document pilot covers content beyond 4 KiB without replacing the existing review
+ok 33 - isolated document pilot covers content beyond 4 KiB without replacing the existing review
+  ---
+  duration_ms: 19.241041
+  type: 'test'
+  ...
+# Subtest: isolated document pilot resumes after the last completed pack
+ok 34 - isolated document pilot resumes after the last completed pack
+  ---
+  duration_ms: 39.700958
+  type: 'test'
+  ...
+# Subtest: full-source materialization converts chunk-local spans to source-global locators
+ok 35 - full-source materialization converts chunk-local spans to source-global locators
+  ---
+  duration_ms: 59.920625
+  type: 'test'
+  ...
+# Subtest: full-source plan resumes a blocked batch only with explicit retry intent
+ok 36 - full-source plan resumes a blocked batch only with explicit retry intent
+  ---
+  duration_ms: 22.429417
+  type: 'test'
+  ...
+# Subtest: Hub remount preserves the actively selected document plan
+ok 37 - Hub remount preserves the actively selected document plan
+  ---
+  duration_ms: 28.843584
+  type: 'test'
+  ...
+# Subtest: compile blocks swapped topic titles until explicit recommended renames
+ok 38 - compile blocks swapped topic titles until explicit recommended renames
+  ---
+  duration_ms: 38.950125
+  type: 'test'
+  ...
+# Subtest: full-source workflow stops at page-plan triage, then compiles preview without replacing active review
+ok 39 - full-source workflow stops at page-plan triage, then compiles preview without replacing active review
+  ---
+  duration_ms: 111.301375
+  type: 'test'
+  ...
+# Subtest: source-only claims block source archive when compiled review activates
+ok 40 - source-only claims block source archive when compiled review activates
+  ---
+  duration_ms: 35.119166
+  type: 'test'
+  ...
+# Subtest: legacy atomized recovery repackets from cached artifacts with provider zero
+ok 41 - legacy atomized recovery repackets from cached artifacts with provider zero
+  ---
+  duration_ms: 45.849542
+  type: 'test'
+  ...
+# Subtest: canonical coverage blocks duplicate candidate creation in the live Hub
+ok 42 - canonical coverage blocks duplicate candidate creation in the live Hub
+  ---
+  duration_ms: 44.655209
+  type: 'test'
+  ...
+# Subtest: stale source excluded from cached repacket returns to the visible pending queue
+ok 43 - stale source excluded from cached repacket returns to the visible pending queue
+  ---
+  duration_ms: 51.132584
+  type: 'test'
+  ...
+1..43
+# tests 43
+# suites 0
+# pass 43
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2299.141959

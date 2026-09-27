@@ -1,0 +1,1901 @@
+{
+  "schema_version": 3,
+  "jobs": {
+    "3a9b5cc2be2bb3d2129a9905852f917cd9703373b6c113b52f269680db5e8b33": {
+      "job_id": "3a9b5cc2be2bb3d2129a9905852f917cd9703373b6c113b52f269680db5e8b33",
+      "batch_id": "3a9b5cc2be2bb3d2129a9905852f917cd9703373b6c113b52f269680db5e8b33",
+      "request_key": "5de531220e7170f5ec3dd584f3ecb332fcbd8ab3c19ffe7db3228cfbdd2f322a",
+      "status": "pending",
+      "sources": {
+        "source_36fe315ba09a10b9ba6f948a": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107"
+      }
+    },
+    "834ea526913afbd77b500d604ad2b45b9dda4c4aaf9bd75845d6b6bed831ab63": {
+      "job_id": "834ea526913afbd77b500d604ad2b45b9dda4c4aaf9bd75845d6b6bed831ab63",
+      "batch_id": "834ea526913afbd77b500d604ad2b45b9dda4c4aaf9bd75845d6b6bed831ab63",
+      "request_key": "672167509921af24d52e89f7e5ffa67be7000baa4e1024771e8288edf768f571",
+      "status": "pending",
+      "sources": {
+        "source_supplement_b": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5"
+      }
+    },
+    "bc4ba2edb03ad86bbaa494c6d29c6fe8f7044fd96f91327743f2463cc713fdb3": {
+      "job_id": "bc4ba2edb03ad86bbaa494c6d29c6fe8f7044fd96f91327743f2463cc713fdb3",
+      "batch_id": "bc4ba2edb03ad86bbaa494c6d29c6fe8f7044fd96f91327743f2463cc713fdb3",
+      "request_key": "d48ba6b6406b092fa31822f144ed77e736365ab6336a0349d0a13aed089e2779",
+      "status": "pending",
+      "sources": {
+        "source_793a8720edc9851ae6f23034": "26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d"
+      }
+    }
+  },
+  "packs": {},
+  "plans": {
+    "3a9b5cc2be2bb3d2129a9905852f917cd9703373b6c113b52f269680db5e8b33": {
+      "job_id": "3a9b5cc2be2bb3d2129a9905852f917cd9703373b6c113b52f269680db5e8b33",
+      "source_id": "source_36fe315ba09a10b9ba6f948a",
+      "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+      "inventory_hash": "4547715d7854f44ccc235adb5374a752242a48abb49684fdd4d67c7ceb5dcddf",
+      "plan_hash": "be9fe653541edb31c7fee483d969c12324661880bc3c4a07ef1bc6dbe989d0f4",
+      "plan_revision": 4,
+      "status": "compiled",
+      "plan": {
+        "plan_version": "fixture_document_v1",
+        "pages": []
+      },
+      "plan_identity": "258d4606ebe3ae4910b936037fd3ac7f681ae7856f3a0dd6c34d97b5e7598465",
+      "canonical_reviews": {
+        "5de531220e7170f5ec3dd584f3ecb332fcbd8ab3c19ffe7db3228cfbdd2f322a": {
+          "item": {
+            "review_id": "mac_ui_conditions",
+            "title": "해솔-842 점검",
+            "document_body": "# 해솔-842 점검\n\n해솔-842 점검의 적용 대상은 실내 모형 장치다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L3-L3)\n\n해솔-842 점검의 기본 점검 시간은 10분이다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L5-L5)\n\n해솔-842 점검 시작 전에 전원 표시를 확인한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L7-L7)\n\n해솔-842 점검 종료 후 점검 시간을 기록한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L9-L9)\n\n해솔-842 점검은 실외 모형에는 적용하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L11-L11)\n\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L13-L13)\n\n\n## 사용자 메모\n시험용 모형에만 적용한다는 개인 검토 메모를 보존한다.\n",
+            "grounded_claims": [
+              {
+                "text": "해솔-842 점검의 적용 대상은 실내 모형 장치다.",
+                "citations": [
+                  {
+                    "key": "question_evidence_1",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_path": "INBOX/Phase A Synthetic A.md",
+                    "locator": "INBOX/Phase A Synthetic A.md#L3-L3",
+                    "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "excerpt": "해솔-842 점검: 적용 대상은 실내 모형 장치다.",
+                    "start": 11,
+                    "trust": "literature",
+                    "source_text_authority": "untrusted_data_only",
+                    "evidence_quote": "해솔-842 점검: 적용 대상은 실내 모형 장치다."
+                  }
+                ]
+              },
+              {
+                "text": "해솔-842 점검의 기본 점검 시간은 10분이다.",
+                "citations": [
+                  {
+                    "key": "question_evidence_1",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_path": "INBOX/Phase A Synthetic A.md",
+                    "locator": "INBOX/Phase A Synthetic A.md#L5-L5",
+                    "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "excerpt": "해솔-842 점검: 기본 점검 시간은 10분이다.",
+                    "start": 41,
+                    "trust": "literature",
+                    "source_text_authority": "untrusted_data_only",
+                    "evidence_quote": "해솔-842 점검: 기본 점검 시간은 10분이다."
+                  }
+                ]
+              },
+              {
+                "text": "해솔-842 점검 시작 전에 전원 표시를 확인한다.",
+                "citations": [
+                  {
+                    "key": "question_evidence_1",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_path": "INBOX/Phase A Synthetic A.md",
+                    "locator": "INBOX/Phase A Synthetic A.md#L7-L7",
+                    "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "excerpt": "해솔-842 점검: 시작 전에 전원 표시를 확인한다.",
+                    "start": 70,
+                    "trust": "literature",
+                    "source_text_authority": "untrusted_data_only",
+                    "evidence_quote": "해솔-842 점검: 시작 전에 전원 표시를 확인한다."
+                  }
+                ]
+              },
+              {
+                "text": "해솔-842 점검 종료 후 점검 시간을 기록한다.",
+                "citations": [
+                  {
+                    "key": "question_evidence_1",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_path": "INBOX/Phase A Synthetic A.md",
+                    "locator": "INBOX/Phase A Synthetic A.md#L9-L9",
+                    "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "excerpt": "해솔-842 점검: 종료 후 점검 시간을 기록한다.",
+                    "start": 101,
+                    "trust": "literature",
+                    "source_text_authority": "untrusted_data_only",
+                    "evidence_quote": "해솔-842 점검: 종료 후 점검 시간을 기록한다."
+                  }
+                ]
+              },
+              {
+                "text": "해솔-842 점검은 실외 모형에는 적용하지 않는다.",
+                "citations": [
+                  {
+                    "key": "question_evidence_1",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_path": "INBOX/Phase A Synthetic A.md",
+                    "locator": "INBOX/Phase A Synthetic A.md#L11-L11",
+                    "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "excerpt": "해솔-842 점검: 실외 모형에는 적용하지 않는다.",
+                    "start": 131,
+                    "trust": "literature",
+                    "source_text_authority": "untrusted_data_only",
+                    "evidence_quote": "해솔-842 점검: 실외 모형에는 적용하지 않는다."
+                  }
+                ]
+              },
+              {
+                "text": "해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "citations": [
+                  {
+                    "key": "question_evidence_1",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_path": "INBOX/Phase A Synthetic A.md",
+                    "locator": "INBOX/Phase A Synthetic A.md#L13-L13",
+                    "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "excerpt": "해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                    "start": 161,
+                    "trust": "literature",
+                    "source_text_authority": "untrusted_data_only",
+                    "evidence_quote": "해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다."
+                  }
+                ]
+              }
+            ]
+          },
+          "fields": {
+            "target_path": "new",
+            "knowledge_kind": "claim",
+            "knowledge_topics": "ai",
+            "application_trigger": "실내 합성 모형 점검",
+            "application_contexts": "coding/ai",
+            "conditions": "실내 모형에만 적용",
+            "exclusions": "실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.",
+            "invalidation_conditions": "원문 또는 적용 조건 변경",
+            "classification": "epistemic",
+            "knowledge_domain": "coding",
+            "relation_status": "resolved",
+            "evidence_strength": "sufficient"
+          },
+          "packet": {
+            "packet_version": "llmwiki_canonical_packet_v1",
+            "run_id": "run_de94118e3caf0884c56cf0e6",
+            "operation": {
+              "operation_id": "operation_de94118e3caf0884c56cf0e6",
+              "proposal_id": "proposal_de94118e3caf0884c56cf0e6",
+              "proposal_kind": "create",
+              "payload_hash": "de94118e3caf0884c56cf0e63f96ec924fe39d9ccc463f52da5583bcb1e994d8",
+              "authorization_state": "authorizable",
+              "authorization_reason": "phase_1_create_only"
+            },
+            "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+            "allowed_properties": [
+              "/body",
+              "/frontmatter/ai_enrichment_status",
+              "/frontmatter/application_contexts",
+              "/frontmatter/application_trigger",
+              "/frontmatter/canonical_id",
+              "/frontmatter/claim_set_hash",
+              "/frontmatter/connections",
+              "/frontmatter/created",
+              "/frontmatter/invalidation_conditions",
+              "/frontmatter/knowledge_domain",
+              "/frontmatter/knowledge_kind",
+              "/frontmatter/knowledge_topics",
+              "/frontmatter/promotion_receipt_hash",
+              "/frontmatter/relations",
+              "/frontmatter/schema_version",
+              "/frontmatter/sources",
+              "/frontmatter/status",
+              "/frontmatter/statement",
+              "/frontmatter/title",
+              "/frontmatter/type",
+              "/frontmatter/updated"
+            ],
+            "before_bytes": "",
+            "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "after_bytes": "---\nschema_version: 2\ntype: \"knowledge\"\ncanonical_id: \"knowledge_79fa7a24ee573940d1f6989a\"\nknowledge_kind: \"claim\"\nstatus: \"active\"\nstatement: \"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"\nknowledge_domain: \"coding\"\nknowledge_topics: [\"ai\"]\napplication_trigger: \"실내 합성 모형 점검\"\napplication_contexts: [\"coding/ai\"]\ninvalidation_conditions: [\"원문 또는 적용 조건 변경\"]\nsources: [{\"source_id\":\"source_36fe315ba09a10b9ba6f948a\",\"span\":{\"end\":199,\"start\":0}}]\nclaim_set_hash: \"1a62a90bc4a6c5c96946459ec2daeec31d2f4c83df3bfc46bd19d8bbe8d58845\"\npromotion_receipt_hash: \"4d4ea60616d515ed463904de4f50ca2ff2eb547d0452b9931542a5acd3ddcff5\"\nai_enrichment_status: \"none\"\ncreated: \"2026-09-09T10:50:24.073Z\"\nupdated: \"2026-09-09T10:50:24.073Z\"\n---\n# 해솔-842 점검\n\n해솔-842 점검의 적용 대상은 실내 모형 장치다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L3-L3)\n\n해솔-842 점검의 기본 점검 시간은 10분이다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L5-L5)\n\n해솔-842 점검 시작 전에 전원 표시를 확인한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L7-L7)\n\n해솔-842 점검 종료 후 점검 시간을 기록한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L9-L9)\n\n해솔-842 점검은 실외 모형에는 적용하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L11-L11)\n\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L13-L13)\n\n\n## 사용자 메모\n시험용 모형에만 적용한다는 개인 검토 메모를 보존한다.\n\n## 사용자 검토 범위\n- 적용 조건: 실내 모형에만 적용\n- 예외·금지: 실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\n- 재검토 조건: 원문 또는 적용 조건 변경\n\n## 출처\n- [source_36fe315ba09a10b9ba6f948a](INBOX/Phase%20A%20Synthetic%20A.md#L1)\n",
+            "after_sha256": "31726d585c3821c3ea78664a2bb8e4a6db5b27717577a0d87cbc6ec724de4013",
+            "source_citations": [
+              {
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "locators": [
+                  "INBOX/Phase A Synthetic A.md#L1"
+                ]
+              }
+            ],
+            "consent_hash": "73306b1f71f8dc783cb0b9127873abd1674a1faecc82a636871a460a063131de",
+            "live_revision": "6d5dadbe58b02196a27039b6d15e56513b99b7cb116cbac475c22205fc2e0b17",
+            "expires_at": "2026-09-09T11:50:24.073Z",
+            "nonce": "review_de94118e3caf0884c56cf0e6_1788951024073",
+            "write_counters": {
+              "canonical": 0,
+              "audit": 0,
+              "provider": 0,
+              "network": 0,
+              "git": 0
+            },
+            "packet_hash": "1af403dce4d45f83ad686d537014235ddfac9f11bb55d57965d4d8eb97c316af",
+            "canonical_serialization": "{\"after_bytes\":\"---\\nschema_version: 2\\ntype: \\\"knowledge\\\"\\ncanonical_id: \\\"knowledge_79fa7a24ee573940d1f6989a\\\"\\nknowledge_kind: \\\"claim\\\"\\nstatus: \\\"active\\\"\\nstatement: \\\"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\\\"\\nknowledge_domain: \\\"coding\\\"\\nknowledge_topics: [\\\"ai\\\"]\\napplication_trigger: \\\"실내 합성 모형 점검\\\"\\napplication_contexts: [\\\"coding/ai\\\"]\\ninvalidation_conditions: [\\\"원문 또는 적용 조건 변경\\\"]\\nsources: [{\\\"source_id\\\":\\\"source_36fe315ba09a10b9ba6f948a\\\",\\\"span\\\":{\\\"end\\\":199,\\\"start\\\":0}}]\\nclaim_set_hash: \\\"1a62a90bc4a6c5c96946459ec2daeec31d2f4c83df3bfc46bd19d8bbe8d58845\\\"\\npromotion_receipt_hash: \\\"4d4ea60616d515ed463904de4f50ca2ff2eb547d0452b9931542a5acd3ddcff5\\\"\\nai_enrichment_status: \\\"none\\\"\\ncreated: \\\"2026-09-09T10:50:24.073Z\\\"\\nupdated: \\\"2026-09-09T10:50:24.073Z\\\"\\n---\\n# 해솔-842 점검\\n\\n해솔-842 점검의 적용 대상은 실내 모형 장치다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L3-L3)\\n\\n해솔-842 점검의 기본 점검 시간은 10분이다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L5-L5)\\n\\n해솔-842 점검 시작 전에 전원 표시를 확인한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L7-L7)\\n\\n해솔-842 점검 종료 후 점검 시간을 기록한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L9-L9)\\n\\n해솔-842 점검은 실외 모형에는 적용하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L11-L11)\\n\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L13-L13)\\n\\n\\n## 사용자 메모\\n시험용 모형에만 적용한다는 개인 검토 메모를 보존한다.\\n\\n## 사용자 검토 범위\\n- 적용 조건: 실내 모형에만 적용\\n- 예외·금지: 실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\\n- 재검토 조건: 원문 또는 적용 조건 변경\\n\\n## 출처\\n- [source_36fe315ba09a10b9ba6f948a](INBOX/Phase%20A%20Synthetic%20A.md#L1)\\n\",\"after_sha256\":\"31726d585c3821c3ea78664a2bb8e4a6db5b27717577a0d87cbc6ec724de4013\",\"allowed_properties\":[\"/body\",\"/frontmatter/ai_enrichment_status\",\"/frontmatter/application_contexts\",\"/frontmatter/application_trigger\",\"/frontmatter/canonical_id\",\"/frontmatter/claim_set_hash\",\"/frontmatter/connections\",\"/frontmatter/created\",\"/frontmatter/invalidation_conditions\",\"/frontmatter/knowledge_domain\",\"/frontmatter/knowledge_kind\",\"/frontmatter/knowledge_topics\",\"/frontmatter/promotion_receipt_hash\",\"/frontmatter/relations\",\"/frontmatter/schema_version\",\"/frontmatter/sources\",\"/frontmatter/status\",\"/frontmatter/statement\",\"/frontmatter/title\",\"/frontmatter/type\",\"/frontmatter/updated\"],\"before_bytes\":\"\",\"before_sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"consent_hash\":\"73306b1f71f8dc783cb0b9127873abd1674a1faecc82a636871a460a063131de\",\"expires_at\":\"2026-09-09T11:50:24.073Z\",\"live_revision\":\"6d5dadbe58b02196a27039b6d15e56513b99b7cb116cbac475c22205fc2e0b17\",\"nonce\":\"review_de94118e3caf0884c56cf0e6_1788951024073\",\"operation\":{\"authorization_reason\":\"phase_1_create_only\",\"authorization_state\":\"authorizable\",\"operation_id\":\"operation_de94118e3caf0884c56cf0e6\",\"payload_hash\":\"de94118e3caf0884c56cf0e63f96ec924fe39d9ccc463f52da5583bcb1e994d8\",\"proposal_id\":\"proposal_de94118e3caf0884c56cf0e6\",\"proposal_kind\":\"create\"},\"packet_version\":\"llmwiki_canonical_packet_v1\",\"run_id\":\"run_de94118e3caf0884c56cf0e6\",\"source_citations\":[{\"content_hash\":\"d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107\",\"locators\":[\"INBOX/Phase A Synthetic A.md#L1\"],\"source_id\":\"source_36fe315ba09a10b9ba6f948a\"}],\"target_path\":\"ZETA/PERMANENT/해솔-842 점검.md\",\"write_counters\":{\"audit\":0,\"canonical\":0,\"git\":0,\"network\":0,\"provider\":0}}"
+          },
+          "claim_set": {
+            "contract_version": "llmwiki_claim_provenance_v1",
+            "sources": [
+              {
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_length": 199,
+                "provider_window": {
+                  "start": 0,
+                  "end": 199
+                },
+                "source_kind": "immutable_source"
+              }
+            ],
+            "claims": [
+              {
+                "claim_id": "claim_a852eafe33425f601d7f8c85",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 적용 대상은 실내 모형 장치다.",
+                "citation_ids": [
+                  "citation_760a60776fa08f1c0649e1a7"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_760a60776fa08f1c0649e1a7",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 11,
+                      "end": 39
+                    },
+                    "span_digest": "5c524b74b8a2f4df701a31ee870ea09bd1ed1c6bae4aed760a3a01b007063df1"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_5b1dd93f3bbcd52687972027",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검의 적용 대상은 실내 모형 장치다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_a852eafe33425f601d7f8c85"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_0b8703b0eb0d511f7c11815c",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 기본 점검 시간은 10분이다.",
+                "citation_ids": [
+                  "citation_ce510642b59de53324775ffc"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_ce510642b59de53324775ffc",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 41,
+                      "end": 68
+                    },
+                    "span_digest": "2acdd31c6d35806d737464d06d800af4ffe43e966e89c3f054311854fa28d396"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_4f3a7405ab0ffadb1fcfec39",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검의 기본 점검 시간은 10분이다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_0b8703b0eb0d511f7c11815c"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_1761a191268ffb546b5cbb7e",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 시작 전에 전원 표시를 확인한다.",
+                "citation_ids": [
+                  "citation_a739584dd0bdb6dbed12a540"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_a739584dd0bdb6dbed12a540",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 70,
+                      "end": 99
+                    },
+                    "span_digest": "ab365614da1afca0dd7d704c293f1a62e74f1af12ed580d6ee7d461a4a4742d8"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_f74d434b0a624d5fafb036f9",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검 시작 전에 전원 표시를 확인한다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_1761a191268ffb546b5cbb7e"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_7205ee001fd68969b1655e72",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 종료 후 점검 시간을 기록한다.",
+                "citation_ids": [
+                  "citation_512a1912d12a9c46f7b88831"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_512a1912d12a9c46f7b88831",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 101,
+                      "end": 129
+                    },
+                    "span_digest": "20528967ade3a8b02f63988e9ba81e1894dae292c3b0125b20242d5f1f7cea6f"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_89a2f5cddc684d9dfc871993",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검 종료 후 점검 시간을 기록한다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_7205ee001fd68969b1655e72"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_fb2d3cf88649cbb6d8a8bd9c",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 실외 모형에는 적용하지 않는다.",
+                "citation_ids": [
+                  "citation_32e5dfc40c734fdd9633f549"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_32e5dfc40c734fdd9633f549",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 131,
+                      "end": 159
+                    },
+                    "span_digest": "7d877ecc64f1da730978af817e30263050f92c98b8e8d0c2ae47c06578b2630b"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_9aca39ee4986d6f71e4f57a3",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검은 실외 모형에는 적용하지 않는다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_fb2d3cf88649cbb6d8a8bd9c"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_9bd19e01c862d894bfe72ffd",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "citation_ids": [
+                  "citation_b6e1f865f449b1397e1d2208"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_b6e1f865f449b1397e1d2208",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 161,
+                      "end": 198
+                    },
+                    "span_digest": "731b984e262d00dae70c00f78866b1a705c4c445e92e6edcbe536b7a52de2ca4"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_686f18c23a4d3cead5bbfcf9",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_9bd19e01c862d894bfe72ffd"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              }
+            ],
+            "citations": [
+              {
+                "citation_id": "citation_32e5dfc40c734fdd9633f549",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 131,
+                  "end": 159
+                },
+                "span_digest": "7d877ecc64f1da730978af817e30263050f92c98b8e8d0c2ae47c06578b2630b"
+              },
+              {
+                "citation_id": "citation_512a1912d12a9c46f7b88831",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 101,
+                  "end": 129
+                },
+                "span_digest": "20528967ade3a8b02f63988e9ba81e1894dae292c3b0125b20242d5f1f7cea6f"
+              },
+              {
+                "citation_id": "citation_760a60776fa08f1c0649e1a7",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 11,
+                  "end": 39
+                },
+                "span_digest": "5c524b74b8a2f4df701a31ee870ea09bd1ed1c6bae4aed760a3a01b007063df1"
+              },
+              {
+                "citation_id": "citation_a739584dd0bdb6dbed12a540",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 70,
+                  "end": 99
+                },
+                "span_digest": "ab365614da1afca0dd7d704c293f1a62e74f1af12ed580d6ee7d461a4a4742d8"
+              },
+              {
+                "citation_id": "citation_b6e1f865f449b1397e1d2208",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 161,
+                  "end": 198
+                },
+                "span_digest": "731b984e262d00dae70c00f78866b1a705c4c445e92e6edcbe536b7a52de2ca4"
+              },
+              {
+                "citation_id": "citation_ce510642b59de53324775ffc",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 41,
+                  "end": 68
+                },
+                "span_digest": "2acdd31c6d35806d737464d06d800af4ffe43e966e89c3f054311854fa28d396"
+              }
+            ],
+            "disputes": [],
+            "status": "unreviewed",
+            "source_data_untrusted": true,
+            "write_counters": {
+              "writer": 0,
+              "canonical": 0,
+              "maintenance": 0,
+              "git": 0
+            },
+            "claim_set_hash": "1a62a90bc4a6c5c96946459ec2daeec31d2f4c83df3bfc46bd19d8bbe8d58845"
+          },
+          "promotion_input": {
+            "knowledge_kind": "claim",
+            "classification": "epistemic",
+            "state": "current",
+            "title": "해솔-842 점검",
+            "statement": "해솔-842 점검의 적용 대상은 실내 모형 장치다.\n해솔-842 점검의 기본 점검 시간은 10분이다.\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\n해솔-842 점검 종료 후 점검 시간을 기록한다.\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+            "relation_status": "resolved",
+            "approval_status": "approved",
+            "claim_set_hash": "1a62a90bc4a6c5c96946459ec2daeec31d2f4c83df3bfc46bd19d8bbe8d58845",
+            "evidence": [
+              {
+                "evidence_id": "evidence_0",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_1",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_2",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_3",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_4",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_5",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              }
+            ],
+            "claims": [
+              {
+                "claim_id": "claim_a852eafe33425f601d7f8c85",
+                "statement": "해솔-842 점검: 적용 대상은 실내 모형 장치다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_2"
+                ]
+              },
+              {
+                "claim_id": "claim_5b1dd93f3bbcd52687972027",
+                "statement": "해솔-842 점검의 적용 대상은 실내 모형 장치다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_2"
+                ]
+              },
+              {
+                "claim_id": "claim_0b8703b0eb0d511f7c11815c",
+                "statement": "해솔-842 점검: 기본 점검 시간은 10분이다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_5"
+                ]
+              },
+              {
+                "claim_id": "claim_4f3a7405ab0ffadb1fcfec39",
+                "statement": "해솔-842 점검의 기본 점검 시간은 10분이다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_5"
+                ]
+              },
+              {
+                "claim_id": "claim_1761a191268ffb546b5cbb7e",
+                "statement": "해솔-842 점검: 시작 전에 전원 표시를 확인한다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_3"
+                ]
+              },
+              {
+                "claim_id": "claim_f74d434b0a624d5fafb036f9",
+                "statement": "해솔-842 점검 시작 전에 전원 표시를 확인한다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_3"
+                ]
+              },
+              {
+                "claim_id": "claim_7205ee001fd68969b1655e72",
+                "statement": "해솔-842 점검: 종료 후 점검 시간을 기록한다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_1"
+                ]
+              },
+              {
+                "claim_id": "claim_89a2f5cddc684d9dfc871993",
+                "statement": "해솔-842 점검 종료 후 점검 시간을 기록한다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_1"
+                ]
+              },
+              {
+                "claim_id": "claim_fb2d3cf88649cbb6d8a8bd9c",
+                "statement": "해솔-842 점검: 실외 모형에는 적용하지 않는다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_0"
+                ]
+              },
+              {
+                "claim_id": "claim_9aca39ee4986d6f71e4f57a3",
+                "statement": "해솔-842 점검은 실외 모형에는 적용하지 않는다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_0"
+                ]
+              },
+              {
+                "claim_id": "claim_9bd19e01c862d894bfe72ffd",
+                "statement": "해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_4"
+                ]
+              },
+              {
+                "claim_id": "claim_686f18c23a4d3cead5bbfcf9",
+                "statement": "해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_4"
+                ]
+              }
+            ],
+            "claim_scope": "실내 모형에만 적용",
+            "principle_boundaries": {
+              "conditions": [
+                "실내 모형에만 적용"
+              ],
+              "exclusions": [
+                "실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지."
+              ],
+              "invalidation_conditions": [
+                "원문 또는 적용 조건 변경"
+              ]
+            },
+            "principle_rationale": "",
+            "procedure_preconditions": [
+              "실내 모형에만 적용"
+            ],
+            "procedure_steps": [],
+            "procedure_outcome": "",
+            "concept_definition": "",
+            "concept_boundaries": [
+              "실내 모형에만 적용"
+            ]
+          },
+          "promotion_receipt": {
+            "contract_version": "llmwiki_promotion_contract_v1",
+            "input_binding": "{\"approval_status\":\"approved\",\"claim_scope\":\"실내 모형에만 적용\",\"claim_set_hash\":\"1a62a90bc4a6c5c96946459ec2daeec31d2f4c83df3bfc46bd19d8bbe8d58845\",\"claims\":[{\"claim_id\":\"claim_a852eafe33425f601d7f8c85\",\"evidence_refs\":[\"evidence_2\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 적용 대상은 실내 모형 장치다.\"},{\"claim_id\":\"claim_5b1dd93f3bbcd52687972027\",\"evidence_refs\":[\"evidence_2\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검의 적용 대상은 실내 모형 장치다.\"},{\"claim_id\":\"claim_0b8703b0eb0d511f7c11815c\",\"evidence_refs\":[\"evidence_5\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 기본 점검 시간은 10분이다.\"},{\"claim_id\":\"claim_4f3a7405ab0ffadb1fcfec39\",\"evidence_refs\":[\"evidence_5\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검의 기본 점검 시간은 10분이다.\"},{\"claim_id\":\"claim_1761a191268ffb546b5cbb7e\",\"evidence_refs\":[\"evidence_3\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 시작 전에 전원 표시를 확인한다.\"},{\"claim_id\":\"claim_f74d434b0a624d5fafb036f9\",\"evidence_refs\":[\"evidence_3\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검 시작 전에 전원 표시를 확인한다.\"},{\"claim_id\":\"claim_7205ee001fd68969b1655e72\",\"evidence_refs\":[\"evidence_1\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 종료 후 점검 시간을 기록한다.\"},{\"claim_id\":\"claim_89a2f5cddc684d9dfc871993\",\"evidence_refs\":[\"evidence_1\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검 종료 후 점검 시간을 기록한다.\"},{\"claim_id\":\"claim_fb2d3cf88649cbb6d8a8bd9c\",\"evidence_refs\":[\"evidence_0\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 실외 모형에는 적용하지 않는다.\"},{\"claim_id\":\"claim_9aca39ee4986d6f71e4f57a3\",\"evidence_refs\":[\"evidence_0\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검은 실외 모형에는 적용하지 않는다.\"},{\"claim_id\":\"claim_9bd19e01c862d894bfe72ffd\",\"evidence_refs\":[\"evidence_4\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"},{\"claim_id\":\"claim_686f18c23a4d3cead5bbfcf9\",\"evidence_refs\":[\"evidence_4\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"}],\"classification\":\"epistemic\",\"concept_boundaries\":[\"실내 모형에만 적용\"],\"concept_definition\":\"\",\"evidence\":[{\"evidence_id\":\"evidence_0\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_1\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_2\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_3\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_4\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_5\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"}],\"knowledge_kind\":\"claim\",\"principle_boundaries\":{\"conditions\":[\"실내 모형에만 적용\"],\"exclusions\":[\"실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\"],\"invalidation_conditions\":[\"원문 또는 적용 조건 변경\"]},\"principle_rationale\":\"\",\"procedure_outcome\":\"\",\"procedure_preconditions\":[\"실내 모형에만 적용\"],\"procedure_steps\":[],\"relation_status\":\"resolved\",\"state\":\"current\",\"statement\":\"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\",\"title\":\"해솔-842 점검\"}",
+            "knowledge_kind": "claim",
+            "trust_status": "unverified",
+            "disposition": "canonical_review",
+            "terminal": false,
+            "candidate_eligible": false,
+            "canonical_review_eligible": true,
+            "canonical_write_eligible": true,
+            "gates": [
+              {
+                "gate_id": "unit_scope",
+                "phase": "eligibility",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "statement",
+                "phase": "content",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "evidence_refs",
+                "phase": "content",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": [
+                  "evidence_0",
+                  "evidence_1",
+                  "evidence_2",
+                  "evidence_3",
+                  "evidence_4",
+                  "evidence_5"
+                ]
+              },
+              {
+                "gate_id": "claim_support",
+                "phase": "content",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": [
+                  "evidence_2",
+                  "evidence_5",
+                  "evidence_3",
+                  "evidence_1",
+                  "evidence_0",
+                  "evidence_4"
+                ]
+              },
+              {
+                "gate_id": "ai_claim_review",
+                "phase": "authorization",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": [
+                  "claim_5b1dd93f3bbcd52687972027",
+                  "claim_4f3a7405ab0ffadb1fcfec39",
+                  "claim_f74d434b0a624d5fafb036f9",
+                  "claim_89a2f5cddc684d9dfc871993",
+                  "claim_9aca39ee4986d6f71e4f57a3",
+                  "claim_686f18c23a4d3cead5bbfcf9"
+                ]
+              },
+              {
+                "gate_id": "relation_resolution",
+                "phase": "relation",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "authorization",
+                "phase": "authorization",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "claim_scope",
+                "phase": "content",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "principle_boundaries",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "principle_rationale",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "procedure_preconditions",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "procedure_steps",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "procedure_outcome",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "concept_definition",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "concept_boundaries",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              }
+            ],
+            "promotion_gaps": [],
+            "blocking_content_gaps": []
+          },
+          "sources": [
+            {
+              "source_id": "source_36fe315ba09a10b9ba6f948a",
+              "source_kind": "immutable_source",
+              "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+              "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+              "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+              "provider_window": {
+                "start": 0,
+                "end": 199
+              }
+            }
+          ],
+          "source_paths": {
+            "source_36fe315ba09a10b9ba6f948a": "INBOX/Phase A Synthetic A.md"
+          },
+          "status": "resolved",
+          "outcome": {
+            "ok": true,
+            "status": "completed",
+            "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+            "revision": "31726d585c3821c3ea78664a2bb8e4a6db5b27717577a0d87cbc6ec724de4013",
+            "trust_status": "active",
+            "writer_result": {
+              "ok": true,
+              "status": "committed",
+              "write_counts": {
+                "canonical": 1,
+                "audit": 2,
+                "derived": 0,
+                "provider": 0,
+                "network": 0,
+                "git": 0
+              },
+              "approval_consumed": true,
+              "source_deletes": 0,
+              "git_calls": 0,
+              "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+              "receipt": {
+                "canonical_id": "knowledge_79fa7a24ee573940d1f6989a",
+                "packet_hash": "1af403dce4d45f83ad686d537014235ddfac9f11bb55d57965d4d8eb97c316af",
+                "authority_audit_hash": "c484afe6ac15a4419c753cc568e0625bbcb6d035bc4c1af87cd0ebf47bc41733"
+              }
+            }
+          },
+          "original_reviewed_at": "2026-09-09T10:53:28.512Z",
+          "retry_requested_at": "2026-09-09T10:53:28.512Z",
+          "origin_plan_hash": "be9fe653541edb31c7fee483d969c12324661880bc3c4a07ef1bc6dbe989d0f4",
+          "updated_at": "2026-09-09T10:53:28.534Z",
+          "automatic_approval": false
+        }
+      }
+    },
+    "834ea526913afbd77b500d604ad2b45b9dda4c4aaf9bd75845d6b6bed831ab63": {
+      "job_id": "834ea526913afbd77b500d604ad2b45b9dda4c4aaf9bd75845d6b6bed831ab63",
+      "source_id": "source_supplement_b",
+      "source_revision": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+      "inventory_hash": "66ea709e44f30421035b0bd3f6c9646af05621c56d517fed9e3a4eadc26db06d",
+      "plan_hash": "b7edcf9d830f463c26e1c78643c982d2590d46df19a2fa5ffbaa5a9ab890a9d5",
+      "plan_revision": 4,
+      "status": "compiled",
+      "plan": {
+        "plan_version": "fixture_document_v1",
+        "pages": []
+      },
+      "plan_identity": "64da6c02a93e4b4048236c7771bbc01430b60781649b96bb2a913835495560f1",
+      "canonical_reviews": {
+        "672167509921af24d52e89f7e5ffa67be7000baa4e1024771e8288edf768f571": {
+          "item": {
+            "review_id": "mac_ui_b",
+            "title": "점검 기록 보완",
+            "document_body": "## 점검 기록 보완\n해솔-842 점검 기록에는 장치 식별자를 함께 적는다.\n",
+            "grounded_claims": [
+              {
+                "text": "해솔-842 점검 기록에는 장치 식별자를 함께 적는다.",
+                "citations": [
+                  {
+                    "source_id": "source_supplement_b",
+                    "source_path": "INBOX/supplement_b.md",
+                    "locator": "INBOX/supplement_b.md#L1",
+                    "content_hash": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+                    "evidence_quote": "해솔-842 점검 기록에는 장치 식별자를 함께 적는다."
+                  }
+                ]
+              }
+            ]
+          },
+          "fields": {
+            "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+            "knowledge_kind": "claim",
+            "classification": "epistemic",
+            "knowledge_domain": "coding",
+            "knowledge_topics": "ai",
+            "application_trigger": "실내 합성 모형 점검",
+            "application_contexts": "coding/ai",
+            "conditions": "실내 모형에만 적용",
+            "exclusions": "실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.",
+            "invalidation_conditions": "원문 또는 적용 조건 변경",
+            "relation_status": "resolved",
+            "evidence_strength": "sufficient"
+          },
+          "packet": {
+            "packet_version": "llmwiki_canonical_packet_v1",
+            "run_id": "run_c9371a71e7ad149c4ce908ed",
+            "operation": {
+              "operation_id": "operation_c9371a71e7ad149c4ce908ed",
+              "proposal_id": "proposal_c9371a71e7ad149c4ce908ed",
+              "proposal_kind": "update",
+              "payload_hash": "c9371a71e7ad149c4ce908ede9625225d78c9e3981610b9497cae59ff4fe7cae",
+              "authorization_state": "disabled",
+              "authorization_reason": "future_existing_target_operation"
+            },
+            "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+            "allowed_properties": [
+              "/body",
+              "/frontmatter/ai_enrichment_status",
+              "/frontmatter/application_contexts",
+              "/frontmatter/application_trigger",
+              "/frontmatter/canonical_id",
+              "/frontmatter/claim_set_hash",
+              "/frontmatter/connections",
+              "/frontmatter/created",
+              "/frontmatter/invalidation_conditions",
+              "/frontmatter/knowledge_domain",
+              "/frontmatter/knowledge_kind",
+              "/frontmatter/knowledge_topics",
+              "/frontmatter/promotion_receipt_hash",
+              "/frontmatter/relations",
+              "/frontmatter/schema_version",
+              "/frontmatter/sources",
+              "/frontmatter/status",
+              "/frontmatter/statement",
+              "/frontmatter/title",
+              "/frontmatter/type",
+              "/frontmatter/updated"
+            ],
+            "before_bytes": "---\nschema_version: 2\ntype: \"knowledge\"\ncanonical_id: \"knowledge_79fa7a24ee573940d1f6989a\"\nknowledge_kind: \"claim\"\nstatus: \"active\"\nstatement: \"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"\nknowledge_domain: \"coding\"\nknowledge_topics: [\"ai\"]\napplication_trigger: \"실내 합성 모형 점검\"\napplication_contexts: [\"coding/ai\"]\ninvalidation_conditions: [\"원문 또는 적용 조건 변경\"]\nsources: [{\"source_id\":\"source_36fe315ba09a10b9ba6f948a\",\"span\":{\"end\":199,\"start\":0}}]\nclaim_set_hash: \"1a62a90bc4a6c5c96946459ec2daeec31d2f4c83df3bfc46bd19d8bbe8d58845\"\npromotion_receipt_hash: \"4d4ea60616d515ed463904de4f50ca2ff2eb547d0452b9931542a5acd3ddcff5\"\nai_enrichment_status: \"none\"\ncreated: \"2026-09-09T10:50:24.073Z\"\nupdated: \"2026-09-09T10:50:24.073Z\"\n---\n# 해솔-842 점검\n\n해솔-842 점검의 적용 대상은 실내 모형 장치다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L3-L3)\n\n해솔-842 점검의 기본 점검 시간은 10분이다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L5-L5)\n\n해솔-842 점검 시작 전에 전원 표시를 확인한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L7-L7)\n\n해솔-842 점검 종료 후 점검 시간을 기록한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L9-L9)\n\n해솔-842 점검은 실외 모형에는 적용하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L11-L11)\n\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L13-L13)\n\n\n## 사용자 메모\n시험용 모형에만 적용한다는 개인 검토 메모를 보존한다.\n\n## 사용자 검토 범위\n- 적용 조건: 실내 모형에만 적용\n- 예외·금지: 실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\n- 재검토 조건: 원문 또는 적용 조건 변경\n\n## 출처\n- [source_36fe315ba09a10b9ba6f948a](INBOX/Phase%20A%20Synthetic%20A.md#L1)\n",
+            "before_sha256": "31726d585c3821c3ea78664a2bb8e4a6db5b27717577a0d87cbc6ec724de4013",
+            "after_bytes": "---\nschema_version: 2\ntype: \"knowledge\"\ncanonical_id: \"knowledge_79fa7a24ee573940d1f6989a\"\nknowledge_kind: \"claim\"\nstatus: \"active\"\nstatement: \"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"\nknowledge_domain: \"coding\"\nknowledge_topics: [\"ai\"]\napplication_trigger: \"실내 합성 모형 점검\"\napplication_contexts: [\"coding/ai\"]\ninvalidation_conditions: [\"원문 또는 적용 조건 변경\"]\nsources: [{\"source_id\":\"source_36fe315ba09a10b9ba6f948a\",\"span\":{\"end\":199,\"start\":0}},{\"source_id\":\"source_supplement_b\",\"span\":{\"end\":30,\"start\":0}}]\nclaim_set_hash: \"e5e42605f8052b800e5aad143380e86db80cdce7250ff8420cb9ec29842888cf\"\npromotion_receipt_hash: \"b72dafcb4a6e5ba85b176eab53cd216f0a7d422781a4bfbd3252b7f8044052c3\"\nai_enrichment_status: \"none\"\ncreated: \"2026-09-09T10:50:24.073Z\"\nupdated: \"2026-09-09T10:54:57.340Z\"\n---\n# 해솔-842 점검\n\n해솔-842 점검의 적용 대상은 실내 모형 장치다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L3-L3)\n\n해솔-842 점검의 기본 점검 시간은 10분이다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L5-L5)\n\n해솔-842 점검 시작 전에 전원 표시를 확인한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L7-L7)\n\n해솔-842 점검 종료 후 점검 시간을 기록한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L9-L9)\n\n해솔-842 점검은 실외 모형에는 적용하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L11-L11)\n\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L13-L13)\n\n## 점검 기록 보완\n해솔-842 점검 기록에는 장치 식별자를 함께 적는다.\n\n## 사용자 메모\n시험용 모형에만 적용한다는 개인 검토 메모를 보존한다.\n\n## 사용자 검토 범위\n- 적용 조건: 실내 모형에만 적용\n- 예외·금지: 실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\n- 재검토 조건: 원문 또는 적용 조건 변경\n\n## 출처\n- [source_36fe315ba09a10b9ba6f948a](INBOX/Phase%20A%20Synthetic%20A.md#L1)\n- [source_supplement_b](INBOX/supplement_b.md#L1)\n",
+            "after_sha256": "24d015b20c725e1a8db8523096780c14d3d966438f35369ab987dbd3208dd271",
+            "source_citations": [
+              {
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "locators": [
+                  "INBOX/Phase A Synthetic A.md#L1"
+                ]
+              },
+              {
+                "source_id": "source_supplement_b",
+                "content_hash": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+                "locators": [
+                  "INBOX/supplement_b.md#L1"
+                ]
+              }
+            ],
+            "consent_hash": "5c5ce60fd356d4256bbfdb3d1a961ec05c0345feb1f0f404fad4fce3d48b121a",
+            "live_revision": "0e63b8072c71dea5f71ccfb398faab03df5bc477970858ec289d74f0ca660094",
+            "expires_at": "2026-09-09T11:54:57.340Z",
+            "nonce": "review_c9371a71e7ad149c4ce908ed_1788951297340",
+            "write_counters": {
+              "canonical": 0,
+              "audit": 0,
+              "provider": 0,
+              "network": 0,
+              "git": 0
+            },
+            "packet_hash": "d65407ce496cb2e72f3046c1eeb9e3a7bbf54fa2798e6719e573657341535e84",
+            "canonical_serialization": "{\"after_bytes\":\"---\\nschema_version: 2\\ntype: \\\"knowledge\\\"\\ncanonical_id: \\\"knowledge_79fa7a24ee573940d1f6989a\\\"\\nknowledge_kind: \\\"claim\\\"\\nstatus: \\\"active\\\"\\nstatement: \\\"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\\\"\\nknowledge_domain: \\\"coding\\\"\\nknowledge_topics: [\\\"ai\\\"]\\napplication_trigger: \\\"실내 합성 모형 점검\\\"\\napplication_contexts: [\\\"coding/ai\\\"]\\ninvalidation_conditions: [\\\"원문 또는 적용 조건 변경\\\"]\\nsources: [{\\\"source_id\\\":\\\"source_36fe315ba09a10b9ba6f948a\\\",\\\"span\\\":{\\\"end\\\":199,\\\"start\\\":0}},{\\\"source_id\\\":\\\"source_supplement_b\\\",\\\"span\\\":{\\\"end\\\":30,\\\"start\\\":0}}]\\nclaim_set_hash: \\\"e5e42605f8052b800e5aad143380e86db80cdce7250ff8420cb9ec29842888cf\\\"\\npromotion_receipt_hash: \\\"b72dafcb4a6e5ba85b176eab53cd216f0a7d422781a4bfbd3252b7f8044052c3\\\"\\nai_enrichment_status: \\\"none\\\"\\ncreated: \\\"2026-09-09T10:50:24.073Z\\\"\\nupdated: \\\"2026-09-09T10:54:57.340Z\\\"\\n---\\n# 해솔-842 점검\\n\\n해솔-842 점검의 적용 대상은 실내 모형 장치다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L3-L3)\\n\\n해솔-842 점검의 기본 점검 시간은 10분이다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L5-L5)\\n\\n해솔-842 점검 시작 전에 전원 표시를 확인한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L7-L7)\\n\\n해솔-842 점검 종료 후 점검 시간을 기록한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L9-L9)\\n\\n해솔-842 점검은 실외 모형에는 적용하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L11-L11)\\n\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L13-L13)\\n\\n## 점검 기록 보완\\n해솔-842 점검 기록에는 장치 식별자를 함께 적는다.\\n\\n## 사용자 메모\\n시험용 모형에만 적용한다는 개인 검토 메모를 보존한다.\\n\\n## 사용자 검토 범위\\n- 적용 조건: 실내 모형에만 적용\\n- 예외·금지: 실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\\n- 재검토 조건: 원문 또는 적용 조건 변경\\n\\n## 출처\\n- [source_36fe315ba09a10b9ba6f948a](INBOX/Phase%20A%20Synthetic%20A.md#L1)\\n- [source_supplement_b](INBOX/supplement_b.md#L1)\\n\",\"after_sha256\":\"24d015b20c725e1a8db8523096780c14d3d966438f35369ab987dbd3208dd271\",\"allowed_properties\":[\"/body\",\"/frontmatter/ai_enrichment_status\",\"/frontmatter/application_contexts\",\"/frontmatter/application_trigger\",\"/frontmatter/canonical_id\",\"/frontmatter/claim_set_hash\",\"/frontmatter/connections\",\"/frontmatter/created\",\"/frontmatter/invalidation_conditions\",\"/frontmatter/knowledge_domain\",\"/frontmatter/knowledge_kind\",\"/frontmatter/knowledge_topics\",\"/frontmatter/promotion_receipt_hash\",\"/frontmatter/relations\",\"/frontmatter/schema_version\",\"/frontmatter/sources\",\"/frontmatter/status\",\"/frontmatter/statement\",\"/frontmatter/title\",\"/frontmatter/type\",\"/frontmatter/updated\"],\"before_bytes\":\"---\\nschema_version: 2\\ntype: \\\"knowledge\\\"\\ncanonical_id: \\\"knowledge_79fa7a24ee573940d1f6989a\\\"\\nknowledge_kind: \\\"claim\\\"\\nstatus: \\\"active\\\"\\nstatement: \\\"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\\\"\\nknowledge_domain: \\\"coding\\\"\\nknowledge_topics: [\\\"ai\\\"]\\napplication_trigger: \\\"실내 합성 모형 점검\\\"\\napplication_contexts: [\\\"coding/ai\\\"]\\ninvalidation_conditions: [\\\"원문 또는 적용 조건 변경\\\"]\\nsources: [{\\\"source_id\\\":\\\"source_36fe315ba09a10b9ba6f948a\\\",\\\"span\\\":{\\\"end\\\":199,\\\"start\\\":0}}]\\nclaim_set_hash: \\\"1a62a90bc4a6c5c96946459ec2daeec31d2f4c83df3bfc46bd19d8bbe8d58845\\\"\\npromotion_receipt_hash: \\\"4d4ea60616d515ed463904de4f50ca2ff2eb547d0452b9931542a5acd3ddcff5\\\"\\nai_enrichment_status: \\\"none\\\"\\ncreated: \\\"2026-09-09T10:50:24.073Z\\\"\\nupdated: \\\"2026-09-09T10:50:24.073Z\\\"\\n---\\n# 해솔-842 점검\\n\\n해솔-842 점검의 적용 대상은 실내 모형 장치다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L3-L3)\\n\\n해솔-842 점검의 기본 점검 시간은 10분이다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L5-L5)\\n\\n해솔-842 점검 시작 전에 전원 표시를 확인한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L7-L7)\\n\\n해솔-842 점검 종료 후 점검 시간을 기록한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L9-L9)\\n\\n해솔-842 점검은 실외 모형에는 적용하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L11-L11)\\n\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L13-L13)\\n\\n\\n## 사용자 메모\\n시험용 모형에만 적용한다는 개인 검토 메모를 보존한다.\\n\\n## 사용자 검토 범위\\n- 적용 조건: 실내 모형에만 적용\\n- 예외·금지: 실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\\n- 재검토 조건: 원문 또는 적용 조건 변경\\n\\n## 출처\\n- [source_36fe315ba09a10b9ba6f948a](INBOX/Phase%20A%20Synthetic%20A.md#L1)\\n\",\"before_sha256\":\"31726d585c3821c3ea78664a2bb8e4a6db5b27717577a0d87cbc6ec724de4013\",\"consent_hash\":\"5c5ce60fd356d4256bbfdb3d1a961ec05c0345feb1f0f404fad4fce3d48b121a\",\"expires_at\":\"2026-09-09T11:54:57.340Z\",\"live_revision\":\"0e63b8072c71dea5f71ccfb398faab03df5bc477970858ec289d74f0ca660094\",\"nonce\":\"review_c9371a71e7ad149c4ce908ed_1788951297340\",\"operation\":{\"authorization_reason\":\"future_existing_target_operation\",\"authorization_state\":\"disabled\",\"operation_id\":\"operation_c9371a71e7ad149c4ce908ed\",\"payload_hash\":\"c9371a71e7ad149c4ce908ede9625225d78c9e3981610b9497cae59ff4fe7cae\",\"proposal_id\":\"proposal_c9371a71e7ad149c4ce908ed\",\"proposal_kind\":\"update\"},\"packet_version\":\"llmwiki_canonical_packet_v1\",\"run_id\":\"run_c9371a71e7ad149c4ce908ed\",\"source_citations\":[{\"content_hash\":\"d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107\",\"locators\":[\"INBOX/Phase A Synthetic A.md#L1\"],\"source_id\":\"source_36fe315ba09a10b9ba6f948a\"},{\"content_hash\":\"ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5\",\"locators\":[\"INBOX/supplement_b.md#L1\"],\"source_id\":\"source_supplement_b\"}],\"target_path\":\"ZETA/PERMANENT/해솔-842 점검.md\",\"write_counters\":{\"audit\":0,\"canonical\":0,\"git\":0,\"network\":0,\"provider\":0}}"
+          },
+          "claim_set": {
+            "contract_version": "llmwiki_claim_provenance_v1",
+            "sources": [
+              {
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_length": 199,
+                "provider_window": {
+                  "start": 0,
+                  "end": 199
+                },
+                "source_kind": "immutable_source"
+              },
+              {
+                "source_id": "source_supplement_b",
+                "source_revision": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+                "source_length": 30,
+                "provider_window": {
+                  "start": 0,
+                  "end": 30
+                },
+                "source_kind": "immutable_source"
+              }
+            ],
+            "claims": [
+              {
+                "claim_id": "claim_a852eafe33425f601d7f8c85",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 적용 대상은 실내 모형 장치다.",
+                "citation_ids": [
+                  "citation_760a60776fa08f1c0649e1a7"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_760a60776fa08f1c0649e1a7",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 11,
+                      "end": 39
+                    },
+                    "span_digest": "5c524b74b8a2f4df701a31ee870ea09bd1ed1c6bae4aed760a3a01b007063df1"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_5b1dd93f3bbcd52687972027",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검의 적용 대상은 실내 모형 장치다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_a852eafe33425f601d7f8c85"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_0b8703b0eb0d511f7c11815c",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 기본 점검 시간은 10분이다.",
+                "citation_ids": [
+                  "citation_ce510642b59de53324775ffc"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_ce510642b59de53324775ffc",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 41,
+                      "end": 68
+                    },
+                    "span_digest": "2acdd31c6d35806d737464d06d800af4ffe43e966e89c3f054311854fa28d396"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_4f3a7405ab0ffadb1fcfec39",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검의 기본 점검 시간은 10분이다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_0b8703b0eb0d511f7c11815c"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_1761a191268ffb546b5cbb7e",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 시작 전에 전원 표시를 확인한다.",
+                "citation_ids": [
+                  "citation_a739584dd0bdb6dbed12a540"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_a739584dd0bdb6dbed12a540",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 70,
+                      "end": 99
+                    },
+                    "span_digest": "ab365614da1afca0dd7d704c293f1a62e74f1af12ed580d6ee7d461a4a4742d8"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_f74d434b0a624d5fafb036f9",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검 시작 전에 전원 표시를 확인한다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_1761a191268ffb546b5cbb7e"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_7205ee001fd68969b1655e72",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 종료 후 점검 시간을 기록한다.",
+                "citation_ids": [
+                  "citation_512a1912d12a9c46f7b88831"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_512a1912d12a9c46f7b88831",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 101,
+                      "end": 129
+                    },
+                    "span_digest": "20528967ade3a8b02f63988e9ba81e1894dae292c3b0125b20242d5f1f7cea6f"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_89a2f5cddc684d9dfc871993",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검 종료 후 점검 시간을 기록한다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_7205ee001fd68969b1655e72"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_fb2d3cf88649cbb6d8a8bd9c",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 실외 모형에는 적용하지 않는다.",
+                "citation_ids": [
+                  "citation_32e5dfc40c734fdd9633f549"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_32e5dfc40c734fdd9633f549",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 131,
+                      "end": 159
+                    },
+                    "span_digest": "7d877ecc64f1da730978af817e30263050f92c98b8e8d0c2ae47c06578b2630b"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_9aca39ee4986d6f71e4f57a3",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검은 실외 모형에는 적용하지 않는다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_fb2d3cf88649cbb6d8a8bd9c"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_9bd19e01c862d894bfe72ffd",
+                "origin": "source_extract",
+                "text": "해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "citation_ids": [
+                  "citation_b6e1f865f449b1397e1d2208"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_b6e1f865f449b1397e1d2208",
+                    "source_id": "source_36fe315ba09a10b9ba6f948a",
+                    "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                    "source_span": {
+                      "start": 161,
+                      "end": 198
+                    },
+                    "span_digest": "731b984e262d00dae70c00f78866b1a705c4c445e92e6edcbe536b7a52de2ca4"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_686f18c23a4d3cead5bbfcf9",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_9bd19e01c862d894bfe72ffd"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_5386234622092eff0d5113c2",
+                "origin": "source_extract",
+                "text": "해솔-842 점검 기록에는 장치 식별자를 함께 적는다.",
+                "citation_ids": [
+                  "citation_159c105f5e01f84cf0810688"
+                ],
+                "derived_from_claim_ids": [],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [
+                  {
+                    "citation_id": "citation_159c105f5e01f84cf0810688",
+                    "source_id": "source_supplement_b",
+                    "source_revision": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+                    "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                    "source_content_hash": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+                    "source_span": {
+                      "start": 0,
+                      "end": 30
+                    },
+                    "span_digest": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5"
+                  }
+                ],
+                "status": "unreviewed"
+              },
+              {
+                "claim_id": "claim_ead34043cc754caddcbe5dbe",
+                "origin": "ai_interpretation",
+                "text": "해솔-842 점검 기록에는 장치 식별자를 함께 적는다.",
+                "citation_ids": [],
+                "derived_from_claim_ids": [
+                  "claim_5386234622092eff0d5113c2"
+                ],
+                "human_justification": null,
+                "dispute_target_claim_id": null,
+                "citations": [],
+                "status": "unreviewed"
+              }
+            ],
+            "citations": [
+              {
+                "citation_id": "citation_159c105f5e01f84cf0810688",
+                "source_id": "source_supplement_b",
+                "source_revision": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+                "source_span": {
+                  "start": 0,
+                  "end": 30
+                },
+                "span_digest": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5"
+              },
+              {
+                "citation_id": "citation_32e5dfc40c734fdd9633f549",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 131,
+                  "end": 159
+                },
+                "span_digest": "7d877ecc64f1da730978af817e30263050f92c98b8e8d0c2ae47c06578b2630b"
+              },
+              {
+                "citation_id": "citation_512a1912d12a9c46f7b88831",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 101,
+                  "end": 129
+                },
+                "span_digest": "20528967ade3a8b02f63988e9ba81e1894dae292c3b0125b20242d5f1f7cea6f"
+              },
+              {
+                "citation_id": "citation_760a60776fa08f1c0649e1a7",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 11,
+                  "end": 39
+                },
+                "span_digest": "5c524b74b8a2f4df701a31ee870ea09bd1ed1c6bae4aed760a3a01b007063df1"
+              },
+              {
+                "citation_id": "citation_a739584dd0bdb6dbed12a540",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 70,
+                  "end": 99
+                },
+                "span_digest": "ab365614da1afca0dd7d704c293f1a62e74f1af12ed580d6ee7d461a4a4742d8"
+              },
+              {
+                "citation_id": "citation_b6e1f865f449b1397e1d2208",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 161,
+                  "end": 198
+                },
+                "span_digest": "731b984e262d00dae70c00f78866b1a705c4c445e92e6edcbe536b7a52de2ca4"
+              },
+              {
+                "citation_id": "citation_ce510642b59de53324775ffc",
+                "source_id": "source_36fe315ba09a10b9ba6f948a",
+                "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+                "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+                "source_span": {
+                  "start": 41,
+                  "end": 68
+                },
+                "span_digest": "2acdd31c6d35806d737464d06d800af4ffe43e966e89c3f054311854fa28d396"
+              }
+            ],
+            "disputes": [],
+            "status": "unreviewed",
+            "source_data_untrusted": true,
+            "write_counters": {
+              "writer": 0,
+              "canonical": 0,
+              "maintenance": 0,
+              "git": 0
+            },
+            "claim_set_hash": "e5e42605f8052b800e5aad143380e86db80cdce7250ff8420cb9ec29842888cf"
+          },
+          "promotion_input": {
+            "knowledge_kind": "claim",
+            "classification": "epistemic",
+            "state": "current",
+            "title": "해솔-842 점검",
+            "statement": "해솔-842 점검의 적용 대상은 실내 모형 장치다.\n해솔-842 점검의 기본 점검 시간은 10분이다.\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\n해솔-842 점검 종료 후 점검 시간을 기록한다.\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+            "relation_status": "resolved",
+            "approval_status": "approved",
+            "claim_set_hash": "e5e42605f8052b800e5aad143380e86db80cdce7250ff8420cb9ec29842888cf",
+            "evidence": [
+              {
+                "evidence_id": "evidence_0",
+                "source_ref": "source_supplement_b",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_1",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_2",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_3",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_4",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_5",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              },
+              {
+                "evidence_id": "evidence_6",
+                "source_ref": "source_36fe315ba09a10b9ba6f948a",
+                "strength": "sufficient"
+              }
+            ],
+            "claims": [
+              {
+                "claim_id": "claim_a852eafe33425f601d7f8c85",
+                "statement": "해솔-842 점검: 적용 대상은 실내 모형 장치다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_3"
+                ]
+              },
+              {
+                "claim_id": "claim_5b1dd93f3bbcd52687972027",
+                "statement": "해솔-842 점검의 적용 대상은 실내 모형 장치다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_3"
+                ]
+              },
+              {
+                "claim_id": "claim_0b8703b0eb0d511f7c11815c",
+                "statement": "해솔-842 점검: 기본 점검 시간은 10분이다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_6"
+                ]
+              },
+              {
+                "claim_id": "claim_4f3a7405ab0ffadb1fcfec39",
+                "statement": "해솔-842 점검의 기본 점검 시간은 10분이다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_6"
+                ]
+              },
+              {
+                "claim_id": "claim_1761a191268ffb546b5cbb7e",
+                "statement": "해솔-842 점검: 시작 전에 전원 표시를 확인한다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_4"
+                ]
+              },
+              {
+                "claim_id": "claim_f74d434b0a624d5fafb036f9",
+                "statement": "해솔-842 점검 시작 전에 전원 표시를 확인한다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_4"
+                ]
+              },
+              {
+                "claim_id": "claim_7205ee001fd68969b1655e72",
+                "statement": "해솔-842 점검: 종료 후 점검 시간을 기록한다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_2"
+                ]
+              },
+              {
+                "claim_id": "claim_89a2f5cddc684d9dfc871993",
+                "statement": "해솔-842 점검 종료 후 점검 시간을 기록한다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_2"
+                ]
+              },
+              {
+                "claim_id": "claim_fb2d3cf88649cbb6d8a8bd9c",
+                "statement": "해솔-842 점검: 실외 모형에는 적용하지 않는다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_1"
+                ]
+              },
+              {
+                "claim_id": "claim_9aca39ee4986d6f71e4f57a3",
+                "statement": "해솔-842 점검은 실외 모형에는 적용하지 않는다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_1"
+                ]
+              },
+              {
+                "claim_id": "claim_9bd19e01c862d894bfe72ffd",
+                "statement": "해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_5"
+                ]
+              },
+              {
+                "claim_id": "claim_686f18c23a4d3cead5bbfcf9",
+                "statement": "해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_5"
+                ]
+              },
+              {
+                "claim_id": "claim_5386234622092eff0d5113c2",
+                "statement": "해솔-842 점검 기록에는 장치 식별자를 함께 적는다.",
+                "origin": "source_extract",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_0"
+                ]
+              },
+              {
+                "claim_id": "claim_ead34043cc754caddcbe5dbe",
+                "statement": "해솔-842 점검 기록에는 장치 식별자를 함께 적는다.",
+                "origin": "ai_interpretation",
+                "review_status": "accepted",
+                "evidence_refs": [
+                  "evidence_0"
+                ]
+              }
+            ],
+            "claim_scope": "실내 모형에만 적용",
+            "principle_boundaries": {
+              "conditions": [
+                "실내 모형에만 적용"
+              ],
+              "exclusions": [
+                "실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지."
+              ],
+              "invalidation_conditions": [
+                "원문 또는 적용 조건 변경"
+              ]
+            },
+            "principle_rationale": "",
+            "procedure_preconditions": [
+              "실내 모형에만 적용"
+            ],
+            "procedure_steps": [],
+            "procedure_outcome": "",
+            "concept_definition": "",
+            "concept_boundaries": [
+              "실내 모형에만 적용"
+            ]
+          },
+          "promotion_receipt": {
+            "contract_version": "llmwiki_promotion_contract_v1",
+            "input_binding": "{\"approval_status\":\"approved\",\"claim_scope\":\"실내 모형에만 적용\",\"claim_set_hash\":\"e5e42605f8052b800e5aad143380e86db80cdce7250ff8420cb9ec29842888cf\",\"claims\":[{\"claim_id\":\"claim_a852eafe33425f601d7f8c85\",\"evidence_refs\":[\"evidence_3\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 적용 대상은 실내 모형 장치다.\"},{\"claim_id\":\"claim_5b1dd93f3bbcd52687972027\",\"evidence_refs\":[\"evidence_3\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검의 적용 대상은 실내 모형 장치다.\"},{\"claim_id\":\"claim_0b8703b0eb0d511f7c11815c\",\"evidence_refs\":[\"evidence_6\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 기본 점검 시간은 10분이다.\"},{\"claim_id\":\"claim_4f3a7405ab0ffadb1fcfec39\",\"evidence_refs\":[\"evidence_6\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검의 기본 점검 시간은 10분이다.\"},{\"claim_id\":\"claim_1761a191268ffb546b5cbb7e\",\"evidence_refs\":[\"evidence_4\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 시작 전에 전원 표시를 확인한다.\"},{\"claim_id\":\"claim_f74d434b0a624d5fafb036f9\",\"evidence_refs\":[\"evidence_4\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검 시작 전에 전원 표시를 확인한다.\"},{\"claim_id\":\"claim_7205ee001fd68969b1655e72\",\"evidence_refs\":[\"evidence_2\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 종료 후 점검 시간을 기록한다.\"},{\"claim_id\":\"claim_89a2f5cddc684d9dfc871993\",\"evidence_refs\":[\"evidence_2\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검 종료 후 점검 시간을 기록한다.\"},{\"claim_id\":\"claim_fb2d3cf88649cbb6d8a8bd9c\",\"evidence_refs\":[\"evidence_1\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 실외 모형에는 적용하지 않는다.\"},{\"claim_id\":\"claim_9aca39ee4986d6f71e4f57a3\",\"evidence_refs\":[\"evidence_1\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검은 실외 모형에는 적용하지 않는다.\"},{\"claim_id\":\"claim_9bd19e01c862d894bfe72ffd\",\"evidence_refs\":[\"evidence_5\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검: 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"},{\"claim_id\":\"claim_686f18c23a4d3cead5bbfcf9\",\"evidence_refs\":[\"evidence_5\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"},{\"claim_id\":\"claim_5386234622092eff0d5113c2\",\"evidence_refs\":[\"evidence_0\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검 기록에는 장치 식별자를 함께 적는다.\"},{\"claim_id\":\"claim_ead34043cc754caddcbe5dbe\",\"evidence_refs\":[\"evidence_0\"],\"origin\":\"ai_interpretation\",\"review_status\":\"accepted\",\"statement\":\"해솔-842 점검 기록에는 장치 식별자를 함께 적는다.\"}],\"classification\":\"epistemic\",\"concept_boundaries\":[\"실내 모형에만 적용\"],\"concept_definition\":\"\",\"evidence\":[{\"evidence_id\":\"evidence_0\",\"source_ref\":\"source_supplement_b\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_1\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_2\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_3\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_4\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_5\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"},{\"evidence_id\":\"evidence_6\",\"source_ref\":\"source_36fe315ba09a10b9ba6f948a\",\"strength\":\"sufficient\"}],\"knowledge_kind\":\"claim\",\"principle_boundaries\":{\"conditions\":[\"실내 모형에만 적용\"],\"exclusions\":[\"실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\"],\"invalidation_conditions\":[\"원문 또는 적용 조건 변경\"]},\"principle_rationale\":\"\",\"procedure_outcome\":\"\",\"procedure_preconditions\":[\"실내 모형에만 적용\"],\"procedure_steps\":[],\"relation_status\":\"resolved\",\"state\":\"current\",\"statement\":\"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\",\"title\":\"해솔-842 점검\"}",
+            "knowledge_kind": "claim",
+            "trust_status": "unverified",
+            "disposition": "canonical_review",
+            "terminal": false,
+            "candidate_eligible": false,
+            "canonical_review_eligible": true,
+            "canonical_write_eligible": true,
+            "gates": [
+              {
+                "gate_id": "unit_scope",
+                "phase": "eligibility",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "statement",
+                "phase": "content",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "evidence_refs",
+                "phase": "content",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": [
+                  "evidence_0",
+                  "evidence_1",
+                  "evidence_2",
+                  "evidence_3",
+                  "evidence_4",
+                  "evidence_5",
+                  "evidence_6"
+                ]
+              },
+              {
+                "gate_id": "claim_support",
+                "phase": "content",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": [
+                  "evidence_3",
+                  "evidence_6",
+                  "evidence_4",
+                  "evidence_2",
+                  "evidence_1",
+                  "evidence_5",
+                  "evidence_0"
+                ]
+              },
+              {
+                "gate_id": "ai_claim_review",
+                "phase": "authorization",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": [
+                  "claim_5b1dd93f3bbcd52687972027",
+                  "claim_4f3a7405ab0ffadb1fcfec39",
+                  "claim_f74d434b0a624d5fafb036f9",
+                  "claim_89a2f5cddc684d9dfc871993",
+                  "claim_9aca39ee4986d6f71e4f57a3",
+                  "claim_686f18c23a4d3cead5bbfcf9",
+                  "claim_ead34043cc754caddcbe5dbe"
+                ]
+              },
+              {
+                "gate_id": "relation_resolution",
+                "phase": "relation",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "authorization",
+                "phase": "authorization",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "claim_scope",
+                "phase": "content",
+                "state": "pass",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "principle_boundaries",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "principle_rationale",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "procedure_preconditions",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "procedure_steps",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "procedure_outcome",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "concept_definition",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              },
+              {
+                "gate_id": "concept_boundaries",
+                "phase": "content",
+                "state": "not_applicable",
+                "reason_codes": [],
+                "evidence_refs": []
+              }
+            ],
+            "promotion_gaps": [],
+            "blocking_content_gaps": []
+          },
+          "sources": [
+            {
+              "source_id": "source_36fe315ba09a10b9ba6f948a",
+              "source_revision": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+              "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+              "source_content_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+              "source_length": 199,
+              "provider_window": {
+                "start": 0,
+                "end": 199
+              },
+              "source_kind": "immutable_source"
+            },
+            {
+              "source_id": "source_supplement_b",
+              "source_kind": "immutable_source",
+              "source_revision": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+              "extractor_revision": "489a47836d6917bc50a7792a378e66c8e253b1fce50770226f0ac57e523bece1",
+              "source_content_hash": "ffe4f4dbe5034733bdce83baa55ecfb6241caba835f11120b13a402ab523cbd5",
+              "provider_window": {
+                "start": 0,
+                "end": 30
+              }
+            }
+          ],
+          "source_paths": {
+            "source_36fe315ba09a10b9ba6f948a": "INBOX/Phase A Synthetic A.md",
+            "source_supplement_b": "INBOX/supplement_b.md"
+          },
+          "status": "resolved",
+          "outcome": {
+            "ok": true,
+            "status": "completed",
+            "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+            "revision": "24d015b20c725e1a8db8523096780c14d3d966438f35369ab987dbd3208dd271",
+            "trust_status": "active",
+            "writer_result": {
+              "ok": true,
+              "status": "committed",
+              "write_counts": {
+                "canonical": 1,
+                "audit": 0,
+                "derived": 0,
+                "provider": 0,
+                "network": 0,
+                "git": 0
+              },
+              "approval_consumed": true,
+              "source_deletes": 0,
+              "git_calls": 0,
+              "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+              "receipt": {
+                "receipt_version": "llmwiki_update_operation_receipt_v1",
+                "result": "committed",
+                "committed_at": "2026-09-09T10:55:15.044Z",
+                "canonical_id": "knowledge_79fa7a24ee573940d1f6989a",
+                "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+                "packet_hash": "d65407ce496cb2e72f3046c1eeb9e3a7bbf54fa2798e6719e573657341535e84",
+                "authorization_hash": "14a3f38cbbd5a30c633d28bf7b9a68281b931310344bb615c6688c9a41124a1e",
+                "base_revision": "0e63b8072c71dea5f71ccfb398faab03df5bc477970858ec289d74f0ca660094",
+                "before_sha256": "31726d585c3821c3ea78664a2bb8e4a6db5b27717577a0d87cbc6ec724de4013",
+                "after_sha256": "24d015b20c725e1a8db8523096780c14d3d966438f35369ab987dbd3208dd271",
+                "evidence_hash": "e29411b714960f98487f873a930d7b3d3c8cfeaff030fc22072f83ee42eae726",
+                "compensation": {
+                  "compensation_version": "llmwiki_exact_restore_compensation_v1",
+                  "status": "prepared",
+                  "prepared_at": "2026-09-09T10:55:15.044Z",
+                  "canonical_id": "knowledge_79fa7a24ee573940d1f6989a",
+                  "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+                  "restore_bytes": "---\nschema_version: 2\ntype: \"knowledge\"\ncanonical_id: \"knowledge_79fa7a24ee573940d1f6989a\"\nknowledge_kind: \"claim\"\nstatus: \"active\"\nstatement: \"해솔-842 점검의 적용 대상은 실내 모형 장치다.\\n해솔-842 점검의 기본 점검 시간은 10분이다.\\n해솔-842 점검 시작 전에 전원 표시를 확인한다.\\n해솔-842 점검 종료 후 점검 시간을 기록한다.\\n해솔-842 점검은 실외 모형에는 적용하지 않는다.\\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다.\"\nknowledge_domain: \"coding\"\nknowledge_topics: [\"ai\"]\napplication_trigger: \"실내 합성 모형 점검\"\napplication_contexts: [\"coding/ai\"]\ninvalidation_conditions: [\"원문 또는 적용 조건 변경\"]\nsources: [{\"source_id\":\"source_36fe315ba09a10b9ba6f948a\",\"span\":{\"end\":199,\"start\":0}}]\nclaim_set_hash: \"1a62a90bc4a6c5c96946459ec2daeec31d2f4c83df3bfc46bd19d8bbe8d58845\"\npromotion_receipt_hash: \"4d4ea60616d515ed463904de4f50ca2ff2eb547d0452b9931542a5acd3ddcff5\"\nai_enrichment_status: \"none\"\ncreated: \"2026-09-09T10:50:24.073Z\"\nupdated: \"2026-09-09T10:50:24.073Z\"\n---\n# 해솔-842 점검\n\n해솔-842 점검의 적용 대상은 실내 모형 장치다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L3-L3)\n\n해솔-842 점검의 기본 점검 시간은 10분이다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L5-L5)\n\n해솔-842 점검 시작 전에 전원 표시를 확인한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L7-L7)\n\n해솔-842 점검 종료 후 점검 시간을 기록한다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L9-L9)\n\n해솔-842 점검은 실외 모형에는 적용하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L11-L11)\n\n해솔-842 점검 중 경고등이 켜지면 즉시 중단하고 재개하지 않는다. [원문](INBOX/Phase%20A%20Synthetic%20A.md#L13-L13)\n\n\n## 사용자 메모\n시험용 모형에만 적용한다는 개인 검토 메모를 보존한다.\n\n## 사용자 검토 범위\n- 적용 조건: 실내 모형에만 적용\n- 예외·금지: 실외 적용 금지. 경고등 점등 시 즉시 중단하고 재개 금지.\n- 재검토 조건: 원문 또는 적용 조건 변경\n\n## 출처\n- [source_36fe315ba09a10b9ba6f948a](INBOX/Phase%20A%20Synthetic%20A.md#L1)\n",
+                  "restore_sha256": "31726d585c3821c3ea78664a2bb8e4a6db5b27717577a0d87cbc6ec724de4013",
+                  "replace_sha256": "24d015b20c725e1a8db8523096780c14d3d966438f35369ab987dbd3208dd271",
+                  "packet_hash": "d65407ce496cb2e72f3046c1eeb9e3a7bbf54fa2798e6719e573657341535e84",
+                  "authorization_hash": "14a3f38cbbd5a30c633d28bf7b9a68281b931310344bb615c6688c9a41124a1e"
+                }
+              },
+              "compensation_prepared": true
+            }
+          },
+          "original_reviewed_at": "2026-09-09T10:55:15.033Z",
+          "retry_requested_at": null,
+          "origin_plan_hash": "b7edcf9d830f463c26e1c78643c982d2590d46df19a2fa5ffbaa5a9ab890a9d5",
+          "updated_at": "2026-09-09T10:55:15.064Z",
+          "automatic_approval": false
+        }
+      }
+    },
+    "bc4ba2edb03ad86bbaa494c6d29c6fe8f7044fd96f91327743f2463cc713fdb3": {
+      "job_id": "bc4ba2edb03ad86bbaa494c6d29c6fe8f7044fd96f91327743f2463cc713fdb3",
+      "source_id": "source_793a8720edc9851ae6f23034",
+      "source_revision": "26195019b6c99cedc45889aba88b4e6206b5cfe1794c31b4cbc84f98ad6e665d",
+      "inventory_hash": "a12602872d2bc7bd9fb132de8f8d6fdde0c8a1ffd1c06a784798b7e095fd0717",
+      "plan_hash": "cb2281f799cb5afce50484f6b920fca848778325b1cc51710c1642dab472a14d",
+      "plan_revision": 1,
+      "status": "compiled",
+      "plan": {
+        "plan_version": "fixture_document_v1",
+        "pages": []
+      },
+      "plan_identity": "cc140ce2193ff88e20769d8ee5b463c50425decda5de55847489cf264d14dbdf"
+    }
+  },
+  "legacy": [],
+  "recovery": null
+}

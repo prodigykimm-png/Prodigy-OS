@@ -1,0 +1,107 @@
+TAP version 13
+# Subtest: on-disk A create → B approved supplement → existing verified reader and Wiki candidate reuse
+ok 1 - on-disk A create → B approved supplement → existing verified reader and Wiki candidate reuse
+  ---
+  duration_ms: 52.792333
+  type: 'test'
+  ...
+# Subtest: stale source refuses the approved update without overwriting current bytes
+ok 2 - stale source refuses the approved update without overwriting current bytes
+  ---
+  duration_ms: 9.854459
+  type: 'test'
+  ...
+# Subtest: stale target refuses the approved update without overwriting current bytes
+ok 3 - stale target refuses the approved update without overwriting current bytes
+  ---
+  duration_ms: 9.059375
+  type: 'test'
+  ...
+# Subtest: immutable authority failure resumes without duplicate write; subsequent user edit=false
+ok 4 - immutable authority failure resumes without duplicate write; subsequent user edit=false
+  ---
+  duration_ms: 18.221666
+  type: 'test'
+  ...
+# Subtest: immutable authority failure resumes without duplicate write; subsequent user edit=true
+ok 5 - immutable authority failure resumes without duplicate write; subsequent user edit=true
+  ---
+  duration_ms: 14.621
+  type: 'test'
+  ...
+# Subtest: prepared authority audit finalization failure resumes without rewriting Markdown
+ok 6 - prepared authority audit finalization failure resumes without rewriting Markdown
+  ---
+  duration_ms: 19.805125
+  type: 'test'
+  ...
+# Subtest: cloned approval authority cannot authorize changed claim/source bindings
+ok 7 - cloned approval authority cannot authorize changed claim/source bindings
+  ---
+  duration_ms: 10.653833
+  type: 'test'
+  ...
+# Subtest: recorded six-condition proposal reaches final canonical Markdown through official approval and reader
+ok 8 - recorded six-condition proposal reaches final canonical Markdown through official approval and reader
+  ---
+  duration_ms: 11.834333
+  type: 'test'
+  ...
+# Subtest: recorded unresolved conflict remains intact and is ineligible for canonical promotion
+ok 9 - recorded unresolved conflict remains intact and is ineligible for canonical promotion
+  ---
+  duration_ms: 1.812042
+  type: 'test'
+  ...
+# Subtest: immutable entry persisted before head update failure resumes the same approval without duplicate entry
+not ok 10 - immutable entry persisted before head update failure resumes the same approval without duplicate entry
+  ---
+  duration_ms: 18.265083
+  type: 'test'
+  location: '/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_update_integrity.js:131:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    {"ok":false,"status":"committed_authority_pending","write_counts":{"canonical":0,"audit":0,"derived":0,"provider":0,"network":0,"git":0},"approval_consumed":false,"source_deletes":0,"git_calls":0,"reason":"immutable_audit_authority_unavailable","target_path":"ZETA/PERMANENT/Fixture authority.md"}
+    + actual - expected
+    
+    + 'committed_authority_pending'
+    - 'committed'
+                ^
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'committed'
+  actual: 'committed_authority_pending'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_update_integrity.js:143:10)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: source changed during audit preparation is rechecked before any canonical write
+not ok 11 - source changed during audit preparation is rechecked before any canonical write
+  ---
+  duration_ms: 13.49725
+  type: 'test'
+  location: '/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_update_integrity.js:150:1'
+  failureType: 'testCodeFailure'
+  error: '{"ok":true,"status":"committed","write_counts":{"canonical":1,"audit":0,"derived":0,"provider":0,"network":0,"git":0},"approval_consumed":true,"source_deletes":0,"git_calls":0,"target_path":"ZETA/PERMANENT/Fixture authority.md","receipt":{"receipt_version":"llmwiki_update_operation_receipt_v1","result":"committed","committed_at":"2026-09-09T12:00:00.000Z","canonical_id":"knowledge_fixture_v2","target_path":"ZETA/PERMANENT/Fixture authority.md","packet_hash":"4f93ee797c28438a31840990be7ae331cc9a803a7022970b5a259db6f5f4a2df","authorization_hash":"170407c7a777d3f37712815633787d0b3d1de32e5488436b9cde4cc541ace5d5","base_revision":"777f2c219f9665307ad0178be103b1574d63c1e9266bd2687339b907a5768ad5","before_sha256":"8be2627a7825e7cb7317b5b1985ff7ec398407ed22ecb3ecd8b6fe8037423f5a","after_sha256":"8792985dc7df45b7a896d1b1048be1d735a6611c09034c43297d210ce001b38e","evidence_hash":"540dae724bcff9b2072281ad11ac25d3f3e25960b0d138b6204ee8f1897070a7","compensation":{"compensation_version":"llmwiki_exact_restore_compensation_v1","status":"prepared","prepared_at":"2026-09-09T12:00:00.000Z","canonical_id":"knowledge_fixture_v2","target_path":"ZETA/PERMANENT/Fixture authority.md","restore_bytes":"---\\nschema_version: 2\\ntype: \\"knowledge\\"\\ncanonical_id: \\"knowledge_fixture_v2\\"\\nknowledge_kind: \\"principle\\"\\nstatus: \\"active\\"\\nstatement: \\"The approved v2 item is source-bound and active.\\"\\nknowledge_domain: \\"coding\\"\\nknowledge_topics: [\\"ai\\"]\\napplication_trigger: \\"fixture\\"\\napplication_contexts: [\\"coding/ai\\"]\\ninvalidation_conditions: [\\"source revision changes\\"]\\nsources: [{\\"source_id\\":\\"source_fixture_v2\\",\\"span\\":{\\"end\\":48,\\"start\\":0}}]\\nrelations: [{\\"relation_id\\":\\"relation_fixture\\",\\"target_id\\":\\"project_fixture\\",\\"type\\":\\"supports\\"}]\\nclaim_set_hash: \\"dfd7fafa310e484d622b8211f01d9871d6cc6d2c9971a4b1ff37598b8a49870c\\"\\npromotion_receipt_hash: \\"91d153d66bd7752fc4d957daf5c5f4a86445a5ba79da6590793b44a3542538d3\\"\\nai_enrichment_status: \\"none\\"\\ncreated: \\"2026-08-25T12:00:00.000Z\\"\\nupdated: \\"2026-08-25T12:00:00.000Z\\"\\n---\\n# Fixture authority\\n","restore_sha256":"8be2627a7825e7cb7317b5b1985ff7ec398407ed22ecb3ecd8b6fe8037423f5a","replace_sha256":"8792985dc7df45b7a896d1b1048be1d735a6611c09034c43297d210ce001b38e","packet_hash":"4f93ee797c28438a31840990be7ae331cc9a803a7022970b5a259db6f5f4a2df","authorization_hash":"170407c7a777d3f37712815633787d0b3d1de32e5488436b9cde4cc541ace5d5"}},"compensation_prepared":true}'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'committed'
+  actual: 'committed'
+  operator: 'notStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_update_integrity.js:155:10)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 9
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 238.281709

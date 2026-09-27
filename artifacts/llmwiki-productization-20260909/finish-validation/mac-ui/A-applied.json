@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "status": "completed",
+  "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+  "revision": "31726d585c3821c3ea78664a2bb8e4a6db5b27717577a0d87cbc6ec724de4013",
+  "trust_status": "active",
+  "writer_result": {
+    "ok": true,
+    "status": "committed",
+    "write_counts": {
+      "canonical": 1,
+      "audit": 2,
+      "derived": 0,
+      "provider": 0,
+      "network": 0,
+      "git": 0
+    },
+    "approval_consumed": true,
+    "source_deletes": 0,
+    "git_calls": 0,
+    "target_path": "ZETA/PERMANENT/해솔-842 점검.md",
+    "receipt": {
+      "canonical_id": "knowledge_79fa7a24ee573940d1f6989a",
+      "packet_hash": "1af403dce4d45f83ad686d537014235ddfac9f11bb55d57965d4d8eb97c316af",
+      "authority_audit_hash": "c484afe6ac15a4419c753cc568e0625bbcb6d035bc4c1af87cd0ebf47bc41733"
+    }
+  }
+}

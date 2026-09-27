@@ -1,0 +1,25 @@
+{
+  "kind": "postrun checks against predefined synthetic sources",
+  "turns": 6,
+  "exact_citations_verified": 27,
+  "proposal_claims": 9,
+  "all_conditions_conflict_user_correction_preserved": true,
+  "writes": 0,
+  "latency_ms_by_turn": [
+    11375.899999976158,
+    9200,
+    11608.199999928474,
+    10301.100000023842,
+    26728.699999928474,
+    11513.699999928474
+  ],
+  "successful_turns_reused_during_explicit_retry": [
+    1,
+    2
+  ],
+  "prior_failed_attempt_files": [
+    "live-conversation-before-prompt-fix.json",
+    "live-conversation-before-reason-bound.json"
+  ],
+  "actual_ui": "NOT RUN"
+}

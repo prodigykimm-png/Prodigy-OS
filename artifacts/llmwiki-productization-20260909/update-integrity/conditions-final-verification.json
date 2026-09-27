@@ -1,0 +1,9 @@
+{
+  "provider_result": "recorded real response replay",
+  "actual_provider_calls": 0,
+  "claim_count": 6,
+  "reader_verified": true,
+  "revision": "d5e0e0d5bae97cc3833a28882942437ff468de574f3fa926cc3e1e5cbcfcbaa7",
+  "source_hash": "d415ce63145109ef40480c8650e105e78406e6cd88392ea9831bdb21bd920107",
+  "operational_writes": 0
+}

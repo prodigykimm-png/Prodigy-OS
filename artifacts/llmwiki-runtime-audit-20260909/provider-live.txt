@@ -1,0 +1,1 @@
+=> {"status":"done","source":"ZETA/LITERATURE/synthetic-alpha.md","bytes":795,"ms":14,"result":{"ok":false,"reason":"provider_unavailable","provider_call_count":1,"persisted_artifact_count":0,"automatic_retry_count":0,"automatic_repair_count":0,"artifacts":[]}}

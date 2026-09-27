@@ -1,0 +1,107 @@
+{
+  "packet_verification": [
+    {
+      "ok": true,
+      "value": {
+        "packet_version": "llmwiki_risk_approval_packet_v1",
+        "run_id": "question_1e0148b60ea9d8a666b22a00",
+        "run_revision": 1,
+        "packet_revision": 1,
+        "operation": {
+          "contract_version": "llmwiki_operation_contract_v1",
+          "operation_id": "operation_41017074d18c775924391d3d",
+          "kind": "create",
+          "destination_ids": [
+            "ZETA/CANDIDATES/document_9b8faab211b1d88a7c182371.md"
+          ],
+          "base_revisions": {},
+          "before_bytes": {},
+          "after_bytes": {
+            "ZETA/CANDIDATES/document_9b8faab211b1d88a7c182371.md": "# 청록등대-731 검토 원칙\n\n## 핵심 내용\n\n- 청록등대-731 검토 원칙은 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인하는 것이다.\n\n## 근거 발췌\n\n> 청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다.\n\n## 출처\n\n- INBOX/LLM Wiki Recovery Canary.md#18-68\n"
+          },
+          "source_citations": [
+            {
+              "source_id": "source_e3bb3b7e0bf74af3056e0c38",
+              "content_hash": "7b494f0b2f7f93aa01b346f7b056567726d9fec1ac9687a7e32a3cd0d9cbd7a8",
+              "source_url": null,
+              "locators": [
+                "INBOX/LLM Wiki Recovery Canary.md",
+                "INBOX/LLM Wiki Recovery Canary.md#18-68"
+              ],
+              "source_archive_id": null,
+              "confidence": "explicit",
+              "evidence_quote": "청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다."
+            }
+          ],
+          "conflicts": [],
+          "risk_tier": "low",
+          "effects": {
+            "deprecations": [],
+            "supersessions": []
+          },
+          "approval_eligible": true,
+          "merge_revision_coverage": false,
+          "revision_binding_state": "not_required"
+        },
+        "summary": "청록등대-731 검토 원칙",
+        "provenance": {
+          "source": "librarian_pipeline",
+          "source_ids": [
+            "source_e3bb3b7e0bf74af3056e0c38"
+          ]
+        },
+        "source_lineage": [
+          {
+            "source_id": "source_e3bb3b7e0bf74af3056e0c38",
+            "content_hash": "7b494f0b2f7f93aa01b346f7b056567726d9fec1ac9687a7e32a3cd0d9cbd7a8",
+            "source_url": null,
+            "locators": [
+              "INBOX/LLM Wiki Recovery Canary.md",
+              "INBOX/LLM Wiki Recovery Canary.md#18-68"
+            ],
+            "source_archive_id": null,
+            "confidence": "explicit",
+            "evidence_quote": "청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다."
+          }
+        ],
+        "before_after": [
+          {
+            "destination_id": "ZETA/CANDIDATES/document_9b8faab211b1d88a7c182371.md",
+            "before": null,
+            "after": "# 청록등대-731 검토 원칙\n\n## 핵심 내용\n\n- 청록등대-731 검토 원칙은 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인하는 것이다.\n\n## 근거 발췌\n\n> 청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다.\n\n## 출처\n\n- INBOX/LLM Wiki Recovery Canary.md#18-68\n",
+            "before_sha256": null,
+            "after_sha256": "aeca549428daf7399e693f379f980e3dbbf46311d5c73d4218af93f16deb3450"
+          }
+        ],
+        "provider_risk_claim": "low",
+        "risk": {
+          "tier": "low",
+          "reasons": [
+            "derived_low_risk",
+            "new_canonical_document",
+            "operation_create"
+          ]
+        },
+        "conflict": {
+          "state": "clear",
+          "conflict_ids": [],
+          "blocking_conflict_ids": []
+        },
+        "approval_eligible": true,
+        "batch_eligible": true,
+        "repacket": null,
+        "packet_id": "packet_0ec6d67100cbb3692ae35ee5",
+        "packet_hash": "0ec6d67100cbb3692ae35ee586cc9a375185d3544e98ea021754881022034b3f",
+        "canonical_serialization": "{\"approval_eligible\":true,\"batch_eligible\":true,\"before_after\":[{\"after\":\"# 청록등대-731 검토 원칙\\n\\n## 핵심 내용\\n\\n- 청록등대-731 검토 원칙은 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인하는 것이다.\\n\\n## 근거 발췌\\n\\n> 청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다.\\n\\n## 출처\\n\\n- INBOX/LLM Wiki Recovery Canary.md#18-68\\n\",\"after_sha256\":\"aeca549428daf7399e693f379f980e3dbbf46311d5c73d4218af93f16deb3450\",\"before\":null,\"before_sha256\":null,\"destination_id\":\"ZETA/CANDIDATES/document_9b8faab211b1d88a7c182371.md\"}],\"conflict\":{\"blocking_conflict_ids\":[],\"conflict_ids\":[],\"state\":\"clear\"},\"operation\":{\"after_bytes\":{\"ZETA/CANDIDATES/document_9b8faab211b1d88a7c182371.md\":\"# 청록등대-731 검토 원칙\\n\\n## 핵심 내용\\n\\n- 청록등대-731 검토 원칙은 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인하는 것이다.\\n\\n## 근거 발췌\\n\\n> 청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다.\\n\\n## 출처\\n\\n- INBOX/LLM Wiki Recovery Canary.md#18-68\\n\"},\"approval_eligible\":true,\"base_revisions\":{},\"before_bytes\":{},\"conflicts\":[],\"contract_version\":\"llmwiki_operation_contract_v1\",\"destination_ids\":[\"ZETA/CANDIDATES/document_9b8faab211b1d88a7c182371.md\"],\"effects\":{\"deprecations\":[],\"supersessions\":[]},\"kind\":\"create\",\"merge_revision_coverage\":false,\"operation_id\":\"operation_41017074d18c775924391d3d\",\"revision_binding_state\":\"not_required\",\"risk_tier\":\"low\",\"source_citations\":[{\"confidence\":\"explicit\",\"content_hash\":\"7b494f0b2f7f93aa01b346f7b056567726d9fec1ac9687a7e32a3cd0d9cbd7a8\",\"evidence_quote\":\"청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다.\",\"locators\":[\"INBOX/LLM Wiki Recovery Canary.md\",\"INBOX/LLM Wiki Recovery Canary.md#18-68\"],\"source_archive_id\":null,\"source_id\":\"source_e3bb3b7e0bf74af3056e0c38\",\"source_url\":null}]},\"packet_revision\":1,\"packet_version\":\"llmwiki_risk_approval_packet_v1\",\"provenance\":{\"source\":\"librarian_pipeline\",\"source_ids\":[\"source_e3bb3b7e0bf74af3056e0c38\"]},\"provider_risk_claim\":\"low\",\"repacket\":null,\"risk\":{\"reasons\":[\"derived_low_risk\",\"new_canonical_document\",\"operation_create\"],\"tier\":\"low\"},\"run_id\":\"question_1e0148b60ea9d8a666b22a00\",\"run_revision\":1,\"source_lineage\":[{\"confidence\":\"explicit\",\"content_hash\":\"7b494f0b2f7f93aa01b346f7b056567726d9fec1ac9687a7e32a3cd0d9cbd7a8\",\"evidence_quote\":\"청록등대-731 검토 원칙: 결정을 저장하기 전에 원문 근거와 변경 내용을 함께 확인한다.\",\"locators\":[\"INBOX/LLM Wiki Recovery Canary.md\",\"INBOX/LLM Wiki Recovery Canary.md#18-68\"],\"source_archive_id\":null,\"source_id\":\"source_e3bb3b7e0bf74af3056e0c38\",\"source_url\":null}],\"summary\":\"청록등대-731 검토 원칙\"}"
+      }
+    }
+  ],
+  "destinations": [
+    {
+      "path": "ZETA/CANDIDATES/document_9b8faab211b1d88a7c182371.md",
+      "exists": false
+    }
+  ],
+  "status": "review",
+  "writer_count": 0
+}

@@ -1,0 +1,17 @@
+{
+  "summary": [
+    "ℹ 30 source routing benchmark: 122880 outbound UTF-8 bytes across 8 provider-free calls",
+    "ℹ tests 930",
+    "ℹ suites 0",
+    "ℹ pass 880",
+    "ℹ fail 49",
+    "ℹ cancelled 0",
+    "ℹ skipped 1",
+    "ℹ todo 0",
+    "ℹ duration_ms 26369.600833"
+  ],
+  "baseline_failures": 49,
+  "after_failures": 49,
+  "new_failures": [],
+  "fixed": []
+}

@@ -1,0 +1,64 @@
+{
+  "first": {
+    "ok": false,
+    "status": "committed_authority_pending",
+    "write_counts": {
+      "canonical": 1,
+      "audit": 1,
+      "derived": 0,
+      "provider": 0,
+      "network": 0,
+      "git": 0
+    },
+    "approval_consumed": false,
+    "source_deletes": 0,
+    "git_calls": 0,
+    "reason": "immutable_audit_append_failed",
+    "target_path": "ZETA/PERMANENT/Fixture authority.md"
+  },
+  "retry": {
+    "ok": true,
+    "status": "committed",
+    "write_counts": {
+      "canonical": 0,
+      "audit": 0,
+      "derived": 0,
+      "provider": 0,
+      "network": 0,
+      "git": 0
+    },
+    "approval_consumed": true,
+    "source_deletes": 0,
+    "git_calls": 0,
+    "target_path": "ZETA/PERMANENT/Fixture authority.md",
+    "receipt": {
+      "receipt_version": "llmwiki_update_operation_receipt_v1",
+      "result": "committed",
+      "committed_at": "2026-09-09T12:00:00.000Z",
+      "canonical_id": "knowledge_fixture_v2",
+      "target_path": "ZETA/PERMANENT/Fixture authority.md",
+      "packet_hash": "4f93ee797c28438a31840990be7ae331cc9a803a7022970b5a259db6f5f4a2df",
+      "authorization_hash": "170407c7a777d3f37712815633787d0b3d1de32e5488436b9cde4cc541ace5d5",
+      "base_revision": "777f2c219f9665307ad0178be103b1574d63c1e9266bd2687339b907a5768ad5",
+      "before_sha256": "8be2627a7825e7cb7317b5b1985ff7ec398407ed22ecb3ecd8b6fe8037423f5a",
+      "after_sha256": "8792985dc7df45b7a896d1b1048be1d735a6611c09034c43297d210ce001b38e",
+      "evidence_hash": "540dae724bcff9b2072281ad11ac25d3f3e25960b0d138b6204ee8f1897070a7",
+      "compensation": {
+        "compensation_version": "llmwiki_exact_restore_compensation_v1",
+        "status": "prepared",
+        "prepared_at": "2026-09-09T12:00:00.000Z",
+        "canonical_id": "knowledge_fixture_v2",
+        "target_path": "ZETA/PERMANENT/Fixture authority.md",
+        "restore_bytes": "---\nschema_version: 2\ntype: \"knowledge\"\ncanonical_id: \"knowledge_fixture_v2\"\nknowledge_kind: \"principle\"\nstatus: \"active\"\nstatement: \"The approved v2 item is source-bound and active.\"\nknowledge_domain: \"coding\"\nknowledge_topics: [\"ai\"]\napplication_trigger: \"fixture\"\napplication_contexts: [\"coding/ai\"]\ninvalidation_conditions: [\"source revision changes\"]\nsources: [{\"source_id\":\"source_fixture_v2\",\"span\":{\"end\":48,\"start\":0}}]\nrelations: [{\"relation_id\":\"relation_fixture\",\"target_id\":\"project_fixture\",\"type\":\"supports\"}]\nclaim_set_hash: \"dfd7fafa310e484d622b8211f01d9871d6cc6d2c9971a4b1ff37598b8a49870c\"\npromotion_receipt_hash: \"91d153d66bd7752fc4d957daf5c5f4a86445a5ba79da6590793b44a3542538d3\"\nai_enrichment_status: \"none\"\ncreated: \"2026-08-25T12:00:00.000Z\"\nupdated: \"2026-08-25T12:00:00.000Z\"\n---\n# Fixture authority\n",
+        "restore_sha256": "8be2627a7825e7cb7317b5b1985ff7ec398407ed22ecb3ecd8b6fe8037423f5a",
+        "replace_sha256": "8792985dc7df45b7a896d1b1048be1d735a6611c09034c43297d210ce001b38e",
+        "packet_hash": "4f93ee797c28438a31840990be7ae331cc9a803a7022970b5a259db6f5f4a2df",
+        "authorization_hash": "170407c7a777d3f37712815633787d0b3d1de32e5488436b9cde4cc541ace5d5"
+      }
+    },
+    "compensation_prepared": true
+  },
+  "canonical_writes_before_retry": 2,
+  "canonical_writes_after_retry": 2,
+  "markdown_after": "---\nschema_version: 2\ntype: \"knowledge\"\ncanonical_id: \"knowledge_fixture_v2\"\nknowledge_kind: \"principle\"\nstatus: \"active\"\nstatement: \"The approved v2 item is source-bound and active. Apply the approved item only to an indoor synthetic model.\"\nknowledge_domain: \"coding\"\nknowledge_topics: [\"ai\"]\napplication_trigger: \"fixture\"\napplication_contexts: [\"coding/ai\"]\ninvalidation_conditions: [\"source revision changes\"]\nsources: [{\"source_id\":\"source_fixture_v2\",\"span\":{\"end\":48,\"start\":0}},{\"source_id\":\"source_added_b\",\"span\":{\"end\":58,\"start\":0}}]\nrelations: [{\"relation_id\":\"relation_fixture\",\"target_id\":\"project_fixture\",\"type\":\"supports\"}]\nclaim_set_hash: \"da11db237301425e7980bfbe36c420e27fa5bd03995ebe706b5245b53910b78f\"\npromotion_receipt_hash: \"21102d8527bdb5124c5f0d973cdecdc9d3e281bd2805e0d3cc5d46a65270d28f\"\nai_enrichment_status: \"none\"\ncreated: \"2026-08-25T12:00:00.000Z\"\nupdated: \"2026-09-09T12:00:00.000Z\"\n---\n# Fixture authority\n\nThe approved v2 item is source-bound and active.\n\n## Additional condition\nApply the approved item only to an indoor synthetic model.\n"
+}

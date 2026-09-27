@@ -1,0 +1,112 @@
+TAP version 13
+# Subtest: on-disk A create → B approved supplement → existing verified reader and Wiki candidate reuse
+ok 1 - on-disk A create → B approved supplement → existing verified reader and Wiki candidate reuse
+  ---
+  duration_ms: 53.473125
+  type: 'test'
+  ...
+# Subtest: stale source refuses the approved update without overwriting current bytes
+ok 2 - stale source refuses the approved update without overwriting current bytes
+  ---
+  duration_ms: 10.129416
+  type: 'test'
+  ...
+# Subtest: stale target refuses the approved update without overwriting current bytes
+ok 3 - stale target refuses the approved update without overwriting current bytes
+  ---
+  duration_ms: 9.644209
+  type: 'test'
+  ...
+# Subtest: immutable authority failure resumes without duplicate write; subsequent user edit=false
+ok 4 - immutable authority failure resumes without duplicate write; subsequent user edit=false
+  ---
+  duration_ms: 18.993583
+  type: 'test'
+  ...
+# Subtest: immutable authority failure resumes without duplicate write; subsequent user edit=true
+ok 5 - immutable authority failure resumes without duplicate write; subsequent user edit=true
+  ---
+  duration_ms: 12.704
+  type: 'test'
+  ...
+# Subtest: prepared authority audit finalization failure resumes without rewriting Markdown
+ok 6 - prepared authority audit finalization failure resumes without rewriting Markdown
+  ---
+  duration_ms: 18.344083
+  type: 'test'
+  ...
+# Subtest: cloned approval authority cannot authorize changed claim/source bindings
+ok 7 - cloned approval authority cannot authorize changed claim/source bindings
+  ---
+  duration_ms: 9.602292
+  type: 'test'
+  ...
+# Subtest: recorded six-condition proposal reaches final canonical Markdown through official approval and reader
+ok 8 - recorded six-condition proposal reaches final canonical Markdown through official approval and reader
+  ---
+  duration_ms: 11.449125
+  type: 'test'
+  ...
+# Subtest: recorded unresolved conflict remains intact and is ineligible for canonical promotion
+ok 9 - recorded unresolved conflict remains intact and is ineligible for canonical promotion
+  ---
+  duration_ms: 1.813875
+  type: 'test'
+  ...
+# Subtest: immutable entry persisted before head update failure resumes the same approval without duplicate entry
+ok 10 - immutable entry persisted before head update failure resumes the same approval without duplicate entry
+  ---
+  duration_ms: 18.085125
+  type: 'test'
+  ...
+# Subtest: source changed during audit preparation is rechecked before any canonical write
+ok 11 - source changed during audit preparation is rechecked before any canonical write
+  ---
+  duration_ms: 9.339834
+  type: 'test'
+  ...
+# Subtest: pending immutable head repair cannot overwrite a later user edit or rewrite audit entries
+ok 12 - pending immutable head repair cannot overwrite a later user edit or rewrite audit entries
+  ---
+  duration_ms: 11.1645
+  type: 'test'
+  ...
+# Subtest: canonical create immutable authority failure must resume verified authority rather than return a false duplicate
+ok 13 - canonical create immutable authority failure must resume verified authority rather than return a false duplicate
+  ---
+  duration_ms: 6.875792
+  type: 'test'
+  ...
+# Subtest: canonical create rejects source change during prepared audit before writing Markdown
+ok 14 - canonical create rejects source change during prepared audit before writing Markdown
+  ---
+  duration_ms: 3.233875
+  type: 'test'
+  ...
+# Subtest: canonical create rechecks a new Wiki link removed during audit preparation
+ok 15 - canonical create rechecks a new Wiki link removed during audit preparation
+  ---
+  duration_ms: 5.602917
+  type: 'test'
+  ...
+# Subtest: first canonical create append_throw returns pending and explicit retry repairs authority
+ok 16 - first canonical create append_throw returns pending and explicit retry repairs authority
+  ---
+  duration_ms: 7.121375
+  type: 'test'
+  ...
+# Subtest: first canonical create first_head_create returns pending and explicit retry repairs authority
+ok 17 - first canonical create first_head_create returns pending and explicit retry repairs authority
+  ---
+  duration_ms: 6.875917
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 274.732959

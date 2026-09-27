@@ -1,0 +1,35 @@
+✔ compiled document creates, updates same Markdown and is read back as trusted (59.946667ms)
+✔ unresolved conflict and missing explicit approval do not write canonical Markdown (1.719792ms)
+✔ stale source or target preview rejects without replacing subsequent user edits (1.121458ms)
+✔ post-write audit failure resumes same approved document without a duplicate paragraph (24.237541ms)
+✔ target edit after preview remains untouched and requires a fresh review (13.684542ms)
+✖ review modal renders exact preview and applies only after explicit checkbox action (2.241791ms)
+✔ approved Wiki text is never recaptured as an independent Source (0.2355ms)
+✖ partial update survives modal close/reopen without another canonical write and protects later user edits (6.852292ms)
+✔ existing processing plan restores an interrupted apply after runtime restart only with a fresh explicit decision (136.039167ms)
+LLMWiki UI recovery tests passed.
+✔ SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_ui_recovery.js (29.492375ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 8
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 309.300292
+
+✖ failing tests:
+
+test at SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_canonical_review.js:63:1
+✖ review modal renders exact preview and applies only after explicit checkbox action (2.241791ms)
+  TypeError: Cannot read properties of undefined (reading 'onclick')
+      at TestContext.<anonymous> (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_canonical_review.js:75:107)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_canonical_review.js:98:1
+✖ partial update survives modal close/reopen without another canonical write and protects later user edits (6.852292ms)
+  TypeError: Cannot read properties of undefined (reading 'onclick')
+      at TestContext.<anonymous> (/Users/prodigykim/Library/Mobile Documents/iCloud~md~obsidian/Documents/Dusk/SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_canonical_review.js:108:73)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

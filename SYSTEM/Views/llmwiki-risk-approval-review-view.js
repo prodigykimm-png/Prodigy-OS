@@ -178,9 +178,22 @@
       button(secondary, state.batch ? "한 변경씩 확인" : "여러 변경 선택", "toggle-batch", () => { state.batch = !state.batch; state.acknowledged = false; render(); }, { disabled: state.busy });
       if (state.batch) {
         const batch = createEl(frame, "section", { attr: { "data-batch-targets": "" } });
+        // 묶음 승인은 생성 패킷만: 적격(선택 가능·생성·충돌 0건)을 표시하고 한 번에 고른다.
+        // 승인 권한·exact-set 검증은 그대로이며, 체크 해제는 그대로 개별 검토로 남는다.
+        const tier2Eligible = (item) => item.selectable && !state.blockedIds.has(item.packet.packet_id)
+          && item.packet.operation.kind === "create" && ((item.packet.conflict && item.packet.conflict.blocking_conflict_ids) || []).length === 0;
+        const eligibleCreates = model.filter(tier2Eligible);
+        const eligibleBar = createEl(batch, "div", { attr: { class: "llmwiki-approval-review__batch-eligible" } });
+        createEl(eligibleBar, "span", { text: `묶음으로 한 번에 승인할 수 있는 새 문서 ${eligibleCreates.length}건` });
+        button(eligibleBar, "적격 새 문서만 선택", "select-eligible-creates", () => {
+          if (state.busy) return;
+          state.selected = new Set(eligibleCreates.map(item => item.packet.packet_id));
+          state.acknowledged = false; publishSelection(); render();
+        }, { disabled: state.busy || eligibleCreates.length === 0 });
+        if (state.completed.size) createEl(batch, "p", { text: `총 ${state.completed.size}건 반영됨`, attr: { "data-batch-digest": "" } });
         model.filter(item => item.selectable && !state.blockedIds.has(item.packet.packet_id)).forEach(item => {
           const row = createEl(batch, "label"); const input = createEl(row, "input", { attr: { type: "checkbox", "data-batch-packet": item.packet.packet_id } }); input.checked = state.selected.has(item.packet.packet_id); input.disabled = state.busy;
-          createEl(row, "span", { text: `${item.summary} · ${item.packet.operation.destination_ids.join(" · ")}` });
+          createEl(row, "span", { text: `${item.summary} · ${item.packet.operation.destination_ids.join(" · ")}${tier2Eligible(item) ? " · 묶음 적격" : ""}` });
           input.onchange = () => { if (input.checked) state.selected.add(item.packet.packet_id); else state.selected.delete(item.packet.packet_id); state.acknowledged = false; publishSelection(); render(); };
         });
       }

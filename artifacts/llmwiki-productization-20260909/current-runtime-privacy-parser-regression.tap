@@ -1,0 +1,167 @@
+TAP version 13
+# Subtest: explicit selected source is searchable with body and locator, never verified or ambient INBOX
+ok 1 - explicit selected source is searchable with body and locator, never verified or ambient INBOX
+  ---
+  duration_ms: 17.558959
+  type: 'test'
+  ...
+# Subtest: existing browse modes share query types and no-match is not a scope error
+ok 2 - existing browse modes share query types and no-match is not a scope error
+  ---
+  duration_ms: 2.519875
+  type: 'test'
+  ...
+# Subtest: selected source question carries bounded evidence and locator; no match abstains before transport
+ok 3 - selected source question carries bounded evidence and locator; no match abstains before transport
+  ---
+  duration_ms: 8.715208
+  type: 'test'
+  ...
+# Subtest: bounded passages preserve neighbouring exceptions and cite the actual quoted line
+ok 4 - bounded passages preserve neighbouring exceptions and cite the actual quoted line
+  ---
+  duration_ms: 9.625875
+  type: 'test'
+  ...
+# Subtest: proposal and review document preserve every grounded condition and unresolved review note
+ok 5 - proposal and review document preserve every grounded condition and unresolved review note
+  ---
+  duration_ms: 10.442292
+  type: 'test'
+  ...
+# Subtest: conversation forwards history as context with explicit source scope and no invented evidence
+ok 6 - conversation forwards history as context with explicit source scope and no invented evidence
+  ---
+  duration_ms: 7.198792
+  type: 'test'
+  ...
+# Subtest: verified Wiki context requires actual finalized reader authority and exact current bytes
+ok 7 - verified Wiki context requires actual finalized reader authority and exact current bytes
+  ---
+  duration_ms: 22.871333
+  type: 'test'
+  ...
+# Subtest: verified answer proposal restores accepted claim lineage to original source, never Wiki-as-source
+ok 8 - verified answer proposal restores accepted claim lineage to original source, never Wiki-as-source
+  ---
+  duration_ms: 11.656125
+  type: 'test'
+  ...
+# Subtest: populated verified Wiki context excludes frontmatter hashes without losing exact body locators
+ok 9 - populated verified Wiki context excludes frontmatter hashes without losing exact body locators
+  ---
+  duration_ms: 6.42725
+  type: 'test'
+  ...
+# Subtest: current Runtime boundary receives zero requests for selected synthetic protected sources
+ok 10 - current Runtime boundary receives zero requests for selected synthetic protected sources
+  ---
+  duration_ms: 1.937208
+  type: 'test'
+  ...
+# Subtest: current Runtime response reaches the real parser and forbidden write authority is rejected
+ok 11 - current Runtime response reaches the real parser and forbidden write authority is rejected
+  ---
+  duration_ms: 2.270375
+  type: 'test'
+  ...
+# {"reason":"provider_schema_invalid","runtime_calls":1,"actual_vault_writes":0,"consent_grants":0}
+# Subtest: clicking a verified canonical v2 result opens hydrated detail in an Obsidian modal while legacy rows stay excluded
+ok 12 - clicking a verified canonical v2 result opens hydrated detail in an Obsidian modal while legacy rows stay excluded
+  ---
+  duration_ms: 32.941208
+  type: 'test'
+  ...
+# Subtest: compact modal keeps its sticky close footer inside the native dialog
+ok 13 - compact modal keeps its sticky close footer inside the native dialog
+  ---
+  duration_ms: 0.24125
+  type: 'test'
+  ...
+# Subtest: fourth-tab browse surface renders read-only facets, selection, and hydrated detail
+ok 14 - fourth-tab browse surface renders read-only facets, selection, and hydrated detail
+  ---
+  duration_ms: 1.638041
+  type: 'test'
+  ...
+# Subtest: inactive Knowledge tab does not retain zero-sized native controls and remounts from retained state when shown
+ok 15 - inactive Knowledge tab does not retain zero-sized native controls and remounts from retained state when shown
+  ---
+  duration_ms: 0.543333
+  type: 'test'
+  ...
+# Subtest: facet changes clear detail selection and stale reads render an explicit stale state
+ok 16 - facet changes clear detail selection and stale reads render an explicit stale state
+  ---
+  duration_ms: 0.54625
+  type: 'test'
+  ...
+# Subtest: late hydration cannot repopulate cleared selection after a mode change
+ok 17 - late hydration cannot repopulate cleared selection after a mode change
+  ---
+  duration_ms: 1.430458
+  type: 'test'
+  ...
+# Subtest: review failure preserves branded answer and retries the same handoff without duplicate requests
+ok 18 - review failure preserves branded answer and retries the same handoff without duplicate requests
+  ---
+  duration_ms: 1.227542
+  type: 'test'
+  ...
+# Subtest: thrown review handoff errors preserve the answer and allow an explicit retry
+ok 19 - thrown review handoff errors preserve the answer and allow an explicit retry
+  ---
+  duration_ms: 0.900667
+  type: 'test'
+  ...
+# Subtest: prepared proposal without a review controller is not reported as review ready
+ok 20 - prepared proposal without a review controller is not reported as review ready
+  ---
+  duration_ms: 0.7055
+  type: 'test'
+  ...
+# Subtest: conversation preserves navigation state, retries once and excludes removed-scope history
+ok 21 - conversation preserves navigation state, retries once and excludes removed-scope history
+  ---
+  duration_ms: 0.495833
+  type: 'test'
+  ...
+# Subtest: new conversation discards a late response and duplicate sends
+ok 22 - new conversation discards a late response and duplicate sends
+  ---
+  duration_ms: 0.180334
+  type: 'test'
+  ...
+# Subtest: Wiki chat retains structured citations, refuses overflow without dropping context and respects Korean IME
+ok 23 - Wiki chat retains structured citations, refuses overflow without dropping context and respects Korean IME
+  ---
+  duration_ms: 1.70475
+  type: 'test'
+  ...
+# Subtest: closed canonical review reopens the same draft without provider or approval replay
+ok 24 - closed canonical review reopens the same draft without provider or approval replay
+  ---
+  duration_ms: 0.655042
+  type: 'test'
+  ...
+# Subtest: changed source cannot reopen an old citation or cached proposal and preserves the old answer
+ok 25 - changed source cannot reopen an old citation or cached proposal and preserves the old answer
+  ---
+  duration_ms: 10.154917
+  type: 'test'
+  ...
+# Subtest: provider format failure retains the question and earlier result until an explicit retry
+ok 26 - provider format failure retains the question and earlier result until an explicit retry
+  ---
+  duration_ms: 0.650333
+  type: 'test'
+  ...
+1..26
+# tests 26
+# suites 0
+# pass 26
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 144.1615

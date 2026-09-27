@@ -479,6 +479,7 @@
         "SYSTEM/Views/llmwiki-evidence-contract.js",
         "SYSTEM/Views/llmwiki-resurfacing-read-adapter.js",
         "SYSTEM/Views/llmwiki-document-canonical-review.js",
+        "SYSTEM/Views/llmwiki-manual-registry.js",
         "SYSTEM/Views/llmwiki-maintenance-service.js",
         "SYSTEM/Views/llmwiki-notification-policy.js",
         "SYSTEM/Views/llmwiki-maintenance-follower.js",

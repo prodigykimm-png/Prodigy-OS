@@ -1,0 +1,149 @@
+{
+  "actual_provider_calls": 0,
+  "canonical_writes": 0,
+  "relation_status": "conflict",
+  "promotion": {
+    "contract_version": "llmwiki_promotion_contract_v1",
+    "input_binding": "{\"approval_status\":\"approved\",\"claims\":[{\"claim_id\":\"claim_fixture_v2\",\"evidence_refs\":[\"fixture_evidence\"],\"origin\":\"source_extract\",\"review_status\":\"accepted\",\"statement\":\"The approved v2 item is source-bound and active.\"}],\"classification\":\"epistemic\",\"evidence\":[{\"evidence_id\":\"fixture_evidence\",\"source_ref\":\"source_fixture_v2\",\"strength\":\"strong\"}],\"knowledge_kind\":\"principle\",\"principle_boundaries\":{\"conditions\":[\"approved\"],\"exclusions\":[\"unreviewed\"],\"invalidation_conditions\":[\"source revision changes\"]},\"principle_rationale\":\"Immutable authority prevents forged provenance.\",\"relation_status\":\"conflict\",\"state\":\"current\",\"statement\":\"# 은빛-593 점검 시간은 몇 분인가?\\n\\n## 핵심 내용\\n\\n- 은빛-593 점검 규정 A에 따르면 동일한 실내 모형의 점검 시간은 10분이다.\\n- 은빛-593 점검 규정 B에 따르면 동일한 실내 모형의 점검 시간은 20분이다.\\n\\n## 확인 필요\\n\\n- 동일한 조건(동일한 실내 모형)에 대해 점검 규정 B(20분)와 점검 시간이 상충됨\\n- 두 규정의 시행일 및 우선순위를 알 수 없음\\n- 점검 시간 수치를 직접 답변하지 않으며 규정 간 우선순위 부재 사실만을 명시함\\n- 동일한 조건(동일한 실내 모형)에 대해 점검 규정 A(10분)와 점검 시간이 상충됨\\n\\n## 근거 발췌\\n\\n> 은빛-593 점검 규정 A: 동일한 실내 모형의 점검 시간은 10분이다.\\n\\n> 은빛-593 점검 규정 B: 동일한 실내 모형의 점검 시간은 20분이다.\\n\\n## 출처\\n\\n- INBOX/Phase A Synthetic B.md#11-51\\n- INBOX/Phase A Synthetic B.md#53-93\\n\",\"title\":\"Fixture authority\"}",
+    "knowledge_kind": "principle",
+    "trust_status": "unverified",
+    "disposition": "candidate",
+    "terminal": false,
+    "candidate_eligible": true,
+    "canonical_review_eligible": false,
+    "canonical_write_eligible": false,
+    "gates": [
+      {
+        "gate_id": "unit_scope",
+        "phase": "eligibility",
+        "state": "pass",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "statement",
+        "phase": "content",
+        "state": "pass",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "evidence_refs",
+        "phase": "content",
+        "state": "pass",
+        "reason_codes": [],
+        "evidence_refs": [
+          "fixture_evidence"
+        ]
+      },
+      {
+        "gate_id": "claim_support",
+        "phase": "content",
+        "state": "pass",
+        "reason_codes": [],
+        "evidence_refs": [
+          "fixture_evidence"
+        ]
+      },
+      {
+        "gate_id": "ai_claim_review",
+        "phase": "authorization",
+        "state": "pass",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "relation_resolution",
+        "phase": "relation",
+        "state": "fail",
+        "reason_codes": [
+          "unresolved_conflict"
+        ],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "authorization",
+        "phase": "authorization",
+        "state": "pass",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "claim_scope",
+        "phase": "content",
+        "state": "not_applicable",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "principle_boundaries",
+        "phase": "content",
+        "state": "pass",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "principle_rationale",
+        "phase": "content",
+        "state": "pass",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "procedure_preconditions",
+        "phase": "content",
+        "state": "not_applicable",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "procedure_steps",
+        "phase": "content",
+        "state": "not_applicable",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "procedure_outcome",
+        "phase": "content",
+        "state": "not_applicable",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "concept_definition",
+        "phase": "content",
+        "state": "not_applicable",
+        "reason_codes": [],
+        "evidence_refs": []
+      },
+      {
+        "gate_id": "concept_boundaries",
+        "phase": "content",
+        "state": "not_applicable",
+        "reason_codes": [],
+        "evidence_refs": []
+      }
+    ],
+    "promotion_gaps": [
+      {
+        "gate_id": "relation_resolution",
+        "phase": "relation",
+        "state": "fail",
+        "reason_code": "unresolved_conflict",
+        "evidence_refs": []
+      }
+    ],
+    "blocking_content_gaps": [
+      {
+        "gate_id": "relation_resolution",
+        "phase": "relation",
+        "state": "fail",
+        "reason_code": "unresolved_conflict",
+        "evidence_refs": []
+      }
+    ]
+  },
+  "review_markdown": "# 은빛-593 점검 시간은 몇 분인가?\n\n## 핵심 내용\n\n- 은빛-593 점검 규정 A에 따르면 동일한 실내 모형의 점검 시간은 10분이다.\n- 은빛-593 점검 규정 B에 따르면 동일한 실내 모형의 점검 시간은 20분이다.\n\n## 확인 필요\n\n- 동일한 조건(동일한 실내 모형)에 대해 점검 규정 B(20분)와 점검 시간이 상충됨\n- 두 규정의 시행일 및 우선순위를 알 수 없음\n- 점검 시간 수치를 직접 답변하지 않으며 규정 간 우선순위 부재 사실만을 명시함\n- 동일한 조건(동일한 실내 모형)에 대해 점검 규정 A(10분)와 점검 시간이 상충됨\n\n## 근거 발췌\n\n> 은빛-593 점검 규정 A: 동일한 실내 모형의 점검 시간은 10분이다.\n\n> 은빛-593 점검 규정 B: 동일한 실내 모형의 점검 시간은 20분이다.\n\n## 출처\n\n- INBOX/Phase A Synthetic B.md#11-51\n- INBOX/Phase A Synthetic B.md#53-93\n",
+  "limitation": "review proposal preserved; Candidate writer not exercised by this test"
+}

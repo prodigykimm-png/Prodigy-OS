@@ -1,0 +1,482 @@
+
+> prodigy-ai-runtime@0.2.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: OpenAI-compatible adapter reads SecretStorage by ID and sends one strict request
+ok 1 - OpenAI-compatible adapter reads SecretStorage by ID and sends one strict request
+  ---
+  duration_ms: 0.9355
+  type: 'test'
+  ...
+# Subtest: Gemini adapter uses a header secret and never puts credentials in the URL
+ok 2 - Gemini adapter uses a header secret and never puts credentials in the URL
+  ---
+  duration_ms: 0.270709
+  type: 'test'
+  ...
+# Subtest: HTTP adapter rejects missing secrets, unsafe endpoints, and malformed responses before retry
+ok 3 - HTTP adapter rejects missing secrets, unsafe endpoints, and malformed responses before retry
+  ---
+  duration_ms: 0.228916
+  type: 'test'
+  ...
+# Subtest: explicit local profiles allow private and Tailscale addresses but never wildcard bind addresses
+ok 4 - explicit local profiles allow private and Tailscale addresses but never wildcard bind addresses
+  ---
+  duration_ms: 0.089333
+  type: 'test'
+  ...
+# Subtest: Codex CLI adapter uses stdin, shell false, and an isolated non-vault cwd
+ok 5 - Codex CLI adapter uses stdin, shell false, and an isolated non-vault cwd
+  ---
+  duration_ms: 0.246625
+  type: 'test'
+  ...
+# Subtest: Codex CLI passes an explicit model but omits the runtime-default sentinel
+ok 6 - Codex CLI passes an explicit model but omits the runtime-default sentinel
+  ---
+  duration_ms: 0.117
+  type: 'test'
+  ...
+# Subtest: CLI adapter removes its isolated cwd and maps stderr without persisting raw bytes
+ok 7 - CLI adapter removes its isolated cwd and maps stderr without persisting raw bytes
+  ---
+  duration_ms: 0.117375
+  type: 'test'
+  ...
+# Subtest: Antigravity CLI unwraps structured and chat JSON envelopes
+ok 8 - Antigravity CLI unwraps structured and chat JSON envelopes
+  ---
+  duration_ms: 0.154708
+  type: 'test'
+  ...
+# Subtest: Antigravity structured calls bind the provider schema and disable slash commands
+ok 9 - Antigravity structured calls bind the provider schema and disable slash commands
+  ---
+  duration_ms: 0.352542
+  type: 'test'
+  ...
+# Subtest: Antigravity rewrites enum constraints without weakening their allowed values
+ok 10 - Antigravity rewrites enum constraints without weakening their allowed values
+  ---
+  duration_ms: 0.349292
+  type: 'test'
+  ...
+# Subtest: mobile relay uses versioned bounded HTTPS requests and SecretStorage token
+ok 11 - mobile relay uses versioned bounded HTTPS requests and SecretStorage token
+  ---
+  duration_ms: 0.226042
+  type: 'test'
+  ...
+# Subtest: mobile relay maps an unreachable HTTPS route without exposing transport detail
+ok 12 - mobile relay maps an unreachable HTTPS route without exposing transport detail
+  ---
+  duration_ms: 0.110334
+  type: 'test'
+  ...
+# Subtest: mobile relay uses bounded event-driven result requests after async acceptance
+ok 13 - mobile relay uses bounded event-driven result requests after async acceptance
+  ---
+  duration_ms: 0.109666
+  type: 'test'
+  ...
+# Subtest: legacy migration imports only sanitized AI settings and keeps routes device-specific
+ok 14 - legacy migration imports only sanitized AI settings and keeps routes device-specific
+  ---
+  duration_ms: 2.576917
+  type: 'test'
+  ...
+# Subtest: consumer bindings have one plugin authority and rollback export remains sanitized
+ok 15 - consumer bindings have one plugin authority and rollback export remains sanitized
+  ---
+  duration_ms: 1.266917
+  type: 'test'
+  ...
+# Subtest: malformed config and secret-like profile fields fail before persistence
+ok 16 - malformed config and secret-like profile fields fail before persistence
+  ---
+  duration_ms: 0.333375
+  type: 'test'
+  ...
+# Subtest: changing a device route invalidates its provider certification before reuse
+ok 17 - changing a device route invalidates its provider certification before reuse
+  ---
+  duration_ms: 1.330417
+  type: 'test'
+  ...
+# Subtest: loading CLI profiles assigns one shared Relay SecretStorage ID
+ok 18 - loading CLI profiles assigns one shared Relay SecretStorage ID
+  ---
+  duration_ms: 0.8125
+  type: 'test'
+  ...
+# Subtest: loading an empty Codex model normalizes identity and invalidates its old authority
+ok 19 - loading an empty Codex model normalizes identity and invalidates its old authority
+  ---
+  duration_ms: 0.3985
+  type: 'test'
+  ...
+# Subtest: certifications stay device-local and do not overwrite another route
+ok 20 - certifications stay device-local and do not overwrite another route
+  ---
+  duration_ms: 0.912167
+  type: 'test'
+  ...
+# Subtest: stale device writes preserve newer synced bindings
+ok 21 - stale device writes preserve newer synced bindings
+  ---
+  duration_ms: 0.347375
+  type: 'test'
+  ...
+# Subtest: changing a provider model invalidates local certification and related grants
+ok 22 - changing a provider model invalidates local certification and related grants
+  ---
+  duration_ms: 1.453
+  type: 'test'
+  ...
+# Subtest: saving unchanged model and route preserves device certification
+ok 23 - saving unchanged model and route preserves device certification
+  ---
+  duration_ms: 1.059042
+  type: 'test'
+  ...
+# Subtest: changing the default provider clears stale grants atomically
+ok 24 - changing the default provider clears stale grants atomically
+  ---
+  duration_ms: 0.244916
+  type: 'test'
+  ...
+# Subtest: applying one provider updates all existing consumer bindings in one write
+ok 25 - applying one provider updates all existing consumer bindings in one write
+  ---
+  duration_ms: 0.201791
+  type: 'test'
+  ...
+# Subtest: saving an unchanged consumer binding preserves its standing grant
+ok 26 - saving an unchanged consumer binding preserves its standing grant
+  ---
+  duration_ms: 0.294833
+  type: 'test'
+  ...
+# Subtest: each conformance execution receives a fresh replay-safe request identity
+ok 27 - each conformance execution receives a fresh replay-safe request identity
+  ---
+  duration_ms: 1.38375
+  type: 'test'
+  ...
+# Subtest: conformance uses the protocol maximum without changing consumer deadlines
+ok 28 - conformance uses the protocol maximum without changing consumer deadlines
+  ---
+  duration_ms: 0.193041
+  type: 'test'
+  ...
+# Subtest: capability corpus certifies profile model route and tested capabilities deterministically
+ok 29 - capability corpus certifies profile model route and tested capabilities deterministically
+  ---
+  duration_ms: 3.215375
+  type: 'test'
+  ...
+# Subtest: malformed structured output and dishonest cancellation cannot be certified
+ok 30 - malformed structured output and dishonest cancellation cannot be certified
+  ---
+  duration_ms: 0.961458
+  type: 'test'
+  ...
+# Subtest: structured conformance preserves a safe transport failure code
+ok 31 - structured conformance preserves a safe transport failure code
+  ---
+  duration_ms: 1.948375
+  type: 'test'
+  ...
+# Subtest: desktop executable resolution validates explicit paths and restricted PATH without shell lookup
+ok 32 - desktop executable resolution validates explicit paths and restricted PATH without shell lookup
+  ---
+  duration_ms: 500.9055
+  type: 'test'
+  ...
+# Subtest: installer replaces only release files without touching durable config
+ok 33 - installer replaces only release files without touching durable config
+  ---
+  duration_ms: 44.1605
+  type: 'test'
+  ...
+# Subtest: installer rejects every non-regular destination before replacing any file
+ok 34 - installer rejects every non-regular destination before replacing any file
+  ---
+  duration_ms: 30.558041
+  type: 'test'
+  ...
+# Subtest: installer restores the complete old release set after a mid-copy failure
+ok 35 - installer restores the complete old release set after a mid-copy failure
+  ---
+  duration_ms: 5.896958
+  type: 'test'
+  ...
+# Subtest: installer recovers an interrupted missing-file transaction before snapshotting
+ok 36 - installer recovers an interrupted missing-file transaction before snapshotting
+  ---
+  duration_ms: 5.211125
+  type: 'test'
+  ...
+# Subtest: installer discards preparation residue before live files were touched
+ok 37 - installer discards preparation residue before live files were touched
+  ---
+  duration_ms: 4.032417
+  type: 'test'
+  ...
+# Subtest: OpenAI-compatible discovery explicitly requests bounded unique model IDs
+ok 38 - OpenAI-compatible discovery explicitly requests bounded unique model IDs
+  ---
+  duration_ms: 0.87925
+  type: 'test'
+  ...
+# Subtest: Gemini discovery uses header authentication and strips models prefix
+ok 39 - Gemini discovery uses header authentication and strips models prefix
+  ---
+  duration_ms: 0.153709
+  type: 'test'
+  ...
+# Subtest: Antigravity discovery parses model IDs without exposing raw CLI output
+ok 40 - Antigravity discovery parses model IDs without exposing raw CLI output
+  ---
+  duration_ms: 0.249584
+  type: 'test'
+  ...
+# Subtest: mobile Antigravity discovery loads the full authenticated Relay model list
+ok 41 - mobile Antigravity discovery loads the full authenticated Relay model list
+  ---
+  duration_ms: 0.203917
+  type: 'test'
+  ...
+# Subtest: Discovery rejects oversized and malformed provider responses safely
+ok 42 - Discovery rejects oversized and malformed provider responses safely
+  ---
+  duration_ms: 0.287208
+  type: 'test'
+  ...
+# Subtest: saving an HTTP Provider API key immediately refreshes its model list
+ok 43 - saving an HTTP Provider API key immediately refreshes its model list
+  ---
+  duration_ms: 0.553208
+  type: 'test'
+  ...
+# Subtest: iPhone pairing stores the issued token only in SecretStorage
+ok 44 - iPhone pairing stores the issued token only in SecretStorage
+  ---
+  duration_ms: 1.64675
+  type: 'test'
+  ...
+# Subtest: pairing rejects unsafe routes, bad codes, and malformed token responses
+ok 45 - pairing rejects unsafe routes, bad codes, and malformed token responses
+  ---
+  duration_ms: 0.201208
+  type: 'test'
+  ...
+# Subtest: connection checks and disconnects never return the stored token
+ok 46 - connection checks and disconnects never return the stored token
+  ---
+  duration_ms: 0.126334
+  type: 'test'
+  ...
+# Subtest: legacy Codex pairing token migrates into the shared Relay secret
+ok 47 - legacy Codex pairing token migrates into the shared Relay secret
+  ---
+  duration_ms: 0.08625
+  type: 'test'
+  ...
+# Subtest: Mac pairing administration stays on its dedicated loopback port
+ok 48 - Mac pairing administration stays on its dedicated loopback port
+  ---
+  duration_ms: 0.120125
+  type: 'test'
+  ...
+# Subtest: relay backend finishes before the client-owned deadline
+ok 49 - relay backend finishes before the client-owned deadline
+  ---
+  duration_ms: 0.410792
+  type: 'test'
+  ...
+# Subtest: loopback relay authenticates and records exactly two provider requests
+ok 50 - loopback relay authenticates and records exactly two provider requests
+  ---
+  duration_ms: 25.802042
+  type: 'test'
+  ...
+# Subtest: async relay submission resolves an event-driven bounded result request
+ok 51 - async relay submission resolves an event-driven bounded result request
+  ---
+  duration_ms: 6.677125
+  type: 'test'
+  ...
+# Subtest: relay rejects non-loopback binds and unauthenticated requests before backend work
+ok 52 - relay rejects non-loopback binds and unauthenticated requests before backend work
+  ---
+  duration_ms: 3.276375
+  type: 'test'
+  ...
+# Subtest: relay rejects unknown provider IDs before backend work
+ok 53 - relay rejects unknown provider IDs before backend work
+  ---
+  duration_ms: 6.4535
+  type: 'test'
+  ...
+# Subtest: relay exposes an authenticated bounded Antigravity model list
+ok 54 - relay exposes an authenticated bounded Antigravity model list
+  ---
+  duration_ms: 2.61225
+  type: 'test'
+  ...
+# Subtest: relay rejects a completed request identity replay without another provider call
+ok 55 - relay rejects a completed request identity replay without another provider call
+  ---
+  duration_ms: 2.533667
+  type: 'test'
+  ...
+# Subtest: one-time pairing persists only a token hash and never exposes admin controls publicly
+ok 56 - one-time pairing persists only a token hash and never exposes admin controls publicly
+  ---
+  duration_ms: 4.568959
+  type: 'test'
+  ...
+# Subtest: pairing codes expire and lock after bounded failed attempts
+ok 57 - pairing codes expire and lock after bounded failed attempts
+  ---
+  duration_ms: 6.253958
+  type: 'test'
+  ...
+# Subtest: relay CLI exposes hash metadata and fails before filesystem access when absent
+ok 58 - relay CLI exposes hash metadata and fails before filesystem access when absent
+  ---
+  duration_ms: 257.530666
+  type: 'test'
+  ...
+# Subtest: Terminal wrapper persists metadata paths but never a token value
+ok 59 - Terminal wrapper persists metadata paths but never a token value
+  ---
+  duration_ms: 0.911916
+  type: 'test'
+  ...
+# Subtest: Terminal relay lifecycle is idempotent and removes its login item
+ok 60 - Terminal relay lifecycle is idempotent and removes its login item
+  ---
+  duration_ms: 0.400875
+  type: 'test'
+  ...
+# Subtest: Terminal manager rejects unsafe paths and an unmanaged duplicate listener
+ok 61 - Terminal manager rejects unsafe paths and an unmanaged duplicate listener
+  ---
+  duration_ms: 0.326625
+  type: 'test'
+  ...
+# Subtest: Failed login registration restores previous wrapper bytes
+ok 62 - Failed login registration restores previous wrapper bytes
+  ---
+  duration_ms: 0.940667
+  type: 'test'
+  ...
+# Subtest: release archive and receipt are byte-identical with a fixed file set
+ok 63 - release archive and receipt are byte-identical with a fixed file set
+  ---
+  duration_ms: 4.421042
+  type: 'test'
+  ...
+# Subtest: version and compatibility disagreement fails before writing artifacts
+ok 64 - version and compatibility disagreement fails before writing artifacts
+  ---
+  duration_ms: 3.0855
+  type: 'test'
+  ...
+# Subtest: runtime handshake version cannot drift from the package source of truth
+ok 65 - runtime handshake version cannot drift from the package source of truth
+  ---
+  duration_ms: 1.63275
+  type: 'test'
+  ...
+# Subtest: release CLI exposes help and rejects unknown flags
+ok 66 - release CLI exposes help and rejects unknown flags
+  ---
+  duration_ms: 0.143792
+  type: 'test'
+  ...
+# Subtest: release workflow pins the runner, Node, and npm toolchain
+ok 67 - release workflow pins the runner, Node, and npm toolchain
+  ---
+  duration_ms: 0.540792
+  type: 'test'
+  ...
+# Subtest: handshake matches the vendored vault protocol exactly
+ok 68 - handshake matches the vendored vault protocol exactly
+  ---
+  duration_ms: 0.683041
+  type: 'test'
+  ...
+# Subtest: structured and chat calls return bounded metadata receipts without logging payload bytes
+ok 69 - structured and chat calls return bounded metadata receipts without logging payload bytes
+  ---
+  duration_ms: 2.146416
+  type: 'test'
+  ...
+# Subtest: same in-flight request coalesces and completed responses are not cached
+ok 70 - same in-flight request coalesces and completed responses are not cached
+  ---
+  duration_ms: 1.203916
+  type: 'test'
+  ...
+# Subtest: adapter failure never falls back to a second provider
+ok 71 - adapter failure never falls back to a second provider
+  ---
+  duration_ms: 0.503542
+  type: 'test'
+  ...
+# Subtest: private manifests never select argv prompt transports
+ok 72 - private manifests never select argv prompt transports
+  ---
+  duration_ms: 0.454625
+  type: 'test'
+  ...
+# Subtest: cancellation and byte limits fail truthfully before unsafe work
+ok 73 - cancellation and byte limits fail truthfully before unsafe work
+  ---
+  duration_ms: 0.777
+  type: 'test'
+  ...
+# Subtest: bounded queue starts only one adapter call and reports status transitions
+ok 74 - bounded queue starts only one adapter call and reports status transitions
+  ---
+  duration_ms: 0.454334
+  type: 'test'
+  ...
+# Subtest: runtime owns one deadline and aborts the selected adapter
+ok 75 - runtime owns one deadline and aborts the selected adapter
+  ---
+  duration_ms: 21.999625
+  type: 'test'
+  ...
+# Subtest: production grant binds the exact consumer profile and route revision
+ok 76 - production grant binds the exact consumer profile and route revision
+  ---
+  duration_ms: 0.364291
+  type: 'test'
+  ...
+# Subtest: settings exposes only certified providers executable on this device
+ok 77 - settings exposes only certified providers executable on this device
+  ---
+  duration_ms: 0.541417
+  type: 'test'
+  ...
+# Subtest: plugin production source imports no vault or workspace domain modules
+ok 78 - plugin production source imports no vault or workspace domain modules
+  ---
+  duration_ms: 2.559833
+  type: 'test'
+  ...
+1..78
+# tests 78
+# suites 0
+# pass 78
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 618.503875

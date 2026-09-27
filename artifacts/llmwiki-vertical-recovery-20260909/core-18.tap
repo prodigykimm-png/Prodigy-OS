@@ -1,0 +1,26 @@
+✔ query/read returns byte-stable verified and legacy envelopes with deterministic ranking, citations, ids, and hash (20.5345ms)
+✔ literature, candidate, and proposal modes are labeled non-canonical and never promoted to verified answers (2.450958ms)
+✔ stale, unavailable, conflict, empty, malformed, unsafe, and prompt-shaped inputs fail closed with writer=0 (1.030625ms)
+✔ query/read ignores writer/provider/creator hooks and leaves persistent filesystem snapshots unchanged (0.850042ms)
+✔ Given the canonical LLMWiki skill path When its contract files are loaded Then the required local boundary vocabulary is machine-readable (1.4035ms)
+✔ Given a synthetic conversation with prompt injection When the local adapter evaluates it Then it returns a run-scoped approval packet without writes (57.345666ms)
+✔ Given malformed LLMWiki input When the local adapter parses it Then unknown vocabulary and missing provenance fail closed (0.282583ms)
+✔ Given the LLMWiki integration ledger When it is parsed Then every upstream record is pinned with license evidence and a safe mode (0.220083ms)
+✔ one controller snapshot synchronizes every subscribed Prodigy Wiki view (0.645ms)
+✔ ephemeral selection and consent never restore into a fresh app session (0.092ms)
+✔ new source selection atomically clears stale consent range and result (0.113542ms)
+✔ controller rejects running without a pinned source (0.815584ms)
+✔ lifecycle projection derives one legacy snapshot from controller truth (0.156792ms)
+✔ every Prodigy Wiki product state derives one canonical primary action (0.163625ms)
+✔ reviewed source changes enter a provider-free range inspection state (0.126167ms)
+✔ controller restores only an explicit durable operation snapshot (0.076625ms)
+✔ Prodigy Wiki production owns no provider transport, config, or fallback (3.614459ms)
+✔ Knowledge manifest removes every legacy provider runtime dependency (1.233667ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 104.886084

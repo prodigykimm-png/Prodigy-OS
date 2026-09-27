@@ -1,0 +1,12 @@
+# Current read-only state
+ git rev-parse HEAD
+ git status --short
+# Core and related regression (56)
+node --test --test-reporter=tap SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_vertical_recovery.js SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_query_readonly.js SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_skill_contract.js SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_wiki_ai_runtime_consumers.js SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_prodigy_wiki_controller.js SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_document_batch_integration.js SYSTEM/AI/Skills/prodigy-review/tests/knowledge/test_llmwiki_golden_wiki_orchestrator.js
+# Failure subset: node --test --test-reporter=tap followed by exact files in failed-test-files.json
+# Synthetic real-provider inspection, explicit harness only, no production config changes
+/Applications/Obsidian.app/Contents/MacOS/Obsidian vault="Dusk" eval code='require(app.vault.adapter.basePath+"/artifacts/llmwiki-vertical-recovery-20260909/phase-a/live-inspection.cjs")(app)'
+# Isolated fake transport + real service/surface failure probe
+node artifacts/llmwiki-vertical-recovery-20260909/phase-a/surface-fault-probe.cjs
+# Real screen capture (existing canary review, no approve)
+/Applications/Obsidian.app/Contents/MacOS/Obsidian vault="Dusk" dev:screenshot path=/tmp/llmwiki-phase-a-review.png

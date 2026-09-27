@@ -1,0 +1,757 @@
+TAP version 13
+# Subtest: identical text from two sources reaches review_ready with unique provider keys
+ok 1 - identical text from two sources reaches review_ready with unique provider keys
+  ---
+  duration_ms: 29.345
+  type: 'test'
+  ...
+# Subtest: four small changed sources produce exactly one provider call
+ok 2 - four small changed sources produce exactly one provider call
+  ---
+  duration_ms: 13.494209
+  type: 'test'
+  ...
+# Subtest: exact rerun with same hashes and request key makes zero provider calls
+ok 3 - exact rerun with same hashes and request key makes zero provider calls
+  ---
+  duration_ms: 12.301625
+  type: 'test'
+  ...
+# Subtest: v1 cache intentionally misses once under v2 identity, then exact v2 replay is zero-call
+ok 4 - v1 cache intentionally misses once under v2 identity, then exact v2 replay is zero-call
+  ---
+  duration_ms: 10.636084
+  type: 'test'
+  ...
+# Subtest: semantic 65-unit rejection reaches no transport call
+ok 5 - semantic 65-unit rejection reaches no transport call
+  ---
+  duration_ms: 6.972458
+  type: 'test'
+  ...
+# Subtest: explicit retry reuses exact repeated chunks while preserving parent history
+ok 6 - explicit retry reuses exact repeated chunks while preserving parent history
+  ---
+  duration_ms: 44.891542
+  type: 'test'
+  ...
+# Subtest: model, schema, prompt-version, context, or source change causes an intentional miss
+ok 7 - model, schema, prompt-version, context, or source change causes an intentional miss
+  ---
+  duration_ms: 6.882334
+  type: 'test'
+  ...
+# Subtest: 100 KiB INBOX source uses one bounded exact-prefix routing chunk while retaining its full revision
+ok 8 - 100 KiB INBOX source uses one bounded exact-prefix routing chunk while retaining its full revision
+  ---
+  duration_ms: 33.848292
+  type: 'test'
+  ...
+# Subtest: analysis_text rejects non-prefix, oversized, and split-surrogate excerpts
+ok 9 - analysis_text rejects non-prefix, oversized, and split-surrogate excerpts
+  ---
+  duration_ms: 0.256625
+  type: 'test'
+  ...
+# Subtest: sources without analysis_text retain full-text analysis
+ok 10 - sources without analysis_text retain full-text analysis
+  ---
+  duration_ms: 281.374541
+  type: 'test'
+  ...
+# Subtest: pack 3 failure preserves packs 1-2 through restart and makes no fourth call
+ok 11 - pack 3 failure preserves packs 1-2 through restart and makes no fourth call
+  ---
+  duration_ms: 74.747333
+  type: 'test'
+  ...
+# Subtest: candidate ranking is bounded at 8 and outbound projection at top 5 / 4 KiB
+ok 12 - candidate ranking is bounded at 8 and outbound projection at top 5 / 4 KiB
+  ---
+  duration_ms: 0.8585
+  type: 'test'
+  ...
+# Subtest: all-hits replay over a content-incomplete whole-source artifact misses once under the coverage-carrying identity and refuses review_ready with named keys
+ok 13 - all-hits replay over a content-incomplete whole-source artifact misses once under the coverage-carrying identity and refuses review_ready with named keys
+  ---
+  duration_ms: 5.062
+  type: 'test'
+  ...
+# Subtest: exact all-hits replay is flagged replay_only when whole-source coverage is complete
+ok 14 - exact all-hits replay is flagged replay_only when whole-source coverage is complete
+  ---
+  duration_ms: 1.202541
+  type: 'test'
+  ...
+# TASK2_ASSERT candidate_handoff=1 canonical_writes=0
+# TASK2_GUARDS rejections=12 unbranded_controls=4 writerCalls=0 existing_hash=1cd263f1102656dd6b6cf1d626d1a96f9eba0406af3cb2a52560d473d4801052 existing_mtime_ms=1767323045000
+# Subtest: Given one saved Candidate, When approval starts, Then only an exact LLM Wiki review handoff occurs
+ok 15 - Given one saved Candidate, When approval starts, Then only an exact LLM Wiki review handoff occurs
+  ---
+  duration_ms: 2.082333
+  type: 'test'
+  ...
+# Subtest: Given a safe canonical title, When the shared target contract resolves it, Then the target is accepted only under ZETA/PERMANENT
+ok 16 - Given a safe canonical title, When the shared target contract resolves it, Then the target is accepted only under ZETA/PERMANENT
+  ---
+  duration_ms: 0.109708
+  type: 'test'
+  ...
+# Subtest: Given unregistered Knowledge taxonomy, When canonical preview assembly runs, Then it rejects before adapter writes
+ok 17 - Given unregistered Knowledge taxonomy, When canonical preview assembly runs, Then it rejects before adapter writes
+  ---
+  duration_ms: 3.37275
+  type: 'test'
+  ...
+# Subtest: Given a canonical preview with instruction-like body text, When an approved create commits, Then only exact packet bytes reach ZETA
+ok 18 - Given a canonical preview with instruction-like body text, When an approved create commits, Then only exact packet bytes reach ZETA
+  ---
+  duration_ms: 15.544083
+  type: 'test'
+  ...
+# Subtest: Given forbidden caller targets and malformed canonical documents, When packet assembly runs, Then every case rejects before writes
+ok 19 - Given forbidden caller targets and malformed canonical documents, When packet assembly runs, Then every case rejects before writes
+  ---
+  duration_ms: 2.450042
+  type: 'test'
+  ...
+# Subtest: Given an existing canonical target collision after approval, When create commit rechecks live bytes, Then mtime and hash remain unchanged
+ok 20 - Given an existing canonical target collision after approval, When create commit rechecks live bytes, Then mtime and hash remain unchanged
+  ---
+  duration_ms: 3.70525
+  type: 'test'
+  ...
+# TASK6_ASSERT exact_bytes=1 target=ZETA/PERMANENT/검증된 독서 원칙.md after_sha256=403dc82950797fc99af045fe3e83e2dfd0ecac76cea9c7630ed61c65e152bf3d reads=1 writes=0
+# TASK6_ASSERT identity_mutations=7 rejected=7
+# TASK6_ASSERT collision_status=stale_reconfirm_required old_unchanged=1 replacement_target=ZETA/PERMANENT/검증된 독서 원칙 2.md writes=0
+# TASK6_ASSERT malformed_cases=8 zero_write_cases=8
+# Subtest: Given one approved create and an injected live-byte adapter, When a canonical packet is assembled, Then exact shared serializer bytes and every trust binding are present
+ok 21 - Given one approved create and an injected live-byte adapter, When a canonical packet is assembled, Then exact shared serializer bytes and every trust binding are present
+  ---
+  duration_ms: 9.216542
+  type: 'test'
+  ...
+# Subtest: Given an exact packet, When target, property, before, after, provenance, consent, or revision changes, Then each mutation has a different identity and stale hashes reject
+    # Subtest: target
+    ok 1 - target
+      ---
+      duration_ms: 0.372583
+      type: 'test'
+      ...
+    # Subtest: property
+    ok 2 - property
+      ---
+      duration_ms: 0.347167
+      type: 'test'
+      ...
+    # Subtest: before
+    ok 3 - before
+      ---
+      duration_ms: 0.613583
+      type: 'test'
+      ...
+    # Subtest: after
+    ok 4 - after
+      ---
+      duration_ms: 0.464584
+      type: 'test'
+      ...
+    # Subtest: provenance
+    ok 5 - provenance
+      ---
+      duration_ms: 0.341167
+      type: 'test'
+      ...
+    # Subtest: consent
+    ok 6 - consent
+      ---
+      duration_ms: 0.315334
+      type: 'test'
+      ...
+    # Subtest: revision
+    ok 7 - revision
+      ---
+      duration_ms: 0.280542
+      type: 'test'
+      ...
+    1..7
+ok 22 - Given an exact packet, When target, property, before, after, provenance, consent, or revision changes, Then each mutation has a different identity and stale hashes reject
+  ---
+  duration_ms: 3.848708
+  type: 'test'
+  ...
+# Subtest: Given a create target that becomes occupied, When the packet is reassembled from live bytes, Then a new unique target and packet require reconfirmation without mutating the collision
+ok 23 - Given a create target that becomes occupied, When the packet is reassembled from live bytes, Then a new unique target and packet require reconfirmation without mutating the collision
+  ---
+  duration_ms: 3.332166
+  type: 'test'
+  ...
+# Subtest: Given a future existing-target operation, When assembled, Then exact live before bytes are bound but authorization remains disabled
+ok 24 - Given a future existing-target operation, When assembled, Then exact live before bytes are bound but authorization remains disabled
+  ---
+  duration_ms: 2.354834
+  type: 'test'
+  ...
+# Subtest: Given malformed title, target, property, source, or citation input, When assembly is attempted, Then it fails before every write
+ok 25 - Given malformed title, target, property, source, or citation input, When assembly is attempted, Then it fails before every write
+  ---
+  duration_ms: 0.6215
+  type: 'test'
+  ...
+# Subtest: serialized canonical operation fixtures retain their parser-owned identity
+ok 26 - serialized canonical operation fixtures retain their parser-owned identity
+  ---
+  duration_ms: 0.088417
+  type: 'test'
+  ...
+# Subtest: raw and copied canonical authorization records remain rejected before live reads
+ok 27 - raw and copied canonical authorization records remain rejected before live reads
+  ---
+  duration_ms: 0.157
+  type: 'test'
+  ...
+# Subtest: canonical assembly applies the exact private packet authorization transform
+ok 28 - canonical assembly applies the exact private packet authorization transform
+  ---
+  duration_ms: 1.211
+  type: 'test'
+  ...
+# Subtest: real packet tamper preserves the private operation identity and remains packet_tampered
+ok 29 - real packet tamper preserves the private operation identity and remains packet_tampered
+  ---
+  duration_ms: 1.096375
+  type: 'test'
+  ...
+# Subtest: Given instruction-shaped source text, When a create packet is assembled, Then the text remains inert provenance and cannot expand canonical properties
+ok 30 - Given instruction-shaped source text, When a create packet is assembled, Then the text remains inert provenance and cannot expand canonical properties
+  ---
+  duration_ms: 0.552292
+  type: 'test'
+  ...
+# Subtest: canonical v2 authorization binds full accepted ClaimSet and locally evaluated promotion receipt into exact bytes
+ok 31 - canonical v2 authorization binds full accepted ClaimSet and locally evaluated promotion receipt into exact bytes
+  ---
+  duration_ms: 14.884875
+  type: 'test'
+  ...
+# Subtest: approved v2 create writes exact packet bytes only after finalized audit and immutable authority
+ok 32 - approved v2 create writes exact packet bytes only after finalized audit and immutable authority
+  ---
+  duration_ms: 15.603541
+  type: 'test'
+  ...
+# Subtest: canonical v2 uses statement only and retains legacy v1 summary compatibility
+ok 33 - canonical v2 uses statement only and retains legacy v1 summary compatibility
+  ---
+  duration_ms: 3.806084
+  type: 'test'
+  ...
+# Subtest: v2 validates update evidence but create writer still refuses update and merge mutations
+ok 34 - v2 validates update evidence but create writer still refuses update and merge mutations
+  ---
+  duration_ms: 15.685667
+  type: 'test'
+  ...
+# Subtest: canonical v2 fails closed for forged authority, missing source, and stale existing targets before writes
+ok 35 - canonical v2 fails closed for forged authority, missing source, and stale existing targets before writes
+  ---
+  duration_ms: 11.318917
+  type: 'test'
+  ...
+# Subtest: canonical v2 trust requires one finalized immutable decision across every read surface
+ok 36 - canonical v2 trust requires one finalized immutable decision across every read surface
+  ---
+  duration_ms: 41.826917
+  type: 'test'
+  ...
+# Subtest: exposed finalized authority cannot be mutated to verify unaudited canonical bytes
+ok 37 - exposed finalized authority cannot be mutated to verify unaudited canonical bytes
+  ---
+  duration_ms: 14.027625
+  type: 'test'
+  ...
+# Subtest: finalized authority display views are detached and recursively immutable
+ok 38 - finalized authority display views are detached and recursively immutable
+  ---
+  duration_ms: 9.159625
+  type: 'test'
+  ...
+# Subtest: raw authority, labels, clones, mismatches, stale state, and inactive revisions fail closed
+ok 39 - raw authority, labels, clones, mismatches, stale state, and inactive revisions fail closed
+  ---
+  duration_ms: 7.24525
+  type: 'test'
+  ...
+# Subtest: approved update finalizes a new canonical v2 revision that resurfaces once while revision 1 stays muted
+ok 40 - approved update finalizes a new canonical v2 revision that resurfaces once while revision 1 stays muted
+  ---
+  duration_ms: 17.291792
+  type: 'test'
+  ...
+# Subtest: stale update targets zero-mutate and resurface only after exact restoration
+ok 41 - stale update targets zero-mutate and resurface only after exact restoration
+  ---
+  duration_ms: 21.167541
+  type: 'test'
+  ...
+# Subtest: failed authority audit leaves the trusted surface on the last finalized revision
+ok 42 - failed authority audit leaves the trusted surface on the last finalized revision
+  ---
+  duration_ms: 15.831417
+  type: 'test'
+  ...
+# Subtest: prepares a new user-authorized compensation packet with exact inverse bytes
+ok 43 - prepares a new user-authorized compensation packet with exact inverse bytes
+  ---
+  duration_ms: 5.945166
+  type: 'test'
+  ...
+# Subtest: rejects compensation without an explicit current user action
+ok 44 - rejects compensation without an explicit current user action
+  ---
+  duration_ms: 0.215791
+  type: 'test'
+  ...
+# Subtest: validates immutable audit hashes and a contiguous parent chain
+ok 45 - validates immutable audit hashes and a contiguous parent chain
+  ---
+  duration_ms: 4.060416
+  type: 'test'
+  ...
+# Subtest: writes compensation only from compensation_committing and preserves packet trace
+ok 46 - writes compensation only from compensation_committing and preserves packet trace
+  ---
+  duration_ms: 3.427167
+  type: 'test'
+  ...
+# Subtest: rejects compensation outside its dedicated lifecycle state without writes
+ok 47 - rejects compensation outside its dedicated lifecycle state without writes
+  ---
+  duration_ms: 1.421958
+  type: 'test'
+  ...
+# Subtest: rejects live drift before all compensation writes
+ok 48 - rejects live drift before all compensation writes
+  ---
+  duration_ms: 1.996375
+  type: 'test'
+  ...
+# Subtest: restores completed compensation writes in reverse order after a later write fails
+ok 49 - restores completed compensation writes in reverse order after a later write fails
+  ---
+  duration_ms: 1.662959
+  type: 'test'
+  ...
+# Subtest: fails closed with recovery details when compensation restoration fails
+ok 50 - fails closed with recovery details when compensation restoration fails
+  ---
+  duration_ms: 2.792875
+  type: 'test'
+  ...
+# Subtest: restores every target when immutable audit persistence fails after writes
+ok 51 - restores every target when immutable audit persistence fails after writes
+  ---
+  duration_ms: 5.593834
+  type: 'test'
+  ...
+# Subtest: rejects missing or changed live revision tokens before all compensation writes
+ok 52 - rejects missing or changed live revision tokens before all compensation writes
+  ---
+  duration_ms: 1.171167
+  type: 'test'
+  ...
+# Subtest: rejects truncated immutable audit history and replay after service restart
+ok 53 - rejects truncated immutable audit history and replay after service restart
+  ---
+  duration_ms: 5.547042
+  type: 'test'
+  ...
+# Subtest: fails closed when immutable audit records exist without their continuity head
+ok 54 - fails closed when immutable audit records exist without their continuity head
+  ---
+  duration_ms: 3.945125
+  type: 'test'
+  ...
+# Subtest: permits partial transaction restore only in original committing state
+ok 55 - permits partial transaction restore only in original committing state
+  ---
+  duration_ms: 0.964333
+  type: 'test'
+  ...
+# Subtest: persists immutable audit entries through the production Vault adapter
+ok 56 - persists immutable audit entries through the production Vault adapter
+  ---
+  duration_ms: 1.836875
+  type: 'test'
+  ...
+# Subtest: production immutable audit uses Obsidian DataAdapter for hidden local paths
+ok 57 - production immutable audit uses Obsidian DataAdapter for hidden local paths
+  ---
+  duration_ms: 2.18
+  type: 'test'
+  ...
+# Subtest: production audit continuity rejects truncation and replay across fresh services
+ok 58 - production audit continuity rejects truncation and replay across fresh services
+  ---
+  duration_ms: 7.393
+  type: 'test'
+  ...
+# Subtest: forbids destructive command paths and loads the service in production
+ok 59 - forbids destructive command paths and loads the service in production
+  ---
+  duration_ms: 0.4155
+  type: 'test'
+  ...
+# Subtest: real Hub route exposes one confirmed compensation action and consumes it after exact restoration
+ok 60 - real Hub route exposes one confirmed compensation action and consumes it after exact restoration
+  ---
+  duration_ms: 333.826834
+  type: 'test'
+  ...
+# Subtest: disposable production Hub driver restores a failed multi-file compensation and rejects restart truncation
+ok 61 - disposable production Hub driver restores a failed multi-file compensation and rejects restart truncation
+  ---
+  duration_ms: 62.705083
+  type: 'test'
+  ...
+# TASK8_CALL_ORDER get:.llmwiki-audit/nonce_obsidian_adapter_0001.json -> get:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> get:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> get:.llmwiki-audit/nonce_obsidian_adapter_0001.json -> get:.llmwiki-audit -> create:.llmwiki-audit/nonce_obsidian_adapter_0001.json -> create:ZETA/PERMANENT/Obsidian Adapter 원칙.md -> modify:.llmwiki-audit/nonce_obsidian_adapter_0001.json
+# TASK8_REPAIR first=1 duplicate=1 canonical_rewrites=0 provider=0 network=0 git=0
+# Subtest: real app.vault is resolved while malformed or absent browser runtime is runtime_unavailable
+ok 62 - real app.vault is resolved while malformed or absent browser runtime is runtime_unavailable
+  ---
+  duration_ms: 4.668542
+  type: 'test'
+  ...
+# Subtest: raw, spread, copied, and JSON-unbranded operations reject before Vault effects
+ok 63 - raw, spread, copied, and JSON-unbranded operations reject before Vault effects
+  ---
+  duration_ms: 5.820875
+  type: 'test'
+  ...
+# Subtest: deterministic writer validates, prepares audit, creates exact canonical bytes, and finalizes exact audit bytes in order
+ok 64 - deterministic writer validates, prepares audit, creates exact canonical bytes, and finalizes exact audit bytes in order
+  ---
+  duration_ms: 28.180584
+  type: 'test'
+  ...
+# Subtest: modify uses app.vault read/create/modify in exact order and preserves exact before/after state
+ok 65 - modify uses app.vault read/create/modify in exact order and preserves exact before/after state
+  ---
+  duration_ms: 0.597875
+  type: 'test'
+  ...
+# Subtest: missing audit directory is created at the one exact Vault path before audit prepare
+ok 66 - missing audit directory is created at the one exact Vault path before audit prepare
+  ---
+  duration_ms: 1.523875
+  type: 'test'
+  ...
+# Subtest: audit prepare failure writes no canonical and reports exact zero counters
+ok 67 - audit prepare failure writes no canonical and reports exact zero counters
+  ---
+  duration_ms: 6.138917
+  type: 'test'
+  ...
+# Subtest: canonical failure preserves canonical state and finalizes a rejected audit when possible
+ok 68 - canonical failure preserves canonical state and finalizes a rejected audit when possible
+  ---
+  duration_ms: 5.139542
+  type: 'test'
+  ...
+# Subtest: audit finalize failure returns committed_audit_pending without canonical rollback and repair is exact and idempotent
+ok 69 - audit finalize failure returns committed_audit_pending without canonical rollback and repair is exact and idempotent
+  ---
+  duration_ms: 8.340333
+  type: 'test'
+  ...
+# Subtest: repair write failure keeps exact prepared audit and canonical bytes for a later retry
+ok 70 - repair write failure keeps exact prepared audit and canonical bytes for a later retry
+  ---
+  duration_ms: 4.08475
+  type: 'test'
+  ...
+# Subtest: create collision, stale modify bytes, and repair mismatch reject before forbidden mutation
+ok 71 - create collision, stale modify bytes, and repair mismatch reject before forbidden mutation
+  ---
+  duration_ms: 5.179125
+  type: 'test'
+  ...
+# Subtest: malformed paths, packet, vault shape, and source text fail closed; product adapter has no Node fs path
+ok 72 - malformed paths, packet, vault shape, and source text fail closed; product adapter has no Node fs path
+  ---
+  duration_ms: 0.800708
+  type: 'test'
+  ...
+# Subtest: Given the operation writer modules, When their boundaries are inspected, Then each authority has one specific role under 250 pure LOC
+ok 73 - Given the operation writer modules, When their boundaries are inspected, Then each authority has one specific role under 250 pure LOC
+  ---
+  duration_ms: 13.737625
+  type: 'test'
+  ...
+# Subtest: Given the stable writer facade, When its public surface is enumerated, Then no generic mutation seam is exposed
+ok 74 - Given the stable writer facade, When its public surface is enumerated, Then no generic mutation seam is exposed
+  ---
+  duration_ms: 0.517041
+  type: 'test'
+  ...
+# Subtest: operation run state declares every kind and deterministic state/action transition
+ok 75 - operation run state declares every kind and deterministic state/action transition
+  ---
+  duration_ms: 3.83225
+  type: 'test'
+  ...
+# Subtest: operation run identity and revision are monotonic and stale identities reject
+ok 76 - operation run identity and revision are monotonic and stale identities reject
+  ---
+  duration_ms: 0.14175
+  type: 'test'
+  ...
+# Subtest: controller delegates typed update execution through the operation orchestrator
+ok 77 - controller delegates typed update execution through the operation orchestrator
+  ---
+  duration_ms: 27.799583
+  type: 'test'
+  ...
+# Subtest: create, update, merge, and no-op use one exhaustive service interface
+ok 78 - create, update, merge, and no-op use one exhaustive service interface
+  ---
+  duration_ms: 3.515167
+  type: 'test'
+  ...
+# Subtest: one active run rejects a second start and explicit replacement invalidates the old provider
+ok 79 - one active run rejects a second start and explicit replacement invalidates the old provider
+  ---
+  duration_ms: 0.618291
+  type: 'test'
+  ...
+# Subtest: cancel while provider is pending aborts and makes the late provider result UI-inert
+ok 80 - cancel while provider is pending aborts and makes the late provider result UI-inert
+  ---
+  duration_ms: 0.451583
+  type: 'test'
+  ...
+# Subtest: cancel after provider readiness prevents approval and all canonical adapter calls
+ok 81 - cancel after provider readiness prevents approval and all canonical adapter calls
+  ---
+  duration_ms: 0.548292
+  type: 'test'
+  ...
+# Subtest: late packet preparation and approval callbacks are ignored before authorization or commit side effects
+ok 82 - late packet preparation and approval callbacks are ignored before authorization or commit side effects
+  ---
+  duration_ms: 1.315333
+  type: 'test'
+  ...
+# Subtest: cancel during a pending commit ignores its callback and the guarded service never reaches its adapter
+ok 83 - cancel during a pending commit ignores its callback and the guarded service never reaches its adapter
+  ---
+  duration_ms: 0.471417
+  type: 'test'
+  ...
+# Subtest: duplicate approval while committing is rejected and invokes commit once
+ok 84 - duplicate approval while committing is rejected and invokes commit once
+  ---
+  duration_ms: 0.585542
+  type: 'test'
+  ...
+# Subtest: commit failure is terminal without a canonical success outcome
+ok 85 - commit failure is terminal without a canonical success outcome
+  ---
+  duration_ms: 0.316667
+  type: 'test'
+  ...
+# Subtest: refresh and Git failures remain separate from immutable canonical success and retry without recommit
+ok 86 - refresh and Git failures remain separate from immutable canonical success and retry without recommit
+  ---
+  duration_ms: 1.217708
+  type: 'test'
+  ...
+# Subtest: cancel during refresh invalidates late refresh and Git callbacks while preserving canonical success
+ok 87 - cancel during refresh invalidates late refresh and Git callbacks while preserving canonical success
+  ---
+  duration_ms: 1.502417
+  type: 'test'
+  ...
+# Subtest: recovery reconstructs committed and no-change outcomes without rerunning provider, approval, or commit
+ok 88 - recovery reconstructs committed and no-change outcomes without rerunning provider, approval, or commit
+  ---
+  duration_ms: 0.835458
+  type: 'test'
+  ...
+# Subtest: approval callback is privately bound to run, revision, operation, packet, and approval identity
+ok 89 - approval callback is privately bound to run, revision, operation, packet, and approval identity
+  ---
+  duration_ms: 1.226833
+  type: 'test'
+  ...
+# Subtest: cancelled refresh and Git follow-up state persists and recovery cannot resurrect pending callbacks
+ok 90 - cancelled refresh and Git follow-up state persists and recovery cannot resurrect pending callbacks
+  ---
+  duration_ms: 1.712083
+  type: 'test'
+  ...
+# Subtest: duplicate approval callback emits one deterministic audit and repeated delivery is side-effect free
+ok 91 - duplicate approval callback emits one deterministic audit and repeated delivery is side-effect free
+  ---
+  duration_ms: 0.610459
+  type: 'test'
+  ...
+# Subtest: refresh and Git adapter entry is identity-guarded after cancellation
+ok 92 - refresh and Git adapter entry is identity-guarded after cancellation
+  ---
+  duration_ms: 1.666917
+  type: 'test'
+  ...
+# Subtest: invalid cancel validates before token invalidation and leaves retry capability intact
+ok 93 - invalid cancel validates before token invalidation and leaves retry capability intact
+  ---
+  duration_ms: 1.78
+  type: 'test'
+  ...
+# Subtest: cancel and retry commands are privately identity-bound and stale or duplicate delivery audits once
+ok 94 - cancel and retry commands are privately identity-bound and stale or duplicate delivery audits once
+  ---
+  duration_ms: 3.104
+  type: 'test'
+  ...
+# Subtest: serialized durable saves make cancelled follow-up win over an earlier suspended save
+ok 95 - serialized durable saves make cancelled follow-up win over an earlier suspended save
+  ---
+  duration_ms: 1.128625
+  type: 'test'
+  ...
+# Subtest: raw stale approval intent cannot rebind to the replacement run and raw boundary is exact
+ok 96 - raw stale approval intent cannot rebind to the replacement run and raw boundary is exact
+  ---
+  duration_ms: 0.774875
+  type: 'test'
+  ...
+# Subtest: mismatched authorization terminalizes authorizing and invalidates the callback capability
+ok 97 - mismatched authorization terminalizes authorizing and invalidates the callback capability
+  ---
+  duration_ms: 0.6935
+  type: 'test'
+  ...
+# Subtest: stale commit result cannot become canonical success
+ok 98 - stale commit result cannot become canonical success
+  ---
+  duration_ms: 0.714333
+  type: 'test'
+  ...
+# Subtest: Task10 browser update approval requires serialized private brands and the authorization transform
+ok 99 - Task10 browser update approval requires serialized private brands and the authorization transform
+  ---
+  duration_ms: 25.893833
+  type: 'test'
+  ...
+# Subtest: on-disk A create → B approved supplement → existing verified reader and Wiki candidate reuse
+ok 100 - on-disk A create → B approved supplement → existing verified reader and Wiki candidate reuse
+  ---
+  duration_ms: 63.893833
+  type: 'test'
+  ...
+# Subtest: stale source refuses the approved update without overwriting current bytes
+ok 101 - stale source refuses the approved update without overwriting current bytes
+  ---
+  duration_ms: 12.709458
+  type: 'test'
+  ...
+# Subtest: stale target refuses the approved update without overwriting current bytes
+ok 102 - stale target refuses the approved update without overwriting current bytes
+  ---
+  duration_ms: 10.969875
+  type: 'test'
+  ...
+# Subtest: immutable authority failure resumes without duplicate write; subsequent user edit=false
+ok 103 - immutable authority failure resumes without duplicate write; subsequent user edit=false
+  ---
+  duration_ms: 19.657625
+  type: 'test'
+  ...
+# Subtest: immutable authority failure resumes without duplicate write; subsequent user edit=true
+ok 104 - immutable authority failure resumes without duplicate write; subsequent user edit=true
+  ---
+  duration_ms: 13.814166
+  type: 'test'
+  ...
+# Subtest: prepared authority audit finalization failure resumes without rewriting Markdown
+ok 105 - prepared authority audit finalization failure resumes without rewriting Markdown
+  ---
+  duration_ms: 19.297958
+  type: 'test'
+  ...
+# Subtest: cloned approval authority cannot authorize changed claim/source bindings
+ok 106 - cloned approval authority cannot authorize changed claim/source bindings
+  ---
+  duration_ms: 9.521542
+  type: 'test'
+  ...
+# Subtest: recorded six-condition proposal reaches final canonical Markdown through official approval and reader
+ok 107 - recorded six-condition proposal reaches final canonical Markdown through official approval and reader
+  ---
+  duration_ms: 10.708792
+  type: 'test'
+  ...
+# Subtest: recorded unresolved conflict remains intact and is ineligible for canonical promotion
+ok 108 - recorded unresolved conflict remains intact and is ineligible for canonical promotion
+  ---
+  duration_ms: 1.682208
+  type: 'test'
+  ...
+# Subtest: immutable entry persisted before head update failure resumes the same approval without duplicate entry
+ok 109 - immutable entry persisted before head update failure resumes the same approval without duplicate entry
+  ---
+  duration_ms: 17.574709
+  type: 'test'
+  ...
+# Subtest: source changed during audit preparation is rechecked before any canonical write
+ok 110 - source changed during audit preparation is rechecked before any canonical write
+  ---
+  duration_ms: 10.523833
+  type: 'test'
+  ...
+# Subtest: pending immutable head repair cannot overwrite a later user edit or rewrite audit entries
+ok 111 - pending immutable head repair cannot overwrite a later user edit or rewrite audit entries
+  ---
+  duration_ms: 13.164625
+  type: 'test'
+  ...
+# Subtest: private update approval binds canonical identity, revision, exact bytes, evidence, and exact restore compensation
+ok 112 - private update approval binds canonical identity, revision, exact bytes, evidence, and exact restore compensation
+  ---
+  duration_ms: 16.911875
+  type: 'test'
+  ...
+# Subtest: deterministic commit atomically replaces the exact update target once, verifies bytes, preserves mode and unrelated files, and replays with zero writes
+ok 113 - deterministic commit atomically replaces the exact update target once, verifies bytes, preserves mode and unrelated files, and replays with zero writes
+  ---
+  duration_ms: 21.173166
+  type: 'test'
+  ...
+# Subtest: stale external bytes fail immediately before write without consuming approval and can retry after exact restoration
+ok 114 - stale external bytes fail immediately before write without consuming approval and can retry after exact restoration
+  ---
+  duration_ms: 14.797417
+  type: 'test'
+  ...
+# Subtest: path escape, symlink, raw, proxy, accessor, and oversized inputs reject without replacement
+ok 115 - path escape, symlink, raw, proxy, accessor, and oversized inputs reject without replacement
+  ---
+  duration_ms: 161.870583
+  type: 'test'
+  ...
+# Subtest: concurrent drift, misleading success, and interruption before or after replace fail closed; only known exact post-replace bytes can be restored
+ok 116 - concurrent drift, misleading success, and interruption before or after replace fail closed; only known exact post-replace bytes can be restored
+  ---
+  duration_ms: 6.799917
+  type: 'test'
+  ...
+1..116
+# tests 123
+# suites 0
+# pass 123
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 579.005333

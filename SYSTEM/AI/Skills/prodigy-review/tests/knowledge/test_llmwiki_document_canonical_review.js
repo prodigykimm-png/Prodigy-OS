@@ -520,7 +520,7 @@ test('task 5 Hub remount lists distinct preparation-free drafts and opens the se
  const runtime=await runHub({pages:[],extraFiles:{'SYSTEM/CACHE/llmwiki/batch-job-state.json':fixture.disk.get(jobs.STATE_FILE),[source.source_path]:source.evidence_quote},llmWikiControllerOptions:{batchProvider:async()=>{providers++;throw new Error('unexpected provider');}}});
  await runtime.window.KnowledgeExplorerHub.whenKnowledgeInboxSettled();
  const panel=runtime.container.querySelector('.llmwiki-pending-document-reviews');assert.ok(panel);
- const buttons=panel.querySelectorAll('button');assert.equal(buttons.length,2,'packet-free records must not deduplicate as undefined packet hashes');
+ const buttons=panel.querySelectorAll('[data-action="reopen-canonical-review"]');assert.equal(buttons.length,2,'packet-free records must not deduplicate as undefined packet hashes');
  await buttons[1].onclick();
  assert.equal(runtime.container.querySelector('[data-review-field="application_trigger"]').value,'Correction two');
  assert.equal(runtime.container.querySelector('[data-action="apply-document-review"]').disabled,true);
