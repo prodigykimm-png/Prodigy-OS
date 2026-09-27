@@ -34,6 +34,119 @@
     return typeof value === "string" && /^[a-f0-9]{40,64}$/.test(value);
   }
 
+  var MILESTONES = Object.freeze([
+    "first_useful_paint",
+    "first_actionable_control",
+    "data_scan",
+    "projection",
+    "dom_render",
+    "review_resume",
+    "provider_wait",
+    "recovery_complete"
+  ]);
+
+  /*
+   * Real-use milestone vocabulary recorded through the EXISTING recorder
+   * phases. data_scan, projection and dom_render already own paired recorder
+   * phases; every other milestone reuses the generic optional pair with the
+   * milestone name forced into scope, so each milestone stays derivable from
+   * the same receipt marks. There is no second recorder and no parallel
+   * telemetry pipeline. No SLA or budget is asserted here: this layer only
+   * proves when a workspace became useful, with start, end and state.
+   */
+  var MILESTONE_PHASES = Object.freeze({
+    first_useful_paint: Object.freeze(["optional_start", "optional_end"]),
+    first_actionable_control: Object.freeze(["optional_start", "optional_end"]),
+    data_scan: Object.freeze(["data_scan_start", "data_scan_end"]),
+    projection: Object.freeze(["projection_start", "projection_end"]),
+    dom_render: Object.freeze(["dom_render_start", "dom_render_end"]),
+    review_resume: Object.freeze(["optional_start", "optional_end"]),
+    provider_wait: Object.freeze(["optional_start", "optional_end"]),
+    recovery_complete: Object.freeze(["optional_start", "optional_end"])
+  });
+
+  var MILESTONE_STATES = Object.freeze({
+    COMPLETE: "complete",
+    STARTED: "started",
+    MISSING: "missing",
+    UNAVAILABLE: "unavailable",
+    INVALID: "invalid",
+    FAILED: "failed"
+  });
+
+  /*
+   * Terminal failure is an explicit end status, never inferred from timing.
+   * An end marked failed or aborted names an event that did NOT usefully
+   * occur, so it must surface as failed rather than launder into complete.
+   */
+  function failedEndStatus(mark) {
+    if (!mark || typeof mark !== "object" || typeof mark.status !== "string") return "";
+    var status = mark.status.trim().toLowerCase();
+    return status === "failed" || status === "aborted" ? status : "";
+  }
+
+  function isMilestone(name) {
+    return typeof name === "string" && own(MILESTONE_PHASES, name);
+  }
+
+  function milestoneMarkKind(name, mark) {
+    if (!mark || typeof mark !== "object") return "";
+    var pair = MILESTONE_PHASES[name];
+    if (!pair) return "";
+    if (pair[0] === "optional_start" && mark.scope !== name) return "";
+    if (mark.phase === pair[0]) return "start";
+    if (mark.phase === pair[1]) return "end";
+    return "";
+  }
+
+  function milestoneEntry(name, marks) {
+    var list = Array.isArray(marks) ? marks : [];
+    var start = null;
+    var end = null;
+    for (var i = 0; i < list.length; i++) {
+      var kind = milestoneMarkKind(name, list[i]);
+      if (kind === "start" && !start) start = list[i];
+      else if (kind === "end" && !end) end = list[i];
+      if (start && end) break;
+    }
+    if (!start && !end) {
+      return Object.freeze({ milestone: name, state: MILESTONE_STATES.MISSING, start: null, end: null, reason: null });
+    }
+    var terminalFailure = end ? failedEndStatus(end) : "";
+    if (terminalFailure) {
+      return Object.freeze({ milestone: name, state: MILESTONE_STATES.FAILED, start: start, end: end, reason: terminalFailure });
+    }
+    if (start && end) {
+      if (typeof end.duration_ms === "number" && end.duration_ms < 0) {
+        return Object.freeze({ milestone: name, state: MILESTONE_STATES.INVALID, start: start, end: end, reason: "negative_duration" });
+      }
+      if (typeof start.at_ms === "number" && typeof end.at_ms === "number" && end.at_ms < start.at_ms) {
+        return Object.freeze({ milestone: name, state: MILESTONE_STATES.INVALID, start: start, end: end, reason: "non_monotonic_clock" });
+      }
+      return Object.freeze({ milestone: name, state: MILESTONE_STATES.COMPLETE, start: start, end: end, reason: null });
+    }
+    if (end && end.missing_start === true) {
+      return Object.freeze({ milestone: name, state: MILESTONE_STATES.STARTED, start: null, end: end, reason: "missing_start" });
+    }
+    return Object.freeze({ milestone: name, state: MILESTONE_STATES.STARTED, start: start, end: end, reason: null });
+  }
+
+  function unavailableMilestoneEntry(name, reason) {
+    return Object.freeze({ milestone: name, state: MILESTONE_STATES.UNAVAILABLE, start: null, end: null, reason: reason || "measurement_unavailable" });
+  }
+
+  function unavailableMilestoneStates(reason) {
+    var out = {};
+    MILESTONES.forEach(function (name) { out[name] = unavailableMilestoneEntry(name, reason); });
+    return Object.freeze(out);
+  }
+
+  function milestoneStatesFromMarks(marks) {
+    var out = {};
+    MILESTONES.forEach(function (name) { out[name] = milestoneEntry(name, marks); });
+    return Object.freeze(out);
+  }
+
   function bindingError(options) {
     if (!options || typeof options !== "object" || Array.isArray(options)) return "invalid_receipt_options";
     if (options.cold_warm !== "cold" && options.cold_warm !== "warm") return "missing_cold_warm";
@@ -82,6 +195,12 @@
       save: function () { return null; },
       pendingReceipt: function () { return null; },
       state: function () { return "unavailable"; },
+      startMilestone: function () { return null; },
+      endMilestone: function () { return null; },
+      measureMilestone: function (_milestone, operation) { return typeof operation === "function" ? operation() : undefined; },
+      milestoneState: function (name) { return unavailableMilestoneEntry(typeof name === "string" ? name : "", reason || "measurement_unavailable"); },
+      milestoneStates: function () { return unavailableMilestoneStates(reason || "measurement_unavailable"); },
+      milestoneReceipt: function () { return Object.freeze({ milestones: unavailableMilestoneStates(reason || "measurement_unavailable"), provider_calls: 0 }); },
       get redactedPreview() { return null; }
     };
     session.controller = unavailableController(reason || "measurement_unavailable", session);
@@ -115,6 +234,12 @@
       save: function () { return null; },
       pendingReceipt: function () { return null; },
       state: function () { return "unavailable"; },
+      startMilestone: function () { return null; },
+      endMilestone: function () { return null; },
+      measureMilestone: function (_milestone, operation) { return typeof operation === "function" ? operation() : undefined; },
+      milestoneState: function (name) { return unavailableMilestoneEntry(typeof name === "string" ? name : "", reason || "measurement_unavailable"); },
+      milestoneStates: function () { return unavailableMilestoneStates(reason || "measurement_unavailable"); },
+      milestoneReceipt: function () { return Object.freeze({ milestones: unavailableMilestoneStates(reason || "measurement_unavailable"), provider_calls: 0 }); },
       dispose: function () { return null; },
       get redactedPreview() { return null; }
     };
@@ -238,6 +363,12 @@
       markReady: function (selector, snapshot, readinessOptions) { return session.markReady(selector, snapshot, readinessOptions); },
       measureModule: function (modulePath, operation) { return session.measureModule(modulePath, operation); },
       recordMissing: function (phase) { return session.recordMissing(phase); },
+      startMilestone: function (name, fields) { return session.startMilestone(name, fields); },
+      endMilestone: function (tokenOrName, fields) { return session.endMilestone(tokenOrName, fields); },
+      measureMilestone: function (name, operation, fields) { return session.measureMilestone(name, operation, fields); },
+      milestoneState: function (name, receipt) { return session.milestoneState(name, receipt); },
+      milestoneStates: function (receipt) { return session.milestoneStates(receipt); },
+      milestoneReceipt: function (receipt) { return session.milestoneReceipt(receipt); },
       finalize: finalize,
       preview: preview,
       previewExport: preview,
@@ -389,6 +520,85 @@
       return null;
     }
 
+    function milestoneFields(name, fields) {
+      var value = fields && typeof fields === "object" && !Array.isArray(fields) ? Object.assign({}, fields) : {};
+      if (MILESTONE_PHASES[name] && MILESTONE_PHASES[name][0] === "optional_start") value.scope = name;
+      return value;
+    }
+
+    function startMilestone(name, fields) {
+      if (!isMilestone(name)) return null;
+      return call("start", [MILESTONE_PHASES[name][0], milestoneFields(name, fields)]);
+    }
+
+    function endMilestone(tokenOrName, fields) {
+      if (tokenOrName && typeof tokenOrName === "object" && tokenOrName.key) {
+        var endFields = fields && typeof fields === "object" && !Array.isArray(fields) ? Object.assign({}, fields) : {};
+        if (tokenOrName.category === "optional" && typeof tokenOrName.key === "string") {
+          var keyScope = tokenOrName.key.split("\u0000")[2];
+          if (isMilestone(keyScope)) endFields.scope = keyScope;
+        }
+        return call("end", [tokenOrName, endFields]);
+      }
+      if (!isMilestone(tokenOrName)) return null;
+      return call("end", [MILESTONE_PHASES[tokenOrName][1], milestoneFields(tokenOrName, fields)]);
+    }
+
+    function measureMilestone(name, operation, fields) {
+      if (!isMilestone(name)) return typeof operation === "function" ? operation() : undefined;
+      var token = startMilestone(name, fields);
+      if (!token) return typeof operation === "function" ? operation() : undefined;
+      var result;
+      try {
+        result = typeof operation === "function" ? operation() : undefined;
+      } catch (error) {
+        call("end", [token, { scope: name, status: "failed" }]);
+        throw error;
+      }
+      if (result && typeof result.then === "function") {
+        return result.then(function (value) {
+          call("end", [token, milestoneFields(name, fields)]);
+          return value;
+        }, function (error) {
+          call("end", [token, { scope: name, status: "failed" }]);
+          throw error;
+        });
+      }
+      call("end", [token, milestoneFields(name, fields)]);
+      return result;
+    }
+
+    function liveMilestoneMarks() {
+      try {
+        if (recorder && Array.isArray(recorder.marks)) return recorder.marks;
+      } catch (_error) { /* fall through to an empty mark list */ }
+      return [];
+    }
+
+    function milestoneStates(receipt) {
+      if (receipt === undefined) return milestoneStatesFromMarks(liveMilestoneMarks());
+      if (!receipt || typeof receipt !== "object" || Array.isArray(receipt) || !Array.isArray(receipt.marks)) {
+        return unavailableMilestoneStates("receipt_unavailable");
+      }
+      return milestoneStatesFromMarks(receipt.marks);
+    }
+
+    function milestoneState(name, receipt) {
+      if (!isMilestone(name)) return null;
+      return milestoneStates(receipt)[name];
+    }
+
+    function milestoneReceipt(receipt) {
+      /*
+       * Derived view over the SAME recorder receipt: milestone states plus
+       * the structural no-provider-call assertion. This seam contains no
+       * provider-call path, so provider_calls is 0 by construction; it is
+       * asserted here so downstream consumers can prove the semantics from
+       * the artifact itself instead of trusting prose.
+       */
+      return Object.freeze({ milestones: milestoneStates(receipt), provider_calls: 0 });
+    }
+
     var session = {
       available: true,
       workspaceId: workspaceId,
@@ -412,6 +622,12 @@
       exporterAvailable: !!resolve("ProdigyPerformanceExporter", "./prodigy-performance-exporter.js"),
       get redactedPreview() { return lastExportPreview; },
       recordMissing: function (phase) { return call("recordMissing", [phase]); },
+      startMilestone: startMilestone,
+      endMilestone: endMilestone,
+      measureMilestone: measureMilestone,
+      milestoneState: milestoneState,
+      milestoneStates: milestoneStates,
+      milestoneReceipt: milestoneReceipt,
       finalize: finalize,
       previewExport: function (exportOptions) { return controller ? controller.preview(exportOptions) : null; },
       createExporter: function (exportOptions) { return controller ? controller.createExporter(exportOptions) : null; },
@@ -493,6 +709,9 @@
     dispose: disposeCampaign
   });
   var api = Object.freeze({
+    MILESTONES: MILESTONES,
+    MILESTONE_STATES: MILESTONE_STATES,
+    isMilestone: isMilestone,
     createSession: createSession,
     getOrCreateSession: getOrCreateSession,
     createCampaign: createCampaign,

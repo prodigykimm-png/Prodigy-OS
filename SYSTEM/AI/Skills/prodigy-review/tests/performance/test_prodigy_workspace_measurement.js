@@ -112,6 +112,143 @@ function testFinalizationRequiresExplicitBinding() {
   );
 }
 
+function testMilestoneVocabularyCompleteReceipt() {
+  const session = measurement.createSession({ workspace_id: "milestones", clock: clock() });
+  assert.deepEqual(measurement.MILESTONES, [
+    "first_useful_paint",
+    "first_actionable_control",
+    "data_scan",
+    "projection",
+    "dom_render",
+    "review_resume",
+    "provider_wait",
+    "recovery_complete"
+  ]);
+  const tokens = {};
+  for (const name of measurement.MILESTONES) {
+    assert.equal(measurement.isMilestone(name), true);
+    tokens[name] = session.startMilestone(name, { status: "checking" });
+    assert.ok(tokens[name], `start token for ${name}`);
+  }
+  for (const name of measurement.MILESTONES) {
+    const ended = session.endMilestone(tokens[name], { status: "done" });
+    assert.ok(ended, `end mark for ${name}`);
+  }
+  const finalized = session.finalize(receiptOptions());
+  assert.equal(recorder.verifyReceiptHash(finalized), true);
+  const states = session.milestoneStates(finalized);
+  for (const name of measurement.MILESTONES) {
+    assert.equal(states[name].state, "complete", name);
+    assert.ok(states[name].start, `${name} start`);
+    assert.ok(states[name].end, `${name} end`);
+  }
+  const proof = session.milestoneReceipt(finalized);
+  assert.equal(proof.provider_calls, 0);
+  const live = session.milestoneStates();
+  for (const name of measurement.MILESTONES) {
+    assert.equal(live[name].state, "complete", `live ${name}`);
+  }
+  assert.equal(session.startMilestone("not_a_milestone"), null);
+  assert.equal(session.endMilestone("not_a_milestone"), null);
+  assert.equal(session.milestoneState("not_a_milestone"), null);
+  assert.equal(measurement.isMilestone("time_to_interactive"), false);
+}
+
+function testMilestoneMalformedInputs() {
+  const session = measurement.createSession({ workspace_id: "milestones_malformed", clock: clock() });
+  const token = session.startMilestone("provider_wait", { status: "waiting" });
+  assert.ok(token);
+  assert.equal(session.milestoneState("provider_wait").state, "started");
+
+  const orphan = session.endMilestone("recovery_complete", { status: "done" });
+  assert.ok(orphan);
+  assert.equal(orphan.missing_start, true);
+  assert.equal(session.milestoneState("recovery_complete").state, "started");
+
+  const bad = session.endMilestone(token, { duration_ms: -5 });
+  assert.equal(bad, null);
+  assert.equal(session.milestoneState("provider_wait").state, "started");
+
+  const absent = session.milestoneStates(null);
+  for (const name of measurement.MILESTONES) {
+    assert.equal(absent[name].state, "unavailable", name);
+    assert.equal(absent[name].start, null);
+    assert.equal(absent[name].end, null);
+  }
+  assert.equal(session.milestoneReceipt(null).provider_calls, 0);
+
+  let now = 100;
+  const regressing = measurement.createSession({ workspace_id: "milestones_clock", clock: { now: () => now } });
+  const paintToken = regressing.startMilestone("first_useful_paint", {});
+  assert.ok(paintToken);
+  now = 50;
+  assert.equal(regressing.endMilestone(paintToken, {}), null);
+  assert.equal(regressing.milestoneState("first_useful_paint").state, "started");
+}
+
+function testMilestoneFreshSessionHasNoStaleState() {
+  const first = measurement.createSession({ workspace_id: "milestones_stale_a", clock: clock() });
+  const token = first.startMilestone("data_scan", { status: "scanning" });
+  first.endMilestone(token, { status: "loaded" });
+  assert.equal(first.milestoneState("data_scan").state, "complete");
+
+  const second = measurement.createSession({ workspace_id: "milestones_stale_b", clock: clock() });
+  for (const name of measurement.MILESTONES) {
+    assert.equal(second.milestoneState(name).state, "missing", `fresh session ${name}`);
+  }
+  const reviewToken = second.startMilestone("review_resume", { status: "resuming" });
+  second.endMilestone(reviewToken, { status: "resumed" });
+  assert.equal(second.milestoneState("review_resume").state, "complete");
+  assert.equal(second.milestoneState("data_scan").state, "missing");
+  assert.equal(first.milestoneState("data_scan").state, "complete");
+}
+
+function testMilestoneLayerReportsFailure() {
+  const session = measurement.createSession({ workspace_id: "milestones_failure", clock: clock() });
+  session.fail(Object.assign(new Error("synthetic contract violation"), { code: "SYNTHETIC_CONTRACT_VIOLATION" }), {});
+  const finalized = session.finalize(receiptOptions());
+  assert.ok(finalized.failures.length >= 1);
+  assert.ok(finalized.failures.some((entry) => entry.code === "SYNTHETIC_CONTRACT_VIOLATION"));
+  assert.ok(finalized.marks.some((mark) => mark.phase === "error"));
+}
+
+function testMilestoneFailedEndIsNotComplete() {
+  const session = measurement.createSession({ workspace_id: "milestones_terminal", clock: clock() });
+  assert.equal(measurement.MILESTONE_STATES.FAILED, "failed");
+
+  const failedToken = session.startMilestone("first_useful_paint", { status: "rendering" });
+  assert.ok(failedToken);
+  const failedEnd = session.endMilestone(failedToken, { status: "failed" });
+  assert.ok(failedEnd);
+  const failedState = session.milestoneState("first_useful_paint");
+  assert.equal(failedState.state, "failed");
+  assert.notEqual(failedState.state, "complete");
+  assert.ok(failedState.start);
+  assert.ok(failedState.end);
+
+  const abortedToken = session.startMilestone("dom_render", { status: "rendering" });
+  assert.ok(abortedToken);
+  assert.ok(session.endMilestone(abortedToken, { status: "aborted" }));
+  const abortedState = session.milestoneState("dom_render");
+  assert.equal(abortedState.state, "failed");
+  assert.notEqual(abortedState.state, "complete");
+
+  const finalized = session.finalize(receiptOptions());
+  assert.equal(recorder.verifyReceiptHash(finalized), true);
+  const states = session.milestoneStates(finalized);
+  assert.equal(states.first_useful_paint.state, "failed");
+  assert.equal(states.dom_render.state, "failed");
+  const proof = session.milestoneReceipt(finalized);
+  assert.equal(proof.milestones.first_useful_paint.state, "failed");
+  assert.equal(proof.milestones.dom_render.state, "failed");
+  assert.equal(proof.provider_calls, 0);
+}
+
 testProductionCampaignLifecycle();
 testFinalizationRequiresExplicitBinding();
-console.log("2/2 workspace measurement integration checks passed");
+testMilestoneVocabularyCompleteReceipt();
+testMilestoneMalformedInputs();
+testMilestoneFreshSessionHasNoStaleState();
+testMilestoneLayerReportsFailure();
+testMilestoneFailedEndIsNotComplete();
+console.log("7/7 workspace measurement integration checks passed");
