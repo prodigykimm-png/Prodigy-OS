@@ -98,6 +98,32 @@ node SYSTEM/SCRIPTS/region-metrics-apply.js \
 
 실제 반영은 사용자가 대상 Object와 snapshot을 승인한 뒤 `--dry-run`만 제거한다.
 
+### monthly_refresh 2단계: 고시 수준 조사 요약
+
+지표만 갱신하면 조사는 이전 상태로 남는다. 월 1회 아래 단계를 함께 돌린다.
+
+1. manifest index의 230개 중 조례 수준(`AI:PENDING:SUMMARY`가 자치법규 문구만 인용)인 지역을 고른다.
+2. 지역당 검색 1회로 공식 1차 출처 후보를 찾고, `official_primary` 도메인만 연다.
+   - 토지이음 고시 상세 `eum.go.kr/web/gs/gv/gvGosiDet.jsp?seq=` → 고시번호·고시일·사업명
+   - 시군청 고시공고·누리집 공지 → 세대수·연면적 등 **규모가 본문에 있는 경우만**
+   - 뉴뉴스·블로그는 인용하지 않는다
+3. 인용 페이지가 **그 지역 소유인지** 확인한다(발행 고시가 `OO시/구/군` 명의인지). 다르면 버린다.
+4. `AI:PENDING:SUMMARY`와 `AUTO:REGION_RESEARCH_SOURCES`만 건드이는 패치를 쓴다.
+   세대수와 예정월이 있으면 `supply_pipeline`을 함께 실어 `AI:PENDING:SUPPLY_PIPELINE`을 채운다.
+
+```bash
+node SYSTEM/SCRIPTS/region-summary-patch-apply.js \
+  --dry-run \
+  --target "PARA/RESOURCES/Auction Regions/{region_key}.md" \
+  --patch "SYSTEM/CACHE/region-summary-patches/{region_key}/{patched_at}.json"
+```
+
+- 대상 블록이 채워져 있으면 fail-closed로 거부한다. SUMMARY은 그 블록을 비운 뒤 적용한다.
+- 출처 블록을 다시 쓸 때는 **남은 블록이 인용 중인 source_id를 버리지 않는다.**
+- 근거가 없으면 지어내지 말고 `no_project_fact`로 남긴다.
+
+**알려진 한계(2026-09-28 확인)**: 토지이음 고시 상세 본문에는 세대·연면적·대지면적이 없다(예: seq=611344, 본문 1,838자). 규모는 시군청 공지에서만 나오며, 지역당 2~3회 조회와 10~20% 성공률을 따른다. 규모를 못 찾은 지역은 조례 수준을 유지하는 것이 계약에 맞다.
+
 ## package mode (v1)
 
 저비용 조사 에이전트는 Region Object를 직접 수정하지 않는다. 공식 1차 출처만 조사해 schema v1 JSON package를 제출한다.
