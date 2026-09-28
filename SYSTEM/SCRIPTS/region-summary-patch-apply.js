@@ -204,11 +204,15 @@ function applySummaryPatch(options) {
   const currentSourceIds = new Set(
     [...blockBody(original, "AUTO:REGION_RESEARCH_SOURCES").matchAll(/^- \*\*(S\d+) ·/gm)].map((m) => m[1])
   );
+  const citedElsewhere = new Set();
+  for (const key of pkgCore.BLOCK_ORDER) {
+    if (key === "AUTO:REGION_RESEARCH_SOURCES") continue;
+    for (const match of blockBody(original, key).matchAll(/\[(S\d+)\]/g)) citedElsewhere.add(match[1]);
+  }
   for (const source of patch.sources) {
     if (patch.summary_pending.source_ids.includes(source.source_id)) continue;
-    if (!currentSourceIds.has(source.source_id)) {
-      throw new Error(`${source.source_id}는 새 출처인데 새 요약이 인용하지 않습니다. 인용하거나 넣지 마세요.`);
-    }
+    if (currentSourceIds.has(source.source_id) || citedElsewhere.has(source.source_id)) continue;
+    throw new Error(`${source.source_id}는 새 출처인데 새 요약도 남은 블록도 인용하지 않습니다. 인용하거나 넣지 마세요.`);
   }
   for (const id of currentSourceIds) {
     if (!patch.sources.some((source) => source.source_id === id)) {

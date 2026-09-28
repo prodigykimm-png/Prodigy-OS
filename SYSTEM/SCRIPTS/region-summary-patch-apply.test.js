@@ -107,7 +107,7 @@ try {
   const uncitedPkg = validPatch();
   uncitedPkg.sources.push({ source_id: "S3", institution: "부산광역시", title: "인용 안 하는 문서", url: "https://www.busan.go.kr/unused", accessed_at: "2026-09-28", source_type: "official_primary" });
   fs.writeFileSync(uncited, JSON.stringify(uncitedPkg, null, 2), "utf8");
-  assert.throws(() => patch.applySummaryPatch({ vaultRoot: vault, targetPath, patchPath: uncited, execute: true }), /새 출처인데 새 요약이 인용하지 않습니다/);
+  assert.throws(() => patch.applySummaryPatch({ vaultRoot: vault, targetPath, patchPath: uncited, execute: true }), /새 출처인데 새 요약도 남은 블록도 인용하지 않습니다/);
 
   const second = path.join(cacheDir, "2026-09-29.json");
   fs.writeFileSync(second, JSON.stringify(validPatch({ summary_pending: { text: "다른 문장", source_ids: ["S1", "S2"] } }), null, 2), "utf8");
