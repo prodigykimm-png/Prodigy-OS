@@ -28,6 +28,10 @@
     "SYSTEM/Views/journal-review-modal.js",
     "SYSTEM/Views/morning-context-core.js",
     "SYSTEM/Views/morning-cache.js",
+    // Doctor health surface: read-only diagnostics for the Home "상태 점검" control.
+    // Loads after knowledge-fleeting-review-state.js (live fleeting snapshot) and
+    // before home-view.js (its consumer); evaluation-time access is guarded.
+    "SYSTEM/Views/prodigy-doctor.js",
     "SYSTEM/Views/home-model.js",
     "SYSTEM/Views/home-action-queue.js",
     "SYSTEM/Views/home-controller.js",

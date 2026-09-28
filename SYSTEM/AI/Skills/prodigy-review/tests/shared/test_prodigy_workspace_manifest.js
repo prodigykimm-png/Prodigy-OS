@@ -50,6 +50,21 @@ const PROJECT_REQUIRED_INSERTIONS = Object.freeze([
   Object.freeze({ index: 20, path: "SYSTEM/Views/project-card-mutation.js", global: "ProjectCardMutation", consumer: "SYSTEM/Views/project-card.js" }),
 ]);
 
+/*
+ * Task 8 remediation (F1): the frozen fixture predates the Doctor wiring.
+ * SYSTEM/Views/prodigy-doctor.js exists on disk, defines root.ProdigyDoctor,
+ * and is consumed later by home-view.js (the "상태 점검" control) through
+ * deferred runtime access guarded by typeof. Position 19 is
+ * dependency-correct: after knowledge-fleeting-review-state.js (index 14,
+ * the live fleeting snapshot the Doctor reads) and before the home seam
+ * block (home-model/action-queue/controller/sections stay immediately before
+ * home-view), with the consumer home-view.js last at 24. The fixture is
+ * stale here; the expectation is updated here, not the product.
+ */
+const HOME_REQUIRED_INSERTIONS = Object.freeze([
+  Object.freeze({ index: 19, path: "SYSTEM/Views/prodigy-doctor.js", global: "ProdigyDoctor", consumer: "SYSTEM/Views/home-view.js" }),
+]);
+
 function withInsertions(frozen, insertions, optionalPrefix = []) {
   const required = [...frozen.required];
   for (const insertion of insertions) required.splice(insertion.index, 0, insertion.path);
@@ -62,6 +77,10 @@ function expectedAuctionEntry() {
 
 function expectedProjectEntry() {
   return withInsertions(EXPECTED.entries.project, PROJECT_REQUIRED_INSERTIONS);
+}
+
+function expectedHomeEntry() {
+  return withInsertions(EXPECTED.entries.home, HOME_REQUIRED_INSERTIONS);
 }
 
 /*
@@ -248,7 +267,7 @@ test("the closed registry exactly matches the frozen pre-Task6 workspace contrac
     const actual = api.get(workspaceId);
     assert.deepEqual(Object.keys(actual), ["workspaceId", "host", "required", "optional", "renderer"]);
     // Auction carries the Task 7 verified additions (fixture is stale there); every other entry must match the freeze byte-for-byte.
-    const effective = workspaceId === "auction" ? expectedAuctionEntry() : workspaceId === "project" ? expectedProjectEntry() : workspaceId === "knowledge" ? expectedKnowledgeEntry() : expected;
+    const effective = workspaceId === "auction" ? expectedAuctionEntry() : workspaceId === "project" ? expectedProjectEntry() : workspaceId === "knowledge" ? expectedKnowledgeEntry() : workspaceId === "home" ? expectedHomeEntry() : expected;
     assert.deepEqual(JSON.parse(JSON.stringify(actual)), effective, workspaceId);
     assert.equal(Object.isFrozen(actual), true);
     assert.equal(Object.isFrozen(actual.required), true);
@@ -279,6 +298,53 @@ test("Task 7 auction additions sit at dependency-correct positions without Commo
 
 test("Task 7 project card-mutation addition sits at a dependency-correct position without CommonJS", () => {
   assertInsertionOrder(freshManifest(), "project", PROJECT_REQUIRED_INSERTIONS);
+});
+
+test("Task 8 Doctor addition sits at a dependency-correct Home position with a browser-safe closure", () => {
+  const api = freshManifest();
+  const required = api.get("home").required;
+  for (const insertion of HOME_REQUIRED_INSERTIONS) {
+    assert.equal(required.indexOf(insertion.path), insertion.index, `${insertion.path} position is semantic`);
+    assert.equal(required.filter((entry) => entry === insertion.path).length, 1, `${insertion.path} appears exactly once`);
+    const source = fs.readFileSync(path.join(ROOT, insertion.path), "utf8");
+    assert.ok(fs.existsSync(path.join(ROOT, insertion.path)), `${insertion.path} exists on disk`);
+    assert.ok(new RegExp(`root\\.${insertion.global}\\s*=`).test(source), `${insertion.path} defines root.${insertion.global}`);
+    const consumerIndex = required.indexOf(insertion.consumer);
+    assert.notEqual(consumerIndex, -1, `${insertion.consumer} must remain in the home manifest`);
+    assert.ok(insertion.index < consumerIndex, `${insertion.path}@${insertion.index} must load before its consumer ${insertion.consumer}@${consumerIndex}`);
+    const consumerSource = fs.readFileSync(path.join(ROOT, insertion.consumer), "utf8");
+    assert.ok(consumerSource.includes(insertion.global), `${insertion.consumer} consumes ${insertion.global}`);
+    const dependencyIndex = required.indexOf("SYSTEM/Views/knowledge-fleeting-review-state.js");
+    assert.notEqual(dependencyIndex, -1, "fleeting review state must remain in the home manifest");
+    assert.ok(dependencyIndex < insertion.index, `${insertion.path} must load after its fleeting-state dependency`);
+  }
+  // Doctor fallbacks use require() only behind typeof guards; the browser
+  // closure (no require/Buffer/process) must still evaluate and brand.
+  const browser = {
+    console,
+    URL,
+    TextEncoder,
+    TextDecoder,
+    setTimeout,
+    clearTimeout,
+    require: undefined,
+    Buffer: undefined,
+    process: undefined,
+    module: undefined,
+  };
+  browser.window = browser;
+  browser.globalThis = browser;
+  vm.createContext(browser);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, "SYSTEM/Views/prodigy-doctor.js"), "utf8"), browser, { filename: "SYSTEM/Views/prodigy-doctor.js" });
+  const branded = vm.runInContext(`(() => {
+    if (typeof require !== "undefined" || typeof Buffer !== "undefined" || typeof process !== "undefined") throw new Error("CommonJS capability leaked into browser closure");
+    const api = (typeof window !== "undefined" && window.ProdigyDoctor) || (typeof globalThis !== "undefined" && globalThis.ProdigyDoctor) || (typeof ProdigyDoctor !== "undefined" ? ProdigyDoctor : null);
+    if (!api) throw new Error("ProdigyDoctor brand unavailable");
+    if (typeof api.renderDoctor !== "function") throw new Error("renderDoctor unavailable");
+    if (typeof api.collectHealth !== "function") throw new Error("collectHealth unavailable");
+    return true;
+  })()`, browser);
+  assert.equal(branded, true);
 });
 
 test("Task 7 knowledge canonical-review pair loads after its migration-flows dependency", () => {

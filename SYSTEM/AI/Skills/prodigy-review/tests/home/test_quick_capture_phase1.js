@@ -249,7 +249,12 @@ test("manifests register quick capture on both Home and Knowledge surfaces", () 
   for (const entry of [home, knowledge]) {
     assert.ok(entry.required.includes("SYSTEM/Views/quick-capture-view.js"), `${entry.workspaceId} must require quick-capture-view`);
   }
-  assert.deepEqual(JSON.parse(JSON.stringify(home)), fixture.entries.home, "home manifest must stay locked to fixture");
+  // Task 8 remediation (F1): allow only the Doctor wiring at required index
+  // 19 (before the home seam block); any other drift stays RED.
+  const DOCTOR_PATH = "SYSTEM/Views/prodigy-doctor.js";
+  const expectedHome = { ...fixture.entries.home, required: fixture.entries.home.required.slice() };
+  expectedHome.required.splice(19, 0, DOCTOR_PATH);
+  assert.deepEqual(JSON.parse(JSON.stringify(home)), expectedHome, "home manifest must stay locked to fixture plus the Doctor wiring");
   assert.deepEqual(JSON.parse(JSON.stringify(knowledge)), fixture.entries.knowledge, "knowledge manifest must stay locked to fixture");
   assert.ok(knowledge.required.includes("SYSTEM/Views/capture-state-contract.js"), "knowledge must load capture contract");
   assert.ok(knowledge.required.includes("SYSTEM/Views/capture-action-runtime.js"), "knowledge must load capture runtime");
