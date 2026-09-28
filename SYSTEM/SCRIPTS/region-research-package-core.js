@@ -149,6 +149,28 @@ function validateUrl(url, label) {
   return true;
 }
 
+// 조사(助詞) 자리표시자에서 생기는 오삽입을 금지한다.
+// "OO시은(는)"처럼 주격·목적격을 기계적으로 병기한 문장은 노트에 그대로 실리므로
+// package 원천에서 차단한다.
+const JOSA_PLACEHOLDER_NEEDLES = Object.freeze([
+  "은(는)",
+  "는(은)",
+  "이(가)",
+  "가(이)",
+  "을(를)",
+  "를(을)"
+]);
+
+function rejectJosaPlaceholders(text, label) {
+  if (typeof text !== "string") return true;
+  for (const needle of JOSA_PLACEHOLDER_NEEDLES) {
+    if (text.includes(needle)) {
+      throw new Error(`${label}에 조사 오삽입이 있습니다: ${needle} — 실제 어미로 고쳐서 제출하세요`);
+    }
+  }
+  return true;
+}
+
 function scanStructural(text, label) {
   if (typeof text !== "string") return true;
   const lower = text.toLowerCase();
@@ -330,6 +352,7 @@ function validatePackage(pkg) {
   validateSourceIds(pkg.summary_pending.source_ids, pkg.sources, "summary_pending.source_ids");
   rejectCRLF(pkg.summary_pending.text, "summary_pending.text");
   scanStructural(pkg.summary_pending.text, "summary_pending.text");
+  rejectJosaPlaceholders(pkg.summary_pending.text, "summary_pending.text");
 
   if (!Array.isArray(pkg.zones_pending)) throw new Error("zones_pending은 배열이어야 합니다.");
   if (pkg.zones_pending.length < 3 || pkg.zones_pending.length > 6) {
@@ -561,7 +584,9 @@ module.exports = Object.freeze({
   SUPPLY_STAGES,
   SOURCE_KEYS,
   RESEARCH_LOG_KEYS,
+  JOSA_PLACEHOLDER_NEEDLES,
   validatePackage,
+  rejectJosaPlaceholders,
   validateCalendarDate,
   validateUrl,
   validateSupplyPipeline,
