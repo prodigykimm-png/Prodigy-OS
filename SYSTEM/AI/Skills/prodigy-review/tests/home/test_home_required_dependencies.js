@@ -29,17 +29,11 @@ function assertHomeSeamOrder(entry) {
   assert.deepEqual(indexes, [homeViewIndex - 4, homeViewIndex - 3, homeViewIndex - 2, homeViewIndex - 1], "Home seams must load in model/action-queue/controller/sections order immediately before home-view");
 }
 
-// Task 8 remediation (F1): SYSTEM/Views/prodigy-doctor.js loads at required
-// index 19 — after the morning cache, before the home seam block — so the
-// Home "상태 점검" control can reach root.ProdigyDoctor. The seam-order
-// assertion above is untouched; only the byte-equality gains the insertion.
-const DOCTOR_REQUIRED_INDEX = 19;
-const DOCTOR_REQUIRED_PATH = "SYSTEM/Views/prodigy-doctor.js";
-function withDoctorInsertion(frozen) {
-  const required = frozen.required.slice();
-  required.splice(DOCTOR_REQUIRED_INDEX, 0, DOCTOR_REQUIRED_PATH);
-  return { ...frozen, required };
-}
+// Single source of truth: the tracked fixture owns the Home manifest contract,
+// including the Task 8 (F1) Doctor wiring (prodigy-doctor.js after the morning
+// cache, before the home seam block, consumed by home-view.js). This suite
+// derives its expectation from the fixture directly — no local insertion
+// overlay. Exact order is enforced by the strict deepEqual below.
 function testManifestMutationsRed() {
   delete require.cache[require.resolve(MANIFEST_PATH)];
   delete global.ProdigyWorkspaceManifest;
@@ -47,7 +41,7 @@ function testManifestMutationsRed() {
   const frozen = require(FIXTURE_PATH).entries.home;
   assertHomeSeamOrder(production);
   assertHomeSeamOrder(frozen);
-  assert.deepEqual(JSON.parse(JSON.stringify(production)), withDoctorInsertion(frozen));
+  assert.deepEqual(JSON.parse(JSON.stringify(production)), frozen);
   [production, frozen].forEach((entry) => {
     assert.equal(entry.required.includes(DEFERRED_FEATURE_MODULE), false, "conditionally used Home features must not block the initial mount");
     assert.equal(entry.optional.includes(DEFERRED_FEATURE_MODULE), true, "conditionally used Home features must load after the initial mount");

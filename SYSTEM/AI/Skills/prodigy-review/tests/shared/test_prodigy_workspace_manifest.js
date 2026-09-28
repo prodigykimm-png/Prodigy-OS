@@ -10,103 +10,65 @@ const ROOT = path.resolve(__dirname, "../../../../../..");
 const EXPECTED = require("./fixtures/workspace-manifest-v1.json");
 
 /*
- * Task 7 determination: the frozen fixture is STALE for the auction entry
- * and the live product registry is right. Evidence (kept under the Task 7
- * evidence dir):
- * - all seven required additions exist on disk; the eighth (optional
- *   auction-key-value-snapshot.js) is a gitignored generated artifact that
- *   may legitimately be absent, in which case the loader degrades instead
- *   of blocking (see the graceful-degradation case below);
- * - every required addition defines exactly one branded root global whose
- *   only in-registry consumers evaluate later (site-visit-index@23 ->
- *   region-intelligence-popup-core@37, dong-profile-core@34 ->
- *   auction-region-packet@35, dashboard-refresh@47/key-value-projection@48/
- *   key-value-detail@49/card-view-model@50/card-mutation@59 ->
- *   auction-card@60), and every cross-module read resolves to an earlier
- *   definer or a stable external (Obsidian/DOM), with all runtime access
- *   deferred inside function bodies behind typeof/window guards;
- * - none of the additions uses CommonJS require.
- * Positions below are therefore asserted EXACTLY: module position is
- * semantic (producer before consumer), not cosmetic.
+ * Single source of truth: the tracked fixture owns the workspace manifest
+ * contract. It has prior modifying commits and is read by eight other suites
+ * (style, consistency, launcher, object-creator, quick-capture,
+ * morning-brief, home-required-deps, project wizard, knowledge harness), so
+ * the verified corrections live in the fixture itself: the seven auction
+ * modules, project-card-mutation, the Doctor wiring, the knowledge
+ * canonical-review reorder, and the optional snapshot prefix. This suite
+ * derives its expectation from the fixture directly — the closed registry
+ * must deepEqual it entry by entry. Array deepEqual is order-sensitive, so
+ * any order drift fails loudly here, never silently (falsifiability proof is
+ * captured under the lane evidence dir). The dependency tables below are
+ * rationale, not a second manifest: each triple names a module, the branded
+ * root global it defines, and a later in-registry consumer that reads that
+ * global, re-derived from source. Exact positions live only in the fixture.
+ * Every cross-module read resolves to an earlier definer or a stable
+ * external (Obsidian/DOM), with all runtime access deferred inside function
+ * bodies behind typeof/window guards.
  */
-const AUCTION_REQUIRED_INSERTIONS = Object.freeze([
-  Object.freeze({ index: 23, path: "SYSTEM/Views/auction-site-visit-index.js", global: "AuctionSiteVisitIndex", consumer: "SYSTEM/Views/region-intelligence-popup-core.js" }),
-  Object.freeze({ index: 34, path: "SYSTEM/Views/auction-dong-profile-core.js", global: "AuctionDongProfileCore", consumer: "SYSTEM/Views/auction-region-packet.js" }),
-  Object.freeze({ index: 47, path: "SYSTEM/Views/auction-dashboard-refresh.js", global: "AuctionDashboardRefresh", consumer: "SYSTEM/Views/auction-card.js" }),
-  Object.freeze({ index: 48, path: "SYSTEM/Views/auction-key-value-projection.js", global: "AuctionKeyValueProjection", consumer: "SYSTEM/Views/auction-card.js" }),
-  Object.freeze({ index: 49, path: "SYSTEM/Views/auction-key-value-detail.js", global: "AuctionKeyValueDetail", consumer: "SYSTEM/Views/auction-card.js" }),
-  Object.freeze({ index: 50, path: "SYSTEM/Views/auction-card-view-model.js", global: "AuctionCardViewModel", consumer: "SYSTEM/Views/auction-card.js" }),
-  Object.freeze({ index: 59, path: "SYSTEM/Views/auction-card-mutation.js", global: "AuctionCardMutation", consumer: "SYSTEM/Views/auction-card.js" }),
+const AUCTION_DEPENDENCIES = Object.freeze([
+  Object.freeze({ path: "SYSTEM/Views/auction-site-visit-index.js", global: "AuctionSiteVisitIndex", consumer: "SYSTEM/Views/region-intelligence-popup-core.js" }),
+  Object.freeze({ path: "SYSTEM/Views/auction-dong-profile-core.js", global: "AuctionDongProfileCore", consumer: "SYSTEM/Views/auction-region-packet.js" }),
+  Object.freeze({ path: "SYSTEM/Views/auction-dashboard-refresh.js", global: "AuctionDashboardRefresh", consumer: "SYSTEM/Views/auction-card.js" }),
+  Object.freeze({ path: "SYSTEM/Views/auction-key-value-projection.js", global: "AuctionKeyValueProjection", consumer: "SYSTEM/Views/auction-card.js" }),
+  Object.freeze({ path: "SYSTEM/Views/auction-key-value-detail.js", global: "AuctionKeyValueDetail", consumer: "SYSTEM/Views/auction-card.js" }),
+  Object.freeze({ path: "SYSTEM/Views/auction-card-view-model.js", global: "AuctionCardViewModel", consumer: "SYSTEM/Views/auction-card.js" }),
+  Object.freeze({ path: "SYSTEM/Views/auction-card-mutation.js", global: "AuctionCardMutation", consumer: "SYSTEM/Views/auction-card.js" }),
 ]);
-const AUCTION_OPTIONAL_PREFIX = Object.freeze(["SYSTEM/Views/auction-key-value-snapshot.js"]);
 /*
- * Same Task 7 determination for project: the frozen fixture predates
- * SYSTEM/Views/project-card-mutation.js, which exists on disk, defines
- * root.ProjectCardMutation, and is consumed later by project-card.js
- * (index 22) through deferred runtime access. Position 20 is
- * dependency-correct, so the expectation is updated here, not the product.
+ * Same verified determination for project: SYSTEM/Views/project-card-mutation.js
+ * exists on disk, defines root.ProjectCardMutation, and is consumed later by
+ * project-card.js through deferred runtime access.
  */
-const PROJECT_REQUIRED_INSERTIONS = Object.freeze([
-  Object.freeze({ index: 20, path: "SYSTEM/Views/project-card-mutation.js", global: "ProjectCardMutation", consumer: "SYSTEM/Views/project-card.js" }),
+const PROJECT_DEPENDENCIES = Object.freeze([
+  Object.freeze({ path: "SYSTEM/Views/project-card-mutation.js", global: "ProjectCardMutation", consumer: "SYSTEM/Views/project-card.js" }),
 ]);
 
 /*
- * Task 8 remediation (F1): the frozen fixture predates the Doctor wiring.
- * SYSTEM/Views/prodigy-doctor.js exists on disk, defines root.ProdigyDoctor,
- * and is consumed later by home-view.js (the "상태 점검" control) through
- * deferred runtime access guarded by typeof. Position 19 is
- * dependency-correct: after knowledge-fleeting-review-state.js (index 14,
- * the live fleeting snapshot the Doctor reads) and before the home seam
- * block (home-model/action-queue/controller/sections stay immediately before
- * home-view), with the consumer home-view.js last at 24. The fixture is
- * stale here; the expectation is updated here, not the product.
+ * Same verified determination for home (Task 8 F1): SYSTEM/Views/prodigy-doctor.js
+ * exists on disk, defines root.ProdigyDoctor, and is consumed later by
+ * home-view.js (the "상태 점검" control) through deferred runtime access
+ * guarded by typeof. It loads after knowledge-fleeting-review-state.js (the
+ * live fleeting snapshot the Doctor reads) and before the home seam block,
+ * with the consumer home-view.js last. Doctor fallbacks use require() only
+ * behind typeof guards (see the browser-closure branding check below).
  */
-const HOME_REQUIRED_INSERTIONS = Object.freeze([
-  Object.freeze({ index: 19, path: "SYSTEM/Views/prodigy-doctor.js", global: "ProdigyDoctor", consumer: "SYSTEM/Views/home-view.js" }),
+const HOME_DEPENDENCIES = Object.freeze([
+  Object.freeze({ path: "SYSTEM/Views/prodigy-doctor.js", global: "ProdigyDoctor", consumer: "SYSTEM/Views/home-view.js" }),
 ]);
 
-function withInsertions(frozen, insertions, optionalPrefix = []) {
-  const required = [...frozen.required];
-  for (const insertion of insertions) required.splice(insertion.index, 0, insertion.path);
-  return { ...frozen, required, optional: [...optionalPrefix, ...frozen.optional] };
-}
-
-function expectedAuctionEntry() {
-  return withInsertions(EXPECTED.entries.auction, AUCTION_REQUIRED_INSERTIONS, AUCTION_OPTIONAL_PREFIX);
-}
-
-function expectedProjectEntry() {
-  return withInsertions(EXPECTED.entries.project, PROJECT_REQUIRED_INSERTIONS);
-}
-
-function expectedHomeEntry() {
-  return withInsertions(EXPECTED.entries.home, HOME_REQUIRED_INSERTIONS);
-}
-
 /*
- * Same Task 7 determination for knowledge, this time a pure reorder: the
- * frozen fixture loads llmwiki-document-canonical-review.js before
- * llmwiki-lifecycle-migration-flows.js, but canonical-review line 17 reads
- * LLMWikiLifecycleMigrationFlows at evaluation time with only a
- * require() fallback that does not exist in the browser closure. The live
- * registry loads migration-flows first (index 186) and canonical-review
- * plus manual-registry immediately after (187/188), which is the
- * dependency-correct side; the fixture is stale. The move is asserted at
- * exact positions.
+ * Same verified determination for knowledge, a pure reorder: canonical-review
+ * line 17 reads LLMWikiLifecycleMigrationFlows at evaluation time with only a
+ * require() fallback that does not exist in the browser closure, so the
+ * producer (migration-flows) must evaluate before the consumer
+ * (canonical-review, then manual-registry). The silent-capture mode is
+ * mitigated because canonical-review re-resolves
+ * root.LLMWikiLifecycleMigrationFlows at CALL time with a typed refusal
+ * fallback — but the fixture order keeps the evaluation-time capture intact.
  */
-function expectedKnowledgeEntry() {
-  const frozen = EXPECTED.entries.knowledge;
-  const moved = [
-    "SYSTEM/Views/llmwiki-document-canonical-review.js",
-    "SYSTEM/Views/llmwiki-manual-registry.js",
-  ];
-  const required = frozen.required.filter((entry) => !moved.includes(entry));
-  const anchor = "SYSTEM/Views/llmwiki-run-controller.js";
-  const at = required.indexOf(anchor);
-  assert.notEqual(at, -1, "run-controller anchor must remain in the knowledge manifest");
-  required.splice(at, 0, ...moved);
-  return { ...frozen, required };
-}
 const MANIFEST_PATH = path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js");
 
 function freshManifest() {
@@ -266,57 +228,59 @@ test("the closed registry exactly matches the frozen pre-Task6 workspace contrac
   for (const [workspaceId, expected] of Object.entries(EXPECTED.entries)) {
     const actual = api.get(workspaceId);
     assert.deepEqual(Object.keys(actual), ["workspaceId", "host", "required", "optional", "renderer"]);
-    // Auction carries the Task 7 verified additions (fixture is stale there); every other entry must match the freeze byte-for-byte.
-    const effective = workspaceId === "auction" ? expectedAuctionEntry() : workspaceId === "project" ? expectedProjectEntry() : workspaceId === "knowledge" ? expectedKnowledgeEntry() : workspaceId === "home" ? expectedHomeEntry() : expected;
-    assert.deepEqual(JSON.parse(JSON.stringify(actual)), effective, workspaceId);
+    // The fixture owns the full ordered contract; the live registry must match it exactly, order included.
+    assert.deepEqual(JSON.parse(JSON.stringify(actual)), expected, workspaceId);
     assert.equal(Object.isFrozen(actual), true);
     assert.equal(Object.isFrozen(actual.required), true);
     assert.equal(Object.isFrozen(actual.optional), true);
   }
 });
 
-function assertInsertionOrder(api, workspaceId, insertions) {
+function assertDependencyDirection(api, workspaceId, dependencies) {
   const required = api.get(workspaceId).required;
   const indexOf = (modulePath) => required.indexOf(modulePath);
-  for (const insertion of insertions) {
-    assert.equal(indexOf(insertion.path), insertion.index, `${insertion.path} position is semantic`);
-    const source = fs.readFileSync(path.join(ROOT, insertion.path), "utf8");
-    assert.ok(!source.includes("require("), `${insertion.path} must not use CommonJS`);
-    assert.ok(new RegExp(`root\\.${insertion.global}\\s*=`).test(source), `${insertion.path} defines root.${insertion.global}`);
-    assert.ok(fs.existsSync(path.join(ROOT, insertion.path)), `${insertion.path} exists on disk`);
-    const consumerIndex = indexOf(insertion.consumer);
-    assert.notEqual(consumerIndex, -1, `${insertion.consumer} must remain in the auction manifest`);
-    assert.ok(insertion.index < consumerIndex, `${insertion.path}@${insertion.index} must load before its consumer ${insertion.consumer}@${consumerIndex}`);
-    const consumerSource = fs.readFileSync(path.join(ROOT, insertion.consumer), "utf8");
-    assert.ok(consumerSource.includes(insertion.global), `${insertion.consumer} consumes ${insertion.global}`);
+  for (const dependency of dependencies) {
+    const producerIndex = indexOf(dependency.path);
+    assert.notEqual(producerIndex, -1, `${dependency.path} must remain in the ${workspaceId} manifest`);
+    assert.equal(required.filter((entry) => entry === dependency.path).length, 1, `${dependency.path} appears exactly once`);
+    const source = fs.readFileSync(path.join(ROOT, dependency.path), "utf8");
+    assert.ok(!source.includes("require("), `${dependency.path} must not use CommonJS`);
+    assert.ok(new RegExp(`root\\.${dependency.global}\\s*=`).test(source), `${dependency.path} defines root.${dependency.global}`);
+    assert.ok(fs.existsSync(path.join(ROOT, dependency.path)), `${dependency.path} exists on disk`);
+    const consumerIndex = indexOf(dependency.consumer);
+    assert.notEqual(consumerIndex, -1, `${dependency.consumer} must remain in the ${workspaceId} manifest`);
+    assert.ok(producerIndex < consumerIndex, `${dependency.path}@${producerIndex} must load before its consumer ${dependency.consumer}@${consumerIndex}`);
+    const consumerSource = fs.readFileSync(path.join(ROOT, dependency.consumer), "utf8");
+    assert.ok(consumerSource.includes(dependency.global), `${dependency.consumer} consumes ${dependency.global}`);
   }
 }
 
 test("Task 7 auction additions sit at dependency-correct positions without CommonJS", () => {
-  assertInsertionOrder(freshManifest(), "auction", AUCTION_REQUIRED_INSERTIONS);
+  assertDependencyDirection(freshManifest(), "auction", AUCTION_DEPENDENCIES);
 });
 
 test("Task 7 project card-mutation addition sits at a dependency-correct position without CommonJS", () => {
-  assertInsertionOrder(freshManifest(), "project", PROJECT_REQUIRED_INSERTIONS);
+  assertDependencyDirection(freshManifest(), "project", PROJECT_DEPENDENCIES);
 });
 
 test("Task 8 Doctor addition sits at a dependency-correct Home position with a browser-safe closure", () => {
   const api = freshManifest();
   const required = api.get("home").required;
-  for (const insertion of HOME_REQUIRED_INSERTIONS) {
-    assert.equal(required.indexOf(insertion.path), insertion.index, `${insertion.path} position is semantic`);
-    assert.equal(required.filter((entry) => entry === insertion.path).length, 1, `${insertion.path} appears exactly once`);
-    const source = fs.readFileSync(path.join(ROOT, insertion.path), "utf8");
-    assert.ok(fs.existsSync(path.join(ROOT, insertion.path)), `${insertion.path} exists on disk`);
-    assert.ok(new RegExp(`root\\.${insertion.global}\\s*=`).test(source), `${insertion.path} defines root.${insertion.global}`);
-    const consumerIndex = required.indexOf(insertion.consumer);
-    assert.notEqual(consumerIndex, -1, `${insertion.consumer} must remain in the home manifest`);
-    assert.ok(insertion.index < consumerIndex, `${insertion.path}@${insertion.index} must load before its consumer ${insertion.consumer}@${consumerIndex}`);
-    const consumerSource = fs.readFileSync(path.join(ROOT, insertion.consumer), "utf8");
-    assert.ok(consumerSource.includes(insertion.global), `${insertion.consumer} consumes ${insertion.global}`);
+  for (const dependency of HOME_DEPENDENCIES) {
+    const producerIndex = required.indexOf(dependency.path);
+    assert.notEqual(producerIndex, -1, `${dependency.path} must remain in the home manifest`);
+    assert.equal(required.filter((entry) => entry === dependency.path).length, 1, `${dependency.path} appears exactly once`);
+    const source = fs.readFileSync(path.join(ROOT, dependency.path), "utf8");
+    assert.ok(fs.existsSync(path.join(ROOT, dependency.path)), `${dependency.path} exists on disk`);
+    assert.ok(new RegExp(`root\\.${dependency.global}\\s*=`).test(source), `${dependency.path} defines root.${dependency.global}`);
+    const consumerIndex = required.indexOf(dependency.consumer);
+    assert.notEqual(consumerIndex, -1, `${dependency.consumer} must remain in the home manifest`);
+    assert.ok(producerIndex < consumerIndex, `${dependency.path}@${producerIndex} must load before its consumer ${dependency.consumer}@${consumerIndex}`);
+    const consumerSource = fs.readFileSync(path.join(ROOT, dependency.consumer), "utf8");
+    assert.ok(consumerSource.includes(dependency.global), `${dependency.consumer} consumes ${dependency.global}`);
     const dependencyIndex = required.indexOf("SYSTEM/Views/knowledge-fleeting-review-state.js");
     assert.notEqual(dependencyIndex, -1, "fleeting review state must remain in the home manifest");
-    assert.ok(dependencyIndex < insertion.index, `${insertion.path} must load after its fleeting-state dependency`);
+    assert.ok(dependencyIndex < producerIndex, `${dependency.path} must load after its fleeting-state dependency`);
   }
   // Doctor fallbacks use require() only behind typeof guards; the browser
   // closure (no require/Buffer/process) must still evaluate and brand.
