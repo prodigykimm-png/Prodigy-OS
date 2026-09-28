@@ -236,6 +236,117 @@ function main() {
     fs.rmSync(vault2, { recursive: true, force: true });
   }
 
+  /* ============ 블록 단위 부분 적용: 선택하지 않은 블록은 바이트 보존 ============ */
+  assert.deepEqual(apply.selectBlocks(undefined), pkgCore.BLOCK_ORDER.slice());
+  assert.deepEqual(apply.selectBlocks("AI:PENDING:SUMMARY"), ["AI:PENDING:SUMMARY"]);
+  assert.deepEqual(
+    apply.selectBlocks("AI:PENDING:SUMMARY,AUTO:REGION_RESEARCH_LOG"),
+    ["AI:PENDING:SUMMARY", "AUTO:REGION_RESEARCH_LOG"],
+    "선택한 블록이 BLOCK_ORDER 순서로 정렬되어야 한다"
+  );
+  assert.throws(() => apply.selectBlocks("AI:PENDING:NOPE"), /없는 블록/);
+  assert.throws(() => apply.selectBlocks("AI:PENDING:SUMMARY,AI:PENDING:SUMMARY"), /중복/);
+  assert.throws(() => apply.selectBlocks(" , "), /최소 1개/);
+
+  const vaultScoped = fs.mkdtempSync(path.join(os.tmpdir(), "rpkg-scoped-"));
+  try {
+    const targetDir = path.join(vaultScoped, "PARA/RESOURCES/Auction Regions");
+    fs.mkdirSync(targetDir, { recursive: true });
+    const targetPath = path.join(targetDir, "부산광역시-중구.md");
+    fs.writeFileSync(targetPath, templateNote("부산광역시-중구", "중구"), "utf8");
+    const pkgPath = mkCache(vaultScoped, "부산광역시-중구", "2026-07-19", validPackage("부산광역시-중구"));
+
+    // 먼저 전체를 채워둔다(전체 apply).
+    const allBlocks = apply.applyPackageFile({ vaultRoot: vaultScoped, targetPath, packagePath: pkgPath, execute: true });
+    assert.equal(allBlocks.changed, true);
+    assert.equal(allBlocks.blocks.length, pkgCore.BLOCK_ORDER.length);
+
+    // 실제 재생성 흐름:SUMMARY 블록만 비운 뒤 그 블록만 다시 적용한다.
+    const filled = fs.readFileSync(targetPath, "utf8");
+    const clearedSummary = filled.replace(
+      /(<!-- AI:PENDING:SUMMARY:START -->)[\s\S]*?(<!-- AI:PENDING:SUMMARY:END -->)/,
+      "$1\n$2"
+    );
+    assert.notEqual(clearedSummary, filled, "SUMMARY 블록 비우기가 동작하지 않았다");
+    fs.writeFileSync(targetPath, clearedSummary, "utf8");
+
+    const beforeScoped = apply.blockBodies(fs.readFileSync(targetPath, "utf8"), pkgCore.BLOCK_ORDER);
+    const rewritten = validPackage("부산광역시-중구");
+    rewritten.summary_pending.text = "재생성한 요약 문장이라 기존 SUMMARY와 다르다";
+    const rewrittenPath = mkCache(vaultScoped, "부산광역시-중구", "2026-07-20", rewritten);
+    const summaryOnly = apply.applyPackageFile({
+      vaultRoot: vaultScoped,
+      targetPath,
+      packagePath: rewrittenPath,
+      execute: true,
+      blocks: "AI:PENDING:SUMMARY"
+    });
+    assert.equal(summaryOnly.changed, true);
+    assert.deepEqual(summaryOnly.blocks, ["AI:PENDING:SUMMARY"]);
+
+    const afterScoped = apply.blockBodies(fs.readFileSync(targetPath, "utf8"), pkgCore.BLOCK_ORDER);
+    assert.match(afterScoped["AI:PENDING:SUMMARY"], /재생성한 요약 문장/);
+    for (const key of pkgCore.BLOCK_ORDER) {
+      if (key === "AI:PENDING:SUMMARY") continue;
+      assert.equal(afterScoped[key], beforeScoped[key], `${key} 블록이 부분 적용에서 변경됐다`);
+    }
+    // 같은 패키지로 같은 블록을 다시 적용하면 no-op
+    const replay = apply.applyPackageFile({
+      vaultRoot: vaultScoped,
+      targetPath,
+      packagePath: rewrittenPath,
+      execute: true,
+      blocks: "AI:PENDING:SUMMARY"
+    });
+    assert.equal(replay.changed, false);
+    assert.equal(replay.reason, "same_package");
+
+    // 출처 집합이 다른 패키지로 SUMMARY만 부분 적용하면 인용이 조용히 바뀌므로 거부해야 한다
+    const rescope = validPackage("부산광역시-중구");
+    rescope.summary_pending.text = "출처가 다른 패키지의 요약";
+    rescope.sources[0] = {
+      source_id: "S1",
+      institution: "부산광역시",
+      title: "다른 문서",
+      url: "https://www.busan.go.kr/other",
+      accessed_at: "2026-07-21",
+      source_type: "official_primary"
+    };
+    const rescopePath = mkCache(vaultScoped, "부산광역시-중구", "2026-07-21", rescope);
+    const emptiedAgain = fs.readFileSync(targetPath, "utf8").replace(
+      /(<!-- AI:PENDING:SUMMARY:START -->)[\s\S]*?(<!-- AI:PENDING:SUMMARY:END -->)/,
+      "$1\n$2"
+    );
+    fs.writeFileSync(targetPath, emptiedAgain, "utf8");
+    assert.throws(
+      () => apply.applyPackageFile({ vaultRoot: vaultScoped, targetPath, packagePath: rescopePath, execute: true, blocks: "AI:PENDING:SUMMARY" }),
+      /출처 집합이 다릅니다/,
+      "출처가 다른 부분 적용은 막혀야 한다"
+    );
+  } finally {
+    fs.rmSync(vaultScoped, { recursive: true, force: true });
+  }
+
+  /* ============ 부분 적용도 선택한 블록이 비어 있지 않으면 fail-closed ============ */
+  const vaultBusy = fs.mkdtempSync(path.join(os.tmpdir(), "rpkg-busy-"));
+  try {
+    const targetDir = path.join(vaultBusy, "PARA/RESOURCES/Auction Regions");
+    fs.mkdirSync(targetDir, { recursive: true });
+    const targetPath = path.join(targetDir, "부산광역시-중구.md");
+    fs.writeFileSync(targetPath, templateNote("부산광역시-중구", "중구"), "utf8");
+    const pkgPath = mkCache(vaultBusy, "부산광역시-중구", "2026-07-19", validPackage("부산광역시-중구"));
+    apply.applyPackageFile({ vaultRoot: vaultBusy, targetPath, packagePath: pkgPath, execute: true });
+    const different = validPackage("부산광역시-중구");
+    different.summary_pending.text = "다른 요약 문장이라 블록이 달라진다";
+    const otherPath = mkCache(vaultBusy, "부산광역시-중구", "2026-07-20", different);
+    assert.throws(
+      () => apply.applyPackageFile({ vaultRoot: vaultBusy, targetPath, packagePath: otherPath, execute: true, blocks: "AI:PENDING:SUMMARY" }),
+      /fail-closed/
+    );
+  } finally {
+    fs.rmSync(vaultBusy, { recursive: true, force: true });
+  }
+
   /* ============ region_key mismatch ============ */
   const vault3 = fs.mkdtempSync(path.join(os.tmpdir(), "rpkg3-"));
   try {
