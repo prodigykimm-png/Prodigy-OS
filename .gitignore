@@ -102,3 +102,8 @@ logs/
 .claudian/
 .obsidian/plugins/claudian/
 .obsidian/plugins/realclaudian/
+
+# Ephemeral local tool state - not repository content
+.aurix-trash/
+.memoge-meta.json
+pre-consent-state.txt
