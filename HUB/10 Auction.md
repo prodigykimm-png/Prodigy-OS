@@ -723,7 +723,12 @@ await window.ProdigyAuctionWorkspaceReady;
 ```dataviewjs
 if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-today");
 const __todayContainer = this.container;
-if (typeof window.__prodigyAuctionEnsureNativeScenes === "function" ? window.__prodigyAuctionEnsureNativeScenes(() => { if (window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", __todayContainer); }) : !!window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", __todayContainer);
+// The ensure helper reports whether the module was already loaded: true registers now,
+// false means it calls back after loading. Without the helper, register only if present.
+if (typeof window.__prodigyAuctionEnsureNativeScenes === "function") {
+  const __todayScenesReady = window.__prodigyAuctionEnsureNativeScenes(() => { if (window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", __todayContainer); });
+  if (__todayScenesReady) window.ProdigyAuctionNativeScenes.register("today", __todayContainer);
+} else if (window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", __todayContainer);
 // Calculate counts and progress stats
 let todayBiddingCount = 0;
 let pendingSiteVisitsCount = 0;
