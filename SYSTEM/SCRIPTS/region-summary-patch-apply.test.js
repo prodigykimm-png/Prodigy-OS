@@ -46,7 +46,6 @@ assert.throws(() => patch.validatePatch(validPatch({ patched_at: "2026-02-30" })
 assert.throws(() => patch.validatePatch(validPatch({ summary_pending: { text: "x\ny", source_ids: ["S1", "S2"] } })), /단일 행/);
 assert.throws(() => patch.validatePatch(validPatch({ summary_pending: { text: "중구은(는) 3개 동", source_ids: ["S1"] } })), /조사 오삽입/);
 assert.throws(() => patch.validatePatch(validPatch({ summary_pending: { text: "문장", source_ids: ["S9"] } })), /존재하지 않는 source_id/);
-assert.throws(() => patch.validatePatch(validPatch({ summary_pending: { text: "문장", source_ids: ["S1"] } })), /사용되지 않는 source/);
 assert.throws(() => patch.validatePatch(validPatch({ sources: [] })), /최소 1개/);
 assert.throws(() => patch.validatePatch(validPatch({
   sources: [{ source_id: "S1", institution: "x", title: "t", url: "http://www.busan.go.kr/a", accessed_at: "2026-09-28", source_type: "official_primary" }]
@@ -94,6 +93,21 @@ try {
   const replay = patch.applySummaryPatch({ vaultRoot: vault, targetPath, patchPath, execute: true });
   assert.equal(replay.changed, false);
   assert.equal(replay.reason, "same_patch");
+
+  const dropping = path.join(cacheDir, "2026-09-30.json");
+  fs.writeFileSync(dropping, JSON.stringify(validPatch({
+    summary_pending: { text: "S2를 버리는 패치", source_ids: ["S2"] },
+    sources: [validPatch().sources[1]]
+  }), null, 2), "utf8");
+  const beforeDrop = fs.readFileSync(targetPath, "utf8");
+  assert.throws(() => patch.applySummaryPatch({ vaultRoot: vault, targetPath, patchPath: dropping, execute: true }), /기존 출처 S1를 버립니다/);
+  assert.equal(fs.readFileSync(targetPath, "utf8"), beforeDrop, "거부된 패치가 노트를 바꾸었다");
+
+  const uncited = path.join(cacheDir, "2026-10-01.json");
+  const uncitedPkg = validPatch();
+  uncitedPkg.sources.push({ source_id: "S3", institution: "부산광역시", title: "인용 안 하는 문서", url: "https://www.busan.go.kr/unused", accessed_at: "2026-09-28", source_type: "official_primary" });
+  fs.writeFileSync(uncited, JSON.stringify(uncitedPkg, null, 2), "utf8");
+  assert.throws(() => patch.applySummaryPatch({ vaultRoot: vault, targetPath, patchPath: uncited, execute: true }), /새 출처인데 새 요약이 인용하지 않습니다/);
 
   const second = path.join(cacheDir, "2026-09-29.json");
   fs.writeFileSync(second, JSON.stringify(validPatch({ summary_pending: { text: "다른 문장", source_ids: ["S1", "S2"] } }), null, 2), "utf8");

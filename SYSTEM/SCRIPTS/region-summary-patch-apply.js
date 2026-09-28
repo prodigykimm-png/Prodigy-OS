@@ -61,8 +61,6 @@ function validatePatch(patch) {
     if (!seen.has(id)) throw new Error(`존재하지 않는 source_id를 참조했습니다: ${id}`);
     used.add(id);
   }
-  const unused = [...seen].filter((id) => !used.has(id));
-  if (unused.length > 0) throw new Error(`사용되지 않는 source가 있습니다: ${unused.join(", ")}`);
   return true;
 }
 
@@ -166,6 +164,20 @@ function applySummaryPatch(options) {
   }
 
   const original = fs.readFileSync(targetPath, "utf8");
+  const currentSourceIds = new Set(
+    [...blockBody(original, "AUTO:REGION_RESEARCH_SOURCES").matchAll(/^- \*\*(S\d+) ·/gm)].map((m) => m[1])
+  );
+  for (const source of patch.sources) {
+    if (patch.summary_pending.source_ids.includes(source.source_id)) continue;
+    if (!currentSourceIds.has(source.source_id)) {
+      throw new Error(`${source.source_id}는 새 출처인데 새 요약이 인용하지 않습니다. 인용하거나 넣지 마세요.`);
+    }
+  }
+  for (const id of currentSourceIds) {
+    if (!patch.sources.some((source) => source.source_id === id)) {
+      throw new Error(`기존 출처 ${id}를 버립니다. 다른 블록이 인용 중이므로 유지하세요.`);
+    }
+  }
   const untouched = pkgCore.BLOCK_ORDER.filter((key) => !PATCH_BLOCKS.includes(key));
   const untouchedBefore = Object.fromEntries(untouched.map((key) => [key, blockBody(original, key)]));
 
