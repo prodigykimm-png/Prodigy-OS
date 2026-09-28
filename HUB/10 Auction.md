@@ -326,6 +326,20 @@ const loadWorkspaceBootstrap = async (path) => {
   (new Function(await app.vault.read(file)))();
 };
 
+if (!window.__prodigyAuctionLoadWorkspaceBootstrap) window.__prodigyAuctionLoadWorkspaceBootstrap = loadWorkspaceBootstrap;
+
+window.__prodigyAuctionEnsureNativeScenes = (onReady) => {
+  if (window.ProdigyAuctionNativeScenes) return true;
+  try {
+    const __sceneLoad = typeof window.__prodigyAuctionLoadWorkspaceBootstrap === "function" && window.__prodigyAuctionLoadWorkspaceBootstrap("SYSTEM/Views/auction-native-scenes.js");
+    if (__sceneLoad && typeof __sceneLoad.catch === "function") {
+      if (typeof onReady === "function") __sceneLoad.then(() => onReady()).catch(() => {});
+      else __sceneLoad.catch(() => {});
+    }
+  } catch (_) {}
+  return false;
+};
+
 const initializeAuctionWorkspace = async () => {
   setNavigationStatus("loading");
   delete window.__prodigyAuctionReadinessCommit;
@@ -708,7 +722,8 @@ await window.ProdigyAuctionWorkspaceReady;
 
 ```dataviewjs
 if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-today");
-window.ProdigyAuctionNativeScenes.register("today", this.container);
+const __todayContainer = this.container;
+if (typeof window.__prodigyAuctionEnsureNativeScenes === "function" ? window.__prodigyAuctionEnsureNativeScenes(() => { if (window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", __todayContainer); }) : !!window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", __todayContainer);
 // Calculate counts and progress stats
 let todayBiddingCount = 0;
 let pendingSiteVisitsCount = 0;
@@ -859,6 +874,7 @@ const run = () => {
     window.ProdigyAuctionNavigationFocus?.markSection("bidding");
     return true;
   }
+  if (!window.__prodigyAuctionEnsureNativeScenes?.()) return false;
   window.ProdigyAuctionNativeScenes.register("bidding", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
@@ -909,6 +925,7 @@ const run = () => {
     window.ProdigyAuctionNavigationFocus?.markSection("watching");
     return true;
   }
+  if (!window.__prodigyAuctionEnsureNativeScenes?.()) return false;
   window.ProdigyAuctionNativeScenes.register("watching", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
@@ -953,6 +970,7 @@ window.ProdigyAuctionLifecycle.start({
 // Bid Calendar: time navigation only (does not edit Objects)
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-calendar");
+  if (!window.__prodigyAuctionEnsureNativeScenes?.()) return false;
   window.ProdigyAuctionNativeScenes.register("calendar", this.container);
   if (window.BidCalendarCore && window.BidCalendarView) {
     this.container.empty();
@@ -1075,6 +1093,7 @@ makeStep(grp2, statusStep('archived'), counts.archived, 'muted');
 // Post-result queue: won/lost before reviewing, reviewing in progress, skipped before archive
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-review-queue");
+  if (!window.__prodigyAuctionEnsureNativeScenes?.()) return false;
   window.ProdigyAuctionNativeScenes.register("review-queue", this.container);
   if (!window.AuctionDayCore || !window.AuctionDayCore.buildReviewQueue) return false;
   this.container.empty();
@@ -1212,6 +1231,7 @@ window.ProdigyAuctionLifecycle.start({
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-reviewing");
+  if (!window.__prodigyAuctionEnsureNativeScenes?.()) return false;
   window.ProdigyAuctionNativeScenes.register("reviewing", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
@@ -1249,6 +1269,7 @@ window.ProdigyAuctionLifecycle.start({
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-won");
+  if (!window.__prodigyAuctionEnsureNativeScenes?.()) return false;
   window.ProdigyAuctionNativeScenes.register("won", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
@@ -1287,6 +1308,7 @@ window.ProdigyAuctionLifecycle.start({
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-lost");
+  if (!window.__prodigyAuctionEnsureNativeScenes?.()) return false;
   window.ProdigyAuctionNativeScenes.register("lost", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
@@ -1325,6 +1347,7 @@ window.ProdigyAuctionLifecycle.start({
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-skipped");
+  if (!window.__prodigyAuctionEnsureNativeScenes?.()) return false;
   window.ProdigyAuctionNativeScenes.register("skipped", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
@@ -1363,6 +1386,7 @@ window.ProdigyAuctionLifecycle.start({
 ```dataviewjs
 const run = () => {
   if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-archived");
+  if (!window.__prodigyAuctionEnsureNativeScenes?.()) return false;
   window.ProdigyAuctionNativeScenes.register("archived", this.container);
   if (window.renderDashboardSection && window.renderAuctionCard) {
     this.container.empty();
