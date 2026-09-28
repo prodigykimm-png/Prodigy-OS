@@ -119,4 +119,59 @@ try {
 
 assert.deepEqual(patch.PATCH_BLOCKS, pkgCore.BLOCK_ORDER.filter((key) => key === "AI:PENDING:SUMMARY" || key === "AUTO:REGION_RESEARCH_SOURCES"));
 
+assert.throws(() => patch.validateSupplyPipeline([{ project_name: "A", stage: "rumor", units: 100, expected_month: "2028-06", source_ids: ["S1"] }], [{ source_id: "S1" }]), /stage/);
+assert.throws(() => patch.validateSupplyPipeline([{ project_name: "A", stage: "planned", units: 0, expected_month: "2028-06", source_ids: ["S1"] }], [{ source_id: "S1" }]), /양의 정수/);
+assert.throws(() => patch.validateSupplyPipeline([{ project_name: "A", stage: "planned", units: 100, expected_month: "2028-06", source_ids: ["S9"] }], [{ source_id: "S1" }]), /존재하지 않는 source_id/);
+assert.throws(() => patch.validateSupplyPipeline([{ project_name: "A", stage: "planned", units: 100, expected_month: "2028-13", source_ids: ["S1"] }], [{ source_id: "S1" }]), /YYYY-MM 형식/);
+assert.throws(() => patch.validateSupplyPipeline([{ project_name: "A", stage: "planned", units: 100, expected_month: "2028-06", source_ids: ["S1"], extra: 1 }], [{ source_id: "S1" }]), /알 수 없는 필드/);
+assert.equal(patch.validateSupplyPipeline([{ project_name: "A", stage: "planned", units: 282, expected_month: "2028-06", source_ids: ["S1"] }], [{ source_id: "S1" }]), true);
+
+const rendered = patch.renderSupplyBlock({
+  supply_pipeline: [
+    { project_name: "A", stage: "approved", units: 282, expected_month: "2028-06", source_ids: ["S1"] },
+    { project_name: "B", stage: "planned", units: 500, expected_month: "2031-03", source_ids: ["S2"] }
+  ]
+});
+assert.match(rendered, /\| 13~24개월 \| A \| 승인 \| 282 \| 2028-06 \| \[S1\] \|/);
+assert.match(rendered, /\| 37~60개월 \| B \| 계획 \| 500 \| 2031-03 \| \[S2\] \|/);
+assert.equal(patch.renderSupplyBlock({ supply_pipeline: [] }), null);
+
+const vaultSupply = fs.mkdtempSync(path.join(os.tmpdir(), "rsp-supply-"));
+try {
+  const targetDir = path.join(vaultSupply, "PARA/RESOURCES/Auction Regions");
+  fs.mkdirSync(targetDir, { recursive: true });
+  const targetPath = path.join(targetDir, "부산광역시-중구.md");
+  fs.writeFileSync(targetPath, templateNote("부산광역시-중구", "중구"), "utf8");
+  const cacheDir = path.join(vaultSupply, "SYSTEM/CACHE/region-summary-patches/부산광역시-중구");
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const patchPath = path.join(cacheDir, "2026-09-28.json");
+  const withSupply = validPatch();
+  withSupply.supply_pipeline = [{ project_name: "중구1구역", stage: "approved", units: 282, expected_month: "2028-06", source_ids: ["S2"] }];
+  fs.writeFileSync(patchPath, JSON.stringify(withSupply, null, 2), "utf8");
+  const res = patch.applySummaryPatch({ vaultRoot: vaultSupply, targetPath, patchPath, execute: true });
+  assert.equal(res.changed, true);
+  assert.deepEqual(res.blocks, ["AI:PENDING:SUMMARY", "AUTO:REGION_RESEARCH_SOURCES", "AI:PENDING:SUPPLY_PIPELINE"]);
+  const after = fs.readFileSync(targetPath, "utf8");
+  assert.match(after, /중구1구역/);
+  assert.match(after, /282/);
+  const zonesBefore = /<!-- AI:PENDING:ZONES:START -->[\s\S]*?<!-- AI:PENDING:ZONES:END -->/.exec(after)?.[0];
+  assert.ok(zonesBefore, "보호 블록이 사라지지 않아야 한다");
+  const replaySupply = patch.applySummaryPatch({ vaultRoot: vaultSupply, targetPath, patchPath, execute: true });
+  assert.equal(replaySupply.changed, false);
+
+  const second = path.join(cacheDir, "2026-09-29.json");
+  const other = validPatch();
+  other.summary_pending = { text: "다른 문장이라 SUMMARY이 달라진다", source_ids: ["S1", "S2"] };
+  other.supply_pipeline = [{ project_name: "중구2구역", stage: "planned", units: 100, expected_month: "2029-01", source_ids: ["S2"] }];
+  fs.writeFileSync(second, JSON.stringify(other, null, 2), "utf8");
+  const withFilledSupply = fs.readFileSync(targetPath, "utf8")
+    .replace(/(<!-- AI:PENDING:SUMMARY:START -->)[\s\S]*?(<!-- AI:PENDING:SUMMARY:END -->)/, "$1\n$2")
+    .replace(/(<!-- AUTO:REGION_RESEARCH_SOURCES:START -->)[\s\S]*?(<!-- AUTO:REGION_RESEARCH_SOURCES:END -->)/, "$1\n$2");
+  fs.writeFileSync(targetPath, withFilledSupply, "utf8");
+  assert.throws(() => patch.applySummaryPatch({ vaultRoot: vaultSupply, targetPath, patchPath: second, execute: true }), /SUPPLY_PIPELINE 블록이 이미 채워져 있습니다/);
+  assert.match(fs.readFileSync(targetPath, "utf8"), /중구1구역/);
+} finally {
+  fs.rmSync(vaultSupply, { recursive: true, force: true });
+}
+
 console.log("region summary patch tests: PASS");
