@@ -66,7 +66,7 @@ function request(overrides = {}) {
     },
     timeout_ms: 5000,
     retry_owner: "prodigy",
-    request_metadata: { request_id: "request_outbound_consent", provider_key: "gemini" },
+    request_metadata: { request_id: "request_outbound_consent" },
     sources: [source()],
     proposal_request: {
       run_id: "run_outbound_consent",
@@ -141,8 +141,8 @@ test("Given selected sources and an explicit user action, When direct consent is
   assert.equal(consentResult.ok, true, JSON.stringify(consentResult));
   const artifact = consentResult.value;
   assert.equal(artifact.run_id, "run_outbound_consent");
-  assert.equal(artifact.provider_mode, "direct");
-  assert.equal(artifact.provider_key, "gemini");
+  assert.equal(artifact.provider_mode, "runtime");
+  assert.equal(artifact.provider_key, "runtime");
   assert.deepEqual(artifact.selected_sources, [{ source_id: "source_selected_article", content_hash: HASH_A }]);
   assert.match(artifact.outbound_policy_hash, /^[0-9a-f]{64}$/u);
   assert.match(artifact.outbound_text_hash, /^[0-9a-f]{64}$/u);
@@ -154,10 +154,21 @@ test("Given selected sources and an explicit user action, When direct consent is
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.provider_network, 1);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].provider_mode, "direct");
+  assert.equal(calls[0].provider_mode, "runtime");
   assert.equal(calls[0].outbound_policy.include_source_text, false);
   assert.equal("text" in calls[0].outbound_payload.sources[0], false);
   assert.deepEqual([...new Set(Object.values(result.write_counters))], [0]);
+});
+
+test("Given a correctly-formed artifact and a request carrying no provider fields, When validated against the resolved binding, Then consent succeeds", async () => {
+  const input = request();
+  assert.equal("provider_mode" in input, false);
+  assert.equal("provider_key" in (input.request_metadata || {}), false);
+  const artifact = issue(input).value;
+  const checked = api().validateConsentArtifact(artifact, input, { config: CONFIG });
+  assert.equal(checked.ok, true, JSON.stringify(checked));
+  assert.equal(checked.value.artifact.provider_mode, "runtime");
+  assert.equal(checked.value.artifact.provider_key, "runtime");
 });
 
 test("Given selected sources without consent, When provider invocation is attempted, Then transport and persistent writes remain zero", async () => {
@@ -172,7 +183,7 @@ test("Given consent for one provider key, When the provider key changes, Then co
   const artifact = issue().value;
   const changed = request({ request_metadata: { request_id: "request_outbound_consent", provider_key: "groq" } });
   const { calls, result } = await invoke(changed, artifact, { config: configWithDirectProvider("groq") });
-  assertStopped(result, calls);
+  assertStopped(result, calls, "unknown_request_metadata");
 });
 
 test("Given consent for one selected source, When another selected source is added, Then consent is invalidated before transport", async () => {
@@ -218,21 +229,18 @@ test("Given credentials or cookies in the outbound policy, When consent or invoc
   }
 });
 
-test("Given OmniRoute is configured but not selected for this run, When consent is issued, Then only an explicit run selection can authorize OmniRoute", async () => {
+test("Given OmniRoute is configured but not selected for this run, When consent is issued, Then the retired explicit selection fails closed before transport", async () => {
   const implicit = issue();
   assert.equal(implicit.ok, true, JSON.stringify(implicit));
-  assert.equal(implicit.value.provider_mode, "direct");
-  assert.equal(implicit.value.provider_key, "gemini");
+  assert.equal(implicit.value.provider_mode, "runtime");
+  assert.equal(implicit.value.provider_key, "runtime");
 
   const explicitInput = request({ provider_mode: "omniroute", request_metadata: { request_id: "request_outbound_consent", provider_key: "openrouter" }, retry_owner: "gateway" });
   const explicit = issue(explicitInput, { nonce: "nonce_omniroute_consent_01" });
-  assert.equal(explicit.ok, true, JSON.stringify(explicit));
-  assert.equal(explicit.value.provider_key, "openrouter");
-  const { calls, result } = await invoke(explicitInput, explicit.value);
-  assert.equal(result.ok, true, JSON.stringify(result));
-  assert.equal(result.provider_network, 1);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].provider_mode, "omniroute");
+  assert.equal(explicit.ok, false, JSON.stringify(explicit));
+  assert.equal(explicit.reason, "invalid_provider_mode");
+  const { calls, result } = await invoke(explicitInput, implicit.value);
+  assertStopped(result, calls, "invalid_provider_mode");
 });
 
 test("Given malformed or tampered consent fields, When invocation is attempted, Then consent fails closed before transport", async () => {
