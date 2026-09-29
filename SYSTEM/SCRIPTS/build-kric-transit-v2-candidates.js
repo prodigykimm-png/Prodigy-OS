@@ -17,8 +17,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { validateProviderMap } = require("./region-transit-v2-core.js");
 
-const CANDIDATE_REL = "SYSTEM/CACHE/region-transit/candidates/kric-urban-stations-seoul-gyeonggi-candidate.json";
-const OUT_REL = "SYSTEM/CACHE/region-transit/candidates/v2";
+const CANDIDATE_REL = process.env.KRIC_CANDIDATE_REL || "SYSTEM/CACHE/region-transit/candidates/kric-urban-stations-seoul-gyeonggi-candidate.json";
+const OUT_REL = process.env.KRIC_OUT_REL || "SYSTEM/CACHE/region-transit/candidates/v2";
 const KRIC_URL = "https://data.kric.go.kr/rips/M_01_01/detail.do?id=32";
 
 /**

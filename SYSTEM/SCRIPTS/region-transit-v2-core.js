@@ -64,6 +64,15 @@ function sha256(value) {
  * @param {object} [options] - optional settings
  * @param {Set|null} [options.authoritativeSet] - set of "code:line" keys for membership check
  */
+const ADDRESS_SIDO = [
+  "서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시", "대전광역시", "울산광역시",
+  "세종특별자치시", "경기도", "강원특별자치도", "충청북도", "충청남도", "전북특별자치도",
+  "전라남도", "경상북도", "경상남도", "제주특별자치도"
+].join("|");
+const OFFICIAL_ADDRESS_SIGUNGU_RE = new RegExp(
+  "^(?:" + ADDRESS_SIDO + ")\\s+[^\\s]+(?:구|군|시)(?=\\s|$)", "u"
+);
+
 function validateStation(station, vaultRoot, boundarySha, options) {
   const opts = options || {};
   if (!isObject(station)) throw new Error("station must be an object");
@@ -92,8 +101,8 @@ function validateStation(station, vaultRoot, boundarySha, options) {
 
   if (assignment.method === "official_address_admin_parse") {
     if (assignment.source_field !== "official_address") throw new Error("official address assignment must name official_address source field");
-    if (!/^(서울특별시\s+[^\s]+구|경기도\s+[^\s]+(?:시|군)|인천광역시\s+[^\s]+구|부산광역시\s+[^\s]+구)(?=\s|$)/u.test(station.official_address)) {
-      throw new Error("official address does not directly identify a Seoul/Gyeonggi/Incheon/Busan sigungu");
+    if (!OFFICIAL_ADDRESS_SIGUNGU_RE.test(station.official_address)) {
+      throw new Error("official address does not directly identify a nationwide sigungu");
     }
   } else if (assignment.method === "point_in_polygon") {
     if (!/^\d{5}$/.test(String(assignment.sigungu_code))) throw new Error("point-in-polygon sigungu_code must be five digits");

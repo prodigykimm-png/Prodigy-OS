@@ -186,6 +186,11 @@ function applyRegions(options) {
       continue;
     }
     const original = fs.readFileSync(targetPath, "utf8");
+    const currentTransit = blockBody(original, "AUTO:REGION_TRANSIT").trim();
+    if (options.onlyEmpty && currentTransit !== "") {
+      results.push({ region_key: regionKey, status: "skipped_existing_transit", stations: stations.length });
+      continue;
+    }
     const fm = frontmatter(original);
     if (scalar(fm, "type") !== "auction_region") {
       throw new Error(`${regionKey}의 type이 auction_region이 아닙니다.`);
@@ -199,7 +204,7 @@ function applyRegions(options) {
     for (const [index, key] of PROTECTED_BLOCKS.entries()) {
       if (protectedBefore[index] !== protectedAfter[index]) throw new Error(`보호 블록 ${key}가 변경됐습니다.`);
     }
-    const changed = blockBody(original, "AUTO:REGION_TRANSIT").trim() !== body.trim();
+    const changed = currentTransit !== body.trim();
     if (changed && !options.dryRun) atomicWrite(targetPath, rendered);
     results.push({
       region_key: regionKey,
@@ -216,6 +221,8 @@ function applyRegions(options) {
     candidate_stations: manifest.accepted_station_count,
     covered_regions: byRegion.size,
     applied_regions: results.filter((r) => r.status === "applied").length,
+    skipped_existing_transit: results.filter((r) => r.status === "skipped_existing_transit").length,
+    only_empty: Boolean(options.onlyEmpty),
     dry_run: Boolean(options.dryRun),
     results
   };
@@ -234,6 +241,7 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (key === "--only-empty") { options.onlyEmpty = true; continue; }
     if (key === "--vault") { options.vaultRoot = argv[index + 1]; index += 1; continue; }
     throw new Error(`지원하지 않는 인자입니다: ${key}`);
   }
