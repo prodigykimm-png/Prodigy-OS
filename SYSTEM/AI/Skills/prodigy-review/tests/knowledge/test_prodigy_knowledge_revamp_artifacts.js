@@ -210,7 +210,7 @@ function assertCatalogArtifacts(catalogArtifact, checksArtifact, exclusionsArtif
   const claimSentinels = {
     "launcher-workspaces": ["WORKSPACE_CONFIG", 'id: "auction"', 'id: "workout"', 'id: "reading"', 'id: "project"', 'id: "personal"'],
     "knowledge-hub-mount": ["KnowledgeExplorerHub.render", "ProdigyHubLoader.mountWorkspace", "mountContext"],
-    "brief-provider-default": ["mountKnowledgeExplorer", "options.briefService ||", "aiProviderService: {}", "providerConfigService: {}"],
+    "brief-provider-default": ["mountKnowledgeExplorer", "options.briefService ||", "consumerRuntime", "root.ProdigyAIConsumerRuntime"],
     "brief-recovery-copy": ["statusCopy", "다시 시도"],
     "hydration-controller": ["hydrateSelectedAsset", "requestId", "asset.path", 'status: "loading"', 'status: "error"'],
     "hydration-render": ["appendHydrationSection", 'hydration.status === "error"', "다시 선택해 시도해 주세요"],
