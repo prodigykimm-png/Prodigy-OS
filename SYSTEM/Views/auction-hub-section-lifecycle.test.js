@@ -139,10 +139,13 @@ function harness(source) {
     );
   }
 
-  // 4. When the native renderer owns the note, a detached legacy block must
-  //    stand down at once: no wait, no failure. A recorded failure would keep the
-  //    workspace navigation request pinned in the "error" state forever, because
-  //    acknowledgeNavigation() only settles once renderFailures is empty.
+  // 4. A managed legacy section must still report its failure. The auction
+  //    renderer closes its dom_render span from exactly two hooks:
+  //    __prodigyAuctionReadinessCommit (all sections marked) and
+  //    __prodigyAuctionReadinessFailure (any section failed). Standing down
+  //    silently when the native path owns the note therefore leaves the span
+  //    open forever, because the native path does not mark every expected
+  //    section. Measured: no dom_render_end at all after 120s.
   {
     const { lifecycle, scheduled, win } = harness(source);
     win.__prodigyAuctionPrimarySectionsManaged = true;
@@ -157,12 +160,13 @@ function harness(source) {
       },
       onError: (error) => errors.push(error),
       maxAttempts: 1000,
-      connectAttempts: 10,
+      connectAttempts: 4,
       interval: 1
     });
-    assert.equal(scheduled.length, 0, "a managed legacy section must not schedule any retry");
-    assert.equal(runs, 0, "a managed legacy section must not run its fallback renderer");
-    assert.deepEqual(errors, [], "a managed legacy section must not report a failure");
+    assert.equal(scheduled.length, 3, "a managed legacy section still uses the connectAttempts cap");
+    assert.equal(runs, 0, "a detached legacy section must not run its fallback renderer");
+    assert.equal(errors.length, 1, "a managed legacy section must still report one failure so the render span can close");
+    assert.match(String(errors[0] && errors[0].message), /Auction section container did not connect/);
   }
 
   console.log("auction hub section lifecycle tests: PASS");

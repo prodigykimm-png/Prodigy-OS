@@ -141,14 +141,6 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
         return;
       }
       if (!mounted(container)) {
-        if (window.__prodigyAuctionPrimarySectionsManaged) {
-          // 네이티브 렌더러가 이 노트의 섹션을 이미 소유하고 있다. 아래 레거시
-          // 블록은 네이티브가 없을 때의 폴백 경로일 뿐이라, 여기서 폴백할 일이
-          // 없다. 계속 폴링하면 오류만 기록되고 탐색 요청이 "error" 에 묶인 채
-          // acknowledge되지 않는다.
-          state.dispose();
-          return;
-        }
         state.attempts += 1;
         // Detached는 기다려도 붙지 않는다. 이 노트의 js-engine 블록이 네이티브
         // 셸을 마운트하기 전에 note 컨테이너를 비우므로, 아래 레거시 섹션 블록의
