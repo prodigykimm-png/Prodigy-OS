@@ -65,7 +65,7 @@
     {
       "path": "SYSTEM/Views/display-registry.js",
       "type": "regular-file",
-      "sha256": "89b0ae8f947f58afc87971f28022f3daef7455d36329444a4c5cd3fb0b473c53"
+      "sha256": "3a1838c6725622c4a785860ce8f459dac97d04f3748110b43db30720a22be040"
     },
     {
       "path": "SYSTEM/Views/knowledge-candidate-core.js",
@@ -90,7 +90,7 @@
     {
       "path": "SYSTEM/Views/region-intelligence-popup-view.js",
       "type": "regular-file",
-      "sha256": "813d2f1e5859d3e2e156812ead2182cb23fa07345807f11b15af4ada35dbe023"
+      "sha256": "1f875f56211e7ac37f6afec4d2655726c4c0600dc0dee858561f2ecaab1e7d91"
     },
     {
       "path": "SYSTEM/Views/workout-core.js",
