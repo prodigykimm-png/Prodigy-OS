@@ -547,7 +547,15 @@ test("home surface re-render keeps exactly one quick capture row", async () => {
 });
 
 test("home surface promotes one ranked action deck and collapses the old narrative", async () => {
-  const { container } = await mountHome();
+  // The asserted deck is the morning ranking: after 18:00 local the journal
+  // wrap-up row (priority 100) outranks approved focus (88) by product design,
+  // so pin a morning clock to reach the asserted state deterministically.
+  const RealDate = global.Date;
+  class MorningDate extends RealDate { getHours() { return 9; } }
+  global.Date = MorningDate;
+  let container;
+  try {
+    ({ container } = await mountHome());
   const queues = container.findAll((element) => element.hasClass("home-action-queue"));
   assert.equal(queues.length, 1, "Home renders one action queue");
   assert.match(queues[0].textTree(), /다음 행동/);
@@ -558,6 +566,9 @@ test("home surface promotes one ranked action deck and collapses the old narrati
   assert.notEqual(details[0].open, true, "Focus and Continue stay collapsed by default");
   assert.equal(container.findAll((element) => element.hasClass("home-brief")).length, 0);
   assert.equal(container.findAll((element) => element.hasClass("home-stale-badge")).length, 0);
+  } finally {
+    global.Date = RealDate;
+  }
 });
 
 // ── Knowledge surface RED/GREEN ─────────────────────────────────────────

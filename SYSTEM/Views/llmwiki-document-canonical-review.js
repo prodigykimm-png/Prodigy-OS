@@ -298,7 +298,7 @@
     }
     return body + "\n";
   }
-  // 인용 locator(#L12, #3848-3868 같은 바이트/라인 범위)를 Obsidian이 실제로 여는 앵커로 바꾼다.
+  // 인용 locator(#L12, 바이트 3848-3868 같은 바이트/라인 범위)를 Obsidian이 실제로 여는 앵커로 바꾼다.
   // 범위 시작줄을 품는 마지막 헤딩을 쓰고, 헤딩 정보가 없으면 기존 locator를 그대로 쓴다.
   function headingFragment(heading) {
     // Obsidian이 해석하는 표준형: 헤딩 텍스트에서 링크를 깨는 문자만 인코딩한다(공백·괄호·샵).
@@ -330,7 +330,7 @@
             const to = next && next.position && next.position.start ? next.position.start.line + 1 : Number.POSITIVE_INFINITY;
             if (row.heading && from <= value && value < to) return `${encodeURI(sourcePath)}#${headingFragment(row.heading)}`;
           } else {
-            // 바이트 locator(#132-200): 바이트 오프셋으로만 판정한다(줄로 오해하지 않는다).
+            // 바이트 locator(바이트 132-200): 바이트 오프셋으로만 판정한다(줄로 오해하지 않는다).
             const from = at(row, "start");
             const to = at(next, "start");
             if (from === null) break;
@@ -343,7 +343,7 @@
     } catch (_error) { /* 인덱스가 없으면 locator 그대로 */ }
     return encodeURI(raw);
   }
-  // 본문에 미리 박혀 있는 인용(#L12, #3848-3868 같은 라인/바이트 범위)을 Obsidian이 여는 헤딩 앵커로 일괄 재작성한다.
+  // 본문에 미리 박혀 있는 인용(#L12, 바이트 3848-3868 같은 라인/바이트 범위)을 Obsidian이 여는 헤딩 앵커로 일괄 재작성한다.
   function rewriteCitationAnchors(app, body) {
     return String(body || "")
       .replace(/\]\(([^)\s#]+)#(L?\d+(?:[-–]L?\d+)?)\)(?:%[0-9A-Fa-f]{2}[^\s]*)?/gu, (_whole, path, fragment) => `](${anchorFor(app, `${decodeURIComponent(path)}#${fragment}`)})`)
@@ -408,7 +408,7 @@
     const covered = own.filter(token => present.has(token)).length / own.length;
     return covered >= 0.7;
   }
-  // locator의 범위 표기(#132-200 바이트, #L12-L40 라인)를 바이트 구간으로 해석한다.
+  // locator의 범위 표기(바이트 132-200 바이트, #L12-L40 라인)를 바이트 구간으로 해석한다.
   function locatorByteRange(bytes, locator) {
     const fragment = String(locator || "").split("#")[1] || "";
     const numbers = fragment.match(/L?\d+/gu);
