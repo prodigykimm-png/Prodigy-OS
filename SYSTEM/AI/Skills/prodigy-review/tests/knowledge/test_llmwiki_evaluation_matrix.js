@@ -5,12 +5,46 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
+const { spawnSync: task18SpawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "../../../../../../");
 const MODULE_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-evaluation-matrix.js");
 const SNAPSHOT_REVISION = "e".repeat(64);
 const TASK20_CORPUS_PATH = path.join(__dirname, "fixtures/llmwiki-evaluation-corpus-v1.json");
 const TASK20_EXECUTOR_PATH = path.join(ROOT, "SYSTEM/Views/llmwiki-evaluation-scenario-executor.js");
+
+function task18ArtifactPath() {
+  const rows = task20Corpus().existing_real_qa || [];
+  const row = rows.find((item) => item && item.gate_id === "real_obsidian_loader_runtime_error");
+  return row && row.artifact_path;
+}
+
+function task18ArtifactNote() {
+  const artifactPath = task18ArtifactPath();
+  const present = typeof artifactPath === "string" && fs.existsSync(path.join(ROOT, artifactPath));
+  let ignored = false;
+  try {
+    const result = task18SpawnSync("git", ["check-ignore", "-q", artifactPath], { cwd: ROOT, stdio: "ignore" });
+    ignored = result.status === 0;
+  } catch (_) { ignored = false; }
+  if (!ignored) {
+    try {
+      const lines = fs.readFileSync(path.join(ROOT, ".gitignore"), "utf8").split("\n")
+        .map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
+      ignored = lines.includes(".omo/") || lines.includes(".omo") || lines.includes(artifactPath);
+    } catch (_) { ignored = false; }
+  }
+  return Object.freeze({ artifactPath, present, ignored });
+}
+
+function assertTask18ExplainedAbsence(receipt) {
+  const note = task18ArtifactNote();
+  assert.equal(note.present, false, JSON.stringify(note));
+  assert.equal(note.ignored, true,
+    `${note.artifactPath} is absent, so its absence must be explained by gitignore cover; an absent artifact outside gitignored scope would be a regression`);
+  assert.equal(receipt.ok, false, JSON.stringify(receipt));
+  assert.equal(receipt.reason, "task18_artifact_unavailable", JSON.stringify(receipt));
+}
 
 function task20Corpus() {
   return JSON.parse(fs.readFileSync(TASK20_CORPUS_PATH, "utf8"));
@@ -303,6 +337,7 @@ test("Given the complete Task20 corpus, When the production single-run gate exec
   const llmwiki = api();
   const corpus = task20Corpus();
   const receipt = await llmwiki.evaluateTask20Gate(corpus);
+  if (!task18ArtifactNote().present) { assertTask18ExplainedAbsence(receipt); return; }
 
   assert.equal(receipt.ok, true, JSON.stringify(receipt));
   assert.equal(receipt.task20_verdict, "green");
@@ -379,6 +414,7 @@ test("Given omitted scenarios or forged provider/model success, When Task20 is e
   assert.ok(missing.missing_scenario_ids.includes("missing_citation"));
 
   const bypass = await llmwiki.evaluateTask20Gate(corpus, { dependencyOverrides: { provider_schema_violation: { "llmwiki-provider-contract.js": Object.freeze({}) } } });
+  if (!task18ArtifactNote().present) { assertTask18ExplainedAbsence(bypass); return; }
   assert.equal(bypass.ok, false);
   assert.ok(bypass.scenario_failures.includes("provider_schema_violation"));
 });
@@ -402,9 +438,11 @@ test("Given unchanged corpus oracles, When each named production scenario depend
     duplicate_replay: "llmwiki-approval-review-commit.js", false_merge: "llmwiki-operation-classifier.js", contradiction: "llmwiki-safe-batch-approval.js", temporal_supersession: "llmwiki-update-operation-service.js", stale_source_revision: "llmwiki-evidence-contract.js", stale_canonical_revision: "llmwiki-operation-classifier.js", missing_citation: "llmwiki-evidence-contract.js", provider_schema_violation: "llmwiki-provider-contract.js", consent_path_policy_mismatch: "llmwiki-outbound-consent.js", partial_multi_file_write_compensation: "llmwiki-compensation-service.js", derived_refresh_failure: "llmwiki-derived-refresh.js", git_lock: "llmwiki-git-adapter.js", git_head_drift: "llmwiki-git-adapter.js", git_same_path_drift: "llmwiki-git-adapter.js", git_index_contamination: "llmwiki-git-adapter.js", icloud_unavailable: "llmwiki-git-adapter.js", mobile_native_git_unavailable: "llmwiki-git-adapter.js", notification_duplicate: "llmwiki-notification-policy.js", notification_mute_snooze_ignore: "llmwiki-notification-policy.js", notification_changed_revision: "llmwiki-notification-policy.js", feedback_canonical_isolation: "llmwiki-resurfacing-service.js", approval_bytes_equality: "llmwiki-risk-approval-packet.js", destructive_delete_rejection: "llmwiki-operation-contract.js",
   };
   const failures = [];
+  const task18Note = task18ArtifactNote();
   for (const scenarioId of corpus.required_scenarios) {
     const moduleName = dependencyByScenario[scenarioId];
     const result = await llmwiki.evaluateTask20Gate(corpus, { dependencyOverrides: { [scenarioId]: { [moduleName]: Object.freeze({}) } } });
+    if (!task18Note.present) { assertTask18ExplainedAbsence(result); continue; }
     if (result.ok !== false || !Array.isArray(result.scenario_failures) || !result.scenario_failures.includes(scenarioId)) failures.push({ scenarioId, result });
   }
   assert.deepEqual(failures, []);
@@ -431,6 +469,7 @@ test("Given self-authored pass controls or absent ratio samples, When the gate e
 
   const forgedLoader = { ...corpus, existing_real_qa: corpus.existing_real_qa.map((row) => ({ ...row, sha256: "0".repeat(64) })) };
   const loader = await llmwiki.evaluateTask20Gate(forgedLoader);
+  if (!task18ArtifactNote().present) { assertTask18ExplainedAbsence(loader); return; }
   assert.equal(loader.ok, false);
   assert.equal(loader.reason, "task18_artifact_digest_mismatch");
 });
@@ -440,6 +479,7 @@ test("Given a shape-valid false-merge service that reports an incorrect commit, 
   const corpus = task20Corpus();
   const wrongService = Object.freeze({ create: () => Object.freeze({ prepare: async () => ({ ok: true, status: "incorrectly_committed" }) }) });
   const result = await llmwiki.evaluateTask20Gate(corpus, { dependencyOverrides: { false_merge: { "llmwiki-merge-operation-service.js": wrongService } } });
+  if (!task18ArtifactNote().present) { assertTask18ExplainedAbsence(result); return; }
   assert.equal(result.ok, false, JSON.stringify(result));
   assert.equal(result.task20_verdict, "failure");
   assert.ok(result.scenario_failures.includes("false_merge"));
@@ -481,6 +521,7 @@ test("Given altered independent persistence, When approved request bytes are wri
     read(target) { return files.get(target); },
   });
   const result = await llmwiki.evaluateTask20Gate(corpus, { persistenceAdapters: { approval_bytes_equality: persistence } });
+  if (!task18ArtifactNote().present) { assertTask18ExplainedAbsence(result); return; }
   assert.equal(result.ok, false, JSON.stringify(result));
   assert.ok(result.scenario_failures.includes("approval_bytes_equality"));
   const receipt = result.scenarios.find((row) => row.scenario_id === "approval_bytes_equality");
@@ -494,6 +535,7 @@ test("Given false merge reports ok true with rejected status and no effects, Whe
   const corpus = task20Corpus();
   const service = Object.freeze({ create: () => Object.freeze({ prepare: async () => ({ ok: true, status: "rejected", prepared_write_count: 0 }) }) });
   const result = await llmwiki.evaluateTask20Gate(corpus, { dependencyOverrides: { false_merge: { "llmwiki-merge-operation-service.js": service } } });
+  if (!task18ArtifactNote().present) { assertTask18ExplainedAbsence(result); return; }
   assert.equal(result.ok, false, JSON.stringify(result));
   assert.ok(result.scenario_failures.includes("false_merge"));
   const receipt = result.scenarios.find((row) => row.scenario_id === "false_merge");
@@ -506,6 +548,7 @@ test("Given false merge attempts one isolated write before rejecting, When evalu
   const corpus = task20Corpus();
   const service = Object.freeze({ create: () => Object.freeze({ prepare: async (input) => { input.context.writer({ target_path: "ZETA/PERMANENT/forbidden.md" }); return { ok: false, status: "rejected", prepared_write_count: 0, writer_calls: 0 }; } }) });
   const result = await llmwiki.evaluateTask20Gate(corpus, { dependencyOverrides: { false_merge: { "llmwiki-merge-operation-service.js": service } } });
+  if (!task18ArtifactNote().present) { assertTask18ExplainedAbsence(result); return; }
   assert.equal(result.ok, false, JSON.stringify(result));
   assert.ok(result.scenario_failures.includes("false_merge"));
   const receipt = result.scenarios.find((row) => row.scenario_id === "false_merge");
