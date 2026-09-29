@@ -301,7 +301,7 @@ done < "$VIEW_INVENTORY"
 
 is_macos_real_capability() {
   case "$1" in
-    *test_vault_assistant_real_obsidian.js|*test_knowledge_explorer_responsive.js|*test_*_real_obsidian_*.js|*test_real_obsidian_*.js|*test_real_hub_transition_lifecycle.js|*test_shared_real_obsidian_controls.js|*test_workout_real_controller_publication.js) return 0 ;;
+    *test_vault_assistant_real_obsidian.js|*test_knowledge_explorer_responsive.js|*test_*_real_obsidian_*.js|*test_real_obsidian_*.js|*_ai_runtime_real_obsidian.js|*test_real_hub_transition_lifecycle.js|*test_shared_real_obsidian_controls.js|*test_workout_real_controller_publication.js) return 0 ;;
     *) return 1 ;;
   esac
 }
