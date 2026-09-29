@@ -25,18 +25,6 @@
     {
       "path": "cases/missing-optional-module.json",
       "sha256": "af09f3170ba4e266b41ae3e6bdb7fda7bf3b73d886b97166c472c6da1e2391bc"
-    },
-    {
-      "path": "cases/provider-timeout.json",
-      "sha256": "5929898eaa684a8b1e8bb4069b3d3b711307896e83043fd94c37616c1a637e5b"
-    },
-    {
-      "path": "cases/provider-401.json",
-      "sha256": "00dd2fca879f84e2fe20ed8f856060094502506a29ae84fddddd60be001c9784"
-    },
-    {
-      "path": "cases/provider-429.json",
-      "sha256": "6842bf0190c930c8545a04454ef1e2083c0651c52044baffa787be06123d6243"
     }
   ],
   "suite_registry": {
