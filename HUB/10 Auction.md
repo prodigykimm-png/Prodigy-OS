@@ -141,8 +141,22 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
         return;
       }
       if (!mounted(container)) {
+        if (window.__prodigyAuctionPrimarySectionsManaged) {
+          // 네이티브 렌더러가 이 노트의 섹션을 이미 소유하고 있다. 아래 레거시
+          // 블록은 네이티브가 없을 때의 폴백 경로일 뿐이라, 여기서 폴백할 일이
+          // 없다. 계속 폴링하면 오류만 기록되고 탐색 요청이 "error" 에 묶인 채
+          // acknowledge되지 않는다.
+          state.dispose();
+          return;
+        }
         state.attempts += 1;
-        if (state.attempts >= (Number(config.maxAttempts) || 100)) {
+        // Detached는 기다려도 붙지 않는다. 이 노트의 js-engine 블록이 네이티브
+        // 셸을 마운트하기 전에 note 컨테이너를 비우므로, 아래 레거시 섹션 블록의
+        // 컨테이너는 마운트 수명 내내 detached로 남는다. 예전에는 maxAttempts(100)
+        // x interval(100ms) = 10초를 섹션마다 소진했고, Auction dom_render 스팬이
+        // 실측 19.2초를 여기서 쓰다 "container did not connect" 로 실패했다.
+        // 진짜로 곧 붙는 경우만 짧게 기다리고 즉시 포기한다.
+        if (state.attempts >= (Number(config.connectAttempts) || 10)) {
           reportError(new Error("Auction section container did not connect"));
           state.dispose();
           return;
