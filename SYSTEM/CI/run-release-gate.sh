@@ -301,15 +301,33 @@ done < "$VIEW_INVENTORY"
 
 is_macos_real_capability() {
   case "$1" in
-    *test_vault_assistant_real_obsidian.js|*test_knowledge_explorer_responsive.js|*test_*_real_obsidian_*.js|*test_real_obsidian_*.js|*_ai_runtime_real_obsidian.js|*test_real_hub_transition_lifecycle.js|*test_shared_real_obsidian_controls.js|*test_workout_real_controller_publication.js) return 0 ;;
+    *test_vault_assistant_real_obsidian.js|*test_knowledge_explorer_responsive.js|*test_*_real_obsidian_*.js|*test_real_obsidian_*.js|*_ai_runtime_real_obsidian.js|*test_llmwiki_final_flow_real_obsidian.js|*test_real_hub_transition_lifecycle.js|*test_shared_real_obsidian_controls.js|*test_workout_real_controller_publication.js) return 0 ;;
     *) return 1 ;;
+  esac
+}
+
+macos_capability_reason() {
+  case "$1" in
+    *test_llmwiki_final_flow_real_obsidian.js) printf '%s' "requires LW_SCENARIO driver env plus a live macOS Obsidian final-release workflow; the portable gate runs bare node with neither, so it could never pass here" ;;
+    *) printf '%s' "requires macOS Aside/real Obsidian final-release workflow" ;;
   esac
 }
 
 is_local_artifact_scope() {
   case "$1" in
-    *test_llmwiki_plan_compliance.js) return 0 ;;
+    *test_llmwiki_plan_compliance.js|*test_llmwiki_scope_fidelity.js|*test_llmwiki_task13_restart_recovery.js|*test_llmwiki_task14_cleanup.js|*test_llmwiki_task18_obsidian_git_reload_probe.js) return 0 ;;
     *) return 1 ;;
+  esac
+}
+
+local_artifact_reason() {
+  case "$1" in
+    *test_llmwiki_plan_compliance.js) printf '%s' "verifies owner-local .omo planning artifacts; .omo/ is gitignored at .gitignore:56, so these are unverifiable outside the owner's machine" ;;
+    *test_llmwiki_scope_fidelity.js) printf '%s' "requires gitignored .omo evidence paths (.gitignore:56) and gitignored owner-local task reports; unverifiable in a clean checkout" ;;
+    *test_llmwiki_task13_restart_recovery.js) printf '%s' "requires gitignored harness SYSTEM/AI/Reports/task-13/manual-restart-harness.js (.gitignore:25); absent in a clean checkout" ;;
+    *test_llmwiki_task14_cleanup.js) printf '%s' "requires gitignored .omo evidence (.omo/evidence/llmwiki-batch-core-simplification/task-6/pre-move-manifest.json, .gitignore:56); absent in a clean checkout" ;;
+    *test_llmwiki_task18_obsidian_git_reload_probe.js) printf '%s' "requires owner-installed .obsidian/plugins/obsidian-git/ build output and data.json (.gitignore:51), read at module load; absent in a clean checkout" ;;
+    *) printf '%s' "requires owner-local gitignored artifacts; unverifiable in a clean checkout" ;;
   esac
 }
 
@@ -317,10 +335,10 @@ printf '\n--- Direct JavaScript tests ---\n'
 while IFS= read -r -d '' file; do
   if is_macos_real_capability "$file"; then
     NOT_APPLICABLE=$((NOT_APPLICABLE + 1))
-    printf 'NOT_APPLICABLE: javascript-test: %s (requires macOS Aside/real Obsidian final-release workflow)\n' "$file"
+    printf 'NOT_APPLICABLE: javascript-test: %s (%s)\n' "$file" "$(macos_capability_reason "$file")"
   elif is_local_artifact_scope "$file"; then
     NOT_APPLICABLE=$((NOT_APPLICABLE + 1))
-    printf 'NOT_APPLICABLE: javascript-test: %s (verifies owner-local .omo planning artifacts; .omo/ is gitignored at .gitignore:56, so these are unverifiable outside the owner'"'"'s machine)\n' "$file"
+    printf 'NOT_APPLICABLE: javascript-test: %s (%s)\n' "$file" "$(local_artifact_reason "$file")"
   else
     run_command "javascript-test: $file" node "$file"
   fi
