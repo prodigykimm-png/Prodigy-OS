@@ -37,20 +37,16 @@
   const METRICS_MAX_AGE_DAYS = 183;
   const SOURCE_MAX_AGE_DAYS = 90;
   const DAY_MS = 24 * 60 * 60 * 1000;
+  // 3542f31 retired the vault provider implementation (ai-provider-*, codex-exec-service,
+  // antigravity-exec-service, region-experience-provider-endpoint-guard): those modules do
+  // not exist, so they must not be listed here. The loader below throws naming any listed
+  // module the vault cannot resolve, which is the honest signal for a future miss.
   const REGION_EXPERIENCE_MODULE_PATHS = Object.freeze([
     "SYSTEM/Views/region-experience-contract.js",
     "SYSTEM/Views/journal-core.js",
     "SYSTEM/Views/region-experience-store.js",
-    "SYSTEM/Views/ai-provider-response.js",
-    "SYSTEM/Views/ai-provider-schema.js",
-    "SYSTEM/Views/ai-provider-error-policy.js",
-    "SYSTEM/Views/ai-provider-fallback.js",
-    "SYSTEM/Views/codex-exec-service.js",
-    "SYSTEM/Views/antigravity-exec-service.js",
-    "SYSTEM/Views/ai-provider-service.js",
     "SYSTEM/Views/prodigy-config-service.js",
     "SYSTEM/Views/project-workflow-draft-service.js",
-    "SYSTEM/Views/region-experience-provider-endpoint-guard.js",
     "SYSTEM/Views/region-experience-ai.js",
     "SYSTEM/Views/journal-store.js",
     "SYSTEM/Views/daily-reflection-knowledge-handoff.js",

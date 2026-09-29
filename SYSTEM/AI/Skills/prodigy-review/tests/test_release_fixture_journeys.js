@@ -8,10 +8,16 @@ const { spawnSync } = require("node:child_process");
 const ROOT = path.resolve(__dirname, "../../../../..");
 const HARNESS = path.join(ROOT, "SYSTEM/CI/release-fixture-harness.js");
 const FIXTURES = path.join(ROOT, "SYSTEM/CI/fixtures/release-vault");
+// 3542f31 retired the provider journey ("Provider 실행 코드를 vault에서 퇴역"): its vault
+// implementation modules were deleted and must not be re-added, so the three provider
+// fixture cases no longer exist. CASES names only the six live journeys.
 const CASES = Object.freeze([
   "empty-vault", "minimal-valid-object", "invalid-property", "duplicate-object",
-  "stale-source", "missing-optional-module", "provider-timeout", "provider-401", "provider-429"
+  "stale-source", "missing-optional-module"
 ]);
+// Names the retired provider cases so the suite below can pin their absence instead of
+// their behavior. These ids must stay out of CASES while the retirement stands.
+const RETIRED_PROVIDER_CASES = Object.freeze(["provider-timeout", "provider-401", "provider-429"]);
 const JOURNEYS = Object.freeze(["project", "people", "reading", "home", "journal", "workout"]);
 
 function run(args) {
@@ -29,7 +35,9 @@ assert.ok(fs.existsSync(path.join(FIXTURES, "fixture-manifest.json")), "tracked 
 const integrity = parse(run(["--fixtures"]));
 assert.equal(integrity.ok, true);
 assert.deepEqual(integrity.case_ids, CASES);
-assert.equal(integrity.case_count, 9);
+// Old expectation case_count 9 counted the three retired provider cases, whose execution
+// required SYSTEM/Views/ai-provider-error-policy.js, deleted in 3542f31. Correct value is 6.
+assert.equal(integrity.case_count, 6);
 assert.deepEqual(integrity.suite_ids, JOURNEYS, "explicit suite registry must contain every independent journey");
 assert.equal(integrity.private_path_hits, 0);
 assert.equal(integrity.absolute_path_hits, 0);
@@ -54,12 +62,23 @@ assert.equal(byCase.get("invalid-property").manifest_unchanged, true);
 assert.equal(byCase.get("stale-source").winner_mtime, 20);
 assert.equal(byCase.get("missing-optional-module").required_surface, "available");
 assert.equal(byCase.get("missing-optional-module").optional_surface, "unavailable");
-for (const id of ["provider-timeout", "provider-401", "provider-429"]) {
-  assert.deepEqual(byCase.get(id).journey_states, ["entry", "loading", "error", "retry", "recovered", "home_return"]);
-  assert.equal(byCase.get(id).retry_available, true);
-  assert.equal(byCase.get(id).recovered, true);
-  assert.equal(byCase.get(id).write_count, 0);
+// The old pins below asserted live error→retry→recovered behavior of the provider surface.
+// That surface was retired in 3542f31, so asserting its behavior would require resurrecting
+// the deleted provider modules. The correct pins state the retirement explicitly: the cases
+// do not run, their fixture files are gone, the harness has no provider leg, and the trust
+// anchor no longer lists them.
+for (const id of RETIRED_PROVIDER_CASES) {
+  assert.equal(byCase.has(id), false, `${id} must not run: the provider journey was retired in 3542f31`);
+  assert.equal(fs.existsSync(path.join(FIXTURES, "cases", `${id}.json`)), false, `${id} fixture must stay deleted under the 3542f31 retirement`);
 }
+const harnessSource = fs.readFileSync(HARNESS, "utf8");
+assert.doesNotMatch(harnessSource, /fixture\.kind === "provider"/u, "harness must not keep a provider leg for the retired journey");
+// Matches require(...) specifically: the retirement comments in the harness name the deleted
+// module intentionally (that naming is the required record of why the leg is gone), so a bare
+// mention must not trip this pin — only an executable reference may.
+assert.doesNotMatch(harnessSource, /require\([^)]*ai-provider-error-policy/u, "harness must not require the retired provider module");
+const releaseManifest = JSON.parse(fs.readFileSync(path.join(FIXTURES, "fixture-manifest.json"), "utf8"));
+assert.deepEqual(releaseManifest.fixtures.filter((entry) => entry.path.includes("provider")), [], "trust anchor must not list retired provider fixtures");
 const fixtureBytes = fs.readdirSync(path.join(FIXTURES, "cases")).sort().map((name) => fs.readFileSync(path.join(FIXTURES, "cases", name), "utf8")).join("\n")
   + fs.readFileSync(path.join(FIXTURES, "fixture-manifest.json"), "utf8")
   + fs.readFileSync(path.join(FIXTURES, "suite-registry.json"), "utf8");
@@ -83,8 +102,9 @@ for (const journey of JOURNEYS) {
 
 const all = parse(run(["--all"]));
 assert.equal(all.ok, true);
-assert.equal(all.fixture_cases.passed, 9);
-assert.equal(all.fixture_cases.total, 9);
+// Old expectation passed/total 9 counted the three retired provider cases (see case_count note).
+assert.equal(all.fixture_cases.passed, 6);
+assert.equal(all.fixture_cases.total, 6);
 assert.equal(all.journeys.passed, 6);
 assert.equal(all.journeys.total, 6);
 assert.match(all.digest, /^[a-f0-9]{64}$/u);

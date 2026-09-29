@@ -10,9 +10,13 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "../..");
 const FIXTURE_ROOT = path.join(__dirname, "fixtures/release-vault");
+// The provider journey was retired in 3542f31 ("Provider 실행 코드를 vault에서 퇴역"):
+// its vault implementation modules were deleted, so the three provider fixture cases
+// ("provider-timeout", "provider-401", "provider-429") no longer exist and CASE_IDS
+// must not name them.
 const CASE_IDS = Object.freeze([
   "empty-vault", "minimal-valid-object", "invalid-property", "duplicate-object",
-  "stale-source", "missing-optional-module", "provider-timeout", "provider-401", "provider-429"
+  "stale-source", "missing-optional-module"
 ]);
 const JOURNEY_IDS = Object.freeze(["project", "people", "reading", "home", "journal", "workout"]);
 const STEPS = Object.freeze(["entry", "primary_action", "save_or_no_write", "failure", "recovery", "home_return"]);
@@ -263,30 +267,10 @@ async function runFixtureCase(fixture) {
     if (result.required_failures.length !== fixture.expect.required_failures || result.optional_failures.length !== fixture.expect.optional_failures || result.optional_failures[0].code !== fixture.expect.code) throw new Error("missing optional module contract mismatch");
     return { id: fixture.id, ok: true, required_surface: "available", optional_surface: "unavailable", required_failures: 0, optional_failures: 1, code: result.optional_failures[0].code };
   }
-  if (fixture.kind === "provider") {
-    const policy = require(path.join(ROOT, "SYSTEM/Views/ai-provider-error-policy.js"));
-    let consumedResolve;
-    const consumedSignal = new Promise((resolve, reject) => {
-      consumedResolve = resolve;
-      const guard = setTimeout(() => reject(new Error(`${fixture.id} provider consumption timed out`)), 2000);
-      consumedResolve = (event) => { clearTimeout(guard); resolve(event); };
-    });
-    const registry = createFixtureRegistry({ onConsume: consumedResolve });
-    let fault;
-    if (fixture.fault.status) fault = policy.providerHttpError(fixture.fault.status, fixture.fault.body);
-    else { fault = new Error(fixture.fault.message); fault.name = fixture.fault.name; }
-    registry.configure("release", fixture.id, { nonce: `${fixture.id}:failure`, kind: "reject", error: fault.message, error_fields: { name: fault.name, status: Number(fault.status || 0) } });
-    const request = registry.consume("release", fixture.id, { state: "loading" });
-    const observed = await consumedSignal;
-    let rejected;
-    try { await request; } catch (error) { rejected = error; }
-    const surfaced = policy.userFacingProviderError(rejected, { authMode: "api-key" }, "https://fixture.invalid");
-    const status = Number(surfaced.status || 0);
-    if (observed.nonce !== `${fixture.id}:failure` || surfaced.name !== fixture.expect.name || status !== fixture.expect.status) throw new Error(`${fixture.id} provider journey mapping mismatch`);
-    registry.configure("release", fixture.id, { nonce: `${fixture.id}:recovery`, kind: "resolve", value: { state: "ready" } });
-    const recovered = await registry.consume("release", fixture.id, { action: "retry" });
-    return { id: fixture.id, ok: true, name: surfaced.name, status, journey_states: ["entry", "loading", "error", "retry", "recovered", "home_return"], retry_available: true, recovered: recovered.state === "ready", write_count: 0 };
-  }
+  // The provider journey was retired in 3542f31: the vault implementation it exercised
+  // (SYSTEM/Views/ai-provider-error-policy.js and its sibling provider modules) was
+  // deleted and must not be re-added, so there is no provider leg to run. A provider
+  // fixture reaching this point is a stale reference, not a runnable kind.
   throw new Error(`unknown release fixture kind: ${fixture.kind}`);
 }
 
