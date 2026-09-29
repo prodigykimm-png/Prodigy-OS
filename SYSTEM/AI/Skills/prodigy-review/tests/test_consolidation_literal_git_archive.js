@@ -62,6 +62,10 @@ function assertSafeRelativePath(relativePath) {
 // instead of the live modified+untracked worktree scan. Comparing the receipt to the
 // whole live working tree is a category error; comparing it to the authority's git
 // delivery record is the retarget.
+function headDeliveryRef(root) {
+  return command("git", ["rev-parse", "HEAD"], { cwd: root }).stdout.trim();
+}
+
 function deriveAuthorityDeliveryPaths(root, deliveryBase = BASELINE, deliveryRef) {
   return projection.deriveGitDeliveryPaths(root, deliveryBase, deliveryRef).filter((relativePath) =>
     !NON_DELIVERY_EXCLUSIONS.some((exclusion) => projection.matchesNonDeliveryExclusion(relativePath, exclusion))
@@ -519,8 +523,8 @@ function main() {
   const entries = assertManifestSelfConsistency(manifest);
   let deliveryPaths = [];
   if (gitMode) {
-    deliveryPaths = deriveAuthorityDeliveryPaths(ROOT);
-    console.log(`Authority git delivery: baseline=${BASELINE.slice(0, 12)} paths=${deliveryPaths.length} manifest_entries=${entries.length}.`);
+    deliveryPaths = deriveAuthorityDeliveryPaths(ROOT, BASELINE, headDeliveryRef(ROOT));
+    console.log(`Authority git delivery: baseline=${BASELINE.slice(0, 12)} ref=${headDeliveryRef(ROOT).slice(0, 12)} paths=${deliveryPaths.length} manifest_entries=${entries.length}.`);
     assertMutationRejections();
     runCleanCommittedGitDeliveryRegression();
   }
