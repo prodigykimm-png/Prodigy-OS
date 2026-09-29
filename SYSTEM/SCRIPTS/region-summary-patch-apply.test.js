@@ -132,8 +132,8 @@ const rendered = patch.renderSupplyBlock({
     { project_name: "B", stage: "planned", units: 500, expected_month: "2031-03", source_ids: ["S2"] }
   ]
 });
-assert.match(rendered, /\| 13~24개월 \| A \| 승인 \| 282 \| 2028-06 \| \[S1\] \|/);
-assert.match(rendered, /\| 37~60개월 \| B \| 계획 \| 500 \| 2031-03 \| \[S2\] \|/);
+assert.match(rendered, /\| 13~24개월 \| A \|  \| 승인 \| 282 \| 2028-06 \| \[S1\] \|/);
+assert.match(rendered, /\| 37~60개월 \| B \|  \| 계획 \| 500 \| 2031-03 \| \[S2\] \|/);
 assert.equal(patch.renderSupplyBlock({ supply_pipeline: [] }), null);
 
 const vaultSupply = fs.mkdtempSync(path.join(os.tmpdir(), "rsp-supply-"));
@@ -173,5 +173,19 @@ try {
 } finally {
   fs.rmSync(vaultSupply, { recursive: true, force: true });
 }
+
+
+const supplyOnly = { ...validPatch() };
+delete supplyOnly.summary_pending;
+supplyOnly.supply_heading = "> **AI 제안 · 확인 필요:** 한국부동산원 입주예정 자료 기반.";
+supplyOnly.reference_month = "2026-10";
+supplyOnly.supply_pipeline = [{ project_name: "시험단지", stage: "scheduled", units: 120, expected_month: "2027-03", kind: "분양", source_ids: ["S1", "S2"] }];
+assert.equal(patch.validatePatch(supplyOnly), true, "요약 없이 공급만 고치는 패치는 유효해야 한다");
+const scheduled = patch.renderSupplyBlock(supplyOnly);
+assert.match(scheduled, /시험단지/);
+assert.match(scheduled, /입주예정월 공표\(단계 미상\)/, "단계 미상 표기가 있어야 한다");
+assert.match(scheduled, /| 13~24개월 |/, "reference_month 기준으로 버킷이 잡혀야 한다");
+assert.throws(() => patch.validatePatch({ ...supplyOnly, reference_month: "202610" }), /reference_month/);
+assert.throws(() => patch.validatePatch({ ...supplyOnly, supply_pipeline: [{ ...supplyOnly.supply_pipeline[0], kind: "기타" }] }), /kind/);
 
 console.log("region summary patch tests: PASS");

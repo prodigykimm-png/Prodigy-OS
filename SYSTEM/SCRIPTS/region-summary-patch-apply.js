@@ -9,12 +9,13 @@ const pkgCore = require("./region-research-package-core.js");
 const ALLOWED_ROOT_REL = "PARA/RESOURCES/Auction Regions";
 const PATCH_CACHE_REL = "SYSTEM/CACHE/region-summary-patches";
 const SCHEMA_VERSION = 1;
-const TOP_KEYS = new Set(["schema_version", "region_key", "patched_at", "summary_pending", "sources", "supply_pipeline"]);
+const TOP_KEYS = new Set(["schema_version", "region_key", "patched_at", "summary_pending", "sources", "supply_pipeline", "supply_heading", "reference_month"]);
 const SOURCE_KEYS = new Set(["source_id", "institution", "title", "url", "accessed_at", "source_type"]);
 const PATCH_BLOCKS = Object.freeze(["AI:PENDING:SUMMARY", "AUTO:REGION_RESEARCH_SOURCES"]);
 const SUPPLY_KEY = "AI:PENDING:SUPPLY_PIPELINE";
-const SUPPLY_ITEM_KEYS = new Set(["project_name", "stage", "units", "expected_month", "source_ids"]);
-const SUPPLY_STAGES = new Set(["planned", "approved", "under_construction"]);
+const SUPPLY_ITEM_KEYS = new Set(["project_name", "stage", "units", "expected_month", "source_ids", "kind"]);
+const SUPPLY_STAGES = new Set(["planned", "approved", "under_construction", "scheduled"]);
+const SUPPLY_KINDS = new Set(["분양", "임대", "분양임대", "조합", "분양조합", "분양임대조합"]);
 
 function rejectUnknownKeys(value, allowed, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label}가 객체가 아닙니다.`);
@@ -37,10 +38,17 @@ function validatePatch(patch) {
   if (!/^.+-.+$/.test(patch.region_key)) throw new Error("region_key 형식이 올바르지 않습니다.");
   pkgCore.validateCalendarDate(patch.patched_at, "patched_at");
 
-  rejectUnknownKeys(patch.summary_pending, new Set(["text", "source_ids"]), "summary_pending");
-  nonEmptyString(patch.summary_pending.text, "summary_pending.text");
-  pkgCore.escapeProse(patch.summary_pending.text, "summary_pending.text");
-  pkgCore.rejectJosaPlaceholders(patch.summary_pending.text, "summary_pending.text");
+  if (patch.summary_pending == null && patch.supply_pipeline === undefined) {
+    throw new Error("summary_pending 또는 supply_pipeline 중 하나는 있어야 합니다.");
+  }
+  if (patch.summary_pending != null) {
+    rejectUnknownKeys(patch.summary_pending, new Set(["text", "source_ids"]), "summary_pending");
+    nonEmptyString(patch.summary_pending.text, "summary_pending.text");
+  }
+  if (patch.summary_pending !== undefined) {
+    pkgCore.escapeProse(patch.summary_pending.text, "summary_pending.text");
+    pkgCore.rejectJosaPlaceholders(patch.summary_pending.text, "summary_pending.text");
+  }
 
   if (!Array.isArray(patch.sources) || patch.sources.length < 1) throw new Error("sources는 최소 1개 필요합니다.");
   const seen = new Set();
@@ -57,14 +65,21 @@ function validatePatch(patch) {
     if (source.source_type !== "official_primary") throw new Error(`sources[${index}].source_type은 official_primary여야 합니다.`);
   });
 
+  if (patch.supply_heading !== undefined) nonEmptyString(patch.supply_heading, "supply_heading");
+  if (patch.reference_month !== undefined && !/^20\d{2}-\d{2}$/.test(patch.reference_month)) {
+    throw new Error("reference_month는 YYYY-MM 형식이어야 합니다.");
+  }
   if (patch.supply_pipeline !== undefined) validateSupplyPipeline(patch.supply_pipeline, patch.sources);
-  if (!Array.isArray(patch.summary_pending.source_ids) || patch.summary_pending.source_ids.length < 1) {
-    throw new Error("summary_pending.source_ids는 최소 1개 필요합니다.");
+  if (patch.summary_pending != null) {
+    if (!Array.isArray(patch.summary_pending.source_ids) || patch.summary_pending.source_ids.length < 1) {
+      throw new Error("summary_pending.source_ids는 최소 1개 필요합니다.");
+    }
+    for (const id of patch.summary_pending.source_ids) {
+      if (!seen.has(id)) throw new Error(`존재하지 않는 source_id를 참조했습니다: ${id}`);
+      used.add(id);
+    }
   }
-  for (const id of patch.summary_pending.source_ids) {
-    if (!seen.has(id)) throw new Error(`존재하지 않는 source_id를 참조했습니다: ${id}`);
-    used.add(id);
-  }
+  // 출처가 인용되는지는 apply 시점에 노트의 남은 블록까지 보고 판단한다.
   return true;
 }
 
@@ -82,6 +97,9 @@ function validateSupplyPipeline(items, sources) {
     if (!/^\d{4}-\d{2}$/.test(item.expected_month ?? "") || Number(String(item.expected_month).slice(5, 7)) < 1 || Number(String(item.expected_month).slice(5, 7)) > 12) {
       throw new Error(`supply_pipeline[${index}].expected_month는 YYYY-MM 형식이어야 합니다.`);
     }
+    if (item.kind !== undefined && !SUPPLY_KINDS.has(item.kind)) {
+      throw new Error(`supply_pipeline[${index}].kind는 공급 원본의 사업유형 값이어야 합니다: ${item.kind}`);
+    }
     if (!Array.isArray(item.source_ids) || item.source_ids.length < 1) throw new Error(`supply_pipeline[${index}].source_ids는 최소 1개 필요합니다.`);
     for (const id of item.source_ids) if (!valid.has(id)) throw new Error(`존재하지 않는 source_id를 참조했습니다: ${id}`);
   });
@@ -90,14 +108,20 @@ function validateSupplyPipeline(items, sources) {
 
 function renderSupplyBlock(patch) {
   if (patch.supply_pipeline === undefined || patch.supply_pipeline.length === 0) return null;
-  const head = "| 기간 | 사업 | 단계 | 세대수 | 예정월 | 근거 |\n|---|---|---|---:|---|---|";
+  const head = "| 입주까지 | 사업 | 구분 | 단계 | 세대수 | 입주예정월 | 근거 |\n|---|---|---|---|---:|---|---|";
+  const referenceMonth = /^(20\d{2})-(\d{2})$/.exec(patch.reference_month || "");
+  const referenceIndex = referenceMonth
+    ? Number(referenceMonth[1]) * 12 + Number(referenceMonth[2])
+    : (new Date().getFullYear() * 12 + new Date().getMonth() + 1);
   const rows = patch.supply_pipeline.map((item) => {
-    const months = item.expected_month === undefined ? null : Math.max(0, Math.round((Number(item.expected_month.slice(0, 4)) * 12 + Number(item.expected_month.slice(5, 7))) - (2026 * 12 + 9)));
-    const bucket = months === null ? "미상" : months <= 12 ? "12개월 이내" : months <= 24 ? "13~24개월" : months <= 36 ? "25~36개월" : months <= 60 ? "37~60개월" : "60개월 초과";
-    const stage = { planned: "계획", approved: "승인", under_construction: "공사 중" }[item.stage];
-    return `| ${bucket} | ${pkgCore.escapeTableCell(item.project_name)} | ${stage} | ${item.units.toLocaleString("ko-KR")} | ${item.expected_month ?? "미상"} | ${item.source_ids.map((id) => `[${id}]`).join("")} |`;
+    const months = Math.round((Number(item.expected_month.slice(0, 4)) * 12 + Number(item.expected_month.slice(5, 7))) - referenceIndex);
+    const bucket = months < 0 ? "이미 지난 예정월"
+      : months <= 12 ? "12개월 이내" : months <= 24 ? "13~24개월" : months <= 36 ? "25~36개월" : months <= 60 ? "37~60개월" : "60개월 초과";
+    const stage = { planned: "계획", approved: "승인", under_construction: "공사 중", scheduled: "입주예정월 공표(단계 미상)" }[item.stage];
+    return `| ${bucket} | ${pkgCore.escapeTableCell(item.project_name)} | ${item.kind ?? ""} | ${stage} | ${item.units.toLocaleString("ko-KR")} | ${item.expected_month} | ${item.source_ids.map((id) => `[${id}]`).join("")} |`;
   });
-  return `> **AI 제안 · 확인 필요:** 확정 입주물량과 분리된 25~60개월 공식 사업 후보다. 단계와 물량은 공식 고시 기준이며 계약·인허가 변경에 따라 달라진다.\n>\n> ${head}\n> ${rows.join("\n> ")}`;
+  const heading = patch.supply_heading || "> **AI 제안 · 확인 필요:** 확정 입주물량과 분리된 공식 입주예정 자료 기반 사업 후보다. 물량과 입주예정월은 사업시행 계획 기준이므로 변동될 수 있다.";
+  return `${heading}\n>\n> ${head}\n> ${rows.join("\n> ")}`;
 }
 
 function renderSummaryBlock(patch) {
@@ -209,8 +233,10 @@ function applySummaryPatch(options) {
     if (key === "AUTO:REGION_RESEARCH_SOURCES") continue;
     for (const match of blockBody(original, key).matchAll(/\[(S\d+)\]/g)) citedElsewhere.add(match[1]);
   }
+  const summaryIds = new Set(patch.summary_pending == null ? [] : patch.summary_pending.source_ids);
+  const supplyIds = new Set((patch.supply_pipeline || []).flatMap((row) => row.source_ids || []));
   for (const source of patch.sources) {
-    if (patch.summary_pending.source_ids.includes(source.source_id)) continue;
+    if (summaryIds.has(source.source_id) || supplyIds.has(source.source_id)) continue;
     if (currentSourceIds.has(source.source_id) || citedElsewhere.has(source.source_id)) continue;
     throw new Error(`${source.source_id}는 새 출처인데 새 요약도 남은 블록도 인용하지 않습니다. 인용하거나 넣지 마세요.`);
   }
@@ -220,13 +246,16 @@ function applySummaryPatch(options) {
     }
   }
   const supplyBody = renderSupplyBlock(patch);
-  const writtenBlocks = supplyBody === null ? PATCH_BLOCKS.slice() : [...PATCH_BLOCKS, SUPPLY_KEY];
+  const summaryBody = patch.summary_pending == null ? null : renderSummaryBlock(patch);
+  const sourcesBody = renderSourcesBlock(patch);
+  const writtenBlocks = [
+    ...(summaryBody === null ? [] : ["AI:PENDING:SUMMARY"]),
+    "AUTO:REGION_RESEARCH_SOURCES",
+    ...(supplyBody === null ? [] : [SUPPLY_KEY])
+  ];
   const untouched = pkgCore.BLOCK_ORDER.filter((key) => !writtenBlocks.includes(key));
   const untouchedBefore = Object.fromEntries(untouched.map((key) => [key, blockBody(original, key)]));
-
-  const summaryBody = renderSummaryBlock(patch);
-  const sourcesBody = renderSourcesBlock(patch);
-  const alreadyApplied = blockBody(original, "AI:PENDING:SUMMARY").trim() === summaryBody.trim()
+  const alreadyApplied = (summaryBody === null || blockBody(original, "AI:PENDING:SUMMARY").trim() === summaryBody.trim())
     && blockBody(original, "AUTO:REGION_RESEARCH_SOURCES").trim() === sourcesBody.trim()
     && (supplyBody === null || blockBody(original, SUPPLY_KEY).trim() === supplyBody.trim());
 
@@ -241,7 +270,7 @@ function applySummaryPatch(options) {
   let next = original;
   if (!alreadyApplied) {
     next = replaceBlock(next, "AUTO:REGION_RESEARCH_SOURCES", sourcesBody);
-    next = replaceBlock(next, "AI:PENDING:SUMMARY", summaryBody);
+    if (summaryBody !== null) next = replaceBlock(next, "AI:PENDING:SUMMARY", summaryBody);
     if (supplyBody !== null) next = replaceBlock(next, SUPPLY_KEY, supplyBody);
   }
 
