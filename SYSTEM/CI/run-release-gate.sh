@@ -306,11 +306,21 @@ is_macos_real_capability() {
   esac
 }
 
+is_local_artifact_scope() {
+  case "$1" in
+    *test_llmwiki_plan_compliance.js) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 printf '\n--- Direct JavaScript tests ---\n'
 while IFS= read -r -d '' file; do
   if is_macos_real_capability "$file"; then
     NOT_APPLICABLE=$((NOT_APPLICABLE + 1))
     printf 'NOT_APPLICABLE: javascript-test: %s (requires macOS Aside/real Obsidian final-release workflow)\n' "$file"
+  elif is_local_artifact_scope "$file"; then
+    NOT_APPLICABLE=$((NOT_APPLICABLE + 1))
+    printf 'NOT_APPLICABLE: javascript-test: %s (verifies owner-local .omo planning artifacts; .omo/ is gitignored at .gitignore:56, so these are unverifiable outside the owner'"'"'s machine)\n' "$file"
   else
     run_command "javascript-test: $file" node "$file"
   fi

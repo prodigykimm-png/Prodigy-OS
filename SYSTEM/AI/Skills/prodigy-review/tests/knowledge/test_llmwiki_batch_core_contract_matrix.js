@@ -13,6 +13,7 @@ const { test } = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
 const contract = require("./llmwiki_batch_core_receipt_contract.js");
+const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "../../../../../..");
 
@@ -91,8 +92,27 @@ test("every receipt invariant names only defined adversarial classes", () => {
   }
 });
 
+function isGitignored(relativePath) {
+  try {
+    const result = spawnSync("git", ["check-ignore", "-q", relativePath], { cwd: ROOT, stdio: "ignore" });
+    if (result.status === 0) return true;
+  } catch (_) { /* fall through to a direct .gitignore read */ }
+  try {
+    const lines = fs.readFileSync(path.join(ROOT, ".gitignore"), "utf8").split("\n")
+      .map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
+    const top = relativePath.split("/")[0];
+    return lines.includes(`${top}/`) || lines.includes(top) || lines.includes(relativePath);
+  } catch (_) { return false; }
+}
+
 test("plan file still contains the incident list this matrix pins", () => {
-  const plan = fs.readFileSync(path.join(ROOT, contract.PLAN_PATH), "utf8");
+  const planAbs = path.join(ROOT, contract.PLAN_PATH);
+  if (!fs.existsSync(planAbs)) {
+    assert.equal(isGitignored(contract.PLAN_PATH), true,
+      `${contract.PLAN_PATH} is absent, so its absence must be explained by gitignore cover; a missing tracked plan would be a regression`);
+    return;
+  }
+  const plan = fs.readFileSync(planAbs, "utf8");
   const section = plan.indexOf("Historical failures this plan must close");
   assert.ok(section > 0);
   const numbered = [...plan.slice(section).matchAll(/^(\d+)\. /gmu)].length;
