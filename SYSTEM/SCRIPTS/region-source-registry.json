@@ -301,24 +301,51 @@
     },
     {
       "provider_id": "official_land_price_region",
-      "status": "blocked_fixture",
-      "canonical_source_url": "https://www.data.go.kr/data/15123971/openapi.do",
-      "auth_placement": "data.go.kr LINK 15123971 to VWorld; exact linked operation unapproved",
-      "scope": "intended Region parcel partition x year, KRW/m2",
+      "status": "planned_enabled",
+      "canonical_source_url": "https://www.data.go.kr/data/15004246/fileData.do",
+      "auth_placement": "none",
+      "scope": "시군구별 개별공시지가(원/㎡) 집계. 중앙값이 headline, 평균은 참고",
       "cadence": "annual",
       "parser_version": "1.0.0",
       "units": {
         "land_price": "KRW/m2"
       },
-      "correction_semantics": "LINK is not data.go ServiceKey; blocked until exact KEY/DOMAIN request and response fixture is reviewed",
-      "retention": "annual after gate",
-      "license_url": "https://www.data.go.kr/data/15123971/openapi.do",
-      "network_allowed": false,
-      "fixture_policy": "absent_blocked",
-      "fixtures": [],
-      "fixture_missing_reason": "LINK is not data.go ServiceKey; no exact KEY/DOMAIN request and response fixture reviewed",
-      "transport": null,
-      "transport_missing_reason": "blocked_fixture: exact linked VWorld operation unapproved; LINK is not data.go ServiceKey"
+      "correction_semantics": "연 1월 1일 기준 확정값. 익년 파일 배포 후 재수집하면 갱신",
+      "retention": "annual",
+      "license_url": "https://www.data.go.kr/data/15004246/fileData.do",
+      "network_allowed": true,
+      "fixture_policy": "required",
+      "fixtures": [
+        {
+          "role": "aggregated_current_period",
+          "path": "SYSTEM/docs/fixtures/land-price/individual-2026-01-01.json",
+          "sha256": "a80c93c9cf3b55d6b77bd7c8025a200810aae0a486f0e2872b24652455b7f115"
+        }
+      ],
+      "fixture_missing_reason": null,
+      "transport": {
+        "method": "GET",
+        "url": "https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=FILE_000000007627456&fileDetailSn=1&insertDataPrcus=N",
+        "query": {},
+        "headers": {},
+        "body": null,
+        "pagination": null,
+        "response_encoding": "utf-8-with-bom",
+        "response_columns": [
+          "시도명",
+          "시군구명",
+          "읍면동리",
+          "지번구분",
+          "본번지",
+          "부번지",
+          "면적",
+          "지목",
+          "용도지역1",
+          "전년지가",
+          "공시자가"
+        ]
+      },
+      "transport_missing_reason": null
     },
     {
       "provider_id": "official_land_price_case",
