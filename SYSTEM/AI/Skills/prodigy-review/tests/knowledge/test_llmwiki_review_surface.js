@@ -78,10 +78,13 @@ test("Given the corrected provider response, When the controller packet reaches 
   if (opener) click(opener);
 
   const packet = controllerSnapshot.review_packets[0];
-  const preview = walk(root, (node) => node.tag === "div" && node.attr && node.attr["aria-label"] === "승인할 지식 내용")[0];
+  // 916a1f4 replaced the aria-label preview with the approval-review exact
+  // body; the human-readable claim now renders under data-document-body while
+  // raw frontmatter stays quarantined in the exact-details disclosure.
+  const preview = walk(root, (node) => node.tag === "div" && node.attr && ("data-document-body" in node.attr))[0];
   assert.ok(preview, "canonical packet lifecycle review must expose a human-readable final preview");
-  assert.match(preview.text, /선택한 근거만 사용한다\./);
-  assert.doesNotMatch(preview.text, /^---|knowledge_domain:|provider:|after_bytes/i, "default review must quarantine raw frontmatter and internal fields");
+  assert.match(collectText(preview), /선택한 근거만 사용한다\./);
+  assert.doesNotMatch(collectText(preview), /^---|knowledge_domain:|provider:|after_bytes/i, "default review must quarantine raw frontmatter and internal fields");
   assert.equal(packet.after_bytes.startsWith("---\n"), true, "controller packet retains exact canonical authority outside the default UI");
 
   const rendered = collectText(root);

@@ -17,8 +17,8 @@
       },
       {
         "citation_id": "knowledge-hub-mount",
-        "excerpt_ref": "main:HUB/50 Knowledge.md#L1477-L1486",
-        "excerpt_hash": "330e97813adc68ae9c4e0c35f2c9a8f76aec1328b2f9351769d278ce343e1fb0",
+        "excerpt_ref": "main:HUB/50 Knowledge.md#L4566-L4569",
+        "excerpt_hash": "439eadb14237fd3828dfd53c99aff3c4515c2d95b8b994f21dc70a9f1f2f7602",
         "verifier": "node line-range hash spot check",
         "status": "verified",
         "disposition": "keep"
@@ -26,7 +26,7 @@
       {
         "citation_id": "brief-provider-default",
         "excerpt_ref": "main:SYSTEM/Views/knowledge-explorer-view.js#L117-L137",
-        "excerpt_hash": "668b39f648344e015b2cc24e7b4c8f33640080a14961278ff9d866ba58e2f52b",
+        "excerpt_hash": "5b4c07aeffe154a4be29d7e1957af734e52eae6f3d5352aaab3eeb6ab85fdbbd",
         "verifier": "node line-range hash spot check",
         "status": "verified",
         "disposition": "keep"
@@ -57,8 +57,8 @@
       },
       {
         "citation_id": "authoring-actions",
-        "excerpt_ref": "main:SYSTEM/Views/knowledge-authoring-hub-adapter.js#L150-L163",
-        "excerpt_hash": "da2bb57d6178c15b2812eee9c6f7b543ca516b6c0982482b7140ed8002c8e616",
+        "excerpt_ref": "main:SYSTEM/Views/knowledge-authoring-hub-adapter.js#L143-L155",
+        "excerpt_hash": "cf9abacf86687934c1619ea93c4af8d80d869a43e8476101789e9bf347cb2c30",
         "verifier": "node line-range hash spot check",
         "status": "verified",
         "disposition": "keep"

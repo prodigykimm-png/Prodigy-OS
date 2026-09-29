@@ -37,14 +37,18 @@ async function testUninjectedServiceNeverUsesGlobalProvider() {
   }
 }
 
+// 8be8f69 cutover: the brief service no longer accepts aiProviderService /
+// providerConfigService deps or a providerKey option. AI runs only through an
+// injected consumerRuntime with explicit { aiRequested: true }, matching the
+// production caller (knowledge-explorer-view.js) and the sibling runtime
+// suite (test_knowledge_nonwiki_ai_runtime.js).
 function createPolicyService(summaryLines) {
   return brief.createKnowledgeExplorerBriefService({
-    aiProviderService: {
-      async requestStructuredJson() {
-        return { schema_version: 1, summary_lines: summaryLines, source_ids: ["ZETA/Coding/Main.md"] };
+    consumerRuntime: {
+      async requestStructured() {
+        return { payload: { schema_version: 1, summary_lines: summaryLines, source_ids: ["ZETA/Coding/Main.md"] } };
       }
-    },
-    providerConfigService: { async loadProviderConfig() { return syntheticProviderConfig(); } }
+    }
   });
 }
 
@@ -53,8 +57,11 @@ async function testKoreanOutcomeClaimsAreRejected() {
   // When: the summary is normalized.
   // Then: it falls back to deterministic facts instead of accepting the claim.
   const result = await createPolicyService(["제공된 지식이 활용되었고 검증되었습니다."])
-    .generateBrief(packet(), { providerKey: "synthetic" });
-  assert.equal(result.status, "invalid_response");
+    .generateBrief(packet(), { aiRequested: true });
+  // 8be8f69 cutover: knowledge-explorer-brief-service.js runAiSummary funnels
+  // normalizeAiSummary throws into provider_error (the invalid_response status
+  // no longer exists); the claim is still rejected with ai_summary null.
+  assert.equal(result.status, "provider_error");
   assert.equal(result.ai_summary, null);
 }
 
@@ -63,7 +70,7 @@ async function testFactualKoreanLinksAndMentionsRemainAllowed() {
   // When: the summary is normalized.
   // Then: it remains eligible as an AI assistive summary.
   const result = await createPolicyService(["이 출처는 2회 연결되었고 관련 항목에서 언급되었습니다."])
-    .generateBrief(packet(), { providerKey: "synthetic" });
+    .generateBrief(packet(), { aiRequested: true });
   assert.equal(result.status, "ai");
   assert.deepEqual(result.ai_summary.summary_lines, ["이 출처는 2회 연결되었고 관련 항목에서 언급되었습니다."]);
 }

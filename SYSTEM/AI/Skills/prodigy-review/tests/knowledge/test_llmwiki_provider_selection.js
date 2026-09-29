@@ -18,6 +18,11 @@ test("LLM Wiki inherits the global provider and rejects feature-specific overrid
       }),
     },
     llmWikiControllerOptions: {
+      aiClient: {
+        resolveProvider: () => ({ status: "ready", profile_id: "codex", route_class: "local" }),
+        listProviders: () => [],
+        grantConsumer: async () => ({ status: "granted" }),
+      },
       operation_provider: async () => {
         operationCalls += 1;
         return { ok: false, reason: "unexpected_analysis" };

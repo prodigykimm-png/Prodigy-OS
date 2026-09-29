@@ -1,28 +1,28 @@
 "use strict";
 
-const { assert, brief, delay, packet, syntheticProviderConfig } = require("./knowledge_brief_test_helpers.js");
+const { assert, brief, delay, packet } = require("./knowledge_brief_test_helpers.js");
 
 async function testStaleResponseGuardAndNoMutation() {
   const signalPacket = packet();
   const events = [];
   const service = brief.createKnowledgeExplorerBriefService({
-    aiProviderService: {
-      async requestStructuredJson({ signal, requestTag }) {
+    // 8be8f69 cutover: AI runs through consumerRuntime.requestStructured,
+    // which resolves { payload }; requestTag still flows through options.
+    consumerRuntime: {
+      async requestStructured({ requestTag }) {
         if (requestTag === "B") {
           events.push("fast");
-          return { schema_version: 1, summary_lines: ["fast"], source_ids: ["ZETA/Coding/Second.md"] };
+          return { payload: { schema_version: 1, summary_lines: ["fast"], source_ids: ["ZETA/Coding/Second.md"] } };
         }
         events.push("slow");
         await delay(30);
-        if (signal && signal.aborted) throw new Error("aborted");
-        return { schema_version: 1, summary_lines: ["slow"], source_ids: ["ZETA/Coding/Main.md"] };
+        return { payload: { schema_version: 1, summary_lines: ["slow"], source_ids: ["ZETA/Coding/Main.md"] } };
       }
-    },
-    providerConfigService: { async loadProviderConfig() { return syntheticProviderConfig(); } }
+    }
   });
 
-  const first = service.generateBrief(signalPacket, { providerKey: "synthetic", requestTag: "A" });
-  const second = service.generateBrief(signalPacket, { providerKey: "synthetic", requestTag: "B" });
+  const first = service.generateBrief(signalPacket, { aiRequested: true, requestTag: "A" });
+  const second = service.generateBrief(signalPacket, { aiRequested: true, requestTag: "B" });
   const [firstResult, secondResult] = await Promise.all([first, second]);
 
   assert.deepEqual(secondResult.brief_lines, [

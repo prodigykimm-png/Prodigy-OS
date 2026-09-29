@@ -83,7 +83,7 @@
           "ralplan:WP4",
           "deep-interview:artifact:general-improvement-ideas"
         ],
-        "sha256": "bb536d766fb904a947f07db2f037a24cdf3022c821a01ca9cbb6b529d2da9118",
+        "sha256": "d00886cba28bd3e5c63a186858ac1482ef72283ef0dcfbd75fed3a593f4ea0e3",
         "owner": "user-facing surface owners",
         "dependencies": [
           "revamp-artifact-schema",
@@ -100,7 +100,7 @@
           "ralplan:WP4",
           "deep-interview:evidence"
         ],
-        "sha256": "f948b0542dc143690e70845c04600504ab28d47fe878ff4d7dd9d7ebd454715b",
+        "sha256": "17109f31b141326ce9b56c1cb6d9b75f966e371e02570e6a86523986b017da0c",
         "owner": "evidence verifier",
         "dependencies": [
           "revamp-artifact-schema",

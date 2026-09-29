@@ -211,7 +211,7 @@ test("Baseline characterization: create-only trust invariants remain observable"
     outbound_policy: { include_unselected_vault_data: false, include_credentials: false, include_cookies: false },
     timeout_ms: 5000,
     retry_owner: "prodigy",
-    request_metadata: { request_id: "request_rebaseline", provider_key: "gemini" },
+    request_metadata: { request_id: "request_rebaseline" },
     sources: [{
       source_id: "source_rebaseline", content_hash: "a".repeat(64), selected: true,
       outbound_text: "Selected source bytes remain data.",
@@ -231,8 +231,8 @@ test("Baseline characterization: create-only trust invariants remain observable"
   assert.deepEqual(clone(consentSnapshot.value), {
     consent_version: "llmwiki_outbound_consent_v1",
     run_id: "run_rebaseline_consent",
-    provider_mode: "direct",
-    provider_key: "gemini",
+    provider_mode: "runtime",
+    provider_key: "runtime",
     selected_sources: [{ source_id: "source_rebaseline", content_hash: "a".repeat(64) }],
     outbound_policy_hash: sha256(stable({ include_source_text: false, include_unselected_vault_data: false, include_credentials: false, include_cookies: false })),
     outbound_text_hash: sha256(stable([{ source_id: "source_rebaseline", content_hash: "a".repeat(64), outbound_text: "Selected source bytes remain data." }])),

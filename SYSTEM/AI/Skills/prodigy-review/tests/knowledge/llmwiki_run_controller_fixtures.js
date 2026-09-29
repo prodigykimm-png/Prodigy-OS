@@ -133,6 +133,10 @@ function harness(responseFactory) {
   // supplies this adapter; it delegates into the real batch core instead.
   const controller = controllerApi.createRunController({
     app: vault.app,
+    ai_client: {
+      resolveProvider: () => ({ status: "ready", profile_id: "synthetic_fixture_runtime", route_class: "local" }),
+      grantConsumer: async () => ({ status: "granted" }),
+    },
     now: () => NOW,
     derived_root: DERIVED_ROOT,
     analyze_batch: async ({ command }) => {

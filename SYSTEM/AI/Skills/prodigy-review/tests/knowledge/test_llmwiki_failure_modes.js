@@ -607,7 +607,7 @@ function providerRequest(overrides = {}) {
     sources: [source],
     proposal_request: { run_id: "run_failure_matrix", validation_context: { context_id: "validation_context_failure_matrix" }, instruction: "Propose only." },
     ...overrides,
-    request_metadata: { request_id: "request_failure_matrix", provider_key: "gemini", ...(overrides.request_metadata || {}) },
+    request_metadata: { request_id: "request_failure_matrix", ...(overrides.request_metadata || {}) },
   };
 }
 
@@ -734,7 +734,7 @@ test("malformed, prompt-shaped, consent-mutated, selected-conflict, and non-crea
     outbound_policy: { include_unselected_vault_data: false, include_credentials: false, include_cookies: false },
     timeout_ms: 5000,
     retry_owner: "prodigy",
-    request_metadata: { request_id: "request_consent_matrix", provider_key: "gemini" },
+    request_metadata: { request_id: "request_consent_matrix" },
     sources: [{ source_id: "source_consent_matrix", content_hash: "a".repeat(64), source_url: "https://example.com/consent", locator: "ZETA/LITERATURE/consent.md#claim", confidence: "explicit", sensitivity: "public", selected: true, outbound_text: "bounded source" }],
     proposal_request: { run_id: "run_consent_matrix", validation_context: { context_id: "context_consent_matrix", persistence: "none" }, instruction: "Propose only." },
   };
