@@ -384,7 +384,8 @@ async function main() {
   const homeDependencies = workspaceManifests.get("home").required;
   assert.ok(homeDependencies.includes("SYSTEM/Views/journal-review-modal.js"));
   assert.equal(homeDependencies.some((modulePath) => /daily-reflection-ai\.js|journal-view\.js/.test(modulePath)), false);
-  assert.match(home, /JournalReviewModal\.open/);
+  const journalDashboard = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/journal-dashboard-view.js"), "utf8");
+  assert.match(journalDashboard, /JournalReviewModal\.open/);
   const allRegistryIds = workspaceRegistry.contextWorkspaceIds();
   const canonicalHubIds = APP_SHELL_HUBS.map((hub) => hub.workspaceId);
   const uniqueCanonicalIds = [...new Set(canonicalHubIds)];
