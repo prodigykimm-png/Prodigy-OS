@@ -65,7 +65,7 @@
     {
       "path": "SYSTEM/Views/display-registry.js",
       "type": "regular-file",
-      "sha256": "3a1838c6725622c4a785860ce8f459dac97d04f3748110b43db30720a22be040"
+      "sha256": "989b8cb3c6ac83347e3566aff595962af0c29f6dd7fad33e1c9c30d80033bbee"
     },
     {
       "path": "SYSTEM/Views/knowledge-candidate-core.js",
