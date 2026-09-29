@@ -81,6 +81,12 @@
     if (typeof app.secretStorage.deleteSecret === "function") await app.secretStorage.deleteSecret(secretId);
     else if (typeof app.secretStorage.setSecret === "function") await app.secretStorage.setSecret(secretId, "");
   }
+  function isSecretId(value) { return /^[a-z0-9-]{1,64}$/.test(String(value || "")); }
+  async function getRegionSecretStatus(app) {
+    const ids = Object.values(REGION_SECRET_IDS);
+    const entries = await Promise.all(ids.map(async (id) => [id, Boolean(await getSecret(app, id))]));
+    return Object.fromEntries(entries);
+  }
   async function save(app, settings) {
     const config = mergeConfig(DEFAULT_CONFIG, settings && settings.config || {});
     await writeJson(app, CONFIG_PATH, config);
@@ -103,6 +109,8 @@
     getSecret,
     setSecret,
     deleteSecret,
+    isSecretId,
+    getRegionSecretStatus,
   });
   root.ProdigyConfigService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

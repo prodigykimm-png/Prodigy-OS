@@ -90,23 +90,19 @@ test("Given Busan plus Seoul, Gyeonggi, and Incheon fixture manifests, When the 
   ]);
 });
 
-test("Given the checked-in manifest index, When its four sido entries are loaded, Then the existing manifests remain the only production sources", () => {
+test("Given the checked-in manifest index, When its seventeen sido entries are loaded, Then the existing manifests remain the only production sources", () => {
   const indexText = fs.readFileSync(INDEX_PATH, "utf8");
-  const busanText = fs.readFileSync(BUSAN_MANIFEST_PATH, "utf8");
-  const seoulText = fs.readFileSync(SEOUL_MANIFEST_PATH, "utf8");
-  const gyeonggiText = fs.readFileSync(GYEONGGI_MANIFEST_PATH, "utf8");
-  const incheonText = fs.readFileSync(INCHEON_MANIFEST_PATH, "utf8");
-  const loaded = registryCore.loadRegistry(indexText, {
-    "region-metrics-busan-manifest.json": busanText,
-    "region-metrics-seoul-manifest.json": seoulText,
-    "region-metrics-gyeonggi-manifest.json": gyeonggiText,
-    "region-metrics-incheon-manifest.json": incheonText,
-  });
+  const index = JSON.parse(indexText);
+  const manifestJsonByPath = {};
+  for (const entry of index.manifests) {
+    manifestJsonByPath[entry.manifest_path] = fs.readFileSync(path.join(ROOT, "SYSTEM/SCRIPTS", entry.manifest_path), "utf8");
+  }
+  const loaded = registryCore.loadRegistry(indexText, manifestJsonByPath);
 
   assert.equal(loaded.schema_version, 1);
-  assert.deepEqual(loaded.manifests.map((manifest) => manifest.sido), ["부산광역시", "서울특별시", "경기도", "인천광역시"]);
+  assert.deepEqual(loaded.manifests.map((manifest) => manifest.sido), ["부산광역시", "서울특별시", "경기도", "인천광역시", "대구광역시", "대전광역시", "충청남도", "충청북도", "광주광역시", "울산광역시", "세종특별자치시", "전북특별자치도", "강원특별자치도", "전라남도", "경상북도", "경상남도", "제주특별자치도"]);
   assert.equal(loaded.manifests[0].manifest_path, "region-metrics-busan-manifest.json");
-  assert.equal(loaded.regions.length, 83);
+  assert.equal(loaded.regions.length, 230);
 });
 
 test("Given malformed registry JSON, When the registry loader parses it, Then it rejects the boundary input", () => {

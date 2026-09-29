@@ -15,7 +15,7 @@
     "openrouter",
     "openai-compatible"
   ],
-  "consumer_bindings": 14,
+  "consumer_bindings": 15,
   "secret_values_written": 0,
   "secret_ids_preserved": true,
   "legacy_config_provider_fields_remaining": 0,

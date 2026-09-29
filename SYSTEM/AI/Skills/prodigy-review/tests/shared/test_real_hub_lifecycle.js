@@ -40,6 +40,27 @@ function verifyFixtureEntry(entry, block = executableBlock(entry)) {
   return block;
 }
 
+// Faithful empty Dataview DataArray for the harness: the stub vault holds no pages, so
+// every query is empty, but the chainable surface (where/sort/limit/slice/filter + array)
+// must exist because production renderers chain it exactly like the real Dataview API.
+function emptyDataArray() {
+  const facade = {
+    length: 0,
+    first: undefined,
+    where: () => facade,
+    sort: () => facade,
+    limit: () => facade,
+    slice: () => facade,
+    filter: () => facade,
+    map: () => [],
+    flatMap: () => [],
+    forEach: () => undefined,
+    array: () => [],
+    [Symbol.iterator]: function* () {},
+  };
+  return facade;
+}
+
 function oneByteMutation(block) {
   const bytes = Buffer.from(block, "utf8");
   assert.ok(bytes.length > 0);
@@ -230,9 +251,16 @@ function createRuntime(entry, mutation = "none", environment = {}) {
   if (mutation === "capture-failed-cleanup-removed") {
     const key = "SYSTEM/Views/prodigy-hub-loader.js";
     files.set(key, files.get(key).replace(
-      "    } catch (error) {\n      scope.dispose();\n      throw error;\n    }\n    registrationSealed = true;",
-      "    } catch (error) {\n      throw error;\n    }\n    registrationSealed = true;"
+      "      endMilestoneBestEffort(milestoneSession, paintToken, { status: \"failed\" });\n      scope.dispose();\n      throw error;",
+      "      endMilestoneBestEffort(milestoneSession, paintToken, { status: \"failed\" });\n      throw error;"
     ));
+  // NOTE (2026-09-29): the failed-mount RED mutation above targets the renderer-failure
+  // catch (the path that actually handles the injected navigation-mount failure), not the
+  // bind-call guard: bindCaptureLifecycle succeeds in this scenario, so removing the guard's
+  // dispose would prove nothing. Removing the renderer catch's dispose leaves the already
+  // attached document Capture pair live and therefore RED, proving the suite detects leaks.
+  // (An older multi-line search string for this removal is gone: the loader refactor
+  // collapsed that catch, so the dead string matched nothing and the RED proof silently died.)
   }
   const workspaceEvents = new Map();
   const workspace = {
@@ -247,15 +275,15 @@ function createRuntime(entry, mutation = "none", environment = {}) {
     vault: {
       adapter: { exists: async () => false, read: async () => "", write: async () => {}, mkdir: async () => {}, remove: async () => {}, rename: async () => {}, list: async () => ({ files: [], folders: [] }), stat: async () => null },
       getAbstractFileByPath(modulePath) { if (modulePath === missingRequiredPath) { missingLookups += 1; if (missingLookups >= 2) resolveRetryLookup(); } return files.has(modulePath) ? { path: modulePath, extension: path.extname(modulePath).slice(1) } : null; },
-      async read(file) { reads.push(file.path); return files.get(file.path) || ""; }, async cachedRead(file) { return files.get(file.path) || ""; }, async create(filePath, bytes) { files.set(filePath, bytes); }, async modify(file, bytes) { files.set(file.path, bytes); }, getFiles: () => [], getMarkdownFiles: () => []
+      async read(file) { reads.push(file.path); return files.get(file.path) || ""; }, async cachedRead(file) { return files.get(file.path) || ""; }, async create(filePath, bytes) { files.set(filePath, bytes); }, async modify(file, bytes) { files.set(file.path, bytes); }, async createFolder(folderPath) { files.set(folderPath, "__folder__"); }, getFiles: () => [], getMarkdownFiles: () => []
     },
     isMobile: mobile,
     workspace,
     metadataCache: { getFileCache: () => ({ frontmatter: {} }), on: () => null, offref() {} },
-    plugins: { plugins: { dataview: { api: { pages: () => ({ array: () => [] }) } } } }
+    plugins: { plugins: { dataview: { api: { pages: () => emptyDataArray() } } } }
   };
   const target = {
-    console, Error, TypeError, Object, Array, String, Number, Boolean, Set, Map, WeakMap, Promise, Date, Math, JSON, RegExp, Symbol,
+    console, Error, TypeError, Array, String, Number, Boolean, Set, Map, WeakMap, Promise, Date, Math, JSON, RegExp, Symbol,
     document, container,
     AbortController, ResizeObserver: TrackedResizeObserver, MutationObserver: mutation === "no-removal-observer" ? undefined : class { constructor(callback) { this.callback = callback; } observe(target, options) { mutationObservers.set(this, { target, options: options || {} }); } disconnect() { mutationObservers.delete(this); } },
     setTimeout: trackedSetTimeout, clearTimeout: trackedClearTimeout, setInterval: trackedSetInterval, clearInterval: trackedClearInterval,
@@ -275,7 +303,7 @@ function createRuntime(entry, mutation = "none", environment = {}) {
   const sandbox = target;
   target.window = sandbox; target.globalThis = sandbox; target.__dataviewContext = dataviewContext;
   target.dv = {
-    pages: () => ({ array: () => [] }), io: { load: async () => "" }, current: () => ({}),
+    pages: () => emptyDataArray(), io: { load: async () => "" }, current: () => ({}),
     ...(dvApp ? { app } : {})
   };
   const context = vm.createContext(sandbox);

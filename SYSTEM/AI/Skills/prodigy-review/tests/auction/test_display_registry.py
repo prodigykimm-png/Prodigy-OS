@@ -7,6 +7,8 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[6]
 REGISTRY = ROOT / "SYSTEM/Views/display-registry.js"
 AUCTION_CARD = ROOT / "SYSTEM/Views/auction-card.js"
+AUCTION_CARD_MUTATION = ROOT / "SYSTEM/Views/auction-card-mutation.js"
+AUCTION_COURT_STATUS = ROOT / "SYSTEM/Views/auction-court-status.js"
 PRICE_PROJECTION = ROOT / "SYSTEM/Views/auction-card-price-projection.js"
 SITE_VISIT = ROOT / "SYSTEM/Views/site-visit-workflow.js"
 DASHBOARD = ROOT / "HUB/10 Auction.md"
@@ -189,12 +191,14 @@ def test_user_facing_auction_copy_does_not_expose_property_keys():
 
 
 def test_watching_card_with_winning_bid_is_rendered_as_closed():
-    """A watching case that already has a winning bid must render as closed.
+    """A watching case that already has a winning bid renders the winning bid.
 
     This renders the real card through a DOM double instead of grepping the
     product source, so harmless refactors (extracted variables, the price
-    projection helper) do not break the test while the guarded behavior —
-    "종료" D-Day badge plus 낙찰가 replacing 입찰 예정가 — stays enforced.
+    projection helper) do not break the test while the guarded behavior stays
+    enforced: 낙찰가 is shown next to 입찰 예정가 (expected vs actual stay
+    side by side for review), and no 종료 badge is inferred from the winning
+    bid alone — the badge follows the official court status (sold → 매각).
     """
     source = "\n".join([
         "const fs = require('fs');",
@@ -212,6 +216,8 @@ def test_watching_card_with_winning_bid_is_rendered_as_closed():
         "global.window.ProdigyUI = null;",
         f"eval(fs.readFileSync({json.dumps(str(REGISTRY))}, 'utf8'));",
         f"require({json.dumps(str(PRICE_PROJECTION))});",
+        f"require({json.dumps(str(AUCTION_CARD_MUTATION))});",
+        f"require({json.dumps(str(AUCTION_COURT_STATUS))});",
         f"require({json.dumps(str(AUCTION_CARD))});",
         "const app = {",
         "  isMobile: false,",
@@ -235,20 +241,20 @@ def test_watching_card_with_winning_bid_is_rendered_as_closed():
         "const render = (page) => {",
         "  const root = fakeElement('div');",
         "  window.renderAuctionCard(page, root, {});",
-        "  return {",
-        "    text: textOf(root),",
-        "    closedBadge: findAll(root, (n) => n.tag === 'span' && String(n.text).trim() === '종료' && String(n.attr.class || '').split(/\\s+/).includes('auction-card-dday')).length > 0",
-        "  };",
+        "  return { root: root, text: textOf(root) };",
         "};",
         "const closed = render(fixture({ winning_bid_price: 137000000 }));",
+        "const sold = render(fixture({ winning_bid_price: 137000000, court_status: 'sold' }));",
         "const open = render(fixture({}));",
+        "const badges = (view) => findAll(view.root, (n) => n.tag === 'span' && String(n.attr.class || '').split(/\\s+/).includes('auction-card-dday')).map((n) => String(n.text).trim());",
         "console.log(JSON.stringify({",
         "  renderErrors: renderErrors,",
-        "  closedBadge: closed.closedBadge,",
+        "  closedBadges: badges(closed),",
+        "  soldBadges: badges(sold),",
         "  closedShowsWinningBidLabel: closed.text.includes('낙찰가'),",
         "  closedShowsWinningBidValue: closed.text.includes('1.37억'),",
-        "  closedHidesExpectedBid: !closed.text.includes('입찰 예정가'),",
-        "  openBadge: open.closedBadge,",
+        "  closedShowsExpectedBid: closed.text.includes('입찰 예정가'),",
+        "  openBadges: badges(open),",
         "  openShowsExpectedBid: open.text.includes('입찰 예정가'),",
         "  openHidesWinningBid: !open.text.includes('낙찰가')",
         "}));",
@@ -257,13 +263,20 @@ def test_watching_card_with_winning_bid_is_rendered_as_closed():
     rendered = json.loads(result.stdout)
 
     assert rendered["renderErrors"] == [], f"card render raised: {rendered['renderErrors']}"
-    # Closed watching case: shows 종료 and the winning bid, not the minimum-bid projection.
-    assert rendered["closedBadge"], "watching + winning_bid_price must render the compact 종료 D-Day badge"
+    # Closed watching case: the winning bid is shown next to the estimate so
+    # expected vs actual can be reviewed side by side.
     assert rendered["closedShowsWinningBidLabel"], "closed watching card must show the 낙찰가 label"
     assert rendered["closedShowsWinningBidValue"], "closed watching card must show the winning bid value"
-    assert rendered["closedHidesExpectedBid"], "closed watching card must not show 입찰 예정가"
+    assert rendered["closedShowsExpectedBid"], "closed watching card must keep 입찰 예정가 next to 낙찰가"
+    # No 종료 badge may be inferred from the winning bid or the past date: the
+    # badge follows the official court status, so the unscheduled future-date
+    # fixture keeps its schedule badge while sold shows 매각.
+    assert not any(badge == "종료" for badge in rendered["closedBadges"]), "court status must not be inferred from the winning bid"
+    assert any(re.search(r"D-\d+", badge) for badge in rendered["closedBadges"]), "unscheduled future fixture keeps its schedule badge"
+    assert "매각" in rendered["soldBadges"], "official sold status must surface as the 매각 badge"
     # Still-open watching case: the closed treatment must NOT leak.
-    assert not rendered["openBadge"], "open watching card must not render the 종료 badge"
+    assert "매각" not in rendered["openBadges"], "open watching card must not render the 매각 badge"
+    assert not any("낙찰" in badge for badge in rendered["openBadges"]), "open watching card must not render a closed badge"
     assert rendered["openShowsExpectedBid"], "open watching card must still show 입찰 예정가"
     assert rendered["openHidesWinningBid"], "open watching card must not show 낙찰가"
 
@@ -272,6 +285,8 @@ def test_display_scripts_have_valid_javascript_syntax():
     for path in [
         REGISTRY,
         AUCTION_CARD,
+        AUCTION_CARD_MUTATION,
+        AUCTION_COURT_STATUS,
         SITE_VISIT,
         ROOT / "SYSTEM/Views/project-card.js",
         ROOT / "SYSTEM/Views/project-wizard.js",

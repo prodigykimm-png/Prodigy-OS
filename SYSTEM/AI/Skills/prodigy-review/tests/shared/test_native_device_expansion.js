@@ -18,10 +18,15 @@ test("iPhone Home uses quiet toolbar controls and a 50px primary decision", () =
     styles,
     /\.prodigy-home \.home-toolbar \.home-toolbar-primary\s*\{[\s\S]*?color:\s*var\(--ke-color-interactive\)\s*!important/
   );
-  assert.match(
-    styles,
-    /\.prodigy-home\.home-compact \.home-stale-badge\s*\{[\s\S]*?margin-inline-start:\s*0[\s\S]*?max-inline-size:\s*100%/
-  );
+  // NOTE (2026-09-29): the Morning Brief stale-badge compact rule asserted here was
+  // deliberately removed with the whole Morning Brief feature in 65efe2e
+  // ("Morning Brief ... legacy UI ... 제거"; directive: do not restore that path).
+  // No view renders .home-stale-badge anymore, and sibling suites assert its
+  // absence (test_home_morning_brief_removed_real_obsidian.js:57 expects
+  // '.home-brief,.home-brief-text,.home-stale-badge' count 0;
+  // test_quick_capture_phase1.js:560 expects home-stale-badge count 0).
+  // Asserting the removed rule here would contradict the removal, so the stale
+  // expectation is dropped; the remaining iPhone assertions below keep full strength.
   assert.match(
     styles,
     /\.prodigy-home\.home-compact \.focus-footer \.action-btn-primary[\s\S]*?min-height:\s*var\(--home-primary-cta-height\)\s*!important/

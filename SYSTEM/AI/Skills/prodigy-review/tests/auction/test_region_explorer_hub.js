@@ -11,13 +11,13 @@ const REGION_ROOT = "PARA/RESOURCES/Auction Regions/";
 const HUB_PATH = "HUB/15 Region.md";
 const REGION_STYLE_SOURCE = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/region-styles.js"), "utf8");
 const SOURCE_SUPPORT_MATRIX_PATH = "SYSTEM/SCRIPTS/region-provider-support-matrix.json";
-const REGISTRY_PATHS = [
-  "SYSTEM/SCRIPTS/region-metrics-manifest-index.json",
-  "SYSTEM/SCRIPTS/region-metrics-busan-manifest.json",
-  "SYSTEM/SCRIPTS/region-metrics-seoul-manifest.json",
-  "SYSTEM/SCRIPTS/region-metrics-gyeonggi-manifest.json",
-  "SYSTEM/SCRIPTS/region-metrics-incheon-manifest.json"
-];
+const REGISTRY_PATHS = (() => {
+  const index = JSON.parse(fs.readFileSync(path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-manifest-index.json"), "utf8"));
+  return [
+    "SYSTEM/SCRIPTS/region-metrics-manifest-index.json",
+    ...index.manifests.map((entry) => `SYSTEM/SCRIPTS/${entry.manifest_path}`)
+  ];
+})();
 const MODULE_PATHS = [
   "SYSTEM/Views/design-tokens.js",
   "SYSTEM/Views/workspace-registry.js",

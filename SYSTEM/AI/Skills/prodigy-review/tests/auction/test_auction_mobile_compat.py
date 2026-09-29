@@ -99,18 +99,26 @@ def test_loader_error_exposes_failing_stage_and_message_on_ios():
 def test_compact_action_menu_preserves_inline_editing_and_wide_actions():
     hub = HUB.read_text(encoding="utf-8")
     card = AUCTION_CARD.read_text(encoding="utf-8")
+    mutation = (ROOT / "SYSTEM/Views/auction-card-mutation.js").read_text(encoding="utf-8")
     inline_editing = card.split("// Transition status buttons", maxsplit=1)[0]
 
-    for field in ("expected_bid", "bid_deposit", "exit_price", "my_opinion"):
+    # Card edits flow through the mutation coordinator (which owns the single
+    # processFrontMatter write path): every editable field keeps its click
+    # affordance and a commit patch carrying that field.
+    for field in ("expected_bid", "exit_price", "my_opinion", "expected_monthly_rent"):
         assert field in inline_editing
-        assert f"fm.{field}" in inline_editing
-    assert "processFrontMatter" in inline_editing
+    assert "patch: { expected_bid:" in inline_editing
+    assert "patch: { exit_price:" in inline_editing
+    assert "patch: { my_opinion:" in inline_editing
+    assert "expected_monthly_rent: parsedRent" in inline_editing
+    assert "processFrontMatter" in mutation
+    assert "processFrontMatter" not in card, "card writes must go through the mutation coordinator"
+    # The deposit is derived from the minimum bid (10%) and stays read-only.
+    assert "Math.floor(minBidNum / 10)" in inline_editing
     assert "calcMonthlyProfit" in inline_editing
-    assert "fm.expected_monthly_rent" in inline_editing
     for click_path in (
         "minEl.addEventListener('click'",
         "expEl.addEventListener('click'",
-        "depositEl.addEventListener('click'",
         "exitEl.addEventListener('click'",
         "profitEl.addEventListener('click'",
         "opinionEl.addEventListener('click'",

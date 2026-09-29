@@ -16,6 +16,7 @@ test("real Obsidian workspace settings delegates AI configuration to the externa
   try {
     harness = await RealObsidianHarness.start("workspace-settings-runtime", {
       fixtureMutation: { prodigyAIRuntimePluginPath: PLUGIN_ROOT },
+      trustOnboarding: "required",
     });
     await harness.evaluate(`(async()=>{
       await app.plugins.loadManifests();

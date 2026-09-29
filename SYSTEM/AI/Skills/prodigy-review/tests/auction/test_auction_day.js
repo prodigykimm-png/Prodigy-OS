@@ -357,7 +357,8 @@ function main() {
       const cardSrc = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/auction-card.js"), "utf8");
       assert.match(cardSrc, /입찰표 열기|openForAuction/);
       assert.match(cardSrc, /const isAuctionToday = courtProjection\.is_today/);
-      assert.match(cardSrc, /const precise = \(p\.status === "bidding" && isAuctionToday\) \|\| isTerminal/);
+      assert.match(cardSrc, /const precise = \["minimum_bid", "expected_bid"\]\.includes\(entry\.key\)/);
+      assert.match(cardSrc, /\(p\.status === "bidding" && isAuctionToday\)\s*\n\s*\|\| isTerminal/);
       assert.match(cardSrc, /const value = precise \? toWon\(entry\.value\) : toEok\(entry\.value\)/);
 
       // Hub loads scripts; entry is via Bid Calendar only

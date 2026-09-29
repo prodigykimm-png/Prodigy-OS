@@ -17,6 +17,7 @@ class Element {
     this.value = options.value || options.attr?.value || "";
     this.attr = { ...(options.attr || {}) };
     this.classList = { contains: () => false };
+    this.style = {};
     this.isConnected = true;
     this.open = false;
   }
@@ -25,6 +26,19 @@ class Element {
     const child = new Element(tag, options);
     this.children.push(child);
     return child;
+  }
+
+  querySelector(selector) {
+    const want = String(selector);
+    const walk = (node) => {
+      for (const child of node.children) {
+        if (want === "select" && child.tag === "select") return child;
+        const found = walk(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    return walk(this);
   }
 
   empty() {
@@ -78,6 +92,7 @@ function renderAuctionStatus(status, query) {
   const sandbox = {
     console,
     window: {
+      AuctionCardMutation: { create() { return {}; } },
       prodigyAuctionWorkspaceStateStore: auctionStateStore({
         filters: {
           card_region: "전체지역",
@@ -121,6 +136,7 @@ test("Auction filters resolve the shared Navigation store before AppShell expose
   const sandbox = {
     console,
     window: {
+      AuctionCardMutation: { create() { return {}; } },
       ProdigyWorkspaceNavigation: { getStateStore: () => store },
     },
     document: {
@@ -177,7 +193,7 @@ test("auction region filter redraws cards before persistence completes", () => {
   };
   const sandbox = {
     console,
-    window: { prodigyAuctionWorkspaceStateStore: stateStore },
+    window: { AuctionCardMutation: { create() { return {}; } }, prodigyAuctionWorkspaceStateStore: stateStore },
     document: {
       body: { classList: { contains: () => false } },
       contains: () => true,
@@ -235,7 +251,7 @@ test("auction region filter redraws cards before persistence completes", () => {
   );
   assert.equal(filterSummary.textContent, "부산 · 입찰 예정 1건");
 
-  const sortSelect = descendants(container).filter((element) => element.tag === "select")[2];
+  const sortSelect = descendants(container).filter((element) => element.tag === "select").at(-1);
   sortSelect.value = "dday_desc";
   sortSelect.onchange();
   assert.equal(workspaceState.sort.bidding, "dday_desc");
@@ -257,18 +273,96 @@ test("auction region filter redraws cards before persistence completes", () => {
   assert.equal(filterSummary.textContent, "입찰 예정 2건");
 });
 
-test("auction section renders after a transiently detached Dataview container reconnects", () => {
+test("auction section renders while transiently detached and later refreshes still defer to reconnect", () => {
   const container = new Element();
   container.isConnected = false;
   let connectionCallback = null;
   const sandbox = {
     console,
     window: {
+      AuctionCardMutation: { create() { return {}; } },
       prodigyAuctionWorkspaceStateStore: auctionStateStore(),
       __prodigyAuctionMountScope: {
         observe(_target, _options, callback) {
           connectionCallback = callback;
           return { disconnect() {} };
+        },
+      },
+    },
+    document: {
+      body: { classList: { contains: () => false } },
+      documentElement: {},
+      contains: (candidate) => candidate.isConnected,
+    },
+    app: {},
+    setTimeout,
+    clearTimeout,
+  };
+  sandbox.globalThis = sandbox;
+  vm.runInNewContext(SOURCE, sandbox, { filename: "SYSTEM/Views/shared-dashboard.js" });
+  const renderArgs = {
+    dv: {
+      current: () => ({}),
+      pages: () => dataArray([
+        { type: "auction_case", status: "watching", case_number: "재연결 사건", file: { name: "재연결", ctime: 1, mtime: 1 } },
+      ]),
+    },
+    status: "watching",
+    type: "auction_case",
+    container,
+    renderer: (page, target) => target.createEl("article", { text: page.case_number }),
+    emptyMessage: "없음",
+  };
+  // Initial render proceeds even while detached: the host divs were just
+  // created and can only be discarded, never stale, so the tree displays when
+  // Obsidian attaches it instead of leaving a failure card behind.
+  const initialResult = sandbox.window.renderDashboardSection(renderArgs);
+  assert.equal(initialResult, true);
+  assert.deepEqual(
+    descendants(container)
+      .filter((element) => element.tag === "article")
+      .map((element) => element.textContent),
+    ["재연결 사건"],
+  );
+
+  // A later refresh while detached still defers and subscribes to reconnect.
+  container.empty();
+  container.isConnected = false;
+  connectionCallback = null;
+  const runner = sandbox.window.__prodigyDashboardSections.get("auction_case_watching");
+  assert.equal(typeof runner, "function");
+  assert.equal(runner(), false, "a detached refresh must not report lifecycle completion");
+  assert.equal(descendants(container).some((element) => element.tag === "article"), false);
+  assert.equal(typeof connectionCallback, "function", "detached refresh must subscribe to the exact reconnect event");
+
+  container.isConnected = true;
+  connectionCallback();
+
+  assert.deepEqual(
+    descendants(container)
+      .filter((element) => element.tag === "article")
+      .map((element) => element.textContent),
+    ["재연결 사건"],
+  );
+});
+
+test("a manual refresh that beats the reconnect event cancels the pending observer", () => {
+  const container = new Element();
+  container.isConnected = false;
+  let observerHandle = null;
+  let renderCalls = 0;
+  const sandbox = {
+    console,
+    window: {
+      AuctionCardMutation: { create() { return {}; } },
+      prodigyAuctionWorkspaceStateStore: auctionStateStore(),
+      __prodigyAuctionMountScope: {
+        observe() {
+          observerHandle = {
+            disconnected: false,
+            disconnect() { this.disconnected = true; },
+          };
+          return observerHandle;
         },
       },
     },
@@ -293,67 +387,17 @@ test("auction section renders after a transiently detached Dataview container re
     status: "watching",
     type: "auction_case",
     container,
-    renderer: (page, target) => target.createEl("article", { text: page.case_number }),
-    emptyMessage: "없음",
-  });
-  assert.equal(initialResult, false, "a deferred section must not report lifecycle completion");
-  assert.equal(descendants(container).some((element) => element.tag === "article"), false);
-  assert.equal(typeof connectionCallback, "function", "detached render must subscribe to the exact reconnect event");
-
-  container.isConnected = true;
-  connectionCallback();
-
-  assert.deepEqual(
-    descendants(container)
-      .filter((element) => element.tag === "article")
-      .map((element) => element.textContent),
-    ["재연결 사건"],
-  );
-});
-
-test("a manual refresh that beats the reconnect event cancels the pending observer", () => {
-  const container = new Element();
-  container.isConnected = false;
-  let observerHandle = null;
-  let renderCalls = 0;
-  const sandbox = {
-    console,
-    window: {
-      prodigyAuctionWorkspaceStateStore: auctionStateStore(),
-      __prodigyAuctionMountScope: {
-        observe() {
-          observerHandle = {
-            disconnected: false,
-            disconnect() { this.disconnected = true; },
-          };
-          return observerHandle;
-        },
-      },
-    },
-    document: {
-      body: { classList: { contains: () => false } },
-      documentElement: {},
-      contains: (candidate) => candidate.isConnected,
-    },
-    app: {},
-    setTimeout,
-    clearTimeout,
-  };
-  sandbox.globalThis = sandbox;
-  vm.runInNewContext(SOURCE, sandbox, { filename: "SYSTEM/Views/shared-dashboard.js" });
-  sandbox.window.renderDashboardSection({
-    dv: {
-      current: () => ({}),
-      pages: () => dataArray([
-        { type: "auction_case", status: "watching", case_number: "재연결 사건", file: { name: "재연결", ctime: 1, mtime: 1 } },
-      ]),
-    },
-    status: "watching",
-    type: "auction_case",
-    container,
     renderer: () => { renderCalls += 1; },
     emptyMessage: "없음",
   });
+  assert.equal(initialResult, true, "initial render proceeds even while detached");
+
+  // Simulate discard of the detached tree, then a refresh that must wait on
+  // reconnect instead of rendering into the dead container.
+  container.empty();
+  renderCalls = 0;
+  const runner = sandbox.window.__prodigyDashboardSections.get("auction_case_watching");
+  assert.equal(runner(), false);
   assert.ok(observerHandle);
 
   container.isConnected = true;
@@ -368,6 +412,7 @@ test("collapsed Auction status lists render cards only while opened", () => {
   const sandbox = {
     console,
     window: {
+      AuctionCardMutation: { create() { return {}; } },
       prodigyAuctionWorkspaceStateStore: auctionStateStore(),
     },
     document: {

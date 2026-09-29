@@ -28,7 +28,15 @@ class FakeElement {
     this.className = this.attr.class || "";
     this.classList = new FakeClassList(this, this.className);
     this.textContent = options && options.text || "";
+    this.value = (options && options.value) || "";
+    this.listeners = {};
     this.isConnected = true;
+  }
+  addEventListener(type, handler) {
+    (this.listeners[type] = this.listeners[type] || []).push(handler);
+  }
+  removeEventListener(type, handler) {
+    this.listeners[type] = (this.listeners[type] || []).filter((candidate) => candidate !== handler);
   }
   createEl(tag, options) {
     const child = new FakeElement(tag, options);

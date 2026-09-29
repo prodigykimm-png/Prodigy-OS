@@ -8,13 +8,13 @@
     "plugin_head": "a43f6dc"
   },
   "installed_artifacts": {
-    "main.js": "a546f22bd4f06b205b8071e7bab91e177f6cd97323872fff04ba75e92de3874d",
-    "manifest.json": "1dbd8c0992a4f1b169f609061600203ba763a2f0f96fd82a52a14a354070fdb5",
-    "versions.json": "00de9a24ddbfb27db6fcea40d8cd3cab67b61264f25ccbd889abec98830ae470"
+    "main.js": "8031cff99e267510cd3cd0d1a64a7d9079f96909b197c93c5f7aa5edadac93c9",
+    "manifest.json": "4813e1387d5fd487fd6d65cdd47625d2249ad5e2133b1cacd5adfe75f3fba40e",
+    "versions.json": "352078bf6a6a568f647c3718e3ef3f1dc0d30ae13410d9ab940cd1cf1687e07f"
   },
   "installed_enabled": true,
   "verification": {
-    "active_consumers": 14,
+    "active_consumers": 15,
     "plugin_contract_tests": 25,
     "real_obsidian_surfaces": [
       "home",

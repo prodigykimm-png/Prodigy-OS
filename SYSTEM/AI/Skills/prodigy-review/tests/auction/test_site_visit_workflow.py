@@ -33,10 +33,13 @@ def test_site_visit_state_is_internal_and_report_preserves_properties():
         "const after = api.completeVisitInContent(withState, state, report);",
         "const completedWithNa = api.createState('');",
         "Object.keys(completedWithNa.checklist).forEach((key) => { completedWithNa.checklist[key] = 'na'; });",
-        "console.log(JSON.stringify({complete: api.isComplete(state), completedWithNa: api.isComplete(completedWithNa), progress: api.progress(state), propertiesUnchanged: after.includes('status: bidding') && after.includes('site_visit_date:'), existingContentPreserved: after.includes('Existing note.'), reportInserted: after.includes('## 현장 방문 요약') && after.includes('### 예상 밖 발견') && after.includes('### 사진') && after.includes('### 항목 메모'), stateIntact: api.readState(after).notes[0].includes('-->'), encodedState: after.includes('v1:%7B'), escapedReport: after.includes('&lt;!-- PRODIGY_SITE_VISIT_REPORT_END --&gt;'), reportEndCount: (after.match(/<!-- PRODIGY_SITE_VISIT_REPORT_END -->/g) || []).length, duplicateReport: api.updateReportInContent(after, report).match(/PRODIGY_SITE_VISIT_REPORT_START/g).length, memoInReport: after.includes('대로변 양호')}));",
+        "console.log(JSON.stringify({complete: api.isComplete(state), emptyIncomplete: api.isComplete(api.createState('아파트')), completedWithNa: api.isComplete(completedWithNa), progress: api.progress(state), propertiesUnchanged: after.includes('status: bidding') && after.includes('site_visit_date:'), existingContentPreserved: after.includes('Existing note.'), reportInserted: after.includes('## 현장 방문 요약') && after.includes('### 예상 밖 발견') && after.includes('### 사진') && after.includes('### 항목 메모'), stateIntact: api.readState(after).notes[0].includes('-->'), encodedState: after.includes('v1:%7B'), escapedReport: after.includes('&lt;!-- PRODIGY_SITE_VISIT_REPORT_END --&gt;'), reportEndCount: (after.match(/<!-- PRODIGY_SITE_VISIT_REPORT_END -->/g) || []).length, duplicateReport: api.updateReportInContent(after, report).match(/PRODIGY_SITE_VISIT_REPORT_START/g).length, memoInReport: after.includes('대로변 양호')}));",
     ])
     result = run_node(script)
-    assert result["complete"] is False
+    # Completeness is meaningful evidence (a rated item or memo), not every
+    # checklist row: two rated items complete the visit, an untouched state does not.
+    assert result["complete"] is True
+    assert result["emptyIncomplete"] is False
     assert result["completedWithNa"] is True
     assert result["progress"]["done"] == 2
     assert result["memoInReport"] is True
@@ -101,8 +104,10 @@ def test_property_type_selects_only_relevant_field_items():
         "}));",
     ])
     result = run_node(script)
+    # officetel has its own checklist since the site-visit type split (own
+    # Unit Layout/Sunlight parking/management items), so it no longer maps to apartment.
     assert result == {
-        "officetel": "apartment",
+        "officetel": "officetel",
         "industrial": "factory",
         "neighborhood": "neighborhood",
         "unknown": "generic",
@@ -140,8 +145,12 @@ def test_property_type_change_reconciles_checklist_without_losing_observations()
 def test_dashboard_button_is_korean_and_bidding_only():
     source = CARD_SCRIPT.read_text(encoding="utf-8")
     assert 'p.status === "bidding" && window.openAuctionSiteVisit' in source
-    assert "현장 방문 체크리스트 (완료)" in source
-    assert "현장 방문 체크리스트 (${progress.done} / ${progress.total})" in source
+    # The entry button shows a three-state evidence label (recorded / memo /
+    # default) instead of the old checklist count since visits complete on
+    # meaningful evidence rather than every checklist row.
+    assert '"현장 기록"' in source
+    assert '"현장 메모"' in source
+    assert '"현장 방문"' in source
     assert "Site Visit Complete" not in source
 
 
@@ -155,9 +164,11 @@ def test_dashboard_dataview_query_and_legacy_count_rule_are_preserved():
 def test_field_companion_ui_uses_korean_labels_and_internal_storage():
     workflow_source = WORKFLOW_SCRIPT.read_text(encoding="utf-8")
     data_source = DATA_SCRIPT.read_text(encoding="utf-8")
-    for label in ["공통 현장 체크리스트", "물건 유형별 체크리스트", "짧은 현장 메모", "예상 밖 발견", "현장 방문 완료"]:
+    # The companion UI is organized evidence-first: a memo-led record, priority
+    # and additional checklists, and an explicit unevaluated rating.
+    for label in ["현장 기록", "현장에서 확인한 내용", "우선 확인", "추가 확인 항목", "예상 밖 발견", "현장 방문 완료"]:
         assert label in workflow_source
-    for state_label in ["상", "중", "하", "해당 없음"]:
+    for state_label in ["상", "중", "하", "관계없음", "미평가"]:
         assert state_label in workflow_source
     assert "한 줄 메모" in workflow_source
     assert "checklistNotes" in workflow_source

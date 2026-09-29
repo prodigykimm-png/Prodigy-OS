@@ -11,9 +11,9 @@ const manifests = require(path.join(ROOT, "SYSTEM/Views/prodigy-ai-consumer-mani
 const workspaceManifest = require(path.join(ROOT, "SYSTEM/Views/prodigy-workspace-manifest.js"));
 const LEGACY = /AIProviderService|AuctionAiProviderResolver|loadProviderConfig|requestStructuredJson(?:Once|NoRetry)?|requestChatText/u;
 
-test("all fourteen active consumers use only Prodigy AI client boundaries", () => {
+test("all fifteen active consumers use only Prodigy AI client boundaries", () => {
   assert.equal(cutover.schema_version, "prodigy_ai_consumer_cutover_v1");
-  assert.equal(cutover.active_consumer_count, 14);
+  assert.equal(cutover.active_consumer_count, 15);
   const expected = manifests.list().map((entry) => entry.consumer_id);
   const actual = cutover.consumers.map((entry) => entry.consumer_id).sort((left, right) => left.localeCompare(right, "en"));
   assert.deepEqual(actual, expected);

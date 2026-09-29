@@ -402,7 +402,7 @@ const CSS = `
   color: var(--ke-color-text, var(--text-normal));
   font-size: var(--ke-type-label, 13px);
   font-weight: 650;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

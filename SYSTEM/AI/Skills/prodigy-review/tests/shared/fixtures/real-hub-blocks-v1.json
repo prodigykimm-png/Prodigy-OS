@@ -24,7 +24,7 @@
         "ordinal": 1,
         "language": "js-engine"
       },
-      "blockSha256": "838edb76256b09b7c24bf52b3912d669b06b1330df2be7249a77654792e850c2",
+      "blockSha256": "fc53f16e9ace27ff4b2d7092c21891d57e2b7381bdbe3349783fb2ec069ae05b",
       "renderer": {
         "identity": "auction",
         "sentinel": "renderers: { auction: async (mountContext) => {"
@@ -38,7 +38,7 @@
         "ordinal": 1,
         "language": "js-engine"
       },
-      "blockSha256": "76b0d9e93463b9b68564609405a35f2add6719f458f49744e5b723e5a46e69b2",
+      "blockSha256": "464c2383dfa941375cb3ac74b54075b114f96d57aedb323f14d23808dcff7d49",
       "renderer": {
         "identity": "reading",
         "sentinel": "renderers: { reading: async (mountContext) => {"
@@ -66,7 +66,7 @@
         "ordinal": 1,
         "language": "js-engine"
       },
-      "blockSha256": "7f962d9b4f91cc2edc786510f7e8b39ba5c4728b303a341098dcd9e84cdccc00",
+      "blockSha256": "dcfbb5582d87019ff1d923669ea4714e19b9b1665faafdf32ecbd167a4799ff5",
       "renderer": {
         "identity": "project",
         "sentinel": "renderers: { project: async (mountContext) => {"
@@ -80,7 +80,7 @@
         "ordinal": 1,
         "language": "dataviewjs"
       },
-      "blockSha256": "5d0364a0e199d51aee3cae298249f3723df3bc9a03b4f520a84ebccbc4f4cbee",
+      "blockSha256": "58cac693868dcfb00ca8088b2734a3d2e6d2289d8d158194c83d42ee4c4064fb",
       "renderer": {
         "identity": "knowledge",
         "sentinel": "knowledge: (mountContext) => KnowledgeExplorerHub.render({ app, dv, container: this.container, obsidian, mountContext })"

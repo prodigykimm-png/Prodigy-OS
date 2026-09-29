@@ -42,7 +42,6 @@ test("Prodigy Home owns Home while legacy Home Tab views remain loadable", () =>
   const plugins = JSON.parse(read(".obsidian/community-plugins.json"));
   const homepage = JSON.parse(read(".obsidian/plugins/homepage/data.json"));
   const homeTab = JSON.parse(read(".obsidian/plugins/home-tab/data.json"));
-  const appConfig = JSON.parse(read(".obsidian/app.json"));
   const mobileWorkspace = read(".obsidian/workspace-mobile.json");
 
   assert.ok(plugins.includes("homepage"), "Homepage must remain enabled");
@@ -51,7 +50,12 @@ test("Prodigy Home owns Home while legacy Home Tab views remain loadable", () =>
   assert.doesNotMatch(mobileWorkspace, /"type":\s*"home-tab-view"/);
   assert.equal(homepage.homepages["Main Homepage"].value, "HUB/00 Home");
   assert.equal(homepage.homepages["Main Homepage"].openOnStartup, true);
-  assert.equal(appConfig.openBehavior, "file:HUB/00 Home.md");
+  // NOTE (2026-09-29): a stale `assert.equal(appConfig.openBehavior, "file:HUB/00 Home.md")`
+  // line stood here and was removed, not relaxed. Evidence it was wrong: `.obsidian/app.json`
+  // is gitignored user-local state; no tracked product code reads or writes an `openBehavior`
+  // key (that line was its sole repo reference) and no doc specifies it, so no product change
+  // can satisfy or break it — the live vault holds `''`. The subtest's real intent (Home opens
+  // on startup) stays fully pinned by the Homepage-plugin asserts above.
 });
 
 test("iPad Auction expands briefing and places compact status counts beneath it", () => {
@@ -109,7 +113,12 @@ test("Mac Auction keeps briefing and calendar above sectioned work queues", () =
   assert.doesNotMatch(scenes, /navButton\(tablist,\s*"달력"/);
   assert.doesNotMatch(scenes, /setHidden\(state\.calendar/);
   assert.doesNotMatch(scenes, /let state\s*=\s*null/);
-  assert.match(scenes, /const states\s*=\s*new WeakMap\(\)/);
+  // NOTE (2026-09-29): d1f5ba6 deliberately moved `states` onto the shared
+  // `root.__prodigyAuctionNativeScenesRuntime` so Today/Calendar section roots survive
+  // module re-evaluation and body replacement (remount). The semantic contract this
+  // assertion guards — per-container state held in a WeakMap (GC-safe, no leak) —
+  // still holds: the runtime literal below still constructs `states` as a WeakMap.
+  assert.match(scenes, /states:\s*new WeakMap\(\)/);
   assert.match(scenes, /const resolveState\s*=\s*\(container\)/);
   assert.match(styles, /\.auction-native-app[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.doesNotMatch(scenes, /auction-native-source-list/);
@@ -126,7 +135,14 @@ test("Auction adopts briefing and calendar registered before shell mount", () =>
 
   assert.ok(marker >= 0 && marker < stateLookup);
   assert.match(scenes, /view\?\.querySelectorAll\?\.\("\[data-native-section\]"\)/);
-  assert.match(scenes, /register\(container\.getAttribute\("data-native-section"\),\s*container\)/);
+  // NOTE (2026-09-29): d1f5ba6 deliberately replaced the old
+  // `register(container.getAttribute("data-native-section"), container)` adoption call
+  // with a rememberSection/placeSection flow: calling register() during mount would route
+  // through the deferred MutationObserver path and re-trigger the first-paint race that
+  // commit fixed. The adoption intent stands — pre-mount sections are remembered by kind
+  // and then placed into the fresh state — so the contract pins that flow instead.
+  assert.match(scenes, /const kind = container\.getAttribute\("data-native-section"\);[\s\S]*?if \(kind\) rememberSection\(view, kind, container\)/);
+  assert.match(scenes, /registry\.forEach\(\(container, kind\) => \{[\s\S]*?placeSection\(state, kind, container\);/);
 });
 
 test("Mac Auction gives canonical cards the primary content width", () => {
@@ -167,10 +183,20 @@ test("Mobile Auction keeps a compact delete action beside D-day and Naver", () =
   const card = read("SYSTEM/Views/auction-card.js");
   const styles = read("SYSTEM/Views/auction-hub-styles.js");
   const badges = card.indexOf("const rightBadges = titleRow.createEl");
-  const deletion = card.indexOf('window.ProdigyUI.button(rightBadges, "삭제"');
-
+  // NOTE (2026-09-29): fcc0c35 deliberately moved the delete action (with the Naver/Cafe
+  // links) from a direct `ProdigyUI.button(rightBadges, ...)` into the unified
+  // `•••` overflow menu to reduce card density ("상태전환 overflow를 통일"). The compact
+  // delete action still lives in the same header cluster beside D-day and Naver and still
+  // carries the auction-card-delete class that the style asserts below pin to the compact
+  // x-form, so the contract pins that construction instead of the removed call form.
+  const deletion = card.indexOf('overflowPanel.createEl("button", {');
   assert.ok(badges >= 0 && deletion > badges);
-  assert.match(card, /const mobileDdayStr = ddayStr\.replace\(/);
+  assert.match(card, /overflowPanel\.createEl\("button",\s*\{[\s\S]*?text:\s*"삭제"[\s\S]*?auction-card-delete/);
+  // NOTE (2026-09-29): 021b940 deliberately derives the mobile D-day label from the
+  // structured court projection (`courtProjection.compact_label`) instead of regex-slicing
+  // the display string, because court-procedure status cannot be inferred from dates.
+  // The mobile-compact contract (distinct mobileDdayStr used for isMobile) is unchanged.
+  assert.match(card, /const mobileDdayStr = courtProjection\.compact_label/);
   assert.match(card, /text:\s*isMobile\s*\?\s*mobileDdayStr\s*:\s*ddayStr/);
   assert.match(styles, /\.prodigy-app-shell\[data-tier="compact"\] \.auction-card-title-row\s*\{[\s\S]*?align-items:\s*flex-start/);
   assert.match(styles, /\.auction-card \.auction-card-delete\s*\{[\s\S]*?inline-size:\s*var\(--ke-touch-target,\s*44px\)\s*!important[\s\S]*?font-size:\s*0\s*!important/);

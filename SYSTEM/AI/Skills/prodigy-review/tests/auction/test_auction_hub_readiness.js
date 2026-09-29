@@ -50,8 +50,14 @@ function actualAuctionExecution(readiness, initialGlobals = {}) {
     plugins: { plugins: { dataview: { api: { pages: () => ({ array: () => [] }) } } } }
   };
   const manifest = { workspaceId: "auction", host: "js-engine", required: [], optional: [], renderer: "auction" };
+  class FakeResizeObserver {
+    constructor(_callback) {}
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
   const known = {
-    console, Error, TypeError, Object, Array, String, Number, Boolean, Set, Map, WeakMap, Promise, Date, Math, JSON, RegExp, Symbol,
+    console, Error, TypeError, Object, Array, String, Number, Boolean, Set, Map, WeakMap, Promise, Date, Math, JSON, RegExp, Symbol, ResizeObserver: FakeResizeObserver,
     app, container, document: undefined, obsidian: {}, setTimeout: () => 1, clearTimeout() {},
     prodigySiteVisitReady: readiness.promise, prodigyDisplay: { status: (v) => v, property: (v) => v, type: (v) => v },
     ProdigyWorkspaceManifest: { get: () => manifest },

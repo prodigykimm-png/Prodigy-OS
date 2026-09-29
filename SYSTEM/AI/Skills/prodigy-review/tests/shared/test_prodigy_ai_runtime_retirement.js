@@ -34,7 +34,7 @@ test("legacy provider runtime is absent and its configuration has one plugin aut
     assert.deepEqual(Object.keys(config), ["workflowPresets"]);
   }
   assert.equal(receipt.legacy_config_provider_fields_remaining, 0);
-  assert.equal(receipt.consumer_bindings, 14);
+  assert.equal(receipt.consumer_bindings, 15);
   assert.equal(receipt.secret_values_written, 0);
 });
 
@@ -44,7 +44,7 @@ test("installed plugin owns all migrated profiles without persisting secret valu
   assert.equal(data.schema_version, 1);
   assert.equal(data.default_profile_id, receipt.default_profile_id);
   assert.deepEqual(data.profiles.map((profile) => profile.profile_id), receipt.profile_ids);
-  assert.equal(Object.keys(data.bindings).length, 14);
+  assert.equal(Object.keys(data.bindings).length, 15);
   assert.deepEqual(data.grants, {});
   assert.equal(data.migrated_from_hash, receipt.migrated_from_hash);
   assert.equal(data.profiles.filter((profile) => profile.certification_hash).length, receipt.shared_certified_profiles);

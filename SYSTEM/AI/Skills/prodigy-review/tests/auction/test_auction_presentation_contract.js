@@ -77,13 +77,13 @@ test("Auction integrates Calendar into the three-pane workspace and keeps the ca
   assert.match(hub, /label:\s*"입찰 일정 캘린더"/);
 });
 
-test("Auction card keeps the key-value total inside the price group immediately after the price pair", () => {
+test("Auction card keeps the key-value total in the finance insights column immediately after the price pair", () => {
   const card = read("SYSTEM/Views/auction-card.js");
   const pricePair = card.indexOf("const pricePair");
-  const keyValue = card.indexOf("const keyRow = priceGroup.createEl('button'");
+  const keyValue = card.indexOf("const keyRow = financeInsights.createEl('button'");
   const terminalMetrics = card.indexOf("const isTerminalStatus");
   assert.ok(pricePair >= 0 && keyValue > pricePair && terminalMetrics > keyValue);
-  assert.match(card, /priceGroup\.createEl\('button',[\s\S]*?class:\s*'auction-card-key-value'/);
+  assert.match(card, /financeInsights\.createEl\('button',[\s\S]*?class:\s*'auction-card-key-value'/);
   assert.doesNotMatch(card, /p\.property_type\s*===\s*['"]오피스텔['"]/, "available 아파트·다가구 snapshot도 카드에 표시해야 함");
 });
 

@@ -12,6 +12,13 @@ const apply = require(path.join(ROOT, "SYSTEM/SCRIPTS/region-metrics-apply.js"))
 
 function snapshot(overrides = {}) {
   const metrics = {
+    total_population: { value: 205378, unit: "명", as_of: "2026-05-01", provider: "mois_jumin_statmonth_csv", source_id: "jumin_statmonth_csv", raw_hash: "5".repeat(64), verification: "unverified" },
+    male_population: { value: 99871, unit: "명", as_of: "2026-05-01", provider: "mois_jumin_statmonth_csv", source_id: "jumin_statmonth_csv", raw_hash: "6".repeat(64), verification: "unverified" },
+    female_population: { value: 105507, unit: "명", as_of: "2026-05-01", provider: "mois_jumin_statmonth_csv", source_id: "jumin_statmonth_csv", raw_hash: "7".repeat(64), verification: "unverified" },
+    population_change_count: { value: -512, unit: "명", as_of: "2026-05-01", provider: "derived", source_id: "mois_population_yoy", raw_hash: "8".repeat(64), verification: "unverified" },
+    population_change_yoy: { value: -0.248725, unit: "%", as_of: "2026-05-01", provider: "derived", source_id: "mois_population_yoy", raw_hash: "9".repeat(64), verification: "unverified" },
+    household_change_count: { value: 503, unit: "세대", as_of: "2026-05-01", provider: "derived", source_id: "mois_households_yoy", raw_hash: "a".repeat(64), verification: "unverified" },
+    demographic_signal: { value: "정체", unit: "", as_of: "2026-05-01", provider: "derived", source_id: "mois_demographic_signal", raw_hash: "b".repeat(64), verification: "unverified" },
     sale_volume_3m: { value: 435, unit: "건", as_of: "2026-05-01", provider: "reb_rone_public_table", source_id: "A_2024_00554", raw_hash: "a".repeat(64), verification: "unverified" },
     housing_stock: { value: 48544, unit: "호", as_of: "2025-09-01", provider: "reb_stock", source_id: "15106861", raw_hash: "b".repeat(64), verification: "unverified" },
     sale_turnover_rate: { value: 0.03584377, unit: "ratio", as_of: "2026-05-01", provider: "derived", source_id: "sale_volume_3m+housing_stock", raw_hash: "c".repeat(64), verification: "unverified" },

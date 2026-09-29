@@ -30,7 +30,7 @@ test("release audit binds the installed plugin artifact and protocol", () => {
 
 test("release audit records exact safety and coverage gates", () => {
   assert.deepEqual(audit.verification, {
-    active_consumers: 14,
+    active_consumers: 15,
     plugin_contract_tests: 25,
     real_obsidian_surfaces: [
       "home", "project", "reading", "journal", "auction", "prodigy-wiki", "plugin-settings", "workspace-settings",

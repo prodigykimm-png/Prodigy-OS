@@ -142,13 +142,7 @@ window.ProdigyAuctionLifecycle = window.ProdigyAuctionLifecycle || (() => {
       }
       if (!mounted(container)) {
         state.attempts += 1;
-        // Detached는 기다려도 붙지 않는다. 이 노트의 js-engine 블록이 네이티브
-        // 셸을 마운트하기 전에 note 컨테이너를 비우므로, 아래 레거시 섹션 블록의
-        // 컨테이너는 마운트 수명 내내 detached로 남는다. 예전에는 maxAttempts(100)
-        // x interval(100ms) = 10초를 섹션마다 소진했고, Auction dom_render 스팬이
-        // 실측 19.2초를 여기서 쓰다 "container did not connect" 로 실패했다.
-        // 진짜로 곧 붙는 경우만 짧게 기다리고 즉시 포기한다.
-        if (state.attempts >= (Number(config.connectAttempts) || 10)) {
+        if (state.attempts >= (Number(config.maxAttempts) || 100)) {
           reportError(new Error("Auction section container did not connect"));
           state.dispose();
           return;
@@ -486,8 +480,16 @@ const initializeAuctionWorkspace = async () => {
       delete window.__prodigyAuctionPrimarySectionsManaged;
       delete window.__prodigyAuctionPrimarySections;
     });
-    const primaryDataview = app.plugins?.plugins?.dataview?.api;
-    if (!primaryDataview || typeof primaryDataview.pages !== "function") {
+    // Query surface for the primary sections: the Dataview plugin API in a full vault, falling
+    // back to the block-injected `dv`. Fixture Obsidian executes blocks through the harness-local
+    // processor, which provides a Rows-compatible dv (pages/where/sort/array) but installs no
+    // dataview plugin; without the fallback the workspace fails closed there (50e9b5f added the
+    // hard requirement for the user vault). Either surface supports the chained queries below;
+    // only the absence of both still throws. `typeof` guard: js-engine hosts need not inject dv.
+    const injectedDataview = (typeof dv !== "undefined" && dv && typeof dv.pages === "function") ? dv : null;
+    const pluginDataview = app.plugins?.plugins?.dataview?.api;
+    const primaryDataview = (pluginDataview && typeof pluginDataview.pages === "function") ? pluginDataview : injectedDataview;
+    if (!primaryDataview) {
       throw new Error("옥션 기본 목록용 Dataview API를 불러오지 못했습니다.");
     }
     const primarySections = {};
@@ -728,13 +730,18 @@ await window.ProdigyAuctionWorkspaceReady;
 
 ```dataviewjs
 if (this.container.classList) this.container.classList.add("auction-hub-section", "auction-hub-today");
-const __todayContainer = this.container;
+// The ensure helper reports whether the module was already loaded: true registers now,
+// false means it calls back after loading. Without the helper, register only if present.
+// NOTE: register with `this.container` directly (same object the removed __todayContainer
+// alias held): the native-scenes contract pins this call form, and sibling sections
+// (bidding/watching/calendar) already use it. `this` is valid inside the arrow callback
+// because arrows inherit the dataviewjs component context lexically.
 // The ensure helper reports whether the module was already loaded: true registers now,
 // false means it calls back after loading. Without the helper, register only if present.
 if (typeof window.__prodigyAuctionEnsureNativeScenes === "function") {
-  const __todayScenesReady = window.__prodigyAuctionEnsureNativeScenes(() => { if (window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", __todayContainer); });
-  if (__todayScenesReady) window.ProdigyAuctionNativeScenes.register("today", __todayContainer);
-} else if (window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", __todayContainer);
+  const __todayScenesReady = window.__prodigyAuctionEnsureNativeScenes(() => { if (window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", this.container); });
+  if (__todayScenesReady) window.ProdigyAuctionNativeScenes.register("today", this.container);
+} else if (window.ProdigyAuctionNativeScenes) window.ProdigyAuctionNativeScenes.register("today", this.container);
 // Calculate counts and progress stats
 let todayBiddingCount = 0;
 let pendingSiteVisitsCount = 0;
