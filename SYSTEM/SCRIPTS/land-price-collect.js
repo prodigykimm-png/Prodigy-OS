@@ -193,6 +193,7 @@ if (require.main === module) {
     const target = path.join(outDir, `${AS_OF}.json`);
     fs.writeFileSync(target, JSON.stringify(result.packages, null, 2));
     const noteKeys = new Set(loadNoteRegions().map((r) => r.key));
+    const missing = [...noteKeys].filter((k) => !result.packages[k]);
     process.stdout.write(`${JSON.stringify({
       schema_version: 1,
       as_of: AS_OF,
@@ -201,7 +202,8 @@ if (require.main === module) {
       regions_built: result.regions,
       note_regions: noteKeys.size,
       note_regions_covered: Object.keys(result.packages).filter((k) => noteKeys.has(k)).length,
-      note_regions_missing: [...noteKeys].filter((k) => !result.packages[k]),
+      note_regions_missing: missing,
+      missing_is_expected_when: "집계 기준일이 행정개편 이전이면 신설 구에 행이 없다. 2026-01-01 기준은 2026-07-01 인천 2군 9구 개편 이전이므로 제물포·영종·검단·서해가 여기에 해당한다.",
       unmapped_source_regions: result.unmapped
     }, null, 2)}\n`);
   } catch (error) {
