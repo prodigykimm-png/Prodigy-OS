@@ -322,10 +322,10 @@ is_local_artifact_scope() {
 
 local_artifact_reason() {
   case "$1" in
-    *test_llmwiki_plan_compliance.js) printf '%s' "verifies owner-local .omo planning artifacts; .omo/ is gitignored at .gitignore:56, so these are unverifiable outside the owner's machine" ;;
-    *test_llmwiki_scope_fidelity.js) printf '%s' "requires gitignored .omo evidence paths (.gitignore:56) and gitignored owner-local task reports; unverifiable in a clean checkout" ;;
+    *test_llmwiki_plan_compliance.js) printf '%s' "verifies owner-local planning artifacts; that directory is gitignored at .gitignore:56, so these are unverifiable outside the owner's machine" ;;
+    *test_llmwiki_scope_fidelity.js) printf '%s' "requires gitignored owner-local evidence paths (.gitignore:56) and gitignored task reports; unverifiable in a clean checkout" ;;
     *test_llmwiki_task13_restart_recovery.js) printf '%s' "requires gitignored harness SYSTEM/AI/Reports/task-13/manual-restart-harness.js (.gitignore:25); absent in a clean checkout" ;;
-    *test_llmwiki_task14_cleanup.js) printf '%s' "requires gitignored .omo evidence (.omo/evidence/llmwiki-batch-core-simplification/task-6/pre-move-manifest.json, .gitignore:56); absent in a clean checkout" ;;
+    *test_llmwiki_task14_cleanup.js) printf '%s' "requires gitignored owner-local pre-move manifests (.gitignore:56); absent in a clean checkout" ;;
     *test_llmwiki_task18_obsidian_git_reload_probe.js) printf '%s' "requires owner-installed .obsidian/plugins/obsidian-git/ build output and data.json (.gitignore:51), read at module load; absent in a clean checkout" ;;
     *) printf '%s' "requires owner-local gitignored artifacts; unverifiable in a clean checkout" ;;
   esac
