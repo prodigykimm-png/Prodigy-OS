@@ -49,14 +49,17 @@ test("inbox source and focus order is heading, complete primary-first action clu
     });
     const surface = subject.root.querySelector('[data-surface="llmwiki-lifecycle"]');
     const direct = surface.children;
+    // Single-studio reorg (916a1f4 removed the surface header/h2 "Prodigy Wiki";
+    // the heading now lives in the workspace journey row): no header tag remains,
+    // and the primary-first action cluster is the first direct child.
     const headingIndex = direct.findIndex((node) => node.tag === "header");
+    assert.equal(headingIndex, -1, state);
     const actionsIndex = direct.findIndex((node) => node.attr?.class === "llmwiki-lifecycle__actions");
     const supportIndexes = direct.map((node, index) => ({ node, index })).filter(({ node }) =>
       node.attr?.role === "status" || /llmwiki-lifecycle__(?:provider|batch-summary|progress-track|review-state)/u.test(node.attr?.class || "")
     ).map(({ index }) => index);
     const actions = direct[actionsIndex].children.filter((node) => node.tag === "button");
-    assert.equal(headingIndex, 0, state);
-    assert.equal(actionsIndex, 1, state);
+    assert.equal(actionsIndex, 0, state);
     assert.equal(actions[0].getAttribute("data-action"), primaryAction, state);
     assert.equal(actions[0].getAttribute("data-primary"), "true", state);
     assert.ok(supportIndexes.length > 0 && supportIndexes.every((index) => index > actionsIndex), state);
@@ -84,7 +87,20 @@ test("inherited provider/model/readiness and pack/review state are read-only and
     inbox: inbox(3, { state: "analyzing", pack_progress: { completed: 1, total: 4, current: 2 }, proposal_pending: 2 }),
     risk_packets: [{ packet_id: "packet_fixture" }],
   });
-  const provider = subject.root.querySelector('[data-provider-inheritance="global"]');
+  // Runtime ownership (llmwiki-provider-contract.js:122-141; lifecycle-view.js:345):
+  // per-provider "global" inheritance is retired; the picker now reports
+  // data-provider-inheritance="runtime" and renders only on the consent scene
+  // (renderConsent), so mount the consent state for the provider assertions.
+  // (The consent scene needs no pending proposals; otherwise the snapshot
+  // projects to the review scene. An empty inbox keeps productState on consent.)
+  const consent = mount({
+    provider_key: "openrouter",
+    provider_readiness: { ready: false, code: "provider_auth_required" },
+    provider_options: [{ provider_key: "openrouter", name: "OpenRouter", model: "openrouter/free", configured: false }],
+    inbox: inbox(0, { state: "empty" }),
+  }, "consent_required");
+  const provider = consent.root.querySelector('[data-provider-inheritance="runtime"]');
+  assert.ok(provider, "runtime provider block must render on the consent scene");
   assert.equal(provider.getAttribute("data-provider-key"), "openrouter");
   assert.equal(provider.getAttribute("data-provider-model"), "openrouter/free");
   assert.equal(provider.getAttribute("data-provider-ready"), "false");
@@ -168,7 +184,10 @@ test("production review+complete renders batch metadata and approval surface tog
   assert.equal(subject.root.querySelector('[data-progress-kind="pack"]').getAttribute("data-pack-completed"), "2");
   assert.equal(subject.root.querySelector('[data-review-state="review_ready"]').getAttribute("data-review-count"), "2");
   assert.ok(subject.root.querySelector('[data-surface="llmwiki-approval-review"]'));
-  assert.ok(subject.root.querySelector('[data-review-affordance="proposal-review"]'));
+  // 916a1f4 intentionally removed the "proposal-review" affordance button (the
+  // review section now renders directly with the approval child); assert the
+  // review section owns the affordance instead of the retired attribute.
+  assert.ok(subject.root.querySelector('.llmwiki-lifecycle__review'));
   assert.equal(action(subject.root, "scan-inbox"), null);
 });
 
@@ -259,7 +278,9 @@ test("approval prose uses the generic Korean-safe typography primitive and struc
   const style = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/knowledge-styles.js"), "utf8");
   const review = fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-risk-approval-review-view.js"), "utf8");
   assert.match(style, /\.llmwiki-cjk-prose\s*\{[^}]*word-break:\s*keep-all[^}]*text-wrap:\s*pretty[^}]*overflow-wrap:\s*anywhere/su);
-  for (const role of ["intro", "document-preview", "summary", "risk", "provenance"]) {
+  // 916a1f4 restructured the review card (preview via ui.exactPreview, provenance
+  // as one line): only summary + risk keep the generic cjk-prose primitive.
+  for (const role of ["summary", "risk"]) {
     assert.match(review, new RegExp(`data-typography-role["']?:\\s*["']${role}["']`, "u"), role);
   }
   assert.match(review, /data-risk-reasons/u);
@@ -321,7 +342,9 @@ test("workspace tab separator suffixes are atomic semantic spans", () => {
   const tabsApi = require(tabsPath);
   const { root } = mountRoot();
   tabsApi.mountTabs(root, { activeTab: "llmwiki" });
-  for (const [id, suffix] of [["zettelkasten", "· 제텔카스텐"], ["llmwiki", "· LLM Wiki"]]) {
+  // Single-studio reorg renamed the llmwiki tab to "자료 정리" (knowledge-workspace-tabs.js
+  // TABS: no " · " separator, hence no atomic suffix); zettelkasten keeps its suffix.
+  for (const [id, suffix] of [["zettelkasten", "· 제텔카스텐"]]) {
     const tab = walk(root, (node) => node.getAttribute?.("id") === `knowledge-tab-${id}`)[0];
     const atomic = walk(tab, (node) => node.getAttribute?.("data-tab-atomic-suffix") === "true");
     assert.equal(atomic.length, 1, id);

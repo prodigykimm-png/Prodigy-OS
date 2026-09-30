@@ -138,6 +138,12 @@ test("production lifecycle mounts branded risk surface and dispatches controller
   const surface = lifecycle.mountLlmWikiLifecycleView({ container: root, snapshot: { status: "review", risk_packets: [low], approval_packet: low, run_id: low.run_id, run_revision: low.run_revision }, reviewView, onAction(intent) { intents.push(intent); }, requestRevisionGuidance: async () => "출처 설명을 더 쉽게 바꿔줘" });
   assert.match(collectText(root), /위험|충돌 상태|안전한 묶음 승인|수정 요청/);
   assert.ok(walk(root, (node) => node.attr?.["data-surface"] === "llmwiki-risk-approval-review")[0]);
+  // Ack-gated approve (llmwiki-lifecycle-view.js:601-603, introduced in 916a1f4):
+  // approve dispatches only when the acknowledgement checkbox is checked, so
+  // perform the acknowledgement step in the fixture instead of weakening the assertion.
+  const ack = walk(root, (node) => node.attr && Object.hasOwn(node.attr, "data-review-acknowledgement"))[0];
+  assert.ok(ack, "acknowledgement checkbox must render");
+  ack.checked = true; ack.onchange();
   click(control(root, "approve"));
   assert.equal(intents[0].action, "approve_risk");
   surface.update({ status: "review", risk_packets: [low], approval_packet: low, run_id: low.run_id, run_revision: low.run_revision });

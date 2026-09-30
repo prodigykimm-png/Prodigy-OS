@@ -309,8 +309,13 @@ test("provider schema exposes the typed-operation contract and runs in a codec-f
     ProdigyConfigService: Object.freeze({ resolveAIProfileProviderKey: () => ({ ok: true, provider_key: "browser_provider", provider: { adapter: "fixture" } }) }),
   });
   vm.runInContext(fs.readFileSync(path.join(ROOT, "SYSTEM/Views/llmwiki-provider-contract.js"), "utf8"), providerBrowser, { filename: "llmwiki-provider-contract.js" });
-  providerBrowser.request = { feature: "llmwiki", provider_mode: "direct", timeout_ms: 1000, retry_owner: "prodigy", request_metadata: { provider_key: "browser_provider" } };
+  // Runtime-ownership contract (llmwiki-provider-contract.js:12 REQUEST_METADATA_KEYS,
+  // :122-141 selectProviderProfile): per-provider `provider_key` metadata is retired;
+  // only request_id/trace/profile_revision are accepted and the profile is always runtime.
+  providerBrowser.request = { feature: "llmwiki", provider_mode: "direct", timeout_ms: 1000, retry_owner: "prodigy", request_metadata: { profile_revision: "browser_provider" } };
   assert.equal(vm.runInContext("LLMWikiProviderContract.selectProviderProfile(request).ok", providerBrowser), true);
+  assert.equal(vm.runInContext("LLMWikiProviderContract.selectProviderProfile(request).value.provider_key", providerBrowser), "runtime");
+  assert.equal(vm.runInContext("LLMWikiProviderContract.selectProviderProfile(request).value.provider_mode", providerBrowser), "runtime");
   const browser = vm.createContext({});
   vm.runInContext(schemaSource, browser, { filename: "llmwiki-provider-response-schema.js" });
   const browserSchema = vm.runInContext("LLMWikiProviderResponseSchema", browser);

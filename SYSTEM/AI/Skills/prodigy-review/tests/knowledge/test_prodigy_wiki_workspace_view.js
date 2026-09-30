@@ -124,11 +124,18 @@ test("inline approval binds exact bytes, resets acknowledgement on edit, and nev
 test("successful application keeps the exact proposal and exposes the actual saved Markdown", async () => {
   const subject = await reviewFixture(); await fill(subject);
   await action(subject.decision, "prepare-document-review").onclick();
-  const expected = by(subject.content, "data-raw-markdown", "after")[0].text;
+  // Preview redaction (prodigy-wiki-workspace-view.js:101 redactOwnerHidden, :149-150):
+  // the displayed `after` preview intentionally masks ids/hashes with labeled
+  // truncations while the file holds full canonical bytes, so byte-equality
+  // with the preview is stale. Prove both: the display is the redacted form of
+  // the saved bytes, and the saved bytes are unmasked.
+  const display = by(subject.content, "data-raw-markdown", "after")[0].text;
   click(by(subject.decision, "data-review-acknowledgement")[0]);
   await action(subject.decision, "apply-document-review").onclick();
   const saved = by(subject.content, "data-applied-document")[0].getAttribute("data-applied-document");
-  assert.equal(subject.files.get(saved).bytes, expected);
+  const bytes = subject.files.get(saved).bytes;
+  assert.equal(ui.redactOwnerHidden(bytes), display);
+  assert.doesNotMatch(bytes, /내부 식별값 일부/u);
   assert.equal(subject.journeys.at(-1), 4); assert.equal(by(subject.content, "data-exact-preview", "true").length, 1);
   assert.equal(enabledPrimary(subject.root).length, 1); assert.equal(enabledPrimary(subject.root)[0].getAttribute("data-action"), "open-applied-document");
   assert.ok(by(subject.content, "data-review-field").every(node => node.disabled));

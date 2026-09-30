@@ -30,13 +30,15 @@ test("groups lifecycle review items in a stable order with exact pending and all
   ];
   const groups = review.buildReviewGroups(items);
 
-  assert.deepEqual(groups.map((group) => group.id), ["queue", "literature", "fleeting", "candidate", "canonical_review", "para_handoff", "holds"]);
-  assert.deepEqual(groups.map((group) => group.total), [1, 1, 1, 1, 1, 1, 1]);
-  assert.deepEqual(groups.map((group) => group.pending), [1, 1, 1, 1, 1, 1, 0]);
-  assert.deepEqual(groups.map((group) => group.visible), [1, 1, 1, 1, 1, 1, 0]);
+  // Product intentionally added plan/pilot groups (knowledge-explorer-controller.js:4-6 GROUPS);
+  // the old expectation predates that reorg, so the correct list includes them.
+  assert.deepEqual(groups.map((group) => group.id), ["plan", "pilot", "queue", "literature", "fleeting", "candidate", "canonical_review", "para_handoff", "holds"]);
+  assert.deepEqual(groups.map((group) => group.total), [0, 0, 1, 1, 1, 1, 1, 1, 1]);
+  assert.deepEqual(groups.map((group) => group.pending), [0, 0, 1, 1, 1, 1, 1, 1, 0]);
+  assert.deepEqual(groups.map((group) => group.visible), [0, 0, 1, 1, 1, 1, 1, 1, 0]);
 
   const all = review.buildReviewGroups(items, { filter: "all" });
-  assert.deepEqual(all.map((group) => group.visible), [1, 1, 1, 1, 1, 1, 1]);
+  assert.deepEqual(all.map((group) => group.visible), [0, 0, 1, 1, 1, 1, 1, 1, 1]);
   assert.equal(all.find((group) => group.id === "candidate").items[0].promotion_gaps.length, 1);
 });
 

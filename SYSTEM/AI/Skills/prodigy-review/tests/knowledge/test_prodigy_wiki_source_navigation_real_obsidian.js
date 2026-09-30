@@ -87,11 +87,20 @@ test("real Obsidian opens a reviewed Wiki paragraph at its exact current source 
     })()`);
     cleanupPath = created.document_path;
 
+    // Single-studio reorg (HUB/50 Knowledge.md openGoldenCitation): on the llmwiki-browse
+    // tab the citation preview renders inline (in the panel),
+    // not in .modal-container — the old container selector is stale. The inner preview
+    // structure (freshness, edit/close actions) is unchanged.
+    // Update: the edit round-trip can move the active tab, so the stale preview may
+    // land in either container - query the identical inner structure document-wide.
     const paragraphSelector = `[data-preview-id="${created.artifact_id}"] [data-action="open-golden-paragraph-source"]`;
+    // Select-to-reveal (916a1f4; workbench selectedId gate): paragraph actions
+    // render only after row selection, so select the row before waiting.
+    await harness.renderedClick(`[data-preview-id="${created.artifact_id}"] [data-action="select-preview"]`);
     await harness.waitForSelector(paragraphSelector);
     const currentReady = harness.evaluate(`new Promise((resolve,reject)=>{
       const finish=()=>{
-        const node=document.querySelector('.modal-container [data-source-freshness="current"]');
+        const node=document.querySelector('[data-source-freshness="current"]');
         if(!node)return;
         observer.disconnect();
         clearTimeout(guard);
@@ -102,10 +111,14 @@ test("real Obsidian opens a reviewed Wiki paragraph at its exact current source 
       const guard=setTimeout(()=>{observer.disconnect();reject(new Error("NAV_QA_CURRENT_TIMEOUT"))},10000);
       finish();
     })`);
+    // Order matters: opening the source file for edit disconnects the hub browse panel
+    // from the document (probed: panelConnected=false, workbench node gone), which wipes
+    // every imperative inspection. Run all inspection asserts BEFORE the edit step and
+    // keep the panel-destroying edit last. Same assertions, stable order.
     await harness.renderedClick(paragraphSelector);
     await currentReady;
     const current = await harness.evaluate(`(()=>{
-      const modal=document.querySelector('.modal-container [data-surface="llmwiki-source-preview"]');
+      const modal=document.querySelector('[data-surface="llmwiki-source-preview"]');
       return {
         text:modal?.textContent||"",
         freshness:modal?.querySelector("[data-source-freshness]")?.getAttribute("data-source-freshness")||"",
@@ -113,24 +126,13 @@ test("real Obsidian opens a reviewed Wiki paragraph at its exact current source 
       };
     })()`);
     assert.equal(current.freshness, "current");
-    assert.match(current.text, /현재 원문과 일치/u);
+    assert.match(current.text, /\uD604\uC7AC \uC6D0\uBB38\uACFC \uC77C\uCE58/u);
     assert.equal(current.edit, true);
+    await harness.renderedClick('[data-action="close-source-preview"]');
 
-    await harness.renderedClick('.modal-container [data-action="edit-source-file"]');
-    const opened = await harness.evaluate(`(()=>{
-      const editor=app.workspace.activeLeaf?.view?.editor;
-      return {
-        path:app.workspace.getActiveFile()?.path||"",
-        cursor:editor&&typeof editor.getCursor==="function"?editor.getCursor():null
-      };
-    })()`);
-    assert.equal(opened.path, created.source_path);
-    assert.ok(opened.cursor && Number.isSafeInteger(opened.cursor.line));
-
-    await harness.renderedClick('.modal-container [data-action="close-source-preview"]');
     const staleReady = harness.evaluate(`new Promise((resolve,reject)=>{
       const finish=()=>{
-        const node=document.querySelector('.modal-container [data-source-freshness="stale"]');
+        const node=document.querySelector('[data-source-freshness="stale"]');
         if(!node)return;
         observer.disconnect();
         clearTimeout(guard);
@@ -147,7 +149,7 @@ test("real Obsidian opens a reviewed Wiki paragraph at its exact current source 
     })()`);
     await staleReady;
     const stale = await harness.evaluate(`(()=>{
-      const modal=document.querySelector('.modal-container [data-surface="llmwiki-source-preview"]');
+      const modal=document.querySelector('[data-surface="llmwiki-source-preview"]');
       return {
         text:modal?.textContent||"",
         freshness:modal?.querySelector("[data-source-freshness]")?.getAttribute("data-source-freshness")||"",
@@ -155,9 +157,35 @@ test("real Obsidian opens a reviewed Wiki paragraph at its exact current source 
       };
     })()`);
     assert.equal(stale.freshness, "stale");
-    assert.match(stale.text, /원문이 변경됨/u);
+    assert.match(stale.text, /\uC6D0\uBB38\uC774 \uBCC0\uACBD\uB428/u);
     assert.equal(stale.edit, false);
-    await harness.renderedClick('.modal-container [data-action="close-source-preview"]');
+    await harness.renderedClick('[data-action="close-source-preview"]');
+
+    // Panel-destroying edit goes last: reopen the current preview, then edit.
+    await harness.renderedClick(paragraphSelector);
+    await harness.evaluate(`new Promise((resolve,reject)=>{
+      const finish=()=>{
+        const node=document.querySelector('[data-source-freshness="current"]');
+        if(!node)return;
+        observer.disconnect();
+        clearTimeout(guard);
+        resolve(true);
+      };
+      const observer=new MutationObserver(finish);
+      observer.observe(document.body,{childList:true,subtree:true,attributes:true});
+      const guard=setTimeout(()=>{observer.disconnect();reject(new Error("NAV_QA_REOPEN_TIMEOUT"))},10000);
+      finish();
+    })`);
+    await harness.renderedClick('[data-action="edit-source-file"]');
+    const opened = await harness.evaluate(`(()=>{
+      const editor=app.workspace.activeLeaf?.view?.editor;
+      return {
+        path:app.workspace.getActiveFile()?.path||"",
+        cursor:editor&&typeof editor.getCursor==="function"?editor.getCursor():null
+      };
+    })()`);
+    assert.equal(opened.path, created.source_path);
+    assert.ok(opened.cursor && Number.isSafeInteger(opened.cursor.line));
 
     await harness.evaluate(`(async()=>{
       const qa=window.__prodigyWikiNavigationQa;
