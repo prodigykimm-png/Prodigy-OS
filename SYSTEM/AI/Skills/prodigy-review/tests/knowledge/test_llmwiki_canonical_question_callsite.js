@@ -91,9 +91,16 @@ test("todo-2 isolated Hub question answers canonical selection with current cita
     });
     assert.deepEqual(listed, []);
     surface.setQuery(genuine.document.statement);
+    // Select-to-reveal (commit 916a1f4; llmwiki-wiki-surface.js:91 chatOpen=false,
+    // :384-386 toggle gate): the ask button renders only after opening chat,
+    // so perform the reveal step in the fixture instead of weakening the assertion.
+    const toggle = descendants(container).find(node => node.attr["data-action"] === "toggle-source-question");
+    assert.ok(toggle, "chat toggle must render");
+    toggle.onclick();
     const input = descendants(container).find(node => node.tag === "input");
     input.value = genuine.document.statement;
     const ask = descendants(container).find(node => node.attr["data-action"] === "ask-source-question");
+    assert.ok(ask, "ask button must render after chat toggle");
     const answer = await ask.onclick(); // Await the actual Hub surface button, not a reconstructed request.
     console.log(JSON.stringify({ manual_qa: "task-2 Hub selected-source question", canonicalPath: genuine.path, listed,
       result: { ok: answer.ok, status: answer.status, reason: answer.reason, source_path: answer.source_path,

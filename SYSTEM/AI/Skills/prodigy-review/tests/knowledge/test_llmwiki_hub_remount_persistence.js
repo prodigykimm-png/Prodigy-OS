@@ -30,7 +30,11 @@ testBatchApprovalVaultWriteExactHandlesStaleFolderLookup().catch((error) => { co
 async function main() {
   const hubSource = fs.readFileSync(path.resolve(__dirname, "../../../../../..", "HUB/50 Knowledge.md"), "utf8");
   assert.match(hubSource, /durableProcessed[\s\S]*operation_outcomes\.every\(\(row\) => row\.status === "committed"\)[\s\S]*archive_receipts\.length > 0/u);
-  assert.match(hubSource, /durableProcessed && !startupFailure \? \{ status: "processed", reason: "" \}/u);
+  // Single-studio reorg (commits 916a1f4, 68c6868): the hub now uses a conditional-spread
+  // with an idle guard in HUB/50 Knowledge.md (`...(durableProcessed &&
+  // prodigyWiki.status === "idle" ? …)`); the old inline-ternary text is stale
+  // but the processed-on-durable semantics are preserved.
+  assert.match(hubSource, /durableProcessed && prodigyWiki\.status === "idle" \? \{ status: "processed", reason: "" \}/u);
 
   const sourcePath = "ZETA/LITERATURE/remount-source.md";
   const first = await runHub({

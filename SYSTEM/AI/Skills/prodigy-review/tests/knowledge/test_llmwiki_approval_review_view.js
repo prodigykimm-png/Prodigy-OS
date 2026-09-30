@@ -347,7 +347,12 @@ test("Given no supplied packet, When the Knowledge Hub mounts, Then it renders a
   const snapshot = result.window.KnowledgeExplorerHub.llmWikiLifecycleSnapshot();
   assert.equal(snapshot.review_packets.length, 0);
   assert.equal(snapshot.approval_packet, null);
-  assert.ok(firstElement(result.container, "section", (node) => node.attr && node.attr["data-surface"] === "llmwiki-lifecycle"));
+  // Single-studio reorg: an empty hub now mounts section:knowledge-review-workbench
+  // (knowledge-explorer-controller.js mountKnowledgeReviewWorkbench), not
+  // section:llmwiki-lifecycle — verified by probe (surfaces=["section:knowledge-review-workbench"],
+  // status idle, 0 packets). The old surface id is stale; the no-synthetic-review
+  // intent is preserved by the workbench + absence assertions below.
+  assert.ok(firstElement(result.container, "section", (node) => node.attr && node.attr["data-surface"] === "knowledge-review-workbench"));
   assert.equal(firstElement(result.container, "section", (node) => node.attr && node.attr["data-surface"] === "llmwiki-approval-review"), null);
   assert.equal(firstElement(result.container, "button", (node) => node.attr && ["open-review", "approve-selected", "approve-all"].includes(node.attr["data-action"])), null);
   assert.equal(firstElement(result.container, "input", (node) => node.attr && node.attr["data-operation-id"]), null);

@@ -108,11 +108,23 @@ test("reviewed preview renders section and paragraph source actions from verifie
 
   const mounted = mountRoot();
   const opened = [];
+  const selected = [];
   workbench.mount({
     container: mounted.root,
     rows: [row],
     onOpenCitation(citation) { opened.push(citation); },
+    onSelect(preview) { selected.push(preview); },
   });
+  // Select-to-reveal (commit 916a1f4; llmwiki-golden-preview-workbench.js
+  // selectedId gate): section/paragraph actions render only after selecting
+  // the row, so perform the reveal step in the fixture.
+  const select = walk(
+    mounted.root,
+    (node) => node.getAttribute("data-action") === "select-preview",
+  )[0];
+  assert.ok(select, "row select control must render");
+  select.onclick();
+  assert.equal(selected.length, 1);
   const sectionActions = walk(
     mounted.root,
     (node) => node.getAttribute("data-action") === "open-golden-section-source",
@@ -179,6 +191,11 @@ test("async durable acknowledgement becomes reviewed only after persistence succ
     reviewState,
     onReviewed: () => persisted,
   });
+  // Same select-to-reveal gate: the mark action renders only after row selection.
+  walk(
+    mounted.root,
+    (node) => node.getAttribute("data-action") === "select-preview",
+  )[0].onclick();
   const mark = walk(
     mounted.root,
     (node) => node.getAttribute("data-action") === "mark-golden-reviewed",

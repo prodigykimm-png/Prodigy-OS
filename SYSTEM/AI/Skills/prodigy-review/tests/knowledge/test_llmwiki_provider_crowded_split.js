@@ -54,10 +54,13 @@ test("crowded chunk fans out instead of refusing", async () => {
     candidate_ids: [],
   });
   assert.equal(result.ok, true);
-  assert.equal(calls.length, 1, `two sub-chunks fit one pack: ${calls.length} call(s)`);
+  // Product packs at most MAX_SEMANTIC_ITEMS_PER_RESULT=8 per result
+  // (llmwiki-batch-provider.js:10, was ~64): 70 candidates fan out to 9 parts
+  // in packs of MAX_CHUNKS_PER_PACK=4, hence 3 calls, not 1.
+  assert.equal(calls.length, 3, `nine 8-unit parts in packs of 4: ${calls.length} call(s)`);
   const sentKeys = JSON.parse(calls[0].prompt).chunks.map((c) => c.key);
-  assert.deepEqual(sentKeys, ["chunk_parent__p0", "chunk_parent__p1"]);
-  for (const c of JSON.parse(calls[0].prompt).chunks) assert.ok(c.evidence_candidates.length <= 64);
+  assert.deepEqual(sentKeys, ["chunk_parent__p0", "chunk_parent__p1", "chunk_parent__p2", "chunk_parent__p3"]);
+  for (const c of JSON.parse(calls[0].prompt).chunks) assert.ok(c.evidence_candidates.length <= 8);
   assert.equal(result.artifacts.length, 1);
   const artifact = result.artifacts[0];
   assert.equal(artifact.chunk_key, "chunk_parent");
@@ -107,7 +110,8 @@ test("many candidates span packs", async () => {
     candidate_ids: [],
   });
   assert.equal(result.ok, true);
-  assert.equal(calls, 2);
+  // Same 8-unit cap: 300 candidates fan out to 38 parts in packs of 4, hence 10 calls.
+  assert.equal(calls, 10);
   assert.equal(result.artifacts.length, 1);
   assert.equal(result.artifacts[0].items.length, 300);
 });

@@ -84,15 +84,25 @@ async function applyThroughReview(app, jobStore, item, target = "new") {
   }
   const action = name => find(node => node.attr?.["data-action"] === name);
   await action("prepare-document-review").onclick();
-  const after = find(node => node.attr?.["data-raw-markdown"] === "after")?.text;
-  assert.equal(typeof after, "string", JSON.stringify(container.textContent));
+  const display = find(node => node.attr?.["data-raw-markdown"] === "after")?.text;
+  assert.equal(typeof display, "string", JSON.stringify(container.textContent));
   const acknowledgement = find(node => Object.hasOwn(node.attr, "data-review-acknowledgement"));
   assert.equal(acknowledgement.checked, false);
   assert.equal(action("apply-document-review").disabled, true);
   acknowledgement.checked = true; acknowledgement.onchange();
   await action("apply-document-review").onclick();
   assert.equal(outcome?.ok, true, JSON.stringify(outcome || container.textContent));
-  assert.equal(await app.vault.read(app.vault.getAbstractFileByPath(outcome.target_path)), after);
+  // Same preview redaction as workspace_view (prodigy-wiki-workspace-view.js:101
+  // redactOwnerHidden via exactPreview): the displayed `after` masks ids/hashes
+  // while the file holds full canonical bytes. Compare saved bytes to the
+  // unmasked source: the display must be the redacted form of the saved bytes,
+  // and the saved bytes must be unmasked. Return the full bytes so downstream
+  // readback checks (canonical_bytes, revision) compare against real content.
+  const { redactOwnerHidden } = require(path.join(V, "prodigy-wiki-workspace-view.js"));
+  const saved = await app.vault.read(app.vault.getAbstractFileByPath(outcome.target_path));
+  assert.equal(redactOwnerHidden(saved), display);
+  assert.doesNotMatch(saved, /내부 식별값 일부/u);
+  const after = saved;
   return { outcome, after, jobId };
 }
 

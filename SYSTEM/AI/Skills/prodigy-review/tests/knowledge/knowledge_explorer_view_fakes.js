@@ -37,7 +37,19 @@ class FakeElement {
       if (cls && !String(node.attr.class || "").split(" ").includes(cls)) return false;
       return [...selector.matchAll(/\[([^=\]]+)(?:="([^"]*)")?\]/gu)].every(([, name, value]) => value === undefined ? node.getAttribute(name) !== null : node.getAttribute(name) === value);
     };
-    const walk = node => node.children.flatMap(child => [...(matches(child) ? [child] : []), ...walk(child)]);
+    // Same live-collection contract as the suite asserts (test_knowledge_explorer_view.js):
+    // children expose only item()/length/iterator, never Array methods, so walk
+    // without flatMap/map here.
+    const walk = node => {
+      const out = [];
+      const kids = node.children || [];
+      for (let i = 0; i < kids.length; i += 1) {
+        const child = typeof kids.item === "function" ? kids.item(i) : kids[i];
+        if (matches(child)) out.push(child);
+        out.push(...walk(child));
+      }
+      return out;
+    };
     return walk(this);
   }
 

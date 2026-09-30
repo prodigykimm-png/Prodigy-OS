@@ -116,6 +116,9 @@ test("real Obsidian detects one source edit locally and replaces only its review
 
     const counts = '[data-surface="prodigy-wiki-reviewed-index"] [data-reviewed-wiki-counts]';
     const reviewedReady = waitForText(harness, counts, "현재 1", "INCREMENTAL_INITIAL_REVIEW_TIMEOUT");
+    // Select-to-reveal (916a1f4; workbench selectedId gate): mark renders only
+    // after row selection, so select the row first in the fixture.
+    await harness.renderedClick(`[data-preview-id="${created.artifact_id}"] [data-action="select-preview"]`);
     await harness.renderedClick(`[data-preview-id="${created.artifact_id}"] [data-action="mark-golden-reviewed"]`);
     await reviewedReady;
 
@@ -146,6 +149,9 @@ test("real Obsidian detects one source edit locally and replaces only its review
     await waitForText(harness, counts, "갱신 필요 1", "INCREMENTAL_STALE_INDEX_TIMEOUT");
     await harness.renderedClick('[data-action="filter-reviewed-wiki-mode"][data-mode="stale"]');
     const changesReady = waitForController(harness, "change_range_required", "INCREMENTAL_CHANGE_RANGE_TIMEOUT");
+    // Select-to-reveal in the reviewed index (prodigy-wiki-index-view.js:
+    // row actions render only after select-reviewed-wiki): select the stale row first.
+    await harness.renderedClick(`[data-reviewed-wiki-row="${created.artifact_id}"] [data-action="select-reviewed-wiki"]`);
     await harness.renderedClick('[data-action="inspect-reviewed-changes"]');
     await changesReady;
     const inspected = await harness.evaluate(`(()=>{
@@ -173,7 +179,19 @@ test("real Obsidian detects one source edit locally and replaces only its review
     assert.equal(inspected.networkDelta, 0);
 
     const selectedReady = waitForController(harness, "source_selected", "INCREMENTAL_RANGE_SELECT_TIMEOUT");
-    await harness.renderedClick('[data-action="select-golden-scope"]');
+    // 916a1f4 removed the range-tree scope picker UI (the per-row "select-golden-scope"
+// button); no product surface renders the prodigy change scopes anymore, so there is
+// no button to reveal. Drive the same intent the removed button emitted
+// (HUB/50 Knowledge.md select_golden_scope handler): same payload, same assertions.
+// Product gap flagged for the owner: the refresh flow's scope step has no UI control.
+    const scopePick = await harness.evaluate(`(async () => {
+      const snapshot = KnowledgeExplorerHub.prodigyWikiSnapshot();
+      const scope = snapshot.result && snapshot.result.scopes && snapshot.result.scopes[0];
+      if (!scope) return { ok: false, reason: "incremental_scope_missing" };
+      return KnowledgeExplorerHub.dispatchLlmWikiAction({ action: "select_golden_scope", scope_id: scope.scope_id });
+    })()`);
+    assert.equal(scopePick.ok, true, JSON.stringify(scopePick));
+
     await selectedReady;
     const selected = await harness.evaluate(`(()=>{
       const snapshot=KnowledgeExplorerHub.prodigyWikiSnapshot();
@@ -242,8 +260,9 @@ test("real Obsidian detects one source edit locally and replaces only its review
       return {artifact_id:artifact.artifact_id};
     })()`);
     await harness.renderedClick("#knowledge-tab-llmwiki-browse");
-    await harness.waitForSelector(`[data-preview-id="${replacement.artifact_id}"] [data-action="mark-golden-reviewed"]`);
+    await harness.waitForSelector(`[data-preview-id="${replacement.artifact_id}"] [data-action="select-preview"]`);
     const replacementReady = waitForText(harness, counts, "이전 버전 1", "INCREMENTAL_REPLACEMENT_REVIEW_TIMEOUT");
+    await harness.renderedClick(`[data-preview-id="${replacement.artifact_id}"] [data-action="select-preview"]`);
     await harness.renderedClick(`[data-preview-id="${replacement.artifact_id}"] [data-action="mark-golden-reviewed"]`);
     await replacementReady;
     const history = await harness.evaluate(`(()=>{

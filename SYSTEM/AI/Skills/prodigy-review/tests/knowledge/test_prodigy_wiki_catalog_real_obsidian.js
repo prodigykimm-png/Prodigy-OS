@@ -109,9 +109,13 @@ test("real Obsidian accumulates reviewed Wiki documents and restores the index a
 
     const countsSelector = '[data-surface="prodigy-wiki-reviewed-index"] [data-reviewed-wiki-counts]';
     const firstReady = waitForText(harness, countsSelector, "현재 1", "CATALOG_QA_FIRST_REVIEW_TIMEOUT");
+    // Select-to-reveal (916a1f4; workbench selectedId gate): mark renders only
+    // after row selection, so select the row first in the fixture.
+    await harness.renderedClick(`[data-preview-id="${created.artifact_ids[0]}"] [data-action="select-preview"]`);
     await harness.renderedClick(`[data-preview-id="${created.artifact_ids[0]}"] [data-action="mark-golden-reviewed"]`);
     await firstReady;
     const secondReady = waitForText(harness, countsSelector, "현재 2", "CATALOG_QA_SECOND_REVIEW_TIMEOUT");
+    await harness.renderedClick(`[data-preview-id="${created.artifact_ids[1]}"] [data-action="select-preview"]`);
     await harness.renderedClick(`[data-preview-id="${created.artifact_ids[1]}"] [data-action="mark-golden-reviewed"]`);
     await secondReady;
 
@@ -145,19 +149,33 @@ test("real Obsidian accumulates reviewed Wiki documents and restores the index a
     await harness.openWorkspace("knowledge");
     await harness.waitForSelector('[data-surface="prodigy-wiki-reviewed-index"]');
     await waitForText(harness, countsSelector, "현재 2", "CATALOG_QA_RELOAD_TIMEOUT");
+    // Select-to-reveal (916a1f4): each row's mark button renders only while that
+    // row is selected, so at most one is visible at a time. Verify per row: select
+    // the row, then its mark must read 확인함 and stay disabled (already reviewed).
+    const restoredMarks = [];
+    for (const artifactId of created.artifact_ids) {
+      await harness.renderedClick(`[data-preview-id="${artifactId}"] [data-action="select-preview"]`);
+      const markScript = `(function(){var node=document.querySelector('[data-preview-id="${artifactId}"] [data-action="mark-golden-reviewed"]');return node?{text:node.textContent||"",disabled:Boolean(node.disabled)}:null})()`;
+      restoredMarks.push(await harness.evaluate(markScript));
+    }
     const restored = await harness.evaluate(`(()=>{
-      const marks=[...document.querySelectorAll('[data-action="mark-golden-reviewed"]')];
       const input=document.querySelector('[data-action="search-reviewed-wiki"]');
       input.value="근거 중심";
       input.dispatchEvent(new Event("input",{bubbles:true}));
       return {
         entries:KnowledgeExplorerHub.reviewedWikiSnapshot().entries.length,
-        reviewedButtons:marks.filter(button=>button.textContent.includes("확인함")&&button.disabled).length,
         visibleRows:document.querySelectorAll('[data-reviewed-wiki-row]').length
       };
     })()`);
     assert.equal(restored.entries, 2);
-    assert.equal(restored.reviewedButtons, 2);
+    assert.equal(restoredMarks.length, 2);
+    for (const mark of restoredMarks) {
+      // Reviewed label per llmwiki-golden-preview-workbench.js
+      // ("확인한 초안 · 문서 반영 전"); the old "확인함" substring never matched
+      // this surface — the pre-reveal suite never reached this line.
+      assert.ok(mark && mark.text.includes("확인한 초안"), JSON.stringify(mark));
+      assert.equal(mark.disabled, true);
+    }
     assert.equal(restored.visibleRows, 1);
 
     const cleanup = await harness.evaluate(`(async()=>{
