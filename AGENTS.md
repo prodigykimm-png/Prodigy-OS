@@ -76,3 +76,13 @@ Daily Reflection Evidence 승인 시, `context: "people"` 블록은 자동으로
 - `# 핵심 상호작용`: 통찰 한 줄. 날짜·출처 없음. 사람이 직접 읽는 큐레이션된 인사이트
 - `최근 맥락` (Dataview 역링크): 날짜·Object 링크 자동 계산. 시계열 컨텍스트
 - 둘은 역할이 다르며 겹치지 않음
+
+## Frontmatter 쓰기 규칙
+
+Obsidian은 `FileManager.processFrontMatter`가 쓰기 전에 기존 frontmatter를 YAML로 파싱한다. 파싱이 실패하면 **아무것도 쓰지 않고** 오류를 돌려준다 — 옥션카드에서는 "저장 실패"로 보인다(2026-10-03에 카드 67건이 이 상태였다).
+
+- frontmatter를 **원문 텍스트로 직접 편집하지 않는다.** `app.fileManager.processFrontMatter(file, fn)`을 쓰면 값 인용을 Obsidian이 처리한다.
+- 불가피하게 텍스트로 쓸 때는 값에 `: `(콜론+공백), 끝 콜론, ` #`가 있으면 반드시 큰따옴표로 감싸고 내부 `"`는 `\"`로 escape한다. 예: `market_price_basis: "정보 없음 (Pass 1: 미수집)"`.
+- frontmatter를 닫는 `---`는 **반드시 단독 줄**이어야 한다. `---# 요약`처럼 다음 줄과 붙이면 Obsidian이 닫는 표시로 인식하지 못하고 본문까지 frontmatter로 삼킨다.
+- 같은 key를 두 번 쓰지 않는다. 여러 줄 값은 `|`/`>` block scalar로 쓰고 내용을 들여쓴다.
+- 쓰기 전후로 검사한다: `node SYSTEM/SCRIPTS/auction-frontmatter-guard-cli.js --check` (문제 있으면 exit 1), 자동 수선은 `--fix`. 회귀 테스트는 `bun test SYSTEM/SCRIPTS/auction-frontmatter-guard.test.js`.
