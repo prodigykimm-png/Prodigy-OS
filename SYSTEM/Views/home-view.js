@@ -466,6 +466,23 @@
     });
   }
 
+  // Dataview re-runs a dataviewjs block whenever its index revision changes, so
+  // on a cold start Home's whole pipeline runs twice within seconds. Reusing the
+  // package for a short window makes the second run cheap; an explicit refresh
+  // still forces a rebuild.
+  const MORNING_PACKAGE_TTL_MS = 60 * 1000;
+  let morningPackageMemo = null;
+
+  async function resolveMorningPackage(app, dv, todayStr, todoistToken, force) {
+    const memo = morningPackageMemo;
+    if (!force && memo && memo.date === todayStr && (Date.now() - memo.at) < MORNING_PACKAGE_TTL_MS) {
+      return memo.pkg;
+    }
+    const pkg = await root.MorningContextCore.buildMorningPackage({ app, dv, now: new Date(), todoistToken });
+    morningPackageMemo = { date: todayStr, at: Date.now(), pkg };
+    return pkg;
+  }
+
   async function renderHome(options) {
     const { app, dv, container } = options;
     if (!app || !dv || !container) return;
@@ -646,7 +663,7 @@
 
     let newPkg = null;
     try {
-      newPkg = await root.MorningContextCore.buildMorningPackage({ app, dv, now: new Date(), todoistToken: token });
+      newPkg = await resolveMorningPackage(app, dv, todayStr, token, options.force === true);
     } catch (err) {
       newPkg = {
         local_date: todayStr,
@@ -810,7 +827,7 @@
     } catch (_e) { /* ignore */ }
     
     const refreshBtn = rightActions.createEl("button", { text: "새로고침", attr: { class: "action-btn home-toolbar-utility" } });
-    refreshBtn.onclick = () => renderHome(options);
+    refreshBtn.onclick = () => renderHome(Object.assign({}, options, { force: true }));
 
     // ── Mission Control stack (presentation only; reuses existing APIs) ──
     const stack = container.createEl("div", {
@@ -1595,6 +1612,7 @@
   const api = {
     renderHome,
     disposeHome,
+    resolveMorningPackage,
     getSourceTypeLabel,
     getEvidenceSourceLabel
   };

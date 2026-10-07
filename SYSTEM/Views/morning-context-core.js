@@ -89,6 +89,45 @@
     }
   }
 
+  // Home resolves its sections from the folder tree plus Obsidian's metadata
+  // cache instead of Dataview's index. That removes the plugin-indexing
+  // dependency from a render and stops the block re-running on index change.
+  // Returns null when the tree is unavailable so callers fall back to Dataview.
+  function cachedFolderPages(app, folderPath) {
+    if (!app || !app.vault || !app.metadataCache) return null;
+    if (typeof app.vault.getAbstractFileByPath !== "function") return null;
+    if (typeof app.metadataCache.getFileCache !== "function") return null;
+    const folder = app.vault.getAbstractFileByPath(folderPath);
+    if (!folder || !Array.isArray(folder.children)) return null;
+    const pages = [];
+    const visit = (node) => {
+      for (const child of node.children || []) {
+        if (!child) continue;
+        if (Array.isArray(child.children)) { visit(child); continue; }
+        if (typeof child.path !== "string" || !child.path.endsWith(".md")) continue;
+        const cache = app.metadataCache.getFileCache(child);
+        const frontmatter = (cache && cache.frontmatter) || {};
+        pages.push(Object.assign({}, frontmatter, {
+          file: {
+            path: child.path,
+            name: child.name || child.path.split("/").pop() || "",
+            mtime: { toMillis: () => (child.stat && child.stat.mtime) || 0 }
+          }
+        }));
+      }
+    };
+    visit(folder);
+    return pages;
+  }
+
+  function dataviewPages(dv, query, predicate) {
+    const source = dv && typeof dv.pages === "function" ? dv.pages(query) : null;
+    const filtered = source && typeof source.where === "function" ? source.where(predicate) : [];
+    if (filtered && typeof filtered.array === "function") return filtered.array();
+    if (Array.isArray(filtered)) return filtered;
+    return filtered && typeof filtered[Symbol.iterator] === "function" ? Array.from(filtered) : [];
+  }
+
   function getMtimeMillis(fileObj) {
     if (!fileObj || !fileObj.mtime) return 0;
     if (typeof fileObj.mtime.toMillis === "function") {
@@ -206,7 +245,7 @@
 
   async function buildMorningPackage(options) {
     const { app, dv, now = new Date(), todoistToken = "" } = options;
-    if (!app || !dv) throw new Error("App and Dataview instances are required to build context.");
+    if (!app) throw new Error("App instance is required to build context.");
     
     const localDate = getTodayIsoDate(now);
     const weekId = getWeekId(now);
@@ -216,17 +255,19 @@
 
     const warnings = [];
 
-    // A. Todoist
+    // A. Todoist — start the request now, await it only where its result is
+    // consumed. The API call carries a 3s timeout; awaiting it here serialized
+    // that wait in front of every vault/Dataview scan below (sections B–F),
+    // which is the largest single block of Home's cold-start latency on mobile.
     let todoistData = { todayCount: 0, overdueCount: 0, todayTasks: [], overdueTasks: [] };
-    if (todoistToken && root.ProjectTodoistAdapter) {
-      try {
-        todoistData = await root.ProjectTodoistAdapter.fetchExecutionSnapshot(app, todoistToken);
-      } catch (err) {
-        warnings.push(`Todoist fetch failed: ${err.message}`);
-      }
-    } else {
-      warnings.push("Todoist token is missing or adapter not loaded.");
-    }
+    let todoistWarning = "";
+    const todoistRequest = (todoistToken && root.ProjectTodoistAdapter)
+      ? Promise.resolve()
+          .then(() => root.ProjectTodoistAdapter.fetchExecutionSnapshot(app, todoistToken))
+          .then((snapshot) => { todoistData = snapshot; })
+          .catch((err) => { todoistWarning = `Todoist fetch failed: ${err.message}`; })
+      : null;
+    if (!todoistRequest) todoistWarning = "Todoist token is missing or adapter not loaded.";
 
     // B. Projects
     const projects = [];
@@ -238,14 +279,15 @@
       if (/\bcompleted\b/.test(value) || /\barchived\b/.test(value)) return true;
       return false;
     };
-    const activeProjects = dv.pages('"PARA/PROJECTS"')
-      .where(p => {
-        if (!(p.type === "project" || p.type === "project_note" || p.type === "project_family")) return false;
-        if (!p.file || !p.file.path) return false;
-        // Never include trashed / missing files
-        if (String(p.file.path).includes("/.trash/") || String(p.file.path).startsWith(".trash/")) return false;
-        return !isProjectTerminal(p.status);
-      });
+    const projectPages = cachedFolderPages(app, "PARA/PROJECTS")
+      || dataviewPages(dv, '"PARA/PROJECTS"', () => true);
+    const activeProjects = projectPages.filter(p => {
+      if (!(p.type === "project" || p.type === "project_note" || p.type === "project_family")) return false;
+      if (!p.file || !p.file.path) return false;
+      // Never include trashed / missing files
+      if (String(p.file.path).includes("/.trash/") || String(p.file.path).startsWith(".trash/")) return false;
+      return !isProjectTerminal(p.status);
+    });
     
     activeProjects.forEach(p => {
       let wfCount = 0;
@@ -279,8 +321,9 @@
 
     // C. Auctions
     const auctions = [];
-    const activeAuctions = dv.pages('"PARA/PROJECTS/Auction"')
-      .where(p => p.type === "auction_case" && p.status !== "completed" && p.status !== "archived");
+    const auctionPages = cachedFolderPages(app, "PARA/PROJECTS/Auction")
+      || dataviewPages(dv, '"PARA/PROJECTS/Auction"', () => true);
+    const activeAuctions = auctionPages.filter(p => p.type === "auction_case" && p.status !== "completed" && p.status !== "archived");
     
     activeAuctions.forEach(p => {
       auctions.push({
@@ -304,8 +347,9 @@
 
     // D. Reading
     const reading = [];
-    const activeReading = dv.pages('"PARA/PROJECTS/Reading"')
-      .where(p => p.type === "reading" && p.status === "reading");
+    const readingPages = cachedFolderPages(app, "PARA/PROJECTS/Reading")
+      || dataviewPages(dv, '"PARA/PROJECTS/Reading"', () => true);
+    const activeReading = readingPages.filter(p => p.type === "reading" && p.status === "reading");
     
     activeReading.forEach(p => {
       reading.push({
@@ -343,8 +387,9 @@
     // Scoped Dataview query (metadata cache) instead of a full-vault getMarkdownFiles()
     // scan — the latter forces a filesystem enumeration that is slow on mobile over iCloud.
     const recentReflections = [];
-    const dailyPages = dv.pages('"DAILY/DAILY"')
-      .where(p => p && p.file && p.file.path)
+    const dailyPages = (cachedFolderPages(app, "DAILY/DAILY")
+      || dataviewPages(dv, '"DAILY/DAILY"', () => true))
+      .filter(p => p && p.file && p.file.path)
       .sort((a, b) => String(b.file && b.file.name).localeCompare(String(a.file && a.file.name)));
 
     let processedDailies = 0;
@@ -489,6 +534,11 @@
         next_action: c.next_action || "",
         due_date: c.due_date || c.auction_datetime || ""
       }));
+
+    // A(cont). Join the request started above. The warning keeps its original
+    // position (first) so the package shape and warning order are unchanged.
+    if (todoistRequest) await todoistRequest;
+    if (todoistWarning) warnings.unshift(todoistWarning);
 
     const pkg = {
       schema_version: "morning-package-v1",
