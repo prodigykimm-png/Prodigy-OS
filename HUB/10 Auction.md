@@ -495,7 +495,9 @@ const initializeAuctionWorkspace = async () => {
     const primarySections = {};
     [
       { status: "bidding", className: "auction-hub-bidding", emptyMessage: "해당 조건의 입찰 예정 물건이 없습니다." },
-      { status: "watching", className: "auction-hub-watching", emptyMessage: "해당 조건의 검토 중인 물건이 없습니다." }
+      // 관심은 후보 풀이라 물건 수가 많다. 마운트 시 카드 DOM을 전부 만들지 않도록
+      // 낙찰/패찰/입찰 포기/보관과 같은 접기 경로를 쓴다 (클릭 시 렌더).
+      { status: "watching", className: "auction-hub-watching", emptyMessage: "해당 조건의 검토 중인 물건이 없습니다.", isCollapsed: true, summaryText: "관심 물건 목록", summaryColor: "var(--text-normal)" }
     ].forEach((section) => {
       const host = auctionShell.body.createDiv({
         attr: { class: `auction-hub-section ${section.className}` }
@@ -518,6 +520,9 @@ const initializeAuctionWorkspace = async () => {
             logicalWidth
           }),
           emptyMessage: section.emptyMessage,
+          isCollapsed: section.isCollapsed === true,
+          summaryText: section.summaryText,
+          summaryColor: section.summaryColor,
           sortField: "auction_datetime",
           sortOrder: "asc"
         });
@@ -960,6 +965,9 @@ const run = () => {
         logicalWidth
       }),
       emptyMessage: "해당 조건의 검토 중인 물건이 없습니다.",
+      isCollapsed: true,
+      summaryText: "관심 물건 목록",
+      summaryColor: "var(--text-normal)",
       sortField: "auction_datetime",
       sortOrder: "asc"
     });
