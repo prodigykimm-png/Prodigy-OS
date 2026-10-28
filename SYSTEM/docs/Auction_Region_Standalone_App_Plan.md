@@ -312,7 +312,9 @@ P1~P3은 바탕 공사(가져오기·속도·동기화·알림) 위주로 짜여
 
 사용자가 직접 해야 하는 준비 (모두 무료): 카카오 JavaScript 키 발급, data.go.kr 서비스키 발급, Cloudflare 계정, Tailscale 계정(Mac·iPhone 설치).
 
-## 오라클 이전 계획 (제안 · 2026-10-28 · 실행 전 소유자 승인)
+## 오라클 이전 (2026-10-28 완료 · 앱 `ba91645`)
+
+**결과:** 아래 순서대로 옮겼다. 이전 전후 컬렉션별 레코드 수가 같고(cases 538·regions 230·visits 11 등), 폰 로그인·임장 사진·카드 수정→오라클→Mac 반영을 확인했다. Mac PocketBase는 `launchctl disable`로 꺼 두었고(데이터는 이전 시점 그대로) 되돌리기 방법은 앱 README에 있다. 서버 백업은 매일 04:00 KST(7개), Mac 내려받기는 05:00(`com.prodigy.auction.oracle-backup`).
 
 목적: Mac이 꺼져 있어도 폰 저장·동기화가 이어지게 PocketBase를 오라클 무료 서버로 옮긴다.
 
