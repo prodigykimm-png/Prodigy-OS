@@ -238,8 +238,8 @@ P1~P3은 바탕 공사(가져오기·속도·동기화·알림) 위주로 짜여
 | **복기 대기 큐·복기** | hub 노트, `auction-day-core.js`(`buildReviewQueue`) | 있음('복기' 화면) | 있음 | 옮김(2026-10-28) — 교훈은 앱 칸(review_lesson), 볼트 본문에는 쓰지 않음 |
 | 결과 피드백·비교 사례·가상 포트폴리오·집중도 | `auction-learning-core.js` | 없음 | 없음 | 3순위(복기와 함께) |
 | **키값 실거래 비교**(평당가 범위, 동/구 비교, 하단·근접·상단 표시) + CSV 자동 가져오기 | `auction-key-value-projection.js`, `auction-key-value-detail.js`, `auction-key-value-import-service.js`, `auction-key-value-snapshot.js` | 있음 | 있음 | 옮김(2026-10-28) — 볼트 스냅샷·계산 코드를 그대로 불러 계산, 범위만 표시. CSV 자동 가져오기는 볼트가 계속 맡음(P5) |
-| 판단 근거(AI 없이): 같은 지역·종류 낙찰가율 표본, 내 패찰 격차, 낙찰 이력, 경쟁 가격 참고 | `auction-decision-support-core.js`, `auction-decision-mirror-core.js` | 일부(지역 낙찰가율 비교) | 없음 | **5순위** |
-| 판단 보드의 '이전 결정' 묶음 | `auction-decision-packet.js`, `decision-packet-*` | 없음 | 없음 | 5순위 |
+| 판단 근거(AI 없이): 같은 지역·종류 낙찰가율 표본, 내 패찰 격차, 낙찰 이력, 경쟁 가격 참고 | `auction-decision-support-core.js`, `auction-decision-mirror-core.js` | 있음(카드 상세 '판단 근거') | 있음 | 옮김(2026-10-28) — 볼트 계산을 그대로 쓰고, 소유자 결정으로 앱의 낙찰·패찰·포기 상태와 낙찰가도 결과로 넘김(볼트에는 안 씀). 지금 관심·입찰 363장 중 4장에 근거, 복기가 쌓일수록 늘어남 |
+| 판단 보드의 '이전 결정' 묶음 | `auction-decision-packet.js`, `decision-packet-*` | 일부(같은 사건번호·주소의 '이전 내역') | 없음 | 안 옮김 — 이전 결정은 `type: decision` 노트에서만 오는데 볼트에 0개라 볼트에서도 늘 비어 있음. 검증 지식은 LLM Wiki(P5) |
 | 지역 지표·입주 예정·도시철도·지역 메모·확인함·갱신 제안·변화 기록 | `auction-region-packet.js`, `region-*`, `auction-region-comment-store.js` | 있음 | 없음 | 옮김(Mac), 6순위(iPhone 읽기) |
 | 지역별 연결 경매·사례 | `region-intelligence-popup-*` | 있음 | 없음 | 옮김(Mac) |
 | 동 프로필·동 순위 | `auction-dong-profile-core.js` | 있음(동 통계·순위) | 없음 | 옮김(Mac) |
@@ -311,3 +311,18 @@ P1~P3은 바탕 공사(가져오기·속도·동기화·알림) 위주로 짜여
 없음. P1을 시작할 수 있는 상태다. 단, 화면은 P0.5로 목업 승인을 먼저 받는다(`~/Developer/prodigy-auction/design/`). 오늘 화면 목업은 만들었고, 보드·카드 상세·지역·임장 화면이 남아 있다.
 
 사용자가 직접 해야 하는 준비 (모두 무료): 카카오 JavaScript 키 발급, data.go.kr 서비스키 발급, Cloudflare 계정, Tailscale 계정(Mac·iPhone 설치).
+
+## 오라클 이전 계획 (제안 · 2026-10-28 · 실행 전 소유자 승인)
+
+목적: Mac이 꺼져 있어도 폰 저장·동기화가 이어지게 PocketBase를 오라클 무료 서버로 옮긴다.
+
+- **서버:** `instance-20260227-2032`(tailnet 100.120.160.105). ARM(aarch64) 4코어, 메모리 24GB, 디스크 146GB 중 16GB 사용, Ubuntu 22.04. 접속은 `~/.ssh/oracle_ccbridge.key`, 사용자 `ubuntu`. 이미 도는 것: `commandcode-bridge`(docker, 127.0.0.1:9992). PocketBase는 127.0.0.1:8090에 둬 겹치지 않는다.
+- **순서**
+  1. Mac과 같은 판의 PocketBase linux_arm64를 `/opt/pocketbase`에 두고 systemd 서비스로 돌린다(재부팅 뒤 자동 시작).
+  2. `tailscale serve`로 `https://instance-20260227-2032.tail1992b9.ts.net:8090` → 127.0.0.1:8090. 지금 Mac(`youngjae-macmini-2…:8090`)과 같은 tailnet 전용 방식이다.
+  3. Mac PocketBase를 잠깐 멈추고 `pb_data`(DB·사진)를 서버로 복사해 시작한다. Mac 원본은 백업으로 남긴다. 멈춤은 몇 분.
+  4. Mac 동기화(`sync-pb`·감시 작업)와 웹앱 `PB` 주소를 오라클로 바꾸고 배포한다. `pb_data`를 그대로 옮기므로 폰 로그인은 유지된다.
+  5. 확인: 폰 수정→오라클→Mac 반영, Mac을 끈 채 폰 저장→Mac을 켜면 반영.
+  6. Mac PocketBase launchd(`com.prodigy.auction.pocketbase`)는 지우지 않고 내려 둔다. 되돌리기는 주소 두 곳을 되돌리고 다시 올리면 끝.
+- **위험:** 오라클 무료 서버는 오래 한가하면 회수될 수 있다(오라클 정책, 이 서버에서 확인하지 않음). 서버 `pb_data`를 매일 Mac으로 내려받는 백업을 함께 둔다.
+- **그다음:** n8n 예약 작업.
