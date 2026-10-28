@@ -237,7 +237,7 @@ P1~P3은 바탕 공사(가져오기·속도·동기화·알림) 위주로 짜여
 | **결과 입력**(낙찰/패찰·낙찰가·응찰 수, 한 번에 쓰는 결과 묶음) | `auction-outcome-writer.js` | 있음(낙찰가·결정일 고침, 입찰 당일 결과 기록) | 있음 | 옮김(2026-10-28) |
 | **복기 대기 큐·복기** | hub 노트, `auction-day-core.js`(`buildReviewQueue`) | 있음('복기' 화면) | 있음 | 옮김(2026-10-28) — 교훈은 앱 칸(review_lesson), 볼트 본문에는 쓰지 않음 |
 | 결과 피드백·비교 사례·가상 포트폴리오·집중도 | `auction-learning-core.js` | 없음 | 없음 | 3순위(복기와 함께) |
-| **키값 실거래 비교**(평당가 범위, 동/구 비교, 하단·근접·상단 표시) + CSV 자동 가져오기 | `auction-key-value-projection.js`, `auction-key-value-detail.js`, `auction-key-value-import-service.js`, `auction-key-value-snapshot.js` | 없음 | 없음 | **4순위** — 범위만 보여 주는 규칙 유지 |
+| **키값 실거래 비교**(평당가 범위, 동/구 비교, 하단·근접·상단 표시) + CSV 자동 가져오기 | `auction-key-value-projection.js`, `auction-key-value-detail.js`, `auction-key-value-import-service.js`, `auction-key-value-snapshot.js` | 있음 | 있음 | 옮김(2026-10-28) — 볼트 스냅샷·계산 코드를 그대로 불러 계산, 범위만 표시. CSV 자동 가져오기는 볼트가 계속 맡음(P5) |
 | 판단 근거(AI 없이): 같은 지역·종류 낙찰가율 표본, 내 패찰 격차, 낙찰 이력, 경쟁 가격 참고 | `auction-decision-support-core.js`, `auction-decision-mirror-core.js` | 일부(지역 낙찰가율 비교) | 없음 | **5순위** |
 | 판단 보드의 '이전 결정' 묶음 | `auction-decision-packet.js`, `decision-packet-*` | 없음 | 없음 | 5순위 |
 | 지역 지표·입주 예정·도시철도·지역 메모·확인함·갱신 제안·변화 기록 | `auction-region-packet.js`, `region-*`, `auction-region-comment-store.js` | 있음 | 없음 | 옮김(Mac), 6순위(iPhone 읽기) |
