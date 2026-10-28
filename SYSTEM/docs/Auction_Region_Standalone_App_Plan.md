@@ -216,6 +216,45 @@ P1은 속성 칸 38개만 가져오고 카드 본문을 빠뜨렸다(관리사�
 - 볼트 값과 앱 수정이 부딪히면 앱 값을 유지하고 확인 목록에 올린다. 어느 쪽을 쓸지는 사람이 고른다.
 - 전환 기간 동안 앱에서 고친 값은 볼트 마크다운에 다시 쓰지 않는다. 그 사이 Obsidian 옥션 화면에는 옛 값이 보인다.
 
+## 6.3 워크스페이스 기능 이식표 (2026-10-28)
+
+P1~P3은 바탕 공사(가져오기·속도·동기화·알림) 위주로 짜여 기능을 옮기는 단계가 없었다. 아래 표는 Obsidian 옥션 워크스페이스가 실제로 불러오는 모듈(`prodigy-workspace-manifest.js`의 auction 블록 71개, 그중 `auction-*` 28개 + 매니페스트 밖 `auction-*` 3개 + 공용 기능 모듈)을 기능 단위로 나눈 것이다. 상태는 앱 코드(`src/`, `pwa/app.js`)를 줄 단위로 확인한 값이다.
+
+표기: **있음** / **일부** / **없음**. 결정: **옮김**(끝남), **N순위**(옮길 예정, 순서), **안 옮김**(이유).
+
+| 기능 | 워크스페이스 출처 | Mac | iPhone | 결정 |
+|---|---|---|---|---|
+| 상태별 목록·오늘/이번 주 요약 | hub 노트, `object-lifecycle-*` | 있음 | 일부(7일·입찰 예정·전체) | 옮김 |
+| 입찰 달력 | hub 노트 | 있음 | 없음 | 6순위(iPhone) |
+| 카드 필드 편집(상태·입찰 예정가·내 입찰가·출구가·월세·의견·사유·메모) | `auction-card.js`, `auction-card-mutation.js` | 있음 | 일부(상태·입찰 예정가·메모) | 6순위(iPhone) |
+| 가격 줄(최저가·입찰 예정가·보증금·감정가) | `auction-card-price-projection.js` | 있음 | 있음 | 옮김 |
+| 수익 분석(출구가·차익·월수익) | `auction-card.js` | 있음 | 없음 | 6순위(iPhone) |
+| 법원 절차 상태(유찰·변경·정지·취하·새 기일) | `auction-court-status.js` | 있음 | 없음 | 6순위(iPhone) |
+| 같은 물건 합치기·되돌리기, 가져오기 충돌 해결 | (앱에서 새로 생김) | 있음 | 없음 | 옮김(Mac 전용) |
+| 네이버 부동산·카페·네이버 지도 링크, 관리사무소 전화 | `auction-card.js` | 있음 | 전화만 | 6순위(iPhone) |
+| **입찰 당일 흐름**: 법원 준비물(신분증·도장·보증금·입찰표), 물건별 확인(사건번호·법정·시각·물건번호·최저가·보증금·최종 입찰가), 입찰자 정보, 기일 입찰표, 최종 입찰가 확정, 응찰 수·결과 기록, 복기 시작 | `auction-day-core.js`, `auction-day-view.js` | 없음 | 없음 | **1순위** |
+| **임장 체크리스트**: 공통 13개 + 종류별 항목, 상·중·하·관계없음 평가와 항목 메모, 우선 항목, 관리사무소 연락처, 예상 밖 발견, 사진, 시작·종료 시각 | `site-visit-data.js`, `site-visit-workflow.js`, `auction-site-visit-index.js` (4.1절) | 없음(기존 11건은 `field_visits`로 가져오기만 함) | 일부(자유 메모·사진·위치만, PocketBase `visits`) | **2순위** — 폰 `visits`와 `field_visits`를 한 저장소로 합친다 |
+| **결과 입력**(낙찰/패찰·낙찰가·응찰 수, 한 번에 쓰는 결과 묶음) | `auction-outcome-writer.js` | 일부(낙찰가는 보이기만, 고칠 수 없음) | 없음 | **3순위** |
+| **복기 대기 큐·복기** | hub 노트, `auction-day-core.js`(`buildReviewQueue`) | 없음 | 없음 | **3순위** |
+| 결과 피드백·비교 사례·가상 포트폴리오·집중도 | `auction-learning-core.js` | 없음 | 없음 | 3순위(복기와 함께) |
+| **키값 실거래 비교**(평당가 범위, 동/구 비교, 하단·근접·상단 표시) + CSV 자동 가져오기 | `auction-key-value-projection.js`, `auction-key-value-detail.js`, `auction-key-value-import-service.js`, `auction-key-value-snapshot.js` | 없음 | 없음 | **4순위** — 범위만 보여 주는 규칙 유지 |
+| 판단 근거(AI 없이): 같은 지역·종류 낙찰가율 표본, 내 패찰 격차, 낙찰 이력, 경쟁 가격 참고 | `auction-decision-support-core.js`, `auction-decision-mirror-core.js` | 일부(지역 낙찰가율 비교) | 없음 | **5순위** |
+| 판단 보드의 '이전 결정' 묶음 | `auction-decision-packet.js`, `decision-packet-*` | 없음 | 없음 | 5순위 |
+| 지역 지표·입주 예정·도시철도·지역 메모·확인함·갱신 제안·변화 기록 | `auction-region-packet.js`, `region-*`, `auction-region-comment-store.js` | 있음 | 없음 | 옮김(Mac), 6순위(iPhone 읽기) |
+| 지역별 연결 경매·사례 | `region-intelligence-popup-*` | 있음 | 없음 | 옮김(Mac) |
+| 동 프로필·동 순위 | `auction-dong-profile-core.js` | 있음(동 통계·순위) | 없음 | 옮김(Mac) |
+| 지역 팝업의 '연결된 지식'·지식 다시보기·판단 근거로 기록 | `llmwiki-resurfacing-*`, `knowledge-use-*` | 없음 | 없음 | 안 옮김 — LLM Wiki가 볼트 안에 있어 앱이 읽을 길이 없다. P5에서 다시 본다 |
+| AI 판단 보조 초안 | `auction-ai-decision-support*.js` | 없음 | 없음 | 안 옮김 — 1차 목표가 AI 없는 앱(1절). 근거(5순위)를 먼저 옮긴다 |
+| 부동산 조사(건축물대장·실거래·공시가격·공시지가, 식별자 매칭, 반영할 사실 선택) | `auction-real-estate-research*.js`, `auction-real-estate-source-runner.js`, `auction-source-approval-writer.js` | 없음(가져온 본문 섹션만 보임) | 없음 | P5와 함께 — 데스크톱 수집기를 앱이 직접 돌리게 바꿀 때 |
+| 기본 입지 계산(학교 등 직선거리) | `auction-card.js` | 없음 | 없음 | P4와 함께 — 좌표가 필요 |
+| 옥션 빠른 메모(자동 저장) | `auction-native-scenes.js` | 없음 | 없음 | 6순위 — 카드 메모와 따로 둘지 소유자 확인 |
+| 오래 방치됨·다음 행동 필요 표시 | `object-lifecycle-core.js`, `object-engine-core.js` | 없음 | 없음 | 6순위 |
+| 카드 삭제 | `auction-card.js` | 없음 | 없음 | P5와 함께 — 지금은 볼트 md가 원본이라 앱에서 지우면 다음 가져오기에 되살아난다 |
+| 새 사건 카드 만들기 | aside 캡처 스킬 | 없음 | 없음 | P5(계획 그대로) |
+| D-3·D-1 알림, 오프라인 수정 대기열 | (앱에서 새로 생김) | — | 있음 | 옮김 |
+
+**옮기는 순서:** 1 입찰 당일 흐름 → 2 임장 체크리스트(저장소 통합) → 3 결과 입력·복기 큐·학습 → 4 키값 실거래 비교 → 5 AI 없는 판단 근거 → 6 iPhone 카드 동등성과 나머지. 이 순서가 끝날 때까지 P3b(공유 링크)·P4(지도)는 미룬다. 각 순위는 Mac에서 먼저 만들고, iPhone에서 현장·당일에 쓰는 것(1·2순위)은 같은 순위 안에서 폰 화면까지 만든다.
+
 ## 7. 사건번호 자동 수집 — 조사 결과 (2026-10-28)
 
 **결론:** 개인용으로는 난이도가 낮고 추가 비용이 없다. 사건번호로 법원경매정보를 조회하는 오픈소스 패키지를 이미 볼트 스크립트가 쓰고 있어서, 이것을 Mac 서버에 연결하면 된다. 공유·배포용으로 서버 한 곳에서 모든 사용자 조회를 대신하는 방식은 차단 위험과 법적 미확정 때문에 지금은 권하지 않는다.
