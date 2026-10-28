@@ -234,8 +234,8 @@ P1~P3은 바탕 공사(가져오기·속도·동기화·알림) 위주로 짜여
 | 네이버 부동산·카페·네이버 지도 링크, 관리사무소 전화 | `auction-card.js` | 있음 | 전화만 | 6순위(iPhone) |
 | **입찰 당일 흐름**: 법원 준비물(신분증·도장·보증금·입찰표), 물건별 확인(사건번호·법정·시각·물건번호·최저가·보증금·최종 입찰가), 입찰자 정보, 기일 입찰표, 최종 입찰가 확정, 응찰 수·결과 기록, 복기 시작 | `auction-day-core.js`, `auction-day-view.js` | 있음(복기 시작 제외, 화면 실물 미확인) | 있음 | 옮김(2026-10-28, 앱 `78dfa31`) — '복기 시작'은 3순위에서 |
 | **임장 체크리스트**: 공통 13개 + 종류별 항목, 상·중·하·관계없음 평가와 항목 메모, 우선 항목, 관리사무소 연락처, 예상 밖 발견, 사진, 시작·종료 시각 | `site-visit-data.js`, `site-visit-workflow.js`, `auction-site-visit-index.js` (4.1절) | 있음(보기: 임장 기록 화면에 볼트·폰 평가가 함께 보임) | 있음(작성: 종류별·우선 항목, 상/중/하/– 한 번 탭, 항목 메모, 임시 저장·오프라인) | **2순위** — 폰 `visits`와 `field_visits`를 한 저장소로 합친다 |
-| **결과 입력**(낙찰/패찰·낙찰가·응찰 수, 한 번에 쓰는 결과 묶음) | `auction-outcome-writer.js` | 일부(낙찰가는 보이기만, 고칠 수 없음) | 없음 | **3순위** |
-| **복기 대기 큐·복기** | hub 노트, `auction-day-core.js`(`buildReviewQueue`) | 없음 | 없음 | **3순위** |
+| **결과 입력**(낙찰/패찰·낙찰가·응찰 수, 한 번에 쓰는 결과 묶음) | `auction-outcome-writer.js` | 있음(낙찰가·결정일 고침, 입찰 당일 결과 기록) | 있음 | 옮김(2026-10-28) |
+| **복기 대기 큐·복기** | hub 노트, `auction-day-core.js`(`buildReviewQueue`) | 있음('복기' 화면) | 있음 | 옮김(2026-10-28) — 교훈은 앱 칸(review_lesson), 볼트 본문에는 쓰지 않음 |
 | 결과 피드백·비교 사례·가상 포트폴리오·집중도 | `auction-learning-core.js` | 없음 | 없음 | 3순위(복기와 함께) |
 | **키값 실거래 비교**(평당가 범위, 동/구 비교, 하단·근접·상단 표시) + CSV 자동 가져오기 | `auction-key-value-projection.js`, `auction-key-value-detail.js`, `auction-key-value-import-service.js`, `auction-key-value-snapshot.js` | 없음 | 없음 | **4순위** — 범위만 보여 주는 규칙 유지 |
 | 판단 근거(AI 없이): 같은 지역·종류 낙찰가율 표본, 내 패찰 격차, 낙찰 이력, 경쟁 가격 참고 | `auction-decision-support-core.js`, `auction-decision-mirror-core.js` | 일부(지역 낙찰가율 비교) | 없음 | **5순위** |
